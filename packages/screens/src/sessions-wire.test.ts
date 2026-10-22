@@ -303,6 +303,39 @@ describe("the thread", () => {
     ]);
   });
 
+  it("keeps a request whole to send again, and a failed one's error", () => {
+    const drawn = rowsOfThread(
+      "a",
+      [
+        {
+          kind: "requested",
+          id: "q1",
+          at: AT,
+          by: "owner",
+          method: "POST",
+          url: "https://api.example.test/v1/orders",
+          environment: "staging",
+          headers: [{ name: "Content-Type", value: "application/json" }],
+          body: "{}",
+          status: 201,
+          ms: 320,
+          response: "{\"id\":7}",
+        },
+        { kind: "requested", id: "q2", at: AT, by: "agent", method: "GET", url: "http://localhost:9/", ms: 3, error: "connection refused", response: "" },
+      ],
+      () => undefined,
+    );
+    expect(drawn).toMatchObject([
+      { kind: "requested", by: "owner", method: "POST", environment: "staging", headers: [{ name: "Content-Type", value: "application/json" }], body: "{}", status: 201, ms: 320, response: "{\"id\":7}", truncated: false },
+      { kind: "requested", by: "agent", status: null, error: "connection refused", headers: [], truncated: false },
+    ]);
+  });
+
+  it("draws a request the agent saved as the collection and request to open in Requests", () => {
+    const drawn = rowsOfThread("a", [{ kind: "saved", id: "v1", at: AT, name: "Create order", collection: "Store API", collection_id: "store-api", request: "create-order" }], () => undefined);
+    expect(drawn).toEqual([{ id: "v1", at: AT, kind: "saved", name: "Create order", collection: "Store API", collectionId: "store-api", request: "create-order" }]);
+  });
+
   it("keeps a question asked in the window as a line, with how it was answered once it is", () => {
     const asked = {
       kind: "window_ask",

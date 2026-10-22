@@ -49,6 +49,7 @@ mod pull_request;
 mod pull_request_detail;
 mod pull_review;
 mod pull_watch;
+mod request;
 mod secret;
 mod setup;
 mod sign_in;
@@ -99,6 +100,9 @@ pub use pull_review::{
     ThreadSaid,
 };
 pub use pull_watch::{PullQueue, WatchedCheck, WatchedPull, WatchedPulls};
+pub use request::{
+    Incoming, Outgoing, RequestFailure, RequestSecrets, RequestSender, SecretError, SecretVariable,
+};
 pub use secret::Secret;
 pub use sign_in::{DeviceCode, Polled, SignIn, SignInError, SignedInAs};
 pub use store::{Claimed, Holder, HolderKind, OwnerKey, RedKey, RepositoryKey, RunRow, Store, StoreError};

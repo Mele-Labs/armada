@@ -23,7 +23,7 @@ export type SharedPackage = {
   text: string;
 };
 
-export type PieceKind = "tile" | "workflow" | "review_tool" | "manifest";
+export type PieceKind = "tile" | "workflow" | "review_tool" | "manifest" | "requests";
 
 /** The list a tile sits in. */
 export type TileList = "job" | "deck";

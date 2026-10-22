@@ -8,9 +8,9 @@ Since 19 Oct 2026. `POST /share/read`, body `PackageText`: `text`, a package as 
 
 **A command because the text travels in the body.** It writes nothing.
 
-`repository` is the root of the one repository Fleet serves whose remote is the piece's. It is absent where none does, or several do, and `add_package` would keep that piece unbound. `exists` is true where the person's Kit already holds a piece of that id for that repository: a tile of that id in that list, a workflow, or a review tool.
+`repository` is the root of the one repository Fleet serves whose remote is the piece's. It is absent where none does, or several do, and `add_package` would keep that piece unbound. `exists` is true where the person's Kit already holds a piece of that id for that repository: a tile of that id in that list, a workflow, a review tool, or for `requests` (whose `id` is `requests` and whose `name` lists each collection and environment) any collection of the same `id` or environment of the same `name` in the person's own requests file.
 
-Refusals, each a 422: `fleet.share_malformed` for text that is not a package, a version this Fleet does not read, a piece that is missing a field or holds one it does not know, a definition that is not a workflow or a file that is not a review tool, or the same piece twice. The sentence names what is wrong.
+Refusals, each a 422: `fleet.share_malformed` for text that is not a package, a version this Fleet does not read, a piece that is missing a field or holds one it does not know, a definition that is not a workflow or a file that is not a review tool, requests that break `get_requests`' rules (a secret spelling a value among them, named by its line and never quoted), or the same piece twice. The sentence names what is wrong.
 
 `agent_access` is `Bridge only`, `share_package`' reason.
 """

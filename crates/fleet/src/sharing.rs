@@ -12,8 +12,8 @@
 //! **Only the pieces a package holds are written.** An id Kit holds, a tile that breaks a rule and
 //! a workflow `save_workflow` would refuse are all found before the first write, and leave Kit as
 //! it was. A file that cannot be written is found only by writing it, and leaves the pieces
-//! written before it written: workflows, then review tools, then manifests, then one repository's tiles at a
-//! time, then the unbound pieces.
+//! written before it written: workflows, then review tools, then manifests, then requests, then one
+//! repository's tiles at a time, then the unbound pieces.
 
 mod package;
 mod unbound;
@@ -137,6 +137,9 @@ where
                 PieceToCommit::Workflow { workflow_id } => made.push(self.workflow_kept(&root, remote, workflow_id.as_str())?),
                 PieceToCommit::ReviewTool { id } => made.push(self.review_tool_kept(&root, remote, &id)?),
                 PieceToCommit::Manifest => made.push(self.manifest_kept(&root, remote).await?),
+                PieceToCommit::Requests { collections, environments } => {
+                    made.push(self.requests_shared(&root, remote, &collections, &environments).await?)
+                }
             }
         }
         let text = package::written(made.clone()).map_err(|why| self.share_refusal(UNWRITABLE, format!("The package could not be made: {why}")))?;
@@ -162,6 +165,18 @@ where
             }
         }
         Ok(pieces)
+    }
+
+    /// The chosen collections and environments from the person's own for `root`, as one piece.
+    async fn requests_shared(&self, root: &str, remote: Option<String>, collections: &[String], environments: &[String]) -> Result<Piece, Refusal> {
+        let yours = self
+            .own_requests_file(root)
+            .await
+            .map_err(|why| self.share_refusal(NOT_YOURS, format!("Your requests for this repository did not read: {why}")))?;
+        let chosen = crate::requesting::copied(ipc::RequestsFile::default(), &yours, collections, environments, false).map_err(|why| match why {
+            crate::requesting::NotCopied::NotYours(why) | crate::requesting::NotCopied::Exists(why) => self.share_refusal(NOT_YOURS, why),
+        })?;
+        Ok(Piece::Requests { remote, collections: chosen.collections, environments: chosen.environments })
     }
 
     /// A workflow from Kit, as its file is written.
@@ -313,6 +328,10 @@ where
                 self.review_tool_held(&self.review_tool_folder(ReviewToolScope::Kit, root), ReviewToolScope::Kit, id).is_some()
             }
             Piece::Manifest { .. } => matches!(self.kit_manifest_read(root).await, Ok((_, KitRead::Text(_)))),
+            Piece::Requests { collections, environments, .. } => self.own_requests_file(root).await.is_ok_and(|own| {
+                collections.iter().any(|one| own.collections.iter().any(|held| held.id == one.id))
+                    || environments.iter().any(|one| own.environments.iter().any(|held| held.name == one.name))
+            }),
         }
     }
 
@@ -372,6 +391,11 @@ where
                     return Err(self.share_refusal(REFUSED, format!("Your armada.yml for {root} cannot be added, because {} did not read: {why}", label.display())));
                 }
             }
+            if let (Piece::Requests { .. }, Some(root)) = (piece, at) {
+                if let Err(why) = self.own_requests_file(root).await {
+                    return Err(self.share_refusal(REFUSED, format!("Your requests for {root} cannot be added, because they did not read: {why}")));
+                }
+            }
         }
         let tiles = self.tiles_merged(&placed).await?;
 
@@ -398,6 +422,11 @@ where
         for (piece, at) in &placed {
             if let (Piece::Manifest { text, .. }, Some(root)) = (piece, at) {
                 self.manifest_written(root, text.clone()).await?;
+            }
+        }
+        for (piece, at) in &placed {
+            if let (Some(adding), Some(root)) = (piece.requests_file(), at) {
+                self.requests_added(root, &adding).await?;
             }
         }
         for (root, controls) in tiles {
@@ -462,5 +491,6 @@ fn kind_word(kind: PieceKind) -> &'static str {
         PieceKind::Workflow => "workflow",
         PieceKind::ReviewTool => "review tool",
         PieceKind::Manifest => "manifest",
+        PieceKind::Requests => "requests",
     }
 }

@@ -24,7 +24,7 @@ pub(crate) struct Ended {
 }
 
 /// `text` in a fence that no run of backticks inside it can close.
-fn fenced(text: &str) -> String {
+pub(crate) fn fenced(text: &str) -> String {
     let (mut longest, mut run) = (0, 0);
     for c in text.chars() {
         run = if c == '`' { run + 1 } else { 0 };

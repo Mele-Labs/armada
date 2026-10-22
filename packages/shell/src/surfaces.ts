@@ -9,6 +9,7 @@
 
 import { useEffect, useRef } from "react";
 import {
+  ArrowRightLeft,
   BookOpen,
   ChartNoAxesColumn,
   Box,
@@ -52,6 +53,7 @@ export const SURFACE = {
   account: "account",
   reviews: "reviews",
   usage: "usage",
+  requests: "requests",
 } as const;
 
 type SurfaceId = (typeof SURFACE)[keyof typeof SURFACE];
@@ -264,6 +266,13 @@ export const SURFACES: readonly PaletteSurface[] = [
     aliases: ["tokens", "burn", "spend", "plan usage"],
     // A sketch: `chart-no-axes-column` is not in the registry. A Navigation glyph is the owner's to mint.
     icon: ChartNoAxesColumn,
+  },
+  {
+    id: SURFACE.requests,
+    label: "Requests",
+    // Not a page: it opens the side panel, for the Job that is open where one is. No key; a tile on a Job's Flight control too.
+    aliases: ["request", "http", "api", "collection", "environment", "graphql"],
+    icon: ArrowRightLeft,
   },
 ];
 

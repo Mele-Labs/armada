@@ -59,3 +59,10 @@
     size = "12px"
     status = "Specified"
     notes = "Proposed 17 Oct 2026 for the walk `session-loadout`, approved by the owner 18 Oct 2026. A connection that is not there, in `--status-completed-failed`. Tooltip `Failed`. A server connected draws no mark."
+
+  [[icons.unplug.usage]]
+    means = "A request nothing answered: refused, timed out or a name that did not resolve, on its row in a Job's thread and in Requests' history"
+    group = "Session"
+    size = "12px"
+    status = "Proposed"
+    notes = "Proposed 19 Oct 2026 for the walk `requests-with-the-owners-header`. A connection that is not there, as a sign-in that could not reach the forge draws it. Failed hue, tooltip `No answer` and Fleet's words. That walk is replaced by `requests-collections-and-environments`, which sends no request nothing answers."

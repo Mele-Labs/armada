@@ -11,6 +11,7 @@ import { OverTheApp } from "../session-view/OverTheApp";
 import { BayPanel, CheckPanel, IssuePanel } from "./panels";
 import { FileSide, useOpenFileKey } from "./file";
 import { PullRequestSide } from "./pull-request";
+import { RequestsPanel } from "./requests";
 import { usePanelReads } from "./reads";
 import { openInPanel, usePanel } from "./store";
 import "./panel.css";
@@ -44,6 +45,8 @@ export function SharedPanelHost() {
         <FileSide key={`file:${open.path}`} item={open} />
       ) : open.kind === "bay" ? (
         <BayPanel key={`bay:${open.manifestId}/${open.slot}`} item={open} />
+      ) : open.kind === "requests" ? (
+        <RequestsPanel key={`requests:${open.sessionId ?? ""}:${open.from ?? ""}`} item={open} />
       ) : (
         <CheckPanel key={`check:${open.id}`} item={open} />
       )}

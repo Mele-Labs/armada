@@ -42,3 +42,10 @@
     status = "Proposed"
     reserved = "Inside the trailing edge of a DropdownMenu's filter field, shown only while it holds text. Chrome, like the dialog close: it empties the field and nothing else."
     notes = "Added 16 Oct 2026 for the Cockpit Work list's Filter menu. Tooltip `Clear search`."
+
+  [[icons.x.usage]]
+    means = "A request that was answered with a 4xx or 5xx, on its row in a Job's thread and in Requests' history"
+    group = "Session"
+    size = "12px"
+    status = "Proposed"
+    notes = "Proposed 19 Oct 2026 for the walk `requests-with-the-owners-header`, as the ledger's non-zero exit draws it: the request failed and nobody decided. Failed hue, tooltip the status, `401`. The status is also drawn as text. That walk is replaced by `requests-collections-and-environments`, which sends no request that fails."

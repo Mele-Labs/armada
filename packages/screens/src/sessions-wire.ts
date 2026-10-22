@@ -426,6 +426,27 @@ export function rowsOfThread(sessionId: string, rows: readonly WireRow[], pictur
       case "ran":
         out.push({ id: row.id, at, kind: "ran", command: row.command, code: row.code ?? null, tail: row.tail });
         break;
+      case "requested":
+        out.push({
+          id: row.id,
+          at,
+          kind: "requested",
+          by: row.by,
+          method: row.method,
+          url: row.url,
+          ...(row.environment === undefined ? {} : { environment: row.environment }),
+          headers: row.headers ?? [],
+          ...(row.body === undefined ? {} : { body: row.body }),
+          status: row.status ?? null,
+          ms: row.ms,
+          ...(row.error === undefined ? {} : { error: row.error }),
+          response: row.response,
+          truncated: row.truncated ?? false,
+        });
+        break;
+      case "saved":
+        out.push({ id: row.id, at, kind: "saved", name: row.name, collection: row.collection, collectionId: row.collection_id, request: row.request });
+        break;
       case "window":
         out.push({ id: row.id, at, kind: "window", title: row.title, url: row.url });
         break;

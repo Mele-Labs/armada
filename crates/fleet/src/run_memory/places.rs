@@ -42,7 +42,7 @@ struct Entry {
 }
 
 /// What names a repository on disk: its remote's `owner--name`, else its path made safe.
-pub(super) fn key_of(root: &str) -> String {
+pub(crate) fn key_of(root: &str) -> String {
     match adapters::remote_of(Path::new(root)) {
         Some(address) => address.slug().replace('/', "--"),
         None => {

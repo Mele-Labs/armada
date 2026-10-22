@@ -155,6 +155,7 @@ import { FILES_CHANNELS, type FilesApi } from "./api/files";
 import { REVIEWS_CHANNELS, type ReviewsApi } from "./api/reviews";
 import { FLIGHT_CONTROLS_CHANNELS, type FlightControlsApi } from "./api/flight-controls";
 import { ONBOARDING_CHANNELS, type OnboardingApi } from "./api/onboarding";
+import { REQUESTS_CHANNELS, type RequestsApi } from "./api/requests";
 import { SHARING_CHANNELS, type SharingApi } from "./api/sharing";
 import type { ModelDownshiftState, PlanUsage, SignedOut, SleepState, TimelineAsk, TimelineEvent } from "@armada/protocol";
 import type { BridgeApi } from "./api";
@@ -428,7 +429,7 @@ type OldBridgeApi = {
     writeSessionRun: (runId: string, data: string) => Promise<SessionActed<SessionRunUnderway>>;
     resizeSessionRun: (runId: string, cols: number, rows: number) => Promise<SessionActed<SessionRunUnderway>>;
     onSessionRunMessage: (on: (runId: string, message: SessionRunMessage) => void) => () => void;
-} & AutopilotApi & SketchShareApi & FilesApi & ReviewsApi & FlightControlsApi & OnboardingApi & SharingApi;
+} & AutopilotApi & SketchShareApi & FilesApi & ReviewsApi & FlightControlsApi & OnboardingApi & RequestsApi & SharingApi;
 
 const OLD_NOTHING_YET: OldBridgeState = {
     connection: { state: "reading" },
@@ -696,6 +697,7 @@ const OLD_CHANNELS = {
     ...REVIEWS_CHANNELS,
     ...FLIGHT_CONTROLS_CHANNELS,
     ...ONBOARDING_CHANNELS,
+    ...REQUESTS_CHANNELS,
     ...SHARING_CHANNELS,
 } as const;
 

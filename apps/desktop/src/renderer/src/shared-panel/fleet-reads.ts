@@ -21,8 +21,9 @@ type Held = Extract<SessionAttachment, { kind: "pull_request" }>;
 export type FleetPanelApi = Pick<
   BridgeApi,
   "readReviewPage" | "readReviewPatches" | "writeReview" | "getPullRequest" | "pressRepositoryPullRequest" | "getIssue" | "getSlotHistory" | "listCheckoutRuns" | "getCheckoutRunOutput" | "followLandCheck" | "readHeld"
+  | "readRequests" | "saveRequestCollection" | "saveRequestEnvironment" | "sendRequest"
 >;
-export type FleetPanelState = Pick<BridgeState, "holds" | "mergeLines" | "held" | "checkoutRunSheet" | "landFollowed">;
+export type FleetPanelState = Pick<BridgeState, "holds" | "repository" | "mergeLines" | "held" | "checkoutRunSheet" | "landFollowed">;
 
 const NONE: readonly never[] = [];
 
@@ -216,6 +217,13 @@ export function fleetPanelReads(api: FleetPanelApi, now: () => FleetPanelState |
     bay,
     check,
     leaveCheck: () => void api.followLandCheck(null),
+    requests: {
+      readRequests: (sessionId, repository) => api.readRequests(sessionId, repository),
+      saveRequestCollection: (collection, sessionId, repository) => api.saveRequestCollection(collection, sessionId, repository),
+      saveRequestEnvironment: (environment, sessionId, repository) => api.saveRequestEnvironment(environment, sessionId, repository),
+      sendRequest: (send) => api.sendRequest(send),
+    },
+    repositories: () => ({ listed: repositories(), filter: now()?.repository ?? null }),
   };
 }
 

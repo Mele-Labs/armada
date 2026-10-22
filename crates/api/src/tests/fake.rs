@@ -20,6 +20,7 @@ mod settings;
 mod pull_requests;
 mod queries;
 mod rehearsing;
+mod requests;
 mod retros;
 mod sessions;
 mod studios;
