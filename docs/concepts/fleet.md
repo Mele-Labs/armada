@@ -267,6 +267,9 @@ A `gh` command is `session.called` and not `session.ran`, so it is in no burst.
 **A terminal Session's `gh` commands are seen, its MCP and web calls are not yet.** The mod tells a command through its `ran` fact (`docs/concepts/session.md`, *What the mod tells*) and has no fact for the others.
 The Cockpit draws what these entries hold as outposts ([Cockpit](cockpit.md), *Outposts*).
 
+**One hosted Job's message to another is one `session.messaged` entry**, written when Fleet puts it on the receiver's thread: the sender is the subject and `to` the receiver, so either Job's Field finds it (22 Oct 2026).
+A person's message, Helm's, and a terminal Job's are not entered; `docs/practices/protocol.md`, *The Fleet's timeline*, has why.
+
 ### What Fleet knows after the merge, and what it does not
 
 **Armada opens pull requests, and the decision to merge stays a person's.** A person's press on a Job's pull request is Fleet's own act ([Job](session.md), *Acts on a pull request*); a merge made on the forge is found on a later read of main.

@@ -288,6 +288,7 @@ pub fn fleet_timeline(ask: &ipc::TimelineAsk) -> ipc::FleetTimeline {
             detail: None,
             items: Vec::new(),
             call: None,
+            to: None,
             manifest_id: None,
             live: false,
             over: false,
