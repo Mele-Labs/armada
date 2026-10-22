@@ -5,6 +5,7 @@
 //! reading of the answer and the Session's row.
 
 use std::sync::Arc;
+use std::time::Duration;
 
 use api::{HostedSessions, Sessions};
 use ipc::{
@@ -16,6 +17,7 @@ use testkit::FakeJudge;
 use super::session_host::{eventually, rig_fitted, Rig};
 use super::tmp::TempDir;
 use crate::session_account::{read, TurnSoFar};
+use crate::session_host::account::Writing;
 
 /// A fragment only the account's question holds, so the fake answers it and nothing else.
 const ASKED: &str = "short account of the agent's progress";
@@ -129,6 +131,96 @@ fn a_line_that_names_code_is_dropped_and_a_plain_one_with_a_product_name_is_kept
     assert_eq!(written.now, None, "`none` is no line");
     assert_eq!(written.next.as_deref(), Some("Check the page"));
     assert_eq!(read("done: Edited gate.rs", &[]), None, "nothing left, no account");
+}
+
+// ---- How often it is written, and how long it is kept ----
+
+#[tokio::test]
+async fn a_burst_of_tool_calls_makes_one_rewrite() {
+    let (rig, judge, _home) = rig_writing(PLANNED);
+    rig.fleet.hosts().write_account_every(Duration::from_millis(300));
+    let id = working(&rig, "record the plan").await;
+
+    for name in ["a.rs", "b.rs", "c.rs", "d.rs"] {
+        rig.gate(&id, "Read", &format!(r#"{{"file_path":"/elsewhere/{name}"}}"#)).await;
+    }
+    eventually(|| async { account(&rig, &id).await.is_some() }).await;
+    tokio::time::sleep(Duration::from_millis(900)).await;
+    assert_eq!(asked(&judge).len(), 1, "four calls, one rewrite, and it read all four");
+    assert!(asked(&judge)[0].contains("Reading d.rs"), "{}", asked(&judge)[0]);
+
+    rig.gate(&id, "Read", r#"{"file_path":"/elsewhere/e.rs"}"#).await;
+    eventually(|| async { asked(&judge).len() == 2 }).await;
+}
+
+#[tokio::test]
+async fn calls_that_keep_coming_are_rewritten_no_more_often_than_the_wait() {
+    let (rig, judge, _home) = rig_writing(PLANNED);
+    rig.fleet.hosts().write_account_every(Duration::from_millis(400));
+    let id = working(&rig, "record the plan").await;
+
+    let began = std::time::Instant::now();
+    for step in 0..12 {
+        rig.gate(&id, "Read", &format!(r#"{{"file_path":"/elsewhere/{step}.rs"}}"#)).await;
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+    eventually(|| async { account(&rig, &id).await.is_some() }).await;
+    tokio::time::sleep(Duration::from_millis(500)).await;
+    let rewrites = asked(&judge).len();
+    let at_most = (began.elapsed().as_millis() / 400) as usize + 1;
+    assert!((2..=at_most).contains(&rewrites), "{rewrites} rewrites in {:?}", began.elapsed());
+}
+
+#[tokio::test]
+async fn the_account_is_kept_through_the_end_of_a_turn_and_a_notice_and_goes_with_his_next_message() {
+    let (rig, _judge, _home) = rig_writing(PLANNED);
+    rig.fleet.hosts().write_account_every(Duration::from_millis(100));
+    let id = working(&rig, "record the plan").await;
+    rig.gate(&id, "Read", r#"{"file_path":"/elsewhere/a.rs"}"#).await;
+    eventually(|| async { account(&rig, &id).await.is_some() }).await;
+    let runtime = rig.fleet.hosts().of(id.as_str());
+
+    rig.stand_in.finishes(0, "done");
+    eventually(|| async { rig.turn(&id).await == ipc::SessionTurn::Idle }).await;
+    let kept = account(&rig, &id).await.expect("a turn ending clears nothing");
+    assert_eq!(kept.now.as_deref(), Some("Writing the rest"));
+
+    // A turn Fleet's own notice begins is not his message.
+    assert!(rig.fleet.told_by_fleet(id.as_str(), "Commit and push slot 3.").await.expect("told"));
+    rig.stand_in.init(0);
+    eventually(|| async { runtime.state().turn_began.is_some() }).await;
+    assert!(account(&rig, &id).await.is_some(), "a notice's turn leaves it");
+
+    rig.stand_in.finishes(0, "done");
+    eventually(|| async { rig.turn(&id).await == ipc::SessionTurn::Idle }).await;
+    rig.send(&id, "now the other thing").await;
+    rig.stand_in.init(0);
+    eventually(|| async { account(&rig, &id).await.is_none() }).await;
+}
+
+#[test]
+fn an_answer_that_crossed_the_clear_of_his_next_message_is_dropped() {
+    let account = |for_message: &str| SessionAccount {
+        for_message: for_message.into(),
+        done: Vec::new(),
+        now: Some("Making the page".into()),
+        next: None,
+        group: None,
+        at: ipc::Instant::carried("2026-10-22T09:00:00.000Z"),
+    };
+    let every = Duration::from_secs(5);
+    let mut writing = Writing::default();
+    writing.person_said("m1", "first");
+    writing.turn_began();
+    writing.person_said("m2", "second");
+    writing.call_seen("Searching");
+    // Asked after his second message and before its turn began, so it is read from the first turn.
+    let reading = writing.begin(Vec::new()).expect("something to ask");
+    writing.turn_began();
+
+    let (changed, again) = writing.finished(reading.epoch, Some(account("m2")), every);
+    assert!(!changed && again.is_none(), "an account read from the turn before is not the new turn's");
+    assert_eq!(writing.account(), None);
 }
 
 // ---- The plan group an account names ----
