@@ -39,7 +39,7 @@ const page = (scenario: string): string => {
 /** The three takes of the first walk's page: a short walk each, the mock playing itself in the frame. */
 const takes = (): Variation[] =>
   [
-    { name: "Ledger filter", walk: "session-ledger-filter" },
+    { name: "Artifacts", walk: "ledger-in-cockpit" },
     { name: "Task marks", walk: "taskMarkTooltips" },
     { name: "Sleep cockpit", walk: "sleepCockpit" },
   ].map(({ name, walk }) => {

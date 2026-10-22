@@ -1,13 +1,14 @@
-// From a worktree to the Session that holds it. Starts on Cleanup, where a slot
-// a Session holds names it, and ends on the Cockpit's Work list, searched by a
-// pull request number. Told twice, wide and below the breakpoint.
+// From a worktree to the Job that holds it, and back to the worktree from the Job. Starts on Cleanup, where a slot
+// a Job holds names it, opens the Job, finds the slot in its Bays layer, and ends on the Cockpit's Jobs list,
+// searched by a pull request number. Over the `worktree-to-sessions` scenario. Told twice, wide and below the breakpoint.
 
 import { kit, NARROW } from "../sessions/walk-kit";
 import { button, inside, role, region, viaPalette, walk } from "../walk";
 import type { Step } from "../walk";
 
 function steps(narrow: boolean): Step[] {
-  const { ledger, close, row, opened } = kit(narrow);
+  const { close, key } = kit(narrow);
+  const bays = region("Bays", { exact: true });
   const bay = role("dialog", "Bay slot-5");
   const owner = role("dialog", "Owned by Release notes script");
   const sessions = region("Jobs", { exact: true });
@@ -18,8 +19,8 @@ function steps(narrow: boolean): Step[] {
     { press: button("Branch rel/notes-script"), say: "A press keeps the card up" },
     { look: owner, say: "Title, state, slot, pull requests and last turn" },
     { press: inside(owner, button("Open Job")), say: "It opens the Job" },
-    ...opened([{ look: inside(inside(ledger, role("listitem", "Branch rel/notes-script")), role("img", "Worktree slot 5")), say: "The slot is the chip on its branch's ledger row" }]),
-    ...row("Open Branch rel/notes-script", "The branch row opens the slot in the side panel"),
+    { press: key("Bays"), say: "Bays: the slot the Job holds" },
+    { press: inside(bays, button("Show slot-5 in Bays")), say: "A press opens the slot in the side panel" },
     { look: bay, say: "What the worktree holds, over the Job" },
     { press: close(bay), say: "Back to the Job" },
     { press: inside(sessions, button(/^Filter/)), say: "The Cockpit's list searches every Job" },
@@ -28,7 +29,7 @@ function steps(narrow: boolean): Step[] {
   ];
 }
 
-const wide = walk("sessions", steps(false));
-const narrow = walk("sessions", steps(true), NARROW);
+const wide = walk("worktree-to-sessions", steps(false));
+const narrow = walk("worktree-to-sessions", steps(true), NARROW);
 
 export { wide as "worktree-to-sessions", narrow as "worktree-to-sessions-narrow" };

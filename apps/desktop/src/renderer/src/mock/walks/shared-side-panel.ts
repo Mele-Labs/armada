@@ -9,7 +9,6 @@ import { button, inside, place, region, role, tab, text, viaPalette, walk } from
 const queue = region("Merge queue");
 const bays = region("Bays");
 const jobs = region("Jobs", { exact: true });
-const ledger = region("Attachments");
 const controls = region("Flight controls");
 const pull = (number: number) => role("dialog", `Pull request #${number}`);
 const issue = (number: number) => role("dialog", `Issue #${number}`);
@@ -50,16 +49,18 @@ const sharedSidePanel = walk("shared-side-panel", [
   { key: "Escape", on: pull(1896), say: "Esc" },
   { press: inside(controls, button("Timeline")), say: "Back to the map" },
 
-  // A bay, from the Bays list and from a Job's ledger.
+  // A bay, from the Bays list and from a Job's Bays layer.
   { press: inside(bays, button(/^slot-1, armada, Held/)), say: "A bay in the list" },
   { look: inside(bay("slot-1"), text("fleet/gate-policy-every-run")), say: "Its facts" },
   { key: "]", on: bay("slot-1"), say: "] is History" },
   { look: inside(bay("slot-1"), role("list", "History")), say: "Who held it" },
   { key: "Escape", on: bay("slot-1"), say: "Esc" },
   { press: inside(jobs, button("Gate policy on every run")), say: "The Job holding it" },
-  { press: inside(ledger, button("Open Branch fleet/gate-policy-every-run")), say: "Its branch in the ledger" },
+  { press: inside(controls, button("Bays", { exact: true })), say: "Bays, a key in Flight control" },
+  { press: button("Show slot-1 in Bays"), say: "The bay it holds, in its Bays layer" },
   { look: inside(bay("slot-1"), role("tab", "Facts")), say: "The same panel" },
   { key: "Escape", on: bay("slot-1"), say: "Esc" },
+  { press: inside(region("Bays", { exact: true }), button("Back", { exact: true })), say: "Back to the thread" },
 
   // An issue, from a Job's thread and from a pull request's description.
   { press: inside(jobs, button("Cache key")), say: "A Job whose thread names an issue" },

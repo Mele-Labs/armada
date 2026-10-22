@@ -1,5 +1,5 @@
 // A Session's pull request as a panel, with plates floating off its leading edge. Told over three
-// pull requests in the `session-pr-panel` scenario: third of seven in the merge queue, every check
+// pull requests in the `session-pr-panel-work` scenario: third of seven in the merge queue, every check
 // passed, and checks failed, which the Session can be sent back to fix. The first names its reviewers, opens each of its
 // tabs and takes a comment; the second takes an approval. Only what Fleet serves is drawn. Told
 // twice: wide, and below the breakpoint, where the plates move into the panel.
@@ -19,7 +19,7 @@ function steps(narrow: boolean): Step[] {
   const box = role("form", "Comment box");
   return [
     { press: inside(sessions, button("Store migration spike")), say: "A Job holding three pull requests" },
-    ...row("Open Pull request #2209", "The first is in the merge queue"),
+    ...row(/^#2209 /, "The first is in the merge queue"),
     { look: inside(status, text("3rd in the merge queue")), say: "Its place leads the status plate" },
     { hover: inside(status, text("3")), say: "The figure is named" },
     { look: queue, say: "The queue in order, this pull request ringed" },
@@ -48,7 +48,7 @@ function steps(narrow: boolean): Step[] {
     { key: "Meta+Enter", on: inside(queued, role("textbox", "Comment")), say: "Press \u2318\u21b5" },
     { look: inside(queued, text("Checked against the queue.")), say: "It joins the conversation" },
     { press: close(queued), say: "Back to the Job" },
-    ...row("Open Pull request #2210", "The second has passed every check"),
+    ...row(/^#2210 /, "The second has passed every check"),
     { look: inside(status, text("Ready to merge")), say: "The status plate alone, no queue to show" },
     { look: inside(ready, button("Merge", { exact: true })), say: "Merge is offered" },
     { look: inside(status, text("Review required")), say: "No review has been given" },
@@ -57,7 +57,7 @@ function steps(narrow: boolean): Step[] {
     { look: inside(ready, role("img", "Approved")), say: "It joins the conversation as a review" },
     { look: inside(status, text("Approved")), say: "The status plate follows" },
     { press: close(ready), say: "Back to the Job" },
-    ...row("Open Pull request #2213", "The third failed its checks"),
+    ...row(/^#2213 /, "The third failed its checks"),
     { look: region("Failing checks"), say: "A plate names the checks that failed" },
     { look: inside(status, text("Conflicts")), say: "The branch conflicts with main" },
     { press: inside(region("Failing checks"), button("Notify Job")), say: "The Job is told which failed" },
@@ -66,7 +66,7 @@ function steps(narrow: boolean): Step[] {
   ];
 }
 
-const wide = walk("session-pr-panel", [toSessions, ...steps(false)]);
-const narrow = walk("session-pr-panel", [toSessions, ...steps(true)], NARROW);
+const wide = walk("session-pr-panel-work", [toSessions, ...steps(false)]);
+const narrow = walk("session-pr-panel-work", [toSessions, ...steps(true)], NARROW);
 
 export { wide as pullRequestPanel, narrow as pullRequestPanelNarrow };

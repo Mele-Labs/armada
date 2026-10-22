@@ -182,7 +182,7 @@ const WALKED = "Walks in a window";
 /** Its takes: three short walks, each the mock playing itself in the frame, the way a Session would serve a walkthrough. */
 const walkTakes = (): Variation[] =>
   [
-    { name: "Ledger filter", walk: "session-ledger-filter" },
+    { name: "Artifacts", walk: "ledger-in-cockpit" },
     { name: "Task marks", walk: "taskMarkTooltips" },
     { name: "Sleep cockpit", walk: "sleepCockpit" },
   ].map(({ name, walk }) => {
