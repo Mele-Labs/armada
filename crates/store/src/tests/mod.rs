@@ -35,6 +35,7 @@ mod usage_summary;
 mod session_plan;
 mod session_rail;
 mod session_tells;
+mod session_later;
 mod notice_mutes;
 mod settings_file;
 mod studio;
