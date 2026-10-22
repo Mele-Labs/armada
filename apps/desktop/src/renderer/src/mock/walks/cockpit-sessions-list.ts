@@ -19,7 +19,7 @@ export const cockpitSessionsList = walk("cockpit-sessions-list", [
   { key: "/", on: list, say: "/ opens the same menu from anywhere on the Cockpit outside a text box, with the caret in the search" },
   { type: "1702", into: search, say: "The search finds a Job by its title, id, pull request, branch or slot. An ended Job older than a week is listed only by a search. The band carries the words" },
   { key: "Enter", on: search, say: "Enter closes the menu and goes to the first row, and ↑ from the first row opens it again. The row says what matched in the place of its age" },
-  { press: deckRow("Backfill the audit log"), say: "An ended Job opens on the stage like a live one: its thread and its Ledger, with no box to answer in" },
+  { press: deckRow("Backfill the audit log"), say: "An ended Job opens on the stage like a live one: its thread and its Field and Progress, with no box to answer in" },
   { press: role("button", "More"), say: "Fork and Retro are behind the three dots, as they were on the page" },
   { press: role("menuitem", "Retro"), say: "Fleet refuses it" },
   { look: text("A retro is already being written for this Session"), say: "What Fleet refused is said at the top of the thread, where the Job is" },

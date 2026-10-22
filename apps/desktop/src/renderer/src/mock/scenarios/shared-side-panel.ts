@@ -47,9 +47,10 @@ export const s263SharedSidePanel: Scenario = {
   later: (base.later ?? []).map((one) => (one.mergeLines === undefined || one.mergeLines === null ? one : { ...one, mergeLines: withMarta(one.mergeLines) })),
   draft: {
     ...base.draft,
-    // A Job's thread names an issue.
+    // A Job's thread names an issue; the Job holding a bay is on a workflow, so its stage draws Flight control.
     sessions: (board, more) => {
       const store = base.draft!.sessions!(board, more);
+      store.edit("p1", (one) => ({ ...one, work: { workflow: { name: "Feature", steps: ["Plan the change", "Implement", "Review the change"], at: 1 } } }));
       store.edit("q1", (one) => ({
         ...one,
         rows: [...one.rows, { id: "q1-b", at: "14:10:10", kind: "message", from: { kind: "agent" }, text: "It has the shape of #2214: a list rebuilt from recent writes." }],

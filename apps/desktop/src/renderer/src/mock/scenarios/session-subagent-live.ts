@@ -14,6 +14,7 @@ const more: Session[] = [
     terminal: true,
     title: "Read the CI history",
     turn: { state: "idle" },
+    work: { workflow: { name: "Feature", steps: ["Plan the change", "Implement", "Review the change"], at: 1 } },
     rows: [],
     attachments: [
       { kind: "branch", name: "fix/ci-history", slot: 2 },
