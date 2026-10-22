@@ -119,6 +119,9 @@ pub struct Fleet<H, V, W> {
     /// Never written down, for `sweeping`'s reason; an `Arc` because a Drone's tap holds it —
     /// `crate::clashing`.
     writes: Arc<crate::clashing::Writes>,
+    /// Main's moves not yet fed to the test map. Never written down, for `sweeping`'s reason —
+    /// `crate::test_map_feed`.
+    feed: Arc<crate::test_map_feed::Feed>,
     /// What each repository holds and what each slot's holder changed, kept a while. Never written
     /// down, for `sweeping`'s reason; an `Arc` because a read is spawned — `crate::territory`.
     territory: Arc<crate::territory::Territory>,

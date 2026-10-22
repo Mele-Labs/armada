@@ -80,6 +80,9 @@ pub enum Asking {
     /// all, behind a proof**: a proof records a specific Job's outcome, and a
     /// seed only makes some later Job's first Check faster.
     SeedWarmup,
+    /// Measuring stale test map edges in a sleeping bay. Nobody waits on it, and it makes
+    /// no seed's first Check faster: **last of all**, beside a warm-up.
+    Recording,
 }
 
 impl Asking {
@@ -88,7 +91,7 @@ impl Asking {
             Asking::DronesRun => 0,
             Asking::Gate | Asking::FixDraft => 1,
             Asking::Proof => 2,
-            Asking::SeedWarmup => 3,
+            Asking::SeedWarmup | Asking::Recording => 3,
         }
     }
 }

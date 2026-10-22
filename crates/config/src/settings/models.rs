@@ -13,6 +13,7 @@ pub const MODELS_PROPOSER: Words = Words("models.proposer");
 pub const MODELS_RETRO: Words = Words("models.retro");
 pub const MODELS_SECOND_OPINION: Words = Words("models.secondOpinion");
 pub const MODELS_DISPUTE: Words = Words("models.dispute");
+pub const MODELS_TEST_MAP: Words = Words("models.testMap");
 
 pub const PLAN_DOWNSHIFT_AT: Integer = Integer("plan.downshiftAt");
 pub const PLAN_DOWNSHIFT_TO: Words = Words("plan.downshiftTo");
@@ -130,6 +131,19 @@ pub(super) const MODEL: &[Entry] = &[
         shipped: Shipped::Supplied,
         applies: Applies::Live,
         row: Some("fleet-notice-dispute-model"),
+        env: None,
+        tip: None,
+    },
+    // The cheapest: one file and a list of paths per call, up to twenty calls each time main moves.
+    Entry {
+        key: MODELS_TEST_MAP.0,
+        section: Section::Model,
+        title: "Test map reader model",
+        description: "The model that reads a file no collector can measure and names the tests that exercise it.",
+        kind: Kind::Choice(Options::Models),
+        shipped: Shipped::Supplied,
+        applies: Applies::Live,
+        row: Some("test-map-reading-model"),
         env: None,
         tip: None,
     },
