@@ -36,7 +36,7 @@ fn a_file_outside_the_repository_or_built_into_target_is_dropped() {
     let target = root.join("target/test-map");
 
     for outside in [
-        "/Users/someone/.cargo/registry/src/index/serde-1.0.0/src/lib.rs",
+        "/Users/user/.cargo/registry/src/index/serde-1.0.0/src/lib.rs",
         "/rustc/48a229ceaefd/library/core/src/ops/function.rs",
         "/work/repository/src/lib.rs",
         "/work/repo/target/test-map/debug/build/sums-1/out/generated.rs",
@@ -57,10 +57,10 @@ fn a_test_binary_is_in_the_member_its_package_sits_under() {
 
 #[test]
 fn the_llvm_tools_are_looked_for_beside_the_compiler_then_under_its_prefix() {
-    let rustup = tool_folders(Path::new("/home/me/.rustup/toolchains/stable"), "x86_64-unknown-linux-gnu", 22);
+    let rustup = tool_folders(Path::new("/home/user/.rustup/toolchains/stable"), "x86_64-unknown-linux-gnu", 22);
     assert_eq!(
         rustup,
-        [PathBuf::from("/home/me/.rustup/toolchains/stable/lib/rustlib/x86_64-unknown-linux-gnu/bin")]
+        [PathBuf::from("/home/user/.rustup/toolchains/stable/lib/rustlib/x86_64-unknown-linux-gnu/bin")]
     );
 
     let prefixed = tool_folders(Path::new("/opt/homebrew/Cellar/rust/1.98.1"), "aarch64-apple-darwin", 22);
