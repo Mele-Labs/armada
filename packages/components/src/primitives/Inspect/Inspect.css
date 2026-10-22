@@ -126,7 +126,8 @@
 
 .armada-inspect-card__facts {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  /* A label takes its width up to 60%, so a long unbroken name wraps instead of pushing the value out of the card. */
+  grid-template-columns: fit-content(60%) minmax(0, 1fr);
   gap: calc(var(--border-width) * 2) var(--space-3);
   margin: 0;
   font-size: var(--text-2xs);
@@ -134,7 +135,7 @@
 }
 
 .armada-inspect-card__facts > div { display: contents; }
-.armada-inspect-card__facts dt { color: var(--fg-muted); }
+.armada-inspect-card__facts dt { min-width: 0; color: var(--fg-muted); overflow-wrap: anywhere; }
 .armada-inspect-card__facts dd { margin: 0; color: var(--fg-default); overflow-wrap: anywhere; text-align: right; font-variant-numeric: lining-nums tabular-nums; }
 .armada-inspect-card__facts dd[data-mono] { font-family: var(--font-mono); }
 

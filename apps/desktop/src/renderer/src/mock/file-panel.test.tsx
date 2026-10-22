@@ -51,6 +51,17 @@ test("a show_file row in the thread opens the file in the panel", async () => {
   await expect.element(editor("store-clock.md")).toBeVisible();
 });
 
+test("a path in backticks in the thread links only where it is a file in the checkout, and opens the panel", async () => {
+  mount("file-panel");
+  await onScreen();
+  await toSession("Store clock notes");
+  const thread = page.getByRole("region", { name: "Thread" });
+  await expect.element(thread.getByRole("link", { name: "docs/notes/gone.md" })).not.toBeInTheDocument();
+  await expect.element(thread.getByRole("link", { name: "docs/notes/store-clock.md --raw" })).not.toBeInTheDocument();
+  await userEvent.click(thread.getByRole("link", { name: "docs/notes/store-clock.md" }));
+  await expect.element(editor("store-clock.md")).toBeVisible();
+});
+
 test("the ledger says a file the Session only showed was shown, and one it wrote was written, shown or not", async () => {
   mount("file-panel");
   await onScreen();

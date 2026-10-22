@@ -12,11 +12,12 @@ import type { Step } from "../walk";
 const words = "Fix the flaky store test and have subagents read the CI history.";
 
 function steps(narrow: boolean): Step[] {
-  const { ledger, thread, rail, sheet, close, opened, row } = kit(narrow);
+  const { artifacts, key, thread, rail, sheet, close, opened, row } = kit(narrow);
+  const bays = region("Bays", { exact: true });
   const sessions = region("Jobs", { exact: true });
   const mode = role("combobox", "Permission mode");
   const request = inside(dialog("Dispatch"), role("textbox", "Request"));
-  const inLedger = (name: string, say: string): Step => ({ look: inside(ledger, role("listitem", name)), say });
+  const listed = (group: string, name: string | RegExp, say: string): Step => ({ look: inside(inside(artifacts, region(group, { exact: true })), button(name)), say });
   return [
     { press: inside(role("region", "Dispatch controls"), button("Dispatch")), say: "A new Job starts from Dispatch" },
     { press: inside(dialog("Dispatch"), tab("Job")), say: "Job" },
@@ -25,18 +26,18 @@ function steps(narrow: boolean): Step[] {
     { key: "Enter", on: request, say: "The Job opens and the agent reads first" },
     { look: mode, say: "It runs in auto mode" },
     { look: region("Slot leased"), say: "Its first write leased a worktree slot and cut a branch, in the thread where it happened" },
-    ...opened([
-      inLedger("Branch fix/flaky-store", "The ledger took the branch, with its slot as a chip"),
-    ]),
+    { press: key("Bays"), say: "Bays" },
+    { look: inside(bays, button("Show slot-3 in Bays")), say: "The slot it leased" },
+    { press: inside(bays, button("Back")), say: "Back to the thread" },
     { later: thread, say: "The agent carries on" },
     ...opened([
-      inLedger("Subagent Read the CI history", "A subagent, running, then done"),
-      inLedger("Studio Flaky store shapes", "A Studio it opened"),
-      inLedger("Sketch CI history", "A sketch the agent published"),
+      listed("Subagents", "Read the CI history of store_flaky", "A subagent, running, then done"),
+      listed("Studios", "Flaky store shapes", "A Studio it opened"),
+      listed("Sketches", "CI history of store_flaky", "A sketch the agent published"),
     ]),
     { later: thread, say: "The agent opens a pull request" },
-    ...opened([inLedger("Pull request #1843, checks failed", "Checks ran and failed on it")]),
-    ...row("Open Pull request #1843", "Every row opens what it names"),
+    ...opened([listed("Pull requests", /^#1843 /, "Checks ran and failed on it")]),
+    ...row(/^#1843 /, "Every row opens what it names"),
     { look: sheet("Pull request #1843"), say: "The pull request, with its Checks" },
     { look: role("group", "Pull request acts"), say: "Red: no merge" },
     { press: close(sheet("Pull request #1843")), say: "Back to the Job" },
@@ -47,23 +48,23 @@ function steps(narrow: boolean): Step[] {
     { look: role("article", "Waiting on you"), say: "The permission opens in the Needs you panel. Auto asks only about a push, and this is one" },
     { press: button("Open Job Release notes script"), say: "The sender is a press" },
     { look: region("Job s2"), say: "It opens the Job that wrote" },
-    ...row("Open Pull request #1847", "A pull request that has passed"),
+    ...row(/^#1847 /, "A pull request that has passed"),
     { press: inside(sheet("Pull request #1847"), button("Merge")), say: "Merge, without the browser" },
     { look: inside(sheet("Pull request #1847"), text("Merged")), say: "Merged, and no acts left" },
     { press: close(sheet("Pull request #1847")), say: "Back to the Job" },
     { press: rail("Sessions"), say: "Two more pull requests, in another Job" },
     { press: inside(sessions, button("Store migration spike")), say: "The Job holding them" },
-    ...row("Open Pull request #1849", "A draft"),
+    ...row(/^#1849 /, "A draft"),
     { press: inside(sheet("Pull request #1849"), button("Ready for review")), say: "Ready for review, from here" },
     { look: inside(sheet("Pull request #1849"), button("Enable auto-merge")), say: "Its Checks are still running, so auto-merge is offered" },
     { press: close(sheet("Pull request #1849")), say: "Back to the Job" },
-    ...row("Open Pull request #1850", "Checks running"),
+    ...row(/^#1850 /, "Checks running"),
     { press: inside(sheet("Pull request #1850"), button("Enable auto-merge")), say: "Auto-merge asked for" },
     { look: inside(sheet("Pull request #1850"), button("Auto-merge on")), say: "It merges when every Check has passed" },
   ];
 }
 
-const sessionsWide = walk("sessions", [toSessions, ...steps(false)]);
-const sessionsNarrow = walk("sessions", [toSessions, ...steps(true)], NARROW);
+const sessionsWide = walk("sessions-on-a-workflow", [toSessions, ...steps(false)]);
+const sessionsNarrow = walk("sessions-on-a-workflow", [toSessions, ...steps(true)], NARROW);
 
 export { sessionsWide as "sessions", sessionsNarrow as "sessions-narrow" };

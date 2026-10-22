@@ -27,6 +27,7 @@ const finished: Session = {
   title: "Pin the store clock",
   turn: { state: "idle" },
   lastTurnAt: minutesAgo(2),
+  work: { workflow: { name: "Feature", steps: ["Plan the change", "Implement", "Review the change"], at: 2 } },
   rows: [
     { id: "d1", at: "14:38:02", kind: "message", from: { kind: "you" }, text: "Pin the clock in the store tests." },
     { id: "d2", at: "14:40:11", kind: "message", from: { kind: "agent" }, text: "The change is merged." },

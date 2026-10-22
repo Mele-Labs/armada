@@ -2,10 +2,13 @@
 // read live from its process with one in each state the CLI reports, and four turns, the third dispatching `armada:mechanic` on sonnet, calling a forge MCP tool
 // and a repository skill. What a row opens is served for a repository skill, an Armada agent file, AGENTS.md and the
 // session rules, and a built in tool says why it has no file. chrome-devtools timed out and reconnects, mailroom
-// signs in on a connector page that sends nothing back, and forge turns off and on. The walk `session-loadout` plays it.
+// signs in on a connector page that sends nothing back, and forge turns off and on. Kit's inventory holds the two own
+// skills and the productivity plugin's, so they offer Edit; an own skill is removed to a pretend Trash and restored from
+// it, and the plugin uninstalled. The walk `session-loadout` plays it.
 
-import type { LoadoutItem, LoadoutSummary, LoadoutTurn, LoadoutUse, RepositorySummary, SessionLoadout, SessionMcpServer, SessionRow } from "@armada/protocol";
+import type { KitInventory, LoadoutItem, LoadoutSummary, LoadoutTurn, LoadoutUse, RepositorySummary, SessionLoadout, SessionMcpServer, SessionRow } from "@armada/protocol";
 import { loadoutKeyOf } from "@armada/components";
+import { kitPieces } from "@armada/manifest/fake";
 import type { LoadoutItemBody } from "@armada/screens/src/draft/sessions";
 import { repository } from "@armada/screens/src/fixtures/repository";
 
@@ -72,7 +75,12 @@ const TURNS: LoadoutTurn[] = [
     use(t, "skill", "commit-message", "repository"),
     use(t, "tool", "Bash", "built_in", { by: "armada:mechanic" }),
   ]),
-  turn(22, (t) => [use(t, "skill", "armada-voice", "repository"), use(t, "tool", "Edit", "built_in")]),
+  turn(22, (t) => [
+    use(t, "skill", "armada-voice", "repository"),
+    use(t, "tool", "Edit", "built_in"),
+    use(t, "tool", "mcp__mailroom_docs__create_inspiration_document", "mcp", { from: "mailroom_docs" }),
+    use(t, "tool", "mcp__browser-devtools__resize_page", "mcp", { from: "browser-devtools" }),
+  ]),
 ];
 
 const LOADOUT: SessionLoadout = { items: ITEMS, turns: TURNS };
@@ -160,6 +168,35 @@ const MCP: SessionMcpServer[] = [
   { name: "ledger", state: "off", scope: "user", tools: 0 },
 ];
 
+const HOME = "/Users/user/.harness";
+const PRODUCTIVITY = `${HOME}/plugins/cache/productivity/1.0.0`;
+
+/** Kit's inventory as the Loadout matches it: the two own skills, and the productivity plugin with the two it brings. */
+const KIT: KitInventory = {
+  harness: "Harness",
+  home: HOME,
+  present: true,
+  kinds: [
+    {
+      kind: "skills",
+      read: {
+        what: "read",
+        items: [
+          { name: "pdf", says: "Read and write PDF files", source: `${HOME}/skills/pdf` },
+          { name: "deep-research", says: "Research a question across many sources", source: `${HOME}/skills/deep-research` },
+          { name: "memory-management", says: "Keep notes between sessions", source: `${PRODUCTIVITY}/skills/memory-management`, plugin: "productivity" },
+          { name: "summarise", says: "Summarise a long thread", source: `${PRODUCTIVITY}/skills/summarise`, plugin: "productivity" },
+        ],
+        unreadable: [],
+      },
+    },
+    {
+      kind: "plugins",
+      read: { what: "read", items: [{ name: "productivity@toolshed", says: "version 1.0.0", source: PRODUCTIVITY, uninstall: "harness plugin uninstall productivity@toolshed" }], unreadable: [] },
+    },
+  ],
+};
+
 const TOLD = new Set<LoadoutItem["kind"]>(["output_style", "rules", "injection"]);
 const SUMMARY: LoadoutSummary = {
   knows: ITEMS.filter((one) => !TOLD.has(one.kind)).length,
@@ -195,7 +232,17 @@ function build(): Scenario {
   fleet.mcpTools = { "chrome-devtools": 26, mailroom: 12, forge: 2, ledger: 40 };
   fleet.mcpSignIns = { mailroom: { url: "https://mailroom.example/settings/connectors", callback_expected: false } };
   const served = fleet.scenario(onBoard({ repositories: [ARMADA], picked: ARMADA.root }));
-  return { ...served, name: "session-loadout", says: "A Session's Loadout: what its agent knows, was told and used each turn, where each came from, and its MCP servers live" };
+  const behaves: Scenario["behaves"] = (handle) => {
+    let inventory = KIT;
+    const pieces = kitPieces({}, { get: () => inventory, set: (next) => void (inventory = next) });
+    return {
+      ...served.behaves?.(handle),
+      readKitInventory: async () => ({ ok: true, setup: inventory }),
+      removeKitPiece: pieces.removeKitPiece,
+      restoreKitPiece: pieces.restoreKitPiece,
+    };
+  };
+  return { ...served, behaves, name: "session-loadout", says: "A Session's Loadout: what its agent knows, was told and used each turn, where each came from, its MCP servers live, and Kit's skills edited, removed and restored" };
 }
 
 export const sessionLoadout: Scenario = build();

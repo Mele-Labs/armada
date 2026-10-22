@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import { useEffect, useRef, type CSSProperties } from "react";
 
 import type { CaptureBox } from "../StudioCapture/StudioCapture";
 
@@ -12,6 +12,9 @@ import type { CaptureBox } from "../StudioCapture/StudioCapture";
  * the bar's row above: Back, Next, Autoplay, Replay. A press on the page beside the card is a person
  * reaching for it, so the ring goes away and lets them.
  */
+/** Where the last press landed, in this document's coordinates. `n` counts the presses, so each one plays the cursor again. */
+export type WalkPress = { x: number; y: number; n: number };
+
 export type WalkGuideProps = {
   /** The walk's name, as the window is titled. */
   name: string;
@@ -24,9 +27,45 @@ export type WalkGuideProps = {
   box: CaptureBox | null;
   /** How far down the page starts, so a card at the top rests under the bar. */
   top: number;
+  /** The last press of the walk: a cursor goes to it and rings grow from it. Absent: no press has been made. */
+  press?: WalkPress;
   /** Put the ring away so the page takes presses. */
   onFold: () => void;
 };
+
+/** How far off the first cursor starts, since there is no earlier press to come from. */
+const ENTRY = 56;
+
+const reducedMotion = (): boolean => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/**
+ * The cursor glides from where the last press landed, then rings grow out of the point and fade. CSS only: the key restarts it.
+ * Drawn by the bar over a page Bridge walks, and by the mock's own player in its page.
+ */
+export function WalkPressMark({ press }: { press: WalkPress | undefined }) {
+  // The point the next press comes from, kept after the render that drew this one.
+  const last = useRef<{ x: number; y: number } | null>(null);
+  const from = last.current;
+  useEffect(() => {
+    if (press !== undefined) last.current = { x: press.x, y: press.y };
+  }, [press?.n]);
+  if (press === undefined || reducedMotion()) return null;
+  const start = from ?? { x: press.x - ENTRY, y: press.y - ENTRY };
+  return (
+    <div
+      key={press.n}
+      className="armada-walk-guide__press"
+      aria-hidden
+      style={{ "--to-x": `${press.x}px`, "--to-y": `${press.y}px`, "--from-x": `${start.x}px`, "--from-y": `${start.y}px` } as CSSProperties}
+    >
+      <svg className="armada-walk-guide__cursor" width="16" height="20" viewBox="0 0 16 20">
+        <path d="M1 1 L1 15 L5 11.5 L8 18 L10.5 17 L7.5 10.5 L13 10.5 Z" />
+      </svg>
+      <span className="armada-walk-guide__pulse" />
+      <span className="armada-walk-guide__pulse" />
+    </div>
+  );
+}
 
 const place = (box: CaptureBox): CSSProperties =>
   ({
@@ -46,11 +85,12 @@ function edgeFor(box: CaptureBox | null, view: { width: number; height: number }
   return middle.x > view.width / 2 && middle.y > view.height * 0.55 ? "top" : "bottom";
 }
 
-export function WalkGuide({ name, at, of, said, box, top, onFold }: WalkGuideProps) {
+export function WalkGuide({ name, at, of, said, box, top, press, onFold }: WalkGuideProps) {
   return (
     <div className="armada-walk-guide" data-armada-capture="" style={{ "--walk-top": `${top}px` } as CSSProperties}>
       <div className="armada-walk-guide__catch" aria-hidden onClick={onFold} />
       {box === null ? null : <div className="armada-walk-guide__ring" role="img" aria-label="The target of this step" style={place(box)} />}
+      <WalkPressMark press={press} />
       <div className="armada-walk-guide__card" role="status" data-edge={edgeFor(box, { width: window.innerWidth, height: window.innerHeight })}>
         <p className="armada-walk-guide__where">
           <span className="armada-walk-guide__name">{name}</span>

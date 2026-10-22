@@ -3,9 +3,9 @@
 
 import type { KitInventory, SessionRecord } from "@armada/protocol";
 import { createHash } from "node:crypto";
-import { chmod, mkdtemp, readdir, readFile, stat, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readdir, readFile, stat, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { PanelFileItem } from "../shared/api/files";
@@ -44,6 +44,7 @@ function memory(files: Record<string, string>) {
       if (one === undefined) throw new Error("ENOENT");
       return one;
     },
+    real: async (path) => (held.has(path) ? { path, file: true } : null),
     replace: async (path, bytes) => {
       replaced.push(path);
       held.set(path, bytes);
@@ -332,5 +333,44 @@ describe("on a real disk", () => {
     expect(await readFile(path, "utf8")).toBe("after");
     expect((await stat(path)).mode & 0o777).toBe(0o640);
     expect(await readdir(dir)).toEqual(["a.txt"]);
+  });
+});
+
+describe("a path in the Job's checkout", () => {
+  /** A checkout with one doc, and a second directory it links into, as a real disk has them. */
+  async function checkout() {
+    const root = await mkdtemp(join(tmpdir(), "file-panel-checkout-"));
+    const outside = await mkdtemp(join(tmpdir(), "file-panel-outside-"));
+    await mkdir(join(root, "docs"));
+    await writeFile(join(root, "docs", "plan.md"), "# Plan");
+    await writeFile(join(outside, "secret.md"), "not yours");
+    await symlink(join(outside, "secret.md"), join(root, "escape.md"));
+    const held = { id: "S1", cwd: root, attachments: [] } as unknown as SessionRecord;
+    const panel = createFilePanel({
+      disk: diskPanel,
+      recordOf: (id) => (id === "S1" ? held : undefined),
+      settingsPath: () => undefined,
+      kitInventory: async () => undefined,
+      pick: async () => null,
+      inEditor: async () => null,
+      showInFolder: () => {},
+      send: () => {},
+    });
+    return { root, outside, panel };
+  }
+
+  it("reports the paths that are files there, and not a missing one, a folder, or one that leaves the checkout", async () => {
+    const { root, outside, panel } = await checkout();
+    const asked = ["docs/plan.md", "docs/missing.md", "docs", "escape.md", `../${basename(outside)}/secret.md`, join(root, "docs", "plan.md")];
+    expect(await panel.known("S1", asked)).toEqual(["docs/plan.md", join(root, "docs", "plan.md")]);
+    expect(await panel.known("S2", asked)).toEqual([]);
+  });
+
+  it("reads a file there for a Session that never listed it, and refuses one outside", async () => {
+    const { outside, panel } = await checkout();
+    expect(await panel.read({}, session("docs/plan.md"))).toMatchObject({ ok: true, text: "# Plan" });
+    expect(await panel.read({}, session("escape.md"))).toEqual({ ok: false, why: "not_addressable" });
+    expect(await panel.read({}, session(`../${basename(outside)}/secret.md`))).toEqual({ ok: false, why: "not_addressable" });
+    expect(await panel.read({}, { ...session("docs/plan.md"), sessionId: "S2" })).toEqual({ ok: false, why: "not_addressable" });
   });
 });

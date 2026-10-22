@@ -81,8 +81,28 @@ impl Clock for FixedClock {
 `;
 
 export const SKILL_PATH = "/Users/user/.agent/skills/humanizer/SKILL.md";
+/** The skill the walk `session-loadout` edits from its Loadout row. */
+export const DEEP_RESEARCH_PATH = "/Users/user/.harness/skills/deep-research/SKILL.md";
 export const IMPLEMENTER_PATH = "/Users/user/.agent/plugins/cache/armada/1.0.0/agents/implementer.md";
 export const AGENT_PATH = "/Users/user/.agent/agents/reviewer.md";
+
+const DEEP_RESEARCH = `---
+name: deep-research
+description: Research a question across many sources, and say which source each claim came from.
+---
+
+# Deep research
+
+Write the question down in one sentence before reading anything.
+
+## How to work
+
+1. List the sources worth reading, and why each is.
+2. Read each one, and note what it says that bears on the question.
+3. Answer the question, citing a source for every claim.
+
+Say where the sources disagree, and leave the disagreement standing.
+`;
 
 const SKILL = `---
 name: humanizer
@@ -143,6 +163,7 @@ export function pretendDisk(): Map<string, DiskFile> {
     // The file the `session-ledger` Session wrote.
     ["/Users/user/armada/docs/spikes/store-clock.md", { text: "# Store clock\n\nThe store reads the clock once per write.\n", type: "text/markdown", version: 1 }],
     [SKILL_PATH, { text: SKILL, type: "text/markdown", version: 1 }],
+    [DEEP_RESEARCH_PATH, { text: DEEP_RESEARCH, type: "text/markdown", version: 1 }],
     [IMPLEMENTER_PATH, { text: IMPLEMENTER, type: "text/markdown", version: 1 }],
     [AGENT_PATH, { text: AGENT, type: "text/markdown", version: 1 }],
     [CLOCK_PATH, { text: CLOCK, type: "text/x-rust", version: 1 }],

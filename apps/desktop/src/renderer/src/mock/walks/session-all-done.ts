@@ -1,7 +1,7 @@
 // A Session whose agent says it has nothing left: a band on the composer, open as the Session is entered. It lists
 // the pull requests, merged first and each with its state and checks, and where there are none, the pages, files and Docs it made; each is a press.
 // Esc folds it. Keep going puts it away and puts the cursor in the message box; End job ends the Session, and its
-// ledger stays to be read. Over the `session-all-done` and `session-all-done-artifacts` scenarios.
+// Artifacts stay to be read. Over the `session-all-done` and `session-all-done-artifacts` scenarios.
 // Told twice each: wide, and below the breakpoint.
 
 import { button, inside, region, role, walk } from "../walk";
@@ -24,31 +24,34 @@ const prs = inside(callout, role("list", "Pull requests"));
 const artifacts = inside(callout, role("list", "Artifacts"));
 
 function keep(narrow: boolean): Step[] {
-  const { ledger, opened: inLedger, message } = kit(narrow);
+  const { artifacts, opened: inArtifacts, message } = kit(narrow);
   return [
     ...opened(/Pin the store clock/),
     { look: prs, say: "Each pull request with its state and checks; many scroll inside the panel" },
     { look: inside(callout, button("End job")), say: "End job stays in view under them" },
     { key: "Escape", on: inside(callout, button("End job")), say: "Esc folds it" },
-    ...inLedger([{ look: inside(ledger, region("Pull requests")), say: "The ledger's pull requests, with state and checks" }]),
+    ...inArtifacts([{ look: inside(artifacts, region("Pull requests", { exact: true })), say: "The Artifacts layer holds the pull requests too, with state and checks" }]),
     { press: band, say: "Opened again" },
     { press: inside(callout, button("Keep going")), say: "Keep going puts it away" },
     { look: message, say: "The cursor is in the message box" },
   ];
 }
 
+const { artifacts: layer, opened: inLayer } = kit(false);
+
 const made: Step[] = [
   ...opened(/Write up the store clock/),
   { look: artifacts, say: "The page and the Doc it made, and not the picture it looked at" },
+  ...inLayer([{ look: inside(layer, region("Files", { exact: true })), say: "The picture is in the Artifacts layer, under Files" }]),
 ];
 
 function end(narrow: boolean): Step[] {
-  const { ledger, opened: inLedger } = kit(narrow);
+  const { artifacts, opened: inArtifacts } = kit(narrow);
   return [
     ...opened(/Pin the store clock/),
     { press: inside(callout, button("End job")), say: "End job ends the Job" },
     { look: role("img", "Ended"), say: "Ended" },
-    ...inLedger([{ look: inside(ledger, region("Pull requests")), say: "Its ledger stays, the pull requests in it" }]),
+    ...inArtifacts([{ look: inside(artifacts, region("Pull requests", { exact: true })), say: "Its pull requests stay in Artifacts" }]),
   ];
 }
 
