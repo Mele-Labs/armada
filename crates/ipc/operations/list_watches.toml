@@ -1,0 +1,14 @@
+[operations.list_watches]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "This Job's watches, live and ended, the newest first: each one's id, name, command, state, whether it is live, its last reading and the parts set aside with their sentences"
+notes = """
+`GET /watches?session_id=`. Answers 200 with a `WatchList`: `watches`, each a `WatchSummary` `{ id, session_id, name, command[], recipe?, every_seconds, gives_up_after_seconds, follows?, state, live, started_at, last?, set_aside[] }`. `state` is one of `waiting`, `running`, `passed`, `failed`, `gave_up`, `broken` or `stopped`; `last` is a `WatchReading`, `kind` `read` `{ at, state, finished, says, link?, parts[] }` or `broken` `{ at, why, output? }`.
+
+**The Job** is the one the connection places when Fleet hosts it, else `session_id`; nothing placing one is a 422 `fleet.watches_unplaced`.
+
+**Memory only in this build**: a restart forgets every watch, and no reading is taken, so `last` is always absent.
+
+`agent_access` is `Yes`: an agent woken by a watch's notice reads the watch whole here.
+"""

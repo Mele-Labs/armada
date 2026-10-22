@@ -1,0 +1,18 @@
+[operations.start_watch]
+kind = "command"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Have Fleet watch something this Job is waiting on, such as a deploy, an environment or a pipeline a push to another branch started, instead of polling it yourself. Fleet runs a command every so often and wakes you only when it fails, passes and is finished, gives up, or breaks. Not for a pull request's own checks: Fleet already tells you when those fail. The command's last line on standard output is one JSON object: state (waiting, running, passed or failed), finished (true once nothing will change), says (one sentence), optional link, and optional parts, a list of name and state, read one by one when the overall state misleads. Body: name (what the person reads, \"QA deploy\"); then either recipe (a recipe's name) with values (an object filling each {name} argument of its command), or your own command (a list of arguments, never a shell line) with every (\"60s\", \"2m\") and optional gives_up_after (\"2h\", at most \"24h\"); optional follows (a pull request number); optional set_aside, a list of part and sentence, for parts a last watch showed are not yours. A live watch holds this Job open: do not call all_done while one runs, and add no waiting_for item for it"
+notes = """
+`POST /watches/start`, body `StartWatch`: `name`, then `recipe` with `values` or `command` with `every` and an optional `gives_up_after`, flat; an optional `session_id`, `follows` and `set_aside` (each `{ part, sentence }`). A recipe with any of `command`, `every` or `gives_up_after`, `values` with a command, neither shape, or a key the body has no name for is refused as the body is read, 400. Answers 200 with the `WatchSummary`.
+
+**A recipe** is found by name among the repository's `.armada/watches/`, read from the base branch, and this machine's `~/.armada/machine/watches/`, the most specific copy winning whole (`config::WatchRecipes`). **A value fills one whole argument**: an item written `{sha}` is replaced by `values.sha`, and nothing is read by a shell. A value the command does not name, one it names and is not given, and a blank one or one holding a NUL are each a 422 `fleet.watch_value_refused`. A name with no recipe is a 422 `fleet.watch_recipe_unknown`, naming the recipes there are and any file left out with why.
+
+**Limits, from settings.json.** `every` below `timeouts.watchEverySeconds` is a 422 `fleet.watch_too_often`; `gives_up_after` past a day, the ceiling of `timeouts.watchGiveUpMinutes`, a 422 `fleet.watch_gives_up_too_late`, and absent it is that setting. A Job already holding `limits.watchesPerJob` live watches is a 409 `fleet.watch_limit_reached`. A blank `name`, an empty command or blank item, a span that is not a count and `s`, `m` or `h`, and a `set_aside` with a blank part or sentence are a 422 `fleet.watch_refused`.
+
+**The Job** is the one whose process holds the connection when Fleet hosts it, whatever the body says; `session_id` is read only for a Job in a terminal, as `waiting_for`'s is. Nothing placing a Job is a 422 `fleet.watches_unplaced`.
+
+**Recorded, not yet run.** This build keeps the watch in memory, so a restart forgets it, and runs nothing: no reading is taken, no notice is told, and `watchesAtOnce` and `watchRunSeconds` bound nothing yet.
+
+`agent_access` is `Yes`: the agent is who knows what its change is waiting on, and the person decided a watch needs no one's sign-off.
+"""

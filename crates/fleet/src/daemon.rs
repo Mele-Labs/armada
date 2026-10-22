@@ -143,6 +143,8 @@ pub struct Fleet<H, V, W> {
     peers: Arc<dyn PeerOf>,
     /// What sends a request and the secrets it is filled with — `crate::requesting`.
     requests: crate::requesting::Requesting,
+    /// Every watch started for a Job, live and ended. Memory only for now — `crate::watches`.
+    watches: crate::watches::Watches,
     /// The rebase-and-push tail, held by one Job at a time.
     ///
     /// **Every worktree is cut from one `.git`**, and whether two of them can

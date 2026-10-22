@@ -1,0 +1,375 @@
+//! Watches on the wire: a command Fleet runs on a cadence for one Job, the agent's weighing of a
+//! failed reading, and the line a watch's command prints.
+//! `docs/design/fleet-watches-ci-and-deploys-for-a-job.md`.
+//!
+//! **DTOs, never `core_model::Watch`.** The domain type holds every part ever reported and the
+//! last reading whole; what reaches Bridge and the agent is chosen field by field in Fleet.
+//!
+//! **The command's line is read here**, by [`read_watch_line`], because untyped JSON is read in
+//! `ipc` and `store` only. It is not the wire to Bridge, and nothing here serialises it back.
+
+use std::collections::BTreeMap;
+
+use serde::{Deserialize, Serialize};
+
+use crate::ids::Instant;
+use crate::SessionId;
+
+/// What a reading or one part of it says.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum WatchReadingState {
+    Waiting,
+    Running,
+    Passed,
+    Failed,
+}
+
+/// Where a watch stands. The last three are ends no reading says.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum WatchState {
+    Waiting,
+    Running,
+    Passed,
+    Failed,
+    GaveUp,
+    Broken,
+    Stopped,
+}
+
+/// One named part of a run, and what it says.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WatchPart {
+    pub name: String,
+    pub state: WatchReadingState,
+}
+
+/// A part the agent weighed as not its change's doing, with its sentence.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct WatchSetAside {
+    pub part: String,
+    pub sentence: String,
+}
+
+/// One reading a watch took: what its command's line said, or why it gave none.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum WatchReading {
+    Read {
+        at: Instant,
+        state: WatchReadingState,
+        finished: bool,
+        says: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        link: Option<String>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        parts: Vec<WatchPart>,
+    },
+    /// It exited non-zero, ran out of time, or its last line was not one. `why` is said to a
+    /// person; `output` is the end of what it printed, where it printed anything.
+    Broken {
+        at: Instant,
+        why: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        output: Option<String>,
+    },
+}
+
+/// The agent's weighing of a failed reading.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum WatchVerdict {
+    /// The change caused it. The watch ends `failed`.
+    Ours,
+    /// Not the change's doing: `parts` stop counting toward the watch's state.
+    NotOurs { sentence: String, parts: Vec<String> },
+}
+
+/// One watch, as `list_watches` answers it and every act on one answers.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WatchSummary {
+    /// Fleet's id for it, which `weigh_watch` and `stop_watch` name.
+    pub id: String,
+    pub session_id: SessionId,
+    pub name: String,
+    /// Whole, every value filled, so the person sees what Fleet runs for the Job.
+    pub command: Vec<String>,
+    /// The recipe it started from. Absent where the agent gave its own command.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recipe: Option<String>,
+    pub every_seconds: u32,
+    pub gives_up_after_seconds: u32,
+    /// The pull request it follows, by number.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub follows: Option<u64>,
+    pub state: WatchState,
+    /// False once it has ended, whichever way.
+    pub live: bool,
+    pub started_at: Instant,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last: Option<WatchReading>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub set_aside: Vec<WatchSetAside>,
+}
+
+/// `list_watches`: a Job's watches, live and ended, the newest first.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WatchList {
+    pub watches: Vec<WatchSummary>,
+}
+
+/// What a start runs: a recipe with its values, or the agent's own command.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum WatchStarts {
+    Recipe {
+        recipe: String,
+        /// Each fills one whole `{name}` item of the recipe's command, never read by a shell.
+        values: BTreeMap<String, String>,
+    },
+    Command {
+        command: Vec<String>,
+        /// A span, `60s`, `2m` or `2h`.
+        every: String,
+        /// A span. Absent gives up after the machine's `timeouts.watchGiveUpMinutes`.
+        gives_up_after: Option<String>,
+    },
+}
+
+/// `start_watch`. `POST /watches/start`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(try_from = "StartAsWritten", into = "StartAsWritten")]
+pub struct StartWatch {
+    /// The Job it watches for. Read only where the connection places none.
+    pub session_id: Option<SessionId>,
+    /// What the person reads: "QA deploy".
+    pub name: String,
+    pub starts: WatchStarts,
+    pub follows: Option<u64>,
+    /// Parts set aside from the start, each with its sentence, so a redeploy's watch keeps what
+    /// the last one learned.
+    pub set_aside: Vec<WatchSetAside>,
+}
+
+/// A start as spelled: `recipe` with `values`, or `command` with `every`, flat.
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct StartAsWritten {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    session_id: Option<SessionId>,
+    name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    recipe: Option<String>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    values: BTreeMap<String, String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    command: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    every: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    gives_up_after: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    follows: Option<u64>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    set_aside: Vec<WatchSetAside>,
+}
+
+impl TryFrom<StartAsWritten> for StartWatch {
+    type Error = &'static str;
+
+    fn try_from(written: StartAsWritten) -> Result<StartWatch, &'static str> {
+        let starts = match (written.recipe, written.command, written.every, written.gives_up_after) {
+            (Some(recipe), None, None, None) => WatchStarts::Recipe { recipe, values: written.values },
+            (Some(_), _, _, _) => {
+                return Err("`recipe` names the command, how often and when to give up: leave out \
+                            `command`, `every` and `gives_up_after`")
+            }
+            (None, Some(_), _, _) | (None, _, Some(_), _) if !written.values.is_empty() => {
+                return Err("`values` fill a recipe's command: give your own command whole")
+            }
+            (None, Some(command), Some(every), gives_up_after) => {
+                WatchStarts::Command { command, every, gives_up_after }
+            }
+            (None, _, _, _) => return Err("name a `recipe`, or give `command` and `every`"),
+        };
+        Ok(StartWatch {
+            session_id: written.session_id,
+            name: written.name,
+            starts,
+            follows: written.follows,
+            set_aside: written.set_aside,
+        })
+    }
+}
+
+impl From<StartWatch> for StartAsWritten {
+    fn from(start: StartWatch) -> StartAsWritten {
+        let (recipe, values, command, every, gives_up_after) = match start.starts {
+            WatchStarts::Recipe { recipe, values } => (Some(recipe), values, None, None, None),
+            WatchStarts::Command { command, every, gives_up_after } => {
+                (None, BTreeMap::new(), Some(command), Some(every), gives_up_after)
+            }
+        };
+        StartAsWritten {
+            session_id: start.session_id,
+            name: start.name,
+            recipe,
+            values,
+            command,
+            every,
+            gives_up_after,
+            follows: start.follows,
+            set_aside: start.set_aside,
+        }
+    }
+}
+
+/// `weigh_watch`. `POST /watches/weigh`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(try_from = "WeighAsWritten", into = "WeighAsWritten")]
+pub struct WeighWatch {
+    pub session_id: Option<SessionId>,
+    /// The watch's id.
+    pub watch: String,
+    pub verdict: WatchVerdict,
+}
+
+#[derive(Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum VerdictWord {
+    Ours,
+    NotOurs,
+}
+
+/// A weighing as spelled: `verdict` `ours`, or `not_ours` with `sentence` and `parts`, flat.
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct WeighAsWritten {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    session_id: Option<SessionId>,
+    watch: String,
+    verdict: VerdictWord,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    sentence: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    parts: Vec<String>,
+}
+
+impl TryFrom<WeighAsWritten> for WeighWatch {
+    type Error = &'static str;
+
+    fn try_from(written: WeighAsWritten) -> Result<WeighWatch, &'static str> {
+        let verdict = match (written.verdict, written.sentence) {
+            (VerdictWord::Ours, None) if written.parts.is_empty() => WatchVerdict::Ours,
+            (VerdictWord::Ours, _) => {
+                return Err("`ours` ends the watch: it sets nothing aside, so leave out `sentence` \
+                            and `parts`")
+            }
+            (VerdictWord::NotOurs, Some(sentence)) => WatchVerdict::NotOurs { sentence, parts: written.parts },
+            (VerdictWord::NotOurs, None) => {
+                return Err("`not_ours` carries a `sentence` saying why, and the `parts` to set aside")
+            }
+        };
+        Ok(WeighWatch { session_id: written.session_id, watch: written.watch, verdict })
+    }
+}
+
+impl From<WeighWatch> for WeighAsWritten {
+    fn from(weigh: WeighWatch) -> WeighAsWritten {
+        let (verdict, sentence, parts) = match weigh.verdict {
+            WatchVerdict::Ours => (VerdictWord::Ours, None, Vec::new()),
+            WatchVerdict::NotOurs { sentence, parts } => (VerdictWord::NotOurs, Some(sentence), parts),
+        };
+        WeighAsWritten { session_id: weigh.session_id, watch: weigh.watch, verdict, sentence, parts }
+    }
+}
+
+/// `stop_watch`. `POST /watches/stop`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct StopWatch {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<SessionId>,
+    pub watch: String,
+}
+
+/// The line as a command prints it. Unknown fields are ignored, so a script may carry its own.
+#[derive(Deserialize)]
+struct Line {
+    state: String,
+    finished: bool,
+    says: String,
+    #[serde(default)]
+    link: Option<String>,
+    #[serde(default)]
+    parts: Vec<LinePart>,
+}
+
+#[derive(Deserialize)]
+struct LinePart {
+    name: String,
+    state: String,
+}
+
+const STATES: &str = "`waiting`, `running`, `passed` or `failed`";
+
+/// A command's whole standard output, read for its last line. **Anything but one line Fleet
+/// understands is a broken reading**, and `why` says which rule it broke.
+pub fn read_watch_line(stdout: &str) -> Result<core_model::Reading, core_model::BrokenReading> {
+    let broken = |why: String| core_model::BrokenReading { why };
+    let last = stdout
+        .lines()
+        .map(str::trim)
+        .rfind(|line| !line.is_empty())
+        .ok_or_else(|| broken(String::from("It printed nothing.")))?;
+    let line: Line = crate::decode("watch line", last.as_bytes())
+        .map_err(|why| broken(format!("Its last line is {why}.")))?;
+    let state = |word: &str, of: &str| {
+        core_model::ReadingState::from_wire(word)
+            .ok_or_else(|| broken(format!("{of} is `{word}`, where it is one of {STATES}.")))
+    };
+    let overall = state(&line.state, "`state`")?;
+    if line.says.trim().is_empty() {
+        return Err(broken(String::from("`says` is blank, where it is one sentence.")));
+    }
+    let mut parts = Vec::with_capacity(line.parts.len());
+    for (n, part) in line.parts.into_iter().enumerate() {
+        if part.name.trim().is_empty() {
+            return Err(broken(format!("`parts[{n}].name` is blank.")));
+        }
+        let read = state(&part.state, &format!("`parts[{n}].state`"))?;
+        parts.push(core_model::Part { name: part.name, state: read });
+    }
+    Ok(core_model::Reading {
+        state: overall,
+        finished: line.finished,
+        says: line.says,
+        link: line.link.filter(|link| !link.trim().is_empty()),
+        parts,
+    })
+}
+
+impl From<core_model::ReadingState> for WatchReadingState {
+    fn from(state: core_model::ReadingState) -> WatchReadingState {
+        match state {
+            core_model::ReadingState::Waiting => WatchReadingState::Waiting,
+            core_model::ReadingState::Running => WatchReadingState::Running,
+            core_model::ReadingState::Passed => WatchReadingState::Passed,
+            core_model::ReadingState::Failed => WatchReadingState::Failed,
+        }
+    }
+}
+
+impl From<core_model::WatchState> for WatchState {
+    fn from(state: core_model::WatchState) -> WatchState {
+        match state {
+            core_model::WatchState::Waiting => WatchState::Waiting,
+            core_model::WatchState::Running => WatchState::Running,
+            core_model::WatchState::Passed => WatchState::Passed,
+            core_model::WatchState::Failed => WatchState::Failed,
+            core_model::WatchState::GaveUp => WatchState::GaveUp,
+            core_model::WatchState::Broken => WatchState::Broken,
+            core_model::WatchState::Stopped => WatchState::Stopped,
+        }
+    }
+}

@@ -1,0 +1,16 @@
+[operations.weigh_watch]
+kind = "command"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Say whether a failed watch reading is your change's doing, after Fleet told you a watch failed and you read what you needed. Body: watch (its id), verdict ours or not_ours. ours ends the watch failed: fix the change, and start a new watch on the redeploy. not_ours carries sentence (why it is not yours, which the person reads beside the reading) and parts (the failed parts to set aside, as the reading named them); those parts stop counting and a change in them wakes nobody, and the watch carries on. A part the watch never reported is refused"
+notes = """
+`POST /watches/weigh`, body `WeighWatch`: `watch`, `verdict` (`ours` or `not_ours`), and for `not_ours` a `sentence` and `parts`, flat; an optional `session_id`. `ours` with a `sentence` or `parts`, `not_ours` with no `sentence`, or a key the body has no name for is refused as the body is read, 400. Answers 200 with the `WatchSummary` as it stands after.
+
+**`not_ours` sets its parts aside**, a part already set aside taking the new sentence, and the watch is counted again from its last reading, so one whose every counted part has passed on a `finished` reading ends `passed` at the weighing. A part no reading of this watch has carried is a 422 `fleet.watch_part_unreported` naming it; `not_ours` with no parts or a blank sentence is a 422 `fleet.watch_refused`.
+
+**`ours` ends a failed watch `failed`.** On a watch that is not `failed` it is a 409 `fleet.watch_not_failed`. Any verdict on a watch that has ended is a 409 `fleet.watch_ended`.
+
+**Whose watch.** A Job the connection or `session_id` places weighs its own watches only; another Job's id is a 404 `fleet.no_such_watch`, as an id nothing holds is. A caller placing no Job weighs any.
+
+`agent_access` is `Yes`: the weighing needs the diff, and the agent holds it.
+"""
