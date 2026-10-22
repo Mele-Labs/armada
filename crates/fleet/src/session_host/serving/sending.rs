@@ -162,8 +162,14 @@ where
         if matches!(written, Written::Message(SessionVoice::You)) {
             self.reading_begun(&session, &hosting, &text);
         }
+        // Read against the thread before the answer's own row is put in it.
+        let handing_on = matches!(written, Written::Message(SessionVoice::You))
+            && self.handoff_answered_later(&id, &text).await;
         let row = self.written_row(&id, &written, &text, &kept.files, &sent.mentions);
         self.row_put(&id, row).await;
+        if handing_on {
+            return self.published_hosted(&id).await;
+        }
         if matches!(written, Written::Message(SessionVoice::You)) {
             self.noted_on_the_ledger(&session, &text).await?;
             self.issues_named(&id, &text, &sent.mentions).await;

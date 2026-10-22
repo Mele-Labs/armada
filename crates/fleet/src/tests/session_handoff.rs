@@ -613,3 +613,77 @@ async fn set_to_carry_on_automatically_the_job_is_asked_its_brief_and_handed_on_
     assert_eq!(others(&rig, &old).await.len(), 1, "handed on once");
     assert_eq!(live(&all_of(&rig).await), 1);
 }
+
+/// Bridge's answer to a question kept for a walk: the person's message, a line a question
+/// (`lapsedAnswerText`, `packages/screens/src/sessions-wire.ts`).
+fn answered_later(question: &str, label: &str) -> String {
+    format!("Answering your earlier question \"{question}\": {label}")
+}
+
+const KEPT_ASK: &str = r#"{"tool_name":"AskUserQuestion","tool_use_id":"toolu_k","input":{"questions":[
+  {"question":"Carry on in a new Job?","header":"Context","multiSelect":false,
+   "options":[{"label":"Carry on in a new Job","description":"The fix is on branch fix/reader. The lint run is open."},
+              {"label":"Stay here","description":""},
+              {"label":"Stay, don't ask again this Job","description":""}]}]}}"#;
+
+/// The Job asks while the owner walks a page: the question is refused and kept for Needs you.
+async fn kept_for_a_walk(rig: &Rig, id: &SessionId) {
+    let shown = ipc::ShowWindow {
+        url: "http://localhost:5173/one".into(),
+        title: None,
+        session_id: Some(id.clone()),
+        variations: Vec::new(),
+        ..Default::default()
+    };
+    rig.fleet.show_window(None, shown).await.expect("shown");
+    let decided = rig.fleet.session_permission(id.as_str(), asking(KEPT_ASK)).await.expect("decided");
+    assert!(matches!(decided, RunOrNot::Deny { .. }), "kept, not held: {decided:?}");
+}
+
+#[tokio::test]
+async fn carry_on_answered_from_needs_you_after_a_walk_starts_the_successor_with_the_brief() {
+    let rig = rig(None);
+    let (old, _) = rig.an_agent_that_has_spoken().await;
+    holding_a_pull_request(&rig, &old).await;
+    kept_for_a_walk(&rig, &old).await;
+
+    rig.send(&old, &answered_later("Carry on in a new Job?", HANDOFF_YES)).await;
+
+    eventually(|| async { rig.record(&old).await.state == SessionState::Ended }).await;
+    eventually(|| async { standing(&rig.record(&old).await, "handoff_starting").is_empty() }).await;
+    let made = others(&rig, &old).await;
+    assert_eq!(made.len(), 1, "one successor");
+    assert_eq!(live(&all_of(&rig).await), 1, "exactly one live job");
+    assert_eq!(standing(&made[0], "pr"), vec!["2430"], "the ledger moved");
+    let told = start_of(&rig, &made[0].id).await.note.expect("a note");
+    assert!(told.contains("The fix is on branch fix/reader. The lint run is open."), "the kept card's brief: {told}");
+}
+
+#[tokio::test]
+async fn do_not_ask_again_answered_from_needs_you_after_a_walk_is_kept() {
+    let rig = rig(None);
+    let (quiet, _) = rig.an_agent_that_has_spoken().await;
+    kept_for_a_walk(&rig, &quiet).await;
+    rig.send(&quiet, &answered_later("Carry on in a new Job?", ipc::HANDOFF_QUIET)).await;
+    let record = rig.record(&quiet).await;
+    assert!(kind(&record, "handoff_quiet").is_some(), "the owner's answer is a fact on the Job's ledger");
+    assert_eq!(record.state, SessionState::Live);
+}
+
+#[tokio::test]
+async fn stay_answered_from_needs_you_after_a_walk_starts_nothing_and_is_not_answered_twice() {
+    let rig = rig(None);
+    let (stay, _) = rig.an_agent_that_has_spoken().await;
+    kept_for_a_walk(&rig, &stay).await;
+    rig.send(&stay, &answered_later("Carry on in a new Job?", HANDOFF_STAY)).await;
+    tokio::time::sleep(Duration::from_millis(50)).await;
+    let record = rig.record(&stay).await;
+    assert_eq!(record.state, SessionState::Live, "staying ends nothing");
+    assert!(kind(&record, "handoff_quiet").is_none() && kind(&record, "replaced_by").is_none());
+    assert_eq!(live(&all_of(&rig).await), 1, "nothing started");
+
+    // The words alone, with no kept question behind them, start nothing.
+    rig.send(&stay, &answered_later("Carry on in a new Job?", HANDOFF_YES)).await;
+    tokio::time::sleep(Duration::from_millis(50)).await;
+    assert_eq!(rig.record(&stay).await.state, SessionState::Live, "a question answered once is not answered again");
+}

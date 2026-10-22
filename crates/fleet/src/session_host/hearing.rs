@@ -449,9 +449,16 @@ where
 
     /// The turn that held a write is over: end the process and resume the
     /// session with the slot as its directory, then tell it where it is.
+    /// **What was written to the old process and not started goes to the new one after**, as Fleet's
+    /// notices told while the write was held: `let_go` clears them with the process.
     pub(super) async fn moved_into(self: &Arc<Self>, id: &str, moving: Move) {
         let runtime = self.hosts().of(id);
-        Self::let_go(&mut runtime.state());
+        let unstarted = {
+            let mut state = runtime.state();
+            let unstarted = std::mem::take(&mut state.unstarted);
+            Self::let_go(&mut state);
+            unstarted
+        };
         let Ok((_, hosting)) = self.session_and_hosting(id).await else {
             return;
         };
@@ -468,6 +475,9 @@ where
                 let mut state = runtime.state();
                 state.turn = SessionTurn::Working { woken_by: None };
                 state.send_turn(line);
+                for line in unstarted {
+                    state.send_turn(line);
+                }
             }
             (started, _) => {
                 runtime.state().turn = SessionTurn::Idle;

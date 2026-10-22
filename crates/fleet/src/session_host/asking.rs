@@ -279,7 +279,7 @@ where
         // ends the process the call came from, and the call with it. His other two answers are kept on
         // the Job's ledger, read off this card and never off what the agent says.
         match handoff {
-            HandoffAnswer::Yes => decided = self.handed_on(id, Self::handoff_brief(&asking)).await,
+            HandoffAnswer::Yes => decided = self.handed_on(id, Self::handoff_brief(&asking.questions())).await,
             HandoffAnswer::Quiet => self.handoff_quieted(id).await,
             HandoffAnswer::Remind => {
                 if let Some(figure) = self.handoff_remind_asked(id, &hosting.manifest_id).await {
