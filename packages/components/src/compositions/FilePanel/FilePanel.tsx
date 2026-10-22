@@ -7,6 +7,7 @@ import { KbdBinding } from "../../primitives/Kbd/Kbd";
 import { Sheet } from "../../primitives/Sheet/Sheet";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { CodeEditor } from "./CodeEditor";
+import { MarkdownPreview } from "./MarkdownPreview";
 
 /**
  * Any file, open in the side panel: text in a code editor where it is edited and saved, a picture just shown.
@@ -171,6 +172,7 @@ export function FilePanel({ onClose, floor = false, back, onOpenInEditor, onShow
   const [previewing, setPreviewing] = useState(false);
   const preview = isMarkdown(name, file.type) ? { on: previewing, toggle: () => setPreviewing((was) => !was) } : undefined;
   return (
+    <>
     <Sheet
       kind="side-panel"
       open
@@ -193,6 +195,12 @@ export function FilePanel({ onClose, floor = false, back, onOpenInEditor, onShow
     >
       <FileBody {...file} />
     </Sheet>
+    {preview?.on !== true ? null : (
+      <Sheet kind="file-preview" beside="side-panel" open floating floor={floor} title="Preview" size="panel" closeLabel="Close" closeBinding="Esc" onClose={preview.toggle}>
+        <MarkdownPreview text={file.text ?? ""} />
+      </Sheet>
+    )}
+    </>
   );
 }
 

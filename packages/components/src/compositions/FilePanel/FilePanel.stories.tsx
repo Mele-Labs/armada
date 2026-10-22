@@ -1,6 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fn } from "storybook/test";
+import { useState } from "react";
+import { expect, fn, waitFor, within } from "storybook/test";
 
+import { typeIntoEditor } from "./CodeEditor";
 import { FilePanel } from "./FilePanel";
 
 /**
@@ -107,5 +109,27 @@ export const JsonOffersNoPreview: Story = {
   args: { text: SETTINGS },
   play: async ({ canvas }) => {
     await expect(canvas.queryByRole("button", { name: "Preview" })).toBeNull();
+  },
+};
+
+/**
+ * **Preview opens the rendered file in a floating panel beside it, and follows the edit.** Pressing it again closes it. Typed
+ * text is in the preview as it is typed, with nothing to save first.
+ */
+export const PreviewBesideTheFile: Story = {
+  args: { name: "notes.md", path: "/Users/user/Development/armada/docs/notes.md", type: "text/markdown", text: "# Notes\n\nA line.\n" },
+  render: (args) => {
+    const [text, setText] = useState(args.text ?? "");
+    return <FilePanel {...args} text={text} dirty={text !== args.text} onChange={setText} />;
+  },
+  play: async ({ canvas, userEvent }) => {
+    await userEvent.click(canvas.getByRole("button", { name: "Preview" }));
+    const preview = canvas.getByRole("dialog", { name: "Preview" });
+    await expect(within(preview).getByText("Notes")).toBeVisible();
+    await expect(canvas.getByRole("button", { name: "Preview" })).toHaveAttribute("aria-pressed", "true");
+    typeIntoEditor(canvas.getByRole("group", { name: "Editor notes.md" }), "@3  Extra");
+    await waitFor(() => expect(within(preview).getByText("A line. Extra")).toBeVisible());
+    await userEvent.click(canvas.getByRole("button", { name: "Preview" }));
+    await expect(canvas.queryByRole("dialog", { name: "Preview" })).toBeNull();
   },
 };

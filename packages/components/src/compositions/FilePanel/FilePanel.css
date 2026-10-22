@@ -125,3 +125,11 @@
   gap: var(--space-3);
   min-width: 0;
 }
+
+/* The rendered file scrolls on its own, so the scroll lock can set where it is. */
+.armada-markdown-preview {
+  height: 100%;
+  min-width: 0;
+  overflow-y: auto;
+  padding: var(--space-3);
+}
