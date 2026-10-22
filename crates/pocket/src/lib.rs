@@ -11,6 +11,7 @@
 mod admin;
 mod fleet_client;
 mod fleet_events;
+mod forward;
 mod live;
 mod pair_routes;
 mod pairing;
@@ -50,3 +51,5 @@ mod push_tests;
 mod session_tests;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod thread_tests;
