@@ -662,3 +662,23 @@ export const ACopyActWithALabel: Story = {
     }
   },
 };
+
+/**
+ * **With `lines`, each top-level block says which line of the text it starts on**, so a view beside the source can scroll
+ * to the block a line is in. A list is one block, started on its first item's line.
+ */
+export const StartsOnItsLine: Story = {
+  args: { text: "a\n\n# b\n\n- one\n- two\n\n```sh\nls\n```", lines: true },
+  play: async ({ canvasElement }) => {
+    const starts = [...canvasElement.querySelectorAll("[data-line]")].map((block) => block.getAttribute("data-line"));
+    await expect(starts).toEqual(["1", "3", "5", "8"]);
+  },
+};
+
+/** Without `lines` nothing is marked: every other Prose is drawn as it was. */
+export const NoLinesByDefault: Story = {
+  args: { text: "a\n\n# b" },
+  play: async ({ canvasElement }) => {
+    await expect(canvasElement.querySelectorAll("[data-line]")).toHaveLength(0);
+  },
+};

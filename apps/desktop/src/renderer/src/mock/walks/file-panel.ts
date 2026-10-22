@@ -1,5 +1,6 @@
 // Any file opens in the side panel's code editor, where it is edited and saved: settings.json from Settings, a file a
-// Session's agent showed, and whatever ⌘O picks. A save that finds the file changed on disk asks which stands.
+// Session's agent showed, and whatever ⌘O picks. A save that finds the file changed on disk asks which stands. A markdown file
+// offers Preview, a rendered view beside it that follows the edit.
 // Over the `file-panel` scenario.
 
 import { button, dialog, inside, place, region, role, text, toSystemPage, walk } from "../walk";
@@ -34,6 +35,11 @@ function steps(): Step[] {
     { press: inside(region("Jobs", { exact: true }), button("Store clock notes")), say: "A Session whose agent showed a file" },
     { press: inside(region("Thread"), button("Opened store-clock.md")), say: "Its row in the thread" },
     { look: editor("store-clock.md"), say: "The panel opens on it, in the editor" },
+    { press: inside(dialog("store-clock.md"), button("Preview")), say: "A markdown file offers Preview" },
+    { look: inside(dialog("Preview"), role("region", "Rendered markdown")), say: "It opens beside the file, drawn as markdown" },
+    { type: "@3  Typed here", into: editor("store-clock.md"), say: "A few words typed in the file" },
+    { look: inside(dialog("Preview"), text("Typed here")), say: "They are in the preview as they are typed" },
+    { press: inside(dialog("store-clock.md"), button("Preview")), say: "Preview again" },
   ];
 }
 
