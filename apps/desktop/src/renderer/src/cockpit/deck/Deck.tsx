@@ -35,7 +35,6 @@ import { Timeline } from "../Timeline";
 import type { CockpitProps } from "./props";
 import { useShipActs } from "./acts";
 import { Bays } from "./BayRows";
-import { BuildColumn } from "./BuildColumn";
 import { chipPreview } from "./chip-card";
 import { SubjectCard } from "./inspect-cards";
 import { glyphOf, wordOf, type BuildIn } from "./build";
@@ -1054,9 +1053,7 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
   const { columns, resize, reset } = useColumns(grid, layout);
   const splits = useSplits(grid, layout);
   useActivityBeside(grid, layout);
-  // While a Session that has built something is open, its ring stands above the ledger, where the Bays are otherwise.
   const builds = useBuilds(props.now);
-  const building = reading && selected !== undefined ? builds.get(selected) : undefined;
   return (
     <ClashesOpenHere ship={ship}>
     {/* A replay plays on while the deck is drawn, from the events Bridge holds, and takes its own keys while it is up. */}
@@ -1085,10 +1082,7 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
           {unified ? (
             <div className="sv-side" ref={setSideHost} />
           ) : reading ? (
-            <>
-              {building === undefined ? null : <BuildColumn key={building.key} build={building} />}
-              <LedgerPanel host={setLedgerHost} />
-            </>
+            <LedgerPanel host={setLedgerHost} />
           ) : <BaysPanel props={props} ship={ship} picked={sel?.kind === "session" ? selected : undefined} />}
           {unified ? null : <Activity props={props} listed={listed} ship={ship} />}
         </div>

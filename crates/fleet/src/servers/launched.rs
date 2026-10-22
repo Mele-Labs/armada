@@ -27,6 +27,8 @@ pub(crate) struct Launch {
     pub(crate) ports: Vec<ServerPort>,
     pub(crate) links: Vec<ServerLink>,
     pub(crate) by: StartedBy,
+    /// The Session whose agent asked for it, where one did.
+    pub(crate) session: Option<String>,
     /// How a record left behind by a crashed Fleet says whose server this was.
     pub(crate) whose: String,
     pub(crate) run: Option<String>,
@@ -62,6 +64,7 @@ where
             ports,
             links,
             by,
+            session,
             whose,
             run,
             serve,
@@ -98,6 +101,7 @@ where
             ports,
             links,
             started_by: by,
+            session_id: session.as_deref().map(ipc::SessionId::carried),
             started_at: ipc::Instant::from(&self.now()),
             serving_since: None,
             ended_at: None,

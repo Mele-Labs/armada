@@ -59,6 +59,8 @@ export type ServerState = {
   links: ServerLink[];
   /** `person` or `drone`. */
   started_by: string;
+  /** The session whose agent started it, placed by the connection it called on. Absent for one a person started. */
+  session_id?: string;
   started_at: string;
   /** Uptime counts from here; nothing ticks on the wire. */
   serving_since?: string;

@@ -21,10 +21,10 @@ const OWNER = repository().manifest!.id;
 const ROOT = repository().root;
 
 /** The Jobs the walks belong to. */
-export const BACKOFF = "wq-backoff";
-export const CLOCK = "wq-clock";
-export const FOLD = "wq-fold";
-export const DRAFT = "wq-draft";
+const BACKOFF = "wq-backoff";
+const CLOCK = "wq-clock";
+const FOLD = "wq-fold";
+const DRAFT = "wq-draft";
 
 const you = (id: string, at: string, text: string): SessionRow => ({ id, at, kind: "message", from: { kind: "you" }, text });
 const agent = (id: string, at: string, text: string): SessionRow => ({ id, at, kind: "message", from: { kind: "agent" }, text });

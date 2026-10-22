@@ -17,7 +17,14 @@ test("Waiting on you: row hand, the band opens, page item opens the window, the 
   await expect.element(list.getByRole("img", { name: /^Waiting on you/ })).toBeVisible();
   await toSession(/Pin the store clock/);
 
-  await expect.element(page.getByRole("region", { name: "Attachments" }).getByRole("region", { name: "Waiting on you" })).not.toBeInTheDocument();
+  // What waits on him is in the Needs you panel, and Artifacts holds none of it.
+  await userEvent.click(page.getByRole("region", { name: "Flight controls" }).getByRole("button", { name: "Artifacts", exact: true }));
+  const artifacts = page.getByRole("region", { name: "Artifacts", exact: true });
+  await expect.element(artifacts).toBeVisible();
+  await expect.element(artifacts.getByRole("region", { name: "Waiting on you" })).not.toBeInTheDocument();
+  await expect.element(artifacts.getByRole("button", { name: "Which clock?" })).not.toBeInTheDocument();
+  await userEvent.click(artifacts.getByRole("button", { name: "Back" }));
+  await expect.element(artifacts).not.toBeInTheDocument();
   const band = page.getByRole("region", { name: "Needs you" });
   // The question arrives with the panel open to the list, and is its first row.
   await expect.element(band.getByRole("button", { name: "Open Which clock?" })).toBeVisible();

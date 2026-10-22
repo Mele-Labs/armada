@@ -61,7 +61,11 @@ pub(crate) async fn start_server<D: Commands>(
         Ok(asked) => asked,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
-    match served.shared().start_server(asked, scope.manifest()).await {
+    match served
+        .shared()
+        .start_server(crate::acting::asking(), asked, scope.manifest())
+        .await
+    {
         Ok(state) => answer(StatusCode::ACCEPTED, &state, served.run_id()),
         Err(refusal) => refused(refusal),
     }

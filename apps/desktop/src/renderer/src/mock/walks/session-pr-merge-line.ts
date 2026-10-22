@@ -1,6 +1,6 @@
 // A Session's pull request panel shows the line the pull request is in: the pull requests in the
 // merge queue in order, each opening its own address, this one marked and its place the leading
-// figure, on a plate beside the panel. #1849, in no queue, draws nothing. Over the `session-merge-line-work` scenario. Told twice:
+// figure, on a plate beside the panel. #1849, in no queue, draws nothing. Over the `session-merge-line` scenario. Told twice:
 // wide, and below the breakpoint.
 
 import { kit, NARROW, toSessions } from "../sessions/walk-kit";
@@ -30,7 +30,7 @@ function steps(narrow: boolean): Step[] {
   ];
 }
 
-const wide = walk("session-merge-line-work", [toSessions, ...steps(false)]);
-const narrow = walk("session-merge-line-work", [toSessions, ...steps(true)], NARROW);
+const wide = walk("session-merge-line", [toSessions, ...steps(false)]);
+const narrow = walk("session-merge-line", [toSessions, ...steps(true)], NARROW);
 
 export { wide as "session-pr-merge-line", narrow as "session-pr-merge-line-narrow" };

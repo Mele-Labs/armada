@@ -1,4 +1,4 @@
-// A Session's window, through `App`: a Session that shows a page opens it by itself, the ledger row
+// A Session's window, through `App`: a Session that shows a page opens it by itself, its row in the Artifacts layer
 // opens it again once it is closed, and a note taken in it reaches the Session as a message from you.
 // The walk `session-walk-window` draws it; this holds that the presses reach the same code.
 
@@ -9,9 +9,11 @@ import { mount, onScreen, toSession, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
+const openArtifacts = () => userEvent.click(page.getByRole("region", { name: "Flight controls" }).getByRole("button", { name: "Artifacts", exact: true }));
+
 const window = () => page.getByRole("dialog", { name: "Bridge's window on Store clock findings" });
 
-test("Session window: opens by itself, reopens from the ledger row, and a note goes to the Session", async () => {
+test("Session window: opens by itself, reopens from its Artifacts row, and a note goes to the Session", async () => {
   mount("session-walk-window");
   await onScreen();
   await toSession("Store clock findings");
@@ -20,13 +22,18 @@ test("Session window: opens by itself, reopens from the ledger row, and a note g
   await userEvent.fill(page.getByRole("textbox", { name: "Message" }), "Show me what you found");
   await userEvent.keyboard("{Enter}");
   await expect.element(window()).toBeVisible();
-  const ledger = page.getByRole("region", { name: "Attachments" });
-  await expect.element(ledger.getByRole("img", { name: "Shown in a window" })).toBeVisible();
+  const artifacts = page.getByRole("region", { name: "Artifacts", exact: true });
+  const pages = artifacts.getByRole("region", { name: "Pages", exact: true });
+  await openArtifacts();
+  await expect.element(pages.getByRole("button", { name: "Clock read report", exact: true }).getByRole("img", { name: "Shown in a window" })).toBeVisible();
+  await userEvent.click(artifacts.getByRole("button", { name: "Back" }));
   await expect.element(page.getByRole("region", { name: "Thread" }).getByRole("button", { name: "Open window Clock read report" })).toBeVisible();
 
   await userEvent.click(page.getByRole("button", { name: "Close window" }));
   await expect.element(window()).not.toBeInTheDocument();
-  await userEvent.click(ledger.getByRole("button", { name: "Open Shown in a window Clock read report" }));
+  await openArtifacts();
+  await userEvent.click(pages.getByRole("button", { name: "Clock read report", exact: true }));
+  await userEvent.click(artifacts.getByRole("button", { name: "Back" }));
   await expect.element(window()).toBeVisible();
   // The bar names the page by its own title and the Session by its own name, which opens it.
   await expect.element(window().getByText("Clock read report", { exact: true })).toBeVisible();

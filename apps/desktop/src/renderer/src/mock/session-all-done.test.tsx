@@ -1,4 +1,4 @@
-// What a Session's done callout lists, and the marks a pull request row carries there and in the ledger,
+// What a Session's done callout lists, and the marks a pull request row carries there and in the Artifacts layer,
 // through `App`. The walks `session-all-done` and `session-all-done-artifacts` draw them; this holds
 // the order, the marks and the left-out rows. The spin itself is not asserted: the browser project runs
 // with reduced motion, so a running mark is held by its glyph and its `data-checks`.
@@ -101,30 +101,32 @@ test("with neither the callout has no list at all", async () => {
   expect(callout.element().querySelector("ul")).toBeNull();
 });
 
-test("the ledger's pull request rows show their state and checks marks without a hover", async () => {
-  // A merged row is finished, and the ledger draws it under All only.
-  localStorage.removeItem("armada.session-ledger.show.pull_request");
+/** The Artifacts layer, opened from its key in Flight control. */
+async function artifacts() {
+  await userEvent.click(page.getByRole("region", { name: "Flight controls" }).getByRole("button", { name: "Artifacts", exact: true }));
+  return page.getByRole("region", { name: "Artifacts", exact: true });
+}
+
+test("the Artifacts layer's pull request rows show their state and checks marks without a hover", async () => {
   await show(holding([pr(1, "merged", { state: "passed" }), pr(2, "open", { state: "pending" }), pr(3, "open", { state: "failed", failing: "lint" })]));
-  const section = page.getByRole("region", { name: "Attachments" }).getByRole("region", { name: "Pull requests" });
-  const rows = section.getByRole("listitem");
-  await expect.element(rows.nth(1)).toBeVisible();
-  expect(names(rows.elements())).toEqual(["Pull request #2, checks pending", "Pull request #3, checks failed"]);
+  const section = (await artifacts()).getByRole("region", { name: "Pull requests", exact: true });
+  const rows = section.getByRole("button");
+  // A merged row is listed beside the open ones, newest first.
+  await expect.element(rows.nth(2)).toBeVisible();
+  expect(names(rows.elements())).toEqual(["#3 Change 3", "#2 Change 2", "#1 Change 1"]);
 
   await expect.element(rows.nth(0).getByRole("img", { name: "Open" })).toBeVisible();
-  const running = rows.nth(0).getByRole("img", { name: "Checks running" });
+  await expect.element(rows.nth(0).getByRole("img", { name: "Checks failed: lint" })).toBeVisible();
+  await expect.element(rows.nth(1).getByRole("img", { name: "Open" })).toBeVisible();
+  const running = rows.nth(1).getByRole("img", { name: "Checks running" });
   await expect.element(running).toBeVisible();
   expect(running.element().getAttribute("data-checks")).toBe("running");
   expect(running.element().querySelector("svg")?.classList.contains("lucide-loader-circle")).toBe(true);
-  await expect.element(rows.nth(1).getByRole("img", { name: "Checks failed: lint" })).toBeVisible();
-
-  await userEvent.click(section.getByRole("radio", { name: "All" }));
-  await expect.element(rows.nth(2)).toBeVisible();
-  await expect.element(rows.nth(0).getByRole("img", { name: "Merged" })).toBeVisible();
-  await expect.element(rows.nth(0).getByRole("img", { name: "Checks passed" })).toBeVisible();
-  localStorage.removeItem("armada.session-ledger.show.pull_request");
+  await expect.element(rows.nth(2).getByRole("img", { name: "Merged" })).toBeVisible();
+  await expect.element(rows.nth(2).getByRole("img", { name: "Checks passed" })).toBeVisible();
 });
 
-test("a done Session with something waiting keeps it in the Needs you band, draws no end band, and the ledger draws no Waiting on you section", async () => {
+test("a done Session with something waiting keeps it in the Needs you band, draws no end band, and Artifacts holds no waiting item", async () => {
   const since = new Date().toISOString();
   mount(holding([pr(5, "open", { state: "passed" })], [{ id: "w1", text: "Approve #5", since, source: "agent", act: { kind: "approve_pr", target: "5" } }]));
   await onScreen();
@@ -134,8 +136,8 @@ test("a done Session with something waiting keeps it in the Needs you band, draw
   await userEvent.click(band.getByRole("button", { name: /Needs you/ }));
   await expect.element(band.getByRole("button", { name: "Open Approve #5" })).toBeVisible();
   await expect.element(page.getByRole("region", { name: "Nothing left to do" })).not.toBeInTheDocument();
-  const ledger = page.getByRole("region", { name: "Attachments" });
-  await expect.element(ledger.getByRole("region", { name: "Pull requests" })).toBeVisible();
-  await expect.element(ledger.getByRole("region", { name: "Waiting on you" })).not.toBeInTheDocument();
-  await expect.element(ledger.getByRole("button", { name: "Open Approve #5" })).not.toBeInTheDocument();
+  const layer = await artifacts();
+  await expect.element(layer.getByRole("region", { name: "Pull requests", exact: true })).toBeVisible();
+  await expect.element(layer.getByRole("region", { name: "Waiting on you" })).not.toBeInTheDocument();
+  await expect.element(layer.getByRole("button", { name: "Approve #5" })).not.toBeInTheDocument();
 });

@@ -79,8 +79,7 @@ test("Pressing Fork asks Fleet to fork that Session and opens the new one, linke
   await userEvent.click(fork());
 
   await expect.poll(() => fleet.calls.forked).toEqual([ENDED]);
-  const ledger = page.getByRole("region", { name: "Attachments" });
-  await expect.element(ledger.getByText("Forked from One that ended")).toBeVisible();
+  await expect.element(page.getByRole("group", { name: "Forked from One that ended" })).toBeVisible();
   // The new Session is live: it takes a message, and offers no Fork.
   await expect.element(message()).toBeVisible();
   await menu();
@@ -101,7 +100,9 @@ test("Fork: the thread opens on one closed row holding the old conversation, rea
 
   const folded = page.getByRole("group", { name: "Forked from A terminal gone quiet" });
   await expect.element(folded).toBeVisible();
-  await expect.element(page.getByText("It splits on newlines.")).not.toBeVisible();
+  // The Cockpit's row for the Session says its last words too, so the old conversation is read in the fold.
+  const said = folded.getByText("It splits on newlines.");
+  await expect.element(said).not.toBeVisible();
   await userEvent.click(page.getByRole("button", { name: "Forked from A terminal gone quiet", exact: true }));
-  await expect.element(page.getByText("It splits on newlines.")).toBeVisible();
+  await expect.element(said).toBeVisible();
 });
