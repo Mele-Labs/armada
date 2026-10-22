@@ -147,7 +147,7 @@ pub enum Opened {
 /// answer: a merge Fleet did not perform is only ever knowable by asking.
 ///
 /// **Fleet may merge, and what stays a person's is the decision** —
-/// [`Delivery::merge`] is the act a person pressed for. This is the other way a
+/// [`Forge::merge`](crate::Forge::merge) is the act a person pressed for. This is the other way a
 /// pull request settles, and there is no third: either Armada did it and knows,
 /// or somebody did it on the forge and Armada finds out on a sweep.
 ///
@@ -219,7 +219,7 @@ pub struct WhatBecameOfIt {
     /// Its title, as the forge holds it right now.
     ///
     /// **Not the title Armada opened it with.** `Review::title` is what
-    /// [`Delivery::open_for_review`] sent; a person may have edited the pull
+    /// [`Forge::open_for_review`](crate::Forge::open_for_review) sent; a person may have edited the pull
     /// request's own title since, and this is a later read of the same forge
     /// answering about the same address. `None` on [`Landing::Unknown`], for
     /// [`number`](WhatBecameOfIt::number)'s reason.

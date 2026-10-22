@@ -39,7 +39,7 @@ const REDUCTION: &str = "\
 
 /// Ask the forge for every inline comment on one pull request.
 ///
-/// **`None` on any failure**, [`adapter_traits::Delivery::inline_remarks`]'s
+/// **`None` on any failure**, [`adapter_traits::Forge::inline_remarks`]'s
 /// rule: no tool, not signed in, a pull request whose address does not carry a
 /// number, a forge that would not answer. None of them is told apart from the
 /// others, and none of them is an empty list, because the sweep counts an
