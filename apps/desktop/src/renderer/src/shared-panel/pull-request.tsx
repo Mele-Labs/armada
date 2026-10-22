@@ -4,7 +4,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { PullRequestPanel, forgetKept, mayWrite, repositoryOfAddress } from "@armada/components";
-import type { PullRequestComposerProps } from "@armada/components";
+import type { FilesReach, PullRequestComposerProps, ReachTest } from "@armada/components";
 import { placeOf, whyNotOpenedLink } from "@armada/screens";
 import { useAtFloor } from "@armada/shell";
 import type { PullReviewRow, PullRequestPage } from "@armada/protocol";
@@ -111,6 +111,17 @@ function Drawn({ item, reading }: { item: Item; reading: Reading<PullRequestRead
       .catch((): PatchesRead => ({ ok: false, said: PATCHES_NOT_READ }))
       .then((answer) => here.current && setPatches(answer));
   }, [tab, paged, patches, readPatches, item]);
+
+  // The tests that reach each changed file, read the same time. Nothing back, or no read at all, draws no marks.
+  const [reach, setReach] = useState<FilesReach | "reading" | undefined>(undefined);
+  const readReach = reads.testsReaching;
+  useEffect(() => {
+    if (tab !== "files" || !paged || reach !== undefined || readReach === undefined) return;
+    setReach("reading");
+    void readReach(item)
+      .catch((): undefined => undefined)
+      .then((answer) => here.current && setReach(answer ?? {}));
+  }, [tab, paged, reach, readReach, item]);
   const shownPatches = useMemo(() => (readPatches === undefined ? undefined : patchesOf(patches === "reading" ? undefined : patches)), [readPatches, patches]);
 
   if (read === undefined) {
@@ -210,6 +221,7 @@ function Drawn({ item, reading }: { item: Item; reading: Reading<PullRequestRead
         tab={tab}
         onTab={setTab}
         {...(shownPatches === undefined ? {} : { patches: shownPatches })}
+        {...(reach === undefined || reach === "reading" ? {} : { reach, onTest: (test: ReachTest) => void openInPanel({ kind: "file", path: read.root === undefined ? test.test : `${read.root}/${test.test}`, from: "session" }) })}
         more={{ id: "review", label: "Review", body: <ReviewTab row={rowOf(read, forge)} onOpenLink={onOpenLink} /> }}
       />
     </PrOwnersOnTheWire>

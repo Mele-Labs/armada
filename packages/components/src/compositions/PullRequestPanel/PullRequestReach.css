@@ -1,0 +1,139 @@
+/* The tests that reach a changed file: a mark at the file row's trailing end, and the tests under it when it is open. */
+
+/* A file row that carries a reach is the item and the mark side by side, with the tests wrapping under both. */
+.armada-pr-tree__row[data-reach] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.armada-pr-tree__row[data-reach] > .armada-pr-tree__item {
+  flex: 1 1 0;
+  width: auto;
+  min-width: 0;
+}
+
+.armada-pr-reach__toggle {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--fg-muted);
+  cursor: pointer;
+}
+
+.armada-pr-reach__toggle:hover,
+.armada-pr-reach__toggle[aria-expanded="true"] {
+  background: var(--bg-hover);
+}
+
+.armada-pr-reach__toggle:focus-visible,
+.armada-pr-reach__item:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.armada-pr-reach__marks {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+/* A tooltip's words, one to a line. */
+.armada-pr-reach__words {
+  display: flex;
+  flex-direction: column;
+}
+
+/* The tests, under their file and in line with its name. */
+.armada-pr-reach {
+  --reach-indent: calc(var(--space-2) + var(--space-4) + var(--space-2) + var(--depth, 0) * var(--tree-step));
+  flex-basis: 100%;
+  gap: 0;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  container-type: inline-size;
+}
+
+/* Too narrow for the test and its Check side by side: the Check goes under the test. */
+@container (max-width: 360px) {
+  .armada-pr-reach__item {
+    grid-template-columns: calc(var(--space-4) * 2 + var(--space-1)) minmax(0, 1fr);
+    row-gap: 0;
+  }
+
+  .armada-pr-reach__check {
+    grid-column: 2;
+  }
+}
+
+.armada-pr-reach[data-nested] {
+  --reach-indent: calc(var(--space-2) + var(--space-3) + var(--space-4) + var(--space-2) + var(--depth, 0) * var(--tree-step));
+}
+
+.armada-pr-reach__item {
+  display: grid;
+  grid-template-columns: calc(var(--space-4) * 2 + var(--space-1)) minmax(0, 1fr) minmax(0, max-content);
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-1) var(--space-2);
+  /* A deep file still leaves its tests most of the row. */
+  padding-inline-start: min(var(--reach-indent), 30%);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  font: inherit;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-default);
+  text-align: start;
+}
+
+button.armada-pr-reach__item {
+  cursor: pointer;
+}
+
+button.armada-pr-reach__item:hover {
+  background: var(--bg-hover);
+}
+
+/* The line for a file no test reaches has no marks column. */
+.armada-pr-reach__none > .armada-pr-reach__item {
+  display: block;
+  color: var(--fg-muted);
+}
+
+/* One line: the directories or modules give way first, then the name, each to an ellipsis. */
+.armada-pr-reach__test {
+  display: flex;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.armada-pr-reach__head {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--fg-muted);
+}
+
+.armada-pr-reach__leaf {
+  flex: 0 0 auto;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.armada-pr-reach__check {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--fg-muted);
+  white-space: nowrap;
+}

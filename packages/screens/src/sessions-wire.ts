@@ -421,7 +421,7 @@ export function rowsOfThread(sessionId: string, rows: readonly WireRow[], pictur
         out.push({ id: row.id, at, kind: "lease", slot: row.slot, branch: row.branch });
         break;
       case "check":
-        out.push({ id: row.id, at, kind: "check", name: row.name, run: row.run, state: row.state, ...(row.target === undefined ? {} : { target: row.target }) });
+        out.push({ id: row.id, at, kind: "check", name: row.name, run: row.run, state: row.state, ...(row.target === undefined ? {} : { target: row.target }), ...(row.blame === undefined ? {} : { blame: row.blame }) });
         break;
       case "ran":
         out.push({ id: row.id, at, kind: "ran", command: row.command, code: row.code ?? null, tail: row.tail });

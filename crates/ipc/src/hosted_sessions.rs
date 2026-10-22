@@ -540,6 +540,10 @@ pub enum SessionRow {
         /// What the run was narrowed to. Absent where it ran whole.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         target: Option<String>,
+        /// Where a failed run's log says it failed. Absent while running, on a pass, and where
+        /// the log names no file in the slot.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        blame: Option<crate::CheckBlame>,
     },
     /// A command the person ran from the thread or the Needs-you band, ended, and what the
     /// session was told of it. `code` is absent where the run was stopped or a signal ended it;

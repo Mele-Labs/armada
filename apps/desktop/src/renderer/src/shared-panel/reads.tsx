@@ -4,6 +4,7 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 import type { ReactNode } from "react";
+import type { FilesReach } from "@armada/components";
 import type { MergeLines, PullRequestFilePatches, PullRequestPage, RepositorySummary, WorktreeSlot } from "@armada/protocol";
 import type { PullRequestAct, SessionAttachment } from "@armada/screens/src/draft/sessions";
 
@@ -74,6 +75,12 @@ export type PanelReads = {
   pullRequest: (item: Of<"pr">) => Promise<PullRequestRead | undefined>;
   /** Every file's patch, read once the first time the Files tab is shown. Absent leaves the Files tab a list. */
   pullRequestPatches?: (item: Of<"pr">) => Promise<PatchesRead>;
+  /**
+   * The tests that reach each of a pull request's changed files, by path, read once the first time the Files tab is shown. A
+   * path the map was not asked about has no entry; nothing at all (the map holds no edge yet) draws no marks. Absent where
+   * Fleet serves none: the real window has no such read yet.
+   */
+  testsReaching?: (item: Of<"pr">) => Promise<FilesReach | undefined>;
   /** A comment or a review written on the forge. Answers the page as it stands after. */
   writePullRequest?: (item: Of<"pr">, write: { kind: "comment" | "approve" | "request_changes"; body?: string }) => Promise<{ ok: true; page: PullRequestPage } | { ok: false; said: string }>;
   /** A forge act on a pull request nobody here owns. A pull request a Job holds goes through that Job. */
