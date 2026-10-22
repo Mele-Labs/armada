@@ -34,7 +34,7 @@ import { steadyTips, type Waits } from "./tip-hover";
 import { droneTip, type DroneFacts, type GoalIn, type PadIn, type Tip } from "./tip";
 import type { Clash } from "./touches";
 import type { Glow, Stop } from "./afterglow";
-import type { Light } from "./off-floor";
+import { offFloorMarks, type Light } from "./off-floor";
 import { useCamera } from "./useCamera";
 import "./battlefield.css";
 
@@ -161,10 +161,12 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
     if (placed.length === 0) return whole;
     const plots = new Set(placed.flatMap(([key]) => (layout.over.get(key) ?? []).map(({ tile }) => tile.path)));
     const tiles = layout.territories.flatMap((one) => one.tiles).filter((tile) => plots.has(tile.path));
-    const marks = [...marksOf(tiles.map((tile) => ({ rect: tile.rect, goal: undefined })), placed.map(([, at]) => ({ at, call: false })), big, reachOf(FOOT, MARGIN, big))];
+    // Off the floor, what the drone works with is framed beside it: the pad, the file a failing check blames, the outpost it calls.
+    const off = offFloorMarks({ layout, drones: drones.filter((one) => keys.has(one.key)), lights, outposts, world });
+    const marks = [...marksOf(tiles.map((tile) => ({ rect: tile.rect, goal: undefined })), placed.map(([, at]) => ({ at, call: false })), big, reachOf(FOOT, MARGIN, big)), ...off];
     const near = homeOf(size, plane, marks);
     return { ...near, eye: Math.max(whole.eye, Math.min(near.eye, LOCK_EYE)) };
-  }, [whole, framingKey, layout, size, big, plane.width, plane.height]);
+  }, [whole, framingKey, layout, size, big, plane.width, plane.height, drones, lights, outposts, world]);
   const limits = limitsOf(size, plane, world.width, whole);
   const fit = (c: Cam): Cam => limited(plane, limits, c);
 

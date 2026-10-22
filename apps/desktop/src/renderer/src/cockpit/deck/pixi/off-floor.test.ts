@@ -3,7 +3,10 @@
 
 import { expect, test } from "vitest";
 
+import { homeOf, marksOf, projectOf, reachOf } from "../camera";
 import { frameOf } from "../frame";
+import { FOOT, MARGIN } from "../geometry";
+import { offFloorMarks } from "../off-floor";
 import { FLAT, bigOf, layoutOf, type DroneIn, type RepoIn } from "../layout";
 import type { Play } from "../plays";
 import { padOf } from "./scene";
@@ -67,4 +70,28 @@ test("a subagent is drawn smaller, lifts off the drone that sent it, and flies b
   expect(back.dock).toEqual({ id: dock.id, delay: 0, to: own.flying });
   expect(back.launch).toBeUndefined();
   expect(own.flying.y).toBeCloseTo((layout.at.get(main.key)!.y) * FLAT);
+});
+
+test("while the Job's drone is on the pad its own camera frames the pad, its lights and the file a failing check blames, and on the floor it does not", () => {
+  const docked = drone("session:a", { off: "pad", touches: [] });
+  const layout = layoutOf([REPO], [docked], world, big);
+  const lights = [{ name: "fmt", state: "ok" as const }, { name: "test", state: "bad" as const, blame: FILE }];
+  const marks = offFloorMarks({ layout, drones: [docked], lights, outposts: [], world });
+  const pad = layout.territories[0]!.pad!;
+  const bar = layout.bars.get(FILE)!;
+  expect(marks).toContainEqual({ x: pad.x, y: pad.y * FLAT, z: 0 });
+  expect(marks).toContainEqual({ x: pad.x + pad.w, y: (pad.y + pad.h + 16) * FLAT, z: 0 });
+  expect(marks).toContainEqual({ x: bar.cx, y: bar.cy * FLAT, z: 20 });
+  // The camera rested on those marks with the drone's own shows every corner of the pad.
+  const at = layout.at.get(docked.key)!;
+  const plane = { width: world.width, height: world.height * FLAT };
+  const cam = homeOf(PANE, plane, [...marksOf([], [{ at, call: false }], big, reachOf(FOOT, MARGIN, big)), ...marks]);
+  for (const x of [pad.x, pad.x + pad.w]) for (const y of [pad.y, pad.y + pad.h]) {
+    const seen = projectOf(PANE, { x, y: y * FLAT, z: 0 }, cam);
+    expect(Math.abs(seen.x)).toBeLessThanOrEqual(PANE.width / 2);
+    expect(Math.abs(seen.y)).toBeLessThanOrEqual(PANE.height / 2);
+  }
+  // Calling, the outpost; back on the floor, nothing beside the drones.
+  expect(offFloorMarks({ layout, drones: [drone("session:a", { calling: "forge" })], lights, outposts: [{ service: "forge" }], world })).toHaveLength(2);
+  expect(offFloorMarks({ layout, drones: [drone("session:a")], lights, outposts: [{ service: "forge" }], world })).toEqual([]);
 });

@@ -6,6 +6,8 @@
 import type { ServiceCall, TimelineEvent } from "@armada/protocol";
 
 import { FRESH_MS } from "./doing";
+import { FLAT, type DroneIn, type Layout, type P3, type Size } from "./layout";
+import { WINDOW_UP, outpostAt } from "./pixi/scene";
 
 /** How a check's light stands: unlit before it has started in this round, running, passed or failed. */
 export type LightState = "idle" | "run" | "ok" | "bad";
@@ -16,8 +18,11 @@ export type Light = { name: string; state: LightState; blame?: string };
 /** A check the agent ran in its slot, as the thread's row records it. */
 export type CheckRecord = { name: string; at: string; state: "running" | "passed" | "failed"; target?: string };
 
-/** How long a working turn goes with no tool call before its drone is thinking. */
-export const THINK_MS = 4_000;
+/** How long a working turn goes with no tool call before its drone is thinking: longer than the ordinary pause between two edits. */
+export const THINK_MS = 12_000;
+
+/** Whether a working turn has gone `ms` with no tool call by `now`. None recorded is no quiet spell. */
+export const quietAt = (last: number | undefined, now: number, ms: number = THINK_MS): boolean => last !== undefined && now - last >= ms;
 
 const STATE: Record<CheckRecord["state"], LightState> = { running: "run", passed: "ok", failed: "bad" };
 
@@ -168,4 +173,30 @@ export function wordOf(now: Now): string {
     case "working":
       return "Working";
   }
+}
+
+/**
+ * What an own camera frames besides the Job's drones while one is off the floor: on the pad or walking, the pad, its lights' names and the
+ * window over it, and the file a failing check's line runs to; calling, the outpost it calls. Nothing while every drone is on the floor.
+ */
+export function offFloorMarks(i: { layout: Layout; drones: readonly DroneIn[]; lights: readonly Light[] | undefined; outposts: readonly { service: string }[]; world: Size }): P3[] {
+  const marks: P3[] = [];
+  const pad = i.layout.territories.find((one) => one.pad !== undefined)?.pad;
+  const docked = i.drones.filter((one) => one.off === "pad" || one.off === "walk");
+  if (pad !== undefined && docked.length > 0) {
+    const up = docked.some((one) => one.off === "walk") ? WINDOW_UP + 30 : 30;
+    for (const x of [pad.x, pad.x + pad.w]) for (const y of [pad.y, pad.y + pad.h + 16]) marks.push({ x, y: y * FLAT, z: 0 });
+    marks.push({ x: pad.x + pad.w / 2, y: (pad.y + pad.h / 2) * FLAT, z: up });
+    for (const light of i.lights ?? []) {
+      const bar = light.state === "bad" && light.blame !== undefined ? i.layout.bars.get(light.blame) : undefined;
+      if (bar !== undefined) marks.push({ x: bar.cx, y: bar.cy * FLAT, z: 20 });
+    }
+  }
+  for (const drone of i.drones) {
+    const k = drone.calling === undefined ? -1 : i.outposts.findIndex((one) => one.service === drone.calling);
+    if (k < 0) continue;
+    const at = outpostAt(i.world, k, i.outposts.length);
+    marks.push({ x: at.x - 40, y: at.y * FLAT, z: 0 }, { x: at.x + 40, y: at.y * FLAT, z: 230 });
+  }
+  return marks;
 }

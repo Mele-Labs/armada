@@ -68,12 +68,18 @@ function withRows(one: Session, rows: readonly SessionRow[]): Session {
   return { ...one, rows: [...kept, ...rows] };
 }
 
-/** What each moment does to the Job, whether the agent is calling tools through it, and the entries Fleet writes as it comes. */
-type Moment = { change: (one: Session) => Session; busy: boolean; events: () => TimelineEvent[] };
+/**
+ * What each moment does to the Job, whether the agent is calling tools through it, and the entries Fleet writes as it comes. `passes` is
+ * how many seconds the step stands for: what the Job's rows recorded is that much older when the moment comes.
+ */
+type Moment = { change: (one: Session) => Session; busy: boolean; events: () => TimelineEvent[]; passes?: number };
+
+/** Every row the Job holds, dated `seconds` earlier: the time a walk's step stands for has passed since each was recorded. */
+const aged = (one: Session, seconds: number): Session => ({ ...one, rows: one.rows.map((row) => (Number.isFinite(Date.parse(row.at)) ? { ...row, at: new Date(Date.parse(row.at) - seconds * 1000).toISOString() } : row)) });
 
 const MOMENTS: readonly Moment[] = [
-  // Thinking: the agent stops calling tools and the turn goes on.
-  { change: (one) => one, busy: false, events: () => [] },
+  // Thinking: the agent stops calling tools, the turn goes on, and a quarter of a minute passes.
+  { change: (one) => one, busy: false, events: () => [], passes: 15 },
   // A subagent starts on the protocol, and the Job reads the wire types.
   {
     change: (one) => ({
@@ -137,7 +143,7 @@ function store(): SessionsStore {
       const moment = MOMENTS[at++];
       if (moment === undefined) return;
       busy = moment.busy;
-      inner.edit(ID, moment.change);
+      inner.edit(ID, (one) => moment.change(moment.passes === undefined ? one : aged(one, moment.passes)));
     },
     dispose: () => {
       window.clearInterval(timer);

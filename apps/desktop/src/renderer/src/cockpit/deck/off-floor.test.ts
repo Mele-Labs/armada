@@ -2,7 +2,7 @@
 
 import { expect, test } from "vitest";
 
-import { fileNamed, lightsOf, mainNow, subagentNow, wordOf, type CheckRecord } from "./off-floor";
+import { THINK_MS, fileNamed, lightsOf, mainNow, quietAt, subagentNow, wordOf, type CheckRecord } from "./off-floor";
 
 type NowInput = Parameters<typeof mainNow>[0];
 
@@ -53,4 +53,16 @@ test("the strip says what each drone is doing in plain words, a walk first, then
   expect(wordOf(subagentNow(false, "packages/protocol/src/events.ts"))).toBe("Writing events.ts");
   expect(wordOf(subagentNow(false, undefined))).toBe("Working");
   expect(wordOf(subagentNow(true, "packages/protocol/src/events.ts"))).toBe("Done");
+});
+
+test("a working turn is not thinking five seconds after its last tool call, and is at twelve", () => {
+  const last = Date.parse(at(0));
+  expect(THINK_MS).toBe(12_000);
+  expect(quietAt(last, last + 5_000)).toBe(false);
+  expect(quietAt(last, last + 11_999)).toBe(false);
+  expect(quietAt(last, last + 12_000)).toBe(true);
+  expect(quietAt(undefined, last + 60_000)).toBe(false);
+  const said = (quiet: boolean) => wordOf(mainNow({ ...busy, quiet, burst: { act: "write", file: "layout.ts" } }));
+  expect(said(quietAt(last, last + 5_000))).toBe("Writing layout.ts");
+  expect(said(quietAt(last, last + 12_000))).toBe("Thinking");
 });

@@ -8,7 +8,7 @@ import { owesOf, standingOf, type Session, type WorkDrone } from "@armada/screen
 
 import { relativeTo } from "../cockpit/deck/areas";
 import type { DroneIn } from "../cockpit/deck/layout";
-import { THINK_MS, burstOf, callingOf, fileNamed, lastToolAt, lightsOf, mainNow, subagentNow, wordOf, type CheckRecord, type Light, type Now } from "../cockpit/deck/off-floor";
+import { THINK_MS, burstOf, quietAt, callingOf, fileNamed, lastToolAt, lightsOf, mainNow, subagentNow, wordOf, type CheckRecord, type Light, type Now } from "../cockpit/deck/off-floor";
 import type { Play } from "../cockpit/deck/plays";
 
 /** One button of the strip: the drone it frames, its name, what it is doing in words, and whether it has finished. */
@@ -23,7 +23,7 @@ const still = (): boolean => typeof window !== "undefined" && window.matchMedia(
 /** Whether `ms` have passed since `since`, drawn again once when they have: one timer, and none while there is nothing to wait for. */
 function useQuiet(since: number | undefined, ms: number, armed: boolean): boolean {
   const [, bump] = useState(0);
-  const quiet = armed && since !== undefined && Date.now() - since >= ms;
+  const quiet = armed && quietAt(since, Date.now(), ms);
   useEffect(() => {
     if (!armed || since === undefined || quiet) return;
     const timer = window.setTimeout(() => bump((n) => n + 1), Math.max(0, since + ms - Date.now()) + 20);
