@@ -68,6 +68,20 @@ impl Vapid {
         }
     }
 
+    /// The private key as `pocket-vapid.key` holds it: base64url of the raw
+    /// 32-byte scalar. Only for the phone this Mac paired, to hand to its others.
+    pub(crate) fn private_key(&self) -> adapter_traits::Secret<String> {
+        adapter_traits::Secret::new(B64.encode(self.key.to_bytes()))
+    }
+
+    /// A key in the form [`Vapid::private_key`] gives it.
+    pub(crate) fn from_private_key(text: &str) -> Result<Vapid, String> {
+        let secret = B64
+            .decode(text.trim().trim_end_matches('='))
+            .map_err(|_| "The VAPID key is not base64url.".to_string())?;
+        Vapid::from_secret(&secret).map_err(|_| "The VAPID key is not a P-256 key.".to_string())
+    }
+
     /// The public key as the browser's `applicationServerKey` wants it: the
     /// uncompressed point, base64url.
     pub fn public_key(&self) -> String {

@@ -50,6 +50,7 @@ pub use clashing::Clashing;
 pub use commands::Commands;
 pub use conversing::Conversations;
 pub use hosted_sessions::{HostedSessions, StoredFile};
+pub use sessions::ShownFile;
 pub use issues::{Autopilots, Issues};
 pub use mods::Mods;
 pub use pull_request_panel::PullRequestPanel;

@@ -52,11 +52,6 @@ pub enum Verb {
     Worktree(WorktreeAct),
     /// The test map's laps for one Check, measured here and written to a file.
     TestMap(TestMapAct),
-    /// The Phone Gateway, until it is signalled.
-    Pocket {
-        port: u16,
-        assets: Option<PathBuf>,
-    },
     /// What the verbs are.
     Help,
 }
@@ -100,10 +95,6 @@ const VERBS: &[(&str, &str)] = &[
         TEST_MAP,
         "measure which tests reach which files, for CI to hand Fleet",
     ),
-    (
-        POCKET,
-        "run the Phone Gateway on 127.0.0.1, for `tailscale serve` to put in front of the phone",
-    ),
 ];
 
 /// The verb an agent's MCP configuration names.
@@ -125,10 +116,6 @@ pub const SESSION_KEEP: &str = "session-keep";
 pub const WORKTREE: &str = "worktree";
 /// The test map's recorder.
 pub const TEST_MAP: &str = "test-map";
-/// The Phone Gateway.
-pub const POCKET: &str = "pocket";
-/// The port the Gateway listens on when `--port` is not given.
-pub const POCKET_PORT: u16 = 8443;
 
 /// Read the arguments after the program name.
 pub fn read<I: IntoIterator<Item = String>>(args: I) -> Result<Verb, Misread> {
@@ -216,7 +203,6 @@ pub fn read<I: IntoIterator<Item = String>>(args: I) -> Result<Verb, Misread> {
         }
         WORKTREE => worktree::read(rest, &mut faults),
         TEST_MAP => test_map::read(rest, &mut faults),
-        POCKET => pocket(rest, &mut faults),
         _ => {
             faults.push(Fault::NoSuchVerb {
                 given: verb.clone(),
@@ -229,31 +215,6 @@ pub fn read<I: IntoIterator<Item = String>>(args: I) -> Result<Verb, Misread> {
         Some(verb) if faults.is_empty() => Ok(verb),
         _ => Err(Misread { faults }),
     }
-}
-
-/// `pocket [--port <n>] [--assets <dir>]`.
-fn pocket(rest: &[String], faults: &mut Vec<Fault>) -> Option<Verb> {
-    let (mut port, mut assets) = (POCKET_PORT, None);
-    let mut args = rest.iter();
-    while let Some(arg) = args.next() {
-        match (arg.as_str(), args.next()) {
-            ("--port", Some(given)) => match given.parse() {
-                Ok(n) => port = n,
-                Err(_) => faults.push(Fault::PocketPort {
-                    given: given.clone(),
-                }),
-            },
-            ("--assets", Some(dir)) => assets = Some(PathBuf::from(dir)),
-            ("--port" | "--assets", None) => faults.push(Fault::PocketNeedsValue {
-                flag: arg.clone(),
-            }),
-            _ => faults.push(Fault::NoSuchFlag {
-                given: arg.clone(),
-                allowed: vec!["--port".into(), "--assets".into()],
-            }),
-        }
-    }
-    Some(Verb::Pocket { port, assets })
 }
 
 /// The arguments that are not flags, with every unrecognised flag recorded.
@@ -289,10 +250,6 @@ pub struct Misread {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Fault {
-    /// `pocket --port` with something that is not a port.
-    PocketPort { given: String },
-    /// `pocket --port` or `--assets` as the last word.
-    PocketNeedsValue { flag: String },
     /// `armada`, with nothing after it.
     NothingAsked,
     NoSuchVerb {
@@ -381,12 +338,6 @@ impl fmt::Display for Fault {
                     "`{given}` is not a flag this verb takes — it takes {}",
                     listed(&names)
                 )
-            }
-            Fault::PocketPort { given } => {
-                write!(out, "`{given}` is not a port — `armada pocket --port 8443`")
-            }
-            Fault::PocketNeedsValue { flag } => {
-                write!(out, "`{flag}` needs a value after it")
             }
             Fault::TooMany { verb, extra } => write!(
                 out,
