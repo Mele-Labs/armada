@@ -101,7 +101,7 @@ async fn a_model_switched_off_is_served_off_and_a_setting_naming_it_refuses_the_
     assert!(error.message.contains("a-model") && error.message.contains("models.roster"), "{}", error.message);
     assert_eq!(fleet.list_models(false).await.expect("served").models, ["a-model", "another-model"], "nothing moved");
 
-    let moved: Vec<(&str, SettingValue)> = ["models.default", "models.session", "models.review", "models.judge", "models.proposer"]
+    let moved: Vec<(&str, SettingValue)> = ["models.default", "models.session", "models.review", "models.judge", "models.proposer", "models.account"]
         .into_iter()
         .map(|key| (key, word("another-model")))
         .chain([("models.roster", names(&["another-model"]))])

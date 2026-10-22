@@ -1060,6 +1060,21 @@ Chosen 22 Oct 2026, not measured. When main moves, a changed file that no Check 
 **The value lives in settings.json under `models.testMap`** (live), `docs/concepts/machine.md`, *settings.json*.
 """
 
+[settings.session-account-model]
+name = "Account writer model"
+scope = "Machine"
+default = "the Judge model's default, the cheapest on the roster"
+lifetime = "Live"
+merge_strategy = "REPLACE"
+peer_polarity = "Member of the Kit set"
+owner = "Fleet"
+read_by = "adapters, fleet"
+notes = """
+Chosen 22 Oct 2026, not measured. While a Session works, a small model reads the person's last message, the tool calls of the turn and what the agent said, and writes what the Session has done, is on and does next in the person's own words (`docs/concepts/session.md`, *Working on*). It is called at most once in a few seconds and sees no repository, so it ships on the Judge's tier. Its own row so raising the Judge does not raise it, and so the proposer's can be raised without it. The adapter states the default. The call goes through the Judge's client and the proposer's budget, and a value off the roster is refused when settings.json is read.
+
+**The value lives in settings.json under `models.account`** (live), `docs/concepts/machine.md`, *settings.json*.
+"""
+
 [settings.judge-confidence-threshold]
 name = "Judge confidence threshold"
 scope = "Kit → Manifest"

@@ -166,6 +166,13 @@ fn the_test_map_reader_ships_on_haiku_the_cheapest() {
     assert_eq!(HeadlessAgent::models().last().copied(), Some(HeadlessAgent::test_map_model()));
 }
 
+/// The account writer's model is `session-account-model`'s row, which ships on the Judge's tier.
+#[test]
+fn the_account_writer_ships_on_haiku_the_cheapest() {
+    assert_eq!(HeadlessAgent::account_model(), "haiku");
+    assert_eq!(HeadlessAgent::models().last().copied(), Some(HeadlessAgent::account_model()));
+}
+
 /// A Session with no model chosen runs on the strongest on the roster, as
 /// `session-model` decided on 13 Oct 2026. **The derivation is pinned**, as the
 /// judge's is: `session_model` takes the first entry on the assumption that the

@@ -85,10 +85,11 @@ where
     /// answers through its own refusal.
     async fn start_server(
         self: std::sync::Arc<Self>,
+        caller: Option<api::Caller>,
         asked: ipc::StartServer,
         manifest_id: Option<ipc::ManifestId>,
     ) -> Result<ipc::ServerState, Refusal> {
-        Fleet::start_server_answered(self, asked, manifest_id).await
+        Fleet::start_server_answered(self, caller, asked, manifest_id).await
     }
 
     /// A restart onto `main` or the preview, started detached —

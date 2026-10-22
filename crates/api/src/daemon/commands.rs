@@ -135,13 +135,15 @@ pub trait Commands: Send + Sync + 'static {
 
     /// `start_server` — start a server the Manifest declares, in a Job's
     /// worktree on its span or in the main checkout on its own, **or answer
-    /// with the instance already up**: one per Job per server.
+    /// with the instance already up**: one per Job per server. `caller` places
+    /// a hosted session as `all_done`'s does, and the server names it.
     ///
     /// **By `Arc`, for [`Commands::show_again`]'s reason**: the server is a task
     /// of its own and outlives the request. It answers `starting`; the rest
     /// arrives as `server.*` events.
     fn start_server(
         self: std::sync::Arc<Self>,
+        caller: Option<crate::Caller>,
         asked: ipc::StartServer,
         manifest_id: Option<ipc::ManifestId>,
     ) -> impl Future<Output = Result<ipc::ServerState, Refusal>> + Send;

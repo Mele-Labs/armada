@@ -68,7 +68,7 @@ test("models Fleet could not read say why", () => {
 });
 
 test("switching a model off saves the roster and moves every setting that names it", () => {
-  const all = settings({ ...NAMING, "models.session": "opus", "models.default": "opus", "models.secondOpinion": "sonnet" });
+  const all = settings({ ...NAMING, "models.session": "opus", "models.default": "opus", "models.secondOpinion": "sonnet", "models.account": "haiku" });
   const changes = saveForSwitch(held(FOUR, { session: "opus", default: "opus" }), all, "opus", false);
   expect(changes).toEqual({
     "models.roster": ["fable", "sonnet", "haiku"],
@@ -77,7 +77,7 @@ test("switching a model off saves the roster and moves every setting that names 
     "models.review": "fable",
   });
   const cheap = saveForSwitch(held(FOUR), all, "haiku", false);
-  expect(cheap).toEqual({ "models.roster": ["opus", "fable", "sonnet"], "models.judge": "sonnet", "models.proposer": "sonnet" });
+  expect(cheap).toEqual({ "models.roster": ["opus", "fable", "sonnet"], "models.judge": "sonnet", "models.proposer": "sonnet", "models.account": "sonnet" });
 });
 
 test("switching a model on saves the roster alone, and the last one on cannot go", () => {

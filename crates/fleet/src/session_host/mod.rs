@@ -8,6 +8,7 @@
 //! its tool calls show it doing, `asking` is the permission door and `rows`
 //! writes the thread.
 
+pub(crate) mod account;
 pub(crate) mod activity;
 pub(crate) mod after;
 mod agent_starting;
@@ -126,6 +127,8 @@ pub struct Hosts {
     helm_starting: tokio::sync::Mutex<()>,
     /// The most often a session's row goes out for what it is doing, in milliseconds.
     activity_every: AtomicU64,
+    /// The most often a Session's account is written by the model, in milliseconds.
+    account_every: AtomicU64,
     /// Waiting items, by session and item, whose answer or removal is being delivered now.
     settling: Arc<Mutex<std::collections::HashSet<(String, String)>>>,
 }
@@ -161,6 +164,7 @@ impl Hosts {
             slot_queue: Arc::default(),
             helm_starting: tokio::sync::Mutex::new(()),
             activity_every: AtomicU64::new(activity::PUBLISH_EVERY.as_millis() as u64),
+            account_every: AtomicU64::new(account::WRITE_EVERY.as_millis() as u64),
             settling: Arc::default(),
         }
     }
@@ -174,6 +178,16 @@ impl Hosts {
 
     pub(crate) fn activity_every(&self) -> Duration {
         Duration::from_millis(self.activity_every.load(Ordering::Relaxed))
+    }
+
+    pub(crate) fn account_every(&self) -> Duration {
+        Duration::from_millis(self.account_every.load(Ordering::Relaxed))
+    }
+
+    /// A shorter wait between model calls than the shipped one, so a test does not sit through it.
+    #[cfg(test)]
+    pub(crate) fn write_account_every(&self, every: Duration) {
+        self.account_every.store(every.as_millis() as u64, Ordering::Relaxed);
     }
 
     /// A shorter wait than the shipped one, so a test does not sit through it.
