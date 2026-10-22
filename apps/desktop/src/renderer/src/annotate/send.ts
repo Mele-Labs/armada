@@ -1,5 +1,6 @@
 // A note sent to Fleet, #1250: to a Session, a new one or one that is live, as a pinned note.
 
+import { DEBUG_INFO_HEADING } from "@armada/components";
 import { said } from "@armada/screens/src/copy";
 import type { Outcome } from "@armada/protocol";
 
@@ -95,7 +96,7 @@ export async function sendToSession(
   const sent: Sent = { sessionId: into.id, title: into.title, at: at.toISOString() };
   const sentIds: string[] = [];
   if (open !== undefined && open.facts.length > 0 && open.id !== into.id) {
-    const facts = await fleet.sendSessionMessage({ session_id: into.id, text: [FACTS_LEAD, "", ...open.facts].join("\n") });
+    const facts = await fleet.sendSessionMessage({ session_id: into.id, text: [FACTS_LEAD, "", DEBUG_INFO_HEADING, ...open.facts].join("\n") });
     if (!facts.ok) return { ok: false, saying: `Notes not sent to "${into.title}": ${refusal(facts.outcome)}` };
   }
   for (const [index, { note }] of notes.entries()) {

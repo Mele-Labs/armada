@@ -198,7 +198,7 @@ describe("a note sent to a Session", () => {
       const messages = factsMessage(fleet);
       expect(messages).toHaveLength(1);
       expect(messages[0]?.session_id).toBe("01NEW");
-      expect(messages[0]?.text).toContain("Job: Fix the flaky store test (01OPEN)\nState: working");
+      expect(messages[0]?.text).toContain("\n## Debug info\nJob: Fix the flaky store test (01OPEN)\nState: working");
       expect(fleet.sendSessionMessage.mock.invocationCallOrder[0]).toBeLessThan(fleet.sendSessionNote.mock.invocationCallOrder[0] ?? 0);
     });
 
