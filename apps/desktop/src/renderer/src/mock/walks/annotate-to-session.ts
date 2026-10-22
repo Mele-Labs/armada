@@ -23,8 +23,10 @@ function steps(narrow: boolean): Step[] {
     { press: button("Save note"), say: "Saved" },
     { press: inside(dialog("Note"), button("Send to a Job")), say: "The caret lists the live Jobs" },
     { press: role("menuitem", "Release notes script"), say: "Sent to another Job than the one open" },
-    { look: inside(thread, text(/what Bridge held about that Job/)), say: "Ahead of the note, what Report would have said of the open Job" },
-    { look: inside(thread, text(/Job: Fix the flaky store test/)), say: "Named as the Job the note was pinned on" },
+    { look: inside(thread, text(/what Bridge held about that Job/)), say: "Ahead of the note, a line saying what follows" },
+    { look: inside(thread, text("Debug info")), say: "The Job's facts are folded under Debug info" },
+    { press: inside(thread, text("Debug info")), say: "Open it" },
+    { look: inside(thread, text(/Job: Fix the flaky store test/)), say: "What Report would have said of the open Job, named as the Job the note was pinned on" },
     { look: inside(thread, text("This one is not the Job on the stage")), say: "Then the note itself" },
   ] satisfies Step[];
 }
