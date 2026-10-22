@@ -45,6 +45,13 @@ export type DropdownMenuEntry =
        * owner, 29 Sep 2026). Tabs' count rule: trailing mono. Zero draws nothing.
        */
       count?: number;
+      /**
+       * What the item is doing now, trailing in mono after the label: a
+       * drone's `Writing layout.ts`. The label is cut short before it is.
+       */
+      detail?: string;
+      /** Finished, and still choosable: `--fg-subtle`, as a finished drone on a Job's Field. */
+      muted?: boolean;
     }
   | { kind: "separator"; id: string }
   | { kind: "label"; id: string; label: string };
@@ -119,6 +126,14 @@ export type DropdownMenuProps = {
    */
   triggerAriaLabel?: string;
   /**
+   * The chosen item's `detail`, trailing the trigger's label in mono. The
+   * trigger then fits the width it is given, and the label is cut short
+   * before the detail is.
+   */
+  triggerDetail?: string;
+  /** What the trigger is, in a tooltip on it, where its text names only the current choice. */
+  triggerTooltip?: string;
+  /**
    * A point in the window the panel opens at, for a context menu: no trigger is drawn, the panel is portalled and its
    * leading top corner sits on the point, kept inside the window. Open it through `open`.
    */
@@ -165,6 +180,8 @@ export function DropdownMenu({
   search: field,
   plain = false,
   triggerAriaLabel,
+  triggerDetail,
+  triggerTooltip,
   at,
 }: DropdownMenuProps) {
   const [own, setOwn] = useState(defaultOpen);
@@ -234,6 +251,46 @@ export function DropdownMenu({
     layer.style.top = `${below + own.height > window.innerHeight ? Math.max(gap, from.top - gap - own.height) : below}px`;
   }, [shown, portal, at]);
 
+  // A pick hands focus back to the trigger, as Esc does, so a keyboard that chose an item is where it started.
+  const choose = (id: string) => {
+    if (panel.current?.contains(document.activeElement) === true) trigger.current?.focus();
+    setOpen(false);
+    onSelect?.(id);
+  };
+
+  const labelled = (
+    <button
+      ref={trigger}
+      type="button"
+      className="armada-dropdown-menu__trigger"
+      data-plain={plain || undefined}
+      aria-label={triggerAriaLabel}
+      aria-haspopup="menu"
+      aria-expanded={open && !disabled}
+      disabled={disabled}
+      onClick={() => setOpen(!open)}
+      onKeyDown={(event) => {
+        // ↓ opens the menu onto its first item, as Enter and Space do.
+        if (event.key !== "ArrowDown" || open) return;
+        event.preventDefault();
+        setOpen(true);
+      }}
+    >
+      {triggerDetail === undefined ? (
+        triggerLabel
+      ) : (
+        <>
+          <span className="armada-dropdown-menu__name">{triggerLabel}</span>
+          <span className="armada-dropdown-menu__detail">{triggerDetail}</span>
+        </>
+      )}
+      <Count of={triggerCount} />
+      {/* Says this opens a menu, settled 2026-09-17 (icons/, chevron-down).
+          Every labelled trigger carries it. */}
+      <ChevronDown className="armada-dropdown-menu__chevron" size={12} strokeWidth={2} aria-hidden />
+    </button>
+  );
+
   const layered = (node: ReactNode): ReactNode => (portal || at !== undefined ? createPortal(node, typeof portal === "object" ? portal : document.body) : node);
 
   // **Focus goes into the menu as it opens**, onto its first item, so the
@@ -272,25 +329,10 @@ export function DropdownMenu({
       className="armada-dropdown-menu"
       ref={root}
       data-align={align === "start" ? "start" : undefined}
+      data-detail={triggerDetail === undefined ? undefined : true}
     >
       {at !== undefined ? null : Glyph === undefined ? (
-        <button
-          ref={trigger}
-          type="button"
-          className="armada-dropdown-menu__trigger"
-          data-plain={plain || undefined}
-          aria-label={triggerAriaLabel}
-          aria-haspopup="menu"
-          aria-expanded={open && !disabled}
-          disabled={disabled}
-          onClick={() => setOpen(!open)}
-        >
-          {triggerLabel}
-          <Count of={triggerCount} />
-          {/* Says this opens a menu, settled 2026-09-17 (icons/, chevron-down).
-              Every labelled trigger carries it. */}
-          <ChevronDown className="armada-dropdown-menu__chevron" size={12} strokeWidth={2} aria-hidden />
-        </button>
+        triggerTooltip === undefined ? labelled : <Tooltip label={triggerTooltip}>{labelled}</Tooltip>
       ) : (
         <Button
           ref={trigger}
@@ -309,7 +351,7 @@ export function DropdownMenu({
       {/* A menu open when its trigger turns off stays shut rather than sending
           from under a control that says it cannot. */}
       {shown ? layered(
-        <div ref={panel} className="armada-dropdown-menu__panel" data-portal={Boolean(portal) || at !== undefined || undefined} data-searchable={searchLabel !== undefined || undefined} role="menu" onKeyDown={moveFocus}>
+        <div ref={panel} className="armada-dropdown-menu__panel" data-portal={Boolean(portal) || at !== undefined || undefined} data-searchable={searchLabel !== undefined || undefined} data-detailed={entries.some((entry) => entry.kind === "item" && entry.detail !== undefined) || undefined} role="menu" onKeyDown={moveFocus}>
           {searchLabel === undefined ? null : (
             <div className="armada-dropdown-menu__search">
               <Input
@@ -346,8 +388,7 @@ export function DropdownMenu({
                   }
                   const first = choosable[0];
                   if (first === undefined) return;
-                  setOpen(false);
-                  onSelect?.(first.id);
+                  choose(first.id);
                 }}
               />
             </div>
@@ -373,6 +414,7 @@ export function DropdownMenu({
                 role="menuitem"
                 aria-current={entry.selected || undefined}
                 aria-disabled={entry.disabled || undefined}
+                data-muted={entry.muted || undefined}
                 className={
                   entry.danger
                     ? "armada-dropdown-menu__item armada-dropdown-menu__item--danger"
@@ -380,8 +422,7 @@ export function DropdownMenu({
                 }
                 onClick={() => {
                   if (entry.disabled === true) return;
-                  setOpen(false);
-                  onSelect?.(entry.id);
+                  choose(entry.id);
                 }}
               >
                 {entry.icon === undefined ? null : <entry.icon className="armada-dropdown-menu__icon" size={16} strokeWidth={2} aria-hidden />}
@@ -389,6 +430,7 @@ export function DropdownMenu({
                   {entry.label}
                   <Count of={entry.count} />
                 </span>
+                {entry.detail === undefined ? null : <span className="armada-dropdown-menu__detail">{entry.detail}</span>}
                 {entry.selected ? (
                   <Check className="armada-dropdown-menu__check" size={16} strokeWidth={2} aria-hidden />
                 ) : entry.shortcut ? (

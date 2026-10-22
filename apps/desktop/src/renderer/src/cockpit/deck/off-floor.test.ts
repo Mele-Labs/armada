@@ -64,6 +64,15 @@ test("the strip says what each drone is doing in plain words, a walk first, then
   expect(wordOf(subagentNow(true, "packages/protocol/src/events.ts"))).toBe("Done");
 });
 
+test("a fresh write takes the drone to its file past a walk still open, and the walk has it back once the write is not fresh", () => {
+  const said = (input: Partial<NowInput>) => wordOf(mainNow({ ...idle, ...input, walk: "The pad on the Field" }));
+  expect(said({ ...busy, burst: { act: "write", file: "apps/desktop/src/layout.ts" } })).toBe("Writing layout.ts");
+  expect(said({ ...busy, burst: { act: "read", file: "apps/desktop/src/layout.ts" } })).toBe("Walking the app");
+  expect(said({ ...busy, quiet: true, burst: { act: "write", file: "apps/desktop/src/layout.ts" } })).toBe("Walking the app");
+  expect(said({ ...busy, file: "apps/desktop/src/layout.ts" })).toBe("Walking the app");
+  expect(said({ burst: { act: "write", file: "apps/desktop/src/layout.ts" } })).toBe("Walking the app");
+});
+
 test("a working turn is not thinking five seconds after its last tool call, and is at twelve", () => {
   const last = Date.parse(at(0));
   expect(THINK_MS).toBe(12_000);

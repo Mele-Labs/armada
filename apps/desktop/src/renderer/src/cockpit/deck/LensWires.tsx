@@ -1,9 +1,10 @@
 // What a Job's Field lens puts over the canvas: the card at the top right and a dashed line from it to the slab it shows, and over each
-// other lifted file its counts. Placed from the canvas's view each time the camera moves or a slab changes, never on a loop. The own
-// camera frames the drones clear of the card (`homeBeside`); where a hand has put the card's drone or slab under it anyway, the card
-// stands at the top left instead.
+// other lifted file its counts. Placed from the canvas's view each time the camera moves or a slab changes, never on a loop. The card
+// never moves the camera: where the card's drone or slab stands under it, the card stands at the top left instead. Floated, the card is
+// drawn on the body in a frame laid over the map's box, so it stands where it did and may reach past the pane's edge (`OverTheApp.tsx`).
 
 import { useCallback, useEffect, useLayoutEffect, useRef, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 
 import type { Box } from "./camera";
 import type { P3 } from "./layout";
@@ -13,9 +14,6 @@ import type { LensSpec } from "./pixi/scene";
 import type { Stage } from "./pixi/stage";
 
 const base = (path: string): string => path.split("/").pop() || path;
-
-/** The card's box is reported in steps of this height, so a hunk that grows a line does not move the camera. */
-const STEP = 48;
 
 /** Whether any of the points lies inside the box. */
 export const covers = (box: Box, points: readonly { x: number; y: number }[]): boolean => points.some((one) => one.x >= box.l && one.x <= box.r && one.y >= box.t && one.y <= box.b);
@@ -30,38 +28,41 @@ export function sideOf(was: "right" | "left", right: Box, left: Box, points: rea
   return l && !r ? "right" : "left";
 }
 
-export function LensWires({ stage, specs, card, writer, onCard }: { stage: Stage | undefined; specs: readonly LensSpec[] | undefined; card: ReactNode | undefined; writer: P3 | undefined; onCard: (box: Box | undefined) => void }) {
+export function LensWires({ stage, specs, card, writer, float = false }: { stage: Stage | undefined; specs: readonly LensSpec[] | undefined; card: ReactNode | undefined; writer: P3 | undefined; float?: boolean }) {
   const box = useRef<HTMLDivElement>(null);
+  const frame = useRef<HTMLDivElement>(null);
   const held = useRef<HTMLDivElement>(null);
   const line = useRef<SVGLineElement>(null);
   const counts = useRef(new Map<string, HTMLLIElement>());
   const side = useRef<"right" | "left">("right");
   const gaps = useRef({ right: 0, left: 0 });
-  const reported = useRef("");
   const flying = useRef(writer);
   flying.current = writer;
   const shown = specs?.find((one) => one.card);
   const others = (specs ?? []).filter((one) => !one.card);
-  const report = useRef(onCard);
-  report.current = onCard;
 
   const place = useCallback(
     (view: View) => {
       if (stage === undefined || view.width === 0 || box.current === null) return;
       const host = box.current.getBoundingClientRect();
+      // The floated card's frame stands over the map's box, moved only when the box has.
+      const over = frame.current;
+      if (over !== null) {
+        const at = `${host.left}px ${host.top}px ${host.width}px ${host.height}px`;
+        if (over.dataset.at !== at) {
+          over.dataset.at = at;
+          Object.assign(over.style, { left: `${host.left}px`, top: `${host.top}px`, width: `${host.width}px`, height: `${host.height}px` });
+        }
+      }
       const wire = line.current;
       const wrap = held.current;
       const front = wrap?.querySelector("[data-lens-front]");
       const unit = unitOf(view.eye);
       if (wrap == null || front == null || shown === undefined) {
         if (wire !== null) wire.style.display = "none";
-        if (reported.current !== "") {
-          reported.current = "";
-          report.current(undefined);
-        }
       } else {
         const rect = wrap.getBoundingClientRect();
-        const [w, t, h] = [rect.width, rect.top - host.top, Math.ceil(rect.height / STEP) * STEP];
+        const [w, t, h] = [rect.width, rect.top - host.top, rect.height];
         const style = getComputedStyle(wrap);
         // Each corner's inset as the stylesheet sets it, read while the card stands there.
         if (side.current === "right") gaps.current.right = Number.parseFloat(style.right) || gaps.current.right;
@@ -77,12 +78,6 @@ export function LensWires({ stage, specs, card, writer, onCard }: { stage: Stage
           side.current = now;
           if (now === "left") wrap.dataset.side = "left";
           else delete wrap.dataset.side;
-        }
-        // The camera is told where the card stands at the right, where it rests.
-        const key = `${Math.round(right.l)}:${Math.round(right.t)}:${Math.round(right.r)}:${Math.round(right.b)}`;
-        if (key !== reported.current) {
-          reported.current = key;
-          report.current({ l: Math.round(right.l), t: Math.round(right.t), r: Math.round(right.r), b: Math.round(right.b) });
         }
         if (wire !== null) {
           const at = stage.project(cornerOf(shown, floor, unit));
@@ -111,8 +106,13 @@ export function LensWires({ stage, specs, card, writer, onCard }: { stage: Stage
   useLayoutEffect(() => {
     if (stage !== undefined) place(stage.shown);
   });
-  useEffect(() => () => report.current(undefined), []);
 
+  const framed = (inner: ReactNode) => (
+    // A press on the card is the card's: the map under it does not take it for a drag.
+    <div ref={held} className="bf-lens__card" data-side={side.current === "left" ? "left" : undefined} onPointerDown={(event) => event.stopPropagation()}>
+      {inner}
+    </div>
+  );
   return (
     <div ref={box} className="bf-lens" aria-hidden={specs === undefined || specs.length === 0 ? true : undefined}>
       <svg className="bf-lens__wire" aria-hidden="true">
@@ -134,11 +134,15 @@ export function LensWires({ stage, specs, card, writer, onCard }: { stage: Stage
           ))}
         </ul>
       )}
-      {card === undefined ? null : (
-        <div ref={held} className="bf-lens__card" data-side={side.current === "left" ? "left" : undefined}>
-          {card}
-        </div>
-      )}
+      {card === undefined || float ? null : framed(card)}
+      {card === undefined || !float
+        ? null
+        : createPortal(
+            <div ref={frame} className="bf-lens bf-lens--float">
+              {framed(card)}
+            </div>,
+            document.body,
+          )}
     </div>
   );
 }
