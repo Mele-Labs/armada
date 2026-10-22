@@ -3,8 +3,13 @@
 //! next reply does not wipe it.
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
+use api::Refusal;
+use ipc::{IssueReference, LaterHow, LaterSettled, SettleLater, WireError};
 
 use crate::daemon::Fleet;
+
+const NOT_SETTLEABLE: &str = "fleet.later_not_settleable";
+const NOT_OPEN: &str = "fleet.later_not_open";
 
 impl<H, V, W> Fleet<H, V, W>
 where
@@ -43,5 +48,54 @@ where
         if let Some(read) = self.extract_reads().read_of(super::extracting::read, model, id, &said) {
             self.later_kept(id, &read.later, &at).await;
         }
+    }
+
+    /// `settle_later`: one open follow-up is done, filed or dropped. **A job's own call must say
+    /// enough**: an issue it can name for a filed, a reason for a drop. The person's Drop is a call
+    /// no connection places, and says nothing more.
+    pub(crate) async fn later_settled(&self, caller: Option<api::Caller>, settle: SettleLater) -> Result<LaterSettled, Refusal> {
+        let by_agent = caller.as_ref().is_some_and(|caller| self.session_holding(caller).is_some());
+        let id = self.waiting_session(caller, settle.session_id.as_ref())?;
+        let reason = settle.reason.as_deref().map(str::trim).filter(|reason| !reason.is_empty());
+        let (how, note) = match settle.how {
+            LaterHow::Done => ("done", None),
+            LaterHow::Filed => {
+                let issue = settle.issue.as_deref().and_then(IssueReference::read).ok_or_else(|| {
+                    self.hosted_refusal(NOT_SETTLEABLE, "filed needs issue, the forge's number such as 7 or a tracker's key such as ABC-12")
+                })?;
+                ("filed", Some(issue.as_str().to_string()))
+            }
+            LaterHow::Dropped => {
+                if by_agent && reason.is_none() {
+                    return Err(self.hosted_refusal(NOT_SETTLEABLE, "dropped needs reason, one sentence on why it will not be done"));
+                }
+                ("dropped", reason.map(str::to_string))
+            }
+        };
+        let now = self.clock().now().as_str().to_string();
+        let (settled, record) = {
+            let mut store = self.store().lock().await;
+            let session = store
+                .session(&id)
+                .map_err(|why| self.ledger_fault(why))?
+                .ok_or_else(|| self.hosted_refusal(NOT_SETTLEABLE, "a job Fleet knows"))?;
+            if session.state == store::SessionState::Ended {
+                return Err(self.closed(&id));
+            }
+            let sentence = store
+                .settle_later(&id, &settle.id, how, note.as_deref(), &now)
+                .map_err(|why| self.ledger_fault(why))?
+                .ok_or_else(|| {
+                    Refusal::IllegalMove(WireError::raised(
+                        NOT_OPEN,
+                        format!("nothing is open under {}. It was settled already, or the job never kept it", settle.id),
+                        self.run_id(),
+                    ))
+                })?;
+            let record = self.ledger_row(&store, &session)?;
+            (LaterSettled { id: settle.id.clone(), sentence, open: record.later.clone() }, record)
+        };
+        self.publish(ipc::Event::SessionChanged(record));
+        Ok(settled)
     }
 }

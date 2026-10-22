@@ -731,6 +731,14 @@ where
         self.say_done(caller, done).await
     }
 
+    async fn settle_later(
+        &self,
+        caller: Option<api::Caller>,
+        settle: ipc::SettleLater,
+    ) -> Result<ipc::LaterSettled, Refusal> {
+        self.later_settled(caller, settle).await
+    }
+
     async fn dispute_fleet(
         self: Arc<Self>,
         caller: Option<api::Caller>,

@@ -304,6 +304,16 @@ pub trait Sessions: Send + Sync + 'static {
         done: ipc::AllDone,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
+    /// `settle_later` — a follow-up the session kept for later is settled as done, filed or dropped,
+    /// by the agent or by the person. `caller` places a hosted session as `all_done`'s does.
+    /// [`Refusal::Unacceptable`] for a filed with no issue, an agent's drop with no reason, or a call
+    /// that places no session; [`Refusal::IllegalMove`] for a follow-up not open.
+    fn settle_later(
+        &self,
+        caller: Option<crate::Caller>,
+        settle: ipc::SettleLater,
+    ) -> impl Future<Output = Result<ipc::LaterSettled, Refusal>> + Send;
+
     /// `dispute_fleet` — the agent says the session's latest Fleet notice was wrong. `caller` places a
     /// hosted session as `all_done`'s does. [`Refusal::Unacceptable`] for a call that places no hosted
     /// session, an empty `why`, or a session Fleet has told nothing.
