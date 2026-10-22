@@ -32,6 +32,8 @@ mod policy;
 mod retro;
 /// A Studio, its nodes and its edges. `docs/concepts/studio.md`.
 mod studio;
+/// Which tests reach each file in a repository. `docs/concepts/test-map.md`.
+mod test_map;
 /// Something that runs at a moment in a Job. `docs/concepts/trigger.md`.
 mod trigger;
 /// The workflow a Session or a Job follows, and the ids it is spelled in.
@@ -56,6 +58,7 @@ pub use kit::{
     a_drone_resolves, KitServer, ManifestReach, ReachesDrones, ServerAddress, ServerName,
 };
 pub use retro::{Change, LandsIn, LessonState, Via, Whose};
+pub use test_map::{EdgeGrain, EdgeSource, TestMapEdge};
 pub use studio::{
     CaptureBounds, CaptureElement, CaptureFrame, CaptureServed, CaptureWindow,
     ContradictionOutcome, Drawing, EdgeRefused, EndedFinding, EpicRead, EpicTake, ForgeFacts,
