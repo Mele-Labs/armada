@@ -937,6 +937,36 @@ fn main() {
                 println!("{head} head unchanged: {:.6} vs {:.6}", enc.read(&tuned, head, &[text], longest, keep).unwrap()[0], enc.read(&both_file, head, &[text], longest, keep).unwrap()[0]);
             }
         }
+        "clarity-time" => {
+            // clarity-time: what one list costs as `waiting_for` would pay it: the rules over every
+            // labelled item, then the head over each item alone, as a one-item list.
+            let tuned = Tuned::from_bytes(adapters_src::language_model::TUNED).unwrap();
+            let (ex, runs_with) = clarity_examples(&training);
+            let t = Instant::now();
+            for _ in 0..1000 {
+                for (e, runs) in ex.iter().zip(&runs_with) {
+                    std::hint::black_box(clarity::unclear(&e.text, *runs));
+                }
+            }
+            eprintln!("rules: {:.2} us per item over {} items", t.elapsed().as_secs_f64() * 1e6 / (1000 * ex.len()) as f64, ex.len());
+            let (head, longest, keep) = shape(TextReading::ItemClear);
+            let mut times = Vec::new();
+            for e in &ex {
+                let t = Instant::now();
+                let _ = enc.read(&tuned, head, &[e.text.as_str()], longest, keep).unwrap();
+                times.push(t.elapsed().as_secs_f64() * 1000.0);
+            }
+            times.sort_by(|a, b| a.partial_cmp(b).unwrap());
+            let rss = std::process::Command::new("ps").args(["-o", "rss=", "-p", &std::process::id().to_string()]).output().unwrap();
+            eprintln!(
+                "head per item ms: mean {:.1} median {:.1} p95 {:.1} max {:.1}; rss {} KB",
+                times.iter().sum::<f64>() / times.len() as f64,
+                times[times.len() / 2],
+                times[times.len() * 95 / 100],
+                times[times.len() - 1],
+                String::from_utf8_lossy(&rss.stdout).trim()
+            );
+        }
         "thresholds" => {
             // From out-of-fold scores at one epoch, on the post-18-Oct replies: the most recall at
             // precision 0.90 for the model alone and for the model beside the rules.
