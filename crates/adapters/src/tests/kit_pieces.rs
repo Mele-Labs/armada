@@ -10,7 +10,8 @@ use std::time::Duration;
 
 use super::scratch::Scratch;
 use crate::kit_pieces::{
-    install, look, uninstall, Asked, Cli, CommandLine, Failed, Found, Installed, Piece, Runner, SourceReader, Trash,
+    install, look, uninstall, Asked, Choice, Cli, CommandLine, Failed, Found, Installed, Piece, Runner, SourceReader,
+    Trash,
 };
 
 /// Repositories by name, each its files; and websites by address.
@@ -158,20 +159,62 @@ fn one_skill_under_skills_is_that_skill() {
     assert_eq!(name, "docs");
 }
 
-#[test]
-fn several_skills_and_no_marketplace_is_unknown_and_names_them() {
-    let reader = Planted::default()
-        .repository("someone/tools", &[("skills/docs/SKILL.md", ""), ("skills/lint/SKILL.md", "")]);
-    let why = why(look("someone/tools", &reader));
-    assert!(why.contains("docs, lint"), "{why}");
+fn several(found: Found) -> (String, Vec<Choice>) {
+    match found {
+        Found::Several { repository, choices } => (repository, choices),
+        other => panic!("found {other:?}"),
+    }
 }
 
 #[test]
-fn a_marketplace_with_several_plugins_is_unknown_and_names_them() {
-    let market = r#"{"name":"tools","plugins":[{"name":"one","source":"./one"},{"name":"two","source":"./two"}]}"#;
+fn several_skills_and_no_marketplace_are_each_a_choice_that_installs_only_itself() {
+    let reader = Planted::default().repository(
+        "someone/tools",
+        &[("skills/docs/SKILL.md", "---\nname: docs\ndescription: Writes docs\n---\n"), ("skills/lint/SKILL.md", "")],
+    );
+    let (repository, choices) = several(look("someone/tools", &reader));
+    assert_eq!(repository, "someone/tools");
+    let read: Vec<(&str, Option<&str>, Vec<String>)> = choices
+        .iter()
+        .map(|one| (one.piece.name(), one.says.as_deref(), shown(one.piece.commands())))
+        .collect();
+    assert_eq!(
+        read,
+        vec![
+            ("docs", Some("Writes docs"), vec![String::from("npx skills add someone/tools --global --agent claude-code --skill docs --copy --yes")]),
+            ("lint", None, vec![String::from("npx skills add someone/tools --global --agent claude-code --skill lint --copy --yes")]),
+        ]
+    );
+}
+
+#[test]
+fn a_marketplace_with_several_plugins_offers_each_by_its_own_name_and_skills() {
+    let market = r#"{"name":"tools","plugins":[
+        {"name":"one","source":"./one","description":"The first"},
+        {"name":"two","source":"./two"}]}"#;
+    let reader = Planted::default().repository(
+        "someone/tools",
+        &[(".claude-plugin/marketplace.json", market), ("one/skills/alpha/SKILL.md", "")],
+    );
+    let (_, choices) = several(look("someone/tools", &reader));
+    let Piece::Plugin { name, marketplace, skills, commands, .. } = &choices[0].piece else {
+        panic!("not a plugin");
+    };
+    assert_eq!((name.as_str(), marketplace.as_str(), choices[0].says.as_deref()), ("one", "tools", Some("The first")));
+    assert_eq!(skills, &vec![String::from("alpha")]);
+    assert_eq!(
+        shown(commands),
+        vec!["claude plugin marketplace add someone/tools", "claude plugin install one@tools"]
+    );
+    assert_eq!((choices[1].piece.name(), choices[1].says.as_deref()), ("two", None));
+    assert_eq!(shown(choices[1].piece.commands())[1], "claude plugin install two@tools");
+}
+
+#[test]
+fn a_choice_named_like_a_flag_is_never_passed_to_a_command() {
+    let market = r#"{"name":"tools","plugins":[{"name":"one"},{"name":"--two"}]}"#;
     let reader = Planted::default().repository("someone/tools", &[(".claude-plugin/marketplace.json", market)]);
-    let why = why(look("someone/tools", &reader));
-    assert!(why.contains("2 plugins: one, two"), "{why}");
+    assert!(why(look("someone/tools", &reader)).contains("will not pass to a command"));
 }
 
 #[test]

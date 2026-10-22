@@ -335,7 +335,7 @@ pub use issues::{
 pub use kit::{
     AddKitServer, ForgetKitServer, InstallKitPiece, KitAllowedCommand, KitAllowedCommands,
     KitAllowedSource, KitInventory, KitPieceInstalled, KitPieceKind, KitPieceRemoved,
-    KitServerRow, KitServers, KitSourceFound, LookAtKitSource, OutputStyleFacts,
+    KitServerRow, KitServers, KitSourceChoice, KitSourceFound, LookAtKitSource, OutputStyleFacts,
     RemoveKitAllowedCommand, RemoveKitPiece, RestoreKitPiece, ServerAddress, SetKitServerReach,
     SetManifestServerReach, SetupItem, SetupKindRow, SetupUnreadable, WhatWasRead,
 };

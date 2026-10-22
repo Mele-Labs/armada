@@ -14,7 +14,7 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use adapters::kit_pieces::{self, Asked, Cli, Found, ForgeReader, Installed, Piece, Trash};
 use api::Refusal;
 use ipc::{
-    InstallKitPiece, KitInventory, KitPieceInstalled, KitPieceKind, KitPieceRemoved, KitSourceFound,
+    InstallKitPiece, KitInventory, KitPieceInstalled, KitPieceKind, KitPieceRemoved, KitSourceChoice, KitSourceFound,
     LookAtKitSource, RemoveKitPiece, RestoreKitPiece, WhatWasRead, WireError,
 };
 
@@ -52,7 +52,67 @@ fn found_on_the_wire(found: Found) -> KitSourceFound {
                 commands: shown(&piece),
             },
         },
+        Found::Several { repository, choices } => KitSourceFound::Several {
+            repository,
+            kind: choices.first().map_or(KitPieceKind::Skill, |one| kind_of(&one.piece)),
+            choices: choices
+                .iter()
+                .map(|one| KitSourceChoice {
+                    name: one.piece.name().to_string(),
+                    says: one.says.clone(),
+                    commands: shown(&one.piece),
+                })
+                .collect(),
+        },
         Found::Unknown { why } => KitSourceFound::Unknown { why },
+    }
+}
+
+fn kind_of(piece: &Piece) -> KitPieceKind {
+    match piece {
+        Piece::Plugin { .. } => KitPieceKind::Plugin,
+        Piece::Skill { .. } => KitPieceKind::Skill,
+    }
+}
+
+/// The piece an install runs, out of a fresh look and what the person pressed.
+/// **A choice is a name matched against what Fleet found**, so a body never reaches a command line.
+pub(crate) fn chosen(found: Found, asked: &InstallKitPiece) -> Result<Piece, String> {
+    let kind = match asked.kind {
+        KitPieceKind::Plugin => "plugin",
+        KitPieceKind::Skill => "skill",
+    };
+    let shown_differs = || {
+        format!("Nothing was installed. {} is no longer a {kind}, so what was shown is not what would run.", asked.source)
+    };
+    let gone = |name: &str| {
+        format!(
+            "Nothing was installed. {} no longer holds a {kind} named {name}, so what was shown is not what would run.",
+            asked.source
+        )
+    };
+    let piece = match found {
+        Found::Unknown { why } => return Err(format!("Nothing was installed. {why}")),
+        Found::Piece(piece) => match &asked.choice {
+            Some(name) if name != piece.name() => return Err(gone(name)),
+            _ => piece,
+        },
+        Found::Several { choices, .. } => {
+            let Some(name) = &asked.choice else {
+                return Err(format!(
+                    "Nothing was installed. {} holds several, and which one to install is not said.",
+                    asked.source
+                ));
+            };
+            match choices.into_iter().find(|one| one.piece.name() == name) {
+                Some(one) => one.piece,
+                None => return Err(gone(name)),
+            }
+        }
+    };
+    match kind_of(&piece) == asked.kind {
+        true => Ok(piece),
+        false => Err(shown_differs()),
     }
 }
 
@@ -116,31 +176,11 @@ where
     /// `install_kit_piece`: look again, and run what that look found. **Bridge only**, so the
     /// route is the person's press and `Asked` is made here.
     pub(crate) async fn kit_piece_installed(&self, asked: InstallKitPiece) -> Result<KitPieceInstalled, Refusal> {
-        if asked.manifest {
-            // Kit's armada.yml carries Checks and Commands alone, and nothing names a repository here.
-            return Err(self.kit_piece_refusal(String::from(
-                "Nothing was installed. Kit's armada.yml has no place for a plugin or a skill yet, so it cannot be added there.",
-            )));
-        }
         let source = asked.source.clone();
         let found = tokio::task::spawn_blocking(move || kit_pieces::look(&source, &ForgeReader { within: LOOK_WITHIN }))
             .await
             .map_err(|why| self.kit_piece_fault(why.to_string()))?;
-        let piece = match (found, asked.kind) {
-            (Found::Piece(piece @ Piece::Plugin { .. }), KitPieceKind::Plugin)
-            | (Found::Piece(piece @ Piece::Skill { .. }), KitPieceKind::Skill) => piece,
-            (Found::Unknown { why }, _) => return Err(self.kit_piece_refusal(format!("Nothing was installed. {why}"))),
-            (Found::Piece(_), kind) => {
-                return Err(self.kit_piece_refusal(format!(
-                    "Nothing was installed. {} is no longer a {}, so what was shown is not what would run.",
-                    asked.source,
-                    match kind {
-                        KitPieceKind::Plugin => "plugin",
-                        KitPieceKind::Skill => "skill",
-                    }
-                )))
-            }
-        };
+        let piece = chosen(found, &asked).map_err(|why| self.kit_piece_refusal(why))?;
         let cli = self.kit_cli();
         let ran = tokio::task::spawn_blocking(move || {
             let asked = Asked::when(true).expect("a request made here");

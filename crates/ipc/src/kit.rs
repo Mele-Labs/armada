@@ -281,18 +281,36 @@ pub enum KitSourceFound {
         repository: String,
         commands: Vec<String>,
     },
+    /// A marketplace listing several plugins, or several skills and no marketplace: one is
+    /// installed at a time, by the name Install's `choice` gives.
+    Several {
+        repository: String,
+        kind: KitPieceKind,
+        choices: Vec<KitSourceChoice>,
+    },
     Unknown {
         why: String,
     },
 }
 
-/// The request half of `install_kit_piece`: a look's `repository` and kind. `manifest` asks for the
-/// item in the person's Kit manifest too.
+/// One of [`KitSourceFound::Several`]: its name, its own words for itself where it gives any, and
+/// what Install runs for it alone.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct KitSourceChoice {
+    pub name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub says: Option<String>,
+    pub commands: Vec<String>,
+}
+
+/// The request half of `install_kit_piece`: a look's `repository` and kind, and for a source of
+/// several, `choice`, the name of the one picked. A name, never a command.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct InstallKitPiece {
     pub source: String,
     pub kind: KitPieceKind,
-    pub manifest: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub choice: Option<String>,
 }
 
 /// `install_kit_piece`'s answer. **A command that exits non-zero is an answer, not a refusal**:

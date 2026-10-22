@@ -209,21 +209,30 @@ export type LookAtKitSource = {
 /**
  * `look_at_kit_source`'s answer: what Fleet found the source to be, before anything runs. `repository` is where it
  * resolved to, `owner/repository`, and `commands` are what Install runs, in order. A plugin's `name` and `marketplace`
- * are read from its marketplace file. `unknown` says why in Fleet's words.
+ * are read from its marketplace file. `several` is a marketplace of several plugins, or several skills and no
+ * marketplace, each installed alone by its `name`. `unknown` says why in Fleet's words.
  */
 export type KitSourceFound =
   | { found: "plugin"; name: string; marketplace: string; repository: string; skills: string[]; commands: string[] }
   | { found: "skill"; name: string; repository: string; commands: string[] }
+  | { found: "several"; repository: string; kind: KitPieceKind; choices: KitSourceChoice[] }
   | { found: "unknown"; why: string };
 
+/** One of `several`: its name, its own words for itself where it gives any, and what Install runs for it alone. */
+export type KitSourceChoice = {
+  name: string;
+  says?: string;
+  commands: string[];
+};
+
 /**
- * The body of `install_kit_piece`: what a look found, by its `repository` and kind. Fleet looks again and runs what it
- * finds. `manifest` `true` is refused with nothing installed: Kit's armada.yml has no place for a plugin or a skill yet.
+ * The body of `install_kit_piece`: what a look found, by its `repository` and kind, and for `several` the `choice`
+ * picked, by name. Fleet looks again and runs what it finds for that name, never a command from the body.
  */
 export type InstallKitPiece = {
   source: string;
   kind: KitPieceKind;
-  manifest: boolean;
+  choice?: string;
 };
 
 /**

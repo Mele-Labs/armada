@@ -89,12 +89,28 @@ impl Piece {
             Piece::Plugin { commands, .. } | Piece::Skill { commands, .. } => commands,
         }
     }
+
+    pub fn name(&self) -> &str {
+        match self {
+            Piece::Plugin { name, .. } | Piece::Skill { name, .. } => name,
+        }
+    }
+}
+
+/// One of several pieces a source holds, and its own words for itself where it gives any.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Choice {
+    pub says: Option<String>,
+    pub piece: Piece,
 }
 
 /// What a source was found to be.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Found {
     Piece(Piece),
+    /// Several plugins in one marketplace, or several skills and no marketplace. Every choice is
+    /// of one kind, and there are always at least two.
+    Several { repository: String, choices: Vec<Choice> },
     /// Neither, in words a person reads.
     Unknown { why: String },
 }
@@ -216,6 +232,8 @@ struct Marketplace {
 #[derive(Deserialize)]
 struct Listed {
     name: String,
+    #[serde(default)]
+    description: Option<String>,
     /// A folder in the same repository; any other shape keeps its skills elsewhere.
     #[serde(default)]
     source: Option<Where>,
@@ -238,22 +256,21 @@ fn look_at_repository(repository: &str, reader: &impl SourceReader) -> Found {
     }
     if paths.iter().any(|path| path == SKILL_FILE) {
         let fallback = repository.split('/').nth(1).unwrap_or(repository);
-        return skill_named(repository, &skill_name(repository, SKILL_FILE, fallback, reader));
+        return skill_named(repository, &skill_read(repository, SKILL_FILE, fallback, reader).piece);
     }
-    let skills = skills_under(&paths, "skills/");
-    match skills.as_slice() {
-        [] => unknown(format!(
+    let skills: Vec<Choice> = skills_under(&paths, "skills/")
+        .iter()
+        .map(|one| skill_read(repository, &format!("skills/{one}/{SKILL_FILE}"), one, reader))
+        .collect();
+    match <[Choice; 1]>::try_from(skills) {
+        Ok([one]) => skill_named(repository, &one.piece),
+        Err(skills) if skills.is_empty() => unknown(format!(
             "{repository} holds neither a plugin marketplace ({MARKETPLACE}) nor a skill ({SKILL_FILE}), so there is nothing Kit can install from it."
         )),
-        [one] => {
-            let file = format!("skills/{one}/{SKILL_FILE}");
-            skill_named(repository, &skill_name(repository, &file, one, reader))
-        }
-        several => unknown(format!(
-            "{repository} holds {} skills and no plugin marketplace: {}. Kit adds one skill at a time, and which one is not said.",
-            several.len(),
-            several.join(", ")
-        )),
+        Err(several) => match several.iter().find(|one| !is_name(one.piece.name())) {
+            Some(bad) => skill_named(repository, &bad.piece),
+            None => Found::Several { repository: repository.to_string(), choices: several },
+        },
     }
 }
 
@@ -269,22 +286,24 @@ fn plugin_in(repository: &str, paths: &[String], reader: &impl SourceReader) -> 
     if !is_name(&market.name) {
         return unknown(format!("{repository}'s marketplace is named `{}`, which Kit will not pass to a command.", market.name));
     }
-    let plugin = match market.plugins.as_slice() {
-        [one] => one,
-        [] => return unknown(format!("{repository}'s marketplace `{}` lists no plugin.", market.name)),
-        several => {
-            let names: Vec<&str> = several.iter().map(|one| one.name.as_str()).collect();
-            return unknown(format!(
-                "{repository}'s marketplace `{}` lists {} plugins: {}. Kit installs one plugin from a marketplace, and which one is not said.",
-                market.name,
-                names.len(),
-                names.join(", ")
-            ));
-        }
-    };
-    if !is_name(&plugin.name) {
-        return unknown(format!("{repository}'s plugin is named `{}`, which Kit will not pass to a command.", plugin.name));
+    if market.plugins.is_empty() {
+        return unknown(format!("{repository}'s marketplace `{}` lists no plugin.", market.name));
     }
+    if let Some(bad) = market.plugins.iter().find(|one| !is_name(&one.name)) {
+        return unknown(format!("{repository}'s plugin is named `{}`, which Kit will not pass to a command.", bad.name));
+    }
+    let mut choices: Vec<Choice> = market
+        .plugins
+        .iter()
+        .map(|plugin| Choice { says: plugin.description.clone(), piece: plugin_piece(repository, &market.name, plugin, paths) })
+        .collect();
+    match choices.len() {
+        1 => Found::Piece(choices.remove(0).piece),
+        _ => Found::Several { repository: repository.to_string(), choices },
+    }
+}
+
+fn plugin_piece(repository: &str, marketplace: &str, plugin: &Listed, paths: &[String]) -> Piece {
     let skills = match &plugin.source {
         Some(Where::Folder(folder)) => {
             let folder = folder.trim_start_matches("./").trim_end_matches('/');
@@ -296,41 +315,40 @@ fn plugin_in(repository: &str, paths: &[String], reader: &impl SourceReader) -> 
         }
         Some(Where::Elsewhere(_)) | None => Vec::new(),
     };
-    let qualified = format!("{}@{}", plugin.name, market.name);
-    Found::Piece(Piece::Plugin {
+    let qualified = format!("{}@{marketplace}", plugin.name);
+    Piece::Plugin {
         name: plugin.name.clone(),
-        marketplace: market.name.clone(),
+        marketplace: marketplace.to_string(),
         repository: repository.to_string(),
         skills,
         commands: vec![
             CommandLine::of(PROGRAM, &["plugin", "marketplace", "add", repository]),
             CommandLine::of(PROGRAM, &["plugin", "install", &qualified]),
         ],
-    })
+    }
 }
 
-fn skill_named(repository: &str, name: &str) -> Found {
+/// One skill a look found, or why its name is one no command may carry.
+fn skill_named(repository: &str, piece: &Piece) -> Found {
+    let name = piece.name();
     if !is_name(name) {
         return unknown(format!("{repository}'s skill is named `{name}`, which Kit will not pass to a command."));
     }
-    Found::Piece(Piece::Skill {
-        name: name.to_string(),
-        repository: repository.to_string(),
-        commands: vec![CommandLine::of(
-            "npx",
-            &["skills", "add", repository, "--global", "--agent", SKILLS_AGENT, "--skill", name, "--copy", "--yes"],
-        )],
-    })
+    Found::Piece(piece.clone())
 }
 
-/// The skill's own name for itself, or `fallback` where its file says none or will not read.
-fn skill_name(repository: &str, file: &str, fallback: &str, reader: &impl SourceReader) -> String {
-    reader
-        .file(repository, file)
-        .ok()
-        .and_then(|bytes| crate::existing_setup::front_matter(&bytes).ok())
-        .and_then(|front| front.name)
-        .unwrap_or_else(|| fallback.to_string())
+/// A skill by its own name and words for itself, or `fallback` where its file says no name or will not read.
+fn skill_read(repository: &str, file: &str, fallback: &str, reader: &impl SourceReader) -> Choice {
+    let front = reader.file(repository, file).ok().and_then(|bytes| crate::existing_setup::front_matter(&bytes).ok());
+    let (name, says) = match front {
+        Some(front) => (front.name.unwrap_or_else(|| fallback.to_string()), front.description),
+        None => (fallback.to_string(), None),
+    };
+    let commands = vec![CommandLine::of(
+        "npx",
+        &["skills", "add", repository, "--global", "--agent", SKILLS_AGENT, "--skill", &name, "--copy", "--yes"],
+    )];
+    Choice { says, piece: Piece::Skill { name, repository: repository.to_string(), commands } }
 }
 
 /// Each folder directly under `under` that holds a `SKILL.md`, by name.

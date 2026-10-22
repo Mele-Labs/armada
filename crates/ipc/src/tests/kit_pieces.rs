@@ -1,7 +1,9 @@
 //! Kit's Add and Remove on the wire, in the bytes `packages/protocol/src/kit.ts` reads: tagged by
 //! `found` and `state`, and a plugin's `trashed` sent as `null` rather than left out.
 
-use crate::{InstallKitPiece, KitInventory, KitPieceInstalled, KitPieceKind, KitPieceRemoved, KitSourceFound};
+use crate::{
+    InstallKitPiece, KitInventory, KitPieceInstalled, KitPieceKind, KitPieceRemoved, KitSourceChoice, KitSourceFound,
+};
 
 fn empty() -> KitInventory {
     KitInventory { harness: String::from("h"), home: String::from("/home"), present: true, kinds: Vec::new() }
@@ -47,8 +49,26 @@ fn a_removed_plugin_says_trashed_null_and_a_body_must_say_it_too() {
 }
 
 #[test]
-fn an_install_body_reads_as_the_mock_sends_it() {
-    let asked: InstallKitPiece =
-        crate::decode("an install", br#"{"source":"pbakaus/impeccable","kind":"plugin","manifest":false}"#).unwrap();
-    assert_eq!((asked.kind, asked.manifest), (KitPieceKind::Plugin, false));
+fn an_install_body_reads_as_the_mock_sends_it_with_or_without_a_choice() {
+    let asked: InstallKitPiece = crate::decode("an install", br#"{"source":"pbakaus/impeccable","kind":"plugin"}"#).unwrap();
+    assert_eq!((asked.kind, asked.choice), (KitPieceKind::Plugin, None));
+    let picked: InstallKitPiece =
+        crate::decode("an install", br#"{"source":"someone/tools","kind":"skill","choice":"lint"}"#).unwrap();
+    assert_eq!(picked.choice.as_deref(), Some("lint"));
+}
+
+#[test]
+fn several_found_carries_its_kind_and_each_choice_with_says_left_out_where_there_is_none() {
+    let found = KitSourceFound::Several {
+        repository: String::from("someone/tools"),
+        kind: KitPieceKind::Skill,
+        choices: vec![
+            KitSourceChoice { name: String::from("docs"), says: Some(String::from("Writes docs")), commands: vec![String::from("a")] },
+            KitSourceChoice { name: String::from("lint"), says: None, commands: vec![String::from("b")] },
+        ],
+    };
+    assert_eq!(
+        crate::encode(&found).unwrap(),
+        r#"{"found":"several","repository":"someone/tools","kind":"skill","choices":[{"name":"docs","says":"Writes docs","commands":["a"]},{"name":"lint","commands":["b"]}]}"#
+    );
 }

@@ -8,9 +8,10 @@ use ipc::{
     InstallKitPiece, KitInventory, KitPieceKind, RemoveKitPiece, RestoreKitPiece, SetupItem, SetupKindRow,
     WhatWasRead,
 };
+use adapters::kit_pieces::{Choice, Found, Piece};
 use testkit::FakeWorkProduct;
 
-use crate::kit_pieces::own_skill;
+use crate::kit_pieces::{chosen, own_skill};
 use crate::tests::tmp::TempDir;
 
 /// A skill of the person's own, in the folder the harness keeps them in.
@@ -116,11 +117,43 @@ async fn undo_refuses_a_place_fleet_did_not_trash() {
     assert!(loose.is_dir());
 }
 
-#[tokio::test]
-async fn an_install_asked_into_the_manifest_is_refused_before_anything_runs() {
-    let home = TempDir::new();
-    let fleet = crate::tests::daemon::a_fleet(&home, FakeWorkProduct::changed(&[]));
-    let asked = InstallKitPiece { source: String::from("someone/tools"), kind: KitPieceKind::Skill, manifest: true };
-    let refused = fleet.kit_piece_installed(asked).await.expect_err("refused");
-    assert!(refused.error().message.contains("Nothing was installed"), "{:?}", refused.error());
+fn a_skill(name: &str) -> Piece {
+    Piece::Skill { name: name.to_string(), repository: String::from("someone/tools"), commands: Vec::new() }
+}
+
+fn two_skills() -> Found {
+    Found::Several {
+        repository: String::from("someone/tools"),
+        choices: ["docs", "lint"].iter().map(|name| Choice { says: None, piece: a_skill(name) }).collect(),
+    }
+}
+
+fn installing(kind: KitPieceKind, choice: Option<&str>) -> InstallKitPiece {
+    InstallKitPiece { source: String::from("someone/tools"), kind, choice: choice.map(str::to_string) }
+}
+
+#[test]
+fn an_install_of_one_of_several_runs_only_the_choice_a_fresh_look_found() {
+    assert_eq!(chosen(two_skills(), &installing(KitPieceKind::Skill, Some("lint"))), Ok(a_skill("lint")));
+}
+
+#[test]
+fn an_install_of_several_with_no_choice_a_gone_choice_or_another_kind_is_refused() {
+    for (kind, choice, says) in [
+        (KitPieceKind::Skill, None, "which one to install is not said"),
+        (KitPieceKind::Skill, Some("format"), "no longer holds a skill named format"),
+        (KitPieceKind::Plugin, Some("lint"), "no longer a plugin"),
+    ] {
+        let why = chosen(two_skills(), &installing(kind, choice)).unwrap_err();
+        assert!(why.starts_with("Nothing was installed.") && why.contains(says), "{why}");
+    }
+}
+
+#[test]
+fn a_choice_named_against_a_source_that_is_now_one_piece_must_be_that_piece() {
+    let one = || Found::Piece(a_skill("docs"));
+    assert_eq!(chosen(one(), &installing(KitPieceKind::Skill, Some("docs"))), Ok(a_skill("docs")));
+    assert_eq!(chosen(one(), &installing(KitPieceKind::Skill, None)), Ok(a_skill("docs")));
+    let why = chosen(one(), &installing(KitPieceKind::Skill, Some("lint"))).unwrap_err();
+    assert!(why.contains("no longer holds a skill named lint"), "{why}");
 }
