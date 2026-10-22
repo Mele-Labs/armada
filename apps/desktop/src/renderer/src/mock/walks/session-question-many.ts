@@ -1,4 +1,4 @@
-// Four questions in the Needs you panel: a stepper beside Back that fills as they are answered and takes him to any of them, and
+// Four questions in the Needs you panel: a stepper beside its buttons that fills as they are answered and takes him to any of them, and
 // answers that are still there after leaving the Job. Over the `session-question-many` scenario.
 
 import { kit, toSessions } from "../sessions/walk-kit";
@@ -12,10 +12,11 @@ const steps = inside(ask, role("group", "Questions"));
 const many = walk("session-question-many", [
   toSessions,
   { press: inside(sessions, button(/Plan the offsite/)), say: "A Job with four questions waiting" },
-  { look: steps, say: "One node per question, beside Back" },
+  { look: steps, say: "One node per question, in the row with Next and Skip" },
   { press: inside(ask, role("radio", "Lisbon")), say: "City" },
   { press: inside(ask, role("radio", "Mar 10")), say: "Week" },
   { press: inside(ask, role("radio", "Loft")), say: "Venue" },
+  { look: inside(ask, button("Answer")), say: "On the last question the button says Answer; before it, Next" },
   { look: inside(ask, text("Which catering?")), say: "Three answered and checked, the last one ringed" },
   { hover: inside(steps, button("Week: Mar 10")), say: "Hover names what was chosen" },
   { press: inside(steps, button("Week: Mar 10")), say: "Any node takes him back to its question" },

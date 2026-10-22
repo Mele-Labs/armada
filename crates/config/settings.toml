@@ -1045,6 +1045,21 @@ Chosen 19 Oct 2026, not measured: the read is one short yes or no over a few rep
 **The value lives in settings.json under `models.dispute`** (live), `docs/concepts/machine.md`, *settings.json*.
 """
 
+[settings.test-map-reading-model]
+name = "Test map reader model"
+scope = "Machine"
+default = "the Judge model's default, the cheapest on the roster"
+lifetime = "Live"
+merge_strategy = "REPLACE"
+peer_polarity = "Member of the Kit set"
+owner = "Fleet"
+read_by = "adapters, fleet"
+notes = """
+Chosen 22 Oct 2026, not measured. When main moves, a changed file that no Check covering it has a collector for is read by one model call, which names the test files in the covering Checks' directories that exercise it (`docs/concepts/test-map.md`, the rule that a model reads only a file no collector can measure). The call is one short read of a capped file and a capped list of paths, up to twenty a move, so it ships on the Judge's tier. Its own row so raising the Judge does not raise it. The adapter states the default. An empty value reads nothing and logs that it did not. The call goes through the Judge's client and the proposer's budget.
+
+**The value lives in settings.json under `models.testMap`** (live), `docs/concepts/machine.md`, *settings.json*.
+"""
+
 [settings.judge-confidence-threshold]
 name = "Judge confidence threshold"
 scope = "Kit → Manifest"
