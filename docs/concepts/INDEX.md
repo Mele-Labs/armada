@@ -43,4 +43,5 @@ assuming it is restated here.
 | [themes.md](themes.md) | The colours Bridge is drawn in: Dark, Light, a catalogue of terminal colour schemes, and the themes mods add |
 | [tracker.md](tracker.md) | The adapter through which Fleet lists a repository's open issues |
 | [trigger.md](trigger.md) | A saved Command, skill or prompt tied to a moment in a workflow's steps, set by a repository or this machine |
+| [watch.md](watch.md) | A command Fleet runs on a cadence for one Job, whose last line says where a deploy or pipeline stands, and which the Job's agent weighs when it fails |
 | [workflow.md](workflow.md) | The template a Job may follow: ordered steps as a soft rail |

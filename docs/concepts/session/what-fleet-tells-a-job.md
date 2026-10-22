@@ -14,6 +14,31 @@ A merge tells the Job to call `finish_up`, which releases its slot and deletes t
 | Terminal | Fleet cannot push into one. The message is held for its mod, prefixed `Fleet:`, and handed over when the mod next asks. A mod that is not asking leaves it unsent and Fleet tries again at the next reading |
 | Ended | Nothing is sent |
 
+**A Job is told when a watch it started changes.** A watch is a command Fleet runs for the Job (`docs/concepts/watch.md`), and Fleet sends one message when it turns failed, ends passed, gives up or breaks.
+`waiting`, `running`, a pass not yet finished and a stop tell nothing, and a weighing tells nobody, since the agent gave it.
+The message goes the way a pull request's does, by the table above.
+
+| The watch | The message opens |
+|---|---|
+| Turns `failed` | `QA deploy failed: deploy-api failed.` |
+| Ends `passed` | `QA deploy passed.` |
+| Gives up | `QA deploy gave up after 2h. It last said: two of three services done` |
+| Breaks three readings in a row | `QA deploy stopped: its command failed three times.` |
+
+**A failed notice names the counted parts that failed, then the link and a second line.**
+Parts the agent set aside are left out, and a watch with no parts quotes the line's own sentence: `QA deploy failed: <says>`.
+The reading's link follows after a space, and the second line names the watch for `weigh_watch`, where `w-…` is its id:
+
+```
+Weigh it with weigh_watch on watch w-…: ours ends it, and not_ours sets those parts aside and it carries on.
+```
+
+**A gave up notice quotes the last thing the watch said.**
+A watch that gave up before any reading says `QA deploy gave up after 2h without a reading.`
+**A broken notice ends with the command's last output**, its last 15 lines and no more than 1,200 characters, or the reason where it printed nothing.
+Each is told once for each change in what failed, so the same failure read again is not news, and a restart repeats nothing.
+A Job that cannot take one now is offered it again a minute later.
+
 **A Job is told when what it wrote would conflict.** When Fleet finds that the files a Job wrote conflict with another Job's, or with the base after it moved, it sends that Job one message: the files, who the other is and how to reach it.
 The Job is not paused and the message is sent once per set of files.
 `docs/concepts/fleet.md`, *Write clashes*.
