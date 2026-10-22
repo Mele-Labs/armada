@@ -37,8 +37,8 @@ Fleet has more than one way to learn that a test reaches a file, and uses whiche
 > **Rule.** A measured edge outranks a static one, and a static one outranks a model's reading. The Manifest's declaration is the floor.
 > Why: each source is sharper than the one below it, and the floor is what runs today, so the map can only narrow and never widen what is checked.
 
-> **Rule.** A model's reading is an answer about a file no cheaper source has seen, and it is marked as a reading until a run confirms it.
-> Why: it is the one source that works for any language and any kind of test, and the one that can be wrong without knowing.
+> **Rule.** A model reads only a file no collector can measure, and its reading is marked as one until a run confirms it.
+> Why: it is the one source that works for any language and any kind of test, and the one that can be wrong without knowing, so a file a run can reach waits for the run.
 
 > **Rule.** A source is a plug in Fleet, and a repository may add one.
 > Why: Ruby, a browser suite and a Rust workspace each have their own collector, and Fleet owns the map, not the collectors.
@@ -53,7 +53,7 @@ Fleet has more than one way to learn that a test reaches a file, and uses whiche
 | A Check runs for a Job | Records a lap for each test that ran, where the runtime's collector costs no rebuild |
 | A pull request merges | The run on main refreshes the laps for what it ran |
 | A file changes on a branch | Marks its edges stale, and reads them again by the cheapest source that can |
-| A new file appears | Asks the static graph, then a model, for what reaches it |
+| A new file appears | Asks the static graph, and a model only where no collector can measure it |
 | The machine is asleep | Re-measures stale edges in a free bay, one test at a time, and stops when sleep mode goes off |
 
 > **Rule.** A stale edge is still an answer, said as stale.
