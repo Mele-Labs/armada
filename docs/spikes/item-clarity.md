@@ -77,8 +77,10 @@ Nothing.
 `clarity::IN_FORCE` is false, so `waiting_for` keeps the list as the agent sent it and a reply's asks are extracted as `reply-sentence-readers.md` says.
 Switched on:
 
-- `waiting_for` refuses an item the rules call unclear, naming the item and why in the voice of the walk refusal. It reads the rules only: the head cannot say why, and it did not catch what the rules missed.
-- `extracting` leaves an ask out unless the rules and the head both read it as clear, numbers the rest again among themselves, and raises nothing for a reply with none. The head reads a sentence of a close here, not an item, and that was not measured.
+- `waiting_for` refuses an item the rules call unclear, naming the item and why in the voice of the walk refusal.
+  It reads the rules only: the head cannot say why, and it did not catch what the rules missed.
+- `extracting` leaves an ask out unless the rules and the head both read it as clear, numbers the rest again among themselves, and raises nothing for a reply with none.
+  The head reads a sentence of a close here, not an item, and that was not measured.
 
 ## What it costs
 
