@@ -359,7 +359,11 @@ impl FakeSlots {
                         branch: slot
                             .stranded
                             .as_ref()
-                            .and_then(|(work, _)| work.branch.clone()),
+                            .and_then(|(work, _)| work.branch.clone())
+                            .or_else(|| {
+                                let job = slot.held_by.as_ref()?;
+                                self.branch_of.lock().expect("not poisoned").get(job).cloned()
+                            }),
                         since: None,
                         warm: false,
                         behind: None,

@@ -46,9 +46,17 @@ export const Blank: Story = {
 export const FirstWriteAndASender: Story = {
   args: { rows: ROWS },
   play: async ({ canvas, args }) => {
-    await expect(canvas.getByRole("region", { name: "Leased on first write" })).toBeInTheDocument();
+    await expect(canvas.getByRole("region", { name: "Slot leased" })).toBeInTheDocument();
     await userEvent.click(canvas.getByRole("button", { name: "Open Job Release notes script" }));
     await expect(args.onOpenSession).toHaveBeenCalledWith("s2");
+  },
+};
+
+/** The slot given back is a row of its own, in the style of the lease. */
+export const SlotReleased: Story = {
+  args: { rows: [{ id: "9", at: "14:41:02", kind: "release", slot: 3, branch: "fix/flaky-store" }] },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("region", { name: "Slot released" })).toBeInTheDocument();
   },
 };
 

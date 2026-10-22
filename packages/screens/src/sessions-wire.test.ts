@@ -385,6 +385,11 @@ describe("the thread", () => {
     expect(drawn[3]).toMatchObject({ from: { kind: "session", id: "s-1", title: "Other" } });
   });
 
+  it("keeps the slot given back as a row of its own", () => {
+    const drawn = rowsOfThread("a", [{ kind: "release", id: "9", at: AT, slot: 3, branch: "fix/x" }], () => undefined);
+    expect(drawn[0]).toMatchObject({ kind: "release", slot: 3, branch: "fix/x" });
+  });
+
   it("says what an answered ask was decided and leaves a waiting one to the card under the thread", () => {
     const drawn = rowsOfThread("a", rows, () => undefined);
     expect(drawn.map((one) => one.id)).toEqual(["1", "2", "3", "4", "5"]);

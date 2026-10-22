@@ -76,3 +76,17 @@ async fn a_slot_another_holds_since_is_refused_and_the_rows_stand() {
     assert!(rig.fleet.vcs().parked_slots().is_empty());
     assert_eq!(standing(&rig, &id, "slot").await, vec!["1"]);
 }
+
+#[tokio::test]
+async fn a_released_slot_leaves_a_release_row_in_the_thread() {
+    let (rig, id) = in_its_slot(&Placing::nothing()).await;
+    idle(&rig, &id).await;
+
+    release(&rig, &id).await.expect("released");
+
+    assert!(rig
+        .rows(&id)
+        .await
+        .iter()
+        .any(|row| matches!(row, ipc::SessionRow::Release { slot: 1, .. })));
+}
