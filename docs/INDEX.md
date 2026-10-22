@@ -271,6 +271,10 @@ approximations.
 - [`spikes/035-which-mcp-settings-keep-a-hosted-jobs-first-turn-quick.md`](spikes/035-which-mcp-settings-keep-a-hosted-jobs-first-turn-quick.md)
   — a startup wait of 0 with a 120-second `MCP_TIMEOUT` starts a hosted Job's first turn in a second
   and still connects a 45-second server; the door is waited for because it serves the permission tool.
+- [`spikes/item-clarity.md`](spikes/item-clarity.md)
+  — whether the owner can act on an item an agent puts on his Needs you list, by rules and by an
+  `item_clear` head: 569 labelled items, rules alone against the head and both, dev folds and a held half,
+  the threshold, and why the rules refuse and the head only ranks; built and not in force.
 - [`spikes/needs-you-dedup.md`](spikes/needs-you-dedup.md)
   — whether two items on a Job's Needs you list are one ask, by the cosine of the base model's
   vectors: 300 labelled pairs, a threshold of 0.845 that merged no two different asks on the

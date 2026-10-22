@@ -36,7 +36,7 @@ fn scores(reply: &str, yes: &[&str]) -> Vec<f32> {
 }
 
 fn asks_of(reply: &str, asks: &[&str], later: &[&str]) -> Extracted {
-    extracted(reply, &closing(reply), &scores(reply, asks), &scores(reply, later))
+    extracted(reply, &closing(reply), &scores(reply, asks), &scores(reply, later), None)
 }
 
 /// The act is read from the sentence: a fenced command is run, a pull request named with approve, merge
@@ -182,4 +182,52 @@ fn a_dismissed_ask_leaves_the_others_standing() {
     let gone = vec![format!("replied:{ENDED}:0")];
     let seen = Seen { dismissed: &gone, ..between(Some(&all)) };
     assert_eq!(derived(&seen).iter().map(|one| one.id.as_str()).collect::<Vec<_>>(), [format!("replied:{ENDED}:1")]);
+}
+
+/// As `asks_of`, with the clarity reader in force: `unclear` names the sentences the head finds
+/// unclear (0.9 unclear, else 0.1), and the rules read the rest.
+fn clear_asks_of(reply: &str, asks: &[&str], unclear: &[&str]) -> Extracted {
+    let close = closing(reply);
+    let clear: Vec<f32> = close.iter().map(|one| if unclear.contains(&one.sentence.as_str()) { 0.1 } else { 0.9 }).collect();
+    extracted(reply, &close, &scores(reply, asks), &scores(reply, &[]), Some(&clear))
+}
+
+/// "Bigger than it looked?" was the rules' sentence, a heading shown as his question. Off, it is the
+/// ask as before; in force, it is not an ask, and a reply with no other raises nothing.
+#[test]
+fn with_clarity_in_force_a_heading_the_rules_picked_is_not_an_ask() {
+    let reply = "The parser grew past 900 lines.\n\nBigger than it looked?";
+    assert_eq!(asks_of(reply, &[], &[]).asks.iter().map(|ask| ask.sentence.as_str()).collect::<Vec<_>>(), ["Bigger than it looked?"]);
+    assert_eq!(clear_asks_of(reply, &[], &[]), Extracted::default());
+}
+
+/// The clear ask stays and takes the first number, so its id is the same however many unclear ones
+/// came before it.
+#[test]
+fn the_clear_asks_stay_and_are_numbered_among_themselves() {
+    let reply = "The parser grew past 900 lines.\n\nBigger than it looked? Should I split it into two files?";
+    let asked = &["Bigger than it looked?", "Should I split it into two files?"];
+    assert_eq!(asks_of(reply, asked, &[]).asks.len(), 2);
+    let got = clear_asks_of(reply, asked, &[]);
+    assert_eq!(got.asks.iter().map(|ask| (ask.index, ask.sentence.as_str())).collect::<Vec<_>>(), [(0, "Should I split it into two files?")]);
+}
+
+/// The head can find a sentence unclear that the rules pass.
+#[test]
+fn a_sentence_the_head_finds_unclear_is_left_out_though_the_rules_pass_it() {
+    let reply = "The cap is in.\n\nShould I split it into two files? Should I land it?";
+    let asked = &["Should I split it into two files?", "Should I land it?"];
+    let got = clear_asks_of(reply, asked, &["Should I split it into two files?"]);
+    assert_eq!(got.asks.iter().map(|ask| ask.sentence.as_str()).collect::<Vec<_>>(), ["Should I land it?"]);
+}
+
+/// Through `derived`: a reply whose only ask is unclear raises no item, and reads as a reply, not as
+/// one that waits on him.
+#[test]
+fn a_reply_with_no_clear_ask_raises_no_item() {
+    let reply = "The parser grew past 900 lines.\n\nBigger than it looked?";
+    let forced = |said: &str| Some(clear_asks_of(said, &[], &[]));
+    let seen = Seen { turn_end: Some((ENDED, reply)), ..between(Some(&forced)) };
+    assert!(derived(&seen).is_empty());
+    assert_eq!(crate::session_host::standing::standing(&seen, Duration::from_secs(600)), ipc::SessionStanding::Replied);
 }

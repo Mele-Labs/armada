@@ -61,6 +61,7 @@ pub(crate) mod session_judging;
 mod serving;
 pub(crate) mod asks;
 pub(crate) mod asks_model;
+pub(crate) mod clarity;
 pub(crate) mod dedup;
 pub(crate) mod extracting;
 pub(crate) mod tell_refusal;

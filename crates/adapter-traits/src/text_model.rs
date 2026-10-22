@@ -18,6 +18,8 @@ pub enum TextReading {
     SentenceAsks,
     /// Whether one sentence of a reply's close is a follow-up the agent keeps for itself.
     SentenceFollowsUp,
+    /// Whether an agent's waiting item is clear to the person alone: a verb aimed at him and the thing it names.
+    ItemClear,
 }
 
 /// A text model: texts in, one unit-length vector or one probability each out, in order. Blocking

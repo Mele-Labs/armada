@@ -18,6 +18,8 @@
 //!
 //! **So is one that repeats the plan he has not approved**, which `plan_asks.rs` reads with the model.
 //!
+//! **And one he could not act on**, once `clarity::IN_FORCE`: a status, a pointer, or no verb aimed at him.
+//!
 //! **A question asked in the walk window waits until answered**, read off its row as `window_ask:<row>`.
 //!
 //! **A dismissed id never comes back**, save a walk the job shows again, which `show_window` lifts.
@@ -44,6 +46,7 @@ use store::{KeptSession, KeptWaiting, Store};
 
 use crate::daemon::Fleet;
 use crate::session_host::asking_in_window::WINDOW_ASK_PREFIX;
+use crate::session_host::clarity::{first_unclear, unclear_item_refusal, IN_FORCE as CLARITY_IN_FORCE};
 use crate::session_host::walk_asks::{asks_to_walk, walk_item_refusal};
 use crate::session_host::UNSENT_ITEM;
 
@@ -51,6 +54,7 @@ const SESSION_WAITING_UNNAMED: &str = "fleet.session_waiting_unnamed";
 const SESSION_WAITING_EMPTY: &str = "fleet.session_waiting_empty";
 const SESSION_WAITING_UNHELD: &str = "fleet.session_waiting_unheld";
 const SESSION_WAITING_WALK: &str = "fleet.session_waiting_walk";
+const SESSION_WAITING_UNCLEAR: &str = "fleet.session_waiting_unclear";
 
 /// The last line of a message answering an agent item: it need not say the item again. It says the
 /// item is settled outright, since a bare "took this off" read as a removal to undo, and agents
@@ -527,6 +531,13 @@ where
             if asks_to_walk(&item.id, &item.text, item.act.as_ref().map(|act| act.kind)) {
                 return Err(self.hosted_refusal(SESSION_WAITING_WALK, &walk_item_refusal(item.id.trim())));
             }
+        }
+        let unclear = set.items.iter().map(|item| {
+            let runs = item.act.as_ref().is_some_and(|act| act.kind == WaitingActKind::Run && !act.target.trim().is_empty());
+            (item.id.trim(), item.text.trim(), runs)
+        });
+        if let Some((item, why)) = first_unclear(unclear, CLARITY_IN_FORCE) {
+            return Err(self.hosted_refusal(SESSION_WAITING_UNCLEAR, &unclear_item_refusal(item, why)));
         }
         let said = set.items.iter().map(|item| (item.id.trim().to_string(), item.text.trim().to_string())).collect();
         self.plan_repeated(&id, said).await?;

@@ -6,6 +6,8 @@ mod adapters_src {
 }
 #[path = "../../../crates/fleet/src/session_host/asks.rs"]
 mod asks;
+#[path = "../../../crates/fleet/src/session_host/clarity.rs"]
+mod clarity;
 #[path = "../../../crates/fleet/src/session_host/extracting.rs"]
 mod extracting;
 
@@ -401,6 +403,53 @@ fn figures(scores: &[f32], ys: &[bool]) -> String {
         half.3,
         half.4
     )
+}
+
+/// The agents' waiting items of `items/`, each read alone: `y` is whether the label is `clear`, an unclear
+/// item weighs three so the rarer class is not drowned, `new` whether the item is in the dev half, and
+/// `kind` its session, so a fold keeps a session whole. The second list says whether a command goes with it.
+fn clarity_examples(training: &Path) -> (Vec<Example>, Vec<bool>) {
+    let dir = training.join("items");
+    let table = |name: &str| -> Vec<Vec<String>> {
+        std::fs::read_to_string(dir.join(name)).unwrap().lines().skip(1).map(|line| line.split('\t').map(str::to_string).collect()).collect()
+    };
+    let label: HashMap<(String, String), bool> = table("clarity.tsv").into_iter().map(|f| ((f[0].clone(), f[1].clone()), f[2] == "clear")).collect();
+    let dev: HashMap<(String, String), bool> = table("split.tsv").into_iter().map(|f| ((f[1].clone(), f[0].clone()), f[2] == "dev")).collect();
+    let mut out = (Vec::new(), Vec::new());
+    for f in table("items.tsv") {
+        let key = (f[0].clone(), f[2].clone());
+        let clear = label[&key];
+        out.0.push(Example { id: format!("{}:{}", f[0], f[2]), text: f[3].clone(), y: clear, weight: if clear { 1.0 } else { 3.0 }, new: dev[&key], kind: f[0].clone() });
+        out.1.push(f[4] == "run" && !f[5].trim().is_empty());
+    }
+    out
+}
+
+/// Folds that keep a session whole, the sessions with an unclear item spread evenly.
+fn session_folds(ex: &[Example], k: usize, seed: u64) -> Vec<usize> {
+    let mut rng = Rng(seed);
+    let mut sessions: Vec<&str> = Vec::new();
+    for e in ex {
+        if !sessions.contains(&e.kind.as_str()) {
+            sessions.push(&e.kind);
+        }
+    }
+    let mut of: HashMap<&str, usize> = HashMap::new();
+    for class in [true, false] {
+        let mut idx: Vec<&str> = sessions.iter().copied().filter(|s| ex.iter().any(|e| e.kind == *s && !e.y) == class).collect();
+        rng.shuffle(&mut idx);
+        for (n, s) in idx.into_iter().enumerate() {
+            of.insert(s, n % k);
+        }
+    }
+    ex.iter().map(|e| of[e.kind.as_str()]).collect()
+}
+
+/// Precision and recall of the call `unclear` against the labels `ys`, with the counts.
+fn calls(unclear: &[bool], ys: &[bool]) -> String {
+    let scores: Vec<f32> = unclear.iter().map(|u| if *u { 1.0 } else { 0.0 }).collect();
+    let (p, r, tp, fp, fn_) = pr(&scores, ys, 0.5);
+    format!("P {p:.3} R {r:.3} (tp{tp} fp{fp} fn{fn_})")
 }
 
 fn save(params: &Params, heads: &[(&str, &Params)], path: &Path) {
@@ -804,6 +853,119 @@ fn main() {
                 let text = "Both fixes are pushed. Want me to land them?";
                 println!("{head} head unchanged: {:.6} vs {:.6}", enc.read(&tuned, head, &[text], longest, keep).unwrap()[0], enc.read(&both, head, &[text], longest, keep).unwrap()[0]);
             }
+        }
+        "clarity" => {
+            // clarity <adapted, unread> <epochs> <lr> <dev|held>: the `item_clear` head on the frozen
+            // committed adapter, so the other four heads keep their weights. Five folds by session on the
+            // dev half pick the threshold for "unclear" (score = 1 - clear); `dev` stops there and prints
+            // the rules' errors on dev. `held` trains on all of dev, scores the held half once, and writes the file.
+            let committed = adapters_src::language_model::TUNED;
+            let tuned = Tuned::from_bytes(committed).unwrap();
+            let cfg = Train { epochs, lr, adapter: false, pos_weight: 1.0 };
+            let (ex, runs_with) = clarity_examples(&training);
+            let t = Instant::now();
+            let texts: Vec<&str> = ex.iter().map(|e| e.text.as_str()).collect();
+            let cached = cache_adapted(&enc, &tuned, &texts, TextReading::ItemClear);
+            eprintln!("cached {} items in {:.0?}", ex.len(), t.elapsed());
+            let dev: Vec<usize> = (0..ex.len()).filter(|&i| ex[i].new).collect();
+            let held: Vec<usize> = (0..ex.len()).filter(|&i| !ex[i].new).collect();
+            let dev_ex: Vec<Example> = dev.iter().map(|&i| ex[i].clone()).collect();
+            let dev_cached: Vec<Cached> = dev.iter().map(|&i| Cached { hidden: cached[i].hidden.clone(), length: cached[i].length }).collect();
+            let unclear_of = |i: usize| clarity::unclear(&ex[i].text, runs_with[i]).is_some();
+            let dev_unclear: Vec<bool> = dev.iter().map(|&i| !ex[i].y).collect();
+            let rules_dev: Vec<bool> = dev.iter().map(|&i| unclear_of(i)).collect();
+            println!("rules dev {}", calls(&rules_dev, &dev_unclear));
+            let mode = args[6].as_str();
+            if mode == "dev" {
+                for (&i, ys) in dev.iter().zip(&dev_unclear) {
+                    if unclear_of(i) != *ys {
+                        println!("  rules {} on dev: {}", if *ys { "missed" } else { "wrongly refused" }, ex[i].text);
+                    }
+                }
+            }
+            let fold = session_folds(&dev_ex, 5, 7);
+            let oof = cross_folded(&enc, LAYERS, &dev_cached, &dev_ex, &cfg, 5, &fold);
+            for (epoch, scores) in oof.iter().enumerate() {
+                let unclear: Vec<f32> = scores.iter().map(|p| 1.0 - p).collect();
+                println!("item_clear dev folds epoch {} {}", epoch + 1, figures(&unclear, &dev_unclear));
+            }
+            let last: Vec<f32> = oof[oof.len() - 1].iter().map(|p| 1.0 - p).collect();
+            let (t_head, ..) = threshold(&last, &dev_unclear, 0.90);
+            // The most recall at precision 0.90 when the rules' call also counts.
+            let both_dev = |t: f32| -> Vec<bool> { last.iter().zip(&rules_dev).map(|(s, r)| *r || *s >= t).collect() };
+            let mut t_both = (0.99f32, 0.0f64);
+            for step in 1..100 {
+                let t = step as f32 / 100.0;
+                let call: Vec<f32> = both_dev(t).iter().map(|c| if *c { 1.0 } else { 0.0 }).collect();
+                let (p, r, ..) = pr(&call, &dev_unclear, 0.5);
+                if p >= 0.90 && r > t_both.1 {
+                    t_both = (t, r);
+                }
+            }
+            println!("head alone on dev folds at t {t_head:.2}: {}", calls(&last.iter().map(|s| *s >= t_head).collect::<Vec<_>>(), &dev_unclear));
+            println!("rules and head on dev folds at t {:.2}: {}", t_both.0, calls(&both_dev(t_both.0), &dev_unclear));
+            let lines: Vec<String> = dev_ex.iter().zip(&last).map(|(e, s)| format!("{}\t{}\t{s:.4}", e.id, !e.y)).collect();
+            std::fs::write(runs.join("clarity-oof.tsv"), lines.join("\n")).unwrap();
+            if mode != "held" {
+                return;
+            }
+            let all: Vec<usize> = (0..dev_ex.len()).collect();
+            let params = train(&enc, LAYERS, &dev_cached, &dev_ex, &all, &cfg, 3, |_, _| {});
+            let scores: Vec<f32> = predict(&enc, &params, LAYERS, &cached, &held).iter().map(|p| 1.0 - p).collect();
+            let held_unclear: Vec<bool> = held.iter().map(|&i| !ex[i].y).collect();
+            let rules_held: Vec<bool> = held.iter().map(|&i| unclear_of(i)).collect();
+            println!("held rules {}", calls(&rules_held, &held_unclear));
+            println!("held head auc {:.3} at dev's t {t_head:.2}: {}", auc(&scores, &held_unclear), calls(&scores.iter().map(|s| *s >= t_head).collect::<Vec<_>>(), &held_unclear));
+            let both: Vec<bool> = scores.iter().zip(&rules_held).map(|(s, r)| *r || *s >= t_both.0).collect();
+            println!("held rules and head at dev's t {:.2}: {}", t_both.0, calls(&both, &held_unclear));
+            let mut tensors = candle_core::safetensors::load_buffer(committed, &Device::Cpu).unwrap();
+            tensors.insert("head.item_clear.weight".to_string(), params.weight.as_tensor().clone());
+            tensors.insert("head.item_clear.bias".to_string(), params.bias.as_tensor().clone());
+            let out = runs.join("tuned-clarity.safetensors");
+            candle_core::safetensors::save(&tensors, &out).unwrap();
+            let both_file = Tuned::from_bytes(&std::fs::read(&out).unwrap()).unwrap();
+            let (head, longest, keep) = shape(TextReading::ItemClear);
+            let probe: Vec<usize> = (0..ex.len()).step_by(37).collect();
+            let mine = predict(&enc, &params, LAYERS, &cached, &probe);
+            for (&i, p) in probe.iter().zip(mine) {
+                let read = enc.read(&both_file, head, &[ex[i].text.as_str()], longest, keep).unwrap()[0];
+                println!("probe {head} {} trainer {p:.6} reader {read:.6}", ex[i].id);
+            }
+            for reading in [TextReading::ReplyAsks, TextReading::TellRefused, TextReading::SentenceAsks, TextReading::SentenceFollowsUp] {
+                let (head, longest, keep) = shape(reading);
+                let text = "Both fixes are pushed. Want me to land them?";
+                println!("{head} head unchanged: {:.6} vs {:.6}", enc.read(&tuned, head, &[text], longest, keep).unwrap()[0], enc.read(&both_file, head, &[text], longest, keep).unwrap()[0]);
+            }
+        }
+        "clarity-time" => {
+            // clarity-time: what one list costs as `waiting_for` would pay it: the rules over every
+            // labelled item, then the head over each item alone, as a one-item list.
+            let tuned = Tuned::from_bytes(adapters_src::language_model::TUNED).unwrap();
+            let (ex, runs_with) = clarity_examples(&training);
+            let t = Instant::now();
+            for _ in 0..1000 {
+                for (e, runs) in ex.iter().zip(&runs_with) {
+                    std::hint::black_box(clarity::unclear(&e.text, *runs));
+                }
+            }
+            eprintln!("rules: {:.2} us per item over {} items", t.elapsed().as_secs_f64() * 1e6 / (1000 * ex.len()) as f64, ex.len());
+            let (head, longest, keep) = shape(TextReading::ItemClear);
+            let mut times = Vec::new();
+            for e in &ex {
+                let t = Instant::now();
+                let _ = enc.read(&tuned, head, &[e.text.as_str()], longest, keep).unwrap();
+                times.push(t.elapsed().as_secs_f64() * 1000.0);
+            }
+            times.sort_by(|a, b| a.partial_cmp(b).unwrap());
+            let rss = std::process::Command::new("ps").args(["-o", "rss=", "-p", &std::process::id().to_string()]).output().unwrap();
+            eprintln!(
+                "head per item ms: mean {:.1} median {:.1} p95 {:.1} max {:.1}; rss {} KB",
+                times.iter().sum::<f64>() / times.len() as f64,
+                times[times.len() / 2],
+                times[times.len() * 95 / 100],
+                times[times.len() - 1],
+                String::from_utf8_lossy(&rss.stdout).trim()
+            );
         }
         "thresholds" => {
             // From out-of-fold scores at one epoch, on the post-18-Oct replies: the most recall at
