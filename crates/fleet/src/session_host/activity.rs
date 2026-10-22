@@ -8,13 +8,13 @@
 //! **The row is large and every publish sends it whole**, so a call is not a row of its own. A
 //! change to `now` or `todos` publishes at once if the row has not gone out within [`PUBLISH_EVERY`],
 //! and otherwise once, when that time is up. A call that changes neither publishes nothing. A turn
-//! starting clears `now` and keeps `todos`.
+//! starting clears `now` and the subagents' and keeps `todos`.
 
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-use ipc::{ReportedTask, ReportedTaskStatus, SessionActivity, SessionGate, SessionTodo, SessionTodoState};
+use ipc::{ReportedTask, ReportedTaskStatus, SessionActivity, SessionGate, SessionTodo, SessionTodoState, SubagentActivity};
 
 use crate::build_keeping::build_heard;
 use crate::build_record::Observed;
@@ -28,12 +28,16 @@ pub(crate) const PUBLISH_EVERY: Duration = Duration::from_secs(2);
 const WORD_AT_MOST: usize = 40;
 const NAME_AT_MOST: usize = 80;
 const TODO_AT_MOST: usize = 200;
+const SAID_AT_MOST: usize = 160;
 
 /// What a session did last, and when its row last went out for it.
 #[derive(Default)]
 pub(crate) struct Activity {
     now: Option<String>,
+    said: Option<String>,
     todos: Vec<SessionTodo>,
+    /// What each subagent at work is doing, in the order they were first heard.
+    subagents: Vec<SubagentActivity>,
     /// When the row last went out, or was scheduled to by this.
     sent_at: Option<Instant>,
     /// A change not yet on a published row.
@@ -53,6 +57,12 @@ pub(crate) enum Publish {
 impl Activity {
     /// Take one call. `every` is the most often a row goes out for it.
     pub(crate) fn saw(&mut self, gate: &SessionGate, every: Duration) -> Publish {
+        if let Some(agent) = gate.agent_id.as_deref() {
+            return match self.subagent_saw(agent, gate) {
+                true => self.changed(every),
+                false => Publish::Not,
+            };
+        }
         let changed = match gate.tool_name.as_str() {
             "TodoWrite" => match todos_of(gate) {
                 Some(todos) if todos != self.todos => {
@@ -73,6 +83,41 @@ impl Activity {
             true => self.changed(every),
             false => Publish::Not,
         }
+    }
+
+    /// A call a subagent made: its own `now`, and not the Session's. Its `TodoWrite` is its own list,
+    /// which the Session's is not. Whether anything changed.
+    fn subagent_saw(&mut self, agent: &str, gate: &SessionGate) -> bool {
+        let Some(now) = now_of(gate) else { return false };
+        match self.subagents.iter_mut().find(|one| one.id == agent) {
+            Some(one) if one.now == now => false,
+            Some(one) => {
+                one.now = now;
+                true
+            }
+            None => {
+                self.subagents.push(SubagentActivity { id: agent.to_string(), now });
+                true
+            }
+        }
+    }
+
+    /// The agent said something this turn: the first line of it, at most [`SAID_AT_MOST`] characters.
+    /// A text with nothing in it changes nothing.
+    pub(crate) fn said(&mut self, text: &str, every: Duration) -> Publish {
+        let Some(line) = said_line(text) else { return Publish::Not };
+        if self.said.as_deref() == Some(line.as_str()) {
+            return Publish::Not;
+        }
+        self.said = Some(line);
+        self.changed(every)
+    }
+
+    /// A subagent ended: its line goes. Whether it had one.
+    pub(crate) fn subagent_ended(&mut self, agent: &str) -> bool {
+        let held = self.subagents.len();
+        self.subagents.retain(|one| one.id != agent);
+        self.subagents.len() != held
     }
 
     /// Something the row carries changed, though not through a call this holds: the row goes out
@@ -114,6 +159,8 @@ impl Activity {
     /// this one is: `now` goes, and the agent's list stays, true across turns.
     pub(crate) fn turn_began(&mut self) {
         self.now = None;
+        self.said = None;
+        self.subagents.clear();
         self.unsent = false;
         self.sent_at = Some(Instant::now());
     }
@@ -128,9 +175,21 @@ impl Activity {
         let held = SessionActivity {
             now: self.now.clone(),
             todos: self.todos.clone(),
+            said: self.said.clone(),
+            subagents: self.subagents.clone(),
         };
         (held != SessionActivity::default()).then_some(held)
     }
+}
+
+/// The first line of what the agent said, trimmed, cut at [`SAID_AT_MOST`] characters with an ellipsis.
+fn said_line(text: &str) -> Option<String> {
+    let line = text.lines().map(str::trim).find(|one| !one.is_empty())?;
+    if line.chars().count() <= SAID_AT_MOST {
+        return Some(line.to_string());
+    }
+    let cut: String = line.chars().take(SAID_AT_MOST - 1).collect();
+    Some(format!("{}…", cut.trim_end()))
 }
 
 /// The agent's `TodoWrite` list. `None` for an input with no list in it, which changes nothing.
@@ -360,6 +419,17 @@ where
     /// What the row carries of it.
     pub(crate) fn activity_of(&self, id: &str) -> Option<SessionActivity> {
         self.hosts().of(id).state().activity.wire()
+    }
+
+    /// The agent's own text, as it is heard: its first line goes on the row, like `now`.
+    pub(super) fn said_seen(self: &Arc<Self>, id: &str, text: &str) {
+        let step = self.hosts().of(id).state().activity.said(text, self.hosts().activity_every());
+        self.publish_step(id.to_string(), step);
+    }
+
+    /// A subagent of the session ended: its line goes. Whether the row changed, which the caller publishes.
+    pub(crate) fn activity_subagent_over(&self, id: &str, agent: &str) -> bool {
+        self.hosts().of(id).state().activity.subagent_ended(agent)
     }
 
     /// The session ended.

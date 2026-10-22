@@ -12,8 +12,10 @@ fn task(id: &str, text: &str) -> KeptPlanTask {
 fn plan(version: u32, tasks: &[(&str, &str)]) -> KeptPlan {
     KeptPlan {
         version,
+        summary: "You get a page that shows what is next.".to_string(),
         recorded_at: format!("2026-10-16T09:0{version}:00.000Z"),
         approved_at: None,
+        set_aside_at: None,
         sketch: Some(("sketch:Flow".to_string(), "Flow".to_string())),
         walk: (version == 1).then(|| "http://localhost:5173/?walk=plan".to_string()),
         changes: (version > 1).then(|| vec![KeptPlanChange { kind: "added".into(), id: "t9".into(), other: String::new() }]),
@@ -21,6 +23,7 @@ fn plan(version: u32, tasks: &[(&str, &str)]) -> KeptPlan {
         next_task: 10,
         groups: vec![KeptPlanGroup {
             id: "g1".to_string(),
+            gives: Some("The page itself.".to_string()),
             agent: "rust-engineer".to_string(),
             title: "Store".to_string(),
             paths: vec!["crates/store".to_string(), "docs".to_string()],

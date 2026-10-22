@@ -96,6 +96,7 @@ describe("a plan on the Session waited on", () => {
   it("is where the parts a condition names come from", () => {
     const plan: SessionPlan = {
       version: 1,
+      summary: "",
       recorded_at: AT,
       approved: true,
       scope: [],
