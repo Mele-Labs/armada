@@ -501,6 +501,8 @@ export type Session = {
   build?: SessionBuild;
   /** What the Session waits on the person for: the agent's list with Fleet's own items merged in. Absent or empty is nothing. */
   waitingFor?: readonly WaitingItem[];
+  /** The follow-ups the agent kept for itself and has not settled, oldest first. `SessionRecord.later`; `id` is what a Drop names. */
+  later?: readonly { id: string; text: string; at: string }[];
   /** The agent says it has nothing left to work on, since when. `SessionRecord.done_since`. A message from the person clears it. */
   done?: { since: string };
   /**
@@ -762,6 +764,8 @@ export type SessionsDraft = {
   close?: (id: string) => void;
   /** Ends the turn that is running; the Session rests and takes the next message. Absent in the mock's fixtures. */
   stop?: (id: string) => void;
+  /** The person drops a follow-up the Session kept (`later` is its id in `Session.later`), and Fleet takes it off the list. */
+  dropLater?: (id: string, later: string) => void;
   /** Runs a failed hand off again for Job `id`. */
   retryHandoff?: (id: string) => void;
   /**

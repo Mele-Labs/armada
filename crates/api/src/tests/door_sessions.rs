@@ -104,6 +104,7 @@ fn lived_in(number: usize, history: usize, state: SessionState, title: String) -
         judge: None,
         settled: Vec::new(),
         waits: None,
+        later: Vec::new(),
     }
 }
 

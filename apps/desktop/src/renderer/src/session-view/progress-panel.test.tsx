@@ -6,6 +6,9 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, test } from "vitest";
 import type { Session, SessionWork, SessionWorkActs, WorkPlan } from "@armada/screens/src/draft/sessions";
 
+import type { SessionsDraft } from "@armada/screens/src/draft/sessions";
+
+import { SessionsFrom } from "../sessions-draft";
 import type { PlanEditing } from "./PlanEdit";
 import { ProgressPanel } from "./ProgressPanel";
 
@@ -108,4 +111,26 @@ test("a bare None select stands folded to the band, and gives way to a subagent 
   expect(bare.querySelector<HTMLElement>('section[aria-label="Progress"]')!.dataset["collapsed"]).toBe("true");
   const busy = mount(work, undefined, subagents(["Harden the restart scripts", "running"]), acts);
   expect(busy.querySelector<HTMLElement>('section[aria-label="Progress"]')!.dataset["collapsed"]).toBeUndefined();
+});
+
+test("a Drop on a Later row asks Fleet to drop that follow-up by its id, and the row stays until Fleet's row loses it", () => {
+  const dropped: [string, string][] = [];
+  const none: Session[] = [];
+  const draft = { get: () => none, subscribe: () => () => undefined, dropLater: (id: string, later: string) => dropped.push([id, later]) } as unknown as SessionsDraft;
+  const held = { ...session, later: [{ id: "later-2", text: "The Studio icon tooltip is still owed.", at: "2026-10-21T10:00:00Z" }] } as unknown as Session;
+  const host = document.createElement("div");
+  document.body.append(host);
+  const root = createRoot(host);
+  act(() =>
+    root.render(
+      <SessionsFrom held={draft}>
+        <ProgressPanel work={{ proposal: { workflow: null } }} place="side" id="s1" session={held} acts={undefined} ed={undefined} onOpenSketch={() => undefined} onOpenSession={() => undefined} />
+      </SessionsFrom>,
+    ),
+  );
+  roots.push({ root, host });
+  act(() => host.querySelector<HTMLButtonElement>(".sv-later__row")!.click());
+  act(() => host.querySelector<HTMLButtonElement>('button[aria-label^="Drop"]')!.click());
+  expect(dropped).toEqual([["s1", "later-2"]]);
+  expect(host.querySelector(".sv-later__item")).not.toBeNull();
 });

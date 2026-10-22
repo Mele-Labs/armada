@@ -7,9 +7,12 @@ import { Button, Tooltip } from "@armada/components";
 import type { Session, SessionWork, SessionWorkActs } from "@armada/screens/src/draft/sessions";
 
 import { AskUpdate } from "../cockpit/deck/AskUpdate";
+import { remindLater } from "../cockpit/deck/acts";
+import { useSessionsDraft } from "../sessions-draft";
 import { AgentTasks } from "./AgentTasks";
 import { AddGroup, SendChanges, type PlanEditing } from "./PlanEdit";
 import { IssuesBlock, issuesOf } from "./IssuesBlock";
+import { LaterBlock } from "./LaterBlock";
 import { Group } from "./PlanGroup";
 import { viewOf } from "./plan-marks";
 import { Flow, StepRail } from "./StatusPanel";
@@ -29,7 +32,9 @@ export function ProgressPanel({ work, place, id, session, manifestId, acts, ed, 
   const atWork = planned ? [] : subagentsAtWork(session);
   // Issues and pull requests are drawn with a plan or without one, and a Session with only those is not folded.
   const { issues, loose } = issuesOf(session);
-  const bare = issues.length === 0 && loose.length === 0 && !planned && tasks.length === 0 && atWork.length === 0 && flow === undefined && work.railOff !== true && work.proposal?.workflow === null && acts !== undefined;
+  const draft = useSessionsDraft();
+  const later = session.later ?? [];
+  const bare = issues.length === 0 && later.length === 0 && loose.length === 0 && !planned && tasks.length === 0 && atWork.length === 0 && flow === undefined && work.railOff !== true && work.proposal?.workflow === null && acts !== undefined;
   const bar = (
     <>
       {sketch === undefined ? null : (
@@ -68,6 +73,7 @@ export function ProgressPanel({ work, place, id, session, manifestId, acts, ed, 
           </div>
         </div>
       )}
+      {later.length === 0 ? null : <LaterBlock later={later} onRemind={(sentence) => void remindLater(draft, id, sentence)} onDrop={(one) => draft?.dropLater?.(id, one.id)} />}
     </SvPanel>
   );
 }

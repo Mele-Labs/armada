@@ -109,8 +109,9 @@ replaced this head and its weights.
 | Threshold | 0.91 for the model alone, 0.85 beside the rules |
 | Sentence shown | The rules' sentence where they call it, otherwise the closing sentence the head scores highest |
 
-The trainer ran outside the repository against the committed encoder and close-splitting code, and
-only the 385 weights were committed.
+The trainer is `tools/lm-train`, outside the workspace, and ran against the committed encoder and close-splitting code.
+Only the 385 weights were committed.
+The labelled replies and items stay out of the repository under `~/Library/Application Support/Armada/training/`, which the trainer reads through `ARMADA_TRAINING`.
 
 ### Choosing the model
 
@@ -187,9 +188,11 @@ trained on top of it, in `crates/adapters/src/language_model/tuned.safetensors`.
 
 **Trained in Rust with candle, not Python.** This machine's Python has neither numpy nor torch.
 Training through the same encoder that Fleet runs also means there is no export step to drift
-from. The trainer lives outside the repository and includes the committed encoder and
-close-splitting code by path. It ran one process at a time under `taskpolicy -c utility`. For both
-heads, the trainer's probabilities and the committed reader's agree to six decimals.
+from.
+The trainer is `tools/lm-train`, outside the workspace, and includes the committed encoder and close-splitting code by path.
+The labelled replies and items stay out of the repository under `~/Library/Application Support/Armada/training/`, which the trainer reads through `ARMADA_TRAINING`.
+It ran one process at a time under `taskpolicy -c utility`.
+For both heads, the trainer's probabilities and the committed reader's agree to six decimals.
 
 ### Training
 

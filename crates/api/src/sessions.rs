@@ -435,6 +435,19 @@ pub(crate) async fn all_done<D: Sessions>(
     }
 }
 
+/// A follow-up the session kept for later is settled. 200 with what was settled and what is still open; 422 for a
+/// filed with no issue, an agent's drop with no reason, or a call that places no session; 409 for a follow-up not open.
+pub(crate) async fn settle_later<D: Sessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let settle: ipc::SettleLater = match ipc::decode("a follow-up to settle", &body) {
+        Ok(settle) => settle,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().settle_later(crate::acting::asking(), settle).await {
+        Ok(settled) => answer(StatusCode::OK, &settled, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// The agent says Fleet's latest notice was wrong. 200 with the dispute and its review job; 422 for a call that
 /// places no hosted session or a session Fleet told nothing. **The session is placed by the connection**, as `all_done`'s is.
 pub(crate) async fn dispute_fleet<D: Sessions>(
