@@ -15,6 +15,7 @@ import { skillActsByKit } from "@armada/screens/src/loadout-kit";
 import { kitChanged } from "@armada/screens/src/manifest-kit";
 
 import { openLink, readKitInventory, removeKitPiece, restoreKitPiece } from "./commands";
+import { OverTheApp } from "./session-view/OverTheApp";
 import { closePanel, filesBeside, openInPanel, usePanel } from "./shared-panel/store";
 import { useSessions, useSessionsDraft } from "./sessions-draft";
 import { useAtFloor } from "@armada/shell";
@@ -278,18 +279,22 @@ function SessionLoadout({ session, draft, at, onClose }: { session: Session; dra
     },
     [fileOpen, openItem],
   );
+  // On the body, as the side panel is: a file opened beside it is then drawn after it in the same layer, and over its
+  // scrim, as the item's panel beside it is. Drawn inside the app, its scrim lay over the file.
   return (
-    <LoadoutSheet
-      key={session.id}
-      open
-      read={got}
-      floor={floor}
-      onClose={onClose}
-      {...(opened === undefined ? {} : { opened })}
-      onOpenItem={onOpenItem}
-      {...(mcp === undefined ? {} : { mcp })}
-      {...(at === undefined ? {} : { at })}
-      {...(skills === undefined ? {} : { skills })}
-    />
+    <OverTheApp open>
+      <LoadoutSheet
+        key={session.id}
+        open
+        read={got}
+        floor={floor}
+        onClose={onClose}
+        {...(opened === undefined ? {} : { opened })}
+        onOpenItem={onOpenItem}
+        {...(mcp === undefined ? {} : { mcp })}
+        {...(at === undefined ? {} : { at })}
+        {...(skills === undefined ? {} : { skills })}
+      />
+    </OverTheApp>
   );
 }

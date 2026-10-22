@@ -62,7 +62,7 @@ const sessionLoadout = walk(
     { press: inside(uninstalling, button("Remove plugin", { exact: true })), say: "Remove the plugin" },
     { look: inside(skills, role("img", "Removed")), say: "Its skill is marked removed, with nothing to restore it" },
     { press: skillAct("Edit deep-research"), say: "Edit deep-research" },
-    { look: dialog("SKILL.md"), say: "Its SKILL.md opens in the file panel, beside the Loadout" },
+    { look: inside(dialog("SKILL.md"), role("group", "Editor SKILL.md")), say: "Its SKILL.md opens in the file panel, beside the Loadout" },
     { look: inside(sheet, region("Knows")), say: "The Loadout stays open beside it" },
     { key: "Escape", on: dialog("SKILL.md"), say: "Esc closes the file" },
     { look: knows, say: "The Loadout is still open" },
