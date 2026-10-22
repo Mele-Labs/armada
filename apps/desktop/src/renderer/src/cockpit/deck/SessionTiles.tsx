@@ -226,7 +226,7 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
     release: "Release or hand over everything the Job holds",
     artifacts: "Everything the Job made or used",
     subagents: subagentsRunning === 0 ? "Every subagent" : `Every subagent, ${subagentsRunning} running`,
-    checks: checksRunning ? "The Checks the Job ran, running now" : "The Checks the Job ran",
+    checks: checksRunning ? "A Check the agent ran is still out. The agent gets its result when it ends" : "The Checks the agent ran. Each result went back to it as the run ended",
     slot: wrongs.length === 0 ? "Every bay the Job holds" : wrongs.join(", "),
     pause: session.paused === true ? "Resume" : "Pause",
   };

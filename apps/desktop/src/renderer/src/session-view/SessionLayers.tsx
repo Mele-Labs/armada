@@ -201,6 +201,7 @@ export function ChecksLayer({ session, onOpenCheck }: { session: Session; onOpen
   const runs = session.rows.filter((one): one is Extract<SessionRow, { kind: "check" }> => one.kind === "check").reverse();
   return (
     <Shell label="Checks">
+      <p className="sv-layer__note">The agent that ran each Check gets its result when the run ends.</p>
       <ul className="sv-layer__rows">
         {runs.map((one) => (
           <li key={one.id} className="sv-layer__item">
