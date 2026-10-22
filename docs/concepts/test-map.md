@@ -23,6 +23,9 @@ A file the map has never seen gets the Check as the [Manifest](manifest.md) decl
 > **Rule.** Every edge carries its source and the commit it was read at.
 > Why: an answer with no provenance cannot be ranked, refreshed or doubted.
 
+> **Rule.** An edge names one test. A collector that cannot fence one test names the test file, and the edge says so.
+> Why: an agent then runs three tests and not three files, and a coarser edge is still an answer.
+
 ## Where an edge comes from
 
 Fleet has more than one way to learn that a test reaches a file, and uses whichever one it can afford for that file.
