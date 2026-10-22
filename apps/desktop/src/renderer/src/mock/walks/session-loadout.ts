@@ -2,9 +2,12 @@
 // latest turn used, and the panel a press opens over the work area, where a Check opens, the latest turn open in it.
 // The turn that sent `armada:mechanic` on sonnet is opened in its place. A row pressed opens what that item says to
 // the Loadout's left: a repository skill, then the session rules in its place, then an MCP server's tools, and Esc
-// closes it with the Loadout still open. Then typing /mcp opens the Loadout on its MCP servers, read live from the
-// Job's process: chrome-devtools timed out and is Reconnected, mailroom signs in and then offers Reconnect, and
-// forge's menu holds Reconnect behind Turn off before it is turned off and on. Over the `session-loadout` scenario.
+// closes it with the Loadout still open. pdf, a skill of the person's own, is removed behind a confirm, marked removed
+// and restored from its row; the productivity plugin is removed from its skill's row behind a confirm naming its
+// uninstall; and deep-research's SKILL.md opens in the file panel in the Loadout's place. Then typing /mcp opens the
+// Loadout on its MCP servers, read live from the Job's process: chrome-devtools timed out and is Reconnected,
+// mailroom signs in and then offers Reconnect, and forge's menu holds Reconnect behind Turn off before it is turned
+// off and on. Over the `session-loadout` scenario.
 
 import { timeSaid } from "@armada/components";
 
@@ -19,6 +22,10 @@ const knows = inside(sheet, region("Knows"));
 const told = inside(sheet, region("Told"));
 const servers = inside(sheet, region("MCP servers"));
 const act = (name: string) => inside(servers, button(name, { exact: true }));
+const skills = inside(knows, region("Skills"));
+const skillAct = (name: string) => inside(skills, button(name, { exact: true }));
+const removing = dialog("Remove pdf from this Mac");
+const uninstalling = dialog("Remove plugin productivity from this Mac");
 const server = (name: RegExp) => inside(servers, role("button", name));
 /** The scenario's third turn, fourteen minutes after it began at 13:40Z. */
 const mechanicAt = timeSaid("2026-10-17T13:54:00.000Z");
@@ -42,7 +49,21 @@ const sessionLoadout = walk(
     { look: inside(dialog("forge"), region("Tools")), say: "Its tools from the Loadout, each with its state" },
     { key: "Escape", on: dialog("forge"), say: "Esc closes the server's panel" },
     { look: sheet, say: "The Loadout stays open" },
-    { key: "Escape", on: sheet, say: "Esc closes the Loadout" },
+    { press: skillAct("More for pdf"), say: "pdf is one of your own skills: its menu" },
+    { press: role("menuitem", "Remove", { exact: true }), say: "Remove" },
+    { look: removing, say: "Every Job on this Mac loses it from its next start, and Restore brings it back" },
+    { press: inside(removing, button("Remove", { exact: true })), say: "Remove it" },
+    { hover: inside(skills, role("img", "Removed")), say: "Its row stays, marked removed" },
+    { press: skillAct("Restore pdf"), say: "Restore it from the Trash" },
+    { look: skillAct("Edit pdf"), say: "Back, with Edit on its face" },
+    { press: skillAct("More for productivity:memory-management"), say: "memory-management came with the productivity plugin" },
+    { press: role("menuitem", "Remove plugin productivity", { exact: true }), say: "Remove plugin productivity" },
+    { look: uninstalling, say: "The command it runs, the skills it takes, and no Undo" },
+    { press: inside(uninstalling, button("Remove plugin", { exact: true })), say: "Remove the plugin" },
+    { look: inside(skills, role("img", "Removed")), say: "Its skill is marked removed, with nothing to restore it" },
+    { press: skillAct("Edit deep-research"), say: "Edit deep-research" },
+    { look: dialog("SKILL.md"), say: "Its SKILL.md opens in the file panel, in the Loadout's place" },
+    { key: "Escape", on: dialog("SKILL.md"), say: "Esc closes the file" },
     { type: "/mcp\n", into: role("textbox", "Message"), say: "/mcp in a hosted Job sends on the first Enter" },
     { look: servers, say: "opens the Loadout on its MCP servers" },
     { hover: inside(server(/^chrome-devtools/), role("img", "Failed")), say: "chrome-devtools failed: timed out after 30s" },
