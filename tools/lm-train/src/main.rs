@@ -1,0 +1,595 @@
+// Trainer outside the workspace: LoRA on the pinned encoder's top layers plus heads, with the committed encoder code.
+#![allow(dead_code)]
+#[path = "../../../crates/adapters/src"]
+mod adapters_src {
+    pub mod language_model;
+}
+#[path = "../../../crates/fleet/src/session_host/asks.rs"]
+mod asks;
+
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
+use std::time::Instant;
+
+use adapter_traits::TextReading;
+use adapters_src::language_model::bert::{LayerAdapter, HIDDEN};
+use adapters_src::language_model::encoding::{first_vector, logit, Encoder, Keep, Tuned};
+use adapters_src::language_model::shape;
+use candle_core::{DType, Device, Tensor, Var};
+use candle_nn::optim::{AdamW, Optimizer, ParamsAdamW};
+
+const RANK: usize = 8;
+const LAYERS: usize = 12;
+
+struct Rng(u64);
+impl Rng {
+    fn next(&mut self) -> u64 {
+        self.0 ^= self.0 << 13;
+        self.0 ^= self.0 >> 7;
+        self.0 ^= self.0 << 17;
+        self.0
+    }
+    fn uniform(&mut self) -> f32 {
+        (self.next() >> 40) as f32 / (1u64 << 24) as f32
+    }
+    fn normal(&mut self) -> f32 {
+        let (u, v) = (self.uniform().max(1e-7), self.uniform());
+        (-2.0 * u.ln()).sqrt() * (2.0 * std::f32::consts::PI * v).cos()
+    }
+    fn shuffle<T>(&mut self, xs: &mut [T]) {
+        for i in (1..xs.len()).rev() {
+            let j = (self.next() % (i as u64 + 1)) as usize;
+            xs.swap(i, j);
+        }
+    }
+}
+
+#[derive(Clone)]
+struct Example {
+    id: String,
+    text: String,
+    y: bool,
+    weight: f32,
+    new: bool,
+    kind: String,
+}
+
+struct Cached {
+    hidden: Tensor,
+    length: usize,
+}
+
+fn machine(set: char, id: u32) -> bool {
+    match set {
+        'a' => [1, 9, 76, 81, 85, 90, 92, 148, 149, 162, 165, 214, 219, 255, 259, 260, 261, 286, 289, 299].contains(&id),
+        'b' => [1056, 1060].contains(&id),
+        _ => id == 2078,
+    }
+}
+
+fn asks_examples(training: &Path, new_weight: f32) -> Vec<Example> {
+    let mut out = Vec::new();
+    for (set, labels, dir) in [('a', "labels_a.txt", "txt"), ('b', "labels_b.txt", "txt2"), ('c', "labels_c.txt", "txt3")] {
+        for line in std::fs::read_to_string(training.join("reply-asks").join(labels)).unwrap().lines() {
+            let f: Vec<&str> = line.split_whitespace().collect();
+            let id: u32 = f[0].parse().unwrap();
+            if machine(set, id) {
+                continue;
+            }
+            let reply = std::fs::read_to_string(training.join("reply-asks").join(dir).join(format!("{id}.txt"))).unwrap();
+            out.push(Example { id: format!("{set}{id}"), text: asks::closing_text(&reply), y: f[1] == "a", weight: 1.0, new: false, kind: String::new() });
+        }
+    }
+    for line in std::fs::read_to_string(training.join("lm-train-data/new.labels")).unwrap().lines() {
+        let f: Vec<&str> = line.split(' ').collect();
+        let reply = std::fs::read_to_string(training.join("lm-train-data/new").join(format!("{}.txt", f[0]))).unwrap();
+        out.push(Example { id: format!("n{}", f[0]), text: asks::closing_text(&reply), y: f[1] == "1", weight: new_weight, new: true, kind: String::new() });
+    }
+    out
+}
+
+fn tell_examples(training: &Path) -> Vec<Example> {
+    std::fs::read_to_string(training.join("lm-train-data/tell.labels"))
+        .unwrap()
+        .lines()
+        .map(|line| {
+            let f: Vec<&str> = line.split(' ').collect();
+            let text = std::fs::read_to_string(training.join("lm-train-data/tell").join(format!("{}.txt", f[0]))).unwrap();
+            Example { id: f[0].to_string(), text, y: f[1] == "1", weight: 1.0, new: true, kind: f[2].to_string() }
+        })
+        .collect()
+}
+
+/// The frozen layers' output for each example, once.
+fn cache(enc: &Encoder, examples: &[Example], reading: TextReading, from: usize) -> Vec<Cached> {
+    let (_, longest, keep) = shape(reading);
+    examples
+        .iter()
+        .map(|e| {
+            let (ids, mask) = enc.batch(&[e.text.as_str()], longest, keep).unwrap();
+            let (hidden, _) = enc.bert.lower(&ids, &mask, from).unwrap();
+            let length = hidden.dim(1).unwrap();
+            Cached { hidden, length }
+        })
+        .collect()
+}
+
+fn batch(cached: &[Cached], idx: &[usize]) -> (Tensor, Tensor) {
+    let width = idx.iter().map(|&i| cached[i].length).max().unwrap();
+    let hidden: Vec<Tensor> = idx.iter().map(|&i| cached[i].hidden.pad_with_zeros(1, 0, width - cached[i].length).unwrap()).collect();
+    let mut additive = Vec::with_capacity(idx.len() * width);
+    for &i in idx {
+        additive.extend((0..width).map(|at| if at < cached[i].length { 0.0f32 } else { -10000.0 }));
+    }
+    (Tensor::cat(&hidden, 0).unwrap(), Tensor::from_vec(additive, (idx.len(), 1, 1, width), &Device::Cpu).unwrap())
+}
+
+struct Params {
+    adapters: Vec<[Var; 4]>,
+    weight: Var,
+    bias: Var,
+}
+
+impl Params {
+    fn new(layers: usize, rng: &mut Rng) -> Params {
+        let mut randn = |shape: (usize, usize), sd: f32| {
+            let v: Vec<f32> = (0..shape.0 * shape.1).map(|_| rng.normal() * sd).collect();
+            Var::from_tensor(&Tensor::from_vec(v, shape, &Device::Cpu).unwrap()).unwrap()
+        };
+        let zeros = |shape: (usize, usize)| Var::zeros(shape, DType::F32, &Device::Cpu).unwrap();
+        let adapters = (0..layers)
+            .map(|_| [randn((RANK, HIDDEN), 0.02), zeros((HIDDEN, RANK)), randn((RANK, HIDDEN), 0.02), zeros((HIDDEN, RANK))])
+            .collect();
+        let weight = randn((1, HIDDEN), 0.02);
+        let weight = Var::from_tensor(&weight.as_tensor().squeeze(0).unwrap()).unwrap();
+        Params { adapters, weight, bias: Var::zeros(1, DType::F32, &Device::Cpu).unwrap() }
+    }
+
+    fn layer_adapters(&self) -> Vec<LayerAdapter> {
+        self.adapters
+            .iter()
+            .map(|[qa, qb, va, vb]| LayerAdapter { query_a: qa.as_tensor().clone(), query_b: qb.as_tensor().clone(), value_a: va.as_tensor().clone(), value_b: vb.as_tensor().clone() })
+            .collect()
+    }
+
+    fn vars(&self, adapter: bool) -> Vec<Var> {
+        let mut v = vec![self.weight.clone(), self.bias.clone()];
+        if adapter {
+            for a in &self.adapters {
+                v.extend(a.iter().cloned());
+            }
+        }
+        v
+    }
+}
+
+fn logits(enc: &Encoder, params: &Params, from: usize, hidden: Tensor, additive: &Tensor) -> Tensor {
+    let out = enc.bert.upper(hidden, additive, from, &params.layer_adapters()).unwrap();
+    logit(&first_vector(&out).unwrap(), params.weight.as_tensor(), params.bias.as_tensor()).unwrap()
+}
+
+fn predict(enc: &Encoder, params: &Params, from: usize, cached: &[Cached], idx: &[usize]) -> Vec<f32> {
+    let mut out = vec![0.0; idx.len()];
+    let mut order: Vec<usize> = (0..idx.len()).collect();
+    order.sort_by_key(|&k| cached[idx[k]].length);
+    for chunk in order.chunks(32) {
+        let ids: Vec<usize> = chunk.iter().map(|&k| idx[k]).collect();
+        let (h, a) = batch(cached, &ids);
+        let p = candle_nn::ops::sigmoid(&logits(enc, params, from, h, &a)).unwrap().to_vec1::<f32>().unwrap();
+        for (&k, p) in chunk.iter().zip(p) {
+            out[k] = p;
+        }
+    }
+    out
+}
+
+struct Train {
+    epochs: usize,
+    lr: f64,
+    adapter: bool,
+    pos_weight: f32,
+}
+
+/// Trains on `train`, calling `each` after every epoch.
+fn train(enc: &Encoder, from: usize, cached: &[Cached], ex: &[Example], train_idx: &[usize], cfg: &Train, seed: u64, mut each: impl FnMut(usize, &Params)) -> Params {
+    let mut rng = Rng(seed);
+    let params = Params::new(LAYERS - from, &mut rng);
+    let mut opt = AdamW::new(params.vars(cfg.adapter), ParamsAdamW { lr: cfg.lr, weight_decay: 0.01, ..Default::default() }).unwrap();
+    let mut idx = train_idx.to_vec();
+    for epoch in 0..cfg.epochs {
+        rng.shuffle(&mut idx);
+        // Batches of similar length cut padding: sort within windows of 64.
+        for window in idx.chunks_mut(64) {
+            window.sort_by_key(|&i| cached[i].length);
+        }
+        for chunk in idx.chunks(16) {
+            let (h, a) = batch(cached, chunk);
+            let z = logits(enc, &params, from, h, &a);
+            let y = Tensor::from_vec(chunk.iter().map(|&i| if ex[i].y { 1.0f32 } else { 0.0 }).collect::<Vec<_>>(), chunk.len(), &Device::Cpu).unwrap();
+            let w: Vec<f32> = chunk.iter().map(|&i| ex[i].weight * if ex[i].y { cfg.pos_weight } else { 1.0 }).collect();
+            let total: f32 = w.iter().sum();
+            let w = Tensor::from_vec(w, chunk.len(), &Device::Cpu).unwrap();
+            // Weighted binary cross-entropy on logits: max(z,0) - z*y + log(1 + exp(-|z|)).
+            let loss = ((z.relu().unwrap() - (&z * &y).unwrap()).unwrap() + (z.abs().unwrap().neg().unwrap().exp().unwrap() + 1.0).unwrap().log().unwrap()).unwrap();
+            let loss = ((loss * w).unwrap().sum_all().unwrap() / total as f64).unwrap();
+            opt.backward_step(&loss).unwrap();
+        }
+        each(epoch, &params);
+    }
+    params
+}
+
+fn auc(scores: &[f32], ys: &[bool]) -> f64 {
+    let pos: Vec<f32> = scores.iter().zip(ys).filter(|(_, y)| **y).map(|(s, _)| *s).collect();
+    let neg: Vec<f32> = scores.iter().zip(ys).filter(|(_, y)| !**y).map(|(s, _)| *s).collect();
+    let mut sum = 0.0;
+    for p in &pos {
+        for n in &neg {
+            sum += if p > n { 1.0 } else if p == n { 0.5 } else { 0.0 };
+        }
+    }
+    sum / (pos.len() * neg.len()) as f64
+}
+
+fn pr(scores: &[f32], ys: &[bool], t: f32) -> (f64, f64, usize, usize, usize) {
+    let tp = scores.iter().zip(ys).filter(|(s, y)| **y && **s >= t).count();
+    let fp = scores.iter().zip(ys).filter(|(s, y)| !**y && **s >= t).count();
+    let fn_ = scores.iter().zip(ys).filter(|(s, y)| **y && **s < t).count();
+    let p = if tp + fp > 0 { tp as f64 / (tp + fp) as f64 } else { 0.0 };
+    let r = if tp + fn_ > 0 { tp as f64 / (tp + fn_) as f64 } else { 0.0 };
+    (p, r, tp, fp, fn_)
+}
+
+/// The most recall at precision `floor` or above.
+fn threshold(scores: &[f32], ys: &[bool], floor: f64) -> (f32, f64, f64) {
+    let mut best = (0.99, 0.0, 0.0);
+    for step in 1..100 {
+        let t = step as f32 / 100.0;
+        let (p, r, ..) = pr(scores, ys, t);
+        if p >= floor && r > best.2 {
+            best = (t, p, r);
+        }
+    }
+    best
+}
+
+/// Stratified folds.
+fn folds(ex: &[Example], k: usize, seed: u64) -> Vec<usize> {
+    let mut rng = Rng(seed);
+    let mut fold = vec![0; ex.len()];
+    for (class, new) in [(true, true), (true, false), (false, true), (false, false)] {
+        let mut idx: Vec<usize> = (0..ex.len()).filter(|&i| ex[i].y == class && ex[i].new == new).collect();
+        rng.shuffle(&mut idx);
+        for (n, i) in idx.into_iter().enumerate() {
+            fold[i] = n % k;
+        }
+    }
+    fold
+}
+
+/// k-fold: out-of-fold scores after each epoch.
+fn cross(enc: &Encoder, from: usize, cached: &[Cached], ex: &[Example], cfg: &Train, k: usize) -> Vec<Vec<f32>> {
+    let fold = folds(ex, k, 7);
+    let mut oof = vec![vec![0.0; ex.len()]; cfg.epochs];
+    for f in 0..k {
+        let t = Instant::now();
+        let train_idx: Vec<usize> = (0..ex.len()).filter(|&i| fold[i] != f).collect();
+        let val: Vec<usize> = (0..ex.len()).filter(|&i| fold[i] == f).collect();
+        train(enc, from, cached, ex, &train_idx, cfg, 100 + f as u64, |epoch, params| {
+            for (i, p) in val.iter().zip(predict(enc, params, from, cached, &val)) {
+                oof[epoch][*i] = p;
+            }
+        });
+        eprintln!("  fold {f} in {:.0?}", t.elapsed());
+    }
+    oof
+}
+
+fn report(name: &str, oof: &[Vec<f32>], ex: &[Example], only_new: bool) {
+    for (epoch, scores) in oof.iter().enumerate() {
+        let keep: Vec<usize> = (0..ex.len()).filter(|&i| !only_new || ex[i].new).collect();
+        let s: Vec<f32> = keep.iter().map(|&i| scores[i]).collect();
+        let y: Vec<bool> = keep.iter().map(|&i| ex[i].y).collect();
+        let (t, p, r) = threshold(&s, &y, 0.90);
+        let half = pr(&s, &y, 0.5);
+        println!(
+            "{name} epoch {} auc {:.3} | at 0.5 P {:.3} R {:.3} (tp{} fp{} fn{}) | best@P>=.9 t {t:.2} P {p:.3} R {r:.3}",
+            epoch + 1,
+            auc(&s, &y),
+            half.0,
+            half.1,
+            half.2,
+            half.3,
+            half.4
+        );
+    }
+}
+
+fn save(params: &Params, heads: &[(&str, &Params)], path: &Path) {
+    let mut tensors: HashMap<String, Tensor> = HashMap::new();
+    for (n, [qa, qb, va, vb]) in params.adapters.iter().enumerate() {
+        tensors.insert(format!("layer.{n}.query_a"), qa.as_tensor().clone());
+        tensors.insert(format!("layer.{n}.query_b"), qb.as_tensor().clone());
+        tensors.insert(format!("layer.{n}.value_a"), va.as_tensor().clone());
+        tensors.insert(format!("layer.{n}.value_b"), vb.as_tensor().clone());
+    }
+    for (name, head) in heads {
+        tensors.insert(format!("head.{name}.weight"), head.weight.as_tensor().clone());
+        tensors.insert(format!("head.{name}.bias"), head.bias.as_tensor().clone());
+    }
+    candle_core::safetensors::save(&tensors, path).unwrap();
+}
+
+fn support_dir() -> PathBuf {
+    PathBuf::from(std::env::var_os("HOME").unwrap()).join("Library/Application Support/Armada")
+}
+
+/// The labelled replies and run outputs, which stay out of the repository.
+fn training_dir() -> PathBuf {
+    std::env::var_os("ARMADA_TRAINING").map_or_else(|| support_dir().join("training"), PathBuf::from)
+}
+
+fn main() {
+    let args: Vec<String> = std::env::args().collect();
+    let training = training_dir();
+    let runs = training.join("lm-train-runs");
+    let base = support_dir().join("models/bge-small-en-v1.5@5c38ec7c405ec4b44b94cc5a9bb96e735b38267a");
+    let vocab = std::fs::read_to_string(base.join("vocab.txt")).unwrap();
+    let enc = Encoder::load(&vocab, std::fs::read(base.join("model.safetensors")).unwrap(), LAYERS).unwrap();
+    let adapted: usize = args.get(2).map_or(4, |a| a.parse().unwrap());
+    let from = LAYERS - adapted;
+    let epochs: usize = args.get(3).map_or(6, |a| a.parse().unwrap());
+    let lr: f64 = args.get(4).map_or(5e-4, |a| a.parse().unwrap());
+    let new_weight: f32 = args.get(5).map_or(2.5, |a| a.parse().unwrap());
+    match args[1].as_str() {
+        "check" => {
+            // The rewritten encoder against the vectors the earlier one gave.
+            let v = enc.embed(&["Want me to land it?", "The walk is open; approve it when you're ready.", "Tests pass and the slot is released."]).unwrap();
+            for x in &v {
+                println!("VEC {:?}", x.iter().step_by(48).map(|f| format!("{f:.5}")).collect::<Vec<_>>());
+            }
+        }
+        "asks-cv" => {
+            let ex = asks_examples(&training, new_weight);
+            let t = Instant::now();
+            let cached = cache(&enc, &ex, TextReading::ReplyAsks, from);
+            eprintln!("cached {} in {:.0?}", ex.len(), t.elapsed());
+            let cfg = Train { epochs, lr, adapter: true, pos_weight: 1.0 };
+            let oof = cross(&enc, from, &cached, &ex, &cfg, 5);
+            report("asks all", &oof, &ex, false);
+            report("asks new", &oof, &ex, true);
+            let lines: Vec<String> = ex.iter().enumerate().map(|(i, e)| format!("{}\t{}\t{}\t{}", e.id, e.y, e.new, oof.iter().map(|o| format!("{:.4}", o[i])).collect::<Vec<_>>().join(","))).collect();
+            std::fs::write(runs.join(format!("asks-oof-{adapted}-{epochs}-{lr}-{new_weight}.tsv")), lines.join("\n")).unwrap();
+        }
+        "tell-cv" => {
+            // mode: own (own adapter), head (head only on the base), shared (head only on the asks adapter in lm-train-runs/asks.safetensors)
+            let mode = args[6].as_str();
+            let ex = tell_examples(&training);
+            let k = 5;
+            let (cached, from_here, cfg) = match mode {
+                "own" => (cache(&enc, &ex, TextReading::TellRefused, from), from, Train { epochs, lr, adapter: true, pos_weight: 3.0 }),
+                "head" => (cache(&enc, &ex, TextReading::TellRefused, LAYERS), LAYERS, Train { epochs, lr, adapter: false, pos_weight: 3.0 }),
+                _ => {
+                    let tuned = Tuned::from_bytes(&std::fs::read(runs.join("asks.safetensors")).unwrap()).unwrap();
+                    let (_, longest, keep) = shape(TextReading::TellRefused);
+                    let from_tuned = LAYERS - tuned.adapters.len();
+                    let cached = ex
+                        .iter()
+                        .map(|e| {
+                            let (ids, mask) = enc.batch(&[e.text.as_str()], longest, keep).unwrap();
+                            let (h, a) = enc.bert.lower(&ids, &mask, from_tuned).unwrap();
+                            let hidden = enc.bert.upper(h, &a, from_tuned, &tuned.adapters).unwrap();
+                            let length = hidden.dim(1).unwrap();
+                            Cached { hidden, length }
+                        })
+                        .collect();
+                    (cached, LAYERS, Train { epochs, lr, adapter: false, pos_weight: 3.0 })
+                }
+            };
+            let oof = cross(&enc, from_here, &cached, &ex, &cfg, k);
+            report(&format!("tell {mode}"), &oof, &ex, false);
+        }
+        "tell-oof" => {
+            // Out-of-fold scores of the refusal head on the asks adapter: whole reply as trained, its
+            // 1,500-char tail as Fleet would hand it, and the tail's closing sentences one by one.
+            let ex = tell_examples(&training);
+            let k = 5;
+            let tuned = Tuned::from_bytes(&std::fs::read(runs.join("asks.safetensors")).unwrap()).unwrap();
+            let (_, longest, keep) = shape(TextReading::TellRefused);
+            let from_tuned = LAYERS - tuned.adapters.len();
+            let hid = |text: &str| -> Cached {
+                let (ids, mask) = enc.batch(&[text], longest, keep).unwrap();
+                let (h, a) = enc.bert.lower(&ids, &mask, from_tuned).unwrap();
+                let hidden = enc.bert.upper(h, &a, from_tuned, &tuned.adapters).unwrap();
+                let length = hidden.dim(1).unwrap();
+                Cached { hidden, length }
+            };
+            let tail = |said: &str| -> String {
+                let said = said.trim();
+                let count = said.chars().count();
+                if count <= 1500 {
+                    return said.to_string();
+                }
+                let cut = said.char_indices().nth(count - 1500).map_or(0, |(at, _)| at);
+                let kept = &said[cut..];
+                match kept.split_once('\n') {
+                    Some((_, rest)) if !rest.trim().is_empty() => rest.trim_start().to_string(),
+                    _ => kept.to_string(),
+                }
+            };
+            let full: Vec<Cached> = ex.iter().map(|e| hid(&e.text)).collect();
+            let tails: Vec<String> = ex.iter().map(|e| tail(&e.text)).collect();
+            let tailed: Vec<Cached> = tails.iter().map(|t| hid(t)).collect();
+            let cfg = Train { epochs, lr, adapter: false, pos_weight: 3.0 };
+            let fold = folds(&ex, k, 7);
+            let mut out = vec![String::new(); ex.len()];
+            for f in 0..k {
+                let train_idx: Vec<usize> = (0..ex.len()).filter(|&i| fold[i] != f).collect();
+                let val: Vec<usize> = (0..ex.len()).filter(|&i| fold[i] == f).collect();
+                let params = train(&enc, LAYERS, &full, &ex, &train_idx, &cfg, 100 + f as u64, |_, _| {});
+                let a = predict(&enc, &params, LAYERS, &full, &val);
+                let b = predict(&enc, &params, LAYERS, &tailed, &val);
+                for (n, &i) in val.iter().enumerate() {
+                    let sentences = asks::closing_sentences(&tails[i]);
+                    let last: Vec<String> = sentences[sentences.len().saturating_sub(6)..].to_vec();
+                    let sc: Vec<Cached> = last.iter().map(|t| hid(t)).collect();
+                    let idx: Vec<usize> = (0..sc.len()).collect();
+                    let ss = if sc.is_empty() { vec![] } else { predict(&enc, &params, LAYERS, &sc, &idx) };
+                    let mut line = format!("{}\t{}\t{}\t{:.4}\t{:.4}", ex[i].id, ex[i].kind, ex[i].y as u8, a[n], b[n]);
+                    for (t, s) in last.iter().zip(ss) {
+                        line.push_str(&format!("\t{s:.4}|{}", t.replace(['\t', '\n'], " ")));
+                    }
+                    out[i] = line;
+                }
+                eprintln!("  fold {f} done");
+            }
+            std::fs::write(runs.join("tell-oof.tsv"), out.join("\n")).unwrap();
+        }
+        "asks-final" => {
+            let ex = asks_examples(&training, new_weight);
+            let cached = cache(&enc, &ex, TextReading::ReplyAsks, from);
+            let cfg = Train { epochs, lr, adapter: true, pos_weight: 1.0 };
+            let all: Vec<usize> = (0..ex.len()).collect();
+            let params = train(&enc, from, &cached, &ex, &all, &cfg, 1, |e, _| eprintln!("  epoch {}", e + 1));
+            save(&params, &[("asks", &params)], &runs.join("asks.safetensors"));
+            // The trainer's own probabilities, to hold the committed reader to.
+            let probe: Vec<usize> = (0..ex.len()).step_by(37).collect();
+            let mine = predict(&enc, &params, from, &cached, &probe);
+            let tuned = Tuned::from_bytes(&std::fs::read(runs.join("asks.safetensors")).unwrap()).unwrap();
+            let (head, longest, keep) = shape(TextReading::ReplyAsks);
+            for (&i, p) in probe.iter().zip(mine) {
+                let read = enc.read(&tuned, head, &[ex[i].text.as_str()], longest, keep).unwrap()[0];
+                println!("probe {} trainer {p:.6} reader {read:.6}", ex[i].id);
+            }
+        }
+        "tell-final" => {
+            // The refusal head on the asks adapter, trained on every labelled tell reply, written beside
+            // the asks head into one file.
+            let ex = tell_examples(&training);
+            let bytes = std::fs::read(runs.join("asks.safetensors")).unwrap();
+            let tuned = Tuned::from_bytes(&bytes).unwrap();
+            let (head, longest, keep) = shape(TextReading::TellRefused);
+            let from_tuned = LAYERS - tuned.adapters.len();
+            let cached: Vec<Cached> = ex
+                .iter()
+                .map(|e| {
+                    let (ids, mask) = enc.batch(&[e.text.as_str()], longest, keep).unwrap();
+                    let (h, a) = enc.bert.lower(&ids, &mask, from_tuned).unwrap();
+                    let hidden = enc.bert.upper(h, &a, from_tuned, &tuned.adapters).unwrap();
+                    let length = hidden.dim(1).unwrap();
+                    Cached { hidden, length }
+                })
+                .collect();
+            let cfg = Train { epochs, lr, adapter: false, pos_weight: 3.0 };
+            let all: Vec<usize> = (0..ex.len()).collect();
+            let params = train(&enc, LAYERS, &cached, &ex, &all, &cfg, 2, |_, _| {});
+            let mut tensors = candle_core::safetensors::load_buffer(&bytes, &Device::Cpu).unwrap();
+            tensors.insert(format!("head.{head}.weight"), params.weight.as_tensor().clone());
+            tensors.insert(format!("head.{head}.bias"), params.bias.as_tensor().clone());
+            candle_core::safetensors::save(&tensors, runs.join("tuned.safetensors")).unwrap();
+            let probe: Vec<usize> = (0..ex.len()).step_by(23).collect();
+            let mine = predict(&enc, &params, LAYERS, &cached, &probe);
+            let both = Tuned::from_bytes(&std::fs::read(runs.join("tuned.safetensors")).unwrap()).unwrap();
+            for (&i, p) in probe.iter().zip(mine) {
+                let read = enc.read(&both, head, &[ex[i].text.as_str()], longest, keep).unwrap()[0];
+                println!("probe tell {} trainer {p:.6} reader {read:.6}", ex[i].id);
+            }
+            let (ah, al, ak) = shape(TextReading::ReplyAsks);
+            let text = "Both fixes are pushed. Want me to land them?";
+            println!("asks head unchanged: {:.6} vs {:.6}", enc.read(&tuned, ah, &[text], al, ak).unwrap()[0], enc.read(&both, ah, &[text], al, ak).unwrap()[0]);
+        }
+        "thresholds" => {
+            // From out-of-fold scores at one epoch, on the post-18-Oct replies: the most recall at
+            // precision 0.90 for the model alone and for the model beside the rules.
+            let epoch: usize = args[7].parse().unwrap();
+            let mut s = Vec::new();
+            let mut y = Vec::new();
+            let mut rules = Vec::new();
+            for line in std::fs::read_to_string(&args[6]).unwrap().lines() {
+                let f: Vec<&str> = line.split('\t').collect();
+                if f[2] != "true" {
+                    continue;
+                }
+                let id = f[0].trim_start_matches('n');
+                let reply = std::fs::read_to_string(training.join("lm-train-data/new").join(format!("{id}.txt"))).unwrap();
+                rules.push(asks::asking_line(&reply).is_some());
+                y.push(f[1] == "true");
+                s.push(f[3].split(',').nth(epoch - 1).unwrap().parse::<f32>().unwrap());
+            }
+            let (t, p, r) = threshold(&s, &y, 0.90);
+            println!("model alone: t {t:.2} P {p:.3} R {r:.3}");
+            let rp = pr(&rules.iter().map(|r| if *r { 1.0 } else { 0.0 }).collect::<Vec<f32>>(), &y, 0.5);
+            println!("rules: P {:.3} R {:.3}", rp.0, rp.1);
+            let mut best = (0.99, 0.0, 0.0);
+            for step in 1..100 {
+                let t = step as f32 / 100.0;
+                let either: Vec<f32> = s.iter().zip(&rules).map(|(s, r)| if *r || *s >= t { 1.0 } else { 0.0 }).collect();
+                let (p, r, ..) = pr(&either, &y, 0.5);
+                if p >= 0.90 && r > best.2 {
+                    best = (t, p, r);
+                }
+            }
+            println!("either: t {:.2} P {:.3} R {:.3}", best.0, best.1, best.2);
+        }
+        "fresh" => {
+            // Once: the held-out replies, with the committed adapter and the committed thresholds.
+            let tuned = Tuned::from_bytes(&std::fs::read(&args[6]).unwrap()).unwrap();
+            let (alone, beside): (f32, f32) = (args[7].parse().unwrap(), args[8].parse().unwrap());
+            let unlisted: std::collections::HashSet<String> = std::fs::read_to_string(training.join("lm-fresh2/unlisted.txt")).unwrap().lines().map(str::to_string).collect();
+            let (head, longest, keep) = shape(TextReading::ReplyAsks);
+            let mut rows = Vec::new();
+            for line in std::fs::read_to_string(training.join("lm-fresh/labels.txt")).unwrap().lines() {
+                let f: Vec<&str> = line.split(' ').collect();
+                let reply = std::fs::read_to_string(training.join("lm-fresh/txt").join(format!("{}.txt", f[0]))).unwrap();
+                let score = if asks::closing_sentences(&reply).is_empty() { 0.0 } else { enc.read(&tuned, head, &[asks::closing_text(&reply).as_str()], longest, keep).unwrap()[0] };
+                let rules = asks::asking_line(&reply).is_some();
+                println!("{}\t{}\t{}\t{:.4}", f[0], f[1], rules, score);
+                rows.push((f[0].to_string(), f[1] == "asks", rules, score));
+            }
+            for (subset, keep_row) in [("all", Box::new(|_: &str| true) as Box<dyn Fn(&str) -> bool>), ("nothing listed before", Box::new(|i: &str| unlisted.contains(i)))] {
+                let kept: Vec<_> = rows.iter().filter(|r| keep_row(&r.0)).collect();
+                let asks_n = kept.iter().filter(|r| r.1).count();
+                eprintln!("{subset}: {} replies, {} asks", kept.len(), asks_n);
+                for (name, call) in [
+                    ("rules", Box::new(|r: bool, _s: f32| r) as Box<dyn Fn(bool, f32) -> bool>),
+                    ("model", Box::new(move |_r: bool, s: f32| s >= alone)),
+                    ("either", Box::new(move |r: bool, s: f32| r || s >= beside)),
+                ] {
+                    let s: Vec<f32> = kept.iter().map(|r| if call(r.2, r.3) { 1.0 } else { 0.0 }).collect();
+                    let y: Vec<bool> = kept.iter().map(|r| r.1).collect();
+                    let (p, rc, tp, fp, fn_) = pr(&s, &y, 0.5);
+                    eprintln!("  {name:6} P={p:.3} R={rc:.3} right={tp} wrong={fp} missed={fn_}");
+                }
+            }
+        }
+        "time" => {
+            // As Fleet reads a reply: the close and its last six sentences in one batch.
+            let tuned = Tuned::from_bytes(&std::fs::read(&args[6]).unwrap()).unwrap();
+            let (head, longest, keep) = shape(TextReading::ReplyAsks);
+            let ex = asks_examples(&training, 1.0);
+            let mut times = Vec::new();
+            for e in &ex {
+                let sentences: Vec<&str> = e.text.split(". ").collect();
+                let _ = sentences;
+                let reply_sentences = asks::closing_sentences(&e.text);
+                let last = &reply_sentences[reply_sentences.len().saturating_sub(6)..];
+                let mut texts = vec![e.text.as_str()];
+                texts.extend(last.iter().map(String::as_str));
+                let t = Instant::now();
+                let _ = enc.read(&tuned, head, &texts, longest, keep).unwrap();
+                times.push(t.elapsed().as_secs_f64() * 1000.0);
+            }
+            times.sort_by(|a, b| a.partial_cmp(b).unwrap());
+            let rss = std::process::Command::new("ps").args(["-o", "rss=", "-p", &std::process::id().to_string()]).output().unwrap();
+            eprintln!(
+                "per reply ms: mean {:.1} median {:.1} p95 {:.1} max {:.1}; rss {} KB",
+                times.iter().sum::<f64>() / times.len() as f64,
+                times[times.len() / 2],
+                times[times.len() * 95 / 100],
+                times[times.len() - 1],
+                String::from_utf8_lossy(&rss.stdout).trim()
+            );
+        }
+        _ => panic!(),
+    }
+}
