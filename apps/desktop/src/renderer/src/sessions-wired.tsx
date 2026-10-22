@@ -747,9 +747,10 @@ export class WiredStore {
         void this.plain(this.api.setSessionWorkflow(id, workflow ?? undefined));
       },
       unpick: (id, value) => this.unpick(id, value),
+      // Answers whether Fleet took it, so a refused Approve reverts the plan drawn as approved (`pressed.ts`).
       approve: (id) => {
         const version = this.lookup(id)?.work?.plan?.version;
-        if (version !== undefined) void this.plain(this.api.approvePlan({ session_id: id, version }));
+        if (version !== undefined) return this.took(this.api.approvePlan({ session_id: id, version }));
       },
       suggest: (id, marks, approving) => {
         const version = this.lookup(id)?.work?.plan?.version;

@@ -10,7 +10,6 @@
 import type { WaitingItem } from "@armada/protocol";
 import type { Session, SessionAttachment, WorkGroup, WorkTask } from "@armada/screens/src/draft/sessions";
 
-import { withPressed } from "../../pressed";
 import { askToTell } from "../../tell";
 import { showStage } from "../live/stage";
 import type { Scenario } from "../moment";
@@ -247,7 +246,7 @@ function sessions(take: Take, control: Control): SessionsStore {
       store.dispose();
     },
   };
-  return withPressed(slow) as SessionsStore;
+  return slow;
 }
 
 const build = (name: string, says: string, take: Take): Scenario => ({
