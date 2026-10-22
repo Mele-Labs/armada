@@ -287,6 +287,7 @@ where
             ports: Vec::new(),
             links: vec![ipc::ServerLink { url: opens(place).to_string(), name: None }],
             by: StartedBy::Person,
+            session: None,
             whose: format!("review walk {}", walk.id),
             run: None,
             serve: place.command.trim().to_string(),

@@ -3,7 +3,7 @@
 import type { SessionBuild, TimelineEvent } from "@armada/protocol";
 import { expect, test } from "vitest";
 
-import { PHASE_GLYPH, askedOf, groupedTasks, seatOf, seatedWorkers, STALL_MIN, STOP_GLYPH, arcsOf, bandOf, buildInOf, buildTipOf, dimOf, glyphOf, markersOf, roadOf, stallOf, wordOf, writingOf } from "./build";
+import { PHASE_GLYPH, askedOf, groupedTasks, seatOf, STALL_MIN, STOP_GLYPH, arcsOf, bandOf, buildInOf, buildTipOf, dimOf, glyphOf, markersOf, roadOf, stallOf, wordOf, writingOf } from "./build";
 
 const NOW = Date.parse("2026-10-14T12:00:00Z");
 const ago = (minutes: number) => new Date(NOW - minutes * 60_000).toISOString();
@@ -135,18 +135,4 @@ test("a Session's ring is grouped, and a finished subagent's stretch stays while
   const read = buildInOf("s1", build({ pieces: [piece("a1", "Explore: a"), piece("b1", "Plan: b"), piece("a2", "Explore: a")], workers: ["Plan: b"] }), NOW);
   expect(read.tasks.map((one) => one.text)).toEqual(["a1", "a2", "b1"]);
   expect(seatOf(read.tasks, "Plan: b")).toBe(-90 + (2.5 * 360) / 3);
-});
-
-test("ten running subagents are seated beside their own stretches and no two drones overlap", () => {
-  const labels = Array.from({ length: 10 }, (_, i) => `Explore: ${i}`);
-  const tasks = groupedTasks(Array.from({ length: 20 }, (_, k) => ({ by: labels[k % 10]! })));
-  const seats = seatedWorkers(tasks, labels);
-  expect(seats).toHaveLength(10);
-  const at = (s: (typeof seats)[number]) => [s.radius * Math.cos((s.angle * Math.PI) / 180), s.radius * Math.sin((s.angle * Math.PI) / 180)] as const;
-  for (const a of seats) for (const b of seats) if (a !== b) expect(Math.hypot(at(a)[0] - at(b)[0], at(a)[1] - at(b)[1])).toBeGreaterThanOrEqual(9);
-  // Uneven stretches crowd the outer tier, so some go a step inward and still do not overlap.
-  const crowded = [...Array.from({ length: 3 }, (_, i) => ({ by: `w${i}` })), ...Array.from({ length: 15 }, () => ({}))];
-  const near = seatedWorkers(groupedTasks(crowded), Array.from({ length: 3 }, (_, i) => `w${i}`));
-  expect(new Set(near.map((one) => one.radius)).size).toBeGreaterThan(1);
-  for (const a of near) for (const b of near) if (a !== b) expect(Math.hypot(at(a)[0] - at(b)[0], at(a)[1] - at(b)[1])).toBeGreaterThanOrEqual(9);
 });

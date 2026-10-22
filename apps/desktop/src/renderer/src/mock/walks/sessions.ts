@@ -64,7 +64,7 @@ function steps(narrow: boolean): Step[] {
   ];
 }
 
-const sessionsWide = walk("sessions-on-a-workflow", [toSessions, ...steps(false)]);
-const sessionsNarrow = walk("sessions-on-a-workflow", [toSessions, ...steps(true)], NARROW);
+const sessionsWide = walk("sessions", [toSessions, ...steps(false)]);
+const sessionsNarrow = walk("sessions", [toSessions, ...steps(true)], NARROW);
 
 export { sessionsWide as "sessions", sessionsNarrow as "sessions-narrow" };

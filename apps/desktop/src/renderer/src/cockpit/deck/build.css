@@ -1,53 +1,4 @@
-/* What a Session has built: the ring and the road as markup in the Build column, the glyph of its subagents, and the card the map and the
-   column say it on. The map draws its own ring on the canvas. Grey like the plots; the accent only on what has happened on the road. #2301. */
-
-/* ---- The ring ----------------------------------------------------------------------------------------------- */
-
-.bf-pc :is(.bf-pc__seg) { stroke-linejoin: round; stroke-linecap: round; }
-/* Solid: done, and an edit seen while it was worked. */
-.bf-pc[data-state="solid"] .bf-pc__seg { fill: color-mix(in srgb, var(--fg-default) 24%, var(--bg-base)); stroke: var(--fg-subtle); stroke-opacity: 0.8; stroke-width: 1; }
-/* Ghost: planned, a dashed outline. Scaffold: the first not done, with edits seen since the last one was. */
-.bf-pc:is([data-state="ghost"], [data-state="scaffold"]) .bf-pc__seg { fill: none; stroke: var(--fg-subtle); stroke-width: 1; stroke-dasharray: 2 3; stroke-opacity: 0.6; }
-.bf-pc[data-state="scaffold"] .bf-pc__seg { stroke-opacity: 0.9; }
-.bf-pc__brace { fill: none; stroke: var(--status-escalated); stroke-opacity: 0.75; stroke-width: 1; stroke-linecap: round; }
-/* Hollow: done and no edit seen, outlined and not filled. */
-.bf-pc[data-state="hollow"] .bf-pc__seg { fill: none; stroke: var(--fg-default); stroke-opacity: 0.8; stroke-width: 1.4; }
-/* A subagent's piece carries a dot at its middle, the mark of the worker that wrote it. */
-.bf-grp { fill: none; stroke: var(--fg-muted); stroke-width: 1; stroke-linecap: round; stroke-opacity: 0.7; pointer-events: none; }
-.bf-pc__by { fill: var(--fg-default); fill-opacity: 0.85; pointer-events: none; }
-/* The unfinished part dims the longer the turn sits quiet. */
-.bf-pc[data-open] { opacity: calc(1 - var(--dim, 0)); transition: opacity calc(var(--duration-pulse) * 1.5) var(--ease); }
-/* A piece that is placed rises into its place once. */
-.bf-pc[data-state="solid"], .bf-pc[data-state="hollow"] { animation: bf-place calc(var(--duration-pulse) * 0.5) var(--ease) backwards; }
-@keyframes bf-place { from { opacity: 0; transform: translateY(calc(-5 * var(--bf-u))); } }
-
-/* The band: the ring where the agent wrote no task list. One unsegmented annulus, never partly filled, since a fraction here would be one
-   nobody measured. A faint outline while scoping or planning, an even scaffold texture once edits are seen, solid when landed. The texture
-   turns only while the drone is writing, and the unfinished band dims with a stall as the pieces do. */
-.bf-band__seg { fill: transparent; stroke: var(--fg-subtle); stroke-width: 1; stroke-linejoin: round; }
-.bf-band[data-state="outline"] .bf-band__seg { stroke-opacity: 0.4; }
-.bf-band[data-state="scaffold"] .bf-band__seg { stroke-opacity: 0.8; }
-.bf-band[data-state="solid"] .bf-band__seg { fill: color-mix(in srgb, var(--fg-default) 24%, var(--bg-base)); stroke-opacity: 0.8; }
-.bf-band__tex { fill: none; stroke: var(--fg-subtle); stroke-opacity: 0.5; stroke-dasharray: 1.4 2.6; transform-box: fill-box; transform-origin: center; pointer-events: none; }
-.bf-band[data-moving] .bf-band__tex { animation: bf-band-turn calc(var(--duration-pulse) * 40) linear infinite; }
-@keyframes bf-band-turn { to { transform: rotate(360deg); } }
-.bf-band[data-open] { opacity: calc(1 - var(--dim, 0)); transition: opacity calc(var(--duration-pulse) * 1.5) var(--ease); }
-
-/* The road: a thinner ring of arcs, lit up to the last stop reached, faint where it is only what this repository usually does next. */
-.bf-arc__seg { stroke-linejoin: round; }
-.bf-arc:not([data-lit]) .bf-arc__seg { fill: none; stroke: var(--fg-subtle); stroke-width: 1; stroke-dasharray: 2 3; stroke-opacity: 0.55; }
-.bf-arc[data-lit] .bf-arc__seg { fill: color-mix(in srgb, var(--accent) 60%, var(--bg-base)); stroke: var(--accent); stroke-width: 1; }
-
-/* ---- A Session's glyph --------------------------------------------------------------------------------------- */
-
-/* The quad. Gray shell; the nose lens and the LED carry the hue. */
-.bf-arm { fill: none; stroke: var(--fg-muted); stroke-width: 2; stroke-linecap: round; }
-.bf-hub { fill: color-mix(in srgb, var(--fg-default) 45%, var(--bg-base)); stroke: var(--bg-base); stroke-width: 0.8; }
-.bf-hull { fill: color-mix(in srgb, var(--fg-default) 38%, var(--bg-base)); stroke: color-mix(in srgb, var(--hue) 70%, var(--fg-muted)); stroke-width: 1.2; }
-.bf-plate { fill: color-mix(in srgb, var(--fg-default) 15%, var(--bg-base)); }
-.bf-led { fill: var(--hue); }
-.bf-disc { fill: color-mix(in srgb, var(--fg-default) 8%, transparent); stroke: var(--fg-muted); stroke-opacity: 0.5; stroke-width: 1; vector-effect: non-scaling-stroke; }
-.bf-blades line { stroke: var(--fg-default); stroke-opacity: 0.5; stroke-width: 1.6; stroke-linecap: round; }
+/* What a Session has built: the card the map says it on. The map draws its own ring on the canvas. Grey like the plots; the accent only on what has happened on the road. #2301. */
 
 /* ---- What the card says of it ----------------------------------------------------------------------------- */
 
@@ -67,35 +18,6 @@
 .bf-build__stop[data-faint] { color: var(--fg-subtle); opacity: 0.7; }
 .bf-build__stop time { margin-left: auto; color: var(--fg-subtle); }
 
-/* ---- The column: the same ring beside a Session's page, in the bays' place --------------------------------------- */
-
-.bf-col { flex: none; min-height: 0; animation: bf-swap calc(var(--duration-pulse) * 0.25) var(--ease) backwards; }
-@keyframes bf-swap { from { opacity: 0; } }
-.bf-col__glyph { display: inline-flex; color: var(--fg-muted); }
-.bf-col__body { display: flex; flex: none; flex-direction: column; align-items: center; gap: var(--space-3); min-height: 0; padding: var(--space-3); overflow-y: auto; }
-.bf-col__art { flex: none; width: 100%; height: calc(168 * var(--border-width)); overflow: visible; }
-.bf-col__stall { fill: none; stroke: var(--status-awaiting-review); stroke-width: 1.6; animation: bf-col-breathe calc(var(--duration-pulse) * 1.5) ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
-@keyframes bf-col-breathe { 50% { opacity: 0.35; } }
-/* Pieces here are static; only the one being built (scaffold) moves, and a stalled one holds still under its ring. */
-.bf-col .bf-pc { animation: none; }
-.bf-col .bf-pc:is([data-state="ghost"], [data-state="scaffold"], [data-state="hollow"]) .bf-pc__seg { fill: transparent; }
-.bf-col .bf-pc[data-state="scaffold"] .bf-pc__brace { animation: bf-col-breathe calc(var(--duration-pulse) * 1.2) ease-in-out infinite; }
-.bf-col__piece { cursor: default; }
 /* Ask for an update: it sits at the end of whatever row it is in, and reads sent in the accent until the reply. */
 .bf-ask { display: inline-flex; margin-left: auto; }
 .bf-ask[data-sent] { color: var(--accent); }
-.bf-col .bf-band { cursor: default; }
-/* A running subagent inside the ring, by the pieces it wrote. Still: only the piece being built moves. */
-.bf-col__worker { --hue: var(--fg-muted); cursor: default; outline: none; }
-.bf-col__worker:focus-visible .bf-col__hit { stroke: var(--accent); }
-.bf-col__hit { fill: transparent; stroke: transparent; pointer-events: all; }
-
-@media (prefers-reduced-motion: reduce) {
-  .bf-pc[data-state="solid"],
-  .bf-pc[data-state="hollow"],
-  .bf-band[data-moving] .bf-band__tex,
-  .bf-col,
-  .bf-col__stall,
-  .bf-col .bf-pc[data-state="scaffold"] .bf-pc__brace { animation: none; }
-  .bf-pc[data-open], .bf-band[data-open] { transition: none; }
-}

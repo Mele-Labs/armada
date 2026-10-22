@@ -1,6 +1,6 @@
 // From a worktree to the Job that holds it, and back to the worktree from the Job. Starts on Cleanup, where a slot
 // a Job holds names it, opens the Job, finds the slot in its Bays layer, and ends on the Cockpit's Jobs list,
-// searched by a pull request number. Over the `worktree-to-sessions` scenario. Told twice, wide and below the breakpoint.
+// searched by a pull request number. Over the `sessions` scenario. Told twice, wide and below the breakpoint.
 
 import { kit, NARROW } from "../sessions/walk-kit";
 import { button, inside, role, region, viaPalette, walk } from "../walk";
@@ -29,7 +29,7 @@ function steps(narrow: boolean): Step[] {
   ];
 }
 
-const wide = walk("worktree-to-sessions", steps(false));
-const narrow = walk("worktree-to-sessions", steps(true), NARROW);
+const wide = walk("sessions", steps(false));
+const narrow = walk("sessions", steps(true), NARROW);
 
 export { wide as "worktree-to-sessions", narrow as "worktree-to-sessions-narrow" };

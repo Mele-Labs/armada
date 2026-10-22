@@ -62,13 +62,14 @@ test("a path in backticks in the thread links only where it is a file in the che
   await expect.element(editor("store-clock.md")).toBeVisible();
 });
 
-test("the ledger says a file the Session only showed was shown, and one it wrote was written, shown or not", async () => {
+test("Artifacts says a file the Session only showed was shown, and one it wrote was written, shown or not", async () => {
   mount("file-panel");
   await onScreen();
   await toSession("Store clock notes");
-  const ledger = page.getByRole("region", { name: "Attachments" });
-  await expect.element(ledger.getByRole("button", { name: "File shown store-clock.md" })).toBeVisible();
-  await expect.element(ledger.getByRole("button", { name: "File written clock.rs" })).toBeVisible();
+  await userEvent.click(page.getByRole("region", { name: "Flight controls" }).getByRole("button", { name: "Artifacts", exact: true }));
+  const files = page.getByRole("region", { name: "Artifacts", exact: true }).getByRole("region", { name: "Files", exact: true });
+  await expect.element(files.getByRole("button", { name: "store-clock.md", exact: true }).getByRole("img", { name: "File shown" })).toBeVisible();
+  await expect.element(files.getByRole("button", { name: "clock.rs", exact: true }).getByRole("img", { name: "File written" })).toBeVisible();
 });
 
 test("an edit survives closing the panel on it, and a save clears it", async () => {

@@ -1,6 +1,6 @@
 // What each Session has built, read for the map: where its ring lies, the frame that aims a laser at it, and what a piece, an arc of
 // its road or its band says when it is hovered. The canvas draws the ring (`pixi/tiles.ts`) and the hit layer carries the words
-// (`pixi/Hits.tsx`); the Build column draws the same reading in markup (`ring.tsx`). #2301.
+// (`pixi/Hits.tsx`). #2301.
 
 import type { Frame } from "./frame";
 import type { Layout, Point } from "./layout";

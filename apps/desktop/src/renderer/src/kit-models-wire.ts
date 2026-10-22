@@ -34,6 +34,7 @@ const FALLS_TO: Readonly<Record<string, "first" | "last">> = {
   "plan.downshiftTo": "first",
   "models.judge": "last",
   "models.proposer": "last",
+  "models.account": "last",
 };
 
 const valueOf = (settings: SettingsList | null, key: string): string | undefined => {

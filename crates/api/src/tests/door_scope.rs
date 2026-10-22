@@ -150,6 +150,7 @@ fn server(id: &str, manifest_id: &str) -> ipc::ServerState {
         ports: Vec::new(),
         links: Vec::new(),
         started_by: ipc::StartedBy::Person,
+        session_id: None,
         started_at: ipc::Instant::carried("2026-08-26T09:00:00.000Z"),
         serving_since: None,
         ended_at: None,

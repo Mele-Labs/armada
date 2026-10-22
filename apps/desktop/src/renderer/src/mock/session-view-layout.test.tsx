@@ -1,6 +1,6 @@
 // A Session selected on the Cockpit is drawn compact: the Field and Progress share the right column, and there is no Ledger, Status, Plan
-// or Incoming calls panel and no Field in the foot. A Session calling him pulses its row in Work, and its tooltip names the call. A Session
-// with no work is drawn as it was, in the deck's one Ledger panel. Through `App` on `one-session-view` and `compact-session-view`.
+// or Incoming calls panel and no Field in the foot. A Session calling him pulses its row in Work, and its tooltip names the call. Through
+// `App` on `one-session-view` and `compact-session-view`.
 
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
@@ -48,10 +48,4 @@ test("a Session calling him pulses its row and names the call, and the open Sess
   expect(calling()).not.toContain("Retry the slot lease");
   await userEvent.hover(list().getByRole("button", { name: "Prune the stale branches", exact: true }));
   await expect.element(page.getByText(/^Permission/)).toBeVisible();
-});
-
-test("a Session with no work is drawn as it was, in the deck's one Ledger panel and not beside its thread", async () => {
-  await open("one-session-view", "Name the store migrations");
-  await expect.poll(() => panels("Ledger").length).toBe(1);
-  expect(document.querySelectorAll(".armada-session-ledger")).toHaveLength(1);
 });

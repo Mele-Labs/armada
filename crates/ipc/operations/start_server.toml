@@ -10,6 +10,8 @@ notes = """
 
 **One instance per Job per server, and one per checkout per server.** A second request, from a person or through a Drone's `start_server` tool, is answered with the instance already starting or serving rather than a second one on the same port.
 
+**A call from a hosted Session's agent names the Session** in the instance's `session_id`, placed by the connection it arrived on and never by anything the body says. A server a person started, from Bridge or by hand, names none.
+
 It answers at once, `starting`; `server.serving` and `server.exited` follow on `/events`, and the output is `observe_server`'s. Refused where the name declares no server, where the Job's worktree is gone or the Job has ended.
 
 **A refusal over a name says when this Fleet last read `armada.yml`.** Fleet holds the Manifest it resolved at startup, so a server declared since is one this process does not know — and the list of names it offers instead reads as the repository's answer when it is this process's memory of one. Where `commands` changed in that read and could not be taken up, the refusal says a restart is what takes it up. `#1564`.

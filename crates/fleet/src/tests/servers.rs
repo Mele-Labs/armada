@@ -126,7 +126,7 @@ const NAMED_BY_OTHER_TESTS: std::ops::RangeInclusive<u16> = 41_000..=44_999;
 /// before the server binds it, so a probe alone let two processes take one
 /// span: `it_stops_when_the_job_ends_before_its_span_goes_and_its_port_is_free`
 /// failed 2 in 2,053 stress runs with python exiting 1 on port 40020.
-fn a_range_of_its_own() -> PortRange {
+pub(super) fn a_range_of_its_own() -> PortRange {
     let (base, _released) = a_span_held_below_the_floor();
     PortRange::of(base, base + SPAN - 1, 1)
 }
@@ -255,6 +255,7 @@ async fn a_server_with_no_job_uses_the_main_checkouts_span_and_stops_on_stop() {
             Checkout::main(fleet.first()),
             "storybook",
             StartedBy::Person,
+            None,
         )
         .await
         .expect("it starts");

@@ -9,7 +9,7 @@ import { connected, type Scenario } from "../moment";
 const state = connected([], [repository()]);
 
 export const s200Doctor: Scenario = {
-  name: "doctor",
+  name: "doctor-unread-manifest",
   says: "Doctor: a Manifest that would not re-read, System stats short of headroom, and the probes nobody runs yet",
   state: {
     ...state,
