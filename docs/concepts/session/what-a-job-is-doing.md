@@ -14,6 +14,7 @@
 | `idle` | none of the above, which includes a reply that asks (it is an item) | none |
 
 A reply whose close asks him something is an item whatever the standing: `replied:<turn ended at>`, source `replied`, text the sentence that asks.
+Where the sentence readers are in force each ask is its own item ([A reply that asks](waiting-on-the-person.md)).
 
 **The reply is read off the turn.** For a hosted Job the turn is on its stream: the last thing the agent said before the turn ended.
 For a terminal Job the mod reports `turn_started` when a prompt goes in and `turn_completed` with `said`, the close of the last assistant message (its last 1,500 characters, from a line start), when the turn ends; the agent is never asked to.

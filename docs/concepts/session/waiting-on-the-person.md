@@ -10,7 +10,8 @@ On 19 Oct 2026 Jobs listed walks in their own words, one with no window behind i
 Phrase rules read the act, the id and the text (`walk_asks.rs`; `docs/spikes/walk-item-classifier.md` has them measured), and an item kept before the rule is left off every read.
 **It refuses an item that repeats the plan he has not approved**, such as "Approve plan v4" beside Fleet's own "Plan to approve": once the language model is loaded and while a plan is pending, `plan_asks.rs` compares each item with that text by cosine and names the plan version in the refusal.
 Until the model loads the list is accepted as it was; the walk rules read no model, since it caught no walk they miss.
-**Two items that are one ask by two doors** (an agent item and the reply's own sentence, or an agent item restating what Fleet lists) are folded to one row on every read by the cosine of their texts, Fleet's own item standing over the agent's over the reply's, once `dedup.rs` is in force; it is built and measured (`docs/spikes/needs-you-dedup.md`) and off, since the base vectors fold few repeats.
+**It refuses an item the owner could not act on**, once the clarity rules are in force (*An item he cannot act on*).
+**Two items that are one ask by two doors are folded to one row on every read**, once the fold is in force (*Items that are one ask*).
 An ended job holds nothing.
 **Bridge shows the list on the composer**, as a **Needs you** band folded to one glyph an item, named on hover; a press rides it up as the header of a panel and dims the thread.
 The panel opens as a list, a row each and no act on the row; a press on a row opens that one to do its act, and Back or Esc returns to the list.
@@ -61,11 +62,7 @@ Only the agent reads the line, and the person's row keeps their words.
 Without it the agent answers in prose, Fleet reads the job as replied, and the Done item never comes back.
 A terminal job's mod reports a prompt going in as `turn_started`, which is the same turn-start signal; a mod from before it has none, and for that one only the first two apply.
 The mod's first-message note tells the agent to clear `waiting_for`, then call `all_done` only when nothing is owed and none of its background work is running.
-
-**`all_done` is refused while a follow-up is open.** The sentences of a reply's close in which the job says it will do something later are kept per job across replies (`session_later`, `SessionRecord.later`), until they are settled.
-The refusal is 409 `fleet.later_open`, names each by id and sentence, and says how to settle: `settle_later` with `done`, `filed` and an issue number, or `dropped` and a reason.
-The person's Drop on a Later row is the same call with no connection and needs no reason, and **End job is `close_session`, which never reads them**.
-The sentence reader that finds them is not in force (`extracting::IN_FORCE`), so nothing is kept in a running Fleet until it is.
+**`all_done` is refused while a follow-up is open** (*Follow-ups kept for Later*).
 
 **A reply that claims a done or a walk without its call is answered with one reminder.** Fleet takes a job's word only through `all_done` and `show_window`, so where a turn ends it reads the reply's close (`reply_claims.rs`).
 A close that says the work or the job is done, finished or complete, or that nothing is left, while no `done_since` stands and nothing is on the job's waiting list, sends the agent: "Your reply says the work is done, and all_done is not called.
@@ -100,3 +97,105 @@ The receipt is `session_id` and what the act set: `window` (with `title` and the
 It weighs the same on the first call and the thousandth.
 Bridge's routes and the mod's hook, which are not the door, are answered the row.
 Nothing reads these four answers today.
+
+## A reply that asks
+
+**A reply raises one Needs you item for each sentence of its close that asks the person.**
+Fleet reads the close of the turn's last message (`crates/fleet/src/session_host/extracting.rs`) with its headings left out.
+A heading is a `#` line, a line wholly in bold, or a short line alone before the next paragraph that ends in `:` or `?`: it introduces what follows and asks nothing.
+A line with a fenced command right after it is kept whatever its shape.
+
+Each remaining sentence is read alone by two heads of the local language model, one for what asks the person and one for what the agent keeps for itself.
+The sentence the asks rules find is always the first ask, so nothing the rules caught is lost.
+Every ask is the item `replied:<turn ended>:<n>`, with `n` its place among the reply's asks, its text the sentence, and its `since` the instant the reply ended.
+`dismiss_waiting` drops one ask by its id and leaves the others.
+
+An ask's act is read from its words:
+
+| Sentence | Act | Options |
+|---|---|---|
+| A fenced command follows it | `run`, the command as target | none |
+| Names approve, merge or land, and a `#N` | `approve_pr`, `#N` | none |
+| Anything else | `answer` | the alternatives of an "X, or Y?", or the short list it closes |
+
+A reply that asks nothing raises nothing, and the Job reads `replied` ([What a job is doing](what-a-job-is-doing.md)).
+With the readers in force a reply is read even beside an item already listed, and a repeat of that item is folded instead.
+The readers are off today (*What is off today*), and a reply raises the one item `replied:<turn ended>` that the asks reader finds, with no act and no options.
+
+## Items that are one ask
+
+**Fleet folds items that are one ask by two doors into the best of them** (`crates/fleet/src/session_host/dedup.rs`).
+The doors are an agent item beside the reply's own sentence, and an agent item restating a walk or the plan that Fleet lists in its own words.
+`waiting.rs` already drops an agent item that names the same act and target as Fleet's, and the rules know walks; the rest is worded many ways, so the model reads each pair of texts by cosine.
+
+Items are sorted by precedence and each is dropped where it is within `FOLDS_AT` of one already kept.
+Fleet's own item stands over the agent's, and the agent's over the reply's.
+Within one of those, an item with an act stands over one without, then the earlier.
+A chain of near items folds into its best member, not into each other, and the kept item is kept as it was.
+An item the model has not embedded yet stays this read, and the Session is published again once it is.
+The fold runs on every read, after the derived items are added, and only once the model is loaded.
+
+## An item he cannot act on
+
+**A clear item holds a verb aimed at him and the thing it names, reads alone, and is not a status report** (`crates/fleet/src/session_host/clarity.rs`).
+A fenced command handed over is the verb and the thing.
+"Bigger than it looked?" is none of these.
+
+| Why unclear | What it is |
+|---|---|
+| Pointer | Points at something he would have to find: "see above", "three options" |
+| Status | Reports where things stand and asks nothing |
+| No ask | Holds no verb aimed at him, or none with a thing it names |
+
+The rules meet an item twice:
+
+- **`waiting_for` refuses the call** naming the first unclear item and why, and asks the agent to word it again as one line that reads alone.
+  Nothing of the list is kept.
+  Only the rules read here, since the head cannot say why.
+- **A reply's unclear ask is worded as the clearest of the agent's sentences near it.** The candidates are its own sentence and the rest of its paragraph or list item, or the paragraph a heading heads.
+  The rules rank them first and the `item_clear` head breaks a tie; a clear ask keeps its own words.
+  "Bigger than it looked?" followed by "The parser grew from 300 lines to 900. Split it into two files or leave it as one." is raised as the last sentence.
+  An ask with no clear candidate is left out, the asks that stay are numbered again among themselves, and a reply whose asks are all unclear raises no item.
+
+The head does not refuse: it cannot say why, and it caught little the rules missed.
+Beside the rules it ranks.
+It reads a sentence of a close here, not an item, and that was not measured.
+
+## Follow-ups kept for Later
+
+**A sentence of a reply's close in which the job says it will do something later is kept for that job until it is settled.**
+The second head of *A reply that asks* finds it, and a sentence the first head calls an ask is not one.
+Fleet keeps it per job across replies (`session_later`, `SessionRecord.later`, `crates/fleet/src/session_host/later.rs`).
+The same sentence said again is the same item, and a settled one is not kept again when a reply is read again.
+Bridge shows the open ones folded in Progress under a Later label that a press opens.
+
+The job settles one with `settle_later`, and the person has two presses on its row:
+
+| Act | By | Needs |
+|---|---|---|
+| `settle_later` `done` | The job | Nothing |
+| `settle_later` `filed` | The job | The issue, a forge number or a tracker key |
+| `settle_later` `dropped` | The job | A reason in a sentence |
+| Drop | The person | Nothing: the same call as `dropped`, placed by no connection |
+| Remind | The person | Nothing: messages the job to do it, file it or drop it |
+
+**`all_done` is refused while any follow-up is open.**
+The refusal is 409 `fleet.later_open`, names each by id and sentence, and says how to settle.
+**End job is `close_session`, which never reads them.**
+Only the agent's call is held, and the follow-ups of an ended job are not kept.
+The wire is in `docs/practices/protocol/a-jobs-kept-follow-ups-and-settling-one.md`.
+
+## What is off today
+
+Every reader here is built and measured, and none is in force.
+Each constant is `false` in its module, and a spike holds what it measured.
+
+| Reader | Constant | Off means | Measured in |
+|---|---|---|---|
+| Sentence readers | `extracting::IN_FORCE` | One item per reply, nothing kept for Later | `docs/spikes/reply-sentence-readers.md` |
+| Fold | `dedup::IN_FORCE` | The list is shown as stated | `docs/spikes/needs-you-dedup.md` |
+| Clarity | `clarity::IN_FORCE` | `waiting_for` keeps the list as sent, and no ask is left out | `docs/spikes/item-clarity.md` |
+
+The filter on a reply's asks needs both the sentence readers and the clarity rules in force.
+The `waiting_for` refusal needs only the clarity rules.
+A running Fleet keeps no follow-up until the sentence readers are in force.

@@ -77,8 +77,16 @@ Nothing.
 `clarity::IN_FORCE` is false, so `waiting_for` keeps the list as the agent sent it and a reply's asks are extracted as `reply-sentence-readers.md` says.
 Switched on:
 
-- `waiting_for` refuses an item the rules call unclear, naming the item and why in the voice of the walk refusal. It reads the rules only: the head cannot say why, and it did not catch what the rules missed.
-- `extracting` words an ask that does not read as clear as the clearest of the agent's own sentences near it, and leaves it out where none is clear. The candidates are the ask's sentence and the rest of the paragraph or list item it sits in, or, for a heading, the paragraph it heads. The rules decide first and the head's probability breaks a tie. A clear ask keeps its own words. "Bigger than it looked?" followed by a paragraph ending "Split it into two files or leave it as one." is raised as that last sentence. The asks are numbered among themselves. The head reads a sentence of a close here, not an item, and that was not measured. The choice among candidates is tested with made-up replies, not measured on real ones.
+- `waiting_for` refuses an item the rules call unclear, naming the item and why in the voice of the walk refusal.
+  It reads the rules only: the head cannot say why, and it did not catch what the rules missed.
+- `extracting` words an ask that does not read as clear as the clearest of the agent's own sentences near it, and leaves it out where none is clear.
+  The candidates are the ask's sentence and the rest of the paragraph or list item it sits in, or, for a heading, the paragraph it heads.
+  The rules decide first and the head's probability breaks a tie.
+  A clear ask keeps its own words.
+  "Bigger than it looked?" followed by a paragraph ending "Split it into two files or leave it as one." is raised as that last sentence.
+  The asks are numbered among themselves.
+  The head reads a sentence of a close here, not an item, and that was not measured.
+  The choice among candidates is tested with made-up replies, not measured on real ones.
 
 ## What it costs
 
