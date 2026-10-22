@@ -28,11 +28,13 @@ pub(crate) const PUBLISH_EVERY: Duration = Duration::from_secs(2);
 const WORD_AT_MOST: usize = 40;
 const NAME_AT_MOST: usize = 80;
 const TODO_AT_MOST: usize = 200;
+const SAID_AT_MOST: usize = 160;
 
 /// What a session did last, and when its row last went out for it.
 #[derive(Default)]
 pub(crate) struct Activity {
     now: Option<String>,
+    said: Option<String>,
     todos: Vec<SessionTodo>,
     /// What each subagent at work is doing, in the order they were first heard.
     subagents: Vec<SubagentActivity>,
@@ -100,6 +102,17 @@ impl Activity {
         }
     }
 
+    /// The agent said something this turn: the first line of it, at most [`SAID_AT_MOST`] characters.
+    /// A text with nothing in it changes nothing.
+    pub(crate) fn said(&mut self, text: &str, every: Duration) -> Publish {
+        let Some(line) = said_line(text) else { return Publish::Not };
+        if self.said.as_deref() == Some(line.as_str()) {
+            return Publish::Not;
+        }
+        self.said = Some(line);
+        self.changed(every)
+    }
+
     /// A subagent ended: its line goes. Whether it had one.
     pub(crate) fn subagent_ended(&mut self, agent: &str) -> bool {
         let held = self.subagents.len();
@@ -146,6 +159,7 @@ impl Activity {
     /// this one is: `now` goes, and the agent's list stays, true across turns.
     pub(crate) fn turn_began(&mut self) {
         self.now = None;
+        self.said = None;
         self.subagents.clear();
         self.unsent = false;
         self.sent_at = Some(Instant::now());
@@ -161,10 +175,21 @@ impl Activity {
         let held = SessionActivity {
             now: self.now.clone(),
             todos: self.todos.clone(),
+            said: self.said.clone(),
             subagents: self.subagents.clone(),
         };
         (held != SessionActivity::default()).then_some(held)
     }
+}
+
+/// The first line of what the agent said, trimmed, cut at [`SAID_AT_MOST`] characters with an ellipsis.
+fn said_line(text: &str) -> Option<String> {
+    let line = text.lines().map(str::trim).find(|one| !one.is_empty())?;
+    if line.chars().count() <= SAID_AT_MOST {
+        return Some(line.to_string());
+    }
+    let cut: String = line.chars().take(SAID_AT_MOST - 1).collect();
+    Some(format!("{}…", cut.trim_end()))
 }
 
 /// The agent's `TodoWrite` list. `None` for an input with no list in it, which changes nothing.
@@ -394,6 +419,12 @@ where
     /// What the row carries of it.
     pub(crate) fn activity_of(&self, id: &str) -> Option<SessionActivity> {
         self.hosts().of(id).state().activity.wire()
+    }
+
+    /// The agent's own text, as it is heard: its first line goes on the row, like `now`.
+    pub(super) fn said_seen(self: &Arc<Self>, id: &str, text: &str) {
+        let step = self.hosts().of(id).state().activity.said(text, self.hosts().activity_every());
+        self.publish_step(id.to_string(), step);
     }
 
     /// A subagent of the session ended: its line goes. Whether the row changed, which the caller publishes.

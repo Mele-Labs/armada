@@ -58,11 +58,13 @@ fn activity_round_trips_under_the_names_the_wire_gives_it() {
             SessionTodo { text: "Detect in the gate".to_string(), state: SessionTodoState::Doing },
             SessionTodo { text: "Write the docs".to_string(), state: SessionTodoState::Todo },
         ],
+        said: Some("Reading the gate first".to_string()),
         subagents: Vec::new(),
     };
     let sent = encode(&row(Some(activity.clone()))).unwrap();
     assert!(sent.contains(r#""now":"Editing gate.rs""#), "{sent}");
     assert!(sent.contains(r#""state":"doing""#), "{sent}");
+    assert!(sent.contains(r#""said":"Reading the gate first""#), "{sent}");
     let read: SessionRecord = decode("a session", sent.as_bytes()).unwrap();
     assert_eq!(read.activity, Some(activity));
 }

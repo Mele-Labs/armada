@@ -38,6 +38,10 @@ pub struct SessionActivity {
     /// Absent until a call Fleet can name has been made.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub now: Option<String>,
+    /// The first line of the agent's latest text this turn, at most 160 characters. Absent until it
+    /// has said something, and again when a turn begins.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub said: Option<String>,
     /// The agent's own list as its last `TodoWrite` left it. Empty is no list.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub todos: Vec<SessionTodo>,

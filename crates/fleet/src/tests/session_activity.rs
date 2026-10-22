@@ -5,6 +5,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+use adapter_traits::{DroneEvent, Speaker};
 use api::{HostedSessions, Next, Sessions, Subscription};
 use ipc::{CloseSession, Event, SessionActivity, SessionGate, SessionId, SessionRecord, SessionTodo, SessionTodoState, SubagentActivity};
 
@@ -257,4 +258,36 @@ async fn a_turn_starting_clears_now_and_keeps_the_list_and_publishes() {
         assert_eq!(began.todos.len(), 1, "the list stays");
         assert_eq!(activity(&rig, &id).await.expect("held").now, None);
     }
+}
+
+/// **What the agent just said is on the row as a line**, and the next turn starts without it.
+#[tokio::test]
+async fn a_turns_text_sets_said_to_its_first_line_and_the_next_turn_clears_it() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    rig.send(&id, "go").await;
+    rig.stand_in.init(0);
+    eventually(|| async { rig.turn(&id).await != ipc::SessionTurn::Idle }).await;
+
+    let long = "x".repeat(400);
+    rig.stand_in.says(
+        0,
+        vec![DroneEvent::Said { text: format!("\n  Looking at the gate first.  \nThen the store.\n{long}"), by: Speaker::Drone }],
+    );
+    eventually(|| async { activity(&rig, &id).await.is_some_and(|seen| seen.said.is_some()) }).await;
+    let seen = activity(&rig, &id).await.expect("said something");
+    assert_eq!(seen.said.as_deref(), Some("Looking at the gate first."), "the first line, trimmed");
+    assert_eq!(seen.now, None, "what it said is not what it is doing");
+
+    rig.stand_in.says(0, vec![DroneEvent::Said { text: long.clone(), by: Speaker::Drone }]);
+    eventually(|| async { activity(&rig, &id).await.and_then(|seen| seen.said).is_some_and(|said| said.starts_with("xxx")) }).await;
+    let cut = activity(&rig, &id).await.and_then(|seen| seen.said).expect("said");
+    assert_eq!(cut.chars().count(), 160, "at most 160 characters, ellipsis included");
+
+    rig.stand_in.finishes(0, "done");
+    eventually(|| async { rig.turn(&id).await == ipc::SessionTurn::Idle }).await;
+    assert!(activity(&rig, &id).await.is_some_and(|seen| seen.said.is_some()), "a turn ending clears nothing");
+    rig.send(&id, "again").await;
+    rig.stand_in.init(0);
+    eventually(|| async { activity(&rig, &id).await.and_then(|seen| seen.said).is_none() }).await;
 }
