@@ -43,12 +43,10 @@ bridge_service="$domain/$bridge_label"
 # The Phone Gateway's old launchd job, retired: Fleet serves the phone itself
 # now, and the old job would hold the port Fleet's Gateway binds. Under a label
 # override it follows the override, so a dev-fleet run never names the owner's
-# `com.armada.pocket`. `$support/pocket` is the opt-in, which Bridge's Settings,
-# Phone writes; here it decides only whether the phone app is built.
+# `com.armada.pocket`.
 if [[ "$label" == com.armada.fleet ]]; then pocket_label=com.armada.pocket; else pocket_label="$label.pocket"; fi
 pocket_plist="$support/$pocket_label.plist"
 pocket_service="$domain/$pocket_label"
-pocket_optin="$support/pocket"
 
 # `say` is commentary, not the answer — it goes to stderr so a caller that
 # captures this script's stdout for the final report never captures a
@@ -625,12 +623,8 @@ if $dry_run; then
   if [[ "$(ipc_built_protocol)" != "" && "$(ipc_built_protocol)" != "$(tree_protocol)" ]]; then
     echo "would touch $src/crates/ipc/build.rs — ipc was last built at protocol $(ipc_built_protocol) and the wire files hash to $(tree_protocol)"
   fi
-  if [[ -f "$pocket_optin" ]]; then
-    if pocket_stale; then echo "would build the phone app in $src: $(pocket_build_cmd)"; else echo "would not build the phone app — unchanged since its last build"; fi
-    echo "would copy $src/apps/pocket/dist to $pocket_app (a fresh folder swapped in by rename)"
-  else
-    echo "would not build the phone app: $pocket_optin does not exist (Bridge, Settings, Phone turns it on)"
-  fi
+  if pocket_stale; then echo "would build the phone app in $src: $(pocket_build_cmd)"; else echo "would not build the phone app — unchanged since its last build"; fi
+  echo "would copy $src/apps/pocket/dist to $pocket_app (a fresh folder swapped in by rename)"
   if [[ -f "$pocket_plist" ]]; then
     echo "would boot $pocket_service out if it is loaded and delete $pocket_plist: Fleet serves the phone itself"
   fi
@@ -734,21 +728,20 @@ else
   say "Bridge is unchanged since its last build"
 fi
 
-# The phone app, so the Gateway serves the tree it is restarted onto. Only for
-# someone who opted in.
-if [[ -f "$pocket_optin" ]]; then
-  if pocket_stale; then
-    say "Building the phone app — apps/pocket or packages/ moved since its last build"
-    (cd "$src" && $(pocket_build_cmd))
-    mkdir -p "$src/apps/pocket/dist" && touch "$pocket_stamp"
-    say "Copying the phone app to $pocket_app"
+# The phone app, so the Gateway serves the tree it is restarted onto. Built on
+# every Mac, opted in or not: Bridge's Phone access switch starts the Gateway
+# without a restart, and it must find an app to serve when it does.
+if pocket_stale; then
+  say "Building the phone app — apps/pocket or packages/ moved since its last build"
+  (cd "$src" && $(pocket_build_cmd))
+  mkdir -p "$src/apps/pocket/dist" && touch "$pocket_stamp"
+  say "Copying the phone app to $pocket_app"
+  install_pocket_app
+else
+  say "The phone app is unchanged since its last build"
+  if [[ ! -d "$pocket_app" ]]; then
+    say "Copying the phone app to $pocket_app — it was not there"
     install_pocket_app
-  else
-    say "The phone app is unchanged since its last build"
-    if [[ ! -d "$pocket_app" ]]; then
-      say "Copying the phone app to $pocket_app — it was not there"
-      install_pocket_app
-    fi
   fi
 fi
 

@@ -12,7 +12,7 @@
 
 | | On | Do |
 |---|---|---|
-| 1 | Bridge | Settings, Phone, then switch the phone on. Fleet starts the Phone Gateway on `127.0.0.1:8443` at once, and at every start after. Then restart Armada once (`scripts/restart`) so it builds the app and copies it where the Gateway serves it from |
+| 1 | Bridge | Settings, Phone, then switch the phone on. Fleet starts the Phone Gateway on `127.0.0.1:8443` at once, and at every start after. Every `scripts/restart` builds the app and copies it where the Gateway serves it from, so a Mac restarted onto this change already has it |
 | 2 | Mac | `tailscale serve --bg --https=443 http://127.0.0.1:8443`. Puts the Gateway on your tailnet over https, and survives reboots |
 | 3 | iPhone | Open the Mac's tailnet address in Safari, then Share, Add to Home Screen. Open Armada **from the Home Screen** |
 | 4 | Bridge | Settings, Phone, Pair a phone, then **Copy link** |

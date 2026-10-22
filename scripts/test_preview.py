@@ -556,13 +556,8 @@ class RestartAdopt(unittest.TestCase):
         code, passed, said = self.plain_restart("--dry-run")
         self.assertIsNone(passed, said)
 
-    def test_the_phone_app_is_built_only_when_the_owner_opted_in_and_no_gateway_job_is_written(self):
+    def test_the_phone_app_is_built_on_every_mac_and_no_gateway_job_is_written(self):
         self.fleet({})
-        code, said = self.restart("--dry-run")
-        self.assertEqual(code, 0, said)
-        self.assertIn("would not build the phone app: %s does not exist" % os.path.join(self.support, "pocket"), said)
-        self.assertNotIn("com.armada.pocket", said)
-        open(os.path.join(self.support, "pocket"), "w").close()
         code, said = self.restart("--dry-run")
         self.assertEqual(code, 0, said)
         self.assertNotIn("com.armada.pocket", said)
