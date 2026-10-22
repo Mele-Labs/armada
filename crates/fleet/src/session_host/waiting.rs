@@ -89,11 +89,6 @@ pub(crate) struct Waited {
     pub standing: ipc::SessionStanding,
     /// The windows holding back the plan he has not approved.
     pub plan_held: Vec<ipc::PlanHold>,
-    /// The follow-ups the agent's last reply keeps for itself, each with when the turn ended, by the
-    /// sentence readers of `extracting` while they are in force. Nothing carries them yet: the wire
-    /// gains a place for them when the readers go in force.
-    #[allow(dead_code)]
-    pub later: Vec<(String, String)>,
 }
 
 pub(crate) fn waiting_reads(
@@ -399,12 +394,6 @@ where
         };
         // A terminal's own prompt holds the turn on the person, as an open card does.
         let seen = super::standing::Seen { held: seen.held || prompt.is_some(), ..seen };
-        let later = seen
-            .extracted
-            .zip(seen.turn_end)
-            .filter(|_| !ended)
-            .and_then(|(extracted, (at, said))| Some(extracted(said)?.later.into_iter().map(|sentence| (sentence, at.to_string())).collect()))
-            .unwrap_or_default();
         let standing = if ended {
             ipc::SessionStanding::Idle
         } else {
@@ -516,7 +505,7 @@ where
             .filter(|one| one.settled.is_some())
             .map(|one| crate::rail_keeping::concern_item(&session.id, one))
             .collect();
-        Waited { items, settled, standing, plan_held: holds.map(|holds| holds.held_by).unwrap_or_default(), later }
+        Waited { items, settled, standing, plan_held: holds.map(|holds| holds.held_by).unwrap_or_default() }
     }
 
     /// `waiting_for`: replace the agent's list. An item keeps the `since` its id first had.

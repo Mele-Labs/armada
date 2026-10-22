@@ -51,6 +51,8 @@ pub(crate) struct LedgerReads {
     rail: crate::rail_keeping::RailReads,
     /// The wait of a Session still waiting on another, and the title of the one it waits on.
     wait: Option<(store::KeptWait, Option<String>, Option<String>)>,
+    /// The follow-ups its agent keeps for itself, still open.
+    later: Vec<store::KeptLater>,
 }
 
 /// A report that names nothing it can be kept against. A 422.

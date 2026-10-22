@@ -55,6 +55,7 @@ impl Sessions for FakeDaemon {
             judge: None,
             settled: Vec::new(),
             waits: None,
+            later: Vec::new(),
         })
     }
 
