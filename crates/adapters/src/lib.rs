@@ -41,6 +41,8 @@
 mod acted;
 pub mod agent_mod;
 mod annotations;
+/// The forge over GitHub's API where the repository is on `github.com`, and `gh` where not.
+mod api_forge;
 mod background;
 mod base;
 mod basing;
@@ -195,5 +197,6 @@ pub use requests::HttpRequests;
 pub use store::HttpStore;
 pub use store_device::{device_id, remember_device, DeviceKey, ID_FILE, KEY_FILE};
 pub use starting::{inferred_base, inside_a_repository, start_repository};
+pub use api_forge::ApiForge;
 pub use gh_forge::GhForge;
 pub use worktree::GitVcs;

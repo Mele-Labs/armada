@@ -13,38 +13,38 @@ use crate::github_api::{next_link, ApiFailure, GitHubApi, GitHubRepository, NotG
 use crate::ForgeAddress;
 
 #[derive(Clone, Debug)]
-struct Seen {
-    method: String,
-    target: String,
+pub(super) struct Seen {
+    pub(super) method: String,
+    pub(super) target: String,
     authorization: Option<String>,
-    body: String,
+    pub(super) body: String,
 }
 
-struct Reply {
-    status: u16,
-    headers: Vec<(&'static str, String)>,
-    body: String,
+pub(super) struct Reply {
+    pub(super) status: u16,
+    pub(super) headers: Vec<(&'static str, String)>,
+    pub(super) body: String,
 }
 
-fn ok(body: &str) -> Reply {
+pub(super) fn ok(body: &str) -> Reply {
     Reply { status: 200, headers: Vec::new(), body: body.to_string() }
 }
 
-struct Server {
-    url: String,
+pub(super) struct Server {
+    pub(super) url: String,
     connections: Arc<AtomicUsize>,
     seen: Arc<Mutex<Vec<Seen>>>,
 }
 
 impl Server {
-    fn seen(&self) -> Vec<Seen> {
+    pub(super) fn seen(&self) -> Vec<Seen> {
         self.seen.lock().unwrap().clone()
     }
 }
 
 /// A server answering every request with `answer`, each connection on a thread
 /// of its own and kept open for as many requests as the client sends on it.
-fn serve(answer: impl Fn(&Seen) -> Reply + Send + Sync + 'static) -> Server {
+pub(super) fn serve(answer: impl Fn(&Seen) -> Reply + Send + Sync + 'static) -> Server {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let url = format!("http://{}", listener.local_addr().unwrap());
     let connections = Arc::new(AtomicUsize::new(0));
@@ -114,7 +114,7 @@ fn read_request(stream: &mut TcpStream) -> Option<Seen> {
 
 /// A client on `url` whose token source hands out `tokens` in turn, the last
 /// one for ever, and counts how often it was asked.
-fn api(url: &str, tokens: &[&'static str]) -> (GitHubApi, Arc<AtomicUsize>) {
+pub(super) fn api(url: &str, tokens: &[&'static str]) -> (GitHubApi, Arc<AtomicUsize>) {
     let reads = Arc::new(AtomicUsize::new(0));
     let (counted, tokens) = (reads.clone(), tokens.to_vec());
     let api = GitHubApi::against(url, move || {

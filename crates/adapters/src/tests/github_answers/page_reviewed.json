@@ -1,0 +1,207 @@
+{
+ "data": {
+  "repository": {
+   "pullRequest": {
+    "baseRefName": "main",
+    "author": {
+     "login": "ada"
+    },
+    "createdAt": "2026-10-15T09:00:00Z",
+    "additions": 12,
+    "deletions": 5,
+    "mergeable": "MERGEABLE",
+    "reviewDecision": "CHANGES_REQUESTED",
+    "headRefOid": "3f9c1d2e3f9c1d2e3f9c1d2e3f9c1d2e3f9c1d2e",
+    "body": "",
+    "latestReviews": {
+     "nodes": [
+      {
+       "author": {
+        "login": "grace"
+       },
+       "state": "APPROVED"
+      },
+      {
+       "author": {
+        "login": "linus"
+       },
+       "state": "CHANGES_REQUESTED"
+      },
+      {
+       "author": {
+        "login": "ken"
+       },
+       "state": "PENDING"
+      }
+     ]
+    },
+    "reviewRequests": {
+     "nodes": [
+      {
+       "requestedReviewer": {
+        "__typename": "User",
+        "login": "barbara"
+       }
+      },
+      {
+       "requestedReviewer": {
+        "__typename": "Team",
+        "slug": "reviewers",
+        "name": "Reviewers"
+       }
+      }
+     ]
+    },
+    "comments": {
+     "totalCount": 1,
+     "nodes": [
+      {
+       "author": {
+        "login": "ada"
+       },
+       "createdAt": "2026-10-15T10:00:00Z",
+       "body": "First."
+      }
+     ]
+    },
+    "reviews": {
+     "totalCount": 4,
+     "nodes": [
+      {
+       "author": {
+        "login": "grace"
+       },
+       "submittedAt": "2026-10-15T09:30:00Z",
+       "state": "APPROVED",
+       "body": ""
+      },
+      {
+       "author": {
+        "login": "linus"
+       },
+       "submittedAt": "2026-10-15T11:00:00Z",
+       "state": "CHANGES_REQUESTED",
+       "body": "Not\tlike this."
+      },
+      {
+       "author": {
+        "login": "ken"
+       },
+       "submittedAt": "2026-10-15T11:30:00Z",
+       "state": "COMMENTED",
+       "body": ""
+      },
+      {
+       "author": {
+        "login": "ken"
+       },
+       "submittedAt": null,
+       "state": "PENDING",
+       "body": "draft"
+      }
+     ]
+    },
+    "rollup": {
+     "nodes": [
+      {
+       "commit": {
+        "statusCheckRollup": {
+         "contexts": {
+          "nodes": [
+           {
+            "__typename": "CheckRun",
+            "name": "test",
+            "status": "IN_PROGRESS",
+            "conclusion": null,
+            "startedAt": "2026-10-15T09:00:00Z",
+            "completedAt": null,
+            "detailsUrl": "https://github.com/Mele-Labs/armada/actions/runs/1/job/2"
+           },
+           {
+            "__typename": "CheckRun",
+            "name": "build",
+            "status": "COMPLETED",
+            "conclusion": "FAILURE",
+            "startedAt": "2026-10-15T09:00:00Z",
+            "completedAt": "2026-10-15T09:01:05Z",
+            "detailsUrl": "https://github.com/Mele-Labs/armada/actions/runs/1/job/3"
+           },
+           {
+            "__typename": "StatusContext",
+            "context": "needs",
+            "state": "PENDING",
+            "targetUrl": null
+           }
+          ]
+         }
+        }
+       }
+      }
+     ]
+    },
+    "files": {
+     "totalCount": 4,
+     "pageInfo": {
+      "hasNextPage": true,
+      "endCursor": "Mg"
+     },
+     "nodes": [
+      {
+       "path": "crates/a.rs",
+       "additions": 3,
+       "deletions": 1,
+       "changeType": "MODIFIED"
+      },
+      {
+       "path": "crates/b.rs",
+       "additions": 0,
+       "deletions": 0,
+       "changeType": "RENAMED"
+      }
+     ]
+    },
+    "commits": {
+     "totalCount": 2,
+     "pageInfo": {
+      "hasNextPage": false,
+      "endCursor": "Mg"
+     },
+     "nodes": [
+      {
+       "commit": {
+        "oid": "a1b2c3d4e5f6",
+        "messageHeadline": "Take the draft out",
+        "committedDate": "2026-10-15T09:10:00Z",
+        "authoredDate": "2026-10-15T09:10:00Z",
+        "authors": {
+         "nodes": [
+          {
+           "user": {
+            "login": "ada"
+           }
+          }
+         ]
+        }
+       }
+      },
+      {
+       "commit": {
+        "oid": "b2c3d4e5f6a1",
+        "messageHeadline": "Say why",
+        "committedDate": "2026-10-15T09:20:00Z",
+        "authoredDate": "2026-10-15T09:20:00Z",
+        "authors": {
+         "nodes": [
+          {
+           "user": null
+          }
+         ]
+        }
+       }
+      }
+     ]
+    }
+   }
+  }
+ }
+}
