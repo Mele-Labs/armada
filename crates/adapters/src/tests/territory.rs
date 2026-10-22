@@ -4,7 +4,7 @@
 use std::path::{Path, PathBuf};
 
 use super::repo::TempRepo;
-use crate::territory::{changed_since, directories_at, head_of, Directory, NotRead};
+use crate::territory::{changed_since, directories_at, files_at, head_of, text_at, Directory, NotRead, Text};
 
 fn dir(path: &str, files: u32, names: &[&str]) -> Directory {
     Directory { path: path.into(), files, names: names.iter().map(|name| name.to_string()).collect() }
@@ -125,4 +125,30 @@ fn reading_a_slots_changes_writes_no_index_of_it() {
 
     assert_eq!(std::fs::read(gitdir.join("index")).expect("an index"), index, "its index is as it was");
     assert_eq!(names(&gitdir), held, "and no scratch copy of it is left beside it");
+}
+
+#[test]
+fn the_files_and_a_files_text_are_the_trees_whatever_the_checkout_holds() {
+    let repo = TempRepo::empty();
+    repo.write("src/a.rs", "fn a() {}\n");
+    repo.write("src/long.rs", &format!("{}é", "x".repeat(9)));
+    repo.write("logo.png", "PNG\0\0");
+    repo.commit_everything("the tree");
+    let head = head_of(repo.root(), "main").expect("a head");
+    // Edited after the commit, and a file the tree does not hold.
+    repo.write("src/a.rs", "fn changed() {}\n");
+    repo.write("untracked.rs", "x\n");
+
+    assert_eq!(files_at(repo.root(), &head), Ok(vec!["logo.png".into(), "src/a.rs".into(), "src/long.rs".into()]));
+    assert_eq!(
+        text_at(repo.root(), &head, "src/a.rs", 100),
+        Ok(Some(Text { text: "fn a() {}\n".into(), cut: false }))
+    );
+    assert_eq!(text_at(repo.root(), &head, "logo.png", 100), Ok(None), "a NUL byte is not text");
+    assert!(text_at(repo.root(), &head, "untracked.rs", 100).is_err(), "not in the tree is not read");
+    // 'é' is two bytes and starts at byte 9: a cut at 10 lands inside it.
+    assert_eq!(
+        text_at(repo.root(), &head, "src/long.rs", 10),
+        Ok(Some(Text { text: "xxxxxxxxx".into(), cut: true }))
+    );
 }

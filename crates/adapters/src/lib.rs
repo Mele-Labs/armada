@@ -48,6 +48,7 @@ mod base;
 mod basing;
 pub mod browser_shell;
 mod build_standing;
+pub mod check_blame;
 mod checkout_send;
 mod ci_workflows;
 pub mod clash;
@@ -142,6 +143,7 @@ pub mod territory;
 pub mod terminal_thread;
 /// The test map's measured laps of a Cargo workspace.
 mod test_map;
+mod test_map_for;
 mod test_map_static;
 pub mod turn_lines;
 mod tracker_providers;
@@ -178,6 +180,7 @@ pub use hosted_session::{check_line, reads_only, CheckLine, HostedLaunch, Hosted
 pub use issue_lookup::IssueLookup;
 pub use outside::command_reach;
 pub use issue_tracker::IssueTracker;
+pub use test_map_for::{collector_for, Feeder};
 pub use test_map_static::TypeScriptImports;
 pub use tracker_providers::TrackersByProvider;
 pub use mcp::{publish_the_agents_door, Published, REPOSITORY_CONFIG};

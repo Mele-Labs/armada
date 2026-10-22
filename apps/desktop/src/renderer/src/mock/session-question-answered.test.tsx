@@ -1,4 +1,4 @@
-// The Needs you panel's detail has a stepper beside Back: a node per question, the answered ones named by their header and what was chosen,
+// The Needs you panel's detail has a stepper beside its buttons: a node per question, the answered ones named by their header and what was chosen,
 // the one in front marked, any of them a press away. The walk `session-question-many` draws it; this holds where the stepper sits.
 
 import { expect, test } from "vitest";
@@ -8,7 +8,7 @@ import { mount, onScreen, toSession, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
-test("Stepper: a node per question beside Back, answered ones named, any one reopens its question", async () => {
+test("Stepper: a node per question beside the buttons, answered ones named, any one reopens its question", async () => {
   mount("session-question");
   await onScreen();
   await toSession(/Order the lunch/);
@@ -18,6 +18,10 @@ test("Stepper: a node per question beside Back, answered ones named, any one reo
   await expect.element(steps).toBeVisible();
   expect(steps.getByRole("button").elements()).toHaveLength(2);
   await expect.element(steps.getByRole("button", { name: "Size", exact: true })).toHaveAttribute("aria-current", "step");
+  // Not on the last question, the button moves on rather than sends.
+  const answers = ask.getByRole("group", { name: "Answers" });
+  await expect.element(answers.getByRole("button", { name: "Next" })).toBeVisible();
+  expect(answers.getByRole("button", { name: "Answer" }).elements()).toHaveLength(0);
 
   await userEvent.click(ask.getByRole("radio", { name: "Large" }));
   await expect.element(ask.getByText("Which toppings?")).toBeVisible();
@@ -25,10 +29,12 @@ test("Stepper: a node per question beside Back, answered ones named, any one reo
   await expect.element(done).toBeVisible();
   await expect.element(steps.getByRole("button", { name: "Toppings", exact: true })).toHaveAttribute("aria-current", "step");
 
-  const back = page.getByRole("region", { name: "Needs you" }).getByRole("button", { name: "Back" }).element().getBoundingClientRect();
+  // On the last it sends, and the steps sit in the same row as it.
+  await expect.element(answers.getByRole("button", { name: "Answer" })).toBeVisible();
+  expect(answers.getByRole("group", { name: "Questions" }).elements()).toHaveLength(1);
+  const answer = answers.getByRole("button", { name: "Answer" }).element().getBoundingClientRect();
   const at = steps.element().getBoundingClientRect();
-  expect(Math.abs(at.top - back.top)).toBeLessThan(8);
-  expect(at.left).toBeGreaterThan(back.right);
+  expect(Math.abs(at.top + at.height / 2 - (answer.top + answer.height / 2))).toBeLessThan(8);
 
   await userEvent.click(done);
   await expect.element(ask.getByText("Which size?")).toBeVisible();

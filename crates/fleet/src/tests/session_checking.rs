@@ -175,3 +175,44 @@ async fn each_stop_route_is_answered_to_the_runs_next_chunk_and_force_outranks()
     assert!(fleet.session_check_stopped(run, false).await.is_err(), "an ended run takes no stop");
     assert!(fleet.session_check_stopped(999, true).await.is_err());
 }
+
+/// A failed run's row carries where its log says it failed, read in the slot as it ends; a passed
+/// run's carries none, though its log names the same file.
+#[tokio::test]
+async fn a_failed_runs_row_carries_its_blame_and_a_passed_runs_does_not() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
+    let root = fleet.repositories().first().expect("served").root().to_string();
+    let (slot, failed) = a_running_check(&fleet, &root).await;
+    let file = std::path::Path::new(&slot).join("crates/store/src/reads.rs");
+    std::fs::create_dir_all(file.parent().expect("a folder")).expect("its folder");
+    std::fs::write(&file, "").expect("the file");
+    let log = format!("thread 'main' panicked at {slot}/crates/store/src/reads.rs:88:31:\nboom\n");
+    let SessionCheckAnswer { run: Some(passed), .. } =
+        fleet.session_check_reported(call(SessionCheckAct::Start, &slot)).await.expect("begins")
+    else {
+        panic!("held");
+    };
+    for (run, outcome) in [(failed, SessionCheckState::Failed), (passed, SessionCheckState::Passed)] {
+        let mut end = call(SessionCheckAct::End, &slot);
+        end.run = Some(run);
+        end.outcome = Some(outcome);
+        end.log = Some(log.clone());
+        fleet.session_check_reported(end).await.expect("ends");
+    }
+
+    let rows = fleet.rows_of("s1").await.expect("the thread");
+    let blame_of = |run: u64| {
+        rows.iter()
+            .find_map(|row| match row {
+                ipc::SessionRow::Check { run: at, blame, .. } if *at == run => Some(blame.clone()),
+                _ => None,
+            })
+            .expect("a row for the run")
+    };
+    assert_eq!(
+        blame_of(failed),
+        Some(ipc::CheckBlame { path: "crates/store/src/reads.rs".into(), line: Some(88) })
+    );
+    assert_eq!(blame_of(passed), None);
+}

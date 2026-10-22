@@ -175,6 +175,18 @@
   flex-direction: column;
   gap: var(--space-1);
   min-width: 0;
+  container-type: inline-size;
+}
+
+/* A narrow tree keeps the names and drops each file's line counts, which the file itself shows. */
+@container (max-width: 320px) {
+  .armada-pr-tree__item[data-kind="file"] {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .armada-pr-tree__item[data-kind="file"] > :has(> .armada-pr-diff) {
+    display: none;
+  }
 }
 
 .armada-pr-tree__head {
@@ -284,9 +296,12 @@ button.armada-pr-tree__item:hover,
   color: var(--fg-muted);
 }
 
+/* A narrow panel cuts a name to an ellipsis rather than stacking it a few letters to a line. */
 .armada-pr-tree__name {
   min-width: 0;
-  overflow-wrap: anywhere;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .armada-pr-row[data-columns="commit"] {

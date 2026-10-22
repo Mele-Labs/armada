@@ -133,6 +133,12 @@ impl HeadlessAgent {
         HeadlessAgent::judge_model()
     }
 
+    /// The model a file no collector can measure is read on: **the Judge's**, the cheapest on the
+    /// roster, since the call is one short read of a capped file made up to twenty times a move.
+    pub fn test_map_model() -> &'static str {
+        HeadlessAgent::judge_model()
+    }
+
     /// The model a Job's retro is written on.
     pub fn retro_model() -> &'static str {
         RETRO_MODEL
