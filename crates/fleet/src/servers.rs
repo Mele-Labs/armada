@@ -267,10 +267,15 @@ where
             None => Checkout::main(served),
         };
         let refusing = Arc::clone(&self);
-        Fleet::hold_server(self, checkout, &asked.name, ipc::StartedBy::Person, session)
+        let state = Fleet::hold_server(Arc::clone(&self), checkout, &asked.name, ipc::StartedBy::Person, session)
             .await
             .map(|(state, _)| state)
-            .map_err(|why| refusing.server_refusal(why))
+            .map_err(|why| refusing.server_refusal(why))?;
+        if let (Some(session), Some((url, title))) = (&state.session_id, page_of(&state)) {
+            let step = self.live_page_seen(session.as_str(), &url, &title);
+            self.publish_step(session.as_str().to_string(), step);
+        }
+        Ok(state)
     }
 
     /// A path that is not a checkout of the repository asked about. **A 422**,
@@ -310,6 +315,14 @@ async fn stopped_and_waited(held: Vec<held::Stopping>) {
             now.wait_for(|seen| seen.phase == ServerPhase::Exited),
         )
         .await;
+    }
+}
+
+/// Where a server's page is and what to call it: its first link, else its first port on `localhost`.
+fn page_of(state: &ServerState) -> Option<(String, String)> {
+    match state.links.first() {
+        Some(link) => Some((link.url.clone(), link.name.clone().unwrap_or_else(|| state.name.clone()))),
+        None => state.ports.first().map(|port| (format!("http://localhost:{}", port.port), state.name.clone())),
     }
 }
 

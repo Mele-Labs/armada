@@ -82,6 +82,14 @@ impl Writing {
         self.dirty = true;
     }
 
+    /// A page was shown or served. Whether the live view changed.
+    pub(crate) fn live_seen(&mut self, url: &str, title: &str) -> bool {
+        let live = SessionLive { url: url.to_string(), title: title.to_string() };
+        let changed = self.live.as_ref() != Some(&live);
+        self.live = Some(live);
+        changed
+    }
+
     /// A turn began. **Only a message from him that starts it clears the account**, the live page and
     /// what they were read from.
     pub(crate) fn turn_began(&mut self) {
@@ -216,6 +224,17 @@ where
         self.publish_step(id.to_string(), step);
         if let Some(wait) = again {
             self.account_after(id, wait);
+        }
+    }
+
+    /// A page the Session showed or served is its live view. What the row's publish needs, which a
+    /// caller that publishes the row itself may leave.
+    pub(crate) fn live_page_seen(&self, id: &str, url: &str, title: &str) -> Publish {
+        let runtime = self.hosts().of(id);
+        let mut state = runtime.state();
+        match state.activity.writing.live_seen(url, title) {
+            true => state.activity.changed(self.hosts().activity_every()),
+            false => Publish::Not,
         }
     }
 

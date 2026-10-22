@@ -409,7 +409,7 @@ where
     }
 
     /// Publish the row as [`Activity`] said: now, after a wait, or not.
-    pub(super) fn publish_step(self: &Arc<Self>, id: String, step: Publish) {
+    pub(crate) fn publish_step(self: &Arc<Self>, id: String, step: Publish) {
         let fleet = Arc::clone(self);
         match step {
             Publish::Not => {}

@@ -550,6 +550,8 @@ where
             })
             .await?;
         self.walk_noted(&id, &record, &title);
+        // The row is published below, carrying it.
+        let _ = self.live_page_seen(&id, &url, &title);
         // A walk dismissed, by him or by withdraw_window, waits again once the job shows it again.
         {
             let mut store = self.store().lock().await;
