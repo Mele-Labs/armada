@@ -11,7 +11,7 @@ Read the journey that covers what you are about to design or build, before you b
 | Journey | Read it before you |
 | --- | --- |
 | [Check System Health](check-system-health.md) | Design or build Doctor's health grid, or add a module to it |
-| [Set up the phone app](set-up-the-phone-app.md) | Run `armada pocket`, put it on the tailnet, pair a phone and allow push |
+| [Set up the phone app](set-up-the-phone-app.md) | Switch the phone on in Bridge, put it on the tailnet, pair a phone with each Mac and allow push |
 | [Set Up a Project (Manifest)](set-up-a-project-manifest.md) | Design or build onboarding a new repo — Locate, Scan, the picker, the proposal sheet, ports, Write and Verify |
 | [Run and edit a Manifest](run-and-edit-a-manifest.md) | Design or build Bridge's Manifest surface — running a Check or Command on demand, editing a manifest, or Verify's drift-plus-dry-run |
 | [Guild Setup & Configuration](guild-setup-and-configuration.md) | Design or build the Kit/Machine settings surface — first-time init or an ongoing settings edit |

@@ -25,6 +25,12 @@ export type Frame = {
   orbit: number;
 };
 
+/** How high a drone that has landed on the pad stands over it. */
+export const PAD_UP = 14;
+
+/** How much higher a thinking drone flies over its last file than one at work there. */
+export const THINK_RISE = 26;
+
 const clamp = (n: number, lo: number, hi: number) => (lo > hi ? (lo + hi) / 2 : Math.min(hi, Math.max(lo, n)));
 
 export function frameOf(input: { layout: Layout; drones: readonly DroneIn[]; plays: readonly Play[]; big: number }): Frame {
@@ -38,10 +44,12 @@ export function frameOf(input: { layout: Layout; drones: readonly DroneIn[]; pla
   const altOf = (drone: DroneIn) => {
     const at: Placed | undefined = layout.at.get(drone.key);
     if (at === undefined) return 0;
+    // On the pad it has landed: it stands just over the ground, whatever plots stand near.
+    if (drone.off === "pad" || drone.off === "walk") return Math.round(PAD_UP * big);
     const reach = tiles.filter((t) => t.rect.x < at.x + 170 && t.rect.x + t.rect.w > at.x - 170 && t.rect.y < at.y + 90 && t.rect.y + t.rect.h > at.y - 60);
     const clear = Math.max(floorAt(at), ...reach.map((t) => heights.get(t.path) ?? 0));
-    // Reading, it dips toward the plot it is probing.
-    return clear + FOOT + MARGIN + (drone.hover ? Math.round((drone.doing === "read" ? 6 : 18) * big) : 0);
+    // Reading, it dips toward the plot it is probing; thinking, it rises over its last file.
+    return clear + FOOT + MARGIN + (drone.hover ? Math.round((drone.doing === "read" ? 6 : 18) * big) : 0) + (drone.off === "think" ? Math.round(THINK_RISE * big) : 0);
   };
   const flying = (drone: DroneIn): P3 | undefined => {
     const at = layout.at.get(drone.key);

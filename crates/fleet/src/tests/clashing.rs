@@ -328,6 +328,75 @@ async fn a_clash_with_main_reads_mains_change_since_the_branch_met_it() {
     assert_eq!(code_of(&unlisted), "fleet.clash_path_not_in_clash");
 }
 
+impl Rig {
+    async fn change_of(&self, id: &str, path: &str, seen: Option<&str>) -> Result<ipc::SessionFileChange, api::Refusal> {
+        self.fleet.get_session_file_change(id.into(), path.into(), seen.map(str::to_string)).await
+    }
+}
+
+#[tokio::test]
+async fn a_file_the_job_wrote_reads_as_its_change_since_the_base_uncommitted_edits_and_new_files_included() {
+    let rig = a_rig();
+    rig.a_session_in_slot("sess-a", 1).await;
+    rig.writes("sess-a", 1, "f.txt", 5, "committed five").await;
+    git(&rig.slot(1), &["add", "f.txt"]);
+    git(&rig.slot(1), &["commit", "--quiet", "-m", "five"]);
+    rig.writes("sess-a", 1, "f.txt", 15, "uncommitted fifteen").await;
+    std::fs::write(rig.slot(1).join("new [x].txt"), "brand new\n").unwrap();
+    rig.report("sess-a", SessionFact::Touched { paths: vec!["new [x].txt".into()], by: None, act: None }).await;
+    let before = status_of(&rig.slot(1));
+
+    let read = rig.change_of("sess-a", "f.txt", None).await.expect("read");
+    assert!(read.diff.starts_with("diff --git a/f.txt b/f.txt\n"), "{}", read.diff);
+    assert!(read.diff.contains("-line 5\n+committed five\n"), "the committed hunk: {}", read.diff);
+    assert!(read.diff.contains("-line 15\n+uncommitted fifteen\n"), "the uncommitted hunk: {}", read.diff);
+    assert!(!read.cut && !read.unchanged && !read.stamp.is_empty(), "{read:?}");
+    let new = rig.change_of("sess-a", "new [x].txt", None).await.expect("read");
+    assert!(new.diff.contains("+++ b/new [x].txt") && new.diff.contains("+brand new\n"), "untracked, literal: {}", new.diff);
+    assert_eq!(status_of(&rig.slot(1)), before, "nothing in the worktree written");
+
+    let again = rig.change_of("sess-a", "f.txt", Some(&read.stamp)).await.expect("read");
+    assert!(again.unchanged && again.diff.is_empty() && again.stamp == read.stamp, "{again:?}");
+    rig.writes("sess-a", 1, "f.txt", 16, "and sixteen, longer").await;
+    let moved = rig.change_of("sess-a", "f.txt", Some(&read.stamp)).await.expect("read");
+    assert!(!moved.unchanged && moved.stamp != read.stamp, "{moved:?}");
+    assert!(moved.diff.contains("+and sixteen, longer\n"), "{}", moved.diff);
+}
+
+#[tokio::test]
+async fn a_file_the_job_was_not_seen_writing_is_refused_without_asking_git() {
+    let rig = a_rig();
+    rig.a_session_in_slot("sess-a", 1).await;
+    rig.writes("sess-a", 1, "f.txt", 5, "a").await;
+    // Changed on disk, but nothing reported it.
+    rig.edited(1, "g.txt", 1, "unseen");
+
+    let unseen = rig.change_of("sess-a", "g.txt", None).await.expect_err("not seen writing it");
+    assert_eq!((code_of(&unseen), unseen.status()), ("fleet.session_path_not_edited", 409));
+    let outside = rig.change_of("sess-a", "../f.txt", None).await.expect_err("not a path it wrote");
+    assert_eq!(code_of(&outside), "fleet.session_path_not_edited");
+    let stranger = rig.change_of("sess-nobody", "f.txt", None).await.expect_err("no such job");
+    assert_eq!((code_of(&stranger), stranger.status()), ("fleet.no_such_session", 404));
+
+    rig.report("sess-a", SessionFact::Ended { reason: "prompt_input_exit".into() }).await;
+    let ended = rig.change_of("sess-a", "f.txt", None).await.expect_err("ended");
+    assert_eq!((code_of(&ended), ended.status()), ("fleet.session_no_worktree", 409));
+}
+
+#[tokio::test]
+async fn a_long_change_is_cut_to_whole_lines_and_says_so() {
+    let rig = a_rig();
+    rig.a_session_in_slot("sess-a", 1).await;
+    let long: String = (1..=3000).map(|n| format!("written {n}\n")).collect();
+    std::fs::write(rig.slot(1).join("long.txt"), long).unwrap();
+    rig.report("sess-a", SessionFact::Touched { paths: vec!["long.txt".into()], by: None, act: None }).await;
+
+    let read = rig.change_of("sess-a", "long.txt", None).await.expect("read");
+    assert!(read.cut, "past 2,000 lines");
+    assert_eq!(read.diff.lines().count(), 2000);
+    assert!(read.diff.ends_with('\n'), "whole lines");
+}
+
 #[test]
 fn a_second_holder_on_a_file_is_due_a_check_after_the_wait_and_not_before() {
     let writes = Writes::default();

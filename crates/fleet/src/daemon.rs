@@ -74,6 +74,8 @@ pub struct Fleet<H, V, W> {
     models: ipc::ModelChoices,
     /// What the harness said it offers, and what asks it. See [`crate::models_read`].
     models_held: crate::models_read::ModelsHeld,
+    /// What turns the Phone Gateway on and off. See [`crate::phone`].
+    phone_held: crate::phone::PhoneHeld,
     /// The default model's step down, never held but for what the store keeps. See [`crate::model_downshifting`].
     downshift: crate::model_downshifting::Holding,
     events: api::Broadcaster,

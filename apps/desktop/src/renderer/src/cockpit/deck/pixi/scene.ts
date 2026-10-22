@@ -13,6 +13,9 @@ import type { GoalIn, PadIn } from "../tip";
 import type { placeBuilds } from "../builds";
 import { onPlane } from "../bf-parts";
 import type { Outpost } from "../outposts";
+import type { Glow, Stop } from "../afterglow";
+import type { Light, LinkIn } from "../off-floor";
+import type { Row, Slab } from "../lens";
 
 /** A construction placed on the field: its ring and where it lies. */
 export type Placed = ReturnType<typeof placeBuilds>[number];
@@ -94,7 +97,40 @@ export type DroneSpec = {
   trail: number | undefined;
   /** The plots it touches, the biggest first. */
   touches: readonly { tile: string; at: Point }[];
+  /** Another Job's on a Job's own Field: drawn faint, with no beam, label or action. */
+  ghost: boolean;
+  /** A subagent: drawn smaller than the drone that sent it. */
+  small: boolean;
+  /** Where the drone that sent it flies, which a faint line joins it to. */
+  link: P3 | undefined;
+  /** It has finished: it flies back into the drone that sent it, from where it was, and is gone. */
+  dock: { id: string; delay: number; to: P3 } | undefined;
 };
+
+/** A Job's pad on the plane: its middle and size, a light along its front edge for each check, and the line from a failing one to the file it blames. */
+export type PadSpec = {
+  at: Point;
+  w: number;
+  d: number;
+  lights: readonly (Light & { at: Point })[];
+  /** The light of the failing check, and the bar of the file its record names. None where no record names a file the Field draws. */
+  blame: readonly { from: Point; bar: string }[];
+};
+
+/**
+ * A file lifted off the floor by a drone writing it: its minimap on a slab enlarged over its bar, the bar's own rect left outlined on
+ * the floor. On the plane: the bar's middle and rect; in pixels at any zoom: the slab's width and depth, and how far over the plot it rises.
+ */
+export type LensSpec = { path: string; card: boolean; rows: readonly Row[]; counts: string; tile: string; at: Point; mark: { x: number; y: number; w: number; h: number }; w: number; d: number; up: number };
+
+/** A stop of a Job's route while the Field is scrubbed back: its number, the file's bar on the plane, and whether it was read or written. */
+export type RouteSpot = { n: number; act: Stop["act"]; at: Point; tile: string };
+
+/**
+ * The arc through the air between two drones while one Job messages the other: from the sender's drone to the receiver's, rising `lift`
+ * at its middle, where the quote stands. `other` is the other Job's drone, which a press opens. `loop` is whether its packets travel.
+ */
+export type ArcSpec = { key: string; other: string; title: string; quote: string; sent: boolean; from: P3; to: P3; lift: number; mid: P3; loop: boolean };
 
 /** How a plot stands against a Session's plan, in the plan bar's own language: solid, outlined, amber, faint, or failed. */
 export type PlotPiece = "solid" | "hollow" | "scaffold" | "ghost" | "failed";
@@ -130,6 +166,20 @@ export type PixiSceneIn = {
   bumps: ReadonlyMap<string, Bump>;
   /** The plots a Session's plan names, by path, and what the plan says of each. A Session's Field only. */
   planned?: ReadonlyMap<string, { piece: PlotPiece; said: string }>;
+  /** The plots a Job has touched, outlined in the accent. A Job's Field only. */
+  touched?: ReadonlySet<string>;
+  /** How each file's bar glows from what the Job last did to it, by path. A Job's Field only. */
+  glow?: ReadonlyMap<string, Glow>;
+  /** The Job's stops up to the slider, where it is scrubbed back. A Job's Field only. */
+  route?: readonly RouteSpot[];
+  /** The Job's pad and its lights. A Job's Field only. */
+  pad?: PadSpec;
+  /** The walk a drone of the Job is on: its name, in a window over the pad. A Job's Field only. */
+  walk?: { name: string; at: P3 };
+  /** The files lifted by the drones writing them, the card's last. A Job's Field only. */
+  lens?: readonly LensSpec[];
+  /** The arcs between this Job's drone and the other Jobs it is messaging or is messaged by. A Job's Field only. */
+  arcs: readonly ArcSpec[];
   /** The radius of the ring a running drone's sweep turns on. */
   orbit: number;
   /** Two drones changing one area, each end where it flies. */
@@ -170,6 +220,19 @@ export type SceneInputs = {
   /** Each bay's pad on the plane. */
   padAt: ReadonlyMap<string, Point>;
   planned?: PixiSceneIn["planned"];
+  touched?: ReadonlySet<string>;
+  glow?: ReadonlyMap<string, Glow>;
+  route?: readonly Stop[];
+  /** The Job's checks, as the lights along its pad. */
+  lights?: readonly Light[];
+  /** The walk a drone of the Job is on, by its name. */
+  walk?: string;
+  /** The files the Job's drones are writing, lifted. */
+  lens?: readonly Slab[];
+  /** The messages between this Job and others, each an arc between two drones. */
+  links?: readonly LinkIn[];
+  /** The links whose packets travel: one of the most the map animates at once. */
+  linkLoops?: ReadonlySet<string>;
 };
 
 /** How far beyond the field's far edge the outposts stand, and how far apart, in the layout's own units. */
@@ -245,8 +308,12 @@ function dronesOf(i: SceneInputs): DroneSpec[] {
     const aimTile = frame.aimOf(drone);
     const aimed = aimTile === undefined ? undefined : onPlane(frame.aimPoint(drone, aimTile));
     const launch = i.plays.find((one) => one.key === drone.key && one.kind === "launch");
+    const dock = i.plays.find((one) => one.key === drone.key && one.kind === "dock");
     const pad = drone.slot === undefined ? undefined : i.padAt.get(drone.slot);
-    const origin: P3 = pad === undefined ? baseOf(layout, i.world, drone.root) : { ...pad, z: 4 };
+    const sender = drone.parent === undefined ? undefined : droneBy(i, drone.parent);
+    const link = sender === undefined ? undefined : frame.flying(sender);
+    // A subagent lifts off the drone that sent it.
+    const origin: P3 = link ?? (pad === undefined ? baseOf(layout, i.world, drone.root) : { ...pad, z: 4 });
     const on = i.selected === drone.key;
     out.push({
       drone,
@@ -271,10 +338,29 @@ function dronesOf(i: SceneInputs): DroneSpec[] {
       pad,
       origin: pad === undefined ? baseOf(layout, i.world, drone.root) : { ...pad, z: 2 },
       trail: trailAge(i.trails.get(drone.key)),
-      touches: (layout.over.get(drone.key) ?? []).map(({ tile: one }) => ({ tile: one.path, at: onPlane({ x: one.cx, y: one.cy }) })),
+      touches: drone.ghost === true ? [] : (layout.over.get(drone.key) ?? []).map(({ tile: one }) => ({ tile: one.path, at: onPlane({ x: one.cx, y: one.cy }) })),
+      ghost: drone.ghost === true && drone.linked !== true,
+      small: drone.parent !== undefined,
+      link,
+      dock: dock === undefined || link === undefined ? undefined : { id: dock.id, delay: dock.delay, to: link },
     });
   }
   return out;
+}
+
+/** The Job's pad: a light for each check spread along its front edge, and a line from each failing one whose record names a file the Field draws. */
+export function padOf(layout: Layout, lights: readonly Light[]): PadSpec | undefined {
+  const rect = layout.territories.find((one) => one.pad !== undefined)?.pad;
+  if (rect === undefined) return undefined;
+  const n = lights.length;
+  const placed = lights.map((one, k) => ({ ...one, at: onPlane({ x: n === 1 ? rect.x + rect.w / 2 : rect.x + 12 + (k * (rect.w - 24)) / (n - 1), y: rect.y + rect.h - 5 }) }));
+  return {
+    at: onPlane({ x: rect.x + rect.w / 2, y: rect.y + rect.h / 2 }),
+    w: rect.w,
+    d: rect.h * FLAT,
+    lights: placed,
+    blame: placed.flatMap((one) => (one.state === "bad" && one.blame !== undefined && layout.bars.has(one.blame) ? [{ from: one.at, bar: one.blame }] : [])),
+  };
 }
 
 /** The subagents round each ring. A drone stands still, so these do: each at its own place on the ring. */
@@ -310,7 +396,7 @@ function bumpsOf(i: SceneInputs): Map<string, Bump> {
 export function sceneOf(i: SceneInputs): PixiSceneIn {
   const lit = new Set<string>();
   for (const drone of i.drones) {
-    if (!drone.shown || !drone.spin) continue;
+    if (!drone.shown || !drone.spin || drone.ghost === true) continue;
     for (const { tile } of i.layout.over.get(drone.key) ?? []) lit.add(tile.path);
   }
   return {
@@ -336,12 +422,67 @@ export function sceneOf(i: SceneInputs): PixiSceneIn {
     bumps: bumpsOf(i),
     orbit: i.frame.orbit,
     ...(i.planned === undefined ? {} : { planned: i.planned }),
+    ...(i.touched === undefined ? {} : { touched: i.touched }),
+    ...(i.glow === undefined ? {} : { glow: i.glow }),
+    ...(i.route === undefined ? {} : { route: routeOf(i.layout, i.route) }),
+    ...padAndWalk(i),
+    ...(i.lens === undefined || i.lens.length === 0 ? {} : { lens: lensOf(i.layout, i.lens, i.big) }),
+    arcs: arcsOf(i),
     clashLines: i.layout.clashes.flatMap((clash) => {
       const [a, b] = [clash.keys[0], clash.keys[1]].map((key) => (key === undefined ? undefined : droneBy(i, key)));
       const [from, to] = [a === undefined ? undefined : i.frame.flying(a), b === undefined ? undefined : i.frame.flying(b)];
       return from === undefined || to === undefined ? [] : [{ key: `${clash.root}:${clash.path}`, from, to }];
     }),
   };
+}
+
+/** How high an arc between two drones rises over the line between them: a third of how far apart they are, and never less than 60. */
+export const arcLift = (from: P3, to: P3): number => Math.max(60, Math.hypot(to.x - from.x, to.y - from.y) * 0.3);
+
+/** Each link whose two drones are both on the field, as an arc. A drone that is not here draws none. */
+export function arcsOf(i: Pick<SceneInputs, "links" | "linkLoops" | "drones" | "frame">): ArcSpec[] {
+  return (i.links ?? []).flatMap((link) => {
+    const [a, b] = [droneBy(i, link.from), droneBy(i, link.to)];
+    const [from, to] = [a === undefined ? undefined : i.frame.flying(a), b === undefined ? undefined : i.frame.flying(b)];
+    if (from === undefined || to === undefined) return [];
+    const lift = arcLift(from, to);
+    return [{ key: link.key, other: link.other, title: link.title, quote: link.quote, sent: link.sent, from, to, lift, mid: alongOf(from, to, lift, 0.5), loop: i.linkLoops?.has(link.key) ?? false }];
+  });
+}
+
+/** The pad, and the window over it while a drone of the Job walks the app: high over the pad, where the walking drone stands. */
+function padAndWalk(i: SceneInputs): Pick<PixiSceneIn, "pad" | "walk"> {
+  const pad = i.lights === undefined ? undefined : padOf(i.layout, i.lights);
+  if (pad === undefined) return {};
+  return { pad, ...(i.walk === undefined ? {} : { walk: { name: i.walk, at: { ...pad.at, z: WINDOW_UP } } }) };
+}
+
+/** How high over the pad the walk's window stands, clear of the drone under it. */
+export const WINDOW_UP = 120;
+
+/** The slab of the card's file, and of another writer's, in pixels before `big`: wide enough to read rows on at any zoom, however small the plot. */
+export const SLAB_CARD = { w: 84, d: 120, up: 64 };
+export const SLAB_SMALL = { w: 48, d: 68, up: 48 };
+
+/** Each lifted file over its bar, the card's last so it is drawn over the others. A file with no bar on the floor lifts nothing. */
+export function lensOf(layout: Layout, slabs: readonly Slab[], big: number): LensSpec[] {
+  return [...slabs]
+    .sort((a, b) => Number(a.card) - Number(b.card))
+    .flatMap((slab) => {
+      const bar = layout.bars.get(slab.path);
+      if (bar === undefined) return [];
+      const size = slab.card ? SLAB_CARD : SLAB_SMALL;
+      const { rect } = bar;
+      return [{ ...slab, tile: bar.tile.path, at: onPlane({ x: bar.cx, y: bar.cy }), mark: { x: rect.x, y: rect.y * FLAT, w: rect.w, h: rect.h * FLAT }, w: size.w * big, d: size.d * big, up: size.up * big }];
+    });
+}
+
+/** Each stop at its file's bar. A stop whose file has no bar is left out, and the others keep their numbers. */
+export function routeOf(layout: Layout, stops: readonly Stop[]): RouteSpot[] {
+  return stops.flatMap((stop) => {
+    const bar = layout.bars.get(stop.path);
+    return bar === undefined ? [] : [{ n: stop.n, act: stop.act, at: onPlane({ x: bar.cx, y: bar.cy }), tile: bar.tile.path }];
+  });
 }
 
 const droneBy = (i: Pick<SceneInputs, "drones">, key: string): DroneIn | undefined => i.drones.find((one) => one.key === key);

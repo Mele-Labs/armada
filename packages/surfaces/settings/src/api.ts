@@ -14,11 +14,16 @@ import type {
 } from "@armada/protocol";
 
 /**
- * One thing Bridge asks the Phone Gateway. **A named operation and never a path**, so the renderer
- * can reach exactly these six routes and no other. Main makes the call: the Gateway's admin routes
+ * One thing Bridge asks about the phone. **A named operation and never a path**, so the renderer
+ * can reach exactly these eight routes and no other. Main makes the call: the Gateway's admin routes
  * refuse any request that carries `Origin`, which a renderer's own fetch always does.
+ *
+ * `access` and `turn` are Fleet's `GET /phone` and `POST /phone`, answering a `PhoneAccess`; Fleet
+ * runs the Gateway itself, so the switch is Fleet's. The rest go to the Gateway.
  */
 export type PhoneRequest =
+  | { op: "access" }
+  | { op: "turn"; on: boolean }
   | { op: "start" }
   | { op: "pending" }
   | { op: "confirm"; code: string }
@@ -26,7 +31,13 @@ export type PhoneRequest =
   | { op: "unpair"; id: string }
   | { op: "status" };
 
-/** `body` is the route's JSON, or `null` for a 204. `unreachable` is a refused connection. */
+/** Fleet's answer on `/phone`. `why` is Fleet's sentence where access is on and nothing listens. */
+export type PhoneAccess = { on: boolean; port: number; listening: boolean; why?: string };
+
+/**
+ * `body` is the route's JSON, or `null` for a 204. `unreachable` is a refused connection to the
+ * Gateway. A refusal from Fleet arrives as `refused`, in Fleet's words.
+ */
 export type PhoneAnswer =
   | { ok: true; body: unknown }
   | { ok: false; why: "unreachable" }
@@ -75,7 +86,7 @@ export type SettingsApi = {
   setModEnabled: (name: string, enabled: boolean) => Promise<Outcome>;
   /** Put a valid mod on a new branch of the repository. `modPromoted` on the answer names the branch; nothing is pushed. */
   promoteMod: (name: string) => Promise<Outcome>;
-  /** One request to the Phone Gateway on loopback, made by Bridge's main process. */
+  /** One request about the phone, to Fleet or to the Gateway on loopback, made by Bridge's main process. */
   phone: (request: PhoneRequest) => Promise<PhoneAnswer>;
 };
 

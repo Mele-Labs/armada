@@ -43,9 +43,9 @@ async fn a_route_not_on_the_list_is_404() {
 }
 
 #[tokio::test]
-async fn a_listed_api_route_without_a_signature_is_401() {
-    assert_eq!(status(Method::GET, "/api/needs", &[]).await, StatusCode::UNAUTHORIZED);
-    assert_eq!(status(Method::DELETE, "/api/sessions/answer", &[]).await, StatusCode::UNAUTHORIZED);
+async fn a_listed_api_route_without_a_signature_is_400() {
+    assert_eq!(status(Method::GET, "/api/needs", &[]).await, StatusCode::BAD_REQUEST);
+    assert_eq!(status(Method::DELETE, "/api/sessions/answer", &[]).await, StatusCode::BAD_REQUEST);
 }
 
 #[tokio::test]
@@ -67,7 +67,7 @@ async fn admin_is_refused_when_tailscale_serve_forwarded_the_request() {
 async fn the_forwarding_headers_do_not_close_the_phone_routes() {
     assert_eq!(
         status(Method::GET, "/api/needs", &[("x-forwarded-for", "100.1.1.1")]).await,
-        StatusCode::UNAUTHORIZED
+        StatusCode::BAD_REQUEST
     );
 }
 
@@ -99,7 +99,7 @@ async fn static_files_are_served_and_cannot_leave_the_directory() {
         assets: Some(dir.clone()),
         ..gateway()
     });
-    for path in ["/", "/sessions/4", "/index.html"] {
+    for path in ["/", "/sessions/4", "/index.html", "/jobs/https%3A%2F%2Fmac-b.tail.ts.net/s.1", "/jobs/_/s1"] {
         let answer = app
             .clone()
             .oneshot(Request::get(path).body(Body::empty()).unwrap())
@@ -171,4 +171,41 @@ async fn the_pair_page_is_the_apps_own() {
         .await
         .unwrap();
     assert_eq!(answer.status(), StatusCode::OK);
+}
+
+async fn answered(method: Method, path: &str, origin: &str) -> axum::response::Response {
+    let request = Request::builder().method(method).uri(path).header("origin", origin);
+    router(gateway()).oneshot(request.body(Body::empty()).unwrap()).await.unwrap()
+}
+
+fn allowed(answer: &axum::response::Response) -> Option<&str> {
+    answer.headers().get("access-control-allow-origin").and_then(|v| v.to_str().ok())
+}
+
+#[tokio::test]
+async fn another_macs_app_may_call_the_phone_routes_and_pair() {
+    let mac_a = "https://mac-a.tail.ts.net";
+    for path in ["/api/sessions/one", "/api/needs", "/pair"] {
+        let preflight = answered(Method::OPTIONS, path, mac_a).await;
+        assert_eq!(preflight.status(), StatusCode::NO_CONTENT, "{path}");
+        assert_eq!(allowed(&preflight), Some(mac_a), "{path}");
+        let headers = preflight.headers()["access-control-allow-headers"].to_str().unwrap();
+        assert_eq!(headers, "content-type, x-pocket-device, x-pocket-time, x-pocket-signature");
+    }
+    // The real call is still refused on its own terms, and the browser may read why.
+    let unsigned = answered(Method::GET, "/api/needs", mac_a).await;
+    assert_eq!((unsigned.status(), allowed(&unsigned)), (StatusCode::BAD_REQUEST, Some(mac_a)));
+}
+
+#[tokio::test]
+async fn cors_names_no_plain_origin_and_never_opens_admin() {
+    let plain = answered(Method::OPTIONS, "/api/needs", "http://mac-a.tail.ts.net").await;
+    assert_ne!(plain.status(), StatusCode::NO_CONTENT);
+    assert_eq!(allowed(&plain), None);
+    let admin = answered(Method::GET, "/admin/devices", "https://mac-a.tail.ts.net").await;
+    assert_eq!((admin.status(), allowed(&admin)), (StatusCode::FORBIDDEN, None));
+    let admin = answered(Method::OPTIONS, "/admin/devices", "https://mac-a.tail.ts.net").await;
+    assert_eq!(allowed(&admin), None);
+    let page = answered(Method::GET, "/pair", "https://mac-a.tail.ts.net").await;
+    assert_eq!(allowed(&page), None);
 }

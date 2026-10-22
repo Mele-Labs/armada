@@ -59,6 +59,35 @@ function resolved(layers: readonly (readonly ToolDef[])[]): ReviewTool[] {
   return merged;
 }
 
+/** A pull request as a list serves it. */
+function rowFor(pr: MockPr, review: PullRequestPage["review"], head: string, team: boolean): PullReviewRow {
+  return {
+    manifest_id: pr.manifestId,
+    repository: pr.repository,
+    number: pr.number,
+    title: pr.title,
+    branch: pr.branch,
+    address: pr.address,
+    draft: pr.draft,
+    checks: pr.checks,
+    review,
+    head,
+    author: pr.page.author ?? "",
+    updated_at: pr.updatedAt,
+    ...(team && pr.team !== undefined ? { team: pr.team } : {}),
+    ...(pr.holder === undefined ? {} : { holder: pr.holder }),
+  };
+}
+
+/** The reading a relaunch finds kept, if the seed says there is one: the seed's pull requests as first read, less one, read some minutes ago. */
+export function keptReading(seed: ReviewSeed): PullReviewLists | undefined {
+  if (seed.kept === undefined) return undefined;
+  const prs = seed.prs.filter((pr) => pr.key !== seed.kept!.without);
+  const rows = (list: PrList) => prs.filter((pr) => pr.lists.includes(list)).map((pr) => rowFor(pr, pr.page.review, pr.head, list === "team"));
+  const [requested, team, assigned, mine] = LISTS.map(rows) as [PullReviewRow[], PullReviewRow[], PullReviewRow[], PullReviewRow[]];
+  return { me: seed.me, fetched_at: new Date(Date.now() - seed.kept.minutesAgo * 60_000).toISOString(), requested, team, assigned, mine };
+}
+
 export type MockForge = ReviewsApi & {
   /** The next write is refused, in the forge's own sentence. */
   refuseNextWrite: (said: string) => void;
@@ -111,22 +140,7 @@ export function createMockForge(seed: ReviewSeed): MockForge {
     return name === "how-it-works" ? themesOf(pr) : accountResult(pr.accounts[name]);
   };
 
-  const rowOf = (one: Held, team: boolean): PullReviewRow => ({
-    manifest_id: one.pr.manifestId,
-    repository: one.pr.repository,
-    number: one.pr.number,
-    title: one.pr.title,
-    branch: one.pr.branch,
-    address: one.pr.address,
-    draft: one.pr.draft,
-    checks: one.pr.checks,
-    review: one.review,
-    head: one.head,
-    author: one.pr.page.author ?? "",
-    updated_at: one.pr.updatedAt,
-    ...(team && one.pr.team !== undefined ? { team: one.pr.team } : {}),
-    ...(one.pr.holder === undefined ? {} : { holder: one.pr.holder }),
-  });
+  const rowOf = (one: Held, team: boolean): PullReviewRow => rowFor(one.pr, one.review, one.head, team);
 
   const pageOf = (one: Held): PullRequestPage => ({
     ...one.pr.page,
@@ -155,6 +169,7 @@ export function createMockForge(seed: ReviewSeed): MockForge {
     ...searchAndWalk,
     getReviewLists: async () => {
       reads += 1;
+      if (seed.kept !== undefined) await new Promise((resolve) => setTimeout(resolve, seed.kept!.answersAfterMs));
       // A commit pushed since he first read the list arrives with the second read.
       if (reads === 2) {
         for (const [key, push] of Object.entries(seed.pushes)) {

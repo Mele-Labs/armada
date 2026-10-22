@@ -1,0 +1,3 @@
+crates/adapters/src/main_ci.rs
+crates/adapters/src/tests/github_api.rs
+crates/adapters/src/tests/mod.rs

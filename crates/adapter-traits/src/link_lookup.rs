@@ -54,6 +54,15 @@ impl LookupCall {
 pub trait LinkLookup {
     fn resolve(&self, request: &str) -> Option<LookupCall>;
 
+    /// What `request` links, read by this implementation itself rather than by a process Fleet
+    /// runs: `Some` is the answer, text or the reason it could not be read. `None` is the
+    /// ordinary answer, and means [`resolve`](LinkLookup::resolve)'s call is the way to read it.
+    /// **Blocks on the network**, so it is called where blocking is allowed.
+    fn read_link(&self, request: &str) -> Option<Result<String, String>> {
+        let _ = request;
+        None
+    }
+
     /// The issue `request` links, where it links one this recognises — the
     /// same link [`resolve`](LinkLookup::resolve) would read. Spike 022,
     /// slice 4: a criterion read out of it says which issue it was.

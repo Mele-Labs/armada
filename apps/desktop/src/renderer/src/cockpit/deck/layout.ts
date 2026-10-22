@@ -59,6 +59,14 @@ export type DroneIn = {
   slot?: string;
   /** Inside the filters. Outside, it stays where it is and dims. */
   shown: boolean;
+  /** Another Job's, drawn faded on a Job's own Field: no beam, label or action, and it raises no plot. */
+  ghost?: true;
+  /** Another Job's that this Job is messaging or is messaged by: drawn at full strength with its label and beam, and still giving way. */
+  linked?: true;
+  /** Off the code floor on a Job's Field: over the pad while it runs checks or walks the app, or risen over its last file while it thinks. */
+  off?: "pad" | "walk" | "think";
+  /** The drone that sent it, by key: a subagent, drawn smaller and joined to it by a faint line. */
+  parent?: string;
 };
 
 export function droneOf(subject: Subject, owed: boolean, extra: { slot?: string | undefined; file?: string | undefined; shown: boolean; touches?: readonly Touch[] }): DroneIn {
@@ -145,6 +153,8 @@ export type Territory = {
   root: string;
   name: string;
   rect: Rect;
+  /** A Job's pad, in the strip between the plots and the base, right of the base: where its drone lands to run checks. A Job's Field only. */
+  pad?: Rect;
   /** The top directories, each the rect of its tiles, for the border that groups them. */
   groups: { dir: string; rect: Rect }[];
   tiles: Tile[];
@@ -169,7 +179,7 @@ export type FileIn = { path: string; act?: FileAct };
 /** A file's bar as laid out: where it lies on its plot, in the layout's own units. A file with a pill is lit on it, and `pill` is which. */
 export type Bar = { path: string; act: FileAct | undefined; rect: Rect; cx: number; cy: number; tile: Tile; pill?: number };
 
-export type RepoIn = { root: string; name: string; pads: readonly string[]; goal: boolean; areas: Areas; files?: readonly FileIn[] };
+export type RepoIn = { root: string; name: string; pads: readonly string[]; goal: boolean; areas: Areas; files?: readonly FileIn[]; /** Draw a Job's pad at the near edge. */ pad?: boolean };
 
 /** The files a top directory is drawn for when it lists no directories inside it and Fleet has not counted. */
 const BARE_FILES = 8;
@@ -232,6 +242,9 @@ export function layoutOf(
     const strip = 64 + 22 * big;
     const plots: Rect = { x: rect.x + 8, y: rect.y + 98, w: rect.w - 16, h: Math.max(60, by - strip - (rect.y + 98)) };
     const goal = repo.goal ? { x: rect.x + rect.w / 2, y: rect.y + 84 } : undefined;
+    // Clear of the base's hangar and of the reach of a drone over it, and inside the band a drone may stand in.
+    const padW = 120;
+    const jobPad: Rect | undefined = repo.pad === true ? { x: Math.min(bx + baseW / 2 + 40, rect.x + rect.w - 30 - padW), y: by - strip * 0.78, w: padW, h: strip * 0.45 } : undefined;
 
     // Top directories by their files, then the directories inside each.
     const sizeOf = (area: RepoIn["areas"][number]) => (area.kids.length === 0 ? (area.files ?? BARE_FILES) : area.kids.reduce((sum, k) => sum + k[1], 0));
@@ -302,7 +315,9 @@ export function layoutOf(
       const list = [...share].map(([tile, w]) => ({ tile, w })).sort((a, b) => b.w - a.w || a.tile.path.localeCompare(b.tile.path));
       over.set(one.key, list);
       const bar = one.file === undefined ? undefined : bars.get(one.file);
-      if (bar !== undefined) {
+      if (jobPad !== undefined && (one.off === "pad" || one.off === "walk")) {
+        want.set(one.key, { x: jobPad.x + jobPad.w / 2, y: jobPad.y + jobPad.h / 2 });
+      } else if (bar !== undefined) {
         want.set(one.key, { x: bar.cx, y: bar.cy });
       } else if (list.length > 0) {
         const total = list.reduce((sum, one) => sum + one.w, 0);
@@ -317,12 +332,13 @@ export function layoutOf(
     // A clash is Fleet's, from git: it marks the plot of the area it names, where the repository draws one.
     for (const clash of clashed) if (clash.root === repo.root && tileOf(clash.path) !== undefined) clashes.push(clash);
 
-    territories.push({ root: repo.root, name: repo.name, rect, groups, tiles, base: { x: bx, y: by, w: baseW }, pads, goal });
+    territories.push({ root: repo.root, name: repo.name, rect, groups, tiles, base: { x: bx, y: by, w: baseW }, pads, goal, ...(jobPad === undefined ? {} : { pad: jobPad }) });
   }
 
   // Held apart by rule, not by hope: no two drones' hit boxes or label strips meet, and no drone stands over a flag, a pad, a crate or
   // a route that is not its own. Rects are in the layout's own units, a drone's lifted to where it is drawn.
   const keys = [...want.keys()].sort();
+  const ghosts = new Set(drones.filter((one) => one.ghost === true).map((one) => one.key));
   const place = new Map(keys.map((key) => [key, { ...want.get(key)! }]));
   const goals = new Map(territories.flatMap((one) => (one.goal === undefined ? [] : [[one.root, one.goal] as const])));
   const homes = new Map(territories.map((one) => [one.root, { x: one.base.x - one.base.w / 2 + 36, y: one.base.y + 8 }] as const));
@@ -377,7 +393,11 @@ export function layoutOf(
       for (let j = i + 1; j < keys.length; j += 1) {
         const b = place.get(keys[j]!)!;
         if (Math.abs(a.x - b.x) < 1 && Math.abs(a.y - b.y) < 1) a.x += (rand(keys[i]! + keys[j]!, 3) - 0.5) * 6;
-        push(reach(a), reach(b), a, b);
+        // A faded drone gives way to a Job's own, which stays over its file.
+        const [ga, gb] = [ghosts.has(keys[i]!), ghosts.has(keys[j]!)];
+        if (ga === gb) push(reach(a), reach(b), a, b);
+        else if (ga) push(reach(a), reach(b), a);
+        else push(reach(b), reach(a), b);
       }
     }
     // What is fixed is settled last, so a drone is moved off a flag before it is moved against another drone.
@@ -424,7 +444,7 @@ export function heightsOf(layout: Layout, drones: readonly DroneIn[], plays: rea
   const busy = new Map<string, number>();
   const add = (path: string, amount: number) => busy.set(path, (busy.get(path) ?? 0) + amount);
   for (const drone of drones) {
-    if (!drone.shown) continue;
+    if (!drone.shown || drone.ghost === true) continue;
     const list = layout.over.get(drone.key) ?? [];
     const total = list.reduce((sum, one) => sum + one.w, 0) || 1;
     const state = drone.spin ? 1 : drone.hover ? 0.6 : 0.2;

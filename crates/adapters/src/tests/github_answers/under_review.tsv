@@ -1,0 +1,11 @@
+said	CHANGES_REQUESTED
+check	ci	COMPLETED	SUCCESS
+check	lint	COMPLETED	TIMED_OUT
+check	deploy/preview		PENDING
+check	app_smoke	IN_PROGRESS	
+remark	IC_kwDOA1	grace	2026-10-20T09:00:00Z	Why a second\tclient?\n\nThe pool is shared.	https://github.com/Mele-Labs/armada/pull/2190#issuecomment-1
+remark	IC_kwDOA3		2026-10-20T10:00:00Z	ghost	
+remark	PRR_2	linus	2026-10-20T09:40:00Z	Please split it.	https://github.com/Mele-Labs/armada/pull/2190#pullrequestreview-2
+remark	PRR_3	barbara	2026-10-20T09:50:00Z	A note.	https://github.com/Mele-Labs/armada/pull/2190#pullrequestreview-3
+verdict	grace	APPROVED
+verdict	linus	CHANGES_REQUESTED

@@ -164,7 +164,7 @@ mod tests {
 
     #[test]
     fn a_subscription_with_a_bad_key_is_refused_by_name() {
-        let sub = PushSubscription { device_id: "d".into(), endpoint: "https://x.test/p".into(), p256dh: "!!".into(), auth: "AA".into() };
+        let sub = PushSubscription { device_id: "d".into(), endpoint: "https://x.test/p".into(), p256dh: "!!".into(), auth: "AA".into(), vapid_private: None };
         assert!(encrypt(b"x", &sub).unwrap_err().contains("bad key"));
     }
 }

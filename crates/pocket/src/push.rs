@@ -56,6 +56,19 @@ pub async fn key(State(gateway): State<Gateway>) -> Response {
     Json(Key { public_key: gateway.push.vapid.public_key() }).into_response()
 }
 
+#[derive(Serialize)]
+struct PrivateKey {
+    vapid_private: String,
+}
+
+/// `GET /api/push/vapid_private`: this Mac's VAPID private key, for the phone
+/// it subscribed with to hand to every other Mac it pairs, so each pushes to
+/// the one subscription the phone holds. Signed like every `/api/*` route.
+pub async fn vapid_private(State(gateway): State<Gateway>) -> Response {
+    let key = gateway.push.vapid.private_key();
+    Json(PrivateKey { vapid_private: key.expose().clone() }).into_response()
+}
+
 #[derive(Deserialize)]
 pub struct Keys {
     p256dh: String,
@@ -68,6 +81,10 @@ pub struct Keys {
 pub struct Subscribe {
     endpoint: String,
     keys: Keys,
+    /// The VAPID private key the subscription was made with, where that was
+    /// another Mac's, as that Mac's `GET /api/push/vapid_private` gave it.
+    #[serde(default)]
+    vapid_private: Option<String>,
 }
 
 fn refuse(why: &str) -> Response {
@@ -92,11 +109,15 @@ pub async fn subscribe(
     if !B64.decode(sent.keys.auth.trim_end_matches('=')).is_ok_and(|bytes| bytes.len() == 16) {
         return refuse("The push secret is not 16 bytes.");
     }
+    if let Some(Err(why)) = sent.vapid_private.as_deref().map(Vapid::from_private_key) {
+        return refuse(&why);
+    }
     let sub = PushSubscription {
         device_id: device,
         endpoint: sent.endpoint,
         p256dh: sent.keys.p256dh,
         auth: sent.keys.auth,
+        vapid_private: sent.vapid_private.map(adapter_traits::Secret::new),
     };
     let saved = gateway.pairing.store.lock().unwrap().set_push_subscription(&sub);
     match saved {

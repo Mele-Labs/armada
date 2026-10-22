@@ -103,8 +103,8 @@ pub struct FileDiffs {
 pub fn file_between(one: &Path, other: &Path, path: &str) -> Result<FileDiffs, NotChecked> {
     let base = merge_base(one, &head_of(one)?, &head_of(other)?)?;
     Ok(FileDiffs {
-        ours: file_diff(one, &base, &tree_of(one)?, path)?,
-        theirs: file_diff(one, &base, &tree_of(other)?, path)?,
+        ours: file_diff(one, &base, Some(&tree_of(one)?), path)?,
+        theirs: file_diff(one, &base, Some(&tree_of(other)?), path)?,
     })
 }
 
@@ -113,9 +113,80 @@ pub fn file_between(one: &Path, other: &Path, path: &str) -> Result<FileDiffs, N
 pub fn file_against(worktree: &Path, tip: &str, path: &str) -> Result<FileDiffs, NotChecked> {
     let base = merge_base(worktree, &head_of(worktree)?, tip)?;
     Ok(FileDiffs {
-        ours: file_diff(worktree, &base, &tree_of(worktree)?, path)?,
-        theirs: file_diff(worktree, &base, tip, path)?,
+        ours: file_diff(worktree, &base, Some(&tree_of(worktree)?), path)?,
+        theirs: file_diff(worktree, &base, Some(tip), path)?,
     })
+}
+
+/// One file as a worktree changed it, and the stamp of what the reading stood on.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct FileHere {
+    /// The worktree, where the branch met the base, and the file's size and modified time, hashed.
+    /// Equal stamps mean an equal diff.
+    pub stamp: String,
+    /// `None` where the stamp is the one the caller already holds, and git was not asked for it.
+    pub diff: Option<String>,
+}
+
+/// `path` as the worktree changed it since its `HEAD` and `base` last met, as it stands: commits,
+/// uncommitted and untracked writes alike. **One path only**: the worktree is never read whole and
+/// nothing in it is written.
+pub fn file_here(worktree: &Path, base: &str, path: &str, seen: Option<&str>) -> Result<FileHere, NotChecked> {
+    if path.starts_with('/') || path.split('/').any(|part| part == "..") {
+        return Err(NotChecked(format!("`{path}` is not inside the worktree")));
+    }
+    let met = merge_base(worktree, &head_of(worktree)?, base)?;
+    let stamp = stamp_of(worktree, &met, path);
+    if seen == Some(stamp.as_str()) {
+        return Ok(FileHere { stamp, diff: None });
+    }
+    let literal = format!(":(literal){path}");
+    let tracked = file_diff(worktree, &met, None, path)?;
+    if !tracked.is_empty() {
+        return Ok(FileHere { stamp, diff: Some(tracked) });
+    }
+    // `git diff <commit>` leaves out a file git does not track yet, so a new one is read on its own.
+    let others = git(worktree, &["ls-files", "--others", "--exclude-standard", "-z", "--", &literal])?;
+    let diff = match others.split('\0').any(|one| one == path) {
+        true => new_file(worktree, path)?,
+        false => String::new(),
+    };
+    Ok(FileHere { stamp, diff: Some(diff) })
+}
+
+/// FNV-1a over what a file's diff depends on. A file that is gone stamps as gone.
+fn stamp_of(worktree: &Path, met: &str, path: &str) -> String {
+    let stat = std::fs::symlink_metadata(worktree.join(path)).ok().map(|meta| {
+        let modified = meta.modified().ok().and_then(|at| at.duration_since(std::time::UNIX_EPOCH).ok());
+        (meta.len(), modified.map_or(0, |at| at.as_nanos()))
+    });
+    let held = format!("{}\0{met}\0{path}\0{stat:?}", worktree.display());
+    let hash = held.bytes().fold(0xcbf2_9ce4_8422_2325_u64, |hash, byte| {
+        (hash ^ u64::from(byte)).wrapping_mul(0x0100_0000_01b3)
+    });
+    format!("{hash:016x}")
+}
+
+/// An untracked file as a diff from nothing. `--no-index` exits 1 where the two differ, which they do.
+fn new_file(worktree: &Path, path: &str) -> Result<String, NotChecked> {
+    let args = [
+        "diff",
+        "--no-index",
+        "--no-color",
+        "--no-ext-diff",
+        "--no-textconv",
+        "--src-prefix=a/",
+        "--dst-prefix=b/",
+        "--",
+        "/dev/null",
+        path,
+    ];
+    let ran = read_in(&worktree.to_string_lossy(), "git", &args)
+        .map_err(|why| NotChecked(format!("git diff could not run: {why}")))?;
+    match ran.status.code() {
+        Some(0 | 1) => Ok(String::from_utf8_lossy(&ran.stdout).into_owned()),
+        _ => Err(NotChecked(format!("git diff: {}", said(&ran)))),
+    }
 }
 
 /// Whether the repository `worktree` is in holds this commit.
@@ -154,9 +225,12 @@ fn merge_base(worktree: &Path, one: &str, other: &str) -> Result<String, NotChec
 
 /// What `git diff` prints for the one file between two trees or commits. **The path is literal**: a
 /// name with `[` or `*` in it is that file, and no pattern.
-fn file_diff(worktree: &Path, from: &str, to: &str, path: &str) -> Result<String, NotChecked> {
+/// Without `to`, the other side is the working tree, read without refreshing the Job's index, which
+/// would take its lock from under the agent's own git.
+fn file_diff(worktree: &Path, from: &str, to: Option<&str>, path: &str) -> Result<String, NotChecked> {
     let literal = format!(":(literal){path}");
-    let args = [
+    let mut args = if to.is_none() { vec!["--no-optional-locks"] } else { Vec::new() };
+    args.extend([
         "diff",
         "--no-color",
         "--no-ext-diff",
@@ -165,10 +239,9 @@ fn file_diff(worktree: &Path, from: &str, to: &str, path: &str) -> Result<String
         "--src-prefix=a/",
         "--dst-prefix=b/",
         from,
-        to,
-        "--",
-        &literal,
-    ];
+    ]);
+    args.extend(to);
+    args.extend(["--", literal.as_str()]);
     git(worktree, &args)
 }
 
@@ -206,10 +279,11 @@ fn merged(
 }
 
 fn git(worktree: &Path, args: &[&str]) -> Result<String, NotChecked> {
+    let command = args.iter().find(|arg| !arg.starts_with('-')).unwrap_or(&"");
     let ran = read_in(&worktree.to_string_lossy(), "git", args)
-        .map_err(|why| NotChecked(format!("git {} could not run: {why}", args[0])))?;
+        .map_err(|why| NotChecked(format!("git {command} could not run: {why}")))?;
     if !ran.status.success() {
-        return Err(NotChecked(format!("git {}: {}", args[0], said(&ran))));
+        return Err(NotChecked(format!("git {command}: {}", said(&ran))));
     }
     Ok(String::from_utf8_lossy(&ran.stdout).into_owned())
 }

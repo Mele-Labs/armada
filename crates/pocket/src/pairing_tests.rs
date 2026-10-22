@@ -233,7 +233,7 @@ async fn a_signed_request_from_a_paired_phone_passes_and_marks_it_seen() {
 #[tokio::test]
 async fn an_unsigned_request_is_refused() {
     let rig = rig();
-    assert_eq!(get_needs(&rig, &[]).await, StatusCode::UNAUTHORIZED);
+    assert_eq!(get_needs(&rig, &[]).await, StatusCode::BAD_REQUEST);
 }
 
 #[tokio::test]
@@ -243,7 +243,7 @@ async fn a_replayed_signature_is_refused() {
     let now = rig.now.load(Ordering::Relaxed);
     let headers = signed(&id, "GET", "/api/needs", now, "");
     assert_eq!(get_needs(&rig, &headers).await, StatusCode::SERVICE_UNAVAILABLE);
-    assert_eq!(get_needs(&rig, &headers).await, StatusCode::UNAUTHORIZED);
+    assert_eq!(get_needs(&rig, &headers).await, StatusCode::CONFLICT);
 }
 
 #[tokio::test]
@@ -252,7 +252,7 @@ async fn a_skewed_request_is_refused() {
     let id = paired(&rig).await;
     let now = rig.now.load(Ordering::Relaxed);
     for time in [now - 61, now + 61] {
-        assert_eq!(get_needs(&rig, &signed(&id, "GET", "/api/needs", time, "")).await, StatusCode::UNAUTHORIZED);
+        assert_eq!(get_needs(&rig, &signed(&id, "GET", "/api/needs", time, "")).await, StatusCode::BAD_REQUEST);
     }
     assert_eq!(get_needs(&rig, &signed(&id, "GET", "/api/needs", now - 60, "")).await, StatusCode::SERVICE_UNAVAILABLE);
 }
@@ -262,6 +262,8 @@ async fn an_unpaired_device_is_refused() {
     let rig = rig();
     let now = rig.now.load(Ordering::Relaxed);
     assert_eq!(get_needs(&rig, &signed("nobody", "GET", "/api/needs", now, "")).await, StatusCode::UNAUTHORIZED);
+    // Not paired is what the phone must hear, whatever its clock says.
+    assert_eq!(get_needs(&rig, &signed("nobody", "GET", "/api/needs", now - 600, "")).await, StatusCode::UNAUTHORIZED);
 }
 
 #[tokio::test]
@@ -271,12 +273,12 @@ async fn a_bad_signature_or_a_changed_body_is_refused() {
     let now = rig.now.load(Ordering::Relaxed);
     let mut forged = signed(&id, "GET", "/api/needs", now, "");
     forged[2].1 = "00".repeat(64);
-    assert_eq!(get_needs(&rig, &forged).await, StatusCode::UNAUTHORIZED);
+    assert_eq!(get_needs(&rig, &forged).await, StatusCode::BAD_REQUEST);
     let other_path = signed(&id, "GET", "/api/sessions", now + 1, "");
-    assert_eq!(get_needs(&rig, &other_path).await, StatusCode::UNAUTHORIZED);
+    assert_eq!(get_needs(&rig, &other_path).await, StatusCode::BAD_REQUEST);
     let headers = signed(&id, "POST", "/api/sessions", now + 2, "{\"a\":1}");
     let (status, _) = call(&rig.app, Method::POST, "/api/sessions", &headers, "{\"a\":2}").await;
-    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    assert_eq!(status, StatusCode::BAD_REQUEST);
     // Past the signature, the dispatch route refuses this body on its own terms.
     let (status, _) = call(&rig.app, Method::POST, "/api/sessions", &headers, "{\"a\":1}").await;
     assert_eq!(status, StatusCode::BAD_REQUEST);

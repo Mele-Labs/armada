@@ -16,7 +16,8 @@ use crate::ForgeAddress;
 pub(super) struct Seen {
     pub(super) method: String,
     pub(super) target: String,
-    authorization: Option<String>,
+    pub(super) authorization: Option<String>,
+    pub(super) accept: Option<String>,
     pub(super) body: String,
 }
 
@@ -108,6 +109,7 @@ fn read_request(stream: &mut TcpStream) -> Option<Seen> {
         method,
         target,
         authorization: header("authorization"),
+        accept: header("accept"),
         body: String::from_utf8(bytes[split..split + wanted].to_vec()).unwrap(),
     })
 }

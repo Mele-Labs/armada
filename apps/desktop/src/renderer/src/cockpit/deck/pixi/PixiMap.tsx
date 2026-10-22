@@ -20,10 +20,12 @@ export type PixiMapProps = {
   /** A press on the pane. It is told where it landed, since the pictures over the canvas are inside the pane. */
   onGround?: (event: MouseEvent) => void;
   onStage?: (stage: Stage | undefined) => void;
+  /** The pane is folded away: the stage draws nothing until it is shown. */
+  hidden?: boolean;
   children?: ReactNode;
 };
 
-export function PixiMap({ size, cam, live, scene, onGround, onStage, children }: PixiMapProps) {
+export function PixiMap({ size, cam, live, scene, onGround, onStage, hidden = false, children }: PixiMapProps) {
   const host = useRef<HTMLDivElement>(null);
   const stage = useRef<Stage | undefined>(undefined);
   useLayoutEffect(() => {
@@ -36,6 +38,7 @@ export function PixiMap({ size, cam, live, scene, onGround, onStage, children }:
       stage.current = undefined;
     };
   }, []);
+  useLayoutEffect(() => stage.current?.setHidden(hidden), [hidden]);
   // In this order: the size is the camera's, and the camera is the scene's.
   useLayoutEffect(() => stage.current?.setSize(size), [size.width, size.height]);
   useLayoutEffect(() => stage.current?.setCamera(cam, live), [cam.x, cam.y, cam.eye, cam.tilt, live]);
