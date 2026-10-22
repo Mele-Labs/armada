@@ -27,7 +27,7 @@ export function SharedPanelHost() {
       scan: refScanner({ sessions: [], numbered: reads.numbered }),
       open: (ref) => {
         const hit = reads.numbered.find((one) => one.number === ref.id && one.kind === ref.kind);
-        if (ref.kind === "issue") openInPanel({ kind: "issue", number: Number(ref.id), ...(hit?.url === undefined ? {} : { address: hit.url }) });
+        if (ref.kind === "issue") openInPanel({ kind: "issue", number: ref.id, ...(hit?.url === undefined ? {} : { address: hit.url }) });
         else if (ref.kind === "pull_request") openInPanel({ kind: "pr", number: Number(ref.id), address: hit?.url ?? "" });
       },
     };

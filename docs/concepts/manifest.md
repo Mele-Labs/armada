@@ -45,7 +45,7 @@ It is for a repository whose team does not use Armada, and nothing is written to
 | The repository has | What runs |
 |---|---|
 | No `armada.yml` | Kit's copy is the Manifest |
-| An `armada.yml` | The repository's, with each Check and Command Kit's copy names replaced by Kit's of the same name, and each one only Kit's copy names added |
+| An `armada.yml` | The repository's, with each Check and Command Kit's copy names replaced by Kit's of the same name, each one only Kit's copy names added, and Kit's `tracker` and `ci_gate` in place of the repository's |
 
 **A person's own wins over the repository's, and the answer says so.** The Manifest's summary carries `kit`: Kit's file, each name read from it, and `hides` on each one the repository declares differently.
 A copy that is the same hides nothing.
@@ -55,6 +55,8 @@ It is listed, `armada check <name>` runs it and Bridge's Checks show it, and `ev
 The `kit.names` entry carries `gates` for it, so a person sees which of their own Checks protect their Jobs.
 A Check Kit's copy replaces by name gates as the repository's did, and `gate` on it is refused, as it is on any Check a repository declares: `gate` means nothing where there is nothing to add.
 A Command Kit's copy adds is available to a Job as any Command is.
+**Kit's `tracker` and `ci_gate` replace the repository's whole**, so a person whose issues are in Jira says so without committing it; nothing of the repository's block is kept in Kit's.
+A copy that is not the whole file holds only `checks`, `commands`, `tracker` and `ci_gate`.
 The rest of the repository's file stands, its id, base and policies among it.
 
 **A Kit copy that will not merge is left out and named, and the repository's own stands.** Fleet says it at start, and the summary carries the sentence as `left_out`.

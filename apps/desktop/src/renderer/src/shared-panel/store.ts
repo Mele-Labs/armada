@@ -13,7 +13,7 @@ import type { PanelFileItem } from "../../../shared/api/files";
 /** What a press hands over: enough to name the thing, and whatever the surface already knew of it. The panel reads the rest. */
 export type PanelItem =
   | { kind: "pr"; number: number; address: string; repository?: string; manifestId?: string; root?: string; title?: string; branch?: string; tab?: string }
-  | { kind: "issue"; number: number; root?: string; manifestId?: string; address?: string; title?: string }
+  | { kind: "issue"; /** The forge's number as digits, or a tracker's key. */ number: string; root?: string; manifestId?: string; address?: string; title?: string }
   | { kind: "bay"; manifestId: string; slot: number }
   | PanelFileItem
   | { kind: "check"; id: string; name?: string; branch?: string; land?: { root: string; branch: string; check: string }; row?: { state: "passed" | "failed" | "running"; seconds?: number; address?: string } }

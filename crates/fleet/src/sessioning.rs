@@ -451,6 +451,14 @@ where
         self.pull_request_claimed(caller, claim).await
     }
 
+    async fn claim_issue(
+        &self,
+        caller: Option<api::Caller>,
+        claim: ipc::ClaimIssue,
+    ) -> Result<ipc::IssueClaimed, Refusal> {
+        self.issue_claimed(caller, claim).await
+    }
+
     async fn take_main_red(
         &self,
         caller: Option<api::Caller>,

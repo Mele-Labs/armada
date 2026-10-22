@@ -4,7 +4,7 @@
 import { FILE_SHOWN, type SessionLedgerCard } from "@armada/components";
 import { GitMerge, GitPullRequest } from "lucide-react";
 import type { WorktreeSlot } from "@armada/protocol";
-import { attachmentsOf } from "@armada/screens/src/draft/sessions";
+import { attachmentsOf, issueLabel } from "@armada/screens/src/draft/sessions";
 import type { Session, SessionAttachment } from "@armada/screens/src/draft/sessions";
 
 import { backgroundCardOf } from "./session-background";
@@ -81,7 +81,7 @@ export function cardOf(one: SessionAttachment, session: Session, sessions: reado
     case "artifact":
       return { title: one.title, facts: [{ label: "Form", value: shownOnly(one) ? FILE_SHOWN : ARTIFACT_SAID[one.form] }, { label: one.form === "file" || one.form === "image" ? "Path" : "Address", value: one.id, mono: true }] };
     case "issue":
-      return { title: one.title, where: `#${one.number}`, facts: [{ label: "State", value: one.state === "open" ? "Open" : "Closed" }] };
+      return { title: one.title, where: issueLabel(one.number), facts: [{ label: "State", value: one.state === "open" ? "Open" : "Closed" }] };
     case "studio":
       return { title: one.title, facts: [{ label: "Kind", value: "Studio" }] };
     case "sketch":

@@ -240,6 +240,14 @@ pub trait Sessions: Send + Sync + 'static {
         caller: Option<crate::Caller>,
         claim: ipc::ClaimPullRequest,
     ) -> impl Future<Output = Result<ipc::PullRequestClaimed, Refusal>> + Send;
+    /// `claim_issue` — the caller works an issue, named by the forge's number or a tracker's key,
+    /// held as an `issue` row on its ledger with the pull requests that work it.
+    /// [`Refusal::Unacceptable`] for a reference that is neither, or a call that places no holder.
+    fn claim_issue(
+        &self,
+        caller: Option<crate::Caller>,
+        claim: ipc::ClaimIssue,
+    ) -> impl Future<Output = Result<ipc::IssueClaimed, Refusal>> + Send;
     /// `take_main_red` — a Session takes its repository's red main in the central store, so no
     /// Job on another machine is handed it. [`Refusal::Unacceptable`] for a call that places no
     /// Session; [`Refusal::IllegalMove`] with the holder when the red is held elsewhere, main is

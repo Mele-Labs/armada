@@ -244,7 +244,8 @@ where
                 let mut moved = matches!(store.follow(row, over, &detail, &now), Ok(true));
                 // What it closes is what the Session works on, merged or not.
                 for number in &state.closes {
-                    moved |= issue_held(&mut store, &row.holder, &row.manifest_id, *number, &BTreeMap::new(), &now)
+                    let issue = ipc::IssueReference::number(*number);
+                    moved |= issue_held(&mut store, &row.holder, &row.manifest_id, &issue, &BTreeMap::new(), &now)
                         .unwrap_or(false);
                 }
                 if !moved {

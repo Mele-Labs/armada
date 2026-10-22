@@ -2,44 +2,57 @@
 //! Session's pull requests under each. `docs/concepts/session/what-is-kept.md`.
 //!
 //! **Named by the person, never guessed from prose**: an issue tag, or a link into the Session's
-//! own repository, in a message of the person's or the request the Session was dispatched with. A
-//! bare `#123` is a number in a sentence.
+//! own repository, in a message of the person's or the request the Session was dispatched with, or
+//! one the agent claims (`claim_issue`). A bare `#123` is a number in a sentence. An issue is the
+//! forge's number or a tracker's key, as [`IssueReference`] reads it.
 //!
 //! **One row a Session and issue, and what it already says stands.** A second naming takes it up
 //! again where it was given back and fills only what it lacked: the forge's reading, which the pull
 //! watch writes, is never overwritten by a tag's address.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use adapters::ForgeAddress;
-use ipc::{ManifestId, SessionTag, TagKind};
+use api::{Caller, Refusal};
+use ipc::{ClaimIssue, IssueClaimed, IssueReference, ManifestId, SessionTag, TagKind};
 use store::{AttachmentState, Holder, HolderKind, KeptAttachment, Store, WriteError};
 
 use crate::daemon::Fleet;
 
-/// The ledger's kind for an issue a Session works on. `target` is its number.
+/// The ledger's kind for an issue a Session works on. `target` is its [`IssueReference`].
 pub(crate) const ISSUE: &str = "issue";
 
-/// Stand `holder`'s row for issue `number`, with `known` where the row says nothing yet. `true`
-/// where anything changed.
+const NOT_CLAIMABLE: &str = "fleet.issue_not_claimable";
+
+/// The detail key naming the pull requests that work an issue, comma-joined ascending.
+pub(crate) const PULL_REQUESTS: &str = "pull_requests";
+
+/// Stand `holder`'s row for `issue`, with `known` where the row says nothing yet. `true` where
+/// anything changed. **`pull_requests` only grows**: what `known` names is added to what the row
+/// names.
 pub(crate) fn issue_held(
     store: &mut Store,
     holder: &Holder,
     manifest_id: &str,
-    number: u64,
+    issue: &IssueReference,
     known: &BTreeMap<String, String>,
     now: &str,
 ) -> Result<bool, WriteError> {
-    let target = number.to_string();
+    let target = issue.as_str().to_string();
     let mut detail = known.clone();
     if let Some(row) = store
         .attachments_at(ISSUE, &target, Some(manifest_id))?
         .into_iter()
         .find(|row| &row.holder == holder)
     {
+        let mut numbers = pull_requests_named(row.detail.get(PULL_REQUESTS));
+        numbers.extend(pull_requests_named(known.get(PULL_REQUESTS)));
         detail.extend(row.detail);
+        if !numbers.is_empty() {
+            detail.insert(PULL_REQUESTS.to_string(), pull_requests_joined(&numbers));
+        }
     }
     store.attach(
         &KeptAttachment {
@@ -54,6 +67,17 @@ pub(crate) fn issue_held(
         },
         false,
     )
+}
+
+/// The pull request numbers a row's `pull_requests` names.
+pub(crate) fn pull_requests_named(joined: Option<&String>) -> BTreeSet<u64> {
+    joined
+        .map(|joined| joined.split(',').filter_map(|one| one.trim().parse().ok()).collect())
+        .unwrap_or_default()
+}
+
+pub(crate) fn pull_requests_joined<'a>(numbers: impl IntoIterator<Item = &'a u64>) -> String {
+    numbers.into_iter().map(u64::to_string).collect::<Vec<_>>().join(",")
 }
 
 impl<H, V, W> Fleet<H, V, W>
@@ -75,20 +99,19 @@ where
         else {
             return;
         };
-        let mut named: BTreeMap<u64, BTreeMap<String, String>> = BTreeMap::new();
+        let mut named: BTreeMap<IssueReference, BTreeMap<String, String>> = BTreeMap::new();
         for tag in tags.iter().filter(|tag| tag.kind == TagKind::Issue) {
-            // A tracker that is not the forge names its issues by key, which is no number here.
-            let Ok(number) = tag.id.trim().trim_start_matches('#').parse::<u64>() else {
+            let Some(issue) = IssueReference::read(&tag.id) else {
                 continue;
             };
-            let known = named.entry(number).or_default();
+            let known = named.entry(issue).or_default();
             if let Some(url) = tag.url.as_ref().filter(|url| !url.trim().is_empty()) {
                 known.insert("address".to_string(), url.clone());
             }
         }
         if let Some(repository) = self.own_repository(&manifest) {
             for number in adapters::issues_linked_in(text, &repository) {
-                named.entry(number).or_default();
+                named.entry(IssueReference::number(number)).or_default();
             }
         }
         self.issues_held(session, &manifest, named).await;
@@ -112,7 +135,56 @@ where
         let Some(number) = own else {
             return Ok(false);
         };
-        issue_held(store, holder, manifest_id, number, &BTreeMap::from([("address".to_string(), address)]), now)
+        let known = BTreeMap::from([("address".to_string(), address)]);
+        issue_held(store, holder, manifest_id, &IssueReference::number(number), &known, now)
+    }
+
+    /// `claim_issue`: the caller, placed as `claim_pull_request` places it, holds the issue it names,
+    /// with the pull requests that work it. Nothing is asked of the tracker: the pull watch reads it.
+    pub(crate) async fn issue_claimed(&self, caller: Option<Caller>, claim: ClaimIssue) -> Result<IssueClaimed, Refusal> {
+        let refuse = |why: String| self.hosted_refusal(NOT_CLAIMABLE, &why);
+        let issue = IssueReference::read(&claim.issue).ok_or_else(|| {
+            refuse(format!(
+                "`{}` is neither an issue number such as `7` nor a tracker's key such as `ABC-12`",
+                claim.issue.trim()
+            ))
+        })?;
+        let id = caller
+            .as_ref()
+            .and_then(|caller| self.session_holding(caller))
+            .or_else(|| {
+                claim.session_id.as_ref().map(|id| id.as_str().trim().to_string()).filter(|id| !id.is_empty())
+            })
+            .ok_or_else(|| refuse("an issue is claimed by a job, and this call is not one".into()))?;
+        let mut store = self.store().lock().await;
+        let manifest = store
+            .session(&id)
+            .map_err(|why| self.ledger_fault(why))?
+            .and_then(|session| session.manifest_id)
+            .ok_or_else(|| refuse(format!("job {id} is in no repository Fleet serves")))?;
+        let holder = Holder::session(&id);
+        let mut known = BTreeMap::new();
+        if !claim.pull_requests.is_empty() {
+            known.insert(PULL_REQUESTS.to_string(), pull_requests_joined(&claim.pull_requests.iter().copied().collect::<BTreeSet<_>>()));
+        }
+        let now = self.now().as_str().to_string();
+        let changed = issue_held(&mut store, &holder, &manifest, &issue, &known, &now).map_err(|why| self.ledger_fault(why))?;
+        let pull_requests = store
+            .attachments_at(ISSUE, issue.as_str(), Some(&manifest))
+            .map_err(|why| self.ledger_fault(why))?
+            .into_iter()
+            .find(|row| row.holder == holder)
+            .map(|row| pull_requests_named(row.detail.get(PULL_REQUESTS)).into_iter().collect())
+            .unwrap_or_default();
+        let record = match changed {
+            true => store.session(&id).ok().flatten().and_then(|session| self.ledger_row(&store, &session).ok()),
+            false => None,
+        };
+        drop(store);
+        if let Some(record) = record {
+            self.publish(ipc::Event::SessionChanged(record));
+        }
+        Ok(IssueClaimed { issue: issue.as_str().to_string(), holder_id: id, pull_requests })
     }
 
     /// Where the repository `manifest_id` serves lives on its forge: the only one whose issues a
@@ -127,7 +199,7 @@ where
         &self,
         session: &str,
         manifest_id: &str,
-        named: BTreeMap<u64, BTreeMap<String, String>>,
+        named: BTreeMap<IssueReference, BTreeMap<String, String>>,
     ) {
         if named.is_empty() {
             return;
@@ -137,8 +209,8 @@ where
         let record = {
             let mut store = self.store().lock().await;
             let mut changed = false;
-            for (number, known) in &named {
-                changed |= issue_held(&mut store, &holder, manifest_id, *number, known, &now).unwrap_or(false);
+            for (issue, known) in &named {
+                changed |= issue_held(&mut store, &holder, manifest_id, issue, known, &now).unwrap_or(false);
             }
             if !changed {
                 return;
@@ -155,48 +227,48 @@ where
     }
 
     /// Every issue a Session holds in this repository, read once and followed: its title, its state
-    /// and its address as the forge has them now. The pull watch's own pass, as
+    /// and its address as the Manifest's tracker has them now, a number or a key alike. The pull watch's own pass, as
     /// [`pull_ledger_kept_current`](Self::pull_ledger_kept_current) is for pull requests, and at the
     /// same utility priority. **A closed issue stands**: the row says closed and is still shown.
     /// Issues the forge will not answer for stay as they were.
     pub(crate) async fn issue_ledger_kept_current(&self, manifest_id: &ManifestId, root: &str) {
-        let mut numbers: Vec<u64> = {
+        let mut issues: Vec<IssueReference> = {
             let store = self.store().lock().await;
             let Ok(rows) = store.standing_of_kind(ISSUE, manifest_id.as_str()) else {
                 return;
             };
             rows.iter()
                 .filter(|row| row.holder.kind == HolderKind::Session)
-                .filter_map(|row| row.target.parse().ok())
+                .filter_map(|row| IssueReference::read(&row.target))
                 .collect()
         };
-        numbers.sort_unstable();
-        numbers.dedup();
+        issues.sort_unstable();
+        issues.dedup();
         let Ok(served) = self.served_named(Some(manifest_id)) else {
             return;
         };
-        for number in numbers {
-            let (tracker, root) = (self.tracker_of(&served), root.to_string());
-            let read = tokio::task::spawn_blocking(move || tracker.read_issue(&root, &number.to_string())).await;
-            let Ok(Ok(Some(issue))) = read else {
+        for issue in issues {
+            let (tracker, root, reference) = (self.tracker_of(&served), root.to_string(), issue.as_str().to_string());
+            let read = tokio::task::spawn_blocking(move || tracker.read_issue(&root, &reference)).await;
+            let Ok(Ok(Some(read))) = read else {
                 continue;
             };
             let fresh = [
-                ("title", issue.title.as_written()),
-                ("state", if issue.closed { "closed" } else { "open" }),
-                ("address", issue.url.as_written()),
+                ("title", read.title.as_written()),
+                ("state", if read.closed { "closed" } else { "open" }),
+                ("address", read.url.as_written()),
             ];
-            self.issue_follows(manifest_id.as_str(), number, &fresh).await;
+            self.issue_follows(manifest_id.as_str(), &issue, &fresh).await;
         }
     }
 
-    /// Every Session's standing row for issue `number` takes `fresh` over what it said, in one write.
-    async fn issue_follows(&self, manifest_id: &str, number: u64, fresh: &[(&str, &str)]) {
+    /// Every Session's standing row for `issue` takes `fresh` over what it said, in one write.
+    async fn issue_follows(&self, manifest_id: &str, issue: &IssueReference, fresh: &[(&str, &str)]) {
         let now = self.clock().now().as_str().to_string();
         let mut changed = Vec::new();
         {
             let mut store = self.store().lock().await;
-            let Ok(rows) = store.attachments_at(ISSUE, &number.to_string(), Some(manifest_id)) else {
+            let Ok(rows) = store.attachments_at(ISSUE, issue.as_str(), Some(manifest_id)) else {
                 return;
             };
             for row in rows
