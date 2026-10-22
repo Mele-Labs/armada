@@ -10,14 +10,17 @@
 mod ci;
 mod connection;
 mod diff;
+mod issues;
 mod named;
 mod open_pulls;
 mod page;
 mod patches;
 mod review_lists;
 mod review_state;
+pub(crate) mod source;
 mod standing;
 mod threads;
+mod trackers;
 mod watch;
 
 use std::collections::HashMap;
@@ -30,6 +33,9 @@ use adapter_traits::{
     Worktree,
 };
 use serde::Deserialize;
+
+pub use trackers::ApiTrackers;
+pub(crate) use trackers::{ApiLinkLookup, ApiTracker};
 
 use crate::gh_forge::GhForge;
 use crate::github_api::{ApiFailure, GitHubApi, GitHubRepository};
@@ -56,10 +62,10 @@ impl Default for ApiForge {
 }
 
 impl ApiForge {
-    /// Asking `api.github.com` through a client of its own, which every clone of this shares.
+    /// Asking `api.github.com` through the process's one client, which every clone of this shares.
     /// Makes no connection until the first call.
     pub fn new() -> ApiForge {
-        ApiForge::through(GitHubApi::new())
+        ApiForge::through(GitHubApi::shared())
     }
 
     /// Asking through `api`, shared with whoever else holds it.

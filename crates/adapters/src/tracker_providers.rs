@@ -19,7 +19,8 @@ use adapter_traits::{
 use crate::jira::{self, JiraSettings};
 use crate::jira_lookup::JiraLookup;
 use crate::jira_tracker::JiraTracker;
-use crate::{IssueLookup, IssueTracker};
+use crate::api_forge::{ApiLinkLookup, ApiTracker};
+use crate::{ApiForge, IssueLookup, IssueTracker};
 
 /// The forge's own, written out; a block that names no provider means it too.
 const FORGE_OWN: &str = "github";
@@ -54,19 +55,32 @@ fn chosen(choice: &TrackerChoice) -> Chosen {
 
 impl Trackers for TrackersByProvider {
     fn tracker(&self, choice: &TrackerChoice) -> Arc<dyn Tracker + Send + Sync> {
-        match chosen(choice) {
-            Chosen::Forge => Arc::new(IssueTracker),
-            Chosen::Jira(settings) => Arc::new(JiraTracker::over(settings)),
-            Chosen::Refused(why) => Arc::new(Refusing { why }),
-        }
+        tracker_over(choice, None)
     }
 
     fn links(&self, choice: &TrackerChoice) -> Arc<dyn LinkLookup + Send + Sync> {
-        match chosen(choice) {
-            Chosen::Forge => Arc::new(IssueLookup),
-            Chosen::Jira(settings) => Arc::new(JiraLookup::over(settings)),
-            Chosen::Refused(_) => Arc::new(Refusing { why: String::new() }),
-        }
+        links_over(choice, None)
+    }
+}
+
+/// The tracker `choice` names. The forge's own reads through `forge` where there is one, and
+/// through `gh` where there is not.
+pub(crate) fn tracker_over(choice: &TrackerChoice, forge: Option<&ApiForge>) -> Arc<dyn Tracker + Send + Sync> {
+    match (chosen(choice), forge) {
+        (Chosen::Forge, Some(forge)) => Arc::new(ApiTracker::over(forge.clone())),
+        (Chosen::Forge, None) => Arc::new(IssueTracker),
+        (Chosen::Jira(settings), _) => Arc::new(JiraTracker::over(settings)),
+        (Chosen::Refused(why), _) => Arc::new(Refusing { why }),
+    }
+}
+
+/// The link reader `choice` names, as [`tracker_over`] chooses a tracker.
+pub(crate) fn links_over(choice: &TrackerChoice, forge: Option<&ApiForge>) -> Arc<dyn LinkLookup + Send + Sync> {
+    match (chosen(choice), forge) {
+        (Chosen::Forge, Some(forge)) => Arc::new(ApiLinkLookup::over(forge)),
+        (Chosen::Forge, None) => Arc::new(IssueLookup),
+        (Chosen::Jira(settings), _) => Arc::new(JiraLookup::over(settings)),
+        (Chosen::Refused(_), _) => Arc::new(Refusing { why: String::new() }),
     }
 }
 

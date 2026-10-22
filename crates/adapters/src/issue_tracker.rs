@@ -16,10 +16,10 @@ use crate::under_review::as_written;
 
 /// How many open issues one listing reads. A backlog past this is read newest
 /// edit first, which is the order a person chooses from.
-const LISTED: &str = "200";
+pub(crate) const LISTED: &str = "200";
 
 /// How much of a body the list carries, in characters.
-const EXCERPT: usize = 240;
+pub(crate) const EXCERPT: usize = 240;
 
 /// Each issue as one line: number, title, address, labels and assignees joined
 /// by `US`, last edit, the body's start, and whether a pull request closes it.
@@ -33,7 +33,7 @@ const OPEN_ISSUES: &str = "\
 /// (`closedByPullRequestsReferences`) and the ones that name it (a cross-reference whose source
 /// is a pull request) come back with it, so a linked pull request needs no second request. A
 /// pull request's number is not an issue's to the forge's `issue` field, which is how it is none.
-const READ_ISSUE_QUERY: &str = "query($owner:String!,$name:String!,$number:Int!){\
+pub(crate) const READ_ISSUE_QUERY: &str = "query($owner:String!,$name:String!,$number:Int!){\
     repository(owner:$owner,name:$name){issue(number:$number){\
     number title url state body createdAt author{login} \
     labels(first:50){nodes{name}} assignees(first:20){nodes{login}} \

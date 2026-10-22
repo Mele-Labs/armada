@@ -590,6 +590,7 @@ fn assemble(
     let retro_model = model_at(shipped.get(keys::MODELS_RETRO), String::new())?;
     // One client for every forge call Fleet makes, so they share its connections.
     let forge = ApiForge::new();
+    let trackers = forge.trackers();
     let fleet = Fleet::assembled(Fittings {
         store,
         harness: agent,
@@ -664,7 +665,7 @@ fn assemble(
         retro_model,
         // The tracker and link reader each repository's Manifest chose; the
         // forge's own where it chose none. #91.
-        trackers: Arc::new(adapters::TrackersByProvider),
+        trackers: Arc::new(trackers),
         // The one CI provider Scan follows; the rest read as not followed.
         ci_configuration: Arc::new(ActionsWorkflows),
         models,

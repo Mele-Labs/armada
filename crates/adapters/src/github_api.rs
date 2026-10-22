@@ -195,6 +195,13 @@ impl GitHubApi {
         GitHubApi::against(API_BASE, || token_from_gh(GITHUB_HOST))
     }
 
+    /// The one client for the whole process, so every reader of the forge shares its connections.
+    /// Made on first use, like any other, and never dropped.
+    pub fn shared() -> GitHubApi {
+        static SHARED: OnceLock<GitHubApi> = OnceLock::new();
+        SHARED.get_or_init(GitHubApi::new).clone()
+    }
+
     /// Another address and token source: a socket on this machine in the tests.
     pub(crate) fn against(
         base: &str,
