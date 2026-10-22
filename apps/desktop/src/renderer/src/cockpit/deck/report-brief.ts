@@ -39,7 +39,10 @@ const kb = (tokens: number) => `${Math.round(tokens / 1000)}k`;
 /** Its state in the words the Sessions page uses for what it can be sent. */
 function stateOf(session: Session): string {
   const base = session.dead === "ended" ? "ended" : session.dead === "quiet" ? "terminal not listening" : session.turn.state === "working" ? "working" : "idle";
-  return session.standing === undefined || session.standing === base ? base : `${base}, read by Fleet as ${session.standing}`;
+  if (session.standing === undefined || session.standing === base) return base;
+  const running = base === "idle" && session.standing === "working" ? session.attachments.find((one) => one.kind === "subagent" && one.state === "running") : undefined;
+  if (running?.kind === "subagent") return `${base}, a subagent working: ${running.task}`;
+  return `${base}, read by Fleet as ${session.standing}`;
 }
 
 function attachmentLine(one: SessionAttachment): [label: string, value: string] | undefined {
