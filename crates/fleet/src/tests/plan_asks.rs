@@ -56,7 +56,7 @@ fn say(id: &SessionId, pairs: &[(&str, &str)]) -> SetWaitingFor {
     }
 }
 
-fn plan(id: &SessionId) -> RecordPlan {
+pub(super) fn plan(id: &SessionId) -> RecordPlan {
     RecordPlan {
         groups: vec![PlanGroupInput {
             id: None,
