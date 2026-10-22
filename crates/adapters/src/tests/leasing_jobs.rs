@@ -40,7 +40,7 @@ fn spec(repo: &TempRepo, handle: &str) -> WorktreeSpec {
 }
 
 fn leased(repo: &TempRepo, pool: &SlotPool, handle: &str, job: &str) -> (u32, PathBuf) {
-    match GitVcs.lease_slot(pool, &spec(repo, handle), job) {
+    match GitVcs::new().lease_slot(pool, &spec(repo, handle), job) {
         Ok(SlotLeased::Took { slot, worktree, .. }) => (slot, PathBuf::from(worktree.path())),
         other => panic!("{job} took no slot: {other:?}"),
     }
@@ -55,9 +55,9 @@ fn a_job_leases_a_slot_on_its_own_branch_and_holds_it_by_its_id() {
     assert_eq!(path, repo.root().join(".armada/slots/slot-1"));
     assert_eq!(slot, 1);
     assert_eq!(branch_of(&path), "armada/1-a-job");
-    assert_eq!(GitVcs.slot_standing(&pool, 1, "01JOB"), SlotStanding::Held);
+    assert_eq!(GitVcs::new().slot_standing(&pool, 1, "01JOB"), SlotStanding::Held);
     assert!(matches!(
-        GitVcs.slot_standing(&pool, 1, "01OTHER"),
+        GitVcs::new().slot_standing(&pool, 1, "01OTHER"),
         SlotStanding::HeldBy(_)
     ));
 }
@@ -108,7 +108,7 @@ fn a_release_refused_keeps_the_slot_held() {
     let (slot, path) = leased(&repo, &pool, "1-a-job", "01JOB");
     std::fs::write(path.join("notes.md"), "never committed").unwrap();
 
-    let kept = GitVcs
+    let kept = GitVcs::new()
         .release_slot(&pool, slot, "01JOB")
         .expect_err("a dirty tree is not given back");
     assert!(kept.0.contains("notes.md"), "{}", kept.0);
@@ -118,11 +118,11 @@ fn a_release_refused_keeps_the_slot_held() {
     ));
 
     std::fs::remove_file(path.join("notes.md")).unwrap();
-    GitVcs
+    GitVcs::new()
         .release_slot(&pool, slot, "01JOB")
         .expect("clean, with nothing on it");
     assert_eq!(
-        GitVcs.slot_standing(&pool, slot, "01JOB"),
+        GitVcs::new().slot_standing(&pool, slot, "01JOB"),
         SlotStanding::Free
     );
 }
@@ -133,9 +133,9 @@ fn a_job_cannot_give_back_a_slot_another_holds() {
     let pool = slots(&repo, 1);
     let (slot, _) = leased(&repo, &pool, "1-a-job", "01JOB");
 
-    assert!(GitVcs.release_slot(&pool, slot, "01OTHER").is_err());
+    assert!(GitVcs::new().release_slot(&pool, slot, "01OTHER").is_err());
     assert_eq!(
-        GitVcs.slot_standing(&pool, slot, "01JOB"),
+        GitVcs::new().slot_standing(&pool, slot, "01JOB"),
         SlotStanding::Held
     );
 }
@@ -144,7 +144,7 @@ fn a_job_cannot_give_back_a_slot_another_holds() {
 fn a_slot_nobody_made_is_gone() {
     let repo = a_repository();
     assert_eq!(
-        GitVcs.slot_standing(&slots(&repo, 2), 2, "01JOB"),
+        GitVcs::new().slot_standing(&slots(&repo, 2), 2, "01JOB"),
         SlotStanding::Gone
     );
 }
@@ -158,7 +158,7 @@ fn the_pool_reads_each_slot_with_its_holder_warmth_and_lag() {
     let pool = SlotPool::of(&root, 2, "main", vec![String::from("target")]);
     let (_, path) = leased(&repo, &pool, "1-a-job", "01JOB");
 
-    let cold = GitVcs.slot_pool(&pool);
+    let cold = GitVcs::new().slot_pool(&pool);
     assert_eq!(cold.len(), 2);
     assert_eq!(cold[0].held, SlotHeld::Hosted(String::from("01JOB")));
     assert_eq!(cold[0].branch.as_deref(), Some("armada/1-a-job"));
@@ -173,7 +173,7 @@ fn the_pool_reads_each_slot_with_its_holder_warmth_and_lag() {
     repo.commit_one("two.txt", "two\n", "and again");
     repo.git(&["push", "-q", "origin", "main"]);
 
-    let warm = GitVcs.slot_pool(&pool);
+    let warm = GitVcs::new().slot_pool(&pool);
     assert!(warm[0].warm);
     assert_eq!(warm[0].behind, Some(2));
 }
@@ -188,7 +188,7 @@ fn a_wide_pool_reads_in_slot_order_with_each_slots_own_holder() {
     leased(&repo, &pool, "2-b-job", "01B");
     leased(&repo, &pool, "3-c-job", "01C");
 
-    let read = GitVcs.slot_pool(&pool);
+    let read = GitVcs::new().slot_pool(&pool);
     let numbers: Vec<u32> = read.iter().map(|one| one.slot).collect();
     assert_eq!(numbers, (1..=10).collect::<Vec<u32>>());
     let holders: Vec<&SlotHeld> = read.iter().take(4).map(|one| &one.held).collect();
@@ -213,7 +213,7 @@ fn a_hosted_sessions_wip_commit_names_a_session_and_not_a_job() {
     let (slot, path) = leased(&repo, &pool, "session-7b1f3c52", "7b1f3c52-9a40");
     std::fs::write(path.join("wip.txt"), "half a thought\n").expect("a file to keep");
 
-    let parked = GitVcs
+    let parked = GitVcs::new()
         .park_hosted_slot(&pool, slot, "7b1f3c52-9a40")
         .expect("it parks");
     let subject = repo.git(&["log", "-1", "--format=%s", &parked.branch]);
@@ -229,7 +229,7 @@ fn a_park_refused_by_the_pool_says_so_and_keeps_the_slot() {
     let pool = slots(&repo, 1);
     let (slot, _) = leased(&repo, &pool, "1-a-job", "01JOB");
 
-    let refused = GitVcs
+    let refused = GitVcs::new()
         .park_slot(&pool, slot, "01SOMEBODY")
         .expect_err("not theirs");
     assert!(matches!(
@@ -237,7 +237,7 @@ fn a_park_refused_by_the_pool_says_so_and_keeps_the_slot() {
         adapter_traits::SlotParkRefused::HeldByAnother(_)
     ));
     assert_eq!(
-        GitVcs.slot_standing(&pool, slot, "01JOB"),
+        GitVcs::new().slot_standing(&pool, slot, "01JOB"),
         SlotStanding::Held
     );
 }
@@ -258,12 +258,12 @@ fn a_session_held_slot_is_released_with_its_files_committed_for_the_holder_shown
 
     // Read, so the confirm can list the files; no rescue act reaches it.
     assert_eq!(
-        GitVcs.session_work(&wire, 1).expect("read").uncommitted,
+        GitVcs::new().session_work(&wire, 1).expect("read").uncommitted,
         vec!["half.txt"]
     );
-    assert!(GitVcs.stranded_work(&wire, 1).is_err());
+    assert!(GitVcs::new().stranded_work(&wire, 1).is_err());
 
-    let changed = GitVcs
+    let changed = GitVcs::new()
         .release_session_slot(&wire, 1, "somebody (pid 1)")
         .expect_err("another holder was shown");
     assert!(matches!(
@@ -272,7 +272,7 @@ fn a_session_held_slot_is_released_with_its_files_committed_for_the_holder_shown
     ));
     assert!(path.join("half.txt").exists());
 
-    let parked = GitVcs
+    let parked = GitVcs::new()
         .release_session_slot(&wire, 1, &here.said())
         .expect("the holder shown still holds it");
     assert_eq!(parked.branch, "fleet/by-hand");
@@ -283,7 +283,7 @@ fn a_session_held_slot_is_released_with_its_files_committed_for_the_holder_shown
         "half a thought"
     );
 
-    let free = GitVcs
+    let free = GitVcs::new()
         .release_session_slot(&wire, 1, &here.said())
         .expect_err("nobody holds it now");
     assert!(matches!(
@@ -311,7 +311,7 @@ fn a_slot_left_by_an_ended_process_is_parked_and_not_while_it_runs() {
     std::fs::write(path.join("half.txt"), "half a thought\n").expect("a file");
     let wire = slots(&repo, 1);
 
-    let running = GitVcs
+    let running = GitVcs::new()
         .park_ended_session_slot(&wire, 1, "S1")
         .expect_err("its process still runs");
     assert!(matches!(
@@ -324,7 +324,7 @@ fn a_slot_left_by_an_ended_process_is_parked_and_not_while_it_runs() {
 
     claude.kill().expect("killed");
     claude.wait().expect("reaped");
-    let parked = GitVcs
+    let parked = GitVcs::new()
         .park_ended_session_slot(&wire, 1, "S1")
         .expect("its process ended");
     assert_eq!(parked.branch, "fleet/by-terminal");
@@ -346,22 +346,22 @@ fn a_repair_branch_is_deleted_once_its_slot_is_parked_and_not_before() {
     let (slot, _) = leased(&repo, &pool, "repair-1-a-job-3", "01JOB-repair-3");
     let repair = spec(&repo, "repair-1-a-job-3");
 
-    let refused = GitVcs
+    let refused = GitVcs::new()
         .delete_repair_branch(&repair)
         .expect_err("checked out");
     assert!(!refused.0.is_empty(), "{refused:?}");
     assert!(branch_exists(&repo, &repair.branch()));
 
-    GitVcs
+    GitVcs::new()
         .park_slot(&pool, slot, "01JOB-repair-3")
         .expect("parked");
-    assert_eq!(GitVcs.delete_repair_branch(&repair), Ok(true));
+    assert_eq!(GitVcs::new().delete_repair_branch(&repair), Ok(true));
     assert!(
         !branch_exists(&repo, &repair.branch()),
         "the branch is deleted"
     );
     assert_eq!(
-        GitVcs.delete_repair_branch(&repair),
+        GitVcs::new().delete_repair_branch(&repair),
         Ok(false),
         "already gone is not a failure"
     );

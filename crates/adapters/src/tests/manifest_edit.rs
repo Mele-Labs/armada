@@ -8,6 +8,7 @@ use std::path::Path;
 use adapter_traits::{ManifestEditToSend, PullRequestFor};
 
 use crate::manifest_edit::{goes_by_pull_request, on_the_base, send};
+use crate::GhForge;
 use crate::tests::repo::TempRepo;
 
 const WAS: &str = "version: 1\nid: kept\n# by hand\nbase: main\n";
@@ -81,7 +82,7 @@ fn an_edit_reaches_the_remote_branch_and_the_checkout_does_not_move() {
     assert_eq!(base.text, WAS, "the remote's text, not the edited file's");
     assert_eq!(base.commit, git_in(&bare, &["rev-parse", "refs/heads/main"]));
 
-    let sent = send(&repo.root_str(), &sending(&repo, "armada.yml", &base.commit, NOW))
+    let sent = send(&repo.root_str(), &sending(&repo, "armada.yml", &base.commit, NOW), &GhForge)
         .expect("the edit goes out");
 
     assert_eq!(
@@ -133,7 +134,7 @@ fn a_pull_request_that_will_not_open_takes_the_pushed_branch_off_the_remote() {
     let mut opening = sending(&repo, "armada.yml", &base.commit, NOW);
     opening.to = PullRequestFor::Open { base: String::from("main") };
 
-    let refused = send(&repo.root_str(), &opening);
+    let refused = send(&repo.root_str(), &opening, &GhForge);
 
     assert!(refused.is_err(), "no forge here to open it");
     assert_eq!(
@@ -147,12 +148,13 @@ fn a_pull_request_that_will_not_open_takes_the_pushed_branch_off_the_remote() {
 fn a_second_edit_stacks_on_the_branch_the_first_made() {
     let (repo, bare) = behind_its_remote("armada.yml");
     let base = on_the_base(&repo.root_str(), "main", &path_of(&repo, "armada.yml")).unwrap();
-    let first = send(&repo.root_str(), &sending(&repo, "armada.yml", &base.commit, NOW)).unwrap();
+    let first = send(&repo.root_str(), &sending(&repo, "armada.yml", &base.commit, NOW), &GhForge).unwrap();
     let again = format!("{NOW}review_gate: never\n");
 
     let second = send(
         &repo.root_str(),
         &sending(&repo, "armada.yml", &first.commit, &again),
+        &GhForge,
     )
     .unwrap();
 
@@ -179,6 +181,7 @@ fn a_manifest_in_a_workspace_is_replaced_at_its_own_path() {
     let sent = send(
         &repo.root_str(),
         &sending(&repo, "web/armada.yml", &base.commit, NOW),
+        &GhForge,
     )
     .unwrap();
     assert_eq!(

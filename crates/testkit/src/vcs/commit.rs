@@ -168,7 +168,7 @@ pub(super) fn cut_branch(vcs: &FakeVcs, name: &str, start: &str) -> Result<(), F
     Ok(())
 }
 
-/// `Delivery::enable_auto_merge`: recorded, then answered as scripted.
+/// `Forge::enable_auto_merge`: recorded, then answered as scripted.
 pub(super) fn auto_merge(vcs: &FakeVcs, pull_request: &str) -> Result<(), String> {
     vcs.delivered
         .lock()

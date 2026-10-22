@@ -10,24 +10,28 @@
 
 use std::path::Path;
 
-use adapter_traits::{CheckoutSent, CheckoutToSend, NotDelivered};
+use adapter_traits::{CheckoutSent, CheckoutToSend, Forge, NotDelivered};
 use git2::build::TreeUpdateBuilder;
 use git2::{Oid, Repository, Signature};
 
-use crate::landing::{
-    base_here, changed_between, enable_auto_merge, same_as_the_tree, working, Working, REMOTE,
-};
-use crate::manifest_edit::{opened, pushed};
+use crate::landing::{base_here, changed_between, same_as_the_tree, working, Working, REMOTE};
+use crate::manifest_edit::pushed;
 
 /// What a pull request opened from a checkout's files says beside its title.
 const BODY: &str = "Sent from the uncommitted files of the served checkout.";
 
 /// Commit, push, open the pull request and turn auto-merge on.
-pub(crate) fn send(in_repo: &str, sending: &CheckoutToSend) -> Result<CheckoutSent, NotDelivered> {
+/// The pull request and its auto-merge go through `forge`.
+pub(crate) fn send(
+    in_repo: &str,
+    sending: &CheckoutToSend,
+    forge: &impl Forge,
+) -> Result<CheckoutSent, NotDelivered> {
     let commit = committed(in_repo, sending)?;
     pushed(in_repo, &commit, &sending.branch)?;
-    let pull_request = opened(in_repo, &sending.base, &sending.branch, &sending.message, BODY)?;
-    let auto_merge = enable_auto_merge(in_repo, &pull_request);
+    let pull_request =
+        forge.open_branch_for_review(in_repo, &sending.base, &sending.branch, &sending.message, BODY)?;
+    let auto_merge = forge.enable_auto_merge(in_repo, &pull_request);
     Ok(CheckoutSent {
         commit,
         pull_request,

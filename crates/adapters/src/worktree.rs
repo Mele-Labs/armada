@@ -34,16 +34,21 @@ use adapter_traits::{
 use git2::{BranchType, ErrorCode, Repository, WorktreeAddOptions};
 
 use crate::error::{CommitWorkError, CreateWorktreeError};
+use crate::gh_forge::GhForge;
 use crate::leasing::LeaseRefused;
 
 /// Version control against a real repository on this machine.
 ///
-/// Holds nothing. Every operation is scoped by the [`WorktreeSpec`] it is
+/// Holds nothing but the forge it asks. Every operation is scoped by the [`WorktreeSpec`] it is
 /// handed, which is what names the repository — so one of these can serve every
 /// Job on the machine and cannot be pointed at the wrong repository by having
 /// been constructed against one earlier.
+///
+/// **`F` is the forge**, [`GhForge`] unless [`with_forge`](GitVcs::with_forge) names another.
 #[derive(Debug, Default, Clone, Copy)]
-pub struct GitVcs;
+pub struct GitVcs<F = GhForge> {
+    pub(crate) forge: F,
+}
 
 /// What [`Vcs::changes`] counts. **Process-wide, not per value**: `GitVcs`
 /// holds nothing, so every copy of it is the same adapter.
@@ -60,11 +65,18 @@ fn noted<T>(done: T) -> T {
 
 impl GitVcs {
     pub fn new() -> GitVcs {
-        GitVcs
+        GitVcs { forge: GhForge }
     }
 }
 
-impl Vcs for GitVcs {
+impl<F> GitVcs<F> {
+    /// The same version control, asking `forge` where [`new`](GitVcs::new) asks `gh`.
+    pub fn with_forge(forge: F) -> GitVcs<F> {
+        GitVcs { forge }
+    }
+}
+
+impl<F> Vcs for GitVcs<F> {
     type Error = CreateWorktreeError;
     type CommitError = CommitWorkError;
 
