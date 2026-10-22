@@ -64,6 +64,7 @@ mod filing;
 mod forge_address;
 mod gh_forge;
 mod harness;
+mod held_forge;
 /// A session Bridge hosts: a live process, resumed by id. Since 23.49.
 mod hosted_session;
 mod inline_comments;
@@ -93,7 +94,6 @@ mod models_offered;
 /// The step onto a base, used by `merge_by: push`.
 pub mod onto_base;
 /// Which files a person's commits changed. `docs/concepts/pull-review.md`.
-mod held_forge;
 mod history;
 mod outside;
 mod pull_request_detail;
