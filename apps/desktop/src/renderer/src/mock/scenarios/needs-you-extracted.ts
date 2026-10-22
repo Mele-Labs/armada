@@ -50,7 +50,7 @@ const SESSION: Session = {
     { id: `replied:${ENDED}:1`, text: RUN, since: ENDED, source: "replied", act: { kind: "run", target: COMMAND } },
     { id: "w-approve", text: APPROVE, since: ago(4), source: "agent", act: { kind: "approve_pr", target: "#2714" } },
   ],
-  later: LATER.map((text) => ({ text, at: ENDED })),
+  later: LATER.map((text, at) => ({ id: `later-${at + 1}`, text, at: ENDED })),
 };
 
 function build(): Scenario {

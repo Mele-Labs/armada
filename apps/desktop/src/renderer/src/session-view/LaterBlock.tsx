@@ -21,7 +21,7 @@ export function LaterBlock({ later, onRemind, onDrop }: { later: NonNullable<Ses
       {open ? (
         <ul className="sv-later__list">
           {later.map((one) => (
-            <li key={one.at + one.text} className="sv-later__item">
+            <li key={one.id} className="sv-later__item">
               <span className="sv-later__text">{one.text}</span>
               <Tooltip label="Remind">
                 <Button variant="ghost" size="sm" iconOnly aria-label={`Remind: ${one.text}`} onClick={() => onRemind(one.text)}>

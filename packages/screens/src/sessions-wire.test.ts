@@ -651,6 +651,19 @@ describe("a session nothing can be said to", () => {
   });
 });
 
+describe("what the agent keeps for later", () => {
+  const later = [{ id: "later-1", sentence: "I will file the slow fixture load.", said_at: AT }];
+
+  it("carries each open follow-up with its id, its words and when it was said", () => {
+    expect(sessionOfRecord(record("a", { later }), undefined, beside()).later).toEqual([{ id: "later-1", text: "I will file the slow fixture load.", at: AT }]);
+  });
+
+  it("carries none for a session with none, or one that ended", () => {
+    expect(sessionOfRecord(record("a"), undefined, beside()).later).toBeUndefined();
+    expect(sessionOfRecord(record("a", { state: "ended", later }), undefined, beside()).later).toBeUndefined();
+  });
+});
+
 describe("when the agent said it was done", () => {
   it("carries done_since onto the session as done", () => {
     expect(sessionOfRecord(record("a", { done_since: AT }), undefined, beside()).done).toEqual({ since: AT });

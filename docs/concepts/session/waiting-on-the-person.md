@@ -58,6 +58,8 @@ It is a statement and ends nothing: Bridge draws a callout at the foot of the th
 A word that asks for work, such as a failed check or a stranded slot, clears it.
 The person's message also tells the agent so: where a done stood as they wrote, the agent reads one more line after their words, saying the message took back its `all_done` and to call it again if nothing is left once it has dealt with the message.
 Only the agent reads the line, and the person's row keeps their words.
+
+**`all_done` is refused while a follow-up is open.** The sentences of a reply's close in which the job says it will do something later are kept per job across replies (`session_later`, `SessionRecord.later`), until they are settled. The refusal is 409 `fleet.later_open`, names each by id and sentence, and says how to settle: `settle_later` with `done`, `filed` and an issue number, or `dropped` and a reason. The person's Drop on a Later row is the same call with no connection and needs no reason, and **End job is `close_session`, which never reads them**. The sentence reader that finds them is not in force (`extracting::IN_FORCE`), so nothing is kept in a running Fleet until it is.
 Without it the agent answers in prose, Fleet reads the job as replied, and the Done item never comes back.
 A terminal job's mod reports a prompt going in as `turn_started`, which is the same turn-start signal; a mod from before it has none, and for that one only the first two apply.
 The mod's first-message note tells the agent to clear `waiting_for`, then call `all_done` only when nothing is owed and none of its background work is running.

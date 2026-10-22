@@ -10,6 +10,8 @@ import type {
   ChangeWaiting,
   CheckoutSentAsPullRequest,
   ClaimIssue,
+  LaterSettled,
+  SettleLater,
   ClaimPullRequest,
   DismissConcern,
   DismissWaiting,
@@ -97,6 +99,8 @@ export type SessionsApi = {
   claimPullRequest: (claim: ClaimPullRequest) => Promise<SessionActed<PullRequestClaimed>>;
   /** Holds an issue, by the forge's number or a tracker's key, on a Session's ledger. Fleet refuses a reference that is neither. */
   claimIssue: (claim: ClaimIssue) => Promise<SessionActed<IssueClaimed>>;
+  /** Settles a follow-up a Session kept. Bridge's Drop sends `dropped` with no reason; Fleet takes the item off the Session's `later`. */
+  settleLater: (settle: SettleLater) => Promise<SessionActed<LaterSettled>>;
   /** Drops one thing a session waits on for good. Nothing is sent to the agent. */
   dismissWaiting: (dismiss: DismissWaiting) => Promise<SessionActed>;
   /** Approves the plan a Session recorded, the version he read. Fleet tells the agent. A newer version refuses. */
@@ -274,6 +278,7 @@ export const SESSIONS_CHANNELS = {
   answerWaiting: "bridge:answer-waiting",
   claimPullRequest: "bridge:claim-pull-request",
   claimIssue: "bridge:claim-issue",
+  settleLater: "bridge:settle-later",
   readSessionWait: "bridge:read-session-wait",
   changeWaiting: "bridge:change-waiting",
   startWaitingNow: "bridge:start-waiting-now",

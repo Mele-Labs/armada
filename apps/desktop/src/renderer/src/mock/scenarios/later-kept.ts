@@ -1,6 +1,6 @@
 // What a Job meets when it says it is done with follow-ups still open, shown on fixtures. One Job whose thread holds its done, Fleet's refusal
 // naming what is open under Later, and the agent's answer that settles one. The one left is in Progress under Later, with a Remind and a Drop.
-// Fleet does not refuse all_done this way yet. The walk `later-kept` plays it.
+// Fleet refuses all_done this way, but to the agent only: the notice in the thread is the mock's. The walk `later-kept` plays it.
 
 import type { Session } from "@armada/screens/src/draft/sessions";
 import { repository } from "@armada/screens/src/fixtures/repository";
@@ -33,7 +33,7 @@ const SESSION: Session = {
     },
     { id: "lk-b", at: "14:21:10", kind: "message", from: { kind: "agent" }, text: "Filed #2731 for the slow fixture load." },
   ],
-  later: [{ text: OWED, at: ago(2) }],
+  later: [{ id: "later-2", text: OWED, at: ago(2) }],
 };
 
 function build(): Scenario {

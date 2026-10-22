@@ -591,6 +591,7 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
     ...(ended || record.done_since === undefined ? {} : { done: { since: record.done_since } }),
     ...(ended || record.standing === undefined ? {} : { standing: record.standing }),
     ...(ended || record.waits === undefined ? {} : { waits: waitOfWire(record.waits) }),
+    ...(ended || (record.later?.length ?? 0) === 0 ? {} : { later: (record.later ?? []).map((one) => ({ id: one.id, text: one.sentence, at: one.said_at })) }),
     ...(work === undefined ? {} : { work }),
   };
 }
