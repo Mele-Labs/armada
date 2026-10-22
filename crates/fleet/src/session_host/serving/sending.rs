@@ -2,6 +2,11 @@
 
 use super::*;
 
+/// The line after the person's words when a done stood as they wrote. The message clears the done
+/// and the agent is not otherwise told, so it answered in prose and never called `all_done` again.
+/// Only the agent reads it: the person's row keeps their words.
+pub(crate) const TAKES_DONE_BACK: &str = "You had called all_done, and this message takes that back. If nothing is left once you have dealt with it, call all_done again.";
+
 impl<H, V, W> Fleet<H, V, W>
 where
     H: AgentHarness + Send + Sync + 'static,
@@ -345,6 +350,14 @@ where
         let id = sent.session_id.as_str().to_string();
         let approved = super::super::walking::approved_address(&sent.text).map(str::to_string);
         let noted = super::super::readiness::note_address(&sent.text).map(str::to_string);
+        // Read before the send: the clear below runs after it, and the agent has to be told.
+        let standing = self.store().lock().await.done_since(&id).ok().flatten().is_some();
+        let instead = if standing {
+            let words = instead.unwrap_or_else(|| sent.text.clone());
+            Some(format!("{words}\n{TAKES_DONE_BACK}"))
+        } else {
+            instead
+        };
         let record = if let Some(session) = terminal {
             let addressed = self.addressed(&sent.mentions).await?;
             let kept = self.keep_uploads(&self.uploads_of(&id), &id, &sent.attachments)?;
