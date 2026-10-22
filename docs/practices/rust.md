@@ -418,6 +418,14 @@ a Drone cannot run is a check that does not exist. Install it with `--locked`, s
 the runner is the same build everywhere and an already-present version is a no-op
 rather than a rebuild.
 
+**The test map's measured laps also need `llvm-profdata` and `llvm-cov` of the
+compiler's own LLVM.** `adapters::NextestCoverage` builds the workspace with
+coverage on and reads each test's profile with them, and a profile is read only
+by the LLVM version that wrote it. Under rustup, `rustup component add
+llvm-tools-preview` puts them beside the sysroot; a Homebrew `rust` finds them in
+the `llvm@<major>` it is built against. Without them the collector records
+nothing and says why. Nothing else needs them: no Check runs the collector.
+
 ### The cold number: still unsolved, and v1 said so
 
 Compilation after a merge cost **around four minutes**, and `nextest` does not
