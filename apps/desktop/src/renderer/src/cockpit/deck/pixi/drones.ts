@@ -15,10 +15,16 @@ const colour = (c: Rgba) => ({ color: hex(c), alpha: c[3] });
 
 export const hueOf = (hue: Hue, p: Palette): Rgba => (hue === "ask" ? p.ask : hue === "bad" ? p.bad : p.muted);
 
+/** How much of a drone shows: faint when filtered out, faded when it is another Job's, dim when another is picked, muted when he is locked on another. */
+export const alphaOf = (s: DroneSpec): number => (s.away ? 0.12 : s.ghost ? GHOST : s.dim ? 0.4 : s.muted ? 0.6 : 1);
+
+/** How much of another Job's drone shows on a Job's own Field. */
+export const GHOST = 0.25;
+
 /** Everything that changes the picture, so a drone is drawn again only when one of these does. */
 export function droneSig(s: DroneSpec): string {
   const d = s.drone;
-  return [d.kind, d.hue, d.spin, d.ping, d.flare, s.selected, s.hot, s.labelled && d.title, s.muted, s.away, s.dim, s.call, s.leaving, s.clashes].join(":");
+  return [d.kind, d.hue, d.spin, d.ping, d.flare, s.selected, s.hot, s.labelled && d.title, s.muted, s.away, s.dim, s.call, s.leaving, s.clashes, s.ghost].join(":");
 }
 
 /** A rotor: a squashed disc so it reads at an angle, its blades standing still inside it. */
@@ -137,7 +143,7 @@ export function drawDrone(s: DroneSpec, big: number, p: Palette): DroneParts {
   shell.scale.set(big);
   // The light a drone gives off: stronger where it is calling or failing, and where it is at work.
   const stands = d.hue !== "calm" || d.spin;
-  if (stands || s.selected) shell.addChild(glowSprite(30, s.selected ? p.accent : hue, d.hue !== "calm" ? 0.5 : d.spin ? 0.3 : 0.2));
+  if ((stands || s.selected) && !s.ghost) shell.addChild(glowSprite(30, s.selected ? p.accent : hue, d.hue !== "calm" ? 0.5 : d.spin ? 0.3 : 0.2));
   shell.addChild(body(d.spin, hue, p), marks(s, wide, hue, p));
   if (d.ping || d.flare) {
     const lamp = glowSprite(10, d.flare ? p.bad : hue, 0.9);
@@ -145,14 +151,14 @@ export function drawDrone(s: DroneSpec, big: number, p: Palette): DroneParts {
     shell.addChild(lamp);
   }
   out.addChild(shell);
-  if (s.labelled) {
+  if (s.labelled && !s.ghost) {
     const text = d.title.length > 22 ? `${d.title.slice(0, 21)}…` : d.title;
     const label = name(text, p, d.hue !== "calm" || s.selected ? p.fg : p.muted, { x: 0.5, y: 1 });
     label.position.set(0, -Math.round(24 * big + (d.flare ? 26 : d.ping ? 14 : 4) + (s.selected ? 14 : 0)));
     out.addChild(label);
   }
   // Muted when he is locked on another drone and this one is calm; dim when another is picked on the timeline; faint when filtered out.
-  out.alpha = s.away ? 0.12 : s.dim ? 0.4 : s.muted ? 0.6 : 1;
+  out.alpha = alphaOf(s);
   const tone = s.call;
   const head = Math.round(40 * big);
   const mark = tone === undefined ? undefined : callMark(tone, p);

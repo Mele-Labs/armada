@@ -13,6 +13,7 @@ import type { GoalIn, PadIn } from "../tip";
 import type { placeBuilds } from "../builds";
 import { onPlane } from "../bf-parts";
 import type { Outpost } from "../outposts";
+import type { Glow, Stop } from "../afterglow";
 
 /** A construction placed on the field: its ring and where it lies. */
 export type Placed = ReturnType<typeof placeBuilds>[number];
@@ -94,7 +95,12 @@ export type DroneSpec = {
   trail: number | undefined;
   /** The plots it touches, the biggest first. */
   touches: readonly { tile: string; at: Point }[];
+  /** Another Job's on a Job's own Field: drawn faint, with no beam, label or action. */
+  ghost: boolean;
 };
+
+/** A stop of a Job's route while the Field is scrubbed back: its number, the file's bar on the plane, and whether it was read or written. */
+export type RouteSpot = { n: number; act: Stop["act"]; at: Point; tile: string };
 
 /** How a plot stands against a Session's plan, in the plan bar's own language: solid, outlined, amber, faint, or failed. */
 export type PlotPiece = "solid" | "hollow" | "scaffold" | "ghost" | "failed";
@@ -130,6 +136,12 @@ export type PixiSceneIn = {
   bumps: ReadonlyMap<string, Bump>;
   /** The plots a Session's plan names, by path, and what the plan says of each. A Session's Field only. */
   planned?: ReadonlyMap<string, { piece: PlotPiece; said: string }>;
+  /** The plots a Job has touched, outlined in the accent. A Job's Field only. */
+  touched?: ReadonlySet<string>;
+  /** How each file's bar glows from what the Job last did to it, by path. A Job's Field only. */
+  glow?: ReadonlyMap<string, Glow>;
+  /** The Job's stops up to the slider, where it is scrubbed back. A Job's Field only. */
+  route?: readonly RouteSpot[];
   /** The radius of the ring a running drone's sweep turns on. */
   orbit: number;
   /** Two drones changing one area, each end where it flies. */
@@ -170,6 +182,9 @@ export type SceneInputs = {
   /** Each bay's pad on the plane. */
   padAt: ReadonlyMap<string, Point>;
   planned?: PixiSceneIn["planned"];
+  touched?: ReadonlySet<string>;
+  glow?: ReadonlyMap<string, Glow>;
+  route?: readonly Stop[];
 };
 
 /** How far beyond the field's far edge the outposts stand, and how far apart, in the layout's own units. */
@@ -271,7 +286,8 @@ function dronesOf(i: SceneInputs): DroneSpec[] {
       pad,
       origin: pad === undefined ? baseOf(layout, i.world, drone.root) : { ...pad, z: 2 },
       trail: trailAge(i.trails.get(drone.key)),
-      touches: (layout.over.get(drone.key) ?? []).map(({ tile: one }) => ({ tile: one.path, at: onPlane({ x: one.cx, y: one.cy }) })),
+      touches: drone.ghost === true ? [] : (layout.over.get(drone.key) ?? []).map(({ tile: one }) => ({ tile: one.path, at: onPlane({ x: one.cx, y: one.cy }) })),
+      ghost: drone.ghost === true,
     });
   }
   return out;
@@ -310,7 +326,7 @@ function bumpsOf(i: SceneInputs): Map<string, Bump> {
 export function sceneOf(i: SceneInputs): PixiSceneIn {
   const lit = new Set<string>();
   for (const drone of i.drones) {
-    if (!drone.shown || !drone.spin) continue;
+    if (!drone.shown || !drone.spin || drone.ghost === true) continue;
     for (const { tile } of i.layout.over.get(drone.key) ?? []) lit.add(tile.path);
   }
   return {
@@ -336,12 +352,23 @@ export function sceneOf(i: SceneInputs): PixiSceneIn {
     bumps: bumpsOf(i),
     orbit: i.frame.orbit,
     ...(i.planned === undefined ? {} : { planned: i.planned }),
+    ...(i.touched === undefined ? {} : { touched: i.touched }),
+    ...(i.glow === undefined ? {} : { glow: i.glow }),
+    ...(i.route === undefined ? {} : { route: routeOf(i.layout, i.route) }),
     clashLines: i.layout.clashes.flatMap((clash) => {
       const [a, b] = [clash.keys[0], clash.keys[1]].map((key) => (key === undefined ? undefined : droneBy(i, key)));
       const [from, to] = [a === undefined ? undefined : i.frame.flying(a), b === undefined ? undefined : i.frame.flying(b)];
       return from === undefined || to === undefined ? [] : [{ key: `${clash.root}:${clash.path}`, from, to }];
     }),
   };
+}
+
+/** Each stop at its file's bar. A stop whose file has no bar is left out, and the others keep their numbers. */
+export function routeOf(layout: Layout, stops: readonly Stop[]): RouteSpot[] {
+  return stops.flatMap((stop) => {
+    const bar = layout.bars.get(stop.path);
+    return bar === undefined ? [] : [{ n: stop.n, act: stop.act, at: onPlane({ x: bar.cx, y: bar.cy }), tile: bar.tile.path }];
+  });
 }
 
 const droneBy = (i: Pick<SceneInputs, "drones">, key: string): DroneIn | undefined => i.drones.find((one) => one.key === key);

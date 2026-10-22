@@ -6,6 +6,8 @@
 import type { Session, SessionAttachment, WorkDrone } from "@armada/screens/src/draft/sessions";
 import { attachmentsOf } from "@armada/screens/src/draft/sessions";
 
+import type { Areas } from "../cockpit/deck/areas";
+
 /** The Session's own drone before any work has placed it. */
 const OWN: WorkDrone = { id: "main", path: "", doing: "read" };
 
@@ -42,3 +44,11 @@ export function isWorking(session: Session, one: WorkDrone): boolean {
   const held = subagentsOf(session).find((row) => row.id === one.id);
   return held === undefined ? turn : held.state === "running";
 }
+
+/** Every plot of the floor whose directory a touched path names or lies under: a top directory with no plots inside it is one plot. */
+export function touchedPlots(areas: Areas, paths: ReadonlySet<string>): Set<string> {
+  const plots = areas.flatMap((area) => (area.kids.length === 0 ? [area.dir] : area.kids.map(([kid]) => `${area.dir}/${kid}`)));
+  const named = [...paths];
+  return new Set(plots.filter((plot) => named.some((path) => path === plot || path.startsWith(`${plot}/`))));
+}
+
