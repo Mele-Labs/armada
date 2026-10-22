@@ -47,12 +47,18 @@ describe("a reply is unread until he has been in the Session since it ended", ()
 });
 
 describe("working is what Fleet derived, not only a turn of its own", () => {
-  test("a Session whose own turn ended, waiting on its subagents, is working", () => {
-    expect(stateOf(session({ standing: "working" }))).toEqual({ state: "working", said: "Working" });
+  test("a Session whose own turn ended, waiting on its subagents, says a subagent is working", () => {
+    const running = { kind: "subagent", id: "sub-1", task: "Build the Fleet side of Kit's install", state: "running" };
+    expect(stateOf(session({ standing: "working", attachments: [running] }))).toEqual({ state: "working", said: "Subagent working" });
+  });
+
+  test("a subagent that finished does not say so", () => {
+    const done = { kind: "subagent", id: "sub-1", task: "Build the Fleet side of Kit's install", state: "done" };
+    expect(stateOf(session({ standing: "working", attachments: [done] }))).toEqual({ state: "working", said: "Working" });
   });
 
   test("a terminal Session, which reports no turn of its own, is working while Fleet says so", () => {
-    expect(stateOf(session({ turn: { state: "idle" }, standing: "working", lastTurnAt: undefined })).state).toBe("working");
+    expect(stateOf(session({ turn: { state: "idle" }, standing: "working", lastTurnAt: undefined }))).toEqual({ state: "working", said: "Working" });
   });
 });
 
