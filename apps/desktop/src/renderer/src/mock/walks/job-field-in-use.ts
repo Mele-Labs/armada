@@ -23,7 +23,7 @@ export const jobFieldInUse = walk("job-field-in-use", [
   { look: lens("FieldPanel.tsx"), say: "The card is on FieldPanel.tsx" },
   { later: lens("FieldPanel.tsx"), say: "Now the Job's drone stops writing and reads a doc" },
   { look: lens("areas.rs"), say: "The card goes to the subagent, which still writes" },
-  { hover: inside(field, role("option", /^Rust, Job, /)), say: "The pointer on the subagent's drone opens its card" },
+  { hover: inside(field, role("option", /^Keep the stamp in the store, subagent of /)), say: "The pointer on the subagent's drone opens its card" },
   { hover: inside(role("tooltip"), text("crates/store")), say: "The pointer crosses to the card, and the card stays open" },
   { later: field, say: "Now the subagent finishes, and the Job opens a walk while its drone writes layout.ts" },
   { look: lens("layout.ts"), say: "The walk is open and the drone still writes: it stays at layout.ts, and the card shows its change" },
