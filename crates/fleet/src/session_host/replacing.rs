@@ -3,7 +3,8 @@
 //! automatically. `docs/concepts/session/a-handed-off-job.md`.
 //!
 //! **Fleet never starts the successor unasked.** The ways in are [`Fleet::handed_on`], called from
-//! the permission door with the person's answer to a question that chose [`ipc::HANDOFF_YES`],
+//! the permission door with the person's answer to a question that chose [`ipc::HANDOFF_YES`], or
+//! from his message answering such a question kept for a walk (`handoff_answered_later`),
 //! [`Fleet::handoff_retried`], the person's press on a standing `handoff_failed` row, and
 //! [`Fleet::handed_on_by_setting`], the Large context setting at carry on automatically. **The hand runs
 //! on a task of its own, never on the Job's call.** Ending the old Job ends the process the call came
@@ -30,7 +31,7 @@ use std::sync::Arc;
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{HostedSessions, Refusal};
 use ipc::{
-    AskingToRun, CloseSession, ManifestId, ReleaseSessionHolds, RetryHandoff, RunOrNot, SessionId,
+    CloseSession, ManifestId, ReleaseSessionHolds, RetryHandoff, RunOrNot, SessionId,
     SessionRecord, StartSession,
 };
 use store::{AttachmentState, Holder, KeptAttachment};
@@ -141,14 +142,13 @@ where
 {
     /// The brief the Job wrote on its card: the description of the option that carries on. Read off the
     /// question Fleet holds, so nothing the agent calls says it.
-    pub(crate) fn handoff_brief(asking: &AskingToRun) -> Option<String> {
-        let said = asking
-            .questions()
-            .into_iter()
-            .flat_map(|question| question.options)
+    pub(crate) fn handoff_brief(questions: &[ipc::AskedQuestion]) -> Option<String> {
+        let said = questions
+            .iter()
+            .flat_map(|question| question.options.iter())
             .find(|option| option.label == ipc::HANDOFF_YES)?
-            .description;
-        let said = said.trim();
+            .description
+            .trim();
         (!said.is_empty()).then(|| said.chars().take(BRIEF_CHARS).collect())
     }
 
@@ -159,6 +159,17 @@ where
         let (fleet, old) = (Arc::clone(self), old.to_string());
         tokio::spawn(async move { fleet.handing_on(&old, brief).await });
         RunOrNot::Deny { message: String::from(MOVED) }
+    }
+
+    /// [`Self::handed_on`] on a task of its own, for a caller with no call to answer. **Not async, and
+    /// the task boxed**: the hand starts a Job, whose messages come back through the caller, and an
+    /// awaited hand would make the caller's future contain itself.
+    pub(crate) fn handed_on_apart(self: &Arc<Self>, old: &str, brief: Option<String>) {
+        let (fleet, old) = (Arc::clone(self), old.to_string());
+        let hand: std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>> = Box::pin(async move {
+            fleet.handed_on(&old, brief).await;
+        });
+        tokio::spawn(hand);
     }
 
     /// The Context rule tripped with the Large context setting at carry on automatically, the owner's

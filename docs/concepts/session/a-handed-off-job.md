@@ -27,6 +27,12 @@ The setting *Large context* can stand in for the card, or silence the tell (belo
 | `Stay, don't ask again this Job` | `handoff_quiet`, `spent` | Never tells it again |
 | `Remind me at a higher limit` | Fleet puts its own question, `Ask again at`, on the same card while the Job's call waits: `450k`, `500k`, `600k`, keys 1 to 3. The figure he presses is `handoff_remind_at`, `standing`, its target the tokens, and the Job reads it beside his first answer | Tells it nothing until its context passes the figure, then once, and the row is `spent`. From there the rule is as it always is |
 
+**A card asked while he walks a page is kept, and his answer to it hands on all the same.**
+The card is refused to the Job and kept in Needs you (`session_host/asking.rs`), so no call waits on it.
+Bridge sends his answer as his message, a line a question opening `Answering your earlier question`.
+Fleet reads it against the kept question before the message reaches the thread: `Carry on in a new Job` runs the hand with the kept card's brief, and the message is not sent to the Job it ends; `Stay, don't ask again this Job` keeps `handoff_quiet`.
+`Remind me at a higher limit` answered this way keeps nothing, since no call is left to put `Ask again at` on.
+
 A second figure gives back the first.
 No figure inside the hold keeps nothing, and the rule stays as it was.
 
