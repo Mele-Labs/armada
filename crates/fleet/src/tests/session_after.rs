@@ -304,11 +304,12 @@ async fn record_with_plan(states: &[ipc::PlanTaskState]) -> SessionRecord {
         .collect();
     record.plan = Some(ipc::SessionPlan {
         version: 1,
+        summary: String::new(),
         recorded_at: ipc::Instant::carried("2026-10-16T10:00:00.000Z"),
         approved: true,
         approved_at: None,
         scope: Vec::new(),
-        groups: vec![ipc::SessionPlanGroup { id: "g1".into(), agent: "x".into(), title: "Add the overlay".into(), paths: Vec::new(), tasks, issue: None, worked_at: None }],
+        groups: vec![ipc::SessionPlanGroup { id: "g1".into(), agent: "x".into(), title: "Add the overlay".into(), gives: None, paths: Vec::new(), tasks, issue: None, worked_at: None }],
         changes: None,
         sketch: None,
         held_by: Vec::new(),

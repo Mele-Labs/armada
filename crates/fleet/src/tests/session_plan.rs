@@ -145,6 +145,30 @@ async fn a_plan_with_a_blank_group_or_a_path_outside_the_repository_is_refused_w
     }
 }
 
+/// The summary and a group's `gives` are the person's first read, so they come back on the record as
+/// the agent wrote them (trimmed), through the store, and a plan recorded again carries the new ones.
+#[tokio::test]
+async fn the_record_carries_the_summary_and_each_groups_gives_through_the_store() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    let mut one = first(&id);
+    one.summary = "  You get a page that shows what is next.  ".into();
+    one.groups[0].gives = Some(" The page itself. ".into());
+    let kept = recorded(&rig, one).await.plan.expect("a plan");
+    assert_eq!(kept.summary, "You get a page that shows what is next.");
+    assert_eq!(kept.groups[0].gives.as_deref(), Some("The page itself."));
+    assert_eq!(kept.groups[1].gives, None, "a group that gives none says none");
+
+    let reread = Arc::clone(&rig.fleet).get_session(id.clone()).await.expect("read").session.plan.expect("a plan");
+    assert_eq!((reread.summary.as_str(), reread.groups[0].gives.as_deref()), (kept.summary.as_str(), Some("The page itself.")));
+
+    let mut again = first(&id);
+    again.summary = "You get a page and a sound.".into();
+    let second = recorded(&rig, again).await.plan.expect("a plan");
+    assert_eq!((second.version, second.summary.as_str()), (2, "You get a page and a sound."));
+    assert_eq!(second.groups[0].gives, None, "gives is the new recording's, not inherited");
+}
+
 #[tokio::test]
 async fn approving_clears_the_call_and_tells_the_agent_once() {
     let rig = rig_placing(None);

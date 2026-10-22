@@ -38,6 +38,7 @@ pub(crate) fn recorded(
     groups: &[PlanGroupInput],
     sketch: Option<(String, String)>,
     walk: Option<String>,
+    summary: String,
     now: &str,
 ) -> KeptPlan {
     let empty = Vec::new();
@@ -145,6 +146,7 @@ pub(crate) fn recorded(
             id,
             agent: group.agent.clone(),
             title: group.title.clone(),
+            gives: group.gives.clone(),
             paths: group.paths.clone(),
             issue: group.issue.clone(),
             worked_at: old.and_then(|old| old.worked_at.clone()),
@@ -168,6 +170,7 @@ pub(crate) fn recorded(
     }
     KeptPlan {
         version: before.map_or(1, |plan| plan.version + 1),
+        summary,
         recorded_at: now.to_string(),
         approved_at: None,
         sketch,
@@ -337,6 +340,7 @@ pub(crate) fn wire(plan: &KeptPlan) -> SessionPlan {
     let renamed = |kind: &'static str| held.iter().filter(move |one| one.kind == kind);
     SessionPlan {
         version: plan.version,
+        summary: plan.summary.clone(),
         recorded_at: Instant::carried(&plan.recorded_at),
         approved: plan.approved_at.is_some(),
         approved_at: plan.approved_at.as_deref().map(Instant::carried),
@@ -348,6 +352,7 @@ pub(crate) fn wire(plan: &KeptPlan) -> SessionPlan {
                 id: group.id.clone(),
                 agent: group.agent.clone(),
                 title: group.title.clone(),
+                gives: group.gives.clone(),
                 paths: group.paths.clone(),
                 issue: group.issue.clone(),
                 tasks: group

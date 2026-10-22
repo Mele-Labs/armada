@@ -293,6 +293,9 @@ pub struct SessionPlanGroup {
     pub id: String,
     pub agent: String,
     pub title: String,
+    /// One line of what the group gives the person. Absent where the agent wrote none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub gives: Option<String>,
     pub paths: Vec<String>,
     pub tasks: Vec<SessionPlanTask>,
     /// The issue the group works, as the ledger's `issue` row names it: digits or a tracker's key.
@@ -358,6 +361,10 @@ pub struct PlanSketch {
 pub struct SessionPlan {
     /// One for the first recording, and one more for each that replaces it.
     pub version: u32,
+    /// A few plain lines in the agent's words of what the person gets. Empty for a plan recorded
+    /// before there was one.
+    #[serde(default)]
+    pub summary: String,
     pub recorded_at: Instant,
     /// The person approved this version. A version recorded again is pending until he approves it.
     pub approved: bool,
