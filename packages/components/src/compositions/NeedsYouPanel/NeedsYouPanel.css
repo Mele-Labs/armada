@@ -213,6 +213,12 @@
   gap: var(--space-2);
 }
 
+/* A second press beside a row, Not yet on the plan's, held in from the row's trailing edge. */
+.armada-needs-panel__list .armada-session-ledger__row > .armada-button {
+  align-self: center;
+  margin-inline-end: var(--space-2);
+}
+
 /* The stepper of a deck sits in the Back row, at its far side. */
 .armada-needs-panel__detail { position: relative; }
 .armada-needs-panel__detail .armada-question-deck[data-flat] .armada-question-deck__steps {

@@ -37,7 +37,7 @@ const acts = (row: LedgerEntry): boolean => row.restart === undefined && row.opt
 const asks = (row: LedgerEntry): boolean => row.restart === undefined && !acts(row);
 
 /** One question waiting, as the list draws it and the detail opens it. */
-type Thing = { key: string; Glyph: LucideIcon; said: string; tip: string; text: ReactNode; name: string; row?: LedgerEntry; content?: ReactNode; press?: () => void };
+type Thing = { key: string; Glyph: LucideIcon; said: string; tip: string; text: ReactNode; name: string; row?: LedgerEntry; content?: ReactNode; press?: () => void; /** A second press beside the row, done where it stands. */ aside?: { label: string; press: () => void } };
 
 /** A question answered in the panel's place: the question, a judge's concern, or a row with choices or a reply box. The rest go where they point. */
 const opensHere = (one: Thing): boolean => one.press === undefined && (one.row === undefined || one.row.options !== undefined || one.row.onReply !== undefined);
@@ -63,8 +63,8 @@ export function NeedsYouPanel({
   rows: readonly LedgerEntry[];
   /** `label` is the question's header, `text` the line its row reads, and `children` the card that answers it. */
   question?: { id: string; label: string; text: string; children: ReactNode };
-  /** A plan waiting for approval, first of all: `id` names its version, and its row's press opens the plan beside the thread. */
-  plan?: { id: string; onOpen: () => void };
+  /** A plan waiting for approval, first of all: `id` names its version, and its row's press opens the plan beside the thread. `onSetAside` is Not yet beside it, where it is served. */
+  plan?: { id: string; onOpen: () => void; onSetAside?: () => void };
   /** A judge's concerns, after the question and before the items: `text` is the claim its row reads, `children` the card that sends or dismisses it. */
   judges?: readonly { id: string; text: string; children: ReactNode }[];
   open: boolean;
@@ -82,7 +82,7 @@ export function NeedsYouPanel({
   const host = useRef(onOpen);
   host.current = onOpen;
   // A plan is reviewed, not answered: its own group, above the questions.
-  const planned: Thing[] = plan === undefined ? [] : [{ key: `plan:${plan.id}`, Glyph: ListChecks, said: "Plan", tip: "Plan to approve", text: "Plan to approve", name: "Plan to approve", press: plan.onOpen }];
+  const planned: Thing[] = plan === undefined ? [] : [{ key: `plan:${plan.id}`, Glyph: ListChecks, said: "Plan", tip: "Plan to approve", text: "Plan to approve", name: "Plan to approve", press: plan.onOpen, ...(plan.onSetAside === undefined ? {} : { aside: { label: "Not yet", press: plan.onSetAside } }) }];
   const questions: Thing[] = [
     ...(question === undefined ? [] : [{ key: `question:${question.id}`, Glyph: MessageCircleQuestion, said: question.label, tip: question.label, text: question.text, name: question.text, content: question.children }]),
     ...(judges ?? []).map((one) => ({ key: `judge:${one.id}`, Glyph: Scale, said: "Judge", tip: "Judge", text: one.text, name: one.text, content: one.children })),
@@ -222,6 +222,11 @@ export function NeedsYouPanel({
                             </Tooltip>
                             <span className="armada-session-ledger__text">{one.text}</span>
                           </button>
+                          {one.aside === undefined ? null : (
+                            <Button variant="ghost" size="sm" onClick={one.aside.press}>
+                              {one.aside.label}
+                            </Button>
+                          )}
                         </li>
                       ))}
                     </ul>
