@@ -626,9 +626,10 @@ export const FleetTurnFolds: Story = {
     const [folded] = canvas.getAllByRole("region", { name: "Fleet turn" });
     await expect(canvas.getAllByRole("region", { name: "Fleet turn" })).toHaveLength(1);
     await expect(canvas.getAllByRole("region", { name: "Message from Fleet" })).toHaveLength(1);
-    await expect(within(folded!).queryByText("Noted, continuing.")).toBeNull();
+    await expect(within(folded!).getByRole("img", { name: "Handled" })).toBeVisible();
     await userEvent.click(within(folded!).getByRole("button"));
-    await expect(within(folded!).getByText("Noted, continuing.")).toBeVisible();
+    await expect(within(folded!).queryByText("Noted, continuing.")).toBeNull();
+    await expect(canvas.getByText("Noted, continuing.")).toBeVisible();
   },
 };
 
@@ -647,7 +648,8 @@ export const FleetTurnEndsAtYourMessage: Story = {
   args: {
     rows: [
       { id: "n1", at: "14:10:00", kind: "message", from: "session", sender: FLEET, text: "#2734 failed its checks at 4f2a91c." },
-      { id: "a1", at: "14:11:00", kind: "message", from: "agent", text: "The failure is on main too." },
+      { id: "a1", at: "14:10:30", kind: "message", from: "agent", text: "Checking whether main is red too:" },
+      { id: "a3", at: "14:11:00", kind: "message", from: "agent", text: "The failure is on main too." },
       { id: "y1", at: "15:00:00", kind: "message", from: "you", text: "I reran the build." },
       { id: "a2", at: "15:00:10", kind: "message", from: "agent", text: "I'll read the run when it ends." },
     ] as never,
@@ -655,11 +657,33 @@ export const FleetTurnEndsAtYourMessage: Story = {
   play: async ({ canvas }) => {
     const folded = canvas.getByRole("region", { name: "Fleet turn" });
     await userEvent.click(within(folded).getByRole("button"));
-    await expect(within(folded).getByText("The failure is on main too.")).toBeVisible();
+    await expect(within(folded).getByText("Checking whether main is red too:")).toBeVisible();
     await expect(within(folded).queryByText("I reran the build.")).toBeNull();
     await expect(within(folded).queryByText("I'll read the run when it ends.")).toBeNull();
     await expect(canvas.getByText("I reran the build.")).toBeVisible();
     await expect(canvas.getByText("I'll read the run when it ends.")).toBeVisible();
+  },
+};
+
+/** **The agent's last words in a Fleet turn draw in the thread**: they are meant for the person. Its words on the way stay folded with the tool runs. */
+export const FleetTurnLastWordsUnfolded: Story = {
+  name: "Fleet turn: the agent's last message is not folded",
+  args: {
+    rows: [
+      { id: "n1", at: "14:10:00", kind: "message", from: "session", sender: FLEET, text: "#2734 failed its checks at 4f2a91c." },
+      { id: "t1", at: "14:10:10", kind: "tool", text: "Bash gh run view" },
+      { id: "a1", at: "14:10:20", kind: "message", from: "agent", text: "Checking whether main is red too:" },
+      { id: "t2", at: "14:10:30", kind: "tool", text: "Bash gh run list" },
+      { id: "a2", at: "14:10:40", kind: "message", from: "agent", text: "The failure is on main too, so nothing is pushed." },
+    ] as never,
+  },
+  play: async ({ canvas }) => {
+    const folded = canvas.getByRole("region", { name: "Fleet turn" });
+    await expect(within(folded).getByRole("img", { name: "Handled" })).toBeVisible();
+    await userEvent.click(within(folded).getByRole("button"));
+    await expect(within(folded).getByText("Checking whether main is red too:")).toBeVisible();
+    await expect(within(folded).queryByText("The failure is on main too, so nothing is pushed.")).toBeNull();
+    await expect(canvas.getByText("The failure is on main too, so nothing is pushed.")).toBeVisible();
   },
 };
 

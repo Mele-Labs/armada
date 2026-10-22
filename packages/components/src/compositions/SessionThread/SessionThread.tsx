@@ -28,7 +28,7 @@ import { SessionRetroRow, type SessionRetroRowData } from "../SessionRetroRow/Se
 import { QuestionDeck } from "./QuestionDeck";
 import { LinkedRow } from "./LinkedRow";
 import { DisputedMark, DisputedRow } from "./DisputedRow";
-import { FleetTurn, NOTICE_CHOICES, NOTICE_NAMES, changesWhatIsOwed } from "./FleetTurn";
+import { FleetTurn, NOTICE_CHOICES, NOTICE_NAMES } from "./FleetTurn";
 import type { TurnReply } from "./FleetTurn";
 import { MovedRow } from "./MovedRow";
 import { StartedRow } from "./StartedRow";
@@ -391,7 +391,7 @@ type CheckRow = Extract<SessionThreadRow, { kind: "check" }>;
 type Item =
   | { kind: "row"; row: Exclude<SessionThreadRow, { kind: "tool" | "check" }> }
   | { kind: "calls"; id: string; rows: readonly Extract<SessionThreadRow, { kind: "tool" }>[] }
-  | { kind: "fleetTurn"; id: string; notice: Extract<SessionThreadRow, { kind: "message"; from: "session" }>; reply: readonly TurnReply[] }
+  | { kind: "fleetTurn"; id: string; notice: Extract<SessionThreadRow, { kind: "message"; from: "session" }>; reply: readonly TurnReply[]; handled: boolean }
   | { kind: "checks"; id: string; rows: readonly CheckRow[] };
 
 /**
@@ -410,11 +410,10 @@ function itemsOf(rows: readonly SessionThreadRow[], keep: ReadonlySet<string> = 
         else break;
         at += 1;
       }
-      // A turn that changed what the owner owes ends in words meant for him: its last agent message is drawn outside the fold.
-      const spoken = reply.map((one) => one.kind === "message" && one.from === "agent").lastIndexOf(true);
-      const owed = spoken >= 0 && reply.some(changesWhatIsOwed);
-      const said = owed ? (reply[spoken] as Extract<TurnReply, { kind: "message" }>) : undefined;
-      items.push({ kind: "fleetTurn", id: row.id, notice: row, reply: said === undefined ? reply : reply.filter((one) => one !== said) });
+      // A turn ends in words meant for the person: its last agent message is drawn outside the fold.
+      const spoken = reply.map((one) => one.kind === "message").lastIndexOf(true);
+      const said = spoken >= 0 ? (reply[spoken] as Extract<TurnReply, { kind: "message" }>) : undefined;
+      items.push({ kind: "fleetTurn", id: row.id, notice: row, reply: said === undefined ? reply : reply.filter((one) => one !== said), handled: reply.length > 0 });
       if (said !== undefined) items.push({ kind: "row", row: said });
       continue;
     }
@@ -1500,7 +1499,7 @@ export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer
             item.kind === "calls" ? (
               <Calls key={item.id} rows={item.rows} working={working === true && at === items.length - 1} {...(onStop === undefined ? {} : { onStop })} />
             ) : item.kind === "fleetTurn" ? (
-              <FleetTurn key={item.id} notice={item.notice} reply={item.reply} {...(onMuteNotice === undefined ? {} : { onMuteNotice })} />
+              <FleetTurn key={item.id} notice={item.notice} reply={item.reply} handled={item.handled}{...(onMuteNotice === undefined ? {} : { onMuteNotice })} />
             ) : item.kind === "checks" ? (
               <CheckRuns key={item.id} rows={item.rows} {...(onOpenCheck === undefined ? {} : { onOpenCheck })} />
             ) : (
