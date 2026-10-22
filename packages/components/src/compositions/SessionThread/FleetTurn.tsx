@@ -1,6 +1,6 @@
 import { useId, useState } from "react";
 import type { KeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
-import { BellRing, ChevronRight } from "lucide-react";
+import { BellRing, Check, ChevronRight } from "lucide-react";
 
 import { DropdownMenu } from "../../primitives/DropdownMenu/DropdownMenu";
 import { Prose } from "../../primitives/Prose/Prose";
@@ -21,8 +21,14 @@ export const NOTICE_CHOICES: { id: NoticeChoice; label: string }[] = [
 /** What each notice is called in the menu's header, which reads "Disable <name>". */
 export const NOTICE_NAMES: Record<SessionNotice, string> = { behind_base: "slot behind notice" };
 
-/** The folded row's name: the notice's own kind where the message carries one, else a plain fallback. */
-const NOTICE_LABELS: Record<SessionNotice, string> = { behind_base: "Slot behind" };
+/** The folded row's name: the notice's first sentence, up to the first ". " or line break, without its closing full stop. */
+export function summaryOf(text: string): string {
+  const first = text.trim().split(/\n|\.\s/)[0] ?? "";
+  return first.replace(/\.$/, "");
+}
+
+/** Whether a tool row is the agent changing what the owner owes. */
+export const changesWhatIsOwed = (row: TurnReply): boolean => row.kind === "tool" && /waiting_for/.test(row.text);
 
 /**
  * A turn Fleet started: its notice, the agent's reply and the tool runs between. One dim row; a press opens the notice and the
@@ -33,7 +39,7 @@ export function FleetTurn({ notice, reply, onMuteNotice }: { notice: Notice; rep
   const [menu, setMenu] = useState<{ x: number; y: number; row: HTMLElement | null } | undefined>(undefined);
   const kind = notice.notice;
   const muting = kind !== undefined && onMuteNotice !== undefined;
-  const name = kind === undefined ? "Fleet notice" : NOTICE_LABELS[kind];
+  const name = summaryOf(notice.text);
   const body = useId();
   return (
     <li
@@ -64,8 +70,15 @@ export function FleetTurn({ notice, reply, onMuteNotice }: { notice: Notice; rep
           </span>
         </Tooltip>
         <Tooltip label={notice.text}>
-          <span className="armada-fleet-turn__label">{reply.length === 0 ? name : `${name} · handled`}</span>
+          <span className="armada-fleet-turn__label">{name}</span>
         </Tooltip>
+        {reply.length === 0 ? null : (
+          <Tooltip label="Handled">
+            <span role="img" aria-label="Handled" className="armada-fleet-turn__mark">
+              <Check size={12} strokeWidth={2} aria-hidden />
+            </span>
+          </Tooltip>
+        )}
       </button>
       {open ? (
         <div id={body} className="armada-fleet-turn__body">

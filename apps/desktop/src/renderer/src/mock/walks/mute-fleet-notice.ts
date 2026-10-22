@@ -4,7 +4,7 @@
 import { deckRow, inside, region, role, text, walk } from "../walk";
 import type { Step } from "../walk";
 
-const notice = inside(region("Fleet turn"), text(/Slot behind/));
+const notice = inside(region("Fleet turn"), text(/23 commits behind master/));
 
 const open: Step[] = [
   { press: deckRow("Fix the flaky store test"), say: "Open the Job" },

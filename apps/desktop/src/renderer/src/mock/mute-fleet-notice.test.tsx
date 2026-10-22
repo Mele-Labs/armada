@@ -22,7 +22,7 @@ async function open() {
 }
 
 const rightPress = (region: string, words: RegExp): void => {
-  const target = page.getByRole("region", { name: region }).getByText(words).element();
+  const target = page.getByRole("region", { name: region }).getByRole("button", { name: words }).element();
   const box = target.getBoundingClientRect();
   target.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, composed: true, view: window, clientX: box.x + 4, clientY: box.y + 4, button: 2 }));
 };
@@ -36,7 +36,7 @@ const choices = [
 for (const [item, scope] of choices) {
   test(`${item} sends one mute for the notice`, async () => {
     const fleet = await open();
-    rightPress("Fleet turn", /Slot behind/);
+    rightPress("Fleet turn", /23 commits behind master/);
     await expect.element(page.getByRole("menuitem", { name: item })).toBeVisible();
     await userEvent.click(page.getByRole("menuitem", { name: item }));
     expect(fleet.calls.muted).toEqual([{ notice: "behind_base", scope, muted: true }]);
@@ -45,12 +45,13 @@ for (const [item, scope] of choices) {
 
 test("the menu holds exactly the three choices", async () => {
   await open();
-  rightPress("Fleet turn", /Slot behind/);
+  rightPress("Fleet turn", /23 commits behind master/);
   await expect.element(page.getByRole("menuitem")).toHaveLength(3);
 });
 
 test("a message from another Job has no Disable menu", async () => {
   await open();
-  rightPress("Message from Round the totals", /totals file/);
+  const other = page.getByRole("region", { name: "Message from Round the totals" }).getByText(/totals file/).element();
+  other.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, composed: true, view: window, button: 2 }));
   await expect.element(page.getByRole("menuitem", { name: /^Disable/ })).not.toBeInTheDocument();
 });

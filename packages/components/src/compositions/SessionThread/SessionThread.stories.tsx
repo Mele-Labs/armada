@@ -633,6 +633,28 @@ export const FleetTurnFoldsAfterAnswer: Story = {
   },
 };
 
+/** **A folded row is named by the notice's first sentence**, marked handled once the agent replied; a turn that changed what is owed shows its last agent message outside the fold. */
+export const FleetTurnSummaryAndOwed: Story = {
+  name: "Fleet turn: summary, handled, owner-facing prose",
+  args: {
+    rows: [
+      { id: "a", at: "14:00:00", kind: "message", from: "session", sender: FLEET, text: "#2734 merged into main. finish_up releases your slots." },
+      { id: "b", at: "14:00:10", kind: "message", from: "agent", text: "Releasing now." },
+      { id: "c", at: "14:00:20", kind: "tool", text: "armada waiting_for" },
+      { id: "d", at: "14:00:30", kind: "message", from: "agent", text: "The only open item is in Needs you." },
+      { id: "e", at: "14:10:00", kind: "message", from: "session", sender: FLEET, text: "slot-5's branch merged. Lease it again." },
+    ] as never,
+  },
+  play: async ({ canvas }) => {
+    const [first, second] = canvas.getAllByRole("region", { name: "Fleet turn" });
+    await expect(within(first!).getByRole("button", { name: /#2734 merged into main/ })).toBeVisible();
+    await expect(within(first!).getByRole("img", { name: "Handled" })).toBeVisible();
+    await expect(within(first!).queryByText("The only open item is in Needs you.")).toBeNull();
+    await expect(canvas.getByText("The only open item is in Needs you.")).toBeVisible();
+    await expect(within(second!).queryByRole("img", { name: "Handled" })).toBeNull();
+  },
+};
+
 /** The page's clipboard, replaced by one that keeps what it was given, and the way back. */
 function stubClipboard() {
   const written: string[] = [];

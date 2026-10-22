@@ -28,7 +28,7 @@ import { SessionRetroRow, type SessionRetroRowData } from "../SessionRetroRow/Se
 import { QuestionDeck } from "./QuestionDeck";
 import { LinkedRow } from "./LinkedRow";
 import { DisputedMark, DisputedRow } from "./DisputedRow";
-import { FleetTurn, NOTICE_CHOICES, NOTICE_NAMES } from "./FleetTurn";
+import { FleetTurn, NOTICE_CHOICES, NOTICE_NAMES, changesWhatIsOwed } from "./FleetTurn";
 import type { TurnReply } from "./FleetTurn";
 import { MovedRow } from "./MovedRow";
 import { StartedRow } from "./StartedRow";
@@ -409,7 +409,12 @@ function itemsOf(rows: readonly SessionThreadRow[], keep: ReadonlySet<string> = 
         else break;
         at += 1;
       }
-      items.push({ kind: "fleetTurn", id: row.id, notice: row, reply });
+      // A turn that changed what the owner owes ends in words meant for him: its last agent message is drawn outside the fold.
+      const spoken = reply.map((one) => one.kind === "message" && one.from === "agent").lastIndexOf(true);
+      const owed = spoken >= 0 && reply.some(changesWhatIsOwed);
+      const said = owed ? (reply[spoken] as Extract<TurnReply, { kind: "message" }>) : undefined;
+      items.push({ kind: "fleetTurn", id: row.id, notice: row, reply: said === undefined ? reply : reply.filter((one) => one !== said) });
+      if (said !== undefined) items.push({ kind: "row", row: said });
       continue;
     }
     const last = items[items.length - 1];
@@ -1432,7 +1437,8 @@ export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer
   const all = useMemo(() => {
     const folded = itemsOf(rows, disputes);
     const last = folded[folded.length - 1];
-    return (asking || waitingOnYou === true) && last?.kind === "fleetTurn" ? itemsOf(rows, new Set([...disputes, last.id])) : folded;
+    const turn = last?.kind === "fleetTurn" ? last : folded[folded.length - 2]?.kind === "fleetTurn" && last?.kind === "row" && last.row.kind === "message" && last.row.from === "agent" ? folded[folded.length - 2] : undefined;
+    return (asking || waitingOnYou === true) && turn?.kind === "fleetTurn" ? itemsOf(rows, new Set([...disputes, turn.id])) : folded;
   }, [rows, disputes, asking, waitingOnYou]);
   const [drawn, setDrawn] = useState(DRAWN);
   useLayoutEffect(() => {

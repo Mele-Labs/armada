@@ -24,7 +24,9 @@
 .armada-fleet-turn__chevron { transition: transform var(--duration-fast, 120ms); }
 .armada-fleet-turn[data-open="true"] .armada-fleet-turn__chevron { transform: rotate(90deg); }
 .armada-fleet-turn__mark { display: inline-flex; }
-.armada-fleet-turn__label { font-family: var(--font-mono); }
+.armada-fleet-turn__label { font-family: var(--font-mono); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.armada-fleet-turn__row > * { flex: none; }
+.armada-fleet-turn__row > .armada-fleet-turn__label { flex: 0 1 auto; }
 
 .armada-fleet-turn__body {
   display: flex;
