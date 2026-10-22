@@ -41,6 +41,9 @@ pub(crate) fn shape(reading: TextReading) -> (&'static str, usize, encoding::Kee
         TextReading::ReplyAsks => ("asks", 128, encoding::Keep::End),
         // A Job turns a tell down as it starts to answer it.
         TextReading::TellRefused => ("refused", 256, encoding::Keep::Start),
+        // One sentence of a close, read alone: short, so its start is all of it.
+        TextReading::SentenceAsks => ("sentence_asks", 64, encoding::Keep::Start),
+        TextReading::SentenceFollowsUp => ("sentence_follows_up", 64, encoding::Keep::Start),
     }
 }
 
