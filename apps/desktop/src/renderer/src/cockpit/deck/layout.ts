@@ -67,6 +67,8 @@ export type DroneIn = {
   off?: "pad" | "walk" | "think";
   /** The drone that sent it, by key: a subagent, drawn smaller and joined to it by a faint line. */
   parent?: string;
+  /** A subagent's: the title of the Job it works for, which its card names where a Job's names its kind. */
+  job?: string;
 };
 
 export function droneOf(subject: Subject, owed: boolean, extra: { slot?: string | undefined; file?: string | undefined; shown: boolean; touches?: readonly Touch[] }): DroneIn {

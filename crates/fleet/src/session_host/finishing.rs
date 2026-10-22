@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, SlotHeld, Vcs, WorkProduct};
 use api::Refusal;
-use ipc::{FinishUp, FinishedUp};
+use ipc::{FinishUp, FinishedUp, SessionRow};
 use store::Holder;
 
 use crate::daemon::Fleet;
@@ -67,6 +67,13 @@ where
                     done.released.push(slot);
                     self.stopped_servers_in(&adapter_traits::slot_path(served.root(), slot)).await;
                     self.session_slot(&id, session.title.clone(), Some(hosting.manifest_id.clone()), slot, false);
+                    if let Some(branch) = &branch {
+                        self.row_put(
+                            &id,
+                            SessionRow::Release { id: self.row_id(&id), at: self.instant(), slot, branch: branch.clone() },
+                        )
+                        .await;
+                    }
                 }
                 Err(why) => done.kept.push(format!("slot {slot}: {}", why.0)),
             }

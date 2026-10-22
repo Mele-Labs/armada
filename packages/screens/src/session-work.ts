@@ -95,6 +95,7 @@ export function fieldOf(touches: readonly FileTouch[]): { field: WorkDrone[]; fi
     path: plotOf(touch.path),
     doing: "write",
     file: touch.path,
+    at: touch.at,
   }));
   return { field, files: [...files.values()] };
 }

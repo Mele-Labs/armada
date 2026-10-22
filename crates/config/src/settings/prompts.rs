@@ -24,6 +24,7 @@ pub const PROMPT_HELM_ROUTE: Words = Words("prompts.helmRoute");
 pub const PROMPT_HELM_VOICE: Words = Words("prompts.helmVoice");
 pub const PROMPT_AUTOPILOT_SENTENCE: Words = Words("prompts.autopilotSentence");
 pub const PROMPT_AUTOPILOT_PICKER: Words = Words("prompts.autopilotPicker");
+pub const PROMPT_TEST_MAP_READING: Words = Words("prompts.testMapReading");
 
 /// Every prompt handle in the table, so a caller supplying or reading them
 /// all cannot miss one.
@@ -44,16 +45,18 @@ pub enum PromptSection {
     Autopilot,
     Helm,
     Retros,
+    TestMap,
 }
 
 impl PromptSection {
     /// Every section, in the order Bridge draws them.
-    pub const ORDER: [PromptSection; 5] = [
+    pub const ORDER: [PromptSection; 6] = [
         PromptSection::Judge,
         PromptSection::Scouts,
         PromptSection::Autopilot,
         PromptSection::Helm,
         PromptSection::Retros,
+        PromptSection::TestMap,
     ];
 
     /// Where the section stands in [`PromptSection::ORDER`]. Exhaustive, so a
@@ -65,6 +68,7 @@ impl PromptSection {
             PromptSection::Autopilot => 2,
             PromptSection::Helm => 3,
             PromptSection::Retros => 4,
+            PromptSection::TestMap => 5,
         }
     }
 
@@ -76,6 +80,7 @@ impl PromptSection {
             PromptSection::Autopilot => "Autopilot",
             PromptSection::Helm => "Helm",
             PromptSection::Retros => "Retros",
+            PromptSection::TestMap => "Test map",
         }
     }
 }
@@ -195,4 +200,11 @@ pub(super) const PROMPTS: &[Entry] = &[
         &["candidates", "message"],
     ),
     prompt(PromptSection::Helm, PROMPT_HELM_VOICE, "Voice", "The block Machine Voice is given in. {voice} is the setting.", &["voice"]),
+    prompt(
+        PromptSection::TestMap,
+        PROMPT_TEST_MAP_READING,
+        "Reading a file",
+        "What the model is asked when main moves and a changed file no collector can measure is read for the tests that exercise it. {file} is the file's path, {text} its text, {tests} the test files it may choose from, {bytes} how much of the text it is shown and {most} how many test files it is offered. Its answer is read as one path a line, so keep that.",
+        &["file", "text", "tests", "bytes", "most"],
+    ),
 ];

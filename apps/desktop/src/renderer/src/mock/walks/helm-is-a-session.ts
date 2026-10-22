@@ -26,7 +26,7 @@ const helmIsASession = walk("helm-is-a-session", [
   { hover: inside(thread, button("Stop")), say: "Stop, beside the working mark, as a Job's is" },
 
   { later: inside(thread, button("Stop")), say: "Helm writes" },
-  { look: inside(thread, region("Leased on first write")), say: "The first write leases a slot and cuts a branch, in the thread where it happened" },
+  { look: inside(thread, region("Slot leased")), say: "The first write leases a slot and cuts a branch, in the thread where it happened" },
   { look: inside(held, role("img", "Worktree slot 8")), say: "The slot is the chip on the branch's chip under the dock's head" },
   { hover: inside(held, button("Open Branch helm/pin-ledger-clock")), say: "Named on hover" },
 

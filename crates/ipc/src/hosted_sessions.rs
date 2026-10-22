@@ -452,6 +452,13 @@ pub enum SessionRow {
         slot: u32,
         branch: String,
     },
+    /// The slot given back, with the branch it was on.
+    Release {
+        id: String,
+        at: Instant,
+        slot: u32,
+        branch: String,
+    },
     /// The session showed the person a page in a window.
     Window {
         id: String,
@@ -540,6 +547,10 @@ pub enum SessionRow {
         /// What the run was narrowed to. Absent where it ran whole.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         target: Option<String>,
+        /// Where a failed run's log says it failed. Absent while running, on a pass, and where
+        /// the log names no file in the slot.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        blame: Option<crate::CheckBlame>,
     },
     /// A command the person ran from the thread or the Needs-you band, ended, and what the
     /// session was told of it. `code` is absent where the run was stopped or a signal ended it;
@@ -688,6 +699,7 @@ impl SessionRow {
             | SessionRow::Command { id, .. }
             | SessionRow::Compaction { id, .. }
             | SessionRow::Lease { id, .. }
+            | SessionRow::Release { id, .. }
             | SessionRow::Window { id, .. }
             | SessionRow::Started { id, .. }
             | SessionRow::Linked { id, .. }

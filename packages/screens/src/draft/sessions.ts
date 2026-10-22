@@ -11,7 +11,7 @@
 import type { ContextBreakdown } from "@armada/components/src/context-breakdown";
 import type { Scene } from "@armada/components/src/compositions/SketchScene/scene";
 import type { RunsPlace } from "@armada/components/src/compositions/RepositoryRuns/runs-places";
-import type { LoadoutItemBody, LoadoutKind, LoadoutSource, LoadoutSummary, Notice, NoticeScope, PullRequestFilePatch, PullRequestPage, RequestBy, RequestHeader, SessionBuild, SessionLoadout, SessionStanding, ThoughtTarget, WaitingItem, WritePullRequest } from "@armada/protocol";
+import type { CheckBlame, LoadoutItemBody, LoadoutKind, LoadoutSource, LoadoutSummary, Notice, NoticeScope, PullRequestFilePatch, PullRequestPage, RequestBy, RequestHeader, SessionBuild, SessionLoadout, SessionStanding, ThoughtTarget, WaitingItem, WritePullRequest } from "@armada/protocol";
 import type { McpServerAct, McpSignIn, SessionMcpServer } from "@armada/protocol";
 import type { RetroRowDrawn } from "../retro-row";
 
@@ -174,7 +174,7 @@ export type PlanChanges = { added: readonly string[]; renamed: readonly { id: st
 export type WorkPlan = { /** The version the agent recorded, which approving and sending changes name. */ version?: number; scope: readonly string[]; groups: readonly WorkGroup[]; approved: boolean; /** What changed since the plan before this one. */ changes?: PlanChanges; /** The sketch drawn with the plan, if the agent drew one. */ sketch?: WorkSketch; /** The thread row that recorded it, which the approved plan settles after. */ after?: string };
 
 /** A drone of this Session over the area it is working in: the Session's own, or a subagent of `agent` type. */
-export type WorkDrone = { id: string; agent?: string; task?: string; path: string; doing: "read" | "write" | "run"; /** The file it is over, which the Field draws as a bar. */ file?: string };
+export type WorkDrone = { id: string; agent?: string; task?: string; path: string; doing: "read" | "write" | "run"; /** The file it is over, which the Field draws as a bar. */ file?: string; /** When Fleet saw it touch that file. */ at?: string };
 
 /** A file of the repository as the Field draws it, a bar on the plot of its directory. `act` is what is being done to it now: made, changed or taken away. */
 export type WorkFile = { path: string; act?: "write" | "edit" | "remove" };
@@ -306,14 +306,16 @@ type SessionRowKinds =
   | { id: string; at: string; kind: "disputed"; notice: string; why: string; spotted: "called" | "read"; review?: string }
   /** The agent's first write: the slot leased and the branch cut, drawn in the thread where it happened. */
   | { id: string; at: string; kind: "lease"; slot: number; branch: string }
+  /** The slot given back, drawn in the thread where it happened. */
+  | { id: string; at: string; kind: "release"; slot: number; branch: string }
   /** A value the person changed through a panel, which the agent was told of: what it was and what it is now. */
   | { id: string; at: string; kind: "change"; what: string; from: string; to: string }
   /** A judge's concern he dismissed: one settled line, and the agent was told nothing. */
   | { id: string; at: string; kind: "concern"; step: string; text: string }
   /** The changes and notes he sent on the plan, one message with a line for each. */
   | { id: string; at: string; kind: "suggest"; lines: readonly SuggestLine[] }
-  /** An `armada check` the agent ran in its slot: the Check's key, its run on the Checks page, and where it stands. */
-  | { id: string; at: string; kind: "check"; name: string; run: number; state: "running" | "passed" | "failed"; target?: string }
+  /** An `armada check` the agent ran in its slot: the Check's key, its run on the Checks page, where it stands, and where Fleet read it failed. */
+  | { id: string; at: string; kind: "check"; name: string; run: number; state: "running" | "passed" | "failed"; target?: string; blame?: CheckBlame }
   /** A command the person ran from the thread or the band, which the Session was told: its exit (`code` is null where it was stopped) and the last lines it printed, as plain text. */
   | { id: string; at: string; kind: "ran"; command: string; code: number | null; tail: string }
   /**
@@ -501,6 +503,8 @@ export type Session = {
   build?: SessionBuild;
   /** What the Session waits on the person for: the agent's list with Fleet's own items merged in. Absent or empty is nothing. */
   waitingFor?: readonly WaitingItem[];
+  /** The follow-ups the agent kept for itself and has not settled, oldest first. `SessionRecord.later`; `id` is what a Drop names. */
+  later?: readonly { id: string; text: string; at: string }[];
   /** The agent says it has nothing left to work on, since when. `SessionRecord.done_since`. A message from the person clears it. */
   done?: { since: string };
   /**
@@ -762,6 +766,8 @@ export type SessionsDraft = {
   close?: (id: string) => void;
   /** Ends the turn that is running; the Session rests and takes the next message. Absent in the mock's fixtures. */
   stop?: (id: string) => void;
+  /** The person drops a follow-up the Session kept (`later` is its id in `Session.later`), and Fleet takes it off the list. */
+  dropLater?: (id: string, later: string) => void;
   /** Runs a failed hand off again for Job `id`. */
   retryHandoff?: (id: string) => void;
   /**

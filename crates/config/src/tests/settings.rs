@@ -28,6 +28,7 @@ fn supplied() -> Supplied {
         .words(s::MODELS_RETRO, "middle")
         .words(s::MODELS_SECOND_OPINION, "middle")
         .words(s::MODELS_DISPUTE, "small")
+        .words(s::MODELS_TEST_MAP, "small")
         .words(s::PLAN_DOWNSHIFT_TO, "middle")
         .harnesses(&["the-cli"])
 }
@@ -195,6 +196,7 @@ fn every_handle_names_an_entry_of_its_kind() {
         s::MODELS_RETRO,
         s::MODELS_SECOND_OPINION,
         s::MODELS_DISPUTE,
+        s::MODELS_TEST_MAP,
         s::PLAN_DOWNSHIFT_TO,
         s::PLAN_CONTEXT_HANDOFF,
         s::EFFORT_DEFAULT,
@@ -229,7 +231,7 @@ fn every_handle_names_an_entry_of_its_kind() {
             key.name()
         );
     }
-    let handles = 18 + 10 + 12 + 24 + 2 + 4 + s::prompt_keys().count();
+    let handles = 18 + 10 + 12 + 25 + 2 + 4 + s::prompt_keys().count();
     assert_eq!(
         entries().count(),
         handles,

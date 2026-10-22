@@ -420,8 +420,11 @@ export function rowsOfThread(sessionId: string, rows: readonly WireRow[], pictur
       case "lease":
         out.push({ id: row.id, at, kind: "lease", slot: row.slot, branch: row.branch });
         break;
+      case "release":
+        out.push({ id: row.id, at, kind: "release", slot: row.slot, branch: row.branch });
+        break;
       case "check":
-        out.push({ id: row.id, at, kind: "check", name: row.name, run: row.run, state: row.state, ...(row.target === undefined ? {} : { target: row.target }) });
+        out.push({ id: row.id, at, kind: "check", name: row.name, run: row.run, state: row.state, ...(row.target === undefined ? {} : { target: row.target }), ...(row.blame === undefined ? {} : { blame: row.blame }) });
         break;
       case "ran":
         out.push({ id: row.id, at, kind: "ran", command: row.command, code: row.code ?? null, tail: row.tail });
@@ -591,6 +594,7 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
     ...(ended || record.done_since === undefined ? {} : { done: { since: record.done_since } }),
     ...(ended || record.standing === undefined ? {} : { standing: record.standing }),
     ...(ended || record.waits === undefined ? {} : { waits: waitOfWire(record.waits) }),
+    ...(ended || (record.later?.length ?? 0) === 0 ? {} : { later: (record.later ?? []).map((one) => ({ id: one.id, text: one.sentence, at: one.said_at })) }),
     ...(work === undefined ? {} : { work }),
   };
 }

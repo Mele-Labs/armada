@@ -111,7 +111,7 @@ function Drone({ spec, facts, big, acts }: DroneProps) {
         role="option"
         tabIndex={0}
         aria-selected={spec.selected}
-        aria-label={`${d.title}, Job, ${d.said}`}
+        aria-label={`${d.title}, ${d.job === undefined ? "Job" : `subagent of ${d.job}`}, ${d.said}`}
         data-hit="drone"
         data-key={d.key}
         data-label={d.title}

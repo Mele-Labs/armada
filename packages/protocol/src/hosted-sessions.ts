@@ -266,6 +266,9 @@ export type PartialRetroItem = {
 /** The `retro` row of a hosted Session's thread. Since 23.78. */
 export type RetroRow = Extract<SessionRow, { kind: "retro" }>;
 
+/** Where a failed check's log says it failed: a path relative to the slot, and its 1-based line where the log names one. */
+export type CheckBlame = { path: string; line?: number };
+
 /** One row of a hosted session's thread. A row is replaced by its `id`. */
 export type SessionRow =
   | {
@@ -306,11 +309,14 @@ export type SessionRow =
   | { kind: "disputed"; id: string; at: string; notice: string; why: string; spotted: "called" | "read"; review?: string }
   /** The first write: the slot leased and the branch cut. */
   | { kind: "lease"; id: string; at: string; slot: number; branch: string }
+  /** The slot given back, with the branch it was on. */
+  | { kind: "release"; id: string; at: string; slot: number; branch: string }
   /**
    * An `armada check` the agent ran in its slot, replaced by id as it ends. `run` is the id `GET /sessions/checks/:run/output` reads. Since 23.75.
    * `target` is what the run was narrowed to, the filter it was given or the crates `--changed` narrowed to; absent, it ran whole.
+   * `blame` is where a failed run's log says it failed, read by Fleet as the run ends; absent while running, on a pass, and where the log names no file.
    */
-  | { kind: "check"; id: string; at: string; name: string; run: number; state: "running" | "passed" | "failed"; target?: string }
+  | { kind: "check"; id: string; at: string; name: string; run: number; state: "running" | "passed" | "failed"; target?: string; blame?: CheckBlame }
   /**
    * A command the person ran from the thread or the Needs-you band, ended, and what the Session was told of it, in place
    * of a message from Fleet. `code` is absent where the run was stopped or a signal ended it; `tail` is the last lines it

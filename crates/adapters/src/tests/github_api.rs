@@ -244,6 +244,16 @@ fn a_401_reads_the_token_again_and_retries_once() {
     assert_eq!(reads.load(Ordering::SeqCst), 2);
 }
 
+/// Fleet asks the forge from a handler's own task as well as from a blocking thread. The blocking
+/// client panics waiting there, and a pull request's panel came back with no answer at all.
+#[tokio::test]
+async fn a_call_from_a_task_on_a_runtime_answers() {
+    let server = serve(|_| ok("{}"));
+    let (api, _) = api(&server.url, &["t"]);
+    assert_eq!(api.get("/user").unwrap().status, 200);
+    assert_eq!(api.get_as("/pulls/1", "application/vnd.github.v3.diff").unwrap().status, 200);
+}
+
 #[test]
 fn a_second_401_is_refused_without_a_third_try() {
     let server = serve(|_| Reply { status: 401, headers: Vec::new(), body: r#"{"message":"Bad credentials"}"#.to_string() });

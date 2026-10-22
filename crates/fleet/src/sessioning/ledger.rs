@@ -1,6 +1,10 @@
 //! Where a session stands, and the ledger reads and writes Fleet does on its behalf.
 
+use std::collections::BTreeMap;
+
 use super::*;
+use crate::slot_holders::Claim;
+use crate::tree_paths::Tree;
 
 /// Where a directory is, as far as Fleet can tell.
 #[derive(Debug, Default, PartialEq, Eq)]
@@ -149,6 +153,7 @@ where
             loadout: crate::loadout_keeping::summary_read(store, &session.id).map_err(fault)?,
             plan: store.session_plan(&session.id).map_err(fault)?,
             touches: store.session_touches(&session.id).map_err(fault)?,
+            later: store.later_of(&session.id).map_err(fault)?,
         })
     }
 
@@ -227,6 +232,12 @@ where
         record.plan = reads.plan.as_ref().map(|kept| ipc::SessionPlan { held_by: plan_held, ..crate::plan_record::wire(kept) });
         record.touches = crate::plan_keeping::touches_wire(reads.touches);
         record.settled = settled;
+        record.later = reads
+            .later
+            .into_iter()
+            .filter(|_| session.state == store::SessionState::Live)
+            .map(|one| ipc::SessionLater { id: one.id, sentence: one.sentence, said_at: wire_instant(&one.said_at) })
+            .collect();
         // A Session still waiting on another carries the wait until it starts.
         record.waits = reads
             .wait
@@ -298,21 +309,38 @@ where
         mod_is_older(session.mod_version.as_deref(), &current)
     }
 
-    /// A terminal Session wrote these files, named from its directory. **Only in a pool slot**, the
-    /// one place Fleet can tell whose tree a file is in.
-    pub(super) fn session_wrote(&self, session: &KeptSession, roots: &[(String, String)], paths: &[String]) {
-        let place = placed(&session.cwd, roots);
-        let (Some(manifest), Some(slot)) = (place.manifest, place.slot) else {
+    /// A terminal Session wrote these files, named from its directory. Each is credited from the root
+    /// of the worktree it lies in: one the Session stands in, a pool slot whose lease is not
+    /// another's, or any other linked worktree. **A write to the main checkout is not credited**:
+    /// Fleet cannot tell whose change in it a file is.
+    pub(super) fn session_wrote(&self, store: &Store, session: &KeptSession, roots: &[(String, String)], paths: &[String]) {
+        let Some(manifest) = placed(&session.cwd, roots).manifest else {
             return;
         };
         let Some((_, root)) = roots.iter().find(|(id, _)| *id == manifest) else {
             return;
         };
-        let worktree = adapter_traits::slot_path(root.trim_end_matches('/'), slot);
-        let inside = crate::clashing::inside_worktree(&worktree, &session.cwd, paths);
-        if !inside.is_empty() {
-            let who = crate::clashing::Who::Session(session.id.clone());
-            self.writes().wrote(&who, &manifest, inside, &self.now());
+        let home = &self.host().home;
+        let mut by_worktree: BTreeMap<String, Vec<String>> = BTreeMap::new();
+        for path in paths {
+            let linked = &crate::tree_paths::linked_worktree;
+            let Some(at) = crate::tree_paths::in_tree(root, Some(&session.cwd), home, path, linked) else {
+                continue;
+            };
+            let stands_in = format!("{}/", session.cwd.trim_end_matches('/')).starts_with(&format!("{}/", at.worktree));
+            let credited = match at.tree {
+                Tree::Main => false,
+                _ if stands_in => true,
+                Tree::Slot(slot) => crate::slot_holders::claim_on(store, root, slot, &session.id) != Claim::Not,
+                Tree::Linked => true,
+            };
+            if credited && !at.path.is_empty() {
+                by_worktree.entry(at.worktree).or_default().push(at.path);
+            }
+        }
+        let who = crate::clashing::Who::Session(session.id.clone());
+        for (worktree, inside) in by_worktree {
+            self.writes().wrote_in(&who, &manifest, &worktree, inside, &self.now());
         }
     }
 }

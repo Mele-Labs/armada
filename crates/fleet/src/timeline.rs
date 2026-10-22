@@ -27,7 +27,7 @@ use tokio::task::JoinHandle;
 use crate::clock::Clock;
 
 pub(crate) use merge::Between;
-pub(crate) use tools::{tool_of, Act, Doer, Seen};
+pub(crate) use tools::{tool_of, Doer, FileAct, Seen};
 
 /// What it happened to, before the wire spells it.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -90,7 +90,13 @@ impl Fact {
         self
     }
 
-    /// What a burst counted, newest first. **The caller has already cut each to a line** and the list to
+    /// A detail already shaped by whoever made it: a file's whole name, which [`Fact::detail`] would cut.
+    pub(crate) fn detail_as_is(mut self, detail: Option<String>) -> Fact {
+        self.detail = detail.filter(|detail| !detail.is_empty());
+        self
+    }
+
+    /// What a burst counted, newest first. **The caller has already made each one line** and cut the list to
     /// [`ipc::MOST_TIMELINE_ITEMS`], and the first is the `detail`.
     pub(crate) fn items(mut self, items: Vec<String>) -> Fact {
         self.items = items;
@@ -190,7 +196,7 @@ impl Fact {
 
 /// How long a fact reads, in characters. A question or a command is cut here.
 const SAYS: usize = 90;
-const DETAIL: usize = 120;
+pub(crate) const DETAIL: usize = 120;
 
 /// One line: whitespace collapsed, cut at `most` characters with an ellipsis.
 pub(crate) fn bare(text: &str, most: usize) -> String {

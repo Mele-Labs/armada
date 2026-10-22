@@ -18,7 +18,7 @@
 //! that was reloaded is the one that is read, with no second place that has to hear of the reload.
 //! A repository may add one beside them: `Feed::add`.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
@@ -44,6 +44,9 @@ pub struct Feed {
     added: Mutex<Vec<(String, Feeder)>>,
     /// Whether a sleeping pass is under way, so the next tick does not start a second.
     sleeping_bay: AtomicBool,
+    /// Per Manifest id, the changed files a model has not yet read: a move reads a bounded number.
+    /// `crate::test_map_reading`.
+    pub(crate) unread: Mutex<BTreeMap<String, BTreeSet<String>>>,
 }
 
 impl Feed {
@@ -183,6 +186,7 @@ where
             return;
         }
         self.cheap_stale_recorded(&served, to).await;
+        self.unmeasurable_read(&served, to, &changed).await;
     }
 
     async fn cheap_stale_recorded(&self, served: &Served, tip: &str) {
@@ -403,7 +407,7 @@ where
     }
 
     /// A line in the envelope on Fleet's standard error: the repository and what the call adds.
-    fn said(
+    pub(crate) fn said(
         &self,
         level: Level,
         msg: &str,

@@ -10,7 +10,7 @@ pub(crate) fn asking_line(reply: &str) -> Option<String> {
     let from = closing_from(&blocks);
     // A command fenced for the person is run by him, so the line that hands it over asks. Those are
     // looked for further back, since the reply goes on to say what happens after he has run it.
-    let handed = blocks[blocks.len().saturating_sub(4)..].iter().flatten().rev().find(|line| line.command_follows);
+    let handed = blocks[blocks.len().saturating_sub(4)..].iter().flatten().rev().find(|line| line.command.is_some());
     let found = blocks[from..]
         .iter()
         .flatten()
@@ -36,10 +36,94 @@ pub(crate) fn closing_text(reply: &str) -> String {
     closing_sentences(reply).join(" ")
 }
 
-/// One line of a paragraph, and whether a shell command for the person is fenced right after it.
+/// One sentence of the close, with what the sentence readers of `extracting` need around it.
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct Closing {
+    pub sentence: String,
+    /// Which line of the close it is on; two sentences of one line share it.
+    pub line: usize,
+    /// The line is an item of a list.
+    pub listed: bool,
+    /// The shell command fenced for the person right after the line, if one is.
+    pub command: Option<String>,
+}
+
+/// The sentences of the close with headings left out, since a heading introduces what follows and
+/// asks nothing itself: a `#` line, a line that is wholly bold, and a short line ending in `:` or `?`
+/// that stands alone before the next paragraph. A line a command follows is kept whatever its shape,
+/// since it hands the command over.
+pub(crate) fn closing(reply: &str) -> Vec<Closing> {
+    let blocks = prose_blocks(reply);
+    let from = closing_from(&blocks);
+    let last_block = blocks.len().saturating_sub(1);
+    let mut out = Vec::new();
+    let mut at = 0;
+    for (block_at, block) in blocks.iter().enumerate().skip(from) {
+        for line in block {
+            let text = line.text;
+            if heading(line, block.len() == 1 && block_at < last_block) {
+                at += 1;
+                continue;
+            }
+            out.extend(sentences(unmarked(text)).into_iter().map(|sentence| Closing {
+                sentence: sentence.replace("**", ""),
+                line: at,
+                listed: marker_len(text) > 0,
+                command: line.command.clone(),
+            }));
+            at += 1;
+        }
+    }
+    out
+}
+
+/// Whether a line introduces what follows and asks nothing itself: a `#` line, a line that is wholly
+/// bold, or (`alone` before the next paragraph) a short line ending in `:` or `?`. A line a command
+/// follows is kept whatever its shape, since it hands the command over.
+fn heading(line: &Line, alone: bool) -> bool {
+    let text = line.text;
+    let bare = text.trim_end_matches([':', '?', ' ']);
+    let bold = bare.len() > 4 && (bare.starts_with("**") && bare.ends_with("**") || bare.starts_with("__") && bare.ends_with("__")) && !bare[2..bare.len() - 2].contains("**");
+    let short = alone && text.ends_with([':', '?']) && text.split_whitespace().count() < 6;
+    // `## Next` is a heading; `#2568 is held` names a pull request.
+    let marked = text.starts_with('#') && text.trim_start_matches('#').starts_with(' ');
+    line.command.is_none() && (marked || bold || short)
+}
+
+/// The sentences `sentence` could be worded as, all the agent's own and the sentence first: the rest of
+/// the paragraph it sits in, or of the list item, or, where it is a heading, the paragraph it heads.
+/// Only the close is looked in, so a sentence that is not there has itself alone.
+pub(crate) fn candidates_for(reply: &str, sentence: &str) -> Vec<String> {
+    let blocks = prose_blocks(reply);
+    let from = closing_from(&blocks);
+    let last_block = blocks.len().saturating_sub(1);
+    let said = |line: &Line| -> Vec<String> { sentences(unmarked(line.text)).into_iter().map(|one| one.replace("**", "")).collect() };
+    let mut out = vec![sentence.to_string()];
+    for (block_at, block) in blocks.iter().enumerate().skip(from) {
+        let Some(line) = block.iter().find(|line| said(line).iter().any(|one| one == sentence)) else {
+            continue;
+        };
+        let of: Vec<&Line> = if is_list(block) {
+            vec![line]
+        } else if heading(line, block.len() == 1 && block_at < last_block) {
+            blocks.get(block_at + 1).map(|next| next.iter().collect()).unwrap_or_default()
+        } else {
+            block.iter().collect()
+        };
+        for one in of.into_iter().flat_map(|line| said(line)) {
+            if !out.contains(&one) {
+                out.push(one);
+            }
+        }
+        break;
+    }
+    out
+}
+
+/// One line of a paragraph, and the shell command fenced for the person right after it, if one is.
 struct Line<'a> {
     text: &'a str,
-    command_follows: bool,
+    command: Option<String>,
 }
 
 /// How many of the last paragraphs are the close: two, since an agent often asks and then states where
@@ -56,20 +140,33 @@ fn closing_from(blocks: &[Vec<Line>]) -> usize {
 /// out, and so is any paragraph that is only a link or a path, since an agent ends on those after what it asks.
 fn prose_blocks(reply: &str) -> Vec<Vec<Line<'_>>> {
     let mut blocks: Vec<Vec<Line>> = vec![Vec::new()];
-    let mut fenced = false;
+    let (mut fenced, mut handing) = (false, false);
     for line in reply.lines() {
         let line = line.trim();
         if let Some(tag) = line.strip_prefix("```") {
-            if !fenced && matches!(tag.trim(), "bash" | "sh" | "shell" | "zsh") {
+            handing = !fenced && matches!(tag.trim(), "bash" | "sh" | "shell" | "zsh");
+            if handing {
                 if let Some(last) = blocks.iter_mut().rev().find_map(|block| block.last_mut()) {
-                    last.command_follows = true;
+                    last.command = Some(String::new());
                 }
             }
             fenced = !fenced;
             continue;
         }
         let rule = line.len() >= 3 && line.chars().all(|c| matches!(c, '-' | '*' | '_' | '='));
-        if fenced || line.starts_with('|') {
+        if fenced {
+            // The command's lines, for the line that hands it over.
+            if handing {
+                if let Some(Line { command: Some(command), .. }) = blocks.iter_mut().rev().find_map(|block| block.last_mut()) {
+                    if !command.is_empty() {
+                        command.push('\n');
+                    }
+                    command.push_str(line);
+                }
+            }
+            continue;
+        }
+        if line.starts_with('|') {
             continue;
         }
         if line.is_empty() || rule {
@@ -79,7 +176,7 @@ fn prose_blocks(reply: &str) -> Vec<Vec<Line<'_>>> {
             continue;
         }
         let text = line.trim_start_matches('>').trim_start();
-        blocks.last_mut().expect("always one").push(Line { text, command_follows: false });
+        blocks.last_mut().expect("always one").push(Line { text, command: None });
     }
     blocks.retain(|block| words(block) >= 3);
     blocks

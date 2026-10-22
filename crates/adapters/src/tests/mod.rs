@@ -24,6 +24,7 @@ mod browser_shell;
 mod build_standing;
 mod deleting_merged_branch;
 mod catching_up_to_the_remote;
+mod check_blame;
 mod check_line;
 mod checkout_send;
 mod ci_workflows;

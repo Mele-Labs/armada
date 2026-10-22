@@ -58,6 +58,19 @@ it("keeps the Sessions it holds when a later publish says the read failed", () =
   expect(store.served()).toBe(true);
 });
 
+it("reads the open follow-ups off the record, and a Drop settles one as dropped by its id", () => {
+  const settleLater = vi.fn(async () => ({ ok: true }));
+  let send: (change: StateChange<BridgeState>) => void = () => undefined;
+  const api = { syncState: () => Promise.resolve({ full: NOTHING_YET, seq: 0 }), subscribeChanges: (on: typeof send) => ((send = on), () => undefined), settleLater } as unknown as BridgeApi;
+  const store = new WiredStore(api);
+  store.attach();
+  const later = [{ id: "later-2", sentence: "The Studio icon tooltip is still owed.", said_at: AT }];
+  send({ full: structuredClone({ ...NOTHING_YET, sessions: { state: "read", sessions: [{ ...record("a"), later }] } }), seq: 0 });
+  expect(store.draft.get()[0]?.later).toEqual([{ id: "later-2", text: "The Studio icon tooltip is still owed.", at: AT }]);
+  store.draft.dropLater!("a", "later-2");
+  expect(settleLater).toHaveBeenCalledWith({ session_id: "a", id: "later-2", how: "dropped" });
+});
+
 // ---- Ideas saved to start later, and the model and effort a start carries ----------------------------------
 
 /** A window with the one thing the queue reads: the storage every window of Bridge shares, and the event that says another wrote it. */

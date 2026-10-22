@@ -415,6 +415,7 @@ export function sessionsStore(
         tool("Read the CI log of store_flaky"),
         tool("Edit crates/store/src/clock.rs"),
         said("main fails in store_flaky because the clock module is imported twice. Fixed on fix/flaky-store. Replied to s2."),
+        row((id, stamp) => ({ id, at: stamp, kind: "release", slot: 3, branch: "fix/flaky-store" })),
       ]);
       edit(MINE, (one) => ({ ...one, asked: { command: "git push --force-with-lease origin fix/flaky-store" } }));
       finish();
@@ -499,6 +500,7 @@ export function sessionsStore(
     },
     startNow: (id) => store.starts(id, "Started by you"),
     setTags: (id, tags) => edit(id, (one) => ({ ...one, pendingTags: tags })),
+    dropLater: (id, later) => edit(id, (one) => ({ ...one, later: (one.later ?? []).filter((it) => it.id !== later) })),
     send(id, sent) {
       if (sent.text.trim() === "" && sent.files.length + sent.sketches.length + sent.tags.length === 0) return;
       edit(id, (one) => {

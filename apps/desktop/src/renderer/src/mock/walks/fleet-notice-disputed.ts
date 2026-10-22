@@ -9,21 +9,20 @@ import { button, deckRow, inside, region, role, text, toSystemPage, walk } from 
 const { thread } = kit(false);
 const jobs = region("Jobs", { exact: true });
 const card = inside(thread, region("Message from Fleet"));
-const line = inside(thread, region("Notice disputed"));
 const review = deckRow("Disputed: opus spend notice");
 const ask = role("article", "Waiting on you");
 
 const fleetNoticeDisputed = walk("fleet-notice-disputed", [
   toSessions,
   { press: inside(jobs, button("Port the store to the new clock")), say: "A Job Fleet told about its subagents' spend" },
-  { look: inside(card, text("Subagents burned 5.0 units in your last hour")), say: "Fleet's notice, on its own card" },
+  { look: inside(thread, text("Subagents burned 5.0 units in your last hour")), say: "Fleet's notice, on its own card" },
   { hover: inside(card, role("img", "Disputed")), say: "The card carries the Disputed mark" },
   { look: inside(thread, text("The opus spend came from building agents, which write the code.")), say: "The agent's reply" },
-  { look: inside(line, text("Said by the agent")), say: "Under it, one line from Fleet: the agent's reason, and that the agent said so itself" },
+  { look: inside(thread, text("Said by the agent")), say: "Under it, one line from Fleet: the agent's reason, and that the agent said so itself" },
   { look: review, say: "The review Job Fleet started, named for the notice, under the Job that disputed it" },
   { hover: inside(review, role("img", "Linked Job")), say: "Its link mark: the disputing Job started it" },
   { look: inside(thread, text(/^The agent had already compacted at 120k/)), say: "A second notice, read from the agent's replies: the reason is on top, with how it was spotted and the time under it, and with no review started there is no press" },
-  { press: inside(line, button("Open the review job")), say: "Review job opens it" },
+  { press: inside(thread, button("Open the review job")), say: "Review job opens it" },
   { look: inside(thread, text("Port the store to the new clock disputed this notice.")), say: "Fleet's first message: the notice and the reason it was given" },
   { look: inside(thread, text(/^Fleet was wrong\. The rule counts every opus subagent turn/)), say: "The review agent's verdict" },
   { look: inside(ask, text("What should change about the opus spend notice?")), say: "Its question to you, before it changes anything" },

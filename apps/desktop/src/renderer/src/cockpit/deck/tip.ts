@@ -53,8 +53,11 @@ export type DroneFacts = { state: { Glyph: LucideIcon; said: string; tone: "calm
 export type PadIn = { key: string; slot: number; bay: BayState | "held" | "kept"; word: string; repo: string; Glyph: LucideIcon; holder?: string; /** It is the one that held it last. */ holderWas?: boolean; branch?: string };
 export type GoalIn = { root: string; said: string; red: boolean };
 
+/** What a drone's card names in small caps: a Job's kind, or for a subagent the Job it works for. */
+export const droneLabel = (drone: Pick<DroneIn, "job">): string => drone.job ?? "Job";
+
 export const droneTip = (drone: DroneIn, facts: DroneFacts | undefined, fallback: LucideIcon): Tip => ({
-  label: "Job",
+  label: droneLabel(drone),
   title: drone.title,
   hue: drone.hue,
   state: facts?.state ?? { Glyph: fallback, said: drone.said, tone: drone.hue },
@@ -89,6 +92,12 @@ export const outpostTip = (outpost: Pick<Outpost, "name" | "lines">): Tip => ({ 
 
 /** What is being done to a file, as a tooltip names it. */
 export const FILE_SAID: Record<FileAct | "rest", string> = { write: "Writing", edit: "Editing", remove: "Removing", rest: "File" };
+
+/** What a file's card says where a failing check's log named it: `test failed at layout.ts:142`, or the file alone where it named no line. */
+export const blameSaid = (check: string, path: string, line: number | undefined): string => {
+  const name = path.split("/").pop() ?? path;
+  return `${check} failed at ${line === undefined ? name : `${name}:${line}`}`;
+};
 
 export const NEEDS_YOU: readonly string[] = ["Needs you"];
 /** What a plot under a write clash says: two drones where the map holds both, else that something else changed it too. */

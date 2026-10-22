@@ -138,6 +138,7 @@ WebSocket event stream, read this first.
 | [A Job moves to another repository](protocol/a-job-moves-to-another-repository.md) |
 | [A Job hands off to a new one](protocol/a-job-hands-off-to-a-new-one.md) |
 | [An issue is named by its tracker's reference](protocol/an-issue-is-named-by-its-trackers-reference.md) |
+| [A Job's kept follow-ups, and settling one](protocol/a-jobs-kept-follow-ups-and-settling-one.md) |
 | [A bay's history: the pool's own record, and the slot's reflog](protocol/a-bays-history-the-pools-own-record-and-the-slots-reflog.md) |
 | [A Job walks any page: `steps` on `show_window`](protocol/a-job-walks-any-page-steps-on-show-window.md) |
 | [A Job's window: origins and a sign-in](protocol/a-jobs-window-origins-and-a-sign-in.md) |
@@ -687,6 +688,27 @@ Bridge's call is `ClashesHost.fileChange` in main; no channel, preload entry or 
 
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 **The event stream.** Untouched: the read is asked over HTTP and publishes nothing, so the open risk below is neither better nor worse.
+
+## Where a failed Check failed: `blame` on the `check` row
+
+Since 22 Oct 2026. `docs/concepts/cockpit.md`, *A Job open*.
+**Additive only**: one optional field on an existing thread row and the type it carries; no operation, route, event kind or error.
+The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `CheckBlame` and `blame` on the `check` row in `packages/protocol/src/hosted-sessions.ts`, written by hand, field for field.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `SessionRow::Check` (`kind: "check"`) | Fleet writes, Bridge reads | Gains `blame`, absent while running, on a pass, and where the log names no file in the slot; never `null` |
+| `CheckBlame` | Fleet writes | `{ path, line? }`: `path` relative to the slot the run stood in, `line` 1-based |
+
+**Read once, as the run ends, from the log `end` carries**, its last 64 KiB, by `adapters::check_blame`: rustc's `-->` under an error, a Rust panic's location, vitest's `❯` frames and `FAIL` header, a node `at` frame, and tsc's two spellings.
+A source file wins over a test file wherever the log names both, and only a file on disk in the slot is kept.
+The row is stored as written, so no read of the thread parses a log, and a row kept before this change has no `blame`.
+**The Field draws its blame line from `blame` alone**; the run's `target` is no longer read for it, so a row with no `blame` draws no line.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+**The event stream.** The row is published as `session.row` and the Session as `session.changed`, as before; a failed row grows by one short path.
+The open risk below is neither better nor worse.
 
 ## Open questions
 

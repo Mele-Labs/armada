@@ -23,7 +23,7 @@ type Api = FleetPanelApi & StateSource;
 const numberedOf = (lines: MergeLines | null): PanelReads["numbered"] =>
   (lines?.lines ?? []).flatMap((one) => (one.hub?.pull_requests ?? []).map((pr) => ({ kind: "pull_request" as const, number: String(pr.number), title: pr.title, url: pr.url })));
 
-export function SharedPanelOver({ api, children }: { api: Api; children: ReactNode }) {
+export function SharedPanelOver({ api, children, testsReaching }: { api: Api; children: ReactNode; testsReaching?: PanelReads["testsReaching"] | undefined }) {
   const now = useRef<BridgeState | undefined>(undefined);
   const [lines, setLines] = useState<MergeLines | null>(null);
   const [browser, setBrowser] = useState(false);
@@ -45,8 +45,8 @@ export function SharedPanelOver({ api, children }: { api: Api; children: ReactNo
   }, [api]);
   const base = useMemo(() => fleetPanelReads(api, () => now.current), [api]);
   const reads = useMemo(
-    (): PanelReads => ({ ...base, lines, numbered: numberedOf(lines), followed, ...(browser ? { browse: (address: string) => (void openLink(address), true) } : {}) }),
-    [base, lines, browser, followed],
+    (): PanelReads => ({ ...base, lines, numbered: numberedOf(lines), followed, ...(browser ? { browse: (address: string) => (void openLink(address), true) } : {}), ...(testsReaching === undefined ? {} : { testsReaching }) }),
+    [base, lines, browser, followed, testsReaching],
   );
   return (
     <SharedPanelFrom reads={reads}>

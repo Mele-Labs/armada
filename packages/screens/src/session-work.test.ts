@@ -138,8 +138,8 @@ describe("the Field", () => {
       touch("crates/fleet/src/retry.rs", "write", "2026-10-16T09:00:03Z"),
     ]);
     expect(field).toEqual([
-      { id: "main", path: "crates/fleet", doing: "write", file: "crates/fleet/src/retry.rs" },
-      { id: "a1", agent: "protocol-engineer", path: "crates/ipc", doing: "write", file: "crates/ipc/src/lease.rs" },
+      { id: "main", path: "crates/fleet", doing: "write", file: "crates/fleet/src/retry.rs", at: "2026-10-16T09:00:03Z" },
+      { id: "a1", agent: "protocol-engineer", path: "crates/ipc", doing: "write", file: "crates/ipc/src/lease.rs", at: "2026-10-16T09:00:02Z" },
     ]);
     expect(files).toEqual([
       { path: "crates/fleet/src/lease.rs", act: "edit" },
