@@ -75,3 +75,222 @@
   flex-wrap: wrap;
   gap: var(--space-2);
 }
+
+/* A side panel's head where it says where you are: what the thing sits in, over its name, and the act on it on the
+   heading's line. The bar under it holds a control every tab answers to. */
+.side-panel__head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.side-panel__heading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.side-panel__crumb {
+  margin: 0;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-muted);
+}
+
+.side-panel__bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  column-gap: var(--space-3);
+  padding-bottom: var(--space-2);
+}
+
+/* Requests. Groups read as groups by a heading and the space around them, not by boxes: a section's heading is small and
+   heavy, a group's is smaller and muted, and only the editor and its answer are ruled apart. */
+.side-request {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.side-request__form,
+.side-request__parts,
+.side-requests__section,
+.side-requests__group,
+.side-requests__rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.side-request__form {
+  gap: var(--space-4);
+}
+
+.side-requests__rows {
+  gap: var(--space-2);
+}
+
+.side-requests__groups {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  min-width: 0;
+}
+
+.side-requests__group-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.side-requests__push {
+  margin-inline-start: auto;
+}
+
+.side-requests__title {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  font-weight: var(--weight-heading);
+  color: var(--fg-default);
+}
+
+.side-requests__subtitle {
+  margin: 0;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  font-weight: var(--weight-heading);
+  color: var(--fg-muted);
+}
+
+/* The send line: method, address and Send on one row, their labels above. */
+.side-request__send-line {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: end;
+  gap: var(--space-2);
+}
+
+.side-request__line {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-3);
+}
+
+/* A label leading its value on one line: Sends to, Content type, Kept. A value the environment lacks leads with the
+   warning glyph instead. */
+.side-request__lead-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-2);
+  margin: 0;
+  min-width: 0;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-default);
+  overflow-wrap: anywhere;
+}
+
+.side-request__lead {
+  flex: none;
+  color: var(--fg-muted);
+}
+
+.side-request__warn {
+  display: inline-flex;
+  align-self: center;
+  color: var(--notice-caution);
+}
+
+.side-request__none,
+.side-request__said {
+  margin: 0;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-muted);
+  overflow-wrap: anywhere;
+}
+
+.side-request__said {
+  color: var(--fg-default);
+}
+
+.side-request__acts {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+/* The answer's first line: the status, the time, and whose headers went. */
+.side-request__summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-4);
+  margin: 0;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-muted);
+}
+
+.side-request__status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.side-request__code {
+  font-family: var(--font-mono);
+  font-weight: var(--weight-heading);
+  color: var(--fg-default);
+}
+
+.armada-pr-row__button.side-row[data-columns="request"] {
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+}
+
+/* Name and value tables. The tracks are this composition's: the name takes a share, the act or the Secret box what it needs,
+   and the value the rest. A long value wraps rather than pushing the table wide. */
+.side-table {
+  table-layout: fixed;
+}
+
+.side-table__name {
+  width: 38%;
+}
+
+.side-table__act {
+  width: calc(var(--space-12) * 2);
+}
+
+.side-table__value {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+/* Requests' collections and environments: the tree's rows carry the place mark last. */
+.side-requests__tree .armada-pr-tree__item[data-kind="dir"] {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.side-requests__hides,
+.side-requests__set {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-muted);
+}
+
+.side-requests__mark {
+  display: inline-flex;
+  color: var(--fg-muted);
+}

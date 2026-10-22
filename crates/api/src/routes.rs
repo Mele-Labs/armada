@@ -523,6 +523,14 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             "/manifest/allowed_commands/remove",
             post(remove_repository_allowed_command::<D>),
         )
+        .route("/requests/send", post(crate::requests::send_request::<D>))
+        .route("/requests", get(crate::requests::get_requests::<D>))
+        .route("/requests/collections", post(crate::requests::save_request_collection::<D>))
+        .route(
+            "/requests/collections/request",
+            post(crate::requests::save_request_to_collection::<D>),
+        )
+        .route("/requests/environments", post(crate::requests::save_request_environment::<D>))
         .route("/kit/inventory", get(crate::kit::get_kit_inventory::<D>))
         .route(
             "/kit/flight_controls",

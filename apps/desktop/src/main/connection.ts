@@ -57,6 +57,7 @@ import { OnboardingHost } from "./onboarding";
 import { SharingHost } from "./sharing";
 import { TimelineHost } from "./timeline";
 import { IssuesHost } from "./issues";
+import { RequestsHost } from "./requests";
 import { StudioReads } from "./studios";
 
 /** Time is injected, never read: a connection that calls the clock cannot be replayed. */
@@ -178,6 +179,8 @@ export class FleetConnection {
   readonly sharing: SharingHost = new SharingHost(() => this.connected()?.port ?? null);
   /** A repository's open issues — `issues.ts`. #91. */
   readonly issues: IssuesHost = new IssuesHost(() => this.connected()?.port ?? null);
+  /** A repository's request collections and environments, a save of one, and a send — `requests.ts`. */
+  readonly requests: RequestsHost = new RequestsHost(() => this.connected()?.port ?? null);
   /**
    * Every act no one surface owns — see `command.ts`. Reached through this rather than re-exported
    * one method at a time: a delegator carries no reasoning.

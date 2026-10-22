@@ -7,7 +7,10 @@
 use std::path::PathBuf;
 
 use config::review_tools::{self as tools, Written};
-use ipc::{FlightControl, FlightControlKind, FlightControls, PieceKind, TileList, PACKAGE_VERSION};
+use ipc::{
+    FlightControl, FlightControlKind, FlightControls, PieceKind, RequestCollection, RequestEnvironment, RequestsFile,
+    TileList, PACKAGE_VERSION,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::flight_controls::repository::check_repository;
@@ -51,10 +54,22 @@ pub(super) enum Piece {
         remote: Option<String>,
         text: String,
     },
+    /// Requests' collections and environments, as the requests file holds them: **a secret is its
+    /// name and `secret = true`**, since the file's type has nowhere to put a value.
+    Requests {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        remote: Option<String>,
+        #[serde(default, rename = "collection")]
+        collections: Vec<RequestCollection>,
+        #[serde(default, rename = "environment")]
+        environments: Vec<RequestEnvironment>,
+    },
 }
 
 /// The id a manifest piece carries: the file's own name, since Kit keeps one per repository.
 pub(super) const MANIFEST_ID: &str = "armada.yml";
+/// The id a requests piece carries: one requests file is kept per repository.
+pub(super) const REQUESTS_ID: &str = "requests";
 
 /// What a piece is, said without writing anything.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -71,7 +86,11 @@ pub(super) struct Shown {
 impl Piece {
     pub(super) fn remote(&self) -> Option<&str> {
         match self {
-            Piece::Tile { remote, .. } | Piece::Workflow { remote, .. } | Piece::ReviewTool { remote, .. } | Piece::Manifest { remote, .. } => {
+            Piece::Tile { remote, .. }
+            | Piece::Workflow { remote, .. }
+            | Piece::ReviewTool { remote, .. }
+            | Piece::Manifest { remote, .. }
+            | Piece::Requests { remote, .. } => {
                 remote.as_deref()
             }
         }
@@ -110,6 +129,25 @@ impl Piece {
                 commands: config::manifest_run_lines(text).unwrap_or_default(),
                 remote: remote.clone(),
             },
+            Piece::Requests { remote, collections, environments } => Shown {
+                kind: PieceKind::Requests,
+                id: REQUESTS_ID.to_string(),
+                name: collections.iter().map(|one| one.name.as_str()).chain(environments.iter().map(|one| one.name.as_str())).collect::<Vec<_>>().join(", "),
+                list: None,
+                action: None,
+                commands: Vec::new(),
+                remote: remote.clone(),
+            },
+        }
+    }
+
+    /// A requests piece as the file it is put into.
+    pub(super) fn requests_file(&self) -> Option<RequestsFile> {
+        match self {
+            Piece::Requests { collections, environments, .. } => {
+                Some(RequestsFile { collections: collections.clone(), environments: environments.clone(), ..RequestsFile::default() })
+            }
+            _ => None,
         }
     }
 
@@ -118,7 +156,7 @@ impl Piece {
     fn key(&self) -> (PieceKind, Option<TileList>, String, Option<String>) {
         let shown = self.shown();
         let remote = match shown.kind {
-            PieceKind::Tile | PieceKind::Manifest => shown.remote.map(|remote| remote.to_lowercase()),
+            PieceKind::Tile | PieceKind::Manifest | PieceKind::Requests => shown.remote.map(|remote| remote.to_lowercase()),
             PieceKind::Workflow | PieceKind::ReviewTool => None,
         };
         (shown.kind, shown.list, shown.id, remote)
@@ -152,7 +190,11 @@ fn remote_problem(remote: &str) -> Option<String> {
 /// The pieces a package's text holds, each checked by the rules the same piece is held to in Kit.
 /// The refusal names the piece by its place in the package, counting from 1.
 pub(super) fn read(text: &str) -> Result<Vec<Piece>, String> {
-    let package: Package = toml::from_str(text).map_err(|why| format!("The package is not one: {}", why.to_string().trim_end()))?;
+    // The line is named and never quoted: a line spelling a secret's value would carry it.
+    let package: Package = toml::from_str(text).map_err(|why| match why.span() {
+        Some(span) => format!("The package is not one: line {}: {}", text[..span.start.min(text.len())].matches('\n').count() + 1, why.message()),
+        None => format!("The package is not one: {}", why.message()),
+    })?;
     if package.version != PACKAGE_VERSION {
         return Err(format!("The package is version {}. This Armada reads version {PACKAGE_VERSION}.", package.version));
     }
@@ -180,6 +222,10 @@ pub(super) fn read(text: &str) -> Result<Vec<Piece>, String> {
                 Err(why) => Some(format!("the review tool {why}")),
             },
             Piece::Manifest { text, .. } => config::manifest_run_lines(text).err().map(|why| format!("the armada.yml {why}")),
+            Piece::Requests { collections, environments, .. } if collections.is_empty() && environments.is_empty() => {
+                Some(String::from("the requests hold no collection or environment"))
+            }
+            Piece::Requests { .. } => piece.requests_file().and_then(|file| crate::requesting::check(&file).err()).map(|why| format!("the requests' {why}")),
         };
         if let Some(why) = problem {
             return Err(format!("Piece {n}: {why}."));
@@ -189,7 +235,7 @@ pub(super) fn read(text: &str) -> Result<Vec<Piece>, String> {
             let one_for_all = match shown.kind {
                 PieceKind::Tile => "",
                 PieceKind::Workflow | PieceKind::ReviewTool => " Kit keeps one of an id for every repository.",
-                PieceKind::Manifest => "",
+                PieceKind::Manifest | PieceKind::Requests => "",
             };
             return Err(format!("Pieces {} and {n} are the same piece `{}`.{one_for_all}", first + 1, shown.id));
         }

@@ -383,6 +383,8 @@ export * from "./compositions/RegisteredOwner/RegisteredOwner";
 export * from "./compositions/SessionFrame/SessionFrame";
 export * from "./compositions/RunningChecks/RunningChecks";
 export * from "./compositions/SessionThread/SessionThread";
+export * from "./compositions/SessionThread/RequestedRow";
+export * from "./compositions/SessionThread/SavedRow";
 export * from "./compositions/SessionRepository/SessionRepository";
 export * from "./compositions/RepositoryRuns/RepositoryRuns";
 export * from "./compositions/RepositoryRuns/RunsAll";

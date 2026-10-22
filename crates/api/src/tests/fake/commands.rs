@@ -401,6 +401,7 @@ impl Commands for FakeDaemon {
             ipc::PieceToCommit::Workflow { workflow_id } => format!(".armada/workflows/{}", workflow_id.as_str()),
             ipc::PieceToCommit::ReviewTool { id } => format!(".armada/review-tools/{id}.md"),
             ipc::PieceToCommit::Manifest => "armada.yml".to_string(),
+            ipc::PieceToCommit::Requests { .. } => ".armada/requests.toml".to_string(),
         };
         Ok(ipc::CommittedToRepository {
             repository: asked.repository,

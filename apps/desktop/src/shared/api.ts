@@ -40,6 +40,7 @@ import type { SketchShareApi } from "./api/sketch-share";
 import type { FilesApi } from "./api/files";
 import type { FlightControlsApi } from "./api/flight-controls";
 import type { OnboardingApi } from "./api/onboarding";
+import type { RequestsApi } from "./api/requests";
 import type { SharingApi } from "./api/sharing";
 import type { BridgeState } from "./bridge";
 
@@ -74,4 +75,5 @@ export type BridgeApi = CoreApi<BridgeState> &
   FilesApi &
   FlightControlsApi &
   OnboardingApi &
+  RequestsApi &
   SharingApi;

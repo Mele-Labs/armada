@@ -51,6 +51,7 @@ import { handleFlightControls } from "./flight-controls-channels";
 import { handleOnboarding } from "./onboarding-channels";
 import { handleSharing } from "./sharing";
 import { handleIssues } from "./issue-channels";
+import { handleRequests } from "./request-channels";
 import { SessionPages } from "./session-page";
 import { handleStudios } from "./studio-channels";
 import { HeldNotes } from "./capture/held-notes";
@@ -664,6 +665,7 @@ void app.whenReady().then(() => {
   handleOnboarding({ ipc: ipcMain, connection: () => connection });
   handleSharing({ ipc: ipcMain, connection: () => connection });
   handleIssues({ ipc: ipcMain, connection: () => connection });
+  handleRequests({ ipc: ipcMain, connection: () => connection });
   handleStudios({ ipc: ipcMain, connection: () => connection, published: () => published, captureWindows, summon });
   handleHeldNotes({
     ipc: ipcMain,

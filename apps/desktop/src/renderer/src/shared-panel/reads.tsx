@@ -4,8 +4,10 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import type { MergeLines, PullRequestFilePatches, PullRequestPage, WorktreeSlot } from "@armada/protocol";
+import type { MergeLines, PullRequestFilePatches, PullRequestPage, RepositorySummary, WorktreeSlot } from "@armada/protocol";
 import type { PullRequestAct, SessionAttachment } from "@armada/screens/src/draft/sessions";
+
+import type { RequestsApi } from "../../../shared/api/requests";
 
 import { browsePullRequestsWith, forgetPanel, hostsPanel } from "./store";
 import type { PanelItem } from "./store";
@@ -86,6 +88,10 @@ export type PanelReads = {
   browse?: (address: string) => boolean;
   /** What the merge lines say of the place a pull request holds. */
   lines: MergeLines | null;
+  /** Requests' reads, saves and sends, through Fleet. Absent where Fleet serves none, and Requests says so. */
+  requests?: RequestsApi;
+  /** The repositories Fleet lists, and the one the Cockpit is narrowed to (`null` on All), as they stand when asked. */
+  repositories?: () => { listed: readonly RepositorySummary[]; filter: string | null };
   /** The issues and pull requests a `#number` in the panel's words can name. */
   numbered: readonly { kind: "issue" | "pull_request"; number: string; title: string; url?: string }[];
 };

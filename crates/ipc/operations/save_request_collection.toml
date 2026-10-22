@@ -1,0 +1,16 @@
+[operations.save_request_collection]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Write one collection of saved requests, whole, into the person's own requests file for a repository"
+notes = """
+Since 21 Oct 2026. `POST /requests/collections`, body `SaveRequestCollection`: `repository` or `session_id`, naming the repository as `get_requests` takes them, and `collection`, the whole `RequestCollection`, never a patch. A collection of that `id` in the person's own is replaced, and one with none is added. Answers `Requests`, both files read again.
+
+**Always into the person's own file**, at the place `get_requests` reads it. A collection whose `id` is the repository's is kept as the person's own, which then hides the repository's. A save never writes the repository: committing a copy there is `commit_to_repository`.
+
+**Checked before anything is written**, the first broken rule naming its field (`collection.requests[1].method`): a blank `id` or `name`, a request `id` blank or used twice in the collection, a `method` `send_request` does not send, and a header whose name is not a valid header name. A 422 `fleet.request_collection_refused`.
+
+**A person's own file that will not read is not written over**: a 409 `fleet.requests_unread`, saying why. A file is written to `<key>.toml.writing` and renamed over the real one, one writer at a time, and a bucket object is put whole; comments written in it by hand are not kept. A place that cannot be written, a synced folder that is not there included, is a 500 `fleet.requests_unwritable`. A bucket that cannot be used is a 422 `fleet.run_cloud_unsigned`, `fleet.run_cloud_unreachable` or `fleet.run_cloud_refused`, as `set_run_memory_place` words it. A 404 `fleet.run_memory_repository_not_served` for a repository Fleet does not serve.
+
+`agent_access` is `No`: the collections are the person's. An agent adds one request with `save_request_to_collection`.
+"""

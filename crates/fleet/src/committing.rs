@@ -27,6 +27,7 @@ use crate::daemon::Fleet;
 use crate::flight_controls::repository::{check_repository, parse_repository, IN_REPOSITORY};
 use crate::flight_controls::read_at;
 use crate::repositories::Served;
+use crate::requesting::{self, NotCopied};
 use crate::run_memory::JobTree;
 
 /// The piece is not one of the person's own. A 422.
@@ -98,6 +99,9 @@ where
             PieceToCommit::Workflow { workflow_id } => self.workflow_copied(&root, &main, workflow_id.as_str(), asked.overwrite)?,
             PieceToCommit::ReviewTool { id } => self.review_tool_copied(&main, id, asked.overwrite)?,
             PieceToCommit::Manifest => self.manifest_copied(&root, &main, asked.overwrite).await?,
+            PieceToCommit::Requests { collections, environments } => {
+                self.requests_copied(&root, &main, collections, environments, asked.overwrite).await?
+            }
         };
         let paths: Vec<String> = copy.files.iter().map(|(path, _)| path.clone()).collect();
         let held = |(at, text): &(String, String)| std::fs::read_to_string(Path::new(&root).join(at)).is_ok_and(|on| &on == text);
@@ -163,6 +167,42 @@ where
             files: vec![(IN_REPOSITORY.to_string(), text)],
             message: format!("Add the {noun} {}", added.join(", ")),
             title: format!("Commit the {noun} {}", named.join(", ")),
+        })
+    }
+
+    /// The chosen collections and environments from the person's own, added to the branch's
+    /// `.armada/requests.toml`. A secret goes as its name: the file has nowhere to put a value.
+    async fn requests_copied(
+        &self,
+        root: &str,
+        tree: &JobTree,
+        collections: &[String],
+        environments: &[String],
+        overwrite: bool,
+    ) -> Result<Copy, Refusal> {
+        let yours = self
+            .own_requests_file(root)
+            .await
+            .map_err(|why| self.commit_refusal(NOT_YOURS, format!("Your requests for this repository did not read: {why}")))?;
+        let theirs = requesting::read_file(&Path::new(&tree.path).join(requesting::IN_REPOSITORY))
+            .await
+            .map_err(|why| self.commit_refusal(REFUSED, why))?;
+        let held = requesting::IN_REPOSITORY;
+        let copied = requesting::copied(theirs, &yours, collections, environments, overwrite).map_err(|why| match why {
+            NotCopied::NotYours(why) => self.commit_refusal(NOT_YOURS, why),
+            NotCopied::Exists(what) => self.commit_refusal(
+                EXISTS,
+                format!("{held} on {} already holds the {what}. Commit with overwrite to replace it.", tree.branch),
+            ),
+        })?;
+        requesting::check(&copied).map_err(|why| self.commit_refusal(REFUSED, why))?;
+        let text = requesting::written(&copied)
+            .map_err(|why| self.commit_refusal(UNWRITABLE, format!("{held} could not be written: {why}")))?;
+        let named: Vec<&str> = collections.iter().chain(environments).map(String::as_str).collect();
+        Ok(Copy {
+            files: vec![(held.to_string(), text)],
+            message: format!("Add the requests {}", named.join(", ")),
+            title: format!("Commit the requests {}", named.join(", ")),
         })
     }
 

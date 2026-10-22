@@ -1,5 +1,6 @@
 //! The rows of [`SERVED`](super::SERVED) about what lies outside any Job: the
-//! machine's sleep, and a repository's open issues read from its tracker.
+//! machine's sleep, a repository's open issues read from its tracker, and Requests: an address
+//! anywhere, sent to filled from a repository's environments.
 
 use super::Route;
 
@@ -88,5 +89,31 @@ pub(super) const ROUTES: &[Route] = &[
         operation: "get_issue",
         method: "GET",
         path: "/issues/:repository/:reference",
+    },
+    // Requests. A repository's two files, read on each call; a secret's value is the Keychain's.
+    Route {
+        operation: "send_request",
+        method: "POST",
+        path: "/requests/send",
+    },
+    Route {
+        operation: "get_requests",
+        method: "GET",
+        path: "/requests",
+    },
+    Route {
+        operation: "save_request_collection",
+        method: "POST",
+        path: "/requests/collections",
+    },
+    Route {
+        operation: "save_request_to_collection",
+        method: "POST",
+        path: "/requests/collections/request",
+    },
+    Route {
+        operation: "save_request_environment",
+        method: "POST",
+        path: "/requests/environments",
     },
 ];

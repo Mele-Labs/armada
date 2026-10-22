@@ -143,6 +143,8 @@ mod rehearsal;
 mod repositories;
 /// Who asked for a Check run, as a typed value. Since 23.40.
 mod requester;
+/// Requests: an HTTP request the owner or an agent sends, its collections and environments.
+mod requests;
 /// What an agent says about one pull request, and the review tools it is asked with.
 mod review_runs;
 /// Natural Search, and where a change runs for the Walk tool.
@@ -407,6 +409,14 @@ pub use rehearsal::{
 };
 pub use rehearsal::{
     CheckoutVerify, StartCheckoutVerify, VerifyGroup, VerifyStep, VerifyStepState,
+};
+pub use requests::{
+    Placed, RequestBy, RequestCollection, RequestEnvironment, RequestEnvironmentRead,
+    RequestEnvironmentWrite, RequestHeader, RequestPlace, RequestSaved, RequestSent,
+    RequestToSave, RequestToSend, RequestVariable, Requests, RequestsFile, RequestsNotRead,
+    SaveRequestCollection, SaveRequestEnvironment, SaveRequestToCollection, SavedRequest,
+    SavedRequestNamed, SendRequest, VariableRead,
+    VariableWrite, REQUESTS_VERSION, SERVER_BASE_VARIABLE, SERVER_ENVIRONMENT_PREFIX,
 };
 pub use repositories::{
     AddRepository, CloneRepository, CreateProject, RepositoryList, RepositorySummary, RequestRepository,

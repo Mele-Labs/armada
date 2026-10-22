@@ -10,7 +10,12 @@ export type PieceToCommit =
   /** A review tool from Kit's `~/.armada/review-tools/`, by its dashed id, into `.armada/review-tools/`. */
   | { kind: "review_tool"; id: string }
   /** The person's own `armada.yml` for the repository, from where their Kit keeps it, to the workspace root. */
-  | { kind: "manifest" };
+  | { kind: "manifest" }
+  /**
+   * Requests' collections of the person's own for this repository by `id`, and environments by `name`, into
+   * `.armada/requests.toml`. A secret goes as its name and `secret = true`, never its value.
+   */
+  | { kind: "requests"; collections?: string[]; environments?: string[] };
 
 /**
  * `commit_to_repository`'s body (`POST /repositories/commit`): start a Job of its own that copies one piece onto its

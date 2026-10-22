@@ -125,6 +125,8 @@ export type PaletteHands = {
    * — silently, and only for whoever chose the second one.
    */
   surface: (surfaceId: string) => void;
+  /** Requests, which the roster lists as a place and which opens the side panel. Absent, its row goes to `surface` like any other. */
+  requests?: () => void;
   /**
    * Go to the Manifest surface with one Check or Command picked.
    *
@@ -179,7 +181,8 @@ export function carryOut(choice: PaletteChoice, hands: PaletteHands): void {
       hands.openSession(choice.id);
       return;
     case "surface":
-      hands.surface(choice.id);
+      if (choice.id === "requests" && hands.requests !== undefined) hands.requests();
+      else hands.surface(choice.id);
       return;
     case "run":
       hands.run(choice.id);

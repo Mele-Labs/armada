@@ -4,6 +4,7 @@ import { CHANNELS } from "../shared/bridge";
 import { autopilotPreload } from "./autopilot";
 import { sketchSharePreload } from "./sketch-share";
 import { filesPreload } from "./files";
+import { requestsPreload } from "./requests";
 import type { AskLessonRead, AskTurn, LessonReviewRead } from "@armada/screens/src/lessons/review-wire";
 import type { LessonSessionRead } from "@armada/screens/src/lessons/session-wire";
 import { ANNOTATE_FLAG, ANNOTATION_CHANNELS } from "../shared/annotations";
@@ -343,6 +344,7 @@ const api: BridgeApi = {
   ...autopilotPreload,
   ...sketchSharePreload,
   ...filesPreload,
+  ...requestsPreload,
   getPlanUsage: (): Promise<PlanUsageRead> => ipcRenderer.invoke(CHANNELS.getPlanUsage),
   onPlanUsageChanged: (onChanged: (usage: PlanUsage) => void): (() => void) => {
     const handler = (_event: unknown, usage: PlanUsage): void => onChanged(usage);
