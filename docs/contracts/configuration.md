@@ -769,6 +769,25 @@ Once each owning crate's exhaustive match declares the keys it reads, both direc
   Neither did `ModelClient`, `AgentHarness`'s binary path, the Secrets provider, the VCS host, the worktree root, the Evidence MCP bind address, or `verification`'s `max_context_size`.
   Each carries a `default` of `undecided` rather than a silent constant.
 
+## Whether the test map is shared
+
+Added 21 October 2026, with `test_map.shared`.
+
+| field | type | required | default | meaning |
+|---|---|---|---|---|
+| `test_map` | table | no | absent | What the repository says about its test map |
+| `test_map.shared` | boolean | no | `false` | `true` shares the map through the central store |
+
+`concepts/test-map.md`, *What reads it*, states the rule.
+Absent `test_map` or absent `shared` means each machine keeps its own map.
+Any other key under `test_map` is refused, as an unknown key anywhere in the file is.
+It is not `Live`: it is read from the Manifest Fleet started with.
+
+```yaml
+test_map:
+  shared: true
+```
+
 ## Open questions
 
 - **[foundations-as-a-job-gate]** What gates a Job against `verify-foundations`,
@@ -903,8 +922,8 @@ Once each owning crate's exhaustive match declares the keys it reads, both direc
   `commands.<name>.run`,
   `commands.<name>.destructive`, `commands.<name>.serve`,
   `commands.<name>.ready`, `commands.<name>.links`, `setup.requires`, `setup.seed`, `setup.worktrees`, `setup.auto_release`,
-  `setup.auto_release_grace_minutes`, `policy.pull_request_owners` and, in a
-  workspace, `depends_on` (`manifest.md`, *Workspace gating*) — with every
+  `setup.auto_release_grace_minutes`, `policy.pull_request_owners`,
+  `test_map.shared` and, in a workspace, `depends_on` (`manifest.md`, *Workspace gating*) — with every
   other key (`permissions`, `knowledge`, any other under `policy`,
   `commands.*.description`) hard-failing as unknown until Reach. Beyond that, what is still open: the
   file syntax for how a Check declares its command; how the Commands
