@@ -90,6 +90,8 @@ export type BattlefieldProps = {
   lensCard?: ReactNode;
   /** The card is typing out a hunk: one of the few loops the map runs at once. */
   typing?: boolean;
+  /** The lens's card and the hover card are drawn over the app, past the pane's edge: a Job's Field while he is in it. */
+  float?: boolean;
   /** The messages between the Job and other Jobs while fresh, an arc each between two drones. A Job's Field only. */
   links?: readonly LinkIn[] | undefined;
   onSelect: (key: string) => void;
@@ -111,7 +113,7 @@ const outpostMarks = (world: Size, n: number): P3[] =>
     return [{ x: at.x - 40, y: at.y * FLAT, z: 0 }, { x: at.x + 40, y: at.y * FLAT, z: 230 }];
   }).flat();
 
-export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, facts, calls, clashes, focus, selected, scope, own, builds = NO_BUILDS, planned, outposts = NO_OUTPOSTS, touched, glow, route, framing, lights, walk, lens, lensCard, typing = false, links = NO_LINKS, onSelect, onClear, onPad, onGoal, onPr }: BattlefieldProps) {
+export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, facts, calls, clashes, focus, selected, scope, own, builds = NO_BUILDS, planned, outposts = NO_OUTPOSTS, touched, glow, route, framing, lights, walk, lens, lensCard, typing = false, float = false, links = NO_LINKS, onSelect, onClear, onPad, onGoal, onPr }: BattlefieldProps) {
   const host = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState<Size>({ width: 900, height: 560 });
   // Bumped when the pane takes a new size, or has one again after being folded away: an own camera refits then.
@@ -380,7 +382,7 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
         {stage === undefined ? null : <Hits stage={stage} scene={pixiScene} facts={facts} acts={hitActs} />}
       </PixiMap>
       <div className="bf-haze" aria-hidden="true" />
-      {lens === undefined ? null : <LensWires stage={stage} specs={pixiScene.lens} card={lensCard} writer={writerAt} />}
+      {lens === undefined ? null : <LensWires stage={stage} specs={pixiScene.lens} card={lensCard} writer={writerAt} float={float} />}
       {/* A drone that holds a call and is outside the pane: its badge at the border, an arrow toward it. Pressing it eases the camera there. */}
       {[...new Map([...gone, ...calls])].map(([key, tone]) => {
         const drone = droneBy.get(key);
@@ -411,7 +413,7 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
           </button>
         );
       })}
-      {host.current === null ? null : <TipLayer tips={tips} host={host.current} view={eff} {...(lockedTip === undefined || lockedAnchor === undefined ? {} : { locked: { tip: lockedTip, anchor: lockedAnchor, key: selected } })} />}
+      {host.current === null ? null : <TipLayer tips={tips} host={host.current} view={eff} float={float} {...(lockedTip === undefined || lockedAnchor === undefined ? {} : { locked: { tip: lockedTip, anchor: lockedAnchor, key: selected } })} />}
       <div className="bf-zoom">
         <Tooltip label="Zoom in" shortcut="+" asChild>
           <Button variant="ghost" iconOnly aria-label="Zoom in" disabled={eff.eye >= limits.most - 0.001} onClick={() => zoomMid(ZOOM_STEP)}>

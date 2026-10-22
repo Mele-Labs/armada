@@ -70,8 +70,10 @@
 /* The callout's line for it. */
 .bf-callout__doing { display: flex; align-items: center; gap: var(--space-2); color: var(--fg-default); font-size: var(--text-xs); line-height: var(--leading-xs); }
 .bf-callout__path { min-width: 0; overflow: hidden; color: var(--fg-muted); font-family: var(--font-mono); font-size: var(--text-2xs); text-overflow: ellipsis; white-space: nowrap; }
-/* A step's card, pressed open: the real node card, beside the pin, and it can be pressed. */
-.bf-callout[data-pinned] .bf-callout__card { pointer-events: auto; }
+/* The card takes the pointer, so the pointer can cross to it and stay; a step's card, pressed open, can be pressed. */
+.bf-callout .bf-callout__card { pointer-events: auto; }
+/* Floated over the app while the pointer or focus is in a Job's Field: in the window, over the panels, and the map's own unit with it. */
+.bf-callout[data-float] { --bf-u: var(--border-width); position: fixed; z-index: var(--z-tooltip); }
 .bf-callout[data-node] .bf-callout__card { width: max-content; max-width: calc(100% - calc(20 * var(--bf-u))); padding: var(--space-2) var(--space-3) var(--space-3); }
 .bf-callout__node { display: flex; }
 @keyframes bf-tip { 50% { opacity: 0.3; } }
@@ -117,5 +119,9 @@
 .bf-lens__card { position: absolute; top: var(--space-3); right: calc(var(--space-12) + var(--space-3)); width: min(calc(var(--space-12) * 6), calc(100% - var(--space-12) * 2)); }
 /* Where a hand has put the card's drone or its slab under the card, it stands at the top left. */
 .bf-lens__card[data-side="left"] { right: auto; left: var(--space-3); }
+/* Floated over the app while the pointer or focus is in a Job's Field: a frame laid over the map's box, and the card in it at the size the
+   Field large draws it, reaching past the pane toward the thread. The card takes the pointer there. */
+.bf-lens--float { position: fixed; inset: auto; z-index: var(--z-menu); }
+.bf-lens--float .bf-lens__card { width: calc(var(--space-12) * 6); max-width: calc(100vw - var(--space-3) * 2); pointer-events: auto; }
 .bf-lens__counts { margin: 0; padding: 0; list-style: none; }
 .bf-lens__counts li { position: absolute; translate: -50% -100%; padding: 0 var(--space-1); border: var(--border-width) solid var(--border-glass); border-radius: var(--radius-sm); background: var(--bg-glass); color: var(--fg-default); font-family: var(--font-mono); font-size: var(--text-2xs); line-height: var(--leading-2xs); white-space: nowrap; }

@@ -22,6 +22,9 @@
 .sv-fieldstrip__drone[data-done] .sv-fieldstrip__name { color: var(--fg-subtle); }
 .sv-fieldstrip__now { color: var(--fg-muted); font-family: var(--font-mono); font-size: var(--text-2xs); }
 /* The lens's card over the map (`FieldLensCard.tsx`): the file, its counts and the newest hunk, the earlier files as tabs behind it. */
+/* In the side panel the card is small and stands over the map; floated, it is drawn on the body (`LensWires.tsx`) as an overlay is. */
+.sv-field:not([data-large]) .bf-lens__card { width: min(calc(var(--space-12) * 4), 50%); }
+.bf-lens--float .sv-lens__card, .bf-lens--float .sv-lens__tab { border-radius: var(--radius-lg); background: var(--bg-overlay); box-shadow: var(--shadow-overlay); }
 .sv-lens { position: relative; padding-top: calc(var(--leading-2xs) * var(--tabs, 0)); }
 .sv-lens__card, .sv-lens__tab { border: var(--border-width) solid var(--border-glass); border-radius: var(--radius-md); background: var(--bg-glass); box-shadow: var(--shadow-card); }
 .sv-lens__card { position: relative; border-color: var(--accent); }

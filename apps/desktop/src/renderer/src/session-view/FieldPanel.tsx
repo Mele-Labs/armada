@@ -6,8 +6,10 @@
 // slider scrubs back through the Job's reads and writes: the glow, the drone and a numbered route stand as they were, and the right end is
 // live. A drone not coding leaves the floor: to the pad at the near edge while a check runs or a walk is open, risen over its file while it
 // thinks, beaming to an outpost while it calls (`field-now.ts`). A strip over the map names each drone and what it is doing; a press frames
-// the camera on it. A file a drone of the Job is writing lifts as a slab with its minimap, and a card at the top right shows its newest
-// hunk; the card follows the newest writer, or the drone a strip press pinned (`field-lens.ts`). While the Job messages another Job, or
+// the camera on it. The map rests on the whole repository. A file a drone of the Job is writing lifts as a slab with its minimap, and a
+// small card at the top right shows its newest hunk; the card follows the newest writer, or the drone a strip press pinned while it
+// writes (`field-lens.ts`). While the pointer or focus is in the panel, that card and the hover card float over the app at full size
+// (`field-engaged.ts`). While the Job messages another Job, or
 // is messaged by one, an arc runs between their drones with packets travelling from the sender, and the other drone un-fades
 // (`session.messaged`, `field-now.ts`). `docs/concepts/cockpit.md`, *A Job open*. The control in the band, or `deck_field`'s key (`DeckHost.tsx`), opens the Field large.
 
@@ -37,6 +39,7 @@ import { isWorking, touchedPlots, workingDrones } from "./field";
 import { PlanBar } from "./FieldPlan";
 import { FieldStrip } from "./FieldStrip";
 import { FieldLensCard } from "./FieldLensCard";
+import { useEngaged } from "./field-engaged";
 import { useLens, useShown } from "./field-lens";
 import { placedNow, stripOf, talkOf, useLiftsAndReturns, useMainNow } from "./field-now";
 import { groupsOf, plotsOf } from "./field-plan";
@@ -245,8 +248,9 @@ export function FieldMap({ session, repositories, large = false }: { session: Se
   const lens = useLens({ session: session.id, drones: own, pinned, events: job, roots, bursts, active: at === undefined && shown });
   const slabs = useMemo<Slab[]>(() => lens.slabs.map((one) => ({ path: one.path, card: one.card, rows: one.diff.rows, counts: countsOf(one.diff) })), [lens.slabs]);
   const [typing, setTyping] = useState(false);
+  const { engaged, handlers } = useEngaged(!large);
   return (
-    <div ref={box} className="sv-field sv-field--plan" data-large={large || undefined}>
+    <div ref={box} className="sv-field sv-field--plan" data-large={large || undefined} {...handlers}>
       <FieldStrip entries={strip} pinned={pinned} onPick={pick} />
       <div className="sv-field__map">
         {at === undefined ? null : <ReplayMark />}
@@ -266,8 +270,9 @@ export function FieldMap({ session, repositories, large = false }: { session: Se
           lights={lights}
           walk={walk}
           lens={slabs}
-          lensCard={lens.card === undefined ? undefined : <FieldLensCard card={lens.card} large={large} onTyping={setTyping} />}
+          lensCard={lens.card === undefined ? undefined : <FieldLensCard card={lens.card} large={large || engaged} onTyping={setTyping} />}
           typing={typing && lens.card !== undefined}
+          float={engaged}
           links={links}
           onClear={() => setPinned(undefined)}
           own={large ? `${session.id}:large` : session.id}
