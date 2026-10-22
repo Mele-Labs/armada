@@ -262,6 +262,40 @@ export const AReferenceInCode: Story = {
 };
 
 /** Raw HTML is the characters it was written as. This text arrives from a model. */
+/** What a host that knows `docs/plan.md` is a file in the Job's checkout hands back: it finds it anywhere, plain words included. */
+const scanFile = (text: string) =>
+  [...text.matchAll(/docs\/plan\.md/g)].map((one) => ({
+    from: one.index,
+    to: one.index + one[0].length,
+    ref: { kind: "file", id: "docs/plan.md", title: "docs/plan.md" } satisfies ProseReference,
+  }));
+
+/**
+ * A path a model writes in backticks is a link where the host found it to be a file; it stays code. The same words in a
+ * sentence, in a span with more than the path, or in a fenced block are not the link.
+ */
+export const AFileInCode: Story = {
+  args: {
+    text: "Read `docs/plan.md`, then `docs/plan.md --draft`. Plain docs/plan.md stays words.\n\n```\ndocs/plan.md\n```",
+  },
+  decorators: [
+    (Story) => (
+      <ProseRefs.Provider value={{ scan: scanFile, open: pressed }}>
+        <Story />
+      </ProseRefs.Provider>
+    ),
+  ],
+  beforeEach: () => {
+    pressed.mockClear();
+  },
+  play: async ({ canvas, userEvent }) => {
+    await userEvent.click(canvas.getByRole("link", { name: "docs/plan.md" }));
+    await expect(pressed).toHaveBeenCalledWith({ kind: "file", id: "docs/plan.md", title: "docs/plan.md" });
+    await expect(canvas.getByText("docs/plan.md --draft", { selector: "code" })).toBeVisible();
+    await expect(canvas.getAllByRole("link")).toHaveLength(1);
+  },
+};
+
 export const RawHtml: Story = {
   args: {
     text: 'A tag is written <b>like this</b> and stays that way.\n\n<img src="x" onerror="alert(1)">',

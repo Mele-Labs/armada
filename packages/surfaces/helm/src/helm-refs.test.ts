@@ -154,3 +154,19 @@ describe("where a pull request opens on the merge line", () => {
     expect(branchOfPullRequest(undefined, "2219")).toBeUndefined();
   });
 });
+
+describe("a file in the Job's checkout", () => {
+  const FILED: RefWorld = { ...WORLD, files: ["docs/plan.md"] };
+  const refs = (text: string) => scanRefs(text, FILED).map((one) => [text.slice(one.from, one.to), one.ref.kind, one.ref.id]);
+
+  it("is a path the window found to be a file, where the text is exactly that path", () => {
+    expect(refs("docs/plan.md")).toEqual([["docs/plan.md", "file", "docs/plan.md"]]);
+  });
+
+  it("is not a path the window did not find, or one with more words around it", () => {
+    expect(refs("docs/other.md")).toEqual([]);
+    expect(refs("docs/plan.md --draft")).toEqual([]);
+    expect(refs("see docs/plan.md")).toEqual([]);
+    expect(scanRefs("docs/plan.md", WORLD)).toEqual([]);
+  });
+});
