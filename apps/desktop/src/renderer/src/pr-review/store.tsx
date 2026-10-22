@@ -11,6 +11,7 @@ import { createContext, useContext, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 
 import type { PullRequestPage, PullReviewComment, PullReviewList, PullReviewLists, PullReviewRow } from "@armada/protocol";
+import { readKept, writeKept } from "@armada/components";
 import { SURFACE } from "@armada/shell";
 
 import type { Draft, PatchRead, PrList, PrWork, ReviewPr, ReviewSnapshot, ReviewTab, ToolDef, Verdict, View, WalkWork } from "./model";
@@ -97,6 +98,8 @@ const stubPage = (row: PullReviewRow): PullRequestPage => ({
 });
 
 const keyOf = (row: PullReviewRow): string => `${row.repository}#${row.number}`;
+
+const KEPT = "pr-review:lists";
 
 const LISTS: readonly PrList[] = ["requested", "team", "assigned", "mine"];
 
@@ -189,7 +192,8 @@ export function createReviewStore(source: ReviewSource): ReviewStore {
     });
   };
 
-  const arrive = (lists: PullReviewLists) => {
+  /** `fresh` is a reading Fleet just answered; the one kept from the last launch is only drawn, and read again by `fetch`. */
+  const arrive = (lists: PullReviewLists, fresh = true) => {
     const held = snapshot.prs;
     const silent = new Set<PullReviewList>(lists.silent ?? []);
     const byKey = new Map<string, { row: PullReviewRow; on: PrList[] }>();
@@ -227,6 +231,9 @@ export function createReviewStore(source: ReviewSource): ReviewStore {
       ),
     });
     for (const manifestId of new Set(prs.map((one) => one.manifestId))) acts.readTools(manifestId);
+    if (!fresh) return;
+    // Kept so the next launch draws rows at once instead of an empty panel until Fleet answers.
+    writeKept(KEPT, lists);
     // The pull request open in the reader is read again, since a commit may have been pushed to it, and so are its runs.
     if (snapshot.open !== undefined && prOf(snapshot.open) !== undefined) {
       readPage(snapshot.open);
@@ -239,6 +246,9 @@ export function createReviewStore(source: ReviewSource): ReviewStore {
   source.onWalk(walks.applyWalk);
   source.onNote(walks.noted);
   source.onClosed(walks.closed);
+
+  const kept = readKept<PullReviewLists>(KEPT);
+  if (kept !== undefined) arrive(kept, false);
 
   return {
     ...acts,
