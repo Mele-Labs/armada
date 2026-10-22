@@ -29,6 +29,7 @@ fn supplied() -> Supplied {
         .words(s::MODELS_SECOND_OPINION, "middle")
         .words(s::MODELS_DISPUTE, "small")
         .words(s::MODELS_TEST_MAP, "small")
+        .words(s::MODELS_ACCOUNT, "small")
         .words(s::PLAN_DOWNSHIFT_TO, "middle")
         .harnesses(&["the-cli"])
 }
@@ -197,6 +198,7 @@ fn every_handle_names_an_entry_of_its_kind() {
         s::MODELS_SECOND_OPINION,
         s::MODELS_DISPUTE,
         s::MODELS_TEST_MAP,
+        s::MODELS_ACCOUNT,
         s::PLAN_DOWNSHIFT_TO,
         s::PLAN_CONTEXT_HANDOFF,
         s::EFFORT_DEFAULT,
@@ -231,7 +233,7 @@ fn every_handle_names_an_entry_of_its_kind() {
             key.name()
         );
     }
-    let handles = 18 + 10 + 12 + 25 + 2 + 4 + s::prompt_keys().count();
+    let handles = 18 + 10 + 12 + 26 + 2 + 4 + s::prompt_keys().count();
     assert_eq!(
         entries().count(),
         handles,
@@ -331,6 +333,19 @@ fn a_model_is_checked_against_the_roster_the_same_file_names() {
         ("models.judge", SettingValue::Text("enormous".into())),
     ];
     assert!(checked(&document(&pairs), &supplied(), &Env::none()).is_ok());
+}
+
+/// The account writer's model is its own dial, so raising the Judge does not raise it.
+#[test]
+fn the_account_writers_model_is_a_setting_and_a_model_off_the_roster_is_refused() {
+    let saved = checked(&document(&[("models.account", SettingValue::Text("middle".into()))]), &supplied(), &Env::none())
+        .expect("taken");
+    let resolved = Resolved::new(saved, supplied(), Env::none());
+    assert_eq!(resolved.get(s::MODELS_ACCOUNT), "middle");
+
+    let (key, reason) = refusal(&[("models.account", SettingValue::Text("enormous".into()))]);
+    assert_eq!(key.as_deref(), Some("models.account"));
+    assert!(reason.contains("must be one of big, middle, small"), "{reason}");
 }
 
 #[test]

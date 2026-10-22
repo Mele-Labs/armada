@@ -133,6 +133,12 @@ impl HeadlessAgent {
         HeadlessAgent::judge_model()
     }
 
+    /// The model a Session's account of itself is written on: **the Judge's**, the cheapest on the
+    /// roster, since it is a few short lines written again every few seconds a Session is at work.
+    pub fn account_model() -> &'static str {
+        HeadlessAgent::judge_model()
+    }
+
     /// The model a file no collector can measure is read on: **the Judge's**, the cheapest on the
     /// roster, since the call is one short read of a capped file made up to twenty times a move.
     pub fn test_map_model() -> &'static str {
