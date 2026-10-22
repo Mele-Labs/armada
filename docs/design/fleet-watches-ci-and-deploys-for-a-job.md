@@ -200,6 +200,7 @@ The names are the builder's to settle against `docs/practices/protocol.md`.
 | `crates/config/settings.toml` | The settings under *Limits* |
 | `crates/adapters/src/session_rules.md` | Start a watch rather than poll. A live watch is a wait, as an open pull request is |
 | `docs/concepts/watch.md` | New, once built |
+| Fleet's code that calls reading a pull request a watch (`pull_refreshing.rs`, `after_watching.rs`, `linked_watching.rs`, `rail_watching.rs`, `usage_watch.rs` in `crates/fleet/src/`) | Renamed, so **Watch** means one thing. The person chose the word |
 
 ## What would make this wrong
 
