@@ -26,7 +26,9 @@
 .armada-fleet-turn__mark { display: inline-flex; }
 .armada-fleet-turn__label { font-family: var(--font-mono); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .armada-fleet-turn__row > * { flex: none; }
-.armada-fleet-turn__row > .armada-fleet-turn__label { flex: 0 1 auto; }
+.armada-fleet-turn__row > .armada-fleet-turn__label,
+.armada-fleet-turn__row > :has(> .armada-fleet-turn__label) { flex: 0 1 auto; min-width: 0; display: flex; overflow: hidden; }
+.armada-fleet-turn__row { max-width: 100%; }
 
 .armada-fleet-turn__body {
   display: flex;
