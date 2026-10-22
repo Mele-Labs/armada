@@ -49,6 +49,7 @@ mod studio_zones;
 mod test_map;
 mod timeline;
 mod timings;
+mod watches;
 mod tmp;
 
 use core_model::{Timestamp, Ulid};

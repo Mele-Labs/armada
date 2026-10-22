@@ -59,6 +59,35 @@ pub enum WatchState {
     Stopped,
 }
 
+impl WatchState {
+    pub const ALL: &'static [WatchState] = &[
+        WatchState::Waiting,
+        WatchState::Running,
+        WatchState::Passed,
+        WatchState::Failed,
+        WatchState::GaveUp,
+        WatchState::Broken,
+        WatchState::Stopped,
+    ];
+
+    /// The word the wire and the store spell it with.
+    pub fn as_wire(self) -> &'static str {
+        match self {
+            WatchState::Waiting => "waiting",
+            WatchState::Running => "running",
+            WatchState::Passed => "passed",
+            WatchState::Failed => "failed",
+            WatchState::GaveUp => "gave_up",
+            WatchState::Broken => "broken",
+            WatchState::Stopped => "stopped",
+        }
+    }
+
+    pub fn from_wire(word: &str) -> Option<WatchState> {
+        WatchState::ALL.iter().copied().find(|one| one.as_wire() == word)
+    }
+}
+
 impl From<ReadingState> for WatchState {
     fn from(state: ReadingState) -> WatchState {
         match state {
