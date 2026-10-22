@@ -57,6 +57,8 @@ pub struct KeptPlan {
     pub summary: String,
     pub recorded_at: String,
     pub approved_at: Option<String>,
+    /// When the person put this version away to keep talking. A new version starts without it.
+    pub set_aside_at: Option<String>,
     /// The ledger target and the title of the sketch drawn with it.
     pub sketch: Option<(String, String)>,
     /// The page the plan depends on: its call waits until the person approves that walk.
@@ -93,7 +95,7 @@ impl Store {
         let head = self
             .conn
             .query_row(
-                "SELECT version, recorded_at, approved_at, sketch_id, sketch_title, changed, next_group, next_task, walk, summary
+                "SELECT version, recorded_at, approved_at, sketch_id, sketch_title, changed, next_group, next_task, walk, summary, set_aside_at
                  FROM session_plan WHERE session_id = ?1",
                 [session_id],
                 |row| {
@@ -109,6 +111,7 @@ impl Store {
                         next_task: row.get(7)?,
                         walk: row.get(8)?,
                         summary: row.get(9)?,
+                        set_aside_at: row.get(10)?,
                         groups: Vec::new(),
                     })
                 },
@@ -198,8 +201,8 @@ impl Store {
         }
         kept.execute(
             "INSERT INTO session_plan
-                 (session_id, version, recorded_at, approved_at, sketch_id, sketch_title, changed, next_group, next_task, walk, summary)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+                 (session_id, version, recorded_at, approved_at, sketch_id, sketch_title, changed, next_group, next_task, walk, summary, set_aside_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
             params![
                 session_id,
                 plan.version,
@@ -212,6 +215,7 @@ impl Store {
                 plan.next_task,
                 plan.walk,
                 plan.summary,
+                plan.set_aside_at,
             ],
         )
         .map_err(keeping)?;
@@ -261,6 +265,18 @@ impl Store {
             .execute(
                 "UPDATE session_plan SET approved_at = ?3
                  WHERE session_id = ?1 AND version = ?2 AND approved_at IS NULL",
+                params![session_id, version, at],
+            )
+            .map(|changed| changed == 1)
+            .map_err(keeping)
+    }
+
+    /// Put `version` away, if it is the one held and not already put away. Whether it was.
+    pub fn set_aside_session_plan(&mut self, session_id: &str, version: u32, at: &str) -> Result<bool, WriteError> {
+        self.conn
+            .execute(
+                "UPDATE session_plan SET set_aside_at = ?3
+                 WHERE session_id = ?1 AND version = ?2 AND set_aside_at IS NULL",
                 params![session_id, version, at],
             )
             .map(|changed| changed == 1)

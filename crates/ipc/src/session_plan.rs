@@ -370,6 +370,10 @@ pub struct SessionPlan {
     pub approved: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub approved_at: Option<Instant>,
+    /// When the person put this version away to keep talking. It holds nothing and calls for nothing
+    /// until the agent records a new version, which starts without it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub set_aside_at: Option<Instant>,
     /// Every path a group names, once each.
     pub scope: Vec<String>,
     pub groups: Vec<SessionPlanGroup>,

@@ -7,7 +7,7 @@ use std::sync::Arc;
 use adapter_traits::{CallDetail, DroneEvent};
 use api::{HostedSessions, Refusal, Sessions};
 use ipc::{
-    ApprovePlan, PlanGroupInput, PlanMark, PlanSketchInput, PlanTaskInput, PlanTaskState, RecordPlan,
+    ApprovePlan, DismissWaiting, PlanGroupInput, PlanMark, PlanSketchInput, PlanTaskInput, PlanTaskState, RecordPlan,
     ReportedTask, ReportedTaskStatus, SendPlanChanges, SessionFact, SessionId, SessionRecord, SessionReport,
     SessionRow, TouchAct, WaitingSource,
 };
@@ -239,6 +239,30 @@ async fn a_plan_recorded_again_is_pending_again_and_nothing_blocked_while_it_was
     let plan = again.plan.unwrap();
     assert_eq!((plan.version, plan.approved), (2, false));
     assert!(again.waiting_for.iter().any(|one| one.id == "plan:2"));
+}
+
+/// **Not yet.** He puts a plan away to keep talking: the version is marked, nothing stands for him to
+/// answer, and the agent is told once to keep talking and record nothing until he asks.
+#[tokio::test]
+async fn not_yet_sets_the_plan_aside_drops_its_call_and_tells_the_agent_to_keep_talking() {
+    let rig = rig_placing(None);
+    let id = running(&rig).await;
+    recorded(&rig, first(&id)).await;
+    assert_eq!(told(&rig, "Not ready for a plan yet"), 0);
+
+    let gone = Arc::clone(&rig.fleet)
+        .dismiss_waiting(DismissWaiting { session_id: id.clone(), item_id: "plan:1".into(), reason: None })
+        .await
+        .unwrap();
+    let plan = gone.plan.expect("the plan stays on the record");
+    assert!(plan.set_aside_at.is_some(), "the version is set aside");
+    assert!(!plan.approved, "and not approved");
+    assert!(gone.waiting_for.iter().all(|one| one.source != WaitingSource::Plan), "{:?}", gone.waiting_for);
+    eventually(|| async { told(&rig, "Not ready for a plan yet. Keep talking, and record no plan until I ask for one.") == 1 }).await;
+
+    let again = read(&rig, &id).await;
+    assert!(again.plan.is_some_and(|plan| plan.set_aside_at.is_some()), "kept, not only answered");
+    assert!(again.waiting_for.iter().all(|one| one.source != WaitingSource::Plan));
 }
 
 #[tokio::test]

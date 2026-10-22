@@ -221,6 +221,7 @@ fn pending_plan() -> ipc::SessionPlan {
         recorded_at: at(),
         approved: false,
         approved_at: None,
+        set_aside_at: None,
         scope: vec!["crates/store".to_string()],
         groups: vec![ipc::SessionPlanGroup {
             id: "g1".to_string(),

@@ -32,6 +32,10 @@ const PLAN_MARK_REFUSED: &str = "fleet.plan_mark_refused";
 /// against it.
 pub(crate) const PLAN_TO_APPROVE: &str = "Plan to approve";
 
+/// What the agent is told when he puts a plan away to keep talking.
+pub(crate) const NOT_YET_TOLD: &str =
+    "Not ready for a plan yet. Keep talking, and record no plan until I ask for one.";
+
 /// The call a recorded plan makes of the person until he approves it: id `plan:<version>`.
 pub(crate) fn plan_item(session: &str, version: u32, since: &str) -> WaitingItem {
     WaitingItem {
@@ -198,6 +202,21 @@ where
             self.row_put(&id, SessionRow::Plan { id: self.row_id(&id), at: self.instant(), version }).await;
         }
         self.published_hosted(&id).await
+    }
+
+    /// Put the plan version the call `item` names away. A call for a version that is not the one held
+    /// anymore changes nothing.
+    pub(crate) async fn plan_set_aside(&self, id: &str, item: &str) -> Result<(), Refusal> {
+        let Some(version) = item.strip_prefix("plan:").and_then(|version| version.parse::<u32>().ok()) else {
+            return Ok(());
+        };
+        let now = self.now().as_str().to_string();
+        self.store()
+            .lock()
+            .await
+            .set_aside_session_plan(id, version, &now)
+            .map_err(|why| self.ledger_fault(why))?;
+        Ok(())
     }
 
     /// The plan `version` of `id` as held, or why there is none to act on.

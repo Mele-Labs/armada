@@ -173,6 +173,7 @@ pub(crate) fn recorded(
         summary,
         recorded_at: now.to_string(),
         approved_at: None,
+        set_aside_at: None,
         sketch,
         walk,
         changes: before.map(|_| changes),
@@ -344,6 +345,7 @@ pub(crate) fn wire(plan: &KeptPlan) -> SessionPlan {
         recorded_at: Instant::carried(&plan.recorded_at),
         approved: plan.approved_at.is_some(),
         approved_at: plan.approved_at.as_deref().map(Instant::carried),
+        set_aside_at: plan.set_aside_at.as_deref().map(Instant::carried),
         scope,
         groups: plan
             .groups
