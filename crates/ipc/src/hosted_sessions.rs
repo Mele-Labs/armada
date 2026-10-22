@@ -452,6 +452,13 @@ pub enum SessionRow {
         slot: u32,
         branch: String,
     },
+    /// The slot given back, with the branch it was on.
+    Release {
+        id: String,
+        at: Instant,
+        slot: u32,
+        branch: String,
+    },
     /// The session showed the person a page in a window.
     Window {
         id: String,
@@ -692,6 +699,7 @@ impl SessionRow {
             | SessionRow::Command { id, .. }
             | SessionRow::Compaction { id, .. }
             | SessionRow::Lease { id, .. }
+            | SessionRow::Release { id, .. }
             | SessionRow::Window { id, .. }
             | SessionRow::Started { id, .. }
             | SessionRow::Linked { id, .. }

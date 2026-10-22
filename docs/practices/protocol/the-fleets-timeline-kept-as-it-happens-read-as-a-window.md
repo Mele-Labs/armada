@@ -36,9 +36,12 @@ so it enters nothing.
 `session.read`, `session.edited`, `session.ran`, `job.read` and `job.ran` count what one Session or Job did of one act: `Read 14 files`, `Edited 3 files`, `Ran 5 commands`, with the latest path or command as `detail`.
 A burst ends when its subject has done none of it for fifteen seconds, when the Session's turn or life ends, or two minutes after it began, so a long run still shows as it goes (`QUIET` and `MOST` in `timeline/tools.rs`).
 **The entry is written when the burst closes and dated by its first call**, so a client orders a window by `at` and not by `id`.
-Only a path is kept of a file, and a command is cut to the line and has the value of a `NAME=`, a `--flag` or a query pair whose name says secret, what follows `Authorization:` or `Bearer`, a password in an address and any long token-shaped word hidden: it errs toward hiding.
+Only a path is kept of a file, **whole and named from the root of the worktree it lies in** (a pool slot, another linked worktree, or the repository's own checkout), so the Field matches it to the repository's tree whichever slot it was written in and however deep it is (`crate::tree_paths`).
+A path outside every served repository is kept as it came, cut as a `detail` is.
+A command is cut to the line and has the value of a `NAME=`, a `--flag` or a query pair whose name says secret, what follows `Authorization:` or `Bearer`, a password in an address and any long token-shaped word hidden: it errs toward hiding.
 
-**`items` is what the burst named**, so a row can open to its files or commands: newest first, a path or command appearing once however often it was named, **at most 25** (`MOST_TIMELINE_ITEMS`), each cut and hidden exactly as `detail` is, and the first is `detail`. 25 bounds an entry at about 3 KB and a list at about a screen; the count in `says` is still the whole burst's.
+**`items` is what the burst named**, so a row can open to its files or commands: newest first, a path or command appearing once however often it was named, **at most 25** (`MOST_TIMELINE_ITEMS`), a file whole as above and a command cut and hidden exactly as `detail` is, and the first is `detail`. 25 bounds an entry at a few KB and a list at about a screen; the count in `says` is still the whole burst's, and `says` is cut as before.
+An entry written before 22 Oct 2026 may carry a file cut at 120 characters, or spelled from where the agent stood. No field changed shape, so nothing is migrated and the protocol ID does not move.
 The store keeps them in `timeline_events.items`, one to a line (a line is all an item can be), and an entry written before the column has none: Bridge then has nothing to open.
 Absent from every other kind.
 Additive.

@@ -9,7 +9,8 @@
 //! it began, so a long run shows as it goes. **The entry is dated by the burst's first call** and is
 //! written when it closes, which is why a client orders by `at` and not by `id`.
 //!
-//! A path is the only thing kept of a file. A command is kept cut and with what looks like a
+//! A path is the only thing kept of a file, **whole and from its worktree's root** ([`FileName`]), so
+//! the Field can find it in the repository's tree. A command is kept cut and with what looks like a
 //! secret in it hidden ([`scrubbed`]).
 //!
 //! **A call to a service outside the repository is not a burst**: a forge command, a page fetched, a
@@ -24,6 +25,7 @@ use adapter_traits::{AgentHarness, DroneEvent, Reach, ToolUse};
 use ipc::{TimelineKind, TimelineTone};
 
 use super::{bare, Fact, Subject, Timeline, DETAIL};
+use crate::tree_paths::FileName;
 
 /// A burst is over when its subject has done none of that act for this long, in milliseconds.
 const QUIET: i64 = 15_000;
@@ -34,10 +36,26 @@ pub(super) const TICK: Duration = Duration::from_secs(5);
 
 /// What was done.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub(crate) enum Act {
+enum Act {
     Read,
     Edit,
     Ran,
+}
+
+/// What was done to a file.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum FileAct {
+    Read,
+    Edit,
+}
+
+impl From<FileAct> for Act {
+    fn from(act: FileAct) -> Act {
+        match act {
+            FileAct::Read => Act::Read,
+            FileAct::Edit => Act::Edit,
+        }
+    }
 }
 
 /// Who did it, as the entry will name them.
@@ -72,7 +90,7 @@ struct Burst {
     began: i64,
     last: i64,
     count: usize,
-    /// What it named, newest first and without repeats, cut to a line each: the burst's `detail` is the first.
+    /// What it named, newest first and without repeats: a file whole, a command cut to a line. The burst's `detail` is the first.
     items: Vec<String>,
 }
 
@@ -95,7 +113,11 @@ impl Bursts {
         burst.count += count;
         burst.last = ms;
         // What a repeat names moves to the front rather than listing twice, so the list holds distinct files.
-        if let Some(item) = detail.map(|one| bare(&one, DETAIL)).filter(|one| !one.is_empty()) {
+        let item = detail.map(|one| match act {
+            Act::Ran => bare(&one, DETAIL),
+            Act::Read | Act::Edit => one,
+        });
+        if let Some(item) = item.filter(|one| !one.is_empty()) {
             burst.items.retain(|held| *held != item);
             burst.items.insert(0, item);
             burst.items.truncate(ipc::MOST_TIMELINE_ITEMS);
@@ -141,7 +163,7 @@ fn fact(act: Act, burst: Burst) -> Fact {
     let says = format!("{verb} {n} {noun}{}", if n == 1 { "" } else { "s" });
     Fact::new(burst.began_at, kind, burst.doer.subject, TimelineTone::Run, says)
         .titled(burst.doer.title)
-        .detail(burst.items.first().cloned())
+        .detail_as_is(burst.items.first().cloned())
         .items(burst.items)
         .in_repository(burst.doer.manifest)
         .live()
@@ -149,8 +171,10 @@ fn fact(act: Act, burst: Burst) -> Fact {
 
 /// What a Drone's call did that the timeline enters.
 pub(crate) enum Seen {
-    /// A file changed or read, or a command run, and what it named.
-    Did(Act, String),
+    /// A file changed or read, as the call named it.
+    File(FileAct, String),
+    /// A command run.
+    Ran(String),
     /// A service outside the repository reached.
     Called(Reach),
 }
@@ -160,11 +184,11 @@ pub(crate) enum Seen {
 /// tool is named here.
 pub(crate) fn tool_of<H: AgentHarness>(harness: &H, event: &DroneEvent) -> Option<Seen> {
     if let Some(path) = harness.edited(event) {
-        return Some(Seen::Did(Act::Edit, path));
+        return Some(Seen::File(FileAct::Edit, path));
     }
     Some(match harness.used(event)? {
-        ToolUse::Read(path) => Seen::Did(Act::Read, path),
-        ToolUse::Ran(command) => Seen::Did(Act::Ran, command),
+        ToolUse::Read(path) => Seen::File(FileAct::Read, path),
+        ToolUse::Ran(command) => Seen::Ran(command),
         ToolUse::Reached(reach) => Seen::Called(reach),
     })
 }
@@ -174,28 +198,25 @@ fn millis(at: &str) -> Option<i64> {
 }
 
 impl Timeline {
-    /// What `doer` just did, as [`tool_of`] saw it.
-    pub(crate) fn seen(&self, doer: Doer, seen: Seen) {
-        match seen {
-            Seen::Did(act, what) => self.used(doer, act, 1, Some(what)),
-            Seen::Called(reach) => self.called(doer, reach),
-        }
-    }
-
     /// `doer` called a service outside the repository, now: one entry, at once.
     pub(crate) fn called(&self, doer: Doer, reach: Reach) {
         self.note(called_fact(self.now(), doer, reach));
     }
 
-    /// `count` files read or written, or one command run, by `doer`, now. **Nothing is entered
-    /// until the burst closes.** `detail` is the latest path or command.
-    pub(crate) fn used(&self, doer: Doer, act: Act, count: usize, detail: Option<String>) {
+    /// `count` files read or written by `doer`, now, `file` the latest. **Nothing is entered until
+    /// the burst closes.**
+    pub(crate) fn touched(&self, doer: Doer, act: FileAct, count: usize, file: Option<FileName>) {
+        self.used(doer, act.into(), count, file.map(FileName::into_string));
+    }
+
+    /// One command run by `doer`, now, with what looks like a secret in it hidden.
+    pub(crate) fn ran(&self, doer: Doer, command: String) {
+        self.used(doer, Act::Ran, 1, Some(scrubbed(&command)));
+    }
+
+    fn used(&self, doer: Doer, act: Act, count: usize, detail: Option<String>) {
         let at = self.now();
         let Some(ms) = millis(&at) else { return };
-        let detail = match act {
-            Act::Ran => detail.map(|command| scrubbed(&command)),
-            _ => detail,
-        };
         if let Ok(mut bursts) = self.bursts.lock() {
             bursts.note(doer, act, &at, ms, count, detail);
         }
@@ -396,6 +417,29 @@ mod tests {
         assert_eq!(items.iter().filter(|one| *one == "src/30.rs").count(), 1);
     }
 
+    /// A hosted Job names a file absolute and deep in a slot: the entry lists it whole and from the
+    /// slot's root, so the Field finds it in the repository, still to the cap.
+    #[test]
+    fn a_deep_file_in_a_slot_is_listed_whole_from_the_repository() {
+        let root = "/Users/someone/code/armada";
+        let roots = [("armada".to_string(), root.to_string())];
+        let deep = format!("crates/{}/src/file_", ["a_rather_long_directory_name"; 4].join("/"));
+        let slot = format!("{root}/.armada/slots/slot-7");
+        let absolute = |n: i64| format!("{slot}/{deep}{n}.rs");
+        assert!(absolute(0).chars().count() > 150, "past the cut a detail has");
+        let mut bursts = Bursts::default();
+        for n in 0..30 {
+            let named = crate::tree_paths::file_name(&roots, Some(&slot), "", &absolute(n), &|_| false);
+            bursts.note(who("s1"), Act::Edit, &at(n), ms(n), 1, Some(named.into_string()));
+        }
+        let entered = bursts.due(ms(29 + 15));
+        let items = entered[0].item_texts();
+        assert_eq!(items.len(), ipc::MOST_TIMELINE_ITEMS, "the bound holds");
+        assert_eq!(items[0], format!("{deep}29.rs"), "whole, and from the slot's root");
+        assert_eq!(entered[0].detail_text(), Some(items[0].as_str()));
+        assert_eq!(entered[0].says(), "Edited 30 files");
+    }
+
     /// An item is cut to a line as the detail is, and one with nothing in it is not listed.
     #[test]
     fn an_item_is_one_line_and_never_empty() {
@@ -432,9 +476,9 @@ mod tests {
         let seen = tool_of(&harness, &call(testkit::REACHES, "web docs.rs"));
         let Some(Seen::Called(reach)) = seen else { panic!("a call") };
         assert_eq!((reach.service.as_str(), reach.line.as_str()), ("web", "docs.rs"));
-        assert!(matches!(tool_of(&harness, &call(testkit::READS, "a.rs")), Some(Seen::Did(Act::Read, _))));
-        assert!(matches!(tool_of(&harness, &call(testkit::RUNS, "ls")), Some(Seen::Did(Act::Ran, _))));
-        assert!(matches!(tool_of(&harness, &call(testkit::EDITS, "a.rs")), Some(Seen::Did(Act::Edit, _))));
+        assert!(matches!(tool_of(&harness, &call(testkit::READS, "a.rs")), Some(Seen::File(FileAct::Read, _))));
+        assert!(matches!(tool_of(&harness, &call(testkit::RUNS, "ls")), Some(Seen::Ran(_))));
+        assert!(matches!(tool_of(&harness, &call(testkit::EDITS, "a.rs")), Some(Seen::File(FileAct::Edit, _))));
         assert!(tool_of(&harness, &call("some_other_tool", "x")).is_none());
     }
 

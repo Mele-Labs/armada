@@ -34,7 +34,8 @@ const own: Session = {
   lastTurnAt: ago(1),
   standing: "working",
   rows: [{ id: "jf-u", at: "09:00:00", kind: "message", from: { kind: "you" }, text: "Rotate the audit log at midnight and keep seven files." }],
-  attachments: [{ kind: "branch", name: "armada/audit-rotation", slot: 1 }],
+  // Fleet keys a subagent's drone by the call that started it, and the ledger's row names the call and the task.
+  attachments: [{ kind: "branch", name: "armada/audit-rotation", slot: 1 }, { kind: "subagent", id: "sa-protocol", call: "toolu-protocol", task: "Add rotated_at to the audit reply", state: "running" }],
   work: {
     plan: {
       scope: ["crates/store", "packages/protocol"],
@@ -46,7 +47,7 @@ const own: Session = {
     },
     field: [
       { id: "main", path: "crates/store", doing: "write", file: STORE + "rotate.rs" },
-      { id: "protocol", agent: "protocol-engineer", task: "Add rotated_at to the audit reply", path: "packages/protocol", doing: "write", file: PROTOCOL + "audit.ts" },
+      { id: "toolu-protocol", agent: "subagent", path: "packages/protocol", doing: "write", file: PROTOCOL + "audit.ts" },
     ],
     files: FILES,
   },

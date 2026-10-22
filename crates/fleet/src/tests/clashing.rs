@@ -397,6 +397,38 @@ async fn a_long_change_is_cut_to_whole_lines_and_says_so() {
     assert!(read.diff.ends_with('\n'), "whole lines");
 }
 
+/// A terminal Job started at the repository's root writes in a slot it holds: the write is credited
+/// from the slot's root and the lens reads its change there. One in the main checkout credits nothing.
+#[tokio::test]
+async fn a_terminal_job_at_the_root_is_credited_its_writes_in_a_slot_and_none_outside_one() {
+    let rig = a_rig();
+    let root = rig.fleet.repositories().first().expect("served").root().to_string();
+    let at = rig.slot(2);
+    git(rig.home.path(), &["worktree", "add", "--quiet", "-b", "branch-2", &at.to_string_lossy()]);
+    lease_record(&root, 2, "branch-2", By::Session("sess-r"));
+    rig.report("sess-r", SessionFact::Started {
+        cwd: root.clone(),
+        title: Some("at the root".into()),
+        origin: SessionOrigin::Terminal,
+        mod_version: None,
+    })
+    .await;
+    assert!(rig.the_mod_asks("sess-r").await.is_empty(), "now it is listening");
+    std::fs::create_dir_all(at.join("crates/x/src")).unwrap();
+    std::fs::write(at.join("crates/x/src/y.rs"), "fn y() {}\n").unwrap();
+    let touched = |path: &str| SessionFact::Touched { paths: vec![path.to_string()], by: None, act: None };
+    rig.report("sess-r", touched(".armada/slots/slot-2/crates/x/src/y.rs")).await;
+    std::fs::write(rig.home.path().join("g.txt"), "changed in the main checkout\n").unwrap();
+    rig.report("sess-r", touched("g.txt")).await;
+
+    let who = Who::Session("sess-r".into());
+    assert_eq!(rig.fleet.writes().written_by(&who), ["crates/x/src/y.rs".to_string()].into(), "from the slot, and not g.txt");
+    let read = rig.change_of("sess-r", "crates/x/src/y.rs", None).await.expect("read");
+    assert!(read.diff.contains("+fn y() {}\n"), "{}", read.diff);
+    let main = rig.change_of("sess-r", "g.txt", None).await.expect_err("not credited");
+    assert_eq!(code_of(&main), "fleet.session_path_not_edited");
+}
+
 #[test]
 fn a_second_holder_on_a_file_is_due_a_check_after_the_wait_and_not_before() {
     let writes = Writes::default();
@@ -433,18 +465,6 @@ fn different_repositories_never_pair_and_a_holder_leaving_forgets_its_pairs() {
     assert!(writes.due(&late).is_empty());
     assert!(writes.reading(&pair).is_none());
     assert!(matches!(pair.1, Side::Holder(_)));
-}
-
-#[test]
-fn a_terminal_mods_paths_are_named_from_the_worktree_and_none_climbs_out() {
-    let slot = "/r/.armada/slots/slot-1";
-    let told = |cwd: &str, paths: &[&str]| {
-        let paths: Vec<String> = paths.iter().map(|path| path.to_string()).collect();
-        crate::clashing::inside_worktree(slot, cwd, &paths)
-    };
-    assert_eq!(told(slot, &["a.rs", "./b.rs", "../x", "/etc/hosts"]), vec!["a.rs", "b.rs"]);
-    assert_eq!(told(&format!("{slot}/crates/fleet"), &["a.rs"]), vec!["crates/fleet/a.rs"]);
-    assert!(told("/r/elsewhere", &["a.rs"]).is_empty(), "a directory outside the slot");
 }
 
 fn git(repo: &std::path::Path, args: &[&str]) {

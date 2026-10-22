@@ -19,11 +19,11 @@ const PANEL = "apps/desktop/src/renderer/src/session-view/FieldPanel.tsx";
 const ID = "jf-lens";
 const TITLE = "Show the change on the Field";
 
-/** The three subagents that write at once: their id, type, task and the file each writes. */
+/** The three subagents that write at once: their id, the Agent call Fleet keys its drone by, its type, task and the file each writes. */
 const HELPERS = [
-  { id: "sa-wire", agent: "Explore", task: "Check the wire types", file: "packages/protocol/src/wire.ts", area: "packages/protocol" },
-  { id: "sa-docs", agent: "Docs", task: "Write the lens into the docs", file: "docs/concepts/cockpit.md", area: "docs/concepts" },
-  { id: "sa-store", agent: "Rust", task: "Keep the stamp in the store", file: "crates/store/src/areas.rs", area: "crates/store" },
+  { id: "sa-wire", call: "toolu-wire", agent: "Explore", task: "Check the wire types", file: "packages/protocol/src/wire.ts", area: "packages/protocol" },
+  { id: "sa-docs", call: "toolu-docs", agent: "Docs", task: "Write the lens into the docs", file: "docs/concepts/cockpit.md", area: "docs/concepts" },
+  { id: "sa-store", call: "toolu-store", agent: "Rust", task: "Keep the stamp in the store", file: "crates/store/src/areas.rs", area: "crates/store" },
 ] as const;
 
 /** How often a file being written grows a line. */
@@ -32,7 +32,8 @@ const GROW_MS = 2_500;
 const stamp = (secondsAgo = 0) => new Date(Date.now() - secondsAgo * 1000).toISOString();
 
 const main = (file: string): WorkDrone => ({ id: "main", path: file.split("/").slice(0, 2).join("/"), doing: "write", file });
-const helpers = (): WorkDrone[] => HELPERS.map((one) => ({ id: one.id, agent: one.agent, path: one.area, doing: "write", file: one.file }));
+// Fleet names a subagent's type only where the call that started it said one, and `subagent` otherwise.
+const helpers = (): WorkDrone[] => HELPERS.map((one) => ({ id: one.call, agent: "subagent", path: one.area, doing: "write", file: one.file }));
 
 const own: Session = {
   id: ID,
@@ -98,7 +99,7 @@ function diffOf(path: string, grown: number): string {
 type Moment = { change: (one: Session) => Session; events: () => TimelineEvent[] };
 
 const subagents = (state: "running" | "done"): SessionAttachment[] =>
-  HELPERS.map((one) => ({ kind: "subagent", id: one.id, task: one.task, state, agentType: one.agent, ...(state === "done" ? { report: "Written." } : {}) }));
+  HELPERS.map((one) => ({ kind: "subagent", id: one.id, call: one.call, task: one.task, state, ...(state === "done" ? { report: "Written." } : {}) }));
 
 const MOMENTS: readonly Moment[] = [
   // The drone moves on to FieldPanel.tsx.

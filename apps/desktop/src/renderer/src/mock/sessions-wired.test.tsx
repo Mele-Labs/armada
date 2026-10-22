@@ -109,7 +109,7 @@ test("Sessions wired: rows stream into an open thread, and the first write lease
 
   fleet.row(ID, { kind: "lease", id: "lease1", at: "2026-10-07T13:48:05.000Z", slot: 3, branch: "fix/flaky-store" });
   fleet.changed(hosted(ID, { title: "Fix the flaky store test", attachments: [held("slot", "3"), held("branch", "fix/flaky-store")] }));
-  await expect.element(page.getByRole("region", { name: "Leased on first write" })).toBeVisible();
+  await expect.element(page.getByRole("region", { name: "Slot leased" })).toBeVisible();
   // The branch and the bay are drawn only when something is wrong with them: the Session has no Ledger, and the Bays key is not lit.
   await expect.element(page.getByRole("region", { name: "Ledger" })).not.toBeInTheDocument();
   expect(key("Bays").element().hasAttribute("data-lit")).toBe(false);
