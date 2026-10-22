@@ -165,6 +165,8 @@ export type SessionComposerProps = {
    * pasted or dropped file is ignored. A Job's Commander reads text.
    */
   textOnly?: boolean;
+  /** Files and tags, but no model, effort or sketch: words that start something other than this box's own turn, with what goes alongside. */
+  attachOnly?: boolean;
   /**
    * The `draftKey` whose box takes focus, with the caret after what it holds, when it shows: a fork opens on its quote.
    * **A key alone asks once**; `{ key, at }` asks again each time `at` changes, for a box already in view.
@@ -304,6 +306,7 @@ export function SessionComposer({
   modeHidden = false,
   bare = false,
   textOnly: textOnlyAsked = false,
+  attachOnly = false,
   draftKey,
   focusFor,
 }: SessionComposerProps) {
@@ -682,26 +685,30 @@ export function SessionComposer({
         )}
         {textOnly ? null : (
           <>
-            <Pick Glyph={Cpu} compact={compact} proposed={proposed?.model === true} label="The model the next turn runs on">
-              <Select aria-label="Model" value={model ?? ""} onChange={(event) => onTune({ model: event.target.value === "" ? null : event.target.value, effort })}>
-                <option value="">{defaultModel === undefined ? (compact ? "Auto" : "Model") : compact ? (resolvedSaidFor(model === null ? defaultModel : undefined) ?? defaultModel) : `${resolvedSaidFor(model === null ? defaultModel : undefined) ?? defaultModel} · default`}</option>
-                {models.map((one) => (
-                  <option key={one} value={one}>
-                    {resolvedSaidFor(model === one ? one : undefined) ?? one}
-                  </option>
-                ))}
-              </Select>
-            </Pick>
-            <Pick Glyph={Zap} compact={compact} proposed={proposed?.effort === true} label="The effort the next turn takes">
-              <Select aria-label="Effort" value={effort ?? ""} onChange={(event) => onTune({ model, effort: event.target.value === "" ? null : event.target.value })}>
-                <option value="">{compact ? "Auto" : "Effort"}</option>
-                {efforts.map((one) => (
-                  <option key={one} value={one}>
-                    {one}
-                  </option>
-                ))}
-              </Select>
-            </Pick>
+            {attachOnly ? null : (
+              <>
+              <Pick Glyph={Cpu} compact={compact} proposed={proposed?.model === true} label="The model the next turn runs on">
+                <Select aria-label="Model" value={model ?? ""} onChange={(event) => onTune({ model: event.target.value === "" ? null : event.target.value, effort })}>
+                  <option value="">{defaultModel === undefined ? (compact ? "Auto" : "Model") : compact ? (resolvedSaidFor(model === null ? defaultModel : undefined) ?? defaultModel) : `${resolvedSaidFor(model === null ? defaultModel : undefined) ?? defaultModel} · default`}</option>
+                  {models.map((one) => (
+                    <option key={one} value={one}>
+                      {resolvedSaidFor(model === one ? one : undefined) ?? one}
+                    </option>
+                  ))}
+                </Select>
+              </Pick>
+              <Pick Glyph={Zap} compact={compact} proposed={proposed?.effort === true} label="The effort the next turn takes">
+                <Select aria-label="Effort" value={effort ?? ""} onChange={(event) => onTune({ model, effort: event.target.value === "" ? null : event.target.value })}>
+                  <option value="">{compact ? "Auto" : "Effort"}</option>
+                  {efforts.map((one) => (
+                    <option key={one} value={one}>
+                      {one}
+                    </option>
+                  ))}
+                </Select>
+              </Pick>
+              </>
+            )}
             <input
               ref={picker}
               type="file"
@@ -718,11 +725,13 @@ export function SessionComposer({
                 <Paperclip size={16} strokeWidth={2} aria-hidden />
               </Button>
             </Tooltip>
-            <Tooltip label="Draw a sketch to send with the message">
-              <Button type="button" variant="ghost" size="sm" aria-label="Draw sketch" onClick={onDraw}>
-                <PencilRuler size={16} strokeWidth={2} aria-hidden />
-              </Button>
-            </Tooltip>
+            {attachOnly ? null : (
+              <Tooltip label="Draw a sketch to send with the message">
+                <Button type="button" variant="ghost" size="sm" aria-label="Draw sketch" onClick={onDraw}>
+                  <PencilRuler size={16} strokeWidth={2} aria-hidden />
+                </Button>
+              </Tooltip>
+            )}
           </>
         )}
         {bare || (compact && held) ? null : chips}
