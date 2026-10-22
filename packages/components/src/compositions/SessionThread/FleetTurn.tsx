@@ -27,14 +27,11 @@ export function summaryOf(text: string): string {
   return first.replace(/\.$/, "");
 }
 
-/** Whether a tool row is the agent changing what the owner owes. */
-export const changesWhatIsOwed = (row: TurnReply): boolean => row.kind === "tool" && /waiting_for/.test(row.text);
-
 /**
  * A turn Fleet started: its notice, the agent's reply and the tool runs between. One dim row; a press opens the notice and the
  * reply under it, quieter than chat, and the same press folds it again.
  */
-export function FleetTurn({ notice, reply, onMuteNotice }: { notice: Notice; reply: readonly TurnReply[]; onMuteNotice?: (notice: SessionNotice, choice: NoticeChoice) => void }) {
+export function FleetTurn({ notice, reply, handled, onMuteNotice }: { notice: Notice; reply: readonly TurnReply[]; /** The agent answered it, its last words drawn outside the fold or not. */ handled: boolean; onMuteNotice?: (notice: SessionNotice, choice: NoticeChoice) => void }) {
   const [open, setOpen] = useState(false);
   const [menu, setMenu] = useState<{ x: number; y: number; row: HTMLElement | null } | undefined>(undefined);
   const kind = notice.notice;
@@ -72,7 +69,7 @@ export function FleetTurn({ notice, reply, onMuteNotice }: { notice: Notice; rep
         <Tooltip label={notice.text}>
           <span className="armada-fleet-turn__label">{name}</span>
         </Tooltip>
-        {reply.length === 0 ? null : (
+        {!handled ? null : (
           <Tooltip label="Handled">
             <span role="img" aria-label="Handled" className="armada-fleet-turn__mark">
               <Check size={12} strokeWidth={2} aria-hidden />
