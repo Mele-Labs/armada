@@ -47,6 +47,18 @@ impl Store {
     /// for the same test. One transaction, so a crash mid-way leaves the last
     /// record whole.
     pub fn record_test_map_edges(&mut self, edges: &[TestMapEdge]) -> Result<(), WriteError> {
+        self.keep_test_map_edges(edges, true)
+    }
+
+    /// Keep these edges beside what the same source recorded for the same tests, replacing only
+    /// an edge for the same (test, file). **For a source that reads one file at a time**, whose
+    /// answer for a file says nothing of the other files its tests reach: recording it as
+    /// [`record_test_map_edges`](Store::record_test_map_edges) does would drop those.
+    pub fn add_test_map_edges(&mut self, edges: &[TestMapEdge]) -> Result<(), WriteError> {
+        self.keep_test_map_edges(edges, false)
+    }
+
+    fn keep_test_map_edges(&mut self, edges: &[TestMapEdge], replacing: bool) -> Result<(), WriteError> {
         let failed = |why| WriteError::Database(fault("keeping test map edges")(why));
         let kept = self.conn.transaction().map_err(failed)?;
         let mut cleared: Vec<(&str, &str, &str, &str, &str)> = Vec::new();
@@ -58,7 +70,7 @@ impl Store {
                 edge.test.as_str(),
                 edge.source.as_wire(),
             );
-            if !cleared.contains(&test) {
+            if replacing && !cleared.contains(&test) {
                 kept.execute(
                     "DELETE FROM test_map_edges
                      WHERE repository = ?1 AND check_key = ?2 AND member = ?3 AND test = ?4
