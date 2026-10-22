@@ -156,6 +156,63 @@ async fn main_moving_reads_again_only_the_cheap_tests_whose_files_changed() {
     assert_eq!(repo.held_bays(), 0, "main's own checkout is read, so no bay was taken");
 }
 
+/// What the map holds for `f.txt`, as `(check, test)` pairs.
+async fn reaching_f(repo: &Repo) -> Vec<(String, String)> {
+    let reaching = repo.fleet.get_tests_reaching(None, vec!["f.txt".to_string()]).await.unwrap();
+    let mut found: Vec<(String, String)> = reaching
+        .checks
+        .iter()
+        .flat_map(|group| group.tests.iter().map(|test| (group.check.clone(), test.test.clone())))
+        .collect();
+    found.sort();
+    found
+}
+
+#[tokio::test]
+async fn a_cheap_test_that_comes_back_with_no_lap_is_gone_and_its_edges_with_it() {
+    let repo = a_repository();
+    let before = Arc::new(
+        FakeCollector::handing_back(
+            "imports",
+            CollectorSource::Static,
+            vec![lap("a.test", &["f.txt"]), lap("c.test", &["f.txt"])],
+        )
+        .costing(LapCost::Nothing),
+    );
+    // The file for c.test was deleted: the collector is asked for it and finds no lap.
+    let now = Arc::new(
+        FakeCollector::handing_back("imports", CollectorSource::Static, vec![lap("a.test", &["f.txt"])])
+            .costing(LapCost::Nothing)
+            .answering_by_name(),
+    );
+    repo.recorded_once("web", &before, now.clone()).await;
+    let tip = repo.moves_on();
+
+    repo.fleet.main_moved_fed(repo.id.as_str(), &repo.start, &tip).await;
+
+    assert_eq!(reaching_f(&repo).await, [("web".to_string(), "a.test".to_string())], "c.test is forgotten");
+    assert!(repo.stale().await.is_empty(), "and is not asked for again");
+}
+
+#[tokio::test]
+async fn a_measured_test_that_is_gone_is_forgotten_by_the_sleeping_pass_and_the_rest_are_measured() {
+    let repo = a_repository();
+    let before = measured_collector();
+    // m2 was removed from the suite.
+    let now = Arc::new(
+        FakeCollector::handing_back("coverage", CollectorSource::Measured, vec![lap("m1", &["f.txt"])])
+            .needing_a_rebuild()
+            .answering_by_name(),
+    );
+    a_stale_map(&repo, &before, now.clone()).await;
+    repo.sleeping(true).await;
+
+    repo.fleet.sleeping_bay_recorded().await;
+
+    assert_eq!(reaching_f(&repo).await, [("rust".to_string(), "m1".to_string())]);
+    assert!(repo.stale().await.is_empty());
+}
+
 #[tokio::test]
 async fn main_moving_marks_what_a_rebuilding_collector_read_stale_and_never_runs_it() {
     let repo = a_repository();

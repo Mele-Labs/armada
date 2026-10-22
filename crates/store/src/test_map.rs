@@ -163,6 +163,32 @@ impl Store {
         Ok(sharpest(found))
     }
 
+    /// Forget the edges `source` read for each of `tests` in the Check `check`, whatever member
+    /// they were in: the tests are gone, and an edge nobody can re-read is no answer. Other
+    /// sources' edges for the same names stay. Answers how many edges went.
+    pub fn forget_test_map_tests(
+        &mut self,
+        repository: &ManifestId,
+        check: &str,
+        source: EdgeSource,
+        tests: &[String],
+    ) -> Result<usize, WriteError> {
+        let failed = |why| WriteError::Database(fault("forgetting test map edges")(why));
+        let forgotten = self.conn.transaction().map_err(failed)?;
+        let mut count = 0;
+        for test in tests {
+            count += forgotten
+                .execute(
+                    "DELETE FROM test_map_edges
+                     WHERE repository = ?1 AND check_key = ?2 AND test = ?3 AND source = ?4",
+                    params![repository.as_str(), check, test, source.as_wire()],
+                )
+                .map_err(failed)?;
+        }
+        forgotten.commit().map_err(failed)?;
+        Ok(count)
+    }
+
     /// Say every edge naming one of `paths` is stale. Answers how many edges
     /// that was.
     pub fn mark_test_map_stale(

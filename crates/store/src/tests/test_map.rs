@@ -145,3 +145,43 @@ fn a_stale_edge_is_still_an_answer_and_names_the_test_to_redo() {
         "a re-record from one source clears only that source's stale mark"
     );
 }
+
+#[test]
+fn forgetting_a_test_drops_its_edges_from_one_source_in_one_check_and_leaves_the_rest() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    let mut other_check = edge("gone", "src/row.rs", EdgeSource::Static, "abc", 1);
+    other_check.check = "lint".into();
+    store
+        .record_test_map_edges(&[
+            edge("gone", "src/row.rs", EdgeSource::Static, "abc", 1),
+            edge("gone", "src/open.rs", EdgeSource::Static, "abc", 1),
+            edge("gone", "src/row.rs", EdgeSource::Measured, "abc", 1),
+            edge("kept", "src/row.rs", EdgeSource::Static, "abc", 1),
+            other_check,
+        ])
+        .expect("kept");
+
+    let forgotten = store
+        .forget_test_map_tests(&repository("01REPO"), "test", EdgeSource::Static, &["gone".to_string()])
+        .expect("forgotten");
+
+    assert_eq!(forgotten, 2, "both files the static source saw it reach");
+    let left = store.tests_reaching(&repository("01REPO"), &paths(&["src/row.rs", "src/open.rs"])).expect("reads");
+    let mut names: Vec<(String, String, EdgeSource)> =
+        left.edges.iter().map(|edge| (edge.check.clone(), edge.test.clone(), edge.source)).collect();
+    names.sort_by(|a, b| a.0.cmp(&b.0));
+    assert_eq!(
+        names,
+        [
+            ("lint".to_string(), "gone".to_string(), EdgeSource::Static),
+            ("test".to_string(), "gone".to_string(), EdgeSource::Measured),
+            ("test".to_string(), "kept".to_string(), EdgeSource::Static),
+        ],
+        "the measured edge of the same name, another Check's, and another test all stay"
+    );
+    assert_eq!(
+        store.forget_test_map_tests(&repository("01REPO"), "test", EdgeSource::Static, &["gone".to_string()]).expect("again"),
+        0
+    );
+}

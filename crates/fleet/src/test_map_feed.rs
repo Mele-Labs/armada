@@ -307,19 +307,23 @@ where
             .map_err(|why| NotMapped::NoCommit { dir: checkout.to_string(), said: why.to_string() })?
             .map_err(|why| NotMapped::NoCommit { dir: checkout.to_string(), said: why.to_string() })?;
         let (collector, check, dir) = (feeder.collector().clone(), feeder.check().to_string(), feeder.dir_in(checkout));
-        let named = collector.clone();
+        let (named, asked) = (collector.clone(), tests.clone());
         let laps = tokio::task::spawn_blocking(move || {
-            named.record(&check, &dir, &adapter_traits::TestsToRecord::Named(tests))
+            named.record(&check, &dir, &adapter_traits::TestsToRecord::Named(asked))
         })
         .await
         .map_err(|why| NotMapped::Collector { name: collector.name().to_string(), said: why.to_string() })?
         .map_err(|why| NotMapped::Collector { name: collector.name().to_string(), said: why.0 })?;
         let edges = self.edges_of(repository, feeder.check(), source_of(collector.source()), &commit, &laps);
         let kept = edges.len();
-        self.store()
-            .lock()
-            .await
-            .record_test_map_edges(&edges)
+        // **A test asked for by name that comes back with no lap is gone**, and so are its edges
+        // from this source: nobody can read them again, and a stale edge for it would be asked
+        // for on every later pass. Another source's edges for the name are its own to settle.
+        let gone: Vec<String> = tests.into_iter().filter(|test| laps.iter().all(|lap| &lap.test != test)).collect();
+        let mut store = self.store().lock().await;
+        store.record_test_map_edges(&edges).map_err(|why| NotMapped::NotKept(why.to_string()))?;
+        store
+            .forget_test_map_tests(repository, feeder.check(), source_of(collector.source()), &gone)
             .map_err(|why| NotMapped::NotKept(why.to_string()))?;
         Ok(kept)
     }
