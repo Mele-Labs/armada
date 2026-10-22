@@ -10,3 +10,33 @@
 .sv-fieldplan__title { overflow: hidden; color: var(--fg-subtle); font-family: var(--font-mono); font-size: var(--text-2xs); line-height: var(--leading-xs); text-overflow: ellipsis; white-space: nowrap; }
 
 .sv-layer__body.sv-fieldlayer { gap: 0; padding: 0; overflow: hidden; }
+/* The slider under the plan: the replay bar's own track (`ReplayBar.tsx`), live at its right end. */
+.sv-fieldreplay { display: flex; flex: none; padding: 0 var(--space-3); border-top: var(--border-width) solid var(--border-default); background: var(--bg-raised); }
+.sv-fieldreplay .deck-replay__track:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }
+/* The drones of the Job over the map, one row that scrolls sideways (`FieldStrip.tsx`). */
+.sv-fieldstrip { display: flex; flex: none; flex-wrap: nowrap; gap: var(--space-1); padding: var(--space-1) var(--space-2); overflow-x: auto; border-bottom: var(--border-width) solid var(--border-default); background: var(--bg-raised); scrollbar-width: thin; }
+.sv-fieldstrip__drone { flex: none; gap: var(--space-2); white-space: nowrap; }
+.sv-fieldstrip__drone[aria-pressed="true"] { background: var(--bg-hover); color: var(--fg-default); }
+.sv-fieldstrip__drone[data-done] { color: var(--fg-subtle); }
+.sv-fieldstrip__name { max-width: calc(var(--space-12) * 3); overflow: hidden; color: var(--fg-default); text-overflow: ellipsis; }
+.sv-fieldstrip__drone[data-done] .sv-fieldstrip__name { color: var(--fg-subtle); }
+.sv-fieldstrip__now { color: var(--fg-muted); font-family: var(--font-mono); font-size: var(--text-2xs); }
+/* The lens's card over the map (`FieldLensCard.tsx`): the file, its counts and the newest hunk, the earlier files as tabs behind it. */
+.sv-lens { position: relative; padding-top: calc(var(--leading-2xs) * var(--tabs, 0)); }
+.sv-lens__card, .sv-lens__tab { border: var(--border-width) solid var(--border-glass); border-radius: var(--radius-md); background: var(--bg-glass); box-shadow: var(--shadow-card); }
+.sv-lens__card { position: relative; border-color: var(--accent); }
+.sv-lens__tab { position: absolute; right: 0; left: 0; display: flex; gap: var(--space-2); height: calc(var(--space-12) * 2); padding: 0 var(--space-2); color: var(--fg-subtle); font-family: var(--font-mono); font-size: var(--text-2xs); line-height: var(--leading-2xs); }
+.sv-lens__tab[data-k="1"] { top: calc(var(--leading-2xs) * (var(--tabs) - 1)); translate: var(--space-2) 0; opacity: 0.75; }
+.sv-lens__tab[data-k="2"] { top: 0; translate: var(--space-4) 0; opacity: 0.45; }
+.sv-lens__head { display: flex; gap: var(--space-2); align-items: baseline; justify-content: space-between; padding: var(--space-1) var(--space-2); font-family: var(--font-mono); font-size: var(--text-2xs); line-height: var(--leading-2xs); }
+.sv-lens__name { overflow: hidden; color: var(--fg-default); text-overflow: ellipsis; white-space: nowrap; }
+.sv-lens__tab .sv-lens__name { color: var(--fg-subtle); }
+.sv-lens__counts { flex: none; color: var(--fg-muted); }
+.sv-lens__lines { padding-bottom: var(--space-1); font-family: var(--font-mono); font-size: var(--text-2xs); line-height: var(--leading-2xs); }
+.sv-lens__line { display: flex; gap: var(--space-1); padding: 0 var(--space-2); overflow: hidden; color: var(--diff-context); white-space: pre; }
+.sv-lens__line[data-kind="added"] { background: var(--diff-add-bg); color: var(--diff-add-fg); }
+.sv-lens__line[data-kind="removed"] { background: var(--diff-del-bg); color: var(--diff-del-fg); }
+.sv-lens__mark { flex: none; }
+.sv-lens__text { overflow: hidden; text-overflow: ellipsis; }
+.sv-lens__caret { flex: none; align-self: center; width: var(--space-1); height: var(--leading-2xs); background: var(--accent); }
+.sv-lens__cut { padding: 0 var(--space-2) var(--space-1); color: var(--fg-subtle); font-size: var(--text-2xs); line-height: var(--leading-2xs); }

@@ -1,0 +1,1 @@
+OPEN	false	true	armada/forge-api-reads	https://github.com/Mele-Labs/armada/pull/2190	2101,2099,2101	## Why\r\n\r\nA `gh` call costs 0.9 s.\n\nCloses #2101 and #2099.	Read the forge over the API

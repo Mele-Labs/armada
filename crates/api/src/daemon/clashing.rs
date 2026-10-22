@@ -4,7 +4,7 @@
 
 use std::future::Future;
 
-use ipc::{ClashFile, ClashSide, ManifestId, RepositoryAreas, SlotTouches, WriteClashes};
+use ipc::{ClashFile, ClashSide, ManifestId, RepositoryAreas, SessionFileChange, SlotTouches, WriteClashes};
 
 use crate::daemon::Refusal;
 
@@ -28,6 +28,16 @@ pub trait Clashing: Send + Sync + 'static {
         other_id: String,
         path: String,
     ) -> impl Future<Output = Result<ClashFile, Refusal>> + Send;
+
+    /// `get_session_file_change` — one file the Job `session_id` has been seen writing, as its
+    /// worktree changed it since its branch met the base, uncommitted edits included. Asks git.
+    /// `seen` is the stamp of the change the caller holds; an equal one is answered without the diff.
+    fn get_session_file_change(
+        &self,
+        session_id: String,
+        path: String,
+        seen: Option<String>,
+    ) -> impl Future<Output = Result<SessionFileChange, Refusal>> + Send;
 
     /// `list_repository_areas` — the directories of every served repository's base, to two names
     /// deep, with the files under each. Read from git at the base's head, and kept against it.

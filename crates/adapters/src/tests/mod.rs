@@ -11,6 +11,11 @@
 
 mod agent_mod;
 mod api_forge;
+mod api_forge_checks;
+mod api_forge_issues;
+mod api_forge_lists;
+mod api_forge_pulls;
+mod api_forge_reads;
 mod api_forge_writes;
 mod background_task;
 mod basing;
@@ -75,6 +80,7 @@ mod pull_review_lists;
 mod reading_in;
 mod remembering;
 pub mod repo;
+mod recorded_laps;
 mod rerunning;
 mod scouting;
 mod snapshot;
@@ -92,6 +98,7 @@ mod territory;
 mod terminal_follow;
 mod test_map;
 mod terminal_thread;
+mod test_map_for;
 mod test_map_static;
 mod transcript;
 mod turn_lines;

@@ -88,3 +88,24 @@ pub struct HolderTouches {
     #[serde(default)]
     pub omitted: u32,
 }
+
+/// `get_session_file_change`: one file a Job has edited, as its worktree changed it since its branch
+/// met the base. `GET /sessions/file_change?session_id=&path=&seen=`.
+///
+/// `diff` is what `git diff` prints for that one path, `diff --git` header and `@@` hunks, with the
+/// edits not yet committed in it. Empty where the file is as the base has it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SessionFileChange {
+    /// What the reading stood on, opaque. Sent back as `seen`, an equal stamp is answered
+    /// `unchanged` without the diff.
+    pub stamp: String,
+    /// Empty where `unchanged` is set.
+    pub diff: String,
+    /// Set where Fleet cut `diff` short of what git printed, at a line or byte bound. The text is
+    /// still whole lines of the start of the change.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub cut: bool,
+    /// Set where `seen` was this stamp: the diff the caller holds is the current one.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub unchanged: bool,
+}

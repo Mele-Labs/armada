@@ -45,6 +45,7 @@ pub mod manifests;
 pub mod mcp;
 pub mod pocketing;
 pub mod reaching;
+pub mod recording;
 pub mod say;
 pub mod session_checks;
 pub mod slot_asking;

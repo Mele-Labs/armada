@@ -67,6 +67,8 @@ export type ReviewSeed = {
   places: readonly RememberedPlace[];
   /** A commit pushed to a pull request after he first read the list: the next fetch brings it, and results kept for the old head fall out of date. */
   pushes: Readonly<Record<string, { sha: string; headline: string; author: string }>>;
+  /** The window starts as a relaunch does: a reading of the lists kept `minutesAgo` minutes ago, without the pull request `without`, and Fleet answers only after `answersAfterMs`. */
+  kept?: { minutesAgo: number; without: string; answersAfterMs: number };
 };
 
 /** The set Armada carries, as its own place serves it: Comments is not here, since Bridge draws it. */

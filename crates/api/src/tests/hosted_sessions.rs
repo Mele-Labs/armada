@@ -55,3 +55,22 @@ async fn a_clash_file_is_asked_over_the_router_and_answers_both_patches() {
     let unknown_kind = app.oneshot(ask("session_id=s-1&other_kind=job&other_id=j&path=a")).await.expect("an answer");
     assert_eq!(unknown_kind.status(), StatusCode::BAD_REQUEST, "a kind that is not a ClashSide");
 }
+
+/// The route is hand-written: the query, `seen` optional, must reach the daemon.
+#[tokio::test]
+async fn a_jobs_file_change_is_asked_over_the_router() {
+    let events = Broadcaster::new();
+    let app = router(Served::by(FakeDaemon::new(events.clone()), run_id(), events));
+    let ask = |query: &str| {
+        Request::builder().method("GET").uri(format!("/sessions/file_change?{query}")).body(Body::empty()).expect("a well-formed request")
+    };
+    for query in ["session_id=s-1&path=src%2Fa%20%26%20b.rs", "session_id=s-1&path=a.rs&seen=0123abcd"] {
+        let response = app.clone().oneshot(ask(query)).await.expect("an answer");
+        assert_eq!(response.status(), StatusCode::OK, "{query}");
+        let said = response.into_body().collect().await.expect("a body").to_bytes();
+        let said = String::from_utf8_lossy(&said);
+        assert!(said.contains("\"stamp\"") && said.contains("\"diff\""), "{said}");
+    }
+    let no_path = app.oneshot(ask("session_id=s-1")).await.expect("an answer");
+    assert_eq!(no_path.status(), StatusCode::BAD_REQUEST, "path is asked for");
+}

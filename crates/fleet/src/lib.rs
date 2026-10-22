@@ -129,6 +129,7 @@ mod model_downshift;
 mod model_downshifting;
 /// The models the harness offers, asked after Fleet is serving.
 pub mod models_read;
+pub mod phone;
 /// Mods: folders on this machine that change how Bridge looks.
 pub mod mods;
 pub mod mint;
@@ -270,6 +271,10 @@ mod store_lock;
 /// The test map: collectors as plugs, laps written as edges, the map read for paths.
 /// `docs/concepts/test-map.md`.
 pub mod test_map;
+/// Fleet feeding the test map from main moving and from a sleeping bay.
+mod test_map_feed;
+/// The laps main's CI run recorded, fetched from the forge and kept as edges.
+mod test_map_ci;
 /// A Picture a person pastes onto a Studio, kept as a Note's frame is.
 mod studio_pictures;
 /// Runs a Studio holds, and what a node keeps of one past retention. `#1289`.

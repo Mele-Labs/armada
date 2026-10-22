@@ -49,6 +49,7 @@ pub(crate) struct Fact {
     detail: Option<String>,
     items: Vec<String>,
     service: Option<(String, String)>,
+    to: Option<String>,
     manifest: Option<String>,
     live: bool,
     over: bool,
@@ -72,6 +73,7 @@ impl Fact {
             detail: None,
             items: Vec::new(),
             service: None,
+            to: None,
             manifest: None,
             live: false,
             over: false,
@@ -98,6 +100,12 @@ impl Fact {
     /// The service a `session.called` entry went to, and what it is called; its line is the `detail`.
     pub(crate) fn calling(mut self, service: String, name: String) -> Fact {
         self.service = Some((service, name));
+        self
+    }
+
+    /// The Session a `session.messaged` entry's message was delivered to.
+    pub(crate) fn to_session(mut self, id: String) -> Fact {
+        self.to = Some(id);
         self
     }
 
@@ -173,6 +181,7 @@ impl Fact {
             items: self.items,
             service: self.service.as_ref().map(|(service, _)| service.clone()),
             service_name: self.service.map(|(_, name)| name),
+            to_id: self.to,
             live: self.live,
             over: self.over,
         }
@@ -391,6 +400,29 @@ where
         );
     }
 
+    /// A Session's message was delivered to `to`'s thread: one entry, under the sender, naming both.
+    pub(crate) fn session_messaged(
+        &self,
+        from: &str,
+        (title, manifest): (Option<String>, Option<String>),
+        to: &str,
+        text: &str,
+    ) {
+        self.timeline().note(
+            Fact::new(
+                self.timeline().now(),
+                TimelineKind::SessionMessaged,
+                Subject::Session(from.to_string()),
+                TimelineTone::Run,
+                format!("Messaged: {text}"),
+            )
+            .titled(title)
+            .to_session(to.to_string())
+            .in_repository(manifest)
+            .live(),
+        );
+    }
+
     /// A Session's turn ended, `began` to `ended`, both by Fleet's clock. **It is not live**: the turn is
     /// over, and whether the Session is moving, replied, done or stuck is what Fleet derives from the
     /// turn (`SessionRecord::standing`), never what an event's flag says. **Nothing is entered
@@ -533,6 +565,7 @@ pub(crate) fn wire(kept: &store::KeptTimeline) -> Option<ipc::TimelineEvent> {
             name: entry.service_name.clone().unwrap_or_else(|| service.clone()),
             line: entry.detail.clone().unwrap_or_default(),
         }),
+        to: entry.to_id.as_deref().map(ipc::SessionId::carried),
         manifest_id: entry.repo.as_deref().map(ipc::ManifestId::carried),
         live: entry.live,
         over: entry.over,

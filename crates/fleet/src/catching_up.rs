@@ -37,15 +37,16 @@ const CHECKOUT_PATH_NOT_HELD: &str = "fleet.checkout_path_not_held";
 /// git would not print a listed file's change. A 500: the read may go on the next press.
 const CHECKOUT_DIFF_UNREAD: &str = "fleet.checkout_diff_unread";
 
-/// The most lines of one file's change `checkout_diff` answers. The card draws no more than this
-/// (`DRAWN_LINES` in `packages/screens/src/drawn-patch.ts`), so a longer change is never sent whole.
+/// The most lines of one file's change `checkout_diff` and `get_session_file_change` answer. The
+/// card draws no more than this (`DRAWN_LINES` in `packages/screens/src/drawn-patch.ts`), so a
+/// longer change is never sent whole.
 const CHECKOUT_DIFF_LINES: usize = 2000;
 /// The most bytes of it. A generated or minified file can be a few lines of megabytes each.
 const CHECKOUT_DIFF_BYTES: usize = 256 * 1024;
 
 /// A change cut to the lines and bytes the card can draw, and whether it was cut.
 /// **Whole lines only**, except where a single line is itself past the byte bound.
-fn cut_for_the_card(diff: String) -> (String, bool) {
+pub(crate) fn cut_for_the_card(diff: String) -> (String, bool) {
     let mut end = diff.len();
     if let Some((at, _)) = diff.match_indices('\n').nth(CHECKOUT_DIFF_LINES - 1) {
         end = at + 1;

@@ -18,6 +18,7 @@
 mod agent_starts;
 mod session_after;
 mod asking_in_window;
+mod phone;
 mod showing_file;
 mod sketching;
 mod building;
@@ -78,6 +79,8 @@ mod session_ending_slots;
 mod session_release_holds;
 mod session_release_slot;
 mod test_map;
+mod test_map_feed;
+mod test_map_ci;
 mod folder_jobs;
 mod session_gate;
 mod session_gate_leases;

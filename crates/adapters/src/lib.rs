@@ -113,6 +113,7 @@ mod pull_watch;
 mod reading_in;
 mod reclaim;
 mod remembering;
+mod recorded_laps;
 mod rerunning;
 /// A scout's process: one ask, read tools only, inside one checkout.
 mod scouting;
@@ -141,6 +142,7 @@ pub mod territory;
 pub mod terminal_thread;
 /// The test map's measured laps of a Cargo workspace.
 mod test_map;
+mod test_map_for;
 mod test_map_static;
 pub mod turn_lines;
 mod tracker_providers;
@@ -177,6 +179,7 @@ pub use hosted_session::{check_line, reads_only, CheckLine, HostedLaunch, Hosted
 pub use issue_lookup::IssueLookup;
 pub use outside::command_reach;
 pub use issue_tracker::IssueTracker;
+pub use test_map_for::{collector_for, Feeder};
 pub use test_map_static::TypeScriptImports;
 pub use tracker_providers::TrackersByProvider;
 pub use mcp::{publish_the_agents_door, Published, REPOSITORY_CONFIG};
@@ -202,6 +205,6 @@ pub use store::HttpStore;
 pub use store_device::{device_id, remember_device, DeviceKey, ID_FILE, KEY_FILE};
 pub use starting::{inferred_base, inside_a_repository, start_repository};
 pub use test_map::NextestCoverage;
-pub use api_forge::ApiForge;
+pub use api_forge::{ApiForge, ApiTrackers};
 pub use gh_forge::GhForge;
 pub use worktree::GitVcs;

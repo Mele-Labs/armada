@@ -50,7 +50,7 @@ import type { BayHistoryRead } from "../shared/api/bay-history";
 import type { UsageRulesRead, UsageSummaryRead } from "../shared/api/usage-summary";
 import type { FlightControlsAnswer, RepositoryFlightControlsAnswer, SessionShellAnswer } from "../shared/api/flight-controls";
 import type { OnboardingAnswer } from "../shared/api/onboarding";
-import type { ClashFileAnswer, WriteClashesRead } from "../shared/api/clashes";
+import type { ClashFileAnswer, SessionFileChangeAnswer, WriteClashesRead } from "../shared/api/clashes";
 import type { ReviewActed } from "../shared/api/reviews";
 import type { RepositoryAreasRead, SlotTouchesRead } from "../shared/api/territory";
 import type { IssueNumberRead, IssuesRead, PullRequestNumberRead } from "../shared/api/issues";
@@ -399,6 +399,7 @@ const api: BridgeApi = {
   getWriteClashes: (): Promise<WriteClashesRead> => ipcRenderer.invoke(CHANNELS.getWriteClashes),
   readClashFile: (sessionId: string, other: { kind: ClashSide; id: string }, path: string): Promise<ClashFileAnswer> =>
     ipcRenderer.invoke(CHANNELS.readClashFile, sessionId, other, path),
+  readSessionFileChange: (sessionId: string, path: string, seen?: string): Promise<SessionFileChangeAnswer> => ipcRenderer.invoke(CHANNELS.readSessionFileChange, sessionId, path, seen),
   getReviewLists: (): Promise<ReviewActed<PullReviewLists>> => ipcRenderer.invoke(CHANNELS.getReviewLists),
   readReviewPage: (manifestId: string, number: number): Promise<ReviewActed<PullRequestPage>> => ipcRenderer.invoke(CHANNELS.readReviewPage, manifestId, number),
   readReviewFile: (manifestId: string, number: number, path: string): Promise<ReviewActed<PullRequestFilePatch>> => ipcRenderer.invoke(CHANNELS.readReviewFile, manifestId, number, path),

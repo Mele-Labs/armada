@@ -34,6 +34,14 @@ pub(crate) fn settings() -> SettingsList {
 }
 
 impl Settings for FakeDaemon {
+    async fn get_phone(&self) -> Result<ipc::PhoneGateway, Refusal> {
+        Ok(ipc::PhoneGateway { on: false, port: 8443, listening: false, why: None })
+    }
+
+    async fn set_phone(&self, set: ipc::SetPhoneGateway) -> Result<ipc::PhoneGateway, Refusal> {
+        Ok(ipc::PhoneGateway { on: set.on, port: 8443, listening: set.on, why: None })
+    }
+
     async fn get_settings(&self) -> Result<SettingsList, Refusal> {
         Ok(self.settings.lock().expect("not poisoned").clone())
     }

@@ -1,0 +1,11 @@
+{"data":{"repository":{"pullRequest":{"reviewDecision":"CHANGES_REQUESTED",
+"comments":{"pageInfo":{"hasNextPage":true,"endCursor":"Y1"},"nodes":[
+{"id":"IC_kwDOA1","author":{"login":"grace"},"createdAt":"2026-10-20T09:00:00Z","body":"Why a second\tclient?\n\nThe pool is shared.","url":"https://github.com/Mele-Labs/armada/pull/2190#issuecomment-1"},
+{"id":"IC_kwDOA2","author":{"login":"linus"},"createdAt":"2026-10-20T09:30:00Z","body":"","url":"https://github.com/Mele-Labs/armada/pull/2190#issuecomment-2"}]},
+"reviews":{"pageInfo":{"hasNextPage":false,"endCursor":"Y9"},"nodes":[
+{"id":"PRR_1","author":{"login":"grace"},"submittedAt":"2026-10-20T09:10:00Z","body":"","state":"APPROVED","url":"https://github.com/Mele-Labs/armada/pull/2190#pullrequestreview-1"},
+{"id":"PRR_2","author":{"login":"linus"},"submittedAt":"2026-10-20T09:40:00Z","body":"Please split it.","state":"CHANGES_REQUESTED","url":"https://github.com/Mele-Labs/armada/pull/2190#pullrequestreview-2"},
+{"id":"PRR_3","author":{"login":"barbara"},"submittedAt":"2026-10-20T09:50:00Z","body":"A note.","state":"COMMENTED","url":"https://github.com/Mele-Labs/armada/pull/2190#pullrequestreview-3"}]},
+"commits":{"nodes":[{"commit":{"statusCheckRollup":{"contexts":{"pageInfo":{"hasNextPage":true,"endCursor":"X1"},"nodes":[
+{"__typename":"CheckRun","name":"ci","status":"COMPLETED","conclusion":"SUCCESS"},
+{"__typename":"CheckRun","name":"lint","status":"COMPLETED","conclusion":"TIMED_OUT"}]}}}}]}}}}}

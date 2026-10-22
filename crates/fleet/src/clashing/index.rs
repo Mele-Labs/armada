@@ -246,6 +246,11 @@ impl Writes {
             .collect()
     }
 
+    /// What `who` has written, repository-relative. Empty for a holder the table does not hold.
+    pub(crate) fn written_by(&self, who: &Who) -> BTreeSet<String> {
+        self.state().by_holder.get(who).map(|held| held.paths.clone()).unwrap_or_default()
+    }
+
     /// Which repository `who` writes in.
     pub(crate) fn manifest_of(&self, who: &Who) -> Option<String> {
         self.state().by_holder.get(who).map(|held| held.manifest.clone())
