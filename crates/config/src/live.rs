@@ -204,6 +204,8 @@ pub enum Frozen {
     Tracker,
     /// Read for the same reason as `Tracker`.
     CiGate,
+    /// Read for the same reason as `Tracker`.
+    TestMapShared,
 }
 
 impl Frozen {
@@ -218,6 +220,7 @@ impl Frozen {
             Frozen::DroneExcludePaths => "drone.exclude_paths",
             Frozen::Tracker => "tracker",
             Frozen::CiGate => "ci_gate",
+            Frozen::TestMapShared => "test_map.shared",
         }
     }
 }
@@ -304,6 +307,7 @@ struct AtStart {
     exclude_paths: Vec<String>,
     tracker: Option<crate::manifest::TrackerBlock>,
     ci_gate: String,
+    test_map_shared: bool,
 }
 
 impl AtStart {
@@ -329,6 +333,7 @@ impl AtStart {
                 .collect(),
             tracker: manifest.tracker().cloned(),
             ci_gate: manifest.ci_gate().to_string(),
+            test_map_shared: manifest.test_map_shared(),
         }
     }
 
@@ -365,6 +370,9 @@ impl AtStart {
         }
         if self.ci_gate != other.ci_gate {
             changed.push(Frozen::CiGate);
+        }
+        if self.test_map_shared != other.test_map_shared {
+            changed.push(Frozen::TestMapShared);
         }
         changed
     }
