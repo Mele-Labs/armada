@@ -13,5 +13,6 @@ Types live in `crates/ipc/src/sessions.rs` and `packages/protocol/src/sessions.t
 | `all_done` | The agent calls | Refused 409 `fleet.later_open` while any follow-up is open, naming each |
 
 **Optional members are left out, never sent as `null`.** A Bridge that predates this ignores `later`; a Fleet that predates sends none.
-**The agent's call and Bridge's Drop are one operation.** A call placed by a hosted Job's connection must give a reason to drop; Bridge's call places none and gives none. A terminal Job calls with `session_id` and is read as the person's, so its drop is not held to a reason.
+**The agent's call and Bridge's Drop are one operation.** A call placed by a hosted Job's connection must give a reason to drop; Bridge's call places none and gives none.
+A terminal Job calls with `session_id` and is read as the person's, so its drop is not held to a reason.
 Migration `20261021T1500Z-session_later`: one table, read by nothing else.
