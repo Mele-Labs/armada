@@ -1,0 +1,9 @@
+{"data":{"repository":{"pullRequests":{"nodes":[
+{"number":2190,"title":"Read the forge\tover the API","autoMergeRequest":{"enabledAt":"2026-10-19T09:00:00Z"},"headRefName":"armada/forge-api-reads","url":"https://github.com/Mele-Labs/armada/pull/2190","headRefOid":"5555555555555555555555555555555555555555","mergeable":"CONFLICTING","author":{"login":"nick"},"mergeQueueEntry":{"state":"UNMERGEABLE"},"commits":{"nodes":[{"commit":{"statusCheckRollup":{"contexts":{"nodes":[
+ {"__typename":"CheckRun","name":"rust_test","status":"COMPLETED","conclusion":"CANCELLED","detailsUrl":"https://github.com/Mele-Labs/armada/actions/runs/1/job/2","startedAt":"2026-10-21T10:00:00Z","completedAt":"2026-10-21T10:45:00Z"},
+ {"__typename":"CheckRun","name":"ci","status":"COMPLETED","conclusion":"FAILURE","detailsUrl":null,"startedAt":"2026-10-21T10:00:00Z","completedAt":"2026-10-21T10:01:00Z"},
+ {"__typename":"CheckRun","name":"quick","status":"COMPLETED","conclusion":"CANCELLED","detailsUrl":"https://github.com/Mele-Labs/armada/actions/runs/1/job/3","startedAt":"2026-10-21T10:00:00Z","completedAt":"2026-10-21T10:00:30Z"},
+ {"__typename":"StatusContext","context":"deploy/preview","state":"PENDING","targetUrl":"https://preview.example/1"},
+ {"__typename":"CheckRun","name":"app_smoke","status":"IN_PROGRESS","conclusion":null,"detailsUrl":"https://github.com/Mele-Labs/armada/actions/runs/1/job/4","startedAt":"2026-10-21T10:00:00Z","completedAt":null}]}}}}]}},
+{"number":2191,"title":null,"autoMergeRequest":null,"headRefName":"armada/draft","url":"https://github.com/Mele-Labs/armada/pull/2191","headRefOid":"nope","mergeable":"UNKNOWN","author":null,"mergeQueueEntry":null,"commits":{"nodes":[{"commit":{"statusCheckRollup":null}}]}}
+]}}}}

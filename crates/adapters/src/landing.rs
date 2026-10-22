@@ -26,8 +26,8 @@
 use std::path::Path;
 
 use adapter_traits::{
-    CheckoutPulled, HeldBack, Landable, Landing, Mergeable, Merged, NotMerged, PushedOntoBase, Rendering, RepositoryStanding,
-    WhatBecameOfIt, WorktreeSpec,
+    CheckoutPulled, Compared, HeldBack, Landable, Landing, LandingOnTheForge, Mergeable, Merged, NotMerged, PushedOntoBase,
+    Rendering, RepositoryStanding, WhatBecameOfIt, WorktreeSpec,
 };
 use git2::Repository;
 
@@ -38,7 +38,10 @@ use crate::delivery::{asked, last_line, read_in, run_in, said, FORGE};
 /// Ask the forge what became of one pull request, what it is showing beside
 /// it, and what a person would read about it before either of those answers
 /// mattered.
-pub(crate) fn read(in_repo: &str, pull_request: &str) -> WhatBecameOfIt {
+///
+/// **The forge's half**: an open one's rendering is left
+/// [`Rendering::Unreadable`] beside the two commits [`rendered`] reads it from.
+pub(crate) fn read(in_repo: &str, pull_request: &str) -> LandingOnTheForge {
     // **Seven fields in one call**, `#427`'s argument carried one field
     // further: the number, the title and whether the forge can merge it are
     // three more scalars on the one `pr view` this already runs, and a second
@@ -56,25 +59,49 @@ pub(crate) fn read(in_repo: &str, pull_request: &str) -> WhatBecameOfIt {
         "[.number, .title, .state, .mergeable, .baseRefName, .baseRefOid, .headRefOid, \
          (.mergedAt // \"-\")] | @tsv",
     ) else {
-        return WhatBecameOfIt::unknown();
+        return unknown();
     };
     let Some([number, title, state, mergeable, base, pinned, head, merged]) = fields::<8>(&said)
     else {
-        return WhatBecameOfIt::unknown();
+        return unknown();
     };
+    landing_of(pull_request, &LandingRead { number, title, state, mergeable, base, pinned, head, merged })
+}
+
+/// The forge's seven scalars on one pull request, in its words; `merged` is `-` until it merges.
+pub(crate) struct LandingRead<'a> {
+    pub(crate) number: &'a str,
+    pub(crate) title: &'a str,
+    pub(crate) state: &'a str,
+    pub(crate) mergeable: &'a str,
+    pub(crate) base: &'a str,
+    pub(crate) pinned: &'a str,
+    pub(crate) head: &'a str,
+    pub(crate) merged: &'a str,
+}
+
+/// What became of the pull request named `pull_request`, from what the forge said of it.
+pub(crate) fn landing_of(pull_request: &str, read: &LandingRead<'_>) -> LandingOnTheForge {
+    let LandingRead { number, title, state, mergeable, base, pinned, head, merged } = *read;
     let url = pull_request.to_string();
-    let landing = match state {
-        "MERGED" => Landing::Merged { url },
-        "CLOSED" => Landing::ClosedUnmerged { url },
-        "OPEN" => Landing::Open {
-            url,
-            rendering: rendering(in_repo, base, pinned, head),
-        },
+    let (landing, compared) = match state {
+        "MERGED" => (Landing::Merged { url }, None),
+        "CLOSED" => (Landing::ClosedUnmerged { url }, None),
+        "OPEN" => (
+            Landing::Open {
+                url,
+                rendering: Rendering::Unreadable,
+            },
+            Some(Compared {
+                pinned: pinned.to_string(),
+                head: head.to_string(),
+            }),
+        ),
         // A word this forge has and Armada has not. Saying nothing is the
         // honest answer, and it costs one more ask later.
-        _ => return WhatBecameOfIt::unknown(),
+        _ => return unknown(),
     };
-    WhatBecameOfIt {
+    let became = WhatBecameOfIt {
         landing,
         base: Some(base.to_string()),
         // A number the forge printed that this cannot parse is a forge
@@ -90,7 +117,27 @@ pub(crate) fn read(in_repo: &str, pull_request: &str) -> WhatBecameOfIt {
             _ => Mergeable::Unreadable,
         },
         merged_at: merged_at(state, merged),
+    };
+    LandingOnTheForge { became, compared }
+}
+
+pub(crate) fn unknown() -> LandingOnTheForge {
+    LandingOnTheForge {
+        became: WhatBecameOfIt::unknown(),
+        compared: None,
     }
+}
+
+/// [`read`]'s answer with an open pull request's rendering read here, by git,
+/// from the two commits the forge named.
+pub(crate) fn rendered(in_repo: &str, read: LandingOnTheForge) -> WhatBecameOfIt {
+    let LandingOnTheForge { mut became, compared } = read;
+    if let (Landing::Open { rendering, .. }, Some(base), Some(compared)) =
+        (&mut became.landing, became.base.as_deref(), compared)
+    {
+        *rendering = self::rendering(in_repo, base, &compared.pinned, &compared.head);
+    }
+    became
 }
 
 /// When a pull request merged, off the forge's own field: only a merged one

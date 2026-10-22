@@ -8,7 +8,7 @@
 import type { P3 } from "../layout";
 import type { Doing } from "../doing";
 import type { Clock } from "./clock";
-import { hueOf } from "./drones";
+import { GHOST, hueOf } from "./drones";
 import { PlaneBuilder } from "./plane";
 import { fade, mix, type Palette, type Rgba } from "./palette";
 import type { DroneSpec, PixiSceneIn } from "./scene";
@@ -64,14 +64,14 @@ export function drawGround(shade: PlaneBuilder, glow: PlaneBuilder, s: PixiScene
   const ordered = [...s.drones].sort((a, c) => a.at.y - c.at.y);
   for (const spec of ordered) {
     const d = spec.drone;
-    const keep = (spec.away ? 0.12 : spec.dim ? 0.4 : 1) * arrival(spec, clock);
+    const keep = (spec.away ? 0.12 : spec.ghost ? GHOST : spec.dim ? 0.4 : 1) * arrival(spec, clock);
     if (keep <= 0) continue;
     const { x: cx, y: cy } = spec.at;
     const z = floor(spec.tile) + 1;
     const hue = hueOf(d.hue, p);
     const r = 20 * 0.85 * s.big;
     const act = d.doing === undefined ? undefined : actOf(d, p);
-    const lit = d.hover || d.ping;
+    const lit = (d.hover || d.ping) && !spec.ghost;
 
     // The pool of light: the hue of the drone, or the colour of what it is doing over the plot.
     if (lit) pool(glow, cx, cy, r * 2.3, fade(d.doing === "read" ? p.run : d.doing === "write" ? p.hot : hue, 0.34 * keep), z);

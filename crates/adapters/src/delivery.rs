@@ -18,9 +18,9 @@
 use std::process::{Command, Output};
 
 use adapter_traits::{
-    Base, BaseFetched, BaseOnTheRemote, BranchMerged, BroughtUpToDate, Delivery, KeptCurrent, Landable, Merged,
+    Base, BaseFetched, BaseOnTheRemote, BranchMerged, BroughtUpToDate, Delivery, Forge, KeptCurrent, Landable,
     NotDelivered, NotMerged, Opened, Pushed, PushedOntoBase, RepositoryStanding, Review,
-    UncheckedHead, UnderReview, WhatBecameOfIt,
+    UncheckedHead, WhatBecameOfIt,
 };
 use adapter_traits::{Standing, Worktree, WorktreeSpec};
 use git2::{BranchType, Repository};
@@ -34,7 +34,7 @@ use crate::worktree::GitVcs;
 /// reason the whole of delivery lives in `adapters` at all.
 pub(crate) const FORGE: &str = "gh";
 
-impl Delivery for GitVcs {
+impl<F: Forge> Delivery for GitVcs<F> {
     fn base(
         &self,
         worktree: &Worktree,
@@ -154,155 +154,8 @@ impl Delivery for GitVcs {
         crate::keeping_current::pushed_forcing(worktree)
     }
 
-    fn open_for_review(
-        &self,
-        worktree: &Worktree,
-        base: &Base,
-        review: &Review,
-    ) -> Result<Opened, NotDelivered> {
-        // Asked before it is created, because creating a second one for a
-        // branch is refused with a sentence rather than answered with the first.
-        if let Some(url) = already_open(worktree) {
-            return Ok(Opened::AlreadyOpen { url });
-        }
-        let mut args = vec![
-            "pr",
-            "create",
-            "--base",
-            base.name(),
-            "--head",
-            worktree.branch(),
-            "--title",
-            review.title(),
-            "--body",
-            review.body(),
-        ];
-        if review.draft() {
-            args.push("--draft");
-        }
-        let run = run(worktree, FORGE, &args);
-        let run = match run {
-            Ok(run) => run,
-            Err(why) => {
-                return Ok(Opened::NoTool {
-                    why: format!("`{FORGE}` would not run: {why}"),
-                })
-            }
-        };
-        match run.status.success() {
-            true => Ok(Opened::PullRequest {
-                url: last_line(&run),
-            }),
-            false => Err(NotDelivered::of("the pull request", said(&run))),
-        }
-    }
-
     fn landed(&self, in_repo: &str, pull_request: &str) -> WhatBecameOfIt {
-        crate::landing::read(in_repo, pull_request)
-    }
-
-    fn under_review(&self, in_repo: &str, pull_request: &str, gate: &str) -> UnderReview {
-        crate::under_review::read(in_repo, pull_request, gate)
-    }
-
-    fn inline_remarks(
-        &self,
-        in_repo: &str,
-        pull_request: &str,
-    ) -> Option<Vec<adapter_traits::Remark>> {
-        crate::inline_comments::read(in_repo, pull_request)
-    }
-
-    fn base_head_on_the_forge(&self, in_repo: &str, base: &str) -> Option<String> {
-        crate::main_ci::head(in_repo, base)
-    }
-
-    fn ci_runs_on(&self, in_repo: &str, commit: &str) -> Option<adapter_traits::CiRuns> {
-        crate::main_ci::runs(in_repo, commit)
-    }
-
-    fn queue_commit_of(&self, in_repo: &str, base: &str, number: u64) -> Option<String> {
-        crate::main_ci::queue_commit_of(in_repo, base, number)
-    }
-
-    fn ci_log(
-        &self,
-        in_repo: &str,
-        run: &adapter_traits::CiRun,
-    ) -> Option<adapter_traits::FromOutside> {
-        crate::main_ci::log(in_repo, run)
-    }
-
-    fn merged_by(&self, in_repo: &str, commit: &str) -> Option<adapter_traits::MergedPull> {
-        crate::main_ci::merged_by(in_repo, commit)
-    }
-
-    fn merge_queue(&self, in_repo: &str, base: &str) -> Option<adapter_traits::MergeQueue> {
-        crate::merge_queue::read(in_repo, base)
-    }
-
-    fn open_pull_requests(&self, in_repo: &str, gate: &str) -> Option<adapter_traits::OpenPulls> {
-        crate::main_ci::open_pulls(in_repo, gate)
-    }
-
-    fn open_pull_request(
-        &self,
-        in_repo: &str,
-        gate: &str,
-        number: u64,
-    ) -> Option<adapter_traits::OpenPull> {
-        crate::main_ci::open_pull(in_repo, gate, number)
-    }
-
-    fn pull_watch(&self, in_repo: &str, gate: &str) -> Option<adapter_traits::WatchedPulls> {
-        crate::pull_watch::read(in_repo, gate)
-    }
-
-    fn watched_pull(
-        &self,
-        in_repo: &str,
-        gate: &str,
-        number: u64,
-    ) -> Option<adapter_traits::WatchedPull> {
-        crate::pull_watch::read_one(in_repo, gate, number)
-    }
-
-    fn forge_login(&self, in_repo: &str) -> Option<String> {
-        crate::main_ci::forge_login(in_repo)
-    }
-
-    fn recently_merged_pull_requests(
-        &self,
-        in_repo: &str,
-        base: &str,
-        limit: usize,
-    ) -> Option<adapter_traits::RecentlyMergedPulls> {
-        crate::main_ci::recently_merged(in_repo, base, limit)
-    }
-
-    fn pull_request_diff(
-        &self,
-        in_repo: &str,
-        pull_request: &str,
-    ) -> Option<adapter_traits::PullRequestDiff> {
-        crate::pull_request_diff::read(in_repo, pull_request)
-    }
-
-    fn rerun_failed(
-        &self,
-        in_repo: &str,
-        pull_request: &str,
-    ) -> Result<adapter_traits::Rerun, adapter_traits::NotRerun> {
-        crate::rerunning::rerun_failed(in_repo, pull_request)
-    }
-
-    fn file_issue(
-        &self,
-        in_repo: &str,
-        title: &str,
-        body: &str,
-    ) -> Result<adapter_traits::FiledIssue, adapter_traits::NotFiled> {
-        crate::filing::file_issue(in_repo, title, body)
+        crate::landing::rendered(in_repo, self.forge.landing(in_repo, pull_request))
     }
 
     fn kept_current(&self, spec: &WorktreeSpec, base: &str) -> KeptCurrent {
@@ -311,81 +164,6 @@ impl Delivery for GitVcs {
 
     fn base_tip(&self, in_repo: &str, base: &str) -> Option<String> {
         crate::keeping_current::base_tip(in_repo, base)
-    }
-
-    fn merge(&self, in_repo: &str, pull_request: &str) -> Result<Merged, NotMerged> {
-        crate::landing::merge(in_repo, pull_request)
-    }
-
-    fn enable_auto_merge(&self, in_repo: &str, pull_request: &str) -> Result<(), String> {
-        crate::landing::enable_auto_merge(in_repo, pull_request)
-    }
-
-    fn disable_auto_merge(&self, in_repo: &str, pull_request: &str) -> Result<(), String> {
-        crate::landing::disable_auto_merge(in_repo, pull_request)
-    }
-
-    fn pull_request_facts(
-        &self,
-        in_repo: &str,
-        pull_request: &str,
-    ) -> Option<adapter_traits::PullRequestFacts> {
-        crate::pull_request_facts::read(in_repo, pull_request)
-    }
-
-    fn mark_ready(&self, in_repo: &str, pull_request: &str) -> Result<(), String> {
-        crate::pull_request_facts::mark_ready(in_repo, pull_request)
-    }
-
-    fn pull_request_page(
-        &self,
-        in_repo: &str,
-        pull_request: &str,
-    ) -> Option<adapter_traits::PullRequestPageFacts> {
-        crate::pull_request_detail::read(in_repo, pull_request)
-    }
-
-    fn pull_request_file_patch(
-        &self,
-        in_repo: &str,
-        pull_request: &str,
-        path: &str,
-    ) -> Option<adapter_traits::FilePatch> {
-        crate::pull_request_patch::read(in_repo, pull_request, path)
-    }
-
-    fn pull_request_patches(
-        &self,
-        in_repo: &str,
-        pull_request: &str,
-    ) -> Option<Vec<adapter_traits::PatchedFile>> {
-        crate::pull_request_patch::read_every(in_repo, pull_request)
-    }
-
-    fn write_pull_request(
-        &self,
-        in_repo: &str,
-        pull_request: &str,
-        write: &adapter_traits::PullRequestWrite,
-    ) -> Result<(), String> {
-        crate::pull_request_writes::write(in_repo, pull_request, write)
-    }
-
-    fn pull_review_list(
-        &self,
-        in_repo: &str,
-        ask: &adapter_traits::ReviewListAsk<'_>,
-    ) -> Option<Vec<adapter_traits::ListedPull>> {
-        crate::pull_review_lists::read(in_repo, ask)
-    }
-
-    fn resolve_review_thread(
-        &self,
-        in_repo: &str,
-        thread: &str,
-        resolved: bool,
-    ) -> Result<bool, String> {
-        crate::pull_request_threads::resolve(in_repo, thread, resolved)
     }
 
     fn merge_by_push(
@@ -477,7 +255,7 @@ impl Delivery for GitVcs {
         in_repo: &str,
         sending: &adapter_traits::ManifestEditToSend,
     ) -> Result<adapter_traits::ManifestEditSent, NotDelivered> {
-        crate::manifest_edit::send(in_repo, sending)
+        crate::manifest_edit::send(in_repo, sending, &self.forge)
     }
 
     fn send_checkout_as_pull_request(
@@ -485,7 +263,51 @@ impl Delivery for GitVcs {
         in_repo: &str,
         sending: &adapter_traits::CheckoutToSend,
     ) -> Result<adapter_traits::CheckoutSent, NotDelivered> {
-        crate::checkout_send::send(in_repo, sending)
+        crate::checkout_send::send(in_repo, sending, &self.forge)
+    }
+}
+
+/// Open a pull request from the worktree's branch into the base: [`GhForge`](crate::GhForge)'s
+/// [`open_for_review`](adapter_traits::Forge::open_for_review).
+pub(crate) fn open_for_review(
+    worktree: &Worktree,
+    base: &Base,
+    review: &Review,
+) -> Result<Opened, NotDelivered> {
+    // Asked before it is created, because creating a second one for a
+    // branch is refused with a sentence rather than answered with the first.
+    if let Some(url) = already_open(worktree) {
+        return Ok(Opened::AlreadyOpen { url });
+    }
+    let mut args = vec![
+        "pr",
+        "create",
+        "--base",
+        base.name(),
+        "--head",
+        worktree.branch(),
+        "--title",
+        review.title(),
+        "--body",
+        review.body(),
+    ];
+    if review.draft() {
+        args.push("--draft");
+    }
+    let run = run(worktree, FORGE, &args);
+    let run = match run {
+        Ok(run) => run,
+        Err(why) => {
+            return Ok(Opened::NoTool {
+                why: format!("`{FORGE}` would not run: {why}"),
+            })
+        }
+    };
+    match run.status.success() {
+        true => Ok(Opened::PullRequest {
+            url: last_line(&run),
+        }),
+        false => Err(NotDelivered::of("the pull request", said(&run))),
     }
 }
 

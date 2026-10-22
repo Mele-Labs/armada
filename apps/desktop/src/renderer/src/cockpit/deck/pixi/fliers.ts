@@ -5,7 +5,7 @@
 import { Container, type Sprite } from "pixi.js";
 
 import { alongOf } from "../layout";
-import { drawDrone, droneSig, type DroneParts } from "./drones";
+import { alphaOf, drawDrone, droneSig, type DroneParts } from "./drones";
 import { pillarSprite } from "./glow";
 import type { Palette } from "./palette";
 import { project, type View } from "./project";
@@ -79,7 +79,7 @@ export class Fliers {
       root.zIndex = spec.at.y;
       parts.body.position.set(here.x, here.y);
       parts.body.scale.set(view.eye * here.scale);
-      parts.body.alpha = (spec.away ? 0.12 : spec.dim ? 0.4 : spec.muted ? 0.6 : 1) * seen;
+      parts.body.alpha = alphaOf(spec) * seen;
       if (parts.mark !== undefined) {
         parts.mark.position.set(here.x, here.y - parts.head * view.eye * here.scale);
         parts.mark.scale.set(here.scale);

@@ -223,6 +223,30 @@ async fn repositories_of_request_names_a_repository_or_leaves_the_field_out() {
     assert_eq!(status, StatusCode::OK, "no `q` reads as no words");
 }
 
+/// The test map, read for paths that ride the query string newline-separated: a reached path is
+/// grouped under its Check and member, and an unreached one is named, so the caller can say "no
+/// test reaches this file" instead of running nothing.
+#[tokio::test]
+async fn tests_reaching_takes_paths_newline_separated_and_names_the_unreached() {
+    let events = Broadcaster::new();
+    let app = wired(FakeDaemon::new(events.clone()), events);
+
+    let (status, body) = call(&app, "GET", "/test_map/reaching?paths=src%2Fmain.rs%0Asrc%2Fnobody.rs%0A", "").await;
+    assert_eq!(status, StatusCode::OK);
+    let reaching: ipc::TestsReaching = ipc::decode("the tests reaching", &body).expect("a map reading");
+    assert_eq!(reaching.unreached, vec!["src/nobody.rs".to_string()], "the blank last line is no path");
+    assert!(reaching.holds_edges, "the map's holding rides the wire");
+    assert_eq!(reaching.checks.len(), 1);
+    assert_eq!((reaching.checks[0].check.as_str(), reaching.checks[0].member.as_str()), ("test", "armada"));
+    let test = &reaching.checks[0].tests[0];
+    assert_eq!((test.source.as_wire(), test.grain.as_wire(), test.stale), ("measured", "test", false));
+
+    let (status, body) = call(&app, "GET", "/test_map/reaching", "").await;
+    assert_eq!(status, StatusCode::OK, "no `paths` at all is an empty answer, not a refusal");
+    let empty: ipc::TestsReaching = ipc::decode("the tests reaching", &body).expect("a map reading");
+    assert_eq!(empty, ipc::TestsReaching { holds_edges: true, ..ipc::TestsReaching::default() }, "no path asked, and the map still holds its edges");
+}
+
 /// The Cockpit's timeline. **Each bound is a query-string field and any may be left off**, and a
 /// window that was cut says so while one that was not leaves the field out, as Bridge types it
 /// `cut?: boolean`.
@@ -326,4 +350,25 @@ async fn a_jobs_mcp_servers_are_read_and_acted_on() {
     let (status, body) = call(&app, "GET", "/sessions/mcp?session_id=closed", "").await;
     assert_eq!(status, StatusCode::CONFLICT);
     assert!(String::from_utf8_lossy(&body).contains("fleet.session_closed"));
+}
+
+#[tokio::test]
+async fn a_shown_file_is_read_as_text_over_the_router() {
+    let events = Broadcaster::new();
+    let app = wired(FakeDaemon::new(events.clone()), events);
+    let (status, body) = call(&app, "GET", "/sessions/shown?session_id=s1&path=%2Fa%2Fb.md", "").await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(String::from_utf8(body).unwrap(), r#"{"path":"/a/b.md","text":"shown"}"#);
+}
+
+#[tokio::test]
+async fn the_phone_switch_is_read_and_set_over_the_router() {
+    let events = Broadcaster::new();
+    let app = wired(FakeDaemon::new(events.clone()), events);
+    let (status, body) = call(&app, "GET", "/phone", "").await;
+    assert_eq!((status, String::from_utf8(body).unwrap().as_str()), (StatusCode::OK, r#"{"on":false,"port":8443,"listening":false}"#));
+    let (status, body) = call(&app, "POST", "/phone", r#"{"on":true}"#).await;
+    assert_eq!((status, String::from_utf8(body).unwrap().as_str()), (StatusCode::OK, r#"{"on":true,"port":8443,"listening":true}"#));
+    let (status, _) = call(&app, "POST", "/phone", r#"{"on":true,"port":1}"#).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
 }

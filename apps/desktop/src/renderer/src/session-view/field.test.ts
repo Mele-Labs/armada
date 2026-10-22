@@ -1,9 +1,9 @@
-// The Field draws only the subagents at work: a finished one is gone from it, and the Session's own drone stays.
+// The Field draws only the subagents at work: a finished one is gone from it, and the Session's own drone stays. Its floor is the whole repository, and the plots the Job touched are the ones outlined.
 
 import { expect, test } from "vitest";
 import type { Session, WorkDrone } from "@armada/screens/src/draft/sessions";
 
-import { isWorking, workingDrones } from "./field";
+import { isWorking, touchedPlots, workingDrones } from "./field";
 
 const drone = (id: string, agent?: string): WorkDrone => ({ id, ...(agent === undefined ? {} : { agent }), path: "crates/fleet", doing: "write", file: "crates/fleet/src/lib.rs" });
 const session = (state: "running" | "done") =>
@@ -60,4 +60,17 @@ test("a drone is at work only while its Session's turn or its subagent's row is"
   expect(workingDrones(ledger("working"), field)?.map((one) => isWorking(ledger("working"), one))).toEqual([true, true]);
   const unlisted = withAgents([], "idle");
   expect(isWorking(unlisted, drone("x", "Explore"))).toBe(false);
+});
+
+test("the outlined plots are those the Job's scope and drones name or reach into, and every other plot of the whole floor stays plain", () => {
+  const areas = [
+    { dir: "crates", kids: [["fleet", 40], ["store", 20], ["ipc", 9]] as const },
+    { dir: "apps", kids: [["desktop", 60]] as const },
+    { dir: "docs", kids: [] as const, names: ["a.md"], files: 3 },
+  ];
+  const touched = touchedPlots(areas, new Set(["crates/store", "apps/desktop/src/renderer/x.ts", "docs/practices/audit.md"]));
+  expect([...touched].sort()).toEqual(["apps/desktop", "crates/store", "docs"]);
+  // The floor is not cut to them: a plot nobody touched is still a plot, just not outlined.
+  expect(touched.has("crates/fleet")).toBe(false);
+  expect(touchedPlots(areas, new Set())).toEqual(new Set());
 });

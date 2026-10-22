@@ -1,0 +1,12 @@
+[operations.get_tests_reaching]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "The tests the test map says reach each of a set of paths, and the paths nothing reaches"
+notes = """
+`GET /test_map/reaching?manifest_id=&paths=`, `paths` newline-separated and percent-encoded, as `armada check test --changed` reads them on stdin. Answered with `TestsReaching`: the edges grouped by Check key and member, each test with the source that read it, its grain, the commit it was read at and whether it is stale, `unreached`, the asked paths no edge names, and `holds_edges`, whether the map holds any edge for the repository at all. `docs/concepts/test-map.md`.
+
+**A query on `GET` with a list in the query string**, because the inventory holds a read to `GET` and a path list has no other place on one. A stale edge is still answered, said as stale; an unreached path is named, never left as an empty group, so a caller can say "no test reaches this file" rather than run nothing. `holds_edges` false is a map nothing has fed yet, where every path is unreached and none is known to be reached by nothing, so a caller says nothing.
+
+`agent_access` is `Yes`: `armada check test --changed` is what an agent runs, and it is this read.
+"""

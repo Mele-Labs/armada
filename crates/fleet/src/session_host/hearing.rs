@@ -449,9 +449,16 @@ where
 
     /// The turn that held a write is over: end the process and resume the
     /// session with the slot as its directory, then tell it where it is.
+    /// **What was written to the old process and not started goes to the new one after**, as Fleet's
+    /// notices told while the write was held: `let_go` clears them with the process.
     pub(super) async fn moved_into(self: &Arc<Self>, id: &str, moving: Move) {
         let runtime = self.hosts().of(id);
-        Self::let_go(&mut runtime.state());
+        let unstarted = {
+            let mut state = runtime.state();
+            let unstarted = std::mem::take(&mut state.unstarted);
+            Self::let_go(&mut state);
+            unstarted
+        };
         let Ok((_, hosting)) = self.session_and_hosting(id).await else {
             return;
         };
@@ -468,6 +475,9 @@ where
                 let mut state = runtime.state();
                 state.turn = SessionTurn::Working { woken_by: None };
                 state.send_turn(line);
+                for line in unstarted {
+                    state.send_turn(line);
+                }
             }
             (started, _) => {
                 runtime.state().turn = SessionTurn::Idle;
@@ -485,14 +495,15 @@ where
     }
 
     /// One session's `SendMessage` to another that Fleet hosts: the receiving
-    /// thread draws it as that session's, and a receiver whose process was
-    /// ended is resumed with it.
+    /// thread draws it as that session's, the timeline enters it unless Helm sent
+    /// it, and a receiver whose process was ended is resumed with it.
     async fn delivered(self: &Arc<Self>, from: &str, to: &str, message: &str) {
-        let (target, title, hosting) = {
+        let (target, title, named, hosting, from_helm) = {
             let store = self.store().lock().await;
             let Ok(hostings) = store.hostings() else {
                 return;
             };
+            let from_helm = hostings.iter().any(|one| one.session_id == from && one.helm);
             let Some(hosting) = hostings
                 .into_iter()
                 .find(|hosting| address_of(&hosting.session_id) == to)
@@ -500,10 +511,9 @@ where
                 return;
             };
             let sender = store.session(from).ok().flatten();
-            let title = sender
-                .and_then(|session| session.title)
-                .unwrap_or_else(|| address_of(from));
-            (hosting.session_id.clone(), title, hosting)
+            let named = sender.map(|session| (session.title, session.manifest_id)).unwrap_or_default();
+            let title = named.0.clone().unwrap_or_else(|| address_of(from));
+            (hosting.session_id.clone(), title, named, hosting, from_helm)
         };
         if target == from {
             return;
@@ -524,6 +534,9 @@ where
             },
         )
         .await;
+        if !from_helm {
+            self.session_messaged(from, named, &target, message);
+        }
         let runtime = self.hosts().of(&target);
         runtime.state().woken_by.push(SessionVoiceNamed {
             id: from.to_string(),

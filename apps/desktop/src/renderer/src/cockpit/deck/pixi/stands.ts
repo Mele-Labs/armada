@@ -115,6 +115,19 @@ function marker(kind: "walk" | "asked", p: Palette): Container {
   return out;
 }
 
+/** A stop's number in a small disc: the cool hue of a read, the hue of a write. */
+function stop(n: number, act: "read" | "write", p: Palette): Container {
+  const tone = act === "write" ? p.hot : p.look;
+  const out = new Container();
+  const g = new Graphics();
+  g.circle(0, -9, 8).fill(colour(p.base)).stroke({ ...colour(tone), width: 1.4 });
+  out.addChild(g);
+  const text = name(String(n), p, p.fg, { x: 0.5, y: 0.5 });
+  text.position.set(0, -9);
+  out.addChild(text);
+  return out;
+}
+
 export function standsOf(s: PixiSceneIn): StandSpec[] {
   const out: StandSpec[] = [];
   for (const one of s.layout.territories) {
@@ -164,6 +177,10 @@ export function standsOf(s: PixiSceneIn): StandSpec[] {
         return c;
       },
     });
+  }
+  // The number of each stop of a Job's route, over its file, while the Field is scrubbed back.
+  for (const spot of s.route ?? []) {
+    out.push({ key: `stop:${spot.n}`, sig: `stop:${spot.n}:${spot.act}`, at: { ...spot.at, z: (s.heights.get(spot.tile) ?? 0) + 14 }, counter: true, make: (q) => stop(spot.n, spot.act, q) });
   }
   for (const placed of s.builds) {
     const anchor = onPlane(placed.anchor);

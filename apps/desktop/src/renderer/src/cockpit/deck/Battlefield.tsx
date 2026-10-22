@@ -33,6 +33,7 @@ import { steadyTips, type Waits } from "./tip-hover";
 
 import { droneTip, type DroneFacts, type GoalIn, type PadIn, type Tip } from "./tip";
 import type { Clash } from "./touches";
+import type { Glow, Stop } from "./afterglow";
 import { useCamera } from "./useCamera";
 import "./battlefield.css";
 
@@ -60,7 +61,7 @@ export type BattlefieldProps = {
   selected: string | undefined;
   /** The root of the one repository drawn, where the map is cut to one. A change of it sends the camera to the new fit. */
   scope?: string | undefined;
-  /** This map's camera is its own, not the window's: it opens on the whole field and goes back to it when this changes, and when the pane is resized or unfolded. A Session's Field. */
+  /** This map's camera is its own, not the window's: it opens on `framing`, or the whole field, and goes back there when this changes, and when the pane is resized or unfolded. A Job's Field. */
   own?: string | undefined;
   /** The ring under each drone that is building one. None where Fleet reports none. */
   builds?: readonly BuildIn[] | undefined;
@@ -68,6 +69,14 @@ export type BattlefieldProps = {
   planned?: PixiSceneIn["planned"];
   /** The services Sessions have called, each an outpost past the far edge of the field. None draws none. */
   outposts?: readonly Outpost[] | undefined;
+  /** The plots a Job has touched, outlined in the accent. A Job's Field only. */
+  touched?: ReadonlySet<string> | undefined;
+  /** The glow on each file's bar from the Job's reads and writes. A Job's Field only. */
+  glow?: ReadonlyMap<string, Glow> | undefined;
+  /** The Job's stops, drawn while the Field is scrubbed back. A Job's Field only. */
+  route?: readonly Stop[] | undefined;
+  /** The drones an own camera rests on, with the plots they touch: the Job's own, where other Jobs' are drawn too. None rests on the whole field. */
+  framing?: readonly string[] | undefined;
   onSelect: (key: string) => void;
   /** A press on the ground, on no drone: whatever was picked lets go. */
   onClear?: () => void;
@@ -86,11 +95,13 @@ const outpostMarks = (world: Size, n: number): P3[] =>
     return [{ x: at.x - 40, y: at.y * FLAT, z: 0 }, { x: at.x + 40, y: at.y * FLAT, z: 230 }];
   }).flat();
 
-export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, facts, calls, clashes, focus, selected, scope, own, builds = NO_BUILDS, planned, outposts = NO_OUTPOSTS, onSelect, onClear, onPad, onGoal, onPr }: BattlefieldProps) {
+export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, facts, calls, clashes, focus, selected, scope, own, builds = NO_BUILDS, planned, outposts = NO_OUTPOSTS, touched, glow, route, framing, onSelect, onClear, onPad, onGoal, onPr }: BattlefieldProps) {
   const host = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState<Size>({ width: 900, height: 560 });
   // Bumped when the pane takes a new size, or has one again after being folded away: an own camera refits then.
   const [fresh, setFresh] = useState(0);
+  // Folded away, the pane has no size: its canvas draws nothing until it has one again.
+  const [folded, setFolded] = useState(false);
   useEffect(() => {
     const one = host.current;
     if (one === null) return;
@@ -99,8 +110,10 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
       const box = one.getBoundingClientRect();
       if (box.width <= 0 || box.height <= 0) {
         shown = undefined;
+        setFolded(true);
         return;
       }
+      setFolded(false);
       const now = `${Math.round(box.width)}x${Math.round(box.height)}`;
       if (now !== shown) {
         shown = now;
@@ -130,11 +143,24 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
   const droneBy = new Map(drones.map((one) => [one.key, one] as const));
 
   // The whole field at rest, found from the projection itself: every territory with its base and flag and every drone with its altitude.
-  const home = useMemo<Cam>(
+  const whole = useMemo<Cam>(
     () => homeOf(size, plane, [...marksOf(layout.territories, [...layout.at].map(([key, at]) => ({ at, call: calls.has(key) })), big, reachOf(FOOT, MARGIN, big)), ...outpostMarks(world, outposts.length)]),
     [layout, plane.width, plane.height, size, big, calls, outposts.length],
   );
-  const limits = limitsOf(size, plane, world.width, home);
+  // A Job's Field rests on its own drones and the plots they touch, and zooms out as far as the whole repository.
+  const framingKey = framing?.join("|");
+  const home = useMemo<Cam>(() => {
+    if (framing === undefined) return whole;
+    const keys = new Set(framing);
+    const placed = [...layout.at].filter(([key]) => keys.has(key));
+    if (placed.length === 0) return whole;
+    const plots = new Set(placed.flatMap(([key]) => (layout.over.get(key) ?? []).map(({ tile }) => tile.path)));
+    const tiles = layout.territories.flatMap((one) => one.tiles).filter((tile) => plots.has(tile.path));
+    const marks = [...marksOf(tiles.map((tile) => ({ rect: tile.rect, goal: undefined })), placed.map(([, at]) => ({ at, call: false })), big, reachOf(FOOT, MARGIN, big))];
+    const near = homeOf(size, plane, marks);
+    return { ...near, eye: Math.max(whole.eye, Math.min(near.eye, LOCK_EYE)) };
+  }, [whole, framingKey, layout, size, big, plane.width, plane.height]);
+  const limits = limitsOf(size, plane, world.width, whole);
   const fit = (c: Cam): Cam => limited(plane, limits, c);
 
   // An arrival (a drone that was not there, a merge that landed) is shown whole: the camera pulls back to it, then returns.
@@ -287,7 +313,8 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
   const bodies = bodiesOf(drones, place, big);
   // Zoomed out to the whole field the type is too small to read: a name is dropped rather than drawn unreadable, and the callout says it.
   const readable = eff.eye >= READABLE;
-  const { labels, taken } = labelsOf({ drones, place, bodies, big, readable, selected, hot });
+  const nameable = useMemo(() => drones.filter((one) => one.ghost !== true), [drones]);
+  const { labels, taken } = labelsOf({ drones: nameable, place, bodies, big, readable, selected, hot });
   // A plot's name is written on it where it has room and meets no body or name; the pointer on the plot always names it.
   const plotShown = (tile: Tile) => {
     const room = Math.max(4, Math.floor((tile.rect.w - 12) / 6.3));
@@ -308,10 +335,10 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
   const nameKey = names.map((one) => `${one.tile.path}:${one.text}:${one.clash}`).join("|");
   const heldNames = useMemo(() => names, [nameKey, layout]);
   const pixiScene = useMemo(
-    () => pixiSceneOf({ layout, world, big, frame, drones, pads, goals, prs, plays, outposts, readable, builds: placed, selected, hot, hotTile, hotPart, names: heldNames, focus, labels: heldLabels, clashed, calls, callOf, loops: heldLoops, locked, trails, padAt, ...(planned === undefined ? {} : { planned }) }),
-    [layout, world, big, frame, drones, pads, goals, prs, plays, outposts, readable, placed, selected, hot, hotTile, hotPart, heldNames, focus, heldLabels, clashed, calls, gone, heldLoops, locked, trails, planned],
+    () => pixiSceneOf({ layout, world, big, frame, drones, pads, goals, prs, plays, outposts, readable, builds: placed, selected, hot, hotTile, hotPart, names: heldNames, focus, labels: heldLabels, clashed, calls, callOf, loops: heldLoops, locked, trails, padAt, ...(planned === undefined ? {} : { planned }), ...(touched === undefined ? {} : { touched }), ...(glow === undefined ? {} : { glow }), ...(route === undefined ? {} : { route }) }),
+    [layout, world, big, frame, drones, pads, goals, prs, plays, outposts, readable, placed, selected, hot, hotTile, hotPart, heldNames, focus, heldLabels, clashed, calls, gone, heldLoops, locked, trails, planned, touched, glow, route],
   );
-  const locateWord = lock === undefined ? "Back to the whole field" : "Locate the selection";
+  const locateWord = lock !== undefined ? "Locate the selection" : framing !== undefined ? "Back to this Job" : "Back to the whole field";
 
   return (
     <div ref={host} className="bf" tabIndex={-1} data-grab={view.grab || undefined} {...view.handlers}>
@@ -322,7 +349,7 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
         </filter>
         <rect width="100%" height="100%" filter="url(#bf-noise)" />
       </svg>
-      {drones.map((one) => <ClashCount key={one.key} drone={one} report={countClashes} />)}
+      {drones.map((one) => (one.ghost === true ? null : <ClashCount key={one.key} drone={one} report={countClashes} />))}
       <PixiMap
         size={size}
         cam={eff}
@@ -333,6 +360,7 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
           onClear?.();
         }}
         onStage={setStage}
+        hidden={folded}
       >
         {stage === undefined ? null : <Hits stage={stage} scene={pixiScene} facts={facts} acts={hitActs} />}
       </PixiMap>

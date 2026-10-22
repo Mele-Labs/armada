@@ -13,11 +13,13 @@
 //! command line is read the same way: an unknown flag beside a missing name is
 //! two lines, so one correction fixes both.
 
+mod test_map;
 mod worktree;
 
 use std::fmt;
 use std::path::PathBuf;
 
+pub use test_map::TestMapAct;
 pub use worktree::WorktreeAct;
 
 /// What the caller asked for.
@@ -48,11 +50,8 @@ pub enum Verb {
     SessionKeep { args: Vec<String> },
     /// The pool of warm worktrees — `docs/concepts/fleet.md`, *Worktree slots*.
     Worktree(WorktreeAct),
-    /// The Phone Gateway, until it is signalled.
-    Pocket {
-        port: u16,
-        assets: Option<PathBuf>,
-    },
+    /// The test map's laps for one Check, measured here and written to a file.
+    TestMap(TestMapAct),
     /// What the verbs are.
     Help,
 }
@@ -93,8 +92,8 @@ const VERBS: &[(&str, &str)] = &[
         "lease a warm worktree, give it back, or list who holds each",
     ),
     (
-        POCKET,
-        "run the Phone Gateway on 127.0.0.1, for `tailscale serve` to put in front of the phone",
+        TEST_MAP,
+        "measure which tests reach which files, for CI to hand Fleet",
     ),
 ];
 
@@ -115,10 +114,8 @@ pub const CHANGED: &str = "--changed";
 pub const SESSION_KEEP: &str = "session-keep";
 /// The worktree pool.
 pub const WORKTREE: &str = "worktree";
-/// The Phone Gateway.
-pub const POCKET: &str = "pocket";
-/// The port the Gateway listens on when `--port` is not given.
-pub const POCKET_PORT: u16 = 8443;
+/// The test map's recorder.
+pub const TEST_MAP: &str = "test-map";
 
 /// Read the arguments after the program name.
 pub fn read<I: IntoIterator<Item = String>>(args: I) -> Result<Verb, Misread> {
@@ -205,7 +202,7 @@ pub fn read<I: IntoIterator<Item = String>>(args: I) -> Result<Verb, Misread> {
             })
         }
         WORKTREE => worktree::read(rest, &mut faults),
-        POCKET => pocket(rest, &mut faults),
+        TEST_MAP => test_map::read(rest, &mut faults),
         _ => {
             faults.push(Fault::NoSuchVerb {
                 given: verb.clone(),
@@ -218,31 +215,6 @@ pub fn read<I: IntoIterator<Item = String>>(args: I) -> Result<Verb, Misread> {
         Some(verb) if faults.is_empty() => Ok(verb),
         _ => Err(Misread { faults }),
     }
-}
-
-/// `pocket [--port <n>] [--assets <dir>]`.
-fn pocket(rest: &[String], faults: &mut Vec<Fault>) -> Option<Verb> {
-    let (mut port, mut assets) = (POCKET_PORT, None);
-    let mut args = rest.iter();
-    while let Some(arg) = args.next() {
-        match (arg.as_str(), args.next()) {
-            ("--port", Some(given)) => match given.parse() {
-                Ok(n) => port = n,
-                Err(_) => faults.push(Fault::PocketPort {
-                    given: given.clone(),
-                }),
-            },
-            ("--assets", Some(dir)) => assets = Some(PathBuf::from(dir)),
-            ("--port" | "--assets", None) => faults.push(Fault::PocketNeedsValue {
-                flag: arg.clone(),
-            }),
-            _ => faults.push(Fault::NoSuchFlag {
-                given: arg.clone(),
-                allowed: vec!["--port".into(), "--assets".into()],
-            }),
-        }
-    }
-    Some(Verb::Pocket { port, assets })
 }
 
 /// The arguments that are not flags, with every unrecognised flag recorded.
@@ -278,10 +250,6 @@ pub struct Misread {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Fault {
-    /// `pocket --port` with something that is not a port.
-    PocketPort { given: String },
-    /// `pocket --port` or `--assets` as the last word.
-    PocketNeedsValue { flag: String },
     /// `armada`, with nothing after it.
     NothingAsked,
     NoSuchVerb {
@@ -321,6 +289,10 @@ pub enum Fault {
     WorktreeActUnknown {
         given: String,
     },
+    /// `test-map` with no form, or one it does not have.
+    TestMapFormUnknown { given: Option<String> },
+    /// `test-map record` without `--check` or `--out`, or with one as the last word.
+    TestMapNeeds { flag: String, valueless: bool },
     /// `worktree lease` with no branch after it.
     NoBranch,
     /// `worktree remove`, `close` or `open` without a slot's number.
@@ -367,12 +339,6 @@ impl fmt::Display for Fault {
                     listed(&names)
                 )
             }
-            Fault::PocketPort { given } => {
-                write!(out, "`{given}` is not a port — `armada pocket --port 8443`")
-            }
-            Fault::PocketNeedsValue { flag } => {
-                write!(out, "`{flag}` needs a value after it")
-            }
             Fault::TooMany { verb, extra } => write!(
                 out,
                 "`armada {verb}` takes one argument, and {} came after it",
@@ -399,6 +365,20 @@ impl fmt::Display for Fault {
                  `{WORKTREE} lease <branch>`, `{WORKTREE} release [<path>]`, `{WORKTREE} add`, \
                  `{WORKTREE} remove|close|open <n>`, `{WORKTREE} --status`"
             ),
+            Fault::TestMapFormUnknown { given } => write!(
+                out,
+                "`armada {TEST_MAP} {}` is not a form this verb takes — it takes \
+                 `{TEST_MAP} record --check <key> --out <file>`",
+                given.as_deref().unwrap_or("")
+            ),
+            Fault::TestMapNeeds { flag, valueless: true } => {
+                write!(out, "`{flag}` needs a value after it")
+            }
+            Fault::TestMapNeeds { flag, valueless: false } => write!(
+                out,
+                "`armada {TEST_MAP} record` needs `{flag}` — the Check to measure is a key as \
+                 `armada check` takes it, and the file is where the laps are written"
+            ),
             Fault::NoBranch => write!(
                 out,
                 "`armada {WORKTREE} lease` needs the branch to cut, and it is cut from the base"
@@ -421,6 +401,10 @@ impl fmt::Display for Usage {
         for (verb, what) in VERBS {
             if *verb == WORKTREE {
                 worktree::usage(out)?;
+                continue;
+            }
+            if *verb == TEST_MAP {
+                test_map::usage(out)?;
                 continue;
             }
             let shape = match *verb {

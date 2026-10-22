@@ -4,11 +4,20 @@
 
 import { onPlane } from "../bf-parts";
 import { arcsOf, bandOf, roadOf } from "../build";
-import { FLAT, rand, type Bar, type P3, type Tile } from "../layout";
+import { FLAT, rand, type P3, type Tile } from "../layout";
 import { pillRect } from "../pills";
 import { PlaneBuilder } from "./plane";
 import { fade, mix, onGround, type Palette, type Rgba } from "./palette";
 import type { PixiSceneIn, Placed, PlotPiece } from "./scene";
+
+/**
+ * What the plots are drawn from, and nothing else: the stage draws them again only when one of these changes, so a new event, a glow or
+ * a bar moving leaves the floor as it is. The files' bars are `marks.ts`.
+ */
+export type TilesIn = Pick<PixiSceneIn, "big" | "lit" | "clashing" | "hotTile" | "planned" | "builds"> & { layout: Pick<PixiSceneIn["layout"], "territories"> };
+
+/** The part of a scene the plots read. */
+export const tilesIn = (s: PixiSceneIn): TilesIn => ({ layout: { territories: s.layout.territories }, big: s.big, lit: s.lit, clashing: s.clashing, hotTile: s.hotTile, builds: s.builds, ...(s.planned === undefined ? {} : { planned: s.planned }) });
 
 const RAD = Math.PI / 180;
 
@@ -16,7 +25,7 @@ const RAD = Math.PI / 180;
 const WIDER = 1.5;
 
 /** A slab: its south and east sides, then its top, so a near plot covers the plot behind it. */
-function drawSlab(b: PlaneBuilder, tile: Tile, height: number, s: PixiSceneIn, p: Palette): void {
+function drawSlab(b: PlaneBuilder, tile: Tile, height: number, s: TilesIn, p: Palette): void {
   const { rect } = tile;
   const [x0, x1] = [rect.x, rect.x + rect.w];
   const [y0, y1] = [rect.y * FLAT, (rect.y + rect.h) * FLAT];
@@ -69,34 +78,20 @@ function drawPlan(b: PlaneBuilder, tile: Tile, z: number, piece: PlotPiece | und
   else b.stroke(frame, 0.45, fade(p.subtle, 0.7), { closed: true, dash: [2, 3] });
 }
 
-/** The files of a plot, a pill for each, quiet on its top and rising with it. A file being worked on is drawn as a bar in the place of its pill. */
-function drawPills(b: PlaneBuilder, tile: Tile, height: number, lit: ReadonlySet<number>, p: Palette): void {
+/** The files of a plot, a pill for each, quiet on its top and rising with it. A file being worked on is a bar over its pill (`marks.ts`). */
+function drawPills(b: PlaneBuilder, tile: Tile, height: number, p: Palette): void {
   const grid = tile.pills;
   if (grid === undefined) return;
   const tone = fade(p.fg, 0.2);
   const z = height + 0.2;
   for (let i = 0; i < grid.count; i += 1) {
-    if (lit.has(i)) continue;
     const r = pillRect(grid, i);
     b.quad(r.x, r.y * FLAT, r.w, r.h * FLAT, z, tone);
   }
 }
 
-const BAR_TONE: Record<NonNullable<Bar["act"]>, (p: Palette) => Rgba> = { write: (p) => p.good, edit: (p) => p.accent, remove: (p) => p.bad };
-
-/** A file: a small bar floating over its plot with a shadow on it, lit in the colour of what is being done to it. */
-function drawBar(b: PlaneBuilder, bar: Bar, height: number, p: Palette): void {
-  const { rect } = bar;
-  const [x, y, w, h] = [rect.x, rect.y * FLAT, rect.w, rect.h * FLAT];
-  const lift = height + 10;
-  const tone = bar.act === undefined ? mix(p.base, p.fg, 0.3) : BAR_TONE[bar.act](p);
-  b.flat(x + 1, y + 2.5, w, h, height + 0.2, [0, 0, 0, 0.35]);
-  if (bar.act !== undefined) b.halo(x + w / 2, y + h / 2, Math.max(w, h) * 0.5, Math.max(w, h) * 0.5 + 7, fade(tone, 0.4), fade(tone, 0), lift - 0.1, 16);
-  b.flat(x, y, w, h, lift, bar.act === "remove" ? fade(tone, 0.6) : tone);
-}
-
 /** The ring of a construction, laid on the ground round the point it stands at. */
-function drawRing(b: PlaneBuilder, one: Placed, z: number, alpha: number, s: PixiSceneIn, p: Palette): void {
+function drawRing(b: PlaneBuilder, one: Placed, z: number, alpha: number, s: TilesIn, p: Palette): void {
   const { build } = one;
   const at = onPlane(one.anchor);
   const big = s.big;
@@ -177,17 +172,12 @@ function drawSurvey(b: PlaneBuilder, cx: number, cy: number, z: number, big: num
  * The plots, their files and the rings, in painter's order. `heights` is where each plot stands now, which is not where it is going
  * while it eases; `ringAlpha` is how much of a construction is left, once it has landed.
  */
-export function drawTiles(b: PlaneBuilder, s: PixiSceneIn, p: Palette, heights: ReadonlyMap<string, number>, ringAlpha: (key: string) => number): void {
-  const bars = new Map<string, Bar[]>();
-  for (const bar of s.layout.bars.values()) bars.set(bar.tile.path, [...(bars.get(bar.tile.path) ?? []), bar]);
-  const none = new Set<number>();
+export function drawTiles(b: PlaneBuilder, s: TilesIn, p: Palette, heights: ReadonlyMap<string, number>, ringAlpha: (key: string) => number): void {
   const tiles = s.layout.territories.flatMap((one) => one.tiles).sort((a, c) => a.rect.y + a.rect.h - (c.rect.y + c.rect.h) || a.rect.x + a.rect.w - (c.rect.x + c.rect.w));
   for (const tile of tiles) {
     const height = heights.get(tile.path) ?? 0;
     drawSlab(b, tile, height, s, p);
-    const mine = bars.get(tile.path) ?? [];
-    drawPills(b, tile, height, mine.length === 0 ? none : new Set(mine.flatMap((bar) => (bar.pill === undefined ? [] : [bar.pill]))), p);
-    for (const bar of mine) drawBar(b, bar, height, p);
+    drawPills(b, tile, height, p);
   }
   for (const one of s.builds) {
     const alpha = ringAlpha(one.build.key);

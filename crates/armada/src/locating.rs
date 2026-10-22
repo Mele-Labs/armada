@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock, PoisonError, Weak};
 
 use adapter_traits::Vcs;
-use adapters::{CreateWorktreeError, GitVcs, HeadlessAgent};
+use adapters::{ApiForge, CreateWorktreeError, GitVcs, HeadlessAgent};
 use config::{Reloads, Roster};
 use fleet::repositories::{
     Catalogued, Located, Locating, NotLocated, SavedWorkflow, SetUp, WorkflowNotSaved,
@@ -21,7 +21,7 @@ use fleet::{Clock, Fleet, SystemClock};
 use crate::setup::{Setup, SetupRefused};
 use crate::watching::{self, Watching};
 
-type Served = Fleet<HeadlessAgent, GitVcs, GitVcs>;
+type Served = Fleet<HeadlessAgent, GitVcs<ApiForge>, GitVcs<ApiForge>>;
 
 /// The reader Fleet is fitted with.
 pub struct Locator {

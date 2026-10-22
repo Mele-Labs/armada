@@ -38,7 +38,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
-use adapters::{ActionsWorkflows, GitVcs, HeadlessAgent};
+use adapters::{ActionsWorkflows, ApiForge, GitVcs, HeadlessAgent};
 use adapter_traits::Model;
 use config::settings::{self as keys, Key, Resolved};
 use config::Roster;
@@ -270,6 +270,10 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
         settings,
     )?;
     let fleet = Arc::new(fleet);
+    // The Phone Gateway, on a listener of its own, while the Mac is opted in.
+    let phone = Arc::new(crate::pocketing::Phone::new(&machine, bound.port()));
+    fleet.switching_phone_with(Arc::clone(&phone) as Arc<dyn fleet::phone::PhoneSwitch>);
+    phone.start_if_marked();
     // Asked of the agent CLI once the listener is up, off this path: Fleet serves the built-in
     // names, saying it has not read them, until the answer is in.
     fleet.reading_models_with(models_reader);
@@ -528,7 +532,7 @@ fn machine_facts(settings: &Resolved) -> Result<MachineFacts, Box<dyn Error>> {
 }
 
 /// The Fleet `serve` assembles.
-type Served = Fleet<HeadlessAgent, GitVcs, GitVcs>;
+type Served = Fleet<HeadlessAgent, GitVcs<ApiForge>, GitVcs<ApiForge>>;
 
 /// Everything Fleet is made of, resolved once, here.
 ///
@@ -588,11 +592,14 @@ fn assemble(
     let judge_model = model_at(shipped.get(keys::MODELS_JUDGE), shipped.get(keys::EFFORT_JUDGE))?;
     let proposer_model = model_at(shipped.get(keys::MODELS_PROPOSER), shipped.get(keys::EFFORT_PROPOSER))?;
     let retro_model = model_at(shipped.get(keys::MODELS_RETRO), String::new())?;
+    // One client for every forge call Fleet makes, so they share its connections.
+    let forge = ApiForge::new();
+    let trackers = forge.trackers();
     let fleet = Fleet::assembled(Fittings {
         store,
         harness: agent,
-        vcs: GitVcs::new(),
-        work: GitVcs::new(),
+        vcs: GitVcs::with_forge(forge.clone()),
+        work: GitVcs::with_forge(forge),
         clock: Arc::new(SystemClock::new()),
         mint: Arc::new(UlidMint::new()),
         starting_in: None,
@@ -662,7 +669,7 @@ fn assemble(
         retro_model,
         // The tracker and link reader each repository's Manifest chose; the
         // forge's own where it chose none. #91.
-        trackers: Arc::new(adapters::TrackersByProvider),
+        trackers: Arc::new(trackers),
         // The one CI provider Scan follows; the rest read as not followed.
         ci_configuration: Arc::new(ActionsWorkflows),
         models,

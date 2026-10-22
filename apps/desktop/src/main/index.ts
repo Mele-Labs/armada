@@ -25,7 +25,7 @@ import { handleFilePanel } from "./file-panel-channels";
 import { openSettingsFile } from "./open";
 import { openStudioNode } from "./forge";
 import { openLink } from "./links";
-import { askGateway } from "./phone-gateway";
+import { askPhone } from "./phone-gateway";
 import type { PhoneRequest } from "@armada/settings/api";
 import { restartFleet } from "./restart-fleet";
 import { openServerLink } from "./servers";
@@ -556,8 +556,8 @@ void app.whenReady().then(() => {
   ipcMain.handle(CHANNELS.askModels, async () => void (await connection?.askModels()));
   // The file itself, in the configured editor. No path crosses: main opens the one Fleet named.
   ipcMain.handle(CHANNELS.openSettingsFile, () => openSettingsFile(published));
-  // The Phone Gateway, one named operation at a time — `phone-gateway.ts` makes the call.
-  ipcMain.handle(CHANNELS.phone, (_event, request: PhoneRequest) => askGateway(request));
+  // The phone, one named operation at a time: the switch is Fleet's, the rest the Gateway's — `phone-gateway.ts`.
+  ipcMain.handle(CHANNELS.phone, (_event, request: PhoneRequest) => connection?.phone(request) ?? askPhone(request, null));
   // The mods on this machine. Fleet-wide, so no id rides these either — `mods.ts`.
   ipcMain.handle(CHANNELS.validateMod, async (_event, name: string) => (await connection?.mods.validate(name)) ?? null);
   ipcMain.handle(CHANNELS.setModEnabled, async (_event, name: string, enabled: boolean): Promise<Outcome> =>

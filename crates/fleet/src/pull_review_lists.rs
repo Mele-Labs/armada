@@ -2,8 +2,8 @@
 //! `docs/concepts/fleet.md`, *The pull requests waiting on a person*.
 //!
 //! **Read when somebody looks and never polled**: Fleet keeps no copy of other people's pull
-//! requests, so the reply is as old as the forge's answer. Four lists, one forge call each, each
-//! naming every served repository; a list the forge would not answer is empty and named in
+//! requests, so the reply is as old as the forge's answer. Four lists, one forge call each read at
+//! once, each naming every served repository; a list the forge would not answer is empty and named in
 //! `silent`, so one failure does not blank the others.
 
 use std::sync::Arc;
@@ -114,8 +114,8 @@ where
         Some(PullReviewHolder { id, title })
     }
 
-    /// The four lists, read in turn: the forge answers each in a call, and a person waits on
-    /// four calls once rather than Fleet holding a copy that goes stale.
+    /// The four lists, read at once: the forge answers each in a call, and a person waits on
+    /// the slowest of four calls rather than Fleet holding a copy that goes stale.
     pub(crate) async fn review_lists_read(&self) -> Result<PullReviewLists, Refusal> {
         let from = self.served_named(None)?;
         let unreadable = |said: &str| Refusal::Fault(self.pr_refusal(LISTS_UNREADABLE, said));
@@ -127,23 +127,27 @@ where
         if repositories.is_empty() {
             return Err(unreadable("no repository served has a remote the forge could be asked about"));
         }
+        let read = |list: ReviewList| {
+            let (login, repositories) = (me.clone(), repositories.clone());
+            self.forge_asked(from.root(), move |vcs: &V, root: &str| {
+                vcs.pull_review_list(
+                    root,
+                    &ReviewListAsk {
+                        list,
+                        login: &login,
+                        repositories: &repositories,
+                        most: MOST_PER_LIST,
+                    },
+                )
+            })
+        };
+        // The four do not wait on each other, so a person waits on the slowest, not the sum.
+        let [requested, team, assigned, mine] = LISTS.map(|(list, _)| list);
+        let answers = tokio::join!(read(requested), read(team), read(assigned), read(mine));
+        let answers = [answers.0, answers.1, answers.2, answers.3];
         let mut lists: [Vec<PullReviewRow>; 4] = Default::default();
         let mut silent = Vec::new();
-        for (at, (list, wire)) in LISTS.into_iter().enumerate() {
-            let (login, repositories) = (me.clone(), repositories.clone());
-            let asked = self
-                .forge_asked(from.root(), move |vcs: &V, root: &str| {
-                    vcs.pull_review_list(
-                        root,
-                        &ReviewListAsk {
-                            list,
-                            login: &login,
-                            repositories: &repositories,
-                            most: MOST_PER_LIST,
-                        },
-                    )
-                })
-                .await;
+        for (at, ((_, wire), asked)) in LISTS.into_iter().zip(answers).enumerate() {
             match asked {
                 Some(pulls) => {
                     lists[at] = pulls

@@ -212,7 +212,7 @@ impl WhatTheForgeRan {
 /// this struct's own module doc calls "one call."** The sweep still asks for
 /// only the conversation and the review bodies, for the reason above — inline
 /// comments are a second query per review, and the sweep's budget is one call.
-/// Where an inline comment is wanted, `Delivery::inline_remarks` is the second
+/// Where an inline comment is wanted, `Forge::inline_remarks` is the second
 /// query: asked where a person opens the comments or presses on them, and by
 /// the rotation only to count them.
 #[derive(Clone, Debug, PartialEq, Eq)]

@@ -1,0 +1,6 @@
+{"data":{"repository":{"pullRequests":{"nodes":[
+{"number":2700,"title":"Older created, merged last","headRefName":"armada/slow","url":"https://github.com/Mele-Labs/armada/pull/2700","author":{"login":"nick"},"mergedAt":"2026-10-21T15:00:00Z","mergeCommit":{"oid":"6666666666666666666666666666666666666666"}},
+{"number":2701,"title":"Bot","headRefName":"dependabot/x","url":"https://github.com/Mele-Labs/armada/pull/2701","author":null,"mergedAt":"2026-10-21T09:00:00Z","mergeCommit":null},
+{"number":2702,"title":"Never merged, closed","headRefName":"armada/closed","url":"https://github.com/Mele-Labs/armada/pull/2702","author":{"login":"grace"},"mergedAt":null,"mergeCommit":null},
+{"number":2703,"title":"Short oid","headRefName":"armada/short","url":"https://github.com/Mele-Labs/armada/pull/2703","author":{"login":"grace"},"mergedAt":"2026-10-21T12:00:00Z","mergeCommit":{"oid":"abc"}}
+]}}}}

@@ -4,7 +4,7 @@
 
 use std::path::Path;
 
-use checks_runner::{narrowed_over, touched_run, Attempt, Narrowed, Priority, TouchedRun};
+use checks_runner::{narrowed_over, touched_run_with, Attempt, Narrowed, Priority, TouchedRun};
 use verification::Exit;
 
 use crate::declared::Ran;
@@ -72,22 +72,26 @@ pub fn reached(check: &config::Check, changed: &[String]) -> (Option<String>, Re
 }
 
 /// [`reached`], or for an agent's [`Asked::Touched`] the tests the change
-/// touched, run from `dir`. A Check that cannot run a test by name has no such
+/// touched with `touched`'s from the test map added, run from `dir`, and the
+/// names only the map gave. A Check that cannot run a test by name has no such
 /// reading and is narrowed as [`reached`] narrows it.
 pub fn reading(
     dir: &Path,
     check: &config::Check,
     changed: &[String],
-    touched: bool,
-) -> (Option<String>, Reached) {
-    if touched {
-        match touched_run(dir, check.one_test(), check.narrow(), changed) {
-            TouchedRun::Tests { command, said } => return (Some(command), Reached::Touched(said)),
-            TouchedRun::None => return (None, Reached::NoTests),
+    touched: Option<&[(String, String)]>,
+) -> (Option<String>, Reached, Vec<String>) {
+    if let Some(from_map) = touched {
+        match touched_run_with(dir, check.one_test(), check.narrow(), changed, from_map) {
+            TouchedRun::Tests { command, said, mapped } => {
+                return (Some(command), Reached::Touched(said), mapped)
+            }
+            TouchedRun::None => return (None, Reached::NoTests, Vec::new()),
             TouchedRun::NotApplicable => {}
         }
     }
-    reached(check, changed)
+    let (command, reached) = reached(check, changed);
+    (command, reached, Vec::new())
 }
 
 /// What a Session's thread row says a `--changed` run was narrowed to: the values the narrowing
@@ -131,5 +135,6 @@ pub fn ran_nothing_because(name: &str, because: Reached) -> Ran {
         },
         narrowed: Some(because),
         target: None,
+        mapped: Default::default(),
     }
 }

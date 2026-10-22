@@ -15,6 +15,8 @@ use std::time::Duration;
 
 use serde::Deserialize;
 
+use crate::github_api::{ApiFailure, GitHubApi};
+
 pub use crate::agent_mod::Asked;
 
 /// Where a repository keeps its marketplace, which makes it a plugin source.
@@ -561,7 +563,8 @@ impl Trash {
     }
 }
 
-/// The real reader: `gh` for a repository, one GET for a website.
+/// The real reader: the forge's API for a repository, with `gh` where it holds no token, and one
+/// GET for a website.
 pub struct ForgeReader {
     pub within: Duration,
 }
@@ -575,15 +578,26 @@ impl ForgeReader {
 }
 
 impl SourceReader for ForgeReader {
+    /// Over the forge's API; through `gh` where it holds no token.
     fn paths(&self, repository: &str) -> Result<Vec<String>, String> {
-        let tree = format!("repos/{repository}/git/trees/HEAD?recursive=1");
-        let printed = self.gh(&["api", &tree, "--jq", ".tree[] | select(.type == \"blob\") | .path"])?;
-        Ok(printed.lines().map(str::to_string).collect())
+        match crate::api_forge::source::paths(&GitHubApi::shared(), repository) {
+            Err(ApiFailure::NoToken(_)) => {
+                let tree = format!("repos/{repository}/git/trees/HEAD?recursive=1");
+                let printed = self.gh(&["api", &tree, "--jq", ".tree[] | select(.type == \"blob\") | .path"])?;
+                Ok(printed.lines().map(str::to_string).collect())
+            }
+            read => read.map_err(|why| why.to_string()),
+        }
     }
 
     fn file(&self, repository: &str, path: &str) -> Result<Vec<u8>, String> {
-        let contents = format!("repos/{repository}/contents/{path}");
-        self.gh(&["api", "-H", "Accept: application/vnd.github.raw", &contents]).map(String::into_bytes)
+        match crate::api_forge::source::file(&GitHubApi::shared(), repository, path) {
+            Err(ApiFailure::NoToken(_)) => {
+                let contents = format!("repos/{repository}/contents/{path}");
+                self.gh(&["api", "-H", "Accept: application/vnd.github.raw", &contents]).map(String::into_bytes)
+            }
+            read => read.map_err(|why| why.to_string()),
+        }
     }
 
     fn page(&self, url: &str) -> Result<String, String> {

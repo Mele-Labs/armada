@@ -1,7 +1,9 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
-import { ago } from "./data";
-import { codeFromInput } from "./pair";
+import { ago, homeOf, type Mac } from "./fleet";
+import type { PhoneSession } from "./gateway";
+import { codeFromInput, linkOf } from "./pair";
+import { routeOf } from "./router";
 import { bytesOf } from "./push";
 import { SseParser } from "./sse";
 import { bodyHash, hex, signHeaders, signedMessage } from "./signing";
@@ -82,52 +84,39 @@ describe("codeFromInput", () => {
   });
 });
 
-describe("the acts", () => {
-  type Sent = { url: string; method: string; body: string; signed: boolean };
-  const sent: Sent[] = [];
-  let reply: () => Response = () => new Response(null, { status: 204 });
-
-  const world = async () => {
-    const key = await crypto.subtle.importKey("jwk", PRIVATE, { name: "ECDSA", namedCurve: "P-256" }, false, ["sign"]);
-    vi.resetModules();
-    sent.length = 0;
-    vi.doMock("./device", () => ({ paired: async () => ({ key, deviceId: "abc" }) }));
-    vi.doMock("./router", () => ({ go: () => undefined }));
-    vi.stubGlobal("fetch", async (url: string, init: { method: string; body?: string; headers: Record<string, string> }) => {
-      sent.push({ url, method: init.method, body: init.body ?? "", signed: /^[0-9a-f]{128}$/.test(init.headers["X-Pocket-Signature"] ?? "") });
-      return init.method === "GET" ? new Response(JSON.stringify({ sessions: [] })) : reply();
-    });
-    return import("./data");
-  };
-  const acts = () => sent.filter((one) => one.method === "POST");
-
-  it("answers a permission ask with the decision and a question ask with the choices", async () => {
-    const data = await world();
-    await data.answer({ session_id: "s1", ask_id: "a1", answer: "allow_once" });
-    await data.answer({ session_id: "s1", ask_id: "a2", answer: [{ question: "Close now?", chosen: ["Now"] }, { question: "Why?", chosen: ["my own words"] }] });
-    expect(acts().map(({ url, body }) => [url, JSON.parse(body)])).toEqual([
-      ["/api/sessions/answer", { session_id: "s1", ask_id: "a1", answer: "allow_once" }],
-      ["/api/sessions/answer", { session_id: "s1", ask_id: "a2", answer: [{ question: "Close now?", chosen: ["Now"] }, { question: "Why?", chosen: ["my own words"] }] }],
-    ]);
+describe("linkOf", () => {
+  const code = "0123456789abcdef0123456789abcdef";
+  it("takes the Mac from the link and this page's Mac for a bare code", () => {
+    expect(linkOf(`https://laptop.tail0.ts.net/pair?code=${code}`, "https://studio.tail0.ts.net")).toEqual({ origin: "https://laptop.tail0.ts.net", code });
+    expect(linkOf(code, "https://studio.tail0.ts.net")).toEqual({ origin: "https://studio.tail0.ts.net", code });
+    expect(linkOf("https://laptop.tail0.ts.net/pair", "https://studio.tail0.ts.net")).toBeUndefined();
   });
+});
 
-  it("dispatches the line to the repository", async () => {
-    const data = await world();
-    reply = () => new Response(JSON.stringify({ session: {} }), { status: 201 });
-    await data.dispatch({ text: "Trim the pool", repository: "armada" });
-    expect(acts().map(({ url, body, signed }) => [url, JSON.parse(body), signed])).toEqual([["/api/sessions", { text: "Trim the pool", repository: "armada" }, true]]);
-    reply = () => new Response(null, { status: 204 });
+describe("routeOf", () => {
+  it("reads a Job's Mac and id, and what it showed", () => {
+    const mac = encodeURIComponent("https://studio.tail0.ts.net");
+    expect(routeOf(`/jobs/${mac}/s1`)).toEqual({ screen: "job", origin: "https://studio.tail0.ts.net", id: "s1" });
+    expect(routeOf("/jobs/_/s1")).toEqual({ screen: "job", origin: undefined, id: "s1" });
+    expect(routeOf(`/jobs/${mac}/s1/file?path=%2Fa%2Fb.md`)).toEqual({ screen: "file", origin: "https://studio.tail0.ts.net", id: "s1", path: "/a/b.md" });
+    expect(routeOf(`/jobs/${mac}/s1/sketch?id=sketch%3AHome`)).toEqual({ screen: "sketch", origin: "https://studio.tail0.ts.net", id: "s1", sketch: "sketch:Home" });
+    expect(routeOf("/pair?code=abc")).toEqual({ screen: "pair", code: "abc" });
+    expect(routeOf("/nowhere")).toEqual({ screen: "home" });
   });
+});
 
-  it("keeps the draft and answers the Gateway's sentence when the act is refused", async () => {
-    const data = await world();
-    const body = { session_id: "s1", ask_id: "a1", answer: "refuse" as const };
-    reply = () => new Response("That Job is not waiting on an answer.", { status: 409 });
-    data.DRAFTS.set("ask-s1", "use the cache");
-    expect(await data.attempt(() => data.answer(body), ["ask-s1"])).toBe("That Job is not waiting on an answer.");
-    expect(data.DRAFTS.get("ask-s1")).toBe("use the cache");
-    reply = () => new Response(null, { status: 204 });
-    expect(await data.attempt(() => data.answer(body), ["ask-s1"])).toBeNull();
-    expect(data.DRAFTS.has("ask-s1")).toBe(false);
+describe("homeOf", () => {
+  const session = (id: string, extra: Partial<PhoneSession>): PhoneSession => ({ id, kind: "hosted", waiting: false, working: false, started_at: "2026-10-08T10:00:00Z", ...extra });
+  const mac = (origin: string, extra: Partial<Mac>): Mac => ({ machine: { origin, name: origin.slice(8), deviceId: "d", key: {} as CryptoKey }, paired: true, needs: [], live: [], ended: [], ...extra });
+  it("leaves out an unpaired Mac's Jobs and lists it as troubled", () => {
+    const home = homeOf({ macs: [mac("https://a", { needs: [session("a1", { waiting: true, waiting_since: "2026-10-08T11:00:00Z" })] }), mac("https://b", { paired: false, needs: [session("b1", { waiting: true })] })] });
+    expect(home.needs.map((one) => one.session.id)).toEqual(["a1"]);
+    expect(home.troubled.map((one) => one.machine.origin)).toEqual(["https://b"]);
+    expect(home.several).toBe(true);
+  });
+  it("keeps a waiting Job out of Running", () => {
+    const home = homeOf({ macs: [mac("https://a", { live: [session("a1", { working: true, waiting: true }), session("a2", { working: true })] })] });
+    expect(home.running.map((one) => one.session.id)).toEqual(["a2"]);
+    expect(home.several).toBe(false);
   });
 });

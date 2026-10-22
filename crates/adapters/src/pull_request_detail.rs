@@ -24,6 +24,8 @@ use crate::under_review::as_written;
 pub(crate) const MOST_FILES: usize = 300;
 /// The most commits one read keeps, from the first.
 pub(crate) const MOST_COMMITS: usize = 250;
+/// The most checks one read keeps, from the first.
+pub(crate) const MOST_CHECKS: usize = 500;
 /// The most things said one read keeps, the latest: a thread is read from its end.
 pub(crate) const MOST_SAID: usize = 200;
 
@@ -103,10 +105,16 @@ fn profile_of(in_repo: &str, login: &str) -> Option<Profile> {
 pub(crate) fn profile_from(line: &str) -> Option<Profile> {
     let line = line.lines().next()?;
     let mut field = line.split('\t').map(as_written);
-    let (name, url) = (field.next().unwrap_or_default(), field.next().unwrap_or_default());
-    let present = |it: String| (!it.trim().is_empty()).then_some(it);
-    let profile = Profile { name: present(name), url: present(url) };
-    (profile.name.is_some() || profile.url.is_some()).then_some(profile)
+    Profile::of(field.next(), field.next())
+}
+
+impl Profile {
+    /// A name or an address that is blank is none; a profile with neither is none.
+    pub(crate) fn of(name: Option<String>, url: Option<String>) -> Option<Profile> {
+        let present = |it: Option<String>| it.filter(|it| !it.trim().is_empty());
+        let profile = Profile { name: present(name), url: present(url) };
+        (profile.name.is_some() || profile.url.is_some()).then_some(profile)
+    }
 }
 
 /// Put each person's profile on them, one `look` per distinct login. A team is
@@ -163,21 +171,14 @@ pub(crate) fn with_teams(
 /// The records the reduction printed, as one value. Split from [`read`] so a
 /// test hands it what jq prints and needs no forge.
 pub(crate) fn folded(lines: &[String]) -> Option<PullRequestPageFacts> {
-    let mut head: Option<Head> = None;
-    let mut approvers = BTreeSet::new();
-    let mut verdicts: BTreeMap<String, ReviewSaid> = BTreeMap::new();
-    let mut requested: Vec<(ReviewerKind, String)> = Vec::new();
-    let mut said: Vec<Said> = Vec::new();
-    let mut checks = Vec::new();
-    let mut files = Vec::new();
-    let mut commits = Vec::new();
+    let mut parts = PageParts::default();
     for line in lines {
         let mut field = line.split('\t').map(as_written);
         let tag = field.next().unwrap_or_default();
         let mut next = || field.next().unwrap_or_default();
         match tag.as_str() {
             "head" => {
-                head = Some(Head {
+                parts.head = Some(Head {
                     base: next(),
                     author: next(),
                     created_at: next(),
@@ -190,27 +191,27 @@ pub(crate) fn folded(lines: &[String]) -> Option<PullRequestPageFacts> {
                 });
             }
             "approver" => {
-                approvers.insert(next());
+                parts.approvers.insert(next());
             }
             "verdict" => {
                 let (login, state) = (next(), next());
-                verdicts.insert(login, review_said(&state));
+                parts.verdicts.insert(login, review_said(&state));
             }
             "requested" => {
                 let (kind, name) = (next(), next());
                 let kind = if kind == "team" { ReviewerKind::Team } else { ReviewerKind::Person };
                 if !name.is_empty() {
-                    requested.push((kind, name));
+                    parts.requested.push((kind, name));
                 }
             }
-            "comment" => said.push(Said::Comment {
+            "comment" => parts.said.push(Said::Comment {
                 author: next(),
                 at: next(),
                 body: next(),
             }),
             "review" => {
                 let (author, at, state, body) = (next(), next(), next(), next());
-                said.push(Said::Review {
+                parts.said.push(Said::Review {
                     author,
                     at,
                     verdict: review_said(&state),
@@ -220,7 +221,7 @@ pub(crate) fn folded(lines: &[String]) -> Option<PullRequestPageFacts> {
             "check" => {
                 let (name, status, conclusion, seconds, address) =
                     (next(), next(), next(), next(), next());
-                checks.push(CheckRow {
+                parts.checks.push(CheckRow {
                     standing: check_standing(&status, &conclusion),
                     seconds: seconds
                         .parse::<i64>()
@@ -232,7 +233,7 @@ pub(crate) fn folded(lines: &[String]) -> Option<PullRequestPageFacts> {
             }
             "file" => {
                 let (path, additions, deletions, change) = (next(), next(), next(), next());
-                files.push(PageFile {
+                parts.files.push(PageFile {
                     path,
                     additions: number(&additions),
                     deletions: number(&deletions),
@@ -241,7 +242,7 @@ pub(crate) fn folded(lines: &[String]) -> Option<PullRequestPageFacts> {
             }
             "commit" => {
                 let (oid, headline, author, at) = (next(), next(), next(), next());
-                commits.push(CommitLine {
+                parts.commits.push(CommitLine {
                     sha: oid.chars().take(7).collect(),
                     headline,
                     author: (!author.is_empty()).then_some(author),
@@ -251,37 +252,68 @@ pub(crate) fn folded(lines: &[String]) -> Option<PullRequestPageFacts> {
             _ => {}
         }
     }
-    let head = head.filter(|head| !head.base.is_empty())?;
-    // Comments and reviews arrive as two lists; the sort is stable.
-    said.sort_by(|a, b| a.at().cmp(b.at()));
-    let reviewers = reviewers_of(requested, verdicts);
-    let omitted = Omitted {
-        conversation: said.len().saturating_sub(MOST_SAID),
-        files: files.len().saturating_sub(MOST_FILES),
-        commits: commits.len().saturating_sub(MOST_COMMITS),
-    };
-    said.drain(..omitted.conversation);
-    files.truncate(MOST_FILES);
-    commits.truncate(MOST_COMMITS);
-    Some(PullRequestPageFacts {
-        base: head.base,
-        author: (!head.author.is_empty()).then_some(head.author),
-        created_at: (!head.created_at.is_empty()).then_some(head.created_at),
-        additions: head.additions,
-        deletions: head.deletions,
-        mergeable: head.mergeable,
-        review: head.review,
-        approvals: approvers.len() as u64,
-        conversation: said,
-        checks,
-        files,
-        commits,
-        omitted,
-        head: (!head.commit.is_empty()).then_some(head.commit),
-        body: (!head.body.trim().is_empty()).then_some(head.body),
-        threads: Vec::new(),
-        reviewers,
-    })
+    parts.facts()
+}
+
+/// One read of the page before its order and its caps, however the forge was asked: the `gh`
+/// records here, or GitHub's API in `crate::api_forge`.
+#[derive(Default)]
+pub(crate) struct PageParts {
+    pub head: Option<Head>,
+    pub approvers: BTreeSet<String>,
+    pub verdicts: BTreeMap<String, ReviewSaid>,
+    pub requested: Vec<(ReviewerKind, String)>,
+    pub said: Vec<Said>,
+    pub checks: Vec<CheckRow>,
+    pub files: Vec<PageFile>,
+    pub commits: Vec<CommitLine>,
+    /// What the forge holds past what was read, which the caps add to.
+    pub unread: Omitted,
+}
+
+impl PageParts {
+    /// `None` without a head record naming a base.
+    pub(crate) fn facts(self) -> Option<PullRequestPageFacts> {
+        let PageParts { head, approvers, verdicts, requested, mut said, mut checks, mut files, mut commits, unread } = self;
+        let head = head.filter(|head| !head.base.is_empty())?;
+        // Comments and reviews arrive as two lists; the sort is stable.
+        said.sort_by(|a, b| a.at().cmp(b.at()));
+        let reviewers = reviewers_of(requested, verdicts);
+        let cut = Omitted {
+            conversation: said.len().saturating_sub(MOST_SAID),
+            files: files.len().saturating_sub(MOST_FILES),
+            commits: commits.len().saturating_sub(MOST_COMMITS),
+            checks: checks.len().saturating_sub(MOST_CHECKS),
+        };
+        said.drain(..cut.conversation);
+        files.truncate(MOST_FILES);
+        commits.truncate(MOST_COMMITS);
+        checks.truncate(MOST_CHECKS);
+        Some(PullRequestPageFacts {
+            base: head.base,
+            author: (!head.author.is_empty()).then_some(head.author),
+            created_at: (!head.created_at.is_empty()).then_some(head.created_at),
+            additions: head.additions,
+            deletions: head.deletions,
+            mergeable: head.mergeable,
+            review: head.review,
+            approvals: approvers.len() as u64,
+            conversation: said,
+            checks,
+            files,
+            commits,
+            omitted: Omitted {
+                conversation: cut.conversation + unread.conversation,
+                files: cut.files + unread.files,
+                commits: cut.commits + unread.commits,
+                checks: cut.checks + unread.checks,
+            },
+            head: (!head.commit.is_empty()).then_some(head.commit),
+            body: (!head.body.trim().is_empty()).then_some(head.body),
+            threads: Vec::new(),
+            reviewers,
+        })
+    }
 }
 
 /// The asked first, in the forge's order, each with the verdict they have already
@@ -312,23 +344,23 @@ fn reviewers_of(
     reviewers
 }
 
-struct Head {
-    base: String,
-    author: String,
-    created_at: String,
-    additions: u64,
-    deletions: u64,
-    mergeable: Mergeability,
-    review: ReviewStanding,
-    commit: String,
-    body: String,
+pub(crate) struct Head {
+    pub base: String,
+    pub author: String,
+    pub created_at: String,
+    pub additions: u64,
+    pub deletions: u64,
+    pub mergeable: Mergeability,
+    pub review: ReviewStanding,
+    pub commit: String,
+    pub body: String,
 }
 
 fn number(said: &str) -> u64 {
     said.trim().parse().unwrap_or(0)
 }
 
-fn mergeability(said: &str) -> Mergeability {
+pub(crate) fn mergeability(said: &str) -> Mergeability {
     match said {
         "MERGEABLE" => Mergeability::Mergeable,
         "CONFLICTING" => Mergeability::Conflicting,
@@ -345,7 +377,7 @@ pub(crate) fn review_standing(said: &str) -> ReviewStanding {
     }
 }
 
-fn review_said(state: &str) -> ReviewSaid {
+pub(crate) fn review_said(state: &str) -> ReviewSaid {
     match state {
         "APPROVED" => ReviewSaid::Approved,
         "CHANGES_REQUESTED" => ReviewSaid::ChangesRequested,
@@ -356,7 +388,7 @@ fn review_said(state: &str) -> ReviewSaid {
 /// A check run has `status` and, once over, `conclusion`; a status context has
 /// only `state`, which the reduction puts in the conclusion's place. A finished
 /// check with a conclusion nobody named did not pass.
-fn check_standing(status: &str, conclusion: &str) -> CheckStanding {
+pub(crate) fn check_standing(status: &str, conclusion: &str) -> CheckStanding {
     match conclusion {
         "SUCCESS" => CheckStanding::Passed,
         "NEUTRAL" | "SKIPPED" => CheckStanding::Skipped,
@@ -369,7 +401,7 @@ fn check_standing(status: &str, conclusion: &str) -> CheckStanding {
 }
 
 /// `COPIED` and `CHANGED` read as modified: the page has no fifth word.
-fn file_change(said: &str) -> FileChange {
+pub(crate) fn file_change(said: &str) -> FileChange {
     match said {
         "ADDED" => FileChange::Added,
         "DELETED" => FileChange::Removed,

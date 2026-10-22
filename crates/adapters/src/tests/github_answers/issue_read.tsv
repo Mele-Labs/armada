@@ -1,0 +1,7 @@
+issue	214	Doctor reports a stale pid	https://github.com/Mele-Labs/armada/issues/214	CLOSED	nick	2026-10-01T09:00:00Z	bugarmada: in progress	nicksam	It says running.\n\n- one\n- two\twith a tab
+comment	sam	2026-10-01T10:00:00Z	Same here.\nOn two machines.
+comment		2026-10-02T10:00:00Z	ghost
+pr	300	Fix the pid	https://github.com/Mele-Labs/armada/pull/300	MERGED
+pr	300	Fix the pid	https://github.com/Mele-Labs/armada/pull/300	MERGED
+pr	301	Names it\tonly	https://github.com/Mele-Labs/armada/pull/301	OPEN
+pr	302	Abandoned	https://github.com/Mele-Labs/armada/pull/302	CLOSED

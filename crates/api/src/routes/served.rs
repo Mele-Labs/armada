@@ -284,6 +284,11 @@ const ROUTES: &[Route] = &[
         path: "/sessions/show_file",
     },
     Route {
+        operation: "get_shown_file",
+        method: "GET",
+        path: "/sessions/shown",
+    },
+    Route {
         operation: "record_plan",
         method: "POST",
         path: "/sessions/plan",
