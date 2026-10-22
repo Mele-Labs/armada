@@ -10,3 +10,6 @@
 .sv-fieldplan__title { overflow: hidden; color: var(--fg-subtle); font-family: var(--font-mono); font-size: var(--text-2xs); line-height: var(--leading-xs); text-overflow: ellipsis; white-space: nowrap; }
 
 .sv-layer__body.sv-fieldlayer { gap: 0; padding: 0; overflow: hidden; }
+/* The slider under the plan: the replay bar's own track (`ReplayBar.tsx`), live at its right end. */
+.sv-fieldreplay { display: flex; flex: none; padding: 0 var(--space-3); border-top: var(--border-width) solid var(--border-default); background: var(--bg-raised); }
+.sv-fieldreplay .deck-replay__track:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }

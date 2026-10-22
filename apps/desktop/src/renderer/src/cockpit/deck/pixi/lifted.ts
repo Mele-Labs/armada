@@ -18,6 +18,8 @@ const arc = (a: P3, b: P3, lift: number, to = 1, n = 18): P3[] => Array.from({ l
 export function drawLifted(b: PlaneBuilder, glow: PlaneBuilder, s: PixiSceneIn, p: Palette, floor: (tile: string | undefined) => number, clock: Clock): void {
   for (const spec of s.drones) {
     const d = spec.drone;
+    // Another Job's drone hangs from no beam and leaves no line.
+    if (spec.ghost) continue;
     const hold = d.shown ? 1 : 0.12;
     const to = spec.flying;
     const launching = spec.launch !== undefined && clock.pulse > 0;

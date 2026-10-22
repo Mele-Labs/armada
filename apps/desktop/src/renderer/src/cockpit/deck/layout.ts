@@ -59,6 +59,8 @@ export type DroneIn = {
   slot?: string;
   /** Inside the filters. Outside, it stays where it is and dims. */
   shown: boolean;
+  /** Another Job's, drawn faded on a Job's own Field: no beam, label or action, and it raises no plot. */
+  ghost?: true;
 };
 
 export function droneOf(subject: Subject, owed: boolean, extra: { slot?: string | undefined; file?: string | undefined; shown: boolean; touches?: readonly Touch[] }): DroneIn {
@@ -323,6 +325,7 @@ export function layoutOf(
   // Held apart by rule, not by hope: no two drones' hit boxes or label strips meet, and no drone stands over a flag, a pad, a crate or
   // a route that is not its own. Rects are in the layout's own units, a drone's lifted to where it is drawn.
   const keys = [...want.keys()].sort();
+  const ghosts = new Set(drones.filter((one) => one.ghost === true).map((one) => one.key));
   const place = new Map(keys.map((key) => [key, { ...want.get(key)! }]));
   const goals = new Map(territories.flatMap((one) => (one.goal === undefined ? [] : [[one.root, one.goal] as const])));
   const homes = new Map(territories.map((one) => [one.root, { x: one.base.x - one.base.w / 2 + 36, y: one.base.y + 8 }] as const));
@@ -377,7 +380,11 @@ export function layoutOf(
       for (let j = i + 1; j < keys.length; j += 1) {
         const b = place.get(keys[j]!)!;
         if (Math.abs(a.x - b.x) < 1 && Math.abs(a.y - b.y) < 1) a.x += (rand(keys[i]! + keys[j]!, 3) - 0.5) * 6;
-        push(reach(a), reach(b), a, b);
+        // A faded drone gives way to a Job's own, which stays over its file.
+        const [ga, gb] = [ghosts.has(keys[i]!), ghosts.has(keys[j]!)];
+        if (ga === gb) push(reach(a), reach(b), a, b);
+        else if (ga) push(reach(a), reach(b), a);
+        else push(reach(b), reach(a), b);
       }
     }
     // What is fixed is settled last, so a drone is moved off a flag before it is moved against another drone.
@@ -424,7 +431,7 @@ export function heightsOf(layout: Layout, drones: readonly DroneIn[], plays: rea
   const busy = new Map<string, number>();
   const add = (path: string, amount: number) => busy.set(path, (busy.get(path) ?? 0) + amount);
   for (const drone of drones) {
-    if (!drone.shown) continue;
+    if (!drone.shown || drone.ghost === true) continue;
     const list = layout.over.get(drone.key) ?? [];
     const total = list.reduce((sum, one) => sum + one.w, 0) || 1;
     const state = drone.spin ? 1 : drone.hover ? 0.6 : 0.2;

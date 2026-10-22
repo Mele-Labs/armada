@@ -3,9 +3,11 @@
 // (the camera to a lock-on, a plot rising, a landed ring fading) starts the ticker, which runs for as long as something eases and
 // then stops itself. A map nobody is touching costs nothing.
 //
-// The scene graph, back to front: the ground, the plots, the air, what lies on the ground under the drones, the lines they leave, the
-// standing pictures, the drones, the effects. Continuous motion belongs to the few drones the map animates at once and to the plays an
-// event started; the ticker runs while either does, at half rate where the camera is still, and stops when neither does.
+// The scene graph, back to front: the ground, the plots, the air, what lies on the ground under the drones, the files' bars and their
+// glow (over the drones' shadows, so a file a drone is on still shows), the lines they leave, the standing pictures, the drones, the effects.
+// The ground and the plots are built again only when the tree or what stands on a plot changes, never for a file, a glow or a drone.
+// Continuous motion belongs to the few drones the map animates at once and to the plays an event started; the ticker runs while either
+// does, at half rate where the camera is still, and stops when neither does. A folded pane, a hidden window and an idle one draw nothing.
 
 // A page whose policy has no `unsafe-eval` cannot use Pixi's generated uniform code; this swaps it for the same code written out.
 import "pixi.js/unsafe-eval";
@@ -29,7 +31,8 @@ import type { PixiSceneIn } from "./scene";
 import { same } from "./same";
 import { standsOf, type StandSpec } from "./stands";
 import { drawTerrain } from "./terrain";
-import { drawTiles } from "./tiles";
+import { drawTiles, tilesIn, type TilesIn } from "./tiles";
+import { drawMarks } from "./marks";
 
 type Stood = { spec: StandSpec; node: Container };
 type Tween<T> = { from: T; to: T; start: number; ms: number };
@@ -48,6 +51,11 @@ export class Stage {
   private readonly planeView = new PlaneView();
   private terrain: PlaneLayer | undefined;
   private tiles: PlaneLayer | undefined;
+  private marks: PlaneLayer | undefined;
+  private marksGlow: PlaneLayer | undefined;
+  /** What the plots and the bars were last drawn from, so a scene that changes neither leaves them as they are. */
+  private tilesDrawn: { of: TilesIn; heights: ReadonlyMap<string, number> } | undefined;
+  private marksDrawn: { of: unknown; heights: ReadonlyMap<string, number> } | undefined;
   private air: PlaneLayer | undefined;
   private ground: PlaneLayer | undefined;
   private groundGlow: PlaneLayer | undefined;
@@ -60,6 +68,10 @@ export class Stage {
   private palette: Palette | undefined;
   private frame = 0;
   private quiet = false;
+  /** The pane is folded away or has no size: nothing is drawn or built for it until it is shown again. */
+  private hidden = false;
+  /** A scene was handed over while nothing was drawn: it is taken in when the stage is seen again. */
+  private pending = false;
   private size: Size = { width: 0, height: 0 };
   private cam: Cam | undefined;
   private scene: PixiSceneIn | undefined;
@@ -121,6 +133,8 @@ export class Stage {
     this.palette = readPalette(this.host);
     this.terrain = new PlaneLayer(this.planeView);
     this.tiles = new PlaneLayer(this.planeView);
+    this.marks = new PlaneLayer(this.planeView);
+    this.marksGlow = new PlaneLayer(this.planeView, true);
     this.air = new PlaneLayer(this.planeView);
     this.ground = new PlaneLayer(this.planeView);
     this.groundGlow = new PlaneLayer(this.planeView, true);
@@ -130,7 +144,7 @@ export class Stage {
     this.workers = new Workers(this.drones);
     this.beams = new Beams(this.effects);
     this.stands.sortableChildren = true;
-    app.stage.addChild(this.terrain.mesh, this.tiles.mesh, this.air.mesh, this.ground.mesh, this.groundGlow.mesh, this.lines.mesh, this.linesGlow.mesh, this.stands, this.drones, this.effects);
+    app.stage.addChild(this.terrain.mesh, this.tiles.mesh, this.air.mesh, this.ground.mesh, this.groundGlow.mesh, this.marks.mesh, this.marksGlow.mesh, this.lines.mesh, this.linesGlow.mesh, this.stands, this.drones, this.effects);
     app.ticker.add(this.tick);
     // A name drawn before its font arrived is drawn again once it has.
     void document.fonts.ready.then(() => this.restyle());
@@ -156,17 +170,27 @@ export class Stage {
     this.sync(true);
   };
 
-  /** Whether the window is hidden, unfocused or idle: the ticker stops with the pose held, and starts again when it is not. */
+  /** Whether the window is hidden, unfocused or idle, or the pane folded: the ticker stops with the pose held, and starts again when it is not. */
   private settle(): void {
     const root = document.documentElement;
-    const quiet = root.hasAttribute("data-still") || root.hasAttribute("data-idle");
+    const quiet = this.hidden || root.hasAttribute("data-still") || root.hasAttribute("data-idle");
     if (quiet === this.quiet) return;
     this.quiet = quiet;
     if (quiet) {
       cancelAnimationFrame(this.frame);
       this.frame = 0;
       this.app?.ticker.stop();
+    } else if (this.hidden === false && this.pending) {
+      this.pending = false;
+      this.sync(false);
     } else this.wake();
+  }
+
+  /** The pane folded away, or shown again. Folded, a new scene is kept and built only once it is shown. */
+  setHidden(hidden: boolean): void {
+    if (hidden === this.hidden) return;
+    this.hidden = hidden;
+    this.settle();
   }
 
   // ---- What the page tells it -------------------------------------------------------------------------------
@@ -198,6 +222,11 @@ export class Stage {
   setScene(scene: PixiSceneIn): void {
     if (this.scene !== undefined && same(this.scene, scene)) return;
     this.scene = scene;
+    // A folded pane builds nothing; under `data-still` or `data-idle` the scene is still taken in, as it was, so a frame drawn later is current.
+    if (this.hidden) {
+      this.pending = true;
+      return;
+    }
     this.sync(false);
   }
 
@@ -228,6 +257,8 @@ export class Stage {
     this.beams?.destroy();
     this.terrain?.destroy();
     this.tiles?.destroy();
+    this.marks?.destroy();
+    this.marksGlow?.destroy();
     this.air?.destroy();
     this.ground?.destroy();
     this.groundGlow?.destroy();
@@ -244,7 +275,12 @@ export class Stage {
     if (app === undefined || palette === undefined || scene === undefined) return;
     const was = this.drawn;
     this.drawn = scene;
-    const ground = force || was === undefined || was.layout !== scene.layout || was.pads !== scene.pads || was.goals !== scene.goals || was.hotPart !== scene.hotPart || was.world !== scene.world;
+    // The floor is the repository's whole tree: it is drawn again for a new tree or ground, never because a drone, a file or a glow moved.
+    const ground = force || was === undefined || !same(was.layout.territories, scene.layout.territories) || was.pads !== scene.pads || was.goals !== scene.goals || was.hotPart !== scene.hotPart || was.world !== scene.world;
+    if (force) {
+      this.tilesDrawn = undefined;
+      this.marksDrawn = undefined;
+    }
     if (ground) this.build(this.terrain!, (b) => drawTerrain(b, scene, palette));
     this.restand(scene, palette);
     this.noticePlays(scene);
@@ -339,7 +375,28 @@ export class Stage {
     if (scene === undefined || palette === undefined || this.tiles === undefined) return;
     const clock = this.clock();
     this.risen = scene.bumps.size === 0 ? this.heights : new Map([...this.heights].map(([path, height]) => [path, height + this.liftOf(path, clock)] as const));
-    this.build(this.tiles, (b) => drawTiles(b, scene, palette, this.risen, (key) => this.ringAlpha(key)));
+    const of = tilesIn(scene);
+    const fading = this.fading;
+    const kept = this.tilesDrawn;
+    if (fading || kept === undefined || !same(kept.heights, this.risen) || !same(kept.of, of)) {
+      this.build(this.tiles, (b) => drawTiles(b, of, palette, this.risen, (key) => this.ringAlpha(key)));
+      this.tilesDrawn = { of, heights: this.risen };
+    }
+    this.rebuildMarks();
+  }
+
+  /** The bars, their glow, the touched plots and the route: drawn again when one of them or a plot's height changes. */
+  private rebuildMarks(): void {
+    const { scene, palette } = this;
+    if (scene === undefined || palette === undefined || this.marks === undefined) return;
+    const of = [scene.layout.bars, scene.glow, scene.touched, scene.route];
+    const kept = this.marksDrawn;
+    if (kept !== undefined && same(kept.heights, this.risen) && same(kept.of, of)) return;
+    const [b, glow] = [new PlaneBuilder(), new PlaneBuilder()];
+    drawMarks(b, glow, scene, palette, this.risen);
+    this.marks.set(b);
+    this.marksGlow!.set(glow);
+    this.marksDrawn = { of, heights: this.risen };
   }
 
   /** A ring that has landed stays a moment, then fades; one already landed when it was first seen is not drawn. */
