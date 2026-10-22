@@ -337,7 +337,7 @@ The walk window's bar holds these, in this order:
 | Row | Holds, in order |
 |---|---|
 | 1 | The walks dropdown, the takes dropdown (absent with no takes), the address of the walk on screen (muted and truncated, so the bar still names the address), Reload, Capture, Approve, Hide/Show Job |
-| 2 | The walk's steps, with one compact status at its right end, the first that applies: run ended, address refused, a question with Show question, Loading, notes pending (*Pending notes*), or frames refused. A walk with no steps and no status draws no second row, and notes held on its Job are a status |
+| 2 | The walk's steps, with one compact status after the caption, the first that applies: run ended, address refused, a question with Show question, Loading, notes pending (*Pending notes*), or frames refused. A walk with no steps and no status draws no second row, and notes held on its Job are a status. Back leads the row and Next ends it, so no status or caption moves either |
 
 The walks dropdown has the walk on screen selected.
 Each entry carries its Job's name, the page's title, its address, its readiness and its ask marks, and who its notes go to as a hint.

@@ -80,3 +80,62 @@ test("the bar draws a pushed walk and its presses call the api", async () => {
   push(state());
   await expect.element(page.getByText("Open the menu")).not.toBeInTheDocument();
 });
+
+test("in the walk window, Next and Back stay where they are whatever else the row says", async () => {
+  let push: (next: CaptureWindowState) => void = () => {};
+  const none = async () => null;
+  const api = {
+    read: (onChanged: (next: CaptureWindowState) => void) => {
+      push = onChanged;
+      onChanged(state());
+      return () => {};
+    },
+    arm: none,
+    aim: none,
+    hold: none,
+    release: async () => {},
+    save: async () => ({ ok: true }),
+    reload: async () => {},
+    followRefused: async () => {},
+    approve: async () => ({ ok: true }),
+    scroll: () => {},
+    showAsk: async () => {},
+    answerAsk: async () => ({ ok: true }),
+    pick: async () => {},
+    panel: async () => {},
+    openOwner: async () => {},
+    walkNext: async () => {},
+    walkBack: async () => {},
+    walkAutoplay: async (_on: boolean) => {},
+    walkReplay: async () => {},
+    walkGuide: async (_shown: boolean) => {},
+  } satisfies CaptureWindowApi;
+  // The window above is still mounted: this one is the only bar on the page.
+  document.body.replaceChildren();
+  const host = document.body.appendChild(document.createElement("div"));
+  createRoot(host).render(<CaptureWindow api={api} />);
+
+  const queued = (walk: CaptureWindowState["walk"], ask?: CaptureWindowState["ask"]): CaptureWindowState => ({
+    ...state(walk),
+    queue: { at: 0, entries: [{ id: "a", name: "Findings", title: "Findings", address: "http://localhost:5173" }] },
+    ...(ask === undefined ? {} : { ask }),
+  });
+  const folded = { id: "q", question: "Which of the two reads better here?", options: [], from: "Store clock findings", shown: false };
+  const where = () => ({
+    next: document.querySelector<HTMLElement>("button:has(svg.lucide-chevron-right)")!.getBoundingClientRect().left,
+    back: document.querySelector<HTMLElement>("button:has(svg.lucide-chevron-left)")!.getBoundingClientRect().left,
+  });
+
+  await expect.element(page.getByRole("button", { name: "Reload" })).toBeVisible();
+  push(queued(step));
+  await expect.element(page.getByText("Open the menu")).toBeVisible();
+  const bare = where();
+
+  push(queued(step, folded));
+  await expect.element(page.getByRole("button", { name: "Show question" })).toBeVisible();
+  expect(where()).toEqual(bare);
+
+  push(queued({ ...step, said: "Open the menu and read the long line of words that this caption is made of, which runs on" }, folded));
+  await expect.element(page.getByRole("button", { name: "Show question" })).toBeVisible();
+  expect(where()).toEqual(bare);
+});

@@ -314,8 +314,11 @@ function LoadingLine() {
   );
 }
 
-/** The walk's controls, the same wherever the bar draws them. */
-function WalkControls({ walk }: { walk: CaptureBarWalk }) {
+/**
+ * The walk's controls, the same wherever the bar draws them. `status` sits after the caption, so Back
+ * leads the row and Next ends it: nothing that comes and goes moves either.
+ */
+function WalkControls({ walk, status }: { walk: CaptureBarWalk; status?: ReactNode }) {
   return (
     <>
     <Tooltip label="Replay to the step before">
@@ -345,6 +348,7 @@ function WalkControls({ walk }: { walk: CaptureBarWalk }) {
     <span className="armada-capture-bar__walk-said" title={walk.said}>
       {walk.said}
     </span>
+    {status}
     {walk.guide === undefined ? null : (
       <Tooltip label="Ring the target over the page">
         <Switch checked={walk.guide.shown} onChange={(event) => walk.guide?.onShow(event.target.checked)}>
@@ -730,8 +734,7 @@ export function CaptureBar(props: CaptureBarProps) {
         </div>
         {walk === undefined && !hasStatus ? null : (
           <div className="armada-capture-bar__row armada-capture-bar__walk" {...(walk === undefined ? {} : { role: "group", "aria-label": `Walk ${walk.name}` })}>
-            {walk === undefined ? null : <WalkControls walk={walk} />}
-            <StatusItem {...props} landsOn={landsOn} />
+            {walk === undefined ? <StatusItem {...props} landsOn={landsOn} /> : <WalkControls walk={walk} status={<StatusItem {...props} landsOn={landsOn} />} />}
           </div>
         )}
       </div>
