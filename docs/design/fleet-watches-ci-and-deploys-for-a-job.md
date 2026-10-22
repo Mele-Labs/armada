@@ -41,6 +41,7 @@ It has a name the person reads ("QA deploy"), the Job that started it, an option
 
 ```json
 {"state": "running",
+ "finished": false,
  "says": "Deploy running, two of three services done",
  "link": "https://ci.example.com/runs/4411",
  "parts": [{"name": "build", "state": "passed"},
@@ -51,6 +52,7 @@ It has a name the person reads ("QA deploy"), the Job that started it, an option
 | Field | Values | Notes |
 |---|---|---|
 | `state` | `waiting`, `running`, `passed`, `failed` | Required |
+| `finished` | true or false | Required. True once what the watch follows will change no more |
 | `says` | one sentence | Required. What Bridge draws on the row and what the notice quotes |
 | `link` | an address | Optional. Where the person or agent reads more |
 | `parts` | a list of name and state | Optional. A run whose overall state misleads is read part by part |
@@ -58,6 +60,15 @@ It has a name the person reads ("QA deploy"), the Job that started it, an option
 A command that exits non-zero, times out or prints no such line gives a **broken** reading, and its last output is kept for the side panel.
 With `parts`, Fleet works out the watch's state from the parts the agent has not set aside, which the next section names: any `failed` is `failed`, any `waiting` or `running` is `running`, all `passed` is `passed`.
 Without `parts`, the command's own `state` stands.
+A watch ends `passed` only on a reading that is `passed` and `finished`.
+
+> **Rule.** `finished` is a field of its own, and never read from `state`.
+> Why: spike 36 found a run reads `failed` the same mid-run and at its end, so a watch with a failure set aside could never tell it was over.
+
+Two rules every script keeps, because the line has no word for either (`docs/spikes/036-is-one-line-enough-to-watch-a-deploy.md`):
+
+- **A step the provider skipped, which leaves old code running, is `waiting` until the run is finished**, and `failed` then. Reported as passed, it would end a watch on a deploy that never happened.
+- **A step retried reports its latest attempt.**
 
 ### Recipes
 
@@ -105,6 +116,9 @@ The agent reads whatever it needs and weighs the reading in one of two ways:
 | **Ours** | The watch ends `failed`. The agent fixes the change, and a redeploy is a new watch |
 | **Not ours**, with a sentence and the parts to set aside | The watch carries on. Those parts no longer count toward its state, and a change in them wakes nobody |
 
+A watch may be started with parts already set aside, each with its sentence, so a redeploy's watch keeps what the agent learned on the last one rather than waking for it again.
+Spike 36 counted four wakes for failures the agent called not ours across three runs, two of them the same step on consecutive runs.
+
 Bridge draws the verdict and its sentence under the reading, so the person sees what the provider said and what the agent made of it, side by side.
 An agent that learns a standing rule, such as the person saying one service's tests may fail, keeps it where it keeps its other lessons. The watch only holds what was set aside on it.
 
@@ -122,6 +136,14 @@ A watch tells its Job through the path pull request notices use (`told_by_fleet`
 
 > **Rule.** Each notice is told once: the store keeps the watch, its state and the parts that failed, and a restart does not repeat it.
 > Why: a reading taken again is not news, as with a pull request read again on the same commit.
+
+**An agent does not watch a pull request's own checks.**
+Fleet's pull reading already tells the Job when they fail, and spike 36 found the two would have woken the agent twice for one failure.
+A watch is for what the pull reading cannot see: a deploy, an environment, a pipeline the push to another branch starts.
+
+**A watch follows what it was started on, and nothing after it ends.**
+In spike 36 someone reset the shared QA branch two days after the watch would have ended `passed`, and no watch saw it.
+Noticing that is a new watch's job, started by whoever needs it.
 
 ### A Job a watch holds open
 
@@ -205,8 +227,9 @@ The names are the builder's to settle against `docs/practices/protocol.md`.
 
 **That one line, with parts, is enough to know when to look.**
 If a provider's state only makes sense with context a script cannot summarise, every reading is noise and the agent is woken for most of them.
-Check it before building: write the two scripts the Job above needed, and replay its runs from 19 to 22 Oct through them.
-Count the wakes, and how many the agent would have set aside.
+Spike 36 checked it against the Job above, replaying three of its deploy runs a minute at a time: 7 wakes in 52 readings, each at a moment that mattered, 4 of them set aside as not ours.
+Without `parts` all three runs read `failed` within 5 minutes of the push while deploys were still going, and that is why `parts` and `finished` exist.
+The CI provider's half was not measured: this machine held no login its script could use.
 
 ## Left to the builder
 
