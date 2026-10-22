@@ -33,16 +33,31 @@ export type WatchSummary = {
   gives_up_after_seconds: number;
   /** A pull request number. */
   follows?: number;
+  /** The Requests environment whose variables the command is given. A name, never a value. */
+  environment?: string;
   state: WatchState;
   /** False once it has ended, whichever way. */
   live: boolean;
   started_at: string;
   last?: WatchReading;
   set_aside?: WatchSetAside[];
+  /** The kept readings, the newest 50, oldest first, `last` among them. Absent is none. */
+  readings?: WatchReading[];
+  /** The agent's weighings, the oldest first. Absent is none. */
+  verdicts?: WatchVerdict[];
 };
 
+/**
+ * One `weigh_watch`, as kept on the watch. `at` places it after the reading it weighed. Each verdict carries the agent's
+ * `sentence`; `parts` are those a `not_ours` set aside.
+ */
+export type WatchVerdict = { at: string; verdict: "ours" | "not_ours"; sentence: string; parts?: string[] };
+
 /** `list_watches`: a Job's watches, live and ended, the newest first. */
-export type WatchList = { watches: WatchSummary[] };
+export type WatchList = { session_id: string; watches: WatchSummary[] };
+
+/** `watches.changed`: one Job's watches after any change to one, whole, as `list_watches` answers for it. */
+export type WatchesChanged = WatchList;
 
 /** `start_watch`: a recipe with its values, or the agent's own command with `every`. */
 export type StartWatch = {
@@ -55,9 +70,9 @@ export type StartWatch = {
   | { command: string[]; every: string; gives_up_after?: string }
 );
 
-/** `weigh_watch`. `ours` ends the watch failed; `not_ours` sets its parts aside. */
+/** `weigh_watch`, each verdict with its sentence. `ours` ends the watch failed; `not_ours` sets its parts aside. */
 export type WeighWatch = { session_id?: string; watch: string } & (
-  | { verdict: "ours" }
+  | { verdict: "ours"; sentence: string }
   | { verdict: "not_ours"; sentence: string; parts: string[] }
 );
 

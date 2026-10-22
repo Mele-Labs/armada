@@ -110,18 +110,23 @@ fn a_weighing_is_held_to_what_was_reported() {
     assert!(one.set_aside.is_empty(), "a refused weighing sets nothing aside");
 }
 
+fn ours(sentence: &str) -> Verdict {
+    Verdict::Ours { sentence: sentence.to_string() }
+}
+
 #[test]
 fn ours_ends_a_failed_watch_and_nothing_else() {
     use ReadingState::*;
     let mut running = watch();
     running.read(reading(Running, false, Vec::new()));
-    assert_eq!(running.weigh(Verdict::Ours), Err(NotWeighed::NotFailed));
+    assert_eq!(running.weigh(ours("Mine.")), Err(NotWeighed::NotFailed));
 
     let mut failed = watch();
     failed.read(reading(Failed, false, Vec::new()));
-    assert_eq!(failed.weigh(Verdict::Ours), Ok(WatchState::Failed));
+    assert_eq!(failed.weigh(ours(" ")), Err(NotWeighed::NoSentence), "ours says why, as not ours does");
+    assert_eq!(failed.weigh(ours("The migration I added.")), Ok(WatchState::Failed));
     assert!(!failed.live);
-    assert_eq!(failed.weigh(Verdict::Ours), Err(NotWeighed::Ended));
+    assert_eq!(failed.weigh(ours("Mine.")), Err(NotWeighed::Ended));
     assert_eq!(failed.read(reading(Passed, true, Vec::new())), WatchState::Failed, "an ended watch takes no reading");
 }
 

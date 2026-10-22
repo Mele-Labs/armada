@@ -80,10 +80,28 @@ pub enum WatchReading {
 /// The agent's weighing of a failed reading.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum WatchVerdict {
-    /// The change caused it. The watch ends `failed`.
-    Ours,
+    /// The change caused it, and `sentence` says how. The watch ends `failed`.
+    Ours { sentence: String },
     /// Not the change's doing: `parts` stop counting toward the watch's state.
     NotOurs { sentence: String, parts: Vec<String> },
+}
+
+/// Which way the agent weighed a failed reading.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum WatchVerdictWord {
+    Ours,
+    NotOurs,
+}
+
+/// A weighing the agent gave, as kept, with its sentence; `not_ours` with the parts it set aside.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WatchVerdictGiven {
+    pub at: Instant,
+    pub verdict: WatchVerdictWord,
+    pub sentence: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub parts: Vec<String>,
 }
 
 /// One watch, as `list_watches` answers it and every act on one answers.
@@ -103,19 +121,31 @@ pub struct WatchSummary {
     /// The pull request it follows, by number.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub follows: Option<u64>,
+    /// The Requests environment whose variables its command is given. Never a value.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub environment: Option<String>,
     pub state: WatchState,
     /// False once it has ended, whichever way.
     pub live: bool,
     pub started_at: Instant,
+    /// The newest reading, read or broken: the last of `readings`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last: Option<WatchReading>,
+    /// The readings it kept, the newest 50, oldest first.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub readings: Vec<WatchReading>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub set_aside: Vec<WatchSetAside>,
+    /// The agent's weighings, in the order given.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub verdicts: Vec<WatchVerdictGiven>,
 }
 
-/// `list_watches`: a Job's watches, live and ended, the newest first.
+/// `list_watches`, and the `watches.changed` event: a Job's watches, live and ended, the newest
+/// first.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WatchList {
+    pub session_id: SessionId,
     pub watches: Vec<WatchSummary>,
 }
 
@@ -237,21 +267,15 @@ pub struct WeighWatch {
     pub verdict: WatchVerdict,
 }
 
-#[derive(Clone, Copy, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-enum VerdictWord {
-    Ours,
-    NotOurs,
-}
-
-/// A weighing as spelled: `verdict` `ours`, or `not_ours` with `sentence` and `parts`, flat.
+/// A weighing as spelled: `verdict` `ours` with `sentence`, or `not_ours` with `sentence` and
+/// `parts`, flat.
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct WeighAsWritten {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     session_id: Option<SessionId>,
     watch: String,
-    verdict: VerdictWord,
+    verdict: WatchVerdictWord,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     sentence: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -263,13 +287,13 @@ impl TryFrom<WeighAsWritten> for WeighWatch {
 
     fn try_from(written: WeighAsWritten) -> Result<WeighWatch, &'static str> {
         let verdict = match (written.verdict, written.sentence) {
-            (VerdictWord::Ours, None) if written.parts.is_empty() => WatchVerdict::Ours,
-            (VerdictWord::Ours, _) => {
-                return Err("`ours` ends the watch: it sets nothing aside, so leave out `sentence` \
-                            and `parts`")
+            (WatchVerdictWord::Ours, Some(sentence)) if written.parts.is_empty() => WatchVerdict::Ours { sentence },
+            (WatchVerdictWord::Ours, Some(_)) => {
+                return Err("`ours` ends the watch: it sets nothing aside, so leave out `parts`")
             }
-            (VerdictWord::NotOurs, Some(sentence)) => WatchVerdict::NotOurs { sentence, parts: written.parts },
-            (VerdictWord::NotOurs, None) => {
+            (WatchVerdictWord::Ours, None) => return Err("`ours` carries a `sentence` saying how the change caused it"),
+            (WatchVerdictWord::NotOurs, Some(sentence)) => WatchVerdict::NotOurs { sentence, parts: written.parts },
+            (WatchVerdictWord::NotOurs, None) => {
                 return Err("`not_ours` carries a `sentence` saying why, and the `parts` to set aside")
             }
         };
@@ -280,8 +304,8 @@ impl TryFrom<WeighAsWritten> for WeighWatch {
 impl From<WeighWatch> for WeighAsWritten {
     fn from(weigh: WeighWatch) -> WeighAsWritten {
         let (verdict, sentence, parts) = match weigh.verdict {
-            WatchVerdict::Ours => (VerdictWord::Ours, None, Vec::new()),
-            WatchVerdict::NotOurs { sentence, parts } => (VerdictWord::NotOurs, Some(sentence), parts),
+            WatchVerdict::Ours { sentence } => (WatchVerdictWord::Ours, Some(sentence), Vec::new()),
+            WatchVerdict::NotOurs { sentence, parts } => (WatchVerdictWord::NotOurs, Some(sentence), parts),
         };
         WeighAsWritten { session_id: weigh.session_id, watch: weigh.watch, verdict, sentence, parts }
     }

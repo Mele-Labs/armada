@@ -1042,7 +1042,7 @@ read_by = "fleet"
 notes = """
 How many watches run their command at the same time, across every Job on the machine. A watch is a command Fleet runs on a cadence for one Job (`docs/design/fleet-watches-ci-and-deploys-for-a-job.md`). Chosen with the design, not measured: a provider's command-line tool mostly waits on the network, and the bound is on what Fleet runs on a clock nobody is watching.
 
-**Not enforced yet**: `start_watch` records a watch and nothing runs its command.
+**Enforced**, `fleet::watches::running`: a due watch waits for the next pass once this many commands run.
 
 **The value lives in settings.json under `limits.watchesAtOnce`** (live), `docs/concepts/machine.md`, *settings.json*.
 """
@@ -1074,7 +1074,7 @@ read_by = "fleet"
 notes = """
 How long one run of a watch's command may take before it is stopped and its reading is broken. Measured on nothing: spike 36 replayed readings a minute apart and never timed a live command.
 
-**Not enforced yet**: nothing runs a watch's command.
+**Enforced**, `fleet::watches::running`: a run past it is ended, its whole process group with it, and reads as broken.
 
 **The value lives in settings.json under `timeouts.watchRunSeconds`** (live), `docs/concepts/machine.md`, *settings.json*.
 """
@@ -1106,7 +1106,7 @@ read_by = "fleet"
 notes = """
 How long a watch that names no time of its own runs before it gives up, and the setting's ceiling, a day, is the most any watch may ask for: more is a 422 `fleet.watch_gives_up_too_late` at `start_watch`. Spike 36's three deploy runs each ended within 30 minutes of the push.
 
-**Giving up is not enforced yet**: nothing runs a watch's command, so nothing reaches the time.
+**Enforced**, `fleet::watches::running`: a live watch past its time ends `gave_up` and its Job is told once.
 
 **The value lives in settings.json under `timeouts.watchGiveUpMinutes`** (live), `docs/concepts/machine.md`, *settings.json*.
 """

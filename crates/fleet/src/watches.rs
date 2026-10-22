@@ -1,13 +1,35 @@
 //! Watches: a command Fleet runs on a cadence for one Job, until what it follows is finished.
 //! `docs/design/fleet-watches-ci-and-deploys-for-a-job.md`.
 //!
-//! **Recorded, not yet run.** A start is checked against its recipe and the limits and kept in
-//! memory; a weighing and a stop act on what is kept. Nothing runs a command, takes a reading,
-//! tells a Job or survives a restart. Each `// next group:` line names where that lands.
+//! **The store holds every watch**, its readings, set-asides, verdicts and what was told of it, so
+//! a restart carries on (`store::KeptWatch`). Memory holds only the commands running now.
+//! `serving` answers the four operations, `running` takes readings on a timer of its own, and
+//! `telling` tells the Job once per change and ends its watches with it.
 
+mod running;
 mod serving;
+mod telling;
 
-use ipc::{Instant, WatchSetAside, WatchSummary};
+use std::collections::HashMap;
+use std::sync::{Mutex, MutexGuard, PoisonError};
+
+use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
+use api::Refusal;
+use core_model::{ReadingState, WatchState};
+use ipc::{
+    Instant, WatchList, WatchPart, WatchReading, WatchReadingState, WatchSetAside, WatchSummary, WatchVerdictGiven,
+    WatchVerdictWord, WireError,
+};
+use store::{KeptWatch, KeptWatchReading, KeptWatchTaken, KeptWatchWhole};
+
+use crate::daemon::Fleet;
+
+pub use running::{keep_running_watches, EVERY};
+#[cfg(test)]
+pub(crate) use running::interval;
+pub(crate) use telling::owed;
+#[cfg(test)]
+pub(crate) use telling::notice;
 
 /// Nothing places a Job, by the connection or the body. A 422.
 pub(crate) const UNPLACED: &str = "fleet.watches_unplaced";
@@ -23,6 +45,8 @@ pub(crate) const VALUE_REFUSED: &str = "fleet.watch_value_refused";
 pub(crate) const TOO_OFTEN: &str = "fleet.watch_too_often";
 /// `gives_up_after` past the day `timeouts.watchGiveUpMinutes` allows at most. A 422.
 pub(crate) const GIVES_UP_TOO_LATE: &str = "fleet.watch_gives_up_too_late";
+/// A `session_id` naming no Job Fleet holds. A 422, as a hosted session's own is.
+pub(crate) const NO_SUCH_SESSION: &str = "fleet.no_such_session";
 /// No watch by that id, or one another Job holds. A 404.
 pub(crate) const NO_SUCH_WATCH: &str = "fleet.no_such_watch";
 /// A verdict on a watch that has ended. A 409.
@@ -36,71 +60,212 @@ pub(crate) const PART_UNREPORTED: &str = "fleet.watch_part_unreported";
 /// entry, a day, so lowering the default never lowers the cap.
 pub(crate) const GIVE_UP_CAP_SECONDS: u32 = 24 * 60 * 60;
 
-/// One watch Fleet holds, and what the domain type does not: whose it is and where it came from.
-#[derive(Clone, Debug)]
-pub(crate) struct Held {
-    pub(crate) id: String,
-    pub(crate) job: String,
-    pub(crate) recipe: Option<String>,
-    pub(crate) started_at: Instant,
-    pub(crate) watch: core_model::Watch,
-}
+/// Broken readings in a row that end a watch `broken`.
+pub(crate) const BROKEN_IN_A_ROW: usize = 3;
 
-impl Held {
-    pub(crate) fn summary(&self) -> WatchSummary {
-        WatchSummary {
-            id: self.id.clone(),
-            session_id: ipc::SessionId::carried(&self.job),
-            name: self.watch.name.clone(),
-            command: self.watch.command.clone(),
-            recipe: self.recipe.clone(),
-            every_seconds: self.watch.every_seconds,
-            gives_up_after_seconds: self.watch.gives_up_after_seconds,
-            follows: self.watch.follows,
-            state: self.watch.state.into(),
-            live: self.watch.live,
-            started_at: self.started_at.clone(),
-            // next group: the last reading, with its instant, once readings are taken and kept.
-            last: None,
-            set_aside: self
-                .watch
-                .set_aside
-                .iter()
-                .map(|aside| WatchSetAside { part: aside.part.clone(), sentence: aside.sentence.clone() })
-                .collect(),
-        }
-    }
-}
-
-/// Every watch this process holds, live and ended. A `std` lock, never held across an `.await`.
-// next group: the store's table, the last 50 readings a watch, so a restart carries on.
+/// The commands running now, each with what stops it. **Memory only**: a run a restart cut short
+/// left no reading, so its watch is simply due again, and `crate::orphans` ends its process.
 #[derive(Default)]
 pub(crate) struct Watches {
-    held: std::sync::Mutex<Vec<Held>>,
+    running: Mutex<HashMap<String, tokio::sync::oneshot::Sender<()>>>,
+    /// When a notice a Job could not take was last offered, so it is offered a minute apart.
+    offered: Mutex<HashMap<String, core_model::Timestamp>>,
+    /// When a reading that read the same was last published, by watch.
+    republished: Mutex<HashMap<String, core_model::Timestamp>>,
 }
 
 impl Watches {
-    fn held(&self) -> std::sync::MutexGuard<'_, Vec<Held>> {
-        self.held.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+    fn running(&self) -> MutexGuard<'_, HashMap<String, tokio::sync::oneshot::Sender<()>>> {
+        self.running.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
-    pub(crate) fn live_for(&self, job: &str) -> usize {
-        self.held().iter().filter(|one| one.job == job && one.watch.live).count()
+    pub(crate) fn running_now(&self) -> usize {
+        self.running().len()
     }
 
-    pub(crate) fn keep(&self, held: Held) {
-        self.held().push(held);
+    pub(crate) fn is_running(&self, id: &str) -> bool {
+        self.running().contains_key(id)
+    }
+
+    /// Hold `id`'s place among the commands running; what completes when it is stopped. `None`
+    /// where it already runs.
+    pub(crate) fn begin(&self, id: &str) -> Option<tokio::sync::oneshot::Receiver<()>> {
+        let mut running = self.running();
+        if running.contains_key(id) {
+            return None;
+        }
+        let (stop, stopped) = tokio::sync::oneshot::channel();
+        running.insert(id.to_string(), stop);
+        Some(stopped)
+    }
+
+    pub(crate) fn finished(&self, id: &str) {
+        self.running().remove(id);
+    }
+
+    /// End `id`'s command, if one runs.
+    pub(crate) fn stop(&self, id: &str) {
+        if let Some(stop) = self.running().remove(id) {
+            let _ = stop.send(());
+        }
+    }
+
+    /// Whether a notice for `id` may be offered at `now`: never before, or a minute since.
+    pub(crate) fn may_offer(&self, id: &str, now: &core_model::Timestamp) -> bool {
+        self.once_in(&self.offered, id, now, std::time::Duration::from_secs(60))
+    }
+
+    /// Whether a reading of `id` that read the same may be published at `now`: five minutes apart.
+    pub(crate) fn may_republish(&self, id: &str, now: &core_model::Timestamp) -> bool {
+        self.once_in(&self.republished, id, now, std::time::Duration::from_secs(5 * 60))
+    }
+
+    fn once_in(
+        &self,
+        last: &Mutex<HashMap<String, core_model::Timestamp>>,
+        id: &str,
+        now: &core_model::Timestamp,
+        apart: std::time::Duration,
+    ) -> bool {
+        let mut last = last.lock().unwrap_or_else(PoisonError::into_inner);
+        let due = last.get(id).is_none_or(|then| crate::clock::elapsed(then, now) >= apart);
+        if due {
+            last.insert(id.to_string(), now.clone());
+        }
+        due
+    }
+}
+
+fn reading_state(word: &str) -> ReadingState {
+    ReadingState::from_wire(word).unwrap_or(ReadingState::Waiting)
+}
+
+fn wire_reading_state(word: &str) -> WatchReadingState {
+    reading_state(word).into()
+}
+
+/// The domain's watch from what was kept: the last reading that read, not the last that broke.
+pub(crate) fn domain(kept: &KeptWatchWhole) -> core_model::Watch {
+    let held = &kept.watch;
+    let mut watch =
+        core_model::Watch::new(held.name.clone(), held.command.clone(), held.every_seconds, held.gives_up_after_seconds);
+    watch.follows = held.follows;
+    watch.set_aside = kept
+        .set_aside
+        .iter()
+        .map(|aside| core_model::SetAside { part: aside.part.clone(), sentence: aside.sentence.clone() })
+        .collect();
+    watch.reported = held.reported.clone();
+    watch.last = kept.readings.iter().rev().find_map(|one| match &one.taken {
+        KeptWatchTaken::Read { state, finished, says, link, parts } => Some(core_model::Reading {
+            state: reading_state(state),
+            finished: *finished,
+            says: says.clone(),
+            link: link.clone(),
+            parts: parts
+                .iter()
+                .map(|(name, state)| core_model::Part { name: name.clone(), state: reading_state(state) })
+                .collect(),
+        }),
+        KeptWatchTaken::Broken { .. } => None,
+    });
+    watch.state = WatchState::from_wire(&held.state).unwrap_or(WatchState::Waiting);
+    watch.live = held.live;
+    watch
+}
+
+/// `kept` once `watch` has moved: its state, whether it is live, the parts reported, and when it
+/// ended.
+pub(crate) fn moved(kept: &KeptWatch, watch: &core_model::Watch, now: &core_model::Timestamp) -> KeptWatch {
+    let mut next = kept.clone();
+    next.state = watch.state.as_wire().to_string();
+    next.live = watch.live;
+    next.reported = watch.reported.clone();
+    if kept.live && !watch.live {
+        next.ended_at = Some(now.as_str().to_string());
+    }
+    next
+}
+
+fn wire_reading(one: &KeptWatchReading) -> WatchReading {
+    let at = Instant::carried(one.at.clone());
+    match &one.taken {
+        KeptWatchTaken::Read { state, finished, says, link, parts } => WatchReading::Read {
+            at,
+            state: wire_reading_state(state),
+            finished: *finished,
+            says: says.clone(),
+            link: link.clone(),
+            parts: parts
+                .iter()
+                .map(|(name, state)| WatchPart { name: name.clone(), state: wire_reading_state(state) })
+                .collect(),
+        },
+        KeptWatchTaken::Broken { why, output } => WatchReading::Broken { at, why: why.clone(), output: output.clone() },
+    }
+}
+
+/// What `list_watches` and `watches.changed` say of one watch.
+pub(crate) fn summary(kept: &KeptWatchWhole) -> WatchSummary {
+    let held = &kept.watch;
+    let readings: Vec<WatchReading> = kept.readings.iter().map(wire_reading).collect();
+    WatchSummary {
+        id: held.id.clone(),
+        session_id: ipc::SessionId::carried(&held.session_id),
+        name: held.name.clone(),
+        command: held.command.clone(),
+        recipe: held.recipe.clone(),
+        every_seconds: held.every_seconds,
+        gives_up_after_seconds: held.gives_up_after_seconds,
+        follows: held.follows,
+        environment: held.environment.clone(),
+        state: WatchState::from_wire(&held.state).unwrap_or(WatchState::Waiting).into(),
+        live: held.live,
+        started_at: Instant::carried(held.started_at.clone()),
+        last: readings.last().cloned(),
+        readings,
+        set_aside: kept
+            .set_aside
+            .iter()
+            .map(|aside| WatchSetAside { part: aside.part.clone(), sentence: aside.sentence.clone() })
+            .collect(),
+        verdicts: kept
+            .verdicts
+            .iter()
+            .map(|given| WatchVerdictGiven {
+                at: Instant::carried(given.at.clone()),
+                verdict: if given.ours { WatchVerdictWord::Ours } else { WatchVerdictWord::NotOurs },
+                sentence: given.sentence.clone(),
+                parts: given.parts.clone(),
+            })
+            .collect(),
+    }
+}
+
+impl<H, V, W> Fleet<H, V, W>
+where
+    H: AgentHarness + Send + Sync + 'static,
+    H::Error: std::error::Error + Send + Sync + 'static,
+    V: Vcs + Delivery + Send + Sync + 'static,
+    V::Error: std::error::Error + Send + Sync + 'static,
+    V::CommitError: std::error::Error + Send + Sync + 'static,
+    W: WorkProduct + Send + Sync + 'static,
+    W::Error: std::error::Error + Send + Sync + 'static,
+{
+    pub(crate) fn no_such_watch(&self, id: &str) -> Refusal {
+        Refusal::NotFound(WireError::raised(NO_SUCH_WATCH, format!("No watch of this Job is {id}."), self.run_id()))
     }
 
     /// `job`'s watches, the newest first.
-    pub(crate) fn of(&self, job: &str) -> Vec<Held> {
-        self.held().iter().rev().filter(|one| one.job == job).cloned().collect()
+    pub(crate) async fn watch_list(&self, job: &str) -> Result<WatchList, Refusal> {
+        let kept = self.store().lock().await.watches_of(job).map_err(|why| self.ledger_fault(why))?;
+        Ok(WatchList { session_id: ipc::SessionId::carried(job), watches: kept.iter().map(summary).collect() })
     }
 
-    /// Change the watch `id` names, where `job` is its Job or no Job is placed.
-    pub(crate) fn change<T>(&self, id: &str, job: Option<&str>, act: impl FnOnce(&mut Held) -> T) -> Option<T> {
-        let mut held = self.held();
-        let one = held.iter_mut().find(|one| one.id == id && job.is_none_or(|job| one.job == job))?;
-        Some(act(one))
+    /// Tell Bridge `job`'s watches moved. A list that will not read publishes nothing.
+    pub(crate) async fn watches_published(&self, job: &str) {
+        if let Ok(list) = self.watch_list(job).await {
+            self.publish(ipc::Event::WatchesChanged(list));
+        }
     }
 }

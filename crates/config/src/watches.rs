@@ -18,7 +18,7 @@ use serde_yaml_ng::Value;
 use crate::error::{Fault, LoadError, Refusal};
 use crate::yaml::{self, Table};
 
-const KEYS: &[&str] = &["name", "command", "every", "gives_up_after"];
+const KEYS: &[&str] = &["name", "command", "every", "gives_up_after", "environment"];
 const A_SPAN: &str = "a span such as `60s`, `2m` or `2h`";
 
 /// Where a recipe was read from, least specific first.
@@ -93,6 +93,8 @@ pub struct Recipe {
     pub every_seconds: u32,
     /// `None` gives up after the machine's `timeouts.watchGiveUpMinutes`.
     pub gives_up_after_seconds: Option<u32>,
+    /// A Requests environment whose variables, secrets included, the command is given.
+    pub environment: Option<String>,
 }
 
 impl Recipe {
@@ -127,8 +129,13 @@ fn read(root: &Value, out: &mut Vec<Refusal>) -> Option<Recipe> {
     let command = table.required("command", out).and_then(|v| command(v, out));
     let every = table.required("every", out).and_then(|v| span("every", v, out));
     let gives_up_after = table.optional("gives_up_after").map(|v| span("gives_up_after", v, out));
+    let environment = table.optional("environment").map(|v| yaml::text("environment", v, out));
     table.close(KEYS, out);
     let gives_up_after_seconds = match gives_up_after {
+        Some(read) => Some(read?),
+        None => None,
+    };
+    let environment = match environment {
         Some(read) => Some(read?),
         None => None,
     };
@@ -137,6 +144,7 @@ fn read(root: &Value, out: &mut Vec<Refusal>) -> Option<Recipe> {
         command: command?,
         every_seconds: every?,
         gives_up_after_seconds,
+        environment,
     })
 }
 

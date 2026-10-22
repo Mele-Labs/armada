@@ -21,11 +21,14 @@ fn summary(session_id: SessionId, name: String, command: Vec<String>, recipe: Op
         every_seconds: 60,
         gives_up_after_seconds: 7200,
         follows: None,
+        environment: None,
         state: WatchState::Waiting,
         live: true,
         started_at: Instant::carried("2026-10-22T00:00:00.000Z"),
         last: None,
+        readings: Vec::new(),
         set_aside: Vec::new(),
+        verdicts: Vec::new(),
     }
 }
 
@@ -61,7 +64,7 @@ impl Watches for FakeDaemon {
         Ok(stopped)
     }
 
-    async fn list_watches(&self, _caller: Option<Caller>, _session_id: Option<SessionId>) -> Result<WatchList, Refusal> {
-        Ok(WatchList { watches: Vec::new() })
+    async fn list_watches(&self, _caller: Option<Caller>, session_id: Option<SessionId>) -> Result<WatchList, Refusal> {
+        Ok(WatchList { session_id: session_id.unwrap_or_else(|| SessionId::carried("session")), watches: Vec::new() })
     }
 }

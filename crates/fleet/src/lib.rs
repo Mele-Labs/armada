@@ -215,7 +215,7 @@ mod refusing;
 /// the snapshot taken before it. **A rehearsal, never a verdict.**
 mod rehearsing;
 /// A command Fleet runs on a cadence for one Job, and the agent's weighing of it.
-mod watches;
+pub mod watches;
 /// The repositories one Fleet serves, and adding one by folder.
 pub mod repositories;
 /// Which profile a repository claims and syncs as: matched by its owner, or chosen.

@@ -602,7 +602,7 @@ pub use triggers::{
 pub use watches::{
     read_watch_line, StartWatch, StopWatch, WatchList, WatchPart, WatchReading,
     WatchReadingState, WatchSetAside, WatchStarts, WatchState, WatchSummary, WatchVerdict,
-    WeighWatch,
+    WatchVerdictGiven, WatchVerdictWord, WeighWatch,
 };
 pub use underway::{
     OutputClosed, OutputEnded, OutputLines,

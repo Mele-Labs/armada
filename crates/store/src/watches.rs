@@ -69,12 +69,12 @@ pub struct KeptWatchSetAside {
     pub at: String,
 }
 
-/// The agent's weighing of a failed reading. `ours` carries neither a sentence nor parts.
+/// The agent's weighing of a failed reading, with its sentence. `ours` sets no parts aside.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct KeptWatchVerdict {
     pub at: String,
     pub ours: bool,
-    pub sentence: Option<String>,
+    pub sentence: String,
     pub parts: Vec<String>,
 }
 
@@ -326,7 +326,7 @@ impl Store {
                 Ok(KeptWatchVerdict {
                     at: row.get(0)?,
                     ours: row.get::<_, String>(1)? == "ours",
-                    sentence: row.get(2)?,
+                    sentence: row.get::<_, Option<String>>(2)?.unwrap_or_default(),
                     parts: texts(row.get(3)?),
                 })
             })

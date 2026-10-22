@@ -18,6 +18,13 @@ fn the_designs_recipe_loads_with_its_values_in_order() {
     assert_eq!(recipe.every_seconds, 60);
     assert_eq!(recipe.gives_up_after_seconds, Some(7200));
     assert_eq!(recipe.values(), ["sha", "environment"]);
+    assert_eq!(recipe.environment, None);
+}
+
+#[test]
+fn a_recipe_may_name_a_requests_environment() {
+    let recipe = parse(Path::new("w.yml"), "name: ci\ncommand: [gh]\nevery: 1m\nenvironment: qa\n").unwrap();
+    assert_eq!(recipe.environment.as_deref(), Some("qa"));
 }
 
 #[test]
@@ -37,8 +44,8 @@ fn a_command_is_a_list_and_never_a_line_for_a_shell() {
 
 #[test]
 fn a_span_is_a_count_and_a_unit_and_every_fault_is_reported() {
-    let said = refused("name: ci\ncommand: [gh]\nevery: often\ngives_up_after: 3d\nenvironment: qa\n");
-    for key in ["every", "gives_up_after", "environment"] {
+    let said = refused("name: ci\ncommand: [gh]\nevery: often\ngives_up_after: 3d\nenvironment: [qa]\nwhen: now\n");
+    for key in ["every", "gives_up_after", "environment", "when"] {
         assert!(said.contains(key), "{key} is not named in: {said}");
     }
 }

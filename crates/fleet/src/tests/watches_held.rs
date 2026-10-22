@@ -1,5 +1,5 @@
-//! Watches as this build holds them: a start checked against its recipe and the limits and kept
-//! for the Job, a weighing held to what was reported, and a stop. Nothing runs a command yet.
+//! A watch's start checked against its recipe and the limits and kept for the Job, a weighing held
+//! to what was reported, and a stop. `crate::tests::watches_run` runs the commands.
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -52,8 +52,10 @@ async fn a_start_is_kept_for_its_job_with_the_machines_give_up() {
 
     let listed = rig.fleet.list_watches(None, Some(job.clone())).await.expect("listed");
     assert_eq!(listed.watches, vec![started]);
-    let other = rig.fleet.list_watches(None, Some(SessionId::carried("another"))).await.expect("listed");
-    assert!(other.watches.is_empty());
+    let other = rig.fleet.list_watches(None, Some(SessionId::carried("another"))).await.expect_err("no such Job");
+    assert_eq!(code(&other), ("fleet.no_such_session", 422));
+    let second = rig.start().await;
+    assert!(rig.fleet.list_watches(None, Some(second)).await.expect("listed").watches.is_empty());
     let unplaced = rig.fleet.list_watches(None, None).await.expect_err("nothing places a Job");
     assert_eq!(code(&unplaced), ("fleet.watches_unplaced", 422));
 }
@@ -119,13 +121,14 @@ async fn a_weighing_and_a_stop_act_on_the_jobs_own_watch() {
     let id = rig.fleet.start_watch(None, own(&job, "60s", None)).await.expect("started").id;
     let weigh = |watch: &str, verdict: WatchVerdict| WeighWatch { session_id: Some(job.clone()), watch: watch.to_string(), verdict };
 
-    let ours = rig.fleet.weigh_watch(None, weigh(&id, WatchVerdict::Ours)).await.expect_err("nothing failed");
+    let ours = rig.fleet.weigh_watch(None, weigh(&id, WatchVerdict::Ours { sentence: "Mine.".into() })).await.expect_err("nothing failed");
     assert_eq!(code(&ours), ("fleet.watch_not_failed", 409));
     let not_ours = WatchVerdict::NotOurs { sentence: "Another service.".to_string(), parts: vec!["unit".to_string()] };
     let unreported = rig.fleet.weigh_watch(None, weigh(&id, not_ours)).await.expect_err("no reading carried it");
     assert_eq!(code(&unreported), ("fleet.watch_part_unreported", 422));
 
-    let elsewhere = StopWatch { session_id: Some(SessionId::carried("another")), watch: id.clone() };
+    let another = rig.start().await;
+    let elsewhere = StopWatch { session_id: Some(another), watch: id.clone() };
     let refused = rig.fleet.stop_watch(None, elsewhere).await.expect_err("another Job's watch");
     assert_eq!(code(&refused), ("fleet.no_such_watch", 404));
 
@@ -133,6 +136,6 @@ async fn a_weighing_and_a_stop_act_on_the_jobs_own_watch() {
     assert_eq!((stopped.state, stopped.live), (WatchState::Stopped, false));
     let again = rig.fleet.stop_watch(None, StopWatch { session_id: None, watch: id.clone() }).await.expect("a second Stop");
     assert_eq!(again.state, WatchState::Stopped);
-    let ended = rig.fleet.weigh_watch(None, weigh(&id, WatchVerdict::Ours)).await.expect_err("it ended");
+    let ended = rig.fleet.weigh_watch(None, weigh(&id, WatchVerdict::Ours { sentence: "Mine.".into() })).await.expect_err("it ended");
     assert_eq!(code(&ended), ("fleet.watch_ended", 409));
 }
