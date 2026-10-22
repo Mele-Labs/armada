@@ -6,7 +6,7 @@
 // of the panel's body; main places the view there and removes it when the panel closes.
 //
 // **A page drawn small is a picture of it, not a view.** A native view cannot be scaled, so the live view asks for
-// snapshots: main loads the page in a view that is never added to a window, takes `capturePage()` of it as it changes
+// snapshots: main loads the page in a window that is never shown, takes `capturePage()` of it as it changes
 // and every few seconds, and sends the PNG to the window that asked (`session-snapshot.ts`).
 
 import { session, shell, WebContentsView, BrowserWindow } from "electron";
@@ -34,8 +34,8 @@ function pageSession(): Electron.Session {
 const SNAPSHOT = { width: 800, height: 440 } as const;
 
 export class SessionPages {
-  /** The view a window's live page is held in out of sight, and what ends its pictures. One per window. */
-  private readonly shots = new Map<number, { address: string; view: WebContentsView; stop: () => void }>();
+  /** The hidden window a window's live page is held in, and what ends its pictures. One per window. */
+  private readonly shots = new Map<number, { address: string; host: BrowserWindow; stop: () => void }>();
 
   /** One view per window, since a window has one panel. */
   private readonly views = new Map<number, { view: WebContentsView; window: BrowserWindow; address: string }>();
@@ -80,12 +80,17 @@ export class SessionPages {
     if (window === null || window.isDestroyed()) return { ok: false, why: "refused", address, detail: "no window" };
     if (this.shots.get(window.id)?.address === address) return { ok: true };
     this.stop(sender);
-    const view = new WebContentsView({
+    // A window never shown, at the size the page is laid out at. A view in no window, or in a hidden BaseWindow, gives
+    // capturePage() nothing to draw on macOS; a hidden BrowserWindow does.
+    const host = new BrowserWindow({
+      show: false,
+      ...SNAPSHOT,
+      useContentSize: true,
+      skipTaskbar: true,
+      focusable: false,
       webPreferences: { session: pageSession(), sandbox: true, contextIsolation: true, nodeIntegration: false, backgroundThrottling: false },
     });
-    // Never added to a window: it has the size the page is laid out at and nothing else.
-    view.setBounds({ x: 0, y: 0, ...SNAPSHOT });
-    const contents = view.webContents;
+    const contents = host.webContents;
     contents.setWindowOpenHandler(({ url }) => {
       if (/^https?:\/\//i.test(url)) void shell.openExternal(url);
       return { action: "deny" };
@@ -109,10 +114,10 @@ export class SessionPages {
     );
     this.shots.set(window.id, {
       address,
-      view,
+      host,
       stop: () => {
         stopTaking();
-        if (!contents.isDestroyed()) contents.close();
+        if (!host.isDestroyed()) host.destroy();
       },
     });
     const id = window.id;
@@ -124,7 +129,7 @@ export class SessionPages {
     return { ok: true };
   }
 
-  /** Ends the window's pictures and closes the view they were taken in. */
+  /** Ends the window's pictures and closes the hidden window they were taken in. */
   stop(sender: Electron.WebContents): void {
     const window = BrowserWindow.fromWebContents(sender);
     const held = window === null ? undefined : this.shots.get(window.id);
