@@ -142,6 +142,22 @@ test("a folded pane draws nothing and builds nothing, and draws what it was hand
   await expect.poll(started).toBe(true);
 });
 
+test("a theme put on, or fonts arriving, while the pane is folded builds nothing until it is shown, and then draws everything again", async () => {
+  stage.setScene(working());
+  await expect.poll(started).toBe(true);
+  stage.setHidden(true);
+  await expect.poll(started).toBe(false);
+  const built = vi.spyOn(stage as unknown as { sync: (force: boolean) => void }, "sync");
+  const root = document.documentElement;
+  const theme = root.getAttribute("data-theme");
+  root.setAttribute("data-theme", theme ?? "dark");
+  await wait(100);
+  expect(built).not.toHaveBeenCalled();
+  stage.setHidden(false);
+  expect(built).toHaveBeenCalledWith(true);
+  if (theme === null) root.removeAttribute("data-theme");
+});
+
 test("a glow or a bar that moves draws the bars again and leaves the plots as they were", async () => {
   const scene = sceneFor();
   stage.setScene(scene);
