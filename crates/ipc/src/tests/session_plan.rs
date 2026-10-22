@@ -11,12 +11,13 @@ fn group(id: Option<&str>, agent: &str, paths: &[&str], tasks: &[&str]) -> PlanG
         agent: agent.to_string(),
         paths: paths.iter().map(|one| one.to_string()).collect(),
         issue: None,
+        gives: None,
         tasks: tasks.iter().map(|one| PlanTaskInput { id: None, title: one.to_string() }).collect(),
     }
 }
 
 fn plan(groups: Vec<PlanGroupInput>) -> RecordPlan {
-    RecordPlan { groups, sketch: None, walk: None, session_id: None }
+    RecordPlan { summary: "You get a plan page.".to_string(), groups, sketch: None, walk: None, session_id: None }
 }
 
 #[test]
@@ -104,4 +105,34 @@ fn an_issue_is_digits_or_a_trackers_key_and_nothing_else() {
     }
     assert_eq!(IssueReference::number(7).to_string(), "#7");
     assert_eq!(IssueReference::read("ABC-12").unwrap().to_string(), "ABC-12");
+}
+
+#[test]
+fn a_plan_without_a_summary_is_refused_naming_the_field_and_one_with_it_is_kept_trimmed() {
+    let one = || group(None, "rust-engineer", &[], &["Add the tables"]);
+    for blank in ["", "  \n "] {
+        let why = RecordPlan { summary: blank.to_string(), ..plan(vec![one()]) }.checked().expect_err("refused");
+        assert!(why.contains("`summary` is blank"), "{why}");
+    }
+    let long = RecordPlan { summary: "x".repeat(601), ..plan(vec![one()]) }.checked().expect_err("refused");
+    assert!(long.contains("`summary` is longer than 600 characters"), "{long}");
+
+    let kept = RecordPlan { summary: "  You get a page.\nIt shows what is next.  ".to_string(), ..plan(vec![one()]) }
+        .checked()
+        .expect("a plan");
+    assert_eq!(kept.summary, "You get a page.\nIt shows what is next.");
+}
+
+#[test]
+fn a_group_gives_one_short_line_or_nothing() {
+    let with = |gives: Option<&str>| {
+        let mut one = group(None, "rust-engineer", &[], &["Add the tables"]);
+        one.gives = gives.map(String::from);
+        plan(vec![one]).checked()
+    };
+    assert_eq!(with(Some("  A page that shows what is next.  ")).unwrap().groups[0].gives.as_deref(), Some("A page that shows what is next."));
+    assert_eq!(with(Some("   ")).unwrap().groups[0].gives, None, "a blank line is none");
+    assert_eq!(with(None).unwrap().groups[0].gives, None);
+    let why = with(Some(&"x".repeat(161))).expect_err("refused");
+    assert!(why.contains("groups[0] `gives` is longer than 160 characters"), "{why}");
 }

@@ -58,12 +58,14 @@ fn say(id: &SessionId, pairs: &[(&str, &str)]) -> SetWaitingFor {
 
 pub(super) fn plan(id: &SessionId) -> RecordPlan {
     RecordPlan {
+        summary: "You get a plan.".into(),
         groups: vec![PlanGroupInput {
             id: None,
             title: "Store".into(),
             agent: "rust-engineer".into(),
             paths: vec!["crates/store".into()],
             issue: None,
+            gives: None,
             tasks: vec![PlanTaskInput { id: None, title: "Add the table".into() }],
         }],
         sketch: None,

@@ -109,7 +109,7 @@ pub(crate) fn waiting_reads(
         tell: store.tell_of(&session.id)?,
         plan: store
             .session_plan(&session.id)?
-            .filter(|plan| plan.approved_at.is_none())
+            .filter(|plan| plan.approved_at.is_none() && plan.set_aside_at.is_none())
             .map(|plan| (plan.version, plan.recorded_at, plan.walk)),
         concerns: store.session_concerns(&session.id)?,
     })
@@ -877,14 +877,24 @@ where
             .hosts()
             .settling(&id, &item.id)
             .ok_or_else(|| self.settled_already())?;
-        if item.source == WaitingSource::Agent {
+        // The agent is told first, so a send that fails leaves the item standing to try again. "Not yet"
+        // is the plan put away to keep talking.
+        let told = match item.source {
+            WaitingSource::Agent => Some(removed(&item.text, dismiss.reason.as_deref())),
+            WaitingSource::Plan => Some(super::planning::NOT_YET_TOLD.to_string()),
+            _ => None,
+        };
+        if let Some(text) = told {
             let sent = SendSessionMessage {
                 session_id: dismiss.session_id.clone(),
-                text: removed(&item.text, dismiss.reason.as_deref()),
+                text,
                 attachments: Vec::new(),
                 mentions: Vec::new(),
             };
             Arc::clone(&self).send_known(terminal, sent).await?;
+        }
+        if item.source == WaitingSource::Plan {
+            self.plan_set_aside(&id, &item.id).await?;
         }
         self.drop_answered(&id, &item.id).await
     }

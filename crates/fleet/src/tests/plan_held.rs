@@ -7,7 +7,7 @@ use std::time::Duration;
 
 use api::{HostedSessions, Sessions};
 use ipc::{
-    PlanGroupInput, PlanTaskInput, RecordPlan, SessionFact, SessionId, SessionRecord, SessionReport, ShowWindow,
+    DismissWaiting, PlanGroupInput, PlanTaskInput, RecordPlan, SessionFact, SessionId, SessionRecord, SessionReport, ShowWindow,
     WaitingItem, WaitingSource, WindowClosed, WindowTake, WithdrawWindow,
 };
 
@@ -18,12 +18,14 @@ const TWO: &str = "http://localhost:5173/two";
 
 fn plan(id: &SessionId, walk: Option<&str>) -> RecordPlan {
     RecordPlan {
+        summary: "You get a plan.".into(),
         groups: vec![PlanGroupInput {
             id: None,
             title: "Store".into(),
             agent: "rust-engineer".into(),
             paths: vec!["crates/store".into()],
             issue: None,
+            gives: None,
             tasks: vec![PlanTaskInput { id: None, title: "Add the table".into() }],
         }],
         sketch: None,
@@ -407,4 +409,35 @@ async fn a_job_can_only_withdraw_a_walk_it_showed() {
     let another = withdraw(&rig, &second, ONE).await;
     assert!(matches!(another, Err(api::Refusal::Unacceptable(_))), "another job's window: {another:?}");
     assert_eq!(walks(&read(&rig, &first).await), [format!("walk:{ONE}")], "the first job's walk still waits");
+}
+
+/// **A plan he put away holds nothing**, whatever the Job shows after. Recording again is a new
+/// version that starts without the mark, and waits as any first recording does.
+#[tokio::test]
+async fn a_plan_set_aside_holds_nothing_and_the_next_version_waits_again() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    record(&rig, &id, None).await;
+    assert!(call(&rig, &id).await.is_some(), "asked at its recording");
+    Arc::clone(&rig.fleet)
+        .dismiss_waiting(DismissWaiting { session_id: id.clone(), item_id: "plan:1".into(), reason: None })
+        .await
+        .unwrap();
+
+    later().await;
+    page(&rig, &id, ONE).await;
+    let aside = read(&rig, &id).await.plan.expect("a plan");
+    assert!(aside.set_aside_at.is_some());
+    assert!(aside.held_by.is_empty(), "a window he has not approved holds nothing of a plan put away: {:?}", aside.held_by);
+    assert!(call(&rig, &id).await.is_none());
+
+    later().await;
+    record(&rig, &id, None).await;
+    let next = read(&rig, &id).await.plan.expect("a plan");
+    assert_eq!(next.version, 2);
+    assert!(next.set_aside_at.is_none(), "a new version starts without the mark");
+    assert!(next.held_by.iter().any(|one| one.url == ONE), "it waits on the window as a first recording does");
+    later().await;
+    rig.send(&id, &format!("Approved: {ONE}")).await;
+    assert_eq!(call(&rig, &id).await.expect("asked again").id, "plan:2");
 }

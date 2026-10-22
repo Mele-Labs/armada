@@ -22,6 +22,7 @@ const task = (id: string, text: string) => ({ id, text, state: "open" as const, 
 const plan = {
   version: 1,
   recorded_at: AT,
+  summary: "",
   approved: true,
   scope: ["crates/store"],
   groups: [

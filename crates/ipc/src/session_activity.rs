@@ -22,6 +22,14 @@ pub struct SessionTodo {
     pub state: SessionTodoState,
 }
 
+/// What one subagent of a hosted Session is doing, by the gate's `agent_id` on its calls.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SubagentActivity {
+    pub id: String,
+    /// The subagent's latest call as one short action, as the Session's own `now` is.
+    pub now: String,
+}
+
 /// What a hosted Session is doing. Absent from the row until its first tool call, and again once
 /// it ends. Memory only: a Fleet that restarts starts it empty.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -30,7 +38,15 @@ pub struct SessionActivity {
     /// Absent until a call Fleet can name has been made.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub now: Option<String>,
+    /// The first line of the agent's latest text this turn, at most 160 characters. Absent until it
+    /// has said something, and again when a turn begins.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub said: Option<String>,
     /// The agent's own list as its last `TodoWrite` left it. Empty is no list.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub todos: Vec<SessionTodo>,
+    /// What each subagent at work is doing, by its own calls. An entry goes when the subagent ends
+    /// and when a turn begins.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub subagents: Vec<SubagentActivity>,
 }

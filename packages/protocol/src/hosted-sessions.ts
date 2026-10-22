@@ -301,8 +301,7 @@ export type SessionRow =
   /**
    * The agent disputed a notice Fleet sent it. `notice` is the id of Fleet's `message` row; `why` is the agent's reason.
    * `spotted` is `called` where the agent said so itself, `read` where Fleet read it from the agent's replies after
-   * 10 minutes. `review` is the review Job's session id; absent where no review was started, as on a Fleet that does
-   * not serve the armada repository.
+   * 10 minutes. `review` is the review Job's session id; absent where no review was started.
    */
   | { kind: "disputed"; id: string; at: string; notice: string; why: string; spotted: "called" | "read"; review?: string }
   /** The first write: the slot leased and the branch cut. */
