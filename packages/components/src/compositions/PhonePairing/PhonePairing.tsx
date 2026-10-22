@@ -2,6 +2,7 @@ import { encode } from "uqr";
 import { Alert } from "../../primitives/Alert/Alert";
 import { Button } from "../../primitives/Button/Button";
 import { Stamp, StampSurface } from "../../primitives/Stamp/Stamp";
+import { Switch } from "../../primitives/Switch/Switch";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 
 export type PairedPhone = {
@@ -14,11 +15,15 @@ export type PairedPhone = {
 /** Why there is nothing to pair with. Absent where the Gateway answers. */
 export type PhoneProblem =
   | { kind: "not_running" }
-  /** The Gateway's own sentence, shown as it arrived. */
+  /** Fleet's or the Gateway's own sentence, shown as it arrived. */
   | { kind: "said"; said: string };
 
 /**
- * Settings → Phone: pair, confirm and unpair.
+ * Settings → Phone: the Phone access switch, then pair, confirm and unpair.
+ *
+ * **Off draws the switch and its one line, nothing else.** Fleet runs the Gateway, so the switch is
+ * the whole of starting it. A problem shows in place of pairing, and with the switch off only where a
+ * press was refused.
  *
  * **The code is the whole of what a phone needs**, so the QR is drawn from `url` and the url is
  * printed under it for a phone that cannot scan. A claim shows once a phone has posted the code,
@@ -26,6 +31,9 @@ export type PhoneProblem =
  * paired draws no list, no code drawn draws no square.
  */
 export type PhonePairingProps = {
+  /** Fleet's switch, `turning` while a press waits on it. Absent until Fleet has said, which draws no switch. */
+  access?: { on: boolean; turning?: boolean };
+  onTurn: (on: boolean) => void;
   problem?: PhoneProblem;
   /** The pairing address with its one-time code. Absent until Pair a phone is pressed. */
   url?: string;
@@ -47,18 +55,32 @@ export function timeLeft(seconds: number): string {
   return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, "0")}`;
 }
 
-export function PhonePairing({ problem, url, secondsLeft, claim, phones, onPair, onConfirm, onUnpair, onCopied }: PhonePairingProps) {
-  if (problem !== undefined) {
-    return (
-      <div className="armada-phone">
-        <Alert tone="neutral" title={problem.kind === "not_running" ? "The Gateway is not running" : undefined}>
-          {problem.kind === "not_running" ? <code className="armada-phone__command">armada pocket</code> : problem.said}
-        </Alert>
-      </div>
-    );
-  }
+export function PhonePairing(props: PhonePairingProps) {
+  const { access, onTurn, problem } = props;
   return (
     <div className="armada-phone">
+      {access === undefined ? null : (
+        <Switch
+          checked={access.on}
+          disabled={access.turning === true}
+          onChange={(event) => onTurn(event.currentTarget.checked)}
+          description="Paired phones reach this Mac through Tailscale while this is on, with Bridge open or closed."
+        >
+          Phone access
+        </Switch>
+      )}
+      {problem === undefined ? null : (
+        <Alert tone="neutral">{problem.kind === "not_running" ? "The Gateway is not running." : problem.said}</Alert>
+      )}
+      {problem !== undefined || access?.on !== true ? null : <Pairing {...props} />}
+    </div>
+  );
+}
+
+/** The code, the claim and the paired phones: what access on draws while the Gateway answers. */
+function Pairing({ url, secondsLeft, claim, phones, onPair, onConfirm, onUnpair, onCopied }: PhonePairingProps) {
+  return (
+    <>
       {url === undefined ? (
         <div>
           <Button variant="primary" onClick={onPair}>
@@ -122,7 +144,7 @@ export function PhonePairing({ problem, url, secondsLeft, claim, phones, onPair,
           </ul>
         </StampSurface>
       )}
-    </div>
+    </>
   );
 }
 

@@ -270,6 +270,10 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
         settings,
     )?;
     let fleet = Arc::new(fleet);
+    // The Phone Gateway, on a listener of its own, while the Mac is opted in.
+    let phone = Arc::new(crate::pocketing::Phone::new(&machine, bound.port()));
+    fleet.switching_phone_with(Arc::clone(&phone) as Arc<dyn fleet::phone::PhoneSwitch>);
+    phone.start_if_marked();
     // Asked of the agent CLI once the listener is up, off this path: Fleet serves the built-in
     // names, saying it has not read them, until the answer is in.
     fleet.reading_models_with(models_reader);

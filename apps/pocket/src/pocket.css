@@ -1,4 +1,4 @@
-/* Pocket (#1997). Tokens only. */
+/* Pocket (#1997), and v2: every Mac on one list, a Job's thread. Tokens only. */
 .pk-app { height: 100%; display: flex; flex-direction: column; background: var(--bg-base); font-family: var(--font-mono); font-size: var(--text-xs); color: var(--fg-default); }
 .pk-screen { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 
@@ -10,33 +10,26 @@
 
 .pk-body { flex: 1; min-height: 0; overflow-y: auto; padding: var(--space-4); }
 .pk-list { margin: calc(-1 * var(--space-4)); padding: 0; list-style: none; }
-.pk-row { display: grid; grid-template-columns: var(--space-6) 1fr auto; column-gap: var(--space-3); row-gap: var(--space-1); align-items: center; width: 100%; padding: var(--space-4); border: 0; border-bottom: var(--border-width) solid var(--border-subtle); background: transparent; text-align: left; }
+.pk-row { display: grid; grid-template-columns: var(--space-6) minmax(0, 1fr) auto; column-gap: var(--space-3); row-gap: var(--space-1); align-items: center; width: 100%; padding: var(--space-4); border: 0; border-bottom: var(--border-width) solid var(--border-subtle); background: transparent; text-align: left; }
 button.pk-row:active { background: var(--bg-hover); }
 .pk-row[data-still] { color: var(--fg-muted); }
 .pk-row__title { font-family: var(--font-sans); font-size: var(--text-base); font-weight: var(--weight-medium); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pk-row__meta { grid-column: 2; color: var(--fg-muted); font-size: var(--text-2xs); }
 .pk-row__age { grid-row: 1; grid-column: 3; color: var(--fg-subtle); font-size: var(--text-2xs); }
-.pk-mark { width: var(--space-4); height: var(--space-4); flex: none; vertical-align: middle; }
-.pk-row .pk-mark { width: var(--space-6); height: var(--space-6); grid-row: 1 / span 2; }
-.pk-row:has(.pk-mark) { --tone: var(--status-escalated); }
-.pk-row .pk-mark { color: var(--status-escalated); }
-/* Status only: nothing on the phone opens it, so it carries no alert tone. */
-.pk-row[data-still] .pk-mark { color: var(--fg-subtle); }
+.pk-row__mark { grid-row: 1 / span 2; display: grid; place-items: center; }
+.pk-row__meta { display: flex; gap: var(--space-2); min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.pk-row__mac, .pk-band__mac { color: var(--fg-subtle); font-family: var(--font-mono); font-size: var(--text-2xs); }
+.pk-row__mac::before { content: "·"; margin-right: var(--space-2); }
+.pk-choice .pk-row__mac { margin-left: var(--space-2); }
+.pk-row__act { grid-row: 1 / span 2; grid-column: 3; }
 .pk-row[data-still] .pk-row__title { font-weight: var(--weight-body); }
-.pk-row .pk-live { color: var(--status-running); animation: pk-pulse 1.6s var(--ease-standard, ease-in-out) infinite; }
-@keyframes pk-pulse { 50% { opacity: 0.35; } }
+.pk-mac .pk-row__meta { white-space: normal; }
 .pk-spin { animation: pk-turn 1.1s linear infinite; }
 @keyframes pk-turn { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .pk-spin, .pk-live { animation: none; } }
-
-.pk-tabs { display: grid; grid-template-columns: repeat(3, 1fr); background: var(--bg-overlay); border-top: var(--border-width) solid var(--border-strong); padding-bottom: env(safe-area-inset-bottom); }
-.pk-tab { padding: var(--space-4) 0; border: 0; border-top: var(--edge-active) solid transparent; background: transparent; color: var(--fg-muted); font-weight: var(--weight-medium); }
-.pk-tab[aria-selected="true"] { color: var(--fg-default); border-top-color: var(--accent); background: var(--accent-faint); }
+@media (prefers-reduced-motion: reduce) { .pk-spin { animation: none; } }
 
 .pk-bar { display: grid; gap: var(--space-2); padding: var(--space-3) var(--space-4) calc(var(--space-4) + env(safe-area-inset-bottom)); background: var(--bg-overlay); border-top: var(--border-width) solid var(--border-strong); }
-.pk-pair-acts { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: var(--space-2); }
-.pk-dictate, .pk-line { width: 100%; box-sizing: border-box; padding: var(--space-3); border: var(--border-width) solid var(--border-strong); border-radius: var(--radius-md); background: var(--bg-sunken); color: var(--fg-default); font-family: var(--font-sans); font-size: var(--text-lg); line-height: var(--leading-lg); resize: none; }
-.pk-body .pk-dictate { margin-top: var(--space-4); }
+.pk-line { width: 100%; box-sizing: border-box; padding: var(--space-3); border: var(--border-width) solid var(--border-strong); border-radius: var(--radius-md); background: var(--bg-sunken); color: var(--fg-default); font-family: var(--font-sans); font-size: var(--text-lg); line-height: var(--leading-lg); resize: none; }
 
 .pk-question { margin: 0 0 var(--space-4); font-family: var(--font-sans); font-size: var(--text-lg); line-height: var(--leading-lg); font-weight: var(--weight-medium); }
 .pk-choices { display: grid; gap: var(--space-2); margin-top: var(--space-4); }
@@ -53,7 +46,20 @@ button.pk-row:active { background: var(--bg-hover); }
 .pk-waiting { border: 0; background: transparent; color: var(--status-awaiting-review); }
 .pk-waiting svg { width: var(--space-6); height: var(--space-6); }
 .pk-dim { color: var(--fg-subtle); }
-.pk-mark:empty { display: inline-block; }
 .pk-big { width: 100%; min-height: var(--space-12); }
-.pk-pair-acts .pk-big { width: auto; }
-.pk-continue { display: flex; align-items: center; justify-content: center; border-radius: var(--radius-md); background: var(--accent); color: var(--fg-inverse); font-weight: var(--weight-medium); text-decoration: none; }
+
+.pk-home { padding: 0; }
+.pk-home .pk-list { margin: 0; }
+.pk-home > .pk-fact { padding: var(--space-4); }
+.pk-section__head { margin: 0; padding: var(--space-4) var(--space-4) var(--space-2); color: var(--fg-muted); font-size: var(--text-2xs); font-weight: var(--weight-medium); }
+
+.pk-thread { padding: 0 var(--space-4); display: flex; flex-direction: column; }
+.pk-thread > * { flex: 1; min-height: 0; }
+.pk-trailing { display: grid; gap: var(--space-4); }
+.pk-ask { display: grid; gap: var(--space-2); }
+.pk-ask .pk-question { margin: 0; }
+.pk-ask .pk-choices { margin-top: 0; }
+.pk-compose { grid-template-columns: minmax(0, 1fr) auto; align-items: end; }
+
+.pk-shown__text { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-family: var(--font-mono); font-size: var(--text-xs); }
+.pk-shown__image { display: block; max-width: 100%; height: auto; }

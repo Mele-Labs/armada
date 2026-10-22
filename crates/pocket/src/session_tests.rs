@@ -330,7 +330,7 @@ async fn live_forwards_a_session_change_and_drops_everything_else() {
 }
 
 #[tokio::test]
-async fn unsigned_is_401_and_fleet_down_says_what_to_do() {
+async fn unsigned_is_400_and_fleet_down_says_what_to_do() {
     let (app, _) = rig().await;
     for (method, path) in [
         (Method::GET, "/api/sessions"),
@@ -339,7 +339,7 @@ async fn unsigned_is_401_and_fleet_down_says_what_to_do() {
         (Method::GET, "/api/needs"),
         (Method::GET, "/api/repositories"),
     ] {
-        assert_eq!(call(&app.rig.app, method, path, &[], "{}").await.0, StatusCode::UNAUTHORIZED, "{path}");
+        assert_eq!(call(&app.rig.app, method, path, &[], "{}").await.0, StatusCode::BAD_REQUEST, "{path}");
     }
     let closed = {
         let listener = crate::bind(0).await.unwrap();

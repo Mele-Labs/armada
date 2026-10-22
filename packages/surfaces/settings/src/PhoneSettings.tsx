@@ -1,4 +1,4 @@
-// Settings → Phone, over a `PhoneSource`. Draws nothing where the window has none.
+// Settings → Phone, over a `PhoneSource`: the access switch and pairing. Draws nothing where the window has none.
 
 import { Card, CardContent, CardHeader, CardTitle, PhonePairing, useNow, type PhoneProblem } from "@armada/components";
 
@@ -22,6 +22,8 @@ export function PhoneSettings({ onCopied }: { onCopied?: (value: string) => void
       </CardHeader>
       <CardContent>
     <PhonePairing
+      {...(state.access === null ? {} : { access: state.access })}
+      onTurn={(on) => source.turn(on)}
       {...(problem === undefined ? {} : { problem })}
       {...(state.pairing === null ? {} : { url: state.pairing.url, secondsLeft: (state.pairing.expiresAt - now) / 1000 })}
       {...(state.claim === null ? {} : { claim: state.claim })}
