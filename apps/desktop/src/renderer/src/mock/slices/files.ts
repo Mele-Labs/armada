@@ -16,8 +16,11 @@ export const files: Slice<FilesApi, Record<string, never>> = {
     let last: string | undefined;
     let picked = 0;
     const versionOf = (n: number) => `v${n}`;
+    // This disk is the checkout too: a path written relative to it is the file it ends in.
+    const keyOf = (path: string): string => (disk.has(path) ? path : ([...disk.keys()].find((one) => one.endsWith(`/${path}`)) ?? path));
     return {
-      readPanelFile: async (item) => {
+      readPanelFile: async (given) => {
+        const item = { ...given, path: keyOf(given.path) };
         // A file a scenario's ledger names that this disk was not given reads as its own name.
         if (!disk.has(item.path)) disk.set(item.path, { text: `${item.path.split("/").pop()}\n`, type: "text/plain", version: 1 });
         const file = disk.get(item.path)!;
@@ -33,7 +36,8 @@ export const files: Slice<FilesApi, Record<string, never>> = {
         });
         return { ok: true, ...(file.text === undefined ? {} : { text: file.text }), ...(file.bytes === undefined ? {} : { bytes: file.bytes }), type: file.type, version: versionOf(file.version) };
       },
-      savePanelFile: async (item, text, version) => {
+      savePanelFile: async (given, text, version) => {
+        const item = { ...given, path: keyOf(given.path) };
         const file = disk.get(item.path);
         if (file === undefined) return { state: "failed", detail: "The file is not on disk" };
         if (versionOf(file.version) !== version) return { state: "moved", onDisk: file.text ?? "", version: versionOf(file.version) };
@@ -44,7 +48,7 @@ export const files: Slice<FilesApi, Record<string, never>> = {
       pickPanelFile: async () => (picked++ % 2 === 0 ? CLOCK_FILE : PICTURE_FILE),
       openPanelFileIn: async () => ({ ok: true }),
       // The files a scenario put on the pretend disk are the ones its checkout has.
-      findPanelFiles: async (_sessionId, paths) => paths.filter((one) => disk.has(one)),
+      findPanelFiles: async (_sessionId, paths) => paths.filter((one) => disk.has(keyOf(one))),
       onPanelFileChanged: (onChanged) => {
         listeners.add(onChanged);
         return () => void listeners.delete(onChanged);

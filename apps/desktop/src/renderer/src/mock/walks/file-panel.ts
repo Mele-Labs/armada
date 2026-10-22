@@ -34,6 +34,11 @@ function steps(): Step[] {
     { press: inside(region("Jobs", { exact: true }), button("Store clock notes")), say: "A Session whose agent showed a file" },
     { press: inside(region("Thread"), button("Opened store-clock.md")), say: "Its row in the thread" },
     { look: editor("store-clock.md"), say: "The panel opens on it, in the editor" },
+    { press: close("store-clock.md"), say: "Close" },
+    { look: inside(region("Thread"), role("link", "docs/notes/store-clock.md")), say: "The agent's message names the file in backticks, and that is a link" },
+    { look: inside(region("Thread"), text("docs/notes/gone.md")), say: "A path that is not a file in the checkout stays plain" },
+    { press: inside(region("Thread"), role("link", "docs/notes/store-clock.md")), say: "Press the path" },
+    { look: editor("store-clock.md"), say: "The panel opens on it" },
   ];
 }
 
