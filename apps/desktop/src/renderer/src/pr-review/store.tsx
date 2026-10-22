@@ -247,8 +247,8 @@ export function createReviewStore(source: ReviewSource): ReviewStore {
   source.onNote(walks.noted);
   source.onClosed(walks.closed);
 
-  const kept = readKept<PullReviewLists>(KEPT);
-  if (kept !== undefined) arrive(kept, false);
+  const last = readKept<PullReviewLists>(KEPT);
+  if (last !== undefined) arrive(last, false);
 
   return {
     ...acts,
