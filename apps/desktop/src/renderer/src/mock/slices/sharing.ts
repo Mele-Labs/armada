@@ -14,7 +14,7 @@ const refusal = (code: string, message: string): SharingAnswer<never> => {
 };
 
 const idOf = ({ piece }: PieceToShare): string =>
-  piece.kind === "workflow" ? piece.workflow_id : piece.kind === "review_tool" ? piece.id : piece.kind === "manifest" ? "armada" : [...(piece.job ?? []), ...(piece.deck ?? [])].join("-");
+  piece.kind === "workflow" ? piece.workflow_id : piece.kind === "review_tool" ? piece.id : piece.kind === "manifest" ? "armada" : piece.kind === "requests" ? "requests" : [...(piece.job ?? []), ...(piece.deck ?? [])].join("-");
 
 const kindOf = ({ piece }: PieceToShare): PackagePiece["kind"] => (piece.kind === "flight_controls" ? "tile" : piece.kind);
 
@@ -33,7 +33,7 @@ export const sharing: Slice<SharingApi, Record<string, never>> = {
       commitToRepository: async (body) => {
         const id = idOf({ repository: body.repository, piece: body.piece });
         const path =
-          body.piece.kind === "workflow" ? `.armada/workflows/${id}.toml` : body.piece.kind === "review_tool" ? `.armada/review-tools/${id}.md` : body.piece.kind === "manifest" ? "armada.yml" : ".armada/flight-controls.toml";
+          body.piece.kind === "workflow" ? `.armada/workflows/${id}.toml` : body.piece.kind === "review_tool" ? `.armada/review-tools/${id}.md` : body.piece.kind === "manifest" ? "armada.yml" : body.piece.kind === "requests" ? ".armada/requests.toml" : ".armada/flight-controls.toml";
         return { ok: true, value: { repository: body.repository, session_id: `commit-${id}`, branch: `armada/commit-${id}`, paths: [path], commit: "4f2c9a1", pull_request: "https://git.example/acme/widgets/pull/42" } };
       },
       sharePackage: async (body) => {

@@ -1,0 +1,18 @@
+[operations.get_requests]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "The person's saved request collections and variable environments for your repository: each collection's requests, each environment's variables, and one environment for each server your Job is running, named server:<name>. A secret variable is answered by its name and whether it is set, never its value"
+notes = """
+Since 21 Oct 2026. `GET /requests?repository=&session_id=`: `repository` a root `list_repositories` names, and `session_id`, optional, a Job in it. Where neither is given, the repository of the Job whose process holds the connection, as `send_request` places its Job. A 422 `fleet.requests_unplaced` where nothing names a repository, and a 404 `fleet.run_memory_repository_not_served` for one Fleet does not serve.
+
+`Requests`: `repository`, `place` (`RunPlace`, where the person's own file was read), `collections`, `environments` and `not_read`. Each collection is `RequestCollection` `{ id, name, headers, requests }`, each request `SavedRequest` `{ id, name, method, url, headers, body? }`, and each environment `RequestEnvironmentRead` `{ name, variables }`. Each collection and environment also carries `place` (`yours`, `repository` or `server`) and `hides`.
+
+**Two files, read on each call and never cached.** The person's own is `requests/<key>.toml` at the repository's place, as `get_repository_flight_controls` reads its file: `this_mac` under `~/.armada/`, `synced` under the synced folder, and `cloud` with a bucket the object `<prefix>/requests/<key>.toml`; `cloud` with Armada's store, and `repository`, read the `this_mac` file and answer `place: this_mac`. The repository's is its committed `.armada/requests.toml`, read from the tree of the Job named where it holds a slot, and from the repository's checkout otherwise. Both are `RequestsFile`, `version` 1: `[[collection]]` tables with `[[collection.requests]]`, and `[[environment]]` tables with `variables`. The global `~/.armada/requests.toml` is no longer read.
+
+**The person's own wins**: a collection of the same `id`, or an environment of the same `name`, is listed once, as `yours` with `hides: true`, and the repository's is not listed. An absent file reads as an empty one. **A file that will not read is named in `not_read`**, `{ place, why }`, and none of its items are listed, so it is never drawn as empty and saved over: a save while the person's own will not read is refused.
+
+**A variable is answered as `VariableRead`**: a plain one `{ name, secret: false, value }`, a secret `{ name, secret: true, set }`, `set` saying the Keychain holds a value for it. **A secret's value is never answered**, and a file spelling one does not read. **Server environments** follow, one for each server running in the Job's slot, named `server:<name>` with the one variable `base`, `http://localhost:<port>` on the first port it serves on, and `place: server`. None without a Job.
+
+`agent_access` is `Yes`: `send_request` names a saved request and an environment, and an agent has no other way to find their names. No secret's value is in the answer, and a plain variable is what the person typed to be used.
+"""

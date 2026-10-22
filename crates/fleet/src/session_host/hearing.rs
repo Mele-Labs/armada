@@ -371,6 +371,12 @@ where
         if moving.is_none() {
             self.turn_end_kept(id, &now, said.as_deref()).await;
         }
+        // A done or a walk the reply claims without its call. Read here and sent once the turn is
+        // settled below, since a restart after the turn lets the process go with what was written to it.
+        let claim = match &moving {
+            None => self.unbacked_claim(id, &now, said.as_deref()).await,
+            Some(_) => None,
+        };
         // **Once, where the turn ends**, never on the rows between. A turn held for a slot and
         // resumed in it is one turn to the person, so that move's end is not entered.
         if moving.is_none() {
@@ -401,6 +407,9 @@ where
         if let Some(late) = late {
             self.moved_into(id, late).await;
             return;
+        }
+        if let Some(claim) = claim {
+            self.claim_reminded(id, claim).await;
         }
         let _ = self.published_hosted(id).await;
         if runtime.state().queued > 0 {

@@ -265,6 +265,9 @@ approximations.
 - [`spikes/033-what-does-the-css-cockpit-map-cost.md`](spikes/033-what-does-the-css-cockpit-map-cost.md)
   — the baseline the Pixi rebuild of the Cockpit map was measured against, and the canvas map beside
   it: CPU, frames and layers idle, busy and panning, from `apps/desktop/scripts/trace-map.mjs`.
+- [`spikes/034-can-fleet-keep-a-cookie-in-the-keychain.md`](spikes/034-can-fleet-keep-a-cookie-in-the-keychain.md)
+  — a cookie written through `/usr/bin/security` over stdin is read back by two rebuilt, ad-hoc
+  signed binaries with no prompt; the Security framework in Fleet's own process was not run.
 - [`spikes/035-which-mcp-settings-keep-a-hosted-jobs-first-turn-quick.md`](spikes/035-which-mcp-settings-keep-a-hosted-jobs-first-turn-quick.md)
   — a startup wait of 0 with a 120-second `MCP_TIMEOUT` starts a hosted Job's first turn in a second
   and still connects a 45-second server; the door is waited for because it serves the permission tool.
