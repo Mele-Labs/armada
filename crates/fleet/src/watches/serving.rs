@@ -13,6 +13,7 @@ use store::{KeptWatch, KeptWatchSetAside, KeptWatchVerdict};
 use super::telling::{owed, unsaid};
 use super::*;
 use crate::daemon::Fleet;
+use crate::session_host::NO_SUCH_SESSION;
 
 /// What a start comes to before it is kept: the command filled, and its two spans in seconds.
 struct Resolved {

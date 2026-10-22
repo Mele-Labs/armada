@@ -732,7 +732,8 @@ Bridge's half is `packages/protocol/src/watches.ts`, written by hand, field for 
 **A value fills one whole argument.** A recipe's item written `{sha}` is replaced by `values.sha`, and no item is read by a shell.
 **The Job is the connection's** where Fleet hosts it, else the body's `session_id`, as `send_request`'s is. A placed Job weighs and stops its own watches only; Bridge places none and stops any.
 
-**Run and kept.** The store keeps every watch, its newest 50 readings, set-asides, verdicts and the notices told, so a restart carries on (`store::KeptWatch`). Fleet runs due watches on a 5 second timer of their own, `fleet::watches::running`.
+**Run and kept.** The store keeps every watch, its newest 50 readings, set-asides, verdicts and the notices told, so a restart carries on (`store::KeptWatch`).
+Fleet runs due watches on a 5 second timer of their own, `fleet::watches::running`.
 
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 **The event stream.** `watches.changed` carries a Job's watches whole, history included, on a start, a weighing, a Stop, an end and a reading that reads differently from the one before.

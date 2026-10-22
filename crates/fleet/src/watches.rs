@@ -45,8 +45,6 @@ pub(crate) const VALUE_REFUSED: &str = "fleet.watch_value_refused";
 pub(crate) const TOO_OFTEN: &str = "fleet.watch_too_often";
 /// `gives_up_after` past the day `timeouts.watchGiveUpMinutes` allows at most. A 422.
 pub(crate) const GIVES_UP_TOO_LATE: &str = "fleet.watch_gives_up_too_late";
-/// A `session_id` naming no Job Fleet holds. A 422, as a hosted session's own is.
-pub(crate) const NO_SUCH_SESSION: &str = "fleet.no_such_session";
 /// No watch by that id, or one another Job holds. A 404.
 pub(crate) const NO_SUCH_WATCH: &str = "fleet.no_such_watch";
 /// A verdict on a watch that has ended. A 409.
