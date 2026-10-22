@@ -8,7 +8,7 @@ import { StrictMode, useEffect } from "react";
 import type { ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { Boundary, LayoutSourceProvider } from "@armada/shell";
-import { HapticsProvider, forgetAllKept } from "@armada/components";
+import { HapticsProvider, forgetAllKept, writeKept } from "@armada/components";
 
 import "../styles/index.css";
 import "@armada/components/src/look";
@@ -49,7 +49,8 @@ import { createMockKitModels } from "./kit-models";
 import { AccountFrom } from "./account";
 import { SharedHomeFrom } from "./shared-home";
 import { PrOwnersFrom } from "./pr-owners";
-import { ReviewsFrom, createReviewStore } from "../pr-review/store";
+import { KEPT_LISTS, ReviewsFrom, createReviewStore } from "../pr-review/store";
+import { keptReading } from "./review-forge";
 import { SharedPanelFrom } from "../shared-panel/reads";
 import { SharedPanelHost } from "../shared-panel/host";
 import { SharedPanelOver } from "../shared-panel/wired";
@@ -132,9 +133,15 @@ export function mountApp(
   // from the fake Fleet as a real window does everywhere else.
   const panelReads = chosen.draft?.sharedPanel?.();
   // The review surface starts as a window does: nothing fetched, nothing open, the Cockpit on its work.
-  const reviews = chosen.draft?.prReview === undefined ? undefined : createReviewStore(reviewSourceOf(api));
-  // And with nothing kept from an earlier pass: no saved Ask text, so a replay meets the same page the walk was written against.
-  if (reviews !== undefined) forgetAllKept();
+  // And with nothing kept from an earlier pass, so a replay meets the same page the walk was written against: no saved Ask
+  // text. Cleared before the store is made, since the store draws what is kept at once; a scenario that plays a relaunch keeps a reading of the lists.
+  const seed = chosen.draft?.prReview;
+  if (seed !== undefined) {
+    forgetAllKept();
+    const last = keptReading(seed);
+    if (last !== undefined) writeKept(KEPT_LISTS, last);
+  }
+  const reviews = seed === undefined ? undefined : createReviewStore(reviewSourceOf(api));
   // A scenario that adds to its timeline as time passes holds it here, and moves it when the fake's moment does.
   const timeline = chosen.draft?.eventsLater === undefined ? undefined : eventsLater(chosen.draft.events ?? [], chosen.draft.eventsLater);
   if (timeline !== undefined && shared === undefined) alsoOnTimePassing(timeline.advance);

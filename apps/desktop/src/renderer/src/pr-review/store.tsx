@@ -99,7 +99,7 @@ const stubPage = (row: PullReviewRow): PullRequestPage => ({
 
 const keyOf = (row: PullReviewRow): string => `${row.repository}#${row.number}`;
 
-const KEPT = "pr-review:lists";
+export const KEPT_LISTS = "pr-review:lists";
 
 const LISTS: readonly PrList[] = ["requested", "team", "assigned", "mine"];
 
@@ -233,7 +233,7 @@ export function createReviewStore(source: ReviewSource): ReviewStore {
     for (const manifestId of new Set(prs.map((one) => one.manifestId))) acts.readTools(manifestId);
     if (!fresh) return;
     // Kept so the next launch draws rows at once instead of an empty panel until Fleet answers.
-    writeKept(KEPT, lists);
+    writeKept(KEPT_LISTS, lists);
     // The pull request open in the reader is read again, since a commit may have been pushed to it, and so are its runs.
     if (snapshot.open !== undefined && prOf(snapshot.open) !== undefined) {
       readPage(snapshot.open);
@@ -247,7 +247,7 @@ export function createReviewStore(source: ReviewSource): ReviewStore {
   source.onNote(walks.noted);
   source.onClosed(walks.closed);
 
-  const last = readKept<PullReviewLists>(KEPT);
+  const last = readKept<PullReviewLists>(KEPT_LISTS);
   if (last !== undefined) arrive(last, false);
 
   return {
