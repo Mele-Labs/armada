@@ -136,9 +136,17 @@ export const ItemReading: Story = {
 /** The row a live server is drawn on, found by the press that opens it. */
 const serverRow = (servers: HTMLElement, name: string): HTMLElement => within(servers).getByRole("button", { name: new RegExp(`^${name.replace(/[()]/g, "\\$&")}`) }).closest("li")!;
 
+/** The acts a row's menu holds, by name, once its caret is pressed. */
+async function menuOf(row: HTMLElement, name: string, userEvent: { click: (element: Element) => Promise<void> }): Promise<string[]> {
+  await userEvent.click(within(row).getByRole("button", { name: `More for ${name}` }));
+  const menu = within(row).getByRole("menu", { name: `More for ${name}` });
+  return within(menu).getAllByRole("menuitem").map((one) => one.textContent ?? "");
+}
+
 /**
- * A hosted Job's servers read live, one in each state: a mark and the CLI's words where it is not connected, and the
- * one act its state takes. Connected draws no mark and offers Turn off; connecting offers nothing.
+ * A hosted Job's servers read live, one in each state: a mark and the CLI's words where it is not connected, its
+ * state's act on the face and the others its state takes in the menu. Connected draws no mark and offers Turn off,
+ * with Reconnect behind it; off offers Turn on alone; connecting offers nothing.
  */
 export const LiveServers: Story = {
   args: { onOpenItem: fn(), mcp: { servers: MCP_SERVERS, onAct: fn() } },
@@ -148,12 +156,16 @@ export const LiveServers: Story = {
     await expect(within(fleet).queryByRole("img")).not.toBeInTheDocument();
     await expect(fleet).toHaveTextContent("71 tools");
     await expect(within(fleet).getByRole("button", { name: "Turn off armada-fleet" })).toBeInTheDocument();
+    await expect(await menuOf(fleet, "armada-fleet", userEvent)).toEqual(["Reconnect"]);
+    await userEvent.click(within(fleet).getByRole("menuitem", { name: "Reconnect" }));
+    await expect(args.mcp!.onAct).toHaveBeenCalledWith("armada-fleet", "reconnect");
 
     const devtools = serverRow(servers, "chrome-devtools");
     await expect(within(devtools).getByRole("img", { name: "Failed" })).toBeInTheDocument();
     await expect(devtools).toHaveTextContent("timed out after 30s");
     await userEvent.click(within(devtools).getByRole("button", { name: "Reconnect chrome-devtools" }));
     await expect(args.mcp!.onAct).toHaveBeenCalledWith("chrome-devtools", "reconnect");
+    await expect(await menuOf(devtools, "chrome-devtools", userEvent)).toEqual(["Turn off"]);
 
     const rovo = serverRow(servers, "Atlassian Rovo (2)");
     await expect(within(rovo).getByRole("img", { name: "Connecting" })).toBeInTheDocument();
@@ -162,16 +174,19 @@ export const LiveServers: Story = {
     const mailroom = serverRow(servers, "mailroom");
     await expect(within(mailroom).getByRole("img", { name: "Needs sign-in" })).toBeInTheDocument();
     await expect(within(mailroom).getByRole("button", { name: "Sign in mailroom" })).toBeInTheDocument();
+    await expect(await menuOf(mailroom, "mailroom", userEvent)).toEqual(["Reconnect", "Turn off"]);
 
     const ledger = serverRow(servers, "ledger");
     await expect(within(ledger).getByRole("img", { name: "Off" })).toBeInTheDocument();
     await expect(within(ledger).getByRole("button", { name: "Turn on ledger" })).toBeInTheDocument();
+    await expect(within(ledger).queryByRole("button", { name: "More for ledger" })).not.toBeInTheDocument();
   },
 };
 
 /**
- * An act out shows on its row and takes no second press. A refusal is Fleet's words on its row. A server whose sign-in
- * page was opened offers Reconnect, since a connector page sends nothing back.
+ * An act out shows on its row's face, the one from the menu too, and takes no second press. A refusal is Fleet's words
+ * on its row. A server whose sign-in page was opened offers Reconnect, with Sign in behind it again, since a connector
+ * page sends nothing back.
  */
 export const LiveActs: Story = {
   args: {
@@ -179,18 +194,24 @@ export const LiveActs: Story = {
     mcp: {
       servers: [
         { name: "chrome-devtools", state: "failed", error: "timed out after 30s", tools: 0, acting: "reconnect" },
+        { name: "forge", state: "failed", error: "timed out after 30s", tools: 0, acting: "turn_off" },
         { name: "mailroom", state: "needs_sign_in", tools: 0, signedIn: true },
         { name: "ledger", state: "off", tools: 0, refused: "The Job's process did not answer." },
       ],
       onAct: fn(),
     },
   },
-  play: async () => {
+  play: async ({ userEvent }) => {
     const servers = within(await screen.findByRole("dialog", { name: "Loadout" })).getByRole("region", { name: "MCP servers" });
     const reconnecting = within(serverRow(servers, "chrome-devtools")).getByRole("button", { name: "Reconnecting chrome-devtools" });
     await expect(reconnecting).toHaveAttribute("aria-busy", "true");
     await expect(reconnecting).toHaveAttribute("aria-disabled", "true");
-    await expect(within(serverRow(servers, "mailroom")).getByRole("button", { name: "Reconnect mailroom" })).toBeInTheDocument();
+    await expect(within(serverRow(servers, "chrome-devtools")).getByRole("button", { name: "More for chrome-devtools" })).toBeDisabled();
+    const turningOff = within(serverRow(servers, "forge")).getByRole("button", { name: "Turning off forge" });
+    await expect(turningOff).toHaveAttribute("aria-busy", "true");
+    const mailroom = serverRow(servers, "mailroom");
+    await expect(within(mailroom).getByRole("button", { name: "Reconnect mailroom" })).toBeInTheDocument();
+    await expect(await menuOf(mailroom, "mailroom", userEvent)).toEqual(["Sign in", "Turn off"]);
     await expect(serverRow(servers, "ledger")).toHaveTextContent("The Job's process did not answer.");
   },
 };
