@@ -7,6 +7,11 @@
 //! concept doc's rule puts it on the forge's runner or in a sleeping bay, and
 //! keeping it there is whoever schedules it.
 //!
+//! **A sleeping bay still shares the machine**, so it runs as a Check does:
+//! `width` wide, at utility priority, with cargo's jobs capped at `width`
+//! unless a build pool is offered. The caller holds Fleet's build pool around
+//! [`record`](TestCollector::record); this does not take it.
+//!
 //! **A profile is tied to its test by a target runner.** nextest runs each
 //! test in a process of its own and names it in `NEXTEST_TEST_NAME`, which
 //! `LLVM_PROFILE_FILE` cannot expand; the runner script reads it and points
@@ -20,6 +25,7 @@ use std::process::Command;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use adapter_traits::{CollectorSource, Lap, LapCost, LapGrain, NotRecorded, TestCollector, TestsToRecord};
+use checks_runner::{build_cap, CheckWidth};
 use core_model::Narrowing;
 
 use crate::background::command;
@@ -42,15 +48,18 @@ static NEXT_RUNNER: AtomicU64 = AtomicU64::new(0);
 pub struct NextestCoverage {
     under: Option<String>,
     except: Vec<String>,
+    width: CheckWidth,
 }
 
 impl NextestCoverage {
-    /// For a Check narrowed as `narrowing`: its laps name members as `under`
-    /// spells them, and the members `except` bars are never run.
-    pub fn for_check(narrowing: Option<&Narrowing>) -> NextestCoverage {
+    /// For a Check narrowed as `narrowing`, run `width` wide: its laps name
+    /// members as `under` spells them, and the members `except` bars are never
+    /// run.
+    pub fn for_check(narrowing: Option<&Narrowing>, width: CheckWidth) -> NextestCoverage {
         NextestCoverage {
             under: narrowing.and_then(Narrowing::under).map(str::to_string),
             except: narrowing.map(|declared| declared.except().to_vec()).unwrap_or_default(),
+            width,
         }
     }
 }
@@ -89,6 +98,8 @@ impl TestCollector for NextestCoverage {
 
         let mut run = command("cargo");
         run.current_dir(&root).args(self.arguments(tests));
+        // A Check's own cap: nothing where the caller hands it a pool.
+        run.envs(build_cap(self.width));
         for (name, _) in std::env::vars_os() {
             if name.to_string_lossy().starts_with("NEXTEST_") {
                 run.env_remove(&name);
@@ -135,8 +146,9 @@ impl TestCollector for NextestCoverage {
 }
 
 impl NextestCoverage {
-    fn arguments(&self, tests: &TestsToRecord) -> Vec<String> {
+    pub(crate) fn arguments(&self, tests: &TestsToRecord) -> Vec<String> {
         let mut arguments: Vec<String> = ["nextest", "run", "--workspace", "--no-fail-fast"].map(String::from).to_vec();
+        arguments.extend(["--test-threads".to_string(), self.width.get().to_string()]);
         for member in &self.except {
             arguments.extend(["--exclude".to_string(), member.clone()]);
         }
@@ -336,7 +348,12 @@ impl LlvmTools {
 
 /// Standard output of a command that has to succeed.
 fn said(command: &mut Command) -> Result<String, NotRecorded> {
-    let named = format!("{:?}", command.get_program());
+    // The whole line: at low priority the program is the wrap, not the tool.
+    let named = std::iter::once(command.get_program())
+        .chain(command.get_args())
+        .map(|word| word.to_string_lossy().into_owned())
+        .collect::<Vec<_>>()
+        .join(" ");
     let out = command
         .output()
         .map_err(|why| NotRecorded(format!("{named} would not start: {why}")))?;

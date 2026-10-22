@@ -4,11 +4,20 @@
 use std::path::{Path, PathBuf};
 
 use adapter_traits::{TestCollector, TestsToRecord};
+use checks_runner::CheckWidth;
 use core_model::Narrowing;
 
 use super::scratch::Scratch;
 use crate::test_map::{files_reached, in_repository, llvm_major, member_of, tool_folders};
 use crate::NextestCoverage;
+
+#[test]
+fn a_measured_run_runs_as_many_tests_at_once_as_its_width() {
+    let arguments = NextestCoverage::for_check(None, CheckWidth::of(3)).arguments(&TestsToRecord::All);
+
+    let threads = arguments.iter().position(|word| word == "--test-threads").expect("a width is passed");
+    assert_eq!(arguments[threads + 1], "3");
+}
 
 #[test]
 fn an_lcov_export_names_only_the_files_it_ran_a_line_of() {
@@ -115,7 +124,7 @@ fn each_measured_lap_names_exactly_the_files_its_test_reaches() {
         Some("crates".to_string()),
         Vec::new(),
     );
-    let collector = NextestCoverage::for_check(Some(&narrowing));
+    let collector = NextestCoverage::for_check(Some(&narrowing), CheckWidth::of(2));
 
     let laps = collector
         .record("test", &fixture.path().to_string_lossy(), &TestsToRecord::All)
