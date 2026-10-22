@@ -190,7 +190,18 @@ pub(crate) struct GroupChoice {
     pub choices: Vec<(String, String)>,
 }
 
-/// The group the Session is on.
-pub(crate) fn group_choice(_plan: Option<&SessionPlan>) -> GroupChoice {
-    GroupChoice::default()
+/// The group the Session is on. **None for a plan the person has not approved**: it is a proposal and
+/// not the work.
+pub(crate) fn group_choice(plan: Option<&SessionPlan>) -> GroupChoice {
+    let Some(plan) = plan.filter(|plan| plan.approved) else { return GroupChoice::default() };
+    let working = plan
+        .groups
+        .iter()
+        .find(|group| group.tasks.iter().any(|task| task.state == ipc::PlanTaskState::Working))
+        .map(|group| group.id.clone());
+    let choices = match working {
+        Some(_) => Vec::new(),
+        None => plan.groups.iter().map(|group| (group.id.clone(), group.title.clone())).collect(),
+    };
+    GroupChoice { working, choices }
 }

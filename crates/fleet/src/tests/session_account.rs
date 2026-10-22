@@ -6,8 +6,11 @@
 
 use std::sync::Arc;
 
-use api::HostedSessions;
-use ipc::{SessionAccount, SessionId, SessionRecord, SessionRow, SessionVoice};
+use api::{HostedSessions, Sessions};
+use ipc::{
+    ApprovePlan, PlanGroupInput, PlanTaskInput, PlanTaskState, RecordPlan, SessionAccount, SessionId, SessionRecord,
+    SessionRow, SessionVoice,
+};
 use testkit::FakeJudge;
 
 use super::session_host::{eventually, rig_fitted, Rig};
@@ -126,4 +129,78 @@ fn a_line_that_names_code_is_dropped_and_a_plain_one_with_a_product_name_is_kept
     assert_eq!(written.now, None, "`none` is no line");
     assert_eq!(written.next.as_deref(), Some("Check the page"));
     assert_eq!(read("done: Edited gate.rs", &[]), None, "nothing left, no account");
+}
+
+// ---- The plan group an account names ----
+
+const PLANNED: &str = "done: Made the tables\nnow: Writing the rest\nnext: Check it";
+
+fn group(title: &str, tasks: &[&str]) -> PlanGroupInput {
+    PlanGroupInput {
+        id: None,
+        title: title.to_string(),
+        agent: "rust-engineer".to_string(),
+        paths: vec![format!("crates/{}", title.to_lowercase())],
+        issue: None,
+        gives: None,
+        tasks: tasks.iter().map(|title| PlanTaskInput { id: None, title: title.to_string() }).collect(),
+    }
+}
+
+/// A plan of two groups, g1 Store (t1, t2) and g2 Fleet (t3), recorded and, where `approved`, approved.
+async fn planned(rig: &Rig, id: &SessionId, approved: bool) {
+    let groups = vec![group("Store", &["Add the tables", "Add the migration"]), group("Fleet", &["Record it"])];
+    let plan = RecordPlan { summary: "You get a plan.".into(), groups, sketch: None, walk: None, session_id: Some(id.clone()) };
+    rig.fleet.record_plan(None, plan).await.expect("recorded");
+    if approved {
+        Arc::clone(&rig.fleet).approve_plan(ApprovePlan { session_id: id.clone(), version: 1 }).await.expect("approved");
+    }
+}
+
+/// The agent's own list marks `text` in progress, and Fleet has read it into the plan.
+async fn at_work_on(rig: &Rig, id: &SessionId, text: &str) {
+    let list = format!(r#"{{"todos":[{{"content":"{text}","status":"in_progress","activeForm":"x"}}]}}"#);
+    rig.gate(id, "TodoWrite", &list).await;
+    eventually(|| async {
+        let plan = record(rig, id).await.plan;
+        plan.is_some_and(|plan| plan.groups.iter().flat_map(|one| &one.tasks).any(|task| task.state == PlanTaskState::Working))
+    })
+    .await;
+}
+
+#[tokio::test]
+async fn a_working_task_in_group_two_sets_group_two() {
+    let (rig, _judge, _home) = rig_writing(PLANNED);
+    let id = working(&rig, "record the plan").await;
+    planned(&rig, &id, true).await;
+    at_work_on(&rig, &id, "Record it").await;
+
+    rig.gate(&id, "Read", r#"{"file_path":"/elsewhere/a.rs"}"#).await;
+    eventually(|| async { account(&rig, &id).await.is_some() }).await;
+    assert_eq!(account(&rig, &id).await.expect("an account").group.as_deref(), Some("g2"));
+}
+
+#[tokio::test]
+async fn no_approved_plan_sets_no_group_whatever_the_model_names() {
+    let (rig, judge, _home) = rig_writing(&format!("{PLANNED}\ngroup: g1"));
+    let id = working(&rig, "record the plan").await;
+    planned(&rig, &id, false).await;
+    at_work_on(&rig, &id, "Record it").await;
+
+    rig.gate(&id, "Read", r#"{"file_path":"/elsewhere/a.rs"}"#).await;
+    eventually(|| async { account(&rig, &id).await.is_some() }).await;
+    assert_eq!(account(&rig, &id).await.expect("an account").group, None, "a plan he has not approved is not the work");
+    assert!(asked(&judge).iter().all(|question| !question.contains("Name the one it is on")), "and none is offered");
+}
+
+#[tokio::test]
+async fn with_no_task_at_work_the_model_picks_among_the_approved_groups() {
+    let (rig, judge, _home) = rig_writing(&format!("{PLANNED}\ngroup: g1"));
+    let id = working(&rig, "record the plan").await;
+    planned(&rig, &id, true).await;
+
+    rig.gate(&id, "Read", r#"{"file_path":"/elsewhere/a.rs"}"#).await;
+    eventually(|| async { account(&rig, &id).await.is_some() }).await;
+    assert_eq!(account(&rig, &id).await.expect("an account").group.as_deref(), Some("g1"), "its pick");
+    assert!(asked(&judge)[0].contains("g2 — Fleet"), "from the groups it was offered");
 }
