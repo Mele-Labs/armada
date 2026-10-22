@@ -5,7 +5,9 @@
 import { expect, test } from "vitest";
 
 import { FLAT, type P3 } from "./layout";
-import { KEY_PAN, ZOOM_STEP, edgeOf, homeOf, limitsOf, panned, projectOf, unproject, zoomed, type Cam } from "./camera";
+import { KEY_PAN, LOCK_EYE, ZOOM_STEP, edgeOf, homeBeside, homeOf, limitsOf, panned, projectOf, unproject, zoomed, type Cam } from "./camera";
+import { slabMarks, unitOf } from "./lens";
+import { SLAB_CARD } from "./pixi/scene";
 
 const SIZE = { width: 1000, height: 640 };
 const PLANE = { width: 1800, height: 1150 * FLAT };
@@ -138,4 +140,29 @@ test("a call inside the pane has no edge marker, and one outside has it on the b
   // Pointing up the screen.
   expect(above.angle).toBeLessThan(-45);
   expect(above.angle).toBeGreaterThan(-135);
+});
+
+test("while the lens's card shows, the drone and its slab, at the height it rises, are framed clear of the card", () => {
+  // A drone over a file near the top right of the plane, where the card stands, the slab its file lifts, and a plot it touched far
+  // down to the left: framed in the whole pane, the drone would stand under the card.
+  const drone = [at(1500, 200, 0), at(1460, 200, 90), at(1540, 200, 90), at(300, 900, 0)];
+  const spec = { path: "a.ts", card: true, rows: [], counts: "+1 −0", tile: "apps/desktop", at: { x: 1500, y: 200 * FLAT }, mark: { x: 1497, y: 200 * FLAT - 1, w: 6, h: 2 }, w: SLAB_CARD.w, d: SLAB_CARD.d, up: SLAB_CARD.up };
+  const card = { l: SIZE.width - 60 - 288, t: 12, r: SIZE.width - 60, b: 12 + 192 };
+  const cam = homeBeside(SIZE, PLANE, (eye) => [...drone, ...slabMarks(spec, 0, unitOf(eye))], card, LOCK_EYE)!;
+  const pixel = (p: P3) => {
+    const there = shown(p, cam);
+    return { x: SIZE.width / 2 + there.x, y: SIZE.height / 2 + there.y };
+  };
+  for (const one of [...drone, ...slabMarks(spec, 0, unitOf(cam.eye))]) {
+    const { x, y } = pixel(one);
+    expect(x >= card.l && x <= card.r && y >= card.t && y <= card.b).toBe(false);
+    expect(x).toBeGreaterThanOrEqual(0);
+    expect(y).toBeGreaterThanOrEqual(0);
+    expect(x).toBeLessThanOrEqual(SIZE.width);
+    expect(y).toBeLessThanOrEqual(SIZE.height);
+  }
+});
+
+test("a pane the card leaves too little of frames nothing beside it", () => {
+  expect(homeBeside(SIZE, PLANE, [at(100, 100), at(900, 900)], { l: 40, t: 12, r: SIZE.width - 60, b: SIZE.height - 100 })).toBeUndefined();
 });

@@ -6,7 +6,8 @@
 // slider scrubs back through the Job's reads and writes: the glow, the drone and a numbered route stand as they were, and the right end is
 // live. A drone not coding leaves the floor: to the pad at the near edge while a check runs or a walk is open, risen over its file while it
 // thinks, beaming to an outpost while it calls (`field-now.ts`). A strip over the map names each drone and what it is doing; a press frames
-// the camera on it. `docs/concepts/cockpit.md`, *A Job open*. The control in the band, or `deck_field`'s key (`DeckHost.tsx`), opens the Field large.
+// the camera on it. A file a drone of the Job is writing lifts as a slab with its minimap, and a card at the top right shows its newest
+// hunk; the card follows the newest writer, or the drone a strip press pinned (`field-lens.ts`). `docs/concepts/cockpit.md`, *A Job open*. The control in the band, or `deck_field`'s key (`DeckHost.tsx`), opens the Field large.
 
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { Maximize2 } from "lucide-react";
@@ -24,6 +25,7 @@ import { outpostsOf } from "../cockpit/deck/outposts";
 import type { DroneIn, FileIn, RepoIn } from "../cockpit/deck/layout";
 import { neighbours, windowOf } from "../cockpit/deck/replay";
 import { ReplayMark, ReplayTrack } from "../cockpit/deck/ReplayBar";
+import { countsOf, type Slab } from "../cockpit/deck/lens";
 import { same } from "../cockpit/deck/pixi/same";
 import { select } from "../cockpit/deck/store";
 import { useFleetEvents } from "../cockpit/fleet-events";
@@ -31,6 +33,8 @@ import { useSessions } from "../sessions-draft";
 import { isWorking, touchedPlots, workingDrones } from "./field";
 import { PlanBar } from "./FieldPlan";
 import { FieldStrip } from "./FieldStrip";
+import { FieldLensCard } from "./FieldLensCard";
+import { useLens, useShown } from "./field-lens";
 import { placedNow, stripOf, useLiftsAndReturns, useMainNow } from "./field-now";
 import { groupsOf, plotsOf } from "./field-plan";
 import { toggleLayer, useLayer } from "./layers";
@@ -175,7 +179,7 @@ function useJobField(session: Session, repositories: readonly RepositorySummary[
   const groups = useMemo(() => (plan === undefined ? [] : groupsOf(plan)), [plan]);
   const plots = areas.flatMap((area) => (area.kids.length === 0 ? [area.dir] : area.kids.map(([kid]) => `${area.dir}/${kid}`)));
   const planned = useMemo(() => (plan === undefined ? undefined : plotsOf(plan, plots)), [plan, plots.join("|")]);
-  return { repos, flying, groups, planned, touched, glow, route, framing, mine, bursts, held, clock, lights: useSteady(lights), walk: at === undefined ? walk : undefined, plays, outposts, strip };
+  return { repos, flying, groups, planned, touched, glow, route, framing, mine, bursts, held, clock, lights: useSteady(lights), walk: at === undefined ? walk : undefined, plays, outposts, strip, own, job, roots };
 }
 
 /** The slider under the plan: from the Job's first read or write in the window to now, a tick for each. The right end is live. */
@@ -220,9 +224,15 @@ export function FieldMap({ session, repositories, large = false }: { session: Se
     setPinned(undefined);
   }, [session.id]);
   const pick = useCallback((key: string) => setPinned((was) => (was === key ? undefined : key)), []);
-  const { repos, flying, groups, planned, touched, glow, route, framing, mine, held, clock, lights, walk, plays, outposts, strip } = useJobField(session, repositories, at);
+  const { repos, flying, groups, planned, touched, glow, route, framing, mine, bursts, held, clock, lights, walk, plays, outposts, strip, own, job, roots } = useJobField(session, repositories, at);
+  // The lens: asked for and drawn only while the Field is live and shown.
+  const box = useRef<HTMLDivElement>(null);
+  const shown = useShown(box);
+  const lens = useLens({ session: session.id, drones: own, pinned, events: job, roots, bursts, active: at === undefined && shown });
+  const slabs = useMemo<Slab[]>(() => lens.slabs.map((one) => ({ path: one.path, card: one.card, rows: one.diff.rows, counts: countsOf(one.diff) })), [lens.slabs]);
+  const [typing, setTyping] = useState(false);
   return (
-    <div className="sv-field sv-field--plan" data-large={large || undefined}>
+    <div ref={box} className="sv-field sv-field--plan" data-large={large || undefined}>
       <FieldStrip entries={strip} pinned={pinned} onPick={pick} />
       <div className="sv-field__map">
         {at === undefined ? null : <ReplayMark />}
@@ -241,6 +251,9 @@ export function FieldMap({ session, repositories, large = false }: { session: Se
           outposts={outposts}
           lights={lights}
           walk={walk}
+          lens={slabs}
+          lensCard={lens.card === undefined ? undefined : <FieldLensCard card={lens.card} large={large} onTyping={setTyping} />}
+          typing={typing && lens.card !== undefined}
           onClear={() => setPinned(undefined)}
           own={large ? `${session.id}:large` : session.id}
           {...(planned === undefined ? {} : { planned })}
