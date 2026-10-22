@@ -152,11 +152,32 @@ fn paging_follows_next_links_on_this_api_and_no_link_elsewhere() {
     });
     base.set(server.url.clone()).unwrap();
     let (api, _) = api(&server.url, &["t"]);
-    let pages = api.get_paged("/repos/o/r/pulls").unwrap();
-    let rows: Vec<Vec<u8>> = pages.iter().map(|page| page.decode::<Vec<u8>>("a page").unwrap()).collect();
+    let paged = api.get_paged("/repos/o/r/pulls", 10).unwrap();
+    let rows: Vec<Vec<u8>> = paged.pages.iter().map(|page| page.decode::<Vec<u8>>("a page").unwrap()).collect();
     assert_eq!(rows, vec![vec![1], vec![2]]);
+    assert!(!paged.cut, "a link off this API is not more of the list");
     let targets: Vec<String> = server.seen().into_iter().map(|seen| seen.target).collect();
     assert_eq!(targets, vec!["/repos/o/r/pulls", "/repos/o/r/pulls?page=2"]);
+}
+
+#[test]
+fn a_list_longer_than_the_callers_cap_says_it_was_cut() {
+    let base = Arc::new(OnceLock::<String>::new());
+    let known = base.clone();
+    let server = serve(move |seen| {
+        let page: u32 = seen.target.rsplit_once("page=").map_or(1, |(_, n)| n.parse().unwrap());
+        Reply {
+            status: 200,
+            headers: vec![("Link", format!(r#"<{}/repos/o/r/pulls?page={}>; rel="next""#, known.get().unwrap(), page + 1))],
+            body: format!("[{page}]"),
+        }
+    });
+    base.set(server.url.clone()).unwrap();
+    let (api, _) = api(&server.url, &["t"]);
+    let paged = api.get_paged("/repos/o/r/pulls", 3).unwrap();
+    assert_eq!(paged.pages.len(), 3);
+    assert!(paged.cut);
+    assert_eq!(server.seen().len(), 3, "the page past the cap is not read");
 }
 
 #[test]

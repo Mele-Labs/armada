@@ -42,8 +42,6 @@ const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 /// Enough idle HTTP/1.1 connections for Fleet's blocking pool; over HTTP/2 one is used.
 const IDLE_PER_HOST: usize = 8;
 const IDLE_FOR: Duration = Duration::from_secs(90);
-/// The most pages [`GitHubApi::get_paged`] reads: 1,000 rows at `per_page=100`.
-pub const MOST_PAGES: usize = 10;
 /// The longest a refusal's own words are kept.
 const SAID_AT_MOST: usize = 300;
 
@@ -84,6 +82,14 @@ impl GitHubRepository {
     pub fn path(&self) -> String {
         format!("/repos/{}", self.address.slug())
     }
+}
+
+/// The pages of a list as far as the caller let it be read, and whether more were left.
+#[derive(Debug)]
+pub struct Paged {
+    pub pages: Vec<Answer>,
+    /// **The list was cut**: the last page read named a next one, and the cap stopped there.
+    pub cut: bool,
 }
 
 /// One answer below 400: its status and its body, to decode.
@@ -204,22 +210,24 @@ impl GitHubApi {
         self.call(Method::GET, &self.url(path), None)
     }
 
-    /// Every page of a list, following `Link: rel="next"`, at most [`MOST_PAGES`].
-    /// A next link off this API's address is not followed: it would carry the token there.
-    pub fn get_paged(&self, path: &str) -> Result<Vec<Answer>, ApiFailure> {
+    /// The pages of a list, following `Link: rel="next"`, at most `most_pages` of them; a list
+    /// with more says it was [`cut`](Paged::cut). A next link off this API's address is not
+    /// followed: it would carry the token there.
+    pub fn get_paged(&self, path: &str, most_pages: usize) -> Result<Paged, ApiFailure> {
         let within = format!("{}/", self.inner.base);
         let mut url = self.url(path);
         let mut pages = Vec::new();
-        while pages.len() < MOST_PAGES {
+        while pages.len() < most_pages {
             let page = self.call(Method::GET, &url, None)?;
             let next = page.next.clone().filter(|next| next.starts_with(&within));
             pages.push(page);
             match next {
+                Some(_) if pages.len() == most_pages => return Ok(Paged { pages, cut: true }),
                 Some(next) => url = next,
                 None => break,
             }
         }
-        Ok(pages)
+        Ok(Paged { pages, cut: false })
     }
 
     /// `POST /graphql`, returning `data`. An answer carrying `errors` is
