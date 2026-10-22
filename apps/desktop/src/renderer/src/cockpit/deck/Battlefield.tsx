@@ -227,10 +227,11 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
   const lock = selected === undefined ? undefined : layout.at.get(selected);
   const toSelection = () => (lock === undefined ? homeAgain() : go(lookingAt(lock, Math.max(latest.current.eye, LOCK_EYE)), "ease"));
   locateRef.current = toSelection;
-  // Lock-on: the camera eases to the drone picked, closer and lower. Not at the mount while the camera was left somewhere.
+  // Lock-on: the camera eases to the drone picked, closer and lower. Not at the mount while the camera was left somewhere, and never on a
+  // Job's Field, whose pick pins its card and leaves the whole repository in view.
   const first = useRef(own === undefined && kept.current !== undefined);
   useEffect(() => {
-    if (lock === undefined) return;
+    if (lock === undefined || own !== undefined) return;
     if (first.current) {
       first.current = false;
       return;

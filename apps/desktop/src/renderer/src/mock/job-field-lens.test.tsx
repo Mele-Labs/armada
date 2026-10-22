@@ -74,6 +74,28 @@ test("the card follows the newest writer, the file before is a tab, and picking 
   await expect.element(lens("areas.rs")).toBeVisible();
 });
 
+test("picking a drone pins the card and leaves the camera on the whole repository, every drone of the Job still in the map", async () => {
+  await toSubagentsWriting();
+  const map = field().element().querySelector(".bf")!;
+  const allInside = () => {
+    const box = map.getBoundingClientRect();
+    return field().getByRole("option").elements().every((one) => {
+      const at = one.getBoundingClientRect();
+      const x = at.left + at.width / 2;
+      const y = at.top + at.height / 2;
+      return x >= box.left && x <= box.right && y >= box.top && y <= box.bottom;
+    });
+  };
+  expect(allInside()).toBe(true);
+
+  await drones().click();
+  await item(JOB).click();
+  await expect.element(lens("FieldPanel.tsx")).toBeVisible();
+  // Long enough for any camera ease to land.
+  await new Promise((done) => window.setTimeout(done, 1200));
+  expect(allInside()).toBe(true);
+});
+
 test("the Drones menu is driven from the keyboard: ↓ opens it, the arrows move, Enter picks, and Esc goes back to the trigger", async () => {
   await toSubagentsWriting();
   (drones().element() as HTMLElement).focus();

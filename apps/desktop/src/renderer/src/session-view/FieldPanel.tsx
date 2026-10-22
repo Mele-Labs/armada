@@ -6,7 +6,7 @@
 // slider scrubs back through the Job's reads and writes: the glow, the drone and a numbered route stand as they were, and the right end is
 // live. A drone not coding leaves the floor: to the pad at the near edge while a check runs or a walk is open, risen over its file while it
 // thinks, beaming to an outpost while it calls (`field-now.ts`). A menu over the map names each drone and what it is doing; picking one
-// frames the camera on it. The map rests on the whole repository. A file a drone of the Job is writing lifts as a slab with its minimap, and a
+// pins the card to it. The map rests on the whole repository, and a pick does not move it. A file a drone of the Job is writing lifts as a slab with its minimap, and a
 // small card at the top right shows its newest hunk; the card follows the newest writer, or the drone picked in the menu while it
 // writes (`field-lens.ts`). While the pointer or focus is in the panel, that card and the hover card float over the app at full size
 // (`field-engaged.ts`). While the Job messages another Job, or
@@ -203,7 +203,7 @@ function openOther(flying: readonly DroneIn[], key: string): void {
 /** The map and, along its foot, the plan and the slider. The same in the panel and in the layer; `large` is the layer's, which names each group under its stretch. */
 export function FieldMap({ session, repositories, large = false }: { session: Session; repositories: readonly RepositorySummary[]; large?: boolean }) {
   const [at, setAt] = useState<number>();
-  // The drone picked in the Drones menu: the camera frames it. Picked again it stays; Newest writer lets go.
+  // The drone picked in the Drones menu: the card follows it and the camera stays. Picked again it stays; Newest writer lets go.
   const [pinned, setPinned] = useState<string>();
   // The slider and the pin belong to the Job they were set on.
   useEffect(() => {
