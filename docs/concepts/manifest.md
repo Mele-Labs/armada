@@ -362,7 +362,10 @@ Rules that follow:
 - **`armada check <name> --changed` reads the change two ways, by who asks.** CI (`ARMADA_SOLE_TENANT=1`) and the merge line (`ARMADA_CHECK_PRIORITY=normal`) get the reading above: every member the paths name.
   Anyone else, which is an agent or a person at the default priority on a machine others share, gets **the tests the change touched** and nothing wider: a Check that declares both `one_test` and a `narrow` with `under` runs its `one_test` with the module paths of the test files among the changed ones (`crates/checks-runner/src/tests/slots.rs` is `tests::slots`), the inline `mod tests` of a changed source file, and the `#[test]` functions of a changed `tests/*.rs`, in the members they are in and no others, each spelled as `narrow.each` spells it.
   No dependents, no `narrow.run` and so no `xtask`.
-  **A change that touches no test module runs nothing, says so and passes**, rather than falling back to the whole Check, and a file that only declares `#[cfg(test)] mod tests;` (`lib.rs`) is not a test.
+  **The tests Fleet's [test map](test-map.md) says reach the changed paths join them, in the same run**: the ones it names for this Check, in the members it names, less any `except` bars.
+  The lines under the command say which tests the map added and which of those it read only from stale edges, and after the verdict `no test reaches <path>` names each covered changed file the map has no edge for and that holds no test.
+  No Fleet, or a map with no edge for any changed path, runs as the paragraph above says and prints nothing more.
+  **A change that touches no test module, and that the map reaches with none, runs nothing, says so and passes**, rather than falling back to the whole Check, and a file that only declares `#[cfg(test)] mod tests;` (`lib.rs`) is not a test.
   A Check without `one_test` or `under` has no such reading and is narrowed as above.
   Whole members and their dependents stay with CI and the gate.
   Decided 12 Oct 2026, with the machine at load 30 from three jobs' runs: one new test file had run 1,256 of one crate's 2,888 tests.

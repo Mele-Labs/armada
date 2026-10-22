@@ -741,8 +741,13 @@ that matched nothing exits 1.
 `git diff --name-only main | armada check test --changed`. A changed test file
 (`src/tests/x.rs`, a `tests/x.rs`) or a changed source file with an inline
 `mod tests` runs that module, in its crate only, and the line under the command
-names which (`touched tests::x in -p fleet`). A change that touches no test
-module runs nothing and says so: name the tests with `armada check test a b c`,
+names which (`touched tests::x in -p fleet`). The tests Fleet's test map says
+reach the changed paths run in the same build, and the lines under the command
+name the ones it added and the ones it read from stale edges; after the verdict,
+`no test reaches <path>` names a changed file nothing reaches, which is the file
+to run wider for or write a test for. A change that touches no test module, and
+that the map reaches with none, runs nothing and says so: name the tests with
+`armada check test a b c`,
 one run that compiles only the crates declaring them. Never one call per name:
 each is its own build and its own wait for a Check slot. Whole crates and the crates
 depending on them are CI's. **CI and the merge line read `--changed` the old
