@@ -150,6 +150,9 @@ approximations.
 
 ## Designs
 
+- [`design/fleet-watches-ci-and-deploys-for-a-job.md`](design/fleet-watches-ci-and-deploys-for-a-job.md)
+  — Fleet runs a command a recipe names to watch CI or a deploy for a Job,
+  wakes the agent when it changes, and the agent weighs whether a red is ours.
 - [`design/who-sees-each-piece-of-configuration.md`](design/who-sees-each-piece-of-configuration.md)
   — who sees a person's tiles, `armada.yml`, workflows and review tools for a
   repository: yours, the repository's, or a package shared by hand.
