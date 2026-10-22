@@ -5,8 +5,8 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use api::{HostedSessions, Next, Subscription};
-use ipc::{CloseSession, Event, SessionActivity, SessionGate, SessionId, SessionRecord, SessionTodo, SessionTodoState};
+use api::{HostedSessions, Next, Sessions, Subscription};
+use ipc::{CloseSession, Event, SessionActivity, SessionGate, SessionId, SessionRecord, SessionTodo, SessionTodoState, SubagentActivity};
 
 use super::session_host::{eventually, rig_placing, Rig};
 use crate::session_host::activity::now_of;
@@ -140,6 +140,52 @@ async fn a_shell_call_and_an_edit_set_now() {
 
     rig.gate(&id, "mcp__somewhere__tool", "{}").await;
     assert_eq!(activity(&rig, &id).await.expect("kept").now.as_deref(), Some("Editing gate.rs"));
+}
+
+/// A subagent's calls carry its `agent_id`. They set its own `now` and leave the Session's.
+#[tokio::test]
+async fn a_subagents_call_sets_its_own_now_and_leaves_the_sessions() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    let by = |agent: &str, tool: &str, input: &str| -> SessionGate {
+        let call = format!(
+            r#"{{"session_id":"{}","cwd":"/work","tool_name":"{tool}","tool_input":{input},"agent_id":"{agent}"}}"#,
+            id.as_str()
+        );
+        ipc::decode("a gate", call.as_bytes()).expect("a gate")
+    };
+
+    rig.gate(&id, "Read", r#"{"file_path":"/elsewhere/own.rs"}"#).await;
+    Arc::clone(&rig.fleet).gate_session_call(by("sub-1", "Edit", r#"{"file_path":"/elsewhere/gate.rs"}"#)).await.unwrap();
+    let seen = activity(&rig, &id).await.expect("calls were made");
+    assert_eq!(seen.now.as_deref(), Some("Reading own.rs"), "the Session's own now is left alone");
+    assert_eq!(seen.subagents, [SubagentActivity { id: "sub-1".into(), now: "Editing gate.rs".into() }]);
+
+    Arc::clone(&rig.fleet).gate_session_call(by("sub-1", "Grep", r#"{"pattern":"x"}"#)).await.unwrap();
+    Arc::clone(&rig.fleet).gate_session_call(by("sub-2", "Read", r#"{"file_path":"/elsewhere/b.rs"}"#)).await.unwrap();
+    let both = activity(&rig, &id).await.expect("kept").subagents;
+    assert_eq!(
+        both,
+        [
+            SubagentActivity { id: "sub-1".into(), now: "Searching".into() },
+            SubagentActivity { id: "sub-2".into(), now: "Reading b.rs".into() },
+        ]
+    );
+
+    let settled = |agent: &str| ipc::SessionReport {
+        harness: String::from(adapters::HOSTED_HARNESS),
+        session_id: id.clone(),
+        fact: ipc::SessionFact::Settled {
+            attachment: ipc::AttachmentNamed { kind: String::from("subagent"), target: agent.into() },
+            state: ipc::AttachmentState::Spent,
+        },
+    };
+    rig.fleet.report_session(settled("sub-1")).await.unwrap();
+    let left = activity(&rig, &id).await.expect("kept").subagents;
+    assert_eq!(left, [SubagentActivity { id: "sub-2".into(), now: "Reading b.rs".into() }], "an ended subagent's line goes");
+
+    rig.fleet.hosts().of(id.as_str()).state().activity.turn_began();
+    assert_eq!(activity(&rig, &id).await, None, "a turn beginning clears the subagents' lines with the Session's own");
 }
 
 #[tokio::test]
