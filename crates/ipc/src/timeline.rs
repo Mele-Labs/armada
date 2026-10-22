@@ -36,7 +36,7 @@ pub enum TimelineKind {
     #[serde(rename = "session.turn")]
     SessionTurn,
     /// A Session wrote files, whichever tool did: `Edited 3 files`. **One entry for a burst**, `detail`
-    /// the latest path, and never content.
+    /// the latest path, whole and from its worktree's root, and never content.
     #[serde(rename = "session.edited")]
     SessionEdited,
     /// A Session read files: `Read 14 files`. One entry for a burst, as `session.edited` is.
@@ -213,7 +213,8 @@ pub struct TimelineEvent {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub detail: Option<String>,
     /// What a burst counted: the files or commands behind `Read 14 files` or `Ran 5 commands`, newest
-    /// first, at most [`MOST_TIMELINE_ITEMS`], each a line cut to the length of `detail`. **Its first is
+    /// first, at most [`MOST_TIMELINE_ITEMS`]: a file whole and from its worktree's root, a command one
+    /// line cut to the length of `detail`. **Its first is
     /// `detail`.** Absent for every other kind, and for an entry written before Fleet kept them.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub items: Vec<String>,
@@ -280,9 +281,10 @@ pub const DEFAULT_TIMELINE_LIMIT: u32 = 500;
 /// The most one ask is given.
 pub const MOST_TIMELINE_LIMIT: u32 = 2000;
 
-/// The most files or commands an entry lists, the newest. 25 lines of 120 characters bound an entry at
-/// about 3 KB, so a window of 2000 stays within a few MB if every one were a burst, and the list opens
-/// to about a screen. The count in `says` is the whole burst's.
+/// The most files or commands an entry lists, the newest. 25 lines bound an entry at a few KB (a file
+/// is kept whole, and a repository's paths are rarely past 200 characters), so a window of 2000 stays
+/// within a few MB if every one were a burst, and the list opens to about a screen. The count in `says`
+/// is the whole burst's.
 pub const MOST_TIMELINE_ITEMS: usize = 25;
 
 /// `get_fleet_timeline`: the window, oldest first.

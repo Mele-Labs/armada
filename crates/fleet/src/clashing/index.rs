@@ -67,6 +67,9 @@ pub(crate) enum Changed {
 struct Held {
     manifest: String,
     paths: BTreeSet<String>,
+    /// Worktrees it was credited a write in that its standing may not name: a terminal Job at the
+    /// repository's root writes in a slot or worktree it never stood in.
+    worktrees: BTreeSet<String>,
 }
 
 #[derive(Default)]
@@ -105,6 +108,7 @@ impl Writes {
         let held = state.by_holder.entry(who.clone()).or_insert_with(|| Held {
             manifest: manifest.to_string(),
             paths: BTreeSet::new(),
+            worktrees: BTreeSet::new(),
         });
         let in_manifest = state.by_path.entry(manifest.to_string()).or_default();
         for path in paths {
@@ -122,6 +126,19 @@ impl Writes {
         if state.readings.contains_key(&against_main) {
             state.due.entry(against_main).or_insert_with(|| now.clone());
         }
+    }
+
+    /// `who` wrote these paths, each named from the root of the worktree at `worktree`.
+    pub(crate) fn wrote_in(&self, who: &Who, manifest: &str, worktree: &str, paths: Vec<String>, now: &Timestamp) {
+        self.wrote(who, manifest, paths, now);
+        if let Some(held) = self.state().by_holder.get_mut(who) {
+            held.worktrees.insert(worktree.to_string());
+        }
+    }
+
+    /// The worktrees `who` was credited a write in by [`Writes::wrote_in`].
+    pub(crate) fn worktrees_of(&self, who: &Who) -> Vec<String> {
+        self.state().by_holder.get(who).map(|held| held.worktrees.iter().cloned().collect()).unwrap_or_default()
     }
 
     /// `who` is over: gone from the table, and every clash it was in with it.

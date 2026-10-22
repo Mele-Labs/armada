@@ -10,7 +10,7 @@ import type { KitInventory, SessionRecord } from "@armada/protocol";
 import { createHash, randomBytes } from "node:crypto";
 import { watch } from "node:fs";
 import { chmod, open, readFile, realpath, rename, stat, unlink, writeFile } from "node:fs/promises";
-import { basename, dirname, isAbsolute, join, resolve } from "node:path";
+import { basename, dirname, isAbsolute, join, resolve, sep } from "node:path";
 
 import type { PanelFileItem, PanelFileOpenedIn, PanelFileRead, PanelFileSaved } from "../shared/api/files";
 import { namesKitPath } from "./kit-names";
@@ -19,6 +19,8 @@ import type { FileReads } from "./session-file";
 
 /** What the panel needs of a disk beyond reading: write a file whole, make settings.json, hear a directory change. */
 export type PanelDisk = FileReads & {
+  /** Where `path` is with its links followed, and whether it is a file; null where nothing is there. */
+  real: (path: string) => Promise<{ path: string; file: boolean } | null>;
   /** Atomic: a temporary file beside the target, then a rename, so a reader sees the old file or the new and never half. */
   replace: (path: string, bytes: Uint8Array) => Promise<void>;
   /** `{}\n` where nothing is, as opening settings.json does. A file already there is left alone. */
@@ -46,9 +48,19 @@ export type PanelHosts = {
 
 const NOT_OPENED = "Not a file this panel opened";
 
+/** The most paths one question about a thread looks at, so a long thread is not a long walk of the disk. */
+const MOST_ASKED = 200;
+
 export const diskPanel: PanelDisk = {
   size: async (path) => (await stat(path)).size,
   read: async (path) => new Uint8Array(await readFile(path)),
+  real: async (path) => {
+    try {
+      return { path: await realpath(path), file: (await stat(path)).isFile() };
+    } catch {
+      return null;
+    }
+  },
   replace: async (path, bytes) => {
     // The target itself, so a link to a file is written through and not replaced by one.
     const target = await realpath(path).catch(() => path);
@@ -100,14 +112,24 @@ export function createFilePanel(hosts: PanelHosts) {
    */
   const watches = new Map<unknown, Watch>();
 
+  /**
+   * The file `path` names inside the Session's checkout, links followed, or null. **A link that leaves the checkout
+   * is outside it**: the check is on where the path ends up, not on how it was written.
+   */
+  async function inCheckout(record: SessionRecord, path: string): Promise<string | null> {
+    const [there, root] = await Promise.all([disk.real(isAbsolute(path) ? path : resolve(record.cwd, path)), disk.real(record.cwd)]);
+    return there?.file === true && root !== null && there.path.startsWith(root.path + sep) ? there.path : null;
+  }
+
   /** Where on disk the item is, or null where its source does not name it. */
   async function locate(item: PanelFileItem, owner?: unknown): Promise<string | null> {
     if (typeof item?.path !== "string" || item.path === "") return null;
     switch (item.from) {
       case "session": {
         const record = typeof item.sessionId === "string" ? hosts.recordOf(item.sessionId) : undefined;
-        if (!namesFile(record, item.path) || record === undefined) return null;
-        return isAbsolute(item.path) ? item.path : resolve(record.cwd, item.path);
+        if (record === undefined) return null;
+        if (namesFile(record, item.path)) return isAbsolute(item.path) ? item.path : resolve(record.cwd, item.path);
+        return inCheckout(record, item.path);
       }
       case "settings":
         return item.path === hosts.settingsPath() ? item.path : null;
@@ -200,6 +222,14 @@ export function createFilePanel(hosts: PanelHosts) {
       } catch (error) {
         return { state: "failed", detail: sayWhy(error) };
       }
+    },
+
+    /** Of `paths`, those that are files in the Session's checkout, as they were written. At most `MOST_ASKED` are looked at. */
+    async known(sessionId: string, paths: readonly string[]): Promise<string[]> {
+      const record = hosts.recordOf(sessionId);
+      if (record === undefined) return [];
+      const found = await Promise.all(paths.slice(0, MOST_ASKED).map(async (path) => (typeof path === "string" && path !== "" && (await inCheckout(record, path)) !== null ? path : null)));
+      return found.filter((one): one is string => one !== null);
     },
 
     async pick(): Promise<PanelFileItem | null> {

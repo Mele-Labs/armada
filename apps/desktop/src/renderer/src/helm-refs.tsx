@@ -4,7 +4,7 @@
 // it reads off the window and what each press does.
 //
 // A number the repository's open lists do not hold (a merged pull request) is looked up once, and kept: the same
-// read `#` in the message box makes.
+// read `#` in the message box makes. A path in a code span is asked of main once, and links only where it is a file in the Job's checkout.
 
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
@@ -43,6 +43,15 @@ function numbersIn(session: Session | undefined, slug: string | undefined): numb
   ]);
 }
 
+/** A file's name as a model writes it in backticks: an extension, and folders before it if it has any. */
+const PATH = /^\/?[\w.@+-]+(?:\/[\w.@+-]+)*\.[A-Za-z0-9]+$/;
+
+/** Every inline code span of the thread's words that reads as a file path. */
+function pathsIn(session: Session | undefined): string[] {
+  const words = (session?.rows ?? []).flatMap((row) => (row.kind === "message" || row.kind === "sent" ? [row.text] : []));
+  return [...new Set(words.flatMap((text) => [...text.matchAll(/`([^`\n]+)`/g)].map((one) => one[1]!).filter((one) => PATH.test(one))))];
+}
+
 /** Where a reference is read: the repository it is in, and the Session whose words and pull requests it holds. */
 type Scope = { manifestId: string | undefined; session: Session | undefined };
 
@@ -58,6 +67,17 @@ function useRefs({ repositories, openSession, openLink }: Host, { manifestId, se
     ...Object.entries(looked).flatMap(([key, one]) => (key.startsWith(`${manifestId}#`) ? [one?.tag.url] : [])),
   ]);
   const wanted = numbersIn(thread, slug).join();
+  // Whether each path the thread writes is a file in the Job's checkout, by the Session it was asked for. A path is asked once.
+  const sessionId = thread?.id;
+  const [filed, setFiled] = useState<Record<string, boolean>>({});
+  const paths = pathsIn(thread).join("\n");
+  useEffect(() => {
+    if (sessionId === undefined || paths === "") return;
+    const fresh = paths.split("\n").filter((one) => !(`${sessionId}\n${one}` in filed));
+    if (fresh.length === 0) return;
+    setFiled((was) => ({ ...was, ...Object.fromEntries(fresh.map((one) => [`${sessionId}\n${one}`, false])) }));
+    void window.armada.findPanelFiles(sessionId, fresh).then((there) => setFiled((was) => ({ ...was, ...Object.fromEntries(there.map((one) => [`${sessionId}\n${one}`, true])) })));
+  }, [paths, sessionId, filed]);
 
   // A number the open lists do not hold is read once.
   useEffect(() => {
@@ -78,6 +98,7 @@ function useRefs({ repositories, openSession, openLink }: Host, { manifestId, se
   const known = [...opened, ...(numbered?.open ?? []), ...Object.entries(looked).flatMap(([key, hit]) => (hit !== null && key.startsWith(`${manifestId}#`) ? [hit] : []))];
   const linkable: RefWorld = {
     ...(slug === undefined ? {} : { slug }),
+    files: Object.entries(filed).flatMap(([key, there]) => (there && sessionId !== undefined && key.startsWith(`${sessionId}\n`) ? [key.slice(sessionId.length + 1)] : [])),
     // Helm's own Session is named by its repository, which would link every mention of it. An ended one
     // still has its page.
     sessions: sessions.flatMap((one) => (one.helm === true ? [] : [{ id: one.id, ...(one.title === undefined ? {} : { title: one.title }) }])),
@@ -100,6 +121,7 @@ function useRefs({ repositories, openSession, openLink }: Host, { manifestId, se
       scan,
       open: (ref: ProseReference) => {
         if (ref.kind === "session") return openers.current.openSession(ref.id);
+        if (ref.kind === "file") return openInPanel({ kind: "file", path: ref.id, from: "session", ...(sessionId === undefined ? {} : { sessionId }) });
         // Another repository's number is only a page on the forge.
         if (isElsewhere(ref.id)) return openers.current.openLink(forgeAddress(ref));
         const address = addressOf(ref);
@@ -107,7 +129,7 @@ function useRefs({ repositories, openSession, openLink }: Host, { manifestId, se
         else openInPanel({ kind: "issue", number: ref.id, ...(root === undefined ? {} : { root }), ...(manifestId === undefined ? {} : { manifestId }), ...(address === undefined ? {} : { address }) });
       },
     };
-  }, [world, scan, manifestId, root]);
+  }, [world, scan, manifestId, root, sessionId]);
 }
 
 /** What Helm's thread links, read in its repository and from its own Session. */

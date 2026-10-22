@@ -47,7 +47,7 @@ const hostOf = (openSession: (id: string) => void): Host => ({ state: {} as Brid
 const THREAD = session("01J9ZK7M3Q8T5V2X4Y6Z0A1B2C", "Retry tuning");
 const OTHER = session("01J9ZM1P3Q8T5V2X4Y6Z0A1B2D", "Lint sweep");
 
-function draw(sessions: Session[]) {
+function draw(sessions: Session[], thread: Session = THREAD) {
   const seen: (ProseReferences | null)[] = [];
   function Probe() {
     seen.push(useContext(ProseRefs));
@@ -62,7 +62,7 @@ function draw(sessions: Session[]) {
       root.render(
         <RefsHost.Provider value={host}>
           <SessionsFrom held={held.held}>
-            <SessionRefs session={THREAD}>
+            <SessionRefs session={thread}>
               <Probe />
             </SessionRefs>
           </SessionsFrom>
@@ -103,4 +103,18 @@ test("pressing a link opens the Session with the latest `openSession`", () => {
   seen.at(-1)!.open({ kind: "session", id: OTHER.id, title: "Lint sweep" });
   expect(first).not.toHaveBeenCalled();
   expect(latest).toHaveBeenCalledWith(OTHER.id);
+});
+
+test("a path in a code span links once main says it is a file in the Job's checkout, and is asked of main once", async () => {
+  const find = vi.fn(async (_id: string, paths: readonly string[]) => paths.filter((one) => one === "docs/plan.md"));
+  (window as unknown as { armada: unknown }).armada = { findPanelFiles: find };
+  const said = { ...THREAD, rows: [{ kind: "message", id: "m1", from: "agent", at: "", text: "Read `docs/plan.md` and `docs/gone.md`" }] } as unknown as Session;
+  const { seen, render } = draw([said, OTHER], said);
+  await act(async () => render(hostOf(() => undefined)));
+  await act(async () => render(hostOf(() => undefined)));
+  const refs = seen.at(-1)!;
+  expect(refs.scan("docs/plan.md").map((one) => [one.ref.kind, one.ref.id])).toEqual([["file", "docs/plan.md"]]);
+  expect(refs.scan("docs/gone.md")).toEqual([]);
+  expect(find).toHaveBeenCalledTimes(1);
+  expect(find).toHaveBeenCalledWith(said.id, ["docs/plan.md", "docs/gone.md"]);
 });

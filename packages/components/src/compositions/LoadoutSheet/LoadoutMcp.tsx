@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import type { LoadoutItem, McpServerAct as McpAct, McpServerState } from "@armada/protocol";
 
 import { Button } from "../../primitives/Button/Button";
+import { SplitButton } from "../../primitives/SplitButton/SplitButton";
 import { loadoutKeyOf, type LoadoutRef } from "../../loadout";
 import { StateMark } from "./LoadoutStateMark";
 
@@ -36,19 +37,24 @@ const ACT_SAID: Record<McpAct, { label: string; underway: string }> = {
   sign_in: { label: "Sign in", underway: "Signing in" },
 };
 
-/** The one act a row offers for where its server stands. A server still connecting offers none. */
+/** The act on a row's face for where its server stands. A server still connecting offers none. */
 export function mcpActOf(row: Pick<McpServerRow, "state" | "signedIn">): McpAct | undefined {
+  return mcpActsOf(row)[0];
+}
+
+/** Every act a server's state takes, the face's first. No sign-out: the CLI has none. */
+export function mcpActsOf(row: Pick<McpServerRow, "state" | "signedIn">): readonly McpAct[] {
   switch (row.state) {
     case "connected":
-      return "turn_off";
+      return ["turn_off", "reconnect"];
     case "failed":
-      return "reconnect";
+      return ["reconnect", "turn_off"];
     case "needs_sign_in":
-      return row.signedIn === true ? "reconnect" : "sign_in";
+      return row.signedIn === true ? ["reconnect", "sign_in", "turn_off"] : ["sign_in", "reconnect", "turn_off"];
     case "off":
-      return "turn_on";
+      return ["turn_on"];
     case "connecting":
-      return undefined;
+      return [];
   }
 }
 
@@ -74,9 +80,12 @@ export function mcpRefOf(name: string, items: readonly LoadoutItem[]): LoadoutRe
 }
 
 function McpRow({ row, item, opens, onAct }: { row: McpServerRow; item: LoadoutRef; opens: Opens; onAct: McpGroup["onAct"] }) {
+  // An act sent from the menu takes the face while it is out, so the row shows what it is waiting on.
   const act = row.acting ?? mcpActOf(row);
+  const menu = mcpActsOf(row).filter((one) => one !== act);
   // Every row offers one of four words, so the name says which server a press is for.
   const worded = act === undefined ? "" : row.acting === undefined ? ACT_SAID[act].label : ACT_SAID[act].underway;
+  const refused = row.refused === undefined ? {} : { answer: "refused" as const };
   const said = (
     <>
       <span className="armada-loadout__name">{row.name}</span>
@@ -93,10 +102,22 @@ function McpRow({ row, item, opens, onAct }: { row: McpServerRow; item: LoadoutR
           {said}
         </button>
       )}
-      {act === undefined ? null : (
-        <Button variant="secondary" size="sm" aria-label={`${worded} ${row.name}`} pending={row.acting !== undefined} {...(row.refused === undefined ? {} : { answer: "refused" as const })} onClick={() => onAct(row.name, act)}>
+      {act === undefined ? null : menu.length === 0 ? (
+        <Button variant="secondary" size="sm" aria-label={`${worded} ${row.name}`} pending={row.acting !== undefined} {...refused} onClick={() => onAct(row.name, act)}>
           {worded}
         </Button>
+      ) : (
+        <SplitButton
+          size="sm"
+          faceLabel={`${worded} ${row.name}`}
+          menuLabel={`More for ${row.name}`}
+          pending={row.acting !== undefined}
+          {...refused}
+          items={menu.map((one) => ({ label: ACT_SAID[one].label, onSelect: () => onAct(row.name, one) }))}
+          onAction={() => onAct(row.name, act)}
+        >
+          {worded}
+        </SplitButton>
       )}
       {row.refused === undefined ? null : <p className="armada-loadout__refused">{row.refused}</p>}
     </li>
@@ -112,7 +133,7 @@ export function useRevealed(reveal: boolean) {
   return ref;
 }
 
-/** A hosted Job's MCP servers, each with the one act its state takes. Connected draws no mark, and nothing is counted. */
+/** A hosted Job's MCP servers, each with its state's act and the others it takes behind a caret. Connected draws no mark, and nothing is counted. */
 export function McpServers({ servers, items, said, opens, onAct, reveal }: { servers: readonly McpServerRow[]; items: readonly LoadoutItem[]; said: string | undefined; opens: Opens; onAct: McpGroup["onAct"]; reveal: boolean }) {
   const ref = useRevealed(reveal);
   return (

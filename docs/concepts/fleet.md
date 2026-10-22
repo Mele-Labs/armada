@@ -168,7 +168,7 @@ It proposes no paths. [Job](session.md), *A Job's proposal*, has what the person
 | Whose writes | Where Fleet sees them |
 |---|---|
 | A hosted Job | The write gate (`POST /sessions/gate`), for a call it lets through inside any slot the job holds, its subagents' included. The path is read from that slot |
-| A terminal Job | The `armada` mod's `touched` fact: the path from the job's directory, never the content |
+| A terminal Job | The `armada` mod's `touched` fact: the path from the job's directory, never the content. Credited from the root of the worktree it lies in, wherever the job stands: one it stands in, a slot whose lease is not another's, or any other linked worktree, so a job started at the repository's root is credited what it writes in `.armada/slots/slot-N/`. A write to the main checkout is not credited, since Fleet cannot tell whose change in it a file is |
 
 ```
  write ─▶ table: path ─▶ holders             (memory, per repository)
@@ -182,6 +182,7 @@ It proposes no paths. [Job](session.md), *A Job's proposal*, has what the person
 
 **A Job writes in every slot it holds.** Its holder is not the one slot its ledger row names: it is that slot and every other slot whose lease is the job's, leased for it by Fleet or by a subagent's `armada worktree lease`.
 Every slot of one side is checked against every slot of the other, and against main.
+A worktree a terminal Job was credited a write in from outside it is one of its own too, until the Job leaves the table, so `get_session_file_change` reads its change there; the table is memory, so after a restart that holds again only from the Job's next write there.
 Confirmed 15 Oct 2026: two Jobs edited the same lines for hours, each in a slot its subagent leased, and neither was told while the table read only the ledger's slot.
 
 **A pair names only files both changed themselves.** A worktree cut from a newer main carries main's changes, and git sets them against an older holder's as if they were the newer one's.
