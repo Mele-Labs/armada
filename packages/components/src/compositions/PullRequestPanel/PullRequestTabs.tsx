@@ -1,4 +1,4 @@
-import { useState, type CSSProperties, type ReactNode } from "react";
+import { useState, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import { Ban, Check, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, CornerUpRight, ExternalLink, FileText, FilePenLine, Folder, FolderOpen, LoaderCircle, ScrollText, ShieldCheck, ShieldOff, ShieldX, SquarePlus, Trash2 } from "lucide-react";
 import type { PullRequestCheckRow, PullRequestCommit, PullRequestEntry, PullRequestFile, PullRequestPage } from "@armada/protocol";
@@ -9,6 +9,7 @@ import { Stamp, StampSurface } from "../../primitives/Stamp/Stamp";
 import { TabPanel, Tabs } from "../../primitives/Tabs/Tabs";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { ranFor } from "./pull-request-format";
+import { ReachTests, ReachToggle, type FilesReach, type ReachTest } from "./PullRequestReach";
 
 /**
  * The four tabs under the panel's acts: the conversation, the checks, the files and the commits,
@@ -25,6 +26,10 @@ export type PullRequestTabsProps = {
   files?: ReactNode;
   /** A tab of the host's own, last in the strip: a pull request's review tools, drawn by the surface that has them. */
   more?: { id: string; label: string; body: ReactNode };
+  /** The tests that reach each changed file, drawn on the file list when `files` is absent. Absent draws none. */
+  reach?: FilesReach | undefined;
+  /** A test opened from under its file. */
+  onTest?: ((test: ReachTest) => void) | undefined;
   /** The tab shown, where the host holds it. Absent leaves the tabs to choose for themselves. */
   tab?: string;
   onTab?: (id: string) => void;
@@ -37,7 +42,7 @@ const TABS = [
   { id: "commits", label: "Commits" },
 ];
 
-export function PullRequestTabs({ page, description, onOpenLink, files, more, tab: held, onTab }: PullRequestTabsProps) {
+export function PullRequestTabs({ page, description, onOpenLink, files, more, reach, onTest, tab: held, onTab }: PullRequestTabsProps) {
   const [own, setOwn] = useState("conversation");
   const tab = held ?? own;
   const setTab = onTab ?? setOwn;
@@ -48,7 +53,7 @@ export function PullRequestTabs({ page, description, onOpenLink, files, more, ta
       <TabPanel tab={tab} role="tabpanel" aria-label={items.find((one) => one.id === tab)?.label} className="armada-pr-tabs__panel">
         {tab === "conversation" ? <Conversation page={page} description={description ?? ""} /> : null}
         {tab === "checks" ? <Checks rows={page.checks} onOpenLink={onOpenLink} /> : null}
-        {tab === "files" ? (files ?? <FileRows rows={page.files} />) : null}
+        {tab === "files" ? (files ?? <FileRows rows={page.files} reach={reach} onTest={onTest} />) : null}
         {tab === "commits" ? <Commits rows={page.commits} /> : null}
         {more !== undefined && tab === more.id ? more.body : null}
       </TabPanel>
@@ -234,9 +239,25 @@ function fileTree(rows: readonly PullRequestFile[]): FileTreeRow[] {
  * The files as a tree of folders, each file its name, status and lines added and removed. A folder
  * folds away with its chevron, or with ← and → while it has focus, and the head folds or opens them all.
  * With `onFile` each file is a press, and `current` is marked.
+ *
+ * With `reach` a file the map was asked about carries its mark, and → opens the tests under it (← closes
+ * them). ↑ and ↓ move between every row, tests included, and Enter on a test that is a file opens it.
  */
-export function FileRows({ rows, current, onFile }: { rows: readonly PullRequestFile[]; current?: string | undefined; onFile?: (path: string) => void }) {
+export function FileRows({
+  rows,
+  current,
+  onFile,
+  reach,
+  onTest,
+}: {
+  rows: readonly PullRequestFile[];
+  current?: string | undefined;
+  onFile?: (path: string) => void;
+  reach?: FilesReach | undefined;
+  onTest?: ((test: ReachTest) => void) | undefined;
+}) {
   const [folded, setFolded] = useState<ReadonlySet<string>>(new Set());
+  const [opened, setOpened] = useState<ReadonlySet<string>>(new Set());
   if (rows.length === 0) return null;
   const tree = fileTree(rows);
   const folders = tree.filter((node) => node.kind === "dir").map((node) => node.key);
@@ -248,6 +269,24 @@ export function FileRows({ rows, current, onFile }: { rows: readonly PullRequest
       return next;
     });
   const allFolded = folders.length > 0 && folders.every((key) => folded.has(key));
+  const setOpen = (path: string, open: boolean) =>
+    setOpened((was) => {
+      const next = new Set(was);
+      if (open) next.add(path);
+      else next.delete(path);
+      return next;
+    });
+  // Every row a key can land on, in the order drawn. The target is read off the event: a key sent to a row moves from that row.
+  const move = (event: KeyboardEvent<HTMLUListElement>) => {
+    if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+    const here = (event.target as HTMLElement).closest<HTMLElement>("[data-nav]");
+    if (here === null) return;
+    const all = [...event.currentTarget.querySelectorAll<HTMLElement>("[data-nav]")];
+    const next = all[all.indexOf(here) + (event.key === "ArrowDown" ? 1 : -1)];
+    if (next === undefined) return;
+    event.preventDefault();
+    next.focus();
+  };
   return (
     <div className="armada-pr-tree">
       {folders.length === 0 ? null : (
@@ -265,7 +304,7 @@ export function FileRows({ rows, current, onFile }: { rows: readonly PullRequest
           </Tooltip>
         </div>
       )}
-      <ul className="armada-pr-list armada-pr-tree__list" aria-label="Files">
+      <ul className="armada-pr-list armada-pr-tree__list" aria-label="Files" onKeyDown={move}>
         {tree
           .filter((node) => !node.above.some((key) => folded.has(key)))
           .map((node) => {
@@ -280,6 +319,7 @@ export function FileRows({ rows, current, onFile }: { rows: readonly PullRequest
                     type="button"
                     className="armada-pr-tree__item"
                     data-kind="dir"
+                    data-nav
                     aria-expanded={open}
                     onClick={() => toggle(node.key, open)}
                     onKeyDown={(event) => {
@@ -297,6 +337,16 @@ export function FileRows({ rows, current, onFile }: { rows: readonly PullRequest
               );
             }
             const { row } = node;
+            const reached = reach?.[row.path];
+            const isOpen = reached !== undefined && opened.has(row.path);
+            // ← and → on a file, as on a folder, close and open what is under it.
+            const keys = (event: KeyboardEvent<HTMLElement>) => {
+              if (reached === undefined) return;
+              if (event.key === "ArrowRight" && !isOpen) setOpen(row.path, true);
+              else if (event.key === "ArrowLeft" && isOpen) setOpen(row.path, false);
+              else return;
+              event.preventDefault();
+            };
             const cells = (
               <>
                 <span className="armada-pr-tree__lead">
@@ -310,9 +360,9 @@ export function FileRows({ rows, current, onFile }: { rows: readonly PullRequest
             );
             // The whole row is the control.
             return (
-              <li key={node.key} className="armada-pr-tree__row" style={indent}>
+              <li key={node.key} className="armada-pr-tree__row" style={indent} data-reach={reached !== undefined || undefined}>
                 {onFile === undefined ? (
-                  <div className="armada-pr-tree__item" data-kind="file" data-nested={node.depth > 0 || undefined}>
+                  <div className="armada-pr-tree__item" data-kind="file" data-nested={node.depth > 0 || undefined} data-nav tabIndex={-1} onKeyDown={keys}>
                     {cells}
                   </div>
                 ) : (
@@ -320,14 +370,18 @@ export function FileRows({ rows, current, onFile }: { rows: readonly PullRequest
                     type="button"
                     className="armada-pr-tree__item"
                     data-kind="file"
+                    data-nav
                     data-nested={node.depth > 0 || undefined}
                     data-on={row.path === current || undefined}
                     aria-current={row.path === current || undefined}
                     onClick={() => onFile(row.path)}
+                    onKeyDown={keys}
                   >
                     {cells}
                   </button>
                 )}
+                {reached === undefined ? null : <ReachToggle name={node.name} reach={reached} open={isOpen} onToggle={() => setOpen(row.path, !isOpen)} />}
+                {reached === undefined || !isOpen ? null : <ReachTests name={node.name} reach={reached} nested={node.depth > 0} onTest={onTest} onClose={() => setOpen(row.path, false)} />}
               </li>
             );
           })}

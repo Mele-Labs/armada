@@ -15,6 +15,7 @@ import { PullRequestComposer, type PullRequestComposerProps } from "./PullReques
 import { PullRequestPlates, type PullRequestChecks } from "./PullRequestPlates";
 import { PatchStack, type PullRequestPatches } from "./PullRequestFiles";
 import { DiffSize, FileRows, PullRequestTabs, type PullRequestTabsProps } from "./PullRequestTabs";
+import type { FilesReach, ReachTest } from "./PullRequestReach";
 import { agoOf } from "./pull-request-format";
 
 export type { PullRequestPatch, PullRequestPatches } from "./PullRequestFiles";
@@ -79,6 +80,10 @@ export type PullRequestPanelProps = {
   composer?: PullRequestComposerProps;
   /** Every file's diff for the Files tab, as the host read them. Absent leaves the Files tab a list, with nothing beside the panel. */
   patches?: PullRequestPatches;
+  /** The tests that reach each changed file, from the test map. Absent draws none, and a path with no entry draws no mark. */
+  reach?: FilesReach;
+  /** A test opened from under its file, where it names the file it lives in. */
+  onTest?: (test: ReachTest) => void;
   /** A tab of the host's own after the four, and the tab shown where the host holds it. Drawn with the page's tabs only. */
   more?: PullRequestTabsProps["more"];
   /** What is drawn is a kept answer and the read goes out once more: a thin bar says so until it lands. */
@@ -300,6 +305,8 @@ function filled({
   pageSaid,
   composer,
   patches,
+  reach,
+  onTest,
   more,
   back,
   children,
@@ -365,11 +372,13 @@ function filled({
               : {
                   files: (
                     <>
-                      {floor ? <FileRows rows={page.files} current={current} onFile={onFile} /> : null}
+                      {floor ? <FileRows rows={page.files} current={current} onFile={onFile} reach={reach} onTest={onTest} /> : null}
                       <PatchStack rows={page.files} patches={patches} target={target} />
                     </>
                   ),
                 })}
+            reach={reach}
+            onTest={onTest}
             {...(more === undefined ? {} : { more })}
             tab={tab}
             onTab={onTab}
@@ -391,7 +400,7 @@ function filled({
       /* Beside the panel, as Plan's task panel holds a file: a second floating sheet to its left that
          dims nothing. It is the panel's own, so its close and Esc close the panel. */
       <Sheet open floating beside="pull-request" kind="pull-request-files" size="panel" title="Files" closeBinding="Esc" onClose={onClose}>
-        <FileRows rows={page.files} current={current} onFile={onFile} />
+        <FileRows rows={page.files} current={current} onFile={onFile} reach={reach} onTest={onTest} />
       </Sheet>
     ) : null}
     </>
