@@ -2,8 +2,8 @@
 //! doing, from its tool calls*.
 
 use crate::{
-    decode, encode, Instant, SessionActivity, SessionId, SessionList, SessionOrigin, SessionRecord, SessionState,
-    SessionTodo, SessionTodoState, SessionUsage,
+    decode, encode, Instant, SessionAccount, SessionActivity, SessionId, SessionList, SessionLive, SessionOrigin,
+    SessionRecord, SessionState, SessionTodo, SessionTodoState, SessionUsage,
 };
 
 fn row(activity: Option<SessionActivity>) -> SessionRecord {
@@ -61,6 +61,7 @@ fn activity_round_trips_under_the_names_the_wire_gives_it() {
         ],
         said: Some("Reading the gate first".to_string()),
         subagents: Vec::new(),
+        ..SessionActivity::default()
     };
     let sent = encode(&row(Some(activity.clone()))).unwrap();
     assert!(sent.contains(r#""now":"Editing gate.rs""#), "{sent}");
@@ -82,4 +83,29 @@ fn what_is_absent_is_left_out_and_reads_back_absent() {
     assert!(!sent.contains("todos"), "an empty list is left out: {sent}");
     let list: SessionList = decode("sessions", encode(&SessionList { sessions: vec![row(Some(only_now.clone()))] }).unwrap().as_bytes()).unwrap();
     assert_eq!(list.sessions[0].activity, Some(only_now));
+}
+
+/// **`for` is the wire's name for the message an account answers**, a Rust keyword the field spells
+/// `for_message`. Every field after it is left out where it holds nothing.
+#[test]
+fn an_account_and_a_live_page_travel_as_the_wire_names_them() {
+    let activity = SessionActivity {
+        account: Some(SessionAccount {
+            for_message: "m7".to_string(),
+            done: vec!["Looked through the settings".to_string()],
+            now: Some("Making the page".to_string()),
+            next: None,
+            group: Some("g2".to_string()),
+            at: Instant::carried("2026-10-22T09:00:00.000Z"),
+        }),
+        live: Some(SessionLive { url: "http://localhost:5173".to_string(), title: "The page".to_string() }),
+        ..SessionActivity::default()
+    };
+    let sent = encode(&row(Some(activity.clone()))).unwrap();
+    assert!(sent.contains(r#""for":"m7""#), "{sent}");
+    assert!(sent.contains(r#""group":"g2""#), "{sent}");
+    assert!(!sent.contains("for_message") && !sent.contains(r#""next""#), "{sent}");
+    assert!(sent.contains(r#""live":{"url":"http://localhost:5173","title":"The page"}"#), "{sent}");
+    let read: SessionRecord = decode("a session", sent.as_bytes()).unwrap();
+    assert_eq!(read.activity, Some(activity));
 }

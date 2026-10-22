@@ -14,6 +14,7 @@ pub const MODELS_RETRO: Words = Words("models.retro");
 pub const MODELS_SECOND_OPINION: Words = Words("models.secondOpinion");
 pub const MODELS_DISPUTE: Words = Words("models.dispute");
 pub const MODELS_TEST_MAP: Words = Words("models.testMap");
+pub const MODELS_ACCOUNT: Words = Words("models.account");
 
 pub const PLAN_DOWNSHIFT_AT: Integer = Integer("plan.downshiftAt");
 pub const PLAN_DOWNSHIFT_TO: Words = Words("plan.downshiftTo");
@@ -144,6 +145,19 @@ pub(super) const MODEL: &[Entry] = &[
         shipped: Shipped::Supplied,
         applies: Applies::Live,
         row: Some("test-map-reading-model"),
+        env: None,
+        tip: None,
+    },
+    // The cheapest: a few short lines written again every few seconds a Session is at work.
+    Entry {
+        key: MODELS_ACCOUNT.0,
+        section: Section::Model,
+        title: "Account writer model",
+        description: "The model that writes, in plain words, what a Session has done, is on and does next.",
+        kind: Kind::Choice(Options::Models),
+        shipped: Shipped::Supplied,
+        applies: Applies::Live,
+        row: Some("session-account-model"),
         env: None,
         tip: None,
     },

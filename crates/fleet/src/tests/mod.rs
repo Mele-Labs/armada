@@ -87,6 +87,8 @@ mod test_map_ci;
 mod folder_jobs;
 mod session_gate;
 mod session_gate_leases;
+mod session_account;
+mod session_servers;
 mod session_activity;
 mod session_annotation_done;
 mod session_dispute;

@@ -146,6 +146,8 @@ pub mod orphans;
 mod session_limit;
 /// What a Session's proposer is asked and how its answer reads, with the words the Job proposer shares.
 mod session_proposer;
+/// What the account writer is asked of a Session at work and how its answer reads.
+mod session_account;
 pub mod peer;
 /// A form's edit sent as a pull request, pending until the checkout has it.
 mod pending_edit;

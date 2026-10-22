@@ -26,6 +26,10 @@ export const DWELL_MS = 3_000;
 const FOLLOW_MS = 150;
 /** The beat between the parts of a press, so the page draws a hover before the press and a press before the next step. */
 const BEAT_MS = 40;
+/** How long the bar's cursor takes to arrive, which a press waits for: the bar's `--duration-travel`. */
+export const GLIDE_MS = 300;
+/** How long a press stays in the state: the cursor and its rings have played out by then, and a bar drawn afresh does not play them again. */
+export const PRESS_MS = 2_000;
 /** Longest the report to the session is, and the words naming a target in the bar. */
 const REPORT_MAX = 400;
 const SAID_MAX = 240;
@@ -270,6 +274,10 @@ export class StepWalk {
   private stoppedOn: "target" | "words" = "target";
   /** Autoplay stopped on this step because it acts on a page off this machine, and Next is what is waited on. */
   private waiting = false;
+  /** The press just shown to the person, which the bar draws a cursor to. `n` makes each one a new thing to play. */
+  private pressed: { x: number; y: number; n: number } | null = null;
+  private presses = 0;
+  private fading: ReturnType<typeof setTimeout> | null = null;
 
   constructor(name: string, steps: readonly WalkStep[], host: StepHost) {
     this.name = name;
@@ -294,6 +302,7 @@ export class StepWalk {
         ...(this.signing ? { signingIn: true } : {}),
         ...(this.phase === "ready" && this.waiting && !this.signing ? { waiting: true } : {}),
         ...(this.phase === "stopped" && !this.signing ? { stopped: line(this.stoppedWords(), SAID_MAX) } : {}),
+        ...(this.pressed === null ? {} : { press: this.pressed }),
       },
     };
   }
@@ -513,7 +522,7 @@ export class StepWalk {
       this.hold("target");
       return;
     }
-    if (!(await this.perform(step, box, round))) return;
+    if (!(await this.perform(step, box, round, true))) return;
     this.at += 1;
     await this.seek(round);
   }
@@ -539,10 +548,22 @@ export class StepWalk {
     this.host.stuck(heldAt(this.at, this.steps, why));
   }
 
-  /** Do what the step does to its target. `false`: the walk stopped on it, or was moved. */
-  private async perform(step: WalkStep, box: CaptureRect, round: number): Promise<boolean> {
+  /** Do what the step does to its target. `false`: the walk stopped on it, or was moved. `shown`: the person is watching, so a press is shown first. */
+  private async perform(step: WalkStep, box: CaptureRect, round: number, shown = false): Promise<boolean> {
     const send = (events: readonly Sent[]) => events.forEach((one) => this.host.send(one));
     if ("press" in step) {
+      if (shown) {
+        // The bar's cursor goes to the target before the page hears the press.
+        this.pressed = { ...centre(box), n: (this.presses += 1) };
+        this.host.changed();
+        if (this.fading !== null) clearTimeout(this.fading);
+        this.fading = setTimeout(() => {
+          this.pressed = null;
+          this.host.changed();
+        }, PRESS_MS);
+        await sleep(GLIDE_MS);
+        if (round !== this.round) return false;
+      }
       for (const event of pressEvents(box)) {
         this.host.send(event);
         await sleep(BEAT_MS);

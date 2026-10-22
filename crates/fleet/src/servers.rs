@@ -73,6 +73,7 @@ where
         checkout: Checkout,
         name: &str,
         by: StartedBy,
+        session: Option<String>,
     ) -> Result<(ServerState, bool), Unservable> {
         let served = checkout.served().clone();
         let manifest = served.manifest().clone();
@@ -125,6 +126,7 @@ where
                 })
                 .collect(),
             by,
+            session,
             whose: checkout.whose(),
             run: server.run().map(resolved),
             serve: resolved(server.serve()),
@@ -245,15 +247,19 @@ where
             .unwrap_or_default()
     }
 
-    /// `Commands::start_server`: a person starting one in a checkout. **The `Arc` is handed on**, so the server is a task of its own.
+    /// `Commands::start_server`: a person starting one in a checkout, or a Session's agent through the
+    /// door, which `caller` places and the server then names. **The `Arc` is handed on**, so the server is
+    /// a task of its own.
     ///
     /// **Not `budgeted`**: a server answers through its own refusal.
     pub(crate) async fn start_server_answered(
         self: Arc<Self>,
+        caller: Option<api::Caller>,
         asked: ipc::StartServer,
         manifest_id: Option<ipc::ManifestId>,
     ) -> Result<ServerState, Refusal> {
         let served = self.served_named(manifest_id.as_ref())?;
+        let session = caller.and_then(|caller| self.session_holding(&caller));
         let checkout = match asked.checkout.as_deref() {
             Some(path) => {
                 Checkout::beside(served, path).map_err(|why| self.checkout_refusal(why))?
@@ -261,10 +267,15 @@ where
             None => Checkout::main(served),
         };
         let refusing = Arc::clone(&self);
-        Fleet::hold_server(self, checkout, &asked.name, ipc::StartedBy::Person)
+        let state = Fleet::hold_server(Arc::clone(&self), checkout, &asked.name, ipc::StartedBy::Person, session)
             .await
             .map(|(state, _)| state)
-            .map_err(|why| refusing.server_refusal(why))
+            .map_err(|why| refusing.server_refusal(why))?;
+        if let (Some(session), Some((url, title))) = (&state.session_id, page_of(&state)) {
+            let step = self.live_page_seen(session.as_str(), &url, &title);
+            self.publish_step(session.as_str().to_string(), step);
+        }
+        Ok(state)
     }
 
     /// A path that is not a checkout of the repository asked about. **A 422**,
@@ -304,6 +315,14 @@ async fn stopped_and_waited(held: Vec<held::Stopping>) {
             now.wait_for(|seen| seen.phase == ServerPhase::Exited),
         )
         .await;
+    }
+}
+
+/// Where a server's page is and what to call it: its first link, else its first port on `localhost`.
+fn page_of(state: &ServerState) -> Option<(String, String)> {
+    match state.links.first() {
+        Some(link) => Some((link.url.clone(), link.name.clone().unwrap_or_else(|| state.name.clone()))),
+        None => state.ports.first().map(|port| (format!("http://localhost:{}", port.port), state.name.clone())),
     }
 }
 

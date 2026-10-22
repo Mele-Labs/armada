@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use crate::event::Missed;
 use crate::ids::{Instant, ManifestId};
 use crate::protocol_id::ProtocolId;
+use crate::sessions::SessionId;
 use crate::underway::{OutputClosed, OutputLines};
 
 /// Where a server is. **Only `serving` carries a usable address**: a link
@@ -102,6 +103,10 @@ pub struct ServerState {
     pub ports: Vec<ServerPort>,
     pub links: Vec<ServerLink>,
     pub started_by: StartedBy,
+    /// The Session whose agent started it, placed by the connection it called on. Absent for one a
+    /// person started, from Bridge or by hand.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<SessionId>,
     pub started_at: Instant,
     /// When `ready` passed, or `serve` started where there is no `ready`.
     /// Uptime is counted from here; nothing ticks on the wire.

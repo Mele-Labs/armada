@@ -141,6 +141,8 @@ export type CaptureGuide = {
   signingIn?: boolean;
   /** Autoplay stopped before a step that acts on a page off this machine, and Next is waited on. Absent: it is not. */
   waiting?: true;
+  /** The last press the walk made, in the page's viewport. `n` counts them, so the bar plays the cursor once for each. Absent: none yet. */
+  press?: { x: number; y: number; n: number };
 };
 
 /** `ready`: done and waiting on the person. `working`: still being changed. */
