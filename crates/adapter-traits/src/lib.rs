@@ -77,7 +77,9 @@ pub use delivery::{
     NotMerged, NotRerun, Opened, Pushed, PushedOntoBase, Rendering, RepositoryStanding, Rerun,
     Review, Standing, WhatBecameOfIt,
 };
-pub use test_map::{CollectorSource, Lap, LapCost, LapGrain, NotRecorded, TestCollector, TestsToRecord};
+pub use test_map::{
+    CollectorSource, Lap, LapCost, LapGrain, LapsOnForge, NotAsked, NotRecorded, TestCollector, TestsToRecord,
+};
 pub use text_model::{NotEmbedded, TextModel, TextReading};
 pub use forge::{Compared, Forge, LandingOnTheForge};
 pub use event::{CallDetail, DroneEvent, FileAct, Reach, Speaker, TaskStatus, ToolUse};

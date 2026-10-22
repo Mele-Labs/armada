@@ -97,3 +97,21 @@ pub trait TestCollector: Send + Sync {
     /// that reaches nothing is a lap with no files, not a missing lap.
     fn record(&self, check: &str, dir: &str, tests: &TestsToRecord) -> Result<Vec<Lap>, NotRecorded>;
 }
+
+/// What the forge holds of the laps a commit's CI run recorded.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum LapsOnForge {
+    /// The run is not there yet, or is still going, and the file is not uploaded. Ask again later.
+    NotYet,
+    /// The run finished and uploaded none, or no run of that commit records laps. Asking again
+    /// will not change it.
+    Never,
+    /// The file the run uploaded, as its bytes. **Not read here**: this crate decodes nothing,
+    /// and the one that does is the crate that knows what the file says.
+    Found(Vec<u8>),
+}
+
+/// Why the forge could not be asked, in the words the tool used: no tool, not signed in, no
+/// such workflow. Not an answer about the commit, so a caller does not ask again for it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct NotAsked(pub String);
