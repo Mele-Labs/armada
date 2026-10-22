@@ -76,5 +76,8 @@ Fleet has more than one way to learn that a test reaches a file, and uses whiche
 > **Rule.** A run the map narrowed gates nothing. The merge line runs what the Manifest says.
 > Why: `manifest.md`, *How much of the tree a Check reads*, and the map is a sharper reading of the same question.
 
+> **Rule.** A repository says in its Manifest whether its map is shared through the central store or kept by each machine. Absent means each machine's.
+> Why: a team on one repository starts every machine warm, and a repository that has not said so sends nothing anywhere.
+
 > **Rule.** The map never writes to the repository.
 > Why: it is Fleet's record of the code, kept in Fleet's store, and a repository that has never heard of Armada reads the same.
