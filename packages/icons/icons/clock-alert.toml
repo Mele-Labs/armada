@@ -1,0 +1,7 @@
+[icons.clock-alert]
+  means = "A clock face with an exclamation mark beside the hands: a time that has gone past"
+  group = "Test map"
+  size = "16px"
+  status = "Proposed"
+  reserved = "A test map edge older than the file it names, on a changed file's row and on the tests under it. Never a Job waiting, which is `clock`, never a timeout, and never a deadline."
+  notes = "Proposed 22 Oct 2026 for the walk `test-map-reach`. The file changed after the edge was read: still an answer, said as stale. Tooltip `Stale`. Refused: `history`, reserved to Replay; `clock`, a Job's state; `hourglass`, banned; `rotate-cw`, Redispatch."
