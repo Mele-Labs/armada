@@ -62,7 +62,7 @@ const threads = (): Record<string, SessionRow[]> => ({
     { kind: "message", id: "m2", at: "2026-10-19T14:10:40.000Z", from: { kind: "agent" }, text: REPLY },
     { kind: "disputed", id: "d1", at: "2026-10-19T14:10:41.000Z", notice: "n1", why: "Reading agents already run on sonnet. The opus spend came from building agents.", spotted: "called", review: REVIEW },
     { kind: "message", id: "n2", at: "2026-10-19T14:30:00.000Z", from: FLEET, text: "Context is 180k tokens." },
-    { kind: "disputed", id: "d2", at: "2026-10-19T14:41:00.000Z", notice: "n2", why: "The reply asked him to walk nothing: it proposed a walk as part of the plan, to be built and shown.", spotted: "read" },
+    { kind: "disputed", id: "d2", at: "2026-10-19T14:41:00.000Z", notice: "n2", why: "The agent had already compacted at 120k, so the 180k figure was out of date.", spotted: "read" },
   ],
   [REVIEW]: [
     {

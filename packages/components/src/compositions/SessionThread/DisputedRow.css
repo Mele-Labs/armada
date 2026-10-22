@@ -21,9 +21,9 @@
   color: var(--fg-muted);
 }
 
-/* A basis, not zero: a zero basis never breaks the row, so the reason shrank to a word a line beside the pieces that cannot. */
+/* The reason is the first line, beside the mark, and takes all of it; how it was spotted, the press and the time wrap under it. */
 .armada-session-disputed__why {
-  flex: 1 1 calc(var(--space-12) * 4);
+  flex: 1 1 calc(100% - var(--space-3) - var(--space-2));
   min-width: 0;
   color: var(--fg-default);
   overflow-wrap: anywhere;
