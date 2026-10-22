@@ -7,7 +7,8 @@
 .sv-panel[data-area="progress"] > .sv-panel__body { gap: var(--space-6); padding-block: var(--space-4); }
 
 .sv-zone { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
-.sv-zone__label { margin: 0; padding-inline: var(--space-2); color: var(--fg-subtle); font-family: var(--font-sans); font-size: var(--text-2xs); line-height: var(--leading-2xs); font-weight: var(--weight-medium); }
+/* A zone's name reads above its rows: full ink and heading weight, where the rows under it are muted. */
+.sv-zone__label { margin: 0; padding-inline: var(--space-2); color: var(--fg-default); font-family: var(--font-sans); font-size: var(--text-xs); line-height: var(--leading-xs); font-weight: var(--weight-heading); }
 
 /* ---- Now: the turn's account over its page, in a frame of its own ------------------------------------------- */
 
