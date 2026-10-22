@@ -4,7 +4,7 @@
 // the Loadout's left: a repository skill, then the session rules in its place, then an MCP server's tools, and Esc
 // closes it with the Loadout still open. Then typing /mcp opens the Loadout on its MCP servers, read live from the
 // Job's process: chrome-devtools timed out and is Reconnected, mailroom signs in and then offers Reconnect, and
-// forge is turned off and on. Over the `session-loadout` scenario.
+// forge's menu holds Reconnect behind Turn off before it is turned off and on. Over the `session-loadout` scenario.
 
 import { timeSaid } from "@armada/components";
 
@@ -31,7 +31,7 @@ const sessionLoadout = walk(
     { look: mark, say: "The Loadout's mark, after the context" },
     { hover: mark, say: "What it knows and was told, and what the latest turn used" },
     { press: mark, say: "The whole Loadout, the latest turn open" },
-    { look: servers, say: "Each server as the Job's process reports it, with the one act its state takes" },
+    { look: servers, say: "Each server as the Job's process reports it, its state's act on the face and the rest behind the caret" },
     { press: inside(sheet, button(`Turn at ${mechanicAt}`)), say: "The turn that sent armada:mechanic on sonnet" },
     { look: inside(sheet, role("list", `Used in the turn at ${mechanicAt}`)), say: "The subagent, the forge tool it called and the repository skill" },
     { press: inside(inside(knows, region("Skills")), role("button", /^work-issue/)), say: "The repository skill work-issue, to the left" },
@@ -50,6 +50,8 @@ const sessionLoadout = walk(
     { look: server(/^chrome-devtools 26 tools$/), say: "Connected, with its 26 tools and no mark" },
     { press: act("Sign in mailroom"), say: "mailroom needs sign-in: its page opens in the browser" },
     { look: act("Reconnect mailroom"), say: "A connector page sends nothing back, so the row offers Reconnect" },
+    { press: act("More for forge"), say: "forge's menu" },
+    { look: inside(servers, role("menu", "More for forge")), say: "Reconnect, behind Turn off on the face" },
     { press: act("Turn off forge"), say: "Turn forge off" },
     { look: inside(server(/^forge/), role("img", "Off")), say: "Off, and Turn on beside it" },
     { press: act("Turn on forge"), say: "Turn it on again" },
