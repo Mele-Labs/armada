@@ -5,7 +5,7 @@ import { expect, fn, screen, waitFor, within } from "storybook/test";
 import { loadoutKeyOf, type LoadoutRef } from "../../loadout";
 import { timeSaid } from "../../time-format";
 import { LoadoutSheet, type LoadoutOpened, type LoadoutSheetProps } from "./LoadoutSheet";
-import { BODIES, LOADOUT, MCP_SERVERS, OWN_SKILL, SKILL_ACTS, TURNS } from "./LoadoutSheet.fixtures";
+import { BODIES, LOADOUT, MCP_SERVERS, OWN_SKILL, PLUGIN_SKILL, SKILL_ACTS, TURNS } from "./LoadoutSheet.fixtures";
 
 /** A Session's whole Loadout, in the panel over the work area: what it knows, what it was told, and what each turn used. */
 const meta: Meta<typeof LoadoutSheet> = {
@@ -287,6 +287,40 @@ export const SkillRemoved: Story = {
     await expect(args.skills!.onAct).toHaveBeenCalledWith({ kind: "skill", name: "commit-message", source: "kit" }, "restore");
     await expect(within(skillRow("deep-research")).getByRole("button", { name: "Removing deep-research" })).toHaveAttribute("aria-busy", "true");
     await expect(skillRow("pdf")).toHaveTextContent("Nothing was removed. The skill's folder is not where Kit last read it.");
+  },
+};
+
+/**
+ * A plugin's skill offers to remove the plugin it came with. The confirm names the command that uninstalls it and every
+ * skill it takes, and says there is no Undo; nothing is sent before it.
+ */
+export const SkillRemovePlugin: Story = {
+  args: {
+    onOpenItem: fn(),
+    skills: {
+      rows: {
+        ...SKILL_ACTS,
+        "skill:plugin:productivity:productivity:memory-management": {
+          edits: PLUGIN_SKILL,
+          plugin: { name: "productivity", uninstall: "harness plugin uninstall productivity@toolshed", takes: ["memory-management", "summarise"] },
+        },
+      },
+      onAct: fn(),
+    },
+  },
+  play: async ({ args, userEvent }) => {
+    await screen.findByRole("dialog", { name: "Loadout" });
+    const row = skillRow("productivity:memory-management");
+    await expect(await menuOf(row, "productivity:memory-management", userEvent)).toEqual(["Remove plugin productivity"]);
+    await userEvent.click(within(row).getByRole("menuitem", { name: "Remove plugin productivity" }));
+    const confirm = await screen.findByRole("dialog", { name: "Remove plugin productivity from this Mac" });
+    await expect(confirm).toHaveTextContent("harness plugin uninstall productivity@toolshed");
+    await expect(confirm).toHaveTextContent("Removes its skills: memory-management, summarise.");
+    await expect(confirm).toHaveTextContent("Every Job on this Mac loses them from its next start.");
+    await expect(confirm).toHaveTextContent("There is no Undo.");
+    await expect(args.skills!.onAct).not.toHaveBeenCalled();
+    await userEvent.click(within(confirm).getByRole("button", { name: "Remove plugin" }));
+    await expect(args.skills!.onAct).toHaveBeenCalledWith({ kind: "skill", name: "productivity:memory-management", source: "plugin", from: "productivity" }, "remove_plugin");
   },
 };
 

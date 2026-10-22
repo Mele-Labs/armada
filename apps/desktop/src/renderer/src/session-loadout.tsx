@@ -4,7 +4,7 @@
 // what that item says to the Loadout's left, read once per press with `read_loadout_item`. A hosted Job's MCP servers
 // are asked of its process while the panel is open, since the process pushes no change. Kit's inventory is read when
 // the panel opens, so a skill Kit holds offers Edit, which opens its SKILL.md in the file panel, and one of the
-// person's own offers Remove, then Restore from the Trash.
+// person's own offers Remove, then Restore from the Trash. A plugin's skill offers to remove the plugin.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { LoadoutSheet, loadoutKeyOf, type LoadoutItemRead, type LoadoutOpened, type LoadoutRead, type LoadoutRef, type LoadoutSkillAct, type LoadoutSkillActs, type McpGroup, type McpServerRow, type SkillGroup } from "@armada/components";
@@ -189,12 +189,13 @@ type Gone = ReadonlyMap<string, string | null>;
 /**
  * Kit's acts on the skills it holds, matched against its inventory, read once as the panel opens and again off each
  * act's answer. **Edit opens the SKILL.md in the file panel, which takes the Loadout's place**; where no window hosts
- * that panel, the editor opens it. A skill removed keeps its row, and Restore sends the Trash's place for it back.
+ * that panel, the editor opens it. A skill removed keeps its row, and Restore sends the Trash's place for it back. A
+ * plugin removed takes its skills' rows with it, and nothing restores a plugin.
  */
 function useSkillGroup(read: LoadoutRead, onClose: () => void): SkillGroup | undefined {
   const [setup, setSetup] = useState<KitInventory | undefined>(undefined);
   const [gone, setGone] = useState<Gone>(new Map());
-  const [acting, setActing] = useState<ReadonlyMap<string, "remove" | "restore">>(new Map());
+  const [acting, setActing] = useState<ReadonlyMap<string, Exclude<LoadoutSkillAct, "edit">>>(new Map());
   const [refused, setRefused] = useState<ReadonlyMap<string, string>>(new Map());
   const live = useRef(true);
   useEffect(() => {
@@ -231,17 +232,19 @@ function useSkillGroup(read: LoadoutRead, onClose: () => void): SkillGroup | und
       if (!openInPanel({ kind: "file", path, from: "kit" })) return void window.armada.openKitFile(path, "editor");
       return onClose();
     }
-    const body = act === "remove" ? matched[key]?.remove : undefined;
+    const body = act === "remove" ? matched[key]?.remove : act === "remove_plugin" ? matched[key]?.removePlugin : undefined;
     const trashed = act === "restore" ? gone.get(key) : undefined;
     if (body === undefined && (trashed === undefined || trashed === null)) return;
     setActing((now) => new Map(now).set(key, act));
     if (body !== undefined) {
+      // A plugin takes every skill it brought, so each of its rows is marked, and none can be restored.
+      const took = body.kind === "plugin" ? Object.keys(matched).filter((one) => matched[one]?.removePlugin?.name === body.name) : [key];
       void removeKitPiece(body).then((got) => {
         if (!live.current) return;
         settled(key, got.ok ? undefined : refusalWords(got.outcome));
         if (!got.ok) return;
         setSetup(got.removed.setup);
-        setGone((now) => new Map(now).set(key, got.removed.trashed));
+        setGone((now) => new Map([...now, ...took.map((one) => [one, got.removed.trashed] as const)]));
         kitChanged();
       });
       return;

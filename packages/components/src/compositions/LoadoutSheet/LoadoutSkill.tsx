@@ -6,7 +6,7 @@ import { SplitButton, type SplitButtonItem } from "../../primitives/SplitButton/
 import { loadoutKeyOf, type LoadoutRef } from "../../loadout";
 
 /** What a skill row can be asked to do. */
-export type LoadoutSkillAct = "edit" | "remove" | "restore";
+export type LoadoutSkillAct = "edit" | "remove" | "remove_plugin" | "restore";
 
 /** What Kit's inventory lets one skill row do, as the host matched the row against it. */
 export type LoadoutSkillActs = {
@@ -14,6 +14,8 @@ export type LoadoutSkillActs = {
   edits?: string;
   /** One of the person's own: Remove puts its folder in the Trash. */
   removes?: boolean;
+  /** The plugin it came with, by its name without the marketplace: Remove plugin runs `uninstall` and takes every skill in `takes`. */
+  plugin?: { name: string; uninstall?: string; takes: readonly string[] };
   /** Gone from this Mac. `restorable` while the Trash holds it and Restore can bring it back. */
   removed?: { restorable: boolean };
   /** The act sent and not answered yet. */
@@ -38,16 +40,27 @@ export function skillActsOf(item: LoadoutRef, skills: SkillGroup | undefined): L
 export const skillDraws = (acts: LoadoutSkillActs): boolean =>
   acts.acting !== undefined || acts.refused !== undefined || (acts.removed === undefined ? acts.edits !== undefined : acts.removed.restorable);
 
-const UNDERWAY: Record<NonNullable<LoadoutSkillActs["acting"]>, string> = { remove: "Removing", restore: "Restoring" };
+const UNDERWAY: Record<NonNullable<LoadoutSkillActs["acting"]>, string> = { remove: "Removing", remove_plugin: "Removing", restore: "Restoring" };
 
 /**
- * A skill row's acts at its trailing edge. Edit is on the face and Remove behind the caret, behind a confirm; once
- * removed the row offers Restore alone. An act out takes the face while it is.
+ * A skill row's acts at its trailing edge. Edit is on the face, and Remove or Remove plugin behind the caret, each
+ * behind a confirm; once removed the row offers Restore alone, where the Trash holds it. An act out takes the face.
  */
 export function SkillActs({ item, acts, onAct }: { item: LoadoutRef; acts: LoadoutSkillActs; onAct: SkillGroup["onAct"] }) {
-  const [confirming, setConfirming] = useState(false);
+  const [confirming, setConfirming] = useState<"remove" | "remove_plugin" | undefined>(undefined);
   const refused = acts.refused === undefined ? {} : { answer: "refused" as const };
-  const menu: SplitButtonItem[] = acts.removes === true && acts.removed === undefined ? [{ label: "Remove", danger: true, onSelect: () => setConfirming(true) }] : [];
+  const { plugin } = acts;
+  const menu: SplitButtonItem[] =
+    acts.removed !== undefined
+      ? []
+      : [
+          ...(acts.removes === true ? [{ label: "Remove", danger: true, onSelect: () => setConfirming("remove") }] : []),
+          ...(plugin === undefined ? [] : [{ label: `Remove plugin ${plugin.name}`, danger: true, onSelect: () => setConfirming("remove_plugin") }]),
+        ];
+  const confirmed = (act: "remove" | "remove_plugin") => () => {
+    setConfirming(undefined);
+    onAct(item, act);
+  };
   const face = acts.acting !== undefined ? (
     <Button variant="secondary" size="sm" aria-label={`${UNDERWAY[acts.acting]} ${item.name}`} pending>
       {UNDERWAY[acts.acting]}
@@ -72,18 +85,23 @@ export function SkillActs({ item, acts, onAct }: { item: LoadoutRef; acts: Loado
       {face}
       {acts.refused === undefined ? null : <p className="armada-loadout__refused">{acts.refused}</p>}
       {acts.removes !== true ? null : (
-        <Dialog
-          open={confirming}
-          title={`Remove ${item.name} from this Mac`}
-          confirmLabel="Remove"
-          onConfirm={() => {
-            setConfirming(false);
-            onAct(item, "remove");
-          }}
-          onCancel={() => setConfirming(false)}
-        >
+        <Dialog open={confirming === "remove"} title={`Remove ${item.name} from this Mac`} confirmLabel="Remove" onConfirm={confirmed("remove")} onCancel={() => setConfirming(undefined)}>
           <p>Every Job on this Mac loses it from its next start.</p>
           <p>Its folder goes to the Trash. Restore on its row brings it back.</p>
+        </Dialog>
+      )}
+      {plugin === undefined ? null : (
+        <Dialog
+          open={confirming === "remove_plugin"}
+          title={`Remove plugin ${plugin.name} from this Mac`}
+          confirmLabel="Remove plugin"
+          onConfirm={confirmed("remove_plugin")}
+          onCancel={() => setConfirming(undefined)}
+        >
+          {plugin.uninstall === undefined ? null : <pre className="armada-loadout__commands">{plugin.uninstall}</pre>}
+          {plugin.takes.length === 0 ? null : <p>Removes its skills: {plugin.takes.join(", ")}.</p>}
+          <p>Every Job on this Mac loses them from its next start.</p>
+          <p>There is no Undo.</p>
         </Dialog>
       )}
     </>

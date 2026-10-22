@@ -36,6 +36,22 @@ it("opens a plugin's skill at its SKILL.md, by the name without the plugin's pre
   expect(found?.remove).toBeUndefined();
 });
 
+it("removes the plugin a skill came with, naming its uninstall and every skill it takes", () => {
+  const found = skillActsByKit([skill("productivity:memory-management", "plugin", "productivity")], inventory([OWN, BROUGHT, SUMMARISE], [PRODUCTIVITY]))["skill:plugin:productivity:productivity:memory-management"];
+  expect(found?.acts.plugin).toEqual({ name: "productivity", uninstall: "harness plugin uninstall productivity@toolshed", takes: ["memory-management", "summarise"] });
+  expect(found?.removePlugin).toEqual({ kind: "plugin", name: "productivity@toolshed" });
+});
+
+it("offers no Remove plugin where two installed plugins share the name, or none has it", () => {
+  const twice = inventory([BROUGHT], [PRODUCTIVITY, { ...PRODUCTIVITY, name: "productivity@elsewhere" }]);
+  const none = inventory([BROUGHT]);
+  for (const setup of [twice, none]) {
+    const found = skillActsByKit([skill("productivity:memory-management", "plugin", "productivity")], setup)["skill:plugin:productivity:productivity:memory-management"];
+    expect(found?.acts.plugin).toBeUndefined();
+    expect(found?.removePlugin).toBeUndefined();
+  }
+});
+
 it("offers nothing on a repository's, a built in or a managed skill, even one named as a skill Kit holds", () => {
   const items = [skill("commit-message", "repository"), skill("commit-message", "built_in"), skill("commit-message", "managed")];
   expect(skillActsByKit(items, inventory([OWN]))).toEqual({});
