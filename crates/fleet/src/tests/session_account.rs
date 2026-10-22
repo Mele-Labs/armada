@@ -117,7 +117,7 @@ fn the_question_lays_the_turn_out_and_offers_groups_only_where_there_are_some() 
 
 #[test]
 fn a_line_that_names_code_is_dropped_and_a_plain_one_with_a_product_name_is_kept() {
-    let reply = "done: Opened the GitHub issue\n\
+    let reply = "done: Rewrote it in JavaScript\n\
                  done: Changed `login.tsx`\n\
                  done: Ran the check on crates/fleet\n\
                  done: Renamed sessionActivity everywhere\n\
@@ -127,7 +127,7 @@ fn a_line_that_names_code_is_dropped_and_a_plain_one_with_a_product_name_is_kept
                  now: none\n\
                  next: Check the page";
     let written = read(reply, &[]).expect("some lines survive");
-    assert_eq!(written.done, ["Opened the GitHub issue", "Fixed it in version 5.5", "Used and/or for the labels"]);
+    assert_eq!(written.done, ["Rewrote it in JavaScript", "Fixed it in version 5.5", "Used and/or for the labels"]);
     assert_eq!(written.now, None, "`none` is no line");
     assert_eq!(written.next.as_deref(), Some("Check the page"));
     assert_eq!(read("done: Edited gate.rs", &[]), None, "nothing left, no account");

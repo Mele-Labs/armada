@@ -206,7 +206,7 @@ where
                 at: self.instant(),
             }),
             Err(why) => {
-                eprintln!("job {id}: its account was not written: {why}");
+                self.session_warned(id, "its account was not written", why);
                 None
             }
         };

@@ -137,7 +137,7 @@ const TOOLS: [&str; 9] =
 
 /// Whether `line` carries a path, a file name, a code identifier or a tool's name. **Judged by the
 /// shape of a word**: a slash, a backtick, a call's brackets, `::`, an underscore, a camelCase join
-/// (`GitHub` is a name and is let through), or a name with an extension.
+/// (`JavaScript` is a name and is let through), or a name with an extension.
 fn names_code(line: &str) -> bool {
     line.split_whitespace().any(|word| {
         let word = word.trim_matches(|c: char| !c.is_alphanumeric() && !"_/\\`:()".contains(c));
