@@ -5,7 +5,7 @@
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import type { TimelineEvent } from "@armada/protocol";
 
-import { relativeTo } from "../cockpit/deck/areas";
+import { insideOf } from "../cockpit/deck/areas";
 import type { Burst } from "../cockpit/deck/afterglow";
 import type { DroneIn } from "../cockpit/deck/layout";
 import { cardOf, lensOf, newestOf, writersOf, type LensDiff, type LensHunk, type Writer } from "../cockpit/deck/lens";
@@ -147,7 +147,10 @@ export function useLens(input: { session: string; drones: readonly DroneIn[]; pi
     if (since === undefined) return;
     for (const one of events) {
       if (one.id <= since || one.kind !== "session.edited") continue;
-      for (const path of one.items ?? (one.detail === undefined ? [] : [one.detail])) asks.current?.edited(relativeTo(path, roots));
+      for (const path of one.items ?? (one.detail === undefined ? [] : [one.detail])) {
+        const named = insideOf(path, roots);
+        if (named !== undefined) asks.current?.edited(named);
+      }
     }
   }, [events, rootsKey]);
 

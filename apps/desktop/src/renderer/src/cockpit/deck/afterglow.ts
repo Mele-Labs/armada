@@ -4,7 +4,7 @@
 
 import type { TimelineEvent } from "@armada/protocol";
 
-import { relativeTo } from "./areas";
+import { insideOf } from "./areas";
 import { inOrder } from "./replay";
 
 export type Act = "read" | "write";
@@ -34,7 +34,7 @@ export function burstsOf(events: readonly TimelineEvent[], session: string, root
     if (event.subject.kind !== "session" || event.subject.id !== session) continue;
     if (event.kind !== "session.read" && event.kind !== "session.edited") continue;
     const named = event.items ?? (event.detail === undefined ? [] : [event.detail]);
-    const paths = named.map((path) => relativeTo(path, roots)).filter((path) => path !== "");
+    const paths = named.flatMap((path) => insideOf(path, roots) ?? []);
     if (paths.length > 0) out.push({ at: Date.parse(event.at), act: event.kind === "session.read" ? "read" : "write", paths });
   }
   return out;

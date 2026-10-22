@@ -7,7 +7,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { TimelineEvent } from "@armada/protocol";
 import { owesOf, standingOf, type Session, type WorkDrone } from "@armada/screens/src/draft/sessions";
 
-import { relativeTo } from "../cockpit/deck/areas";
+import { insideOf, relativeTo } from "../cockpit/deck/areas";
 import type { DroneIn } from "../cockpit/deck/layout";
 import { THINK_MS, burstOf, quietAt, callingOf, fileNamed, lastToolAt, lightsOf, mainNow, messageWord, subagentNow, wordOf, type CheckRecord, type Light, type LinkIn, type Message, type Now } from "../cockpit/deck/off-floor";
 import type { Play } from "../cockpit/deck/plays";
@@ -61,13 +61,15 @@ export function useMainNow(session: Session, events: readonly TimelineEvent[], r
   // The present, not the clock's last step: a call or a burst that has just arrived is read at once, and the clock moves it on later.
   const at = Math.max(clock, Date.now());
   const burst = burstOf(events, at);
+  // A file outside the checkouts has no bar to stand on: the drone keeps to the last one it had.
+  const burstFile = burst?.detail === undefined ? undefined : insideOf(burst.detail, roots);
   const now = mainNow({
     working,
     walk,
     checking: checks.some((one) => one.state === "running"),
     quiet,
     call: callingOf(events, at),
-    burst: burst === undefined ? undefined : { act: burst.act, ...(burst.detail === undefined ? {} : { file: relativeTo(burst.detail, roots) }) },
+    burst: burst === undefined ? undefined : { act: burst.act, ...(burstFile === undefined ? {} : { file: burstFile }) },
     file,
     owed: session.asked !== undefined || owesOf(session).length > 0,
     done: standingOf(session) === "done",

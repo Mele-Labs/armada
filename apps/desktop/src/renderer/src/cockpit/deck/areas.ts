@@ -68,3 +68,9 @@ export function relativeTo(path: string, roots: readonly string[]): string {
   }
   return path;
 }
+
+/** A path as the repository spells it, or none where it lies outside these checkouts: a plugin's notes, a scratch file. */
+export function insideOf(path: string, roots: readonly string[]): string | undefined {
+  const named = relativeTo(path, roots);
+  return named === "" || named.startsWith("/") || named.startsWith("~/") ? undefined : named;
+}
