@@ -18,6 +18,7 @@ fn entry(at: &str, kind: &str) -> TimelineEntry {
         items: Vec::new(),
         service: None,
         service_name: None,
+        to_id: None,
         live: true,
         over: false,
     }
