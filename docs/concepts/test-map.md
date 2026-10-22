@@ -56,8 +56,9 @@ Fleet has more than one way to learn that a test reaches a file, and uses whiche
 | A Check runs for a Job | Records a lap for each test that ran, where the runtime's collector costs no rebuild |
 | A pull request merges | The run on main refreshes the laps for what it ran |
 | A file changes on a branch | Marks its edges stale, and reads them again by the cheapest source that can |
+| Main moves to a new tip | Marks the edges of the files between the tips stale, and reads again at the new tip the tests of every source that costs no run and no rebuild |
 | A new file appears | Asks the static graph, and a model only where no collector can measure it |
-| The machine is asleep | Re-measures stale edges in a free bay, one test at a time, and stops when sleep mode goes off |
+| The machine is asleep | Re-measures stale edges in a free bay, one test at a time, holding one of the machine's places, and stops when sleep mode goes off. A map holding no edge is the forge's to seed, so it is never measured whole here |
 
 > **Rule.** A stale edge is still an answer, said as stale.
 > Why: a file edited an hour ago is reached by nearly the same tests it was, and no answer at all sends an agent to the whole suite.

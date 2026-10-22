@@ -386,6 +386,19 @@ where
     pub(crate) fn writes(&self) -> &Arc<crate::clashing::Writes> {
         &self.writes
     }
+    pub(crate) fn feed(&self) -> &Arc<crate::test_map_feed::Feed> {
+        &self.feed
+    }
+    /// A room in the machine's line of places, asking as `asking`: what a heavy run outside a
+    /// Check holds around itself.
+    pub(crate) fn room_asking(&self, asking: crate::places::Asking) -> crate::places::Room {
+        crate::places::Room::sharing(&self.places, asking, Arc::clone(&self.machine), self.headroom())
+    }
+    /// How many of the machine's places are held right now.
+    #[cfg(test)]
+    pub(crate) fn places_held(&self) -> usize {
+        self.places.held()
+    }
     pub(crate) fn territory(&self) -> &Arc<crate::territory::Territory> {
         &self.territory
     }

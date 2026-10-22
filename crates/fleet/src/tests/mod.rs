@@ -78,6 +78,7 @@ mod session_ending_slots;
 mod session_release_holds;
 mod session_release_slot;
 mod test_map;
+mod test_map_feed;
 mod folder_jobs;
 mod session_gate;
 mod session_gate_leases;

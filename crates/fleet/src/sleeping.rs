@@ -199,7 +199,7 @@ where
         Ok(())
     }
 
-    async fn sleeping(&self) -> bool {
+    pub(crate) async fn sleeping(&self) -> bool {
         self.store().lock().await.sleep_switch().map(|one| one.on).unwrap_or(false)
     }
 

@@ -58,8 +58,8 @@ impl Feeder {
 /// | Runs `nextest` and narrows `under` a directory | Coverage, `width` wide |
 /// | Anything else | None |
 ///
-/// **A Check with no `under` is not fed by coverage**: the owner's rule is that a Check
-/// declaring none has no members to name a lap by.
+/// **A Check with no `under` is not fed by coverage**: its laps name a member by the
+/// directory `under` spells, and without one they would name none.
 pub fn collector_for(
     check: &str,
     run: &str,
