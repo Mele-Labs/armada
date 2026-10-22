@@ -22,6 +22,7 @@ mod locating;
 mod loopback;
 mod mcp;
 mod reaching;
+mod recording;
 mod settings_watch;
 mod setup;
 mod test_map;

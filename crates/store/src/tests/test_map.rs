@@ -201,3 +201,26 @@ fn the_tip_the_map_was_fed_to_survives_a_reopen_and_is_replaced_by_the_next() {
     assert_eq!(store.fed_test_map_tip(&repository("01REPO")).expect("reads").as_deref(), Some("bbb"));
     assert_eq!(store.fed_test_map_tip(&repository("01OTHER")).expect("reads").as_deref(), Some("zzz"));
 }
+
+#[test]
+fn laps_kept_at_a_commit_are_held_until_a_later_commits_stand_in_for_them() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    let held = |store: &crate::Store, source, commit| {
+        store.holds_test_map_edges_at(&repository("01REPO"), "test", source, commit).expect("reads")
+    };
+    assert!(!held(&store, EdgeSource::Measured, "abc123"), "an empty map holds nothing");
+
+    store.record_test_map_edges(&[edge("reads_a_row", "src/row.rs", EdgeSource::Measured, "abc123", 1)]).expect("kept");
+    assert!(held(&store, EdgeSource::Measured, "abc123"));
+    assert!(!held(&store, EdgeSource::Static, "abc123"), "another source's edges are not these");
+    assert!(!held(&store, EdgeSource::Measured, "def456"), "nor are another commit's");
+    assert!(
+        !store.holds_test_map_edges_at(&repository("01OTHER"), "test", EdgeSource::Measured, "abc123").expect("reads"),
+        "nor another repository's"
+    );
+
+    store.record_test_map_edges(&[edge("reads_a_row", "src/row.rs", EdgeSource::Measured, "def456", 2)]).expect("kept");
+    assert!(held(&store, EdgeSource::Measured, "def456"));
+    assert!(!held(&store, EdgeSource::Measured, "abc123"), "the later record stood in for the first");
+}

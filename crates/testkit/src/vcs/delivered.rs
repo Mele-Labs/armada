@@ -65,6 +65,8 @@ pub enum Delivered {
     AskedForTheDiff { pull_request: String },
     /// The forge was asked to start a pull request's failed CI runs again. A write, like a merge.
     RerunFailed { pull_request: String },
+    /// The forge was asked for the laps a commit's CI run recorded.
+    AskedForLaps { commit: String },
     /// An issue was filed on the forge. A write, on a person's confirm. #906.
     FiledIssue { title: String },
     /// The branch was asked to be kept current against a base that moved —

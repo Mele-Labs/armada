@@ -54,7 +54,7 @@ Fleet has more than one way to learn that a test reaches a file, and uses whiche
 | Moment | What Fleet does |
 |---|---|
 | A Check runs for a Job | Records a lap for each test that ran, where the runtime's collector costs no rebuild |
-| A pull request merges | The run on main refreshes the laps for what it ran |
+| A pull request merges | The run on main refreshes the laps for what it ran: CI records them as an artifact of the commit, and Fleet fetches it when main moves, again while the run goes on (`docs/practices/ci.md`, *The test map's laps*) |
 | A file changes on a branch | Marks its edges stale, and reads them again by the cheapest source that can |
 | Main moves to a new tip | Marks the edges of the files between the tips stale, and reads again at the new tip the tests of every source that costs no run and no rebuild |
 | A new file appears | Asks the static graph, and a model only where no collector can measure it |

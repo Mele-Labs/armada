@@ -75,6 +75,7 @@ mod pull_review_lists;
 mod reading_in;
 mod remembering;
 pub mod repo;
+mod recorded_laps;
 mod rerunning;
 mod scouting;
 mod snapshot;
