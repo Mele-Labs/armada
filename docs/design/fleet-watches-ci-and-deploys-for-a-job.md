@@ -72,17 +72,17 @@ every: 60s
 gives_up_after: 2h
 ```
 
-The agent starts a watch by naming a recipe and filling its values.
+The agent starts a watch by naming a recipe and filling its values, or by giving the command, how often and when to give up itself.
 A value fills one whole argument and is never read by a shell.
 
-**My call: v1 runs only recipes a person saved, and only scripts on `main` or on this machine.**
-An agent that has no recipe for what it must watch writes the recipe and the script, and puts saving them to the person as a `waiting_for` item.
-Fleet runs a watch outside the agent's permission prompts, so a command it runs is one a person put there.
+> **Rule.** An agent may start a watch on a command of its own, with no recipe and no person's step.
+> Why: the person decided a watch needs no one's sign-off; the agent can already run any command it likes, and a recipe is for a watch a repository starts often.
 
-**My call: a repository's recipe runs in the repository's base checkout at `main`, never the Job's worktree.**
-An agent could edit a script on its own branch, and a held Job may have given its worktree back.
-The cost is that a repository's script must be merged before its first watch.
-A machine's recipe runs its command by absolute path, from the base checkout.
+The side panel shows a watch's whole command, so the person can see what Fleet is running for the Job.
+
+**My call: a watch runs in the Job's worktree**, so an agent's own script, or a branch's copy of a recipe's, runs as the agent wrote it.
+A watch whose folder is gone, because the Job gave its worktree back, gives broken readings and stops, and the agent is told.
+A machine's recipe runs its command by absolute path.
 
 **My call: the command gets the environment a Check gets**, which is Fleet's own, so a provider's command-line tool finds the person's login.
 A recipe may also name a [Requests](../concepts/requests.md) environment, and its variables, secrets included, are set for the command.
@@ -168,11 +168,10 @@ The names are the builder's to settle against `docs/practices/protocol.md`.
 ## What it costs
 
 - **Provider knowledge moves, it does not vanish.** Each repository, or each person, writes the script that turns a provider's output into the line. For the Job above, that is two scripts.
-- **The first watch in a repository costs the person a step**, saving the recipe the agent wrote.
+- **Fleet runs commands an agent chose, on its own clock, outside the agent's permission prompts.** The limits bound how much, and the side panel shows what.
 - **A noisy provider costs model turns** until the agent sets its noisy parts aside. Every `failed` that is not ours is one wake.
 - **Fleet gains a long-lived thing of its own**: a schedule on the pull request reading, a store table, commands to end after a crash.
 - **A Job gains a held state**, which the Board, the ledger and the Job's header must all draw the same way.
-- **A repository's script waits for `main`** before its first watch, because watches never run a branch's copy.
 
 ## What it rules out
 
