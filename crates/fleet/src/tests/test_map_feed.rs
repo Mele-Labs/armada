@@ -469,3 +469,51 @@ async fn a_recording_is_logged_with_the_repository_the_collector_the_tests_and_h
     assert_eq!(fields["collector"], FieldValue::Str("coverage".into()));
     assert!(fields.contains_key("tests") && fields.contains_key("took_ms"));
 }
+
+const ROOT: &str = "version: 1
+id: 01FIXTUREMANIFEST
+checks:
+  web:
+    run: pnpm exec vitest run
+    runner:
+      name: vitest
+      dir: apps/web
+  lint:
+    run: pnpm lint
+";
+
+const WORKSPACE: &str = "version: 1
+id: armada-screens
+checks:
+  screens_test:
+    run: pnpm exec vitest run
+    runner:
+      name: vitest
+  typecheck:
+    run: pnpm exec tsc
+";
+
+#[tokio::test]
+async fn the_root_and_each_workspace_are_fed_by_the_checks_they_declare_under_the_keys_a_job_spells() {
+    let home = TempDir::new();
+    git(home.path(), &["-c", "init.defaultBranch=main", "init", "--quiet"]);
+    let mut fittings = crate::tests::daemon::fittings(&home, FakeWorkProduct::changed(&[]));
+    let root = config::Manifest::parse(Path::new("armada.yml"), ROOT).expect("the root parses");
+    let workspace =
+        config::Manifest::parse_workspace(Path::new("packages/screens/armada.yml"), "packages/screens", WORKSPACE, &root)
+            .expect("the workspace parses");
+    fittings.starting().manifest = root;
+    let fleet = Fleet::assembled(fittings);
+    let served = fleet.repositories().first().expect("served");
+    served.workspaces_read(vec![workspace]);
+
+    let feeders = fleet.feeders_in(&served, Path::new("/checkout"), false);
+
+    let fed: Vec<(&str, String)> =
+        feeders.iter().map(|feeder| (feeder.check(), feeder.dir_in("/checkout"))).collect();
+    assert_eq!(
+        fed,
+        [("web", "apps/web".to_string()), ("packages/screens:screens_test", "packages/screens".to_string())],
+        "the root's Check by its name and the workspace's by `<dir>:<name>`; the two with no vitest runner are not fed"
+    );
+}

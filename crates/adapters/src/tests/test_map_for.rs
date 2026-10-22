@@ -19,7 +19,7 @@ fn under(directory: Option<&str>) -> Narrowing {
 }
 
 fn fed(run: &str, runner: Option<&Runner>, narrowing: Option<&Narrowing>) -> Option<Feeder> {
-    collector_for("check", run, runner, narrowing, Path::new("/repo"), CheckWidth::of(3))
+    collector_for("check", run, runner, narrowing, "", Path::new("/repo"), CheckWidth::of(3))
 }
 
 #[test]
@@ -69,4 +69,16 @@ fn a_check_that_runs_neither_gets_none() {
 fn a_nextest_token_inside_another_word_is_not_nextest() {
     let narrowing = under(Some("crates"));
     assert!(fed("echo nextest-is-great", None, Some(&narrowing)).is_none());
+}
+
+#[test]
+fn a_workspaces_vitest_check_naming_no_directory_is_read_in_the_workspaces_own() {
+    let runner = Runner::declared("vitest".to_string(), None);
+    let in_workspace =
+        |owned: &str| collector_for("c", "pnpm test", Some(&runner), None, owned, Path::new("/repo"), CheckWidth::of(3));
+    assert_eq!(in_workspace("packages/screens").expect("fed").dir_in("/checkout"), "packages/screens");
+    assert_eq!(in_workspace("").expect("fed").dir_in("/checkout"), ".");
+    let named = Runner::declared("vitest".to_string(), Some("elsewhere".to_string()));
+    let fed = collector_for("c", "pnpm test", Some(&named), None, "packages/screens", Path::new("/repo"), CheckWidth::of(3));
+    assert_eq!(fed.expect("fed").dir_in("/checkout"), "elsewhere", "a directory a Check names stands");
 }

@@ -16,7 +16,7 @@
 //!
 //! **Feeders are read off the Manifest each time they are wanted** and not kept, so a Manifest
 //! that was reloaded is the one that is read, with no second place that has to hear of the reload.
-//! A repository may add one beside them: [`Feed::add`].
+//! A repository may add one beside them: `Feed::add`.
 
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -252,21 +252,36 @@ where
             .collect()
     }
 
-    /// The collectors the Manifest's Checks name, built to record in the checkout at `root`, and
-    /// the ones the repository added. **Coverage is built one wide for a sleeping bay** and as
-    /// wide as the Check runs elsewhere.
-    fn feeders_in(&self, served: &Served, root: &Path, sleeping: bool) -> Vec<Feeder> {
-        let manifest = served.manifest();
+    /// The collectors the Checks of the root Manifest and every workspace's name, built to record
+    /// in the checkout at `root`, and the ones the repository added. **A Check's key is its
+    /// name at the root and `<dir>:<name>` in a workspace**, as a Job's rows spell it. Coverage
+    /// is built one wide for a sleeping bay and as wide as the Check runs elsewhere.
+    pub(crate) fn feeders_in(&self, served: &Served, root: &Path, sleeping: bool) -> Vec<Feeder> {
+        let workspaces = served.workspaces();
         let mut feeders = Vec::new();
-        for name in manifest.check_names() {
-            let Some(check) = manifest.check(&name) else { continue };
-            let width = match sleeping {
-                true => CheckWidth::of(1),
-                false => self.places_width().narrowed_to(check.width()),
-            };
-            feeders.extend(adapters::collector_for(&name, check.run(), check.runner(), check.narrow(), root, width));
+        for manifest in std::iter::once(served.manifest()).chain(workspaces.iter()) {
+            for name in manifest.check_names() {
+                let Some(check) = manifest.check(&name) else { continue };
+                let width = match sleeping {
+                    true => CheckWidth::of(1),
+                    false => self.places_width().narrowed_to(check.width()),
+                };
+                let key = match manifest.dir() {
+                    "" => name.clone(),
+                    dir => format!("{dir}:{name}"),
+                };
+                feeders.extend(adapters::collector_for(
+                    &key,
+                    check.run(),
+                    check.runner(),
+                    check.narrow(),
+                    manifest.dir(),
+                    root,
+                    width,
+                ));
+            }
         }
-        feeders.extend(self.feed().added_for(manifest.id().as_str()));
+        feeders.extend(self.feed().added_for(served.manifest().id().as_str()));
         feeders
     }
 

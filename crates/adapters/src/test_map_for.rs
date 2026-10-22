@@ -50,13 +50,16 @@ impl Feeder {
 }
 
 /// The collector for the Check `check`, recording in the checkout at `root`, or nothing where
-/// none reads it.
+/// none reads it. `owned_in` is the directory the Check's Manifest owns, empty for the root's.
 ///
 /// | The Check | Collector |
 /// |---|---|
 /// | Runs through the `vitest` runner | The import closure, of the runner's directory |
 /// | Runs `nextest` and narrows `under` a directory | Coverage, `width` wide |
 /// | Anything else | None |
+///
+/// **A Check that names no directory runs in its Manifest's**, as a workspace's does, so the
+/// import reader is handed that directory and not the root.
 ///
 /// **A Check with no `under` is not fed by coverage**: its laps name a member by the
 /// directory `under` spells, and without one they would name none.
@@ -65,11 +68,17 @@ pub fn collector_for(
     run: &str,
     runner: Option<&Runner>,
     narrowing: Option<&Narrowing>,
+    owned_in: &str,
     root: &Path,
     width: CheckWidth,
 ) -> Option<Feeder> {
     if let Some(runner) = runner.filter(|runner| runner.name() == IMPORTS_FOR) {
-        let below = runner.dir().unwrap_or(".").to_string();
+        let below = match (runner.dir(), owned_in) {
+            (Some(named), _) => named,
+            (None, "") => ".",
+            (None, owned) => owned,
+        }
+        .to_string();
         return Some(Feeder::new(check, Arc::new(TypeScriptImports::new(root)), Some(below)));
     }
     let coverage = run.split_whitespace().any(|token| token == COVERAGE_FOR)
