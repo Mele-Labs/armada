@@ -145,6 +145,11 @@ export type SplitButtonProps = {
   };
   /** Names the menu for a reader who cannot see the caret. Also the caret's own name where `items` is empty. */
   menuLabel?: string;
+  /**
+   * The face's name where its label does not say what it acts on: a list row's `Reconnect chrome-devtools` beside
+   * every other row's `Reconnect`. Absent names the face by its label. Not read while a hold is offered.
+   */
+  faceLabel?: string;
 };
 
 export function SplitButton({
@@ -165,6 +170,7 @@ export function SplitButton({
   onAction,
   hold,
   menuLabel = "More actions",
+  faceLabel,
 }: SplitButtonProps) {
   const [open, setOpen] = useState(defaultOpen);
   const describedBy = useId();
@@ -195,6 +201,7 @@ export function SplitButton({
       disabled={pending ? undefined : disabled || faceDisabled}
       aria-disabled={pending || undefined}
       aria-busy={pending || undefined}
+      {...(faceLabel === undefined || holding ? {} : { "aria-label": faceLabel })}
       {...(faceDescribedBy === undefined || holding ? {} : { "aria-describedby": faceDescribedBy })}
       {...(holding
         ? {

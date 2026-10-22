@@ -90,6 +90,28 @@ export const usePanel = (): Pick<Held, "open" | "back"> => {
   return now;
 };
 
+let besideKind: string | undefined;
+
+/**
+ * While a floating sheet of `kind` is open, a file the panel opens sits to its left and leaves it open, rather than
+ * over it: the Loadout, whose skills open their SKILL.md here. Answers the release.
+ */
+export function filesBeside(kind: string): () => void {
+  besideKind = kind;
+  listeners.forEach((one) => one());
+  return () => {
+    if (besideKind !== kind) return;
+    besideKind = undefined;
+    listeners.forEach((one) => one());
+  };
+}
+
+export const useFilesBeside = (): string | undefined =>
+  useSyncExternalStore(
+    (listener) => (listeners.add(listener), () => listeners.delete(listener)),
+    () => besideKind,
+  );
+
 /** A window starting over: nothing open, and nothing hosted until its own host mounts. */
 export function forgetPanel(): void {
   held = { open: undefined, back: undefined, hosts: 0 };
