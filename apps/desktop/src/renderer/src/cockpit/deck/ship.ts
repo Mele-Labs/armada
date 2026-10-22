@@ -264,7 +264,7 @@ export function shipOf(input: Inputs): Ship {
       repo: nameOfRoot(root),
       ...(session.manifestId === undefined ? {} : { manifest: session.manifestId }),
       mark,
-      phase: needs || (alarm && !stuck) ? "needs" : stuck || session.waits !== undefined ? "held" : session.turn.state === "working" ? "working" : "done",
+      phase: needs || (alarm && !stuck) ? "needs" : stuck || session.waits !== undefined ? "held" : stateOf(session).state === "working" ? "working" : "done",
       needs,
       alarm,
       ...(stateOf(session).state === "replied" ? { reply: true as const } : {}),
