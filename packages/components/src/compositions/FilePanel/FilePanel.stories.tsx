@@ -94,3 +94,18 @@ export const Picture: Story = {
 export const Refused: Story = {
   args: { name: "recording.mov", path: "/Users/user/Movies/recording.mov", type: "text/plain", refused: "Not a text file" },
 };
+
+/** **A markdown file offers Preview and no other file does**: the rendered view has nothing to render of JSON or a picture. */
+export const MarkdownOffersPreview: Story = {
+  args: { name: "notes.md", path: "/Users/user/Development/armada/docs/notes.md", type: "text/markdown", text: "# Notes\n\nA line.\n" },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("button", { name: "Preview" })).toHaveAttribute("aria-pressed", "false");
+  },
+};
+
+export const JsonOffersNoPreview: Story = {
+  args: { text: SETTINGS },
+  play: async ({ canvas }) => {
+    await expect(canvas.queryByRole("button", { name: "Preview" })).toBeNull();
+  },
+};

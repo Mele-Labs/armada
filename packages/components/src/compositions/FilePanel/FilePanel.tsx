@@ -1,5 +1,5 @@
-import { FolderOpen, SquareArrowOutUpRight } from "lucide-react";
-import { useEffect, type ReactNode } from "react";
+import { Eye, FolderOpen, SquareArrowOutUpRight } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import { Alert } from "../../primitives/Alert/Alert";
 import { Button } from "../../primitives/Button/Button";
@@ -68,9 +68,24 @@ function useSaveKey({ dirty, saving, moved, onSave }: Pick<FileBodyProps, "dirty
  * Save, only while there is an edit to save, and the two acts that leave Bridge for the file. Nothing stands where
  * Save was once the file is saved. A file met changed on disk draws its own acts, so Save leaves with it.
  */
-function FileActs({ dirty, saving = false, moved = null, onSave, onOpenInEditor, onShowInFinder }: Pick<FilePanelProps, "dirty" | "saving" | "moved" | "onSave" | "onOpenInEditor" | "onShowInFinder">) {
+function FileActs({
+  dirty,
+  saving = false,
+  moved = null,
+  onSave,
+  onOpenInEditor,
+  onShowInFinder,
+  preview,
+}: Pick<FilePanelProps, "dirty" | "saving" | "moved" | "onSave" | "onOpenInEditor" | "onShowInFinder"> & { preview?: { on: boolean; toggle: () => void } }) {
   return (
     <span className="armada-file-panel__acts" role="group" aria-label="Acts">
+      {preview === undefined ? null : (
+        <Tooltip label="Preview">
+          <Button variant="ghost" size="sm" iconOnly aria-label="Preview" aria-pressed={preview.on} onClick={preview.toggle}>
+            <Eye size={16} strokeWidth={2} aria-hidden />
+          </Button>
+        </Tooltip>
+      )}
       {dirty && moved === null ? (
         <Button variant="primary" size="sm" disabled={saving} onClick={onSave}>
           Save
@@ -147,9 +162,14 @@ function FileBody({ name, type, text, imageSrc, saving = false, onChange, moved 
   );
 }
 
+/** Markdown is the one text a rendered view has something to say of. */
+const isMarkdown = (name: string, type: string): boolean => type.startsWith("text/") && /\.(md|markdown)$/i.test(name);
+
 export function FilePanel({ onClose, floor = false, back, onOpenInEditor, onShowInFinder, ...file }: FilePanelProps) {
   useSaveKey(file);
   const { name, path, dirty } = file;
+  const [previewing, setPreviewing] = useState(false);
+  const preview = isMarkdown(name, file.type) ? { on: previewing, toggle: () => setPreviewing((was) => !was) } : undefined;
   return (
     <Sheet
       kind="side-panel"
@@ -169,7 +189,7 @@ export function FilePanel({ onClose, floor = false, back, onOpenInEditor, onShow
       closeLabel="Close"
       closeBinding="Esc"
       onClose={onClose}
-      controls={<FileActs dirty={dirty} saving={file.saving} moved={file.moved} onSave={file.onSave} {...(onOpenInEditor === undefined ? {} : { onOpenInEditor })} {...(onShowInFinder === undefined ? {} : { onShowInFinder })} />}
+      controls={<FileActs dirty={dirty} saving={file.saving} moved={file.moved} onSave={file.onSave} {...(preview === undefined ? {} : { preview })} {...(onOpenInEditor === undefined ? {} : { onOpenInEditor })} {...(onShowInFinder === undefined ? {} : { onShowInFinder })} />}
     >
       <FileBody {...file} />
     </Sheet>
