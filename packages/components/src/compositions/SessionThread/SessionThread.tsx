@@ -28,6 +28,8 @@ import { SessionRetroRow, type SessionRetroRowData } from "../SessionRetroRow/Se
 import { QuestionDeck } from "./QuestionDeck";
 import { LinkedRow } from "./LinkedRow";
 import { DisputedMark, DisputedRow } from "./DisputedRow";
+import { FleetTurn } from "./FleetTurn";
+import type { TurnReply } from "./FleetTurn";
 import { MovedRow } from "./MovedRow";
 import { StartedRow } from "./StartedRow";
 import { WaiterRow } from "./WaiterRow";
@@ -386,11 +388,28 @@ type CheckRow = Extract<SessionThreadRow, { kind: "check" }>;
 type Item =
   | { kind: "row"; row: Exclude<SessionThreadRow, { kind: "tool" | "check" }> }
   | { kind: "calls"; id: string; rows: readonly Extract<SessionThreadRow, { kind: "tool" }>[] }
+  | { kind: "fleetTurn"; id: string; notice: Extract<SessionThreadRow, { kind: "message"; from: "session" }>; reply: readonly TurnReply[] }
   | { kind: "checks"; id: string; rows: readonly CheckRow[] };
 
-function itemsOf(rows: readonly SessionThreadRow[]): Item[] {
+/**
+ * A turn Fleet started folds into one item: its notice, then the agent's replies and tool runs until the next row of any other
+ * kind. A notice in `keep` is left as it came, as is one that carries a mute `notice`.
+ */
+function itemsOf(rows: readonly SessionThreadRow[], keep: ReadonlySet<string> = new Set()): Item[] {
   const items: Item[] = [];
-  for (const row of rows) {
+  for (let at = 0; at < rows.length; at += 1) {
+    const row = rows[at]!;
+    if (row.kind === "message" && row.from === "session" && row.sender.id === "fleet" && row.notice === undefined && !keep.has(row.id)) {
+      const reply: TurnReply[] = [];
+      while (at + 1 < rows.length) {
+        const next = rows[at + 1]!;
+        if (next.kind === "tool" || (next.kind === "message" && next.from !== "session")) reply.push(next);
+        else break;
+        at += 1;
+      }
+      items.push({ kind: "fleetTurn", id: row.id, notice: row, reply });
+      continue;
+    }
     const last = items[items.length - 1];
     if (row.kind === "check") {
       if (last?.kind === "checks" && last.rows[0]?.name === row.name) last.rows = [...last.rows, row];
@@ -1414,8 +1433,14 @@ export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer
     watch.observe(entry);
     return () => watch.disconnect();
   }, [hasTrailing, sessionId]);
-  const all = useMemo(() => itemsOf(rows), [rows]);
   const disputes = useMemo(() => new Set(rows.flatMap((row) => (row.kind === "disputed" ? [row.notice] : []))), [rows]);
+  const asking = (approval !== undefined && !approval.approved) || asked !== undefined || lapsed !== undefined;
+  // A turn that ends in a question for the person stays open in the thread.
+  const all = useMemo(() => {
+    const folded = itemsOf(rows, disputes);
+    const last = folded[folded.length - 1];
+    return asking && last?.kind === "fleetTurn" ? itemsOf(rows, new Set([...disputes, last.id])) : folded;
+  }, [rows, disputes, asking]);
   const [drawn, setDrawn] = useState(DRAWN);
   useLayoutEffect(() => {
     setDrawn(DRAWN);
@@ -1423,7 +1448,6 @@ export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer
   const hidden = Math.max(0, all.length - drawn);
   const items = hidden === 0 ? all : all.slice(hidden);
   const endsInCalls = items[items.length - 1]?.kind === "calls";
-  const asking = (approval !== undefined && !approval.approved) || asked !== undefined || lapsed !== undefined;
   // What waits on him is the thread's last card, answered in place.
   const cards = (
     <>
@@ -1474,6 +1498,8 @@ export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer
           {items.flatMap((item, at) => [
             item.kind === "calls" ? (
               <Calls key={item.id} rows={item.rows} working={working === true && at === items.length - 1} {...(onStop === undefined ? {} : { onStop })} />
+            ) : item.kind === "fleetTurn" ? (
+              <FleetTurn key={item.id} notice={item.notice} reply={item.reply} />
             ) : item.kind === "checks" ? (
               <CheckRuns key={item.id} rows={item.rows} {...(onOpenCheck === undefined ? {} : { onOpenCheck })} />
             ) : (
