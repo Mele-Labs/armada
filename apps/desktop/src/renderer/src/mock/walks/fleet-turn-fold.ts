@@ -3,7 +3,7 @@
 // Over the `fleet-turn-fold` scenario.
 
 import { kit, toSessions } from "../sessions/walk-kit";
-import { button, deckRow, inside, region, role, text, walk } from "../walk";
+import { button, deckRow, inside, region, role, walk } from "../walk";
 
 const { thread } = kit(false);
 const folded = inside(thread, button(/Merge main notice/));
