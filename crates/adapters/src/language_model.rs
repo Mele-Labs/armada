@@ -44,6 +44,8 @@ pub(crate) fn shape(reading: TextReading) -> (&'static str, usize, encoding::Kee
         // One sentence of a close, read alone: short, so its start is all of it.
         TextReading::SentenceAsks => ("sentence_asks", 64, encoding::Keep::Start),
         TextReading::SentenceFollowsUp => ("sentence_follows_up", 64, encoding::Keep::Start),
+        // An item is a line or two, read from its start.
+        TextReading::ItemClear => ("item_clear", 64, encoding::Keep::Start),
     }
 }
 
