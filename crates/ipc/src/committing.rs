@@ -41,6 +41,15 @@ pub enum PieceToCommit {
     /// The person's own `armada.yml` for the repository, from the place their Kit keeps it,
     /// copied to the workspace root.
     Manifest,
+    /// Requests' collections of the person's own for this repository by `id`, and environments by
+    /// `name`, copied into `.armada/requests.toml` beside what the branch already holds. **A secret
+    /// goes as its name and `secret = true`**, never its value.
+    Requests {
+        #[serde(default)]
+        collections: Vec<String>,
+        #[serde(default)]
+        environments: Vec<String>,
+    },
 }
 
 /// `commit_to_repository`'s answer.

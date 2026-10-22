@@ -136,6 +136,8 @@ pub struct Fleet<H, V, W> {
     /// `crate::servers`.
     servers: crate::servers::Servers,
     peers: Arc<dyn PeerOf>,
+    /// What sends a request and the secrets it is filled with — `crate::requesting`.
+    requests: crate::requesting::Requesting,
     /// The rebase-and-push tail, held by one Job at a time.
     ///
     /// **Every worktree is cut from one `.git`**, and whether two of them can

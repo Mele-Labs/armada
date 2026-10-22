@@ -1,0 +1,31 @@
+/* A request the agent saved into a collection: one quiet line, its mark, the words and the stamp, and the press to open it. */
+.armada-session-saved {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-default);
+}
+
+.armada-session-saved__mark {
+  display: inline-flex;
+  flex: none;
+  color: var(--fg-muted);
+}
+
+.armada-session-saved__said {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.armada-session-saved__at {
+  flex: none;
+  color: var(--fg-subtle);
+}

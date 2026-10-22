@@ -618,6 +618,55 @@ Bridge called neither, so nothing in it changes.
 **The store.** `run_memory_kept_here` stays in the file, unread: dropping it is a breaking migration, which every build before this one would refuse the file for.
 **The event stream.** Untouched.
 
+## Requests: collections of saved requests, environments of variables, and a send filled from them
+
+Since 19 Oct 2026; rewritten 21 Oct 2026, before any build shipped it, so nothing here is kept for an older client.
+The per-host kept header is retired: `set_request_cookie`, `forget_request_cookie`, `list_request_hosts`, `list_request_environments` and `save_request_environments` are gone, with their types and the global `~/.armada/requests.toml`.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `packages/protocol/src/requests.ts` and the `requested` and `saved` rows in `hosted-sessions.ts`, written by hand, field for field.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `get_requests` (`GET /requests?repository=&session_id=`, `agent_access = "Yes"`) | Bridge or an agent reads | `Requests` `{ repository, place, collections[], environments[], not_read[] }`: each collection a `RequestCollection` `{ id, name, headers[], requests[] }` and each environment a `RequestEnvironmentRead` `{ name, variables[] }`, both with `place` and `hides`; `not_read` each `{ place, why }`. 422 `fleet.requests_unplaced` |
+| `save_request_collection` (`POST /requests/collections`, `No`) | Bridge sends one collection whole | `SaveRequestCollection` `{ repository?, session_id?, collection }`; answers `Requests`. 422 `fleet.request_collection_refused`, 409 `fleet.requests_unread`, 500 `fleet.requests_unwritable` |
+| `save_request_environment` (`POST /requests/environments`, `No`) | Bridge sends one environment whole | `SaveRequestEnvironment` `{ repository?, session_id?, environment }`, each variable a `VariableWrite`, **the one type holding a secret's value**; answers `Requests`. 422 `fleet.request_environment_refused`, 409 `fleet.requests_unread`, 500 `fleet.requests_unwritable` or `fleet.request_secret_unkept` |
+| `save_request_to_collection` (`POST /requests/collections/request`, `Yes`) | An agent sends | `SaveRequestToCollection` `{ session_id?, collection, request }`, `collection` an id or a name and `request` a `RequestToSave` `{ name, method, url, headers[], body? }`; answers `RequestSaved` `{ collection_id, request_id }` |
+| `send_request` (`POST /requests/send`, `Yes`) | Bridge or an agent sends, Fleet answers 200 | `SendRequest` `{ session_id?, repository?, saved? \| method, url, collection?, environment?, headers[], body? }`, `saved` being `{ collection, request }`; answers `RequestSent` `{ url, status?, ms, headers[], body, truncated, error?, note? }`. 422 `fleet.request_refused`, 500 `fleet.request_secret_unkept` or `fleet.request_unsent` |
+| `SessionRow::Requested` (`kind: "requested"`) | Fleet writes, Bridge reads | `{ id, at, by, method, url, environment?, headers?, body?, status?, ms, error?, response, truncated? }`, `by` one of `owner`, `agent`; `cookie_host` and `kept_header` are gone |
+| `SessionRow::Saved` (`kind: "saved"`) | Fleet writes, Bridge reads | `{ id, at, name, collection, collection_id, request }`, `request` the saved request's id |
+
+**Two files per repository, the same type at either place.** The person's own is `requests/<key>.toml` at the repository's place, as `get_repository_flight_controls` reads its file, and `place` says which.
+The repository's is its committed `.armada/requests.toml`, which no save writes.
+Both are `RequestsFile`, version 1, spelled by hand as `[[collection]]`, `[[collection.requests]]` and `[[environment]]` with `variables`.
+The person's own wins by collection `id` and environment `name`, is marked `hides`, and the repository's it hides is not listed.
+
+**A file that will not read is never drawn as empty.** It is named in `not_read` and none of its items are listed.
+A save while the person's own will not read is a 409 `fleet.requests_unread`, so it is never written over.
+
+**A variable is plain or secret, and a secret's value is in no file and no answer.**
+A file spells a secret as its name and `secret = true`, and one spelling a value does not read.
+`VariableRead` answers a plain one's `value` and a secret's `set`, and has no field for a secret's value.
+`VariableWrite` carries it once, Bridge to Fleet, into the Keychain; a secret sent without one keeps the one kept, and a variable left out is forgotten with its Keychain item.
+Its `Debug` is written by hand and prints no value.
+A commit or package of the file carries a secret's name and never its value.
+
+**A send fills every `{{name}}` in Fleet**, in the address, the headers and the body, from the environment named, secrets included.
+A saved request goes with its collection's headers under its own; its own request takes the named `collection`'s the same way.
+A `{{name}}` that is not filled is sent as written, and `note` names it.
+**Everything answered and written carries a secret as `{{name}}`**: the answer, the row, the told words and any error.
+A value shorter than six characters is not hidden, as a kept cookie's was not, so a short value is not matched inside ordinary words.
+
+**Who sent it is the door it came through.** A request carrying Bridge's or the phone's caller header is the owner's; the agent's door, Helm's and a request naming nobody are an agent's.
+An agent's answer drops `set-cookie` and is cut at 32 KiB, and the agent is not told what it already holds.
+An owner's send with a Job open writes the row and tells that Job's agent, in the shape a run's end is told.
+An agent's `save_request_to_collection` writes a `saved` row and tells the agent nothing.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+Were a pair to meet anyway, a Fleet without the routes answers 404, which Bridge words as a read or send that failed.
+
+**The event stream.** A `requested` or `saved` row is published as `session.row` like any other, and nothing new.
+The open risk below is unchanged by this rewrite: a `requested` row still carries up to 16 KiB of answer and 64 KiB of request body, and a `saved` row is small.
+
 ## Open questions
 
 Naming these rather than deciding them, per this document's brief:

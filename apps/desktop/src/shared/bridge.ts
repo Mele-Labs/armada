@@ -143,6 +143,7 @@ export const NOTHING_YET: BridgeState = {
 import { AUTOPILOT_CHANNELS } from "./api/autopilot";
 import { SKETCH_SHARE_CHANNELS } from "./api/sketch-share";
 import { FILES_CHANNELS } from "./api/files";
+import { REQUESTS_CHANNELS } from "./api/requests";
 
 /** The channels the preload is allowed to name. There is no general `invoke`. */
 export const CHANNELS = {
@@ -176,5 +177,6 @@ export const CHANNELS = {
   ...FILES_CHANNELS,
   ...FLIGHT_CONTROLS_CHANNELS,
   ...ONBOARDING_CHANNELS,
+  ...REQUESTS_CHANNELS,
   ...SHARING_CHANNELS,
 } as const;

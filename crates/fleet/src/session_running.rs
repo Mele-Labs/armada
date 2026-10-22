@@ -32,7 +32,7 @@ use tokio::sync::broadcast;
 
 use crate::daemon::Fleet;
 
-pub(crate) use ended::Ended;
+pub(crate) use ended::{fenced, Ended};
 
 /// Bytes of output a run keeps.
 const RING: usize = 256 * 1024;

@@ -100,6 +100,8 @@ where
                 SessionRow::Message { from, .. } => *from == ipc::SessionVoice::Agent,
                 // Fleet's word about a run, as its message was.
                 SessionRow::Ran { .. } => false,
+                // The owner's request is told as a run is; the agent's is its own act.
+                SessionRow::Requested { by, .. } => *by == ipc::RequestBy::Agent,
                 _ => true,
             })
         })

@@ -37,6 +37,7 @@ mod pull_request_panel;
 mod pull_requests;
 mod queries;
 mod rehearsing;
+mod requests;
 mod retros;
 mod sessions;
 mod settings;
@@ -55,6 +56,7 @@ pub use pull_request_panel::PullRequestPanel;
 pub use pull_requests::PullRequests;
 pub use queries::Queries;
 pub use rehearsing::Rehearsing;
+pub use requests::Requests;
 pub use retros::Retros;
 pub use sessions::Sessions;
 pub use settings::Settings;
@@ -96,7 +98,7 @@ use ipc::WireError;
 /// is a sixth and [`Retros`] a seventh, each for a reason its own module gives.
 /// [`Authoring`] is one more, for [`Retros`]' reason, and [`Sessions`] another,
 /// [`HostedSessions`] one more beside it, and [`Clashing`] and [`PullRequests`] two
-/// more, [`Rehearsing`] split out of [`Commands`], [`Mods`] and [`Settings`], and [`Accounts`] beside them.
+/// more, [`Rehearsing`] split out of [`Commands`], [`Mods`] and [`Settings`], and [`Accounts`] and [`Requests`] beside them.
 pub trait Daemon:
     Queries
     + Commands
@@ -116,6 +118,7 @@ pub trait Daemon:
     + Mods
     + Settings
     + Accounts
+    + Requests
 {
 }
 
@@ -137,7 +140,8 @@ impl<
             + Rehearsing
             + Mods
             + Settings
-            + Accounts,
+            + Accounts
+            + Requests,
     > Daemon for D
 {
 }

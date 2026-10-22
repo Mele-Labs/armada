@@ -1,0 +1,16 @@
+[operations.save_request_environment]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Write one environment of variables, whole, into the person's own requests file for a repository, keeping each secret's value in the Keychain"
+notes = """
+Since 21 Oct 2026. `POST /requests/environments`, body `SaveRequestEnvironment`: `repository` or `session_id`, as `get_requests` takes them, and `environment`, the whole `RequestEnvironmentWrite` `{ name, variables }`, never a patch. Each variable is a `VariableWrite`, `{ name, secret: false, value }` or `{ name, secret: true, value? }`. An environment of that `name` in the person's own is replaced, and one with none is added. Answers `Requests`, both files read again.
+
+**The one body that carries a secret's value**, Bridge to Fleet, once. Fleet keeps it in the Keychain, one item per variable, through `/usr/bin/security` with the value on its standard input, never in a process's arguments (`docs/spikes/034-can-fleet-keep-a-cookie-in-the-keychain.md`). The file keeps the secret's name and `secret = true`, never its value. **A secret sent without `value` keeps the one already kept.** **A variable left out is forgotten**, its Keychain item with it, and so is the item of a secret sent as plain. `VariableWrite`'s `Debug` never prints a value.
+
+**Checked before anything is written**, the first broken rule naming its field (`environment.variables[2].name`): a blank environment name or one starting `server:`; a variable name that is blank, used twice, or other than letters, digits, `_`, `.` and `-`; and a plain variable with no `value`, which is refused as the body is read. A 422 `fleet.request_environment_refused`, whose words never carry a value.
+
+**A person's own file that will not read is not written over**: a 409 `fleet.requests_unread`. A place that cannot be written is a 500 `fleet.requests_unwritable`, and the place is written as `save_request_collection` writes it. **A Keychain that would not keep or forget a secret** is a 500 `fleet.request_secret_unkept`, naming the variable and never its value, and the file is not written. A 404 `fleet.run_memory_repository_not_served` for a repository Fleet does not serve.
+
+`agent_access` is `No`: the variables are the person's, and an agent that could set a secret could read it back by sending it to a server it runs.
+"""

@@ -34,6 +34,7 @@ import { reportBrief } from "./report-brief";
 import { COMPACT, handTargets, heldOf, mute, nameOfHeldRow, offeredOf, plain, type Held, type SessionTileId } from "./session-tiles";
 import { ShellBox, type ShellRun } from "./ShellBox";
 import { select, setView } from "./store";
+import { openRequestsInPanel } from "../../shared-panel/store";
 import { toggleLayer, useLayer } from "../../session-view/layers";
 import { baysLit, type SessionBays } from "../../session-view/slot-trouble";
 
@@ -123,6 +124,7 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
     subagents: () => toggleLayer(session.id, "subagents"),
     checks: () => toggleLayer(session.id, "checks"),
     slot: () => toggleLayer(session.id, "slot"),
+    requests: () => void openRequestsInPanel(session.id),
     pause: () => void run("pause", async () => void (await (session.paused === true ? draft.resume : draft.pause)?.(session.id))),
   };
   const job: JobFacts = {
@@ -228,6 +230,7 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
     subagents: subagentsRunning === 0 ? "Every subagent" : `Every subagent, ${subagentsRunning} running`,
     checks: checksRunning ? "A Check the agent ran is still out. The agent gets its result when it ends" : "The Checks the agent ran. Each result went back to it as the run ended",
     slot: wrongs.length === 0 ? "Every bay the Job holds" : wrongs.join(", "),
+    requests: "Send a request with your cookie for its host",
     pause: session.paused === true ? "Resume" : "Pause",
   };
   const tipCustom = (tile: Tile): string => {

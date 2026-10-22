@@ -14,7 +14,8 @@ import { SETTINGS_PALETTE } from "@armada/settings";
 import { studioName } from "@armada/screens";
 import { askStudioAdd, askStudioRun, useStudioAddOff, useStudioRunOff } from "@armada/studios";
 import { askToDebugBridge } from "./debug-bridge";
-import { askToOpenSession } from "./open-session";
+import { askToOpenSession, openSessionIn } from "./open-session";
+import { openRequestsInPanel } from "./shared-panel/store";
 import { useSessions } from "./sessions-draft";
 import { absentIn, carryOut, dormantIn } from "./palette";
 
@@ -37,7 +38,7 @@ export type PaletteMountProps = {
    * Run and Add, which this reaches itself: the rail takes the ask directly, so
    * `App` holds nothing for them.
    */
-  acts: Omit<Parameters<typeof carryOut>[1], "studioRun" | "studioAdd" | "debugBridge" | "openSession">;
+  acts: Omit<Parameters<typeof carryOut>[1], "studioRun" | "studioAdd" | "debugBridge" | "openSession" | "requests">;
   /** The one bar's dispatch row. `one-bar.tsx`. */
   dispatch: PaletteDispatch;
 };
@@ -93,7 +94,7 @@ export function PaletteMount({
       dormant={dormantIn({ failing: failing !== null, live, debuggable: window.armadaDev !== undefined, studioRun, studioAdd })}
       absent={absentIn({ failing: failing !== null })}
       onChoose={(choice: Parameters<typeof carryOut>[0]) =>
-        carryOut(choice, { ...acts, studioRun: askStudioRun, studioAdd: askStudioAdd, debugBridge: askToDebugBridge, openSession: askToOpenSession })
+        carryOut(choice, { ...acts, studioRun: askStudioRun, studioAdd: askStudioAdd, debugBridge: askToDebugBridge, openSession: askToOpenSession, requests: () => void openRequestsInPanel(openSessionIn(document)) })
       }
     />
   );

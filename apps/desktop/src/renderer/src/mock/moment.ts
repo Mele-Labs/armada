@@ -18,6 +18,7 @@ import type { PullRequestPages } from "./session-pr-pages";
 import type { BayHistory } from "@armada/protocol";
 import type { FlightControls } from "@armada/protocol";
 import type { BayControl, SessionsStore } from "./sessions/script";
+import type { RequestsSeed } from "./slices/requests";
 
 import type { BridgeApi } from "../../../shared/api";
 import { NOTHING_YET } from "../../../shared/bridge";
@@ -42,6 +43,8 @@ export type MockDraft = {
   bayHistories?: readonly BayHistory[];
   /** How every repository runs, as `get_run_memory` lists it: the onboarding slice answers it, and keeps what is dropped and where it is kept. Absent is the tests and the dev server. */
   runFacts?: readonly RunFact[];
+  /** The hosts holding a cookie, the saved environments and each Job's servers, and how a send is answered: Requests' slice reads them. Mock only. */
+  requests?: RequestsSeed;
   /** Each repository's own `.armada/flight-controls.toml` as committed, by root: the flight controls slice answers it as `in_repository`, and asks before a shell tile's first run. Mock only. */
   committedTiles?: Readonly<Record<string, FlightControls>>;
   /** The actions the person keeps for a repository, by root, as the window opens. Mock only. */

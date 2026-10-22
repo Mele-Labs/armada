@@ -265,6 +265,9 @@ approximations.
 - [`spikes/033-what-does-the-css-cockpit-map-cost.md`](spikes/033-what-does-the-css-cockpit-map-cost.md)
   — the baseline the Pixi rebuild of the Cockpit map was measured against, and the canvas map beside
   it: CPU, frames and layers idle, busy and panning, from `apps/desktop/scripts/trace-map.mjs`.
+- [`spikes/034-can-fleet-keep-a-cookie-in-the-keychain.md`](spikes/034-can-fleet-keep-a-cookie-in-the-keychain.md)
+  — a cookie written through `/usr/bin/security` over stdin is read back by two rebuilt, ad-hoc
+  signed binaries with no prompt; the Security framework in Fleet's own process was not run.
 - [`spikes/reply-asks-classifier.md`](spikes/reply-asks-classifier.md)
   — whether a reply asks the person for something, read from its close: the rules on 457 labelled
   replies, the local language model chosen and fine-tuned beside them, and all three readers on two sets

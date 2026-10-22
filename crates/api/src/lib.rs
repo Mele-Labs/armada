@@ -88,6 +88,8 @@ mod rehearsing;
 /// back — kept by Fleet itself since `#836`, never `armada.yml`.
 mod repositories;
 mod repository_allow;
+/// Requests: an HTTP request filled from a repository's environments, and its collections.
+mod requests;
 /// A Job's retro and the Lessons listing. Since 23.12.
 mod retros;
 mod routes;
@@ -118,7 +120,7 @@ pub use acting::{asked_by, asking, carrying, via, BRIDGE, CALLER_HEADER, PHONE};
 pub use daemon::{
     offerable, Accounts, Admitting, Authoring, Commands, Conversations, Daemon,
     Autopilots, HelmReach, HostedSessions, Issues, Mods, Clashing,
-    PullRequestPanel, PullRequests, Queries, Redirector, Refusal, Rehearsing, Retros, Sessions, Settings, Steerer,
+    PullRequestPanel, PullRequests, Queries, Redirector, Refusal, Rehearsing, Requests, Retros, Sessions, Settings, Steerer,
     StoredFile, Studios,
 };
 pub use door::{door_within, door_without_a_manifest, offered, Scope, DOOR_PATH};
