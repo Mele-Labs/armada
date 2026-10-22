@@ -1,13 +1,16 @@
 // Write clashes: where two agents' changes in one repository would conflict. A slice imports
 // protocol, never another slice; `../api.ts` and `../bridge.ts` compose them.
 
-import type { ClashFile, ClashSide, Outcome, WriteClash } from "@armada/protocol";
+import type { ClashFile, ClashSide, Outcome, SessionFileChange, WriteClash } from "@armada/protocol";
 
 /** What reading the clashes came to: every standing clash on the manifests Fleet lists, or the refusal to word. */
 export type WriteClashesRead = { ok: true; value: WriteClash[] } | { ok: false; outcome: Outcome };
 
 /** What reading one file of a clash came to: each side's patch, or the refusal to word. */
 export type ClashFileAnswer = { ok: true; value: ClashFile } | { ok: false; outcome: Outcome };
+
+/** What reading one file a Job wrote came to: its change, or the refusal to word. */
+export type SessionFileChangeAnswer = { ok: true; value: SessionFileChange } | { ok: false; outcome: Outcome };
 
 export type ClashesApi = {
   /**

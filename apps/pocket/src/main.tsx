@@ -1,19 +1,21 @@
+/// <reference types="vite/client" />
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
 import "./styles.css";
 import "./pocket.css";
-import { App } from "./Screens";
-import { usePath } from "./router";
-
-function Routed() {
-  return <App path={usePath()} />;
-}
+import { Root } from "./App";
 
 if ("serviceWorker" in navigator) void navigator.serviceWorker.register("/sw.js");
 
-createRoot(document.getElementById("root")!).render(
-  <StrictMode>
-    <Routed />
-  </StrictMode>,
-);
+async function begin() {
+  // The fixture Gateway's two Macs, paired before the app reads its list (`pnpm fixture`).
+  if (import.meta.env.MODE === "fixture") await (await import("./fixture/seed")).seed();
+  createRoot(document.getElementById("root")!).render(
+    <StrictMode>
+      <Root />
+    </StrictMode>,
+  );
+}
+
+void begin();
