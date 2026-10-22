@@ -73,19 +73,30 @@ pub(crate) fn read(model: &dyn TextModel, reply: &str) -> Result<Extracted, NotE
 /// ask where the rules call it, so nothing the asks reader catches today is lost.
 ///
 /// `clear` is each sentence's probability of being clear to him, from the `item_clear` head, and is
-/// `Some` only where [`clarity::IN_FORCE`]. Then an ask is a candidate that must read as clear, by the
-/// rules and by the head, and one that does not is left out: a reply whose asks are all unclear raises
-/// no item, and the others are numbered again among themselves.
+/// `Some` only where [`clarity::IN_FORCE`]. Then an ask that does not read as clear, by the rules and
+/// by the head, is worded as the clearest of its candidate sentences ([`clearest`]), and left out where
+/// none is clear: a reply whose asks are all unclear raises no item. The asks are numbered among
+/// themselves, so an id does not depend on how many unclear ones came before it.
 pub(crate) fn extracted(reply: &str, close: &[Closing], asks: &[f32], later: &[f32], clear: Option<&[f32]>) -> Extracted {
     let rules = asks::asking_line(reply);
-    let mut found: Vec<&str> = Vec::new();
-    if let Some(line) = &rules {
+    let mut found: Vec<String> = Vec::new();
+    if let Some(line) = rules {
         found.push(line);
     }
     for (one, score) in close.iter().zip(asks) {
-        if *score >= ASKS_AT && !found.contains(&one.sentence.as_str()) {
-            found.push(&one.sentence);
+        if *score >= ASKS_AT && !found.contains(&one.sentence) {
+            found.push(one.sentence.clone());
         }
+    }
+    let raised = found.clone();
+    if let Some(clear) = clear {
+        let mut worded: Vec<String> = Vec::new();
+        for sentence in found.iter().filter_map(|sentence| clearest(reply, close, clear, sentence)) {
+            if !worded.contains(&sentence) {
+                worded.push(sentence);
+            }
+        }
+        found = worded;
     }
     let asked: Vec<Ask> = found
         .iter()
@@ -97,34 +108,39 @@ pub(crate) fn extracted(reply: &str, close: &[Closing], asks: &[f32], later: &[f
             Ask { sentence: sentence.to_string(), index, act, options }
         })
         .collect();
-    let asked = match clear {
-        Some(clear) => keep_clear(asked, close, clear),
-        None => asked,
-    };
     let later = close
         .iter()
         .zip(asks)
         .zip(later)
-        .filter(|((one, asks), later)| **later >= FOLLOWS_UP_AT && **asks < ASKS_AT && !found.contains(&one.sentence.as_str()))
+        .filter(|((one, asks), later)| **later >= FOLLOWS_UP_AT && **asks < ASKS_AT && !raised.contains(&one.sentence) && !found.contains(&one.sentence))
         .map(|((one, _), _)| one.sentence.clone())
         .collect();
     Extracted { asks: asked, later }
 }
 
-/// The asks that read as clear, numbered again among themselves: the rules find nothing wrong with the
-/// sentence, and where the head read it, it does not find it unclear. The rules' own sentence may not be
-/// one of the close's, and then only the rules read it.
-fn keep_clear(asked: Vec<Ask>, close: &[Closing], clear: &[f32]) -> Vec<Ask> {
-    asked
-        .into_iter()
-        .filter(|ask| {
-            let runs = matches!(ask.act, Act::Run(_));
-            let head = close.iter().position(|one| one.sentence == ask.sentence).and_then(|at| clear.get(at));
-            clarity::unclear(&ask.sentence, runs).is_none() && head.is_none_or(|clear| 1.0 - clear < clarity::UNCLEAR_AT)
-        })
-        .enumerate()
-        .map(|(index, ask)| Ask { index, ..ask })
-        .collect()
+/// The sentence an ask is worded as: its own where that reads as clear, else the clearest of the
+/// agent's other sentences in the paragraph or list item it sits in, or the paragraph it heads
+/// ([`asks::candidates_for`]), else none. A candidate is clear when the rules find nothing wrong with it
+/// and, where the head read it, the head does not call it unclear; the rules decide first and the head's
+/// probability breaks a tie. A sentence of the agent's is never changed, only chosen.
+fn clearest(reply: &str, close: &[Closing], clear: &[f32], sentence: &str) -> Option<String> {
+    let at = |said: &str| close.iter().position(|one| one.sentence == said);
+    let head = |said: &str| at(said).and_then(|at| clear.get(at)).copied();
+    let is_clear = |said: &str| {
+        let runs = at(said).is_some_and(|at| close[at].command.is_some());
+        clarity::unclear(said, runs).is_none() && head(said).is_none_or(|clear| 1.0 - clear < clarity::UNCLEAR_AT)
+    };
+    if is_clear(sentence) {
+        return Some(sentence.to_string());
+    }
+    let mut best: Option<(String, f32)> = None;
+    for said in asks::candidates_for(reply, sentence).into_iter().skip(1).filter(|said| is_clear(said)) {
+        let score = head(&said).unwrap_or(0.5);
+        if best.as_ref().is_none_or(|(_, top)| score > *top) {
+            best = Some((said, score));
+        }
+    }
+    best.map(|(said, _)| said)
 }
 
 /// A pull request to approve where the sentence names one with approve, merge or land; else an answer.

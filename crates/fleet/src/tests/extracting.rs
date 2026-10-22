@@ -231,3 +231,46 @@ fn a_reply_with_no_clear_ask_raises_no_item() {
     assert!(derived(&seen).is_empty());
     assert_eq!(crate::session_host::standing::standing(&seen, Duration::from_secs(600)), ipc::SessionStanding::Replied);
 }
+
+const GREW: &str = "Both fixes are pushed.\n\nBigger than it looked?\n\nThe parser grew from 300 lines to 900. Split it into two files or leave it as one.";
+
+fn sentences_of(got: &Extracted) -> Vec<(usize, &str)> {
+    got.asks.iter().map(|ask| (ask.index, ask.sentence.as_str())).collect()
+}
+
+/// The owner's case: the heading was the ask, and the paragraph it heads says what to do. In force it is
+/// raised with that paragraph's own clear sentence, which is the agent's word and not an invented one.
+#[test]
+fn an_unclear_ask_takes_the_clear_sentence_of_the_paragraph_it_heads() {
+    assert_eq!(sentences_of(&asks_of(GREW, &[], &[])), [(0, "Bigger than it looked?")], "off, the heading is the item");
+    assert_eq!(sentences_of(&clear_asks_of(GREW, &[], &[])), [(0, "Split it into two files or leave it as one.")]);
+}
+
+/// Rules first: a clear candidate beats an unclear one whatever the head says of them; among clear
+/// candidates the head's higher probability wins.
+#[test]
+fn the_clearest_candidate_is_the_rules_pick_then_the_heads() {
+    let reply = "Both fixes are pushed.\n\nBigger than it looked?\n\nThe parser grew from 300 lines to 900. Split it into two files or leave it as one. Keep the registry in one file.";
+    let close = closing(reply);
+    let by = |scored: &[(&str, f32)]| -> Vec<f32> { close.iter().map(|one| scored.iter().find(|(said, _)| *said == one.sentence).map_or(0.5, |(_, p)| *p)).collect() };
+    let unclear_loves = by(&[("The parser grew from 300 lines to 900.", 0.99), ("Split it into two files or leave it as one.", 0.7), ("Keep the registry in one file.", 0.9)]);
+    let got = extracted(reply, &close, &scores(reply, &[]), &scores(reply, &[]), Some(&unclear_loves));
+    assert_eq!(sentences_of(&got), [(0, "Keep the registry in one file.")], "the status sentence the head likes loses to the rules");
+}
+
+/// A paragraph that holds no clear sentence leaves the heading unclear: nothing is raised.
+#[test]
+fn an_unclear_ask_whose_paragraph_has_no_clear_sentence_is_left_out() {
+    let reply = "Both fixes are pushed.\n\nBigger than it looked?\n\nThe parser grew from 300 lines to 900. Tests pass.";
+    assert_eq!(clear_asks_of(reply, &[], &[]), Extracted::default());
+}
+
+/// A clear ask stays as it is said, though its paragraph holds a sentence the head likes more.
+#[test]
+fn a_clear_ask_keeps_its_own_words() {
+    let reply = "The cap is in.\n\nShould I split it into two files? Keep the registry in one file.";
+    let close = closing(reply);
+    let clear: Vec<f32> = close.iter().map(|one| if one.sentence.starts_with("Keep") { 0.99 } else { 0.7 }).collect();
+    let got = extracted(reply, &close, &scores(reply, &["Should I split it into two files?"]), &scores(reply, &[]), Some(&clear));
+    assert_eq!(sentences_of(&got), [(0, "Should I split it into two files?")]);
+}

@@ -115,7 +115,7 @@ fn the_refusal_names_the_item_and_why_and_says_to_call_again() {
 /// kept as it was.
 #[tokio::test]
 async fn while_it_is_off_waiting_for_keeps_an_item_he_could_not_act_on() {
-    use api::{HostedSessions, Sessions};
+    use api::Sessions;
     use ipc::{SetWaitingFor, WaitingInput};
 
     use super::session_host::rig_placing;
