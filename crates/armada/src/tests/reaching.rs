@@ -482,3 +482,17 @@ async fn the_merge_lines_reading_never_asks_the_map() {
     assert_eq!(ran.narrowed, Some(Reached::To("-p fleet".to_string())));
     assert_eq!(ran.mapped, crate::test_map::Mapped::default());
 }
+
+/// **A long change is asked over several requests**, every path in one of
+/// them, in order, so a large diff never meets a listener's request limit.
+#[test]
+fn a_long_change_is_asked_in_several_requests_and_loses_no_path() {
+    let many: Vec<String> = (0..400).map(|n| format!("crates/fleet/src/tests/some_long_module_{n}.rs")).collect();
+    let runs = crate::test_map::requests(&many);
+    assert!(runs.len() > 1, "{} paths went in one request", many.len());
+    assert_eq!(runs.concat(), many);
+    for run in &runs {
+        let encoded = ipc::door::encoded(&run.join("\n")).len();
+        assert!(encoded <= 4096, "a request carried {encoded} bytes of paths");
+    }
+}
