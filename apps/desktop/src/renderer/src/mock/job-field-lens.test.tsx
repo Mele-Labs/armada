@@ -10,7 +10,8 @@ import { timePasses } from "./time-passes";
 unmountAfterEach();
 
 const field = () => page.getByRole("region", { name: "Field", exact: true }).first();
-const lens = (file: string) => field().getByRole("group", { name: `Lens: ${file}`, exact: true });
+// Found anywhere: with the pointer or focus in the panel, the card is drawn over the app, outside it.
+const lens = (file: string) => page.getByRole("group", { name: `Lens: ${file}`, exact: true });
 const main = () => field().getByRole("group", { name: "Drones" }).getByRole("button", { name: /^Show the change on the Field: Writing FieldPanel\.tsx$/ });
 
 test("the card follows the newest writer, the file before is a tab, and a strip press pins the card and a second lets go", async () => {

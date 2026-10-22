@@ -6,7 +6,8 @@ import { button, deckRow, inside, region, role, walk } from "../walk";
 
 const field = region("Field", { exact: true });
 const strip = inside(field, role("group", "Drones"));
-const lens = (file: string) => inside(field, role("group", `Lens: ${file}`, { exact: true }));
+// Found anywhere: with the pointer or focus in the panel, the card is drawn over the app, outside it.
+const lens = (file: string) => role("group", `Lens: ${file}`, { exact: true });
 const writing = inside(field, role("list", "Files being written"));
 const main = inside(strip, button(/^Show the change on the Field: Writing FieldPanel\.tsx$/));
 
