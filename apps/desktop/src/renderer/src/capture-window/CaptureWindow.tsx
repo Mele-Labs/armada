@@ -417,6 +417,7 @@ export function CaptureWindow({ api }: { api: CaptureWindowApi }) {
           of={state.walk.of}
           said={state.walk.said}
           box={guide.box === null ? null : lowered(guide.box)}
+          {...(guide.press === undefined ? {} : { press: { ...guide.press, y: guide.press.y + strip() } })}
           top={strip()}
           onFold={() => void api.walkGuide(false)}
         />

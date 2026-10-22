@@ -50,7 +50,7 @@ function page(on: Set<string>, options: { guarded?: boolean } = {}) {
   return { walk: new StepWalk("Portal", PORTAL, host), sent, told };
 }
 
-const settle = (ms = 400) => vi.advanceTimersByTimeAsync(ms);
+const settle = (ms = 800) => vi.advanceTimersByTimeAsync(ms);
 const presses = (sent: Sent[]) => sent.filter((one) => !("insert" in one) && one.type === "mouseDown").length;
 
 beforeEach(() => void vi.useFakeTimers());
