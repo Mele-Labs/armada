@@ -104,6 +104,8 @@ mod slot_rescues;
 mod slot_strandings;
 /// Every Studio a repository keeps, with its nodes and edges. `#1285`.
 mod studio;
+/// Which tests reach each file in a repository. `docs/concepts/test-map.md`.
+mod test_map;
 /// How long each of a repository's Checks has taken.
 mod timings;
 /// What Fleet saw happen, for the Cockpit's timeline.
@@ -128,6 +130,7 @@ pub use session_tells::KeptTell;
 pub use notice_mutes::LiveMutes;
 pub use session_waiting::KeptWaiting;
 pub use session_checks::KeptSessionCheck;
+pub use test_map::{StaleTest, TestsReaching};
 pub use model_downshift::KeptDownshift;
 pub use sleep_night::{SleepRow, SleepSwitch};
 pub use autopilot::{KeptAutopilot, KeptPick};

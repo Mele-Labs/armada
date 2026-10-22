@@ -464,4 +464,16 @@ where
         })
     }
 
+    /// The test map read for a set of paths — `crate::test_map`.
+    async fn get_tests_reaching(
+        &self,
+        manifest_id: Option<ipc::ManifestId>,
+        paths: Vec<String>,
+    ) -> Result<ipc::TestsReaching, Refusal> {
+        let served = self.served_named(manifest_id.as_ref())?;
+        let repository = served.manifest().id().clone();
+        self.tests_reaching(&repository, &paths)
+            .await
+            .map_err(|why| self.refusal(Adrift::Reading(why)))
+    }
 }

@@ -527,6 +527,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/manifest/save_file", post(save_manifest_file::<D>))
         .route("/manifest/edit", post(edit_manifest::<D>))
         .route("/manifest/files", get(search_files::<D>))
+        .route("/test_map/reaching", get(crate::test_map::get_tests_reaching::<D>))
         .route(
             "/manifest/allowed_commands",
             get(get_repository_allowed_commands::<D>),

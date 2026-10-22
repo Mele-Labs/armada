@@ -446,6 +446,16 @@ pub trait Queries: Send + Sync + 'static {
         manifest_id: Option<ManifestId>,
     ) -> impl Future<Output = Result<FilesFound, Refusal>> + Send;
 
+    /// `get_tests_reaching` — the tests the repository's test map says reach each of `paths`,
+    /// grouped by Check and member, and the paths no edge names. `docs/concepts/test-map.md`.
+    /// A path nothing reaches is an answer, not a refusal; the only `Refusal` is a Manifest this
+    /// Fleet does not serve, or a fault.
+    fn get_tests_reaching(
+        &self,
+        manifest_id: Option<ManifestId>,
+        paths: Vec<String>,
+    ) -> impl Future<Output = Result<ipc::TestsReaching, Refusal>> + Send;
+
     /// `list_import_folders` — the folders a person has already worked in with their agent CLI,
     /// newest session first, read from the sessions it kept. **Read only and bounded**; a home with
     /// no sessions is an empty list, and the only `Refusal` is a fault.
