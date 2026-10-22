@@ -75,7 +75,12 @@ const TURNS: LoadoutTurn[] = [
     use(t, "skill", "commit-message", "repository"),
     use(t, "tool", "Bash", "built_in", { by: "armada:mechanic" }),
   ]),
-  turn(22, (t) => [use(t, "skill", "armada-voice", "repository"), use(t, "tool", "Edit", "built_in")]),
+  turn(22, (t) => [
+    use(t, "skill", "armada-voice", "repository"),
+    use(t, "tool", "Edit", "built_in"),
+    use(t, "tool", "mcp__mailroom_docs__create_inspiration_document", "mcp", { from: "mailroom_docs" }),
+    use(t, "tool", "mcp__browser-devtools__resize_page", "mcp", { from: "browser-devtools" }),
+  ]),
 ];
 
 const LOADOUT: SessionLoadout = { items: ITEMS, turns: TURNS };

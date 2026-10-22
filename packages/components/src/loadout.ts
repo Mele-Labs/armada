@@ -70,9 +70,18 @@ export function loadoutKeyOf(one: LoadoutRef): string {
   return `${one.kind}:${one.source}:${one.from ?? ""}:${one.name}`;
 }
 
+/** The prefix an MCP server's tools carry in their names. */
+const mcpPrefix = (server: string) => `mcp__${server}__`;
+
+/** A use's tool as a person reads it: an MCP tool without the `mcp__<server>__` its source already says. */
+export function toolSaid(use: LoadoutUse): string {
+  const prefix = use.source === "mcp" && use.from !== undefined ? mcpPrefix(use.from) : undefined;
+  return prefix !== undefined && use.name.startsWith(prefix) && use.name.length > prefix.length ? use.name.slice(prefix.length) : use.name;
+}
+
 /** The tools an MCP server gave, in the order the Loadout lists them: its own by `from`, or by the `mcp__<server>__` prefix. */
 export function toolsOf(server: LoadoutRef, items: readonly LoadoutItem[]): LoadoutItem[] {
   const named = server.from ?? server.name;
-  const prefix = `mcp__${server.name}__`;
+  const prefix = mcpPrefix(server.name);
   return items.filter((one) => one.kind === "tool" && (one.from === named || one.name.startsWith(prefix)));
 }
