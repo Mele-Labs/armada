@@ -1,4 +1,4 @@
-// A Job's Field draws the other live Jobs of its repository beside its own drones, and its slider scrubs back through the Job's reads and
+// A Job's Field draws the other live Jobs of its repository beside its own drones, a press on one opens that Job, and its slider scrubs back through the Job's reads and
 // writes and returns to live at its right end. Over the `job-field-whole-repo` scenario.
 
 import { expect, test } from "vitest";
@@ -25,6 +25,16 @@ test("the other live Jobs of the repository are on the Field beside the Job's ow
   await expect.element(map.getByRole("option", { name: /^Rotate the audit log, Job/ })).toBeInTheDocument();
   await expect.element(map.getByRole("option", { name: /^Pin the store clock, Job/ })).toBeInTheDocument();
   await expect.element(map.getByRole("option", { name: /^Retry the slot lease, Job/ })).toBeInTheDocument();
+});
+
+test("a press on another Job's faded drone opens that Job on the stage, and a press on this Job's own opens nothing", async () => {
+  await open();
+  const map = field().getByRole("listbox", { name: "Map" });
+  (map.getByRole("option", { name: /^Rotate the audit log, Job/ }).element() as HTMLElement).click();
+  await expect.element(page.getByRole("region", { name: "Job: Rotate the audit log" })).toBeVisible();
+  (map.getByRole("option", { name: /^Pin the store clock, Job/ }).element() as HTMLElement).click();
+  await expect.element(page.getByRole("region", { name: "Job: Pin the store clock" })).toBeVisible();
+  await expect.element(page.getByRole("region", { name: "Job: Rotate the audit log" })).not.toBeInTheDocument();
 });
 
 test("the slider rests live, steps back a read or write at a time, and End or a release at its right end is live again", async () => {

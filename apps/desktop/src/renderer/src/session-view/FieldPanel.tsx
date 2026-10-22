@@ -1,8 +1,8 @@
 // A Job's drones over the whole repository it works in: the Cockpit's battlefield, with every area Fleet names as the floor, so its shape
 // never changes as the Job moves. The plots the Job has touched (its plan's scope and its drones' paths) are outlined in the accent. Its own
 // drone and a small one for each subagent fly to the file each is on; the drones of every other live Job in the repository are drawn faded,
-// with no beam, label or action. Each file the Job wrote or read glows from the times of Fleet's bursts, fading over ten minutes for a write
-// and five for a read (`afterglow.ts`). Nothing here is drawn from what an agent said. The plan is one bar along the foot, and under it a
+// with no beam, label or action, and pressing one opens that Job. Each file the Job wrote or read glows from the times of Fleet's bursts,
+// fading over ten minutes for a write and five for a read (`afterglow.ts`). Nothing here is drawn from what an agent said. The plan is one bar along the foot, and under it a
 // slider scrubs back through the Job's reads and writes: the glow, the drone and a numbered route stand as they were, and the right end is
 // live. `docs/concepts/cockpit.md`, *A Job open*. The control in the band, or `deck_field`'s key (`DeckHost.tsx`), opens the Field large.
 
@@ -22,6 +22,7 @@ import type { DroneIn, FileIn, RepoIn } from "../cockpit/deck/layout";
 import { neighbours, windowOf } from "../cockpit/deck/replay";
 import { ReplayMark, ReplayTrack } from "../cockpit/deck/ReplayBar";
 import { same } from "../cockpit/deck/pixi/same";
+import { select } from "../cockpit/deck/store";
 import { useFleetEvents } from "../cockpit/fleet-events";
 import { useSessions } from "../sessions-draft";
 import { isWorking, touchedPlots, workingDrones } from "./field";
@@ -172,6 +173,17 @@ function FieldReplay({ events, from, end, at, onAt }: { events: readonly Timelin
   );
 }
 
+/**
+ * A press on another Job's drone opens that Job on the stage, as a press on its drone on the Cockpit map does (`MapPane.tsx`); a subagent's
+ * drone opens the Job that sent it. This Job's own drones open nothing.
+ */
+function openOther(flying: readonly DroneIn[], key: string): void {
+  const drone = flying.find((one) => one.key === key);
+  if (drone?.ghost !== true) return;
+  // A subagent's drone is keyed `session:<id>/<subagent>`.
+  select({ kind: "session", key: drone.key.split("/")[0]! });
+}
+
 /** The map and, along its foot, the plan and the slider. The same in the panel and in the layer; `large` is the layer's, which names each group under its stretch. */
 export function FieldMap({ session, repositories, large = false }: { session: Session; repositories: readonly RepositorySummary[]; large?: boolean }) {
   const [at, setAt] = useState<number>();
@@ -200,7 +212,7 @@ export function FieldMap({ session, repositories, large = false }: { session: Se
           glow={glow}
           route={route}
           framing={framing}
-          onSelect={nothing}
+          onSelect={(key) => openOther(flying, key)}
           onPad={nothing}
           onGoal={nothing}
           onPr={nothing}
