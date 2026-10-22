@@ -17,7 +17,7 @@ feed is `docs/concepts/test-map.md`.
 |---|---|
 | Wall time | 1 h 54 min |
 | Includes | The instrumented build in `target/test-map`. The log does not split build from run |
-| Job `timeout-minutes` | 120, so the run finished 6 minutes inside its ceiling |
+| Job `timeout-minutes` | 120 at the time, 6 minutes over the run; raised to 180 after it |
 | Laps | 4261 from the nextest coverage collector, one per test, each naming the files it reached |
 | Artifact `laps.json` | 6.7 MB |
 
