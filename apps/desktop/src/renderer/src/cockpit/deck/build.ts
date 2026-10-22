@@ -80,28 +80,6 @@ export function groupedTasks<T extends { by?: string }>(tasks: readonly T[]): T[
   return out;
 }
 
-/** Radii a worker is drawn at in the column, outer first, and its half-width: the outer tier by the stretch, the inner a step inward where the outer is crowded. */
-const TIERS = [19, 10] as const;
-const HALF = 4.5;
-/** Where each running worker is drawn in the column: the middle of its stretch, at the outer tier unless another is too near, then a step inward. A worker with no stretch has no seat. */
-export function seatedWorkers(tasks: readonly Pick<Task, "by">[], workers: readonly string[]): { label: string; angle: number; radius: number }[] {
-  const wanted = workers.flatMap((label) => {
-    const angle = seatOf(tasks, label);
-    return angle === undefined ? [] : [{ label, angle }];
-  });
-  const apart = (a: number, b: number) => Math.abs((((a - b) % 360) + 540) % 360 - 180);
-  const tiers: number[][] = TIERS.map(() => []);
-  const placed = new Map<string, number>();
-  for (const one of [...wanted].sort((a, b) => a.angle - b.angle)) {
-    const room = (t: number) => tiers[t]!.every((other) => apart(other, one.angle) >= (2 * Math.asin(HALF / TIERS[t]!) * 180) / Math.PI);
-    const tier = TIERS.findIndex((_, t) => room(t));
-    const chosen = tier < 0 ? 0 : tier;
-    tiers[chosen]!.push(one.angle);
-    placed.set(one.label, TIERS[chosen]!);
-  }
-  return wanted.map((one) => ({ ...one, radius: placed.get(one.label)! }));
-}
-
 /**
  * Where a worker sits on the ring, in degrees as the ring's sectors are laid (from the top, clockwise): the middle of its stretch, the pieces it
  * wrote, which `groupedTasks` has made contiguous. None where it has written none.
