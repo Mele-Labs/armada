@@ -43,6 +43,8 @@ export const files: Slice<FilesApi, Record<string, never>> = {
       },
       pickPanelFile: async () => (picked++ % 2 === 0 ? CLOCK_FILE : PICTURE_FILE),
       openPanelFileIn: async () => ({ ok: true }),
+      // The files a scenario put on the pretend disk are the ones its checkout has.
+      findPanelFiles: async (_sessionId, paths) => paths.filter((one) => disk.has(one)),
       onPanelFileChanged: (onChanged) => {
         listeners.add(onChanged);
         return () => void listeners.delete(onChanged);

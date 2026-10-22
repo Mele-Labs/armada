@@ -32,6 +32,8 @@ export type FilesApi = {
   pickPanelFile: () => Promise<PanelFileItem | null>;
   /** The file in the editor the machine opens it with, or selected in Finder. */
   openPanelFileIn: (item: PanelFileItem, where: "editor" | "finder") => Promise<PanelFileOpenedIn>;
+  /** Of the paths a Session's words name, those that are files in its checkout, as written. Asked once per path, not per draw. */
+  findPanelFiles: (sessionId: string, paths: readonly string[]) => Promise<string[]>;
   /** A file open in the panel changed on disk. The renderer reloads silently when it holds no edit. */
   onPanelFileChanged: (onChanged: (item: PanelFileItem) => void) => () => void;
 };
@@ -41,5 +43,6 @@ export const FILES_CHANNELS = {
   savePanelFile: "bridge:save-panel-file",
   pickPanelFile: "bridge:pick-panel-file",
   openPanelFileIn: "bridge:open-panel-file-in",
+  findPanelFiles: "bridge:find-panel-files",
   panelFileChanged: "bridge:panel-file-changed",
 } as const;
