@@ -172,15 +172,14 @@ impl Store {
         Ok(count)
     }
 
-    /// Every test with a stale edge, once per source that read it.
+    /// Every test with a stale edge, once per source that read it, the least sharp source first.
     pub fn stale_tests(&self, repository: &ManifestId) -> Result<Vec<StaleTest>, ReadError> {
         let unreadable = |why: rusqlite::Error| ReadError::Database(fault("reading stale tests")(why));
         let mut statement = self
             .conn
             .prepare(
                 "SELECT DISTINCT check_key, member, test, source FROM test_map_edges
-                 WHERE repository = ?1 AND stale = 1
-                 ORDER BY check_key, member, test, source",
+                 WHERE repository = ?1 AND stale = 1",
             )
             .map_err(unreadable)?;
         let rows = statement
@@ -203,6 +202,8 @@ impl Store {
             test.source = source_column(&source)?;
             stale.push(test);
         }
+        // By rank, not by spelling: `measured` spells before `static`.
+        stale.sort();
         Ok(stale)
     }
 }

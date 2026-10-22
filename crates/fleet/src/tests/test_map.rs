@@ -68,10 +68,12 @@ async fn laps_become_edges_stamped_with_the_collectors_source_and_the_directorys
         ],
     ));
 
+    let before = fleet.now();
     let kept = fleet
         .record_laps(&repository, "test", &dir, collector.clone(), TestsToRecord::Named(vec!["reads_a_row".into()]))
         .await
         .expect("recorded");
+    let after = fleet.now();
     assert_eq!(kept, 3);
     assert_eq!(
         collector.asked(),
@@ -84,7 +86,7 @@ async fn laps_become_edges_stamped_with_the_collectors_source_and_the_directorys
     assert_eq!(files.len(), 2);
     for edge in &files {
         assert_eq!((edge.source, edge.grain, edge.commit.as_str(), edge.stale), (EdgeSource::Static, EdgeGrain::Test, commit.as_str(), false));
-        assert_eq!(edge.at, fleet.now(), "stamped by the clock, not the collector");
+        assert!(before < edge.at && edge.at < after, "stamped by Fleet's clock while recording: {:?}", edge.at);
     }
     let file_grain = store.files_a_test_reaches(&repository, "test", "", "tests/store.test.ts").expect("reads");
     assert_eq!((file_grain.len(), file_grain[0].grain, file_grain[0].file.as_str()), (1, EdgeGrain::File, "src/store.ts"));
