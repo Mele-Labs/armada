@@ -181,8 +181,53 @@ export type SessionFrameProps = {
   back?: ReactNode;
   /** The ledger, as a panel of its own beside the conversation: a sibling card the height of the first, scrolling on its own. */
   aside?: ReactNode;
+  /** What the Session is on now, under the head while a turn runs. Absent draws nothing. */
+  now?: SessionNow;
   children: ReactNode;
 };
+
+/**
+ * The Now line: the task the agent is on, then the action Fleet detected, quieter; then one line a running subagent, what it was
+ * sent to do and its own action; then, where given, the agent's last sentence, faintest.
+ */
+export type SessionNow = {
+  task?: string;
+  action?: string;
+  said?: string;
+  subagents?: readonly { id: string; label: string; now?: string }[];
+};
+
+function NowLines({ now }: { now: SessionNow }) {
+  const { task, action, said, subagents = [] } = now;
+  if (task === undefined && action === undefined && said === undefined && subagents.length === 0) return null;
+  return (
+    <div className="armada-session-frame__now" role="group" aria-label="Now">
+      {task === undefined && action === undefined ? null : (
+        <p className="armada-session-frame__now-line">
+          {task === undefined ? null : <span className="armada-session-frame__now-task">{task}</span>}
+          {task === undefined || action === undefined ? null : <span className="armada-session-frame__now-sep" aria-hidden="true">·</span>}
+          {action === undefined ? null : <span className="armada-session-frame__now-action">{action}</span>}
+        </p>
+      )}
+      {subagents.length === 0 ? null : (
+        <ul className="armada-session-frame__now-subagents" aria-label="Subagents">
+          {subagents.map((one) => (
+            <li key={one.id} className="armada-session-frame__now-line">
+              <span className="armada-session-frame__now-task">{one.label}</span>
+              {one.now === undefined ? null : (
+                <>
+                  <span className="armada-session-frame__now-sep" aria-hidden="true">·</span>
+                  <span className="armada-session-frame__now-action">{one.now}</span>
+                </>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {said === undefined ? null : <p className="armada-session-frame__now-said">{said}</p>}
+    </div>
+  );
+}
 
 /** The title, in place, on one line with the whole of it in a tooltip; a field while it is being changed. */
 function SessionTitle({ title, onRename }: { title?: string; onRename?: (title: string) => void }) {
@@ -246,7 +291,7 @@ function SessionTitle({ title, onRename }: { title?: string; onRename?: (title: 
 
 const DOCKED: readonly Mark[] = [{ of: ".armada-shell", as: "data-dock" }];
 
-export function SessionFrame({ state, said, id, address, title, onRename, modOutOfDate = false, checks, onOpenCheck, context, loadout, fresh, repository, actions, menu, back, aside, children }: SessionFrameProps) {
+export function SessionFrame({ state, said, id, address, title, onRename, modOutOfDate = false, checks, onOpenCheck, context, loadout, fresh, repository, actions, menu, back, aside, now, children }: SessionFrameProps) {
   const named = address ?? id;
   const more = menuWithFresh(menu, fresh);
   // The aside wears the dock's class, and the shell's glow follows it (`TheShell.css`).
@@ -268,6 +313,7 @@ export function SessionFrame({ state, said, id, address, title, onRename, modOut
         {more === undefined || more.entries.length === 0 ? null : <DropdownMenu align="end" portal icon={Ellipsis} triggerLabel="More" entries={more.entries} onSelect={more.onSelect} />}
         {back}
       </header>
+      {now === undefined ? null : <NowLines now={now} />}
       <div className="armada-session-frame__body">{children}</div>
     </Card>
     {aside === undefined || aside === null ? null : <Card className="armada-session-frame__aside armada-shell__dock">{aside}</Card>}

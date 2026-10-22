@@ -38,6 +38,8 @@ export type OwnerSummary = {
   pullRequests: readonly { number: number; checks: "pending" | "passed" | "failed"; said: string; red?: RedChecks }[];
   /** When its last turn ended, an RFC 3339 instant. */
   lastTurnAt?: string;
+  /** What it is on now, the Now line's first line, while a turn runs. */
+  now?: string;
 };
 
 export type ChipOwnershipValue = {
@@ -128,7 +130,10 @@ export function OwnerCard({ owner, onOpen }: { owner: OwnerSummary; onOpen: () =
       where={owner.address ?? owner.id}
       title={owner.title}
       state={{ Glyph: sessionGlyphOf(owner.state), said: owner.said, ...(tone === undefined ? {} : { tone }) }}
-      facts={owner.lastTurnAt === undefined ? [] : [{ label: "Last turn", value: <Stamp at={owner.lastTurnAt} />, mono: true }]}
+      facts={[
+        ...(owner.now === undefined ? [] : [{ label: "Now", value: owner.now }]),
+        ...(owner.lastTurnAt === undefined ? [] : [{ label: "Last turn", value: <Stamp at={owner.lastTurnAt} />, mono: true }]),
+      ]}
       keys={[{ key: "Enter", verb: "Keep open" }]}
     >
       <ul className="armada-owner-card__facts">

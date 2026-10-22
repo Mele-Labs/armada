@@ -121,7 +121,7 @@ import { movedRowsOf } from "./session-moved";
 import { useSessions, useSessionsDraft, useSessionsSaid } from "./sessions-draft";
 import { restartOf } from "./build-change";
 import { bangOf, hostedCommands, opensMcp, runnerOf } from "./session-runner";
-import { todosOf } from "./session-activity";
+import { nowLineOf, nowSaidOf, subagentLinesOf, todosOf } from "./session-activity";
 import { dismissWaiting } from "./cockpit/dismissed";
 import { holdsDelivery, stateOf } from "./session-state";
 import type { PlanEditing } from "./session-view/PlanEdit";
@@ -148,6 +148,7 @@ const pullRequestsOf = (session: Session) =>
   attachmentsOf(session, "pull_request").map((one) => ({ number: one.number, checks: one.checks.state, said: checksSaid(one.checks), ...redOf(one.checks) }));
 
 function summaryOf(session: Session): OwnerSummary {
+  const now = nowSaidOf(session);
   return {
     id: session.id,
     ...(session.address === undefined ? {} : { address: session.address }),
@@ -156,6 +157,7 @@ function summaryOf(session: Session): OwnerSummary {
     slots: attachmentsOf(session, "slot").map((one) => one.slot),
     pullRequests: pullRequestsOf(session),
     ...(session.lastTurnAt === undefined ? {} : { lastTurnAt: session.lastTurnAt }),
+    ...(now === undefined ? {} : { now }),
   };
 }
 
@@ -994,6 +996,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
         {...(fresh === undefined ? {} : { fresh })}
         {...(session.loadout === undefined ? {} : { loadout: { summary: session.loadout, onOpen: () => goes.onOpenLoadout(session.id) } })}
         {...(session.context === undefined ? {} : { context: { ...session.context, ...(session.contextBreakdown === undefined ? {} : { breakdown: session.contextBreakdown }) } })}
+        {...(nowLineOf(session) === undefined ? {} : { now: { ...nowLineOf(session)!, subagents: subagentLinesOf(session) } })}
         menu={{
           entries: [
             ...(deck?.acts ?? []).map((one): DropdownMenuEntry => ({ kind: "item", id: one.id, label: one.label, icon: one.icon })),

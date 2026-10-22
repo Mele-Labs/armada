@@ -146,7 +146,7 @@ export type WorkTaskState = "open" | "working" | "handed_in" | "done" | "failed"
 export type WorkTask = { id: string; text: string; state: WorkTaskState; seen?: boolean };
 
 /** Tasks one subagent takes, by the type of subagent. */
-export type WorkGroup = { id: string; agent: string; title: string; /** The paths this group works in. */ paths: readonly string[]; /** The issue this group works, as digits or a tracker's key. Its title and state are those of the Session's `issue` attachment of that number. */ issue?: string; tasks: readonly WorkTask[] };
+export type WorkGroup = { id: string; agent: string; title: string; /** What the group gives him once it is done, one line in his words. The card reads it before the title. */ gives?: string; /** The paths this group works in. */ paths: readonly string[]; /** The issue this group works, as digits or a tracker's key. Its title and state are those of the Session's `issue` attachment of that number. */ issue?: string; tasks: readonly WorkTask[] };
 
 /** The scope as paths, the groups, and whether the person has approved it. */
 /** A sketch the agent drew with the plan, in the format `show_sketch` takes. `id` is the sketch on the Session's ledger, which opens it. */
@@ -171,7 +171,7 @@ export type SuggestLine = { verb: "Renamed" | "Removed" | "Added" | "Moved" | "S
 /** What the agent changed in the plan it recorded again: ids of what is new, what was renamed and what it was, and what is gone. */
 export type PlanChanges = { added: readonly string[]; renamed: readonly { id: string; from: string }[]; removed: readonly { group: string; text: string }[] };
 
-export type WorkPlan = { /** The version the agent recorded, which approving and sending changes name. */ version?: number; scope: readonly string[]; groups: readonly WorkGroup[]; approved: boolean; /** What changed since the plan before this one. */ changes?: PlanChanges; /** The sketch drawn with the plan, if the agent drew one. */ sketch?: WorkSketch; /** The thread row that recorded it, which the approved plan settles after. */ after?: string };
+export type WorkPlan = { /** The version the agent recorded, which approving and sending changes name. */ version?: number; /** The plan in his words, a few lines of plain prose the card reads first. The groups are the technical detail under it. */ summary?: string; scope: readonly string[]; groups: readonly WorkGroup[]; approved: boolean; /** He said Not yet: the plan stays recorded, folded to a chip in the thread, and nothing waits on him for it. */ setAside?: true; /** What changed since the plan before this one. */ changes?: PlanChanges; /** The sketch drawn with the plan, if the agent drew one. */ sketch?: WorkSketch; /** The thread row that recorded it, which the approved plan settles after. */ after?: string };
 
 /** A drone of this Session over the area it is working in: the Session's own, or a subagent of `agent` type. */
 export type WorkDrone = { id: string; agent?: string; task?: string; path: string; doing: "read" | "write" | "run"; /** The file it is over, which the Field draws as a bar. */ file?: string };
@@ -219,6 +219,8 @@ export type SessionWorkActs = {
   approve: (id: string) => void;
   /** Sends the marks he put on the plan to the agent as one message, which answers and may record the plan again. `approving` is Approve pressed with marks on: the plan is approved with them. */
   suggest: (id: string, marks: readonly PlanMark[], approving?: boolean) => void;
+  /** Not yet: the plan is set aside, its call on him goes, and the agent is told to keep talking and record no plan until he asks for one. Absent where nothing serves it, and Not yet is not drawn. */
+  setAside?: (id: string) => void;
   /** Sends the concern to the Session as a message to the agent. */
   sendConcern: (id: string, concern: string) => void;
   dismissConcern: (id: string, concern: string) => void;
@@ -363,7 +365,17 @@ export type SessionTodo = { text: string; state: "done" | "doing" | "todo" };
  * action, and `todos` the agent's list where it keeps one. Todos are detail on top of `now`, never a
  * plan the Session is held to.
  */
-export type SessionActivity = { now?: string; todos?: readonly SessionTodo[] };
+export type SessionActivity = {
+  now?: string;
+  todos?: readonly SessionTodo[];
+  /** Each subagent running now, by its Agent call: `label` is what it was sent to do, `now` its own last tool call as a short action. */
+  subagents?: readonly { id: string; label: string; now?: string }[];
+  /** The last sentence the agent wrote this turn, for a surface that draws what it said beside what it does. */
+  said?: string;
+};
+
+/** A control pressed on a Session whose answer is still coming: Pause or Resume, Auto land, and Approve on the plan. */
+export type PressedKey = "paused" | "autoLand" | "plan";
 
 /** A turn running, or none. A message from another Session starts one, so `working` has no author. */
 export type SessionTurn = { state: "idle" } | { state: "working"; wokenBy?: { id: string; title: string } };
@@ -446,6 +458,8 @@ export type Session = {
   paused?: true;
   /** Auto land is on: Fleet turns on the forge's auto-merge for each pull request this Session holds, and merges it on a green `ci`. Hosted Sessions only. */
   autoLand?: true;
+  /** What was pressed and Fleet has not answered: `paused`, `autoLand` and `plan` are drawn as pressed already, with a going mark on the control (`pressed.ts`). Never Fleet's. */
+  pressed?: readonly PressedKey[];
   /** Ended more than a week ago: left off the list, found by search. */
   older?: true;
   /** A session from a terminal: its thread is read from the terminal's transcript, and it is sent words and nothing else. */

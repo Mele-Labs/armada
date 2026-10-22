@@ -24,3 +24,34 @@ export function nowOf(session: Session): string | undefined {
 export function lineOf(session: Session): string | undefined {
   return todosOf(session).find((one) => one.state === "doing")?.text ?? nowOf(session);
 }
+
+/** The Now line: the task being worked, the detected action, and the agent's last sentence. Nothing unless the turn runs. */
+export type NowLine = { task?: string; action?: string; said?: string };
+
+/** The task the agent is on: the plan's working task, else the one on its own list. */
+function workingTaskOf(session: Session): string | undefined {
+  const planned = session.work?.plan?.groups.flatMap((group) => group.tasks).find((task) => task.state === "working");
+  return planned?.text ?? session.work?.tasks?.find((task) => task.state === "working")?.subject;
+}
+
+/** What the Session is on, for the header and its list row: the task, then the action Fleet detected, then its last words. Absent while nothing runs or nothing is known. */
+export function nowLineOf(session: Session): NowLine | undefined {
+  if (!running(session)) return undefined;
+  const task = workingTaskOf(session);
+  const action = session.activity?.now;
+  const said = session.activity?.said;
+  if (task === undefined && action === undefined && said === undefined) return undefined;
+  return { ...(task === undefined ? {} : { task }), ...(action === undefined ? {} : { action }), ...(said === undefined ? {} : { said }) };
+}
+
+/** The first line of `nowLineOf` as one string: the task, and the action after a separator. */
+export function nowSaidOf(session: Session): string | undefined {
+  const now = nowLineOf(session);
+  if (now === undefined) return undefined;
+  return [now.task, now.action].filter((one) => one !== undefined).join(" · ") || undefined;
+}
+
+/** One line per subagent running under the Session: what it was sent to do and what it is on now. Empty while nothing runs. */
+export function subagentLinesOf(session: Session): readonly { id: string; label: string; now?: string }[] {
+  return running(session) ? (session.activity?.subagents ?? []) : [];
+}
