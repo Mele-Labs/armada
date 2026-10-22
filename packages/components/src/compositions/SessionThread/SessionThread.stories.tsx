@@ -641,6 +641,28 @@ export const FleetTurnFoldsAfterAnswer: Story = {
   },
 };
 
+/** **The person's message ends a Fleet turn's fold**: it and the agent's answer to it draw in the thread, not under the notice. */
+export const FleetTurnEndsAtYourMessage: Story = {
+  name: "Fleet turn: the person's reply is not folded",
+  args: {
+    rows: [
+      { id: "n1", at: "14:10:00", kind: "message", from: "session", sender: FLEET, text: "#2734 failed its checks at 4f2a91c." },
+      { id: "a1", at: "14:11:00", kind: "message", from: "agent", text: "The failure is on main too." },
+      { id: "y1", at: "15:00:00", kind: "message", from: "you", text: "I reran the build." },
+      { id: "a2", at: "15:00:10", kind: "message", from: "agent", text: "I'll read the run when it ends." },
+    ] as never,
+  },
+  play: async ({ canvas }) => {
+    const folded = canvas.getByRole("region", { name: "Fleet turn" });
+    await userEvent.click(within(folded).getByRole("button"));
+    await expect(within(folded).getByText("The failure is on main too.")).toBeVisible();
+    await expect(within(folded).queryByText("I reran the build.")).toBeNull();
+    await expect(within(folded).queryByText("I'll read the run when it ends.")).toBeNull();
+    await expect(canvas.getByText("I reran the build.")).toBeVisible();
+    await expect(canvas.getByText("I'll read the run when it ends.")).toBeVisible();
+  },
+};
+
 /** **A folded row is named by the notice's first sentence**, marked handled once the agent replied; a turn that changed what is owed shows its last agent message outside the fold. */
 export const FleetTurnSummaryAndOwed: Story = {
   name: "Fleet turn: summary, handled, owner-facing prose",

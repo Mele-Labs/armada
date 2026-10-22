@@ -396,7 +396,7 @@ type Item =
 
 /**
  * A turn Fleet started folds into one item: its notice, then the agent's replies and tool runs until the next row of any other
- * kind. A notice in `keep` is left as it came.
+ * kind. The person's message is theirs, not Fleet's turn, so it ends the fold. A notice in `keep` is left as it came.
  */
 function itemsOf(rows: readonly SessionThreadRow[], keep: ReadonlySet<string> = new Set()): Item[] {
   const items: Item[] = [];
@@ -406,7 +406,7 @@ function itemsOf(rows: readonly SessionThreadRow[], keep: ReadonlySet<string> = 
       const reply: TurnReply[] = [];
       while (at + 1 < rows.length) {
         const next = rows[at + 1]!;
-        if (next.kind === "tool" || (next.kind === "message" && next.from !== "session")) reply.push(next);
+        if (next.kind === "tool" || (next.kind === "message" && next.from === "agent")) reply.push(next);
         else break;
         at += 1;
       }
