@@ -85,20 +85,40 @@ fn parsed(line: &str) -> Option<Remark> {
     let path = field.next().unwrap_or_default();
     let line_no: u32 = field.next().unwrap_or_default().parse().unwrap_or(0);
     let hunk = field.next().unwrap_or_default();
-    if id.is_empty() {
-        return None;
-    }
-    let mut remark = Remark::written(
+    inline_remark(
         as_written(id),
         as_written(by),
         as_written(at),
         as_written(said),
-    );
+        as_written(url),
+        as_written(path),
+        line_no,
+        as_written(hunk),
+    )
+}
+
+/// One inline comment, or `None` where the forge named no comment at all. A comment on no path
+/// carries no inline context.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn inline_remark(
+    id: String,
+    by: String,
+    at: String,
+    said: String,
+    url: String,
+    path: String,
+    line_no: u32,
+    hunk: String,
+) -> Option<Remark> {
+    if id.is_empty() {
+        return None;
+    }
+    let mut remark = Remark::written(id, by, at, said);
     if !url.is_empty() {
-        remark = remark.with_url(as_written(url));
+        remark = remark.with_url(url);
     }
     if !path.is_empty() {
-        remark = remark.with_inline(as_written(path), line_no, as_written(hunk));
+        remark = remark.with_inline(path, line_no, hunk);
     }
     Some(remark)
 }

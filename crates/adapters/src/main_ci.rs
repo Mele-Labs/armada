@@ -361,9 +361,13 @@ pub(crate) fn recently_merged(
             MERGED_PULLS,
         ],
     )?;
-    let mut merged: Vec<RecentlyMerged> = said.lines().filter_map(merged_of_line).collect();
+    Some(newest_first(said.lines().filter_map(merged_of_line).collect()))
+}
+
+/// Newest merge first, by the instant the forge gave.
+pub(crate) fn newest_first(mut merged: Vec<RecentlyMerged>) -> Vec<RecentlyMerged> {
     merged.sort_by(|a, b| b.merged_at.as_written().cmp(a.merged_at.as_written()));
-    Some(merged)
+    merged
 }
 
 fn merged_of_line(line: &str) -> Option<RecentlyMerged> {
@@ -408,6 +412,39 @@ fn open_pull_of_line(line: &str, gate: &str) -> Option<OpenPull> {
             (as_written(name), check_state_of(&status, &conclusion))
         })
         .collect();
+    Some(open_pull_built(
+        OpenRead {
+            number,
+            title: as_written(title),
+            branch: as_written(branch),
+            url: as_written(url),
+            author: as_written(author),
+            checks,
+            head: head.to_string(),
+            auto_merge,
+            facts,
+        },
+        gate,
+    ))
+}
+
+/// One open pull request as the forge told it, its words already as written.
+pub(crate) struct OpenRead {
+    pub(crate) number: u64,
+    pub(crate) title: String,
+    pub(crate) branch: String,
+    pub(crate) url: String,
+    pub(crate) author: String,
+    /// Each check's name and how it came out.
+    pub(crate) checks: Vec<(String, CiState)>,
+    pub(crate) head: String,
+    pub(crate) auto_merge: bool,
+    pub(crate) facts: PullFacts,
+}
+
+/// [`OpenRead`], with the verdict the gate (or else every check) gives and the checks that failed.
+pub(crate) fn open_pull_built(read: OpenRead, gate: &str) -> OpenPull {
+    let OpenRead { number, title, branch, url, author, checks, head, auto_merge, facts } = read;
     let deciding: Vec<&(String, CiState)> = match checks.iter().any(|(name, _)| name == gate) {
         true => checks.iter().filter(|(name, _)| name == gate).collect(),
         false => checks.iter().collect(),
@@ -415,14 +452,14 @@ fn open_pull_of_line(line: &str, gate: &str) -> Option<OpenPull> {
     let ci = [CiState::Failed, CiState::Pending, CiState::Passed]
         .into_iter()
         .find(|state| deciding.iter().any(|(_, one)| one == state));
-    Some(OpenPull {
+    OpenPull {
         number,
-        title: FromOutside::verbatim(as_written(title)),
-        branch: FromOutside::verbatim(as_written(branch)),
-        url: FromOutside::verbatim(as_written(url)),
-        author: (!author.is_empty()).then(|| FromOutside::verbatim(as_written(author))),
+        title: FromOutside::verbatim(title),
+        branch: FromOutside::verbatim(branch),
+        url: FromOutside::verbatim(url),
+        author: (!author.is_empty()).then(|| FromOutside::verbatim(author)),
         ci,
-        head: is_a_commit(head).then(|| head.to_string()),
+        head: is_a_commit(&head).then_some(head),
         auto_merge,
         facts,
         failing: checks
@@ -430,7 +467,7 @@ fn open_pull_of_line(line: &str, gate: &str) -> Option<OpenPull> {
             .filter(|(_, state)| *state == CiState::Failed)
             .map(|(name, _)| FromOutside::verbatim(name.as_str()))
             .collect(),
-    })
+    }
 }
 
 /// The listing's last seven fields, each absent where the line stops short or
@@ -444,17 +481,8 @@ fn pull_facts_of<'a>(mut field: impl Iterator<Item = &'a str>) -> PullFacts {
     let opened_at = named(field.next());
     let updated_at = named(field.next());
     let draft = field.next() == Some("1");
-    let mergeable = field.next().filter(|one| !one.is_empty()).map(|one| match one {
-        "MERGEABLE" => PullMergeable::Clean,
-        "CONFLICTING" => PullMergeable::Conflicting,
-        _ => PullMergeable::Unknown,
-    });
-    let review = field.next().map(|one| match one {
-        "APPROVED" => PullReview::Approved,
-        "CHANGES_REQUESTED" => PullReview::ChangesRequested,
-        "REVIEW_REQUIRED" => PullReview::ReviewRequired,
-        _ => PullReview::None,
-    });
+    let mergeable = field.next().filter(|one| !one.is_empty()).map(mergeable_word);
+    let review = field.next().map(review_word);
     let count = |text: Option<&str>| text.and_then(|one| one.parse().ok());
     PullFacts {
         opened_at,
@@ -467,10 +495,29 @@ fn pull_facts_of<'a>(mut field: impl Iterator<Item = &'a str>) -> PullFacts {
     }
 }
 
+/// This forge's word for whether a pull request merges cleanly.
+pub(crate) fn mergeable_word(word: &str) -> PullMergeable {
+    match word {
+        "MERGEABLE" => PullMergeable::Clean,
+        "CONFLICTING" => PullMergeable::Conflicting,
+        _ => PullMergeable::Unknown,
+    }
+}
+
+/// This forge's word for where review stands; none is the absence of a decision.
+pub(crate) fn review_word(word: &str) -> PullReview {
+    match word {
+        "APPROVED" => PullReview::Approved,
+        "CHANGES_REQUESTED" => PullReview::ChangesRequested,
+        "REVIEW_REQUIRED" => PullReview::ReviewRequired,
+        _ => PullReview::None,
+    }
+}
+
 /// How one check on a pull request came out, in the words `gh` lists: a
 /// check run's `status` and `conclusion`, or a status context's `state` alone.
 /// **A word with no name here is a failure**, [`state_of`]'s direction.
-fn check_state_of(status: &str, conclusion: &str) -> CiState {
+pub(crate) fn check_state_of(status: &str, conclusion: &str) -> CiState {
     match (status, conclusion) {
         (_, "success" | "neutral" | "skipped") => CiState::Passed,
         (_, "pending" | "expected") => CiState::Pending,

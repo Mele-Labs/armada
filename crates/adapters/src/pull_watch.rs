@@ -18,7 +18,7 @@ const FIELDS: &str = "number title autoMergeRequest{enabledAt} headRefName url h
     ... on CheckRun{name status conclusion detailsUrl startedAt completedAt} \
     ... on StatusContext{context state targetUrl}}}}}}}";
 
-fn list_query() -> String {
+pub(crate) fn list_query() -> String {
     format!(
         "query($owner:String!,$name:String!){{repository(owner:$owner,name:$name){{\
          pullRequests(states:OPEN,first:100,orderBy:{{field:UPDATED_AT,direction:DESC}}){{nodes{{\
@@ -27,7 +27,7 @@ fn list_query() -> String {
 }
 
 /// `state` rides along so a pull request that closed since is not told as open.
-fn one_query() -> String {
+pub(crate) fn one_query() -> String {
     format!(
         "query($owner:String!,$name:String!,$number:Int!){{repository(owner:$owner,name:$name){{\
          pullRequest(number:$number){{state {FIELDS}}}}}}}"
@@ -101,7 +101,7 @@ fn pull_of_line(line: &str, gate: &str) -> Option<WatchedPull> {
     let author = field.next().unwrap_or_default();
     let title = field.next().unwrap_or_default();
     let auto_merge = field.next() == Some("1");
-    let mut checks: Vec<WatchedCheck> = rollup
+    let checks = rollup
         .split('\u{1e}')
         .filter(|one| !one.is_empty())
         .map(|one| {
@@ -111,15 +111,70 @@ fn pull_of_line(line: &str, gate: &str) -> Option<WatchedPull> {
             let conclusion = part.next().unwrap_or_default().to_ascii_lowercase();
             let address = part.next().unwrap_or_default();
             let seconds: u64 = part.next().unwrap_or_default().parse().unwrap_or(0);
-            let state = check_state(&status, &conclusion);
+            WatchedRead {
+                name: as_written(name),
+                status,
+                conclusion,
+                address: as_written(address),
+                seconds,
+            }
+        })
+        .collect();
+    Some(watched_built(
+        WatchedPullRead {
+            number,
+            branch: as_written(branch),
+            url: as_written(url),
+            author: as_written(author),
+            head: head.to_string(),
+            mergeable: mergeable.to_string(),
+            queue: queue.to_string(),
+            checks,
+            title: as_written(title),
+            auto_merge,
+        },
+        gate,
+    ))
+}
+
+/// One check as the forge listed it, lowercase and as written; `seconds` is how long it ran.
+pub(crate) struct WatchedRead {
+    pub(crate) name: String,
+    pub(crate) status: String,
+    pub(crate) conclusion: String,
+    pub(crate) address: String,
+    pub(crate) seconds: u64,
+}
+
+/// One open pull request as the forge told it. The words `mergeable` and `queue` are the forge's.
+pub(crate) struct WatchedPullRead {
+    pub(crate) number: u64,
+    pub(crate) branch: String,
+    pub(crate) url: String,
+    pub(crate) author: String,
+    pub(crate) head: String,
+    pub(crate) mergeable: String,
+    pub(crate) queue: String,
+    pub(crate) checks: Vec<WatchedRead>,
+    pub(crate) title: String,
+    pub(crate) auto_merge: bool,
+}
+
+/// What the watch holds of one pull request, the vendor's words stopped here.
+pub(crate) fn watched_built(read: WatchedPullRead, gate: &str) -> WatchedPull {
+    let WatchedPullRead { number, branch, url, author, head, mergeable, queue, checks, title, auto_merge } = read;
+    let mut checks: Vec<WatchedCheck> = checks
+        .into_iter()
+        .map(|one| {
+            let state = check_state(&one.status, &one.conclusion);
             WatchedCheck {
-                name: FromOutside::verbatim(as_written(name)),
+                name: FromOutside::verbatim(one.name),
                 state,
                 required: false,
                 hung: state == CiState::Failed
-                    && conclusion == "cancelled"
-                    && seconds >= HUNG_AFTER_SECONDS,
-                log_url: (!address.is_empty()).then(|| FromOutside::verbatim(as_written(address))),
+                    && one.conclusion == "cancelled"
+                    && one.seconds >= HUNG_AFTER_SECONDS,
+                log_url: (!one.address.is_empty()).then(|| FromOutside::verbatim(one.address)),
             }
         })
         .collect();
@@ -127,18 +182,18 @@ fn pull_of_line(line: &str, gate: &str) -> Option<WatchedPull> {
     for check in &mut checks {
         check.required = !gated || check.name.as_written() == gate;
     }
-    Some(WatchedPull {
+    WatchedPull {
         number,
-        branch: FromOutside::verbatim(as_written(branch)),
-        url: FromOutside::verbatim(as_written(url)),
-        author: (!author.is_empty()).then(|| FromOutside::verbatim(as_written(author))),
-        head: is_a_commit(head).then(|| head.to_string()),
+        branch: FromOutside::verbatim(branch),
+        url: FromOutside::verbatim(url),
+        author: (!author.is_empty()).then(|| FromOutside::verbatim(author)),
+        head: is_a_commit(&head).then_some(head),
         conflicting: mergeable.eq_ignore_ascii_case("conflicting"),
-        queue: queue_of(queue),
+        queue: queue_of(&queue),
         checks,
-        title: (!title.is_empty()).then(|| FromOutside::verbatim(as_written(title))),
+        title: (!title.is_empty()).then(|| FromOutside::verbatim(title)),
         auto_merge,
-    })
+    }
 }
 
 /// How one check came out, in the words the forge lists: a check run's `status` and `conclusion`,

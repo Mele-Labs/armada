@@ -214,11 +214,16 @@ impl GitHubApi {
         self.call(Method::GET, &self.url(path), None)
     }
 
+    /// `path` asked for in another media type, as a diff is: `application/vnd.github.v3.diff`.
+    pub fn get_as(&self, path: &str, accept: &'static str) -> Result<Answer, ApiFailure> {
+        answer_of(self.respond(&Method::GET, &self.url(path), None, Some(accept))?)
+    }
+
     /// Where `path` sends the caller on, as a log's download is: the `Location` of its redirect,
     /// which is not followed. The redirect is the API's own and carries the token; what it points
     /// at, a short-lived address on GitHub's storage, is read with [`GitHubApi::download`].
     pub fn get_redirect_target(&self, path: &str) -> Result<String, ApiFailure> {
-        let response = self.respond(&Method::GET, &self.url(path), None)?;
+        let response = self.respond(&Method::GET, &self.url(path), None, None)?;
         if !response.status().is_redirection() {
             answer_of(response)?;
             return Err(ApiFailure::Malformed("GitHub named nowhere else to read it.".to_string()));
@@ -308,18 +313,24 @@ impl GitHubApi {
 
     /// The call, and on a 401 the token read again and the call made once more.
     fn call(&self, method: Method, url: &str, body: Option<&[u8]>) -> Result<Answer, ApiFailure> {
-        answer_of(self.respond(&method, url, body)?)
+        answer_of(self.respond(&method, url, body, None)?)
     }
 
     /// The response itself, for a caller that reads more of it than its body.
-    fn respond(&self, method: &Method, url: &str, body: Option<&[u8]>) -> Result<Response, ApiFailure> {
+    fn respond(
+        &self,
+        method: &Method,
+        url: &str,
+        body: Option<&[u8]>,
+        accept: Option<&'static str>,
+    ) -> Result<Response, ApiFailure> {
         let client = self.client()?;
-        let first = self.send(client, method, url, body, false)?;
+        let first = self.send(client, method, url, body, accept, false)?;
         if first.status().as_u16() != 401 {
             return Ok(first);
         }
         drop(first);
-        self.send(client, method, url, body, true)
+        self.send(client, method, url, body, accept, true)
     }
 
     fn send(
@@ -328,9 +339,13 @@ impl GitHubApi {
         method: &Method,
         url: &str,
         body: Option<&[u8]>,
+        accept: Option<&'static str>,
         fresh_token: bool,
     ) -> Result<Response, ApiFailure> {
         let mut request = client.request(method.clone(), url).header(AUTHORIZATION, self.bearer(fresh_token)?);
+        if let Some(accept) = accept {
+            request = request.header(ACCEPT, accept);
+        }
         if let Some(body) = body {
             request = request.header(CONTENT_TYPE, "application/json").body(body.to_vec());
         }
