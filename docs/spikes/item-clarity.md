@@ -1,6 +1,6 @@
 # Spike: Can the owner act on an item an agent puts on his Needs you list?
 
-**Answer: the rules catch it, and the head adds nothing. Held out and read once, the rules called 27 of 36 unclear items at 0.73 precision (10 clear items wrongly called). The `item_clear` head alone found 3 of 36 at 0.75, and beside the rules it added 4 wrong calls and no right one. Everything is built and off (`clarity::IN_FORCE`); the owner picks.**
+**Answer: the rules catch it, and the head adds nothing. Held out and scored once, the rules called 27 of 36 unclear items at 0.79 precision (7 clear items wrongly called). The `item_clear` head alone found 3 of 36 at 0.75, and beside the rules it added 4 wrong calls and no right one. The rules are in force (`clarity::IN_FORCE`); a second cut after the merge queue refused two everyday questions is described under "What changed after it went in force".**
 
 Measured on 22 Oct 2026.
 The code is `crates/fleet/src/session_host/clarity.rs`, with the head in `crates/adapters/src/language_model/tuned.safetensors` beside the four of `docs/spikes/reply-sentence-readers.md`.
@@ -31,7 +31,8 @@ The held half's reasons were not broken down, and its items were not read.
 An item is **unclear** if it points elsewhere ("see above", "the options below", "three choices" with none listed), else if no clause holds a verb aimed at him with the thing it names; it reads as a **status** when that clause-less item has a word of one ("waiting", "queued", "merging", "pass"), and as **no ask** otherwise.
 A fenced command handed over is the verb and the thing.
 A clause leads with a verb from a list of 111 (seven of them programs, as in a command line handed over), or, at the start of the line, with a question word; after a colon a question word needs the `?`.
-A line ending in `?` that offers "X, or Y" is a choice.
+A line ending in `?` that offers "X, or Y", each side naming something, is a choice.
+A question whose first word has the shape of a command (not a word that names nothing, a plural subject, a participle, a number, or a comparison) and that names two things after it asks him too.
 A verb takes its thing from its own clause, the clause after its colon, or the clauses before it.
 "Bigger than it looked?" ends in a question mark and leads with an adjective, so it is `no ask`.
 
@@ -39,6 +40,34 @@ The first cut called 30 of the 257 clear dev items unclear.
 They were questions with no `?`, choices, a command line handed over ("git worktree prune"), "Walk: the sidebar", and verbs missing from the list.
 The second cut is the one scored: dev precision 0.96, recall 0.93.
 That is a figure for rules written against those items, so it is the top of the range.
+
+## What changed after it went in force
+
+The merge queue refused a test fixture on 22 Oct: `waiting_for` rejected "Sort by name or by version?" as holding no verb aimed at him, and "Go ahead with the plan?" read the same.
+Both are questions an agent asks every day.
+The cause was the rule, not the fixture: it could find a verb only by looking its first word up in the list, and a choice only when four words of it named something, so every verb the list lacked ("sort", "go") made a clear question unclear, and each would have needed adding by hand.
+The first cut had been written against the dev half, which holds few such questions.
+
+The second cut reads the shape of the question instead of the word:
+
+- A line ending in `?` that offers a choice with "or" is clear when each side names something and the line names three things, down from four.
+- A question whose first word is the plain form of a verb is clear when two more things are named after it.
+  The first word is read as a verb unless it names nothing ("the", "it"), is a plural ("Tests pass?"), a participle, a number, or the clause holds "than" ("Bigger than it looked?").
+  No word was added to the verb list.
+
+Nothing was tuned on held: the dev half scores the same as before (precision 0.963, recall 0.929, 26 right, 1 wrong, 2 missed), so the change cost no dev item, and held was scored once afterwards.
+
+| Rules | Set | Precision | Recall | Right | Wrong | Missed | Clear items refused |
+|---|---|---|---|---|---|---|---|
+| First cut | dev | 0.963 | 0.929 | 26 | 1 | 2 | 1 of 257 (0.4%) |
+| Second cut | dev | 0.963 | 0.929 | 26 | 1 | 2 | 1 of 257 (0.4%) |
+| First cut | held | 0.730 | 0.750 | 27 | 10 | 9 | 10 of 248 (4.0%) |
+| **Second cut** | **held** | **0.794** | **0.750** | 27 | 7 | 9 | **7 of 248 (2.8%)** |
+
+The head is unchanged, so its rows above stand; "rules or head" was not scored again.
+The held half is now read twice, once before the second cut and once after, so its figure is a second dev figure and not a clean estimate.
+One other Fleet test fixture was refused: `a_pull_request_the_queue_holds_settles_the_sessions_wait_without_auto_merge` set the item "#7 still in the merge queue, not yet in main", a status report the rules rightly call unclear (it is in this spike's unclear list).
+That fixture was reworded to "Merge #7 once ci is green"; the rest of the 525 tests that touch `waiting_for` pass unchanged.
 
 ## The head
 
@@ -54,7 +83,7 @@ Five folds by Session on the dev half gave each item a score from a head that ha
 | Head, folds (AUC 0.804) | dev | 0.72 | 1.000 | 0.071 | 2 | 0 | 26 |
 | Head, folds | dev | 0.64 | 0.875 | 0.250 | 7 | 1 | 21 |
 | Rules or head, folds | dev | 0.64 | 0.929 | 0.929 | 26 | 2 | 2 |
-| **Rules** | **held** | | **0.730** | **0.750** | 27 | 10 | 9 |
+| **Rules, first cut** | **held** | | **0.730** | **0.750** | 27 | 10 | 9 |
 | **Head** (AUC 0.850) | **held** | **0.72** | **0.750** | **0.083** | 3 | 1 | 33 |
 | **Rules or head** | **held** | **0.64** | **0.659** | **0.750** | 27 | 14 | 9 |
 
@@ -68,8 +97,8 @@ Neither was moved after the held half was read.
 
 The head ranks (held AUC 0.85) and cannot call: with 28 unclear items to learn from, the ones it is sure of are three.
 Beside the rules it finds nothing they miss on dev or held, and on held it called 4 more clear items unclear, so the rules alone are the better reader as measured.
-The rules fall from 0.96 to 0.73 precision between the half they were written on and the half they were not, and a clear item wrongly refused costs the agent a reworded list: 10 of 248 held clear items (4.0%), 14 with the head (5.6%).
-The held half's 10 wrong and 9 missed items were not read; doing that is the next step before putting the rules in force, and changes the held figure into a second dev figure.
+The rules fall from 0.96 to 0.73 precision between the half they were written on and the half they were not, and a clear item wrongly refused costs the agent a reworded list: 10 of 248 held clear items (4.0%), 14 with the head (5.6%); the second cut brings the rules to 7 (2.8%).
+The held half's 10 wrong and 9 missed items were not read before the rules went in force; the merge-queue failure is the reading it got, described above.
 
 ## What is in force
 

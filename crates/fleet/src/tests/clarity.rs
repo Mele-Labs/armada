@@ -92,7 +92,7 @@ fn a_question_that_opens_with_a_verb_or_offers_a_choice_is_an_ask() {
 #[test]
 fn a_question_that_names_nothing_to_decide_stays_unclear() {
     assert_eq!(unclear("Bigger than it looked?", false), Some(Unclear::NoAsk));
-    assert_eq!(unclear("Bigger than it looked on the first pass?", false), Some(Unclear::NoAsk));
+    assert_eq!(unclear("Bigger than it looked on the second try?", false), Some(Unclear::NoAsk));
     assert_eq!(unclear("The tests pass on main?", false), Some(Unclear::Status));
     assert_eq!(unclear("See above.", false), Some(Unclear::Pointer));
     assert_eq!(unclear("Tests pass.", false), Some(Unclear::Status));
