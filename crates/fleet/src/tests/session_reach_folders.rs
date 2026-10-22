@@ -166,6 +166,12 @@ fn a_folder_allowed_for_the_session_runs_and_the_owners_block_still_wins() {
 }
 
 #[test]
+fn a_write_through_a_search_path_names_its_first_folder() {
+    let asked = listed(&bash(r#"cp shim \"$HOME/.rbenv/shims:$PATH\""#), &[], &[]);
+    assert_eq!(asked, asks_to(Because::ReachesOutside, "/Users/user/.rbenv/shims", ReachesTo::Write));
+}
+
+#[test]
 fn setting_a_variable_through_home_writes_nothing_and_runs() {
     let commit = r#"source ~/.nvm/nvm.sh >/dev/null && export PATH=\"$HOME/.rbenv/shims:$PATH\" && git commit -q -m \"x\" > /tmp/commit.log 2>&1"#;
     assert_eq!(listed(&bash(commit), &[], &[]), None);
