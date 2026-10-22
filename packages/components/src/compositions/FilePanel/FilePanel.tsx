@@ -50,7 +50,10 @@ export type FilePanelProps = {
 };
 
 /** What the file shows and does, with or without a sheet around it. */
-type FileBodyProps = Omit<FilePanelProps, "onClose" | "floor" | "back" | "onOpenInEditor" | "onShowInFinder">;
+type FileBodyProps = Omit<FilePanelProps, "onClose" | "floor" | "back" | "onOpenInEditor" | "onShowInFinder"> & {
+  /** The editor scrolls with a preview beside it: where that one put it, and where a person did. */
+  follow?: { to?: number; onScroll: (line: number) => void };
+};
 
 /** ⌘S on the window while a file is up, so it saves with focus on the editor or on the head. */
 function useSaveKey({ dirty, saving, moved, onSave }: Pick<FileBodyProps, "dirty" | "saving" | "moved" | "onSave">): void {
@@ -111,7 +114,7 @@ function FileActs({
   );
 }
 
-function FileBody({ name, type, text, imageSrc, saving = false, onChange, moved = null, onKeepMine, onTakeDisk, refused }: FileBodyProps) {
+function FileBody({ name, type, text, imageSrc, saving = false, onChange, moved = null, onKeepMine, onTakeDisk, refused, follow }: FileBodyProps) {
   const picture = type.startsWith("image/");
   return (
     <div className="armada-file-panel">
@@ -156,7 +159,12 @@ function FileBody({ name, type, text, imageSrc, saving = false, onChange, moved 
         )
       ) : text === undefined ? null : (
         <div className="armada-file-panel__well" data-whole>
-          <CodeEditor name={name} value={text} {...(onChange === undefined ? {} : { onChange })} />
+          <CodeEditor
+            name={name}
+            value={text}
+            {...(onChange === undefined ? {} : { onChange })}
+            {...(follow === undefined ? {} : { onScroll: follow.onScroll, ...(follow.to === undefined ? {} : { scrollTo: follow.to }) })}
+          />
         </div>
       )}
     </div>
@@ -170,6 +178,8 @@ export function FilePanel({ onClose, floor = false, back, onOpenInEditor, onShow
   useSaveKey(file);
   const { name, path, dirty } = file;
   const [previewing, setPreviewing] = useState(false);
+  // The line either side was last scrolled to, and which side it was: the other follows it.
+  const [lock, setLock] = useState<{ line: number; by: "file" | "preview" } | undefined>(undefined);
   const preview = isMarkdown(name, file.type) ? { on: previewing, toggle: () => setPreviewing((was) => !was) } : undefined;
   return (
     <>
@@ -177,6 +187,7 @@ export function FilePanel({ onClose, floor = false, back, onOpenInEditor, onShow
       kind="side-panel"
       open
       floating
+      bleed
       floor={floor}
       title={name}
       subtitle={
@@ -193,11 +204,14 @@ export function FilePanel({ onClose, floor = false, back, onOpenInEditor, onShow
       onClose={onClose}
       controls={<FileActs dirty={dirty} saving={file.saving} moved={file.moved} onSave={file.onSave} {...(preview === undefined ? {} : { preview })} {...(onOpenInEditor === undefined ? {} : { onOpenInEditor })} {...(onShowInFinder === undefined ? {} : { onShowInFinder })} />}
     >
-      <FileBody {...file} />
+      <FileBody
+        {...file}
+        {...(previewing && preview !== undefined ? { follow: { onScroll: (line: number) => setLock({ line, by: "file" }), ...(lock?.by === "preview" ? { to: lock.line } : {}) } } : {})}
+      />
     </Sheet>
     {preview?.on !== true ? null : (
       <Sheet kind="file-preview" beside="side-panel" open floating floor={floor} title="Preview" size="panel" closeLabel="Close" closeBinding="Esc" onClose={preview.toggle}>
-        <MarkdownPreview text={file.text ?? ""} />
+        <MarkdownPreview text={file.text ?? ""} onScroll={(line) => setLock({ line, by: "preview" })} {...(lock?.by === "file" ? { scrollTo: lock.line } : {})} />
       </Sheet>
     )}
     </>

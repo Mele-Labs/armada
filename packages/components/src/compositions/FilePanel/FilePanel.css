@@ -8,6 +8,14 @@
   min-width: 0;
 }
 
+/* In a sheet that bleeds, the file panel is a flex item bounded by the sheet, so the editor is what scrolls and its place can be read and set. */
+.armada-sheet__body[data-bleed] > .armada-file-panel {
+  flex: 1 1 0;
+  min-height: 0;
+  padding: var(--pad-card);
+  box-sizing: border-box;
+}
+
 /* One line, home as ~. Too long, it loses its start and keeps the file name: rtl puts the ellipsis at the leading edge and the bdi keeps the text itself in order. */
 .armada-file-panel__path {
   display: block;
@@ -128,6 +136,7 @@
 
 /* The rendered file scrolls on its own, so the scroll lock can set where it is. */
 .armada-markdown-preview {
+  position: relative;
   height: 100%;
   min-width: 0;
   overflow-y: auto;
