@@ -85,6 +85,12 @@ fn typescript_package() -> Option<PathBuf> {
     None
 }
 
+/// A test's own note on its stderr, for `--nocapture`: this is not Fleet logging.
+fn skipped(why: &str) {
+    use std::io::Write;
+    let _ = writeln!(std::io::stderr(), "skipped: {why}");
+}
+
 fn node_runs() -> bool {
     std::process::Command::new("node")
         .arg("--version")
@@ -104,7 +110,7 @@ fn write(root: &Path, file: &str, text: &str) {
 /// here to run it, after saying so.
 fn fixture(name: &str) -> Option<PathBuf> {
     let Some(typescript) = typescript_package().filter(|_| node_runs()) else {
-        eprintln!("skipped: needs node and a typescript package under this repository's node_modules");
+        skipped("needs node and a typescript package under this repository's node_modules");
         return None;
     };
     let root = std::env::temp_dir().join(format!("armada-static-{name}-{}", std::process::id()));
@@ -168,7 +174,7 @@ fn a_named_test_records_that_file_and_a_name_that_is_no_file_records_nothing() {
 #[test]
 fn a_directory_without_typescript_is_not_recorded_and_says_why() {
     if !node_runs() {
-        eprintln!("skipped: needs node");
+        skipped("needs node");
         return;
     }
     let root = std::env::temp_dir().join(format!("armada-static-bare-{}", std::process::id()));

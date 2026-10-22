@@ -1,21 +1,14 @@
-//! A collector for the test map that reads imports: for each vitest test file in a
-//! Check's directory, the files it reaches through `import`, `export … from`,
-//! `import()` and `require`, inside the repository. `docs/concepts/test-map.md`,
-//! *Where an edge comes from*.
+//! A test map collector that reads imports: for each vitest test file in a Check's
+//! directory, the files it reaches inside the repository. `docs/concepts/test-map.md`.
 //!
-//! **A static edge, and a coarse one.** Nothing runs and nothing is built, so it is
-//! [`LapCost::Nothing`], and it ranks below a measured edge and above a model's
-//! reading. It cannot fence one test inside a file, so every lap is
-//! [`LapGrain::File`]. It is blind to what a bundler adds: a `vi.mock` path, a Vite
-//! alias that is not in `tsconfig.json`, a CSS or SVG import.
+//! Nothing runs, so it is [`LapCost::Nothing`] and every lap is [`LapGrain::File`]. It is
+//! blind to what a bundler adds: a `vi.mock` path, a Vite alias not in `tsconfig.json`, a
+//! CSS or SVG import.
 //!
-//! **The graph is the workspace's own TypeScript.** `test_map_static.mjs` loads the
-//! `typescript` package that resolves from the Check's directory and reads imports
-//! with the compiler options of the nearest `tsconfig.json`, so a `paths` alias
-//! resolves as it does for the editor. The script prints one JSON line per test file
-//! and this module reads them through `ipc::decode`, the route bytes from a child
-//! process come in by. The script drops nothing it resolves; relative paths,
-//! `node_modules` and anything outside the repository are decided here, once.
+//! `test_map_static.mjs` loads the `typescript` that resolves from the Check's directory,
+//! so a `paths` alias resolves as it does in the editor, and prints one JSON line per
+//! test, read here through `ipc::decode`. The script drops nothing it resolves; what is
+//! relative, in `node_modules` or outside the repository is decided here, once.
 
 use std::collections::BTreeSet;
 use std::path::{Component, Path, PathBuf};
