@@ -8,7 +8,7 @@ A directory no Job holds is a person's own run and is not recorded, and neither 
 
 | Where it shows | What |
 |---|---|
-| A hosted Job's thread | One `check` row per run: the Check's key, its run id, `running`, `passed` or `failed`, and what it was narrowed to (`target`: the test filter, or `--changed` and the packages the change reached; absent where it ran whole). The row is replaced by id as the run ends, and the Job is published whole each time |
+| A hosted Job's thread | One `check` row per run: the Check's key, its run id, `running`, `passed` or `failed`, and what it was narrowed to (`target`: the test filter, or `--changed` and the packages the change reached; absent where it ran whole), and on a failed run where its log says it failed (`blame`: the first file and line it names in the slot, a source file before a test file; absent where it names none). The row is replaced by id as the run ends, and the Job is published whole each time |
 | The Job's flight controls | The Checks tile pulses while any `check` row is `running` and rests at none. A press opens the Checks layer over the Job, which lists each run with its key, its `target` and how long it has run, and a press on one opens its run's log |
 | The Checks page | A row with the `session` requester (`session_id`, `slot`), drawn with the slot's owner chip. Pressing the thread row opens the run's log over the Job |
 | The log | `get_session_check_output`, `GET /sessions/checks/:run/output`, answered as `get_check_output` answers a run's. Kept up to 256 KiB, the newest end when cut |

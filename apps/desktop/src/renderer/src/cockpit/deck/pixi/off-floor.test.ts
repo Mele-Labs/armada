@@ -1,5 +1,5 @@
-// A Job's Field off the code floor, as the scene the canvas draws: the pad's blame line only where a check's record names a file the Field
-// draws, a thinking drone risen over its last file with no beam, and a subagent lifting off the drone that sent it and flying back into it.
+// A Job's Field off the code floor, as the scene the canvas draws: the pad's blame line only where Fleet read a file the Field draws from
+// a failed check's log, a thinking drone risen over its last file with no beam, and a subagent lifting off the drone that sent it and flying back into it.
 
 import { expect, test } from "vitest";
 
@@ -19,11 +19,11 @@ const big = bigOf(PANE);
 
 const drone = (key: string, extra: Partial<DroneIn> = {}): DroneIn => ({ key, kind: "session", title: key, root: "/r", said: "Working", hue: "calm", spin: true, hover: true, ping: false, stuck: false, flare: false, working: true, touches: [{ path: FILE, w: 4 }], file: FILE, shown: true, ...extra });
 
-test("a failing light draws its line to the file only where its record names one the Field draws", () => {
+test("a failing light draws its line to the file only where Fleet read one the Field draws, and keeps the line for the file's card", () => {
   const layout = layoutOf([REPO], [], world, big);
-  const named = padOf(layout, [{ name: "fmt", state: "ok" }, { name: "test", state: "bad", blame: FILE }])!;
+  const named = padOf(layout, [{ name: "fmt", state: "ok" }, { name: "test", state: "bad", blame: FILE, line: 142 }])!;
   expect(named.lights.map((one) => one.state)).toEqual(["ok", "bad"]);
-  expect(named.blame).toEqual([{ from: named.lights[1]!.at, bar: FILE }]);
+  expect(named.blame).toEqual([{ from: named.lights[1]!.at, bar: FILE, check: "test", line: 142 }]);
   expect(padOf(layout, [{ name: "test", state: "bad" }])!.blame).toEqual([]);
   expect(padOf(layout, [{ name: "test", state: "bad", blame: "crates/store/gone.rs" }])!.blame).toEqual([]);
   // A passing check blames nothing, whatever it names.

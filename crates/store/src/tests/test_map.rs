@@ -108,6 +108,31 @@ fn a_re_record_from_one_source_stands_in_for_its_last_and_leaves_the_other_sourc
     assert_eq!(files[1].commit, "def456");
 }
 
+#[test]
+fn adding_edges_for_one_file_leaves_what_the_same_source_read_of_the_test_for_other_files() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    store
+        .add_test_map_edges(&[edge("tests/row.rs", "src/row.rs", EdgeSource::Reading, "abc123", 1)])
+        .expect("kept");
+    store
+        .add_test_map_edges(&[edge("tests/row.rs", "src/old.rs", EdgeSource::Reading, "def456", 2)])
+        .expect("kept beside it");
+    store
+        .add_test_map_edges(&[edge("tests/row.rs", "src/row.rs", EdgeSource::Reading, "def456", 3)])
+        .expect("kept in place of the first");
+
+    let files = store.files_a_test_reaches(&repository("01REPO"), "test", "store", "tests/row.rs").expect("reads");
+    let named: Vec<(&str, &str)> = files.iter().map(|edge| (edge.file.as_str(), edge.commit.as_str())).collect();
+    assert_eq!(named, vec![("src/old.rs", "def456"), ("src/row.rs", "def456")]);
+
+    store
+        .record_test_map_edges(&[edge("tests/row.rs", "src/row.rs", EdgeSource::Reading, "fed789", 4)])
+        .expect("recorded");
+    let files = store.files_a_test_reaches(&repository("01REPO"), "test", "store", "tests/row.rs").expect("reads");
+    assert_eq!(files.len(), 1, "recording is the other verb: it stands in for all the test's edges from the source");
+}
+
 /// Marking a path stale marks every edge naming it, a stale edge is still answered and says so, and
 /// the tests to redo are listed once per source.
 #[test]

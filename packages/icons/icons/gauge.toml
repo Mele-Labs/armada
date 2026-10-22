@@ -1,0 +1,7 @@
+[icons.gauge]
+  means = "A dial with a needle resting at a mark: a figure read off an instrument"
+  group = "Test map"
+  size = "16px"
+  status = "Proposed"
+  reserved = "A test map edge that a run measured, on a changed file's row and on the tests under it. Never a speed, a load or a progress figure, and never a Check result, which is the shield-* family."
+  notes = "Proposed 22 Oct 2026 for the walk `test-map-reach`. The map's four sources are told apart by silhouette: a dial for the run that saw it. Tooltip `Measured`. Refused: `crosshair`, reserved to the battlefield's locate; `activity`, reserved to the Asker view; `flask-conical`, reserved to a Record row about a case and never a test."

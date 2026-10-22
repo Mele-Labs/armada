@@ -4,7 +4,7 @@
 // tool call was, and a message to or from another Job from `session.messaged`. Nothing here is drawn from what an agent said. Pure.
 // `docs/concepts/cockpit.md`, *A Job open*.
 
-import type { ServiceCall, TimelineEvent } from "@armada/protocol";
+import type { CheckBlame, ServiceCall, TimelineEvent } from "@armada/protocol";
 
 import { FRESH_MS } from "./doing";
 import { FLAT, type DroneIn, type Layout, type P3, type Size } from "./layout";
@@ -13,11 +13,11 @@ import { WINDOW_UP, outpostAt } from "./pixi/scene";
 /** How a check's light stands: unlit before it has started in this round, running, passed or failed. */
 export type LightState = "idle" | "run" | "ok" | "bad";
 
-/** One light along the pad: the check's name, how it stands, and the file its record names where it failed and names one. */
-export type Light = { name: string; state: LightState; blame?: string };
+/** One light along the pad: the check's name, how it stands, and where it failed and Fleet read a file from its log: the file and its line. */
+export type Light = { name: string; state: LightState; blame?: string; line?: number };
 
 /** A check the agent ran in its slot, as the thread's row records it. */
-export type CheckRecord = { name: string; at: string; state: "running" | "passed" | "failed"; target?: string };
+export type CheckRecord = { name: string; at: string; state: "running" | "passed" | "failed"; blame?: CheckBlame };
 
 /** How long a working turn goes with no tool call before its drone is thinking: longer than the ordinary pause between two edits. */
 export const THINK_MS = 12_000;
@@ -27,18 +27,12 @@ export const quietAt = (last: number | undefined, now: number, ms: number = THIN
 
 const STATE: Record<CheckRecord["state"], LightState> = { running: "run", passed: "ok", failed: "bad" };
 
-/** A check's target, where it names one file: a path with a directory and an extension. A filter, a crate list or a test name names none. */
-export function fileNamed(target: string | undefined): string | undefined {
-  if (target === undefined || /[\s,]/.test(target)) return undefined;
-  const last = target.split("/").pop() ?? "";
-  return target.includes("/") && /\.[A-Za-z0-9]+$/.test(last) ? target : undefined;
-}
-
 /**
  * One light for each check the Job has run, in the order it first ran them. A round begins with the first check after the Job's last
- * edit, so a check not run again since is unlit until it is. A light takes the newest run of its check in the round.
+ * edit, so a check not run again since is unlit until it is. A light takes the newest run of its check in the round. **A failed light
+ * blames only the file Fleet read from its log**, never one guessed from what the run was narrowed to: a wrong line is worse than none.
  */
-export function lightsOf(checks: readonly CheckRecord[], editedAt: number | undefined, fileOf: (target: string) => string | undefined = fileNamed): Light[] {
+export function lightsOf(checks: readonly CheckRecord[], editedAt: number | undefined): Light[] {
   const order: string[] = [];
   const newest = new Map<string, CheckRecord>();
   for (const one of checks) {
@@ -52,8 +46,8 @@ export function lightsOf(checks: readonly CheckRecord[], editedAt: number | unde
     const one = newest.get(name);
     if (one === undefined) return { name, state: "idle" };
     const state = STATE[one.state];
-    const blame = state === "bad" && one.target !== undefined ? fileOf(one.target) : undefined;
-    return blame === undefined ? { name, state } : { name, state, blame };
+    const blame = state === "bad" ? one.blame : undefined;
+    return blame === undefined ? { name, state } : { name, state, blame: blame.path, ...(blame.line === undefined ? {} : { line: blame.line }) };
   });
 }
 
