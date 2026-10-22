@@ -175,7 +175,7 @@ test("a shell tile is off while the Job holds no bay, and a press runs nothing",
 
 test("tiles past twelve are drawn on a grid of twelve cells and six columns", async () => {
   const host = await mount(<SessionTiles session={jobOf()} draft={draftOf()} repository={REPOSITORY} bays={BAYS} />);
-  expect(host.querySelectorAll(".deck-controls__tiles > button").length).toBe(16);
+  expect(host.querySelectorAll(".deck-controls__tiles > button").length).toBe(17);
   const grid = host.querySelector<HTMLElement>(".deck-controls__tiles")!;
   expect(grid.style.getPropertyValue("--count")).toBe("12");
   expect(grid.style.getPropertyValue("--cols")).toBe("6");
@@ -314,7 +314,7 @@ test("a refused repository save says Fleet's words and keeps the edit on screen"
 test("a repository file that will not read draws your own tiles only, and Edit says why", async () => {
   fleetWith({ what: "not_read", why: "line 3: unknown key" });
   const tiles = await mount(<SessionTiles session={jobOf()} draft={draftOf()} repository={LH} bays={BAYS} />);
-  expect(tiles.querySelectorAll(".deck-controls__tiles > button").length).toBe(12);
+  expect(tiles.querySelectorAll(".deck-controls__tiles > button").length).toBe(13);
   const { host } = await editing();
   expect(host.querySelector('[role="status"]:not(.deck-sr)')?.textContent).toBe("Actions in widgets not read: line 3: unknown key");
   await userEvent.click(page.getByRole("option", { name: "Add action" }));
