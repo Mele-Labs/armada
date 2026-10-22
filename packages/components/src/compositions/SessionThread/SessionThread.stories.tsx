@@ -576,13 +576,13 @@ export const FleetNoticeDisputedNoReview: Story = {
     await expect(canvas.getByText("Read by Fleet from the agent's replies")).toBeVisible();
     await expect(canvas.queryByRole("button", { name: "Open the review job" })).toBeNull();
     // Only the notice the row names is marked.
-    const [disputed, later] = canvas.getAllByRole("region", { name: "Message from Fleet" });
-    await expect(within(disputed!).getByRole("img", { name: "Disputed" })).toBeVisible();
-    await expect(within(later!).queryByRole("img", { name: "Disputed" })).toBeNull();
+    const disputed = canvas.getByRole("region", { name: "Message from Fleet" });
+    await expect(within(disputed).getByRole("img", { name: "Disputed" })).toBeVisible();
+    await expect(within(canvas.getByRole("region", { name: "Fleet turn" })).queryByRole("img", { name: "Disputed" })).toBeNull();
   },
 };
 
-/** **A right press on a notice offers three Disable choices**; a Fleet message that is no notice has no menu. */
+/** **A right press on a notice offers three Disable choices**; a folded Fleet message that is no notice has no menu. */
 export const FleetNoticeMuted: Story = {
   name: "A Fleet notice a person can turn off",
   args: {
@@ -594,13 +594,64 @@ export const FleetNoticeMuted: Story = {
   },
   play: async ({ canvas, canvasElement, args }) => {
     const menu = within(canvasElement.ownerDocument.body);
-    const [notice, plain] = canvas.getAllByRole("region", { name: "Message from Fleet" });
+    const [notice, plain] = canvas.getAllByRole("region", { name: "Fleet turn" });
     await userEvent.pointer({ keys: "[MouseRight]", target: notice! });
     await expect(menu.getAllByRole("menuitem").map((one) => one.textContent)).toEqual(["For job", "For repo", "For 1 hour"]);
     await userEvent.click(menu.getByRole("menuitem", { name: "For repo" }));
     await expect(args.onMuteNotice).toHaveBeenLastCalledWith("behind_base", "repo");
     await userEvent.pointer({ keys: "[MouseRight]", target: plain! });
     await expect(menu.queryByRole("menuitem")).toBeNull();
+  },
+};
+
+const FLEET_ROWS = [
+  { id: "n1", at: "14:10:00", kind: "message", from: "session", sender: FLEET, text: "Context is 180k tokens." },
+  { id: "a1", at: "14:10:30", kind: "message", from: "agent", text: "Noted, continuing." },
+  { id: "n2", at: "14:20:00", kind: "message", from: "session", sender: FLEET, text: "main moved under your branch." },
+] as const;
+
+/** **A turn Fleet started folds into one row**; one still waiting on the person stays open, and folds once it is answered. */
+export const FleetTurnFolds: Story = {
+  name: "Fleet turns fold, the one waiting stays open",
+  args: { rows: [...FLEET_ROWS] as never, waitingOnYou: true },
+  play: async ({ canvas }) => {
+    const [folded] = canvas.getAllByRole("region", { name: "Fleet turn" });
+    await expect(canvas.getAllByRole("region", { name: "Fleet turn" })).toHaveLength(1);
+    await expect(canvas.getAllByRole("region", { name: "Message from Fleet" })).toHaveLength(1);
+    await expect(within(folded!).queryByText("Noted, continuing.")).toBeNull();
+    await userEvent.click(within(folded!).getByRole("button"));
+    await expect(within(folded!).getByText("Noted, continuing.")).toBeVisible();
+  },
+};
+
+export const FleetTurnFoldsAfterAnswer: Story = {
+  name: "Fleet turns all fold once answered",
+  args: { rows: [...FLEET_ROWS] as never },
+  play: async ({ canvas }) => {
+    await expect(canvas.getAllByRole("region", { name: "Fleet turn" })).toHaveLength(2);
+    await expect(canvas.queryByRole("region", { name: "Message from Fleet" })).toBeNull();
+  },
+};
+
+/** **A folded row is named by the notice's first sentence**, marked handled once the agent replied; a turn that changed what is owed shows its last agent message outside the fold. */
+export const FleetTurnSummaryAndOwed: Story = {
+  name: "Fleet turn: summary, handled, owner-facing prose",
+  args: {
+    rows: [
+      { id: "a", at: "14:00:00", kind: "message", from: "session", sender: FLEET, text: "#2734 merged into main. finish_up releases your slots." },
+      { id: "b", at: "14:00:10", kind: "message", from: "agent", text: "Releasing now." },
+      { id: "c", at: "14:00:20", kind: "tool", text: "armada waiting_for" },
+      { id: "d", at: "14:00:30", kind: "message", from: "agent", text: "The only open item is in Needs you." },
+      { id: "e", at: "14:10:00", kind: "message", from: "session", sender: FLEET, text: "slot-5's branch merged. Lease it again." },
+    ] as never,
+  },
+  play: async ({ canvas }) => {
+    const [first, second] = canvas.getAllByRole("region", { name: "Fleet turn" });
+    await expect(within(first!).getByRole("button", { name: /#2734 merged into main/ })).toBeVisible();
+    await expect(within(first!).getByRole("img", { name: "Handled" })).toBeVisible();
+    await expect(within(first!).queryByText("The only open item is in Needs you.")).toBeNull();
+    await expect(canvas.getByText("The only open item is in Needs you.")).toBeVisible();
+    await expect(within(second!).queryByRole("img", { name: "Handled" })).toBeNull();
   },
 };
 
