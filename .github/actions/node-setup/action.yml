@@ -63,6 +63,9 @@ runs:
             [ "$try" = 3 ] && exit 1
             sudo pkill -KILL -x apt-get || true
             sudo pkill -KILL -f /usr/lib/apt/methods/ || true
+            # A try killed while dpkg was unpacking leaves it interrupted, and the next try's
+            # apt-get refuses at once with exit 100 (22 Oct 2026, run 39837870419).
+            sudo dpkg --configure -a || true
             echo "::warning::Playwright system deps failed or hung, try $try of 3"
           done
         fi

@@ -1,5 +1,6 @@
-// A Job's thread where turns Fleet started fold into one dim row each: a merge main notice and a slot notice, handled. A third
-// turn ends in a question for the owner and stays open. The walk `fleet-turn-fold` plays it.
+// A Job's thread where turns Fleet started fold into one dim row each: a merge main notice and a slot notice, handled. Each
+// turn's last agent message, and the owner's reply after a notice, draw outside the fold. A third turn ends in a question for
+// the owner and stays open. The walk `fleet-turn-fold` plays it.
 
 import type { HelmCallInFlight, RepositorySummary, SessionRow } from "@armada/protocol";
 import { repository } from "@armada/screens/src/fixtures/repository";
@@ -50,7 +51,11 @@ const threads = (): Record<string, SessionRow[]> => ({
     { kind: "tool", id: "t1", at: "2026-10-22T10:01:00.000Z", text: "Read the store's clock calls" },
     { kind: "message", id: "m2", at: "2026-10-22T10:20:00.000Z", from: { kind: "agent" }, text: "The clock port is written. Running the store tests next." },
     { kind: "message", id: "n1", at: "2026-10-22T10:30:00.000Z", from: FLEET, text: "slot-2 (branch armada/session-82490574) is 24 commits behind main. Merge main into your branch before your next push.", notice: "behind_base" },
+    { kind: "tool", id: "t0", at: "2026-10-22T10:30:10.000Z", text: "Bash git diff --stat HEAD...main" },
+    { kind: "message", id: "m2a", at: "2026-10-22T10:30:20.000Z", from: { kind: "agent" }, text: "None of the 24 commits touch the store." },
     { kind: "message", id: "m3", at: "2026-10-22T10:30:40.000Z", from: { kind: "agent" }, text: "I'll merge main right before the next push rather than now. That push waits on your ship choice, and main keeps moving until then, so an earlier merge would just need repeating." },
+    { kind: "message", id: "y1", at: "2026-10-22T10:35:00.000Z", from: { kind: "you" }, text: "Merge it now, the push is close." },
+    { kind: "message", id: "m3b", at: "2026-10-22T10:35:20.000Z", from: { kind: "agent" }, text: "Merging main now." },
     { kind: "message", id: "m4", at: "2026-10-22T10:45:00.000Z", from: { kind: "agent" }, text: "The store tests pass in 0.6 seconds." },
     { kind: "message", id: "n2", at: "2026-10-22T11:00:00.000Z", from: FLEET, text: "slot-2 was cleaned. The files outside the branch are gone." },
     { kind: "tool", id: "t2", at: "2026-10-22T11:00:20.000Z", text: "Bash git status" },
