@@ -147,6 +147,53 @@
   margin-left: var(--space-1);
 }
 
+/* What an item or the chosen one is doing, trailing in mono: never cut, so the
+ * label beside it is cut short instead. The auto margin takes the row's free
+ * space, which keeps it and a check together at the trailing edge. */
+.armada-dropdown-menu__detail {
+  flex: none;
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  font-weight: var(--weight-body);
+  color: var(--fg-muted);
+  white-space: nowrap;
+}
+
+/* A trigger with a detail fits the width it is given: the label takes what is
+ * left and ends in an ellipsis. */
+.armada-dropdown-menu[data-detail],
+.armada-dropdown-menu[data-detail] > .armada-tooltip,
+.armada-dropdown-menu[data-detail] .armada-dropdown-menu__trigger {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.armada-dropdown-menu__trigger > .armada-dropdown-menu__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.armada-dropdown-menu__trigger > .armada-dropdown-menu__detail {
+  margin-left: var(--space-1);
+}
+
+/* Finished and still choosable: the whole row in --fg-subtle, never an opacity. */
+.armada-dropdown-menu__item[data-muted],
+.armada-dropdown-menu__item[data-muted] > .armada-dropdown-menu__detail {
+  color: var(--fg-subtle);
+}
+
+/* Rows that carry a detail are as wide as their words need, from the menu's
+ * own width up to a dialog's. */
+.armada-dropdown-menu__panel[data-detailed] {
+  width: max-content;
+  min-width: var(--w-menu);
+  max-width: var(--w-dialog);
+}
+
 /* Same slot a kbd would take; never both on one item. */
 .armada-dropdown-menu__check {
   flex: none;

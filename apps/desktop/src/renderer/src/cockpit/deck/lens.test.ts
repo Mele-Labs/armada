@@ -41,5 +41,10 @@ test("the card follows the drone that started writing last, and a pin holds it w
   const writers = [...now.values()];
   expect(cardOf(writers, undefined)?.key).toBe("sub");
   expect(cardOf(writers, "main")?.path).toBe("b.ts");
-  expect(cardOf(writers, "gone")).toBeUndefined();
+});
+
+test("a pinned drone that stops writing hands the card back to whoever writes", () => {
+  const writers = [...writersOf(new Map(), [{ key: "main", path: "a.ts" }, { key: "sub", path: "c.ts" }], 5).values()];
+  expect(cardOf(writers, "gone")?.key).toBe("sub");
+  expect(cardOf([], "gone")).toBeUndefined();
 });

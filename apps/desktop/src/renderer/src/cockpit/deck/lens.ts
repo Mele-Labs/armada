@@ -102,9 +102,10 @@ export function newestOf(was: LensDiff | undefined, now: LensDiff): { hunk: Lens
 /** A drone of the Job writing a file: its key, the file, and when it started writing. */
 export type Writer = { key: string; path: string; since: number };
 
-/** The drone the card follows: the one pinned while it writes, else the one that started writing last. None while the pinned one is not writing. */
+/** The drone the card follows: the one pinned while it writes, else the one that started writing last. */
 export function cardOf(writers: readonly Writer[], pinned: string | undefined): Writer | undefined {
-  if (pinned !== undefined) return writers.find((one) => one.key === pinned);
+  const held = pinned === undefined ? undefined : writers.find((one) => one.key === pinned);
+  if (held !== undefined) return held;
   let out: Writer | undefined;
   for (const one of writers) if (out === undefined || one.since >= out.since) out = one;
   return out;

@@ -88,22 +88,6 @@ export function homeOf(size: Size, plane: Size, marks: readonly P3[] | ((eye: nu
 /** A rectangle of the pane, in pixels from its top left. */
 export type Box = { l: number; t: number; r: number; b: number };
 
-/** How far from a card the marks framed beside it keep. */
-const CARD_GAP = 16;
-
-/**
- * The camera at rest beside a card standing over the pane: the marks fitted into the part left of it or the part below it, whichever
- * holds them closer. `marks` may be read at the eye being tried, for what keeps its size on the screen.
- */
-export function homeBeside(size: Size, plane: Size, marks: readonly P3[] | ((eye: number) => readonly P3[]), card: Box, most = Infinity): Cam | undefined {
-  const left: Box = { l: 0, t: 0, r: card.l - CARD_GAP, b: size.height };
-  const below: Box = { l: 0, t: card.b + CARD_GAP, r: size.width, b: size.height };
-  // A part narrower or shorter than a quarter of the pane frames nothing worth seeing: the card then moves aside instead (`LensWires.tsx`).
-  const room = [left, below].filter((box) => box.r - box.l >= size.width / 4 && box.b - box.t >= size.height / 4);
-  const homes = room.map((box) => homeOf(size, plane, marks, box, most));
-  return homes.reduce<Cam | undefined>((best, one) => (best === undefined || one.eye > best.eye ? one : best), undefined);
-}
-
 export type Limits = { least: number; most: number };
 
 /** Out as far as the whole field, which is where it rests; in as far as a drone is large. `worldWidth` is the layout's width, before the plane stretches its depth. */
