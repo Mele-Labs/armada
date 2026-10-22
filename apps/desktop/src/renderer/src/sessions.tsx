@@ -1078,6 +1078,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
               setFocusFor({ key: session.id, at: Date.now() });
             } })}
             {...(approval === undefined ? {} : { approval })}
+            {...(session.asked === undefined ? {} : { waitingOnYou: true })}
             onOpenWindow={(url) => draft.openWindow?.(id, url)}
             onOpenSketch={(sketch) => read({ kind: "sketch", id: sketch })}
             onOpenFile={(path) => void openInPanel({ kind: "file", path, from: "session", sessionId: session.id })}

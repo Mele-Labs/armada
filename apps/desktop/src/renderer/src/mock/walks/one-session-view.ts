@@ -30,7 +30,7 @@ export const oneSessionView = walk("one-session-view", [
   { look: role("combobox", "Model"), say: "The agent has begun on its own. The name is in the header, and the proposer has preset the model and the effort in the composer's own dropdowns, each marked as picked by it" },
   { look: status, say: "The proposed workflow is over its steps in Progress, a glyph each, with the first step lit. There is no Start" },
   { type: "Bug fix", into: role("combobox", "Workflow"), say: "A different workflow, changed while the agent works. The change reaches the agent at once" },
-  { look: role("region", "Workflow changed"), say: "An event row in his colour, in the style of First write: the workflow, what it was and what it is" },
+  { look: role("region", "Workflow changed"), say: "An event row in his colour, in the style of Slot leased: the workflow, what it was and what it is" },
   { look: text("Following Bug fix"), say: "The agent adjusts and names the steps it will follow. Mid-turn it would have read the note at its next tool call, and idle it is woken" },
   { look: text("Reproduce"), say: "Its steps replace the others in Progress" },
   { type: "Feature", into: role("combobox", "Workflow"), say: "Feature again, told the same way" },

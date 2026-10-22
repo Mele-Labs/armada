@@ -110,7 +110,8 @@ test("a failure read by Refresh is told to the Job that holds it once, however o
     await expect.element(chip()).toHaveAccessibleName(/ci failed/);
   }
   await toSession("Who sees your config");
-  const told = page.getByRole("region", { name: "Message from Fleet" });
-  await expect.element(told.getByText(/failed its checks at 4be1c07/)).toBeVisible();
+  const told = page.getByRole("region", { name: "Fleet turn" });
+  await userEvent.click(told.getByRole("button"));
+  await expect.element(told.getByRole("paragraph").first()).toHaveTextContent(/failed its checks at 4be1c07/);
   await expect.element(told).toHaveLength(1);
 });
