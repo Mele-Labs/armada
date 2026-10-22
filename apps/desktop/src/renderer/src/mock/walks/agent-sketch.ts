@@ -7,14 +7,15 @@ import type { Step } from "../walk";
 import { kit, toSessions } from "../sessions/walk-kit";
 
 function steps(): Step[] {
-  const { ledger, message, thread, close, opened, row } = kit(false);
+  const { artifacts, message, thread, close, opened, row } = kit(false);
+  const sketches = inside(artifacts, region("Sketches", { exact: true }));
   const panel = (title: string) => dialog(title);
   const drawn = (title: string) => inside(thread, button(`Open sketch ${title}`));
   return [
     { press: inside(region("Jobs", { exact: true }), button("Store clock sketches")), say: "A Job whose agent can draw" },
     { type: "Show me how the clock is read\n", into: message, say: "Asked how the clock is read" },
     { look: drawn("Store clock reads"), say: "It drew a sketch: a card in the thread, where it did, with the drawing small" },
-    ...opened([{ look: inside(ledger, button("Sketch Store clock reads")), say: "And a row on the ledger" }]),
+    ...opened([{ look: inside(sketches, button("Store clock reads")), say: "And a row in the Artifacts layer, under Sketches" }]),
     { press: drawn("Store clock reads"), say: "The card opens it beside the thread" },
     { look: inside(panel("Sketch Store clock reads"), role("group", "Sketch", { exact: true })), say: "Drawn by the sketch scene, read-only" },
     { look: inside(panel("Sketch Store clock reads"), text("fails when the second turns")), say: "Pan and zoom are the canvas's" },
@@ -23,8 +24,8 @@ function steps(): Step[] {
     { press: close(panel("Sketch Store clock reads")), say: "Close" },
     { type: "Add the sleep you tried\n", into: message, say: "Asked again" },
     { look: inside(thread, text("Replaced")), say: "A sketch with the same title takes the first one's place: the first card is dashed and says so" },
-    ...row("Sketch Store clock reads", "The ledger row opens the new one"),
-    { look: inside(panel("Sketch Store clock reads"), text("fails 4 of 30 runs")), say: "Only the new one is on the ledger" },
+    ...row("Store clock reads", "The Sketches row opens the new one"),
+    { look: inside(panel("Sketch Store clock reads"), text("fails 4 of 30 runs")), say: "Sketches holds only the new one" },
     { press: close(panel("Sketch Store clock reads")), say: "Close" },
     { type: "Now draw the fix against that\n", into: message, say: "Asked for the change" },
     { look: inside(thread, text("Against Store clock reads")), say: "A later sketch names the one it changes" },

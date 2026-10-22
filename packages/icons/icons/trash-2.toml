@@ -19,3 +19,10 @@
     size = "12px"
     status = "Proposed"
     notes = "Proposed 14 Oct 2026 for the walk `needs-me-replied-and-delete`, on the owner's word that he should be able to delete a needs-me item. The row reserves this glyph to a person's own act on their own thing, and the item is the agent's; it is borrowed because the act is the person's and the registry holds no other glyph for a human removal (`x` is system failure, `minus` and `ban` are verdicts). On the ledger's waiting rows, the thread's Needs you band and the Cockpit call card. Tooltip `Remove`. The owner may rule otherwise."
+
+  [[icons.trash-2.usage]]
+    means = "A skill the person removed from this Mac, still listed in a Job's Loadout"
+    group = "Session"
+    size = "12px"
+    status = "Proposed"
+    notes = "Proposed 22 Oct 2026 for the walk `session-loadout`, with Remove on a Kit skill's Loadout row. The person took off a skill of their own, which is the act the row reserves this glyph to. The row stays, marked, with Restore on its face while the Trash holds the folder. Tooltip `Removed`. --fg-muted."

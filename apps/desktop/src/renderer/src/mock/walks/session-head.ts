@@ -1,7 +1,7 @@
 // A Session's head on one row: the state mark with the address in its tooltip, a one-line title, the More menu holding Retro and End
 // session, and the context as a tank. The tank at 5%, climbing to 84% where its tone
-// turns, a second Session at 72%, and the composer's Model select reading "Opus 5.5". At 1512 by 949 with the ledger
-// open. Over the `session-head` scenario.
+// turns, a second Session at 72%, and the composer's Model select reading "Opus 5.5". At 1512 by 949 with a Job
+// open, its Field and Progress beside it. Over the `session-head` scenario.
 
 import { button, inside, place, region, role, walk } from "../walk";
 import { toSessions } from "../sessions/walk-kit";
@@ -15,7 +15,7 @@ const sessionHead = walk(
   "session-head",
   [
     toSessions,
-    { press: inside(sessions, role("button", /How does armada interface/)), say: "The Job, its ledger beside it" },
+    { press: inside(sessions, role("button", /How does armada interface/)), say: "The Job, its Field and Progress beside it" },
     { hover: inside(head, role("img", /s-e07cfe09/)), say: "The address is the state mark's tooltip" },
     { look: inside(head, role("button", /, rename$/)), say: "The title is one line, the whole of it on hover" },
     { hover: inside(head, button("More")), say: "Retro and End job are in the More menu" },

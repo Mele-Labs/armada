@@ -15,7 +15,7 @@ const noter: Session = {
   rows: [
     { id: "n1", at: "14:44:10", kind: "message", from: { kind: "agent" }, text: "The clock reads are all in one place now. I wrote it up." },
     { id: "n2", at: "14:44:20", kind: "tool", text: "mcp__armada-fleet__show_file docs/notes/store-clock.md" },
-    { id: "n3", at: "14:44:30", kind: "message", from: { kind: "agent" }, text: "It is in docs/notes." },
+    { id: "n3", at: "14:44:30", kind: "message", from: { kind: "agent" }, text: "It is in `docs/notes/store-clock.md`. `docs/notes/gone.md` is not written yet, and `docs/notes/store-clock.md --raw` is a command." },
   ],
   attachments: [
     { kind: "artifact", form: "file", id: NOTES_PATH, title: "store-clock.md", shown: "2026-10-19T14:44:20.113Z", by: "agent" },

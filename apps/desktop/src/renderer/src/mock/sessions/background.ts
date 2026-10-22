@@ -1,4 +1,4 @@
-// A Session's background tasks, as the `ledger-background` and `ledger-in-cockpit` scenarios hold them: two shell
+// A Session's background tasks, as the `ledger-in-cockpit` scenario holds them: two shell
 // commands and a monitor still running, and two ended, one that exited 0 and one that was stopped. Here, not under
 // `scenarios/`, because every file there is one scenario.
 
