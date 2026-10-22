@@ -501,6 +501,8 @@ export type Session = {
   build?: SessionBuild;
   /** What the Session waits on the person for: the agent's list with Fleet's own items merged in. Absent or empty is nothing. */
   waitingFor?: readonly WaitingItem[];
+  /** The follow-ups the agent kept for itself in its last reply, in the order written. Not on the wire yet: only the mock feeds it. */
+  later?: readonly { text: string; at: string }[];
   /** The agent says it has nothing left to work on, since when. `SessionRecord.done_since`. A message from the person clears it. */
   done?: { since: string };
   /**
