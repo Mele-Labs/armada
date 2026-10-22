@@ -38,7 +38,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
-use adapters::{ActionsWorkflows, GitVcs, HeadlessAgent};
+use adapters::{ActionsWorkflows, ApiForge, GitHubApi, GitVcs, HeadlessAgent};
 use adapter_traits::Model;
 use config::settings::{self as keys, Key, Resolved};
 use config::Roster;
@@ -528,7 +528,7 @@ fn machine_facts(settings: &Resolved) -> Result<MachineFacts, Box<dyn Error>> {
 }
 
 /// The Fleet `serve` assembles.
-type Served = Fleet<HeadlessAgent, GitVcs, GitVcs>;
+type Served = Fleet<HeadlessAgent, GitVcs<ApiForge>, GitVcs<ApiForge>>;
 
 /// Everything Fleet is made of, resolved once, here.
 ///
@@ -588,11 +588,13 @@ fn assemble(
     let judge_model = model_at(shipped.get(keys::MODELS_JUDGE), shipped.get(keys::EFFORT_JUDGE))?;
     let proposer_model = model_at(shipped.get(keys::MODELS_PROPOSER), shipped.get(keys::EFFORT_PROPOSER))?;
     let retro_model = model_at(shipped.get(keys::MODELS_RETRO), String::new())?;
+    // One client for every forge call Fleet makes, so they share its connections.
+    let forge = ApiForge::new(GitHubApi::new());
     let fleet = Fleet::assembled(Fittings {
         store,
         harness: agent,
-        vcs: GitVcs::new(),
-        work: GitVcs::new(),
+        vcs: GitVcs::with_forge(forge.clone()),
+        work: GitVcs::with_forge(forge),
         clock: Arc::new(SystemClock::new()),
         mint: Arc::new(UlidMint::new()),
         starting_in: None,
