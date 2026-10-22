@@ -98,6 +98,8 @@ where
         let mut ended = false;
         let mut parking: Option<(String, u32)> = None;
         let mut plan_moved: Option<ipc::PlanUsage> = None;
+        // A terminal turn's end and what it said, read for a claim once the store is let go.
+        let mut replied: Option<(String, String)> = None;
         let mut session = kept.unwrap_or_else(|| KeptSession {
             id: id.clone(),
             harness: report.harness.clone(),
@@ -284,6 +286,7 @@ where
                     if let Some(tail) = said.as_deref().map(crate::session_host::standing::tail).filter(|tail| !tail.is_empty()) {
                         store.keep_turn_end(&id, &now, &tail).map_err(fault)?;
                     }
+                    replied = said.map(|said| (now.clone(), said));
                 }
                 // A turn taken since the limit was hit: the wake is not owed.
                 store.clear_session_limit(&id).map_err(fault)?;
@@ -407,6 +410,11 @@ where
         if let Some(usage) = plan_moved {
             self.publish(ipc::Event::PlanUsageChanged(usage.clone()));
             self.downshift_read(&usage).await;
+        }
+        if let Some((ended, said)) = replied {
+            if let Some(claim) = self.unbacked_claim(&session.id, &ended, Some(&said)).await {
+                self.terminal_claim_reminded(&session.id, claim).await;
+            }
         }
         Ok(record)
     }
