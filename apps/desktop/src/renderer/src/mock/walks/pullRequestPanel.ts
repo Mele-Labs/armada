@@ -1,5 +1,5 @@
 // A Session's pull request as a panel, with plates floating off its leading edge. Told over three
-// pull requests in the `session-pr-panel-work` scenario: third of seven in the merge queue, every check
+// pull requests in the `session-pr-panel` scenario: third of seven in the merge queue, every check
 // passed, and checks failed, which the Session can be sent back to fix. The first names its reviewers, opens each of its
 // tabs and takes a comment; the second takes an approval. Only what Fleet serves is drawn. Told
 // twice: wide, and below the breakpoint, where the plates move into the panel.
@@ -66,7 +66,7 @@ function steps(narrow: boolean): Step[] {
   ];
 }
 
-const wide = walk("session-pr-panel-work", [toSessions, ...steps(false)]);
-const narrow = walk("session-pr-panel-work", [toSessions, ...steps(true)], NARROW);
+const wide = walk("session-pr-panel", [toSessions, ...steps(false)]);
+const narrow = walk("session-pr-panel", [toSessions, ...steps(true)], NARROW);
 
 export { wide as pullRequestPanel, narrow as pullRequestPanelNarrow };
