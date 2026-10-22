@@ -5,7 +5,10 @@
 
 use std::future::Future;
 
-use ipc::{FleetLimits, Preferences, SaveLimits, SavePreference, SaveSettings, SettingsList};
+use ipc::{
+    FleetLimits, PhoneGateway, Preferences, SaveLimits, SavePreference, SaveSettings, SetPhoneGateway,
+    SettingsList,
+};
 
 use crate::daemon::Refusal;
 
@@ -40,4 +43,15 @@ pub trait Settings: Send + Sync + 'static {
         &self,
         save: SavePreference,
     ) -> impl Future<Output = Result<Preferences, Refusal>> + Send;
+
+    /// `get_phone` — whether this Mac serves the phone app, and whether it is listening.
+    fn get_phone(&self) -> impl Future<Output = Result<PhoneGateway, Refusal>> + Send;
+
+    /// `set_phone` — opt this Mac in or out, and start or stop the Gateway now. Answers what
+    /// `get_phone` would after. A Gateway that cannot start is `listening: false` with `why`,
+    /// not a refusal: the opt-in is kept and tried again at the next start.
+    fn set_phone(
+        &self,
+        set: SetPhoneGateway,
+    ) -> impl Future<Output = Result<PhoneGateway, Refusal>> + Send;
 }

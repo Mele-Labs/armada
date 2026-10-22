@@ -101,6 +101,7 @@ mod scoped;
 mod served;
 mod servers;
 mod sessions;
+mod shown;
 /// settings.json, read and saved.
 mod settling;
 mod sockets;
@@ -123,7 +124,7 @@ pub use daemon::{
     offerable, Accounts, Admitting, Authoring, Commands, Conversations, Daemon,
     Autopilots, HelmReach, HostedSessions, Issues, Mods, Clashing,
     PullRequestPanel, PullRequests, Queries, Redirector, Refusal, Rehearsing, Requests, Retros, Sessions, Settings, Steerer,
-    StoredFile, Studios,
+    ShownFile, StoredFile, Studios,
 };
 pub use door::{door_within, door_without_a_manifest, offered, Scope, DOOR_PATH};
 pub use following::{Follow, Followed, LandOutput, SessionCheckLive, FOLLOW};

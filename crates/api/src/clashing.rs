@@ -1,5 +1,5 @@
 //! `list_write_clashes` and `read_clash_file`, and beside them, as what the agents on a repository write and where:
-//! `list_repository_areas` and `list_slot_touches`.
+//! `list_repository_areas`, `list_slot_touches` and `get_session_file_change`.
 
 use axum::extract::{Query, State};
 use axum::http::StatusCode;
@@ -50,6 +50,25 @@ pub(crate) async fn read_clash_file<D: Clashing>(
         .await
     {
         Ok(file) => answer(StatusCode::OK, &file, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// `?session_id=&path=&seen=` on `get_session_file_change`.
+#[derive(Deserialize)]
+pub(crate) struct FileChangeQuery {
+    session_id: String,
+    path: String,
+    #[serde(default)]
+    seen: Option<String>,
+}
+
+pub(crate) async fn get_session_file_change<D: Clashing>(
+    State(served): State<Served<D>>,
+    Query(asked): Query<FileChangeQuery>,
+) -> Response {
+    match served.daemon().get_session_file_change(asked.session_id, asked.path, asked.seen).await {
+        Ok(change) => answer(StatusCode::OK, &change, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }

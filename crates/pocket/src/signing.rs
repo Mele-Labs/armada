@@ -28,8 +28,11 @@ pub(crate) fn verifying_key(spki: &[u8]) -> Option<VerifyingKey> {
     VerifyingKey::from_public_key_der(spki).ok()
 }
 
-fn refuse(why: &'static str) -> Response {
-    (StatusCode::UNAUTHORIZED, why).into_response()
+/// The phone app reads 401 as "this Mac does not know me" and offers to pair
+/// again, so only an unknown device answers it. Every other failure is the
+/// request's, said in a sentence the app shows as it is.
+fn refuse(status: StatusCode, why: &'static str) -> Response {
+    (status, why).into_response()
 }
 
 pub async fn signed(State(pairing): State<Pairing>, request: Request, next: Next) -> Response {
@@ -47,19 +50,28 @@ pub async fn signed(State(pairing): State<Pairing>, request: Request, next: Next
         (get("x-pocket-device"), get("x-pocket-time"), get("x-pocket-signature"))
     };
     let (Some(device), Some(time), Some(signature)) = sent else {
-        return refuse("This request is not signed. Open Armada on the phone it was paired with.");
+        return refuse(
+            StatusCode::BAD_REQUEST,
+            "This request is not signed. Open Armada on the phone it was paired with.",
+        );
+    };
+    let found = pairing.store.lock().unwrap().paired_device(&device);
+    let Ok(Some(found)) = found else {
+        return refuse(
+            StatusCode::UNAUTHORIZED,
+            "This phone is not paired. Pair it again from Bridge, Settings, Phone.",
+        );
     };
     let now = (pairing.clock)();
     let Ok(sent) = time.parse::<i64>() else {
-        return refuse("The time on this request is not a number.");
+        return refuse(StatusCode::BAD_REQUEST, "The time on this request is not a number.");
     };
     if (now - sent).abs() > SKEW {
-        return refuse("The phone's clock is more than a minute off this Mac's. Set it to automatic.");
+        return refuse(
+            StatusCode::BAD_REQUEST,
+            "The phone's clock is more than a minute off this Mac's. Set it to automatic.",
+        );
     }
-    let found = pairing.store.lock().unwrap().paired_device(&device);
-    let Ok(Some(found)) = found else {
-        return refuse("This phone is not paired. Pair it again from Bridge, Settings, Phone.");
-    };
     let (mut parts, body) = request.into_parts();
     let Ok(body) = to_bytes(body, BODY_LIMIT).await else {
         return (StatusCode::PAYLOAD_TOO_LARGE, "This request is too large.").into_response();
@@ -76,10 +88,10 @@ pub async fn signed(State(pairing): State<Pairing>, request: Request, next: Next
         .zip(from_hex(&signature).and_then(|raw| Signature::from_slice(&raw).ok()))
         .is_some_and(|(key, sig)| key.verify(message.as_bytes(), &sig).is_ok());
     if !valid {
-        return refuse("The signature on this request does not match the phone's key.");
+        return refuse(StatusCode::BAD_REQUEST, "The signature on this request does not match the phone's key.");
     }
     if !pairing.first_sight(&signature, now) {
-        return refuse("This request was already sent.");
+        return refuse(StatusCode::CONFLICT, "This request was already sent.");
     }
     let _ = pairing.store.lock().unwrap().touch_device(&device, now);
     parts.extensions.insert(DeviceId(device));

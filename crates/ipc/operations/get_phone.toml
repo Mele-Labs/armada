@@ -1,0 +1,8 @@
+[operations.get_phone]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "Whether this Mac serves the phone app, the loopback port it listens on, and whether it is listening"
+notes = """
+`GET /phone`, answered with `PhoneGateway` `{ on, port, listening, why? }`. `on` is the `pocket` marker in the machine directory; `listening` is the Phone Gateway Fleet runs in its own process, on `127.0.0.1:<port>`; `why` says why one that is `on` is not listening. Bridge's Settings, Phone draws its switch from it. `docs/concepts/pocket.md`.
+"""

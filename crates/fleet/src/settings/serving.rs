@@ -144,4 +144,12 @@ where
     async fn save_preferences(&self, save: SavePreference) -> Result<Preferences, Refusal> {
         self.save_preference_now(save).await
     }
+
+    async fn get_phone(&self) -> Result<ipc::PhoneGateway, Refusal> {
+        self.phone_now()
+    }
+
+    async fn set_phone(&self, set: ipc::SetPhoneGateway) -> Result<ipc::PhoneGateway, Refusal> {
+        self.phone_set(set.on)
+    }
 }

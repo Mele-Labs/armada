@@ -34,7 +34,7 @@ import { scenarioNamed } from "./scenario";
 import { mockLayout, NO_LAYOUT_MODS } from "./layout";
 import { mockNumbered } from "./numbered";
 import { PhoneSourceProvider } from "@armada/settings";
-import { mockPhone } from "./phone";
+import { mockPhone, type PhoneMoment } from "./phone";
 import { WalkJobPanel } from "./WalkJobPanel";
 import { SleepSourceProvider } from "../sleep";
 import { mockSleep, overnight } from "./sleep";
@@ -80,6 +80,9 @@ export type Mounted = {
  * it**: effects run in tree order, so this one runs after everything the app
  * mounted, this window's bindings included.
  */
+/** The Phone card's moment for each `phone/…` scenario; any other scenario has access on and two phones paired. */
+const PHONE_MOMENTS: Record<string, PhoneMoment> = { "phone/off": "off", "phone/port-taken": "port_taken", "phone/tailscale": "tailscale" };
+
 function OnScreen({ say }: { say: () => void }) {
   useEffect(() => say(), [say]);
   return null;
@@ -123,7 +126,7 @@ export function mountApp(
   if (shared === undefined) forgetDeck();
   // And with no repository having shown its first Job's card.
   if (shared === undefined) forgetFirsts();
-  mockPhone.reset(chosen.name === "phone/gateway-down" ? "not_running" : chosen.name === "phone/tailscale" ? "tailscale" : "paired");
+  mockPhone.reset(PHONE_MOMENTS[chosen.name] ?? "paired");
   window.armada = api;
   const planUsage = createFleetPlanUsage(withState(api));
   // Only the scenario that plays the offer has one; every other window draws the limits as they were.
