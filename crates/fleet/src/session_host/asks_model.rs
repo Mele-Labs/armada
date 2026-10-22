@@ -81,20 +81,25 @@ pub(crate) fn decided(reader: Reader, rules: Option<String>, model: Option<&Mode
     }
 }
 
-/// The model's reads, by reply, and the Sessions whose read came in since the last look.
-#[derive(Default)]
-pub(crate) struct Reads {
-    inner: Mutex<Inner>,
+/// The model's reads, by reply, and the Sessions whose read came in since the last look. `R` is what
+/// one read makes of a reply: a [`ModelRead`], or the sentences of `super::extracting`.
+pub(crate) struct Reads<R = ModelRead> {
+    inner: Mutex<Inner<R>>,
 }
 
-#[derive(Default)]
-struct Inner {
-    read: HashMap<u64, ModelRead>,
+impl<R> Default for Reads<R> {
+    fn default() -> Self {
+        Reads { inner: Mutex::new(Inner { read: HashMap::new(), going: HashSet::new(), settled: Vec::new() }) }
+    }
+}
+
+struct Inner<R> {
+    read: HashMap<u64, R>,
     going: HashSet<u64>,
     settled: Vec<String>,
 }
 
-impl Reads {
+impl Reads<ModelRead> {
     /// The sentence of `reply` that asks, by `reader`. With no model, or a reply it has not read yet,
     /// the rules' answer; the read is started so the next derive has it.
     pub(crate) fn asking_line(
@@ -113,7 +118,9 @@ impl Reads {
             None => rules,
         }
     }
+}
 
+impl<R: Clone + Send + 'static> Reads<R> {
     /// The model's read of `reply` by `how`, if it has made one. Otherwise the read is started on a
     /// blocking thread, so the next call has it, and `session` is named by [`Self::settled`] once it is in.
     /// A read that failed stays in `going`, so it is not tried again on every derive.
@@ -121,11 +128,11 @@ impl Reads {
     /// **One `Reads` serves one reading**, since a read is kept by the reply's text alone.
     pub(crate) fn read_of(
         self: &Arc<Self>,
-        how: fn(&dyn TextModel, &str) -> Result<ModelRead, NotEmbedded>,
+        how: fn(&dyn TextModel, &str) -> Result<R, NotEmbedded>,
         model: Arc<dyn TextModel>,
         session: &str,
         reply: &str,
-    ) -> Option<ModelRead> {
+    ) -> Option<R> {
         let key = key(reply);
         let mut inner = self.inner.lock().expect("never poisoned");
         if let Some(read) = inner.read.get(&key) {

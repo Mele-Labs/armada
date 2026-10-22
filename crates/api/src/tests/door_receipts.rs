@@ -109,6 +109,7 @@ fn long_lived() -> SessionRecord {
         judge: None,
         settled: Vec::new(),
         waits: None,
+        later: Vec::new(),
     }
 }
 
