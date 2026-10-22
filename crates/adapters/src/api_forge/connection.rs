@@ -16,7 +16,6 @@ pub(super) const MOST_PAGES: usize = 10;
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(super) struct Connection<T> {
-    pub(super) total_count: Option<usize>,
     page_info: Option<PageInfo>,
     nodes: Option<Vec<Option<T>>>,
 }
@@ -56,8 +55,6 @@ pub(super) struct Listed<T> {
     pub(super) rows: Vec<T>,
     /// The list had a page the cap stopped short of.
     pub(super) cut: bool,
-    /// Its length on the forge, where the first page said.
-    pub(super) total: Option<usize>,
 }
 
 impl<T> Connection<T> {
@@ -75,8 +72,7 @@ pub(super) fn read_to_the_end<T>(
     most_pages: usize,
     mut more: impl FnMut(&str) -> Result<Option<Connection<T>>, ApiFailure>,
 ) -> Result<Listed<T>, ApiFailure> {
-    let Some(first) = first else { return Ok(Listed { rows: Vec::new(), cut: false, total: None }) };
-    let total = first.total_count;
+    let Some(first) = first else { return Ok(Listed { rows: Vec::new(), cut: false }) };
     let (mut rows, mut next) = first.page();
     let mut pages = 1;
     let mut cut = false;
@@ -91,7 +87,7 @@ pub(super) fn read_to_the_end<T>(
         next = after;
         pages += 1;
     }
-    Ok(Listed { rows, cut, total })
+    Ok(Listed { rows, cut })
 }
 
 /// A repository's owner and name apart, which every query about one of its pull requests names.
