@@ -273,6 +273,8 @@ mod store_lock;
 pub mod test_map;
 /// Fleet feeding the test map from main moving and from a sleeping bay.
 mod test_map_feed;
+/// A model reading the changed files no collector can measure into the test map.
+mod test_map_reading;
 /// The laps main's CI run recorded, fetched from the forge and kept as edges.
 mod test_map_ci;
 /// A Picture a person pastes onto a Studio, kept as a Note's frame is.

@@ -159,6 +159,13 @@ fn the_default_judge_model_is_the_value_the_settings_row_carries() {
     assert_ne!(HeadlessAgent::judge_model(), HeadlessAgent::default_model());
 }
 
+/// The test map's reader is `test-map-reading-model`'s row, which ships on the Judge's tier.
+#[test]
+fn the_test_map_reader_ships_on_haiku_the_cheapest() {
+    assert_eq!(HeadlessAgent::test_map_model(), "haiku");
+    assert_eq!(HeadlessAgent::models().last().copied(), Some(HeadlessAgent::test_map_model()));
+}
+
 /// A Session with no model chosen runs on the strongest on the roster, as
 /// `session-model` decided on 13 Oct 2026. **The derivation is pinned**, as the
 /// judge's is: `session_model` takes the first entry on the assumption that the
