@@ -6,9 +6,11 @@
 //! what the owner pressed. The Context rule (`usage_watch.rs`) reads the ledger back: a Job's own
 //! answer wins over the setting for that Job.
 
+use std::sync::Arc;
+
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use config::settings as keys;
-use ipc::QuestionAnswer;
+use ipc::{AskedQuestion, QuestionAnswer, SessionAskState, SessionRow, SessionVoice};
 use store::{AttachmentState, Holder, KeptAttachment};
 
 use crate::daemon::Fleet;
@@ -41,6 +43,51 @@ impl HandoffAnswer {
             HandoffAnswer::Other
         }
     }
+}
+
+/// How Bridge opens the person's answer to a question kept for a walk, a line a question
+/// (`lapsedAnswerText`, `packages/screens/src/sessions-wire.ts`).
+const ANSWERED_LATER: &str = "Answering your earlier question";
+
+/// What the person chose on the kept `questions`, read off their message: each label one the
+/// question offered, so words of their own choose nothing.
+fn answered_later(questions: &[AskedQuestion], text: &str) -> Vec<QuestionAnswer> {
+    questions
+        .iter()
+        .filter_map(|asked| {
+            let opening = format!("{ANSWERED_LATER} \"{}\": ", asked.question);
+            let line = text.lines().find_map(|line| line.strip_prefix(opening.as_str()))?;
+            // Joined with ", ", which a label may hold itself.
+            let chosen = asked
+                .options
+                .iter()
+                .map(|option| option.label.as_str())
+                .filter(|label| {
+                    line == *label
+                        || line.starts_with(&format!("{label}, "))
+                        || line.ends_with(&format!(", {label}"))
+                        || line.contains(&format!(", {label}, "))
+                })
+                .map(String::from)
+                .collect();
+            Some(QuestionAnswer { question: asked.question.clone(), chosen })
+        })
+        .collect()
+}
+
+/// The question kept for a walk that the person has not answered yet: the last ask with questions
+/// in the thread, where it was kept and no answer to it came after.
+fn kept_unanswered(rows: &[SessionRow]) -> Option<Vec<AskedQuestion>> {
+    for row in rows.iter().rev() {
+        match row {
+            SessionRow::Message { from: SessionVoice::You, text, .. } if text.starts_with(ANSWERED_LATER) => return None,
+            SessionRow::Ask { ask, state, .. } if !ask.questions.is_empty() => {
+                return (*state == SessionAskState::Kept).then(|| ask.questions.clone());
+            }
+            _ => {}
+        }
+    }
+    None
 }
 
 /// What the Context rule does for one Job whose context is over the line.
@@ -130,6 +177,28 @@ where
             true,
         );
         let _ = self.published_hosted(session).await;
+    }
+
+    /// The person answered a question kept for a walk with a message, from Needs you: its handoff
+    /// answer is run as the card's is in the permission door. Read before the message's row is put.
+    /// `true` where the Job hands on, so the message is not sent to the process the hand ends.
+    pub(crate) async fn handoff_answered_later(self: &Arc<Self>, session: &str, text: &str) -> bool {
+        if !text.starts_with(ANSWERED_LATER) {
+            return false;
+        }
+        let Ok(rows) = self.rows_of(session).await else { return false };
+        let Some(questions) = kept_unanswered(&rows) else { return false };
+        match HandoffAnswer::of(&answered_later(&questions, text)) {
+            HandoffAnswer::Yes if !self.handing_on_already(session).await => {
+                self.handed_on_apart(session, Self::handoff_brief(&questions));
+                true
+            }
+            HandoffAnswer::Quiet => {
+                self.handoff_quieted(session).await;
+                false
+            }
+            _ => false,
+        }
     }
 
     /// Whether Job `session` has ended, is handing on already, or has handed on.

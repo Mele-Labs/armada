@@ -1128,3 +1128,27 @@ async fn a_session_whose_first_process_ended_before_a_turn_starts_fresh() {
     eventually(|| async { rig.stand_in.starts().len() == 2 }).await;
     assert!(!rig.stand_in.starts()[1].resuming, "nothing to resume");
 }
+
+/// Fleet's notices told while a write is held, before the turn that held it ends, are not lost with
+/// the process the move ends: the moved one is sent them after it is told where it is.
+#[tokio::test]
+async fn fleets_notices_told_while_a_write_is_held_reach_the_session_after_it_moves() {
+    let rig = rig();
+    let id = rig.start().await;
+    rig.send(&id, "change a file").await;
+    rig.stand_in.init(0);
+    let path = format!("{}/src/lib.rs", rig.root);
+    assert!(denied(&rig.gate(&id, "Edit", &format!(r#"{{"file_path":"{path}"}}"#)).await), "the write is held");
+
+    Arc::clone(&rig.fleet).told_by_fleet(id.as_str(), "The owner approved plan v1.").await.expect("told");
+    Arc::clone(&rig.fleet).told_by_fleet(id.as_str(), "You are on the Implement step.").await.expect("told");
+    rig.stand_in.finishes(0, "I will stop here");
+
+    eventually(|| async { rig.stand_in.starts().len() == 2 }).await;
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let sent = rig.stand_in.process(1).sent.lock().unwrap().clone();
+    assert_eq!(sent.len(), 3, "the arrival and both notices: {sent:?}");
+    assert!(sent[0].contains("You are now in"), "told where it is first: {sent:?}");
+    assert!(sent[1].contains("The owner approved plan v1."), "{sent:?}");
+    assert!(sent[2].contains("You are on the Implement step."), "{sent:?}");
+}
