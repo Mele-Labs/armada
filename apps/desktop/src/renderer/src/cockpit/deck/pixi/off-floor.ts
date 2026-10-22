@@ -1,5 +1,5 @@
 // What a Job's Field draws off the code floor: its pad at the near edge with a light for each check, the red line from a failing check
-// to the file its record names, the faint line from a subagent to the drone that sent it, and the dots circling a drone that thinks.
+// to the file Fleet read from its log, the faint line from a subagent to the drone that sent it, and the dots circling a drone that thinks.
 // A light pulses and the dots turn only while their drone is one of the few the map animates (`loopsOf`), and stand still under
 // reduced motion. `docs/concepts/cockpit.md`, *A Job open*.
 
@@ -41,7 +41,7 @@ export function drawPad(shade: PlaneBuilder, glow: PlaneBuilder, s: PixiSceneIn,
   }
 }
 
-/** From each failing light to the file its record names: a dashed red line up to the file's bar, and the bar outlined in red. */
+/** From each failing light to the file Fleet read from its log: a dashed red line up to the file's bar, and the bar outlined in red. */
 export function drawBlame(b: PlaneBuilder, glow: PlaneBuilder, s: PixiSceneIn, p: Palette, heights: ReadonlyMap<string, number>): void {
   for (const one of s.pad?.blame ?? []) {
     const bar: Bar | undefined = s.layout.bars.get(one.bar);

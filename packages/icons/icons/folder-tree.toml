@@ -1,0 +1,7 @@
+[icons.folder-tree]
+  means = "A folder with a branching list of folders and files hanging from it"
+  group = "Test map"
+  size = "16px"
+  status = "Proposed"
+  reserved = "A test map edge that is only the Manifest's declaration, a Check's `when` or `narrow` reaching a directory, on a changed file's row and on the tests under it. Never a file tree, which is `folder` and `folder-open`, and never a Manifest file."
+  notes = "Proposed 22 Oct 2026 for the walk `test-map-reach`. The floor of the map is a directory and nothing finer, and the drawing says as much. The walk does not show it: no fixture edge is declared. Tooltip `Declared in the Manifest`."

@@ -93,6 +93,12 @@ export const outpostTip = (outpost: Pick<Outpost, "name" | "lines">): Tip => ({ 
 /** What is being done to a file, as a tooltip names it. */
 export const FILE_SAID: Record<FileAct | "rest", string> = { write: "Writing", edit: "Editing", remove: "Removing", rest: "File" };
 
+/** What a file's card says where a failing check's log named it: `test failed at layout.ts:142`, or the file alone where it named no line. */
+export const blameSaid = (check: string, path: string, line: number | undefined): string => {
+  const name = path.split("/").pop() ?? path;
+  return `${check} failed at ${line === undefined ? name : `${name}:${line}`}`;
+};
+
 export const NEEDS_YOU: readonly string[] = ["Needs you"];
 /** What a plot under a write clash says: two drones where the map holds both, else that something else changed it too. */
 export const clashLines = (clash: Pick<Clash, "keys">): readonly string[] => [clash.keys.length > 1 ? "Two drones are changing it" : "Changed elsewhere too"];

@@ -102,7 +102,7 @@ where
             .start_session_check(&session, &manifest, slot, name, target, &at)
             .map_err(|why| self.ledger_fault(why))?;
         drop(store);
-        self.session_check_row(&session, name, target, run, &at, SessionCheckState::Running)
+        self.session_check_row(&session, name, target, None, run, &at, SessionCheckState::Running)
             .await?;
         Ok(SessionCheckAnswer {
             run: u64::try_from(run).ok(),
@@ -141,13 +141,29 @@ where
         self.session_check_live().ended(run);
         if ended {
             let target = target.or(kept.target.as_deref());
-            self.session_check_row(&kept.session_id, &kept.name, target, run, &kept.started_at, outcome)
+            let blame = match (outcome, call.log) {
+                (SessionCheckState::Failed, Some(log)) => self.blamed(&kept, log).await,
+                _ => None,
+            };
+            self.session_check_row(&kept.session_id, &kept.name, target, blame, run, &kept.started_at, outcome)
                 .await?;
         }
         Ok(SessionCheckAnswer {
             run: u64::try_from(run).ok(),
             stop: None,
         })
+    }
+
+    /// Where a failed run's log says it failed, read in the slot it ran in. Read once, here, and
+    /// kept on the row, so no read of the thread parses a log.
+    async fn blamed(&self, kept: &store::KeptSessionCheck, log: String) -> Option<ipc::CheckBlame> {
+        let roots = self.ledger_roots();
+        let root = roots.iter().find(|(id, _)| *id == kept.manifest_id)?.1.clone();
+        let slot = adapter_traits::slot_path(&root, kept.slot);
+        tokio::task::spawn_blocking(move || adapters::check_blame::blame_of(&log, std::path::Path::new(&slot)))
+            .await
+            .ok()
+            .flatten()
     }
 
     /// Put the run's row on the thread and publish the Session. `at` is when the run began, so
@@ -157,6 +173,7 @@ where
         session: &str,
         name: &str,
         target: Option<&str>,
+        blame: Option<ipc::CheckBlame>,
         run: i64,
         at: &str,
         state: SessionCheckState,
@@ -170,6 +187,7 @@ where
                 run: u64::try_from(run).unwrap_or_default(),
                 state,
                 target: target.map(str::to_string),
+                blame,
             },
         )
         .await;
@@ -203,6 +221,7 @@ where
                     session,
                     &run.name,
                     run.target.as_deref(),
+                    None,
                     run.id,
                     &run.started_at,
                     SessionCheckState::Failed,

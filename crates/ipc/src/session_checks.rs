@@ -74,6 +74,16 @@ pub struct SessionCheckCall {
     pub log: Option<String>,
 }
 
+/// Where a failed run's log says it failed: the first location the failure names, relative to the
+/// slot. Fleet reads it once, as the run ends, and never guesses one from the run's `target`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CheckBlame {
+    pub path: String,
+    /// 1-based. Absent where the log names the file and no line.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub line: Option<u32>,
+}
+
 /// What `report_session_check` answers. **`run` is absent where no Session holds the slot**, which
 /// is not a refusal: a person's own `armada check` is the common case.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

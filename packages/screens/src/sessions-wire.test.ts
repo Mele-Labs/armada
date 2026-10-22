@@ -283,9 +283,10 @@ describe("the thread", () => {
     expect(drawn[0]?.at).toBe(AT);
   });
 
-  it("keeps an armada check the agent ran as a row with its run and where it stands", () => {
-    const drawn = rowsOfThread("a", [{ kind: "check", id: "check-7", at: AT, name: "components_test", run: 7, state: "failed" }], () => undefined);
-    expect(drawn).toMatchObject([{ kind: "check", name: "components_test", run: 7, state: "failed" }]);
+  it("keeps an armada check the agent ran as a row with its run, where it stands and where Fleet read it failed", () => {
+    const blame = { path: "apps/desktop/src/layout.ts", line: 142 };
+    const drawn = rowsOfThread("a", [{ kind: "check", id: "check-7", at: AT, name: "components_test", run: 7, state: "failed", blame }], () => undefined);
+    expect(drawn).toMatchObject([{ kind: "check", name: "components_test", run: 7, state: "failed", blame }]);
   });
 
   it("keeps a run that ended as a row with its exit and the lines it was sent, and a stopped one with no code", () => {

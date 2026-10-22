@@ -34,7 +34,7 @@ Fleet has more than one way to learn that a test reaches a file, and uses whiche
 |---|---|---|---|---|
 | A run with coverage on | The runtime's own collector, one lap per test | Yes | A test run | What did not run that time |
 | A static graph | Imports and calls, as vitest and the code graph read them | Partly | Nothing | Dynamic dispatch, an HTTP hop |
-| A model's reading | A model reads the test and the code and names what it reaches | No | A model call | Nothing by kind, and it says it is a guess |
+| A model's reading | A model reads the file and the test files in its Checks' directories and names the ones that exercise it | No | A model call | Nothing by kind, and it says it is a guess |
 | The Manifest's declaration | `when` and `narrow` on the Check | No | Nothing | Everything finer than a directory |
 
 > **Rule.** A measured edge outranks a static one, and a static one outranks a model's reading. The Manifest's declaration is the floor.
@@ -56,15 +56,23 @@ Fleet has more than one way to learn that a test reaches a file, and uses whiche
 | A Check runs for a Job | Records a lap for each test that ran, where the runtime's collector costs no rebuild |
 | A pull request merges | The run on main refreshes the laps for what it ran: CI records them as an artifact of the commit, and Fleet fetches it when main moves, again while the run goes on (`docs/practices/ci.md`, *The test map's laps*) |
 | A file changes on a branch | Marks its edges stale, and reads them again by the cheapest source that can |
-| Main moves to a new tip | Marks the edges of the files between the tips stale, and reads again at the new tip the tests of every source that costs no run and no rebuild |
+| Main moves to a new tip | Marks the edges of the files between the tips stale, reads again at the new tip the tests of every source that costs no run and no rebuild, and has a model read the changed files no collector can measure |
 | A new file appears | Asks the static graph, and a model only where no collector can measure it |
 | The machine is asleep | Re-measures stale edges in a free bay, one test at a time, holding one of the machine's places, and stops when sleep mode goes off. A map holding no edge is the forge's to seed, so it is never measured whole here |
+
+> **Rule.** A model reads at most twenty files when main moves, each cut at 12 KB and shown at most 200 test files, the nearest first. The files it did not reach are read after the next move.
+> Why: the call costs a turn of the machine's model each, and a move that changed a hundred files must not ask a hundred times.
+
+> **Rule.** A model's answer is kept only for the test files it was shown. A call that fails records nothing and ends that move's reading.
+> Why: the file and the paths are material the model reads, and a path it names from anywhere else is the model, or the file, deciding what the map says.
 
 > **Rule.** A stale edge is still an answer, said as stale.
 > Why: a file edited an hour ago is reached by nearly the same tests it was, and no answer at all sends an agent to the whole suite.
 
 > **Rule.** Recording never slows a run on a shared machine past what the Check costs on its own, and a collector that needs a rebuild records only on the forge's runner or in a sleeping bay.
 > Why: one machine carries every Check, agent and Fleet.
+
+The cost of a cold seed, timed on the runner, is in `../spikes/test-map-seed.md`.
 
 ## What reads it
 

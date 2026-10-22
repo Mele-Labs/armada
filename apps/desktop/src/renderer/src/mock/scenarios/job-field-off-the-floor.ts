@@ -1,5 +1,5 @@
 // One Job played through on its Field for the walk `jobFieldOffTheFloor`, a moment for each `later` step: writing, thinking, a subagent
-// starting, checks that fail with a file named in the record, a re-run after a fix that passes as the subagent finishes, walking the app,
+// starting, checks that fail where Fleet read a file and line from the log, a re-run after a fix that passes as the subagent finishes, walking the app,
 // a call to the forge, and waiting on you. Every moment is what Fleet records: `check` and `window` rows in the thread, tool rows while
 // the agent calls tools, and `session.edited`, `session.read` and `session.called` entries dated when each moment comes.
 
@@ -16,7 +16,10 @@ const ARMADA = repository().manifest!.id;
 const ROOT = repository().root;
 const DECK = "apps/desktop/src/renderer/src/cockpit/deck/";
 const LAYOUT = `${DECK}layout.ts`;
-const BLAMED = `${DECK}layout.test.ts`;
+/** What the test run was narrowed to, which blames nothing. */
+const TESTS = `${DECK}layout.test.ts`;
+/** Where Fleet read the failing run's log as failing: the code under test, not the test file. */
+const BLAME = { path: LAYOUT, line: 142 };
 const WIRE = "packages/protocol/src/wire.ts";
 const EVENTS = "packages/protocol/src/events.ts";
 const ID = "jf-pad";
@@ -61,7 +64,7 @@ const event = (session: Session, kind: TimelineEvent["kind"], secondsAgo: number
 const burst = (kind: "session.read" | "session.edited", secondsAgo: number, path: string) =>
   event(own, kind, secondsAgo, { says: `${kind === "session.read" ? "Read" : "Edited"} 1 file`, detail: path, items: [path] });
 
-const check = (id: string, name: string, state: "running" | "passed" | "failed", target?: string): SessionRow => ({ id, at: stamp(), kind: "check", name, run: 400 + made++, state, ...(target === undefined ? {} : { target }) });
+const check = (id: string, name: string, state: "running" | "passed" | "failed", target?: string, blame?: typeof BLAME): SessionRow => ({ id, at: stamp(), kind: "check", name, run: 400 + made++, state, ...(target === undefined ? {} : { target }), ...(blame === undefined ? {} : { blame }) });
 
 /** Each row replaced by id, as Fleet replaces a check's row when it ends; a new id is added. */
 function withRows(one: Session, rows: readonly SessionRow[]): Session {
@@ -93,15 +96,15 @@ const MOMENTS: readonly Moment[] = [
     events: () => [event(own, "session.subagent", 1, { says: "Subagent started", detail: "Explore: Check the wire types" }), burst("session.read", 1, WIRE)],
   },
   // The checks run: two pass and the tests are running.
-  { change: (one) => withRows(one, [check("c-fmt", "fmt", "passed"), check("c-lint", "lint", "passed"), check("c-test", "test", "running", BLAMED)]), busy: false, events: () => [] },
-  // The tests fail, and the record names the test file.
-  { change: (one) => withRows(one, [check("c-test", "test", "failed", BLAMED)]), busy: false, events: () => [] },
+  { change: (one) => withRows(one, [check("c-fmt", "fmt", "passed"), check("c-lint", "lint", "passed"), check("c-test", "test", "running", TESTS)]), busy: false, events: () => [] },
+  // The tests fail, and Fleet reads from the log the file and line they failed at.
+  { change: (one) => withRows(one, [check("c-test", "test", "failed", TESTS, BLAME)]), busy: false, events: () => [] },
   // A fix to the layout, and the checks run again from the first.
   { change: (one) => withRows(one, [check("c-fmt2", "fmt", "running")]), busy: false, events: () => [burst("session.edited", 3, LAYOUT)] },
   // All three pass, and the subagent finishes.
   {
     change: (one) => ({
-      ...withRows(one, [check("c-fmt2", "fmt", "passed"), check("c-lint2", "lint", "passed"), check("c-test2", "test", "passed", BLAMED)]),
+      ...withRows(one, [check("c-fmt2", "fmt", "passed"), check("c-lint2", "lint", "passed"), check("c-test2", "test", "passed", TESTS)]),
       attachments: one.attachments.map((held) => (held.kind === "subagent" ? { ...held, state: "done" as const, report: "The wire types match." } : held)),
       work: { ...one.work, field: [MAIN] },
     }),
