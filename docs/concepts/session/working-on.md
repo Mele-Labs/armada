@@ -43,6 +43,21 @@ It is the same moment `done_since` stands down, and a turn Fleet's own notice be
 The row that announces the turn carries the clear.
 A turn ending clears nothing.
 
+**An account says it in his words, and a small model writes it.** `account` is the one field detected by no tool call: a model on `models.account` (haiku, beside the proposer's setting) reads the person's last message, the calls of the turn as the `now` words above, and what the agent said, and writes `done`, `now` and `next` for that message.
+Its prompt, `crates/fleet/src/session_account.rs`, forbids file names, paths, code identifiers and tool names and asks for the person's own words; a line that carries one anyway is dropped on the way in, and an answer with no line left writes no account.
+`for` is the id of the message it answers.
+`group` is the approved plan group the Job is on: the group holding the task the agent's list has in progress, else the model's pick from the approved plan's groups.
+A plan the person has not approved sets none.
+
+| Rule | Why |
+| --- | --- |
+| Rewritten at most once in five seconds, one call to a burst | The change that starts a wait is read together with the rest of its burst. The first waits a second, and later ones wait out what is left of the five |
+| Kept when the turn ends and when a turn Fleet's own notice begins | It is the answer to his message, and the message is still the last one |
+| Cleared, with `live` and what it was read from, when a message from him starts a turn | The next message is a new question. An answer a slow call returns after that is dropped |
+
+**`live` is the page being built.** It is the newest of a page the Job showed with `show_window` and the page of a server it started with `start_server`, which names the Job in its `session_id`.
+It is cleared with the account, and a turn ending clears neither.
+
 **Bridge draws nothing for a Job whose turn is not running.** Whether a line or a band is drawn is Bridge's rule, read off `hosted.turn` and these fields.
 
 **Silence is not here.** A running turn nothing has been heard from is the `stuck` state, from the activity of the process Fleet hears, whatever it calls.
