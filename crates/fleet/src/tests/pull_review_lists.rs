@@ -63,6 +63,21 @@ async fn each_list_is_the_forges_rows_in_the_wires_words() {
 }
 
 #[tokio::test]
+async fn the_four_lists_are_read_at_once() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home);
+    signed_in_as(&fleet, "NickMele");
+    for list in [ReviewList::Requested, ReviewList::Team, ReviewList::Assigned, ReviewList::Mine] {
+        fleet.vcs().now_review_list(list, vec![pull(7, SLUG)]);
+    }
+    // Each read answers only while the other three are being read.
+    fleet.vcs().review_lists_answer_together(4);
+    let lists = fleet.get_review_lists().await.expect("read");
+    assert!(lists.silent.is_empty(), "lists read one after another: {:?}", lists.silent);
+    assert_eq!([&lists.requested, &lists.team, &lists.assigned, &lists.mine].map(Vec::len), [1; 4]);
+}
+
+#[tokio::test]
 async fn one_call_a_list_names_the_login_and_every_served_repository() {
     let home = TempDir::new();
     let fleet = a_fleet(&home);
@@ -71,10 +86,10 @@ async fn one_call_a_list_names_the_login_and_every_served_repository() {
     fleet.get_review_lists().await.expect("read");
     let asked = fleet.vcs().review_lists_asked();
     let lists: Vec<ReviewList> = asked.iter().map(|(list, ..)| *list).collect();
-    assert_eq!(
-        lists,
-        [ReviewList::Requested, ReviewList::Team, ReviewList::Assigned, ReviewList::Mine]
-    );
+    assert_eq!(lists.len(), 4, "{lists:?}");
+    for list in [ReviewList::Requested, ReviewList::Team, ReviewList::Assigned, ReviewList::Mine] {
+        assert!(lists.contains(&list), "{list:?} was not asked: {lists:?}");
+    }
     assert!(asked.iter().all(|(_, login, repositories)| login == "nick" && repositories == &[SLUG.to_string()]));
 }
 

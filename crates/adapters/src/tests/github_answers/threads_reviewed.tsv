@@ -1,0 +1,6 @@
+thread	PRRT_1	false	false	crates/a.rs	12	RIGHT
+tc	PRRC_1	grace	2026-10-15T10:05:00Z	Why\nhere?
+tc	PRRC_2		2026-10-15T10:06:00Z	Gone.
+thread	PRRT_2	true	true	docs/c.md	4	LEFT
+tc	PRRC_3	linus	2026-10-15T10:07:00Z	Old.
+thread	PRRT_3	false	false	crates/b.rs		RIGHT

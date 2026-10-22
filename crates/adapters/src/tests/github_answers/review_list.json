@@ -1,0 +1,221 @@
+{
+ "data": {
+  "search": {
+   "nodes": [
+    {
+     "repository": {
+      "nameWithOwner": "Mele-Labs/armada"
+     },
+     "number": 2715,
+     "title": "--changed runs the tests the test map says reach a change",
+     "headRefName": "armada/test-map-changed",
+     "url": "https://github.com/Mele-Labs/armada/pull/2715",
+     "isDraft": false,
+     "headRefOid": "48541832b4b9a2df487585565180fed25cb4fa17",
+     "author": {
+      "login": "NickMele"
+     },
+     "updatedAt": "2026-10-22T04:24:15Z",
+     "reviewDecision": null,
+     "commits": {
+      "nodes": [
+       {
+        "commit": {
+         "statusCheckRollup": {
+          "state": "PENDING"
+         }
+        }
+       }
+      ]
+     },
+     "reviewRequests": {
+      "nodes": []
+     }
+    },
+    {
+     "repository": {
+      "nameWithOwner": "Mele-Labs/armada"
+     },
+     "number": 2714,
+     "title": "Test map: a Rust collector that measures one lap per test",
+     "headRefName": "armada/test-map-rust-collector",
+     "url": "https://github.com/Mele-Labs/armada/pull/2714",
+     "isDraft": false,
+     "headRefOid": "ad390d12d8b54fe47fc5269ad9a85c794e39c2f3",
+     "author": {
+      "login": "NickMele"
+     },
+     "updatedAt": "2026-10-22T04:22:22Z",
+     "reviewDecision": null,
+     "commits": {
+      "nodes": [
+       {
+        "commit": {
+         "statusCheckRollup": {
+          "state": "PENDING"
+         }
+        }
+       }
+      ]
+     },
+     "reviewRequests": {
+      "nodes": []
+     }
+    },
+    {
+     "repository": {
+      "nameWithOwner": "Mele-Labs/armada"
+     },
+     "number": 2712,
+     "title": "Give the walk panel's stub draft its commands",
+     "headRefName": "armada/session-7ae95c7c",
+     "url": "https://github.com/Mele-Labs/armada/pull/2712",
+     "isDraft": false,
+     "headRefOid": "7e6521e7c21b3329fff42cf9fdadf8796521dfac",
+     "author": {
+      "login": "NickMele"
+     },
+     "updatedAt": "2026-10-22T04:10:52Z",
+     "reviewDecision": null,
+     "commits": {
+      "nodes": [
+       {
+        "commit": {
+         "statusCheckRollup": {
+          "state": "SUCCESS"
+         }
+        }
+       }
+      ]
+     },
+     "reviewRequests": {
+      "nodes": [
+       {
+        "requestedReviewer": {}
+       },
+       {
+        "requestedReviewer": {
+         "name": "Reviewers",
+         "slug": "reviewers",
+         "organization": {
+          "login": "Mele-Labs"
+         }
+        }
+       },
+       {
+        "requestedReviewer": {
+         "name": "Platform",
+         "slug": "platform",
+         "organization": {
+          "login": "Mele-Labs"
+         }
+        }
+       }
+      ]
+     }
+    },
+    {
+     "repository": {
+      "nameWithOwner": "Mele-Labs/armada"
+     },
+     "number": 2711,
+     "title": "Hand on from a kept handoff answer, and keep notices told during a slot move",
+     "headRefName": "armada/session-e6c0c00b",
+     "url": "https://github.com/Mele-Labs/armada/pull/2711",
+     "isDraft": false,
+     "headRefOid": "70ff5ee4d78c59cfa529b5df94b5a3ed44cc8d89",
+     "author": {
+      "login": "NickMele"
+     },
+     "updatedAt": "2026-10-22T03:54:37Z",
+     "reviewDecision": null,
+     "commits": {
+      "nodes": [
+       {
+        "commit": {
+         "statusCheckRollup": {
+          "state": "SUCCESS"
+         }
+        }
+       }
+      ]
+     },
+     "reviewRequests": {
+      "nodes": [
+       {
+        "requestedReviewer": {
+         "name": "Reviewers",
+         "slug": "reviewers",
+         "organization": {
+          "login": "Mele-Labs"
+         }
+        }
+       }
+      ]
+     }
+    },
+    {},
+    {
+     "repository": {
+      "nameWithOwner": "Mele-Labs/armada"
+     },
+     "number": 2710,
+     "title": "Test map: the store, a route to ask it, and the collector plug",
+     "headRefName": "armada/test-map-store",
+     "url": "https://github.com/Mele-Labs/armada/pull/2710",
+     "isDraft": false,
+     "headRefOid": "2a77f4451271e3a58f255ed741bd53acfbd4f597",
+     "author": {
+      "login": "NickMele"
+     },
+     "updatedAt": "2026-10-22T03:54:36Z",
+     "reviewDecision": null,
+     "commits": {
+      "nodes": [
+       {
+        "commit": {
+         "statusCheckRollup": {
+          "state": "SUCCESS"
+         }
+        }
+       }
+      ]
+     },
+     "reviewRequests": {
+      "nodes": []
+     }
+    },
+    {
+     "repository": {
+      "nameWithOwner": "Mele-Labs/armada"
+     },
+     "number": 2709,
+     "title": "A disputed notice's row stacks and drops a sentence nobody could act on",
+     "headRefName": "armada/disputed-row-layout",
+     "url": "https://github.com/Mele-Labs/armada/pull/2709",
+     "isDraft": false,
+     "headRefOid": "c187eac6592bf05214aa0ebfad48df78e85ea945",
+     "author": {
+      "login": "NickMele"
+     },
+     "updatedAt": "2026-10-22T03:27:28Z",
+     "reviewDecision": null,
+     "commits": {
+      "nodes": [
+       {
+        "commit": {
+         "statusCheckRollup": {
+          "state": "SUCCESS"
+         }
+        }
+       }
+      ]
+     },
+     "reviewRequests": {
+      "nodes": []
+     }
+    }
+   ]
+  }
+ }
+}

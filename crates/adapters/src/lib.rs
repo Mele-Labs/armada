@@ -41,6 +41,8 @@
 mod acted;
 pub mod agent_mod;
 mod annotations;
+/// The forge over GitHub's API where the repository is on `github.com`, and `gh` where not.
+mod api_forge;
 mod background;
 mod base;
 mod basing;
@@ -63,6 +65,8 @@ mod filing;
 /// Where a repository lives on its forge, and what a request's links name.
 mod forge_address;
 mod gh_forge;
+/// GitHub's API over one pooled HTTPS client, in place of a `gh` process per call.
+mod github_api;
 mod harness;
 mod held_forge;
 /// A session Bridge hosts: a live process, resumed by id. Since 23.49.
@@ -164,6 +168,9 @@ pub use conversing::{
 pub use error::{CommitWorkError, CreateWorktreeError, ReadWorkProductError};
 pub use existing_setup::{ExistingSetup, Home};
 pub use forge_address::{issues_linked_in, linked_in, remote_of, ForgeAddress};
+pub use github_api::{
+    Answer, ApiFailure, GitHubApi, GitHubRepository, NotGitHub, Paged, RateLimit, GITHUB_HOST,
+};
 pub use harness::HeadlessAgent;
 pub use models_offered::HarnessModel;
 pub use hosted_session::{check_line, reads_only, CheckLine, HostedLaunch, HostedRefused, HOSTED_HARNESS, MOD_INSTALLED_MANIFEST, MOD_MANIFEST, SESSION_RULES};
@@ -195,5 +202,6 @@ pub use store::HttpStore;
 pub use store_device::{device_id, remember_device, DeviceKey, ID_FILE, KEY_FILE};
 pub use starting::{inferred_base, inside_a_repository, start_repository};
 pub use test_map::NextestCoverage;
+pub use api_forge::ApiForge;
 pub use gh_forge::GhForge;
 pub use worktree::GitVcs;
