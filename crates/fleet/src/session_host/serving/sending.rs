@@ -166,6 +166,9 @@ where
         let handing_on = matches!(written, Written::Message(SessionVoice::You))
             && self.handoff_answered_later(&id, &text).await;
         let row = self.written_row(&id, &written, &text, &kept.files, &sent.mentions);
+        if matches!(written, Written::Message(SessionVoice::You)) {
+            self.hosts().of(&id).state().activity.writing.person_said(row.id(), &text);
+        }
         self.row_put(&id, row).await;
         if handing_on {
             return self.published_hosted(&id).await;

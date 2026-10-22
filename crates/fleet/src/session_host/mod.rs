@@ -8,6 +8,7 @@
 //! its tool calls show it doing, `asking` is the permission door and `rows`
 //! writes the thread.
 
+pub(crate) mod account;
 pub(crate) mod activity;
 pub(crate) mod after;
 mod agent_starting;

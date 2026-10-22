@@ -19,6 +19,7 @@ use ipc::{ReportedTask, ReportedTaskStatus, SessionActivity, SessionGate, Sessio
 use crate::build_keeping::build_heard;
 use crate::build_record::Observed;
 
+use super::account::Writing;
 use crate::daemon::Fleet;
 
 /// The most often a session's row is published for what it is doing.
@@ -44,6 +45,8 @@ pub(crate) struct Activity {
     unsent: bool,
     /// A task is waiting to publish `unsent`. At most one.
     trailing: bool,
+    /// What the account is written from, and the account.
+    pub(super) writing: Writing,
 }
 
 /// What a call asks of the publisher.
@@ -72,11 +75,17 @@ impl Activity {
                 _ => false,
             },
             _ => match now_of(gate) {
-                Some(now) if self.now.as_deref() != Some(now.as_str()) => {
-                    self.now = Some(now);
-                    true
+                Some(now) => {
+                    self.writing.call_seen(&now);
+                    match self.now.as_deref() != Some(now.as_str()) {
+                        true => {
+                            self.now = Some(now);
+                            true
+                        }
+                        false => false,
+                    }
                 }
-                _ => false,
+                None => false,
             },
         };
         match changed {
@@ -106,6 +115,7 @@ impl Activity {
     /// A text with nothing in it changes nothing.
     pub(crate) fn said(&mut self, text: &str, every: Duration) -> Publish {
         let Some(line) = said_line(text) else { return Publish::Not };
+        self.writing.said_seen(text);
         if self.said.as_deref() == Some(line.as_str()) {
             return Publish::Not;
         }
@@ -161,6 +171,7 @@ impl Activity {
         self.now = None;
         self.said = None;
         self.subagents.clear();
+        self.writing.turn_began();
         self.unsent = false;
         self.sent_at = Some(Instant::now());
     }
@@ -177,6 +188,8 @@ impl Activity {
             todos: self.todos.clone(),
             said: self.said.clone(),
             subagents: self.subagents.clone(),
+            account: self.writing.account(),
+            live: self.writing.live(),
         };
         (held != SessionActivity::default()).then_some(held)
     }
@@ -391,6 +404,7 @@ where
                 }
             });
         }
+        fleet.account_wanted(&id);
         fleet.publish_step(id, step);
     }
 
@@ -424,6 +438,7 @@ where
     /// The agent's own text, as it is heard: its first line goes on the row, like `now`.
     pub(super) fn said_seen(self: &Arc<Self>, id: &str, text: &str) {
         let step = self.hosts().of(id).state().activity.said(text, self.hosts().activity_every());
+        self.account_wanted(id);
         self.publish_step(id.to_string(), step);
     }
 
