@@ -92,3 +92,16 @@ async fn the_branch_of_a_pull_request_the_session_held_is_deleted_though_no_slot
     assert_eq!(done.deleted_branches, vec![String::from("bridge/session-id-links")]);
     assert!(rig.fleet.vcs().deleted_branches().contains(&String::from("bridge/session-id-links")));
 }
+
+#[tokio::test]
+async fn a_released_slot_with_a_branch_leaves_a_release_row_in_the_thread() {
+    let (rig, id) = super::session_gate::in_its_slot(&crate::tests::peer::Placing::nothing()).await;
+
+    rig.fleet.finish_up(None, finish(&id)).await.unwrap();
+
+    assert!(rig
+        .rows(&id)
+        .await
+        .iter()
+        .any(|row| matches!(row, ipc::SessionRow::Release { slot: 1, .. })));
+}

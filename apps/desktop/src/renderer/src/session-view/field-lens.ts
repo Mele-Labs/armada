@@ -5,7 +5,7 @@
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import type { TimelineEvent } from "@armada/protocol";
 
-import { insideOf } from "../cockpit/deck/areas";
+import { insideOf, uncut } from "../cockpit/deck/areas";
 import type { Burst } from "../cockpit/deck/afterglow";
 import type { DroneIn } from "../cockpit/deck/layout";
 import { cardOf, lensOf, newestOf, writersOf, type LensDiff, type LensHunk, type Writer } from "../cockpit/deck/lens";
@@ -133,6 +133,9 @@ export function useLens(input: { session: string; drones: readonly DroneIn[]; pi
   }, [fileChange, session]);
 
   const pathsKey = [...new Set(writers.map((one) => one.path))].sort().join("|");
+  // The files written now, which a path Fleet cut short in an entry is matched against.
+  const wantedRef = useRef<readonly string[]>([]);
+  wantedRef.current = pathsKey.split("|").filter((one) => one !== "");
   useEffect(() => {
     asks.current?.want(active ? pathsKey.split("|").filter((one) => one !== "") : []);
   }, [active, pathsKey, fileChange, session]);
@@ -148,7 +151,8 @@ export function useLens(input: { session: string; drones: readonly DroneIn[]; pi
     for (const one of events) {
       if (one.id <= since || one.kind !== "session.edited") continue;
       for (const path of one.items ?? (one.detail === undefined ? [] : [one.detail])) {
-        const named = insideOf(path, roots);
+        const inside = insideOf(path, roots);
+        const named = inside === undefined ? undefined : uncut(inside, wantedRef.current);
         if (named !== undefined) asks.current?.edited(named);
       }
     }

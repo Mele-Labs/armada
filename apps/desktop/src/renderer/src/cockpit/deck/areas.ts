@@ -56,17 +56,41 @@ export function areaOf(path: string): string | undefined {
 const HOME = /^\/(?:Users|home)\/[^/]+\//;
 
 /**
+ * A checkout of the repository nested inside it: a Fleet slot, a Fleet worktree, or Claude Code's own. A terminal Job standing at the
+ * repository's root names its files under one of these, and the floor draws them at the repository's path.
+ */
+const NESTED = /^(?:\.armada\/slots\/slot-\d+|\.armada\/worktrees\/[^/]+|\.claude\/worktrees\/[^/]+)\//;
+
+/**
  * A path as the repository spells it, where it lies under one of these checkouts, in either spelling of the home directory.
- * A path under none is somebody else's file and comes back as it came, which no area claims.
+ * The deepest checkout wins, since a slot or a Job's directory lies under the repository's root. A path under none is
+ * somebody else's file and comes back as it came, which no area claims.
  */
 export function relativeTo(path: string, roots: readonly string[]): string {
-  for (const root of roots) {
-    const bare = root.replace(/\/+$/, "");
-    if (path.startsWith(`${bare}/`)) return path.slice(bare.length + 1);
+  const deepest = [...roots].map((root) => root.replace(/\/+$/, "")).sort((a, b) => b.length - a.length);
+  for (const bare of deepest) {
+    if (bare === "") continue;
+    if (path.startsWith(`${bare}/`)) return path.slice(bare.length + 1).replace(NESTED, "");
     const homed = bare.replace(HOME, "");
-    if (homed !== bare && path.startsWith(`~/${homed}/`)) return path.slice(homed.length + 3);
+    if (homed !== bare && path.startsWith(`~/${homed}/`)) return path.slice(homed.length + 3).replace(NESTED, "");
   }
-  return path;
+  return path.startsWith("/") || path.startsWith("~") ? path : path.replace(/^\.\//, "").replace(NESTED, "");
+}
+
+/**
+ * A path Fleet cut at its line limit, which ends in an ellipsis: the one file of `known` it can only be, else none. A path not cut
+ * comes back as it came.
+ */
+export function uncut(path: string, known: Iterable<string>): string | undefined {
+  if (!path.endsWith("…")) return path;
+  const head = path.slice(0, -1);
+  let found: string | undefined;
+  for (const one of known) {
+    if (!one.startsWith(head) || one === found) continue;
+    if (found !== undefined) return undefined;
+    found = one;
+  }
+  return found;
 }
 
 /** A path as the repository spells it, or none where it lies outside these checkouts: a plugin's notes, a scratch file. */

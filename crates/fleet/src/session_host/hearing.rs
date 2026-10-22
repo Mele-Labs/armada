@@ -16,7 +16,7 @@ use super::{address_of, Move, Runtime};
 use crate::daemon::Fleet;
 use crate::build_keeping::build_heard;
 use crate::build_record::Observed;
-use crate::timeline::{Act, Doer};
+use crate::timeline::{Doer, FileAct, Seen};
 
 /// How long after a turn ends a line Fleet wrote may take to begin the next one. A process takes a
 /// queued line at once, so a longer wait is a line it folded into the turn that just ended.
@@ -186,12 +186,19 @@ where
         self.background_heard(id, event).await;
         // A terminal session's own mod tells these; a hosted one is heard here.
         if let Some(done) = crate::timeline::tool_of(&**self.harness(), event) {
-            let doer = match self.store().lock().await.session(id) {
-                Ok(Some(session)) => Doer::of_session(&session),
-                _ => Doer::session(id, None, None),
+            let (doer, cwd) = match self.store().lock().await.session(id) {
+                Ok(Some(session)) => (Doer::of_session(&session), Some(session.cwd)),
+                _ => (Doer::session(id, None, None), None),
             };
-            let edited = matches!(done, crate::timeline::Seen::Did(Act::Edit, _));
-            self.timeline().seen(doer, done);
+            let edited = matches!(done, Seen::File(FileAct::Edit, _));
+            match done {
+                Seen::File(act, path) => {
+                    let file = self.file_named(cwd.as_deref(), &path);
+                    self.timeline().touched(doer, act, 1, Some(file));
+                }
+                Seen::Ran(command) => self.timeline().ran(doer, command),
+                Seen::Called(reach) => self.timeline().called(doer, reach),
+            }
             let heard = if edited { Observed::Edited } else { Observed::Worked };
             let now = self.now().as_str().to_string();
             let shown = build_heard(&mut *self.store().lock().await, id, &heard, &now).unwrap_or(false);

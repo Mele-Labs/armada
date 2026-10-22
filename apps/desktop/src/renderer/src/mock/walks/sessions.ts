@@ -24,7 +24,7 @@ function steps(narrow: boolean): Step[] {
     { press: role("radio", "Repository armada"), say: "In armada" },
     { key: "Enter", on: request, say: "The Job opens and the agent reads first" },
     { look: mode, say: "It runs in auto mode" },
-    { look: region("Leased on first write"), say: "Its first write leased a worktree slot and cut a branch, in the thread where it happened" },
+    { look: region("Slot leased"), say: "Its first write leased a worktree slot and cut a branch, in the thread where it happened" },
     ...opened([
       inLedger("Branch fix/flaky-store", "The ledger took the branch, with its slot as a chip"),
     ]),
@@ -43,6 +43,7 @@ function steps(narrow: boolean): Step[] {
     { later: thread, say: "Another Job writes to this one" },
     { look: region("Message from Release notes script"), say: "Set apart, with the sender's band" },
     { look: text("Replied to s2"), say: "The message woke it: it took a turn and replied" },
+    { look: region("Slot released"), say: "The slot given back, in the style of the lease: its number and the branch it was on" },
     { look: role("article", "Waiting on you"), say: "The permission opens in the Needs you panel. Auto asks only about a push, and this is one" },
     { press: button("Open Job Release notes script"), say: "The sender is a press" },
     { look: region("Job s2"), say: "It opens the Job that wrote" },

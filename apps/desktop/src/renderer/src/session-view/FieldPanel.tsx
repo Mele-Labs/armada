@@ -17,12 +17,12 @@ import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent }
 import { Maximize2 } from "lucide-react";
 import { Button, Tooltip, agoOf, boundKeyFor, useKeyBindings } from "@armada/components";
 import type { RepositorySummary, TimelineEvent } from "@armada/protocol";
-import type { Session, WorkDrone } from "@armada/screens/src/draft/sessions";
+import type { Session, WorkDrone, WorkFile } from "@armada/screens/src/draft/sessions";
 import { jobIdOf } from "@armada/shell";
 
 import { Battlefield } from "../cockpit/deck/Battlefield";
 import { useAreas } from "../cockpit/deck/areas-source";
-import { areaOf } from "../cockpit/deck/areas";
+import { areaOf, relativeTo } from "../cockpit/deck/areas";
 import { burstsOf, droneAt, glowAt, routeAt, type Burst } from "../cockpit/deck/afterglow";
 import { useClock } from "../cockpit/deck/clock";
 import { outpostsOf } from "../cockpit/deck/outposts";
@@ -35,7 +35,8 @@ import { same } from "../cockpit/deck/pixi/same";
 import { select } from "../cockpit/deck/store";
 import { useFleetEvents } from "../cockpit/fleet-events";
 import { useSessions } from "../sessions-draft";
-import { isWorking, touchedPlots, workingDrones } from "./field";
+import { touchedPlots, workingDrones } from "./field";
+import { flier, mainFileOf, rootedDrone, rootsOf } from "./field-drones";
 import { PlanBar } from "./FieldPlan";
 import { FieldStrip } from "./FieldStrip";
 import { FieldLensCard } from "./FieldLensCard";
@@ -64,57 +65,20 @@ function useSteady<T>(value: T): T {
   return kept.current;
 }
 
-/** The checkouts a Job's paths may be spelled under: the repository, each slot it held, and where it started. */
-function rootsOf(session: Session, root: string): string[] {
-  const slots = new Set<number>();
-  for (const one of session.attachments) if (one.kind === "slot" || one.kind === "branch") slots.add(one.slot);
-  for (const bay of session.trail?.bays ?? []) slots.add(bay.slot);
-  const bare = root.replace(/\/+$/, "");
-  return [...[...slots].map((slot) => `${bare}/.armada/slots/slot-${slot}`), bare, ...(session.cwd === undefined ? [] : [session.cwd])].filter((one) => one !== "");
-}
-
-/** A drone of the Field: the Job's own live, the Job's own as the slider left it, or another Job's. Only the first shows what it is doing. */
-function flier(session: Session, one: WorkDrone, root: string, as: "live" | "then" | "ghost"): DroneIn {
-  const own = `session:${session.id}`;
-  const ghost = as === "ghost";
-  const working = as === "live" && isWorking(session, one);
-  return {
-    key: one.agent === undefined ? own : `${own}/${one.id}`,
-    kind: "session",
-    title: one.agent ?? session.title ?? session.id,
-    root,
-    said: one.task ?? "Working",
-    hue: "calm",
-    spin: working,
-    hover: true,
-    ping: false,
-    stuck: false,
-    flare: false,
-    working,
-    // Another Job's drone shows where it is and nothing of what it is doing.
-    ...(one.path === "" || as !== "live" ? {} : { doing: one.doing, via: one.path }),
-    ...(one.agent === undefined ? {} : { parent: own }),
-    ...(one.file === undefined ? {} : { file: one.file }),
-    touches: one.path === "" ? [] : [{ path: one.file ?? one.path, w: 4 }],
-    shown: true,
-    ...(ghost ? { ghost: true as const } : {}),
-  };
-}
-
 const TOOL_KINDS: readonly TimelineEvent["kind"][] = ["session.read", "session.edited", "session.ran", "session.called"];
 
 /**
  * The Job's tool entries (reads, writes, commands and calls), its reads and writes alone and as bursts, and the slider's window of
  * them: the last two hours, as a replay's.
  */
-function useJobEvents(session: Session, roots: readonly string[], clock: number) {
+function useJobEvents(session: Session, roots: readonly string[], clock: number, known: readonly string[]) {
   const events = useFleetEvents();
   const rootsKey = roots.join("|");
   const job = useMemo(() => events.filter((one) => one.subject.kind === "session" && one.subject.id === session.id && TOOL_KINDS.includes(one.kind)), [events, session.id]);
   // The messages this Job sent and those sent to it: Fleet writes the sender as the subject and the receiver as `to`.
   const talk = useMemo(() => events.filter((one) => one.kind === "session.messaged" && ((one.subject.kind === "session" && one.subject.id === session.id) || one.to === session.id)), [events, session.id]);
   const mine = useMemo(() => job.filter((one) => one.kind === "session.read" || one.kind === "session.edited"), [job]);
-  const bursts = useMemo<Burst[]>(() => burstsOf(mine, session.id, roots), [mine, session.id, rootsKey]);
+  const bursts = useMemo<Burst[]>(() => burstsOf(mine, session.id, roots, known), [mine, session.id, rootsKey, known]);
   const held = useMemo(() => windowOf(mine, clock), [mine, clock]);
   return { job, mine, bursts, held, talk };
 }
@@ -130,19 +94,23 @@ function useJobField(session: Session, repositories: readonly RepositorySummary[
   const root = repository?.root ?? session.manifestId ?? "";
   const name = repository?.manifest?.repository ?? repository?.root.split("/").pop() ?? root;
   const roots = useSteady(rootsOf(session, root));
-  const { job, mine, bursts, held, talk } = useJobEvents(session, roots, clock);
+  // Fleet roots a touch at the Job's own directory, which for a terminal Job at the repository's root still names the slot or worktree.
+  const field = useSteady(useMemo(() => work?.field?.map((one) => rootedDrone(one, roots)), [work?.field, roots]));
+  const named = useSteady(useMemo(() => work?.files?.map((one): WorkFile => ({ ...one, path: relativeTo(one.path, roots) })), [work?.files, roots]));
+  const known = useSteady(useMemo(() => (named ?? []).map((one) => one.path), [named]));
+  const { job, mine, bursts, held, talk } = useJobEvents(session, roots, clock, known);
   const now = at ?? clock;
 
   // Before any drone has work the floor has the Job's own drone alone, at rest. Only the subagents at work are drawn. Scrubbed back, the
   // Job's drone stands at the file of its last read or write before then, and its subagents, which no burst places, are left off.
-  const working = useMemo(() => workingDrones(session, work?.field), [session, work?.field]);
-  // Live, the Job's drone stands at the file it last read or wrote, where Fleet's bursts name one, else at the file its touches last name.
-  const lastFile = bursts.at(-1)?.paths[0];
+  const working = useMemo(() => workingDrones(session, field), [session, field]);
+  // Live, the Job's drone stands at the file it last read or wrote: the newer of its last touch and its last burst.
+  const touch = field?.find((one) => one.agent === undefined);
+  const { at: standsAt, written } = mainFileOf(touch, bursts);
   const live = useSteady<readonly WorkDrone[]>(
-    (working === undefined || working.length === 0 ? RESTING : working).map((one) => (one.agent !== undefined || lastFile === undefined ? one : { ...one, path: areaOf(lastFile) ?? one.path, file: lastFile })),
+    (working === undefined || working.length === 0 ? RESTING : working).map((one) => (one.agent !== undefined || standsAt === undefined ? one : { ...one, path: areaOf(standsAt) ?? one.path, file: standsAt })),
   );
-  const mainFile = live.find((one) => one.agent === undefined)?.file;
-  const { now: mainState, lights, walk } = useMainNow(session, job, roots, clock, mainFile);
+  const { now: mainState, lights, walk } = useMainNow(session, job, roots, clock, written, known);
   const then = at === undefined ? undefined : droneAt(bursts, at);
   const drones = useSteady<readonly WorkDrone[]>(at === undefined ? live : then === undefined ? RESTING : [{ id: "main", path: areaOf(then.path) ?? "", doing: then.act, file: then.path }]);
 
@@ -155,7 +123,6 @@ function useJobField(session: Session, repositories: readonly RepositorySummary[
   const touched = useSteady(useMemo(() => touchedPlots(areas, paths), [areas, paths]));
 
   // The files drawn as bars: those the Job names, then each one glowing or on the route, so the glow and the route have a bar to stand on.
-  const named = work?.files;
   const files = useSteady(
     useMemo<FileIn[]>(() => {
       const out = new Map<string, FileIn>((named ?? []).map((one) => [one.path, one]));
@@ -177,7 +144,10 @@ function useJobField(session: Session, repositories: readonly RepositorySummary[
   const ghosts = useSteady(
     sessions
       .filter((one) => one.id !== session.id && one.helm !== true && one.dead === undefined && one.replacedBy === undefined && one.waits === undefined && (one.manifestId === undefined ? one.cwd === root : one.manifestId === session.manifestId))
-      .flatMap((one) => (workingDrones(one, one.work?.field) ?? RESTING).map((drone) => flier(one, drone, root, "ghost"))),
+      .flatMap((one) => {
+        const theirs = rootsOf(one, root);
+        return (workingDrones(one, one.work?.field) ?? RESTING).map((drone) => flier(one, rootedDrone(drone, theirs), root, "ghost"));
+      }),
   );
   // A message to or from another Job while fresh, read on the clock's step and not between: an arc to its drone, which comes up to full
   // strength, and a word on the strip. None while scrubbed back, which stands the Job as it was.
@@ -188,7 +158,7 @@ function useJobField(session: Session, repositories: readonly RepositorySummary[
     const linked = new Set(links.map((one) => one.other));
     return linked.size === 0 ? ghosts : ghosts.map((one) => (linked.has(one.key) ? { ...one, linked: true as const } : one));
   }, [ghosts, links]));
-  const strip = useSteady(stripOf(session, mainState, work?.field, talking.word));
+  const strip = useSteady(stripOf(session, mainState, field, talking.word));
   const flying = useSteady(useMemo(() => [...others, ...own], [others, own]));
   const framing = useSteady(own.map((one) => one.key));
 

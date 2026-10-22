@@ -174,7 +174,7 @@ export type PlanChanges = { added: readonly string[]; renamed: readonly { id: st
 export type WorkPlan = { /** The version the agent recorded, which approving and sending changes name. */ version?: number; scope: readonly string[]; groups: readonly WorkGroup[]; approved: boolean; /** What changed since the plan before this one. */ changes?: PlanChanges; /** The sketch drawn with the plan, if the agent drew one. */ sketch?: WorkSketch; /** The thread row that recorded it, which the approved plan settles after. */ after?: string };
 
 /** A drone of this Session over the area it is working in: the Session's own, or a subagent of `agent` type. */
-export type WorkDrone = { id: string; agent?: string; task?: string; path: string; doing: "read" | "write" | "run"; /** The file it is over, which the Field draws as a bar. */ file?: string };
+export type WorkDrone = { id: string; agent?: string; task?: string; path: string; doing: "read" | "write" | "run"; /** The file it is over, which the Field draws as a bar. */ file?: string; /** When Fleet saw it touch that file. */ at?: string };
 
 /** A file of the repository as the Field draws it, a bar on the plot of its directory. `act` is what is being done to it now: made, changed or taken away. */
 export type WorkFile = { path: string; act?: "write" | "edit" | "remove" };
@@ -306,6 +306,8 @@ type SessionRowKinds =
   | { id: string; at: string; kind: "disputed"; notice: string; why: string; spotted: "called" | "read"; review?: string }
   /** The agent's first write: the slot leased and the branch cut, drawn in the thread where it happened. */
   | { id: string; at: string; kind: "lease"; slot: number; branch: string }
+  /** The slot given back, drawn in the thread where it happened. */
+  | { id: string; at: string; kind: "release"; slot: number; branch: string }
   /** A value the person changed through a panel, which the agent was told of: what it was and what it is now. */
   | { id: string; at: string; kind: "change"; what: string; from: string; to: string }
   /** A judge's concern he dismissed: one settled line, and the agent was told nothing. */
