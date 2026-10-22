@@ -7,7 +7,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { TimelineEvent } from "@armada/protocol";
 import { owesOf, standingOf, type Session, type WorkDrone } from "@armada/screens/src/draft/sessions";
 
-import { insideOf, relativeTo } from "../cockpit/deck/areas";
+import { insideOf } from "../cockpit/deck/areas";
 import type { DroneIn } from "../cockpit/deck/layout";
 import { THINK_MS, burstOf, quietAt, callingOf, lastToolAt, lightsOf, mainNow, messageWord, subagentNow, wordOf, type CheckRecord, type Light, type LinkIn, type Message, type Now } from "../cockpit/deck/off-floor";
 import type { Play } from "../cockpit/deck/plays";
