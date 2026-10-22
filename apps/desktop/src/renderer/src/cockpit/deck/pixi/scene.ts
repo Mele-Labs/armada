@@ -113,8 +113,8 @@ export type PadSpec = {
   w: number;
   d: number;
   lights: readonly (Light & { at: Point })[];
-  /** The light of the failing check, and the bar of the file its record names. None where no record names a file the Field draws. */
-  blame: readonly { from: Point; bar: string }[];
+  /** The light of the failing check, its name, the bar of the file Fleet read from its log and the line. None where it read no file the Field draws. */
+  blame: readonly { from: Point; bar: string; check: string; line?: number }[];
 };
 
 /**
@@ -348,7 +348,7 @@ function dronesOf(i: SceneInputs): DroneSpec[] {
   return out;
 }
 
-/** The Job's pad: a light for each check spread along its front edge, and a line from each failing one whose record names a file the Field draws. */
+/** The Job's pad: a light for each check spread along its front edge, and a line from each failing one to the file Fleet read from its log, where the Field draws it. */
 export function padOf(layout: Layout, lights: readonly Light[]): PadSpec | undefined {
   const rect = layout.territories.find((one) => one.pad !== undefined)?.pad;
   if (rect === undefined) return undefined;
@@ -359,7 +359,7 @@ export function padOf(layout: Layout, lights: readonly Light[]): PadSpec | undef
     w: rect.w,
     d: rect.h * FLAT,
     lights: placed,
-    blame: placed.flatMap((one) => (one.state === "bad" && one.blame !== undefined && layout.bars.has(one.blame) ? [{ from: one.at, bar: one.blame }] : [])),
+    blame: placed.flatMap((one) => (one.state === "bad" && one.blame !== undefined && layout.bars.has(one.blame) ? [{ from: one.at, bar: one.blame, check: one.name, ...(one.line === undefined ? {} : { line: one.line }) }] : [])),
   };
 }
 

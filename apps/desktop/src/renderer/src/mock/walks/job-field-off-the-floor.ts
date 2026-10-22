@@ -1,5 +1,5 @@
 // One Job played through on its Field: its drone leaves the code floor when it is not coding. It thinks over its last file, a subagent
-// lifts off it, it lands on the pad to run checks, a failing check draws a line to the file its record names, it walks the app with a
+// lifts off it, it lands on the pad to run checks, a failing check draws a line to the file Fleet read from its log, it walks the app with a
 // window over the pad, calls the forge, and waits on you. The strip over the Field says what each drone is doing. Over the
 // `job-field-off-the-floor` scenario.
 
@@ -20,7 +20,7 @@ export const jobFieldOffTheFloor = walk("job-field-off-the-floor", [
   { later: main(/Reading wire\.ts$/), say: "The Job's drone is reading wire.ts. Now it runs checks" },
   { look: main(/Running checks$/), say: "It lands on the pad. A light for each check along the pad's front edge: two green, the tests pulsing while they run" },
   { later: main(/Running checks$/), say: "The tests fail" },
-  { look: field, say: "Their light is red, and a red dashed line runs from it to the test file the check's record names, outlined in red. The drone leaves the pad" },
+  { look: field, say: "Their light is red, and a red dashed line runs from it to layout.ts, outlined in red: Fleet read from the log that the test failed at layout.ts:142, not in the test file. Hover the file and its card says so. The drone leaves the pad" },
   { later: field, say: "A fix to layout.ts, and the checks run again" },
   { look: main(/Running checks$/), say: "Back on the pad. The lights of the checks not yet run again are unlit, and the red line is gone" },
   { later: main(/Running checks$/), say: "All three pass, and the subagent finishes" },

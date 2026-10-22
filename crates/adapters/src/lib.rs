@@ -48,6 +48,7 @@ mod base;
 mod basing;
 pub mod browser_shell;
 mod build_standing;
+pub mod check_blame;
 mod checkout_send;
 mod ci_workflows;
 pub mod clash;
