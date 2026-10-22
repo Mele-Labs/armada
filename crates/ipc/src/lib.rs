@@ -483,7 +483,7 @@ pub use slot_asking::{
     AskForSlot, AskForSlotAct, SlotAsked, SlotAskStanding,
 };
 pub use session_checks::{
-    SessionCheckAct, SessionCheckAnswer, SessionCheckCall, SessionCheckOutputMessage,
+    CheckBlame, SessionCheckAct, SessionCheckAnswer, SessionCheckCall, SessionCheckOutputMessage,
     SessionCheckOutputOpened, SessionCheckState, SessionCheckStop,
 };
 pub use session_retro_row::{

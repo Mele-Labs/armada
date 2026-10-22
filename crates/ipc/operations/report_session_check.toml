@@ -10,7 +10,7 @@ notes = """
 
 **`armada check` runs in the caller's own process and keeps no record**, so it tells Fleet at both ends and nothing else. Fleet resolves `cwd` to the pool slot it stands in and then to the Job that holds that slot, the way the ledger places a terminal Job, and never by anything the call claims. `run` is absent where no Job holds the slot, which is a person's own run and not a refusal.
 
-A run is a `check` row on the Session's thread, replaced by id as it ends, and a row on the Checks page with the `session` requester and no Job. Each change publishes `session.changed`. The log is kept whole up to 256 KiB, newest end first when cut, and read by `get_session_check_output`. A run whose process was killed stays `running` until its Session ends, then fails.
+A run is a `check` row on the Session's thread, replaced by id as it ends, and a row on the Checks page with the `session` requester and no Job. Each change publishes `session.changed`. A failed run's row carries `blame` `{ path, line? }`, the first location its log names in the slot, a source file before a test file, read once as the run ends and absent where the log names none. The log is kept whole up to 256 KiB, newest end first when cut, and read by `get_session_check_output`. A run whose process was killed stays `running` until its Session ends, then fails.
 
 `agent_access` is `No`: an agent reaches this only by running `armada check`, which tells Fleet itself.
 """

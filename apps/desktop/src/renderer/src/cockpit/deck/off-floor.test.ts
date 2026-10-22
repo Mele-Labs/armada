@@ -6,35 +6,40 @@ import { expect, test } from "vitest";
 import type { TimelineEvent } from "@armada/protocol";
 
 import { FRESH_MS } from "./doing";
-import { THINK_MS, fileNamed, lightsOf, mainNow, messageWord, messagesOf, quietAt, subagentNow, wordOf, type CheckRecord } from "./off-floor";
+import { blameSaid } from "./tip";
+import { THINK_MS, lightsOf, mainNow, messageWord, messagesOf, quietAt, subagentNow, wordOf, type CheckRecord } from "./off-floor";
 
 type NowInput = Parameters<typeof mainNow>[0];
 
 const at = (s: number) => new Date(Date.UTC(2026, 9, 22, 12, 0, s)).toISOString();
 const TEST = "apps/desktop/src/renderer/src/cockpit/deck/layout.test.ts";
+const BLAME = { path: "apps/desktop/src/renderer/src/cockpit/deck/layout.ts", line: 142 };
 
 test("a light is unlit before its check starts in this round, then running, passed or failed by the newest run since the last edit", () => {
   const first: CheckRecord[] = [
     { name: "fmt", at: at(1), state: "passed" },
     { name: "lint", at: at(2), state: "passed" },
-    { name: "test", at: at(3), state: "running", target: TEST },
+    { name: "test", at: at(3), state: "running" },
   ];
   expect(lightsOf(first, Date.parse(at(0))).map((one) => [one.name, one.state])).toEqual([["fmt", "ok"], ["lint", "ok"], ["test", "run"]]);
-  const failed = [...first.slice(0, 2), { name: "test", at: at(3), state: "failed" as const, target: TEST }];
-  expect(lightsOf(failed, undefined).at(-1)).toEqual({ name: "test", state: "bad", blame: TEST });
+  const failed = [...first.slice(0, 2), { name: "test", at: at(3), state: "failed" as const, blame: BLAME }];
+  expect(lightsOf(failed, undefined).at(-1)).toEqual({ name: "test", state: "bad", blame: BLAME.path, line: 142 });
   // An edit at 10 seconds starts a new round: fmt runs again and the two not yet run are unlit, in the order they first ran.
   const again = [...failed, { name: "fmt", at: at(11), state: "running" as const }];
   expect(lightsOf(again, Date.parse(at(10)))).toEqual([{ name: "fmt", state: "run" }, { name: "lint", state: "idle" }, { name: "test", state: "idle" }]);
 });
 
-test("a failing check blames a file only where its record names one: a filter, a crate list or a passing check blames none", () => {
-  expect(fileNamed(TEST)).toBe(TEST);
-  expect(fileNamed("fleet, store")).toBeUndefined();
-  expect(fileNamed("the_retry_test")).toBeUndefined();
-  expect(fileNamed("crates/fleet")).toBeUndefined();
+test("a failing check blames only the file Fleet read from its log: one with only a target, or a passing one, blames none", () => {
+  // The run was narrowed to the test file, and Fleet read no location from its log: no line is drawn, never a guess from the target.
+  type WithTarget = CheckRecord & { target?: string };
+  const narrowed: WithTarget[] = [{ name: "test", at: at(1), state: "failed", target: TEST }];
+  expect(lightsOf(narrowed, undefined)).toEqual([{ name: "test", state: "bad" }]);
   expect(lightsOf([{ name: "test", at: at(1), state: "failed" }], undefined)).toEqual([{ name: "test", state: "bad" }]);
-  expect(lightsOf([{ name: "test", at: at(1), state: "failed", target: "fleet, store" }], undefined)).toEqual([{ name: "test", state: "bad" }]);
-  expect(lightsOf([{ name: "test", at: at(1), state: "passed", target: TEST }], undefined)).toEqual([{ name: "test", state: "ok" }]);
+  expect(lightsOf([{ name: "test", at: at(1), state: "failed", blame: { path: BLAME.path } }], undefined)).toEqual([{ name: "test", state: "bad", blame: BLAME.path }]);
+  expect(lightsOf([{ name: "test", at: at(1), state: "passed", blame: BLAME }], undefined)).toEqual([{ name: "test", state: "ok" }]);
+  // The file's card says the line where the log named one.
+  expect(blameSaid("test", BLAME.path, 142)).toBe("test failed at layout.ts:142");
+  expect(blameSaid("test", BLAME.path, undefined)).toBe("test failed at layout.ts");
 });
 
 const idle: NowInput = { working: false, walk: undefined, checking: false, quiet: false, call: undefined, burst: undefined, file: undefined, owed: false, done: false };

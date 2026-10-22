@@ -4,7 +4,7 @@
 
 import { onPlane } from "../bf-parts";
 import { FLAT, type Bar, type Tile } from "../layout";
-import { FILE_SAID, clashLines, type Tip } from "../tip";
+import { FILE_SAID, blameSaid, clashLines, type Tip } from "../tip";
 import { pillAt } from "../pills";
 import { project, unproject, type View } from "./project";
 import type { PixiSceneIn } from "./scene";
@@ -57,7 +57,12 @@ function slabFaces(view: View, tile: Tile, height: number): Corner[][] {
   ];
 }
 
-const barTip = (bar: Bar): Tip => ({ label: FILE_SAID[bar.act ?? "rest"], title: bar.path, hue: "quiet" });
+const barTip = (bar: Bar, blamed: { check: string; line?: number } | undefined): Tip => ({
+  label: FILE_SAID[bar.act ?? "rest"],
+  title: bar.path,
+  hue: blamed === undefined ? "quiet" : "bad",
+  ...(blamed === undefined ? {} : { lines: [blameSaid(blamed.check, bar.path, blamed.line)] }),
+});
 
 /** What lies under a point of the pane, nearest the viewer first: a file's bar, a plot, a base. */
 export function plateAt(scene: PixiSceneIn, view: View, x: number, y: number): Plate | undefined {
@@ -66,7 +71,7 @@ export function plateAt(scene: PixiSceneIn, view: View, x: number, y: number): P
   const heightOf = (path: string) => scene.heights.get(path) ?? 0;
   for (const bar of scene.layout.bars.values()) {
     const { rect } = bar;
-    if (within(flat(view, rect.x, rect.y * FLAT, rect.x + rect.w, (rect.y + rect.h) * FLAT, heightOf(bar.tile.path) + 10), x, y)) return { key: `bar:${bar.path}`, tip: barTip(bar) };
+    if (within(flat(view, rect.x, rect.y * FLAT, rect.x + rect.w, (rect.y + rect.h) * FLAT, heightOf(bar.tile.path) + 10), x, y)) return { key: `bar:${bar.path}`, tip: barTip(bar, scene.pad?.blame.find((one) => one.bar === bar.path)) };
   }
   for (let i = tiles.length - 1; i >= 0; i -= 1) {
     const tile = tiles[i]!;
