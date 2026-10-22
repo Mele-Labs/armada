@@ -4,7 +4,7 @@
 
 import type { TimelineEvent } from "@armada/protocol";
 
-import { relativeTo } from "./areas";
+import { relativeTo, uncut } from "./areas";
 import { inOrder } from "./replay";
 
 export type Act = "read" | "write";
@@ -27,14 +27,20 @@ const STEPS = 40;
 /** The most stops the route draws, the newest. */
 export const MOST_STOPS = 12;
 
-/** The Job's bursts, oldest first, with each path made relative to the checkouts it may be spelled under. */
-export function burstsOf(events: readonly TimelineEvent[], session: string, roots: readonly string[]): Burst[] {
+/**
+ * The Job's bursts, oldest first, with each path made relative to the checkouts it may be spelled under. A path Fleet cut short is the
+ * one file of `known` it can only be, else left out, since no bar has its name.
+ */
+export function burstsOf(events: readonly TimelineEvent[], session: string, roots: readonly string[], known: readonly string[] = []): Burst[] {
   const out: Burst[] = [];
   for (const event of inOrder(events)) {
     if (event.subject.kind !== "session" || event.subject.id !== session) continue;
     if (event.kind !== "session.read" && event.kind !== "session.edited") continue;
     const named = event.items ?? (event.detail === undefined ? [] : [event.detail]);
-    const paths = named.map((path) => relativeTo(path, roots)).filter((path) => path !== "");
+    const paths = named.flatMap((path) => {
+      const one = uncut(relativeTo(path, roots), known);
+      return one === undefined || one === "" ? [] : [one];
+    });
     if (paths.length > 0) out.push({ at: Date.parse(event.at), act: event.kind === "session.read" ? "read" : "write", paths });
   }
   return out;
