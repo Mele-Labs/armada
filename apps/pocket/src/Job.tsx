@@ -7,7 +7,7 @@ import type { HelmCallAnswer, QuestionAnswer, WaitingItem } from "@armada/protoc
 import { lapsedAnswerText } from "@armada/screens/src/sessions-wire";
 
 import { holderOf, macOf, start, useFleet } from "./fleet";
-import { actsOn, attempt, useJob, type Acts } from "./job";
+import { actsOn, attempt, useJob, type Acts } from "./jobState";
 import type { Machine } from "./machines";
 import { filePath, go, jobPath, sketchPath } from "./router";
 import { approvalOf, askedOf, asksOf, rowsOf, sessionOfThread } from "./thread";

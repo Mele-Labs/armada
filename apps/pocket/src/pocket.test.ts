@@ -1,8 +1,9 @@
+import { readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import { ago, homeOf, type Mac } from "./fleet";
 import type { PhoneSession } from "./gateway";
-import { codeFromInput, linkOf } from "./pair";
+import { codeFromInput, linkOf } from "./pairing";
 import { routeOf } from "./router";
 import { bytesOf } from "./push";
 import { SseParser } from "./sse";
@@ -118,5 +119,13 @@ describe("homeOf", () => {
     const home = homeOf({ macs: [mac("https://a", { live: [session("a1", { working: true, waiting: true }), session("a2", { working: true })] })] });
     expect(home.running.map((one) => one.session.id)).toEqual(["a2"]);
     expect(home.several).toBe(false);
+  });
+});
+
+describe("the source folder", () => {
+  // Vite tries `.ts` before `.tsx`, so on a Mac `./Pair` finds pair.ts and the build breaks.
+  it("has no two files that differ only in case or extension", () => {
+    const stems = readdirSync(new URL(".", import.meta.url)).map((name) => name.replace(/\.[^.]+$/, "").toLowerCase());
+    expect(stems.filter((stem, at) => stems.indexOf(stem) !== at)).toEqual([]);
   });
 });

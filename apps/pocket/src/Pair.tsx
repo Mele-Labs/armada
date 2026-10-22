@@ -7,7 +7,7 @@ import { Button } from "@armada/components";
 
 import { refusal } from "./client";
 import { addMac, macOf, useFleet } from "./fleet";
-import { claim, defaultName, linkOf, named, waitForConfirm } from "./pair";
+import { claim, defaultName, linkOf, named, waitForConfirm } from "./pairing";
 import { subscribe } from "./push";
 import { go } from "./router";
 import { Band, Trouble } from "./ui";
