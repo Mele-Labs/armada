@@ -70,8 +70,10 @@
 /* The callout's line for it. */
 .bf-callout__doing { display: flex; align-items: center; gap: var(--space-2); color: var(--fg-default); font-size: var(--text-xs); line-height: var(--leading-xs); }
 .bf-callout__path { min-width: 0; overflow: hidden; color: var(--fg-muted); font-family: var(--font-mono); font-size: var(--text-2xs); text-overflow: ellipsis; white-space: nowrap; }
-/* The card takes the pointer, so the pointer can cross to it and stay; a step's card, pressed open, can be pressed. */
-.bf-callout .bf-callout__card { pointer-events: auto; }
+/* The card takes the pointer once the pointer has reached it (`Callout.tsx`), so the pointer can stay on it and it blocks no drone
+   before then; a step's card, pressed open, can be pressed. */
+.bf-callout[data-reached] .bf-callout__card,
+.bf-callout[data-pinned] .bf-callout__card { pointer-events: auto; }
 /* Floated over the app while the pointer or focus is in a Job's Field: in the window, over the panels, and the map's own unit with it. */
 .bf-callout[data-float] { --bf-u: var(--border-width); position: fixed; z-index: var(--z-tooltip); }
 .bf-callout[data-node] .bf-callout__card { width: max-content; max-width: calc(100% - calc(20 * var(--bf-u))); padding: var(--space-2) var(--space-3) var(--space-3); }
