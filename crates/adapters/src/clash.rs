@@ -54,6 +54,18 @@ pub fn changed_on(worktree: &Path, tip: &str) -> Result<Vec<String>, NotChecked>
         .collect())
 }
 
+/// The paths that differ between the commits `from` and `to`, as a repository at `repo` holds them.
+/// Deleted paths and both sides of a rename are named: a test that reached a file is stale whether
+/// the file changed or went.
+pub fn changed_between(repo: &Path, from: &str, to: &str) -> Result<Vec<String>, NotChecked> {
+    let listed = git(repo, &["diff", "--name-only", "--no-renames", "-z", from, to])?;
+    Ok(listed
+        .split('\0')
+        .filter(|name| !name.is_empty())
+        .map(str::to_string)
+        .collect())
+}
+
 /// The paths the worktree as it stands changed since it and `base` last met: its commits and what
 /// it has not committed yet.
 pub fn changed_here(worktree: &Path, base: &str) -> Result<Vec<String>, NotChecked> {
