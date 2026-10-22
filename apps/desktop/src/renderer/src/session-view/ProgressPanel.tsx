@@ -12,10 +12,13 @@ import { Button, Tooltip, type TurnAccount } from "@armada/components";
 import type { Session, SessionWork, SessionWorkActs } from "@armada/screens/src/draft/sessions";
 
 import { AskUpdate } from "../cockpit/deck/AskUpdate";
+import { remindLater } from "../cockpit/deck/acts";
 import { accountGroupOf, accountOf } from "../session-activity";
+import { useSessionsDraft } from "../sessions-draft";
 import { AgentTasks } from "./AgentTasks";
 import { AddGroup, SendChanges, type PlanEditing } from "./PlanEdit";
 import { IssueChips, IssuesBlock, issuesOf, issuesOutsidePlan } from "./IssuesBlock";
+import { LaterBlock } from "./LaterBlock";
 import { Group, StepMark } from "./PlanGroup";
 import { StepSegments, stepsOf } from "./PlanSteps";
 import { Fold } from "./ProgressFold";
@@ -55,7 +58,9 @@ export function ProgressPanel({ work, place, id, session, manifestId, acts, ed, 
   const { issues, loose } = issuesOf(session);
   const account = accountOf(session);
   const workingGroup = accountGroupOf(session)?.id;
-  const bare = account === undefined && issues.length === 0 && loose.length === 0 && !planned && tasks.length === 0 && atWork.length === 0 && flow === undefined && work.railOff !== true && work.proposal?.workflow === null && acts !== undefined;
+  const draft = useSessionsDraft();
+  const later = session.later ?? [];
+  const bare = account === undefined && issues.length === 0 && later.length === 0 && loose.length === 0 && !planned && tasks.length === 0 && atWork.length === 0 && flow === undefined && work.railOff !== true && work.proposal?.workflow === null && acts !== undefined;
   const take = progressTake();
   const groups = plan === undefined || ed === undefined ? [] : viewOf(plan, ed.marks);
   const steps = stepsOf(groups, plan?.approved === true, workingGroup);
@@ -159,6 +164,7 @@ export function ProgressPanel({ work, place, id, session, manifestId, acts, ed, 
   return (
     <SvPanel label="Progress" area="progress" place={place} state={state} acts={bar} empty={bare} {...(rail === undefined ? {} : { rail })}>
       {take === "folded" ? folded : zoned}
+      {later.length === 0 ? null : <LaterBlock later={later} onRemind={(sentence) => void remindLater(draft, id, sentence)} onDrop={(one) => draft?.dropLater?.(id, one.id)} />}
     </SvPanel>
   );
 }

@@ -18,6 +18,8 @@
 //!
 //! **So is one that repeats the plan he has not approved**, which `plan_asks.rs` reads with the model.
 //!
+//! **And one he could not act on**, once `clarity::IN_FORCE`: a status, a pointer, or no verb aimed at him.
+//!
 //! **A question asked in the walk window waits until answered**, read off its row as `window_ask:<row>`.
 //!
 //! **A dismissed id never comes back**, save a walk the job shows again, which `show_window` lifts.
@@ -44,6 +46,7 @@ use store::{KeptSession, KeptWaiting, Store};
 
 use crate::daemon::Fleet;
 use crate::session_host::asking_in_window::WINDOW_ASK_PREFIX;
+use crate::session_host::clarity::{first_unclear, unclear_item_refusal, IN_FORCE as CLARITY_IN_FORCE};
 use crate::session_host::walk_asks::{asks_to_walk, walk_item_refusal};
 use crate::session_host::UNSENT_ITEM;
 
@@ -51,6 +54,7 @@ const SESSION_WAITING_UNNAMED: &str = "fleet.session_waiting_unnamed";
 const SESSION_WAITING_EMPTY: &str = "fleet.session_waiting_empty";
 const SESSION_WAITING_UNHELD: &str = "fleet.session_waiting_unheld";
 const SESSION_WAITING_WALK: &str = "fleet.session_waiting_walk";
+const SESSION_WAITING_UNCLEAR: &str = "fleet.session_waiting_unclear";
 
 /// The last line of a message answering an agent item: it need not say the item again. It says the
 /// item is settled outright, since a bare "took this off" read as a removal to undo, and agents
@@ -367,6 +371,11 @@ where
             let read = self.refusal_reads().read_of(super::tell_refusal::read, model, &session.id, said)?;
             super::tell_refusal::refusal(&read, said)
         };
+        // Each sentence of the close, the same way: nothing until the model has read the reply.
+        let extracted = |said: &str| {
+            let model = self.language_model().model()?;
+            self.extract_reads().read_of(super::extracting::read, model, &session.id, said)
+        };
         let seen = super::standing::Seen {
             helm,
             running,
@@ -380,6 +389,7 @@ where
             done: done.as_deref(),
             dismissed: &dismissed,
             asks: &|said| self.reply_reads().asking_line(super::asks_model::SHIPPED, self.language_model().model(), &session.id, said),
+            extracted: super::extracting::IN_FORCE.then_some(&extracted),
             // Only the first reply after the tell is read for a refusal of it.
             tell: tell
                 .as_ref()
@@ -469,8 +479,10 @@ where
                 _ => None,
             }));
             // The done and a reply that asks are read off the turn, so a Session whose agent never
-            // called a tool still reaches the person. Not when it already asked through one.
-            let called = items.iter().any(|one| {
+            // called a tool still reaches the person. Not when it already asked through one, while
+            // the sentence readers are off: in force they read the reply whatever is listed, and a
+            // repeat of a listed item is folded below.
+            let called = !super::extracting::IN_FORCE && items.iter().any(|one| {
                 matches!(
                     one.source,
                     WaitingSource::Agent
@@ -481,6 +493,16 @@ where
                 )
             });
             items.extend(super::standing::derived(&super::standing::Seen { called, ..seen }));
+            // Items that are one ask by more than one door are one row, once the model is loaded.
+            // An item it has not embedded yet is kept this read; `standing_tick` publishes the Session
+            // again once it is.
+            if super::dedup::IN_FORCE && items.len() > 1 {
+                if let Some(model) = self.language_model().model() {
+                    let texts: Vec<&str> = items.iter().map(|one| one.text.as_str()).collect();
+                    let known = self.item_vectors().known(model, &session.id, &texts);
+                    items = super::dedup::folded(items, |text| known.get(text).cloned(), super::dedup::FOLDS_AT);
+                }
+            }
         }
         let settled = concerns
             .iter()
@@ -509,6 +531,13 @@ where
             if asks_to_walk(&item.id, &item.text, item.act.as_ref().map(|act| act.kind)) {
                 return Err(self.hosted_refusal(SESSION_WAITING_WALK, &walk_item_refusal(item.id.trim())));
             }
+        }
+        let unclear = set.items.iter().map(|item| {
+            let runs = item.act.as_ref().is_some_and(|act| act.kind == WaitingActKind::Run && !act.target.trim().is_empty());
+            (item.id.trim(), item.text.trim(), runs)
+        });
+        if let Some((item, why)) = first_unclear(unclear, CLARITY_IN_FORCE) {
+            return Err(self.hosted_refusal(SESSION_WAITING_UNCLEAR, &unclear_item_refusal(item, why)));
         }
         let said = set.items.iter().map(|item| (item.id.trim().to_string(), item.text.trim().to_string())).collect();
         self.plan_repeated(&id, said).await?;
@@ -593,6 +622,7 @@ where
             if session.state == store::SessionState::Ended {
                 return Err(self.closed(&id));
             }
+            self.later_holds_done(&store, &id)?;
             store
                 .keep_done(&id, &now)
                 .map_err(|why| self.ledger_fault(why))?;

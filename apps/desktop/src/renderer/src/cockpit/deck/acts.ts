@@ -39,6 +39,15 @@ export async function askForUpdate(draft: SessionsDraft | undefined, sessionId: 
   return (await draft.send(sessionId, { text: ASK_FOR_UPDATE, files: [], sketches: [], tags: [] })) !== false;
 }
 
+/** What a Later row's Remind sends: the sentence the agent said it would act on, quoted back, and the three ways to settle it. */
+export const remindText = (sentence: string): string => `You said: "${sentence}" Do it, file it, or drop it with a reason.`;
+
+/** Reminds a Session of a follow-up it kept, through the route its composer sends with. Resolves whether Fleet took it, as `askForUpdate` does. */
+export async function remindLater(draft: SessionsDraft | undefined, sessionId: string, sentence: string): Promise<boolean> {
+  if (draft === undefined) return false;
+  return (await draft.send(sessionId, { text: remindText(sentence), files: [], sketches: [], tags: [] })) !== false;
+}
+
 /** The acts over what they are made of. Pure, so what each does and does not reach is held by a test. */
 export function actsOf(draft: SessionsDraft | undefined, hosts: Hosts): Acts {
   const { onOpenSession } = hosts;

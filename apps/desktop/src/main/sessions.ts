@@ -34,6 +34,8 @@ import type {
   ApprovePlan,
   ChangeWaiting,
   ClaimIssue,
+  LaterSettled,
+  SettleLater,
   ClaimPullRequest,
   DismissConcern,
   DismissWaiting,
@@ -576,6 +578,11 @@ export class SessionsHost {
     if (port === null) return { ok: false, outcome: NOT_CONNECTED };
     const answer = await ask(port, "POST", "/sessions/claim_issue", claim);
     return answer.ok === true ? { ok: true, value: answer.body as IssueClaimed } : { ok: false, outcome: answer.outcome };
+  }
+
+  /** A follow-up a Session kept, settled. The row without it is published by Fleet, so nothing is folded here. */
+  async settleLater(settle: SettleLater): Promise<SessionActed<LaterSettled>> {
+    return await this.asked("/sessions/settle_later", settle);
   }
 
   /** The proposer's reading of a brief that tags a Session. Nothing is held from it. */

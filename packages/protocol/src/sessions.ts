@@ -155,7 +155,29 @@ export type SessionRecord = {
    * met. Absent once it has started. Since 16 Oct 2026.
    */
   waits?: SessionWait;
+  /**
+   * The follow-ups the agent said it keeps for itself, each open until it is settled, oldest first. `all_done` is refused
+   * while any is open. Absent or empty is none. Since 21 Oct 2026.
+   */
+  later?: SessionLater[];
 };
+
+/** A follow-up the agent kept for itself, read from the close of a reply. `id` is what `settle_later` names it by. */
+export type SessionLater = { id: string; sentence: string; said_at: string };
+
+/** How a follow-up was settled: the work is done, it is an issue now (`issue`), or it will not be done (`reason`). */
+export type LaterHow = "done" | "filed" | "dropped";
+
+/**
+ * `POST /sessions/settle_later`: one open follow-up is settled, by the agent or by the person. `issue` is the forge's number or a
+ * tracker's key for a `filed`. `reason` is required of the agent's `dropped`; the person's Drop sends none and `session_id` names the Session.
+ * Fleet refuses 422 `fleet.later_not_settleable` for a `filed` with no issue it can read or an agent's drop with no reason, and
+ * 409 `fleet.later_not_open` for an id that names no open follow-up.
+ */
+export type SettleLater = { id: string; how: LaterHow; issue?: string; reason?: string; session_id?: string };
+
+/** What `settle_later` answers: the follow-up settled and the ones still open. */
+export type LaterSettled = { id: string; sentence: string; open: SessionLater[] };
 
 /** A value of a Session the proposer can pick. */
 export type ProposedField = "title" | "workflow" | "model" | "effort";
