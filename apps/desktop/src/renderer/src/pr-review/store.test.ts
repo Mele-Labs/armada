@@ -4,8 +4,9 @@
 // moved by `review_run.changed`, started only on a press, and shown failed in Fleet's words. Natural Search is a run across every
 // repository, kept under his words, and the Walk finds where a change runs before it writes a walk. Nothing here touches `window.armada`.
 
+import { forgetAllKept, writeKept } from "@armada/components";
 import type { PullRequestPage, PullReviewLists, PullReviewRow, RememberedPlace, ReviewPlace, ReviewRun, ReviewTools, ReviewWalk, StartReviewRun, StartReviewSearch, WalkPlaceFound, WritePullRequest } from "@armada/protocol";
-import { expect, test } from "vitest";
+import { beforeEach, expect, test } from "vitest";
 
 import type { ToolDef } from "./model";
 import type { ReviewWalkNote, ShownReviewWalk } from "../../../shared/review-walk";
@@ -179,6 +180,9 @@ function fake(over: Partial<ReviewSource> = {}): { source: ReviewSource; calls: 
   return { source, calls };
 }
 
+// A reading kept by one test would draw in the next store made.
+beforeEach(forgetAllKept);
+
 const settle = () => new Promise((done) => setTimeout(done, 0));
 
 async function opened(over: Partial<ReviewSource> = {}) {
@@ -225,6 +229,23 @@ test("a list the forge would not answer keeps what it held, and the others are r
   await settle();
   // Requested answered empty and lost its row. Assigned was silent and kept its own.
   expect(store.get().prs.map((one) => [one.number, one.lists])).toEqual([[2, ["assigned"]]]);
+});
+
+test("a store made after a reading was kept draws its rows and age before Fleet answers", () => {
+  writeKept("pr-review:lists", lists({ me: "nick", fetched_at: "2026-10-16T12:00:00Z", requested: [row(1, "2026-10-16T10:00:00Z")] }));
+  const store = createReviewStore(fake({ lists: () => new Promise(() => undefined) }).source);
+  expect(store.get().prs.map((one) => one.number)).toEqual([1]);
+  expect(store.get().me).toBe("nick");
+  expect(store.get().fetchedAt).toBe(Date.parse("2026-10-16T12:00:00Z"));
+  expect(store.get().fetching).toBe(false);
+});
+
+test("a reading that arrived is kept for the next store", async () => {
+  const first = createReviewStore(fake({ lists: async () => ({ ok: true, value: lists({ requested: [row(1, "2026-10-16T10:00:00Z")] }) }) }).source);
+  first.fetch();
+  await settle();
+  const next = createReviewStore(fake({ lists: () => new Promise(() => undefined) }).source);
+  expect(next.get().prs.map((one) => one.number)).toEqual([1]);
 });
 
 test("a refused read says why and leaves the lists as they were", async () => {
