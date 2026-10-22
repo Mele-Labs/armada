@@ -8,7 +8,7 @@ notes = """
 
 **The caller is placed as `claim_pull_request` places it**: a hosted job by the connection, a terminal job by `session_id`. A call that places none is refused with 422 `fleet.issue_not_claimable`.
 
-**`issue` is the forge's number (`7` or `#7`, held as `7`) or a tracker's key (`ABC-12`).** Anything else is refused with 422 `fleet.issue_not_claimable` and nothing is held. Fleet does not ask the tracker first: the pull watch reads the row's title, state and address on its next pass, and a reference the tracker does not answer for stays as it was named.
+**`issue` is the forge's number (`7` or `#7`, held as `7`) or a tracker's key (`ABC-12`).** Anything else is refused with 422 `fleet.issue_not_claimable` and nothing is held. Fleet does not ask the tracker first: the pull reading reads the row's title, state and address on its next pass, and a reference the tracker does not answer for stays as it was named.
 
 **One row a job and issue**, as the person's tag holds it. A second claim stands the row again where it was given back. `pull_requests` are the numbers of the pull requests that work the issue; the row's detail carries them as `pull_requests`, comma-joined ascending, and a second claim adds to them. The answer lists every one the row now names.
 

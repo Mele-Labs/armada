@@ -1,8 +1,8 @@
 //! A person's refresh of one pull request: Fleet reads it from the forge now, rather than at the
-//! next pull watch, and does for it what a watch reading does. `crate::pull_notices`,
+//! next pull reading, and does for it what a pull reading does. `crate::pull_notices`,
 //! `crate::main_hub`.
 //!
-//! **Told as the watch tells, and never twice**: the notices go through the watch's own body, its
+//! **Told as the pull reading tells, and never twice**: the notices go through the pull reading's own body, its
 //! record of the merge queue and its record of what was told, so a refresh and the next reading
 //! say each thing once between them.
 
@@ -25,9 +25,9 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// Everything the pull watch does for one pull request, after `state` was read and the ledger
+    /// Everything the pull reading does for one pull request, after `state` was read and the ledger
     /// followed it: an open one's owners told and its merge line entry read again, a merged one's
-    /// merge told on the watch's rule, and one that is over taken off the merge line.
+    /// merge told on the pull reading's rule, and one that is over taken off the merge line.
     pub(crate) async fn pull_request_refreshed(self: &Arc<Self>, served: &Served, state: &PullRequestState) {
         let root = served.root().to_string();
         let base = served.manifest().base().unwrap_or("the base").to_string();
@@ -38,7 +38,7 @@ where
                 self.open_pull_listed(served, state.number).await;
             }
             PullRequestStanding::Merged => {
-                // From the forge's list of merges, as the watch tells it: a merge hours old is not news.
+                // From the forge's list of merges, as the pull reading tells it: a merge hours old is not news.
                 self.notice_merged(served).await;
                 let mine = self.mine_in(&root).await;
                 self.merges_told(served, &base, &mine).await;
@@ -48,8 +48,8 @@ where
         }
     }
 
-    /// The watch's notices for one open pull request, and **only this number moved in the queue
-    /// last seen**: the rest of it is the watch's.
+    /// The pull reading's notices for one open pull request, and **only this number moved in the queue
+    /// last seen**: the rest of it is the pull reading's.
     async fn open_pull_told(self: &Arc<Self>, served: &Served, base: &str, number: u64) {
         let gate = served.manifest().ci_gate().to_string();
         let Some(pull) = self
@@ -62,7 +62,7 @@ where
         };
         let root = served.root();
         let mine = self.mine_in(root).await;
-        // **Only the person's own**, as the watch.
+        // **Only the person's own**, as the pull reading.
         if mine.owns(pull.author.as_ref().map(|it| it.as_written())) {
             let before = self.store().lock().await.pulls_seen_queued(root).unwrap_or_default();
             let queued = self.watched_told(served, base, &before, &pull).await;
@@ -102,7 +102,7 @@ where
     }
 
     /// Take a pull request that is over off the merge line, and delete its owner row: **the
-    /// watch deletes it when it leaves the list**, and once off, the watch never sees it leave.
+    /// pull reading deletes it when it leaves the list**, and once off, the pull reading never sees it leave.
     async fn off_the_merge_line(&self, root: &str, number: u64) {
         let gone = {
             let mut sweep = self.sweeping().lock().await;

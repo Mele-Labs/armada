@@ -17,6 +17,7 @@ mod page;
 mod opening;
 mod patches;
 mod readiness;
+mod reading;
 mod review_lists;
 mod review_state;
 mod reviewing;
@@ -24,7 +25,6 @@ pub(crate) mod source;
 mod standing;
 mod threads;
 mod trackers;
-mod watch;
 mod writes;
 
 use std::collections::HashMap;
@@ -247,11 +247,11 @@ impl Forge for ApiForge {
         )
     }
 
-    fn pull_watch(&self, in_repo: &str, gate: &str) -> Option<adapter_traits::WatchedPulls> {
+    fn pull_reading(&self, in_repo: &str, gate: &str) -> Option<adapter_traits::WatchedPulls> {
         self.read(
             in_repo,
-            |api, repository| watch::watch(api, repository, gate),
-            |gh| gh.pull_watch(in_repo, gate),
+            |api, repository| reading::read(api, repository, gate),
+            |gh| gh.pull_reading(in_repo, gate),
         )
     }
 
@@ -263,7 +263,7 @@ impl Forge for ApiForge {
     ) -> Option<adapter_traits::WatchedPull> {
         self.read(
             in_repo,
-            |api, repository| watch::watched(api, repository, gate, number),
+            |api, repository| reading::watched(api, repository, gate, number),
             |gh| gh.watched_pull(in_repo, gate, number),
         )
     }

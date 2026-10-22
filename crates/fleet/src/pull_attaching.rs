@@ -1,5 +1,5 @@
 //! A pull request nobody reported is attached to the Session that worked its branch. The pull
-//! watch reads every open pull request with its head branch, and the ledger already says which
+//! reading reads every open pull request with its head branch, and the ledger already says which
 //! Session held that branch: a hosted Session's lease writes the row, and the mod writes it for
 //! a terminal one as its directory moves. `docs/concepts/session.md`, *Acts on a pull request*.
 //!
@@ -30,7 +30,7 @@ where
     /// one the pool confirms, else the one that stood on the branch first, and **only a Session
     /// whose branch row still stands**, so a branch given back is nobody's. **Never a second
     /// Session, and never a pull request a Session already holds**, in any state: a merged one a
-    /// Session took again is the pull watch's to settle, not this.
+    /// Session took again is the pull reading's to settle, not this.
     pub(crate) async fn pulls_attached(self: &Arc<Self>, served: &Served, watched: &[WatchedPull]) {
         let manifest = served.manifest().id().as_str().to_string();
         let now = self.now().as_str().to_string();

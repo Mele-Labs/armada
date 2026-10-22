@@ -164,7 +164,7 @@ where
         let list_gate = gate.clone();
         let Some(mut watched) = self
             .forge_asked(&root, move |vcs: &V, root: &str| {
-                vcs.pull_watch(root, &list_gate)
+                vcs.pull_reading(root, &list_gate)
             })
             .await
         else {
@@ -208,7 +208,7 @@ where
     }
 
     /// One repository's pull request reading, held while it reads and writes the queue last seen
-    /// (`pulls_seen_queued`), **so a refresh and the watch never read it at once**.
+    /// (`pulls_seen_queued`), **so a refresh and the pull reading never read it at once**.
     pub(crate) async fn pulls_reading(&self, root: &str) -> tokio::sync::OwnedMutexGuard<()> {
         let one = Arc::clone(self.sweeping().lock().await.pull_readings.entry(root.to_string()).or_default());
         one.lock_owned().await

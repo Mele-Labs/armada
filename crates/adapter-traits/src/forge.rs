@@ -122,9 +122,9 @@ pub trait Forge {
     /// The same pull requests as a watcher reads them: every check on the newest commit with its
     /// log address, whether it conflicts with the base, and where the merge queue holds it. **One
     /// forge call for all of them.** `None` is the forge's silence.
-    fn pull_watch(&self, in_repo: &str, gate: &str) -> Option<crate::WatchedPulls>;
+    fn pull_reading(&self, in_repo: &str, gate: &str) -> Option<crate::WatchedPulls>;
 
-    /// One pull request as [`pull_watch`](Forge::pull_watch) reads it, **by its number**. `None`
+    /// One pull request as [`pull_reading`](Forge::pull_reading) reads it, **by its number**. `None`
     /// is the forge's silence, and also a pull request that is no longer open.
     fn watched_pull(
         &self,

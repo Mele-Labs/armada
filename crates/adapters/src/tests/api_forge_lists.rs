@@ -9,7 +9,7 @@ use super::api_forge_reads::{lines, not_found, on_github};
 use super::github_api::{api, ok, serve, Reply};
 use crate::main_ci::{merged_of_line, newest_first, open_pull_of_line};
 use crate::merge_queue::entry_of_line;
-use crate::pull_watch::pull_of_line;
+use crate::pull_reading::pull_of_line;
 use crate::ApiForge;
 
 const OPEN: &str = include_str!("github_answers/open_pulls.json");
@@ -121,7 +121,7 @@ fn the_watch_over_the_api_is_the_watch_gh_reads() {
     let repo = on_github();
     let root = repo.root_str();
 
-    let watched = forge.pull_watch(&root, "ci").unwrap();
+    let watched = forge.pull_reading(&root, "ci").unwrap();
     let expected: Vec<_> = lines(WATCH_GH).iter().filter_map(|line| pull_of_line(line, "ci")).collect();
     assert_eq!(watched, expected);
     let first = &watched[0];

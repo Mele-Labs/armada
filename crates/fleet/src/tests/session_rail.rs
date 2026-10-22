@@ -207,7 +207,7 @@ async fn record(rig: &Rig, id: &SessionId) -> SessionRecord {
 /// A Session on the workflow with its process running, and the rail watching.
 async fn on_the_rail(rig: &Rig) -> SessionId {
     crate::timeline::keep_timeline(Arc::clone(&rig.fleet));
-    crate::rail_watching::keep_the_rail(Arc::clone(&rig.fleet));
+    crate::rail_following::keep_the_rail(Arc::clone(&rig.fleet));
     let id = rig.start().await;
     rig.send(&id, REQUEST).await;
     rig.stand_in.init(0);

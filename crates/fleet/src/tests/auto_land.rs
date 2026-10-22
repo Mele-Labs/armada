@@ -77,7 +77,7 @@ fn watched(number: u64) -> WatchedPull {
 }
 
 /// The session worked branch `armada/12`, and the forge shows an open pull request from it that
-/// nobody has reported: the pull watch attaches it on its next read.
+/// nobody has reported: the pull reading attaches it on its next read.
 async fn working_a_branch_with_an_open_pull_request() -> (Rig, SessionId) {
     let rig = rig_placing(None);
     let id = rig.start().await;
@@ -90,7 +90,7 @@ async fn working_a_branch_with_an_open_pull_request() -> (Rig, SessionId) {
     (rig, id)
 }
 
-async fn read_the_pull_watch(rig: &Rig) {
+async fn read_the_pull_reading(rig: &Rig) {
     let served = rig.fleet.repositories().served().remove(0);
     rig.fleet.pulls_told(&served).await;
 }
@@ -101,7 +101,7 @@ async fn a_pull_request_that_attaches_to_a_session_with_auto_land_on_gets_auto_m
     rig.fleet.set_session_auto_land(flag(&id, true)).await.expect("on");
     assert_eq!(rig.fleet.vcs().times_asked_for_auto_merge(), 0, "it holds no pull request yet");
 
-    read_the_pull_watch(&rig).await;
+    read_the_pull_reading(&rig).await;
 
     assert_eq!(rig.fleet.vcs().times_asked_for_auto_merge(), 1);
 }
@@ -110,7 +110,7 @@ async fn a_pull_request_that_attaches_to_a_session_with_auto_land_on_gets_auto_m
 async fn a_pull_request_that_attaches_with_auto_land_off_is_not_asked() {
     let (rig, _id) = working_a_branch_with_an_open_pull_request().await;
 
-    read_the_pull_watch(&rig).await;
+    read_the_pull_reading(&rig).await;
 
     assert_eq!(rig.fleet.vcs().times_asked_for_auto_merge(), 0);
 }
@@ -206,14 +206,14 @@ async fn opened_by_the_job(on: bool) -> (Rig, SessionId) {
 async fn a_pull_request_the_job_opened_is_landed_once_its_checks_pass() {
     let (rig, _id) = opened_by_the_job(true).await;
     rig.fleet.vcs().main_ci.watched_are(Some(vec![checked(CiState::Pending)]));
-    read_the_pull_watch(&rig).await;
+    read_the_pull_reading(&rig).await;
     assert_eq!(rig.fleet.vcs().times_asked_for_auto_merge(), 0, "not before its checks pass");
 
     rig.fleet.vcs().main_ci.watched_are(Some(vec![checked(CiState::Passed)]));
-    read_the_pull_watch(&rig).await;
+    read_the_pull_reading(&rig).await;
     assert_eq!(rig.fleet.vcs().times_asked_for_auto_merge(), 1);
 
-    read_the_pull_watch(&rig).await;
+    read_the_pull_reading(&rig).await;
     assert_eq!(rig.fleet.vcs().times_asked_for_auto_merge(), 1, "once a commit");
 }
 
@@ -222,7 +222,7 @@ async fn a_passed_pull_request_is_not_landed_with_auto_land_off() {
     let (rig, _id) = opened_by_the_job(false).await;
     rig.fleet.vcs().main_ci.watched_are(Some(vec![checked(CiState::Passed)]));
 
-    read_the_pull_watch(&rig).await;
+    read_the_pull_reading(&rig).await;
 
     assert_eq!(rig.fleet.vcs().times_asked_for_auto_merge(), 0);
 }
@@ -239,7 +239,7 @@ async fn a_pull_request_that_failed_conflicts_or_is_already_merging_is_not_asked
         let (rig, _id) = opened_by_the_job(true).await;
         rig.fleet.vcs().main_ci.watched_are(Some(vec![pull]));
 
-        read_the_pull_watch(&rig).await;
+        read_the_pull_reading(&rig).await;
 
         assert_eq!(rig.fleet.vcs().times_asked_for_auto_merge(), 0, "{named}");
     }
@@ -256,10 +256,10 @@ async fn a_commit_that_left_the_queue_or_auto_merge_is_not_asked_again() {
     for (named, merging) in [("dropped", queued), ("taken off auto-merge", on_auto_merge)] {
         let (rig, _id) = opened_by_the_job(true).await;
         rig.fleet.vcs().main_ci.watched_are(Some(vec![merging]));
-        read_the_pull_watch(&rig).await;
+        read_the_pull_reading(&rig).await;
 
         rig.fleet.vcs().main_ci.watched_are(Some(vec![checked(CiState::Passed)]));
-        read_the_pull_watch(&rig).await;
+        read_the_pull_reading(&rig).await;
 
         assert_eq!(rig.fleet.vcs().times_asked_for_auto_merge(), 0, "{named}");
     }
@@ -271,7 +271,7 @@ async fn a_forge_that_will_not_land_a_passed_pull_request_is_told_to_the_job() {
     rig.fleet.vcs().now_auto_merge(Err("auto merge is not allowed for this repository".into()));
     rig.fleet.vcs().main_ci.watched_are(Some(vec![checked(CiState::Passed)]));
 
-    read_the_pull_watch(&rig).await;
+    read_the_pull_reading(&rig).await;
 
     let sent: Vec<String> = (0..rig.stand_in.starts().len())
         .flat_map(|at| rig.stand_in.process(at).sent.lock().unwrap().clone())

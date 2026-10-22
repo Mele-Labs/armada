@@ -8,7 +8,7 @@
 //!
 //! **One row a Session and issue, and what it already says stands.** A second naming takes it up
 //! again where it was given back and fills only what it lacked: the forge's reading, which the pull
-//! watch writes, is never overwritten by a tag's address.
+//! reading writes, is never overwritten by a tag's address.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
@@ -140,7 +140,7 @@ where
     }
 
     /// `claim_issue`: the caller, placed as `claim_pull_request` places it, holds the issue it names,
-    /// with the pull requests that work it. Nothing is asked of the tracker: the pull watch reads it.
+    /// with the pull requests that work it. Nothing is asked of the tracker: the pull reading reads it.
     pub(crate) async fn issue_claimed(&self, caller: Option<Caller>, claim: ClaimIssue) -> Result<IssueClaimed, Refusal> {
         let refuse = |why: String| self.hosted_refusal(NOT_CLAIMABLE, &why);
         let issue = IssueReference::read(&claim.issue).ok_or_else(|| {
@@ -227,7 +227,7 @@ where
     }
 
     /// Every issue a Session holds in this repository, read once and followed: its title, its state
-    /// and its address as the Manifest's tracker has them now, a number or a key alike. The pull watch's own pass, as
+    /// and its address as the Manifest's tracker has them now, a number or a key alike. The pull reading's own pass, as
     /// [`pull_ledger_kept_current`](Self::pull_ledger_kept_current) is for pull requests, and at the
     /// same utility priority. **A closed issue stands**: the row says closed and is still shown.
     /// Issues the forge will not answer for stay as they were.

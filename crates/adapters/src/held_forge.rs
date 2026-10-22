@@ -63,8 +63,8 @@ impl<F: Forge> Forge for GitVcs<F> {
         self.forge.merge_queue(in_repo, base)
     }
 
-    fn pull_watch(&self, in_repo: &str, gate: &str) -> Option<adapter_traits::WatchedPulls> {
-        self.forge.pull_watch(in_repo, gate)
+    fn pull_reading(&self, in_repo: &str, gate: &str) -> Option<adapter_traits::WatchedPulls> {
+        self.forge.pull_reading(in_repo, gate)
     }
 
     fn watched_pull(

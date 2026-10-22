@@ -49,7 +49,7 @@ pub trait PullRequests: Send + Sync + 'static {
         number: u64,
     ) -> impl Future<Output = Result<PullRequestState, Refusal>> + Send;
 
-    /// `refresh_pull_request` — read it now rather than at the next pull watch, and **do all the
+    /// `refresh_pull_request` — read it now rather than at the next pull reading, and **do all the
     /// watch does for it**: the ledger, the merge line, and what its owner is told. A person's
     /// press, never an agent's. [`Refusal::Fault`] where the forge would not answer.
     fn refresh_pull_request(

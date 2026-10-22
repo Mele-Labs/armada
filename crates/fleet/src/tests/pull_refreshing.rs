@@ -1,6 +1,6 @@
 //! A person's refresh of one pull request, against a scripted forge: it tells the owner what the
-//! pull watch would, once, shares the watch's record of the merge queue, and puts what the forge
-//! shows now on the merge line. What the watch itself tells is `pull_notices`' tests.
+//! pull reading would, once, shares the pull reading's record of the merge queue, and puts what the forge
+//! shows now on the merge line. What the pull reading itself tells is `pull_notices`' tests.
 
 use std::sync::Arc;
 
@@ -125,10 +125,10 @@ async fn a_refresh_tells_a_conflict() {
     assert!(line.contains("#8 conflicts with"), "{line}");
 }
 
-/// The watch saw it queued and the refresh sees it out: one record of the queue, so the drop is
+/// The pull reading saw it queued and the refresh sees it out: one record of the queue, so the drop is
 /// told once whichever reading sees it.
 #[tokio::test]
-async fn a_pull_request_the_watch_saw_queued_and_a_refresh_sees_out_is_told_it_left_once() {
+async fn a_pull_request_the_pull_reading_saw_queued_and_a_refresh_sees_out_is_told_it_left_once() {
     let rig = a_rig();
     rig.a_hosted_session_on(10).await;
     let queued = WatchedPull { queue: PullQueue::Waiting, ..pull(10, Vec::new()) };
@@ -147,7 +147,7 @@ async fn a_pull_request_the_watch_saw_queued_and_a_refresh_sees_out_is_told_it_l
 
     rig.fleet.vcs().main_ci.watched_are(Some(vec![pull(10, Vec::new())]));
     rig.reads().await;
-    assert_eq!(rig.runs_sent_to_the_session().len(), 1, "the watch does not tell it again");
+    assert_eq!(rig.runs_sent_to_the_session().len(), 1, "the pull reading does not tell it again");
 }
 
 #[tokio::test]
@@ -167,7 +167,7 @@ async fn a_refresh_tells_auto_merge_on_once() {
     assert!(line.contains("Auto-merge is on for #11"), "{line}");
 }
 
-/// **Only the person's own**, as the watch: another author's pull request is nobody here's to tell.
+/// **Only the person's own**, as the pull reading: another author's pull request is nobody here's to tell.
 #[tokio::test]
 async fn a_refresh_tells_the_persons_own_pull_request_and_not_another_authors() {
     let rig = a_rig();

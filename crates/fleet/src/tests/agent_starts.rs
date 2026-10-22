@@ -53,7 +53,7 @@ fn rig_ruled(workflow: config::ResolvedWorkflow, id: &str) -> Rig {
     ]));
     let rig = rigged(None, Some(judge), Some(workflow));
     crate::timeline::keep_timeline(Arc::clone(&rig.fleet));
-    crate::rail_watching::keep_the_rail(Arc::clone(&rig.fleet));
+    crate::rail_following::keep_the_rail(Arc::clone(&rig.fleet));
     rig
 }
 
@@ -427,7 +427,7 @@ fn handing(rig: &Rig, group: &str) -> StartAnotherSession {
 impl Rig {
     /// An agent whose plan holds two groups, with the Fleet telling parents about the Sessions they follow.
     async fn a_parent_with_a_plan(&self) -> SessionId {
-        crate::linked_watching::keep_the_linked(Arc::clone(&self.fleet));
+        crate::linked_following::keep_the_linked(Arc::clone(&self.fleet));
         let agent = self.an_agent().await;
         self.fleet.record_plan(None, two_groups(&agent)).await.expect("recorded");
         agent

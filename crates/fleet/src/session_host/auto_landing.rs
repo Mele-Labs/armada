@@ -1,6 +1,6 @@
 //! Auto land on a hosted Session: the forge's auto-merge follows the flag. Turned on, every open
 //! pull request the Session holds is asked for it, and so is each that attaches later (the pull
-//! watch's attach and `claim_pull_request`) and each the pull watch reads passed; turned off, the
+//! reading's attach and `claim_pull_request`) and each the pull reading reads passed; turned off, the
 //! open ones are asked to stop.
 //! `docs/concepts/session.md`, *Auto land*.
 //!
@@ -138,7 +138,7 @@ where
         self.store().lock().await.hosting(session).ok().flatten().is_some_and(|it| it.auto_land)
     }
 
-    /// The pull watch's half of Auto land, for a pull request however it attached: the one a Session
+    /// The pull reading's half of Auto land, for a pull request however it attached: the one a Session
     /// opened itself is reported by its mod, and nothing asked for it then. One whose checks passed,
     /// that conflicts with nothing and that nothing merges is asked for auto-merge **once a commit**
     /// for each owner with Auto land on. A commit seen queued or on auto-merge counts as asked, so a

@@ -99,7 +99,7 @@ impl Forge for FakeVcs {
         self.main_ci.open_pulls()
     }
 
-    fn pull_watch(&self, _in_repo: &str, gate: &str) -> Option<adapter_traits::WatchedPulls> {
+    fn pull_reading(&self, _in_repo: &str, gate: &str) -> Option<adapter_traits::WatchedPulls> {
         self.main_ci.gated_by(gate);
         self.main_ci.watched()
     }

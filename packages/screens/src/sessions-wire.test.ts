@@ -119,7 +119,7 @@ describe("the ledger", () => {
     expect(one).toEqual({ kind: "issue", number: "2212", title: "Helm loses the repository", address: "https://x/issues/2212", state: "closed" });
   });
 
-  it("reads an issue the pull watch has not filled yet as open, with no title and no address", () => {
+  it("reads an issue the pull reading has not filled yet as open, with no title and no address", () => {
     const [bare, empty] = attachmentsOfRecord(record("a", { attachments: [held("issue", "7", {}), { ...held("issue", "8"), detail: undefined }] }), beside());
     expect(bare).toEqual({ kind: "issue", number: "7", title: "", address: "", state: "open" });
     expect(empty).toEqual({ kind: "issue", number: "8", title: "", address: "", state: "open" });

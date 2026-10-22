@@ -10,7 +10,7 @@ use super::open_pulls::Repo;
 use super::page::InRepository;
 use super::{login_of, Login, Nodes};
 use crate::github_api::{ApiFailure, GitHubApi, GitHubRepository};
-use crate::pull_watch::{list_query, one_query, watched_built, WatchedPullRead, WatchedRead};
+use crate::pull_reading::{list_query, one_query, watched_built, WatchedPullRead, WatchedRead};
 
 #[derive(Serialize)]
 struct Asked<'a> {
@@ -76,7 +76,7 @@ struct Context {
 }
 
 /// Every open pull request, the hundred last updated.
-pub(super) fn watch(api: &GitHubApi, repository: &GitHubRepository, gate: &str) -> Result<Option<WatchedPulls>, ApiFailure> {
+pub(super) fn read(api: &GitHubApi, repository: &GitHubRepository, gate: &str) -> Result<Option<WatchedPulls>, ApiFailure> {
     let named = Named::of(repository);
     let found: Repo<Listed> = api.graphql(&list_query(), &Asked { owner: named.owner(), name: named.name() })?;
     let pulls = found.repository.and_then(|it| it.pull_requests);
@@ -94,7 +94,7 @@ pub(super) fn watched(
     Ok(found.pull().filter(|pull| pull.state.as_deref() == Some("OPEN")).and_then(|pull| watched_pull_of(pull, gate)))
 }
 
-/// A pull request as `crate::pull_watch::pull_of_line` makes one from `gh`'s line.
+/// A pull request as `crate::pull_reading::pull_of_line` makes one from `gh`'s line.
 pub(crate) fn watched_pull_of(pull: Pull, gate: &str) -> Option<WatchedPull> {
     let contexts = Nodes::all(pull.commits).next().and_then(|it| it.commit?.status_check_rollup?.contexts);
     let checks = Nodes::all(contexts)
