@@ -42,12 +42,12 @@ export function TurnAccountList({ lines }: { lines: TurnAccount }) {
         <li key={`${one.line}:${at}`} className="armada-account__line" data-line={one.line}>
           <LineMark line={one.line} />
           {one.line === "now" && lines.of !== undefined ? (
-            <span className="armada-account__text armada-account__text--of">
+            <span className="armada-account__text">
               <span className="armada-account__of">{lines.of}</span>
               <span className="armada-account__sep" aria-hidden>
                 {" · "}
               </span>
-              <span className="armada-account__now">{one.text}</span>
+              {one.text}
             </span>
           ) : (
             <span className="armada-account__text">{one.text}</span>
