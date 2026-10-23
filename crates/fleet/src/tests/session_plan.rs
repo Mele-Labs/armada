@@ -251,7 +251,7 @@ async fn not_yet_sets_the_plan_aside_drops_its_call_and_tells_the_agent_to_keep_
     assert_eq!(told(&rig, "Not ready for a plan yet"), 0);
 
     let gone = Arc::clone(&rig.fleet)
-        .dismiss_waiting(DismissWaiting { session_id: id.clone(), item_id: "plan:1".into(), reason: None })
+        .dismiss_waiting(DismissWaiting { session_id: id.clone(), item_id: "plan:1".into(), reason: None, misread: false })
         .await
         .unwrap();
     let plan = gone.plan.expect("the plan stays on the record");

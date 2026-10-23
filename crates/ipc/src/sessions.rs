@@ -790,6 +790,14 @@ pub struct DismissWaiting {
     /// Why he removed it, sent to the agent after the item where it is non-blank. Absent where he gave none.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
+    /// He pressed Not a question on an item Fleet read from a reply: its sentence is kept as one that
+    /// asks nothing. Refused on an item of any other source. Absent where false.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub misread: bool,
+}
+
+fn is_false(value: &bool) -> bool {
+    !*value
 }
 
 /// One row of the ledger as the wire carries it.

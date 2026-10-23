@@ -6,7 +6,7 @@ use crate::{decode, encode, DismissWaiting, Instant, ManifestEdited, SessionId};
 /// A removal with no reason leaves no `reason` key, and a Bridge that sends none reads as none.
 #[test]
 fn a_removal_without_a_reason_carries_no_reason_key_and_reads_without_one() {
-    let bare = DismissWaiting { session_id: SessionId::carried("s1"), item_id: "a".into(), reason: None };
+    let bare = DismissWaiting { session_id: SessionId::carried("s1"), item_id: "a".into(), reason: None, misread: false };
     let written = encode(&bare).expect("a removal encodes");
     assert_eq!(written, r#"{"session_id":"s1","item_id":"a"}"#);
     let read: DismissWaiting = decode("a removal", written.as_bytes()).expect("it reads");
@@ -14,6 +14,17 @@ fn a_removal_without_a_reason_carries_no_reason_key_and_reads_without_one() {
     let why = DismissWaiting { reason: Some("done already".into()), ..bare };
     let written = encode(&why).expect("a removal encodes");
     assert_eq!(written, r#"{"session_id":"s1","item_id":"a","reason":"done already"}"#);
+}
+
+/// A removal he marked as misread keeps the mark through a round trip, and one he did not sends no key.
+#[test]
+fn a_removal_marked_misread_keeps_the_mark_and_an_unmarked_one_sends_no_key() {
+    let marked = r#"{"session_id":"s1","item_id":"replied:t:0","misread":true}"#;
+    let read: DismissWaiting = decode("a removal", marked.as_bytes()).expect("it reads");
+    assert_eq!(encode(&read).expect("a removal encodes"), marked);
+    let unmarked = r#"{"session_id":"s1","item_id":"replied:t:0","misread":false}"#;
+    let read: DismissWaiting = decode("a removal", unmarked.as_bytes()).expect("it reads");
+    assert_eq!(encode(&read).expect("a removal encodes"), r#"{"session_id":"s1","item_id":"replied:t:0"}"#);
 }
 
 /// An edit's answer from a Fleet that sends no `declared` still reads, and one
