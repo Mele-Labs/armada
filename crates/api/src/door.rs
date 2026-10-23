@@ -54,6 +54,7 @@ const QUERIES: &[(&str, &[&str])] = &[
     ("who_owns", &["kind", "target"]),
     ("validate_mod", &["name"]),
     ("get_requests", &["repository", "session_id"]),
+    ("list_watches", &["session_id"]),
 ];
 
 /// The query parameters `operation`'s route reads, none where it reads none.

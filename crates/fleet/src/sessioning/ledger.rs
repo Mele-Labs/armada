@@ -169,6 +169,7 @@ where
             plan: store.session_plan(&session.id).map_err(fault)?,
             touches: store.session_touches(&session.id).map_err(fault)?,
             later: store.later_of(&session.id).map_err(fault)?,
+            watching: store.first_live_watch_name(&session.id).map_err(fault)?,
         })
     }
 
@@ -253,6 +254,17 @@ where
             .filter(|_| session.state == store::SessionState::Live)
             .map(|one| ipc::SessionLater { id: one.id, sentence: one.sentence, said_at: wire_instant(&one.said_at) })
             .collect();
+        // Held open only when the watch is all that is left: a turn running, an item owed or a command
+        // the agent backgrounded each says more than the watch does.
+        record.held_open_by = reads.watching.filter(|_| {
+            session.state == store::SessionState::Live
+                && matches!(record.standing, Some(ipc::SessionStanding::Idle | ipc::SessionStanding::Replied))
+                && record.waiting_for.is_empty()
+                && !record
+                    .attachments
+                    .iter()
+                    .any(|one| one.kind == "background" && one.state == ipc::AttachmentState::Standing)
+        });
         // A Session still waiting on another carries the wait until it starts.
         record.waits = reads
             .wait

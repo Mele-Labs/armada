@@ -8,7 +8,12 @@ import type { Session, SessionWork, SessionWorkActs, WorkPlan } from "@armada/sc
 
 import type { SessionsDraft } from "@armada/screens/src/draft/sessions";
 
+import type { BridgeApi } from "../../../shared/api";
+import { NOTHING_YET } from "../../../shared/bridge";
+import type { BridgeState } from "../../../shared/bridge";
+import type { StateChange } from "../../../shared/state-change";
 import { SessionsFrom } from "../sessions-draft";
+import { WiredStore } from "../sessions-wired";
 import type { PlanEditing } from "./PlanEdit";
 import { ProgressPanel } from "./ProgressPanel";
 import { WorkflowPanel } from "./WorkflowPanel";
@@ -176,4 +181,27 @@ test("a Drop on a Later row asks Fleet to drop that follow-up by its id, and the
   act(() => host.querySelector<HTMLButtonElement>('button[aria-label^="Drop"]')!.click());
   expect(dropped).toEqual([["s1", "later-2"]]);
   expect(host.querySelector(".sv-later__item")).not.toBeNull();
+});
+
+test("a watches.changed reaches the Job's Watching block, and the next one replaces what it drew", () => {
+  let send: (change: StateChange<BridgeState>) => void = () => undefined;
+  const api = { syncState: () => Promise.resolve({ full: NOTHING_YET, seq: 0 }), subscribeChanges: (on: typeof send) => ((send = on), () => undefined) } as unknown as BridgeApi;
+  const store = new WiredStore(api);
+  store.attach();
+  const at = "2026-10-07T13:48:02Z";
+  const record = { id: "s1", harness: "a_harness", origin: "bridge", manifest_id: "armada", cwd: "/repo", state: "live", started_at: at, last_seen_at: at, usage: {}, attachments: [], hosted: { turn: { state: "idle" }, mode: "auto", running: false } };
+  const watch = (state: string, says: string) => ({ id: "w1", session_id: "s1", name: "Staging deploy", command: ["deploy-status"], every_seconds: 60, gives_up_after_seconds: 3600, state, live: true, started_at: at, last: { kind: "read", at, state, finished: false, says }, readings: [], verdicts: [] });
+  const publish = (watches: unknown[]) => send({ full: structuredClone({ ...NOTHING_YET, sessions: { state: "read", sessions: [record] }, sessionWatches: { s1: watches } }) as unknown as BridgeState, seq: 0 });
+
+  publish([]);
+  expect(mount({}, undefined, store.draft.get()[0]!).querySelector('[aria-label="Watching"]')).toBeNull();
+
+  publish([watch("running", "Rolling out, 2 of 4 pods ready")]);
+  const drawn = mount({}, undefined, store.draft.get()[0]!);
+  expect(drawn.querySelector('[aria-label="Watching"]')?.textContent).toContain("Staging deploy");
+  expect(drawn.querySelector('[aria-label="Watching"]')?.textContent).toContain("Rolling out, 2 of 4 pods ready");
+
+  publish([watch("passed", "All 4 pods ready")]);
+  const next = mount({}, undefined, store.draft.get()[0]!);
+  expect(next.querySelector('[aria-label="Watching"]')?.textContent).toContain("All 4 pods ready");
 });

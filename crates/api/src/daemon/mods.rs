@@ -6,7 +6,7 @@ use std::future::Future;
 
 use ipc::{
     ModChecked, ModList, ModPromoted, ModScaffolded, ModSummary, PromoteMod, ScaffoldMod,
-    SetModEnabled,
+    SetModEnabled, TrackerTry, TryTrackerMod,
 };
 
 use crate::daemon::Refusal;
@@ -34,6 +34,11 @@ pub trait Mods: Send + Sync + 'static {
     /// `valid` false, not a refusal; only a name that is not a slug or names no
     /// folder is refused.
     fn validate_mod(&self, name: String) -> impl Future<Output = Result<ModChecked, Refusal>> + Send;
+
+    /// `try_tracker_mod` — a tracker mod's Open query run, and one issue it listed read, against
+    /// a repository Fleet serves, and the outcome kept beside the mod. A try that fails is an
+    /// answer with `passed` false; [`Refusal::Unacceptable`] for a mod that is not a tracker.
+    fn try_tracker_mod(&self, asked: TryTrackerMod) -> impl Future<Output = Result<TrackerTry, Refusal>> + Send;
 
     /// `promote_mod` — a valid mod copied onto a new branch, pushed nowhere.
     /// [`Refusal::IllegalMove`] where it cannot be: invalid, no `packages/`, no

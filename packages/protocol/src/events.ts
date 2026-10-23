@@ -23,6 +23,7 @@ import type { PlanUsage } from "./plan-usage";
 import type { SleepState } from "./sleep";
 import type { TimelineAppended } from "./timeline";
 import type { Autopilot } from "./autopilot";
+import type { WatchesChanged } from "./watches";
 import type { SessionRecord } from "./sessions";
 import type { RepositoryList } from "./setup";
 import type { Studio, StudioDeleted, StudioHelmActed } from "./studio";
@@ -83,6 +84,8 @@ export type Event =
   | ({ kind: "sleep.changed" } & SleepState)
   /** A repository's Autopilot after any change to it, whole. #2092. */
   | ({ kind: "autopilot.changed" } & Autopilot)
+  /** A Job's watches after any change to one, whole, as `list_watches` answers. */
+  | ({ kind: "watches.changed" } & WatchesChanged)
   /** The plan's windows after a session read them moving, whole. */
   | ({ kind: "plan_usage.changed" } & PlanUsage)
   /** The default model's step down after any change to it, whole. Absent `downshift` is none. */

@@ -1,6 +1,6 @@
 // Progress: where the Session is, in one panel. Status and the Plan showed the same thing from two levels, so they are one. The workflow, its picker and
 // its steps stand in the Workflow panel above it (`WorkflowPanel.tsx`), and the band keeps the name and its few acts. The body reads in the order of what matters: what is happening now,
-// where that sits in the plan, then the issues and pull requests it works, which are reference. The plan is a stepper (`PlanGroup.tsx`, `PlanSteps.tsx`):
+// where that sits in the plan, then the issues and pull requests it works, which are reference, and under those the watches it holds. The plan is a stepper (`PlanGroup.tsx`, `PlanSteps.tsx`):
 // done groups and groups to come are one muted line, the group being worked is open and raised, with the plan's edits and marks as they were.
 // A Session with no plan lists the agent's own tasks and its subagents at work, or is its band alone.
 // Now is the turn's account in his words and the page it is building, while a turn runs and until his next message (`TurnAccountBlock.tsx`).
@@ -24,6 +24,7 @@ import { viewOf } from "./plan-marks";
 import { SubagentsAtWork } from "./SubagentsAtWork";
 import { subagentsAtWork } from "./subagents-at-work";
 import { SvPanel, type PanelState, type Place } from "./SvPanel";
+import { WatchingBlock } from "./WatchingBlock";
 import { TurnAccountBlock, type LiveOpen } from "./TurnAccountBlock";
 import "./progress-takes.css";
 
@@ -53,7 +54,8 @@ export function ProgressPanel({ work, place, id, session, manifestId, acts, ed, 
   const workingGroup = accountGroupOf(session)?.id;
   const draft = useSessionsDraft();
   const later = session.later ?? [];
-  const bare = account === undefined && issues.length === 0 && later.length === 0 && loose.length === 0 && !planned && tasks.length === 0 && atWork.length === 0 && flow === undefined && work.railOff !== true && work.proposal?.workflow === null && acts !== undefined;
+  const watching = (session.watches ?? []).length > 0;
+  const bare = account === undefined && issues.length === 0 && later.length === 0 && !watching && loose.length === 0 && !planned && tasks.length === 0 && atWork.length === 0 && flow === undefined && work.railOff !== true && work.proposal?.workflow === null && acts !== undefined;
   const groups = plan === undefined || ed === undefined ? [] : viewOf(plan, ed.marks);
   const steps = stepsOf(groups, plan?.approved === true, workingGroup);
   const now = account === undefined ? null : <TurnAccountBlock session={session} lines={account} live={live} />;
@@ -113,6 +115,7 @@ export function ProgressPanel({ work, place, id, session, manifestId, acts, ed, 
   return (
     <SvPanel label="Progress" area="progress" place={place} state={state} acts={bar} empty={bare}>
       {zoned}
+      <WatchingBlock session={session} />
       {later.length === 0 ? null : <LaterBlock later={later} onRemind={(sentence) => void remindLater(draft, id, sentence)} onDrop={(one) => draft?.dropLater?.(id, one.id)} />}
     </SvPanel>
   );

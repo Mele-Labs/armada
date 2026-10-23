@@ -152,9 +152,9 @@ pub(super) fn forge(arguments: &[&str]) -> Option<Because> {
         .collect();
     let verb = words.get(1).copied().unwrap_or_default();
     match words.first().copied().unwrap_or_default() {
-        "pr" | "release" if matches!(verb, "merge" | "create" | "ready" | "upload") => {
-            Some(Because::PushesToShared)
-        }
+        // **Opening a pull request runs** (the owner, 23 Oct 2026): it lands nothing.
+        "pr" if matches!(verb, "merge" | "ready") => Some(Because::PushesToShared),
+        "release" if matches!(verb, "create" | "upload") => Some(Because::PushesToShared),
         "pr" | "issue" if matches!(verb, "close" | "delete" | "reopen") => {
             Some(Because::Destructive)
         }
