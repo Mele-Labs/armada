@@ -22,7 +22,7 @@ function focusIsFree(): boolean {
 const TYPES_WORDS = "input, textarea, select, [contenteditable]";
 
 /** What the arrows move between in the list: a question's row, and an action's one press. */
-const LIST_KEYS = ".armada-needs-panel__list :is(.armada-session-ledger__open, .armada-prose__run-acts button)";
+const LIST_KEYS = ".armada-needs-panel__list :is(.armada-session-ledger__open, [data-aside], .armada-prose__run-acts button)";
 
 /** The actions, by what their one press does, in the order they are drawn. */
 const ACTIONS: readonly { label: string; holds: (row: LedgerEntry) => boolean }[] = [
@@ -86,7 +86,7 @@ export function NeedsYouPanel({
   const questions: Thing[] = [
     ...(question === undefined ? [] : [{ key: `question:${question.id}`, Glyph: MessageCircleQuestion, said: question.label, tip: question.label, text: question.text, name: question.text, content: question.children }]),
     ...(judges ?? []).map((one) => ({ key: `judge:${one.id}`, Glyph: Scale, said: "Judge", tip: "Judge", text: one.text, name: one.text, content: one.children })),
-    ...rows.filter(asks).map((row) => ({ key: row.key, ...waitingMark(row), tip: row.name, text: row.text, name: row.name, row })),
+    ...rows.filter(asks).map((row) => ({ key: row.key, ...waitingMark(row), tip: row.name, text: row.text, name: row.name, row, ...(row.onMisread === undefined ? {} : { aside: { label: "Not a question", press: row.onMisread } }) })),
   ];
   const actions = ACTIONS.map((group) => ({ label: group.label, rows: rows.filter((row) => acts(row) && group.holds(row)) })).filter((group) => group.rows.length > 0);
   const restarts = rows.filter((row) => row.restart !== undefined);
@@ -223,7 +223,7 @@ export function NeedsYouPanel({
                             <span className="armada-session-ledger__text">{one.text}</span>
                           </button>
                           {one.aside === undefined ? null : (
-                            <Button variant="ghost" size="sm" onClick={one.aside.press}>
+                            <Button variant="ghost" size="sm" data-aside="" onClick={one.aside.press}>
                               {one.aside.label}
                             </Button>
                           )}

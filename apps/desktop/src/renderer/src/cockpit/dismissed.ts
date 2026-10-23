@@ -91,10 +91,11 @@ export type WaitingDismissed = { kind: "dismissed" } | { kind: "refused"; said: 
 /**
  * Dismiss one thing a Session waits on, on Fleet, which also takes it off every other window and the phone.
  * `reason` is what the person said on removing an item the agent stated; Fleet tells the agent, and an empty one is none.
+ * `misread` is Not a question on an item Fleet read from a reply.
  */
-export async function dismissWaiting(sessionId: string, itemId: string, reason?: string): Promise<WaitingDismissed> {
+export async function dismissWaiting(sessionId: string, itemId: string, reason?: string, misread?: boolean): Promise<WaitingDismissed> {
   const said = reason?.trim();
-  const done = await window.armada.dismissWaiting({ session_id: sessionId, item_id: itemId, ...(said === undefined || said === "" ? {} : { reason: said }) });
+  const done = await window.armada.dismissWaiting({ session_id: sessionId, item_id: itemId, ...(said === undefined || said === "" ? {} : { reason: said }), ...(misread === true ? { misread } : {}) });
   if (done.ok) return { kind: "dismissed" };
   const outcome = done.outcome;
   // An item nothing holds is already gone, which is what was asked.
