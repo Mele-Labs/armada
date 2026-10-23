@@ -9,7 +9,7 @@ import { refusalWords } from "@armada/screens/src/refusal-words";
 
 import type { SessionsApi } from "../../shared/api/sessions";
 
-type ShellApi = Pick<SessionsApi, "openTerminal" | "writeSessionRun" | "resizeSessionRun" | "stopSessionRun" | "onSessionRunMessage" | "onSessionTerminal">;
+type ShellApi = Pick<SessionsApi, "openTerminal" | "readTerminalSoFar" | "writeSessionRun" | "resizeSessionRun" | "stopSessionRun" | "onSessionRunMessage" | "onSessionTerminal">;
 
 /** Where a Job's dock is drawn: its page, or a call card's box. Each shows or hides the shell on its own. */
 export type ShellPlace = "page" | "card";
@@ -42,6 +42,8 @@ export class JobShells {
   /** Messages for a run nobody has claimed, held while an open is unanswered: its answer may name it. */
   private held: { runId: string; message: SessionRunMessage }[] = [];
   private opening = 0;
+  /** A run this window came to late, with its messages held until main says what it printed so far. */
+  private readonly catching = new Map<string, SessionRunMessage[]>();
   private readonly typed = new Map<string, string>();
   private readonly sizes = new Map<string, { cols: number; rows: number }>();
   private readonly listeners = new Set<() => void>();
@@ -124,10 +126,31 @@ export class JobShells {
     const now = this.shells.get(sessionId);
     // Fleet's opening, heard first, already holds it; or a newer shell took its place.
     if (now?.screen === asked.screen && now.runId === null) {
-      if (answer.ok) this.adopt(sessionId, answer.value.run_id, false);
+      if (answer.ok) this.catchUp(sessionId, answer.value.run_id);
       else this.set(sessionId, { ...now, out: `${refusalWords(answer.outcome)}\r\n`, ended: true });
     }
     if (this.opening === 0) this.held = [];
+  }
+
+  /**
+   * Fleet handed this window a run it was not following: another window opened it, and Fleet replays only to main.
+   * Main keeps each message before it sends it, so what it answers holds every output held here; only the rest is applied.
+   */
+  private catchUp(sessionId: string, runId: string): void {
+    const early = this.held.filter((it) => it.runId === runId).map((it) => it.message);
+    this.held = this.held.filter((it) => it.runId !== runId);
+    this.catching.set(runId, early);
+    this.adopt(sessionId, runId, false);
+    // A test's fake window that keeps no output in main.
+    const read = typeof this.api.readTerminalSoFar === "function" ? this.api.readTerminalSoFar(runId) : Promise.resolve(null);
+    void read.then((soFar) => {
+      const caught = this.catching.get(runId) ?? [];
+      this.catching.delete(runId);
+      const now = this.shells.get(sessionId);
+      if (now?.runId !== runId) return;
+      if (soFar !== null) this.set(sessionId, { ...now, out: trimmed(soFar) });
+      for (const message of caught) if (soFar === null || message.kind !== "output") this.message(runId, message);
+    });
   }
 
   /** A shell's run, from Fleet's answer or its event: the one opening takes it, else it is a new shell. */
@@ -149,6 +172,11 @@ export class JobShells {
   }
 
   private message(runId: string, message: SessionRunMessage): void {
+    const caught = this.catching.get(runId);
+    if (caught !== undefined) {
+      caught.push(message);
+      return;
+    }
     const sessionId = this.ofRun.get(runId);
     if (sessionId === undefined) {
       if (this.opening > 0) this.held.push({ runId, message });
