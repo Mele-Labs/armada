@@ -27,7 +27,7 @@ fn with_origin(root: &str) {
     }
 }
 
-fn a_rig() -> Rig {
+pub(super) fn a_rig() -> Rig {
     let rig = rig_fitted(|_| {});
     with_origin(&rig.root);
     rig
@@ -65,7 +65,7 @@ fn targets(rows: &[ipc::Attachment]) -> Vec<&str> {
     rows.iter().map(|one| one.target.as_str()).collect()
 }
 
-async fn said(rig: &Rig, id: &SessionId, text: &str, mentions: Vec<SessionTag>) {
+pub(super) async fn said(rig: &Rig, id: &SessionId, text: &str, mentions: Vec<SessionTag>) {
     Arc::clone(&rig.fleet)
         .send_session_message(SendSessionMessage {
             session_id: id.clone(),

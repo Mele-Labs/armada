@@ -1,6 +1,7 @@
 //! Writing a turn to a hosted session: ahead of a running one, or after it has been started.
 
 use super::*;
+use crate::session_links::LinkedBy;
 
 /// The line after the person's words when a done stood as they wrote. The message clears the done
 /// and the agent is not otherwise told, so it answered in prose and never called `all_done` again.
@@ -176,6 +177,7 @@ where
         if matches!(written, Written::Message(SessionVoice::You)) {
             self.noted_on_the_ledger(&session, &text).await?;
             self.issues_named(&id, &text, &sent.mentions).await;
+            self.links_seen(&id, &text, LinkedBy::You).await;
             // What the box held may be the first message another Session's agent wrote for him.
             self.first_message_sent(&id).await;
             self.handoff_failure_cleared(&id).await;
