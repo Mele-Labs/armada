@@ -275,3 +275,51 @@ async fn a_session_is_told_nothing_when_a_teaching_has_no_note() {
     Arc::clone(&rig.fleet).save_teaching(save).await.expect("saved");
     assert_eq!(lines_to(&rig).len(), before, "there was nothing to say");
 }
+
+#[tokio::test]
+async fn forgetting_the_entry_removes_the_mods_it_made_and_leaves_every_other_mod() {
+    let rig = rig_placing(None);
+    let mut save = from_words(&rig, "ARM-123");
+    save.proposal.note = Some(note("ARM keys are Jira tickets."));
+    save.proposal.words = Some(words("ARM-123", Some("https://acme.example.net/browse/{match}")));
+    save.proposal.fleet = Some(FleetRule { notice: "behind_base".into(), does: Does::Quiet, scope: RuleScope::Everywhere });
+    let saved = Arc::clone(&rig.fleet).save_teaching(save).await.expect("saved");
+    let entry = saved.entry.clone().expect("an entry");
+    assert_eq!(saved.mods.len(), 2);
+
+    let mut on_bridge = saving(TeachingProposal::default(), None);
+    on_bridge.source = Some(TeachingSource { kind: TeachingSourceKind::Panel, text: "A panel".into(), ids: Vec::new() });
+    on_bridge.proposal.tweak = vec![TweakChange { token: "--bg-raised".into(), was: String::new(), now: "#222".into(), used_in: vec![], note: None }];
+    Arc::clone(&rig.fleet).save_teaching(on_bridge).await.expect("saved");
+    let by_hand = rig.fleet.scaffold_mod(ipc::ScaffoldMod { name: "mine".into(), description: Some("By hand".into()), kind: Some(ModKind::Theme) }).await.expect("made");
+    assert!(std::path::Path::new(&by_hand.path).is_dir());
+
+    rig.fleet.forget_logbook_entry(entry.clone()).await.expect("forgotten");
+
+    let left: Vec<String> = mods_named(&rig).await.into_iter().map(|one| one.0).collect();
+    assert_eq!(left, ["mine", "tweak-bg-raised"], "the words mod and the rule the entry made are gone");
+    assert!(rules(&rig, Some(&rig.root)).await.is_empty());
+    let second = rig.fleet.forget_logbook_entry(entry).await.expect_err("already forgotten");
+    assert_eq!(second.status(), 404);
+}
+
+#[test]
+fn only_a_real_folder_that_names_the_entry_is_taken() {
+    let dir = super::tmp::TempDir::new();
+    let make = |name: &str, entry: &str| {
+        let mod_dir = dir.path().join(name);
+        std::fs::create_dir_all(&mod_dir).expect("folder");
+        std::fs::write(mod_dir.join("mod.toml"), format!("name = \"{name}\"\nkind = \"theme\"\nentry = \"{entry}\"\n")).expect("mod.toml");
+    };
+    make("a", "entry-1");
+    make("b", "entry-2");
+    make("c", "entry-1");
+    std::fs::write(dir.path().join("a-file"), "entry = \"entry-1\"").expect("file");
+    #[cfg(unix)]
+    std::os::unix::fs::symlink(dir.path().join("b"), dir.path().join("linked")).expect("link");
+
+    assert_eq!(crate::teaching::forget_effects(dir.path(), "entry-1"), ["a", "c"]);
+    assert!(dir.path().join("b").is_dir() && dir.path().join("a-file").is_file());
+    assert!(crate::teaching::forget_effects(dir.path(), "entry-1").is_empty(), "a second time takes nothing");
+    assert!(crate::teaching::forget_effects(&dir.path().join("nowhere"), "entry-1").is_empty());
+}

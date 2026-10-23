@@ -8,10 +8,13 @@
 //! note and writes the mods; see [`saving`].
 
 mod answer;
+mod forgetting;
 pub(crate) mod link;
 mod saving;
 mod serving;
 mod tokens;
+
+pub(crate) use forgetting::forget_effects;
 
 use adapter_traits::{AgentHarness, Ask, Delivery, Vcs, WorkProduct};
 use api::Refusal;
