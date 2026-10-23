@@ -98,6 +98,7 @@ mod store;
 mod store_vector;
 mod taught_tracker;
 mod taught_tracker_http;
+mod taught_tracker_mcp;
 mod tracker_reads_only;
 mod territory;
 mod terminal_follow;

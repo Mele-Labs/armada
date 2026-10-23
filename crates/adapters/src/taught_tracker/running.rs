@@ -44,10 +44,7 @@ pub(crate) fn run(argv: &[String], stdin: Option<&[u8]>) -> Result<Ran, String> 
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .map_err(|why| match why.kind() {
-            ErrorKind::NotFound => format!("`{program}` is not installed, or not on the PATH Fleet runs with"),
-            _ => format!("`{program}` could not be started: {why}"),
-        })?;
+        .map_err(|why| not_started(program, &why))?;
     // Fed from its own thread, so a program that answers while it is still being fed never
     // waits on a writer that waits on it.
     let feeding = stdin.zip(child.stdin.take()).map(|(bytes, mut pipe)| {
@@ -104,6 +101,14 @@ pub(crate) fn run(argv: &[String], stdin: Option<&[u8]>) -> Result<Ran, String> 
         stdout,
         stderr: stderr.and_then(|it| it.join().ok()).unwrap_or_default(),
     })
+}
+
+/// Why `program` did not start, naming it and never its arguments.
+pub(crate) fn not_started(program: &str, why: &std::io::Error) -> String {
+    match why.kind() {
+        ErrorKind::NotFound => format!("`{program}` is not installed, or not on the PATH Fleet runs with"),
+        _ => format!("`{program}` could not be started: {why}"),
+    }
 }
 
 /// What one call fills its placeholders with.
