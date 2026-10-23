@@ -36,6 +36,7 @@ function shellFleet() {
   const windowed = new Set<string>();
   const windowsHeard = new Set<(sessionIds: readonly string[]) => void>();
   const movesHeard = new Set<(move: TerminalMovedBack) => void>();
+  const lastShell = new Map<string, { runId: string; ended: boolean }>();
   const send = (runId: string, message: SessionRunMessage) => {
     if (message.kind === "output") printed.set(runId, (printed.get(runId) ?? "") + message.text);
     hearing.forEach((one) => one(runId, message));
@@ -52,6 +53,7 @@ function shellFleet() {
     if (already !== undefined) return already;
     const runId = `shell-${(minted += 1)}`;
     openIn.set(sessionId, runId);
+    lastShell.set(sessionId, { runId, ended: false });
     // Main follows the shell before the window hears it opened, so nothing it prints is missed.
     tell({ session_id: sessionId, run_id: runId, change: "opened" });
     const shell = startShell(
@@ -60,6 +62,7 @@ function shellFleet() {
       (code) => {
         shells.delete(runId);
         if (openIn.get(sessionId) === runId) openIn.delete(sessionId);
+        if (lastShell.get(sessionId)?.runId === runId) lastShell.set(sessionId, { runId, ended: true });
         send(runId, { kind: "exited", code });
         tell({ session_id: sessionId, run_id: runId, change: "exited" });
       },
@@ -116,7 +119,8 @@ function shellFleet() {
       readTerminalSoFar: async (runId: string) => printed.get(runId) ?? null,
       moveTerminalBack: async (sessionId: string, to: TerminalMovedBack["to"]) => {
         closeWindow(sessionId);
-        movesHeard.forEach((one) => one({ sessionId, to }));
+        const shell = lastShell.get(sessionId);
+        movesHeard.forEach((one) => one({ sessionId, to, ...(shell === undefined ? {} : { shell }) }));
       },
       onTerminalMovedBack: (on: (move: TerminalMovedBack) => void) => {
         movesHeard.add(on);

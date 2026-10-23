@@ -80,9 +80,13 @@ function useShellArrivals(shells: JobShells | null, place: ShellPlace, sessionId
     if (place !== "page") return offOpened;
     const offBack = shells.onMovedBack((move) => {
       if (move.sessionId !== sessionId) return;
-      if (move.to === "side panel" && toPanel(shells, place, sessionId)) return;
-      // This window may never have followed the shell, which the window opened: it is handed it as any open is.
-      shells.want(place, sessionId);
+      // This window may never have followed the shell, which the window opened: main says which it is and how it stands.
+      shells.movedIn(sessionId, move.shell);
+      if (move.to === "side panel" && openInPanel({ kind: "terminal", sessionId })) {
+        shells.show(place, sessionId, false);
+        return;
+      }
+      shells.show(place, sessionId, true);
       told.current?.();
     });
     return () => {

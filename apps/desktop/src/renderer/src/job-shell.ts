@@ -129,6 +129,23 @@ export class JobShells {
     this.set(sessionId, { runId: null, out: "", screen: (this.screens += 1), ended: false, waiting: true });
   }
 
+  /**
+   * A shell moved back out of its window, held as main says it stands. One that ended there is shown ended, with what main kept
+   * of it, rather than opened again; any other is `fresh`'s, handed the running one where there is one.
+   */
+  movedIn(sessionId: string, shell: TerminalMovedBack["shell"]): void {
+    if (shell === undefined || !shell.ended) return this.fresh(sessionId);
+    // Held already: ended, or its end is on its way.
+    if (this.shells.get(sessionId)?.runId === shell.runId) return;
+    const { runId } = shell;
+    this.set(sessionId, { runId, out: "", screen: (this.screens += 1), ended: true, waiting: false });
+    this.ofRun.set(runId, sessionId);
+    void (this.api.readTerminalSoFar?.(runId) ?? Promise.resolve(null)).then((soFar) => {
+      const now = this.shells.get(sessionId);
+      if (soFar !== null && now?.runId === runId) this.set(sessionId, { ...now, out: trimmed(soFar) });
+    });
+  }
+
   /** Shows the pane, with a new shell where none is running. */
   want(place: ShellPlace, sessionId: string): void {
     this.fresh(sessionId);

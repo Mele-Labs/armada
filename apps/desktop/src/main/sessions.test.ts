@@ -716,6 +716,8 @@ it("lets an ended shell's output go when its Job's next shell opens, and a block
   await sessions.openTerminal({ session_id: "a" });
   await ended;
   expect(sessions.soFar("r1")).toBe("one\r\n");
+  expect(sessions.shellNow("a")).toEqual({ runId: "r1", ended: true });
+  expect(sessions.shellNow("b")).toBeNull();
   ended = endOf(sessions, "b1");
   await sessions.startRun({ session_id: "a", command: "echo hi" });
   await ended;
@@ -726,6 +728,7 @@ it("lets an ended shell's output go when its Job's next shell opens, and a block
   await ended;
   expect(sessions.soFar("r1")).toBeNull();
   expect(sessions.soFar("r2")).toBe("two\r\n");
+  expect(sessions.shellNow("a")).toEqual({ runId: "r2", ended: true });
 });
 
 it("holds the twenty threads opened last, and reads one let go again when it is reopened", async () => {

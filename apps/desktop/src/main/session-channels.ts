@@ -271,7 +271,8 @@ export function handleSessions({ ipc, connection, windowIdOf, pages, terminals }
   ipc.handle(CHANNELS.moveTerminalBack, (_event, sessionId: unknown, to: unknown) => {
     if (!text(sessionId) || !BACK_TO.includes(to as TerminalMovedBack["to"])) return;
     terminals.windows.close(sessionId);
-    terminals.movedBack({ sessionId, to: to as TerminalMovedBack["to"] });
+    const shell = connection()?.sessions.shellNow(sessionId) ?? null;
+    terminals.movedBack({ sessionId, to: to as TerminalMovedBack["to"], ...(shell === null ? {} : { shell }) });
   });
   ipc.handle(CHANNELS.catchUpCheckout, (_event, manifestId: string) =>
     text(manifestId) ? (connection()?.sessions.catchUpCheckout({ manifest_id: manifestId }) ?? unsent) : unread,

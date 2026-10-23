@@ -198,6 +198,8 @@ export class SessionsHost {
   private readonly printed = new Map<string, string>();
   /** Each Job's last shell, whose output is kept until the next one replaces it. */
   private readonly shellOf = new Map<string, string>();
+  /** Each Job's last shell that has said it exited, before its socket closes. */
+  private readonly exited = new Set<string>();
   /** Threads whose read has not answered, with the rows that arrived meanwhile. */
   private reading = new Map<string, SessionRow[]>();
   /** Where held threads are kept, one file each; none where nothing is kept. */
@@ -328,6 +330,12 @@ export class SessionsHost {
     return out === undefined ? null : lastOf(out);
   }
 
+  /** The Job's last shell main followed, and whether it has ended: what a shell moved back out of its window is shown as. */
+  shellNow(sessionId: string): { runId: string; ended: boolean } | null {
+    const runId = this.shellOf.get(sessionId);
+    return runId === undefined ? null : { runId, ended: this.exited.has(runId) || !this.runs.has(runId) };
+  }
+
   /**
    * The Job's shell, opened or handed over. Observed as `startRun`'s run is; a shell already
    * observed, because the agent or an earlier open began it, keeps the socket it has.
@@ -409,6 +417,7 @@ export class SessionsHost {
     if (shellOf !== undefined) {
       const before = this.shellOf.get(shellOf);
       if (before !== undefined && before !== runId && !this.runs.has(before)) this.printed.delete(before);
+      if (before !== runId) this.exited.delete(before ?? "");
       this.shellOf.set(shellOf, runId);
     }
     if (this.runs.has(runId)) return;
@@ -416,6 +425,7 @@ export class SessionsHost {
     this.runs.set(runId, socket);
     // Fleet replays what it holds to a new follower, so a run followed again starts over.
     this.printed.set(runId, "");
+    this.exited.delete(runId);
     let exited = false;
     // A socket that goes without `exited` ends the run for the reader all the same, as a stop does.
     const finish = (): void => {
@@ -443,7 +453,8 @@ export class SessionsHost {
 
   /** A block's output goes as it ends; a shell's stays until its Job's next shell. */
   private letGo(runId: string): void {
-    if (![...this.shellOf.values()].includes(runId)) this.printed.delete(runId);
+    if ([...this.shellOf.values()].includes(runId)) this.exited.add(runId);
+    else this.printed.delete(runId);
   }
 
   /** Say what opens a window: main's, since a window is not a thing this host holds. */

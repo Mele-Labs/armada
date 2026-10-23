@@ -45,7 +45,8 @@ function terminalWired() {
   const soFar = vi.fn((runId: string) => (runId === "r1" ? "~ $ ls\r\n" : null));
   const windows = { show: vi.fn(), close: vi.fn(), sessionIds: () => ["a"] };
   const movedBack = vi.fn();
-  handleSessions({ ipc, connection: () => ({ sessions: { soFar } }), windowIdOf: () => undefined, pages: {}, terminals: { windows, movedBack } } as unknown as Parameters<typeof handleSessions>[0]);
+  const shellNow = (sessionId: string) => (sessionId === "a" ? { runId: "r1", ended: true } : null);
+  handleSessions({ ipc, connection: () => ({ sessions: { soFar, shellNow } }), windowIdOf: () => undefined, pages: {}, terminals: { windows, movedBack } } as unknown as Parameters<typeof handleSessions>[0]);
   const call = (channel: string, ...args: unknown[]) => handlers.get(channel)?.({}, ...args);
   return { call, windows, movedBack, soFar };
 }
@@ -60,13 +61,14 @@ describe("a Job's terminal window", () => {
     expect(await call(CHANNELS.getTerminalWindows)).toEqual(["a"]);
   });
 
-  it("moves a shell back into Bridge, closing its window and telling every window where it went", async () => {
+  it("moves a shell back into Bridge, closing its window and telling every window where it went and which shell it is", async () => {
     const { call, windows, movedBack } = terminalWired();
     await call(CHANNELS.moveTerminalBack, "a", "side panel");
     await call(CHANNELS.moveTerminalBack, "a", "window");
     await call(CHANNELS.moveTerminalBack, "", "docked");
-    expect(windows.close.mock.calls).toEqual([["a"]]);
-    expect(movedBack.mock.calls).toEqual([[{ sessionId: "a", to: "side panel" }]]);
+    await call(CHANNELS.moveTerminalBack, "b", "docked");
+    expect(windows.close.mock.calls).toEqual([["a"], ["b"]]);
+    expect(movedBack.mock.calls).toEqual([[{ sessionId: "a", to: "side panel", shell: { runId: "r1", ended: true } }], [{ sessionId: "b", to: "docked" }]]);
   });
 
   it("reads what a shell has printed so far by its run id", async () => {

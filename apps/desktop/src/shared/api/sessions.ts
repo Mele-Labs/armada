@@ -62,8 +62,11 @@ export type SessionActed<T = SessionRecord> = { ok: true; value: T } | { ok: fal
 /** A Job's shell opening or ending, as `terminal.opened` and `terminal.exited` carry it. */
 export type JobTerminalChange = JobTerminal & { change: "opened" | "exited" };
 
-/** A shell moved from its own window back into Bridge, docked or in the side panel. */
-export type TerminalMovedBack = { sessionId: string; to: "docked" | "side panel" };
+/**
+ * A shell moved from its own window back into Bridge, docked or in the side panel. `shell` is the Job's last shell main followed,
+ * so one that ended in its window is shown ended rather than opened again; absent where main followed none.
+ */
+export type TerminalMovedBack = { sessionId: string; to: "docked" | "side panel"; shell?: { runId: string; ended: boolean } };
 
 export type PullRequestPress = "read" | "ready" | "merge" | "auto_merge";
 

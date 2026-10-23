@@ -327,6 +327,31 @@ test("Window: a shell moved back from its window docks, or opens in the side pan
   expect(shellCalls()!.stopped).toEqual([]);
 });
 
+test("Window: a shell that ended in its window moves back ended, docked or in the side panel, with what it printed, and no new shell opens", async () => {
+  const app = mount(s322SessionShell);
+  await onScreen();
+  await toSession(/Deploy the store/);
+  await terminal().click();
+  await expect.element(pane().getByText(PROMPT)).toBeVisible();
+  await userEvent.keyboard("pwd{Enter}");
+  const printed = "~/Development/armada/.armada/slots/slot-1";
+  await expect.element(pane().getByText(printed, { exact: true })).toBeVisible();
+  await pane().getByRole("button", { name: "Open in a window" }).click();
+  await expect.element(pane()).not.toBeInTheDocument();
+  // End shell, pressed in the window.
+  await app.api.stopSessionRun("shell-1");
+
+  await app.api.moveTerminalBack(SHELL_JOB, "docked");
+  await expect.element(pane().getByText("Shell ended")).toBeVisible();
+  await expect.element(pane().getByText(printed, { exact: true })).toBeVisible();
+  await pane().getByRole("button", { name: "Open in a window" }).click();
+  await expect.element(pane()).not.toBeInTheDocument();
+  await app.api.moveTerminalBack(SHELL_JOB, "side panel");
+  await expect.element(panel().getByText("Shell ended")).toBeVisible();
+  await expect.element(panel().getByText(printed, { exact: true })).toBeVisible();
+  expect(shellCalls()!.opened).toHaveLength(1);
+});
+
 test("Window: the agent opening the Job's shell opens its window, and docks nothing", async () => {
   await openInWindow();
   timePasses();

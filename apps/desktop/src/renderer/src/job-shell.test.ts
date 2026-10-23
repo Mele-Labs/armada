@@ -90,3 +90,27 @@ describe("a window that comes to a running shell", () => {
     expect(shells.shell("a")?.out).toBe("ls\r\n");
   });
 });
+
+describe("a shell moved back out of its window", () => {
+  it("is held ended with what main kept of it where it ended there, and no shell is opened", async () => {
+    const { api, soFar } = fakeApi();
+    const shells = new JobShells(api);
+    shells.movedIn("a", { runId: "r9", ended: true });
+    expect(shells.shell("a")).toMatchObject({ runId: "r9", ended: true, waiting: false });
+    soFar.settle("~ $ exit\r\n");
+    await settled();
+    expect(api.readTerminalSoFar).toHaveBeenCalledWith("r9");
+    expect(shells.shell("a")?.out).toBe("~ $ exit\r\n");
+    shells.sized("a", 80, 24);
+    expect(api.openTerminal).not.toHaveBeenCalled();
+  });
+
+  it("waits for its pane's size and is handed the running one where it still runs", () => {
+    const { api } = fakeApi();
+    const shells = new JobShells(api);
+    shells.movedIn("a", { runId: "r1", ended: false });
+    expect(shells.shell("a")).toMatchObject({ runId: null, waiting: true });
+    shells.sized("a", 80, 24);
+    expect(api.openTerminal).toHaveBeenCalledWith("a", 80, 24);
+  });
+});
