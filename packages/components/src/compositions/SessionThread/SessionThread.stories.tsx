@@ -845,6 +845,20 @@ export const WhatWaitsIsTheThreadsLastCard: Story = {
   },
 };
 
+/** A turn running behind a waiting plan marks the thread's end below the card, beside the composer, not on a calls row above it. */
+export const WorkingMarkBelowTheWaitingCard: Story = {
+  args: {
+    rows: [...LIVE_ROWS, { id: "l4", at: "14:09:00", kind: "tool", text: "Read crates/fleet/src/queue.rs" }, { id: "l5", at: "14:09:02", kind: "tool", text: "Bash cargo check -p fleet" }],
+    approval: LIVE_PLAN,
+    working: true,
+  },
+  play: async ({ canvas }) => {
+    const tail = canvas.getByRole("listitem", { name: "Waiting on you" });
+    const mark = canvas.getByRole("img", { name: "Working" });
+    await expect(tail.compareDocumentPosition(mark) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  },
+};
+
 /** The plan card folds on its band to one line: Plan, its version and its state, with Approve still on it. */
 export const PlanFoldsToOneLine: Story = {
   args: { rows: LIVE_ROWS, approval: LIVE_PLAN },
