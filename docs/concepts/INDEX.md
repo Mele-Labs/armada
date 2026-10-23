@@ -28,6 +28,7 @@ assuming it is restated here.
 | [kit.md](kit.md) | The tool set you bring — Skills, MCP, sub agents, Commands, the allowlist |
 | [layout-mods.md](layout-mods.md) | A mod whose `layout.json` reorders, hides and sets the opening choice of Bridge's Cockpit panels and places, by id |
 | [log-envelope.md](log-envelope.md) | The field contract every log line carries across Fleet and Bridge |
+| [logbook.md](logbook.md) | What Armada has learned about a repository, the owner's habits and this Mac, kept as short entries, curated with no approval and handed to every new Job |
 | [machine.md](machine.md) | How this installation behaves: resources, timing, notification routing |
 | [manifest.md](manifest.md) | Per-project config, backed by `armada.yml` |
 | [mods.md](mods.md) | A folder on this machine that changes how Bridge looks, which Fleet reads and checks and which can never stop Fleet |

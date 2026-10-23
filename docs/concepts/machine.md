@@ -158,6 +158,9 @@ A model chosen for one Job wins, and a terminal Job reports its own.
 **Missing commands are kept for the machine, not the repository.** They are read off the stream, never from an agent's word.
 A result that names a missing command counts as failed, because a pipe hides the exit of what is before it.
 
+**The machine note becomes a section of the [Logbook](logbook.md).** Its detector is unchanged.
+Its facts are Logbook entries in the `machine` section, and the run note and this note become one Logbook note.
+
 ### The browser
 
 **A hosted Job's process is started with a headless Playwright shell, so the Playwright tool needs no Chrome.** Chrome is not installed here, and headless keeps windows off the owner's screen.

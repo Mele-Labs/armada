@@ -32,6 +32,7 @@ mod commands;
 mod conversing;
 mod hosted_sessions;
 mod issues;
+mod logbook;
 mod mods;
 mod pull_request_panel;
 mod pull_requests;
@@ -52,6 +53,7 @@ pub use conversing::Conversations;
 pub use hosted_sessions::{HostedSessions, StoredFile};
 pub use sessions::ShownFile;
 pub use issues::{Autopilots, Issues};
+pub use logbook::Logbook;
 pub use mods::Mods;
 pub use pull_request_panel::PullRequestPanel;
 pub use pull_requests::PullRequests;
@@ -99,7 +101,7 @@ use ipc::WireError;
 /// is a sixth and [`Retros`] a seventh, each for a reason its own module gives.
 /// [`Authoring`] is one more, for [`Retros`]' reason, and [`Sessions`] another,
 /// [`HostedSessions`] one more beside it, and [`Clashing`] and [`PullRequests`] two
-/// more, [`Rehearsing`] split out of [`Commands`], [`Mods`] and [`Settings`], and [`Accounts`] and [`Requests`] beside them.
+/// more, [`Rehearsing`] split out of [`Commands`], [`Mods`] and [`Settings`], and [`Accounts`] and [`Requests`] beside them, and [`Logbook`] with them.
 pub trait Daemon:
     Queries
     + Commands
@@ -107,6 +109,7 @@ pub trait Daemon:
     + Admitting
     + Studios
     + Retros
+    + Logbook
     + Authoring
     + Sessions
     + HostedSessions
@@ -130,6 +133,7 @@ impl<
             + Admitting
             + Studios
             + Retros
+            + Logbook
             + Authoring
             + Sessions
             + HostedSessions
