@@ -56,6 +56,13 @@ export function TerminalPanel({ item }: { item: Item }) {
               closePanel();
             },
           },
+          {
+            to: "window",
+            onMove: () => {
+              saveJobTerminalPlace("window");
+              if (shells.toWindow(sessionId)) closePanel();
+            },
+          },
         ]}
       >
         {/* Esc typed into a running shell is the shell's, as vim and less take it. */}
