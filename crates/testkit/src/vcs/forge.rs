@@ -99,19 +99,19 @@ impl Forge for FakeVcs {
         self.main_ci.open_pulls()
     }
 
-    fn pull_watch(&self, _in_repo: &str, gate: &str) -> Option<adapter_traits::WatchedPulls> {
+    fn pull_reading(&self, _in_repo: &str, gate: &str) -> Option<adapter_traits::FollowedPulls> {
         self.main_ci.gated_by(gate);
-        self.main_ci.watched()
+        self.main_ci.followed()
     }
 
-    fn watched_pull(
+    fn followed_pull(
         &self,
         _in_repo: &str,
         gate: &str,
         number: u64,
-    ) -> Option<adapter_traits::WatchedPull> {
+    ) -> Option<adapter_traits::FollowedPull> {
         self.main_ci.gated_by(gate);
-        self.main_ci.watched_one(number)
+        self.main_ci.followed_one(number)
     }
 
     fn open_pull_request(
@@ -209,11 +209,11 @@ impl Forge for FakeVcs {
         _in_repo: &str,
         pull_request: &str,
     ) -> Option<adapter_traits::PullRequestFacts> {
-        // A pull request the watch lists is open, as a forge read of it says, unless a test
+        // A pull request the pull reading lists is open, as a forge read of it says, unless a test
         // scripted what the read answers.
         self.pull_request_read(pull_request).or_else(|| {
             let number: u64 = pull_request.trim_start_matches('#').parse().ok()?;
-            let pull = self.main_ci.watched()?.into_iter().find(|pull| pull.number == number)?;
+            let pull = self.main_ci.followed()?.into_iter().find(|pull| pull.number == number)?;
             Some(adapter_traits::PullRequestFacts {
                 standing: adapter_traits::PullRequestStanding::Open,
                 branch: pull.branch.as_written().to_string(),

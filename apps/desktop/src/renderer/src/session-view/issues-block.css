@@ -1,69 +1,36 @@
-/* Progress: the issues the Session works on, in the deck's language: gray is the baseline, a state is its frame or edge, finished work the advanced
-   hue, a Check running the running hue and one failing red. No glow, no gradient. Tokens only. */
+/* Progress: the issues the Session works on, as rows. They are reference, so they read below the plan: no frame, the muted ink, a state in the
+   glyph's hue (finished work the advanced hue, a Check running the running hue and one failing red). No glow, no gradient. Tokens only. */
 
-/* The issue glyph, in its state's hue: open the plain foreground, closed the advanced hue. */
-.sv-strip__issue-mark { display: inline-flex; align-items: center; color: var(--fg-muted); }
-.sv-strip__issue-mark[data-state="closed"] { color: var(--step-advanced); }
+.sv-issues { display: flex; flex-direction: column; gap: var(--space-2); }
+.sv-rows { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
+/* The pull requests that work an issue, indented under its row. */
+.sv-rows__nested { margin-inline-start: var(--space-4); }
 
-.sv-strips { display: flex; flex-direction: column; gap: var(--space-2); }
-.sv-strips__board { display: flex; flex-direction: column; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
-
-/* A strip is framed as a bay is: the state is the frame's hue, a band over the body. */
-.sv-strip {
-  --hue: var(--fg-subtle);
-  display: flex;
-  flex-direction: column;
-  border: calc(var(--border-width) * 2) solid color-mix(in srgb, var(--hue) 40%, var(--border-subtle));
-  border-radius: var(--radius-lg);
-  background: var(--bg-raised);
-  overflow: hidden;
-}
-.sv-strip[data-state="closed"] { --hue: var(--step-advanced); border-color: color-mix(in srgb, var(--hue) 60%, var(--border-subtle)); }
-.sv-strip:has(> .sv-strip__head:focus-visible) { border-color: var(--hue); outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
-
-.sv-strip__head { display: flex; flex-direction: column; width: 100%; padding: 0; border: 0; background: none; color: var(--fg-default); font: inherit; text-align: start; cursor: pointer; }
-.sv-strip__head:focus-visible { outline: none; }
-.sv-strip__head:hover .sv-strip__title { background: color-mix(in srgb, var(--fg-default) 5%, transparent); }
-.sv-strip__band {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-1) var(--space-3);
-  border-bottom: var(--border-width) solid color-mix(in srgb, var(--hue) 35%, var(--border-subtle));
-  background: color-mix(in srgb, var(--hue) 14%, var(--bg-raised));
-  color: var(--hue);
-}
-.sv-strip__num { font-family: var(--font-mono); font-size: var(--text-xs); line-height: var(--leading-xs); font-weight: var(--weight-heading); letter-spacing: var(--tracking-caps); color: var(--fg-default); }
-.sv-strip__title { padding: var(--space-2) var(--space-3); font-family: var(--font-sans); font-weight: var(--weight-medium); overflow-wrap: anywhere; }
-
-/* The pull requests slotted under it, ruled off one from the next as strips in a board are. */
-.sv-strip__slots { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; border-top: var(--border-width) solid var(--border-subtle); }
-.sv-strip__slots > li + li { border-top: var(--border-width) solid var(--border-subtle); }
-.sv-strip__pr {
-  --edge: var(--border-strong);
+.sv-row {
   display: grid;
   grid-template-columns: auto auto minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--space-2);
   width: 100%;
-  padding: var(--space-1) var(--space-3) var(--space-1) var(--space-2);
+  padding: var(--space-1) var(--space-2);
   border: 0;
-  border-inline-start: calc(var(--border-width) * 3) solid var(--edge);
-  background: var(--bg-sunken);
-  color: var(--fg-default);
-  font: inherit;
+  border-radius: var(--radius-md);
+  background: none;
+  color: var(--fg-muted);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
   text-align: start;
   cursor: pointer;
 }
-.sv-strip__pr[data-checks="running"] { --edge: var(--step-running); }
-.sv-strip__pr[data-checks="failed"] { --edge: var(--step-failed); }
-.sv-strip__pr[data-pr="merged"] { --edge: var(--step-advanced); }
-.sv-strip__pr:hover { background: color-mix(in srgb, var(--fg-default) 6%, var(--bg-sunken)); }
-.sv-strip__pr:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--border-width) * -2); }
-.sv-strip__pr-mark { display: inline-flex; color: var(--edge); }
-.sv-strip__pr[data-checks="passed"]:not([data-pr="merged"]) .sv-strip__pr-mark { color: var(--fg-muted); }
-.sv-strip__pr-num { color: var(--fg-muted); }
-.sv-strip__pr-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-sans); }
-.sv-strip__pr > .armada-tooltip { display: inline-flex; align-items: center; }
-/* Those that close no issue: a board of their own, framed dashed as a free bay is. */
-.sv-strip__slots[data-loose] { border: calc(var(--border-width) * 2) dashed var(--border-default); border-radius: var(--radius-lg); overflow: hidden; }
+.sv-row:hover { background: var(--bg-hover); color: var(--fg-default); }
+.sv-row:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--border-width) * -1); }
+.sv-row__num { color: var(--fg-subtle); font-size: var(--text-2xs); }
+.sv-row__title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sv-row > .armada-tooltip { display: inline-flex; align-items: center; }
+
+/* The glyph's hue is the state: an open issue or a passing pull request the quiet ink. */
+.sv-row__mark { display: inline-flex; align-items: center; color: var(--fg-subtle); }
+.sv-row__mark[data-state="closed"], .sv-row__mark[data-pr="merged"] { color: var(--step-advanced); }
+.sv-row__mark[data-checks="running"]:not([data-pr="merged"]) { color: var(--step-running); }
+.sv-row__mark[data-checks="failed"]:not([data-pr="merged"]) { color: var(--step-failed); }

@@ -2,13 +2,13 @@
 kind = "command"
 transport = "HTTP"
 agent_access = "Bridge only"
-description = "Read one pull request from the forge now, and do for it what the next pull watch reading would"
+description = "Read one pull request from the forge now, and do for it what the next pull reading would"
 notes = """
 `POST /pull_requests/:repository/:number/refresh`, no body, `repository` a manifest id. Answered `PullRequestState` with a 200, the same read `get_pull_request` answers, and the ledger follows it as that read's does.
 
-**What a pull watch reading does, for this one pull request, now.** An open or draft one is read as the watch reads it, and its owner is told what the watch would tell: failed checks, a conflict, a drop out of the merge queue, auto-merge on. Its entry on the merge line is read again with its owner, so `merge_lines.changed` carries it within two seconds; a repository the hub has not listed yet waits for its visit. A merged one is told from the forge's list of recent merges on the watch's rule, so a merge more than six hours old is not news. A merged or closed one leaves the merge line, and its owner row in the central store is deleted as the watch deletes it.
+**What a pull reading does, for this one pull request, now.** An open or draft one is read as the pull reading reads it, and its owner is told what the pull reading would tell: failed checks, a conflict, a drop out of the merge queue, auto-merge on. Its entry on the merge line is read again with its owner, so `merge_lines.changed` carries it within two seconds; a repository the hub has not listed yet waits for its visit. A merged one is told from the forge's list of recent merges on the pull reading's rule, so a merge more than six hours old is not news. A merged or closed one leaves the merge line, and its owner row in the central store is deleted as the pull reading deletes it.
 
-**Each notice is told once.** The refresh and the watch share the record of what was told and of the merge queue last seen, and one reading at a time runs in a repository. Only the signed-in person's own pull requests are told, as the watch tells them.
+**Each notice is told once.** The refresh and the pull reading share the record of what was told and of the merge queue last seen, and one reading at a time runs in a repository. Only the signed-in person's own pull requests are told, as the pull reading tells them.
 
 Refused with a 500 `fleet.pull_request_unreadable` where the forge would not answer, and nothing else is read or told; a 422 for a repository Fleet does not serve.
 

@@ -16,7 +16,7 @@ While it is on, a pass over every live job's waiting items (`crates/fleet/src/sl
 | Destructive or irreversible (delete, drop, remove, force, reset, rm, overwrite, discard, close PR and the like, read from the text and the options; unsure holds) | Never answered. Recorded under blocked. |
 | `perm:` permission | Never allowed. Recorded under blocked. |
 | `walk:` | Recorded under walks. |
-| A pull request the pull watch sees merge | Recorded under landed. |
+| A pull request the pull reading sees merge | Recorded under landed. |
 
 **The review is cards on the stage, opened with the call key**, not a panel of its own: each decided row is a call, headed by who decided it.
 The card says what Sleep chose and keeps its acts on the rail: **Agree** keeps it (`review_sleep`), **Change** sends the owner's words to the agent (`override_sleep`) and reviews the row, **Open the Job** goes to where it was decided, **Later** puts it at the back, and **Dismiss**, under a cover, reviews it for good.

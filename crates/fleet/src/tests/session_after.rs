@@ -16,7 +16,7 @@ use store::KeptWait;
 use testkit::FakeJudge;
 
 use super::agent_starts::{begins, caller, kind, two_groups, Rig};
-use crate::after_watching::{judged, Verdict};
+use crate::after_following::{judged, Verdict};
 
 const BRIEF: &str = "after @The agent lands its PR, let the Field expand into the overlay";
 
@@ -37,7 +37,7 @@ fn brief_after(rig: &Rig, on: &SessionId, condition: StartCondition, base: Start
 impl Rig {
     /// The Session waited on, with the Fleet reading what waits on it.
     async fn a_waited_on_agent(&self) -> SessionId {
-        crate::after_watching::keep_the_waiting(Arc::clone(&self.fleet));
+        crate::after_following::keep_the_waiting(Arc::clone(&self.fleet));
         self.an_agent().await
     }
 

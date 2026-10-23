@@ -49,7 +49,7 @@ import type {
   TuneSession,
   WritePullRequest,
 } from "@armada/protocol";
-import type { ArtifactRead, LoadoutItemAsk, LoadoutItemBody, PageBounds } from "@armada/screens/src/draft/sessions";
+import type { ArtifactRead, LoadoutItemAsk, LoadoutItemBody, PageBounds, PageShot } from "@armada/screens/src/draft/sessions";
 
 /** What a session act came to: the thing Fleet answered with, or the refusal to word. */
 export type SessionActed<T = SessionRecord> = { ok: true; value: T } | { ok: false; outcome: Outcome };
@@ -197,6 +197,12 @@ export type SessionsApi = {
   hideSessionPage: () => Promise<void>;
   /** Esc pressed while the page's view has focus, which the renderer never hears itself. Returns its remover. */
   onSessionPageEscape: (on: () => void) => () => void;
+  /** Starts pictures of a page the Session's ledger names, taken in a view main holds out of sight and sent to `onSessionSnapshot`: the live view's page, drawn small. One at a time per window. */
+  watchSessionSnapshot: (sessionId: string, address: string) => Promise<Followed>;
+  /** Ends the pictures and closes the view they were taken in. */
+  stopSessionSnapshot: () => Promise<void>;
+  /** Each picture of the page being watched, as PNG bytes, when it first reads so and each time it changes. Returns its remover. */
+  onSessionSnapshot: (on: (shot: PageShot) => void) => () => void;
   /** An act on one of a Session's pull requests. `read` brings its state current, `review` answers the Code Review Job it dispatched. */
   pressPullRequest: (
     sessionId: string,
@@ -320,6 +326,9 @@ export const SESSIONS_CHANNELS = {
   moveSessionPage: "bridge:move-session-page",
   hideSessionPage: "bridge:hide-session-page",
   sessionPageEscape: "bridge:session-page-escape",
+  watchSessionSnapshot: "bridge:watch-session-snapshot",
+  stopSessionSnapshot: "bridge:stop-session-snapshot",
+  sessionSnapshot: "bridge:session-snapshot",
   pressPullRequest: "bridge:press-pull-request",
   pressRepositoryPullRequest: "bridge:press-repository-pull-request",
   readPullRequestPage: "bridge:read-pull-request-page",

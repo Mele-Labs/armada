@@ -202,6 +202,8 @@ export type PrWork = {
   page: PageRead;
   /** The patches opened, by path. Read from the forge when a file's change is first shown. */
   patches: Readonly<Record<string, PatchRead>>;
+  /** The commit the patches were read on, so a page that answers a newer one drops them. */
+  patchesHead?: string;
   /** Fleet's refusal of the last review he submitted, in the forge's words. His drafts are still there. */
   refused: string | undefined;
   /** A review is on its way to the forge. */

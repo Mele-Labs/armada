@@ -2,7 +2,7 @@
 //! *The rail*.
 //!
 //! **Pure.** The steps and the facts are passed in, so each rule is read and tested without a Fleet.
-//! `rail_keeping` takes the facts out of the store and `rail_watching` acts on what changed; this is
+//! `rail_keeping` takes the facts out of the store and `rail_following` acts on what changed; this is
 //! the rules between the two.
 //!
 //! **The agent's word is never an input.** The step comes from the plan (approved, tasks open), the

@@ -17,18 +17,18 @@ use super::main_ci::ONE;
 use super::main_fix::root;
 use super::red_claim::{machine, Machine, SLUG};
 use crate::red_claim::owner_key_of;
-use adapter_traits::{PullQueue, WatchedPull};
+use adapter_traits::{PullQueue, FollowedPull};
 
-/// What the forge lists open: `numbers`, and the same as a watcher reads them.
+/// What the forge lists open: `numbers`, and the same as a pull reading reads them.
 fn open(machine: &Machine, numbers: &[u64]) {
     let forge = &machine.fleet.vcs().main_ci;
     forge.head_is(Some(ONE));
     forge.runs_on(ONE, vec![run("ci", "11", CiState::Passed)]);
     forge.pulls_are(Some(numbers.iter().map(|number| pull(*number, Some(CiState::Passed), &[])).collect::<Vec<OpenPull>>()));
-    forge.watched_are(Some(
+    forge.followed_are(Some(
         numbers
             .iter()
-            .map(|number| WatchedPull {
+            .map(|number| FollowedPull {
                 number: *number,
                 branch: FromOutside::verbatim(format!("armada/{number}")),
                 url: FromOutside::verbatim(format!("https://forge.invalid/armada/pull/{number}")),
@@ -81,10 +81,10 @@ async fn a_pull_request_row_holds_a_hashed_key_and_no_name() {
     assert!(!key.as_str().contains("armada") && !key.as_str().contains('/'));
 }
 
-/// **A draft past the watch's hundred is claimed by its number**: the owner's four older drafts in
+/// **A draft past the pull reading's hundred is claimed by its number**: the owner's four older drafts in
 /// a busy repository were refused as not open (16 Oct 2026). One the forge says is closed is not.
 #[tokio::test]
-async fn an_open_pull_request_the_watch_did_not_list_is_claimed_by_its_number() {
+async fn an_open_pull_request_the_pull_reading_did_not_list_is_claimed_by_its_number() {
     let shared = FakeStore::new();
     let a = machine("mac-a", &shared, true).await;
     open(&a, &[30]);

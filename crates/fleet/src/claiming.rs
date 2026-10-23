@@ -1,4 +1,4 @@
-//! An agent takes a pull request nobody is working. The pull watch attaches a pull request to
+//! An agent takes a pull request nobody is working. The pull reading attaches a pull request to
 //! whoever held its branch; this is for the one it could not place, which a Session that
 //! notices it claims for itself. `claim_pull_request`.
 
@@ -54,7 +54,7 @@ where
         let served = self.served_named(Some(&ManifestId::carried(&manifest)))?;
         let root = served.root().to_string();
         let number = claim.number;
-        // **Asked for by its number**, not found in the watch: the watch reads the hundred updated
+        // **Asked for by its number**, not found in the pull reading: the pull reading reads the hundred updated
         // last, and four of the owner's older drafts were refused as not open (16 Oct 2026).
         let (branch, url) = self
             .forge_asked(&root, move |vcs: &V, root: &str| vcs.pull_request_facts(root, &number.to_string()))

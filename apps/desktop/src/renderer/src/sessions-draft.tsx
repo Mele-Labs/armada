@@ -10,6 +10,7 @@ import type { ReactNode } from "react";
 import type { QueuedIdea, Session, SessionsDraft } from "@armada/screens/src/draft/sessions";
 
 import { withOutgoing } from "./outgoing";
+import { withPressed } from "./pressed";
 
 const Held = createContext<SessionsDraft | undefined>(undefined);
 
@@ -23,8 +24,8 @@ const NO_IDEAS: readonly QueuedIdea[] = [];
 
 /** Hand a moment's Sessions to the window. The mock's own mount is the one caller. */
 export function SessionsFrom({ held, acts, children }: { held: SessionsDraft | undefined; acts?: RepositoryActs; children: ReactNode }) {
-  // What the person sent is in the thread at once, over whichever serves it (`outgoing.ts`).
-  const sending = useMemo(() => (held === undefined ? undefined : withOutgoing(held)), [held]);
+  // What the person sent is in the thread at once, and Pause, Auto land and Approve read as pressed at the press, over whichever serves it (`outgoing.ts`, `pressed.ts`).
+  const sending = useMemo(() => (held === undefined ? undefined : withPressed(withOutgoing(held))), [held]);
   return (
     <Acts.Provider value={acts}>
       <Held.Provider value={sending}>{children}</Held.Provider>

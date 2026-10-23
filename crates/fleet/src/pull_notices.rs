@@ -18,7 +18,7 @@
 use std::sync::Arc;
 
 use adapter_traits::{
-    AgentHarness, CiState, Delivery, PullQueue, Vcs, WatchedCheck, WatchedPull, WorkProduct,
+    AgentHarness, CiState, Delivery, PullQueue, Vcs, FollowedCheck, FollowedPull, WorkProduct,
 };
 
 use crate::clock::elapsed;
@@ -115,7 +115,7 @@ pub(crate) fn short(commit: &str) -> &str {
 }
 
 /// The failing checks, one line each with its log address.
-fn failing_lines(checks: &[&WatchedCheck]) -> String {
+fn failing_lines(checks: &[&FollowedCheck]) -> String {
     checks
         .iter()
         .map(|check| match &check.log_url {
@@ -162,24 +162,24 @@ where
         self.slot_rows_followed(served).await;
         let gate = served.manifest().ci_gate().to_string();
         let list_gate = gate.clone();
-        let Some(mut watched) = self
+        let Some(mut followed) = self
             .forge_asked(&root, move |vcs: &V, root: &str| {
-                vcs.pull_watch(root, &list_gate)
+                vcs.pull_reading(root, &list_gate)
             })
             .await
         else {
             return;
         };
         // The list stops at 100: a pull request someone holds that it left out is read by number.
-        let listed: Vec<u64> = watched.iter().map(|pull| pull.number).collect();
+        let listed: Vec<u64> = followed.iter().map(|pull| pull.number).collect();
         for number in self.held_beyond(served, &listed).await {
             let gate = gate.clone();
             let one = self
                 .forge_asked(&root, move |vcs: &V, root: &str| {
-                    vcs.watched_pull(root, &gate, number)
+                    vcs.followed_pull(root, &gate, number)
                 })
                 .await;
-            watched.extend(one);
+            followed.extend(one);
         }
         let reading = self.pulls_reading(&root).await;
         let before = self
@@ -191,38 +191,38 @@ where
         // **Only the person's own**: another author's pull request is nobody here's to tell.
         let mine = self.mine_in(&root).await;
         let mut queued = Vec::new();
-        for pull in watched
+        for pull in followed
             .iter()
             .filter(|pull| mine.owns(pull.author.as_ref().map(|it| it.as_written())))
         {
-            if self.watched_told(served, &base, &before, pull).await {
+            if self.followed_told(served, &base, &before, pull).await {
                 queued.push(pull.number);
             }
         }
         let _ = self.store().lock().await.keep_pulls_queued(&root, &queued);
         self.merges_told(served, &base, &mine).await;
-        self.pulls_attached(served, &watched).await;
+        self.pulls_attached(served, &followed).await;
         drop(reading);
         let manifest_id = ipc::ManifestId::carried(served.manifest().id().as_str());
         self.pull_ledger_kept_current(&manifest_id, &root).await;
     }
 
     /// One repository's pull request reading, held while it reads and writes the queue last seen
-    /// (`pulls_seen_queued`), **so a refresh and the watch never read it at once**.
+    /// (`pulls_seen_queued`), **so a refresh and the pull reading never read it at once**.
     pub(crate) async fn pulls_reading(&self, root: &str) -> tokio::sync::OwnedMutexGuard<()> {
         let one = Arc::clone(self.sweeping().lock().await.pull_readings.entry(root.to_string()).or_default());
         one.lock_owned().await
     }
 
-    /// One watched pull request of the person's own: the queue's bookkeeping, then its owners
+    /// One followed pull request of the person's own: the queue's bookkeeping, then its owners
     /// told. `before` is the queue last seen. **True where it stays in the queue last seen**:
     /// queued now, or a drop not yet told to everyone, looked at again next reading.
-    pub(crate) async fn watched_told(
+    pub(crate) async fn followed_told(
         self: &Arc<Self>,
         served: &Served,
         base: &str,
         before: &[u64],
-        pull: &WatchedPull,
+        pull: &FollowedPull,
     ) -> bool {
         let queued = pull.queue != PullQueue::Outside;
         // Queued again: its next drop is news, though no commit was pushed between.
@@ -242,7 +242,7 @@ where
         self: &Arc<Self>,
         served: &Served,
         base: &str,
-        pull: &WatchedPull,
+        pull: &FollowedPull,
         dropped: bool,
     ) -> bool {
         let Some(head) = pull.head.as_deref() else {
@@ -281,12 +281,12 @@ where
                     text.push_str(&format!("\nTaken off Needs you: {one}"));
                 }
                 text.push_str(
-                    "\nThe merge is Fleet's to watch, not the owner's to do: do not put it back in waiting_for.",
+                    "\nThe merge is Fleet's to follow, not the owner's to do: do not put it back in waiting_for.",
                 );
                 let _ = self.told_news_by_fleet(id, &text).await;
             }
         }
-        self.auto_land_watched(served, pull, head).await;
+        self.auto_land_followed(served, pull, head).await;
         let mut causes = Vec::new();
         if pull.failed() && !self.hung_started_again(served, pull, head).await {
             causes.push(Cause::ChecksFailed);
@@ -327,8 +327,8 @@ where
 
     /// Whether this failure is a job that hung and was started again, so nothing is said. **Once
     /// a commit**: a second hang is a failure.
-    async fn hung_started_again(&self, served: &Served, pull: &WatchedPull, head: &str) -> bool {
-        let deciding: Vec<&WatchedCheck> = pull
+    async fn hung_started_again(&self, served: &Served, pull: &FollowedPull, head: &str) -> bool {
+        let deciding: Vec<&FollowedCheck> = pull
             .checks
             .iter()
             .filter(|check| check.required && check.state == CiState::Failed)
@@ -373,13 +373,13 @@ where
     async fn failure_detail(
         &self,
         served: &Served,
-        pull: &WatchedPull,
+        pull: &FollowedPull,
         head: &str,
         cause: Cause,
     ) -> String {
         match cause {
             Cause::ChecksFailed => {
-                let failing: Vec<&WatchedCheck> = pull
+                let failing: Vec<&FollowedCheck> = pull
                     .checks
                     .iter()
                     .filter(|check| check.state == CiState::Failed)
@@ -416,10 +416,10 @@ where
             .forge_asked(&root, move |vcs: &V, root: &str| vcs.ci_runs_on(root, &asked))
             .await
             .unwrap_or_default();
-        let failing: Vec<WatchedCheck> = runs
+        let failing: Vec<FollowedCheck> = runs
             .iter()
             .filter(|run| run.state == CiState::Failed)
-            .map(|run| WatchedCheck {
+            .map(|run| FollowedCheck {
                 name: run.name.clone(),
                 state: run.state,
                 required: false,
@@ -427,7 +427,7 @@ where
                 log_url: run.log_url.clone(),
             })
             .collect();
-        let failing: Vec<&WatchedCheck> = failing.iter().collect();
+        let failing: Vec<&FollowedCheck> = failing.iter().collect();
         if failing.is_empty() {
             return String::new();
         }
@@ -440,7 +440,7 @@ where
         &self,
         served: &Served,
         mut out: String,
-        failing: &[&WatchedCheck],
+        failing: &[&FollowedCheck],
         runs: &[adapter_traits::CiRun],
     ) -> String {
         let root = served.root().to_string();

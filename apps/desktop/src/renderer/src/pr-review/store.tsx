@@ -186,10 +186,17 @@ export function createReviewStore(source: ReviewSource): ReviewStore {
       const page = answer.value;
       const head = page.head ?? now.head;
       mend(key, { page, body: page.body ?? "", head });
-      // A commit pushed since the patches were read makes them stale: they are read again where their change is shown.
-      change(key, { page: { state: "read" }, threads: page.threads ?? [], review: page.review, ...(head === now.head ? {} : { patches: {} }) });
-      if (head !== now.head) acts.patched(key);
+      change(key, { page: { state: "read" }, threads: page.threads ?? [], review: page.review });
+      dropStale(key, head);
     });
+  };
+
+  /** A commit pushed since the patches were read makes them stale: they are read again where their change is shown. */
+  const dropStale = (key: string, head: string) => {
+    const on = work(key).patchesHead;
+    if (on === undefined || on === head) return;
+    change(key, { patches: {}, patchesHead: undefined });
+    acts.patched(key);
   };
 
   /** `fresh` is a reading Fleet just answered; the one kept from the last launch is only drawn, and read again by `fetch`. */
@@ -284,8 +291,12 @@ export function createReviewStore(source: ReviewSource): ReviewStore {
     },
     readFile: (key, path) => {
       const pr = prOf(key);
-      if (pr === undefined || work(key).patches[path] !== undefined) return;
-      const keep = (read: PatchRead) => change(key, { patches: { ...work(key).patches, [path]: read } });
+      if (pr === undefined) return;
+      // The lists may have moved the head before the page says so: a patch read on the new one must not keep the old ones.
+      dropStale(key, pr.head);
+      if (work(key).patches[path] !== undefined) return;
+      const on = pr.head;
+      const keep = (read: PatchRead) => change(key, { patches: { ...work(key).patches, [path]: read }, patchesHead: on });
       keep({ state: "reading" });
       void source.file(pr.manifestId, pr.number, path).then((answer) => {
         if (!answer.ok) return keep({ state: "said", said: answer.said });

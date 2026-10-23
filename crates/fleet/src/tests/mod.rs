@@ -125,7 +125,7 @@ mod sessioning;
 mod loadout;
 mod loadout_item;
 mod turn_ingest;
-mod usage_watch;
+mod usage_following;
 mod turn_usage;
 mod session_notes;
 mod terminal_session;

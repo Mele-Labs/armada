@@ -146,7 +146,7 @@ export type WorkTaskState = "open" | "working" | "handed_in" | "done" | "failed"
 export type WorkTask = { id: string; text: string; state: WorkTaskState; seen?: boolean };
 
 /** Tasks one subagent takes, by the type of subagent. */
-export type WorkGroup = { id: string; agent: string; title: string; /** The paths this group works in. */ paths: readonly string[]; /** The issue this group works, as digits or a tracker's key. Its title and state are those of the Session's `issue` attachment of that number. */ issue?: string; tasks: readonly WorkTask[] };
+export type WorkGroup = { id: string; agent: string; title: string; /** What the group gives him once it is done, one line in his words. The card reads it before the title. */ gives?: string; /** The paths this group works in. */ paths: readonly string[]; /** The issue this group works, as digits or a tracker's key. Its title and state are those of the Session's `issue` attachment of that number. */ issue?: string; tasks: readonly WorkTask[] };
 
 /** The scope as paths, the groups, and whether the person has approved it. */
 /** A sketch the agent drew with the plan, in the format `show_sketch` takes. `id` is the sketch on the Session's ledger, which opens it. */
@@ -171,7 +171,7 @@ export type SuggestLine = { verb: "Renamed" | "Removed" | "Added" | "Moved" | "S
 /** What the agent changed in the plan it recorded again: ids of what is new, what was renamed and what it was, and what is gone. */
 export type PlanChanges = { added: readonly string[]; renamed: readonly { id: string; from: string }[]; removed: readonly { group: string; text: string }[] };
 
-export type WorkPlan = { /** The version the agent recorded, which approving and sending changes name. */ version?: number; scope: readonly string[]; groups: readonly WorkGroup[]; approved: boolean; /** What changed since the plan before this one. */ changes?: PlanChanges; /** The sketch drawn with the plan, if the agent drew one. */ sketch?: WorkSketch; /** The thread row that recorded it, which the approved plan settles after. */ after?: string };
+export type WorkPlan = { /** The version the agent recorded, which approving and sending changes name. */ version?: number; /** The plan in his words, a few lines of plain prose the card reads first. The groups are the technical detail under it. */ summary?: string; scope: readonly string[]; groups: readonly WorkGroup[]; approved: boolean; /** He said Not yet: the plan stays recorded, folded to a chip in the thread, and nothing waits on him for it. */ setAside?: true; /** What changed since the plan before this one. */ changes?: PlanChanges; /** The sketch drawn with the plan, if the agent drew one. */ sketch?: WorkSketch; /** The thread row that recorded it, which the approved plan settles after. */ after?: string };
 
 /** A drone of this Session over the area it is working in: the Session's own, or a subagent of `agent` type. */
 export type WorkDrone = { id: string; agent?: string; task?: string; path: string; doing: "read" | "write" | "run"; /** The file it is over, which the Field draws as a bar. */ file?: string; /** When Fleet saw it touch that file. */ at?: string };
@@ -219,6 +219,8 @@ export type SessionWorkActs = {
   approve: (id: string) => void;
   /** Sends the marks he put on the plan to the agent as one message, which answers and may record the plan again. `approving` is Approve pressed with marks on: the plan is approved with them. */
   suggest: (id: string, marks: readonly PlanMark[], approving?: boolean) => void;
+  /** Not yet: the plan is set aside, its call on him goes, and the agent is told to keep talking and record no plan until he asks for one. Absent where nothing serves it, and Not yet is not drawn. */
+  setAside?: (id: string) => void;
   /** Sends the concern to the Session as a message to the agent. */
   sendConcern: (id: string, concern: string) => void;
   dismissConcern: (id: string, concern: string) => void;
@@ -365,7 +367,17 @@ export type SessionTodo = { text: string; state: "done" | "doing" | "todo" };
  * action, and `todos` the agent's list where it keeps one. Todos are detail on top of `now`, never a
  * plan the Session is held to.
  */
-export type SessionActivity = { now?: string; todos?: readonly SessionTodo[] };
+export type SessionActivity = {
+  now?: string;
+  todos?: readonly SessionTodo[];
+  /** Each subagent running now, by its Agent call: `label` is what it was sent to do, `now` its own last tool call as a short action. */
+  subagents?: readonly { id: string; label: string; now?: string }[];
+  /** The last sentence the agent wrote this turn, for a surface that draws what it said beside what it does. */
+  said?: string;
+};
+
+/** A control pressed on a Session whose answer is still coming: Pause or Resume, Auto land, and Approve on the plan. */
+export type PressedKey = "paused" | "autoLand" | "plan";
 
 /** A turn running, or none. A message from another Session starts one, so `working` has no author. */
 export type SessionTurn = { state: "idle" } | { state: "working"; wokenBy?: { id: string; title: string } };
@@ -448,6 +460,8 @@ export type Session = {
   paused?: true;
   /** Auto land is on: Fleet turns on the forge's auto-merge for each pull request this Session holds, and merges it on a green `ci`. Hosted Sessions only. */
   autoLand?: true;
+  /** What was pressed and Fleet has not answered: `paused`, `autoLand` and `plan` are drawn as pressed already, with a going mark on the control (`pressed.ts`). Never Fleet's. */
+  pressed?: readonly PressedKey[];
   /** Ended more than a week ago: left off the list, found by search. */
   older?: true;
   /** A session from a terminal: its thread is read from the terminal's transcript, and it is sent words and nothing else. */
@@ -499,6 +513,10 @@ export type Session = {
   lapsed?: { id: string; questions: readonly SessionQuestion[] };
   /** What it is doing now and the agent's todo list. Absent is nothing to say. */
   activity?: SessionActivity;
+  /** The running account of a turn in his words, answering the message row `for`: what is done, what it is on now and what is next. No file or tool names. */
+  account?: { for: string; done: readonly string[]; now?: string; next?: string; /** The id of the approved plan's group the now line belongs to; named in that line and marked on its card. */ group?: string; at: string };
+  /** The page or sketch the agent is building, drawn live beside the account. */
+  live?: { url: string; title: string };
   /** What it has built: the phase, a piece for each task, the road and the subagents at work, as Fleet derived them. Absent where Fleet observed nothing. */
   build?: SessionBuild;
   /** What the Session waits on the person for: the agent's list with Fleet's own items merged in. Absent or empty is nothing. */
@@ -656,6 +674,9 @@ export type CheckoutDiffRead = { ok: true; diff: string; cut?: true } | { ok: fa
 /** A rect in the window's content, in CSS pixels. */
 export type PageBounds = { x: number; y: number; width: number; height: number };
 
+/** A picture of a page main holds out of sight, as PNG bytes: the live view draws it scaled, and it is made again as the page changes. */
+export type PageShot = { address: string; png: Uint8Array };
+
 /** An idea saved to start later: the words, the repository it is for, and the model and effort picked for it. */
 export type QueuedIdea = {
   id: string;
@@ -810,6 +831,15 @@ export type SessionsDraft = {
     hide: () => void;
     /** Esc pressed in the view, which has the keyboard while it is shown. Returns its remover. */
     onEscape: (on: () => void) => () => void;
+    /**
+     * A page drawn small, as a picture main takes of it and takes again as it changes, where a web view over the panel cannot be scaled.
+     * `watch` starts them for `address`, `stop` ends them, and `onShot` hears each one. **Absent in the mock**, which scales a frame of its own page.
+     */
+    snapshot?: {
+      watch: (id: string, address: string) => void;
+      stop: () => void;
+      onShot: (on: (shot: PageShot) => void) => () => void;
+    };
   };
   /** Reads a pull request again, so its Checks are what the forge says now. Absent in the mock. */
   refresh?: (id: string, number: number) => void;

@@ -16,7 +16,7 @@ const refresh = walk("pull-chip-refresh", [
   { hover: chip(/^#2290 /), say: "So does its card" },
   { press: deckRow("Who sees your config"), say: "Open the Job that holds it" },
   { press: inside(region("Fleet turn"), button(/Fleet notice/)), say: "Open Fleet's folded notice" },
-  { look: inside(region("Fleet turn"), text(/failed its checks at 4be1c07/)), say: "Fleet told the Job, as the pull watch would" },
+  { look: inside(region("Fleet turn"), text(/failed its checks at 4be1c07/)), say: "Fleet told the Job, as the pull reading would" },
   { context: progressChip, say: "A right press on the pull request in Progress" },
   { look: role("menu"), say: "The same menu" },
   { press: role("menuitem", "Refresh"), say: "Refresh" },
