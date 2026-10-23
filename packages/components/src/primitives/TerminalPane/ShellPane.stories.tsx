@@ -123,6 +123,27 @@ export const DockedBesideARun: Story = {
   },
 };
 
+const LONG_COMMAND = "cd ~/Development/armada/apps/store && pnpm exec wrangler login && pnpm exec wrangler deploy";
+
+/** A long command's tab is cut short, so the strip stays one line; the whole command is its tooltip. */
+export const DockedBesideALongRun: Story = {
+  args: { phase: { state: "running" } },
+  render: (args) => (
+    <ShellDock
+      front="run"
+      onFront={fn()}
+      shell={{ phase: args.phase, onHide: args.onHide, onEnd: args.onEnd, onOpen: args.onOpen, onClose: args.onClose, children: body("~/armada $") }}
+      run={{ command: LONG_COMMAND, phase: RUN_PHASE, onStop: fn(), onRerun: fn(), onClose: fn(), children: body("Attempting to login via OAuth...") }}
+    />
+  ),
+  play: async ({ canvasElement }) => {
+    const dock = within(canvasElement);
+    const runTab = dock.getByRole("tab", { name: /…$/ });
+    await expect(runTab).toHaveAccessibleName("cd ~/Development/armada/apps/st…");
+    await expect(runTab).toHaveAccessibleDescription(LONG_COMMAND);
+  },
+};
+
 /** The dock with the shell alone draws no tabs: the pane's own name says what it is. */
 export const DockedAlone: Story = {
   args: { phase: { state: "running" } },

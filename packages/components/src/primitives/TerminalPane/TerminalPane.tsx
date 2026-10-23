@@ -190,10 +190,16 @@ export type ShellDockProps = {
   onFront: (pane: ShellDockPane) => void;
 };
 
+/** The most of a command its tab spells out. The tab strip wraps rather than cuts, so the label is cut here. */
+const TAB_COMMAND_MOST = 32;
+
+const tabCommand = (command: string) => (command.length <= TAB_COMMAND_MOST ? command : `${command.slice(0, TAB_COMMAND_MOST - 1).trimEnd()}…`);
+
 /**
  * **A Job's docked place**, holding its shell, a block's run, or both. With both open they are tabs,
- * Terminal and the run's command, and the pane in front keeps its own keys. The pane behind is not
- * mounted: its screen draws again from what it printed when it comes back.
+ * Terminal and the run's command, cut short where it is long and whole in the tab's tooltip; the pane
+ * in front keeps its own keys. The pane behind is not mounted: its screen draws again from what it
+ * printed when it comes back.
  */
 export function ShellDock({ shell, run, front, onFront }: ShellDockProps) {
   const tabs =
@@ -201,7 +207,7 @@ export function ShellDock({ shell, run, front, onFront }: ShellDockProps) {
       <Tabs
         items={[
           { id: "shell", label: "Terminal" },
-          { id: "run", label: run.command, hint: run.command },
+          { id: "run", label: tabCommand(run.command), hint: run.command },
         ]}
         value={front}
         onChange={(id) => onFront(id === "run" ? "run" : "shell")}

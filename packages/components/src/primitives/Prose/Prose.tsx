@@ -11,7 +11,7 @@ import { isSlashCommand, ProseCommand, SlashCommand } from "./SlashCommand";
 export type { CodePhase, CodeRun, CodeRunEvent, CodeRunner, TerminalSize } from "./RunnableBlock";
 export { CopyAct, ProseRunner, RunnableBlock, RunOutput, useCodeRun } from "./RunnableBlock";
 export { plainOf } from "./plain";
-export type { ProseTerminalValue, TerminalDockRun } from "./TerminalRun";
+export type { DockedShell, ProseTerminalValue, TerminalDockRun } from "./TerminalRun";
 export { DockedTerminal, ProseTerminal, useTerminalDock } from "./TerminalRun";
 export { isSlashCommand, ProseCommand } from "./SlashCommand";
 export type { SlashCommands } from "./SlashCommand";
