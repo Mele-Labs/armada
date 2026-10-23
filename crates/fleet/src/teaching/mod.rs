@@ -18,6 +18,7 @@ mod tokens;
 
 pub(crate) use finding::Searched;
 pub(crate) use forgetting::forget_effects;
+#[cfg(test)]
 pub(crate) use saving::address_given;
 
 use adapter_traits::{AgentHarness, Ask, Delivery, Vcs, WorkProduct};

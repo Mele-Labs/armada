@@ -49,6 +49,7 @@ export const NOTICE_NAMES: Record<SessionNotice, string> = {
   delivery_asked: "delivery question",
   delivery_chosen: "delivery chosen",
   watch_saw: "watch",
+  taught: "taught",
 };
 
 /**

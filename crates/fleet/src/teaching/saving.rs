@@ -302,7 +302,7 @@ where
         // The teaching is kept, so nobody to tell is not a failure: the Session ended, or Fleet hosts
         // none of that name. A Session mid-turn has the line queued behind it.
         if let (Some(session), Some(note)) = (&save.session_id, &save.proposal.note) {
-            let _ = self.told_news_by_fleet(session, &format!("From now on: {}", note.text.trim())).await;
+            let _ = self.told_news_by_fleet(session, &format!("From now on: {}", note.text.trim()), ipc::Notice::Taught).await;
         }
         Ok(SavedTeaching { entry, mods: written })
     }

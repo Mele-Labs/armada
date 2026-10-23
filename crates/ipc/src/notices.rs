@@ -63,6 +63,8 @@ pub enum Notice {
     DeliveryChosen,
     /// A watch Fleet runs for the Job saw what it was watching for.
     WatchSaw,
+    /// The owner taught Armada something the Session should follow from now on.
+    Taught,
 }
 
 impl Notice {
@@ -96,6 +98,7 @@ impl Notice {
             Notice::DeliveryAsked => "delivery_asked",
             Notice::DeliveryChosen => "delivery_chosen",
             Notice::WatchSaw => "watch_saw",
+            Notice::Taught => "taught",
         }
     }
 }

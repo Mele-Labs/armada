@@ -27,7 +27,8 @@ export type Notice =
   | "workflow_changed"
   | "delivery_asked"
   | "delivery_chosen"
-  | "watch_saw";
+  | "watch_saw"
+  | "taught";
 
 /** What a mute covers. `hour` is one Job for an hour from the press. */
 export type NoticeScope =
