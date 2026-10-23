@@ -74,7 +74,7 @@ describe("save_teaching's body", () => {
 
 describe("what the panel draws of a proposal", () => {
   it("is the note, the words with their example in the address, and the colour as Fleet named it", () => {
-    const reading = readingOf({ note: { section: "repo", kind: "convention", text: "Tickets are Jira keys." }, words: { name: "Jira key", pattern: "[A-Z]+-\\d+", example: "STORE-1234", address: "https://acme.atlassian.net/browse/{match}" }, tweak: [TWEAK] }, "armada");
+    const reading = readingOf({ note: { section: "repo", kind: "convention", text: "Tickets are Jira keys." }, words: { name: "Jira key", pattern: "[A-Z]+-\\d+", example: "STORE-1234", address: { template: "https://acme.atlassian.net/browse/{match}", found: "settings" } }, tweak: [TWEAK] }, "armada");
     expect(reading.agents).toBe("Tickets are Jira keys.");
     expect(reading.bridge).toEqual({ name: "Jira key", pattern: "[A-Z]+-\\d+", example: "STORE-1234", address: "https://acme.atlassian.net/browse/STORE-1234" });
     expect(reading.tweak).toEqual({ colour: "Needs you amber", token: "--status-awaiting-review", was: "#old", now: "#new", places: ["--run-waiting"] });
@@ -94,7 +94,7 @@ describe("what the panel draws of a proposal", () => {
 
 describe("what a proposal draws behind the panel before it is kept", () => {
   it("is the link where an address came with the words, and the colour", () => {
-    const words = { name: "Jira key", pattern: "[A-Z]+-\\d+", example: "STORE-1234", address: "https://acme.atlassian.net/browse/{match}" };
+    const words = { name: "Jira key", pattern: "[A-Z]+-\\d+", example: "STORE-1234", address: { template: "https://acme.atlassian.net/browse/{match}", found: "settings" } };
     expect(previewOf({ words, tweak: [TWEAK] }, "all", "armada", undefined)).toEqual({
       reach: "all",
       manifestId: "armada",

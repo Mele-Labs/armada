@@ -87,7 +87,7 @@ export function readingOf(proposal: TeachingProposal, repository: string): Teach
     ...(note === undefined ? {} : { agents: note.text }),
     ...(words === undefined
       ? {}
-      : { bridge: { name: words.name, pattern: words.pattern, example: words.example, ...(words.address === undefined ? {} : { address: words.address.replaceAll("{match}", words.example) }) } }),
+      : { bridge: { name: words.name, pattern: words.pattern, example: words.example, ...(words.address === undefined ? {} : { address: words.address.template.replaceAll("{match}", words.example) }) } }),
     ...(fleet === undefined ? {} : { fleet: { notice: noticeName(fleet.notice), does: DOES[fleet.does], scope: scopeOf(fleet.where, repository) } }),
     ...(tweak === undefined ? {} : { tweak: { colour: tweak.note ?? tweak.token, token: tweak.token, was: tweak.was, now: tweak.now, places: tweak.used_in ?? [] } }),
     ...(layout === undefined ? {} : { layout: layoutOf(layout.name, layout.layout) }),
@@ -98,7 +98,7 @@ export function readingOf(proposal: TeachingProposal, repository: string): Teach
 export function previewOf(proposal: TeachingProposal, reach: TeachReach, manifestId: string | undefined, link: Preview["link"]): Preview | undefined {
   const tweak = firstTweak(proposal);
   const words = proposal.words;
-  const drawn = link ?? (words?.address === undefined ? undefined : { pattern: words.pattern, address: words.address });
+  const drawn = link ?? (words?.address === undefined ? undefined : { pattern: words.pattern, address: words.address.template });
   if (drawn === undefined && tweak === undefined) return undefined;
   return {
     reach,

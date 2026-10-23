@@ -17,7 +17,7 @@ import { parseLayout } from "@armada/shell";
 import type { BridgeState } from "../../../shared/bridge";
 import { rememberTaught } from "../taught-entries";
 import { BRIDGE, DOES, SCOPE, forgetLesson, lessonsNow, saveLesson, siteSaid, taughtId } from "../teach";
-import type { LayoutChange, Lesson, Site, TeachAnswer, TeachFlavour, Teaching, Tweak } from "../teach";
+import type { LayoutChange, Lesson, Site, SiteFrom, TeachAnswer, TeachFlavour, Teaching, Tweak } from "../teach";
 import { mockLayout, TIDY_DASHBOARD } from "./layout";
 import { unanswered } from "./moment";
 import { ARMADA_JOB, ARMADA_TITLE, BEHIND, BEHIND_AT, LEDGER_JOB, LEDGER_TITLE, PAYMENTS_JOB, PAYMENTS_TITLE } from "./sessions/teach";
@@ -201,12 +201,15 @@ function proposalOf(answer: TeachAnswer, teaching: Teaching, reach: "repository"
   const { agents, bridge, fleet: rule, tweak, layout } = answer;
   return {
     ...(agents === undefined ? {} : { note: { section: reach === "everywhere" ? ("habits" as const) : ("repo" as const), kind: noteKind(teaching.kind), text: agents } }),
-    ...(bridge === undefined ? {} : { words: { name: bridge.name, pattern: bridge.pattern, example: bridge.example, ...(bridge.site === undefined ? {} : { address: `${bridge.site.address}/browse/{match}` }) } }),
+    ...(bridge === undefined ? {} : { words: { name: bridge.name, pattern: bridge.pattern, example: bridge.example, ...(bridge.site === undefined ? {} : { address: { template: `${bridge.site.address}/browse/{match}`, found: foundOf(bridge.site.from) } }) } }),
     ...(rule === undefined ? {} : { fleet: { notice: "behind_base", does: rule.does, where: rule.scope === "all" ? "everywhere" : rule.scope === "job" ? `job ${teaching.sessionId}` : `repo ${teaching.manifestId ?? ""}` } }),
     ...(tweak === undefined ? {} : { tweak: [{ token: tweak.token, was: tweak.was, now: tweak.now, used_in: [...tweak.places], note: tweak.colour }] }),
     ...(layout === undefined ? {} : { layout: { name: layout.mod, layout: layoutText(layout) } }),
   };
 }
+
+/** How the wire spells where an address was found. */
+const foundOf = (from: SiteFrom): string => (from.kind === "settings" ? "settings" : from.kind === "pull_request" ? `pull_request #${from.number}` : "person");
 
 const layoutText = (layout: LayoutChange): string => JSON.stringify({ version: 1, [layout.region]: { hidden: layout.hidden } });
 
@@ -319,7 +322,7 @@ export function listWordRules(root: string | undefined): Promise<WordRulesRead> 
       }
       continue;
     }
-    rules.push({ mod_name: bridge.mod, name: bridge.name, pattern: bridge.pattern, example: bridge.example, address: addressIn(site) });
+    rules.push({ mod_name: bridge.mod, name: bridge.name, pattern: bridge.pattern, example: bridge.example, address: addressIn(site), found: foundOf(site.from) });
   }
   return Promise.resolve({ ok: true, value: { rules } });
 }
