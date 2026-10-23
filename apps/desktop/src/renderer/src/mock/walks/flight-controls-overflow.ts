@@ -1,6 +1,5 @@
-// A Job whose flight controls outgrow two rows: seventeen tiles, and what shows there are more than the two rows in view. Two takes over
-// `flight-controls-overflow`, chosen on `?take=` (`cockpit/deck/flight-take.ts`): `wider` grows the columns so every tile is on two
-// rows, and `pages` lays them in pages of six columns that snap sideways, a dot for each page. The owner's ask of 23 Oct 2026.
+// A Job whose flight controls outgrow two rows: seventeen tiles in pages of six columns by two rows that snap sideways, a dot for each page, and
+// Edit paging the same way with `+` last. Over `flight-controls-overflow`. The owner's ask of 23 Oct 2026.
 
 import { button, inside, region, role, walk } from "../walk";
 
@@ -10,9 +9,10 @@ const editing = inside(controls, role("listbox", "Flight controls, editing"));
 
 const flightControlsOverflow = walk("flight-controls-overflow", [
   { press: inside(list, button("Tune the flight controls")), say: "A Job with seventeen flight controls" },
-  { look: controls, say: "Seventeen tiles in the panel" },
-  { press: inside(controls, button("Edit")), say: "Edit lays the tiles out as they are" },
-  { look: editing, say: "The same columns, with the hidden tiles and + after the rest" },
+  { look: inside(controls, button("Page 2")), say: "Twelve tiles to a page, and a dot for each page" },
+  { press: inside(controls, button("Page 2")), say: "A press on a dot, or a swipe, brings the page in" },
+  { press: inside(controls, button("Edit")), say: "Edit pages the same way" },
+  { look: inside(editing, role("option", "Add action")), say: "The + tile is the last one, on the last page" },
 ]);
 
 export { flightControlsOverflow as "flight-controls-overflow" };
