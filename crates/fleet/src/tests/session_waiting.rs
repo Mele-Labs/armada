@@ -520,7 +520,7 @@ async fn a_dismissed_item_never_comes_back_and_nothing_is_sent_to_the_agent() {
     show(&rig, &id, url).await;
     let before = rig.rows(&id).await.len();
     let gone = Arc::clone(&rig.fleet)
-        .dismiss_waiting(DismissWaiting { session_id: id.clone(), item_id: format!("walk:{url}"), reason: None })
+        .dismiss_waiting(DismissWaiting { session_id: id.clone(), item_id: format!("walk:{url}"), reason: None, misread: false })
         .await
         .unwrap();
     assert!(gone.waiting_for.is_empty());
@@ -528,7 +528,7 @@ async fn a_dismissed_item_never_comes_back_and_nothing_is_sent_to_the_agent() {
     assert!(again.session.waiting_for.is_empty(), "the derived item does not return on the next read");
     assert_eq!(again.rows.len(), before, "nothing was said to the agent");
     let twice = Arc::clone(&rig.fleet)
-        .dismiss_waiting(DismissWaiting { session_id: id.clone(), item_id: format!("walk:{url}"), reason: None })
+        .dismiss_waiting(DismissWaiting { session_id: id.clone(), item_id: format!("walk:{url}"), reason: None, misread: false })
         .await;
     assert!(matches!(twice, Err(api::Refusal::IllegalMove(_))), "nothing holds it any more");
 }
@@ -540,7 +540,7 @@ async fn a_walk_he_dismissed_waits_again_when_the_job_shows_it_again() {
     let url = "http://localhost:5173/one";
     show(&rig, &id, url).await;
     Arc::clone(&rig.fleet)
-        .dismiss_waiting(DismissWaiting { session_id: id.clone(), item_id: format!("walk:{url}"), reason: None })
+        .dismiss_waiting(DismissWaiting { session_id: id.clone(), item_id: format!("walk:{url}"), reason: None, misread: false })
         .await
         .unwrap();
     later().await;
@@ -554,7 +554,7 @@ async fn a_dismissed_agent_item_is_gone_and_stays_gone_when_the_agent_says_it_ag
     let id = rig.start().await;
     rig.fleet.waiting_for(None, set(&id, &[("a", "Run the tests"), ("b", "Look")])).await.unwrap();
     let after = Arc::clone(&rig.fleet)
-        .dismiss_waiting(DismissWaiting { session_id: id.clone(), item_id: "a".into(), reason: None })
+        .dismiss_waiting(DismissWaiting { session_id: id.clone(), item_id: "a".into(), reason: None, misread: false })
         .await
         .unwrap();
     assert_eq!(ids(&after), ["b"]);
@@ -622,7 +622,7 @@ async fn said_by_the_person(rig: &Rig, id: &ipc::SessionId) -> Vec<String> {
 }
 
 fn removal(id: &ipc::SessionId, item: &str, reason: Option<&str>) -> DismissWaiting {
-    DismissWaiting { session_id: id.clone(), item_id: item.into(), reason: reason.map(str::to_string) }
+    DismissWaiting { session_id: id.clone(), item_id: item.into(), reason: reason.map(str::to_string), misread: false }
 }
 
 #[tokio::test]

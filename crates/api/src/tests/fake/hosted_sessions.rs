@@ -71,6 +71,13 @@ impl HostedSessions for FakeDaemon {
         Err(nothing_hosted())
     }
 
+    async fn confirm_waiting(
+        self: Arc<Self>,
+        _confirm: ipc::ConfirmWaiting,
+    ) -> Result<SessionRecord, Refusal> {
+        Err(nothing_hosted())
+    }
+
     async fn get_plan_usage(&self) -> Result<ipc::PlanUsage, Refusal> {
         Ok(ipc::PlanUsage::default())
     }

@@ -1156,3 +1156,30 @@ export const DebugInfoFolded: Story = {
     await expect(canvas.getByText(/State: working/)).toBeVisible();
   },
 };
+
+const PIXEL =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
+
+/** A sent picture is a thumbnail that opens larger; a file with no picture stays a chip. */
+export const SentPicture: Story = {
+  args: {
+    rows: [
+      {
+        id: "p1",
+        at: "14:03:07",
+        kind: "message",
+        from: "you",
+        text: "See these.",
+        files: [
+          { id: "f1", name: "login-error.png", src: PIXEL },
+          { id: "f2", name: "notes.txt" },
+        ],
+      },
+    ],
+  },
+  play: async ({ canvas }) => {
+    await userEvent.click(canvas.getByRole("button", { name: "login-error.png" }));
+    await expect(await within(document.body).findByRole("dialog", { name: "login-error.png" })).toBeVisible();
+    await expect(canvas.queryByRole("button", { name: "notes.txt" })).toBeNull();
+  },
+};

@@ -3,5 +3,5 @@
   group = "Test map"
   size = "16px"
   status = "Proposed"
-  reserved = "A test map edge a model read and named, on a changed file's row and on the tests under it. Never a search, a capture or the proposer, which is `scan-line`'s, and never a document, which is the file-* family."
-  notes = "Proposed 22 Oct 2026 for the walk `test-map-reach`. The one source that can be wrong without knowing, so it must not read as a measurement. Tooltip `A model's reading`. Refused: `scan-line`, reserved to job_status.proposing; `eye`, reserved to Review; `lightbulb`, reserved to a value the proposer picked on a Session; `book-open`, reserved to Guides."
+  reserved = "A test map edge a model read and named, on a changed file's row and on the tests under it; and a Needs you question Fleet read from a reply, tooltip `Read from the reply`. Never a search, a capture or the proposer, which is `scan-line`'s, and never a document, which is the file-* family."
+  notes = "Proposed 22 Oct 2026 for the walk `test-map-reach`. The one source that can be wrong without knowing, so it must not read as a measurement. Tooltip `A model's reading`. Widened 23 Oct 2026 for the walk `not-a-question`: a question read from a reply is the same kind of reading. Refused: `scan-line`, reserved to job_status.proposing; `eye`, reserved to Review; `lightbulb`, reserved to a value the proposer picked on a Session; `book-open`, reserved to Guides."

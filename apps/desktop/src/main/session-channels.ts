@@ -5,7 +5,7 @@
 
 import type { IpcMain } from "electron";
 
-import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, ChangeWaiting, ChosenHold, ClaimIssue, ClaimPullRequest, DismissConcern, DismissWaiting, JudgeSession, RenameSession, SendConcern, SendPlanChanges, SendSessionMessage, SendSessionNote, SettleLater, TuneSession } from "@armada/protocol";
+import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, ChangeWaiting, ChosenHold, ClaimIssue, ClaimPullRequest, ConfirmWaiting, DismissConcern, DismissWaiting, JudgeSession, RenameSession, SendConcern, SendPlanChanges, SendSessionMessage, SendSessionNote, SettleLater, TuneSession } from "@armada/protocol";
 import type { SetNoticeMute, StartAfter } from "@armada/protocol";
 import { HELM_CALL_ANSWERS } from "@armada/protocol";
 import { CHANNELS } from "../shared/bridge";
@@ -115,6 +115,10 @@ export function handleSessions({ ipc, connection, windowIdOf, pages }: Hosts): v
   ipc.handle(CHANNELS.dismissWaiting, (_event, dismiss: DismissWaiting) => {
     if (!text(dismiss?.session_id) || !text(dismiss.item_id)) return unread;
     return connection()?.sessions.dismissWaiting(dismiss) ?? unsent;
+  });
+  ipc.handle(CHANNELS.confirmWaiting, (_event, confirm: ConfirmWaiting) => {
+    if (!text(confirm?.session_id) || !text(confirm.item_id)) return unread;
+    return connection()?.sessions.confirmWaiting(confirm) ?? unsent;
   });
   ipc.handle(CHANNELS.approvePlan, (_event, approve: ApprovePlan) => {
     if (!text(approve?.session_id) || !Number.isInteger(approve.version) || approve.version < 1) return unread;

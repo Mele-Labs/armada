@@ -508,8 +508,22 @@ impl Sessions for FakeDaemon {
         Ok(ipc::SessionLoadout::default())
     }
 
-    async fn get_attachment_history(&self, _session_id: ipc::SessionId) -> Result<ipc::AttachmentHistory, Refusal> {
-        Ok(ipc::AttachmentHistory::default())
+    async fn get_attachment_history(&self, session_id: ipc::SessionId) -> Result<ipc::AttachmentHistory, Refusal> {
+        // One Job's history says where its versions came from, so a route test can read it off the wire.
+        if session_id.as_str() != "followed" {
+            return Ok(ipc::AttachmentHistory::default());
+        }
+        let version = |from_message: &str, from_task: Option<&str>| ipc::AttachmentVersion {
+            kind: "artifact".into(),
+            manifest_id: None,
+            target: "sketch:Flow".into(),
+            state: ipc::AttachmentState::Standing,
+            detail: Default::default(),
+            at: ipc::Instant::carried("2026-10-22T09:00:00.000Z"),
+            from_message: Some(from_message.into()),
+            from_task: from_task.map(str::to_string),
+        };
+        Ok(ipc::AttachmentHistory { versions: vec![version("m1", Some("t3")), version("m2", None)] })
     }
 
     async fn read_loadout_item(&self, _asked: ipc::LoadoutItemAsked) -> Result<ipc::LoadoutItemBody, Refusal> {
