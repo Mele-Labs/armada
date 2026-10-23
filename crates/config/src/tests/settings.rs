@@ -168,6 +168,7 @@ fn every_handle_names_an_entry_of_its_kind() {
         s::BUILD_SWEEP_SECONDS,
         s::WATCH_RUN_SECONDS,
         s::WATCH_EVERY_SECONDS,
+        s::NOTICE_BATCH_SECONDS,
     ] {
         assert!(
             matches!(kinds(key.name()), Kind::Seconds { .. }),
@@ -238,7 +239,7 @@ fn every_handle_names_an_entry_of_its_kind() {
             key.name()
         );
     }
-    let handles = 21 + 12 + 12 + 26 + 2 + 4 + s::prompt_keys().count();
+    let handles = 21 + 13 + 12 + 26 + 2 + 4 + s::prompt_keys().count();
     assert_eq!(
         entries().count(),
         handles,
