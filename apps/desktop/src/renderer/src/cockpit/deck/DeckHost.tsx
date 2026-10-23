@@ -14,9 +14,8 @@ import type { BridgeState } from "../../../../shared/bridge";
 import type { RepositorySummary } from "@armada/protocol";
 import { bandingOf } from "./bands";
 import { AGE_MS } from "./clock";
-import { keyPressed } from "./flight-controls";
+import { chordTileFor, flightTileFor, pauseForP } from "./flight-keys";
 import { holdFor } from "./props";
-import { PAUSE_KEY } from "./session-tiles";
 import { walkOrder } from "./queued";
 import { DeckKeySheet, armChord, cycleFrom, focusPanel, panelAt, remember, stepBy, stepIn, useDeckKeys } from "./keys";
 import { OPENS, PAGE_LETTERS, panelOfSlot, type PageLetter } from "./keys-model";
@@ -34,8 +33,6 @@ const NO_HOSTS: Hosts = { onOpenSession: () => {}, onOpenLink: () => {} };
 
 /** The flight control wearing `key`, among the tiles drawn now. */
 const flightTile = (key: string): HTMLElement | null => document.querySelector<HTMLElement>(`.deck-controls .deck-tile[data-key="${CSS.escape(key)}"]`);
-/** The drawn tile whose key, a letter or a chord, this press is. */
-const flightTileFor = (event: KeyboardEvent): HTMLElement | null => [...document.querySelectorAll<HTMLElement>(".deck-controls .deck-tile[data-key]")].find((one) => keyPressed(one.dataset.key ?? "", event)) ?? null;
 
 /** How long a Session asked for on the deck is waited on before it is let go: one the ship never holds, Helm's own, is the dock's. */
 const AWAIT_SESSION_MS = 3000;
@@ -189,7 +186,7 @@ export function DeckHost({ state, picked, here, hidden, onGoTo, onOpenSession }:
     }
     // A chord the owner gave a tile presses it from anywhere on the deck, but in a text box only with ⌘ or ⌃, where ⌥ and ⇧ type.
     if (event.metaKey || event.ctrlKey || event.altKey) {
-      const tile = state.here && target.closest?.("[data-flight-editing]") == null && target.closest?.('[role="menu"]') == null && (!holdsText(event.target) || event.metaKey || event.ctrlKey) ? flightTileFor(event) : null;
+      const tile = state.here ? chordTileFor(event) : null;
       if (tile === null) return;
       event.preventDefault();
       tile.click();
@@ -237,8 +234,7 @@ export function DeckHost({ state, picked, here, hidden, onGoTo, onOpenSession }:
     // key presses it and P is a tile's, if one was given it. Not an act of the registry, where `p` is Pilot's.
     if (event.key.toLowerCase() === "p" && !event.shiftKey) {
       const row = panel?.id === "list" && state.cursor !== undefined ? document.querySelector<HTMLElement>(`.deck-list__item:has(> [data-row="${CSS.escape(state.cursor)}"]) [data-act="row-pause"]`) : null;
-      const tile = document.querySelector<HTMLElement>('.deck-controls__block[data-subject="session"] [data-act="pause"]');
-      const act = row ?? (tile?.dataset.key === PAUSE_KEY ? tile : null);
+      const act = pauseForP(row);
       if (act !== null) {
         event.preventDefault();
         act.click();
