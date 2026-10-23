@@ -38,6 +38,7 @@ import type {
   SettleLater,
   ClaimPullRequest,
   DismissConcern,
+  ConfirmWaiting,
   DismissWaiting,
   Followed,
   FrameRead,
@@ -608,6 +609,10 @@ export class SessionsHost {
 
   async dismissWaiting(dismiss: DismissWaiting): Promise<SessionActed> {
     return await this.act("POST", "/sessions/waiting/dismiss", dismiss);
+  }
+
+  async confirmWaiting(confirm: ConfirmWaiting): Promise<SessionActed> {
+    return await this.act("POST", "/sessions/waiting/confirm", confirm);
   }
 
   /** The person approved a plan. Fleet tells the agent and answers the record, which is folded. */
