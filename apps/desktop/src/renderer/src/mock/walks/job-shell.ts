@@ -2,8 +2,8 @@
 // agent types into through its tools. Terminal in Flight control opens it, and is lit while it shows.
 // In the Cockpit it docks in a panel of its own between the Job and the merge line, so the thread keeps
 // the Job's whole pane, and a block Run docks in the Job.
-// A toggle on its head moves it to the side panel and back, and saves where it opens, as Settings, Terminal does.
-// Close puts the side panel away with the shell still running.
+// Its head moves it to the side panel, and Dock there moves it back; each saves where it opens, as Settings, Terminal does.
+// Close puts the side panel away with the shell still running. Its window of its own is the walk `job-shell-window`.
 // Over the `session-shell` scenario.
 
 import { button, inside, place, region, role, systemPage, text, walk } from "../walk";
