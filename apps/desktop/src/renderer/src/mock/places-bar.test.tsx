@@ -45,3 +45,29 @@ test("Doctor is a row of the title bar's menu and not an entry of the System sid
   await userEvent.click(page.getByRole("navigation", { name: "Places" }).getByRole("tab", { name: "System" }));
   expect(page.getByRole("navigation", { name: "System" }).getByRole("button", { name: "Doctor" }).query()).toBeNull();
 });
+
+// The owner, 23 Oct 2026: the places and the search hang from the window's top edge as one notch, not a floating bar.
+test("The places and the search sit on one notch that meets the window's top edge, square above and round below", async () => {
+  mount("cockpit-ship-flightdeck");
+  await onScreen();
+
+  const notch = document.querySelector<HTMLElement>(".armada-title-bar__center")!;
+  const style = getComputedStyle(notch);
+  expect(notch.getBoundingClientRect().top).toBe(0);
+  expect([style.borderTopLeftRadius, style.borderTopRightRadius]).toEqual(["0px", "0px"]);
+  expect(parseFloat(style.borderBottomLeftRadius)).toBeGreaterThan(0);
+  expect(parseFloat(style.borderBottomRightRadius)).toBeGreaterThan(0);
+});
+
+test("The tab strip and the search trigger draw no ground, edge or shadow of their own on the notch", async () => {
+  mount("cockpit-ship-flightdeck");
+  await onScreen();
+
+  const drawn = [document.querySelector<HTMLElement>('nav[aria-label="Places"] .armada-tabs')!, document.querySelector<HTMLElement>(".armada-title-bar__search")!];
+  for (const one of drawn) {
+    const style = getComputedStyle(one);
+    expect(style.backgroundColor, one.className).toBe("rgba(0, 0, 0, 0)");
+    expect(style.borderTopColor, one.className).toBe("rgba(0, 0, 0, 0)");
+    expect(style.boxShadow, one.className).toBe("none");
+  }
+});

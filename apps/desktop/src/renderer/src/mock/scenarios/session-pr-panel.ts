@@ -60,6 +60,11 @@ const holder = () => {
   const one = others().find((it) => it.id === "s3")!;
   return {
     ...one,
+    // A model links its pull request the markdown way; the link is one link, opening where `#2210` does.
+    rows: [
+      ...one.rows,
+      { id: "s3-2", at: "12:21:05", kind: "message" as const, from: { kind: "agent" as const }, text: `[#2210](${PULL}2210) merges into main once its checks pass. The backend agent is still running.` },
+    ],
     attachments: [
       ...one.attachments.filter((it) => it.kind !== "pull_request"),
       attached(2209, "Open pull requests in Armada", "claude/pr-panel-redesign", {

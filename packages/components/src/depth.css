@@ -413,21 +413,29 @@
 :root[data-look="new"] .deck-pane .armada-needs-panel .armada-question-deck__answer:hover { border-color: var(--hue); background: var(--chip-hover); }
 :root[data-look="new"] .deck-pane .armada-needs-panel .armada-question-deck__answer[data-on] { border-color: var(--hue); background: color-mix(in srgb, var(--hue) 22%, transparent); }
 :root[data-look="new"] .armada-session-frame__head .armada-button { border-radius: var(--glass-radius-control); }
-/* The places in the title bar and the search beside them are a frosted toolbar. */
-:root[data-look="new"] :is(.deck-places .armada-tabs, .armada-title-bar[data-places] .armada-title-bar__search) {
-  border-color: var(--glass-edge);
-  border-radius: var(--glass-radius-control);
-  background: color-mix(in srgb, var(--glass-tint) var(--glass-fill), transparent);
+/* The places and the search beside them sit on the title bar's notch: frosted glass hanging from the top edge, which
+   is their ground, so neither draws one of its own. The chosen place is its brighter word on a faint wash. */
+:root[data-look="new"] .armada-title-bar[data-places] .armada-title-bar__center {
+  --armada-notch-radius: calc(var(--glass-radius) * 2);
+  --armada-notch-ground: color-mix(in srgb, var(--glass-tint) var(--glass-fill), transparent);
   -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(var(--glass-saturate));
   backdrop-filter: blur(var(--blur-glass)) saturate(var(--glass-saturate));
-  box-shadow: var(--glass-highlight), var(--glass-shadow);
+  box-shadow: var(--glass-shadow);
 }
-:root[data-look="new"] .deck-places .armada-tabs__fill {
-  border-radius: calc(var(--glass-radius-control) - var(--bar));
-  background: var(--chip-hover);
+:root[data-look="new"] :is(.deck-places .armada-tabs, .armada-title-bar[data-places] .armada-title-bar__search) {
+  border-color: transparent;
+  border-radius: var(--glass-radius-control);
+  background: transparent;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
   box-shadow: none;
 }
-:root[data-look="new"] .deck-places .armada-tabs__tab { border-radius: calc(var(--glass-radius-control) - var(--bar)); }
+:root[data-look="new"] .deck-places .armada-tabs__fill {
+  border-radius: calc(var(--armada-notch-radius) - var(--armada-notch-gap));
+  background: color-mix(in srgb, var(--fg-default) 8%, transparent);
+  box-shadow: none;
+}
+:root[data-look="new"] .deck-places .armada-tabs__tab { border-radius: calc(var(--armada-notch-radius) - var(--armada-notch-gap)); }
 
 /* Menus, popovers, the palette and the inspect card float over the panels: the same material, more opaque, at the
    overlay level. The inspect card keeps its own hairline and tone edge. */

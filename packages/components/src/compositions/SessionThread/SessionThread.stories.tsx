@@ -1138,3 +1138,21 @@ export const RequestsSent: Story = {
     await expect(opened).toHaveBeenCalledWith(expect.objectContaining({ id: "q1", body: '{"query":"{ me { id } }"}' }));
   },
 };
+
+const WITH_DEBUG: SessionThreadRow[] = [
+  { id: "d1", at: "14:03:07", kind: "message", from: "you", text: "The title is cut off in the row.\n\n## Debug info\nJob: Fix the flaky store test (01SESSION)\nState: working" },
+  { id: "d2", at: "14:03:14", kind: "message", from: "you", text: "Nothing is under this one." },
+];
+
+/** A message holding a Job's facts shows the words and folds the facts under Debug info; one without is as it was. */
+export const DebugInfoFolded: Story = {
+  args: { rows: WITH_DEBUG },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText("The title is cut off in the row.")).toBeVisible();
+    await expect(canvas.getByText(/State: working/)).not.toBeVisible();
+    await expect(canvas.queryByText("## Debug info")).toBeNull();
+    await expect(canvas.getAllByText("Debug info")).toHaveLength(1);
+    await userEvent.click(canvas.getByText("Debug info"));
+    await expect(canvas.getByText(/State: working/)).toBeVisible();
+  },
+};
