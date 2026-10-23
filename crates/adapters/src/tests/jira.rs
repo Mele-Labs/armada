@@ -19,14 +19,14 @@ use crate::jira_lookup::JiraLookup;
 use crate::jira_tracker::{issue_of_line, read_issue_of_line, JiraTracker, Run};
 use crate::TrackersByProvider;
 
-fn block(pairs: &[(&str, &str)]) -> BTreeMap<String, String> {
+pub(super) fn block(pairs: &[(&str, &str)]) -> BTreeMap<String, String> {
     pairs
         .iter()
         .map(|(key, value)| (key.to_string(), value.to_string()))
         .collect()
 }
 
-fn settings() -> JiraSettings {
+pub(super) fn settings() -> JiraSettings {
     JiraSettings::read(&block(&[("site", "acme"), ("project", "ABC")])).expect("a block")
 }
 
@@ -92,18 +92,18 @@ fn several_projects_are_listed_together_and_a_filter_alone_is_enough() {
 
 // ------------------------------------------------------------------ the runner
 
-type Answer = (i32, &'static str, &'static str);
+pub(super) type Answer = (i32, &'static str, &'static str);
 
 /// Answers each call in turn, and keeps every call it was given.
 #[derive(Default)]
-struct Scripted {
+pub(super) struct Scripted {
     answers: Mutex<VecDeque<Answer>>,
     calls: Mutex<Vec<(String, Vec<String>, Option<String>)>>,
     absent: Option<&'static str>,
 }
 
 impl Scripted {
-    fn saying(answers: &[Answer]) -> Scripted {
+    pub(super) fn saying(answers: &[Answer]) -> Scripted {
         Scripted {
             answers: Mutex::new(answers.iter().copied().collect()),
             ..Scripted::default()
@@ -117,7 +117,7 @@ impl Scripted {
         }
     }
 
-    fn calls(&self) -> Vec<(String, Vec<String>, Option<String>)> {
+    pub(super) fn calls(&self) -> Vec<(String, Vec<String>, Option<String>)> {
         self.calls.lock().expect("not poisoned").clone()
     }
 }
@@ -327,7 +327,7 @@ fn a_link_into_another_project_on_the_same_site_names_its_own_key() {
 // ------------------------------------------------------------------ the filters
 
 /// The real `jq` over some JSON.
-fn through_jq(filter: &str, json: &str) -> String {
+pub(super) fn through_jq(filter: &str, json: &str) -> String {
     use std::io::Write;
     use std::process::{Command, Stdio};
     let spawned = Command::new("jq")

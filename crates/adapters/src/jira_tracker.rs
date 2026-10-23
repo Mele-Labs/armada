@@ -8,7 +8,7 @@
 use std::io::{ErrorKind, Write};
 use std::process::{Command, Output, Stdio};
 
-use adapter_traits::{FromOutside, NotTracked, OpenIssue, ReadIssue, Tracker};
+use adapter_traits::{FromOutside, IssueField, NotTracked, OpenIssue, QueryGuide, ReadIssue, Tracker};
 
 use crate::delivery::said;
 use crate::jira::{self, is_key, JiraSettings};
@@ -19,6 +19,9 @@ const LISTED: &str = "200";
 
 /// How much of a description the list carries, in characters.
 const EXCERPT: usize = 240;
+
+/// How many issues one search reads.
+const SEARCHED: &str = "100";
 
 const SEARCH_FIELDS: &str = "key,summary,labels,assignee,updated,description";
 
@@ -163,9 +166,33 @@ impl<R: Run> Tracker for JiraTracker<R> {
         Ok(text.lines().find_map(|line| read_issue_of_line(&self.settings, line)))
     }
 
+    fn search_issues(&self, _in_repo: &str, query: &str) -> Result<Vec<OpenIssue>, NotTracked> {
+        let doing = "searching the issues";
+        let jql = self.settings.search_for(query).map_err(|why| NotTracked::of(doing, why))?;
+        let fields = self.settings.search_fields();
+        let (worked, text) = self.reduced(
+            &["jira", "workitem", "search", "--jql", &jql, "--fields", &fields, "--json", "--limit", SEARCHED],
+            &jira::search_filter(EXCERPT, &self.settings),
+            doing,
+        )?;
+        if !worked {
+            return Err(NotTracked::of(doing, text));
+        }
+        let mut issues: Vec<OpenIssue> = text
+            .lines()
+            .filter_map(|line| issue_of_line(&self.settings, line))
+            .collect();
+        issues.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
+        Ok(issues)
+    }
+
+    fn query_guide(&self) -> QueryGuide {
+        self.settings.guide()
+    }
 }
 
-/// One `@tsv` line of the listing. **A line whose first field is not a key is not an issue**;
+/// One `@tsv` line of the listing, or of a search, which goes on with the reporter, the status,
+/// the resolution and each field. **A line whose first field is not a key is not an issue**;
 /// which projects are listed was the search's to say, and is not checked again here.
 pub(crate) fn issue_of_line(settings: &JiraSettings, line: &str) -> Option<OpenIssue> {
     let mut field = line.split('\t');
@@ -175,15 +202,20 @@ pub(crate) fn issue_of_line(settings: &JiraSettings, line: &str) -> Option<OpenI
     let assignee = field.next().unwrap_or_default();
     let updated_at = field.next().unwrap_or_default();
     let excerpt = field.next().unwrap_or_default();
+    let reporter = field.next().unwrap_or_default();
+    let status = field.next().unwrap_or_default();
+    let resolution = field.next().unwrap_or_default();
+    let fields = settings
+        .named_fields()
+        .into_iter()
+        .map(|(name, _)| IssueField { name, values: listed(field.next().unwrap_or_default()) })
+        .filter(|one| !one.values.is_empty())
+        .collect();
     Some(OpenIssue {
         reference: key.to_string(),
         title: FromOutside::verbatim(as_written(title)),
         url: FromOutside::verbatim(settings.browse(key)),
-        labels: as_written(labels)
-            .split('\u{1f}')
-            .filter(|one| !one.is_empty())
-            .map(FromOutside::verbatim)
-            .collect(),
+        labels: listed(labels),
         assignees: Some(as_written(assignee))
             .filter(|one| !one.is_empty())
             .map(FromOutside::verbatim)
@@ -192,7 +224,24 @@ pub(crate) fn issue_of_line(settings: &JiraSettings, line: &str) -> Option<OpenI
         updated_at: updated_at.to_string(),
         excerpt: FromOutside::verbatim(as_written(excerpt)),
         linked_pull_request: false,
+        author: FromOutside::verbatim(as_written(reporter)),
+        closed: is_done(status) || !resolution.is_empty(),
+        fields,
     })
+}
+
+/// A `US`-joined column, each value apart.
+fn listed(joined: &str) -> Vec<FromOutside> {
+    as_written(joined)
+        .split('\u{1f}')
+        .filter(|one| !one.is_empty())
+        .map(FromOutside::verbatim)
+        .collect()
+}
+
+/// A status category, or a status's own name, that means the issue is finished.
+fn is_done(status: &str) -> bool {
+    ["done", "closed", "resolved", "complete", "completed"].contains(&status)
 }
 
 /// One `@tsv` line of the reading: key, summary, status, resolution.
@@ -202,11 +251,10 @@ pub(crate) fn read_issue_of_line(settings: &JiraSettings, line: &str) -> Option<
     let title = field.next().unwrap_or_default();
     let status = field.next().unwrap_or_default();
     let resolution = field.next().unwrap_or_default();
-    let done = ["done", "closed", "resolved", "complete", "completed"].contains(&status);
     Some(ReadIssue::bare(
         key.to_string(),
         FromOutside::verbatim(as_written(title)),
         FromOutside::verbatim(settings.browse(key)),
-        done || !resolution.is_empty(),
+        is_done(status) || !resolution.is_empty(),
     ))
 }
