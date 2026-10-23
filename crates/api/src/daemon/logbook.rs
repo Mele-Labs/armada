@@ -7,7 +7,7 @@ use std::future::Future;
 
 use ipc::{
     EditLogbookEntry, Logbook as LogbookRead, LogbookEntry, ForgottenLogbookEntry, LogbookSection, LogbookState,
-    PinLogbookEntry, TeachLogbookEntry,
+    LockLogbookEntry, TeachLogbookEntry,
 };
 
 use crate::daemon::Refusal;
@@ -32,11 +32,11 @@ pub trait Logbook: Send + Sync + 'static {
         edit: EditLogbookEntry,
     ) -> impl Future<Output = Result<LogbookEntry, Refusal>> + Send;
 
-    /// `pin_logbook_entry` — pin it or let it go. Refused as `edit_logbook_entry` is.
-    fn pin_logbook_entry(
+    /// `lock_logbook_entry` — lock it or let it go. Refused as `edit_logbook_entry` is.
+    fn lock_logbook_entry(
         &self,
         entry_id: String,
-        pin: PinLogbookEntry,
+        lock: LockLogbookEntry,
     ) -> impl Future<Output = Result<LogbookEntry, Refusal>> + Send;
 
     /// `forget_logbook_entry` — onto the deny list, for good. [`Refusal::NotFound`] the second time.

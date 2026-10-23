@@ -106,6 +106,8 @@ export function useDeckKeys(press: (event: KeyboardEvent) => void): void {
       if (event.key === "Escape" && document.querySelector("[data-keeps-escape]") !== null) return;
       // A menu or list open over the deck: Esc closes that, wherever focus is, and is not the deck going back.
       if (event.key === "Escape" && popupIsOpen()) return;
+      // A layer that owns a letter hears it where focus is inside it, and the deck leaves it alone: the Artifacts layer's V.
+      if (event.target instanceof Element && event.target.closest("[data-owns-keys]")?.getAttribute("data-owns-keys")?.split(" ").includes(event.key.toLowerCase()) === true) return;
       latest.current(event);
     };
     window.addEventListener("keydown", listen, true);

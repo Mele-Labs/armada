@@ -52,17 +52,17 @@ pub(crate) async fn edit_logbook_entry<D: Logbook>(
     }
 }
 
-/// Pin an entry or let it go; answers with the entry.
-pub(crate) async fn pin_logbook_entry<D: Logbook>(
+/// Lock an entry or let it go; answers with the entry.
+pub(crate) async fn lock_logbook_entry<D: Logbook>(
     State(served): State<Served<D>>,
     Path(NamedEntry { entry_id }): Path<NamedEntry>,
     body: Bytes,
 ) -> Response {
-    let pin: ipc::PinLogbookEntry = match ipc::decode("whether to pin an entry", &body) {
-        Ok(pin) => pin,
+    let lock: ipc::LockLogbookEntry = match ipc::decode("whether to lock an entry", &body) {
+        Ok(lock) => lock,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
-    match served.daemon().pin_logbook_entry(entry_id, pin).await {
+    match served.daemon().lock_logbook_entry(entry_id, lock).await {
         Ok(entry) => answer(StatusCode::OK, &entry, served.run_id()),
         Err(refusal) => refused(refusal),
     }

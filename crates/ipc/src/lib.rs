@@ -438,7 +438,7 @@ pub use repositories::{
 pub use requester::Requester;
 pub use logbook::{
     EditLogbookEntry, Logbook, LogbookEarlier, LogbookEntry, LogbookEvidence, ForgottenLogbookEntry, LogbookKind, LogbookReplacedBy,
-    LogbookSection, LogbookState, PinLogbookEntry, TeachLogbookEntry,
+    LogbookSection, LogbookState, LockLogbookEntry, TeachLogbookEntry, TeachSource,
 };
 pub use notices::{Notice, NoticeScope, SetNoticeMute};
 pub use run_memory::{
