@@ -13,7 +13,7 @@
 // **A shell tile the repository committed asks once before it runs on this Mac**, showing its command, and asks again when the command
 // changes (`TileAskDialog`). A tile of the person's that hides the repository's carries the eclipse mark naming what it hides.
 
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Circle, CircleCheck, CircleDot, LoaderCircle, Play, Swords } from "lucide-react";
 import { Eclipse } from "lucide-react";
 import { Kbd, Tooltip, type SentFromComposer } from "@armada/components";
@@ -24,6 +24,8 @@ import { refusalWords } from "@armada/screens/src/refusal-words";
 import { provideJobFacts } from "../../job-facts";
 import { useSessionsSaid } from "../../sessions-draft";
 import { useFleetEvents } from "../fleet-events";
+import { flightGrid, pageCell, pagesOf } from "./flight-pages";
+import { FlightBlock } from "./FlightBlock";
 import { filled, repositoryFileOf, tilesOf, useFlightFile, useRepositoryFlight, type JobFacts, type Tile } from "./flight-controls";
 import { approveTile, committedFileOf } from "./flight-controls";
 import { TileAskDialog, askOfRefusal } from "./TileAskDialog";
@@ -283,9 +285,9 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
   return (
     <>
       {dialog}
-      <div className="deck-controls__block" data-subject="session">
-        <div className="deck-controls__tiles" style={{ "--count": Math.min(shown.length, 12), "--cols": Math.min(Math.ceil(shown.length / 2), 6) } as CSSProperties}>
-          {shown.map((tile) => {
+      <FlightBlock className="deck-controls__block" data-subject="session" pages={pagesOf(shown.length).count}>
+        <div className="deck-controls__tiles" style={flightGrid(shown.length)}>
+          {shown.map((tile, at) => {
             const id = tile.builtIn === undefined ? undefined : (tile.id as SessionTileId);
             const paused = id === "pause" && session.paused === true;
             const Glyph = paused ? Play : glyphOf(tile.glyph, "zap");
@@ -302,6 +304,7 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
                 <button
                   type="button"
                   className="deck-tile"
+                  {...pageCell(at, shown.length)}
                   aria-label={name}
                   data-key={key}
                   data-act={id === "pause" ? "pause" : undefined}
@@ -368,7 +371,7 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
             );
           })}
         </div>
-      </div>
+      </FlightBlock>
     </>
   );
 }
