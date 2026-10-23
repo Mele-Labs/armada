@@ -5,7 +5,6 @@
 
 import { forgetAllKept } from "@armada/components";
 
-import { setExitTake } from "../cockpit/deck/exit";
 import { forgetDismissals } from "../cockpit/dismissed";
 import { forgetViewed } from "../cockpit/viewed";
 import { annotatesWith } from "./annotating";
@@ -28,9 +27,6 @@ const script = inline ?? (walking === null ? undefined : EVERY_WALK.get(walking)
 const asked = script?.scenario ?? query.get("scenario");
 // `?frame` draws the app alone, for Evidence to photograph: no picker over it.
 const framing = query.has("frame");
-// `?take=fold|slide|settle` picks how an ended Job's pane leaves, for a walk to offer each.
-const take = query.get("take");
-if (take === "fold" || take === "slide" || take === "settle") setExitTake(take);
 const scenario = (asked === null ? undefined : scenarioNamed(asked)) ?? SCENARIOS[0]!;
 if (asked !== null && asked !== scenario.name) {
   console.warn(`no mock scenario named ${asked}; showing ${scenario.name}`);

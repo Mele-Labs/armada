@@ -1,6 +1,6 @@
 // Ending a Job leaves at once. The Job's pane plays out and the stage is the timeline with nothing selected, from the head's More
-// menu and from the done band's End job; Fleet parks the Job a moment later and its row reads ended. Three exits, picked by
-// `?take=fold`, `?take=slide` or `?take=settle` (fold is the one without it). Over the `session-all-done` scenario.
+// menu and from the done band's End job; Fleet parks the Job a moment later and its row reads ended. The pane folds into its row.
+// Over the `session-all-done` scenario.
 
 import { button, deckRow, inside, region, role, walk } from "../walk";
 import { toSessions } from "../sessions/walk-kit";

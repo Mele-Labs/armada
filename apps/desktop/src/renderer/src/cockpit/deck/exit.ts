@@ -4,25 +4,14 @@
 
 import { useSyncExternalStore } from "react";
 
-/** How the pane leaves: it folds into its row, slides out to the side, or settles away. */
-export type ExitTake = "fold" | "slide" | "settle";
-export const EXIT_TAKES: readonly ExitTake[] = ["fold", "slide", "settle"];
-
 /** The exit lasts this long at most, whatever the animation says: a ghost that never ends would cover the timeline. */
 export const EXIT_MS = 400;
 
-let take: ExitTake = "fold";
-/** The take on screen while a pane is leaving, for the stage to wear. */
-let exiting: ExitTake | undefined;
+/** True while a pane is leaving, for the stage to wear. */
+let exiting = false;
 
 const ends = new Set<(id: string) => void>();
 const looks = new Set<() => void>();
-
-/** Chooses the take. The mock sets it from `?take=` so a walk can offer all three. */
-export const setExitTake = (next: ExitTake) => {
-  take = next;
-};
-export const exitTake = (): ExitTake => take;
 
 /** Job `id` was ended. */
 export const announceEnd = (id: string): void => {
@@ -34,12 +23,12 @@ export const onEnd = (listen: (id: string) => void): (() => void) => {
   return () => void ends.delete(listen);
 };
 
-export const setExiting = (next: ExitTake | undefined): void => {
+export const setExiting = (next: boolean): void => {
   if (exiting === next) return;
   exiting = next;
   for (const look of looks) look();
 };
-export const useExiting = (): ExitTake | undefined =>
+export const useExiting = (): boolean =>
   useSyncExternalStore(
     (look) => (looks.add(look), () => void looks.delete(look)),
     () => exiting,
@@ -68,8 +57,7 @@ export function leaveFrom(key: string, commit: () => void): void {
   const at = pane.getBoundingClientRect();
   const from = stage.getBoundingClientRect();
   const row = document.querySelector<HTMLElement>(`[data-row="${CSS.escape(key)}"]`)?.getBoundingClientRect();
-  // Folding has somewhere to go only while the row is on screen; without it the pane settles.
-  const how: ExitTake = take === "fold" && row === undefined ? "settle" : take;
+  // The pane folds into its row; with the row off screen it has nowhere to go and fades.
 
   const ghost = document.createElement("div");
   ghost.className = "deck-ghost";
@@ -88,30 +76,28 @@ export function leaveFrom(key: string, commit: () => void): void {
   });
 
   const easing = getComputedStyle(document.documentElement).getPropertyValue("--ease").trim() || "ease";
-  const span = how === "fold" ? tokenMs("--duration-travel", 300) : how === "slide" ? tokenMs("--duration-sheet", 220) : tokenMs("--duration-base", 180);
+  const span = row === undefined ? tokenMs("--duration-base", 180) : tokenMs("--duration-travel", 300);
   const frames: Keyframe[] =
-    how === "fold" && row !== undefined
-      ? [
+    row === undefined
+      ? [{ opacity: 1 }, { opacity: 0 }]
+      : [
           { opacity: 1, transform: "none" },
           { opacity: 0.6, offset: 0.6 },
           { opacity: 0, transform: `translate(${row.left - at.left}px, ${row.top - at.top}px) scale(${row.width / at.width}, ${row.height / at.height})` },
-        ]
-      : how === "slide"
-        ? [{ opacity: 1, transform: "none" }, { opacity: 0, transform: "translateX(-32px)" }]
-        : [{ opacity: 1, transform: "none" }, { opacity: 0, transform: "scale(0.98)" }];
+        ];
 
   let finished = false;
   const finish = () => {
     if (finished) return;
     finished = true;
     ghost.remove();
-    if (how === "fold") landed(key);
+    if (row !== undefined) landed(key);
   };
   // The timeline's own entrance outlasts a short exit, so the stage keeps its mark until that is over too.
-  const rest = () => setExiting(undefined);
+  const rest = () => setExiting(false);
   window.setTimeout(() => (finish(), rest()), 1000);
 
-  setExiting(how);
+  setExiting(true);
   commit();
   window.requestAnimationFrame(() => {
     if (finished) return;

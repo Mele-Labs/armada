@@ -1084,7 +1084,7 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
                     {columns === undefined ? null : <DockHandle quiet className="deck-handle" grows="right" label="the left column" width={columns.left} {...columns.range.left} onResize={(width) => resize("left", width)} onReset={() => reset("left")} />}
         </div>
         <div className="deck-centre">
-          <div className="deck-stage" data-exit={exiting}>
+          <div className="deck-stage" data-exit={exiting ? "" : undefined}>
             <Stage props={props} ship={ship} listed={listed} autopilot={autopilot} ledger={reading && !unified ? ledgerHost : null} hosts={hosts} />
             {onStage === undefined ? null : <ShellPanel key={onStage} sessionId={onStage} />}
             <MergeQueue props={props} ship={ship} />

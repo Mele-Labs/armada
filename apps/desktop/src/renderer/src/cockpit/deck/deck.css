@@ -71,9 +71,7 @@
 /* Ending a Job: a copy of its pane leaves over the stage while the timeline is already there. `exit.ts` plays it (Web Animations, opacity and transform only), at the rect it measured. */
 .deck-ghost { position: absolute; z-index: 1; display: flex; flex-direction: column; transform-origin: 0 0; pointer-events: none; }
 .deck-ghost > .deck-pane { flex: 1 1 0; }
-.deck-stage[data-exit="slide"] > .deck-pane { animation: deck-rise var(--duration-travel) var(--ease) backwards; }
-.deck-stage:is([data-exit="fold"], [data-exit="settle"]) > .deck-pane { animation: deck-appear var(--duration-travel) var(--ease) backwards; }
-@keyframes deck-rise { from { opacity: 0; transform: translateY(var(--space-3)); } }
+.deck-stage[data-exit] > .deck-pane { animation: deck-appear var(--duration-travel) var(--ease) backwards; }
 @keyframes deck-appear { from { opacity: 0; } }
 /* The row the pane folded into takes its ended look over the same span the title colour does. */
 .deck-row__title { transition: color var(--duration-travel) var(--ease); }
