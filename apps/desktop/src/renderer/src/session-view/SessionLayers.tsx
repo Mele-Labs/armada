@@ -47,7 +47,7 @@ function Mark({ tone, said }: { tone: SessionLedgerTone; said: string }) {
 const ROW = "[data-layer-row]";
 
 /** The frame every layer shares: its name, what is beside it in the head, Back, and a body that scrolls. */
-function Shell({ label, head, keys, children }: { label: string; head?: ReactNode; /** A key the layer owns, heard before the arrows walk the rows. */ keys?: (event: KeyboardEvent<HTMLElement>) => void; children: ReactNode }) {
+function Shell({ label, head, keys, owns, children }: { label: string; head?: ReactNode; /** A key the layer owns, heard before the arrows walk the rows. */ keys?: (event: KeyboardEvent<HTMLElement>) => void; /** The letters `keys` answers to, which the deck does not take while focus is in the layer. */ owns?: string; children: ReactNode }) {
   const root = useRef<HTMLElement>(null);
   // Esc is Back, wherever focus is, unless a sheet or a menu is open over the layer: that one's Esc is its own.
   useEffect(() => {
@@ -75,7 +75,7 @@ function Shell({ label, head, keys, children }: { label: string; head?: ReactNod
     to.focus();
   };
   return (
-    <section ref={root} className="sv-layer" aria-label={label} data-keeps-escape="" onKeyDown={walk}>
+    <section ref={root} className="sv-layer" aria-label={label} data-keeps-escape="" {...(owns === undefined ? {} : { "data-owns-keys": owns })} onKeyDown={walk}>
       <header className="sv-layer__head">
         <h3 className="sv-layer__title">{label}</h3>
         {head}
@@ -187,6 +187,7 @@ export function ArtifactsLayer({ session, entries, onOpenSession, onOpenSketch }
     <Shell
       label="Artifacts"
       keys={keys}
+      owns="t"
       head={
         <>
           <div className="sv-layer__search">

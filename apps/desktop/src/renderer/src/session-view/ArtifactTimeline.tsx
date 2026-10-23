@@ -45,7 +45,7 @@ export function ArtifactTimeline({ timeline, take }: { timeline: Timeline; take:
 
   if (layout.placed.length === 0) return null;
   return (
-    <div className="at" data-take={take} role="group" aria-label="Timeline" onKeyDown={walk}>
+    <div className="at" data-take={take} data-own-arrows="" role="group" aria-label="Timeline" onKeyDown={walk}>
       <div className="at__scroll">
         <div className="at__canvas" style={{ width: layout.width }}>
           <div className="at__band">
