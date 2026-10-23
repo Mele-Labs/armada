@@ -60,6 +60,9 @@ say why, say what failed and what worked instead, and nothing about why.\n\
 - `text` is one or two short lines saying what to do, written for the next agent, such as: Run \
 the desktop tests with `pnpm vitest --project desktop`. Bare `vitest` also runs the browser \
 suite.\n\
+- Write a command in one canonical form, so the same command is never two entries: leave out \
+output redirects, `/tmp` log paths and reporter flags such as `--reporter=...`, and name the \
+files or flags only where the command needs them to work.\n\
 - Leave out what is true of any repository, what the next agent will not need, and what went \
 well with nothing to learn.\n\
 - Confirm an entry rather than add a new one that says the same.\n\
