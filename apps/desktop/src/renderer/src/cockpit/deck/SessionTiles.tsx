@@ -13,7 +13,7 @@
 // **A shell tile the repository committed asks once before it runs on this Mac**, showing its command, and asks again when the command
 // changes (`TileAskDialog`). A tile of the person's that hides the repository's carries the eclipse mark naming what it hides.
 
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Circle, CircleCheck, CircleDot, LoaderCircle, Play, Swords } from "lucide-react";
 import { Eclipse } from "lucide-react";
 import { Kbd, Tooltip, type SentFromComposer } from "@armada/components";
@@ -24,7 +24,7 @@ import { refusalWords } from "@armada/screens/src/refusal-words";
 import { provideJobFacts } from "../../job-facts";
 import { useSessionsSaid } from "../../sessions-draft";
 import { useFleetEvents } from "../fleet-events";
-import { flightGrid, flightTake, pageCell, pagesOf } from "./flight-take";
+import { flightGrid, pageCell, pagesOf } from "./flight-pages";
 import { FlightBlock } from "./FlightBlock";
 import { filled, repositoryFileOf, tilesOf, useFlightFile, useRepositoryFlight, type JobFacts, type Tile } from "./flight-controls";
 import { approveTile, committedFileOf } from "./flight-controls";
@@ -258,7 +258,6 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
     return tile.hides === undefined ? does : `${does}. Hides the repository's ${tile.hides}`;
   };
   const shown = tiles.filter((one) => !one.hidden);
-  const take = flightTake();
   // Over the whole window, never in the panel: the panel's glass is the containing block of anything fixed inside it, and clipped them.
   const dialog = releasing ? (
     <OverTheApp open>
@@ -286,8 +285,8 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
   return (
     <>
       {dialog}
-      <FlightBlock className="deck-controls__block" data-subject="session" data-take={take} pages={take === "pages" ? pagesOf(shown.length).count : undefined}>
-        <div className="deck-controls__tiles" style={flightGrid(shown.length, take) as CSSProperties}>
+      <FlightBlock className="deck-controls__block" data-subject="session" pages={pagesOf(shown.length).count}>
+        <div className="deck-controls__tiles" style={flightGrid(shown.length)}>
           {shown.map((tile, at) => {
             const id = tile.builtIn === undefined ? undefined : (tile.id as SessionTileId);
             const paused = id === "pause" && session.paused === true;
@@ -305,7 +304,7 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
                 <button
                   type="button"
                   className="deck-tile"
-                  {...pageCell(at, shown.length, take)}
+                  {...pageCell(at, shown.length)}
                   aria-label={name}
                   data-key={key}
                   data-act={id === "pause" ? "pause" : undefined}

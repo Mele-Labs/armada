@@ -1,7 +1,7 @@
-// The block the flight controls are drawn in. In the `pages` take (`flight-take.ts`) its tiles are in a strip that scrolls sideways and snaps to a
-// page, as iPhone home screens do, with a dot for each page under it; in the other take it is the plain block. The dots stand outside the strip so
-// they stay while it moves, in the block's own padding, drawn only while there is more than one page. A tile that takes focus or a press (a key
-// presses it from anywhere) brings its page into view.
+// The block the flight controls are drawn in: the tiles are in a strip that scrolls sideways and snaps a page at a time, as iPhone home screens do,
+// with a dot for each page under it (`flight-pages.ts`). The dots stand outside the strip so they stay while it moves, in the block's own padding,
+// and are drawn only while there is more than one page. A tile that takes focus or a press (a key presses it from anywhere) brings its page into
+// view. With no pages given it is the plain block. The owner's ask of 23 Oct 2026.
 
 import { useEffect, useRef, useState, type ComponentProps } from "react";
 import { Tooltip } from "@armada/components";
