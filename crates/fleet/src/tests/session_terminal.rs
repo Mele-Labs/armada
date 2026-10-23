@@ -160,6 +160,25 @@ async fn bridge_is_told_when_the_agents_first_command_opens_the_shell_and_when_i
     );
 }
 
+#[tokio::test]
+async fn ending_the_job_ends_its_shell() {
+    let rig = rig().await;
+    let shell = Arc::clone(&rig.fleet).open_job_shell(rig.session.as_str(), None, None).await.unwrap();
+    rig.fleet
+        .report_session(SessionReport {
+            harness: "a_harness".into(),
+            session_id: rig.session.clone(),
+            fact: SessionFact::Ended { reason: "prompt_input_exit".into() },
+        })
+        .await
+        .unwrap();
+
+    if !shortly(|| async { rig.observes(&shell).await.live.is_err() }).await {
+        ends(&rig, &shell).await;
+        panic!("the shell outlived its Job");
+    }
+}
+
 /// Until `check` holds, for as long as an interactive login shell may take to start under the
 /// person's own rc files, which is longer than [`eventually`] waits.
 async fn shortly<F: std::future::Future<Output = bool>>(mut check: impl FnMut() -> F) -> bool {

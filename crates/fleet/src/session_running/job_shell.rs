@@ -124,6 +124,14 @@ impl SessionRuns {
         Some((id, held))
     }
 
+    /// Stop `session`'s shell, as a run is stopped, where it has one in flight.
+    fn stop_shell(&self, session: &str) {
+        let open = self.shells.lock().expect("not poisoned").get(session).cloned();
+        if let Some(run_id) = open {
+            self.stop(&run_id);
+        }
+    }
+
     /// Forget `run_id` as `session`'s shell, unless a newer one has taken its place.
     fn shell_ended(&self, session: &str, run_id: &str) {
         let mut shells = self.shells.lock().expect("not poisoned");
@@ -235,6 +243,11 @@ where
             refusal("this job has no terminal open. type_in_terminal opens one", self.run_id())
         })?;
         Ok(TerminalScreen { run_id, screen: kept(plain::last_lines(&held, lines)) })
+    }
+
+    /// A Job that ended takes its shell with it.
+    pub(crate) fn job_shell_wound_up(&self, session: &str) {
+        self.session_runs().stop_shell(session);
     }
 
     fn job_shell_ended(&self, session: &str, run_id: &str) {

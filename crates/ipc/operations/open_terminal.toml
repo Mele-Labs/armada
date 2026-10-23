@@ -6,9 +6,9 @@ description = "Open a Job's shell, the one terminal the person and the Job's age
 notes = """
 `POST /sessions/terminal/open`, body `OpenTerminal`: `session_id`, and optionally `cols` and `rows` (80 by 24 where absent, used only where the shell opens now). Answered 200 with `SessionRunUnderway`: `run_id`.
 
-**One shell a Job.** It runs as `$SHELL -l` (`/bin/zsh` where `SHELL` is unset or empty), interactive, on a pseudo-terminal with `TERM=xterm-256color`, in the directory `start_session_run` runs in: the worktree of the slot the Job holds, or the Job's directory. A second open is answered with the shell already open. One that has exited is replaced by a new one under a new `run_id`.
+**One shell a Job.** It runs as `$SHELL -l` (`/bin/zsh` where `SHELL` is unset or empty), interactive, on a pseudo-terminal with `TERM=xterm-256color`, in the directory `start_session_run` runs in: the worktree of the slot the Job holds, or the Job's directory. A second open, the person's or the agent's through `type_in_terminal`, is answered with the shell already open. One that has exited is replaced by a new one under a new `run_id`.
 
-**It is a run.** What it prints is `observe_session_run`'s; typing, resizing and stopping it are `write_session_run`, `resize_session_run` and `stop_session_run` on its `run_id`. Its output is held in memory as a run's is, and nothing is written down. Its end tells the Job nothing.
+**It is a run.** What it prints is `observe_session_run`'s; typing, resizing and stopping it are `write_session_run`, `resize_session_run` and `stop_session_run` on its `run_id`. Its output is held in memory as a run's is, and nothing is written down. Its end tells the Job nothing. `terminal.opened` follows on `/events` when it starts, and `terminal.exited` when it ends. Ending the Job stops it, SIGTERM and then SIGKILL as `stop_session_run` does.
 
 A Job that has ended, or that Fleet has no row for, is refused with 422 and nothing opens; so is a `cols` or `rows` of 0.
 
