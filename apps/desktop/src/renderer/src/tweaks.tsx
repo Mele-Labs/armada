@@ -33,7 +33,7 @@ export function tweakSheet(css: string): CSSStyleSheet {
   return sheet;
 }
 
-const TOKEN = /^--[a-z0-9-]+$/;
+const TOKEN = /^-{2}[a-z0-9-]+$/;
 
 /** The one token the Teach panel shows back, as a sheet. Set through the rule, so a value cannot end its declaration. */
 function previewSheet(token: string, now: string): CSSStyleSheet | undefined {
