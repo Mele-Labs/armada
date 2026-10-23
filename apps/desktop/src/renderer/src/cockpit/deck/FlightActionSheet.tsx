@@ -130,8 +130,7 @@ export function FlightActionSheet({
   const save = () => {
     if (!ready) return;
     const label = name.trim();
-    // Kept as a lone digit or letter in capitals, as an older file has them, and a chord as the registry spells it.
-    const kept = /^[0-9a-z]$/i.test(key.trim()) ? key.trim().toUpperCase() : key.trim();
+    const kept = key.trim();
     if (built !== undefined) {
       const entry: FlightEntry = { id: built.id };
       if (label !== "" && label !== built.text) entry.name = label;

@@ -141,10 +141,10 @@ export function keyChord(key: string): Chord | null {
   return parseChord(key);
 }
 
-/** A key as it is kept and drawn: a lone digit or letter in capitals, a chord as the registry draws one. Nothing where it cannot be a tile's. */
+/** A key as it is kept and drawn, as the registry spells one: a lone digit or letter in lower case, a chord as it draws one. Nothing where it cannot be a tile's. */
 const normalKey = (key: string | undefined): string | undefined => {
   if (key === undefined) return undefined;
-  if (bareKey(key)) return key.toUpperCase();
+  if (bareKey(key)) return key.toLowerCase();
   const chord = parseChord(key);
   return chord !== null && (chord.ctrl || chord.alt || chord.meta) ? formatChord(chord) : undefined;
 };
@@ -315,6 +315,18 @@ export function freshId(entries: readonly FlightEntry[], name: string): string {
 
 // ---- Keys ---------------------------------------------------------------------------------------------------------
 
+/** The editing keys of the text boxes the Cockpit holds, which are no act of the registry, so a tile may not take them. */
+const EDITING: readonly { name: string; chord: Chord }[] = [
+  { name: "Copy", chord: { ctrl: false, alt: false, shift: false, meta: true, key: "c" } },
+  { name: "Paste", chord: { ctrl: false, alt: false, shift: false, meta: true, key: "v" } },
+  { name: "Cut", chord: { ctrl: false, alt: false, shift: false, meta: true, key: "x" } },
+  { name: "Select all", chord: { ctrl: false, alt: false, shift: false, meta: true, key: "a" } },
+  { name: "Undo", chord: { ctrl: false, alt: false, shift: false, meta: true, key: "z" } },
+  { name: "Redo", chord: { ctrl: false, alt: false, shift: true, meta: true, key: "z" } },
+];
+
+const sameChord = (a: Chord, b: Chord): boolean => a.key === b.key && a.ctrl === b.ctrl && a.alt === b.alt && a.shift === b.shift && a.meta === b.meta;
+
 /**
  * Why `key` cannot be this tile's, or nothing where it can. An empty key is always fine. The key is a digit, a letter or a chord in the
  * registry's spelling; Shift alone makes no chord, for a capital `R` in a file has always meant `r`.
@@ -328,9 +340,15 @@ export function keyProblem(key: string, tiles: readonly Tile[], own: string | un
     if (!bareKey(chord.key)) return "A digit, a letter or a chord";
   }
   const held = normalKey(key);
-  // Pause answers P when it is given none, and may be given it.
-  const pauses = tiles.find((one) => one.id === own)?.builtIn?.fixedKey === true;
-  if (held === PAUSE_KEY ? !pauses : conflictsOf("deck_tile", { kind: "chord", chord }).length > 0) return "Used by the deck";
+  const edit = EDITING.find((one) => sameChord(one.chord, chord));
+  if (edit !== undefined) return `Used by ${edit.name}`;
+  const pause = tiles.find((one) => one.builtIn?.fixedKey === true);
+  const pauses = pause !== undefined && pause.id === own;
+  // P is the list row's Pause, and the open Job's while its Pause wears it; once Pause has another key P is free there.
+  const pauseKey = normalKey(pause?.entry?.key);
+  if (held === PAUSE_KEY && !pauses && (pauseKey === undefined || pauseKey === PAUSE_KEY)) return "Used by Pause";
+  const act = pauses && held === PAUSE_KEY ? undefined : conflictsOf("deck_tile", { kind: "chord", chord })[0];
+  if (act !== undefined) return `Used by ${act.verb}`;
   const other = tiles.find((one) => one.id !== own && one.entry?.key !== undefined && normalKey(one.entry.key) === held);
   return other === undefined ? undefined : `Used by ${other.label}`;
 }

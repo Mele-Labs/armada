@@ -16,6 +16,7 @@ import { bandingOf } from "./bands";
 import { AGE_MS } from "./clock";
 import { keyPressed } from "./flight-controls";
 import { holdFor } from "./props";
+import { PAUSE_KEY } from "./session-tiles";
 import { walkOrder } from "./queued";
 import { DeckKeySheet, armChord, cycleFrom, focusPanel, panelAt, remember, stepBy, stepIn, useDeckKeys } from "./keys";
 import { OPENS, PAGE_LETTERS, panelOfSlot, type PageLetter } from "./keys-model";
@@ -232,10 +233,12 @@ export function DeckHost({ state, picked, here, hidden, onGoTo, onOpenSession }:
       event.preventDefault();
       return focusPanel(cycleFrom(panel?.id, event.shiftKey ? -1 : 1), state.cursor);
     }
-    // P presses Pause on the open Session's tile, Resume while it is paused; not an act of the registry, where `p` is Pilot's.
+    // P presses Pause: the row under the cursor's in the list, elsewhere the open Session's while its Pause wears P. Once Pause has another key that
+    // key presses it and P is a tile's, if one was given it. Not an act of the registry, where `p` is Pilot's.
     if (event.key.toLowerCase() === "p" && !event.shiftKey) {
-      // In the list it is the row under the cursor's; elsewhere the open Session's.
-      const act = (panel?.id === "list" && state.cursor !== undefined ? document.querySelector<HTMLElement>(`.deck-list__item:has(> [data-row="${CSS.escape(state.cursor)}"]) [data-act="row-pause"]`) : null) ?? document.querySelector<HTMLElement>('.deck-controls__block[data-subject="session"] [data-act="pause"]');
+      const row = panel?.id === "list" && state.cursor !== undefined ? document.querySelector<HTMLElement>(`.deck-list__item:has(> [data-row="${CSS.escape(state.cursor)}"]) [data-act="row-pause"]`) : null;
+      const tile = document.querySelector<HTMLElement>('.deck-controls__block[data-subject="session"] [data-act="pause"]');
+      const act = row ?? (tile?.dataset.key === PAUSE_KEY ? tile : null);
       if (act !== null) {
         event.preventDefault();
         act.click();

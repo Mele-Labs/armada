@@ -9,6 +9,8 @@ const tile = (name: string) => inside(controls, button(name));
 const editing = inside(controls, role("listbox", "Flight controls, editing"));
 const sheet = dialog("Change Report issue with job");
 const keyField = inside(sheet, button(/^Key:/));
+const other = dialog("Change Auto land");
+const otherKey = inside(other, button(/^Key:/));
 
 const flightControlsHotkeys = walk("flight-controls-custom", [
   { press: inside(list, button("Tune the flight controls")), say: "A Job open on the Cockpit" },
@@ -22,6 +24,11 @@ const flightControlsHotkeys = walk("flight-controls-custom", [
   { key: "Alt+r", on: keyField, say: "Back to the first" },
   { press: inside(sheet, button("Save")), say: "Saved" },
   { look: inside(editing, role("option", "Report issue with job")), say: "The tile wears the chord in its corner" },
+  { press: inside(editing, role("option", "Auto land")), say: "Another tile" },
+  { press: otherKey, say: "Give it the same key" },
+  { key: "Alt+r", on: otherKey, say: "A key another tile holds names that tile, and Save waits" },
+  { look: inside(other, role("alert")), say: "Used by Report issue with job" },
+  { press: inside(other, button("Close")), say: "Closed without a change" },
   { press: tile("Done"), say: "Done" },
   { key: "Alt+r", on: list, say: "The chord presses the tile from anywhere on the Cockpit while the Job is open" },
   { look: dialog("Report an issue with the Job"), say: "Report opens its box" },
