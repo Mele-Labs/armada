@@ -19,7 +19,7 @@ function fake(mods: ModSummary[] | null, over: Partial<FleetTaught> = {}) {
     state: async () => ({ mods: mods === null ? null : { mods } }),
     subscribe: (on) => ((hear = on), () => undefined),
     setModEnabled: async (name, enabled) => (switched.push(`${enabled ? "on" : "off"} ${name}`), { ok: true }),
-    promoteMod: async (name) => ({ ok: true, modPromoted: { name, branch: `armada/mod-${name}-1`, commit: "abc" } }),
+    promoteMod: async (name) => ({ ok: true, modPromoted: { name, session_id: "s1", title: `Add the ${name} mod`, branch: `armada/mod-${name}-1`, commit: "abc" } }),
     tryTrackerMod: async (name) => (tries.push(name), { ok: true, trackerTried: PASSED }),
     validateMod: async () => null,
     ...over,

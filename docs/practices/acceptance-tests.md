@@ -38,6 +38,7 @@ the gate asserts about it.
 | Pinned notes | A note I pin on a page reaches the Job with the line of code that drew the spot ranked first, found by the words on screen, and a stamp on the page counts only where the text bears it out | `crates/acceptance/tests/pinned_note.rs` |
 | Token watching | A Job that crosses a token rule's limit is told once, with the number and one action; staying over tells it nothing more, it is told again only after the figure fell back under and a cooldown passed, and a Job under every limit hears nothing | `crates/acceptance/tests/usage_rules.rs` |
 | Requests | A secret `{{token}}` fills in on an agent's send, the agent never reads it, and a commit or package carries only its name | `crates/acceptance/tests/requests.rs` |
+| Shared home | A mod and a skill added to the home on one Mac are only in the home on another, Bring puts them in its mods and skills folders and they then read the same, and a server carried across holds its name and host and no key | `crates/acceptance/tests/shared_home.rs` |
 
 The apparatus is `crates/acceptance/tests/bench/`, shared, with a file per
 milestone. Claim and apparatus are separated so that what a milestone claims and

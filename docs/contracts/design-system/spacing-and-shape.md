@@ -17,6 +17,12 @@ where content can grow, so the token keeps rows aligned down a column
 without truncating one that needs more. Labels align with their fields,
 and content left edges align with their header's left edge.
 
+**Controls repeated down a list sit in fixed columns.**
+A switch, a mark or an act that more than one row of a list can carry has a column of its own, one control wide, and every row keeps that column whether it carries the control or not.
+A row's controls share the centre line of its first line; anything a row adds under its title, such as a pull request or a Job, is a line of its own beneath and never moves them.
+Lay the row out as a grid with the trailing columns sized by `--h-control`, never as a flex row whose controls take the width they happen to need.
+Why: a flex row shifts its switch left by one control wherever a neighbour has one more mark, and the owner asked twice on 23 Oct 2026 for the Mods rows' controls to line up.
+
 ```
 --radius-sm  3px    badges, small controls
 --radius-md  6px    buttons, inputs, rows and tiles, a flat card

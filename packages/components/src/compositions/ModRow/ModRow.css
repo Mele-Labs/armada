@@ -1,12 +1,18 @@
-/* One mod: its kind, a switch that takes the width, then a slot for Details and Promote, each one control wide. The slot is kept
- * when a mod has no Details, so the switches and Promote line up down a list. The head sits on one centre line, and what an
- * opened mod holds is a row of its own, so it never moves the controls. */
+/* One mod: its kind, a switch that takes the width, then a slot for Details, the home's mark, its act and Promote, each one
+ * control wide. Every cell is kept where a mod lacks it, so the switches and controls line up down a list. The head sits on one
+ * centre line; what Promote opened and what an opened mod holds are rows of their own under it, so they never move the controls. */
 .armada-mod-row {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) var(--h-control) var(--h-control);
+  grid-template-columns: auto minmax(0, 1fr) var(--h-control) var(--h-control) var(--h-control) var(--h-control);
   align-items: center;
   column-gap: var(--space-3);
   min-width: 0;
+}
+
+.armada-mod-row__cell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* A described switch aligns its track to the top of its text; here the track shares the centre line with the other controls. */
@@ -35,6 +41,35 @@
   min-width: 0;
 }
 
+/* A mod only the shared home has: its name, with no switch to draw it beside. */
+.armada-mod-row__title {
+  color: var(--fg-default);
+}
+
+/* What Promote opened: the pull request, then the Job holding it, under the switch. */
+.armada-mod-row__promoted {
+  grid-column: 2 / -1;
+  display: flex;
+  flex-direction: column;
+}
+
+.armada-mod-row__job {
+  display: inline-flex;
+}
+
+.armada-mod-row__origin {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  color: var(--fg-muted);
+}
+
+/* Where Promote would be, so a mod Armada ships keeps its mark in Promote's column. */
+.armada-mod-row .armada-mod-row__origin {
+  width: var(--h-control);
+}
+
 /* A row framed in its standing, as a Cockpit Job card is in its state: a heavier edge in the hue, the ground taking a
    little of it. Used is the success hue, waiting on a try the warning hue, refused the failure hue. */
 .armada-mod-row[data-standing] {
@@ -54,7 +89,7 @@
    whether or not a row has them. A mark is 16px of glyph, the chip's padding and its hairline. */
 .armada-mod-row[data-tracking] {
   --mark: calc(var(--space-4) + var(--space-2) + var(--border-width) * 2);
-  grid-template-columns: auto minmax(0, 1fr) calc(var(--mark) * 2 + var(--space-1)) var(--h-control) var(--h-control) var(--h-control);
+  grid-template-columns: auto minmax(0, 1fr) calc(var(--mark) * 2 + var(--space-1)) var(--h-control) var(--h-control) var(--h-control) var(--h-control) var(--h-control);
 }
 
 .armada-mod-row[data-tracking] .armada-mod-row__slot {

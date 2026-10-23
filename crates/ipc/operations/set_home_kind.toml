@@ -1,0 +1,8 @@
+[operations.set_home_kind]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Switch one Kit kind on or off in what this machine syncs with the shared home"
+notes = """
+`POST /shared_home/kinds/set`, body `SetHomeKind` `{ login, kind, on }`, answered with that profile's `HomeKinds`. Kept in this machine's store, a profile at a time. A kind switched off has no rows in `get_shared_home` and nothing of it is touched; turning it off removes nothing from either side. `agent_access` is `No`: the owner's press.
+"""

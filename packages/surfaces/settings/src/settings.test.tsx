@@ -22,7 +22,7 @@ test("the sidebar lists Kit, Fleet, Mods and Bridge entries in order, and an ent
   await toPlace("System");
   const labels = (group: string) => () => entriesOf(group).elements().map((one) => one.textContent);
   await expect.poll(labels("Kit")).toEqual([
-    "Skills", "Plugins", "Sub agents", "Commands", "Servers", "Instructions", "Output styles", "Allowlist", "Workflows", "Models", "Prompts", "Harness",
+    "Skills", "Plugins", "Sub agents", "Commands", "Servers", "Instructions", "Output styles", "Allowlist", "Mods", "Workflows", "Models", "Prompts", "Harness",
   ]);
   await expect.poll(labels("Fleet")).toEqual(["Limits", "Timeouts", "Retention", "Plan", "Machine", "Account", "Store", "Features"]);
   // Mods lists Words and Fleet only once a teaching has made a mod of that kind.

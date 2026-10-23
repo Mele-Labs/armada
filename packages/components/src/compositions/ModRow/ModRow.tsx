@@ -1,9 +1,11 @@
 import { useEffect, useRef, type KeyboardEvent, type ReactNode } from "react";
-import { Bell, ChevronDown, ChevronRight, CircleDashed, ClockAlert, Eclipse, FlaskConical, GitPullRequestArrow, Link, Palette, PanelsTopLeft, ShieldCheck, ShieldX, Ticket } from "lucide-react";
+import { Bell, Box, ChevronDown, ChevronRight, CircleDashed, ClockAlert, Eclipse, FlaskConical, GitPullRequestArrow, Link, Package, Palette, PanelsTopLeft, ShieldCheck, ShieldX, Ticket } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
 import { Switch } from "../../primitives/Switch/Switch";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
+import { PullRequestChip } from "../PullRequestChip/PullRequestChip";
+import { RowLink } from "../RowLink/RowLink";
 
 export type ModTried = {
   /** `stale` is a try of a `tracker.toml` that has been edited since. */
@@ -22,7 +24,8 @@ export type ModTracker = {
  *
  * **The leading mark is the kind's glyph**, the palette for a theme, the eclipse for a tweak laid over it, the panels for a
  * layout, the chain for words, the bell for Fleet and the ticket, which the registry draws an issue as, for a tracker, with the kind's name on hover. The line under the title is one plain fact: what is wrong with the mod, or the branch it
- * was put on. Nothing is said where there is nothing to say.
+ * was put on. Once promoted, the pull request it is on and the Job that holds it, each a press. A mod Armada ships
+ * carries the package where Promote would be. Nothing is said where there is nothing to say.
  *
  * **A tracker mod adds two marks, each a glyph in a filled chip with its words on hover**: whether the
  * `tracker.toml` as it stands has been tried against the real tracker, and whether it is valid. A
@@ -43,14 +46,25 @@ export type ModRowProps = {
   withTracker?: boolean;
   /** The frame's hue: in use, waiting on a try, refused, or off in grey. Absent draws no frame. */
   standing?: "used" | "waiting" | "refused" | "off";
-  /** This machine's switch for the mod. */
-  enabled: boolean;
-  onEnabled: (on: boolean) => void;
+  /** This machine's switch for the mod. Absent for a mod only the shared home has, which has nothing here to switch. */
+  enabled?: boolean;
+  onEnabled?: (on: boolean) => void;
   /** Why the mod cannot be drawn, or the branch it is on. Absent draws no line. */
   detail?: ReactNode;
+  /** Ships with Armada: marked so, and never promoted. */
+  builtIn?: boolean;
+  /** How it stands against the shared home, as Kit draws it: `SyncMarks`. */
+  syncMark?: ReactNode;
+  /** The act that settles it, as Kit draws it: `SyncAct`. */
+  syncAct?: ReactNode;
+  /** The pull request Promote opened. */
+  pull?: { number: number; title: string; onOpen: () => void };
+  /** The Job that holds that pull request. */
+  job?: { title: string; onOpen: () => void };
   /** Promote is off while the mod is invalid or already on a branch. */
   promoteDisabled?: boolean;
-  onPromote: () => void;
+  /** Absent draws no Promote. */
+  onPromote?: () => void;
   /** Try a tracker mod against the repository. Drawn only where given, off while the mod is invalid. */
   onTry?: () => void;
   /**
@@ -69,6 +83,18 @@ export type ModKind = "theme" | "tweak" | "layout" | "words" | "fleet" | "tracke
 const KIND = { theme: "Theme", tweak: "Theme tweak", layout: "Layout", words: "Words", fleet: "Fleet", tracker: "Tracker" } as const;
 const GLYPH = { theme: Palette, tweak: Eclipse, layout: PanelsTopLeft, words: Link, fleet: Bell, tracker: Ticket } as const;
 
+/** The kind's glyph, with its name on hover. Kit's Mods list draws the same one. */
+export function ModKindMark({ kind = "theme" }: { kind?: ModKind }) {
+  const Glyph = GLYPH[kind];
+  return (
+    <Tooltip label={KIND[kind]}>
+      <span className="armada-mod-row__kind" role="img" aria-label={KIND[kind]}>
+        <Glyph size={16} />
+      </span>
+    </Tooltip>
+  );
+}
+
 const TRIED_GLYPH = { passed: FlaskConical, failed: FlaskConical, stale: ClockAlert, never: CircleDashed } as const;
 
 function Mark({ tone, words, children }: { tone: string; words: string; children: ReactNode }) {
@@ -81,7 +107,20 @@ function Mark({ tone, words, children }: { tone: string; words: string; children
   );
 }
 
-export function ModRow({ title, kind = "theme", tracker, withTracker = false, standing, enabled, onEnabled, detail, promoteDisabled = false, onPromote, onTry, opened, onOpened, autoFocus = false, children }: ModRowProps) {
+export const BUILT_IN_SAID = "Ships with Armada";
+
+/** Where a mod Armada ships came from. Kit's Mods list draws the same one. */
+export function BuiltInMark() {
+  return (
+    <Tooltip label={BUILT_IN_SAID}>
+      <span className="armada-mod-row__origin" role="img" aria-label={BUILT_IN_SAID}>
+        <Package size={16} strokeWidth={2} aria-hidden="true" />
+      </span>
+    </Tooltip>
+  );
+}
+
+export function ModRow({ title, kind = "theme", tracker, withTracker = false, standing, enabled, onEnabled, detail, builtIn = false, syncMark, syncAct, pull, job, promoteDisabled = false, onPromote, onTry, opened, onOpened, autoFocus = false, children }: ModRowProps) {
   const Glyph = GLYPH[kind];
   const Tried = tracker === undefined ? undefined : TRIED_GLYPH[tracker.tried.state];
   const lined = withTracker || tracker !== undefined;
@@ -117,9 +156,13 @@ export function ModRow({ title, kind = "theme", tracker, withTracker = false, st
         </span>
       </Tooltip>
       <div className="armada-mod-row__switch">
-        <Switch checked={enabled} onChange={(event) => onEnabled(event.target.checked)} {...(detail === undefined ? {} : { description: detail })}>
-          {title}
-        </Switch>
+        {enabled === undefined ? (
+          <span className="armada-mod-row__title">{title}</span>
+        ) : (
+          <Switch checked={enabled} onChange={(event) => onEnabled?.(event.target.checked)} {...(detail === undefined ? {} : { description: detail })}>
+            {title}
+          </Switch>
+        )}
       </div>
       {!lined ? null : tracker === undefined || Tried === undefined ? (
         <span className="armada-mod-row__marks" aria-hidden="true" />
@@ -158,11 +201,40 @@ export function ModRow({ title, kind = "theme", tracker, withTracker = false, st
           </Button>
         </Tooltip>
       )}
-      <Tooltip label={`Put ${title} on a branch of the repository`}>
-        <Button iconOnly variant="ghost" aria-label={`Promote ${title}`} disabled={promoteDisabled} onClick={onPromote}>
-          <GitPullRequestArrow size={16} />
-        </Button>
-      </Tooltip>
+      {/* Every cell is drawn, empty or not, so each control keeps its column down a list. */}
+      <span className="armada-mod-row__cell">{syncMark}</span>
+      <span className="armada-mod-row__cell">{syncAct}</span>
+      {builtIn ? (
+        <BuiltInMark />
+      ) : onPromote === undefined ? (
+        <span className="armada-mod-row__cell" />
+      ) : (
+        <Tooltip label={`Add ${title} to Armada in a pull request`}>
+          <Button iconOnly variant="ghost" aria-label={`Promote ${title}`} disabled={promoteDisabled} onClick={onPromote}>
+            <GitPullRequestArrow size={16} />
+          </Button>
+        </Tooltip>
+      )}
+      {pull === undefined && job === undefined ? null : (
+        <div className="armada-mod-row__held armada-mod-row__promoted">
+          {pull === undefined ? null : <PullRequestChip number={pull.number} title={pull.title} state="open" onOpen={pull.onOpen} />}
+          {job === undefined ? null : (
+            <RowLink
+              label={`Job ${job.title}`}
+              mark={
+                <Tooltip label="Job">
+                  <span className="armada-mod-row__job" role="img" aria-label="Job">
+                    <Box size={12} strokeWidth={2} aria-hidden="true" />
+                  </span>
+                </Tooltip>
+              }
+              onOpen={job.onOpen}
+            >
+              {job.title}
+            </RowLink>
+          )}
+        </div>
+      )}
       {opened && children !== undefined ? <div className="armada-mod-row__held">{children}</div> : null}
     </div>
   );

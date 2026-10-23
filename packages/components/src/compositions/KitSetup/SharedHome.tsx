@@ -1,10 +1,11 @@
 import { createContext, useContext } from "react";
 import type { ReactNode } from "react";
-import { ArrowDownToLine, ArrowUpFromLine, Check, House, Key, Laptop, RotateCw, Split } from "lucide-react";
+import { ArrowDownToLine, ArrowUpFromLine, Check, CircleDashed, House, Key, Laptop, RotateCw, Split } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
 import { Sheet } from "../../primitives/Sheet/Sheet";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
+import type { ModKind } from "../ModRow/ModRow";
 
 /**
  * Kit against the shared home: a private repository on the person's own GitHub
@@ -29,6 +30,8 @@ export type SharedRow = {
   source?: string;
   /** A server whose key is not on this machine. Name and host are all that travelled. */
   keyHere?: boolean;
+  /** Mods only: what a mod changes, so a mod only the home has is listed under its own kind. */
+  modKind?: ModKind;
   /** The two versions of a row that differs. */
   here?: string;
   there?: string;
@@ -128,19 +131,26 @@ export function SyncAct({ row, acts }: { row: SharedRow; acts: SharedHomeActs })
   );
 }
 
+/** The home's repository, `account/repository`. `made` false marks one no kind has synced to yet. */
+export function SharedHomeChip({ account, repository, made = true }: { account: string; repository: string; made?: boolean }) {
+  return (
+    <Tooltip label={made ? "Shared home" : "Shared home, not made yet"}>
+      <span className="armada-shared-chip" data-made={made ? undefined : "no"}>
+        {made ? <House size={12} strokeWidth={2} aria-hidden="true" /> : <CircleDashed size={12} strokeWidth={2} aria-hidden="true" />}
+        <span>
+          {account}
+          <span className="armada-shared-chip__repo">/{repository}</span>
+        </span>
+      </span>
+    </Tooltip>
+  );
+}
+
 /** The account the home belongs to, and Sync. */
 export function SharedHomeBar({ home }: { home: SharedHome }) {
   return (
     <div className="armada-shared-bar">
-      <Tooltip label="Shared home">
-        <span className="armada-shared-chip">
-          <House size={12} strokeWidth={2} aria-hidden="true" />
-          <span>
-            {home.account}
-            <span className="armada-shared-chip__repo">/{home.repository}</span>
-          </span>
-        </span>
-      </Tooltip>
+      <SharedHomeChip account={home.account} repository={home.repository} />
       <Button variant="ghost" size="sm" pending={home.syncing} onClick={home.sync}>
         <RotateCw size={12} strokeWidth={2} aria-hidden="true" className="armada-shared-bar__turn" data-turning={home.syncing ? "" : undefined} />
         Sync

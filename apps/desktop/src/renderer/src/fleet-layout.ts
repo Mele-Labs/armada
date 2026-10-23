@@ -12,6 +12,7 @@ import type { LayoutFile, LayoutMod, LayoutRegion, LayoutSource, LayoutState, Re
 import { refusalWords } from "@armada/screens/src/refusal-words";
 
 import type { BridgeState } from "../../shared/bridge";
+import { keptOf, promotedOf } from "./fleet-themes";
 import { askToTell } from "./tell";
 
 type Facts = Pick<BridgeState, "mods" | "preferences">;
@@ -38,7 +39,8 @@ export function createFleetLayout(fleet: FleetLayout, tell: (sentence: string) =
   let seen = "";
   const reads = new Map<string, Read>();
   const asking = new Set<string>();
-  const branches = new Map<string, string>();
+  // What a press opened, until Fleet's list carries the pull request itself.
+  const promoted = new Map<string, ReturnType<typeof promotedOf>>();
   // A switch just pressed, drawn at once; Fleet's next list replaces it.
   const switched = new Map<string, boolean>();
   const listeners = new Set<() => void>();
@@ -55,7 +57,7 @@ export function createFleetLayout(fleet: FleetLayout, tell: (sentence: string) =
           title: row.name,
           enabled: switched.get(row.name) ?? row.enabled,
           ...(problem === undefined ? {} : { problem }),
-          ...(branches.has(row.name) ? { branch: branches.get(row.name)! } : {}),
+          ...(row.pull_request === undefined ? promoted.get(row.name) : keptOf(row)),
           file: current?.file ?? NONE,
         };
       });
@@ -111,6 +113,7 @@ export function createFleetLayout(fleet: FleetLayout, tell: (sentence: string) =
     if (key === seen) return;
     seen = key;
     rows = next.mods?.mods ?? [];
+    for (const row of rows) if (row.pull_request !== undefined) promoted.delete(row.name);
     switched.clear();
     // Text that does not parse is no choices, so the screen is the mods' and the defaults.
     if (saving === 0) own = choices === "" ? NONE : parseLayout(choices).file;
@@ -153,7 +156,7 @@ export function createFleetLayout(fleet: FleetLayout, tell: (sentence: string) =
       void fleet.promoteMod(name).then((outcome) => {
         if (!outcome.ok) return tell(refusalWords(outcome));
         if (outcome.modPromoted === undefined) return;
-        branches.set(name, outcome.modPromoted.branch);
+        promoted.set(name, promotedOf(outcome.modPromoted));
         refresh();
       });
     },

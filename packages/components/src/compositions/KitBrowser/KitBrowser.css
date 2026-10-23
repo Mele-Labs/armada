@@ -278,3 +278,10 @@
   color: var(--fg-default);
   font-size: var(--text-sm);
 }
+
+/* A mod's kind and, where Armada ships it, the package: the marks its Theme or Layout row carries. */
+.armada-kit-browser__mod {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}

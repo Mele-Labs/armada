@@ -42,9 +42,9 @@ import { PlanUsageSourceProvider } from "../plan-usage";
 import { DownshiftSourceProvider } from "../downshift";
 import { createMockDownshift } from "./downshift";
 import { createFleetPlanUsage } from "../fleet-plan-usage";
-import { mockThemes } from "./themes";
+import { mockThemes, promoteThemesWith } from "./themes";
 import { installTrackerMods, triable } from "./trackers";
-import { installSystemMods } from "./system-mods";
+import { installSystemMods, installTravelMods } from "./system-mods";
 import { provideKitModels } from "../kit-models";
 import { createMockKitModels } from "./kit-models";
 import { provideTeaching } from "../teach";
@@ -124,6 +124,8 @@ export function mountApp(
 ): Mounted {
   const chosen = typeof scenario === "string" ? scenarioNamed(scenario) : scenario;
   if (chosen === undefined) throw new Error(`no mock scenario named ${String(scenario)}`);
+  // A Promote opens a pull request only where the scenario's `behaves` says so, which building the fake runs.
+  if (shared === undefined) promoteThemesWith(undefined);
   // `shared` is a second window on the same main: both hear what either one's Fleet publishes.
   const api = shared ?? fakeBridge(chosen, options);
   // A window starts on Dark with the mods a machine starts with; a second window on the same main shares them.
@@ -131,6 +133,7 @@ export function mountApp(
   mockSleep.reset(chosen.name === "sleep-cockpit" ? overnight() : undefined);
   if (shared === undefined) mockLayout.reset();
   if (shared === undefined && chosen.name === "system-sidebar") installSystemMods();
+  if (shared === undefined && chosen.name === "mods-travel") installTravelMods();
   if (shared === undefined && chosen.name === "mods-trackers") installTrackerMods();
   if (shared === undefined) provideKitModels(createMockKitModels());
   // Teach is read only in the scenario that plays it, which starts with nothing taught.

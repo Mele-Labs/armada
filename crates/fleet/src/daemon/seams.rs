@@ -249,6 +249,9 @@ where
     pub(crate) fn phone_held(&self) -> &crate::phone::PhoneHeld {
         &self.phone_held
     }
+    pub(crate) fn home_held(&self) -> &crate::home::HomeHeld {
+        &self.home_held
+    }
     pub(crate) fn downshift(&self) -> &crate::model_downshifting::Holding {
         &self.downshift
     }

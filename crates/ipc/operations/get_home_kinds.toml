@@ -1,0 +1,8 @@
+[operations.get_home_kinds]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "Read which Kit kinds this machine syncs with the shared home"
+notes = """
+`GET /shared_home/kinds?login=`, answered with `HomeKinds` `{ login, kinds }` for that profile: one `{ kind, on }` for every `HomeKind` in order, `skills`, `plugins`, `global_instructions`, `sub_agents`, `commands`, `mcp_servers`, `allowlist`, `workflows`, `memory`, `mods`. **Every kind is off until it is turned on**, and the switches are kept in this machine's store and never travel. `agent_access` is `No`, `get_shared_home`'s reason.
+"""

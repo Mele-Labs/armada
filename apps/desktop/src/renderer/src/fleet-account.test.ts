@@ -1,14 +1,14 @@
 // The Fleet-backed account source, against a fake Fleet and a clock turned by hand: signing in from
 // nothing to a profile by reading Fleet while the flow is not idle, how a sign-in that did not finish
 // is held, Fleet's refusal to begin one, signing out, and binding a repository to a profile. No profile
-// is active, so switching asks Fleet nothing. What the code card and the set-up rows look like is the
-// composition's (`Account.stories.tsx`).
+// is active, so switching asks Fleet nothing. What syncs reads a profile's kinds and switches one. What the
+// code card and the set-up rows look like is the composition's (`Account.stories.tsx`).
 
 import { describe, expect, it, vi } from "vitest";
 
 import { openSettingsAt } from "@armada/settings";
 
-import type { AccountFlow, Accounts, Outcome, Profile, SignedOut } from "@armada/protocol";
+import type { AccountFlow, Accounts, HomeKind, HomeKinds, Outcome, Profile, SignedOut } from "@armada/protocol";
 
 import type { AccountsActed } from "../../shared/api/accounts";
 import { createFleetAccount, POLL_MS, type FleetAccounts, type Later } from "./fleet-account";
@@ -59,6 +59,9 @@ function fake(start: Accounts, over: Partial<FleetAccounts> = {}) {
   const asked: string[] = [];
   const opened: string[] = [];
   let starts: () => AccountsActed = () => ({ ok: true, value: (held = { ...held, flow: CODE }) });
+  // What syncs, by login: every kind off until one is switched on.
+  const on = new Map<string, Set<HomeKind>>();
+  const kindsOf = (login: string): HomeKinds => ({ login, kinds: KINDS.map((kind) => ({ kind, on: on.get(login)?.has(kind) === true })) });
   const fleet: FleetAccounts = {
     state: async () => ({ connection: { state } }) as never,
     subscribe: (on) => ((hear = on as never), () => undefined),
@@ -92,6 +95,16 @@ function fake(start: Accounts, over: Partial<FleetAccounts> = {}) {
       return { ok: true, value: held };
     },
     openLink: async (address) => void opened.push(address),
+    getSharedHome: async (login) => (asked.push(`home ${login}`), { ok: true, value: login === "nickmele" ? { home: { account: login, repository: "armada-home" }, rows: [], unreadable: [] } : { rows: [], unreadable: [] } }),
+    getHomeKinds: async (login) => (asked.push(`kinds ${login}`), { ok: true, value: kindsOf(login) }),
+    setHomeKind: async (login, kind, turned) => {
+      asked.push(`set ${login} ${kind} ${turned}`);
+      const kinds = on.get(login) ?? new Set<HomeKind>();
+      if (turned) kinds.add(kind);
+      else kinds.delete(kind);
+      on.set(login, kinds);
+      return { ok: true, value: kindsOf(login) };
+    },
     ...over,
   };
   return {
@@ -109,6 +122,7 @@ function fake(start: Accounts, over: Partial<FleetAccounts> = {}) {
 }
 
 const SIGNED_OUT: Accounts = { profiles: [], unmatched: [], flow: IDLE };
+const KINDS: readonly HomeKind[] = ["skills", "plugins", "global_instructions", "sub_agents", "commands", "mcp_servers", "allowlist", "workflows", "memory", "mods"];
 
 describe("signing in from the title menu", () => {
   it("draws nothing before Fleet answers, then offers an account that is signed out", async () => {
@@ -560,5 +574,62 @@ describe("what the account page is told", () => {
     source.get()?.account.signOut("mele-work");
     await settled();
     expect(source.get()?.account.left).toEqual({ login: "mele-work", storeRowRemains: false });
+  });
+});
+
+describe("what syncs", () => {
+  const signedIn = async (over: Partial<FleetAccounts> = {}, hooks: Parameters<typeof createFleetAccount>[2] = {}) => {
+    const fleet = fake({ profiles: [work, personal], unmatched: [], flow: IDLE }, over);
+    const source = createFleetAccount(fleet.fleet, clock().later, hooks);
+    source.subscribe(() => undefined);
+    await settled();
+    return { fleet, source };
+  };
+
+  it("opens on a profile's kinds as Fleet keeps them, every one off, and its home made where this machine holds a copy", async () => {
+    const { fleet, source } = await signedIn();
+    expect(source.get()?.account.syncs).toBeNull();
+    source.get()?.account.choose("nickmele");
+    await settled();
+    const syncs = source.get()?.account.syncs;
+    expect(fleet.asked).toEqual(["get", "kinds nickmele", "home nickmele"]);
+    expect(syncs?.login).toBe("nickmele");
+    expect(syncs?.kinds.map((one) => one.kind)).toEqual(KINDS);
+    expect(syncs?.kinds.every((one) => !one.on && !one.pulling && one.items.length === 0)).toBe(true);
+    expect(syncs?.home).toEqual({ repository: "armada-home", made: true });
+
+    source.get()?.account.closeSyncs();
+    expect(source.get()?.account.syncs).toBeNull();
+    source.get()?.account.choose("mele-work");
+    await settled();
+    expect(source.get()?.account.syncs?.home).toEqual({ repository: "armada-home", made: false });
+  });
+
+  it("switches a kind for the profile it is open on, draws it at once, and says so to the home", async () => {
+    const switched: string[] = [];
+    let answer: (() => void) | undefined;
+    const { fleet, source } = await signedIn({}, { kindSwitched: (login) => switched.push(login) });
+    const real = fleet.fleet.setHomeKind;
+    fleet.fleet.setHomeKind = (login, kind, on) => new Promise((done) => (answer = () => void real(login, kind, on).then(done)));
+    source.get()?.account.choose("nickmele");
+    await settled();
+    source.get()?.account.setKind("mods", true);
+    expect(source.get()?.account.syncs?.kinds.find((one) => one.kind === "mods")?.on).toBe(true);
+    expect(switched).toEqual([]);
+    answer?.();
+    await settled();
+    expect(fleet.asked).toContain("set nickmele mods true");
+    expect(source.get()?.account.syncs?.kinds.find((one) => one.kind === "mods")?.on).toBe(true);
+    expect(switched).toEqual(["nickmele"]);
+  });
+
+  it("puts a switch Fleet refused back where it stood, and says why as the page says the others", async () => {
+    const { source } = await signedIn({ setHomeKind: async () => ({ ok: false, outcome: refusal("What syncs could not be read: the store is locked") }) });
+    source.get()?.account.choose("nickmele");
+    await settled();
+    source.get()?.account.setKind("skills", true);
+    await settled();
+    expect(source.get()?.account.syncs?.kinds.find((one) => one.kind === "skills")?.on).toBe(false);
+    expect(source.get()?.account.ended).toEqual({ outcome: "refused", said: "What syncs could not be read: the store is locked" });
   });
 });

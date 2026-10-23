@@ -1,6 +1,8 @@
 //! Mods, as the fake answers them: a scaffold is echoed, and nothing is on disk.
 //! What is read, checked and committed is `fleet::mods`'s, against a real folder.
 
+use std::sync::Arc;
+
 use ipc::{
     ModChecked, ModList, ModPromoted, ModScaffolded, ModSummary, PromoteMod, ScaffoldMod,
     SetModEnabled,
@@ -24,6 +26,7 @@ impl Mods for FakeDaemon {
     async fn set_mod_enabled(&self, set: SetModEnabled) -> Result<ModSummary, Refusal> {
         Ok(ModSummary {
             name: set.name,
+            origin: ipc::ModOrigin::Local,
             kind: Some(ipc::ModKind::Theme),
             version: Some(String::from("0.1.0")),
             description: None,
@@ -35,6 +38,7 @@ impl Mods for FakeDaemon {
             changed_at: None,
             tried: None,
             stale: false,
+            pull_request: None,
         })
     }
 
@@ -61,11 +65,15 @@ impl Mods for FakeDaemon {
         })
     }
 
-    async fn promote_mod(&self, promote: PromoteMod) -> Result<ModPromoted, Refusal> {
+    async fn promote_mod(self: Arc<Self>, promote: PromoteMod) -> Result<ModPromoted, Refusal> {
         Ok(ModPromoted {
             branch: format!("armada/mod-{}-0", promote.name),
             name: promote.name,
+            session_id: ipc::SessionId::carried("fake-session"),
+            title: String::from("Add the mod"),
             commit: String::from("0000000"),
+            pull_request: None,
+            pull_request_not_opened: None,
         })
     }
 }

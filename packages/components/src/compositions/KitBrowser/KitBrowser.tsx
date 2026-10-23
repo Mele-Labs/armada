@@ -9,6 +9,7 @@ import { Input } from "../../primitives/Input/Input";
 import { Select } from "../../primitives/Select/Select";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { KitServerAddForm, KIT_HERE_LABEL } from "../KitServers/KitServers";
+import { BuiltInMark, ModKindMark } from "../ModRow/ModRow";
 import type { KitServerKind, KitServerRowProps } from "../KitServers/KitServers";
 import { KIT_KIND_LABEL } from "../KitSetup/KitSetup";
 import type { KitSetupKindWord, KitSetupRead } from "../KitSetup/KitSetup";
@@ -140,6 +141,7 @@ export function KitBrowser({
             </Tooltip>
           )}
           {one.mark === undefined ? null : <span className="armada-kit-browser__mark">{one.mark}</span>}
+          {one.mod === undefined ? null : <ModMarks mod={one.mod} />}
         </span>
       </button>
       {one.sync === undefined || shared === undefined ? null : (
@@ -257,6 +259,16 @@ export function KitBrowser({
   );
 }
 
+/** A mod's kind, and the package where Armada ships it: the marks its row under Theme or Layout carries. */
+function ModMarks({ mod }: { mod: NonNullable<KitRow["mod"]> }) {
+  return (
+    <span className="armada-kit-browser__mod">
+      <ModKindMark kind={mod.kind} />
+      {mod.builtIn ? <BuiltInMark /> : null}
+    </span>
+  );
+}
+
 function Detail({
   row,
   pieces,
@@ -308,6 +320,7 @@ function Detail({
           {row.name}
         </h3>
         {row.mark === undefined ? null : <span className="armada-kit-browser__mark">{row.mark}</span>}
+        {row.mod === undefined ? null : <ModMarks mod={row.mod} />}
         {row.meta === undefined ? null : row.metaSaid === undefined ? (
           <span className="armada-kit-browser__meta">{row.meta}</span>
         ) : (
