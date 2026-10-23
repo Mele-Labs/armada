@@ -32,7 +32,7 @@ export function IssuesSurface({ picked, repositories, onOpenLink, onOpenSession 
   const snap = useIssues();
   const dispatching = useDispatching();
   const grid = useRef<HTMLDivElement>(null);
-  const { columns, resize, reset } = useColumns(grid);
+  const { columns, resize, reset } = useColumns(grid, "issues");
   const bands = bandsIn(picked, repositories, snap.trackers ?? []);
 
   // The issue rides as a tag, as a `#` chosen in the request would: its reference and title in the words, and the tag with them.
