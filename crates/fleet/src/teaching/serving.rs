@@ -11,6 +11,7 @@ use ipc::{
 };
 
 use crate::daemon::Fleet;
+use super::finding::Wanted;
 use crate::mods::{self, fleet_rules, words};
 
 /// The mods folder would not be read. A 500.
@@ -52,13 +53,21 @@ where
     async fn list_word_rules(
         self: Arc<Self>,
         repository: Option<String>,
-        _session_id: Option<String>,
+        session_id: Option<String>,
     ) -> Result<WordRules, Refusal> {
         let root = repository.map(|named| self.run_repository(&named)).transpose()?;
         let manifest = root.as_deref().and_then(|root| self.manifest_id_at(root));
         let mut rules = Vec::new();
         for one in self.words_kept().await? {
-            let Some(address) = one.address_for(manifest.as_deref().unwrap_or("")) else { continue };
+            let Some(address) = one.address_for(manifest.as_deref().unwrap_or("")) else {
+                // Words with no address here yet: look for one, off this request. The rule is
+                // listed once it is found, on a later read.
+                if let Some(manifest) = &manifest {
+                    let wanted = Wanted { mod_name: one.name.clone(), manifest: manifest.clone(), session_id: session_id.clone() };
+                    tokio::spawn(Arc::clone(&self).address_wanted(wanted));
+                }
+                continue;
+            };
             rules.push(WordRule {
                 mod_name: one.name.clone(),
                 name: one.file.name.clone(),

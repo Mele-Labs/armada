@@ -8,13 +8,17 @@
 //! note and writes the mods; see [`saving`].
 
 mod answer;
+mod asking;
+pub(crate) mod finding;
 mod forgetting;
 pub(crate) mod link;
 mod saving;
 mod serving;
 mod tokens;
 
+pub(crate) use finding::Searched;
 pub(crate) use forgetting::forget_effects;
+pub(crate) use saving::address_given;
 
 use adapter_traits::{AgentHarness, Ask, Delivery, Vcs, WorkProduct};
 use api::Refusal;

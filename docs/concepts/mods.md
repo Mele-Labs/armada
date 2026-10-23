@@ -101,9 +101,15 @@ template = "https://acme.example.net/browse/{match}"
 found = "settings"
 ```
 
-`repository` is a Manifest id, or `*` for a repository with no address of its own. `found` is `settings` (the Manifest's tracker named the site), `pull_request #<number>` (a merged pull request's text held it) or `person`.
+`repository` is a Manifest id, or `*` for a repository with no address of its own.
+`found` is `settings` (the Manifest's tracker named the site), `pull_request #<number>` (a merged pull request's text held it) or `person`.
 The pattern is held to what both Bridge's JavaScript engine and Fleet's read: no lookaround, backreference or inline flag, no repeated group that holds a repeat or a choice, at most 200 characters, and it matches `example` whole.
 An address is an `http` or `https` address with `{match}` outside its host. At most 100 addresses and 16 KiB.
+
+**A repository with no address is looked for, once, when a teaching or a read of the rules names it.**
+Fleet asks the Manifest's tracker first (a Jira site gives its `browse` page, `found = "settings"`), then reads the text of up to five recently merged pull requests for a web address that holds a match of the pattern on its own in a path or query value (`found = "pull_request #<number>"`).
+Where neither says, the Session whose person taught it is asked in Needs you, once for that mod and repository: they pick an address another repository has, or write one.
+An address a person wrote is never replaced by one that was found.
 
 ## fleet.toml
 

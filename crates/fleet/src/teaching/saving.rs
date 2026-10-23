@@ -16,7 +16,8 @@ use ipc::{
     TeachSource, TeachingLayout, TeachingReach, TeachingSource, TeachingWords, WireError, WordsAddress, WordsFile,
 };
 
-use super::{answer, INPUT_REFUSED, LAYOUT_REFUSED, NOTE_REFUSED, RULE_REFUSED, TWEAK_REFUSED, WORDS_REFUSED};
+use super::finding::Wanted;
+use super::{answer, link, INPUT_REFUSED, LAYOUT_REFUSED, NOTE_REFUSED, RULE_REFUSED, TWEAK_REFUSED, WORDS_REFUSED};
 use crate::daemon::Fleet;
 use crate::mods::scaffold::{self, Taught};
 use crate::mods::{self, fleet_rules, manifest, slug_problem, words};
@@ -86,10 +87,49 @@ fn is_for(file: &WordsFile, pattern: &str) -> bool {
 }
 
 /// The address `file` gains for `key`: replaced where it has one.
-fn with_address(mut file: WordsFile, key: &str, template: &str) -> WordsFile {
+fn with_address(mut file: WordsFile, key: &str, template: &str, found: AddressFound) -> WordsFile {
     file.address.retain(|one| one.repository != key);
-    file.address.push(WordsAddress { repository: key.to_string(), template: template.to_string(), found: AddressFound::Person });
+    file.address.push(WordsAddress { repository: key.to_string(), template: template.to_string(), found });
     file
+}
+
+/// Give the Words mod `name` an address for `key`, a Manifest id or `*`. **Without `replace` an
+/// address the mod already has for `key` stays**, so what a person wrote is never undone by what
+/// was found. Whether the mod now holds `template` for `key`.
+pub(crate) fn address_given(
+    mods_dir: &Path,
+    name: &str,
+    key: &str,
+    template: &str,
+    found: AddressFound,
+    replace: bool,
+) -> Result<bool, String> {
+    if let Some(why) = link::address_fault(template) {
+        return Err(why);
+    }
+    if !template.contains("{match}") {
+        return Err("the address has no {match} for the matched words to go in".to_string());
+    }
+    let Some(file) = words_file(mods_dir, name) else {
+        return Err(format!("`{name}` is not a Words mod that is valid"));
+    };
+    if !replace && file.address.iter().any(|one| one.repository == key) {
+        return Ok(false);
+    }
+    let label = file.name.clone();
+    let text = toml::to_string(&with_address(file, key, template, found)).map_err(|why| why.to_string())?;
+    std::fs::write(mods_dir.join(name).join("words.toml"), text).map_err(|why| format!("words.toml could not be written: {why}"))?;
+    // The file is what counts; a history that would not take it is no reason to refuse.
+    let _ = scaffold::committed(&mods_dir.join(name), "words.toml", &format!("Give {label} an address for {key}"));
+    Ok(true)
+}
+
+/// The Words file of the mod `name`, where it is a valid Words mod. Switched off or not.
+pub(crate) fn words_file(mods_dir: &Path, name: &str) -> Option<WordsFile> {
+    match mods::examine(mods_dir, name).files?.payload {
+        mods::Payload::Words(text) => words::read(&text).ok(),
+        _ => None,
+    }
 }
 
 /// Write every part to `mods_dir`. The names written or added to, in order.
@@ -103,11 +143,8 @@ fn write(mods_dir: &Path, switches: &BTreeMap<String, bool>, plan: &Plan) -> Res
             .into_iter()
             .find_map(|(name, text)| words::read(&text).ok().filter(|file| is_for(file, &one.pattern)).map(|file| (name, file)));
         match (held, one.address.as_deref()) {
-            (Some((name, file)), Some(template)) => {
-                let text = toml::to_string(&with_address(file, key, template)).map_err(|why| why.to_string())?;
-                std::fs::write(mods_dir.join(&name).join("words.toml"), text).map_err(|why| format!("words.toml could not be written: {why}"))?;
-                // The file is what counts; a history that would not take it is no reason to refuse.
-                let _ = scaffold::committed(&mods_dir.join(&name), "words.toml", &format!("Give {} an address for {key}", one.name));
+            (Some((name, _)), Some(template)) => {
+                address_given(mods_dir, &name, key, template, AddressFound::Person, true)?;
                 named.push(name);
             }
             (Some((name, _)), None) => named.push(name),
@@ -247,6 +284,8 @@ where
             None => None,
         };
         plan.entry = entry.clone();
+        // Words kept for one repository with no address yet are looked for, off this request.
+        let unaddressed = plan.words.as_ref().filter(|(one, key)| one.address.is_none() && key != "*").map(|(_, key)| key.clone());
         let switches = self.mod_switches_read().await?;
         let dir = self.mods_dir();
         let written = tokio::task::spawn_blocking(move || write(&dir, &switches, &plan))
@@ -255,6 +294,10 @@ where
             .map_err(|why| self.teaching_fault(why))?;
         if !written.is_empty() {
             self.mods_announced().await?;
+        }
+        if let (Some(manifest), Some(mod_name)) = (unaddressed, written.first()) {
+            let wanted = Wanted { mod_name: mod_name.clone(), manifest, session_id: save.session_id.clone() };
+            tokio::spawn(Arc::clone(&self).address_wanted(wanted));
         }
         // The teaching is kept, so nobody to tell is not a failure: the Session ended, or Fleet hosts
         // none of that name. A Session mid-turn has the line queued behind it.

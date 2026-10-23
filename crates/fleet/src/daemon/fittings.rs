@@ -376,6 +376,7 @@ where
             review_going: Mutex::new(std::collections::BTreeSet::new()),
             logbook: crate::logbook::Distils::default(),
             behind_told: Default::default(),
+            searched: Default::default(),
             usage_following: Default::default(),
             rehearsals: crate::rehearsing::Rehearsals::default(),
             servers: crate::servers::Servers::default(),

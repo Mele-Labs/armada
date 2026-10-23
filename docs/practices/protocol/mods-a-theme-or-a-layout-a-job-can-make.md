@@ -19,4 +19,5 @@ Five operations, one event and two optional fields on the preferences, and a lay
 **The event stream gets no new queue.** `mods.changed` is one message per change, found by a rescan every two seconds, and goes through the shared drop-oldest backlog; a Bridge that missed it reads `list_mods` after the resync.
 It does not touch the unbounded-sink risk above.
 
-**Since 23 Oct 2026**, `words`, `fleet` and `tweak` are kinds, and `ModSummary.taught_on` says what Teach was pressed on. Both are additive: a peer that predates them fails to decode a row of a new kind, and the IDs differ, so the lifeboat serves.
+**Since 23 Oct 2026**, `words`, `fleet` and `tweak` are kinds, and `ModSummary.taught_on` says what Teach was pressed on.
+Both are additive: a peer that predates them fails to decode a row of a new kind, and the IDs differ, so the lifeboat serves.
