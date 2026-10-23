@@ -47,6 +47,7 @@ mod forge;
 mod main_ci;
 mod manifest_edits;
 mod merging;
+mod park_gate;
 mod pull_requests;
 mod scripting;
 mod slots;
@@ -59,6 +60,8 @@ pub use delivered::Delivered;
 pub use failed::FakeVcsError;
 use main_ci::MainCiScript;
 pub use merging::Merging;
+pub use park_gate::ParkHold;
+use park_gate::ParkGate;
 use merging::Trees;
 use slots::FakeSlots;
 

@@ -119,7 +119,7 @@ where
         if let Some(after) = after {
             let told = after.session.as_str() != me;
             if let Err(refusal) = self.wait_begun(held.session_id.as_str(), after, brief, true, ipc::WaitBy::Agent, told).await {
-                let _ = self.close_session(ipc::CloseSession { session_id: held.session_id.clone() }).await;
+                let _ = self.closed_and_parked(ipc::CloseSession { session_id: held.session_id.clone() }).await;
                 return Err(refusal);
             }
         }

@@ -7,9 +7,10 @@ use std::time::Duration;
 
 use adapter_traits::{AgentHarness, Delivery, SlotParkRefused, Vcs, WorkProduct};
 use api::Refusal;
-use ipc::{SessionRecord, WireError};
-use store::{KeptSession, SessionState};
+use ipc::{CloseSession, SessionRecord, SessionTurn, WireError};
+use store::{Holder, KeptHosting, KeptSession, SessionState};
 
+use super::serving::SLOT_KINDS;
 use super::terminal::{LISTENING_FOR, TERMINAL_UNREACHABLE};
 use crate::daemon::Fleet;
 
@@ -113,6 +114,87 @@ where
         if let Some(url) = self.walk_open(session).await {
             self.walk_ended(session, &url).await;
         }
+    }
+
+    /// The fast half of a close: the row says `Ended`, whatever else the session holds is given
+    /// back, and the record is answered. **What is owed** is the hosting of a session whose slots
+    /// are still to be parked ([`Self::parked_after_close`]); a terminal session, or one already
+    /// ended, owes nothing.
+    pub(crate) async fn session_ended(
+        &self,
+        closed: CloseSession,
+    ) -> Result<(SessionRecord, Option<(String, KeptHosting)>), Refusal> {
+        let id = closed.session_id.as_str().to_string();
+        if let Some(session) = self.terminal_session(&id).await? {
+            return Ok((self.end_terminal(&session).await?, None));
+        }
+        let (session, hosting) = self.session_and_hosting(&id).await?;
+        if session.state == SessionState::Ended {
+            return Ok((self.published_hosted(&id).await?, None));
+        }
+        {
+            let runtime = self.hosts().of(&id);
+            let mut state = runtime.state();
+            if let Some(asked) = state.asked.take() {
+                self.hosts().asks().withdraw(&asked.call);
+            }
+            Self::let_go(&mut state);
+            state.turn = SessionTurn::Idle;
+            state.moving = None;
+            state.allowed_folders.clear();
+        }
+        // Out of the line if it was in it: an ended session is granted nothing.
+        self.hosts().slot_queue().leave(&id);
+        let now = self.now().as_str().to_string();
+        {
+            let mut store = self.store().lock().await;
+            let mut row = session;
+            row.state = SessionState::Ended;
+            row.ended_at = Some(now.clone());
+            row.end_reason = Some(String::from("closed"));
+            row.last_seen_at = now.clone();
+            store.keep_session(&row).map_err(|why| self.ledger_fault(why))?;
+            // A slot stays on the ledger as held until it is parked, or it is stranded with
+            // nothing saying so. A restart before then leaves it for the boot pass
+            // (`freed_from_ended_sessions`).
+            let holder = Holder::session(&id);
+            let held = store.attachments_of(&holder).map_err(|why| self.ledger_fault(why))?;
+            for kind in held.iter().map(|one| one.kind.as_str()).filter(|kind| !SLOT_KINDS.contains(kind)) {
+                store.give_back(&holder, Some(kind), &now).map_err(|why| self.ledger_fault(why))?;
+            }
+        }
+        self.session_wound_up(&id).await;
+        self.writes().left(&crate::clashing::Who::Session(id.clone()));
+        Ok((self.published_hosted(&id).await?, Some((id, hosting))))
+    }
+
+    /// The slow half of a close: every slot the session holds is parked, and only then does the
+    /// line move, so no other Job takes a slot mid-park. A slot the pool still holds for it stays
+    /// on the ledger as held, for the boot pass.
+    pub(crate) async fn parked_after_close(&self, id: &str, hosting: KeptHosting) {
+        let still_held = match self.served_named(Some(&ipc::ManifestId::carried(&hosting.manifest_id))) {
+            // Parked: what is in each slot is committed to the branch it is on and nothing is
+            // pushed, so closing loses no work.
+            Ok(served) => self.park_every_slot_of(id, &served, hosting.lease_slot).await,
+            Err(_) => Vec::new(),
+        };
+        self.hosts().slot_freed();
+        if still_held.is_empty() {
+            let now = self.now().as_str().to_string();
+            let _ = self.store().lock().await.give_back(&Holder::session(id), None, &now);
+        }
+        let _ = self.published_hosted(id).await;
+    }
+
+    /// [`HostedSessions::close_session`] for a caller that has no `Arc` to spawn with, or needs the
+    /// slots parked by the time it goes on: the whole close, awaited.
+    pub(crate) async fn closed_and_parked(&self, closed: CloseSession) -> Result<SessionRecord, Refusal> {
+        let (ended, owed) = self.session_ended(closed).await?;
+        let Some((id, hosting)) = owed else {
+            return Ok(ended);
+        };
+        self.parked_after_close(&id, hosting).await;
+        self.published_hosted(&id).await
     }
 
     /// A mod too old to run an end is unreachable for it: the same code, and

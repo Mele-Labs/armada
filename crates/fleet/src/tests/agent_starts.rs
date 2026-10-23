@@ -533,7 +533,7 @@ async fn the_parent_is_not_told_when_a_linked_session_needs_the_owner_but_still_
     let attached = SessionFact::Attached { attachment: ipc::AttachmentReport { kind: "pr".into(), target: "2412".into(), detail: Default::default() } };
     rig.report(&held.session_id, attached).await;
     rig.report(&held.session_id, SessionFact::Settled { attachment: ipc::AttachmentNamed { kind: "pr".into(), target: "2412".into() }, state: ipc::AttachmentState::Spent }).await;
-    rig.fleet.close_session(CloseSession { session_id: held.session_id.clone() }).await.expect("closed");
+    Arc::clone(&rig.fleet).close_session(CloseSession { session_id: held.session_id.clone() }).await.expect("closed");
 
     let rows = rig.linked_rows(&agent, 2).await;
     assert!(rows.contains(&(child.clone(), LinkedEvent::Merged)) && rows.contains(&(child.clone(), LinkedEvent::Done)), "{rows:?}");
@@ -548,7 +548,7 @@ async fn the_parent_is_told_when_a_linked_session_ends() {
     let agent = rig.a_parent_with_a_plan().await;
     let held = Arc::clone(&rig.fleet).start_another_session(caller(), handing(&rig, "g1")).await.expect("held");
 
-    rig.fleet.close_session(CloseSession { session_id: held.session_id.clone() }).await.expect("closed");
+    Arc::clone(&rig.fleet).close_session(CloseSession { session_id: held.session_id.clone() }).await.expect("closed");
 
     assert_eq!(rig.linked_rows(&agent, 1).await, [(held.session_id.as_str().to_string(), LinkedEvent::Done)]);
     assert_eq!(rig.told("ended"), 1);

@@ -167,15 +167,16 @@ pub trait HostedSessions: Send + Sync + 'static {
         run: RunSessionCommand,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
-    /// `close_session`: ends the process, gives back what the session holds.
+    /// `close_session`: ends the process, and answers once the row says ended. What the session
+    /// holds is parked and given back on a task of its own, hence the shared receiver.
     fn close_session(
-        &self,
+        self: std::sync::Arc<Self>,
         closed: CloseSession,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
     /// `move_session`: ends the session and continues its conversation in another repository.
     fn move_session(
-        &self,
+        self: std::sync::Arc<Self>,
         moved: MoveSession,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 

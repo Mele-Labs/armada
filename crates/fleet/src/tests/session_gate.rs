@@ -392,6 +392,7 @@ async fn closing_a_session_parks_every_slot_the_pool_holds_for_it() {
         .await
         .expect("closed");
 
+    super::session_host::eventually(|| async { rig.fleet.vcs().parked_slots().len() == 2 }).await;
     let mut parked = rig.fleet.vcs().parked_slots();
     parked.sort();
     assert_eq!(

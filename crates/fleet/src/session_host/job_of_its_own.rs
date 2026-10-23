@@ -3,7 +3,7 @@
 //! piece rides in a pull request of its own (the owner, 21 Oct 2026). `crate::committing`.
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-use api::{HostedSessions, Refusal};
+use api::Refusal;
 use ipc::{CloseSession, ManifestId, SessionId, StartSession};
 
 use super::gate::Taken;
@@ -57,7 +57,7 @@ where
         match leased {
             Ok(tree) => Ok(Ok((id, tree))),
             Err(why) => {
-                let _ = self.close_session(CloseSession { session_id: id }).await;
+                let _ = self.closed_and_parked(CloseSession { session_id: id }).await;
                 Ok(Err(why))
             }
         }
