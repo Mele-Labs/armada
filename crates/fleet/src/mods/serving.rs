@@ -176,7 +176,13 @@ where
 
     async fn try_tracker_mod(&self, asked: TryTrackerMod) -> Result<TrackerTry, Refusal> {
         self.mod_named(&asked.name)?;
-        let served = self.served_named(asked.manifest_id.as_ref())?;
+        // No repository named: one whose Manifest names this mod as its tracker, since a try against a repository that uses
+        // another tracker proves nothing; the first served only where none does.
+        let using = || self.repositories().served().into_iter().find(|one| one.manifest().tracker().and_then(|block| block.provider()) == Some(asked.name.as_str()));
+        let served = match (asked.manifest_id.as_ref(), using()) {
+            (None, Some(using)) => using,
+            (named, _) => self.served_named(named)?,
+        };
         let (dir, root) = (self.mods_dir(), served.root().to_string());
         let at = Instant::carried(self.now().as_str());
         let manifest_id = ipc::ManifestId::carried(served.manifest().id().as_str());

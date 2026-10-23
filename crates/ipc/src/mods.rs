@@ -128,7 +128,7 @@ pub struct ModChecked {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TryTrackerMod {
     pub name: String,
-    /// The repository to try it against. Absent is the first one Fleet serves, as `promote_mod` has it.
+    /// The repository to try it against. Absent is the first one served whose Manifest names this mod as its tracker, else the first served.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub manifest_id: Option<ManifestId>,
 }

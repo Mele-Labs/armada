@@ -26,5 +26,5 @@ Both are additive: a peer that predates them fails to decode a row of a new kind
 All three are optional and left out when absent, so an older peer reads the rest; the IDs differ and the lifeboat serves.
 
 **Since 23 Oct 2026, a tracker mod's edit after its try**, `ModSummary.stale` is true where a try is kept of a `tracker.toml` that has changed, and `tried` is absent then.
-`TryTrackerMod.manifest_id` is optional, and absent is the first repository Fleet served, as `PromoteMod.manifest_id` has it, so Bridge's Try names none.
+`TryTrackerMod.manifest_id` is optional, and absent is the first served repository whose Manifest names the mod as its tracker, else the first served, so Bridge's Try names none.
 Both are additive and left out when absent; the IDs differ and the lifeboat serves.

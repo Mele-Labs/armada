@@ -280,7 +280,7 @@ map = """
 It keeps the outcome in `.tried.toml` beside the mod, with when, the repository, how many issues were listed, the reference read or the reason it failed, and the digest of the `tracker.toml` it tried.
 `list_mods` carries it as the row's `tried` while that digest is the file's, so an edit shows the mod untried again.
 Where a record is kept and its digest is not the file's, the row says `stale` instead, so Bridge can tell an edited mod from one never tried.
-Bridge's Try on a tracker row is this operation, sent without a repository so Fleet takes the first it serves, and the row is redrawn from the answer.
+Bridge's Try on a tracker row is this operation, sent without a repository, so Fleet tries it against the first served repository whose Manifest names the mod as its tracker and the first served only where none does, and the row is redrawn from the answer.
 A scan and a Manifest's lookup read the record and run nothing.
 A tracker mod switched off in Mods is refused too, with that as the reason; the lookup reads the switches as Fleet last scanned them, every two seconds and at once on `set_mod_enabled`.
 

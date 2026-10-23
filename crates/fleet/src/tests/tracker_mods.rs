@@ -12,6 +12,7 @@ use ipc::{ManifestId, ModKind, TryTrackerMod};
 use testkit::FakeWorkProduct;
 
 use crate::mods::{scan, TrackerMods};
+use crate::repositories::{Located, SetUp};
 use crate::tests::daemon::a_fleet;
 use crate::tests::tmp::TempDir;
 
@@ -127,7 +128,7 @@ async fn a_tracker_mod_edited_after_its_try_is_listed_stale_and_one_never_tried_
 }
 
 #[tokio::test]
-async fn a_try_that_names_no_repository_runs_against_the_first_one_served() {
+async fn a_try_that_names_no_repository_falls_back_to_the_first_served_where_no_manifest_names_the_mod() {
     let home = TempDir::new();
     let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
     a_tracker_mod(&home.path().join("mods"), &fake_cli(home.path()));
@@ -136,6 +137,29 @@ async fn a_try_that_names_no_repository_runs_against_the_first_one_served() {
     let tried = fleet.try_tracker_mod(TryTrackerMod { name: "linear".into(), manifest_id: None }).await.expect("tried");
     assert!(tried.passed, "{tried:?}");
     assert_eq!(tried.manifest_id.as_str(), first, "the answer names the repository it ran against");
+}
+
+#[tokio::test]
+async fn a_try_that_names_no_repository_runs_against_the_first_whose_manifest_names_the_mod() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
+    a_tracker_mod(&home.path().join("mods"), &fake_cli(home.path()));
+    let root = home.path().join("second");
+    std::fs::create_dir_all(&root).expect("a checkout");
+    let text = "version: 1\nid: 01SECONDMANIFEST\ntracker:\n  provider: linear\n";
+    let manifest = config::Manifest::parse(&root.join("armada.yml"), text).expect("loads");
+    fleet
+        .repositories()
+        .add(Located {
+            root: root.to_string_lossy().to_string(),
+            records_root: home.path().join("second-records").to_string_lossy().to_string(),
+            set_up: Some(SetUp::of(manifest, Default::default())),
+        })
+        .expect("served");
+
+    let tried = fleet.try_tracker_mod(TryTrackerMod { name: "linear".into(), manifest_id: None }).await.expect("tried");
+    assert!(tried.passed, "{tried:?}");
+    assert_eq!(tried.manifest_id.as_str(), "01SECONDMANIFEST", "the repository that uses the mod, not the first served");
 }
 
 #[tokio::test]

@@ -99,7 +99,7 @@ export type FleetFile = {
   rule?: FleetRule[];
 };
 
-/** `POST /mods/try`'s body: the tracker mod, and the repository to try it against. Absent is the first one Fleet serves. */
+/** `POST /mods/try`'s body: the tracker mod, and the repository to try it against. Absent is the first served whose Manifest names this mod as its tracker, else the first served. */
 export type TryTrackerMod = { name: string; manifest_id?: string };
 
 /** How a tracker mod's try went. Only a tracker that passed one is used by a Manifest naming it. */
