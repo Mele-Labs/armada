@@ -424,6 +424,11 @@ const ROUTES: &[Route] = &[
         path: "/sessions/waiting/dismiss",
     },
     Route {
+        operation: "confirm_waiting",
+        method: "POST",
+        path: "/sessions/waiting/confirm",
+    },
+    Route {
         operation: "list_manifests",
         method: "GET",
         path: "/manifests",

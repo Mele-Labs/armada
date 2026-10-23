@@ -1,12 +1,13 @@
 //! A question Fleet read from a reply that he marks Not a question: its sentence is kept, and a reply
-//! that says one near it raises no item. The pure fold with hand vectors, and Fleet's read through a
+//! that says one near it raises no item. Thumbs up is the other way: the sentence is kept as one that
+//! asks and the item stays, confirmed. The pure fold with hand vectors, and Fleet's read through a
 //! fake model, so no weights are fetched. The sentences are written for the test.
 
 use std::sync::Arc;
 
 use adapter_traits::{NotEmbedded, TextModel, TextReading};
 use api::{HostedSessions, Sessions};
-use ipc::{DismissWaiting, Instant, SessionId, SessionRecord, SetWaitingFor, WaitingInput, WaitingItem, WaitingSource};
+use ipc::{ConfirmWaiting, DismissWaiting, Instant, SessionId, SessionRecord, SetWaitingFor, WaitingInput, WaitingItem, WaitingSource};
 
 use super::session_host::{eventually, rig_placing, Rig};
 use crate::session_host::dedup::{left_off_as_misread, FOLDS_AT};
@@ -23,8 +24,8 @@ fn item(id: &str, text: &str, source: WaitingSource) -> WaitingItem {
         place: None,
         concern: None,
         cites: Vec::new(),
-    }
         confirmed: false,
+    }
 }
 
 /// Hand vectors by text: the two summary lines share an axis, the real question has its own.
@@ -129,4 +130,44 @@ async fn an_agent_item_marked_as_misread_is_refused_and_stands() {
     assert!(Arc::clone(&rig.fleet).dismiss_waiting(misread(&id, "a")).await.is_err());
     assert!(record(&rig, &id).await.waiting_for.iter().any(|one| one.id == "a"), "it stands");
     assert!(rig.fleet.store().lock().await.misreads().expect("read").is_empty());
+}
+
+fn confirm(id: &SessionId, item: &str) -> ConfirmWaiting {
+    ConfirmWaiting { session_id: id.clone(), item_id: item.to_string() }
+}
+
+/// Thumbs up on the question read from a reply: it stays, reads confirmed on this read and the next,
+/// and its sentence is kept as one that asks.
+#[tokio::test]
+async fn a_question_read_from_a_reply_confirmed_stays_listed_and_is_kept() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    rig.send(&id, "tidy up").await;
+    rig.stand_in.init(0);
+    rig.stand_in.finishes(0, "The first half is done.\n\nWant me to tidy the store next?");
+    eventually(|| async { replied(&record(&rig, &id).await).is_some() }).await;
+    let asked = replied(&record(&rig, &id).await).cloned().expect("raised");
+    assert!(!asked.confirmed, "nothing is confirmed until he says so");
+    let kept = Arc::clone(&rig.fleet).confirm_waiting(confirm(&id, &asked.id)).await.expect("confirmed");
+    let stands = replied(&kept).expect("the item stays");
+    assert_eq!((stands.id.as_str(), stands.confirmed), (asked.id.as_str(), true));
+    assert_eq!(rig.fleet.store().lock().await.confirmed().expect("read"), [asked.text.clone()]);
+    let again = record(&rig, &id).await;
+    assert!(replied(&again).expect("it still stands").confirmed, "confirmed on every read");
+}
+
+/// Thumbs up is for what Fleet read from a reply; an item the agent stated is refused and stands unconfirmed.
+#[tokio::test]
+async fn an_agent_item_confirmed_is_refused_and_stands_unconfirmed() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    let set = SetWaitingFor {
+        session_id: Some(id.clone()),
+        items: vec![WaitingInput { id: "a".into(), text: "Which key opens the card?".into(), act: None, options: Vec::new(), steps: Vec::new() }],
+    };
+    rig.fleet.waiting_for(None, set).await.expect("kept");
+    assert!(Arc::clone(&rig.fleet).confirm_waiting(confirm(&id, "a")).await.is_err());
+    let stands = record(&rig, &id).await.waiting_for.into_iter().find(|one| one.id == "a").expect("it stands");
+    assert!(!stands.confirmed);
+    assert!(rig.fleet.store().lock().await.confirmed().expect("read").is_empty());
 }

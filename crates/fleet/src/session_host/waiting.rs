@@ -38,7 +38,7 @@ use std::sync::Arc;
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{HostedSessions, Refusal};
 use ipc::{
-    AllDone, AnswerSessionAsk, AnswerWaiting, DismissWaiting, HelmCallAnswer, HelmCallInFlight, Instant,
+    AllDone, AnswerSessionAsk, AnswerWaiting, ConfirmWaiting, DismissWaiting, HelmCallAnswer, HelmCallInFlight, Instant,
     QuestionAnswer, SendSessionMessage, SessionRecord, SessionRow, SessionVoice, SetWaitingFor,
     WaitingAct, WaitingActKind, WaitingItem, WaitingOption, WaitingSource, WireError,
 };
@@ -85,6 +85,8 @@ pub(crate) struct WaitingReads {
     concerns: Vec<store::KeptConcern>,
     /// Every sentence read from a reply that he marked Not a question, in any Session.
     misreads: Vec<String>,
+    /// Every sentence read from a reply that he confirmed with thumbs up, in any Session.
+    confirmed: Vec<String>,
 }
 
 /// What [`Fleet::waiting_from`] read: the items, and how the Session stands.
@@ -114,6 +116,7 @@ pub(crate) fn waiting_reads(
             .map(|plan| (plan.version, plan.recorded_at, plan.walk)),
         concerns: store.session_concerns(&session.id)?,
         misreads: store.misreads()?,
+        confirmed: store.confirmed()?,
     })
 }
 
@@ -179,10 +182,10 @@ fn card_item(asked: &HelmCallInFlight) -> WaitingItem {
             place: None,
             concern: None,
             cites: Vec::new(),
+            confirmed: false,
         };
     }
     WaitingItem {
-            confirmed: false,
         id: format!("perm:{}", asked.call),
         text: format!("{} {}", asked.tool, asked.detail)
             .trim()
@@ -202,10 +205,10 @@ fn card_item(asked: &HelmCallInFlight) -> WaitingItem {
         place: None,
         concern: None,
         cites: Vec::new(),
+        confirmed: false,
     }
 }
 
-        confirmed: false,
 /// The agent's items, then Fleet's: the open card, then each walk window. **Where an agent item
 /// names the same act and target as one of Fleet's, Fleet's stands** and the agent's is left off,
 /// and so is one that asks him to walk (`walk_asks.rs`), kept before `waiting_for` refused it.
@@ -234,10 +237,10 @@ pub(crate) fn merged(
         place: None,
         concern: None,
         cites: Vec::new(),
+        confirmed: false,
     }));
     let same = |item: &WaitingItem, act: &Option<(String, String)>| {
         matches!((&item.act, act), (Some(a), Some((kind, target)))
-        confirmed: false,
                 if act_kind_text(a.kind) == kind && &a.target == target)
     };
     let mut items: Vec<WaitingItem> = kept
@@ -269,10 +272,10 @@ pub(crate) fn merged(
             place: None,
             concern: None,
             cites: Vec::new(),
+            confirmed: false,
         })
         .collect();
     items.extend(
-            confirmed: false,
         derived
             .into_iter()
             .filter(|one| !dismissed.contains(&one.id)),
@@ -298,7 +301,7 @@ where
         session: &KeptSession,
         attachments: &[ipc::Attachment],
     ) -> Waited {
-        let WaitingReads { kept, rows, dismissed, done, turn_end, tell, plan, concerns, misreads } = reads;
+        let WaitingReads { kept, rows, dismissed, done, turn_end, tell, plan, concerns, misreads, confirmed } = reads;
         let asked = self.hosts().of(&session.id).state().asked.clone();
         let rows: Vec<SessionRow> = rows
             .iter()
@@ -358,10 +361,10 @@ where
                     place: None,
                     concern: None,
                     cites: Vec::new(),
+                    confirmed: false,
                 });
             }
         }
-                    confirmed: false,
         // What Fleet saw of the turn: running or not, and how the last one ended.
         let (helm, running) = {
             let runtime = self.hosts().of(&session.id);
@@ -433,10 +436,10 @@ where
                             place: None,
                             concern: None,
                             cites: Vec::new(),
+                            confirmed: false,
                         }),
                 );
             }
-                            confirmed: false,
             // Every slot is held and it is in the line for one: Wait or Add, until he says.
             items.extend(
                 self.hosts()
@@ -483,10 +486,10 @@ where
                         place: Some(place),
                         concern: None,
                         cites: Vec::new(),
+                        confirmed: false,
                     })
                 }
                 _ => None,
-                        confirmed: false,
             }));
             // The done and a reply that asks are read off the turn, so a Session whose agent never
             // called a tool still reaches the person. Not when it already asked through one, while
@@ -522,6 +525,10 @@ where
                     items = super::dedup::folded(items, |text| known.get(text).cloned(), super::dedup::FOLDS_AT);
                 }
             }
+        }
+        // A sentence he confirmed reads so wherever a reply says it again.
+        for one in items.iter_mut().filter(|one| one.source == WaitingSource::Replied) {
+            one.confirmed = confirmed.contains(&one.text);
         }
         let settled = concerns
             .iter()
@@ -929,6 +936,53 @@ where
             self.store().lock().await.keep_misread(&id, &item.text, &now).map_err(|why| self.ledger_fault(why))?;
         }
         self.drop_answered(&id, &item.id).await
+    }
+
+    /// `confirm_waiting`: thumbs up on a question read from a reply. Its sentence is kept for good as one
+    /// that asks, the item stays, and every read from then on carries it as confirmed. The agent is told
+    /// nothing: the item was never its own.
+    pub(crate) async fn confirm_waited(
+        self: Arc<Self>,
+        confirm: ConfirmWaiting,
+    ) -> Result<SessionRecord, Refusal> {
+        let id = confirm.session_id.as_str().to_string();
+        if self.terminal_session(&id).await?.is_some() {
+            self.terminal_ask_standing(&id).await;
+        }
+        let item = {
+            let store = self.store().lock().await;
+            let session = store
+                .session(&id)
+                .map_err(|why| self.ledger_fault(why))?
+                .ok_or_else(|| self.hosted_refusal(SESSION_WAITING_UNNAMED, "a job Fleet knows"))?;
+            self.ledger_row(&store, &session)?
+                .waiting_for
+                .into_iter()
+                .find(|one| one.id == confirm.item_id)
+                .ok_or_else(|| self.settled_already())?
+        };
+        if item.source != WaitingSource::Replied {
+            return Err(self.hosted_refusal(
+                SESSION_WAITING_EMPTY,
+                "only a question read from a reply is confirmed as one",
+            ));
+        }
+        let _settling = self
+            .hosts()
+            .settling(&id, &item.id)
+            .ok_or_else(|| self.settled_already())?;
+        let now = self.clock().now().as_str().to_string();
+        let record = {
+            let mut store = self.store().lock().await;
+            let session = store
+                .session(&id)
+                .map_err(|why| self.ledger_fault(why))?
+                .ok_or_else(|| self.hosted_refusal(SESSION_WAITING_UNNAMED, "a job Fleet knows"))?;
+            store.keep_confirmed(&id, &item.text, &now).map_err(|why| self.ledger_fault(why))?;
+            self.ledger_row(&store, &session)?
+        };
+        self.publish(ipc::Event::SessionChanged(record.clone()));
+        Ok(record)
     }
 
     /// An item no longer waiting, or one another answer or removal is being delivered for.
