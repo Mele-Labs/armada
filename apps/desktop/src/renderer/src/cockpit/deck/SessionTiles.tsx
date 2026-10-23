@@ -24,8 +24,8 @@ import { refusalWords } from "@armada/screens/src/refusal-words";
 import { provideJobFacts } from "../../job-facts";
 import { useSessionsSaid } from "../../sessions-draft";
 import { useFleetEvents } from "../fleet-events";
-import { flightGrid, flightTake } from "./flight-take";
-import { MoreBelow } from "./MoreBelow";
+import { flightGrid, flightTake, pageCell, pagesOf } from "./flight-take";
+import { FlightBlock } from "./FlightBlock";
 import { filled, repositoryFileOf, tilesOf, useFlightFile, useRepositoryFlight, type JobFacts, type Tile } from "./flight-controls";
 import { approveTile, committedFileOf } from "./flight-controls";
 import { TileAskDialog, askOfRefusal } from "./TileAskDialog";
@@ -286,9 +286,9 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
   return (
     <>
       {dialog}
-      <div className="deck-controls__block" data-subject="session" data-take={take}>
+      <FlightBlock className="deck-controls__block" data-subject="session" data-take={take} pages={take === "pages" ? pagesOf(shown.length).count : undefined}>
         <div className="deck-controls__tiles" style={flightGrid(shown.length, take) as CSSProperties}>
-          {shown.map((tile) => {
+          {shown.map((tile, at) => {
             const id = tile.builtIn === undefined ? undefined : (tile.id as SessionTileId);
             const paused = id === "pause" && session.paused === true;
             const Glyph = paused ? Play : glyphOf(tile.glyph, "zap");
@@ -305,6 +305,7 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
                 <button
                   type="button"
                   className="deck-tile"
+                  {...pageCell(at, shown.length, take)}
                   aria-label={name}
                   data-key={key}
                   data-act={id === "pause" ? "pause" : undefined}
@@ -371,8 +372,7 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
             );
           })}
         </div>
-        {take === "peek" && shown.length > 12 ? <MoreBelow /> : null}
-      </div>
+      </FlightBlock>
     </>
   );
 }

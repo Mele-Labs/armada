@@ -790,16 +790,22 @@ button.deck-pr:hover { border-color: var(--border-strong); color: var(--fg-defau
    share narrower than a tile asks for a tile instead, so the columns that fit stop growing and the rest wrap below and scroll. The half pixel is
    so `auto-fill` rounds to the share's own count and not one fewer. */
 .deck-controls__block[data-take="wider"] .deck-controls__tiles { grid-template-columns: repeat(auto-fill, minmax(max(var(--tile), calc((100cqw - var(--space-2) * (var(--across) - 1)) / var(--across) - 0.5px)), 1fr)); }
-/* The take `peek`: the rows are a padding's depth apart, so the third starts where the block ends and no sliver of it shows under the second. */
-.deck-controls__block[data-take="peek"] .deck-controls__tiles { row-gap: var(--space-3); grid-auto-rows: calc((100cqh - var(--space-3)) / 2); }
-@container tiles (min-aspect-ratio: 11 / 1) {
-  .deck-controls__block[data-take="peek"] .deck-controls__tiles { grid-auto-rows: 100cqh; }
-}
-/* The chevron that marks tiles below the two rows (`MoreBelow.tsx`) is stuck to the block's foot, in the padding the block keeps under its rows.
-   The block's height is its panel's, so a strip added beside the rows would be taken from the tiles. A sticky offset is measured from inside
-   the padding, so the foot is the padding's depth below it. */
-.deck-controls__more { position: sticky; bottom: calc(var(--space-3) * -1); height: 0; }
-.deck-controls__more > .armada-button[data-icon-only] { position: absolute; bottom: 0; left: 50%; translate: -50% 0; width: var(--space-8); height: var(--space-4); }
+/* The take `pages` (`flight-take.ts`, `FlightBlock.tsx`): the tiles are in a strip that scrolls sideways and snaps a page at a time, as iPhone home
+   screens do. Each tile has its own cell (set inline), and each column is its share of the block's width, so a page is the block's width wide and the
+   next starts one gap past it; the grid is every column wide, so the last page can be reached though it is not full. The strip stands inside the block's padding, so a tile of the next page is never seen at its edge. The dots stand
+   over the padding under it and stay while the strip moves. */
+.deck-controls__block[data-take="pages"] { position: relative; }
+.deck-controls__pages { height: 100cqh; overflow: auto; scroll-snap-type: x mandatory; overscroll-behavior-x: contain; scrollbar-width: none; }
+.deck-controls__pages::-webkit-scrollbar { display: none; }
+.deck-controls__block[data-take="pages"] .deck-controls__tiles { --column: calc((100cqw - var(--space-2) * (var(--cols) - 1)) / var(--cols)); width: calc(var(--span) * var(--column) + var(--space-2) * (var(--span) - 1)); grid-template-columns: repeat(var(--span), var(--column)); grid-template-rows: repeat(2, calc((100cqh - var(--space-2)) / 2)); grid-auto-rows: calc((100cqh - var(--space-2)) / 2); }
+/* A tile 48px tall has 32px between its paddings and its glyph, gap and word need 36, which shrank the word's box and cut its descenders. */
+.deck-controls__block[data-take="pages"] .deck-controls__tiles > .deck-tile { padding-block: var(--space-1); }
+.deck-controls__block[data-take="pages"] .deck-tile[data-page-first] { scroll-snap-align: start; scroll-snap-stop: always; }
+.deck-controls__dots { position: absolute; inset-inline: 0; bottom: 0; height: var(--space-3); display: flex; align-items: center; justify-content: center; pointer-events: none; }
+.deck-controls__dots > button { all: unset; box-sizing: border-box; display: flex; align-items: center; justify-content: center; width: var(--space-3); height: var(--space-3); cursor: pointer; pointer-events: auto; border-radius: var(--radius-sm); }
+.deck-controls__dots > button > span { width: calc(var(--space-1) * 1.5); height: calc(var(--space-1) * 1.5); border-radius: 50%; background: var(--fg-muted); }
+.deck-controls__dots > button[aria-current] > span { background: var(--fg-default); }
+.deck-controls__dots > button:focus-visible { outline: var(--border-width) solid var(--accent); }
 /* The Slot key is lit only when something is wrong with the slot: its glyph and edge take the stranded hue, with no glow. */
 .deck-tile[data-lit] { border-color: var(--slot-stranded); color: var(--slot-stranded); }
 .deck-tile[data-lit] .deck-tile__text { color: var(--fg-default); }

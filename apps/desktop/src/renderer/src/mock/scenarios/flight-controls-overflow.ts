@@ -1,6 +1,6 @@
 // The flight deck with a Job whose flight controls outgrow two rows, for the walk `flight-controls-overflow`: the thirteen built-in tiles and
 // four actions the repository keeps, seventeen in all. Over `flight-controls-custom`'s Job and bay. The walk is played in two takes,
-// `?take=wider` and `?take=peek` (`cockpit/deck/flight-take.ts`). The owner's ask of 23 Oct 2026.
+// `?take=wider` and `?take=pages` (`cockpit/deck/flight-take.ts`). The owner's ask of 23 Oct 2026.
 
 import type { FlightControls } from "@armada/protocol";
 import { repository } from "@armada/screens/src/fixtures/repository";

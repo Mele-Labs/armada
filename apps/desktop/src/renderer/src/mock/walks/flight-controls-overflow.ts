@@ -1,6 +1,6 @@
 // A Job whose flight controls outgrow two rows: seventeen tiles, and what shows there are more than the two rows in view. Two takes over
 // `flight-controls-overflow`, chosen on `?take=` (`cockpit/deck/flight-take.ts`): `wider` grows the columns so every tile is on two
-// rows, and `peek` keeps six columns with a chevron at the foot while tiles sit below. The owner's ask of 23 Oct 2026.
+// rows, and `pages` lays them in pages of six columns that snap sideways, a dot for each page. The owner's ask of 23 Oct 2026.
 
 import { button, inside, region, role, walk } from "../walk";
 
