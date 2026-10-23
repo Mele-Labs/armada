@@ -213,12 +213,6 @@
   gap: var(--space-2);
 }
 
-/* A second press beside a row, Not yet on the plan's, held in from the row's trailing edge. */
-.armada-needs-panel__list .armada-session-ledger__row > .armada-button {
-  align-self: center;
-  margin-inline-end: var(--space-2);
-}
-
 .armada-needs-panel__content {
   align-self: stretch;
   min-width: 0;

@@ -22,7 +22,6 @@ const planWaitsForWalk = walk("plan-waits-for-walk", [
   { press: page, say: "A press opens it again" },
   { press: inside(window, button("Approve")), say: "Approve on the page" },
   { look: inside(thread, role("article", "Plan to approve")), say: "The plan is in the thread, with Approve" },
-  { look: inside(needs, button("Open Plan to approve")), say: "Needs you lists the plan" },
 ]);
 
 export { planWaitsForWalk as "plan-waits-for-walk" };

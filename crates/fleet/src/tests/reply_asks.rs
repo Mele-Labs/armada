@@ -45,6 +45,8 @@ const TELLS: &[&str] = &[
     "I asked whether the cache is shared, and it is not.",
     "You decided this earlier, so I kept it.",
     "It comes after you approve the plan, which is already recorded.",
+    "Approve the plan in Bridge to start the build.",
+    "The plan is recorded.\n\nReview the plan in the thread, then I will build.",
     "The old build may need you to restart once more, but this one does not.",
     "Waiting for the result.",
     "Still waiting on `test`.",
