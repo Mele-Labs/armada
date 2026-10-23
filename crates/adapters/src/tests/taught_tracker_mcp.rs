@@ -266,7 +266,8 @@ fn forking(dir: &Scratch) -> String {
 fn a_child_an_mcp_server_leaves_behind_is_gone_after_the_call() {
     let dir = Scratch::new();
     dir.file("ok.json", &structured(FOUND));
-    let server = fake_server(&dir, &format!("{}cat {}/ok.json", forking(&dir), dir.path().display()));
+    // The answer ends its line, as MCP's stdio asks: the child holds stdout open, so no end of file ends it.
+    let server = fake_server(&dir, &format!("{}cat {}/ok.json; echo", forking(&dir), dir.path().display()));
     tracker_of(&mcp_file(&server)).search_issues("/repo", "x").expect("searched");
     assert!(!child_outlives_the_call(&dir), "the server's child was left running");
 }
