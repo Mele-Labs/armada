@@ -11,7 +11,7 @@ describe("the tabs", () => {
       ["jobs", SURFACE.jobs],
       ["sessions", SURFACE.sessions],
       ["studios", SURFACE.studios],
-      ["retros", SURFACE.lessons],
+      ["logbook", SURFACE.logbook],
       ["reviews", SURFACE.reviews],
       ["system", SURFACE.kit],
     ]);
@@ -22,7 +22,9 @@ describe("the tabs", () => {
     expect(deckTabOf(SURFACE.jobs)).toBe("jobs");
     expect(deckTabOf(SURFACE.sessions)).toBe("sessions");
     expect(deckTabOf(SURFACE.studios)).toBe("studios");
-    expect(deckTabOf(SURFACE.lessons)).toBe("retros");
+    expect(deckTabOf(SURFACE.logbook)).toBe("logbook");
+    // Armada fixes is the Logbook's lower part, not a tab: the roster row brings it into view.
+    expect(deckTabOf(SURFACE.lessons)).toBeUndefined();
     expect(deckTabOf(SURFACE.reviews)).toBe("reviews");
     for (const page of SYSTEM_PAGES) expect(deckTabOf(page.surface), page.surface).toBe("system");
     expect(SYSTEM_PAGES.map((page) => page.label)).toEqual(["Kit", "Mods", "Settings", "Guides", "Workflows"]);
@@ -44,7 +46,7 @@ describe("the tabs", () => {
 
 describe("⌘1 to ⌘6", () => {
   it("open the places bar's tabs in the order it draws them", () => {
-    expect([1, 2, 3, 4, 5, 6].map((digit) => surfaceOfDigit(digit))).toEqual([SURFACE.overview, SURFACE.jobs, SURFACE.sessions, SURFACE.studios, SURFACE.lessons, SURFACE.kit]);
+    expect([1, 2, 3, 4, 5, 6].map((digit) => surfaceOfDigit(digit))).toEqual([SURFACE.overview, SURFACE.jobs, SURFACE.sessions, SURFACE.studios, SURFACE.logbook, SURFACE.kit]);
   });
 
   it("reach nothing past ⌘6", () => {
@@ -58,7 +60,7 @@ describe("⌘1 to ⌘6", () => {
       [SURFACE.jobs, "⌘2"],
       [SURFACE.studios, "⌘4"],
       [SURFACE.settings, "⌘,"],
-      [SURFACE.lessons, "⌘5"],
+      [SURFACE.logbook, "⌘5"],
       [SURFACE.sessions, "⌘3"],
     ].sort((a, b) => SURFACES.findIndex((one) => one.id === a[0]) - SURFACES.findIndex((one) => one.id === b[0])));
   });

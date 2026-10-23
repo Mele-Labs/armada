@@ -79,6 +79,8 @@ const CONTEXTS_FOR: Readonly<Record<ActionScope, readonly ActionContext[]>> = {
   // The Reviews tab's keys: found from Settings → Keyboard and the tab's own caps.
   review: [],
   call: [],
+  // The Logbook's keys: found from Settings → Keyboard and the caps on its acts.
+  logbook: [],
 };
 
 /**
