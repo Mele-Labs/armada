@@ -311,29 +311,28 @@ fn a_value_out_of_range_or_of_another_kind_is_refused_by_its_key() {
     );
 }
 
-/// A Job's terminal opens docked under its thread unless the side panel is chosen, and
-/// Bridge reads a change on the next open.
+/// A Job's terminal opens docked under its thread unless the side panel or a window of its own
+/// is chosen, and Bridge reads a change on the next open.
 #[test]
-fn a_jobs_terminal_opens_docked_unless_the_side_panel_is_chosen() {
+fn a_jobs_terminal_opens_docked_unless_the_side_panel_or_a_window_is_chosen() {
     let found = entry(s::OPEN_JOB_TERMINAL_IN.name()).expect("an entry");
     assert_eq!(found.section, s::Section::Terminal);
     assert_eq!(
         found.kind,
-        Kind::Choice(s::Options::Fixed(&["docked", "side panel"]))
+        Kind::Choice(s::Options::Fixed(&["docked", "side panel", "window"]))
     );
     assert_eq!(found.shipped, Shipped::Text("docked"));
     assert_eq!(found.applies, s::Applies::Live);
-    let pairs = [(
-        "terminal.openJobTerminalIn",
-        SettingValue::Text("side panel".into()),
-    )];
-    assert!(checked(&document(&pairs), &supplied(), &Env::none()).is_ok());
+    for place in ["side panel", "window"] {
+        let pairs = [("terminal.openJobTerminalIn", SettingValue::Text(place.into()))];
+        assert!(checked(&document(&pairs), &supplied(), &Env::none()).is_ok(), "{place}");
+    }
     let (refused, reason) = refusal(&[(
         "terminal.openJobTerminalIn",
-        SettingValue::Text("window".into()),
+        SettingValue::Text("tab".into()),
     )]);
     assert_eq!(refused.as_deref(), Some("terminal.openJobTerminalIn"));
-    assert!(reason.contains("must be one of docked, side panel"), "{reason}");
+    assert!(reason.contains("must be one of docked, side panel, window"), "{reason}");
 }
 
 /// The effort settings take every level the agent CLI does, and nothing else.
