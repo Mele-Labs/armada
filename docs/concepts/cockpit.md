@@ -78,7 +78,7 @@ Fleet already serves each start: `create_project`, `list_import_folders`, `get_i
 ## The Job's flight controls
 
 While a Job is open on the stage the tiles are that Job's, in the same block.
-Armada's own order is the table's, and the keys follow the shown tiles: `1` to `9` and `0`, then none, with Pause on `P` wherever it stands.
+Armada's own order is the table's, and the keys follow the shown tiles: `1` to `9` and `0`, then none, with Pause on `p` wherever it stands unless it is given another key.
 When the Job closes the deck's tiles return.
 
 | Key | Tile | Does | Through |
@@ -95,7 +95,7 @@ When the Job closes the deck's tiles return.
 | `0` | Checks | Opens the Checks the Job ran | A layer. Off where it ran none |
 | none | Bays | Opens the Job's write clashes, then every bay the Job holds, drawn as the Bays panel draws it with how far it is behind its base | A layer. **Lit in the stranded hue only when a bay is stranded or 20 or more commits behind its base**, and off where the Job holds no bay. A write clash puts the swords glyph at the key's corner and leaves the key unlit, named for the other Jobs; the Job's header carries no clash notice. A clash's file, pressed in the panel, opens as the two sides' patches in a sheet beside the stage, read by Fleet from git at the press. It has no digit because the thread's call opens it |
 | none | Requests | Opens Requests in the side panel for this Job: the repository's collections and environments, the Job's own sends under History, and the Job's running servers as environments. A send with the Job open writes a row in its thread and tells its agent. A `saved` or `requested` row in the thread opens it there too | `openRequestsInPanel(session.id)`; the panel is `shared-panel/requests.tsx`, over the five operations in `docs/practices/protocol.md`, *Requests*, and `docs/concepts/requests.md`. Always on. No digit: all ten are taken |
-| `P` | Pause | Pauses the Job, and reads Resume while it is paused | `draft.pause` and `draft.resume` ([Pausing a Job](session/pausing-a-job.md)). Pause keeps `P` whatever Edit does. Off where Fleet does not offer it |
+| `P` | Pause | Pauses the Job, and reads Resume while it is paused | `draft.pause` and `draft.resume` ([Pausing a Job](session/pausing-a-job.md)). Pause answers `p` until Edit gives it another key. Off where Fleet does not offer it |
 
 A tile is off with its reason as the tooltip when the Job ended or its terminal is not listening, except Report, which is off only where the Job's repository is not known.
 A press that sends is lit until Fleet answers, and a refusal is the toast the composer shows.
@@ -134,8 +134,10 @@ Past twelve tiles the rest wrap onto a new row of the same size at six columns, 
 With no Job open the deck's tiles edit the same way, and only Page can be added there.
 
 A built-in has a name, a glyph, a key and whether it is shown; Ask for update, Auto land and Compact also have the words they send, and Reset puts Armada's own back.
-A key is a digit or a letter that no other tile and no deck key has.
-By default keys follow position, `1` to `9` then `0`, and Pause keeps `P`.
+A key is set by pressing it in the tile's sheet: a digit, a letter, or a chord with ⌘, ⌃ or ⌥ such as `⌥R` or `⇧⌘J`, spelled as the keymap spells it and kept so in the file. A lone letter in an older file means that key unshifted. Esc lets go of the control and Delete clears the key. Every tile can have one, Pause too.
+A key another tile has, or the Cockpit already answers, is named under the control ("Used by Report", "Used by Show the map") and Save waits; so are ⌘C, ⌘V, ⌘X, ⌘A, ⌘Z and ⇧⌘Z, which a text box keeps. ⇧ with a letter is not a key, and ⌘ and ⌃ are one key to a tile, as they are to the keymap. Tile keys are not listed in Settings → Keyboard: Edit is the one place to set them.
+A key presses its tile anywhere on the Cockpit while a Job is open, a tile on another page too, and brings that page in. In a text box a chord with ⌥ or ⇧ types, and one with ⌘ or ⌃ presses. Nothing presses while the tiles are edited.
+By default keys follow position, `1` to `9` then `0`, and Pause answers `p`. Once Pause has another key, `p` is free for a tile given it; in the list `p` still pauses the row under the cursor.
 A built-in the file does not list is appended in Armada's order.
 
 What is kept is `~/.armada/flight-controls.toml`, the third Kit file, read and saved through Fleet's `get_flight_controls` and `save_flight_controls`.
@@ -261,7 +263,7 @@ A call in front takes the bare digits and letters the `call` scope names, and th
 | A page with no tab or strip place | A link on the deck, or the palette, `⌘K`, by name: Worktree Slots, Merge line, Manifest, Checks |
 | Requests | `⌘K` by name, which opens it with no Job and a repository picker; with a Job open, its Requests tile or a request row in its thread |
 | A panel | `l b c q f a d`; `c` goes to the first row in Work that needs him |
-| A flight control | The digit or letter on the tile: `1` to `4` by default, and with a Job open its own, `1` to `9` and `0`, and `P` for Pause |
+| A flight control | The digit or letter on the tile: `1` to `4` by default, and with a Job open its own, `1` to `9` and `0`, and `p` for Pause, or whatever key each tile was given |
 | Walk the list | `j`, `k` and `Enter` or `o` to open, in a list: Jobs, Activity, Bays and the merge queue; `w` brings a waiting call back; `⌥↑` and `⌥↓` move the Job under the cursor up or down the Work list; `?` lists the keys |
 | Fleet's panel | The status dot on the title row |
 
