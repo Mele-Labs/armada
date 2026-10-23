@@ -7,7 +7,7 @@
 
 use super::jira::{settings, through_jq};
 use crate::jira;
-use crate::jira_tracker::{issue_of_line, read_issue_of_line};
+use crate::jira_tracker::{issue_of_line, read_issue_of_records};
 
 /// The 200 response example of `POST /rest/api/3/search`, verbatim in what it holds:
 /// https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issue-search/
@@ -66,7 +66,7 @@ fn a_finished_status_category_is_done_under_each_key_jira_publishes_for_it() {
     for (key, closed) in [("completed", true), ("done", true), ("in-flight", false), ("new", false), ("indeterminate", false)] {
         let json = format!(r#"{{"key":"HSP-3","fields":{{"summary":"S","status":{{"name":"X","statusCategory":{{"key":"{key}"}}}},"resolution":null}}}}"#);
         let printed = through_jq(&jira::reading_filter(), &json);
-        let read = read_issue_of_line(&it, printed.lines().next().expect("a line")).expect("an issue");
+        let read = read_issue_of_records(&it, &printed).expect("an issue");
         assert_eq!(read.closed, closed, "statusCategory key {key}");
     }
 }
