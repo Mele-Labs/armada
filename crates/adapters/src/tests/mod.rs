@@ -40,6 +40,7 @@ mod filing;
 mod forge_address;
 mod github_api;
 mod harness;
+mod shared_home;
 mod history;
 mod hosted_session;
 mod issue_lookup;
