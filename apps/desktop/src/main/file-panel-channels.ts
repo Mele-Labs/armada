@@ -1,4 +1,4 @@
-// The file panel's channels: read, save, pick, open in, find, and the change a watcher sends back.
+// The file panel's channels: read, save, pick, open a typed path, open in, find, and the change a watcher sends back.
 // Out of `index.ts` for the reason `session-channels.ts` is. The dialog, the editor and Finder are
 // handed to `file-panel.ts` here, so its tests never load Electron.
 
@@ -64,6 +64,9 @@ export function handleFilePanel({ ipc, recordOf, kitInventory, published }: Host
     typeof sessionId === "string" && Array.isArray(paths) ? panel.known(sessionId, paths.filter((one): one is string => typeof one === "string")) : [],
   );
   ipc.handle(FILES_CHANNELS.pickPanelFile, () => panel.pick());
+  ipc.handle(FILES_CHANNELS.openPanelPath, (_event, text: unknown, sessionId: unknown) =>
+    typeof text === "string" ? panel.openPath(text, typeof sessionId === "string" ? sessionId : undefined) : null,
+  );
   ipc.handle(FILES_CHANNELS.openPanelFileIn, (event, item: PanelFileItem, where: unknown) =>
     where === "editor" || where === "finder" ? panel.openIn(item, where, event.sender) : refused,
   );
