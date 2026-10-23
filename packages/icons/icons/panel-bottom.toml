@@ -1,0 +1,8 @@
+[icons.panel-bottom]
+  means = "A frame with a strip divided off along its foot - docked under the thread, as a place"
+  group = "Chrome"
+  size = "16px"
+  status = "Proposed"
+  paired_with = "panel-right"
+  reserved = "Moving a Job's shell from the side panel back under its thread, the toggle in the panel's pane. Never hiding the docked pane, which is `panel-bottom-close`."
+  notes = "Proposed 23 Oct 2026 for the walk `job-shell`, the other half of `panel-right`'s toggle. Tooltip and aria-label `Dock under the thread`. Pressing it saves `terminal.openJobTerminalIn`."

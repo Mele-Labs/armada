@@ -100,6 +100,30 @@ export const ShellEndedInThePanel: Story = {
   },
 };
 
+/** Docked, the toggle moves the shell to the side panel. */
+export const ShellMovesToThePanel: Story = {
+  args: { phase: { state: "running" }, onMove: fn(), children: body("~/armada $ git status") },
+  play: async ({ canvasElement, args, userEvent }) => {
+    const pane = within(canvasElement);
+    await userEvent.click(await iconAct(pane, "Move to the side panel"));
+    await expect(args.onMove).toHaveBeenCalledTimes(1);
+    await expect(args.onHide).not.toHaveBeenCalled();
+    await expect(pane.queryByRole("button", { name: "Dock under the thread" })).toBeNull();
+  },
+};
+
+/** In the side panel, the same toggle docks it under the thread again. */
+export const ShellDocksFromThePanel: Story = {
+  args: { phase: { state: "running" }, onMove: fn(), children: body("~/armada $ git status") },
+  render: (args) => <ShellPanelPane {...args} />,
+  play: async ({ canvasElement, args, userEvent }) => {
+    const pane = within(canvasElement);
+    await userEvent.click(await iconAct(pane, "Dock under the thread"));
+    await expect(args.onMove).toHaveBeenCalledTimes(1);
+    await expect(pane.queryByRole("button", { name: "Move to the side panel" })).toBeNull();
+  },
+};
+
 /** What the app puts in the body: xterm, the same screen a block's run draws on. */
 export const ShellOnTheTerminalScreen: Story = {
   args: { phase: { state: "running" } },

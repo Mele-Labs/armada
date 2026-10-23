@@ -1,6 +1,7 @@
 // The Job's shell: one terminal a Job keeps open in its worktree, docked where a block's run docks, which
 // the person types into and the agent types into through its tools. Beside a block Run the two are tabs.
-// Settings, Terminal moves it to the side panel, which Close puts away with the shell still running.
+// A toggle on its head moves it to the side panel and back, and saves where it opens, as Settings, Terminal does.
+// Close puts the side panel away with the shell still running.
 // Over the `session-shell` scenario.
 
 import { button, inside, place, region, role, systemPage, tab, text, walk } from "../walk";
@@ -47,17 +48,18 @@ const steps: Step[] = [
   { press: runTab, say: "The run" },
   { press: inside(pane, button("Stop")), say: "Stop" },
   { press: inside(pane, button("Close")), say: "Closed. The shell stays docked" },
+  { press: inside(pane, button("Move to the side panel")), say: "Move to the side panel" },
+  { look: inside(panel, served), say: "The same shell in the side panel, its output kept" },
+  { press: inside(panel, button(/^Close/)), say: "Close. The shell keeps running" },
   { press: place("System"), say: "System" },
   { press: systemPage("Terminal"), say: "Terminal settings" },
-  { look: opensIn, say: "Where a Job's terminal opens: docked" },
-  { type: "side panel", into: opensIn, say: "Side panel" },
+  { look: opensIn, say: "The toggle saved it: side panel" },
   toSessions,
   { press: inside(region("Jobs", { exact: true }), button(/Deploy the store/)), say: "Back to the Job" },
   { press: terminal, say: "Terminal" },
-  { look: inside(panel, served), say: "The shell in the side panel, the thread at full height" },
-  { press: inside(panel, button(/^Close/)), say: "Close. The shell keeps running" },
-  { press: terminal, say: "Terminal" },
-  { look: inside(panel, served), say: "Back, with its output" },
+  { look: inside(panel, served), say: "In the side panel, the thread at full height" },
+  { press: inside(panel, button("Dock under the thread")), say: "Dock under the thread" },
+  { look: inside(pane, served), say: "Docked again, its output kept" },
 ];
 
 const shell = walk("session-shell", steps);

@@ -5,7 +5,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { DockedTerminal, XtermScreen, type ShellDockPane, type ShellPaneProps, type TerminalDockRun } from "@armada/components";
 
 import { shellsOf, useJobShell, type JobShells, type ShellPlace } from "./job-shell";
-import { useJobTerminalPlace } from "./job-terminal-place";
+import { saveJobTerminalPlace, useJobTerminalPlace } from "./job-terminal-place";
 import { openInPanel } from "./shared-panel/store";
 
 export type JobDock = {
@@ -22,6 +22,10 @@ export function useJobDock(sessionId: string, place: ShellPlace, run: TerminalDo
   const shells = served ? shellsOf(window.armada) : null;
   const { shell, shown } = useJobShell(shells, place, sessionId);
   const [front, setFront] = useState<ShellDockPane>("shell");
+  // A shell docked from the side panel comes to the front, as every other way of showing it does.
+  useEffect(() => {
+    if (shown) setFront("shell");
+  }, [shown]);
   // A call card's box keeps its shell docked.
   const sidePanel = useJobTerminalPlace(shells !== null && place === "page") === "side panel" && place === "page";
   const inPanel = useRef(sidePanel);
@@ -60,6 +64,15 @@ export function useJobDock(sessionId: string, place: ShellPlace, run: TerminalDo
           onEnd: () => shells.stop(sessionId),
           onOpen: () => shells.want(place, sessionId),
           onClose: () => shells.show(place, sessionId, false),
+          // A call card's box keeps its shell docked.
+          ...(place === "page"
+            ? {
+                onMove: () => {
+                  saveJobTerminalPlace("side panel");
+                  toPanel(shells, place, sessionId);
+                },
+              }
+            : {}),
           // Keyed by the shell, so a new one is a new screen that fits and says its size before it opens.
           children: <XtermScreen key={shell.screen} out={shell.out} run={shell.screen} running={running} write={(data) => shells.write(sessionId, data)} onSize={(cols, rows) => shells.sized(sessionId, cols, rows)} />,
         };

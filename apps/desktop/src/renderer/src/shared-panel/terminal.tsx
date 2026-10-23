@@ -6,6 +6,7 @@ import { Sheet, ShellPanelPane, XtermScreen } from "@armada/components";
 import { useAtFloor } from "@armada/shell";
 
 import { shellsOf, useShellOf } from "../job-shell";
+import { saveJobTerminalPlace } from "../job-terminal-place";
 import { useSessions } from "../sessions-draft";
 import { useBack } from "./panels";
 import { closePanel } from "./store";
@@ -42,7 +43,16 @@ export function TerminalPanel({ item }: { item: Item }) {
       closeBinding="Esc"
       onClose={closePanel}
     >
-      <ShellPanelPane phase={running ? { state: "running" } : { state: "ended" }} onEnd={() => shells.stop(sessionId)} onOpen={() => shells.fresh(sessionId)}>
+      <ShellPanelPane
+        phase={running ? { state: "running" } : { state: "ended" }}
+        onEnd={() => shells.stop(sessionId)}
+        onOpen={() => shells.fresh(sessionId)}
+        onMove={() => {
+          saveJobTerminalPlace("docked");
+          shells.show("page", sessionId, true);
+          closePanel();
+        }}
+      >
         {/* Esc typed into a running shell is the shell's, as vim and less take it. */}
         <div ref={screen} className="side-terminal" {...(running ? { "data-keeps-esc": "" } : {})}>
           <XtermScreen key={shell.screen} out={shell.out} run={shell.screen} running={running} write={(data) => shells.write(sessionId, data)} onSize={(cols, rows) => shells.sized(sessionId, cols, rows)} />

@@ -1,5 +1,5 @@
 import { Fragment, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
-import { CircleCheck, CircleX, PanelBottomClose, PowerOff, RotateCcw, Square, SquareTerminal, X } from "lucide-react";
+import { CircleCheck, CircleX, PanelBottom, PanelBottomClose, PanelRight, PowerOff, RotateCcw, Square, SquareTerminal, X } from "lucide-react";
 
 import { Button } from "../Button/Button";
 import { Tabs } from "../Tabs/Tabs";
@@ -115,6 +115,8 @@ export type ShellPaneProps = {
   onOpen: () => void;
   /** Puts away the pane of a shell that has ended. */
   onClose: () => void;
+  /** Moves the shell to the other place a Job's shell opens in, docked or the side panel. Absent where it has no other. */
+  onMove?: () => void;
   /** The body: the screen the shell is drawn on. */
   children: ReactNode;
 };
@@ -134,13 +136,25 @@ function IconAct({ label, onClick, children }: { label: string; onClick: () => v
 }
 
 /** `docked` holds the pane's own way away, which a panel's shell leaves to the panel. */
-function shellHead({ phase, onEnd, onOpen }: Omit<ShellPanelPaneProps, "children">, docked: Pick<ShellPaneProps, "onHide" | "onClose"> | null): PaneHead {
+function shellHead({ phase, onEnd, onOpen, onMove }: Omit<ShellPanelPaneProps, "children">, docked: Pick<ShellPaneProps, "onHide" | "onClose"> | null): PaneHead {
   const running = phase.state === "running";
+  // The glyph pictures the place the shell goes.
+  const move =
+    onMove === undefined ? null : docked === null ? (
+      <IconAct label="Dock under the thread" onClick={onMove}>
+        <PanelBottom size={16} strokeWidth={2} aria-hidden />
+      </IconAct>
+    ) : (
+      <IconAct label="Move to the side panel" onClick={onMove}>
+        <PanelRight size={16} strokeWidth={2} aria-hidden />
+      </IconAct>
+    );
   return {
     lead: docked === null ? null : <span className="armada-terminal__name">Terminal</span>,
     line: running ? null : <span className="armada-terminal__said">Shell ended</span>,
     keys: running ? (
       <>
+        {move}
         {docked === null ? null : (
           <IconAct label="Hide" onClick={docked.onHide}>
             <PanelBottomClose size={16} strokeWidth={2} aria-hidden />
@@ -152,6 +166,7 @@ function shellHead({ phase, onEnd, onOpen }: Omit<ShellPanelPaneProps, "children
       </>
     ) : (
       <>
+        {move}
         <Button variant="ghost" size="sm" onClick={onOpen}>
           New shell
         </Button>
@@ -168,7 +183,7 @@ function shellHead({ phase, onEnd, onOpen }: Omit<ShellPanelPaneProps, "children
 /**
  * **The Job's own shell**, which stays open and which the person and the Job's agent both type into.
  * Unlike a run it has no exit to mark and is never run again: Hide and End shell while it runs; once it
- * has ended, the pane says so and offers a new shell and Close.
+ * has ended, the pane says so and offers a new shell and Close. Either way, `onMove` moves it to the side panel.
  */
 export function ShellPane({ children, ...shell }: ShellPaneProps) {
   return (

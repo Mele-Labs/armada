@@ -6,6 +6,7 @@
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
+import { jobTerminalPlaceOf } from "../job-terminal-place";
 import { s322SessionShell, shellCalls } from "./scenarios/session-shell";
 import { mount, onScreen, toSession, unmountAfterEach } from "./testing";
 import { timePasses } from "./time-passes";
@@ -182,4 +183,31 @@ test("Side panel: the agent opening the Job's shell opens the side panel on it, 
   await thread().getByRole("group", { name: /wrangler deploy/ }).getByRole("button", { name: "Run", exact: true }).click();
   await expect.element(pane().getByText("Attempting to login via OAuth...")).toBeVisible();
   expect(pane().getByRole("tablist").query()).toBeNull();
+});
+
+test("The terminal's toggle moves the open shell between docked and the side panel with all it printed, keeps the focus in it, and saves where it opens", async () => {
+  const app = mount(s322SessionShell);
+  await onScreen();
+  const view = await toSession(/Deploy the store/);
+  await view.getByRole("button", { name: "Terminal", exact: true }).click();
+  await expect.element(pane().getByText(PROMPT)).toBeVisible();
+  await userEvent.keyboard("pwd{Enter}");
+  const printed = "~/Development/armada/.armada/slots/slot-1";
+  await expect.element(pane().getByText(printed, { exact: true })).toBeVisible();
+  const placed = async () => jobTerminalPlaceOf((await app.api.state()).settings);
+
+  await pane().getByRole("button", { name: "Move to the side panel" }).click();
+  await expect.element(panel().getByText(printed, { exact: true })).toBeVisible();
+  expect(view.getByRole("group", { name: "Terminal", exact: true }).query()).toBeNull();
+  await expect.poll(() => panel().element().contains(document.activeElement) && document.activeElement?.getAttribute("aria-label")).toBe("Terminal input");
+  await expect.poll(placed).toBe("side panel");
+
+  await panel().getByRole("button", { name: "Dock under the thread" }).click();
+  await expect.element(panel()).not.toBeInTheDocument();
+  await expect.element(pane().getByText(printed, { exact: true })).toBeVisible();
+  await expect.poll(() => pane().element().contains(document.activeElement) && document.activeElement?.getAttribute("aria-label")).toBe("Terminal input");
+  await expect.poll(placed).toBe("docked");
+  // One shell throughout, never stopped.
+  expect(shellCalls()!.opened).toHaveLength(1);
+  expect(shellCalls()!.stopped).toEqual([]);
 });
