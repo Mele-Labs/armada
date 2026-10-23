@@ -41,7 +41,7 @@ A `repo` section belongs to one repository, and a Job in another never sees it. 
 
 ## The loop
 
-Three steps run with no one's press. Only the first calls a model.
+Three steps run with no one's press, and a fourth, Tidy, runs beside them on a timer. Distil and Tidy call a model.
 
 ```
 Job ends, or before a handoff
@@ -83,18 +83,28 @@ It is written to the same rules for plain words as the retro call.
 | An entry is locked | It never fades and is never rewritten |
 | An entry is forgotten | It goes on a deny list and never comes back |
 
-**Tidy folds near-duplicates, which Curate's word overlap misses.** Once a week per repository, and only where an entry changed since, Fleet puts the repository's entries to one Sonnet call with no Job.
-It answers groups: one entry to keep, its new text, and the entries it absorbs.
-The kept entry takes every absorbed entry's evidence and keeps its earlier text as history, and the absorbed ones fade: kept, searchable, no longer served.
-A locked entry and a person's text are never offered. An answer that is wrong anywhere changes nothing.
-Tidy now on the Logbook page runs the same pass for every repository at once and says how many entries it merged.
-An earlier text Tidy folded in reads Merged under Earlier.
-
 **The deny list is the rule run memory's dropped lines follow** ([Kit](kit.md), *A private repository*). The merge reads it first, so a later Distil does not bring a forgotten entry back.
 
 **A candidate is not served.** Only a standing entry reaches an agent.
 
 **An entry folded in from run memory or the machine note cannot be edited, locked or forgotten.** Its id starts `runs-` or `machine-`, Fleet refuses every act on it, and Bridge draws none.
+
+### Tidy
+
+**Tidy folds near-duplicates, which Curate's word overlap misses.** Curate merges only texts at least 80% alike in words, so a command that differs by a log path or a flag, or several entries restating one refusal, pile up.
+
+| Step | Does |
+|---|---|
+| Ask | Fleet makes one model call per repository, and for `habits` and `machine`, over the standing and candidate entries it may offer |
+| Answer | The model groups the entries that say the same thing and writes one text for each group |
+| Keep | The survivor keeps every folded entry's evidence and takes the new text. Its earlier text stays in history with the reason Merged |
+| Fade | The folded entries become faded: kept and searchable under Archived, not deleted |
+
+**A locked entry, or one a person edited, is never shown to the model.** It is never merged and never rewritten.
+**A bad answer changes nothing for that repository.**
+
+**It runs on its own about once a week per repository, and only where an entry changed since the last tidy.** A call that failed is tried again after a day.
+A person can run it now with Tidy now on the Logbook page. It runs over every repository and says how many entries it folded.
 
 ### Recall
 
@@ -122,6 +132,7 @@ Armada fixes stays below in every tab.
 | Edit | Replaces the text and marks the entry `edited` |
 | Lock | It never fades and is never rewritten |
 | Forget | Puts it on the deny list |
+| Tidy now | Runs Tidy over every repository at once and says how many entries it folded |
 
 He can also teach an entry by pressing Teach on words, a command, a notice, a task, a Check or a pull request.
 A taught entry stands at once, cites what it was taught from as its one evidence row, and forgetting it removes the mods the same teaching made. [Teaching](teaching.md).
