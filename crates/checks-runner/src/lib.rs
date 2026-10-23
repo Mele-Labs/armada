@@ -80,7 +80,7 @@ pub use narrow::{
 pub use priority::{Priority, PRIORITY_ENV};
 pub use reach::{reached, Reach};
 pub use run::{
-    run, run_stoppable, run_until, run_words, run_writing, run_writing_with_env, split, Attempt, Output, Stop,
+    end_group, run, run_stoppable, run_until, run_words, run_writing, run_writing_with_env, split, Attempt, Output, Stop,
     Writing,
     GRACE,
 };

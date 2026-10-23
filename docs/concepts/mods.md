@@ -175,7 +175,7 @@ A notice that is a line to the Session and not a word of the table above (the an
 
 ## Tracker mods
 
-A tracker mod teaches Fleet a tracker this build has no adapter for, over the tracker's command line or its HTTP API.
+A tracker mod teaches Fleet a tracker this build has no adapter for, over the tracker's command line, its HTTP API or an MCP server.
 A repository's Manifest then names it as `provider`, as it names `jira`. [Tracker](tracker.md), *Choosing a tracker*.
 
 > **Rule.** A tracker mod is used only while it has passed a try of its `tracker.toml` as the file now stands.
@@ -199,26 +199,73 @@ A call names its `transport` and takes that transport's keys and no others.
 |---|---|
 | `cli` | `argv`: the program and its arguments, run with no shell |
 | `http` | `url`, and optional `method` (`GET` or `POST`), `headers` and `body` (a `POST`'s only) |
-| `mcp` | Not built. A server command, a tool and its arguments would be its keys |
+| `mcp` | `server`: the program and its arguments, started with no shell and speaking MCP on standard input and output. `tool`: the tool to call. Optional `env`, a table of environment variables for the server, and `arguments`, a table sent as the tool's JSON arguments |
+
+An `mcp` call starts its server for the one call: it sends `initialize` and `notifications/initialized`, calls the tool with `tools/call`, closes the server's input and stops it.
+The `map` reads the result's `structuredContent` where it has one, and otherwise the first text part of its `content` parsed as JSON.
+A result that has neither fails the call and says so, and so does a text part that is not JSON.
+A result with `isError` fails the call with its text, and a JSON-RPC error fails it with the server's message.
+A server's own requests, such as `ping`, are not answered.
 
 Every call has a `map`, a `jq` filter turning the answer into a list of issues under Armada's own names.
 `reference`, `title`, `url` and `closed` (true or false) are required, and a row missing one fails that call naming the row and the key.
 `author`, `assignees`, `labels`, `updated_at`, `excerpt` or `body`, `opened_at`, `fields` (`[{name, values}]`), `comments` (`[{author, at, body}]`) and `linked_pull_requests` (`[{number, title, url, state}]`) are read where they are there.
 
-`{query}`, `{reference}` and `{credential}` are filled into one value each and never through a shell: as written in an argument or a header, percent-encoded in a URL, and escaped inside a JSON string in a body.
+`{query}`, `{reference}` and `{credential}` are filled into one value each and never through a shell: as written in an argument or a header, percent-encoded in a URL, and escaped inside a JSON string in a body or in an `mcp` call's `arguments`.
+In an `mcp` call they are filled into `env` and `arguments` only, since a token in `server` would show in the process list, so `server` and `tool` are written as they are.
 Any other `{word}` is text, so a body's own braces stand.
 A URL is `https://`, or `http://` to this machine, and names its host as written, so a credential goes only to the host the file names.
 
 | Refused, with its reason | Example |
 |---|---|
 | A section or a key a tracker does not read | `[comments]`, `shell = true` |
-| A transport this build does not have | `transport = "mcp"` |
+| A transport this build does not have | `transport = "grpc"` |
 | A placeholder the section cannot fill | `{query}` in `[read]`, `{credential}` with no `[credential]` |
 | A search that never uses `{query}`, a read that never uses `{reference}` | Every call would ask the same |
 | A call with no `map` | |
+| An `mcp` call with no `server` or no `tool`, or `arguments` holding a date | |
 
 Every program and request is bounded: 30 seconds, and 4 MiB of answer.
+An `mcp` exchange is bounded as a whole by the same, and a server that says more or is slower is stopped and the call refused.
 The credential is held as a `Secret` for the one call, and every refusal is scrubbed of it before it is said.
+
+### A tracker that only offers an MCP server
+
+The server is started for each call with the token in its environment, which is how most MCP servers take one.
+The tool here answers with `structuredContent`, or with JSON in a text part, and the `map` is the same either way.
+To see what a server answers, start it by hand and call the tool once, then keep that result to test the `map` against.
+
+```toml
+[guide]
+language = "Tracker filter"
+guide = "A filter is `field:value` pairs joined by spaces. Fields: state, assignee, label."
+open = "state:open"
+assigned_to_me = "state:open assignee:me"
+
+[credential]
+argv = ["security", "find-generic-password", "-s", "tracker-token", "-w"]
+
+[search]
+transport = "mcp"
+server = ["npx", "-y", "@example/tracker-mcp"]
+env = { TRACKER_TOKEN = "{credential}" }
+tool = "search_issues"
+arguments = { filter = "{query}", limit = 100 }
+map = """
+.issues | map({reference: .key, title, url: .link, closed: (.state == "closed"),
+  updated_at: .updated, body: .description})
+"""
+
+[read]
+transport = "mcp"
+server = ["npx", "-y", "@example/tracker-mcp"]
+env = { TRACKER_TOKEN = "{credential}" }
+tool = "get_issue"
+arguments = { key = "{reference}" }
+map = """
+{reference: .key, title, url: .link, closed: (.state == "closed"), body: .description}
+"""
+```
 
 ### The try
 

@@ -1,10 +1,11 @@
 // A Session's work over a real Fleet: the record it reads and the presses that go back out. The store is held without a window and
 // its Bridge API is a spy, so what is read is what Fleet would have sent and what is asserted is the request that would be made.
 
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SessionRecord, TimelineEvent, WaitingItem, WorkflowSummary } from "@armada/protocol";
 
 import type { BridgeApi } from "../../../shared/api";
+import { NOTHING_YET } from "../../../shared/bridge";
 import type { BridgeState } from "../../../shared/bridge";
 import { WiredStore } from "../sessions-wired";
 
@@ -32,6 +33,16 @@ const record = (change: Partial<SessionRecord> = {}): SessionRecord => ({
 
 const ok = { ok: true, value: {} };
 
+// The store reads its queued ideas from the window's storage and listens for another window writing them; none is queued here.
+beforeEach(() => {
+  vi.stubGlobal("window", {
+    localStorage: { getItem: () => null, setItem: () => undefined, removeItem: () => undefined },
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+  });
+});
+afterEach(() => vi.unstubAllGlobals());
+
 function held(sessions: SessionRecord[] = [record()], settings: unknown = null) {
   const api = {
     approvePlan: vi.fn(async () => ok),
@@ -42,14 +53,12 @@ function held(sessions: SessionRecord[] = [record()], settings: unknown = null) 
     judgeSession: vi.fn(async () => ok),
   };
   const state = {
+    ...NOTHING_YET,
     sessions: { state: "read", sessions },
-    sessionThreads: {},
-    holds: { workflows: [FEATURE], manifests: [], models: null, repositories: [] },
-    repository: null,
-    helm: { state: "none" },
+    holds: { ...NOTHING_YET.holds, workflows: [FEATURE], manifests: [], models: null, repositories: [] },
     settings,
   } as unknown as BridgeState;
-  const store = new WiredStore({ ...api, state: async () => state, subscribe: () => () => undefined } as unknown as BridgeApi);
+  const store = new WiredStore({ ...api, syncState: async () => ({ full: state, seq: 0 }), subscribeChanges: () => () => undefined } as unknown as BridgeApi);
   const stop = store.attach();
   return { api, store, stop };
 }

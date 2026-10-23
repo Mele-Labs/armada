@@ -281,7 +281,8 @@ export function useDispatch({ state, repositories, openSession, openAutopilot }:
     const detected = found.state === "detected" ? by(repositories.find((one) => jobIdOf(one) === found.manifestId)?.root) : undefined;
     const root = by(picked)?.root ?? by(state.repository)?.root ?? detected?.root;
     // Files and numbered work are a repository's, so they are offered once the request is for one.
-    const manifestId = root === undefined ? undefined : manifestOf(root);
+    const named = repositories.find((one) => one.root === root);
+    const manifestId = named === undefined ? undefined : jobIdOf(named);
     const numbered = useNumbered(manifestId);
     const reading: PanelReading =
       by(picked) !== undefined
