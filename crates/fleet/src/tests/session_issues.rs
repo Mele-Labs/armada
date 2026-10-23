@@ -137,6 +137,47 @@ async fn the_request_a_session_is_dispatched_with_names_its_issues() {
     assert_eq!(targets(&issues(&*rig.fleet, record.id.as_str()).await), vec!["2214"]);
 }
 
+/// A rig whose Manifest chose Jira, read by the shipped providers rather than a scripted tracker.
+fn a_jira_rig() -> Rig {
+    let rig = rig_fitted(|fit| {
+        fit.trackers = Arc::new(adapters::TrackersByProvider);
+        let text = "version: 1\nid: 01FIXTUREMANIFEST\ntracker:\n  provider: jira\n  site: acme\n  project: ABC\n";
+        fit.starting_in.as_mut().expect("a served repository").manifest =
+            config::Manifest::parse(std::path::Path::new("armada.yml"), text).expect("loads");
+    });
+    with_origin(&rig.root);
+    rig
+}
+
+/// The Manifest's tracker says which issues a dispatch links, so a Jira browse link holds its key
+/// on the ledger, and a forge link into the same checkout is no issue of a Jira repository.
+#[tokio::test]
+async fn a_jira_browse_link_in_a_dispatch_links_the_job_to_its_key() {
+    let rig = a_jira_rig();
+
+    let record = rig
+        .start_requesting(
+            "Do https://acme.atlassian.net/browse/ABC-12, not https://forge.invalid/o/r/issues/5",
+            |_| {},
+        )
+        .await;
+
+    assert_eq!(targets(&issues(&*rig.fleet, record.id.as_str()).await), vec!["ABC-12"]);
+}
+
+/// The forge's own tracker, read by the shipped provider, still links a forge issue.
+#[tokio::test]
+async fn the_forge_link_still_links_the_job_when_the_tracker_is_the_forges() {
+    let rig = rig_fitted(|fit| fit.trackers = Arc::new(adapters::TrackersByProvider));
+    with_origin(&rig.root);
+
+    let record = rig
+        .start_requesting("https://forge.invalid/o/r/issues/2214 and https://acme.atlassian.net/browse/ABC-12", |_| {})
+        .await;
+
+    assert_eq!(targets(&issues(&*rig.fleet, record.id.as_str()).await), vec!["2214"]);
+}
+
 /// The mod tells every issue `gh issue create` printed; one filed in another repository is not
 /// this Session's to work.
 #[tokio::test]

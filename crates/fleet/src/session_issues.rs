@@ -109,9 +109,13 @@ where
                 known.insert("address".to_string(), url.clone());
             }
         }
-        if let Some(repository) = self.own_repository(&manifest) {
-            for number in adapters::issues_linked_in(text, &repository) {
-                named.entry(IssueReference::number(number)).or_default();
+        // The tracker the Manifest chose says which of its own issues the text links, so a Jira
+        // browse link names its key and a forge link into a Jira repository names nothing.
+        if let Ok(served) = self.served_named(Some(&ManifestId::carried(&manifest))) {
+            for written in self.tracker_of(&served).issues_linked_in(served.root(), text) {
+                if let Some(issue) = IssueReference::read(&written) {
+                    named.entry(issue).or_default();
+                }
             }
         }
         self.issues_held(session, &manifest, named).await;

@@ -7,6 +7,7 @@ import type {
   Connection,
   Holdings,
   Lesson,
+  LogbookEntry,
   ModelChoices,
   Outcome,
   RepositorySummary,
@@ -58,6 +59,8 @@ export type Scenario<S, A, D = never> = {
   held?: WorktreesHeld;
   /** `GET /lessons`, newest retro first. Absent is a Fleet with no retro written. */
   lessons?: Lesson[];
+  /** `GET /logbook`, every section. Absent is a Fleet that serves no Logbook. Mock only: no route serves it yet. */
+  logbook?: LogbookEntry[];
   /**
    * Calls this scenario answers as Fleet would, over the fake's own. For a
    * flow whose answers depend on what was pressed before — Setup's edits and

@@ -1,0 +1,7 @@
+[icons.circle-alert]
+  means = "A ring with an exclamation mark: a warning met anyway"
+  group = "Logbook"
+  size = "12px"
+  status = "Proposed"
+  reserved = "A Logbook entry a Job tripped on: the warning was in the Logbook and the Job met the problem regardless. Never a Job's failure, an error or a Doctor warning."
+  notes = "Proposed 22 Oct 2026 for the walk `logbook`. Tooltip names when, `Tripped 2d ago`."

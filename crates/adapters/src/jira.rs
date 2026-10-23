@@ -172,6 +172,22 @@ impl JiraSettings {
         let key = text[at..].split(['/', '?', '#', ' ', '\n']).next()?;
         is_key(key).then(|| key.to_string())
     }
+
+    /// Every issue key a text links on this site, each once and in the order written. A link at the
+    /// end of a sentence or inside a markdown link keeps no trailing punctuation.
+    pub(crate) fn keys_in(&self, text: &str) -> Vec<String> {
+        let needle = format!("{}/browse/", self.host);
+        let mut keys: Vec<String> = Vec::new();
+        for (at, _) in text.to_ascii_lowercase().match_indices(&needle) {
+            let rest = &text[at + needle.len()..];
+            let key = rest.split(|c: char| c.is_whitespace() || matches!(c, '/' | '?' | '#')).next().unwrap_or_default();
+            let key = key.trim_end_matches(['.', ',', ';', ':', '!', ')', ']', '>', '"', '\'', '`']);
+            if is_key(key) && !keys.iter().any(|had| had == key) {
+                keys.push(key.to_string());
+            }
+        }
+        keys
+    }
 }
 
 const JQL_GUIDE: &str = "Jira Query Language, as a filter. Write no ORDER BY: results come newest \

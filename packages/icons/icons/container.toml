@@ -1,0 +1,7 @@
+[icons.container]
+  means = "A shipping container: what a Job runs inside"
+  group = "Logbook"
+  size = "12px"
+  status = "Proposed"
+  reserved = "A Logbook entry of kind environment. Never this machine, which is `laptop`, and never a worktree slot."
+  notes = "Proposed 22 Oct 2026 for the walk `logbook`. Tooltip `Environment`."

@@ -90,6 +90,33 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/issues/:repository/:reference",
     },
+    // Saved issue queries and the query writer. The queries live under their own path so a
+    // reference can never be read as one. `docs/concepts/tracker.md`, *Saved queries*.
+    Route {
+        operation: "search_issues",
+        method: "POST",
+        path: "/issue_queries/:repository/search",
+    },
+    Route {
+        operation: "list_issue_queries",
+        method: "GET",
+        path: "/issue_queries/:repository",
+    },
+    Route {
+        operation: "write_issue_query",
+        method: "POST",
+        path: "/issue_queries/:repository/write",
+    },
+    Route {
+        operation: "save_issue_query",
+        method: "POST",
+        path: "/issue_queries/:repository",
+    },
+    Route {
+        operation: "forget_issue_query",
+        method: "POST",
+        path: "/issue_queries/:repository/:id/forget",
+    },
     // Requests. A repository's two files, read on each call; a secret's value is the Keychain's.
     Route {
         operation: "send_request",

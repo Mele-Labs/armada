@@ -51,6 +51,7 @@ import { ClashesHost } from "./clashes";
 import { ReviewsHost } from "./reviews";
 import { TerritoryHost } from "./territory";
 import { BayHistoryHost } from "./bay-history";
+import { LogbookHost } from "./logbook";
 import { UsageSummaryHost } from "./usage-summary";
 import { FlightControlsHost } from "./flight-controls";
 import { OnboardingHost } from "./onboarding";
@@ -171,6 +172,8 @@ export class FleetConnection {
   readonly territory: TerritoryHost = new TerritoryHost(() => this.connected()?.port ?? null);
   /** Who held one slot and what was checked out in it — `bay-history.ts`. */
   readonly bayHistory: BayHistoryHost = new BayHistoryHost(() => this.connected()?.port ?? null);
+  /** What agents learned, and the owner's acts on an entry — `logbook.ts`. */
+  readonly logbook: LogbookHost = new LogbookHost(() => this.connected()?.port ?? null);
   /** What the last seven days cost, for the Usage page — `usage-summary.ts`. */
   readonly usageSummary: UsageSummaryHost = new UsageSummaryHost(() => this.connected()?.port ?? null);
   /** The Cockpit's flight controls, and a shell line run for a Job — `flight-controls.ts`. */
