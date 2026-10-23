@@ -390,6 +390,8 @@ export * from "./compositions/SessionThread/SavedRow";
 export * from "./compositions/SessionRepository/SessionRepository";
 // A repository as a chip, where a surface names the repository a thing belongs to.
 export * from "./compositions/RepositoryChip/RepositoryChip";
+// A Job as a card, framed in its state, where a surface names one.
+export * from "./compositions/JobCard/JobCard";
 export * from "./compositions/RepositoryRuns/RepositoryRuns";
 export * from "./compositions/RepositoryRuns/RunsAll";
 export * from "./compositions/AskCard/AskCard";

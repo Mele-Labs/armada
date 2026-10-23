@@ -7,7 +7,7 @@ import { Button, Kbd, Prose, RepositoryChip, Tooltip } from "@armada/components"
 import { IssueState, LinkedPullRequests, Open } from "../shared-panel/panels";
 import type { Band } from "./bands";
 import { ISSUES_KEYS } from "./key-table";
-import { JobMark, jobTitle, useHolders } from "./marks";
+import { IssueJobCard, useHolders } from "./marks";
 import type { ReadTracker, TicketRead } from "./model";
 import { useIssues, useIssuesStore } from "./store";
 
@@ -50,12 +50,6 @@ function Reader({ band, tracker, ticket, onOpenLink, onOpenSession, onStart }: H
           <Tooltip label="Go to the issue" shortcut={ISSUES_KEYS.reader}>
             <Kbd>{ISSUES_KEYS.reader}</Kbd>
           </Tooltip>
-          {holders.map((one) => (
-            <Button key={one.id} variant="ghost" size="sm" className="issues-reader__job" aria-label={`Job: ${jobTitle(one)}`} onClick={() => onOpenSession(one.id)}>
-              <JobMark session={one} />
-              {jobTitle(one)}
-            </Button>
-          ))}
           {holders.length > 0 ? null : (
             <Tooltip label="Start a Job" shortcut={ISSUES_KEYS.start}>
               <Button variant="secondary" size="sm" data-start onClick={() => onStart(band, ticket)}>
@@ -83,6 +77,16 @@ function Reader({ band, tracker, ticket, onOpenLink, onOpenSession, onStart }: H
         ))}
       </div>
       <div className="issues-reader__body">
+        {holders.length === 0 ? null : (
+          <section className="issues-reader__part" aria-label="Jobs">
+            <h3 className="issues-reader__eyebrow">Jobs</h3>
+            <div className="issues-reader__jobs">
+              {holders.map((one) => (
+                <IssueJobCard key={one.id} session={one} onOpen={onOpenSession} />
+              ))}
+            </div>
+          </section>
+        )}
         {ticket.fields.length === 0 ? null : (
           <dl className="issues-fields" aria-label="Fields">
             {ticket.fields.map((field) => (
