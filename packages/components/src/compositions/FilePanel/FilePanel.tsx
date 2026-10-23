@@ -49,6 +49,8 @@ export type FilePanelProps = {
   back?: { label: string; onBack: () => void };
   /** The `kind` of the floating sheet it opens to the left of, which stays open: the Loadout, for a skill's SKILL.md. */
   beside?: string;
+  /** The Preview opened, `true`, or closed with it or with the file, `false`: the sheet it sat beside steps aside meanwhile. */
+  onPreviewing?: (on: boolean) => void;
 };
 
 /** What the file shows and does, with or without a sheet around it. */
@@ -176,13 +178,19 @@ function FileBody({ name, type, text, imageSrc, saving = false, onChange, moved 
 /** Markdown is the one text a rendered view has something to say of. */
 const isMarkdown = (name: string, type: string): boolean => type.startsWith("text/") && /\.(md|markdown)$/i.test(name);
 
-export function FilePanel({ onClose, floor = false, back, beside, onOpenInEditor, onShowInFinder, ...file }: FilePanelProps) {
+export function FilePanel({ onClose, floor = false, back, beside, onPreviewing, onOpenInEditor, onShowInFinder, ...file }: FilePanelProps) {
   useSaveKey(file);
   const { name, path, dirty } = file;
   const [previewing, setPreviewing] = useState(false);
   // The line either side was last scrolled to, and which side it was: the other follows it.
   const [lock, setLock] = useState<{ line: number; by: "file" | "preview" } | undefined>(undefined);
   const preview = isMarkdown(name, file.type) ? { on: previewing, toggle: () => setPreviewing((was) => !was) } : undefined;
+  const shown = preview?.on === true;
+  useEffect(() => {
+    if (!shown) return;
+    onPreviewing?.(true);
+    return () => onPreviewing?.(false);
+  }, [shown, onPreviewing]);
   return (
     <>
     <Sheet

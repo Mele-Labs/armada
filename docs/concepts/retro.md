@@ -361,6 +361,11 @@ Both calls go out on the retro's model, client and budget, and are not metered,
 as a retro's call is. The two prompts are `prompts.retroReview` and
 `prompts.retroAsk`, written to the same rules for plain words.
 
+## What the Logbook takes
+
+**A fact about a repository, the owner or this Mac stops going to the Retros page.** [Logbook](logbook.md) takes it, and a retro keeps only what Armada itself got wrong.
+The open items that are really repository facts are moved into the Logbook once, and closed.
+
 ## Open questions
 
 - **[retro-rewrite]** Whether a person can ask for a failed retro

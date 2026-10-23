@@ -4,10 +4,10 @@
 // the Loadout's left: a repository skill, then the session rules in its place, then an MCP server's tools, and Esc
 // closes it with the Loadout still open. pdf, a skill of the person's own, is removed behind a confirm, marked removed
 // and restored from its row; the productivity plugin is removed from its skill's row behind a confirm naming its
-// uninstall; and deep-research's SKILL.md opens in the file panel beside the Loadout, which stays open. Then typing
-// /mcp opens the Loadout on its MCP servers, read live from the Job's process: chrome-devtools timed out and is
-// Reconnected, mailroom signs in and then offers Reconnect, and forge's menu holds Reconnect behind Turn off before it
-// is turned off and on. Over the `session-loadout` scenario.
+// uninstall; and deep-research's SKILL.md opens in the file panel beside the Loadout, which stays open, and steps
+// aside while the file's Preview is open. Then typing /mcp opens the Loadout on its MCP servers, read live from the
+// Job's process: chrome-devtools timed out and is Reconnected, mailroom signs in and then offers Reconnect, and
+// forge's menu holds Reconnect behind Turn off before it is turned off and on. Over the `session-loadout` scenario.
 
 import { timeSaid } from "@armada/components";
 
@@ -64,6 +64,10 @@ const sessionLoadout = walk(
     { press: skillAct("Edit deep-research"), say: "Edit deep-research" },
     { look: inside(dialog("SKILL.md"), role("group", "Editor SKILL.md")), say: "Its SKILL.md opens in the file panel, beside the Loadout" },
     { look: inside(sheet, region("Knows")), say: "The Loadout stays open beside it" },
+    { press: inside(dialog("SKILL.md"), button("Preview", { exact: true })), say: "Preview the file" },
+    { look: dialog("Preview"), say: "The rendered file beside it, and the Loadout steps aside" },
+    { key: "Escape", on: dialog("Preview"), say: "Esc closes the Preview" },
+    { look: knows, say: "The Loadout is back beside the file" },
     { key: "Escape", on: dialog("SKILL.md"), say: "Esc closes the file" },
     { look: knows, say: "The Loadout is still open" },
     { key: "Escape", on: sheet, say: "Esc closes the Loadout" },
