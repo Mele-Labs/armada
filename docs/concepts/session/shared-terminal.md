@@ -8,6 +8,12 @@ Hide puts the pane away and the shell keeps running; End shell stops it.
 Once it has ended the pane says *Shell ended* and offers New shell, which opens another, and Close.
 With a block's run open as well, the two are tabs in one dock, *Terminal* beside the run's command, and each keeps its own screen.
 
+**Where it opens is the setting `terminal.openJobTerminalIn`**: `docked`, as above and as shipped, or `side panel`.
+In the side panel it opens where a pull request or an issue does, headed *Terminal* with the Job's title, and the thread keeps its whole height.
+Close puts the panel away and the shell keeps running; Terminal brings it back with everything it printed.
+While the shell has focus, Esc goes to the shell, so a program that reads it still works, and Close is the way out.
+A change of the setting takes effect at the next Terminal, and a block's run stays docked either way.
+
 **It is an interactive `$SHELL -l` on a pseudo-terminal**, in the Job's slot worktree, or its directory where it holds no slot.
 `/bin/zsh` stands where `SHELL` is unset or empty, and `TERM` is `xterm-256color`.
 Opening it again, the person's or the agent's, is handed the shell already open.
@@ -25,7 +31,7 @@ It answers what printed after the text once the shell has been quiet for 1.5 sec
 Ctrl-C is the one character U+0003 with Enter off.
 The agent uses the shell for what the person should see or join, a dev server for one; its own shell tool stays for ordinary work.
 
-**Bridge hears when it opens or ends.** `terminal.opened` follows the agent's first command into a shell the person had not opened, and Bridge shows the pane then.
+**Bridge hears when it opens or ends.** `terminal.opened` follows the agent's first command into a shell the person had not opened, and Bridge shows the pane, or opens the panel, then.
 `terminal.exited` follows its end, whoever caused it.
 
 **Running a block is unchanged**, and stays the person's own act: one pane, one run at a time, in [Running a block](running-a-block.md).
