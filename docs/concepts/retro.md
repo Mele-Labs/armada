@@ -71,7 +71,7 @@ Every item starts `open`.
 | --- | --- |
 | `open` | Nobody has answered it. What the Retros page lists by default |
 | `agreed` | A Job was started for it, and `session_proposed` names that |
-| `discarded` | Disagreed with. The row stays |
+| `discarded` | Disagreed with, or moved into the Logbook (*What the Logbook takes*). The row stays |
 
 **Start Job agrees with an item by starting a Job on it.**
 `start_lesson_session` sends the Job the item as its first message. A
@@ -364,7 +364,16 @@ as a retro's call is. The two prompts are `prompts.retroReview` and
 ## What the Logbook takes
 
 **A fact about a repository, the owner or this Mac stops going to the Retros page.** [Logbook](logbook.md) takes it, and a retro keeps only what Armada itself got wrong.
-The open items that are really repository facts are moved into the Logbook once, and closed.
+
+**The retro prompt writes no item whose fix is only that an agent should know something:** a command, a tool missing on this Mac, how a repository does things, a gotcha.
+An item stays where its fix is a change to Armada, to the Kit (skills, MCP servers, settings) or to the repository's code or `armada.yml`.
+
+**The open items that are really repository facts are moved into the Logbook once, and closed.**
+The pass runs off the turn after Fleet starts and keeps a marker in the store, so it never runs twice.
+It reads every open item except Armada's own faults (`fleet` items and those landing in `armada`), and asks the retro's model, in batches of 20 for one repository, which are repository facts.
+Each fact becomes a candidate in the Logbook's `repo`, `machine` or `habits` section with the item's Job as evidence, so the same fact from several Jobs is one entry that stands on Curate's two-Job rule.
+A closed item is `discarded`, because the Retros page lists `accepted` ones as the Kit items a person saved.
+A batch that fails leaves its items open and is asked again at the next start, and an item the model does not call a fact stays open.
 
 ## Open questions
 

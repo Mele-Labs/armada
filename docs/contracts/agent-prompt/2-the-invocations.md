@@ -9,6 +9,7 @@
 | **Job rules** | `adapters` | Every process of a hosted job, appended to its system prompt ahead of Helm's note, a fork's and the repository's remembered runs | Drafted, compiled in: section 5f |
 | **Thought reader** | `fleet` | When a person sends a message from Helm's box that is not plainly a question | Specified by `prompts.helmRoute`; what it is told is below |
 | **Logbook distil** | `fleet` | When a job ends and before it hands on, off the turn and one at a time, on the retro's model | Specified by `prompts.logbookDistil`; [Logbook](../../concepts/logbook.md) |
+| **Lesson mover** | `fleet` | Once per store, off the turn after Fleet starts, in batches of open retro items | Compiled in, not a setting; [Retro](../../concepts/retro.md), *What the Logbook takes* |
 | **Teaching reader** | `fleet` | When a person selects words in a Session and presses Teach, once, with nothing kept | Specified by `prompts.teachingRead` |
 | **Test map reader** | `fleet` | When main moves and a changed file is one no collector can measure | Drafted — section 5g |
 | **Scout** | `fleet` | When a person asks from a Studio or a stranded slot, directly or through Helm | Drafted — sections 5b, 5c and 5d |

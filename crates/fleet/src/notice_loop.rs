@@ -80,6 +80,8 @@ where
             fleet.test_map_moves_fed();
             // A Session that ended or handed on, distilled into the Logbook one at a time.
             fleet.logbook_distils_run();
+            // The open lessons that are repository facts, moved into the Logbook once per store.
+            fleet.logbook_backlog_run();
         }
     })
 }
