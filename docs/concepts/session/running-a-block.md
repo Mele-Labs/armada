@@ -6,7 +6,8 @@ A fenced shell block in a Job's thread shows Run when the block is hovered or fo
 Pressing it opens a terminal docked in the Job's view, between the thread and the message box, and runs the command in the Job's working directory, its slot if it has one.
 A Run key on a Needs-you item opens the same pane, and so does a message that is one line starting with `!` (`! rbenv install 4.0.6`) sent from the Job's box: it is run, not sent to the agent, and when it ends Fleet tells the Job as for any run.
 A bare `!` or a message of several lines is sent as written.
-There is one pane and one run at a time: Run again stops the old run first and starts afresh.
+There is one pane for runs and one run at a time: Run again stops the old run first and starts afresh.
+The Job's shell is a second, separate pane beside it, described in [The shared terminal](shared-terminal.md).
 The pane's header carries the command and Stop while it runs; after, a mark with the exit code on its tooltip (*Exit N*, or *Stopped*), Run again and Close.
 Close puts the pane away, and the block's mark brings the same run back.
 Keys typed go to the program while it runs, and its size follows the pane's.

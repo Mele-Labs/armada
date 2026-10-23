@@ -55,7 +55,7 @@ function fakeHost(
     questions,
     helm: { reconnected: () => {} },
     studios: { again: async () => {}, changed: () => {}, deleted: () => {} },
-    sessions: { again: async () => {}, changed: () => {}, row: () => {}, watchesChanged: () => {} },
+    sessions: { again: async () => {}, changed: () => {}, row: () => {}, terminal: () => {}, watchesChanged: () => {} },
     held: { warm: async () => {}, again: async () => {} },
     fleetBuild: { watch: () => {} },
     mods,

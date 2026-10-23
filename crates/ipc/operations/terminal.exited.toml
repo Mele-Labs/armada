@@ -1,0 +1,8 @@
+[operations."terminal.exited"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "A Job's shell ended: it exited, it was stopped, or its Job ended. Its session_id and run_id"
+notes = """
+`JobTerminal`: `session_id` and `run_id`. Published once the shell's process has gone and after `observe_session_run` has sent `exited` on its socket. The next open, the person's or the agent's, starts a new shell under a new `run_id`.
+"""

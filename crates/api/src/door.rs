@@ -56,6 +56,7 @@ const QUERIES: &[(&str, &[&str])] = &[
     ("validate_mod", &["name"]),
     ("get_requests", &["repository", "session_id"]),
     ("list_watches", &["session_id"]),
+    ("read_terminal", &["lines", "session_id"]),
 ];
 
 /// The query parameters `operation`'s route reads, none where it reads none.
@@ -152,6 +153,9 @@ const WITHOUT_A_MANIFEST_OFFERS: &[&str] = &[
     "send_request",
     "get_requests",
     "save_request_to_collection",
+    // The Job's shell stands in its own worktree or directory, read inside no Manifest.
+    "type_in_terminal",
+    "read_terminal",
 ];
 
 /// The routes that read `?manifest_id=` and, absent it, answer about every

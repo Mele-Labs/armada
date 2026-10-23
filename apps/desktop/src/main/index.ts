@@ -466,6 +466,8 @@ void app.whenReady().then(() => {
   connection.sessions.onRead((sessions, readAt) => sessionAttention.read(sessions, readAt));
   // What a shell block run from a Session prints, to every window: only the one that started it holds the id.
   connection.sessions.onRun((runId, message) => everyWindow(CHANNELS.sessionRunMessage, runId, message));
+  // A Job's shell opened or ended in Fleet: every window, which follows it by run id.
+  connection.sessions.onTerminal((change, terminal) => everyWindow(CHANNELS.sessionTerminal, { ...terminal, change }));
   connection.sleep.onChanged((state) => everyWindow(CHANNELS.sleepChanged, state));
   connection.planUsage.onChanged((usage) => everyWindow(CHANNELS.planUsageChanged, usage));
   connection.modelDownshift.onChanged((state) => {

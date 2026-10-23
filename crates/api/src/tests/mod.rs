@@ -42,6 +42,7 @@ mod served;
 mod shapes;
 mod stream;
 mod studios;
+mod terminal_routes;
 mod watching_run;
 mod watch_routes;
 
