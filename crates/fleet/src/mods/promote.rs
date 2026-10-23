@@ -153,6 +153,7 @@ where
                 Payload::Words(_) => "words",
                 Payload::Fleet(_) => "fleet",
                 Payload::Tweak(_) => "tweak",
+                Payload::Tracker(_) => "tracker",
             }),
             at,
         )

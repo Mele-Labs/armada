@@ -88,6 +88,7 @@ pub(crate) fn read(text: &str, folder: &str) -> (Manifest, Vec<String>) {
         Some("words") => manifest.kind = Some(ModKind::Words),
         Some("fleet") => manifest.kind = Some(ModKind::Fleet),
         Some("tweak") => manifest.kind = Some(ModKind::Tweak),
+        Some("tracker") => manifest.kind = Some(ModKind::Tracker),
         Some(other) => problems.push(format!("mod.toml `kind` is `{other}`, which is not a kind of mod this build has")),
     }
     match version {

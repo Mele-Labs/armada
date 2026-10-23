@@ -58,6 +58,12 @@ describe("the list, folded as mods.changed carries it", () => {
     expect(source.get().mods.map((mod) => [mod.name, mod.enabled])).toEqual([["warm", true]]);
   });
 
+  it("lists neither a layout mod nor a tracker mod as a theme", async () => {
+    const { source } = fake(facts([row("calm"), row("tidy", { kind: "layout" }), row("linear", { kind: "tracker" })]));
+    await settled();
+    expect(source.get().mods.map((mod) => mod.name)).toEqual(["calm"]);
+  });
+
   it("tells its subscribers once per change to the mods or the theme, and not for the rest of the state", async () => {
     const { source, push } = fake(facts([row("calm")]));
     await settled();
