@@ -497,9 +497,11 @@ export type Session = {
   attachments: readonly SessionAttachment[];
   /**
    * Every version of every attachment, oldest first; `at` is an RFC 3339 instant and each entry is the attachment as it stood from then.
-   * Absent where Fleet has sent no history: the timeline then draws one point to an attachment, in the order it is held.
+   * `from` is what the version followed, which Fleet works out: `message` is the thread row id of the person's latest message before it, and
+   * `task` the id of the plan task in progress when it was written. Either may be absent.
+   * Absent where Fleet has sent no history: the graph then draws one mark to an attachment, in the order it is held.
    */
-  versions?: readonly { at: string; attachment: SessionAttachment }[];
+  versions?: readonly { at: string; attachment: SessionAttachment; from?: { message?: string; task?: string } }[];
   /**
    * Where its work has been, from the record's `started_at` and each attachment's `since` and `changed_at`,
    * given-back rows included, which `attachments` leaves out (`trailOfRecord`).
@@ -710,8 +712,6 @@ export type SessionsDraft = {
    */
   helmOf?: (manifestId: string) => Session | undefined;
   subscribe: (onChange: () => void) => () => void;
-  /** Which take of the Artifacts timeline is drawn. Mock only, while the takes are being walked; the one he picks stays and this goes. */
-  timelineTake?: "spine" | "lanes" | "pixi";
   /**
    * Hands a plan group to a new Session this one follows, and returns its id: **a promise on a real Fleet**, which starts the Session and sends
    * it the group's tasks. Absent where nothing serves it, and a group carries no act to hand it off.

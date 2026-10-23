@@ -435,3 +435,6 @@ export { CodeEditor, languageOf, typeIntoEditor } from "./compositions/FilePanel
 export type { CodeEditorProps, CodeLanguage } from "./compositions/FilePanel/CodeEditor";
 export * from "./compositions/LinkPanel/LinkPanel";
 export * from "./compositions/LinkPanel/LinkOffer";
+
+// A Job's Artifacts as a graph of how it grew, on GraphCanvas: one node to an artifact, its versions marks inside it.
+export * from "./compositions/ArtifactGraph/ArtifactGraph";

@@ -5,7 +5,7 @@
 
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { ArrowDown, Check, CircleDot, CircleX, LoaderCircle, Megaphone, Power, ShieldCheck, ShieldEllipsis, ShieldX, Terminal, X, type LucideIcon } from "lucide-react";
-import { Button, ClashPaths, Input, PullRequestChecksMark, PullRequestStateMark, Table, Tabs, TableBody, TableCell, TableHead, TableHeaderCell, TableRow, Tooltip, type ClashView, useOpenClash, type LedgerEntry, type SessionLedgerTone } from "@armada/components";
+import { ArtifactGraph, Button, ClashPaths, Input, PullRequestChecksMark, PullRequestStateMark, Table, Tabs, TableBody, TableCell, TableHead, TableHeaderCell, TableRow, Tooltip, timeSaid, useTimeFormat, type ClashView, useOpenClash, type LedgerEntry, type SessionLedgerTone } from "@armada/components";
 import type { Session, SessionRow } from "@armada/screens/src/draft/sessions";
 import { popupIsOpen } from "@armada/screens/src/list-keyboard";
 
@@ -13,10 +13,8 @@ import { useSessions, useSessionsDraft } from "../sessions-draft";
 import { setHover } from "../cockpit/deck/store";
 import { bayViewOf, ledgerOf, slotKey } from "../cockpit/deck/bays";
 import { Berth } from "../cockpit/deck/BayRows";
-import { ArtifactTimeline, type TimelineTake } from "./ArtifactTimeline";
-import { PixiTimeline } from "./PixiTimeline";
 import { artifactsOf, matching, type ArtifactRow } from "./artifacts";
-import { timelineOf } from "./artifact-timeline";
+import { graphOf } from "./artifact-graph";
 import { closeLayer, type LayerId } from "./layers";
 import { openSlotKeyInPanel } from "../shared-panel/store";
 import { openClashFile } from "./ClashFileSheet";
@@ -165,42 +163,45 @@ function Groups({ groups }: { groups: readonly { id: string; label: string; rows
 
 const VIEWS = [
   { id: "list", label: "List" },
-  { id: "timeline", label: "Timeline" },
+  { id: "graph", label: "Graph" },
 ];
 
-/** Everything the Session made or used, as groups or along time; the field at the top narrows both as it is typed in, and T switches them. */
+/** Everything the Session made or used, as groups or as a graph of how it grew; the field at the top narrows both as it is typed in, and V switches them. */
 export function ArtifactsLayer({ session, entries, onOpenSession, onOpenSketch }: { session: Session; entries: readonly LedgerEntry[]; onOpenSession: (id: string) => void; onOpenSketch?: (sketch: string, at?: string) => void }) {
   const [words, setWords] = useState("");
-  const [view, setView] = useState<"list" | "timeline">("list");
+  const [view, setView] = useState<"list" | "graph">("list");
   const sessions = useSessions();
-  const take: TimelineTake = useSessionsDraft()?.timelineTake ?? "spine";
+  const format = useTimeFormat();
   const all = useMemo(() => artifactsOf(session, entries, { sessions, open: onOpenSession }), [session, entries, sessions, onOpenSession]);
   const shown = useMemo(() => matching(all, words), [all, words]);
-  const timeline = useMemo(() => timelineOf(session, shown, { sketch: (id, at) => onOpenSketch?.(id, at) }), [session, shown, onOpenSketch]);
-  // T switches the view from anywhere in the layer but a field, where it is a letter.
+  const graph = useMemo(
+    () => graphOf(session, all, shown, words, { sketch: (id, at) => onOpenSketch?.(id, at), clock: (ms) => timeSaid(ms, { hour12: format.hour12, seconds: false, date: false }) }),
+    [session, all, shown, words, onOpenSketch, format.hour12],
+  );
+  // V switches the view from anywhere in the layer but a field, where it is a letter.
   const keys = (event: KeyboardEvent<HTMLElement>) => {
     const typing = event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement;
-    if (typing || event.altKey || event.ctrlKey || event.metaKey || event.key.toLowerCase() !== "t") return;
+    if (typing || event.altKey || event.ctrlKey || event.metaKey || event.key.toLowerCase() !== "v") return;
     event.preventDefault();
-    setView((now) => (now === "list" ? "timeline" : "list"));
+    setView((now) => (now === "list" ? "graph" : "list"));
   };
   return (
     <Shell
       label="Artifacts"
       keys={keys}
-      owns="t"
+      owns="v"
       head={
         <>
           <div className="sv-layer__search">
             <Input type="search" aria-label="Search artifacts" placeholder="Search" data-layer-field="" value={words} onChange={(event) => setWords(event.target.value)} autoComplete="off" spellCheck={false} />
           </div>
-          <Tooltip label="Switch view" shortcut="T">
-            <Tabs items={VIEWS} value={view} onChange={(id) => setView(id === "timeline" ? "timeline" : "list")} />
+          <Tooltip label="Switch view" shortcut="V">
+            <Tabs items={VIEWS} value={view} onChange={(id) => setView(id === "graph" ? "graph" : "list")} />
           </Tooltip>
         </>
       }
     >
-      {view === "list" ? <Groups groups={shown} /> : take === "pixi" ? <PixiTimeline timeline={timeline} /> : <ArtifactTimeline timeline={timeline} take={take} />}
+      {view === "list" ? <Groups groups={shown} /> : graph.nodes.length === 0 ? null : <ArtifactGraph nodes={graph.nodes} edges={graph.edges} label="Artifact graph" />}
     </Shell>
   );
 }
