@@ -356,6 +356,19 @@ const PLAN_CARD: &[&str] = &["approve the plan", "review the plan"];
 /// An offer left open, which asks for nothing until he takes it up.
 const CONDITIONAL: &[&str] = &["if you want", "if you'd like", "if you would like", "if you'd rather", "if you prefer"];
 
+/// What a sentence says when the ask is the person's approval, which a walk already waiting on him makes.
+const APPROVING: &[&str] =
+    &["once you approve", "when you approve", "once you've approved", "once you've looked", "after you approve", "approve it", "approve whichever", "pressing approve"];
+
+/// Whether the sentence asks only by naming his approval, which a walk already waiting on him has asked.
+pub(crate) fn only_approving(sentence: &str) -> bool {
+    let mut said = sentence.replace('*', "").replace('’', "'").to_lowercase();
+    for phrase in APPROVING {
+        said = said.replace(phrase, "");
+    }
+    asks(sentence) && !asks(&said)
+}
+
 fn asks(sentence: &str) -> bool {
     let said = sentence.replace('*', "").replace('’', "'").to_lowercase();
     if NOTHING_OWED.iter().any(|phrase| said.contains(phrase)) {

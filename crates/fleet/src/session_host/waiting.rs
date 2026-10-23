@@ -388,7 +388,11 @@ where
             spoke: spoke_at.as_deref(),
             done: done.as_deref(),
             dismissed: &dismissed,
-            asks: &|said| self.reply_reads().asking_line(super::asks_model::SHIPPED, self.language_model().model(), &session.id, said),
+            asks: &|said| {
+                let line = self.reply_reads().asking_line(super::asks_model::SHIPPED, self.language_model().model(), &session.id, said);
+                // A walk already waiting on him asked for his approval; a line that only says what follows it asks nothing more.
+                line.filter(|line| windows.is_empty() || !super::asks::only_approving(line))
+            },
             extracted: super::extracting::IN_FORCE.then_some(&extracted),
             // Only the first reply after the tell is read for a refusal of it.
             tell: tell
