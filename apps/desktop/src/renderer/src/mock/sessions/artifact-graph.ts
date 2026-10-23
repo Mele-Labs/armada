@@ -104,6 +104,7 @@ export function graphJob(): Session {
       you("r2", 40, GRAPH_NOTE),
       tool("a9", 36, `show_sketch ${JSON.stringify({ title: READS_TITLE, scene: READS_AGAIN })}`),
       shown("a10", 30),
+      agent("a11", 28, "The report runs on the pinned clock."),
     ],
     attachments: [
       LINKS.rfc,
