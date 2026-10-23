@@ -107,3 +107,73 @@ fn two_tasks_that_began_together_are_told_apart_by_their_place_and_one_with_no_t
     store.keep_session_plan("s1", &plan([("in_progress", None), ("in_progress", at), ("pending", None)])).unwrap();
     assert_eq!(task_of(&store), Some("t2".to_string()), "one with no time is older than any with one");
 }
+
+fn artifact(detail: &[(&str, &str)], at: &str) -> crate::KeptAttachment {
+    crate::KeptAttachment {
+        holder: crate::Holder::session("s1"),
+        kind: "sketch".to_string(),
+        manifest_id: "armada".to_string(),
+        target: "flow".to_string(),
+        state: crate::AttachmentState::Standing,
+        detail: detail.iter().map(|(key, value)| (key.to_string(), value.to_string())).collect(),
+        since: at.to_string(),
+        changed_at: at.to_string(),
+    }
+}
+
+fn origins(store: &crate::Store) -> Vec<(Option<String>, Option<String>)> {
+    store
+        .attachment_versions(&crate::Holder::session("s1"))
+        .unwrap()
+        .into_iter()
+        .map(|version| (version.from_message, version.from_task))
+        .collect()
+}
+
+#[test]
+fn a_version_reads_the_message_and_task_in_focus_when_it_was_written() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    let pending = ("pending", None);
+    store.keep_session_message("s1", "m1").unwrap();
+    store
+        .keep_session_plan("s1", &plan([pending, pending, ("in_progress", Some("2026-10-22T09:01:00.000Z"))]))
+        .unwrap();
+    store.attach(&artifact(&[], "2026-10-22T09:02:00.000Z"), false).unwrap();
+
+    store.keep_session_message("s1", "m2").unwrap();
+    store.keep_session_plan("s1", &plan([pending, pending, ("completed", None)])).unwrap();
+    store.attach(&artifact(&[("lines", "12")], "2026-10-22T09:03:00.000Z"), false).unwrap();
+
+    let some = |text: &str| Some(text.to_string());
+    assert_eq!(origins(&store), [(some("m1"), some("t3")), (some("m2"), None)]);
+}
+
+#[test]
+fn a_version_written_before_any_focus_or_by_another_kind_of_holder_reads_nothing() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    store.attach(&artifact(&[], "2026-10-22T09:00:00.000Z"), false).unwrap();
+    assert_eq!(origins(&store), [(None, None)], "no focus yet");
+
+    store.keep_session_message("s1", "m1").unwrap();
+    store
+        .conn
+        .execute(
+            "INSERT INTO ledger_attachments (holder_kind, holder_id, kind, manifest_id, target, state, detail, since, changed_at)
+             VALUES ('autopilot', 's1', 'sketch', '', 'flow', 'standing', '{}', 't1', 't1')",
+            [],
+        )
+        .unwrap();
+    let read: (Option<String>, Option<String>) = store
+        .conn
+        .query_row(
+            "SELECT o.from_message, o.from_task FROM ledger_attachment_versions v
+             LEFT JOIN ledger_attachment_version_origins o ON o.seq = v.seq
+             WHERE v.holder_kind = 'autopilot'",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .unwrap();
+    assert_eq!(read, (None, None), "a holder that is not a session has no focus");
+}
