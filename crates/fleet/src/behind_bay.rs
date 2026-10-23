@@ -81,12 +81,10 @@ where
 {
     /// Every Session in `held` whose slot is `BEHIND_FROM` or more commits behind and has not been
     /// told since it last caught up. Marked told once the message was queued or taken, so a
-    /// Session that was not listening is asked again at the next reading.
+    /// Session that was not listening is asked again at the next reading. **A mute is not a told
+    /// mark**: `told_by_fleet` answers a muted notice as untold, so lifting the mute resumes it.
     pub(crate) async fn behind_bays_told(self: &Arc<Self>, held: &WorktreesHeld) {
         let mut by_session: BTreeMap<&str, Vec<(&WorktreeSlot, u32)>> = BTreeMap::new();
-        // Read once a pass, and only for a slot that would be told. A mute is not a told mark: a
-        // muted slot stays untold, so lifting the mute resumes the notice.
-        let mut mutes: Option<store::LiveMutes> = None;
         for slot in &held.slots {
             let key = (slot.manifest_id.as_str().to_string(), slot.slot);
             let behind = slot.behind.filter(|behind| *behind >= BEHIND_FROM);
@@ -95,16 +93,6 @@ where
                 continue;
             };
             if self.behind_told().told(&key, session) {
-                continue;
-            }
-            if mutes.is_none() {
-                let now = self.now();
-                let read = self.store().lock().await.live_mutes(Notice::BehindBase.word(), now.as_str());
-                // A store that cannot say is not a licence to speak: the next pass asks again.
-                let Ok(read) = read else { return };
-                mutes = Some(read);
-            }
-            if mutes.as_ref().is_some_and(|mutes| mutes.covers(session, slot.manifest_id.as_str())) {
                 continue;
             }
             by_session.entry(session).or_default().push((slot, behind));

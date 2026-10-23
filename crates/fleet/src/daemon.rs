@@ -135,6 +135,8 @@ pub struct Fleet<H, V, W> {
     behind_told: crate::behind_bay::BehindTold,
     /// Which taught words were searched for an address in which repository. Never written down — `crate::teaching`.
     searched: crate::teaching::Searched,
+    /// The notices a Fleet rule batches, held until their window ends. Never written down — `crate::session_host::serving`.
+    notice_batches: crate::session_host::NoticeBatches,
     /// Which Jobs were told which token rule. Rebuilt from the trip rows when needed — `crate::usage_rules`.
     usage_following: crate::usage_rules::Following,
     /// Which Jobs have a person's run out in their worktree, and how to stop

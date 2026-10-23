@@ -247,7 +247,7 @@ where
 
     /// Remind a hosted Session of `claim`, and keep that it was once the words are taken.
     pub(crate) async fn claim_reminded(self: &Arc<Self>, id: &str, claim: Claim) {
-        if matches!(self.told_by_fleet(id, claim.reminder(), ipc::Notice::ReplyClaim).await, Ok(true)) {
+        if matches!(self.noticed_by_fleet(id, claim.reminder(), ipc::Notice::ReplyClaim).await, Ok(told) if told.sent()) {
             self.tell_kept(id, claim.kind()).await;
         }
     }

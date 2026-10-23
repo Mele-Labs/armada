@@ -580,7 +580,8 @@ Bridge calls neither yet.
 | `set_notice_mute` (`POST /notices/mute`, `No`) | Bridge sends `SetNoticeMute` `{ notice, scope, muted }`, Fleet answers 200 | The same body; `scope` is `job` or `hour` with `session_id`, or `repo` with `manifest_id`; `muted: false` lifts it; 422 `fleet.notice_mute_unnamed` |
 | `SessionRow` `message` | Fleet sends | Gains optional `notice`, set on Fleet's own notice only. Every notice Fleet writes to a Session carries its word (`behind_base`, `pr_checks_failed`, `write_clash` and the rest of `crates/ipc/src/notices.rs`); a row of its own kind (`linked`, `moved`, `started`) carries none |
 
-**A mute stops the send, and is kept on disk.** A slot Fleet skipped is not marked told, so lifting the mute resumes the notice, and an hour mute ends at its time across a restart.
+**A mute stops the send of every notice, and is kept on disk.** `told_by_fleet` reads it for any word, before a Fleet mod's rule.
+A notice it holds back is not marked told, so lifting the mute resumes it, and an hour mute ends at its time across a restart.
 **Rows are stored, not rebuilt**, so a row kept before this change has no `notice` and is never read as one.
 
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
@@ -625,6 +626,10 @@ Bridge's half is `packages/protocol/src/teaching.ts` and the `ModKind` union in 
 `answer_waiting` with a `choice` of an address, or `Other` and `text`, writes it to the mod as `found = "person"`; 422 `fleet.session_waiting_empty` for an address with no `{match}`.
 Dismissing it is kept: it is not asked again for that mod and repository.
 **Skew for `words_address`.** A Bridge before this reads an item of a source it does not know; the IDs differ and the lifeboat serves.
+
+**A Fleet rule that says `call` raises `WaitingSource::FleetCall`**, a derived item with id `call:<n>`, the words the Session was told as its text and a `message` act that opens the Job.
+Dismissing it settles it and tells the agent nothing.
+A Bridge before this reads an item of a source it does not know; the IDs differ and the lifeboat serves.
 
 **Removed**: `list_taught_links` and `forget_taught_link`, with the `taught_links` table, which never shipped. Forgetting a Logbook entry removes the mods whose `mod.toml` records it as `entry`.
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.

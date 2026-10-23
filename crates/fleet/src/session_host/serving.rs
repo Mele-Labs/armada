@@ -25,10 +25,13 @@ use crate::daemon::Fleet;
 use crate::helm::NotAnswerable;
 use crate::repositories::Served;
 
+mod batching;
 mod living;
 mod sending;
 mod starting;
 mod telling;
+
+pub(crate) use batching::NoticeBatches;
 
 /// A session id that names nothing. A 422.
 pub(crate) const NO_SUCH_SESSION: &str = "fleet.no_such_session";

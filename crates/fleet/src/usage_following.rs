@@ -73,20 +73,26 @@ where
             }
             for trip in due {
                 let context = trip.rule == Rule::Context;
+                // Whether the Session has the words: a trip a rule keeps quiet is handled all the same,
+                // and is not kept as a tell the Session's reply could be read as refusing.
+                let mut sent = false;
                 if context && handing {
                     self.handed_on_by_setting(session).await;
-                } else if !matches!(self.told_by_fleet(session, &trip.text, ipc::Notice::UsageTrip).await, Ok(true)) {
-                    continue;
+                } else {
+                    match self.noticed_by_fleet(session, &trip.text, ipc::Notice::UsageTrip).await {
+                        Ok(told) if told.settled() => sent = told.sent(),
+                        _ => continue,
+                    }
                 }
                 let kind = match trip.rule {
                     Rule::Context if !handing => Some(tell_refusal::CONTEXT),
                     Rule::Subagents => Some(tell_refusal::SUBAGENTS),
                     _ => None,
                 };
-                if let Some(kind) = kind {
+                if let Some(kind) = kind.filter(|_| sent) {
                     self.tell_kept(session, kind).await;
                 }
-                if context && reminded {
+                if context && reminded && sent {
                     self.handoff_reminded(session).await;
                 }
                 self.usage_following().told(session, trip.rule, &now);

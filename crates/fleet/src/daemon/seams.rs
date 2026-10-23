@@ -139,6 +139,9 @@ where
     pub(crate) fn behind_told(&self) -> &crate::behind_bay::BehindTold {
         &self.behind_told
     }
+    pub(crate) fn notice_batches(&self) -> &crate::session_host::NoticeBatches {
+        &self.notice_batches
+    }
     pub(crate) fn searched(&self) -> &crate::teaching::Searched {
         &self.searched
     }
