@@ -382,6 +382,7 @@ pub use mods::{
 pub use clashes::{
     ClashFile, ClashHolder, ClashSide, WriteClash, WriteClashes,
 };
+pub use logbook::{ForSubagent, Recalled, RecalledEntry, SubagentAsk};
 pub use territory::{
     AreaKid, AreasOfRepository, HolderTouches, RepositoryArea, RepositoryAreas, SessionFileChange,
     SlotTouches, TouchesInRepository,

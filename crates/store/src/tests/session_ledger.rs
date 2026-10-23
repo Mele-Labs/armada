@@ -11,6 +11,8 @@ use crate::{
 };
 
 const VERSIONS: &str = "session_ledger.versions";
+/// Reads the versions' table, so a build without that table has none of it either.
+const ORIGINS: &str = "session_ledger.version_origins";
 
 fn session(id: &str) -> KeptSession {
     KeptSession {
@@ -564,7 +566,7 @@ fn a_row_kept_before_versions_were_is_seeded_with_one_version_at_its_since() {
     let dir = TempDir::new();
     let before: Vec<_> = MIGRATIONS
         .iter()
-        .filter(|m| m.name != VERSIONS)
+        .filter(|m| m.name != VERSIONS && m.name != ORIGINS)
         .copied()
         .collect();
     let mut old = Store::open_with(&dir.db(), &before).expect("a build before versions");
@@ -595,6 +597,7 @@ fn forgetting_a_blank_session_forgets_its_versions_and_only_its_own() {
     store.keep_session(&blank).expect("kept");
     // A version whose row is gone: blank means nothing is held, so only a leftover can be here.
     for holder_id in ["blank", "elsewhere"] {
+        store.keep_session_message(holder_id, "m1").expect("a focus");
         store
             .conn
             .execute(
@@ -609,4 +612,9 @@ fn forgetting_a_blank_session_forgets_its_versions_and_only_its_own() {
     assert_eq!(store.forget_blank_sessions().expect("forgets"), 1);
     assert!(story(&store, &Holder::session("blank")).is_empty());
     assert_eq!(story(&store, &Holder::session("elsewhere")).len(), 1);
+    let kept = |table: &str| -> i64 {
+        store.conn.query_row(&format!("SELECT count(*) FROM {table}"), [], |row| row.get(0)).expect("a count")
+    };
+    assert_eq!(kept("ledger_attachment_version_origins"), 1, "where its versions came from goes with them");
+    assert_eq!(kept("session_focus"), 1);
 }

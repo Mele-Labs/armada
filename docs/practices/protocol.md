@@ -747,6 +747,22 @@ The row is stored as written, so no read of the thread parses a log, and a row k
 **The event stream.** The row is published as `session.row` and the Session as `session.changed`, as before; a failed row grows by one short path.
 The open risk below is neither better nor worse.
 
+## What the Logbook hands out mid-task: `recall` and `get_logbook_for_subagent`
+
+Since 22 Oct 2026. `docs/concepts/logbook.md`, *Recall*.
+**Additive only**: two operations, two routes and the types they answer; no event kind, no error on an existing operation and no field on an existing type.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `packages/protocol/src/logbook.ts`, written by hand, field for field; no screen reads either yet.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `recall` (`GET /logbook/recall?query=&section=&manifest_id=`, `Yes`) | An agent asks, Fleet answers 200 | `Recalled` `{ entries[] }`, each `{ section, kind, state, text, confirmed_by }`. 422 `fleet.session_unnamed` for a blank `query` or a `section` that is not `repo`, `habits` or `machine` |
+| `get_logbook_for_subagent` (`POST /logbook/subagent`, `No`) | The Armada mod asks, Fleet answers 200 | Body `SubagentAsk` `{ session_id, prompt }`; `ForSubagent` `{ text }`, empty where the Logbook holds nothing |
+
+**The start note is not on the wire.** It is built in Fleet and handed to the process as `--append-system-prompt`, so the Logbook note changes no type.
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+A mod newer than its Fleet gets a 404 from `/logbook/subagent` and hands the subagent nothing.
+
 ## Open questions
 
 Naming these rather than deciding them, per this document's brief:
