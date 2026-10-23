@@ -5,7 +5,7 @@
 // channel names and the preload surface that carried it are Electron's and stay
 // in `apps/desktop`.
 
-import type { ModPromoted } from "./mods";
+import type { ModPromoted, TrackerTry } from "./mods";
 import type {
   CheckOutput,
   ManifestSummary,
@@ -90,6 +90,8 @@ export type Outcome =
       pullRequest?: PullRequestState;
       /** What `promote_mod` answered: the branch the mod is on. Shown once, by the surface that pressed. */
       modPromoted?: ModPromoted;
+      /** What `try_tracker_mod` answered, passed or not. Drawn on the row that pressed Try. */
+      trackerTried?: TrackerTry;
     }
   | { ok: false; why: "not_connected" }
   | { ok: false; why: "not_understood" }

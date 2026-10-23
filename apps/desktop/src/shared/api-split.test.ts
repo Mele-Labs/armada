@@ -226,6 +226,7 @@ type OldBridgeApi = {
     validateMod: (name: string) => Promise<ModChecked | null>;
     setModEnabled: (name: string, enabled: boolean) => Promise<Outcome>;
     promoteMod: (name: string) => Promise<Outcome>;
+    tryTrackerMod: (name: string) => Promise<Outcome>;
     phone: (request: PhoneRequest) => Promise<PhoneAnswer>;
     followCheckOutput: (jobId: string | null, kept: string | null) => Promise<void>;
     followLandCheck: (at: LandCheckAt | null) => Promise<void>;
@@ -510,6 +511,7 @@ const OLD_CHANNELS = {
     validateMod: "bridge:validate-mod",
     setModEnabled: "bridge:set-mod-enabled",
     promoteMod: "bridge:promote-mod",
+    tryTrackerMod: "bridge:try-tracker-mod",
     phone: "bridge:phone",
     followCheckOutput: "bridge:follow-check-output",
     followLandCheck: "bridge:follow-land-check",

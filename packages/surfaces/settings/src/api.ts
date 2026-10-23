@@ -86,6 +86,8 @@ export type SettingsApi = {
   setModEnabled: (name: string, enabled: boolean) => Promise<Outcome>;
   /** Put a valid mod on a new branch of the repository. `modPromoted` on the answer names the branch; nothing is pushed. */
   promoteMod: (name: string) => Promise<Outcome>;
+  /** Try a tracker mod against the first repository Fleet serves. `trackerTried` on the answer says how it went, passed or not; a refusal is the Outcome's. */
+  tryTrackerMod: (name: string) => Promise<Outcome>;
   /** One request about the phone, to Fleet or to the Gateway on loopback, made by Bridge's main process. */
   phone: (request: PhoneRequest) => Promise<PhoneAnswer>;
 };
@@ -138,5 +140,6 @@ export const SETTINGS_CHANNELS = {
   validateMod: "bridge:validate-mod",
   setModEnabled: "bridge:set-mod-enabled",
   promoteMod: "bridge:promote-mod",
+  tryTrackerMod: "bridge:try-tracker-mod",
   phone: "bridge:phone",
 } as const;

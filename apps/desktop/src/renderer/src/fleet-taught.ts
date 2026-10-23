@@ -5,7 +5,7 @@
 // for it (`validate_mod`), read once for each change of the mod. A layout mod is listed from the layout source, so only what it was
 // taught on and what it holds are kept here, for its row to say.
 
-import type { ModChecked, ModSummary, Outcome } from "@armada/protocol";
+import type { ModChecked, ModSummary, Outcome, TrackerTry } from "@armada/protocol";
 import { trackerOf, type TaughtDetail, type TaughtKind, type TaughtMod, type TaughtPart, type TaughtSource, type TaughtState } from "@armada/settings";
 import { refusalWords } from "@armada/screens/src/refusal-words";
 
@@ -22,6 +22,7 @@ export type FleetTaught = {
   subscribe: (on: (facts: Facts) => void) => () => void;
   setModEnabled: (name: string, enabled: boolean) => Promise<Outcome>;
   promoteMod: (name: string) => Promise<Outcome>;
+  tryTrackerMod: (name: string) => Promise<Outcome>;
   validateMod: (name: string) => Promise<ModChecked | null>;
 };
 
@@ -44,6 +45,8 @@ export function createFleetTaught(fleet: FleetTaught, tell: (sentence: string) =
   // A switch just pressed, drawn at once; Fleet's next list replaces it.
   const switched = new Map<string, boolean>();
   const branches = new Map<string, string>();
+  // A try just answered, drawn at once; Fleet's next list replaces it.
+  const tried = new Map<string, TrackerTry>();
   // What each mod holds, from the file Fleet last checked for it, and the change of the mod that read was of.
   const checked = new Map<string, { at: string; parts: readonly TaughtPart[]; line?: string }>();
   const asking = new Set<string>();
@@ -62,7 +65,7 @@ export function createFleetTaught(fleet: FleetTaught, tell: (sentence: string) =
               enabled: switched.get(row.name) ?? row.enabled,
               ...(branches.has(row.name) ? { branch: branches.get(row.name)! } : {}),
               parts: checked.get(row.name)?.parts ?? [],
-              ...(row.kind === "tracker" ? { tracker: trackerOf(row) } : {}),
+              ...(row.kind === "tracker" ? { tracker: trackerOf(tried.has(row.name) ? { ...row, tried: tried.get(row.name)!, stale: false } : row) } : {}),
             },
           ],
     );
@@ -104,6 +107,7 @@ export function createFleetTaught(fleet: FleetTaught, tell: (sentence: string) =
     seen = key;
     rows = next.mods?.mods ?? [];
     switched.clear();
+    tried.clear();
     for (const name of [...checked.keys()]) if (!rows.some((row) => row.name === name)) checked.delete(name);
     refresh();
     // A Words, Fleet or tweak mod holds a file worth reading; a layout only where it was taught, since the layout source lists the rest.
@@ -134,6 +138,14 @@ export function createFleetTaught(fleet: FleetTaught, tell: (sentence: string) =
         if (!outcome.ok) return tell(refusalWords(outcome));
         if (outcome.modPromoted === undefined) return;
         branches.set(name, outcome.modPromoted.branch);
+        refresh();
+      });
+    },
+    tryIt: (name) => {
+      void fleet.tryTrackerMod(name).then((outcome) => {
+        if (!outcome.ok) return tell(refusalWords(outcome));
+        if (outcome.trackerTried === undefined) return;
+        tried.set(name, outcome.trackerTried);
         refresh();
       });
     },

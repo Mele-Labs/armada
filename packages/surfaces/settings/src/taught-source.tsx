@@ -80,16 +80,16 @@ const dayOf = (at: string) => {
 };
 
 /**
- * A tracker mod's marks off its `list_mods` row. **`list_mods` leaves `tried` off a mod whose `tracker.toml` was edited after its try,
- * as it does for one never tried**, so a row with no try reads `never` here and `stale` only where the caller knows better.
+ * A tracker mod's marks off its `list_mods` row. **A row with no `tried` is `stale` where Fleet says the `tracker.toml` was edited after
+ * its try**, and `never` otherwise.
  */
-export function trackerOf(row: ModSummary, stale = false): ModTracker {
+export function trackerOf(row: ModSummary): ModTracker {
   const tried = row.tried;
   return {
     valid: row.valid,
     tried:
       tried === undefined
-        ? stale
+        ? row.stale === true
           ? { state: "stale", words: "Stale" }
           : { state: "never", words: "Not tried" }
         : tried.passed

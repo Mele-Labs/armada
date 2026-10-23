@@ -90,3 +90,18 @@ it("answers a promotion with the branch Fleet named, and a refusal as itself", a
   expect(refused.ok).toBe(false);
   expect(await modding(null).mods.promote("calm")).toEqual({ ok: false, why: "not_connected" });
 });
+
+it("tries a tracker mod without naming a repository, and answers how it went, passed or not", async () => {
+  const tried = { at: "2026-10-23T12:00:00.000Z", manifest_id: "armada", passed: false, reason: "`tracker-cli` is not installed", listed: 0 };
+  const served = await fleet({ "POST /mods/try": () => [200, tried] });
+  const { mods } = modding(served.port);
+  expect(await mods.tryTracker("linear")).toEqual({ ok: true, trackerTried: tried });
+  expect(served.sent.at(-1)).toEqual({ name: "linear" });
+});
+
+it("answers a try Fleet refuses as the refusal, and one with no Fleet as not connected", async () => {
+  const served = await fleet({ "POST /mods/try": () => [422, { code: "fleet.unacceptable_mod", message: "`calm` is not a tracker mod" }] });
+  const refused = await modding(served.port).mods.tryTracker("calm");
+  expect(refused.ok).toBe(false);
+  expect(await modding(null).mods.tryTracker("calm")).toEqual({ ok: false, why: "not_connected" });
+});

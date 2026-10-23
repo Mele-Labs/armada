@@ -16,5 +16,6 @@ export const settingsApi = (): SettingsApi => ({
   validateMod: async () => null,
   setModEnabled: async () => OK,
   promoteMod: async () => OK,
+  tryTrackerMod: async () => OK,
   phone: async () => ({ ok: false, why: "unreachable" }),
 });
