@@ -39,6 +39,7 @@ mod session_rail;
 mod session_tells;
 mod session_later;
 mod notice_mutes;
+mod issue_queries;
 mod settings_file;
 mod studio;
 mod studio_authors;

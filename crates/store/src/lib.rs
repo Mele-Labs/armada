@@ -48,6 +48,8 @@ mod reply_misreads;
 /// The sentences read from a reply that he confirmed with thumbs up.
 mod reply_confirmed;
 mod notice_mutes;
+/// The issue queries a person saved, per repository.
+mod issue_queries;
 mod session_waiting;
 mod sleep_night;
 /// A repository's Autopilot and what it picked. #2092.
@@ -142,6 +144,7 @@ pub use session_rail::{KeptCite, KeptConcern, KeptRail, KeptReading, SETTLED_KEP
 pub use session_tells::KeptTell;
 pub use session_later::KeptLater;
 pub use notice_mutes::LiveMutes;
+pub use issue_queries::KeptIssueQuery;
 pub use session_waiting::KeptWaiting;
 pub use session_checks::KeptSessionCheck;
 pub use test_map::{StaleTest, TestsReaching};
