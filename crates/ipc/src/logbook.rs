@@ -1,5 +1,5 @@
 //! The Logbook on the wire: what Armada learned, read, and the acts a person has on an entry.
-//! `get_logbook`, `edit_logbook_entry`, `pin_logbook_entry`, `forget_logbook_entry` and
+//! `get_logbook`, `edit_logbook_entry`, `lock_logbook_entry`, `forget_logbook_entry` and
 //! `teach_logbook_entry` in `crates/ipc/operations/`. `docs/concepts/logbook.md`.
 //!
 //! **Bridge's mirror is `packages/protocol/src/logbook.ts`**, field for field.
@@ -91,7 +91,7 @@ pub struct LogbookEntry {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_tripped: Option<Instant>,
     pub state: LogbookState,
-    pub pinned: bool,
+    pub locked: bool,
     pub edited: bool,
     /// Earlier text, newest first.
     pub history: Vec<LogbookEarlier>,
@@ -109,10 +109,10 @@ pub struct EditLogbookEntry {
     pub text: String,
 }
 
-/// `pin_logbook_entry`' body.
+/// `lock_logbook_entry`' body.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct PinLogbookEntry {
-    pub pinned: bool,
+pub struct LockLogbookEntry {
+    pub locked: bool,
 }
 
 /// `forget_logbook_entry`' answer: the entry is on the deny list and gone from every read.

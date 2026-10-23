@@ -113,7 +113,7 @@ pub struct LogEntry {
     pub last_confirmed: u64,
     pub last_served: Option<u64>,
     pub state: LogState,
-    pub pinned: bool,
+    pub locked: bool,
     pub edited_by_person: bool,
     /// How many times a Session tripped on what it already said.
     pub tripped: u32,
@@ -146,7 +146,7 @@ pub fn logbook_words(text: &str) -> String {
 }
 
 const COLUMNS: &str = "id, section, repository, kind, text, paths, first_seen, last_confirmed, last_served, \
-                       state, pinned, edited_by_person, tripped";
+                       state, locked, edited_by_person, tripped";
 
 fn unreadable(column: usize, word: String) -> rusqlite::Error {
     rusqlite::Error::FromSqlConversionFailure(column, rusqlite::types::Type::Text, word.into())
@@ -167,7 +167,7 @@ fn entry_of(row: &rusqlite::Row<'_>) -> rusqlite::Result<LogEntry> {
         last_confirmed: row.get::<_, i64>(7)?.max(0) as u64,
         last_served: row.get::<_, Option<i64>>(8)?.map(|at| at.max(0) as u64),
         state: LogState::of_text(&word(9)?).ok_or_else(|| unreadable(9, word(9).unwrap_or_default()))?,
-        pinned: row.get::<_, i64>(10)? != 0,
+        locked: row.get::<_, i64>(10)? != 0,
         edited_by_person: row.get::<_, i64>(11)? != 0,
         tripped: row.get::<_, i64>(12)?.max(0) as u32,
         history: Vec::new(),
@@ -279,7 +279,7 @@ impl Store {
                 entry.last_confirmed as i64,
                 entry.last_served.map(|at| at as i64),
                 entry.state.as_text(),
-                i64::from(entry.pinned),
+                i64::from(entry.locked),
                 i64::from(entry.edited_by_person),
                 i64::from(entry.tripped),
             ],
@@ -375,7 +375,7 @@ impl Store {
             last_confirmed: at,
             last_served: None,
             state: LogState::Standing,
-            pinned: false,
+            locked: false,
             edited_by_person: true,
             tripped: 0,
             history: Vec::new(),
@@ -383,12 +383,12 @@ impl Store {
         self.save_logbook_entry(&entry)?.ok_or_else(|| WriteError::Database(fault("teaching a Logbook entry")(rusqlite::Error::QueryReturnedNoRows)))
     }
 
-    /// Pin an entry, or let it go: a pinned entry never fades and is never rewritten.
-    pub fn pin_logbook_entry(&mut self, id: i64, pinned: bool) -> Result<(), WriteError> {
+    /// Lock an entry, or let it go: a locked entry never fades and is never rewritten.
+    pub fn lock_logbook_entry(&mut self, id: i64, locked: bool) -> Result<(), WriteError> {
         self.conn
-            .execute("UPDATE logbook_entries SET pinned = ?2 WHERE id = ?1", params![id, i64::from(pinned)])
+            .execute("UPDATE logbook_entries SET locked = ?2 WHERE id = ?1", params![id, i64::from(locked)])
             .map(|_| ())
-            .map_err(database("pinning a Logbook entry"))
+            .map_err(database("locking a Logbook entry"))
     }
 
     /// Say an entry was served at `at`, which keeps it from fading.

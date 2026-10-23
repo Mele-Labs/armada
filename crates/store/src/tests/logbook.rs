@@ -25,7 +25,7 @@ fn entry(text: &str) -> LogEntry {
         last_confirmed: 10,
         last_served: None,
         state: LogState::Candidate,
-        pinned: false,
+        locked: false,
         edited_by_person: false,
         tripped: 0,
         history: vec![LogHistory { text: "Chrome is in /Applications.".to_string(), replaced_at: 9, why: LogRewrite::Contradicted }],

@@ -1,10 +1,10 @@
 //! The Logbook over its routes: every state is read and can be filtered, an edit keeps what the
-//! entry said, a pin holds, a forget is for good and a second one is refused, a taught entry stands
+//! entry said, a lock holds, a forget is for good and a second one is refused, a taught entry stands
 //! at once, and a bad section or a missing repository is refused. `docs/concepts/logbook.md`.
 
 use api::{Logbook, Refusal};
 use ipc::{
-    EditLogbookEntry, LogbookEntry, LogbookKind, LogbookReplacedBy, LogbookSection, LogbookState, PinLogbookEntry,
+    EditLogbookEntry, LogbookEntry, LogbookKind, LogbookReplacedBy, LogbookSection, LogbookState, LockLogbookEntry,
     TeachLogbookEntry,
 };
 use store::{LogEntry, LogEvidence, LogHistory, LogHow, LogKind, LogRewrite, LogSection, LogState};
@@ -28,7 +28,7 @@ fn learnt(section: LogSection, key: &str, text: &str, state: LogState) -> LogEnt
         last_confirmed: 3_000,
         last_served: None,
         state,
-        pinned: false,
+        locked: false,
         edited_by_person: false,
         tripped: 1,
         history: vec![LogHistory { text: "An older line.".into(), replaced_at: 2_000, why: LogRewrite::Tripped }],
@@ -112,7 +112,7 @@ async fn an_entry_reads_with_its_evidence_trip_and_earlier_text_in_the_mock_s_sh
     assert_eq!(entry.last_tripped.expect("tripped").as_str(), "1970-01-01T00:00:03.000Z");
     assert_eq!(entry.history.len(), 1);
     assert_eq!(entry.history[0].by, LogbookReplacedBy::Distil);
-    assert!(!entry.edited && !entry.pinned);
+    assert!(!entry.edited && !entry.locked);
 }
 
 #[tokio::test]
@@ -167,9 +167,9 @@ async fn a_pin_holds_and_lets_go() {
     let rig = rig_placing(None);
     let id = seeded(&rig, LogSection::Habits, "Walk before landing.", LogState::Standing).await;
 
-    assert!(rig.fleet.pin_logbook_entry(id.clone(), PinLogbookEntry { pinned: true }).await.expect("pinned").pinned);
-    assert!(read(&rig, false, None, None).await.iter().any(|one| one.id == id && one.pinned), "kept");
-    assert!(!rig.fleet.pin_logbook_entry(id, PinLogbookEntry { pinned: false }).await.expect("let go").pinned);
+    assert!(rig.fleet.lock_logbook_entry(id.clone(), LockLogbookEntry { locked: true }).await.expect("locked").locked);
+    assert!(read(&rig, false, None, None).await.iter().any(|one| one.id == id && one.locked), "kept");
+    assert!(!rig.fleet.lock_logbook_entry(id, LockLogbookEntry { locked: false }).await.expect("let go").locked);
 }
 
 #[tokio::test]
@@ -183,8 +183,8 @@ async fn a_forgotten_entry_is_gone_a_second_forget_is_refused_and_the_text_stays
 
     let again = rig.fleet.forget_logbook_entry(id.clone()).await.expect_err("already forgotten");
     assert_eq!(code(again), (404, "fleet.no_such_logbook_entry".to_string()));
-    let pinned = rig.fleet.pin_logbook_entry(id, PinLogbookEntry { pinned: true }).await.expect_err("gone");
-    assert_eq!(pinned.status(), 404);
+    let locked = rig.fleet.lock_logbook_entry(id, LockLogbookEntry { locked: true }).await.expect_err("gone");
+    assert_eq!(locked.status(), 404);
 
     let key = key_of(&rig.root);
     let denied = rig.fleet.store().lock().await.logbook_denied(LogSection::Repo, &key, "use the focused TEST command").expect("read");

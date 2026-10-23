@@ -1,6 +1,6 @@
 //! Curate's rules, with no store and no model: an entry stands on two Sessions or one Session's
 //! hard evidence, a contradiction rewrites it and keeps what it said, a trip marks it and orders it
-//! first, it fades only when both time and Sessions have passed, a pin holds it, and a forgotten
+//! first, it fades only when both time and Sessions have passed, a lock holds it, and a forgotten
 //! text never comes back. `docs/concepts/logbook.md`.
 
 use std::collections::BTreeSet;
@@ -64,7 +64,7 @@ fn standing(id: i64, text: &str, at: u64) -> LogEntry {
         last_confirmed: at,
         last_served: None,
         state: LogState::Standing,
-        pinned: false,
+        locked: false,
         edited_by_person: false,
         tripped: 0,
         history: Vec::new(),
@@ -133,8 +133,8 @@ fn a_logbook_trip_keeps_a_persons_text() {
 }
 
 #[test]
-fn a_pinned_logbook_entry_is_never_rewritten_and_never_fades() {
-    let mut entries = vec![LogEntry { pinned: true, ..standing(1, "Chrome is in /Applications.", 0) }];
+fn a_locked_logbook_entry_is_never_rewritten_and_never_fades() {
+    let mut entries = vec![LogEntry { locked: true, ..standing(1, "Chrome is in /Applications.", 0) }];
     let answer = Distilled { contradicted: vec![claim(1, Some("Chrome is not in /Applications."))], ..Distilled::default() };
     let held = Kept { sessions: 100, ..Kept::default() };
     learning(&mut entries, answer, "s3", 400 * DAY, &held);

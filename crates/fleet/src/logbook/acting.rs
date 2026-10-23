@@ -1,5 +1,5 @@
 //! The Logbook as the wire has it: read as entries of every state, and a person's acts on one.
-//! `get_logbook`, `edit_logbook_entry`, `pin_logbook_entry`, `forget_logbook_entry` and
+//! `get_logbook`, `edit_logbook_entry`, `lock_logbook_entry`, `forget_logbook_entry` and
 //! `teach_logbook_entry`. `docs/concepts/logbook.md`.
 //!
 //! **The `From` step is where a store row becomes a wire entry.** An entry run memory or the machine
@@ -11,7 +11,7 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Logbook, Refusal};
 use ipc::{
     EditLogbookEntry, Instant, LogbookEarlier, LogbookEntry, LogbookEvidence, ForgottenLogbookEntry, LogbookKind,
-    LogbookReplacedBy, LogbookSection, LogbookState, PinLogbookEntry, TeachLogbookEntry, WireError,
+    LogbookReplacedBy, LogbookSection, LogbookState, LockLogbookEntry, TeachLogbookEntry, WireError,
 };
 use store::{logbook_words, LogEntry, LogHistory, LogHow, LogKind, LogRewrite, LogSection, LogState};
 
@@ -145,7 +145,7 @@ fn wired(logged: &Logged, root: Option<&str>, titles: &HashMap<String, String>) 
         last_served: entry.last_served.map(instant),
         last_tripped: entry.evidence.iter().filter(|one| one.how == LogHow::Tripped).map(|one| one.at).max().map(instant),
         state: state_of(entry.state),
-        pinned: entry.pinned,
+        locked: entry.locked,
         edited: entry.edited_by_person,
         history: entry
             .history
@@ -299,11 +299,11 @@ where
         Ok(self.logbook_entry_wired(entry).await)
     }
 
-    async fn pin_logbook_entry(&self, entry_id: String, pin: PinLogbookEntry) -> Result<LogbookEntry, Refusal> {
+    async fn lock_logbook_entry(&self, entry_id: String, lock: LockLogbookEntry) -> Result<LogbookEntry, Refusal> {
         let mut entry = self.logbook_held(&entry_id).await?;
         let number = entry.id.unwrap_or_default();
-        self.store().lock().await.pin_logbook_entry(number, pin.pinned).map_err(|why| self.logbook_fault(why))?;
-        entry.pinned = pin.pinned;
+        self.store().lock().await.lock_logbook_entry(number, lock.locked).map_err(|why| self.logbook_fault(why))?;
+        entry.locked = lock.locked;
         self.logbook_mirrored(&entry.repository).await;
         Ok(self.logbook_entry_wired(entry).await)
     }

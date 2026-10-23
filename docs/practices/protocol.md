@@ -596,7 +596,7 @@ Bridge's half is `packages/protocol/src/logbook.ts`, written by hand, field for 
 | --- | --- | --- |
 | `get_logbook` (`GET /logbook?repository=&section=&state=`, `agent_access = "Yes"`) | Bridge reads | `Logbook` `{ entries }` of `LogbookEntry`. `repository` is a root, and absent the answer is the habits and this Mac's alone; `section` and `state` absent narrow nothing, so every state is listed. A root Fleet does not serve is a 404 `fleet.run_memory_repository_not_served` |
 | `edit_logbook_entry` (`POST /logbook/entries/:entry_id/edit`) | Bridge sends `{ text }`, Fleet answers the entry | The old text goes on `history` with `by: "person"`, `edited` is true. 404 `fleet.no_such_logbook_entry`; 422 `fleet.logbook_entry_not_kept`, `fleet.logbook_text_refused`, `fleet.logbook_text_forgotten` |
-| `pin_logbook_entry` (`POST /logbook/entries/:entry_id/pin`) | Bridge sends `{ pinned }`, Fleet answers the entry | Refused as an edit is |
+| `lock_logbook_entry` (`POST /logbook/entries/:entry_id/lock`) | Bridge sends `{ locked }`, Fleet answers the entry | Refused as an edit is |
 | `forget_logbook_entry` (`POST /logbook/entries/:entry_id/forget`) | Bridge sends nothing, Fleet answers `{ id }` | The text, and every text it had, goes on the deny list. A second forget is a 404 `fleet.no_such_logbook_entry` |
 | `teach_logbook_entry` (`POST /logbook/entries`) | Bridge sends `{ section, repository?, kind, text, paths? }`, Fleet answers the entry | Stands at once, with no Job behind it. 422 `fleet.logbook_repository_missing` for a `repo` entry naming none; teaching forgotten text lifts the forgetting |
 
