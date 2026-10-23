@@ -266,6 +266,8 @@ export type WaitingItem = {
   concern?: JudgeConcern;
   /** Where a `judge` item points: the files its quotation lands in. Absent when it lands in none. */
   cites?: WaitingCite[];
+  /** A `replied` item whose sentence he said is a question (`confirm_waiting`). Absent where he has not. */
+  confirmed?: boolean;
 };
 
 /**
@@ -366,6 +368,12 @@ export type MainRedTaken = { root: string; claimed: boolean };
  * `misread` is Not a question on an item Fleet read from a reply: its sentence is kept as one that asks nothing.
  */
 export type DismissWaiting = { session_id: string; item_id: string; reason?: string; misread?: boolean };
+
+/**
+ * `POST /sessions/waiting/confirm`: thumbs up on an item Fleet read from a reply. Its sentence is kept as one
+ * that asks, the item stays, and it reads `confirmed` from then on. Refused on an item of any other source.
+ */
+export type ConfirmWaiting = { session_id: string; item_id: string };
 
 /** One take of a change a session shows in its window. `url` is `http` or `https`. */
 export type WindowTake = { name: string; url: string };
