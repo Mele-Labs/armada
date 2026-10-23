@@ -171,32 +171,41 @@ export function timelineOf(session: Session, groups: readonly ArtifactGroup[], a
 
 export const POINT = 24;
 const ROW = 52;
-const ROOM = 28;
+const ROOM = 24;
 /** How far down a row its line runs; the title sits above it. */
 const LINE_AT = 34;
-const PX_PER_MINUTE = 11;
-const PX_PER_STEP = 64;
 export const LANE_LABEL = 144;
 const GAP = 14;
 const CHAR = 7;
+/** The least a title is given before the line beside it is moved to another track. */
+const LEAST_TITLE = 64;
+/** Points of one line closer than this widen the plot past the panel, which then scrolls. */
+const CLOSEST = 24;
+/** The least between two ticks' labels. */
+const TICK_ROOM = 64;
+const MINUTE = 60_000;
+const TICK_STEPS = [5, 10, 15, 30, 60, 120, 240].map((one) => one * MINUTE);
 
-export type Placed = { line: TimelineLine; y: number; xs: number[]; from: number; to: number; title: number };
+export type Placed = { line: TimelineLine; y: number; xs: number[]; from: number; to: number; /** The most its title may draw before it is cut with an ellipsis. */ title: number };
 export type Path = { key: string; d: string; said?: string; at: { x: number; y: number } };
 export type Tick = { x: number; said?: string };
 export type Lane = { id: LaneId; label: string; top: number; height: number };
 
 export type Layout = {
+  /** The width drawn: the panel's, or wider where points would sit closer than they can be pressed. */
   width: number;
+  /** Whether it is wider than the panel, and so scrolls. */
+  scrolls: boolean;
   height: number;
   placed: Placed[];
   paths: Path[];
   ticks: Tick[];
-  /** The Job's own line: its row, where the line starts and ends. */
-  job: { y: number; from: number; to: number };
+  /** The Job's own line, in the take that draws one. */
+  job?: { y: number; from: number; to: number };
   lanes: Lane[];
 };
 
-const widthOfTitle = (title: string) => Math.min(title.length, 34) * CHAR + 8;
+const naturalTitle = (title: string) => Math.min(title.length, 40) * CHAR + 8;
 
 /** The first track on a side whose last line ends before this one starts, or a new one. */
 function track(ends: number[], from: number): number {
@@ -204,90 +213,109 @@ function track(ends: number[], from: number): number {
   return free < 0 ? ends.length : free;
 }
 
-function scaleOf(timeline: Timeline, left: number): (t: number) => number {
-  const per = timeline.timed ? PX_PER_MINUTE / 60_000 : PX_PER_STEP;
-  return (t) => left + (t - timeline.start) * per;
+/**
+ * Time laid across the panel's width, so the whole Job shows. Only where two points of one line would sit closer than they can be
+ * pressed is it spread wider than the panel.
+ */
+function scaleOf(timeline: Timeline, left: number, panel: number): { x: (t: number) => number; width: number; per: number } {
+  const span = timeline.end - timeline.start;
+  let closest = Infinity;
+  for (const line of timeline.lines) {
+    for (let at = 1; at < line.points.length; at++) {
+      const gap = line.points[at]!.t - line.points[at - 1]!.t;
+      if (gap > 0) closest = Math.min(closest, gap);
+    }
+  }
+  const fit = span === 0 ? 0 : (panel - left - ROOM) / span;
+  const per = Math.max(fit, closest === Infinity ? 0 : CLOSEST / closest);
+  return { x: (t) => left + (t - timeline.start) * per, width: Math.max(panel, left + span * per + ROOM), per };
 }
 
-function ticksOf(timeline: Timeline, x: (t: number) => number, clock: (ms: number) => string): Tick[] {
-  if (!timeline.timed) return [];
-  const QUARTER = 15 * 60_000;
+/** A tick on a round local clock time, as many as read across the width: the smallest step that leaves the labels room. */
+function ticksOf(timeline: Timeline, x: (t: number) => number, per: number, clock: (ms: number) => string): Tick[] {
+  if (!timeline.timed || per === 0) return [];
+  const step = TICK_STEPS.find((one) => one * per >= TICK_ROOM) ?? TICK_STEPS[TICK_STEPS.length - 1]!;
   const ticks: Tick[] = [];
-  for (let t = Math.ceil(timeline.start / QUARTER) * QUARTER; t <= timeline.end; t += QUARTER) {
-    ticks.push({ x: x(t), ...(t % (2 * QUARTER) === 0 ? { said: clock(t) } : {}) });
-  }
+  const zone = new Date(timeline.start).getTimezoneOffset() * MINUTE;
+  for (let t = Math.ceil((timeline.start - zone) / step) * step + zone; t <= timeline.end; t += step) ticks.push({ x: x(t), said: clock(t) });
   return ticks;
 }
 
 function placeLine(line: TimelineLine, x: (t: number) => number, y: number): Placed {
   const xs = line.points.map((point) => x(point.t));
   const from = xs[0]! - POINT / 2;
-  const title = widthOfTitle(line.title);
-  return { line, y, xs, from, to: Math.max(xs[xs.length - 1]! + POINT / 2, from + title + POINT), title };
+  const title = naturalTitle(line.title);
+  return { line, y, xs, from, to: Math.max(xs[xs.length - 1]! + POINT / 2, from + POINT + Math.min(title, LEAST_TITLE)), title };
+}
+
+/** Each title is given the room to the next line on its track, or to the edge, and is cut with an ellipsis where that is less than it wants. */
+function fitTitles(placed: readonly Placed[], edge: number): Placed[] {
+  return placed.map((one) => {
+    const next = placed.filter((other) => other.y === one.y && other.from > one.from).sort((a, b) => a.from - b.from)[0];
+    const room = (next === undefined ? edge : next.from - GAP) - one.xs[0]! + POINT / 2;
+    return { ...one, title: Math.max(POINT, Math.min(one.title, room)) };
+  });
 }
 
 /** The path that branches a line off its parent: along the parent to where the line begins, then across to it. */
-function pathsOf(placed: readonly Placed[], jobY: number, draws: (child: TimelineLine, parent: string) => boolean): Path[] {
+function pathsOf(placed: readonly Placed[], jobY: number | undefined): Path[] {
   const at = new Map(placed.map((one) => [one.line.key, one] as const));
   return placed.flatMap((child) =>
     child.line.parents.flatMap((parent): Path[] => {
-      if (!draws(child.line, parent.key)) return [];
       const x = child.xs[0]!;
       const label = parent.said === undefined ? {} : { said: parent.said };
-      if (parent.key === "job") return [{ key: `${child.line.key}<job`, d: `M ${x} ${jobY} V ${child.y}`, ...label, at: { x, y: (jobY + child.y) / 2 } }];
+      if (parent.key === "job") return jobY === undefined ? [] : [{ key: `${child.line.key}<job`, d: `M ${x} ${jobY} V ${child.y}`, ...label, at: { x, y: (jobY + child.y) / 2 } }];
       const above = at.get(parent.key);
       if (above === undefined) return [];
       const born = child.line.points[0]!.t;
-      const index = above.line.points.reduce((last, point, at) => (point.t <= born ? at : last), 0);
+      const index = above.line.points.reduce((last, point, i) => (point.t <= born ? i : last), 0);
       const from = above.xs[index]!;
       return [{ key: `${child.line.key}<${parent.key}`, d: `M ${from} ${above.y} H ${x} V ${child.y}`, ...label, at: { x, y: (above.y + child.y) / 2 } }];
     }),
   );
 }
 
-/** One Job line through the middle, artifacts branching above and below it where they appeared. */
-export function spineOf(timeline: Timeline, clock: (ms: number) => string): Layout {
-  const left = ROOM + 40;
-  const x = scaleOf(timeline, left);
+/** One Job line through the middle, artifacts branching above and below it where they appeared, the whole Job across `panel` pixels. */
+export function spineOf(timeline: Timeline, panel: number, clock: (ms: number) => string): Layout {
+  const left = ROOM + POINT;
+  const { x, width, per } = scaleOf(timeline, left, panel);
   const ends = { up: [] as number[], down: [] as number[] };
-  const placeAt = new Map<string, { side: "up" | "down" }>();
-  const sides: { one: Placed; side: "up" | "down"; at: number }[] = [];
+  const sides = new Map<string, "up" | "down">();
+  const set: { one: Placed; side: "up" | "down"; at: number }[] = [];
   for (const [index, line] of timeline.lines.entries()) {
     const one = placeLine(line, x, 0);
-    const parent = line.parents.map((it) => placeAt.get(it.key)).find((it) => it !== undefined);
+    const parent = line.parents.map((it) => sides.get(it.key)).find((it) => it !== undefined);
     const free = { up: track(ends.up, one.from), down: track(ends.down, one.from) };
-    const side = parent !== undefined ? parent.side : free.up < free.down ? "up" : free.down < free.up ? "down" : index % 2 === 0 ? "up" : "down";
+    const side = parent !== undefined ? parent : free.up < free.down ? "up" : free.down < free.up ? "down" : index % 2 === 0 ? "up" : "down";
     const at = free[side];
     ends[side][at] = one.to;
-    placeAt.set(line.key, { side });
-    sides.push({ one, side, at });
+    sides.set(line.key, side);
+    set.push({ one, side, at });
   }
   const jobY = ends.up.length * ROW + LINE_AT;
-  const placed = sides.map(({ one, side, at }) => ({ ...one, y: side === "up" ? jobY - (at + 1) * ROW : jobY + (at + 1) * ROW }));
-  const width = Math.max(...placed.map((one) => one.to), x(timeline.end)) + 160;
+  const placed = fitTitles(
+    set.map(({ one, side, at }) => ({ ...one, y: side === "up" ? jobY - (at + 1) * ROW : jobY + (at + 1) * ROW })),
+    width - ROOM,
+  );
   return {
     width,
+    scrolls: width > panel,
     height: (ends.up.length + 1 + ends.down.length) * ROW + 16,
     placed,
-    paths: pathsOf(placed, jobY, () => true),
-    ticks: ticksOf(timeline, x, clock),
-    job: { y: jobY, from: left - 12, to: width - ROOM },
+    paths: pathsOf(placed, jobY),
+    ticks: ticksOf(timeline, x, per, clock),
+    job: { y: jobY, from: left - POINT / 2, to: width - ROOM },
     lanes: [],
   };
 }
 
-/** A lane to each kind, each artifact a line in its lane, and the joins across them. */
-export function lanesOf(timeline: Timeline, clock: (ms: number) => string): Layout {
-  const x = scaleOf(timeline, LANE_LABEL + ROOM);
-  const present = LANES.filter((lane) => lane.id === "job" || timeline.lines.some((line) => line.lane === lane.id));
+/** A lane to each kind that has an artifact, each artifact a line in its lane, and the joins across them. The axis stands for the Job. */
+export function lanesOf(timeline: Timeline, panel: number, clock: (ms: number) => string): Layout {
+  const { x, width, per } = scaleOf(timeline, LANE_LABEL + ROOM + POINT / 2, panel);
   const lanes: Lane[] = [];
-  const placed: Placed[] = [];
+  const all: Placed[] = [];
   let top = 0;
-  // The Job's own row is the first, and holds only its line.
-  lanes.push({ id: "job", label: "Job", top, height: ROW });
-  const jobY = top + LINE_AT;
-  top += ROW;
-  for (const lane of present) {
+  for (const lane of LANES) {
     const inside = timeline.lines.filter((line) => line.lane === lane.id);
     if (inside.length === 0) continue;
     const ends: number[] = [];
@@ -298,17 +326,17 @@ export function lanesOf(timeline: Timeline, clock: (ms: number) => string): Layo
       return { one, at };
     });
     lanes.push({ id: lane.id, label: lane.label, top, height: ends.length * ROW });
-    for (const { one, at } of rows) placed.push({ ...one, y: top + at * ROW + LINE_AT });
+    for (const { one, at } of rows) all.push({ ...one, y: top + at * ROW + LINE_AT });
     top += ends.length * ROW;
   }
-  const width = Math.max(...placed.map((one) => one.to), x(timeline.end)) + 160;
+  const placed = fitTitles(all, width - ROOM);
   return {
     width,
+    scrolls: width > panel,
     height: top + 8,
     placed,
-    paths: pathsOf(placed, jobY, (line) => line.lane === "job"),
-    ticks: ticksOf(timeline, x, clock),
-    job: { y: jobY, from: LANE_LABEL, to: width - ROOM },
+    paths: pathsOf(placed, undefined),
+    ticks: ticksOf(timeline, x, per, clock),
     lanes,
   };
 }

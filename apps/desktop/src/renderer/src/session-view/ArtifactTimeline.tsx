@@ -3,7 +3,7 @@
 // version of an artifact and a press on it does what the list's row does. The arrows walk the points, left and right along a line and up and
 // down between lines; Tab enters at one point and leaves from it.
 
-import { useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { SquareTerminal } from "lucide-react";
 import { Tooltip, timeSaid, useTimeFormat } from "@armada/components";
 
@@ -26,7 +26,25 @@ const firstOf = (placed: readonly Placed[]): At | undefined => {
 export function ArtifactTimeline({ timeline, take }: { timeline: Timeline; take: TimelineTake }) {
   const format = useTimeFormat();
   const clock = (ms: number) => timeSaid(ms, { hour12: format.hour12, seconds: false, date: false });
-  const layout: Layout = useMemo(() => (take === "spine" ? spineOf(timeline, clock) : lanesOf(timeline, clock)), [timeline, take, format.hour12]); // eslint-disable-line react-hooks/exhaustive-deps
+  // The whole Job is laid across the panel's width, and again whenever the panel is resized.
+  const scroller = useRef<HTMLDivElement>(null);
+  const [panel, setPanel] = useState(0);
+  const empty = timeline.lines.length === 0;
+  useLayoutEffect(() => {
+    const held = scroller.current;
+    if (held === null) return;
+    const read = () => setPanel(held.clientWidth);
+    read();
+    if (typeof ResizeObserver === "undefined") return;
+    const watch = new ResizeObserver(read);
+    watch.observe(held);
+    return () => watch.disconnect();
+  }, [empty]);
+  const layout: Layout = useMemo(() => (take === "spine" ? spineOf(timeline, panel, clock) : lanesOf(timeline, panel, clock)), [timeline, take, panel, format.hour12]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Where points would sit too close to press, it scrolls, and opens at the latest end.
+  useLayoutEffect(() => {
+    if (layout.scrolls && scroller.current !== null) scroller.current.scrollLeft = scroller.current.scrollWidth;
+  }, [layout.scrolls, take]);
   const [current, setCurrent] = useState<At | undefined>();
   const points = useRef(new Map<string, HTMLButtonElement>());
   const here = current !== undefined && layout.placed.some((one) => one.line.key === current.line && current.index < one.xs.length) ? current : firstOf(layout.placed);
@@ -43,10 +61,10 @@ export function ArtifactTimeline({ timeline, take }: { timeline: Timeline; take:
     points.current.get(`${to.line}@${to.index}`)?.focus();
   };
 
-  if (layout.placed.length === 0) return null;
+  if (timeline.lines.length === 0) return null;
   return (
     <div className="at" data-take={take} data-own-arrows="" role="group" aria-label="Timeline" onKeyDown={walk}>
-      <div className="at__scroll">
+      <div className="at__scroll" ref={scroller}>
         <div className="at__canvas" style={{ width: layout.width }}>
           <div className="at__band">
             {layout.ticks.map((tick) =>
@@ -67,7 +85,7 @@ export function ArtifactTimeline({ timeline, take }: { timeline: Timeline; take:
               {layout.ticks.map((tick) => (
                 <line key={tick.x} className="at__grid" x1={tick.x} x2={tick.x} y1={0} y2={layout.height} />
               ))}
-              <line className="at__job" x1={layout.job.from} x2={layout.job.to} y1={layout.job.y} y2={layout.job.y} />
+              {layout.job === undefined ? null : <line className="at__job" x1={layout.job.from} x2={layout.job.to} y1={layout.job.y} y2={layout.job.y} />}
               {layout.placed.map((one) => (
                 <line key={one.line.key} className="at__run" x1={one.xs[0]} x2={one.xs[one.xs.length - 1]} y1={one.y} y2={one.y} />
               ))}
@@ -75,7 +93,7 @@ export function ArtifactTimeline({ timeline, take }: { timeline: Timeline; take:
                 <path key={path.key} className="at__branch" data-join={path.said === undefined ? undefined : ""} d={path.d} />
               ))}
             </svg>
-            {take === "spine" ? (
+            {layout.job === undefined ? null : (
               <div className="at__spot" style={{ left: layout.job.from - POINT / 2, top: layout.job.y - POINT / 2 }}>
                 <Tooltip label="Job">
                   <span className="at__origin" role="img" aria-label="Job">
@@ -83,7 +101,7 @@ export function ArtifactTimeline({ timeline, take }: { timeline: Timeline; take:
                   </span>
                 </Tooltip>
               </div>
-            ) : null}
+            )}
             {layout.paths.map((path) =>
               path.said === undefined ? null : (
                 <span key={path.key} className="at__join" style={{ left: path.at.x + 6, top: path.at.y - 8 }}>
@@ -107,7 +125,7 @@ function Line({ one, here, points, clock, timed, onAt }: { one: Placed; here: At
   const Kind = line.Glyph;
   return (
     <>
-      <span className="at__title" style={{ left: one.xs[0]! - POINT / 2, top: one.y - POINT / 2 - 18, maxWidth: one.title + POINT }}>
+      <span className="at__title" style={{ left: one.xs[0]! - POINT / 2, top: one.y - POINT / 2 - 18, maxWidth: one.title }}>
         {line.title}
       </span>
       {line.points.map((point, index) => {
@@ -117,7 +135,7 @@ function Line({ one, here, points, clock, timed, onAt }: { one: Placed; here: At
         const Glyph = index === 0 ? Kind : point.Glyph;
         return (
           <div key={key} className="at__spot" style={{ left: one.xs[index]! - POINT / 2, top: one.y - POINT / 2 }}>
-            <Tooltip label={[index === 0 ? line.said : undefined, point.said, time].filter((part) => part !== undefined).join(", ")}>
+            <Tooltip label={[line.title, index === 0 ? line.said : undefined, point.said, time].filter((part) => part !== undefined).join(", ")}>
               <button
                 type="button"
                 ref={(element) => void (element === null ? points.delete(key) : points.set(key, element))}
