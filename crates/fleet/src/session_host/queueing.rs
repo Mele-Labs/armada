@@ -54,6 +54,7 @@ pub(crate) fn slot_choice_item(since: Instant) -> WaitingItem {
         place: None,
         concern: None,
         cites: Vec::new(),
+        confirmed: false,
     }
 }
 

@@ -107,6 +107,13 @@ pub trait HostedSessions: Send + Sync + 'static {
         dismiss: ipc::DismissWaiting,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
+    /// `confirm_waiting`: thumbs up on an item read from a reply. [`Refusal::IllegalMove`] where
+    /// nothing holds the item, and where it was not read from a reply.
+    fn confirm_waiting(
+        self: Arc<Self>,
+        confirm: ipc::ConfirmWaiting,
+    ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
+
     /// `get_plan_usage`: the newest reading of the plan's windows. Empty where none has come.
     fn get_plan_usage(&self) -> impl Future<Output = Result<ipc::PlanUsage, Refusal>> + Send;
 

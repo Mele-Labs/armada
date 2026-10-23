@@ -91,15 +91,23 @@ export type WaitingDismissed = { kind: "dismissed" } | { kind: "refused"; said: 
 /**
  * Dismiss one thing a Session waits on, on Fleet, which also takes it off every other window and the phone.
  * `reason` is what the person said on removing an item the agent stated; Fleet tells the agent, and an empty one is none.
+ * `misread` is Not a question on an item Fleet read from a reply.
  */
-export async function dismissWaiting(sessionId: string, itemId: string, reason?: string): Promise<WaitingDismissed> {
+export async function dismissWaiting(sessionId: string, itemId: string, reason?: string, misread?: boolean): Promise<WaitingDismissed> {
   const said = reason?.trim();
-  const done = await window.armada.dismissWaiting({ session_id: sessionId, item_id: itemId, ...(said === undefined || said === "" ? {} : { reason: said }) });
+  const done = await window.armada.dismissWaiting({ session_id: sessionId, item_id: itemId, ...(said === undefined || said === "" ? {} : { reason: said }), ...(misread === true ? { misread } : {}) });
   if (done.ok) return { kind: "dismissed" };
   const outcome = done.outcome;
   // An item nothing holds is already gone, which is what was asked.
   if (!outcome.ok && outcome.why === "refused" && outcome.error.code === "fleet.session_waiting_unheld") return { kind: "dismissed" };
   return { kind: "refused", said: refusalWords(outcome) };
+}
+
+/** Thumbs up on an item Fleet read from a reply: its sentence is kept as an ask and the item reads `confirmed` from then on. */
+export async function confirmWaiting(sessionId: string, itemId: string): Promise<{ kind: "confirmed" } | { kind: "refused"; said: string }> {
+  const done = await window.armada.confirmWaiting({ session_id: sessionId, item_id: itemId });
+  if (done.ok) return { kind: "confirmed" };
+  return { kind: "refused", said: refusalWords(done.outcome) };
 }
 
 /** Dismiss the call in front for good, by whichever way it is kept. A refusal comes back in Fleet's words. */

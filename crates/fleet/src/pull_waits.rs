@@ -106,6 +106,7 @@ mod tests {
             place: None,
             concern: None,
             cites: Vec::new(),
+            confirmed: false,
         }
     }
 
