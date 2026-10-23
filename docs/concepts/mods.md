@@ -342,6 +342,21 @@ A built-in mod is checked by the rules a local mod is, from the text compiled in
 A built-in tracker mod is listed and validated but cannot be tried or used, since it has no folder on the machine to keep a try in.
 `packages/mods/README.md` keeps the folder in every checkout, so the build always has it to watch.
 
+## In the shared home
+
+A person's own several machines carry their mods through the shared home, [Kit](kit.md), *The shared home*.
+A mod is the home's `mods/<name>/` folder, and Kit lists mods as a kind of its own, with the Theme rows carrying the same marks.
+
+> **Rule.** A mod that is not valid on this machine is not added to the home.
+> Why: a copy that no machine can apply is a broken file on every other one.
+
+> **Rule.** Add to this machine writes a mod into `mods/` and never over one that differs; only choosing a side replaces it.
+> Why: the person's own edit to a mod is theirs, and a machine's copy changing under them would be a theme redrawn by someone else.
+
+Dotted files stay behind: a mod's `.git/` and a tracker mod's `.tried.toml`, so a brought tracker mod is untried until it is tried here.
+Mods are off in What syncs until the person turns the kind on, [Account](account.md).
+A brought mod is checked as any other, so it is on and valid, or on and invalid with its reason.
+
 ## Safe mode
 
 > **Rule.** A mod that cannot be read, or that fails its checks, is never given to Bridge to apply.

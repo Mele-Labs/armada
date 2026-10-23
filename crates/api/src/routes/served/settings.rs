@@ -74,4 +74,40 @@ pub(super) const ROUTES: &[Route] = &[
         method: "POST",
         path: "/accounts/set_repository_profile",
     },
+    // The shared home this machine syncs Kit against. A read, Sync, and the person's acts on a row.
+    Route {
+        operation: "get_shared_home",
+        method: "GET",
+        path: "/shared_home",
+    },
+    Route {
+        operation: "sync_shared_home",
+        method: "POST",
+        path: "/shared_home/sync",
+    },
+    Route {
+        operation: "add_to_shared_home",
+        method: "POST",
+        path: "/shared_home/add",
+    },
+    Route {
+        operation: "bring_from_shared_home",
+        method: "POST",
+        path: "/shared_home/bring",
+    },
+    Route {
+        operation: "choose_shared_home_side",
+        method: "POST",
+        path: "/shared_home/choose",
+    },
+    Route {
+        operation: "get_home_kinds",
+        method: "GET",
+        path: "/shared_home/kinds",
+    },
+    Route {
+        operation: "set_home_kind",
+        method: "POST",
+        path: "/shared_home/kinds/set",
+    },
 ];

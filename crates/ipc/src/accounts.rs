@@ -68,7 +68,7 @@ pub enum SetUpState {
 pub struct SetUpSteps {
     pub identity: SetUpState,
     pub store: SetUpState,
-    /// **Waits until the shared home exists**, which nothing builds yet.
+    /// **Waits until this machine holds a copy of the shared home**, which Sync makes.
     pub home: SetUpState,
 }
 

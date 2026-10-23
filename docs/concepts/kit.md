@@ -33,7 +33,7 @@ Setting up your *first project* is also out of scope: a Job starts on any folder
 
 | Home | Whose | What Armada does with it |
 | --- | --- | --- |
-| The harness's own — `~/.claude` for the first adapter | The person's. It is what every other tool they use reads | **Reads it**, to show it. Writes only what they edit in Kit, and not yet |
+| The harness's own — `~/.claude` for the first adapter | The person's. It is what every other tool they use reads | **Reads it**, to show it. Writes only what the person brings from the shared home ([The shared home](#the-shared-home)); the automatic push of Kit's edits is [not built](#push-to-claude) |
 | `~/.armada` | Armada's own | Makes it, reads it, writes it. Workflows, and since 5 Oct 2026 the allowlist (`allowed-commands`); and anything with no counterpart in a harness |
 
 **Neither is authoritative over the other's idea of anything**, which is what makes two homes survivable where the issue that raised this feared they would not be.
@@ -434,7 +434,8 @@ Keeps your live local Claude environment in step with your Kit's Skills, MCP and
 
 **Automatic.** When you edit your Kit, Fleet pushes the change out; you never have to trigger it. Non-conflicting items merge silently.
 
-**Not built.** Nothing writes a person's own Claude configuration.
+**Not built: the automatic part.** Nothing yet pushes a Kit edit into a person's own Claude configuration.
+The one write there is [Add to this machine](#the-shared-home), which the person presses for a row from the shared home.
 
 **A same-named conflict with config Claude already has outside Armada surfaces for you to resolve**, rather than being silently overwritten. That is the one time you are involved.
 
@@ -456,27 +457,58 @@ It is a third place beside [Kit's two homes](#kits-two-homes), not a replacement
 
 | Carried | Not carried |
 | --- | --- |
-| Kit definitions, Workflows, the allowlist | A credential of any kind: a key, a token, an environment value |
-| Memory for a repository, matched by the repository's name | A server's arguments, its query string, its userinfo |
-| Global instructions | |
+| Mods, Skills, Sub agents, Commands | A credential of any kind: a key, a token, an environment value |
+| Global instructions, which is the Agent file | A server's arguments, its query string, its userinfo |
+| Workflows, the allowlist | A piece holding an address with a user and password, or a credential key in its query |
+| Memory for a repository, matched by the repository's name | |
+| Plugins, as a name, a marketplace and a source | |
 | An MCP server as its name and host | |
 
+**Where each is kept in the repository.**
+`mods/<name>/…`, `skills/<name>/…`, `sub_agents/<name>.md`, `commands/<name>.md`, `global_instructions/<file>`, `workflows/<file>`, `memory/<repo>/<note>.md`, `plugins/<name>.toml`, `mcp_servers/<name>.toml` and `allowlist`.
+What crosses to Bridge is on [the protocol page](../practices/protocol/the-shared-home.md).
+
+**Agent file is not a kind of its own.** It is the global instructions, and the home holds one file for it.
+
+**Mods are a kind.** A mod is a folder, [Mod](mods.md), and it travels whole except for the dotted files: its own history and a tracker mod's last try stay on the machine.
+A mod that is not valid here is not added.
+
+**Nothing secret leaves, and a piece that would carry one is refused, never scrubbed.**
+A scrubbed copy would read as differing from the original for good, and the person would be shown a file that is not theirs.
+The refusal names the host and never the value.
+
+**Sync makes the repository.** The first Sync creates `<gh login>/armada-home` as a private repository, through `gh`, acting as the profile's login.
+Where `gh` does not hold that login, Sync refuses and names `gh auth login`.
+Git runs over HTTPS with `gh`'s own credential, never SSH.
+
+**What syncs is chosen per kind and per machine, and is kept in the machine's store.** [Account](account.md), *What syncs*.
+A kind switched off has no rows in Kit, and every kind is off until it is turned on.
+
+**A row is one of four things.** It is the same, it differs, it is only on this machine, or it is only in the home.
+A server also carries whether its key is here.
+
+| Act | Where it writes | When it refuses |
+| --- | --- | --- |
+| Add to the home | The repository's copy here, then pushes it | A row that differs; a piece holding a credential; a mod that is not valid |
+| Add to this machine (Bring) | Skills, sub agents, commands, global instructions and memory notes into the person's Claude folder; workflows and the allowlist into `~/.armada`; mods into the machine's `mods/` folder; plugins through Claude's own install command | A file that differs; a server, since the home holds no key and it is added in Kit with one |
+| Choose a side | The kept side over the other, taking away the files the kept side has not | A piece holding a credential, when the kept side is this machine |
+
 **A row that differs is never merged silently.** Where a kind's row is on both sides and the two disagree, Kit shows both versions side by side and the person picks one.
+Bring never overwrites a file that differs; only choosing a side replaces it.
 A row on one side only is added to the other by the person's act, in either direction.
 A server whose key is not on this machine is marked as needing one; the home does not carry the key, so adding it here is the person's.
 
-**Where the two new kinds sit.** Global instructions is drawn beside Agent file, as the same file held in the home.
-Memory is drawn after the allowlist.
-Both, and Workflows, are rows of the Kit lists only against a shared home; with none, the lists are as they were.
-
-**Built: the Kit page, on mock data.** Each row carries a mark for how it stands against the home (the same, differs, only on this machine, only in the home, needs a key).
+**The page.** Each row carries a mark for how it stands against the home (the same, differs, only on this machine, only in the home, needs a key).
 A bar names the repository and offers Sync.
 A differing row opens a compare sheet with both versions and a button for each.
 A row on one side only offers an icon act, *Add to the home* or *Add to this machine*.
 Every Kit kind is a list with the picked item's detail beside it, and the list scrolls inside its column when it is long.
-The state comes from `draft.sharedHome` in the mock Fleet.
+Mods are a list of their own, and the Theme rows carry the same marks.
+[Bridge](bridge.md)'s Account sheet names the home repository at the top, and the sign-in's home step reads done once the home exists.
 
-**Not built: everything behind it.** Nothing creates, reads or writes the repository, no Fleet route carries a row's state, and Sync, Add and the compare choice change the mock's state alone.
+**Built in Fleet.** Fleet makes, clones and pushes the repository, compares each kind and carries the three acts.
+**Not built.** Bridge's call of these routes: its marks and acts still draw from `draft.sharedHome` in the mock Fleet.
+Per-item scopes are not built either.
 The marks use Proposed glyphs, `packages/icons/icons/house.toml` for the home and `packages/icons/icons/laptop.toml` for this machine among them.
 
 ### Upgrade
