@@ -224,6 +224,9 @@ function AddTask({ group, ed }: { group: ViewGroup; ed: PlanEditing }) {
  */
 export function GroupEditor({ group, ed, head = true }: { group: ViewGroup; ed: PlanEditing; head?: boolean }) {
   const [noting, setNoting] = useState(false);
+  // Without its head, the title and subagent type open behind a pencil, and stay open while either carries an edit.
+  const [editing, setEditing] = useState(false);
+  const headed = head || editing || group.was !== undefined || group.agentWas !== undefined;
   const target = { group: group.id };
   const drop = (event: DragEvent) => {
     event.preventDefault();
@@ -231,8 +234,8 @@ export function GroupEditor({ group, ed, head = true }: { group: ViewGroup; ed: 
     if (task !== "") ed.set(move(ed.plan, ed.marks, task, group.id));
   };
   return (
-    <div className="sv-edit-group" data-removed={group.removed || undefined} data-added={group.added || undefined} onDragOver={(event) => event.preventDefault()} onDrop={drop}>
-      {head ? (
+    <div className="sv-edit-group" data-removed={group.removed || undefined} data-added={group.added || undefined} data-editing={(headed && !head) || undefined} onDragOver={(event) => event.preventDefault()} onDrop={drop}>
+      {headed ? (
         <div className="sv-edit-group__head">
           <div className="sv-edit-group__name">
             <EditText label="Group" className="sv-group__title" value={group.title} was={group.was} onSave={(to) => ed.set(rename(ed.plan, ed.marks, target, to))} />
@@ -262,7 +265,14 @@ export function GroupEditor({ group, ed, head = true }: { group: ViewGroup; ed: 
         </div>
       ) : (
         <div className="sv-edit-group__head">
-          <Tools what={`group ${group.title}`} removed={group.removed === true} onNote={() => setNoting(true)} onRemove={() => ed.set(remove(ed.marks, target))} />
+          <span className="sv-edit__tools">
+            <Tooltip label="Edit group">
+              <Button variant="ghost" size="sm" iconOnly aria-label={`Edit group ${group.title}`} onClick={() => setEditing(true)}>
+                <Pencil size={16} strokeWidth={2} aria-hidden />
+              </Button>
+            </Tooltip>
+            <Tools what={`group ${group.title}`} removed={group.removed === true} onNote={() => setNoting(true)} onRemove={() => ed.set(remove(ed.marks, target))} />
+          </span>
         </div>
       )}
       <Notes notes={group.notes} ed={ed} />

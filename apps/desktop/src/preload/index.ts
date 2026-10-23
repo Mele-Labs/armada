@@ -38,7 +38,7 @@ import type { AddPackage, BindUnboundPiece, CommitToRepository, CommittedToRepos
 import type { PackageSaved, SharingAnswer } from "../shared/api/sharing";
 import type { DropRunFact, ImportFolders, ImportRuns, ModInstalled, RunMemory, RunMemoryPlace, SetRunMemoryPlace } from "@armada/protocol";
 import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, ChangeWaiting, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimIssue, ClaimPullRequest, DismissConcern, DismissWaiting, IssueClaimed, JudgeSession, LaterSettled, PullRequestClaimed, PullRequestFilePatch, PullRequestFilePatches, PullRequestPage, PullRequestState, RenameSession, SendConcern, SendPlanChanges, NoteSent, SendSessionMessage, SendSessionNote, SessionRunMessage, SessionRunUnderway, SessionLoadout, McpServerAct, SessionMcp, SessionMcpActed, SessionSubagent, SessionWait, SettleLater, StartAfter, TuneSession, WaitReading } from "@armada/protocol";
-import type { ArtifactRead, LoadoutItemAsk, LoadoutItemBody, PageBounds } from "@armada/screens/src/draft/sessions";
+import type { ArtifactRead, LoadoutItemAsk, LoadoutItemBody, PageBounds, PageShot } from "@armada/screens/src/draft/sessions";
 import type { PullRequestPress, PullRequestWrite, SessionActed } from "../shared/api/sessions";
 import type { RequestRepositoryRead } from "../shared/api/dispatch";
 import type { SleepActed } from "../shared/api/sleep";
@@ -538,6 +538,16 @@ const api: BridgeApi = {
     ipcRenderer.on(CHANNELS.sessionPageEscape, handler);
     return () => {
       ipcRenderer.removeListener(CHANNELS.sessionPageEscape, handler);
+    };
+  },
+  watchSessionSnapshot: (sessionId: string, address: string): Promise<Followed> =>
+    ipcRenderer.invoke(CHANNELS.watchSessionSnapshot, sessionId, address),
+  stopSessionSnapshot: (): Promise<void> => ipcRenderer.invoke(CHANNELS.stopSessionSnapshot),
+  onSessionSnapshot: (on: (shot: PageShot) => void): (() => void) => {
+    const handler = (_: unknown, shot: PageShot): void => on(shot);
+    ipcRenderer.on(CHANNELS.sessionSnapshot, handler);
+    return () => {
+      ipcRenderer.removeListener(CHANNELS.sessionSnapshot, handler);
     };
   },
   pressPullRequest: (

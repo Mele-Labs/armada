@@ -1,0 +1,80 @@
+/* The running account of a turn: a line each, its mark first, in the body's size. Done lines in the secondary ink, the one being worked
+   in the body's, and what is next quietest. */
+.armada-account__lines {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.armada-account__line {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+}
+
+.armada-account__line > .armada-task-mark {
+  flex: none;
+  align-self: center;
+}
+
+.armada-account__line[data-line="done"] { color: var(--fg-muted); }
+.armada-account__line[data-line="now"] { color: var(--fg-default); }
+.armada-account__line[data-line="next"] { color: var(--fg-subtle); }
+
+.armada-account__text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* The group the now line belongs to, quieter than the line and read as its first words: the whole line wraps, nothing is cut. */
+.armada-account__of {
+  color: var(--fg-muted);
+  font-weight: var(--weight-body);
+}
+
+.armada-account__sep {
+  color: var(--fg-subtle);
+  white-space: pre;
+}
+
+/* The live view: its title, then the frame, on the canvas's own ground so the page reads as a page. */
+.armada-account__live {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  margin: 0;
+}
+
+.armada-account__live-title {
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--fg-subtle);
+}
+
+.armada-account__live-view {
+  display: flex;
+  height: calc(var(--space-12) * 5);
+  min-height: 0;
+  overflow: hidden;
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-lg);
+}
+
+/* The frame takes the view's width, whatever width the page in it asks for. */
+.armada-account__live-view > * {
+  flex: 1;
+  min-width: 0;
+}
+
+.armada-account__live-view iframe {
+  width: 100%;
+  min-width: 0;
+}

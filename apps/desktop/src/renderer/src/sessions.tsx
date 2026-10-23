@@ -313,14 +313,19 @@ export type LedgerGoes = {
   onOpenLoadout: (sessionId: string, at?: LoadoutAt) => void;
 };
 
-/** What the ledger opens beside it, where no surface of Bridge's draws the thing: a sketch, a subagent, an artifact. */
-export type Reading = { kind: "sketch"; id: string } | { kind: "subagent"; id: string } | { kind: "background"; id: string } | { kind: "artifact"; id: string } | { kind: "steps"; id: string };
+/** What the ledger opens beside it, where no surface of Bridge's draws the thing: a sketch, a subagent, an artifact. `live` is the page the turn is building, from Progress. */
+export type Reading = { kind: "sketch"; id: string } | { kind: "subagent"; id: string } | { kind: "background"; id: string } | { kind: "artifact"; id: string } | { kind: "steps"; id: string } | { kind: "live"; id: string };
 
 /** What a press on a ledger row asks to read: a pull request opens in the side panel, the rest beside the thread. */
 export type ReadAsked = Reading | { kind: "pull_request"; number: number };
 
 export const readingOf = (session: Session, open: Reading | undefined): SessionAttachment | undefined =>
-  open === undefined || open.kind === "steps" ? undefined : session.attachments.find((one) => one.kind === open.kind && "id" in one && one.id === open.id);
+  open === undefined || open.kind === "steps"
+    ? undefined
+    : open.kind === "live"
+      ? // The page being built is not in the ledger yet: it opens large as a page artifact would.
+        session.live?.url === open.id ? { kind: "artifact", form: "page", id: session.live.url, title: session.live.title } : undefined
+      : session.attachments.find((one) => one.kind === open.kind && "id" in one && one.id === open.id);
 
 /** A waiting item's steps as the panel beside the thread draws them: the item is not an attachment, so it has its own reading. */
 export type StepsReading = Omit<StepsPanelProps, "onOpenInBrowser">;
@@ -927,13 +932,15 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
     children: <ConcernCard bare concern={one} onSend={() => draft.work?.sendConcern(session.id, one.id)} onDismiss={() => draft.work?.dismissConcern(session.id, one.id)} />,
   }));
   // A pending plan is drawn only while Fleet puts it to him; held, it is not there yet, and a sheet open on it shuts.
-  const planDrawn = session.work?.plan !== undefined && (session.work.plan.approved || planAsked(session));
+  // A plan set aside stays in the thread as a chip, though nothing waits on him for it.
+  const planDrawn = session.work?.plan !== undefined && (session.work.plan.approved || session.work.plan.setAside === true || planAsked(session));
   useEffect(() => {
     if (!planDrawn) setReviewing(false);
   }, [planDrawn]);
-  const approval: PlanApproval | undefined = session.work?.plan === undefined || !planDrawn ? undefined : { ...(session.work.plan.version === undefined ? {} : { version: session.work.plan.version }), groups: session.work.plan.groups.map((one) => ({ id: one.id, agent: one.agent, title: one.title, tasks: one.tasks.map((task) => ({ id: task.id, text: task.text })) })), approved: session.work.plan.approved, changes: changeLines(session.work.plan), ...planRevision(session.work.plan), ...(session.work.plan.sketch === undefined ? {} : { sketch: { id: session.work.plan.sketch.id, title: session.work.plan.sketch.title, scene: session.work.plan.sketch.scene } }), ...(session.work.plan.after === undefined ? {} : { after: session.work.plan.after }), onApprove: approvePlan, onReview: () => setReviewing(true) };
+  const setAside = draft.work?.setAside === undefined ? undefined : () => draft.work?.setAside?.(session.id);
+  const approval: PlanApproval | undefined = session.work?.plan === undefined || !planDrawn ? undefined : { ...(session.work.plan.version === undefined ? {} : { version: session.work.plan.version }), ...(session.work.plan.summary === undefined ? {} : { summary: session.work.plan.summary }), groups: session.work.plan.groups.map((one) => ({ id: one.id, agent: one.agent, title: one.title, ...(one.gives === undefined ? {} : { gives: one.gives }), paths: one.paths, tasks: one.tasks.map((task) => ({ id: task.id, text: task.text })) })), approved: session.work.plan.approved, ...(session.work.plan.setAside === true ? { setAside: true as const } : {}), ...(session.pressed?.includes("plan") === true ? { going: true as const } : {}), changes: changeLines(session.work.plan), ...planRevision(session.work.plan), ...(session.work.plan.sketch === undefined ? {} : { sketch: { id: session.work.plan.sketch.id, title: session.work.plan.sketch.title, scene: session.work.plan.sketch.scene } }), ...(session.work.plan.after === undefined ? {} : { after: session.work.plan.after }), onApprove: approvePlan, ...(setAside === undefined ? {} : { onSetAside: setAside }), onReview: () => setReviewing(true) };
   // A plan waiting for approval is a row in Needs you that opens it in full beside the thread, so the panel never stands between him and it.
-  const plan = approval === undefined || approval.approved ? undefined : { id: `${approval.version ?? ""}`, onOpen: () => setReviewing(true) };
+  const plan = approval === undefined || approval.approved || approval.setAside === true ? undefined : { id: `${approval.version ?? ""}`, onOpen: () => setReviewing(true), ...(setAside === undefined ? {} : { onSetAside: setAside }) };
   const waits = needs.length > 0 || question !== undefined || judges.length > 0 || plan !== undefined;
   // Open only for what the panel lists: a restart is the band's own key, and a band with nothing in it is not drawn open.
   const listed = needs.some((one) => one.restart === undefined) || question !== undefined || judges.length > 0 || plan !== undefined;
@@ -981,7 +988,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
   return (
     <SessionRefs session={session}>
       <ProseTerminal.Provider value={terminal}>
-      <SessionWorkspace session={session} ed={planEditing} entries={entries} repositories={repositories} hosts={deck?.hosts} bays={bays} onOpenSketch={(sketch) => read({ kind: "sketch", id: sketch })} onOpenSession={onOpen} onOpenCheck={(run) => goes.onOpenCheck(session.id, run)}>
+      <SessionWorkspace session={session} ed={planEditing} entries={entries} repositories={repositories} hosts={deck?.hosts} bays={bays} onOpenSketch={(sketch) => read({ kind: "sketch", id: sketch })} onOpenSession={onOpen} onOpenCheck={(run) => goes.onOpenCheck(session.id, run)} live={{ open: reading?.kind === "live", onOpen: (url) => read({ kind: "live", id: url }) }}>
       <SessionFrame
         state={state}
         said={said}

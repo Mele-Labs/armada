@@ -44,6 +44,7 @@ The Session is sent one message before the mark is set, so a send that fails lea
 **A set-aside version holds nothing and calls for nothing**: no window is listed in its `held_by`, and no item is raised for it.
 Recording again makes a new version without the mark, and its `plan:<version>` call waits as any first recording does.
 Approving a set-aside version is not refused.
+Bridge reads the plan first as its summary and a line for each group's `gives`, with the groups under Details, and draws a set-aside plan as a chip (*In Bridge*, *The plan card*).
 
 **`approve_plan`** (`session_id`, `version`) is a Bridge route.
 It sets `approved` and sends the agent one message, before it settles, so a failed send leaves the plan to approve again.
@@ -72,6 +73,8 @@ The running subagents are listed under it.
 The row is published when the list changes, so Progress follows live.
 **A recorded plan takes over**: with one, Progress shows the plan's groups and tasks and none of the agent's list, and the list goes on moving the plan's tasks by text as above.
 A Job with neither a list nor a subagent at work, and no workflow to follow, stands folded to its band.
+Progress draws the plan as steps: a finished group is one muted line, the group being worked is open and raised, and a group to come is one muted line (*In Bridge*, *Plan*).
+The group being worked is the one `activity.account.group` names (*Working on*), else one with a task `working` or `failed`.
 
 **Who touched which file.** `SessionRecord.touches` is a bounded window of the Job's recent file touches for the Field: the subagent (type and the call that started it, absent for the Job's own agent), the `path` from the repository's root, the `act` (`write`, `edit` or `remove`) and `at`.
 The window holds 60; the same file by the same hand as the latest touch moves its instant and is not a new one.

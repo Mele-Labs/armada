@@ -1,5 +1,5 @@
-// The workflow in Progress: a picker, changeable at any time, and its steps as one line of glyphs, the one the Session is at lit. Soft: the
-// steps show where the Session is and block nothing.
+// The workflow in Progress: a picker, changeable at any time, and its steps as one line of glyphs, the one the Session is at lit. Both stand in the
+// panel's band, quiet, and not in its body. Soft: the steps show where the Session is and block nothing.
 
 import { CircleCheck, CircleDashed, CircleDot, Lightbulb } from "lucide-react";
 import { Inspect, InspectCard, Select, Tooltip } from "@armada/components";
@@ -41,11 +41,15 @@ export function StepRail({ steps, at }: { steps: readonly string[]; at: number |
 
 const NONE = "none";
 
-/** The workflow as a picker, and None is a custom Session with no steps. A change applies from the next turn. */
+/** The workflow as a small quiet picker for the band, and None is a custom Session with no steps. A change applies from the next turn. With no picker it is the workflow's name. */
 export function Flow({ work, acts, id, manifestId }: { work: SessionWork; acts: SessionWorkActs | undefined; id: string; manifestId: string | undefined }) {
   const proposal = work.proposal;
   if (proposal === undefined || acts === undefined) {
-    return work.workflow === undefined ? null : <h4 className="sv-flow__name">{work.workflow.name}</h4>;
+    return work.workflow === undefined ? null : (
+      <Tooltip label="Workflow">
+        <span className="sv-flow__name">{work.workflow.name}</span>
+      </Tooltip>
+    );
   }
   return (
     <div className="sv-flow">

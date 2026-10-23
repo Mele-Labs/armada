@@ -721,6 +721,20 @@ describe("what a session is doing", () => {
     expect(later.activity).toEqual({ now: "Running cargo check" });
     expect(sessionOfRecord(record("a"), undefined, beside()).activity).toBeUndefined();
   });
+
+  it("carries the agent's last sentence, the account of his message and the page it is building", () => {
+    const account = { for: "m1", done: ["Added the page"], now: "Adding the switches", group: "g2", at: "2026-10-22T14:00:00Z" };
+    const one = sessionOfRecord(record("a", { activity: { said: "Adding the switches now.", account, live: { url: "http://localhost:5173/", title: "Notifications" } } }), undefined, beside());
+    expect(one.activity).toEqual({ said: "Adding the switches now." });
+    expect(one.account).toEqual(account);
+    expect(one.live).toEqual({ url: "http://localhost:5173/", title: "Notifications" });
+  });
+
+  it("gives an account with nothing done an empty done list", () => {
+    const one = sessionOfRecord(record("a", { activity: { account: { for: "m1", now: "Reading the request", at: "2026-10-22T14:00:00Z" } } }), undefined, beside());
+    expect(one.account).toEqual({ for: "m1", done: [], now: "Reading the request", at: "2026-10-22T14:00:00Z" });
+    expect(one.activity).toBeUndefined();
+  });
 });
 
 describe("the plan's limit and the context window", () => {

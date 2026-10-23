@@ -43,8 +43,9 @@ It is the same moment `done_since` stands down, and a turn Fleet's own notice be
 The row that announces the turn carries the clear.
 A turn ending clears nothing.
 
-**An account says it in his words, and a small model writes it.** `account` is the one field detected by no tool call: a model on `models.account` (haiku, beside the proposer's setting) reads the person's last message, the calls of the turn as the `now` words above, and what the agent said, and writes `done`, `now` and `next` for that message.
+**An account says it in his words, and a small model writes it.** `account` is the one field detected by no tool call: a model on `models.account` (haiku by default, its own row so raising the Judge or the proposer does not raise it) reads the person's last message, the calls of the turn as the `now` words above, and what the agent said, and writes `done`, `now` and `next` for that message.
 Its prompt, `crates/fleet/src/session_account.rs`, forbids file names, paths, code identifiers and tool names and asks for the person's own words; a line that carries one anyway is dropped on the way in, and an answer with no line left writes no account.
+The call goes out on the proposer's model client and inside its budget.
 `for` is the id of the message it answers.
 `group` is the approved plan group the Job is on: the group holding the task the agent's list has in progress, else the model's pick from the approved plan's groups.
 A plan the person has not approved sets none.
@@ -57,8 +58,11 @@ A plan the person has not approved sets none.
 
 **`live` is the page being built.** It is the newest of a page the Job showed with `show_window` and the page of a server it started with `start_server`, which names the Job in its `session_id`.
 It is cleared with the account, and a turn ending clears neither.
+A server names the Job that started it only when the call came in on a hosted Job's own connection; a server the person starts, from Bridge or by hand, names none, and so is never a Job's live view.
+Bridge draws the account and the live view as the Now part of Progress (*In Bridge*).
 
-**Bridge draws nothing for a Job whose turn is not running.** Whether a line or a band is drawn is Bridge's rule, read off `hosted.turn` and these fields.
+**Bridge draws nothing for a Job whose turn is not running, except the account's done lines.** Whether a line or a band is drawn is Bridge's rule, read off `hosted.turn` and these fields.
+Once the turn has ended the account's `now` and `next` are not drawn, only what is done, and that goes when a message from him follows the one it answers.
 
 **Silence is not here.** A running turn nothing has been heard from is the `stuck` state, from the activity of the process Fleet hears, whatever it calls.
 `activity` says what a Job is doing, and carries no time to read a silence from.
