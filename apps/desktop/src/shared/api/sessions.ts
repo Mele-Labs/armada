@@ -1,6 +1,7 @@
 // The Sessions Fleet hosts and the ledger of every agent session: reads, and the acts a person takes.
 // A slice imports protocol and screens, never another slice; `../api.ts` and `../bridge.ts` compose them.
 
+import type { StopWatch, WatchSummary } from "@armada/protocol";
 import type {
   AnswerSessionAsk,
   AnswerWaiting,
@@ -103,6 +104,8 @@ export type SessionsApi = {
   claimIssue: (claim: ClaimIssue) => Promise<SessionActed<IssueClaimed>>;
   /** Settles a follow-up a Session kept. Bridge's Drop sends `dropped` with no reason; Fleet takes the item off the Session's `later`. */
   settleLater: (settle: SettleLater) => Promise<SessionActed<LaterSettled>>;
+  /** The person's Stop on one watch of a Session. Fleet ends it `stopped` and answers it. */
+  stopWatch: (stop: StopWatch) => Promise<SessionActed<WatchSummary>>;
   /** Drops one thing a session waits on for good. Nothing is sent to the agent. */
   dismissWaiting: (dismiss: DismissWaiting) => Promise<SessionActed>;
   /** Thumbs up on a question Fleet read from a reply: the item stays and reads `confirmed`. Fleet refuses an item of any other source. */
@@ -270,6 +273,8 @@ export type SessionsState = {
   sessions: SessionsRead;
   /** The threads a window has opened, oldest row first, by session id. */
   sessionThreads: Record<string, SessionRow[]>;
+  /** Each Job's watches, live and ended, the newest first, by session id: `list_watches` on opening it, then `watches.changed`. */
+  sessionWatches: Record<string, WatchSummary[]>;
   /** The ids whose read from Fleet has not answered, a thread held or cached being read again among them. */
   sessionThreadsReading: string[];
 };
@@ -277,6 +282,7 @@ export type SessionsState = {
 export const SESSIONS_NOTHING_YET: SessionsState = {
   sessions: { state: "none" },
   sessionThreads: {},
+  sessionWatches: {},
   sessionThreadsReading: [],
 };
 
@@ -291,6 +297,7 @@ export const SESSIONS_CHANNELS = {
   claimPullRequest: "bridge:claim-pull-request",
   claimIssue: "bridge:claim-issue",
   settleLater: "bridge:settle-later",
+  stopWatch: "bridge:stop-watch",
   readSessionWait: "bridge:read-session-wait",
   changeWaiting: "bridge:change-waiting",
   startWaitingNow: "bridge:start-waiting-now",

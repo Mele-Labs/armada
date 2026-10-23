@@ -11,7 +11,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { WebSocketServer } from "ws";
 
-import type { RetroRow, SessionRecord, SessionRow, SessionRunMessage } from "@armada/protocol";
+import type { RetroRow, SessionRecord, SessionRow, SessionRunMessage, WatchSummary } from "@armada/protocol";
 import type { BridgeState } from "../shared/bridge";
 import { REOPEN_WITHIN_MS, SessionsHost, THREADS_HELD, withRow, withSession } from "./sessions";
 
@@ -55,6 +55,10 @@ const said = (id: string, text: string): SessionRow => ({ kind: "message", id, a
 
 type Sent = { method: string; path: string; body: unknown };
 
+/** What the fake Fleet answers `GET /watches?session_id=` with, by Job. */
+let watchesOf: Record<string, WatchSummary[]> = {};
+const watch = (id: string, change: Partial<WatchSummary> = {}): WatchSummary => ({ id, session_id: "a", name: "Staging deploy", command: ["deploy-status"], every_seconds: 60, gives_up_after_seconds: 3600, state: "running", live: true, started_at: AT, readings: [], verdicts: [], ...change });
+
 /** A Fleet that lists these sessions, serves their threads and answers every act with the session. */
 async function fleet(sent: Sent[], sessions: SessionRecord[], threads: Record<string, SessionRow[]> = {}, refuse = false): Promise<number> {
   const server = createServer((request, response) => {
@@ -69,6 +73,7 @@ async function fleet(sent: Sent[], sessions: SessionRecord[], threads: Record<st
       };
       if (refuse && url.pathname.endsWith("/merge")) return answer(409, { code: "fleet.merge_checks_not_passed", message: "Checks have not passed: lint." });
       if (url.pathname === "/sessions") return answer(200, { sessions });
+      if (url.pathname === "/watches") return answer(200, { session_id: url.searchParams.get("session_id"), watches: watchesOf[url.searchParams.get("session_id") ?? ""] ?? [] });
       if (url.pathname === "/sessions/window/failed") return answer(200, { told: true });
       if (url.pathname === "/sessions/one") {
         const id = url.searchParams.get("session_id") ?? "";
@@ -105,6 +110,20 @@ it("holds every session Fleet lists, and a session that changed replaces its row
   sessions.changed(record("b", { title: "Named" }));
   sessions.changed(record("c"));
   expect(last("sessions")).toMatchObject({ sessions: [{ id: "c" }, { id: "a" }, { id: "b", title: "Named" }] });
+});
+
+it("reads a Job's watches once as its thread opens, and takes each watches.changed whole over them", async () => {
+  const sent: Sent[] = [];
+  watchesOf = { a: [watch("w1")] };
+  const port = await fleet(sent, [record("a")], { a: [said("r1", "first")] });
+  const { sessions, last } = host(port);
+  await sessions.again(port);
+  await sessions.watch("a");
+  expect(sent.filter((one) => one.path === "/watches?session_id=a")).toHaveLength(1);
+  await vi.waitFor(() => expect(last("sessionWatches")).toMatchObject({ a: [{ id: "w1", state: "running" }] }));
+  sessions.watchesChanged({ session_id: "a", watches: [watch("w1", { state: "failed", live: false }), watch("w2")] });
+  expect(last("sessionWatches")).toMatchObject({ a: [{ id: "w1", state: "failed" }, { id: "w2" }] });
+  watchesOf = {};
 });
 
 it("says a Fleet that does not serve sessions answered nothing, so the surface stays off", async () => {

@@ -145,6 +145,9 @@ fn every_handle_names_an_entry_of_its_kind() {
         s::CACHE_WATCH_PERCENT,
         s::OPUS_READING_WATCH_TURNS,
         s::DISPUTE_READ_MINUTES,
+        s::WATCHES_AT_ONCE,
+        s::WATCHES_PER_JOB,
+        s::WATCH_GIVE_UP_MINUTES,
     ] {
         assert!(
             matches!(kinds(key.name()), Kind::Integer { .. }),
@@ -163,6 +166,8 @@ fn every_handle_names_an_entry_of_its_kind() {
         s::MERGE_NOTICE_SECONDS,
         s::RESOURCE_POLL_SECONDS,
         s::BUILD_SWEEP_SECONDS,
+        s::WATCH_RUN_SECONDS,
+        s::WATCH_EVERY_SECONDS,
     ] {
         assert!(
             matches!(kinds(key.name()), Kind::Seconds { .. }),
@@ -233,7 +238,7 @@ fn every_handle_names_an_entry_of_its_kind() {
             key.name()
         );
     }
-    let handles = 18 + 10 + 12 + 26 + 2 + 4 + s::prompt_keys().count();
+    let handles = 21 + 12 + 12 + 26 + 2 + 4 + s::prompt_keys().count();
     assert_eq!(
         entries().count(),
         handles,

@@ -1,0 +1,8 @@
+[operations."watches.changed"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "One Job's watches after any change to one, whole, as list_watches answers for it: a start, a reading, a weighing, a Stop or an end"
+notes = """
+Carries `WatchList` `{ session_id, watches[] }`, each a `WatchSummary` with its `readings[]` (the newest 50, oldest first), `set_aside[]` and `verdicts[]` (`{ at, verdict, sentence, parts? }`). A reading is at most every 30 seconds a watch and a Job holds five live watches at most, so it adds little to the unbounded-sink risk `docs/practices/protocol.md` names; it carries the history whole, so Bridge replaces what it holds rather than appending.
+"""

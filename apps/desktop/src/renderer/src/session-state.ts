@@ -45,6 +45,8 @@ export function stateOf(session: Session): { state: SessionState; said: string }
   }
   if (isBlank(session)) return { state: "blank", said: "Blank: no slot, no branch" };
   if (owesOf(session).length > 0) return { state: "waiting", said: "Waiting on you" };
+  // Fleet names the watch only while its turn has ended, nothing waits on him and a live watch is all that keeps it open.
+  if (session.heldOpenBy !== undefined) return { state: "held", said: `Held open by ${session.heldOpenBy}` };
   if (standing === "replied" && !readSince(session)) return { state: "replied", said: "Unread reply" };
   if (standing === "done") return { state: "done", said: "Done" };
   const failing = attachmentsOf(session, "pull_request").find((pr) => pr.state !== "merged" && pr.checks.state === "failed");

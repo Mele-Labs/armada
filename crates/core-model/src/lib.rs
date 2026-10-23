@@ -36,6 +36,8 @@ mod studio;
 mod test_map;
 /// Something that runs at a moment in a Job. `docs/concepts/trigger.md`.
 mod trigger;
+/// A command Fleet runs on a cadence for one Job, and what its readings come to.
+mod watch;
 /// The workflow a Session or a Job follows, and the ids it is spelled in.
 mod workflow;
 
@@ -74,4 +76,8 @@ pub use trigger::{
     can_hold, FixChoice, FrozenTrigger, OnTriggerFailure, RepairRecord, Trigger, TriggerFiring,
     TriggerIdentity, TriggerResolution, TriggerRuns, TriggerSkipped, TriggerSource, TriggerState,
     TriggerWhen, REPAIR_TRIES,
+};
+pub use watch::{
+    counted_state, ends_passed, fill, span_seconds, value_slot, BrokenReading, NotFilled,
+    NotWeighed, Part, Reading, ReadingState, SetAside, Verdict, Watch, WatchState,
 };

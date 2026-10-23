@@ -556,6 +556,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::requests::save_request_to_collection::<D>),
         )
         .route("/requests/environments", post(crate::requests::save_request_environment::<D>))
+        .route("/watches", get(crate::watches::list_watches::<D>))
+        .route("/watches/start", post(crate::watches::start_watch::<D>))
+        .route("/watches/weigh", post(crate::watches::weigh_watch::<D>))
+        .route("/watches/stop", post(crate::watches::stop_watch::<D>))
         .route("/kit/inventory", get(crate::kit::get_kit_inventory::<D>))
         .route(
             "/kit/flight_controls",

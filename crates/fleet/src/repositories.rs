@@ -287,6 +287,12 @@ pub trait Locating: Send + Sync {
     fn triggers(&self, _root: &Path, _base: Option<&str>) -> Vec<config::TriggerWritten> {
         Vec::new()
     }
+    /// The watch recipe files for the repository at `root`: its own `.armada/watches/` as
+    /// `base` holds them, and this machine's, as [`Locating::triggers`] reads. **None by
+    /// default**, so a locator that reads no files offers no recipe.
+    fn watch_recipes(&self, _root: &Path, _base: Option<&str>) -> Vec<config::WatchRecipeWritten> {
+        Vec::new()
+    }
     /// Check one Trigger against `manifest` and write it in `asked.scope`, only
     /// if it fits. **Refuses by default**, so a locator that keeps no Trigger
     /// files saves none.
