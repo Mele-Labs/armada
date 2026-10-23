@@ -39,6 +39,12 @@ const SignedIn = createContext(true);
 /** Whether the window has signed in, for what is drawn only against an account. Signed in where there is no account to offer. */
 export const useSignedIn = (): boolean => useContext(SignedIn);
 
+/** The kinds each added profile has turned on in What syncs, by login. A login with no entry chose nothing, so nothing is held back. */
+const Synced = createContext<Readonly<Record<string, readonly SyncKindWord[]>>>({});
+
+/** The kinds `login` syncs on this machine, or `undefined` where it has no What syncs to choose in. */
+export const useSyncedKinds = (login: string): readonly SyncKindWord[] | undefined => useContext(Synced)[login];
+
 type Offer = NonNullable<MockDraft["account"]>;
 
 const choices = (offer: NonNullable<Offer["add"]>): SyncChoice[] =>
@@ -264,11 +270,15 @@ function Held({ offer, children }: { offer: Offer; children: ReactNode }) {
     };
   }, [profiles, flow, kinds, open, offer, ended, unavailable, left, begin, bound, unbound]);
 
+  const synced = useMemo(() => Object.fromEntries(Object.entries(kinds).map(([login, one]) => [login, one.filter((kind) => kind.on).map((kind) => kind.kind)])), [kinds]);
+
   return (
     <AccountProvider value={value}>
       <SignedIn.Provider value={profiles.length > 0}>
-        {children}
-        <WhatSyncsSheet />
+        <Synced.Provider value={synced}>
+          {children}
+          <WhatSyncsSheet />
+        </Synced.Provider>
       </SignedIn.Provider>
     </AccountProvider>
   );
