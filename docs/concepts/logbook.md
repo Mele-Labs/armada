@@ -128,7 +128,7 @@ A `repo` section follows the place that repository's Armada configuration is kep
 
 | Existing | Relation |
 |---|---|
-| [Retro](retro.md) | Keeps only what Armada itself got wrong: bugs for Fleet or Bridge. A repository fact stops going to the Retros page, and Distil takes it. The open items that are really repository facts move into the Logbook once, and close |
+| [Retro](retro.md) | Keeps only what Armada itself got wrong: bugs for Fleet or Bridge. A repository fact stops going to the Retros page, and Distil takes it. The open items that are really repository facts move into the Logbook once, and close as `discarded` (*What the Logbook takes* in Retro) |
 | Run memory, in [Kit](kit.md) (*What a repository runs*) | Keeps its detector, which reads results off a Job's stream with no agent's word. Its facts become entries of the `repo` section, and its note is part of the Logbook note |
 | The machine note, in [Machine](machine.md) (*What a Job is told about this Mac*) | Keeps its detector. Its facts become entries of the `machine` section, and its note is part of the Logbook note |
 | The start note | The run note and the machine note become one Logbook note |

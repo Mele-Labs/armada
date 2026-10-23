@@ -34,6 +34,10 @@ pub(crate) const SESSION_QUESTION: &str =
          - A `note` is what the agent itself said got in its way. Read it as the agent's \
          account, and cite a row of the record beside it where one shows the same thing.\n\
          - Every fault of Armada's goes to `who: fleet` and `lands_in: armada`.\n\
+         - Write no item whose fix is only that an agent should know something: a command, a \
+         tool missing on this Mac, how this repository does things, a gotcha. The Logbook \
+         takes those. Keep an item only where the fix is a change to Armada, to the tools the \
+         agent was given, or to the repository's code or `armada.yml`.\n\
          - One item per cause. A few true items are better than many.\n\
          - Name only what the record shows, and cite at least one row for each item. Leave \
          out what went well. If nothing got in the way, answer with no items.\n\n\
