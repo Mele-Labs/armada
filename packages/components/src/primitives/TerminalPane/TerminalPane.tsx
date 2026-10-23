@@ -1,5 +1,5 @@
 import { Fragment, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
-import { CircleCheck, CircleX, PanelBottom, PanelBottomClose, PanelRight, PowerOff, RotateCcw, Square, SquareTerminal, X } from "lucide-react";
+import { CircleCheck, CircleX, FileTerminal, PanelBottom, PanelBottomClose, PanelRight, PowerOff, RotateCcw, Square, SquareTerminal, X } from "lucide-react";
 
 import { Button } from "../Button/Button";
 import { Tabs } from "../Tabs/Tabs";
@@ -167,9 +167,9 @@ function shellHead({ phase, onEnd, onOpen, onMove }: Omit<ShellPanelPaneProps, "
     ) : (
       <>
         {move}
-        <Button variant="ghost" size="sm" onClick={onOpen}>
-          New shell
-        </Button>
+        <IconAct label="New shell" onClick={onOpen}>
+          <FileTerminal size={16} strokeWidth={2} aria-hidden />
+        </IconAct>
         {docked === null ? null : (
           <IconAct label="Close" onClick={docked.onClose}>
             <X size={16} strokeWidth={2} aria-hidden />

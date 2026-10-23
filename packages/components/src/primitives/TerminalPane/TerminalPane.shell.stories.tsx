@@ -67,7 +67,7 @@ export const ShellEnded: Story = {
     await expect(pane.queryByRole("button", { name: "End shell" })).toBeNull();
     await expect(pane.queryByRole("button", { name: "Run again" })).toBeNull();
 
-    await userEvent.click(pane.getByRole("button", { name: "New shell" }));
+    await userEvent.click(await iconAct(pane, "New shell"));
     await expect(args.onOpen).toHaveBeenCalledTimes(1);
     await userEvent.click(await iconAct(pane, "Close"));
     await expect(args.onClose).toHaveBeenCalledTimes(1);
@@ -95,7 +95,7 @@ export const ShellEndedInThePanel: Story = {
     const pane = within(canvasElement);
     await expect(pane.getByText("Shell ended")).toBeVisible();
     await expect(pane.queryByRole("button", { name: "Close" })).toBeNull();
-    await userEvent.click(pane.getByRole("button", { name: "New shell" }));
+    await userEvent.click(await iconAct(pane, "New shell"));
     await expect(args.onOpen).toHaveBeenCalledTimes(1);
   },
 };
