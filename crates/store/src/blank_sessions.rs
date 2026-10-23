@@ -21,10 +21,28 @@ impl Store {
         transaction
             .execute(
                 &format!(
+                    "DELETE FROM ledger_attachment_version_origins
+                     WHERE seq IN (
+                         SELECT seq FROM ledger_attachment_versions
+                         WHERE holder_kind = 'session' AND holder_id IN (
+                             SELECT id FROM sessions WHERE {BLANK}))"
+                ),
+                [],
+            )
+            .map_err(wrap)?;
+        transaction
+            .execute(
+                &format!(
                     "DELETE FROM ledger_attachment_versions
                      WHERE holder_kind = 'session' AND holder_id IN (
                          SELECT id FROM sessions WHERE {BLANK})"
                 ),
+                [],
+            )
+            .map_err(wrap)?;
+        transaction
+            .execute(
+                &format!("DELETE FROM session_focus WHERE session_id IN (SELECT id FROM sessions WHERE {BLANK})"),
                 [],
             )
             .map_err(wrap)?;

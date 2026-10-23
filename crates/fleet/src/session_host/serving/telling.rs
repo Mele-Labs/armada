@@ -181,12 +181,34 @@ where
         from: SessionVoice,
         text: &str,
     ) -> Result<(), Refusal> {
+        self.first_message(session, from, text, false).await
+    }
+
+    /// [`Self::first_message_from`] for the brief a waiting Session is sent when its wait is met. **It is
+    /// the person's brief in the waited Job's voice**, so the Session's first artifacts follow it as they
+    /// follow a message of his.
+    pub(crate) async fn waited_brief_from(
+        self: &Arc<Self>,
+        session: &str,
+        from: SessionVoice,
+        text: &str,
+    ) -> Result<(), Refusal> {
+        self.first_message(session, from, text, true).await
+    }
+
+    async fn first_message(
+        self: &Arc<Self>,
+        session: &str,
+        from: SessionVoice,
+        text: &str,
+        followed: bool,
+    ) -> Result<(), Refusal> {
         let sent = SendSessionMessage {
             session_id: SessionId::carried(session),
             text: text.to_string(),
             attachments: Vec::new(),
             mentions: Vec::new(),
         };
-        Arc::clone(self).send_hosted_written(sent, Written::Message(from), None, None).await.map(|_| ())
+        Arc::clone(self).send_hosted_written(sent, Written::Message(from), None, None, followed).await.map(|_| ())
     }
 }

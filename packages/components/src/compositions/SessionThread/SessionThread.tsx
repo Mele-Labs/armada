@@ -5,6 +5,7 @@ import type { LucideIcon } from "lucide-react";
 
 import { AttachmentChip } from "../../primitives/AttachmentChip/AttachmentChip";
 import { Button } from "../../primitives/Button/Button";
+import { Enlargeable } from "../../primitives/Enlargeable/Enlargeable";
 import { Card } from "../../primitives/Card/Card";
 import { DropdownMenu } from "../../primitives/DropdownMenu/DropdownMenu";
 import { PathPicker } from "../../primitives/PathPicker/PathPicker";
@@ -374,7 +375,7 @@ function Sent({ row, tags }: { row: { files?: readonly { id: string; name: strin
         file.src === undefined ? (
           <AttachmentChip key={file.id} filename={file.name} />
         ) : (
-          <img key={file.id} className="armada-session-sent__picture" src={file.src} alt={file.name} />
+          <Enlargeable key={file.id} className="armada-session-sent__picture" src={file.src} name={file.name} />
         ),
       )}
       {sketches.map((one) => (
