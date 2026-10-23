@@ -277,12 +277,30 @@ pub(crate) fn open_pulls(in_repo: &str, gate: &str) -> Option<OpenPulls> {
 }
 
 fn open_pulls_by(ask: impl Fn(&[&str]) -> Option<String>, gate: &str) -> Option<OpenPulls> {
+    listing(ask, gate, &[])
+}
+
+/// One author's open pull requests, read as [`open_pulls`] reads each: the person's own, which a
+/// busy repository's newest can leave out. `None` where the forge would not answer, and for an
+/// author `gh` would read as a flag.
+pub(crate) fn open_pulls_of(in_repo: &str, gate: &str, author: &str) -> Option<OpenPulls> {
+    authored_by(|args| asked(in_repo, args), gate, author)
+}
+
+fn authored_by(ask: impl Fn(&[&str]) -> Option<String>, gate: &str, author: &str) -> Option<OpenPulls> {
+    if author.is_empty() || author.starts_with('-') {
+        return None;
+    }
+    listing(ask, gate, &["--author", author])
+}
+
+/// `gh pr list` of the open pull requests `only` narrows it to, at each of [`LISTED`]'s sizes
+/// until one answers.
+fn listing(ask: impl Fn(&[&str]) -> Option<String>, gate: &str, only: &[&str]) -> Option<OpenPulls> {
     let said = LISTED.iter().find_map(|limit| {
-        ask(&[
-            "pr",
-            "list",
-            "--state",
-            "open",
+        let mut args = vec!["pr", "list", "--state", "open"];
+        args.extend_from_slice(only);
+        args.extend([
             "--limit",
             limit,
             "--json",
@@ -290,7 +308,8 @@ fn open_pulls_by(ask: impl Fn(&[&str]) -> Option<String>, gate: &str) -> Option<
              createdAt,updatedAt,isDraft,mergeable,reviewDecision,additions,deletions",
             "--jq",
             OPEN_PULLS,
-        ])
+        ]);
+        ask(&args)
     })?;
     Some(said.lines().filter_map(|line| open_pull_of_line(line, gate)).collect())
 }
@@ -565,6 +584,30 @@ mod tests {
         assert_eq!(*asked.borrow(), ["100", "25"]);
         assert_eq!(listed.iter().map(|pull| pull.number).collect::<Vec<_>>(), [12]);
         assert!(open_pulls_by(|_| None, "ci").is_none());
+    }
+
+    /// The person's own listing is the open listing narrowed to their login, and asked again for
+    /// fewer as it is. A login `gh` would read as a flag is not asked at all.
+    #[test]
+    fn one_authors_listing_is_the_open_listing_narrowed_to_their_login() {
+        let asked = std::cell::RefCell::new(Vec::new());
+        let listed = authored_by(
+            |args| {
+                asked.borrow_mut().push(args.iter().map(|it| it.to_string()).collect::<Vec<_>>());
+                let limit = args[args.iter().position(|it| *it == "--limit").unwrap() + 1];
+                (limit == "25").then(|| "12\tt\tb\tu\toctocat\t".to_string())
+            },
+            "ci",
+            "octocat",
+        )
+        .unwrap();
+        let asked = asked.into_inner();
+        assert_eq!(asked.len(), 2, "100, then 25");
+        assert_eq!(asked[0][..6], ["pr", "list", "--state", "open", "--author", "octocat"]);
+        assert_eq!(listed.iter().map(|pull| pull.number).collect::<Vec<_>>(), [12]);
+        let never = |_: &[&str]| -> Option<String> { panic!("a flag is not a login") };
+        assert!(authored_by(never, "ci", "--web").is_none());
+        assert!(authored_by(never, "ci", "").is_none());
     }
 
     #[test]

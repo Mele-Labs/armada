@@ -8,7 +8,14 @@ import type { MainStanding, MergeLine } from "@armada/protocol";
 import type { Scenario } from "../moment";
 import { s245CockpitListByRepository } from "./cockpit-list-by-repository";
 
-const open = (number: number, branch: string, ci: "passed" | "running" | "failed") => ({ number, title: branch, branch, url: `https://git.example/pull/${number}`, ci });
+const open = (number: number, branch: string, ci: "passed" | "running" | "failed", position?: number) => ({
+  number,
+  title: branch,
+  branch,
+  url: `https://git.example/pull/${number}`,
+  ci,
+  ...(position === undefined ? {} : { queue: { state: "queued" as const, position } }),
+});
 
 const line = (root: string, pulls: ReturnType<typeof open>[], main?: MainStanding): MergeLine => ({ root, line: [], off: [], landed: [], sent_back: [], hub: { pull_requests: pulls, ...(main === undefined ? {} : { main }) } });
 
@@ -24,10 +31,10 @@ const BUSY = [
 const [armada, storefront] = s245CockpitListByRepository.state.holds.repositories ?? [];
 
 const lines: MergeLine[] = [
-  // Twenty open in armada, to show what a busy repository does to the line.
+  // Twenty open in armada, to show what a busy repository does to the line; two in its forge's queue, whose track is the row's tallest item.
   line(armada!.root, [
-    open(2101, "fix/trim-feed", "running"),
-    open(2102, "docs/readme-links", "passed"),
+    open(2101, "fix/trim-feed", "running", 1),
+    open(2102, "docs/readme-links", "passed", 2),
     open(2103, "chore/bump-the-lockfile", "passed"),
     ...BUSY.map((branch, at) => open(2104 + at, branch, at % 5 === 0 ? "running" : "passed")),
   ]),
