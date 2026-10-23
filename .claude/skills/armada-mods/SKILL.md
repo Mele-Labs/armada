@@ -232,6 +232,13 @@ without one fails the call. `{query}` goes in the search, `{reference}` in the
 read, and `{credential}` anywhere once `[credential]` names a command that
 prints the secret.
 
+Add `[links]` with `reference`, a regular expression for how a ticket is named in
+a dispatch's or a message's words, so a Job whose request names one holds that ticket. Write
+`reference = '\bLIN-\d+\b'` for keys in the words, or put the key in a group,
+`'linear\.app/acme/issue/(LIN-\d+)'`, to link by address: the first group is the
+reference where there is one. It must read as a pattern and not match the empty
+text, or the file is refused with the reason. Without it nothing is linked.
+
 | Never | Because |
 |---|---|
 | Write a token into `tracker.toml` | The file is read by anything on the machine. Read it from the keychain in `[credential]` |

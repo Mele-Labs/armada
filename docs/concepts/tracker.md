@@ -146,7 +146,8 @@ tracker:
 
 The mod is looked up at each call, so a try that passes is used without a restart, and an edit to `tracker.toml` refuses the mod until it is tried again.
 A word that names neither a built-in tracker nor a mod is refused as before.
-A taught tracker reads no link, so a request naming one of its issues by address is dispatched as written.
+A taught tracker links a dispatch or a message to its issues only if its file has a `[links]` section naming how a reference is written, a regular expression.
+Without one it reads no link, and a request naming one of its issues is dispatched as written.
 What the file says is [Mod](mods.md), *Tracker mods*.
 
 ## Jira

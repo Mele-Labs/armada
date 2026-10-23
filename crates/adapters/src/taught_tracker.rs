@@ -160,6 +160,22 @@ impl Tracker for TaughtTracker {
         self.issues(&self.file.search, query, "searching the issues", SEARCHED)
     }
 
+    fn issues_linked_in(&self, _in_repo: &str, text: &str) -> Vec<String> {
+        let Some(regex) = self.file.reference.as_deref().and_then(|pattern| regex::Regex::new(pattern).ok()) else {
+            return Vec::new();
+        };
+        let mut linked: Vec<String> = Vec::new();
+        for found in regex.captures_iter(text) {
+            // What the first group holds where the pattern has one, so a link can be matched whole
+            // and name only its reference; the whole match where not.
+            let reference = found.get(1).or_else(|| found.get(0)).map_or("", |one| one.as_str());
+            if !reference.is_empty() && !linked.iter().any(|had| had == reference) {
+                linked.push(reference.to_string());
+            }
+        }
+        linked
+    }
+
     fn query_guide(&self) -> QueryGuide {
         self.file.guide.clone()
     }
@@ -196,6 +212,13 @@ impl Tracker for Taught {
 
     fn search_issues(&self, in_repo: &str, query: &str) -> Result<Vec<OpenIssue>, NotTracked> {
         self.tracker("searching the issues")?.search_issues(in_repo, query)
+    }
+
+    fn issues_linked_in(&self, in_repo: &str, text: &str) -> Vec<String> {
+        match self.tracker("linking the issues") {
+            Ok(tracker) => tracker.issues_linked_in(in_repo, text),
+            Err(_) => Vec::new(),
+        }
     }
 
     fn query_guide(&self) -> QueryGuide {
