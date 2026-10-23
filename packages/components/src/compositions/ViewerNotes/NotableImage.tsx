@@ -1,9 +1,9 @@
 import { useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 
-import type { NoteAbout } from "./compose";
+import type { NoteAbout, NoteRegion } from "./compose";
 import { NoteNumber, useViewerNotes, type ViewerNotesScope } from "./ViewerNotes";
 
-type Region = { x: number; y: number; w: number; h: number };
+type Region = NoteRegion;
 
 /** Under this many pixels a drag is a press, and draws no region. */
 const SLOP = 4;
@@ -37,10 +37,26 @@ const percent = (n: number) => `${String(n * 100)}%`;
  * notes stand on it as numbered rectangles; a note on the whole picture is a number in its corner. **Drawn beside the
  * `img` and not around it**, so the picture keeps the layout its host gave it: the host's box must be positioned.
  */
-export function NotableImage({ src, name, className, notes }: { src: string; name: string; className?: string; notes?: ViewerNotesScope }) {
+export function NotableImage({
+  src,
+  name,
+  path,
+  marked,
+  className,
+  notes,
+}: {
+  src: string;
+  name: string;
+  /** Where the picture is read from, which a note names it by. */
+  path?: string;
+  /** A region a sent note named, drawn when it opens. */
+  marked?: Region;
+  className?: string;
+  notes?: ViewerNotesScope;
+}) {
   const image = useRef<HTMLImageElement>(null);
   const viewer = useViewerNotes(notes, image);
-  const [region, setRegion] = useState<Region | undefined>(undefined);
+  const [region, setRegion] = useState<Region | undefined>(marked);
   const drag = useRef<{ x: number; y: number } | undefined>(undefined);
   // Where the picture is drawn in its positioned box, which the marks are laid over.
   const [box, setBox] = useState<{ left: number; top: number; width: number; height: number } | undefined>(undefined);
@@ -61,7 +77,12 @@ export function NotableImage({ src, name, className, notes }: { src: string; nam
   }, [viewer.on]);
 
   // A region held as a note is drawn as the note's mark from then on, and a sent one is gone with it.
-  useLayoutEffect(() => setRegion(undefined), [viewer.settled]);
+  const settled = useRef(viewer.settled);
+  useLayoutEffect(() => {
+    if (settled.current === viewer.settled) return;
+    settled.current = viewer.settled;
+    setRegion(undefined);
+  }, [viewer.settled]);
   const writing = viewer.marks.some((one) => one.writing);
 
   const at = (event: { clientX: number; clientY: number }) => {
@@ -71,7 +92,7 @@ export function NotableImage({ src, name, className, notes }: { src: string; nam
 
   const aboutAt = (point: { x: number; y: number } | undefined): NoteAbout => {
     const kept = region !== undefined && (point === undefined || inside(region, point.x, point.y)) ? region : undefined;
-    return { kind: "image", name, ...(kept === undefined ? {} : { region: kept }), crop: cropOf(image.current!, kept) };
+    return { kind: "image", name, ...(path === undefined ? {} : { path }), ...(kept === undefined ? {} : { region: kept }), crop: cropOf(image.current!, kept) };
   };
   /** Where the note's subject is on screen: the region, or the whole picture. */
   const anchorOf = (about: NoteAbout) => {

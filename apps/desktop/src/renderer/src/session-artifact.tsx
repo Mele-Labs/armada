@@ -9,7 +9,7 @@ import { useEffect, useRef, useState } from "react";
 import { AppWindow, Files, Globe, Image, NotebookText } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Enlargeable, NotableImage, Prose } from "@armada/components";
-import type { ViewerNotesScope } from "@armada/components";
+import type { NoteRegion, ViewerNotesScope } from "@armada/components";
 import type { ArtifactRead, PageBounds, SessionsDraft } from "@armada/screens/src/draft/sessions";
 
 type ArtifactForm = "page" | "file" | "image" | "doc" | "window";
@@ -42,20 +42,31 @@ function useArtifact(draft: SessionsDraft | undefined, sessionId: string, path: 
   return held?.path === path ? { state: "read", read: held.read } : { state: "reading" };
 }
 
+/** A sent note on a picture, opened again: the picture opens large, with the note's region drawn where it had one. */
+export type PictureMarked = { region?: NoteRegion };
+
 /** A picture the ledger names. Its large view takes notes, which go to the Job that made it. */
-function Picture({ bytes, type, label, notes }: { bytes: Uint8Array; type: string; label: string; notes: ViewerNotesScope }) {
+function Picture({ bytes, type, label, path, notes, marked }: { bytes: Uint8Array; type: string; label: string; path: string; notes: ViewerNotesScope; marked?: PictureMarked }) {
   const [src, setSrc] = useState<string | undefined>();
   useEffect(() => {
     const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type }));
     setSrc(url);
     return () => URL.revokeObjectURL(url);
   }, [bytes, type]);
-  return src === undefined ? null : <Enlargeable className="armada-session-artifact__picture" src={src} name={label} large={<NotableImage className="armada-enlargeable__picture" src={src} name={label} notes={notes} />} />;
+  return src === undefined ? null : (
+    <Enlargeable
+      className="armada-session-artifact__picture"
+      src={src}
+      name={label}
+      opened={marked !== undefined}
+      large={<NotableImage className="armada-enlargeable__picture" src={src} name={label} path={path} notes={notes} {...(marked?.region === undefined ? {} : { marked: marked.region })} />}
+    />
+  );
 }
 
-function Contents({ read, label, notes }: { read: ArtifactRead; label: string; notes: ViewerNotesScope }) {
+function Contents({ read, label, path, notes, marked }: { read: ArtifactRead; label: string; path: string; notes: ViewerNotesScope; marked?: PictureMarked }) {
   if (!read.ok) return <p className="armada-session-artifact__refused">{refusedSaid(read)}</p>;
-  if (read.type.startsWith("image/")) return <Picture bytes={read.bytes} type={read.type} label={label} notes={notes} />;
+  if (read.type.startsWith("image/")) return <Picture bytes={read.bytes} type={read.type} label={label} path={path} notes={notes} {...(marked === undefined ? {} : { marked })} />;
   const text = new TextDecoder().decode(read.bytes);
   return read.type === "text/markdown" ? (
     <div className="armada-session-reading">
@@ -149,6 +160,7 @@ export function ArtifactBody({
   id,
   title,
   onClose,
+  marked,
 }: {
   draft: SessionsDraft | undefined;
   sessionId: string;
@@ -156,12 +168,13 @@ export function ArtifactBody({
   id: string;
   title: string;
   onClose: () => void;
+  marked?: PictureMarked;
 }) {
   if (isAddress(form)) return <PageFrame draft={draft} sessionId={sessionId} address={id} label={title} onClose={onClose} />;
-  return <FileBody draft={draft} sessionId={sessionId} id={id} title={title} />;
+  return <FileBody draft={draft} sessionId={sessionId} id={id} title={title} {...(marked === undefined ? {} : { marked })} />;
 }
 
-function FileBody({ draft, sessionId, id, title }: { draft: SessionsDraft | undefined; sessionId: string; id: string; title: string }) {
+function FileBody({ draft, sessionId, id, title, marked }: { draft: SessionsDraft | undefined; sessionId: string; id: string; title: string; marked?: PictureMarked }) {
   const held = useArtifact(draft, sessionId, id);
-  return held.state === "reading" ? null : <Contents read={held.read} label={title} notes={{ key: `image:${sessionId}:${id}`, job: sessionId }} />;
+  return held.state === "reading" ? null : <Contents read={held.read} label={title} path={id} notes={{ key: `image:${sessionId}:${id}`, job: sessionId }} {...(marked === undefined ? {} : { marked })} />;
 }

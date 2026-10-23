@@ -278,6 +278,8 @@ export type CodeEditorProps = {
   notes?: readonly CodeNoteMark[];
   /** A right press, or the menu key or Shift F10: where, the lines it points at, and where they are on screen. */
   onNote?: (at: { x: number; y: number }, lines: CodeLines, drawn: { left: number; top: number; right: number; bottom: number } | undefined) => void;
+  /** Lines to select and bring to the middle once the text is in, as a sent note on them opens the file again. 1-based, inclusive. */
+  reveal?: { from: number; to: number };
 };
 
 /** The line at the top of a view scrolled to `top`, as a fraction where it is part way down one. */
@@ -295,7 +297,7 @@ function topOf(view: EditorView, line: number): number {
   return block.top + Math.min(1, Math.max(0, line - whole)) * block.height;
 }
 
-export function CodeEditor({ name, value, onChange, language, autoFocus = false, scrollTo, onScroll, notes, onNote }: CodeEditorProps) {
+export function CodeEditor({ name, value, onChange, language, autoFocus = false, scrollTo, onScroll, notes, onNote, reveal }: CodeEditorProps) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
   const change = useRef(onChange);
@@ -397,6 +399,21 @@ export function CodeEditor({ name, value, onChange, language, autoFocus = false,
       ],
     });
   }, [kind, wraps, editable, name]);
+
+  // Once per pair of lines, after the text that holds them is in.
+  const shown = useRef<string | undefined>(undefined);
+  const revealKey = reveal === undefined ? undefined : `${String(reveal.from)}-${String(reveal.to)}`;
+  useEffect(() => {
+    const at = view.current;
+    if (at === null || reveal === undefined || revealKey === shown.current) return;
+    const doc = at.state.doc;
+    if (reveal.from > doc.lines) return;
+    shown.current = revealKey;
+    const from = doc.line(reveal.from).from;
+    const to = doc.line(Math.min(doc.lines, Math.max(reveal.from, reveal.to))).to;
+    at.dispatch({ selection: { anchor: from, head: to }, effects: EditorView.scrollIntoView(from, { y: "center" }) });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the lines, and read again when the text arrives
+  }, [revealKey, value]);
 
   // Keyed on what the marks say, so a render handing over an equal list reconfigures nothing.
   const noted = JSON.stringify(notes ?? []);

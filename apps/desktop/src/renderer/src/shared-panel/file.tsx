@@ -10,7 +10,7 @@ import { useAtFloor } from "@armada/shell";
 import type { PanelFileItem, PanelFileRead } from "../../../shared/api/files";
 import { openSessionIn } from "../open-session";
 import { useBack } from "./panels";
-import { closePanel, filePreviewing, openInPanel, useFilesBeside } from "./store";
+import { closePanel, filePreviewing, openInPanel, useFilesBeside, type PanelFileMarked } from "./store";
 
 /** What a read was refused for, as a fact. */
 const NOT_OPENED = {
@@ -133,7 +133,7 @@ function useFile(item: PanelFileItem): Omit<FilePanelProps, "onClose" | "floor" 
   };
 }
 
-export function FileSide({ item }: { item: PanelFileItem }) {
+export function FileSide({ item }: { item: PanelFileItem & { marked?: PanelFileMarked } }) {
   const floor = useAtFloor();
   const back = useBack();
   const beside = useFilesBeside();
@@ -149,6 +149,7 @@ export function FileSide({ item }: { item: PanelFileItem }) {
       {...(beside === undefined ? {} : { beside })}
       onPreviewing={filePreviewing}
       notes={{ key: `file:${item.path}`, ...(job === undefined ? {} : { job }) }}
+      {...(item.marked === undefined ? {} : { marked: item.marked })}
     />
   );
 }

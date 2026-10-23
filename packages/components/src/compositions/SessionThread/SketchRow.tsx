@@ -49,7 +49,7 @@ export function SketchRow({ row, onOpen }: { row: Extract<SessionThreadRow, { ki
  * the sketch it was drawn against, it is read as a change to it** (added green, removed red,
  * changed amber), and a band offers the whole drawing instead.
  */
-export function SketchReading({ scene, title, against, notes }: { scene: unknown; title?: string; against?: { title: string; scene: unknown }; notes?: ViewerNotesScope }) {
+export function SketchReading({ scene, title, against, notes, marked }: { scene: unknown; title?: string; against?: { title: string; scene: unknown }; notes?: ViewerNotesScope; marked?: readonly string[] }) {
   const [changes, setChanges] = useState(true);
   return (
     <div className="armada-session-sketch-read">
@@ -66,7 +66,7 @@ export function SketchReading({ scene, title, against, notes }: { scene: unknown
           </span>
         </div>
       )}
-      <SketchScene scene={scene} autoplay {...(title === undefined ? {} : { title })} {...(against === undefined || !changes ? {} : { against: against.scene })} {...(notes === undefined ? {} : { notes })} />
+      <SketchScene scene={scene} autoplay {...(title === undefined ? {} : { title })} {...(against === undefined || !changes ? {} : { against: against.scene })} {...(notes === undefined ? {} : { notes })} {...(marked === undefined ? {} : { marked })} />
     </div>
   );
 }

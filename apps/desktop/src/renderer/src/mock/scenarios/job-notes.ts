@@ -21,6 +21,8 @@ const at = (seconds: number) => `14:4${String(Math.floor(seconds / 60))}:${Strin
 const noter: Session = {
   id: "s27",
   title: NOTES_JOB,
+  // The checkout ⌘O's files are in, so a note on one is shown from here in the thread.
+  cwd: "/Users/user/Development/armada",
   turn: { state: "idle" },
   rows: [
     { id: "j1", at: at(10), kind: "message", from: { kind: "agent" }, text: "The clock is read in one place now. This is how a write reaches it." },

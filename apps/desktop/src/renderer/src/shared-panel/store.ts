@@ -8,14 +8,18 @@ import type { RequestHeader } from "@armada/protocol";
 /** What Requests starts from: a request's sent half, as a `requested` row holds it. */
 export type RequestStart = { method: string; url: string; environment?: string; headers: readonly RequestHeader[]; body?: string };
 
+import type { NoteRegion } from "@armada/components";
 import type { PanelFileItem } from "../../../shared/api/files";
+
+/** A file opened again from a note the person sent on it: the lines to select, or the region of a picture to draw. */
+export type PanelFileMarked = { lines?: { from: number; to: number }; region?: NoteRegion };
 
 /** What a press hands over: enough to name the thing, and whatever the surface already knew of it. The panel reads the rest. */
 export type PanelItem =
   | { kind: "pr"; number: number; address: string; repository?: string; manifestId?: string; root?: string; title?: string; branch?: string; tab?: string }
   | { kind: "issue"; /** The forge's number as digits, or a tracker's key. */ number: string; root?: string; manifestId?: string; address?: string; title?: string }
   | { kind: "bay"; manifestId: string; slot: number }
-  | PanelFileItem
+  | (PanelFileItem & { marked?: PanelFileMarked })
   | { kind: "check"; id: string; name?: string; branch?: string; land?: { root: string; branch: string; check: string }; row?: { state: "passed" | "failed" | "running"; seconds?: number; address?: string } }
   /**
    * Requests, for the Job it was opened in where there was one, starting from a request where it was opened on one (`from` is

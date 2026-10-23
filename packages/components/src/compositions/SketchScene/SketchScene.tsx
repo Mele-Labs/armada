@@ -72,6 +72,8 @@ export type SketchSceneProps = {
    * boxed, offers Add note; each held note's number stands on its parts. Absent takes none, and Shift drag is React Flow's.
    */
   notes?: ViewerNotesScope;
+  /** Parts a sent note named, by id: picked when it opens, so they stand out and a right press notes them again. */
+  marked?: readonly string[];
 };
 
 const ICON: Record<SceneIcon, LucideIcon> = {
@@ -389,7 +391,7 @@ function overlay(kept: readonly SceneRfNode[], fresh: readonly SceneRfNode[]): S
 const JOINS_THE_PICK = ["Meta", "Control"];
 const NO_NOTES: NodeData["notes"] = [];
 
-export function SketchScene({ scene: given, against, title, onAsk, marks, onMarks, preview = false, autoplay = false, playing = false, notes: noteScope }: SketchSceneProps) {
+export function SketchScene({ scene: given, against, title, onAsk, marks, onMarks, preview = false, autoplay = false, playing = false, notes: noteScope, marked }: SketchSceneProps) {
   const parsed = useMemo(() => parseScene(given), [given]);
   const before = useMemo(() => (against === undefined ? undefined : parseScene(against)), [against]);
   const diff = useMemo(() => (parsed === undefined || before === undefined ? undefined : diffScenes(before, parsed)), [parsed, before]);
@@ -542,6 +544,13 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
   latest.current = fresh;
   const nodes = useMemo(() => overlay(kept, fresh), [kept, fresh]);
   const onNodesChange = useCallback((changes: NodeChange<SceneRfNode>[]) => setKept((held) => applyNodeChanges(changes, overlay(held, latest.current))), []);
+  const markedKey = (marked ?? []).join("\n");
+  const laidOut = fresh.length > 0;
+  useEffect(() => {
+    if (markedKey === "" || !laidOut) return;
+    const ids = markedKey.split("\n");
+    onNodesChange(latest.current.map((one) => ({ type: "select" as const, id: one.id, selected: ids.includes(one.id) })));
+  }, [markedKey, sceneKey, laidOut, onNodesChange]);
   const edges = useMemo<SceneRfEdge[]>(
     () =>
       (shown?.edges ?? []).flatMap((edge) => {

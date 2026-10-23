@@ -8,10 +8,10 @@ import { createPortal } from "react-dom";
  * only label, on the button and on the dialog.
  *
  * `large` draws in the picture's place in the large view: a `NotableImage`, whose press draws a region rather than
- * closing. Esc goes first to a note or a region open in it.
+ * closing. Esc goes first to a note or a region open in it. `opened` starts it large, for a press that asked for the picture itself.
  */
-export function Enlargeable({ src, name, className, large }: { src: string; name: string; className?: string; large?: ReactNode }) {
-  const [open, setOpen] = useState(false);
+export function Enlargeable({ src, name, className, large, opened = false }: { src: string; name: string; className?: string; large?: ReactNode; opened?: boolean }) {
+  const [open, setOpen] = useState(opened);
   const thumb = useRef<HTMLButtonElement>(null);
   const layer = useRef<HTMLDivElement>(null);
 

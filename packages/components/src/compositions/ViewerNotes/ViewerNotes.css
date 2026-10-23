@@ -135,3 +135,51 @@ img[data-notable]:focus-visible {
   outline: var(--focus-ring);
   outline-offset: var(--focus-ring-offset);
 }
+
+/* A sent notes message in the thread: what each note is about is a press that opens it again. */
+.armada-noted {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.armada-noted__head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.armada-noted__n {
+  flex: none;
+  color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.armada-noted__ref {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+/* A path is a fact the system reported. */
+.armada-noted__ref[data-kind="file"] {
+  font-family: var(--font-mono);
+}
+
+.armada-noted__ref:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+  border-radius: var(--radius-sm);
+}
+
+.armada-noted__body {
+  padding-inline-start: var(--space-4);
+}

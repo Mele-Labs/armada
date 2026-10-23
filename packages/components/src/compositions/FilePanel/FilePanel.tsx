@@ -6,6 +6,7 @@ import { Button } from "../../primitives/Button/Button";
 import { KbdBinding } from "../../primitives/Kbd/Kbd";
 import { Sheet } from "../../primitives/Sheet/Sheet";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
+import type { NoteRegion } from "../ViewerNotes/compose";
 import { NotableImage } from "../ViewerNotes/NotableImage";
 import { useViewerNotes, type NoteAnchor, type ViewerNotes, type ViewerNotesScope } from "../ViewerNotes/ViewerNotes";
 import { CodeEditor, type CodeLines, type CodeNoteMark } from "./CodeEditor";
@@ -55,6 +56,8 @@ export type FilePanelProps = {
   onPreviewing?: (on: boolean) => void;
   /** Where notes on the file are held, and the Job they go to where it was opened in one. Absent takes none. */
   notes?: ViewerNotesScope;
+  /** What a sent note on the file named, shown again as it opens: its lines selected, or its region drawn on the picture. */
+  marked?: { lines?: { from: number; to: number }; region?: NoteRegion };
 };
 
 /** What the file shows and does, with or without a sheet around it. */
@@ -143,7 +146,7 @@ function FileActs({
   );
 }
 
-function FileBody({ name, type, text, imageSrc, saving = false, onChange, moved = null, onKeepMine, onTakeDisk, refused, follow, notes, noted }: FileBodyProps) {
+function FileBody({ name, path, type, text, imageSrc, saving = false, onChange, moved = null, onKeepMine, onTakeDisk, refused, follow, notes, noted, marked }: FileBodyProps) {
   const picture = type.startsWith("image/");
   const well = useRef<HTMLDivElement>(null);
   return (
@@ -184,7 +187,7 @@ function FileBody({ name, type, text, imageSrc, saving = false, onChange, moved 
       ) : picture ? (
         imageSrc === undefined ? null : (
           <div className="armada-file-panel__picture">
-            <NotableImage src={imageSrc} name={name} {...(notes === undefined ? {} : { notes })} />
+            <NotableImage src={imageSrc} name={name} path={path} {...(notes === undefined ? {} : { notes })} {...(marked?.region === undefined ? {} : { marked: marked.region })} />
           </div>
         )
       ) : text === undefined ? null : (
@@ -193,6 +196,7 @@ function FileBody({ name, type, text, imageSrc, saving = false, onChange, moved 
             name={name}
             value={text}
             {...(onChange === undefined ? {} : { onChange })}
+            {...(marked?.lines === undefined ? {} : { reveal: marked.lines })}
             {...(follow === undefined ? {} : { onScroll: follow.onScroll, ...(follow.to === undefined ? {} : { scrollTo: follow.to }) })}
             {...(noted === undefined || !noted.viewer.on ? {} : { notes: noted.marks, onNote: (at: { x: number; y: number }, lines: CodeLines, drawn: NoteAnchor | undefined) => noted.onNote(at, lines, drawn, well.current?.querySelector<HTMLElement>(".armada-code-editor") ?? null) })}
           />
