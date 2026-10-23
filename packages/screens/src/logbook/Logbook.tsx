@@ -54,7 +54,7 @@ export function Logbook({ onRead, onEdit, onLock, onForget, onTidy, onOpenJob, a
   const [tidy, setTidy] = useState<LogbookTidy>({ running: false });
   const [tidied, setTidied] = useState<string>();
   // Set once the page has seen a pass running: the `last` it began with, so only a newer one is announced.
-  const watching = useRef<{ last?: string }>();
+  const watching = useRef<{ last?: string } | undefined>(undefined);
 
   const read = useCallback(
     (live: () => boolean) =>
