@@ -2,11 +2,12 @@
 // refuses before a save, and the store that reads them from Fleet and saves them to it. Node: no window, a fake Fleet.
 
 import type { FlightControls, FlightControlsRead } from "@armada/protocol";
+import { ACTION, pressesChord } from "@armada/components";
 import { describe, expect, test, vi } from "vitest";
 
 import type { FlightControlsAnswer, RepositoryFlightControlsAnswer } from "../../../../shared/api/flight-controls";
 import type { BridgeState } from "../../../../shared/bridge";
-import { DECK_BUILT_INS, JOB_BUILT_INS, NOTHING_CHANGED, createFlightStore, refusalOf, tilesOf, type FlightEntry, type FlightFile, type FlightFleet } from "./flight-controls";
+import { DECK_BUILT_INS, JOB_BUILT_INS, NOTHING_CHANGED, createFlightStore, keyChord, keyPressed, keyProblem, refusalOf, tilesOf, type FlightEntry, type FlightFile, type FlightFleet } from "./flight-controls";
 
 const file = (job: FlightEntry[] = [], deck: FlightEntry[] = []): FlightFile => ({ version: 1, job, deck });
 const ids = (set: "job" | "deck", of: FlightFile, repository?: FlightFile) => tilesOf(set, of, repository).map((one) => one.id);
@@ -38,8 +39,8 @@ describe("tilesOf", () => {
     expect(tiles.map((one) => one.key).slice(0, 3)).toEqual([undefined, "1", "3"]);
   });
 
-  test("Pause answers P however it is placed", () => {
-    expect(tilesOf("job", file([{ id: "pause" }])).find((one) => one.id === "pause")?.key).toBe("P");
+  test("Pause answers p however it is placed", () => {
+    expect(tilesOf("job", file([{ id: "pause" }])).find((one) => one.id === "pause")?.key).toBe("p");
   });
 
   test("the job set takes all four kinds of an action of the owner's", () => {
@@ -89,19 +90,19 @@ describe("tilesOf, with a repository's own", () => {
     expect(ids("job", file([{ id: "pause" }]), file([SPECS])).at(-1)).toEqual("my-run-specs");
   });
 
-  test("a repository's tiles take the keys after yours, and Pause keeps P", () => {
+  test("a repository's tiles take the keys after yours, and Pause keeps p", () => {
     const hidden = withoutPause.slice(0, 4).map((id) => ({ id, hidden: true }));
     const tiles = tilesOf("job", file(hidden), file([SPECS, LINT]));
     const key = (id: string) => tiles.find((one) => one.id === id)?.key;
     expect(key(withoutPause.at(-1)!)).toBe("8");
     expect(key("my-run-specs")).toBe("9");
     expect(key("my-lint")).toBe("0");
-    expect(key("pause")).toBe("P");
+    expect(key("pause")).toBe("p");
   });
 
   test("a key of the repository's that one of yours already has is dropped", () => {
     const tiles = tilesOf("deck", file([], [{ id: "map", key: "R" }]), file([], [{ id: "my-ci", kind: "page", name: "CI", text: "https://ci.example", key: "R" }]));
-    expect(tiles.find((one) => one.id === "map")?.key).toBe("R");
+    expect(tiles.find((one) => one.id === "map")?.key).toBe("r");
     expect(tiles.find((one) => one.id === "my-ci")?.key).toBe("5");
   });
 
@@ -116,6 +117,98 @@ describe("tilesOf, with a repository's own", () => {
     const tiles = tilesOf("job", yours, file([{ id: "ask", name: "Theirs" }, SPECS, { id: "my-x", text: "no kind" }]));
     expect(tiles.filter((one) => one.fromRepository)).toEqual([]);
     expect(tiles.find((one) => one.id === "my-run-specs")?.kind).toBe("words");
+  });
+});
+
+// ---- A tile's key: a digit, a letter or a chord in the registry's spelling ----------------------------------------------
+
+const press = (key: string, held: { alt?: boolean; shift?: boolean; meta?: boolean; ctrl?: boolean; code?: string } = {}) => ({ key, code: held.code ?? "", altKey: held.alt === true, shiftKey: held.shift === true, metaKey: held.meta === true, ctrlKey: held.ctrl === true });
+const keyOf = (id: string, entries: FlightEntry[]) => tilesOf("job", file(entries)).find((one) => one.id === id)?.key;
+const problem = (key: string, entries: FlightEntry[] = [], own?: string) => keyProblem(key, tilesOf("job", file(entries)), own);
+
+describe("a tile's key", () => {
+  test("an old file's lone capital letter is the plain key, and is drawn as the registry draws a letter", () => {
+    expect(keyChord("R")).toEqual({ ctrl: false, alt: false, shift: false, meta: false, key: "r" });
+    expect(keyOf("map", [{ id: "map", key: "R" }])).toBe("r");
+    expect(keyOf("map", [{ id: "map", key: "5" }])).toBe("5");
+  });
+
+  test("a chord in the registry's spelling survives, drawn as the registry draws it", () => {
+    expect(keyOf("map", [{ id: "map", key: "⌥R" }])).toBe("⌥R");
+    expect(keyOf("map", [{ id: "map", key: "⇧⌘J" }])).toBe("⇧⌘J");
+    expect(keyOf("map", [{ id: "map", key: "⌥1" }])).toBe("⌥1");
+  });
+
+  test("a key that is not a tile's is read as none, and the tile keeps its place's digit", () => {
+    expect(keyOf("ask", [{ id: "ask", key: "Tab" }])).toBe("1");
+    expect(keyOf("ask", [{ id: "ask", key: "⇧J" }])).toBe("1");
+  });
+
+  test("Pause may be given a key, and then does not answer p", () => {
+    expect(keyOf("pause", [{ id: "pause", key: "⌥P" }])).toBe("⌥P");
+    expect(keyOf("pause", [])).toBe("p");
+  });
+
+  test("a chord presses by the registry's reading: ⌘ takes Control too, Option is read by the key's place", () => {
+    expect(keyPressed("⌘R", press("r", { meta: true }))).toBe(true);
+    expect(keyPressed("⌘R", press("r", { ctrl: true }))).toBe(true);
+    expect(keyPressed("⌃R", press("r", { meta: true }))).toBe(false);
+    expect(keyPressed("⌥R", press("®", { alt: true, code: "KeyR" }))).toBe(true);
+    expect(keyPressed("⇧⌘J", press("J", { shift: true, meta: true }))).toBe(true);
+    expect(keyPressed("⌥R", press("r"))).toBe(false);
+    expect(keyPressed("r", press("r"))).toBe(true);
+    expect(keyPressed("R", press("r"))).toBe(true);
+    expect(keyPressed("r", press("R", { shift: true }))).toBe(false);
+    expect(pressesChord({ ctrl: false, alt: true, shift: false, meta: false, key: "1" }, press("¡", { alt: true, code: "Digit1" }))).toBe(true);
+  });
+});
+
+describe("keyProblem", () => {
+  test("a key the Cockpit answers is named for the registry's act", () => {
+    expect(problem("m")).toBe(`Used by ${ACTION.dashboard_view!.verb}`);
+  });
+
+  test("⌥1 is Quick dispatch's, named by its registry verb", () => {
+    expect(problem("⌥1")).toBe(`Used by ${ACTION.dispatch_repository!.verb}`);
+  });
+
+  test("the editing keys of a text box are refused, named for their act", () => {
+    expect([problem("⌘C"), problem("⌘V"), problem("⌘X"), problem("⌘A"), problem("⌘Z"), problem("⇧⌘Z")]).toEqual(["Used by Copy", "Used by Paste", "Used by Cut", "Used by Select all", "Used by Undo", "Used by Redo"]);
+  });
+
+  test("a key another tile holds is named for that tile, by whatever spelling it was kept in", () => {
+    const entries: FlightEntry[] = [{ id: "report", key: "R" }, { id: "map", key: "⌥J" }];
+    expect(problem("r", entries, "ask")).toBe("Used by Report issue with job");
+    expect(problem("⌥J", entries, "ask")).toBe("Used by Map");
+    expect(problem("r", entries, "report")).toBeUndefined();
+  });
+
+  test("⌃ and ⌘ are one key to a tile, as they are to the registry's acts, so ⌃R is taken where a tile has ⌘R", () => {
+    expect(problem("⌃R", [{ id: "report", key: "⌘R" }], "ask")).toBe("Used by Report issue with job");
+    expect(problem("⌘R", [{ id: "report", key: "⌃R" }], "ask")).toBe("Used by Report issue with job");
+    expect(problem("⌃⌘R", [{ id: "report", key: "⌘R" }], "ask")).toBeUndefined();
+  });
+
+  test("Shift with a letter alone is refused, and so is a key with no modifier that is neither a digit nor a letter", () => {
+    expect(problem("⇧j")).toBe("⇧ needs ⌘, ⌃ or ⌥ with it");
+    expect(problem("⇧1")).toBe("⇧ needs ⌘, ⌃ or ⌥ with it");
+    expect(problem("Tab")).toBe("A digit, a letter or a chord");
+    expect(problem("/")).toBe("A digit, a letter or a chord");
+  });
+
+  test("a free digit, letter or chord, and no key, are fine", () => {
+    expect([problem("5"), problem("r"), problem("⌥R"), problem("⇧⌘J"), problem("")]).toEqual([undefined, undefined, undefined, undefined, undefined]);
+  });
+
+  test("p is Pause's while it wears p, and free once Pause has another key", () => {
+    expect(problem("p", [], "ask")).toBe("Used by Pause");
+    expect(problem("p", [{ id: "pause", key: "⌥P" }], "ask")).toBeUndefined();
+    expect(problem("p", [{ id: "pause", key: "p" }], "ask")).toBe("Used by Pause");
+  });
+
+  test("Pause may be given p, and a key of its own", () => {
+    expect(problem("p", [], "pause")).toBeUndefined();
+    expect(problem("⌥P", [], "pause")).toBeUndefined();
   });
 });
 
@@ -313,8 +406,8 @@ describe("tilesOf, with the repository's committed tiles", () => {
 
   test("a committed key that one of yours has is dropped", () => {
     const tiles = tilesOf("job", file([{ id: "map", key: "T" }]), undefined, file([{ ...TESTS, key: "T" }]));
-    expect(tiles.find((one) => one.id === "map")?.key).toBe("T");
-    expect(tiles.find((one) => one.id === "run-tests")?.key).not.toBe("T");
+    expect(tiles.find((one) => one.id === "map")?.key).toBe("t");
+    expect(tiles.find((one) => one.id === "run-tests")?.key).not.toBe("t");
   });
 });
 

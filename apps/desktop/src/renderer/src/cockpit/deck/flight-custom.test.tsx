@@ -13,6 +13,7 @@ import type { BridgeState } from "../../../../shared/bridge";
 import { NOTHING_YET } from "../../../../shared/bridge";
 import { ASK_FOR_UPDATE } from "./acts";
 import { FlightEdit } from "./FlightEdit";
+import { chordTileFor, flightTileFor, pauseForP } from "./flight-keys";
 import { SessionTiles } from "./SessionTiles";
 import { plain } from "./session-tiles";
 import { ShellBox, type ShellRun } from "./ShellBox";
@@ -366,6 +367,205 @@ test("a repository file that will not read draws your own tiles only, and Edit s
   await userEvent.click(page.getByRole("option", { name: "Add action" }));
   await expect.element(page.getByRole("textbox", { name: "Name" })).toBeInTheDocument();
   await expect.element(only()).not.toBeInTheDocument();
+});
+
+// ---- A tile's key ----------------------------------------------------------------------------------------------------
+
+/** The file with these entries laid over its tiles' ids. */
+const keyed = (...keys: { id: string; key?: string }[]) => {
+  (window as unknown as { armada: unknown }).armada = {
+    ...(base as object),
+    getFlightControls: async () => ({ ok: true, value: { what: "read", controls: { ...FILE, job: [...FILE.job.map((one) => ({ ...one, ...keys.find((k) => k.id === one.id) })), ...keys.filter((k) => !FILE.job.some((one) => one.id === k.id))] } } }),
+    saveFlightControls: async (controls: FlightControls) => ({ ok: true, value: { what: "read", controls } }),
+  };
+};
+
+/** The tile a keydown on `at` reaches, read the way the deck's handler reads it. */
+function reach(at: Element, init: KeyboardEventInit, find: (event: KeyboardEvent) => HTMLElement | null = chordTileFor): HTMLElement | null {
+  let found: HTMLElement | null = null;
+  const listen = (event: KeyboardEvent) => void (found = find(event));
+  window.addEventListener("keydown", listen);
+  at.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, cancelable: true, ...init }));
+  window.removeEventListener("keydown", listen);
+  return found;
+}
+const OPTION_R = { key: "®", code: "KeyR", altKey: true };
+
+/** A store made over a fresh `window.armada` reads its file a moment after the first draw. */
+const read = () => act(async () => void (await new Promise((done) => setTimeout(done, 150))));
+
+/** The tiles drawn the way the deck holds them, inside its controls. */
+async function drawn(props: Partial<React.ComponentProps<typeof SessionTiles>> = {}) {
+  const host = await mount(
+    <section className="deck-controls" style={{ display: "contents" }}>
+      <SessionTiles session={jobOf()} draft={draftOf()} repository={REPOSITORY} bays={BAYS} {...props} />
+    </section>,
+  );
+  await read();
+  return host;
+}
+
+test("a chord given to a tile presses it from anywhere on the Cockpit while the Job is open", async () => {
+  keyed({ id: "my-words", key: "⌥R" });
+  const host = await drawn();
+  expect(reach(document.body, OPTION_R)).toBe(tile(host, "Hand off"));
+  expect(reach(host, { key: "r", code: "KeyR", altKey: true, shiftKey: true })).toBeNull();
+});
+
+test("a chord on a tile of the second page presses it, and its page comes into view", async () => {
+  // The file lists the built-ins before Pause, so Pause stands on the second page.
+  keyed(...["ask", "land", "compact", "report", "map", "judge", "release", "artifacts", "subagents", "checks", "slot", "requests"].map((id) => ({ id })), { id: "pause", key: "⇧⌘J" });
+  const host = await drawn();
+  expect(tile(host, "Pause").dataset.page).toBe("1");
+  const found = reach(document.body, { key: "J", code: "KeyJ", shiftKey: true, metaKey: true });
+  expect(found).toBe(tile(host, "Pause"));
+  await act(async () => found!.click());
+  await settle();
+  expect(current(host)).toBe(1);
+});
+
+test("⌥ and ⇧ chords do not fire in a text box, and ⌘ and ⌃ chords do", async () => {
+  keyed({ id: "my-words", key: "⌥R" }, { id: "my-command", key: "⌘R" });
+  const host = await drawn();
+  const box = document.createElement("textarea");
+  host.append(box);
+  expect(reach(box, OPTION_R)).toBeNull();
+  expect(reach(box, { key: "r", code: "KeyR", metaKey: true })).toBe(tile(host, "Review"));
+  // ⌘ answers to Control as it does throughout the registry.
+  expect(reach(box, { key: "r", code: "KeyR", ctrlKey: true })).toBe(tile(host, "Review"));
+});
+
+test("nothing fires while the tiles are edited, or a menu is open", async () => {
+  keyed({ id: "my-words", key: "⌥R" });
+  const host = await drawn();
+  const editing = document.createElement("div");
+  editing.setAttribute("data-flight-editing", "");
+  const menu = document.createElement("div");
+  menu.setAttribute("role", "menu");
+  host.append(editing, menu);
+  expect(reach(editing, OPTION_R)).toBeNull();
+  expect(reach(menu, OPTION_R)).toBeNull();
+  const edit = await mount(<FlightEdit set="job" host={null} onClose={() => {}} />);
+  await read();
+  expect(reach(edit.querySelector('[role="listbox"]')!, OPTION_R)).toBeNull();
+});
+
+test("a letter given to a tile presses it, and the same letter shifted does not", async () => {
+  keyed({ id: "my-words", key: "r" });
+  const host = await drawn();
+  expect(tile(host, "Hand off").dataset.key).toBe("r");
+  expect(reach(document.body, { key: "r", code: "KeyR" }, flightTileFor)).toBe(tile(host, "Hand off"));
+  expect(reach(document.body, { key: "R", code: "KeyR", shiftKey: true }, flightTileFor)).toBeNull();
+});
+
+test("by default P presses Pause", async () => {
+  const host = await drawn();
+  expect(tile(host, "Pause").dataset.key).toBe("p");
+  expect(pauseForP(null)).toBe(tile(host, "Pause"));
+});
+
+test("once Pause has another key, P presses the tile given P and leaves Pause alone", async () => {
+  keyed({ id: "pause", key: "⌥P" }, { id: "my-words", key: "p" });
+  const host = await drawn();
+  expect(pauseForP(null)).toBeNull();
+  expect(reach(document.body, { key: "p", code: "KeyP" }, flightTileFor)).toBe(tile(host, "Hand off"));
+  expect(reach(document.body, { key: "π", code: "KeyP", altKey: true })).toBe(tile(host, "Pause"));
+});
+
+test("in the list, P presses the row's pause whatever Pause wears", async () => {
+  keyed({ id: "pause", key: "⌥P" });
+  const host = await drawn();
+  const row = document.createElement("button");
+  host.append(row);
+  expect(pauseForP(row)).toBe(row);
+});
+
+// ---- Recording a key in the sheet ------------------------------------------------------------------------------------
+
+const keyField = () => page.getByRole("button", { name: /^Key:/ });
+const save = () => page.getByRole("button", { name: "Save" });
+async function recording(name: string, ...keys: { id: string; key: string }[]) {
+  keyed(...keys);
+  const band = document.createElement("span");
+  document.body.append(band);
+  roots.push({ root: createRoot(document.createElement("div")), host: band });
+  // Edit takes the tiles as they stand when it opens, so the file is read first, by tiles drawn beside it.
+  await drawn();
+  await mount(<FlightEdit set="job" host={band} onClose={() => {}} />);
+  await userEvent.click(page.getByRole("option", { name }));
+  await userEvent.click(keyField());
+}
+
+test("the Key control records ⌥R, ⇧⌘J or a bare letter in the registry's spelling", async () => {
+  await recording("Hand off");
+  await userEvent.keyboard("{Alt>}r{/Alt}");
+  await expect.element(keyField()).toHaveAccessibleName("Key: ⌥R");
+  await userEvent.click(keyField());
+  await userEvent.keyboard("{Shift>}{Meta>}j{/Meta}{/Shift}");
+  await expect.element(keyField()).toHaveAccessibleName("Key: ⇧⌘J");
+  await userEvent.click(keyField());
+  await userEvent.keyboard("r");
+  await expect.element(keyField()).toHaveAccessibleName("Key: r");
+  await expect.element(save()).toBeEnabled();
+});
+
+test("Esc lets go of the control without a change, and Delete clears the key", async () => {
+  await recording("Hand off");
+  await userEvent.keyboard("{Alt>}r{/Alt}");
+  await userEvent.click(keyField());
+  await userEvent.keyboard("{Escape}");
+  await expect.element(keyField()).toHaveAccessibleName("Key: ⌥R");
+  await expect.element(page.getByRole("dialog", { name: "Change Hand off" })).toBeInTheDocument();
+  await userEvent.click(keyField());
+  await userEvent.keyboard("{Delete}");
+  await expect.element(keyField()).toHaveAccessibleName("Key: unbound");
+});
+
+test("a key the Cockpit answers is named and Save is held", async () => {
+  await recording("Hand off");
+  await userEvent.keyboard("m");
+  await expect.element(page.getByRole("alert")).toHaveTextContent("Used by Show the map");
+  await expect.element(save()).toBeDisabled();
+  await userEvent.click(keyField());
+  await userEvent.keyboard("{Alt>}1{/Alt}");
+  await expect.element(page.getByRole("alert")).toHaveTextContent("Used by Choose a repository to dispatch to");
+  await expect.element(save()).toBeDisabled();
+  await userEvent.click(keyField());
+  await userEvent.keyboard("{Meta>}c{/Meta}");
+  await expect.element(page.getByRole("alert")).toHaveTextContent("Used by Copy");
+  await expect.element(save()).toBeDisabled();
+});
+
+test("Shift with a letter alone is refused and Save is held", async () => {
+  await recording("Hand off");
+  await userEvent.keyboard("{Shift>}j{/Shift}");
+  await expect.element(page.getByRole("alert")).toHaveTextContent("⇧ needs ⌘, ⌃ or ⌥ with it");
+  await expect.element(save()).toBeDisabled();
+});
+
+test("a key another tile holds is named for that tile and Save is held", async () => {
+  await recording("Review", { id: "my-words", key: "⌥R" });
+  await userEvent.keyboard("{Alt>}r{/Alt}");
+  await expect.element(page.getByRole("alert")).toHaveTextContent("Used by Hand off");
+  await expect.element(save()).toBeDisabled();
+});
+
+test("a recorded key is saved in the registry's spelling, Pause's too", async () => {
+  const saved = vi.fn(async (controls: FlightControls) => ({ ok: true, value: { what: "read", controls } }));
+  (window as unknown as { armada: object }).armada = { ...(base as object), saveFlightControls: saved };
+  const band = document.createElement("span");
+  document.body.append(band);
+  roots.push({ root: createRoot(document.createElement("div")), host: band });
+  // Edit takes the tiles as they stand when it opens, so the file is read first, by tiles drawn beside it.
+  await drawn();
+  await mount(<FlightEdit set="job" host={band} onClose={() => {}} />);
+  await userEvent.click(page.getByRole("option", { name: "Pause" }));
+  await userEvent.click(keyField());
+  await userEvent.keyboard("{Alt>}p{/Alt}");
+  await userEvent.click(save());
+  await done(band);
+  await flush();
+  expect(saved.mock.calls.at(-1)![0].job).toContainEqual({ id: "pause", key: "⌥P" });
 });
 
 // ---- The box -----------------------------------------------------------------------------------------------------
