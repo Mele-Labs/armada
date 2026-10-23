@@ -72,6 +72,14 @@ pub struct QueryGuide {
     pub fields: Vec<String>,
 }
 
+impl QueryGuide {
+    /// Why the tracker cannot be queried, where it cannot: a tracker that refuses every call teaches
+    /// no language and puts its reason where the guide would be.
+    pub fn refusal(&self) -> Option<&str> {
+        self.language.is_empty().then_some(self.guide.as_str())
+    }
+}
+
 /// One issue read by its reference, open or closed.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ReadIssue {
@@ -195,6 +203,15 @@ pub trait Tracker {
     fn address_template(&self, example: &str) -> Option<String> {
         let _ = example;
         None
+    }
+
+    /// The issues of this tracker that `text` links, each as the ledger holds an issue (`7`, or a
+    /// key such as `ABC-12`), once each and in the order first written. `in_repo` is the checkout
+    /// the tracker is asked for. **None by default**: a tracker that reads no links names no issue,
+    /// and a dispatch is still read.
+    fn issues_linked_in(&self, in_repo: &str, text: &str) -> Vec<String> {
+        let _ = (in_repo, text);
+        Vec::new()
     }
 }
 

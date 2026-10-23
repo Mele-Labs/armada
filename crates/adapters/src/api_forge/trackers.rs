@@ -91,6 +91,10 @@ impl Tracker for ApiTracker {
     fn query_guide(&self) -> QueryGuide {
         crate::issue_tracker::forge_guide()
     }
+
+    fn issues_linked_in(&self, in_repo: &str, text: &str) -> Vec<String> {
+        crate::issue_tracker::forge_issues_linked_in(in_repo, text)
+    }
 }
 
 /// [`IssueLookup`], with the issue read over the API instead of by a call Fleet runs.

@@ -1,6 +1,7 @@
 /* A scene, in frames: a header band over a sans body, state carried by the frame. The canvas's own
    height, so swapping a sketch for the canvas moves nothing. */
 .armada-sketch {
+  position: relative;
   display: flex;
   box-sizing: border-box;
   block-size: var(--h-workflow-run-canvas);
@@ -530,4 +531,22 @@
 .armada-scene-ask__acts {
   display: inline-flex;
   align-items: center;
+}
+
+/* A Shift drag's box, while it is drawn: the focus edge, dashed, over a faint fill. */
+.armada-sketch__box {
+  position: absolute;
+  box-sizing: border-box;
+  border: var(--border-width) dashed var(--edge-focus);
+  background: var(--accent-faint);
+  pointer-events: none;
+}
+
+/* A part's note numbers, on its top right corner. */
+.armada-scene-node__notes {
+  position: absolute;
+  top: calc(-1 * var(--space-2));
+  right: calc(-1 * var(--space-2));
+  display: flex;
+  gap: var(--space-1);
 }

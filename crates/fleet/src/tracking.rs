@@ -19,8 +19,11 @@ use adapter_traits::{
 use api::{Issues, Refusal};
 use core_model::Timestamp;
 use ipc::{
-    Instant, IssueComment, IssueList, IssueRead, IssueState, LinkedPullRequest, ManifestId, TrackedIssue, WireError,
+    Instant, IssueComment, IssueField, IssueList, IssueQueries, IssueRead, IssueReference, IssueState,
+    LinkedPullRequest, ManifestId, SaveIssueQuery, SavedIssueQuery, SearchIssues, TrackedIssue, WireError,
+    WriteIssueQuery, WrittenIssueQuery,
 };
+use store::HolderKind;
 
 use crate::clock::elapsed;
 use crate::daemon::Fleet;
@@ -29,7 +32,7 @@ use crate::daemon::Fleet;
 pub(crate) const HELD_FOR: Duration = Duration::from_secs(5 * 60);
 
 /// The tracker would not answer and nothing is held. A 500: asking again is reasonable.
-const UNREADABLE: &str = "fleet.issues_unreadable";
+pub(crate) const UNREADABLE: &str = "fleet.issues_unreadable";
 
 /// The tracker has no issue by that reference, or the number is a pull request's. A 404.
 const NO_SUCH_ISSUE: &str = "fleet.no_such_issue";
@@ -81,9 +84,30 @@ fn choice_of(manifest: &config::Manifest) -> TrackerChoice {
     }
 }
 
+/// An issue's fields on the wire.
+fn fields_of(fields: &[adapter_traits::IssueField]) -> Vec<IssueField> {
+    fields
+        .iter()
+        .map(|field| IssueField {
+            name: field.name.clone(),
+            values: field.values.iter().map(|one| one.as_written().to_string()).collect(),
+        })
+        .collect()
+}
+
+/// The Jobs holding each issue of one repository, by the ledger's target for it. Ids, ascending.
+pub(crate) type Holders = BTreeMap<String, Vec<String>>;
+
+fn holders_at(holders: &Holders, reference: &str) -> Vec<String> {
+    IssueReference::read(reference)
+        .and_then(|issue| holders.get(issue.as_str()).cloned())
+        .unwrap_or_default()
+}
+
 /// One issue on the wire.
-fn tracked(issue: &OpenIssue) -> TrackedIssue {
+pub(crate) fn tracked(issue: &OpenIssue, holders: &Holders) -> TrackedIssue {
     let url = issue.url.as_written().to_string();
+    let author = issue.author.as_written().trim();
     TrackedIssue {
         reference: issue.reference.clone(),
         title: issue.title.as_written().to_string(),
@@ -97,12 +121,17 @@ fn tracked(issue: &OpenIssue) -> TrackedIssue {
         updated_at: Instant::carried(issue.updated_at.clone()),
         excerpt: issue.excerpt.as_written().to_string(),
         linked_pull_request: issue.linked_pull_request,
+        author: (!author.is_empty()).then(|| author.to_string()),
+        state: if issue.closed { IssueState::Closed } else { IssueState::Open },
+        fields: fields_of(&issue.fields),
+        holders: holders_at(holders, &issue.reference),
     }
 }
 
 /// One issue read whole, on the wire.
-fn read_whole(issue: ReadIssue) -> IssueRead {
+fn read_whole(issue: ReadIssue, holders: &Holders) -> IssueRead {
     let written = |one: &adapter_traits::FromOutside| one.as_written().to_string();
+    let holders = holders_at(holders, &issue.reference);
     IssueRead {
         reference: issue.reference,
         title: written(&issue.title),
@@ -139,6 +168,8 @@ fn read_whole(issue: ReadIssue) -> IssueRead {
                 },
             })
             .collect(),
+        fields: fields_of(&issue.fields),
+        holders,
     }
 }
 
@@ -170,12 +201,33 @@ where
         held: Held,
         stale: Option<String>,
     ) -> Result<IssueList, Refusal> {
+        let holders = self.issue_holders(&manifest_id).await?;
         Ok(IssueList {
             manifest_id,
             fetched_at: Instant::carried(held.fetched_at.as_str()),
-            issues: held.issues.iter().map(tracked).collect(),
+            issues: held.issues.iter().map(|one| tracked(one, &holders)).collect(),
             stale,
         })
+    }
+
+    /// The Jobs holding each issue of the repository, read off the ledger once, whichever tracker the
+    /// issues are on. **Standing rows only**: a Job that gave an issue back no longer works it.
+    pub(crate) async fn issue_holders(&self, manifest_id: &ManifestId) -> Result<Holders, Refusal> {
+        let rows = self
+            .store()
+            .lock()
+            .await
+            .standing_of_kind(crate::session_issues::ISSUE, manifest_id.as_str())
+            .map_err(|why| self.ledger_fault(why))?;
+        let mut holders = Holders::new();
+        for row in rows.into_iter().filter(|row| row.holder.kind == HolderKind::Session) {
+            holders.entry(row.target).or_default().push(row.holder.id);
+        }
+        holders.values_mut().for_each(|ids| {
+            ids.sort_unstable();
+            ids.dedup();
+        });
+        Ok(holders)
     }
 }
 
@@ -198,6 +250,34 @@ where
         self.issue_list(manifest_id, held, stale).await
     }
 
+    async fn search_issues(&self, manifest_id: ManifestId, search: SearchIssues) -> Result<IssueList, Refusal> {
+        self.issues_searched(manifest_id, search).await
+    }
+
+    async fn list_issue_queries(&self, manifest_id: ManifestId) -> Result<IssueQueries, Refusal> {
+        self.issue_queries_read(manifest_id).await
+    }
+
+    async fn write_issue_query(
+        &self,
+        manifest_id: ManifestId,
+        write: WriteIssueQuery,
+    ) -> Result<WrittenIssueQuery, Refusal> {
+        self.issue_query_written(manifest_id, write).await
+    }
+
+    async fn save_issue_query(
+        &self,
+        manifest_id: ManifestId,
+        save: SaveIssueQuery,
+    ) -> Result<SavedIssueQuery, Refusal> {
+        self.issue_query_saved(manifest_id, save).await
+    }
+
+    async fn forget_issue_query(&self, manifest_id: ManifestId, id: String) -> Result<IssueQueries, Refusal> {
+        self.issue_query_forgotten(manifest_id, id).await
+    }
+
     /// **Read from the tracker each time**: it is for an issue the held list does not have, which
     /// is closed or not an issue, and a person pressing it wants what is there now.
     async fn get_issue(&self, manifest_id: ManifestId, reference: String) -> Result<IssueRead, Refusal> {
@@ -214,7 +294,7 @@ where
                 ))
             });
         match read {
-            Ok(Some(issue)) => Ok(read_whole(issue)),
+            Ok(Some(issue)) => Ok(read_whole(issue, &self.issue_holders(&manifest_id).await?)),
             Ok(None) => Err(Refusal::NotFound(WireError::raised(
                 NO_SUCH_ISSUE,
                 format!("The tracker has no issue {reference}"),

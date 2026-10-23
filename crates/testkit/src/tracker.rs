@@ -167,6 +167,16 @@ impl Tracker for FakeTracker {
     fn address_template(&self, example: &str) -> Option<String> {
         self.opens.lock().expect("opens").clone().filter(|_| !example.trim().is_empty())
     }
+
+    /// The forge's own reading, since a fixture repository is one: the numbers of its issues the
+    /// text links. Delegated rather than written again, so a fake cannot pass for a format the
+    /// shipped reader does not take.
+    fn issues_linked_in(&self, in_repo: &str, text: &str) -> Vec<String> {
+        match adapters::remote_of(std::path::Path::new(in_repo)) {
+            Some(repository) => adapters::issues_linked_in(text, &repository).iter().map(u64::to_string).collect(),
+            None => Vec::new(),
+        }
+    }
 }
 
 #[cfg(test)]

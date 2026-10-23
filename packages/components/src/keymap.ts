@@ -331,6 +331,12 @@ function same(chord: Chord, press: Chord): boolean {
   return chord.meta === press.meta && chord.ctrl === press.ctrl;
 }
 
+/** Whether a press is this chord, read as an act's own keys are: for a key kept outside the registry, such as a flight control's. */
+export function pressesChord(chord: Chord, press: Press): boolean {
+  const pressed = chordOf(press);
+  return pressed !== null && same(chord, pressed);
+}
+
 /** Which slot of an act a press is, or `-1` for none. */
 export function pressedSlot(id: string, press: Press): number {
   const chord = chordOf(press);

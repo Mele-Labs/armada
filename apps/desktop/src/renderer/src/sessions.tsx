@@ -65,13 +65,14 @@ import type {
   SavedThreadRow,
   StepsPanelProps,
   RetroRowItem,
+  NotedRef,
 } from "@armada/components";
 import { sessionOf } from "@armada/screens/src/lessons/retro";
 import { askToOpenRetro } from "./open-retro";
 import { useDispatchFailureHere } from "./failure-session";
 import { handoffOf } from "./session-handoff";
 import { chooseFolder, readRetro, searchFiles } from "./commands";
-import { ArtifactBody, ARTIFACT_GLYPH, isAddress } from "./session-artifact";
+import { ArtifactBody, ARTIFACT_GLYPH, isAddress, type PictureMarked } from "./session-artifact";
 import { isUnsentItem, linkEntry, unsentEntry, useStartedBy } from "./session-started";
 import { readingOfSketch } from "./session-sketch";
 import { forkAtPick, threadRowsOf, upTo } from "./session-thread-rows";
@@ -316,7 +317,13 @@ export type LedgerGoes = {
 };
 
 /** What the ledger opens beside it, where no surface of Bridge's draws the thing: a sketch, a subagent, an artifact. `live` is the page the turn is building, from Progress. */
-export type Reading = { kind: "sketch"; id: string; /** The version drawn then, from `versions`; absent is the sketch as it stands. */ at?: string } | { kind: "subagent"; id: string } | { kind: "background"; id: string } | { kind: "artifact"; id: string } | { kind: "steps"; id: string } | { kind: "live"; id: string };
+export type Reading =
+  | { kind: "sketch"; id: string; /** The version drawn then, from `versions`; absent is the sketch as it stands. */ at?: string; /** Parts a sent note named, picked as it opens. */ marked?: readonly string[] }
+  | { kind: "subagent"; id: string }
+  | { kind: "background"; id: string }
+  | { kind: "artifact"; id: string; /** A sent note on the picture: it opens large, with the note's region drawn. */ marked?: PictureMarked }
+  | { kind: "steps"; id: string }
+  | { kind: "live"; id: string };
 
 /** What a press on a ledger row asks to read: a pull request opens in the side panel, the rest beside the thread. */
 export type ReadAsked = Reading | { kind: "pull_request"; number: number };
@@ -330,6 +337,31 @@ export const readingOf = (session: Session, open: Reading | undefined): SessionA
       : open.kind === "sketch" && open.at !== undefined
         ? session.versions?.find((one) => one.at === open.at && one.attachment.kind === "sketch" && one.attachment.id === open.id)?.attachment
         : session.attachments.find((one) => one.kind === open.kind && "id" in one && one.id === open.id);
+
+/** What a reading opened from a sent note marks in what it opens. */
+export const markedOf = (open: Reading | undefined): { parts?: readonly string[]; picture?: PictureMarked } | undefined =>
+  open?.kind === "sketch" && open.marked !== undefined ? { parts: open.marked } : open?.kind === "artifact" && open.marked !== undefined ? { picture: open.marked } : undefined;
+
+/**
+ * Opens what a note the person sent named: a sketch of the Session's by its title with the parts picked, a picture it
+ * made with the region drawn, and any other file in the side panel on its lines or with its region drawn.
+ */
+function openNoted(session: Session, read: (one: Reading) => void, ref: NotedRef): void {
+  const inside = session.cwd !== undefined && ref.kind !== "sketch" && ref.path.startsWith(`${session.cwd.replace(/\/+$/, "")}/`);
+  const from = inside ? ("session" as const) : ("picked" as const);
+  if (ref.kind === "sketch") {
+    const sketch = [...session.attachments].reverse().find((one) => one.kind === "sketch" && one.title === ref.title);
+    if (sketch?.kind === "sketch") read({ kind: "sketch", id: sketch.id, marked: ref.parts.map((one) => one.id) });
+    return;
+  }
+  if (ref.kind === "file") {
+    openInPanel({ kind: "file", path: ref.path, from, sessionId: session.id, marked: { lines: { from: ref.from, to: ref.to } } });
+    return;
+  }
+  const region = ref.region === undefined ? {} : { region: ref.region };
+  if (session.attachments.some((one) => one.kind === "artifact" && one.id === ref.path)) read({ kind: "artifact", id: ref.path, marked: region });
+  else openInPanel({ kind: "file", path: ref.path, from, sessionId: session.id, marked: region });
+}
 
 /** A waiting item's steps as the panel beside the thread draws them: the item is not an attachment, so it has its own reading. */
 export type StepsReading = Omit<StepsPanelProps, "onOpenInBrowser">;
@@ -359,10 +391,13 @@ export function ReadingSheet({
   draft,
   onClose,
   onOpenLink,
+  marked,
 }: {
   sessionId: string;
   readSubagent: SessionsDraft["subagent"];
   one: SessionAttachment | undefined;
+  /** What a sent note named in it, marked as it opens: a sketch's parts, a picture's region. */
+  marked?: { parts?: readonly string[]; picture?: PictureMarked };
   /** An item's steps, read in place of an attachment. */
   steps?: StepsReading;
   draft: SessionsDraft | undefined;
@@ -424,7 +459,7 @@ export function ReadingSheet({
         <StepsPanel {...steps} onOpenInBrowser={onOpenLink} />
       ) : one?.kind === "sketch" ? (
         one.by === "agent" || "nodes" in one.drawing ? (
-          <SketchReading {...readingOfSketch(one)} />
+          <SketchReading {...readingOfSketch(one)} notes={{ key: `sketch:${sessionId}:${one.id}`, job: sessionId }} {...(marked?.parts === undefined ? {} : { marked: marked.parts })} />
         ) : (
           <SketchPreview label={one.title} boxes={one.drawing.boxes} lines={one.drawing.lines} strokes={one.drawing.strokes ?? []} pictures={[]} />
         )
@@ -434,7 +469,7 @@ export function ReadingSheet({
         // The output is a file the agent's shell wrote, read as an artifact file is.
         one.output === undefined ? null : <ArtifactBody draft={draft} sessionId={sessionId} form="file" id={one.output} title={one.task} onClose={onClose} />
       ) : one?.kind === "artifact" ? (
-        <ArtifactBody draft={draft} sessionId={sessionId} form={one.form} id={one.id} title={one.title} onClose={onClose} />
+        <ArtifactBody draft={draft} sessionId={sessionId} form={one.form} id={one.id} title={one.title} onClose={onClose} {...(marked?.picture === undefined ? {} : { marked: marked.picture })} />
       ) : null}
     </Sheet>
     </OverTheApp>
@@ -865,6 +900,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
     const address = attachmentsOf(session, "pull_request").find((pr) => pr.number === one.number)?.address;
     openInPanel({ kind: "pr", number: one.number, address: address ?? "" });
   };
+  const noted = { open: (ref: NotedRef) => openNoted(session, setReading, ref), ...(session.cwd === undefined ? {} : { root: session.cwd }) };
   // A Session with no repository of its own opens the slot the pool names that number, as the sheet it replaced found it.
   const openSlot = (n: number) => {
     const pool = held.held.state === "read" ? (held.held.held.slots ?? []) : [];
@@ -1102,6 +1138,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
             onOpenWindow={(url) => draft.openWindow?.(id, url)}
             onOpenSketch={(sketch) => read({ kind: "sketch", id: sketch })}
             onOpenFile={(path) => void openInPanel({ kind: "file", path, from: "session", sessionId: session.id })}
+            noted={noted}
             onOpenCheck={(run) => goes.onOpenCheck(session.id, run)}
             working={session.turn.state === "working"}
             {...(draft.stop === undefined ? {} : { onStop: () => draft.stop!(session.id) })}
@@ -1206,6 +1243,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
         draft={draft}
         onClose={() => setReading(undefined)}
         onOpenLink={goes.onOpenLink}
+        {...(markedOf(reading) === undefined ? {} : { marked: markedOf(reading)! })}
       />
       <ClashFileSheet session={session} draft={draft} />
       <SketchSheet

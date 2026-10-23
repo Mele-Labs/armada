@@ -2,11 +2,11 @@
 kind = "query"
 transport = "HTTP"
 agent_access = "No"
-description = "A repository's open issues as its tracker lists them, each with the Job dispatched from it where one is still going"
+description = "A repository's open issues as its tracker lists them, each with the Jobs holding it"
 notes = """
 `GET /issues/:repository`, `repository` a manifest id, and `?refresh=true` to read the tracker again whatever is held. #91, `docs/concepts/tracker.md`. Answers `IssueList`: `manifest_id`, `fetched_at`, `issues` newest edit first, and `stale` where the read just tried failed and an older list is answered instead, in the tracker's words.
 
-Each `TrackedIssue` carries `reference` (the tracker's own name for it as a person writes it: `#123` on the forge, `ABC-123` on Jira, drawn as it is), `title`, `url`, `labels`, `assignees`, `updated_at`, `excerpt` (the body's first 240 characters, whitespace folded), `linked_pull_request` where the tracker says a pull request closes it, and `job_id`, the Job dispatched from it that has not ended, read from Fleet's own record.
+Each `TrackedIssue` carries `reference` (the tracker's own name for it as a person writes it: `#123` on the forge, `ABC-123` on Jira, drawn as it is), `title`, `url`, `labels`, `assignees`, `updated_at`, `excerpt` (the body's first 240 characters, whitespace folded), `linked_pull_request` where the tracker says a pull request closes it, `author` where the tracker says who opened it, `state` (`open` or `closed`), `fields` (`name` and `values`, the rest of what the tracker said of it under its own names), and `holders`, the ids of the Jobs holding it, read from the ledger's `issue` rows for whichever tracker it is on. A Job that gave it back is not listed.
 
 **Read on ask, not polled.** Fleet keeps the last list a repository was read for and answers it again for five minutes; past that, or with `refresh`, it reads the tracker. **A view and nothing more**: listing creates no Job and writes nothing. A dispatch from an issue is `propose_from_request` with the issue's `url` as the request.
 

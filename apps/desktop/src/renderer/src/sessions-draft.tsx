@@ -11,6 +11,7 @@ import type { QueuedIdea, Session, SessionsDraft } from "@armada/screens/src/dra
 
 import { withOutgoing } from "./outgoing";
 import { withPressed } from "./pressed";
+import { ViewerNotesOver } from "./viewer-notes";
 
 const Held = createContext<SessionsDraft | undefined>(undefined);
 
@@ -28,7 +29,9 @@ export function SessionsFrom({ held, acts, children }: { held: SessionsDraft | u
   const sending = useMemo(() => (held === undefined ? undefined : withPressed(withOutgoing(held))), [held]);
   return (
     <Acts.Provider value={acts}>
-      <Held.Provider value={sending}>{children}</Held.Provider>
+      <Held.Provider value={sending}>
+        <ViewerNotesOver draft={sending}>{children}</ViewerNotesOver>
+      </Held.Provider>
     </Acts.Provider>
   );
 }

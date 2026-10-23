@@ -51,6 +51,8 @@ mod reply_confirmed;
 mod word_asks;
 mod fleet_calls;
 mod notice_mutes;
+/// The issue queries a person saved, per repository.
+mod issue_queries;
 mod session_waiting;
 mod sleep_night;
 /// A repository's Autopilot and what it picked. #2092.
@@ -148,6 +150,7 @@ pub use watches::{KeptWatch, KeptWatchReading, KeptWatchSetAside, KeptWatchTaken
 pub use notice_mutes::LiveMutes;
 pub use word_asks::KeptWordAsk;
 pub use fleet_calls::KeptCall;
+pub use issue_queries::KeptIssueQuery;
 pub use session_waiting::KeptWaiting;
 pub use session_checks::KeptSessionCheck;
 pub use test_map::{StaleTest, TestsReaching};

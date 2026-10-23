@@ -6,11 +6,11 @@
 // One already kept there can be committed to the repository on the open Job's branch, or shared as a package (`PieceActs`).
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Button, Checkbox, Input, Select, Sheet, Textarea, Tooltip, forgetKept } from "@armada/components";
+import { Button, Checkbox, Input, KeyBindingRow, Select, Sheet, Textarea, Tooltip, forgetKept } from "@armada/components";
 
 import { GLYPH_NAMES, GLYPHS } from "./flight-glyphs";
 import { PieceActs } from "../../sharing/PieceActs";
-import { KIND_GLYPH, KIND_SAID, KINDS, freshId, isWebAddress, keyProblem, type ActionKind, type FlightEntry, type FlightSet, type Tile } from "./flight-controls";
+import { KIND_GLYPH, KIND_SAID, KINDS, freshId, isWebAddress, keyChord, keyProblem, type ActionKind, type FlightEntry, type FlightSet, type Tile } from "./flight-controls";
 
 const FIELD: Record<ActionKind, { label: string; hint: string; mono: boolean }> = {
   words: { label: "Words", hint: "", mono: false },
@@ -21,6 +21,9 @@ const FIELD: Record<ActionKind, { label: string; hint: string; mono: boolean }> 
 
 /** Why the address cannot be opened, or nothing where it can. */
 const addressProblem = (address: string): string | undefined => (address.trim() === "" || isWebAddress(address.trim()) ? undefined : "An address that starts with http:// or https://");
+
+/** A key as the recorder spells it: a lone digit or letter as the registry does, in lower case. */
+const spelled = (key: string | undefined): string => (key === undefined ? "" : /^[0-9a-z]$/i.test(key) ? key.toLowerCase() : key);
 
 /** The glyphs as a group of radios: one stop for the keyboard, the arrows move and pick. */
 function GlyphPicker({ value, onPick }: { value: string; onPick: (name: string) => void }) {
@@ -101,7 +104,8 @@ export function FlightActionSheet({
   const [kind, setKind] = useState<ActionKind>(tile?.kind ?? kinds[0]!);
   const [name, setName] = useState(tile?.text ?? "");
   const [glyph, setGlyph] = useState(tile?.glyph ?? glyphName(kinds[0]!));
-  const [key, setKey] = useState(tile?.entry?.key ?? "");
+  const [key, setKey] = useState(spelled(tile?.entry?.key));
+  const [listening, setListening] = useState<number | null>(null);
   const [shown, setShown] = useState(tile?.hidden !== true);
   const [words, setWords] = useState(tile?.words ?? "");
   const [onWords, setOnWords] = useState(tile?.onWords ?? "");
@@ -126,12 +130,12 @@ export function FlightActionSheet({
   const save = () => {
     if (!ready) return;
     const label = name.trim();
-    const letter = key.trim().toUpperCase();
+    const kept = key.trim();
     if (built !== undefined) {
       const entry: FlightEntry = { id: built.id };
       if (label !== "" && label !== built.text) entry.name = label;
       if (glyph !== built.glyph) entry.glyph = glyph;
-      if (letter !== "" && built.fixedKey !== true) entry.key = letter;
+      if (kept !== "") entry.key = kept;
       if (!shown) entry.hidden = true;
       if (built.says !== undefined && words.trim() !== "" && words !== built.says) entry.text = words;
       if (built.on !== undefined && onWords.trim() !== "" && onWords !== built.on) entry.on_text = onWords;
@@ -141,7 +145,7 @@ export function FlightActionSheet({
     }
     const entry: FlightEntry = { id: tile?.id ?? freshId(entries, label), kind, name: label, text: words.trim() };
     if (glyph !== glyphName(kind)) entry.glyph = glyph;
-    if (letter !== "") entry.key = letter;
+    if (kept !== "") entry.key = kept;
     if (tile?.hidden === true) entry.hidden = true;
     if (tile === undefined) forgetKept(keep);
     onSave(entry, only !== undefined && there);
@@ -172,7 +176,22 @@ export function FlightActionSheet({
             setGlyph(next);
           }}
         />
-        {built?.fixedKey === true ? null : <Input label="Key" value={key} maxLength={1} onChange={(event) => setKey(event.target.value)} invalid={keyed !== undefined} {...(keyed === undefined ? {} : { message: keyed })} />}
+        {/* While the control waits for a key, Esc is its own to let go, and the sheet does not close on it. */}
+        <div className="flight-form__key" data-keeps-esc={listening === null ? undefined : ""}>
+          <KeyBindingRow
+            verb="Key"
+            slots={[{ slot: { kind: "chord", chord: key === "" ? null : keyChord(key) } }]}
+            listening={listening}
+            onListen={setListening}
+            // A capital is how the registry spells a shifted letter, and a lone one in a file has always been the plain key.
+            onBind={(_, said) => setKey(/^[A-Z]$/.test(said) ? `⇧${said.toLowerCase()}` : said)}
+          />
+          {keyed === undefined ? null : (
+            <span className="flight-form__said" role="alert">
+              {keyed}
+            </span>
+          )}
+        </div>
         {built === undefined ? null : (
           <Checkbox checked={shown} onChange={(event) => setShown(event.target.checked)}>
             Shown

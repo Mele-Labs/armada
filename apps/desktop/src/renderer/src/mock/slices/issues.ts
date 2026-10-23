@@ -27,6 +27,9 @@ function listed(manifestId: string): IssueList {
         updated_at: "2026-10-11T11:40:00Z",
         excerpt: "A file that ends without a newline loses its last line in the viewer.",
         linked_pull_request: false,
+        state: "open",
+        fields: [],
+        holders: [],
       },
       {
         reference: forge(398),
@@ -37,6 +40,9 @@ function listed(manifestId: string): IssueList {
         updated_at: "2026-10-10T09:12:00Z",
         excerpt: "",
         linked_pull_request: true,
+        state: "open",
+        fields: [],
+        holders: [],
       },
       {
         reference: forge(405),
@@ -47,6 +53,9 @@ function listed(manifestId: string): IssueList {
         updated_at: "2026-10-10T16:20:00Z",
         excerpt: "",
         linked_pull_request: false,
+        state: "open",
+        fields: [],
+        holders: [],
       },
       {
         reference: forge(409),
@@ -57,6 +66,9 @@ function listed(manifestId: string): IssueList {
         updated_at: "2026-10-09T08:05:00Z",
         excerpt: "",
         linked_pull_request: false,
+        state: "open",
+        fields: [],
+        holders: [],
       },
     ],
   };
@@ -73,7 +85,7 @@ function openOn(manifestId: string, number: number, lines: MergeLines | null): P
 function issueRead(manifestId: string, number: number): IssueRead | undefined {
   const one = issueOfNumber(manifestId, number);
   if (one === undefined) return undefined;
-  return { reference: one.reference, title: one.title, url: one.url, state: "open", body: one.excerpt, author: "", opened_at: one.updated_at, labels: one.labels, assignees: one.assignees, comments: [], linked_pull_requests: [] };
+  return { reference: one.reference, title: one.title, url: one.url, state: "open", body: one.excerpt, author: "", opened_at: one.updated_at, labels: one.labels, assignees: one.assignees, comments: [], linked_pull_requests: [], fields: [], holders: [] };
 }
 
 export const issues: Slice<IssuesApi, Record<string, never>> = {

@@ -47,6 +47,19 @@ pub(crate) fn check(controls: &FlightControls) -> Result<(), String> {
     check_list("deck", &controls.deck)
 }
 
+/// A tile's key: a digit or a letter, or a chord in the keymap's spelling, `⌥R` or `⇧⌘J`: modifiers with at least one of ⌃ ⌥ ⌘, then a key.
+/// Bridge holds the rest of the rule (what a chord may be, and which it cannot be), since only it knows the keys it answers.
+fn is_key(key: &str) -> bool {
+    const MODIFIERS: [char; 4] = ['⌃', '⌥', '⇧', '⌘'];
+    let mut chars = key.chars();
+    if let (Some(one), None) = (chars.next(), chars.next()) {
+        return one.is_ascii_alphanumeric();
+    }
+    let rest = key.trim_start_matches(MODIFIERS);
+    let held = &key[..key.len() - rest.len()];
+    held.chars().any(|one| one != '⇧') && !rest.is_empty() && !rest.contains(char::is_whitespace) && !rest.starts_with(MODIFIERS)
+}
+
 fn check_list(list: &str, tiles: &[FlightControl]) -> Result<(), String> {
     let mut ids: BTreeMap<&str, usize> = BTreeMap::new();
     let mut keys: BTreeMap<String, usize> = BTreeMap::new();
@@ -58,14 +71,10 @@ fn check_list(list: &str, tiles: &[FlightControl]) -> Result<(), String> {
             return Err(format!("{list}[{at}].id `{}` is already {list}[{first}].id", tile.id));
         }
         let Some(key) = &tile.key else { continue };
-        let mut chars = key.chars();
-        match (chars.next(), chars.next()) {
-            (Some(one), None) if one.is_ascii_alphanumeric() => {}
-            _ => {
-                return Err(format!(
-                    "{list}[{at}].key `{key}` is not one of 1 to 9, 0 or a letter"
-                ))
-            }
+        if !is_key(key) {
+            return Err(format!(
+                "{list}[{at}].key `{key}` is not one of 1 to 9, 0, a letter or a chord such as ⌥R"
+            ));
         }
         if let Some(first) = keys.insert(key.to_ascii_lowercase(), at) {
             return Err(format!("{list}[{at}].key `{key}` is already {list}[{first}].key"));
