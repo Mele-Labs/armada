@@ -156,7 +156,7 @@ fn wired(logged: &Logged, root: Option<&str>, titles: &HashMap<String, String>) 
                 until: instant(was.replaced_at),
                 by: match was.why {
                     LogRewrite::Person => LogbookReplacedBy::Person,
-                    LogRewrite::Contradicted | LogRewrite::Tripped => LogbookReplacedBy::Distil,
+                    LogRewrite::Contradicted | LogRewrite::Tripped | LogRewrite::Merged => LogbookReplacedBy::Distil,
                 },
             })
             .collect(),
