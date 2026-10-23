@@ -285,6 +285,11 @@ const ROUTES: &[Route] = &[
         path: "/sessions/terminal/open",
     },
     Route {
+        operation: "type_in_terminal",
+        method: "POST",
+        path: "/sessions/terminal/type",
+    },
+    Route {
         operation: "show_window",
         method: "POST",
         path: "/sessions/window",

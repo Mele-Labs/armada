@@ -123,6 +123,14 @@ impl Sessions for FakeDaemon {
         Ok(ipc::SessionRunUnderway { run_id: format!("shell-of-{}", open.session_id.as_str()) })
     }
 
+    async fn type_in_terminal(
+        self: std::sync::Arc<Self>,
+        _caller: Option<crate::Caller>,
+        _typed: ipc::TypeInTerminal,
+    ) -> Result<ipc::TerminalTyped, Refusal> {
+        self.runs_nothing_here()
+    }
+
     async fn report_session_check(
         &self,
         call: ipc::SessionCheckCall,

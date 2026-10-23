@@ -6,14 +6,93 @@
 
 use std::future::Future;
 use std::sync::Arc;
+use std::time::Duration;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-use api::Refusal;
+use api::{Refusal, SessionRunEvent};
+use ipc::{TerminalTyped, TypeInTerminal};
+use tokio::sync::broadcast::error::RecvError;
+use tokio::time::Instant;
 
-use super::{refusal, size, Ended, Launch, SessionRuns, COLS, ROWS};
+use super::{plain, refusal, size, Ended, Launch, SessionRuns, COLS, ROWS};
 use crate::daemon::Fleet;
 
+/// How long the shell prints nothing before an agent's typing is answered.
+const QUIET: Duration = Duration::from_millis(1500);
+/// How long an agent waits where it named no wait, and the most it may name.
+const WAIT: u64 = 10;
+const MOST_WAIT: u64 = 60;
+/// How long a shell opened for an agent has to print its prompt before it is typed into.
+const SETTLING: Duration = Duration::from_secs(10);
+/// Lines and bytes an agent is answered at most: well inside the door's 64 KiB.
+const TYPED_LINES: usize = 200;
+const MOST_BYTES: usize = 32 * 1024;
+
+/// The last [`MOST_BYTES`] of `text`, cut at a character.
+fn kept(text: String) -> String {
+    if text.len() <= MOST_BYTES {
+        return text;
+    }
+    let mut cut = text.len() - MOST_BYTES;
+    while !text.is_char_boundary(cut) {
+        cut += 1;
+    }
+    text[cut..].to_string()
+}
+
+/// What a run prints until it has printed nothing for [`QUIET`], it ends, or `until`; and whether
+/// `until` came while it was still printing.
+async fn heard(live: &mut tokio::sync::broadcast::Receiver<SessionRunEvent>, until: Instant) -> (String, bool) {
+    let mut printed = String::new();
+    loop {
+        let span = QUIET.min(until.saturating_duration_since(Instant::now()));
+        if span.is_zero() {
+            return (printed, true);
+        }
+        match tokio::time::timeout(span, live.recv()).await {
+            Ok(Ok(SessionRunEvent::Output(text))) => printed.push_str(&text),
+            // A reader that fell behind reads on, as a socket does.
+            Ok(Err(RecvError::Lagged(_))) => {}
+            Ok(Ok(SessionRunEvent::Exited(_)) | Err(RecvError::Closed)) => return (printed, false),
+            Err(_) => return (printed, span < QUIET),
+        }
+    }
+}
+
 impl SessionRuns {
+    /// Until the shell `run_id` has printed something and then gone quiet, or [`SETTLING`].
+    async fn settled(&self, run_id: &str) {
+        let Some(run) = self.in_flight(run_id) else {
+            return;
+        };
+        let until = Instant::now() + SETTLING;
+        // Subscribed under the lock output is appended under, so nothing printed is missed.
+        let (mut live, started) = {
+            let state = run.state.lock().expect("not poisoned");
+            (run.feed.subscribe(), !state.held.is_empty())
+        };
+        if !started {
+            match tokio::time::timeout_at(until, live.recv()).await {
+                Ok(Ok(SessionRunEvent::Output(_)) | Err(RecvError::Lagged(_))) => {}
+                _ => return,
+            }
+        }
+        heard(&mut live, until).await;
+    }
+
+    /// Type `keys` into `run_id` and answer what it printed after, as [`heard`] gathers it. `None`
+    /// where the run is not in flight or the keys did not reach it.
+    async fn typed_and_heard(&self, run_id: &str, keys: String, wait: Duration) -> Option<(String, bool)> {
+        let run = self.in_flight(run_id)?;
+        let mut live = run.feed.subscribe();
+        let typing = Arc::clone(&run);
+        // A command that is not reading can hold a write back.
+        if !tokio::task::spawn_blocking(move || typing.type_in(&keys)).await.unwrap_or(false) {
+            return None;
+        }
+        Some(heard(&mut live, Instant::now() + wait).await)
+    }
+
     /// The Job's shell, started with `launch` where none is in flight, and whether it started now.
     /// `on_end` is handed the new shell's id and answers what runs once it has ended.
     fn open_shell<E, F, Fut>(&self, launch: Launch<'_>, on_end: E) -> std::io::Result<(String, bool)>
@@ -84,6 +163,44 @@ where
                 move |_: Ended| async move { fleet.job_shell_ended(&session, &run_id) }
             })
             .map_err(|why| refusal(format!("the shell could not start in {dir}: {why}"), self.run_id()))
+    }
+
+    /// The Job a call is about: the hosted one holding the connection, else the one named.
+    fn shell_job(&self, caller: Option<api::Caller>, named: Option<&ipc::SessionId>) -> Result<String, Refusal> {
+        caller
+            .and_then(|caller| self.session_holding(&caller))
+            .or_else(|| named.map(|named| named.as_str().trim().to_string()))
+            .filter(|id| !id.is_empty())
+            .ok_or_else(|| {
+                refusal(
+                    "Fleet hosts no job on this connection, so name yours with session_id",
+                    self.run_id(),
+                )
+            })
+    }
+
+    /// The agent's typing, into the Job's shell opened for it where it has none.
+    pub(crate) async fn typed_in_job_shell(
+        self: Arc<Self>,
+        caller: Option<api::Caller>,
+        typed: TypeInTerminal,
+    ) -> Result<TerminalTyped, Refusal> {
+        let session = self.shell_job(caller, typed.session_id.as_ref())?;
+        if typed.text.is_empty() && !typed.enter {
+            return Err(refusal("nothing to type: text is empty and enter is false", self.run_id()));
+        }
+        let (run_id, opened) = Arc::clone(&self).job_shell(&session, None, None).await?;
+        if opened {
+            self.session_runs().settled(&run_id).await;
+        }
+        let keys = if typed.enter { format!("{}\r", typed.text) } else { typed.text };
+        let wait = Duration::from_secs(typed.wait_seconds.unwrap_or(WAIT).clamp(1, MOST_WAIT));
+        let (printed, still_printing) = self
+            .session_runs()
+            .typed_and_heard(&run_id, keys, wait)
+            .await
+            .ok_or_else(|| self.not_in_flight())?;
+        Ok(TerminalTyped { run_id, printed: kept(plain::last_lines(&printed, TYPED_LINES)), still_printing })
     }
 
     fn job_shell_ended(&self, session: &str, run_id: &str) {

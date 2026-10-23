@@ -96,6 +96,16 @@ pub trait Sessions: Send + Sync + 'static {
         open: ipc::OpenTerminal,
     ) -> impl Future<Output = Result<ipc::SessionRunUnderway, Refusal>> + Send;
 
+    /// `type_in_terminal` — the agent types into its Job's shell, opening it where it has none, and
+    /// is answered what it printed once it went quiet. `caller` places a hosted Job as
+    /// `show_window`'s does. [`Refusal::Unacceptable`] for a call that places no Job, and as
+    /// `open_terminal`'s.
+    fn type_in_terminal(
+        self: std::sync::Arc<Self>,
+        caller: Option<crate::Caller>,
+        typed: ipc::TypeInTerminal,
+    ) -> impl Future<Output = Result<ipc::TerminalTyped, Refusal>> + Send;
+
     /// `show_window` — a session shows the person a page. `caller` is the connection the call
     /// arrived on, where it came through the agent's door: it places a hosted session. Answers with
     /// the row. [`Refusal::Unacceptable`] for an address that is not `http` or `https`, or a call

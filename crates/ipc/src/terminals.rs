@@ -16,3 +16,34 @@ pub struct OpenTerminal {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rows: Option<u16>,
 }
+
+/// `type_in_terminal`: the Job's agent types into the Job's shell, opening it where it has none.
+/// `POST /sessions/terminal/type`. Answered 200 with `TerminalTyped`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TypeInTerminal {
+    /// Written as it is: Ctrl-C is the character 3.
+    pub text: String,
+    /// Whether Enter follows `text`. Absent is `true`.
+    #[serde(default = "pressed")]
+    pub enter: bool,
+    /// The longest to wait for the shell to go quiet. Absent is 10; at most 60.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub wait_seconds: Option<u64>,
+    /// Which Job. **Read only where the connection places no hosted Job**: a terminal one's.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<SessionId>,
+}
+
+fn pressed() -> bool {
+    true
+}
+
+/// `type_in_terminal`'s answer: what the shell printed after the text was typed, as plain lines.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TerminalTyped {
+    pub run_id: String,
+    /// The screen's lines, escapes and overwrites resolved. The last 200 at most.
+    pub printed: String,
+    /// Whether output was still arriving when the wait ran out.
+    pub still_printing: bool,
+}

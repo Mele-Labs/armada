@@ -4,7 +4,7 @@
 use std::sync::Arc;
 
 use api::Sessions;
-use ipc::{OpenTerminal, SessionFact, SessionId, SessionReport};
+use ipc::{OpenTerminal, SessionFact, SessionId, SessionReport, TypeInTerminal};
 
 use crate::tests::session_host::eventually;
 use crate::tests::session_running::{rig, Rig};
@@ -57,6 +57,53 @@ async fn the_person_opens_the_same_shell_and_an_ended_or_unknown_job_is_refused(
             Err(api::Refusal::Unacceptable(_))
         ));
     }
+}
+
+fn typing(rig: &Rig, text: &str, enter: bool, wait_seconds: Option<u64>) -> TypeInTerminal {
+    TypeInTerminal { text: text.into(), enter, wait_seconds, session_id: Some(rig.session.clone()) }
+}
+
+#[tokio::test]
+async fn the_agents_echo_hi_opens_the_shell_and_answers_hi_once_it_goes_quiet() {
+    let rig = rig().await;
+    let typed = Arc::clone(&rig.fleet)
+        .type_in_terminal(None, typing(&rig, "echo hi", true, None))
+        .await
+        .expect("typed");
+    assert!(typed.printed.lines().any(|line| line.trim() == "hi"), "{:?}", typed.printed);
+    assert!(!typed.still_printing, "{typed:?}");
+
+    let opened = Arc::clone(&rig.fleet).open_job_shell(rig.session.as_str(), None, None).await.unwrap();
+    assert_eq!(opened, typed.run_id, "the person's pane opens the shell the agent typed into");
+    ends(&rig, &typed.run_id).await;
+}
+
+#[tokio::test]
+async fn a_server_answers_still_printing_at_the_cap_and_ctrl_c_quiets_it() {
+    let rig = rig().await;
+    let serving = Arc::clone(&rig.fleet)
+        .type_in_terminal(None, typing(&rig, "while :; do echo tick; sleep 0.2; done", true, Some(2)))
+        .await
+        .expect("typed");
+    assert!(serving.still_printing, "{serving:?}");
+    assert!(serving.printed.contains("tick"), "{serving:?}");
+
+    let stopped = Arc::clone(&rig.fleet)
+        .type_in_terminal(None, typing(&rig, "\u{3}", false, Some(5)))
+        .await
+        .expect("typed");
+    assert!(!stopped.still_printing, "{stopped:?}");
+    ends(&rig, &serving.run_id).await;
+}
+
+#[tokio::test]
+async fn typing_with_no_job_placed_is_refused() {
+    let rig = rig().await;
+    let unplaced = TypeInTerminal { session_id: None, ..typing(&rig, "echo hi", true, None) };
+    assert!(matches!(
+        Arc::clone(&rig.fleet).type_in_terminal(None, unplaced).await,
+        Err(api::Refusal::Unacceptable(_))
+    ));
 }
 
 /// Stop a shell and wait for it to go: a runtime that shuts down waits on a shell still open.

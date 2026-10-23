@@ -824,6 +824,14 @@ where
         Ok(ipc::SessionRunUnderway { run_id })
     }
 
+    async fn type_in_terminal(
+        self: Arc<Self>,
+        caller: Option<api::Caller>,
+        typed: ipc::TypeInTerminal,
+    ) -> Result<ipc::TerminalTyped, Refusal> {
+        self.typed_in_job_shell(caller, typed).await
+    }
+
     async fn rename_session(&self, rename: ipc::RenameSession) -> Result<SessionRecord, Refusal> {
         let title = rename
             .title

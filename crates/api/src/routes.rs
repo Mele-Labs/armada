@@ -234,6 +234,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             get(crate::sessions::observe_session_run::<D>),
         )
         .route("/sessions/terminal/open", post(crate::terminals::open_terminal::<D>))
+        .route("/sessions/terminal/type", post(crate::terminals::type_in_terminal::<D>))
         .route(
             "/sessions/window",
             post(crate::sessions::show_window::<D>),

@@ -25,3 +25,20 @@ pub(crate) async fn open_terminal<D: Sessions>(
         Err(refusal) => refused(refusal),
     }
 }
+
+/// 200 with what the shell printed once it went quiet. 422 for a call that places no Job, or one
+/// `open_terminal` refuses. **The Job is placed by the connection** where the call arrived
+/// through the agent's door, and by the body's `session_id` only where it places none.
+pub(crate) async fn type_in_terminal<D: Sessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let typed: ipc::TypeInTerminal = match ipc::decode("keys for a job shell", &body) {
+        Ok(typed) => typed,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().type_in_terminal(crate::acting::asking(), typed).await {
+        Ok(heard) => answer(StatusCode::OK, &heard, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
