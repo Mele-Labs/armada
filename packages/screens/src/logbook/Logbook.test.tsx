@@ -6,7 +6,7 @@
 
 import { afterEach, expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
-import type { LogbookAnswer, LogbookEntry, LogbookForgotten, LogbookRead } from "@armada/protocol";
+import type { LogbookAnswer, LogbookEntry, LogbookForgotten, LogbookRead, LogbookTidied } from "@armada/protocol";
 
 import { Logbook } from "./Logbook";
 import { mount, unmount } from "../mounted";
@@ -48,6 +48,7 @@ type Acts = {
   edit?: (id: string, text: string) => Promise<LogbookAnswer>;
   lock?: (id: string, locked: boolean) => Promise<LogbookAnswer>;
   forget?: (id: string) => Promise<LogbookForgotten>;
+  tidy?: () => Promise<LogbookTidied>;
 };
 
 function opened(entries: LogbookEntry[], acts: Acts = {}) {
@@ -55,8 +56,9 @@ function opened(entries: LogbookEntry[], acts: Acts = {}) {
   const edit = vi.fn(acts.edit ?? (async (id: string, text: string): Promise<LogbookAnswer> => ({ ok: true, entry: { ...entries.find((one) => one.id === id)!, text, edited: true } })));
   const lock = vi.fn(acts.lock ?? (async (id: string, locked: boolean): Promise<LogbookAnswer> => ({ ok: true, entry: { ...entries.find((one) => one.id === id)!, locked } })));
   const forget = vi.fn(acts.forget ?? (async (): Promise<LogbookForgotten> => ({ ok: true })));
-  mount(<Logbook onRead={read} onEdit={edit} onLock={lock} onForget={forget} />);
-  return { read, edit, lock, forget };
+  const tidy = vi.fn(acts.tidy ?? (async (): Promise<LogbookTidied> => ({ ok: true, merged: 0 })));
+  mount(<Logbook onRead={read} onEdit={edit} onLock={lock} onForget={forget} onTidy={tidy} />);
+  return { read, edit, lock, forget, tidy };
 }
 
 const entries = () => page.getByRole("listbox", { name: "Entries" });
@@ -166,6 +168,58 @@ test("a refused Forget leaves the entry and says so", async () => {
 
 test("a Logbook Fleet could not read says so in place of the panels", async () => {
   const read = vi.fn(async (): Promise<LogbookRead> => ({ ok: false, outcome: { ok: false, why: "not_connected" } }));
-  mount(<Logbook onRead={read} onEdit={vi.fn()} onLock={vi.fn()} onForget={vi.fn()} />);
+  mount(<Logbook onRead={read} onEdit={vi.fn()} onLock={vi.fn()} onForget={vi.fn()} onTidy={vi.fn()} />);
   await expect.element(page.getByText("Fleet serves no Logbook yet.")).toBeVisible();
+});
+
+const tidyButton = () => page.getByRole("button", { name: "Tidy now" });
+
+test("Tidy now is busy while Fleet works, then says how many entries merged and reads the list again", async () => {
+  let finish: (answer: LogbookTidied) => void = () => {};
+  const waiting = new Promise<LogbookTidied>((resolve) => (finish = resolve));
+  const merged = entry("6", { section: "repo", repository: "/Users/user/widgets", text: "Survivor.", state: "standing" });
+  let reads = 0;
+  const read = vi.fn(async (): Promise<LogbookRead> => ({ ok: true, entries: ++reads === 1 ? [WIDGETS, merged] : [merged] }));
+  mount(<Logbook onRead={read} onEdit={vi.fn()} onLock={vi.fn()} onForget={vi.fn()} onTidy={() => waiting} />);
+  await expect.element(entries().getByText("Run specs with bin/rspec.")).toBeVisible();
+  await tidyButton().click();
+  await expect.element(tidyButton()).toHaveAttribute("aria-busy", "true");
+  finish({ ok: true, merged: 12 });
+  await expect.element(page.getByRole("status")).toHaveTextContent("Merged 12 entries");
+  await expect.element(tidyButton()).not.toHaveAttribute("aria-busy");
+  expect(read).toHaveBeenCalledTimes(2);
+  expect(entries().getByText("Run specs with bin/rspec.").elements()).toHaveLength(0);
+});
+
+test("Tidy now says so when nothing merged, and one entry is not plural", async () => {
+  const answers: LogbookTidied[] = [{ ok: true, merged: 0 }, { ok: true, merged: 1 }];
+  const { tidy } = opened([WIDGETS], { tidy: async () => answers.shift()! });
+  await tidyButton().click();
+  await expect.element(page.getByRole("status")).toHaveTextContent("Nothing to merge");
+  await tidyButton().click();
+  await expect.element(page.getByRole("status")).toHaveTextContent("Merged 1 entry");
+  expect(tidy).toHaveBeenCalledTimes(2);
+});
+
+test("a refused Tidy says why in Fleet's words and leaves the list as it was", async () => {
+  const { read } = opened([WIDGETS], { tidy: async () => REFUSED });
+  await tidyButton().click();
+  await expect.element(page.getByRole("status")).toHaveTextContent("Text over 400 characters is refused.");
+  expect(read).toHaveBeenCalledTimes(1);
+});
+
+test("an earlier text Tidy merged in is marked Merged, apart from one the person or Armada replaced", async () => {
+  const history = [
+    { text: "Folded in.", until: "2026-10-19T09:00:00.000Z", by: "merged" as const },
+    { text: "Folded in too.", until: "2026-10-19T09:00:00.000Z", by: "merged" as const },
+    { text: "Rewritten.", until: "2026-10-18T09:00:00.000Z", by: "distil" as const },
+    { text: "Mine.", until: "2026-10-17T09:00:00.000Z", by: "person" as const },
+  ];
+  opened([entry("7", { section: "repo", repository: "/Users/user/widgets", text: "Survivor.", history })]);
+  // One pass folds several in at one moment, so each is drawn once.
+  await expect.element(detail().getByText("Folded in.")).toBeVisible();
+  await expect.element(detail().getByText("Folded in too.")).toBeVisible();
+  expect(detail().getByText(/^Merged/).elements()).toHaveLength(2);
+  await expect.element(detail().getByText(/^Rewritten by Armada/)).toBeVisible();
+  await expect.element(detail().getByText(/^Replaced by you/)).toBeVisible();
 });

@@ -87,6 +87,8 @@ It is written to the same rules for plain words as the retro call.
 It answers groups: one entry to keep, its new text, and the entries it absorbs.
 The kept entry takes every absorbed entry's evidence and keeps its earlier text as history, and the absorbed ones fade: kept, searchable, no longer served.
 A locked entry and a person's text are never offered. An answer that is wrong anywhere changes nothing.
+Tidy now on the Logbook page runs the same pass for every repository at once and says how many entries it merged.
+An earlier text Tidy folded in reads Merged under Earlier.
 
 **The deny list is the rule run memory's dropped lines follow** ([Kit](kit.md), *A private repository*). The merge reads it first, so a later Distil does not bring a forgotten entry back.
 

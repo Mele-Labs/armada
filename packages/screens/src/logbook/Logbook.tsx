@@ -3,10 +3,10 @@
 // **Nothing in the entries waits on the owner.** He reads an entry and its evidence, and can edit, lock or forget it.
 // Each act goes to Fleet and the entry is drawn as it came back. Armada fixes, the retro items, is the host's (`fixes`).
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 
 import { LogbookView } from "@armada/components";
-import type { LogbookAnswer, LogbookEntry, LogbookForgotten, LogbookRead, LogbookState, Outcome } from "@armada/protocol";
+import type { LogbookAnswer, LogbookEntry, LogbookForgotten, LogbookRead, LogbookState, LogbookTidied, Outcome } from "@armada/protocol";
 
 import { refusalWords } from "../refusal-words";
 import { groupsOf, orderOf } from "./groups";
@@ -17,6 +17,8 @@ export type LogbookProps = {
   /** Lock or unlock an entry; the wire's word for it is still pin. */
   onLock: (id: string, locked: boolean) => Promise<LogbookAnswer>;
   onForget: (id: string) => Promise<LogbookForgotten>;
+  /** Folds near-duplicates together across every repository. */
+  onTidy: () => Promise<LogbookTidied>;
   onOpenJob?: (jobId: string) => void;
   /** What else an entry changed, drawn under its text. */
   also?: (entry: LogbookEntry) => ReactNode;
@@ -32,22 +34,43 @@ type Held = { state: "reading" } | { state: "read"; entries: LogbookEntry[] } | 
 /** Fleet's refusal of the last act, and the entry it was on. */
 type Refused = { id: string; title: string; said: string };
 
-export function Logbook({ onRead, onEdit, onLock, onForget, onOpenJob, also, fixes, toFixes }: LogbookProps) {
+export function Logbook({ onRead, onEdit, onLock, onForget, onTidy, onOpenJob, also, fixes, toFixes }: LogbookProps) {
   const [held, setHeld] = useState<Held>({ state: "reading" });
   const [shown, setShown] = useState<LogbookState>("standing");
   const [selected, setSelected] = useState<string>();
   const [editing, setEditing] = useState(false);
   const [refused, setRefused] = useState<Refused>();
+  const [tidying, setTidying] = useState(false);
+  const [tidied, setTidied] = useState<string>();
+
+  const read = useCallback(
+    (live: () => boolean) =>
+      onRead()
+        .then((answer) => live() && setHeld(answer.ok ? { state: "read", entries: answer.entries } : { state: "unread" }))
+        .catch(() => live() && setHeld({ state: "unread" })),
+    [onRead],
+  );
 
   useEffect(() => {
     let live = true;
-    onRead()
-      .then((read) => live && setHeld(read.ok ? { state: "read", entries: read.entries } : { state: "unread" }))
-      .catch(() => live && setHeld({ state: "unread" }));
+    void read(() => live);
     return () => {
       live = false;
     };
-  }, [onRead]);
+  }, [read]);
+
+  const tidy = () => {
+    setTidying(true);
+    setTidied(undefined);
+    onTidy()
+      .then(async (answer) => {
+        if (!answer.ok) return setTidied(refusalWords(answer.outcome));
+        setTidied(answer.merged === 0 ? "Nothing to merge" : `Merged ${answer.merged} ${answer.merged === 1 ? "entry" : "entries"}`);
+        await read(() => true);
+      })
+      .catch(() => setTidied(refusalWords({ ok: false, why: "not_connected" })))
+      .finally(() => setTidying(false));
+  };
 
   const entries = held.state === "read" ? held.entries : [];
   const panels = groupsOf(entries, shown);
@@ -72,6 +95,9 @@ export function Logbook({ onRead, onEdit, onLock, onForget, onOpenJob, also, fix
         setShown(next);
         setEditing(false);
       }}
+      onTidy={tidy}
+      tidying={tidying}
+      {...(tidied === undefined ? {} : { tidied })}
       {...(held.state === "unread" ? { unread: true } : {})}
       {...(fixes === undefined ? {} : { fixes })}
       {...(toFixes === undefined ? {} : { toFixes })}
