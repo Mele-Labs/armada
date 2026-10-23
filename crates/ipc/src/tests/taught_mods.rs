@@ -18,6 +18,7 @@ fn the_new_kinds_are_spelled_as_their_files_are_named_and_taught_on_is_left_out_
         valid: true,
         reason: None,
         changed_at: None,
+        tried: None,
     };
     let json = encode(&row).expect("plain data");
     assert!(json.contains(r#""taught_on":"ARM-123 in a message""#), "{json}");
