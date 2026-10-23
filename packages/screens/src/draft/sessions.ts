@@ -115,7 +115,9 @@ export type SessionAttachment =
    * Every Session started from another stands under it in Work, group or none.
    */
   | { kind: "started_to"; id: string; group?: string }
-  | { kind: "started_by"; id: string; group?: string };
+  | { kind: "started_by"; id: string; group?: string }
+  /** A web address the person or the agent wrote in the thread. Loopback addresses and the repository's own issue and pull request links are not kept. */
+  | { kind: "link"; url: string; by: "you" | "agent" };
 
 /** A `window` is a page the Session showed in a window of Bridge's own; `id` is its address. */
 export type SessionArtifactForm = "page" | "file" | "image" | "doc" | "window";
@@ -493,6 +495,11 @@ export type Session = {
   /** The directory it was started in, `SessionRecord.cwd`. A report about it names where its transcript is kept. */
   cwd?: string;
   attachments: readonly SessionAttachment[];
+  /**
+   * Every version of every attachment, oldest first; `at` is an RFC 3339 instant and each entry is the attachment as it stood from then.
+   * Absent where Fleet has sent no history: the timeline then draws one point to an attachment, in the order it is held.
+   */
+  versions?: readonly { at: string; attachment: SessionAttachment }[];
   /**
    * Where its work has been, from the record's `started_at` and each attachment's `since` and `changed_at`,
    * given-back rows included, which `attachments` leaves out (`trailOfRecord`).
