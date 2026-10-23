@@ -87,7 +87,19 @@ const FLEET_BLOCK: &str =
     "- `fleet`: what Fleet should do with this kind of notice, `{notice}`. Give `does`, one of \
      `tell` (send it as it is sent now), `quiet` (never send it), `batch` (send what comes in a \
      while as one) or `call` (raise it for the person instead of sending a line to the Session), \
-     and `where`: `job` for this Job only, `repo` for this repository's Jobs, or `everywhere`.";
+     and `where`: `job` for this Job only, `repo` for this repository's Jobs, or `everywhere`. Give \
+     `matches` only where the person limits it to notices that say something: a regular expression \
+     that finds words anywhere in the pressed-on notice's text, otherwise null. It runs as a \
+     JavaScript regular expression: no lookahead, lookbehind, backreference, inline flag or named \
+     group, it must not match the empty string, it is under 200 characters, and no group that is \
+     repeated holds a repeat or a choice. Give `when` only where the person says to do something else under a condition: \
+     a list of `{\"if\": condition, \"does\": ...}` tried in order, the first that holds replacing \
+     `does`. `if` is one of exactly these: `blocks_merge` (the Job has an open pull request that \
+     cannot merge now: it conflicts, fails a required check or is unmergeable in the merge queue), \
+     `open_pull_request` (the Job has an open pull request), `working` (the Job's agent is in the \
+     middle of a turn) or `owner_away` (the person is away and sleep mode is on). Fleet can test no \
+     other condition and you must never invent one: put the person's own words for each other \
+     condition they name in `untestable`, a list of strings, and leave it out of `when`.";
 const TWEAK_BLOCK: &str =
     "- `tweak`: a list of `{\"token\": \"--name\", \"now\": \"value\"}` that change how Bridge \
      looks over whichever theme is chosen. Choose only from these tokens, each with the value it \
@@ -216,6 +228,7 @@ where
             kind: source.kind,
             reach: teach.reach,
             notice,
+            notice_text: (source.kind == TeachingSourceKind::Notice).then_some(subject),
             session: teach.session_id.as_deref(),
             manifest: manifest.as_deref(),
         };

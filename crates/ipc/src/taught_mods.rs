@@ -125,7 +125,37 @@ impl TryFrom<String> for RuleScope {
     }
 }
 
+/// What Fleet can test about a Job when a notice is sent. **A closed set**: a rule cannot ask
+/// about anything else, so a condition outside it is a mod that does not load, and a teaching
+/// that names one says Fleet cannot test it. Each is read from what Fleet already keeps, never
+/// from the forge at the moment of sending, and **a fact Fleet does not know counts as not holding**.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Condition {
+    /// The Job has an open pull request that cannot merge now: it conflicts with its base, fails a
+    /// required check, or is unmergeable in the merge queue.
+    BlocksMerge,
+    /// The Job has an open pull request, a draft included.
+    OpenPullRequest,
+    /// The Job's agent is in the middle of a turn.
+    Working,
+    /// The owner is away, which is sleep mode being on.
+    OwnerAway,
+}
+
+/// A rule's other answer: when `condition` holds, Fleet does `does` in place of the rule's own.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Instead {
+    #[serde(rename = "if")]
+    pub condition: Condition,
+    pub does: Does,
+}
+
 /// One notice kind, what Fleet does with it, and where.
+///
+/// **A rule covers a notice of its word whose text matches `matches`**, when it has one. When the
+/// notice is sent, the first of `when` that holds replaces `does`; with none holding, `does` stands.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct FleetRule {
@@ -134,6 +164,13 @@ pub struct FleetRule {
     pub does: Does,
     #[serde(rename = "where")]
     pub scope: RuleScope,
+    /// A pattern over the notice's text, held to the rules of a Words pattern except that it
+    /// finds its words anywhere in the text. Absent, every notice of the word.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub matches: Option<String>,
+    /// What to do instead, in the order tried.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub when: Vec<Instead>,
 }
 
 /// A `fleet.toml`: `[[rule]]` tables.

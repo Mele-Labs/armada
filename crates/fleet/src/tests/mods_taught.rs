@@ -84,6 +84,53 @@ fn a_fleet_file_names_notices_that_exist_and_places_that_parse() {
 }
 
 #[test]
+fn a_bad_matches_or_a_bad_condition_makes_the_fleet_file_invalid_and_says_why() {
+    let rule = |extra: &str| format!("[[rule]]\nnotice = \"behind_base\"\ndoes = \"batch\"\nwhere = \"everywhere\"\n{extra}\n");
+    let good = [
+        rule("matches = \"behind \\\\d+\""),
+        rule("when = [{ if = \"blocks_merge\", does = \"tell\" }, { if = \"owner_away\", does = \"quiet\" }]"),
+        format!("{}{}", rule("matches = \"lint\""), rule("matches = \"fmt\"")),
+    ];
+    for text in good {
+        assert_eq!(fleet_rules::problems(&text), Vec::<String>::new(), "{text}");
+    }
+    let long = "a".repeat(201);
+    let cases = [
+        (rule("matches = \"(a+)+\""), "repeats a group"),
+        (rule("matches = \"(a|aa)*\""), "repeats a group"),
+        (rule("matches = \"(?i)lint\""), "a flag, a name or a lookaround"),
+        (rule("matches = \"(?=lint)\""), "a flag, a name or a lookaround"),
+        (rule("matches = \"\""), "empty or over 200 characters"),
+        (rule("matches = \"a*\""), "matches the empty string"),
+        (rule("matches = \"[\""), "does not compile"),
+        (rule(&format!("matches = \"{long}\"")), "over 200 characters"),
+        (rule("when = [{ if = \"is_friday\", does = \"tell\" }]"), "is_friday"),
+        (rule("when = [{ if = \"working\", does = \"shout\" }]"), "shout"),
+        (rule("when = [{ if = \"working\", does = \"tell\" }, { if = \"working\", does = \"quiet\" }]"), "tested twice"),
+        (format!("{0}{0}", rule("matches = \"lint\"")), "ruled twice"),
+    ];
+    for (text, wanted) in cases {
+        let found = fleet_rules::problems(&text);
+        assert!(said(&found, wanted), "{text:?} should say {wanted:?}, got {found:?}");
+    }
+}
+
+#[test]
+fn a_mod_with_a_bad_matches_is_invalid_in_the_list_with_the_reason() {
+    let home = TempDir::new();
+    let mods = home.path().join("mods");
+    let head = "[[rule]]\nnotice = \"behind_base\"\ndoes = \"batch\"\nwhere = \"everywhere\"\n";
+    a_taught_mod(&mods, "fine", "fleet", "fleet.toml", &format!("{head}matches = \"behind\"\n"));
+    a_taught_mod(&mods, "hangs", "fleet", "fleet.toml", &format!("{head}matches = \"(a+)+\"\n"));
+
+    let list = scan(&mods, &Default::default());
+    let row = |name: &str| list.mods.iter().find(|one| one.name == name).expect(name).clone();
+    assert!(row("fine").valid);
+    let hangs = row("hangs");
+    assert!(!hangs.valid && hangs.reason.expect("why").contains("repeats a group"));
+}
+
+#[test]
 fn the_nearest_place_wins_and_a_later_file_wins_a_tie() {
     let file = |text: &str| fleet_rules::read(text).expect("reads");
     let rule = |does: &str, place: &str| format!("[[rule]]\nnotice = \"behind_base\"\ndoes = \"{does}\"\nwhere = \"{place}\"\n");
@@ -92,11 +139,11 @@ fn the_nearest_place_wins_and_a_later_file_wins_a_tie() {
     let job = file(&rule("call", "job s1"));
     let later_everywhere = file(&rule("tell", "everywhere"));
     let files = [job.clone(), repo.clone(), everywhere.clone()];
-    assert_eq!(fleet_rules::does_for(&files, "behind_base", "s1", "armada"), Some(Does::Call));
-    assert_eq!(fleet_rules::does_for(&files, "behind_base", "s2", "armada"), Some(Does::Batch));
-    assert_eq!(fleet_rules::does_for(&files, "behind_base", "s2", "other"), Some(Does::Quiet));
-    assert_eq!(fleet_rules::does_for(&files, "other_notice", "s1", "armada"), None);
-    assert_eq!(fleet_rules::does_for(&[everywhere, later_everywhere], "behind_base", "s2", "other"), Some(Does::Tell));
+    assert_eq!(fleet_rules::rule_for(&files, "behind_base", "", "s1", "armada").map(|rule| rule.does), Some(Does::Call));
+    assert_eq!(fleet_rules::rule_for(&files, "behind_base", "", "s2", "armada").map(|rule| rule.does), Some(Does::Batch));
+    assert_eq!(fleet_rules::rule_for(&files, "behind_base", "", "s2", "other").map(|rule| rule.does), Some(Does::Quiet));
+    assert_eq!(fleet_rules::rule_for(&files, "other_notice", "", "s1", "armada").map(|rule| rule.does), None);
+    assert_eq!(fleet_rules::rule_for(&[everywhere, later_everywhere], "behind_base", "", "s2", "other").map(|rule| rule.does), Some(Does::Tell));
 }
 
 #[test]
@@ -230,7 +277,7 @@ async fn validating_a_taught_mod_hands_bridge_what_it_holds_and_a_broken_one_hol
     assert!(wire.contains(r#""found":"pull_request #12""#) && wire.contains(r#""repository":"armada""#), "{wire}");
 
     let quiet = fleet.validate_mod("quiet".into()).await.expect("checked");
-    let rule = FleetRule { notice: "behind_base".into(), does: Does::Quiet, scope: RuleScope::Everywhere };
+    let rule = FleetRule { notice: "behind_base".into(), does: Does::Quiet, scope: RuleScope::Everywhere, matches: None, when: Vec::new() };
     assert_eq!(quiet.fleet, Some(FleetFile { rule: vec![rule] }), "{quiet:?}");
     assert!(quiet.valid && quiet.words.is_none() && quiet.css.is_none(), "{quiet:?}");
 

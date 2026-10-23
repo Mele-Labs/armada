@@ -167,11 +167,12 @@ where
     }
 
     /// **The one check for every word**, so no notice is sent past it: the person's mute first, then
-    /// the Fleet mods' rule (the Job's own, else the repository's, else everywhere's), then the
+    /// the Fleet mods' rule (the Job's own, else the repository's, else everywhere's, of those whose
+    /// pattern finds words in this notice) with the first of its conditions that holds, then the
     /// notice as it has always been sent.
     async fn noticed(self: &Arc<Self>, session: &str, text: &str, news: bool, notice: ipc::Notice) -> Result<Told, Refusal> {
         let sent = |told: bool| if told { Told::Sent } else { Told::Unheard };
-        match self.verdict_on(session, notice).await {
+        match self.verdict_on(session, text, notice).await {
             Verdict::Muted => Ok(Told::Unheard),
             Verdict::Does(ipc::Does::Quiet) => Ok(Told::Withheld),
             Verdict::Does(ipc::Does::Batch) => {
@@ -193,7 +194,7 @@ where
 
     /// What the person has said to do with `notice` for `session`. **A mute is not a rule**: it
     /// answers "not now", and a store that cannot say reads as one, since it is not a licence to speak.
-    async fn verdict_on(&self, session: &str, notice: ipc::Notice) -> Verdict {
+    async fn verdict_on(&self, session: &str, text: &str, notice: ipc::Notice) -> Verdict {
         let (manifest, muted) = {
             let store = self.store().lock().await;
             let hosted = store.hosting(session).ok().flatten().map(|one| one.manifest_id).filter(|id| !id.is_empty());
@@ -206,8 +207,8 @@ where
         if muted {
             return Verdict::Muted;
         }
-        match self.fleet_rule_for(notice.word(), session, manifest.as_deref().unwrap_or("")).await {
-            Some(does) => Verdict::Does(does),
+        match self.fleet_rule_for(notice.word(), text, session, manifest.as_deref().unwrap_or("")).await {
+            Some(rule) => Verdict::Does(self.does_now(&rule, session, manifest.as_deref().unwrap_or("")).await),
             None => Verdict::Tell,
         }
     }

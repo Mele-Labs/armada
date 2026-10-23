@@ -75,13 +75,47 @@ export type TeachingWords = {
 /** What Fleet does with a notice. */
 export type FleetDoes = "tell" | "quiet" | "batch" | "call";
 
-/** One notice kind, what Fleet does with it, and where. */
+/**
+ * What Fleet can test about a Job when a notice is sent. A closed set: a rule asks about nothing else. Each is read from
+ * what Fleet already keeps, never from the forge at the moment of sending, and a fact Fleet does not know does not hold.
+ * `blocks_merge`: the Job has an open pull request that cannot merge now (it conflicts, fails a required check, or is
+ * unmergeable in the merge queue). `open_pull_request`: it has an open one, a draft included. `working`: its agent is
+ * mid-turn. `owner_away`: sleep mode is on.
+ */
+export type FleetCondition = "blocks_merge" | "open_pull_request" | "working" | "owner_away";
+
+/** A rule's other answer: when `if` holds, Fleet does `does` in place of the rule's own. */
+export type FleetInstead = {
+  if: FleetCondition;
+  does: FleetDoes;
+};
+
+/**
+ * One notice kind, what Fleet does with it, and where. It covers a notice of its word whose text matches `matches`, when it
+ * has one. When the notice is sent, the first of `when` that holds replaces `does`; with none holding, `does` stands.
+ */
 export type FleetRule = {
   /** A notice's word: what a thread row's `notice` carries. */
   notice: string;
   does: FleetDoes;
   /** One string: `job <id>`, `repo <manifest>` or `everywhere`. */
   where: string;
+  /**
+   * A pattern over the notice's text, a JavaScript-safe regular expression held to a Words pattern's rules except that it
+   * finds its words anywhere in the text. Absent, every notice of the word.
+   */
+  matches?: string;
+  /** What to do instead, in the order tried. Absent when there is none. */
+  when?: FleetInstead[];
+};
+
+/**
+ * The Fleet part of a proposal: the rule, and what the person said that Fleet cannot test. Only the rule is ever kept in a
+ * file; a rule saved with `untestable` is saved without it.
+ */
+export type ProposedFleet = FleetRule & {
+  /** The person's own words for each condition they named that is not a `FleetCondition`. Fleet invents none in its place. */
+  untestable?: string[];
 };
 
 /** One token a theme tweak sets. */
@@ -109,7 +143,7 @@ export type TeachingLayout = {
 export type TeachingProposal = {
   note?: TeachingNote;
   words?: TeachingWords;
-  fleet?: FleetRule;
+  fleet?: ProposedFleet;
   tweak?: TweakChange[];
   layout?: TeachingLayout;
 };

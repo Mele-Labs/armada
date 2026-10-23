@@ -450,10 +450,10 @@ pub use logbook::{
     LogbookSection, LogbookState, LockLogbookEntry, TeachLogbookEntry, TeachSource,
 };
 pub use teaching::{
-    ProposedAddress, ReadTeaching, SaveTeaching, SavedTeaching, TeachingLayout, TeachingNote, TeachingProposal, TeachingReach,
+    ProposedAddress, ProposedFleet, ReadTeaching, SaveTeaching, SavedTeaching, TeachingLayout, TeachingNote, TeachingProposal, TeachingReach,
     TeachingSource, TeachingSourceKind, TeachingWords, TweakChange, WordRule, WordRules,
 };
-pub use taught_mods::{AddressFound, Does, FleetFile, FleetRule, RuleScope, WordsAddress, WordsFile};
+pub use taught_mods::{AddressFound, Condition, Does, FleetFile, FleetRule, Instead, RuleScope, WordsAddress, WordsFile};
 pub use notices::{Notice, NoticeScope, SetNoticeMute};
 pub use run_memory::{
     DropRunFact, RememberedRun, RunCloud, RunFactState, RunMemory, RunMemoryPlace, RunPlace, RunWorkspace, SetRunMemoryPlace,

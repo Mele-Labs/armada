@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use api::Refusal;
 use ipc::{
-    Does, LogbookKind, LogbookSection, ReadTeaching, RuleScope, TeachingProposal, TeachingReach, TeachingSource,
+    Condition, Does, Instead, LogbookKind, LogbookSection, ReadTeaching, RuleScope, TeachingProposal, TeachingReach, TeachingSource,
     TeachingSourceKind,
 };
 use testkit::FakeJudge;
@@ -253,16 +253,16 @@ async fn a_notice_teaching_proposes_a_rule_for_the_notice_it_was_pressed_on() {
     let manifest = rig.fleet.manifest_id_at(&rig.root).expect("the rig's repository has a manifest");
     let proposal = read(&rig, pressed(&rig, TeachingSourceKind::Notice, "slot-3 is 12 commits behind", &["behind_base"])).await.expect("read");
 
-    let rule = proposal.fleet.expect("a rule");
+    let rule = proposal.fleet.expect("a rule").rule;
     assert_eq!((rule.notice.as_str(), rule.does, rule.scope), ("behind_base", Does::Batch, RuleScope::Repo(manifest)));
     assert!(proposal.note.is_some(), "a notice may teach an agent too");
     assert!(judge.asked()[0].contains("behind_base"), "the model is told which notice");
 
     let (rig, _) = rig_saying(r#"{"fleet":{"does":"quiet","where":"job"}}"#);
-    let job = read(&rig, pressed(&rig, TeachingSourceKind::Notice, "behind", &["behind_base"])).await.expect("read").fleet.expect("rule");
+    let job = read(&rig, pressed(&rig, TeachingSourceKind::Notice, "behind", &["behind_base"])).await.expect("read").fleet.expect("rule").rule;
     assert_eq!(job.scope, RuleScope::Job("s1".to_string()), "the Job is the Session it was taught in");
     let (rig, _) = rig_saying(r#"{"fleet":{"does":"quiet","where":"everywhere"}}"#);
-    let all = read(&rig, pressed(&rig, TeachingSourceKind::Notice, "behind", &["behind_base"])).await.expect("read").fleet.expect("rule");
+    let all = read(&rig, pressed(&rig, TeachingSourceKind::Notice, "behind", &["behind_base"])).await.expect("read").fleet.expect("rule").rule;
     assert_eq!(all.scope, RuleScope::Everywhere);
 }
 
@@ -284,4 +284,49 @@ async fn a_part_the_source_cannot_make_is_dropped_and_an_answer_of_only_such_par
     assert!(proposal.fleet.is_none() && proposal.words.is_some(), "a rule needs a notice to be pressed on");
     let (rig, _) = rig_saying(r#"{"fleet":{"does":"quiet","where":"everywhere"}}"#);
     assert_eq!(read(&rig, teaching(&rig, "STORE-1234", "A key")).await, Err((422, "fleet.teaching_nothing_read".to_string())));
+}
+
+#[tokio::test]
+async fn batch_these_but_tell_me_when_it_blocks_a_merge_is_a_batch_rule_with_that_condition() {
+    let answer = r#"{"fleet":{"does":"batch","where":"everywhere","when":[{"if":"blocks_merge","does":"tell"}]}}"#;
+    let (rig, judge) = rig_saying(answer);
+    let pressed = pressed(&rig, TeachingSourceKind::Notice, "#7 failed its checks.", &["pr_checks_failed"]);
+    let proposal = read(&rig, pressed).await.expect("read");
+
+    let fleet = proposal.fleet.expect("a rule");
+    assert_eq!(fleet.rule.does, Does::Batch);
+    assert_eq!(fleet.rule.when, [Instead { condition: Condition::BlocksMerge, does: Does::Tell }]);
+    assert!(fleet.rule.matches.is_none() && fleet.untestable.is_empty());
+    let asked = &judge.asked()[0];
+    for condition in ["blocks_merge", "open_pull_request", "working", "owner_away"] {
+        assert!(asked.contains(condition), "the model is given the closed list, missing {condition}");
+    }
+}
+
+#[tokio::test]
+async fn a_condition_outside_the_set_comes_back_untestable_and_no_condition_is_made_up() {
+    let answer = r#"{"fleet":{"does":"batch","where":"everywhere","untestable":["when it is a Friday"],"when":[{"if":"working","does":"tell"},{"if":"the build is red","does":"quiet"}]}}"#;
+    let (rig, _) = rig_saying(answer);
+    let pressed = pressed(&rig, TeachingSourceKind::Notice, "#7 failed its checks.", &["pr_checks_failed"]);
+    let fleet = read(&rig, pressed).await.expect("read").fleet.expect("a rule");
+
+    assert_eq!(fleet.rule.when, [Instead { condition: Condition::Working, does: Does::Tell }], "only a condition Fleet can test");
+    assert_eq!(fleet.untestable, ["when it is a Friday", "the build is red"]);
+    let wire = ipc::encode(&fleet).expect("plain data");
+    assert!(wire.contains(r#""untestable":["when it is a Friday","the build is red"]"#) && wire.contains(r#""where":"everywhere""#), "{wire}");
+}
+
+#[tokio::test]
+async fn a_pattern_over_the_notice_is_kept_only_if_it_works_and_finds_words_in_that_notice() {
+    let text = "#7 failed its checks: lint";
+    let said = |matches: &str| format!(r#"{{"fleet":{{"does":"quiet","where":"everywhere","matches":{matches:?}}}}}"#);
+    let (rig, _) = rig_saying(&said("lint"));
+    let kept = read(&rig, pressed(&rig, TeachingSourceKind::Notice, text, &["pr_checks_failed"])).await.expect("read");
+    assert_eq!(kept.fleet.expect("a rule").rule.matches.as_deref(), Some("lint"), "found anywhere in the text, not whole");
+
+    for bad in ["unit tests", "(a+)+", "(?i)lint", "a*", "["] {
+        let (rig, _) = rig_saying(&said(bad));
+        let refused = read(&rig, pressed(&rig, TeachingSourceKind::Notice, text, &["pr_checks_failed"])).await;
+        assert_eq!(refused, Err((422, "fleet.teaching_rule_refused".to_string())), "{bad}");
+    }
 }

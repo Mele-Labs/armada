@@ -1,7 +1,7 @@
 //! The files a teaching writes, as one type for the file and the wire: `found` and `where` are one
 //! string each, and a spelling nobody sanctioned does not decode.
 
-use crate::{decode, encode, AddressFound, Does, FleetRule, ModKind, ModSummary, RuleScope, WordsAddress};
+use crate::{decode, encode, AddressFound, Condition, Does, FleetRule, Instead, ModKind, ModSummary, RuleScope, WordsAddress};
 
 #[test]
 fn the_new_kinds_are_spelled_as_their_files_are_named_and_taught_on_is_left_out_when_absent() {
@@ -48,7 +48,7 @@ fn found_is_one_string_that_says_where_an_address_came_from() {
 
 #[test]
 fn a_rule_says_where_in_one_string_and_a_place_that_does_not_parse_is_refused() {
-    let rule = FleetRule { notice: "behind_base".into(), does: Does::Batch, scope: RuleScope::Repo("armada".into()) };
+    let rule = FleetRule { notice: "behind_base".into(), does: Does::Batch, scope: RuleScope::Repo("armada".into()), matches: None, when: Vec::new() };
     let json = encode(&rule).expect("plain data");
     assert_eq!(json, r#"{"notice":"behind_base","does":"batch","where":"repo armada"}"#);
     assert_eq!(decode::<FleetRule>("a rule", json.as_bytes()).expect("round-trips"), rule);
@@ -60,4 +60,26 @@ fn a_rule_says_where_in_one_string_and_a_place_that_does_not_parse_is_refused() 
         let body = format!(r#"{{"notice":"behind_base","does":"call","where":"{bad}"}}"#);
         decode::<FleetRule>("a rule", body.as_bytes()).expect_err(bad);
     }
+}
+
+#[test]
+fn a_rule_that_matches_and_has_conditions_round_trips_and_a_condition_outside_the_set_does_not_decode() {
+    let rule = FleetRule {
+        notice: "pr_checks_failed".into(),
+        does: Does::Batch,
+        scope: RuleScope::Everywhere,
+        matches: Some("lint|fmt".into()),
+        when: vec![Instead { condition: Condition::BlocksMerge, does: Does::Tell }],
+    };
+    let json = encode(&rule).expect("plain data");
+    assert_eq!(
+        json,
+        r#"{"notice":"pr_checks_failed","does":"batch","where":"everywhere","matches":"lint|fmt","when":[{"if":"blocks_merge","does":"tell"}]}"#
+    );
+    assert_eq!(decode::<FleetRule>("a rule", json.as_bytes()).expect("round-trips"), rule);
+    for (word, condition) in [("open_pull_request", Condition::OpenPullRequest), ("working", Condition::Working), ("owner_away", Condition::OwnerAway)] {
+        assert_eq!(encode(&condition).expect("plain data"), format!("\"{word}\""));
+    }
+    let outside = r#"{"notice":"slot_free","does":"tell","where":"everywhere","when":[{"if":"is_friday","does":"quiet"}]}"#;
+    decode::<FleetRule>("a rule", outside.as_bytes()).expect_err("a condition Fleet cannot test");
 }

@@ -8,9 +8,10 @@
 use std::collections::BTreeMap;
 
 use ipc::{
-    AddressFound, Does, FleetRule, LogbookKind, LogbookSection, ProposedAddress, RuleScope, TeachingLayout, TeachingNote,
+    AddressFound, Condition, Does, FleetRule, Instead, LogbookKind, LogbookSection, ProposedAddress, ProposedFleet, RuleScope, TeachingLayout, TeachingNote,
     TeachingProposal, TeachingReach, TeachingSourceKind, TeachingWords, TweakChange,
 };
+use serde::de::value::StrDeserializer;
 use serde::{Deserialize, Serialize};
 
 use super::{link, tokens};
@@ -44,6 +45,8 @@ pub(crate) struct Context<'a> {
     pub(crate) reach: TeachingReach,
     /// The notice a `notice` source was pressed on.
     pub(crate) notice: Option<&'a str>,
+    /// The text of that notice, which a rule's pattern must find words in.
+    pub(crate) notice_text: Option<&'a str>,
     pub(crate) session: Option<&'a str>,
     /// The Manifest id of the repository the teaching is in.
     pub(crate) manifest: Option<&'a str>,
@@ -103,6 +106,21 @@ struct SaidFleet {
     does: Does,
     #[serde(rename = "where")]
     place: SaidPlace,
+    #[serde(default)]
+    matches: Option<String>,
+    #[serde(default)]
+    when: Option<Vec<SaidWhen>>,
+    #[serde(default)]
+    untestable: Option<Vec<String>>,
+}
+
+/// A condition as the model wrote it. **A string, so one outside the set is the person's word for
+/// something Fleet cannot test and not an answer that cannot be read.**
+#[derive(Deserialize)]
+struct SaidWhen {
+    #[serde(rename = "if")]
+    condition: String,
+    does: Does,
 }
 
 #[derive(Clone, Copy, Deserialize)]
@@ -225,7 +243,7 @@ fn words(said: SaidWords, subject: &str) -> Result<TeachingWords, Unfit> {
     }
 }
 
-fn rule(said: SaidFleet, at: &Context) -> Result<FleetRule, Unfit> {
+fn rule(said: SaidFleet, at: &Context) -> Result<ProposedFleet, Unfit> {
     let notice = at.notice.ok_or_else(|| Unfit::Rule("a rule needs the notice it was pressed on".to_string()))?;
     if !fleet_rules::is_notice_word(notice) {
         return Err(Unfit::Rule(format!("`{notice}` is not a notice Fleet sends")));
@@ -239,7 +257,29 @@ fn rule(said: SaidFleet, at: &Context) -> Result<FleetRule, Unfit> {
         ),
         SaidPlace::Everywhere => RuleScope::Everywhere,
     };
-    Ok(FleetRule { notice: notice.to_string(), does: said.does, scope })
+    let mut untestable: Vec<String> = Vec::new();
+    let mut said_untestable = |words: &str| {
+        let words = words.trim();
+        if !words.is_empty() && !untestable.iter().any(|held| held == words) {
+            untestable.push(words.to_string());
+        }
+    };
+    for words in said.untestable.iter().flatten() {
+        said_untestable(words);
+    }
+    let mut when = Vec::new();
+    for one in said.when.into_iter().flatten() {
+        match Condition::deserialize(StrDeserializer::<serde::de::value::Error>::new(one.condition.trim())) {
+            Ok(condition) => when.push(Instead { condition, does: one.does }),
+            Err(_) => said_untestable(&one.condition),
+        }
+    }
+    let matches = said.matches.map(|pattern| pattern.trim().to_string()).filter(|pattern| !pattern.is_empty());
+    let rule = FleetRule { notice: notice.to_string(), does: said.does, scope, matches, when };
+    if let Some(why) = fleet_rules::rule_fault(&rule, at.notice_text) {
+        return Err(Unfit::Rule(why));
+    }
+    Ok(ProposedFleet { rule, untestable })
 }
 
 /// The `tweak.css` a list of changes makes.

@@ -225,8 +225,13 @@ where
             }
         }
         if let Some(rule) = &proposal.fleet {
+            let rule = &rule.rule;
             if !fleet_rules::is_notice_word(&rule.notice) {
                 return Err(self.teaching_refused(RULE_REFUSED, format!("`{}` is not a notice Fleet sends", rule.notice)));
+            }
+            let taught_on = save.source.as_ref().filter(|one| one.kind == ipc::TeachingSourceKind::Notice).map(|one| one.text.trim());
+            if let Some(why) = fleet_rules::rule_fault(rule, taught_on) {
+                return Err(self.teaching_refused(RULE_REFUSED, why));
             }
         }
         let tweak: Vec<(String, String)> =
@@ -244,7 +249,7 @@ where
         }
         Ok(Plan {
             words: proposal.words.clone().map(|one| (one, manifest.unwrap_or("*").to_string())),
-            fleet: proposal.fleet.clone(),
+            fleet: proposal.fleet.as_ref().map(|one| one.rule.clone()),
             tweak,
             layout: proposal.layout.clone(),
             taught_on: save.source.as_ref().map(taught_on).filter(|text| !text.is_empty()),

@@ -141,19 +141,19 @@ async fn a_teaching_on_bridge_makes_mods_alone_that_say_what_they_were_taught_on
 async fn a_fleet_rule_is_a_mod_and_the_nearest_place_wins_and_a_switched_off_mod_says_nothing() {
     let rig = rig_placing(None);
     let manifest = rig.fleet.manifest_id_at(&rig.root).expect("manifest");
-    let rule = |does, scope| FleetRule { notice: "behind_base".into(), does, scope };
+    let rule = |does, scope| FleetRule { notice: "behind_base".into(), does, scope, matches: None, when: Vec::new() };
     for one in [rule(Does::Batch, RuleScope::Everywhere), rule(Does::Quiet, RuleScope::Repo(manifest.clone())), rule(Does::Call, RuleScope::Job("s9".into()))] {
-        let save = saving(TeachingProposal { fleet: Some(one), ..TeachingProposal::default() }, None);
+        let save = saving(TeachingProposal { fleet: Some(ipc::ProposedFleet { rule: one, untestable: Vec::new() }), ..TeachingProposal::default() }, None);
         Arc::clone(&rig.fleet).save_teaching(save).await.expect("saved");
     }
     let asked = |session: &'static str, repository: &str| {
         let (fleet, repository) = (Arc::clone(&rig.fleet), repository.to_string());
-        async move { fleet.fleet_rule_for("behind_base", session, &repository).await }
+        async move { fleet.fleet_rule_for("behind_base", "", session, &repository).await.map(|rule| rule.does) }
     };
     assert_eq!(asked("s9", &manifest).await, Some(Does::Call));
     assert_eq!(asked("s1", &manifest).await, Some(Does::Quiet));
     assert_eq!(asked("s1", "elsewhere").await, Some(Does::Batch));
-    assert_eq!(rig.fleet.fleet_rule_for("another_notice", "s1", &manifest).await, None);
+    assert_eq!(rig.fleet.fleet_rule_for("another_notice", "", "s1", &manifest).await, None);
 
     rig.fleet.set_mod_enabled(ipc::SetModEnabled { name: "fleet-behind-base-2".into(), enabled: false }).await.expect("off");
     assert_eq!(asked("s1", &manifest).await, Some(Does::Batch), "the repository's rule is off");
@@ -182,7 +182,7 @@ async fn a_part_that_cannot_work_is_refused_and_nothing_is_kept() {
         (bad(&|p| p.words = Some(words("BLOG-1", None)).map(|mut w| { w.pattern = r"STORE-\d+".into(); w })), "fleet.teaching_words_refused"),
         (bad(&|p| p.words = Some(words("ARM-1", Some("ftp://x.example/{match}")))), "fleet.teaching_words_refused"),
         (bad(&|p| p.note = Some(TeachingNote { section: LogbookSection::Habits, kind: LogbookKind::Habit, text: "x".into() })), "fleet.teaching_note_refused"),
-        (bad(&|p| p.fleet = Some(FleetRule { notice: "made_up".into(), does: Does::Quiet, scope: RuleScope::Everywhere })), "fleet.teaching_rule_refused"),
+        (bad(&|p| p.fleet = Some(ipc::ProposedFleet { rule: FleetRule { notice: "made_up".into(), does: Does::Quiet, scope: RuleScope::Everywhere, matches: None, when: Vec::new() }, untestable: Vec::new() })), "fleet.teaching_rule_refused"),
         (bad(&|p| p.tweak = vec![TweakChange { token: "--accent".into(), was: String::new(), now: "url(x)".into(), used_in: vec![], note: None }]), "fleet.teaching_tweak_refused"),
         (bad(&|p| p.layout = Some(TeachingLayout { name: "x".into(), layout: "not json".into() })), "fleet.teaching_layout_refused"),
         (saving(TeachingProposal::default(), Some(&rig)), "fleet.teaching_input_refused"),
@@ -282,7 +282,7 @@ async fn forgetting_the_entry_removes_the_mods_it_made_and_leaves_every_other_mo
     let mut save = from_words(&rig, "ARM-123");
     save.proposal.note = Some(note("ARM keys are Jira tickets."));
     save.proposal.words = Some(words("ARM-123", Some("https://acme.example.net/browse/{match}")));
-    save.proposal.fleet = Some(FleetRule { notice: "behind_base".into(), does: Does::Quiet, scope: RuleScope::Everywhere });
+    save.proposal.fleet = Some(ipc::ProposedFleet { rule: FleetRule { notice: "behind_base".into(), does: Does::Quiet, scope: RuleScope::Everywhere, matches: None, when: Vec::new() }, untestable: Vec::new() });
     let saved = Arc::clone(&rig.fleet).save_teaching(save).await.expect("saved");
     let entry = saved.entry.clone().expect("an entry");
     assert_eq!(saved.mods.len(), 2);
@@ -322,4 +322,40 @@ fn only_a_real_folder_that_names_the_entry_is_taken() {
     assert!(dir.path().join("b").is_dir() && dir.path().join("a-file").is_file());
     assert!(crate::teaching::forget_effects(dir.path(), "entry-1").is_empty(), "a second time takes nothing");
     assert!(crate::teaching::forget_effects(&dir.path().join("nowhere"), "entry-1").is_empty());
+}
+
+#[tokio::test]
+async fn a_rule_with_matches_and_conditions_is_written_as_the_file_reads_it_and_untestable_is_not_kept() {
+    let rig = rig_placing(None);
+    let rule = FleetRule {
+        notice: "pr_checks_failed".into(),
+        does: Does::Batch,
+        scope: RuleScope::Everywhere,
+        matches: Some("lint".into()),
+        when: vec![ipc::Instead { condition: ipc::Condition::BlocksMerge, does: Does::Tell }],
+    };
+    let fleet = ipc::ProposedFleet { rule: rule.clone(), untestable: vec!["when it is a Friday".into()] };
+    let mut save = saving(TeachingProposal { fleet: Some(fleet), ..TeachingProposal::default() }, None);
+    save.source = Some(ipc::TeachingSource { kind: ipc::TeachingSourceKind::Notice, text: "#7 failed its checks: lint".into(), ids: vec!["pr_checks_failed".into()] });
+    let saved = Arc::clone(&rig.fleet).save_teaching(save).await.expect("saved");
+
+    let file = std::fs::read_to_string(rig.fleet.mods_dir().join(&saved.mods[0]).join("fleet.toml")).expect("written");
+    assert!(!file.contains("untestable") && file.contains("blocks_merge") && file.contains("matches = \"lint\""), "{file}");
+    assert_eq!(crate::mods::fleet_rules::read(&file).expect("reads"), ipc::FleetFile { rule: vec![rule] });
+    assert_eq!(crate::mods::fleet_rules::problems(&file), Vec::<String>::new());
+}
+
+#[tokio::test]
+async fn a_rule_whose_pattern_cannot_work_or_finds_nothing_in_the_notice_it_was_taught_on_is_refused() {
+    let rig = rig_placing(None);
+    let ruled = |matches: &str, text: &str| {
+        let rule = FleetRule { notice: "pr_checks_failed".into(), does: Does::Quiet, scope: RuleScope::Everywhere, matches: Some(matches.into()), when: Vec::new() };
+        let mut save = saving(TeachingProposal { fleet: Some(ipc::ProposedFleet { rule, untestable: Vec::new() }), ..TeachingProposal::default() }, None);
+        save.source = Some(ipc::TeachingSource { kind: ipc::TeachingSourceKind::Notice, text: text.into(), ids: vec!["pr_checks_failed".into()] });
+        save
+    };
+    for (pattern, text) in [("(a+)+", "aaa"), ("a*", "aaa"), ("lint", "#7 failed: unit tests")] {
+        let refused = Arc::clone(&rig.fleet).save_teaching(ruled(pattern, text)).await.expect_err(pattern);
+        assert_eq!(code(refused).1, "fleet.teaching_rule_refused", "{pattern}");
+    }
 }

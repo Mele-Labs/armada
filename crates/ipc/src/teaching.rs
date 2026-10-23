@@ -147,6 +147,19 @@ pub struct TeachingLayout {
     pub layout: String,
 }
 
+/// The Fleet part of a proposal: the rule as a Fleet mod would keep it, and what the person said
+/// that Fleet cannot test. **Only the rule is ever written to a file**; `untestable` is for Bridge
+/// to say so, and a rule saved with some is saved without them.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ProposedFleet {
+    #[serde(flatten)]
+    pub rule: FleetRule,
+    /// The person's own words for each condition they named that is not one of
+    /// [`Condition`](crate::Condition). Fleet invents none in its place.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub untestable: Vec<String>,
+}
+
 /// `read_teaching`' answer: **at least one part is present**. Nothing is kept.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TeachingProposal {
@@ -155,7 +168,7 @@ pub struct TeachingProposal {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub words: Option<TeachingWords>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub fleet: Option<FleetRule>,
+    pub fleet: Option<ProposedFleet>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub tweak: Vec<TweakChange>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

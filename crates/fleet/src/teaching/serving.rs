@@ -6,7 +6,7 @@ use std::sync::Arc;
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Refusal, Teaching};
 use ipc::{
-    Does, FleetFile, ModKind, ReadTeaching, SaveTeaching, SavedTeaching, TeachingProposal, WireError, WordRule, WordRules,
+    FleetFile, FleetRule, ModKind, ReadTeaching, SaveTeaching, SavedTeaching, TeachingProposal, WireError, WordRule, WordRules,
     WordsAddress, WordsFile,
 };
 
@@ -112,9 +112,9 @@ where
 
     /// What the Fleet mods say to do with `notice` for `session` in the repository `manifest`, if
     /// any does. **Read by what sends every notice**, `told_by_fleet`, after the person's mute.
-    pub(crate) async fn fleet_rule_for(&self, notice: &str, session: &str, manifest: &str) -> Option<Does> {
+    pub(crate) async fn fleet_rule_for(&self, notice: &str, text: &str, session: &str, manifest: &str) -> Option<FleetRule> {
         let files = self.mod_files_kept(ModKind::Fleet).await.ok()?;
         let read: Vec<FleetFile> = files.iter().filter_map(|(_, text)| fleet_rules::read(text).ok()).collect();
-        fleet_rules::does_for(&read, notice, session, manifest)
+        fleet_rules::rule_for(&read, notice, text, session, manifest).cloned()
     }
 }

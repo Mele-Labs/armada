@@ -10,27 +10,56 @@ const MOST_PATTERN: usize = 200;
 /// Why `pattern` cannot work, where it cannot. `words` are the words it was taught from, which it
 /// must match whole.
 pub(crate) fn pattern_fault(pattern: &str, words: &str) -> Option<String> {
-    if pattern.is_empty() || pattern.chars().count() > MOST_PATTERN {
-        return Some(format!("the pattern is empty or over {MOST_PATTERN} characters"));
-    }
-    if let Some(what) = script_only(pattern) {
-        return Some(format!("the pattern uses {what}, which Bridge cannot read"));
-    }
-    if repeats_a_repeat(pattern) {
-        return Some("the pattern repeats a group that itself repeats or chooses, which can hang Bridge".to_string());
-    }
-    // The engine refuses lookaround and backreferences itself, which is the subset wanted.
-    let compiled = match RegexBuilder::new(pattern).size_limit(100_000).build() {
+    let compiled = match engine_of(pattern) {
         Ok(compiled) => compiled,
-        Err(why) => return Some(format!("the pattern does not compile: {}", first_line(&why.to_string()))),
+        Err(why) => return Some(why),
     };
-    if compiled.is_match("") {
-        return Some("the pattern matches the empty string".to_string());
-    }
     match compiled.find(words) {
         Some(found) if found.start() == 0 && found.end() == words.len() => None,
         _ => Some(format!("the pattern does not match all of \"{words}\"")),
     }
+}
+
+/// Why `pattern` cannot be a Fleet rule's `matches`, where it cannot: the same checks as a Words
+/// pattern, except that it finds its words anywhere in a notice and so need not match one whole.
+/// `text` is the notice it was taught on, which it must find words in.
+pub(crate) fn match_fault(pattern: &str, text: Option<&str>) -> Option<String> {
+    let compiled = match engine_of(pattern) {
+        Ok(compiled) => compiled,
+        Err(why) => return Some(why),
+    };
+    match text {
+        Some(text) if !compiled.is_match(text) => Some("the pattern finds nothing in the notice it was taught on".to_string()),
+        _ => None,
+    }
+}
+
+/// Whether `pattern`, a rule's `matches`, finds words in `text`. **A pattern that cannot work finds
+/// nothing**, so a rule with one covers no notice.
+pub(crate) fn finds(pattern: &str, text: &str) -> bool {
+    engine_of(pattern).is_ok_and(|compiled| compiled.is_match(text))
+}
+
+/// The pattern compiled, or why it cannot work in Bridge and here.
+fn engine_of(pattern: &str) -> Result<regex::Regex, String> {
+    if pattern.is_empty() || pattern.chars().count() > MOST_PATTERN {
+        return Err(format!("the pattern is empty or over {MOST_PATTERN} characters"));
+    }
+    if let Some(what) = script_only(pattern) {
+        return Err(format!("the pattern uses {what}, which Bridge cannot read"));
+    }
+    if repeats_a_repeat(pattern) {
+        return Err("the pattern repeats a group that itself repeats or chooses, which can hang Bridge".to_string());
+    }
+    // The engine refuses lookaround and backreferences itself, which is the subset wanted.
+    let compiled = RegexBuilder::new(pattern)
+        .size_limit(100_000)
+        .build()
+        .map_err(|why| format!("the pattern does not compile: {}", first_line(&why.to_string())))?;
+    if compiled.is_match("") {
+        return Err("the pattern matches the empty string".to_string());
+    }
+    Ok(compiled)
 }
 
 fn first_line(text: &str) -> &str {
