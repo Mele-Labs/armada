@@ -1,11 +1,12 @@
 //! A tracker this build was never written for, taught by a mod's `tracker.toml`: how to list,
-//! search and read over a command line or HTTP, and a `jq` filter from each answer to Armada's
+//! search and read over a command line, HTTP or an MCP server, and a `jq` filter from each answer to Armada's
 //! issues. `docs/concepts/mods.md`, *Tracker mods*; `docs/concepts/tracker.md`, *Choosing a tracker*.
 //!
 //! [`file`] reads and checks the file without running anything, [`running`] runs what it names
-//! within bounds, and [`mapping`] turns what `jq` printed into issues.
+//! within bounds, [`mcp`] calls a tool on a server, and [`mapping`] turns what `jq` printed into issues.
 
 use std::sync::Arc;
+use std::time::Duration;
 
 use adapter_traits::{
     NotTracked, OpenIssue, Outgoing, QueryGuide, ReadIssue, RequestSender, Secret, Tracker,
@@ -15,6 +16,7 @@ use crate::HttpRequests;
 
 mod file;
 mod mapping;
+mod mcp;
 mod running;
 
 pub use file::{problems, read, TrackerFile, MOST_BYTES};
@@ -38,11 +40,19 @@ pub trait TaughtTrackers: Send + Sync {
 /// A tracker read from its file.
 pub struct TaughtTracker {
     file: TrackerFile,
+    /// The longest an MCP exchange may take; [`running::WITHIN`] unless a test shortens it.
+    within: Duration,
 }
 
 impl TaughtTracker {
     pub fn over(file: TrackerFile) -> TaughtTracker {
-        TaughtTracker { file }
+        TaughtTracker { file, within: running::WITHIN }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn within(mut self, within: Duration) -> TaughtTracker {
+        self.within = within;
+        self
     }
 
     /// The rows `call` answers with, filled from `fills`. **Every refusal is scrubbed of the
@@ -80,6 +90,12 @@ impl TaughtTracker {
                     return Err(NotTracked::of(doing, format!("the answer was larger than {} bytes", running::MOST_OUTPUT)));
                 }
                 came.body
+            }
+            Transport::Mcp { server, env, tool, arguments } => {
+                let env: Vec<(String, String)> =
+                    env.iter().map(|(name, value)| (name.clone(), fills.fill(value, Escape::Plain))).collect();
+                mcp::call(server, &env, tool, &fills.fill(arguments, Escape::Json), self.within)
+                    .map_err(|why| NotTracked::of(doing, fills.scrubbed(&why)))?
             }
         };
         let jq = ["jq".to_string(), "-r".to_string(), mapping::program(&call.map)];
