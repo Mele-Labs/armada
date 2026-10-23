@@ -23,7 +23,8 @@ const EXCERPT: usize = 240;
 /// How many issues one search reads.
 const SEARCHED: &str = "100";
 
-const SEARCH_FIELDS: &str = "key,summary,labels,assignee,updated,description";
+/// `acli`'s search refuses `updated`, so a listing keeps the order the JQL asked for.
+const SEARCH_FIELDS: &str = "key,summary,labels,assignee,description";
 
 /// What runs a program: given its arguments and, where it takes any, its stdin.
 pub(crate) trait Run: Send + Sync {

@@ -62,7 +62,7 @@ Everything else is a named field, under the tracker's own name, each value a dis
 | Tracker | Fields |
 |---|---|
 | The forge | `Labels`, `Milestone` (its title), `Projects` (each project's title, with its Status where it has one: `Roadmap: In progress`) |
-| Jira | `Status`, `Priority`, `Issue type`, `Components`, `Fix versions`, `Labels`, `Sprint`, and each field the block's `fields` key names |
+| Jira | `Status`, `Priority`, `Issue type`, `Labels`: all `acli`'s search returns. A block naming `fields` is refused |
 
 A token that may not read projects (`read:project`) still searches: it is asked again without them, and the rest is read.
 
@@ -160,7 +160,6 @@ The credential stays where `acli` keeps it, in the operator's own environment, a
 | `site` | yes | `acme` for `acme.atlassian.net`, or a full host where it has a dot |
 | `project` | one of `project` and `jql` | A project key, or several separated by commas: capitals, digits and underscores. `ABC, OPS` |
 | `jql` | one of `project` and `jql` | A filter, ANDed into the search. It takes no `ORDER BY` |
-| `fields` | no | More fields a search reads, by Jira's id or name, separated by commas: `customfield_10016, Team`. Each is shown under the name written. None may hold a quote or a backslash |
 
 **The backlog is whatever the block selects.** `project` alone lists those projects, `jql` alone lists what it matches on the site, and both together list the `jql` within those projects.
 A block naming neither is refused, since it would list every open issue on the site.
@@ -175,22 +174,23 @@ A block naming neither is refused, since it would list every open issue on the s
 | Dispatch by link | Only `https://<site>.atlassian.net/browse/ABC-123` is recognised, any project's key, and a Job dispatched with one holds `ABC-123` on its ledger. A bare number or another host is not |
 | Close the issue | The tracker returns no closing line, because nothing in a pull request body closes a Jira issue. The pull request **title** is prefixed with the key (`ABC-123 The title`), which Jira's integration with the forge reads, and left alone where it already holds the key |
 
-**Not verified against a real `acli`.** Atlassian's reference confirms the flags this tracker passes: `search` takes `--jql`, `--fields`, `--json` and `--limit` (`--paginate` fetches all), and `view` takes `--fields` and `--json`; its output guide reads `view --json | jq '.fields.summary'`, so a view prints `fields` beside `key`.
-It publishes no sample of what either prints.
-The tests run the filters over the Jira Cloud REST v3 shapes instead, the user, status, resolution, rich-text description and `+0000` timestamp the REST pages give, and over a search wrapped in `issues`.
-What is still unconfirmed is below.
-Every filter reads both `.fields.x` and a flat `.x`, and flattens a rich-text description to plain text, so a plausible variation reads.
-Whoever first points a repository at Jira runs these and compares, with a real key and project:
+**`acli`'s search takes only some fields.** Measured against a real site with `acli` 1.3.39, `search --fields` takes `key`, `summary`, `labels`, `assignee`, `description`, `reporter`, `status`, `priority`, `issuetype` and `creator`.
+It refuses every other field with `field 'updated' is not allowed`: `updated`, `created`, `resolution`, `components`, `fixVersions`, `sprint`, each `customfield_*`, `*all` and `*navigable` among them.
+So a search asks for those alone, keeps the order its JQL asked for, and calls an issue closed by its status category.
+A row's last edit is empty, and Bridge draws none.
+`view --fields` takes any field, and reading one issue still asks for `resolution`.
+A search prints a JSON array of issues, each with `key` beside `fields`, and `fields.status` carries `statusCategory.key`.
+`view` takes one key: several joined with commas fail with `failed to output command result in JSON format`, and one view takes about a second, so fields a search refuses are not filled in one issue at a time.
+
+Check it again when `acli` changes, with a real project:
 
 ```bash
-acli jira workitem search --jql 'project = "ABC" AND statusCategory != Done' --fields key,summary,labels,assignee,updated,description --json --limit 3
-acli jira workitem view ABC-1 --fields key,summary,status,resolution,labels --json
-acli jira workitem search --jql 'project = "ABC"' --fields key,summary,reporter,status,resolution,priority,issuetype,components,fixVersions,sprint --json --limit 3
+acli --version
+acli jira workitem search --jql 'project = "ABC" AND statusCategory != Done' --fields key,summary,labels,assignee,description,reporter,status,priority,issuetype --json --limit 3
+acli jira workitem search --jql 'project = "ABC"' --fields updated --json --limit 1
 ```
 
-What to look for in the search: `fields.reporter` is a person, each of `priority`, `issuetype` and `status` an object with a `name`, `components`, `fixVersions` and `sprint` lists of objects with a `name`, and that `--fields sprint` is taken at all, since Sprint is a custom field on most sites.
-What to look for: each issue has `key` and `fields.summary` (or `summary`), `fields.labels` is a list of strings, `fields.updated` is a timestamp, `fields.status` is an object with `statusCategory.key`, and `fields.description` is text or a rich-text document.
-Also unconfirmed: the wording `acli` prints for an issue that does not exist, which `read_issue` matches on (`does not exist`, `not found`, `404`).
+Still unconfirmed: the wording `acli` prints for an issue that does not exist, which `read_issue` matches on (`does not exist`, `not found`, `404`).
 
 ## What a person sees
 

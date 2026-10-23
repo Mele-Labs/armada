@@ -161,7 +161,7 @@ fn the_listing_searches_the_project_through_acli_and_reduces_it_with_jq() {
         [
             "jira", "workitem", "search", "--jql",
             "project = \"ABC\" AND statusCategory != Done ORDER BY updated DESC",
-            "--fields", "key,summary,labels,assignee,updated,description",
+            "--fields", "key,summary,labels,assignee,description",
             "--json", "--limit", "200",
         ]
     );

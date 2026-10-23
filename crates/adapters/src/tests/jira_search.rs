@@ -14,10 +14,6 @@ fn field(name: &str, values: &[&str]) -> IssueField {
     }
 }
 
-fn with_fields(fields: &str) -> JiraSettings {
-    JiraSettings::read(&block(&[("site", "acme"), ("project", "ABC"), ("fields", fields)])).expect("a block")
-}
-
 // ------------------------------------------------------------------ the JQL
 
 #[test]
@@ -62,9 +58,9 @@ fn a_query_that_orders_itself_is_refused_and_never_reaches_acli() {
 
 #[test]
 fn the_search_runs_through_acli_asking_for_every_field_a_row_can_show() {
-    let line = "ABC-5\tFive\tweb\tSam\t2026-10-14T10:00:00Z\tBody\tPat\tdone\t\tDone\tHigh\tBug\t\t\tweb\t\t5\n";
+    let line = "ABC-5\tFive\tweb\tSam\t\tBody\tPat\tdone\t\tDone\tHigh\tBug\tweb\n";
     let run = Scripted::saying(&[(0, "[]", ""), (0, line, "")]);
-    let found = JiraTracker::with_runner(with_fields("customfield_10016"), &run)
+    let found = JiraTracker::with_runner(settings(), &run)
         .search_issues("/repo", "assignee = currentUser()")
         .expect("found");
     let calls = run.calls();
@@ -74,8 +70,7 @@ fn the_search_runs_through_acli_asking_for_every_field_a_row_can_show() {
             "jira", "workitem", "search", "--jql",
             "project = \"ABC\" AND (assignee = currentUser()) ORDER BY updated DESC",
             "--fields",
-            "key,summary,labels,assignee,updated,description,reporter,status,resolution,\
-             priority,issuetype,components,fixVersions,sprint,customfield_10016",
+            "key,summary,labels,assignee,description,reporter,status,priority,issuetype",
             "--json", "--limit", "100",
         ]
     );
@@ -90,22 +85,35 @@ fn the_search_runs_through_acli_asking_for_every_field_a_row_can_show() {
             field("Priority", &["High"]),
             field("Issue type", &["Bug"]),
             field("Labels", &["web"]),
-            field("customfield_10016", &["5"]),
         ]
     );
 }
 
+/// What `acli jira workitem search --fields` takes, as `acli` 1.3.39 answered a real site.
+/// Any other field, `updated` and `resolution` among them, is "not allowed".
+const ACLI_SEARCHABLE: &[&str] =
+    &["key", "summary", "labels", "assignee", "description", "reporter", "status", "priority", "issuetype", "creator"];
+
 #[test]
-fn a_fields_key_names_extra_fields_and_refuses_one_that_cannot_be_quoted() {
-    let extra = with_fields("customfield_10016, Story Points ,");
-    let guide = extra.guide();
-    assert_eq!(
-        guide.fields,
-        ["Status", "Priority", "Issue type", "Components", "Fix versions", "Labels", "Sprint", "customfield_10016", "Story Points"]
-    );
-    let refused = JiraSettings::read(&block(&[("site", "acme"), ("project", "ABC"), ("fields", "a\"b")]))
+fn neither_the_listing_nor_a_search_asks_acli_for_a_field_its_search_refuses() {
+    let run = Scripted::saying(&[(0, "[]", ""), (0, "", ""), (0, "[]", ""), (0, "", "")]);
+    let tracker = JiraTracker::with_runner(settings(), &run);
+    tracker.open_issues("/repo").expect("listed");
+    tracker.search_issues("/repo", "assignee = currentUser()").expect("found");
+    for (program, args, _) in run.calls().iter().filter(|(program, ..)| program == "acli") {
+        let at = args.iter().position(|one| one == "--fields").expect("asks for fields");
+        let refused: Vec<&str> =
+            args[at + 1].split(',').filter(|one| !ACLI_SEARCHABLE.contains(one)).collect();
+        assert!(refused.is_empty(), "{program} {} asks for {refused:?}, which acli's search refuses", args[2]);
+    }
+}
+
+#[test]
+fn a_fields_key_is_refused_since_acli_cannot_search_for_another_field() {
+    assert_eq!(settings().guide().fields, ["Status", "Priority", "Issue type", "Labels"]);
+    let refused = JiraSettings::read(&block(&[("site", "acme"), ("project", "ABC"), ("fields", "customfield_10016")]))
         .expect_err("refused");
-    assert!(refused.contains("`fields`"), "{refused}");
+    assert!(refused.contains("takes no `fields`") && refused.contains("acli"), "{refused}");
 }
 
 #[test]
@@ -136,7 +144,7 @@ const FLAT: &str = r#"{"issues":[{"key":"ABC-14","summary":"Flat","labels":[],"r
 
 #[test]
 fn the_search_filter_reads_each_field_from_the_nested_shape() {
-    let it = with_fields("customfield_10016,customfield_10050");
+    let it = settings();
     let printed = through_jq(&jira::search_filter(240, &it), NESTED);
     let issue = issue_of_line(&it, printed.lines().next().expect("a line")).expect("an issue");
     assert_eq!(issue.reference, "ABC-12");
@@ -148,18 +156,14 @@ fn the_search_filter_reads_each_field_from_the_nested_shape() {
             field("Status", &["In Progress"]),
             field("Priority", &["High"]),
             field("Issue type", &["Bug"]),
-            field("Components", &["Fleet", "Bridge"]),
             field("Labels", &["web", "api"]),
-            field("Sprint", &["Sprint 4"]),
-            field("customfield_10016", &["5"]),
-            field("customfield_10050", &["Team A"]),
         ]
     );
 }
 
 #[test]
 fn the_search_filter_reads_the_flat_shape_too() {
-    let it = with_fields("customfield_10016,customfield_10050");
+    let it = settings();
     let printed = through_jq(&jira::search_filter(240, &it), FLAT);
     let issue = issue_of_line(&it, printed.lines().next().expect("a line")).expect("an issue");
     assert_eq!(issue.reference, "ABC-14");
@@ -167,13 +171,7 @@ fn the_search_filter_reads_the_flat_shape_too() {
     assert!(issue.closed, "a status called Done is done");
     assert_eq!(
         issue.fields,
-        [
-            field("Status", &["Done"]),
-            field("Priority", &["Low"]),
-            field("Issue type", &["Task"]),
-            field("Components", &["Fleet"]),
-            field("customfield_10050", &["Team B", "Team C"]),
-        ]
+        [field("Status", &["Done"]), field("Priority", &["Low"]), field("Issue type", &["Task"])]
     );
 }
 

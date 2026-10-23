@@ -13,22 +13,20 @@ use adapter_traits::QueryGuide;
 
 pub(crate) const PROVIDER: &str = "jira";
 
-const KEYS: &[&str] = &["site", "project", "jql", "fields"];
+const KEYS: &[&str] = &["site", "project", "jql"];
 
 /// The fields every search reads, by the name a row shows and the id Jira keys them by.
 const FIELDS: &[(&str, &str)] = &[
     ("Status", "status"),
     ("Priority", "priority"),
     ("Issue type", "issuetype"),
-    ("Components", "components"),
-    ("Fix versions", "fixVersions"),
     ("Labels", "labels"),
-    ("Sprint", "sprint"),
 ];
 
-/// What a search asks `acli` for: the listing's, who reported it, its state, and [`FIELDS`].
-const SEARCH_FIELDS: &str = "key,summary,labels,assignee,updated,description,reporter,status,resolution,\
-    priority,issuetype,components,fixVersions,sprint";
+/// What a search asks `acli` for: the listing's, who reported it, and [`FIELDS`]. **Only what
+/// `acli`'s search takes**: it refuses `updated`, `resolution`, `components`, `fixVersions`,
+/// `sprint` and every custom field, so a search is done by its status alone.
+const SEARCH_FIELDS: &str = "key,summary,labels,assignee,description,reporter,status,priority,issuetype";
 
 /// The keys of one `tracker:` block, read and checked. **The backlog is whatever the search
 /// selects**: the projects named, the `jql`, or both together. An issue is named by its key.
@@ -37,13 +35,17 @@ pub(crate) struct JiraSettings {
     host: String,
     projects: Vec<String>,
     jql: Option<String>,
-    /// The block's own extra fields, by id or name as written.
-    fields: Vec<String>,
 }
 
 impl JiraSettings {
     /// The block, or the sentence that says what is wrong with it.
     pub(crate) fn read(block: &BTreeMap<String, String>) -> Result<JiraSettings, String> {
+        if block.contains_key("fields") {
+            return Err(format!(
+                "the jira tracker takes no `fields`: `acli`'s search returns only {SEARCH_FIELDS}, \
+                 so no other field can be listed"
+            ));
+        }
         if let Some(unknown) = block.keys().find(|key| !KEYS.contains(&key.as_str())) {
             return Err(format!(
                 "tracker key `{unknown}` is not one the jira tracker reads: {}",
@@ -74,18 +76,10 @@ impl JiraSettings {
                 return Err("`jql` is an extra filter and takes no ORDER BY".to_string());
             }
         }
-        let fields: Vec<String> = block
-            .get("fields")
-            .map(|named| named.split(',').map(str::trim).filter(|one| !one.is_empty()).map(str::to_string).collect())
-            .unwrap_or_default();
-        // Each is written into the `jq` filter as a string.
-        if let Some(bad) = fields.iter().find(|one| one.contains(['"', '\\']) || one.chars().any(char::is_control)) {
-            return Err(format!("a field in `fields` cannot hold a quote or a backslash: {bad}"));
-        }
         if projects.is_empty() && jql.is_none() {
             return Err("the jira tracker needs `project` or `jql` to say which issues it lists".to_string());
         }
-        Ok(JiraSettings { host, projects, jql, fields })
+        Ok(JiraSettings { host, projects, jql })
     }
 
     /// Open issues the block selects, newest edit first.
@@ -128,29 +122,19 @@ impl JiraSettings {
         Ok(format!("{} ORDER BY updated DESC", clauses.join(" AND ")))
     }
 
-    /// Every field a search reads, by the name a row shows and the id it is read by: [`FIELDS`],
-    /// then the block's own, named as written.
+    /// Every field a search reads, by the name a row shows and the id it is read by.
     pub(crate) fn named_fields(&self) -> Vec<(String, String)> {
-        let builtin = FIELDS.iter().map(|(name, id)| (name.to_string(), id.to_string()));
-        builtin.chain(self.fields.iter().map(|it| (it.clone(), it.clone()))).collect()
+        FIELDS.iter().map(|(name, id)| (name.to_string(), id.to_string())).collect()
     }
 
     /// The `--fields` a search asks `acli` for.
     pub(crate) fn search_fields(&self) -> String {
-        let mut asked = SEARCH_FIELDS.to_string();
-        for extra in &self.fields {
-            asked.push(',');
-            asked.push_str(extra);
-        }
-        asked
+        SEARCH_FIELDS.to_string()
     }
 
     /// How a model writes JQL for this block.
     pub(crate) fn guide(&self) -> QueryGuide {
-        let mut guide = format!("{JQL_GUIDE} The query is ANDed with what this repository selects, `{}`.", self.selection().join(" AND "));
-        if !self.fields.is_empty() {
-            guide.push_str(&format!(" This repository also reads these fields: {}.", self.fields.join(", ")));
-        }
+        let guide = format!("{JQL_GUIDE} The query is ANDed with what this repository selects, `{}`.", self.selection().join(" AND "));
         QueryGuide {
             language: "JQL".to_string(),
             guide,
