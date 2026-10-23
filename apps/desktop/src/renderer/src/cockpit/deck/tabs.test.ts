@@ -1,4 +1,4 @@
-// The Cockpit window's seven tabs and the pages under System: which surface each reaches, which tab a surface
+// The Cockpit window's eight tabs and the pages under System: which surface each reaches, which tab a surface
 // is under, and what ⌘1 to ⌘6 and ⌘, reach. In node: nothing here needs a document.
 
 import { describe, expect, it } from "vitest";
@@ -13,6 +13,7 @@ describe("the tabs", () => {
       ["studios", SURFACE.studios],
       ["logbook", SURFACE.logbook],
       ["reviews", SURFACE.reviews],
+      ["issues", SURFACE.issues],
       ["system", SURFACE.kit],
     ]);
   });
@@ -26,6 +27,7 @@ describe("the tabs", () => {
     // Armada fixes is the Logbook's lower part, not a tab: the roster row brings it into view.
     expect(deckTabOf(SURFACE.lessons)).toBeUndefined();
     expect(deckTabOf(SURFACE.reviews)).toBe("reviews");
+    expect(deckTabOf(SURFACE.issues)).toBe("issues");
     for (const page of SYSTEM_PAGES) expect(deckTabOf(page.surface), page.surface).toBe("system");
     expect(SYSTEM_PAGES.map((page) => page.label)).toEqual(["Kit", "Mods", "Settings", "Guides", "Workflows"]);
   });

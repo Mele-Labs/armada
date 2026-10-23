@@ -89,3 +89,32 @@ describe("a pull request refreshed", () => {
     expect(await new IssuesHost(() => null).refreshPullRequest(MANIFEST, 2207)).toEqual({ ok: false, outcome: { ok: false, why: "not_connected" } });
   });
 });
+
+describe("a repository's issue queries", () => {
+  it("are asked on the routes under /issue_queries, a body where one is sent, and the id percent-encoded", async () => {
+    const fleet = await serving(200, {});
+    const host = new IssuesHost(() => fleet.port);
+    await host.searchIssues(MANIFEST, "is:open");
+    await host.issueQueries(MANIFEST);
+    await host.writeIssueQuery(MANIFEST, "open bugs");
+    await host.saveIssueQuery(MANIFEST, { name: "Bugs", words: "", query: "label:bug", row_fields: [] });
+    await host.forgetIssueQuery(MANIFEST, "a b/c");
+    expect(fleet.asked).toEqual([
+      `POST /issue_queries/${MANIFEST}/search`,
+      `GET /issue_queries/${MANIFEST}`,
+      `POST /issue_queries/${MANIFEST}/write`,
+      `POST /issue_queries/${MANIFEST}`,
+      `POST /issue_queries/${MANIFEST}/a%20b%2Fc/forget`,
+    ]);
+  });
+
+  it("are refused in the tracker's own words where it will not run the query", async () => {
+    const fleet = await serving(422, { code: "fleet.issue_query_refused", message: "Field 'colour' does not exist", run_id: "r", fields: {}, chain: [] });
+    const read = await new IssuesHost(() => fleet.port).searchIssues(MANIFEST, "colour:red");
+    expect(read).toMatchObject({ ok: false, outcome: { ok: false, why: "refused", error: { code: "fleet.issue_query_refused", message: "Field 'colour' does not exist" } } });
+  });
+
+  it("are not asked where Fleet is not connected", async () => {
+    expect(await new IssuesHost(() => null).writeIssueQuery(MANIFEST, "open bugs")).toEqual({ ok: false, outcome: { ok: false, why: "not_connected" } });
+  });
+});
