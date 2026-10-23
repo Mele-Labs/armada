@@ -1,9 +1,9 @@
-//! A [`Tracker`] scripted by a test: the issues it lists and reads. It has no
-//! write to record, because the trait has none.
+//! A [`Tracker`] scripted by a test: the issues it lists, reads and finds, and the queries it
+//! was asked. It has no write to record, because the trait has none.
 
 use std::sync::Mutex;
 
-use adapter_traits::{FromOutside, NotTracked, OpenIssue, ReadIssue, Tracker};
+use adapter_traits::{FromOutside, NotTracked, OpenIssue, QueryGuide, ReadIssue, Tracker};
 
 #[derive(Debug, Default)]
 pub struct FakeTracker {
@@ -11,6 +11,8 @@ pub struct FakeTracker {
     closed: Mutex<Vec<ReadIssue>>,
     listings: Mutex<usize>,
     unreadable: Mutex<Option<String>>,
+    found: Mutex<Vec<OpenIssue>>,
+    searches: Mutex<Vec<String>>,
 }
 
 impl FakeTracker {
@@ -37,6 +39,9 @@ impl FakeTracker {
             updated_at: "2026-10-11T12:00:00Z".to_string(),
             excerpt: FromOutside::verbatim(""),
             linked_pull_request: false,
+            author: FromOutside::verbatim(""),
+            closed: false,
+            fields: Vec::new(),
         }
     }
 
@@ -67,6 +72,28 @@ impl FakeTracker {
 
     pub fn answers_again(&self) {
         *self.unreadable.lock().expect("unreadable") = None;
+    }
+
+    /// What every search answers, whatever its query, from now on. A refusal from
+    /// [`will_not_list`](Self::will_not_list) refuses a search too.
+    pub fn finds(&self, issues: Vec<OpenIssue>) {
+        *self.found.lock().expect("found") = issues;
+    }
+
+    /// Every query searched for, oldest first, refused ones included.
+    pub fn searches(&self) -> Vec<String> {
+        self.searches.lock().expect("searches").clone()
+    }
+
+    /// The guide every fake answers with.
+    pub fn guide() -> QueryGuide {
+        QueryGuide {
+            language: "Fake search".to_string(),
+            guide: "Words match a title. `state = open` or `state = closed`; `assignee = me`.".to_string(),
+            open: "state = open".to_string(),
+            assigned_to_me: "state = open assignee = me".to_string(),
+            fields: vec!["Labels".to_string()],
+        }
     }
 
     /// How many times the issues were listed.
@@ -117,5 +144,42 @@ impl Tracker for FakeTracker {
             .find(|issue| issue.reference == reference)
             .cloned();
         Ok(listed.or(closed))
+    }
+
+    fn search_issues(&self, _in_repo: &str, query: &str) -> Result<Vec<OpenIssue>, NotTracked> {
+        self.searches.lock().expect("searches").push(query.to_string());
+        if let Some(said) = self.unreadable.lock().expect("unreadable").clone() {
+            return Err(NotTracked::of("searching the issues", said));
+        }
+        Ok(self.found.lock().expect("found").clone())
+    }
+
+    fn query_guide(&self) -> QueryGuide {
+        FakeTracker::guide()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_search_is_recorded_and_answers_what_the_fake_was_given_or_its_refusal() {
+        let tracker = FakeTracker::empty();
+        tracker.finds(vec![FakeTracker::issue(7, "Found")]);
+        let found = tracker.search_issues("/repo", "state = open").expect("found");
+        assert_eq!(found, vec![FakeTracker::issue(7, "Found")]);
+        tracker.will_not_list("offline");
+        let refused = tracker.search_issues("/repo", "assignee = me").expect_err("refused");
+        assert_eq!((refused.doing, refused.said.as_str()), ("searching the issues", "offline"));
+        assert_eq!(tracker.searches(), ["state = open", "assignee = me"]);
+        assert_eq!(tracker.listings(), 0, "a search is not a listing");
+    }
+
+    #[test]
+    fn the_fakes_guide_carries_its_open_and_assigned_to_me() {
+        let guide = FakeTracker::empty().query_guide();
+        assert_eq!(guide.open, "state = open");
+        assert_eq!(guide.assigned_to_me, "state = open assignee = me");
     }
 }

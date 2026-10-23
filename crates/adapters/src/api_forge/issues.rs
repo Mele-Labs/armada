@@ -11,7 +11,9 @@ use super::connection::{read_to_the_end, Connection, Named};
 use super::open_pulls::Repo;
 use super::{login_of, Login, Nodes};
 use crate::github_api::{ApiFailure, GitHubApi, GitHubRepository};
-use crate::issue_tracker::{EXCERPT, LISTED, READ_ISSUE_QUERY};
+use crate::issue_tracker::{
+    forge_fields, newest_edit_first, read_issue_query, EXCERPT, LISTED, PROJECT_ITEMS, PROJECT_SCOPE, SEARCHED,
+};
 
 /// A page of the listing is a hundred, which is as many as the forge gives.
 const A_PAGE: usize = 100;
@@ -30,6 +32,27 @@ fn list_query(after: bool) -> String {
          issues(states:OPEN,first:$first{asked},orderBy:{{field:CREATED_AT,direction:DESC}}){{\
          pageInfo{{hasNextPage endCursor}} nodes{{{ISSUE_FIELDS}}}}}}}}}"
     )
+}
+
+/// The issues a search matches, with who opened each, its state, its milestone and, where the
+/// token may read them, its projects.
+fn search_query(with_projects: bool) -> String {
+    let projects = if with_projects { PROJECT_ITEMS } else { "" };
+    format!(
+        "query($q:String!,$first:Int!){{search(query:$q,type:ISSUE,first:$first){{nodes{{... on Issue{{\
+         {ISSUE_FIELDS} state author{{login}} milestone{{title}} {projects}}}}}}}}}"
+    )
+}
+
+#[derive(Serialize)]
+struct AskedSearch<'a> {
+    q: &'a str,
+    first: usize,
+}
+
+#[derive(Deserialize)]
+struct Searching {
+    search: Option<Nodes<Listed>>,
 }
 
 #[derive(Serialize)]
@@ -63,6 +86,49 @@ pub(crate) struct Listed {
     updated_at: Option<String>,
     body: Option<String>,
     closed_by_pull_requests_references: Option<Nodes<Numbered>>,
+    // A search's; the open listing does not ask for them.
+    state: Option<String>,
+    author: Option<Login>,
+    milestone: Option<Titled>,
+    project_items: Option<Nodes<ProjectItem>>,
+}
+
+#[derive(Deserialize)]
+struct Titled {
+    title: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ProjectItem {
+    project: Option<Titled>,
+    field_value_by_name: Option<Label>,
+}
+
+/// Each project's title, with its Status where it has one: `Roadmap: In progress`.
+fn projects_of(items: Option<Nodes<ProjectItem>>) -> Vec<FromOutside> {
+    Nodes::all(items)
+        .filter_map(|item| {
+            let title = item.project.and_then(|it| it.title).filter(|it| !it.is_empty())?;
+            Some(match item.field_value_by_name.and_then(|it| it.name).filter(|it| !it.is_empty()) {
+                Some(status) => format!("{title}: {status}"),
+                None => title,
+            })
+        })
+        .map(FromOutside::verbatim)
+        .collect()
+}
+
+fn title_of(titled: Option<Titled>) -> String {
+    titled.and_then(|it| it.title).unwrap_or_default()
+}
+
+/// `ask` with an issue's projects, and again without them where the token may not read them.
+fn without_projects_if_refused<T>(ask: impl Fn(bool) -> Result<T, ApiFailure>) -> Result<T, ApiFailure> {
+    match ask(true) {
+        Err(ApiFailure::GraphQl(said)) if said.iter().any(|it| it.contains(PROJECT_SCOPE)) => ask(false),
+        asked => asked,
+    }
 }
 
 #[derive(Deserialize)]
@@ -94,21 +160,41 @@ pub(super) fn open_issues(api: &GitHubApi, repository: &GitHubRepository) -> Res
     Ok(issues)
 }
 
+/// The issues `query` matches in the repository, newest edit first, at most [`SEARCHED`].
+pub(super) fn search_issues(
+    api: &GitHubApi,
+    repository: &GitHubRepository,
+    query: &str,
+) -> Result<Vec<OpenIssue>, ApiFailure> {
+    let named = Named::of(repository);
+    let q = format!("repo:{}/{} is:issue {}", named.owner(), named.name(), newest_edit_first(query));
+    let asked = AskedSearch { q: &q, first: SEARCHED };
+    let found: Searching = without_projects_if_refused(|with_projects| api.graphql(&search_query(with_projects), &asked))?;
+    // A node that is not an issue reads as one with no number, and is none.
+    let mut issues: Vec<OpenIssue> = Nodes::all(found.search).filter_map(open_issue_of).collect();
+    issues.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
+    Ok(issues)
+}
+
 /// An issue as `crate::issue_tracker::issue_of_line` makes one from `gh`'s line.
 pub(crate) fn open_issue_of(issue: Listed) -> Option<OpenIssue> {
     let number = issue.number?;
     let names = |names: Vec<String>| -> Vec<FromOutside> {
         names.into_iter().filter(|one| !one.is_empty()).map(FromOutside::verbatim).collect()
     };
+    let labels = names(Nodes::all(issue.labels).filter_map(|it| it.name).collect());
     Some(OpenIssue {
         reference: format!("#{number}"),
         title: FromOutside::verbatim(issue.title.unwrap_or_default()),
         url: FromOutside::verbatim(issue.url.unwrap_or_default()),
-        labels: names(Nodes::all(issue.labels).filter_map(|it| it.name).collect()),
+        fields: forge_fields(&labels, &title_of(issue.milestone), projects_of(issue.project_items)),
+        labels,
         assignees: names(Nodes::all(issue.assignees).filter_map(|it| it.login).collect()),
         updated_at: issue.updated_at.unwrap_or_default(),
         excerpt: FromOutside::verbatim(excerpt_of(&issue.body.unwrap_or_default())),
         linked_pull_request: Nodes::all(issue.closed_by_pull_requests_references).next().is_some(),
+        author: FromOutside::verbatim(login_of(issue.author)),
+        closed: issue.state.is_some_and(|it| it.eq_ignore_ascii_case("closed")),
     })
 }
 
@@ -154,6 +240,8 @@ pub(crate) struct Read {
     comments: Option<Nodes<Said>>,
     closed_by_pull_requests_references: Option<Nodes<Linked>>,
     timeline_items: Option<Nodes<CrossReference>>,
+    milestone: Option<Titled>,
+    project_items: Option<Nodes<ProjectItem>>,
 }
 
 #[derive(Deserialize)]
@@ -183,7 +271,10 @@ pub(super) fn read_issue(
     repository: &GitHubRepository,
     number: u64,
 ) -> Result<Option<ReadIssue>, ApiFailure> {
-    let found: Repo<Reading> = api.graphql(READ_ISSUE_QUERY, &Named::of(repository).asked(number))?;
+    let named = Named::of(repository);
+    let asked = named.asked(number);
+    let found: Repo<Reading> =
+        without_projects_if_refused(|with_projects| api.graphql(&read_issue_query(with_projects), &asked))?;
     Ok(found.repository.and_then(|it| it.issue).and_then(read_issue_of))
 }
 
@@ -205,6 +296,7 @@ pub(crate) fn read_issue_of(issue: Read) -> Option<ReadIssue> {
     read.opened_at = issue.created_at.unwrap_or_default();
     read.labels = names(Nodes::all(issue.labels).filter_map(|it| it.name).collect());
     read.assignees = names(Nodes::all(issue.assignees).filter_map(|it| it.login).collect());
+    read.fields = forge_fields(&read.labels, &title_of(issue.milestone), projects_of(issue.project_items));
     read.comments = Nodes::all(issue.comments)
         .map(|it| IssueComment {
             author: FromOutside::verbatim(login_of(it.author)),
