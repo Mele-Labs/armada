@@ -30,6 +30,8 @@ The credential stays where the forge CLI already keeps it, in the operator's own
 |---|---|---|
 | List the open issues | On ask from Bridge, held five minutes, or read again on refresh | `crates/fleet/src/tracking.rs`, `list_issues` |
 | Read one issue | By its reference | `read_issue` |
+| Search the issues | A query in the tracker's own language, open or closed as it says, newest edit first, at most 100 | `search_issues` |
+| Teach its query language | What a model needs to write a query, and the tracker's own Open and Assigned to me | `query_guide` |
 
 **Fleet never comments on, labels or edits an issue or a pull request on the owner's behalf**, unless he presses for it.
 A review or comment he approves or types and sends from Bridge is his own act. #91 asked for write-back to the issue a Job came from, and it is not built.
@@ -41,6 +43,24 @@ A review or comment he approves or types and sends from Bridge is his own act. #
 
 > **Rule.** Starting a Job on an issue is an ordinary start whose request is the issue's address.
 > Why: a second path would be a second way for a Job to name its issue.
+
+## Searching
+
+**A query is written in the tracker's own language, and running it is one call.** The forge's search syntax, JQL, or whatever a tracker speaks.
+No translation layer stands between them, so a tracker taught later brings its own language with it.
+`QueryGuide` is what a model reads to write one: the language's name, prose on its syntax with examples and what it cannot ask, the two built-in queries Open and Assigned to me, and the names of the fields the tracker fills.
+Assigned to me is the tracker's own word for whoever is signed in (`assignee:@me`, `currentUser()`), so no identity is looked up.
+
+Every issue says its reference, title, address and state.
+Its author, assignees, last edit and excerpt are said where the tracker has them, and empty where it does not.
+Everything else is a named field, under the tracker's own name, each value a display string; a field with no values is left out.
+
+| Tracker | Fields |
+|---|---|
+| The forge | `Labels`, `Milestone` (its title), `Projects` (each project's title, with its Status where it has one: `Roadmap: In progress`) |
+| Jira | `Status`, `Priority`, `Issue type`, `Components`, `Fix versions`, `Labels`, `Sprint`, and each field the block's `fields` key names |
+
+A token that may not read projects (`read:project`) still searches: it is asked again without them, and the rest is read.
 
 ## Choosing a tracker
 
@@ -76,6 +96,7 @@ The credential stays where `acli` keeps it, in the operator's own environment, a
 | `site` | yes | `acme` for `acme.atlassian.net`, or a full host where it has a dot |
 | `project` | one of `project` and `jql` | A project key, or several separated by commas: capitals, digits and underscores. `ABC, OPS` |
 | `jql` | one of `project` and `jql` | A filter, ANDed into the search. It takes no `ORDER BY` |
+| `fields` | no | More fields a search reads, by Jira's id or name, separated by commas: `customfield_10016, Team`. Each is shown under the name written. None may hold a quote or a backslash |
 
 **The backlog is whatever the block selects.** `project` alone lists those projects, `jql` alone lists what it matches on the site, and both together list the `jql` within those projects.
 A block naming neither is refused, since it would list every open issue on the site.
@@ -85,6 +106,7 @@ A block naming neither is refused, since it would list every open issue on the s
 | Act | What Jira sees |
 |---|---|
 | List the open issues | `project = "ABC" AND statusCategory != Done`, or `project in ("ABC", "OPS") AND ...` for several, or no project clause where only `jql` is given, plus `jql` in parentheses, newest edit first. Whatever the search returns is listed, each under its key |
+| Search the issues | What the block selects, `project` and `jql`, ANDed with the query in parentheses, then `ORDER BY updated DESC`. A query holding `ORDER BY` is refused, as `jql` is. The reporter is the author |
 | Read one issue | By its key, `ABC-123`, in any project. A reference that is not a key, such as `123`, names no issue and is a 404 without reaching `acli` |
 | Dispatch by link | Only `https://<site>.atlassian.net/browse/ABC-123` is recognised, any project's key. A bare number or another host is not |
 | Close the issue | The tracker returns no closing line, because nothing in a pull request body closes a Jira issue. The pull request **title** is prefixed with the key (`ABC-123 The title`), which Jira's integration with the forge reads, and left alone where it already holds the key |
@@ -96,8 +118,10 @@ Whoever first points a repository at Jira runs these and compares, with a real k
 ```bash
 acli jira workitem search --jql 'project = "ABC" AND statusCategory != Done' --fields key,summary,labels,assignee,updated,description --json --limit 3
 acli jira workitem view ABC-1 --fields key,summary,status,resolution,labels --json
+acli jira workitem search --jql 'project = "ABC"' --fields key,summary,reporter,status,resolution,priority,issuetype,components,fixVersions,sprint --json --limit 3
 ```
 
+What to look for in the search: `fields.reporter` is a person, each of `priority`, `issuetype` and `status` an object with a `name`, `components`, `fixVersions` and `sprint` lists of objects with a `name`, and that `--fields sprint` is taken at all, since Sprint is a custom field on most sites.
 What to look for: each issue has `key` and `fields.summary` (or `summary`), `fields.labels` is a list of strings, `fields.updated` is a timestamp, `fields.status` is an object with `statusCategory.key`, and `fields.description` is text or a rich-text document.
 Also unconfirmed: the wording `acli` prints for an issue that does not exist, which `read_issue` matches on (`does not exist`, `not found`, `404`).
 

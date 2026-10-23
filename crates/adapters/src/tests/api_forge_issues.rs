@@ -3,7 +3,7 @@
 //! and the `.tsv` beside it what `gh`'s own `--jq` printed for the same issues, run here with
 //! `jq`. All of them are made up.
 
-use adapter_traits::{LinkedPullRequestState, TrackerChoice, Trackers};
+use adapter_traits::{FromOutside, IssueField, LinkedPullRequestState, TrackerChoice, Trackers};
 
 use super::api_forge_reads::{lines, not_found, on_github};
 use super::github_api::{api, ok, serve, Reply};
@@ -77,6 +77,14 @@ fn an_issue_over_the_api_is_the_issue_gh_reads_with_its_comments_and_pull_reques
         ],
         "one that closes it and names it is listed once, and a reference from an issue is none"
     );
+    assert_eq!(
+        issue.fields,
+        [
+            field("Labels", &["bug", "armada: in progress"]),
+            field("Milestone", &["v2"]),
+            field("Projects", &["Roadmap: Done"]),
+        ]
+    );
     assert_eq!(tracker.read_issue(&root, "214").unwrap(), Some(issue));
 
     // No issue by that number is none, as `gh`'s words for it are; anything else is the tracker's.
@@ -111,6 +119,88 @@ fn a_linked_issues_text_is_read_over_the_api_and_a_link_that_is_no_issue_is_not(
     assert_eq!(server.seen().len(), asked);
     // The call a Fleet without the API would run is still rendered.
     assert!(links.resolve("https://github.com/Mele-Labs/armada/issues/214").is_some());
+}
+
+fn field(name: &str, values: &[&str]) -> IssueField {
+    IssueField { name: name.to_string(), values: values.iter().map(|one| FromOutside::verbatim(*one)).collect() }
+}
+
+const SEARCH: &str = r#"{"data":{"search":{"nodes":[
+ {"number":12,"title":"Older","url":"https://github.com/Mele-Labs/armada/issues/12","state":"CLOSED",
+  "author":{"login":"nick"},"labels":{"nodes":[{"name":"bug"}]},"assignees":{"nodes":[{"login":"sam"}]},
+  "updatedAt":"2026-10-18T10:00:00Z","body":"It  drops\none","closedByPullRequestsReferences":{"nodes":[{"number":40}]},
+  "milestone":{"title":"v2"},
+  "projectItems":{"nodes":[{"project":{"title":"Roadmap"},"fieldValueByName":{"name":"In progress"}},
+                           {"project":{"title":"Backlog"},"fieldValueByName":null},
+                           {"project":{"title":"Dates"},"fieldValueByName":{}}]}},
+ {},
+ {"number":13,"title":"Newer","url":"https://github.com/Mele-Labs/armada/issues/13","state":"OPEN","author":null,
+  "labels":{"nodes":[]},"assignees":{"nodes":[]},"updatedAt":"2026-10-20T10:00:00Z","body":"",
+  "closedByPullRequestsReferences":{"nodes":[]},"milestone":null,"projectItems":{"nodes":[]}}]}}}"#;
+
+#[test]
+fn a_search_over_the_api_asks_for_the_query_among_the_repositorys_issues_and_reads_every_field() {
+    let server = serve(|seen| match seen.body.as_str() {
+        body if body.contains("search(query:$q,type:ISSUE,first:$first)") => ok(SEARCH),
+        _ => not_found(),
+    });
+    let repo = on_github();
+    let tracker = trackers(&server.url).tracker(&TrackerChoice::of_the_forge());
+
+    let found = tracker.search_issues(&repo.root_str(), "is:closed label:bug").unwrap();
+    let seen = server.seen();
+    let asked = &seen[0].body;
+    assert!(
+        asked.contains(r#""q":"repo:mele-labs/armada is:issue is:closed label:bug sort:updated-desc""#),
+        "{asked}"
+    );
+    assert!(asked.contains(r#""first":100"#) && asked.contains("projectItems"), "{asked}");
+    let references: Vec<&str> = found.iter().map(|it| it.reference.as_str()).collect();
+    assert_eq!(references, ["#13", "#12"], "newest edit first, and a node that is no issue is none");
+    let full = &found[1];
+    assert_eq!(full.author.as_written(), "nick");
+    assert!(full.closed && full.linked_pull_request);
+    assert_eq!(full.excerpt.as_written(), "It drops one");
+    assert_eq!(
+        full.fields,
+        [
+            field("Labels", &["bug"]),
+            field("Milestone", &["v2"]),
+            field("Projects", &["Roadmap: In progress", "Backlog", "Dates"]),
+        ]
+    );
+    assert!(!found[0].closed && found[0].author.as_written().is_empty() && found[0].fields.is_empty());
+}
+
+#[test]
+fn a_token_that_may_not_read_projects_still_searches_without_them() {
+    let server = serve(|seen| match seen.body.as_str() {
+        body if body.contains("projectItems") => Reply {
+            status: 200,
+            headers: Vec::new(),
+            body: r#"{"data":null,"errors":[{"type":"INSUFFICIENT_SCOPES","message":"Your token has not been granted the required scopes to execute this query. The 'projectItems' field requires one of the following scopes: ['read:project'], but your token has only been granted the: ['repo'] scopes."}]}"#.to_string(),
+        },
+        body if body.contains("search(query:$q") => ok(&SEARCH.replace(r#""projectItems":{"nodes":[{"project""#, r#""ignored":{"nodes":[{"project""#)),
+        _ => not_found(),
+    });
+    let repo = on_github();
+    let tracker = trackers(&server.url).tracker(&TrackerChoice::of_the_forge());
+
+    let found = tracker.search_issues(&repo.root_str(), "label:bug").unwrap();
+    assert_eq!(server.seen().len(), 2, "asked once with projects, once without");
+    assert_eq!(found[1].fields, [field("Labels", &["bug"]), field("Milestone", &["v2"])]);
+}
+
+#[test]
+fn a_search_over_the_api_that_is_refused_says_so_in_the_forges_words() {
+    let server = serve(|_| graphql_refused("The query is too long."));
+    let repo = on_github();
+    let tracker = trackers(&server.url).tracker(&TrackerChoice::of_the_forge());
+    let refused = tracker.search_issues(&repo.root_str(), "label:bug").unwrap_err();
+    assert_eq!(refused.doing, "searching the issues");
+    assert!(refused.said.contains("The query is too long."), "{}", refused.said);
+    let guide = tracker.query_guide();
+    assert_eq!((guide.open.as_str(), guide.assigned_to_me.as_str()), ("is:open", "is:open assignee:@me"));
 }
 
 #[test]

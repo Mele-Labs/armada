@@ -9,9 +9,26 @@
 
 use std::collections::BTreeMap;
 
+use adapter_traits::QueryGuide;
+
 pub(crate) const PROVIDER: &str = "jira";
 
-const KEYS: &[&str] = &["site", "project", "jql"];
+const KEYS: &[&str] = &["site", "project", "jql", "fields"];
+
+/// The fields every search reads, by the name a row shows and the id Jira keys them by.
+const FIELDS: &[(&str, &str)] = &[
+    ("Status", "status"),
+    ("Priority", "priority"),
+    ("Issue type", "issuetype"),
+    ("Components", "components"),
+    ("Fix versions", "fixVersions"),
+    ("Labels", "labels"),
+    ("Sprint", "sprint"),
+];
+
+/// What a search asks `acli` for: the listing's, who reported it, its state, and [`FIELDS`].
+const SEARCH_FIELDS: &str = "key,summary,labels,assignee,updated,description,reporter,status,resolution,\
+    priority,issuetype,components,fixVersions,sprint";
 
 /// The keys of one `tracker:` block, read and checked. **The backlog is whatever the search
 /// selects**: the projects named, the `jql`, or both together. An issue is named by its key.
@@ -20,6 +37,8 @@ pub(crate) struct JiraSettings {
     host: String,
     projects: Vec<String>,
     jql: Option<String>,
+    /// The block's own extra fields, by id or name as written.
+    fields: Vec<String>,
 }
 
 impl JiraSettings {
@@ -55,28 +74,90 @@ impl JiraSettings {
                 return Err("`jql` is an extra filter and takes no ORDER BY".to_string());
             }
         }
+        let fields: Vec<String> = block
+            .get("fields")
+            .map(|named| named.split(',').map(str::trim).filter(|one| !one.is_empty()).map(str::to_string).collect())
+            .unwrap_or_default();
+        // Each is written into the `jq` filter as a string.
+        if let Some(bad) = fields.iter().find(|one| one.contains(['"', '\\']) || one.chars().any(char::is_control)) {
+            return Err(format!("a field in `fields` cannot hold a quote or a backslash: {bad}"));
+        }
         if projects.is_empty() && jql.is_none() {
             return Err("the jira tracker needs `project` or `jql` to say which issues it lists".to_string());
         }
-        Ok(JiraSettings { host, projects, jql })
+        Ok(JiraSettings { host, projects, jql, fields })
     }
 
     /// Open issues the block selects, newest edit first.
     pub(crate) fn search(&self) -> String {
-        let mut clauses: Vec<String> = Vec::new();
+        let mut clauses: Vec<String> = self.projects_clause().into_iter().collect();
+        clauses.push("statusCategory != Done".to_string());
+        clauses.extend(self.jql.iter().map(|jql| format!("({jql})")));
+        format!("{} ORDER BY updated DESC", clauses.join(" AND "))
+    }
+
+    fn projects_clause(&self) -> Option<String> {
         match self.projects.as_slice() {
-            [] => {}
-            [one] => clauses.push(format!("project = \"{one}\"")),
+            [] => None,
+            [one] => Some(format!("project = \"{one}\"")),
             many => {
                 let keys: Vec<String> = many.iter().map(|one| format!("\"{one}\"")).collect();
-                clauses.push(format!("project in ({})", keys.join(", ")));
+                Some(format!("project in ({})", keys.join(", ")))
             }
         }
-        clauses.push("statusCategory != Done".to_string());
-        if let Some(jql) = &self.jql {
-            clauses.push(format!("({jql})"));
+    }
+
+    /// What the block selects, open or closed: its projects and its `jql`.
+    fn selection(&self) -> Vec<String> {
+        let mut clauses: Vec<String> = self.projects_clause().into_iter().collect();
+        clauses.extend(self.jql.iter().map(|jql| format!("({jql})")));
+        clauses
+    }
+
+    /// The issues `query` matches within what the block selects, newest edit first, or why the
+    /// query cannot be run.
+    pub(crate) fn search_for(&self, query: &str) -> Result<String, String> {
+        if query.to_ascii_lowercase().contains("order by") {
+            return Err("a search takes no ORDER BY: it is listed newest edit first".to_string());
         }
-        format!("{} ORDER BY updated DESC", clauses.join(" AND "))
+        let mut clauses = self.selection();
+        let query = query.trim();
+        if !query.is_empty() {
+            clauses.push(format!("({query})"));
+        }
+        Ok(format!("{} ORDER BY updated DESC", clauses.join(" AND ")))
+    }
+
+    /// Every field a search reads, by the name a row shows and the id it is read by: [`FIELDS`],
+    /// then the block's own, named as written.
+    pub(crate) fn named_fields(&self) -> Vec<(String, String)> {
+        let builtin = FIELDS.iter().map(|(name, id)| (name.to_string(), id.to_string()));
+        builtin.chain(self.fields.iter().map(|it| (it.clone(), it.clone()))).collect()
+    }
+
+    /// The `--fields` a search asks `acli` for.
+    pub(crate) fn search_fields(&self) -> String {
+        let mut asked = SEARCH_FIELDS.to_string();
+        for extra in &self.fields {
+            asked.push(',');
+            asked.push_str(extra);
+        }
+        asked
+    }
+
+    /// How a model writes JQL for this block.
+    pub(crate) fn guide(&self) -> QueryGuide {
+        let mut guide = format!("{JQL_GUIDE} The query is ANDed with what this repository selects, `{}`.", self.selection().join(" AND "));
+        if !self.fields.is_empty() {
+            guide.push_str(&format!(" This repository also reads these fields: {}.", self.fields.join(", ")));
+        }
+        QueryGuide {
+            language: "JQL".to_string(),
+            guide,
+            open: "statusCategory != Done".to_string(),
+            assigned_to_me: "assignee = currentUser() AND statusCategory != Done".to_string(),
+            fields: self.named_fields().into_iter().map(|(name, _)| name).collect(),
+        }
     }
 
     pub(crate) fn browse(&self, key: &str) -> String {
@@ -92,6 +173,19 @@ impl JiraSettings {
         is_key(key).then(|| key.to_string())
     }
 }
+
+const JQL_GUIDE: &str = "Jira Query Language, as a filter. Write no ORDER BY: results come newest \
+edit first, at most 100. A clause is `field operator value`; clauses join with AND and OR, group with \
+parentheses, and NOT negates one. Operators: `=`, `!=`, `~` (contains text), `in (a, b)`, `not in (a, b)`, \
+`is EMPTY`, `is not EMPTY`, `>`, `>=`, `<`, `<=`. Fields: `status`, `statusCategory` (`\"To Do\"`, \
+`\"In Progress\"`, `Done`), `assignee`, `reporter`, `priority`, `issuetype`, `labels`, `component`, \
+`fixVersion`, `sprint`, `created`, `updated`, `resolved`, `resolution`, `text` (anywhere in it). \
+Functions: `currentUser()` (whoever is signed in), `openSprints()`, `closedSprints()`, `startOfWeek()`, \
+`startOfMonth()`, `now()`; a relative date is `updated >= -7d`. Quote a value with spaces: \
+`status = \"In Review\"`. Leave out statusCategory to list open and done alike. Examples: \
+`assignee = currentUser() AND statusCategory != Done`, `sprint in openSprints() AND priority in (High, Highest)`, \
+`labels = web AND updated >= -14d`, `statusCategory = Done AND resolved >= startOfMonth()`. It cannot \
+compare two fields, and never names a project: the repository's selection does.";
 
 /// `acme` is `acme.atlassian.net`; anything with a dot is a host as written.
 fn host_of(site: &str) -> Option<String> {
@@ -142,17 +236,39 @@ def who: if type == "object" then (.displayName // .emailAddress // .name // .ac
 def names: [.[]? | if type == "object" then (.name // empty) else . end];
 def rfc: sub("(?<h>[+-][0-9]{2})(?<m>[0-9]{2})$"; "\(.h):\(.m)");
 def issues: if type == "array" then .[] else ((.issues // .workItems // .values // [.])[]) end;
+def shown1: if type == "object" then ((.name // .value // .displayName // .key // "") | tostring)
+  elif type == "string" then . elif . == null then "" else tostring end;
+def shown: (if type == "array" then map(shown1) elif . == null then [] else [shown1] end)
+  | map(select(. != "")) | join("\u001f");
+def state: if type == "object" then (.statusCategory.key // .name // "") elif type == "string" then . else "" end
+  | ascii_downcase;
 "#;
 
 /// A search result, one issue a line: key, summary, labels (US apart),
 /// assignee, last edit, and the start of the description.
 pub(crate) fn listing_filter(excerpt: usize) -> String {
+    format!("{PRELUDE}\nissues | [{}] | @tsv", listing_columns(excerpt))
+}
+
+fn listing_columns(excerpt: usize) -> String {
     format!(
-        r#"{PRELUDE}
-issues | [(.key // ""), (f("summary") // "" | tostring),
+        r#"(.key // ""), (f("summary") // "" | tostring),
   (f("labels") | names | join("\u001f")), (f("assignee") | who),
   (f("updated") // "" | tostring | rfc),
-  (f("description") | adf | gsub("\\s+"; " ") | gsub("^ | $"; "") | .[0:{excerpt}])] | @tsv"#
+  (f("description") | adf | gsub("\\s+"; " ") | gsub("^ | $"; "") | .[0:{excerpt}])"#
+    )
+}
+
+/// A search result, one issue a line: the listing's columns, then reporter, status, resolution,
+/// and each of the block's fields with its values `US` apart.
+pub(crate) fn search_filter(excerpt: usize, settings: &JiraSettings) -> String {
+    let fields: Vec<String> =
+        settings.named_fields().iter().map(|(_, id)| format!("(f(\"{id}\") | shown)")).collect();
+    format!(
+        "{PRELUDE}\nissues | [{}, (f(\"reporter\") | who), (f(\"status\") | state), \
+         (if f(\"resolution\") == null then \"\" else \"resolved\" end), {}] | @tsv",
+        listing_columns(excerpt),
+        fields.join(", ")
     )
 }
 
@@ -161,7 +277,7 @@ pub(crate) fn reading_filter() -> String {
     format!(
         r#"{PRELUDE}
 issues | [(.key // ""), (f("summary") // "" | tostring),
-  (f("status") | if type == "object" then (.statusCategory.key // .name // "") elif type == "string" then . else "" end | ascii_downcase),
+  (f("status") | state),
   (if f("resolution") == null then "" else "resolved" end)] | @tsv"#
     )
 }
