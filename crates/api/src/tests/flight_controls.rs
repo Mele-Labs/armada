@@ -103,7 +103,6 @@ async fn a_commit_to_the_repository_reaches_the_daemon_whole_for_each_kind() {
         assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&body));
         let answered: ipc::CommittedToRepository = ipc::decode("committed", &body).expect("decodes");
         assert_eq!((answered.session_id.as_str(), answered.paths.as_slice()), ("s1", [path.to_string()].as_slice()));
-        assert_eq!(answered.pull_request_not_opened.as_deref(), Some("No pull request was opened."));
     }
 
     let (status, body) = call(&app, "POST", "/repositories/commit", r#"{"repository":"/work/shop","piece":{"kind":"review_tool","id":"security"}}"#).await;

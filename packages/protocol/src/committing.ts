@@ -33,18 +33,13 @@ export type CommitToRepository = {
   overwrite?: boolean;
 };
 
-/** `commit_to_repository`, answered 200. */
+/** `commit_to_repository`, answered 200 once the Job and its branch exist. The commit and the pull request follow; a failure arrives as `act.failed` for that Job. */
 export type CommittedToRepository = {
   repository: string;
   /** The Job made for this commit alone. */
   session_id: string;
-  /** The Job's own branch, which holds the one commit. */
+  /** The Job's own branch, which will hold the one commit. */
   branch: string;
   /** Each file written, relative to the repository's root. */
   paths: string[];
-  commit: string;
-  /** The pull request's address, where one was opened. */
-  pull_request?: string;
-  /** Why no pull request was opened, where none was. The commit stays on the Job's branch. */
-  pull_request_not_opened?: string;
 };

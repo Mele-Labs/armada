@@ -272,7 +272,7 @@ where
 
     /// Commit a person's own piece by a Job of its own: `crate::committing`.
     async fn commit_to_repository(
-        &self,
+        self: Arc<Self>,
         asked: ipc::CommitToRepository,
     ) -> Result<ipc::CommittedToRepository, Refusal> {
         self.committed_to_repository(asked).await

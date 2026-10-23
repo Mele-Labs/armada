@@ -389,7 +389,7 @@ impl Commands for FakeDaemon {
     /// For [`super::SERVED_ROOT`] only: refused without `overwrite`, and else answers a Job of
     /// its own on a branch named for the piece's path, so a route test can tell the body arrived whole.
     async fn commit_to_repository(
-        &self,
+        self: std::sync::Arc<Self>,
         asked: ipc::CommitToRepository,
     ) -> Result<ipc::CommittedToRepository, Refusal> {
         super::served_root(&asked.repository)?;
@@ -408,9 +408,6 @@ impl Commands for FakeDaemon {
             session_id: ipc::SessionId::carried("s1"),
             branch: String::from("session-s1"),
             paths: vec![path],
-            commit: String::from("4f2c9a1"),
-            pull_request: None,
-            pull_request_not_opened: Some(String::from("No pull request was opened.")),
         })
     }
 
