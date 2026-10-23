@@ -96,6 +96,23 @@ describe("what the panel draws of a proposal", () => {
     expect(rule("everywhere")?.scope).toBe("Every repository");
     expect(rule("job 01JOB")?.scope).toBe("This Job");
   });
+
+  it("draws the pattern a rule matches and each condition after what it does", () => {
+    const fleet = { notice: "behind_base", does: "batch" as const, where: "repo armada", matches: "\\d+ commits behind main", when: [{ if: "blocks_merge" as const, does: "tell" as const }] };
+    expect(readingOf({ fleet }, "armada").fleet).toEqual({
+      notice: "Slot behind notice",
+      matches: "\\d+ commits behind main",
+      does: "Batch, and tell only when it blocks a merge",
+      scope: "armada",
+    });
+  });
+
+  it("says what Fleet cannot test in one line of the person's own words, and nothing where there is none", () => {
+    const fleet = { notice: "behind_base", does: "batch" as const, where: "everywhere" };
+    expect(readingOf({ fleet: { ...fleet, untestable: ["the build is green", "it is Friday"] } }, "armada").fleet?.untestable).toBe("Fleet cannot test: the build is green, it is Friday");
+    expect(readingOf({ fleet: { ...fleet, untestable: [] } }, "armada").fleet).not.toHaveProperty("untestable");
+    expect(readingOf({ fleet }, "armada").fleet).not.toHaveProperty("matches");
+  });
 });
 
 describe("what a proposal draws behind the panel before it is kept", () => {

@@ -36,12 +36,12 @@ test("the Jira key entry lists the Words mod it made, and Forget takes the mod w
   expect(await modsListed()).toContain("slot-behind-batched");
 });
 
-test("the batched notice's entry lists the Fleet mod, worded by what it does and where", async () => {
+test("the batched notice's entry lists the Fleet mod, worded by what it does, when it does otherwise and where", async () => {
   mount("teach-mods");
   await onScreen();
   await walkThrough([
     { press: place("Logbook"), say: "" },
     { press: inside(entries, text(/Slot behind main notices arrive batched/)), say: "" },
-    { look: inside(also, text(/batched for this repository/)), say: "" },
+    { look: inside(also, text(/batched for this repository, told only when it blocks a merge/)), say: "" },
   ]);
 });

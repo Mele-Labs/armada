@@ -47,7 +47,16 @@ export type TeachReading = {
     /** Where the address came from. */
     found?: string;
   };
-  fleet?: { notice: string; does: string; scope: string };
+  fleet?: {
+    notice: string;
+    /** A pattern over the notice's text. Absent when every notice of the word. */
+    matches?: string;
+    /** What it does, with each condition worded after it. */
+    does: string;
+    scope: string;
+    /** The one line for what the person named that Fleet cannot test. Absent when there is none. */
+    untestable?: string;
+  };
   /** A theme tweak: one shared colour changed, laid over whichever theme is chosen. */
   tweak?: {
     /** The colour as the person would name it. */
@@ -180,11 +189,18 @@ export function TeachPanel({ source, say, onSay, keep, repository, reach, onReac
               <dl className="armada-teach-panel__facts">
                 <dt>Notice</dt>
                 <dd>{reading.fleet.notice}</dd>
+                {reading.fleet.matches === undefined ? null : (
+                  <>
+                    <dt>Matches</dt>
+                    <dd className="mono">{reading.fleet.matches}</dd>
+                  </>
+                )}
                 <dt>Does</dt>
                 <dd>{reading.fleet.does}</dd>
                 <dt>Applies to</dt>
                 <dd>{reading.fleet.scope}</dd>
               </dl>
+              {reading.fleet.untestable === undefined ? null : <p className="armada-teach-panel__untestable">{reading.fleet.untestable}</p>}
             </section>
           )}
           {reading?.tweak === undefined ? null : (

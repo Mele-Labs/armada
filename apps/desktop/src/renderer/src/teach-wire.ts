@@ -3,7 +3,7 @@
 
 import { NOTICE_NAMES, TEACH_SOURCE } from "@armada/components";
 import type { SessionNotice, TeachReach, TeachReading } from "@armada/components";
-import type { FleetDoes, ReadTeaching, SaveTeaching, TeachingProposal, TeachingReach, TeachingSource } from "@armada/protocol";
+import type { FleetCondition, FleetDoes, FleetRule, ProposedFleet, ReadTeaching, SaveTeaching, TeachingProposal, TeachingReach, TeachingSource } from "@armada/protocol";
 import { LAYOUT, parseLayout } from "@armada/shell";
 import type { LayoutRegion } from "@armada/shell";
 
@@ -57,6 +57,25 @@ export function saveBody(item: Pressed, proposal: TeachingProposal, reach: Teach
 
 export const DOES: Record<FleetDoes, string> = { tell: "Tell", quiet: "Quiet", batch: "Batch", call: "Call" };
 
+/** What Fleet does in place of a rule's own, as a clause. */
+const INSTEAD: Record<FleetDoes, string> = { tell: "tell", quiet: "stay quiet", batch: "batch", call: "call you" };
+
+/** A condition Fleet can test, as the clause that follows `only when`. */
+export const CONDITION: Record<FleetCondition, string> = {
+  blocks_merge: "it blocks a merge",
+  open_pull_request: "it has an open pull request",
+  working: "its agent is working",
+  owner_away: "you are away",
+};
+
+/** What a rule does, then each condition in the order Fleet tries them: "Batch, and tell only when it blocks a merge". */
+export function doesWords({ does, when }: Pick<FleetRule, "does" | "when">): string {
+  return [DOES[does], ...(when ?? []).map((one) => `${INSTEAD[one.does]} only when ${CONDITION[one.if]}`)].join(", and ");
+}
+
+/** What the person said that Fleet cannot test, as one line. */
+export const untestableWords = (words: readonly string[]): string => `Fleet cannot test: ${words.join(", ")}`;
+
 /** A notice's word as the menu names it, with a capital. */
 export function noticeName(word: string): string {
   const name = (NOTICE_NAMES as Record<string, string | undefined>)[word as SessionNotice] ?? word;
@@ -78,6 +97,15 @@ export function layoutOf(name: string, text: string): { hides: string; where: st
   return { hides: hidden.map((id) => spec.entries.find((one) => one.id === id)?.label ?? id).join(", "), where: spec.label };
 }
 
+/** The Fleet part of a proposal, as the panel draws it. */
+const fleetReading = (fleet: ProposedFleet, repository: string) => ({
+  notice: noticeName(fleet.notice),
+  ...(fleet.matches === undefined ? {} : { matches: fleet.matches }),
+  does: doesWords(fleet),
+  scope: scopeOf(fleet.where, repository),
+  ...(fleet.untestable === undefined || fleet.untestable.length === 0 ? {} : { untestable: untestableWords(fleet.untestable) }),
+});
+
 /** What the panel shows back of a proposal. */
 export function readingOf(proposal: TeachingProposal, repository: string): TeachReading {
   const { note, words, fleet, layout } = proposal;
@@ -87,7 +115,7 @@ export function readingOf(proposal: TeachingProposal, repository: string): Teach
     ...(words === undefined
       ? {}
       : { bridge: { name: words.name, pattern: words.pattern, example: words.example, ...(words.address === undefined ? {} : { address: words.address.template.replaceAll("{match}", words.example), found: foundSaid(words.address.found) }) } }),
-    ...(fleet === undefined ? {} : { fleet: { notice: noticeName(fleet.notice), does: DOES[fleet.does], scope: scopeOf(fleet.where, repository) } }),
+    ...(fleet === undefined ? {} : { fleet: fleetReading(fleet, repository) }),
     ...(tweak === undefined ? {} : { tweak: { colour: tweak.note ?? tweak.token, token: tweak.token, was: tweak.was, now: tweak.now, places: tweak.used_in ?? [] } }),
     ...(layout === undefined ? {} : { layout: layoutOf(layout.name, layout.layout) }),
   };

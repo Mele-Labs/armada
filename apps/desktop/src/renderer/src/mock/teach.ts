@@ -13,11 +13,13 @@ import { TEACH_SOURCE } from "@armada/components";
 import { parseLayout } from "@armada/shell";
 
 import type { BridgeState } from "../../../shared/bridge";
-import { BRIDGE, DOES, forgetLesson, lessonsNow, saveLesson, taughtId } from "../teach";
-import type { LayoutChange, Lesson, Site, SiteFrom, TeachAnswer, Teaching, Tweak } from "../teach";
+import { BRIDGE, forgetLesson, lessonsNow, saveLesson, taughtId } from "../teach";
+import type { LayoutChange, Lesson, Site, SiteFrom, TeachAnswer, Teaching } from "../teach";
+import { fleetAlso } from "../taught-parts";
 import { mockLayout, TIDY_DASHBOARD } from "./layout";
 import { unanswered } from "./moment";
 import { ARMADA_JOB, ARMADA_TITLE, BEHIND, BEHIND_AT, LEDGER_JOB, LEDGER_TITLE, PAYMENTS_JOB, PAYMENTS_TITLE } from "./sessions/teach";
+import { LIGHTER, LOUDER } from "./teach-colours";
 import { DUSK_MOD, mockThemes } from "./themes";
 
 const READ_MS = 1200;
@@ -85,26 +87,6 @@ export function siteAnswered(manifestId: string, host: string): void {
   siteFound(manifestId, { address: `https://${host}`, from: { kind: "you" } });
 }
 
-/** The amber of a call that waits on the person, made louder. It is a shared token, so the panel lists every other place it is drawn. */
-const LOUDER: Tweak = {
-  mod: "needs-you-louder",
-  colour: "Needs you amber",
-  token: "--status-awaiting-review",
-  was: "#E5A93D",
-  now: "#FFC233",
-  places: ["Calls and call cards", "Workflow steps waiting on you", "Stranded bays", "Title bar alerts", "Timeline marks", "Doctor warnings"],
-};
-
-/** The grey of a stopped Job, made lighter: seeded as a tweak taught before the walk starts. */
-const LIGHTER: Tweak = {
-  mod: "stopped-lighter",
-  colour: "Stopped grey",
-  token: "--status-killed",
-  was: "#9BA3AC",
-  now: "#B4BBC3",
-  places: ["Stopped Job rows", "Timeline marks"],
-};
-
 /** A panel of the Cockpit taught away: the layout `hide-<panel>` names it and the registry's id is the panel's name, lowercased. */
 const hiding = (panel: string): LayoutChange => ({ mod: `hide-${panel.toLowerCase()}`, region: "dashboard.panels", hidden: [panel.toLowerCase()] });
 
@@ -130,7 +112,7 @@ export function understood({ teaching, say, reach }: { teaching: Teaching; say: 
     const scope = said.includes("this job") ? "job" : reach === "all" ? "all" : "repository";
     return {
       agents: "Slot behind main notices arrive batched. One that blocks a merge is called out on its own.",
-      fleet: { mod: "slot-behind-batched", name: "Slot behind main", match: "\\d+ commits behind main", does: "batch", scope },
+      fleet: { mod: "slot-behind-batched", name: "Slot behind main", match: "\\d+ commits behind main", does: "batch", when: [{ if: "blocks_merge", does: "tell" }], scope },
     };
   }
   if (teaching.kind === "row" && /louder|bolder|brighter|stand out/.test(said)) return { tweak: LOUDER };
@@ -168,11 +150,10 @@ function wordsDo(lesson: Lesson): string {
   return `${bridge!.name}s link to ${lesson.reach === "all" ? "each repository's" : "this repository's"} site`;
 }
 
-/** What a Fleet mod does, in one line. */
+/** What a Fleet mod does, in one line, in the words its Logbook entry's `Also changes` uses. */
 function fleetDoes(lesson: Lesson): string {
-  const { fleet } = lesson.answer;
-  const where = fleet!.scope === "all" ? "every repository" : fleet!.scope === "job" ? "this Job" : lesson.teaching.repository;
-  return `${fleet!.name} notices ${DOES[fleet!.does]}, ${where}`;
+  const said = fleetAlso({ rule: [ruleOf(lesson.answer.fleet!, lesson.teaching)] })!;
+  return `${said.charAt(0).toUpperCase()}${said.slice(1)}`;
 }
 
 const noteKind = (kind: Teaching["kind"]): LogbookEntry["kind"] => (kind === "command" ? "command" : kind === "check" ? "gotcha" : kind === "task" ? "habit" : "convention");
@@ -192,7 +173,9 @@ function proposalOf(answer: TeachAnswer, teaching: Teaching, reach: "repository"
 /** The rule as the wire has it: a notice by its word, and one string for where. */
 const ruleOf = (rule: NonNullable<TeachAnswer["fleet"]>, teaching: Teaching): FleetRule => ({
   notice: "behind_base",
+  matches: rule.match,
   does: rule.does,
+  ...(rule.when === undefined ? {} : { when: rule.when }),
   where: rule.scope === "all" ? "everywhere" : rule.scope === "job" ? `job ${teaching.sessionId}` : `repo ${teaching.manifestId ?? ""}`,
 });
 

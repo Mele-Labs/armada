@@ -16,6 +16,7 @@
 
 import { createContext, useContext, useMemo, useSyncExternalStore } from "react";
 import type { SessionThreadRow, TeachReach, TeachSourceKind } from "@armada/components";
+import type { FleetInstead } from "@armada/protocol";
 import type { LayoutRegion } from "@armada/shell";
 
 import { useModList } from "./mod-list";
@@ -67,8 +68,8 @@ export type TeachAnswer = {
   agents?: string;
   /** Words matching `pattern` are links. `example` is one match; `site` is where this repository's matches go, if found. Kept by a Words mod. */
   bridge?: { mod: string; name: string; pattern: string; example: string; site?: Site };
-  /** What Fleet does with a notice whose text matches `match`. Kept by a Fleet mod. */
-  fleet?: { mod: string; name: string; match: string; does: FleetDoes; scope: "job" | "repository" | "all" };
+  /** What Fleet does with a notice whose text matches `match`, and what it does instead when a condition holds. Kept by a Fleet mod. */
+  fleet?: { mod: string; name: string; match: string; does: FleetDoes; when?: FleetInstead[]; scope: "job" | "repository" | "all" };
   tweak?: Tweak;
   layout?: LayoutChange;
 };
