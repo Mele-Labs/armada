@@ -1,0 +1,16 @@
+[operations.try_tracker_mod]
+kind = "command"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Run a tracker mod's Open query, and read one issue it listed, against a repository Fleet serves, and keep how it went"
+notes = """
+`POST /mods/try`, body `TryTrackerMod`: `name` and `manifest_id`, the repository to try it against. Answered with `TrackerTry`: `at`, `manifest_id`, `passed`, `listed` (how many issues the Open query listed), `read` (the reference read back, where one was listed) and, where it did not pass, `reason`.
+
+A try runs the mod's search with its guide's `open`, then its `[list]` where it has one, then reads the first issue listed by its reference. Every command and request is the adapter's, bounded in time and size, and the credential never appears in `reason`. **A try that fails is an answer with `passed` false, not a refusal.** A mod that is not valid answers why and keeps nothing.
+
+The outcome is kept beside the mod with the digest of the `tracker.toml` it tried, and `list_mods` carries it as the row's `tried` until that file changes. **A Manifest whose `tracker` names the mod uses it only while its try of the file as it stands passed.** A try publishes `mods.changed`.
+
+422 `fleet.unacceptable_mod` for a mod that is not a tracker or a name that is not a slug, 404 `fleet.no_such_mod` for a slug naming no folder, and a `manifest_id` Fleet does not serve is refused as it is by every operation that names a repository.
+
+`agent_access` is `Yes`: a job that writes a tracker mod tries it before it says it is done.
+"""

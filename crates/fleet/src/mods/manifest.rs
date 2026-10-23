@@ -75,6 +75,7 @@ pub(crate) fn read(text: &str, folder: &str) -> (Manifest, Vec<String>) {
         None => problems.push("mod.toml has no `kind`".to_string()),
         Some("theme") => manifest.kind = Some(ModKind::Theme),
         Some("layout") => manifest.kind = Some(ModKind::Layout),
+        Some("tracker") => manifest.kind = Some(ModKind::Tracker),
         Some(other) => problems.push(format!("mod.toml `kind` is `{other}`, which is not a kind of mod this build has")),
     }
     match version {

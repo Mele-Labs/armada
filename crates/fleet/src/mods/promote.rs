@@ -150,6 +150,7 @@ where
             &format!("Add the {name} {} mod", match files.payload {
                 Payload::Css(_) => "theme",
                 Payload::Layout(_) => "layout",
+                Payload::Tracker(_) => "tracker",
             }),
             at,
         )

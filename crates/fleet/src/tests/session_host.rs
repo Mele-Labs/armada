@@ -849,6 +849,32 @@ async fn a_guarded_read_in_auto_is_a_card_and_always_allow_lets_the_next_one_run
     assert!(matches!(next, ipc::RunOrNot::Deny { message } if message.contains("blocked")));
 }
 
+/// A write through `$HOME/x:$PATH` names `$HOME/x`, so its card offers the folder answers and not
+/// only Allow once.
+#[tokio::test]
+async fn a_write_through_a_search_path_offers_the_folder_answers() {
+    let rig = rig();
+    let id = rig.start().await;
+    let home = std::env::var("HOME").unwrap_or_default();
+    let body = r#"{"tool_name":"Bash","input":{"command":"cp shim \"$HOME/.rbenv/shims:$PATH\""}}"#;
+    let line: ipc::AskingToRun = ipc::decode("an ask", body.as_bytes()).expect("an ask");
+    let fleet = Arc::clone(&rig.fleet);
+    let session = id.as_str().to_string();
+    let _waiting = tokio::spawn(async move { fleet.session_permission(&session, line).await });
+    let seen = Mutex::new(None);
+    eventually(|| async {
+        let now = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session.hosted.unwrap().asked;
+        let some = now.is_some();
+        *seen.lock().unwrap() = now;
+        some
+    })
+    .await;
+    let ask = seen.into_inner().unwrap().unwrap();
+    assert_eq!(ask.reaches, Some(format!("{home}/.rbenv/shims")));
+    assert!(ask.offers.contains(&HelmCallAnswer::AlwaysAllow), "{:?}", ask.offers);
+    assert!(ask.offers.contains(&HelmCallAnswer::AllowForSession), "{:?}", ask.offers);
+}
+
 /// A card says whether the call reads or writes, and "Always allow for this session" lets this
 /// session's next call under the folder run while nothing is written and another session still asks.
 #[tokio::test]

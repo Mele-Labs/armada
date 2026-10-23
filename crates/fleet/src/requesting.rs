@@ -30,6 +30,7 @@ pub use files::{
     check, check_collection, check_environment, environment_written, parse, written, SecretChange,
 };
 pub use filling::{hidden, Filling};
+pub(crate) use filling::Values;
 pub(crate) use kept::{read_file, IN_REPOSITORY};
 
 /// `settings.request-timeout`: how long a request may take, connecting included.

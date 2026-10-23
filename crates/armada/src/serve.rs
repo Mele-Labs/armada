@@ -365,6 +365,8 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
                 turn_interval,
                 |why| eprintln!("main was not read: {why}"),
             );
+            // Each Job's watches: a command run when due, on a timer of their own, and the notices they owe.
+            fleet::watches::keep_running_watches(Arc::clone(&fleet), fleet::watches::EVERY);
             // Pull requests and issues, for the same reason: a landing is told to its Job
             // without waiting behind a Check.
             fleet::notice_loop::keep_noticing(
@@ -594,7 +596,9 @@ fn assemble(
     let retro_model = model_at(shipped.get(keys::MODELS_RETRO), String::new())?;
     // One client for every forge call Fleet makes, so they share its connections.
     let forge = ApiForge::new();
-    let trackers = forge.trackers();
+    // A provider no tracker here answers to is looked up among the machine's tracker mods.
+    let mod_switches = fleet::mods::ModSwitches::default();
+    let trackers = forge.trackers().taught_by(Arc::new(fleet::mods::TrackerMods::in_dir(mods_dir.clone(), mod_switches.clone())));
     let fleet = Fleet::assembled(Fittings {
         store,
         harness: agent,
@@ -612,6 +616,7 @@ fn assemble(
             keepers_dir: keepers_dir.to_string_lossy().to_string(),
             studio_frames_dir: studio_frames_dir.to_string_lossy().to_string(),
             mods_dir: mods_dir.to_string_lossy().to_string(),
+            mod_switches,
             kit_home,
             // `judge_binary`'s reason: the same override reaches Helm's host.
             // `#943`.

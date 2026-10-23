@@ -187,6 +187,9 @@ read plausibly under a different job has failed.
   Never canvas, playground.
 - **Scout** the read-only agent a Studio sends to read and report back as a
   Finding. Never researcher, explorer.
+- **Watch** a command Fleet runs on a cadence for one Job, whose last line says
+  where a deploy or a pipeline stands. Never a poll, a monitor, a Check. Fleet
+  reading a pull request is not a watch.
 - **Drone transcript** the record of a Drone's turns. Never the Drone
   log, the Drone output.
 - **Judge record** one Judge call and every judge's verdict inside it.

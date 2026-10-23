@@ -180,6 +180,11 @@ export type SessionRecord = {
    * while any is open. Absent or empty is none. Since 21 Oct 2026.
    */
   later?: SessionLater[];
+  /**
+   * The name of the live watch that is all that keeps the Session open: its turn has ended and nothing is in `waiting_for`.
+   * Absent otherwise.
+   */
+  held_open_by?: string;
 };
 
 /** A follow-up the agent kept for itself, read from the close of a reply. `id` is what `settle_later` names it by. */

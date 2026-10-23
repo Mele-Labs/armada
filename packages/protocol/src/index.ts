@@ -86,3 +86,4 @@ export * from "./timeline";
 export * from "./bay-history";
 export * from "./triggers";
 export * from "./underway";
+export * from "./watches";
