@@ -37,9 +37,12 @@ import type {
   LaterSettled,
   SettleLater,
   StopWatch,
+  WatchesChanged,
+  WatchList,
   WatchSummary,
   ClaimPullRequest,
   DismissConcern,
+  ConfirmWaiting,
   DismissWaiting,
   Followed,
   FrameRead,
@@ -70,6 +73,7 @@ import type {
   SessionRunUnderway,
   SessionSubagent,
   SessionLoadout,
+  AttachmentHistory,
   McpServerAct,
   SessionMcp,
   SessionMcpActed,
@@ -143,6 +147,10 @@ export class SessionsHost {
   private readonly port: () => number | null;
   private sessions: SessionRecord[] | null = null;
   private threads: Record<string, SessionRow[]> = {};
+  /** Each Job's watches as `watches.changed` last carried them, or `list_watches` answered on opening it. */
+  private watches: Record<string, WatchSummary[]> = {};
+  /** The Jobs `watches.changed` has spoken for since the connection: an older `list_watches` answer must not land over it. */
+  private readonly heardWatches = new Set<string>();
   /** The ids of the threads held, least recently opened first. */
   private opening: string[] = [];
   /** Puts a page a Session showed in the walk window. Set once by main, which owns windows. `pressed`: the owner asked for it. */
@@ -192,6 +200,7 @@ export class SessionsHost {
 
   /** Read every session, and every thread a window holds again. Once per connection, and on a refresh. */
   async again(port: number): Promise<void> {
+    this.heardWatches.clear();
     const answer = await ask(port, "GET", "/sessions");
     if (answer.ok !== true) {
       // **A list already held stays when the next read fails**, as the pool's does (`holding.ts`): a read that times out
@@ -246,6 +255,22 @@ export class SessionsHost {
   /** `session.changed`: the session, whole. */
   changed(record: SessionRecord): void {
     this.fold(record);
+  }
+
+  /** `watches.changed`: one Job's watches, whole. Replaces what is held for it. */
+  watchesChanged(change: WatchesChanged): void {
+    this.heardWatches.add(change.session_id);
+    this.watches = { ...this.watches, [change.session_id]: change.watches };
+    this.publish({ sessionWatches: this.watches });
+  }
+
+  /** The starting list of a Job's watches, read once as its thread is opened; `watches.changed` keeps it current after. */
+  private async readWatches(port: number, sessionId: string): Promise<void> {
+    const answer = await ask(port, "GET", `/watches?session_id=${encodeURIComponent(sessionId)}`);
+    if (answer.ok !== true || this.heardWatches.has(sessionId)) return;
+    const list = answer.body as WatchList;
+    this.watches = { ...this.watches, [sessionId]: list.watches };
+    this.publish({ sessionWatches: this.watches });
   }
 
   /** Say who is told each Session list after it changes: main's, as `onWindow` is. */
@@ -448,6 +473,7 @@ export class SessionsHost {
     this.reading.set(sessionId, []);
     this.publish({ sessionThreadsReading: [...this.reading.keys()] });
     const drawn = this.threads[sessionId] === undefined ? this.drawFromDisk(sessionId) : Promise.resolve();
+    void this.readWatches(port, sessionId);
     const answer = await ask(port, "GET", `/sessions/one?session_id=${encodeURIComponent(sessionId)}`);
     // The disk copy is drawn or skipped before Fleet's answer, so it can never land over it.
     await drawn;
@@ -617,6 +643,10 @@ export class SessionsHost {
     return await this.act("POST", "/sessions/waiting/dismiss", dismiss);
   }
 
+  async confirmWaiting(confirm: ConfirmWaiting): Promise<SessionActed> {
+    return await this.act("POST", "/sessions/waiting/confirm", confirm);
+  }
+
   /** The person approved a plan. Fleet tells the agent and answers the record, which is folded. */
   async approvePlan(approve: ApprovePlan): Promise<SessionActed> {
     return await this.act("POST", "/sessions/plan/approve", approve);
@@ -769,6 +799,14 @@ export class SessionsHost {
     return answer.ok === true ? { ok: true, value: answer.body as SessionLoadout } : { ok: false, outcome: answer.outcome };
   }
 
+  /** Every version of everything a session holds, read whole each time the window asks. */
+  async attachmentHistory(sessionId: string): Promise<SessionActed<AttachmentHistory>> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    const answer = await ask(port, "GET", `/sessions/attachment_history?session_id=${encodeURIComponent(sessionId)}`);
+    return answer.ok === true ? { ok: true, value: answer.body as AttachmentHistory } : { ok: false, outcome: answer.outcome };
+  }
+
   /** What one item of a session's Loadout says, as Fleet read it from disk. */
   async loadoutItem(sessionId: string, item: LoadoutItemAsk): Promise<SessionActed<LoadoutItemBody>> {
     const port = this.port();
@@ -886,6 +924,8 @@ export class SessionsHost {
     this.sessions = null;
     this.readAt = null;
     this.threads = {};
+    this.watches = {};
+    this.heardWatches.clear();
     this.opening = [];
     this.reading.clear();
     clearTimeout(this.writing);

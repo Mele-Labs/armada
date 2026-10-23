@@ -75,7 +75,7 @@ type WaitRead = { sessionId: string; words: string; reading: WaitReading | undef
 
 type Sketch = Extract<SessionAttachment, { kind: "sketch" }>;
 
-type Inputs = Pick<BridgeState, "sessions" | "sessionThreads" | "sessionThreadsReading" | "holds" | "repository" | "helm"> & { workflowsOff: boolean };
+type Inputs = Pick<BridgeState, "sessions" | "sessionThreads" | "sessionWatches" | "sessionThreadsReading" | "holds" | "repository" | "helm"> & { workflowsOff: boolean };
 
 /** `features.workflows` in settings.json, which the owner turns off to dispatch plain Sessions. On until Fleet says otherwise. */
 export const workflowsOffIn = (settings: SettingsList | null): boolean => settings?.settings.find((one) => one.key === "features.workflows")?.value === false;
@@ -135,13 +135,14 @@ export class WiredStore {
       // A failed re-read after a good one is not a list with no Sessions: what was held stays, as main's does.
       sessions: state.sessions.state === "failed" && was?.sessions.state === "read" ? was.sessions : share(was?.sessions, state.sessions),
       sessionThreads: share(was?.sessionThreads, state.sessionThreads),
+      sessionWatches: share(was?.sessionWatches, state.sessionWatches),
       sessionThreadsReading: share(was?.sessionThreadsReading, state.sessionThreadsReading),
       holds: share(was?.holds, state.holds),
       repository: state.repository,
       helm: share(was?.helm, state.helm),
       workflowsOff: workflowsOffIn(state.settings),
     };
-    if (was !== undefined && was.sessions === next.sessions && was.sessionThreads === next.sessionThreads && was.sessionThreadsReading === next.sessionThreadsReading && was.holds === next.holds && was.repository === next.repository && was.helm === next.helm && was.workflowsOff === next.workflowsOff) return;
+    if (was !== undefined && was.sessions === next.sessions && was.sessionThreads === next.sessionThreads && was.sessionWatches === next.sessionWatches && was.sessionThreadsReading === next.sessionThreadsReading && was.holds === next.holds && was.repository === next.repository && was.helm === next.helm && was.workflowsOff === next.workflowsOff) return;
     this.inputs = next;
     this.recompute();
   }
@@ -186,6 +187,7 @@ export class WiredStore {
     epoch: this.epoch,
     workflows: this.inputs?.holds.workflows ?? NONE,
     events: this.events,
+    ...(this.inputs?.sessionWatches[id] === undefined ? {} : { watches: this.inputs.sessionWatches[id] }),
     ...(this.inputs?.workflowsOff === true ? { workflowsOff: true } : {}),
     ...(this.unpicked.has(id) ? { unpicked: this.unpicked.get(id)! } : {}),
   });

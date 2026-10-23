@@ -5,7 +5,7 @@
 // `detail`), and what a screen draws is a slot beside its branch and a pull request with its Checks,
 // so the pairing and the reading happen here, once, where a test can hold them. Nothing here reads a transcript: a row is drawn as it arrived and nothing is inferred from it.
 
-import type { Attachment, ContextBreakdown as WireContextBreakdown, HelmCallInFlight, ProposedField, SentFile, SessionActivity as WireActivity, SessionRecord, SessionRow as WireRow, SessionTag as WireTag, TimelineEvent, WaitingItem, WorkflowSummary } from "@armada/protocol";
+import type { Attachment, ContextBreakdown as WireContextBreakdown, HelmCallInFlight, ProposedField, SentFile, SessionActivity as WireActivity, SessionRecord, SessionRow as WireRow, SessionTag as WireTag, TimelineEvent, WaitingItem, WatchSummary, WorkflowSummary } from "@armada/protocol";
 
 import type { ContextBreakdown } from "@armada/components/src/context-breakdown";
 import { parseScene } from "@armada/components/src/compositions/SketchScene/scene";
@@ -40,6 +40,8 @@ export type Beside = {
   workflows?: readonly WorkflowSummary[];
   /** What happened across the Fleet, of which a value the person changed in a panel is a row of the thread. */
   events?: readonly TimelineEvent[];
+  /** The Job's watches, which `watches.changed` carries and the record does not. Absent is none read. */
+  watches?: readonly WatchSummary[];
   /** Picks of the proposer the person has changed here, which the record has not yet said. */
   unpicked?: ReadonlySet<ProposedField>;
   /** `features.workflows` is off, so the workflow picker, the steps and the proposer's mark for a workflow are not drawn. */
@@ -599,6 +601,7 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
     ...(ended || record.waits === undefined ? {} : { waits: waitOfWire(record.waits) }),
     ...(ended || (record.later?.length ?? 0) === 0 ? {} : { later: (record.later ?? []).map((one) => ({ id: one.id, text: one.sentence, at: one.said_at })) }),
     ...(ended || record.held_open_by === undefined ? {} : { heldOpenBy: record.held_open_by }),
+    ...(beside.watches === undefined || beside.watches.length === 0 ? {} : { watches: beside.watches }),
     ...(work === undefined ? {} : { work }),
   };
 }
@@ -715,4 +718,4 @@ export class SessionMemo {
 }
 
 const sameBeside = (a: Beside, b: Beside): boolean =>
-  a.picture === b.picture && a.sketches === b.sketches && a.pending === b.pending && a.repository === b.repository && a.epoch === b.epoch && a.workflows === b.workflows && a.events === b.events && a.unpicked === b.unpicked && a.workflowsOff === b.workflowsOff;
+  a.picture === b.picture && a.sketches === b.sketches && a.pending === b.pending && a.repository === b.repository && a.epoch === b.epoch && a.workflows === b.workflows && a.events === b.events && a.watches === b.watches && a.unpicked === b.unpicked && a.workflowsOff === b.workflowsOff;

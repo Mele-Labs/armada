@@ -273,6 +273,8 @@ export type SessionsState = {
   sessions: SessionsRead;
   /** The threads a window has opened, oldest row first, by session id. */
   sessionThreads: Record<string, SessionRow[]>;
+  /** Each Job's watches, live and ended, the newest first, by session id: `list_watches` on opening it, then `watches.changed`. */
+  sessionWatches: Record<string, WatchSummary[]>;
   /** The ids whose read from Fleet has not answered, a thread held or cached being read again among them. */
   sessionThreadsReading: string[];
 };
@@ -280,6 +282,7 @@ export type SessionsState = {
 export const SESSIONS_NOTHING_YET: SessionsState = {
   sessions: { state: "none" },
   sessionThreads: {},
+  sessionWatches: {},
   sessionThreadsReading: [],
 };
 
