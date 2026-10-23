@@ -4,7 +4,7 @@
 import type { IssueList, IssueRead, MergeLines, PullRequestState } from "@armada/protocol";
 
 import type { IssuesApi } from "../../../../shared/api/issues";
-import type { IssuesSource, Read, SavedQuery, Ticket, TicketRead, Tracker, WrittenQuery } from "../../issues-tab/model";
+import type { IssuesSource, QueryToSave, Read, SavedQuery, Ticket, TicketRead, Tracker, WrittenQuery } from "../../issues-tab/model";
 import type { Slice } from "../fake-context";
 import { unanswered } from "../moment";
 import { REPOSITORY_ISSUES, finishedPullRequest, issueOfNumber } from "../numbered";
@@ -99,6 +99,12 @@ export const issues: Slice<IssuesApi, Record<string, never>> = {
       const one = issueRead(manifestId, Number(reference.replace(/^#/, "")));
       return one === undefined ? { ok: false, outcome: unanswered("/issues") } : { ok: true, value: one };
     },
+    // The tab's tracker is the scenario's own (`issuesTabSource`), so the routes under it have nothing here to answer.
+    searchIssues: async () => ({ ok: false, outcome: unanswered("/issue_queries/search") }),
+    listIssueQueries: async () => ({ ok: false, outcome: unanswered("/issue_queries") }),
+    writeIssueQuery: async () => ({ ok: false, outcome: unanswered("/issue_queries/write") }),
+    saveIssueQuery: async () => ({ ok: false, outcome: unanswered("/issue_queries") }),
+    forgetIssueQuery: async () => ({ ok: false, outcome: unanswered("/issue_queries/forget") }),
     getPullRequest: async (manifestId, number) => {
       const one = openOn(manifestId, number, fleet.state().mergeLines) ?? finishedPullRequest(manifestId, number);
       return one === undefined ? { ok: false, outcome: unanswered("/pull_requests") } : { ok: true, value: one };
@@ -112,7 +118,7 @@ export const issues: Slice<IssuesApi, Record<string, never>> = {
 };
 
 // ---- The Issues tab's tracker, mock only ---------------------------------------------------------------------------------
-// No route serves the tab yet. A scenario hands each repository's tracker, its issues read whole, who "me" is on it, the
+// A walk has no Fleet to serve the tab. A scenario hands each repository's tracker, its issues read whole, who "me" is on it, the
 // language its queries are in, and what the model writes for any words (`MockDraft.issuesTab`). Queries are run here, crudely:
 // `key:value` terms for GitHub and a tracker mod, `AND`ed clauses for Jira's JQL, each matched against the issue's named
 // fields. Enough for an edited query to match what it says.
@@ -121,6 +127,8 @@ export const issues: Slice<IssuesApi, Record<string, never>> = {
 export type IssuesSeedRepository = {
   tracker: Tracker;
   tickets?: readonly TicketRead[];
+  /** The Jobs working each issue, by reference, as Fleet's ledger holds them. */
+  held?: Record<string, string[]>;
   me?: string;
   language?: "terms" | "jql";
   /** What the model writes, whatever the words. */
@@ -189,18 +197,19 @@ export function issuesTabSource(seed: IssuesSeed): IssuesSource {
     if (one !== undefined && one.tracker.state === "read") one.tracker = { ...one.tracker, saved: next };
     return next;
   };
+  const stamped = (manifestId: string, one: Ticket): Ticket => ({ ...one, holders: of(manifestId)?.held?.[one.reference] ?? [] });
   const refused = <T,>(manifestId: string): Read<T> => ({ ok: false, said: `No tracker is read for ${manifestId}.` });
   return {
-    trackers: async () => ({ ok: true, value: [...repositories.values()].map((one) => one.tracker) }),
+    trackers: async (manifestIds) => ({ ok: true, value: [...repositories.values()].map((one) => one.tracker).filter((one) => manifestIds.includes(one.manifestId)) }),
     run: async (manifestId, query) => {
       const one = of(manifestId);
       if (one === undefined || one.tracker.state !== "read") return refused(manifestId);
       const matches = (one.language === "jql" ? byJql : byTerms)(query, one.me ?? "");
-      return { ok: true, value: (one.tickets ?? []).filter(matches) };
+      return { ok: true, value: (one.tickets ?? []).filter(matches).map((ticket) => stamped(manifestId, ticket)) };
     },
     read: async (manifestId, reference) => {
       const ticket = of(manifestId)?.tickets?.find((it) => it.reference === reference);
-      return ticket === undefined ? { ok: false, said: `${reference} is not an issue of this repository.` } : { ok: true, value: ticket };
+      return ticket === undefined ? { ok: false, said: `${reference} is not an issue of this repository.` } : { ok: true, value: { ...ticket, ...stamped(manifestId, ticket) } };
     },
     write: async (manifestId, _words) => {
       const writes = of(manifestId)?.writes;
@@ -208,10 +217,11 @@ export function issuesTabSource(seed: IssuesSeed): IssuesSource {
       await new Promise((done) => setTimeout(done, 600));
       return writes === undefined ? refused(manifestId) : { ok: true, value: writes };
     },
-    save: async (manifestId, query) => {
+    save: async (manifestId, query: QueryToSave) => {
       const was = saved(manifestId);
       const at = was.findIndex((one) => one.id === query.id);
-      return { ok: true, value: keep(manifestId, at < 0 ? [...was, query] : was.map((one, i) => (i === at ? query : one))) };
+      const kept: SavedQuery = { ...query, id: query.id ?? `${query.name}:${Date.now()}` };
+      return { ok: true, value: keep(manifestId, at < 0 ? [...was, kept] : was.map((one, i) => (i === at ? kept : one))) };
     },
     remove: async (manifestId, id) => ({ ok: true, value: keep(manifestId, saved(manifestId).filter((one) => one.id !== id)) }),
   };

@@ -152,7 +152,8 @@ import type { BayHistoryRead } from "./api/bay-history";
 import type { UsageRulesRead, UsageSummaryRead } from "./api/usage-summary";
 import type { ClashFileAnswer, SessionFileChangeAnswer, WriteClashesRead } from "./api/clashes";
 import type { RepositoryAreasRead, SlotTouchesRead } from "./api/territory";
-import type { IssueNumberRead, IssuesRead, PullRequestNumberRead } from "./api/issues";
+import type { IssueNumberRead, IssueQueryActed, IssuesRead, PullRequestNumberRead } from "./api/issues";
+import type { IssueList, IssueQueries, SaveIssueQuery, SavedIssueQuery, WrittenIssueQuery } from "@armada/protocol";
 import type { HelmAim, HelmCarry } from "./api/helm";
 import { AUTOPILOT_CHANNELS, type AutopilotApi } from "./api/autopilot";
 import { SKETCH_SHARE_CHANNELS, type SketchShareApi } from "./api/sketch-share";
@@ -390,6 +391,11 @@ type OldBridgeApi = {
     onModelDownshiftChanged: (onChanged: (state: ModelDownshiftState) => void) => () => void;
     listIssues: (manifestId: string, refresh: boolean) => Promise<IssuesRead>;
     getIssue: (manifestId: string, reference: string) => Promise<IssueNumberRead>;
+    searchIssues: (manifestId: string, query: string) => Promise<IssueQueryActed<IssueList>>;
+    listIssueQueries: (manifestId: string) => Promise<IssueQueryActed<IssueQueries>>;
+    writeIssueQuery: (manifestId: string, words: string) => Promise<IssueQueryActed<WrittenIssueQuery>>;
+    saveIssueQuery: (manifestId: string, save: SaveIssueQuery) => Promise<IssueQueryActed<SavedIssueQuery>>;
+    forgetIssueQuery: (manifestId: string, id: string) => Promise<IssueQueryActed<IssueQueries>>;
     getPullRequest: (manifestId: string, number: number) => Promise<PullRequestNumberRead>;
     refreshPullRequest: (manifestId: string, number: number) => Promise<PullRequestNumberRead>;
     setSleep: (on: boolean) => Promise<SleepActed>;
@@ -669,6 +675,11 @@ const OLD_CHANNELS = {
     modelDownshiftChanged: "bridge:model-downshift-changed",
     listIssues: "bridge:list-issues",
     getIssue: "bridge:get-issue",
+    searchIssues: "bridge:search-issues",
+    listIssueQueries: "bridge:list-issue-queries",
+    writeIssueQuery: "bridge:write-issue-query",
+    saveIssueQuery: "bridge:save-issue-query",
+    forgetIssueQuery: "bridge:forget-issue-query",
     getPullRequest: "bridge:get-pull-request",
     refreshPullRequest: "bridge:refresh-pull-request",
     setSleep: "bridge:set-sleep",

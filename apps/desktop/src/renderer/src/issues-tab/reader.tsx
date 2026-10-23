@@ -8,7 +8,7 @@ import { IssueState, Open } from "../shared-panel/panels";
 import type { Band } from "./bands";
 import { ISSUES_KEYS } from "./key-table";
 import { IssueJobCard, toneOfHolders, useHolders } from "./marks";
-import type { ReadTracker, TicketRead } from "./model";
+import type { TicketRead } from "./model";
 import { useIssues, useIssuesStore } from "./store";
 
 type Hosts = {
@@ -36,11 +36,11 @@ export function IssuesReader(hosts: Hosts) {
       </section>
     );
   }
-  return <Reader key={`${band.manifestId}\n${open.reference}`} band={band} tracker={band.tracker} ticket={read.ticket} {...hosts} />;
+  return <Reader key={`${band.manifestId}\n${open.reference}`} band={band} ticket={read.ticket} {...hosts} />;
 }
 
-function Reader({ band, tracker, ticket, onOpenLink, onOpenSession, onStart }: Hosts & { band: Band; tracker: ReadTracker; ticket: TicketRead }) {
-  const holders = useHolders(tracker.held[ticket.reference]);
+function Reader({ band, ticket, onOpenLink, onOpenSession, onStart }: Hosts & { band: Band; ticket: TicketRead }) {
+  const holders = useHolders(ticket.holders);
   return (
     <section className="deck-pane issues-reader" data-tone={toneOfHolders(holders)} aria-label={`Issue ${ticket.reference}`} tabIndex={-1}>
       <header className="deck-band deck-pane__head">

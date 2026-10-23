@@ -26,8 +26,8 @@ const MOBILE = served("mobile");
 const ago = (hours: number) => new Date(Date.now() - hours * 3_600_000).toISOString();
 const f = (name: string, ...values: string[]): TicketField => ({ name, values });
 
-type Draft = Omit<TicketRead, "updated_at" | "linked_pull_request" | "linked_pull_requests" | "excerpt"> & { hours: number; linked?: TicketRead["linked_pull_requests"] };
-const ticket = ({ hours, linked = [], ...one }: Draft): TicketRead => ({ ...one, updated_at: ago(hours), excerpt: one.body.split("\n")[0] ?? "", linked_pull_request: linked.length > 0, linked_pull_requests: linked });
+type Draft = Omit<TicketRead, "updated_at" | "linked_pull_request" | "linked_pull_requests" | "excerpt" | "holders"> & { hours: number; linked?: TicketRead["linked_pull_requests"] };
+const ticket = ({ hours, linked = [], ...one }: Draft): TicketRead => ({ ...one, updated_at: ago(hours), excerpt: one.body.split("\n")[0] ?? "", linked_pull_request: linked.length > 0, linked_pull_requests: linked, holders: [] });
 
 const GH = "https://github.com/acme/storefront/issues/";
 const STOREFRONT_TICKETS: TicketRead[] = [
@@ -287,8 +287,8 @@ const SEED: IssuesSeed = [
       open: "is:open",
       assigned: "is:open assignee:@me",
       saved: [{ id: "checkout-bugs", name: "Checkout bugs", words: "Checkout bugs", query: "is:open label:bug label:checkout", row_fields: ["Labels", "Projects"] }],
-      held: { "#2810": ["01ISSUECOUPONAAAAAAAAAAAAA"], "#2796": ["01ISSUEROUNDCCCCCCCCCCCCCC"] },
     },
+    held: { "#2810": ["01ISSUECOUPONAAAAAAAAAAAAA"], "#2796": ["01ISSUEROUNDCCCCCCCCCCCCCC"] },
     tickets: STOREFRONT_TICKETS,
     me: "nick",
     language: "terms",
@@ -302,8 +302,8 @@ const SEED: IssuesSeed = [
       open: "statusCategory != Done ORDER BY updated DESC",
       assigned: "assignee = currentUser() AND statusCategory != Done",
       saved: [],
-      held: { "ABC-41": ["01ISSUECERTSBBBBBBBBBBBBBB"] },
     },
+    held: { "ABC-41": ["01ISSUECERTSBBBBBBBBBBBBBB"] },
     tickets: OPS_TICKETS,
     me: "Nick Mele",
     language: "jql",
@@ -318,8 +318,8 @@ const SEED: IssuesSeed = [
       open: "is:open",
       assigned: "is:open owner:@me",
       saved: [],
-      held: { "sc-1832": ["01ISSUEPRORATEDDDDDDDDDDDD"] },
     },
+    held: { "sc-1832": ["01ISSUEPRORATEDDDDDDDDDDDD"] },
     tickets: BILLING_TICKETS,
     me: "nick",
     language: "terms",

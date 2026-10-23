@@ -44,9 +44,9 @@ export function IssuesSurface({ picked, repositories, onOpenLink, onOpenSession 
   };
   const teach = (band: Band) => {
     if (dispatching === undefined || band.tracker.state !== "refused") return;
-    const named = band.tracker.named.charAt(0).toUpperCase() + band.tracker.named.slice(1);
+    const named = band.tracker.named === undefined ? "" : `${band.tracker.named.charAt(0).toUpperCase()}${band.tracker.named.slice(1)} `;
     dispatching.choose("session");
-    dispatching.openSheet(`Teach Armada to read this repository's ${named} tracker as a tracker mod`, band.root);
+    dispatching.openSheet(`Teach Armada to read this repository's ${named}tracker as a tracker mod`, band.root);
   };
 
   return (

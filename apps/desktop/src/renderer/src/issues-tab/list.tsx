@@ -35,7 +35,9 @@ export function IssuesList({ picked, repositories, onTeach }: { picked: Reposito
   const store = useIssuesStore()!;
   const snap = useIssues();
   const [kept, choose] = useChoice(picked);
-  useEffect(() => store.readTrackers(), [store]);
+  const scope = (picked === null ? repositories : [picked]).flatMap((one) => jobIdOf(one) ?? []);
+  const scopeKey = scope.join("\n");
+  useEffect(() => store.readTrackers(scope), [store, scopeKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const bands = bandsIn(picked, repositories, snap.trackers ?? []);
   const names = savedNames(bands);
@@ -348,15 +350,15 @@ function Rows({ band, asked, nested = false }: { band: Band; asked: Asked | unde
   return (
     <ul className={nested ? "deck-list__group" : "deck-list__rows issues-list__rows"}>
       {tickets.map((ticket) => (
-        <Row key={ticket.reference} band={band} tracker={band.tracker as ReadTracker} ticket={ticket} fields={asked.fields} open={snap.open?.manifestId === band.manifestId && snap.open.reference === ticket.reference} />
+        <Row key={ticket.reference} band={band} ticket={ticket} fields={asked.fields} open={snap.open?.manifestId === band.manifestId && snap.open.reference === ticket.reference} />
       ))}
     </ul>
   );
 }
 
-function Row({ band, tracker, ticket, fields, open }: { band: Band; tracker: ReadTracker; ticket: Ticket; fields: readonly string[]; open: boolean }) {
+function Row({ band, ticket, fields, open }: { band: Band; ticket: Ticket; fields: readonly string[]; open: boolean }) {
   const store = useIssuesStore()!;
-  const holders = useHolders(tracker.held[ticket.reference]);
+  const holders = useHolders(ticket.holders);
   const values = fields.flatMap((name) => (ticket.fields.find((one) => one.name === name)?.values ?? []).map((value) => ({ name, value })));
   return (
     <li className="deck-list__item">

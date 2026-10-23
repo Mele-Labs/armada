@@ -41,6 +41,8 @@ export function createIssuesStore(source: IssuesSource) {
     for (const one of listeners) one();
   };
   let waiting: (() => void) | undefined;
+  /** The repositories whose tracker has been asked for, so each is asked once. */
+  const asked = new Set<string>();
 
   const savedInto = (manifestId: string, saved: SavedQuery[]) =>
     set({ trackers: (snap.trackers ?? []).map((one) => (one.manifestId === manifestId && one.state === "read" ? { ...one, saved } : one)) });
@@ -58,10 +60,18 @@ export function createIssuesStore(source: IssuesSource) {
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
-    /** Read once when the tab opens. */
-    readTrackers: () => {
-      if (snap.trackers !== undefined) return;
-      void source.trackers().then((answer) => set(answer.ok ? { trackers: answer.value, failed: undefined } : { failed: answer.said }));
+    /** Reads the tracker of each repository not yet read, when the tab opens or a repository joins its scope. */
+    readTrackers: (manifestIds: readonly string[]) => {
+      const fresh = manifestIds.filter((id) => !asked.has(id));
+      if (fresh.length === 0) return;
+      for (const id of fresh) asked.add(id);
+      void source.trackers(fresh).then((answer) => {
+        if (!answer.ok) {
+          for (const id of fresh) asked.delete(id);
+          return set({ failed: answer.said });
+        }
+        set({ trackers: [...(snap.trackers ?? []).filter((one) => !fresh.includes(one.manifestId)), ...answer.value], failed: undefined });
+      });
     },
     runOf: (manifestId: string, query: string): Run | undefined => snap.runs[key(manifestId, query)],
     run,
@@ -83,7 +93,10 @@ export function createIssuesStore(source: IssuesSource) {
           const now = snap.describing;
           if (now?.phase !== "written" || now.words !== words) return;
           set({ describing: { ...now, written: { ...now.written, [manifestId]: answer.ok ? { state: "read", query: answer.value } : { state: "failed", said: answer.said } } } });
-          if (answer.ok) run(manifestId, answer.value.query);
+          if (!answer.ok) return;
+          // Fleet ran what the model wrote before it answered, so those issues are the list and it is not asked again.
+          if (answer.value.tickets === undefined) return run(manifestId, answer.value.query);
+          set({ runs: { ...snap.runs, [key(manifestId, answer.value.query)]: { state: "read", tickets: answer.value.tickets } } });
         });
       }
     },
@@ -93,7 +106,7 @@ export function createIssuesStore(source: IssuesSource) {
       if (now?.phase !== "written") return;
       for (const [manifestId, one] of Object.entries(now.written)) {
         if (one.state !== "read") continue;
-        const answer = await source.save(manifestId, { id: `${name}:${Date.now()}`, name, words: now.words, query: one.query.query, row_fields: one.query.row_fields });
+        const answer = await source.save(manifestId, { name, words: now.words, query: one.query.query, row_fields: one.query.row_fields });
         if (!answer.ok) return set({ failed: answer.said });
         savedInto(manifestId, answer.value);
       }
@@ -136,7 +149,7 @@ export function createIssuesStore(source: IssuesSource) {
 
 const Held = createContext<IssuesStore | undefined>(undefined);
 
-/** Hands the window its Issues store. Only the mock does, until the tracker routes land. */
+/** Hands the window its Issues store: over Fleet in the app, over a scenario in the mock. */
 export function IssuesFrom({ store, children }: { store: IssuesStore | undefined; children: ReactNode }) {
   return <Held.Provider value={store}>{children}</Held.Provider>;
 }

@@ -1,7 +1,7 @@
-// What the Issues tab draws, in the shapes the tracker routes will serve. **Bridge never knows which tracker sent an issue**:
-// a tracker's own facts (GitHub's labels, milestone and projects; Jira's status, priority, sprint and the rest) arrive as named
-// fields, and a query is text in the tracker's own language that Bridge shows and never reads. Mock-backed: no route serves
-// these yet, so the mock's `issues-tab` scenario stands in (`mock/issues-tab.ts`).
+// What the Issues tab draws. **Bridge never knows which tracker sent an issue**: a tracker's own facts (GitHub's labels,
+// milestone and projects; Jira's status, priority, sprint and the rest) arrive as named fields, and a query is text in the
+// tracker's own language that Bridge shows and never reads. Fleet serves these over the tracker routes (`source.ts`); the
+// mock's `issues-tab` scenario stands in for it in a walk (`mock/slices/issues.ts`).
 
 /** One field the tracker returned for an issue, by the tracker's own name for it. */
 export type TicketField = { name: string; values: string[] };
@@ -19,6 +19,8 @@ export type Ticket = {
   excerpt: string;
   fields: TicketField[];
   linked_pull_request: boolean;
+  /** The Jobs working it, by id, as Fleet's ledger holds them. */
+  holders: string[];
 };
 
 /** A pull request that names an issue. */
@@ -32,7 +34,15 @@ export type TicketRead = Ticket & { body: string; linked_pull_requests: LinkedPu
 export type SavedQuery = { id: string; name: string; words: string; query: string; row_fields: string[] };
 
 /** What the model wrote for his words, in the tracker's own language. */
-export type WrittenQuery = { query: string; row_fields: string[] };
+export type WrittenQuery = {
+  query: string;
+  row_fields: string[];
+  /** What the query matched, where the call already ran it. Then the list is not asked again. */
+  tickets?: Ticket[];
+};
+
+/** A query to keep. With an `id` it edits that saved query; without, Fleet gives the new one its own. */
+export type QueryToSave = Omit<SavedQuery, "id"> & { id?: string };
 
 /**
  * A repository's tracker, as Fleet reads it. **Read** is any tracker a build or a mod reads; `mod` names the tracker mod
@@ -49,26 +59,26 @@ export type Tracker =
       open: string;
       assigned: string;
       saved: SavedQuery[];
-      /** The Jobs working each issue, by reference, as Fleet's ledger holds them. */
-      held: Record<string, string[]>;
     }
-  | { manifestId: string; state: "refused"; named: string; said: string };
+  /** `named` is the provider the Manifest names, where Fleet says it. */
+  | { manifestId: string; state: "refused"; named?: string; said: string };
 
 export type ReadTracker = Extract<Tracker, { state: "read" }>;
 
 /** An answer, or Fleet's words for why there is none. */
 export type Read<T> = { ok: true; value: T } | { ok: false; said: string };
 
-/** What the tab reads and writes. The mock answers it now, and the tracker routes will. */
+/** What the tab reads and writes. Fleet answers it (`source.ts`), and the mock does in a walk. */
 export type IssuesSource = {
-  trackers: () => Promise<Read<Tracker[]>>;
+  /** The tracker of each of these repositories, by Manifest id. One Fleet does not serve is left out. */
+  trackers: (manifestIds: readonly string[]) => Promise<Read<Tracker[]>>;
   /** The issues a query matches. Runs the query as written: no model is called. */
   run: (manifestId: string, query: string) => Promise<Read<Ticket[]>>;
   read: (manifestId: string, reference: string) => Promise<Read<TicketRead>>;
   /** A model writes a query for his words, in this repository's tracker's language. This is the call that spends. */
   write: (manifestId: string, words: string) => Promise<Read<WrittenQuery>>;
   /** Keeps a query, new or edited, and answers the repository's saved queries. */
-  save: (manifestId: string, query: SavedQuery) => Promise<Read<SavedQuery[]>>;
+  save: (manifestId: string, query: QueryToSave) => Promise<Read<SavedQuery[]>>;
   remove: (manifestId: string, id: string) => Promise<Read<SavedQuery[]>>;
 };
 
