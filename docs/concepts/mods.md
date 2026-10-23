@@ -288,7 +288,7 @@ A tracker mod switched off in Mods is refused too, with that as the reason; the 
 
 | Operation | Kind | A job may | Does |
 |---|---|---|---|
-| `list_mods` | query | yes | Every mod, local and built in: `origin`, kind, version, description, `taught_on`, `entry` (the Logbook entry that made it), `enabled`, `valid`, `reason`, `changed_at`, and a tracker's `tried` or `stale` |
+| `list_mods` | query | yes | Every mod, local and built in: `origin`, kind, version, description, `taught_on`, `entry` (the Logbook entry that made it), `enabled`, `valid`, `reason`, `changed_at`, a tracker's `tried` or `stale`, and the `pull_request` a promote holds open for it |
 | `scaffold_mod` | command | yes | Makes the folder, a starter file for its `kind` that changes nothing (a tracker's validates and fails its try), `git init` and one commit |
 | `validate_mod` | query | yes | Every problem found, and the checked text when there are none: `css` for a theme or a tweak, `layout` for a layout, `words` for a Words mod and `fleet` for a Fleet mod, each the file as typed data |
 | `try_tracker_mod` | command | yes | Runs a tracker mod against a repository and keeps how it went |
@@ -319,12 +319,15 @@ A mod nobody switched is on. A switch only says whether the owner allows the mod
 > **Rule.** Promotion puts the mod into the repository by a Job of its own, which sees the pull request merged.
 > Why: landing it is the pull request's, as for any other change, and a Job is what fixes a red check and keeps the branch current.
 
-1. `promote_mod` refuses, before any Job is made, a mod that is invalid, a built-in mod, a repository with no `packages/` directory and a repository that holds the mod exactly as it is.
+1. `promote_mod` refuses, before any Job is made, a mod whose earlier promote's pull request is still open, a mod that is invalid, a built-in mod, a repository with no `packages/` directory and a repository that holds the mod exactly as it is.
 2. Fleet starts a Job titled `Add the <name> <kind> mod`, with a slot from the repository's pool and a branch of its own.
 3. It writes the two checked files, `mod.toml` and `theme.css`, `layout.json` or `tracker.toml`, to `packages/mods/<name>/` in the Job's tree, never the mod's `.git` or its `.tried.toml`, and commits exactly those paths.
-4. It pushes the branch, opens a pull request into the base and attaches it to the Job's row.
+4. It pushes the branch, opens a pull request into the base and attaches it to the Job's row, beside a `mod` row naming the mod.
 5. It tells the Job, in Fleet's words, to fix a red ci or a conflict with the base and to finish when the pull request merges.
-6. It answers with the Job, its branch, the commit and the pull request's address.
+6. It answers with the Job, its title, its branch, the commit and the pull request's address, and publishes the list.
+
+> **Rule.** The Job keeps which mod it promoted, and `list_mods` carries that mod's pull request and Job while it is open.
+> Why: the answer reaches only the window that pressed, and a window read again would offer Promote and open a second pull request.
 
 A pull request that does not open loses nothing.
 The Job keeps the commit on its branch, the answer names the Job and says why in `pull_request_not_opened`, and the Job is told nothing, since it has no pull request to watch.
@@ -385,4 +388,4 @@ A layout mod in the list applies while it is on and valid and draws the shipped 
 
 Bridge saves the theme with `save_preferences` as `theme` with `text`.
 A catalogue theme is saved as `catalogue:<slug>`, the id Bridge gives it, and a built-in mod as `built-in:<folder>`, and a local mod's name has no `:`, so none of them can meet.
-Promote shows what `promote_mod` answered: the pull request's address where one opened, otherwise why none did, and the Job that holds the branch.
+Promote shows what `promote_mod` answered, the pull request and the Job holding it, and then what `list_mods` carries, so a window read again shows the same and offers no second Promote; where no pull request opened, it shows the branch.

@@ -507,8 +507,11 @@ Mods are a list of their own, and the Theme rows carry the same marks.
 [Bridge](bridge.md)'s Account sheet names the home repository at the top, and the sign-in's home step reads done once the home exists.
 
 **Built in Fleet.** Fleet makes, clones and pushes the repository, compares each kind and carries the three acts.
-**Not built.** Bridge's call of these routes: its marks and acts still draw from `draft.sharedHome` in the mock Fleet.
-Per-item scopes are not built either.
+**Built in Bridge.** Bridge reads one profile's home through main: the profile added on purpose beside the machine's own, or the only profile where none was added.
+Fleet pushes no event for it, so it is read once that profile is signed in and again after every act and every kind switched in What syncs.
+Sync turns while it runs, and a refused act is a failure toast in Fleet's words, as any refused press is.
+**Not built.** Per-item scopes.
+A mod only the home has is listed under Theme whatever it changes, since the home's row does not say.
 The marks use Proposed glyphs, `packages/icons/icons/house.toml` for the home and `packages/icons/icons/laptop.toml` for this machine among them.
 
 ### Upgrade

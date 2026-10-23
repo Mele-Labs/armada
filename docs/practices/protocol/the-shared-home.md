@@ -17,9 +17,10 @@ Bridge's half is `packages/protocol/src/shared-home.ts`, written by hand, field 
 | `get_home_kinds` (`GET /shared_home/kinds?login=`, `No`) | Bridge asks, Fleet answers 200 | `HomeKinds` `{ login, kinds }`, one `{ kind, on }` a kind, every one off until turned on |
 | `set_home_kind` (`POST /shared_home/kinds/set`, `No`) | Bridge sends, Fleet answers 200 | `SetHomeKind` `{ login, kind, on }`; answers `HomeKinds` |
 
-**Mapping onto the mock.** A `HomeRow` is Bridge's `SharedRow` with `key_here` in place of `keyHere` and inverted: the mock's `keyHere: true` draws the key mark, and the wire's `key_here: false` is a server whose key is not here.
+**Mapping onto Kit.** A `HomeRow` is Bridge's `SharedRow` with `key_here` in place of `keyHere` and inverted: Kit's `keyHere: true` draws the key mark, and the wire's `key_here: false` is a server whose key is not here.
 `syncing` is Bridge's own while `sync_shared_home` is in flight.
-A memory row's act carries its `repository`.
+A memory row's act carries its `repository`, which Kit's row does not, so Bridge keeps each drawn row's wire row beside it.
+Bridge calls the seven through main, `apps/desktop/src/main/accounts.ts`, and draws them from `renderer/src/fleet-shared-home.ts` and `fleet-account.ts`.
 
 **A row that differs is never merged.** Add and Bring refuse it with a 409 `fleet.home_row_differs`; only `choose_shared_home_side` replaces a side, and it takes away the files the kept side has not.
 

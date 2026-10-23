@@ -116,5 +116,7 @@ There is no active profile and no set-active act.
 
 **Built in Fleet.** What syncs, per kind and per machine and kept in the store, and the shared home: Fleet makes the repository, and the sign-in's home step reads done once the home exists. [Kit](kit.md), *The shared home*, and [the protocol page](../practices/protocol/the-shared-home.md).
 
-**Not built.** Bridge's call of those routes, so the page still draws What syncs and the home row from the mock Fleet, and per-item scopes.
+**Built in Bridge.** What syncs reads a profile's kinds from `get_home_kinds` when it opens and switches one with `set_home_kind`, drawn at once and then as Fleet answers; the home chip is made once this machine holds a copy of that profile's home.
+A refused switch goes back and is said on the page, as the other refusals are.
+**Not built.** Per-item scopes: Fleet sends no item of a kind, so a kind turned on lists none, and nothing shows it pulling.
 The central store is deployed outside this repository, [Central store](../contracts/central-store.md).
