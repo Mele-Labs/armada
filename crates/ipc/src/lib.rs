@@ -436,7 +436,7 @@ pub use repositories::{
 };
 pub use requester::Requester;
 pub use logbook::{
-    EditLogbookEntry, Logbook, LogbookEarlier, LogbookEntry, LogbookEvidence, LogbookForgotten, LogbookKind, LogbookReplacedBy,
+    EditLogbookEntry, Logbook, LogbookEarlier, LogbookEntry, LogbookEvidence, ForgottenLogbookEntry, LogbookKind, LogbookReplacedBy,
     LogbookSection, LogbookState, PinLogbookEntry, TeachLogbookEntry,
 };
 pub use notices::{Notice, NoticeScope, SetNoticeMute};

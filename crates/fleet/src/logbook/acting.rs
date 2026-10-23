@@ -10,7 +10,7 @@ use std::collections::HashMap;
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Logbook, Refusal};
 use ipc::{
-    EditLogbookEntry, Instant, LogbookEarlier, LogbookEntry, LogbookEvidence, LogbookForgotten, LogbookKind,
+    EditLogbookEntry, Instant, LogbookEarlier, LogbookEntry, LogbookEvidence, ForgottenLogbookEntry, LogbookKind,
     LogbookReplacedBy, LogbookSection, LogbookState, PinLogbookEntry, TeachLogbookEntry, WireError,
 };
 use store::{logbook_words, LogEntry, LogHistory, LogHow, LogKind, LogRewrite, LogSection, LogState};
@@ -308,7 +308,7 @@ where
         Ok(self.logbook_entry_wired(entry).await)
     }
 
-    async fn forget_logbook_entry(&self, entry_id: String) -> Result<LogbookForgotten, Refusal> {
+    async fn forget_logbook_entry(&self, entry_id: String) -> Result<ForgottenLogbookEntry, Refusal> {
         let entry = self.logbook_held(&entry_id).await?;
         let now = self.logbook_now();
         let forgot = self
@@ -321,7 +321,7 @@ where
             return Err(self.logbook_missing(format!("No entry has the id {entry_id}. It may have been forgotten.")));
         }
         self.logbook_mirrored(&entry.repository).await;
-        Ok(LogbookForgotten { id: entry_id })
+        Ok(ForgottenLogbookEntry { id: entry_id })
     }
 
     async fn teach_logbook_entry(&self, teach: TeachLogbookEntry) -> Result<LogbookEntry, Refusal> {

@@ -1,7 +1,7 @@
 //! The Logbook, as the fake answers it: an empty one, and each act answered with what it was given.
 
 use ipc::{
-    EditLogbookEntry, Instant, Logbook as LogbookRead, LogbookEntry, LogbookForgotten, LogbookKind, LogbookSection,
+    EditLogbookEntry, Instant, Logbook as LogbookRead, LogbookEntry, ForgottenLogbookEntry, LogbookKind, LogbookSection,
     LogbookState, PinLogbookEntry, TeachLogbookEntry,
 };
 
@@ -47,8 +47,8 @@ impl Logbook for FakeDaemon {
         Ok(LogbookEntry { pinned: pin.pinned, ..entry(&entry_id, LogbookSection::Habits, LogbookKind::Habit, "", Vec::new()) })
     }
 
-    async fn forget_logbook_entry(&self, entry_id: String) -> Result<LogbookForgotten, Refusal> {
-        Ok(LogbookForgotten { id: entry_id })
+    async fn forget_logbook_entry(&self, entry_id: String) -> Result<ForgottenLogbookEntry, Refusal> {
+        Ok(ForgottenLogbookEntry { id: entry_id })
     }
 
     async fn teach_logbook_entry(&self, teach: TeachLogbookEntry) -> Result<LogbookEntry, Refusal> {

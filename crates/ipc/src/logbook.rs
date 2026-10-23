@@ -117,7 +117,7 @@ pub struct PinLogbookEntry {
 
 /// `forget_logbook_entry`' answer: the entry is on the deny list and gone from every read.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct LogbookForgotten {
+pub struct ForgottenLogbookEntry {
     pub id: String,
 }
 

@@ -5,7 +5,7 @@ use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use axum::Router;
 use http_body_util::BodyExt;
-use ipc::{Logbook, LogbookEntry, LogbookForgotten};
+use ipc::{Logbook, LogbookEntry, ForgottenLogbookEntry};
 use tower::ServiceExt;
 
 use crate::tests::fake::FakeDaemon;
@@ -55,7 +55,7 @@ async fn each_route_is_served_and_answers_its_wire_type() {
 
     let (status, body) = call(&app, "POST", "/logbook/entries/7/forget", "").await;
     assert_eq!(status, StatusCode::OK);
-    assert_eq!(ipc::decode::<LogbookForgotten>("a forgotten entry", &body).expect("decodes").id, "7");
+    assert_eq!(ipc::decode::<ForgottenLogbookEntry>("a forgotten entry", &body).expect("decodes").id, "7");
 }
 
 #[tokio::test]
