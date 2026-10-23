@@ -718,6 +718,11 @@ export class WiredStore {
       if (!done.ok) return void this.tell(done.outcome);
       return {};
     },
+    // The send's failure after that answer is Fleet's `act.failed` for the repository's Manifest.
+    checkoutSendFailed: (root, on) => {
+      const manifestId = this.inputs?.holds.repositories?.find((one) => one.root === root)?.manifest?.id;
+      return this.api.onActFailed((failed) => failed.act === "checkout_to_pull_request" && failed.manifest_id === manifestId && on());
+    },
     // The file is read by its Manifest and path; Fleet refuses one the hold does not list.
     diffInRepository: async (root, path) => {
       const manifestId = this.inputs?.holds.repositories?.find((one) => one.root === root)?.manifest?.id;
@@ -817,10 +822,10 @@ export function WiredSessions({ events, children }: { events?: TimelineSource; c
     return events.subscribe(() => store.setEvents(events.get()));
   }, [store, events]);
   const served = useSyncExternalStore(store.subscribe, store.served);
-  const { runInRepository, diffInRepository, actInRepository, refreshPullRequest, sendCheckoutAsPullRequest } = store.draft;
+  const { runInRepository, diffInRepository, actInRepository, refreshPullRequest, sendCheckoutAsPullRequest, checkoutSendFailed } = store.draft;
   const acts = useMemo(
-    () => ({ runInRepository, diffInRepository, actInRepository, refreshPullRequest, sendCheckoutAsPullRequest }),
-    [runInRepository, diffInRepository, actInRepository, refreshPullRequest, sendCheckoutAsPullRequest],
+    () => ({ runInRepository, diffInRepository, actInRepository, refreshPullRequest, sendCheckoutAsPullRequest, checkoutSendFailed }),
+    [runInRepository, diffInRepository, actInRepository, refreshPullRequest, sendCheckoutAsPullRequest, checkoutSendFailed],
   );
   return (
     <SessionsFrom held={served ? store.draft : undefined} acts={acts}>

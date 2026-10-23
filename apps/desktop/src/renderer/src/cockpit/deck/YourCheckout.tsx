@@ -50,9 +50,16 @@ function Command({ root, command }: { root: string; command: string }) {
 
 /** The uncommitted files as a pull request: committed to a branch, opened, auto-merge on. Pending until Fleet answers with its number. */
 function SendAsPullRequest({ root }: { root: string }) {
-  const send = useRepositoryActs().sendCheckoutAsPullRequest;
+  const { sendCheckoutAsPullRequest: send, checkoutSendFailed: failed } = useRepositoryActs();
   const [pending, setPending] = useState(false);
+  const stop = useRef<(() => void) | undefined>(undefined);
+  useEffect(() => () => stop.current?.(), []);
   if (send === undefined) return null;
+  const free = () => {
+    stop.current?.();
+    stop.current = undefined;
+    setPending(false);
+  };
   return (
     <span className="deck-checkout__send">
     <Tooltip label="Commit to a branch, open a pull request, auto-merge on">
@@ -62,8 +69,10 @@ function SendAsPullRequest({ root }: { root: string }) {
         pending={pending}
         onClick={() => {
           setPending(true);
-          // Sent, the button waits for the hold to carry the pull request and the card to swap it for the chip; a refusal frees it.
-          void send(root).then((sent) => sent === undefined && setPending(false), () => setPending(false));
+          // Sent, the button waits for the hold to carry the pull request and the card to swap it for the chip; a refusal, or the send failing afterwards, frees it.
+          stop.current?.();
+          stop.current = failed?.(root, free);
+          void send(root).then((sent) => sent === undefined && free(), free);
         }}
       >
         <GitPullRequestArrow size={12} aria-hidden="true" />

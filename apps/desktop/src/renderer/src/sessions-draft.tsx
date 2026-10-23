@@ -17,7 +17,7 @@ import { ViewerNotesOver } from "./viewer-notes";
 const Held = createContext<SessionsDraft | undefined>(undefined);
 
 /** The acts on a repository's own card, which a real Fleet serves whether or not the Sessions list has been read. */
-export type RepositoryActs = Pick<SessionsDraft, "runInRepository" | "diffInRepository" | "actInRepository" | "refreshPullRequest" | "sendCheckoutAsPullRequest">;
+export type RepositoryActs = Pick<SessionsDraft, "runInRepository" | "diffInRepository" | "actInRepository" | "refreshPullRequest" | "sendCheckoutAsPullRequest" | "checkoutSendFailed">;
 const Acts = createContext<RepositoryActs | undefined>(undefined);
 
 const NONE: readonly Session[] = [];
@@ -57,6 +57,7 @@ export function useRepositoryActs(): RepositoryActs {
     actInRepository: acts?.actInRepository ?? held?.actInRepository,
     refreshPullRequest: acts?.refreshPullRequest ?? held?.refreshPullRequest,
     sendCheckoutAsPullRequest: acts?.sendCheckoutAsPullRequest ?? held?.sendCheckoutAsPullRequest,
+    checkoutSendFailed: acts?.checkoutSendFailed ?? held?.checkoutSendFailed,
   };
 }
 

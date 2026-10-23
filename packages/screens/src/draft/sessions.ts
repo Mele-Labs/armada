@@ -956,6 +956,11 @@ export type SessionsDraft = {
    */
   sendCheckoutAsPullRequest?: (root: string) => Promise<object | undefined>;
   /**
+   * Calls `on` when a send from this repository's held checkout fails after Fleet accepted it (`act.failed`), and answers how to stop
+   * listening. Absent where nothing serves it; the card then waits on the hold alone.
+   */
+  checkoutSendFailed?: (root: string, on: () => void) => () => void;
+  /**
    * Types a slash command into a **terminal** Session's terminal, to run as typed, from inline code in
    * its thread. No output comes back: the command runs in the terminal. Absent where nothing serves it,
    * and in a Bridge-hosted Session, where there is no terminal. Fleet answers it as `tune_terminal`

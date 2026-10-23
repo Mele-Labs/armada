@@ -5,12 +5,18 @@
 import { expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
+import type { ActFailed } from "@armada/protocol";
+
+import { checkoutHeld } from "./checkout-held-hub";
+import type { FleetHandle } from "./moment";
 import { s257CheckoutHeldBack } from "./scenarios/checkout-held-back";
 import { mount, onScreen, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
+// More than one repository is served, so main's light is named for its repository.
 const SAFE = "880 commits behind main";
+const LIGHT = `Main is green in armada, checkout ${SAFE}`;
 
 /** The walk's scenario as a real window has it: the same fleet, and no Sessions draft. */
 const wired = { ...s257CheckoutHeldBack, draft: { ...s257CheckoutHeldBack.draft, sessions: undefined } };
@@ -18,8 +24,8 @@ const wired = { ...s257CheckoutHeldBack, draft: { ...s257CheckoutHeldBack.draft,
 async function opened() {
   const app = mount(wired);
   await onScreen();
-  await page.getByRole("region", { name: "Merge queue" }).getByRole("button", { name: `Main is green, checkout ${SAFE}` }).click();
-  return { app, section: page.getByRole("dialog", { name: `Main is green, checkout ${SAFE}` }).getByRole("region", { name: "Your checkout" }) };
+  await page.getByRole("region", { name: "Merge queue" }).getByRole("button", { name: LIGHT }).click();
+  return { app, section: page.getByRole("dialog", { name: LIGHT }).getByRole("region", { name: "Your checkout" }) };
 }
 
 const opacityOf = (button: Element) => getComputedStyle(button.closest(".armada-prose__run-acts")!).opacity;
@@ -54,6 +60,65 @@ test("Pull request asks Fleet by the repository's Manifest alone, and waits for 
   // Fleet answered, but the card still draws the hold it was given: the button stays pending rather than offering a second press.
   await expect.element(button).toHaveAttribute("aria-busy", "true");
   await expect.element(button).toHaveAttribute("aria-disabled", "true");
+});
+
+/** The hold with the pull request on it, as Fleet publishes it once the send has opened one. */
+function holdingTheSend() {
+  let fleet: FleetHandle | undefined;
+  const lines = s257CheckoutHeldBack.state.mergeLines!;
+  const { sent } = checkoutHeld(lines, lines.lines[0]!.root);
+  const scenario = { ...wired, behaves: (handle: FleetHandle) => ((fleet = handle), wired.behaves?.(handle) ?? {}) };
+  return { scenario, carryThePullRequest: () => fleet!.publish(sent) };
+}
+
+/** Fleet's `act.failed`, heard by whatever listens when the test fires it. */
+function failures(app: { api: object }) {
+  const heard = new Set<(failed: ActFailed) => void>();
+  vi.spyOn(app.api as { onActFailed: (on: (failed: ActFailed) => void) => () => void }, "onActFailed").mockImplementation((on) => {
+    heard.add(on);
+    return () => heard.delete(on);
+  });
+  return { fire: (failed: ActFailed) => heard.forEach((on) => on(failed)) };
+}
+
+const failedFor = (manifest_id: string): ActFailed => ({
+  act: "checkout_to_pull_request",
+  manifest_id,
+  error: { code: "fleet.push_refused", message: "The push was refused", run_id: "r", fields: {}, chain: [] },
+});
+
+test("Pull request frees when the hold carries the pull request, and the chip takes its place", async () => {
+  const held = holdingTheSend();
+  const app = mount(held.scenario);
+  await onScreen();
+  await page.getByRole("region", { name: "Merge queue" }).getByRole("button", { name: LIGHT }).click();
+  const section = page.getByRole("dialog", { name: LIGHT }).getByRole("region", { name: "Your checkout" });
+  vi.spyOn(app.api, "sendCheckoutAsPullRequest").mockResolvedValue({ ok: true, value: {} });
+  const button = section.getByRole("button", { name: "Pull request" });
+  await userEvent.click(button);
+  await expect.element(button).toHaveAttribute("aria-busy", "true");
+  held.carryThePullRequest();
+  await expect.element(section.getByText("#2402")).toBeVisible();
+  await expect.element(button).not.toBeInTheDocument();
+});
+
+test("a send that fails after Fleet's answer frees the button again, and another repository's failure does not", async () => {
+  const { app, section } = await opened();
+  const send = vi.spyOn(app.api, "sendCheckoutAsPullRequest").mockResolvedValue({ ok: true, value: {} });
+  const { fire } = failures(app);
+  const button = section.getByRole("button", { name: "Pull request" });
+  await userEvent.click(button);
+  await expect.poll(() => send.mock.calls.length).toBe(1);
+  const manifest = send.mock.calls[0]![0];
+  await expect.element(button).toHaveAttribute("aria-busy", "true");
+  fire(failedFor("some-other-manifest"));
+  fire({ ...failedFor(manifest), act: "commit_to_repository" });
+  // A failure that was not this one's would free it on the next render; give it one.
+  await new Promise((done) => setTimeout(done, 100));
+  await expect.element(button).toHaveAttribute("aria-busy", "true");
+  fire(failedFor(manifest));
+  await expect.element(button).not.toHaveAttribute("aria-busy");
+  await expect.element(button).toBeVisible();
 });
 
 test("a refused Pull request frees the button again", async () => {
