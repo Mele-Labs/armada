@@ -179,6 +179,7 @@ mod session_starts;
 mod session_waits;
 mod session_summary;
 mod run_memory;
+mod teaching;
 mod notices;
 mod session_import;
 mod sessions;
@@ -434,6 +435,10 @@ pub use repositories::{
     AddRepository, CloneRepository, CreateProject, RepositoryList, RepositorySummary, RequestRepository,
 };
 pub use requester::Requester;
+pub use teaching::{
+    ForgottenTaughtLink, NoteKind, NoteSection, ReadTeaching, SaveTeaching, SavedTeaching, TaughtLink, TaughtLinks,
+    TeachingLink, TeachingNote, TeachingProposal, TeachingReach,
+};
 pub use notices::{Notice, NoticeScope, SetNoticeMute};
 pub use run_memory::{
     DropRunFact, RememberedRun, RunCloud, RunFactState, RunMemory, RunMemoryPlace, RunPlace, RunWorkspace, SetRunMemoryPlace,

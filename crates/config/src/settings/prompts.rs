@@ -19,6 +19,7 @@ pub const PROMPT_RETRO_HOW_TO_WRITE: Words = Words("prompts.retroHowToWrite");
 pub const PROMPT_RETRO_REVIEW: Words = Words("prompts.retroReview");
 pub const PROMPT_RETRO_ASK: Words = Words("prompts.retroAsk");
 pub const PROMPT_LOGBOOK_DISTIL: Words = Words("prompts.logbookDistil");
+pub const PROMPT_TEACHING_READ: Words = Words("prompts.teachingRead");
 pub const PROMPT_HELM: Words = Words("prompts.helm");
 pub const PROMPT_HELM_READ_ONLY: Words = Words("prompts.helmReadOnly");
 pub const PROMPT_HELM_ROUTE: Words = Words("prompts.helmRoute");
@@ -185,6 +186,13 @@ pub(super) const PROMPTS: &[Entry] = &[
         "What a job learnt",
         "What the model is asked when a job ends or hands on, to say what the Logbook learns from it. {record} is the job's record since it was last read and {entries} what the Logbook holds now. Its answer is read by field name, so keep the field names.",
         &["record", "entries"],
+    ),
+    prompt(
+        PromptSection::Retros,
+        PROMPT_TEACHING_READ,
+        "What a person taught",
+        "What the model is asked when a person selects words in a Session and says what they are or what to do. {words} are the selected words, {message} the message they came from, {said} what the person wrote, {reach} where it applies and {sections} the Logbook sections and kinds a note may go in. Its answer is read by field name, so keep the field names.",
+        &["words", "message", "said", "reach", "sections"],
     ),
     prompt(
         PromptSection::Helm,
