@@ -493,8 +493,8 @@ export class WiredStore {
     this.say(undefined);
     const done = await this.api.pressPullRequest(id, number, act);
     if (!done.ok) this.say(done.outcome);
-    // Whatever the answer, the sheet shows the pull request as the forge has it now.
-    await this.api.pressPullRequest(id, number, "read");
+    // Whatever the answer, the sheet shows the pull request as the forge has it now; the press is not held for it.
+    void this.api.pressPullRequest(id, number, "read");
     return done.ok;
   }
 
