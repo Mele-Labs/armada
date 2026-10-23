@@ -1,5 +1,5 @@
 [operations.get_logbook_for_subagent]
-kind = "query"
+kind = "command"
 transport = "HTTP"
 agent_access = "No"
 description = "The Logbook entries a subagent is handed as it starts: the owner's habits and the repository's standing entries whose paths match those its prompt names"

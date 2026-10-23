@@ -27,7 +27,7 @@ fn texts(all: &[Logged]) -> Vec<&str> {
 #[test]
 fn a_prompt_names_the_paths_it_has_a_slash_in_cut_of_the_root_and_the_noise_round_them() {
     let prompt = "Read `apps/desktop/src/main.ts:42`, (crates/fleet/src/logbook.rs), see https://example.com/a/b and \
-                  /Users/me/armada/.armada/slots/slot-3/docs/concepts/logbook.md. Then /repo/root/crates/api/. Not a path: cargo.";
+                  /Users/user/armada/.armada/slots/slot-3/docs/concepts/logbook.md. Then /repo/root/crates/api/. Not a path: cargo.";
 
     assert_eq!(
         named_paths(prompt, "/repo/root"),
