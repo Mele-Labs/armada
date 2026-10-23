@@ -101,7 +101,7 @@ Standing entries reach agents three ways.
 
 ## What the person does
 
-**The person sees one Logbook page in Bridge.** He can read an entry and its evidence, edit it, lock it or forget it. Nothing else is asked of him. **The page has two parts**: what agents know, one panel per repository and then Habits and This Mac, and below it Armada fixes, the [retro](retro.md) items: what got in a Job's way and where its fix lands. The panels hold what agents are handed; one switch, Not handed out, adds the candidates and faded entries to them, dimmed, each with its state.
+**The person sees one Logbook page in Bridge.** He can read an entry and its evidence, edit it, lock it or forget it. Nothing else is asked of him. **The page has two parts**: what agents know, one panel per repository and then Habits and This Mac, and below it Armada fixes, the [retro](retro.md) items: what got in a Job's way and where its fix lands. The panels hold what agents are handed; one switch, Show all, adds the candidates and faded entries to them, dimmed, each with its state.
 
 | Act | Does |
 |---|---|

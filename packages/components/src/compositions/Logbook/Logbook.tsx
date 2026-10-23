@@ -229,7 +229,7 @@ export function LogbookView({ panels, unhanded, onUnhanded, fixes, toFixes, unre
           <div className="armada-logbook__filters">
             <Tooltip label="Add candidates and faded entries" shortcut={keyFor("logbook_unhanded")}>
               <Switch checked={unhanded} onChange={(event) => onUnhanded(event.currentTarget.checked)} aria-keyshortcuts={keyFor("logbook_unhanded") || undefined}>
-                Not handed out
+                Show all
               </Switch>
             </Tooltip>
           </div>

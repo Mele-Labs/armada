@@ -679,7 +679,7 @@ notes = "A locked Logbook entry is never rewritten by Armada and never fades. Pr
 [actions.logbook_unhanded]
 kind = "Action"
 tier = "Contextual"
-verb = "Add what is not handed out"
+verb = "Show all"
 icon = ""
 icon_absent = "undecided"
 shortcut = "h"
