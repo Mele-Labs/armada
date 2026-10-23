@@ -187,6 +187,8 @@ mod pull_review_lists;
 mod review_runs;
 /// Natural Search: the person's words put to every open pull request. `docs/concepts/pull-review.md`.
 mod review_searches;
+/// Saved issue queries and the query writer. `docs/concepts/tracker.md`, *Saved queries*.
+mod issue_queries;
 /// The review tools and explanations a repository has, and writing one.
 mod review_tools;
 /// A Walk run: where the change runs, and the walk played there. `docs/concepts/pull-review.md`, *Walk*.
@@ -216,6 +218,8 @@ mod refusing;
 /// A person's run of one Manifest entry in a Job's worktree, and Undo from
 /// the snapshot taken before it. **A rehearsal, never a verdict.**
 mod rehearsing;
+/// A command Fleet runs on a cadence for one Job, and the agent's weighing of it.
+pub mod watches;
 /// The repositories one Fleet serves, and adding one by folder.
 pub mod repositories;
 /// Which profile a repository claims and syncs as: matched by its owner, or chosen.

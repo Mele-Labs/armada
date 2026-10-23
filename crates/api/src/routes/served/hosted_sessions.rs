@@ -1,5 +1,5 @@
 //! The rows of [`SERVED`](super::SERVED) for a session Fleet hosts for Bridge,
-//! since 23.49: starting one, talking to it, and what it holds.
+//! since 23.49: starting one, talking to it, what it holds, and its watches.
 
 use super::Route;
 
@@ -189,5 +189,26 @@ pub(super) const ROUTES: &[Route] = &[
         operation: "fork_this_session",
         method: "POST",
         path: "/sessions/fork_this",
+    },
+    // A command Fleet runs on a cadence for one Job, and the agent's weighing of what it reads.
+    Route {
+        operation: "list_watches",
+        method: "GET",
+        path: "/watches",
+    },
+    Route {
+        operation: "start_watch",
+        method: "POST",
+        path: "/watches/start",
+    },
+    Route {
+        operation: "weigh_watch",
+        method: "POST",
+        path: "/watches/weigh",
+    },
+    Route {
+        operation: "stop_watch",
+        method: "POST",
+        path: "/watches/stop",
     },
 ];

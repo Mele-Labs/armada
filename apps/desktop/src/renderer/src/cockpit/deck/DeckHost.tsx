@@ -14,6 +14,7 @@ import type { BridgeState } from "../../../../shared/bridge";
 import type { RepositorySummary } from "@armada/protocol";
 import { bandingOf } from "./bands";
 import { AGE_MS } from "./clock";
+import { chordTileFor, flightTileFor, pauseForP } from "./flight-keys";
 import { holdFor } from "./props";
 import { walkOrder } from "./queued";
 import { DeckKeySheet, armChord, cycleFrom, focusPanel, panelAt, remember, stepBy, stepIn, useDeckKeys } from "./keys";
@@ -183,7 +184,14 @@ export function DeckHost({ state, picked, here, hidden, onGoTo, onOpenSession }:
       window.requestAnimationFrame(() => rowFocus(key));
       return;
     }
-    if (event.metaKey || event.ctrlKey || event.altKey) return;
+    // A chord the owner gave a tile presses it from anywhere on the deck, but in a text box only with ⌘ or ⌃, where ⌥ and ⇧ type.
+    if (event.metaKey || event.ctrlKey || event.altKey) {
+      const tile = state.here ? chordTileFor(event) : null;
+      if (tile === null) return;
+      event.preventDefault();
+      tile.click();
+      return;
+    }
     // The flight controls while they are edited take their own keys (`FlightEdit.tsx`).
     if (target.closest?.("[data-flight-editing]") != null) return;
     if (holdsText(event.target) && target.getAttribute("role") !== "switch") {
@@ -222,10 +230,11 @@ export function DeckHost({ state, picked, here, hidden, onGoTo, onOpenSession }:
       event.preventDefault();
       return focusPanel(cycleFrom(panel?.id, event.shiftKey ? -1 : 1), state.cursor);
     }
-    // P presses Pause on the open Session's tile, Resume while it is paused; not an act of the registry, where `p` is Pilot's.
+    // P presses Pause: the row under the cursor's in the list, elsewhere the open Session's while its Pause wears P. Once Pause has another key that
+    // key presses it and P is a tile's, if one was given it. Not an act of the registry, where `p` is Pilot's.
     if (event.key.toLowerCase() === "p" && !event.shiftKey) {
-      // In the list it is the row under the cursor's; elsewhere the open Session's.
-      const act = (panel?.id === "list" && state.cursor !== undefined ? document.querySelector<HTMLElement>(`.deck-list__item:has(> [data-row="${CSS.escape(state.cursor)}"]) [data-act="row-pause"]`) : null) ?? document.querySelector<HTMLElement>('.deck-controls__block[data-subject="session"] [data-act="pause"]');
+      const row = panel?.id === "list" && state.cursor !== undefined ? document.querySelector<HTMLElement>(`.deck-list__item:has(> [data-row="${CSS.escape(state.cursor)}"]) [data-act="row-pause"]`) : null;
+      const act = pauseForP(row);
       if (act !== null) {
         event.preventDefault();
         act.click();
@@ -242,14 +251,12 @@ export function DeckHost({ state, picked, here, hidden, onGoTo, onOpenSession }:
       tile.click();
       return;
     }
-    // A letter the owner gave a tile. The registry's letters are never given (`reservedLetters`), so this reads none of the keys above.
-    if (!event.shiftKey && /^[a-z]$/i.test(event.key)) {
-      const tile = flightTile(event.key.toUpperCase());
-      if (tile !== null) {
-        event.preventDefault();
-        tile.click();
-        return;
-      }
+    // A letter the owner gave a tile. The registry's keys are never given (`keyProblem`), so this reads none of the keys above.
+    const lettered = /^[a-z]$/i.test(event.key) ? flightTileFor(event) : null;
+    if (lettered !== null) {
+      event.preventDefault();
+      lettered.click();
+      return;
     }
     const slot = pressedSlot("deck_panel", event);
     const goes = slot === -1 ? undefined : panelOfSlot(slot);

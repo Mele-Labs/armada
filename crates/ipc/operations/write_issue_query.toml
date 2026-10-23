@@ -1,0 +1,12 @@
+[operations.write_issue_query]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Turn a person's words into a query in the repository's tracker's language, and run it"
+notes = """
+`POST /issue_queries/:repository/write`, `repository` a manifest id, body `WriteIssueQuery`: `words`, at most 2000 characters. `docs/concepts/tracker.md`, *Saved queries*. Answers `WrittenIssueQuery`: `query`, `row_fields` (the tracker's field names a row shows), `issues` (what the tracker answered the query, in `list_issues`' shape) and `cost_micros`, what the one call cost, absent where the call ended without saying.
+
+**One model call with no tools**, on `models.review`, given the tracker's guide (language, prose, the two built-in queries, the field names) and the person's words. **Ticket titles and bodies are never sent.** The model answers `{ "query": ..., "row_fields": [...] }`. Fleet then **runs the query** with the tracker before it answers: a query the tracker refuses fails the call with the tracker's own words, and so does a `row_fields` entry the guide does not list. **Nothing is kept**: `save_issue_query` keeps it. Synchronous, bounded by the proposer's budget.
+
+A 500 `fleet.issue_query_not_written` where the call failed or its answer could not be used, in its own words (no agent, no answer, not JSON, a blank query, a field the tracker does not have); a 422 `fleet.issue_query_refused` carrying the tracker's words where it refused the query written, and the call is still spent; a 422 `fleet.issue_query_blank` for blank or over-long words; a 500 `fleet.issues_unreadable` where the tracker cannot be read at all, before any call is made; and a 422 for a repository Fleet does not serve.
+"""

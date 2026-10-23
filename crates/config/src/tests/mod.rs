@@ -30,6 +30,7 @@ mod samples;
 mod scope;
 mod settings;
 mod triggers;
+mod watch_recipes;
 mod workflow;
 
 use std::path::{Path, PathBuf};

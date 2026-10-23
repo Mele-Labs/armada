@@ -49,7 +49,7 @@ export function useBack(): SheetBack | undefined {
   return was === undefined ? undefined : { label: `Back to ${nameOf(was)}`, tooltip: `Back to ${nameOf(was)}`, onBack: panelBack };
 }
 
-const nameOf = (item: PanelItem): string => (item.kind === "pr" ? `#${item.number}` : item.kind === "issue" ? issueLabel(item.number) : item.kind === "bay" ? `slot-${item.slot}` : item.kind === "file" ? (item.path.split("/").pop() ?? item.path) : item.kind === "requests" ? "Requests" : (item.name ?? "Check"));
+const nameOf = (item: PanelItem): string => (item.kind === "pr" ? `#${item.number}` : item.kind === "issue" ? issueLabel(item.number) : item.kind === "bay" ? `slot-${item.slot}` : item.kind === "file" ? (item.path.split("/").pop() ?? item.path) : item.kind === "requests" ? "Requests" : item.kind === "watch" ? item.name : (item.name ?? "Check"));
 
 // ---- An issue -----------------------------------------------------------------------------------------
 

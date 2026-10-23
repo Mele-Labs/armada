@@ -18,6 +18,8 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { SentTo } from "../HelmThread/SentTo";
 import type { ThoughtTarget } from "../ThoughtCard/ThoughtCard";
 import { SessionMark } from "../SessionFrame/SessionFrame";
+import { notedOf } from "../ViewerNotes/compose";
+import { NotedMessage, NotedOpens, type NotedOpen } from "../ViewerNotes/NotedMessage";
 import { splitDebugInfo } from "./debug-info";
 import { SessionStop } from "./SessionStop";
 import { TASK_GLYPH, TaskMark, taskMarkSaid, type TaskMarkState } from "../TaskMark/TaskMark";
@@ -290,6 +292,11 @@ export type SessionThreadProps = {
   onOpenSketch?: (sketch: string) => void;
   /** Opens a file the agent showed, by its path. Absent, its row is not a press. */
   onOpenFile?: (path: string) => void;
+  /**
+   * Opens what a note the person sent from a viewer named: the sketch with its parts picked, the file on its lines, the
+   * picture with its region drawn. `root` is the Job's checkout, which a file is shown from. Absent, such a message is words.
+   */
+  noted?: NotedOpen;
   /** Opens the Session a row of Helm's sent words went to. Absent, that row's chip is not a press. */
   onOpenSent?: (target: { kind: "session"; id: string }) => void;
   /** Opens a Check run the agent made on the Checks page. Absent, its row is not a press. */
@@ -617,6 +624,9 @@ export function YourMessage({ row, onRetry, forkable = false }: { row: YourRow; 
   const openTag = refs === null ? undefined : (tag: ComposerTag): void => (tag.kind === "branch" ? undefined : refs.open({ kind: tag.kind, id: tag.id, title: titleWithoutReference(tag) }));
   const { said, debug } = splitDebugInfo(row.text);
   const placed = placeTags(said, row.tags ?? [], openTag);
+  // Notes sent from a viewer: what each is about opens it again.
+  const opens = useContext(NotedOpens);
+  const noted = opens === null || placed.parts !== null ? undefined : notedOf(said);
   return (
     <li className="armada-session-you" role="region" aria-label="Your message" data-delivery={row.delivery}>
       <div className="armada-session-you__band">
@@ -631,7 +641,7 @@ export function YourMessage({ row, onRetry, forkable = false }: { row: YourRow; 
           // Run is on what the agent wrote, not on what the person did.
           <ProseRunner.Provider value={null}>
             <ProseCommand.Provider value={null}>
-              <Prose text={said} />
+              {noted === undefined || opens === null ? <Prose text={said} /> : <NotedMessage blocks={noted} opens={opens} />}
             </ProseCommand.Provider>
           </ProseRunner.Provider>
         )}
@@ -1462,7 +1472,7 @@ export function AskCards({ asked, askRef, onAnswer, lapsed, flat, keep }: Pick<S
   );
 }
 
-export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer, lapsed, waitingOnYou, workingOn, onOpenSession, onOpenWindow, onOpenSketch, onOpenFile, onOpenCheck, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt, onReplyAt, onMuteNotice, lead, trailing, transcript }: SessionThreadProps) {
+export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer, lapsed, waitingOnYou, workingOn, onOpenSession, onOpenWindow, onOpenSketch, onOpenFile, onOpenCheck, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt, onReplyAt, onMuteNotice, lead, trailing, transcript, noted }: SessionThreadProps) {
   const whole = useRef<HTMLDivElement>(null);
   useCopyOnSelect(whole);
   const slash = useMemo(() => (onCommand === undefined ? null : { send: onCommand, names: new Set(commandNames ?? []) }), [onCommand, commandNames]);
@@ -1473,6 +1483,18 @@ export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer
   useLayoutEffect(() => {
     pinned.current = true;
   }, [sessionId]);
+  // **A message the person sends brings the thread to its end**, from the box or from a viewer's notes, wherever he was reading.
+  const mine = useRef<{ session: string | undefined; key: string | undefined }>(undefined);
+  useLayoutEffect(() => {
+    let key: string | undefined;
+    for (let at = rows.length - 1; at >= 0 && key === undefined; at -= 1) {
+      const row = rows[at]!;
+      if (row.kind === "message" && row.from === "you") key = row.stableKey ?? row.id;
+    }
+    const was = mine.current;
+    if (was !== undefined && was.session === sessionId && key !== undefined && key !== was.key) pinned.current = true;
+    mine.current = { session: sessionId, key };
+  }, [rows, sessionId]);
   useLayoutEffect(() => {
     const one = scroller.current;
     if (one !== null && pinned.current) one.scrollTop = one.scrollHeight;
@@ -1541,6 +1563,7 @@ export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer
         }}
       >
         <StampSurface>
+        <NotedOpens.Provider value={noted ?? null}>
         <ProseWalk.Provider value={onOpenWindow ?? null}>
         <ProseRunner.Provider value={runner ?? null}>
         <ProseCommand.Provider value={slash}>
@@ -1597,6 +1620,7 @@ export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer
         </ProseCommand.Provider>
         </ProseRunner.Provider>
         </ProseWalk.Provider>
+        </NotedOpens.Provider>
         </StampSurface>
       </div>
       </div>

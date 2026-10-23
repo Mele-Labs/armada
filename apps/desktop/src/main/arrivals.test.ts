@@ -55,7 +55,7 @@ function fakeHost(
     questions,
     helm: { reconnected: () => {} },
     studios: { again: async () => {}, changed: () => {}, deleted: () => {} },
-    sessions: { again: async () => {}, changed: () => {}, row: () => {} },
+    sessions: { again: async () => {}, changed: () => {}, row: () => {}, watchesChanged: () => {} },
     held: { warm: async () => {}, again: async () => {} },
     fleetBuild: { watch: () => {} },
     mods,
@@ -88,6 +88,16 @@ describe("a repository's Autopilot, changed in Fleet", () => {
     applyArrival(host, JSON.stringify({ message: "event", cursor: 3, event: { kind: "autopilot.changed", ...autopilot } }), FLEET);
     expect(autopilots).toHaveBeenCalledWith(autopilot);
     expect(state().connection).toMatchObject({ state: "connected" });
+  });
+});
+
+describe("a Job's watches, carried whole by their event", () => {
+  it("is told on as the Job's list, without its kind", () => {
+    const { host } = fakeHost();
+    const watchesChanged = vi.fn();
+    const change = { session_id: "s1", watches: [{ id: "w1", session_id: "s1", name: "Staging deploy", state: "running", live: true }] };
+    applyArrival({ ...host, sessions: { ...host.sessions, watchesChanged } }, JSON.stringify({ message: "event", cursor: 4, event: { kind: "watches.changed", ...change } }), FLEET);
+    expect(watchesChanged).toHaveBeenCalledWith(change);
   });
 });
 

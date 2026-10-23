@@ -85,6 +85,18 @@ test("with a repository chosen, @ offers its matching files and choosing one wri
   await expect.element(request).toHaveValue("look at @apps/desktop/src/renderer/src/sessions.tsx ");
 });
 
+test("a repository with no Manifest is named by its implicit id, so @ still offers its files", async () => {
+  const { manifest: _none, ...bare } = armada;
+  const chariot = { ...bare, implicit_id: "chariot-6e8ee791" } as unknown as typeof armada;
+  mount([chariot]);
+  await expect.poll(() => held).toBeDefined();
+  held?.openNew(chariot.root);
+  await expect.element(page.getByRole("textbox", { name: "Request" })).toHaveFocus();
+  await userEvent.keyboard("look at @sessions");
+  await expect.poll(() => searchFiles.mock.calls.some(([query, id]) => query === "sessions" && id === "chariot-6e8ee791")).toBe(true);
+  await expect.element(page.getByRole("option", { name: /sessions\.tsx/ })).toBeVisible();
+});
+
 test("with no repository chosen, @ offers no files", async () => {
   mount([]);
   await expect.poll(() => held).toBeDefined();

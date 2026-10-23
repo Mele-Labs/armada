@@ -410,6 +410,13 @@ One Job, not every row: a Job that read the pull request from a directory in a s
 While the queue or auto-merge holds the pull request, every reading takes off each owner Job's `waiting_for` item that names it, and tells the Job only where something came off.
 The job note tells agents not to state it.
 
+### Watches
+
+**A watch is a command Fleet runs for a Job, so no agent has to poll.** It is for what a pull request's reading cannot see: a deploy, an environment, a pipeline another branch's push starts.
+Fleet runs due watches on a timer of their own and keeps every reading in the store.
+It tells the Job when one turns failed, ends passed, gives up or breaks, once for each change (`docs/concepts/session/what-fleet-tells-a-job.md`).
+`docs/concepts/watch.md` owns what a watch is, its recipes, its limits and how the agent weighs one.
+
 ### Whose pull requests Fleet reads
 
 **Fleet tells, checks and draws a call for the person's own pull requests, and for no one else's.** Mine is the pull request's author login equalling, in any case, either the GitHub login Armada is signed in as for the repository (the profile bound to it, `SigningIn::login_for`) or the login the forge's command line is signed in as on this machine (`gh api user`, asked until it answers and then kept).

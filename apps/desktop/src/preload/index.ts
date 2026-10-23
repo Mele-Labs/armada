@@ -5,6 +5,7 @@ import { autopilotPreload } from "./autopilot";
 import { sketchSharePreload } from "./sketch-share";
 import { filesPreload } from "./files";
 import { requestsPreload } from "./requests";
+import { logbookPreload } from "./logbook";
 import type { AskLessonRead, AskTurn, LessonReviewRead } from "@armada/screens/src/lessons/review-wire";
 import type { LessonSessionRead } from "@armada/screens/src/lessons/session-wire";
 import { ANNOTATE_FLAG, ANNOTATION_CHANNELS } from "../shared/annotations";
@@ -33,6 +34,7 @@ import type { ReviewWalkNote, ShownReviewWalk, ShownReviewWalkOutcome } from "..
 import type { ChosenHold, SessionHeld, SessionHoldsReleased, SetNoticeMute } from "@armada/protocol";
 import type { ModelDownshiftState, PlanUsage, SignedOut, SleepState, TimelineAsk, TimelineEvent } from "@armada/protocol";
 import type { FlightControls } from "@armada/protocol";
+import type { StopWatch, WatchSummary } from "@armada/protocol";
 import type { ApproveRepositoryTile, RepositoryTile } from "@armada/protocol";
 import type { AddPackage, BindUnboundPiece, CommitToRepository, CommittedToRepository, PackageAdded, PackageRead, PieceAdded, SharePieces, SharedPackage, UnboundPieces } from "@armada/protocol";
 import type { PackageSaved, SharingAnswer } from "../shared/api/sharing";
@@ -345,6 +347,7 @@ const api: BridgeApi = {
   ...sketchSharePreload,
   ...filesPreload,
   ...requestsPreload,
+  ...logbookPreload,
   getPlanUsage: (): Promise<PlanUsageRead> => ipcRenderer.invoke(CHANNELS.getPlanUsage),
   onPlanUsageChanged: (onChanged: (usage: PlanUsage) => void): (() => void) => {
     const handler = (_event: unknown, usage: PlanUsage): void => onChanged(usage);
@@ -478,6 +481,7 @@ const api: BridgeApi = {
   claimPullRequest: (claim: ClaimPullRequest): Promise<SessionActed<PullRequestClaimed>> => ipcRenderer.invoke(CHANNELS.claimPullRequest, claim),
   claimIssue: (claim: ClaimIssue): Promise<SessionActed<IssueClaimed>> => ipcRenderer.invoke(CHANNELS.claimIssue, claim),
   settleLater: (settle: SettleLater): Promise<SessionActed<LaterSettled>> => ipcRenderer.invoke(CHANNELS.settleLater, settle),
+  stopWatch: (stop: StopWatch): Promise<SessionActed<WatchSummary>> => ipcRenderer.invoke(CHANNELS.stopWatch, stop),
   dismissWaiting: (dismiss: DismissWaiting): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.dismissWaiting, dismiss),
   confirmWaiting: (confirm: ConfirmWaiting): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.confirmWaiting, confirm),
   approvePlan: (approve: ApprovePlan): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.approvePlan, approve),

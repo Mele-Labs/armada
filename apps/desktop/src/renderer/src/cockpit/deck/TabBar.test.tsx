@@ -32,16 +32,16 @@ const tab = (host: HTMLElement, name: string, nth = 0) => [...host.querySelector
 test("The tab bar maps each tab to its surface", () => {
   const went: string[] = [];
   const bar = mount(<TabBar showing={SURFACE.overview} onGoTo={(id) => went.push(id)} />);
-  expect([...bar.querySelectorAll('[role="tab"]')].map((one) => one.textContent)).toEqual(["Cockpit", "Jobs", "Jobs", "Studios", "Retros", "Reviews", "Issues", "System"]);
+  expect([...bar.querySelectorAll('[role="tab"]')].map((one) => one.textContent)).toEqual(["Cockpit", "Jobs", "Jobs", "Studios", "Logbook", "Reviews", "Issues", "System"]);
   expect(tab(bar, "Cockpit").getAttribute("aria-selected")).toBe("true");
-  const pressed = ["Jobs", "Jobs", "Studios", "Retros", "Reviews", "Issues", "System"];
+  const pressed = ["Jobs", "Jobs", "Studios", "Logbook", "Reviews", "Issues", "System"];
   pressed.forEach((name, at) => act(() => tab(bar, name, pressed.slice(0, at).filter((one) => one === name).length).click()));
-  expect(went).toEqual([SURFACE.jobs, SURFACE.sessions, SURFACE.studios, SURFACE.lessons, SURFACE.reviews, SURFACE.issues, SURFACE.kit]);
+  expect(went).toEqual([SURFACE.jobs, SURFACE.sessions, SURFACE.studios, SURFACE.logbook, SURFACE.reviews, SURFACE.issues, SURFACE.kit]);
 });
 
-test("A Studio's pages and the Retros page are under their own tabs", () => {
+test("A Studio's pages and the Logbook page are under their own tabs", () => {
   expect(tab(mount(<TabBar showing={SURFACE.studios} onGoTo={() => {}} />), "Studios").getAttribute("aria-selected")).toBe("true");
-  expect(tab(mount(<TabBar showing={SURFACE.lessons} onGoTo={() => {}} />), "Retros").getAttribute("aria-selected")).toBe("true");
+  expect(tab(mount(<TabBar showing={SURFACE.logbook} onGoTo={() => {}} />), "Logbook").getAttribute("aria-selected")).toBe("true");
 });
 
 test("The Cockpit tab keeps its pip while a call waits elsewhere, and does not draw one otherwise", () => {
@@ -71,11 +71,11 @@ function Keys({ onSurface }: { onSurface: (id: string) => void }) {
 }
 const cmd = (digit: string) => act(() => void window.dispatchEvent(new KeyboardEvent("keydown", { key: digit, metaKey: true, bubbles: true, cancelable: true })));
 
-test("Cmd+1..6 open the tabs in the bar's order and no other digit reaches a place; Cmd+, opens Settings and Cmd+5 is Retros", () => {
+test("Cmd+1..6 open the tabs in the bar's order and no other digit reaches a place; Cmd+, opens Settings and Cmd+5 is the Logbook", () => {
   const went: string[] = [];
   mount(<Keys onSurface={(id) => went.push(id)} />);
   for (const digit of ["1", "2", "3", "4", "5", "6", "7", "8", "9"]) cmd(digit);
-  expect(went).toEqual([SURFACE.overview, SURFACE.jobs, SURFACE.sessions, SURFACE.studios, SURFACE.lessons, SURFACE.kit]);
+  expect(went).toEqual([SURFACE.overview, SURFACE.jobs, SURFACE.sessions, SURFACE.studios, SURFACE.logbook, SURFACE.kit]);
   went.length = 0;
   cmd(",");
   expect(went).toEqual([SURFACE.settings]);

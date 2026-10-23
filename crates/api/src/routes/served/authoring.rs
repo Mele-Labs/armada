@@ -77,4 +77,9 @@ pub(super) const ROUTES: &[Route] = &[
         method: "POST",
         path: "/mods/promote",
     },
+    Route {
+        operation: "try_tracker_mod",
+        method: "POST",
+        path: "/mods/try",
+    },
 ];

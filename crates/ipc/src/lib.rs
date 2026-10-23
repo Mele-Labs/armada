@@ -96,6 +96,7 @@ mod sharing;
 mod issues;
 /// What names an issue a Session works on, the forge's number or a tracker's key, and `claim_issue`.
 mod issue_reference;
+mod issue_queries;
 /// Kit's MCP servers and each Manifest's word over one (`#1275`), and the
 /// setup a person already works with, read to be shown (`#1491`).
 mod kit;
@@ -229,6 +230,8 @@ mod triggers;
 /// The lines a running log carries over its socket, and why one stopped arriving.
 mod underway;
 mod walk_steps;
+/// A command Fleet runs on a cadence for one Job, the agent's weighing of it, and its line.
+mod watches;
 
 #[cfg(test)]
 mod tests;
@@ -343,8 +346,12 @@ pub use sharing::{
 };
 pub use sharing::{KitManifestSaved, SaveKitManifest};
 pub use issue_reference::{ClaimIssue, IssueClaimed, IssueReference};
+pub use issue_queries::{
+    IssueQueries, IssueQueryGuide, SaveIssueQuery, SavedIssueQuery, SearchIssues, WriteIssueQuery,
+    WrittenIssueQuery,
+};
 pub use issues::{
-    IssueComment, IssueList, IssueRead, IssueState, LinkedPullRequest, LinkedPullRequestState,
+    IssueComment, IssueField, IssueList, IssueRead, IssueState, LinkedPullRequest, LinkedPullRequestState,
     TrackedIssue,
 };
 pub use kit::{
@@ -376,7 +383,7 @@ pub use merge_line::{
 };
 pub use mods::{
     ModChecked, ModKind, ModList, ModPromoted, ModScaffolded, ModSummary, PromoteMod,
-    ScaffoldMod, SetModEnabled,
+    ScaffoldMod, SetModEnabled, TrackerTry, TryTrackerMod,
 };
 pub use clashes::{
     ClashFile, ClashHolder, ClashSide, WriteClash, WriteClashes,
@@ -602,6 +609,11 @@ pub use triggers::{
     LeftOutTrigger, OverriddenTrigger, RemoveTrigger, SaveTrigger, TriggerDefinition,
     TriggerLevel, TriggerList, TriggerMoment, TriggerRemoved, TriggerRuns, TriggerSaved,
     TriggerScope, TriggerSkip, TriggerSkipReason, TriggerSummary,
+};
+pub use watches::{
+    read_watch_line, StartWatch, StopWatch, WatchList, WatchPart, WatchReading,
+    WatchReadingState, WatchSetAside, WatchStarts, WatchState, WatchSummary, WatchVerdict,
+    WatchVerdictGiven, WatchVerdictWord, WeighWatch,
 };
 pub use underway::{
     OutputClosed, OutputEnded, OutputLines,

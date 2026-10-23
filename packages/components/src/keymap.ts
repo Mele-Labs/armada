@@ -331,6 +331,12 @@ function same(chord: Chord, press: Chord): boolean {
   return chord.meta === press.meta && chord.ctrl === press.ctrl;
 }
 
+/** Whether a press is this chord, read as an act's own keys are: for a key kept outside the registry, such as a flight control's. */
+export function pressesChord(chord: Chord, press: Press): boolean {
+  const pressed = chordOf(press);
+  return pressed !== null && same(chord, pressed);
+}
+
 /** Which slot of an act a press is, or `-1` for none. */
 export function pressedSlot(id: string, press: Press): number {
   const chord = chordOf(press);
@@ -369,7 +375,7 @@ export function digitKeyFor(id: string, digit: number): string | undefined {
  * the list and the output on a Job, and those are never the same screen.
  */
 const PLACES: Readonly<Record<ActionScope, readonly string[]>> = {
-  anywhere: ["board", "detail", "studio", "dashboard", "deck", "review", "issues", "call"],
+  anywhere: ["board", "detail", "studio", "dashboard", "deck", "review", "call", "logbook", "issues"],
   // The deck's list takes `j`, `k` and `Enter` as any list does. The acts that need a Job or Session in
   // hand (`list and detail`: attest, redirect, kill and the rest) are on its page, not on the deck.
   // The Reviews list is not here: it moves by `j`, `k` and `Enter` as a list does, but its `r` goes to the reader, where a
@@ -388,6 +394,8 @@ const PLACES: Readonly<Record<ActionScope, readonly string[]>> = {
   // The Issues tab is a tab of the places bar too, so its letters meet neither the deck's nor Reviews'.
   issues: ["issues"],
   call: ["call"],
+  // The Logbook is a tab of the places bar too, and its letters meet no other scope's.
+  logbook: ["logbook"],
 };
 
 const overlaps = (a: ActionScope, b: ActionScope): boolean => PLACES[a].some((place) => PLACES[b].includes(place));
@@ -436,6 +444,7 @@ export const KEYMAP_GROUPS: readonly KeymapGroup[] = [
   { title: "Dashboard", scopes: ["dashboard", "deck"] },
   { title: "Calls", scopes: ["call"] },
   { title: "Reviews", scopes: ["review"] },
+  { title: "Logbook", scopes: ["logbook"] },
   { title: "Issues", scopes: ["issues"] },
   { title: "Studios", scopes: ["open studio"] },
 ];

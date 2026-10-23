@@ -628,6 +628,31 @@ one stroke gone. It draws only in the Record's kind column, beside `Check` in
 Who and `Passed` or `Failed` in Outcome, and never where a result shield draws.
 Nothing else inherits the waiver.
 
+### A watch and its states
+
+**`radar` is a watch**, and a Job that only a live watch holds open, at 12px and 16px.
+`eye` is Review's, so it could not be a watch's, and `radar` is a sweep that keeps looking, which is what a watch does.
+Its table also carries the Cockpit's strip of calls waiting behind the one in front and a Monitor on the ledger; its reservation keeps it from a Check, a Judge, a live Drone and a search.
+
+**A watch's state takes borrowed glyphs and mints none.**
+`waiting`, `running`, `passed` and `failed` answer what a Trigger's firing answers, and the three ends no reading says borrow the Check outcome that is the same ending.
+The roster of what may be lent is `[conventions.watch_state_borrowing]` in `packages/icons/`.
+
+```
+waiting   circle-dashed  borrowed  a Trigger's pending
+running   circle-dot     borrowed  a Trigger's running
+passed    check          borrowed  a Trigger's passed
+failed    x              borrowed  a Trigger's failed
+gave_up   clock          borrowed  check_outcome.timed_out: outran its time
+broken    unplug         borrowed  check_outcome.signalled: gave no line
+stopped   ban            borrowed  an end someone chose
+```
+
+**`stopped` takes `ban` because `x` is reserved to failure.**
+A person or an agent chose to end the watch, and its Job ending ends it the same way.
+A part set aside keeps its glyph and is struck through with the sentence that set it aside.
+Each mark has a tooltip naming the state: Waiting, Running, Passed, Failed, Gave up, Broken, Stopped.
+
 ### Blast radius
 
 **`layers` means how many places a Job writes**, and nothing else. One

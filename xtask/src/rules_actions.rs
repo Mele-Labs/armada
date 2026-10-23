@@ -62,6 +62,7 @@ const SCOPES: &[&str] = &[
     "review",
     "issues",
     "call",
+    "logbook",
 ];
 
 /// The QWERTY rows, for the one safety rule that is a fact about the layout:

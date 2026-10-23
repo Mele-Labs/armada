@@ -191,6 +191,19 @@ impl Locating for Locator {
         written
     }
 
+    fn watch_recipes(&self, root: &Path, base: Option<&str>) -> Vec<config::WatchRecipeWritten> {
+        let mut written: Vec<_> = adapters::watch_recipes_on_base(root, base)
+            .into_iter()
+            .map(|(path, text)| config::WatchRecipeWritten::in_repository(path, text))
+            .collect();
+        let machine = self.machine.join("machine").join("watches");
+        written.extend(crate::trigger_authoring::listed(&machine).into_iter().filter_map(|path| {
+            let text = std::fs::read_to_string(&path).ok()?;
+            Some(config::WatchRecipeWritten::on_machine(path, text))
+        }));
+        written
+    }
+
     fn started(&self, folder: &Path) -> Result<(), NotLocated> {
         adapters::start_repository(folder).map_err(|why| {
             eprintln!("{} was not started as a repository: {why}", folder.display());

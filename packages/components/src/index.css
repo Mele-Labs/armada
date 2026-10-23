@@ -414,6 +414,8 @@
 @import "./compositions/SessionAccount/SessionAccount.css";
 @import "./compositions/PullRequestPanel/PullRequestReach.css";
 @import "./compositions/ArtifactGraph/ArtifactGraph.css";
+@import "./compositions/ViewerNotes/ViewerNotes.css";
+@import "./compositions/Logbook/Logbook.css";
 @import "./compositions/RepositoryChip/RepositoryChip.css";
 @import "./compositions/JobCard/JobCard.css";
 @import "./compositions/PullRequestChip/PullRequestChip.css";

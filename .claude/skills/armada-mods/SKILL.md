@@ -1,13 +1,14 @@
 ---
 name: armada-mods
-description: How a job makes a mod for Bridge end to end — a theme (colours) or a layout (which tabs, panels and places are drawn, and in what order). Scaffold it, edit its one file, check it, and tell the owner where to see it. Load when the owner asks for a different look, colours, a theme, or to move, hide or reorder something in Bridge.
+description: How a job makes a mod end to end — a theme (colours), a layout (which tabs, panels and places are drawn, and in what order), or a tracker (an issue tracker Armada was not built for). Scaffold it, edit its one file, check it, and tell the owner where to see it. Load when the owner asks for a different look, colours, a theme, to move, hide or reorder something in Bridge, or to use an issue tracker Armada does not support.
 ---
 
 # Making a mod
 
-**Two kinds.** A theme changes colours, in `theme.css`; a layout changes what
-Bridge arranges, in `layout.json`. Colours are the first section below and
-layouts the second. Pick the kind from the ask: "warmer", "darker" and "higher
+**Three kinds.** A theme changes colours, in `theme.css`; a layout changes what
+Bridge arranges, in `layout.json`; a tracker teaches Fleet an issue tracker, in
+`tracker.toml`. Colours are the first section below, layouts the second and
+trackers the last. Pick the kind from the ask: "warmer", "darker" and "higher
 contrast" are themes; "move", "hide", "put first" and "reorder" are layouts.
 
 # Making a theme mod
@@ -139,11 +140,11 @@ nothing: check the id against the table.
 |---|---|---|---|---|
 | `dashboard.panels` | `fleet`, `merge-line` | `fleet` | yes | no |
 | `job.tabs` | `overview`, `workflow`, `plan`, `record`, `checks`, `drones`, `pulse`, `settings` | `overview`, `plan` | yes | yes |
-| `rail` | `overview`, `jobs`, `sessions`, `kit`, `mods`, `settings`, `guides`, `workflows`, `studios`, `lessons`, `reviews`, `issues` | `overview`, `mods`, `settings` | no | no |
+| `rail` | `overview`, `jobs`, `sessions`, `kit`, `mods`, `settings`, `guides`, `workflows`, `studios`, `logbook`, `reviews`, `issues` | `overview`, `mods`, `settings` | no | no |
 
 `packages/shell/layout-registry.json` is the list Fleet checks. **`rail`
 is the places: the Cockpit, the tabs `jobs` and `sessions` and the System strip's pages.
-The Retros page is the place `lessons`.** A hidden `merge-line` panel hides the
+The Logbook page is the place `logbook`.** A hidden `merge-line` panel hides the
 deck's merge queue, and `order` on the panels has no effect on the deck. Hiding takes an
 entry off the tab bar or the strip and nothing else: it stays in the palette and in
 links.
@@ -165,7 +166,7 @@ the whole file invalid.
 {
   "version": 1,
   "dashboard.panels": { "hidden": ["merge-line"] },
-  "rail": { "hidden": ["lessons"] }
+  "rail": { "hidden": ["logbook"] }
 }
 ```
 
@@ -195,3 +196,128 @@ choices and switches layout mods off, so tell him the mod is still installed
 and can be switched back on in Mods. **Promotion is his act**, as for a theme:
 copy `mod.toml` and `layout.json`, and not `.git`, to `packages/mods/<name>/`
 in your own slot if he asks you to.
+
+# Making a tracker mod
+
+**A tracker mod teaches Fleet a tracker it has no adapter for**, over the
+tracker's command line, its HTTP API or an MCP server. Fleet then lists, searches and reads its
+issues like the built-in ones. `docs/concepts/mods.md`, *Tracker mods*, is the
+whole file format.
+
+## The steps
+
+| # | Do | Tool |
+|---|---|---|
+| 1 | Find how the tracker is read: a CLI that prints JSON, an HTTP API, or an MCP server. Run it by hand once and keep a real answer | Your shell |
+| 2 | See what exists, so the name is new | `list_mods` |
+| 3 | Make the folder | `scaffold_mod` with `name`, `description` and `kind` set to `tracker` |
+| 4 | Write `tracker.toml` in that path. Test each `map` against the answer you kept: `jq '<map>' answer.json` | Your editor |
+| 5 | Check it; read `problems`, fix, check again | `validate_mod` with `name` |
+| 6 | Try it against the repository; read `reason`, fix, try again | `try_tracker_mod` with `name` and `manifest_id` |
+| 7 | Name it in the repository's Manifest, `tracker:` then `provider: <name>` | A Manifest edit, landed like any other |
+
+**You are not done until a try has `passed` true.** Fleet uses the mod only
+while its last try of the file as it stands passed, so every edit after a try
+needs another. `valid` true alone is not enough.
+
+## What the file must say
+
+`[guide]`, `[search]` and `[read]` are required; `[credential]` and `[list]` are
+optional. Each call names `transport = "cli"` (with `argv`),
+`transport = "http"` (with `url`, and optional `method`, `headers`, `body`) or
+`transport = "mcp"` (with `server`, `tool`, and optional `env`, `arguments`), and a
+`map`: a `jq` filter from the answer to a list of issues with Armada's keys.
+`reference`, `title`, `url` and `closed` are required in every issue; a row
+without one fails the call. `{query}` goes in the search, `{reference}` in the
+read, and `{credential}` anywhere once `[credential]` names a command that
+prints the secret.
+
+| Never | Because |
+|---|---|
+| Write a token into `tracker.toml` | The file is read by anything on the machine. Read it from the keychain in `[credential]` |
+| Use `sh -c` in `argv` | Arguments are passed whole and never through a shell; a shell would reopen that |
+| Name the mod `github` or `jira` | Those words choose the built-in trackers, and the mod would never be reached |
+
+An `mcp` call starts its `server` for the one call. Put the token in `env`, as
+`{credential}`, never in `server`, which is refused a placeholder. `{query}` and
+`{reference}` go in `arguments`. The `map` reads the result's `structuredContent`,
+or else its first text part parsed as JSON; a server that gives neither fails the
+call, and so does `isError`.
+
+## Example: a tracker read over its HTTP API
+
+```toml
+[guide]
+language = "Tracker filter"
+guide = """
+A filter is `field:value` pairs joined by spaces. Fields: state (open, closed),
+assignee (a login, or me), label. Example: `state:open label:bug`.
+"""
+open = "state:open"
+assigned_to_me = "state:open assignee:me"
+fields = ["State", "Priority"]
+
+[credential]
+argv = ["security", "find-generic-password", "-s", "tracker-token", "-w"]
+
+[search]
+transport = "http"
+method = "POST"
+url = "https://tracker.example.com/api/search"
+body = '{"filter": "{query}", "limit": 100}'
+map = """
+.issues | map({reference: .key, title, url: .link, closed: (.state == "closed"),
+  assignees: [.assignee], labels, updated_at: .updated, body: .description,
+  fields: [{name: "State", values: [.state]}, {name: "Priority", values: [.priority]}]})
+"""
+
+[search.headers]
+Authorization = "Bearer {credential}"
+Content-Type = "application/json"
+
+[read]
+transport = "http"
+url = "https://tracker.example.com/api/issues/{reference}"
+map = """
+{reference: .key, title, url: .link, closed: (.state == "closed"), body: .description,
+ author: .reporter, opened_at: .created,
+ comments: [.comments[] | {author: .by, at: .created, body: .text}]}
+"""
+
+[read.headers]
+Authorization = "Bearer {credential}"
+```
+
+## Example: a tracker read over an MCP server
+
+```toml
+[guide]
+language = "Tracker filter"
+guide = "A filter is `field:value` pairs joined by spaces. Fields: state, assignee, label."
+open = "state:open"
+assigned_to_me = "state:open assignee:me"
+
+[credential]
+argv = ["security", "find-generic-password", "-s", "tracker-token", "-w"]
+
+[search]
+transport = "mcp"
+server = ["npx", "-y", "@example/tracker-mcp"]
+env = { TRACKER_TOKEN = "{credential}" }
+tool = "search_issues"
+arguments = { filter = "{query}", limit = 100 }
+map = """
+.issues | map({reference: .key, title, url: .link, closed: (.state == "closed"),
+  updated_at: .updated, body: .description})
+"""
+
+[read]
+transport = "mcp"
+server = ["npx", "-y", "@example/tracker-mcp"]
+env = { TRACKER_TOKEN = "{credential}" }
+tool = "get_issue"
+arguments = { key = "{reference}" }
+map = """
+{reference: .key, title, url: .link, closed: (.state == "closed"), body: .description}
+"""
+```

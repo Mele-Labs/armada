@@ -12,3 +12,10 @@
   size = "12px"
   status = "Proposed"
   notes = "Proposed 16 Oct 2026 for the walk `ledger-background`, tooltip `Monitor`. A sweep that keeps watching is what a Monitor does. Not a Check, a Judge, a live Drone or a search, which are what the reservation keeps it from."
+
+[[icons.radar.usage]]
+  means = "A watch: a command Fleet runs on a cadence for one Job, and a Job that only a live watch holds open"
+  group = "Session"
+  size = "12 and 16px"
+  status = "Proposed"
+  notes = "Proposed 22 Oct 2026 for the walk `watching`, from docs/design/fleet-watches-ci-and-deploys-for-a-job.md, which names `radar` for a watch because `eye` is reserved to Review. Drawn as a Job's state mark on its Cockpit row and its header, tooltip `Held open by <watch name>`, while its turn has ended, nothing waits on the person and a live watch is all that keeps it open. A sweep that keeps looking is what a watch does, as it is what a Monitor does; the reservation's Check, Judge, live Drone and search are none of these."

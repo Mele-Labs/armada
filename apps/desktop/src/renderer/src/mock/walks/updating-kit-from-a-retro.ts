@@ -9,7 +9,7 @@ const GREP = role("listitem", "grep had to be allowed on a check log");
 const ALLOWLIST = region("Allowlist");
 
 export const updatingKitFromARetro = walk("retro/kit-command", [
-  ...toSystemPage("Retros", "Retros, under Work"),
+  ...toSystemPage("Retros", "The Logbook, with Armada fixes under the entries"),
   { look: inside(GREP, button("Update Kit", { exact: true })), say: "A Kit item with a command to allow" },
   { hover: inside(GREP, button("Update Kit", { exact: true })), say: "What Update Kit does" },
   { press: inside(GREP, button("Update Kit", { exact: true })), say: "Update Kit adds the command" },

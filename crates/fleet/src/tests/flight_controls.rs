@@ -184,6 +184,13 @@ async fn a_save_that_breaks_a_rule_is_refused_with_the_field_named() {
     assert!(said.contains("job[0].key"), "{said}");
     let said = refused(list(vec![keyed("a", "-")])).await;
     assert!(said.contains("job[0].key"), "{said}");
+    // A chord is a key, but modifiers alone, or only Shift with a key, are not one.
+    for key in ["⌥", "⇧R", "⌘⌥", "⌥ R"] {
+        let said = refused(list(vec![keyed("a", key)])).await;
+        assert!(said.contains("job[0].key"), "{key}: {said}");
+    }
+    let said = refused(list(vec![keyed("a", "⌥R"), keyed("b", "⌥R")])).await;
+    assert!(said.contains("job[1].key"), "{said}");
     let said = refused(list(vec![tile(" ")])).await;
     assert!(said.contains("job[0].id"), "{said}");
     let said = refused(FlightControls { version: 2, ..FlightControls::default() }).await;
@@ -191,6 +198,15 @@ async fn a_save_that_breaks_a_rule_is_refused_with_the_field_named() {
 
     assert!(!the_file(&home).exists(), "nothing was written");
 
+    // A chord is kept as it is spelled.
+    fleet
+        .flight_controls_saved(FlightControls {
+            version: 1,
+            job: vec![keyed("a", "⌥R"), keyed("b", "⇧⌘J"), keyed("c", "r")],
+            deck: Vec::new(),
+        })
+        .await
+        .expect("chords are keys");
     // The same key in the two lists is two tiles in two places, which is allowed.
     fleet
         .flight_controls_saved(FlightControls {

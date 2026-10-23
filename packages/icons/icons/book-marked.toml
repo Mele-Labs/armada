@@ -1,0 +1,7 @@
+[icons.book-marked]
+  means = "A book with a ribbon in it: kept in the book"
+  group = "Logbook"
+  size = "12px"
+  status = "Proposed"
+  reserved = "A standing Logbook entry, handed to every new Job. Never Guides, which is `book-open`, and never a bookmark."
+  notes = "Proposed 22 Oct 2026 for the walk `logbook`. Tooltip `Standing`."

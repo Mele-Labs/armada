@@ -20,6 +20,7 @@ mod door_without_manifest;
 mod fake;
 mod following;
 mod helm_box;
+mod issue_queries;
 mod helm_tells;
 mod hosted_sessions;
 mod door_receipts;
@@ -41,6 +42,7 @@ mod shapes;
 mod stream;
 mod studios;
 mod watching_run;
+mod watch_routes;
 
 use axum::Router;
 use hyper::service::service_fn;

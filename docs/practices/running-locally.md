@@ -661,6 +661,8 @@ carries on. That stop is what makes a walk evidence rather than a tour.
 
 ## Annotating Bridge
 
+A note on what a Job drew, showed or wrote is another thing, sent to that Job from the viewer: `docs/concepts/session/noting-what-you-read.md`.
+
 **⌥⌘A turns the annotation layer on** in Bridge under `pnpm dev` and in the mock
 above, and it is absent from a packaged app. Click anything, write a note, and
 ⌘Enter saves it as one file under `.armada/annotations/` at the repository root,

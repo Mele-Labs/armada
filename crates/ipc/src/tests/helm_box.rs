@@ -107,8 +107,12 @@ fn an_issue_read_spells_its_state_in_snake_case() {
             url: "https://forge.invalid/o/r/pull/230".to_string(),
             state: LinkedPullRequestState::Merged,
         }],
+        fields: vec![crate::IssueField { name: "Labels".to_string(), values: vec!["bug".to_string()] }],
+        holders: vec!["job-1".to_string()],
     };
     let json = encode(&read).expect("plain data");
+    assert!(json.contains(r#""fields":[{"name":"Labels","values":["bug"]}]"#), "{json}");
+    assert!(json.contains(r#""holders":["job-1"]"#), "{json}");
     assert!(json.contains(r#""state":"closed""#), "{json}");
     assert!(json.contains(r#""state":"merged""#), "{json}");
     assert!(json.contains(r#""opened_at":"2026-10-01T09:00:00Z""#), "{json}");

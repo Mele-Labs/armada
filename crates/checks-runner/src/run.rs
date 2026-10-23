@@ -215,6 +215,23 @@ pub async fn run_stoppable<S: std::future::Future<Output = Stop>>(
     let Some((program, args)) = split(command) else {
         return Attempt::never(NeverRan::NothingToRun);
     };
+    run_words(program, args, worktree, budget, writing, env, stop, priority, grace).await
+}
+
+/// [`run_stoppable`] for a command already in whole argument items, which nothing splits: a
+/// watch's, whose values may hold a space or a quote.
+#[allow(clippy::too_many_arguments)]
+pub async fn run_words<S: std::future::Future<Output = Stop>>(
+    program: String,
+    args: Vec<String>,
+    worktree: &Path,
+    budget: Duration,
+    writing: Writing<'_>,
+    env: &[(String, String)],
+    stop: S,
+    priority: Priority,
+    grace: Duration,
+) -> Attempt {
     let (spawned, args) = priority.command(program.clone(), args, worktree);
 
     let mut spawning = Command::new(&spawned);
@@ -435,6 +452,13 @@ pub(crate) fn ended(status: &std::process::ExitStatus) -> Exit {
 #[allow(unsafe_code)]
 pub(crate) fn end_the_group(group: Option<u32>) {
     signal_group(group, libc::SIGKILL);
+}
+
+/// `SIGKILL` to the process group `group`, for a caller outside this crate that started a program
+/// with `process_group(0)` and so leads the group: the one place `libc::killpg` is called from here,
+/// so the caller needs no `unsafe` and no `libc`. A group already gone is not an error.
+pub fn end_group(group: u32) {
+    signal_group(Some(group), libc::SIGKILL);
 }
 
 /// Send `signal` to the child's whole process group.

@@ -140,7 +140,7 @@ import type { HealthRead } from "@armada/screens/src/overview-reads";
 import type {
   Outstanding,
 } from "@armada/screens/src/outstanding";
-import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimIssue, ClaimPullRequest, ConfirmWaiting, DismissConcern, DismissWaiting, IssueClaimed, JudgeSession, LaterSettled, PullRequestClaimed, PullRequestFilePatch, PullRequestPage, PullRequestState, RenameSession, SendConcern, SendPlanChanges, NoteSent, SendSessionMessage, SendSessionNote, SessionRow, SessionRunMessage, SessionRunUnderway, SessionLoadout, AttachmentHistory, McpServerAct, SessionMcp, SessionMcpActed, SessionSubagent, SettleLater, TuneSession } from "@armada/protocol";
+import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimIssue, ClaimPullRequest, ConfirmWaiting, DismissConcern, DismissWaiting, IssueClaimed, JudgeSession, LaterSettled, PullRequestClaimed, PullRequestFilePatch, PullRequestPage, PullRequestState, RenameSession, SendConcern, SendPlanChanges, NoteSent, SendSessionMessage, SendSessionNote, SessionRow, SessionRunMessage, SessionRunUnderway, SessionLoadout, AttachmentHistory, McpServerAct, SessionMcp, SessionMcpActed, SessionSubagent, SettleLater, StopWatch, TuneSession, WatchSummary } from "@armada/protocol";
 import type { RequestRepositoryRead } from "./api/dispatch";
 import type { PullRequestPress, PullRequestWrite, SessionActed, SessionsRead } from "./api/sessions";
 import type { SleepActed } from "./api/sleep";
@@ -162,6 +162,7 @@ import { FLIGHT_CONTROLS_CHANNELS, type FlightControlsApi } from "./api/flight-c
 import { ONBOARDING_CHANNELS, type OnboardingApi } from "./api/onboarding";
 import { REQUESTS_CHANNELS, type RequestsApi } from "./api/requests";
 import { SHARING_CHANNELS, type SharingApi } from "./api/sharing";
+import { LOGBOOK_CHANNELS, type LogbookApi } from "./api/logbook";
 import type { ModelDownshiftState, PlanUsage, SignedOut, SleepState, TimelineAsk, TimelineEvent } from "@armada/protocol";
 import type { BridgeApi } from "./api";
 import { CHANNELS, NOTHING_YET } from "./bridge";
@@ -199,6 +200,7 @@ type OldBridgeState = {
     studio: StudioRead;
     sessions: SessionsRead;
     sessionThreads: Record<string, SessionRow[]>;
+    sessionWatches: Record<string, WatchSummary[]>;
     sessionThreadsReading: string[];
 };
 
@@ -356,6 +358,7 @@ type OldBridgeApi = {
     claimPullRequest: (claim: ClaimPullRequest) => Promise<SessionActed<PullRequestClaimed>>;
     claimIssue: (claim: ClaimIssue) => Promise<SessionActed<IssueClaimed>>;
     settleLater: (settle: SettleLater) => Promise<SessionActed<LaterSettled>>;
+    stopWatch: (stop: StopWatch) => Promise<SessionActed<WatchSummary>>;
     readSessionWait: (sessionId: string, request: string) => Promise<SessionActed<WaitReading>>;
     changeWaiting: (change: ChangeWaiting) => Promise<SessionActed<SessionWait>>;
     startWaitingNow: (sessionId: string) => Promise<SessionActed>;
@@ -447,7 +450,7 @@ type OldBridgeApi = {
     writeSessionRun: (runId: string, data: string) => Promise<SessionActed<SessionRunUnderway>>;
     resizeSessionRun: (runId: string, cols: number, rows: number) => Promise<SessionActed<SessionRunUnderway>>;
     onSessionRunMessage: (on: (runId: string, message: SessionRunMessage) => void) => () => void;
-} & AutopilotApi & SketchShareApi & FilesApi & ReviewsApi & FlightControlsApi & OnboardingApi & RequestsApi & SharingApi;
+} & AutopilotApi & SketchShareApi & FilesApi & ReviewsApi & FlightControlsApi & OnboardingApi & RequestsApi & SharingApi & LogbookApi;
 
 const OLD_NOTHING_YET: OldBridgeState = {
     connection: { state: "reading" },
@@ -478,6 +481,7 @@ const OLD_NOTHING_YET: OldBridgeState = {
     landFollowed: { state: "none" },
     sessions: { state: "none" },
     sessionThreads: {},
+    sessionWatches: {},
     sessionThreadsReading: [],
 };
 
@@ -633,6 +637,7 @@ const OLD_CHANNELS = {
     claimPullRequest: "bridge:claim-pull-request",
     claimIssue: "bridge:claim-issue",
     settleLater: "bridge:settle-later",
+    stopWatch: "bridge:stop-watch",
     readSessionWait: "bridge:read-session-wait",
     changeWaiting: "bridge:change-waiting",
     startWaitingNow: "bridge:start-waiting-now",
@@ -730,6 +735,7 @@ const OLD_CHANNELS = {
     ...ONBOARDING_CHANNELS,
     ...REQUESTS_CHANNELS,
     ...SHARING_CHANNELS,
+    ...LOGBOOK_CHANNELS,
 } as const;
 
 type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;

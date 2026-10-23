@@ -138,6 +138,7 @@ WebSocket event stream, read this first.
 | [A Job moves to another repository](protocol/a-job-moves-to-another-repository.md) |
 | [A Job hands off to a new one](protocol/a-job-hands-off-to-a-new-one.md) |
 | [An issue is named by its tracker's reference](protocol/an-issue-is-named-by-its-trackers-reference.md) |
+| [Saved issue queries and the query writer](protocol/saved-issue-queries-and-the-query-writer.md) |
 | [A Job's kept follow-ups, and settling one](protocol/a-jobs-kept-follow-ups-and-settling-one.md) |
 | [A bay's history: the pool's own record, and the slot's reflog](protocol/a-bays-history-the-pools-own-record-and-the-slots-reflog.md) |
 | [A Job walks any page: `steps` on `show_window`](protocol/a-job-walks-any-page-steps-on-show-window.md) |
@@ -746,6 +747,35 @@ Bridge's half is `packages/protocol/src/logbook.ts`, written by hand, field for 
 **The start note is not on the wire.** It is built in Fleet and handed to the process as `--append-system-prompt`, so the Logbook note changes no type.
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 A mod newer than its Fleet gets a 404 from `/logbook/subagent` and hands the subagent nothing.
+
+## Watches on the wire: `start_watch`, `weigh_watch`, `stop_watch`, `list_watches`
+
+Since 22 Oct 2026. The design is *Fleet watches CI and deploys for a Job*, under `docs/design/`, and spike 36 is what backs it.
+Four operations, four routes, one event kind and the types they carry. `weigh_watch`'s `ours` carries a `sentence` since its first build, which a body without one is refused for.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `packages/protocol/src/watches.ts`, written by hand, field for field; no main-process call, channel or screen reads it yet.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `start_watch` (`POST /watches/start`, `agent_access = "Yes"`) | An agent starts one | `StartWatch` `{ session_id?, name, recipe, values? \| command[], every, gives_up_after?, follows?, set_aside[]? }`; answers `WatchSummary`. 400 for neither shape or both; 422 `fleet.watches_unplaced`, `fleet.watch_refused`, `fleet.watch_recipe_unknown`, `fleet.watch_value_refused`, `fleet.watch_too_often`, `fleet.watch_gives_up_too_late`; 409 `fleet.watch_limit_reached` |
+| `weigh_watch` (`POST /watches/weigh`, `Yes`) | An agent weighs a failed reading | `WeighWatch` `{ session_id?, watch, verdict: "ours", sentence }` or `{ ..., verdict: "not_ours", sentence, parts[] }`; answers `WatchSummary`. 404 `fleet.no_such_watch`; 409 `fleet.watch_ended`, `fleet.watch_not_failed`; 422 `fleet.watch_part_unreported`, `fleet.watch_refused` |
+| `stop_watch` (`POST /watches/stop`, `Yes`) | Bridge's Stop, or an agent | `StopWatch` `{ session_id?, watch }`; answers `WatchSummary`, ended `stopped`, or as it stands where it had ended. 404 `fleet.no_such_watch` |
+| `list_watches` (`GET /watches?session_id=`, `Yes`) | Bridge or an agent reads | `WatchList` `{ session_id, watches[] }`, the newest first. 422 `fleet.watches_unplaced`, `fleet.no_such_session` |
+| `watches.changed` (event, Bridge only) | Fleet publishes on any change to one of a Job's watches | `WatchList`, whole |
+| `WatchSummary` | Fleet writes | `{ id, session_id, name, command[], recipe?, every_seconds, gives_up_after_seconds, follows?, environment?, state, live, started_at, last?, readings[]?, set_aside[]?, verdicts[]? }`; `readings` the newest 50, oldest first, `last` the newest; a verdict `{ at, verdict, sentence, parts[]? }`, `state` one of `waiting`, `running`, `passed`, `failed`, `gave_up`, `broken`, `stopped` |
+| `WatchReading` | Fleet writes | `kind: "read"` `{ at, state, finished, says, link?, parts[]? }` or `kind: "broken"` `{ at, why, output? }` |
+
+**DTOs, not `core_model::Watch`.** The domain type keeps every part a reading carried and the last reading whole, so a weighing can be held to them; neither list reaches the wire.
+**The command's line is not the wire.** `ipc::read_watch_line` reads a command's last line into `core_model::Reading`, in `ipc` because untyped JSON is read there and in `store` only, and nothing serialises it back.
+**A value fills one whole argument.** A recipe's item written `{sha}` is replaced by `values.sha`, and no item is read by a shell.
+**The Job is the connection's** where Fleet hosts it, else the body's `session_id`, as `send_request`'s is. A placed Job weighs and stops its own watches only; Bridge places none and stops any.
+
+**Run and kept.** The store keeps every watch, its newest 50 readings, set-asides, verdicts and the notices told, so a restart carries on (`store::KeptWatch`).
+Fleet runs due watches on a 5 second timer of their own, `fleet::watches::running`.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+**The event stream.** `watches.changed` carries a Job's watches whole, history included, on a start, a weighing, a Stop, an end and a reading that reads differently from the one before.
+A reading that reads the same is published at most every 5 minutes, so Bridge's age of a reading stays near and the stream does not carry 50 readings every 30 seconds; a reading carries up to 81 parts, 5.3 KB, in spike 36.
 
 ## Not a question: `misread` on `dismiss_waiting`
 

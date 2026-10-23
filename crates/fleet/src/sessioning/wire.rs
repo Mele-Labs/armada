@@ -148,5 +148,6 @@ pub(super) fn session_wire(session: &KeptSession, held: &[KeptAttachment]) -> Se
         settled: Vec::new(),
         waits: None,
         later: Vec::new(),
+        held_open_by: None,
     }
 }

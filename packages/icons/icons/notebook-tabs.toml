@@ -1,0 +1,7 @@
+[icons.notebook-tabs]
+  means = "A notebook with tabs down its edge: the Logbook"
+  group = "Navigation"
+  size = "16px"
+  status = "Proposed"
+  reserved = "The Logbook place, in the title row and the palette. Never a Claude Docs document, which is `notebook-text`, and never Guides, which is `book-open`."
+  notes = "Proposed 22 Oct 2026 for the walk `logbook`."

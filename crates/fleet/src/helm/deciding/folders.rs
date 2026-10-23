@@ -50,6 +50,8 @@ impl Folders<'_> {
     pub(super) fn absolute(&self, word: &str) -> Option<String> {
         let word = word.rsplit('=').next().unwrap_or(word);
         let word = word.trim_matches(|c| c == '\'' || c == '"');
+        // A search path such as `$HOME/.rbenv/shims:$PATH` names its first folder.
+        let word = word.split(':').next().unwrap_or(word);
         let whole = ["~", "${HOME}", "$HOME"]
             .iter()
             .find_map(|home| word.strip_prefix(home).filter(|rest| rest.is_empty() || rest.starts_with('/')))

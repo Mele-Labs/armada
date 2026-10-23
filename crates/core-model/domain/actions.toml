@@ -31,8 +31,8 @@
 #                 An Action with neither a glyph nor a reason fails the gate
 #   shortcut    - the binding, as the contract's map spells it
 #   scope       - where the binding is offered: anywhere | list |
-#                 list and detail | open studio | dashboard | deck | review |
-#                 issues | call
+#                 list and detail | open studio | dashboard | deck | review | call |
+#                 logbook | issues
 #   destructive - whether it ends or overrules a record
 #   confirms    - whether it takes a confirmation. Destructive implies it
 #   unbuilt     - the issue that builds the act, on a row Bridge cannot answer
@@ -700,3 +700,38 @@ scope = "call"
 destructive = false
 confirms = false
 notes = "Puts the cursor in the reply on a call that takes one: a Session's own question, which offers Type something beside its options, or an item with no options. `Enter` in the field sends it and `Esc` leaves it. `t` is attest on a list; a call is not a list."
+
+[actions.logbook_edit]
+kind = "Action"
+tier = "Contextual"
+verb = "Edit the entry"
+icon = ""
+icon_absent = "undecided"
+shortcut = "e"
+scope = "logbook"
+destructive = false
+confirms = false
+notes = "Opens the selected Logbook entry's text in place. `⌘↵` saves and `Esc` leaves it, the draft kept. Saving marks the entry edited, and Fleet stops rewriting the person's words. `docs/concepts/logbook.md`. Added 22 Oct 2026 with the mock walk `logbook`."
+
+[actions.logbook_lock]
+kind = "Action"
+tier = "Contextual"
+verb = "Lock or unlock the entry"
+icon = "lock"
+shortcut = "l"
+scope = "logbook"
+destructive = false
+confirms = false
+notes = "A locked Logbook entry is never rewritten by Armada and never fades. Pressed again it lets go. `l` is free in this scope: the call's Later is `l` in `call`, a place of its own. Renamed from Pin on 22 Oct 2026, the owner's word, which also frees `pin` for the canvas rail's Stay on the running step alone."
+
+[actions.logbook_forget]
+kind = "Action"
+tier = "Contextual"
+verb = "Forget the entry"
+icon = ""
+icon_absent = "undecided"
+shortcut = "f"
+scope = "logbook"
+destructive = true
+confirms = true
+notes = "Puts the selected Logbook entry on the deny list, so no later Job brings it back. Asks first, since nothing undoes it. `f` and not Backspace, which the text box in place takes. Added 22 Oct 2026 with the mock walk `logbook`."

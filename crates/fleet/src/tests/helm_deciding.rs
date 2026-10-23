@@ -135,7 +135,6 @@ fn sending_code_where_other_people_read_it_asks() {
         "git push -u origin helm/some-branch",
         "git push --force",
         "gh pr merge 1524 --merge",
-        "gh pr create --title x --body y",
         "gh release create v1",
         "cargo publish",
         "npm publish --access public",
@@ -148,6 +147,15 @@ fn sending_code_where_other_people_read_it_asks() {
             Some(Because::PushesToShared),
             "should have asked: {line}"
         );
+    }
+}
+
+/// **Opening a pull request runs** (the owner, 23 Oct 2026): it asks for a review and lands
+/// nothing, and a job held on it for 840s opened none.
+#[test]
+fn opening_a_pull_request_runs() {
+    for line in ["gh pr create --title x --body y", "gh pr create --fill --base main"] {
+        assert_eq!(because(&shell(line)), None, "should have run: {line}");
     }
 }
 
