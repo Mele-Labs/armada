@@ -64,6 +64,8 @@ impl Issues for FakeDaemon {
                 }],
                 IssueState::Open => Vec::new(),
             },
+            fields: Vec::new(),
+            holders: Vec::new(),
         })
     }
 }

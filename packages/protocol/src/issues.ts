@@ -17,6 +17,21 @@ export type TrackedIssue = {
   excerpt: string;
   /** The tracker says a pull request already closes it. */
   linked_pull_request: boolean;
+  /** Who opened it, by login. Absent where the tracker did not say. */
+  author?: string;
+  /** Open on a plain list; a search may answer closed ones too. */
+  state: "open" | "closed";
+  /** Everything else the tracker said of it, under its own names. A field with no values is left out. */
+  fields: IssueField[];
+  /** The Jobs holding this issue on the ledger, by id, whichever tracker it is on. Join them with the Jobs already held. */
+  holders: string[];
+};
+
+/** One of an issue's fields that Armada has no slot for, under the tracker's own name for it. */
+export type IssueField = {
+  name: string;
+  /** Each a display string. */
+  values: string[];
 };
 
 /** `GET /issues/:repository`. `stale` is why an older list was answered: the read just tried failed. */
@@ -47,6 +62,10 @@ export type IssueRead = {
   comments: IssueComment[];
   /** The pull requests that close it or name it, each once. */
   linked_pull_requests: LinkedPullRequest[];
+  /** As `TrackedIssue.fields`. */
+  fields: IssueField[];
+  /** As `TrackedIssue.holders`. */
+  holders: string[];
 };
 
 /** One comment on an issue. */

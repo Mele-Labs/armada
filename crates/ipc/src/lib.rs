@@ -344,7 +344,7 @@ pub use sharing::{
 pub use sharing::{KitManifestSaved, SaveKitManifest};
 pub use issue_reference::{ClaimIssue, IssueClaimed, IssueReference};
 pub use issues::{
-    IssueComment, IssueList, IssueRead, IssueState, LinkedPullRequest, LinkedPullRequestState,
+    IssueComment, IssueField, IssueList, IssueRead, IssueState, LinkedPullRequest, LinkedPullRequestState,
     TrackedIssue,
 };
 pub use kit::{
