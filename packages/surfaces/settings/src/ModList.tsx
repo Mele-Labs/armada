@@ -5,7 +5,7 @@
 
 import { useLayoutEffect, useRef, type ReactElement } from "react";
 import { Card, CardContent, CardHeader, CardTitle, ModRow, ModRules } from "@armada/components";
-import type { ModKind } from "@armada/components";
+import type { ModKind, ModTracker } from "@armada/components";
 import { useLayouts } from "@armada/shell";
 
 import { taughtOf, useTaught } from "./taught-source";
@@ -14,8 +14,18 @@ import { useThemes } from "./theme-source";
 
 export type ModListKind = "theme" | "layout" | "all" | TaughtKind;
 
+/** A tracker mod is used only while it is tried, valid and switched on: a refusal or a failed try frames it red, a mod still to try amber. */
+function trackerStanding(mod: TaughtMod, tracker: ModTracker): "used" | "waiting" | "refused" | "off" {
+  if (!tracker.valid || tracker.tried.state === "failed") return "refused";
+  if (!mod.enabled) return "off";
+  return tracker.tried.state === "passed" ? "used" : "waiting";
+}
+
 const ROW_KIND: Record<TaughtKind, ModKind> = { words: "words", fleet: "fleet", tweak: "tweak", tracker: "tracker" };
 const KIND_ORDER: readonly ModKind[] = ["theme", "tweak", "layout", "words", "fleet", "tracker"];
+
+/** The frame a row in a list that holds a tracker is drawn in, so every row there takes the same padding: refused, off or in use. */
+const standingOf = (mod: { enabled: boolean; problem?: string }): "used" | "refused" | "off" => (mod.problem !== undefined ? "refused" : mod.enabled ? "used" : "off");
 
 type Listed = { key: string; kind: ModKind; name: string; enabled: boolean; row: ReactElement };
 
@@ -32,6 +42,9 @@ export function ModList({ kind, title }: { kind: ModListKind; title?: string }) 
         <CardTitle>{title}</CardTitle>
       </CardHeader>
     );
+
+  // A list that holds a tracker keeps the columns of its marks and Try in every row, and frames every row in its standing.
+  const lined = (kind === "all" || kind === "tracker") && taught.mods.some((one) => one.kind === "tracker");
 
   const taughtRow = (mod: TaughtMod): Listed => {
     const line = [mod.description, mod.on === "" ? undefined : `Taught on ${mod.on}`].filter((part) => part !== undefined).join(". ");
@@ -53,6 +66,9 @@ export function ModList({ kind, title }: { kind: ModListKind; title?: string }) 
           detail={mod.branch === undefined ? line : `${line} (${mod.branch})`}
           promoteDisabled={mod.branch !== undefined}
           onPromote={() => source.promote(mod.name)}
+          {...(lined ? { withTracker: true, standing: mod.tracker === undefined ? standingOf(mod) : trackerStanding(mod, mod.tracker) } : {})}
+          {...(mod.tracker === undefined ? {} : { tracker: mod.tracker })}
+          {...(mod.tracker === undefined || source.tryIt === undefined ? {} : { onTry: () => source.tryIt?.(mod.name) })}
           // A mod opens only when it holds something to read: Fleet's list says a real mod's kind and what it was taught on, no more.
           {...(mod.parts.length === 0 ? {} : { opened: opened === mod.name, onOpened: (open: boolean) => source.open(open ? mod.name : undefined) })}
           autoFocus={opened === mod.name}
@@ -85,6 +101,7 @@ export function ModList({ kind, title }: { kind: ModListKind; title?: string }) 
             enable(mod.name, on);
           }}
           {...(line === undefined ? {} : { detail: line })}
+          {...(lined ? { withTracker: true, standing: standingOf(mod) } : {})}
           promoteDisabled={mod.problem !== undefined || mod.branch !== undefined}
           onPromote={() => promote(mod.name)}
           {...(own === undefined
@@ -106,7 +123,7 @@ export function ModList({ kind, title }: { kind: ModListKind; title?: string }) 
       ...taught.mods.map(taughtRow),
       ...layouts.mods.map((mod) => ownRow("layout", mod)),
     ].sort((a, b) => Number(b.enabled) - Number(a.enabled) || KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind) || byName(a, b));
-  } else if (kind === "words" || kind === "fleet" || kind === "tweak") {
+  } else if (kind !== "theme" && kind !== "layout") {
     rows = taughtOf(taught, kind).map(taughtRow).sort(byName);
   } else {
     rows = (kind === "theme" ? themes.mods.map((mod) => ownRow("theme", mod)) : layouts.mods.map((mod) => ownRow("layout", mod))).sort(byName);

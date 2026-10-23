@@ -73,6 +73,7 @@ export const sessions: Slice<SessionsApi, SessionsState> = {
     readPullRequestFile: async () => ({ ok: false, outcome: unanswered("/pull_request_files") }),
     writePullRequest: async () => ({ ok: false, outcome: unanswered("/pull_request_writes") }),
     startSessionRun: async () => ({ ok: false, outcome: unanswered("/sessions/run/start") }),
+    openTerminal: async () => ({ ok: false, outcome: unanswered("/sessions/terminal/open") }),
     catchUpCheckout: async () => ({ ok: false, outcome: unanswered("/merge_lines/catch_up") }),
     sendCheckoutAsPullRequest: async () => ({ ok: false, outcome: unanswered("/merge_lines/checkout_to_pull_request") }),
     readCheckoutDiff: async () => ({ ok: false, outcome: unanswered("/merge_lines/checkout_diff") }),
@@ -80,5 +81,6 @@ export const sessions: Slice<SessionsApi, SessionsState> = {
     writeSessionRun: async () => ({ ok: false, outcome: unanswered("/sessions/run/write") }),
     resizeSessionRun: async () => ({ ok: false, outcome: unanswered("/sessions/run/resize") }),
     onSessionRunMessage: () => () => undefined,
+    onSessionTerminal: () => () => undefined,
   }),
 };

@@ -1,0 +1,12 @@
+[operations.read_terminal]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Read the last lines of this Job's terminal, the one the person sees in Bridge, as its screen shows them: what a server printed since, or what the person typed and ran there. Optional lines (60 unless set, at most 500); optional session_id, only where you run in a terminal. Refused where the Job has no terminal open: type_in_terminal opens one"
+notes = """
+`GET /sessions/terminal/read?lines=&session_id=`. Answered 200 with `TerminalScreen`: `run_id` and `screen`, the last `lines` of the shell's held output (absent is 60, held to between 1 and 500) with escapes and carriage-return overwrites resolved, and the last 32 KiB at most. A full-screen program, an editor or a pager, draws by moving the cursor, and reads here as the lines it wrote rather than the screen it drew.
+
+**The Job is the one the connection places when Fleet hosts it**, else `session_id`. Nothing placing one is refused with 422, and so is a Job with no shell open, one that has exited included.
+
+`agent_access` is `Yes`: the agent reads the shell it shares with the person, which holds nothing the person's pane does not show.
+"""

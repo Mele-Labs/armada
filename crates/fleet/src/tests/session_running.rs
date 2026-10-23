@@ -21,7 +21,7 @@ type Running = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
 
 const ID: &str = "s1";
 
-async fn a_session_in(fleet: &Running, dir: &str) -> SessionId {
+pub(super) async fn a_session_in(fleet: &Running, dir: &str) -> SessionId {
     let id = SessionId::carried(ID);
     fleet
         .report_session(SessionReport {
@@ -39,14 +39,14 @@ async fn a_session_in(fleet: &Running, dir: &str) -> SessionId {
     id
 }
 
-struct Rig {
-    fleet: Arc<Running>,
-    session: SessionId,
-    dir: TempDir,
+pub(super) struct Rig {
+    pub(super) fleet: Arc<Running>,
+    pub(super) session: SessionId,
+    pub(super) dir: TempDir,
     _home: TempDir,
 }
 
-async fn rig() -> Rig {
+pub(super) async fn rig() -> Rig {
     let home = TempDir::new();
     let fleet = Arc::new(a_fleet(&home, FakeWorkProduct::changed(&[])));
     let dir = TempDir::new();
@@ -72,11 +72,11 @@ impl Rig {
             .run_id
     }
 
-    async fn observes(&self, run_id: &str) -> ObservedSessionRun {
+    pub(super) async fn observes(&self, run_id: &str) -> ObservedSessionRun {
         self.fleet.observe_session_run(run_id.into()).await.expect("held")
     }
 
-    async fn types(&self, run_id: &str, data: &str) -> Result<(), api::Refusal> {
+    pub(super) async fn types(&self, run_id: &str, data: &str) -> Result<(), api::Refusal> {
         self.fleet
             .write_session_run(WriteSessionRun { run_id: run_id.into(), data: data.into() })
             .await
@@ -84,7 +84,7 @@ impl Rig {
     }
 
     /// Until the run has printed `needle`.
-    async fn printed(&self, run_id: &str, needle: &str) {
+    pub(super) async fn printed(&self, run_id: &str, needle: &str) {
         eventually(|| async { self.observes(run_id).await.history.contains(needle) }).await;
     }
 }

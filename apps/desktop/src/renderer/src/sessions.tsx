@@ -23,7 +23,6 @@ import {
   type PlanApproval,
   SessionEndBand,
   ConcernCard,
-  DockedTerminal,
   ProseTerminal,
   Tooltip,
   Sheet,
@@ -124,6 +123,7 @@ import { movedRowsOf } from "./session-moved";
 import { useSessions, useSessionsDraft, useSessionsSaid } from "./sessions-draft";
 import { restartOf } from "./build-change";
 import { bangOf, hostedCommands, opensMcp, runnerOf } from "./session-runner";
+import { useJobDock } from "./job-shell-dock";
 import { todosOf } from "./session-activity";
 import { confirmWaiting, dismissWaiting } from "./cockpit/dismissed";
 import { holdsDelivery, stateOf } from "./session-state";
@@ -709,6 +709,10 @@ export type DeckSession = {
   ledger: HTMLElement | null;
   /** The deck's places a Session with `work` draws its own panels into, in place of Activity, Bays and Autopilot. */
   hosts?: Hosts;
+  /** Flight control is drawn beside the view and carries Terminal, so the header does not. */
+  flight?: true;
+  /** The deck docks the Job's shell in a panel of its own under the view, so the view's dock holds a block's runs alone. */
+  shell?: true;
 };
 
 /** A hand off that did not start as the failure toast carries a failure to a new Job: the code is Fleet's attachment kind, the reason is `detail.reason`. */
@@ -845,7 +849,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
   const openSaved = useCallback((row: SavedThreadRow) => void openInPanel({ kind: "requests", sessionId: session.id, saved: { collection: row.collectionId, request: row.request }, from: row.id }), [session.id]);
   // A run drawn as a terminal: the pane is the view's own, docked above its box.
   const runner = draft === undefined ? undefined : runnerOf(draft, session);
-  const dock = useTerminalDock(useCodeRun(runner), session.id);
+  const docked = useJobDock(session.id, "page", useTerminalDock(useCodeRun(runner), session.id), draft?.terminalRuns !== undefined, deck?.shell === true);
   if (draft === undefined) return null;
   const mode: SessionMode = session.mode ?? (session.terminal === true ? "ask" : "auto");
   // Folded below the breakpoint, a press on a row closes the ledger's sheet first, so what it opens is not drawn over it.
@@ -853,7 +857,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
     setLedgerOpen(false);
     open(...args);
   };
-  const terminal: ProseTerminalValue | null = draft.terminalRuns === undefined ? null : { dock };
+  const terminal: ProseTerminalValue | null = draft.terminalRuns === undefined ? null : { dock: docked.dock };
   const hours = session.trail === undefined ? 0 : Math.floor((Date.now() - Date.parse(session.trail.started)) / 3_600_000);
   const tokens = session.context?.tokens ?? 0;
   const lastRow = thread[thread.length - 1];
@@ -1090,6 +1094,11 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
                       </Button>
                     </Tooltip>
                   ) : null}
+                  {docked.terminal === undefined || session.dead !== undefined || deck?.flight === true ? null : (
+                    <Button variant="ghost" size="sm" onClick={docked.terminal}>
+                      Terminal
+                    </Button>
+                  )}
                   {marked}
                 </>
               ),
@@ -1154,7 +1163,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
           />
           </SavedOpen.Provider>
           </RequestOpen.Provider>
-          {terminal === null ? null : <DockedTerminal dock={terminal.dock} />}
+          {docked.pane}
           <CallChip word={callWord(session)} scope={centre} />
           <div className="sv-dock" data-needs={waits || endShown || failedShown ? "" : undefined} data-open={panelOpen || endOpen} data-end={endOpen ? "" : undefined}>
           <NeedsYouPanel key={session.id} rows={needs} open={panelOpen} onOpen={(open) => setPanel({ id: session.id, open })} {...(question === undefined ? {} : { question })} judges={judges} />
@@ -1273,12 +1282,12 @@ export function SessionBox({ session, onOpen, onSend, onOpenLoadout }: { session
   const numbered = useNumbered(session.manifestId);
   // A `! command` typed here runs in a pane of this box's own, as the Session page's does.
   const runner = draft === undefined ? undefined : runnerOf(draft, session);
-  const dock = useTerminalDock(useCodeRun(runner), session.id);
+  const { dock, pane } = useJobDock(session.id, "card", useTerminalDock(useCodeRun(runner), session.id), draft?.terminalRuns !== undefined);
   if (draft === undefined || session.dead !== undefined) return null;
   const mode: SessionMode = session.mode ?? (session.terminal === true ? "ask" : "auto");
   return (
     <>
-      {draft.terminalRuns === undefined ? null : <DockedTerminal dock={dock} />}
+      {pane}
       <SessionComposer
         modeLocked={session.terminal === true}
         modeHidden={session.terminal === true && session.mode === undefined}

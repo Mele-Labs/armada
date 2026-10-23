@@ -51,7 +51,7 @@ export interface ArrivalHost {
   /** The mods on this machine — `mods.ts`. */
   readonly mods: Pick<Modding, "read" | "listed">;
   /** Every session and the threads a window opened — `sessions.ts`. */
-  readonly sessions: Pick<SessionsHost, "again" | "changed" | "row" | "watchesChanged">;
+  readonly sessions: Pick<SessionsHost, "again" | "changed" | "row" | "terminal" | "watchesChanged">;
   /** What Fleet holds disk for, read once for nobody so the first surface to open has a list, and again on a slot lease or release — `holding.ts`. */
   readonly held: Pick<HeldReader, "warm" | "again">;
   /** Sleep mode, told when Fleet changes the night — `sleep.ts`. */
@@ -330,6 +330,13 @@ export function applyArrival(host: ArrivalHost, text: string, fleet: BridgeState
     host.publish({ connection });
     const { kind: _kind, ...change } = event;
     host.sessions.row(change);
+    return;
+  }
+  if (event.kind === "terminal.opened" || event.kind === "terminal.exited") {
+    // Nothing is folded: a shell is not part of the Session's record. The window is told, and what
+    // the shell prints arrives as a run's does.
+    host.publish({ connection });
+    host.sessions.terminal(event.kind === "terminal.opened" ? "opened" : "exited", { session_id: event.session_id, run_id: event.run_id });
     return;
   }
   if (event.kind === "checkout_run.finished") {

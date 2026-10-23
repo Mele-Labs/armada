@@ -355,6 +355,7 @@ export const teachedMods = {
     publishMods();
     return OK;
   },
+  tryTrackerMod: async (): Promise<Outcome> => OK,
   promoteMod: async (name: string): Promise<Outcome> => ({ ok: true, modPromoted: { name, branch: `armada/mod-${name}-${Date.now()}`, commit: "abc1234" } }),
 };
 

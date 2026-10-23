@@ -142,7 +142,7 @@ import type {
 } from "@armada/screens/src/outstanding";
 import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimIssue, ClaimPullRequest, ConfirmWaiting, DismissConcern, DismissWaiting, IssueClaimed, JudgeSession, LaterSettled, PullRequestClaimed, PullRequestFilePatch, PullRequestPage, PullRequestState, RenameSession, SendConcern, SendPlanChanges, NoteSent, SendSessionMessage, SendSessionNote, SessionRow, SessionRunMessage, SessionRunUnderway, SessionLoadout, AttachmentHistory, McpServerAct, SessionMcp, SessionMcpActed, SessionSubagent, SettleLater, StopWatch, TuneSession, WatchSummary } from "@armada/protocol";
 import type { RequestRepositoryRead } from "./api/dispatch";
-import type { PullRequestPress, PullRequestWrite, SessionActed, SessionsRead } from "./api/sessions";
+import type { JobTerminalChange, PullRequestPress, PullRequestWrite, SessionActed, SessionsRead } from "./api/sessions";
 import type { SleepActed } from "./api/sleep";
 import type { AccountsActed } from "./api/accounts";
 import type { PlanUsageRead } from "./api/plan-usage";
@@ -226,6 +226,7 @@ type OldBridgeApi = {
     validateMod: (name: string) => Promise<ModChecked | null>;
     setModEnabled: (name: string, enabled: boolean) => Promise<Outcome>;
     promoteMod: (name: string) => Promise<Outcome>;
+    tryTrackerMod: (name: string) => Promise<Outcome>;
     phone: (request: PhoneRequest) => Promise<PhoneAnswer>;
     followCheckOutput: (jobId: string | null, kept: string | null) => Promise<void>;
     followLandCheck: (at: LandCheckAt | null) => Promise<void>;
@@ -450,6 +451,7 @@ type OldBridgeApi = {
     readPullRequestFile: (sessionId: string, number: number, path: string) => Promise<SessionActed<PullRequestFilePatch>>;
     writePullRequest: (sessionId: string, number: number, write: PullRequestWrite) => Promise<SessionActed<PullRequestPage>>;
     startSessionRun: (sessionId: string, command: string, cols?: number, rows?: number) => Promise<SessionActed<SessionRunUnderway>>;
+    openTerminal: (sessionId: string, cols?: number, rows?: number) => Promise<SessionActed<SessionRunUnderway>>;
     catchUpCheckout: (manifestId: string) => Promise<SessionActed<CheckoutCaughtUp>>;
     sendCheckoutAsPullRequest: (manifestId: string) => Promise<SessionActed<CheckoutSentAsPullRequest>>;
     readCheckoutDiff: (manifestId: string, path: string) => Promise<SessionActed<CheckoutDiff>>;
@@ -457,6 +459,7 @@ type OldBridgeApi = {
     writeSessionRun: (runId: string, data: string) => Promise<SessionActed<SessionRunUnderway>>;
     resizeSessionRun: (runId: string, cols: number, rows: number) => Promise<SessionActed<SessionRunUnderway>>;
     onSessionRunMessage: (on: (runId: string, message: SessionRunMessage) => void) => () => void;
+    onSessionTerminal: (on: (terminal: JobTerminalChange) => void) => () => void;
 } & AutopilotApi & SketchShareApi & FilesApi & ReviewsApi & FlightControlsApi & OnboardingApi & RequestsApi & SharingApi & LogbookApi & TeachingApi;
 
 const OLD_NOTHING_YET: OldBridgeState = {
@@ -510,6 +513,7 @@ const OLD_CHANNELS = {
     validateMod: "bridge:validate-mod",
     setModEnabled: "bridge:set-mod-enabled",
     promoteMod: "bridge:promote-mod",
+    tryTrackerMod: "bridge:try-tracker-mod",
     phone: "bridge:phone",
     followCheckOutput: "bridge:follow-check-output",
     followLandCheck: "bridge:follow-land-check",
@@ -732,6 +736,7 @@ const OLD_CHANNELS = {
     readPullRequestFile: "bridge:read-pull-request-file",
     writePullRequest: "bridge:write-pull-request",
     startSessionRun: "bridge:start-session-run",
+    openTerminal: "bridge:open-terminal",
     catchUpCheckout: "bridge:catch-up-checkout",
     sendCheckoutAsPullRequest: "bridge:send-checkout-as-pull-request",
     readCheckoutDiff: "bridge:read-checkout-diff",
@@ -739,6 +744,7 @@ const OLD_CHANNELS = {
     writeSessionRun: "bridge:write-session-run",
     resizeSessionRun: "bridge:resize-session-run",
     sessionRunMessage: "bridge:session-run-message",
+    sessionTerminal: "bridge:session-terminal",
     ...AUTOPILOT_CHANNELS,
     ...SKETCH_SHARE_CHANNELS,
     ...FILES_CHANNELS,

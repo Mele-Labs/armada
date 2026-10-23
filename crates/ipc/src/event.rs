@@ -32,6 +32,7 @@ use crate::autopilot::Autopilot;
 use crate::watches::WatchList;
 use crate::sessions::SessionRecord;
 use crate::studio::{Studio, StudioDeleted, StudioHelmActed};
+use crate::terminals::JobTerminal;
 
 /// A position in the stream. Monotonic, assigned by Fleet, never reused.
 ///
@@ -145,6 +146,12 @@ pub enum Event {
     // One row of a hosted session's thread, appended or replaced by its id. Since 23.49.
     #[serde(rename = "session.row")]
     SessionRow(SessionRowChanged),
+    // A Job's shell opened or ended, whoever opened or ended it. Its output is
+    // `observe_session_run`'s, on the run id these carry.
+    #[serde(rename = "terminal.opened")]
+    TerminalOpened(JobTerminal),
+    #[serde(rename = "terminal.exited")]
+    TerminalExited(JobTerminal),
     // Sleep mode, or a repository's Autopilot (#2092), after any change to it, whole.
     #[serde(rename = "sleep.changed")]
     SleepChanged(SleepState),

@@ -816,6 +816,31 @@ where
         self.watch_session_run(&run_id)
     }
 
+    async fn open_terminal(
+        self: Arc<Self>,
+        open: ipc::OpenTerminal,
+    ) -> Result<ipc::SessionRunUnderway, Refusal> {
+        let run_id = self.open_job_shell(open.session_id.as_str(), open.cols, open.rows).await?;
+        Ok(ipc::SessionRunUnderway { run_id })
+    }
+
+    async fn type_in_terminal(
+        self: Arc<Self>,
+        caller: Option<api::Caller>,
+        typed: ipc::TypeInTerminal,
+    ) -> Result<ipc::TerminalTyped, Refusal> {
+        self.typed_in_job_shell(caller, typed).await
+    }
+
+    async fn read_terminal(
+        &self,
+        caller: Option<api::Caller>,
+        session_id: Option<ipc::SessionId>,
+        lines: Option<usize>,
+    ) -> Result<ipc::TerminalScreen, Refusal> {
+        self.job_shell_read(caller, session_id.as_ref(), lines)
+    }
+
     async fn rename_session(&self, rename: ipc::RenameSession) -> Result<SessionRecord, Refusal> {
         let title = rename
             .title

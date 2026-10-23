@@ -3,7 +3,7 @@
 
 import { useEffect, useRef, type ReactNode } from "react";
 import { Square, SquareTerminal, X, type LucideIcon } from "lucide-react";
-import { Button, Select, Tooltip, agoOf, isPressed, pressedDigit } from "@armada/components";
+import { Button, Select, ShellPane, Tooltip, agoOf, isPressed, pressedDigit } from "@armada/components";
 import { holdsText } from "@armada/screens/src/keys";
 import type { StartWhen } from "@armada/screens/src/draft/sessions";
 import { START_WHEN, planPartsOf, startsFrom } from "@armada/screens/src/session-waits";
@@ -14,6 +14,7 @@ import { useViewing } from "../viewed";
 import { CallCard, type CardKeys } from "../CallCard";
 import type { CockpitProps } from "./props";
 import { SessionView } from "../../sessions";
+import { useDeckShell } from "../../job-shell-dock";
 import type { Hosts } from "../../session-view/SessionWorkspace";
 import { OPEN_SESSION_ATTRIBUTE } from "../../open-session";
 import { useSessions, useSessionsDraft } from "../../sessions-draft";
@@ -98,8 +99,22 @@ export function SessionPane({ subject, props, acts, ledger, hosts, openSession }
             ...(subject.stoppable && acts.can.stop(subject) ? [{ id: "stop", label: "Stop", icon: Square, run: () => acts.stop(subject) }] : []),
           ],
           back: <BackAct />,
+          flight: true,
+          shell: true,
         }}
       />
+    </section>
+  );
+}
+
+/** The Job's docked shell: a panel of its own between the Job and the merge line, so the thread keeps the Job's whole pane. */
+export function ShellPanel({ sessionId }: { sessionId: string }) {
+  const draft = useSessionsDraft();
+  const shell = useDeckShell(sessionId, draft?.terminalRuns !== undefined);
+  if (shell === null) return null;
+  return (
+    <section className="deck-panel deck-terminal" aria-label="Terminal">
+      <ShellPane {...shell} />
     </section>
   );
 }
