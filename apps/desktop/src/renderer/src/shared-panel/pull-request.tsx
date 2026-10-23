@@ -3,7 +3,7 @@
 // its name in the head. Everything else is the forge's.
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { PullRequestPanel, forgetKept, mayWrite, repositoryOfAddress } from "@armada/components";
+import { Alert, PullRequestPanel, forgetKept, mayWrite, repositoryOfAddress } from "@armada/components";
 import type { FilesReach, PullRequestComposerProps, ReachTest } from "@armada/components";
 import { placeOf, whyNotOpenedLink } from "@armada/screens";
 import { useAtFloor } from "@armada/shell";
@@ -12,7 +12,7 @@ import type { PullRequestAct, SessionAttachment } from "@armada/screens/src/draf
 
 import { openLink } from "../commands";
 import { PrOwnersOnTheWire } from "../pr-owners-wire";
-import { useSessions, useSessionsDraft } from "../sessions-draft";
+import { useSessions, useSessionsDraft, useSessionsSaid } from "../sessions-draft";
 import { failingOf, promptsOut, useSendBack } from "../session-pull-request";
 import { useBack } from "./panels";
 import { ReviewTab } from "./review-tab";
@@ -82,6 +82,7 @@ function Drawn({ item, reading, onFiles }: { item: Item; reading: Reading<PullRe
   const floor = useAtFloor();
   const draft = useSessionsDraft();
   const sessions = useSessions();
+  const refused = useSessionsSaid();
   const { browserSaid, openBrowser } = useBrowser();
   const [tab, setTab] = useState(item.tab ?? "conversation");
   const [written, setPage] = useState<PullRequestPage | undefined>(undefined);
@@ -241,7 +242,10 @@ function Drawn({ item, reading, onFiles }: { item: Item; reading: Reading<PullRe
         {...(shownPatches === undefined ? {} : { patches: shownPatches })}
         {...(marks === undefined ? {} : { reach: marks, onTest: (test: ReachTest) => void openInPanel({ kind: "file", path: read.root === undefined ? test.test : `${read.root}/${test.test}`, from: "session" }) })}
         more={{ id: "review", label: "Review", body: <ReviewTab row={rowOf(read, forge)} onOpenLink={onOpenLink} /> }}
-      />
+      >
+        {/* A press the Job made and Fleet refused is said here, where it was pressed; one nobody holds is a toast. */}
+        {owner === undefined || refused === undefined || refused === "" ? null : <Alert tone="escalated">{refused}</Alert>}
+      </PullRequestPanel>
     </PrOwnersOnTheWire>
   );
 }

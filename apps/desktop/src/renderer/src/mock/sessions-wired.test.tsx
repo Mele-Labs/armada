@@ -63,7 +63,7 @@ test("Sessions wired: a terminal Session offers End job, and it ends once its te
   mount(served(fleet));
   await onScreen();
   await toSession("Release notes script");
-  const panel = page.getByRole("region", { name: /^Session / });
+  const panel = page.getByRole("region", { name: /^Job / });
   // The acts are the header's menu, opened by its More button.
   await userEvent.click(panel.getByRole("button", { name: "More" }));
   await userEvent.click(page.getByRole("menuitem", { name: /^End job/ }));
@@ -84,7 +84,7 @@ test("Sessions wired: End job on a terminal Fleet cannot reach is said, and noth
   await onScreen();
   await toSession("Docs pass");
   fleet.refusesClose = { code: "fleet.terminal_session_unreachable", message: "that session is not listening." };
-  const panel = page.getByRole("region", { name: /^Session / });
+  const panel = page.getByRole("region", { name: /^Job / });
   await userEvent.click(panel.getByRole("button", { name: "More" }));
   await userEvent.click(page.getByRole("menuitem", { name: /^End job/ }));
   await expect.element(toast("Not reachable: run /reload-plugins in that job")).toBeVisible();
