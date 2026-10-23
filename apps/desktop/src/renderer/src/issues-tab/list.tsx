@@ -114,7 +114,7 @@ export function IssuesList({ picked, repositories, onTeach }: { picked: Reposito
                 <ul className="deck-list__rows issues-list__rows">
                   {asked.map(({ band, asked: one }) =>
                     band.tracker.state === "read" && one === undefined ? null : (
-                      <li key={band.manifestId} className="deck-list__band">
+                      <li key={band.manifestId} className="deck-list__band" aria-label={band.label}>
                         <h3 className="deck-list__repository issues-list__repository">
                           {band.label}
                           {band.tracker.state === "read" && band.tracker.mod !== undefined ? <ModMark mod={band.tracker.mod} /> : null}
@@ -233,7 +233,7 @@ function EditQuery({ band, saved }: { band: Band; saved: ReadTracker["saved"][nu
       }}
     >
       <Textarea
-        rows={2}
+        rows={3}
         autoFocus
         keep={keep}
         aria-label="Query"
@@ -241,7 +241,7 @@ function EditQuery({ band, saved }: { band: Band; saved: ReadTracker["saved"][nu
         value={text}
         onChange={(event) => setText(event.target.value)}
         onKeyDown={(event) => {
-          if (sendsOn(event) && !event.nativeEvent.isComposing) {
+          if ((sendsOn(event) || (event.key === "Enter" && !event.shiftKey)) && !event.nativeEvent.isComposing) {
             event.preventDefault();
             save();
           }
@@ -259,7 +259,7 @@ function EditQuery({ band, saved }: { band: Band; saved: ReadTracker["saved"][nu
   );
 }
 
-/** His words, in place of the list. Send asks before a model writes the query. */
+/** His words, in place of the list. Send, or Enter as in a message box, asks before a model writes the query. */
 function DescribeBox({ manifestIds }: { manifestIds: readonly string[] }) {
   const store = useIssuesStore()!;
   const [words, setWords] = useState("");
@@ -290,13 +290,13 @@ function DescribeBox({ manifestIds }: { manifestIds: readonly string[] }) {
         value={words}
         onChange={(event) => setWords(event.target.value)}
         onKeyDown={(event) => {
-          if (sendsOn(event) && !event.nativeEvent.isComposing) {
+          if ((sendsOn(event) || (event.key === "Enter" && !event.shiftKey)) && !event.nativeEvent.isComposing) {
             event.preventDefault();
             send();
           }
         }}
       />
-      <Tooltip label="A model writes it in each tracker's language, once, when you send" asChild>
+      <Tooltip label="A model writes the query once, on send" asChild>
         <Button variant="secondary" size="sm" type="submit" disabled={words.trim() === "" || manifestIds.length === 0}>
           Send
         </Button>
