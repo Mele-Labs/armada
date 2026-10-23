@@ -2,6 +2,7 @@ import { X } from "lucide-react";
 import { createContext, useContext, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
 
+import { forgetKept } from "../../keep";
 import { Button } from "../../primitives/Button/Button";
 import { DropdownMenu } from "../../primitives/DropdownMenu/DropdownMenu";
 import type { DropdownMenuEntry } from "../../primitives/DropdownMenu/DropdownMenu";
@@ -105,6 +106,12 @@ export function useViewerNotes(scope: ViewerNotesScope | undefined, from: RefObj
     toViewer();
   };
 
+  // The box closes in the same render the text empties, so the field never sees it go empty and would keep the old draft.
+  const forgetDraft = (key: string) => {
+    setText("");
+    forgetKept(`note:${key}`);
+  };
+
   const send = async () => {
     if (!on || sending) return;
     const writing = box?.about !== undefined && text.trim() !== "" ? [{ about: box.about, text: text.trim() }] : [];
@@ -120,7 +127,7 @@ export function useViewerNotes(scope: ViewerNotesScope | undefined, from: RefObj
     setSending(false);
     if (went === false) return;
     setHeldOn(scope.key, (was) => ({ ...was, notes: [] }));
-    setText("");
+    forgetDraft(scope.key);
     setSettled((was) => was + 1);
     close();
   };
@@ -129,7 +136,7 @@ export function useViewerNotes(scope: ViewerNotesScope | undefined, from: RefObj
     if (!on || box?.about === undefined || text.trim() === "") return;
     const about = box.about;
     setHeldOn(scope.key, (was) => ({ ...was, notes: [...was.notes, { about, text: text.trim() }] }));
-    setText("");
+    forgetDraft(scope.key);
     setSettled((was) => was + 1);
     close();
   };
