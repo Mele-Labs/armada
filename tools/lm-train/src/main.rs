@@ -351,7 +351,7 @@ fn sentence_examples(training: &Path, positive: &[&str]) -> Vec<Example> {
         .filter(|f| f[2] == "dev")
         .map(|f| (f[0].to_string(), f[1].to_string()))
         .collect();
-    std::fs::read_to_string(dir.join("labels.tsv"))
+    let labelled = std::fs::read_to_string(dir.join("labels.tsv"))
         .unwrap()
         .lines()
         .map(|line| {
@@ -366,7 +366,31 @@ fn sentence_examples(training: &Path, positive: &[&str]) -> Vec<Example> {
                 kind: format!("{}:{}", f[0], f[1]),
             }
         })
-        .collect()
+        .collect::<Vec<_>>();
+    // The sentences he marked Not a question in Bridge, each a reply of its own in the dev half, asking
+    // nothing and weighted as a positive is, since he labelled them himself.
+    let marked = misreads().into_iter().enumerate().map(|(n, sentence)| Example {
+        id: format!("misread:{n}"),
+        text: sentence,
+        y: false,
+        weight: 3.0,
+        new: true,
+        kind: format!("misread:{n}"),
+    });
+    labelled.into_iter().chain(marked).collect()
+}
+
+/// The sentences marked Not a question, read from Fleet's store with the `sqlite3` macOS ships. None
+/// where the store or its table is not there yet.
+fn misreads() -> Vec<String> {
+    let store = support_dir().join("armada.db");
+    let Ok(out) = std::process::Command::new("sqlite3").arg("-readonly").arg(&store).arg("SELECT sentence FROM reply_misreads ORDER BY marked_at, sentence").output() else {
+        return Vec::new();
+    };
+    if !out.status.success() {
+        return Vec::new();
+    }
+    String::from_utf8_lossy(&out.stdout).lines().filter(|line| !line.trim().is_empty()).map(str::to_string).collect()
 }
 
 /// The whole encoder with `tuned`'s frozen adapters, cached: a head trained on it leaves the adapters as they are.
@@ -592,6 +616,21 @@ fn main() {
     let base =support_dir().join("models/bge-small-en-v1.5@5c38ec7c405ec4b44b94cc5a9bb96e735b38267a");
     let vocab = std::fs::read_to_string(base.join("vocab.txt")).unwrap();
     let enc = Encoder::load(&vocab, std::fs::read(base.join("model.safetensors")).unwrap(), LAYERS).unwrap();
+    if args[1] == "score" {
+        // score <reply.txt>: each sentence of the close with its `sentence_asks` probability under the
+        // committed adapter, marked where it reaches `extracting::ASKS_AT`, and the rules' own line.
+        let reply = std::fs::read_to_string(&args[2]).unwrap();
+        let tuned = Tuned::from_bytes(adapters_src::language_model::TUNED).unwrap();
+        let close = extracting::candidates(&reply);
+        let texts: Vec<&str> = close.iter().map(|one| one.sentence.as_str()).collect();
+        let (head, longest, keep) = shape(TextReading::SentenceAsks);
+        let scores = enc.read(&tuned, head, &texts, longest, keep).unwrap();
+        for (text, score) in texts.iter().zip(&scores) {
+            println!("{}{score:.3}\t{text}", if *score >= extracting::ASKS_AT { "ASKS " } else { "     " });
+        }
+        println!("rules: {:?}", asks::asking_line(&reply));
+        return;
+    }
     if args[1] == "pairs" {
         // pairs <pairs.tsv> <out.tsv>: the cosine of each pair's two texts under the base encoder, the
         // vectors Fleet's `TextModel::embed` gives (unit length, so the dot product is the cosine).
