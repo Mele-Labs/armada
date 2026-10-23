@@ -119,6 +119,9 @@ b              make the best decision   (call only)
 g              just get it done   (call only)
 t              reply in words   (call only)
 v              Open walk   (call only)
+e              Edit the entry   (logbook only)
+l              Lock or unlock the entry   (logbook only)
+f              Forget the entry   (logbook only)   (confirms)
 ```
 
 **The Cockpit's keys and a call in front have scopes of their own**, `dashboard`
@@ -130,6 +133,11 @@ never on a call Fleet raises about a state. On a Job's question they answer with
 `mode` `best` or `quick`, which Fleet turns into the instruction the Drone is told.
 `m` shows the map, `w` brings a waiting call back and `?` lists the keys. None is
 a palette row yet: each is read from the Cockpit's own sheet.
+
+**The Logbook page has a scope of its own, `logbook`.** Its three keys act on the selected
+entry: `e` edits its text in place, `l` locks it against rewriting or lets go, and `f` forgets it
+after asking. `f` and not Backspace, which the text box in place takes. They stand down in a text
+field and while a dialog is up.
 
 **The Reviews tab has a scope of its own, `review`.** Its list takes `j`, `k`, `Enter` and `o` as
 any list does; the rest are its own: `l r f` go to the list, the reader and the review tools,

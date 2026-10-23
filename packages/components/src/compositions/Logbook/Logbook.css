@@ -21,6 +21,10 @@
   align-items: start;
   grid-template-columns: minmax(0, 1fr);
 }
+/* The list and the open entry sit side by side once the page is wide enough for two columns.
+
+   armada-allow-off-contract: a container condition cannot read a custom property, and no layout breakpoint token names a container width
+   820px is where the list and the open entry both fit — docs/contracts/design-system.md */
 @container (min-width: 820px) {
   .armada-logbook__page { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .armada-logbook__detail { position: sticky; top: 0; }

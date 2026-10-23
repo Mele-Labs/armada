@@ -47,6 +47,7 @@ import { handleTeaching } from "./teaching-channels";
 import { handleReviews } from "./reviews-channels";
 import { handleTerritory } from "./territory-channels";
 import { handleBayHistory } from "./bay-history-channels";
+import { handleLogbook } from "./logbook-channels";
 import { handleUsageSummary } from "./usage-summary-channels";
 import { handleFlightControls } from "./flight-controls-channels";
 import { handleOnboarding } from "./onboarding-channels";
@@ -662,6 +663,7 @@ void app.whenReady().then(() => {
   handleReviews({ ipc: ipcMain, connection: () => connection, walks: { show: (shown) => captureWindows.openForReview(shown) } });
   handleTerritory({ ipc: ipcMain, connection: () => connection });
   handleBayHistory({ ipc: ipcMain, connection: () => connection });
+  handleLogbook({ ipc: ipcMain, connection: () => connection });
   handleUsageSummary({ ipc: ipcMain, connection: () => connection });
   handleFlightControls({ ipc: ipcMain, connection: () => connection });
   handleOnboarding({ ipc: ipcMain, connection: () => connection });

@@ -17,6 +17,7 @@ import type { LogbookEntry, LogbookKind, LogbookState } from "@armada/protocol";
 import { keyFor } from "../../actions";
 import { forgetKept, readKept } from "../../keep";
 import { isPressed, pressedSlot } from "../../keymap";
+import { Alert } from "../../primitives/Alert/Alert";
 import { Button } from "../../primitives/Button/Button";
 import { Dialog } from "../../primitives/Dialog/Dialog";
 import { Kbd } from "../../primitives/Kbd/Kbd";
@@ -65,8 +66,16 @@ export type LogbookViewProps = {
   onOpenJob?: (jobId: string) => void;
   /** What else an entry changed, drawn under its text. Absent, or absent for an entry, nothing is drawn. */
   also?: (entry: LogbookEntry) => ReactNode;
+  /** Fleet refused the last act on the open entry. Drawn above its text until another entry is opened. */
+  refusal?: { title: string; said: string };
   now: number;
 };
+
+/**
+ * Whether Fleet keeps the entry, so the owner may act on it. Run memory and the machine note are folded in with ids that
+ * start `runs-` and `machine-`, and Fleet refuses every act on them (`fleet.logbook_entry_not_kept`).
+ */
+export const isKept = (entry: Pick<LogbookEntry, "id">): boolean => !entry.id.startsWith("runs-") && !entry.id.startsWith("machine-");
 
 const KIND: Record<LogbookKind, { Glyph: LucideIcon; said: string }> = {
   command: { Glyph: SquareChevronRight, said: "Command" },
@@ -146,7 +155,7 @@ function Words({ text }: { text: string }) {
 const optionId = (id: string) => `logbook-entry-${id}`;
 const draftKey = (id: string) => `logbook:${id}`;
 
-export function LogbookView({ panels, shown, onShown, fixes, toFixes, unread, selected, onSelect, editing, onEdit, onSave, onLock, onForget, onOpenJob, also, now }: LogbookViewProps) {
+export function LogbookView({ panels, shown, onShown, fixes, toFixes, unread, selected, onSelect, editing, onEdit, onSave, onLock, onForget, onOpenJob, also, refusal, now }: LogbookViewProps) {
   const list = useRef<HTMLDivElement>(null);
   const part = useRef<HTMLElement>(null);
   const detail = useRef<HTMLElement>(null);
@@ -210,7 +219,7 @@ export function LogbookView({ panels, shown, onShown, fixes, toFixes, unread, se
       list.current?.focus();
       return;
     }
-    if (open === undefined) return;
+    if (open === undefined || !isKept(open)) return;
     if (isPressed("logbook_edit", event)) {
       event.preventDefault();
       onEdit(true);
@@ -277,6 +286,7 @@ export function LogbookView({ panels, shown, onShown, fixes, toFixes, unread, se
                   where={panelOf(open.id)?.title ?? ""}
                   editing={editing}
                   now={now}
+                  {...(refusal === undefined ? {} : { refusal })}
                   onEdit={onEdit}
                   onSave={(text) => {
                     onSave(open.id, text);
@@ -325,6 +335,7 @@ function Detail({
   where,
   editing,
   now,
+  refusal,
   onEdit,
   onSave,
   onLock,
@@ -336,6 +347,7 @@ function Detail({
   where: string;
   editing: boolean;
   now: number;
+  refusal?: { title: string; said: string };
   onEdit: (editing: boolean) => void;
   onSave: (text: string) => void;
   onLock: () => void;
@@ -344,6 +356,7 @@ function Detail({
   also?: ReactNode;
 }) {
   const key = draftKey(entry.id);
+  const kept = isKept(entry);
   const [draft, setDraft] = useState(() => readKept<string>(key) ?? entry.text);
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -361,7 +374,12 @@ function Detail({
       <div className="armada-logbook__band">{where}</div>
       <div className="armada-logbook__body">
         <div className="armada-logbook__marks">{marksOf(entry, now, true)}</div>
-        {editing ? (
+        {refusal === undefined ? null : (
+          <Alert tone="escalated" title={refusal.title}>
+            {refusal.said}
+          </Alert>
+        )}
+        {editing && kept ? (
           <div
             ref={box}
             className="armada-logbook__edit"
@@ -387,11 +405,13 @@ function Detail({
               <Words text={entry.text} />
             </p>
             {also}
-            <div className="armada-logbook__acts">
-              <Act label="Edit" act="logbook_edit" onPress={() => onEdit(true)} />
-              <Act label={entry.locked ? "Unlock" : "Lock"} act="logbook_lock" tip={entry.locked ? "Armada may rewrite it and let it fade again" : "Armada never rewrites it or lets it fade"} onPress={onLock} />
-              <Act label="Forget" act="logbook_forget" onPress={onForget} />
-            </div>
+            {kept ? (
+              <div className="armada-logbook__acts">
+                <Act label="Edit" act="logbook_edit" onPress={() => onEdit(true)} />
+                <Act label={entry.locked ? "Unlock" : "Lock"} act="logbook_lock" tip={entry.locked ? "Armada may rewrite it and let it fade again" : "Armada never rewrites it or lets it fade"} onPress={onLock} />
+                <Act label="Forget" act="logbook_forget" onPress={onForget} />
+              </div>
+            ) : null}
           </>
         )}
         <dl className="armada-logbook__facts">

@@ -87,6 +87,8 @@ It is written to the same rules for plain words as the retro call.
 
 **A candidate is not served.** Only a standing entry reaches an agent.
 
+**An entry folded in from run memory or the machine note cannot be edited, locked or forgotten.** Its id starts `runs-` or `machine-`, Fleet refuses every act on it, and Bridge draws none.
+
 ### Recall
 
 Standing entries reach agents three ways.
@@ -101,7 +103,12 @@ Standing entries reach agents three ways.
 
 ## What the person does
 
-**The person sees one Logbook page in Bridge.** He can read an entry and its evidence, edit it, lock it or forget it. Nothing else is asked of him. **The page has two parts**: what agents know, one panel per repository and then Habits and This Mac, and below it Armada fixes, the [retro](retro.md) items: what got in a Job's way and where its fix lands. Three tabs say which entries the panels hold: In use, the entries handed to every new Job, which is where the page opens; New, the candidates; and Archived, the faded ones. An entry draws the same in each tab, and its state shows in the open entry. Armada fixes stays below in every tab.
+**The person sees one Logbook page in Bridge.** He can read an entry and its evidence, edit it, lock it or forget it.
+Nothing else is asked of him.
+**The page has two parts**: what agents know, one panel per repository and then Habits and This Mac, and below it Armada fixes, the [retro](retro.md) items: what got in a Job's way and where its fix lands.
+Three tabs say which entries the panels hold: In use, the entries handed to every new Job, which is where the page opens; New, the candidates; and Archived, the faded ones.
+An entry draws the same in each tab, and its state shows in the open entry.
+Armada fixes stays below in every tab.
 
 | Act | Does |
 |---|---|

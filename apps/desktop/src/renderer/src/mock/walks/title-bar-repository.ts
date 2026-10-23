@@ -6,12 +6,12 @@ import { place, role, text, walk } from "../walk";
 const titleBarRepository = walk("sessions-by-repository", [
   { look: place("Cockpit"), say: "The Cockpit, where the picker names the repository and the title row draws no tag" },
   { press: place("Logbook"), say: "Logbook" },
-  { look: text("All repositories"), say: "On Retros the title row says All repositories" },
+  { look: text("All repositories"), say: "On the Logbook the title row says All repositories" },
   { press: place("Cockpit"), say: "Back to the Cockpit, where the picker is" },
-  { press: text("All repositories"), say: "Pick one repository" },
-  { press: role("menuitem", "storefront"), say: "storefront" },
+  { press: role("combobox", "Repository"), say: "Pick one repository" },
+  { press: role("option", "storefront"), say: "storefront" },
   { press: place("Logbook"), say: "Logbook" },
-  { look: text("storefront"), say: "On Retros the title row names storefront" },
+  { look: text("storefront"), say: "On the Logbook the title row names storefront" },
   { press: place("Studios"), say: "Studios" },
   { look: text("storefront"), say: "It names storefront there too" },
 ]);

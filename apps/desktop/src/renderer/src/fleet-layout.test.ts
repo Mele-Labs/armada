@@ -11,7 +11,7 @@ import type { LayoutRegion } from "@armada/shell";
 import { createFleetLayout, type FleetLayout } from "./fleet-layout";
 
 const row = (name: string, over: Partial<ModSummary> = {}): ModSummary => ({ name, kind: "layout", enabled: true, valid: true, changed_at: "t1", ...over });
-const TIDY = '{"version":1,"dashboard.panels":{"order":["merge-line","fleet"]},"rail":{"hidden":["lessons"]}}';
+const TIDY = '{"version":1,"dashboard.panels":{"order":["merge-line","fleet"]},"rail":{"hidden":["logbook"]}}';
 const REFUSED: Outcome = { ok: false, why: "not_connected" };
 
 type Facts = Parameters<Parameters<FleetLayout["subscribe"]>[0]>[0];
@@ -54,7 +54,7 @@ describe("layout mods from Fleet's list", () => {
     expect(source.get().mods.map((mod) => [mod.name, mod.enabled, mod.problem])).toEqual([["tidy", true, undefined]]);
     await settled();
     expect(drawn("dashboard.panels")).toEqual(["merge-line", "fleet"]);
-    expect(drawn("rail")).not.toContain("lessons");
+    expect(drawn("rail")).not.toContain("logbook");
   });
 
   it("lists only layout mods, asks Fleet once per change of a mod, and reads nothing for a mod that is off", async () => {
@@ -74,7 +74,7 @@ describe("layout mods from Fleet's list", () => {
     const { source, drawn } = fake(facts([row("tidy", { valid: false, reason: "rail.hidden is not a list of up to 32 ids" })]));
     await settled();
     expect(source.get().mods[0]?.problem).toBe("rail.hidden is not a list of up to 32 ids");
-    expect(drawn("rail")).toContain("lessons");
+    expect(drawn("rail")).toContain("logbook");
   });
 
   it("refuses text Fleet passed that Bridge's own parser does not, and draws the defaults for it", async () => {
@@ -82,16 +82,16 @@ describe("layout mods from Fleet's list", () => {
     await settled();
     await settled();
     expect(source.get().mods[0]?.problem).toBe("version is not 1");
-    expect(drawn("rail")).toContain("lessons");
+    expect(drawn("rail")).toContain("logbook");
   });
 
   it("applies the text of a mod only from validate_mod, and a mod switched off draws the defaults", async () => {
     const { push, drawn } = fake(facts([row("tidy")]));
     await settled();
     await settled();
-    expect(drawn("rail")).not.toContain("lessons");
+    expect(drawn("rail")).not.toContain("logbook");
     push(facts([row("tidy", { enabled: false })]));
-    expect(drawn("rail")).toContain("lessons");
+    expect(drawn("rail")).toContain("logbook");
   });
 
   it("keeps the layout it last read while a rewritten mod is read again", async () => {
@@ -99,16 +99,16 @@ describe("layout mods from Fleet's list", () => {
     await settled();
     await settled();
     push(facts([row("tidy", { changed_at: "t2" })]));
-    expect(drawn("rail")).not.toContain("lessons");
+    expect(drawn("rail")).not.toContain("logbook");
   });
 
   it("ignores a mod hiding what cannot be hidden, and an id that no longer exists", async () => {
-    const greedy = '{"version":1,"rail":{"hidden":["settings","mods","overview","lessons","retired-row"]},"job.tabs":{"first":"retired-tab"}}';
+    const greedy = '{"version":1,"rail":{"hidden":["settings","mods","overview","logbook","retired-row"]},"job.tabs":{"first":"retired-tab"}}';
     const { drawn } = fake(facts([row("tidy")]), { tidy: greedy });
     await settled();
     await settled();
     expect(drawn("rail")).toEqual(expect.arrayContaining(["settings", "mods", "overview"]));
-    expect(drawn("rail")).not.toContain("lessons");
+    expect(drawn("rail")).not.toContain("logbook");
     expect(drawn("job.tabs")[0]).toBe("overview");
   });
 });
@@ -120,7 +120,7 @@ describe("the owner's own choices", () => {
     await settled();
     await settled();
     expect(source.get().own.regions).toEqual({ rail: { hidden: [] } });
-    expect(drawn("rail")).toContain("lessons");
+    expect(drawn("rail")).toContain("logbook");
     expect(drawn("dashboard.panels")).toEqual(["merge-line", "fleet"]);
   });
 
@@ -168,7 +168,7 @@ describe("Reset to defaults", () => {
     await settled();
     source.toDefaults();
     expect(drawn("rail")).toContain("guides");
-    expect(drawn("rail")).toContain("lessons");
+    expect(drawn("rail")).toContain("logbook");
     await settled();
     expect(saved).toEqual([{ name: "layout_choices", value: false, text: "" }]);
     expect(asked).toEqual(["off tidy"]);
