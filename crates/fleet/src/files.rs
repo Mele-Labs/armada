@@ -4,6 +4,9 @@
 //! Git names the files, so `.gitignore` decides what is a candidate: a slot
 //! under `.armada/` or a `.venv` is a copy of files that would otherwise answer
 //! every query. A folder that is not a repository is walked instead.
+//!
+//! Matches are ranked rather than filtered: the query's letters in order, with
+//! the file name and word starts counting for most.
 
 use std::path::Path;
 use std::process::Command;
@@ -20,21 +23,66 @@ const RESULT_CAP: usize = 50;
 /// in a folder nobody has sized costs a bounded read.
 const WALK_CAP: usize = 20_000;
 
-/// Every file under `root` whose path, relative to `root`, contains `query`
-/// case-insensitively — `query` empty matches everything, up to the cap.
+/// The files under `root` whose path, relative to `root`, holds `query`'s
+/// letters in order, best match first and at most `RESULT_CAP` of them. An
+/// empty `query` matches everything.
 ///
 /// **Never fails.** A subdirectory this cannot read is skipped rather than
 /// failing the search: `ipc::FilesFound`'s own notes carry the reasoning.
 pub(crate) fn search(root: &Path, query: &str) -> Vec<String> {
-    let needle = query.to_lowercase();
-    let mut found: Vec<String> = listed(root)
+    let query: Vec<char> = query.chars().map(lower).collect();
+    let mut ranked: Vec<(i32, String)> = listed(root)
         .unwrap_or_else(|| walked(root))
         .into_iter()
-        .filter(|path| needle.is_empty() || path.to_lowercase().contains(needle.as_str()))
+        .filter_map(|path| Some((score(&path, &query)?, path)))
         .collect();
-    found.sort();
-    found.truncate(RESULT_CAP);
-    found
+    // Bridge shows the rows in the order given, so the cut keeps the best.
+    ranked.sort_by(|(a_score, a), (b_score, b)| {
+        b_score.cmp(a_score).then(a.len().cmp(&b.len())).then(a.cmp(b))
+    });
+    ranked.into_iter().take(RESULT_CAP).map(|(_, path)| path).collect()
+}
+
+fn lower(c: char) -> char {
+    c.to_lowercase().next().unwrap_or(c)
+}
+
+/// How well `query` (lowercased) matches `path`, or `None` where its letters
+/// do not appear in order.
+///
+/// Matched from the end of the path backwards, so the letters land in the file
+/// name where they can, not on a directory that happens to hold them earlier.
+fn score(path: &str, query: &[char]) -> Option<i32> {
+    let chars: Vec<char> = path.chars().collect();
+    let name_start = chars.iter().rposition(|c| *c == '/').map_or(0, |i| i + 1);
+    let mut at = Vec::with_capacity(query.len());
+    let mut end = chars.len();
+    for q in query.iter().rev() {
+        end = chars[..end].iter().rposition(|c| lower(*c) == *q)?;
+        at.push(end);
+    }
+    // `at` runs last letter first, so the letter before `at[n]` is `at[n + 1]`.
+    let mut score = -(chars.len() as i32 / 8);
+    for (n, &i) in at.iter().enumerate() {
+        score += 1;
+        if i >= name_start {
+            score += 3;
+        }
+        let word_start = i == 0
+            || matches!(chars[i - 1], '/' | '-' | '_' | '.' | ' ')
+            || (chars[i - 1].is_lowercase() && chars[i].is_uppercase());
+        if word_start {
+            score += 8;
+        }
+        if at.get(n + 1).is_some_and(|before| before + 1 == i) {
+            score += 5;
+        }
+    }
+    let name: String = chars[name_start..].iter().map(|c| lower(*c)).collect();
+    if name.contains(&query.iter().collect::<String>()) {
+        score += 40;
+    }
+    Some(score)
 }
 
 /// Tracked and untracked-but-not-ignored files, or `None` where `root` is not
@@ -159,14 +207,20 @@ mod tests {
         assert!(!found[0].contains('\\'));
     }
 
-    /// More files exist than the cap, and what comes back is cut to it.
+    /// More files match than the cap: the answer is ranked and then cut, so
+    /// the best match survives rather than the first ones listed.
     #[test]
-    fn the_result_is_capped() {
+    fn the_result_is_ranked_and_then_capped() {
         let home = TempDir::new();
         for n in 0..RESULT_CAP + 10 {
-            std::fs::write(home.path().join(format!("file-{n:03}.txt")), b"").expect("a file");
+            std::fs::create_dir_all(home.path().join(format!("mod-{n:03}"))).expect("a directory");
+            std::fs::write(home.path().join(format!("mod-{n:03}/x.rs")), b"").expect("a file");
         }
-        assert_eq!(search(home.path(), "").len(), RESULT_CAP);
+        std::fs::create_dir_all(home.path().join("src")).expect("a directory");
+        std::fs::write(home.path().join("src/mod.rs"), b"").expect("a file");
+        let found = search(home.path(), "mod");
+        assert_eq!(found.len(), RESULT_CAP);
+        assert_eq!(found[0], "src/mod.rs");
     }
 
     /// One git command in `root`, with the user's own configuration off.
@@ -228,6 +282,33 @@ mod tests {
         std::fs::write(home.path().join(".armada/slots/slot-1/copy.rs"), b"").expect("a file");
         std::fs::write(home.path().join("copy.rs"), b"").expect("a file");
         assert_eq!(search(home.path(), "copy"), vec!["copy.rs"]);
+    }
+
+    /// Letters in order are enough, so a half-remembered name finds the file:
+    /// `sesscomp` is not a substring of anything here.
+    #[test]
+    fn a_query_matches_as_a_subsequence() {
+        let home = TempDir::new();
+        let file = "packages/components/src/compositions/SessionComposer/SessionComposer.tsx";
+        let path = home.path().join(file);
+        std::fs::create_dir_all(path.parent().expect("a parent")).expect("a directory");
+        std::fs::write(path, b"").expect("a file");
+        std::fs::write(home.path().join("README.md"), b"").expect("a file");
+        assert_eq!(search(home.path(), "sesscomp"), vec![file]);
+    }
+
+    /// A hit in the file name outranks one buried in a directory name, even
+    /// where the other sorts first alphabetically.
+    #[test]
+    fn a_file_name_hit_ranks_above_a_deep_path_hit() {
+        let home = TempDir::new();
+        let deep = "src/a/reader-tools/deep/nested/other.rs";
+        for file in [deep, "src/log/reader.rs"] {
+            let path = home.path().join(file);
+            std::fs::create_dir_all(path.parent().expect("a parent")).expect("a directory");
+            std::fs::write(path, b"").expect("a file");
+        }
+        assert_eq!(search(home.path(), "reader"), vec!["src/log/reader.rs", deep]);
     }
 
     /// A directory this cannot read at all — the root itself missing — is
