@@ -350,6 +350,9 @@ const NOTHING_OWED: &[&str] = &[
     "might need you",
 ];
 
+/// The plan is a card in the thread with its own Approve, so a line pointing at it asks for nothing more.
+const PLAN_CARD: &[&str] = &["approve the plan", "review the plan"];
+
 /// An offer left open, which asks for nothing until he takes it up.
 const CONDITIONAL: &[&str] = &["if you want", "if you'd like", "if you would like", "if you'd rather", "if you prefer"];
 
@@ -362,7 +365,7 @@ fn asks(sentence: &str) -> bool {
     if said.trim_end_matches(['"', '\'', ')', '_', ' ']).ends_with('?') {
         return !quoted;
     }
-    if CONDITIONAL.iter().any(|phrase| said.contains(phrase)) {
+    if CONDITIONAL.iter().chain(PLAN_CARD).any(|phrase| said.contains(phrase)) {
         return false;
     }
     if HEADINGS.iter().any(|phrase| said.starts_with(phrase) || said.contains(&format!("{phrase}:"))) {
