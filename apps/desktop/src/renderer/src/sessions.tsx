@@ -122,7 +122,7 @@ import { useSessions, useSessionsDraft, useSessionsSaid } from "./sessions-draft
 import { restartOf } from "./build-change";
 import { bangOf, hostedCommands, opensMcp, runnerOf } from "./session-runner";
 import { todosOf } from "./session-activity";
-import { dismissWaiting } from "./cockpit/dismissed";
+import { confirmWaiting, dismissWaiting } from "./cockpit/dismissed";
 import { holdsDelivery, stateOf } from "./session-state";
 import type { PlanEditing } from "./session-view/PlanEdit";
 import type { LoadoutAt } from "./session-loadout";
@@ -539,6 +539,8 @@ export function entriesOf(
       ...(act !== undefined || one.steps !== undefined || (one.source !== "agent" && one.source !== "replied") || answerWaiting === undefined
         ? {}
         : { onReply: (text: string) => answerWaiting(one.id, { text }), replyKeep: `waiting:${session.id}:${one.id}` }),
+      // A sentence Fleet read out of the reply is marked as such, and the person can say it asked nothing.
+      ...(one.source !== "replied" ? {} : { fromReply: true, onMisread: () => void dismissWaiting(session.id, one.id, undefined, true), onConfirmed: () => void confirmWaiting(session.id, one.id), ...(one.confirmed === true ? { confirmed: true } : {}) }),
       // An item the agent stated is the person's to take off; the agent is told, with his reason where he gave one.
       ...(one.source !== "agent" || removeWaiting === undefined ? {} : { onRemove: (reason: string) => removeWaiting(one.id, reason), removeKeep: `remove:${session.id}:${one.id}` }),
       onOpen: () => {
