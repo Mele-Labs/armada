@@ -2,7 +2,7 @@
 // **every field the tracker returned** as names and values (Bridge draws them alike, whichever tracker sent them), the
 // description, the pull requests that name it, and the Jobs working it or the one press that starts one.
 
-import { Button, Kbd, Prose, Tooltip } from "@armada/components";
+import { Button, Kbd, Prose, RepositoryChip, Tooltip } from "@armada/components";
 
 import { IssueState, LinkedPullRequests, Open } from "../shared-panel/panels";
 import type { Band } from "./bands";
@@ -45,7 +45,7 @@ function Reader({ band, tracker, ticket, onOpenLink, onOpenSession, onStart }: H
     <section className="deck-pane issues-reader" aria-label={`Issue ${ticket.reference}`} tabIndex={-1}>
       <header className="deck-band deck-pane__head">
         <h2 className="deck-pane__title">{ticket.title}</h2>
-        <span className="deck-pane__where">{band.label}</span>
+        <RepositoryChip name={band.label} />
         <span className="deck-pane__acts">
           <Tooltip label="Go to the issue" shortcut={ISSUES_KEYS.reader}>
             <Kbd>{ISSUES_KEYS.reader}</Kbd>

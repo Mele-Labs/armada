@@ -388,6 +388,8 @@ export * from "./compositions/SessionThread/debug-info";
 export * from "./compositions/SessionThread/RequestedRow";
 export * from "./compositions/SessionThread/SavedRow";
 export * from "./compositions/SessionRepository/SessionRepository";
+// A repository as a chip, where a surface names the repository a thing belongs to.
+export * from "./compositions/RepositoryChip/RepositoryChip";
 export * from "./compositions/RepositoryRuns/RepositoryRuns";
 export * from "./compositions/RepositoryRuns/RunsAll";
 export * from "./compositions/AskCard/AskCard";
