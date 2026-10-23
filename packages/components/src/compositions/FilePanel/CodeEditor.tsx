@@ -7,9 +7,10 @@ import { markdown } from "@codemirror/lang-markdown";
 import { python } from "@codemirror/lang-python";
 import { rust } from "@codemirror/lang-rust";
 import { yaml } from "@codemirror/lang-yaml";
-import { HighlightStyle, StreamLanguage, bracketMatching, indentOnInput, syntaxHighlighting } from "@codemirror/language";
+import { HighlightStyle, LanguageDescription, StreamLanguage, bracketMatching, indentOnInput, syntaxHighlighting } from "@codemirror/language";
 import type { Extension } from "@codemirror/state";
 import { Compartment, EditorState, RangeSetBuilder } from "@codemirror/state";
+import { languages } from "@codemirror/language-data";
 import { shell } from "@codemirror/legacy-modes/mode/shell";
 import { toml } from "@codemirror/legacy-modes/mode/toml";
 import { highlightSelectionMatches, search, searchKeymap, searchPanelOpen } from "@codemirror/search";
@@ -62,12 +63,18 @@ export function languageOf(name: string): CodeLanguage {
   return dot < 0 ? "text" : (BY_EXTENSION[name.slice(dot + 1).toLowerCase()] ?? "text");
 }
 
+/**
+ * The grammar for a name the built-in set does not know, from CodeMirror's own list of languages, which loads each one when it
+ * is first asked for. Null where the list has none, and the text stays plain.
+ */
+const found = (name: string): Promise<Extension | null> => LanguageDescription.matchFilename(languages, name)?.load() ?? Promise.resolve(null);
+
 const support = (language: CodeLanguage): Extension => {
   switch (language) {
     case "json":
       return json();
     case "markdown":
-      return markdown();
+      return markdown({ codeLanguages: languages });
     case "javascript":
       return javascript();
     case "typescript":
@@ -107,6 +114,7 @@ const highlight = HighlightStyle.define([
   { tag: [tags.punctuation, tags.operator, tags.bracket, tags.separator, tags.meta], color: "var(--fg-muted)" },
   { tag: [tags.heading, tags.strong], color: "var(--fg-default)", fontWeight: "var(--weight-heading)" },
   { tag: [tags.link, tags.url], color: "var(--accent)" },
+  { tag: [tags.monospace, tags.processingInstruction, tags.quote, tags.contentSeparator], color: "var(--tool-run)" },
   { tag: tags.emphasis, fontStyle: "italic" },
   { tag: tags.strikethrough, textDecoration: "line-through" },
 ]);
@@ -399,6 +407,20 @@ export function CodeEditor({ name, value, onChange, language, autoFocus = false,
       ],
     });
   }, [kind, wraps, editable, name]);
+
+  // A name the built-in set reads as plain text may still be a language the list knows: Go, Ruby, SQL and the rest.
+  useEffect(() => {
+    if (kind !== "text") return;
+    let current = true;
+    void found(name)
+      .then((loaded) => {
+        if (current && loaded !== null) view.current?.dispatch({ effects: slots.current.language.reconfigure(loaded) });
+      })
+      .catch(() => undefined);
+    return () => {
+      current = false;
+    };
+  }, [kind, name]);
 
   // Once per pair of lines, after the text that holds them is in.
   const shown = useRef<string | undefined>(undefined);

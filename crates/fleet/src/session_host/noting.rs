@@ -39,7 +39,9 @@ where
         let terminal = self.terminal_session(&id).await?;
         let (found, checkout) = self.note_found(&id, &note).await;
         let text = note.said.trim().to_string();
-        let instead = format!("{text}\n{}\n{HANDOFF}", told(&note, &found, checkout.as_deref()).join("\n"));
+        let mut lines = told(&note, &found, checkout.as_deref());
+        lines.extend(background(&note));
+        let instead = format!("{text}\n{}\n{HANDOFF}", lines.join("\n"));
         let sent = SendSessionMessage {
             session_id,
             text,
@@ -73,7 +75,7 @@ where
             let (found, checkout) = self.note_found(&id, note).await;
             let words = format!("{}. {}", at + 1, note.said.trim());
             let mut block = words.clone();
-            for line in told(note, &found, checkout.as_deref()) {
+            for line in told(note, &found, checkout.as_deref()).into_iter().chain(background(note)) {
                 block.push_str("\n   ");
                 block.push_str(&line);
             }
@@ -190,6 +192,16 @@ fn searched(checkout: &Path, place: &ipc::NotePlace) -> Located {
 
 /// How to deliver is the owner's answer to the delivery question, never something to assume here.
 const HANDOFF: &str = "Handoff: deliver the way the owner chose when Fleet asked how. A change the owner would see waits for his walk before it lands.";
+
+/// The Job open when he pinned the note, said to be background so the turn starts from his words.
+fn background(note: &SessionNote) -> Vec<String> {
+    if note.job.is_empty() {
+        return Vec::new();
+    }
+    let mut lines = vec!["Background, not the task: the Job he had open when he pinned this".to_string()];
+    lines.extend(note.job.iter().cloned());
+    lines
+}
 
 /// What the agent reads after the person's words, short of the handoff.
 fn told(note: &SessionNote, found: &Located, checkout: Option<&Path>) -> Vec<String> {
