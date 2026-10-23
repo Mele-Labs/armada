@@ -59,7 +59,7 @@ const steps: Step[] = [
   { press: terminal, say: "Terminal" },
   { look: inside(panel, served), say: "In the side panel, the thread at full height" },
   { press: inside(panel, button("Dock under the thread")), say: "Dock under the thread" },
-  { look: inside(pane, served), say: "Docked again, its output kept" },
+  { look: inside(pane, text(/hmr update/)), say: "Docked again, the server still printing" },
   { press: terminal, say: "Terminal again. Hidden, and the shell keeps running" },
 ];
 
