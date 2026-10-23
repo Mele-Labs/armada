@@ -1,6 +1,6 @@
 # Mod
 
-**What it is:** A folder on this machine that changes how Bridge looks or how it is arranged, written by a person or by a job, which Fleet reads and checks and which can never stop Fleet from starting or from listing.
+**What it is:** A folder on this machine that changes how Bridge looks or how it is arranged, or teaches Fleet a tracker it was not built for, written by a person or by a job, which Fleet reads and checks and which can never stop Fleet from starting or from listing.
 
 ---
 
@@ -15,8 +15,8 @@ A month later you ask for it in the repository, and it is on a branch under `pac
 > **Rule.** A mod is a folder under the machine's `mods/` directory, and nothing else is one.
 > Why: a job that can write a file can make one, without a build and without touching Bridge's source.
 
-> **Rule.** Fleet stores and checks a mod, and Bridge is what applies it.
-> Why: Fleet never draws, and a mod is a theme or a layout.
+> **Rule.** Fleet stores and checks a mod, and Bridge is what applies a theme or a layout.
+> Why: Fleet never draws. A tracker mod is the one kind Fleet runs itself, because Fleet is what reads a tracker.
 
 > **Rule.** A broken mod is a row with `valid` false, and never a failure of Fleet's start or of `list_mods`.
 > Why: the folder is written by anything on the machine, so every read of it is bounded and every fault is that mod's own.
@@ -33,6 +33,8 @@ A month later you ask for it in the repository, and it is on a branch under `pac
 | `mod.toml` | `name`, `kind`, `version`, `description` |
 | `theme.css` | Token values Bridge injects, in a theme mod |
 | `layout.json` | Which tabs, panels and places Bridge draws and in what order, in a layout mod. [Layout mods](layout-mods.md) |
+| `tracker.toml` | How to list, search and read a tracker's issues, in a tracker mod. *Tracker mods* below |
+| `.tried.toml` | A tracker mod's last try, written by Fleet and never promoted |
 | `.git/` | The mod's own history, one commit at scaffold |
 
 `name` is a slug of 1 to 40 lowercase letters, digits and `-`, starting with a letter or digit. `dark`, `light`, `system` and `default` are refused, because Bridge's own themes answer to them.
@@ -44,13 +46,13 @@ A flat file of `key = "value"` lines and `#` comments, read by hand: a table, an
 | field | type | required | default | meaning |
 |---|---|---|---|---|
 | `name` | string | yes | | The folder's name |
-| `kind` | string | yes | | `theme` or `layout` |
+| `kind` | string | yes | | `theme`, `layout` or `tracker` |
 | `version` | string | yes | | Up to 32 letters, digits, `.`, `+`, `-` |
 | `description` | string | no | none | Up to 200 characters |
 
 Any other key is a problem.
 A `kind` this build does not have makes the mod invalid, so a valid mod's kind is always one Bridge can act on.
-A theme mod holds `theme.css` and a layout mod holds `layout.json`, and the kind says which file is read.
+A theme mod holds `theme.css`, a layout mod `layout.json` and a tracker mod `tracker.toml`, and the kind says which file is read.
 
 ## theme.css
 
@@ -70,13 +72,68 @@ The tokens are the names in `packages/tokens/tokens.json`, compiled into Fleet, 
 
 Every problem is returned with its line, up to 20.
 
+## Tracker mods
+
+A tracker mod teaches Fleet a tracker this build has no adapter for, over the tracker's command line or its HTTP API.
+A repository's Manifest then names it as `provider`, as it names `jira`. [Tracker](tracker.md), *Choosing a tracker*.
+
+> **Rule.** A tracker mod is used only while it has passed a try of its `tracker.toml` as the file now stands.
+> Why: the file passing its checks says nothing about whether the command or the address it names answers, and an edit can break either.
+
+### tracker.toml
+
+At most 32 KiB of TOML, read by `crates/adapters/src/taught_tracker/file.rs`.
+
+| Section | Required | Holds |
+|---|---|---|
+| `[guide]` | yes | `language`, `guide`, `open`, `assigned_to_me` and an optional `fields` list: what `query_guide` answers |
+| `[credential]` | no | `argv`, a command whose output is the secret, run for each call and never kept |
+| `[search]` | yes | A call: `{query}` is the query, in the tracker's own language |
+| `[list]` | no | A call listing the open issues. Absent is a search for the guide's `open` |
+| `[read]` | yes | A call: `{reference}` is the issue's reference. Its `map` yields one issue or `null` |
+
+A call names its `transport` and takes that transport's keys and no others.
+
+| `transport` | Keys |
+|---|---|
+| `cli` | `argv`: the program and its arguments, run with no shell |
+| `http` | `url`, and optional `method` (`GET` or `POST`), `headers` and `body` (a `POST`'s only) |
+| `mcp` | Not built. A server command, a tool and its arguments would be its keys |
+
+Every call has a `map`, a `jq` filter turning the answer into a list of issues under Armada's own names.
+`reference`, `title`, `url` and `closed` (true or false) are required, and a row missing one fails that call naming the row and the key.
+`author`, `assignees`, `labels`, `updated_at`, `excerpt` or `body`, `opened_at`, `fields` (`[{name, values}]`), `comments` (`[{author, at, body}]`) and `linked_pull_requests` (`[{number, title, url, state}]`) are read where they are there.
+
+`{query}`, `{reference}` and `{credential}` are filled into one value each and never through a shell: as written in an argument or a header, percent-encoded in a URL, and escaped inside a JSON string in a body.
+Any other `{word}` is text, so a body's own braces stand.
+A URL is `https://`, or `http://` to this machine, and names its host as written, so a credential goes only to the host the file names.
+
+| Refused, with its reason | Example |
+|---|---|
+| A section or a key a tracker does not read | `[comments]`, `shell = true` |
+| A transport this build does not have | `transport = "mcp"` |
+| A placeholder the section cannot fill | `{query}` in `[read]`, `{credential}` with no `[credential]` |
+| A search that never uses `{query}`, a read that never uses `{reference}` | Every call would ask the same |
+| A call with no `map` | |
+
+Every program and request is bounded: 30 seconds, and 4 MiB of answer.
+The credential is held as a `Secret` for the one call, and every refusal is scrubbed of it before it is said.
+
+### The try
+
+`try_tracker_mod` runs the search for the guide's `open` against a repository Fleet serves, then `[list]` where there is one, then reads the first issue listed by its reference.
+It keeps the outcome in `.tried.toml` beside the mod, with when, the repository, how many issues were listed, the reference read or the reason it failed, and the digest of the `tracker.toml` it tried.
+`list_mods` carries it as the row's `tried` while that digest is the file's, so an edit shows the mod untried again.
+A scan and a Manifest's lookup read the record and run nothing.
+
 ## The operations
 
 | Operation | Kind | A job may | Does |
 |---|---|---|---|
-| `list_mods` | query | yes | Every mod: kind, version, description, `enabled`, `valid`, `reason`, `changed_at` |
-| `scaffold_mod` | command | yes | Makes the folder, a starter `theme.css` or, for `kind` `layout`, a `layout.json` that changes nothing, `git init` and one commit |
+| `list_mods` | query | yes | Every mod: kind, version, description, `enabled`, `valid`, `reason`, `changed_at`, and a tracker's `tried` |
+| `scaffold_mod` | command | yes | Makes the folder, a starter `theme.css` or, for `kind` `layout`, a `layout.json` that changes nothing, or for `kind` `tracker` a `tracker.toml` that validates and fails its try, `git init` and one commit |
 | `validate_mod` | query | yes | Every problem found, and the checked text when there are none: `css` for a theme, `layout` for a layout |
+| `try_tracker_mod` | command | yes | Runs a tracker mod against a repository and keeps how it went |
 | `set_mod_enabled` | command | Helm only | This machine's switch for one mod |
 | `promote_mod` | command | no | Copies the mod onto a new branch of a repository |
 
@@ -106,7 +163,7 @@ A mod nobody switched is on. A switch only says whether the owner allows the mod
 
 1. `promote_mod` refuses a mod that is invalid, and a repository with no `packages/` directory.
 2. Fleet leases a slot from the repository's pool, with a branch `armada/mod-<name>-<milliseconds>` cut fresh from the base.
-3. It writes the two checked files, `mod.toml` and `theme.css` or `layout.json`, to `packages/mods/<name>/` in the slot, never the mod's `.git`.
+3. It writes the two checked files, `mod.toml` and `theme.css`, `layout.json` or `tracker.toml`, to `packages/mods/<name>/` in the slot, never the mod's `.git` or its `.tried.toml`.
 4. It commits exactly those paths and gives the slot back.
 5. It answers with the branch and the commit.
 

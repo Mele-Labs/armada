@@ -10,6 +10,7 @@ Each issue is named by its tracker's own reference: `#123` on the forge, `ABC-12
 `#91`.
 The seam is `Tracker` in `crates/adapter-traits/src/tracker.rs`.
 There are two implementations, and each repository's Manifest chooses between them: `crates/adapters/src/issue_tracker.rs`, against the same forge the rest of delivery assumes, and `crates/adapters/src/jira_tracker.rs`, [Jira](#jira).
+Any other tracker is taught by a tracker mod, `crates/adapters/src/taught_tracker.rs`.
 *Choosing a tracker* says how.
 
 **An issue's identity is its reference and its address, never a bare number.** A number names nothing once a tracker has more than one project.
@@ -76,8 +77,8 @@ tracker:
 
 | Key | Meaning |
 |---|---|
-| `provider` | Which implementation. Absent, or `github`, is the forge's own tracker, as before the key existed |
-| every other key | Carried as written, for that provider to read. The central schema holds `provider` and nothing else, so a new tracker is not a change to `config` (`../contracts/adapters.md`) |
+| `provider` | Which implementation. Absent, or `github`, is the forge's own tracker, as before the key existed. Any word this build has no tracker for names a tracker mod |
+| every other key | Carried as written, for that provider to read. The central schema holds `provider` and nothing else, so a new tracker is not a change to `config` (`../contracts/adapters.md`). A tracker mod takes none |
 
 > **Rule.** A block that cannot be used never stops Fleet.
 > Why: a provider this build has no word for, a missing key or a stray one makes that repository's tracker answer every call with the reason, as any refused tracker does.
@@ -85,6 +86,23 @@ tracker:
 
 The choice is read when Fleet starts, so a save that changes it is reported as waiting for a restart (`manifest.md`, *`tracker` and `ci_gate`*).
 The match from provider to implementation is in `crates/adapters/src/tracker_providers.rs`, because the provider words are vendors', and the composition root names that one type and no other.
+
+### A tracker Armada was not built for
+
+A job teaches it: it finds the tracker's command line or API, writes a tracker mod's `tracker.toml`, tries it against the repository with `try_tracker_mod`, and the Manifest names the mod.
+
+```yaml
+tracker:
+  provider: linear
+```
+
+> **Rule.** A provider naming a tracker mod is used only while the mod is valid and has passed a try of its file as it stands.
+> Why: until it has answered once, nothing says the command or the address it names works, and every call is refused with the reason instead.
+
+The mod is looked up at each call, so a try that passes is used without a restart, and an edit to `tracker.toml` refuses the mod until it is tried again.
+A word that names neither a built-in tracker nor a mod is refused as before.
+A taught tracker reads no link, so a request naming one of its issues by address is dispatched as written.
+What the file says is [Mod](mods.md), *Tracker mods*.
 
 ## Jira
 
