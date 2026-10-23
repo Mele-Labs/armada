@@ -1,9 +1,11 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { RefObject } from "react";
 import { createPortal } from "react-dom";
-import { GitFork, Reply } from "lucide-react";
+import { GitFork, GraduationCap, Reply } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
+import { DropdownMenu } from "../../primitives/DropdownMenu/DropdownMenu";
+import type { DropdownMenuEntry } from "../../primitives/DropdownMenu/DropdownMenu";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 
 /** What was selected, and the message it was selected in. */
@@ -59,15 +61,41 @@ function read(scope: HTMLElement): Spot | undefined {
   return { rowId: block.getAttribute(FORK_ROW)!, quote: quoteOf(words), left: first.left + Math.min(first.width, pixels("--space-12") * 2) / 2, top: first.top, foot: last.bottom };
 }
 
+/** The words as the right-click menu holds them: where it opens, and the pick it was opened on, kept because opening it may take the selection. */
+type Opened = { x: number; y: number; pick: ForkPick };
+
+const TEACH = { id: "teach", label: "Teach", icon: GraduationCap } as const;
+const REPLY = { id: "reply", label: "Reply", icon: Reply } as const;
+const FORK = { id: "fork", label: "Fork from here", icon: GitFork } as const;
+/** The menu lists Teach first, the act the person came for; the bar keeps Reply and Fork where they were and adds Teach after them. */
+const IN_MENU = [TEACH, REPLY, FORK];
+const ON_BAR = [REPLY, FORK, TEACH];
+
 /**
- * A small bar above the words selected in a message, with up to two acts: reply to those words, and
- * fork the Session from that message. Each shows only where its handler is given, and the bar
- * where either is. **It reads the selection and never owns it**: a press leaves the selection where it was
+ * A small bar above the words selected in a message, with up to three acts: reply to those words, fork the
+ * Session from that message, and teach Armada what the words are. Each shows only where its handler is given, and the bar
+ * where any is. **A right press on the selected words opens the same acts as a menu**, and so do the ContextMenu key and
+ * Shift+F10 while words are selected; a right press anywhere else falls through to whatever the row offers. **It reads the selection and never owns it**: a press leaves the selection where it was
  * until the act is taken, and the bar goes when the selection collapses, on Esc, or when the
  * selected words scroll out of `scope`.
  */
-export function ForkFromSelection({ scope, onFork, onReply }: { scope: RefObject<HTMLElement | null>; onFork?: (pick: ForkPick) => void; onReply?: (pick: ForkPick) => void }) {
+export function ForkFromSelection({
+  scope,
+  onFork,
+  onReply,
+  onTeach,
+}: {
+  scope: RefObject<HTMLElement | null>;
+  onFork?: (pick: ForkPick) => void;
+  onReply?: (pick: ForkPick) => void;
+  onTeach?: (pick: ForkPick) => void;
+}) {
   const [spot, setSpot] = useState<Spot>();
+  const [menu, setMenu] = useState<Opened>();
+  const acts = { teach: onTeach, reply: onReply, fork: onFork };
+  const onBar = ON_BAR.filter((one) => acts[one.id] !== undefined);
+  const live = useRef({ offered: onBar.length });
+  live.current = { offered: onBar.length };
   const bar = useRef<HTMLDivElement>(null);
   const [placed, setPlaced] = useState<{ left: number; top: number }>();
 
@@ -90,21 +118,46 @@ export function ForkFromSelection({ scope, onFork, onReply }: { scope: RefObject
     const changed = () => {
       if (!dragging) look();
     };
+    // The menu from the keyboard opens under the selected words. **In the capture phase and stopped there**, as a right press is.
+    const menuKey = (event: KeyboardEvent) => {
+      if (event.key !== "ContextMenu" && !(event.key === "F10" && event.shiftKey)) return;
+      const there = live.current.offered === 0 ? undefined : read(home);
+      if (there === undefined) return;
+      event.preventDefault();
+      event.stopPropagation();
+      setMenu({ x: there.left, y: there.foot, pick: { rowId: there.rowId, quote: there.quote } });
+    };
     const key = (event: KeyboardEvent) => {
       if (event.key !== "Escape" || read(home) === undefined) return;
       window.getSelection()?.removeAllRanges();
       setSpot(undefined);
     };
+    // A right press on the selected words. **In the capture phase and stopped there**, so a row that has a menu of its
+    // own (Fleet's notice) keeps it for every press that is not on selected words.
+    const context = (event: MouseEvent) => {
+      const there = live.current.offered === 0 ? undefined : read(home);
+      if (there === undefined || !(event.target instanceof Node) || blockOf(event.target)?.getAttribute(FORK_ROW) !== there.rowId) return;
+      const range = window.getSelection()?.getRangeAt(0);
+      const box = range?.getBoundingClientRect();
+      if (box === undefined || event.clientX < box.left || event.clientX > box.right || event.clientY < box.top || event.clientY > box.bottom) return;
+      event.preventDefault();
+      event.stopPropagation();
+      setMenu({ x: event.clientX, y: event.clientY, pick: { rowId: there.rowId, quote: there.quote } });
+    };
+    home.addEventListener("contextmenu", context, true);
     home.addEventListener("mousedown", down);
     document.addEventListener("mouseup", up);
     document.addEventListener("selectionchange", changed);
+    document.addEventListener("keydown", menuKey, true);
     document.addEventListener("keydown", key);
     home.addEventListener("scroll", look, true);
     window.addEventListener("resize", look);
     return () => {
+      home.removeEventListener("contextmenu", context, true);
       home.removeEventListener("mousedown", down);
       document.removeEventListener("mouseup", up);
       document.removeEventListener("selectionchange", changed);
+      document.removeEventListener("keydown", menuKey, true);
       document.removeEventListener("keydown", key);
       home.removeEventListener("scroll", look, true);
       window.removeEventListener("resize", look);
@@ -125,13 +178,31 @@ export function ForkFromSelection({ scope, onFork, onReply }: { scope: RefObject
     });
   }, [spot]);
 
-  if (spot === undefined || (onFork === undefined && onReply === undefined)) return null;
-  // Taking an act lets go of the selection, as a press on either does.
-  const take = (act: (pick: ForkPick) => void) => {
-    act({ rowId: spot.rowId, quote: spot.quote });
+  // Taking an act lets go of the selection, as a press on any of them does.
+  const take = (act: (pick: ForkPick) => void, pick: ForkPick) => {
+    act(pick);
     window.getSelection()?.removeAllRanges();
     setSpot(undefined);
+    setMenu(undefined);
   };
+  if (menu !== undefined) {
+    return (
+      <DropdownMenu
+        triggerLabel="Selection"
+        at={{ x: menu.x, y: menu.y }}
+        open
+        entries={IN_MENU.filter((one) => acts[one.id] !== undefined).map((one): DropdownMenuEntry => ({ kind: "item", id: one.id, label: one.label, icon: one.icon }))}
+        onOpenChange={(open) => {
+          if (!open) setMenu(undefined);
+        }}
+        onSelect={(chosen) => {
+          const act = acts[chosen as keyof typeof acts];
+          if (act !== undefined) take(act, menu.pick);
+        }}
+      />
+    );
+  }
+  if (spot === undefined || onBar.length === 0) return null;
   return createPortal(
     <div
       ref={bar}
@@ -142,34 +213,13 @@ export function ForkFromSelection({ scope, onFork, onReply }: { scope: RefObject
       // A press must not take the selection with it.
       onMouseDown={(event) => event.preventDefault()}
     >
-      {onReply === undefined ? null : (
-        <Tooltip label="Reply" beside>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            iconOnly
-            aria-label="Reply"
-            onClick={() => take(onReply)}
-          >
-            <Reply size={16} strokeWidth={2} aria-hidden />
+      {onBar.map(({ id, label, icon: Glyph }) => (
+        <Tooltip key={id} label={label} beside>
+          <Button type="button" variant="ghost" size="sm" iconOnly aria-label={label} onClick={() => take(acts[id]!, { rowId: spot.rowId, quote: spot.quote })}>
+            <Glyph size={16} strokeWidth={2} aria-hidden />
           </Button>
         </Tooltip>
-      )}
-      {onFork === undefined ? null : (
-        <Tooltip label="Fork from here" beside>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            iconOnly
-            aria-label="Fork from here"
-            onClick={() => take(onFork)}
-          >
-            <GitFork size={16} strokeWidth={2} aria-hidden />
-          </Button>
-        </Tooltip>
-      )}
+      ))}
     </div>,
     document.body,
   );
