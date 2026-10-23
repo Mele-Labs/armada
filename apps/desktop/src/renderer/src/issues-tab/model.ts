@@ -22,7 +22,8 @@ export type Ticket = {
 };
 
 /** A pull request that names an issue. */
-export type LinkedPull = { number: number; title: string; address: string; state: "open" | "merged" | "closed" };
+/** A pull request naming the issue, and its Checks where the forge reports them. */
+export type LinkedPull = { number: number; title: string; address: string; state: "open" | "merged" | "closed"; checks?: { state: "passed" | "running" | "failed"; said: string } };
 
 /** One issue read whole, for the reader: the row, and what only reading it answers. */
 export type TicketRead = Ticket & { body: string; linked_pull_requests: LinkedPull[] };

@@ -114,7 +114,7 @@ export function IssueState({ state }: { state: IssueRead["state"] }) {
 }
 
 /** The pull requests that name an issue, each a row that opens it. */
-export function LinkedPullRequests({ linked, onPress }: { linked: IssueRead["linked"]; onPress: (one: IssueRead["linked"][number]) => void }) {
+function LinkedPullRequests({ linked, onPress }: { linked: IssueRead["linked"]; onPress: (one: IssueRead["linked"][number]) => void }) {
   return (
     <ul className="armada-pr-list armada-pr-rows" aria-label="Pull requests">
       {linked.map((one) => (

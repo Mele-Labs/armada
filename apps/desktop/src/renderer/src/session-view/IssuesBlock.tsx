@@ -4,8 +4,8 @@
 // panel. A plan group that names an issue is that issue's place: its pull requests stand in the group, and this block lists only the issues no
 // group names. An issue wears the registry's `ticket` glyph and its state is its frame; a pull request's state is its edge, named by its tooltip.
 
-import { GitMerge, GitPullRequest, Ticket } from "lucide-react";
-import { PullRequestChecksMark, Tooltip } from "@armada/components";
+import { Ticket } from "lucide-react";
+import { PullRequestChip, Tooltip } from "@armada/components";
 import { attachmentsOf, issueLabel, type Session, type SessionAttachment } from "@armada/screens/src/draft/sessions";
 
 import { usePullRequestMenu } from "../pull-request-menu";
@@ -50,9 +50,6 @@ export const openIssuePanel = (issue: Issue, manifestId?: string) => openInPanel
 export const openPrPanel = (pr: PullRequest) => openInPanel({ kind: "pr", number: pr.number, address: pr.address });
 
 const ISSUE_SAID = { open: "Open", closed: "Closed" } as const;
-/** A pull request's state in words, the tooltip on whatever mark carries it. */
-const prSaid = (pr: PullRequest) => (pr.state === "merged" ? "Merged" : pr.state === "draft" ? "Draft" : "Open");
-
 function IssueMark({ issue }: { issue: Issue }) {
   const said = ISSUE_SAID[issue.state];
   return (
@@ -64,27 +61,11 @@ function IssueMark({ issue }: { issue: Issue }) {
   );
 }
 
-function PrMark({ pr }: { pr: PullRequest }) {
-  const Glyph = pr.state === "merged" ? GitMerge : GitPullRequest;
-  return (
-    <Tooltip label={prSaid(pr)}>
-      <span className="sv-row__mark" data-pr={pr.state} data-checks={checksOf(pr)} role="img" aria-label={prSaid(pr)}>
-        <Glyph size={12} strokeWidth={2} aria-hidden />
-      </span>
-    </Tooltip>
-  );
-}
-
 function PrSlot({ pr, manifestId }: { pr: PullRequest; manifestId: string | undefined }) {
   const { on, menu } = usePullRequestMenu(manifestId, pr.number);
   return (
     <li>
-      <button type="button" className="sv-row" data-kind="pr" aria-label={`Pull request #${pr.number} ${pr.title}`} onClick={() => openPrPanel(pr)} {...on}>
-        <PrMark pr={pr} />
-        <code className="sv-row__num">#{pr.number}</code>
-        <span className="sv-row__title">{pr.title}</span>
-        <PullRequestChecksMark checks={checksOf(pr)} said={checksSaid(pr.checks)} />
-      </button>
+      <PullRequestChip number={pr.number} title={pr.title} state={pr.state} checks={{ state: checksOf(pr), said: checksSaid(pr.checks) }} onOpen={() => openPrPanel(pr)} {...on} />
       {menu}
     </li>
   );

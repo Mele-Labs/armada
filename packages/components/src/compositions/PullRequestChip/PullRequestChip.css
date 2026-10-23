@@ -1,0 +1,51 @@
+/* A pull request as a Job's Progress lists it: no frame, the muted ink, the state in the glyph's hue (merged the advanced
+   hue, a Check running the running hue and one failing red). Framed, it is a chip among cards: the hue on the frame and
+   a heavier left edge, the ground taking a little of it. No glow, no gradient. Tokens only. */
+.armada-pull-chip {
+  --hue: var(--fg-subtle);
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: none;
+  color: var(--fg-muted);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  text-align: start;
+  cursor: pointer;
+}
+.armada-pull-chip:hover { background: var(--bg-hover); color: var(--fg-default); }
+.armada-pull-chip:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--border-width) * -1); }
+.armada-pull-chip > .armada-tooltip { display: inline-flex; align-items: center; }
+.armada-pull-chip__number { color: var(--fg-subtle); font-size: var(--text-2xs); }
+.armada-pull-chip__title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.armada-pull-chip[data-state="merged"] { --hue: var(--step-advanced); }
+.armada-pull-chip[data-checks="running"]:not([data-state="merged"]):not([data-state="closed"]) { --hue: var(--step-running); }
+.armada-pull-chip[data-checks="failed"]:not([data-state="merged"]):not([data-state="closed"]) { --hue: var(--step-failed); }
+.armada-pull-chip__mark { display: inline-flex; align-items: center; color: var(--hue); }
+.armada-pull-chip .armada-pr-card__check { display: inline-flex; align-items: center; }
+
+/* Framed: an open one is in flight and wears the running hue until a Check fails; a draft or a closed one the dormant hue. */
+.armada-pull-chip[data-framed] {
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid color-mix(in srgb, var(--hue) 40%, var(--border-subtle));
+  border-inline-start: calc(var(--border-width) * 3) solid var(--hue);
+  background: color-mix(in srgb, var(--hue) 8%, var(--bg-raised));
+  box-shadow: var(--shadow-card);
+  color: var(--fg-default);
+}
+.armada-pull-chip[data-framed][data-state="open"]:not([data-checks="failed"]) { --hue: var(--status-running); }
+.armada-pull-chip[data-framed][data-state="draft"]:not([data-checks="failed"]),
+.armada-pull-chip[data-framed][data-state="closed"] { --hue: var(--status-not-started); }
+.armada-pull-chip[data-framed]:hover { background: color-mix(in srgb, var(--hue) 14%, var(--bg-raised)); }
+.armada-pull-chip[data-framed] .armada-pull-chip__number { color: var(--fg-default); font-weight: var(--weight-heading); }
+.armada-pull-chip[data-framed] .armada-pull-chip__title { font-weight: var(--weight-medium); }
+.armada-pull-chip[data-framed] .armada-pr-card__check[data-checks="passed"] { color: var(--step-advanced); }
+.armada-pull-chip[data-framed] .armada-pr-card__check[data-checks="running"] { color: var(--step-running); }
+.armada-pull-chip[data-framed] .armada-pr-card__check[data-checks="failed"] { color: var(--step-failed); }

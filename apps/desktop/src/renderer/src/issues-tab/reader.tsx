@@ -2,9 +2,9 @@
 // **every field the tracker returned** as names and values (Bridge draws them alike, whichever tracker sent them), the
 // description, the pull requests that name it, and the Jobs working it or the one press that starts one.
 
-import { Button, Kbd, Prose, RepositoryChip, Tooltip } from "@armada/components";
+import { Button, Kbd, Prose, PullRequestChip, RepositoryChip, Tooltip } from "@armada/components";
 
-import { IssueState, LinkedPullRequests, Open } from "../shared-panel/panels";
+import { IssueState, Open } from "../shared-panel/panels";
 import type { Band } from "./bands";
 import { ISSUES_KEYS } from "./key-table";
 import { IssueJobCard, useHolders } from "./marks";
@@ -112,7 +112,11 @@ function Reader({ band, tracker, ticket, onOpenLink, onOpenSession, onStart }: H
         {ticket.linked_pull_requests.length === 0 ? null : (
           <section className="issues-reader__part" aria-label="Linked pull requests">
             <h3 className="issues-reader__eyebrow">Pull requests</h3>
-            <LinkedPullRequests linked={ticket.linked_pull_requests} onPress={(one) => onOpenLink(one.address)} />
+            <div className="issues-reader__pulls">
+              {ticket.linked_pull_requests.map((one) => (
+                <PullRequestChip key={one.number} framed number={one.number} title={one.title} state={one.state} {...(one.checks === undefined ? {} : { checks: one.checks })} onOpen={() => onOpenLink(one.address)} />
+              ))}
+            </div>
           </section>
         )}
       </div>

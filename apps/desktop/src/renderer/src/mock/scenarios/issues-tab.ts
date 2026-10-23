@@ -41,7 +41,10 @@ const STOREFRONT_TICKETS: TicketRead[] = [
     hours: 2,
     fields: [f("Labels", "bug", "checkout"), f("Milestone", "v0.9"), f("Projects", "Storefront roadmap: In progress")],
     body: "A code past its end date is still taken at checkout, and the discount applies.\n\n**Steps**\n\n1. Add any item to the cart.\n2. Enter `SPRING24` in the coupon field.\n3. The total drops by 20%.\n\nThe expiry check reads the server's date in UTC and compares it with a local date.",
-    linked: [{ number: 2814, title: "Compare coupon expiry in UTC", address: "https://github.com/acme/storefront/pull/2814", state: "open" }],
+    linked: [
+      { number: 2814, title: "Compare coupon expiry in UTC", address: "https://github.com/acme/storefront/pull/2814", state: "open", checks: { state: "running", said: "Checks running" } },
+      { number: 2809, title: "Read coupon dates as local time", address: "https://github.com/acme/storefront/pull/2809", state: "closed" },
+    ],
   }),
   ticket({
     reference: "#2803",
@@ -75,7 +78,7 @@ const STOREFRONT_TICKETS: TicketRead[] = [
     hours: 20,
     fields: [f("Labels", "enhancement"), f("Milestone", "v0.9"), f("Projects", "Storefront roadmap: In review")],
     body: "Totals in JPY show two decimals. Round each total to the currency's minor unit before it is drawn.",
-    linked: [{ number: 2801, title: "Round totals by currency", address: "https://github.com/acme/storefront/pull/2801", state: "merged" }],
+    linked: [{ number: 2801, title: "Round totals by currency", address: "https://github.com/acme/storefront/pull/2801", state: "merged", checks: { state: "passed", said: "Checks passed" } }],
   }),
   ticket({
     reference: "#2788",
@@ -124,6 +127,7 @@ const OPS_TICKETS: TicketRead[] = [
       f("Due date", "2026-10-29"),
     ],
     body: "The staging certificates lapse on 2 Nov. Rotate them through the secrets store and restart the ingress pods one at a time.\n\nThe production rotation is ABC-44.",
+    linked: [{ number: 418, title: "Rotate the staging ingress certificates", address: "https://github.com/acme/ops/pull/418", state: "open", checks: { state: "failed", said: "Checks failed: ingress-smoke" } }],
   }),
   ticket({
     reference: "ABC-38",
