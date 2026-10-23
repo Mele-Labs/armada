@@ -413,3 +413,4 @@
 @import "./compositions/LinkPanel/LinkPanel.css";
 @import "./compositions/SessionAccount/SessionAccount.css";
 @import "./compositions/PullRequestPanel/PullRequestReach.css";
+@import "./compositions/ArtifactGraph/ArtifactGraph.css";

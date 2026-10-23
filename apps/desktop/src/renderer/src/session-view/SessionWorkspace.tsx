@@ -29,7 +29,7 @@ import "./session-view.css";
 /** The deck's own place for a Session's panels, as an element: `null` before the deck has drawn it. */
 export type Hosts = { side: HTMLElement | null };
 
-export function SessionWorkspace({ session, entries, repositories, hosts, ed, bays, onOpenSketch, onOpenSession, onOpenCheck, live, children }: { session: Session; ed: PlanEditing | undefined; entries: readonly LedgerEntry[]; repositories: readonly RepositorySummary[]; hosts?: Hosts | undefined; bays: SessionBays | undefined; onOpenSketch: (sketch: string) => void; onOpenSession: (id: string) => void; onOpenCheck: (run: number) => void; live?: LiveOpen; children: ReactNode }) {
+export function SessionWorkspace({ session, entries, repositories, hosts, ed, bays, onOpenSketch, onOpenSession, onOpenCheck, live, children }: { session: Session; ed: PlanEditing | undefined; entries: readonly LedgerEntry[]; repositories: readonly RepositorySummary[]; hosts?: Hosts | undefined; bays: SessionBays | undefined; onOpenSketch: (sketch: string, at?: string) => void; onOpenSession: (id: string) => void; onOpenCheck: (run: number) => void; live?: LiveOpen; children: ReactNode }) {
   const draft = useSessionsDraft();
   const { id } = session;
   const open = useLayer(id);
@@ -39,7 +39,7 @@ export function SessionWorkspace({ session, entries, repositories, hosts, ed, ba
   // A layer belongs to the Session it was opened over.
   useEffect(() => () => dropLayer(id), [id]);
   const work = session.work;
-  const layered = layer === undefined ? null : <Layer id={layer} session={session} entries={entries} bays={bays} onOpenCheck={onOpenCheck} onOpenSession={onOpenSession} />;
+  const layered = layer === undefined ? null : <Layer id={layer} session={session} entries={entries} bays={bays} onOpenCheck={onOpenCheck} onOpenSession={onOpenSession} onOpenSketch={onOpenSketch} />;
   if (work === undefined || draft === undefined || hosts === undefined) return <>{children}{layered}{large}</>;
   const right = (
     <>
