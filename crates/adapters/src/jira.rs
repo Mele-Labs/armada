@@ -272,13 +272,51 @@ pub(crate) fn search_filter(excerpt: usize, settings: &JiraSettings) -> String {
     )
 }
 
-/// One issue: key, summary, status category (or name), and whether it is resolved.
+/// The fields one issue is read with, by the name the reader shows and the id. **`view` takes any
+/// field**, where a search takes few, so the reader shows what a row cannot.
+const READ_FIELDS: &[(&str, &str)] = &[
+    ("Status", "status"),
+    ("Priority", "priority"),
+    ("Issue type", "issuetype"),
+    ("Components", "components"),
+    ("Fix versions", "fixVersions"),
+    ("Labels", "labels"),
+];
+
+/// The `--fields` reading one issue asks `acli` for.
+pub(crate) fn read_fields() -> String {
+    let mut asked: Vec<&str> =
+        vec!["key", "summary", "status", "resolution", "description", "reporter", "created", "assignee", "comment"];
+    for (_, id) in READ_FIELDS {
+        if !asked.contains(id) {
+            asked.push(id);
+        }
+    }
+    asked.join(",")
+}
+
+/// The names [`READ_FIELDS`] are shown under, in the order the reading prints them.
+pub(crate) fn read_field_names() -> impl Iterator<Item = &'static str> {
+    READ_FIELDS.iter().map(|(name, _)| *name)
+}
+
+/// One issue as records, as `crate::issue_tracker` reads the forge's: an `issue` line with key,
+/// summary, status category (or name), whether it is resolved, reporter, when it was opened,
+/// labels, assignee, description and each of [`READ_FIELDS`]; then a `comment` line each, oldest
+/// first, with author, when and body.
 pub(crate) fn reading_filter() -> String {
+    let fields: Vec<String> = READ_FIELDS.iter().map(|(_, id)| format!("(f(\"{id}\") | shown)")).collect();
     format!(
         r#"{PRELUDE}
-issues | [(.key // ""), (f("summary") // "" | tostring),
+def text: adf | sub("\\s+$"; "");
+issues | (["issue", (.key // ""), (f("summary") // "" | tostring),
   (f("status") | state),
-  (if f("resolution") == null then "" else "resolved" end)] | @tsv"#
+  (if f("resolution") == null then "" else "resolved" end),
+  (f("reporter") | who), (f("created") // "" | tostring | rfc),
+  (f("labels") | names | join("\u001f")), (f("assignee") | who),
+  (f("description") | text), {}] | @tsv),
+  ((f("comment") | (.comments? // []))[]? | ["comment", (.author | who), (.created // "" | tostring | rfc), (.body | text)] | @tsv)"#,
+        fields.join(", ")
     )
 }
 

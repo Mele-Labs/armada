@@ -178,7 +178,8 @@ A block naming neither is refused, since it would list every open issue on the s
 It refuses every other field with `field 'updated' is not allowed`: `updated`, `created`, `resolution`, `components`, `fixVersions`, `sprint`, each `customfield_*`, `*all` and `*navigable` among them.
 So a search asks for those alone, keeps the order its JQL asked for, and calls an issue closed by its status category.
 A row's last edit is empty, and Bridge draws none.
-`view --fields` takes any field, and reading one issue still asks for `resolution`.
+`view --fields` takes any field, so reading one issue asks for its description, reporter, `created`, labels, assignee and comments, and shows `Components` and `Fix versions` beside a row's fields.
+A description and each comment are rich text, flattened to plain text.
 A search prints a JSON array of issues, each with `key` beside `fields`, and `fields.status` carries `statusCategory.key`.
 `view` takes one key: several joined with commas fail with `failed to output command result in JSON format`, and one view takes about a second, so fields a search refuses are not filled in one issue at a time.
 

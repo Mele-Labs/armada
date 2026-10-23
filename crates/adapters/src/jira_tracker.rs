@@ -8,7 +8,7 @@
 use std::io::{ErrorKind, Write};
 use std::process::{Command, Output, Stdio};
 
-use adapter_traits::{FromOutside, IssueField, NotTracked, OpenIssue, QueryGuide, ReadIssue, Tracker};
+use adapter_traits::{FromOutside, IssueComment, IssueField, NotTracked, OpenIssue, QueryGuide, ReadIssue, Tracker};
 
 use crate::delivery::said;
 use crate::jira::{self, is_key, JiraSettings};
@@ -150,7 +150,7 @@ impl<R: Run> Tracker for JiraTracker<R> {
             return Ok(None);
         }
         let (worked, text) = self.reduced(
-            &["jira", "workitem", "view", key, "--fields", "key,summary,status,resolution", "--json"],
+            &["jira", "workitem", "view", key, "--fields", &jira::read_fields(), "--json"],
             &jira::reading_filter(),
             doing,
         )?;
@@ -164,7 +164,7 @@ impl<R: Run> Tracker for JiraTracker<R> {
                 false => Err(NotTracked::of(doing, text)),
             };
         }
-        Ok(text.lines().find_map(|line| read_issue_of_line(&self.settings, line)))
+        Ok(read_issue_of_records(&self.settings, &text))
     }
 
     fn search_issues(&self, _in_repo: &str, query: &str) -> Result<Vec<OpenIssue>, NotTracked> {
@@ -254,17 +254,46 @@ fn is_done(status: &str) -> bool {
     ["done", "closed", "resolved", "complete", "completed"].contains(&status)
 }
 
-/// One `@tsv` line of the reading: key, summary, status, resolution.
-pub(crate) fn read_issue_of_line(settings: &JiraSettings, line: &str) -> Option<ReadIssue> {
-    let mut field = line.split('\t');
-    let key = field.next().filter(|key| is_key(key))?;
-    let title = field.next().unwrap_or_default();
-    let status = field.next().unwrap_or_default();
-    let resolution = field.next().unwrap_or_default();
-    Some(ReadIssue::bare(
-        key.to_string(),
-        FromOutside::verbatim(as_written(title)),
-        FromOutside::verbatim(settings.browse(key)),
-        is_done(status) || !resolution.is_empty(),
-    ))
+/// The records [`jira::reading_filter`] printed, as an issue: its `issue` line, then each `comment`.
+/// `None` where no `issue` line holds a key.
+pub(crate) fn read_issue_of_records(settings: &JiraSettings, printed: &str) -> Option<ReadIssue> {
+    let mut issue: Option<ReadIssue> = None;
+    let mut comments = Vec::new();
+    for line in printed.lines() {
+        let mut field = line.split('\t');
+        let mut next = || field.next().unwrap_or_default();
+        match next() {
+            "issue" if issue.is_none() => {
+                let key = Some(next()).filter(|key| is_key(key))?;
+                let title = next();
+                let status = next();
+                let resolution = next();
+                let mut read = ReadIssue::bare(
+                    key.to_string(),
+                    FromOutside::verbatim(as_written(title)),
+                    FromOutside::verbatim(settings.browse(key)),
+                    is_done(status) || !resolution.is_empty(),
+                );
+                read.author = FromOutside::verbatim(as_written(next()));
+                read.opened_at = next().to_string();
+                read.labels = listed(next());
+                read.assignees = listed(next());
+                read.body = FromOutside::verbatim(as_written(next()));
+                read.fields = jira::read_field_names()
+                    .map(|name| IssueField { name: name.to_string(), values: listed(next()) })
+                    .filter(|one| !one.values.is_empty())
+                    .collect();
+                issue = Some(read);
+            }
+            "comment" => comments.push(IssueComment {
+                author: FromOutside::verbatim(as_written(next())),
+                at: next().to_string(),
+                body: FromOutside::verbatim(as_written(next())),
+            }),
+            _ => {}
+        }
+    }
+    let mut issue = issue?;
+    issue.comments = comments;
+    Some(issue)
 }

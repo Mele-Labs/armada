@@ -16,7 +16,7 @@ use adapter_traits::{LinkLookup, Tracker, TrackerChoice, Trackers};
 
 use crate::jira::{self, JiraSettings};
 use crate::jira_lookup::JiraLookup;
-use crate::jira_tracker::{issue_of_line, read_issue_of_line, JiraTracker, Run};
+use crate::jira_tracker::{issue_of_line, read_issue_of_records, JiraTracker, Process, Run};
 use crate::TrackersByProvider;
 
 pub(super) fn block(pairs: &[(&str, &str)]) -> BTreeMap<String, String> {
@@ -224,7 +224,7 @@ fn a_tool_that_is_not_installed_is_named_rather_than_left_to_a_raw_error() {
 
 #[test]
 fn an_issue_is_read_by_its_key_in_whatever_project_it_is_in() {
-    let run = Scripted::saying(&[(0, "{}", ""), (0, "ABC-7\tThe title\tdone\tresolved\n", "")]);
+    let run = Scripted::saying(&[(0, "{}", ""), (0, "issue\tABC-7\tThe title\tdone\tresolved\n", "")]);
     let read = JiraTracker::with_runner(settings(), &run)
         .read_issue("/repo", "ABC-7")
         .expect("read")
@@ -235,15 +235,87 @@ fn an_issue_is_read_by_its_key_in_whatever_project_it_is_in() {
     assert_eq!(read.url.as_written(), "https://acme.atlassian.net/browse/ABC-7");
 }
 
+/// One `view --json` of an issue, in the shape `acli` 1.3.39 printed for a real one.
+const VIEWED: &str = r#"{"key":"ABC-7","fields":{"summary":"Terms resolves the inputs",
+  "status":{"name":"Refinement","statusCategory":{"key":"new"}},"resolution":null,
+  "description":{"type":"doc","version":1,"content":[
+    {"type":"paragraph","content":[{"type":"text","text":"Read the inputs"}]},
+    {"type":"paragraph","content":[{"type":"text","text":"from OFS."}]}]},
+  "reporter":{"displayName":"Pat Doe","accountId":"p1"},"created":"2026-02-05T16:06:38.177-0800",
+  "labels":["pricing","margins"],"assignee":{"displayName":"Sam Doe"},
+  "priority":{"name":"P2 - Medium"},"issuetype":{"name":"Story"},
+  "components":[{"name":"Terms"}],"fixVersions":[],
+  "comment":{"comments":[{"author":{"displayName":"Ana"},"created":"2026-02-06T09:00:00.000+0000",
+    "body":{"type":"doc","version":1,"content":[{"type":"paragraph","content":[{"type":"text","text":"Agreed."}]}]}}],
+    "total":1}}}"#;
+
+/// `acli` answers from a script; `jq` is the real one, so the filter is what is tried.
+struct ViewedThroughJq(Mutex<Vec<Vec<String>>>);
+
+impl Run for &ViewedThroughJq {
+    fn run(&self, program: &str, args: &[String], stdin: Option<&[u8]>) -> std::io::Result<Output> {
+        match program {
+            "acli" => {
+                self.0.lock().expect("not poisoned").push(args.to_vec());
+                Ok(Output { status: ExitStatus::from_raw(0), stdout: VIEWED.as_bytes().to_vec(), stderr: Vec::new() })
+            }
+            _ => Process.run(program, args, stdin),
+        }
+    }
+}
+
+#[test]
+fn an_issue_is_read_whole_with_its_description_people_comments_and_fields() {
+    let run = ViewedThroughJq(Mutex::new(Vec::new()));
+    let read = JiraTracker::with_runner(settings(), &run)
+        .read_issue("/repo", "ABC-7")
+        .expect("read")
+        .expect("an issue");
+    assert_eq!(read.title.as_written(), "Terms resolves the inputs");
+    assert!(!read.closed);
+    assert_eq!(read.body.as_written(), "Read the inputs\nfrom OFS.");
+    assert_eq!(read.author.as_written(), "Pat Doe");
+    assert_eq!(read.opened_at, "2026-02-05T16:06:38.177-08:00");
+    let labels: Vec<&str> = read.labels.iter().map(|one| one.as_written()).collect();
+    assert_eq!(labels, ["pricing", "margins"]);
+    assert_eq!(read.assignees.len(), 1);
+    assert_eq!(read.assignees[0].as_written(), "Sam Doe");
+    assert_eq!(read.comments.len(), 1);
+    assert_eq!(read.comments[0].author.as_written(), "Ana");
+    assert_eq!(read.comments[0].at, "2026-02-06T09:00:00.000+00:00");
+    assert_eq!(read.comments[0].body.as_written(), "Agreed.");
+    let fields: Vec<(&str, Vec<&str>)> = read
+        .fields
+        .iter()
+        .map(|one| (one.name.as_str(), one.values.iter().map(|value| value.as_written()).collect()))
+        .collect();
+    assert_eq!(
+        fields,
+        [
+            ("Status", vec!["Refinement"]),
+            ("Priority", vec!["P2 - Medium"]),
+            ("Issue type", vec!["Story"]),
+            ("Components", vec!["Terms"]),
+            ("Labels", vec!["pricing", "margins"]),
+        ]
+    );
+    let asked = &run.0.lock().expect("not poisoned")[0];
+    let at = asked.iter().position(|one| one == "--fields").expect("asks for fields");
+    for wanted in ["description", "reporter", "created", "labels", "assignee", "comment", "components", "fixVersions"] {
+        assert!(asked[at + 1].split(',').any(|one| one == wanted), "the view asks for {wanted}: {}", asked[at + 1]);
+    }
+}
+
 #[test]
 fn an_issue_that_is_open_reads_as_open_and_a_missing_one_as_none() {
     let it = settings();
-    assert!(!read_issue_of_line(&it, "ABC-8\tOpen one\tnew\t").expect("an issue").closed);
-    assert!(!read_issue_of_line(&it, "ABC-8\tOpen one\tindeterminate\t").expect("an issue").closed);
-    assert!(read_issue_of_line(&it, "ABC-8\tClosed\tdone\t").expect("an issue").closed);
-    assert_eq!(read_issue_of_line(&it, "7\tNot a key\tdone\t"), None);
+    assert!(!read_issue_of_records(&it, "issue\tABC-8\tOpen one\tnew\t").expect("an issue").closed);
+    assert!(!read_issue_of_records(&it, "issue\tABC-8\tOpen one\tindeterminate\t").expect("an issue").closed);
+    assert!(read_issue_of_records(&it, "issue\tABC-8\tClosed\tdone\t").expect("an issue").closed);
+    assert_eq!(read_issue_of_records(&it, "issue\t7\tNot a key\tdone\t"), None);
+    assert_eq!(read_issue_of_records(&it, "comment\tAna\t\tNo issue line"), None);
     assert_eq!(
-        read_issue_of_line(&it, "OTHER-8\tElsewhere\tdone\t").map(|one| one.reference),
+        read_issue_of_records(&it, "issue\tOTHER-8\tElsewhere\tdone\t").map(|one| one.reference),
         Some("OTHER-8".to_string())
     );
     let run = Scripted::saying(&[(1, "", "Issue does not exist or you do not have permission")]);
@@ -398,7 +470,7 @@ fn the_reading_filter_says_when_an_issue_is_done() {
     let flat = r#"{"key":"ABC-9","summary":"S","status":"Closed"}"#;
     for (json, closed) in [(done, true), (open, false), (flat, true)] {
         let printed = through_jq(&jira::reading_filter(), json);
-        let read = read_issue_of_line(&it, printed.lines().next().expect("a line")).expect("an issue");
+        let read = read_issue_of_records(&it, &printed).expect("an issue");
         assert_eq!(read.closed, closed, "{json}");
     }
 }
