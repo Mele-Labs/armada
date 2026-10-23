@@ -3,6 +3,8 @@ import { useState } from "react";
 import { expect, fn, userEvent, waitFor } from "storybook/test";
 
 import type { LedgerEntry } from "../SessionLedger/SessionLedger";
+import { AskCards } from "../SessionThread/SessionThread";
+import type { AskedQuestion } from "../SessionThread/SessionThread";
 import { NeedsYouPanel } from "./NeedsYouPanel";
 
 /**
@@ -27,12 +29,12 @@ const QUESTION = { id: "q1", label: "Question", text: "Which clock?", children: 
 const JUDGES = [{ id: "j1", text: "The queue has no ceiling.", children: <p>A concern with no ceiling.</p> }];
 
 /** The thread's stage is the dimmed part; the box beneath it is what the panel is attached to. Both carry the classes the Session view gives them. */
-function Frame({ question, judges, rows, startOpen = false, onOpen }: { question?: typeof QUESTION; judges?: typeof JUDGES; rows: LedgerEntry[]; startOpen?: boolean; onOpen?: (next: boolean) => void }) {
+function Frame({ question, judges, rows, startOpen = false, onOpen, threadH }: { question?: typeof QUESTION; judges?: typeof JUDGES; rows: LedgerEntry[]; startOpen?: boolean; onOpen?: (next: boolean) => void; /** The thread's height in px, which the Session view sets as `--thread-h` for the panel to bound itself by. */ threadH?: number }) {
   const [open, setOpen] = useState(startOpen);
   const [ask, setAsk] = useState(question);
   const [items, setItems] = useState(rows);
   return (
-    <div className="armada-session-frame__centre" style={{ display: "flex", flexDirection: "column", height: "calc(var(--space-12) * 8)", width: "calc(var(--space-12) * 10)" }}>
+    <div className="armada-session-frame__centre" style={{ display: "flex", flexDirection: "column", height: "calc(var(--space-12) * 8)", width: "calc(var(--space-12) * 10)", ...(threadH === undefined ? {} : { height: threadH, ["--thread-h" as string]: `${threadH}px` }) }}>
       <div className="armada-session-thread__stage" data-testid="stage" style={{ position: "relative", flex: 1 }}>
         <p>The thread</p>
       </div>
@@ -249,5 +251,45 @@ export const AReplyKeepsListThenDetail: Story = {
     await userEvent.click(canvas.getByRole("button", { name: "Open Say which branch" }));
     await expect(canvas.getByRole("button", { name: "Back" })).toBeVisible();
     await expect(canvas.getByRole("textbox", { name: "Reply to Say which branch" })).toBeVisible();
+  },
+};
+
+const CLOCK: AskedQuestion = {
+  question: "Which clock should the queue tests use?",
+  header: "Clock",
+  multi_select: false,
+  options: [
+    { label: "Fake clock", description: "Tests advance time by hand with a fake clock. A retry that waits thirty seconds runs in no time, and a test can stop the clock between two enqueues. Timers created outside the fake are never seen by it." },
+    { label: "Frozen clock", description: "Every call to now returns one fixed instant. Ordering by enqueue time needs a second source of ticks, and a lease that expires never does. The simplest option, and the one the older tests already use." },
+    { label: "Real clock with short waits", description: "Tests sleep for real, with lease and retry waits cut to a few milliseconds. Nothing is faked, so timer bugs show up, and a slow CI machine can make a test flaky when a wait is shorter than a scheduler tick." },
+    { label: "Injected clock per test", description: "Each test passes its own clock into the queue, fake or real as it needs. The queue's constructor gains a parameter, and the sixty callers in the daemon each pass the system clock." },
+    { label: "Clock trait in the crate", description: "A Clock trait with a system and a test implementation lives in the queue crate. The other crates that read time can adopt it later, but until then two clocks sit side by side in the daemon." },
+  ],
+};
+const CLOCK_ASK = { id: "q2", label: "Question", text: CLOCK.question, children: <AskCards flat asked={{ command: "AskUserQuestion", questions: [CLOCK] }} onAnswer={fn()} /> };
+
+/** An open question keeps Back, the question and the Answer row in view while only its options scroll, however long their descriptions run. */
+export const AnOpenQuestionScrollsOnlyItsOptions: Story = {
+  render: () => <Frame question={CLOCK_ASK} rows={[]} startOpen threadH={400} />,
+  play: async ({ canvas }) => {
+    const options = canvas.getByRole("radiogroup", { name: "Options" });
+    // The body is the one box with a bound; it has no role to find it by.
+    const body = options.closest(".armada-needs-panel__body")!;
+    const inside = (name: string | HTMLElement) => {
+      const one = (typeof name === "string" ? canvas.getByRole("button", { name }) : name).getBoundingClientRect();
+      const box = body.getBoundingClientRect();
+      return one.top >= box.top && one.bottom <= box.bottom && one.left >= box.left && one.right <= box.right;
+    };
+    await expect(inside("Answer")).toBe(true);
+    await expect(inside("Back")).toBe(true);
+    await expect(inside(canvas.getByText(CLOCK.question))).toBe(true);
+    await waitFor(() => expect(options.scrollHeight).toBeGreaterThan(options.clientHeight));
+    const answer = canvas.getByRole("button", { name: "Answer" });
+    const before = answer.getBoundingClientRect();
+    options.scrollTop = options.scrollHeight;
+    await expect(options.scrollTop).toBeGreaterThan(0);
+    const after = answer.getBoundingClientRect();
+    await expect([after.top, after.left]).toEqual([before.top, before.left]);
+    await expect(inside("Answer")).toBe(true);
   },
 };
