@@ -34,6 +34,7 @@ impl Mods for FakeDaemon {
             reason: None,
             changed_at: None,
             tried: None,
+            stale: false,
         })
     }
 
@@ -52,7 +53,7 @@ impl Mods for FakeDaemon {
     async fn try_tracker_mod(&self, asked: ipc::TryTrackerMod) -> Result<ipc::TrackerTry, Refusal> {
         Ok(ipc::TrackerTry {
             at: ipc::Instant::carried("2026-10-23T00:00:00.000Z"),
-            manifest_id: asked.manifest_id,
+            manifest_id: asked.manifest_id.unwrap_or_else(|| ipc::ManifestId::carried("armada")),
             passed: true,
             reason: None,
             listed: 0,

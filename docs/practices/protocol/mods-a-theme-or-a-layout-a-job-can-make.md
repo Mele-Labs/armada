@@ -24,3 +24,7 @@ Both are additive: a peer that predates them fails to decode a row of a new kind
 
 **Since 23 Oct 2026, again**, `ModSummary.entry` says which Logbook entry made a mod, and `ModChecked.words` and `ModChecked.fleet` hand back what a taught mod holds, as `css` and `layout` do.
 All three are optional and left out when absent, so an older peer reads the rest; the IDs differ and the lifeboat serves.
+
+**Since 23 Oct 2026, a tracker mod's edit after its try**, `ModSummary.stale` is true where a try is kept of a `tracker.toml` that has changed, and `tried` is absent then.
+`TryTrackerMod.manifest_id` is optional, and absent is the first repository Fleet served, as `PromoteMod.manifest_id` has it, so Bridge's Try names none.
+Both are additive and left out when absent; the IDs differ and the lifeboat serves.

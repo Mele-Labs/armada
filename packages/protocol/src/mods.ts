@@ -35,6 +35,8 @@ export type ModSummary = {
   changed_at?: string;
   /** A tracker mod's last try, present only where it tried the `tracker.toml` that is there now. */
   tried?: TrackerTry;
+  /** A tracker mod that was tried, and whose `tracker.toml` has been edited since, so `tried` is absent. Left out otherwise, and for one never tried. */
+  stale?: boolean;
 };
 
 /** `GET /mods`, and the body of `mods.changed`: every mod by name, which a client replaces its list with. */
@@ -97,8 +99,8 @@ export type FleetFile = {
   rule?: FleetRule[];
 };
 
-/** `POST /mods/try`'s body: the tracker mod, and the repository to try it against. */
-export type TryTrackerMod = { name: string; manifest_id: string };
+/** `POST /mods/try`'s body: the tracker mod, and the repository to try it against. Absent is the first one Fleet serves. */
+export type TryTrackerMod = { name: string; manifest_id?: string };
 
 /** How a tracker mod's try went. Only a tracker that passed one is used by a Manifest naming it. */
 export type TrackerTry = {

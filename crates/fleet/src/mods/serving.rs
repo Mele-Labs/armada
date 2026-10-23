@@ -176,10 +176,11 @@ where
 
     async fn try_tracker_mod(&self, asked: TryTrackerMod) -> Result<TrackerTry, Refusal> {
         self.mod_named(&asked.name)?;
-        let served = self.served_named(Some(&asked.manifest_id))?;
+        let served = self.served_named(asked.manifest_id.as_ref())?;
         let (dir, root) = (self.mods_dir(), served.root().to_string());
         let at = Instant::carried(self.now().as_str());
-        let (name, manifest_id) = (asked.name.clone(), asked.manifest_id);
+        let manifest_id = ipc::ManifestId::carried(served.manifest().id().as_str());
+        let name = asked.name.clone();
         let tried = tokio::task::spawn_blocking(move || tracker::try_it(&dir, &name, &root, manifest_id, at))
             .await
             .map_err(|why| self.mod_fault(format!("the try did not finish: {why}")))?;

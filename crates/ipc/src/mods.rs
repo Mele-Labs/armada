@@ -63,6 +63,10 @@ pub struct ModSummary {
     /// A tracker mod's last try, present only where it tried the `tracker.toml` that is there now.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tried: Option<TrackerTry>,
+    /// A tracker mod that was tried, and whose `tracker.toml` has been edited since, so `tried` is absent.
+    /// Absent, like `tried`, for a mod never tried.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub stale: bool,
 }
 
 /// Every mod on this machine, by name. The answer to `list_mods` and the body
@@ -124,7 +128,9 @@ pub struct ModChecked {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TryTrackerMod {
     pub name: String,
-    pub manifest_id: ManifestId,
+    /// The repository to try it against. Absent is the first one Fleet serves, as `promote_mod` has it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub manifest_id: Option<ManifestId>,
 }
 
 /// How a tracker mod's try went. **Only a tracker that passed one is used** by a Manifest naming it.

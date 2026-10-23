@@ -76,7 +76,7 @@ async fn a_tracker_mod_is_used_only_while_the_file_it_tried_is_the_file_there() 
     let manifest_id = ManifestId::carried(fleet.repositories().first().expect("served").manifest().id().as_str());
 
     let tried = fleet
-        .try_tracker_mod(TryTrackerMod { name: "linear".into(), manifest_id: manifest_id.clone() })
+        .try_tracker_mod(TryTrackerMod { name: "linear".into(), manifest_id: Some(manifest_id.clone()) })
         .await
         .expect("tried");
     assert!(tried.passed, "{tried:?}");
@@ -94,7 +94,7 @@ async fn a_tracker_mod_is_used_only_while_the_file_it_tried_is_the_file_there() 
 
     std::fs::write(mods.join("linear/tracker.toml"), tracker_toml("/nowhere/tracker-cli")).expect("a broken one");
     let failed = fleet
-        .try_tracker_mod(TryTrackerMod { name: "linear".into(), manifest_id: manifest_id.clone() })
+        .try_tracker_mod(TryTrackerMod { name: "linear".into(), manifest_id: Some(manifest_id.clone()) })
         .await
         .expect("a failed try is an answer");
     assert!(!failed.passed);
@@ -102,6 +102,40 @@ async fn a_tracker_mod_is_used_only_while_the_file_it_tried_is_the_file_there() 
     let refused = TrackerMods::in_dir(mods.clone(), Default::default()).taught("linear").expect("a mod").expect_err("failed");
     assert!(refused.contains("failed its last try"), "{refused}");
     assert_eq!(TrackerMods::in_dir(mods, Default::default()).taught("nothing-here"), None);
+}
+
+#[tokio::test]
+async fn a_tracker_mod_edited_after_its_try_is_listed_stale_and_one_never_tried_is_not() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
+    let mods = home.path().join("mods");
+    a_tracker_mod(&mods, &fake_cli(home.path()));
+    let manifest_id = ManifestId::carried(fleet.repositories().first().expect("served").manifest().id().as_str());
+    let row = || async { fleet.list_mods().await.expect("listed").mods.remove(0) };
+
+    let never = row().await;
+    assert_eq!((never.tried.is_some(), never.stale), (false, false), "never tried is not stale: {never:?}");
+
+    fleet.try_tracker_mod(TryTrackerMod { name: "linear".into(), manifest_id: Some(manifest_id) }).await.expect("tried");
+    let fresh = row().await;
+    assert_eq!((fresh.tried.is_some(), fresh.stale), (true, false), "a try of this file is not stale: {fresh:?}");
+
+    let edited = format!("{}# edited\n", tracker_toml(&fake_cli(home.path())));
+    std::fs::write(mods.join("linear/tracker.toml"), edited).expect("an edit");
+    let stale = row().await;
+    assert_eq!((stale.tried.is_some(), stale.stale), (false, true), "an edit after the try is stale: {stale:?}");
+}
+
+#[tokio::test]
+async fn a_try_that_names_no_repository_runs_against_the_first_one_served() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
+    a_tracker_mod(&home.path().join("mods"), &fake_cli(home.path()));
+    let first = fleet.repositories().first().expect("served").manifest().id().as_str().to_string();
+
+    let tried = fleet.try_tracker_mod(TryTrackerMod { name: "linear".into(), manifest_id: None }).await.expect("tried");
+    assert!(tried.passed, "{tried:?}");
+    assert_eq!(tried.manifest_id.as_str(), first, "the answer names the repository it ran against");
 }
 
 #[tokio::test]
@@ -116,7 +150,7 @@ async fn a_scaffolded_tracker_validates_and_fails_its_try_until_it_names_a_real_
     assert!(checked.valid, "{:?}", checked.problems);
     let manifest_id = ManifestId::carried(fleet.repositories().first().expect("served").manifest().id().as_str());
     let tried = fleet
-        .try_tracker_mod(TryTrackerMod { name: "teach".into(), manifest_id: manifest_id.clone() })
+        .try_tracker_mod(TryTrackerMod { name: "teach".into(), manifest_id: Some(manifest_id.clone()) })
         .await
         .expect("tried");
     assert!(!tried.passed && tried.reason.as_deref().unwrap_or_default().contains("`tracker-cli` is not installed"), "{tried:?}");
@@ -126,7 +160,7 @@ async fn a_scaffolded_tracker_validates_and_fails_its_try_until_it_names_a_real_
         .await
         .expect("a theme");
     let refused = fleet
-        .try_tracker_mod(TryTrackerMod { name: "calm".into(), manifest_id })
+        .try_tracker_mod(TryTrackerMod { name: "calm".into(), manifest_id: Some(manifest_id) })
         .await
         .expect_err("not a tracker");
     assert_eq!((refused.status(), refused.error().code.as_str()), (422, "fleet.unacceptable_mod"));
@@ -139,7 +173,7 @@ async fn a_tracker_mod_switched_off_in_mods_is_not_used_by_a_manifest() {
     let mods = home.path().join("mods");
     a_tracker_mod(&mods, &fake_cli(home.path()));
     let manifest_id = ManifestId::carried(fleet.repositories().first().expect("served").manifest().id().as_str());
-    let tried = fleet.try_tracker_mod(TryTrackerMod { name: "linear".into(), manifest_id }).await.expect("tried");
+    let tried = fleet.try_tracker_mod(TryTrackerMod { name: "linear".into(), manifest_id: Some(manifest_id) }).await.expect("tried");
     assert!(tried.passed, "{tried:?}");
     let lookup = TrackerMods::in_dir(mods, fleet.host().mod_switches.clone());
 
