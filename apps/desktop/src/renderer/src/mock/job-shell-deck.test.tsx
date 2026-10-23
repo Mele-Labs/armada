@@ -11,6 +11,8 @@ import { timePasses } from "./time-passes";
 unmountAfterEach();
 
 const pane = () => page.getByRole("group", { name: "Terminal", exact: true });
+// The shell's panel only: the terminal window the mock draws on the page has a pane of its own.
+const panel = () => page.getByRole("region", { name: "Terminal", exact: true }).getByRole("group", { name: "Terminal", exact: true });
 const queue = () => page.getByRole("region", { name: "Merge queue" });
 const terminal = () => page.getByRole("region", { name: "Flight controls" }).getByRole("button", { name: "Terminal", exact: true });
 
@@ -56,13 +58,13 @@ test("In the Cockpit, the deck's panel opens the shell in a window, leaving the 
   await terminal().click();
   await placedBetween(view);
   await pane().getByRole("button", { name: "Open in a window" }).click();
-  await expect.element(pane()).not.toBeInTheDocument();
-  await expect.poll(() => shellCalls()!.windows).toEqual([SHELL_JOB]);
+  await expect.element(panel()).not.toBeInTheDocument();
+  await expect.poll(() => shellCalls()!.windows[0]).toBe(SHELL_JOB);
   await expect.element(terminal()).toHaveAttribute("aria-pressed", "true");
 
   await app.api.moveTerminalBack(SHELL_JOB, "docked");
   await placedBetween(view);
-  expect(shellCalls()!.opened).toHaveLength(1);
+  expect(shellCalls()!.started).toEqual(["shell-1"]);
 });
 
 test("In the Cockpit, the panel's height is a split kept with the deck's others, and the stage keeps its own when the panel goes", async () => {
