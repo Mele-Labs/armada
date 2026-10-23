@@ -141,7 +141,7 @@ function shellHead({ phase, onEnd, onOpen, onMove }: Omit<ShellPanelPaneProps, "
   // The glyph pictures the place the shell goes.
   const move =
     onMove === undefined ? null : docked === null ? (
-      <IconAct label="Dock under the thread" onClick={onMove}>
+      <IconAct label="Dock" onClick={onMove}>
         <PanelBottom size={16} strokeWidth={2} aria-hidden />
       </IconAct>
     ) : (

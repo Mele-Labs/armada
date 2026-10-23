@@ -3,14 +3,21 @@
 **Part of:** [Job](../session.md).
 
 A Job has one shell that the person and the Job's agent both type into.
-Terminal in the Job's Flight control opens it ([Cockpit](../cockpit.md), *The Job's flight controls*), docked where a block's run docks, and it stays open until it is ended, the Job ends, or the shell exits.
+Terminal in the Job's Flight control opens it ([Cockpit](../cockpit.md), *The Job's flight controls*), docked, and it stays open until it is ended, the Job ends, or the shell exits.
+**In the Cockpit, docked is a panel of its own between the Job and the merge queue**, full width, its height dragged like the deck's other panels and kept with them.
+The thread keeps the Job's whole pane, since nothing docks under it.
+Where no merge queue is drawn, the panel is the last under the Job.
+Elsewhere, beside a page in the walk panel and in a call card, docked is under the thread, where a block's run docks.
 The tile is lit while the shell shows, and pressed again it puts the pane away with the shell still running.
 Beside a page in the walk panel, where no Flight control is drawn, Terminal is in the Job's header.
 Hide puts the pane away and the shell keeps running; End shell stops it.
 Once it has ended the pane says *Shell ended* and offers New shell, which opens another, and Close.
-With a block's run open as well, the two are tabs in one dock, *Terminal* beside the run's command, and each keeps its own screen.
+A block's run docks in the Job view in either place.
+In the Cockpit the run and the shell are two panes, the run in the Job and the shell in its panel.
+Elsewhere, with both open, the two are tabs in one dock, *Terminal* beside the run's command, and each keeps its own screen.
 
 **Where it opens is the setting `terminal.openJobTerminalIn`**: `docked`, as above and as shipped, or `side panel`.
+A toggle on the pane's head moves an open shell between the two and saves the setting: Move to the side panel on the docked pane, and Dock on the side panel's.
 In the side panel it opens where a pull request or an issue does, headed *Terminal* with the Job's title, and the thread keeps its whole height.
 Close puts the panel away and the shell keeps running; Terminal brings it back with everything it printed.
 While the shell has focus, Esc goes to the shell, so a program that reads it still works, and Close is the way out.
@@ -37,7 +44,7 @@ The agent uses the shell for what the person should see or join, a dev server fo
 `terminal.exited` follows its end, whoever caused it.
 
 **Running a block is unchanged**, and stays the person's own act: one pane, one run at a time, in [Running a block](running-a-block.md).
-The shell is a second pane beside it, never a replacement.
+The shell is a second pane, never a replacement.
 Typing in the shell moves nothing on the Job and writes no Evidence.
 
 The fields and the routes are in [Protocol 23.93](../../practices/protocol/protocol-23-93-a-jobs-shared-terminal.md).

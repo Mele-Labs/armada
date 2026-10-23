@@ -1,7 +1,7 @@
-// The Job's shell, docked where a block's run docks: Terminal in Flight control opens it at the pane's
-// size, keys reach it, Hide leaves it running, End shell stops it and New shell opens another. Beside a
-// block Run the two are tabs. Through `App` on `session-shell`, whose Fleet holds a fake zsh. The whole
-// story is the walk `job-shell`.
+// The Job's shell, docked: Terminal in Flight control opens it at the pane's size, keys reach it, Hide
+// leaves it running, End shell stops it and New shell opens another. In the Cockpit it docks in a panel
+// of its own under the Job, and a block Run docks in the Job. Through `App` on `session-shell`, whose
+// Fleet holds a fake zsh. The whole story is the walk `job-shell`.
 
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
@@ -26,8 +26,8 @@ async function open() {
   return view;
 }
 
-test("Terminal opens the Job's shell at the pane's size, docked above the box, and keys reach it", async () => {
-  await open();
+test("Terminal opens the Job's shell at the pane's size, docked under the Job, and keys reach it", async () => {
+  const view = await open();
   expect(document.querySelector(".armada-terminal")).toBeNull();
   await terminal().click();
 
@@ -38,8 +38,7 @@ test("Terminal opens the Job's shell at the pane's size, docked above the box, a
   // The size the pane fitted, and not Fleet's 80 by 24.
   expect(asked[0]!.cols).toBeGreaterThan(0);
   expect([asked[0]!.cols, asked[0]!.rows]).not.toEqual([80, 24]);
-  const box = page.getByRole("textbox", { name: "Message" }).element().getBoundingClientRect();
-  expect(pane().element().getBoundingClientRect().bottom).toBeLessThanOrEqual(box.top);
+  expect(pane().element().getBoundingClientRect().top).toBeGreaterThanOrEqual(view.element().getBoundingClientRect().bottom);
 
   await expect.poll(() => document.activeElement?.getAttribute("aria-label")).toBe("Terminal input");
   await userEvent.keyboard("ls{Enter}");
@@ -86,29 +85,23 @@ test("Hide leaves the shell running and Terminal brings it back whole; End shell
   expect(pane().element().textContent).not.toContain("~/Development/armada/.armada/slots/slot-1");
 });
 
-test("A block Run beside the shell: two tabs, the run's named by its command cut short with the whole command on hover, and the Run works as before", async () => {
-  await open();
+test("In the Cockpit a block Run docks in the Job and the shell keeps its own panel: two panes, no tabs, and the Run works as before", async () => {
+  const view = await open();
   await terminal().click();
-  await expect.element(pane().getByText(PROMPT)).toBeVisible();
+  const shell = () => page.getByRole("region", { name: "Terminal", exact: true }).getByRole("group", { name: "Terminal", exact: true });
+  await expect.element(shell().getByText(PROMPT)).toBeVisible();
 
   await thread().getByRole("group", { name: /wrangler deploy/ }).getByRole("button", { name: "Run", exact: true }).click();
-  const shellTab = pane().getByRole("tab", { name: "Terminal" });
-  const runTab = pane().getByRole("tab", { name: /^cd ~\/Development.*…$/ });
-  await expect.element(runTab).toHaveAttribute("aria-selected", "true");
-  await expect.element(pane().getByText("Attempting to login via OAuth...")).toBeVisible();
-  await expect.element(runTab).toHaveAccessibleName("cd ~/Development/armada/.armada…");
-  await expect.element(runTab).toHaveAccessibleDescription("cd ~/Development/armada/.armada/slots/slot-1/apps/store && pnpm exec wrangler login && pnpm exec wrangler deploy");
-
-  await shellTab.click();
-  await expect.element(pane().getByText(PROMPT)).toBeVisible();
-  await expect.element(pane().getByRole("button", { name: "End shell" })).toBeVisible();
-  await runTab.click();
-  await pane().getByRole("button", { name: "Stop" }).click();
-  await expect.element(pane().getByRole("img", { name: "Stopped" })).toBeVisible();
-  // Closing the run leaves the shell, alone, with no tabs.
-  await pane().getByRole("button", { name: "Close" }).click();
-  await expect.element(pane().getByRole("button", { name: "End shell" })).toBeVisible();
-  expect(pane().getByRole("tablist").query()).toBeNull();
+  const run = view.getByRole("group", { name: "Terminal", exact: true });
+  await expect.element(run.getByText("Attempting to login via OAuth...")).toBeVisible();
+  await expect.element(shell().getByRole("button", { name: "End shell" })).toBeVisible();
+  expect(run.getByRole("tablist").query()).toBeNull();
+  expect(shell().getByRole("tablist").query()).toBeNull();
+  await run.getByRole("button", { name: "Stop" }).click();
+  await expect.element(run.getByRole("img", { name: "Stopped" })).toBeVisible();
+  await run.getByRole("button", { name: "Close" }).click();
+  await expect.element(run).not.toBeInTheDocument();
+  await expect.element(shell().getByRole("button", { name: "End shell" })).toBeVisible();
 });
 
 const SERVED = /Local:.*localhost:5173/;
@@ -218,7 +211,7 @@ test("The terminal's toggle moves the open shell between docked and the side pan
   await expect.poll(() => panel().element().contains(document.activeElement) && document.activeElement?.getAttribute("aria-label")).toBe("Terminal input");
   await expect.poll(placed).toBe("side panel");
 
-  await panel().getByRole("button", { name: "Dock under the thread" }).click();
+  await panel().getByRole("button", { name: "Dock", exact: true }).click();
   await expect.element(panel()).not.toBeInTheDocument();
   await expect.element(pane().getByText(printed, { exact: true })).toBeVisible();
   await expect.poll(() => pane().element().contains(document.activeElement) && document.activeElement?.getAttribute("aria-label")).toBe("Terminal input");

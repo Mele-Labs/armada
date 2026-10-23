@@ -67,6 +67,9 @@
 .deck-centre { gap: var(--space-3); }
 .deck-stage { position: relative; display: flex; flex: 1 1 0; flex-direction: column; min-height: 0; gap: var(--space-3); }
 .deck-stage > .deck-pane { flex: 1 1 0; }
+/* The Job's docked shell, under the Job and over the merge queue, about two fifths of the stage until its split is dragged (`splits.tsx`). */
+.deck-stage > .deck-terminal { flex: 0.66 1 0; min-height: calc(var(--space-12) * 2); }
+.deck-terminal > .armada-terminal { flex: 1 1 0; border: none; border-radius: 0; }
 .deck-list { flex: 1 1 0; }
 
 /* A heading: small caps, quiet, one line, with its arrow or key at the right. No band, no rule. */

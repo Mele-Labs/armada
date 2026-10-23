@@ -706,6 +706,8 @@ export type DeckSession = {
   hosts?: Hosts;
   /** Flight control is drawn beside the view and carries Terminal, so the header does not. */
   flight?: true;
+  /** The deck docks the Job's shell in a panel of its own under the view, so the view's dock holds a block's runs alone. */
+  shell?: true;
 };
 
 /** A hand off that did not start as the failure toast carries a failure to a new Job: the code is Fleet's attachment kind, the reason is `detail.reason`. */
@@ -828,7 +830,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
   const openSaved = useCallback((row: SavedThreadRow) => void openInPanel({ kind: "requests", sessionId: session.id, saved: { collection: row.collectionId, request: row.request }, from: row.id }), [session.id]);
   // A run drawn as a terminal: the pane is the view's own, docked above its box.
   const runner = draft === undefined ? undefined : runnerOf(draft, session);
-  const docked = useJobDock(session.id, "page", useTerminalDock(useCodeRun(runner), session.id), draft?.terminalRuns !== undefined);
+  const docked = useJobDock(session.id, "page", useTerminalDock(useCodeRun(runner), session.id), draft?.terminalRuns !== undefined, deck?.shell === true);
   if (draft === undefined) return null;
   const mode: SessionMode = session.mode ?? (session.terminal === true ? "ask" : "auto");
   // Folded below the breakpoint, a press on a row closes the ledger's sheet first, so what it opens is not drawn over it.

@@ -7,6 +7,7 @@
 
 import type { JobTerminalChange } from "../../../../shared/api/sessions";
 import type { SessionRunMessage } from "@armada/protocol";
+import { repository } from "@armada/screens/src/fixtures/repository";
 
 import type { Scenario } from "../moment";
 import { startShell, type FakeShell } from "../terminal-run/shell";
@@ -98,6 +99,8 @@ export const s322SessionShell: Scenario = {
   ...base,
   name: "session-shell",
   says: "A Job's shell, open in its worktree, which the person and the Job's agent both type into",
+  // A served line, so the Cockpit draws the merge queue under the Job and the docked shell between them.
+  state: { ...base.state, mergeLines: { lines: [{ root: repository().root, line: [], off: [], landed: [], sent_back: [] }] } },
   behaves: (fleet) => {
     live = shellFleet();
     return { ...base.behaves?.(fleet), ...live.api };

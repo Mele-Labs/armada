@@ -108,17 +108,17 @@ export const ShellMovesToThePanel: Story = {
     await userEvent.click(await iconAct(pane, "Move to the side panel"));
     await expect(args.onMove).toHaveBeenCalledTimes(1);
     await expect(args.onHide).not.toHaveBeenCalled();
-    await expect(pane.queryByRole("button", { name: "Dock under the thread" })).toBeNull();
+    await expect(pane.queryByRole("button", { name: "Dock" })).toBeNull();
   },
 };
 
-/** In the side panel, the same toggle docks it under the thread again. */
+/** In the side panel, the same toggle docks it again. */
 export const ShellDocksFromThePanel: Story = {
   args: { phase: { state: "running" }, onMove: fn(), children: body("~/armada $ git status") },
   render: (args) => <ShellPanelPane {...args} />,
   play: async ({ canvasElement, args, userEvent }) => {
     const pane = within(canvasElement);
-    await userEvent.click(await iconAct(pane, "Dock under the thread"));
+    await userEvent.click(await iconAct(pane, "Dock"));
     await expect(args.onMove).toHaveBeenCalledTimes(1);
     await expect(pane.queryByRole("button", { name: "Move to the side panel" })).toBeNull();
   },
