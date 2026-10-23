@@ -68,18 +68,9 @@
 .deck-stage { position: relative; display: flex; flex: 1 1 0; flex-direction: column; min-height: 0; gap: var(--space-3); }
 .deck-stage > .deck-pane { flex: 1 1 0; }
 
-/* Ending a Job: its pane leaves as a ghost over the stage while the timeline is already there (`exit.ts`). Opacity and transform only, one take at a time. */
+/* Ending a Job: a copy of its pane leaves over the stage while the timeline is already there. `exit.ts` plays it (Web Animations, opacity and transform only), at the rect it measured. */
 .deck-ghost { position: absolute; z-index: 1; display: flex; flex-direction: column; transform-origin: 0 0; pointer-events: none; }
 .deck-ghost > .deck-pane { flex: 1 1 0; }
-.deck-ghost[data-take="fold"] { animation: deck-fold var(--duration-travel) var(--ease) forwards; }
-.deck-ghost[data-take="slide"] { animation: deck-slide var(--duration-sheet) var(--ease) forwards; }
-.deck-ghost[data-take="settle"] { animation: deck-settle var(--duration-base) var(--ease) forwards; }
-@keyframes deck-fold {
-  60% { opacity: 0.6; }
-  to { opacity: 0; transform: translate(var(--exit-x), var(--exit-y)) scale(var(--exit-sx), var(--exit-sy)); }
-}
-@keyframes deck-slide { to { opacity: 0; transform: translateX(calc(var(--space-8) * -1)); } }
-@keyframes deck-settle { to { opacity: 0; transform: scale(0.98); } }
 .deck-stage[data-exit="slide"] > .deck-pane { animation: deck-rise var(--duration-travel) var(--ease) backwards; }
 .deck-stage:is([data-exit="fold"], [data-exit="settle"]) > .deck-pane { animation: deck-appear var(--duration-travel) var(--ease) backwards; }
 @keyframes deck-rise { from { opacity: 0; transform: translateY(var(--space-3)); } }
@@ -89,7 +80,7 @@
 .deck-row[data-landed] { animation: deck-landed var(--duration-travel) var(--ease); }
 @keyframes deck-landed { from { background: color-mix(in srgb, var(--fg-default) 14%, transparent); } }
 @media (prefers-reduced-motion: reduce) {
-  .deck-ghost, .deck-stage > .deck-pane, .deck-row[data-landed] { animation: none; }
+  .deck-stage > .deck-pane, .deck-row[data-landed] { animation: none; }
 }
 /* The Job's docked shell, under the Job and over the merge queue, about two fifths of the stage until its split is dragged (`splits.tsx`). */
 .deck-stage > .deck-terminal { flex: 0.66 1 0; min-height: calc(var(--space-12) * 2); }

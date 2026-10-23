@@ -47,7 +47,7 @@ import { queuedIn, queuedKey } from "./queued";
 import type { QueuedIdea } from "@armada/screens/src/draft/sessions";
 import { MapView } from "./MapPane";
 import { sessionIdOf } from "../waiting";
-import { EXIT_MS, exitTake, onEnd, reducedMotion, setExiting, useExiting, type ExitTake } from "./exit";
+import { leaveFrom, onEnd, reducedMotion, useExiting } from "./exit";
 import { CallPane, PaneHead, SessionPane, ShellPanel } from "./panes";
 import { inOrder, useReplayDriver, useReplayKeys, windowOf } from "./replay";
 import { RowMenu, type RowMenuAt } from "./RowMenu";
@@ -473,8 +473,7 @@ function Stage({ props, ship, listed, autopilot, ledger, hosts }: { props: Cockp
   const latest = useRef(ship);
   latest.current = ship;
   const openSession = (id: string) => openSessionFrom(latest.current, props, id);
-  // Ending the Job open here: the stage shows the timeline at once, and the pane leaves over it as a ghost (`exit.ts`).
-  const [ghost, setGhost] = useState<Ghost | undefined>();
+  // Ending the Job open here: the pane is copied over the stage and the timeline is shown at once; the copy plays out (`exit.ts`).
   const open = useRef({ sel, subject });
   open.current = { sel, subject };
   useEffect(
@@ -482,71 +481,16 @@ function Stage({ props, ship, listed, autopilot, ledger, hosts }: { props: Cockp
       onEnd((id) => {
         const { sel: was, subject: held } = open.current;
         if (was === undefined || sessionIdOf(was.key) !== id) return;
-        const leaving = was.kind === "session" && held !== undefined && !reducedMotion() ? ghostOf(held) : undefined;
-        if (leaving !== undefined) {
-          setGhost(leaving);
-          setExiting(leaving.take);
-        }
-        select(undefined);
+        if (was.kind === "session" && held !== undefined && !reducedMotion()) leaveFrom(held.key, () => select(undefined));
+        else select(undefined);
       }),
     [],
   );
-  const done = () => {
-    if (ghost?.take === "fold") landed(ghost.subject.key);
-    setGhost(undefined);
-    setExiting(undefined);
-  };
-  useEffect(() => {
-    if (ghost === undefined) return;
-    const stop = window.setTimeout(done, EXIT_MS + 100);
-    return () => window.clearTimeout(stop);
-  }, [ghost]);
-  const body =
-    sel?.kind === "session" && subject !== undefined ? <SessionPane subject={subject} props={props} acts={acts} ledger={ledger} hosts={hosts} openSession={openSession} /> :
-    call !== undefined ? <CallPane item={call} props={props} /> :
-    lane ? <AutopilotPane props={props} autopilot={autopilot} /> :
-    view === "map" ? <MapView props={props} ship={ship} listed={listed} /> :
-    <TimelineView props={props} ship={ship} listed={listed} />;
-  return (
-    <>
-      {body}
-      {ghost === undefined ? null : (
-        <div className="deck-ghost" data-ghost="" data-take={ghost.take} style={ghost.style} inert aria-hidden="true" onAnimationEnd={(event) => event.target === event.currentTarget && done()}>
-          <SessionPane subject={ghost.subject} props={props} acts={acts} ledger={null} hosts={hosts} openSession={openSession} />
-        </div>
-      )}
-    </>
-  );
-}
-
-type Ghost = { subject: Subject; take: ExitTake; style: CSSProperties };
-
-/** The pane open on the stage, measured where it stands, and where the Job's row is for it to fold into. */
-function ghostOf(subject: Subject): Ghost | undefined {
-  const pane = document.querySelector<HTMLElement>(".deck-stage > .deck-pane");
-  const stage = pane?.parentElement;
-  if (pane === null || pane === undefined || stage === null || stage === undefined) return undefined;
-  const at = pane.getBoundingClientRect();
-  const from = stage.getBoundingClientRect();
-  const row = document.querySelector<HTMLElement>(`[data-row="${CSS.escape(subject.key)}"]`)?.getBoundingClientRect();
-  // Folding has somewhere to go only while the row is on screen; without it the pane settles.
-  const take = exitTake() === "fold" && row === undefined ? "settle" : exitTake();
-  const style = {
-    left: at.left - from.left,
-    top: at.top - from.top,
-    width: at.width,
-    height: at.height,
-    ...(take === "fold" && row !== undefined ? { "--exit-x": `${row.left - at.left}px`, "--exit-y": `${row.top - at.top}px`, "--exit-sx": row.width / at.width, "--exit-sy": row.height / at.height } : {}),
-  } as CSSProperties;
-  return { subject, take, style };
-}
-
-/** The row a pane folded into takes its mark for a moment. */
-function landed(key: string): void {
-  const row = document.querySelector<HTMLElement>(`[data-row="${CSS.escape(key)}"]`);
-  if (row === null) return;
-  row.setAttribute("data-landed", "");
-  window.setTimeout(() => row.removeAttribute("data-landed"), EXIT_MS);
+  if (sel?.kind === "session" && subject !== undefined) return <SessionPane subject={subject} props={props} acts={acts} ledger={ledger} hosts={hosts} openSession={openSession} />;
+  if (call !== undefined) return <CallPane item={call} props={props} />;
+  if (lane) return <AutopilotPane props={props} autopilot={autopilot} />;
+  if (view === "map") return <MapView props={props} ship={ship} listed={listed} />;
+  return <TimelineView props={props} ship={ship} listed={listed} />;
 }
 
 // ---- The merge queue ----------------------------------------------------------------------------------
