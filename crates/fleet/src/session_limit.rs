@@ -58,7 +58,7 @@ where
             if overdue < 0 {
                 continue;
             }
-            let woken = matches!(self.told_by_fleet(&id, WAKE).await, Ok(true));
+            let woken = matches!(self.told_by_fleet(&id, WAKE, ipc::Notice::LimitWake).await, Ok(true));
             let ended = self
                 .store()
                 .lock()

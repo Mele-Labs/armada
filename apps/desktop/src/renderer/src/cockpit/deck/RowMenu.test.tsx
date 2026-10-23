@@ -26,7 +26,7 @@ test("the menu lists Report, and choosing it asks to report the row", async () =
   document.body.append(host);
   const root = createRoot(host);
   mounted.push({ root, host });
-  root.render(<RowMenu at={{ id: "s-1", root: "/repo", x: 20, y: 20, row }} onClose={() => undefined} onAutopilot={() => undefined} />);
+  root.render(<RowMenu at={{ id: "s-1", root: "/repo", title: "Job", x: 20, y: 20, row }} onClose={() => undefined} onAutopilot={() => undefined} />);
 
   const asked = vi.fn();
   window.addEventListener("armada:report", asked);

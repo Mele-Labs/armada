@@ -279,7 +279,7 @@ export type SessionRow =
       text: string;
       files?: SentFile[];
       tags?: SessionTag[];
-      /** The Fleet notice this row was sent for (`behind_base`), absent on every other row. Mute it by `set_notice_mute`. */
+      /** The Fleet notice this row was sent for (`behind_base`, `write_clash`, …: `Notice`), absent on every other row. Mute it by `set_notice_mute`. */
       notice?: string;
     }
   /**

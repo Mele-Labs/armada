@@ -1,0 +1,195 @@
+- generic [ref=e1]:
+  - generic [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e6]:
+          - img "Armada" [ref=e7]
+          - button "Mock scenario — mods-trackers" [ref=e12] [cursor=pointer]:
+            - generic [ref=e15]: mods-trackers
+        - generic "armada" [ref=e215]
+      - generic [ref=e16]:
+        - navigation "Places" [ref=e18]:
+          - tablist [ref=e19]:
+            - tab "Cockpit" [ref=e20] [cursor=pointer]
+            - tab "Studios" [ref=e21] [cursor=pointer]
+            - tab "Logbook" [ref=e22] [cursor=pointer]
+            - tab "System" [active] [selected] [ref=e23] [cursor=pointer]
+        - button "Search, or describe work to dispatch (⌘K)" [ref=e24] [cursor=pointer]:
+          - generic [ref=e28]:
+            - generic [ref=e29]: ⌘
+            - generic [ref=e30]: K
+      - generic [ref=e31]:
+        - button "Helm" [ref=e32] [cursor=pointer]
+        - button "Fleet — Running" [ref=e91] [cursor=pointer]
+        - button "Menu" [ref=e43] [cursor=pointer]
+    - generic [ref=e216]:
+      - navigation "System" [ref=e217]:
+        - generic [ref=e219]:
+          - searchbox "Search System" [ref=e220]
+          - generic [ref=e221]: /
+        - generic [ref=e223]:
+          - group "Kit" [ref=e224]:
+            - generic [ref=e225]:
+              - heading [level=3] [aria-hidden] [ref=e226]: Kit
+              - button "Add to Kit" [ref=e227] [cursor=pointer]: Add
+            - list [ref=e228]:
+              - listitem [ref=e229]:
+                - button "Skills" [ref=e230] [cursor=pointer]
+              - listitem [ref=e232]:
+                - button "Plugins" [ref=e233] [cursor=pointer]
+              - listitem [ref=e235]:
+                - button "Sub agents" [ref=e236] [cursor=pointer]
+              - listitem [ref=e238]:
+                - button "Commands" [ref=e239] [cursor=pointer]
+              - listitem [ref=e241]:
+                - button "Servers" [ref=e242] [cursor=pointer]
+              - listitem [ref=e244]:
+                - button "Instructions" [ref=e245] [cursor=pointer]
+              - listitem [ref=e247]:
+                - button "Output styles" [ref=e248] [cursor=pointer]
+              - listitem [ref=e250]:
+                - button "Allowlist" [ref=e251] [cursor=pointer]
+              - listitem [ref=e253]:
+                - button "Workflows" [ref=e254] [cursor=pointer]
+              - listitem [ref=e256]:
+                - button "Models" [ref=e257] [cursor=pointer]
+              - listitem [ref=e259]:
+                - button "Prompts" [ref=e260] [cursor=pointer]
+              - listitem [ref=e262]:
+                - button "Harness" [ref=e263] [cursor=pointer]
+          - group "Fleet" [ref=e265]:
+            - heading [level=3] [aria-hidden] [ref=e267]: Fleet
+            - list [ref=e268]:
+              - listitem [ref=e269]:
+                - button "Limits" [ref=e270] [cursor=pointer]
+              - listitem [ref=e272]:
+                - button "Timeouts" [ref=e273] [cursor=pointer]
+              - listitem [ref=e275]:
+                - button "Retention" [ref=e276] [cursor=pointer]
+              - listitem [ref=e278]:
+                - button "Plan" [ref=e279] [cursor=pointer]
+              - listitem [ref=e281]:
+                - button "Machine" [ref=e282] [cursor=pointer]
+              - listitem [ref=e284]:
+                - button "Account" [ref=e285] [cursor=pointer]
+              - listitem [ref=e287]:
+                - button "Store" [ref=e288] [cursor=pointer]
+              - listitem [ref=e290]:
+                - button "Features" [ref=e291] [cursor=pointer]
+          - group "Mods" [ref=e293]:
+            - heading [level=3] [aria-hidden] [ref=e295]: Mods
+            - list [ref=e296]:
+              - listitem [ref=e297]:
+                - button "All" [ref=e298] [cursor=pointer]
+              - listitem [ref=e300]:
+                - button "Theme" [ref=e301] [cursor=pointer]
+              - listitem [ref=e303]:
+                - button "Layout" [ref=e304] [cursor=pointer]
+              - listitem [ref=e306]:
+                - button "Tracker" [ref=e307] [cursor=pointer]
+          - group "Bridge" [ref=e309]:
+            - heading [level=3] [aria-hidden] [ref=e311]: Bridge
+            - list [ref=e312]:
+              - listitem [ref=e313]:
+                - button "Keyboard shortcuts" [ref=e314] [cursor=pointer]
+              - listitem [ref=e316]:
+                - button "Time" [ref=e317] [cursor=pointer]
+              - listitem [ref=e319]:
+                - button "Editor" [ref=e320] [cursor=pointer]
+              - listitem [ref=e322]:
+                - button "Terminal" [ref=e323] [cursor=pointer]
+              - listitem [ref=e325]:
+                - button "Links" [ref=e326] [cursor=pointer]
+              - listitem [ref=e328]:
+                - button "Phone" [ref=e329] [cursor=pointer]
+              - listitem [ref=e331]:
+                - button "Guides" [ref=e332] [cursor=pointer]
+      - generic [ref=e335]:
+        - region "Skills" [ref=e336]:
+          - searchbox "Filter Skills" [ref=e339]
+          - list [ref=e341]:
+            - listitem [ref=e342]:
+              - button "humanizer Yours" [ref=e343] [cursor=pointer]:
+                - generic [ref=e344]: humanizer
+                - generic [ref=e345]: Yours
+            - listitem [ref=e347]:
+              - button "impact-analysis Yours" [ref=e348] [cursor=pointer]:
+                - generic [ref=e349]: impact-analysis
+                - generic [ref=e350]: Yours
+          - button "Add" [ref=e353] [cursor=pointer]
+        - region "Detail" [ref=e354]:
+          - article "humanizer" [ref=e355]:
+            - generic [ref=e356]:
+              - generic [ref=e357]:
+                - generic [ref=e358]:
+                  - generic [ref=e359]:
+                    - heading "humanizer" [level=3] [ref=e360]
+                    - generic [ref=e361]: Yours
+                  - paragraph [ref=e362]: /Users/user/.agent/skills/humanizer
+                  - button "Remove humanizer" [ref=e364] [cursor=pointer]: Remove
+                - group "Acts" [ref=e365]:
+                  - button "Open in your editor" [ref=e367] [cursor=pointer]
+                  - button "Show in Finder" [ref=e373] [cursor=pointer]
+              - group "Editor SKILL.md" [ref=e378]:
+                - generic [ref=e380]:
+                  - generic [ref=e382]:
+                    - generic [ref=e383]: "1"
+                    - generic [ref=e384]: "2"
+                    - generic [ref=e385]: "3"
+                    - generic [ref=e386]: "4"
+                    - generic [ref=e387]: "5"
+                    - generic [ref=e388]: "6"
+                    - generic [ref=e389]: "7"
+                    - generic [ref=e390]: "8"
+                    - generic [ref=e391]: "9"
+                    - generic [ref=e392]: "10"
+                    - generic [ref=e393]: "11"
+                    - generic [ref=e394]: "12"
+                    - generic [ref=e395]: "13"
+                    - generic [ref=e396]: "14"
+                    - generic [ref=e397]: "15"
+                    - generic [ref=e398]: "16"
+                    - generic [ref=e399]: "17"
+                    - generic [ref=e400]: "18"
+                    - generic [ref=e401]: "19"
+                    - generic [ref=e402]: "20"
+                  - textbox "SKILL.md" [ref=e403]:
+                    - generic [ref=e404]: "---"
+                    - generic [ref=e405]: "name: humanizer"
+                    - generic [ref=e406]: "description: Rewrite AI-sounding text so it reads like the writer without changing what it says."
+                    - generic [ref=e407]: "---"
+                    - generic [ref=e409]: "# Humanizer"
+                    - generic [ref=e411]: Read the draft once for what it says, then again for how it sounds.
+                    - generic [ref=e413]: "## What to remove"
+                    - generic [ref=e415]: "- Contrasts of the form \"not X but Y\"."
+                    - generic [ref=e416]: "- A closing line that restates the paragraph."
+                    - generic [ref=e417]: "- Dashes used where a full stop would do."
+                    - generic [ref=e418]: "- Claims bigger than the evidence behind them."
+                    - generic [ref=e420]: "## What to keep"
+                    - generic [ref=e422]: Every fact, number and name in the original. If a sentence loses one, put it back.
+  - generic [ref=e57]:
+    - generic [ref=e58]:
+      - paragraph [ref=e59]:
+        - generic [ref=e60]: mods-trackers
+        - generic [ref=e61]: · Step 2 of 7
+      - generic [ref=e62]:
+        - button "Replay from step 1" [ref=e64] [cursor=pointer]
+        - generic [ref=e68]: R
+        - button "Fold the card" [ref=e70] [cursor=pointer]
+        - generic [ref=e73]: .
+    - paragraph [ref=e74]: Mods, every kind in one list
+    - generic [ref=e75]:
+      - generic [ref=e76]:
+        - button "Back" [ref=e424] [cursor=pointer]
+        - generic [ref=e78]: ←
+      - generic [ref=e79]:
+        - generic [ref=e81] [cursor=pointer]:
+          - generic [ref=e82]: Autoplay
+          - switch "Autoplay" [ref=e84]
+        - generic [ref=e87]: A
+      - generic [ref=e88]:
+        - generic [ref=e89]:
+          - button "Next" [ref=e214] [cursor=pointer]
+          - generic [aria-hidden]:
+            - generic: Act on the ringed target and go on
+        - generic [ref=e90]: →

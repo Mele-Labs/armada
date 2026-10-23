@@ -579,9 +579,10 @@ Bridge calls neither yet.
 | Where | Side | Carries |
 | --- | --- | --- |
 | `set_notice_mute` (`POST /notices/mute`, `No`) | Bridge sends `SetNoticeMute` `{ notice, scope, muted }`, Fleet answers 200 | The same body; `scope` is `job` or `hour` with `session_id`, or `repo` with `manifest_id`; `muted: false` lifts it; 422 `fleet.notice_mute_unnamed` |
-| `SessionRow` `message` | Fleet sends | Gains optional `notice` (`behind_base`), set on Fleet's own notice only |
+| `SessionRow` `message` | Fleet sends | Gains optional `notice`, set on Fleet's own notice only. Every notice Fleet writes to a Session carries its word (`behind_base`, `pr_checks_failed`, `write_clash` and the rest of `crates/ipc/src/notices.rs`); a row of its own kind (`linked`, `moved`, `started`) carries none |
 
-**A mute stops the send, and is kept on disk.** A slot Fleet skipped is not marked told, so lifting the mute resumes the notice, and an hour mute ends at its time across a restart.
+**A mute stops the send of every notice, and is kept on disk.** `told_by_fleet` reads it for any word, before a Fleet mod's rule.
+A notice it holds back is not marked told, so lifting the mute resumes it, and an hour mute ends at its time across a restart.
 **Rows are stored, not rebuilt**, so a row kept before this change has no `notice` and is never read as one.
 
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
@@ -604,6 +605,39 @@ Bridge's half is `packages/protocol/src/logbook.ts`, written by hand, field for 
 **An id is a number for an entry Fleet keeps, and a word and a hash (`runs-…`, `machine-…`) for one read in from run memory or the machine note.** The acts refuse the second kind with `fleet.logbook_entry_not_kept`: Fleet rebuilds them on every read.
 **`LogbookEvidence.says` is optional**, since a list does not read each Job's record back. `last_tripped` is the latest time a Job tripped on the entry, read off its evidence.
 
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+**The event stream.** Untouched.
+
+## Teaching: `read_teaching`, `save_teaching` and `list_word_rules`
+
+Since 22 Oct 2026. **Additive only**: three operations and routes and the types they carry; no event kind and no field on an existing type but `taught_on` on `ModSummary` and three `ModKind` words.
+Since 23 Oct 2026 the words part's `address` is `{ template, found }` and not a string (the one read of it is Bridge's, and the IDs differ), `WordRule` gains `found`, `ModSummary` gains `entry`, and `ModChecked` gains `words` and `fleet`.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
+Since 23 Oct 2026, again, a Fleet rule gains `matches` and `when` and the proposal's `fleet` part gains `untestable`, all optional and left out when absent.
+Bridge's half is `packages/protocol/src/teaching.ts` and the `ModKind` union in `packages/protocol/src/mods.ts`, written by hand, field for field.
+Its calls are `readTeaching`, `saveTeaching` and `listWordRules` (`apps/desktop/src/shared/api/teaching.ts`, served by `apps/desktop/src/main/teaching.ts`); `read_teaching` waits as a model call does.
+**A teaching is a Logbook entry for the agent note and mods by what it changes**; `save_teaching` makes both, so Bridge files nothing itself.
+`docs/concepts/mods.md` is the mod files.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `read_teaching` (`POST /teachings/read`) | Bridge sends `{ words?, message?, said, repository?, reach, session_id?, source? }` (`reach` is `repository` or `everywhere`, `source` is `{ kind, text, ids? }` with `kind` one of `words`, `command`, `notice`, `task`, `check`, `pull_request`, `panel`, `row`, `title_bar`), Fleet answers `{ note?, words?, fleet?, tweak?, layout? }` | One model call, nothing kept. `note` is `{ section, kind, text }`, `words` is `{ name, pattern, example, address? }` with `address` `{ template, found }` (`found` is `settings`, `pull_request #N` or `person`) for the request's repository where the person wrote one or Fleet found one, `fleet` is `{ notice, does, where, matches?, when?, untestable? }` (`when` is a list of `{ if, does }` with `if` one of `blocks_merge`, `open_pull_request`, `working`, `owner_away`; `untestable` is the person's own words for a condition outside those), `tweak` is a list of `{ token, was, now, used_in?, note? }`, `layout` is `{ name, layout }`; at least one is present. 422 `fleet.teaching_words_refused`, `fleet.teaching_note_refused`, `fleet.teaching_rule_refused`, `fleet.teaching_tweak_refused`, `fleet.teaching_layout_refused`, `fleet.teaching_input_refused`, `fleet.teaching_nothing_read`; 500 `fleet.teaching_read_failed` |
+| `save_teaching` (`POST /teachings`) | Bridge sends the parts as left, then `{ reach, repository?, session_id?, cite?, source? }`, Fleet answers `{ entry?, mods }` | Held to what `read_teaching` holds a proposal to, all before any write. The note becomes a Logbook entry with `{ session_id, cite }` as its evidence; each other part becomes an enabled mod. With `session_id` and a note the Session is told "From now on: <note>": queued behind a turn in progress, never refused |
+| `list_word_rules` (`GET /teachings/words?repository=&session_id=`, `agent_access = "Yes"`) | Bridge reads | `{ rules }` of `{ mod_name, name, pattern, example, address, found }`: one per enabled, valid Words mod with an address for the repository, its own before the one for every repository. 404 `fleet.run_memory_repository_not_served` |
+
+**`read_teaching` looks for the address first** when it proposes words and a repository is given: a Words mod with the same pattern that already has one, then the two sources below, the pull request search held to a ten second bound.
+`save_teaching` writes the address the proposal carries, `found` as it came.
+**A Words mod with no address for a repository is looked for**, off the request, when a save without one names the repository or `list_word_rules` is read for it: the Manifest's tracker first (`found = "settings"`, through `Tracker::address_template`), then up to five recently merged pull requests' text (`found = "pull_request #N"`).
+**Where neither says, the Session is asked once**: `WaitingSource` gains `words_address`, a derived item with id `words:<mod>:<manifest id>`, text `Where does <name> open in <manifest id>?`, an `answer` act, and options of each address any Words mod holds (label the address, description the repositories using it) then `Other`.
+`answer_waiting` with a `choice` of an address, or `Other` and `text`, writes it to the mod as `found = "person"`; 422 `fleet.session_waiting_empty` for an address with no `{match}`.
+Dismissing it is kept: it is not asked again for that mod and repository.
+**Skew for `words_address`.** A Bridge before this reads an item of a source it does not know; the IDs differ and the lifeboat serves.
+
+**A Fleet rule that says `call` raises `WaitingSource::FleetCall`**, a derived item with id `call:<n>`, the words the Session was told as its text and a `message` act that opens the Job.
+Dismissing it settles it and tells the agent nothing.
+A Bridge before this reads an item of a source it does not know; the IDs differ and the lifeboat serves.
+
+**Removed**: `list_taught_links` and `forget_taught_link`, with the `taught_links` table, which never shipped. Forgetting a Logbook entry removes the mods whose `mod.toml` records it as `entry`.
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 **The event stream.** Untouched.
 

@@ -7,6 +7,7 @@ import type { ReactNode } from "react";
 
 import { KeyboardSettings } from "./KeyboardSettings";
 import { LayoutSettings } from "./LayoutSettings";
+import { ModList } from "./ModList";
 import { PhoneSettings } from "./PhoneSettings";
 import { ReachFoldersSettings } from "./ReachFoldersSettings";
 import { SchemaSection } from "./SchemaSettings";
@@ -40,8 +41,12 @@ export function SettingsSectionsView({ ids, settings, live, onSaveSettings, onOp
   );
   const panes: Record<string, (title: string) => ReactNode> = {
     phone: () => <PhoneSettings {...(onCopied === undefined ? {} : { onCopied })} />,
+    "mods-all": (title) => <ModList kind="all" title={title} />,
     theme: (title) => card(title, <ThemeSettings />),
     layout: (title) => card(title, <LayoutSettings />),
+    words: (title) => <ModList kind="words" title={title} />,
+    trackers: (title) => <ModList kind="tracker" title={title} />,
+    "fleet-mods": (title) => <ModList kind="fleet" title={title} />,
     time: (title) => card(title, <TimeSettings />),
     keyboard: (title) => card(title, <KeyboardSettings query="" />),
     guides: (title) => card(title, <GuidesSetting {...(onReadGuides === undefined ? {} : { onReadGuides })} />),

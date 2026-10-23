@@ -12,6 +12,7 @@ import {
   GitMerge,
   LayoutDashboard,
   ListTodo,
+  Radar,
   ScrollText,
   Settings,
   ShieldCheck,
@@ -55,6 +56,7 @@ export const LAYOUT: Readonly<Record<LayoutRegion, Spec>> = {
     entries: [
       { id: "fleet", label: "Fleet", icon: Waypoints, hideable: false, slot: "board" },
       { id: "merge-line", label: "Merge line", icon: GitMerge, hideable: true, slot: "board" },
+      { id: "field", label: "Field", icon: Radar, hideable: true, slot: "board" },
     ],
   },
   "job.tabs": {

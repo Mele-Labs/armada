@@ -97,6 +97,7 @@ where
                     .told_by_fleet(
                         &owner,
                         &format!("Auto land is on, and the forge would not turn on auto-merge for #{number}: {why}"),
+                        ipc::Notice::AutoLandRefused,
                     )
                     .await;
             }

@@ -40,6 +40,7 @@ assuming it is restated here.
 | [session.md](session.md) | An agent job a person runs, kept as a row so Fleet can say which jobs are open and which one holds a branch, a pull request or a slot |
 | [sketch-pane.md](sketch-pane.md) | The scene an agent draws with `show_sketch` and the owner's pad shares, and how a sketch is read, played and marked |
 | [studio.md](studio.md) | A typed graph of what one stretch of work produced, kept per repository |
+| [teaching.md](teaching.md) | What the owner selects and presses Teach on, read by Fleet into a note for agents, a Words mod, a Fleet mod, a theme tweak and a layout change, which he saves |
 | [test-map.md](test-map.md) | The map Fleet keeps of which tests reach each file, fed from whatever source answers best and read when an agent edits one |
 | [themes.md](themes.md) | The colours Bridge is drawn in: Dark, Light, a catalogue of terminal colour schemes, and the themes mods add |
 | [tracker.md](tracker.md) | The adapter through which Fleet lists a repository's open issues |

@@ -18,3 +18,10 @@
   size = "12px"
   status = "Proposed"
   notes = "Proposed 7 Oct 2026 for the walk `aTriggerHoldsTheJob`. The same mark as the open Job's alert, drawn from `JobSummary.alert`, so the row and the header say the same fact. Tooltip names the Trigger, its moment and the step. One mark, no count."
+
+[[icons.bell.usage]]
+  means = "A mod of kind Fleet, which keeps what Fleet does with a notice: tell, quiet, batch or call"
+  group = "Mods"
+  size = "16px"
+  status = "Proposed"
+  notes = "Proposed 23 Oct 2026 for the walk `teach-mods`, tooltip `Fleet`. A notice is what the bell was already for. Leads the Mods row. Borrowed and not minted: the owner may rule otherwise."

@@ -132,7 +132,7 @@ where
         if !self.delivery_row_kept(id, first).await {
             return false;
         }
-        let _ = self.told_by_fleet(id, ASKED).await;
+        let _ = self.told_by_fleet(id, ASKED, ipc::Notice::DeliveryAsked).await;
         true
     }
 
@@ -146,7 +146,7 @@ where
         let asked = SetSessionAutoLand { id: SessionId::carried(id), on: true };
         if let Err(refusal) = self.session_auto_land_set(asked).await {
             let why = &refusal.error().message;
-            let _ = self.told_by_fleet(id, &format!("Auto land was chosen, and it could not be turned on in full: {why}")).await;
+            let _ = self.told_by_fleet(id, &format!("Auto land was chosen, and it could not be turned on in full: {why}"), ipc::Notice::AutoLandRefused).await;
         }
     }
 
@@ -193,7 +193,7 @@ where
             words.push_str("\n\n");
             words.push_str(&held);
         }
-        let _ = self.told_by_fleet(id, &words).await;
+        let _ = self.told_by_fleet(id, &words, ipc::Notice::DeliveryChosen).await;
         Ok(record)
     }
 }

@@ -48,6 +48,8 @@ mod watches;
 mod reply_misreads;
 /// The sentences read from a reply that he confirmed with thumbs up.
 mod reply_confirmed;
+mod word_asks;
+mod fleet_calls;
 mod notice_mutes;
 /// The issue queries a person saved, per repository.
 mod issue_queries;
@@ -146,6 +148,8 @@ pub use session_tells::KeptTell;
 pub use session_later::KeptLater;
 pub use watches::{KeptWatch, KeptWatchReading, KeptWatchSetAside, KeptWatchTaken, KeptWatchVerdict, KeptWatchWhole, READINGS_KEPT};
 pub use notice_mutes::LiveMutes;
+pub use word_asks::KeptWordAsk;
+pub use fleet_calls::KeptCall;
 pub use issue_queries::KeptIssueQuery;
 pub use session_waiting::KeptWaiting;
 pub use session_checks::KeptSessionCheck;

@@ -138,14 +138,14 @@ nothing: check the id against the table.
 
 | Region | Ids, in the order shipped | Cannot be hidden | `order` | `first` |
 |---|---|---|---|---|
-| `dashboard.panels` | `fleet`, `merge-line` | `fleet` | yes | no |
+| `dashboard.panels` | `fleet`, `merge-line`, `field` | `fleet` | yes | no |
 | `job.tabs` | `overview`, `workflow`, `plan`, `record`, `checks`, `drones`, `pulse`, `settings` | `overview`, `plan` | yes | yes |
 | `rail` | `overview`, `jobs`, `sessions`, `kit`, `mods`, `settings`, `guides`, `workflows`, `studios`, `logbook`, `reviews`, `issues` | `overview`, `mods`, `settings` | no | no |
 
 `packages/shell/layout-registry.json` is the list Fleet checks. **`rail`
 is the places: the Cockpit, the tabs `jobs` and `sessions` and the System strip's pages.
 The Logbook page is the place `logbook`.** A hidden `merge-line` panel hides the
-deck's merge queue, and `order` on the panels has no effect on the deck. Hiding takes an
+deck's merge queue, a hidden `field` hides the Field panel of an open Session, and `order` on the panels has no effect on the deck. Hiding takes an
 entry off the tab bar or the strip and nothing else: it stays in the palette and in
 links.
 

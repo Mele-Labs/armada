@@ -7,7 +7,7 @@ import type { SettingsList } from "@armada/protocol";
 import { SETTINGS_SECTIONS, settingWords, settingsIn } from "@armada/settings";
 import { SURFACE } from "@armada/shell";
 
-export type SystemGroupId = "kit" | "fleet" | "bridge";
+export type SystemGroupId = "kit" | "fleet" | "mods" | "bridge";
 
 export type SystemEntryDef = {
   id: string;
@@ -22,6 +22,7 @@ export type SystemEntryDef = {
 export const SYSTEM_GROUPS: readonly { id: SystemGroupId; label: string }[] = [
   { id: "kit", label: "Kit" },
   { id: "fleet", label: "Fleet" },
+  { id: "mods", label: "Mods" },
   { id: "bridge", label: "Bridge" },
 ];
 
@@ -46,9 +47,12 @@ export const SYSTEM_ENTRIES: readonly SystemEntryDef[] = [
   { id: "fleet:account", label: "Account", group: "fleet", sections: ["account"] },
   { id: "fleet:store", label: "Store", group: "fleet", sections: ["store"] },
   { id: "fleet:features", label: "Features", group: "fleet", sections: ["features"] },
-  { id: "bridge:theme", label: "Theme", group: "bridge", sections: ["theme"] },
-  { id: "bridge:layout", label: "Layout", group: "bridge", sections: ["layout"] },
-  { id: "bridge:mods", label: "Mods", group: "bridge" },
+  { id: "bridge:all", label: "All", group: "mods", sections: ["mods-all"] },
+  { id: "bridge:theme", label: "Theme", group: "mods", sections: ["theme"] },
+  { id: "bridge:layout", label: "Layout", group: "mods", sections: ["layout"] },
+  { id: "bridge:words", label: "Words", group: "mods", sections: ["words"] },
+  { id: "bridge:tracker", label: "Tracker", group: "mods", sections: ["trackers"] },
+  { id: "bridge:fleet", label: "Fleet", group: "mods", sections: ["fleet-mods"] },
   { id: "bridge:keyboard", label: "Keyboard shortcuts", group: "bridge", sections: ["keyboard"] },
   { id: "bridge:time", label: "Time", group: "bridge", sections: ["time"] },
   { id: "bridge:editor", label: "Editor", group: "bridge", sections: ["editor"] },
@@ -72,14 +76,14 @@ export const entryOfSettingsRow = (row: string): string | undefined => entryOfSe
 export const entryOfKind = (kind: KitKindId): string => SYSTEM_ENTRIES.find((one) => one.kit === kind)?.id ?? FIRST_ENTRY;
 
 /**
- * The entry a surface the window used to have opens: Mods is its own, Guides and Workflows are their own, and Kit and
+ * The entry a surface the window used to have opens: Mods is Theme, Guides and Workflows are their own, and Kit and
  * Settings keep the entry last used when it is one of theirs. `last` is that entry.
  */
 export function entryForSurface(surface: string, last: string): string | undefined {
   const now = entryOf(last);
   switch (surface) {
     case SURFACE.mods:
-      return "bridge:mods";
+      return "bridge:theme";
     case SURFACE.guides:
       return "bridge:guides";
     case SURFACE.workflows:
@@ -97,7 +101,6 @@ export function entryForSurface(surface: string, last: string): string | undefin
 export function surfaceOfEntry(id: string): string {
   if (id === "kit:workflows") return SURFACE.workflows;
   if (id === "bridge:guides") return SURFACE.guides;
-  if (id === "bridge:mods") return SURFACE.mods;
   return entryOf(id)?.kit !== undefined ? SURFACE.kit : SURFACE.settings;
 }
 
