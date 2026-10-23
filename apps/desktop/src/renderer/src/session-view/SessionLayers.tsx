@@ -1,7 +1,7 @@
 // The layers over a Session's stage, opened from Flight control's keys: Artifacts, Subagents, Checks and Bays. Each covers the thread and
 // composer, which stay mounted under it, so Back leaves them exactly as they were. Esc is Back. The first thing in a layer holds focus: the
 // search field in Artifacts, the first row elsewhere; the arrows walk the rows. A layer is drawn from what the ledger and the thread already
-// hold (`artifacts.ts`, `slot-trouble.ts`) and reads nothing of its own.
+// hold (`artifacts.ts`, `slot-trouble.ts`) and reads nothing of its own, but the Artifacts graph's history, read while the graph is open.
 
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { ArrowDown, Check, CircleDot, CircleX, LoaderCircle, Megaphone, Power, ShieldCheck, ShieldEllipsis, ShieldX, Terminal, X, type LucideIcon } from "lucide-react";
@@ -161,6 +161,28 @@ function Groups({ groups }: { groups: readonly { id: string; label: string; rows
   );
 }
 
+/**
+ * The Session's attachment history while `open`: read when it opens and again each time the ledger moves, which is when Fleet publishes the Session.
+ * A read that fails leaves what was held, and none at first: the graph then draws what the ledger holds.
+ */
+function useVersions(session: Session, open: boolean): Session["versions"] {
+  const read = useSessionsDraft()?.history;
+  const [versions, setVersions] = useState<Session["versions"]>(undefined);
+  const { id, attachments } = session;
+  useEffect(() => setVersions(undefined), [id]);
+  useEffect(() => {
+    if (!open || read === undefined) return;
+    let live = true;
+    void read(id).then((got) => {
+      if (live && got !== undefined) setVersions(got);
+    });
+    return () => {
+      live = false;
+    };
+  }, [open, read, id, attachments]);
+  return versions;
+}
+
 const VIEWS = [
   { id: "list", label: "List" },
   { id: "graph", label: "Graph" },
@@ -172,11 +194,12 @@ export function ArtifactsLayer({ session, entries, onOpenSession, onOpenSketch }
   const [view, setView] = useState<"list" | "graph">("list");
   const sessions = useSessions();
   const format = useTimeFormat();
+  const versions = useVersions(session, view === "graph");
   const all = useMemo(() => artifactsOf(session, entries, { sessions, open: onOpenSession }), [session, entries, sessions, onOpenSession]);
   const shown = useMemo(() => matching(all, words), [all, words]);
   const graph = useMemo(
-    () => graphOf(session, all, shown, words, { sketch: (id, at) => onOpenSketch?.(id, at), clock: (ms) => timeSaid(ms, { hour12: format.hour12, seconds: false, date: false }) }),
-    [session, all, shown, words, onOpenSketch, format.hour12],
+    () => graphOf(versions === undefined ? session : { ...session, versions }, all, shown, words, { sketch: (id, at) => onOpenSketch?.(id, at), clock: (ms) => timeSaid(ms, { hour12: format.hour12, seconds: false, date: false }) }),
+    [session, versions, all, shown, words, onOpenSketch, format.hour12],
   );
   // V switches the view from anywhere in the layer but a field, where it is a letter.
   const keys = (event: KeyboardEvent<HTMLElement>) => {

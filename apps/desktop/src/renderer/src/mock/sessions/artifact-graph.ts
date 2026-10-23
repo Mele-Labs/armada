@@ -1,10 +1,11 @@
 // One Job across about two hours, for the Artifacts graph. The request names two links and an issue; a sketch is drawn from it; the plan is
 // recorded with three groups; the first shows a page twice, writes a file and a picture; the second opens a pull request that closes the issue
 // and goes opened, red, green, merged, while the agent writes three links; the third starts a child Job. A later note of the owner's leads to a
-// redraw of the sketch and the page shown again. `versions` is what Fleet owes (`Session.versions`), each stamped with `from`. Mock only.
+// redraw of the sketch and the page shown again. `graphHistory` is what Fleet's `get_attachment_history` answers, each version stamped with what it followed. Mock only.
 // The walk `artifact-graph` plays it.
 
 import type { Scene } from "@armada/components";
+import type { AttachmentHistory, AttachmentVersion } from "@armada/protocol";
 import type { Session, SessionAttachment, SessionRow } from "@armada/screens/src/draft/sessions";
 
 import { READS, READS_AGAIN, READS_TITLE } from "./sketches";
@@ -58,31 +59,60 @@ const agent = (id: string, minutes: number, text: string): SessionRow => ({ id, 
 const tool = (id: string, minutes: number, text: string): SessionRow => ({ id, at: ago(minutes), kind: "tool", text });
 const shown = (id: string, minutes: number): SessionRow => ({ id, at: ago(minutes), kind: "window", title: "Clock report", url: WINDOW });
 
-/** Every version of every attachment, oldest first, each at the minute it stood from and stamped with what it followed. */
-function versions(): NonNullable<Session["versions"]> {
-  const at = (minutes: number, attachment: SessionAttachment, from?: { message?: string; task?: string }) => ({ at: ago(minutes), attachment, ...(from === undefined ? {} : { from }) });
+/**
+ * Every version of every attachment, oldest first, as `get_attachment_history` answers it: each at the minute it stood from, with what it followed.
+ * Served by the scenario's `readAttachmentHistory`, and read by the graph when it opens.
+ */
+export function graphHistory(): AttachmentHistory {
+  const at = (minutes: number, kind: string, target: string, detail: Record<string, string>, from: { message?: string; task?: string } = {}, state: AttachmentVersion["state"] = "standing"): AttachmentVersion => ({
+    kind,
+    manifest_id: "armada",
+    target,
+    state,
+    detail,
+    at: ago(minutes),
+    ...(from.message === undefined ? {} : { from_message: from.message }),
+    ...(from.task === undefined ? {} : { from_task: from.task }),
+  });
+  const written = (minutes: number, one: Link, from: { message?: string; task?: string }) => at(minutes, "link", one.url, { by: one.by }, from, "spent");
+  const issued = (minutes: number, state: "open" | "closed", from?: { message?: string; task?: string }) =>
+    at(minutes, "issue", "1887", { title: "store_flaky fails when the second turns", address: "https://git.example/armada/issues/1887", state }, from);
+  const drawn = (minutes: number, drawing: Scene, from: { message?: string; task?: string }) =>
+    at(minutes, "artifact", `sketch:${READS_TITLE}`, { form: "sketch", title: READS_TITLE, scene: JSON.stringify(drawing) }, from);
+  const shown = (minutes: number, from: { message?: string; task?: string }) => at(minutes, "artifact", WINDOW, { form: "window", title: "Clock report" }, from);
+  const pulled = (minutes: number, checks: "pending" | "failed" | "passed", state: "open" | "merged") =>
+    at(
+      minutes,
+      "pr",
+      "1913",
+      { title: "Pin the clock in the store tests", branch: "armada/pin-store-clock", address: "https://git.example/armada/pull/1913", checks, ...(checks === "failed" ? { failing: "store_flaky" } : {}), state, closes: "1887" },
+      { task: "t4" },
+      state === "merged" ? "spent" : "standing",
+    );
   const request = { message: "r1" };
-  return [
-    at(124, LINKS.rfc, request),
-    at(124, LINKS.second, request),
-    at(123, issue("open"), request),
-    at(117, sketch(READS), request),
-    at(100, page(), { task: "t2" }),
-    at(96, file, { task: "t1" }),
-    at(92, picture, { task: "t1" }),
-    at(88, page(), { task: "t2" }),
-    at(74, LINKS.instant, { task: "t3" }),
-    at(70, pull({ state: "pending" }, "open"), { task: "t4" }),
-    at(66, LINKS.fake, { task: "t3" }),
-    at(62, pull({ state: "failed", failing: "store_flaky" }, "open"), { task: "t4" }),
-    at(58, LINKS.changelog, { task: "t3" }),
-    at(55, pull({ state: "passed" }, "open"), { task: "t4" }),
-    at(50, { kind: "started_to", id: GRAPH_CHILD, group: "g3" }, { task: "t5" }),
-    at(45, pull({ state: "passed" }, "merged"), { task: "t4" }),
-    at(44, issue("closed")),
-    at(36, sketch(READS_AGAIN), { message: "r2" }),
-    at(30, page(), { message: "r2" }),
-  ];
+  return {
+    versions: [
+      written(124, LINKS.rfc, request),
+      written(124, LINKS.second, request),
+      issued(123, "open", request),
+      drawn(117, READS, request),
+      shown(100, { task: "t2" }),
+      at(96, "artifact", FILE, { form: "file", title: "store-clock.md" }, { task: "t1" }),
+      at(92, "artifact", IMAGE, { form: "image", title: "store-clock-failure.png" }, { task: "t1" }),
+      shown(88, { task: "t2" }),
+      written(74, LINKS.instant, { task: "t3" }),
+      pulled(70, "pending", "open"),
+      written(66, LINKS.fake, { task: "t3" }),
+      pulled(62, "failed", "open"),
+      written(58, LINKS.changelog, { task: "t3" }),
+      pulled(55, "passed", "open"),
+      at(50, "started_to", GRAPH_CHILD, { group: "g3" }, { task: "t5" }),
+      pulled(45, "passed", "merged"),
+      issued(44, "closed"),
+      drawn(36, READS_AGAIN, { message: "r2" }),
+      shown(30, { message: "r2" }),
+    ],
+  };
 }
 
 export function graphJob(): Session {
@@ -120,7 +150,6 @@ export function graphJob(): Session {
       { kind: "started_to", id: GRAPH_CHILD, group: "g3" },
       pull({ state: "passed" }, "merged"),
     ],
-    versions: versions(),
     work: {
       railOff: true,
       plan: {

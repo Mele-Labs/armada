@@ -499,7 +499,8 @@ export type Session = {
    * Every version of every attachment, oldest first; `at` is an RFC 3339 instant and each entry is the attachment as it stood from then.
    * `from` is what the version followed, which Fleet works out: `message` is the thread row id of the person's latest message before it, and
    * `task` the id of the plan task in progress when it was written. Either may be absent.
-   * Absent where Fleet has sent no history: the graph then draws one mark to an attachment, in the order it is held.
+   * Not on the record: the Artifacts graph reads it (`SessionsDraft.history`) when it opens. Absent until read, or where it could not be:
+   * the graph then draws one mark to an attachment, in the order it is held.
    */
   versions?: readonly { at: string; attachment: SessionAttachment; from?: { message?: string; task?: string } }[];
   /**
@@ -778,6 +779,8 @@ export type SessionsDraft = {
   subagent?: (id: string, subagentId: string) => Promise<SubagentThread | undefined>;
   /** A Session's whole Loadout, once read; undefined where it could not be. Absent where nothing serves it. */
   loadout?: (id: string) => Promise<SessionLoadout | undefined>;
+  /** A Session's attachment history, once read; undefined where it could not be. Absent where nothing serves it. */
+  history?: (id: string) => Promise<NonNullable<Session["versions"]> | undefined>;
   /** What one Loadout item says, once read; undefined where it could not be. Absent where nothing serves it. */
   loadoutItem?: (id: string, item: LoadoutItemAsk) => Promise<LoadoutItemBody | undefined>;
   /**
