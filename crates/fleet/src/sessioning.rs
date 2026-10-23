@@ -832,6 +832,15 @@ where
         self.typed_in_job_shell(caller, typed).await
     }
 
+    async fn read_terminal(
+        &self,
+        caller: Option<api::Caller>,
+        session_id: Option<ipc::SessionId>,
+        lines: Option<usize>,
+    ) -> Result<ipc::TerminalScreen, Refusal> {
+        self.job_shell_read(caller, session_id.as_ref(), lines)
+    }
+
     async fn rename_session(&self, rename: ipc::RenameSession) -> Result<SessionRecord, Refusal> {
         let title = rename
             .title

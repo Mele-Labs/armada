@@ -18,13 +18,14 @@ async fn a_second_open_hands_back_the_same_shell_and_it_stands_in_the_jobs_direc
 
     rig.types(&first, "pwd\r").await.expect("in flight");
     let here = std::fs::canonicalize(rig.dir.path()).unwrap();
-    rig.printed(&first, &here.to_string_lossy()).await;
+    let here = here.to_string_lossy();
+    if !shortly(|| async { rig.observes(&first).await.history.contains(&*here) }).await {
+        ends(&rig, &first).await;
+        panic!("pwd printed {here}: {:?}", rig.observes(&first).await.history);
+    }
 
     rig.types(&first, "exit\r").await.expect("in flight");
-    eventually(|| async {
-        rig.fleet.stop_session_run(ipc::StopSessionRun { run_id: first.clone() }).await.is_err()
-    })
-    .await;
+    assert!(shortly(|| async { rig.observes(&first).await.live.is_err() }).await, "exit ends it");
     let third = Arc::clone(&rig.fleet).open_job_shell(rig.session.as_str(), None, None).await.expect("opened");
     assert_ne!(third, first, "a shell that exited is replaced");
     ends(&rig, &third).await;
@@ -104,6 +105,38 @@ async fn typing_with_no_job_placed_is_refused() {
         Arc::clone(&rig.fleet).type_in_terminal(None, unplaced).await,
         Err(api::Refusal::Unacceptable(_))
     ));
+}
+
+#[tokio::test]
+async fn the_agent_reads_what_the_person_typed_and_a_job_with_no_shell_is_refused() {
+    let rig = rig().await;
+    let read = |lines| rig.fleet.read_terminal(None, Some(rig.session.clone()), lines);
+    assert!(matches!(read(None).await, Err(api::Refusal::Unacceptable(_))), "no shell open");
+
+    let shell = Arc::clone(&rig.fleet).open_job_shell(rig.session.as_str(), None, None).await.unwrap();
+    rig.types(&shell, "echo from-the-person\r").await.expect("in flight");
+    let ran = |screen: &str| screen.lines().any(|line| line.trim() == "from-the-person");
+    shortly(|| async { read(None).await.is_ok_and(|read| ran(&read.screen)) }).await;
+    let screen = read(None).await.expect("read");
+    let one = read(Some(1)).await.expect("read").screen;
+    let held = rig.observes(&shell).await.history;
+    ends(&rig, &shell).await;
+
+    assert!(ran(&screen.screen), "{:?}\nheld: {held:?}", screen.screen);
+    assert_eq!(screen.run_id, shell);
+    assert_eq!(one.lines().count(), 1, "{one:?}");
+}
+
+/// Until `check` holds, for as long as an interactive login shell may take to start under the
+/// person's own rc files, which is longer than [`eventually`] waits.
+async fn shortly<F: std::future::Future<Output = bool>>(mut check: impl FnMut() -> F) -> bool {
+    for _ in 0..150 {
+        if check().await {
+            return true;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    }
+    false
 }
 
 /// Stop a shell and wait for it to go: a runtime that shuts down waits on a shell still open.

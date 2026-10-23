@@ -2,9 +2,10 @@
 //! door. Its output, keys, size and stop are the run routes, on its `run_id`.
 
 use axum::body::Bytes;
-use axum::extract::State;
+use axum::extract::{Query, State};
 use axum::http::StatusCode;
 use axum::response::Response;
+use serde::Deserialize;
 
 use crate::answers::{answer, refused, undecodable};
 use crate::daemon::Sessions;
@@ -39,6 +40,30 @@ pub(crate) async fn type_in_terminal<D: Sessions>(
     };
     match served.shared().type_in_terminal(crate::acting::asking(), typed).await {
         Ok(heard) => answer(StatusCode::OK, &heard, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+#[derive(Deserialize)]
+pub(crate) struct ForTerminal {
+    #[serde(default)]
+    session_id: Option<String>,
+    #[serde(default)]
+    lines: Option<usize>,
+}
+
+/// 200 with the shell's last lines. 422 for a call that places no Job, or a Job with no shell open.
+/// **The Job is placed by the connection** as `type_in_terminal`'s is.
+pub(crate) async fn read_terminal<D: Sessions>(
+    State(served): State<Served<D>>,
+    Query(asked): Query<ForTerminal>,
+) -> Response {
+    let named = asked
+        .session_id
+        .filter(|id| !id.trim().is_empty())
+        .map(|id| ipc::SessionId::carried(id.trim()));
+    match served.daemon().read_terminal(crate::acting::asking(), named, asked.lines).await {
+        Ok(screen) => answer(StatusCode::OK, &screen, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }

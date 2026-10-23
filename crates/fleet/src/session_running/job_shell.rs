@@ -10,7 +10,7 @@ use std::time::Duration;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Refusal, SessionRunEvent};
-use ipc::{TerminalTyped, TypeInTerminal};
+use ipc::{TerminalScreen, TerminalTyped, TypeInTerminal};
 use tokio::sync::broadcast::error::RecvError;
 use tokio::time::Instant;
 
@@ -26,6 +26,9 @@ const MOST_WAIT: u64 = 60;
 const SETTLING: Duration = Duration::from_secs(10);
 /// Lines and bytes an agent is answered at most: well inside the door's 64 KiB.
 const TYPED_LINES: usize = 200;
+/// Lines `read_terminal` answers where it named none, and the most it may name.
+const SCREEN_LINES: usize = 60;
+const MOST_SCREEN_LINES: usize = 500;
 const MOST_BYTES: usize = 32 * 1024;
 
 /// The last [`MOST_BYTES`] of `text`, cut at a character.
@@ -111,6 +114,14 @@ impl SessionRuns {
         self.start_as(id.clone(), launch, on_end(id.clone()))?;
         shells.insert(session, id.clone());
         Ok((id, true))
+    }
+
+    /// The Job's shell in flight and what it holds of its output.
+    fn shell_held(&self, session: &str) -> Option<(String, String)> {
+        let id = self.shells.lock().expect("not poisoned").get(session).cloned()?;
+        let run = self.in_flight(&id)?;
+        let held = run.state.lock().expect("not poisoned").held.clone();
+        Some((id, held))
     }
 
     /// Forget `run_id` as `session`'s shell, unless a newer one has taken its place.
@@ -201,6 +212,21 @@ where
             .await
             .ok_or_else(|| self.not_in_flight())?;
         Ok(TerminalTyped { run_id, printed: kept(plain::last_lines(&printed, TYPED_LINES)), still_printing })
+    }
+
+    /// The last `lines` of the Job's shell, as the person's pane shows them.
+    pub(crate) fn job_shell_read(
+        &self,
+        caller: Option<api::Caller>,
+        named: Option<&ipc::SessionId>,
+        lines: Option<usize>,
+    ) -> Result<TerminalScreen, Refusal> {
+        let session = self.shell_job(caller, named)?;
+        let lines = lines.unwrap_or(SCREEN_LINES).clamp(1, MOST_SCREEN_LINES);
+        let (run_id, held) = self.session_runs().shell_held(&session).ok_or_else(|| {
+            refusal("this job has no terminal open. type_in_terminal opens one", self.run_id())
+        })?;
+        Ok(TerminalScreen { run_id, screen: kept(plain::last_lines(&held, lines)) })
     }
 
     fn job_shell_ended(&self, session: &str, run_id: &str) {

@@ -47,3 +47,12 @@ pub struct TerminalTyped {
     /// Whether output was still arriving when the wait ran out.
     pub still_printing: bool,
 }
+
+/// `read_terminal`'s answer: the last lines of the Job's shell, as its screen drew them.
+/// `GET /sessions/terminal/read`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TerminalScreen {
+    pub run_id: String,
+    /// The screen's lines, escapes and overwrites resolved.
+    pub screen: String,
+}

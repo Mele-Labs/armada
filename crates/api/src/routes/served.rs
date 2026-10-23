@@ -290,6 +290,11 @@ const ROUTES: &[Route] = &[
         path: "/sessions/terminal/type",
     },
     Route {
+        operation: "read_terminal",
+        method: "GET",
+        path: "/sessions/terminal/read",
+    },
+    Route {
         operation: "show_window",
         method: "POST",
         path: "/sessions/window",
