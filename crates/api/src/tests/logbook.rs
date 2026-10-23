@@ -49,9 +49,9 @@ async fn each_route_is_served_and_answers_its_wire_type() {
     let edited: LogbookEntry = ipc::decode("an entry", &body).expect("decodes");
     assert_eq!((edited.id.as_str(), edited.text.as_str(), edited.edited), ("7", "Walk, then land.", true));
 
-    let (status, body) = call(&app, "POST", "/logbook/entries/7/pin", r#"{"pinned":true}"#).await;
+    let (status, body) = call(&app, "POST", "/logbook/entries/7/lock", r#"{"locked":true}"#).await;
     assert_eq!(status, StatusCode::OK);
-    assert!(ipc::decode::<LogbookEntry>("an entry", &body).expect("decodes").pinned);
+    assert!(ipc::decode::<LogbookEntry>("an entry", &body).expect("decodes").locked);
 
     let (status, body) = call(&app, "POST", "/logbook/entries/7/forget", "").await;
     assert_eq!(status, StatusCode::OK);
@@ -68,5 +68,5 @@ async fn a_bad_section_state_or_body_is_a_400() {
     assert_eq!(call(&app, "GET", "/logbook?section=everywhere", "").await.0, StatusCode::BAD_REQUEST);
     assert_eq!(call(&app, "GET", "/logbook?state=gone", "").await.0, StatusCode::BAD_REQUEST);
     assert_eq!(call(&app, "POST", "/logbook/entries/7/edit", "{}").await.0, StatusCode::BAD_REQUEST);
-    assert_eq!(call(&app, "POST", "/logbook/entries/7/pin", "").await.0, StatusCode::BAD_REQUEST);
+    assert_eq!(call(&app, "POST", "/logbook/entries/7/lock", "").await.0, StatusCode::BAD_REQUEST);
 }

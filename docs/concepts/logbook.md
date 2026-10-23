@@ -37,7 +37,7 @@ A `repo` section belongs to one repository, and a Job in another never sees it. 
 | `confirmed_by` | How many distinct Jobs confirmed it |
 | `first_seen`, `last_confirmed`, `last_served` | When |
 | `state` | `candidate`, `standing` or `faded` |
-| `pinned`, `edited` | Whether the person pinned it, and whether he changed its text |
+| `locked`, `edited` | Whether the person locked it, and whether he changed its text |
 
 ## The loop
 
@@ -80,7 +80,7 @@ It is written to the same rules for plain words as the retro call.
 | An entry is contradicted | Its text is **rewritten**, and the old text is kept as history |
 | An entry is tripped on | It is **strengthened**: rewritten more plainly, and moved to the top of what is served |
 | A standing entry is neither confirmed nor served for 30 days and 20 Jobs of its repository, or of any repository for `habits` and `machine` | It **fades**: kept and searchable, no longer served |
-| An entry is pinned | It never fades and is never rewritten |
+| An entry is locked | It never fades and is never rewritten |
 | An entry is forgotten | It goes on a deny list and never comes back |
 
 **The deny list is the rule run memory's dropped lines follow** ([Kit](kit.md), *A private repository*). The merge reads it first, so a later Distil does not bring a forgotten entry back.
@@ -101,12 +101,12 @@ Standing entries reach agents three ways.
 
 ## What the person does
 
-**The person sees one Logbook page in Bridge.** He can read an entry and its evidence, edit it, pin it or forget it. Nothing else is asked of him.
+**The person sees one Logbook page in Bridge.** He can read an entry and its evidence, edit it, lock it or forget it. Nothing else is asked of him.
 
 | Act | Does |
 |---|---|
 | Edit | Replaces the text and marks the entry `edited` |
-| Pin | It never fades and is never rewritten |
+| Lock | It never fades and is never rewritten |
 | Forget | Puts it on the deny list |
 
 ## Where it is kept
