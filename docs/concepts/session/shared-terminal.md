@@ -32,7 +32,7 @@ A Terminal press while the window is open brings it to the front, and does not p
 Dock and Move to the side panel on the window's head bring the shell back into Bridge.
 Esc goes to the shell here too, and the window's own close is the way out.
 The window has End shell, and New shell once the shell has ended.
-A window opened after the shell started shows what it printed so far, since Bridge keeps each shell's last 256 KiB of output, as Fleet does.
+A window opened after the shell started shows what it printed so far, since Bridge keeps the last 256 KiB a shell printed until the Job's next shell opens.
 Terminal windows close when Bridge quits and are not restored, and every Job's terminal window shares one size.
 
 **It is an interactive `$SHELL -l` on a pseudo-terminal**, in the Job's slot worktree, or its directory where it holds no slot.
