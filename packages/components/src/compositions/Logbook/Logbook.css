@@ -26,6 +26,9 @@
   .armada-logbook__detail { position: sticky; top: 0; }
 }
 
+.armada-logbook__filters { display: flex; justify-content: flex-end; }
+.armada-logbook__filters .armada-switch { gap: var(--space-3); }
+
 /* ---- The list ------------------------------------------------------------------------------- */
 
 .armada-logbook__list {
@@ -77,6 +80,8 @@
 .armada-logbook__band + .armada-logbook__row { border-top: none; }
 .armada-logbook__row:hover { background: color-mix(in srgb, var(--bg-hover) 50%, transparent); }
 .armada-logbook__row[aria-selected="true"] { background: var(--bg-hover); }
+/* Not handed out: dimmed, and its state mark names why. */
+.armada-logbook__row[data-handed="not"] .armada-logbook__text { color: var(--fg-muted); }
 /* Where the list holds focus, the selected row carries the accent's hairline so the keys' target is plain. */
 .armada-logbook__list:focus-visible .armada-logbook__row[aria-selected="true"] {
   box-shadow: inset calc(var(--border-width) * 2) 0 0 var(--accent);
@@ -239,4 +244,26 @@
   font-family: var(--font-mono);
   font-size: inherit;
   color: var(--fg-default);
+}
+
+/* ---- Armada fixes ----------------------------------------------------------------------------- */
+/* The retro items, drawn by the Lessons list inside the panel's body. Its own card chrome steps back so the panel is
+   the one frame. */
+
+.armada-logbook__fixes { outline: none; }
+.armada-logbook__fixes:focus-visible { border-color: var(--border-strong); }
+.armada-logbook__fixes-body .armada-lessons-page {
+  padding: 0;
+  gap: var(--space-3);
+}
+.armada-logbook__fixes-body .armada-lessons__bar { padding: var(--space-3) var(--space-4) 0; }
+:root[data-look="new"] .armada-logbook__fixes-body .armada-lessons-page > :is(.armada-lessons, .armada-alert, .armada-lessons__bar) {
+  width: 100%;
+  align-self: stretch;
+}
+:root[data-look="new"] .armada-logbook__fixes-body .armada-lessons-page .armada-lessons {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }

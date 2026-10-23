@@ -665,17 +665,28 @@ destructive = false
 confirms = false
 notes = "Opens the selected Logbook entry's text in place. `⌘↵` saves and `Esc` leaves it, the draft kept. Saving marks the entry edited, and Fleet stops rewriting the person's words. `docs/concepts/logbook.md`. Added 22 Oct 2026 with the mock walk `logbook`."
 
-[actions.logbook_pin]
+[actions.logbook_lock]
 kind = "Action"
 tier = "Contextual"
-verb = "Pin or unpin the entry"
-icon = ""
-icon_absent = "undecided"
-shortcut = "p"
+verb = "Lock or unlock the entry"
+icon = "lock"
+shortcut = "l"
 scope = "logbook"
 destructive = false
 confirms = false
-notes = "A pinned Logbook entry never fades and is never rewritten. Pressed again it lets go. No glyph: `pin` is reserved to the canvas rail's Stay on the running step, which refuses a pinned row. Added 22 Oct 2026 with the mock walk `logbook`."
+notes = "A locked Logbook entry is never rewritten by Armada and never fades. Pressed again it lets go. `l` is free in this scope: the call's Later is `l` in `call`, a place of its own. Renamed from Pin on 22 Oct 2026, the owner's word, which also frees `pin` for the canvas rail's Stay on the running step alone."
+
+[actions.logbook_unhanded]
+kind = "Action"
+tier = "Contextual"
+verb = "Add what is not handed out"
+icon = ""
+icon_absent = "undecided"
+shortcut = "h"
+scope = "logbook"
+destructive = false
+confirms = false
+notes = "Adds the Logbook's candidates and faded entries to their panels, dimmed, each with its state. Pressed again it takes them out. The page opens on what agents are handed. Added 22 Oct 2026 with the single Logbook tab."
 
 [actions.logbook_forget]
 kind = "Action"

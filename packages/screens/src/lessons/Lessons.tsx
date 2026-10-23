@@ -80,6 +80,11 @@ export type LessonsProps = {
    * window; absent, and the page keeps its own for as long as it is mounted.
    */
   hold?: ReviewHold;
+  /**
+   * Drawn inside the Logbook's Armada fixes: only the items whose fix lands in Armada, with no title and no place
+   * tabs. The host owns the heading.
+   */
+  embedded?: boolean;
   /** A retro to open over the list as the page opens: the one a Session's retro card asked for, by its number, or the newest. */
   opening?: { id: string; label: string; n?: number };
 };
@@ -98,6 +103,7 @@ export function Lessons({
   tab,
   onTab,
   hold,
+  embedded = false,
   opening,
 }: LessonsProps) {
   const own = useRef<ReviewHold | undefined>(undefined);
@@ -106,7 +112,7 @@ export function Lessons({
   const reviewing = useSyncExternalStore(reviews.subscribe, reviews.reviewing);
   const [held, setHeld] = useState<LessonsTab>("all");
   const [view, setView] = useState<LessonsView>("open");
-  const showing = tab ?? held;
+  const showing = embedded ? "armada" : (tab ?? held);
   // Keyed by the pick and the list, so another of either is another read.
   // Leaving the review reads the list again: it answered items the list's own read still holds.
   const [reads, setReads] = useState(0);
@@ -198,18 +204,20 @@ export function Lessons({
         </>
       ) : (
         <>
-          <h1 className="armada-page__title">Retros</h1>
+          {embedded ? null : <h1 className="armada-page__title">Retros</h1>}
           <div className="armada-lessons__bar">
             {/* Where the fix lands, one place a tab. No count on any of them. */}
-            <Tabs
-              items={[...LESSONS_TABS]}
-              value={showing}
-              onChange={(id) => {
-                const next = id as LessonsTab;
-                setHeld(next);
-                onTab?.(next);
-              }}
-            />
+            {embedded ? null : (
+              <Tabs
+                items={[...LESSONS_TABS]}
+                value={showing}
+                onChange={(id) => {
+                  const next = id as LessonsTab;
+                  setHeld(next);
+                  onTab?.(next);
+                }}
+              />
+            )}
             <Tabs items={VIEWS} value={view} onChange={(id) => setView(id as LessonsView)} />
             {onReviewLessons === undefined || onAskLesson === undefined ? null : (
               <Button

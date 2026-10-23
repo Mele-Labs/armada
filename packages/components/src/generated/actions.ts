@@ -23,7 +23,7 @@
 // person presses and gets nothing from, which is worse than one that is
 // absent.
 
-import { ChartNoAxesGantt, ChevronLeft, File, Link, Maximize2, MessageSquare, Plus, Settings, Shapes, StickyNote, VectorSquare, X, Zap } from "lucide-react";
+import { ChartNoAxesGantt, ChevronLeft, File, Link, Lock, Maximize2, MessageSquare, Plus, Settings, Shapes, StickyNote, VectorSquare, X, Zap } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 /** Whether the row is an act or a movement of the cursor. */
@@ -754,13 +754,26 @@ export const ACTIONS: readonly Action[] = [
     unbuilt: null,
   },
   {
-    id: "logbook_pin",
+    id: "logbook_lock",
     kind: "Action",
     tier: "Contextual",
-    verb: "Pin or unpin the entry",
+    verb: "Lock or unlock the entry",
+    icon: Lock,
+    iconAbsent: null,
+    shortcut: "l",
+    scope: "logbook",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
+  {
+    id: "logbook_unhanded",
+    kind: "Action",
+    tier: "Contextual",
+    verb: "Add what is not handed out",
     icon: null,
     iconAbsent: "undecided",
-    shortcut: "p",
+    shortcut: "h",
     scope: "logbook",
     destructive: false,
     confirms: false,

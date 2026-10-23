@@ -3,7 +3,7 @@
 // **One roster, read by everything that navigates.** The title bar's tabs and the System sidebar draw from it and the palette lists
 // it. A second copy is how a place ends up in one and not the other, or answers a key the other spells differently.
 //
-// **A digit is a place in the Cockpit window's tab bar**: `⌘1` to `⌘6` are Cockpit, Jobs, Sessions, Studios, Retros and System,
+// **A digit is a place in the Cockpit window's tab bar**: `⌘1` to `⌘6` are Cockpit, Jobs, Sessions, Studios, Logbook and System,
 // and Settings is `⌘,`. Every other destination is reached from a System entry, the title bar's menu, a link on the deck or
 // the palette by name, and takes no key.
 
@@ -66,7 +66,7 @@ const DIGIT: Readonly<Partial<Record<SurfaceId, number>>> = {
   [SURFACE.jobs]: 2,
   [SURFACE.sessions]: 3,
   [SURFACE.studios]: 4,
-  [SURFACE.lessons]: 5,
+  [SURFACE.logbook]: 5,
 };
 
 /** What reaches a surface, spelled as this person has `deck_tabs`: `⌘3` unless Settings → Keyboard moved the row. */
@@ -203,19 +203,20 @@ export const SURFACES: readonly PaletteSurface[] = [
   },
   {
     id: SURFACE.lessons,
-    label: "Retros",
-    // No key; reached from a System entry, a link on the deck and by name.
-    get shortcut() {
-      return digitOf(SURFACE.lessons);
-    },
+    // Not a tab: the retro items are the part of the Logbook called Armada fixes, and this row, the palette's and every
+    // link that used to open Retros, brings that part into view. No key.
+    label: "Armada fixes",
     // What each item is, in `docs/concepts/retro.md`'s word.
-    aliases: ["retro"],
+    aliases: ["retro", "retros"],
     icon: Rewind,
   },
   {
     id: SURFACE.logbook,
     label: "Logbook",
-    // No key: `deck_tabs` spells six digits, as for Reviews. Reached from its tab and by name.
+    // `⌘5`, the place Retros held: the retro items are the Logbook's Armada fixes now.
+    get shortcut() {
+      return digitOf(SURFACE.logbook);
+    },
     aliases: ["memory", "learned"],
     // A sketch: `notebook-tabs` is Proposed in the registry for this place. The owner's to rule on.
     icon: NotebookTabs,
@@ -297,14 +298,13 @@ export const DECK_TABS = [
   { id: "jobs", label: "Jobs", surface: SURFACE.jobs },
   { id: "sessions", label: "Jobs", surface: SURFACE.sessions },
   { id: "studios", label: "Studios", surface: SURFACE.studios },
-  { id: "retros", label: "Retros", surface: SURFACE.lessons },
   { id: "logbook", label: "Logbook", surface: SURFACE.logbook },
   { id: "reviews", label: "Reviews", surface: SURFACE.reviews },
   { id: "system", label: "System", surface: SURFACE.kit },
 ] as const;
 
-/** The tabs a digit reaches. Logbook and Reviews take none: `deck_tabs` binds `⌘1` to `⌘6`, so the digits skip them and System keeps `⌘6`. */
-const DIGIT_TABS = DECK_TABS.filter((tab) => tab.id !== "reviews" && tab.id !== "logbook");
+/** The tabs a digit reaches. Reviews takes none: `deck_tabs` binds `⌘1` to `⌘6`, so the digits skip it and System keeps `⌘6`. */
+const DIGIT_TABS = DECK_TABS.filter((tab) => tab.id !== "reviews");
 
 export type DeckTabId = (typeof DECK_TABS)[number]["id"];
 
@@ -331,7 +331,6 @@ export const PLACES: readonly string[] = [
   SURFACE.guides,
   SURFACE.workflows,
   SURFACE.studios,
-  SURFACE.lessons,
   SURFACE.logbook,
   SURFACE.reviews,
 ];

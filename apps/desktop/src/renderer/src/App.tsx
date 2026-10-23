@@ -73,14 +73,14 @@ import { SketchSharing } from "./sketch-sharing";
 import { openServerLink, openLink, restartFleet, changeFleetBuild, observeCheckoutRun, pickRepository, chooseFolder, resolveFolder, addRepository, cloneRepository, helmDebugInfo, startHelmFresh, pointHelm, getCheckoutRunOutput, getCheckoutRunDiff, readManifestFile, saveManifestFile, editManifest, readRepositoryScan, readManifestProposals, editManifestProposal, writeManifestProposal, listRepositoryAllowedCommands, removeRepositoryAllowedCommand, listKitServers, readKitInventory, removeKitAllowedCommand, removeKitPiece, restoreKitPiece, addKitServer, forgetKitServer, setKitServerReach, setManifestServerReach, listCheckoutRuns, undoCheckoutRun, setupSessionFleet, captureStudioNote, readHeld, slotActs, bayActs, startCheckoutRun, startCheckoutVerify, startServer, stopCheckoutRun, stopServer, useCommands, watchCheckoutRunSheet, watchManifestDrift, watchOverview } from "./commands";
 import { hiddenSurfaces, MergeLineSurface } from "./merge-line";
 import { useMergeByHand } from "./merge-by-hand";
-import { LessonsSurface } from "./lessons"; import { LogbookSurface } from "./logbook";
+import { LogbookSurface } from "./logbook";
 import { useTitleRow } from "./title-row";
 import { DownshiftAlert } from "./downshift";
 import { ChecksSurface, useAsked } from "./checks-surface";
 import { LoadoutPanel } from "./session-loadout";
 import { ReviewsSurface } from "./pr-review/surface"; import { reviewsHidden, useReviewStore } from "./pr-review/store";
 import { SessionsOwnership } from "./sessions";
-import { askToOpenSessionInCockpit, useOpenSessionAsked } from "./open-session"; import { useOpenRetroAsked } from "./open-retro"; import { useOpenHolderAsked } from "./open-holder";
+import { askToOpenSessionInCockpit, useOpenSessionAsked } from "./open-session"; import { askForFixes, useOpenRetroAsked } from "./open-retro"; import { useOpenHolderAsked } from "./open-holder";
 import { useTellAsked } from "./tell";
 import { useOutcomeRaised } from "./tell";
 import { ImportPackage } from "./sharing/ImportPackage";
@@ -134,7 +134,7 @@ export function App() {
   // readable without the screen that raised any of them.
   const [guiding, setGuiding] = useState(false);
   const [lining, setLining] = useState(false); // The merge line's own surface. `merge-line.tsx`.
-  const [learning, setLearning] = useState(false); const [checking, setChecking] = useState(false); const [doctoring, setDoctoring] = useState(false); const [workflowing, setWorkflowing] = useState(false); // Lessons (`lessons.tsx`), and the Workflow creator (`workflow-creator.tsx`).
+  const [checking, setChecking] = useState(false); const [doctoring, setDoctoring] = useState(false); const [workflowing, setWorkflowing] = useState(false); // The Workflow creator (`workflow-creator.tsx`).
   const [usaging, setUsaging] = useState(false); const [logbooking, setLogbooking] = useState(false); // Usage, where the tokens went; the Logbook (`logbook.tsx`).
   const [reviewing, setReviewing] = useState(false); // Reviews, the pull requests waiting on him (`pr-review/`).
   // Left off the rail and the palette. Jobs keeps its place in the tab order so `⌘3` onward stay where they are; it has no page.
@@ -352,7 +352,10 @@ export function App() {
   }
   useOpenSessionAsked(openSession); useOpenHolderAsked({ session: openSession }); useOpenRetroAsked(() => goTo(SURFACE.lessons)); // The annotation layer's Start session; a Session's Retro press.
 
-  function goTo(place: string): void {
+  function goTo(requested: string): void {
+    // Retros is the Logbook's Armada fixes: every way to the old page arrives there, with that part in view.
+    if (requested === SURFACE.lessons) askForFixes();
+    const place = requested === SURFACE.lessons ? SURFACE.logbook : requested;
     // The Sessions page is the Cockpit's list: ⌘3, a Sessions link and the palette arrive there with focus on it. Jobs has no page.
     // Kit, Mods, Settings, Guides and Workflows are one page now: each opens its entry, and the page is Kit's.
     const entry = entryForSurface(place, systemEntryNow());
@@ -367,7 +370,7 @@ export function App() {
     setGuiding(surfaceId === SURFACE.guides);
     setLining(surfaceId === SURFACE.mergeLine);
     asked.setMergeFocus(undefined); asked.setCheckFocus(undefined); asked.setLoadoutFocus(undefined);
-    setLearning(surfaceId === SURFACE.lessons); setWorkflowing(surfaceId === SURFACE.workflows); setChecking(surfaceId === SURFACE.checks); setDoctoring(surfaceId === SURFACE.doctor);
+    setWorkflowing(surfaceId === SURFACE.workflows); setChecking(surfaceId === SURFACE.checks); setDoctoring(surfaceId === SURFACE.doctor);
     setStudying(surfaceId === SURFACE.studios);
     setReviewing(surfaceId === SURFACE.reviews);
     setUsaging(surfaceId === SURFACE.usage); setLogbooking(surfaceId === SURFACE.logbook);
@@ -420,8 +423,8 @@ export function App() {
   }
   // Helm's dock lists every repository's questions, whatever the pick.
   const asks = useDockCards(state.questions, repositories, commands);
-  const atCockpit = showingOf({ clearing, manifesting, settingsShowing, modding, kitting, guiding, studying, lining, learning, workflowing, checking, doctoring, accounting, reviewing, usaging, logbooking }) === SURFACE.overview; // Its call is already in front.
-  const showingNow = showingOf({ clearing, manifesting, settingsShowing, modding, kitting, guiding, studying, lining, learning, workflowing, checking, doctoring, accounting, reviewing, usaging, logbooking });
+  const atCockpit = showingOf({ clearing, manifesting, settingsShowing, modding, kitting, guiding, studying, lining, workflowing, checking, doctoring, accounting, reviewing, usaging, logbooking }) === SURFACE.overview; // Its call is already in front.
+  const showingNow = showingOf({ clearing, manifesting, settingsShowing, modding, kitting, guiding, studying, lining, workflowing, checking, doctoring, accounting, reviewing, usaging, logbooking });
   // Back and forward are keys and nothing on screen — `history.ts`.
   const { back, replaceNext } = useHistory(
     { surface: showingNow, studio: openStudio, studioNode },
@@ -537,9 +540,7 @@ export function App() {
               located={<LocatedNotice locating={locate} repositories={repositories} />}
             />
 
-            {logbooking ? (<LogbookSurface {...guarded} />) : usaging ? (<Boundary region="Usage" {...guarded}><UsageSurface state={state} /></Boundary>) : reviewing ? (<Boundary region="Reviews" {...guarded}><ReviewsSurface picked={pickedRepository} onOpenLink={openProseLink} onOpenSession={openSession} /></Boundary>) : doctoring ? (<Boundary region="Doctor" {...guarded}><DoctorSurfaceNow health={state.health} connection={state.connection} said={statement.headline} onCheck={() => watchOverview(true)} /></Boundary>) : lining ? (<MergeLineSurface state={state} {...guarded} onOpenLink={openProseLink} onOpenSession={openSession} onSendToSession={(id, text) => void commands.sendToSession(id, text)} {...(asked.mergeFocus === undefined ? {} : { focus: asked.mergeFocus })} />) : checking ? (<ChecksSurface key={state.repository ?? ""} state={state} onOpenMergeLine={(branch) => { goTo(SURFACE.mergeLine); asked.setMergeFocus(branch); }} {...guarded} />) : learning ? (
-              <LessonsSurface repository={state.repository} {...guarded} />
-            ) : clearing ? (
+            {logbooking ? (<LogbookSurface repository={state.repository} {...guarded} />) : usaging ? (<Boundary region="Usage" {...guarded}><UsageSurface state={state} /></Boundary>) : reviewing ? (<Boundary region="Reviews" {...guarded}><ReviewsSurface picked={pickedRepository} onOpenLink={openProseLink} onOpenSession={openSession} /></Boundary>) : doctoring ? (<Boundary region="Doctor" {...guarded}><DoctorSurfaceNow health={state.health} connection={state.connection} said={statement.headline} onCheck={() => watchOverview(true)} /></Boundary>) : lining ? (<MergeLineSurface state={state} {...guarded} onOpenLink={openProseLink} onOpenSession={openSession} onSendToSession={(id, text) => void commands.sendToSession(id, text)} {...(asked.mergeFocus === undefined ? {} : { focus: asked.mergeFocus })} />) : checking ? (<ChecksSurface key={state.repository ?? ""} state={state} onOpenMergeLine={(branch) => { goTo(SURFACE.mergeLine); asked.setMergeFocus(branch); }} {...guarded} />) : clearing ? (
               /* What Fleet is holding disk for. The half of the reclaim rule that is a person's: Fleet has
                  already taken back everything it could prove nobody needs, and this is where the rest is
                  given back, one tile at a time. */

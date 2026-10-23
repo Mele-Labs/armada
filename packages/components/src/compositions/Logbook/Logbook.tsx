@@ -5,7 +5,7 @@ import {
   BookPlus,
   CircleAlert,
   Container,
-  Pin,
+  Lock,
   Repeat,
   Ruler,
   SquareChevronRight,
@@ -20,30 +20,38 @@ import { isPressed, pressedSlot } from "../../keymap";
 import { Button } from "../../primitives/Button/Button";
 import { Dialog } from "../../primitives/Dialog/Dialog";
 import { Kbd } from "../../primitives/Kbd/Kbd";
-import { Tabs } from "../../primitives/Tabs/Tabs";
+import { Switch } from "../../primitives/Switch/Switch";
 import { Textarea } from "../../primitives/Textarea/Textarea";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { ageOf } from "../../time-format";
 
 /**
- * The Logbook: what Armada learned from every Job, read when the owner is curious. `docs/concepts/logbook.md`.
+ * The Logbook: what agents know, and below it what Armada got wrong. `docs/concepts/logbook.md`.
  *
- * **Nothing here asks him for anything.** He reads an entry and its evidence, and can edit, pin or forget it. Every
- * repository's Logbook is drawn at once, each in its own panel, then Habits and This Mac. Candidates and faded entries
- * are behind the filter, never mixed in with what agents are handed.
+ * **Nothing in the top part asks him for anything.** He reads an entry and its evidence, and can edit, lock or forget
+ * it. Every repository's Logbook is drawn at once, each in its own panel, then Habits and This Mac. The panels hold what
+ * agents are handed; one switch adds the candidates and faded entries to them, dimmed, each with its state.
  *
- * The page is keyed by the registry's acts: the arrows move, `Enter` opens the entry, `e`, `p` and `f` edit, pin and
- * forget it, and `Esc` backs out a level.
+ * Below the panels, Armada fixes holds the retro items, drawn by the host (`fixes`).
+ *
+ * The page is keyed by the registry's acts: the arrows move, `Enter` opens the entry, `e`, `l` and `f` edit, lock and
+ * forget it, `h` adds what is not handed out, and `Esc` backs out a level.
  */
 
-/** One panel: a repository's Logbook, Habits, or This Mac. */
-export type LogbookPanel = { key: string; title: string; entries: readonly LogbookEntry[] };
+/** One panel: a repository's Logbook, Habits, or This Mac. `hint` is what its header says on hover. */
+export type LogbookPanel = { key: string; title: string; hint: string; entries: readonly LogbookEntry[] };
 
 export type LogbookViewProps = {
   panels: readonly LogbookPanel[];
-  /** Which entries the list shows. */
-  filter: LogbookState;
-  onFilter: (filter: LogbookState) => void;
+  /** Candidates and faded entries are drawn among the rest. */
+  unhanded: boolean;
+  onUnhanded: (unhanded: boolean) => void;
+  /** Armada fixes, drawn by the host. Absent, the part is not drawn. */
+  fixes?: ReactNode;
+  /** Changes when something asks for Armada fixes: it is scrolled to and focused. */
+  toFixes?: number;
+  /** The Logbook could not be read, so only Armada fixes is drawn. */
+  unread?: boolean;
   /** The entry open on the right. */
   selected?: string;
   onSelect: (id: string) => void;
@@ -51,7 +59,7 @@ export type LogbookViewProps = {
   editing: boolean;
   onEdit: (editing: boolean) => void;
   onSave: (id: string, text: string) => void;
-  onPin: (id: string, pinned: boolean) => void;
+  onLock: (id: string, locked: boolean) => void;
   onForget: (id: string) => void;
   /** Opens the Job an evidence row came from. */
   onOpenJob?: (jobId: string) => void;
@@ -66,13 +74,13 @@ const KIND: Record<LogbookKind, { Glyph: LucideIcon; said: string }> = {
   habit: { Glyph: Repeat, said: "Habit" },
 };
 
-const STATE: Record<LogbookState, { Glyph: LucideIcon; said: string; tab: string }> = {
-  standing: { Glyph: BookMarked, said: "Standing", tab: "Standing" },
-  candidate: { Glyph: BookPlus, said: "Candidate", tab: "Candidates" },
-  faded: { Glyph: BookDashed, said: "Faded", tab: "Faded" },
+const STATE: Record<LogbookState, { Glyph: LucideIcon; said: string }> = {
+  standing: { Glyph: BookMarked, said: "Standing: handed to every new Job" },
+  candidate: { Glyph: BookPlus, said: "Candidate: handed out once two Jobs confirm it" },
+  faded: { Glyph: BookDashed, said: "Faded: kept, no longer handed out" },
 };
 
-const FILTERS: readonly LogbookState[] = ["standing", "candidate", "faded"];
+const LOCKED = "Locked: Armada never rewrites it or lets it fade.";
 
 const ago = (at: string, now: number): string => ageOf(Date.parse(at), now);
 const dated = (at: string): string => new Date(at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
@@ -94,7 +102,7 @@ function marksOf(entry: LogbookEntry, now: number, withState: boolean): ReactNod
   return (
     <>
       {entry.last_tripped === undefined ? null : <Mark Glyph={CircleAlert} said={`Tripped ${ago(entry.last_tripped, now)}`} tone="tripped" />}
-      {entry.pinned ? <Mark Glyph={Pin} said="Pinned" /> : null}
+      {entry.pinned ? <Mark Glyph={Lock} said={LOCKED} /> : null}
       {withState ? <Mark Glyph={state.Glyph} said={state.said} /> : null}
       <Mark Glyph={kind.Glyph} said={kind.said} />
     </>
@@ -130,8 +138,9 @@ function Words({ text }: { text: string }) {
 const optionId = (id: string) => `logbook-entry-${id}`;
 const draftKey = (id: string) => `logbook:${id}`;
 
-export function LogbookView({ panels, filter, onFilter, selected, onSelect, editing, onEdit, onSave, onPin, onForget, onOpenJob, now }: LogbookViewProps) {
+export function LogbookView({ panels, unhanded, onUnhanded, fixes, toFixes, unread, selected, onSelect, editing, onEdit, onSave, onLock, onForget, onOpenJob, now }: LogbookViewProps) {
   const list = useRef<HTMLDivElement>(null);
+  const part = useRef<HTMLElement>(null);
   const detail = useRef<HTMLElement>(null);
   const [forgetting, setForgetting] = useState<string>();
   const order = panels.flatMap((panel) => panel.entries);
@@ -142,6 +151,13 @@ export function LogbookView({ panels, filter, onFilter, selected, onSelect, edit
   useEffect(() => {
     if (selected !== undefined) document.getElementById(optionId(selected))?.scrollIntoView({ block: "nearest" });
   }, [selected]);
+
+  // Something asked for Armada fixes: it comes into view and takes focus.
+  useEffect(() => {
+    if (toFixes === undefined || toFixes === 0) return;
+    part.current?.scrollIntoView({ block: "start" });
+    part.current?.focus({ preventScroll: true });
+  }, [toFixes]);
 
   const move = (by: 1 | -1) => {
     const at = order.findIndex((one) => one.id === selected);
@@ -158,6 +174,14 @@ export function LogbookView({ panels, filter, onFilter, selected, onSelect, edit
         event.preventDefault();
         onEdit(false);
         window.requestAnimationFrame(() => detail.current?.focus());
+      }
+      return;
+    }
+    // Armada fixes keeps its own keys; Esc is the way back up to the entries.
+    if (part.current?.contains(target) === true) {
+      if (isPressed("close", event) && target !== part.current) {
+        event.preventDefault();
+        list.current?.focus();
       }
       return;
     }
@@ -178,13 +202,18 @@ export function LogbookView({ panels, filter, onFilter, selected, onSelect, edit
       list.current?.focus();
       return;
     }
+    if (isPressed("logbook_unhanded", event)) {
+      event.preventDefault();
+      onUnhanded(!unhanded);
+      return;
+    }
     if (open === undefined) return;
     if (isPressed("logbook_edit", event)) {
       event.preventDefault();
       onEdit(true);
-    } else if (isPressed("logbook_pin", event)) {
+    } else if (isPressed("logbook_lock", event)) {
       event.preventDefault();
-      onPin(open.id, !open.pinned);
+      onLock(open.id, !open.pinned);
     } else if (isPressed("logbook_forget", event)) {
       event.preventDefault();
       setForgetting(open.id);
@@ -193,64 +222,87 @@ export function LogbookView({ panels, filter, onFilter, selected, onSelect, edit
 
   return (
     <div className="armada-logbook" onKeyDown={pressed}>
-      <div className="armada-logbook__filters">
-        <Tabs items={FILTERS.map((one) => ({ id: one, label: STATE[one].tab }))} value={filter} onChange={(id) => onFilter(id as LogbookState)} />
-      </div>
-      <div className="armada-logbook__page">
-        <div
-          ref={list}
-          className="armada-logbook__list"
-          role="listbox"
-          aria-label="Entries"
-          tabIndex={0}
-          aria-activedescendant={open === undefined ? undefined : optionId(open.id)}
-        >
-          {panels.map((panel) => (
-            <div key={panel.key} className="armada-logbook__panel" role="group" aria-labelledby={`logbook-panel-${panel.key}`}>
-              <div className="armada-logbook__band" id={`logbook-panel-${panel.key}`}>
-                {panel.title}
-              </div>
-              {panel.entries.map((entry) => (
-                <div
-                  key={entry.id}
-                  id={optionId(entry.id)}
-                  className="armada-logbook__row"
-                  role="option"
-                  aria-selected={entry.id === selected}
-                  onClick={() => {
-                    onSelect(entry.id);
-                    list.current?.focus();
-                  }}
-                >
-                  <span className="armada-logbook__text">
-                    <Words text={entry.text} />
-                  </span>
-                  <span className="armada-logbook__marks">{marksOf(entry, now, false)}</span>
+      {unread === true ? (
+        <p className="armada-logbook__unread">Fleet serves no Logbook yet.</p>
+      ) : (
+        <>
+          <div className="armada-logbook__filters">
+            <Tooltip label="Add candidates and faded entries" shortcut={keyFor("logbook_unhanded")}>
+              <Switch checked={unhanded} onChange={(event) => onUnhanded(event.currentTarget.checked)} aria-keyshortcuts={keyFor("logbook_unhanded") || undefined}>
+                Not handed out
+              </Switch>
+            </Tooltip>
+          </div>
+          <div className="armada-logbook__page">
+            <div
+              ref={list}
+              className="armada-logbook__list"
+              role="listbox"
+              aria-label="Entries"
+              tabIndex={0}
+              aria-activedescendant={open === undefined ? undefined : optionId(open.id)}
+            >
+              {panels.map((panel) => (
+                <div key={panel.key} className="armada-logbook__panel" role="group" aria-labelledby={`logbook-panel-${panel.key}`}>
+                  <Tooltip label={panel.hint} asChild>
+                    <div className="armada-logbook__band" id={`logbook-panel-${panel.key}`}>
+                      {panel.title}
+                    </div>
+                  </Tooltip>
+                  {panel.entries.map((entry) => (
+                    <div
+                      key={entry.id}
+                      id={optionId(entry.id)}
+                      className="armada-logbook__row"
+                      role="option"
+                      data-handed={entry.state === "standing" ? undefined : "not"}
+                      aria-selected={entry.id === selected}
+                      onClick={() => {
+                        onSelect(entry.id);
+                        list.current?.focus();
+                      }}
+                    >
+                      <span className="armada-logbook__text">
+                        <Words text={entry.text} />
+                      </span>
+                      <span className="armada-logbook__marks">{marksOf(entry, now, entry.state !== "standing")}</span>
+                    </div>
+                  ))}
                 </div>
               ))}
             </div>
-          ))}
-        </div>
-        <section ref={detail} className="armada-logbook__detail" aria-label="Entry" tabIndex={-1}>
-          {open === undefined ? null : (
-            <Detail
-              key={open.id}
-              entry={open}
-              where={panelOf(open.id)?.title ?? ""}
-              editing={editing}
-              now={now}
-              onEdit={onEdit}
-              onSave={(text) => {
-                onSave(open.id, text);
-                window.requestAnimationFrame(() => detail.current?.focus());
-              }}
-              onPin={() => onPin(open.id, !open.pinned)}
-              onForget={() => setForgetting(open.id)}
-              {...(onOpenJob === undefined ? {} : { onOpenJob })}
-            />
-          )}
+            <section ref={detail} className="armada-logbook__detail" aria-label="Entry" tabIndex={-1}>
+              {open === undefined ? null : (
+                <Detail
+                  key={open.id}
+                  entry={open}
+                  where={panelOf(open.id)?.title ?? ""}
+                  editing={editing}
+                  now={now}
+                  onEdit={onEdit}
+                  onSave={(text) => {
+                    onSave(open.id, text);
+                    window.requestAnimationFrame(() => detail.current?.focus());
+                  }}
+                  onLock={() => onLock(open.id, !open.pinned)}
+                  onForget={() => setForgetting(open.id)}
+                  {...(onOpenJob === undefined ? {} : { onOpenJob })}
+                />
+              )}
+            </section>
+          </div>
+        </>
+      )}
+      {fixes === undefined ? null : (
+        <section ref={part} className="armada-logbook__panel armada-logbook__fixes" aria-labelledby="logbook-panel-fixes" tabIndex={-1}>
+          <Tooltip label="What Armada got wrong, to fix in Armada" asChild>
+            <div className="armada-logbook__band" id="logbook-panel-fixes">
+              Armada fixes
+            </div>
+          </Tooltip>
+          <div className="armada-logbook__fixes-body">{fixes}</div>
         </section>
-      </div>
+      )}
       <Dialog
         open={forgetting !== undefined}
         title="Forget this entry"
@@ -276,7 +328,7 @@ function Detail({
   now,
   onEdit,
   onSave,
-  onPin,
+  onLock,
   onForget,
   onOpenJob,
 }: {
@@ -286,7 +338,7 @@ function Detail({
   now: number;
   onEdit: (editing: boolean) => void;
   onSave: (text: string) => void;
-  onPin: () => void;
+  onLock: () => void;
   onForget: () => void;
   onOpenJob?: (jobId: string) => void;
 }) {
@@ -335,7 +387,7 @@ function Detail({
             </p>
             <div className="armada-logbook__acts">
               <Act label="Edit" act="logbook_edit" onPress={() => onEdit(true)} />
-              <Act label={entry.pinned ? "Unpin" : "Pin"} act="logbook_pin" onPress={onPin} />
+              <Act label={entry.pinned ? "Unlock" : "Lock"} act="logbook_lock" tip={entry.pinned ? "Armada may rewrite it and let it fade again" : "Armada never rewrites it or lets it fade"} onPress={onLock} />
               <Act label="Forget" act="logbook_forget" onPress={onForget} />
             </div>
           </>
@@ -387,9 +439,11 @@ function Detail({
                     <span className="armada-logbook__cite">{row.cite}</span>
                     <When at={row.at} now={now} />
                   </span>
-                  <span className="armada-logbook__says">
-                    <Words text={row.says} />
-                  </span>
+                  {row.says === undefined ? null : (
+                    <span className="armada-logbook__says">
+                      <Words text={row.says} />
+                    </span>
+                  )}
                 </li>
               ))}
             </ul>
@@ -418,12 +472,13 @@ function Detail({
 }
 
 /** An act on the entry, with the key that does it beside its name. */
-function Act({ label, act, onPress }: { label: string; act: string; onPress: () => void }) {
+function Act({ label, act, tip, onPress }: { label: string; act: string; tip?: string; onPress: () => void }) {
   const key = keyFor(act);
-  return (
+  const button = (
     <Button variant={act === "logbook_forget" ? "ghost" : "secondary"} size="sm" onClick={onPress} aria-keyshortcuts={key === "" ? undefined : key}>
       {label}
       {key === "" ? null : <Kbd aria-hidden>{key}</Kbd>}
     </Button>
   );
+  return tip === undefined ? button : <Tooltip label={tip}>{button}</Tooltip>;
 }

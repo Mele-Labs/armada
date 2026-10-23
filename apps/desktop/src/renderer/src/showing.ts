@@ -14,7 +14,6 @@ export type Open = {
   guiding: boolean;
   studying: boolean;
   lining: boolean;
-  learning: boolean;
   workflowing: boolean;
   checking: boolean;
   /** Doctor, reached from the Fleet panel's Doctor row. Optional so a caller that never opens it need not say so. */
@@ -40,7 +39,6 @@ export function showingOf(open: Open): string {
   if (open.guiding) return SURFACE.guides;
   if (open.studying) return SURFACE.studios;
   if (open.lining) return SURFACE.mergeLine;
-  if (open.learning) return SURFACE.lessons;
   if (open.workflowing) return SURFACE.workflows;
   if (open.checking) return SURFACE.checks;
   if (open.reviewing === true) return SURFACE.reviews;
