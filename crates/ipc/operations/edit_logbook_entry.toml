@@ -1,0 +1,8 @@
+[operations.edit_logbook_entry]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Replace an entry's text, mark it edited and keep the text it had"
+notes = """
+`POST /logbook/entries/:entry_id/edit`, body `{text}`. Answers with the entry as it now stands. The old text goes on the entry's `history` with `by: "person"`, newest first, and `edited` is true. Text with the same words as the entry's own changes nothing. An id that names no entry is a 404 `fleet.no_such_logbook_entry`, and one run memory or the machine note keeps is a 422 `fleet.logbook_entry_not_kept`. Text that is empty or over 400 characters is a 422 `fleet.logbook_text_refused`, and text the person already forgot is a 422 `fleet.logbook_text_forgotten`: teach it to bring it back.
+"""

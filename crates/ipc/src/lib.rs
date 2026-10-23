@@ -179,6 +179,7 @@ mod session_starts;
 mod session_waits;
 mod session_summary;
 mod run_memory;
+mod logbook;
 mod teaching;
 mod notices;
 mod session_import;
@@ -435,6 +436,10 @@ pub use repositories::{
     AddRepository, CloneRepository, CreateProject, RepositoryList, RepositorySummary, RequestRepository,
 };
 pub use requester::Requester;
+pub use logbook::{
+    EditLogbookEntry, Logbook, LogbookEarlier, LogbookEntry, LogbookEvidence, ForgottenLogbookEntry, LogbookKind, LogbookReplacedBy,
+    LogbookSection, LogbookState, PinLogbookEntry, TeachLogbookEntry,
+};
 pub use teaching::{
     ForgottenTaughtLink, NoteKind, NoteSection, ReadTeaching, SaveTeaching, SavedTeaching, TaughtLink, TaughtLinks,
     TeachingLink, TeachingNote, TeachingProposal, TeachingReach,
