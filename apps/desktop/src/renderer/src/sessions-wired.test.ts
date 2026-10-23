@@ -397,3 +397,13 @@ it("sets a plan aside by dismissing the item Fleet holds for it, `plan:<version>
   store.draft.work!.setAside!("a");
   expect(dismissWaiting).toHaveBeenCalledWith({ session_id: "a", item_id: "plan:3" });
 });
+
+// ---- A pull request press frees on the write's answer --------------------------------------------------------
+
+it("answers a pull request press on the write, while the read that refreshes the sheet is still out", async () => {
+  const pressPullRequest = vi.fn((_id: string, _number: number, press: string) => (press === "read" ? new Promise<never>(() => undefined) : Promise.resolve({ ok: true as const, value: {} })));
+  const store = new WiredStore({ pressPullRequest } as unknown as BridgeApi);
+  const answered = await Promise.race([store.draft.act!("a", 7, "ready"), new Promise<string>((done) => setTimeout(() => done("held"), 50))]);
+  expect(answered).toBe(true);
+  expect(pressPullRequest).toHaveBeenCalledWith("a", 7, "read");
+});

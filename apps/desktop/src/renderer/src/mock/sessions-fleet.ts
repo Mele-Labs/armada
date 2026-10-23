@@ -184,6 +184,8 @@ export class FakeSessionsFleet {
   refusesSend: { code: string; message: string } | undefined;
   /** Set to have the next End session refused, the way Fleet refuses one: nothing ends and nothing is parked. */
   refusesClose: { code: string; message: string } | undefined;
+  /** How long after End answers the Job shows as ended, the way Fleet parks it in the background. 0 ends it with the answer. */
+  endsAfterMs = 0;
   /** Set to have the next move refused, the way Fleet refuses one: nothing ends and nothing starts. */
   refusesMove: { code: string; message: string } | undefined;
   /** Set to have the next retro refused the way Fleet refuses one: the error says why and nothing is written. */
@@ -467,7 +469,13 @@ export class FakeSessionsFleet {
             this.calls.closed.push(sessionId);
             // A terminal's end is held for its mod: the row ends when the terminal says it did (`changed`).
             if (this.records.find((one) => one.id === sessionId)?.origin === "terminal") return this.change(sessionId, (one) => one);
-            return this.change(sessionId, (one) => ({ ...one, state: "ended" }));
+            const ending = (one: SessionRecord): SessionRecord => ({ ...one, state: "ended" });
+            if (this.endsAfterMs > 0) {
+              const answer = this.change(sessionId, (one) => one);
+              setTimeout(() => this.change(sessionId, ending), this.endsAfterMs);
+              return answer;
+            }
+            return this.change(sessionId, ending);
           },
           stopSession: async (sessionId) => {
             this.calls.stopped.push(sessionId);

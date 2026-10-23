@@ -154,7 +154,7 @@ async fn a_job_that_ends_ends_its_watches() {
     let job = rig.start().await;
     line(&rig, "running", false, &[]);
     rig.fleet.start_watch(None, cat(&job, "line.json", None)).await.unwrap();
-    rig.fleet.close_session(CloseSession { session_id: job.clone() }).await.expect("closed");
+    Arc::clone(&rig.fleet).close_session(CloseSession { session_id: job.clone() }).await.expect("closed");
     let ended = the_watch(&rig, &job).await;
     assert_eq!((ended.state, ended.live), (WatchState::Stopped, false));
 }

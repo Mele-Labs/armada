@@ -93,12 +93,12 @@ pub struct CheckoutToPullRequest {
     pub manifest_id: ManifestId,
 }
 
-/// `checkout_to_pull_request`'s answer: the pull request that was opened.
+/// `checkout_to_pull_request`'s answer: the send was accepted. **The pull request is not in it**:
+/// the commit, the push and the pull request finish after the answer, and the hold carries the
+/// pull request (`HeldCheckout.pull_request`) when they have. Where they fail, the stream says
+/// `act.failed`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct CheckoutSentAsPullRequest {
-    pub pull_request: u32,
-    pub auto_merge: bool,
-}
+pub struct CheckoutSentAsPullRequest {}
 
 /// `catch_up_checkout`'s body: pull a held checkout level with its base, the one
 /// way that cannot lose a person's files. **Names a repository and nothing more.**

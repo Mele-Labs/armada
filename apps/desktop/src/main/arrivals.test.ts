@@ -49,6 +49,7 @@ function fakeHost(
     planUsage: { changed: () => {} },
     modelDownshift: { changed: () => {}, seed: async () => {} },
     timeline: { appended: () => {} },
+    acts: { failed: () => {} },
     reviews: { changed: () => {}, walkChanged: () => {} },
     issues: { autopilotChanged: autopilots, autopilotsAgain: async () => {} },
     overviewAgain: async () => {},
@@ -137,6 +138,24 @@ describe("an entry on the Cockpit's timeline, off `timeline.appended`", () => {
       FLEET,
     );
     expect(appended).toHaveBeenCalledWith(entry);
+  });
+});
+
+describe("a background act that failed, off `act.failed`", () => {
+  it("is told to the windows whole, without its kind", () => {
+    const { host } = fakeHost();
+    const failed = vi.fn();
+    const body = {
+      act: "pull_request_press",
+      manifest_id: "armada",
+      error: { code: "fleet.merge_refused", message: "The merge was refused", run_id: "run", fields: {}, chain: [] },
+    };
+    applyArrival(
+      { ...host, acts: { failed } },
+      JSON.stringify({ message: "event", cursor: 9, event: { kind: "act.failed", ...body } }),
+      FLEET,
+    );
+    expect(failed).toHaveBeenCalledWith(body);
   });
 });
 

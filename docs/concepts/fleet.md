@@ -297,7 +297,8 @@ Fleet never drops, pops or applies one.
 Fleet reads the hold again, refuses with the pull's own codes, and makes a commit from objects: its parent is the tip `origin` holds of the base, its tree is that tip's with each listed path's working-tree content (a file gone from the working tree is removed), and it is pushed to `armada/checkout-<hex>` and opened as a pull request titled by the path or `<n> files`, with auto-merge on.
 The working tree, the index and `HEAD` are only read, under the merge end so a pull's stash cannot hide a file from the commit.
 The commit itself refuses a path main changed to something else since the hold was read, and leaves out a path that already equals the tip.
-The answer is the pull request's number and whether the forge took auto-merge (a forge that refused it still has the pull request open).
+The answer comes once the hold has been read and lists files to send, with nothing in it.
+The commit, the push and the pull request finish after it; the hold carries the pull request's number and whether the forge took auto-merge (a forge that refused it still has the pull request open), and a send that fails is `act.failed`.
 Fleet keeps the number in memory beside the hold and serves it as `checkout.pull_request` until the hold clears; the files stay listed, because here they are still uncommitted.
 A second press is `fleet.checkout_already_sent` (409).
 Once the pull request is on main, the catch-up above finds every file main's own and pulls by itself.

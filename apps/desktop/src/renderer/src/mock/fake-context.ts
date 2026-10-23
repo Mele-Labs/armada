@@ -46,6 +46,7 @@ export type SliceName =
   | "reviews"
   | "territory"
   | "timeline"
+  | "actFailed"
   | "bayHistory"
   | "usageSummary"
   | "issues"

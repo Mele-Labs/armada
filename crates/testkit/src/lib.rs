@@ -45,7 +45,7 @@ pub use store::FakeStore;
 pub use test_map::FakeCollector;
 pub use tracker::FakeTracker;
 pub use trackers::FakeTrackers;
-pub use vcs::{CommitScope, Delivered, Delivering, FakeCommit, FakeVcs, FakeVcsError, Merging};
+pub use vcs::{CommitScope, Delivered, Delivering, FakeCommit, FakeVcs, FakeVcsError, Hold, Merging, ParkHold};
 pub use work_product::{FakeDiffRefused, FakeWorkProduct, Holding, Written};
 pub use workflow::{
     delivering, frozen, handing_off, modelled, narrowing, narrowing_and_testing_one, panelled,

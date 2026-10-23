@@ -16,6 +16,7 @@
 //! caller happened to be looking at.
 
 use std::future::Future;
+use std::sync::Arc;
 
 use crate::daemon::Refusal;
 use ipc::{ManifestSaved, SaveManifestFile};
@@ -45,10 +46,11 @@ pub trait Commands: Send + Sync + 'static {
     /// Reads the hold again first and refuses on `catch_up_checkout`'s
     /// conditions, and where the hold already carries a pull request.
     /// [`Refusal::IllegalMove`] for those; [`Refusal::Unacceptable`] on a
-    /// repository this Fleet does not serve; [`Refusal::Fault`] where git or the
-    /// forge would not take it.
+    /// repository this Fleet does not serve. **Answered when the send can be
+    /// tried**: where git or the forge would not take it, the stream says
+    /// `act.failed`.
     fn checkout_to_pull_request(
-        &self,
+        self: Arc<Self>,
         asked: ipc::CheckoutToPullRequest,
     ) -> impl Future<Output = Result<ipc::CheckoutSentAsPullRequest, Refusal>> + Send;
 
@@ -378,10 +380,11 @@ pub trait Commands: Send + Sync + 'static {
     /// its own: its own branch, one commit, and a pull request for that alone. The person's copy
     /// stays. [`Refusal::Unacceptable`] for a piece that is not theirs, one the base already holds
     /// without `overwrite`, or no Job that could be made;
-    /// [`Refusal::NotFound`] for a repository Fleet does not serve; [`Refusal::Fault`] where a
-    /// file cannot be written or git refuses the commit.
+    /// [`Refusal::NotFound`] for a repository Fleet does not serve. **Answered once the Job
+    /// exists**: where a file cannot be written, git refuses the commit or the pull request does not
+    /// open, the stream says `act.failed` for that Job.
     fn commit_to_repository(
-        &self,
+        self: Arc<Self>,
         asked: ipc::CommitToRepository,
     ) -> impl Future<Output = Result<ipc::CommittedToRepository, Refusal>> + Send;
 

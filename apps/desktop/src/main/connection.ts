@@ -58,6 +58,7 @@ import { FlightControlsHost } from "./flight-controls";
 import { OnboardingHost } from "./onboarding";
 import { SharingHost } from "./sharing";
 import { TimelineHost } from "./timeline";
+import { ActFailures } from "./act-failed";
 import { IssuesHost } from "./issues";
 import { RequestsHost } from "./requests";
 import { StudioReads } from "./studios";
@@ -159,6 +160,8 @@ export class FleetConnection {
   readonly modelDownshift: ModelDownshiftHost = new ModelDownshiftHost(() => this.connected()?.port ?? null);
   /** What happened across the Fleet — `timeline.ts`. */
   readonly timeline: TimelineHost = new TimelineHost(() => this.connected()?.port ?? null);
+  /** A background act that failed after its reply — `act-failed.ts`. */
+  readonly acts: ActFailures = new ActFailures();
   /** Where two agents' changes would conflict, per served repository — `clashes.ts`. */
   readonly clashes: ClashesHost = new ClashesHost(
     () => this.connected()?.port ?? null,
@@ -266,6 +269,7 @@ export class FleetConnection {
       planUsage: this.planUsage,
       modelDownshift: this.modelDownshift,
       timeline: this.timeline,
+      acts: this.acts,
       reviews: this.reviews,
       // Autopilot's changes, which main/index.ts passes to every window.
       issues: this.issues,
