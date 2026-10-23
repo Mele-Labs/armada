@@ -105,10 +105,11 @@ pub fn pull_linked_in(link: &str, repository: &ForgeAddress) -> Option<u64> {
 
 /// The web links in `words`, each once and in the order written: `http` and `https` only, without
 /// the punctuation that ended a sentence. A link to this machine, or to one of `repository`'s own
-/// issues or pull requests (the Job already holds those), is not kept.
+/// issues or pull requests (the Job already holds those), is not kept; a checkout with no forge
+/// has no such tickets to drop.
 ///
 /// Splits on `://` as `tickets_in` does, so `[text](url)` yields the url.
-pub fn links_in(words: &str, repository: &ForgeAddress) -> Vec<String> {
+pub fn links_in(words: &str, repository: Option<&ForgeAddress>) -> Vec<String> {
     let mut found: Vec<String> = Vec::new();
     for (at, _) in words.match_indices("://") {
         let scheme = words[..at].rsplit(|c: char| !c.is_ascii_alphabetic()).next().unwrap_or_default();
@@ -121,7 +122,7 @@ pub fn links_in(words: &str, repository: &ForgeAddress) -> Vec<String> {
             .unwrap_or_default()
             .trim_end_matches(['.', ',', ';', ':', '!', '?']);
         let link = format!("{}://{rest}", scheme.to_ascii_lowercase());
-        if rest.is_empty() || is_this_machine(rest) || tickets_in(&link).any(|(address, _, _)| address == *repository) {
+        if rest.is_empty() || is_this_machine(rest) || tickets_in(&link).any(|(address, _, _)| repository == Some(&address)) {
             continue;
         }
         if !found.contains(&link) {
