@@ -6,6 +6,7 @@
 //! machine note keep their own detectors and are read in beside, so one read shows everything.
 
 pub(crate) mod answer;
+mod backlog;
 pub(crate) mod curating;
 mod distilling;
 mod kept;
@@ -28,6 +29,8 @@ pub(crate) use serving::{Logged, Source};
 pub(crate) struct Distils {
     waiting: Mutex<VecDeque<String>>,
     running: AtomicBool,
+    /// Whether this process already started the pass over the open lessons.
+    backlog: AtomicBool,
 }
 
 impl Distils {

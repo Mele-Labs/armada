@@ -125,9 +125,9 @@ pub(crate) fn ran_since(records: &[Record], since: u64) -> Vec<Ran> {
 }
 
 /// The store, as Curate asks of it, for one repository's key.
-struct Keeping<'a> {
-    store: &'a Store,
-    repository: &'a str,
+pub(super) struct Keeping<'a> {
+    pub(super) store: &'a Store,
+    pub(super) repository: &'a str,
 }
 
 impl Held for Keeping<'_> {

@@ -387,6 +387,23 @@ impl Store {
         Ok(())
     }
 
+    /// Whether the pass that moved the open lessons' repository facts into the Logbook finished.
+    pub fn logbook_backlog_moved(&self) -> Result<bool, WriteError> {
+        self.conn
+            .query_row("SELECT 1 FROM logbook_backlog_moved WHERE id = 1", [], |_| Ok(()))
+            .optional()
+            .map(|found| found.is_some())
+            .map_err(database("reading whether the backlog was moved"))
+    }
+
+    /// Keep that the pass finished, so it never runs again.
+    pub fn logbook_backlog_finished(&mut self, at: u64) -> Result<(), WriteError> {
+        self.conn
+            .execute("INSERT OR IGNORE INTO logbook_backlog_moved (id, at) VALUES (1, ?1)", [at as i64])
+            .map(|_| ())
+            .map_err(database("keeping that the backlog was moved"))
+    }
+
     /// Keep that a Session was distilled up to `covers_to`, for its repository's key.
     pub fn logbook_distilled(&mut self, session: &str, repository: &str, covers_to: &str, at: u64) -> Result<(), WriteError> {
         self.conn
