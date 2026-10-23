@@ -6,18 +6,20 @@
 import { useEffect, useState, type ReactNode } from "react";
 
 import { KitBrowser, KitModels, namesOf, SystemPage, SystemSidebar, useKept } from "@armada/components";
-import type { KitKindId, KitPiecesProps, KitRef } from "@armada/components";
+import type { KitKindId, KitPiecesProps, KitRef, KitSetupRead } from "@armada/components";
 import type { ModelChoices, SettingsList } from "@armada/protocol";
 import { said } from "@armada/screens/src/copy";
 import { addressReads, addressTyped, useKit, type KitSlice } from "@armada/screens/src/manifest-kit";
-import { ModList, SETTINGS_SECTIONS, SettingsFile, SettingsSectionsView } from "@armada/settings";
-import { Boundary, type BoundaryProps } from "@armada/shell";
+import { ModList, SETTINGS_SECTIONS, SettingsFile, SettingsSectionsView, useThemes } from "@armada/settings";
+import { Boundary, useLayouts, type BoundaryProps } from "@armada/shell";
 
 import { entryOf, entryOfKind, foundBy, SYSTEM_ENTRIES, SYSTEM_GROUPS, type SystemEntryDef } from "./system-entries";
 import { useKitModels } from "./kit-models";
+import { openLink } from "./commands";
 import { openLinkPanel } from "./link-drop";
+import { askToOpenSession } from "./open-session";
 import { FileInline } from "./shared-panel/file";
-import { openInPanel } from "./shared-panel/store";
+import { openAddressInPanel, openInPanel } from "./shared-panel/store";
 import { useSystemEntry } from "./system-entry";
 
 export type SystemSurfaceProps = KitSlice & {
@@ -38,8 +40,27 @@ export type SystemSurfaceProps = KitSlice & {
   warned: Readonly<Record<string, string>>;
 };
 
+/** A pull request opens in the side panel where one is hosted, and in the browser where not. */
+const openPull = (address: string) => void (openAddressInPanel(address) || openLink(address));
+
+/**
+ * Kit's read, with Bridge's own mods as a kind of it: the themes and layouts in the mod folder, and the ones Armada
+ * ships. The harness has no mods, so Fleet's read never carries the kind.
+ */
+function useWithMods(setup: KitSetupRead | undefined): KitSetupRead | undefined {
+  const themes = useThemes();
+  const layouts = useLayouts();
+  if (setup === undefined) return undefined;
+  const items = [
+    ...themes.mods.map((mod) => ({ name: mod.name.replace(/^builtin:/, ""), source: mod.builtIn === true ? "Armada" : "", mod: { kind: "theme" as const, ...(mod.builtIn === true ? { builtIn: true } : {}) } })),
+    ...layouts.mods.map((mod) => ({ name: mod.name, source: "", mod: { kind: "layout" as const } })),
+  ];
+  return { ...setup, kinds: [...setup.kinds.filter((one) => one.kind !== "mods"), { kind: "mods", read: { what: "read", items, unreadable: [] } }] };
+}
+
 export function SystemSurface({ repository, settings, modelChoices, live, guarded, onReadGuides, onOpenAccount, workflows, guides, warned, ...slice }: SystemSurfaceProps) {
-  const kit = useKit(slice);
+  const read = useKit(slice);
+  const kit = { ...read, setup: useWithMods(read.setup) };
   const [entry, setEntry] = useSystemEntry();
   const [query, setQuery] = useKept("system-search", "");
   const [picks, setPicks] = useState<Partial<Record<KitKindId, string>>>({});
@@ -117,7 +138,7 @@ export function SystemSurface({ repository, settings, modelChoices, live, guarde
         onOpenAccount={onOpenAccount}
         onReadGuides={onReadGuides}
         {...(guarded.onCopied === undefined ? {} : { onCopied: guarded.onCopied })}
-        under={{ theme: <ModList kind="theme" />, layout: <ModList kind="layout" /> }}
+        under={{ theme: <ModList kind="theme" onOpenPull={openPull} onOpenJob={askToOpenSession} />, layout: <ModList kind="layout" onOpenPull={openPull} onOpenJob={askToOpenSession} /> }}
       />
       {def.id === "bridge:guides" ? <div className="armada-system__catalogue">{guides}</div> : null}
     </div>

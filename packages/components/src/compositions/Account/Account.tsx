@@ -42,7 +42,8 @@ export type SyncKindWord =
   | "mcp_servers"
   | "allowlist"
   | "workflows"
-  | "memory";
+  | "memory"
+  | "mods";
 
 export type SyncItem = { name: string; scope: Scope; repo: string };
 
@@ -174,6 +175,8 @@ const KIND: Record<SyncKindWord, { label: string; scopes: readonly Scope[] }> = 
   allowlist: { label: "Allowlist", scopes: ALL_SCOPES },
   workflows: { label: "Workflows", scopes: ALL_SCOPES },
   memory: { label: "Memory", scopes: ALL_SCOPES },
+  // A mod is the machine's, read from Bridge's mod folder: it travels everywhere or stays here.
+  mods: { label: "Mods", scopes: ["global", "private"] },
 };
 
 /** The kinds in the order What syncs lists them. */
@@ -188,6 +191,7 @@ export const SYNC_KINDS: readonly SyncKindWord[] = [
   "allowlist",
   "workflows",
   "memory",
+  "mods",
 ];
 
 /** The address the code is typed at. */

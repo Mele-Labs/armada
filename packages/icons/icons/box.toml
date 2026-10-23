@@ -33,3 +33,10 @@
   size = "16px"
   status = "Proposed"
   notes = "Proposed 12 Oct 2026 for the walk `jobsPage`, for the owner to rule on: the owner had nowhere on the rail to see Jobs. The same Job mark the Record and the chips draw, at the rail's 16px, never a Job's status. A Navigation glyph is his to mint, as `square-terminal` on Sessions was."
+
+[[icons.box.usage]]
+  means = "The Job holding the pull request a promoted mod is on, under its row in Theme"
+  group = "Mods"
+  size = "12px"
+  status = "Proposed"
+  notes = "Proposed 23 Oct 2026 for the walk `mods-travel`. The same Job mark the chips draw, tooltip `Job`, before the Job's title as a press that opens it."

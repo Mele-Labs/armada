@@ -29,6 +29,8 @@ export type SharedRow = {
   source?: string;
   /** A server whose key is not on this machine. Name and host are all that travelled. */
   keyHere?: boolean;
+  /** Mods only: what a mod changes, so a mod only the home has is listed under Theme or Layout. */
+  modKind?: "theme" | "layout";
   /** The two versions of a row that differs. */
   here?: string;
   there?: string;

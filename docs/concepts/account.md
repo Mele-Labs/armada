@@ -68,7 +68,7 @@ An organisation that restricts third-party apps is not listed, and its repositor
 
 **Rule.** What syncs is chosen per kind and per machine, and every kind is off until it is turned on.
 
-The kinds are Kit's: Skills, Plugins, Agent file, Global instructions, Sub agents, Commands, MCP servers, the allowlist, Workflows and Memory.
+The kinds are Kit's: Skills, Plugins, Agent file, Global instructions, Sub agents, Commands, MCP servers, the allowlist, Workflows, Memory and Mods.
 
 **Rule.** Each synced item has one scope.
 

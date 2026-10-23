@@ -22,6 +22,11 @@ export type ThemeMod = {
   problem?: string;
   /** The branch of the repository it was put on, once it has been. */
   branch?: string;
+  /** The pull request Promote opened for it, and the Job that holds that pull request. */
+  pull?: { number: number; title: string; address: string };
+  job?: { id: string; title: string };
+  /** Ships with Armada rather than written into the mod folder. Its name carries a `builtin:` prefix, which no mod's name has. */
+  builtIn?: boolean;
   /** Its preview colours, from the CSS Fleet checked. Absent until that CSS has been read. */
   swatch?: readonly string[];
   load(): Promise<string>;
@@ -77,7 +82,11 @@ const usable = (state: ThemeState, id: string) => isBuiltIn(id) || state.catalog
  * A source held in memory: the mock runs on it. Bridge runs on `fleet-themes.ts`, which answers the
  * same interface from Fleet's mod list and the saved theme preference.
  */
-export function createThemeSource(initial: () => ThemeState = () => ({ mods: [], catalogue: [], active: DARK })): ModsSource & {
+export function createThemeSource(
+  initial: () => ThemeState = () => ({ mods: [], catalogue: [], active: DARK }),
+  /** What Promote leaves on the mod: the branch, and where a promote opens one, the pull request and its Job. */
+  promoted: (name: string) => Pick<ThemeMod, "branch" | "pull" | "job"> = (name) => ({ branch: `armada/mod-${name}-${Date.now()}` }),
+): ModsSource & {
   /** A mod arriving, the way a Session writing one into the mod folder would. */
   install(mod: ThemeMod): void;
   reset(): void;
@@ -97,7 +106,7 @@ export function createThemeSource(initial: () => ThemeState = () => ({ mods: [],
     },
     setActive: (id) => set({ ...held, active: id }),
     setEnabled: (name, enabled) => edit(name, { enabled }),
-    promote: (name) => edit(name, { branch: `armada/mod-${name}-${Date.now()}` }),
+    promote: (name) => edit(name, promoted(name)),
     install: (mod) => held.mods.some((one) => one.name === mod.name) || set({ ...held, mods: [...held.mods, mod] }),
     reset: () => set(initial()),
   };

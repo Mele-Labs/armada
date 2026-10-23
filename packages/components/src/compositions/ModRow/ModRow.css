@@ -15,3 +15,38 @@
   flex: 1;
   min-width: 0;
 }
+
+/* A mod only the shared home has: its name, with no switch to draw it beside. */
+.armada-mod-row__title {
+  color: var(--fg-default);
+}
+
+/* What Promote opened: the pull request, then the Job holding it, under the switch. */
+.armada-mod-row__held {
+  display: flex;
+  flex-direction: column;
+  margin-top: var(--space-1);
+}
+
+.armada-mod-row__job {
+  display: inline-flex;
+}
+
+.armada-mod-row__sync {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.armada-mod-row__origin {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  color: var(--fg-muted);
+}
+
+/* Where Promote would be, so a mod Armada ships keeps its mark in Promote's column. */
+.armada-mod-row .armada-mod-row__origin {
+  width: var(--h-control);
+}

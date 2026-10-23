@@ -12,3 +12,10 @@
     size = "12px"
     status = "Specified"
     notes = "Added 7 Oct 2026 with Triggers on the Workflows surface. The level mark on a Trigger row, tooltip `Ships with Armada`. Armada ships none today, so the mark is drawn only for a Fleet that sends one."
+
+  [[icons.package.usage]]
+    means = "A mod Armada ships, on its row under Theme and in Kit's Mods"
+    group = "Mods"
+    size = "16px"
+    status = "Proposed"
+    notes = "Proposed 23 Oct 2026 for the walk `mods-travel`. The same carried thing as a workflow Armada ships, tooltip `Ships with Armada`, in the column Promote holds on a mod of the mod folder, since a mod Armada ships is never promoted."

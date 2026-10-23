@@ -34,6 +34,7 @@ export const SYSTEM_ENTRIES: readonly SystemEntryDef[] = [
   { id: "kit:instructions", label: "Instructions", group: "kit", kit: "instructions" },
   { id: "kit:output-styles", label: "Output styles", group: "kit", kit: "output-styles" },
   { id: "kit:allowlist", label: "Allowlist", group: "kit", kit: "allowlist" },
+  { id: "kit:mods", label: "Mods", group: "kit", kit: "mods" },
   { id: "kit:workflows", label: "Workflows", group: "kit" },
   { id: "kit:models", label: "Models", group: "kit", sections: ["model", "effort"] },
   { id: "kit:prompts", label: "Prompts", group: "kit", sections: ["prompts"] },
