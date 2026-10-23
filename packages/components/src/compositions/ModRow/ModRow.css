@@ -1,9 +1,23 @@
-/* One mod: its kind, a switch that takes the width, and Promote at the trailing edge. */
+/* One mod: its kind, a switch that takes the width, then the home's mark, its act and Promote, one control wide each.
+ * Every cell is kept where a mod lacks it, so the switches and controls line up down a list. The head sits on one
+ * centre line; what Promote opened is a row of its own under it, so it never moves the controls. */
 .armada-mod-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) var(--h-control) var(--h-control) var(--h-control);
   align-items: center;
-  gap: var(--space-3);
+  column-gap: var(--space-3);
   min-width: 0;
+}
+
+.armada-mod-row__cell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* A described switch aligns its track to the top of its text; here the track shares the centre line with the other controls. */
+.armada-mod-row__switch .armada-switch[data-described="true"] {
+  align-items: center;
 }
 
 .armada-mod-row__kind {
@@ -12,7 +26,6 @@
 }
 
 .armada-mod-row__switch {
-  flex: 1;
   min-width: 0;
 }
 
@@ -23,19 +36,13 @@
 
 /* What Promote opened: the pull request, then the Job holding it, under the switch. */
 .armada-mod-row__held {
+  grid-column: 2 / -1;
   display: flex;
   flex-direction: column;
-  margin-top: var(--space-1);
 }
 
 .armada-mod-row__job {
   display: inline-flex;
-}
-
-.armada-mod-row__sync {
-  display: inline-flex;
-  align-items: center;
-  flex-shrink: 0;
 }
 
 .armada-mod-row__origin {

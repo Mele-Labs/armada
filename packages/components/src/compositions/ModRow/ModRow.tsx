@@ -27,8 +27,10 @@ export type ModRowProps = {
   detail?: ReactNode;
   /** Ships with Armada: marked so, and never promoted. */
   builtIn?: boolean;
-  /** How it stands against the shared home and the act that settles it, as Kit draws them: `SyncMarks` and `SyncAct`. */
-  sync?: ReactNode;
+  /** How it stands against the shared home, as Kit draws it: `SyncMarks`. */
+  syncMark?: ReactNode;
+  /** The act that settles it, as Kit draws it: `SyncAct`. */
+  syncAct?: ReactNode;
   /** The pull request Promote opened. */
   pull?: { number: number; title: string; onOpen: () => void };
   /** The Job that holds that pull request. */
@@ -65,7 +67,7 @@ export function BuiltInMark() {
   );
 }
 
-export function ModRow({ title, kind = "theme", enabled, onEnabled, detail, builtIn = false, sync, pull, job, promoteDisabled = false, onPromote }: ModRowProps) {
+export function ModRow({ title, kind = "theme", enabled, onEnabled, detail, builtIn = false, syncMark, syncAct, pull, job, promoteDisabled = false, onPromote }: ModRowProps) {
   return (
     <div className="armada-mod-row" role="group" aria-label={title}>
       <Tooltip label={KIND[kind]}>
@@ -81,36 +83,40 @@ export function ModRow({ title, kind = "theme", enabled, onEnabled, detail, buil
             {title}
           </Switch>
         )}
-        {pull === undefined && job === undefined ? null : (
-          <div className="armada-mod-row__held">
-            {pull === undefined ? null : <PullRequestChip number={pull.number} title={pull.title} state="open" onOpen={pull.onOpen} />}
-            {job === undefined ? null : (
-              <RowLink
-                label={`Job ${job.title}`}
-                mark={
-                  <Tooltip label="Job">
-                    <span className="armada-mod-row__job" role="img" aria-label="Job">
-                      <Box size={12} strokeWidth={2} aria-hidden="true" />
-                    </span>
-                  </Tooltip>
-                }
-                onOpen={job.onOpen}
-              >
-                {job.title}
-              </RowLink>
-            )}
-          </div>
-        )}
       </div>
-      {sync === undefined ? null : <span className="armada-mod-row__sync">{sync}</span>}
+      {/* Every cell is drawn, empty or not, so each control keeps its column down a list. */}
+      <span className="armada-mod-row__cell">{syncMark}</span>
+      <span className="armada-mod-row__cell">{syncAct}</span>
       {builtIn ? (
         <BuiltInMark />
-      ) : onPromote === undefined ? null : (
-        <Tooltip label={`Put ${title} on a branch of the repository`}>
+      ) : onPromote === undefined ? (
+        <span className="armada-mod-row__cell" />
+      ) : (
+        <Tooltip label={`Add ${title} to Armada in a pull request`}>
           <Button iconOnly variant="ghost" aria-label={`Promote ${title}`} disabled={promoteDisabled} onClick={onPromote}>
             <GitPullRequestArrow size={16} />
           </Button>
         </Tooltip>
+      )}
+      {pull === undefined && job === undefined ? null : (
+        <div className="armada-mod-row__held">
+          {pull === undefined ? null : <PullRequestChip number={pull.number} title={pull.title} state="open" onOpen={pull.onOpen} />}
+          {job === undefined ? null : (
+            <RowLink
+              label={`Job ${job.title}`}
+              mark={
+                <Tooltip label="Job">
+                  <span className="armada-mod-row__job" role="img" aria-label="Job">
+                    <Box size={12} strokeWidth={2} aria-hidden="true" />
+                  </span>
+                </Tooltip>
+              }
+              onOpen={job.onOpen}
+            >
+              {job.title}
+            </RowLink>
+          )}
+        </div>
       )}
     </div>
   );

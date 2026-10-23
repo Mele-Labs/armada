@@ -41,14 +41,7 @@ export function ModList({ kind, onOpenPull, onOpenJob }: { kind: "theme" | "layo
   const sync = (row: SharedRow | undefined) =>
     row === undefined || shared === undefined
       ? {}
-      : {
-          sync: (
-            <>
-              <SyncMarks row={row} onCompare={setComparing} />
-              <SyncAct row={row} acts={shared} />
-            </>
-          ),
-        };
+      : { syncMark: <SyncMarks row={row} onCompare={setComparing} />, syncAct: <SyncAct row={row} acts={shared} /> };
   return (
     <Card>
       <CardContent>
