@@ -880,6 +880,19 @@ where
         Ok(SessionList { sessions })
     }
 
+    async fn recall(
+        &self,
+        manifest_id: Option<ManifestId>,
+        query: String,
+        section: Option<String>,
+    ) -> Result<ipc::Recalled, Refusal> {
+        self.logbook_recalled(manifest_id.as_ref(), &query, section.as_deref()).await
+    }
+
+    async fn get_logbook_for_subagent(&self, session_id: String, prompt: String) -> Result<ipc::ForSubagent, Refusal> {
+        Ok(ipc::ForSubagent { text: self.logbook_for_subagent(&session_id, &prompt).await })
+    }
+
     async fn who_owns(
         &self,
         kind: String,

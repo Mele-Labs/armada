@@ -85,6 +85,8 @@ pub(super) fn version_wire(row: &store::KeptAttachmentVersion) -> ipc::Attachmen
         },
         detail: row.detail.clone(),
         at: wire_instant(&row.at),
+        from_message: row.from_message.clone(),
+        from_task: row.from_task.clone(),
     }
 }
 

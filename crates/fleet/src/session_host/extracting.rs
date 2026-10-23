@@ -54,6 +54,15 @@ pub(crate) struct Extracted {
     pub later: Vec<String>,
 }
 
+impl Extracted {
+    /// Without the asks that only name his approval, which a walk already waiting on him has asked; the
+    /// rest are numbered again among themselves.
+    pub(crate) fn beside_a_walk(self) -> Self {
+        let asks = self.asks.into_iter().filter(|one| !asks::only_approving(&one.sentence)).enumerate();
+        Self { asks: asks.map(|(index, one)| Ask { index, ..one }).collect(), ..self }
+    }
+}
+
 /// The sentences the heads read: the close with its headings left out.
 pub(crate) fn candidates(reply: &str) -> Vec<Closing> {
     asks::closing(reply)

@@ -77,6 +77,8 @@ const HARNESS = 'claude_code'
 const MEASURE_EVERY_MS = 10_000
 const RUNTIME_FILE = 'Library/Application Support/Armada/fleet.json'
 const WAIT_MS = 1500
+// What a subagent's start waits for the Logbook: past it, the subagent starts with its prompt as it was.
+const LOGBOOK_WAIT_MS = 800
 // The tick that starts an ask when none is open, so also how soon one is retried after it failed.
 const ASK_EVERY_MS = 2000
 // How long Fleet may hold an ask, and how long the mod waits on one before it asks again.
@@ -1033,6 +1035,31 @@ async function putInWaiting($: Door, id: string, one: Known, needs: string[]): P
   if (sent?.ok === true) one.waiting = items
 }
 
+/**
+ * The Logbook lines for a subagent about to start, from Fleet: the habits and the entries whose paths match
+ * the ones its prompt names. **Quiet**: a Fleet that is out, slow, older or refuses gives an empty string.
+ */
+async function logbookFor($: Dollar, prompt: string): Promise<string> {
+  try {
+    const port = await portOf($)
+    if (port === undefined) return ''
+    const id = await $.session.id()
+    const asked = await Promise.race([
+      $.http.fetch(`http://127.0.0.1:${port}/logbook/subagent`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ session_id: id, prompt }),
+      }),
+      $.clock.sleep(LOGBOOK_WAIT_MS).then(() => undefined),
+    ])
+    if (asked === undefined || !asked.ok) return ''
+    const text = (JSON.parse(asked.text) as { text?: unknown }).text
+    return typeof text === 'string' ? text.trim() : ''
+  } catch {
+    return ''
+  }
+}
+
 async function ended($: Dollar, id: string, reason: string): Promise<void> {
   if (!known.has(id)) await begin($, id)
   say($, id, { kind: 'ended', reason })
@@ -1297,8 +1324,11 @@ export const register: Register = on => {
     })
   }
 
+  // The Logbook goes in the prompt: Claude Code's own SubagentStart hook carries no prompt, so it could not
+  // tell which paths the subagent works under.
   on('agent.spawn', async ($, e, next) => {
-    const out = await next(e)
+    const told = (await $.env.get('ARMADA_DRONE')) ? '' : await logbookFor($, e.prompt)
+    const out = await next(told === '' ? e : { ...e, prompt: `${e.prompt}\n\n${told}` })
     if (out.deny === undefined) {
       const target = out.agentId ?? e.tool_use_id
       void spawned($, target, e.subagentType, e.description, e.tool_use_id).catch(() => undefined)

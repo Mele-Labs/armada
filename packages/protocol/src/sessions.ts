@@ -67,6 +67,10 @@ export type AttachmentVersion = {
   state: AttachmentState;
   detail?: Record<string, string>;
   at: string;
+  /** The thread row id of the person's latest message when it was written. */
+  from_message?: string;
+  /** The plan task in progress when it was written. */
+  from_task?: string;
 };
 
 /** `get_attachment_history`: every version of everything one session holds, oldest first. */

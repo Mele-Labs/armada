@@ -7,9 +7,12 @@
 
 pub(crate) mod answer;
 mod acting;
+mod backlog;
 pub(crate) mod curating;
 mod distilling;
 mod kept;
+pub(crate) mod noting;
+pub(crate) mod recalling;
 pub(crate) mod serving;
 
 use std::collections::VecDeque;
@@ -17,7 +20,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-use store::{LogKind, LogState};
+use store::{LogKind, LogSection, LogState};
 
 use crate::daemon::Fleet;
 pub(crate) use distilling::QUESTION;
@@ -29,6 +32,8 @@ pub(crate) use serving::{Logged, Source};
 pub(crate) struct Distils {
     waiting: Mutex<VecDeque<String>>,
     running: AtomicBool,
+    /// Whether this process already started the pass over the open lessons.
+    backlog: AtomicBool,
 }
 
 impl Distils {
@@ -108,10 +113,15 @@ where
 
     /// The entries to serve a repository's next agent: standing ones, tripped first, then by how
     /// many Sessions bore each out, then the most recent, cut to `budget` tokens. Each learnt one
-    /// served is marked, which keeps it from fading. **For the start note to call.**
-    #[allow(dead_code, reason = "the start note calls it, and another change wires that")]
+    /// served is marked, which keeps it from fading. The start note calls it.
     pub(crate) async fn logbook_to_serve(&self, root: &str, budget: usize) -> Vec<Logged> {
         let served = serving::served(self.logbook_read(root).await, budget);
+        self.logbook_marked(&served).await;
+        served
+    }
+
+    /// Mark the learnt standing entries among `served` as served now.
+    async fn logbook_marked(&self, served: &[Logged]) {
         let ids: Vec<i64> = served
             .iter()
             .filter(|one| one.from == Source::Learnt && one.entry.state == LogState::Standing)
@@ -119,6 +129,63 @@ where
             .collect();
         let now = self.now().epoch_millis().unwrap_or(0).max(0) as u64;
         let _ = self.store().lock().await.logbook_served(&ids, now);
-        served
+    }
+
+    /// The Logbook note a Session's process is started with: habits, then the repository's
+    /// standing entries, then this Mac, about [`noting::NOTE_TOKENS`] in all. `root` is `None` for
+    /// a Session with no repository, which is handed the habits and this Mac's.
+    pub(crate) async fn logbook_note_of(&self, root: Option<&str>) -> Option<String> {
+        let served = self.logbook_to_serve(root.unwrap_or_default(), noting::NOTE_TOKENS - noting::HEADER_TOKENS).await;
+        noting::note(&served)
+    }
+
+    /// What a subagent starting under `session` is handed for the paths its `prompt` names, as a
+    /// note. Empty where the Logbook holds nothing for it. A Session Fleet does not know, or one
+    /// with no repository, is handed the habits alone.
+    pub(crate) async fn logbook_for_subagent(&self, session: &str, prompt: &str) -> String {
+        let manifest = {
+            let store = self.store().lock().await;
+            store.session(session).ok().flatten().and_then(|row| row.manifest_id)
+        };
+        let root = manifest.and_then(|id| self.served_named(Some(&ipc::ManifestId::carried(&id))).ok()).map(|one| one.root().to_string());
+        let named = recalling::named_paths(prompt, root.as_deref().unwrap_or_default());
+        let all = self.logbook_read(root.as_deref().unwrap_or_default()).await;
+        let handed = recalling::for_subagent(all, &named, recalling::SUBAGENT_TOKENS - noting::SUBAGENT_HEADER_TOKENS);
+        self.logbook_marked(&handed).await;
+        noting::subagent_note(&handed).unwrap_or_default()
+    }
+
+    /// The entries of the repository `manifest` names, the habits and this Mac's, that hold the
+    /// words of `query`, best first. Marks nothing served.
+    pub(crate) async fn logbook_recalled(
+        &self,
+        manifest: Option<&ipc::ManifestId>,
+        query: &str,
+        section: Option<&str>,
+    ) -> Result<ipc::Recalled, api::Refusal> {
+        let unasked = |what: String| {
+            api::Refusal::Unacceptable(ipc::WireError::raised("fleet.session_unnamed", what, self.run_id()))
+        };
+        if query.trim().is_empty() {
+            return Err(unasked("recall needs words to look for".to_string()));
+        }
+        let section = match section {
+            None => None,
+            Some(word) => Some(LogSection::of_text(word.trim()).ok_or_else(|| unasked(format!("`{word}` is not a section: `repo`, `habits` or `machine`")))?),
+        };
+        let root = self.served_named(manifest)?.root().to_string();
+        let found = recalling::searched(self.logbook_read(&root).await, query, section);
+        Ok(ipc::Recalled {
+            entries: found
+                .into_iter()
+                .map(|one| ipc::RecalledEntry {
+                    section: one.entry.section.as_text().to_string(),
+                    kind: one.entry.kind.as_text().to_string(),
+                    state: one.entry.state.as_text().to_string(),
+                    confirmed_by: one.borne_out() as u32,
+                    text: one.entry.text,
+                })
+                .collect(),
+        })
     }
 }
