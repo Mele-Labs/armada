@@ -125,14 +125,15 @@ The readers are in force (*What is in force*), and each ask a reply makes is its
 ## A question that asks nothing
 
 **Bridge marks a question read from a reply, and he can say it asks nothing.**
-Its row in Needs you draws `ScanText`, named `Read from the reply`, and ends in **Not a question**.
-The press is `dismiss_waiting` with `misread`: the item goes, and Fleet keeps its sentence in the store's `reply_misreads` for good, of no one Session.
-Fleet refuses `misread` on an item of any other source, since only a read from a reply can be misread.
+Its row in Needs you draws `ScanText`, named `Read from the reply`, and ends in two thumbs; a right press on the row, or the ContextMenu key, offers the same two as **A question** and **Not a question**.
+Thumbs down is `dismiss_waiting` with `misread`: the item goes, and Fleet keeps its sentence in the store's `reply_misreads` for good, of no one Session.
+Thumbs up is `confirm_waiting`: the item stays, Fleet keeps its sentence in `reply_confirmed` and reads the item `confirmed` from then on, and the row drops its thumbs while its menu still offers **Not a question**.
+Fleet refuses both on an item of any other source, since only a read from a reply can be misread.
 
 A sentence a later reply says that is within `FOLDS_AT` of a kept one raises no item, in any Session (`dedup::left_off_as_misread`).
 The check uses the vectors the fold below already asks the model for, so a sentence not embedded yet stays this read and goes on the next.
 An item the agent stated stands however near it is.
-The asks head learns from them only when it is trained again: `tools/lm-train` reads every kept sentence as one that asks nothing ([Spike: reply sentence readers](../../spikes/reply-sentence-readers.md)).
+The asks head learns from them only when it is trained again: `tools/lm-train` reads every misread sentence as one that asks nothing and every confirmed one as one that asks ([Spike: reply sentence readers](../../spikes/reply-sentence-readers.md)).
 
 ## Items that are one ask
 
