@@ -1,5 +1,5 @@
 // The owner's own flight controls, drawn and pressed: each kind of action goes to the route its built-in cousin uses, a shell line goes
-// through Fleet and its answer stands where the tiles were, a shell tile is off with no bay, and a Job's tiles past twelve keep six columns,
+// through Fleet and its answer stands where the tiles were, a shell tile is off with no bay, and a Job's tiles past twelve sit on pages of twelve, a dot for each,
 // in the tiles and in edit mode. Browser: a press and a rendering are what is read. The file comes from a fake `window.armada`.
 
 import { act } from "react";
@@ -16,6 +16,8 @@ import { FlightEdit } from "./FlightEdit";
 import { SessionTiles } from "./SessionTiles";
 import { plain } from "./session-tiles";
 import { ShellBox, type ShellRun } from "./ShellBox";
+import "../../styles/index.css";
+import "./deck.css";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -59,6 +61,8 @@ const flush = () => act(async () => void (await new Promise((done) => setTimeout
 
 async function mount(node: React.ReactNode) {
   const host = document.createElement("div");
+  // The foot gives the panel its height and `--tile` (the floor under its block); a bare host has neither, and the strip, as tall as the block's content, would stand no height.
+  host.style.cssText = "--tile: 64px; display: flex; flex-direction: column; height: 160px";
   document.body.append(host);
   const root = createRoot(host);
   act(() => root.render(node));
@@ -173,19 +177,61 @@ test("a shell tile is off while the Job holds no bay, and a press runs nothing",
   expect(ran).not.toHaveBeenCalled();
 });
 
-test("tiles past twelve are drawn on a grid of twelve cells and six columns", async () => {
+const strip = (host: HTMLElement) => host.querySelector<HTMLElement>(".deck-controls__pages")!;
+const dots = (host: HTMLElement) => [...host.querySelectorAll<HTMLElement>(".deck-controls__dots > button")];
+const current = (host: HTMLElement) => dots(host).findIndex((one) => one.hasAttribute("aria-current"));
+const onPage = (host: HTMLElement, page: number) => host.querySelectorAll(`.deck-controls__tiles > [data-page="${page}"]`).length;
+/** A page takes a moment to scroll in, and the dot follows the scroll. */
+const settle = () => act(async () => void (await new Promise((done) => setTimeout(done, 900))));
+
+test("seventeen tiles sit on two pages, twelve and five, with a dot for each and the first current", async () => {
   const host = await mount(<SessionTiles session={jobOf()} draft={draftOf()} repository={REPOSITORY} bays={BAYS} />);
   expect(host.querySelectorAll(".deck-controls__tiles > button").length).toBe(17);
-  const grid = host.querySelector<HTMLElement>(".deck-controls__tiles")!;
-  expect(grid.style.getPropertyValue("--count")).toBe("12");
-  expect(grid.style.getPropertyValue("--cols")).toBe("6");
+  expect([onPage(host, 0), onPage(host, 1)]).toEqual([12, 5]);
+  expect(dots(host).map((one) => one.getAttribute("aria-label"))).toEqual(["Page 1", "Page 2"]);
+  expect(current(host)).toBe(0);
+  expect(strip(host).scrollWidth).toBeGreaterThan(strip(host).clientWidth);
 });
 
-test("edit mode keeps the same twelve cells and six columns past twelve tiles", async () => {
+test("twelve tiles sit on one page with no dots", async () => {
+  const hidden = ["land", "report", "map", "judge", "release"].map((id) => ({ id, hidden: true }));
+  (window as unknown as { armada: unknown }).armada = { ...(base as object), getFlightControls: async () => ({ ok: true, value: { what: "read", controls: { ...FILE, job: [...FILE.job, ...hidden] } } }) };
+  const host = await mount(<SessionTiles session={jobOf()} draft={draftOf()} repository={REPOSITORY} bays={BAYS} />);
+  expect(host.querySelectorAll(".deck-controls__tiles > button").length).toBe(12);
+  expect(onPage(host, 0)).toBe(12);
+  expect(dots(host)).toHaveLength(0);
+  expect(strip(host).scrollWidth).toBeLessThanOrEqual(strip(host).clientWidth);
+});
+
+test("a press on a page's dot brings that page in and makes it current", async () => {
+  const host = await mount(<SessionTiles session={jobOf()} draft={draftOf()} repository={REPOSITORY} bays={BAYS} />);
+  await act(async () => dots(host)[1]!.click());
+  await settle();
+  expect(current(host)).toBe(1);
+  expect(strip(host).scrollLeft).toBeGreaterThan(0);
+  await act(async () => dots(host)[0]!.click());
+  await settle();
+  expect(current(host)).toBe(0);
+  expect(strip(host).scrollLeft).toBe(0);
+});
+
+test("a tile on the second page taking focus brings its page in", async () => {
+  const host = await mount(<SessionTiles session={jobOf()} draft={draftOf()} repository={REPOSITORY} bays={BAYS} />);
+  expect(tile(host, "Pause").dataset.page).toBe("1");
+  await act(async () => tile(host, "Pause").focus());
+  await settle();
+  expect(current(host)).toBe(1);
+  expect(strip(host).scrollLeft).toBeGreaterThan(0);
+});
+
+test("edit mode pages the same way, with + the last cell of the last page", async () => {
   const host = await mount(<FlightEdit set="job" host={null} onClose={() => {}} />);
-  const block = host.querySelector<HTMLElement>(".deck-flight-edit")!;
-  expect(block.style.getPropertyValue("--count")).toBe("12");
-  expect(block.style.getPropertyValue("--cols")).toBe("6");
+  const add = host.querySelector<HTMLElement>("[data-add]")!;
+  expect([onPage(host, 0), onPage(host, 1)]).toEqual([12, 6]);
+  expect(add.dataset.page).toBe("1");
+  expect(host.querySelector(".deck-controls__tiles")!.lastElementChild).toBe(add);
+  expect(dots(host)).toHaveLength(2);
+  expect(current(host)).toBe(0);
 });
 
 // ---- A repository's own -----------------------------------------------------------------------------------------
