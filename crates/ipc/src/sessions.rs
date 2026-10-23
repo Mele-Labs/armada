@@ -827,6 +827,27 @@ pub struct Attachment {
     pub changed_at: Instant,
 }
 
+/// One attachment as it stood from `at`, until the next version of the same `(kind, manifest_id,
+/// target)` or for good. Not the row `Attachment` carries: that is the latest, this is the history.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AttachmentVersion {
+    pub kind: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub manifest_id: Option<ManifestId>,
+    pub target: String,
+    pub state: AttachmentState,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub detail: BTreeMap<String, String>,
+    pub at: Instant,
+}
+
+/// `get_attachment_history`: every version of everything one session holds, oldest first. Read on
+/// demand, never carried on a `SessionRecord`, which is published whole on every change.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AttachmentHistory {
+    pub versions: Vec<AttachmentVersion>,
+}
+
 /// A session and everything it holds. Answered by `report_session`, listed by
 /// `list_sessions`, and published whole as `session.changed`, so a client
 /// replaces the row rather than patching it.

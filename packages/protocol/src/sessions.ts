@@ -57,6 +57,22 @@ export type Attachment = {
 };
 
 /**
+ * One attachment as it stood from `at`, until its next version or for good. `get_attachment_history`
+ * answers them, oldest first; a `SessionRecord` carries only the latest, in `Attachment`.
+ */
+export type AttachmentVersion = {
+  kind: string;
+  manifest_id?: string;
+  target: string;
+  state: AttachmentState;
+  detail?: Record<string, string>;
+  at: string;
+};
+
+/** `get_attachment_history`: every version of everything one session holds, oldest first. */
+export type AttachmentHistory = { versions: AttachmentVersion[] };
+
+/**
  * A session and everything it holds. `report_session` answers it, `list_sessions`
  * lists it and `session.changed` publishes it whole, so a client replaces the
  * row it has.

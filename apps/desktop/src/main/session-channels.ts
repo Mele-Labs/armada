@@ -216,6 +216,9 @@ export function handleSessions({ ipc, connection, windowIdOf, pages }: Hosts): v
     text(sessionId) && text(subagentId) ? (connection()?.sessions.subagent(sessionId, subagentId) ?? unsent) : unread,
   );
   ipc.handle(CHANNELS.readSessionLoadout, (_event, sessionId: string) => (text(sessionId) ? (connection()?.sessions.loadout(sessionId) ?? unsent) : unread));
+  ipc.handle(CHANNELS.readAttachmentHistory, (_event, sessionId: string) =>
+    text(sessionId) ? (connection()?.sessions.attachmentHistory(sessionId) ?? unsent) : unread,
+  );
   ipc.handle(CHANNELS.readLoadoutItem, (_event, sessionId: string, item: unknown) => {
     const asked = loadoutItemAsk(item);
     return text(sessionId) && asked !== undefined ? (connection()?.sessions.loadoutItem(sessionId, asked) ?? unsent) : unread;

@@ -200,6 +200,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/sessions", get(crate::sessions::list_sessions::<D>))
         .route("/sessions/owner", get(crate::sessions::who_owns::<D>))
         .route("/sessions/loadout", get(crate::sessions::get_session_loadout::<D>))
+        .route("/sessions/attachment_history", get(crate::sessions::get_attachment_history::<D>))
         .route("/sessions/usage", get(crate::sessions::get_session_usage::<D>))
         .route("/usage/summary", get(crate::sessions::get_usage_summary::<D>))
         .route("/usage/rules", get(crate::sessions::get_usage_rules::<D>))
@@ -583,6 +584,11 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             "/sessions/:session_id/retro",
             get(crate::retros::get_session_retro::<D>).post(crate::retros::write_session_retro::<D>),
         )
+        .route("/logbook", get(crate::logbook::get_logbook::<D>))
+        .route("/logbook/entries", post(crate::logbook::teach_logbook_entry::<D>))
+        .route("/logbook/entries/:entry_id/edit", post(crate::logbook::edit_logbook_entry::<D>))
+        .route("/logbook/entries/:entry_id/pin", post(crate::logbook::pin_logbook_entry::<D>))
+        .route("/logbook/entries/:entry_id/forget", post(crate::logbook::forget_logbook_entry::<D>))
         .route("/lessons", get(crate::retros::list_lessons::<D>))
         .route("/lessons/review", post(crate::retros::review_lessons::<D>))
         .route(

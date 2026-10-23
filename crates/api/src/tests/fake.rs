@@ -15,6 +15,7 @@ mod commands;
 mod conversing;
 mod hosted_sessions;
 mod issues;
+mod logbook;
 mod mods;
 mod settings;
 mod pull_requests;

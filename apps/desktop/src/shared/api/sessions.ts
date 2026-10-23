@@ -44,6 +44,7 @@ import type {
   SessionRunUnderway,
   SessionSubagent,
   SessionLoadout,
+  AttachmentHistory,
   McpServerAct,
   SessionMcp,
   SessionMcpActed,
@@ -173,6 +174,8 @@ export type SessionsApi = {
   readSessionSubagent: (sessionId: string, subagentId: string) => Promise<SessionActed<SessionSubagent>>;
   /** What a Session's agent knows, was told and used each turn: `get_session_loadout`. Read again on a `session.changed`. */
   readSessionLoadout: (sessionId: string) => Promise<SessionActed<SessionLoadout>>;
+  /** Every version of everything a Session holds, oldest first: `get_attachment_history`. Read again on a `session.changed`. */
+  readAttachmentHistory: (sessionId: string) => Promise<SessionActed<AttachmentHistory>>;
   /** What one item of a Session's Loadout says, read from disk by Fleet: `read_loadout_item`. */
   readLoadoutItem: (sessionId: string, item: LoadoutItemAsk) => Promise<SessionActed<LoadoutItemBody>>;
   /** A hosted Session's MCP servers, asked of its process now: `get_session_mcp`. No event says to read again. */
@@ -317,6 +320,7 @@ export const SESSIONS_CHANNELS = {
   readSessionFile: "bridge:read-session-file",
   readSessionSubagent: "bridge:read-session-subagent",
   readSessionLoadout: "bridge:read-session-loadout",
+  readAttachmentHistory: "bridge:read-attachment-history",
   readLoadoutItem: "bridge:read-loadout-item",
   readSessionMcp: "bridge:read-session-mcp",
   actOnSessionMcp: "bridge:act-on-session-mcp",

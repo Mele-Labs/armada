@@ -242,7 +242,7 @@ where
     }
 
     /// The record of a Session between two moments, with what it is read from.
-    async fn session_sources(
+    pub(crate) async fn session_sources(
         &self,
         session: &KeptSession,
         since: Option<&str>,
@@ -437,9 +437,9 @@ pub(crate) fn handle_of(session: &str) -> String {
     address_of(session)
 }
 
-struct Gathered {
-    record: RetroRecord,
-    thread: Vec<SessionRow>,
+pub(crate) struct Gathered {
+    pub(crate) record: RetroRecord,
+    pub(crate) thread: Vec<SessionRow>,
 }
 
 struct FreeOnDrop(Arc<crate::session_host::Runtime>);

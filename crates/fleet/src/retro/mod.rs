@@ -27,4 +27,5 @@ pub(crate) use agreeing::ARMADAS_OWN;
 pub(crate) use asking::ASK;
 pub(crate) use reviewing::REVIEW;
 pub(crate) use session_question::SESSION_QUESTION;
+pub(crate) use session_record::has_news;
 pub(crate) use writing::{LANDS_IN, TEXTS};
