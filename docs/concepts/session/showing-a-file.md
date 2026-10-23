@@ -20,4 +20,6 @@ A picture it looked at becomes form `file`, and writing the file again puts `for
 The ledger names a row with `by` and no `written` "File shown", and any other file row "File written".
 A file written through a symlink or a relative path is a second row, because the ledger keeps a written file's path as the agent wrote it and this one is canonical.
 
+A person reading the file notes lines of it back to the job: [Noting what you read](noting-what-you-read.md).
+
 Nothing is written to the thread and no window opens. The call is a tool row whose text is `<tool> <path as given>`, which Bridge draws as the file's card.

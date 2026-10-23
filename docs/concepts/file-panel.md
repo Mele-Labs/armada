@@ -25,6 +25,8 @@ Why CodeMirror and not the text box the Manifest file view uses: `.claude/decisi
 An agent puts a file there with `show_file` (`crates/ipc/operations/show_file.toml`, described in `docs/concepts/session/showing-a-file.md`).
 It opens when that Session is on screen; otherwise its thread row opens it.
 
+Selected lines, or a region of a picture, can be noted and sent to a Job from the panel (`session/noting-what-you-read.md`).
+
 ## Saving
 
 > **Rule.** Main writes only if the file's sha256 still matches what was read.
