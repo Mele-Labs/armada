@@ -89,7 +89,7 @@ The match from provider to implementation is in `crates/adapters/src/tracker_pro
 
 ### A tracker Armada was not built for
 
-A job teaches it: it finds the tracker's command line or API, writes a tracker mod's `tracker.toml`, tries it against the repository with `try_tracker_mod`, and the Manifest names the mod.
+A job teaches it: it finds the tracker's command line, API or MCP server, writes a tracker mod's `tracker.toml`, tries it against the repository with `try_tracker_mod`, and the Manifest names the mod.
 
 ```yaml
 tracker:
