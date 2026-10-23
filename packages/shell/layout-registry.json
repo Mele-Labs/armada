@@ -1,23 +1,21 @@
 {
   "regions": {
-    "dashboard.panels": { "ordered": true, "firstable": false, "entries": [
-      { "id": "fleet", "hideable": false },
+    "dashboard.panels": { "ordered": false, "firstable": false, "entries": [
+      { "id": "list", "hideable": false },
       { "id": "merge-line", "hideable": true },
-      { "id": "field", "hideable": true }
+      { "id": "activity", "hideable": true },
+      { "id": "bays", "hideable": true },
+      { "id": "controls", "hideable": true },
+      { "id": "dispatch", "hideable": true },
+      { "id": "autopilot", "hideable": true }
     ] },
-    "job.tabs": { "ordered": true, "firstable": true, "entries": [
-      { "id": "overview", "hideable": false },
+    "job.panels": { "ordered": true, "firstable": false, "entries": [
+      { "id": "field", "hideable": true },
       { "id": "workflow", "hideable": true },
-      { "id": "plan", "hideable": false },
-      { "id": "record", "hideable": true },
-      { "id": "checks", "hideable": true },
-      { "id": "drones", "hideable": true },
-      { "id": "pulse", "hideable": true },
-      { "id": "settings", "hideable": true }
+      { "id": "progress", "hideable": false }
     ] },
     "rail": { "ordered": false, "firstable": false, "entries": [
       { "id": "overview", "hideable": false },
-      { "id": "jobs", "hideable": true },
       { "id": "sessions", "hideable": true },
       { "id": "kit", "hideable": true },
       { "id": "mods", "hideable": false },

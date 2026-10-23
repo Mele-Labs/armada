@@ -19,8 +19,8 @@ const REST_BY_LAYOUT: Partial<Record<string, Partial<Record<Side, number>>>> = {
 const FLOOR: Record<Side, number> = { left: 4.5, right: 4.75 };
 /** The least the stage keeps: a Session's thread. */
 const CENTRE_FLOOR = 10;
-/** Layouts drawn with no right column, so the left may take what the right would have held. */
-const NO_RIGHT: ReadonlySet<string> = new Set(["issues", "reviews"]);
+/** Layouts drawn with no right column, so the left may take what the right would have held. `bare` is the Cockpit a layout emptied the right column of. */
+const NO_RIGHT: ReadonlySet<string> = new Set(["issues", "reviews", "bare"]);
 
 export type Columns = {
   left: number;

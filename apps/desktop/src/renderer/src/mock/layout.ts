@@ -11,11 +11,12 @@ export const mockLayout = createLayoutSource();
 /** Safe mode, `?nomods`: no layout mod is read, so every window draws the shipped layout. */
 export const NO_LAYOUT_MODS = createLayoutSource();
 
-/** What the first request writes: the merge line above the fleet, and Retros off the rail. */
+/** What the first request writes: Activity off the Cockpit, Workflow first in an open Job, and the Logbook off the tabs. */
 export const TIDY_DASHBOARD = `{
   "version": 1,
-  "dashboard.panels": { "order": ["merge-line", "fleet"] },
-  "rail": { "hidden": ["lessons"] }
+  "dashboard.panels": { "hidden": ["activity"] },
+  "job.panels": { "order": ["workflow"] },
+  "rail": { "hidden": ["logbook"] }
 }
 `;
 
