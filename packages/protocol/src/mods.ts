@@ -5,8 +5,11 @@
 // rules in `events.ts` hold: hand-written, and every closed set left as `string` unless Bridge
 // matches on it, which `ModKind` is.
 
-/** What a mod changes. A `mod.toml` naming another kind makes the mod invalid, so a valid row's is one of these. */
-export type ModKind = "theme" | "layout" | "tracker";
+/**
+ * What a mod changes. A `mod.toml` naming another kind makes the mod invalid, so a valid row's is one of these.
+ * `words` is a pattern Bridge links, `fleet` what Fleet does with a notice, `tweak` token values layered over the theme.
+ */
+export type ModKind = "theme" | "layout" | "words" | "fleet" | "tweak" | "tracker";
 
 /** One mod on disk. A broken one is a row with `valid` false, never a failed read. */
 export type ModSummary = {
@@ -16,6 +19,8 @@ export type ModSummary = {
   kind?: ModKind;
   version?: string;
   description?: string;
+  /** What Teach was pressed on, where a person taught this mod. Absent for a mod written by hand. */
+  taught_on?: string;
   /** This machine's switch. A mod nobody switched is on. */
   enabled: boolean;
   /** Whether Bridge may load it. */
@@ -50,7 +55,7 @@ export type ModChecked = {
   name: string;
   valid: boolean;
   problems: string[];
-  /** The stylesheet as it was checked, present only where it passed. Bridge injects this text and no other. */
+  /** A theme's or a tweak's stylesheet as it was checked, present only where it passed. Bridge injects this text and no other. */
   css?: string;
   /** A layout mod's `layout.json` as it was checked, present only where it passed. Bridge applies this text and no other. */
   layout?: string;

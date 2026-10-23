@@ -48,6 +48,7 @@ import { AccountsHost } from "./accounts";
 import { PlanUsageHost } from "./plan-usage";
 import { ModelDownshiftHost } from "./model-downshift";
 import { ClashesHost } from "./clashes";
+import { TeachingHost } from "./teaching";
 import { ReviewsHost } from "./reviews";
 import { TerritoryHost } from "./territory";
 import { BayHistoryHost } from "./bay-history";
@@ -165,6 +166,8 @@ export class FleetConnection {
       return listed === undefined || listed.length === 0 ? null : listed.flatMap((one) => (one.manifest === undefined ? [] : [one.manifest.id]));
     },
   );
+  /** What a person taught, read into a proposal and kept — `teaching.ts`. */
+  readonly teaching: TeachingHost = new TeachingHost(() => this.connected()?.port ?? null);
   /** The pull requests waiting on a person, and the acts of a review — `reviews.ts`. */
   readonly reviews: ReviewsHost = new ReviewsHost(() => this.connected()?.port ?? null);
   /** What each repository holds and where each agent has changed it — `territory.ts`. */
