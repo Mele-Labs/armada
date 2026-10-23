@@ -1,6 +1,6 @@
 # Does Armada write the person's own Claude folder?
 
-**Decided 2026-10-23.** His answer, to whether Add to this machine may write into `~/.claude`: yes, for skills, sub agents, commands and global instructions. It reverses the line in Kit's two homes that Armada only reads the harness's home.
+**Decided 2026-10-23.** Asked whether Add to this machine may write skills, sub agents, commands and global instructions into `~/.claude`, he picked "Yes, write it", over keeping the sync to Armada's own pieces. It reverses the line in Kit's two homes that Armada only reads the harness's home.
 
 **Chosen: Add to this machine writes the Claude folder, and plugins install through Claude's own command.** The write is the person's press on one row from the shared home, never Armada's own initiative.
 
