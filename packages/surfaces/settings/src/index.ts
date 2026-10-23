@@ -1,6 +1,9 @@
 // Every setting on this machine, on one screen, drawn from settings.json's schema. #1089.
 export * from "./BridgeSettings";
 export { ModList } from "./ModList";
+export { ModsPage } from "./ModsPage";
+export { createTrackerSource, TrackerSourceProvider, trackerFromWire, useTrackers } from "./tracker-source";
+export type { TrackerMod, TrackerSource } from "./tracker-source";
 export { SettingsSectionsView } from "./SectionsView";
 export type { SettingsSectionsViewProps } from "./SectionsView";
 export { BUILT_IN_THEMES, ThemeSourceProvider, createThemeSource, offered, useThemes, withoutMods } from "./theme-source";

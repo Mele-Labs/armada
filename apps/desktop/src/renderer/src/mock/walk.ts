@@ -108,7 +108,7 @@ export const deckRow = (title: Name): Target => inside(region("Jobs", { exact: t
  * What the System strip's five pages were called, and the sidebar entry each opens now. A name that is an entry
  * of its own (Guides, Workflows, Limits, Output styles) is passed through.
  */
-const ENTRY: Readonly<Record<string, string>> = { Kit: "Skills", Mods: "Theme", Settings: "Limits" };
+const ENTRY: Readonly<Record<string, string>> = { Kit: "Skills", Settings: "Limits" };
 
 /** One entry of the System sidebar, which is drawn only while System is the place. Matched on its name, so a mark beside it does not hide it. */
 export const systemPage = (name: string): Target => {

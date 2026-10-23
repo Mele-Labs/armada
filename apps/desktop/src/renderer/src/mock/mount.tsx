@@ -33,7 +33,7 @@ import type { FakeOptions } from "./fake";
 import { scenarioNamed } from "./scenario";
 import { mockLayout, NO_LAYOUT_MODS } from "./layout";
 import { mockNumbered } from "./numbered";
-import { PhoneSourceProvider } from "@armada/settings";
+import { PhoneSourceProvider, TrackerSourceProvider } from "@armada/settings";
 import { mockPhone, type PhoneMoment } from "./phone";
 import { WalkJobPanel } from "./WalkJobPanel";
 import { SleepSourceProvider } from "../sleep";
@@ -43,6 +43,7 @@ import { DownshiftSourceProvider } from "../downshift";
 import { createMockDownshift } from "./downshift";
 import { createFleetPlanUsage } from "../fleet-plan-usage";
 import { mockThemes } from "./themes";
+import { installTrackerMods, mockTrackers } from "./trackers";
 import { installSystemMods } from "./system-mods";
 import { provideKitModels } from "../kit-models";
 import { createMockKitModels } from "./kit-models";
@@ -124,6 +125,8 @@ export function mountApp(
   mockSleep.reset(chosen.name === "sleep-cockpit" ? overnight() : undefined);
   if (shared === undefined) mockLayout.reset();
   if (shared === undefined && chosen.name === "system-sidebar") installSystemMods();
+  if (shared === undefined) mockTrackers.reset();
+  if (shared === undefined && chosen.name === "mods-trackers") installTrackerMods();
   if (shared === undefined) provideKitModels(createMockKitModels());
   // Every window starts with the deck as it begins.
   if (shared === undefined) forgetDeck();
@@ -165,6 +168,7 @@ export function mountApp(
         {/* As `main.tsx` mounts it, so a test can read what a press asked the trackpad to play. */}
         <HapticsProvider perform={(pattern) => api.tap(pattern)}>
           <Themed source={mockThemes}>
+            <TrackerSourceProvider value={mockTrackers}>
             <LayoutSourceProvider value={skipsMods() ? NO_LAYOUT_MODS : mockLayout}>
               <MockFleetBuild scenario={chosen.name}>
                 <PhoneSourceProvider value={mockPhone}>
@@ -209,6 +213,7 @@ export function mountApp(
                 </PhoneSourceProvider>
               </MockFleetBuild>
             </LayoutSourceProvider>
+            </TrackerSourceProvider>
           </Themed>
           <OnScreen say={say} />
         </HapticsProvider>

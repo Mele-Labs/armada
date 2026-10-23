@@ -55,3 +55,32 @@ export const Presses: Story = {
     await expect(args.onPromote).toHaveBeenCalledTimes(1);
   },
 };
+
+/** A tracker mod used by a Manifest: tried, valid and on. */
+export const TrackerUsed: Story = {
+  args: {
+    title: "linear",
+    kind: "tracker",
+    standing: "used",
+    tracker: { tried: { state: "passed", words: "Tried 14 Oct on armada" }, valid: true },
+    onTry: fn(),
+  },
+};
+
+/** Edited since its try, so a Manifest does not use it until it is tried again. */
+export const TrackerStale: Story = {
+  args: { title: "linear", kind: "tracker", standing: "waiting", tracker: { tried: { state: "stale", words: "Stale" }, valid: true }, onTry: fn() },
+};
+
+/** Refused: Fleet's reason is the line, and Try is off. */
+export const TrackerRefused: Story = {
+  args: {
+    title: "shortcut",
+    kind: "tracker",
+    standing: "refused",
+    detail: "[search] has no argv",
+    promoteDisabled: true,
+    tracker: { tried: { state: "never", words: "Not tried" }, valid: false },
+    onTry: fn(),
+  },
+};

@@ -10,7 +10,7 @@ import type { KitKindId, KitPiecesProps, KitRef } from "@armada/components";
 import type { ModelChoices, SettingsList } from "@armada/protocol";
 import { said } from "@armada/screens/src/copy";
 import { addressReads, addressTyped, useKit, type KitSlice } from "@armada/screens/src/manifest-kit";
-import { ModList, SETTINGS_SECTIONS, SettingsFile, SettingsSectionsView } from "@armada/settings";
+import { ModList, ModsPage, SETTINGS_SECTIONS, SettingsFile, SettingsSectionsView } from "@armada/settings";
 import { Boundary, type BoundaryProps } from "@armada/shell";
 
 import { entryOf, entryOfKind, foundBy, SYSTEM_ENTRIES, SYSTEM_GROUPS, type SystemEntryDef } from "./system-entries";
@@ -167,6 +167,13 @@ export function SystemSurface({ repository, settings, modelChoices, live, guarde
     }
     if (def.id === "kit:models") {
       return <KitModels models={models.models} keep="system-kit" picked={model} onPick={setModel} onOn={models.setOn} onChoose={models.choose} />;
+    }
+    if (def.id === "bridge:mods") {
+      return (
+        <div className="armada-system__pane" data-col="detail">
+          <ModsPage />
+        </div>
+      );
     }
     if (def.id === "kit:workflows") {
       return (

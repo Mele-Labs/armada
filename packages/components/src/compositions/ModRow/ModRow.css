@@ -15,3 +15,43 @@
   flex: 1;
   min-width: 0;
 }
+
+/* A row framed in its standing, as a Cockpit Job card is in its state: a heavier edge in the hue, the ground taking a
+   little of it. Used is the success hue, waiting on a try the warning hue, refused the failure hue. */
+.armada-mod-row[data-standing] {
+  --hue: var(--fg-subtle);
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid color-mix(in srgb, var(--hue) 40%, var(--border-subtle));
+  border-inline-start: calc(var(--border-width) * 3) solid var(--hue);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--hue) 8%, var(--bg-raised));
+}
+
+.armada-mod-row[data-standing="used"] { --hue: var(--status-completed-success); }
+.armada-mod-row[data-standing="waiting"] { --hue: var(--status-awaiting-review); }
+.armada-mod-row[data-standing="refused"] { --hue: var(--status-completed-failed); }
+
+.armada-mod-row__marks {
+  display: inline-flex;
+  gap: var(--space-1);
+}
+
+/* A mark is a glyph in a chip with a real fill: the hue at the status tint, a hairline in the hue. */
+.armada-mod-row__mark {
+  --hue: var(--status-not-started);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-1);
+  border: var(--border-width) solid color-mix(in srgb, var(--hue) 40%, transparent);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--hue) 16%, transparent);
+  color: var(--hue);
+}
+
+.armada-mod-row__mark[data-tone="passed"],
+.armada-mod-row__mark[data-tone="valid"] { --hue: var(--status-completed-success); }
+.armada-mod-row__mark[data-tone="stale"] { --hue: var(--status-awaiting-review); }
+.armada-mod-row__mark[data-tone="failed"],
+.armada-mod-row__mark[data-tone="invalid"] { --hue: var(--status-completed-failed); }
+.armada-mod-row__mark[data-tone="never"] { --hue: var(--status-not-started); }

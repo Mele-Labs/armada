@@ -48,6 +48,7 @@ export const SYSTEM_ENTRIES: readonly SystemEntryDef[] = [
   { id: "fleet:features", label: "Features", group: "fleet", sections: ["features"] },
   { id: "bridge:theme", label: "Theme", group: "bridge", sections: ["theme"] },
   { id: "bridge:layout", label: "Layout", group: "bridge", sections: ["layout"] },
+  { id: "bridge:mods", label: "Mods", group: "bridge" },
   { id: "bridge:keyboard", label: "Keyboard shortcuts", group: "bridge", sections: ["keyboard"] },
   { id: "bridge:time", label: "Time", group: "bridge", sections: ["time"] },
   { id: "bridge:editor", label: "Editor", group: "bridge", sections: ["editor"] },
@@ -71,14 +72,14 @@ export const entryOfSettingsRow = (row: string): string | undefined => entryOfSe
 export const entryOfKind = (kind: KitKindId): string => SYSTEM_ENTRIES.find((one) => one.kit === kind)?.id ?? FIRST_ENTRY;
 
 /**
- * The entry a surface the window used to have opens: Mods is Theme, Guides and Workflows are their own, and Kit and
+ * The entry a surface the window used to have opens: Mods is its own, Guides and Workflows are their own, and Kit and
  * Settings keep the entry last used when it is one of theirs. `last` is that entry.
  */
 export function entryForSurface(surface: string, last: string): string | undefined {
   const now = entryOf(last);
   switch (surface) {
     case SURFACE.mods:
-      return "bridge:theme";
+      return "bridge:mods";
     case SURFACE.guides:
       return "bridge:guides";
     case SURFACE.workflows:
@@ -96,6 +97,7 @@ export function entryForSurface(surface: string, last: string): string | undefin
 export function surfaceOfEntry(id: string): string {
   if (id === "kit:workflows") return SURFACE.workflows;
   if (id === "bridge:guides") return SURFACE.guides;
+  if (id === "bridge:mods") return SURFACE.mods;
   return entryOf(id)?.kit !== undefined ? SURFACE.kit : SURFACE.settings;
 }
 
