@@ -111,3 +111,18 @@ describe("the acts on an entry", () => {
     expect(edited.ok === false && edited.outcome.ok === false && edited.outcome.why).toBe("refused");
   });
 });
+
+describe("tidying the Logbook", () => {
+  it("asks Fleet to tidy every repository and hands back how many entries merged", async () => {
+    const seen: Seen[] = [];
+    const port = await fleet(seen, () => ({ status: 200, body: { merged: 12 } }));
+    expect(await new LogbookHost(() => port).tidy()).toEqual({ ok: true, merged: 12 });
+    expect(seen.map((one) => [one.method, one.url, one.body])).toEqual([["POST", "/logbook/tidy", "{}"]]);
+  });
+
+  it("says Fleet is not connected with no port, and hands back a refusal", async () => {
+    expect(await new LogbookHost(() => null).tidy()).toEqual({ ok: false, outcome: { ok: false, why: "not_connected" } });
+    const port = await fleet([], () => ({ status: 422, body: { code: "fleet.logbook_tidy_refused", message: "No model." } }));
+    expect((await new LogbookHost(() => port).tidy()).ok).toBe(false);
+  });
+});

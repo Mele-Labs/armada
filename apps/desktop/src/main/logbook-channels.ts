@@ -21,5 +21,6 @@ export function handleLogbook({ ipc, connection }: Hosts): void {
   ipc.handle(CHANNELS.lockLogbookEntry, (_event, id: unknown, locked: unknown) =>
     !named(id) || typeof locked !== "boolean" ? unread : (connection()?.logbook.lock(id, locked) ?? unsent),
   );
+  ipc.handle(CHANNELS.tidyLogbook, () => connection()?.logbook.tidy() ?? unsent);
   ipc.handle(CHANNELS.forgetLogbookEntry, (_event, id: unknown) => (!named(id) ? unread : (connection()?.logbook.forget(id) ?? unsent)));
 }

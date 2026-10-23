@@ -103,6 +103,9 @@ export type LogbookAnswer = { ok: true; entry: LogbookEntry } | { ok: false; out
 /** What Forget came back as. The entry is on the deny list and gone from every read. */
 export type LogbookForgotten = { ok: true } | { ok: false; outcome: Outcome };
 
+/** What Tidy came back as: how many entries it folded into another, or the refusal. */
+export type LogbookTidied = { ok: true; merged: number } | { ok: false; outcome: Outcome };
+
 /**
  * `recall`: `GET /logbook/recall?query=&section=&manifest_id=`. The Logbook entries whose text holds the
  * words asked for, best first, at most 20. Faded and candidate entries are in it.
