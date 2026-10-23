@@ -1,0 +1,83 @@
+// What the Issues tab draws, in the shapes the tracker routes will serve. **Bridge never knows which tracker sent an issue**:
+// a tracker's own facts (GitHub's labels, milestone and projects; Jira's status, priority, sprint and the rest) arrive as named
+// fields, and a query is text in the tracker's own language that Bridge shows and never reads. Mock-backed: no route serves
+// these yet, so the mock's `issues-tab` scenario stands in (`mock/issues-tab.ts`).
+
+/** One field the tracker returned for an issue, by the tracker's own name for it. */
+export type TicketField = { name: string; values: string[] };
+
+/** An issue as a list holds it. `reference` is as the tracker writes it: `#2810`, `ABC-41`. */
+export type Ticket = {
+  reference: string;
+  title: string;
+  url: string;
+  state: "open" | "closed";
+  /** The reporter. */
+  author?: string;
+  assignees: string[];
+  updated_at: string;
+  excerpt: string;
+  fields: TicketField[];
+  linked_pull_request: boolean;
+};
+
+/** A pull request that names an issue. */
+export type LinkedPull = { number: number; title: string; address: string; state: "open" | "merged" | "closed" };
+
+/** One issue read whole, for the reader: the row, and what only reading it answers. */
+export type TicketRead = Ticket & { body: string; linked_pull_requests: LinkedPull[] };
+
+/** A query he saved for a repository: his words, the query the model wrote for them (or he edited), and the fields its rows show. */
+export type SavedQuery = { id: string; name: string; words: string; query: string; row_fields: string[] };
+
+/** What the model wrote for his words, in the tracker's own language. */
+export type WrittenQuery = { query: string; row_fields: string[] };
+
+/**
+ * A repository's tracker, as Fleet reads it. **Read** is any tracker a build or a mod reads; `mod` names the tracker mod
+ * where it is one. **Refused** is a tracker the Manifest names and nothing reads, with Fleet's words for why.
+ */
+export type Tracker =
+  | {
+      manifestId: string;
+      state: "read";
+      /** What the tracker is called, for the link out. */
+      name: string;
+      mod?: string;
+      /** The built-in queries, in the tracker's own language. */
+      open: string;
+      assigned: string;
+      saved: SavedQuery[];
+      /** The Jobs working each issue, by reference, as Fleet's ledger holds them. */
+      held: Record<string, string[]>;
+    }
+  | { manifestId: string; state: "refused"; named: string; said: string };
+
+export type ReadTracker = Extract<Tracker, { state: "read" }>;
+
+/** An answer, or Fleet's words for why there is none. */
+export type Read<T> = { ok: true; value: T } | { ok: false; said: string };
+
+/** What the tab reads and writes. The mock answers it now, and the tracker routes will. */
+export type IssuesSource = {
+  trackers: () => Promise<Read<Tracker[]>>;
+  /** The issues a query matches. Runs the query as written: no model is called. */
+  run: (manifestId: string, query: string) => Promise<Read<Ticket[]>>;
+  read: (manifestId: string, reference: string) => Promise<Read<TicketRead>>;
+  /** A model writes a query for his words, in this repository's tracker's language. This is the call that spends. */
+  write: (manifestId: string, words: string) => Promise<Read<WrittenQuery>>;
+  /** Keeps a query, new or edited, and answers the repository's saved queries. */
+  save: (manifestId: string, query: SavedQuery) => Promise<Read<SavedQuery[]>>;
+  remove: (manifestId: string, id: string) => Promise<Read<SavedQuery[]>>;
+};
+
+/** The built-ins every repository has, and the box a query is described in. */
+export const OPEN = "open";
+export const ASSIGNED = "assigned";
+export const DESCRIBE = "describe";
+/** A saved query is chosen by its name, so on All one name reaches each repository that keeps it. */
+export const savedChoice = (name: string): string => `saved:${name}`;
+export const savedName = (choice: string): string | undefined => (choice.startsWith("saved:") ? choice.slice("saved:".length) : undefined);
+
+/** What a built-in query's rows show. */
+export const BUILT_IN_FIELDS = ["Labels"];

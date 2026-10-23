@@ -23,6 +23,8 @@ export type Open = {
   accounting?: boolean;
   /** Reviews: the pull requests waiting on him. */
   reviewing?: boolean;
+  /** Issues: a repository's tracker. */
+  issuing?: boolean;
   /** Usage: where the tokens went. */
   usaging?: boolean;
 };
@@ -42,6 +44,7 @@ export function showingOf(open: Open): string {
   if (open.workflowing) return SURFACE.workflows;
   if (open.checking) return SURFACE.checks;
   if (open.reviewing === true) return SURFACE.reviews;
+  if (open.issuing === true) return SURFACE.issues;
   if (open.usaging === true) return SURFACE.usage;
   if (open.doctoring === true) return SURFACE.doctor;
   return SURFACE.overview;

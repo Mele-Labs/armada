@@ -1,0 +1,159 @@
+// The Issues tab's state for one window: the trackers, each query's issues as last run, the issue open in the reader, the
+// box a query is described in and what the model wrote, the saved query being edited, and the spend being asked about.
+// **A query runs when a list needs it and again only when it changes**: nothing polls a tracker. Writing a query is the one
+// act that calls a model, so it asks first, through the box every spending act uses.
+
+import { createContext, useContext, useSyncExternalStore } from "react";
+import type { ReactNode } from "react";
+import { SURFACE } from "@armada/shell";
+
+import type { IssuesSource, SavedQuery, Ticket, TicketRead, Tracker, WrittenQuery } from "./model";
+
+export type Run = { state: "running" } | { state: "read"; tickets: Ticket[] } | { state: "failed"; said: string };
+
+/** The box, and once he sends it, what the model wrote for each repository. */
+export type Describing = { phase: "box" } | { phase: "written"; words: string; written: Record<string, { state: "running" } | { state: "read"; query: WrittenQuery } | { state: "failed"; said: string }> };
+
+export type IssuesSnapshot = {
+  trackers: readonly Tracker[] | undefined;
+  failed: string | undefined;
+  runs: Readonly<Record<string, Run>>;
+  reads: Readonly<Record<string, Read>>;
+  open: { manifestId: string; reference: string } | undefined;
+  describing: Describing | undefined;
+  /** The saved query being edited by hand, as `manifestId` and its id. */
+  editing: { manifestId: string; id: string } | undefined;
+  spending: string | undefined;
+  askFirst: boolean;
+};
+
+type Read = { state: "read"; ticket: TicketRead } | { state: "failed"; said: string };
+
+const key = (manifestId: string, rest: string): string => `${manifestId}\n${rest}`;
+
+export type IssuesStore = ReturnType<typeof createIssuesStore>;
+
+export function createIssuesStore(source: IssuesSource) {
+  let snap: IssuesSnapshot = { trackers: undefined, failed: undefined, runs: {}, reads: {}, open: undefined, describing: undefined, editing: undefined, spending: undefined, askFirst: true };
+  const listeners = new Set<() => void>();
+  const set = (next: Partial<IssuesSnapshot>) => {
+    snap = { ...snap, ...next };
+    for (const one of listeners) one();
+  };
+  let waiting: (() => void) | undefined;
+
+  const savedInto = (manifestId: string, saved: SavedQuery[]) =>
+    set({ trackers: (snap.trackers ?? []).map((one) => (one.manifestId === manifestId && one.state === "read" ? { ...one, saved } : one)) });
+
+  const run = (manifestId: string, query: string, again = false) => {
+    const at = key(manifestId, query);
+    if (!again && snap.runs[at] !== undefined) return;
+    set({ runs: { ...snap.runs, [at]: { state: "running" } } });
+    void source.run(manifestId, query).then((answer) => set({ runs: { ...snap.runs, [at]: answer.ok ? { state: "read", tickets: answer.value } : { state: "failed", said: answer.said } } }));
+  };
+
+  return {
+    get: () => snap,
+    subscribe: (listener: () => void) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    /** Read once when the tab opens. */
+    readTrackers: () => {
+      if (snap.trackers !== undefined) return;
+      void source.trackers().then((answer) => set(answer.ok ? { trackers: answer.value, failed: undefined } : { failed: answer.said }));
+    },
+    runOf: (manifestId: string, query: string): Run | undefined => snap.runs[key(manifestId, query)],
+    run,
+    open: (manifestId: string | undefined, reference?: string) => {
+      if (manifestId === undefined || reference === undefined) return set({ open: undefined });
+      set({ open: { manifestId, reference } });
+      const at = key(manifestId, reference);
+      if (snap.reads[at] !== undefined) return;
+      void source.read(manifestId, reference).then((answer) => set({ reads: { ...snap.reads, [at]: answer.ok ? { state: "read", ticket: answer.value } : { state: "failed", said: answer.said } } }));
+    },
+    readOf: (manifestId: string, reference: string): Read | undefined => snap.reads[key(manifestId, reference)],
+    describe: () => set({ describing: { phase: "box" }, editing: undefined }),
+    stopDescribing: () => set({ describing: undefined }),
+    /** The model writes a query for his words in each repository's tracker, and each is run as it arrives. */
+    write: (words: string, manifestIds: readonly string[]) => {
+      set({ describing: { phase: "written", words, written: Object.fromEntries(manifestIds.map((id) => [id, { state: "running" }])) } });
+      for (const manifestId of manifestIds) {
+        void source.write(manifestId, words).then((answer) => {
+          const now = snap.describing;
+          if (now?.phase !== "written" || now.words !== words) return;
+          set({ describing: { ...now, written: { ...now.written, [manifestId]: answer.ok ? { state: "read", query: answer.value } : { state: "failed", said: answer.said } } } });
+          if (answer.ok) run(manifestId, answer.value.query);
+        });
+      }
+    },
+    /** Keeps what the model wrote under `name` in each repository it was written for. Answers once every one is kept. */
+    saveWritten: async (name: string): Promise<void> => {
+      const now = snap.describing;
+      if (now?.phase !== "written") return;
+      for (const [manifestId, one] of Object.entries(now.written)) {
+        if (one.state !== "read") continue;
+        const answer = await source.save(manifestId, { id: `${name}:${Date.now()}`, name, words: now.words, query: one.query.query, row_fields: one.query.row_fields });
+        if (!answer.ok) return set({ failed: answer.said });
+        savedInto(manifestId, answer.value);
+      }
+      set({ describing: undefined, failed: undefined });
+    },
+    edit: (manifestId: string | undefined, id?: string) => set({ editing: manifestId === undefined || id === undefined ? undefined : { manifestId, id } }),
+    /** A query he edited by hand is kept and run again as written. No model is called. */
+    saveEdited: (manifestId: string, query: SavedQuery) => {
+      void source.save(manifestId, query).then((answer) => {
+        if (!answer.ok) return set({ failed: answer.said });
+        savedInto(manifestId, answer.value);
+        set({ editing: undefined, failed: undefined });
+        run(manifestId, query.query, true);
+      });
+    },
+    remove: (manifestId: string, id: string) => {
+      void source.remove(manifestId, id).then((answer) => {
+        if (!answer.ok) return set({ failed: answer.said });
+        savedInto(manifestId, answer.value);
+        set({ editing: undefined, failed: undefined });
+      });
+    },
+    spend: (what: string, then: () => void) => {
+      if (!snap.askFirst) return then();
+      waiting = then;
+      set({ spending: what });
+    },
+    confirmSpend: (again: boolean) => {
+      const then = waiting;
+      waiting = undefined;
+      set({ spending: undefined, ...(again ? { askFirst: false } : {}) });
+      then?.();
+    },
+    cancelSpend: () => {
+      waiting = undefined;
+      set({ spending: undefined });
+    },
+  };
+}
+
+const Held = createContext<IssuesStore | undefined>(undefined);
+
+/** Hands the window its Issues store. Only the mock does, until the tracker routes land. */
+export function IssuesFrom({ store, children }: { store: IssuesStore | undefined; children: ReactNode }) {
+  return <Held.Provider value={store}>{children}</Held.Provider>;
+}
+
+export function useIssuesStore(): IssuesStore | undefined {
+  return useContext(Held);
+}
+
+const NEVER: IssuesSnapshot = { trackers: undefined, failed: undefined, runs: {}, reads: {}, open: undefined, describing: undefined, editing: undefined, spending: undefined, askFirst: true };
+const NONE = () => () => undefined;
+
+export function useIssues(): IssuesSnapshot {
+  const store = useIssuesStore();
+  return useSyncExternalStore(store?.subscribe ?? NONE, store?.get ?? (() => NEVER));
+}
+
+/** Issues is left off the places and the palette where nothing serves it. */
+export function issuesHidden(served: boolean): readonly string[] {
+  return served ? [] : [SURFACE.issues];
+}

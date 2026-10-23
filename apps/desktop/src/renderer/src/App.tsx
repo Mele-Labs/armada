@@ -78,7 +78,7 @@ import { useTitleRow } from "./title-row";
 import { DownshiftAlert } from "./downshift";
 import { ChecksSurface, useAsked } from "./checks-surface";
 import { LoadoutPanel } from "./session-loadout";
-import { ReviewsSurface } from "./pr-review/surface"; import { reviewsHidden, useReviewStore } from "./pr-review/store";
+import { ReviewsSurface } from "./pr-review/surface"; import { reviewsHidden, useReviewStore } from "./pr-review/store"; import { IssuesSurface } from "./issues-tab/surface"; import { issuesHidden, useIssuesStore } from "./issues-tab/store";
 import { SessionsOwnership } from "./sessions";
 import { askToOpenSessionInCockpit, useOpenSessionAsked } from "./open-session"; import { useOpenRetroAsked } from "./open-retro"; import { useOpenHolderAsked } from "./open-holder";
 import { useTellAsked } from "./tell";
@@ -136,9 +136,9 @@ export function App() {
   const [lining, setLining] = useState(false); // The merge line's own surface. `merge-line.tsx`.
   const [learning, setLearning] = useState(false); const [checking, setChecking] = useState(false); const [doctoring, setDoctoring] = useState(false); const [workflowing, setWorkflowing] = useState(false); // Lessons (`lessons.tsx`), and the Workflow creator (`workflow-creator.tsx`).
   const [usaging, setUsaging] = useState(false); // Usage, where the tokens went.
-  const [reviewing, setReviewing] = useState(false); // Reviews, the pull requests waiting on him (`pr-review/`).
+  const [reviewing, setReviewing] = useState(false); const [issuing, setIssuing] = useState(false); // Reviews, the pull requests waiting on him (`pr-review/`), and Issues, a repository's tracker (`issues-tab/`).
   // Left off the rail and the palette. Jobs keeps its place in the tab order so `⌘3` onward stay where they are; it has no page.
-  const hidden = [...hiddenSurfaces(state), ...sessionsHidden(), SURFACE.jobs, ...reviewsHidden(useReviewStore() !== undefined)];
+  const hidden = [...hiddenSurfaces(state), ...sessionsHidden(), SURFACE.jobs, ...reviewsHidden(useReviewStore() !== undefined), ...issuesHidden(useIssuesStore() !== undefined)];
   // Whether the Manifest surface is open — Journey 9's *Running one*. It is read off the file Fleet
   // already holds, which is what lets a person run this project's lint with nothing running.
   const [manifesting, setManifesting] = useState(false);
@@ -369,7 +369,7 @@ export function App() {
     asked.setMergeFocus(undefined); asked.setCheckFocus(undefined); asked.setLoadoutFocus(undefined);
     setLearning(surfaceId === SURFACE.lessons); setWorkflowing(surfaceId === SURFACE.workflows); setChecking(surfaceId === SURFACE.checks); setDoctoring(surfaceId === SURFACE.doctor);
     setStudying(surfaceId === SURFACE.studios);
-    setReviewing(surfaceId === SURFACE.reviews);
+    setReviewing(surfaceId === SURFACE.reviews); setIssuing(surfaceId === SURFACE.issues);
     setUsaging(surfaceId === SURFACE.usage);
     setOpenStudio(null);
     setStudioNode(null);
@@ -420,8 +420,8 @@ export function App() {
   }
   // Helm's dock lists every repository's questions, whatever the pick.
   const asks = useDockCards(state.questions, repositories, commands);
-  const atCockpit = showingOf({ clearing, manifesting, settingsShowing, modding, kitting, guiding, studying, lining, learning, workflowing, checking, doctoring, accounting, reviewing, usaging }) === SURFACE.overview; // Its call is already in front.
-  const showingNow = showingOf({ clearing, manifesting, settingsShowing, modding, kitting, guiding, studying, lining, learning, workflowing, checking, doctoring, accounting, reviewing, usaging });
+  const atCockpit = showingOf({ clearing, manifesting, settingsShowing, modding, kitting, guiding, studying, lining, learning, workflowing, checking, doctoring, accounting, reviewing, issuing, usaging }) === SURFACE.overview; // Its call is already in front.
+  const showingNow = showingOf({ clearing, manifesting, settingsShowing, modding, kitting, guiding, studying, lining, learning, workflowing, checking, doctoring, accounting, reviewing, issuing, usaging });
   // Back and forward are keys and nothing on screen — `history.ts`.
   const { back, replaceNext } = useHistory(
     { surface: showingNow, studio: openStudio, studioNode },
@@ -537,7 +537,7 @@ export function App() {
               located={<LocatedNotice locating={locate} repositories={repositories} />}
             />
 
-            {usaging ? (<Boundary region="Usage" {...guarded}><UsageSurface state={state} /></Boundary>) : reviewing ? (<Boundary region="Reviews" {...guarded}><ReviewsSurface picked={pickedRepository} onOpenLink={openProseLink} onOpenSession={openSession} /></Boundary>) : doctoring ? (<Boundary region="Doctor" {...guarded}><DoctorSurfaceNow health={state.health} connection={state.connection} said={statement.headline} onCheck={() => watchOverview(true)} /></Boundary>) : lining ? (<MergeLineSurface state={state} {...guarded} onOpenLink={openProseLink} onOpenSession={openSession} onSendToSession={(id, text) => void commands.sendToSession(id, text)} {...(asked.mergeFocus === undefined ? {} : { focus: asked.mergeFocus })} />) : checking ? (<ChecksSurface key={state.repository ?? ""} state={state} onOpenMergeLine={(branch) => { goTo(SURFACE.mergeLine); asked.setMergeFocus(branch); }} {...guarded} />) : learning ? (
+            {usaging ? (<Boundary region="Usage" {...guarded}><UsageSurface state={state} /></Boundary>) : reviewing ? (<Boundary region="Reviews" {...guarded}><ReviewsSurface picked={pickedRepository} onOpenLink={openProseLink} onOpenSession={openSession} /></Boundary>) : issuing ? (<Boundary region="Issues" {...guarded}><IssuesSurface picked={pickedRepository} repositories={repositories} onOpenLink={openProseLink} onOpenSession={openSession} /></Boundary>) : doctoring ? (<Boundary region="Doctor" {...guarded}><DoctorSurfaceNow health={state.health} connection={state.connection} said={statement.headline} onCheck={() => watchOverview(true)} /></Boundary>) : lining ? (<MergeLineSurface state={state} {...guarded} onOpenLink={openProseLink} onOpenSession={openSession} onSendToSession={(id, text) => void commands.sendToSession(id, text)} {...(asked.mergeFocus === undefined ? {} : { focus: asked.mergeFocus })} />) : checking ? (<ChecksSurface key={state.repository ?? ""} state={state} onOpenMergeLine={(branch) => { goTo(SURFACE.mergeLine); asked.setMergeFocus(branch); }} {...guarded} />) : learning ? (
               <LessonsSurface repository={state.repository} {...guarded} />
             ) : clearing ? (
               /* What Fleet is holding disk for. The half of the reclaim rule that is a person's: Fleet has
