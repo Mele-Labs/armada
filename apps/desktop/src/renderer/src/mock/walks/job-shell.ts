@@ -1,8 +1,9 @@
 // The Job's shell: one terminal a Job keeps open in its worktree, docked where a block's run docks, which
 // the person types into and the agent types into through its tools. Beside a block Run the two are tabs.
+// Settings, Terminal moves it to the side panel, which Close puts away with the shell still running.
 // Over the `session-shell` scenario.
 
-import { button, inside, region, role, tab, text, walk } from "../walk";
+import { button, inside, place, region, role, systemPage, tab, text, walk } from "../walk";
 import type { Step } from "../walk";
 import { toSessions } from "../sessions/walk-kit";
 
@@ -13,6 +14,9 @@ const typed = role("textbox", "Terminal input");
 const terminal = inside(job, button("Terminal", { exact: true }));
 const runTab = inside(pane, tab(/^cd ~\/Development.*…$/));
 const block = inside(thread, role("group", /wrangler deploy/));
+const opensIn = role("combobox", "Open a Job's terminal in", { exact: true });
+const panel = role("dialog", "Terminal", { exact: true });
+const served = text(/Local:.*localhost:5173/);
 
 const steps: Step[] = [
   toSessions,
@@ -39,7 +43,21 @@ const steps: Step[] = [
   { press: inside(pane, button("Close")), say: "Closed. The run stays" },
   { later: inside(pane, button("Stop")), say: "The run, alone" },
   { look: inside(pane, tab("Terminal")), say: "The agent opened a new shell, and it shows by itself" },
-  { look: inside(pane, text(/Local:.*localhost:5173/)), say: "Its dev server, in the new shell" },
+  { look: inside(pane, served), say: "Its dev server, in the new shell" },
+  { press: runTab, say: "The run" },
+  { press: inside(pane, button("Stop")), say: "Stop" },
+  { press: inside(pane, button("Close")), say: "Closed. The shell stays docked" },
+  { press: place("System"), say: "System" },
+  { press: systemPage("Terminal"), say: "Terminal settings" },
+  { look: opensIn, say: "Where a Job's terminal opens: docked" },
+  { type: "side panel", into: opensIn, say: "Side panel" },
+  toSessions,
+  { press: inside(region("Jobs", { exact: true }), button(/Deploy the store/)), say: "Back to the Job" },
+  { press: terminal, say: "Terminal" },
+  { look: inside(panel, served), say: "The shell in the side panel, the thread at full height" },
+  { press: inside(panel, button(/^Close/)), say: "Close. The shell keeps running" },
+  { press: terminal, say: "Terminal" },
+  { look: inside(panel, served), say: "Back, with its output" },
 ];
 
 const shell = walk("session-shell", steps);
