@@ -25,7 +25,7 @@ export function SvPanel({ label, state, acts, rail, place, area, empty = false, 
   // A panel the layout lists can be hidden, and one it does not list is always drawn. Teach is offered on the frame, wherever the window offers it.
   const placed = useLayout("dashboard.panels").all.find((one) => one.id === area);
   const teachBridge = useTeachBridge();
-  const teach = useTeachMenu(`Panel ${label}`, teachBridge === undefined ? undefined : () => teachBridge("panel", label));
+  const teach = useTeachMenu(`Panel ${label}`, teachBridge === undefined ? undefined : () => teachBridge("panel", label, [area]));
   if (placed !== undefined && !placed.visible) return null;
   const toggle = () => setPeek((was) => !was);
   const band = empty

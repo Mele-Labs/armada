@@ -1,5 +1,5 @@
 import { useEffect, useRef, type KeyboardEvent, type ReactNode } from "react";
-import { Bell, ChevronDown, ChevronRight, Eclipse, GitPullRequestArrow, Link, Palette, PanelsTopLeft } from "lucide-react";
+import { Bell, ChevronDown, ChevronRight, Eclipse, GitPullRequestArrow, Link, Palette, PanelsTopLeft, Ticket } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
 import { Switch } from "../../primitives/Switch/Switch";
@@ -9,7 +9,7 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
  * One mod on this machine: the kind it is, its switch, and Promote.
  *
  * **The leading mark is the kind's glyph**, the palette for a theme, the eclipse for a tweak laid over it, the panels for a
- * layout, the chain for words and the bell for Fleet, with the kind's name on hover. The line under the title is one plain fact: what is wrong with the mod, or the branch it
+ * layout, the chain for words, the bell for Fleet and the ticket, which the registry draws an issue as, for a tracker, with the kind's name on hover. The line under the title is one plain fact: what is wrong with the mod, or the branch it
  * was put on. Nothing is said where there is nothing to say.
  */
 export type ModRowProps = {
@@ -36,10 +36,10 @@ export type ModRowProps = {
 };
 
 /** What a mod changes: how Bridge looks, how it is arranged, how it shows words, what Fleet does with a notice. */
-export type ModKind = "theme" | "tweak" | "layout" | "words" | "fleet";
+export type ModKind = "theme" | "tweak" | "layout" | "words" | "fleet" | "tracker";
 
-const KIND = { theme: "Theme", tweak: "Theme tweak", layout: "Layout", words: "Words", fleet: "Fleet" } as const;
-const GLYPH = { theme: Palette, tweak: Eclipse, layout: PanelsTopLeft, words: Link, fleet: Bell } as const;
+const KIND = { theme: "Theme", tweak: "Theme tweak", layout: "Layout", words: "Words", fleet: "Fleet", tracker: "Tracker" } as const;
+const GLYPH = { theme: Palette, tweak: Eclipse, layout: PanelsTopLeft, words: Link, fleet: Bell, tracker: Ticket } as const;
 
 export function ModRow({ title, kind = "theme", enabled, onEnabled, detail, promoteDisabled = false, onPromote, opened, onOpened, autoFocus = false, children }: ModRowProps) {
   const Glyph = GLYPH[kind];

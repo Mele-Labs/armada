@@ -14,8 +14,8 @@ import { useThemes } from "./theme-source";
 
 export type ModListKind = "theme" | "layout" | "all" | TaughtKind;
 
-const ROW_KIND: Record<TaughtKind, ModKind> = { words: "words", fleet: "fleet", tweak: "tweak" };
-const KIND_ORDER: readonly ModKind[] = ["theme", "tweak", "layout", "words", "fleet"];
+const ROW_KIND: Record<TaughtKind, ModKind> = { words: "words", fleet: "fleet", tweak: "tweak", tracker: "tracker" };
+const KIND_ORDER: readonly ModKind[] = ["theme", "tweak", "layout", "words", "fleet", "tracker"];
 
 type Listed = { key: string; kind: ModKind; name: string; enabled: boolean; row: ReactElement };
 
@@ -53,11 +53,11 @@ export function ModList({ kind, title }: { kind: ModListKind; title?: string }) 
           detail={mod.branch === undefined ? line : `${line} (${mod.branch})`}
           promoteDisabled={mod.branch !== undefined}
           onPromote={() => source.promote(mod.name)}
-          opened={opened === mod.name}
-          onOpened={(open) => source.open(open ? mod.name : undefined)}
+          // A mod opens only when it holds something to read: Fleet's list says a real mod's kind and what it was taught on, no more.
+          {...(mod.parts.length === 0 ? {} : { opened: opened === mod.name, onOpened: (open: boolean) => source.open(open ? mod.name : undefined) })}
           autoFocus={opened === mod.name}
         >
-          <ModRules name={mod.name} parts={mod.parts} />
+          {mod.parts.length === 0 ? undefined : <ModRules name={mod.name} parts={mod.parts} />}
         </ModRow>
       ),
     };

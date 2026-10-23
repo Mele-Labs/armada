@@ -26,7 +26,7 @@ export type PanelItem =
    */
   | { kind: "requests"; sessionId?: string; start?: RequestStart; from?: string; saved?: { collection: string; request: string } }
   /** Teach, for something in this Session (`source` is what, `text` its text as it stands, `at` when the row was written): the repository it is in, by id, root and name. */
-  | { kind: "teach"; sessionId: string; jobTitle: string; manifestId?: string; root?: string; repository: string; source: TeachSourceKind; text: string; at?: string };
+  | { kind: "teach"; sessionId: string; jobTitle: string; manifestId?: string; root?: string; repository: string; source: TeachSourceKind; text: string; at?: string; /** What names the thing, as Fleet reads it: a notice's word, a panel's id. */ ids?: string[] };
 
 type Held = { open: PanelItem | undefined; back: PanelItem | undefined; hosts: number };
 

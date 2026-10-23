@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import type { WordRule } from "@armada/protocol";
 
 import { useModList } from "./mod-list";
+import { skipsMods } from "./theme-loader";
 import { teachFlavour, useTeachingsSaved } from "./teach";
 
 /** One pattern to draw as a link, in the form `refScanner` takes. */
@@ -35,7 +36,8 @@ function ask(root: string, sessionId: string | undefined): Promise<readonly Word
 export function useWordRules(root: string | undefined, sessionId: string | undefined): readonly TaughtLink[] {
   const mods = useModList();
   const saved = useTeachingsSaved();
-  const words = mods.filter((one) => one.kind === "words" && one.valid && one.enabled).map((one) => `${one.name}@${one.changed_at ?? ""}`).join();
+  // Safe mode reads no mod, so it links nothing a teaching made.
+  const words = skipsMods() ? "" : mods.filter((one) => one.kind === "words" && one.valid && one.enabled).map((one) => `${one.name}@${one.changed_at ?? ""}`).join();
   const [read, setRead] = useState<{ root: string; rules: readonly WordRule[] } | undefined>(undefined);
   useEffect(() => {
     if (root === undefined || words === "") return;

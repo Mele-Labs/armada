@@ -3,16 +3,28 @@
 
 import { useEffect } from "react";
 
-import { taughtRules } from "./teach";
-
 const OPEN_MOD = "armada:open-mod";
+
+let opened: string | undefined;
+const heardOpened = new Set<() => void>();
+
+/** The mod asked for by name, which the Mods list shows open. */
+export const modOpened = {
+  get: (): string | undefined => opened,
+  set: (name: string | undefined): void => {
+    if (opened === name) return;
+    opened = name;
+    heardOpened.forEach((on) => on());
+  },
+  subscribe: (on: () => void): (() => void) => (heardOpened.add(on), () => void heardOpened.delete(on)),
+};
 
 /** The kinds of mod a Logbook entry can name: the others are taught on Bridge itself and have no entry. */
 export type OpenedKind = "words" | "fleet";
 
 /** Shows the mod open, and asks the app to go to the page that lists its kind. */
 export function askToOpenMod(name: string, kind: OpenedKind): void {
-  taughtRules.open(name);
+  modOpened.set(name);
   window.dispatchEvent(new CustomEvent<OpenedKind>(OPEN_MOD, { detail: kind }));
 }
 

@@ -164,7 +164,7 @@ export function FleetTurn({ notice, reply, handled, onMuteNotice, onTeach }: { n
             menu.row?.focus();
           }}
           onSelect={(chosen) => {
-            if (chosen === "teach") onTeach?.({ kind: "notice", text: notice.text, at: notice.at });
+            if (chosen === "teach") onTeach?.({ kind: "notice", text: notice.text, at: notice.at, ...(notice.notice === undefined ? {} : { ids: [notice.notice] }) });
             else if (kind !== undefined) onMuteNotice?.(kind, chosen as NoticeChoice);
           }}
         />

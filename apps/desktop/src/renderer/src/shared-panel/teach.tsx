@@ -1,41 +1,24 @@
 // What Teach opens: the pull request panel's side sheet, over the Session it was pressed in, so the thread stays in view
-// behind it. What Teach was pressed on and the owner's instruction are read by Fleet, shown back as a section for each of Agents,
-// Bridge and Fleet that the teaching changes, and kept only on Save. **While the understanding is shown, a link rule is already
-// drawn in the thread, and a theme tweak is already on the screen**, as a preview, and each goes if the panel closes or Change is pressed.
-// Pressed on Bridge's own screen, the panel has no repository to reach and no note for agents.
+// behind it. What Teach was pressed on and the owner's instruction go to Fleet (`readTeaching`), which reads them into a proposal, shown
+// back as a section for each of Agents, Bridge and Fleet that the teaching changes, and kept only on Save (`saveTeaching`). **While the
+// understanding is shown, a link rule is already drawn in the thread, and a theme tweak is already on the screen**, as a preview, and each
+// goes if the panel closes or Change is pressed. A refusal of either call is raised as the window's toast, in Fleet's words, and the
+// panel stays where it was. Pressed on Bridge's own screen, the panel has no repository to reach and no note for agents.
 
 import { useEffect, useRef, useState } from "react";
 import { Sheet, TeachPanel, forgetKept, isBridgeSource } from "@armada/components";
-import type { TeachReach, TeachReading } from "@armada/components";
+import type { TeachReach } from "@armada/components";
+import type { TeachingProposal } from "@armada/protocol";
 import { useAtFloor } from "@armada/shell";
 
-import { addressOf, previewLesson, readTeaching, saveLesson, siteSaid } from "../teach";
-import type { Lesson, TeachAnswer, Teaching } from "../teach";
+import { previewTeaching, teachFlavour, teachingSaved } from "../teach";
+import { previewOf, readBody, readingOf, saveBody } from "../teach-wire";
+import { rememberTaught } from "../taught-entries";
+import { raiseOutcome } from "../tell";
 import { closePanel } from "./store";
 import type { PanelItem } from "./store";
 
 type Stage = "writing" | "reading" | "shown";
-
-/** What Fleet understood, as the panel words it. */
-function readingOf(answer: TeachAnswer, repository: string): TeachReading {
-  const { agents, bridge, fleet, tweak, layout } = answer;
-  return {
-    ...(agents === undefined ? {} : { agents }),
-    ...(bridge === undefined
-      ? {}
-      : {
-          bridge: {
-            name: bridge.name,
-            pattern: bridge.pattern,
-            example: bridge.example,
-            ...(bridge.site === undefined ? {} : { address: addressOf(bridge.site, bridge.example), found: siteSaid(bridge.site.from) }),
-          },
-        }),
-    ...(fleet === undefined ? {} : { fleet: { notice: fleet.name, does: fleet.says, scope: fleet.scope === "job" ? "This Job" : fleet.scope === "all" ? "Every repository" : repository } }),
-    ...(tweak === undefined ? {} : { tweak: { colour: tweak.colour, token: tweak.token, was: tweak.was, now: tweak.now, places: tweak.places } }),
-    ...(layout === undefined ? {} : { layout: { hides: layout.hides, where: layout.where } }),
-  };
-}
 
 export function TeachSide({ item }: { item: Extract<PanelItem, { kind: "teach" }> }) {
   const floor = useAtFloor();
@@ -44,44 +27,48 @@ export function TeachSide({ item }: { item: Extract<PanelItem, { kind: "teach" }
   const onBridge = isBridgeSource(item.source);
   const [reach, setReach] = useState<TeachReach>(onBridge ? "all" : "repository");
   const [stage, setStage] = useState<Stage>("writing");
-  const [answer, setAnswer] = useState<TeachAnswer | undefined>(undefined);
-  const teaching: Teaching = {
-    kind: item.source,
-    text: item.text,
-    ...(item.at === undefined ? {} : { at: item.at }),
-    sessionId: item.sessionId,
-    jobTitle: item.jobTitle,
-    ...(item.manifestId === undefined ? {} : { manifestId: item.manifestId }),
-    ...(item.root === undefined ? {} : { root: item.root }),
-    repository: item.repository,
-  };
+  const [proposal, setProposal] = useState<TeachingProposal | undefined>(undefined);
+  const saving = useRef(false);
   // Each read takes a number; an answer to an older one, or to a panel since closed, is not drawn.
   const latest = useRef(0);
   useEffect(() => () => void (latest.current += 1), []);
 
+  const flavour = teachFlavour();
+  const reading = proposal === undefined ? undefined : (flavour?.reading?.(proposal, item.repository) ?? readingOf(proposal, item.repository));
+
   useEffect(() => {
-    previewLesson(
-      stage === "shown" && (answer?.bridge !== undefined || answer?.tweak !== undefined) ? { id: "preview", reach, teaching, say, answer, at: "" } satisfies Lesson : undefined,
-    );
-    return () => previewLesson(undefined);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- `teaching` is rebuilt from `item` on every render.
-  }, [stage, answer, reach, say, item]);
+    previewTeaching(stage === "shown" && proposal !== undefined ? previewOf(proposal, reach, item.manifestId, flavour?.link?.(proposal)) : undefined);
+    return () => previewTeaching(undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `flavour` is the window's, set before any panel opens.
+  }, [stage, proposal, reach, item]);
 
   const teach = () => {
     const mine = (latest.current += 1);
     setStage("reading");
-    void readTeaching({ teaching, say, reach }).then((read) => {
+    void window.armada.readTeaching(readBody(item, say, reach)).then((read) => {
       if (mine !== latest.current) return;
-      setAnswer(read);
+      if (!read.ok) {
+        // Fleet's refusal is the toast, and the box keeps what was written.
+        raiseOutcome(read.outcome);
+        setStage("writing");
+        return;
+      }
+      setProposal(read.value);
       setStage("shown");
     });
   };
   const save = () => {
-    if (answer === undefined) return;
-    saveLesson({ reach, teaching, say, answer });
-    // What was written is now taught, and the box starts empty the next time.
-    forgetKept(keep);
-    closePanel();
+    if (proposal === undefined || saving.current) return;
+    saving.current = true;
+    void window.armada.saveTeaching(saveBody(item, proposal, reach)).then((saved) => {
+      saving.current = false;
+      if (!saved.ok) return raiseOutcome(saved.outcome);
+      rememberTaught(saved.value.entry, saved.value.mods);
+      teachingSaved();
+      // What was written is now taught, and the box starts empty the next time.
+      forgetKept(keep);
+      closePanel();
+    });
   };
 
   return (
@@ -95,7 +82,7 @@ export function TeachSide({ item }: { item: Extract<PanelItem, { kind: "teach" }
         reach={reach}
         onReach={setReach}
         stage={stage}
-        reading={answer === undefined ? undefined : readingOf(answer, item.repository)}
+        reading={reading}
         onTeach={teach}
         onChange={() => {
           latest.current += 1;

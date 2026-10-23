@@ -1,7 +1,7 @@
 // Teaching Armada from anything in a Job: selected words, a command, a Fleet notice, a plan task, a Check. Three repositories, each
 // with a Job: the first holds everything Teach is pressed on and names its Jira site in its settings; the second's site is
-// found in a pull request; the third's cannot be found, so Fleet asks. Mock only: no Fleet reads what is taught yet. The walk
-// `teach-anything` plays it.
+// found in a pull request; the third's cannot be found, so Fleet asks. The mock Fleet in `../teach` reads and keeps what is taught,
+// over the same wire a real one has. The walk `teach-anything` plays it.
 
 import type { LogbookAnswer, LogbookEntry, LogbookForgotten, RepositorySummary } from "@armada/protocol";
 import { repository } from "@armada/screens/src/fixtures/repository";
@@ -11,8 +11,8 @@ import { onBoard, unanswered } from "../moment";
 import type { Scenario } from "../moment";
 import { FakeSessionsFleet } from "../sessions-fleet";
 import { ARMADA_JOB, BEHIND_AT, LATER_NOTICES, SITE_ASK, ledgerRecord, paymentsRecord, teachSessions, teachThreads } from "../sessions/teach";
-import { bindTeachFleet, entryOf, siteAnswered } from "../teach";
-import { forgetLesson, lessonsNow, taughtId } from "../../teach";
+import { bindTeachFleet, entryOf, forgetTaught, siteAnswered, teachedMods } from "../teach";
+import { lessonsNow, taughtId } from "../../teach";
 
 const ARMADA: RepositorySummary = { ...repository(), manifest: { ...repository().manifest!, id: "armada" } };
 const PAYMENTS: RepositorySummary = {
@@ -71,7 +71,11 @@ const sessionsOf = (asking: boolean) => () =>
       )
     : teachSessions();
 
-export function build(asking = false): Scenario {
+/**
+ * `asking`: the second repository's Job asks him something, as `teach-mods` starts. `wordsAsk`: Fleet's question about a repository's
+ * site is the `words_address` item a real Fleet raises, which the deck draws open; the approved walk puts it as an agent's question.
+ */
+export function build(asking = false, wordsAsk = false): Scenario {
   const sessions = sessionsOf(asking);
   const board = onBoard({ repositories: [ARMADA, PAYMENTS, LEDGER] });
   const served = new FakeSessionsFleet(sessions(), teachThreads()).scenario(board);
@@ -94,8 +98,7 @@ export function build(asking = false): Scenario {
                 id: SITE_ASK,
                 text: `Which Jira site does ${repository} use?`,
                 since: new Date().toISOString(),
-                source: "words_address",
-                act: { kind: "answer", target: SITE_ASK },
+                ...(wordsAsk ? { source: "words_address" as const, act: { kind: "answer" as const, target: SITE_ASK } } : { source: "agent" as const, act: { kind: "answer" as const, target: "" } }),
                 options: sites.map((label) => ({ label })),
               },
             ],
@@ -119,7 +122,7 @@ export function build(asking = false): Scenario {
             ),
           );
         },
-      });
+      }, handle);
 
       // The Logbook: what it held, and the entries taught since. An edit or a lock on a taught entry is held here.
       let base = BASE();
@@ -139,7 +142,7 @@ export function build(asking = false): Scenario {
         forgetLogbookEntry: async (id): Promise<LogbookForgotten> => {
           const lesson = lessonsNow().find((one) => taughtId(one) === id);
           // Forgetting a taught entry takes back everything the lesson changed: the note, the links and what Fleet does.
-          if (lesson !== undefined) forgetLesson(lesson.id);
+          if (lesson !== undefined) forgetTaught(lesson.id);
           else if (base.some((one) => one.id === id)) base = base.filter((one) => one.id !== id);
           else return { ok: false, outcome: unanswered(`/logbook/${id}/forget`) };
           return { ok: true };
@@ -149,6 +152,7 @@ export function build(asking = false): Scenario {
       return {
         ...own,
         ...logbook,
+        ...teachedMods,
         // The person's answer to Fleet's question is the repository's site.
         answerWaiting: async (answer) => {
           const done = await own.answerWaiting!(answer);

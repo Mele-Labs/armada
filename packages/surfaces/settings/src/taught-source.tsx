@@ -10,8 +10,8 @@ export type TaughtFact = { label: string; value: string; code?: boolean; from?: 
 
 export type TaughtPart = { part: string; facts: readonly TaughtFact[] };
 
-/** What a taught mod changes: how Bridge shows words, what Fleet does with a notice, a shared colour over the theme. */
-export type TaughtKind = "words" | "fleet" | "tweak";
+/** What a mod changes besides the theme and the layout: how Bridge shows words, what Fleet does with a notice, a shared colour over the theme, an issue tracker Fleet was not built for. */
+export type TaughtKind = "words" | "fleet" | "tweak" | "tracker";
 
 /** A mod of one of those kinds on this machine. */
 export type TaughtMod = {

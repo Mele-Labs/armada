@@ -93,7 +93,7 @@ export type SessionNotice =
 export type NoticeChoice = "job" | "repo" | "hour";
 
 /** What Teach was pressed on in a row: a tool call, a Fleet notice, or a Check. `at` is when the row was written. */
-export type TeachPick = { kind: "command" | "notice" | "check"; text: string; at?: string };
+export type TeachPick = { kind: "command" | "notice" | "check"; text: string; at?: string; /** A notice's word, which Fleet reads the rule for. */ ids?: string[] };
 
 type SessionThreadKinds =
   | {
@@ -780,7 +780,7 @@ function FromSession({
             menu.row?.focus();
           }}
           onSelect={(chosen) => {
-            if (chosen === "teach") onTeach?.({ kind: "notice", text: row.text, at: row.at });
+            if (chosen === "teach") onTeach?.({ kind: "notice", text: row.text, at: row.at, ...(notice === undefined ? {} : { ids: [notice] }) });
             else if (notice !== undefined) onMuteNotice?.(notice, chosen as NoticeChoice);
           }}
         />

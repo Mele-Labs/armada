@@ -1094,7 +1094,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
             onOpenRetro={openRetro}
             {...(draft.retry === undefined ? {} : { onRetry: (rowId: string) => draft.retry!(session.id, rowId) })}
             {...(draft.forkAt === undefined ? {} : { onForkAt: (pick) => opening(forkAtPick(draft.forkAt!, session.id, pick, setFocusFor), onOpen) })}
-            {...(teachOpen === undefined ? {} : { onTeachAt: ({ quote }: { quote: string }) => teachOpen("words", wordsOfQuote(quote)), onTeachRow: ({ kind, text, at }: TeachPick) => teachOpen(kind, text, at) })}
+            {...(teachOpen === undefined ? {} : { onTeachAt: ({ quote }: { quote: string }) => teachOpen("words", wordsOfQuote(quote)), onTeachRow: ({ kind, text, at, ids }: TeachPick) => teachOpen(kind, text, at, ids) })}
             {...(draft.muteNotice === undefined ? {} : { onMuteNotice: (notice, choice) => muteNoticeFor(draft.muteNotice!, session, notice, choice) })}
             {...(session.dead !== undefined ? {} : { onReplyAt: ({ quote }) => {
               quoteIntoDraft(session.id, quote);

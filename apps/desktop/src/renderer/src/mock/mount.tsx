@@ -46,9 +46,12 @@ import { mockThemes } from "./themes";
 import { installSystemMods } from "./system-mods";
 import { provideKitModels } from "../kit-models";
 import { createMockKitModels } from "./kit-models";
-import { provideTeaching, taughtRules } from "../teach";
-import { TweaksApplied } from "../tweaks";
-import { createMockTeaching, seedTaught } from "./teach";
+import { provideTeaching } from "../teach";
+import { forgetTaughtEntries } from "../taught-entries";
+import { createFleetTaught, NO_TAUGHT } from "../fleet-taught";
+import { NO_TWEAKS, createFleetTweaks } from "../fleet-tweaks";
+import { TweakSourceProvider, TweaksApplied } from "../tweaks";
+import { TEACH_FLAVOUR, seedTaught } from "./teach";
 import { repository } from "@armada/screens/src/fixtures/repository";
 import { AccountFrom } from "./account";
 import { SharedHomeFrom } from "./shared-home";
@@ -128,7 +131,10 @@ export function mountApp(
   if (shared === undefined && chosen.name === "system-sidebar") installSystemMods();
   if (shared === undefined) provideKitModels(createMockKitModels());
   // Teach is read only in the scenario that plays it, which starts with nothing taught.
-  if (shared === undefined) provideTeaching(chosen.name === "teach-anything" || chosen.name === "teach-mods" ? createMockTeaching() : undefined);
+  if (shared === undefined) {
+    provideTeaching(chosen.name === "teach-anything" || chosen.name === "teach-mods", chosen.name === "teach-anything" || chosen.name === "teach-mods" ? TEACH_FLAVOUR : undefined);
+    forgetTaughtEntries();
+  }
   // `teach-mods` starts with the Jira key and the notice already taught.
   if (shared === undefined && chosen.name === "teach-mods") seedTaught(repository().root);
   // Every window starts with the deck as it begins.
@@ -138,6 +144,9 @@ export function mountApp(
   mockPhone.reset(PHONE_MOMENTS[chosen.name] ?? "paired");
   window.armada = api;
   const planUsage = createFleetPlanUsage(withState(api));
+  // The mods the lessons made, over the fake Fleet's mod list as a real window reads them; safe mode reads none.
+  const taught = skipsMods() ? NO_TAUGHT : createFleetTaught(withState(api));
+  const tweaks = skipsMods() ? NO_TWEAKS : createFleetTweaks(withState(api));
   // Only the scenario that plays the offer has one; every other window draws the limits as they were.
   const downshift = chosen.name === "plan-downshift" ? createMockDownshift(planUsage, api) : null;
   // The side panel reads from fixtures where the scenario carries them, built for this window so a write is gone with it, and
@@ -167,7 +176,8 @@ export function mountApp(
         {/* As `main.tsx` mounts it, so a test can read what a press asked the trackpad to play. */}
         <HapticsProvider perform={(pattern) => api.tap(pattern)}>
           <Themed source={mockThemes}>
-            <TaughtSourceProvider value={taughtRules}>
+            <TaughtSourceProvider value={taught}>
+            <TweakSourceProvider source={tweaks}>
             <LayoutSourceProvider value={skipsMods() ? NO_LAYOUT_MODS : mockLayout}>
               <MockFleetBuild scenario={chosen.name}>
                 <PhoneSourceProvider value={mockPhone}>
@@ -212,6 +222,7 @@ export function mountApp(
                 </PhoneSourceProvider>
               </MockFleetBuild>
             </LayoutSourceProvider>
+            </TweakSourceProvider>
             </TaughtSourceProvider>
           </Themed>
           <OnScreen say={say} />
