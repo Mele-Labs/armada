@@ -16,8 +16,11 @@ export const cutText = (text: string): string => (text.length > MOST_ELEMENT_TEX
 export const cropOf = (base64: string | null): NoteCrop | undefined =>
   base64 === null || base64 === "" ? undefined : { media_type: "image/png", data: base64 };
 
-/** The note one of Bridge's own ⌥⌘A pins makes, carrying its file's id so `mark_annotation_done` still finds it. */
-export function annotationNoteBody(note: Annotation, sessionId: string, address: string, crop: string | null): SendSessionNote {
+/**
+ * The note one of Bridge's own ⌥⌘A pins makes, carrying its file's id so `mark_annotation_done` still finds it.
+ * `job` is what Bridge held about the Job open when it was pinned: background Fleet puts after his words.
+ */
+export function annotationNoteBody(note: Annotation, sessionId: string, address: string, crop: string | null, job: readonly string[] = []): SendSessionNote {
   const cropped = cropOf(crop);
   return {
     session_id: sessionId,
@@ -44,5 +47,6 @@ export function annotationNoteBody(note: Annotation, sessionId: string, address:
       ...(note.scenario === null ? {} : { scenario: note.scenario }),
     },
     ...(cropped === undefined ? {} : { crop: cropped }),
+    ...(job.length === 0 ? {} : { job: [...job] }),
   };
 }
