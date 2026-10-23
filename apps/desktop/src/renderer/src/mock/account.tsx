@@ -218,7 +218,7 @@ function Held({ offer, children }: { offer: Offer; children: ReactNode }) {
     return {
       profiles: offer.repositories === undefined ? profiles : profiles.map((one) => ({ ...one, repositories: bound.get(one.login) ?? [] })),
       flow,
-      syncs: open === null ? null : { login: open, kinds: kinds[open] ?? [] },
+      syncs: open === null ? null : { login: open, kinds: kinds[open] ?? [], home: { repository: "armada-home", made: (kinds[open] ?? []).some((one) => one.on) } },
       ...(ended === undefined ? {} : { ended }),
       ...(unavailable === undefined ? {} : { unavailable }),
       ...(left === undefined ? {} : { left }),

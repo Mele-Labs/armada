@@ -9,7 +9,6 @@ import {
   Laptop,
   RotateCw,
   Unplug,
-  UserCheck,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -17,6 +16,7 @@ import {
 import { Sheet } from "../../primitives/Sheet/Sheet";
 import { Switch } from "../../primitives/Switch/Switch";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
+import { SharedHomeChip } from "../KitSetup/SharedHome";
 
 /**
  * The account a machine is signed in to, in the title bar: one GitHub sign-in per machine, by the
@@ -102,7 +102,7 @@ export type AccountRead = {
   profiles: readonly Profile[];
   flow: AccountFlow;
   /** The profile whose What syncs is open. */
-  syncs: { login: string; kinds: readonly SyncChoice[] } | null;
+  syncs: { login: string; kinds: readonly SyncChoice[]; home: { repository: string; made: boolean } } | null;
   /** The last sign-in ended without signing in. Absent while one is in flight or none has ended. */
   ended?: SignInEnd;
   /** Starting a sign-in was refused for a blank setting. */
@@ -279,19 +279,14 @@ function nextScope(kind: SyncKindWord, now: Scope): Scope {
 export function WhatSyncsSheet() {
   const account = useAccount();
   if (account === undefined || account.syncs === null) return null;
-  const { login, kinds } = account.syncs;
+  const { login, kinds, home } = account.syncs;
   return (
     <Sheet
       kind="what-syncs"
       open
       floating
       title="What syncs"
-      subtitle={
-        <span className="armada-account__login">
-          <UserCheck size={12} strokeWidth={2} aria-hidden="true" />
-          {login}
-        </span>
-      }
+      subtitle={<SharedHomeChip account={login} repository={home.repository} made={home.made} />}
       closeLabel="Close panel"
       closeBinding="Esc"
       onClose={account.closeSyncs}
