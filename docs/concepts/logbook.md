@@ -101,12 +101,12 @@ Standing entries reach agents three ways.
 
 ## What the person does
 
-**The person sees one Logbook page in Bridge.** He can read an entry and its evidence, edit it, pin it or forget it. Nothing else is asked of him.
+**The person sees one Logbook page in Bridge.** He can read an entry and its evidence, edit it, lock it or forget it. Nothing else is asked of him. **The page has two parts**: what agents know, one panel per repository and then Habits and This Mac, and below it Armada fixes, the [retro](retro.md) items for Armada itself. The panels hold what agents are handed; one switch, Not handed out, adds the candidates and faded entries to them, dimmed, each with its state.
 
 | Act | Does |
 |---|---|
 | Edit | Replaces the text and marks the entry `edited` |
-| Pin | It never fades and is never rewritten |
+| Lock | It never fades and is never rewritten. The wire's word for it is still `pinned` |
 | Forget | Puts it on the deny list |
 
 ## Where it is kept

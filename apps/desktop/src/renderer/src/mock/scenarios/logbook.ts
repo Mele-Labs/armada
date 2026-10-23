@@ -1,9 +1,10 @@
-// The Logbook with something in every part: two repositories' entries, Habits and This Mac, a tripped entry, a pinned
-// one, a candidate and two faded ones. `docs/concepts/logbook.md`. Mock only: no Fleet route serves the Logbook yet.
+// The Logbook with something in every part: two repositories' entries, Habits and This Mac, a tripped entry, a locked
+// one, a candidate and two faded ones, and the retro items under Armada fixes. `docs/concepts/logbook.md`. Mock only: no Fleet route serves the Logbook yet.
 // The walk `logbook` plays over it.
 
 import type { LogbookEntry, LogbookEvidence, RepositorySummary } from "@armada/protocol";
 import { repository } from "@armada/screens/src/fixtures/repository";
+import { retroFixtures } from "@armada/screens/src/fixtures/retros";
 
 import { holding } from "../holding";
 import type { Scenario } from "../moment";
@@ -13,6 +14,8 @@ const LEDGER: RepositorySummary = {
   root: "/Users/user/ledger",
   records_root: "/Users/user/Library/Application Support/Armada/records/ledger",
 };
+
+const { retros, lessons } = retroFixtures();
 
 const HOUR = 3_600_000;
 const ago = (hours: number) => new Date(Date.now() - hours * HOUR).toISOString();
@@ -172,6 +175,8 @@ const ENTRIES: LogbookEntry[] = [
 ];
 
 export const logbookPage: Scenario = {
-  ...holding("logbook", "The Logbook: two repositories, Habits and This Mac, with a tripped entry, a pinned one, a candidate and two faded", [repository(), LEDGER]),
+  ...holding("logbook", "The Logbook: two repositories, Habits and This Mac, with a tripped entry, a locked one, a candidate and two faded, and Armada fixes", [repository(), LEDGER]),
   logbook: ENTRIES,
+  retros,
+  lessons,
 };

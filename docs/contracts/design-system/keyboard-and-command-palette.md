@@ -49,7 +49,7 @@ is the back-fill by hand that this section existed to prevent.
 ⌘N       dispatch from a field, where n would type
 ⌥1–⌥9    choose a repository to dispatch to
 ⌥A       dispatch after another Job: a Job with an @ typed in the request
-⌘1–⌘6    go to a tab: Cockpit, Jobs, Sessions, Studios, Retros or System
+⌘1–⌘6    go to a tab: Cockpit, Jobs, Sessions, Studios, Logbook or System
 ⌘,       open Settings
 ⌘O       open a file in the side panel
 Esc      close an overlay, or return to the list from a detail route
