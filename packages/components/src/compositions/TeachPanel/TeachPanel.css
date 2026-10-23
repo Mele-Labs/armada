@@ -144,3 +144,31 @@
 @media (prefers-reduced-motion: reduce) {
   .armada-teach-panel__reading > svg { animation: none; }
 }
+
+/* A colour a tweak changes, with the square it is. */
+.armada-teach-panel__colour {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.armada-teach-panel__chip-colour {
+  flex: none;
+  width: var(--space-3);
+  height: var(--space-3);
+  border-radius: var(--radius-sm);
+  border: var(--border-width) solid var(--border-default);
+}
+
+/* Every other place the colour is drawn. */
+.armada-teach-panel__places {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--fg-default);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+}

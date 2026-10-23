@@ -1,10 +1,11 @@
 // What Teach opens: the pull request panel's side sheet, over the Session it was pressed in, so the thread stays in view
 // behind it. What Teach was pressed on and the owner's instruction are read by Fleet, shown back as a section for each of Agents,
 // Bridge and Fleet that the teaching changes, and kept only on Save. **While the understanding is shown, a link rule is already
-// drawn in the thread** as a preview, and it goes if the panel closes or Change is pressed.
+// drawn in the thread, and a theme tweak is already on the screen**, as a preview, and each goes if the panel closes or Change is pressed.
+// Pressed on Bridge's own screen, the panel has no repository to reach and no note for agents.
 
 import { useEffect, useRef, useState } from "react";
-import { Sheet, TeachPanel, forgetKept } from "@armada/components";
+import { Sheet, TeachPanel, forgetKept, isBridgeSource } from "@armada/components";
 import type { TeachReach, TeachReading } from "@armada/components";
 import { useAtFloor } from "@armada/shell";
 
@@ -17,7 +18,7 @@ type Stage = "writing" | "reading" | "shown";
 
 /** What Fleet understood, as the panel words it. */
 function readingOf(answer: TeachAnswer, repository: string): TeachReading {
-  const { agents, bridge, fleet } = answer;
+  const { agents, bridge, fleet, tweak, layout } = answer;
   return {
     ...(agents === undefined ? {} : { agents }),
     ...(bridge === undefined
@@ -31,6 +32,8 @@ function readingOf(answer: TeachAnswer, repository: string): TeachReading {
           },
         }),
     ...(fleet === undefined ? {} : { fleet: { notice: fleet.name, does: fleet.says, scope: fleet.scope === "job" ? "This Job" : fleet.scope === "all" ? "Every repository" : repository } }),
+    ...(tweak === undefined ? {} : { tweak: { colour: tweak.colour, token: tweak.token, was: tweak.was, now: tweak.now, places: tweak.places } }),
+    ...(layout === undefined ? {} : { layout: { hides: layout.hides, where: layout.where } }),
   };
 }
 
@@ -38,7 +41,8 @@ export function TeachSide({ item }: { item: Extract<PanelItem, { kind: "teach" }
   const floor = useAtFloor();
   const keep = `teach:${item.sessionId}`;
   const [say, setSay] = useState("");
-  const [reach, setReach] = useState<TeachReach>("repository");
+  const onBridge = isBridgeSource(item.source);
+  const [reach, setReach] = useState<TeachReach>(onBridge ? "all" : "repository");
   const [stage, setStage] = useState<Stage>("writing");
   const [answer, setAnswer] = useState<TeachAnswer | undefined>(undefined);
   const teaching: Teaching = {
@@ -57,7 +61,7 @@ export function TeachSide({ item }: { item: Extract<PanelItem, { kind: "teach" }
 
   useEffect(() => {
     previewLesson(
-      stage === "shown" && answer?.bridge !== undefined ? { id: "preview", reach, teaching, say, answer, at: "" } satisfies Lesson : undefined,
+      stage === "shown" && (answer?.bridge !== undefined || answer?.tweak !== undefined) ? { id: "preview", reach, teaching, say, answer, at: "" } satisfies Lesson : undefined,
     );
     return () => previewLesson(undefined);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `teaching` is rebuilt from `item` on every render.
@@ -81,7 +85,7 @@ export function TeachSide({ item }: { item: Extract<PanelItem, { kind: "teach" }
   };
 
   return (
-    <Sheet kind="side-panel" open floating through floor={floor} title="Teach" subtitle={<span className="armada-pr-panel__repository mono">{item.repository}</span>} size="panel" closeLabel="Close" closeBinding="Esc" onClose={closePanel}>
+    <Sheet kind="side-panel" open floating through floor={floor} title="Teach" {...(onBridge ? {} : { subtitle: <span className="armada-pr-panel__repository mono">{item.repository}</span> })} size="panel" closeLabel="Close" closeBinding="Esc" onClose={closePanel}>
       <TeachPanel
         source={{ kind: item.source, text: item.text }}
         say={say}

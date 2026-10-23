@@ -10,7 +10,7 @@ import type { BridgeApi } from "../../../../shared/api";
 import { onBoard, unanswered } from "../moment";
 import type { Scenario } from "../moment";
 import { FakeSessionsFleet } from "../sessions-fleet";
-import { ARMADA_JOB, BEHIND_AT, LATER_NOTICES, SITE_ASK, ledgerRecord, teachSessions, teachThreads } from "../sessions/teach";
+import { ARMADA_JOB, BEHIND_AT, LATER_NOTICES, SITE_ASK, ledgerRecord, paymentsRecord, teachSessions, teachThreads } from "../sessions/teach";
 import { bindTeachFleet, entryOf, siteAnswered } from "../teach";
 import { forgetLesson, lessonsNow, taughtId } from "../../teach";
 
@@ -47,16 +47,41 @@ const BASE = (): LogbookEntry[] => [
   entry("lb-fmt", { section: "habits", kind: "habit", text: "Never run rustfmt or cargo fmt." }),
 ];
 
-function build(): Scenario {
+/** The second repository's Job asking the person, as `teach-mods` starts: a row that needs him, for Teach to be pressed on. */
+export const ROUNDING_ASK = "Round half up, or to even?";
+
+const sessionsOf = (asking: boolean) => () =>
+  asking
+    ? teachSessions().map((one) =>
+        one.id === paymentsRecord().id
+          ? {
+              ...one,
+              waiting_for: [
+                {
+                  id: "rounding",
+                  text: ROUNDING_ASK,
+                  since: new Date().toISOString(),
+                  source: "agent" as const,
+                  act: { kind: "answer" as const, target: "" },
+                  options: [{ label: "Half up" }, { label: "To even" }],
+                },
+              ],
+            }
+          : one,
+      )
+    : teachSessions();
+
+export function build(asking = false): Scenario {
+  const sessions = sessionsOf(asking);
   const board = onBoard({ repositories: [ARMADA, PAYMENTS, LEDGER] });
-  const served = new FakeSessionsFleet(teachSessions(), teachThreads()).scenario(board);
+  const served = new FakeSessionsFleet(sessions(), teachThreads()).scenario(board);
   return {
     ...served,
     name: "teach-anything",
     says: "Anything in a Job taught to Armada: words, a command, a notice, a task and a Check, and what each changes",
     // A Fleet of its own for each window, so a walk told twice starts from the same Jobs.
     behaves: (handle) => {
-      const fleet = new FakeSessionsFleet(teachSessions(), teachThreads());
+      const fleet = new FakeSessionsFleet(sessions(), teachThreads());
       fleet.keepsRows = true;
       const own = fleet.scenario(board).behaves!(handle);
       bindTeachFleet({

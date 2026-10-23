@@ -2,15 +2,16 @@ import { Button } from "../../primitives/Button/Button";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 
 /**
- * What else a taught entry changed, drawn under its text on the Logbook page: one line for each of Bridge and Fleet that
- * the teaching reached, and the rules mod that keeps it. **Forget on the entry takes all of it back**, including the mod,
+ * What else a taught entry changed, drawn under its text on the Logbook page: one line for each mod the teaching made, led by
+ * the mod's kind, Words or Fleet, and the mod's name, which opens it in Mods. **Forget on the entry takes all of it back**, including the mod,
  * which is why it is listed here and nowhere else.
  */
 export type AlsoChangesProps = {
   lines: readonly {
-    part: "Bridge" | "Fleet";
+    /** The kind of the mod that keeps this change. */
+    part: "Words" | "Fleet";
     text: string;
-    /** The rules mod that keeps this change, named, and a press that opens it in Mods. */
+    /** The mod that keeps this change, named, and a press that opens it in Mods. */
     mod?: { name: string; onOpen: () => void };
   }[];
 };

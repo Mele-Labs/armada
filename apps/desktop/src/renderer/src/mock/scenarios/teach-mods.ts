@@ -1,12 +1,12 @@
-// The Rules page over what `teach-anything` leaves: a Jira key and a batched Slot behind main notice taught in the first Job, and
-// the three repositories' Jira sites known. Each teaching is a rules mod, switched on or off in Mods. Mock only. The walk
-// `teach-mods` plays it; `mount.tsx` seeds the teachings.
+// The Mods page over what `teach-anything` leaves: a Jira key and a batched Slot behind main notice taught in the first Job, the three
+// repositories' Jira sites known, and the second repository's Job asking the person something, so a row needs him. Teaching on Bridge
+// itself is played from there: a row made louder, a panel hidden. Mock only. The walk `teach-mods` plays it; `mount.tsx` seeds the teachings.
 
 import type { Scenario } from "../moment";
-import { teachAnything } from "./teach-anything";
+import { build } from "./teach-anything";
 
 export const teachMods: Scenario = {
-  ...teachAnything,
+  ...build(true),
   name: "teach-mods",
-  says: "What was taught is kept as rules mods: opened from the Logbook, read in Mods, switched off and on",
+  says: "Mods split by what they change: words, Fleet, theme tweaks, layout, and teaching Bridge itself",
 };

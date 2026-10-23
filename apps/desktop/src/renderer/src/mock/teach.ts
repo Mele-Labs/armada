@@ -1,13 +1,17 @@
-// Mock-only: Fleet's reads of what the owner taught, answered from a few canned inputs. A Jira key becomes a pattern for Bridge and a
-// note for agents; a notice taught to batch becomes a rule for Fleet and a note; any other words are read as a note alone. Fleet
+// Mock-only: Fleet's reads of what the owner taught, answered from a few canned inputs. A Jira key becomes a Words mod and a note for
+// agents; a notice taught to batch becomes a Fleet mod and a note; a row taught to be louder becomes a theme tweak and a panel taught
+// to go becomes a layout change, neither with a note; any other words are read as a note alone. Fleet
 // also finds each repository's Jira site: from its settings, else from its recent pull requests, else it asks once. And the
 // Logbook entries a lesson becomes, which the scenario's Logbook serves beside its own.
 
 import type { LogbookEntry } from "@armada/protocol";
 import { TEACH_SOURCE } from "@armada/components";
 
+import { parseLayout } from "@armada/shell";
+
 import { lessonsNow, saveLesson, taughtId } from "../teach";
-import type { Lesson, Site, TeachAnswer, TeachSource } from "../teach";
+import type { LayoutChange, Lesson, Site, TeachAnswer, TeachSource, Tweak } from "../teach";
+import { mockLayout } from "./layout";
 import { ARMADA_JOB, ARMADA_TITLE, BEHIND, BEHIND_AT } from "./sessions/teach";
 
 const READ_MS = 1200;
@@ -48,6 +52,19 @@ export function siteAnswered(manifestId: string, host: string): void {
   heard.forEach((listen) => listen(manifestId, { address: `https://${host}`, from: { kind: "you" } }));
 }
 
+/** The amber of a call that waits on the person, made louder. It is a shared token, so the panel lists every other place it is drawn. */
+const LOUDER: Tweak = {
+  mod: "needs-you-louder",
+  colour: "Needs you amber",
+  token: "--status-awaiting-review",
+  was: "#E5A93D",
+  now: "#FFC233",
+  places: ["Calls and call cards", "Workflow steps waiting on you", "Stranded bays", "Title bar alerts", "Timeline marks", "Doctor warnings"],
+};
+
+/** A panel of the Cockpit taught away: the layout `hide-<panel>` names it and the registry's id is the panel's name, lowercased. */
+const hiding = (panel: string): LayoutChange => ({ mod: `hide-${panel.toLowerCase()}`, region: "dashboard.panels", hidden: [panel.toLowerCase()], hides: panel, where: "Cockpit panels" });
+
 const sentence = (words: string): string => {
   const said = words.trim().replace(/\s+/g, " ");
   const first = said.charAt(0).toUpperCase() + said.slice(1);
@@ -62,19 +79,19 @@ export function understood({ teaching, say, reach }: { teaching: Parameters<Teac
     const example = JIRA_KEY.exec(teaching.text)?.[0] ?? "STORE-1234";
     const site = SITES[teaching.manifestId ?? ""];
     return {
-      mod: "jira-keys",
       agents: `Tickets are Jira keys such as ${example}. Cite one as a link to the repository's Jira site.`,
-      bridge: { name: "Jira key", pattern: JIRA_KEY_PATTERN, example, ...(site === undefined ? {} : { site }) },
+      bridge: { mod: "jira-keys", name: "Jira key", pattern: JIRA_KEY_PATTERN, example, ...(site === undefined ? {} : { site }) },
     };
   }
   if (teaching.kind === "notice" && /batch|group|digest/.test(said)) {
     const scope = said.includes("this job") ? "job" : reach === "all" ? "all" : "repository";
     return {
-      mod: "slot-behind-batched",
       agents: "Slot behind main notices arrive batched. One that blocks a merge is called out on its own.",
-      fleet: { name: "Slot behind main", match: "\\d+ commits behind main", does: "batch", says: "Batch, and tell only when it blocks a merge", scope },
+      fleet: { mod: "slot-behind-batched", name: "Slot behind main", match: "\\d+ commits behind main", does: "batch", says: "Batch, and tell only when it blocks a merge", scope },
     };
   }
+  if (teaching.kind === "row" && /louder|bolder|brighter|stand out/.test(said)) return { tweak: LOUDER };
+  if (teaching.kind === "panel" && /hide|remove|never look/.test(said)) return { layout: hiding(teaching.text) };
   if (teaching.kind === "command" && said.includes("pnpm")) return { agents: "This repository uses pnpm. Run `pnpm install`, never `npm install`." };
   if (teaching.kind === "check" && said.includes("flaky")) return { agents: `\`${first}\` is flaky. Rerun it once before digging into a failure.` };
   if (teaching.kind === "task" && said.includes("walk")) return { agents: "Walk a visual change before building it." };
@@ -97,7 +114,12 @@ export function createMockTeaching(): TeachSource {
       heard.add(listen);
       return () => void heard.delete(listen);
     },
-    saved: (lesson) => fleet?.kept(lesson),
+    saved: (lesson) => {
+      // Fleet writes the layout mod into the mod folder, and Bridge hears of it as it would of any other.
+      const { layout } = lesson.answer;
+      if (layout !== undefined) mockLayout.install({ name: layout.mod, title: layout.mod, enabled: true, file: parseLayout(JSON.stringify({ version: 1, [layout.region]: { hidden: layout.hidden } })).file });
+      fleet?.kept(lesson);
+    },
   };
 }
 

@@ -1,4 +1,4 @@
-/* The rules under a rules mod's row: a head for each part, then a line for each fact in three columns. */
+/* What a taught mod holds, under its row: a head for each part, then a line for each fact in three columns. */
 .armada-mod-rules {
   display: flex;
   flex-direction: column;

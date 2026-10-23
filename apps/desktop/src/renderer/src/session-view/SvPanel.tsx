@@ -4,7 +4,11 @@
 
 import { useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
 
+import { useTeachMenu } from "@armada/components";
+import { useLayout } from "@armada/shell";
+
 import { useCollapse } from "../cockpit/deck/collapse";
+import { useTeachBridge } from "../teach";
 
 export type PanelState = "asks" | "live" | "done";
 export type Place = "left" | "side" | "foot" | "calls";
@@ -18,6 +22,11 @@ export function SvPanel({ label, state, acts, rail, place, area, empty = false, 
   const { collapsed: kept, band: own } = useCollapse(area);
   const [peek, setPeek] = useState(false);
   const collapsed = empty ? !peek : kept;
+  // A panel the layout lists can be hidden, and one it does not list is always drawn. Teach is offered on the frame, wherever the window offers it.
+  const placed = useLayout("dashboard.panels").all.find((one) => one.id === area);
+  const teachBridge = useTeachBridge();
+  const teach = useTeachMenu(`Panel ${label}`, teachBridge === undefined ? undefined : () => teachBridge("panel", label));
+  if (placed !== undefined && !placed.visible) return null;
   const toggle = () => setPeek((was) => !was);
   const band = empty
     ? {
@@ -36,7 +45,8 @@ export function SvPanel({ label, state, acts, rail, place, area, empty = false, 
       }
     : own;
   return (
-    <section className="sv-panel" data-area={area} data-place={place} data-state={state} data-collapsed={collapsed || undefined} data-empty={empty || undefined} data-band-only={children === undefined || undefined} aria-label={label}>
+    <section className="sv-panel" data-area={area} data-place={place} data-state={state} data-collapsed={collapsed || undefined} data-empty={empty || undefined} data-band-only={children === undefined || undefined} aria-label={label} {...teach.on}>
+      {teach.menu}
       <header className="sv-panel__band" {...band}>
         <h3 className="sv-panel__label">{label}</h3>
         {rail}

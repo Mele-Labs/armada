@@ -11,7 +11,10 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 export type TeachReach = "repository" | "all";
 
 /** What Teach was pressed on. */
-export type TeachSourceKind = "words" | "command" | "notice" | "task" | "check" | "pull_request";
+export type TeachSourceKind = "words" | "command" | "notice" | "task" | "check" | "pull_request" | "panel" | "row" | "title_bar";
+
+/** What Teach is pressed on in Bridge itself, rather than in a Job: nothing to tell agents, and no repository to reach. */
+export const isBridgeSource = (kind: TeachSourceKind): boolean => kind === "panel" || kind === "row" || kind === "title_bar";
 
 /** The name of each, as the panel's first section captions it. */
 export const TEACH_SOURCE: Record<TeachSourceKind, string> = {
@@ -21,12 +24,16 @@ export const TEACH_SOURCE: Record<TeachSourceKind, string> = {
   task: "Task",
   check: "Check",
   pull_request: "Pull request",
+  panel: "Panel",
+  row: "Row",
+  title_bar: "Title bar",
 };
 
 /**
  * What Fleet understood of the person's words. **Any of the three, and only those that apply**: `agents` is the note
  * agents are handed, `bridge` is how Bridge draws words that match a pattern, `fleet` is what Fleet does with a notice.
- * Every string is drawn as it is given.
+ * Every string is drawn as it is given. Teach on Bridge itself reads as `tweak`, a change to a shared colour, or `layout`, a panel
+ * hidden, and neither has a note for agents.
  */
 export type TeachReading = {
   agents?: string;
@@ -41,6 +48,18 @@ export type TeachReading = {
     found?: string;
   };
   fleet?: { notice: string; does: string; scope: string };
+  /** A theme tweak: one shared colour changed, laid over whichever theme is chosen. */
+  tweak?: {
+    /** The colour as the person would name it. */
+    colour: string;
+    token: string;
+    was: string;
+    now: string;
+    /** Every other place the colour is drawn, which the preview already shows. */
+    places: readonly string[];
+  };
+  /** A layout change: what is hidden, and where. */
+  layout?: { hides: string; where: string };
 };
 
 export type TeachPanelProps = {
@@ -85,12 +104,14 @@ export function TeachPanel({ source, say, onSay, keep, repository, reach, onReac
     else if (stage === "shown") onSave();
   };
   const everywhere = reach === "all";
-  const caption = TEACH_SOURCE[source.kind];
+  const caption = source.kind === "panel" ? `Panel ${source.text}` : TEACH_SOURCE[source.kind];
+  const bare = source.kind === "panel" || source.kind === "title_bar";
+  const onBridge = isBridgeSource(source.kind);
   return (
     <div className="armada-teach-panel" ref={body} onKeyDown={forward}>
       <section className="armada-teach-panel__section" aria-label={caption}>
         <h4 className="armada-teach-panel__caption">{caption}</h4>
-        <p className={`armada-teach-panel__words${source.kind === "words" || source.kind === "notice" || source.kind === "task" ? "" : " mono"}`}>{source.text}</p>
+        {bare ? null : <p className={`armada-teach-panel__words${source.kind === "words" || source.kind === "notice" || source.kind === "task" || source.kind === "row" ? "" : " mono"}`}>{source.text}</p>}
       </section>
 
       {stage === "writing" ? (
@@ -102,13 +123,15 @@ export function TeachPanel({ source, say, onSay, keep, repository, reach, onReac
         </section>
       )}
 
-      <div className="armada-teach-panel__reach">
-        <Tooltip label="Where it applies">
-          <button type="button" className="armada-teach-panel__chip" aria-pressed={everywhere} disabled={stage !== "writing"} onClick={() => onReach(everywhere ? "repository" : "all")}>
-            <span className={everywhere ? undefined : "mono"}>{everywhere ? "Every repository" : repository}</span>
-          </button>
-        </Tooltip>
-      </div>
+      {onBridge ? null : (
+        <div className="armada-teach-panel__reach">
+          <Tooltip label="Where it applies">
+            <button type="button" className="armada-teach-panel__chip" aria-pressed={everywhere} disabled={stage !== "writing"} onClick={() => onReach(everywhere ? "repository" : "all")}>
+              <span className={everywhere ? undefined : "mono"}>{everywhere ? "Every repository" : repository}</span>
+            </button>
+          </Tooltip>
+        </div>
+      )}
 
       {stage === "writing" ? (
         <div className="armada-teach-panel__acts">
@@ -161,6 +184,44 @@ export function TeachPanel({ source, say, onSay, keep, repository, reach, onReac
                 <dd>{reading.fleet.does}</dd>
                 <dt>Applies to</dt>
                 <dd>{reading.fleet.scope}</dd>
+              </dl>
+            </section>
+          )}
+          {reading?.tweak === undefined ? null : (
+            <section className="armada-teach-panel__section" aria-label="Theme tweak">
+              <h4 className="armada-teach-panel__caption">Theme tweak</h4>
+              <dl className="armada-teach-panel__facts">
+                <dt>Colour</dt>
+                <dd>{reading.tweak.colour}</dd>
+                <dt>Token</dt>
+                <dd className="mono">{reading.tweak.token}</dd>
+                <dt>Was</dt>
+                <dd className="armada-teach-panel__colour">
+                  <span className="armada-teach-panel__chip-colour" style={{ background: reading.tweak.was }} aria-hidden />
+                  <span className="mono">{reading.tweak.was}</span>
+                </dd>
+                <dt>Now</dt>
+                <dd className="armada-teach-panel__colour">
+                  <span className="armada-teach-panel__chip-colour" style={{ background: reading.tweak.now }} aria-hidden />
+                  <span className="mono">{reading.tweak.now}</span>
+                </dd>
+              </dl>
+              <h4 className="armada-teach-panel__caption">Also drawn in</h4>
+              <ul className="armada-teach-panel__places" aria-label="Also drawn in">
+                {reading.tweak.places.map((place) => (
+                  <li key={place}>{place}</li>
+                ))}
+              </ul>
+            </section>
+          )}
+          {reading?.layout === undefined ? null : (
+            <section className="armada-teach-panel__section" aria-label="Layout">
+              <h4 className="armada-teach-panel__caption">Layout</h4>
+              <dl className="armada-teach-panel__facts">
+                <dt>Hides</dt>
+                <dd>{reading.layout.hides}</dd>
+                <dt>In</dt>
+                <dd>{reading.layout.where}</dd>
               </dl>
             </section>
           )}

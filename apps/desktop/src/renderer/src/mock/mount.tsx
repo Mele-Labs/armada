@@ -33,7 +33,7 @@ import type { FakeOptions } from "./fake";
 import { scenarioNamed } from "./scenario";
 import { mockLayout, NO_LAYOUT_MODS } from "./layout";
 import { mockNumbered } from "./numbered";
-import { PhoneSourceProvider, RulesSourceProvider } from "@armada/settings";
+import { PhoneSourceProvider, TaughtSourceProvider } from "@armada/settings";
 import { mockPhone, type PhoneMoment } from "./phone";
 import { WalkJobPanel } from "./WalkJobPanel";
 import { SleepSourceProvider } from "../sleep";
@@ -47,6 +47,7 @@ import { installSystemMods } from "./system-mods";
 import { provideKitModels } from "../kit-models";
 import { createMockKitModels } from "./kit-models";
 import { provideTeaching, taughtRules } from "../teach";
+import { TweaksApplied } from "../tweaks";
 import { createMockTeaching, seedTaught } from "./teach";
 import { repository } from "@armada/screens/src/fixtures/repository";
 import { AccountFrom } from "./account";
@@ -166,7 +167,7 @@ export function mountApp(
         {/* As `main.tsx` mounts it, so a test can read what a press asked the trackpad to play. */}
         <HapticsProvider perform={(pattern) => api.tap(pattern)}>
           <Themed source={mockThemes}>
-            <RulesSourceProvider value={taughtRules}>
+            <TaughtSourceProvider value={taughtRules}>
             <LayoutSourceProvider value={skipsMods() ? NO_LAYOUT_MODS : mockLayout}>
               <MockFleetBuild scenario={chosen.name}>
                 <PhoneSourceProvider value={mockPhone}>
@@ -186,11 +187,13 @@ export function mountApp(
                                               <SharedPanelOver api={withState(api)} testsReaching={chosen.draft?.testsReaching}>
                                                 <App />
                                                 <WalkJobPanel />
+                                                <TweaksApplied />
                                               </SharedPanelOver>
                                             ) : (
                                               <SharedPanelFrom reads={panelReads}>
                                                 <App />
                                                 <WalkJobPanel />
+                                                <TweaksApplied />
                                                 <SharedPanelHost />
                                               </SharedPanelFrom>
                                             )}
@@ -209,7 +212,7 @@ export function mountApp(
                 </PhoneSourceProvider>
               </MockFleetBuild>
             </LayoutSourceProvider>
-            </RulesSourceProvider>
+            </TaughtSourceProvider>
           </Themed>
           <OnScreen say={say} />
         </HapticsProvider>

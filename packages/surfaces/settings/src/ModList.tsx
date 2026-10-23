@@ -1,35 +1,44 @@
-// The mods of one kind on this machine: one row each, with whether it is on, what is wrong with it if
-// anything, and Promote. Drawn under Theme and Layout, which they change, and in Rules, which they are.
-// A rules mod opens to the rules it holds.
+// The mods of one kind on this machine: one row each, with whether it is on, what is wrong with it if anything, and Promote.
+// Themes and layouts come from their own sources. Tweaks, Words and Fleet are what a teaching made, from the taught source, and a
+// mod that was taught opens to what it holds and what it was taught on.
 
 import { Card, CardContent, CardHeader, CardTitle, ModRow, ModRules } from "@armada/components";
+import type { ModKind } from "@armada/components";
 import { useLayouts } from "@armada/shell";
 
-import { useRules } from "./rules-source";
+import { taughtOf, useTaught } from "./taught-source";
+import type { TaughtKind } from "./taught-source";
 import { useThemes } from "./theme-source";
 
-export function ModList({ kind, title }: { kind: "theme" | "layout" | "rules"; title?: string }) {
+export type ModListKind = "theme" | "layout" | TaughtKind;
+
+const ROW_KIND: Record<TaughtKind, ModKind> = { words: "words", fleet: "fleet", tweak: "tweak" };
+
+export function ModList({ kind, title }: { kind: ModListKind; title?: string }) {
   const themes = useThemes();
   const layouts = useLayouts();
-  const rules = useRules();
-  if (kind === "rules") {
-    const { source, opened } = rules;
-    if (rules.mods.length === 0) return null;
+  const taught = useTaught();
+  const { source, details, opened } = taught;
+  const header =
+    title === undefined ? null : (
+      <CardHeader>
+        <CardTitle>{title}</CardTitle>
+      </CardHeader>
+    );
+  if (kind === "words" || kind === "fleet" || kind === "tweak") {
+    const mods = taughtOf(taught, kind);
+    if (mods.length === 0) return null;
     return (
       <Card>
-        {title === undefined ? null : (
-          <CardHeader>
-            <CardTitle>{title}</CardTitle>
-          </CardHeader>
-        )}
+        {header}
         <CardContent>
-          {[...rules.mods]
+          {[...mods]
             .sort((a, b) => a.name.localeCompare(b.name))
             .map((mod) => (
               <ModRow
                 key={mod.name}
                 title={mod.name}
-                kind="rules"
+                kind={ROW_KIND[mod.kind]}
                 enabled={mod.enabled}
                 onEnabled={(on) => source.setEnabled(mod.name, on)}
                 detail={mod.branch === undefined ? mod.description : `${mod.description} (${mod.branch})`}
@@ -39,7 +48,7 @@ export function ModList({ kind, title }: { kind: "theme" | "layout" | "rules"; t
                 onOpened={(open) => source.open(open ? mod.name : undefined)}
                 autoFocus={opened === mod.name}
               >
-                <ModRules name={mod.name} parts={mod.rules} />
+                <ModRules name={mod.name} parts={mod.parts} />
               </ModRow>
             ))}
         </CardContent>
@@ -55,18 +64,28 @@ export function ModList({ kind, title }: { kind: "theme" | "layout" | "rules"; t
   return (
     <Card>
       <CardContent>
-        {sorted.map((mod) => (
-          <ModRow
-            key={mod.name}
-            title={mod.title}
-            kind={kind}
-            enabled={mod.enabled}
-            onEnabled={(on) => enable(mod.name, on)}
-            {...(mod.problem ?? mod.branch ? { detail: mod.problem ?? mod.branch } : {})}
-            promoteDisabled={mod.problem !== undefined || mod.branch !== undefined}
-            onPromote={() => promote(mod.name)}
-          />
-        ))}
+        {sorted.map((mod) => {
+          // A layout a teaching made opens to what it hides and what it was taught on.
+          const own = kind === "layout" ? details[mod.name] : undefined;
+          const line = mod.problem ?? mod.branch ?? (own === undefined ? undefined : `Taught on ${own.on}`);
+          return (
+            <ModRow
+              key={mod.name}
+              title={mod.title}
+              kind={kind}
+              enabled={mod.enabled}
+              onEnabled={(on) => enable(mod.name, on)}
+              {...(line === undefined ? {} : { detail: line })}
+              promoteDisabled={mod.problem !== undefined || mod.branch !== undefined}
+              onPromote={() => promote(mod.name)}
+              {...(own === undefined
+                ? {}
+                : { opened: opened === mod.name, onOpened: (open: boolean) => source.open(open ? mod.name : undefined), autoFocus: opened === mod.name })}
+            >
+              {own === undefined ? undefined : <ModRules name={mod.title} parts={own.parts} />}
+            </ModRow>
+          );
+        })}
       </CardContent>
     </Card>
   );

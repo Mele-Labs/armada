@@ -21,11 +21,13 @@ export function useTeachMenu(heading: string, onTeach: (() => void) | undefined)
   if (onTeach === undefined) return { on: {}, menu: null };
   const on: TeachMenu["on"] = {
     onContextMenu: (event) => {
+      // A row inside this one has opened its own menu; the outer one stays shut.
+      if (event.defaultPrevented) return;
       event.preventDefault();
       setAt({ x: event.clientX, y: event.clientY, from: event.currentTarget });
     },
     onKeyDown: (event) => {
-      if (event.key !== "ContextMenu" && !(event.key === "F10" && event.shiftKey)) return;
+      if (event.defaultPrevented || (event.key !== "ContextMenu" && !(event.key === "F10" && event.shiftKey))) return;
       event.preventDefault();
       const box = event.currentTarget.getBoundingClientRect();
       setAt({ x: box.left + box.width / 2, y: box.bottom, from: event.currentTarget });

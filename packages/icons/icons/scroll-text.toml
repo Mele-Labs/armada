@@ -22,10 +22,3 @@
     size = "16px"
     status = "Proposed"
     notes = "Proposed 19 Oct 2026 for the Pull request panel's Reviewers card. A sheet written on is a comment, and no verdict is claimed. Draws muted, tooltip `Commented`. The Conversation tab draws the same glyph for a commenting review."
-
-  [[icons.scroll-text.usage]]
-    means = "A mod of kind rules, which keeps what a teaching changed in Bridge and Fleet"
-    group = "Mods"
-    size = "16px"
-    status = "Proposed"
-    notes = "Proposed 23 Oct 2026 for the walk `teach-mods`, tooltip `Rules`. A sheet written down in order is a rule set kept, and it leads the Mods row as the palette leads a theme and the panels a layout. Borrowed and not minted: the owner may rule otherwise."
