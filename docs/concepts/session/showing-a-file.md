@@ -14,7 +14,7 @@ The two caps are written twice and nothing ties them together.
 
 **It is kept as an artifact of form `file`**, `target` the canonical path, with `detail` of `by` `agent`, `title` (the file's name) and `shown`, an RFC 3339 time with milliseconds taken at the call.
 `shown` is what makes each call a show Bridge can tell apart: the ledger writes a row only when its detail changed, so a second call for the same path would otherwise publish nothing.
-The row is upserted on kind and target and its detail replaced whole.
+The row is upserted on kind and target and its detail replaced whole; each replacement is also a version of it, which `get_attachment_history` reads back ([What is kept](what-is-kept.md), *Every version*).
 A file the job wrote is the same row with `by` and `shown` added, and `written` `true` so the row still says the job wrote it.
 A picture it looked at becomes form `file`, and writing the file again puts `form` and `title` back and drops the rest.
 The ledger names a row with `by` and no `written` "File shown", and any other file row "File written".

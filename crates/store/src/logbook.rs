@@ -203,6 +203,20 @@ impl Store {
         Ok(entries)
     }
 
+    /// One entry by its id, with its evidence and history. `None` where there is none, as after it
+    /// was forgotten.
+    pub fn logbook_entry(&self, id: i64) -> Result<Option<LogEntry>, WriteError> {
+        let found = self
+            .conn
+            .query_row(&format!("SELECT {COLUMNS} FROM logbook_entries WHERE id = ?1"), [id], entry_of)
+            .optional()
+            .map_err(database("reading a Logbook entry"))?;
+        let Some(mut entry) = found else { return Ok(None) };
+        entry.evidence = self.logbook_evidence(id)?;
+        entry.history = self.logbook_history(id)?;
+        Ok(Some(entry))
+    }
+
     fn logbook_evidence(&self, id: i64) -> Result<Vec<LogEvidence>, WriteError> {
         const DOING: &str = "reading an entry's evidence";
         let mut asked = self
