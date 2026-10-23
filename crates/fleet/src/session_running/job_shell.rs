@@ -10,7 +10,7 @@ use std::time::Duration;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Refusal, SessionRunEvent};
-use ipc::{TerminalScreen, TerminalTyped, TypeInTerminal};
+use ipc::{JobTerminal, TerminalScreen, TerminalTyped, TypeInTerminal};
 use tokio::sync::broadcast::error::RecvError;
 use tokio::time::Instant;
 
@@ -169,11 +169,19 @@ where
         let launch = Launch { session: session_id, command: None, dir: &dir, size: size(cols, rows) };
         let fleet = Arc::clone(&self);
         let session = session_id.to_string();
-        self.session_runs()
+        let (run_id, opened) = self
+            .session_runs()
             .open_shell(launch, move |run_id| {
                 move |_: Ended| async move { fleet.job_shell_ended(&session, &run_id) }
             })
-            .map_err(|why| refusal(format!("the shell could not start in {dir}: {why}"), self.run_id()))
+            .map_err(|why| refusal(format!("the shell could not start in {dir}: {why}"), self.run_id()))?;
+        if opened {
+            self.publish(ipc::Event::TerminalOpened(JobTerminal {
+                session_id: ipc::SessionId::carried(session_id),
+                run_id: run_id.clone(),
+            }));
+        }
+        Ok((run_id, opened))
     }
 
     /// The Job a call is about: the hosted one holding the connection, else the one named.
@@ -231,5 +239,9 @@ where
 
     fn job_shell_ended(&self, session: &str, run_id: &str) {
         self.session_runs().shell_ended(session, run_id);
+        self.publish(ipc::Event::TerminalExited(JobTerminal {
+            session_id: ipc::SessionId::carried(session),
+            run_id: run_id.to_string(),
+        }));
     }
 }

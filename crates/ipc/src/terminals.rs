@@ -56,3 +56,11 @@ pub struct TerminalScreen {
     /// The screen's lines, escapes and overwrites resolved.
     pub screen: String,
 }
+
+/// `terminal.opened` and `terminal.exited` on `/events`: a Job's shell opened or ended, so a pane
+/// can follow it. What it prints is `observe_session_run`'s, on `run_id`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct JobTerminal {
+    pub session_id: SessionId,
+    pub run_id: String,
+}

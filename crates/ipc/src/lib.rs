@@ -528,7 +528,7 @@ pub use sessions::{
     WaitingActKind, WaitingInput, WaitingItem, WaitingMode, WaitingOption, WaitingSource,
     WalkTold, WindowClosed, WindowFailed, WithdrawWindow,
 };
-pub use terminals::{OpenTerminal, TerminalScreen, TerminalTyped, TypeInTerminal};
+pub use terminals::{JobTerminal, OpenTerminal, TerminalScreen, TerminalTyped, TypeInTerminal};
 pub use autopilot::{
     Autopilot, AutopilotCap, AutopilotList, AutopilotPick, AutopilotPickState,
     AutopilotProposal, AutopilotQuoted, AutopilotSettings, AutopilotState, ProposeAutopilot,

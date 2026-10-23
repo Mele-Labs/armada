@@ -127,6 +127,39 @@ async fn the_agent_reads_what_the_person_typed_and_a_job_with_no_shell_is_refuse
     assert_eq!(one.lines().count(), 1, "{one:?}");
 }
 
+/// The next `terminal.*` event, by its kind.
+async fn next_terminal(watching: &mut api::Subscription) -> ipc::Event {
+    loop {
+        match tokio::time::timeout(std::time::Duration::from_secs(20), watching.next()).await.expect("an event") {
+            Some(api::Next::Send(delivered)) if delivered.event.kind().starts_with("terminal.") => {
+                return delivered.event;
+            }
+            Some(_) => {}
+            None => panic!("the stream ended"),
+        }
+    }
+}
+
+#[tokio::test]
+async fn bridge_is_told_when_the_agents_first_command_opens_the_shell_and_when_it_ends() {
+    let rig = rig().await;
+    let mut watching = rig.fleet.events().subscribe();
+    let typed = Arc::clone(&rig.fleet)
+        .type_in_terminal(None, typing(&rig, "echo hi", true, Some(2)))
+        .await
+        .expect("typed");
+    Arc::clone(&rig.fleet).open_job_shell(rig.session.as_str(), None, None).await.unwrap();
+    ends(&rig, &typed.run_id).await;
+
+    let told = ipc::JobTerminal { session_id: rig.session.clone(), run_id: typed.run_id.clone() };
+    assert_eq!(next_terminal(&mut watching).await, ipc::Event::TerminalOpened(told.clone()));
+    assert_eq!(
+        next_terminal(&mut watching).await,
+        ipc::Event::TerminalExited(told),
+        "an open handed the shell already open publishes nothing"
+    );
+}
+
 /// Until `check` holds, for as long as an interactive login shell may take to start under the
 /// person's own rc files, which is longer than [`eventually`] waits.
 async fn shortly<F: std::future::Future<Output = bool>>(mut check: impl FnMut() -> F) -> bool {
