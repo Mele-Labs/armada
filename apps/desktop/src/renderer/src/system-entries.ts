@@ -47,6 +47,7 @@ export const SYSTEM_ENTRIES: readonly SystemEntryDef[] = [
   { id: "fleet:account", label: "Account", group: "fleet", sections: ["account"] },
   { id: "fleet:store", label: "Store", group: "fleet", sections: ["store"] },
   { id: "fleet:features", label: "Features", group: "fleet", sections: ["features"] },
+  { id: "bridge:all", label: "All", group: "mods", sections: ["mods-all"] },
   { id: "bridge:theme", label: "Theme", group: "mods", sections: ["theme"] },
   { id: "bridge:layout", label: "Layout", group: "mods", sections: ["layout"] },
   { id: "bridge:words", label: "Words", group: "mods", sections: ["words"] },

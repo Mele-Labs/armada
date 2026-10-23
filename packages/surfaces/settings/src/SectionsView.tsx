@@ -41,6 +41,7 @@ export function SettingsSectionsView({ ids, settings, live, onSaveSettings, onOp
   );
   const panes: Record<string, (title: string) => ReactNode> = {
     phone: () => <PhoneSettings {...(onCopied === undefined ? {} : { onCopied })} />,
+    "mods-all": (title) => <ModList kind="all" title={title} />,
     theme: (title) => card(title, <ThemeSettings />),
     layout: (title) => card(title, <LayoutSettings />),
     words: (title) => <ModList kind="words" title={title} />,

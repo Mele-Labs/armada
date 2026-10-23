@@ -20,6 +20,8 @@ export type TaughtMod = {
   kind: TaughtKind;
   /** What it does, in one line. */
   description: string;
+  /** What it was taught on, as a row says it. */
+  on: string;
   /** This machine's switch for the mod. */
   enabled: boolean;
   /** The branch of the repository it was put on, once it has been. */

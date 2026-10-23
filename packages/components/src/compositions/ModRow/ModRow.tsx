@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, type KeyboardEvent, type ReactNode } from "react";
 import { Bell, ChevronDown, ChevronRight, Eclipse, GitPullRequestArrow, Link, Palette, PanelsTopLeft } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
@@ -47,8 +47,28 @@ export function ModRow({ title, kind = "theme", enabled, onEnabled, detail, prom
   useEffect(() => {
     if (autoFocus) toggle.current?.focus();
   }, [autoFocus]);
+  // The arrows open and close a row and move between rows, as they do in a tree. They act on the row's own controls: what an opened
+  // row holds keeps its keys.
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    const row = event.currentTarget;
+    const target = event.target as HTMLElement;
+    if (target.closest(".armada-mod-row__held") !== null || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+    if (event.key === "ArrowRight" && onOpened !== undefined && opened !== true) onOpened(true);
+    else if (event.key === "ArrowLeft" && onOpened !== undefined && opened === true) onOpened(false);
+    else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      const rows = Array.from(row.parentElement?.children ?? []).filter((one) => one.classList.contains("armada-mod-row"));
+      const next = rows[rows.indexOf(row) + (event.key === "ArrowDown" ? 1 : -1)];
+      if (next === undefined) return;
+      const controls = (of: Element) => Array.from(of.querySelectorAll<HTMLElement>("input, button")).filter((one) => one.closest(".armada-mod-row__held") === null && !one.hasAttribute("disabled"));
+      const at = controls(row).indexOf(target);
+      (controls(next)[Math.max(at, 0)] ?? controls(next)[0])?.focus();
+    } else return;
+    // A page that moves between its columns on the arrows is not told of a key the row took.
+    event.preventDefault();
+    event.stopPropagation();
+  };
   return (
-    <div className="armada-mod-row" role="group" aria-label={title}>
+    <div className="armada-mod-row" role="group" aria-label={title} onKeyDown={onKeyDown}>
       <Tooltip label={KIND[kind]}>
         <span className="armada-mod-row__kind" role="img" aria-label={KIND[kind]}>
           <Glyph size={16} />
@@ -68,11 +88,6 @@ export function ModRow({ title, kind = "theme", enabled, onEnabled, detail, prom
             aria-label={`Details of ${title}`}
             aria-expanded={opened === true}
             onClick={() => onOpened(opened !== true)}
-            // The arrows open and close it, as they do a row of a tree.
-            onKeyDown={(event) => {
-              if (event.key === "ArrowRight" && opened !== true) onOpened(true);
-              if (event.key === "ArrowLeft" && opened === true) onOpened(false);
-            }}
           >
             {opened ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
           </Button>

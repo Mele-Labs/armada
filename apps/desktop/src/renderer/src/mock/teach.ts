@@ -11,8 +11,9 @@ import { parseLayout } from "@armada/shell";
 
 import { lessonsNow, saveLesson, taughtId } from "../teach";
 import type { LayoutChange, Lesson, Site, TeachAnswer, TeachSource, Tweak } from "../teach";
-import { mockLayout } from "./layout";
-import { ARMADA_JOB, ARMADA_TITLE, BEHIND, BEHIND_AT } from "./sessions/teach";
+import { mockLayout, TIDY_DASHBOARD } from "./layout";
+import { ARMADA_JOB, ARMADA_TITLE, BEHIND, BEHIND_AT, PAYMENTS_TITLE } from "./sessions/teach";
+import { DUSK_MOD, mockThemes } from "./themes";
 
 const READ_MS = 1200;
 const FIND_MS = 400;
@@ -60,6 +61,16 @@ const LOUDER: Tweak = {
   was: "#E5A93D",
   now: "#FFC233",
   places: ["Calls and call cards", "Workflow steps waiting on you", "Stranded bays", "Title bar alerts", "Timeline marks", "Doctor warnings"],
+};
+
+/** The grey of a stopped Job, made lighter: seeded as a tweak taught before the walk starts. */
+const LIGHTER: Tweak = {
+  mod: "stopped-lighter",
+  colour: "Stopped grey",
+  token: "--status-killed",
+  was: "#9BA3AC",
+  now: "#B4BBC3",
+  places: ["Stopped Job rows", "Timeline marks"],
 };
 
 /** A panel of the Cockpit taught away: the layout `hide-<panel>` names it and the registry's id is the panel's name, lowercased. */
@@ -172,4 +183,14 @@ export function seedTaught(root: string): void {
   saveLesson({ ...notice, answer: understood(notice) });
   siteFound("payments", SITES["payments"]!);
   siteAnswered("ledger", "acme-payments.atlassian.net");
+  // And one mod of each other kind, so the list of every mod on the machine has all five: a tweak taught on a row, a layout taught on
+  // the rail's Lessons, and a theme mod in force.
+  const row = { ...here, kind: "row" as const, text: PAYMENTS_TITLE };
+  saveLesson({ teaching: row, say: "Make stopped Jobs easier to see", reach: "all", answer: { tweak: LIGHTER } });
+  const panel = { ...here, kind: "panel" as const, text: "Lessons" };
+  saveLesson({ teaching: panel, say: "Hide this, I never look at it", reach: "all", answer: { layout: { mod: "hide-lessons", region: "rail", hidden: ["lessons"], hides: "Lessons", where: "Rail" } } });
+  mockThemes.install(DUSK_MOD);
+  mockThemes.setActive(DUSK_MOD.name);
+  // A layout mod written by hand and switched off, which the list keeps under those that are on.
+  mockLayout.install({ name: "tidy", title: "Tidy", enabled: false, file: parseLayout(TIDY_DASHBOARD).file });
 }

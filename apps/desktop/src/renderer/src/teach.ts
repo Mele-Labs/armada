@@ -11,6 +11,7 @@
 // so a real window has none and draws no Teach. The mock provides one (`mock/teach.ts`) and starts every window with nothing taught.
 
 import { createContext, useContext, useEffect, useMemo, useSyncExternalStore } from "react";
+import { TEACH_SOURCE } from "@armada/components";
 import type { SessionThreadRow, TeachReach, TeachSourceKind } from "@armada/components";
 import type { TaughtDetail, TaughtMod, TaughtSource, TaughtState } from "@armada/settings";
 import type { LayoutRegion } from "@armada/shell";
@@ -283,7 +284,7 @@ export const wordsOfQuote = (quote: string): string => quote.replace(/^> ?/gm, "
 
 /** What a lesson was taught on, in the words a mod's row says. */
 function taughtOn(teaching: Teaching): string {
-  return teaching.kind === "panel" ? `Panel ${teaching.text}` : teaching.kind === "title_bar" ? "Title bar" : "Row";
+  return teaching.kind === "panel" ? `Panel ${teaching.text}` : TEACH_SOURCE[teaching.kind];
 }
 
 /** What a Words mod does, in one line. */
@@ -336,6 +337,7 @@ function taughtNow(): TaughtState {
         name: bridge.mod,
         kind: "words",
         description: wordsDo(lesson),
+        on: taughtOn(lesson.teaching),
         enabled: true,
         parts: [
           {
@@ -353,6 +355,7 @@ function taughtNow(): TaughtState {
         name: fleet.mod,
         kind: "fleet",
         description: fleetDoes(lesson),
+        on: taughtOn(lesson.teaching),
         enabled: true,
         parts: [
           {
@@ -368,7 +371,7 @@ function taughtNow(): TaughtState {
       });
     }
     if (tweak !== undefined) {
-      keep({ name: tweak.mod, kind: "tweak", description: `${tweak.colour}, ${tweak.now}. Taught on ${taughtOn(lesson.teaching)}`, enabled: true, parts: tweakParts(tweak) });
+      keep({ name: tweak.mod, kind: "tweak", description: `${tweak.colour}, ${tweak.now}`, on: taughtOn(lesson.teaching), enabled: true, parts: tweakParts(tweak) });
     }
     if (layout !== undefined && !seen.has(layout.mod)) {
       seen.add(layout.mod);

@@ -56,6 +56,7 @@ const SCHEMA_SECTIONS: readonly SettingsSection[] = [
 /** Bridge's own panes: their values live in settings.json too, and each is drawn by its own pane. */
 const PANES: readonly SettingsSection[] = [
   { id: "phone", label: "Phone", palette: "Phone pairing", settings: [["Phone access", "phone", "mobile", "pocket", "gateway", "port"], ["Pair a phone", "mobile", "gateway", "device", "unpair"]] },
+  { id: "mods-all", label: "All", palette: "All mods", settings: [["All", "mods", "applied", "every", "list", "taught", "switch", "promote"]] },
   { id: "theme", label: "Theme", palette: "Theme", settings: [["Theme", "colours", "colors", "dark", "light", "appearance", "mods"]] },
   { id: "layout", label: "Layout", palette: "Layout", settings: [["Layout", "tabs", "panels", "rail", "hide", "order", "reset"]] },
   { id: "words", label: "Words", palette: "Words mods", settings: [["Words", "mods", "teach", "taught", "jira", "links", "keys", "switch"]] },

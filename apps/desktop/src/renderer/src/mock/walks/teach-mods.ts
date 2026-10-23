@@ -17,6 +17,11 @@ function steps(): Step[] {
   const tweak = role("switch", "needs-you-louder");
   const field = region("Field", { exact: true });
   return [
+    // Every mod on the machine in one list.
+    { press: place("System"), say: "System" },
+    { press: systemPage("All"), say: "All, first in Mods" },
+    { look: role("group", "Dusk"), say: "Every mod on this machine, one row each, its kind by its glyph. Those switched on come first" },
+
     // Words and Fleet, the two kinds the first teachings made.
     { press: place("System"), say: "System" },
     { press: systemPage("Words"), say: "Mods are split by what they change: Theme, Layout, Words and Fleet" },
