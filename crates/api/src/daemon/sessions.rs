@@ -88,6 +88,34 @@ pub trait Sessions: Send + Sync + 'static {
         run_id: String,
     ) -> impl Future<Output = Result<crate::ObservedSessionRun, Refusal>> + Send;
 
+    /// `open_terminal` — the Job's shell, opened where it has none: one a Job, shared by the
+    /// person and its agent. [`Refusal::Unacceptable`] as `start_session_run`'s. **Takes the `Arc`**
+    /// because the shell's end is seen long after this call has answered.
+    fn open_terminal(
+        self: std::sync::Arc<Self>,
+        open: ipc::OpenTerminal,
+    ) -> impl Future<Output = Result<ipc::SessionRunUnderway, Refusal>> + Send;
+
+    /// `type_in_terminal` — the agent types into its Job's shell, opening it where it has none, and
+    /// is answered what it printed once it went quiet. `caller` places a hosted Job as
+    /// `show_window`'s does. [`Refusal::Unacceptable`] for a call that places no Job, and as
+    /// `open_terminal`'s.
+    fn type_in_terminal(
+        self: std::sync::Arc<Self>,
+        caller: Option<crate::Caller>,
+        typed: ipc::TypeInTerminal,
+    ) -> impl Future<Output = Result<ipc::TerminalTyped, Refusal>> + Send;
+
+    /// `read_terminal` — the last `lines` of the Job's shell as its screen drew them. `caller` places
+    /// the Job as `type_in_terminal`'s does. [`Refusal::Unacceptable`] for a call that places no Job,
+    /// or a Job with no shell open.
+    fn read_terminal(
+        &self,
+        caller: Option<crate::Caller>,
+        session_id: Option<ipc::SessionId>,
+        lines: Option<usize>,
+    ) -> impl Future<Output = Result<ipc::TerminalScreen, Refusal>> + Send;
+
     /// `show_window` — a session shows the person a page. `caller` is the connection the call
     /// arrived on, where it came through the agent's door: it places a hosted session. Answers with
     /// the row. [`Refusal::Unacceptable`] for an address that is not `http` or `https`, or a call

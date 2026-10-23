@@ -91,6 +91,7 @@ export const MOCK_SETTINGS: SettingsList = {
     row("Editor", "editor.command", "Editor command", "The editor Bridge opens a file in. {file} and {line} are filled in. Empty uses $VISUAL, then $EDITOR, then this Mac's default.", TEXT, ""),
     row("Terminal", "terminal.app", "Terminal", "The terminal Bridge opens a worktree in.", { kind: "choice", options: ["Terminal", "iTerm", "Ghostty", "Warp", "WezTerm", "Custom"] }, "Terminal"),
     row("Terminal", "terminal.command", "Custom terminal command", "Run when Terminal is Custom. {dir} is filled in with the worktree.", TEXT, ""),
+    row("Terminal", "terminal.openJobTerminalIn", "Open a Job's terminal in", "Where a Job's terminal opens: docked, in its own panel under the Job in the Cockpit and under the thread elsewhere, or in the side panel.", { kind: "choice", options: ["docked", "side panel"] }, "docked"),
     row("Links", "links.openPullRequestsIn", "Open pull requests in", "Where every pull request link in Bridge opens.", { kind: "choice", options: ["armada", "browser"] }, "armada"),
     row("Bridge", "bridge.layout", "Layout", "Settings → Layout writes this.", { kind: "json" }, {}),
   ],

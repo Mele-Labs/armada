@@ -7,7 +7,8 @@
 //
 // **Which tiles are drawn, in what order, with what name, glyph and key is the owner's** (`flight-controls.ts`, edited in place by
 // `FlightEdit.tsx`); this file draws what that says and does what each tile does. Facts live on the tiles: Compact carries the context
-// window's fill, Auto land and Pause are lit while on and paused, Checks pulses while any Check runs, Subagents shows how many are running.
+// window's fill, Auto land and Pause are lit while on and paused, Terminal while the Job's shell shows, Checks pulses while any Check runs,
+// Subagents shows how many are running.
 // A Shell action runs through Fleet in the Job's slot, and its output stands in place of the tiles until Close (`ShellBox.tsx`). The owner's ask of 18 Oct 2026.
 //
 // **A shell tile the repository committed asks once before it runs on this Mac**, showing its command, and asks again when the command
@@ -22,6 +23,7 @@ import { attachmentsOf, type HoldsReleased, type Session, type SessionTag, type 
 import { refusalWords } from "@armada/screens/src/refusal-words";
 
 import { provideJobFacts } from "../../job-facts";
+import { useJobTerminal } from "../../job-shell-dock";
 import { useSessionsSaid } from "../../sessions-draft";
 import { useFleetEvents } from "../fleet-events";
 import { flightGrid, pageCell, pagesOf } from "./flight-pages";
@@ -53,6 +55,7 @@ export type ReportRepository = { root: string; name?: string };
 /** `startIn` is the root a report's new Session starts in (`reportRoot`); absent, the reported Session's own. */
 export function SessionTiles({ session, draft, repository, startIn, bays, onOpenLink }: { session: Session; draft: SessionsDraft; repository: ReportRepository | undefined; startIn?: string; bays?: SessionBays | undefined; onOpenLink?: (address: string) => void }) {
   const layer = useLayer(session.id);
+  const terminal = useJobTerminal(session.id, draft.terminalRuns !== undefined);
   const flight = useRepositoryFlight(repository?.root, session.id);
   const tiles = tilesOf("job", useFlightFile(), repositoryFileOf(flight), committedFileOf(flight));
   /** The committed tile asking before its first run here, and what Fleet said to the last Run, if anything. */
@@ -103,6 +106,8 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
   );
   const on = session.autoLand === true;
   const { off, compact } = offeredOf(session, draft, repository?.root, (bays?.bays.length ?? 0) > 0);
+  // A window whose Fleet serves runs but no shell: a test's fake.
+  if (terminal === undefined) off.terminal ??= "Fleet does not offer this";
   const sent = async (text: string): Promise<boolean> => (await draft.send(session.id, plain(text))) !== false;
   const run = async (tile: string, act: () => Promise<void>) => {
     if (pending !== undefined) return;
@@ -143,6 +148,7 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
     checks: () => toggleLayer(session.id, "checks"),
     slot: () => toggleLayer(session.id, "slot"),
     requests: () => void openRequestsInPanel(session.id),
+    terminal: () => terminal?.press(),
     pause: () => void run("pause", async () => void (await (session.paused === true ? draft.resume : draft.pause)?.(session.id))),
   };
   const job: JobFacts = {
@@ -249,6 +255,7 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
     checks: checksRunning ? "A Check the agent ran is still out. The agent gets its result when it ends" : "The Checks the agent ran. Each result went back to it as the run ended",
     slot: wrongs.length === 0 ? "Every bay the Job holds" : wrongs.join(", "),
     requests: "Send a request with your cookie for its host",
+    terminal: terminal?.shown === true ? "Hide the Job's terminal" : "Open the Job's terminal",
     pause: session.paused === true ? "Resume" : "Pause",
   };
   const tipCustom = (tile: Tile): string => {
@@ -308,7 +315,7 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
                   aria-label={name}
                   data-key={key}
                   data-act={id === "pause" ? "pause" : undefined}
-                  aria-pressed={id === undefined ? undefined : id === "map" || id === "release" || id === "pause" ? false : pending === tile.id || (id === "land" && on) || layer === id}
+                  aria-pressed={id === undefined ? undefined : id === "map" || id === "release" || id === "pause" ? false : pending === tile.id || (id === "land" && on) || (id === "terminal" && terminal?.shown === true) || layer === id}
                   data-lit={(id === "slot" && bays !== undefined && baysLit(bays)) || undefined}
                   data-on={paused || undefined}
                   data-running={pulsing || undefined}

@@ -10,7 +10,7 @@
 import type { RepositorySummary } from "@armada/protocol";
 import { attachmentsOf, type Session, type SessionAttachment, type SessionsDraft } from "@armada/screens/src/draft/sessions";
 
-export type SessionTileId = "ask" | "land" | "compact" | "report" | "map" | "judge" | "release" | "artifacts" | "subagents" | "checks" | "slot" | "requests" | "pause";
+export type SessionTileId = "ask" | "land" | "compact" | "report" | "map" | "judge" | "release" | "artifacts" | "subagents" | "checks" | "slot" | "requests" | "terminal" | "pause";
 
 const ARMADA = "armada";
 
@@ -42,6 +42,8 @@ export const SESSION_TILES: readonly { id: SessionTileId; label: string; text: s
   { id: "slot", label: "Bays", text: "Bays" },
   // Opens Requests in the side panel for this Job. Past the tenth, so no key.
   { id: "requests", label: "Requests", text: "Requests" },
+  // The Job's shell, docked or in the side panel as `terminal.openJobTerminalIn` says (`job-shell-dock.tsx`). Moved here from the Job's header on the owner's ask of 23 Oct 2026.
+  { id: "terminal", label: "Terminal", text: "Terminal" },
   // Pause reads Resume while the Session is paused (`SessionTiles.tsx`). Its key is p, not a digit.
   { id: "pause", label: "Pause", text: "Pause" },
 ];
@@ -137,6 +139,7 @@ export function offeredOf(session: Session, draft: SessionsDraft, root: string |
   else if (heldOf(session).length === 0) off.release = "The Job holds nothing";
   if (draft.pause === undefined) off.pause = "Fleet does not offer this";
   if (draft.autoLand === undefined) off.land = "Fleet does not offer this";
+  if (draft.terminalRuns === undefined) off.terminal = "Fleet does not offer this";
   const silent = mute(session);
   if (silent !== undefined) {
     off.pause = silent;
@@ -144,6 +147,7 @@ export function offeredOf(session: Session, draft: SessionsDraft, root: string |
     off.ask = silent;
     off.land = silent;
     off.compact = silent;
+    off.terminal = silent;
     return { off };
   }
   if (session.terminal === true) {

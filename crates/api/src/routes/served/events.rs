@@ -94,6 +94,17 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/events",
     },
+    // A Job's shell opened or ended. Its output is `observe_session_run`'s.
+    Route {
+        operation: "terminal.opened",
+        method: "GET",
+        path: "/events",
+    },
+    Route {
+        operation: "terminal.exited",
+        method: "GET",
+        path: "/events",
+    },
     // A Studio after a write, whole, and a Studio deleted.
     Route {
         operation: "studio.changed",

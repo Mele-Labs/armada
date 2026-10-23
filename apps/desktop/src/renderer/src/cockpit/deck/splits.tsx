@@ -16,7 +16,8 @@ type Kept = Record<string, Shares>;
 type Gap = { id: string; column: string; above: string; below: string; label: string; x: number; y: number; w: number; h: number };
 
 const KEY = "armada.bridge.deck-splits";
-const COLUMNS = [["left", ".deck-left"], ["centre", ".deck-centre"], ["right", ".deck-right"]] as const;
+// The stage is a column inside the middle one: the Job over the Cockpit's docked shell (`ShellPanel`), with the merge queue under them.
+const COLUMNS = [["left", ".deck-left"], ["centre", ".deck-centre"], ["right", ".deck-right"], ["stage", ".deck-centre > .deck-stage"]] as const;
 const PANELS = ".deck-panel, .deck-pane, .sv-panel, .deck-stage, .deck-foot";
 const GENERIC = new Set(["deck-panel", "deck-pane", "sv-panel"]);
 /** One arrow press, as the column handle moves. */
@@ -31,7 +32,7 @@ const fixed = (panel: HTMLElement) => panel.hasAttribute("data-collapsed") || pa
 
 function panelsOf(column: HTMLElement): HTMLElement[] {
   return [...column.querySelectorAll<HTMLElement>(PANELS)]
-    .filter((one) => one.parentElement?.closest(PANELS) == null && one.offsetHeight > 0)
+    .filter((one) => [null, undefined, column].includes(one.parentElement?.closest<HTMLElement>(PANELS)) && one.offsetHeight > 0)
     .sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top);
 }
 
