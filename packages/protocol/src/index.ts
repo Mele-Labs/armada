@@ -33,6 +33,7 @@ export * from "./thought";
 export * from "./retro";
 export * from "./retro-review";
 export * from "./retro-session";
+export * from "./logbook";
 export * from "./holding";
 export * from "./kit";
 export * from "./building";

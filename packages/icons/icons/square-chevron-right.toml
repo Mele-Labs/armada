@@ -1,0 +1,7 @@
+[icons.square-chevron-right]
+  means = "A square with a chevron in it: a command to type"
+  group = "Logbook"
+  size = "12px"
+  status = "Proposed"
+  reserved = "A Logbook entry of kind command, on its row and its detail. Never Pilot, which is `terminal`, and never a Session, which is `square-terminal`."
+  notes = "Proposed 22 Oct 2026 for the walk `logbook`. Tooltip `Command`."

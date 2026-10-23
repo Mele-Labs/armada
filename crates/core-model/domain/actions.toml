@@ -31,7 +31,8 @@
 #                 An Action with neither a glyph nor a reason fails the gate
 #   shortcut    - the binding, as the contract's map spells it
 #   scope       - where the binding is offered: anywhere | list |
-#                 list and detail | open studio | dashboard | deck | review | call
+#                 list and detail | open studio | dashboard | deck | review | call |
+#                 logbook
 #   destructive - whether it ends or overrules a record
 #   confirms    - whether it takes a confirmation. Destructive implies it
 #   unbuilt     - the issue that builds the act, on a row Bridge cannot answer
@@ -651,3 +652,39 @@ scope = "call"
 destructive = false
 confirms = false
 notes = "Puts the cursor in the reply on a call that takes one: a Session's own question, which offers Type something beside its options, or an item with no options. `Enter` in the field sends it and `Esc` leaves it. `t` is attest on a list; a call is not a list."
+
+[actions.logbook_edit]
+kind = "Action"
+tier = "Contextual"
+verb = "Edit the entry"
+icon = ""
+icon_absent = "undecided"
+shortcut = "e"
+scope = "logbook"
+destructive = false
+confirms = false
+notes = "Opens the selected Logbook entry's text in place. `⌘↵` saves and `Esc` leaves it, the draft kept. Saving marks the entry edited, and Fleet stops rewriting the person's words. `docs/concepts/logbook.md`. Added 22 Oct 2026 with the mock walk `logbook`."
+
+[actions.logbook_pin]
+kind = "Action"
+tier = "Contextual"
+verb = "Pin or unpin the entry"
+icon = ""
+icon_absent = "undecided"
+shortcut = "p"
+scope = "logbook"
+destructive = false
+confirms = false
+notes = "A pinned Logbook entry never fades and is never rewritten. Pressed again it lets go. No glyph: `pin` is reserved to the canvas rail's Stay on the running step, which refuses a pinned row. Added 22 Oct 2026 with the mock walk `logbook`."
+
+[actions.logbook_forget]
+kind = "Action"
+tier = "Contextual"
+verb = "Forget the entry"
+icon = ""
+icon_absent = "undecided"
+shortcut = "f"
+scope = "logbook"
+destructive = true
+confirms = true
+notes = "Puts the selected Logbook entry on the deny list, so no later Job brings it back. Asks first, since nothing undoes it. `f` and not Backspace, which the text box in place takes. Added 22 Oct 2026 with the mock walk `logbook`."

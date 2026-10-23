@@ -44,6 +44,7 @@ export type ActionScope =
   | "deck"
   | "list"
   | "list and detail"
+  | "logbook"
   | "open studio"
   | "review";
 
@@ -737,6 +738,45 @@ export const ACTIONS: readonly Action[] = [
     scope: "call",
     destructive: false,
     confirms: false,
+    unbuilt: null,
+  },
+  {
+    id: "logbook_edit",
+    kind: "Action",
+    tier: "Contextual",
+    verb: "Edit the entry",
+    icon: null,
+    iconAbsent: "undecided",
+    shortcut: "e",
+    scope: "logbook",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
+  {
+    id: "logbook_pin",
+    kind: "Action",
+    tier: "Contextual",
+    verb: "Pin or unpin the entry",
+    icon: null,
+    iconAbsent: "undecided",
+    shortcut: "p",
+    scope: "logbook",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
+  {
+    id: "logbook_forget",
+    kind: "Action",
+    tier: "Contextual",
+    verb: "Forget the entry",
+    icon: null,
+    iconAbsent: "undecided",
+    shortcut: "f",
+    scope: "logbook",
+    destructive: true,
+    confirms: true,
     unbuilt: null,
   },
 ];

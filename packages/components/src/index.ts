@@ -434,3 +434,4 @@ export { CodeEditor, languageOf, typeIntoEditor } from "./compositions/FilePanel
 export type { CodeEditorProps, CodeLanguage } from "./compositions/FilePanel/CodeEditor";
 export * from "./compositions/LinkPanel/LinkPanel";
 export * from "./compositions/LinkPanel/LinkOffer";
+export * from "./compositions/Logbook/Logbook";

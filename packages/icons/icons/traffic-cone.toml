@@ -1,0 +1,7 @@
+[icons.traffic-cone]
+  means = "A traffic cone: something in the way to steer round"
+  group = "Logbook"
+  size = "12px"
+  status = "Proposed"
+  reserved = "A Logbook entry of kind gotcha. Never a warning Fleet raises, which is Doctor's `triangle-alert`, and never a blocked Job."
+  notes = "Proposed 22 Oct 2026 for the walk `logbook`. Tooltip `Gotcha`."
