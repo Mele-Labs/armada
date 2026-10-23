@@ -33,6 +33,7 @@ import type { PlanUsageHost } from "./plan-usage";
 import type { ModelDownshiftHost } from "./model-downshift";
 import type { ReviewsHost } from "./reviews";
 import type { TimelineHost } from "./timeline";
+import type { ActFailures } from "./act-failed";
 import type { StudioReads } from "./studios";
 
 /** What the arrival switch reaches on `FleetConnection`, and nothing more. */
@@ -62,6 +63,8 @@ export interface ArrivalHost {
   readonly modelDownshift: Pick<ModelDownshiftHost, "changed" | "seed">;
   /** What happened across the Fleet, told each entry as it is kept — `timeline.ts`. */
   readonly timeline: Pick<TimelineHost, "appended">;
+  /** A background act that failed after its reply, told to the windows whole — `act-failed.ts`. */
+  readonly acts: Pick<ActFailures, "failed">;
   /** A review run or a held walk that moved, told to the windows whole — `reviews.ts`. */
   readonly reviews: Pick<ReviewsHost, "changed" | "walkChanged">;
   /** Every repository's Autopilot, told to the windows — `issues.ts`. #2092. */
@@ -293,6 +296,13 @@ export function applyArrival(host: ArrivalHost, text: string, fleet: BridgeState
     host.modelDownshift.changed(state);
     // An accept or a restore moves `models.session`, which `holds.models` read once and would keep.
     void readModels(fleet.port, host);
+    return;
+  }
+  if (event.kind === "act.failed") {
+    // The refusal travels whole under `error`; main keeps none of it.
+    host.publish({ connection });
+    const { kind: _kind, ...failed } = event;
+    host.acts.failed(failed);
     return;
   }
   if (event.kind === "timeline.appended") {

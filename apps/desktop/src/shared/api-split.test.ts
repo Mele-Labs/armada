@@ -165,7 +165,7 @@ import { REQUESTS_CHANNELS, type RequestsApi } from "./api/requests";
 import { SHARING_CHANNELS, type SharingApi } from "./api/sharing";
 import { LOGBOOK_CHANNELS, type LogbookApi } from "./api/logbook";
 import { TEACHING_CHANNELS, type TeachingApi } from "./api/teaching";
-import type { ModelDownshiftState, PlanUsage, SignedOut, SleepState, TimelineAsk, TimelineEvent } from "@armada/protocol";
+import type { ActFailed, ModelDownshiftState, PlanUsage, SignedOut, SleepState, TimelineAsk, TimelineEvent } from "@armada/protocol";
 import type { BridgeApi } from "./api";
 import { CHANNELS, NOTHING_YET } from "./bridge";
 import type { BridgeState, HistoryStep, Summons } from "./bridge";
@@ -381,6 +381,7 @@ type OldBridgeApi = {
     getSlotTouches: () => Promise<SlotTouchesRead>;
     getFleetTimeline: (ask?: TimelineAsk) => Promise<FleetTimelineRead>;
     onTimelineAppended: (onAppended: (event: TimelineEvent) => void) => () => void;
+    onActFailed: (onFailed: (failed: ActFailed) => void) => () => void;
     getSlotHistory: (manifestId: string, slot: number) => Promise<BayHistoryRead>;
     getUsageSummary: (tzOffsetMinutes: number) => Promise<UsageSummaryRead>;
     getUsageRules: () => Promise<UsageRulesRead>;
@@ -668,6 +669,7 @@ const OLD_CHANNELS = {
     getSlotTouches: "bridge:get-slot-touches",
     getFleetTimeline: "bridge:get-fleet-timeline",
     timelineAppended: "bridge:timeline-appended",
+    actFailed: "bridge:act-failed",
     getSlotHistory: "bridge:get-slot-history",
     getUsageSummary: "bridge:get-usage-summary",
     getUsageRules: "bridge:get-usage-rules",

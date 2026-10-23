@@ -22,6 +22,7 @@ import type { ModelDownshiftState } from "./model-downshift";
 import type { PlanUsage } from "./plan-usage";
 import type { SleepState } from "./sleep";
 import type { TimelineAppended } from "./timeline";
+import type { ActFailed } from "./act-failed";
 import type { Autopilot } from "./autopilot";
 import type { WatchesChanged } from "./watches";
 import type { JobTerminal, SessionRecord } from "./sessions";
@@ -95,7 +96,9 @@ export type Event =
   /** The default model's step down after any change to it, whole. Absent `downshift` is none. */
   | ({ kind: "model_downshift.changed" } & ModelDownshiftState)
   /** Fleet kept one entry for the timeline; a client holding a window appends it. Since 23.82. */
-  | ({ kind: "timeline.appended" } & TimelineAppended);
+  | ({ kind: "timeline.appended" } & TimelineAppended)
+  /** A background act failed after its request was answered: the act, what it was for, and the refusal. Not replayed. */
+  | ({ kind: "act.failed" } & ActFailed);
 
 // `manifest.reread` carries `ManifestReading` itself rather than a payload
 // wrapping it: the answer to `get_manifest_reading` and this event's body are
