@@ -1,0 +1,10 @@
+[operations.list_issue_queries]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "What a repository's tracker's query language offers, and the queries saved for it"
+notes = """
+`GET /issue_queries/:repository`, `repository` a manifest id. `docs/concepts/tracker.md`, *Saved queries*. Answers `IssueQueries`: `manifest_id`; `guide`, the tracker's summary for a person (`language`, `open` and `assigned_to_me`, the two queries every repository starts from, and `fields`, the names a row can show), absent where the tracker cannot be read; `refused`, the tracker's own reason when it cannot be (no tool, nobody signed in, a Manifest block it refuses), which Bridge draws as the offer to teach Armada this tracker; and `saved`, the repository's saved queries oldest first, each `{ id, name, words, query, row_fields }`.
+
+The guide's prose for a model is never sent. Saved queries are listed whether or not the tracker can be read, so a person can still forget one. Reads the store and asks the tracker for no issue. A 422 for a repository Fleet does not serve.
+"""

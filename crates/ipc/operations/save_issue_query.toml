@@ -1,0 +1,12 @@
+[operations.save_issue_query]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Keep a query on this Mac for a repository, or edit one already kept"
+notes = """
+`POST /issue_queries/:repository`, `repository` a manifest id, body `SaveIssueQuery`: `id` (absent to keep a new one, present to edit that one in place, which is how a hand edit of the query text lands), `name`, `words` (what the query was written from, empty for one typed by hand), `query` and `row_fields`. `docs/concepts/tracker.md`, *Saved queries*. Answers the `SavedIssueQuery` kept.
+
+**No model call.** The query is run first with the tracker and one it refuses is refused with its words, as is a `row_fields` entry the tracker's guide does not list. Kept in Fleet's store, per repository, and survives a restart; they are the person's, on this Mac, and are not written to the Manifest.
+
+A 422 `fleet.issue_query_refused` with the tracker's words, a 422 `fleet.issue_query_blank` for a blank name or query, a 404 `fleet.no_such_issue_query` for an `id` the repository has none of, and a 422 for a repository Fleet does not serve.
+"""
