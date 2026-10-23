@@ -18,8 +18,8 @@ const mergeLineByRepository = walk("merge-line-by-repository", [
   { look: inside(queue, button(/^#2101/)), say: "The line is armada's alone, one row, its light named main" },
   { press: inside(list, button("Lay out the invoice PDF")), say: "Open a Job in storefront" },
   { look: inside(queue, button(/^#3011/)), say: "The line is storefront's now" },
-  { press: button("Repository"), say: "Pick one repository" },
-  { press: role("menuitem", "armada"), say: "armada" },
+  { press: role("combobox", "Repository"), say: "Pick one repository" },
+  { press: role("option", "armada", { exact: true }), say: "armada" },
   { look: inside(queue, button(/^#2102/)), say: "One picked draws that repository's line, whatever is open" },
 ]);
 
