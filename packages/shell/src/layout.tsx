@@ -1,4 +1,4 @@
-// Layout: which Cockpit panels, Job detail tabs and places Bridge draws, and in what
+// Layout: which Cockpit panels, open Job panels and places Bridge draws, and in what
 // order. `docs/concepts/layout-mods.md`.
 //
 // The registry is the one list of what can be arranged. A mod's `layout.json` and the owner's own
@@ -6,24 +6,11 @@
 // Nothing here draws: a surface reads `useLayout(region)` and draws what it is handed.
 
 import { createContext, useContext, useMemo, useSyncExternalStore } from "react";
-import {
-  Activity,
-  Bot,
-  GitMerge,
-  LayoutDashboard,
-  ListTodo,
-  Radar,
-  ScrollText,
-  Settings,
-  ShieldCheck,
-  Waypoints,
-  Workflow,
-  type LucideIcon,
-} from "lucide-react";
+import { Activity, Box, GitMerge, ListTodo, PanelBottom, Plane, Radar, Rows3, Send, Workflow, type LucideIcon } from "lucide-react";
 
 import { PLACES, SURFACE, SURFACES } from "./surfaces";
 
-export type LayoutRegion = "dashboard.panels" | "job.tabs" | "rail";
+export type LayoutRegion = "dashboard.panels" | "job.panels" | "rail";
 
 export type LayoutEntry = {
   id: string;
@@ -32,8 +19,6 @@ export type LayoutEntry = {
   icon: LucideIcon;
   /** False for anything the owner has to decide on, or has to reach to undo a layout. */
   hideable: boolean;
-  /** Where on the Dashboard a panel stands: above the panel, or on it. */
-  slot?: "top" | "board";
 };
 
 type Spec = {
@@ -49,29 +34,30 @@ const PLACES_FIXED: readonly string[] = [SURFACE.overview, SURFACE.settings, SUR
 
 /** Default order is the array's own, and every entry is drawn until a layout says otherwise. */
 export const LAYOUT: Readonly<Record<LayoutRegion, Spec>> = {
+  // The deck's panels, which stand in fixed columns, so a layout hides them and never orders them. The stage is not one.
   "dashboard.panels": {
     label: "Cockpit panels",
+    ordered: false,
+    firstable: false,
+    entries: [
+      { id: "list", label: "Jobs", icon: Box, hideable: false },
+      { id: "merge-line", label: "Merge queue", icon: GitMerge, hideable: true },
+      { id: "activity", label: "Activity", icon: Activity, hideable: true },
+      { id: "bays", label: "Bays", icon: Rows3, hideable: true },
+      { id: "controls", label: "Flight control", icon: PanelBottom, hideable: true },
+      { id: "dispatch", label: "Dispatch", icon: Send, hideable: true },
+      { id: "autopilot", label: "Autopilot", icon: Plane, hideable: true },
+    ],
+  },
+  // An open Job's panels, stacked in the Cockpit's right column in this order. Progress holds the plan the owner approves.
+  "job.panels": {
+    label: "Job panels",
     ordered: true,
     firstable: false,
     entries: [
-      { id: "fleet", label: "Fleet", icon: Waypoints, hideable: false, slot: "board" },
-      { id: "merge-line", label: "Merge line", icon: GitMerge, hideable: true, slot: "board" },
-      { id: "field", label: "Field", icon: Radar, hideable: true, slot: "board" },
-    ],
-  },
-  "job.tabs": {
-    label: "Job tabs",
-    ordered: true,
-    firstable: true,
-    entries: [
-      { id: "overview", label: "Overview", icon: LayoutDashboard, hideable: false },
+      { id: "field", label: "Field", icon: Radar, hideable: true },
       { id: "workflow", label: "Workflow", icon: Workflow, hideable: true },
-      { id: "plan", label: "Plan", icon: ListTodo, hideable: false },
-      { id: "record", label: "Record", icon: ScrollText, hideable: true },
-      { id: "checks", label: "Checks", icon: ShieldCheck, hideable: true },
-      { id: "drones", label: "Drones", icon: Bot, hideable: true },
-      { id: "pulse", label: "Pulse", icon: Activity, hideable: true },
-      { id: "settings", label: "Settings", icon: Settings, hideable: true },
+      { id: "progress", label: "Progress", icon: ListTodo, hideable: false },
     ],
   },
   rail: {
