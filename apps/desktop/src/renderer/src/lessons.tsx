@@ -1,4 +1,4 @@
-// Armada fixes, as the Logbook draws them: the retro items whose fix lands in Armada, read on open and on focus
+// Armada fixes, as the Logbook draws them: every retro item, newest first, read on open and on focus
 // (`docs/concepts/retro.md`). Apart from `App.tsx`, which is at its length.
 
 import { useState } from "react";
