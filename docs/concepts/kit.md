@@ -65,7 +65,8 @@ A tile's `kind` marks an action of the person's own: `words` or `command` sent t
 **A missing file is the defaults; a file that will not read is not the defaults.**
 `get_flight_controls` answers `not_read` with why for a TOML error, a key Fleet does not know, a version other than 1, or a broken rule.
 A person shown their tiles reset would save over the file that held them.
-`save_flight_controls` takes the whole file, refuses a repeated `id` or `key` in one list or a key that is not a digit or a letter, and names the field.
+`save_flight_controls` takes the whole file, refuses a repeated `id` or `key` in one list or a key that is not a digit, a letter or a chord such as `⌥R`, and names the field.
+A `key` is the keymap's spelling ([Key bindings](key-bindings.md)); what a chord may be, and which the Cockpit already answers, is Bridge's to refuse.
 It writes `flight-controls.toml.writing` and renames it, one writer at a time, and comments typed into the file by hand are not kept.
 
 **Fleet does not know the built-in ids.**
