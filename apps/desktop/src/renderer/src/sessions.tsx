@@ -422,7 +422,7 @@ export function ReadingSheet({
         <StepsPanel {...steps} onOpenInBrowser={onOpenLink} />
       ) : one?.kind === "sketch" ? (
         one.by === "agent" || "nodes" in one.drawing ? (
-          <SketchReading {...readingOfSketch(one)} />
+          <SketchReading {...readingOfSketch(one)} notes={{ key: `sketch:${sessionId}:${one.id}`, job: sessionId }} />
         ) : (
           <SketchPreview label={one.title} boxes={one.drawing.boxes} lines={one.drawing.lines} strokes={one.drawing.strokes ?? []} pictures={[]} />
         )

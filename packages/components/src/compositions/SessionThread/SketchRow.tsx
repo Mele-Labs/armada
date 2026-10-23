@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button } from "../../primitives/Button/Button";
 import { Stamp } from "../../primitives/Stamp/Stamp";
 import { SketchScene } from "../SketchScene/SketchScene";
+import type { ViewerNotesScope } from "../ViewerNotes/ViewerNotes";
 import type { SessionThreadRow } from "./SessionThread";
 
 /**
@@ -48,7 +49,7 @@ export function SketchRow({ row, onOpen }: { row: Extract<SessionThreadRow, { ki
  * the sketch it was drawn against, it is read as a change to it** (added green, removed red,
  * changed amber), and a band offers the whole drawing instead.
  */
-export function SketchReading({ scene, title, against }: { scene: unknown; title?: string; against?: { title: string; scene: unknown } }) {
+export function SketchReading({ scene, title, against, notes }: { scene: unknown; title?: string; against?: { title: string; scene: unknown }; notes?: ViewerNotesScope }) {
   const [changes, setChanges] = useState(true);
   return (
     <div className="armada-session-sketch-read">
@@ -65,7 +66,7 @@ export function SketchReading({ scene, title, against }: { scene: unknown; title
           </span>
         </div>
       )}
-      <SketchScene scene={scene} autoplay {...(title === undefined ? {} : { title })} {...(against === undefined || !changes ? {} : { against: against.scene })} />
+      <SketchScene scene={scene} autoplay {...(title === undefined ? {} : { title })} {...(against === undefined || !changes ? {} : { against: against.scene })} {...(notes === undefined ? {} : { notes })} />
     </div>
   );
 }

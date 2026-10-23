@@ -8,7 +8,8 @@
 import { useEffect, useRef, useState } from "react";
 import { AppWindow, Files, Globe, Image, NotebookText } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { Enlargeable, Prose } from "@armada/components";
+import { Enlargeable, NotableImage, Prose } from "@armada/components";
+import type { ViewerNotesScope } from "@armada/components";
 import type { ArtifactRead, PageBounds, SessionsDraft } from "@armada/screens/src/draft/sessions";
 
 type ArtifactForm = "page" | "file" | "image" | "doc" | "window";
@@ -41,19 +42,20 @@ function useArtifact(draft: SessionsDraft | undefined, sessionId: string, path: 
   return held?.path === path ? { state: "read", read: held.read } : { state: "reading" };
 }
 
-function Picture({ bytes, type, label }: { bytes: Uint8Array; type: string; label: string }) {
+/** A picture the ledger names. Its large view takes notes, which go to the Job that made it. */
+function Picture({ bytes, type, label, notes }: { bytes: Uint8Array; type: string; label: string; notes: ViewerNotesScope }) {
   const [src, setSrc] = useState<string | undefined>();
   useEffect(() => {
     const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type }));
     setSrc(url);
     return () => URL.revokeObjectURL(url);
   }, [bytes, type]);
-  return src === undefined ? null : <Enlargeable className="armada-session-artifact__picture" src={src} name={label} />;
+  return src === undefined ? null : <Enlargeable className="armada-session-artifact__picture" src={src} name={label} large={<NotableImage className="armada-enlargeable__picture" src={src} name={label} notes={notes} />} />;
 }
 
-function Contents({ read, label }: { read: ArtifactRead; label: string }) {
+function Contents({ read, label, notes }: { read: ArtifactRead; label: string; notes: ViewerNotesScope }) {
   if (!read.ok) return <p className="armada-session-artifact__refused">{refusedSaid(read)}</p>;
-  if (read.type.startsWith("image/")) return <Picture bytes={read.bytes} type={read.type} label={label} />;
+  if (read.type.startsWith("image/")) return <Picture bytes={read.bytes} type={read.type} label={label} notes={notes} />;
   const text = new TextDecoder().decode(read.bytes);
   return read.type === "text/markdown" ? (
     <div className="armada-session-reading">
@@ -161,5 +163,5 @@ export function ArtifactBody({
 
 function FileBody({ draft, sessionId, id, title }: { draft: SessionsDraft | undefined; sessionId: string; id: string; title: string }) {
   const held = useArtifact(draft, sessionId, id);
-  return held.state === "reading" ? null : <Contents read={held.read} label={title} />;
+  return held.state === "reading" ? null : <Contents read={held.read} label={title} notes={{ key: `image:${sessionId}:${id}`, job: sessionId }} />;
 }

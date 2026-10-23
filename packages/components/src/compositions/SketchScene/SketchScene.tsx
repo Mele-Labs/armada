@@ -4,7 +4,7 @@ import {
   ExternalLink, ScrollText, Server, Settings, ShieldCheck, SquarePlus, Terminal, Trash2, Undo2, Webhook, Wrench, X, Zap,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import { Button } from "../../primitives/Button/Button";
@@ -14,6 +14,7 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { GRAPH_CANVAS_SIDES, GraphCanvas, clearOf } from "../GraphCanvas/GraphCanvas";
 import { GraphCanvasNodeAct, GraphCanvasNodeBar, GraphCanvasRailGroup, type GraphCanvasRailAct } from "../GraphCanvas/GraphCanvasRail";
 import { Ink, type SketchPoint } from "../SketchPad/Ink";
+import { NoteNumber, useViewerNotes, type ViewerNotesScope } from "../ViewerNotes/ViewerNotes";
 import { labelSize, placeLabels, type LabelMetrics, type LabelPlace, type Rect } from "./edge-labels";
 import { sketchHtml } from "./export-html";
 import { sceneMermaid } from "./export-mermaid";
@@ -66,6 +67,11 @@ export type SketchSceneProps = {
   autoplay?: boolean;
   /** For a `preview`: the steps loop while this is true and the drawing is still while it is not. Never with reduced motion. */
   playing?: boolean;
+  /**
+   * Where notes on the sketch are held, and the Job they go to. A right press on a part, or on the parts a Shift drag
+   * boxed, offers Add note; each held note's number stands on its parts. Absent takes none, and Shift drag is React Flow's.
+   */
+  notes?: ViewerNotesScope;
 };
 
 const ICON: Record<SceneIcon, LucideIcon> = {
@@ -85,6 +91,8 @@ type NodeData = {
   mine: boolean;
   struck: boolean;
   joining: boolean;
+  /** The notes on it: held, and the one being written. */
+  notes: readonly { n: number; writing: boolean; said: string }[];
   /** Where a group or a lane was grown to, round the boxes it holds once they are moved apart. */
   frame: { w: number; h: number } | undefined;
   onBody: (body: string) => void;
@@ -179,7 +187,7 @@ function Shaped({ node }: { node: SceneNode }) {
 }
 
 function SceneNodeView({ data }: NodeProps<SceneRfNode>) {
-  const { node, change, dim, current, inner, asked, mine, struck, joining, frame, onBody } = data;
+  const { node, change, dim, current, inner, asked, mine, struck, joining, notes, frame, onBody } = data;
   const shape = node.kind === "box" && !mine && node.shape !== "box" ? node.shape : undefined;
   return (
     <>
@@ -229,6 +237,13 @@ function SceneNodeView({ data }: NodeProps<SceneRfNode>) {
           </>
         )}
       </div>
+      {notes.length === 0 ? null : (
+        <span className="armada-scene-node__notes">
+          {notes.map((one) => (
+            <NoteNumber key={one.n} n={one.n} writing={one.writing} said={one.said} />
+          ))}
+        </span>
+      )}
       <Sides type="source" />
     </>
   );
@@ -372,8 +387,9 @@ function overlay(kept: readonly SceneRfNode[], fresh: readonly SceneRfNode[]): S
   });
 }
 const JOINS_THE_PICK = ["Meta", "Control"];
+const NO_NOTES: NodeData["notes"] = [];
 
-export function SketchScene({ scene: given, against, title, onAsk, marks, onMarks, preview = false, autoplay = false, playing = false }: SketchSceneProps) {
+export function SketchScene({ scene: given, against, title, onAsk, marks, onMarks, preview = false, autoplay = false, playing = false, notes: noteScope }: SketchSceneProps) {
   const parsed = useMemo(() => parseScene(given), [given]);
   const before = useMemo(() => (against === undefined ? undefined : parseScene(against)), [against]);
   const diff = useMemo(() => (parsed === undefined || before === undefined ? undefined : diffScenes(before, parsed)), [parsed, before]);
@@ -389,6 +405,20 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
   const flow = useRef<ReactFlowInstance | null>(null);
   const figure = useRef<HTMLElement>(null);
   const host = useSketchShareHost();
+  const viewer = useViewerNotes(preview ? undefined : noteScope, figure);
+  // A Shift drag's box, in the figure's own pixels, while it is drawn.
+  const [boxing, setBoxing] = useState<{ x0: number; y0: number; x1: number; y1: number } | undefined>(undefined);
+  // Where it started, read by the moves and the release however soon they come after the press.
+  const boxFrom = useRef<{ x: number; y: number } | undefined>(undefined);
+  // Each part's notes, by its id.
+  const noted = useMemo(() => {
+    const by = new Map<string, { n: number; writing: boolean; said: string }[]>();
+    for (const one of viewer.marks) {
+      if (one.about.kind !== "sketch") continue;
+      for (const part of one.about.parts) by.set(part.id, [...(by.get(part.id) ?? []), { n: one.n, writing: one.writing, said: one.text }]);
+    }
+    return by;
+  }, [viewer.marks]);
   // **A step is a number a node, an arrow or an element of a screen carries**, and what shares a number plays together.
   const steps = useMemo(
     () =>
@@ -496,6 +526,7 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
             mine,
             struck,
             joining: node.id === joining,
+            notes: noted.get(node.id) ?? NO_NOTES,
             frame: GROUND.has(node.kind) && rect !== undefined ? { w: rect.w, h: rect.h } : undefined,
             onBody: (body: string) => onBody(node.id, body),
           },
@@ -505,7 +536,7 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
         };
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `onBody` closes over `mark`, which `composed` already tracks
-    [shown, diff, at, lit, asked, joining, composed, layout],
+    [shown, diff, at, lit, asked, joining, composed, layout, noted],
   );
   const latest = useRef(fresh);
   latest.current = fresh;
@@ -549,9 +580,38 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
   const strokes = [...(shown.strokes ?? []), ...mark.strokes];
   const draw = (points: readonly SketchPoint[]) => edit({ ...mark, strokes: [...mark.strokes, { id: `i${String(mark.strokes.length + 1)}`, points }] });
 
+  /** A note about `ids`, or about the parts picked where none is named. */
+  const aboutParts = (ids: readonly string[]) => (ids.length === 0 ? undefined : { kind: "sketch" as const, title: title ?? "Sketch", parts: ids.map((id) => ({ id, label: partLabel(shown, id) })) });
+  /** The part a press landed on, and what a note from there is about: the picked parts where it is one of them. */
+  const pointedAt = (target: EventTarget | null) => {
+    const id = target instanceof Element ? target.closest<HTMLElement>(".react-flow__node")?.dataset.id : undefined;
+    return aboutParts(id === undefined ? picked : picked.includes(id) ? picked : [id]);
+  };
+  /** The menu at `at`, about what `target` points at; the box opens clear of the parts it is about. */
+  const noteMenu = (at: { x: number; y: number }, target: EventTarget | null) => {
+    const about = pointedAt(target);
+    const rects = (about?.parts ?? []).flatMap((one) => {
+      const drawn = figure.current?.querySelector(`.react-flow__node[data-id="${CSS.escape(one.id)}"]`);
+      return drawn == null ? [] : [drawn.getBoundingClientRect()];
+    });
+    const anchor =
+      rects.length === 0
+        ? undefined
+        : { left: Math.min(...rects.map((r) => r.left)), top: Math.min(...rects.map((r) => r.top)), right: Math.max(...rects.map((r) => r.right)), bottom: Math.max(...rects.map((r) => r.bottom)) };
+    viewer.menu(at, about, anchor);
+  };
+
   const onKeyDown = (event: KeyboardEvent) => {
     const target = event.target as HTMLElement;
     if (target instanceof HTMLTextAreaElement || target instanceof HTMLInputElement) return;
+    viewer.onKeyDown(event);
+    if (viewer.on && (event.key === "ContextMenu" || (event.key === "F10" && event.shiftKey))) {
+      event.preventDefault();
+      const node = target.closest(".react-flow__node") ?? (picked.length === 0 ? null : figure.current?.querySelector(`.react-flow__node[data-id="${CSS.escape(picked[picked.length - 1]!)}"]`));
+      const box = (node ?? target).getBoundingClientRect();
+      noteMenu({ x: box.left, y: box.bottom }, node ?? target);
+      return;
+    }
     const instance = flow.current;
     if (instance === null) return;
     const moved = (dx: number, dy: number) => {
@@ -734,6 +794,45 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
     },
   ];
 
+  // **A Shift drag boxes parts to note**, in place of React Flow's own, which picks only what it holds whole and asks for
+  // the Shift key's own press first. Any part the box touches is picked; the ground it stands on is not.
+  const local = (event: { clientX: number; clientY: number }) => {
+    const rect = figure.current!.getBoundingClientRect();
+    return { x: event.clientX - rect.left, y: event.clientY - rect.top };
+  };
+  const boxDown = (event: ReactPointerEvent<HTMLElement>) => {
+    if (!viewer.on || pen || !event.shiftKey || event.button !== 0) return;
+    event.stopPropagation();
+    event.preventDefault();
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    const at = local(event);
+    boxFrom.current = at;
+    setBoxing({ x0: at.x, y0: at.y, x1: at.x, y1: at.y });
+  };
+  const boxMove = (event: ReactPointerEvent<HTMLElement>) => {
+    const from = boxFrom.current;
+    if (from === undefined) return;
+    const at = local(event);
+    setBoxing({ x0: from.x, y0: from.y, x1: at.x, y1: at.y });
+  };
+  const boxUp = (event: ReactPointerEvent<HTMLElement>) => {
+    const from = boxFrom.current;
+    if (from === undefined) return;
+    boxFrom.current = undefined;
+    const end = local(event);
+    const rect = figure.current!.getBoundingClientRect();
+    const box = { left: rect.left + Math.min(from.x, end.x), right: rect.left + Math.max(from.x, end.x), top: rect.top + Math.min(from.y, end.y), bottom: rect.top + Math.max(from.y, end.y) };
+    setBoxing(undefined);
+    const ids = [...(figure.current?.querySelectorAll<HTMLElement>(".react-flow__node") ?? [])].flatMap((one) => {
+      const id = one.dataset.id;
+      const drawn = shown.nodes.find((node) => node.id === id);
+      if (id === undefined || drawn === undefined || GROUND.has(drawn.kind)) return [];
+      const at = one.getBoundingClientRect();
+      return at.right >= box.left && at.left <= box.right && at.bottom >= box.top && at.top <= box.bottom ? [id] : [];
+    });
+    onNodesChange(nodes.map((one) => ({ type: "select" as const, id: one.id, selected: ids.includes(one.id) })));
+  };
+
   const part = asked === undefined ? undefined : { id: asked, label: partLabel(shown, asked) };
   const isEdge = part !== undefined && shown.edges.some((one) => one.id === part.id);
   const lifted = picked.length > 0 && picked.every((id) => composed?.struck.has(id));
@@ -745,9 +844,24 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
       role="group"
       aria-label="Sketch"
       data-playing={at !== undefined || undefined}
+      {...(viewer.on
+        ? {
+            onPointerDownCapture: boxDown,
+            // The canvas pans on the mouse's own down, which a pointer's held default keeps from coming; one that comes anyway is kept from it too.
+            onMouseDownCapture: (event: ReactMouseEvent<HTMLElement>) => {
+              if (boxFrom.current !== undefined || (event.shiftKey && event.button === 0 && !pen)) event.stopPropagation();
+            },
+            onPointerMove: boxMove,
+            onPointerUp: boxUp,
+            onContextMenu: (event: ReactMouseEvent<HTMLElement>) => {
+              event.preventDefault();
+              noteMenu({ x: event.clientX, y: event.clientY }, event.target);
+            },
+          }
+        : {})}
       {...(preview
         ? { "data-preview": true, inert: true }
-        : { "aria-keyshortcuts": "+ - 0 ArrowLeft ArrowRight ArrowUp ArrowDown", tabIndex: 0, onKeyDown })}
+        : { "aria-keyshortcuts": `+ - 0 ArrowLeft ArrowRight ArrowUp ArrowDown${viewer.on ? " ContextMenu Shift+F10 Meta+Enter" : ""}`, tabIndex: 0, onKeyDown })}
     >
       <GraphCanvas<SceneRfNode, SceneRfEdge>
         surface="armada-sketch-scene"
@@ -814,6 +928,13 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
           </GraphCanvasNodeBar>
         )}
       </GraphCanvas>
+      {boxing === undefined ? null : (
+        <span
+          className="armada-sketch__box"
+          style={{ left: Math.min(boxing.x0, boxing.x1), top: Math.min(boxing.y0, boxing.y1), width: Math.abs(boxing.x1 - boxing.x0), height: Math.abs(boxing.y1 - boxing.y0) }}
+        />
+      )}
+      {viewer.layer}
     </figure>
   );
 }

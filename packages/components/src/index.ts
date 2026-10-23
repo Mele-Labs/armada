@@ -432,10 +432,17 @@ export * from "./loadout";
 export * from "./compositions/UsagePage/UsagePage";
 
 export * from "./compositions/FilePanel/FilePanel";
-export { CodeEditor, languageOf, typeIntoEditor } from "./compositions/FilePanel/CodeEditor";
-export type { CodeEditorProps, CodeLanguage } from "./compositions/FilePanel/CodeEditor";
+export { CodeEditor, languageOf, selectInEditor, typeIntoEditor } from "./compositions/FilePanel/CodeEditor";
+export type { CodeEditorProps, CodeLanguage, CodeLines, CodeNoteMark } from "./compositions/FilePanel/CodeEditor";
 export * from "./compositions/LinkPanel/LinkPanel";
 export * from "./compositions/LinkPanel/LinkOffer";
 
 // A Job's Artifacts as a graph of how it grew, on GraphCanvas: one node to an artifact, its versions marks inside it.
 export * from "./compositions/ArtifactGraph/ArtifactGraph";
+
+// Notes on a sketch, a file or a picture being read, held on it and sent to a Job as one message.
+export { NoteNumber, ViewerNotesFrom, useViewerNotes } from "./compositions/ViewerNotes/ViewerNotes";
+export type { NoteAnchor, NoteMark, ViewerNotes, ViewerNotesHost, ViewerNotesScope } from "./compositions/ViewerNotes/ViewerNotes";
+export { NotableImage } from "./compositions/ViewerNotes/NotableImage";
+export { aboutSaid, notesMessage } from "./compositions/ViewerNotes/compose";
+export type { HeldNote, NoteAbout, NotePicture, NotesMessage } from "./compositions/ViewerNotes/compose";

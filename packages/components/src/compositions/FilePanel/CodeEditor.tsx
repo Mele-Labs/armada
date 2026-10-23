@@ -9,11 +9,11 @@ import { rust } from "@codemirror/lang-rust";
 import { yaml } from "@codemirror/lang-yaml";
 import { HighlightStyle, StreamLanguage, bracketMatching, indentOnInput, syntaxHighlighting } from "@codemirror/language";
 import type { Extension } from "@codemirror/state";
-import { Compartment, EditorState } from "@codemirror/state";
+import { Compartment, EditorState, RangeSetBuilder } from "@codemirror/state";
 import { shell } from "@codemirror/legacy-modes/mode/shell";
 import { toml } from "@codemirror/legacy-modes/mode/toml";
 import { highlightSelectionMatches, search, searchKeymap, searchPanelOpen } from "@codemirror/search";
-import { EditorView, drawSelection, highlightActiveLine, highlightActiveLineGutter, keymap, lineNumbers } from "@codemirror/view";
+import { Decoration, EditorView, GutterMarker, drawSelection, gutter, highlightActiveLine, highlightActiveLineGutter, keymap, lineNumbers } from "@codemirror/view";
 import { tags } from "@lezer/highlight";
 import { useEffect, useRef } from "react";
 
@@ -165,7 +165,101 @@ const theme = EditorView.theme({
   ".cm-button:hover": { backgroundColor: "var(--bg-hover)" },
   ".cm-button:active": { backgroundColor: "var(--bg-hover)", backgroundImage: "none" },
   ".cm-panel.cm-search [name=close]": { color: "var(--fg-muted)" },
+  // A held note's lines, and its number in a gutter of its own beside the line numbers. As `NoteNumber` draws one.
+  ".cm-noted": { backgroundColor: "var(--accent-faint)", boxShadow: "inset var(--edge-active) 0 0 var(--accent)" },
+  ".cm-notes-gutter .cm-gutterElement": { display: "flex", gap: "var(--space-1)", alignItems: "center", padding: "0 var(--space-1)" },
+  ".cm-note-number": {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    boxSizing: "border-box",
+    minWidth: "var(--leading-2xs)",
+    height: "var(--leading-2xs)",
+    padding: "0 var(--space-1)",
+    border: "var(--border-width) solid var(--accent)",
+    borderRadius: "var(--radius-sm)",
+    backgroundColor: "var(--accent)",
+    color: "var(--fg-inverse)",
+    fontSize: "var(--text-2xs)",
+    lineHeight: "1",
+  },
+  ".cm-note-number[data-writing]": { backgroundColor: "var(--bg-sunken)", color: "var(--accent)" },
 });
+
+/** A note held on the text, as the editor marks it: its number, and the lines it is about. */
+export type CodeNoteMark = { n: number; from: number; to: number; writing: boolean };
+
+/** Lines a press points at: the selection's whole lines, or the line under the pointer where nothing is selected. */
+export type CodeLines = { from: number; to: number; quote: string };
+
+class NoteNumbers extends GutterMarker {
+  constructor(readonly marks: readonly CodeNoteMark[]) {
+    super();
+  }
+  override eq(other: NoteNumbers): boolean {
+    return other.marks.map((one) => `${String(one.n)}${String(one.writing)}`).join() === this.marks.map((one) => `${String(one.n)}${String(one.writing)}`).join();
+  }
+  override toDOM(): Node {
+    const all = document.createElement("span");
+    all.style.display = "contents";
+    for (const one of this.marks) {
+      const mark = document.createElement("span");
+      mark.className = "cm-note-number";
+      if (one.writing) mark.dataset.writing = "";
+      mark.setAttribute("role", "img");
+      mark.setAttribute("aria-label", `Note ${String(one.n)}`);
+      mark.textContent = String(one.n);
+      all.append(mark);
+    }
+    return all;
+  }
+}
+
+/** The held notes' lines tinted, and each note's number at its first line. Nothing at all without notes, so no empty gutter stands. */
+function noteMarks(marks: readonly CodeNoteMark[]): Extension {
+  if (marks.length === 0) return [];
+  const within = (view: EditorView, line: number) => Math.min(view.state.doc.lines, Math.max(1, line));
+  return [
+    EditorView.decorations.of((view) => {
+      const lines = new Set<number>();
+      for (const one of marks) for (let line = within(view, one.from); line <= within(view, one.to); line += 1) lines.add(line);
+      const built = new RangeSetBuilder<Decoration>();
+      for (const line of [...lines].sort((a, b) => a - b)) {
+        const at = view.state.doc.line(line).from;
+        built.add(at, at, Decoration.line({ class: "cm-noted" }));
+      }
+      return built.finish();
+    }),
+    gutter({
+      class: "cm-notes-gutter",
+      markers: (view) => {
+        const byLine = new Map<number, CodeNoteMark[]>();
+        for (const one of marks) byLine.set(within(view, one.from), [...(byLine.get(within(view, one.from)) ?? []), one]);
+        const built = new RangeSetBuilder<GutterMarker>();
+        for (const [line, here] of [...byLine].sort((a, b) => a[0] - b[0])) built.add(view.state.doc.line(line).from, view.state.doc.line(line).from, new NoteNumbers(here));
+        return built.finish();
+      },
+    }),
+  ];
+}
+
+/** Where `lines` are drawn: across the text, from the top of the first to the bottom of the last. Undefined off screen. */
+function drawnOf(view: EditorView, lines: CodeLines): { left: number; top: number; right: number; bottom: number } | undefined {
+  const doc = view.state.doc;
+  const first = view.coordsAtPos(doc.line(lines.from).from);
+  const last = view.coordsAtPos(doc.line(lines.to).to);
+  const text = view.contentDOM.getBoundingClientRect();
+  return first === null || last === null ? undefined : { left: text.left, top: first.top, right: text.right, bottom: last.bottom };
+}
+
+/** The whole lines from `from` to `to`, where a selection that ends at the start of a line does not take that line. */
+function linesOf(view: EditorView, from: number, to: number): CodeLines {
+  const doc = view.state.doc;
+  const first = doc.lineAt(from);
+  let last = doc.lineAt(to);
+  if (to > from && to === last.from && last.number > first.number) last = doc.line(last.number - 1);
+  return { from: first.number, to: last.number, quote: doc.sliceString(first.from, last.to) };
+}
 
 export type CodeEditorProps = {
   /** Names the editor, and picks the language by its extension. */
@@ -180,6 +274,10 @@ export type CodeEditorProps = {
   scrollTo?: number;
   /** The line at the top, whenever a person scrolls the text. Not called for a move `scrollTo` made. */
   onScroll?: (line: number) => void;
+  /** Held notes, marked on their lines. */
+  notes?: readonly CodeNoteMark[];
+  /** A right press, or the menu key or Shift F10: where, the lines it points at, and where they are on screen. */
+  onNote?: (at: { x: number; y: number }, lines: CodeLines, drawn: { left: number; top: number; right: number; bottom: number } | undefined) => void;
 };
 
 /** The line at the top of a view scrolled to `top`, as a fraction where it is part way down one. */
@@ -197,20 +295,22 @@ function topOf(view: EditorView, line: number): number {
   return block.top + Math.min(1, Math.max(0, line - whole)) * block.height;
 }
 
-export function CodeEditor({ name, value, onChange, language, autoFocus = false, scrollTo, onScroll }: CodeEditorProps) {
+export function CodeEditor({ name, value, onChange, language, autoFocus = false, scrollTo, onScroll, notes, onNote }: CodeEditorProps) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
   const change = useRef(onChange);
   change.current = onChange;
   const scrolled = useRef(onScroll);
   scrolled.current = onScroll;
+  const noting = useRef(onNote);
+  noting.current = onNote;
   // Where `scrollTo` last put the text: the scroll that move makes is its own, and is not a person's.
   const put = useRef<number | null>(null);
   const editable = onChange !== undefined;
   const kind = language ?? languageOf(name);
   const wraps = kind === "markdown" || kind === "text";
   const first = useRef({ value, kind, editable, wraps, name });
-  const slots = useRef({ language: new Compartment(), editable: new Compartment(), wrap: new Compartment(), name: new Compartment() });
+  const slots = useRef({ language: new Compartment(), editable: new Compartment(), wrap: new Compartment(), name: new Compartment(), notes: new Compartment() });
 
   useEffect(() => {
     const el = host.current;
@@ -224,6 +324,7 @@ export function CodeEditor({ name, value, onChange, language, autoFocus = false,
         doc: start.value,
         extensions: [
           lineNumbers(),
+          now.notes.of(noteMarks(notes ?? [])),
           highlightActiveLineGutter(),
           highlightActiveLine(),
           drawSelection(),
@@ -297,19 +398,63 @@ export function CodeEditor({ name, value, onChange, language, autoFocus = false,
     });
   }, [kind, wraps, editable, name]);
 
+  // Keyed on what the marks say, so a render handing over an equal list reconfigures nothing.
+  const noted = JSON.stringify(notes ?? []);
+  useEffect(() => {
+    view.current?.dispatch({ effects: slots.current.notes.reconfigure(noteMarks(JSON.parse(noted) as CodeNoteMark[])) });
+  }, [noted]);
+
   // Plain keys stay in the editor: Bridge's single-key shortcuts listen on the window and would read the host as no text field.
-  // On the host, in the bubble phase, so the editor has heard the key by the time it stops.
+  // On the host, in the bubble phase, so the editor has heard the key by the time it stops. The menu key, and Shift F10,
+  // offer a note on the selection, at its end.
   useEffect(() => {
     const el = host.current;
     if (el === null) return;
     const keep = (event: KeyboardEvent) => {
+      const at = view.current;
+      if (at !== null && noting.current !== undefined && (event.key === "ContextMenu" || (event.key === "F10" && event.shiftKey))) {
+        event.preventDefault();
+        const { from, to, head } = at.state.selection.main;
+        const box = at.coordsAtPos(head) ?? el.getBoundingClientRect();
+        const lines = linesOf(at, from, to);
+        noting.current({ x: box.left, y: box.bottom }, lines, drawnOf(at, lines));
+      }
       if (!event.metaKey && !event.ctrlKey) event.stopPropagation();
     };
+    // A right press notes the selection, and with nothing selected the line under the pointer.
+    const menu = (event: MouseEvent) => {
+      const at = view.current;
+      if (at === null || noting.current === undefined) return;
+      event.preventDefault();
+      const { from, to } = at.state.selection.main;
+      const under = from === to ? at.posAtCoords({ x: event.clientX, y: event.clientY }) : null;
+      const lines = under === null ? linesOf(at, from, to) : linesOf(at, under, under);
+      noting.current({ x: event.clientX, y: event.clientY }, lines, drawnOf(at, lines));
+    };
     el.addEventListener("keydown", keep);
-    return () => el.removeEventListener("keydown", keep);
+    el.addEventListener("contextmenu", menu);
+    return () => {
+      el.removeEventListener("keydown", keep);
+      el.removeEventListener("contextmenu", menu);
+    };
   }, []);
 
   return <div ref={host} className="armada-code-editor" role="group" aria-label={`Editor ${name}`} data-keeps-keys="" />;
+}
+
+/**
+ * `words` selected where they first stand in the editor `element` is the host of, as a pointer drag leaves them. For a walk,
+ * which cannot reach into the shadow root. False where `element` is no editor or the words are not in it.
+ */
+export function selectInEditor(element: HTMLElement, words: string): boolean {
+  const inner = element.shadowRoot?.querySelector<HTMLElement>(".cm-editor");
+  const at = inner === null || inner === undefined ? null : EditorView.findFromDOM(inner);
+  if (at === null) return false;
+  const from = at.state.doc.toString().indexOf(words);
+  if (from < 0) return false;
+  at.focus();
+  at.dispatch({ selection: { anchor: from, head: from + words.length }, scrollIntoView: true, userEvent: "select.pointer" });
+  return true;
 }
 
 /**

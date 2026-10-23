@@ -8,6 +8,7 @@ import type { FilePanelProps } from "@armada/components";
 import { useAtFloor } from "@armada/shell";
 
 import type { PanelFileItem, PanelFileRead } from "../../../shared/api/files";
+import { openSessionIn } from "../open-session";
 import { useBack } from "./panels";
 import { closePanel, filePreviewing, openInPanel, useFilesBeside } from "./store";
 
@@ -137,7 +138,19 @@ export function FileSide({ item }: { item: PanelFileItem }) {
   const back = useBack();
   const beside = useFilesBeside();
   const file = useFile(item);
-  return <FilePanel {...file} onClose={closePanel} floor={floor} {...(back === undefined ? {} : { back: { label: back.label, onBack: back.onBack } })} {...(beside === undefined ? {} : { beside })} onPreviewing={filePreviewing} />;
+  // Notes go to the Job that showed the file, or to the one whose page it was opened over; elsewhere the box asks which.
+  const [job] = useState(() => item.sessionId ?? openSessionIn(document));
+  return (
+    <FilePanel
+      {...file}
+      onClose={closePanel}
+      floor={floor}
+      {...(back === undefined ? {} : { back: { label: back.label, onBack: back.onBack } })}
+      {...(beside === undefined ? {} : { beside })}
+      onPreviewing={filePreviewing}
+      notes={{ key: `file:${item.path}`, ...(job === undefined ? {} : { job }) }}
+    />
+  );
 }
 
 /** The same file in the page, under `head`, for a surface that edits a file where it shows it. Nothing here closes. The path is the file, so a new path is a new view. */
