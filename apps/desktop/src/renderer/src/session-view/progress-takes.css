@@ -15,15 +15,13 @@
 .sv-account { padding: var(--space-3); border: var(--border-width) solid var(--border-default); border-radius: var(--radius-lg); background: var(--bg-raised); }
 .sv-account .armada-account__line[data-line="now"] { font-size: var(--text-sm); line-height: var(--leading-sm); font-weight: var(--weight-medium); }
 
-/* ---- The workflow row: a quiet picker beside the steps, at the top of the body ---------------------------- */
+/* ---- The Workflow panel: a quiet picker beside the steps, in a band of its own ------------------------------ */
 
-.sv-flowrow { display: flex; align-items: center; gap: var(--space-3); min-width: 0; padding-inline: var(--space-2); }
-.sv-flowrow:empty { display: none; }
-.sv-flowrow .sv-flow { flex: none; gap: var(--space-1); }
-.sv-flowrow .sv-flow__name { color: var(--fg-subtle); font-size: var(--text-2xs); line-height: var(--leading-2xs); font-weight: var(--weight-body); }
-.sv-flowrow .sv-flow > .armada-select-field,
-.sv-flowrow .sv-flow .armada-select { flex: none; width: auto; max-width: calc(var(--space-12) * 2); height: var(--h-control-sm); border-color: transparent; background: transparent; color: var(--fg-muted); font-size: var(--text-2xs); }
-.sv-flowrow .sv-flow .armada-select:hover { border-color: var(--border-default); }
+.sv-panel__band .sv-flow { flex: none; gap: var(--space-1); text-transform: none; letter-spacing: normal; font-weight: var(--weight-body); }
+.sv-panel__band .sv-flow__name { color: var(--fg-subtle); font-size: var(--text-2xs); line-height: var(--leading-2xs); font-weight: var(--weight-body); }
+.sv-panel__band .sv-flow > .armada-select-field,
+.sv-panel__band .sv-flow .armada-select { flex: none; width: auto; max-width: calc(var(--space-12) * 2); height: var(--h-control-sm); border-color: transparent; background: transparent; color: var(--fg-muted); font-size: var(--text-2xs); }
+.sv-panel__band .sv-flow .armada-select:hover { border-color: var(--border-default); }
 
 /* ---- Plan: a stepper ------------------------------------------------------------------------------------------- */
 
