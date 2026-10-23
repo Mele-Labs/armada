@@ -131,7 +131,24 @@ where
             })
             .await;
         let Some(mut listed) = listed else { return false };
-        // The list stops at 100: a pull request someone holds that it left out is read by number.
+        // **The list is the newest 100, or 25**, and a busy repository's can all be other people's:
+        // the person's own are asked for by their login, and one someone holds by its number.
+        let mine = self.mine_in(served.root()).await;
+        let logins = mine.logins();
+        for (at, login) in logins.iter().enumerate() {
+            if logins[..at].iter().any(|asked| asked.eq_ignore_ascii_case(login)) {
+                continue;
+            }
+            let (gate, author) = (served.manifest().ci_gate().to_string(), login.clone());
+            let theirs = self
+                .forge_asked(served.root(), move |vcs: &V, root: &str| {
+                    vcs.open_pull_requests_by(root, &gate, &author)
+                })
+                .await;
+            // A forge silent on this keeps what the listing gave.
+            let shown: Vec<u64> = listed.iter().map(|pull| pull.number).collect();
+            listed.extend(theirs.into_iter().flatten().filter(|pull| !shown.contains(&pull.number)));
+        }
         let shown: Vec<u64> = listed.iter().map(|pull| pull.number).collect();
         for number in self.held_beyond(served, &shown).await {
             let gate = served.manifest().ci_gate().to_string();
@@ -148,7 +165,6 @@ where
         let left = self.pulls_that_left(served.root(), &numbers).await;
         self.owners_deleted(served.root(), left).await;
         let mut owners = self.owners_read(served.root(), numbers).await;
-        let mine = self.mine_in(served.root()).await;
         let read: Vec<OpenPulled> = listed
             .into_iter()
             .map(|pull| OpenPulled {

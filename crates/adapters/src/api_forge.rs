@@ -247,6 +247,19 @@ impl Forge for ApiForge {
         )
     }
 
+    fn open_pull_requests_by(
+        &self,
+        in_repo: &str,
+        gate: &str,
+        author: &str,
+    ) -> Option<adapter_traits::OpenPulls> {
+        self.read(
+            in_repo,
+            |api, repository| open_pulls::open_pulls_of(api, repository, gate, author),
+            |gh| gh.open_pull_requests_by(in_repo, gate, author),
+        )
+    }
+
     fn pull_reading(&self, in_repo: &str, gate: &str) -> Option<adapter_traits::FollowedPulls> {
         self.read(
             in_repo,

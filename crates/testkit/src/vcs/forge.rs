@@ -124,6 +124,16 @@ impl Forge for FakeVcs {
         self.main_ci.open_one(number)
     }
 
+    fn open_pull_requests_by(
+        &self,
+        _in_repo: &str,
+        gate: &str,
+        author: &str,
+    ) -> Option<adapter_traits::OpenPulls> {
+        self.main_ci.gated_by(gate);
+        self.main_ci.open_of(author)
+    }
+
     fn forge_login(&self, _in_repo: &str) -> Option<String> {
         self.main_ci.login()
     }

@@ -501,7 +501,7 @@ export const ACTIONS: readonly Action[] = [
     verb: "Press a flight control",
     icon: null,
     iconAbsent: "undecided",
-    shortcut: "0–9",
+    shortcut: "⌥⇧0–⌥⇧9",
     scope: "deck",
     destructive: false,
     confirms: false,
