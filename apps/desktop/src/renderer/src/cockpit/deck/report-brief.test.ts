@@ -36,10 +36,12 @@ test("the transcript is under the working directory with every non-alphanumeric 
   expect(transcriptOf("/Users/a.b/my repo", "s1")).toBe("~/.claude/projects/-Users-a-b-my-repo/s1.jsonl");
 });
 
-test("the owner's words come first, untouched, and the brief ends with what to do", () => {
+test("the owner's words come first, untouched, then what to do, and the facts follow under Debug info", () => {
   const brief = reportBrief("  It pushed to main.\nI asked for a pull request.  ", full, from());
   expect(brief.startsWith("It pushed to main.\nI asked for a pull request.\n")).toBe(true);
-  expect(brief.trimEnd().endsWith("If it is not small, file an issue.")).toBe(true);
+  const [told, facts] = brief.split("\n## Debug info\n");
+  expect(told?.trimEnd().endsWith("If it is not small, file an issue.")).toBe(true);
+  expect(facts).toContain(`Job: Pin the store clock (${ID})`);
 });
 
 test("every fact Bridge holds is a labelled line", () => {
