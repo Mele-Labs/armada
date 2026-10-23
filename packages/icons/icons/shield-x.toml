@@ -5,3 +5,10 @@
   status = "Specified"
   reserved = "The shield-* family means gates and checks throughout."
   notes = "The pointed-base pentagon is unique and strong small."
+
+[[icons.shield-x.usage]]
+  means = "A tracker mod that does not pass its checks, with the reason on the row"
+  group = "Mods"
+  size = "16px"
+  status = "Proposed"
+  notes = "Tooltip `Invalid`, in the failure hue. Proposed 23 Oct 2026 for the walk `mods-trackers`, for the owner to rule on. The shield-x of a failed gate."

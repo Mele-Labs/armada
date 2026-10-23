@@ -5,6 +5,9 @@
 
 import { createContext, useContext, useSyncExternalStore } from "react";
 
+import type { ModTracker } from "@armada/components";
+import type { ModSummary } from "@armada/protocol";
+
 /** One thing a mod says: a pattern, an address, a notice, a colour. `from` is where it was found, absent where it was said. */
 export type TaughtFact = { label: string; value: string; code?: boolean; from?: string };
 
@@ -28,6 +31,8 @@ export type TaughtMod = {
   branch?: string;
   /** What it holds. */
   parts: readonly TaughtPart[];
+  /** A tracker mod's tried and valid marks. Absent for any other kind. */
+  tracker?: ModTracker;
 };
 
 /** What a mod was taught on and what it holds, for any kind, a layout mod's included. */
@@ -48,6 +53,8 @@ export interface TaughtSource {
   promote(name: string): void;
   /** Show one mod open, or none. */
   open(name: string | undefined): void;
+  /** Try a tracker mod against the repository. Absent where Bridge cannot ask Fleet to. */
+  tryIt?(name: string): void;
 }
 
 const NONE: TaughtState = { mods: [], details: {} };
@@ -65,3 +72,28 @@ export function useTaught(): TaughtState & { source: TaughtSource } {
 
 /** The taught mods of one kind. */
 export const taughtOf = (state: TaughtState, kind: TaughtKind): readonly TaughtMod[] => state.mods.filter((one) => one.kind === kind);
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const dayOf = (at: string) => {
+  const day = new Date(at);
+  return Number.isNaN(day.getTime()) ? at : `${day.getUTCDate()} ${MONTHS[day.getUTCMonth()]}`;
+};
+
+/**
+ * A tracker mod's marks off its `list_mods` row. **A row with no `tried` is `stale` where Fleet says the `tracker.toml` was edited after
+ * its try**, and `never` otherwise.
+ */
+export function trackerOf(row: ModSummary): ModTracker {
+  const tried = row.tried;
+  return {
+    valid: row.valid,
+    tried:
+      tried === undefined
+        ? row.stale === true
+          ? { state: "stale", words: "Stale" }
+          : { state: "never", words: "Not tried" }
+        : tried.passed
+          ? { state: "passed", words: `Tried ${dayOf(tried.at)} on ${tried.manifest_id}` }
+          : { state: "failed", words: `Failed ${dayOf(tried.at)}: ${tried.reason ?? "no reason given"}` },
+  };
+}

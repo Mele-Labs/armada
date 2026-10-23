@@ -60,6 +60,7 @@ const PANES: readonly SettingsSection[] = [
   { id: "theme", label: "Theme", palette: "Theme", settings: [["Theme", "colours", "colors", "dark", "light", "appearance", "mods"]] },
   { id: "layout", label: "Layout", palette: "Layout", settings: [["Layout", "tabs", "panels", "rail", "hide", "order", "reset"]] },
   { id: "words", label: "Words", palette: "Words mods", settings: [["Words", "mods", "teach", "taught", "jira", "links", "keys", "switch"]] },
+  { id: "trackers", label: "Tracker", palette: "Tracker mods", settings: [["Tracker", "mods", "issue tracker", "tried", "valid", "stale", "try", "switch", "promote"]] },
   { id: "fleet-mods", label: "Fleet", palette: "Fleet mods", settings: [["Fleet", "mods", "teach", "taught", "notices", "batch", "quiet", "switch"]] },
   { id: "time", label: "Time", palette: "Time", settings: [["Time", "clock", "24-hour", "12-hour", "seconds", "date", "timestamp", "stamp", "format"]] },
   // The keyboard's own matches are the acts, counted by `KeyboardSettings`; these find the category.

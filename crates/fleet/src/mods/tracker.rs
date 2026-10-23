@@ -42,7 +42,8 @@ pub(super) fn examined(dir: &Path, found: &mut Examined, mut stamps: Vec<i64>, m
         Ok((text, ms)) => {
             stamps.push(ms);
             found.problems.extend(taught_tracker::problems(&text));
-            found.tried = tried_of(dir, &text);
+            let (tried, stale) = tried_of(dir, &text);
+            (found.tried, found.stale) = (tried, stale);
             if let (true, Some(manifest)) = (found.problems.is_empty(), manifest) {
                 found.files = Some(Files { manifest, payload: Payload::Tracker(text) });
             }
@@ -56,18 +57,23 @@ fn digest(text: &str) -> String {
     Sha256::digest(text.as_bytes()).iter().map(|byte| format!("{byte:02x}")).collect()
 }
 
-/// The try kept beside the mod, where it tried `text`.
-fn tried_of(dir: &Path, text: &str) -> Option<TrackerTry> {
-    let (kept, _) = read_small(&dir.join(RECORD), MOST_RECORD, RECORD).ok()?;
-    let record: Record = toml::from_str(&kept).ok()?;
-    (record.sha256 == digest(text)).then(|| TrackerTry {
+/// The try kept beside the mod where it tried `text`, and whether one is kept of a `tracker.toml`
+/// that has since changed. A mod never tried, or whose record cannot be read, is neither.
+fn tried_of(dir: &Path, text: &str) -> (Option<TrackerTry>, bool) {
+    let Ok((kept, _)) = read_small(&dir.join(RECORD), MOST_RECORD, RECORD) else { return (None, false) };
+    let Ok(record) = toml::from_str::<Record>(&kept) else { return (None, false) };
+    if record.sha256 != digest(text) {
+        return (None, true);
+    }
+    let tried = TrackerTry {
         at: Instant::carried(record.at),
         manifest_id: ManifestId::carried(record.manifest_id),
         passed: record.passed,
         reason: record.reason,
         listed: record.listed,
         read: record.read,
-    })
+    };
+    (Some(tried), false)
 }
 
 /// Written beside the old record and moved over it, so a reader sees one try or the other.

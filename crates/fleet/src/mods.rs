@@ -94,6 +94,8 @@ pub(crate) struct Examined {
     pub(crate) changed_ms: Option<i64>,
     /// A tracker mod's last try of the file as it stands.
     pub(crate) tried: Option<ipc::TrackerTry>,
+    /// A try is kept for this tracker mod, of a `tracker.toml` that has since changed.
+    pub(crate) stale: bool,
 }
 
 pub(crate) struct Files {
@@ -159,6 +161,7 @@ impl Examined {
                 .changed_ms
                 .map(|ms| Instant::carried(crate::clock::rfc3339_utc(ms))),
             tried: self.tried.clone(),
+            stale: self.stale,
         }
     }
 }
@@ -173,6 +176,7 @@ pub(crate) fn examine(mods_dir: &Path, name: &str) -> Examined {
         files: None,
         changed_ms: None,
         tried: None,
+        stale: false,
     };
     if let Some(why) = slug_problem(name) {
         found.problems.push(why);
