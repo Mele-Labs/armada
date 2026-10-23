@@ -725,7 +725,7 @@ where
                 failed.why.trim()
             )
         };
-        let told = self.told_by_fleet(&id, &text).await?;
+        let told = self.told_by_fleet(&id, &text, ipc::Notice::WalkFailed).await?;
         Ok(ipc::WalkTold { told })
     }
 

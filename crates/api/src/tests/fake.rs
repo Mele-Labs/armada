@@ -26,6 +26,7 @@ mod requests;
 mod retros;
 mod sessions;
 mod studios;
+mod teaching;
 mod watches;
 
 pub use accounts::profile;

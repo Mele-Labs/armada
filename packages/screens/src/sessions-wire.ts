@@ -5,6 +5,7 @@
 // `detail`), and what a screen draws is a slot beside its branch and a pull request with its Checks,
 // so the pairing and the reading happen here, once, where a test can hold them. Nothing here reads a transcript: a row is drawn as it arrived and nothing is inferred from it.
 
+import { isNotice } from "@armada/protocol";
 import type { Attachment, AttachmentHistory, ContextBreakdown as WireContextBreakdown, HelmCallInFlight, ProposedField, SentFile, SessionActivity as WireActivity, SessionRecord, SessionRow as WireRow, SessionTag as WireTag, TimelineEvent, WaitingItem, WatchSummary, WorkflowSummary } from "@armada/protocol";
 
 import type { ContextBreakdown } from "@armada/components/src/context-breakdown";
@@ -408,7 +409,7 @@ export function rowsOfThread(sessionId: string, rows: readonly WireRow[], pictur
           text: row.text,
           ...(row.files === undefined || row.files.length === 0 ? {} : { files: filesOf(sessionId, row.files, picture) }),
           ...(row.tags === undefined || row.tags.length === 0 ? {} : { tags: row.tags.map(tagOf) }),
-          ...(row.notice === "behind_base" ? { notice: row.notice } : {}),
+          ...(isNotice(row.notice) ? { notice: row.notice } : {}),
         });
         break;
       case "sent":

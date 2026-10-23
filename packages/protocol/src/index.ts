@@ -43,6 +43,7 @@ export * from "./logbook";
 export * from "./manifest-proposal";
 export * from "./merge-lines";
 export * from "./mods";
+export * from "./teaching";
 export * from "./preferences";
 export * from "./reach-folders";
 export * from "./settings";

@@ -138,14 +138,14 @@ nothing: check the id against the table.
 
 | Region | Ids, in the order shipped | Cannot be hidden | `order` | `first` |
 |---|---|---|---|---|
-| `dashboard.panels` | `fleet`, `merge-line` | `fleet` | yes | no |
+| `dashboard.panels` | `fleet`, `merge-line`, `field` | `fleet` | yes | no |
 | `job.tabs` | `overview`, `workflow`, `plan`, `record`, `checks`, `drones`, `pulse`, `settings` | `overview`, `plan` | yes | yes |
 | `rail` | `overview`, `jobs`, `sessions`, `kit`, `mods`, `settings`, `guides`, `workflows`, `studios`, `logbook`, `reviews`, `issues` | `overview`, `mods`, `settings` | no | no |
 
 `packages/shell/layout-registry.json` is the list Fleet checks. **`rail`
 is the places: the Cockpit, the tabs `jobs` and `sessions` and the System strip's pages.
 The Logbook page is the place `logbook`.** A hidden `merge-line` panel hides the
-deck's merge queue, and `order` on the panels has no effect on the deck. Hiding takes an
+deck's merge queue, a hidden `field` hides the Field panel of an open Session, and `order` on the panels has no effect on the deck. Hiding takes an
 entry off the tab bar or the strip and nothing else: it stays in the palette and in
 links.
 
@@ -231,6 +231,13 @@ optional. Each call names `transport = "cli"` (with `argv`),
 without one fails the call. `{query}` goes in the search, `{reference}` in the
 read, and `{credential}` anywhere once `[credential]` names a command that
 prints the secret.
+
+Add `[links]` with `reference`, a regular expression for how a ticket is named in
+a dispatch's or a message's words, so a Job whose request names one holds that ticket. Write
+`reference = '\bLIN-\d+\b'` for keys in the words, or put the key in a group,
+`'linear\.app/acme/issue/(LIN-\d+)'`, to link by address: the first group is the
+reference where there is one. It must read as a pattern and not match the empty
+text, or the file is refused with the reason. Without it nothing is linked.
 
 | Never | Because |
 |---|---|

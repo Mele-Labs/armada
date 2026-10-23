@@ -17,6 +17,7 @@ pub const BUILD_SWEEP_SECONDS: Seconds = Seconds("timeouts.buildSweepSeconds");
 pub const WATCH_RUN_SECONDS: Seconds = Seconds("timeouts.watchRunSeconds");
 pub const WATCH_EVERY_SECONDS: Seconds = Seconds("timeouts.watchEverySeconds");
 pub const WATCH_GIVE_UP_MINUTES: Integer = Integer("timeouts.watchGiveUpMinutes");
+pub const NOTICE_BATCH_SECONDS: Seconds = Seconds("timeouts.noticeBatchSeconds");
 pub const TURN_INTERVAL_MS: Integer = Integer("timeouts.turnIntervalMs");
 pub const BRIDGE_RECONNECT_MS: Integer = Integer("timeouts.bridgeReconnectMs");
 
@@ -242,6 +243,20 @@ pub(super) const TIMEOUTS: &[Entry] = &[
         shipped: Shipped::Integer(120),
         applies: Applies::Live,
         row: Some("watch-give-up"),
+        env: None,
+        tip: None,
+    },
+    // Ten seconds: long enough that the notices one event raises in a row arrive together, short
+    // enough that a Job is not left a minute without what it was told. Chosen, not measured.
+    Entry {
+        key: NOTICE_BATCH_SECONDS.0,
+        section: Section::Timeouts,
+        title: "Batched notices",
+        description: "How long Fleet holds the notices a Fleet rule batches before sending a Job those of one kind as one message.",
+        kind: Kind::Seconds { min: 1, max: 600 },
+        shipped: Shipped::Seconds(10),
+        applies: Applies::Live,
+        row: Some("notice-batch-window"),
         env: None,
         tip: None,
     },

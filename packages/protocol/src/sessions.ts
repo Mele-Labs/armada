@@ -235,11 +235,15 @@ export type WaitingAct = { kind: "walk" | "answer" | "approve_pr" | "run" | "mes
  * (choice 1), answered with `answer_waiting` and a `choice`. No message goes to the agent. `delivery` (id `delivery`, text
  * `How should this work be delivered?`, act `answer`) is Fleet asking a bug or feature Job's owner how the work leaves its
  * branch: `Auto land` (choice 0), `Open PR only` (choice 1), `Keep local` (choice 2), each with a description. The agent was
- * told to stop and is sent the choice. `replied` (id `replied:<turn ended at>`) is a reply whose close
+ * told to stop and is sent the choice. `words_address` (id `words:<mod>:<manifest id>`, text `Where does <name> open in <manifest id>?`,
+ * act `answer`) is Fleet asking where words a person taught open in a repository when it found no address: an option for each address
+ * any Words mod holds, then `Other`, answered with `answer_waiting` and a `choice` or `text` that holds `{match}`. No message goes to the agent. `fleet_call`
+ * (id `call:<n>`, text the words the Session was told, act `message`) is a notice a Fleet mod's rule makes a call: the Session was told it and the person is
+ * asked to look, and the press opens the Session. Dismissing it settles it and tells the agent nothing. `replied` (id `replied:<turn ended at>`) is a reply whose close
  * asks the person something and that the agent did not ask through a tool; a reply that only reports is the
  * Session's `standing`, not an item.
  */
-export type WaitingSource = "agent" | "ask_card" | "walk" | "permission" | "window_ask" | "first_message" | "replied" | "done" | "plan" | "judge" | "slot_choice" | "delivery";
+export type WaitingSource = "agent" | "ask_card" | "walk" | "permission" | "window_ask" | "first_message" | "replied" | "done" | "plan" | "judge" | "slot_choice" | "delivery" | "words_address" | "fleet_call";
 
 /**
  * What a Session is doing, read by Fleet from what happened and never from what the agent said:

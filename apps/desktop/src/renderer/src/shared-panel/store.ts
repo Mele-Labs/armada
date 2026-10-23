@@ -4,6 +4,7 @@
 
 import { useSyncExternalStore } from "react";
 import type { RequestHeader } from "@armada/protocol";
+import type { TeachSourceKind } from "@armada/components";
 
 /** What Requests starts from: a request's sent half, as a `requested` row holds it. */
 export type RequestStart = { method: string; url: string; environment?: string; headers: readonly RequestHeader[]; body?: string };
@@ -27,7 +28,9 @@ export type PanelItem =
    * Requests, for the Job it was opened in where there was one, starting from a request where it was opened on one (`from` is
    * that row's id), or on a saved request where it was opened on a `saved` row.
    */
-  | { kind: "requests"; sessionId?: string; start?: RequestStart; from?: string; saved?: { collection: string; request: string } };
+  | { kind: "requests"; sessionId?: string; start?: RequestStart; from?: string; saved?: { collection: string; request: string } }
+  /** Teach, for something in this Session (`source` is what, `text` its text as it stands, `at` when the row was written): the repository it is in, by id, root and name. */
+  | { kind: "teach"; sessionId: string; jobTitle: string; manifestId?: string; root?: string; repository: string; source: TeachSourceKind; text: string; at?: string; /** What names the thing, as Fleet reads it: a notice's word, a panel's id. */ ids?: string[] };
 
 type Held = { open: PanelItem | undefined; back: PanelItem | undefined; hosts: number };
 

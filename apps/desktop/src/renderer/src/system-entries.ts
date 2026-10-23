@@ -7,7 +7,7 @@ import type { SettingsList } from "@armada/protocol";
 import { SETTINGS_SECTIONS, settingWords, settingsIn } from "@armada/settings";
 import { SURFACE } from "@armada/shell";
 
-export type SystemGroupId = "kit" | "fleet" | "bridge";
+export type SystemGroupId = "kit" | "fleet" | "mods" | "bridge";
 
 export type SystemEntryDef = {
   id: string;
@@ -22,6 +22,7 @@ export type SystemEntryDef = {
 export const SYSTEM_GROUPS: readonly { id: SystemGroupId; label: string }[] = [
   { id: "kit", label: "Kit" },
   { id: "fleet", label: "Fleet" },
+  { id: "mods", label: "Mods" },
   { id: "bridge", label: "Bridge" },
 ];
 
@@ -46,8 +47,11 @@ export const SYSTEM_ENTRIES: readonly SystemEntryDef[] = [
   { id: "fleet:account", label: "Account", group: "fleet", sections: ["account"] },
   { id: "fleet:store", label: "Store", group: "fleet", sections: ["store"] },
   { id: "fleet:features", label: "Features", group: "fleet", sections: ["features"] },
-  { id: "bridge:theme", label: "Theme", group: "bridge", sections: ["theme"] },
-  { id: "bridge:layout", label: "Layout", group: "bridge", sections: ["layout"] },
+  { id: "bridge:all", label: "All", group: "mods", sections: ["mods-all"] },
+  { id: "bridge:theme", label: "Theme", group: "mods", sections: ["theme"] },
+  { id: "bridge:layout", label: "Layout", group: "mods", sections: ["layout"] },
+  { id: "bridge:words", label: "Words", group: "mods", sections: ["words"] },
+  { id: "bridge:fleet", label: "Fleet", group: "mods", sections: ["fleet-mods"] },
   { id: "bridge:keyboard", label: "Keyboard shortcuts", group: "bridge", sections: ["keyboard"] },
   { id: "bridge:time", label: "Time", group: "bridge", sections: ["time"] },
   { id: "bridge:editor", label: "Editor", group: "bridge", sections: ["editor"] },

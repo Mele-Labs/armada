@@ -106,7 +106,7 @@ where
                 .await
                 .pull_notice_kept(&root, number, &commit, FREE, &recipient)
                 .unwrap_or(true);
-            if told || !matches!(self.told_news_by_fleet(&session, &free_to_reuse(slot, branch)).await, Ok(true)) {
+            if told || !matches!(self.told_news_by_fleet(&session, &free_to_reuse(slot, branch), ipc::Notice::SlotFree).await, Ok(true)) {
                 continue;
             }
             let now = self.now();
@@ -185,7 +185,7 @@ where
                         .await
                         .pull_notice_kept(&root, number, &commit, KEPT, &recipient)
                         .unwrap_or(true);
-                    if !once && matches!(self.told_news_by_fleet(session, &said).await, Ok(true)) {
+                    if !once && matches!(self.told_news_by_fleet(session, &said, ipc::Notice::SlotKept).await, Ok(true)) {
                         let now = self.now();
                         let _ = self
                             .store()

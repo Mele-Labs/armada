@@ -419,7 +419,7 @@ pub enum SessionRow {
         files: Vec<SentFile>,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         tags: Vec<SessionTag>,
-        /// The Fleet notice this row was sent for, when it was one (`behind_base`). A person can
+        /// The Fleet notice this row was sent for, when it was one (`Notice::word`). A person can
         /// mute a notice by it. Absent on every row kept before it existed.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         notice: Option<String>,

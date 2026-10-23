@@ -13,6 +13,7 @@ pub struct FakeTracker {
     unreadable: Mutex<Option<String>>,
     found: Mutex<Vec<OpenIssue>>,
     searches: Mutex<Vec<String>>,
+    opens: Mutex<Option<String>>,
 }
 
 impl FakeTracker {
@@ -96,6 +97,11 @@ impl FakeTracker {
         }
     }
 
+    /// From now on an example opens at `template`, with `{match}` where its reference goes.
+    pub fn opens_at(&self, template: &str) {
+        *self.opens.lock().expect("opens") = Some(template.to_string());
+    }
+
     /// How many times the issues were listed.
     pub fn listings(&self) -> usize {
         *self.listings.lock().expect("listings")
@@ -158,6 +164,10 @@ impl Tracker for FakeTracker {
         FakeTracker::guide()
     }
 
+    fn address_template(&self, example: &str) -> Option<String> {
+        self.opens.lock().expect("opens").clone().filter(|_| !example.trim().is_empty())
+    }
+
     /// The forge's own reading, since a fixture repository is one: the numbers of its issues the
     /// text links. Delegated rather than written again, so a fake cannot pass for a format the
     /// shipped reader does not take.
@@ -184,6 +194,15 @@ mod tests {
         assert_eq!((refused.doing, refused.said.as_str()), ("searching the issues", "offline"));
         assert_eq!(tracker.searches(), ["state = open", "assignee = me"]);
         assert_eq!(tracker.listings(), 0, "a search is not a listing");
+    }
+
+    #[test]
+    fn a_fake_opens_an_example_where_it_was_told_and_nowhere_before() {
+        let tracker = FakeTracker::empty();
+        assert_eq!(tracker.address_template("ARM-1"), None);
+        tracker.opens_at("https://t.example/{match}");
+        assert_eq!(tracker.address_template("ARM-1"), Some("https://t.example/{match}".to_string()));
+        assert_eq!(tracker.address_template(" "), None);
     }
 
     #[test]

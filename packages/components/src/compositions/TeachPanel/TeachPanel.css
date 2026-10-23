@@ -1,0 +1,182 @@
+/* The body of the Teach panel: what it was pressed on, the instruction, the reach, then what was understood. */
+.armada-teach-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.armada-teach-panel__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.armada-teach-panel__caption {
+  margin: 0;
+  color: var(--fg-subtle);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+/* The source as it stands where Teach was pressed: a well, not a second message. */
+.armada-teach-panel__words {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+  color: var(--fg-default);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.armada-teach-panel__said {
+  margin: 0;
+  color: var(--fg-default);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+/* What Fleet understood, a name and its value to a row. */
+.armada-teach-panel__facts {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--space-1) var(--space-4);
+  margin: 0;
+  color: var(--fg-default);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  overflow-wrap: anywhere;
+}
+
+.armada-teach-panel__facts > dt {
+  color: var(--fg-muted);
+}
+
+.armada-teach-panel__facts > dd {
+  margin: 0;
+  min-width: 0;
+}
+
+.armada-teach-panel__facts > .armada-teach-panel__found {
+  grid-column: 2;
+  color: var(--fg-muted);
+}
+
+.armada-teach-panel__untestable {
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  overflow-wrap: anywhere;
+}
+
+.armada-teach-panel__reach {
+  display: flex;
+}
+
+.armada-teach-panel__chip {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  max-width: 100%;
+  height: var(--space-6);
+  padding: 0 var(--space-3);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-raised);
+  color: var(--fg-default);
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition:
+    background var(--duration-fast) var(--ease),
+    border-color var(--duration-fast) var(--ease);
+}
+
+.armada-teach-panel__chip > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.armada-teach-panel__chip:hover:not(:disabled) { border-color: var(--border-strong); }
+.armada-teach-panel__chip:disabled { cursor: default; }
+.armada-teach-panel__chip:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+
+/* Every repository: lit at its edge, flat, as the dispatch row marks the repository the words name. */
+.armada-teach-panel__chip[aria-pressed="true"] { border-color: var(--accent); }
+
+.armada-teach-panel__acts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.armada-teach-panel__acts .armada-kbd {
+  margin-inline-start: var(--space-2);
+}
+
+/* A keycap on the accent fill: the lip and the letter in the inverse ink. */
+.armada-teach-panel__acts .armada-button[data-variant="primary"] .armada-kbd {
+  border-color: color-mix(in srgb, var(--fg-inverse) 45%, transparent);
+  background: transparent;
+  color: var(--fg-inverse);
+}
+
+/* Fleet is reading: an open ring turning, held still under reduced motion. */
+.armada-teach-panel__reading {
+  display: inline-flex;
+  align-self: flex-start;
+  color: var(--accent);
+}
+
+.armada-teach-panel__reading > svg {
+  animation: armada-teach-panel-spin var(--duration-pulse) linear infinite;
+}
+
+@keyframes armada-teach-panel-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-teach-panel__reading > svg { animation: none; }
+}
+
+/* A colour a tweak changes, with the square it is. */
+.armada-teach-panel__colour {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.armada-teach-panel__chip-colour {
+  flex: none;
+  width: var(--space-3);
+  height: var(--space-3);
+  border-radius: var(--radius-sm);
+  border: var(--border-width) solid var(--border-default);
+}
+
+/* Every other place the colour is drawn. */
+.armada-teach-panel__places {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--fg-default);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+}

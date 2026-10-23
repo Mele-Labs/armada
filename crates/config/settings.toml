@@ -1111,6 +1111,21 @@ How long a watch that names no time of its own runs before it gives up, and the 
 **The value lives in settings.json under `timeouts.watchGiveUpMinutes`** (live), `docs/concepts/machine.md`, *settings.json*.
 """
 
+[settings.notice-batch-window]
+name = "Batched notices"
+scope = "Machine"
+default = "10 seconds"
+lifetime = "Live"
+merge_strategy = "REPLACE"
+peer_polarity = "n/a — single layer"
+owner = "Fleet"
+read_by = "fleet"
+notes = """
+How long Fleet holds the notices of one kind for one Job when a Fleet mod's rule says `batch`, before sending them as one message. **Enforced**, `fleet::notice_batches`: the first notice opens the window, the rest join it, and the one message goes when it ends. Chosen 23 Oct 2026, not measured: ten seconds gathers what one event raises in a row, such as the slots a merge frees, and leaves no Job a minute without what it was told. A Fleet that restarts inside a window loses what was held.
+
+**The value lives in settings.json under `timeouts.noticeBatchSeconds`** (live), `docs/concepts/machine.md`, *settings.json*.
+"""
+
 [settings.fleet-notice-dispute-model]
 name = "Dispute reader model"
 scope = "Machine"

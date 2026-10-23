@@ -523,6 +523,10 @@ async fn with_workflows_off_there_is_no_step_no_nudge_and_no_boundary_judge_but_
     let rig = ruled(Arc::clone(&judge));
     let id = on_the_rail(&rig).await;
     assert_eq!(record(&rig, &id).await.workflow_step, Some(0));
+    // The rail enters step 0 once it sees the Session on the workflow, whenever the runtime lets it run.
+    // Wait for that, so what is counted below is only what follows the switch.
+    eventually(|| async { !says_of_steps(&rig).await.is_empty() }).await;
+    let entered = says_of_steps(&rig).await;
     workflows_switched(&rig, false).await;
 
     rig.stand_in.says(0, vec![edit("crates/reader/src/lib.rs")]);
@@ -540,7 +544,7 @@ async fn with_workflows_off_there_is_no_step_no_nudge_and_no_boundary_judge_but_
     assert_eq!(read.workflow_step, None, "no current step");
     assert_eq!(told(&rig, "edited files before"), 0, "no nudge");
     assert!(asked_of(&judge).is_empty(), "no boundary judge: {:?}", asked_of(&judge));
-    assert!(says_of_steps(&rig).await.is_empty(), "and no step entered on the timeline");
+    assert_eq!(says_of_steps(&rig).await, entered, "and no step entered on the timeline after the switch");
 
     let reply = Arc::clone(&rig.fleet).judge_session(JudgeSession { session_id: id.clone() }).await.expect("asked");
     assert!(reply.judging);

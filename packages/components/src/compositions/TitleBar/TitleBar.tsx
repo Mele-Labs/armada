@@ -14,6 +14,7 @@ import { Inspect, InspectCard } from "../../primitives/Inspect/Inspect";
 import { useShortcutReveal } from "../../shortcut-reveal";
 import { usageLevel } from "../../usage";
 import { TitleMenu } from "./TitleMenu";
+import { useTeachMenu } from "../TeachPanel/TeachMenu";
 
 /**
  * The title row — what used to be macOS's grey bar saying only "Armada".
@@ -186,6 +187,8 @@ function PlanUsageFigures({ usage }: { usage: readonly PlanUsage[] }) {
 const SEARCH_ONLY = "Search, or describe work to dispatch (⌘K)";
 
 export type TitleBarProps = {
+  /** Teach, from a right press on the bar or Shift+F10 in it. Absent draws no menu. */
+  onTeach?: () => void;
   /**
    * The places the window has, drawn in the centre before the search trigger (`TabBar` is the Cockpit's).
    * **Absent draws the centre as it was.** Present, the trigger shrinks to an icon and its key, named by
@@ -355,14 +358,17 @@ export function TitleBar({
   fleet,
   places,
   wordmark,
+  onTeach,
 }: TitleBarProps) {
   const revealing = useShortcutReveal();
   // The palette's key as this person bound it in Settings → Keyboard, redrawn when they rebind it.
   useKeyBindings();
   const searchKey = keyFor("command_palette");
   const parts = useRoomForPlaces(places !== undefined);
+  const teach = useTeachMenu("Title bar", onTeach);
   return (
-    <div ref={parts.bar} className="armada-title-bar" data-places={places === undefined ? undefined : ""}>
+    <div ref={parts.bar} className="armada-title-bar" data-places={places === undefined ? undefined : ""} {...teach.on}>
+      {teach.menu}
       <div ref={parts.start} className="armada-title-bar__start">
         {wordmark === undefined ? null : <div className="armada-title-bar__wordmark">{wordmark}</div>}
         {repository === undefined ? null : (

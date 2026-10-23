@@ -17,7 +17,7 @@ const sidebar = () => page.getByRole("navigation", { name: "System" });
 const entriesOf = (group: string) => sidebar().getByRole("group", { name: group }).getByRole("listitem").getByRole("button");
 const heading = (name: string) => page.getByRole("heading", { name, exact: true });
 
-test("the sidebar lists Kit, Fleet and Bridge entries in order, and an entry draws its sections under their own headings", async () => {
+test("the sidebar lists Kit, Fleet, Mods and Bridge entries in order, and an entry draws its sections under their own headings", async () => {
   mount(onBoard(), { slices: ["core", "settings"] });
   await toPlace("System");
   const labels = (group: string) => () => entriesOf(group).elements().map((one) => one.textContent);
@@ -25,7 +25,9 @@ test("the sidebar lists Kit, Fleet and Bridge entries in order, and an entry dra
     "Skills", "Plugins", "Sub agents", "Commands", "Servers", "Instructions", "Output styles", "Allowlist", "Workflows", "Models", "Prompts", "Harness",
   ]);
   await expect.poll(labels("Fleet")).toEqual(["Limits", "Timeouts", "Retention", "Plan", "Machine", "Account", "Store", "Features"]);
-  await expect.poll(labels("Bridge")).toEqual(["Theme", "Layout", "Keyboard shortcuts", "Time", "Editor", "Terminal", "Links", "Phone", "Guides"]);
+  // Mods lists Words and Fleet only once a teaching has made a mod of that kind.
+  await expect.poll(labels("Mods")).toEqual(["All", "Theme", "Layout"]);
+  await expect.poll(labels("Bridge")).toEqual(["Keyboard shortcuts", "Time", "Editor", "Terminal", "Links", "Phone", "Guides"]);
   // Each Fleet entry draws its one section under its own heading.
   for (const name of ["Limits", "Timeouts", "Retention", "Plan", "Machine", "Account", "Store", "Features"]) {
     await toSystemPage(name);

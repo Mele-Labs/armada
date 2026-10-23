@@ -196,6 +196,15 @@ pub trait Tracker {
     /// How to write a query [`search_issues`](Tracker::search_issues) takes.
     fn query_guide(&self) -> QueryGuide;
 
+    /// The address an issue named like `example` opens at, with `{match}` where its reference goes:
+    /// what turns a taught pattern into a link for this repository without asking anyone. `None`
+    /// where this tracker does not know one, or `example` is not how it names an issue. **Built
+    /// from the Manifest's own settings**, so it runs no process and reads no network.
+    fn address_template(&self, example: &str) -> Option<String> {
+        let _ = example;
+        None
+    }
+
     /// The issues of this tracker that `text` links, each as the ledger holds an issue (`7`, or a
     /// key such as `ABC-12`), once each and in the order first written. `in_repo` is the checkout
     /// the tracker is asked for. **None by default**: a tracker that reads no links names no issue,
