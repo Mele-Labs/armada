@@ -59,7 +59,7 @@ export function ArtifactTimeline({ timeline, take }: { timeline: Timeline; take:
           </div>
           <div className="at__plot" style={{ height: layout.height }}>
             {layout.lanes.map((lane) => (
-              <div key={lane.id} className="at__lane" style={{ top: lane.top, height: lane.height }}>
+              <div key={`${lane.id}:${lane.top}`} className="at__lane" style={{ top: lane.top, height: lane.height }}>
                 <span className="at__lane-label">{lane.label}</span>
               </div>
             ))}
@@ -72,7 +72,7 @@ export function ArtifactTimeline({ timeline, take }: { timeline: Timeline; take:
                 <line key={one.line.key} className="at__run" x1={one.xs[0]} x2={one.xs[one.xs.length - 1]} y1={one.y} y2={one.y} />
               ))}
               {layout.paths.map((path) => (
-                <path key={path.key} className="at__branch" data-join={path.said === undefined || path.key.endsWith("<job") ? undefined : ""} d={path.d} />
+                <path key={path.key} className="at__branch" data-join={path.said === undefined ? undefined : ""} d={path.d} />
               ))}
             </svg>
             {take === "spine" ? (
