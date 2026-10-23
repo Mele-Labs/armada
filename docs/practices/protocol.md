@@ -612,6 +612,7 @@ Bridge's half is `packages/protocol/src/logbook.ts`, written by hand, field for 
 Since 22 Oct 2026. **Additive only**: three operations and routes and the types they carry; no event kind and no field on an existing type but `taught_on` on `ModSummary` and three `ModKind` words.
 The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
 Bridge's half is `packages/protocol/src/teaching.ts` and the `ModKind` union in `packages/protocol/src/mods.ts`, written by hand, field for field.
+Its calls are `readTeaching`, `saveTeaching` and `listWordRules` (`apps/desktop/src/shared/api/teaching.ts`, served by `apps/desktop/src/main/teaching.ts`); `read_teaching` waits as a model call does.
 **A teaching is a Logbook entry for the agent note and mods by what it changes**; `save_teaching` makes both, so Bridge files nothing itself.
 `docs/concepts/mods.md` is the mod files.
 

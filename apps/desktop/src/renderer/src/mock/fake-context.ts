@@ -56,7 +56,8 @@ export type SliceName =
   | "onboarding"
   | "requests"
   | "sharing"
-  | "logbook";
+  | "logbook"
+  | "teaching";
 
 /**
  * One surface's part of a fake. `api` is the members its `shared/api/<name>.ts` declares, answered
