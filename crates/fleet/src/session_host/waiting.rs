@@ -374,7 +374,8 @@ where
         // Each sentence of the close, the same way: nothing until the model has read the reply.
         let extracted = |said: &str| {
             let model = self.language_model().model()?;
-            self.extract_reads().read_of(super::extracting::read, model, &session.id, said)
+            let read = self.extract_reads().read_of(super::extracting::read, model, &session.id, said)?;
+            Some(if windows.is_empty() { read } else { read.beside_a_walk() })
         };
         let seen = super::standing::Seen {
             helm,
