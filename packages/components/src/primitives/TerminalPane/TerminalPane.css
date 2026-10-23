@@ -45,6 +45,30 @@
   color: var(--fg-muted);
 }
 
+/* A Job's shell is named, where a run shows its command. */
+.armada-terminal__name {
+  flex: none;
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  font-weight: var(--weight-medium);
+  color: var(--fg-default);
+}
+
+.armada-terminal__said {
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  color: var(--fg-muted);
+}
+
+/* The dock's tabs, where it holds the shell and a run: the strip is taller than the line, so it takes its own inset. */
+.armada-terminal__tabs {
+  display: flex;
+  min-width: 0;
+  padding-block: var(--space-1);
+}
+
 .armada-terminal__keys {
   display: flex;
   flex: none;

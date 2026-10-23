@@ -1,7 +1,8 @@
-import { useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
+import { Fragment, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import { CircleCheck, CircleX, RotateCcw, Square, SquareTerminal, X } from "lucide-react";
 
 import { Button } from "../Button/Button";
+import { Tabs } from "../Tabs/Tabs";
 import { Tooltip } from "../Tooltip/Tooltip";
 
 /** How a terminal run stands. `code` is null where it was stopped. */
@@ -32,47 +33,129 @@ export type TerminalPaneProps = {
   children: ReactNode;
 };
 
+/** What a pane's header holds: what leads it, what follows on the line, and its keys. */
+type PaneHead = { lead: ReactNode; line: ReactNode; keys: ReactNode };
+
+/**
+ * The frame every docked pane is drawn in. One component for the run and the shell, so the dock's tabs
+ * stay mounted, and keep the focus, as the pane in front changes.
+ */
+function PaneFrame({ state, head, tabs, children }: { state: string; head: PaneHead; tabs?: ReactNode; children: ReactNode }) {
+  return (
+    <section className="armada-terminal" role="group" aria-label="Terminal" data-state={state}>
+      <header className="armada-terminal__head">
+        {tabs === undefined ? head.lead : <span className="armada-terminal__tabs">{tabs}</span>}
+        <span className="armada-terminal__command">{head.line}</span>
+        <span className="armada-terminal__keys">{head.keys}</span>
+      </header>
+      <div className="armada-terminal__body">{children}</div>
+    </section>
+  );
+}
+
+function runHead({ command, phase, onStop, onRerun, onClose }: Omit<TerminalPaneProps, "children">, tabbed: boolean): PaneHead {
+  const mark = <TerminalMark phase={phase} />;
+  return {
+    lead: mark,
+    // Beside the shell the command is its tab, and the run's mark follows the tabs.
+    line: tabbed ? (
+      mark
+    ) : (
+      <Tooltip label={command}>
+        <code className="armada-terminal__text">{command}</code>
+      </Tooltip>
+    ),
+    keys:
+      phase.state === "running" ? (
+        <Tooltip label="Stop">
+          <Button variant="ghost" size="sm" iconOnly aria-label="Stop" onClick={onStop}>
+            <Square size={16} strokeWidth={2} aria-hidden />
+          </Button>
+        </Tooltip>
+      ) : (
+        <>
+          <Tooltip label="Run again">
+            <Button variant="ghost" size="sm" iconOnly aria-label="Run again" onClick={onRerun}>
+              <RotateCcw size={16} strokeWidth={2} aria-hidden />
+            </Button>
+          </Tooltip>
+          <Tooltip label="Close">
+            <Button variant="ghost" size="sm" iconOnly aria-label="Close" onClick={onClose}>
+              <X size={16} strokeWidth={2} aria-hidden />
+            </Button>
+          </Tooltip>
+        </>
+      ),
+  };
+}
+
 /**
  * **A command running in a terminal of its own**, docked in a Session's view. The frame is this and the
  * body is the caller's, the terminal screen: the mark, the command on one line, and the keys that end
  * or repeat the run. Stop while it runs; Run again and Close once it has ended.
  */
-export function TerminalPane({ command, phase, onStop, onRerun, onClose, children }: TerminalPaneProps) {
-  const running = phase.state === "running";
+export function TerminalPane({ children, ...run }: TerminalPaneProps) {
   return (
-    <section className="armada-terminal" role="group" aria-label="Terminal" data-state={phase.state}>
-      <header className="armada-terminal__head">
-        <TerminalMark phase={phase} />
-        <span className="armada-terminal__command">
-          <Tooltip label={command}>
-            <code className="armada-terminal__text">{command}</code>
-          </Tooltip>
-        </span>
-        <span className="armada-terminal__keys">
-          {running ? (
-            <Tooltip label="Stop">
-              <Button variant="ghost" size="sm" iconOnly aria-label="Stop" onClick={onStop}>
-                <Square size={16} strokeWidth={2} aria-hidden />
-              </Button>
-            </Tooltip>
-          ) : (
-            <>
-              <Tooltip label="Run again">
-                <Button variant="ghost" size="sm" iconOnly aria-label="Run again" onClick={onRerun}>
-                  <RotateCcw size={16} strokeWidth={2} aria-hidden />
-                </Button>
-              </Tooltip>
-              <Tooltip label="Close">
-                <Button variant="ghost" size="sm" iconOnly aria-label="Close" onClick={onClose}>
-                  <X size={16} strokeWidth={2} aria-hidden />
-                </Button>
-              </Tooltip>
-            </>
-          )}
-        </span>
-      </header>
-      <div className="armada-terminal__body">{children}</div>
-    </section>
+    <PaneFrame state={run.phase.state} head={runHead(run, false)}>
+      {children}
+    </PaneFrame>
+  );
+}
+
+/** How a Job's shell stands. It ends without a code worth showing. */
+export type ShellPhase = { state: "running" } | { state: "ended" };
+
+export type ShellPaneProps = {
+  phase: ShellPhase;
+  /** Puts the pane away. The shell keeps running. */
+  onHide: () => void;
+  /** Stops the shell. */
+  onEnd: () => void;
+  /** Opens a new shell in place of the one that ended. */
+  onOpen: () => void;
+  /** Puts away the pane of a shell that has ended. */
+  onClose: () => void;
+  /** The body: the screen the shell is drawn on. */
+  children: ReactNode;
+};
+
+function shellHead({ phase, onHide, onEnd, onOpen, onClose }: Omit<ShellPaneProps, "children">): PaneHead {
+  const running = phase.state === "running";
+  return {
+    lead: <span className="armada-terminal__name">Terminal</span>,
+    line: running ? null : <span className="armada-terminal__said">Shell ended</span>,
+    keys: running ? (
+      <>
+        <Button variant="ghost" size="sm" onClick={onHide}>
+          Hide
+        </Button>
+        <Button variant="ghost" size="sm" onClick={onEnd}>
+          End shell
+        </Button>
+      </>
+    ) : (
+      <>
+        <Button variant="ghost" size="sm" onClick={onOpen}>
+          New shell
+        </Button>
+        <Button variant="ghost" size="sm" onClick={onClose}>
+          Close
+        </Button>
+      </>
+    ),
+  };
+}
+
+/**
+ * **The Job's own shell**, which stays open and which the person and the Job's agent both type into.
+ * Unlike a run it has no exit to mark and is never run again: Hide and End shell while it runs; once it
+ * has ended, the pane says so and offers a new shell and Close.
+ */
+export function ShellPane({ children, ...shell }: ShellPaneProps) {
+  return (
+    <PaneFrame state={shell.phase.state} head={shellHead(shell)}>
+      {children}
+    </PaneFrame>
   );
 }
 
@@ -87,6 +170,62 @@ const THREAD_MIN = 160;
  * drag moves the edge; the arrow keys do too, and Home puts it back.
  */
 export function TerminalDock(props: TerminalPaneProps) {
+  return (
+    <DockFrame>
+      <TerminalPane {...props} />
+    </DockFrame>
+  );
+}
+
+/** Which pane of a Job's dock is in front. */
+export type ShellDockPane = "shell" | "run";
+
+export type ShellDockProps = {
+  /** The Job's shell, while its pane is open. */
+  shell: ShellPaneProps | null;
+  /** A block's run, while its pane is open. */
+  run: TerminalPaneProps | null;
+  /** Which pane is drawn where both are open. */
+  front: ShellDockPane;
+  onFront: (pane: ShellDockPane) => void;
+};
+
+/**
+ * **A Job's docked place**, holding its shell, a block's run, or both. With both open they are tabs,
+ * Terminal and the run's command, and the pane in front keeps its own keys. The pane behind is not
+ * mounted: its screen draws again from what it printed when it comes back.
+ */
+export function ShellDock({ shell, run, front, onFront }: ShellDockProps) {
+  const tabs =
+    shell !== null && run !== null ? (
+      <Tabs
+        items={[
+          { id: "shell", label: "Terminal" },
+          { id: "run", label: run.command, hint: run.command },
+        ]}
+        value={front}
+        onChange={(id) => onFront(id === "run" ? "run" : "shell")}
+      />
+    ) : undefined;
+  let pane: { key: ShellDockPane; state: string; head: PaneHead; body: ReactNode };
+  if (run !== null && (shell === null || front === "run")) {
+    const { children, ...rest } = run;
+    pane = { key: "run", state: rest.phase.state, head: runHead(rest, tabs !== undefined), body: children };
+  } else if (shell !== null) {
+    const { children, ...rest } = shell;
+    pane = { key: "shell", state: rest.phase.state, head: shellHead(rest), body: children };
+  } else return null;
+  return (
+    <DockFrame>
+      <PaneFrame state={pane.state} head={pane.head} tabs={tabs}>
+        {/* Keyed, so a screen is never handed the other pane's output. */}
+        <Fragment key={pane.key}>{pane.body}</Fragment>
+      </PaneFrame>
+    </DockFrame>
+  );
+}
+
+function DockFrame({ children }: { children: ReactNode }) {
   const box = useRef<HTMLDivElement>(null);
   const drag = useRef<{ pointerId: number; startY: number; startHeight: number } | null>(null);
   const [height, setHeight] = useState<number | null>(null);
@@ -142,7 +281,7 @@ export function TerminalDock(props: TerminalPaneProps) {
         onPointerCancel={endDrag}
         onKeyDown={keyDown}
       />
-      <TerminalPane {...props} />
+      {children}
     </div>
   );
 }
