@@ -14,7 +14,6 @@ export type Open = {
   guiding: boolean;
   studying: boolean;
   lining: boolean;
-  learning: boolean;
   workflowing: boolean;
   checking: boolean;
   /** Doctor, reached from the Fleet panel's Doctor row. Optional so a caller that never opens it need not say so. */
@@ -25,6 +24,8 @@ export type Open = {
   reviewing?: boolean;
   /** Usage: where the tokens went. */
   usaging?: boolean;
+  /** The Logbook: what Armada learned from every Job. */
+  logbooking?: boolean;
 };
 
 /** The rail row for what is open, in the precedence `App` draws by. */
@@ -38,11 +39,11 @@ export function showingOf(open: Open): string {
   if (open.guiding) return SURFACE.guides;
   if (open.studying) return SURFACE.studios;
   if (open.lining) return SURFACE.mergeLine;
-  if (open.learning) return SURFACE.lessons;
   if (open.workflowing) return SURFACE.workflows;
   if (open.checking) return SURFACE.checks;
   if (open.reviewing === true) return SURFACE.reviews;
   if (open.usaging === true) return SURFACE.usage;
+  if (open.logbooking === true) return SURFACE.logbook;
   if (open.doctoring === true) return SURFACE.doctor;
   return SURFACE.overview;
 }
