@@ -125,6 +125,7 @@ pub(crate) mod main_hub;
 /// A possible `armada.yml` per workspace, from Scan, and the Write that ends it.
 pub mod manifest_proposal;
 pub mod merge_lines;
+mod act_failing;
 mod model_downshift;
 mod model_downshifting;
 /// The models the harness offers, asked after Fleet is serving.
