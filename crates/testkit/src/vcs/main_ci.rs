@@ -22,6 +22,8 @@ struct Script {
     by_number: Vec<FollowedPull>,
     open_by_number: Vec<OpenPull>,
     asked_by_number: Vec<u64>,
+    open_by_author: Option<OpenPulls>,
+    asked_by_author: Vec<String>,
     recent: Option<RecentlyMergedPulls>,
     asked_recent: usize,
     asked_head: usize,
@@ -91,6 +93,18 @@ impl MainCiScript {
     /// The same, as the forge's listing reads them.
     pub fn open_by_number_are(&self, pulls: Vec<OpenPull>) {
         self.with(|it| it.open_by_number = pulls);
+    }
+
+    /// The open pull requests the forge answers for when asked for one author's, each answered to
+    /// its own author in any case: a pull request the listing's cap left out. `None`, the default,
+    /// is a forge that would not answer.
+    pub fn open_by_author_are(&self, pulls: Option<OpenPulls>) {
+        self.with(|it| it.open_by_author = pulls);
+    }
+
+    /// Every author open pull requests were asked for by, in order.
+    pub fn authors_asked(&self) -> Vec<String> {
+        self.with(|it| it.asked_by_author.clone())
     }
 
     /// Every number a pull request was asked for by, in order, whichever reading asked.
@@ -216,6 +230,16 @@ impl MainCiScript {
         self.with(|it| {
             it.asked_by_number.push(number);
             it.open_by_number.iter().find(|pull| pull.number == number).cloned()
+        })
+    }
+
+    pub(super) fn open_of(&self, author: &str) -> Option<OpenPulls> {
+        self.with(|it| {
+            it.asked_by_author.push(author.to_string());
+            let theirs = |pull: &&OpenPull| {
+                pull.author.as_ref().is_some_and(|by| by.as_written().eq_ignore_ascii_case(author))
+            };
+            it.open_by_author.as_ref().map(|pulls| pulls.iter().filter(theirs).cloned().collect())
         })
     }
 }

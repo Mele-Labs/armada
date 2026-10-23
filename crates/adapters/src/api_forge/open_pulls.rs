@@ -1,7 +1,7 @@
 //! The pull requests of a repository over GitHub's API: the open ones with their checks, one by
-//! number, the newest merged, the merge queue, and the login the token belongs to. The queries
-//! ask for what `gh pr list` and `gh pr view` ask for, and the rows are folded by the functions
-//! that fold `gh`'s.
+//! number, one author's, the newest merged, the merge queue, and the login the token belongs to.
+//! The queries ask for what `gh pr list` and `gh pr view` ask for, and the rows are folded by the
+//! functions that fold `gh`'s.
 
 use adapter_traits::{
     FromOutside, MergeQueue, OpenPull, OpenPulls, PullFacts, QueueEntry, RecentlyMerged, RecentlyMergedPulls,
@@ -31,6 +31,13 @@ fn list_query() -> String {
     )
 }
 
+fn search_query() -> String {
+    format!(
+        "query($q:String!,$first:Int!){{search(query:$q,type:ISSUE,first:$first){{nodes{{\
+         ... on PullRequest{{{FIELDS}}}}}}}}}"
+    )
+}
+
 fn one_query() -> String {
     format!(
         "query($owner:String!,$name:String!,$number:Int!){{repository(owner:$owner,name:$name){{\
@@ -54,6 +61,17 @@ struct AskedFirst<'a> {
 #[serde(rename_all = "camelCase")]
 struct Listed {
     pull_requests: Option<Nodes<Pull>>,
+}
+
+#[derive(Serialize)]
+struct AskedSearch<'a> {
+    q: &'a str,
+    first: usize,
+}
+
+#[derive(Deserialize)]
+struct Searched {
+    search: Option<Nodes<Pull>>,
 }
 
 #[derive(Deserialize)]
@@ -117,14 +135,40 @@ pub(super) fn open_pulls(
 ) -> Result<Option<OpenPulls>, ApiFailure> {
     let named = Named::of(repository);
     let query = list_query();
+    at_fewer(gate, |first| {
+        let asked = AskedFirst { owner: named.owner(), name: named.name(), first };
+        api.graphql::<Repo<Listed>, _>(&query, &asked).map(|found| found.repository.and_then(|it| it.pull_requests))
+    })
+}
+
+/// One author's open pull requests, newest first. **A search, since the list takes no author**;
+/// an author the search would read as more than a login is answered with none.
+pub(super) fn open_pulls_of(
+    api: &GitHubApi,
+    repository: &GitHubRepository,
+    gate: &str,
+    author: &str,
+) -> Result<Option<OpenPulls>, ApiFailure> {
+    if author.is_empty() || author.starts_with('-') || author.contains(|it: char| it.is_whitespace() || it == '"') {
+        return Ok(None);
+    }
+    let named = Named::of(repository);
+    let q = format!("repo:{}/{} is:pr is:open author:{author} sort:created-desc", named.owner(), named.name());
+    let query = search_query();
+    at_fewer(gate, |first| {
+        api.graphql::<Searched, _>(&query, &AskedSearch { q: &q, first }).map(|found| found.search)
+    })
+}
+
+/// A listing asked at each of [`LISTED`]'s sizes until one answers.
+fn at_fewer(
+    gate: &str,
+    ask: impl Fn(usize) -> Result<Option<Nodes<Pull>>, ApiFailure>,
+) -> Result<Option<OpenPulls>, ApiFailure> {
     let mut failed = None;
     for limit in LISTED {
-        let asked = AskedFirst { owner: named.owner(), name: named.name(), first: limit.parse().unwrap_or(25) };
-        match api.graphql::<Repo<Listed>, _>(&query, &asked) {
-            Ok(found) => {
-                let pulls = found.repository.and_then(|it| it.pull_requests);
-                return Ok(Some(Nodes::all(pulls).filter_map(|pull| open_pull_of(pull, gate)).collect()));
-            }
+        match ask(limit.parse().unwrap_or(25)) {
+            Ok(pulls) => return Ok(Some(Nodes::all(pulls).filter_map(|pull| open_pull_of(pull, gate)).collect())),
             Err(no_token @ ApiFailure::NoToken(_)) => return Err(no_token),
             Err(other) => failed = Some(other),
         }
