@@ -2,7 +2,7 @@
 //! `docs/concepts/logbook.md`.
 //!
 //! **An entry stands on evidence, not on one agent's say-so**: two distinct Sessions, or one where
-//! a command failed and a different form then worked. A pinned entry is never rewritten and never
+//! a command failed and a different form then worked. A locked entry is never rewritten and never
 //! fades; a person's text is kept until a Session contradicts it.
 
 use std::collections::{BTreeSet, HashSet};
@@ -82,14 +82,14 @@ pub(crate) fn curate(entries: &mut Vec<LogEntry>, answer: &Distilled, distil: &D
         entry.last_confirmed = distil.now;
         entry.tripped += 1;
         match &claim.text {
-            Some(text) if !entry.pinned && !entry.edited_by_person => rewrite(entry, text, LogRewrite::Tripped, distil.now),
+            Some(text) if !entry.locked && !entry.edited_by_person => rewrite(entry, text, LogRewrite::Tripped, distil.now),
             _ => {}
         }
     });
     each(&answer.contradicted, entries, &|entry, claim| {
         entry.evidence.push(evidence(distil, &claim.cites, LogHow::Contradicted, claim.hard));
         match &claim.text {
-            Some(text) if !entry.pinned => {
+            Some(text) if !entry.locked => {
                 rewrite(entry, text, LogRewrite::Contradicted, distil.now);
                 entry.edited_by_person = false;
             }
@@ -146,7 +146,7 @@ fn learnt_into(entries: &mut Vec<LogEntry>, learnt: &Learnt, distil: &Distil<'_>
         last_confirmed: distil.now,
         last_served: None,
         state: LogState::Candidate,
-        pinned: false,
+        locked: false,
         edited_by_person: false,
         tripped: 0,
         history: Vec::new(),
@@ -163,9 +163,9 @@ pub(crate) fn stand(entry: &mut LogEntry) {
 }
 
 /// Whether a standing entry fades now: neither confirmed nor served for [`FADES_AFTER_MS`], and
-/// [`FADES_AFTER_SESSIONS`] of its repository's Sessions since. A pinned entry never fades.
+/// [`FADES_AFTER_SESSIONS`] of its repository's Sessions since. A locked entry never fades.
 pub(crate) fn fade(entry: &mut LogEntry, now: u64, held: &dyn Held) -> bool {
-    if entry.state != LogState::Standing || entry.pinned {
+    if entry.state != LogState::Standing || entry.locked {
         return false;
     }
     let used = entry.last_confirmed.max(entry.last_served.unwrap_or(0));

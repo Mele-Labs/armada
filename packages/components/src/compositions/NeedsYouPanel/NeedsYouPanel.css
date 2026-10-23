@@ -250,6 +250,41 @@
   overflow: visible;
 }
 
+/* An open question keeps Back, the question and the Answer row in view, and only the options scroll. The body's max-height bounds a column of
+   min-height 0 boxes down to the options, so a long description pushes nothing off. What sits below the options (a preview, Other) is held at its
+   own height. Scoped to the flat deck: the walk, command and handoff details still scroll as one block. */
+.armada-needs-panel__detail:has(.armada-question-deck[data-flat]) {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.armada-needs-panel__detail:has(.armada-question-deck[data-flat]) :is(
+  .armada-needs-panel__content,
+  .armada-session-thread__ask,
+  .armada-question-deck,
+  .armada-question-deck__stack,
+  .armada-question-deck__card,
+  .armada-question-deck__body
+) {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.armada-needs-panel__detail:has(.armada-question-deck[data-flat]) .armada-question-deck__body > :not(.armada-question-deck__answers) {
+  flex: none;
+}
+
+/* The scroll box clips its own edge, so it carries the focus ring's room as padding and gives it back as margin. */
+.armada-needs-panel__detail:has(.armada-question-deck[data-flat]) .armada-question-deck__answers {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-1);
+  margin: calc(-1 * var(--space-1));
+}
+
 @media (prefers-reduced-motion: reduce) {
   .armada-needs-panel__body,
   .armada-needs-panel__reveal,

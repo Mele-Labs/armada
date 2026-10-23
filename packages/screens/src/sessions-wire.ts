@@ -5,7 +5,7 @@
 // `detail`), and what a screen draws is a slot beside its branch and a pull request with its Checks,
 // so the pairing and the reading happen here, once, where a test can hold them. Nothing here reads a transcript: a row is drawn as it arrived and nothing is inferred from it.
 
-import type { Attachment, ContextBreakdown as WireContextBreakdown, HelmCallInFlight, ProposedField, SentFile, SessionActivity as WireActivity, SessionRecord, SessionRow as WireRow, SessionTag as WireTag, TimelineEvent, WaitingItem, WatchSummary, WorkflowSummary } from "@armada/protocol";
+import type { Attachment, AttachmentHistory, ContextBreakdown as WireContextBreakdown, HelmCallInFlight, ProposedField, SentFile, SessionActivity as WireActivity, SessionRecord, SessionRow as WireRow, SessionTag as WireTag, TimelineEvent, WaitingItem, WatchSummary, WorkflowSummary } from "@armada/protocol";
 
 import type { ContextBreakdown } from "@armada/components/src/context-breakdown";
 import { parseScene } from "@armada/components/src/compositions/SketchScene/scene";
@@ -184,7 +184,7 @@ function pullRequestOf(one: Attachment): SessionAttachment | undefined {
  * pair here**: the branch takes the slot the session holds in the same repository, so opening either
  * opens the slot's panel. A row Fleet or this build has no screen for is left out rather than guessed at.
  */
-export function attachmentsOfRecord(record: SessionRecord, beside: Pick<Beside, "sketches">): SessionAttachment[] {
+export function attachmentsOfRecord(record: Pick<SessionRecord, "attachments">, beside: Pick<Beside, "sketches">): SessionAttachment[] {
   // What a Session made stays on its ledger once it has ended, as a subagent's turn does.
   const held = record.attachments.filter((one) => one.state !== "given_back" || one.kind === "subagent" || one.kind === "artifact" || one.kind === "background");
   const slots = held.filter((one) => one.kind === "slot" && one.state === "standing");
@@ -288,11 +288,27 @@ export function attachmentsOfRecord(record: SessionRecord, beside: Pick<Beside, 
         });
         break;
       }
+      case "link":
+        out.push({ kind: "link", url: one.target, by: detail["by"] === "you" ? "you" : "agent" });
+        break;
       default:
         break;
     }
   }
   return [...out, ...beside.sketches];
+}
+
+/**
+ * A Job's attachment history as the draft keeps it: each version drawn as the ledger draws that attachment, with what it followed as `from`.
+ * A version of a kind this build has no screen for is left out, as the ledger leaves out its row.
+ */
+export function versionsOfHistory(history: AttachmentHistory): NonNullable<Session["versions"]> {
+  return history.versions.flatMap((one) => {
+    const attachment = attachmentsOfRecord({ attachments: [{ ...one, since: one.at, changed_at: one.at }] }, { sketches: [] })[0];
+    if (attachment === undefined) return [];
+    const from = { ...(one.from_message === undefined ? {} : { message: one.from_message }), ...(one.from_task === undefined ? {} : { task: one.from_task }) };
+    return [{ at: one.at, attachment, ...(Object.keys(from).length === 0 ? {} : { from }) }];
+  });
 }
 
 /**
@@ -529,7 +545,7 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
   const ended = record.state === "ended";
   // A session that ended holds nothing, so it owns nothing: what it keeps is the link to its forks and starts, and what it made, to be read.
   const attachments = attachmentsOfRecord(record, beside).filter(
-    (one) => !ended || one.kind === "forked_to" || one.kind === "forked_from" || one.kind === "started_to" || one.kind === "started_by" || one.kind === "pull_request" || one.kind === "artifact",
+    (one) => !ended || one.kind === "forked_to" || one.kind === "forked_from" || one.kind === "started_to" || one.kind === "started_by" || one.kind === "pull_request" || one.kind === "artifact" || one.kind === "link",
   );
   // The first message an agent wrote for a Session it started, held by Fleet until the person sends it.
   const unsent = ended ? undefined : record.attachments.find((one) => one.kind === "unsent" && one.state === "standing")?.target;

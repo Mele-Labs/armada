@@ -120,6 +120,10 @@ describe("homeOf", () => {
     expect(home.running.map((one) => one.session.id)).toEqual(["a2"]);
     expect(home.several).toBe(false);
   });
+  it("lists an open Job with no turn running, which is neither waiting nor ended", () => {
+    const home = homeOf({ macs: [mac("https://a", { live: [session("a1", { working: true }), session("a2", {}), session("a3", { waiting: true })] })] });
+    expect(home.running.map((one) => one.session.id).sort()).toEqual(["a1", "a2"]);
+  });
 });
 
 describe("the source folder", () => {

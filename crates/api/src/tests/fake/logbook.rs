@@ -2,7 +2,7 @@
 
 use ipc::{
     EditLogbookEntry, Instant, Logbook as LogbookRead, LogbookEntry, ForgottenLogbookEntry, LogbookKind, LogbookSection,
-    LogbookState, PinLogbookEntry, TeachLogbookEntry,
+    LogbookState, LockLogbookEntry, TeachLogbookEntry,
 };
 
 use super::FakeDaemon;
@@ -23,7 +23,7 @@ fn entry(id: &str, section: LogbookSection, kind: LogbookKind, text: &str, paths
         last_served: None,
         last_tripped: None,
         state: LogbookState::Standing,
-        pinned: false,
+        locked: false,
         edited: false,
         history: Vec::new(),
     }
@@ -43,8 +43,8 @@ impl Logbook for FakeDaemon {
         Ok(LogbookEntry { edited: true, ..entry(&entry_id, LogbookSection::Habits, LogbookKind::Habit, &edit.text, Vec::new()) })
     }
 
-    async fn pin_logbook_entry(&self, entry_id: String, pin: PinLogbookEntry) -> Result<LogbookEntry, Refusal> {
-        Ok(LogbookEntry { pinned: pin.pinned, ..entry(&entry_id, LogbookSection::Habits, LogbookKind::Habit, "", Vec::new()) })
+    async fn lock_logbook_entry(&self, entry_id: String, lock: LockLogbookEntry) -> Result<LogbookEntry, Refusal> {
+        Ok(LogbookEntry { locked: lock.locked, ..entry(&entry_id, LogbookSection::Habits, LogbookKind::Habit, "", Vec::new()) })
     }
 
     async fn forget_logbook_entry(&self, entry_id: String) -> Result<ForgottenLogbookEntry, Refusal> {

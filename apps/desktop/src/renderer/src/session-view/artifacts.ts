@@ -2,11 +2,13 @@
 // as `LedgerEntry` rows that know where each press goes) and from the thread: the files its drones touched, the commits and the commands it ran.
 // Nothing is fetched and nothing is invented. The ledger holds no commit of its own, so commits are the thread's `git commit` lines.
 
-import { GitCommitHorizontal, GitPullRequest, Link, PencilRuler, Presentation, Split, SquareTerminal, type LucideIcon } from "lucide-react";
+import { ExternalLink, GitCommitHorizontal, GitPullRequest, Link, PencilRuler, Presentation, Split, SquareTerminal, Ticket, type LucideIcon } from "lucide-react";
 import { ARTIFACT, BACKGROUND, FILE_SHOWN, type LedgerEntry, type LedgerPullRequest, type SessionLedgerTone, type SessionState } from "@armada/components";
-import { attachmentsOf, type Session, type SessionRow } from "@armada/screens/src/draft/sessions";
+import { attachmentsOf, issueLabel, type Session, type SessionRow } from "@armada/screens/src/draft/sessions";
 
+import { openLink } from "../commands";
 import { shownOnly } from "../session-cards";
+import { openInPanel } from "../shared-panel/store";
 import { childrenOf, linkedPropsOf } from "./linked";
 
 export type ArtifactRow = {
@@ -48,6 +50,16 @@ const commandOf = (row: SessionRow): ArtifactRow | undefined => {
 /** A Session's state as the ledger's marks say it. */
 const TONE: Record<SessionState, SessionLedgerTone> = { working: "running", stuck: "failed", failing: "failed", waiting: "escalated", replied: "done", done: "done", ended: "stopped", quiet: "stopped", idle: "pending", blank: "pending", limited: "pending", after: "pending", draft: "pending", held: "pending" };
 
+/** A web address as its row titles it: the host and the path, with no scheme, query or trailing slash. Nothing is fetched. */
+export const linkTitle = (url: string): string => {
+  try {
+    const { host, pathname } = new URL(url);
+    return `${host}${pathname === "/" ? "" : pathname.replace(/\/$/, "")}`;
+  } catch {
+    return url;
+  }
+};
+
 /** The other Sessions in the window, for the ones this Session handed a plan group to, and how to open one. */
 export type Beside = { sessions: readonly Session[]; open: (id: string) => void };
 
@@ -66,6 +78,19 @@ export function artifactsOf(session: Session, entries: readonly LedgerEntry[], b
       const entry = entryOf(entries, "pull_request", String(one.number));
       return { key: `pr:${one.number}`, Glyph: GitPullRequest, said: "Pull request", title: `#${one.number} ${one.title}`, sub: one.branch, ...(entry?.pr === undefined ? {} : { pr: entry.pr }), ...open(entry) };
     }),
+  );
+
+  add(
+    "issue",
+    "Issues",
+    attachmentsOf(session, "issue").map((one) => ({
+      key: `issue:${one.number}`,
+      Glyph: Ticket,
+      said: "Issue",
+      title: `${issueLabel(one.number)} ${one.title}`,
+      ...(one.state === "closed" ? { mark: { glyph: "done" as const, said: "Closed" } } : {}),
+      open: () => void openInPanel({ kind: "issue", number: one.number, address: one.address, title: one.title, ...(session.manifestId === undefined ? {} : { manifestId: session.manifestId }) }),
+    })),
   );
 
   const commits = session.rows.flatMap((row) => {
@@ -91,6 +116,12 @@ export function artifactsOf(session: Session, entries: readonly LedgerEntry[], b
     "sketch",
     "Sketches",
     newest(attachmentsOf(session, "sketch")).map((one) => ({ key: `sketch:${one.id}`, Glyph: PencilRuler, said: "Sketch", title: one.title, sub: one.by === "agent" ? "Drawn by the agent" : "Drawn by you", ...open(entryOf(entries, "sketch", one.id)) })),
+  );
+
+  add(
+    "link",
+    "Links",
+    newest(attachmentsOf(session, "link")).map((one) => ({ key: `link:${one.url}`, Glyph: ExternalLink, said: "Link", title: linkTitle(one.url), sub: one.by === "agent" ? "Agent" : "You", open: () => void openLink(one.url) })),
   );
 
   add(

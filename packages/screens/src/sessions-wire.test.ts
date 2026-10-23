@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import type { Attachment, HelmCallInFlight, SessionRecord, SessionRow } from "@armada/protocol";
-import { ENDED_LISTED_DAYS, SessionMemo, activityOf, attachmentsOfRecord, cleanTitle, lapsedAnswerText, lapsedOf, rowsOfThread, sceneOfWire, sessionOfRecord, sessionsOfRecords, sketchCallOf, trailOfRecord } from "./sessions-wire";
+import type { Attachment, AttachmentHistory, HelmCallInFlight, SessionRecord, SessionRow } from "@armada/protocol";
+import { ENDED_LISTED_DAYS, SessionMemo, activityOf, attachmentsOfRecord, cleanTitle, lapsedAnswerText, lapsedOf, rowsOfThread, sceneOfWire, sessionOfRecord, sessionsOfRecords, sketchCallOf, trailOfRecord, versionsOfHistory } from "./sessions-wire";
 import type { Beside } from "./sessions-wire";
 import { ownerOf, sessionsMatching } from "./draft/sessions";
 import { share } from "./share";
@@ -1069,5 +1069,52 @@ describe("a Job handed on to a new one", () => {
     const both = record("a", { attachments: [held("handoff_starting", ""), held("handoff_failed", "2026-10-18T19:00:00Z")] });
     expect(sessionOfRecord(both, undefined, beside()).handoff).toBe("failed");
     expect(attachmentsOfRecord(both, beside())).toEqual([]);
+  });
+});
+
+describe("a link a Job kept", () => {
+  it("reads a link row as the address and who wrote it, from the person or the agent", () => {
+    const attachments = attachmentsOfRecord(
+      record("a", { attachments: [held("link", "https://example.com/rfc", { by: "you" }, "spent"), held("link", "https://example.com/docs", { by: "agent" }, "spent")] }),
+      beside(),
+    );
+    expect(attachments).toEqual([
+      { kind: "link", url: "https://example.com/rfc", by: "you" },
+      { kind: "link", url: "https://example.com/docs", by: "agent" },
+    ]);
+  });
+
+  it("keeps a link once the Job has ended", () => {
+    const ended = record("a", { state: "ended", attachments: [held("link", "https://example.com/rfc", { by: "you" }, "spent")] });
+    expect(sessionOfRecord(ended, undefined, beside()).attachments).toEqual([{ kind: "link", url: "https://example.com/rfc", by: "you" }]);
+  });
+});
+
+describe("a Job's attachment history", () => {
+  const history = (versions: AttachmentHistory["versions"]): AttachmentHistory => ({ versions });
+
+  it("reads each version as the attachment it was at its instant, and what it followed as `from`", () => {
+    const read = versionsOfHistory(
+      history([
+        { kind: "link", target: "https://example.com/rfc", state: "spent", detail: { by: "you" }, at: "2026-10-22T10:00:00Z", from_message: "m1" },
+        { kind: "issue", target: "1887", state: "standing", detail: { state: "open" }, at: "2026-10-22T10:01:00Z", from_task: "t2" },
+        { kind: "issue", target: "1887", state: "standing", detail: { state: "closed" }, at: "2026-10-22T10:30:00Z", from_message: "m2", from_task: "t4" },
+      ]),
+    );
+    expect(read).toEqual([
+      { at: "2026-10-22T10:00:00Z", attachment: { kind: "link", url: "https://example.com/rfc", by: "you" }, from: { message: "m1" } },
+      { at: "2026-10-22T10:01:00Z", attachment: { kind: "issue", number: "1887", title: "", address: "", state: "open" }, from: { task: "t2" } },
+      { at: "2026-10-22T10:30:00Z", attachment: { kind: "issue", number: "1887", title: "", address: "", state: "closed" }, from: { message: "m2", task: "t4" } },
+    ]);
+  });
+
+  it("gives a version that followed nothing known no `from`, and drops a version this build has no screen for", () => {
+    const read = versionsOfHistory(
+      history([
+        { kind: "link", target: "https://example.com/rfc", state: "spent", detail: { by: "agent" }, at: "2026-10-22T10:00:00Z" },
+        { kind: "a_kind_from_later", target: "x", state: "standing", at: "2026-10-22T10:02:00Z" },
+      ]),
+    );
+    expect(read).toEqual([{ at: "2026-10-22T10:00:00Z", attachment: { kind: "link", url: "https://example.com/rfc", by: "agent" } }]);
   });
 });
