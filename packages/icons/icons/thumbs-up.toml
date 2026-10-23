@@ -3,5 +3,5 @@
   group = "Action"
   size = "16px"
   status = "Specified"
-  reserved = "Carry on past a gaming flag, on its button only. Never Approve, which is `check`, and never a Judge's verdict."
-  notes = "Minted 2 Oct 2026 with `thumbs-down`, the owner's call on the walk of #1672. Carry on overrules a flag rather than approving the work, so `check` — which means yes and is Approve's — would claim more than the press does. The pair breaks the Actions rule that text buttons carry no icon on these two buttons alone."
+  reserved = "Carry on past a gaming flag, on its button only; and A question on a Needs you question Fleet read from a reply, beside `thumbs-down`, icon-only with its words as tooltip. Never Approve, which is `check`, and never a Judge's verdict."
+  notes = "Minted 2 Oct 2026 with `thumbs-down`, the owner's call on the walk of #1672. Carry on overrules a flag rather than approving the work, so `check` — which means yes and is Approve's — would claim more than the press does. The pair breaks the Actions rule that text buttons carry no icon on these two buttons alone. Widened 23 Oct 2026 with `thumbs-down`, the owner's pick on the walk `not-a-question`."
