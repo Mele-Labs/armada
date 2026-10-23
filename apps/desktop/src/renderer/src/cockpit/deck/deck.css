@@ -39,6 +39,8 @@
   grid-template-rows: minmax(0, 1fr);
   gap: var(--space-3);
 }
+/* A layout that hides every panel of the right column takes the column away. */
+.deck-grid[data-bare] { grid-template-columns: var(--deck-left, calc(var(--space-12) * 6)) minmax(0, 1fr); }
 .deck-left,
 .deck-centre,
 .deck-right { display: flex; flex-direction: column; min-width: 0; min-height: 0; gap: var(--space-3); }
