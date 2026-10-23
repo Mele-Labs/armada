@@ -125,6 +125,7 @@ The credential is held as a `Secret` for the one call, and every refusal is scru
 It keeps the outcome in `.tried.toml` beside the mod, with when, the repository, how many issues were listed, the reference read or the reason it failed, and the digest of the `tracker.toml` it tried.
 `list_mods` carries it as the row's `tried` while that digest is the file's, so an edit shows the mod untried again.
 A scan and a Manifest's lookup read the record and run nothing.
+A tracker mod switched off in Mods is refused too, with that as the reason; the lookup reads the switches as Fleet last scanned them, every two seconds and at once on `set_mod_enabled`.
 
 ## The operations
 

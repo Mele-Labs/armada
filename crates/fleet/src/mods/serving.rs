@@ -54,6 +54,7 @@ where
             .await
             .mod_switches()
             .map_err(|fault| self.refusal(Adrift::Reading(ReadError::Database(fault))))?;
+        self.host().mod_switches.replace(&switches);
         let dir = self.mods_dir();
         tokio::task::spawn_blocking(move || scan(&dir, &switches))
             .await

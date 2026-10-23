@@ -103,6 +103,7 @@ pub fn fitted_over<V>(
             // `~/.armada`.
             kit_home: home.path().join("kit").to_string_lossy().to_string(),
             mods_dir: home.path().join("mods").to_string_lossy().to_string(),
+            mod_switches: crate::mods::ModSwitches::default(),
             // The shipped fifteen minutes; the cases about a reply running out
             // plant their own with `answering_within`.
             helm_reply_budget: Duration::from_secs(15 * 60),

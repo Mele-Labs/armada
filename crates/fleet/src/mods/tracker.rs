@@ -5,7 +5,9 @@
 //! the address it names answers, so a Manifest naming the mod reaches it only after a try of the
 //! file as it now stands has passed. The record keeps the file's digest, so an edit undoes the try.
 
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, RwLock};
 
 use adapter_traits::Tracker;
 use adapters::taught_tracker::{self, TaughtTracker, TaughtTrackers, TrackerFile};
@@ -144,14 +146,29 @@ fn outcome(file: &TrackerFile, root: &str) -> Result<(u32, Option<String>), (u32
     }
 }
 
+/// This machine's mod switches as Fleet last read them from the store. A mod not in it is on.
+#[derive(Clone, Debug, Default)]
+pub struct ModSwitches(Arc<RwLock<BTreeMap<String, bool>>>);
+
+impl ModSwitches {
+    pub(crate) fn replace(&self, now: &BTreeMap<String, bool>) {
+        *self.0.write().unwrap_or_else(|poisoned| poisoned.into_inner()) = now.clone();
+    }
+
+    fn off(&self, name: &str) -> bool {
+        self.0.read().unwrap_or_else(|poisoned| poisoned.into_inner()).get(name) == Some(&false)
+    }
+}
+
 /// The tracker mods in a machine's `mods/`, as the composition root hands them to the trackers.
 pub struct TrackerMods {
     mods_dir: PathBuf,
+    switches: ModSwitches,
 }
 
 impl TrackerMods {
-    pub fn in_dir(mods_dir: PathBuf) -> TrackerMods {
-        TrackerMods { mods_dir }
+    pub fn in_dir(mods_dir: PathBuf, switches: ModSwitches) -> TrackerMods {
+        TrackerMods { mods_dir, switches }
     }
 }
 
@@ -163,6 +180,9 @@ impl TaughtTrackers for TrackerMods {
         let found = examine(&self.mods_dir, name);
         if found.manifest.kind != Some(ModKind::Tracker) {
             return Some(Err(format!("the mod `{name}` is not a tracker mod")));
+        }
+        if self.switches.off(name) {
+            return Some(Err(format!("the tracker mod `{name}` is switched off in Mods")));
         }
         let text = match found.files.map(|files| files.payload) {
             Some(Payload::Tracker(text)) => text,

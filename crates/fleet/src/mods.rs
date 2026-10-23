@@ -28,7 +28,7 @@ pub(crate) mod stylesheet;
 pub(crate) mod tracker;
 
 pub use serving::keep_reading;
-pub use tracker::TrackerMods;
+pub use tracker::{ModSwitches, TrackerMods};
 
 /// How often the folder is rescanned for a mod a session wrote.
 pub const EVERY: std::time::Duration = std::time::Duration::from_secs(2);

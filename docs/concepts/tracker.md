@@ -96,7 +96,7 @@ tracker:
   provider: linear
 ```
 
-> **Rule.** A provider naming a tracker mod is used only while the mod is valid and has passed a try of its file as it stands.
+> **Rule.** A provider naming a tracker mod is used only while the mod is valid, switched on in Mods, and has passed a try of its file as it stands.
 > Why: until it has answered once, nothing says the command or the address it names works, and every call is refused with the reason instead.
 
 The mod is looked up at each call, so a try that passes is used without a restart, and an edit to `tracker.toml` refuses the mod until it is tried again.
