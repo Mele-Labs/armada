@@ -62,6 +62,9 @@ export type SessionActed<T = SessionRecord> = { ok: true; value: T } | { ok: fal
 /** A Job's shell opening or ending, as `terminal.opened` and `terminal.exited` carry it. */
 export type JobTerminalChange = JobTerminal & { change: "opened" | "exited" };
 
+/** A shell moved from its own window back into Bridge, docked or in the side panel. */
+export type TerminalMovedBack = { sessionId: string; to: "docked" | "side panel" };
+
 export type PullRequestPress = "read" | "ready" | "merge" | "auto_merge";
 
 /** What the comment box writes to a pull request a Session holds: the act, and its Markdown. The pull request is named apart. */
@@ -268,6 +271,18 @@ export type SessionsApi = {
   onSessionRunMessage: (on: (runId: string, message: SessionRunMessage) => void) => () => void;
   /** A Job's shell opened (the agent's first `type_in_terminal` too) or ended, so a pane can follow it. Output follows on `onSessionRunMessage` by `run_id`. Returns its remover. */
   onSessionTerminal: (on: (terminal: JobTerminalChange) => void) => () => void;
+  /** Opens the Job's shell in a window of its own, or brings the one it has to the front. The window opens the shell as a pane does. */
+  openTerminalWindow: (sessionId: string) => Promise<void>;
+  /** The Jobs whose shell has a window open now, which main alone knows. */
+  getTerminalWindows: () => Promise<readonly string[]>;
+  /** The Jobs with a terminal window, whole, whenever one opens or closes. Returns its remover. */
+  onTerminalWindows: (onChanged: (sessionIds: readonly string[]) => void) => () => void;
+  /** What a shell main follows has printed so far, its last 256 KiB, for a window that comes to it late. Null where main holds none. */
+  readTerminalSoFar: (runId: string) => Promise<string | null>;
+  /** Moves a shell out of its window, which closes, and back into Bridge: every window hears it on `onTerminalMovedBack`. */
+  moveTerminalBack: (sessionId: string, to: TerminalMovedBack["to"]) => Promise<void>;
+  /** A shell moved back from its window, for the document that draws that Job's dock. Returns its remover. */
+  onTerminalMovedBack: (on: (move: TerminalMovedBack) => void) => () => void;
 };
 
 /** Every session on the machine, as `list_sessions` answers and `session.changed` keeps current. */
@@ -364,6 +379,14 @@ export const SESSIONS_CHANNELS = {
   resizeSessionRun: "bridge:resize-session-run",
   sessionRunMessage: "bridge:session-run-message",
   sessionTerminal: "bridge:session-terminal",
+  openTerminalWindow: "bridge:open-terminal-window",
+  getTerminalWindows: "bridge:get-terminal-windows",
+  /** Main to every window, not a request. */
+  terminalWindowsChanged: "bridge:terminal-windows-changed",
+  readTerminalSoFar: "bridge:read-terminal-so-far",
+  moveTerminalBack: "bridge:move-terminal-back",
+  /** Main to every window, not a request. */
+  terminalMovedBack: "bridge:terminal-moved-back",
   catchUpCheckout: "bridge:catch-up-checkout",
   sendCheckoutAsPullRequest: "bridge:send-checkout-as-pull-request",
   readCheckoutDiff: "bridge:read-checkout-diff",
