@@ -155,6 +155,7 @@ WebSocket event stream, read this first.
 | [Sessions absorb Jobs, group 1: the Job arms and piloting a Job leave the wire](protocol/sessions-absorb-jobs-group-1-the-job-arms-and-piloting-a-job-leave-the.md) |
 | [Sessions absorb Jobs, group 2: the Job surface leaves the wire](protocol/sessions-absorb-jobs-group-2-the-job-surface-leaves-the-wire.md) |
 | [A Job's Loadout](protocol/a-jobs-loadout.md) |
+| [A Job's attachment history](protocol/a-jobs-attachment-history.md) |
 | [Needs are deleted](protocol/needs-are-deleted.md) |
 | [A write clash's file is read as two patches](protocol/a-write-clashs-file-is-read-as-two-patches.md) |
 | [Usage a turn at a time](protocol/usage-a-turn-at-a-time.md) |
