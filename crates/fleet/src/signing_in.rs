@@ -30,7 +30,7 @@ mod enrolling;
 mod serving;
 
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+use std::sync::{Arc, Mutex, MutexGuard, OnceLock, PoisonError};
 use std::time::{Duration, Instant};
 
 use adapter_traits::{Polled, Secret, SignIn, SignInError};
@@ -119,7 +119,12 @@ struct Inner {
     clock: Arc<dyn Clock>,
     pacing: Pacing,
     state: Mutex<State>,
+    /// The shared home's `login/repository` where this machine holds a copy. `crate::home` hands it in.
+    home: OnceLock<HomeHere>,
 }
+
+/// Whether this machine holds a copy of the shared home, and its name.
+type HomeHere = Arc<dyn Fn() -> Option<String> + Send + Sync>;
 
 /// The machine's sign-in and its profiles.
 #[derive(Clone)]
@@ -145,6 +150,7 @@ impl SigningIn {
                 clock,
                 pacing: Pacing::forge(),
                 state: Mutex::new(State { generation: 0, flow: Flow::Idle, ended: None }),
+                home: OnceLock::new(),
             }),
         }
     }
@@ -154,6 +160,15 @@ impl SigningIn {
     pub fn paced(self, pacing: Pacing) -> SigningIn {
         let inner = Arc::try_unwrap(self.inner).unwrap_or_else(|_| unreachable!("paced before it is shared"));
         SigningIn { inner: Arc::new(Inner { pacing, ..inner }) }
+    }
+
+    /// Read whether the shared home exists through `here`. Only the first is kept.
+    pub fn knowing_home(&self, here: HomeHere) {
+        let _ = self.inner.home.set(here);
+    }
+
+    fn home_here(&self) -> Option<String> {
+        self.inner.home.get().and_then(|here| here())
     }
 
     fn state(&self) -> MutexGuard<'_, State> {
@@ -197,12 +212,16 @@ impl SigningIn {
                 address: address.clone(),
                 expires_in_seconds: expires.saturating_duration_since(Instant::now()).as_secs(),
             },
-            Flow::Setup { login, steps } => AccountFlow::Setup {
-                login: login.clone(),
-                // The shared home does not exist yet, so there is no repository to name.
-                repository: String::new(),
-                steps: *steps,
-            },
+            Flow::Setup { login, steps } => {
+                // Read as it is asked: the home's row is done once this machine holds a copy.
+                let home = self.home_here();
+                let state = if home.is_some() { SetUpState::Done } else { steps.home };
+                AccountFlow::Setup {
+                    login: login.clone(),
+                    repository: home.unwrap_or_default(),
+                    steps: SetUpSteps { home: state, ..*steps },
+                }
+            }
         }
     }
 
