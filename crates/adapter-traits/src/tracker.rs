@@ -187,6 +187,15 @@ pub trait Tracker {
 
     /// How to write a query [`search_issues`](Tracker::search_issues) takes.
     fn query_guide(&self) -> QueryGuide;
+
+    /// The issues of this tracker that `text` links, each as the ledger holds an issue (`7`, or a
+    /// key such as `ABC-12`), once each and in the order first written. `in_repo` is the checkout
+    /// the tracker is asked for. **None by default**: a tracker that reads no links names no issue,
+    /// and a dispatch is still read.
+    fn issues_linked_in(&self, in_repo: &str, text: &str) -> Vec<String> {
+        let _ = (in_repo, text);
+        Vec::new()
+    }
 }
 
 /// Which tracker a repository's Manifest chose: the provider where it named

@@ -83,6 +83,15 @@ const CLOSED_BY: &str = "closedByPullRequestsReferences";
 
 pub struct IssueTracker;
 
+/// The numbers of `in_repo`'s own forge issues that `text` links, as the ledger holds them. A link
+/// into any other repository names none, and a checkout with no forge has no issues to name.
+pub(crate) fn forge_issues_linked_in(in_repo: &str, text: &str) -> Vec<String> {
+    match crate::remote_of(std::path::Path::new(in_repo)) {
+        Some(repository) => crate::issues_linked_in(text, &repository).iter().map(u64::to_string).collect(),
+        None => Vec::new(),
+    }
+}
+
 impl Tracker for IssueTracker {
     fn open_issues(&self, in_repo: &str) -> Result<Vec<OpenIssue>, NotTracked> {
         run_listing(in_repo, None, "listing the open issues")
@@ -126,6 +135,10 @@ impl Tracker for IssueTracker {
 
     fn query_guide(&self) -> QueryGuide {
         forge_guide()
+    }
+
+    fn issues_linked_in(&self, in_repo: &str, text: &str) -> Vec<String> {
+        forge_issues_linked_in(in_repo, text)
     }
 }
 
