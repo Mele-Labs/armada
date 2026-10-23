@@ -10,7 +10,7 @@ import type { KitKindId, KitPiecesProps, KitRef } from "@armada/components";
 import type { ModelChoices, SettingsList } from "@armada/protocol";
 import { said } from "@armada/screens/src/copy";
 import { addressReads, addressTyped, useKit, type KitSlice } from "@armada/screens/src/manifest-kit";
-import { ModList, SETTINGS_SECTIONS, SettingsFile, SettingsSectionsView } from "@armada/settings";
+import { ModList, SETTINGS_SECTIONS, SettingsFile, SettingsSectionsView, useRules } from "@armada/settings";
 import { Boundary, type BoundaryProps } from "@armada/shell";
 
 import { entryOf, entryOfKind, foundBy, SYSTEM_ENTRIES, SYSTEM_GROUPS, type SystemEntryDef } from "./system-entries";
@@ -67,7 +67,9 @@ export function SystemSurface({ repository, settings, modelChoices, live, guarde
   };
 
   const found = new Map(SYSTEM_ENTRIES.map((one) => [one.id, foundBy(one, query, names, settings)] as const));
-  const visible = SYSTEM_ENTRIES.filter((one) => found.get(one.id) !== null);
+  // Rules is listed once a teaching has made a rules mod, and not before.
+  const hasRules = useRules().mods.length > 0;
+  const visible = SYSTEM_ENTRIES.filter((one) => found.get(one.id) !== null && (one.id !== "bridge:rules" || hasRules));
   // A search that hides the entry last picked draws the first it found, without forgetting the pick.
   const shown: SystemEntryDef | undefined = visible.find((one) => one.id === entry) ?? visible[0];
   const narrow = shown !== undefined && found.get(shown.id) === "items" ? query : "";

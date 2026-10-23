@@ -6,8 +6,9 @@
 import type { LogbookEntry } from "@armada/protocol";
 import { TEACH_SOURCE } from "@armada/components";
 
-import { lessonsNow, taughtId } from "../teach";
+import { lessonsNow, saveLesson, taughtId } from "../teach";
 import type { Lesson, Site, TeachAnswer, TeachSource } from "../teach";
+import { ARMADA_JOB, ARMADA_TITLE, BEHIND, BEHIND_AT } from "./sessions/teach";
 
 const READ_MS = 1200;
 const FIND_MS = 400;
@@ -37,6 +38,11 @@ export function bindTeachFleet(next: TeachFleet | undefined): void {
   fleet = next;
 }
 
+/** Fleet found a repository's site on its own, in a pull request, say. */
+export function siteFound(manifestId: string, site: Site): void {
+  heard.forEach((listen) => listen(manifestId, site));
+}
+
 /** The person answered Fleet's question about a repository's site. */
 export function siteAnswered(manifestId: string, host: string): void {
   heard.forEach((listen) => listen(manifestId, { address: `https://${host}`, from: { kind: "you" } }));
@@ -49,13 +55,14 @@ const sentence = (words: string): string => {
 };
 
 /** What Fleet makes of the words, by what they were said about. */
-function understood({ teaching, say, reach }: { teaching: Parameters<TeachSource["read"]>[0]["teaching"]; say: string; reach: "repository" | "all" }): TeachAnswer {
+export function understood({ teaching, say, reach }: { teaching: Parameters<TeachSource["read"]>[0]["teaching"]; say: string; reach: "repository" | "all" }): TeachAnswer {
   const said = say.toLowerCase();
   const first = teaching.text.split(" ")[0] ?? "";
   if (teaching.kind === "words" && (JIRA_KEY.test(teaching.text) || said.includes("jira"))) {
     const example = JIRA_KEY.exec(teaching.text)?.[0] ?? "STORE-1234";
     const site = SITES[teaching.manifestId ?? ""];
     return {
+      mod: "jira-keys",
       agents: `Tickets are Jira keys such as ${example}. Cite one as a link to the repository's Jira site.`,
       bridge: { name: "Jira key", pattern: JIRA_KEY_PATTERN, example, ...(site === undefined ? {} : { site }) },
     };
@@ -63,6 +70,7 @@ function understood({ teaching, say, reach }: { teaching: Parameters<TeachSource
   if (teaching.kind === "notice" && /batch|group|digest/.test(said)) {
     const scope = said.includes("this job") ? "job" : reach === "all" ? "all" : "repository";
     return {
+      mod: "slot-behind-batched",
       agents: "Slot behind main notices arrive batched. One that blocks a merge is called out on its own.",
       fleet: { name: "Slot behind main", match: "\\d+ commits behind main", does: "batch", says: "Batch, and tell only when it blocks a merge", scope },
     };
@@ -129,3 +137,17 @@ export function entryOf(lesson: Lesson): LogbookEntry | undefined {
 
 /** Every entry taught now. */
 export const taughtEntries = (): LogbookEntry[] => lessonsNow().flatMap((one) => entryOf(one) ?? []);
+
+/**
+ * What `teach-mods` starts from: the Jira key and the batched notice already taught in the first Job, as `teach-anything` leaves
+ * them, and the other two repositories' sites already known. `root` is the first repository's, which the notice was taught in.
+ */
+export function seedTaught(root: string): void {
+  const here = { sessionId: ARMADA_JOB, jobTitle: ARMADA_TITLE, manifestId: "armada", root, repository: "armada" };
+  const key = { teaching: { kind: "words" as const, text: "STORE-1234", ...here }, say: "A Jira key. Link it to our Jira", reach: "all" as const };
+  saveLesson({ ...key, answer: understood(key) });
+  const notice = { teaching: { kind: "notice" as const, text: BEHIND, at: BEHIND_AT, ...here }, say: "Batch these, and don't tell me unless it blocks a merge", reach: "repository" as const };
+  saveLesson({ ...notice, answer: understood(notice) });
+  siteFound("payments", SITES["payments"]!);
+  siteAnswered("ledger", "acme-payments.atlassian.net");
+}

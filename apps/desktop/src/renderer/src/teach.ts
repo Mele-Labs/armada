@@ -10,6 +10,7 @@
 
 import { createContext, useContext, useEffect, useMemo, useSyncExternalStore } from "react";
 import type { SessionThreadRow, TeachReach, TeachSourceKind } from "@armada/components";
+import type { RulesMod, RulesSource, RulesState } from "@armada/settings";
 
 import { openInPanel } from "./shared-panel/store";
 
@@ -39,6 +40,8 @@ export type FleetDoes = "batch" | "quiet" | "tell" | "call";
 
 /** What Fleet understood. Any of the three parts, only those the teaching changes. */
 export type TeachAnswer = {
+  /** The rules mod that keeps the Bridge and Fleet parts of this teaching: a slug named from it. Absent where it changes neither. */
+  mod?: string;
   agents?: string;
   /** Words matching `pattern` are links. `example` is one match; `site` is where this repository's matches go, if found. */
   bridge?: { name: string; pattern: string; example: string; site?: Site };
@@ -59,9 +62,21 @@ export type TeachSource = {
   saved?: (lesson: Lesson) => void;
 };
 
-type Held = { source: TeachSource | undefined; lessons: readonly Lesson[]; preview: Lesson | undefined; sites: Readonly<Record<string, Site>>; asked: ReadonlySet<string> };
+type Held = {
+  source: TeachSource | undefined;
+  lessons: readonly Lesson[];
+  preview: Lesson | undefined;
+  sites: Readonly<Record<string, Site>>;
+  asked: ReadonlySet<string>;
+  /** The rules mods switched off, by name. A mod nobody switched is on. */
+  off: ReadonlySet<string>;
+  /** The branch each rules mod was put on. */
+  branches: Readonly<Record<string, string>>;
+  /** The rules mod asked for by name, shown open. */
+  opened: string | undefined;
+};
 
-const NOTHING: Held = { source: undefined, lessons: [], preview: undefined, sites: {}, asked: new Set() };
+const NOTHING: Held = { source: undefined, lessons: [], preview: undefined, sites: {}, asked: new Set(), off: new Set(), branches: {}, opened: undefined };
 let held: Held = NOTHING;
 let unlisten: (() => void) | undefined;
 const listeners = new Set<() => void>();
@@ -128,6 +143,11 @@ export function useLessons(): readonly Lesson[] {
   return useSyncExternalStore(subscribe, () => held.lessons);
 }
 
+export const DOES: Record<FleetDoes, string> = { batch: "batched", quiet: "quiet", tell: "told", call: "called to you" };
+
+/** Where a Fleet rule reaches, as `Also changes` words it. */
+export const SCOPE = { job: "for this Job", repository: "for this repository", all: "for every repository" } as const;
+
 /** Where an address came from, in the words a tooltip says. */
 export function siteSaid(from: SiteFrom): string {
   return from.kind === "settings" ? "Found in this repository's settings" : from.kind === "pull_request" ? `Found in pull request #${from.number}` : "You said";
@@ -138,6 +158,9 @@ export const addressOf = (site: Site, match: string): string => `${site.address}
 
 const reaches = (one: Lesson, manifestId: string | undefined) => one.reach === "all" || one.teaching.manifestId === manifestId;
 
+/** Whether the lesson's rules are in force: its rules mod is on, or it has none (the panel's own preview has none yet). */
+const onIn = (state: Held, one: Lesson) => one.answer.mod === undefined || !state.off.has(one.answer.mod);
+
 /**
  * The rules that draw words as links in a repository's Sessions: those taught there or everywhere, and the one the panel is
  * showing back. The address is the repository's site, found once and kept; a repository with none found has its keys plain
@@ -146,8 +169,8 @@ const reaches = (one: Lesson, manifestId: string | undefined) => one.reach === "
 export function useTaughtLinks(manifestId: string | undefined, repository: string | undefined): readonly { pattern: string; address: string; from: string }[] {
   const all = useSyncExternalStore(subscribe, () => held);
   const rules = useMemo(
-    () => [...all.lessons, ...(all.preview === undefined ? [] : [all.preview])].filter((one) => one.answer.bridge !== undefined && reaches(one, manifestId)),
-    [all.lessons, all.preview, manifestId],
+    () => [...all.lessons.filter((one) => onIn(all, one)), ...(all.preview === undefined ? [] : [all.preview])].filter((one) => one.answer.bridge !== undefined && reaches(one, manifestId)),
+    [all.lessons, all.preview, all.off, manifestId],
   );
   const wanted = rules.length > 0 && manifestId !== undefined && repository !== undefined;
   useEffect(() => {
@@ -172,15 +195,16 @@ export type NoticeRule = { name: string; match: string; does: FleetDoes; after: 
 /** The rules that reach a Session: taught in this Job, in its repository, or everywhere. */
 export function useNoticeRules(sessionId: string, manifestId: string | undefined): readonly NoticeRule[] {
   const lessons = useLessons();
+  const off = useSyncExternalStore(subscribe, () => held.off);
   return useMemo(
     () =>
       lessons.flatMap((one) => {
         const fleet = one.answer.fleet;
-        if (fleet === undefined || one.teaching.at === undefined) return [];
+        if (fleet === undefined || one.teaching.at === undefined || (one.answer.mod !== undefined && off.has(one.answer.mod))) return [];
         const there = fleet.scope === "all" || (fleet.scope === "job" ? one.teaching.sessionId === sessionId : one.teaching.manifestId === manifestId);
         return there ? [{ name: fleet.name, match: fleet.match, does: fleet.does, after: one.teaching.at }] : [];
       }),
-    [lessons, sessionId, manifestId],
+    [lessons, off, sessionId, manifestId],
   );
 }
 
@@ -234,3 +258,74 @@ export function useTeach(): ((kind: TeachSourceKind, text: string, at?: string) 
 
 /** The words of a quote the selection hands over, without the `> ` that leads each line. */
 export const wordsOfQuote = (quote: string): string => quote.replace(/^> ?/gm, "").trim();
+
+// The rules mods the lessons make: one for each lesson that changed Bridge or Fleet, named by Fleet from what was taught. A mod is
+// not kept apart from its lesson. Its rules are read off the lesson as it stands, so a repository's address found later shows in it,
+// and Forget on the Logbook entry removes the lesson and the mod with it.
+
+/** The one line a mod's row says it does. */
+function describes(lesson: Lesson): string {
+  const { bridge, fleet } = lesson.answer;
+  if (bridge !== undefined) return `${bridge.name}s link to ${lesson.reach === "all" ? "each repository's" : "this repository's"} site`;
+  if (fleet === undefined) return "";
+  const where = fleet.scope === "all" ? "every repository" : fleet.scope === "job" ? "this Job" : lesson.teaching.repository;
+  return `${fleet.name} notices ${DOES[fleet.does]}, ${where}`;
+}
+
+/** What a mod holds: Bridge's pattern and the address found for each repository, and Fleet's notice, what it does and where. */
+function holds(lesson: Lesson, sites: Readonly<Record<string, Site>>): RulesMod["rules"] {
+  const { bridge, fleet } = lesson.answer;
+  const reached = Object.entries(sites).filter(([manifestId]) => lesson.reach === "all" || manifestId === lesson.teaching.manifestId);
+  return [
+    ...(bridge === undefined
+      ? []
+      : [
+          {
+            part: "Bridge" as const,
+            facts: [
+              { label: "Pattern", value: bridge.pattern, code: true },
+              ...reached.map(([manifestId, site]) => ({ label: manifestId, value: `${site.address}/browse/{match}`, code: true, from: siteSaid(site.from) })),
+            ],
+          },
+        ]),
+    ...(fleet === undefined
+      ? []
+      : [
+          {
+            part: "Fleet" as const,
+            facts: [
+              { label: "Notice", value: fleet.name },
+              { label: "Matches", value: fleet.match, code: true },
+              { label: "Does", value: fleet.says },
+              { label: "Where", value: fleet.scope === "all" ? "Every repository" : fleet.scope === "job" ? "This Job" : lesson.teaching.repository },
+            ],
+          },
+        ]),
+  ];
+}
+
+let modsOf: { from: Held; mods: RulesState } | undefined;
+
+function rulesNow(): RulesState {
+  if (modsOf?.from === held) return modsOf.mods;
+  const seen = new Set<string>();
+  const mods = held.lessons.flatMap((lesson): RulesMod[] => {
+    const name = lesson.answer.mod;
+    if (name === undefined || seen.has(name)) return [];
+    seen.add(name);
+    const branch = held.branches[name];
+    return [{ name, description: describes(lesson), enabled: !held.off.has(name), ...(branch === undefined ? {} : { branch }), rules: holds(lesson, held.sites) }];
+  });
+  const state: RulesState = { mods, ...(held.opened === undefined || !seen.has(held.opened) ? {} : { opened: held.opened }) };
+  modsOf = { from: held, mods: state };
+  return state;
+}
+
+/** The rules mods as the Rules list reads them. */
+export const taughtRules: RulesSource = {
+  get: rulesNow,
+  subscribe: (on) => (listeners.add(on), () => void listeners.delete(on)),
+  setEnabled: (name, enabled) => set({ off: new Set(enabled ? [...held.off].filter((one) => one !== name) : [...held.off, name]) }),
+  promote: (name) => set({ branches: { ...held.branches, [name]: `armada/mod-${name}-${Date.now()}` } }),
+  open: (name) => set({ opened: name }),
+};

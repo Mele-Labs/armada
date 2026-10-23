@@ -48,6 +48,7 @@ export const SYSTEM_ENTRIES: readonly SystemEntryDef[] = [
   { id: "fleet:features", label: "Features", group: "fleet", sections: ["features"] },
   { id: "bridge:theme", label: "Theme", group: "bridge", sections: ["theme"] },
   { id: "bridge:layout", label: "Layout", group: "bridge", sections: ["layout"] },
+  { id: "bridge:rules", label: "Rules", group: "bridge", sections: ["rules"] },
   { id: "bridge:keyboard", label: "Keyboard shortcuts", group: "bridge", sections: ["keyboard"] },
   { id: "bridge:time", label: "Time", group: "bridge", sections: ["time"] },
   { id: "bridge:editor", label: "Editor", group: "bridge", sections: ["editor"] },
