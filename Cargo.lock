@@ -721,6 +721,7 @@ dependencies = [
  "libc",
  "portable-pty",
  "rand 0.8.7",
+ "regex",
  "serde",
  "sha1",
  "sha2",

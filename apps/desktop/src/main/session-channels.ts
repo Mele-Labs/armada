@@ -7,7 +7,7 @@ import type { IpcMain } from "electron";
 
 import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, ChangeWaiting, ChosenHold, ClaimIssue, ClaimPullRequest, ConfirmWaiting, DismissConcern, DismissWaiting, JudgeSession, RenameSession, SendConcern, SendPlanChanges, SendSessionMessage, SendSessionNote, SettleLater, TuneSession } from "@armada/protocol";
 import type { SetNoticeMute, StartAfter, StopWatch } from "@armada/protocol";
-import { HELM_CALL_ANSWERS } from "@armada/protocol";
+import { HELM_CALL_ANSWERS, isNotice } from "@armada/protocol";
 import { CHANNELS } from "../shared/bridge";
 import type { PullRequestPress, PullRequestWrite } from "../shared/api/sessions";
 import type { FleetConnection } from "./connection";
@@ -50,7 +50,7 @@ function loadoutItemAsk(value: unknown): LoadoutItemAsk | undefined {
 function noticeMute(value: unknown): SetNoticeMute | undefined {
   if (typeof value !== "object" || value === null) return undefined;
   const { notice, scope, muted } = value as Record<string, unknown>;
-  if (notice !== "behind_base" || typeof muted !== "boolean" || typeof scope !== "object" || scope === null) return undefined;
+  if (!isNotice(notice) || typeof muted !== "boolean" || typeof scope !== "object" || scope === null) return undefined;
   const { kind, session_id, manifest_id } = scope as Record<string, unknown>;
   if ((kind === "job" || kind === "hour") && text(session_id)) return { notice, muted, scope: { kind, session_id } };
   if (kind === "repo" && text(manifest_id)) return { notice, muted, scope: { kind, manifest_id } };

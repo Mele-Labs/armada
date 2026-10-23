@@ -43,6 +43,7 @@ import type { OnboardingApi } from "./api/onboarding";
 import type { RequestsApi } from "./api/requests";
 import type { SharingApi } from "./api/sharing";
 import type { LogbookApi } from "./api/logbook";
+import type { TeachingApi } from "./api/teaching";
 import type { BridgeState } from "./bridge";
 
 /** The whole preload surface, and therefore everything the renderer can reach. */
@@ -78,4 +79,5 @@ export type BridgeApi = CoreApi<BridgeState> &
   OnboardingApi &
   RequestsApi &
   SharingApi &
-  LogbookApi;
+  LogbookApi &
+  TeachingApi;

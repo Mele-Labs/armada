@@ -64,6 +64,8 @@ export type LogbookViewProps = {
   onForget: (id: string) => void;
   /** Opens the Job an evidence row came from. */
   onOpenJob?: (jobId: string) => void;
+  /** What else an entry changed, drawn under its text. Absent, or absent for an entry, nothing is drawn. */
+  also?: (entry: LogbookEntry) => ReactNode;
   /** Fleet refused the last act on the open entry. Drawn above its text until another entry is opened. */
   refusal?: { title: string; said: string };
   now: number;
@@ -153,7 +155,7 @@ function Words({ text }: { text: string }) {
 const optionId = (id: string) => `logbook-entry-${id}`;
 const draftKey = (id: string) => `logbook:${id}`;
 
-export function LogbookView({ panels, shown, onShown, fixes, toFixes, unread, selected, onSelect, editing, onEdit, onSave, onLock, onForget, onOpenJob, refusal, now }: LogbookViewProps) {
+export function LogbookView({ panels, shown, onShown, fixes, toFixes, unread, selected, onSelect, editing, onEdit, onSave, onLock, onForget, onOpenJob, also, refusal, now }: LogbookViewProps) {
   const list = useRef<HTMLDivElement>(null);
   const part = useRef<HTMLElement>(null);
   const detail = useRef<HTMLElement>(null);
@@ -293,6 +295,7 @@ export function LogbookView({ panels, shown, onShown, fixes, toFixes, unread, se
                   onLock={() => onLock(open.id, !open.locked)}
                   onForget={() => setForgetting(open.id)}
                   {...(onOpenJob === undefined ? {} : { onOpenJob })}
+                  {...(also === undefined ? {} : { also: also(open) })}
                 />
               )}
             </section>
@@ -338,6 +341,7 @@ function Detail({
   onLock,
   onForget,
   onOpenJob,
+  also,
 }: {
   entry: LogbookEntry;
   where: string;
@@ -349,6 +353,7 @@ function Detail({
   onLock: () => void;
   onForget: () => void;
   onOpenJob?: (jobId: string) => void;
+  also?: ReactNode;
 }) {
   const key = draftKey(entry.id);
   const kept = isKept(entry);
@@ -399,6 +404,7 @@ function Detail({
             <p className="armada-logbook__said">
               <Words text={entry.text} />
             </p>
+            {also}
             {kept ? (
               <div className="armada-logbook__acts">
                 <Act label="Edit" act="logbook_edit" onPress={() => onEdit(true)} />

@@ -193,6 +193,11 @@ impl<R: Run> Tracker for JiraTracker<R> {
     fn query_guide(&self) -> QueryGuide {
         self.settings.guide()
     }
+
+    /// The site's `browse` page, for an example that is a Jira key.
+    fn address_template(&self, example: &str) -> Option<String> {
+        is_key(example.trim()).then(|| self.settings.browse("{match}"))
+    }
 }
 
 /// One `@tsv` line of the listing, or of a search, which goes on with the reporter, the status,
