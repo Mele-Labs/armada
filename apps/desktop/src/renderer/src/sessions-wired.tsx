@@ -693,6 +693,11 @@ export class WiredStore {
       move: (bounds) => void this.api.moveSessionPage(bounds),
       hide: () => void this.api.hideSessionPage(),
       onEscape: (on) => this.api.onSessionPageEscape(on),
+      snapshot: {
+        watch: (id, address) => void this.api.watchSessionSnapshot(id, address),
+        stop: () => void this.api.stopSessionSnapshot(),
+        onShot: (on) => this.api.onSessionSnapshot(on),
+      },
     },
     run: (id, command, on, size) => this.running(id, command, on, size),
     terminalRuns: true,
@@ -747,9 +752,15 @@ export class WiredStore {
         void this.plain(this.api.setSessionWorkflow(id, workflow ?? undefined));
       },
       unpick: (id, value) => this.unpick(id, value),
+      // Answers whether Fleet took it, so a refused Approve reverts the plan drawn as approved (`pressed.ts`).
       approve: (id) => {
         const version = this.lookup(id)?.work?.plan?.version;
-        if (version !== undefined) void this.plain(this.api.approvePlan({ session_id: id, version }));
+        if (version !== undefined) return this.took(this.api.approvePlan({ session_id: id, version }));
+      },
+      // Not yet is the Needs you row's own dismissal of the plan's item, `plan:<version>`; Fleet then carries `set_aside_at` on the plan.
+      setAside: (id) => {
+        const version = this.lookup(id)?.work?.plan?.version;
+        if (version !== undefined) void this.plain(this.api.dismissWaiting({ session_id: id, item_id: `plan:${version}` }));
       },
       suggest: (id, marks, approving) => {
         const version = this.lookup(id)?.work?.plan?.version;

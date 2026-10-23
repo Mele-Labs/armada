@@ -12,6 +12,7 @@ import type { HubPullRequest, MergeLine, RepositorySummary, WorktreeSlot } from 
 import { attachmentsOf, type Session, type SessionAttachment } from "@armada/screens/src/draft/sessions";
 
 import { useItems, type Hosts, type Item } from "../../Dashboard";
+import { accountNowOf } from "../../session-activity";
 import { stateOf } from "../../session-state";
 import { useSessions } from "../../sessions-draft";
 import { useViewedVersion } from "../viewed";
@@ -143,11 +144,16 @@ function sessionMark(session: Session): Mark {
   return { Glyph: sessionGlyphOf(state), said, tone };
 }
 
+/** The row's line under the title is the last of these: the account's now line while a turn runs, else what it last said. */
 function peekOfSession(session: Session): string[] {
-  return session.rows
-    .filter((row) => row.kind === "message" || row.kind === "tool" || row.kind === "check")
-    .slice(-3)
-    .map((row) => (row.kind === "check" ? `${row.name} ${row.state}` : one(row.text)));
+  const now = accountNowOf(session);
+  return [
+    ...session.rows
+      .filter((row) => row.kind === "message" || row.kind === "tool" || row.kind === "check")
+      .slice(-3)
+      .map((row) => (row.kind === "check" ? `${row.name} ${row.state}` : one(row.text))),
+    ...(now === undefined ? [] : [now]),
+  ];
 }
 
 

@@ -132,7 +132,7 @@ pub struct Fleet<H, V, W> {
     /// Whom each slot far behind its base was told to merge it. Never written down — `crate::behind_bay`.
     behind_told: crate::behind_bay::BehindTold,
     /// Which Jobs were told which token rule. Rebuilt from the trip rows when needed — `crate::usage_rules`.
-    usage_watch: crate::usage_rules::Watch,
+    usage_following: crate::usage_rules::Following,
     /// Which Jobs have a person's run out in their worktree, and how to stop
     /// it. Never written down, for `pressing`'s reason — `crate::rehearsing`.
     rehearsals: crate::rehearsing::Rehearsals,

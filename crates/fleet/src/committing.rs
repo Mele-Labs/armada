@@ -320,8 +320,8 @@ where
         done.unwrap_or_else(|why| Err(format!("{} is committed. Pushing it stopped: {why}", tree.branch)))
     }
 
-    /// The pull request on the Job's ledger row, as a claim puts it, so the pull watch, the merge
-    /// and Fleet's reports follow it from now rather than from the watch's next pass.
+    /// The pull request on the Job's ledger row, as a claim puts it, so the pull reading, the merge
+    /// and Fleet's reports follow it from now rather than from the pull reading's next pass.
     async fn copy_pull_attached(&self, served: &Served, id: &str, branch: &str, url: &str) {
         let Some(number) = crate::pull_requesting::number_of(url) else { return };
         let now = self.now().as_str().to_string();

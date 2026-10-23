@@ -204,7 +204,7 @@ export function attachmentsOfRecord(record: SessionRecord, beside: Pick<Beside, 
         if (pr !== undefined) out.push(pr);
         break;
       }
-      // Fleet's pull watch fills title, state and address after the row exists, so a fresh row is an open issue with only its number or key.
+      // Fleet's pull reading fills title, state and address after the row exists, so a fresh row is an open issue with only its number or key.
       case "issue": {
         const pulls = (detail["pull_requests"] ?? "").split(",").flatMap((part) => (/^[0-9]+$/.test(part.trim()) ? [Number(part.trim())] : []));
         out.push({
@@ -544,6 +544,7 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
   const thread = rows === undefined ? [] : withChanges(rowsOfThread(record.id, rows, beside.picture, beside.repository), rows, record.id, beside.events, record.settled);
   const lapsed = rows === undefined || ended ? undefined : lapsedOf(rows);
   const activity = activityOf(record.activity);
+  const account = accountOf(record.activity);
   const work = workOf(record, { workflows: beside.workflows ?? NO_WORKFLOWS, attachments, rows, drawn: thread, unpicked: beside.unpicked ?? NO_PICKS, workflowsOff: beside.workflowsOff === true });
   return {
     id: record.id,
@@ -588,6 +589,8 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
       ? {}
       : { context: { tokens: record.usage.context_tokens, window: record.usage.context_window } }),
     ...(activity === undefined ? {} : { activity }),
+    ...(account === undefined ? {} : { account }),
+    ...(record.activity?.live === undefined ? {} : { live: record.activity.live }),
     ...(ended || record.build === undefined ? {} : { build: record.build }),
     ...(unsent === undefined ? {} : { unsent }),
     ...(ended || (record.waiting_for?.length ?? 0) === 0 ? {} : { waitingFor: record.waiting_for }),
@@ -625,10 +628,25 @@ function withChanges(thread: SessionRow[], rows: readonly WireRow[], sessionId: 
 export function activityOf(wire: WireActivity | undefined): SessionActivity | undefined {
   if (wire === undefined) return undefined;
   const todos = wire.todos ?? [];
-  if (wire.now === undefined && todos.length === 0) return undefined;
+  if (wire.now === undefined && todos.length === 0 && wire.said === undefined) return undefined;
   return {
     ...(wire.now === undefined ? {} : { now: wire.now }),
     ...(todos.length === 0 ? {} : { todos }),
+    ...(wire.said === undefined ? {} : { said: wire.said }),
+  };
+}
+
+/** The account of his last message Fleet's small model keeps, with an empty done list where nothing is done yet. */
+function accountOf(wire: WireActivity | undefined): Session["account"] {
+  const account = wire?.account;
+  if (account === undefined) return undefined;
+  return {
+    for: account.for,
+    done: account.done ?? [],
+    ...(account.now === undefined ? {} : { now: account.now }),
+    ...(account.next === undefined ? {} : { next: account.next }),
+    ...(account.group === undefined ? {} : { group: account.group }),
+    at: account.at,
   };
 }
 

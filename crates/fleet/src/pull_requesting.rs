@@ -13,7 +13,7 @@
 //! the forge, and the forge's own words are for what Fleet could not know.
 //!
 //! **The ledger follows the forge, in one write a row.** Every read and every
-//! act, and the pull watch each interval (`pull_ledger_kept_current`), take the
+//! act, and the pull reading each interval (`pull_ledger_kept_current`), take the
 //! pull request's state as the `detail` of every standing `pr` row Sessions
 //! hold for it and settle a merged one `spent` and a closed one `given_back`
 //! in the same write, so no row stands that says merged.

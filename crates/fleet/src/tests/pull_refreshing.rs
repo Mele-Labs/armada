@@ -1,12 +1,12 @@
 //! A person's refresh of one pull request, against a scripted forge: it tells the owner what the
-//! pull watch would, once, shares the watch's record of the merge queue, and puts what the forge
-//! shows now on the merge line. What the watch itself tells is `pull_notices`' tests.
+//! pull reading would, once, shares the pull reading's record of the merge queue, and puts what the forge
+//! shows now on the merge line. What the pull reading itself tells is `pull_notices`' tests.
 
 use std::sync::Arc;
 
 use adapter_traits::{
     CiState, FromOutside, OpenPull, PullQueue, PullRequestFacts, PullRequestStanding,
-    RecentlyMerged, UnderReview, WatchedPull, WhatTheForgeRan,
+    RecentlyMerged, UnderReview, FollowedPull, WhatTheForgeRan,
 };
 use api::{PullRequests, Refusal};
 use ipc::{ManifestId, PullRequestState};
@@ -15,10 +15,10 @@ use super::main_ci::{run, ONE};
 use super::pull_notices::{a_rig, failing, pull, written_by, Rig};
 
 /// What the forge answers for `pull` read by number, and its standing.
-fn the_forge_shows(rig: &Rig, standing: PullRequestStanding, watched: Vec<WatchedPull>) {
+fn the_forge_shows(rig: &Rig, standing: PullRequestStanding, followed: Vec<FollowedPull>) {
     let vcs = rig.fleet.vcs();
-    let failed = watched.iter().any(WatchedPull::failed);
-    if let Some(one) = watched.first() {
+    let failed = followed.iter().any(FollowedPull::failed);
+    if let Some(one) = followed.first() {
         vcs.now_pull_request(Some(PullRequestFacts {
             standing,
             branch: one.branch.as_written().to_string(),
@@ -40,7 +40,7 @@ fn the_forge_shows(rig: &Rig, standing: PullRequestStanding, watched: Vec<Watche
         },
         ..UnderReview::unreadable()
     });
-    vcs.main_ci.watched_by_number_are(watched);
+    vcs.main_ci.followed_by_number_are(followed);
 }
 
 fn listed(number: u64, title: &str) -> OpenPull {
@@ -113,7 +113,7 @@ async fn a_refresh_tells_a_failed_check_to_the_session_that_holds_the_pull_reque
 async fn a_refresh_tells_a_conflict() {
     let rig = a_rig();
     rig.a_hosted_session_on(8).await;
-    let conflicting = WatchedPull { conflicting: true, ..pull(8, Vec::new()) };
+    let conflicting = FollowedPull { conflicting: true, ..pull(8, Vec::new()) };
     the_forge_shows(&rig, PullRequestStanding::Open, vec![conflicting]);
 
     refreshed(&rig, 8).await.expect("the forge answered");
@@ -125,14 +125,14 @@ async fn a_refresh_tells_a_conflict() {
     assert!(line.contains("#8 conflicts with"), "{line}");
 }
 
-/// The watch saw it queued and the refresh sees it out: one record of the queue, so the drop is
+/// The pull reading saw it queued and the refresh sees it out: one record of the queue, so the drop is
 /// told once whichever reading sees it.
 #[tokio::test]
-async fn a_pull_request_the_watch_saw_queued_and_a_refresh_sees_out_is_told_it_left_once() {
+async fn a_pull_request_the_pull_reading_saw_queued_and_a_refresh_sees_out_is_told_it_left_once() {
     let rig = a_rig();
     rig.a_hosted_session_on(10).await;
-    let queued = WatchedPull { queue: PullQueue::Waiting, ..pull(10, Vec::new()) };
-    rig.fleet.vcs().main_ci.watched_are(Some(vec![queued]));
+    let queued = FollowedPull { queue: PullQueue::Waiting, ..pull(10, Vec::new()) };
+    rig.fleet.vcs().main_ci.followed_are(Some(vec![queued]));
     rig.reads().await;
 
     the_forge_shows(&rig, PullRequestStanding::Open, vec![pull(10, Vec::new())]);
@@ -145,16 +145,16 @@ async fn a_pull_request_the_watch_saw_queued_and_a_refresh_sees_out_is_told_it_l
     };
     assert!(line.contains("#10 left the merge queue"), "{line}");
 
-    rig.fleet.vcs().main_ci.watched_are(Some(vec![pull(10, Vec::new())]));
+    rig.fleet.vcs().main_ci.followed_are(Some(vec![pull(10, Vec::new())]));
     rig.reads().await;
-    assert_eq!(rig.runs_sent_to_the_session().len(), 1, "the watch does not tell it again");
+    assert_eq!(rig.runs_sent_to_the_session().len(), 1, "the pull reading does not tell it again");
 }
 
 #[tokio::test]
 async fn a_refresh_tells_auto_merge_on_once() {
     let rig = a_rig();
     rig.a_hosted_session_on(11).await;
-    let auto = WatchedPull { auto_merge: true, ..pull(11, Vec::new()) };
+    let auto = FollowedPull { auto_merge: true, ..pull(11, Vec::new()) };
     the_forge_shows(&rig, PullRequestStanding::Open, vec![auto]);
 
     refreshed(&rig, 11).await.expect("the forge answered");
@@ -167,14 +167,14 @@ async fn a_refresh_tells_auto_merge_on_once() {
     assert!(line.contains("Auto-merge is on for #11"), "{line}");
 }
 
-/// **Only the person's own**, as the watch: another author's pull request is nobody here's to tell.
+/// **Only the person's own**, as the pull reading: another author's pull request is nobody here's to tell.
 #[tokio::test]
 async fn a_refresh_tells_the_persons_own_pull_request_and_not_another_authors() {
     let rig = a_rig();
     rig.a_hosted_session_on(8).await;
     let theirs = rig.a_hosted_session_on(9).await;
     rig.fleet.vcs().main_ci.login_is(Some("octocat"));
-    let conflicting = |number| WatchedPull { conflicting: true, ..pull(number, Vec::new()) };
+    let conflicting = |number| FollowedPull { conflicting: true, ..pull(number, Vec::new()) };
     the_forge_shows(
         &rig,
         PullRequestStanding::Open,

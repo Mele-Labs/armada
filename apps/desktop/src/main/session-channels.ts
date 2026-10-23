@@ -230,6 +230,12 @@ export function handleSessions({ ipc, connection, windowIdOf, pages }: Hosts): v
   );
   ipc.handle(CHANNELS.moveSessionPage, (event, bounds: unknown) => pages.move(event.sender, bounds));
   ipc.handle(CHANNELS.hideSessionPage, (event) => pages.hide(event.sender));
+  ipc.handle(CHANNELS.watchSessionSnapshot, (event, sessionId: string, address: string) =>
+    text(sessionId) && text(address)
+      ? pages.watch(event.sender, connection()?.sessions.recordOf(sessionId), address)
+      : { ok: false, why: "not_addressable", address: "" },
+  );
+  ipc.handle(CHANNELS.stopSessionSnapshot, (event) => pages.stop(event.sender));
   ipc.handle(CHANNELS.startSessionRun, (_event, sessionId: string, command: string, cols?: number, rows?: number) =>
     text(sessionId) && text(command) && (cols === undefined) === (rows === undefined) && (cols === undefined || (cells(cols) && cells(rows)))
       ? (connection()?.sessions.startRun({ session_id: sessionId, command, ...(cols === undefined || rows === undefined ? {} : { cols, rows }) }) ?? unsent)

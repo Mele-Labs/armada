@@ -119,19 +119,19 @@ pub trait Forge {
     /// The merge queue of `base`, one forge call. `None` is the forge's silence.
     fn merge_queue(&self, in_repo: &str, base: &str) -> Option<crate::MergeQueue>;
 
-    /// The same pull requests as a watcher reads them: every check on the newest commit with its
+    /// The same pull requests as a pull reading reads them: every check on the newest commit with its
     /// log address, whether it conflicts with the base, and where the merge queue holds it. **One
     /// forge call for all of them.** `None` is the forge's silence.
-    fn pull_watch(&self, in_repo: &str, gate: &str) -> Option<crate::WatchedPulls>;
+    fn pull_reading(&self, in_repo: &str, gate: &str) -> Option<crate::FollowedPulls>;
 
-    /// One pull request as [`pull_watch`](Forge::pull_watch) reads it, **by its number**. `None`
+    /// One pull request as [`pull_reading`](Forge::pull_reading) reads it, **by its number**. `None`
     /// is the forge's silence, and also a pull request that is no longer open.
-    fn watched_pull(
+    fn followed_pull(
         &self,
         in_repo: &str,
         gate: &str,
         number: u64,
-    ) -> Option<crate::WatchedPull>;
+    ) -> Option<crate::FollowedPull>;
 
     /// The login the forge's own command line is signed in as on this machine, the person whose
     /// pull requests are "mine" beside the account Armada is signed in as. `None` is a forge

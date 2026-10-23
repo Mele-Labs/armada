@@ -46,14 +46,14 @@ where
             self.trips_measured(session, &now).await;
             let over = tripped(&limits, &turns);
             for trip in &over {
-                if !self.usage_watch().knows(session, trip.rule) {
+                if !self.usage_following().knows(session, trip.rule) {
                     let last = self.store().lock().await.last_usage_rule_trip(session, trip.rule.name());
                     if let Ok(Some(at)) = last {
-                        self.usage_watch().remembered(session, trip.rule, &Timestamp::from_rfc3339(at));
+                        self.usage_following().remembered(session, trip.rule, &Timestamp::from_rfc3339(at));
                     }
                 }
             }
-            let mut due = self.usage_watch().due(session, &over, &now);
+            let mut due = self.usage_following().due(session, &over, &now);
             let mut handing = false;
             let mut reminded = false;
             if let Some(context) = over.iter().find(|trip| trip.rule == Rule::Context) {
@@ -89,7 +89,7 @@ where
                 if context && reminded {
                     self.handoff_reminded(session).await;
                 }
-                self.usage_watch().told(session, trip.rule, &now);
+                self.usage_following().told(session, trip.rule, &now);
                 let kept = KeptTrip {
                     session_id: session.clone(),
                     rule: trip.rule.name().to_string(),

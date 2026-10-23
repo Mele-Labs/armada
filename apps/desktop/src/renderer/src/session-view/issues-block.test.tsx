@@ -100,7 +100,7 @@ test("a tracker's issue holds the pull requests its row names, drawn by its key,
   ]);
   expect(loose).toEqual([]);
   const host = mount(session);
-  expect([...host.querySelectorAll(".sv-strip__num")].map((one) => one.textContent)).toEqual(["ABC-12", "#7"]);
+  expect([...host.querySelectorAll('.sv-row[data-kind="issue"] .sv-row__num')].map((one) => one.textContent)).toEqual(["ABC-12", "#7"]);
   expect(host.querySelector('[aria-label="Issue ABC-12 Checkout total rounds twice"]')).not.toBeNull();
   expect(host.querySelector('[aria-label="Pull requests for ABC-12"] [aria-label="Pull request #31 Pull 31"]')).not.toBeNull();
   expect(host.querySelector("[data-loose]")).toBeNull();

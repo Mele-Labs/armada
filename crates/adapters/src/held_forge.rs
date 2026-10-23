@@ -63,17 +63,17 @@ impl<F: Forge> Forge for GitVcs<F> {
         self.forge.merge_queue(in_repo, base)
     }
 
-    fn pull_watch(&self, in_repo: &str, gate: &str) -> Option<adapter_traits::WatchedPulls> {
-        self.forge.pull_watch(in_repo, gate)
+    fn pull_reading(&self, in_repo: &str, gate: &str) -> Option<adapter_traits::FollowedPulls> {
+        self.forge.pull_reading(in_repo, gate)
     }
 
-    fn watched_pull(
+    fn followed_pull(
         &self,
         in_repo: &str,
         gate: &str,
         number: u64,
-    ) -> Option<adapter_traits::WatchedPull> {
-        self.forge.watched_pull(in_repo, gate, number)
+    ) -> Option<adapter_traits::FollowedPull> {
+        self.forge.followed_pull(in_repo, gate, number)
     }
 
     fn forge_login(&self, in_repo: &str) -> Option<String> {

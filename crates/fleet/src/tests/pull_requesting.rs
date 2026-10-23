@@ -614,7 +614,7 @@ async fn a_pull_request_already_in_the_merge_queue_is_answered_as_queued_and_not
 }
 
 #[tokio::test]
-async fn the_pull_watch_settles_a_terminal_sessions_merged_pull_request_nobody_opened() {
+async fn the_pull_reading_settles_a_terminal_sessions_merged_pull_request_nobody_opened() {
     let home = TempDir::new();
     let fleet = a_fleet(&home);
     let (id, root) = manifest(&fleet);

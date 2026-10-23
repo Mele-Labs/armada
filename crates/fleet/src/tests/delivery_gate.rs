@@ -53,7 +53,7 @@ fn rig() -> Rig {
 
 async fn on_the_rail(rig: &Rig, first: &str) -> SessionId {
     crate::timeline::keep_timeline(Arc::clone(&rig.fleet));
-    crate::rail_watching::keep_the_rail(Arc::clone(&rig.fleet));
+    crate::rail_following::keep_the_rail(Arc::clone(&rig.fleet));
     let id = rig.start().await;
     rig.send(&id, first).await;
     rig.stand_in.init(0);

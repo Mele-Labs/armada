@@ -1,4 +1,4 @@
-//! What Fleet watches on each open pull request to tell its owner when it fails: the checks on
+//! What Fleet reads of each open pull request to tell its owner when it fails: the checks on
 //! its newest commit, whether it conflicts with the base, and where the forge's merge queue holds
 //! it. `docs/concepts/fleet.md`, *Telling the owner of a pull request*.
 //!
@@ -13,7 +13,7 @@ use crate::{CiState, FromOutside};
 
 /// One check on a pull request's newest commit.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct WatchedCheck {
+pub struct FollowedCheck {
     pub name: FromOutside,
     pub state: CiState,
     /// The ruleset gates the pull request on this one: the check named `ci` where there is one,
@@ -37,9 +37,9 @@ pub enum PullQueue {
     Unmergeable,
 }
 
-/// One open pull request, as watched.
+/// One open pull request, as followed.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct WatchedPull {
+pub struct FollowedPull {
     pub number: u64,
     pub branch: FromOutside,
     pub url: FromOutside,
@@ -51,14 +51,14 @@ pub struct WatchedPull {
     /// not a conflict.
     pub conflicting: bool,
     pub queue: PullQueue,
-    pub checks: Vec<WatchedCheck>,
+    pub checks: Vec<FollowedCheck>,
     /// Its title, where the forge said one.
     pub title: Option<FromOutside>,
     /// Someone asked the forge to merge it once its checks pass.
     pub auto_merge: bool,
 }
 
-impl WatchedPull {
+impl FollowedPull {
     /// A check that decides the pull request has failed.
     pub fn failed(&self) -> bool {
         self.checks
@@ -73,6 +73,6 @@ impl WatchedPull {
     }
 }
 
-/// The open pull requests, watched. `None` from the call that returns it is a forge that would
+/// The open pull requests, followed. `None` from the call that returns it is a forge that would
 /// not answer.
-pub type WatchedPulls = Vec<WatchedPull>;
+pub type FollowedPulls = Vec<FollowedPull>;

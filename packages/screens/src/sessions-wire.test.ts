@@ -119,7 +119,7 @@ describe("the ledger", () => {
     expect(one).toEqual({ kind: "issue", number: "2212", title: "Helm loses the repository", address: "https://x/issues/2212", state: "closed" });
   });
 
-  it("reads an issue the pull watch has not filled yet as open, with no title and no address", () => {
+  it("reads an issue the pull reading has not filled yet as open, with no title and no address", () => {
     const [bare, empty] = attachmentsOfRecord(record("a", { attachments: [held("issue", "7", {}), { ...held("issue", "8"), detail: undefined }] }), beside());
     expect(bare).toEqual({ kind: "issue", number: "7", title: "", address: "", state: "open" });
     expect(empty).toEqual({ kind: "issue", number: "8", title: "", address: "", state: "open" });
@@ -720,6 +720,20 @@ describe("what a session is doing", () => {
     expect(before.activity?.todos).toHaveLength(2);
     expect(later.activity).toEqual({ now: "Running cargo check" });
     expect(sessionOfRecord(record("a"), undefined, beside()).activity).toBeUndefined();
+  });
+
+  it("carries the agent's last sentence, the account of his message and the page it is building", () => {
+    const account = { for: "m1", done: ["Added the page"], now: "Adding the switches", group: "g2", at: "2026-10-22T14:00:00Z" };
+    const one = sessionOfRecord(record("a", { activity: { said: "Adding the switches now.", account, live: { url: "http://localhost:5173/", title: "Notifications" } } }), undefined, beside());
+    expect(one.activity).toEqual({ said: "Adding the switches now." });
+    expect(one.account).toEqual(account);
+    expect(one.live).toEqual({ url: "http://localhost:5173/", title: "Notifications" });
+  });
+
+  it("gives an account with nothing done an empty done list", () => {
+    const one = sessionOfRecord(record("a", { activity: { account: { for: "m1", now: "Reading the request", at: "2026-10-22T14:00:00Z" } } }), undefined, beside());
+    expect(one.account).toEqual({ for: "m1", done: [], now: "Reading the request", at: "2026-10-22T14:00:00Z" });
+    expect(one.activity).toBeUndefined();
   });
 });
 

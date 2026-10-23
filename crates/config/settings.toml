@@ -950,7 +950,7 @@ peer_polarity = "n/a — single layer"
 owner = "Fleet"
 read_by = "fleet"
 notes = """
-Chosen 19 Oct 2026, not measured: `ask`. What happens when a Job's context passes `usage-rule-context`. `ask` tells the Job to put the four handoff answers to the owner on its card; `carry on automatically` asks the Job for its brief and hands it on to a new Job with no card, the owner's standing consent; `never` tells no Job. A Job's own answer on its card (stay and do not ask again, or remind at a figure) wins over it for that Job. **Enforced**, `fleet::usage_watch`. `docs/concepts/session/a-handed-off-job.md`.
+Chosen 19 Oct 2026, not measured: `ask`. What happens when a Job's context passes `usage-rule-context`. `ask` tells the Job to put the four handoff answers to the owner on its card; `carry on automatically` asks the Job for its brief and hands it on to a new Job with no card, the owner's standing consent; `never` tells no Job. A Job's own answer on its card (stay and do not ask again, or remind at a figure) wins over it for that Job. **Enforced**, `fleet::usage_following`. `docs/concepts/session/a-handed-off-job.md`.
 
 **The value lives in settings.json under `plan.contextHandoff`** (live). Drawn under Plan with no sentence; its tooltip is "Context limit".
 """
