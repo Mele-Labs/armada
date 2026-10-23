@@ -42,7 +42,7 @@ import type { PackageSaved, SharingAnswer } from "../shared/api/sharing";
 import type { DropRunFact, ImportFolders, ImportRuns, ModInstalled, RunMemory, RunMemoryPlace, SetRunMemoryPlace } from "@armada/protocol";
 import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, ChangeWaiting, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimIssue, ClaimPullRequest, ConfirmWaiting, DismissConcern, DismissWaiting, IssueClaimed, IssueList, IssueQueries, SaveIssueQuery, SavedIssueQuery, WrittenIssueQuery, JudgeSession, LaterSettled, PullRequestClaimed, PullRequestFilePatch, PullRequestFilePatches, PullRequestPage, PullRequestState, RenameSession, SendConcern, SendPlanChanges, NoteSent, SendSessionMessage, SendSessionNote, SessionRunMessage, SessionRunUnderway, SessionLoadout, AttachmentHistory, McpServerAct, SessionMcp, SessionMcpActed, SessionSubagent, SessionWait, SettleLater, StartAfter, TuneSession, WaitReading } from "@armada/protocol";
 import type { ArtifactRead, LoadoutItemAsk, LoadoutItemBody, PageBounds, PageShot } from "@armada/screens/src/draft/sessions";
-import type { JobTerminalChange, PullRequestPress, PullRequestWrite, SessionActed } from "../shared/api/sessions";
+import type { JobTerminalChange, PullRequestPress, PullRequestWrite, SessionActed, TerminalMovedBack } from "../shared/api/sessions";
 import type { RequestRepositoryRead } from "../shared/api/dispatch";
 import type { SleepActed } from "../shared/api/sleep";
 import type { AccountsActed } from "../shared/api/accounts";
@@ -618,6 +618,26 @@ const api: BridgeApi = {
     ipcRenderer.on(CHANNELS.sessionTerminal, handler);
     return () => {
       ipcRenderer.removeListener(CHANNELS.sessionTerminal, handler);
+    };
+  },
+  // A Job's shell in a window of its own: opened by the Job's id, and moved back into Bridge by it.
+  openTerminalWindow: (sessionId: string): Promise<void> => ipcRenderer.invoke(CHANNELS.openTerminalWindow, sessionId),
+  getTerminalWindows: (): Promise<readonly string[]> => ipcRenderer.invoke(CHANNELS.getTerminalWindows),
+  onTerminalWindows: (onChanged: (sessionIds: readonly string[]) => void): (() => void) => {
+    const handler = (_event: unknown, sessionIds: unknown): void =>
+      onChanged(Array.isArray(sessionIds) ? sessionIds.filter((one): one is string => typeof one === "string") : []);
+    ipcRenderer.on(CHANNELS.terminalWindowsChanged, handler);
+    return () => {
+      ipcRenderer.removeListener(CHANNELS.terminalWindowsChanged, handler);
+    };
+  },
+  readTerminalSoFar: (runId: string): Promise<string | null> => ipcRenderer.invoke(CHANNELS.readTerminalSoFar, runId),
+  moveTerminalBack: (sessionId: string, to: TerminalMovedBack["to"]): Promise<void> => ipcRenderer.invoke(CHANNELS.moveTerminalBack, sessionId, to),
+  onTerminalMovedBack: (on: (move: TerminalMovedBack) => void): (() => void) => {
+    const handler = (_: unknown, move: TerminalMovedBack): void => on(move);
+    ipcRenderer.on(CHANNELS.terminalMovedBack, handler);
+    return () => {
+      ipcRenderer.removeListener(CHANNELS.terminalMovedBack, handler);
     };
   },
 

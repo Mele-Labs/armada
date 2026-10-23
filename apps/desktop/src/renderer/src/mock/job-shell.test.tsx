@@ -7,7 +7,7 @@ import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { jobTerminalPlaceOf } from "../job-terminal-place";
-import { s322SessionShell, shellCalls } from "./scenarios/session-shell";
+import { closeTerminalWindow, s322SessionShell, SHELL_JOB, shellCalls } from "./scenarios/session-shell";
 import { mount, onScreen, toSession, unmountAfterEach } from "./testing";
 import { timePasses } from "./time-passes";
 
@@ -248,4 +248,114 @@ test("The terminal's toggle moves the open shell between docked and the side pan
   // One shell throughout, never stopped.
   expect(shellCalls()!.opened).toHaveLength(1);
   expect(shellCalls()!.stopped).toEqual([]);
+});
+
+async function openInWindow() {
+  const app = mount(s322SessionShell);
+  await onScreen();
+  await app.api.saveSettings({ "terminal.openJobTerminalIn": "window" });
+  const view = await toSession(/Deploy the store/);
+  await expect.element(thread()).toBeVisible();
+  return { app, view };
+}
+
+test("Window: Terminal opens the Job's shell in a window of its own, lit while it is open, a second press brings it to the front, and closing it puts the shell away", async () => {
+  await openInWindow();
+  await terminal().click();
+  await expect.poll(() => shellCalls()!.windows).toEqual([SHELL_JOB]);
+  await expect.element(terminal()).toHaveAttribute("aria-pressed", "true");
+  // One place at a time: nothing docks and no panel opens.
+  expect(document.querySelector(".armada-terminal")).toBeNull();
+  expect(panel().query()).toBeNull();
+
+  await terminal().click();
+  await expect.poll(() => shellCalls()!.windows).toEqual([SHELL_JOB, SHELL_JOB]);
+  await expect.element(terminal()).toHaveAttribute("aria-pressed", "true");
+
+  closeTerminalWindow(SHELL_JOB);
+  await expect.element(terminal()).toHaveAttribute("aria-pressed", "false");
+  expect(shellCalls()!.stopped).toEqual([]);
+});
+
+test("Window: the docked pane and the side panel each open the shell in a window, putting their own away, and save where it opens", async () => {
+  const app = mount(s322SessionShell);
+  await onScreen();
+  await toSession(/Deploy the store/);
+  const placed = async () => jobTerminalPlaceOf((await app.api.state()).settings);
+  await terminal().click();
+  await expect.element(pane().getByText(PROMPT)).toBeVisible();
+
+  await pane().getByRole("button", { name: "Open in a window" }).click();
+  await expect.element(pane()).not.toBeInTheDocument();
+  await expect.poll(() => shellCalls()!.windows).toEqual([SHELL_JOB]);
+  await expect.poll(placed).toBe("window");
+
+  closeTerminalWindow(SHELL_JOB);
+  await app.api.saveSettings({ "terminal.openJobTerminalIn": "side panel" });
+  await expect.poll(placed).toBe("side panel");
+  await terminal().click();
+  await expect.element(panel().getByText(PROMPT)).toBeVisible();
+  await panel().getByRole("button", { name: "Open in a window" }).click();
+  await expect.element(panel()).not.toBeInTheDocument();
+  await expect.poll(() => shellCalls()!.windows).toEqual([SHELL_JOB, SHELL_JOB]);
+  await expect.poll(placed).toBe("window");
+  await expect.element(terminal()).toHaveAttribute("aria-pressed", "true");
+  expect(shellCalls()!.opened).toHaveLength(1);
+});
+
+test("Window: a shell moved back from its window docks, or opens in the side panel, with all it printed", async () => {
+  const app = mount(s322SessionShell);
+  await onScreen();
+  await toSession(/Deploy the store/);
+  await terminal().click();
+  await expect.element(pane().getByText(PROMPT)).toBeVisible();
+  await userEvent.keyboard("pwd{Enter}");
+  const printed = "~/Development/armada/.armada/slots/slot-1";
+  await expect.element(pane().getByText(printed, { exact: true })).toBeVisible();
+
+  await pane().getByRole("button", { name: "Open in a window" }).click();
+  await expect.element(pane()).not.toBeInTheDocument();
+  await app.api.moveTerminalBack(SHELL_JOB, "docked");
+  await expect.element(pane().getByText(printed, { exact: true })).toBeVisible();
+  await expect.element(terminal()).toHaveAttribute("aria-pressed", "true");
+
+  await pane().getByRole("button", { name: "Open in a window" }).click();
+  await expect.element(pane()).not.toBeInTheDocument();
+  await app.api.moveTerminalBack(SHELL_JOB, "side panel");
+  await expect.element(panel().getByText(printed, { exact: true })).toBeVisible();
+  expect(shellCalls()!.opened).toHaveLength(1);
+  expect(shellCalls()!.stopped).toEqual([]);
+});
+
+test("Window: a shell that ended in its window moves back ended, docked or in the side panel, with what it printed, and no new shell opens", async () => {
+  const app = mount(s322SessionShell);
+  await onScreen();
+  await toSession(/Deploy the store/);
+  await terminal().click();
+  await expect.element(pane().getByText(PROMPT)).toBeVisible();
+  await userEvent.keyboard("pwd{Enter}");
+  const printed = "~/Development/armada/.armada/slots/slot-1";
+  await expect.element(pane().getByText(printed, { exact: true })).toBeVisible();
+  await pane().getByRole("button", { name: "Open in a window" }).click();
+  await expect.element(pane()).not.toBeInTheDocument();
+  // End shell, pressed in the window.
+  await app.api.stopSessionRun("shell-1");
+
+  await app.api.moveTerminalBack(SHELL_JOB, "docked");
+  await expect.element(pane().getByText("Shell ended")).toBeVisible();
+  await expect.element(pane().getByText(printed, { exact: true })).toBeVisible();
+  await pane().getByRole("button", { name: "Open in a window" }).click();
+  await expect.element(pane()).not.toBeInTheDocument();
+  await app.api.moveTerminalBack(SHELL_JOB, "side panel");
+  await expect.element(panel().getByText("Shell ended")).toBeVisible();
+  await expect.element(panel().getByText(printed, { exact: true })).toBeVisible();
+  expect(shellCalls()!.opened).toHaveLength(1);
+});
+
+test("Window: the agent opening the Job's shell opens its window, and docks nothing", async () => {
+  await openInWindow();
+  timePasses();
+  await expect.poll(() => shellCalls()!.windows).toEqual([SHELL_JOB]);
+  await expect.element(terminal()).toHaveAttribute("aria-pressed", "true");
+  expect(document.querySelector(".armada-terminal")).toBeNull();
 });

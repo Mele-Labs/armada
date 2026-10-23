@@ -5,7 +5,7 @@
 // `terminal.exited` follow it. Each time passes, the agent types `pnpm dev` into the Job's shell, opening
 // one where none is open. The walk `job-shell` plays it.
 
-import type { JobTerminalChange } from "../../../../shared/api/sessions";
+import type { JobTerminalChange, TerminalMovedBack } from "../../../../shared/api/sessions";
 import type { SessionRunMessage } from "@armada/protocol";
 import { repository } from "@armada/screens/src/fixtures/repository";
 
@@ -29,16 +29,31 @@ function shellFleet() {
   const watching = new Set<(change: JobTerminalChange) => void>();
   const shells = new Map<string, FakeShell>();
   const openIn = new Map<string, string>();
-  const calls = { opened: [] as { sessionId: string; cols?: number; rows?: number }[], stopped: [] as string[], written: [] as string[] };
+  const calls = { opened: [] as { sessionId: string; cols?: number; rows?: number }[], stopped: [] as string[], written: [] as string[], windows: [] as string[] };
   let minted = 0;
-  const send = (runId: string, message: SessionRunMessage) => hearing.forEach((one) => one(runId, message));
+  // Main's half: what each shell printed, for a window that comes to it late, and the Jobs with a window of their own.
+  const printed = new Map<string, string>();
+  const windowed = new Set<string>();
+  const windowsHeard = new Set<(sessionIds: readonly string[]) => void>();
+  const movesHeard = new Set<(move: TerminalMovedBack) => void>();
+  const lastShell = new Map<string, { runId: string; ended: boolean }>();
+  const send = (runId: string, message: SessionRunMessage) => {
+    if (message.kind === "output") printed.set(runId, (printed.get(runId) ?? "") + message.text);
+    hearing.forEach((one) => one(runId, message));
+  };
   const tell = (change: JobTerminalChange) => watching.forEach((one) => one(change));
+  const windowsChanged = () => windowsHeard.forEach((one) => one([...windowed]));
+  /** The person closing the Job's window, or main closing it for a move back. */
+  const closeWindow = (sessionId: string) => {
+    if (windowed.delete(sessionId)) windowsChanged();
+  };
 
   const open = (sessionId: string): string => {
     const already = openIn.get(sessionId);
     if (already !== undefined) return already;
     const runId = `shell-${(minted += 1)}`;
     openIn.set(sessionId, runId);
+    lastShell.set(sessionId, { runId, ended: false });
     // Main follows the shell before the window hears it opened, so nothing it prints is missed.
     tell({ session_id: sessionId, run_id: runId, change: "opened" });
     const shell = startShell(
@@ -47,6 +62,7 @@ function shellFleet() {
       (code) => {
         shells.delete(runId);
         if (openIn.get(sessionId) === runId) openIn.delete(sessionId);
+        if (lastShell.get(sessionId)?.runId === runId) lastShell.set(sessionId, { runId, ended: true });
         send(runId, { kind: "exited", code });
         tell({ session_id: sessionId, run_id: runId, change: "exited" });
       },
@@ -57,6 +73,7 @@ function shellFleet() {
 
   return {
     calls,
+    closeWindow,
     /** The agent's `type_in_terminal`: the Job's shell, opened where it has none, and its words with Enter after a beat. */
     agentTypes: (sessionId: string, words: string) => {
       const runId = open(sessionId);
@@ -87,12 +104,37 @@ function shellFleet() {
         watching.add(on);
         return () => void watching.delete(on);
       },
+      // A second open brings the Job's window to the front, which here is one more call and no change.
+      openTerminalWindow: async (sessionId: string) => {
+        calls.windows.push(sessionId);
+        if (windowed.has(sessionId)) return;
+        windowed.add(sessionId);
+        windowsChanged();
+      },
+      getTerminalWindows: async () => [...windowed],
+      onTerminalWindows: (on: (sessionIds: readonly string[]) => void) => {
+        windowsHeard.add(on);
+        return () => void windowsHeard.delete(on);
+      },
+      readTerminalSoFar: async (runId: string) => printed.get(runId) ?? null,
+      moveTerminalBack: async (sessionId: string, to: TerminalMovedBack["to"]) => {
+        closeWindow(sessionId);
+        const shell = lastShell.get(sessionId);
+        movesHeard.forEach((one) => one({ sessionId, to, ...(shell === undefined ? {} : { shell }) }));
+      },
+      onTerminalMovedBack: (on: (move: TerminalMovedBack) => void) => {
+        movesHeard.add(on);
+        return () => void movesHeard.delete(on);
+      },
     },
   };
 }
 
 /** What the scenario's Fleet was asked, for a test. */
 export const shellCalls = () => live?.calls;
+
+/** The person closing a Job's terminal window with the window's own close. */
+export const closeTerminalWindow = (sessionId: string) => live?.closeWindow(sessionId);
 
 const base = s256SessionRunInTerminal;
 

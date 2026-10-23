@@ -4,7 +4,7 @@
 import { expect, test } from "vitest";
 import { page } from "vitest/browser";
 
-import { s322SessionShell } from "./scenarios/session-shell";
+import { s322SessionShell, SHELL_JOB, shellCalls } from "./scenarios/session-shell";
 import { mount, onScreen, toSession, unmountAfterEach } from "./testing";
 import { timePasses } from "./time-passes";
 
@@ -47,6 +47,22 @@ test("In the Cockpit, the agent opening the Job's shell shows it in the deck's p
   const view = await toSession(/Deploy the store/);
   timePasses();
   await placedBetween(view, /hmr update/);
+});
+
+test("In the Cockpit, the deck's panel opens the shell in a window, leaving the panel, and a move back from the window docks it in the panel again", async () => {
+  const app = mount(s322SessionShell);
+  await onScreen();
+  const view = await toSession(/Deploy the store/);
+  await terminal().click();
+  await placedBetween(view);
+  await pane().getByRole("button", { name: "Open in a window" }).click();
+  await expect.element(pane()).not.toBeInTheDocument();
+  await expect.poll(() => shellCalls()!.windows).toEqual([SHELL_JOB]);
+  await expect.element(terminal()).toHaveAttribute("aria-pressed", "true");
+
+  await app.api.moveTerminalBack(SHELL_JOB, "docked");
+  await placedBetween(view);
+  expect(shellCalls()!.opened).toHaveLength(1);
 });
 
 test("In the Cockpit, the panel's height is a split kept with the deck's others, and the stage keeps its own when the panel goes", async () => {
