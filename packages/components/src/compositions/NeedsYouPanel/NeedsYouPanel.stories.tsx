@@ -254,6 +254,39 @@ export const AReplyKeepsListThenDetail: Story = {
   },
 };
 
+const misread = fn();
+const confirmed = fn();
+const READ: LedgerEntry = { key: "m1", kind: "waiting", name: "What you get", text: "What you get", fromReply: true, onReply: fn(), onMisread: misread, onConfirmed: confirmed, onOpen: fn() };
+
+/** A line Fleet read from a reply keeps its two thumbs when it is opened, so he can say it was no question without taking it off as an item the agent stated. */
+export const AnOpenedLineReadFromAReplyKeepsItsThumbs: Story = {
+  render: () => <Frame rows={[READ, ROWS[0]!]} startOpen />,
+  play: async ({ canvas }) => {
+    misread.mockClear();
+    confirmed.mockClear();
+    await userEvent.click(canvas.getByRole("button", { name: "Open What you get" }));
+    await expect(canvas.getByRole("button", { name: "Back" })).toBeVisible();
+    await expect(canvas.getByRole("button", { name: "A question" })).toBeVisible();
+    await userEvent.click(canvas.getByRole("button", { name: "Not a question" }));
+    await expect(misread).toHaveBeenCalledTimes(1);
+    await expect(confirmed).not.toHaveBeenCalled();
+  },
+};
+
+/** Once Fleet holds the line as a question, opened or listed it draws no thumbs; and a line the agent stated never had any. */
+export const AnOpenedConfirmedOrStatedLineHasNoThumbs: Story = {
+  render: () => <Frame rows={[{ ...READ, confirmed: true }, { key: "m2", kind: "waiting", name: "Say which branch", text: "Say which branch", onReply: fn(), onOpen: fn() }]} startOpen />,
+  play: async ({ canvas }) => {
+    for (const name of ["Open What you get", "Open Say which branch"]) {
+      await userEvent.click(canvas.getByRole("button", { name }));
+      await expect(canvas.getByRole("button", { name: "Back" })).toBeVisible();
+      await expect(canvas.queryByRole("button", { name: "Not a question" })).toBeNull();
+      await expect(canvas.queryByRole("button", { name: "A question" })).toBeNull();
+      await userEvent.click(canvas.getByRole("button", { name: "Back" }));
+    }
+  },
+};
+
 const CLOCK: AskedQuestion = {
   question: "Which clock should the queue tests use?",
   header: "Clock",

@@ -217,6 +217,15 @@ fn the_rules_say_to_start_a_watch_and_that_a_live_one_is_a_wait() {
     assert!(finishing.contains("A live watch is a wait as an open pull request is: do not call `all_done` while one runs, add no `waiting_for` item for it"));
 }
 
+/// Fleet takes a merge wait off Needs you, so the rules must not tell an agent to state one: the
+/// two contradicted, and an agent that followed the rules put the pull request on his list.
+#[test]
+fn the_rules_never_put_an_open_pull_requests_wait_in_waiting_for() {
+    let finishing = rules().split("\n\n").find(|block| block.starts_with("Finishing.")).expect("a finishing paragraph");
+    assert!(finishing.contains("never put a wait on it in `waiting_for`: Fleet takes such an item off Needs you"));
+    assert!(!rules().contains("name the wait in `waiting_for`"));
+}
+
 /// A hosted session is told to dispute a Fleet notice it finds wrong through the call, not only in
 /// its reply, since the call is what starts the review.
 #[test]

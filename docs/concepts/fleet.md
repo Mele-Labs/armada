@@ -408,6 +408,7 @@ One Job, not every row: a Job that read the pull request from a directory in a s
 
 **A Job's wait on a merge the forge will do is not the owner's, and Fleet takes it off Needs you.**
 While the queue or auto-merge holds the pull request, every reading takes off each owner Job's `waiting_for` item that names it, and tells the Job only where something came off.
+Fleet knows the pull request by `#N`, "pull request N", "PR N", its link, its branch or its title, and takes off a line it read from a reply as well as the agent's own.
 The job note tells agents not to state it.
 
 ### Watches

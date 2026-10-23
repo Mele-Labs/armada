@@ -1,6 +1,6 @@
 //! Whether a Session's wait is about a pull request, so a merge or an auto-merge settles it. **By
 //! rules, no model**, as `session_host/asks.rs` reads a reply: the item's own act names the pull
-//! request, or its words do, by `#number`, its branch or its title.
+//! request, or its words do, by `#number`, "pull request N", "PR N", its link, its branch or its title.
 //!
 //! Only the agent's own items and the asks Fleet reads off a reply. A question card, a permission, a
 //! walk or a judge's concern is answered by its own press, never by a merge.
@@ -33,18 +33,35 @@ pub(crate) fn waits_on(item: &WaitingItem, pull: &PullNamed<'_>) -> bool {
     names(&item.text, pull)
 }
 
-/// The words name the pull request: `#N` not followed by a digit, its branch, or its title whole.
+/// The words name the pull request: its number by `#N`, "pull request N", "PR N" or a link ending
+/// `/pull/N`, never followed by a digit; its branch; or its title whole.
 fn names(text: &str, pull: &PullNamed<'_>) -> bool {
     let number = format!("#{}", pull.number);
-    let by_number = text.match_indices(&number).any(|(at, _)| {
+    let by_hash = text.match_indices(&number).any(|(at, _)| {
         !text[at + number.len()..].starts_with(|c: char| c.is_ascii_digit())
     });
+    let by_number = by_hash || spelled(text, pull.number);
     let by_branch = !pull.branch.is_empty() && text.contains(pull.branch);
     let by_title = pull.title.is_some_and(|title| {
         let title = title.trim();
         title.len() >= TITLE_LEAST && text.to_lowercase().contains(&title.to_lowercase())
     });
     by_number || by_branch || by_title
+}
+
+/// "pull request N", "PR N" (as a word, not the end of "SPR") or a link ending `/pull/N`, whatever the
+/// case, with N the whole run of digits.
+fn spelled(text: &str, number: u64) -> bool {
+    let text = text.to_lowercase();
+    let number = number.to_string();
+    [("pull request ", true), ("pr ", true), ("/pull/", false)].into_iter().any(|(lead, word)| {
+        text.match_indices(lead).any(|(at, _)| {
+            let after = &text[at + lead.len()..];
+            let digits = after.len() - after.trim_start_matches(|c: char| c.is_ascii_digit()).len();
+            let alone = !word || !text[..at].ends_with(|c: char| c.is_alphanumeric());
+            alone && after[..digits] == number
+        })
+    })
 }
 
 /// `#2589`, `2589` or a pull request's address, as an `approve_pr` act's target is written.
@@ -63,7 +80,7 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// Take off a Session's own items waiting on `pull`, as [`Self::run_item_settled`] does for a
+    /// Take off a Session's own items, and the asks read off its reply, waiting on `pull`, as [`Self::run_item_settled`] does for a
     /// command: the notice Fleet tells next says why, in Fleet's voice, and the turn it starts clears
     /// an ask read off a reply. The texts of the items taken off.
     pub(crate) async fn waits_taken_off(&self, session: &str, pull: &PullNamed<'_>) -> Vec<String> {
@@ -74,7 +91,7 @@ where
             let taken: Vec<(String, String)> = self
                 .ledger_waiting(&kept, reads)
                 .into_iter()
-                .filter(|item| item.source == WaitingSource::Agent && waits_on(item, pull))
+                .filter(|item| waits_on(item, pull))
                 .map(|item| (item.id, item.text))
                 .collect();
             if taken.is_empty() || taken.iter().any(|(id, _)| store.dismiss_waiting(session, id).is_err()) {
@@ -140,6 +157,34 @@ mod tests {
     fn another_number_that_starts_the_same_is_not_it() {
         assert!(!waits_on(&item(WaitingSource::Agent, "Merge #25890 and #258", None), &PULL));
         assert!(!waits_on(&item(WaitingSource::Agent, "Restart Fleet", Some((WaitingActKind::Run, "scripts/restart"))), &PULL));
+    }
+
+    #[test]
+    fn words_name_it_as_pull_request_n_pr_n_or_its_link() {
+        let live = PullNamed { number: 2825, branch: "armada/session-865cbe01", title: None };
+        for text in [
+            "Pull request 2825 is waiting on ci and the merge queue, with auto-merge on",
+            "Fleet tells me when https://github.com/Mele-Labs/armada/pull/2825 merges, and then I release slot-3",
+            "pr 2825 is queued",
+            "Waiting on PR 2825.",
+        ] {
+            assert!(waits_on(&item(WaitingSource::Agent, text, None), &live), "{text}");
+            assert!(waits_on(&item(WaitingSource::Replied, text, None), &live), "{text}");
+        }
+    }
+
+    #[test]
+    fn another_number_or_word_that_looks_like_pull_request_n_is_not_it() {
+        let live = PullNamed { number: 2825, branch: "armada/session-865cbe01", title: None };
+        for text in [
+            "Pull request 28250 is waiting on ci",
+            "Pull request 282 is waiting on ci",
+            "See https://github.com/Mele-Labs/armada/pull/28250",
+            "SPR 2825 is not a pull request",
+            "Pull request 2826 and PR 7",
+        ] {
+            assert!(!waits_on(&item(WaitingSource::Agent, text, None), &live), "{text}");
+        }
     }
 
     #[test]
