@@ -27,7 +27,8 @@ const NO_IDEAS: readonly QueuedIdea[] = [];
 /** End answers at once, over whichever serves it: the stage plays the Job out and shows the timeline, and Fleet parks the Job in the background (`cockpit/deck/exit.ts`). */
 const withLeaving = (draft: SessionsDraft): SessionsDraft => {
   const { close } = draft;
-  return close === undefined ? draft : { ...draft, close: (id) => (announceEnd(id), close(id)) };
+  // Over the draft as its prototype, as `withPressed` is: a spread loses what it reads by getter, `commands` among them.
+  return close === undefined ? draft : Object.assign(Object.create(draft) as SessionsDraft, { close: (id: string) => (announceEnd(id), close.call(draft, id)) });
 };
 
 /** Hand a moment's Sessions to the window. The mock's own mount is the one caller. */
