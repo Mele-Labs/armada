@@ -156,6 +156,7 @@ Bridge applies that text and no other.
 `save_preferences` refuses a `layout_choices` that `layout.json`'s rules would refuse, with 422 `fleet.unacceptable_layout`.
 `scaffold_mod` takes a `kind`, and a layout scaffold holds `{ "version": 1 }`, which changes nothing.
 Promotion writes `mod.toml` and `layout.json` to `packages/mods/<name>/` in a Job's tree and opens a pull request. [Mods](mods.md), *Promotion*.
+Its row shows that pull request and its Job from `list_mods`, as a theme's does, so a window read again offers no second Promote.
 
 ## Promotion and code panels
 

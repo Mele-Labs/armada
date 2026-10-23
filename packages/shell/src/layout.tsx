@@ -235,6 +235,10 @@ export type LayoutMod = {
   problem?: string;
   /** The branch of the repository it was put on, once it has been. */
   branch?: string;
+  /** The pull request Promote opened, while it is open. */
+  pull?: { number: number; title: string; address: string };
+  /** The Job that opened it. */
+  job?: { id: string; title: string };
   file: LayoutFile;
 };
 

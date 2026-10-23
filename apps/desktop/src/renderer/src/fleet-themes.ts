@@ -55,7 +55,7 @@ export const promotedOf = (done: ModPromoted): Promoted => {
 };
 
 /** What Fleet's list keeps of a promote: the pull request while it is open, and its Job. */
-const keptOf = (row: ModSummary): Promoted => {
+export const keptOf = (row: ModSummary): Promoted => {
   const open = row.pull_request;
   return open === undefined ? {} : { pull: { number: open.number, title: open.title, address: open.address }, job: { id: open.session_id, title: open.title } };
 };

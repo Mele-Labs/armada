@@ -187,4 +187,23 @@ describe("the acts on a mod", () => {
     await settled();
     expect(source.get().mods[0]?.branch).toBe("armada/mod-tidy-1");
   });
+
+  it("draws the pull request and Job a promote opened, and after a reload from the one Fleet's list keeps", async () => {
+    const address = "https://github.com/acme/shop/pull/42";
+    const opened = { name: "tidy", session_id: "s1", title: "Add the tidy mod", branch: "armada/mod-tidy-1", commit: "abc", pull_request: address };
+    const pressed = fake(facts([row("tidy")]), undefined, { promoteMod: async () => ({ ok: true, modPromoted: opened }) });
+    await settled();
+    pressed.source.promote("tidy");
+    await settled();
+    expect(pressed.source.get().mods[0]).toMatchObject({ pull: { number: 42, title: "Add the tidy mod", address }, job: { id: "s1", title: "Add the tidy mod" } });
+
+    const kept = { address, number: 42, title: "Add the tidy mod", session_id: "s1" };
+    const reloaded = fake(facts([row("tidy", { pull_request: kept })]));
+    await settled();
+    expect(reloaded.source.get().mods[0]).toMatchObject({ pull: { number: 42, title: "Add the tidy mod", address }, job: { id: "s1", title: "Add the tidy mod" } });
+
+    reloaded.push(facts([row("tidy", { changed_at: "t2" })]));
+    await settled();
+    expect(reloaded.source.get().mods[0]).not.toHaveProperty("pull");
+  });
 });
