@@ -458,13 +458,16 @@ class Preview(unittest.TestCase):
 RESTART = os.path.join(HERE, "scripts", "restart")
 
 
-def roster_server(jobs, drones=None, drones_error=None):
+def roster_server(jobs, drones=None, drones_error=None, delay=0):
     """A Fleet's two reads, `/drones` and `/jobs/<id>`, from {job_id: status}.
     `drones` names the Jobs that have a Drone; every Job has one by default.
-    `drones_error` is an HTTP status `/drones` answers with instead."""
+    `drones_error` is an HTTP status `/drones` answers with instead.
+    `delay` is the seconds `/drones` waits before it answers, as a busy Fleet does."""
     drones = list(jobs) if drones is None else drones
     class Handler(http.server.BaseHTTPRequestHandler):
         def do_GET(self):
+            if self.path == "/drones" and delay:
+                time.sleep(delay)
             if self.path == "/drones" and drones_error:
                 self.send_error(drones_error)
                 return
@@ -484,7 +487,8 @@ def roster_server(jobs, drones=None, drones_error=None):
         def log_message(self, *args):
             pass
 
-    server = http.server.HTTPServer(("127.0.0.1", 0), Handler)
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    server.daemon_threads = True
     threading.Thread(target=server.serve_forever, daemon=True).start()
     return server
 
@@ -536,8 +540,8 @@ class RestartAdopt(unittest.TestCase):
                 f.write("#!/bin/sh\nexit 0\n")
             os.chmod(path, 0o755)
 
-    def fleet(self, jobs, drones_error=None):
-        server = roster_server(jobs, drones_error=drones_error)
+    def fleet(self, jobs, drones_error=None, delay=0):
+        server = roster_server(jobs, drones_error=drones_error, delay=delay)
         self.addCleanup(server.server_close)
         self.addCleanup(server.shutdown)
         with open(os.path.join(self.support, "fleet.json"), "w") as f:
@@ -715,6 +719,12 @@ class RestartAdopt(unittest.TestCase):
         self.assertIn("did not answer", said)
         code, said = self.restart("--dry-run")
         self.assertIn("the restart would refuse", said)
+
+    def test_a_fleet_slow_to_answer_is_waited_for_not_refused(self):
+        self.fleet({"j1": "escalated"}, delay=7)
+        code, said = self.restart("--dry-run")
+        self.assertEqual(code, 0, said)
+        self.assertNotIn("did not answer", said)
 
     def test_adopt_still_refuses_when_the_roster_does_not_answer(self):
         self.fleet({})
