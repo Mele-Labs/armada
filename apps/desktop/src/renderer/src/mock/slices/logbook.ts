@@ -1,10 +1,14 @@
 // The Logbook: the scenario's entries, as edits, pins and forgets leave them for the next read. A forgotten entry is
 // gone from every read, as the deny list keeps it out. Mock of Fleet's routes, which main reaches in `main/logbook.ts`.
 
-import type { LogbookEntry } from "@armada/protocol";
+import type { LogbookEntry, LogbookTidy } from "@armada/protocol";
 
 import type { LogbookApi } from "../../../../shared/api/logbook";
 import type { Slice } from "../fake-context";
+import { alsoOnTimePassing } from "../time-passes";
+
+/** How long a pass runs in the mock, as a real one runs in the background. A walk's `later` ends it sooner. */
+const PASS_MS = 6_000;
 
 const words = (text: string): Set<string> => new Set(text.toLowerCase().match(/[a-z0-9]+/g) ?? []);
 const alike = (a: string, b: string): boolean => {
@@ -43,6 +47,8 @@ export const logbook: Slice<LogbookApi, Record<string, never>> = {
   state: {},
   api: (scenario, fleet) => {
     let held: LogbookEntry[] | undefined = scenario.logbook;
+    let tidy: LogbookTidy = { running: false };
+    let ending: ReturnType<typeof setTimeout> | undefined;
     const changed = (id: string, change: (entry: LogbookEntry) => LogbookEntry) => {
       const entry = held?.find((one) => one.id === id);
       if (held === undefined || entry === undefined) return fleet.refused(`/logbook/${id}`);
@@ -51,7 +57,7 @@ export const logbook: Slice<LogbookApi, Record<string, never>> = {
       return { ok: true as const, entry: now };
     };
     return {
-      readLogbook: async () => (held === undefined ? fleet.refused("/logbook") : { ok: true, entries: held }),
+      readLogbook: async () => (held === undefined ? fleet.refused("/logbook") : { ok: true, entries: held, tidy }),
       editLogbookEntry: async (id, text) =>
         changed(id, (entry) => ({
           ...entry,
@@ -62,9 +68,18 @@ export const logbook: Slice<LogbookApi, Record<string, never>> = {
       lockLogbookEntry: async (id, locked) => changed(id, (entry) => ({ ...entry, locked })),
       tidyLogbook: async () => {
         if (held === undefined) return fleet.refused("/logbook/tidy");
-        const done = tidied(held);
-        held = done.entries;
-        return { ok: true, merged: done.merged };
+        if (tidy.running) return { ok: true, running: true };
+        const finish = () => {
+          clearTimeout(ending);
+          if (!tidy.running || held === undefined) return;
+          const done = tidied(held);
+          held = done.entries;
+          tidy = { running: false, last: { merged: done.merged, at: new Date().toISOString(), failed: false } };
+        };
+        tidy = { ...tidy, running: true };
+        ending = setTimeout(finish, PASS_MS);
+        alsoOnTimePassing(finish);
+        return { ok: true, running: true };
       },
       forgetLogbookEntry: async (id) => {
         if (held === undefined || !held.some((one) => one.id === id)) return fleet.refused(`/logbook/${id}/forget`);
