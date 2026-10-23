@@ -69,6 +69,8 @@ struct Run {
     session: String,
     command: String,
     stopped: AtomicBool,
+    /// What stopping it first sends: a shell ignores TERM but leaves on the HUP a closing terminal sends.
+    stop_signal: &'static str,
     state: Mutex<State>,
     terminal: Mutex<Option<Terminal>>,
     feed: broadcast::Sender<SessionRunEvent>,
@@ -211,6 +213,7 @@ impl SessionRuns {
             session: launch.session.to_string(),
             command: launch.command.unwrap_or_default().to_string(),
             stopped: AtomicBool::new(false),
+            stop_signal: if launch.command.is_some() { "TERM" } else { "HUP" },
             state: Mutex::new(State { held: String::new(), exited: None }),
             terminal: Mutex::new(Some(Terminal { master: pair.master, keys })),
             feed: broadcast::channel(SESSION_RUN_BACKLOG).0,
@@ -258,13 +261,13 @@ impl SessionRuns {
         Ok(())
     }
 
-    /// SIGTERM, then SIGKILL if the group is still there after [`GRACE`].
+    /// The run's stop signal, then SIGKILL if the group is still there after [`GRACE`].
     fn stop(&self, run_id: &str) -> bool {
         let Some(run) = self.in_flight(run_id) else {
             return false;
         };
         run.stopped.store(true, Ordering::Relaxed);
-        run.signal("TERM");
+        run.signal(run.stop_signal);
         tokio::spawn(async move {
             tokio::time::sleep(GRACE).await;
             if !run.ended() {

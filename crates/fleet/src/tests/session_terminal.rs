@@ -179,6 +179,21 @@ async fn ending_the_job_ends_its_shell() {
     }
 }
 
+#[tokio::test]
+async fn a_stopped_shell_leaves_well_inside_the_grace_it_is_given() {
+    let rig = rig().await;
+    let shell = Arc::clone(&rig.fleet).open_job_shell(rig.session.as_str(), None, None).await.unwrap();
+    // Until it answers it has not set up to ignore SIGTERM, as an interactive shell does.
+    rig.types(&shell, "echo up\r").await.expect("in flight");
+    assert!(shortly(|| async { rig.observes(&shell).await.history.contains("up") }).await, "the shell never answered");
+
+    let stopped = std::time::Instant::now();
+    rig.fleet.stop_session_run(ipc::StopSessionRun { run_id: shell.clone() }).await.expect("in flight");
+    let left = shortly(|| async { rig.observes(&shell).await.live.is_err() }).await;
+    let took = stopped.elapsed();
+    assert!(left && took < std::time::Duration::from_secs(2), "left: {left}, took {took:?}; GRACE is 3 s");
+}
+
 /// Until `check` holds, for as long as an interactive login shell may take to start under the
 /// person's own rc files, which is longer than [`eventually`] waits.
 async fn shortly<F: std::future::Future<Output = bool>>(mut check: impl FnMut() -> F) -> bool {
