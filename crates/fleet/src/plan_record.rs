@@ -131,13 +131,14 @@ pub(crate) fn recorded(
                         listed: old.listed.clone(),
                         completed_at: old.completed_at.clone(),
                         edited: old.edited,
+                        started_at: old.started_at.clone(),
                     }
                 }
                 None => {
                     let id = format!("t{next_task}");
                     next_task += 1;
                     changes.push(KeptPlanChange { kind: "added".into(), id: id.clone(), other: String::new() });
-                    KeptPlanTask { id, text: task.title.clone(), listed: None, completed_at: None, edited: false }
+                    KeptPlanTask { id, text: task.title.clone(), listed: None, completed_at: None, edited: false, started_at: None }
                 }
             };
             tasks.push(kept);
