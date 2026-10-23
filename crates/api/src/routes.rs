@@ -579,6 +579,11 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             "/sessions/:session_id/retro",
             get(crate::retros::get_session_retro::<D>).post(crate::retros::write_session_retro::<D>),
         )
+        .route("/logbook", get(crate::logbook::get_logbook::<D>))
+        .route("/logbook/entries", post(crate::logbook::teach_logbook_entry::<D>))
+        .route("/logbook/entries/:entry_id/edit", post(crate::logbook::edit_logbook_entry::<D>))
+        .route("/logbook/entries/:entry_id/pin", post(crate::logbook::pin_logbook_entry::<D>))
+        .route("/logbook/entries/:entry_id/forget", post(crate::logbook::forget_logbook_entry::<D>))
         .route("/lessons", get(crate::retros::list_lessons::<D>))
         .route("/lessons/review", post(crate::retros::review_lessons::<D>))
         .route(
