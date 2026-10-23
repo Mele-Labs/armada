@@ -264,9 +264,8 @@ where
         }
         let fleet = Arc::clone(self);
         tokio::spawn(async move {
-            if let Err(why) = fleet.logbook_backlog_moved().await {
-                eprintln!("the open lessons were not all moved into the Logbook, and the next start tries again: {why}");
-            }
+            // Quiet, as a distil is: a failed batch leaves its lessons open and the next start asks again.
+            let _ = fleet.logbook_backlog_moved().await;
         });
     }
 
