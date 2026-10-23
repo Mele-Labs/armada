@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { NOTICES } from "@armada/protocol";
 import type { Attachment, AttachmentHistory, HelmCallInFlight, SessionRecord, SessionRow } from "@armada/protocol";
 import { ENDED_LISTED_DAYS, SessionMemo, activityOf, attachmentsOfRecord, cleanTitle, lapsedAnswerText, lapsedOf, rowsOfThread, sceneOfWire, sessionOfRecord, sessionsOfRecords, sketchCallOf, trailOfRecord, versionsOfHistory } from "./sessions-wire";
 import type { Beside } from "./sessions-wire";
@@ -378,6 +379,14 @@ describe("the thread", () => {
     const drawn = rowsOfThread("a", wire, () => undefined);
     expect(drawn[0]).toMatchObject({ notice: "behind_base" });
     expect(drawn[1]).not.toHaveProperty("notice");
+  });
+
+  it("carries every notice word Bridge can mute, and drops one it does not know", () => {
+    const fleet = { kind: "session", id: "fleet", title: "Fleet" } as const;
+    const wire = [...NOTICES.map((notice, at) => ({ kind: "message", id: `n${at}`, at: AT, from: fleet, text: notice, notice })), { kind: "message", id: "x", at: AT, from: fleet, text: "x", notice: "from_a_newer_fleet" }] as SessionRow[];
+    const drawn = rowsOfThread("a", wire, () => undefined);
+    expect(drawn.slice(0, NOTICES.length).map((one) => (one as { notice?: string }).notice)).toEqual([...NOTICES]);
+    expect(drawn.at(-1)).not.toHaveProperty("notice");
   });
 
   it("names another session's message by sender, and keeps the first write as a row", () => {

@@ -82,7 +82,8 @@ Every problem is returned with its line, up to 20.
 > **Rule.** A tweak is checked as `theme.css` is, token declarations and nothing else, and names `tweak.css` in its problems.
 > Why: it is substituted into the same page a theme is, so it gets the same whitelist.
 
-Bridge layers every tweak that is on and valid over whichever theme is chosen, and `validate_mod` returns its text as `css`.
+Bridge layers every tweak that is on and valid over whichever theme is chosen, in mod name order, and `validate_mod` returns its text as `css`.
+A tweak sits in a sheet of its own with every selector raised above a theme's, so choosing another theme replaces the theme's sheet and leaves the tweak, and `--no-mods` lays none.
 A tweak is never chosen as the theme.
 
 ## words.toml
@@ -245,7 +246,7 @@ The owner's checkout is never written, and a branch that exists is never moved. 
 Fleet's half is above: a bad mod is a row with its reason, and `set_mod_enabled` and `save_preferences` are Fleet calls, so switching a mod off or saving `dark` works while Bridge cannot draw the mod.
 
 `bridge --no-mods` is Bridge's half.
-Main loads the window with `?nomods`, and the window then lists no mod in Settings or on the Mods surface and never calls `validate_mod`, so no mod's CSS reaches the page and the layout is the shipped one.
+Main loads the window with `?nomods`, and the window then lists no mod in Settings or on the Mods surface and never calls `validate_mod` or `list_word_rules`, so no mod's CSS reaches the page, no taught words are linked and the layout is the shipped one.
 Dark, Light and the catalogue still choose.
 Safe mode does not touch the saved theme: a mod chosen before stays chosen for the next ordinary start, and a built-in or catalogue theme picked in safe mode is saved like any other.
 

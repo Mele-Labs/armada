@@ -99,7 +99,8 @@ export function build(asking = false, wordsAsk = false): Scenario {
                 text: `Which Jira site does ${repository} use?`,
                 since: new Date().toISOString(),
                 ...(wordsAsk ? { source: "words_address" as const, act: { kind: "answer" as const, target: SITE_ASK } } : { source: "agent" as const, act: { kind: "answer" as const, target: "" } }),
-                options: sites.map((label) => ({ label })),
+                // Fleet offers an `Other` after the sites it knows, which the deck draws as its own free text.
+                options: [...sites, ...(wordsAsk ? ["Other"] : [])].map((label) => ({ label })),
               },
             ],
           });

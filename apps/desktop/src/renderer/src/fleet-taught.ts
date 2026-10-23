@@ -28,8 +28,9 @@ const KINDS: readonly TaughtKind[] = ["words", "fleet", "tweak", "tracker"];
 const isTaught = (kind: ModSummary["kind"]): kind is TaughtKind => (KINDS as readonly (string | undefined)[]).includes(kind);
 
 /** A window that lists no taught mod: safe mode, which reads no mod. */
+const NOTHING: TaughtState = { mods: [], details: {} };
 export const NO_TAUGHT: TaughtSource = {
-  get: () => ({ mods: [], details: {} }),
+  get: () => NOTHING,
   subscribe: () => () => undefined,
   setEnabled: () => undefined,
   promote: () => undefined,
