@@ -57,7 +57,10 @@ async fn a_jira_key_is_proposed_as_words_with_the_selected_words_as_its_example(
 
     let words = proposal.words.expect("words");
     assert_eq!((words.name.as_str(), words.pattern.as_str()), ("Jira key", r"[A-Z][A-Z0-9]+-\d+"));
-    assert_eq!(words.address.as_deref(), Some("https://myproject.jira.com/browse/{match}"));
+    assert_eq!(
+        words.address.map(|one| (one.template, one.found)),
+        Some(("https://myproject.jira.com/browse/{match}".to_string(), ipc::AddressFound::Person))
+    );
     assert_eq!(words.example, "STORE-1234");
     assert!(proposal.note.is_none() && proposal.fleet.is_none() && proposal.tweak.is_empty() && proposal.layout.is_none());
     let asked = judge.asked();

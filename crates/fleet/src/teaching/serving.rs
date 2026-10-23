@@ -7,7 +7,7 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Refusal, Teaching};
 use ipc::{
     Does, FleetFile, ModKind, ReadTeaching, SaveTeaching, SavedTeaching, TeachingProposal, WireError, WordRule, WordRules,
-    WordsFile,
+    WordsAddress, WordsFile,
 };
 
 use crate::daemon::Fleet;
@@ -26,8 +26,8 @@ pub(crate) struct KeptWords {
 impl KeptWords {
     /// Where this pattern opens for `manifest`: the repository's own address, else the one for every
     /// repository.
-    pub(crate) fn address_for(&self, manifest: &str) -> Option<&str> {
-        let named = |key: &str| self.file.address.iter().find(|one| one.repository == key).map(|one| one.template.as_str());
+    pub(crate) fn address_for(&self, manifest: &str) -> Option<&WordsAddress> {
+        let named = |key: &str| self.file.address.iter().find(|one| one.repository == key);
         named(manifest).or_else(|| named("*"))
     }
 }
@@ -73,7 +73,8 @@ where
                 name: one.file.name.clone(),
                 pattern: one.file.pattern.clone(),
                 example: one.file.example.clone(),
-                address: address.to_string(),
+                address: address.template.clone(),
+                found: address.found,
             });
         }
         Ok(WordRules { rules })

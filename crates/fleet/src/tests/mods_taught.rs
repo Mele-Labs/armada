@@ -4,7 +4,7 @@
 use std::path::Path;
 
 use api::Mods;
-use ipc::{AddressFound, Does, ModKind, ScaffoldMod};
+use ipc::{AddressFound, Does, FleetFile, FleetRule, ModKind, RuleScope, ScaffoldMod};
 use testkit::FakeWorkProduct;
 
 use crate::mods::scaffold::{self, Taught};
@@ -191,4 +191,53 @@ async fn fleet_scaffolds_validates_and_lists_a_tweak_and_hands_bridge_its_css() 
     assert!(Path::new(&words.path).join("words.toml").is_file());
     let list = fleet.list_mods().await.expect("listed");
     assert_eq!(list.mods.iter().filter(|one| one.valid).count(), 2);
+}
+
+#[test]
+fn a_mod_row_names_the_logbook_entry_that_made_it_and_a_hand_made_mod_names_none() {
+    let home = TempDir::new();
+    let mods = home.path().join("mods");
+    a_taught_mod(&mods, "tidy", "tweak", "tweak.css", ":root {}\n");
+    std::fs::write(mods.join("tidy/mod.toml"), format!("{}entry = \"41\"\n", mod_toml("tidy", "tweak"))).expect("mod.toml");
+    a_taught_mod(&mods, "by-hand", "tweak", "tweak.css", ":root {}\n");
+    // A mod whose files are wrong still says where it came from: forgetting the entry finds it so.
+    a_taught_mod(&mods, "broken", "tweak", "tweak.css", ":root { color: red; }");
+    std::fs::write(mods.join("broken/mod.toml"), format!("{}entry = \"42\"\n", mod_toml("broken", "tweak"))).expect("mod.toml");
+
+    let list = scan(&mods, &Default::default());
+    let entry = |name: &str| list.mods.iter().find(|one| one.name == name).expect(name).entry.clone();
+    assert_eq!(entry("tidy").as_deref(), Some("41"));
+    assert_eq!(entry("by-hand"), None);
+    assert_eq!(entry("broken").as_deref(), Some("42"));
+}
+
+#[tokio::test]
+async fn validating_a_taught_mod_hands_bridge_what_it_holds_and_a_broken_one_holds_nothing() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
+    let mods = fleet.mods_dir();
+    let rules = "[[rule]]\nnotice = \"behind_base\"\ndoes = \"quiet\"\nwhere = \"everywhere\"\n";
+    a_taught_mod(&mods, "jira", "words", "words.toml", JIRA);
+    a_taught_mod(&mods, "quiet", "fleet", "fleet.toml", rules);
+    a_taught_mod(&mods, "warm", "tweak", "tweak.css", ":root { --accent: #E0954A; }\n");
+    a_taught_mod(&mods, "bad-words", "words", "words.toml", "pattern = 1");
+    a_taught_mod(&mods, "bad-fleet", "fleet", "fleet.toml", "[[rule]]\nnotice = \"not_a_notice\"\ndoes = \"tell\"\nwhere = \"everywhere\"\n");
+
+    let jira = fleet.validate_mod("jira".into()).await.expect("checked");
+    assert_eq!(jira.words, Some(words::read(JIRA).expect("reads")), "{jira:?}");
+    assert!(jira.valid && jira.fleet.is_none() && jira.css.is_none() && jira.layout.is_none(), "{jira:?}");
+    let wire = ipc::encode(&jira).expect("plain data");
+    assert!(wire.contains(r#""found":"pull_request #12""#) && wire.contains(r#""repository":"armada""#), "{wire}");
+
+    let quiet = fleet.validate_mod("quiet".into()).await.expect("checked");
+    let rule = FleetRule { notice: "behind_base".into(), does: Does::Quiet, scope: RuleScope::Everywhere };
+    assert_eq!(quiet.fleet, Some(FleetFile { rule: vec![rule] }), "{quiet:?}");
+    assert!(quiet.valid && quiet.words.is_none() && quiet.css.is_none(), "{quiet:?}");
+
+    let warm = fleet.validate_mod("warm".into()).await.expect("checked");
+    assert!(warm.css.is_some() && warm.words.is_none() && warm.fleet.is_none(), "{warm:?}");
+    for name in ["bad-words", "bad-fleet"] {
+        let broken = fleet.validate_mod(name.into()).await.expect("answers for a broken mod");
+        assert!(!broken.valid && broken.words.is_none() && broken.fleet.is_none(), "{name}: {broken:?}");
+    }
 }

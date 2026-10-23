@@ -17,10 +17,11 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-use ipc::AddressFound;
+use ipc::{AddressFound, ProposedAddress, TeachingWords};
 use regex::{Regex, RegexBuilder};
 
 use super::link::address_fault;
+use crate::enriching::LOOKUP_BUDGET;
 use super::saving::{address_given, words_file};
 use crate::daemon::Fleet;
 use crate::repositories::Served;
@@ -131,10 +132,20 @@ where
     /// Where `pattern` opens in `served`, and how it was found: the tracker the Manifest names, else
     /// a recently merged pull request's text. `None` where neither says.
     pub(crate) async fn address_found(&self, served: &Served, pattern: &str, example: &str) -> Option<(String, AddressFound)> {
-        let tracker = self.tracker_of(served);
-        if let Some(template) = tracker.address_template(example).filter(|template| address_fault(template).is_none()) {
+        if let Some(template) = self.address_in_settings(served, example) {
             return Some((template, AddressFound::Settings));
         }
+        self.address_in_pulls(served, pattern).await
+    }
+
+    /// The address the Manifest's tracker builds from `example`, where it names a site.
+    fn address_in_settings(&self, served: &Served, example: &str) -> Option<String> {
+        let tracker = self.tracker_of(served);
+        tracker.address_template(example).filter(|template| address_fault(template).is_none())
+    }
+
+    /// The address a recently merged pull request's text gives for `pattern`, and which pull request.
+    async fn address_in_pulls(&self, served: &Served, pattern: &str) -> Option<(String, AddressFound)> {
         let base = served.manifest().base()?.to_string();
         let listed = self
             .forge_asked(served.root(), move |vcs: &V, root: &str| vcs.recently_merged_pull_requests(root, &base, MOST_PULLS))
@@ -154,6 +165,25 @@ where
             }
         }
         None
+    }
+
+    /// The address a read proposes for `words` in the repository at `root`, whose Manifest id is
+    /// `manifest`: the one a Words mod with this pattern already has, else the tracker's, else a
+    /// merged pull request's. **The pull request search is held to [`LOOKUP_BUDGET`]**, since a person
+    /// is waiting on the read; the other two read local state.
+    pub(crate) async fn address_proposed(&self, root: &str, manifest: &str, words: &TeachingWords) -> Option<ProposedAddress> {
+        if let Ok(kept) = self.words_kept().await {
+            let held = kept.iter().filter(|one| one.file.pattern == words.pattern).find_map(|one| one.address_for(manifest));
+            if let Some(held) = held {
+                return Some(ProposedAddress { template: held.template.clone(), found: held.found });
+            }
+        }
+        let served = self.repositories().served().into_iter().find(|one| one.root() == root)?;
+        if let Some(template) = self.address_in_settings(&served, &words.example) {
+            return Some(ProposedAddress { template, found: AddressFound::Settings });
+        }
+        let (template, found) = tokio::time::timeout(LOOKUP_BUDGET, self.address_in_pulls(&served, &words.pattern)).await.ok()??;
+        Some(ProposedAddress { template, found })
     }
 
     /// Search for the address `wanted` names, once per mod and repository for the life of the

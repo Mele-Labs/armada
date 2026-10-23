@@ -450,7 +450,7 @@ pub use logbook::{
     LogbookSection, LogbookState, LockLogbookEntry, TeachLogbookEntry, TeachSource,
 };
 pub use teaching::{
-    ReadTeaching, SaveTeaching, SavedTeaching, TeachingLayout, TeachingNote, TeachingProposal, TeachingReach,
+    ProposedAddress, ReadTeaching, SaveTeaching, SavedTeaching, TeachingLayout, TeachingNote, TeachingProposal, TeachingReach,
     TeachingSource, TeachingSourceKind, TeachingWords, TweakChange, WordRule, WordRules,
 };
 pub use taught_mods::{AddressFound, Does, FleetFile, FleetRule, RuleScope, WordsAddress, WordsFile};

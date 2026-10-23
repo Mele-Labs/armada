@@ -12,7 +12,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::logbook::{LogbookKind, LogbookSection};
-use crate::taught_mods::FleetRule;
+use crate::taught_mods::{AddressFound, FleetRule};
 
 /// How far a teaching reaches: the Session's repository, or all of them.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -95,8 +95,16 @@ pub struct TeachingNote {
     pub text: String,
 }
 
-/// A pattern Bridge links, with the address for the repository it was taught in where the person
-/// gave one.
+/// Where a pattern opens in the repository it was taught in, and how that was known.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ProposedAddress {
+    /// An `http` or `https` address with `{match}` where the matched words go.
+    pub template: String,
+    /// Where it came from: `settings`, `pull_request #N` or `person`. **A save keeps it as it is**.
+    pub found: AddressFound,
+}
+
+/// A pattern Bridge links, with the address for the repository it was taught in where one is known.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TeachingWords {
     /// What the pattern finds, as a person would say it: `Jira key`.
@@ -105,10 +113,12 @@ pub struct TeachingWords {
     pub pattern: String,
     /// The selected words, which the pattern matches whole.
     pub example: String,
-    /// An `http` or `https` address with `{match}` where the matched words go. **Absent when the
-    /// person did not give one**: Fleet looks for it in the repository, and asks if it finds none.
+    /// The address for the repository the teaching is in, where the person gave one or Fleet found
+    /// one: a Words mod that already has it, the Manifest's tracker, a recent merged pull request.
+    /// **`save_teaching` writes the one it carries.** Absent where none is known, and a save then
+    /// looks in the background and asks the person once if it finds none.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub address: Option<String>,
+    pub address: Option<ProposedAddress>,
 }
 
 /// One token a theme tweak sets.
@@ -195,6 +205,8 @@ pub struct WordRule {
     pub example: String,
     /// An address with `{match}`, the repository's own or the one for every repository.
     pub address: String,
+    /// Where that address came from, so Bridge can say.
+    pub found: AddressFound,
 }
 
 /// `list_word_rules`' answer: the patterns that have an address for the repository asked for.

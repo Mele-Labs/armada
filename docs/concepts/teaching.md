@@ -54,7 +54,9 @@ The model is given the token names from `packages/tokens/tokens.json` and the re
 > **Rule.** A Words mod holds the pattern once and an address per repository.
 > Why: `ARM-123` opens at one place in one repository and at another place in the next, and the pattern is the same.
 
-Where the owner gave no address, Fleet looks for one, off the request, and the save does not wait for it.
+**A read looks first.** When it proposes words for a repository, `read_teaching` carries the address that repository has in the words part, as `{template, found}`, looking in the order below after a Words mod with the same pattern that already has one. The pattern search is bounded, and a read that finds none carries none. A save writes the address the proposal carries, as it was found.
+
+Where the proposal carries no address, the save looks for one, off the request, and does not wait for it.
 
 | Order | Source | Written as |
 |---|---|---|
@@ -63,6 +65,7 @@ Where the owner gave no address, Fleet looks for one, off the request, and the s
 | 3 | Neither: he is asked once, in Needs you, for that mod and repository | `found = "person"` |
 
 An address a person wrote is never replaced by one that was found.
+`list_word_rules` says where each rule's address was found, so Bridge's link can say.
 Teaching a pattern a Words mod already holds adds or replaces that address in it, and makes no second mod.
 The mod's layout is in [Mod](mods.md), *words.toml*.
 

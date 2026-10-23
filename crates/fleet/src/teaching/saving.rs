@@ -142,9 +142,14 @@ fn write(mods_dir: &Path, switches: &BTreeMap<String, bool>, plan: &Plan) -> Res
         let held = mods::kept(mods_dir, switches, ModKind::Words)
             .into_iter()
             .find_map(|(name, text)| words::read(&text).ok().filter(|file| is_for(file, &one.pattern)).map(|file| (name, file)));
-        match (held, one.address.as_deref()) {
-            (Some((name, _)), Some(template)) => {
-                address_given(mods_dir, &name, key, template, AddressFound::Person, true)?;
+        match (held, one.address.as_ref()) {
+            (Some((name, file)), Some(carried)) => {
+                // What the mod already opens this repository at is not written again, as a copy.
+                let has = |key: &str| file.address.iter().find(|one| one.repository == key);
+                let same = has(key).or_else(|| has("*")).is_some_and(|one| one.template == carried.template);
+                if !same {
+                    address_given(mods_dir, &name, key, &carried.template, carried.found, true)?;
+                }
                 named.push(name);
             }
             (Some((name, _)), None) => named.push(name),
@@ -154,7 +159,7 @@ fn write(mods_dir: &Path, switches: &BTreeMap<String, bool>, plan: &Plan) -> Res
                     pattern: one.pattern.clone(),
                     example: one.example.clone(),
                     address: address
-                        .map(|template| WordsAddress { repository: key.clone(), template: template.to_string(), found: AddressFound::Person })
+                        .map(|carried| WordsAddress { repository: key.clone(), template: carried.template.clone(), found: carried.found })
                         .into_iter()
                         .collect(),
                 };
@@ -215,7 +220,7 @@ where
             }
         }
         if let Some(one) = &proposal.words {
-            if let Some(why) = answer::words_fault(&one.name, &one.pattern, one.address.as_deref(), &one.example) {
+            if let Some(why) = answer::words_fault(&one.name, &one.pattern, one.address.as_ref().map(|one| one.template.as_str()), &one.example) {
                 return Err(self.teaching_refused(WORDS_REFUSED, why));
             }
         }
