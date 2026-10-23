@@ -1,7 +1,7 @@
 // A Job working an issue: as its live state's glyph, the one the Cockpit's list draws, named by a tooltip that says which
 // Job; or as the shared Job card, where there is room for one.
 
-import { JobCard, SessionMark } from "@armada/components";
+import { JobCard, SessionMark, jobToneOf, type JobTone } from "@armada/components";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
 import { peekOfSession } from "../cockpit/deck/ship";
@@ -26,4 +26,12 @@ export function IssueJobCard({ session, onOpen }: { session: Session; onOpen: (i
   const { state, said } = stateOf(session);
   const says = peekOfSession(session).at(-1);
   return <JobCard title={jobTitle(session)} state={state} said={said} {...(says === undefined ? {} : { says })} {...(session.lastTurnAt === undefined ? {} : { at: session.lastTurnAt })} onOpen={() => onOpen(session.id)} />;
+}
+
+const LOUD: readonly JobTone[] = ["bad", "ask", "live", "calm"];
+
+/** The hue an issue's row wears: the loudest state among the Jobs working it. None working, none. */
+export function toneOfHolders(holders: readonly Session[]): JobTone | undefined {
+  const tones = holders.map((one) => jobToneOf(stateOf(one).state));
+  return LOUD.find((tone) => tones.includes(tone));
 }

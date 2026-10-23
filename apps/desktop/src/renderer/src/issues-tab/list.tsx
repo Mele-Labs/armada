@@ -13,7 +13,7 @@ import { jobIdOf } from "@armada/shell";
 
 import { askedOf, bandsIn, readable, savedNames, type Asked, type Band } from "./bands";
 import { ISSUES_KEYS, capOf } from "./key-table";
-import { JobMark, useHolders } from "./marks";
+import { JobMark, jobTitle, toneOfHolders, useHolders } from "./marks";
 import { ASSIGNED, DESCRIBE, OPEN, savedChoice, savedName } from "./model";
 import type { ReadTracker, Ticket } from "./model";
 import { useIssues, useIssuesStore } from "./store";
@@ -115,7 +115,7 @@ export function IssuesList({ picked, repositories, onTeach }: { picked: Reposito
                   {asked.map(({ band, asked: one }) =>
                     band.tracker.state === "read" && one === undefined ? null : (
                       <li key={band.manifestId} className="deck-list__band" aria-label={band.label}>
-                        <h3 className="deck-list__repository issues-list__repository">
+                        <h3 className="issues-list__repository">
                           {band.label}
                           {band.tracker.state === "read" && band.tracker.mod !== undefined ? <ModMark mod={band.tracker.mod} /> : null}
                         </h3>
@@ -360,7 +360,7 @@ function Row({ band, tracker, ticket, fields, open }: { band: Band; tracker: Rea
   const values = fields.flatMap((name) => (ticket.fields.find((one) => one.name === name)?.values ?? []).map((value) => ({ name, value })));
   return (
     <li className="deck-list__item">
-      <button type="button" className="issues-row" data-selected={open || undefined} aria-current={open || undefined} aria-label={`${ticket.reference} ${ticket.title}`} onClick={() => store.open(band.manifestId, ticket.reference)}>
+      <button type="button" className="issues-row" data-tone={toneOfHolders(holders)} data-selected={open || undefined} aria-current={open || undefined} aria-label={`${ticket.reference} ${ticket.title}`} onClick={() => store.open(band.manifestId, ticket.reference)}>
         <span className="issues-row__reference mono">{ticket.reference}</span>
         <span className="issues-row__title">{ticket.title}</span>
         <span className="issues-row__jobs">
@@ -368,6 +368,16 @@ function Row({ band, tracker, ticket, fields, open }: { band: Band; tracker: Rea
             <JobMark key={one.id} session={one} />
           ))}
         </span>
+        {holders.length === 0 ? null : (
+          <span className="issues-row__held">
+            {holders.map((one) => (
+              <span key={one.id} className="issues-row__job">
+                <JobMark session={one} />
+                <span className="issues-row__job-title">{jobTitle(one)}</span>
+              </span>
+            ))}
+          </span>
+        )}
         {values.length === 0 ? null : (
           <span className="issues-row__fields">
             {values.map(({ name, value }) => (

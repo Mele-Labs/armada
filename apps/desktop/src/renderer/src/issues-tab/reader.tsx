@@ -7,7 +7,7 @@ import { Button, Kbd, Prose, PullRequestChip, RepositoryChip, Tooltip } from "@a
 import { IssueState, Open } from "../shared-panel/panels";
 import type { Band } from "./bands";
 import { ISSUES_KEYS } from "./key-table";
-import { IssueJobCard, useHolders } from "./marks";
+import { IssueJobCard, toneOfHolders, useHolders } from "./marks";
 import type { ReadTracker, TicketRead } from "./model";
 import { useIssues, useIssuesStore } from "./store";
 
@@ -42,7 +42,7 @@ export function IssuesReader(hosts: Hosts) {
 function Reader({ band, tracker, ticket, onOpenLink, onOpenSession, onStart }: Hosts & { band: Band; tracker: ReadTracker; ticket: TicketRead }) {
   const holders = useHolders(tracker.held[ticket.reference]);
   return (
-    <section className="deck-pane issues-reader" aria-label={`Issue ${ticket.reference}`} tabIndex={-1}>
+    <section className="deck-pane issues-reader" data-tone={toneOfHolders(holders)} aria-label={`Issue ${ticket.reference}`} tabIndex={-1}>
       <header className="deck-band deck-pane__head">
         <h2 className="deck-pane__title">{ticket.title}</h2>
         <RepositoryChip name={band.label} />
