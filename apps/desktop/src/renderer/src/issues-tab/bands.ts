@@ -2,6 +2,7 @@
 // draws every repository Fleet serves a tracker for, each under its heading, as the Cockpit's list does (`cockpit/deck/bands.ts`).
 
 import type { RepositorySummary } from "@armada/protocol";
+import type { Session } from "@armada/screens/src/draft/sessions";
 import { jobIdOf, repositoryLabel } from "@armada/shell";
 
 import { ASSIGNED, BUILT_IN_FIELDS, OPEN, savedName } from "./model";
@@ -42,3 +43,11 @@ export function askedOf(band: Band & { tracker: ReadTracker }, choice: string, d
   const saved = band.tracker.saved.find((one) => one.name === savedName(choice));
   return saved === undefined ? undefined : { state: "query", query: saved.query, fields: saved.row_fields, saved };
 }
+
+/** Which Jobs hold which issues of a repository, as one string that changes when any Job takes or gives back an issue. */
+export const issueHoldings = (sessions: readonly Session[], manifestId: string): string =>
+  sessions
+    .filter((one) => one.manifestId === manifestId)
+    .flatMap((one) => one.attachments.flatMap((it) => (it.kind === "issue" ? [`${one.id}:${it.number}`] : [])))
+    .sort()
+    .join("\n");

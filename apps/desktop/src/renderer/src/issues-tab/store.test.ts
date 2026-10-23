@@ -237,3 +237,58 @@ test("Fleet not answering for the trackers is said, and asking again is allowed"
   expect(store.get().failed).toBeUndefined();
   expect(store.get().trackers?.map((one) => one.manifestId)).toEqual(["storefront"]);
 });
+
+test("a Job taking an issue reads the lists drawn again, in place, and only that repository's", async () => {
+  let holders: string[] = [];
+  const asked: [string, string][] = [];
+  const { fake } = source({ run: async (manifestId, query) => (asked.push([manifestId, query]), { ok: true, value: [ticket("#1", { holders })] }) });
+  const store = createIssuesStore(fake);
+  store.run("storefront", "is:open");
+  store.run("ops", "statusCategory != Done");
+  await settled();
+  // The first telling is the baseline; nothing is read again for it, nor for the same holdings told again.
+  store.refreshHolders("storefront", ["is:open"], "");
+  store.refreshHolders("ops", ["statusCategory != Done"], "");
+  store.refreshHolders("storefront", ["is:open"], "");
+  await settled();
+  expect(asked).toHaveLength(2);
+
+  holders = ["01JOB"];
+  store.refreshHolders("storefront", ["is:open"], "01JOB:#1");
+  // The list stays on screen while it is read: it never goes back to running.
+  expect(store.runOf("storefront", "is:open")?.state).toBe("read");
+  await settled();
+  const run = store.runOf("storefront", "is:open");
+  expect(run?.state === "read" && run.tickets[0]?.holders).toEqual(["01JOB"]);
+  expect(asked.slice(2)).toEqual([["storefront", "is:open"]]);
+  store.refreshHolders("storefront", ["is:open"], "01JOB:#1");
+  await settled();
+  expect(asked).toHaveLength(3);
+});
+
+test("a Job taking an issue reads the open issue again, and a refused read keeps what was held", async () => {
+  let holders: string[] = [];
+  let refuse = false;
+  const { fake } = source({
+    run: async () => ({ ok: true, value: [ticket("#1", { holders })] }),
+    read: async (_manifestId, reference) => (refuse ? said("the tracker would not answer") : { ok: true, value: { ...ticket(reference, { holders }), body: "Whole", linked_pull_requests: [] } }),
+  });
+  const store = createIssuesStore(fake);
+  store.run("storefront", "is:open");
+  store.open("storefront", "#1");
+  await settled();
+  store.refreshHolders("storefront", ["is:open"], "");
+  holders = ["01JOB"];
+  store.refreshHolders("storefront", ["is:open"], "01JOB:#1");
+  await settled();
+  const read = store.readOf("storefront", "#1");
+  expect(read?.state === "read" && read.ticket.holders).toEqual(["01JOB"]);
+
+  refuse = true;
+  holders = [];
+  store.refreshHolders("storefront", ["is:open"], "");
+  await settled();
+  const kept = store.readOf("storefront", "#1");
+  expect(kept?.state === "read" && kept.ticket.holders).toEqual(["01JOB"]);
+  expect(store.get().failed).toBeUndefined();
+});

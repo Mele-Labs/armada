@@ -11,7 +11,8 @@ import type { DropdownMenuEntry } from "@armada/components";
 import type { RepositorySummary } from "@armada/protocol";
 import { jobIdOf } from "@armada/shell";
 
-import { askedOf, bandsIn, readable, savedNames, type Asked, type Band } from "./bands";
+import { useSessions } from "../sessions-draft";
+import { askedOf, bandsIn, issueHoldings, readable, savedNames, type Asked, type Band } from "./bands";
 import { ISSUES_KEYS, capOf } from "./key-table";
 import { JobMark, jobTitle, toneOfHolders, useHolders } from "./marks";
 import { ASSIGNED, DESCRIBE, OPEN, savedChoice, savedName } from "./model";
@@ -54,6 +55,16 @@ export function IssuesList({ picked, repositories, onTeach }: { picked: Reposito
     for (const [manifestId, query] of runs) store.run(manifestId, query);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [store, runsKey]);
+
+  // A Job that takes or gives back an issue changes the card in place: the lists drawn are read again for that repository.
+  const sessions = useSessions();
+  const holdingsKey = [...new Set(runs.map(([manifestId]) => manifestId))].map((id) => `${id}\n${issueHoldings(sessions, id)}`).join("\n\n");
+  useEffect(() => {
+    for (const manifestId of new Set(runs.map(([id]) => id))) {
+      store.refreshHolders(manifestId, runs.filter(([id]) => id === manifestId).map(([, query]) => query), issueHoldings(sessions, manifestId));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [store, holdingsKey]);
 
   const only = picked === null ? undefined : bands[0];
   const here = boxed || describing?.phase === "written" ? DESCRIBE : choice;

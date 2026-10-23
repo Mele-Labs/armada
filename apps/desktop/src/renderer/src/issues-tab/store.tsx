@@ -43,6 +43,8 @@ export function createIssuesStore(source: IssuesSource) {
   let waiting: (() => void) | undefined;
   /** The repositories whose tracker has been asked for, so each is asked once. */
   const asked = new Set<string>();
+  /** What the Jobs said they hold of each repository the last time the list was drawn. */
+  const told = new Map<string, string>();
 
   const savedInto = (manifestId: string, saved: SavedQuery[]) =>
     set({ trackers: (snap.trackers ?? []).map((one) => (one.manifestId === manifestId && one.state === "read" ? { ...one, saved } : one)) });
@@ -52,6 +54,15 @@ export function createIssuesStore(source: IssuesSource) {
     if (!again && snap.runs[at] !== undefined) return;
     set({ runs: { ...snap.runs, [at]: { state: "running" } } });
     void source.run(manifestId, query).then((answer) => set({ runs: { ...snap.runs, [at]: answer.ok ? { state: "read", tickets: answer.value } : { state: "failed", said: answer.said } } }));
+  };
+
+  /** The same query asked again with the list kept on screen, so a card changes in place and nothing flashes. A refusal keeps what was held. */
+  const refreshRun = (manifestId: string, query: string) => {
+    const at = key(manifestId, query);
+    if (snap.runs[at]?.state !== "read") return;
+    void source.run(manifestId, query).then((answer) => {
+      if (answer.ok) set({ runs: { ...snap.runs, [at]: { state: "read", tickets: answer.value } } });
+    });
   };
 
   return {
@@ -74,6 +85,24 @@ export function createIssuesStore(source: IssuesSource) {
       });
     },
     runOf: (manifestId: string, query: string): Run | undefined => snap.runs[key(manifestId, query)],
+    /**
+     * Told what the Jobs the window holds say they work (`issueHoldings`). **When that differs from the last time this repository
+     * was told, a Job took or gave back an issue**: the lists drawn now, and the issue open in the reader, are read again so the
+     * Jobs on their cards are current. Never a timer, and a tab left and come back to is told the same.
+     */
+    refreshHolders: (manifestId: string, queries: readonly string[], holdings: string) => {
+      const was = told.get(manifestId);
+      told.set(manifestId, holdings);
+      if (was === undefined || was === holdings) return;
+      for (const query of new Set(queries)) refreshRun(manifestId, query);
+      const open = snap.open;
+      if (open === undefined || open.manifestId !== manifestId) return;
+      const at = key(manifestId, open.reference);
+      if (snap.reads[at]?.state !== "read") return;
+      void source.read(manifestId, open.reference).then((answer) => {
+        if (answer.ok) set({ reads: { ...snap.reads, [at]: { state: "read", ticket: answer.value } } });
+      });
+    },
     run,
     open: (manifestId: string | undefined, reference?: string) => {
       if (manifestId === undefined || reference === undefined) return set({ open: undefined });
