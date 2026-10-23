@@ -458,6 +458,19 @@ impl Sessions for FakeDaemon {
         })
     }
 
+    async fn recall(
+        &self,
+        _manifest_id: Option<ManifestId>,
+        _query: String,
+        _section: Option<String>,
+    ) -> Result<ipc::Recalled, Refusal> {
+        Ok(ipc::Recalled { entries: Vec::new() })
+    }
+
+    async fn get_logbook_for_subagent(&self, _session_id: String, _prompt: String) -> Result<ipc::ForSubagent, Refusal> {
+        Ok(ipc::ForSubagent { text: String::new() })
+    }
+
     async fn who_owns(
         &self,
         _kind: String,
