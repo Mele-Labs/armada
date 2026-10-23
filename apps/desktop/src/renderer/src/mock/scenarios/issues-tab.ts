@@ -322,7 +322,7 @@ const SEED: IssuesSeed = [
     writes: { query: "is:open type:bug no:owner state:Unstarted", row_fields: ["Type", "Labels"] },
   },
   {
-    tracker: { manifestId: "mobile", state: "refused", named: "linear", said: "Armada cannot read the linear tracker named in this repository's Armada configuration." },
+    tracker: { manifestId: "mobile", state: "refused", named: "linear", said: "no tracker is called `linear`; the ones this build has are github and jira" },
   },
 ];
 
