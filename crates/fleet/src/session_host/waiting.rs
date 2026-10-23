@@ -83,6 +83,8 @@ pub(crate) struct WaitingReads {
     plan: Option<(u32, String, Option<String>)>,
     /// What the Session's judges raised, waiting and settled.
     concerns: Vec<store::KeptConcern>,
+    /// Every sentence read from a reply that he marked Not a question, in any Session.
+    misreads: Vec<String>,
 }
 
 /// What [`Fleet::waiting_from`] read: the items, and how the Session stands.
@@ -111,6 +113,7 @@ pub(crate) fn waiting_reads(
             .filter(|plan| plan.approved_at.is_none() && plan.set_aside_at.is_none())
             .map(|plan| (plan.version, plan.recorded_at, plan.walk)),
         concerns: store.session_concerns(&session.id)?,
+        misreads: store.misreads()?,
     })
 }
 
@@ -291,7 +294,7 @@ where
         session: &KeptSession,
         attachments: &[ipc::Attachment],
     ) -> Waited {
-        let WaitingReads { kept, rows, dismissed, done, turn_end, tell, plan, concerns } = reads;
+        let WaitingReads { kept, rows, dismissed, done, turn_end, tell, plan, concerns, misreads } = reads;
         let asked = self.hosts().of(&session.id).state().asked.clone();
         let rows: Vec<SessionRow> = rows
             .iter()
@@ -493,6 +496,15 @@ where
                 )
             });
             items.extend(super::standing::derived(&super::standing::Seen { called, ..seen }));
+            // A sentence read from the reply near one he marked Not a question is left off, by the
+            // vectors the fold below reads, once the model is loaded.
+            if !misreads.is_empty() && items.iter().any(|one| one.source == WaitingSource::Replied) {
+                if let Some(model) = self.language_model().model() {
+                    let texts: Vec<&str> = items.iter().map(|one| one.text.as_str()).chain(misreads.iter().map(String::as_str)).collect();
+                    let known = self.item_vectors().known(model, &session.id, &texts);
+                    items = super::dedup::left_off_as_misread(items, &misreads, |text| known.get(text).cloned(), super::dedup::FOLDS_AT);
+                }
+            }
             // Items that are one ask by more than one door are one row, once the model is loaded.
             // An item it has not embedded yet is kept this read; `standing_tick` publishes the Session
             // again once it is.
@@ -874,6 +886,12 @@ where
                 "whether a job waits for a slot or has one added is answered, not dismissed",
             ));
         }
+        if dismiss.misread && item.source != WaitingSource::Replied {
+            return Err(self.hosted_refusal(
+                SESSION_WAITING_EMPTY,
+                "only a question read from a reply is marked as not a question",
+            ));
+        }
         let _settling = self
             .hosts()
             .settling(&id, &item.id)
@@ -896,6 +914,12 @@ where
         }
         if item.source == WaitingSource::Plan {
             self.plan_set_aside(&id, &item.id).await?;
+        }
+        // Not a question: the sentence is kept for good, so a near one is not raised again and the
+        // trainer reads it as asking nothing.
+        if dismiss.misread {
+            let now = self.clock().now().as_str().to_string();
+            self.store().lock().await.keep_misread(&id, &item.text, &now).map_err(|why| self.ledger_fault(why))?;
         }
         self.drop_answered(&id, &item.id).await
     }
