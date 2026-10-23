@@ -191,7 +191,7 @@ pub(super) const PROMPTS: &[Entry] = &[
         PromptSection::Retros,
         PROMPT_TEACHING_READ,
         "What a person taught",
-        "What the model is asked when a person presses Teach on words, a command, a notice, a task, a Check, a pull request or a place in Bridge and says what it is or what to change. {source} names what was pressed on, {may} lists the parts that may be proposed for it and the tokens and layout regions a Bridge source may change, {words} is the text pressed on, {message} the message it came from, {said} what the person wrote and {reach} where it applies. Its answer is read by field name, so keep the field names.",
+        "What the model is asked when a person presses Teach on words, a command, a notice, a task, a Check, a pull request or a place in Bridge and says what it is or what to change. {source} names what was pressed on, {may} lists the parts that may be proposed for it, the closed list of conditions a notice rule may test, and the tokens and layout regions a Bridge source may change, {words} is the text pressed on, {message} the message it came from, {said} what the person wrote and {reach} where it applies. Its answer is read by field name, so keep the field names.",
         &["source", "may", "words", "message", "said", "reach"],
     ),
     prompt(

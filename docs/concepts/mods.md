@@ -131,7 +131,37 @@ where = "repo armada"
 `notice` is one of the words a notice goes by, so a word Fleet does not send is a problem.
 **The nearest place wins** (a Job's own over its repository's over everywhere), and among rules of one place the later mod name does. At most 64 rules and 8 KiB.
 
-Fleet reads the rules where it sends every notice (`told_by_fleet`), after the person's mute: a mute beats any rule, and a notice with no rule is told.
+A rule may also say which notices of its word it covers, and what to do instead when something is true of the Job:
+
+```toml
+[[rule]]
+notice = "pr_checks_failed"
+does = "batch"
+where = "everywhere"
+matches = "lint|fmt"
+when = [{ if = "blocks_merge", does = "tell" }, { if = "owner_away", does = "quiet" }]
+```
+
+> **Rule.** A rule covers a notice of its word whose text `matches`, and the first condition of `when` that holds replaces its `does`.
+> Why: "batch these, and tell me only when it blocks a merge" is one wish, and a rule that could only name a word would make it two mods and a guess.
+
+`matches` is a pattern over the notice's text, held to what a Words pattern is held to (no lookaround, backreference or inline flag, no repeated group that holds a repeat or a choice, at most 200 characters, never the empty string) except that it need not match whole: it finds its words anywhere in the text.
+A rule taught on a notice must find words in that notice's text. A bad pattern makes the mod invalid, with the reason.
+Two rules for one word and place are different when their `matches` differ, and the nearest place of those whose pattern finds words in the notice wins.
+
+`when` is a list of `{ if, does }` tried in order. **The conditions are a closed set**, and a word outside it makes the mod invalid:
+
+| `if` | Holds when | Read from |
+|---|---|---|
+| `blocks_merge` | The Job has an open pull request that cannot merge now: its required checks failed, it conflicts, or the merge queue marked it unmergeable | The ledger's `pr` rows for the Job (their `checks`), and the forge reading the pull request watch last made (`mergeable`, the queue) |
+| `open_pull_request` | The Job has an open pull request, a draft included | The ledger's `pr` rows for the Job, standing and `open` or `draft` |
+| `working` | The Job's agent is in the middle of a turn | The Job's turn in Fleet's memory |
+| `owner_away` | Sleep mode is on | The sleep switch |
+
+**Unknown does not hold.** Nothing here calls the forge when a notice is sent, so a pull request the forge has not yet been read for, a merge the forge is still computing and a pull request behind its base (nothing Fleet keeps says so) do not block a merge.
+With no condition holding, the rule's own `does` stands. A condition tested twice in one rule is a problem, since the second could never be reached.
+
+Fleet reads the rules where it sends every notice (`told_by_fleet`), after the person's mute: a mute beats any rule, with or without conditions, and a notice with no rule is told.
 
 | `does` | The Session | Needs you | A caller that marks the notice done |
 |---|---|---|---|

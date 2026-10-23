@@ -41,7 +41,7 @@ Reach is this repository or every repository, and a reach of one repository need
 |---|---|---|
 | `note` | What an agent should be told from now on: a section, a kind and one or two lines | A Logbook entry. [Logbook](logbook.md) |
 | `words` | A pattern learned once, such as a Jira key, with its name and the selected words as its example | A Words mod: `words.toml` |
-| `fleet` | A notice rule: `{notice word, tell, quiet, batch or call, job, repo or everywhere}` | A Fleet mod: `fleet.toml`, one rule |
+| `fleet` | A notice rule: `{notice word, tell, quiet, batch or call, job, repo or everywhere}`, and optionally `matches`, a pattern over the notice's text, and `when`, what to do instead under a condition | A Fleet mod: `fleet.toml`, one rule |
 | `tweak` | Token declarations over whichever theme is chosen, at most 12 | A tweak mod: `tweak.css` |
 | `layout` | The same text a layout mod's `layout.json` holds | A layout mod. [Layout mods](layout-mods.md) |
 
@@ -54,7 +54,9 @@ The model is given the token names from `packages/tokens/tokens.json` and the re
 > **Rule.** A Words mod holds the pattern once and an address per repository.
 > Why: `ARM-123` opens at one place in one repository and at another place in the next, and the pattern is the same.
 
-**A read looks first.** When it proposes words for a repository, `read_teaching` carries the address that repository has in the words part, as `{template, found}`, looking in the order below after a Words mod with the same pattern that already has one. The pattern search is bounded, and a read that finds none carries none. A save writes the address the proposal carries, as it was found.
+**A read looks first.** When it proposes words for a repository, `read_teaching` carries the address that repository has in the words part, as `{template, found}`, looking in the order below after a Words mod with the same pattern that already has one.
+The pattern search is bounded, and a read that finds none carries none.
+A save writes the address the proposal carries, as it was found.
 
 Where the proposal carries no address, the save looks for one, off the request, and does not wait for it.
 
@@ -88,6 +90,15 @@ The words are the `Notice` enum in `crates/ipc/src/notices.rs`.
 
 Among rules of one place, the later mod name wins.
 A notice with no rule is told.
+
+> **Rule.** A rule may name the notices it covers by their words, and may do something else when a condition about the Job holds.
+> The conditions are `blocks_merge`, `open_pull_request`, `working` and `owner_away`, and no others.
+> Why: "batch these, and tell me only when it blocks a merge" is what he says, and a condition Fleet cannot read at the moment of sending is a rule Fleet would only guess at.
+
+The reader gives `matches` only where he limits the rule to notices that say something, and `when` only where he names a condition from that list.
+A condition he names outside it comes back in `untestable`, his own words for each, and no condition is made up: Bridge says Fleet cannot test it, and a rule saved with `untestable` is saved without it.
+A pattern must work as a link pattern must and find words in the notice he pressed Teach on, or the rule is refused.
+Conditions, their order and what unknown means are in [Mod](mods.md), *fleet.toml*.
 What `tell`, `quiet`, `batch` and `call` do is in [Mod](mods.md), *fleet.toml*.
 
 ## Saving
@@ -126,6 +137,8 @@ Switching a mod off in Mods is the way to stop one without forgetting the note.
 | A token that is not in the tokens file, a value `theme.css` refuses, or over 12 tokens | A tweak is checked as a theme is |
 | A layout `validate_mod` refuses, or a region the registry lacks | It is checked as a layout mod is |
 | A notice word no `Notice` has, or a place that does not parse | A rule must name something Fleet sends |
+| A rule's `matches` that breaks any pattern rule above, or finds nothing in the notice it was taught on | It would never apply, or would hang Bridge |
+| A condition outside the four, or one tested twice in a rule | Fleet can test only what it keeps, and the second could never be reached |
 
 The codes, `fleet.teaching_words_refused` and its siblings, are in `crates/ipc/operations/read_teaching.toml`.
 

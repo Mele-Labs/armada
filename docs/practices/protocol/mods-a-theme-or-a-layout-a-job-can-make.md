@@ -22,4 +22,5 @@ It does not touch the unbounded-sink risk above.
 **Since 23 Oct 2026**, `words`, `fleet` and `tweak` are kinds, and `ModSummary.taught_on` says what Teach was pressed on.
 Both are additive: a peer that predates them fails to decode a row of a new kind, and the IDs differ, so the lifeboat serves.
 
-**Since 23 Oct 2026, again**, `ModSummary.entry` says which Logbook entry made a mod, and `ModChecked.words` and `ModChecked.fleet` hand back what a taught mod holds, as `css` and `layout` do. All three are optional and left out when absent, so an older peer reads the rest; the IDs differ and the lifeboat serves.
+**Since 23 Oct 2026, again**, `ModSummary.entry` says which Logbook entry made a mod, and `ModChecked.words` and `ModChecked.fleet` hand back what a taught mod holds, as `css` and `layout` do.
+All three are optional and left out when absent, so an older peer reads the rest; the IDs differ and the lifeboat serves.
