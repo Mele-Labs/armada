@@ -14,6 +14,7 @@ import { setHover } from "../cockpit/deck/store";
 import { bayViewOf, ledgerOf, slotKey } from "../cockpit/deck/bays";
 import { Berth } from "../cockpit/deck/BayRows";
 import { ArtifactTimeline, type TimelineTake } from "./ArtifactTimeline";
+import { PixiTimeline } from "./PixiTimeline";
 import { artifactsOf, matching, type ArtifactRow } from "./artifacts";
 import { timelineOf } from "./artifact-timeline";
 import { closeLayer, type LayerId } from "./layers";
@@ -199,7 +200,7 @@ export function ArtifactsLayer({ session, entries, onOpenSession, onOpenSketch }
         </>
       }
     >
-      {view === "list" ? <Groups groups={shown} /> : <ArtifactTimeline timeline={timeline} take={take} />}
+      {view === "list" ? <Groups groups={shown} /> : take === "pixi" ? <PixiTimeline timeline={timeline} /> : <ArtifactTimeline timeline={timeline} take={take} />}
     </Shell>
   );
 }

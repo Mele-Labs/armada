@@ -710,8 +710,8 @@ export type SessionsDraft = {
    */
   helmOf?: (manifestId: string) => Session | undefined;
   subscribe: (onChange: () => void) => () => void;
-  /** Which take of the Artifacts timeline is drawn. Mock only, while the two takes are being walked; the one he picks stays and this goes. */
-  timelineTake?: "spine" | "lanes";
+  /** Which take of the Artifacts timeline is drawn. Mock only, while the takes are being walked; the one he picks stays and this goes. */
+  timelineTake?: "spine" | "lanes" | "pixi";
   /**
    * Hands a plan group to a new Session this one follows, and returns its id: **a promise on a real Fleet**, which starts the Session and sends
    * it the group's tasks. Absent where nothing serves it, and a group carries no act to hand it off.

@@ -10,7 +10,7 @@ import { Tooltip, timeSaid, useTimeFormat } from "@armada/components";
 import { POINT, lanesOf, neighbour, spineOf, type Layout, type Placed, type Timeline } from "./artifact-timeline";
 import "./artifact-timeline.css";
 
-export type TimelineTake = "spine" | "lanes";
+export type TimelineTake = "spine" | "lanes" | "pixi";
 
 type At = { line: string; index: number };
 
@@ -23,7 +23,7 @@ const firstOf = (placed: readonly Placed[]): At | undefined => {
   return top === undefined ? undefined : { line: top.line.key, index: 0 };
 };
 
-export function ArtifactTimeline({ timeline, take }: { timeline: Timeline; take: TimelineTake }) {
+export function ArtifactTimeline({ timeline, take }: { timeline: Timeline; take: "spine" | "lanes" }) {
   const format = useTimeFormat();
   const clock = (ms: number) => timeSaid(ms, { hour12: format.hour12, seconds: false, date: false });
   // The whole Job is laid across the panel's width, and again whenever the panel is resized.
