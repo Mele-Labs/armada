@@ -377,14 +377,33 @@ fn sentence_examples(training: &Path, positive: &[&str]) -> Vec<Example> {
         new: true,
         kind: format!("misread:{n}"),
     });
-    labelled.into_iter().chain(marked).collect()
+    // The sentences he confirmed with thumbs up, each a reply of its own in the dev half, asking. A
+    // positive is already weighted by `pos_weight`, so these carry no weight of their own.
+    let asked = confirmed().into_iter().enumerate().map(|(n, sentence)| Example {
+        id: format!("confirmed:{n}"),
+        text: sentence,
+        y: true,
+        weight: 1.0,
+        new: true,
+        kind: format!("confirmed:{n}"),
+    });
+    labelled.into_iter().chain(marked).chain(asked).collect()
 }
 
 /// The sentences marked Not a question, read from Fleet's store with the `sqlite3` macOS ships. None
 /// where the store or its table is not there yet.
 fn misreads() -> Vec<String> {
+    kept_sentences("SELECT sentence FROM reply_misreads ORDER BY marked_at, sentence")
+}
+
+/// The sentences he confirmed with thumbs up, read the same way.
+fn confirmed() -> Vec<String> {
+    kept_sentences("SELECT sentence FROM reply_confirmed ORDER BY marked_at, sentence")
+}
+
+fn kept_sentences(query: &str) -> Vec<String> {
     let store = support_dir().join("armada.db");
-    let Ok(out) = std::process::Command::new("sqlite3").arg("-readonly").arg(&store).arg("SELECT sentence FROM reply_misreads ORDER BY marked_at, sentence").output() else {
+    let Ok(out) = std::process::Command::new("sqlite3").arg("-readonly").arg(&store).arg(query).output() else {
         return Vec::new();
     };
     if !out.status.success() {
