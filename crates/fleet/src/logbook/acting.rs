@@ -189,12 +189,25 @@ where
         self.now().epoch_millis().unwrap_or(0).max(0) as u64
     }
 
-    /// The root of the served repository a key names, where Fleet serves one.
+    /// The root of the repository a key names, where Fleet holds one.
     fn logbook_root_of(&self, key: &str) -> Option<String> {
         if key.is_empty() {
             return None;
         }
-        self.repositories().served().iter().map(|one| one.root().to_string()).find(|root| key_of(root) == key)
+        self.repositories().every().iter().map(|one| one.root().to_string()).find(|root| key_of(root) == key)
+    }
+
+    /// The repository a root names: any Fleet holds, with a Manifest or without, since a Job runs on either
+    /// and `/repositories` lists both.
+    fn logbook_repository(&self, repository: &str) -> Result<String, Refusal> {
+        match self.repositories().at(repository) {
+            Some(held) => Ok(held.root().to_string()),
+            None => Err(Refusal::NotFound(WireError::raised(
+                crate::run_memory::NOT_SERVED,
+                format!("Fleet does not serve {repository}"),
+                self.run_id(),
+            ))),
+        }
     }
 
     /// Text as an entry keeps it: trimmed, and neither empty nor past [`MOST_CHARS`].
@@ -271,7 +284,7 @@ where
         section: Option<LogbookSection>,
         state: Option<LogbookState>,
     ) -> Result<ipc::Logbook, Refusal> {
-        let root = repository.map(|repository| self.run_repository(&repository)).transpose()?;
+        let root = repository.map(|repository| self.logbook_repository(&repository)).transpose()?;
         let mut all = self.logbook_read_in(root.as_deref()).await;
         all.retain(|one| section.is_none_or(|asked| section_of(one.entry.section) == asked));
         all.retain(|one| state.is_none_or(|asked| state_of(one.entry.state) == asked));
@@ -337,7 +350,7 @@ where
                 let named = teach.repository.ok_or_else(|| {
                     self.logbook_refused(REPOSITORY_MISSING, "A repository entry needs the repository it is for.".to_string())
                 })?;
-                Some(self.run_repository(&named)?)
+                Some(self.logbook_repository(&named)?)
             }
             LogSection::Habits | LogSection::Machine => None,
         };
