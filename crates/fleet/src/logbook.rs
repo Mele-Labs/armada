@@ -14,8 +14,9 @@ mod kept;
 pub(crate) mod noting;
 pub(crate) mod recalling;
 pub(crate) mod serving;
+pub(crate) mod tidying;
 
-use std::collections::VecDeque;
+use std::collections::{BTreeMap, VecDeque};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
@@ -34,6 +35,10 @@ pub(crate) struct Distils {
     running: AtomicBool,
     /// Whether this process already started the pass over the open lessons.
     backlog: AtomicBool,
+    /// Whether a tidy is running, and when each repository's last call was asked, so one that
+    /// failed waits a day.
+    tidying: AtomicBool,
+    tried: Mutex<BTreeMap<String, u64>>,
 }
 
 impl Distils {
