@@ -34,7 +34,7 @@ const entry = (id: string, fields: Pick<LogbookEntry, "section" | "kind" | "text
   first_seen: AT,
   last_confirmed: AT,
   state: "standing",
-  pinned: false,
+  locked: false,
   edited: false,
   history: [],
   ...fields,
@@ -106,11 +106,11 @@ function build(): Scenario {
         changed.set(id, { ...changed.get(id), ...how(was) });
         return { ok: true, entry: { ...was, ...how(was) } };
       };
-      const logbook: Pick<BridgeApi, "readLogbook" | "editLogbookEntry" | "pinLogbookEntry" | "forgetLogbookEntry"> = {
+      const logbook: Pick<BridgeApi, "readLogbook" | "editLogbookEntry" | "lockLogbookEntry" | "forgetLogbookEntry"> = {
         readLogbook: async () => ({ ok: true, entries: all() }),
         editLogbookEntry: async (id, text) =>
           change(id, (was) => ({ text, edited: true, history: [{ text: was.text, until: new Date().toISOString(), by: "person" as const }, ...was.history] })),
-        pinLogbookEntry: async (id, pinned) => change(id, () => ({ pinned })),
+        lockLogbookEntry: async (id, locked) => change(id, () => ({ locked })),
         forgetLogbookEntry: async (id): Promise<LogbookForgotten> => {
           const lesson = lessonsNow().find((one) => taughtId(one) === id);
           // Forgetting a taught entry takes back everything the lesson changed: the note, the links and what Fleet does.

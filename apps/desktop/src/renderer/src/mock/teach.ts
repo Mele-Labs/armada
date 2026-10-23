@@ -121,7 +121,7 @@ export function entryOf(lesson: Lesson): LogbookEntry | undefined {
     first_seen: lesson.at,
     last_confirmed: lesson.at,
     state: "standing",
-    pinned: false,
+    locked: false,
     edited: false,
     history: [],
   };
