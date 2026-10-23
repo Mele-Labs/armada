@@ -104,7 +104,9 @@ It is written to the same rules for plain words as the retro call.
 **A bad answer changes nothing for that repository.**
 
 **It runs on its own about once a week per repository, and only where an entry changed since the last tidy.** A call that failed is tried again after a day.
-A person can run it now with Tidy now on the Logbook page. It runs over every repository and says how many entries it folded.
+A person can run it now with Tidy now on the Logbook page.
+It runs over every repository in the background: the button answers at once and the page says Tidying until Fleet is done, then how many entries it folded, or that it failed and how many it folded before it stopped.
+A second press while one runs starts nothing, and a page opened mid-run shows Tidying.
 
 ### Recall
 
@@ -132,7 +134,7 @@ Armada fixes stays below in every tab.
 | Edit | Replaces the text and marks the entry `edited` |
 | Lock | It never fades and is never rewritten |
 | Forget | Puts it on the deny list |
-| Tidy now | Runs Tidy over every repository at once and says how many entries it folded |
+| Tidy now | Starts Tidy over every repository in the background and says how many entries it folded when done |
 
 He can also teach an entry by pressing Teach on words, a command, a notice, a task, a Check or a pull request.
 A taught entry stands at once, cites what it was taught from as its one evidence row, and forgetting it removes the mods the same teaching made. [Teaching](teaching.md).
