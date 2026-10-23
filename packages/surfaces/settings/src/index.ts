@@ -5,6 +5,8 @@ export { SettingsSectionsView } from "./SectionsView";
 export type { SettingsSectionsViewProps } from "./SectionsView";
 export { BUILT_IN_THEMES, ThemeSourceProvider, createThemeSource, offered, useThemes, withoutMods } from "./theme-source";
 export type { CatalogueTheme, ModsSource, ThemeMod, ThemeSource, ThemeState } from "./theme-source";
+export { RulesSourceProvider, useRules } from "./rules-source";
+export type { RuleFact, RulesMod, RulesSource, RulesState } from "./rules-source";
 export { PhoneSourceProvider } from "./phone-source";
 export type { PhoneGateway, PhoneSource, PhoneState } from "./phone-source";
 export { createPhoneGatewaySource } from "./phone-gateway-source";

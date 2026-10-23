@@ -413,6 +413,7 @@ export type { PullRequestChecks } from "./compositions/PullRequestPanel/PullRequ
 export { Conversation as PrConversation, Checks as PrChecks, Commits as PrCommits, Mark as PrMark, DiffSize } from "./compositions/PullRequestPanel/PullRequestTabs";
 export type { FileReach, FilesReach, ReachSource, ReachTest } from "./compositions/PullRequestPanel/PullRequestReach";
 export * from "./compositions/ModRow/ModRow";
+export * from "./compositions/ModRules/ModRules";
 export * from "./compositions/LayoutRow/LayoutRow";
 export * from "./compositions/ReachFolderList/ReachFolderList";
 export * from "./compositions/SettingsIndex/SettingsIndex";

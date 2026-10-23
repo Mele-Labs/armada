@@ -58,6 +58,7 @@ const PANES: readonly SettingsSection[] = [
   { id: "phone", label: "Phone", palette: "Phone pairing", settings: [["Phone access", "phone", "mobile", "pocket", "gateway", "port"], ["Pair a phone", "mobile", "gateway", "device", "unpair"]] },
   { id: "theme", label: "Theme", palette: "Theme", settings: [["Theme", "colours", "colors", "dark", "light", "appearance", "mods"]] },
   { id: "layout", label: "Layout", palette: "Layout", settings: [["Layout", "tabs", "panels", "rail", "hide", "order", "reset"]] },
+  { id: "rules", label: "Rules", palette: "Rules", settings: [["Rules", "mods", "teach", "taught", "jira", "links", "notices", "batch", "switch"]] },
   { id: "time", label: "Time", palette: "Time", settings: [["Time", "clock", "24-hour", "12-hour", "seconds", "date", "timestamp", "stamp", "format"]] },
   // The keyboard's own matches are the acts, counted by `KeyboardSettings`; these find the category.
   { id: "keyboard", label: "Keyboard shortcuts", palette: "Keyboard shortcuts", settings: [["Keyboard shortcuts", "keys", "key bindings", "hotkeys", "keymap", "rebind", "controls"]] },

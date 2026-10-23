@@ -7,6 +7,7 @@ import type { ReactNode } from "react";
 
 import { KeyboardSettings } from "./KeyboardSettings";
 import { LayoutSettings } from "./LayoutSettings";
+import { ModList } from "./ModList";
 import { PhoneSettings } from "./PhoneSettings";
 import { ReachFoldersSettings } from "./ReachFoldersSettings";
 import { SchemaSection } from "./SchemaSettings";
@@ -42,6 +43,7 @@ export function SettingsSectionsView({ ids, settings, live, onSaveSettings, onOp
     phone: () => <PhoneSettings {...(onCopied === undefined ? {} : { onCopied })} />,
     theme: (title) => card(title, <ThemeSettings />),
     layout: (title) => card(title, <LayoutSettings />),
+    rules: (title) => <ModList kind="rules" title={title} />,
     time: (title) => card(title, <TimeSettings />),
     keyboard: (title) => card(title, <KeyboardSettings query="" />),
     guides: (title) => card(title, <GuidesSetting {...(onReadGuides === undefined ? {} : { onReadGuides })} />),

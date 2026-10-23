@@ -2,6 +2,7 @@
 .armada-mod-row {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: var(--space-3);
   min-width: 0;
 }
@@ -13,5 +14,11 @@
 
 .armada-mod-row__switch {
   flex: 1;
+  min-width: 0;
+}
+
+/* What an opened mod holds takes its own line under the row. */
+.armada-mod-row__held {
+  flex: 0 0 100%;
   min-width: 0;
 }

@@ -39,3 +39,8 @@
   min-width: var(--space-12);
   color: var(--fg-muted);
 }
+
+.armada-also-changes__mod {
+  margin-inline-start: auto;
+  font-family: var(--font-mono);
+}
