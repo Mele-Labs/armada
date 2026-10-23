@@ -20,7 +20,7 @@ import { isPressed, pressedSlot } from "../../keymap";
 import { Button } from "../../primitives/Button/Button";
 import { Dialog } from "../../primitives/Dialog/Dialog";
 import { Kbd } from "../../primitives/Kbd/Kbd";
-import { Switch } from "../../primitives/Switch/Switch";
+import { Tabs } from "../../primitives/Tabs/Tabs";
 import { Textarea } from "../../primitives/Textarea/Textarea";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { ageOf } from "../../time-format";
@@ -29,13 +29,13 @@ import { ageOf } from "../../time-format";
  * The Logbook: what agents know, and below it what Armada got wrong. `docs/concepts/logbook.md`.
  *
  * **Nothing in the top part asks him for anything.** He reads an entry and its evidence, and can edit, lock or forget
- * it. Every repository's Logbook is drawn at once, each in its own panel, then Habits and This Mac. The panels hold what
- * agents are handed; one switch adds the candidates and faded entries to them, dimmed, each with its state.
+ * it. Every repository's Logbook is drawn at once, each in its own panel, then Habits and This Mac. Three tabs say which
+ * entries the panels hold: those in use, the new ones, the archived. An entry draws the same in each; its state is in the detail.
  *
  * Below the panels, Armada fixes holds every retro item, whether its fix lands in Armada, Kit or Manifest, drawn by the host (`fixes`).
  *
  * The page is keyed by the registry's acts: the arrows move, `Enter` opens the entry, `e`, `l` and `f` edit, lock and
- * forget it, `h` adds what is not handed out, and `Esc` backs out a level.
+ * forget it, and `Esc` backs out a level. The tabs take the arrows when focused.
  */
 
 /** One panel: a repository's Logbook, Habits, or This Mac. `hint` is what its header says on hover. */
@@ -43,9 +43,9 @@ export type LogbookPanel = { key: string; title: string; hint: string; entries: 
 
 export type LogbookViewProps = {
   panels: readonly LogbookPanel[];
-  /** Candidates and faded entries are drawn among the rest. */
-  unhanded: boolean;
-  onUnhanded: (unhanded: boolean) => void;
+  /** The tab chosen: the panels hold entries in this state. */
+  shown: LogbookState;
+  onShown: (shown: LogbookState) => void;
   /** Armada fixes, drawn by the host. Absent, the part is not drawn. */
   fixes?: ReactNode;
   /** Changes when something asks for Armada fixes: it is scrolled to and focused. */
@@ -79,6 +79,12 @@ const STATE: Record<LogbookState, { Glyph: LucideIcon; said: string }> = {
   candidate: { Glyph: BookPlus, said: "Candidate: handed out once two Jobs confirm it" },
   faded: { Glyph: BookDashed, said: "Faded: kept, no longer handed out" },
 };
+
+const TABS: { id: LogbookState; label: string; hint: string }[] = [
+  { id: "standing", label: "In use", hint: "Handed to every new Job" },
+  { id: "candidate", label: "New", hint: "Seen in one Job. A second Job puts it in use" },
+  { id: "faded", label: "Archived", hint: "Unused for 30 days. Recall still finds it" },
+];
 
 const LOCKED = "Locked: Armada never rewrites it or lets it fade.";
 
@@ -138,7 +144,7 @@ function Words({ text }: { text: string }) {
 const optionId = (id: string) => `logbook-entry-${id}`;
 const draftKey = (id: string) => `logbook:${id}`;
 
-export function LogbookView({ panels, unhanded, onUnhanded, fixes, toFixes, unread, selected, onSelect, editing, onEdit, onSave, onLock, onForget, onOpenJob, now }: LogbookViewProps) {
+export function LogbookView({ panels, shown, onShown, fixes, toFixes, unread, selected, onSelect, editing, onEdit, onSave, onLock, onForget, onOpenJob, now }: LogbookViewProps) {
   const list = useRef<HTMLDivElement>(null);
   const part = useRef<HTMLElement>(null);
   const detail = useRef<HTMLElement>(null);
@@ -202,11 +208,6 @@ export function LogbookView({ panels, unhanded, onUnhanded, fixes, toFixes, unre
       list.current?.focus();
       return;
     }
-    if (isPressed("logbook_unhanded", event)) {
-      event.preventDefault();
-      onUnhanded(!unhanded);
-      return;
-    }
     if (open === undefined) return;
     if (isPressed("logbook_edit", event)) {
       event.preventDefault();
@@ -227,11 +228,7 @@ export function LogbookView({ panels, unhanded, onUnhanded, fixes, toFixes, unre
       ) : (
         <>
           <div className="armada-logbook__filters">
-            <Tooltip label="Add candidates and faded entries" shortcut={keyFor("logbook_unhanded")}>
-              <Switch checked={unhanded} onChange={(event) => onUnhanded(event.currentTarget.checked)} aria-keyshortcuts={keyFor("logbook_unhanded") || undefined}>
-                Show all
-              </Switch>
-            </Tooltip>
+            <Tabs items={TABS} value={shown} onChange={(id) => onShown(id as LogbookState)} />
           </div>
           <div className="armada-logbook__page">
             <div
@@ -255,7 +252,6 @@ export function LogbookView({ panels, unhanded, onUnhanded, fixes, toFixes, unre
                       id={optionId(entry.id)}
                       className="armada-logbook__row"
                       role="option"
-                      data-handed={entry.state === "standing" ? undefined : "not"}
                       aria-selected={entry.id === selected}
                       onClick={() => {
                         onSelect(entry.id);
@@ -265,7 +261,7 @@ export function LogbookView({ panels, unhanded, onUnhanded, fixes, toFixes, unre
                       <span className="armada-logbook__text">
                         <Words text={entry.text} />
                       </span>
-                      <span className="armada-logbook__marks">{marksOf(entry, now, entry.state !== "standing")}</span>
+                      <span className="armada-logbook__marks">{marksOf(entry, now, false)}</span>
                     </div>
                   ))}
                 </div>

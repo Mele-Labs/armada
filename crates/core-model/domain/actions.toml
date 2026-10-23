@@ -676,18 +676,6 @@ destructive = false
 confirms = false
 notes = "A locked Logbook entry is never rewritten by Armada and never fades. Pressed again it lets go. `l` is free in this scope: the call's Later is `l` in `call`, a place of its own. Renamed from Pin on 22 Oct 2026, the owner's word, which also frees `pin` for the canvas rail's Stay on the running step alone."
 
-[actions.logbook_unhanded]
-kind = "Action"
-tier = "Contextual"
-verb = "Show all"
-icon = ""
-icon_absent = "undecided"
-shortcut = "h"
-scope = "logbook"
-destructive = false
-confirms = false
-notes = "Adds the Logbook's candidates and faded entries to their panels, dimmed, each with its state. Pressed again it takes them out. The page opens on what agents are handed. Added 22 Oct 2026 with the single Logbook tab."
-
 [actions.logbook_forget]
 kind = "Action"
 tier = "Contextual"

@@ -6,7 +6,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 
 import { LogbookView } from "@armada/components";
-import type { LogbookAnswer, LogbookEntry, LogbookForgotten, LogbookRead } from "@armada/protocol";
+import type { LogbookAnswer, LogbookEntry, LogbookForgotten, LogbookRead, LogbookState } from "@armada/protocol";
 
 import { groupsOf, orderOf } from "./groups";
 
@@ -28,7 +28,7 @@ type Held = { state: "reading" } | { state: "read"; entries: LogbookEntry[] } | 
 
 export function Logbook({ onRead, onEdit, onLock, onForget, onOpenJob, fixes, toFixes }: LogbookProps) {
   const [held, setHeld] = useState<Held>({ state: "reading" });
-  const [unhanded, setUnhanded] = useState(false);
+  const [shown, setShown] = useState<LogbookState>("standing");
   const [selected, setSelected] = useState<string>();
   const [editing, setEditing] = useState(false);
 
@@ -43,7 +43,7 @@ export function Logbook({ onRead, onEdit, onLock, onForget, onOpenJob, fixes, to
   }, [onRead]);
 
   const entries = held.state === "read" ? held.entries : [];
-  const panels = groupsOf(entries, unhanded);
+  const panels = groupsOf(entries, shown);
   const order = orderOf(panels);
   // The first entry is open until another is picked, and again after the open one is no longer drawn.
   const open = order.some((one) => one.id === selected) ? selected : order[0]?.id;
@@ -56,9 +56,9 @@ export function Logbook({ onRead, onEdit, onLock, onForget, onOpenJob, fixes, to
   return (
     <LogbookView
       panels={panels}
-      unhanded={unhanded}
-      onUnhanded={(next) => {
-        setUnhanded(next);
+      shown={shown}
+      onShown={(next) => {
+        setShown(next);
         setEditing(false);
       }}
       {...(held.state === "unread" ? { unread: true } : {})}
