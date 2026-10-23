@@ -100,6 +100,28 @@ fn an_item_with_no_vector_yet_is_kept_and_folds_nothing() {
     assert_eq!(ids(&folded(items, hand, FOLDS_AT)), ["land", "new"]);
 }
 
+fn running(id: &str, text: &str, since: &str, source: WaitingSource, command: &str) -> WaitingItem {
+    WaitingItem { act: Some(WaitingAct { kind: WaitingActKind::Run, target: command.to_string() }), ..item(id, text, since, source, false) }
+}
+
+#[test]
+fn one_command_listed_by_the_agent_and_ended_on_by_the_reply_is_one_row() {
+    let items = vec![
+        running("replied:1:0", "It's in your Needs you list:", LATE, WaitingSource::Replied, "scripts/preview --restart"),
+        running("restart", "Restart to pick up the fix", EARLY, WaitingSource::Agent, "scripts/preview --restart"),
+    ];
+    assert_eq!(ids(&folded(items, hand, FOLDS_AT)), ["restart"]);
+}
+
+#[test]
+fn two_different_commands_both_stay() {
+    let items = vec![
+        running("restart", "Restart to pick up the fix", EARLY, WaitingSource::Agent, "scripts/preview --restart"),
+        running("replied:1:0", "Run the checks", LATE, WaitingSource::Replied, "armada check test dedup"),
+    ];
+    assert_eq!(ids(&folded(items, hand, FOLDS_AT)), ["restart", "replied:1:0"]);
+}
+
 /// Puts a text that names the plan on one axis and every other on the other, so the cosine between
 /// two plan texts is 1 and to anything else 0.
 struct Fake;
