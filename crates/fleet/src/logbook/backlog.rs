@@ -309,3 +309,175 @@ where
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::sync::atomic::AtomicUsize;
+
+    use core_model::Timestamp;
+    use store::{LogState, RetroLine, Store};
+
+    use super::*;
+    use crate::tests::tmp::TempDir;
+
+    const REPO: &str = "owner--repo";
+    const FACT: &str = "Run the desktop tests with `pnpm vitest --project desktop`.";
+
+    fn line(whose: Whose, lands_in: LandsIn) -> RetroLine {
+        RetroLine {
+            whose,
+            title: Some("Bare vitest ran the browser suite".to_string()),
+            what: Some("The agent ran vitest and waited on the browser suite.".to_string()),
+            fix: Some("Tell agents to pass the project.".to_string()),
+            said: "The agent ran bare vitest.".to_string(),
+            evidence: vec!["ran:1".to_string()],
+            lands_in: Some(lands_in),
+            change: None,
+        }
+    }
+
+    /// A store with one retro per `(session, item)`, each of one item, and the lock around it.
+    fn kept(dir: &TempDir, items: &[(&str, RetroLine)]) -> StoreLock {
+        let mut store = Store::open(&dir.path().join("armada.db")).expect("opens");
+        let at = Timestamp::from_rfc3339("2026-10-20T10:00:00.000Z".to_string());
+        for (session, item) in items {
+            store
+                .record_session_retro(session, None, "2026-10-20T10:00:00.000Z", "sonnet", None, std::slice::from_ref(item), &at)
+                .expect("keeps a retro");
+        }
+        StoreLock::new(store)
+    }
+
+    async fn open_of(store: &StoreLock) -> Vec<KeptSessionLesson> {
+        store.lock().await.session_lessons(u32::MAX, None, Some(LessonState::Open)).expect("reads")
+    }
+
+    fn keys(sessions: &[&str]) -> BTreeMap<String, String> {
+        sessions.iter().map(|session| ((*session).to_string(), REPO.to_string())).collect()
+    }
+
+    fn says(ids: &[&str], text: &str) -> String {
+        let facts: Vec<String> = ids
+            .iter()
+            .map(|id| format!(r#"{{"id":"{id}","section":"repo","kind":"command","text":"{text}"}}"#))
+            .collect();
+        format!(r#"{{"facts":[{}]}}"#, facts.join(","))
+    }
+
+    #[test]
+    fn the_answer_keeps_only_facts_about_the_lessons_asked() {
+        let ids: BTreeSet<String> = ["r1.0", "r2.0", "r3.0"].map(String::from).into();
+        let said = r#"Here:
+        {"facts":[
+          {"id":"r1.0","section":"repo","kind":"command","text":"Run `pnpm vitest --project desktop`."},
+          {"id":"r1.0","section":"repo","kind":"command","text":"A second word for the same item."},
+          {"id":"r9.9","section":"repo","kind":"command","text":"A lesson nobody asked about."},
+          {"id":"r2.0","section":"machine","kind":"command","text":"A machine fact of the wrong kind."},
+          {"id":"r3.0","section":"machine","kind":"environment","text":"Chrome is not in /Applications."},
+          {"id":"r3.0"},
+          7
+        ]}"#;
+        let facts = read(said, &ids, REPO).expect("reads");
+        let named: Vec<(&str, LogSection)> = facts.iter().map(|fact| (fact.id.as_str(), fact.section)).collect();
+        assert_eq!(named, vec![("r1.0", LogSection::Repo), ("r3.0", LogSection::Machine)]);
+        assert_eq!(facts[0].text, "Run `pnpm vitest --project desktop`.");
+        assert!(read("no json here", &ids, REPO).is_err());
+    }
+
+    #[test]
+    fn a_repo_fact_needs_a_repository_and_a_machine_fact_does_not() {
+        let ids: BTreeSet<String> = ["r1.0", "r2.0"].map(String::from).into();
+        let said = r#"{"facts":[
+          {"id":"r1.0","section":"repo","kind":"gotcha","text":"One."},
+          {"id":"r2.0","section":"machine","kind":"environment","text":"Two."}]}"#;
+        let facts = read(said, &ids, "").expect("reads");
+        assert_eq!(facts.iter().map(|fact| fact.id.as_str()).collect::<Vec<_>>(), vec!["r2.0"]);
+    }
+
+    #[tokio::test]
+    async fn one_fact_from_three_jobs_is_one_entry_that_stands() {
+        let dir = TempDir::new();
+        let item = line(Whose::Agent, LandsIn::Kit);
+        let store = kept(&dir, &[("job-a", item.clone()), ("job-b", item.clone()), ("job-c", item.clone()), ("job-c", item)]);
+        let open = open_of(&store).await;
+        let ask = |_: String| async { Ok(says(&["r1.0", "r2.0", "r3.0", "r4.0"], FACT)) };
+        pass(&store, open, &keys(&["job-a", "job-b", "job-c"]), ask, 1_000).await.expect("passes");
+        let entries = store.lock().await.logbook_of(REPO).expect("reads");
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].text, FACT);
+        assert_eq!(entries[0].confirmations(), 3, "job-c said it twice and counts once");
+        assert_eq!(entries[0].state, LogState::Standing);
+        assert!(entries[0].evidence.iter().any(|one| one.session_id == "job-b" && one.cites.contains(&"retro:2.0".to_string())));
+        assert!(open_of(&store).await.is_empty(), "every lesson that was a fact is closed");
+    }
+
+    #[tokio::test]
+    async fn one_job_alone_leaves_a_candidate() {
+        let dir = TempDir::new();
+        let store = kept(&dir, &[("job-a", line(Whose::Agent, LandsIn::Kit))]);
+        let open = open_of(&store).await;
+        let ask = |_: String| async { Ok(says(&["r1.0"], FACT)) };
+        pass(&store, open, &keys(&["job-a"]), ask, 1_000).await.expect("passes");
+        let entries = store.lock().await.logbook_of(REPO).expect("reads");
+        assert_eq!((entries.len(), entries[0].state), (1, LogState::Candidate));
+    }
+
+    #[tokio::test]
+    async fn a_second_run_does_nothing() {
+        let dir = TempDir::new();
+        let store = kept(&dir, &[("job-a", line(Whose::Agent, LandsIn::Kit))]);
+        let asked = AtomicUsize::new(0);
+        let ask = |_: String| async {
+            asked.fetch_add(1, Ordering::SeqCst);
+            Ok(says(&[], FACT))
+        };
+        let sessions = keys(&["job-a"]);
+        pass(&store, open_of(&store).await, &sessions, &ask, 1_000).await.expect("passes");
+        assert!(store.lock().await.logbook_backlog_moved().expect("reads"));
+        pass(&store, open_of(&store).await, &sessions, &ask, 2_000).await.expect("passes");
+        assert_eq!(asked.load(Ordering::SeqCst), 1, "the second pass asked nothing");
+    }
+
+    #[tokio::test]
+    async fn a_failed_batch_leaves_its_lessons_open_and_the_next_pass_asks_it_again() {
+        let dir = TempDir::new();
+        let store = kept(&dir, &[("job-a", line(Whose::Agent, LandsIn::Kit)), ("job-b", line(Whose::Owner, LandsIn::Manifest))]);
+        let sessions = keys(&["job-a", "job-b"]);
+        let down = |_: String| async { Err::<String, String>("the call failed: timed out".to_string()) };
+        assert!(pass(&store, open_of(&store).await, &sessions, down, 1_000).await.is_err());
+        assert_eq!(open_of(&store).await.len(), 2);
+        assert!(!store.lock().await.logbook_backlog_moved().expect("reads"), "no marker, so the next start retries");
+        assert!(store.lock().await.logbook_of(REPO).expect("reads").is_empty());
+
+        let garbled = |_: String| async { Ok("not an answer".to_string()) };
+        assert!(pass(&store, open_of(&store).await, &sessions, garbled, 2_000).await.is_err());
+        assert_eq!(open_of(&store).await.len(), 2);
+
+        let up = |_: String| async { Ok(says(&["r1.0", "r2.0"], FACT)) };
+        pass(&store, open_of(&store).await, &sessions, up, 3_000).await.expect("passes");
+        assert!(open_of(&store).await.is_empty());
+    }
+
+    #[tokio::test]
+    async fn what_is_not_a_fact_stays_open_and_an_armada_fault_is_never_asked_about() {
+        let dir = TempDir::new();
+        let store = kept(
+            &dir,
+            &[
+                ("job-a", line(Whose::Agent, LandsIn::Manifest)),
+                ("job-b", line(Whose::Fleet, LandsIn::Armada)),
+                ("job-c", line(Whose::Agent, LandsIn::Armada)),
+            ],
+        );
+        let questions = std::sync::Mutex::new(Vec::new());
+        let ask = |question: String| {
+            questions.lock().expect("held").push(question);
+            async { Ok(says(&[], FACT)) }
+        };
+        pass(&store, open_of(&store).await, &keys(&["job-a", "job-b", "job-c"]), ask, 1_000).await.expect("passes");
+        assert_eq!(open_of(&store).await.len(), 3, "nothing was called a fact, so nothing closed");
+        assert!(store.lock().await.logbook_of(REPO).expect("reads").is_empty());
+        let asked = questions.lock().expect("held").join("\n");
+        assert!(asked.contains("\"r1.0\"") && !asked.contains("\"r2.0\"") && !asked.contains("\"r3.0\""));
+    }
+}
