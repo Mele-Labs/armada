@@ -279,6 +279,8 @@ map = """
 `try_tracker_mod` runs the search for the guide's `open` against a repository Fleet serves, then `[list]` where there is one, then reads the first issue listed by its reference.
 It keeps the outcome in `.tried.toml` beside the mod, with when, the repository, how many issues were listed, the reference read or the reason it failed, and the digest of the `tracker.toml` it tried.
 `list_mods` carries it as the row's `tried` while that digest is the file's, so an edit shows the mod untried again.
+Where a record is kept and its digest is not the file's, the row says `stale` instead, so Bridge can tell an edited mod from one never tried.
+Bridge's Try on a tracker row is this operation, sent without a repository, so Fleet tries it against the first served repository whose Manifest names the mod as its tracker and the first served only where none does, and the row is redrawn from the answer.
 A scan and a Manifest's lookup read the record and run nothing.
 A tracker mod switched off in Mods is refused too, with that as the reason; the lookup reads the switches as Fleet last scanned them, every two seconds and at once on `set_mod_enabled`.
 
@@ -286,7 +288,7 @@ A tracker mod switched off in Mods is refused too, with that as the reason; the 
 
 | Operation | Kind | A job may | Does |
 |---|---|---|---|
-| `list_mods` | query | yes | Every mod, local and built in: `origin`, kind, version, description, `taught_on`, `entry` (the Logbook entry that made it), `enabled`, `valid`, `reason`, `changed_at`, and a tracker's `tried` |
+| `list_mods` | query | yes | Every mod, local and built in: `origin`, kind, version, description, `taught_on`, `entry` (the Logbook entry that made it), `enabled`, `valid`, `reason`, `changed_at`, and a tracker's `tried` or `stale` |
 | `scaffold_mod` | command | yes | Makes the folder, a starter file for its `kind` that changes nothing (a tracker's validates and fails its try), `git init` and one commit |
 | `validate_mod` | query | yes | Every problem found, and the checked text when there are none: `css` for a theme or a tweak, `layout` for a layout, `words` for a Words mod and `fleet` for a Fleet mod, each the file as typed data |
 | `try_tracker_mod` | command | yes | Runs a tracker mod against a repository and keeps how it went |

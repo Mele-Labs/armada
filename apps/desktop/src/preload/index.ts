@@ -171,6 +171,8 @@ const api: BridgeApi = {
     ipcRenderer.invoke(CHANNELS.setModEnabled, name, enabled),
   promoteMod: (name: string): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.promoteMod, name),
+  tryTrackerMod: (name: string): Promise<Outcome> =>
+    ipcRenderer.invoke(CHANNELS.tryTrackerMod, name),
 
   // One running Check's log, as it is written. Read-only like the entry above,
   // and its own because it is its own socket.

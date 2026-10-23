@@ -2,7 +2,7 @@
 // for each (shown at once, and taken back with Fleet's reason where it refuses), and Promote.
 
 import { describe, expect, it } from "vitest";
-import type { ModSummary, Outcome } from "@armada/protocol";
+import type { ModSummary, Outcome, TrackerTry } from "@armada/protocol";
 
 import { createFleetTaught, NO_TAUGHT } from "./fleet-taught";
 import type { FleetTaught } from "./fleet-taught";
@@ -13,19 +13,23 @@ const settled = () => new Promise((done) => setTimeout(done, 0));
 function fake(mods: ModSummary[] | null, over: Partial<FleetTaught> = {}) {
   const told: string[] = [];
   const switched: string[] = [];
+  const tries: string[] = [];
   let hear: Parameters<FleetTaught["subscribe"]>[0] = () => undefined;
   const fleet: FleetTaught = {
     state: async () => ({ mods: mods === null ? null : { mods } }),
     subscribe: (on) => ((hear = on), () => undefined),
     setModEnabled: async (name, enabled) => (switched.push(`${enabled ? "on" : "off"} ${name}`), { ok: true }),
     promoteMod: async (name) => ({ ok: true, modPromoted: { name, branch: `armada/mod-${name}-1`, commit: "abc" } }),
+    tryTrackerMod: async (name) => (tries.push(name), { ok: true, trackerTried: PASSED }),
     validateMod: async () => null,
     ...over,
   };
   const source = createFleetTaught(fleet, (sentence) => told.push(sentence));
-  return { source, told, switched, push: (next: ModSummary[]) => hear({ mods: { mods: next } }) };
+  return { source, told, switched, tries, push: (next: ModSummary[]) => hear({ mods: { mods: next } }) };
 }
 
+const PASSED: TrackerTry = { at: "2026-10-23T12:00:00.000Z", manifest_id: "armada", passed: true, listed: 3, read: "LIN-1" };
+const FAILED: TrackerTry = { at: "2026-10-23T12:00:00.000Z", manifest_id: "armada", passed: false, reason: "`tracker-cli` is not installed", listed: 0 };
 const REFUSED: Outcome = { ok: false, why: "not_connected" };
 
 describe("the rows", () => {
@@ -131,6 +135,69 @@ describe("Promote", () => {
     await settled();
     expect(refused.source.get().mods[0]).not.toHaveProperty("branch");
     expect(refused.told).toHaveLength(1);
+  });
+});
+
+describe("a tracker row", () => {
+
+  it("reads never for a mod with no try and stale only where Fleet says it was edited after one", async () => {
+    const { source } = fake([row("fresh", { kind: "tracker" }), row("edited", { kind: "tracker", stale: true })]);
+    await settled();
+    expect(source.get().mods.map((one) => one.tracker?.tried.state)).toEqual(["never", "stale"]);
+  });
+
+  it("reads passed or failed off the try Fleet kept, and invalid off the row", async () => {
+    const { source } = fake([
+      row("ok", { kind: "tracker", tried: PASSED }),
+      row("bad", { kind: "tracker", tried: FAILED }),
+      row("broken", { kind: "tracker", valid: false, reason: "[search] has no argv" }),
+    ]);
+    await settled();
+    expect(source.get().mods.map((one) => [one.tracker?.tried.state, one.tracker?.valid])).toEqual([
+      ["passed", true],
+      ["failed", true],
+      ["never", false],
+    ]);
+    expect(source.get().mods[1]?.tracker?.tried.words).toContain("`tracker-cli` is not installed");
+  });
+});
+
+describe("Try", () => {
+  it("sends the mod's name to Fleet and draws the row passed from what Fleet said, before the next list", async () => {
+    const { source, tries } = fake([row("linear", { kind: "tracker", stale: true })]);
+    await settled();
+    source.tryIt?.("linear");
+    await settled();
+    expect(tries).toEqual(["linear"]);
+    expect(source.get().mods[0]?.tracker?.tried.state).toBe("passed");
+  });
+
+  it("draws a try that failed with its reason, which is an answer and not a refusal", async () => {
+    const { source, told } = fake([row("linear", { kind: "tracker" })], { tryTrackerMod: async () => ({ ok: true, trackerTried: FAILED }) });
+    await settled();
+    source.tryIt?.("linear");
+    await settled();
+    expect(source.get().mods[0]?.tracker?.tried).toMatchObject({ state: "failed" });
+    expect(source.get().mods[0]?.tracker?.tried.words).toContain("is not installed");
+    expect(told).toEqual([]);
+  });
+
+  it("changes nothing and says so where Fleet refuses", async () => {
+    const { source, told } = fake([row("linear", { kind: "tracker", stale: true })], { tryTrackerMod: async () => REFUSED });
+    await settled();
+    source.tryIt?.("linear");
+    await settled();
+    expect(source.get().mods[0]?.tracker?.tried.state).toBe("stale");
+    expect(told).toHaveLength(1);
+  });
+
+  it("is replaced by the next list Fleet sends", async () => {
+    const { source, push } = fake([row("linear", { kind: "tracker" })]);
+    await settled();
+    source.tryIt?.("linear");
+    await settled();
+    push([row("linear", { kind: "tracker", stale: true })]);
+    expect(source.get().mods[0]?.tracker?.tried.state).toBe("stale");
   });
 });
 

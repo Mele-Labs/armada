@@ -48,6 +48,7 @@ export function SettingsSectionsView({ ids, settings, live, onSaveSettings, onOp
     theme: (title) => card(title, <ThemeSettings />),
     layout: (title) => card(title, <LayoutSettings />),
     words: (title) => <ModList kind="words" title={title} />,
+    trackers: (title) => <ModList kind="tracker" title={title} />,
     "fleet-mods": (title) => <ModList kind="fleet" title={title} />,
     time: (title) => card(title, <TimeSettings />),
     keyboard: (title) => card(title, <KeyboardSettings query="" />),

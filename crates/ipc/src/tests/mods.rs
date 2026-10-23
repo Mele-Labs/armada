@@ -20,6 +20,7 @@ fn a_mod(name: &str) -> ModSummary {
         reason: None,
         changed_at: Some(Instant::carried("2026-10-08T21:00:00.000Z")),
         tried: None,
+        stale: false,
     }
 }
 
@@ -48,6 +49,7 @@ fn a_broken_mod_leaves_out_what_could_not_be_read_rather_than_sending_null() {
         reason: Some("mod.toml is missing".to_string()),
         changed_at: None,
         tried: None,
+        stale: false,
     };
     let json = encode(&broken).expect("plain data");
     assert_eq!(
@@ -55,6 +57,15 @@ fn a_broken_mod_leaves_out_what_could_not_be_read_rather_than_sending_null() {
         r#"{"name":"bad","enabled":true,"valid":false,"reason":"mod.toml is missing"}"#
     );
     assert!(!json.contains("null"));
+}
+
+#[test]
+fn a_stale_tracker_mod_says_so_and_a_fresh_one_leaves_it_out() {
+    let stale = ModSummary { stale: true, ..a_mod("linear") };
+    let json = encode(&stale).expect("plain data");
+    assert!(json.contains(r#""stale":true"#), "{json}");
+    assert_eq!(decode::<ModSummary>("a mod", json.as_bytes()).expect("round-trips"), stale);
+    assert!(!encode(&a_mod("linear")).expect("plain data").contains("stale"));
 }
 
 #[test]

@@ -43,6 +43,7 @@ import { DownshiftSourceProvider } from "../downshift";
 import { createMockDownshift } from "./downshift";
 import { createFleetPlanUsage } from "../fleet-plan-usage";
 import { mockThemes, promoteThemesWith } from "./themes";
+import { installTrackerMods, triable } from "./trackers";
 import { installSystemMods, installTravelMods } from "./system-mods";
 import { provideKitModels } from "../kit-models";
 import { createMockKitModels } from "./kit-models";
@@ -133,6 +134,7 @@ export function mountApp(
   if (shared === undefined) mockLayout.reset();
   if (shared === undefined && chosen.name === "system-sidebar") installSystemMods();
   if (shared === undefined && chosen.name === "mods-travel") installTravelMods();
+  if (shared === undefined && chosen.name === "mods-trackers") installTrackerMods();
   if (shared === undefined) provideKitModels(createMockKitModels());
   // Teach is read only in the scenario that plays it, which starts with nothing taught.
   if (shared === undefined) {
@@ -148,7 +150,7 @@ export function mountApp(
   window.armada = api;
   const planUsage = createFleetPlanUsage(withState(api));
   // The mods the lessons made, over the fake Fleet's mod list as a real window reads them; safe mode reads none.
-  const taught = skipsMods() ? NO_TAUGHT : createFleetTaught(withState(api));
+  const taught = skipsMods() ? NO_TAUGHT : chosen.name === "mods-trackers" ? triable(createFleetTaught(withState(api))) : createFleetTaught(withState(api));
   const tweaks = skipsMods() ? NO_TWEAKS : createFleetTweaks(withState(api));
   // Only the scenario that plays the offer has one; every other window draws the limits as they were.
   const downshift = chosen.name === "plan-downshift" ? createMockDownshift(planUsage, api) : null;
