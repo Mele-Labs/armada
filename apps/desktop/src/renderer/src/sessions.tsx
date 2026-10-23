@@ -941,11 +941,9 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
   }, [planDrawn]);
   const setAside = draft.work?.setAside === undefined ? undefined : () => draft.work?.setAside?.(session.id);
   const approval: PlanApproval | undefined = session.work?.plan === undefined || !planDrawn ? undefined : { ...(session.work.plan.version === undefined ? {} : { version: session.work.plan.version }), ...(session.work.plan.summary === undefined ? {} : { summary: session.work.plan.summary }), groups: session.work.plan.groups.map((one) => ({ id: one.id, agent: one.agent, title: one.title, ...(one.gives === undefined ? {} : { gives: one.gives }), paths: one.paths, tasks: one.tasks.map((task) => ({ id: task.id, text: task.text })) })), approved: session.work.plan.approved, ...(session.work.plan.setAside === true ? { setAside: true as const } : {}), ...(session.pressed?.includes("plan") === true ? { going: true as const } : {}), changes: changeLines(session.work.plan), ...planRevision(session.work.plan), ...(session.work.plan.sketch === undefined ? {} : { sketch: { id: session.work.plan.sketch.id, title: session.work.plan.sketch.title, scene: session.work.plan.sketch.scene } }), ...(session.work.plan.after === undefined ? {} : { after: session.work.plan.after }), onApprove: approvePlan, ...(setAside === undefined ? {} : { onSetAside: setAside }), onReview: () => setReviewing(true) };
-  // A plan waiting for approval is a row in Needs you that opens it in full beside the thread, so the panel never stands between him and it.
-  const plan = approval === undefined || approval.approved || approval.setAside === true ? undefined : { id: `${approval.version ?? ""}`, onOpen: () => setReviewing(true), ...(setAside === undefined ? {} : { onSetAside: setAside }) };
-  const waits = needs.length > 0 || question !== undefined || judges.length > 0 || plan !== undefined;
+  const waits = needs.length > 0 || question !== undefined || judges.length > 0;
   // Open only for what the panel lists: a restart is the band's own key, and a band with nothing in it is not drawn open.
-  const listed = needs.some((one) => one.restart === undefined) || question !== undefined || judges.length > 0 || plan !== undefined;
+  const listed = needs.some((one) => one.restart === undefined) || question !== undefined || judges.length > 0;
   // The delivery question opens the card before he has touched it; once he has closed or opened it, his choice holds.
   const panelOpen = (panel?.id === session.id ? panel.open : holdsDelivery(session)) && waits && listed;
   // The agent's last word is a band of its own on the composer, and Needs you has the slot first: it waits until nothing else does.
@@ -1099,7 +1097,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
           {terminal === null ? null : <DockedTerminal dock={terminal.dock} />}
           <CallChip word={callWord(session)} scope={centre} />
           <div className="sv-dock" data-needs={waits || endShown || failedShown ? "" : undefined} data-open={panelOpen || endOpen} data-end={endOpen ? "" : undefined}>
-          <NeedsYouPanel key={session.id} rows={needs} open={panelOpen} onOpen={(open) => setPanel({ id: session.id, open })} {...(question === undefined ? {} : { question })} {...(plan === undefined ? {} : { plan })} judges={judges} {...(draft.misreadAs === undefined ? {} : { misreadAs: draft.misreadAs })} />
+          <NeedsYouPanel key={session.id} rows={needs} open={panelOpen} onOpen={(open) => setPanel({ id: session.id, open })} {...(question === undefined ? {} : { question })} judges={judges} {...(draft.misreadAs === undefined ? {} : { misreadAs: draft.misreadAs })} />
           {failedShown ? (
             <HandoffBand
               {...(session.handoffReason === undefined ? {} : { reason: session.handoffReason })}
