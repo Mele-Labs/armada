@@ -397,6 +397,8 @@ export * from "./compositions/NeedsYouPanel/SessionEndBand";
 export * from "./compositions/SessionAccount/SessionAccount";
 export * from "./compositions/StartedBy/StartedBy";
 export * from "./compositions/ForkFromSelection/ForkFromSelection";
+export * from "./compositions/TeachPanel/TeachPanel";
+export * from "./compositions/TaughtLinkRow/TaughtLinkRow";
 export * from "./compositions/SessionLedger/SessionLedger";
 export * from "./compositions/LinkedSession/LinkedSession";
 export * from "./compositions/StepsPanel/StepsPanel";

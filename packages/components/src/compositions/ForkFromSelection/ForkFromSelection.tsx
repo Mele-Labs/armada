@@ -94,8 +94,8 @@ export function ForkFromSelection({
   const [menu, setMenu] = useState<Opened>();
   const acts = { teach: onTeach, reply: onReply, fork: onFork };
   const onBar = ON_BAR.filter((one) => acts[one.id] !== undefined);
-  const live = useRef({ offered: onBar.length });
-  live.current = { offered: onBar.length };
+  const live = useRef({ offered: onBar.length, menu: false });
+  live.current = { offered: onBar.length, menu: menu !== undefined };
   const bar = useRef<HTMLDivElement>(null);
   const [placed, setPlaced] = useState<{ left: number; top: number }>();
 
@@ -128,7 +128,8 @@ export function ForkFromSelection({
       setMenu({ x: there.left, y: there.foot, pick: { rowId: there.rowId, quote: there.quote } });
     };
     const key = (event: KeyboardEvent) => {
-      if (event.key !== "Escape" || read(home) === undefined) return;
+      // With the menu open, Esc closes the menu and leaves the words selected.
+      if (event.key !== "Escape" || live.current.menu || read(home) === undefined) return;
       window.getSelection()?.removeAllRanges();
       setSpot(undefined);
     };
