@@ -44,7 +44,7 @@ const MOST_NAME: usize = 40;
 /// chosen by an id that already means something else.
 const SHIPPED: &[&str] = &["dark", "light", "system", "default"];
 
-const MANIFEST: &str = "mod.toml";
+pub(crate) const MANIFEST: &str = "mod.toml";
 const THEME: &str = "theme.css";
 const LAYOUT: &str = "layout.json";
 const WORDS: &str = "words.toml";

@@ -47,6 +47,7 @@ const rowOf = (wire: HomeRow): SharedRow => ({
   ...(wire.says === undefined ? {} : { says: wire.says }),
   ...(wire.source === undefined ? {} : { source: wire.source }),
   ...(wire.key_here === false ? { keyHere: true } : {}),
+  ...(wire.mod_kind === undefined ? {} : { modKind: wire.mod_kind }),
   ...(wire.here === undefined ? {} : { here: wire.here }),
   ...(wire.there === undefined ? {} : { there: wire.there }),
 });

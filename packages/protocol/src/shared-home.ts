@@ -1,6 +1,8 @@
 // Kit against the shared home, mirrored by hand from `crates/ipc/src/shared_home.rs`.
 // `docs/concepts/kit.md`, *The shared home*.
 
+import type { ModKind } from "./mods";
+
 /** A kind the home carries, in the order What syncs lists them. */
 export type HomeKind =
   | "skills"
@@ -29,6 +31,8 @@ export type HomeRow = {
   repository?: string;
   /** On an MCP server alone: `false` where this machine has no server of that name, so its key is not here. */
   key_here?: boolean;
+  /** On a mod alone: the kind its `mod.toml` names, this machine's where it has one and else the home's. */
+  mod_kind?: ModKind;
   here?: string;
   there?: string;
 };

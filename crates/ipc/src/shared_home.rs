@@ -7,6 +7,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::ModKind;
+
 /// A kind the home carries, in the order What syncs lists them.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -90,6 +92,10 @@ pub struct HomeRow {
     /// key is not here. The home carries a name and a host and never a key.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub key_here: Option<bool>,
+    /// On a mod alone: the kind its `mod.toml` names, this machine's where it has one and else
+    /// the home's, so a mod only the home has is listed under its own kind.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mod_kind: Option<ModKind>,
     /// This machine's version, on a row that differs.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub here: Option<String>,

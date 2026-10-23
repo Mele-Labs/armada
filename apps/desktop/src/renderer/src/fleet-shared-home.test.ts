@@ -82,6 +82,16 @@ describe("the shared home over Fleet", () => {
     expect(home.get()?.rows[0]?.keyHere).toBeUndefined();
   });
 
+  it("lists a mod under the kind Fleet read from its mod.toml, and a row with none as before", async () => {
+    const deck: HomeRow = { kind: "mods", name: "deck", state: "home", mod_kind: "layout" };
+    const links: HomeRow = { kind: "mods", name: "links", state: "home", mod_kind: "words" };
+    const fleet = fake({ rows: [deck, links, DUSK], unreadable: [] });
+    const home = createFleetSharedHome(fleet.fleet, account([profile("nickmele", true)]).source, () => undefined);
+    home.subscribe(() => undefined);
+    await settled();
+    expect(home.get()?.rows.map((row) => row.modKind)).toEqual(["layout", "words", undefined]);
+  });
+
   it("turns while Sync runs and draws what it answers", async () => {
     const fleet = fake(HELD);
     const home = createFleetSharedHome(fleet.fleet, account([profile("nickmele", true)]).source, () => undefined);

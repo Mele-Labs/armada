@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use adapter_traits::{HomeFailure, HomeRepository, PluginRecord};
 use core_model::{Actor, KitServer, ServerAddress, ServerName, Timestamp};
-use ipc::{HomeKind, HomeNamed, HomeRow, HomeRowAt, HomeRowState, HomeSide};
+use ipc::{HomeKind, HomeNamed, HomeRow, HomeRowAt, HomeRowState, HomeSide, ModKind};
 use testkit::{FakeHarnessHome, FakeHome, FakeHomes, FakeRemote, HeldFolder};
 
 use crate::home::{self, secrets, Places, Refused, Repository};
@@ -299,4 +299,28 @@ fn each_profile_has_a_home_of_its_own_and_a_login_the_forge_here_does_not_hold_i
     }
     assert_eq!(contract.here(), None, "no copy, so its set-up row still waits");
     assert!(matches!(of("stranger"), Err(Refused::NoProfile(_))), "not a profile here");
+}
+
+#[test]
+fn a_mod_only_the_home_has_carries_the_kind_its_mod_toml_names() {
+    let remote = FakeRemote::of(LOGIN);
+    let mut a = Mac::on(&remote, "/Users/user/code/shop");
+    a.mods = a
+        .mods
+        .with("dusk/mod.toml", "name = \"dusk\"\nkind = \"theme\"\n")
+        .with("dusk/theme.css", ":root {}\n")
+        .with("deck/mod.toml", "name = \"deck\"\nkind = \"layout\"\n")
+        .with("deck/layout.json", "{}\n");
+    let a = a.opened();
+    for name in ["dusk", "deck"] {
+        home::add(&a.places(), &at(HomeKind::Mods, name), "mac-a").unwrap_or_else(|why| panic!("{name} is added: {}", why.said()));
+    }
+
+    let b = Mac::on(&remote, "/Users/user/work/shop").opened();
+    let rows = b.rows();
+    let kind_of = |name: &str| rows.iter().find(|row| row.kind == HomeKind::Mods && row.name == name).and_then(|row| row.mod_kind);
+    assert_eq!(state(&rows, HomeKind::Mods, "deck"), HomeRowState::Home);
+    assert_eq!(kind_of("deck"), Some(ModKind::Layout), "{rows:?}");
+    assert_eq!(kind_of("dusk"), Some(ModKind::Theme), "{rows:?}");
+    assert!(rows.iter().filter(|row| row.kind != HomeKind::Mods).all(|row| row.mod_kind.is_none()), "{rows:?}");
 }

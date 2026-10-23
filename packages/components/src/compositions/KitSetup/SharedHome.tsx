@@ -5,6 +5,7 @@ import { ArrowDownToLine, ArrowUpFromLine, Check, CircleDashed, House, Key, Lapt
 import { Button } from "../../primitives/Button/Button";
 import { Sheet } from "../../primitives/Sheet/Sheet";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
+import type { ModKind } from "../ModRow/ModRow";
 
 /**
  * Kit against the shared home: a private repository on the person's own GitHub
@@ -29,8 +30,8 @@ export type SharedRow = {
   source?: string;
   /** A server whose key is not on this machine. Name and host are all that travelled. */
   keyHere?: boolean;
-  /** Mods only: what a mod changes, so a mod only the home has is listed under Theme or Layout. */
-  modKind?: "theme" | "layout";
+  /** Mods only: what a mod changes, so a mod only the home has is listed under its own kind. */
+  modKind?: ModKind;
   /** The two versions of a row that differs. */
   here?: string;
   there?: string;

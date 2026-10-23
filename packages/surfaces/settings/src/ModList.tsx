@@ -65,8 +65,8 @@ export function ModList({ kind, title, onOpenPull, onOpenJob }: { kind: ModListK
   const homeRows = shared?.rows.filter((row) => row.kind === "mods") ?? [];
   const homeOnly = homeRows.filter((row) => {
     const as = row.modKind ?? "theme";
-    const local = as === "theme" ? themeMods : layoutMods;
-    return row.state === "home" && (kind === "all" || as === kind) && !local.some((mod) => mod.builtIn !== true && mod.name === row.name);
+    const local = as === "theme" ? themeMods : as === "layout" ? layoutMods : taught.mods.filter((mod) => mod.kind === as);
+    return row.state === "home" && (kind === "all" || as === kind) && !local.some((mod) => !("builtIn" in mod && mod.builtIn === true) && mod.name === row.name);
   });
   const sync = (row: SharedRow | undefined) =>
     row === undefined || shared === undefined

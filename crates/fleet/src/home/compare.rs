@@ -7,9 +7,10 @@
 
 use std::collections::BTreeMap;
 
-use ipc::{HomeKind, HomeRow, HomeRowState};
+use ipc::{HomeKind, HomeRow, HomeRowState, ModKind};
 
 use super::pieces::Piece;
+use crate::mods::{manifest, MANIFEST};
 
 /// The front-matter keys a harness rewrites on its own and a person never wrote.
 const STAMPS: &[&str] = &["originSessionId:", "modified:"];
@@ -50,6 +51,11 @@ fn shown(piece: &Piece) -> String {
     }
 }
 
+/// The kind a mod's `mod.toml` names, where it names one this build knows.
+fn mod_kind_of(piece: &Piece) -> Option<ModKind> {
+    piece.files.get(&format!("{}/{MANIFEST}", piece.name)).and_then(|text| manifest::read(text, &piece.name).0.kind)
+}
+
 type Key = (Option<String>, String);
 
 fn keyed(pieces: &[Piece]) -> BTreeMap<Key, &Piece> {
@@ -81,6 +87,7 @@ pub(crate) fn rows(kind: HomeKind, here: &[Piece], home: &[Piece]) -> Vec<HomeRo
                 source: either.source.clone(),
                 repository: key.0.clone(),
                 key_here: (kind == HomeKind::McpServers).then_some(mine.is_some()),
+                mod_kind: (kind == HomeKind::Mods).then(|| mine.and_then(mod_kind_of).or_else(|| theirs.and_then(mod_kind_of))).flatten(),
                 here: mine.filter(|_| differs).map(shown),
                 there: theirs.filter(|_| differs).map(shown),
             }

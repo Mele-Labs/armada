@@ -9,7 +9,7 @@ Bridge's half is `packages/protocol/src/shared-home.ts`, written by hand, field 
 
 | Where | Side | Carries |
 | --- | --- | --- |
-| `get_shared_home` (`GET /shared_home?login=`, `agent_access = "No"`) | Bridge asks, Fleet answers 200 | `SharedHomeRead` `{ home?, rows, unreadable }`: `home` `{ account, repository }`, left out with no copy here; each row `HomeRow` `{ kind, name, state, says?, source?, repository?, key_here?, here?, there? }` |
+| `get_shared_home` (`GET /shared_home?login=`, `agent_access = "No"`) | Bridge asks, Fleet answers 200 | `SharedHomeRead` `{ home?, rows, unreadable }`: `home` `{ account, repository }`, left out with no copy here; each row `HomeRow` `{ kind, name, state, says?, source?, repository?, key_here?, mod_kind?, here?, there? }` |
 | `sync_shared_home` (`POST /shared_home/sync`, `No`) | Bridge sends, Fleet answers 200 | `HomeProfile` `{ login }`; makes the home where it does not exist, clones or pulls it, and answers `SharedHomeRead` |
 | `add_to_shared_home` (`POST /shared_home/add`, `No`) | Bridge sends, Fleet answers 200 | `HomeRowAt` `{ login, kind, name, repository? }`; answers `SharedHomeRead` |
 | `bring_from_shared_home` (`POST /shared_home/bring`, `No`) | Bridge sends, Fleet answers 200 | `HomeRowAt`; answers `SharedHomeRead` |
@@ -18,6 +18,7 @@ Bridge's half is `packages/protocol/src/shared-home.ts`, written by hand, field 
 | `set_home_kind` (`POST /shared_home/kinds/set`, `No`) | Bridge sends, Fleet answers 200 | `SetHomeKind` `{ login, kind, on }`; answers `HomeKinds` |
 
 **Mapping onto Kit.** A `HomeRow` is Bridge's `SharedRow` with `key_here` in place of `keyHere` and inverted: Kit's `keyHere: true` draws the key mark, and the wire's `key_here: false` is a server whose key is not here.
+`mod_kind` is Kit's `modKind`, the kind a mod's `mod.toml` names, this machine's where it has the mod and else the home's, so a mod only the home has is listed under its own kind.
 `syncing` is Bridge's own while `sync_shared_home` is in flight.
 A memory row's act carries its `repository`, which Kit's row does not, so Bridge keeps each drawn row's wire row beside it.
 Bridge calls the seven through main, `apps/desktop/src/main/accounts.ts`, and draws them from `renderer/src/fleet-shared-home.ts` and `fleet-account.ts`.

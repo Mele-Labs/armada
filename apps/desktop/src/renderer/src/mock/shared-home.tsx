@@ -41,7 +41,8 @@ function Held({ home, children }: { home: NonNullable<MockDraft["sharedHome"]>; 
       add: (row) => settle(row, { state: "same" }),
       bring: (row) => {
         settle(row, { state: "same" });
-        if (row.kind === "mods") installBroughtMod(row.modKind ?? "theme", row.name);
+        const as = row.modKind ?? "theme";
+        if (row.kind === "mods" && (as === "theme" || as === "layout")) installBroughtMod(as, row.name);
       },
       sync: () => setSyncing(true),
     };
