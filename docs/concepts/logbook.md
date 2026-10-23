@@ -109,6 +109,9 @@ Standing entries reach agents three ways.
 | Lock | It never fades and is never rewritten |
 | Forget | Puts it on the deny list |
 
+He can also teach an entry by pressing Teach on words, a command, a notice, a task, a Check or a pull request.
+A taught entry stands at once, cites what it was taught from as its one evidence row, and forgetting it removes the mods the same teaching made. [Teaching](teaching.md).
+
 ## Where it is kept
 
 **The Logbook is kept by Armada and never committed to a repository.** Many repositories do not commit this kind of knowledge, a work repository among them.

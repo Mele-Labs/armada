@@ -27,6 +27,8 @@ The call is a tool row on the thread whose text is `<tool> <arguments as JSON>`,
 No window opens.
 Through the door the answer is a receipt of `session_id` and `sketch`.
 
+**The person notes a part of it back to the job** by a right-click or a Shift+drag, and the note arrives as a message: [Noting what you read](noting-what-you-read.md).
+
 **`step` orders what plays.** It is a finite number on a node or an edge, with one numbering for both: everything with the same step plays together, in ascending order, the dot travels an edge from `from` to `to`, and an edge with no step never pulses.
 A sequence diagram is groups as lifelines, label nodes as points and stepped edges between them; a workflow steps its nodes and its arrows.
 

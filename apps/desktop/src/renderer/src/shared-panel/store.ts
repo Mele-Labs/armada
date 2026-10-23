@@ -9,7 +9,11 @@ import type { TeachSourceKind } from "@armada/components";
 /** What Requests starts from: a request's sent half, as a `requested` row holds it. */
 export type RequestStart = { method: string; url: string; environment?: string; headers: readonly RequestHeader[]; body?: string };
 
+import type { NoteRegion } from "@armada/components";
 import type { PanelFileItem } from "../../../shared/api/files";
+
+/** A file opened again from a note the person sent on it: the lines to select, or the region of a picture to draw. */
+export type PanelFileMarked = { lines?: { from: number; to: number }; region?: NoteRegion };
 
 /** What a press hands over: enough to name the thing, and whatever the surface already knew of it. The panel reads the rest. */
 export type PanelItem =
@@ -18,7 +22,7 @@ export type PanelItem =
   | { kind: "bay"; manifestId: string; slot: number }
   /** One of a Session's watches, read from the Session as `watches.changed` last carried it. */
   | { kind: "watch"; sessionId: string; id: string; name: string }
-  | PanelFileItem
+  | (PanelFileItem & { marked?: PanelFileMarked })
   | { kind: "check"; id: string; name?: string; branch?: string; land?: { root: string; branch: string; check: string }; row?: { state: "passed" | "failed" | "running"; seconds?: number; address?: string } }
   /**
    * Requests, for the Job it was opened in where there was one, starting from a request where it was opened on one (`from` is

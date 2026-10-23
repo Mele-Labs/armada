@@ -80,10 +80,10 @@ describe("Next up", () => {
     manifest_id: "armada",
     fetched_at: "",
     issues: [
-      { reference: "#1850", title: "Picked already", url: "u", labels: [], assignees: [], updated_at: "", excerpt: "", linked_pull_request: false },
-      { reference: "#1849", title: "Fleet restart drops a lease", url: "u", labels: [], assignees: [], updated_at: "", excerpt: "", linked_pull_request: true },
-      { reference: "#1853", title: "Copy button missing", url: "u", labels: [], assignees: [], updated_at: "", excerpt: "", linked_pull_request: false },
-      { reference: "#1856", title: "Badge count off by one", url: "u", labels: [], assignees: [], updated_at: "", excerpt: "", linked_pull_request: false },
+      { reference: "#1850", title: "Picked already", url: "u", labels: [], assignees: [], updated_at: "", excerpt: "", linked_pull_request: false, state: "open", fields: [], holders: [] },
+      { reference: "#1849", title: "Fleet restart drops a lease", url: "u", labels: [], assignees: [], updated_at: "", excerpt: "", linked_pull_request: true, state: "open", fields: [], holders: [] },
+      { reference: "#1853", title: "Copy button missing", url: "u", labels: [], assignees: [], updated_at: "", excerpt: "", linked_pull_request: false, state: "open", fields: [], holders: [] },
+      { reference: "#1856", title: "Badge count off by one", url: "u", labels: [], assignees: [], updated_at: "", excerpt: "", linked_pull_request: false, state: "open", fields: [], holders: [] },
     ],
   };
 

@@ -101,6 +101,8 @@
   border-radius: var(--radius-md);
   background: var(--bg-sunken);
   overflow: auto;
+  /* A picture's note marks are laid over it from here. */
+  position: relative;
 }
 
 .armada-file-panel__picture img {
@@ -134,6 +136,11 @@
   min-width: 0;
 }
 
+/* Hears ⌘Enter for the notes on the preview, and draws nothing of its own. */
+.armada-file-panel__read {
+  display: contents;
+}
+
 /* The rendered file scrolls on its own, so the scroll lock can set where it is. */
 .armada-markdown-preview {
   position: relative;
@@ -141,4 +148,32 @@
   min-width: 0;
   overflow-y: auto;
   padding: var(--space-3);
+}
+
+/* A block holding a held note's lines: the editor's tint and edge, and the note's numbers at its top right. */
+.armada-markdown-preview [data-noted] {
+  position: relative;
+  background: var(--accent-faint);
+  box-shadow: calc(-1 * var(--space-2)) 0 0 var(--accent-faint), calc(-1 * var(--space-2) - var(--edge-active)) 0 0 var(--accent);
+}
+
+.armada-markdown-preview [data-noted]::before {
+  content: attr(data-note);
+  position: absolute;
+  top: 0;
+  right: 0;
+  padding: 0 var(--space-1);
+  border: var(--border-width) solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: var(--fg-inverse);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-medium);
+  line-height: var(--leading-2xs);
+}
+
+.armada-markdown-preview [data-noted][data-writing]::before {
+  background: var(--bg-overlay);
+  color: var(--accent);
 }

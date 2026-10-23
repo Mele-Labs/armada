@@ -42,12 +42,12 @@ export const SESSION_TILES: readonly { id: SessionTileId; label: string; text: s
   { id: "slot", label: "Bays", text: "Bays" },
   // Opens Requests in the side panel for this Job. Past the tenth, so no key.
   { id: "requests", label: "Requests", text: "Requests" },
-  // Pause reads Resume while the Session is paused (`SessionTiles.tsx`). Its key is P, not a digit.
+  // Pause reads Resume while the Session is paused (`SessionTiles.tsx`). Its key is p, not a digit.
   { id: "pause", label: "Pause", text: "Pause" },
 ];
 
 /** The key that presses Pause, or Resume while paused, with a Session open or on the list's cursor row. Not an act of the registry: `p` is Pilot's there. */
-export const PAUSE_KEY = "P";
+export const PAUSE_KEY = "p";
 
 /** The key of the tile at `at`: `1` to `9`, then `0`, and none for any after. */
 export const tileKey = (at: number): string | undefined => (at < 9 ? String(at + 1) : at === 9 ? "0" : undefined);

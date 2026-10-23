@@ -8,8 +8,9 @@ use std::future::Future;
 use std::sync::Arc;
 
 use ipc::{
-    Autopilot, AutopilotList, AutopilotProposal, AutopilotSettings, IssueList, IssueRead,
-    ManifestId, ProposeAutopilot,
+    Autopilot, AutopilotList, AutopilotProposal, AutopilotSettings, IssueList, IssueQueries, IssueRead,
+    ManifestId, ProposeAutopilot, SaveIssueQuery, SavedIssueQuery, SearchIssues, WriteIssueQuery,
+    WrittenIssueQuery,
 };
 
 use crate::daemon::Refusal;
@@ -33,6 +34,46 @@ pub trait Issues: Send + Sync + 'static {
         manifest_id: ManifestId,
         reference: String,
     ) -> impl Future<Output = Result<IssueRead, Refusal>> + Send;
+
+    /// `search_issues` — a query in the tracker's own language, run once and not held.
+    /// [`Refusal::Unacceptable`] with the tracker's words where it refuses the query.
+    fn search_issues(
+        &self,
+        manifest_id: ManifestId,
+        search: SearchIssues,
+    ) -> impl Future<Output = Result<IssueList, Refusal>> + Send;
+
+    /// `list_issue_queries` — the tracker's guide summary, or why it cannot be read, and the
+    /// queries saved for the repository.
+    fn list_issue_queries(
+        &self,
+        manifest_id: ManifestId,
+    ) -> impl Future<Output = Result<IssueQueries, Refusal>> + Send;
+
+    /// `write_issue_query` — one model call turns the person's words into a query, which is run
+    /// before it is answered. **Keeps nothing.** [`Refusal::Fault`] where the call or its answer
+    /// failed, [`Refusal::Unacceptable`] where the tracker refuses the query it wrote.
+    fn write_issue_query(
+        &self,
+        manifest_id: ManifestId,
+        write: WriteIssueQuery,
+    ) -> impl Future<Output = Result<WrittenIssueQuery, Refusal>> + Send;
+
+    /// `save_issue_query` — keep a query, or with an `id` edit one. **No model call**: the query is
+    /// run first and one the tracker refuses is refused with its words.
+    fn save_issue_query(
+        &self,
+        manifest_id: ManifestId,
+        save: SaveIssueQuery,
+    ) -> impl Future<Output = Result<SavedIssueQuery, Refusal>> + Send;
+
+    /// `forget_issue_query` — drop a saved query; answers those left. [`Refusal::NotFound`] for an
+    /// id the repository has none of.
+    fn forget_issue_query(
+        &self,
+        manifest_id: ManifestId,
+        id: String,
+    ) -> impl Future<Output = Result<IssueQueries, Refusal>> + Send;
 }
 
 /// A repository working its own backlog. #2092, `docs/concepts/autopilot.md`.

@@ -17,6 +17,9 @@ const issue = (number: number, title: string): TrackedIssue => ({
   updated_at: "2026-10-11T11:40:00Z",
   excerpt: "",
   linked_pull_request: false,
+  state: "open",
+  fields: [],
+  holders: [],
 });
 
 /** An issue of a tracker that names them by key, as Jira does: its reference is the key. */
@@ -29,6 +32,9 @@ const keyed = (reference: string, title: string, labels: string[] = []): Tracked
   updated_at: "2026-10-11T11:40:00Z",
   excerpt: "",
   linked_pull_request: false,
+  state: "open",
+  fields: [],
+  holders: [],
 });
 
 const pull = (number: number, title: string, branch: string): HubPullRequest => ({

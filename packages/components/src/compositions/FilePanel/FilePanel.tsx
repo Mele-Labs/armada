@@ -1,12 +1,15 @@
 import { Eye, FolderOpen, SquareArrowOutUpRight } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { Alert } from "../../primitives/Alert/Alert";
 import { Button } from "../../primitives/Button/Button";
 import { KbdBinding } from "../../primitives/Kbd/Kbd";
 import { Sheet } from "../../primitives/Sheet/Sheet";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
-import { CodeEditor } from "./CodeEditor";
+import type { NoteRegion } from "../ViewerNotes/compose";
+import { NotableImage } from "../ViewerNotes/NotableImage";
+import { useViewerNotes, type NoteAnchor, type ViewerNotes, type ViewerNotesScope } from "../ViewerNotes/ViewerNotes";
+import { CodeEditor, type CodeLines, type CodeNoteMark } from "./CodeEditor";
 import { MarkdownPreview } from "./MarkdownPreview";
 
 /**
@@ -51,13 +54,38 @@ export type FilePanelProps = {
   beside?: string;
   /** The Preview opened, `true`, or closed with it or with the file, `false`: the sheet it sat beside steps aside meanwhile. */
   onPreviewing?: (on: boolean) => void;
+  /** Where notes on the file are held, and the Job they go to where it was opened in one. Absent takes none. */
+  notes?: ViewerNotesScope;
+  /** What a sent note on the file named, shown again as it opens: its lines selected, or its region drawn on the picture. */
+  marked?: { lines?: { from: number; to: number }; region?: NoteRegion };
 };
 
 /** What the file shows and does, with or without a sheet around it. */
 type FileBodyProps = Omit<FilePanelProps, "onClose" | "floor" | "back" | "onOpenInEditor" | "onShowInFinder"> & {
   /** The editor scrolls with a preview beside it: where that one put it, and where a person did. */
   follow?: { to?: number; onScroll: (line: number) => void };
+  /** The notes on the text, which the preview beside it shares. */
+  noted?: FileNotes;
 };
+
+/** The notes on a file's text: the editor and its preview mark the same ones and open the same box. */
+type FileNotes = { viewer: ViewerNotes; marks: readonly CodeNoteMark[]; onNote: (at: { x: number; y: number }, lines: CodeLines, drawn: NoteAnchor | undefined, from: HTMLElement | null) => void };
+
+function useFileNotes(path: string, scope: ViewerNotesScope | undefined): FileNotes {
+  const from = useRef<HTMLElement | null>(null);
+  // The editor's text is in its shadow root, and that is where focus goes back to.
+  const viewer = useViewerNotes(scope, from, () => (from.current?.shadowRoot?.querySelector<HTMLElement>("[contenteditable]") ?? from.current)?.focus());
+  const marks = viewer.marks.flatMap((one) => (one.about.kind === "file" ? [{ n: one.n, from: one.about.from, to: one.about.to, writing: one.writing }] : []));
+  return {
+    viewer,
+    marks,
+    onNote: (at, lines, drawn, element) => {
+      // The box opens over whichever of the two was pressed, and focus goes back to it.
+      from.current = element;
+      viewer.menu(at, { kind: "file", path, ...lines }, drawn);
+    },
+  };
+}
 
 /** ⌘S on the window while a file is up, so it saves with focus on the editor or on the head. */
 function useSaveKey({ dirty, saving, moved, onSave }: Pick<FileBodyProps, "dirty" | "saving" | "moved" | "onSave">): void {
@@ -118,10 +146,11 @@ function FileActs({
   );
 }
 
-function FileBody({ name, type, text, imageSrc, saving = false, onChange, moved = null, onKeepMine, onTakeDisk, refused, follow }: FileBodyProps) {
+function FileBody({ name, path, type, text, imageSrc, saving = false, onChange, moved = null, onKeepMine, onTakeDisk, refused, follow, notes, noted, marked }: FileBodyProps) {
   const picture = type.startsWith("image/");
+  const well = useRef<HTMLDivElement>(null);
   return (
-    <div className="armada-file-panel">
+    <div className="armada-file-panel" onKeyDown={noted?.viewer.onKeyDown}>
       {refused === undefined ? null : (
         <Alert tone="escalated" title={text === undefined && imageSrc === undefined ? "Not opened" : "Not saved"}>
           {refused}
@@ -158,19 +187,22 @@ function FileBody({ name, type, text, imageSrc, saving = false, onChange, moved 
       ) : picture ? (
         imageSrc === undefined ? null : (
           <div className="armada-file-panel__picture">
-            <img src={imageSrc} alt={name} />
+            <NotableImage src={imageSrc} name={name} path={path} {...(notes === undefined ? {} : { notes })} {...(marked?.region === undefined ? {} : { marked: marked.region })} />
           </div>
         )
       ) : text === undefined ? null : (
-        <div className="armada-file-panel__well" data-whole>
+        <div ref={well} className="armada-file-panel__well" data-whole>
           <CodeEditor
             name={name}
             value={text}
             {...(onChange === undefined ? {} : { onChange })}
+            {...(marked?.lines === undefined ? {} : { reveal: marked.lines })}
             {...(follow === undefined ? {} : { onScroll: follow.onScroll, ...(follow.to === undefined ? {} : { scrollTo: follow.to }) })}
+            {...(noted === undefined || !noted.viewer.on ? {} : { notes: noted.marks, onNote: (at: { x: number; y: number }, lines: CodeLines, drawn: NoteAnchor | undefined) => noted.onNote(at, lines, drawn, well.current?.querySelector<HTMLElement>(".armada-code-editor") ?? null) })}
           />
         </div>
       )}
+      {noted?.viewer.layer}
     </div>
   );
 }
@@ -186,6 +218,8 @@ export function FilePanel({ onClose, floor = false, back, beside, onPreviewing, 
   const [lock, setLock] = useState<{ line: number; by: "file" | "preview" } | undefined>(undefined);
   const preview = isMarkdown(name, file.type) ? { on: previewing, toggle: () => setPreviewing((was) => !was) } : undefined;
   const shown = preview?.on === true;
+  const noted = useFileNotes(path, file.notes);
+  const read = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!shown) return;
     onPreviewing?.(true);
@@ -217,12 +251,20 @@ export function FilePanel({ onClose, floor = false, back, beside, onPreviewing, 
     >
       <FileBody
         {...file}
+        noted={noted}
         {...(previewing && preview !== undefined ? { follow: { onScroll: (line: number) => setLock({ line, by: "file" }), ...(lock?.by === "preview" ? { to: lock.line } : {}) } } : {})}
       />
     </Sheet>
     {preview?.on !== true ? null : (
       <Sheet kind="file-preview" beside="side-panel" open floating floor={floor} title="Preview" size="panel" closeLabel="Close" closeBinding="Esc" onClose={preview.toggle}>
-        <MarkdownPreview text={file.text ?? ""} onScroll={(line) => setLock({ line, by: "preview" })} {...(lock?.by === "file" ? { scrollTo: lock.line } : {})} />
+        <div ref={read} className="armada-file-panel__read" onKeyDown={noted.viewer.onKeyDown}>
+          <MarkdownPreview
+            text={file.text ?? ""}
+            onScroll={(line) => setLock({ line, by: "preview" })}
+            {...(lock?.by === "file" ? { scrollTo: lock.line } : {})}
+            {...(!noted.viewer.on ? {} : { notes: noted.marks, onNote: (at: { x: number; y: number }, lines: CodeLines, drawn: NoteAnchor | undefined) => noted.onNote(at, lines, drawn, read.current?.querySelector<HTMLElement>(".armada-markdown-preview") ?? null) })}
+          />
+        </div>
       </Sheet>
     )}
     </>
@@ -235,6 +277,7 @@ export function FilePanel({ onClose, floor = false, back, beside, onPreviewing, 
  */
 export function FileView({ head, onOpenInEditor, onShowInFinder, ...file }: Omit<FilePanelProps, "onClose" | "floor" | "back"> & { head: ReactNode }) {
   useSaveKey(file);
+  const noted = useFileNotes(file.path, file.notes);
   return (
     <div
       className="armada-file-view"
@@ -246,7 +289,7 @@ export function FileView({ head, onOpenInEditor, onShowInFinder, ...file }: Omit
         <div className="armada-file-view__who">{head}</div>
         <FileActs dirty={file.dirty} saving={file.saving} moved={file.moved} onSave={file.onSave} {...(onOpenInEditor === undefined ? {} : { onOpenInEditor })} {...(onShowInFinder === undefined ? {} : { onShowInFinder })} />
       </header>
-      <FileBody {...file} />
+      <FileBody {...file} noted={noted} />
     </div>
   );
 }

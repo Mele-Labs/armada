@@ -21,6 +21,24 @@ pub struct TrackedIssue {
     pub excerpt: String,
     /// The tracker says a pull request already closes it.
     pub linked_pull_request: bool,
+    /// Who opened it, by login. Absent where the tracker did not say.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub author: Option<String>,
+    /// Open on a plain list; a search may answer closed ones too.
+    pub state: IssueState,
+    /// Everything else the tracker said of it, under its own names. A field with no values is left out.
+    pub fields: Vec<IssueField>,
+    /// The Jobs holding this issue on the ledger, by id, whichever tracker it is on. Bridge joins them
+    /// with the Jobs it already has.
+    pub holders: Vec<String>,
+}
+
+/// One of an issue's fields that Armada has no slot for, under the tracker's own name for it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct IssueField {
+    pub name: String,
+    /// Each a display string.
+    pub values: Vec<String>,
 }
 
 /// `list_issues`' answer.
@@ -63,6 +81,10 @@ pub struct IssueRead {
     pub comments: Vec<IssueComment>,
     /// The pull requests that close it or name it, by address, each once.
     pub linked_pull_requests: Vec<LinkedPullRequest>,
+    /// As [`TrackedIssue::fields`].
+    pub fields: Vec<IssueField>,
+    /// As [`TrackedIssue::holders`].
+    pub holders: Vec<String>,
 }
 
 /// One comment on an issue.
