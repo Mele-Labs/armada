@@ -8,8 +8,8 @@
 use std::collections::BTreeMap;
 
 use ipc::{
-    Does, FleetRule, LogbookKind, LogbookSection, RuleScope, TeachingLayout, TeachingNote, TeachingProposal,
-    TeachingReach, TeachingSourceKind, TeachingWords, TweakChange,
+    AddressFound, Does, FleetRule, LogbookKind, LogbookSection, ProposedAddress, RuleScope, TeachingLayout, TeachingNote,
+    TeachingProposal, TeachingReach, TeachingSourceKind, TeachingWords, TweakChange,
 };
 use serde::{Deserialize, Serialize};
 
@@ -220,7 +220,7 @@ fn words(said: SaidWords, subject: &str) -> Result<TeachingWords, Unfit> {
             name: name.to_string(),
             pattern: pattern.to_string(),
             example: subject.to_string(),
-            address: address.map(str::to_string),
+            address: address.map(|template| ProposedAddress { template: template.to_string(), found: AddressFound::Person }),
         }),
     }
 }

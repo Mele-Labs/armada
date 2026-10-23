@@ -5,12 +5,12 @@
 use std::sync::Arc;
 
 use adapter_traits::{FromOutside, RecentlyMerged};
-use api::{HostedSessions, Teaching};
+use api::{HostedSessions, Mods, Teaching};
 use ipc::{
-    AnswerWaiting, DismissWaiting, SaveTeaching, SessionId, TeachingProposal, TeachingReach,
-    TeachingWords, WaitingItem, WaitingSource,
+    AddressFound, AnswerWaiting, DismissWaiting, ProposedAddress, ReadTeaching, SaveTeaching, SessionId,
+    TeachingProposal, TeachingReach, TeachingWords, WaitingItem, WaitingSource,
 };
-use testkit::{FakeTracker, FakeTrackers};
+use testkit::{FakeJudge, FakeTracker, FakeTrackers};
 
 use super::pull_request_panel::a_page;
 use super::session_host::{eventually, rig_fitted, Rig};
@@ -71,7 +71,7 @@ fn words(address: Option<&str>) -> TeachingWords {
         name: "Jira key".to_string(),
         pattern: KEY.to_string(),
         example: "ARM-123".to_string(),
-        address: address.map(str::to_string),
+        address: address.map(|template| ipc::ProposedAddress { template: template.to_string(), found: ipc::AddressFound::Person }),
     }
 }
 
@@ -245,4 +245,144 @@ async fn a_question_put_aside_is_not_put_again_and_a_session_with_no_one_to_ask_
     tokio::time::sleep(std::time::Duration::from_millis(100)).await;
     assert!(calls(&rig, &session).await.is_empty());
     assert!(calls(&rig, &other).await.is_empty(), "another Session is not asked what one put aside");
+}
+
+// Reading: the address is looked for before the person checks the proposal.
+
+const JIRA_ANSWER: &str = r#"{"words":{"name":"Jira key","pattern":"[A-Z][A-Z0-9]+-\\d+","address":null}}"#;
+const ACME: &str = "https://acme.example.net/browse/{match}";
+
+fn proposed(template: &str, found: AddressFound) -> Option<ProposedAddress> {
+    Some(ProposedAddress { template: template.to_string(), found })
+}
+
+/// A rig whose reader proposes the Jira key as words with no address, and a Manifest with a base to
+/// search merged pull requests on.
+fn rig_reading(fit: impl FnOnce(&mut crate::daemon::Fittings<testkit::FakeHarness, testkit::FakeVcs, testkit::FakeWorkProduct>)) -> Rig {
+    rig_fitted(|fittings| {
+        fittings.judge = Arc::new(FakeJudge::saying(JIRA_ANSWER));
+        let file = std::path::Path::new("armada.yml");
+        fittings.starting().manifest = config::Manifest::parse(file, "version: 1\nid: 01FIXTUREMANIFEST\nbase: main\n").expect("parses");
+        fit(fittings);
+    })
+}
+
+async fn read_address(rig: &Rig, reach: TeachingReach) -> Option<ProposedAddress> {
+    let teach = ReadTeaching {
+        words: "ARM-123".to_string(),
+        message: "See ARM-123".to_string(),
+        said: "A Jira key".to_string(),
+        repository: (reach == TeachingReach::Repository).then(|| rig.root.clone()),
+        reach,
+        session_id: None,
+        source: None,
+    };
+    Teaching::read_teaching(&*rig.fleet, teach).await.expect("read").words.expect("words").address
+}
+
+fn tracker_opening(template: &str) -> Arc<FakeTracker> {
+    let tracker = Arc::new(FakeTracker::empty());
+    tracker.opens_at(template);
+    tracker
+}
+
+fn a_merged_pull_request_linking(rig: &Rig, number: u64, body: &str) {
+    rig.fleet.vcs().main_ci.recently_merged_are(Some(vec![merged(number)]));
+    let mut page = a_page();
+    page.body = Some(body.into());
+    rig.fleet.vcs().now_page_of_pull_request(number, Some(page));
+}
+
+#[tokio::test]
+async fn a_read_finds_the_repositorys_address_in_the_trackers_settings_before_a_pull_request() {
+    let tracker = tracker_opening(ACME);
+    let rig = rig_reading(|fittings| fittings.trackers = Arc::new(FakeTrackers::empty().tracker(tracker)));
+    a_merged_pull_request_linking(&rig, 41, "Closes https://tracker.example.org/issues/ARM-77.");
+
+    assert_eq!(read_address(&rig, TeachingReach::Repository).await, proposed(ACME, AddressFound::Settings));
+}
+
+#[tokio::test]
+async fn a_read_falls_back_to_a_merged_pull_requests_text_and_names_the_pull_request() {
+    let rig = rig_reading(|_| {});
+    a_merged_pull_request_linking(&rig, 41, "Closes https://tracker.example.org/issues/ARM-77.");
+
+    assert_eq!(
+        read_address(&rig, TeachingReach::Repository).await,
+        proposed("https://tracker.example.org/issues/{match}", AddressFound::PullRequest(41))
+    );
+}
+
+#[tokio::test]
+async fn a_read_prefers_the_address_a_words_mod_with_the_same_pattern_already_has() {
+    let tracker = tracker_opening("https://tracker.example.org/{match}");
+    let rig = rig_reading(|fittings| fittings.trackers = Arc::new(FakeTrackers::empty().tracker(tracker)));
+    Arc::clone(&rig.fleet).save_teaching(teaching(&rig, None, TeachingReach::Repository, Some(ACME))).await.expect("saved");
+    let manifest = rig.fleet.manifest_id_at(&rig.root).expect("manifest");
+    crate::teaching::address_given(&rig.fleet.mods_dir(), "jira-key", &manifest, ACME, AddressFound::PullRequest(12), true).expect("written");
+
+    assert_eq!(read_address(&rig, TeachingReach::Repository).await, proposed(ACME, AddressFound::PullRequest(12)));
+}
+
+#[tokio::test]
+async fn a_read_with_nowhere_to_find_an_address_proposes_none_and_keeps_and_asks_nothing() {
+    let rig = rig_reading(|_| {});
+    let session = rig.start().await;
+    assert_eq!(read_address(&rig, TeachingReach::Repository).await, None);
+    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    assert!(rig.fleet.list_mods().await.expect("listed").mods.is_empty(), "nothing is kept");
+    assert!(calls(&rig, &session).await.is_empty(), "and nobody is asked by a read");
+}
+
+#[tokio::test]
+async fn a_read_with_no_repository_looks_in_none() {
+    let tracker = tracker_opening(ACME);
+    let rig = rig_reading(|fittings| fittings.trackers = Arc::new(FakeTrackers::empty().tracker(tracker)));
+    assert_eq!(read_address(&rig, TeachingReach::Everywhere).await, None);
+}
+
+#[tokio::test]
+async fn a_save_writes_the_address_the_proposal_carries_as_it_was_found() {
+    let tracker = tracker_opening("https://tracker.example.org/{match}");
+    let rig = rig_with_tracker(tracker);
+    let mut save = teaching(&rig, None, TeachingReach::Repository, None);
+    save.proposal.words.as_mut().expect("words").address = proposed(ACME, AddressFound::PullRequest(41));
+    Arc::clone(&rig.fleet).save_teaching(save).await.expect("saved");
+
+    let file = words_file(&rig);
+    assert!(file.contains(ACME) && file.contains("found = \"pull_request #41\""), "{file}");
+    assert_eq!(rules(&rig, None).await, [ACME], "the proposal's address, and not the tracker's, is kept");
+}
+
+#[tokio::test]
+async fn a_save_carrying_an_address_the_mod_has_for_every_repository_adds_no_copy() {
+    let rig = rig_reading(|_| {});
+    let mut everywhere = teaching(&rig, None, TeachingReach::Everywhere, None);
+    everywhere.repository = None;
+    everywhere.proposal.words.as_mut().expect("words").address = proposed(ACME, AddressFound::Settings);
+    Arc::clone(&rig.fleet).save_teaching(everywhere).await.expect("saved");
+
+    let offered = read_address(&rig, TeachingReach::Repository).await;
+    assert_eq!(offered, proposed(ACME, AddressFound::Settings), "the one for every repository is this repository's too");
+    let mut again = teaching(&rig, None, TeachingReach::Repository, None);
+    again.proposal.words.as_mut().expect("words").address = offered;
+    Arc::clone(&rig.fleet).save_teaching(again).await.expect("saved");
+    assert_eq!(words_file(&rig).matches("[[address]]").count(), 1, "{}", words_file(&rig));
+}
+
+#[tokio::test]
+async fn a_listed_rule_says_where_its_address_was_found() {
+    let rig = rig_reading(|_| {});
+    let mut everywhere = teaching(&rig, None, TeachingReach::Everywhere, None);
+    everywhere.repository = None;
+    everywhere.proposal.words.as_mut().expect("words").address = proposed("https://any.example.net/{match}", AddressFound::Person);
+    Arc::clone(&rig.fleet).save_teaching(everywhere).await.expect("saved");
+    let found = |rules: ipc::WordRules| rules.rules.into_iter().map(|one| (one.address, one.found)).collect::<Vec<_>>();
+    let listed = Arc::clone(&rig.fleet).list_word_rules(Some(rig.root.clone()), None).await.expect("listed");
+    assert_eq!(found(listed), [("https://any.example.net/{match}".to_string(), AddressFound::Person)]);
+
+    let manifest = rig.fleet.manifest_id_at(&rig.root).expect("manifest");
+    crate::teaching::address_given(&rig.fleet.mods_dir(), "jira-key", &manifest, ACME, AddressFound::PullRequest(41), true).expect("written");
+    let listed = Arc::clone(&rig.fleet).list_word_rules(Some(rig.root.clone()), None).await.expect("listed");
+    assert_eq!(found(listed), [(ACME.to_string(), AddressFound::PullRequest(41))], "the repository's own, with how it was found");
 }

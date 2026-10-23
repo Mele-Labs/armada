@@ -219,7 +219,7 @@ where
             session: teach.session_id.as_deref(),
             manifest: manifest.as_deref(),
         };
-        answer::read(&heard, &at).map_err(|unfit| {
+        let mut proposal = answer::read(&heard, &at).map_err(|unfit| {
             let refused = |code, why: String| Refusal::Unacceptable(WireError::raised(code, why, self.run_id()));
             match unfit {
                 Unfit::Unread(why) => failed(&format!("the answer could not be read: {why}")),
@@ -230,6 +230,15 @@ where
                 Unfit::Layout(why) => refused(LAYOUT_REFUSED, why),
                 Unfit::Nothing => refused(NOTHING_READ, "Nothing in what you wrote could be made into a change.".to_string()),
             }
-        })
+        })?;
+        // Words for a repository are shown with the address that repository has, where the person
+        // wrote none, so the link can be drawn before it is kept.
+        if let (Some(words), Some(root), Some(manifest)) = (proposal.words.as_mut(), root.as_deref(), manifest.as_deref()) {
+            if words.address.is_none() {
+                let found = self.address_proposed(root, manifest, words).await;
+                words.address = found;
+            }
+        }
+        Ok(proposal)
     }
 }

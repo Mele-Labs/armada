@@ -19,7 +19,7 @@ fn words(example: &str, address: Option<&str>) -> TeachingWords {
         name: "Jira key".to_string(),
         pattern: KEY_PATTERN.to_string(),
         example: example.to_string(),
-        address: address.map(str::to_string),
+        address: address.map(|template| ipc::ProposedAddress { template: template.to_string(), found: ipc::AddressFound::Person }),
     }
 }
 

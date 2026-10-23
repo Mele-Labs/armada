@@ -10,7 +10,7 @@ notes = """
 
 | Part | Mod | Name |
 | --- | --- | --- |
-| `words` | A Words mod (`words.toml`): the pattern once, and an address for `repository`'s Manifest id, or `*` for every repository. Teaching a pattern a Words mod already holds adds or replaces that address in it | the part's `name`, slugged |
+| `words` | A Words mod (`words.toml`): the pattern once, and an address for `repository`'s Manifest id, or `*` for every repository. The address is the `{template, found}` the part carries, written with its `found`; one the mod already opens that repository at is not written again. Teaching a pattern a Words mod already holds adds or replaces that address in it. A part with no address is looked for in the background, and the person is asked once if none is found | the part's `name`, slugged |
 | `fleet` | A Fleet mod (`fleet.toml`): one rule | `fleet-<notice>` |
 | `tweak` | A Tweak mod (`tweak.css`): the tokens as `:root` declarations | `tweak-<first token>` |
 | `layout` | A Layout mod (`layout.json`) | the part's `name`, slugged |

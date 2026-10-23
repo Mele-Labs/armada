@@ -5,6 +5,8 @@
 // rules in `events.ts` hold: hand-written, and every closed set left as `string` unless Bridge
 // matches on it, which `ModKind` is.
 
+import type { FleetRule } from "./teaching";
+
 /**
  * What a mod changes. A `mod.toml` naming another kind makes the mod invalid, so a valid row's is one of these.
  * `words` is a pattern Bridge links, `fleet` what Fleet does with a notice, `tweak` token values layered over the theme.
@@ -21,6 +23,8 @@ export type ModSummary = {
   description?: string;
   /** What Teach was pressed on, where a person taught this mod. Absent for a mod written by hand. */
   taught_on?: string;
+  /** The Logbook entry a teaching from a Job made this mod with. Absent for a mod written by hand or taught where no entry was made. */
+  entry?: string;
   /** This machine's switch. A mod nobody switched is on. */
   enabled: boolean;
   /** Whether Bridge may load it. */
@@ -59,6 +63,38 @@ export type ModChecked = {
   css?: string;
   /** A layout mod's `layout.json` as it was checked, present only where it passed. Bridge applies this text and no other. */
   layout?: string;
+  /** A Words mod's `words.toml` as it was checked, present only where it passed. */
+  words?: WordsFile;
+  /** A Fleet mod's `fleet.toml` as it was checked, present only where it passed. */
+  fleet?: FleetFile;
+};
+
+/** Where a pattern opens in one repository. */
+export type WordsAddress = {
+  /** A Manifest id, or `*` for every repository without an address of its own. */
+  repository: string;
+  /** An `http` or `https` address with `{match}` where the matched words go. */
+  template: string;
+  /** `settings`, `pull_request #N` or `person`. */
+  found: string;
+};
+
+/** A `words.toml`: a pattern learned once, and an address for each repository that has one. */
+export type WordsFile = {
+  /** What the pattern finds, as a person would say it: `Jira key`. */
+  name: string;
+  /** A regular expression Bridge runs as a JavaScript one. */
+  pattern: string;
+  /** Words the pattern matches whole. */
+  example: string;
+  /** Absent when the file holds none. */
+  address?: WordsAddress[];
+};
+
+/** A `fleet.toml`: what Fleet does with notices. */
+export type FleetFile = {
+  /** Absent when the file holds no rule. */
+  rule?: FleetRule[];
 };
 
 /** `POST /mods/try`'s body: the tracker mod, and the repository to try it against. */

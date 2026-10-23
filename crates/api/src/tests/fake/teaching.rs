@@ -13,7 +13,7 @@ impl Teaching for FakeDaemon {
             name: "Key".to_string(),
             pattern: "[A-Z]+-\\d+".to_string(),
             example: teach.words,
-            address: Some("https://x.example/{match}".to_string()),
+            address: Some(ipc::ProposedAddress { template: "https://x.example/{match}".to_string(), found: ipc::AddressFound::Person }),
         };
         Ok(TeachingProposal { words: Some(words), ..TeachingProposal::default() })
     }

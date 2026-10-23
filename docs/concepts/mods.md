@@ -113,6 +113,7 @@ An address is an `http` or `https` address with `{match}` outside its host. At m
 Fleet asks the Manifest's tracker first (a Jira site gives its `browse` page, `found = "settings"`), then reads the text of up to five recently merged pull requests for a web address that holds a match of the pattern on its own in a path or query value (`found = "pull_request #<number>"`).
 Where neither says, the Session whose person taught it is asked in Needs you, once for that mod and repository: they pick an address another repository has, or write one.
 An address a person wrote is never replaced by one that was found.
+`read_teaching` runs the same search before a save, so the proposal carries the address, and the save writes it without searching again.
 
 ## fleet.toml
 
@@ -201,9 +202,9 @@ A tracker mod switched off in Mods is refused too, with that as the reason; the 
 
 | Operation | Kind | A job may | Does |
 |---|---|---|---|
-| `list_mods` | query | yes | Every mod: kind, version, description, `taught_on`, `enabled`, `valid`, `reason`, `changed_at`, and a tracker's `tried` |
+| `list_mods` | query | yes | Every mod: kind, version, description, `taught_on`, `entry` (the Logbook entry that made it), `enabled`, `valid`, `reason`, `changed_at`, and a tracker's `tried` |
 | `scaffold_mod` | command | yes | Makes the folder, a starter file for its `kind` that changes nothing (a tracker's validates and fails its try), `git init` and one commit |
-| `validate_mod` | query | yes | Every problem found, and the checked text when there are none: `css` for a theme or a tweak, `layout` for a layout |
+| `validate_mod` | query | yes | Every problem found, and the checked text when there are none: `css` for a theme or a tweak, `layout` for a layout, `words` for a Words mod and `fleet` for a Fleet mod, each the file as typed data |
 | `try_tracker_mod` | command | yes | Runs a tracker mod against a repository and keeps how it went |
 | `set_mod_enabled` | command | Helm only | This machine's switch for one mod |
 | `promote_mod` | command | no | Copies the mod onto a new branch of a repository |

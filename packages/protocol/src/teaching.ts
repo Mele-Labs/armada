@@ -48,7 +48,15 @@ export type TeachingNote = {
   text: string;
 };
 
-/** A pattern Bridge links, with the address for the repository it was taught in where the person gave one. */
+/** Where a pattern opens in the repository it was taught in, and how that was known. */
+export type ProposedAddress = {
+  /** An `http` or `https` address with `{match}` where the matched words go. */
+  template: string;
+  /** Where it came from: `settings`, `pull_request #N` or `person`. A save keeps it as it is. */
+  found: string;
+};
+
+/** A pattern Bridge links, with the address for the repository it was taught in where one is known. */
 export type TeachingWords = {
   /** What the pattern finds, as a person would say it: `Jira key`. */
   name: string;
@@ -56,8 +64,12 @@ export type TeachingWords = {
   pattern: string;
   /** The selected words, which the pattern matches whole. */
   example: string;
-  /** An `http` or `https` address with `{match}` where the matched words go. Absent when the person did not give one. */
-  address?: string;
+  /**
+   * The address for the repository the teaching is in, where the person gave one or Fleet found one: a Words mod that already
+   * has it, the Manifest's tracker, a recent merged pull request. `save_teaching` writes the one it carries. Absent where none is
+   * known; a save then looks in the background and asks the person once if it finds none.
+   */
+  address?: ProposedAddress;
 };
 
 /** What Fleet does with a notice. */
@@ -135,6 +147,8 @@ export type WordRule = {
   example: string;
   /** An address with `{match}`, the repository's own or the one for every repository. */
   address: string;
+  /** Where that address came from: `settings`, `pull_request #N` or `person`. */
+  found: string;
 };
 
 /** `list_word_rules`' answer (`GET /teachings/words?repository=&session_id=`): the patterns that have an address for the repository asked for. */

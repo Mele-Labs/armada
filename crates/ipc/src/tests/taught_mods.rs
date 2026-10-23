@@ -14,6 +14,7 @@ fn the_new_kinds_are_spelled_as_their_files_are_named_and_taught_on_is_left_out_
         version: None,
         description: None,
         taught_on: Some("ARM-123 in a message".into()),
+        entry: Some("41".into()),
         enabled: true,
         valid: true,
         reason: None,
@@ -22,8 +23,9 @@ fn the_new_kinds_are_spelled_as_their_files_are_named_and_taught_on_is_left_out_
     };
     let json = encode(&row).expect("plain data");
     assert!(json.contains(r#""taught_on":"ARM-123 in a message""#), "{json}");
-    let bare = encode(&ModSummary { taught_on: None, ..row }).expect("plain data");
-    assert!(!bare.contains("taught_on"), "{bare}");
+    assert!(json.contains(r#""entry":"41""#), "{json}");
+    let bare = encode(&ModSummary { taught_on: None, entry: None, ..row }).expect("plain data");
+    assert!(!bare.contains("taught_on") && !bare.contains("entry"), "{bare}");
 }
 
 #[test]

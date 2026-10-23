@@ -14,7 +14,7 @@ use ipc::{
 use store::ReadError;
 use tokio::task::JoinHandle;
 
-use super::{examine, scaffold, scan, slug_problem, tracker, Payload};
+use super::{examine, fleet_rules, scaffold, scan, slug_problem, tracker, words, Payload};
 use crate::adrift::Adrift;
 use crate::daemon::Fleet;
 
@@ -150,20 +150,26 @@ where
             .await
             .map_err(|why| self.mod_fault(format!("the mod could not be read: {why}")))?;
         let valid = found.valid();
-        let (mut css, mut layout) = (None, None);
+        let (mut css, mut layout, mut taught_words, mut taught_fleet) = (None, None, None, None);
         match found.files.map(|files| files.payload) {
             // A tweak is token values like a theme's, and Bridge injects it the same way.
             Some(Payload::Css(text) | Payload::Tweak(text)) => css = Some(text),
             Some(Payload::Layout(text)) => layout = Some(text),
-            // Words are read through `list_word_rules` and Fleet's own are read by Fleet. A tracker
-            // is not Bridge's to apply; what it is checked against is `try_tracker_mod`.
-            Some(Payload::Words(_) | Payload::Fleet(_) | Payload::Tracker(_)) | None => {}
+            // A taught mod hands back what it holds, typed, for Bridge to show. The file passed its
+            // checks, so reading it again cannot fail. Words are linked through `list_word_rules`
+            // and Fleet's own are acted on by Fleet.
+            Some(Payload::Words(text)) => taught_words = words::read(&text).ok(),
+            Some(Payload::Fleet(text)) => taught_fleet = fleet_rules::read(&text).ok(),
+            // A tracker is not Bridge's to apply; what it is checked against is `try_tracker_mod`.
+            Some(Payload::Tracker(_)) | None => {}
         }
         Ok(ModChecked {
             name,
             valid,
             css,
             layout,
+            words: taught_words,
+            fleet: taught_fleet,
             problems: found.problems,
         })
     }

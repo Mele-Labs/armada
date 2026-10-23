@@ -148,6 +148,7 @@ impl Examined {
             version: self.manifest.version.clone(),
             description: self.manifest.description.clone(),
             taught_on: self.manifest.taught_on.clone(),
+            entry: self.manifest.entry.clone(),
             enabled,
             valid: self.valid(),
             reason: self.problems.first().map(|first| match self.problems.len() {
