@@ -65,7 +65,7 @@ where
             self.hosts().of(session).state().fleet_told += 1;
         }
         Arc::clone(self)
-            .send_hosted_written(sent, Written::Row(row), None, None)
+            .send_hosted_written(sent, Written::Row(row), None, None, false)
             .await?;
         // News asks nothing, so there is nothing in the agent's replies to read against it. With
         // dispute reviews off nothing is kept, so switching them on reads none sent before.
@@ -129,20 +129,21 @@ where
         ahead: Option<String>,
         instead: Option<String>,
     ) -> Result<SessionRecord, Refusal> {
-        self.send_hosted_written(sent, Written::Message(from), ahead, instead)
+        self.send_hosted_written(sent, Written::Message(from), ahead, instead, false)
             .await
     }
 
     /// [`Self::send_hosted_ahead`] with what the thread keeps of the words chosen: a message from
     /// someone, or the `ran` row of a command that ended. `instead` is what the agent reads in place
     /// of the words, Fleet's lines with them, as pinned notes' are, and is no more the thread's than
-    /// `ahead` is.
+    /// `ahead` is. `followed` makes the row the one the Session's artifacts follow, as a person's is.
     pub(super) async fn send_hosted_written(
         self: Arc<Self>,
         sent: SendSessionMessage,
         written: Written,
         ahead: Option<String>,
         instead: Option<String>,
+        followed: bool,
     ) -> Result<SessionRecord, Refusal> {
         let id = sent.session_id.as_str().to_string();
         let (session, hosting) = self.session_and_hosting(&id).await?;
@@ -172,8 +173,9 @@ where
             self.hosts().of(&id).state().activity.writing.person_said(row.id(), &text);
         }
         self.row_put(&id, row).await;
-        // Before the early returns below: a handoff's answer is still the person's latest message.
-        if matches!(written, Written::Message(SessionVoice::You)) {
+        // Before the early returns below: a handoff's answer is still the person's latest message. A waiting
+        // Session's brief is the person's too, though it is written in the voice of the Job it waited on.
+        if followed || matches!(written, Written::Message(SessionVoice::You)) {
             // The artifacts drawn from here on follow this message, until the next one.
             if let Err(why) = self.store().lock().await.keep_session_message(&id, &row_id) {
                 self.session_warned(&id, "a job's latest message was not kept", format!("{why:?}"));

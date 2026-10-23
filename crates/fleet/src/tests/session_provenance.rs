@@ -2,11 +2,14 @@
 //! message and the plan task in progress when it was written, and Fleet works both out itself.**
 //! `docs/concepts/session/what-is-kept.md`.
 
-use api::Sessions;
+use std::sync::Arc;
+
+use api::{HostedSessions, Sessions};
 use ipc::ReportedTaskStatus::{Completed, InProgress};
-use ipc::{AttachmentVersion, SessionId, SessionRow, ShowSketch};
+use ipc::{AttachmentVersion, CloseSession, SessionId, SessionRow, ShowSketch, StartBase, StartCondition};
 
 use super::session_host::{rig_placing, Rig};
+use super::session_after::{brief_after, BRIEF};
 use super::session_plan::{first, recorded, task, tasks};
 
 fn drawn(id: &SessionId, second: &str) -> ShowSketch {
@@ -67,4 +70,25 @@ async fn a_version_follows_the_task_that_began_last_and_none_once_nothing_is_in_
     let read: Vec<_> = versions(&rig, &id).await.into_iter().map(|one| one.from_task).collect();
     let some = |task: &str| Some(task.to_string());
     assert_eq!(read, [some("t2"), some("t1"), some("t1"), None]);
+}
+
+#[tokio::test]
+async fn the_brief_a_waiting_job_is_sent_when_its_wait_is_met_is_what_its_first_artifacts_follow() {
+    let rig = super::agent_starts::rig(None);
+    let agent = rig.a_waited_on_agent().await;
+    let waiting = Arc::clone(&rig.fleet)
+        .start_session_reading(brief_after(&rig, &agent, StartCondition::Ends, StartBase::Main))
+        .await
+        .expect("made to wait");
+    rig.fleet.close_session(CloseSession { session_id: agent.clone() }).await.expect("closed");
+    rig.eventually(&waiting.id, "the start", |one| one.waits.is_none()).await;
+    let brief = rig
+        .thread_has(&waiting.id, "the brief", |row| matches!(row, SessionRow::Message { text, .. } if text.ends_with(BRIEF)))
+        .await;
+
+    rig.fleet.show_sketch(None, drawn(&waiting.id, "Fleet")).await.unwrap();
+
+    let history = rig.fleet.get_attachment_history(waiting.id.clone()).await.expect("a history");
+    let read: Vec<_> = history.versions.into_iter().map(|one| one.from_message).collect();
+    assert_eq!(read, [Some(brief.id().to_string())]);
 }

@@ -56,7 +56,7 @@ Bridge reads a Job's versions whole, oldest first, with `get_attachment_history`
 A session Fleet forgets as blank takes its versions with it, and an ended Job's stay with its rows.
 
 **A version also says what it followed.** Fleet keeps, for each Job, the thread row id of the person's latest message and the plan task in progress (`session_focus`), and a trigger on `ledger_attachment_versions` copies both into `ledger_attachment_version_origins` as the version is written.
-The message is the one a send to a hosted Job wrote, set before anything else in the send can return; the task is the one the agent's task list put in progress most recently, and none once that task is completed or nothing is in progress.
+The message is the one a person's send to a hosted Job wrote, set before anything else in the send can return, or, for a Job that waited on another, the brief it is sent when its wait is met; the task is the one the agent's task list put in progress most recently, and none once that task is completed or nothing is in progress.
 Fleet works both out from what it saw, never from what the agent says.
 A version written before this, by a holder that is not a session, or before the Job had a message or a task, follows nothing known.
 It is a second table because a migration that adds only cannot change the triggers that write the version, and a new trigger on the version cannot update its row.
