@@ -5,7 +5,7 @@
 use regex::RegexBuilder;
 
 /// The longest pattern, in characters.
-const MOST_PATTERN: usize = 300;
+const MOST_PATTERN: usize = 200;
 
 /// Why this rule cannot be kept, where it cannot. `words` are the selected words it was taught from.
 pub(crate) fn fault(pattern: &str, address: &str, words: &str) -> Option<String> {
@@ -18,6 +18,9 @@ fn pattern_fault(pattern: &str, words: &str) -> Option<String> {
     }
     if let Some(what) = script_only(pattern) {
         return Some(format!("the pattern uses {what}, which Bridge cannot read"));
+    }
+    if repeats_a_repeat(pattern) {
+        return Some("the pattern repeats a group that itself repeats or chooses, which can hang Bridge".to_string());
     }
     // The engine refuses lookaround and backreferences itself, which is the subset wanted.
     let compiled = match RegexBuilder::new(pattern).size_limit(100_000).build() {
@@ -71,6 +74,56 @@ fn script_only(pattern: &str) -> Option<&'static str> {
         before = one;
     }
     None
+}
+
+/// Whether a group that is repeated (`+`, `*` or `{`) holds a repeat or a choice: `(a+)+`, `(a*)*`,
+/// `(a|aa)+`. A JavaScript engine backtracks through those without end on a near miss, and Bridge
+/// runs every taught pattern on every message it draws. The engine here does not backtrack, so it
+/// would never show it.
+fn repeats_a_repeat(pattern: &str) -> bool {
+    let mut chars = pattern.chars().peekable();
+    let mut groups: Vec<bool> = Vec::new();
+    let mut in_class = false;
+    let mut after_open = false;
+    while let Some(one) = chars.next() {
+        let was_open = std::mem::take(&mut after_open);
+        match one {
+            '\\' => {
+                chars.next();
+            }
+            '[' => in_class = true,
+            ']' => in_class = false,
+            _ if in_class => {}
+            '(' => {
+                groups.push(false);
+                after_open = true;
+            }
+            ')' => {
+                let held = groups.pop().unwrap_or(false);
+                if held && matches!(chars.peek(), Some('+' | '*' | '{')) {
+                    return true;
+                }
+                if held {
+                    if let Some(parent) = groups.last_mut() {
+                        *parent = true;
+                    }
+                }
+            }
+            '+' | '*' | '{' | '|' => {
+                if let Some(group) = groups.last_mut() {
+                    *group = true;
+                }
+            }
+            // `?` after `(` opens `(?:`; anywhere else it makes the one before it optional.
+            '?' if !was_open => {
+                if let Some(group) = groups.last_mut() {
+                    *group = true;
+                }
+            }
+            _ => {}
+        }
+    }
+    false
 }
 
 fn address_fault(address: &str) -> Option<String> {

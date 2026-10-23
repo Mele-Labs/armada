@@ -41,7 +41,8 @@ pub(crate) const QUESTION: &str =
      `pattern`, a regular expression that matches the selected words whole and other words of the \
      same kind, and `address`, an http or https address with `{match}` where the matched words go. \
      The pattern runs as a JavaScript regular expression: no lookahead, lookbehind, backreference, \
-     inline flag or named group, and it must not match the empty string. `{match}` never goes in \
+     inline flag or named group, it must not match the empty string, it is under 200 characters, \
+     and no group that is repeated holds a repeat or a choice. `{match}` never goes in \
      the host.\n\
      - `note`: something an agent should be told from now on. Give `section`, `kind` and `text`. \
      {sections}. `text` is one or two short lines in plain words, addressed to the agent, with no \

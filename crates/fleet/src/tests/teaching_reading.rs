@@ -74,6 +74,7 @@ async fn an_answer_may_hold_both_a_link_and_a_note() {
 #[tokio::test]
 async fn a_link_that_cannot_work_in_bridge_is_refused_whole() {
     let https = "https://myproject.jira.com/{match}";
+    let long = format!("STORE-1234{}", "x?".repeat(100));
     let refused = [
         ("a pattern missing the selected words", r"BLOG-\d+", https),
         ("a pattern matching only part of them", "[A-Z]+", https),
@@ -83,6 +84,11 @@ async fn a_link_that_cannot_work_in_bridge_is_refused_whole() {
         ("a backreference", r"(S)TORE-1234\1", https),
         ("a pattern that also matches nothing", r"(STORE-1234)?", https),
         ("an inline flag", r"(?i)store-1234", https),
+        ("a repeated group holding a repeat", r"([A-Z]+)+-\d+", https),
+        ("a repeated group holding a repeat of nothing or more", r"([A-Z]*)*-\d+", https),
+        ("a repeated group holding a choice", r"(ST|S)+ORE-1234", https),
+        ("a repeated group holding a repeat in a group", r"(([A-Z])+-)+\d+", https),
+        ("a pattern over 200 characters", &long, https),
         ("an address that is not a web address", r"STORE-\d+", "ftp://myproject.example/{match}"),
         ("an address that runs a script", r"STORE-\d+", "javascript:alert({match})"),
         ("an address whose host is the match", r"STORE-\d+", "https://{match}.example/"),
@@ -101,6 +107,14 @@ async fn a_pattern_that_matches_the_selected_words_whole_is_not_refused_for_matc
     let (rig, _) = rig_saying(KEY);
     assert!(read(&rig, teaching(&rig, "STORE-1234", "A Jira key")).await.is_ok());
     assert!(read(&rig, teaching(&rig, "UTF-8", "Not a ticket, but link it")).await.is_ok());
+}
+
+#[tokio::test]
+async fn a_group_that_is_not_repeated_may_hold_repeats() {
+    for pattern in [r"([A-Z][A-Z0-9]+)-(\d+)", r"(?:[A-Z]+)-\d+", r"[A-Z]+(-\d+)?"] {
+        let (rig, _) = rig_saying(&link_answer(pattern, "https://myproject.jira.com/{match}"));
+        assert!(read(&rig, teaching(&rig, "STORE-1234", "A Jira key")).await.is_ok(), "{pattern}");
+    }
 }
 
 #[tokio::test]
