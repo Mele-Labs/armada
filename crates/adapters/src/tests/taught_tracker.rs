@@ -101,7 +101,7 @@ fn each_thing_a_tracker_file_may_not_say_is_refused_with_its_reason() {
     let cases: [(String, &str); 7] = [
         (good.replacen("map = '''", "mapp = '''", 1), "`[search]` has no `map`"),
         (good.replacen("transport = \"cli\"", "transport = \"cli\"\nshell = true", 1), "`[search]` has `shell`, which a cli call does not take"),
-        (good.replacen("transport = \"cli\"", "transport = \"mcp\"", 1), "`[search]` transport `mcp` is not one this build has: cli, http"),
+        (good.replacen("transport = \"cli\"", "transport = \"grpc\"", 1), "`[search]` transport `grpc` is not one this build has: cli, http, mcp"),
         (good.replacen("{reference}", "{query}", 1), "`[read]` uses `{query}`, which only `[search]` can fill"),
         (good.replacen("\"--filter\"", "\"{credential}\"", 1), "`[search]` uses `{credential}`, and there is no `[credential]` to fill it"),
         (format!("{good}\n[comments]\nx = 1\n"), "`[comments]` is not a section a tracker reads"),

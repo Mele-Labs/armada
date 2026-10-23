@@ -186,6 +186,10 @@ impl<R: Run> Tracker for JiraTracker<R> {
         Ok(issues)
     }
 
+    fn issues_linked_in(&self, _in_repo: &str, text: &str) -> Vec<String> {
+        self.settings.keys_in(text)
+    }
+
     fn query_guide(&self) -> QueryGuide {
         self.settings.guide()
     }

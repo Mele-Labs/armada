@@ -1,0 +1,8 @@
+[operations.forget_issue_query]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Drop a saved issue query"
+notes = """
+`POST /issue_queries/:repository/:id/forget`, `repository` a manifest id and `id` the saved query's. `docs/concepts/tracker.md`, *Saved queries*. Answers `IssueQueries` as `list_issue_queries` does, with what is left. A 404 `fleet.no_such_issue_query` for an id the repository has none of, and a 422 for a repository Fleet does not serve.
+"""

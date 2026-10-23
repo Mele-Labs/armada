@@ -1,6 +1,7 @@
 //! `list_issues`. #91, `docs/concepts/tracker.md`. Mounted with Autopilot's routes, which pick
 //! from the same list: `crate::autopilots`.
 
+use axum::body::Bytes;
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::Response;
@@ -10,7 +11,7 @@ use serde::Deserialize;
 
 use ipc::ManifestId;
 
-use crate::answers::{answer, refused};
+use crate::answers::{answer, refused, undecodable};
 use crate::autopilots as ap;
 use crate::daemon::{Autopilots, Issues};
 use crate::served::Served;
@@ -51,11 +52,81 @@ pub(crate) async fn get_issue<D: Issues>(
     }
 }
 
+/// A query in the tracker's own language, run once. A POST because a query is typed text.
+pub(crate) async fn search_issues<D: Issues>(
+    State(served): State<Served<D>>,
+    Path(repository): Path<String>,
+    body: Bytes,
+) -> Response {
+    let search: ipc::SearchIssues = match ipc::decode("an issue search", &body) {
+        Ok(search) => search,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().search_issues(ManifestId::carried(repository), search).await {
+        Ok(list) => answer(StatusCode::OK, &list, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+pub(crate) async fn list_issue_queries<D: Issues>(
+    State(served): State<Served<D>>,
+    Path(repository): Path<String>,
+) -> Response {
+    match served.daemon().list_issue_queries(ManifestId::carried(repository)).await {
+        Ok(queries) => answer(StatusCode::OK, &queries, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+pub(crate) async fn write_issue_query<D: Issues>(
+    State(served): State<Served<D>>,
+    Path(repository): Path<String>,
+    body: Bytes,
+) -> Response {
+    let write: ipc::WriteIssueQuery = match ipc::decode("words for an issue query", &body) {
+        Ok(write) => write,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().write_issue_query(ManifestId::carried(repository), write).await {
+        Ok(written) => answer(StatusCode::OK, &written, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+pub(crate) async fn save_issue_query<D: Issues>(
+    State(served): State<Served<D>>,
+    Path(repository): Path<String>,
+    body: Bytes,
+) -> Response {
+    let save: ipc::SaveIssueQuery = match ipc::decode("an issue query to save", &body) {
+        Ok(save) => save,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().save_issue_query(ManifestId::carried(repository), save).await {
+        Ok(saved) => answer(StatusCode::OK, &saved, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+pub(crate) async fn forget_issue_query<D: Issues>(
+    State(served): State<Served<D>>,
+    Path((repository, id)): Path<(String, String)>,
+) -> Response {
+    match served.daemon().forget_issue_query(ManifestId::carried(repository), id).await {
+        Ok(left) => answer(StatusCode::OK, &left, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// The issues route and Autopilot's, as one router the surface merges.
 pub(crate) fn mounted<D: Issues + Autopilots>() -> Router<Served<D>> {
     Router::new()
         .route("/issues/:repository", get(list_issues::<D>))
         .route("/issues/:repository/:reference", get(get_issue::<D>))
+        .route("/issue_queries/:repository", get(list_issue_queries::<D>).post(save_issue_query::<D>))
+        .route("/issue_queries/:repository/search", post(search_issues::<D>))
+        .route("/issue_queries/:repository/write", post(write_issue_query::<D>))
+        .route("/issue_queries/:repository/:id/forget", post(forget_issue_query::<D>))
         .route("/autopilots", get(ap::list_autopilots::<D>))
         .route(
             "/autopilots/:repository",

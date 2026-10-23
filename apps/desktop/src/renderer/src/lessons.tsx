@@ -1,18 +1,15 @@
-// The Lessons surface, as the window draws it: what got in the way across
-// Sessions, read on open and on focus (`docs/concepts/retro.md`). Apart from
-// `App.tsx`, which is at its length.
+// Armada fixes, as the Logbook draws them: every retro item, newest first, read on open and on focus
+// (`docs/concepts/retro.md`). Apart from `App.tsx`, which is at its length.
 
 import { useState } from "react";
 
 import { createReviewHold } from "@armada/screens/src/lessons/review-hold";
 import { Lessons } from "@armada/screens/src/lessons/Lessons";
-import { Boundary, useAtFloor } from "@armada/shell";
+import { useAtFloor } from "@armada/shell";
 
-import type { BridgeState } from "../../shared/bridge";
 import { agreeLesson, askLesson, disagreeLesson, readLessons, readRetro, reviewLessons, startLessonSession } from "./commands";
 import { takeRetroAsked } from "./open-retro";
 import { askToOpenSession } from "./open-session";
-import { useLessonsTab } from "./remembered-views";
 
 /**
  * The guided review's held state for this window, per repository pick: made once, outside the
@@ -20,40 +17,27 @@ import { useLessonsTab } from "./remembered-views";
  */
 const reviewHold = createReviewHold();
 
-export function LessonsSurface({
-  repository,
-  bridge,
-  onCopied,
-}: {
-  repository: string | null;
-  bridge: BridgeState["bridge"];
-  onCopied: (value: string) => void;
-}) {
+export function ArmadaFixes({ repository }: { repository: string | null }) {
   const floor = useAtFloor();
-  // The tab is remembered for this viewer, the way Workflow's and Plan's views are.
-  const [tab, setTab] = useLessonsTab();
   // A Session's Retro press opens the page on that Session's retro; the ask is taken once.
   const [asked] = useState(takeRetroAsked);
   return (
-    <Boundary region="Retros" bridge={bridge} onCopied={onCopied}>
-      {/* Keyed by the pick, because main narrows the read to it. */}
-      <Lessons
-        key={repository ?? ""}
-        onReadLessons={readLessons}
-        onReadRetro={readRetro}
-        onAgreeLesson={agreeLesson}
-        onDisagreeLesson={disagreeLesson}
-        onStartSession={startLessonSession}
-        onOpenSession={askToOpenSession}
-        onReviewLessons={reviewLessons}
-        onAskLesson={askLesson}
-        repository={repository}
-        floor={floor}
-        tab={tab}
-        onTab={setTab}
-        hold={reviewHold}
-        {...(asked === undefined ? {} : { opening: asked })}
-      />
-    </Boundary>
+    // Keyed by the pick, because main narrows the read to it.
+    <Lessons
+      key={repository ?? ""}
+      embedded
+      onReadLessons={readLessons}
+      onReadRetro={readRetro}
+      onAgreeLesson={agreeLesson}
+      onDisagreeLesson={disagreeLesson}
+      onStartSession={startLessonSession}
+      onOpenSession={askToOpenSession}
+      onReviewLessons={reviewLessons}
+      onAskLesson={askLesson}
+      repository={repository}
+      floor={floor}
+      hold={reviewHold}
+      {...(asked === undefined ? {} : { opening: asked })}
+    />
   );
 }

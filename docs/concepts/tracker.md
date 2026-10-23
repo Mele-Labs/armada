@@ -33,6 +33,9 @@ The credential stays where the forge CLI already keeps it, in the operator's own
 | Read one issue | By its reference | `read_issue` |
 | Search the issues | A query in the tracker's own language, open or closed as it says, newest edit first, at most 100 | `search_issues` |
 | Teach its query language | What a model needs to write a query, and the tracker's own Open and Assigned to me | `query_guide` |
+| Say which issues a text links | Whenever a Job is dispatched or a message names a link, in the tracker's own words: `7` on the forge, `ABC-12` on Jira. None for a tracker that reads no links | `issues_linked_in` |
+| Write a query from a person's words | On ask from Bridge, one model call | `crates/fleet/src/issue_queries.rs` |
+| Run, save, edit and forget a query | On ask from Bridge, a saved one run as one tracker call | `crates/fleet/src/issue_queries.rs`, `crates/store/src/issue_queries.rs` |
 
 **Fleet never comments on, labels or edits an issue or a pull request on the owner's behalf**, unless he presses for it.
 A review or comment he approves or types and sends from Bridge is his own act. #91 asked for write-back to the issue a Job came from, and it is not built.
@@ -63,6 +66,48 @@ Everything else is a named field, under the tracker's own name, each value a dis
 
 A token that may not read projects (`read:project`) still searches: it is asked again without them, and the rest is read.
 
+## Saved queries and the query writer
+
+**A person describes a filter in his own words, and one model call writes it as a query in the tracker's own language.**
+The call has no tools and is given the tracker's `QueryGuide` and his words.
+It is never given a ticket's title or body, so nothing a ticket says can reach it.
+It answers a query and the names of the fields a row should show.
+It runs on `models.review`, as Natural Search does.
+
+**Fleet runs what was written before it answers.**
+A query the tracker refuses fails the call with the tracker's own words, and so does a field the guide does not list.
+The call is spent either way, and its cost is on the answer when it succeeds.
+Nothing is kept until he saves.
+
+**Saving makes no model call.**
+It runs the query again and refuses one the tracker refuses.
+With an id it edits that query in place, which is how he edits the text by hand, and the row keeps its place in the list.
+Running a saved query later is one tracker call and no model spend.
+
+**They are his, on this Mac.**
+They live in Fleet's store, per repository (`crates/store/src/issue_queries.rs`), and survive a restart.
+No Manifest holds them, so they are never committed to a repository.
+
+**Every repository starts with two queries it does not save: Open and Assigned to me.**
+They come from the tracker's guide, in its own language, so they need no identity and no model.
+
+**A tracker that cannot be read says why, and Bridge draws that as the offer to teach Armada this tracker.**
+A tracker that refuses every call puts its reason where the guide would be, and `list_issue_queries` answers it as `refused` with no guide.
+Saved queries are still listed, so he can forget one.
+
+| Act | Operation | Notes |
+|---|---|---|
+| Run one query | `search_issues` | A POST only because a query is typed text. Read from the tracker each time, never held |
+| Guide summary and saved queries | `list_issue_queries` | Language, Open, Assigned to me, field names; or the tracker's refusal |
+| Write a query from his words | `write_issue_query` | One call, the query already run, nothing kept |
+| Keep or edit a query | `save_issue_query` | Runs the query first. No model |
+| Drop a query | `forget_issue_query` | By id |
+
+**A ticket shows the Jobs working it.**
+`TrackedIssue.holders` and `IssueRead.holders` are Job ids read from the ledger's `issue` rows, so they read the same on every tracker.
+A Job that gave the issue back is not one.
+Bridge joins them with the Jobs it already has.
+
 ## Choosing a tracker
 
 A repository's issues are not always where its pull requests are.
@@ -89,7 +134,7 @@ The match from provider to implementation is in `crates/adapters/src/tracker_pro
 
 ### A tracker Armada was not built for
 
-A job teaches it: it finds the tracker's command line or API, writes a tracker mod's `tracker.toml`, tries it against the repository with `try_tracker_mod`, and the Manifest names the mod.
+A job teaches it: it finds the tracker's command line, API or MCP server, writes a tracker mod's `tracker.toml`, tries it against the repository with `try_tracker_mod`, and the Manifest names the mod.
 
 ```yaml
 tracker:
@@ -126,7 +171,7 @@ A block naming neither is refused, since it would list every open issue on the s
 | List the open issues | `project = "ABC" AND statusCategory != Done`, or `project in ("ABC", "OPS") AND ...` for several, or no project clause where only `jql` is given, plus `jql` in parentheses, newest edit first. Whatever the search returns is listed, each under its key |
 | Search the issues | What the block selects, `project` and `jql`, ANDed with the query in parentheses, then `ORDER BY updated DESC`. A query holding `ORDER BY` is refused, as `jql` is. The reporter is the author |
 | Read one issue | By its key, `ABC-123`, in any project. A reference that is not a key, such as `123`, names no issue and is a 404 without reaching `acli` |
-| Dispatch by link | Only `https://<site>.atlassian.net/browse/ABC-123` is recognised, any project's key. A bare number or another host is not |
+| Dispatch by link | Only `https://<site>.atlassian.net/browse/ABC-123` is recognised, any project's key, and a Job dispatched with one holds `ABC-123` on its ledger. A bare number or another host is not |
 | Close the issue | The tracker returns no closing line, because nothing in a pull request body closes a Jira issue. The pull request **title** is prefixed with the key (`ABC-123 The title`), which Jira's integration with the forge reads, and left alone where it already holds the key |
 
 **Not verified against a real `acli`.** The output shapes below were written from the documentation and are unconfirmed.

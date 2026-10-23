@@ -33,7 +33,8 @@ describe("every page in the roster", () => {
     const paletteOnly = SURFACES.filter((one) => ways(one.id).length === 1).map((one) => one.id).sort();
     // Account and Doctor also open from the title menu's rows, and Account from Settings' Account section, which this roster does not count.
     // Requests is a panel and not a page: it also opens from a tile on a Job's Flight control.
-    expect(paletteOnly).toEqual([SURFACE.account, SURFACE.checks, SURFACE.doctor, SURFACE.usage, SURFACE.requests].sort());
+    // Armada fixes is the Logbook's lower part: the palette row and a retro card's link bring it into view.
+    expect(paletteOnly).toEqual([SURFACE.account, SURFACE.checks, SURFACE.doctor, SURFACE.usage, SURFACE.requests, SURFACE.lessons].sort());
   });
 
   it("is reached by a tab or a System entry for every page the title bar draws, and System opens one of them", () => {

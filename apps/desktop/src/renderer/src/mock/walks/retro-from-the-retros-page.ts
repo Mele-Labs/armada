@@ -1,4 +1,4 @@
-// The Retros page (`docs/concepts/retro.md`): what got in the way across Sessions, newest first. Each
+// Armada fixes, under the Logbook's entries (`docs/concepts/retro.md`): what got in the way across Sessions, newest first. Each
 // item reads as one arrow from whose way it got in to where the fix lands, each end its own hue, then
 // a headline, what happened, what would change and two answers. The walk expands two items' evidence
 // in place, opens a Session's retro, then rejects an Armada item, accepts a Kit item and reads the
@@ -15,7 +15,7 @@ const COMMIT = item("A commit message was read as a redirect");
 const WALKS = item("Walks opened in your browser");
 
 export const retroFromTheRetrosPage = walk("retro/lessons", [
-  ...toSystemPage("Retros", "Retros, under Work"),
+  ...toSystemPage("Retros", "The Logbook, with Armada fixes under the entries"),
   { look: RETROS, say: "Newest first, across Jobs" },
   { look: inside(RESET, text(/^Agent$/)), say: "Whose way it got in, in a word and a hue" },
   { look: inside(RESET, text(/^Armada$/)), say: "Where the fix lands, in a word and a hue" },
@@ -29,11 +29,10 @@ export const retroFromTheRetrosPage = walk("retro/lessons", [
   { press: inside(RESET, button(/^Retire guides 8 and 20/)), say: "The Job label opens its retro" },
   { press: inside(inside(RETRO, RESET), button("Evidence")), say: "The record rows, behind a control" },
   { look: inside(RETRO, text(/Allow git reset --hard origin\/main\?/)), say: "The record row it cites" },
-  { press: inside(RETRO, button("Close")), say: "Back to Retros" },
+  { press: inside(RETRO, button("Close")), say: "Back to Armada fixes" },
   { hover: inside(RESET, button("Start Job", { exact: true })), say: "Start Job on an Armada item" },
   { hover: inside(COMMIT, button("Reject change")), say: "Reject change" },
   { press: inside(COMMIT, button("Reject change")), say: "Reject change discards it" },
-  { press: tab("Kit"), say: "Kit: the tool set" },
   { hover: inside(WALKS, button("Accept", { exact: true })), say: "Accept on a Kit item" },
   { press: inside(WALKS, button("Accept", { exact: true })), say: "Accept saves it" },
   { press: tab("Accepted"), say: "Accepted: the saved Kit items" },

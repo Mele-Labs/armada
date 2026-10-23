@@ -36,7 +36,7 @@ Every entry is drawn until a layout hides it.
 | `rail` | The places: `overview`, `sessions`, `kit`, `mods`, `settings`, `guides`, `workflows`, `studios`, `lessons`, `reviews` | `overview`, `mods`, `settings` | no | |
 
 **`rail` is the region of places, and it hides them and never orders them.** The key keeps its name and its label is Places.
-An entry is a tab or a System strip page: Cockpit, Jobs, Studios, Retros (`lessons`) and Reviews (`reviews`) are tabs, and Kit, Mods, Settings, Guides and Workflows are strip pages.
+An entry is a tab or a System strip page: Cockpit, Jobs, Studios, Logbook and Reviews (`reviews`) are tabs, and Kit, Mods, Settings, Guides and Workflows are strip pages.
 Hiding one takes that tab or strip page off the bar.
 The bar's order is the shell's own, and `⌘1` to `⌘6` follow it.
 System is never hidden.
@@ -55,7 +55,7 @@ A hidden entry leaves the strip or the bar and nothing else. It stays in the pal
 {
   "version": 1,
   "dashboard.panels": { "hidden": ["merge-line"] },
-  "rail": { "hidden": ["lessons"] }
+  "rail": { "hidden": ["logbook"] }
 }
 ```
 
