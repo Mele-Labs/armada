@@ -252,6 +252,11 @@ export function handleSessions({ ipc, connection, windowIdOf, pages }: Hosts): v
       ? (connection()?.sessions.startRun({ session_id: sessionId, command, ...(cols === undefined || rows === undefined ? {} : { cols, rows }) }) ?? unsent)
       : unread,
   );
+  ipc.handle(CHANNELS.openTerminal, (_event, sessionId: string, cols?: number, rows?: number) =>
+    text(sessionId) && (cols === undefined) === (rows === undefined) && (cols === undefined || (cells(cols) && cells(rows)))
+      ? (connection()?.sessions.openTerminal({ session_id: sessionId, ...(cols === undefined || rows === undefined ? {} : { cols, rows }) }) ?? unsent)
+      : unread,
+  );
   ipc.handle(CHANNELS.catchUpCheckout, (_event, manifestId: string) =>
     text(manifestId) ? (connection()?.sessions.catchUpCheckout({ manifest_id: manifestId }) ?? unsent) : unread,
   );

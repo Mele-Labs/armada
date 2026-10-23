@@ -43,6 +43,7 @@ import type {
   SessionRow,
   SessionRunMessage,
   SessionRunUnderway,
+  JobTerminal,
   SessionSubagent,
   SessionLoadout,
   AttachmentHistory,
@@ -58,6 +59,9 @@ import type { ArtifactRead, LoadoutItemAsk, LoadoutItemBody, PageBounds, PageSho
 export type SessionActed<T = SessionRecord> = { ok: true; value: T } | { ok: false; outcome: Outcome };
 
 /** What a person can do to a pull request a Session holds, without leaving Bridge. */
+/** A Job's shell opening or ending, as `terminal.opened` and `terminal.exited` carry it. */
+export type JobTerminalChange = JobTerminal & { change: "opened" | "exited" };
+
 export type PullRequestPress = "read" | "ready" | "merge" | "auto_merge";
 
 /** What the comment box writes to a pull request a Session holds: the act, and its Markdown. The pull request is named apart. */
@@ -235,6 +239,8 @@ export type SessionsApi = {
   writePullRequest: (sessionId: string, number: number, write: PullRequestWrite) => Promise<SessionActed<PullRequestPage>>;
   /** Runs a shell block from a Session's thread, on a terminal of `cols` by `rows` cells (both or neither; 80 by 24 without). Answers with the run's id, or Fleet's refusal; its output arrives on `onSessionRunMessage`. */
   startSessionRun: (sessionId: string, command: string, cols?: number, rows?: number) => Promise<SessionActed<SessionRunUnderway>>;
+  /** Opens the Job's shell, or is handed the one already open, on a terminal of `cols` by `rows` cells (both or neither; 80 by 24 without, used only where it opens now). Answers with its run id: what it prints arrives on `onSessionRunMessage`, and typing, resizing and stopping it are the run calls on that id. */
+  openTerminal: (sessionId: string, cols?: number, rows?: number) => Promise<SessionActed<SessionRunUnderway>>;
   /** Ends a run's process group. */
   stopSessionRun: (runId: string) => Promise<SessionActed<SessionRunUnderway>>;
   /** Types into a run's terminal: the keys as a string, written as they are. Refused where the run has ended. */
@@ -260,6 +266,8 @@ export type SessionsApi = {
   readCheckoutDiff: (manifestId: string, path: string) => Promise<SessionActed<CheckoutDiff>>;
   /** What every run this window started prints, by run id, ending with `exited`. Returns its remover. */
   onSessionRunMessage: (on: (runId: string, message: SessionRunMessage) => void) => () => void;
+  /** A Job's shell opened (the agent's first `type_in_terminal` too) or ended, so a pane can follow it. Output follows on `onSessionRunMessage` by `run_id`. Returns its remover. */
+  onSessionTerminal: (on: (terminal: JobTerminalChange) => void) => () => void;
 };
 
 /** Every session on the machine, as `list_sessions` answers and `session.changed` keeps current. */
@@ -350,10 +358,12 @@ export const SESSIONS_CHANNELS = {
   readPullRequestFile: "bridge:read-pull-request-file",
   writePullRequest: "bridge:write-pull-request",
   startSessionRun: "bridge:start-session-run",
+  openTerminal: "bridge:open-terminal",
   stopSessionRun: "bridge:stop-session-run",
   writeSessionRun: "bridge:write-session-run",
   resizeSessionRun: "bridge:resize-session-run",
   sessionRunMessage: "bridge:session-run-message",
+  sessionTerminal: "bridge:session-terminal",
   catchUpCheckout: "bridge:catch-up-checkout",
   sendCheckoutAsPullRequest: "bridge:send-checkout-as-pull-request",
   readCheckoutDiff: "bridge:read-checkout-diff",

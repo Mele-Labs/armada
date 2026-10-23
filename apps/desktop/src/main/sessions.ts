@@ -31,6 +31,8 @@ import type {
   CheckoutDiff,
   CheckoutSentAsPullRequest,
   CheckoutToPullRequest,
+  JobTerminal,
+  OpenTerminal,
   ApprovePlan,
   ChangeWaiting,
   ClaimIssue,
@@ -175,6 +177,8 @@ export class SessionsHost {
   /** Told every list after it changes, with when the first read answered, or `null` before it has. Set once by main. */
   private listed: (sessions: readonly SessionRecord[], readAt: number | null) => void = () => {};
   private readAt: number | null = null;
+  /** Where a Job's shell opening or ending goes: main's, set once. */
+  private terminalChanged: (change: "opened" | "exited", terminal: JobTerminal) => void = () => {};
   /** The socket each running block is read on, by run id. */
   private readonly runs = new Map<string, WebSocket>();
   /** Threads whose read has not answered, with the rows that arrived meanwhile. */
@@ -283,6 +287,35 @@ export class SessionsHost {
     this.ran = ran;
   }
 
+  /** Say where a Job's shell opening or ending goes: main's, as `onRun` is. */
+  onTerminal(told: (change: "opened" | "exited", terminal: JobTerminal) => void): void {
+    this.terminalChanged = told;
+  }
+
+  /**
+   * `terminal.opened` and `terminal.exited`. Main reads a shell's output as a run's, so an opening
+   * the person did not ask for, the agent's, is observed here before the window is told of it.
+   */
+  terminal(change: "opened" | "exited", terminal: JobTerminal): void {
+    const port = this.port();
+    if (change === "opened" && port !== null) this.observeRun(port, terminal.run_id);
+    this.terminalChanged(change, terminal);
+  }
+
+  /**
+   * The Job's shell, opened or handed over. Observed as `startRun`'s run is; a shell already
+   * observed, because the agent or an earlier open began it, keeps the socket it has.
+   */
+  async openTerminal(open: OpenTerminal): Promise<SessionActed<SessionRunUnderway>> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    const answer = await ask(port, "POST", "/sessions/terminal/open", open);
+    if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
+    const underway = answer.body as SessionRunUnderway;
+    this.observeRun(port, underway.run_id);
+    return { ok: true, value: underway };
+  }
+
   /**
    * A shell block run from a Session's thread. Fleet starts it and answers 202 with a run id; its
    * output is then read on a socket of its own, opened here so no line is missed between the answer
@@ -346,6 +379,7 @@ export class SessionsHost {
   }
 
   private observeRun(port: number, runId: string): void {
+    if (this.runs.has(runId)) return;
     const socket = new WebSocket(`ws://${HOST}:${port}/sessions/run/${encodeURIComponent(runId)}/observe`);
     this.runs.set(runId, socket);
     let exited = false;
