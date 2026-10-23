@@ -1,15 +1,15 @@
 //! The sign-in's last setup step, the shared home, read while a sign-in is
-//! still setting up: done and named once this machine holds a copy of the home,
-//! waiting while it does not. The store's enrolment is held open so the flow
+//! still setting up: done and named once this machine holds a copy of that
+//! login's own home, waiting while it does not. The store's enrolment is held open so the flow
 //! can be read mid-setup, and let go once it has been.
 
 use std::path::Path;
 use std::sync::{Arc, Condvar, Mutex, PoisonError};
 use std::time::{Duration, Instant};
 
-use adapter_traits::{Secret, SignedInAs, StoreError};
+use adapter_traits::{HomeRepositories, Secret, SignedInAs, StoreError};
 use ipc::{AccountFlow, SetUpState};
-use testkit::FakeSignIn;
+use testkit::{FakeHomes, FakeRemote, FakeSignIn};
 
 use crate::signing_in::{Enrolling, SigningIn};
 use crate::tests::planted::Ticking;
@@ -46,14 +46,12 @@ impl Enrolling for Held {
 }
 
 /// The home's step and the repository a sign-in names while its store step is working.
-fn mid_setup(home: Option<&'static str>) -> (SetUpState, String) {
+fn mid_setup(homes: FakeHomes) -> (SetUpState, String) {
     let dir = TempDir::new();
     let forge = Arc::new(FakeSignIn::new().grants("tok", SignedInAs { id: 583_231, login: "octocat".into() }));
     let store = Arc::new(Held { open: Mutex::new(false), let_go: Condvar::new(), store: Enrolled::new() });
     let signing = SigningIn::new(dir.path(), forge, store.clone(), Arc::new(Ticking::from_nine())).paced(quickly());
-    if let Some(home) = home {
-        signing.knowing_home(Arc::new(move || Some(home.to_string())));
-    }
+    signing.knowing_home(Arc::new(move |login: &str| homes.of(login).ok()?.here()));
     signing.start(begin(), &[]).expect("begun");
     let deadline = Instant::now() + Duration::from_secs(20);
     let read = loop {
@@ -72,11 +70,21 @@ fn mid_setup(home: Option<&'static str>) -> (SetUpState, String) {
 }
 
 #[test]
-fn the_home_step_of_a_sign_in_is_done_and_names_the_home_once_this_machine_holds_a_copy() {
-    assert_eq!(mid_setup(None), (SetUpState::Waiting, String::new()), "no copy here: the step waits and names nothing");
+fn the_home_step_of_a_sign_in_is_done_and_names_the_home_once_this_machine_holds_a_copy_of_that_logins_own() {
+    let opened = |remote: &FakeRemote| {
+        let homes = FakeHomes::new().holding(remote);
+        homes.of(remote.login()).expect("a login").open().expect("opens");
+        homes
+    };
+    assert_eq!(mid_setup(FakeHomes::new()), (SetUpState::Waiting, String::new()), "the forge here does not hold the login");
     assert_eq!(
-        mid_setup(Some("octocat/armada-home")),
+        mid_setup(opened(&FakeRemote::of("hubot"))),
+        (SetUpState::Waiting, String::new()),
+        "another profile's home is here, and this login's is not"
+    );
+    assert_eq!(
+        mid_setup(opened(&FakeRemote::of("octocat"))),
         (SetUpState::Done, "octocat/armada-home".to_string()),
-        "a copy here: the step is done and names the home"
+        "a copy of its own home here: the step is done and names it"
     );
 }

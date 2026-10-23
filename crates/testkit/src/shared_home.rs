@@ -2,13 +2,14 @@
 //! machine's copy reaches, and a harness that installs a plugin by remembering it.
 //!
 //! **Two machines are two [`FakeHome`]s on one [`FakeRemote`]**, each with a copy of its own, so
-//! what one publishes reaches the other only once it opens or pulls, as a clone would.
+//! what one publishes reaches the other only once it opens or pulls, as a clone would. One
+//! machine's profiles are a [`FakeHomes`]: a home for each login its forge holds.
 
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
 use adapter_traits::{
-    FileEntry, FileRead, HarnessHome, HarnessPiece, HarnessPlace, HomeFailure, HomeRepository, KeptFolder, PluginRecord,
+    FileEntry, FileRead, HarnessHome, HarnessPiece, HarnessPlace, HomeFailure, HomeRepositories, HomeRepository, KeptFolder, PluginRecord,
     HOME_REPOSITORY,
 };
 
@@ -107,6 +108,10 @@ impl FakeRemote {
         FakeRemote { login: login.to_string(), files: Arc::default(), published: Arc::default() }
     }
 
+    pub fn login(&self) -> &str {
+        &self.login
+    }
+
     pub fn exists(&self) -> bool {
         held(&self.files).is_some()
     }
@@ -126,17 +131,31 @@ impl FakeRemote {
     }
 }
 
-/// One machine's copy of the home.
+/// One machine's copy of one login's home.
 pub struct FakeHome {
     remote: FakeRemote,
     copy: HeldFolder,
     cloned: Mutex<bool>,
+    /// The forge here holds the remote's login.
+    held: bool,
 }
 
 impl FakeHome {
-    /// A machine signed in as the remote's login, with no copy yet.
+    /// A machine whose forge holds the remote's login, with no copy yet.
     pub fn on(remote: &FakeRemote) -> FakeHome {
-        FakeHome { remote: remote.clone(), copy: HeldFolder::new(), cloned: Mutex::new(false) }
+        FakeHome { remote: remote.clone(), copy: HeldFolder::new(), cloned: Mutex::new(false), held: true }
+    }
+
+    /// A machine whose forge does not hold `login`: every act is refused, naming it.
+    pub fn not_held(login: &str) -> FakeHome {
+        FakeHome { held: false, ..FakeHome::on(&FakeRemote::of(login)) }
+    }
+
+    fn holding(&self) -> Result<(), HomeFailure> {
+        match self.held {
+            true => Ok(()),
+            false => Err(HomeFailure::NotSignedIn(format!("The forge here does not hold {}", self.remote.login))),
+        }
     }
 
     fn fetched(&self) {
@@ -146,18 +165,12 @@ impl FakeHome {
 }
 
 impl HomeRepository for FakeHome {
-    fn login(&self) -> Result<String, HomeFailure> {
-        Ok(self.remote.login.clone())
-    }
-
     fn here(&self) -> Option<String> {
         held(&self.cloned).then(|| format!("{}/{HOME_REPOSITORY}", self.remote.login))
     }
 
-    fn open(&self, login: &str) -> Result<(), HomeFailure> {
-        if login != self.remote.login {
-            return Err(HomeFailure::Refused(format!("{login} is not the account signed in here")));
-        }
+    fn open(&self) -> Result<(), HomeFailure> {
+        self.holding()?;
         held(&self.remote.files).get_or_insert_with(BTreeMap::new);
         self.fetched();
         *held(&self.cloned) = true;
@@ -165,6 +178,7 @@ impl HomeRepository for FakeHome {
     }
 
     fn pull(&self) -> Result<(), HomeFailure> {
+        self.holding()?;
         if !*held(&self.cloned) {
             return Err(HomeFailure::Refused("there is no copy of the home here".to_string()));
         }
@@ -177,6 +191,7 @@ impl HomeRepository for FakeHome {
     }
 
     fn publish(&self, paths: &[String], _message: &str) -> Result<(), HomeFailure> {
+        self.holding()?;
         let copy = self.copy.all();
         let mut remote = held(&self.remote.files);
         let Some(files) = remote.as_mut() else {
@@ -190,6 +205,31 @@ impl HomeRepository for FakeHome {
         }
         held(&self.remote.published).push(paths.to_vec());
         Ok(())
+    }
+}
+
+/// One machine's homes, a login each: the logins its forge holds, and any other refused by name.
+#[derive(Clone, Default)]
+pub struct FakeHomes {
+    held: Arc<Mutex<BTreeMap<String, Arc<FakeHome>>>>,
+}
+
+impl FakeHomes {
+    pub fn new() -> FakeHomes {
+        FakeHomes::default()
+    }
+
+    /// The forge here holds the remote's login, and this machine reaches its home.
+    pub fn holding(self, remote: &FakeRemote) -> FakeHomes {
+        held(&self.held).insert(remote.login.clone(), Arc::new(FakeHome::on(remote)));
+        self
+    }
+}
+
+impl HomeRepositories for FakeHomes {
+    fn of(&self, login: &str) -> Result<Arc<dyn HomeRepository>, HomeFailure> {
+        let home = held(&self.held).get(login).cloned().unwrap_or_else(|| Arc::new(FakeHome::not_held(login)));
+        Ok(home)
     }
 }
 

@@ -7,6 +7,7 @@
 //! only to what acts on a person's press.
 
 use alloc::string::String;
+use alloc::sync::Arc;
 use alloc::vec::Vec;
 
 use crate::ci::{FileEntry, FileRead};
@@ -30,7 +31,8 @@ pub trait KeptFolder: Send + Sync {
 /// Why the home did not move.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum HomeFailure {
-    /// No account is signed in to the forge on this machine.
+    /// The forge on this machine does not hold the profile's login. **A whole sentence**, naming the
+    /// login and how to add it, which only the adapter knows.
     NotSignedIn(String),
     /// The forge or the remote did not answer: worth another try.
     Unreachable(String),
@@ -42,25 +44,32 @@ impl HomeFailure {
     /// A sentence for a person.
     pub fn said(&self) -> String {
         match self {
-            HomeFailure::NotSignedIn(said) => alloc::format!("No account is signed in to the forge here: {said}"),
+            HomeFailure::NotSignedIn(said) => said.clone(),
             HomeFailure::Unreachable(said) => alloc::format!("The shared home could not be reached: {said}"),
             HomeFailure::Refused(said) => alloc::format!("The shared home refused: {said}"),
         }
     }
 }
 
-/// The home's repository, and this machine's copy of it.
+/// Every profile's home, one a login: a machine can hold a personal profile and a work one, and
+/// each has its own `<login>/armada-home`.
+pub trait HomeRepositories: Send + Sync {
+    /// `login`'s home, acting as `login` alone. **Asks the forge nothing**: whether it holds the
+    /// login is found by the first act. A login that cannot be one is refused.
+    fn of(&self, login: &str) -> Result<Arc<dyn HomeRepository>, HomeFailure>;
+}
+
+/// One login's home, and this machine's copy of it. **It acts as that login and no other**: there
+/// is no call that names another.
 ///
 /// **Nothing here pushes anything but named paths**: [`HomeRepository::publish`] is the one way
 /// a change leaves the machine, and it takes the paths it commits.
 pub trait HomeRepository: Send + Sync {
-    /// The login the forge on this machine is signed in as, whose home it is.
-    fn login(&self) -> Result<String, HomeFailure>;
     /// `<login>/<repository>` where this machine holds a copy, `None` where it does not yet.
     fn here(&self) -> Option<String>;
-    /// Make `login`'s home where it does not exist, private, then clone it here, or bring the
-    /// copy here up to date where there is one.
-    fn open(&self, login: &str) -> Result<(), HomeFailure>;
+    /// Make the home where it does not exist, private, then clone it here, or bring the copy here
+    /// up to date where there is one.
+    fn open(&self) -> Result<(), HomeFailure>;
     /// Bring the copy here up to date.
     fn pull(&self) -> Result<(), HomeFailure>;
     /// The copy here, read and written. A write stays on this machine until it is published.

@@ -41,7 +41,7 @@ pub use bucket::FakeBucket;
 pub use harness::{FakeHarness, EDITS, READS, REACHES, REPLAYED, RUNS};
 pub use judge::{refusal, FakeJudge};
 pub use link_lookup::FakeLinkLookup;
-pub use shared_home::{FakeHarnessHome, FakeHome, FakeRemote, HeldFolder};
+pub use shared_home::{FakeHarnessHome, FakeHome, FakeHomes, FakeRemote, HeldFolder};
 pub use sign_in::{FakeSignIn, USER_CODE, VERIFICATION_URI};
 pub use store::FakeStore;
 pub use test_map::FakeCollector;

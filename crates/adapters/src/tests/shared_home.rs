@@ -1,11 +1,12 @@
 //! The shared home's adapters over planted folders: a folder written and refused, the harness's
-//! plugins read with where each marketplace comes from, and the home's copy named by its own
-//! origin. Nothing reaches the forge or runs a process.
+//! plugins read with where each marketplace comes from, and each profile's copy of its home named
+//! by its own origin. Nothing reaches the forge or runs a process.
 
-use adapter_traits::{FileRead, HarnessHome, HomeRepository, KeptFolder, PluginRecord};
+use adapter_traits::{FileRead, HarnessHome, HomeRepositories, KeptFolder, PluginRecord};
 
 use super::scratch::Scratch;
-use crate::{AgentHome, Folder, ForgeHome};
+use crate::shared_home::{credential, not_held};
+use crate::{AgentHome, Folder, ForgeHomes};
 
 const INSTALLED: &str = r#"{"version": 2, "plugins": {
   "tidy@official": [{"scope": "user", "installPath": "/x"}],
@@ -49,12 +50,25 @@ fn the_harness_lists_the_persons_plugins_and_a_forge_marketplace_as_their_source
 }
 
 #[test]
-fn the_homes_copy_is_named_by_its_own_origin_and_only_over_https() {
+fn each_profiles_home_is_its_own_clone_and_acts_as_that_login_alone() {
     let scratch = Scratch::new();
-    let over_https = ForgeHome::in_dir(scratch.folder("https"));
-    assert_eq!(over_https.here(), None, "no clone yet");
-    scratch.file("https/.git/config", "[core]\n\tbare = false\n[remote \"origin\"]\n\turl = https://github.com/nick/armada-home.git\n\tfetch = +refs/heads/*:refs/remotes/origin/*\n");
-    assert_eq!(over_https.here().as_deref(), Some("nick/armada-home"));
-    scratch.file("ssh/.git/config", "[remote \"origin\"]\n\turl = git@github.com:nick/armada-home.git\n");
-    assert_eq!(ForgeHome::in_dir(scratch.folder("ssh")).here(), None);
+    let homes = ForgeHomes::in_dir(scratch.folder("home"));
+    let (personal, work) = (homes.of("nick").expect("a login"), homes.of("nick-work").expect("a login"));
+    assert_eq!(personal.here(), None, "no clone yet");
+    scratch.file("home/nick/.git/config", "[core]\n\tbare = false\n[remote \"origin\"]\n\turl = https://github.com/nick/armada-home.git\n\tfetch = +refs/heads/*:refs/remotes/origin/*\n");
+    assert_eq!(personal.here().as_deref(), Some("nick/armada-home"));
+    assert_eq!(work.here(), None, "one profile's clone is not another's");
+    scratch.file("home/nick-work/.git/config", "[remote \"origin\"]\n\turl = https://github.com/nick/armada-home.git\n");
+    assert_eq!(work.here(), None, "a clone of another login's home is not taken for this one's");
+    scratch.file("home/nick-work/.git/config", "[remote \"origin\"]\n\turl = git@github.com:nick-work/armada-home.git\n");
+    assert_eq!(work.here(), None, "only over HTTPS");
+    for not_a_login in ["", "../nick", "nick/work", "-nick", "nick work"] {
+        assert!(homes.of(not_a_login).is_err(), "{not_a_login:?} is refused");
+    }
+
+    let credential = credential("nick-work");
+    assert_eq!(credential[1], "credential.helper=", "every helper configured is cleared first");
+    assert!(credential[3].contains("gh auth token --hostname github.com --user nick-work"), "{}", credential[3]);
+    let refused = not_held("nick-work");
+    assert!(refused.contains("nick-work") && refused.contains("`gh auth login`"), "{refused}");
 }

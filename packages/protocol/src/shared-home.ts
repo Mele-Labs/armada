@@ -36,14 +36,17 @@ export type HomeRow = {
 /** Something of a kind that would not read, named rather than left out. */
 export type HomeUnreadable = { kind: HomeKind; at: string; why: string };
 
+/** Which profile's home: a Mac can hold two profiles, each with its own. `POST /shared_home/sync`'s body, and the `?login=` of `GET /shared_home` and `GET /shared_home/kinds`. */
+export type HomeProfile = { login: string };
+
 /** The home this machine holds a copy of: the login it belongs to and the repository's name. */
 export type HomeNamed = { account: string; repository: string };
 
 /** `GET /shared_home`, and what every act on it answers with. `home` is left out where this machine holds no copy yet. */
 export type SharedHomeRead = { home?: HomeNamed; rows: HomeRow[]; unreadable: HomeUnreadable[] };
 
-/** `POST /shared_home/add` and `POST /shared_home/bring`: which row. `repository` on a memory note alone. */
-export type HomeRowAt = { kind: HomeKind; name: string; repository?: string };
+/** `POST /shared_home/add` and `POST /shared_home/bring`: which row, in which profile's home. `repository` on a memory note alone. */
+export type HomeRowAt = { login: string; kind: HomeKind; name: string; repository?: string };
 
 /** Which side of a row that differs is kept: `here` goes into the home, `there` replaces this machine's. */
 export type HomeSide = "here" | "there";
@@ -51,8 +54,11 @@ export type HomeSide = "here" | "there";
 /** `POST /shared_home/choose`. */
 export type ChooseHomeSide = { row: HomeRowAt; side: HomeSide };
 
-/** One kind's switch in What syncs, and `POST /shared_home/kinds/set`'s body. */
+/** One kind's switch in What syncs. */
 export type HomeKindSwitch = { kind: HomeKind; on: boolean };
 
-/** `GET /shared_home/kinds`: every kind, in order, off until it is turned on. */
-export type HomeKinds = { kinds: HomeKindSwitch[] };
+/** `POST /shared_home/kinds/set`'s body: one kind switched for one profile. */
+export type SetHomeKind = { login: string; kind: HomeKind; on: boolean };
+
+/** `GET /shared_home/kinds`: one profile's every kind, in order, off until it is turned on. */
+export type HomeKinds = { login: string; kinds: HomeKindSwitch[] };

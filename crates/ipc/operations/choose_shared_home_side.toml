@@ -4,7 +4,7 @@ transport = "HTTP"
 agent_access = "No"
 description = "Settle a Kit row that differs from the shared home with the side the person picked"
 notes = """
-`POST /shared_home/choose`, body `ChooseHomeSide` `{ row: HomeRowAt, side }`. `side` `here` puts this machine's version into the home, removes what the home's had that this one has not, and pushes; `there` writes the home's over this machine's and removes what this one had that the home's has not. Answered with `SharedHomeRead`, read again.
+`POST /shared_home/choose`, body `ChooseHomeSide` `{ row: HomeRowAt, side }`, the profile in `row.login`. `side` `here` puts this machine's version into the home, removes what the home's had that this one has not, and pushes; `there` writes the home's over this machine's and removes what this one had that the home's has not. Answered with `SharedHomeRead`, read again.
 
 **The only act that replaces a side.** `here` is refused with a 422 `fleet.home_secret_refused` as `add_to_shared_home` refuses one. Refused with a 404 `fleet.no_such_home_row` where the row is not on both sides, and a 409 `fleet.no_home_yet` where this machine holds no copy. A row already the same answers as a read. `agent_access` is `No`: the owner's press.
 """

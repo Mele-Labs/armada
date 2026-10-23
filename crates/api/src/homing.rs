@@ -1,9 +1,9 @@
 //! The shared home's seven routes: the rows, Sync, the three acts on a row, and what syncs.
-//! `accounting`'s shape: the home is the Machine's, so no `Resolved` extractor and no path
-//! parameter.
+//! `accounting`'s shape: a home is a profile's, so no `Resolved` extractor and no path
+//! parameter; a read names the profile on its query string, an act in its body.
 
 use axum::body::Bytes;
-use axum::extract::State;
+use axum::extract::{Query, State};
 use axum::http::StatusCode;
 use axum::response::Response;
 use ipc::RunId;
@@ -20,12 +20,19 @@ fn answered<T: Serialize>(done: Result<T, Refusal>, run_id: &RunId) -> Response 
     }
 }
 
-pub(crate) async fn get_shared_home<D: SharedHome>(State(served): State<Served<D>>) -> Response {
-    answered(served.daemon().get_shared_home().await, served.run_id())
+/// `?login=`. A query without one is refused by the extractor as any malformed query is.
+pub(crate) async fn get_shared_home<D: SharedHome>(
+    State(served): State<Served<D>>,
+    Query(profile): Query<ipc::HomeProfile>,
+) -> Response {
+    answered(served.daemon().get_shared_home(profile).await, served.run_id())
 }
 
-pub(crate) async fn sync_shared_home<D: SharedHome>(State(served): State<Served<D>>) -> Response {
-    answered(served.daemon().sync_shared_home().await, served.run_id())
+pub(crate) async fn sync_shared_home<D: SharedHome>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    match ipc::decode("the profile whose home to sync", &body) {
+        Ok(profile) => answered(served.daemon().sync_shared_home(profile).await, served.run_id()),
+        Err(why) => undecodable(&why.to_string(), served.run_id()),
+    }
 }
 
 pub(crate) async fn add_to_shared_home<D: SharedHome>(State(served): State<Served<D>>, body: Bytes) -> Response {
@@ -49,8 +56,11 @@ pub(crate) async fn choose_shared_home_side<D: SharedHome>(State(served): State<
     }
 }
 
-pub(crate) async fn get_home_kinds<D: SharedHome>(State(served): State<Served<D>>) -> Response {
-    answered(served.daemon().get_home_kinds().await, served.run_id())
+pub(crate) async fn get_home_kinds<D: SharedHome>(
+    State(served): State<Served<D>>,
+    Query(profile): Query<ipc::HomeProfile>,
+) -> Response {
+    answered(served.daemon().get_home_kinds(profile).await, served.run_id())
 }
 
 pub(crate) async fn set_home_kind<D: SharedHome>(State(served): State<Served<D>>, body: Bytes) -> Response {

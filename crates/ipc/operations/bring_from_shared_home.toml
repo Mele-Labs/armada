@@ -4,7 +4,7 @@ transport = "HTTP"
 agent_access = "No"
 description = "Put a Kit row that is only in the shared home on this machine"
 notes = """
-`POST /shared_home/bring`, body `HomeRowAt` `{ kind, name, repository? }`. Answered with `SharedHomeRead`, read again. A mod goes into the machine's mods folder; skills, sub agents, commands and the global instructions into the harness's own folder; a workflow into Kit's; an allowlist line onto Kit's allowlist; a memory note into the harness's memory for the repository of that name served here, and onto its index; a plugin is installed through the harness's own install command.
+`POST /shared_home/bring`, body `HomeRowAt` `{ login, kind, name, repository? }`. Answered with `SharedHomeRead`, read again. A mod goes into the machine's mods folder; skills, sub agents, commands and the global instructions into the harness's own folder; a workflow into Kit's; an allowlist line onto Kit's allowlist; a memory note into the harness's memory for the repository of that name served here, and onto its index; a plugin is installed through the harness's own install command.
 
 **Never over a file of its own.** Where this machine has a different piece of that name the act is refused with a 409 `fleet.home_row_differs`, and only `choose_shared_home_side` replaces it. An MCP server is refused with a 422 `fleet.home_refused`: the home carries its name and host and never its key, so it is added here in Kit with its key. A memory note whose repository this machine does not serve is refused with the same code.
 

@@ -4,7 +4,7 @@ transport = "HTTP"
 agent_access = "No"
 description = "Read each Kit row this machine syncs as it stands against the shared home"
 notes = """
-`GET /shared_home`, answered with `SharedHomeRead`: `home` names the home this machine holds a copy of, `{ account, repository }`, or is left out where it holds none yet; `rows` is every row of every kind switched on in What syncs, kind by kind in `HomeKind`'s order and by name within one; `unreadable` names each file of a kind that would not read, with where and why.
+`GET /shared_home?login=`, the profile whose home it is: a Mac can hold two profiles, and each has its own home. A login that is not a profile here is a 404 `fleet.no_such_profile`. Answered with `SharedHomeRead`: `home` names the home this machine holds a copy of, `{ account, repository }`, or is left out where it holds none yet; `rows` is every row of every kind switched on in What syncs, kind by kind in `HomeKind`'s order and by name within one; `unreadable` names each file of a kind that would not read, with where and why.
 
 A row is `HomeRow` `{ kind, name, state, says?, source?, repository?, key_here?, here?, there? }`. `state` is `same`, `differs`, `here` (only on this machine) or `home` (only in the home). A row that differs carries both versions, `here` and `there`. A memory note carries its `repository`, by its folder's name, which names it in an act. `key_here` is on an MCP server alone: `false` where this machine has no server of that name, since the home carries a server's name and host and never its key.
 

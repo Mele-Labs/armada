@@ -4,17 +4,17 @@
 
 use std::future::Future;
 
-use ipc::{ChooseHomeSide, HomeKindSwitch, HomeKinds, HomeRowAt, SharedHomeRead};
+use ipc::{ChooseHomeSide, HomeKinds, HomeProfile, HomeRowAt, SetHomeKind, SharedHomeRead};
 
 use crate::daemon::Refusal;
 
 pub trait SharedHome: Send + Sync + 'static {
-    /// `get_shared_home` — every row of every kind this machine syncs, against the copy here.
-    /// **Reaches nothing**: no copy here is an answer with no home.
-    fn get_shared_home(&self) -> impl Future<Output = Result<SharedHomeRead, Refusal>> + Send;
+    /// `get_shared_home` — every row of every kind this machine syncs for one profile, against the
+    /// copy here of its home. **Reaches nothing**: no copy here is an answer with no home.
+    fn get_shared_home(&self, profile: HomeProfile) -> impl Future<Output = Result<SharedHomeRead, Refusal>> + Send;
 
     /// `sync_shared_home` — make the home where it does not exist, clone or pull it, then read.
-    fn sync_shared_home(&self) -> impl Future<Output = Result<SharedHomeRead, Refusal>> + Send;
+    fn sync_shared_home(&self, profile: HomeProfile) -> impl Future<Output = Result<SharedHomeRead, Refusal>> + Send;
 
     /// `add_to_shared_home` — put a row only on this machine into the home and push it.
     fn add_to_shared_home(&self, at: HomeRowAt) -> impl Future<Output = Result<SharedHomeRead, Refusal>> + Send;
@@ -28,9 +28,9 @@ pub trait SharedHome: Send + Sync + 'static {
         choose: ChooseHomeSide,
     ) -> impl Future<Output = Result<SharedHomeRead, Refusal>> + Send;
 
-    /// `get_home_kinds` — what this machine syncs, every kind off until it is turned on.
-    fn get_home_kinds(&self) -> impl Future<Output = Result<HomeKinds, Refusal>> + Send;
+    /// `get_home_kinds` — what this machine syncs for one profile, every kind off until it is turned on.
+    fn get_home_kinds(&self, profile: HomeProfile) -> impl Future<Output = Result<HomeKinds, Refusal>> + Send;
 
     /// `set_home_kind` — switch one kind.
-    fn set_home_kind(&self, switch: HomeKindSwitch) -> impl Future<Output = Result<HomeKinds, Refusal>> + Send;
+    fn set_home_kind(&self, switch: SetHomeKind) -> impl Future<Output = Result<HomeKinds, Refusal>> + Send;
 }

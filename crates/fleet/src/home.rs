@@ -7,6 +7,9 @@
 //! the other. **Nothing secret leaves**: a server travels as its name and host, and a piece whose
 //! text carries a credential in an address is refused, `secrets`' reason.
 //!
+//! **Each profile has its own home**, `<login>/armada-home`, and every act names the profile: a
+//! machine can hold a personal profile and a work one. [`home_of`] is the one way to a home.
+//!
 //! Everything here is a function over [`Places`], so the claim runs on folders held in memory.
 //! [`serving`] is the part that speaks for Fleet.
 
@@ -16,8 +19,9 @@ pub(crate) mod secrets;
 mod serving;
 
 use std::collections::BTreeMap;
+use std::sync::Arc;
 
-use adapter_traits::{HarnessHome, HomeFailure, HomeRepository, KeptFolder};
+use adapter_traits::{HarnessHome, HomeFailure, HomeRepositories, HomeRepository, KeptFolder};
 use core_model::KitServer;
 use ipc::{HomeKind, HomeKindSwitch, HomeKinds, HomeNamed, HomeRowAt, HomeSide, SharedHomeRead};
 
@@ -58,16 +62,36 @@ pub enum Refused {
     Secret(String),
     /// It cannot go where it was sent.
     Cannot(String),
+    /// The login is not a profile on this machine.
+    NoProfile(String),
     Home(HomeFailure),
 }
 
 impl Refused {
     pub fn said(&self) -> String {
         match self {
-            Refused::NotThere(said) | Refused::Differs(said) | Refused::Secret(said) | Refused::Cannot(said) => said.clone(),
+            Refused::NotThere(said)
+            | Refused::Differs(said)
+            | Refused::Secret(said)
+            | Refused::Cannot(said)
+            | Refused::NoProfile(said) => said.clone(),
             Refused::Home(failure) => failure.said(),
         }
     }
+}
+
+/// `login`'s home, where `login` is one of this machine's `profiles`. **Asks the forge nothing**:
+/// a login the forge here does not hold is refused by the first act on it, naming the login.
+pub fn home_of(homes: &dyn HomeRepositories, login: &str, profiles: &[String]) -> Result<Arc<dyn HomeRepository>, Refused> {
+    if !profiles.iter().any(|profile| profile == login) {
+        return Err(Refused::NoProfile(format!("{login} is not a profile on this machine")));
+    }
+    homes.of(login).map_err(Refused::Home)
+}
+
+/// Make the home where it does not exist and clone it, or pull the copy here.
+pub fn sync(home: &dyn HomeRepository) -> Result<(), Refused> {
+    home.open().map_err(Refused::Home)
 }
 
 fn named(at: &HomeRowAt) -> String {
@@ -165,9 +189,10 @@ pub fn choose(places: &Places<'_>, at: &HomeRowAt, side: HomeSide, machine: &str
     }
 }
 
-/// What syncs, out of the switches kept: **every kind off until it is turned on.**
-pub fn kinds(switched: &BTreeMap<String, bool>) -> HomeKinds {
+/// What syncs for `login`'s home, out of the switches kept: **every kind off until it is turned on.**
+pub fn kinds(login: &str, switched: &BTreeMap<String, bool>) -> HomeKinds {
     HomeKinds {
+        login: login.to_string(),
         kinds: HomeKind::ALL
             .iter()
             .map(|kind| HomeKindSwitch { kind: *kind, on: switched.get(kind.as_wire()).copied().unwrap_or(false) })
@@ -177,5 +202,5 @@ pub fn kinds(switched: &BTreeMap<String, bool>) -> HomeKinds {
 
 /// The kinds switched on.
 pub fn on(switched: &BTreeMap<String, bool>) -> Vec<HomeKind> {
-    kinds(switched).kinds.into_iter().filter(|kind| kind.on).map(|kind| kind.kind).collect()
+    kinds("", switched).kinds.into_iter().filter(|kind| kind.on).map(|kind| kind.kind).collect()
 }

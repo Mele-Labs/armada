@@ -107,6 +107,14 @@ pub struct HomeUnreadable {
     pub why: String,
 }
 
+/// Which profile's home: **a machine can hold two profiles, and each has its own.** The body of
+/// `sync_shared_home`, and the query of `get_shared_home` and `get_home_kinds`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HomeProfile {
+    /// The profile's login, whose `<login>/armada-home` it is.
+    pub login: String,
+}
+
 /// The home this machine holds a copy of.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct HomeNamed {
@@ -127,9 +135,11 @@ pub struct SharedHomeRead {
     pub unreadable: Vec<HomeUnreadable>,
 }
 
-/// Which row an act is on.
+/// Which row an act is on, in which profile's home.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct HomeRowAt {
+    /// The profile's login.
+    pub login: String,
     pub kind: HomeKind,
     pub name: String,
     /// A memory note's repository, and only there.
@@ -161,9 +171,18 @@ pub struct HomeKindSwitch {
     pub on: bool,
 }
 
-/// `get_home_kinds`, and what `set_home_kind` answers with: every kind, in order, off until it
-/// is turned on.
+/// `set_home_kind`: one kind switched for one profile.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SetHomeKind {
+    pub login: String,
+    pub kind: HomeKind,
+    pub on: bool,
+}
+
+/// `get_home_kinds`, and what `set_home_kind` answers with: one profile's every kind, in order,
+/// off until it is turned on.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct HomeKinds {
+    pub login: String,
     pub kinds: Vec<HomeKindSwitch>,
 }
