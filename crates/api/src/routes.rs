@@ -589,7 +589,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/logbook", get(crate::logbook::get_logbook::<D>))
         .route("/logbook/entries", post(crate::logbook::teach_logbook_entry::<D>))
         .route("/logbook/entries/:entry_id/edit", post(crate::logbook::edit_logbook_entry::<D>))
-        .route("/logbook/entries/:entry_id/pin", post(crate::logbook::pin_logbook_entry::<D>))
+        .route("/logbook/entries/:entry_id/lock", post(crate::logbook::lock_logbook_entry::<D>))
         .route("/logbook/entries/:entry_id/forget", post(crate::logbook::forget_logbook_entry::<D>))
         .route("/teachings", post(crate::teaching::save_teaching::<D>))
         .route("/teachings/read", post(crate::teaching::read_teaching::<D>))

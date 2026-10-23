@@ -439,7 +439,7 @@ pub use repositories::{
 pub use requester::Requester;
 pub use logbook::{
     EditLogbookEntry, Logbook, LogbookEarlier, LogbookEntry, LogbookEvidence, ForgottenLogbookEntry, LogbookKind, LogbookReplacedBy,
-    LogbookSection, LogbookState, PinLogbookEntry, TeachLogbookEntry,
+    LogbookSection, LogbookState, LockLogbookEntry, TeachLogbookEntry, TeachSource,
 };
 pub use teaching::{
     ForgottenTaughtLink, NoteKind, NoteSection, ReadTeaching, SaveTeaching, SavedTeaching, TaughtLink, TaughtLinks,

@@ -51,9 +51,9 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/logbook/entries/:entry_id/edit",
     },
     Route {
-        operation: "pin_logbook_entry",
+        operation: "lock_logbook_entry",
         method: "POST",
-        path: "/logbook/entries/:entry_id/pin",
+        path: "/logbook/entries/:entry_id/lock",
     },
     Route {
         operation: "forget_logbook_entry",

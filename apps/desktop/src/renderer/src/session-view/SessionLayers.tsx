@@ -1,11 +1,11 @@
 // The layers over a Session's stage, opened from Flight control's keys: Artifacts, Subagents, Checks and Bays. Each covers the thread and
 // composer, which stay mounted under it, so Back leaves them exactly as they were. Esc is Back. The first thing in a layer holds focus: the
 // search field in Artifacts, the first row elsewhere; the arrows walk the rows. A layer is drawn from what the ledger and the thread already
-// hold (`artifacts.ts`, `slot-trouble.ts`) and reads nothing of its own.
+// hold (`artifacts.ts`, `slot-trouble.ts`) and reads nothing of its own, but the Artifacts graph's history, read while the graph is open.
 
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { ArrowDown, Check, CircleDot, CircleX, LoaderCircle, Megaphone, Power, ShieldCheck, ShieldEllipsis, ShieldX, Terminal, X, type LucideIcon } from "lucide-react";
-import { Button, ClashPaths, Input, PullRequestChecksMark, PullRequestStateMark, Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow, Tooltip, type ClashView, useOpenClash, type LedgerEntry, type SessionLedgerTone } from "@armada/components";
+import { ArtifactGraph, Button, ClashPaths, Input, PullRequestChecksMark, PullRequestStateMark, Table, Tabs, TableBody, TableCell, TableHead, TableHeaderCell, TableRow, Tooltip, timeSaid, useTimeFormat, type ClashView, useOpenClash, type LedgerEntry, type SessionLedgerTone } from "@armada/components";
 import type { Session, SessionRow } from "@armada/screens/src/draft/sessions";
 import { popupIsOpen } from "@armada/screens/src/list-keyboard";
 
@@ -14,6 +14,7 @@ import { setHover } from "../cockpit/deck/store";
 import { bayViewOf, ledgerOf, slotKey } from "../cockpit/deck/bays";
 import { Berth } from "../cockpit/deck/BayRows";
 import { artifactsOf, matching, type ArtifactRow } from "./artifacts";
+import { graphOf } from "./artifact-graph";
 import { closeLayer, type LayerId } from "./layers";
 import { openSlotKeyInPanel } from "../shared-panel/store";
 import { openClashFile } from "./ClashFileSheet";
@@ -45,7 +46,7 @@ function Mark({ tone, said }: { tone: SessionLedgerTone; said: string }) {
 const ROW = "[data-layer-row]";
 
 /** The frame every layer shares: its name, what is beside it in the head, Back, and a body that scrolls. */
-function Shell({ label, head, children }: { label: string; head?: ReactNode; children: ReactNode }) {
+function Shell({ label, head, keys, owns, children }: { label: string; head?: ReactNode; /** A key the layer owns, heard before the arrows walk the rows. */ keys?: (event: KeyboardEvent<HTMLElement>) => void; /** The letters `keys` answers to, which the deck does not take while focus is in the layer. */ owns?: string; children: ReactNode }) {
   const root = useRef<HTMLElement>(null);
   // Esc is Back, wherever focus is, unless a sheet or a menu is open over the layer: that one's Esc is its own.
   useEffect(() => {
@@ -63,7 +64,8 @@ function Shell({ label, head, children }: { label: string; head?: ReactNode; chi
     first?.focus();
   }, [label]);
   const walk = (event: KeyboardEvent<HTMLElement>) => {
-    if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+    keys?.(event);
+    if (event.defaultPrevented || (event.key !== "ArrowDown" && event.key !== "ArrowUp")) return;
     const stops = [...(root.current?.querySelectorAll<HTMLElement>(`[data-layer-field], ${ROW}`) ?? [])];
     const at = stops.findIndex((one) => one === document.activeElement);
     const to = stops[Math.min(stops.length - 1, Math.max(0, at + (event.key === "ArrowDown" ? 1 : -1)))];
@@ -72,7 +74,7 @@ function Shell({ label, head, children }: { label: string; head?: ReactNode; chi
     to.focus();
   };
   return (
-    <section ref={root} className="sv-layer" aria-label={label} data-keeps-escape="" onKeyDown={walk}>
+    <section ref={root} className="sv-layer" aria-label={label} data-keeps-escape="" {...(owns === undefined ? {} : { "data-owns-keys": owns })} onKeyDown={walk}>
       <header className="sv-layer__head">
         <h3 className="sv-layer__title">{label}</h3>
         {head}
@@ -159,22 +161,70 @@ function Groups({ groups }: { groups: readonly { id: string; label: string; rows
   );
 }
 
-/** Everything the Session made or used, in groups; the field at the top narrows them as it is typed in. */
-export function ArtifactsLayer({ session, entries, onOpenSession }: { session: Session; entries: readonly LedgerEntry[]; onOpenSession: (id: string) => void }) {
+/**
+ * The Session's attachment history while `open`: read when it opens and again each time the ledger moves, which is when Fleet publishes the Session.
+ * A read that fails leaves what was held, and none at first: the graph then draws what the ledger holds.
+ */
+function useVersions(session: Session, open: boolean): Session["versions"] {
+  const read = useSessionsDraft()?.history;
+  const [versions, setVersions] = useState<Session["versions"]>(undefined);
+  const { id, attachments } = session;
+  useEffect(() => setVersions(undefined), [id]);
+  useEffect(() => {
+    if (!open || read === undefined) return;
+    let live = true;
+    void read(id).then((got) => {
+      if (live && got !== undefined) setVersions(got);
+    });
+    return () => {
+      live = false;
+    };
+  }, [open, read, id, attachments]);
+  return versions;
+}
+
+const VIEWS = [
+  { id: "list", label: "List" },
+  { id: "graph", label: "Graph" },
+];
+
+/** Everything the Session made or used, as groups or as a graph of how it grew; the field at the top narrows both as it is typed in, and V switches them. */
+export function ArtifactsLayer({ session, entries, onOpenSession, onOpenSketch }: { session: Session; entries: readonly LedgerEntry[]; onOpenSession: (id: string) => void; onOpenSketch?: (sketch: string, at?: string) => void }) {
   const [words, setWords] = useState("");
+  const [view, setView] = useState<"list" | "graph">("list");
   const sessions = useSessions();
+  const format = useTimeFormat();
+  const versions = useVersions(session, view === "graph");
   const all = useMemo(() => artifactsOf(session, entries, { sessions, open: onOpenSession }), [session, entries, sessions, onOpenSession]);
   const shown = useMemo(() => matching(all, words), [all, words]);
+  const graph = useMemo(
+    () => graphOf(versions === undefined ? session : { ...session, versions }, all, shown, words, { sketch: (id, at) => onOpenSketch?.(id, at), clock: (ms) => timeSaid(ms, { hour12: format.hour12, seconds: false, date: false }) }),
+    [session, versions, all, shown, words, onOpenSketch, format.hour12],
+  );
+  // V switches the view from anywhere in the layer but a field, where it is a letter.
+  const keys = (event: KeyboardEvent<HTMLElement>) => {
+    const typing = event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement;
+    if (typing || event.altKey || event.ctrlKey || event.metaKey || event.key.toLowerCase() !== "v") return;
+    event.preventDefault();
+    setView((now) => (now === "list" ? "graph" : "list"));
+  };
   return (
     <Shell
       label="Artifacts"
+      keys={keys}
+      owns="v"
       head={
-        <div className="sv-layer__search">
-          <Input type="search" aria-label="Search artifacts" placeholder="Search" data-layer-field="" value={words} onChange={(event) => setWords(event.target.value)} autoComplete="off" spellCheck={false} />
-        </div>
+        <>
+          <div className="sv-layer__search">
+            <Input type="search" aria-label="Search artifacts" placeholder="Search" data-layer-field="" value={words} onChange={(event) => setWords(event.target.value)} autoComplete="off" spellCheck={false} />
+          </div>
+          <Tooltip label="Switch view" shortcut="V">
+            <Tabs items={VIEWS} value={view} onChange={(id) => setView(id === "graph" ? "graph" : "list")} />
+          </Tooltip>
+        </>
       }
     >
-      <Groups groups={shown} />
+      {view === "list" ? <Groups groups={shown} /> : graph.nodes.length === 0 ? null : <ArtifactGraph nodes={graph.nodes} edges={graph.edges} label="Artifact graph" />}
     </Shell>
   );
 }
@@ -308,8 +358,8 @@ export function BaysLayer({ session, bays }: { session: Session; bays: SessionBa
 }
 
 /** The layer that is open. */
-export function Layer({ id, session, entries, bays, onOpenCheck, onOpenSession }: { id: LayerId; session: Session; entries: readonly LedgerEntry[]; bays: SessionBays | undefined; onOpenCheck: (run: number) => void; onOpenSession: (id: string) => void }) {
-  if (id === "artifacts") return <ArtifactsLayer session={session} entries={entries} onOpenSession={onOpenSession} />;
+export function Layer({ id, session, entries, bays, onOpenCheck, onOpenSession, onOpenSketch }: { id: LayerId; session: Session; entries: readonly LedgerEntry[]; bays: SessionBays | undefined; onOpenCheck: (run: number) => void; onOpenSession: (id: string) => void; onOpenSketch?: (sketch: string, at?: string) => void }) {
+  if (id === "artifacts") return <ArtifactsLayer session={session} entries={entries} onOpenSession={onOpenSession} {...(onOpenSketch === undefined ? {} : { onOpenSketch })} />;
   if (id === "subagents") return <SubagentsLayer session={session} entries={entries} />;
   if (id === "checks") return <ChecksLayer session={session} onOpenCheck={onOpenCheck} />;
   return <BaysLayer session={session} bays={bays} />;

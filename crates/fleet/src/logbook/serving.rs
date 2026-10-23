@@ -41,7 +41,7 @@ impl Logged {
                 last_confirmed: at,
                 last_served: None,
                 state: LogState::Standing,
-                pinned: false,
+                locked: false,
                 edited_by_person: false,
                 tripped: 0,
                 history: Vec::new(),

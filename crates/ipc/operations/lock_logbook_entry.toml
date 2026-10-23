@@ -1,0 +1,8 @@
+[operations.lock_logbook_entry]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Lock an entry so it never fades and is never rewritten, or let it go"
+notes = """
+`POST /logbook/entries/:entry_id/lock`, body `{locked}`. Answers with the entry as it now stands. Locking a locked entry changes nothing. A 404 `fleet.no_such_logbook_entry`, or a 422 `fleet.logbook_entry_not_kept`, as `edit_logbook_entry`.
+"""

@@ -44,6 +44,7 @@ You ask who has `fleet/session-ledger`, and the answer is a job by its title, st
 | [A Job that waits on another](session/a-job-that-waits-on-another.md) |
 | [In Bridge](session/in-bridge.md) |
 | [A Job open](session/a-job-open.md) |
+| [The evolution graph](session/the-evolution-graph.md) |
 | [Which model, and a fresh start](session/which-model-and-a-fresh-start.md) |
 | [A Job's proposal](session/a-jobs-proposal.md) |
 | [A queued idea](session/a-queued-idea.md) |

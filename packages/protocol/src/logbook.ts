@@ -47,7 +47,7 @@ export type LogbookEntry = {
   /** When a Job last met its warning anyway. Absent where none has. */
   last_tripped?: string;
   state: LogbookState;
-  pinned: boolean;
+  locked: boolean;
   edited: boolean;
   /** Earlier text, newest first. */
   history: LogbookEarlier[];
@@ -65,8 +65,8 @@ export type LogbookQuery = { repository?: string; section?: LogbookSection; stat
 /** The body of `edit_logbook_entry` (`POST /logbook/entries/:entry_id/edit`). Answers the entry. */
 export type EditLogbookEntry = { text: string };
 
-/** The body of `pin_logbook_entry` (`POST /logbook/entries/:entry_id/pin`). Answers the entry. */
-export type PinLogbookEntry = { pinned: boolean };
+/** The body of `lock_logbook_entry` (`POST /logbook/entries/:entry_id/lock`). Answers the entry. */
+export type LockLogbookEntry = { locked: boolean };
 
 /** What `forget_logbook_entry` (`POST /logbook/entries/:entry_id/forget`) answers. */
 export type ForgottenLogbookEntry = { id: string };
@@ -81,12 +81,14 @@ export type TeachLogbookEntry = {
   kind: LogbookKind;
   text: string;
   paths?: string[];
+  /** What the person pressed Teach on: a message, notice or Check. It becomes the entry's one evidence row. */
+  source?: { session_id: string; cite: string };
 };
 
 /** Bridge's envelope over `Logbook`: the entries, or why they could not be read. */
 export type LogbookRead = { ok: true; entries: LogbookEntry[] } | { ok: false; outcome: Outcome };
 
-/** What an edit or a pin came back as: the entry as it now stands, or the refusal. */
+/** What an edit or a lock came back as: the entry as it now stands, or the refusal. */
 export type LogbookAnswer = { ok: true; entry: LogbookEntry } | { ok: false; outcome: Outcome };
 
 /** What Forget came back as. The entry is on the deny list and gone from every read. */

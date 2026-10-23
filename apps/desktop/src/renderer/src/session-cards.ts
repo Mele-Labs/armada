@@ -84,6 +84,8 @@ export function cardOf(one: SessionAttachment, session: Session, sessions: reado
       return { title: one.title, where: issueLabel(one.number), facts: [{ label: "State", value: one.state === "open" ? "Open" : "Closed" }] };
     case "studio":
       return { title: one.title, facts: [{ label: "Kind", value: "Studio" }] };
+    case "link":
+      return { title: one.url, facts: [{ label: "Written by", value: one.by === "agent" ? "The agent" : "You" }] };
     case "sketch":
       return { title: one.title, facts: [{ label: "Kind", value: "Sketch" }, { label: "Drawn by", value: one.by === "agent" ? "The agent" : "You" }] };
     case "started_to":
