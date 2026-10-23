@@ -224,6 +224,11 @@ const ROUTES: &[Route] = &[
         path: "/sessions/loadout",
     },
     Route {
+        operation: "get_attachment_history",
+        method: "GET",
+        path: "/sessions/attachment_history",
+    },
+    Route {
         operation: "read_loadout_item",
         method: "GET",
         path: "/sessions/loadout/item",

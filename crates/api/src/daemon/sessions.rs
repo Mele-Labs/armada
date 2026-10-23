@@ -413,6 +413,13 @@ pub trait Sessions: Send + Sync + 'static {
         session_id: ipc::SessionId,
     ) -> impl Future<Output = Result<ipc::SessionLoadout, Refusal>> + Send;
 
+    /// `get_attachment_history` — every version of everything a session holds, oldest first.
+    /// [`Refusal::Unacceptable`] for a session Fleet does not know.
+    fn get_attachment_history(
+        &self,
+        session_id: ipc::SessionId,
+    ) -> impl Future<Output = Result<ipc::AttachmentHistory, Refusal>> + Send;
+
     /// `read_loadout_item` — what one row of a session's Loadout says, read from disk where Fleet
     /// runs. A row the Loadout does not list, or with no file behind it, is `not_read` with why.
     /// [`Refusal::Unacceptable`] for a session Fleet does not know.
