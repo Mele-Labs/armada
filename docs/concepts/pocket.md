@@ -73,7 +73,7 @@ The opt-in is the file `pocket` in Armada's machine directory, `~/Library/Applic
 | Screen | Holds | Route |
 |---|---|---|
 | Needs you | The live Jobs waiting on the owner, oldest wait first | `GET /api/needs` |
-| Running | The live Jobs | `GET /api/sessions` |
+| Running | The live Jobs not waiting on the owner, one with a turn running marked working and the rest idle | `GET /api/sessions` |
 | Done | The 50 Jobs that ended last, newest first | `GET /api/sessions?state=ended` |
 | A Job | Its whole thread, as Bridge reads it | `GET /api/sessions/one?session_id=` |
 | A file | A file the Job showed: its text, or a picture | `GET /api/sessions/shown?session_id=&path=` |

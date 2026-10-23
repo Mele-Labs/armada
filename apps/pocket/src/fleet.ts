@@ -177,7 +177,7 @@ export function homeOf({ macs }: Pick<Fleet, "macs">): Home {
   return {
     several: macs.length > 1,
     needs: all((mac) => mac.needs).sort((a, b) => time(a.session.waiting_since ?? a.session.started_at) - time(b.session.waiting_since ?? b.session.started_at)),
-    running: all((mac) => mac.live.filter((session) => session.working && !session.waiting)).sort((a, b) => time(b.session.started_at) - time(a.session.started_at)),
+    running: all((mac) => mac.live.filter((session) => !session.waiting)).sort((a, b) => time(b.session.started_at) - time(a.session.started_at)),
     done: all((mac) => mac.ended).sort((a, b) => time(b.session.ended_at) - time(a.session.ended_at)),
     troubled: macs.filter((mac) => !mac.paired || mac.error !== undefined),
   };
