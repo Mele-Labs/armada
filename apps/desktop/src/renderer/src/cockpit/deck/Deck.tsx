@@ -46,6 +46,8 @@ import { PanelKey, panelAt } from "./keys";
 import { queuedIn, queuedKey } from "./queued";
 import type { QueuedIdea } from "@armada/screens/src/draft/sessions";
 import { MapView } from "./MapPane";
+import { sessionIdOf } from "../waiting";
+import { leaveFrom, onEnd, reducedMotion, useExiting } from "./exit";
 import { CallPane, PaneHead, SessionPane, ShellPanel } from "./panes";
 import { inOrder, useReplayDriver, useReplayKeys, windowOf } from "./replay";
 import { RowMenu, type RowMenuAt } from "./RowMenu";
@@ -471,6 +473,19 @@ function Stage({ props, ship, listed, autopilot, ledger, hosts }: { props: Cockp
   const latest = useRef(ship);
   latest.current = ship;
   const openSession = (id: string) => openSessionFrom(latest.current, props, id);
+  // Ending the Job open here: the pane is copied over the stage and the timeline is shown at once; the copy plays out (`exit.ts`).
+  const open = useRef({ sel, subject });
+  open.current = { sel, subject };
+  useEffect(
+    () =>
+      onEnd((id) => {
+        const { sel: was, subject: held } = open.current;
+        if (was === undefined || sessionIdOf(was.key) !== id) return;
+        if (was.kind === "session" && held !== undefined && !reducedMotion()) leaveFrom(held.key, () => select(undefined));
+        else select(undefined);
+      }),
+    [],
+  );
   if (sel?.kind === "session" && subject !== undefined) return <SessionPane subject={subject} props={props} acts={acts} ledger={ledger} hosts={hosts} openSession={openSession} />;
   if (call !== undefined) return <CallPane item={call} props={props} />;
   if (lane) return <AutopilotPane props={props} autopilot={autopilot} />;
@@ -1023,6 +1038,7 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
   const held = useDeck((deck) => deck.held);
   const visited = useDeck((deck) => deck.visited);
   const sel = useDeck((deck) => deck.sel);
+  const exiting = useExiting();
   const autopilot = useAutopilotLane({ picked: props.picked, state: props.state, now: props.now });
   // A call an alert asked for is opened as a row of the list opens one, once this is on screen. `at` makes a second press land.
   const { bring, onBrought } = props;
@@ -1068,7 +1084,7 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
                     {columns === undefined ? null : <DockHandle quiet className="deck-handle" grows="right" label="the left column" width={columns.left} {...columns.range.left} onResize={(width) => resize("left", width)} onReset={() => reset("left")} />}
         </div>
         <div className="deck-centre">
-          <div className="deck-stage">
+          <div className="deck-stage" data-exit={exiting ? "" : undefined}>
             <Stage props={props} ship={ship} listed={listed} autopilot={autopilot} ledger={reading && !unified ? ledgerHost : null} hosts={hosts} />
             {onStage === undefined ? null : <ShellPanel key={onStage} sessionId={onStage} />}
             <MergeQueue props={props} ship={ship} />

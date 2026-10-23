@@ -9,6 +9,7 @@ import { createContext, useContext, useMemo, useSyncExternalStore } from "react"
 import type { ReactNode } from "react";
 import type { QueuedIdea, Session, SessionsDraft } from "@armada/screens/src/draft/sessions";
 
+import { announceEnd } from "./cockpit/deck/exit";
 import { withOutgoing } from "./outgoing";
 import { withPressed } from "./pressed";
 import { ViewerNotesOver } from "./viewer-notes";
@@ -23,10 +24,17 @@ const NONE: readonly Session[] = [];
 const NEVER = { get: () => NONE, subscribe: () => () => undefined };
 const NO_IDEAS: readonly QueuedIdea[] = [];
 
+/** End answers at once, over whichever serves it: the stage plays the Job out and shows the timeline, and Fleet parks the Job in the background (`cockpit/deck/exit.ts`). */
+const withLeaving = (draft: SessionsDraft): SessionsDraft => {
+  const { close } = draft;
+  // Over the draft as its prototype, as `withPressed` is: a spread loses what it reads by getter, `commands` among them.
+  return close === undefined ? draft : Object.assign(Object.create(draft) as SessionsDraft, { close: (id: string) => (announceEnd(id), close.call(draft, id)) });
+};
+
 /** Hand a moment's Sessions to the window. The mock's own mount is the one caller. */
 export function SessionsFrom({ held, acts, children }: { held: SessionsDraft | undefined; acts?: RepositoryActs; children: ReactNode }) {
   // What the person sent is in the thread at once, and Pause, Auto land and Approve read as pressed at the press, over whichever serves it (`outgoing.ts`, `pressed.ts`).
-  const sending = useMemo(() => (held === undefined ? undefined : withPressed(withOutgoing(held))), [held]);
+  const sending = useMemo(() => (held === undefined ? undefined : withLeaving(withPressed(withOutgoing(held)))), [held]);
   return (
     <Acts.Provider value={acts}>
       <Held.Provider value={sending}>
