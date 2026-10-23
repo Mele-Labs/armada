@@ -243,7 +243,7 @@ pub(super) const TERMINAL: &[Entry] = &[
         key: OPEN_JOB_TERMINAL_IN.0,
         section: Section::Terminal,
         title: "Open a Job's terminal in",
-        description: "Where Terminal in a Job's header opens its shell: docked under the thread, or in the side panel.",
+        description: "Where a Job's terminal opens: docked, in its own panel under the Job in the Cockpit and under the thread elsewhere, or in the side panel.",
         kind: Kind::Choice(Options::Fixed(JOB_TERMINAL_PLACES)),
         shipped: Shipped::Text("docked"),
         applies: Applies::Live,

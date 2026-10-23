@@ -1,4 +1,4 @@
-// Where a Job's own shell opens, off `terminal.openJobTerminalIn`: docked under the thread, or in the side panel.
+// Where a Job's own shell opens, off `terminal.openJobTerminalIn`: docked (in its own panel under the Job in the Cockpit, under the thread elsewhere), or in the side panel.
 
 import { useEffect, useState } from "react";
 import type { SettingsList } from "@armada/protocol";
