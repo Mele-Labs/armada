@@ -299,6 +299,8 @@ RUSTC_AT = re.compile(r"^\s*--> (.+?):\d+:\d+\s*$")
 DIAGNOSTIC = re.compile(r"^(warning|error)\b")
 # tsc says `path.ts(12,5)`; vite and esbuild say `path.ts:12:5`.
 SCRIPT_AT = re.compile(r"([^\s()'\"]+\.(?:[cm]?[jt]sx?|vue|css))(?:\(\d+,\d+\)|:\d+:\d+)")
+# Rollup names an import it cannot resolve by the importing file alone: `file: path`.
+ROLLUP_FILE = re.compile(r"^file: (\S+?\.(?:[cm]?[jt]sx?|vue|css))(?::\d+:\d+)?\s*$")
 
 
 def error_paths(output, wt):
@@ -311,6 +313,8 @@ def error_paths(output, wt):
         if (m := RUSTC_AT.match(line)):
             if kind == "error":
                 found.append(m.group(1))
+        elif (m := ROLLUP_FILE.match(line)):
+            found.append(m.group(1))
         else:
             found += SCRIPT_AT.findall(line)
     paths = []
