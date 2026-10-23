@@ -228,8 +228,9 @@
   margin-inline-end: var(--space-2);
 }
 
-/* Each thumb no larger than the row's own glyph needs: a 12px mark on a 24px square. */
-.armada-needs-panel__thumbs > .armada-button {
+/* Each thumb no larger than the row's own glyph needs: a 12px mark on a 24px square. The Tooltip sits between
+   them, and the Button's own icon-only size outranks a plainer rule. */
+.armada-needs-panel__list .armada-needs-panel__thumbs .armada-button[data-icon-only="true"] {
   width: var(--space-6);
   height: var(--space-6);
 }
