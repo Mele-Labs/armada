@@ -1,7 +1,7 @@
 //! **Fleet never writes to an issue tracker on the owner's behalf.** The
 //! `Tracker` trait is the whole door to one, so the rule is held on the trait:
-//! it lists and it reads, and a method added to it that does anything else
-//! fails here by name.
+//! it lists, reads and searches, and says how a search is written, and a method
+//! added to it that does anything else fails here by name.
 
 const TRAIT: &str = include_str!("../../../adapter-traits/src/tracker.rs");
 
@@ -23,7 +23,7 @@ fn methods_of_tracker() -> Vec<String> {
 fn the_tracker_trait_has_no_write_method() {
     assert_eq!(
         methods_of_tracker(),
-        ["open_issues", "read_issue"],
+        ["open_issues", "read_issue", "search_issues", "query_guide"],
         "a Tracker lists and reads; commenting, labelling and editing an issue are not Fleet's to do"
     );
 }
