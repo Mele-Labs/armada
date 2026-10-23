@@ -40,6 +40,10 @@ pub struct SessionNote {
     pub state: NoteState,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub crop: Option<NoteCrop>,
+    /// What Bridge held about the Job open when he pinned it, as labelled lines. **Background for
+    /// looking into the note, never the task**: Fleet puts them after his words.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub job: Vec<String>,
 }
 
 /// Where the person pointed.

@@ -190,40 +190,43 @@ describe("a note sent to a Session", () => {
 
   describe("with a Job open", () => {
     const open = { id: "01OPEN", facts: ["Job: Fix the flaky store test (01OPEN)", "State: working"] };
-    const factsMessage = (fleet: ReturnType<typeof sessions>) => (fleet.sendSessionMessage.mock.calls as unknown as [{ session_id: string; text: string }][]).map(([sent]) => sent);
+    const second = { note: note({ id: "20260917-140300-next" }), box: null };
 
-    it("sends the Job's facts as one message to the new Session, before the notes", async () => {
+    it("sends no message of the Job's own, and puts its facts on the first note alone", async () => {
       const fleet = sessions();
-      await sendToSession([item, { note: note({ id: "20260917-140300-next" }), box: null }], null, sink(), fleet, ADDRESS, AT, open);
-      const messages = factsMessage(fleet);
-      expect(messages).toHaveLength(1);
-      expect(messages[0]?.session_id).toBe("01NEW");
-      expect(messages[0]?.text).toContain("\n## Debug info\nJob: Fix the flaky store test (01OPEN)\nState: working");
-      expect(fleet.sendSessionMessage.mock.invocationCallOrder[0]).toBeLessThan(fleet.sendSessionNote.mock.invocationCallOrder[0] ?? 0);
+      await sendToSession([item, second], null, sink(), fleet, ADDRESS, AT, open);
+      expect(fleet.sendSessionMessage).not.toHaveBeenCalled();
+      expect(notesSent(fleet).map((one) => one.job)).toEqual([open.facts, undefined]);
     });
 
-    it("sends the same to a live Session that is not the open Job", async () => {
+    it("puts them on a note for a live Session that is not the open Job", async () => {
       const fleet = sessions();
       await sendToSession([item], { id: "01T", title: "t" }, sink(), fleet, ADDRESS, AT, open);
-      expect(factsMessage(fleet).map((one) => one.session_id)).toEqual(["01T"]);
+      expect(fleet.sendSessionMessage).not.toHaveBeenCalled();
+      expect(notesSent(fleet)[0]?.job).toEqual(open.facts);
+    });
+
+    it("puts them after the words of a whole-window first note, in the same message", async () => {
+      const fleet = sessions();
+      const whole = { note: note({ id: "20260917-140200-wide", scope: "window", text: "The whole window lags" }), box: null };
+      await sendToSession([whole, item], { id: "01T", title: "t" }, sink(), fleet, ADDRESS, AT, open);
+      const messages = (fleet.sendSessionMessage.mock.calls as unknown as [{ text: string }][]).map(([sent]) => sent.text);
+      expect(messages).toHaveLength(1);
+      expect(messages[0]?.startsWith("The whole window lags")).toBe(true);
+      expect(messages[0]).toContain("\nBackground, not the task: the Job he had open when he pinned this\nJob: Fix the flaky store test (01OPEN)\nState: working");
+      expect(notesSent(fleet).map((one) => one.job)).toEqual([undefined]);
     });
 
     it("sends none to the open Job itself, which holds them, nor where no Job is open", async () => {
       const toSelf = sessions();
       await sendToSession([item], { id: "01OPEN", title: "t" }, sink(), toSelf, ADDRESS, AT, open);
-      expect(toSelf.sendSessionMessage).not.toHaveBeenCalled();
+      expect(notesSent(toSelf)[0]).not.toHaveProperty("job");
       const none = sessions();
       await sendToSession([item], { id: "01T", title: "t" }, sink(), none, ADDRESS, AT, undefined);
-      expect(none.sendSessionMessage).not.toHaveBeenCalled();
+      expect(notesSent(none)[0]).not.toHaveProperty("job");
       const empty = sessions();
       await sendToSession([item], { id: "01T", title: "t" }, sink(), empty, ADDRESS, AT, { id: "01OPEN", facts: [] });
-      expect(empty.sendSessionMessage).not.toHaveBeenCalled();
-    });
-
-    it("sends no notes and says so where Fleet refuses the facts", async () => {
-      const fleet = { ...sessions(), sendSessionMessage: vi.fn(async () => refused as never) };
-      expect(await sendToSession([item], { id: "01T", title: "t" }, sink(), fleet, ADDRESS, AT, open)).toEqual({ ok: false, saying: 'Notes not sent to "t": Fleet is not connected. Nothing was sent.' });
-      expect(fleet.sendSessionNote).not.toHaveBeenCalled();
+      expect(notesSent(empty)[0]).not.toHaveProperty("job");
     });
   });
 });
