@@ -106,6 +106,7 @@ WebSocket event stream, read this first.
 | [Protocol 23.80: a Job an agent started](protocol/protocol-23-80-a-job-an-agent-started.md) |
 | [Protocol 23.84: a Job's running turn stopped](protocol/protocol-23-84-a-jobs-running-turn-stopped.md) |
 | [Protocol 23.92: a Job paused and resumed](protocol/protocol-23-92-a-job-paused-and-resumed.md) |
+| [Protocol 23.93: a Job's shared terminal](protocol/protocol-23-93-a-jobs-shared-terminal.md) |
 | [Protocol 23.79: a Job forked at a message](protocol/protocol-23-79-a-job-forked-at-a-message.md) |
 | [Protocol 23.73: Skill and Drone steps run](protocol/protocol-23-73-skill-and-drone-steps-run.md) |
 | [Protocol 23.72: repair on an added step](protocol/protocol-23-72-repair-on-an-added-step.md) |
