@@ -1,5 +1,5 @@
 // Progress: where the Session is, in one panel. Status and the Plan showed the same thing from two levels, so they are one. The workflow, its picker and
-// its steps (a line of glyphs, each named by its hover card) stand in the band. The body reads in the order of what matters: what is happening now,
+// its steps (a line of glyphs, each named by its hover card) stand in a quiet row at the top of the body, and the band keeps the name and its few acts. The body reads in the order of what matters: what is happening now,
 // where that sits in the plan, then the issues and pull requests it works, which are reference. The plan is a stepper (`PlanGroup.tsx`, `PlanSteps.tsx`):
 // done groups and groups to come are one muted line, the group being worked is open and raised, with the plan's edits and marks as they were.
 // A Session with no plan lists the agent's own tasks and its subagents at work, or is its band alone.
@@ -74,11 +74,11 @@ export function ProgressPanel({ work, place, id, session, manifestId, acts, ed, 
   const outside = issuesOutsidePlan(session);
   const hasIssues = outside.issues.length > 0 || outside.loose.length > 0;
   const picker = work.railOff === true ? null : <Flow work={work} acts={acts} id={id} manifestId={manifestId} />;
-  const rail = work.railOff === true ? undefined : (
-    <>
+  const flowRow = work.railOff === true ? null : (
+    <div className="sv-flowrow">
       {picker}
       {flow === undefined ? null : <StepRail steps={flow.steps} at={flow.at} />}
-    </>
+    </div>
   );
   const agentWork = (
     <>
@@ -119,7 +119,8 @@ export function ProgressPanel({ work, place, id, session, manifestId, acts, ed, 
     </>
   );
   return (
-    <SvPanel label="Progress" area="progress" place={place} state={state} acts={bar} empty={bare} {...(rail === undefined ? {} : { rail })}>
+    <SvPanel label="Progress" area="progress" place={place} state={state} acts={bar} empty={bare}>
+      {flowRow}
       {zoned}
       {later.length === 0 ? null : <LaterBlock later={later} onRemind={(sentence) => void remindLater(draft, id, sentence)} onDrop={(one) => draft?.dropLater?.(id, one.id)} />}
     </SvPanel>

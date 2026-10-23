@@ -31,3 +31,10 @@ the plan's states are still Fleet's observation. The account names the approved
 plan group it belongs to and never a proposed one. `docs/concepts/session/working-on.md`
 holds the rules of the account, `docs/concepts/session/in-bridge.md` what Bridge
 draws.
+
+**Revised 2026-10-22, later.** His words on the band: *"The header of the progress
+bar is pretty jammed up with items."* Asked where the workflow picker and the step
+rail should go, he chose a row under the band: the band keeps the label, Sketch,
+Ask for an update and the approved mark, and the picker and the steps stand in one
+quiet row at the top of the body, drawn only where a workflow exists. This replaces
+"the workflow name sits in the panel's band beside the step rail" above.

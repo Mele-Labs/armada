@@ -90,6 +90,22 @@ test("Ask for an update is a button in the band, and pressing it leaves the pane
   expect(section.dataset["collapsed"]).toBeUndefined();
 });
 
+test("the band holds neither the workflow picker nor the step rail, and the body's first row holds both", () => {
+  const acts = { workflows: [{ id: "feature", name: "Feature" }], choose: () => undefined } as unknown as SessionWorkActs;
+  const host = mount({ workflow: { name: "Feature", steps: ["Plan", "Build"], at: 0 }, proposal: { workflow: "feature" }, plan }, ed, session, acts);
+  const section = host.querySelector<HTMLElement>('section[aria-label="Progress"]')!;
+  expect(section.querySelector("header .sv-rail")).toBeNull();
+  expect(section.querySelector("header .sv-flow")).toBeNull();
+  const row = section.querySelector<HTMLElement>(".sv-panel__body > :first-child")!;
+  expect(row.querySelector(".sv-flow")).not.toBeNull();
+  expect(row.querySelector(".sv-rail")).not.toBeNull();
+});
+
+test("a Session with no workflow draws no row for one", () => {
+  const host = mount({ plan }, ed);
+  expect(host.querySelector(".sv-flow, .sv-rail")).toBeNull();
+});
+
 test("a Session with no plan is its band alone", () => {
   const host = mount({ workflow: { name: "Feature", steps: ["Plan"], at: 0 } });
   expect(host.querySelector(".sv-plan")).toBeNull();
