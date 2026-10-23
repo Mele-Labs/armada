@@ -1,5 +1,5 @@
 // The Logbook page, driven by its keys: Enter opens an entry, E edits its text in place, L locks it, the arrows move, F
-// forgets one, and H adds what is not handed out. Over the `logbook` scenario. Mock only: no Fleet route serves the
+// forgets one. Over the `logbook` scenario. Mock only: no Fleet route serves the
 // Logbook yet. `docs/concepts/logbook.md`.
 
 import { button, dialog, inside, place, region, role, walk } from "../walk";
@@ -21,5 +21,5 @@ export const logbook = walk("logbook", [
   { key: "ArrowDown", on: ENTRIES, say: "↓ moves to the next entry" },
   { key: "f", on: ENTRIES, say: "F forgets it, after asking" },
   { press: inside(dialog("Forget this entry"), button("Forget", { exact: true })), say: "Forgotten. No later Job brings it back" },
-  { key: "h", on: ENTRIES, say: "H shows all: candidates and faded entries, dimmed" },
+  { press: role("tab", "New"), say: "New holds the candidates, In use what is handed out, Archived the faded" },
 ]);
