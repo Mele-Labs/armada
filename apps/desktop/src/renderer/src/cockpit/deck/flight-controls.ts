@@ -149,6 +149,15 @@ const normalKey = (key: string | undefined): string | undefined => {
   return chord !== null && (chord.ctrl || chord.alt || chord.meta) ? formatChord(chord) : undefined;
 };
 
+/** Whether two spellings are one key to a tile: ⌘ and ⌃ are, as the registry reads them, unless both are held. */
+const sameKey = (one: string, other: string): boolean => {
+  const as = (key: string): string | undefined => {
+    const chord = keyChord(key);
+    return chord !== null && chord.ctrl && !chord.meta ? normalKey(formatChord({ ...chord, ctrl: false, meta: true })) : normalKey(key);
+  };
+  return as(one) !== undefined && as(one) === as(other);
+};
+
 /** Whether a press is the key a tile wears. */
 export const keyPressed = (key: string, press: Press): boolean => {
   const chord = keyChord(key);
@@ -349,7 +358,7 @@ export function keyProblem(key: string, tiles: readonly Tile[], own: string | un
   if (held === PAUSE_KEY && !pauses && (pauseKey === undefined || pauseKey === PAUSE_KEY)) return "Used by Pause";
   const act = pauses && held === PAUSE_KEY ? undefined : conflictsOf("deck_tile", { kind: "chord", chord })[0];
   if (act !== undefined) return `Used by ${act.verb}`;
-  const other = tiles.find((one) => one.id !== own && one.entry?.key !== undefined && normalKey(one.entry.key) === held);
+  const other = tiles.find((one) => one.id !== own && one.entry?.key !== undefined && sameKey(one.entry.key, key));
   return other === undefined ? undefined : `Used by ${other.label}`;
 }
 

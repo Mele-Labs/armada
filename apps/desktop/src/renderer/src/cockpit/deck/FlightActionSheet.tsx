@@ -176,7 +176,8 @@ export function FlightActionSheet({
             setGlyph(next);
           }}
         />
-        <div className="flight-form__key">
+        {/* While the control waits for a key, Esc is its own to let go, and the sheet does not close on it. */}
+        <div className="flight-form__key" data-keeps-esc={listening === null ? undefined : ""}>
           <KeyBindingRow
             verb="Key"
             slots={[{ slot: { kind: "chord", chord: key === "" ? null : keyChord(key) } }]}
