@@ -8,6 +8,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::ids::{Instant, ManifestId};
+use crate::sessions::SessionId;
 use crate::taught_mods::{FleetFile, WordsFile};
 
 /// What a mod changes. The kinds this build knows; a `mod.toml` naming another
@@ -28,11 +29,32 @@ pub enum ModKind {
     Tracker,
 }
 
+/// Where a mod comes from. Ordered so a local mod is listed ahead of the built-in one of its name.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ModOrigin {
+    /// A folder in this machine's `mods/`.
+    #[default]
+    Local,
+    /// A folder under the repository's `packages/mods/`, compiled into this Fleet.
+    BuiltIn,
+}
+
+impl ModOrigin {
+    fn is_local(&self) -> bool {
+        *self == ModOrigin::Local
+    }
+}
+
 /// One mod on disk, as `list_mods` answers it and `mods.changed` carries it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ModSummary {
-    /// The directory's name, which `mod.toml` must repeat.
+    /// The directory's name, which `mod.toml` must repeat. A built-in mod's is `built-in:` and
+    /// its folder's name, which no directory's can be, so every operation names one or the other.
     pub name: String,
+    /// Left out where local, so a local mod's row is the one it always was.
+    #[serde(default, skip_serializing_if = "ModOrigin::is_local")]
+    pub origin: ModOrigin,
     /// Absent where `mod.toml` could not be read or names a kind this build
     /// does not have.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -144,7 +166,7 @@ pub struct TrackerTry {
     pub read: Option<String>,
 }
 
-/// `promote_mod`: put the mod on a branch of a repository.
+/// `promote_mod`: put the mod into a repository by a Job of its own, with a pull request.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PromoteMod {
     pub name: String,
@@ -153,10 +175,20 @@ pub struct PromoteMod {
     pub manifest_id: Option<ManifestId>,
 }
 
-/// A mod on a branch of the repository, pushed nowhere.
+/// A mod committed by a Job of its own, and the pull request it opened. Modelled on
+/// `CommittedToRepository`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ModPromoted {
     pub name: String,
+    /// The Job made for this promote, which watches its pull request until it merges.
+    pub session_id: SessionId,
+    /// The Job's own branch, which holds the one commit.
     pub branch: String,
     pub commit: String,
+    /// The pull request's address, where one was opened.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pull_request: Option<String>,
+    /// Why no pull request was opened, where none was. The commit stays on the Job's branch.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pull_request_not_opened: Option<String>,
 }

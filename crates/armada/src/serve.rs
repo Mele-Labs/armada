@@ -617,6 +617,7 @@ fn assemble(
             studio_frames_dir: studio_frames_dir.to_string_lossy().to_string(),
             mods_dir: mods_dir.to_string_lossy().to_string(),
             mod_switches,
+            built_in_mods: fleet::mods::BuiltIns::compiled(),
             kit_home,
             // `judge_binary`'s reason: the same override reaches Helm's host.
             // `#943`.

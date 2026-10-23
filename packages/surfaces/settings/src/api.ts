@@ -84,7 +84,7 @@ export type SettingsApi = {
   validateMod: (name: string) => Promise<ModChecked | null>;
   /** This machine's switch for one mod. `mods` is republished with it, and `mods.changed` follows. */
   setModEnabled: (name: string, enabled: boolean) => Promise<Outcome>;
-  /** Put a valid mod on a new branch of the repository. `modPromoted` on the answer names the branch; nothing is pushed. */
+  /** Put a valid mod into the repository by a Job of its own. `modPromoted` on the answer names the Job and its branch, and the pull request or why none opened. */
   promoteMod: (name: string) => Promise<Outcome>;
   /** One request about the phone, to Fleet or to the Gateway on loopback, made by Bridge's main process. */
   phone: (request: PhoneRequest) => Promise<PhoneAnswer>;

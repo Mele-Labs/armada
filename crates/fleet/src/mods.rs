@@ -7,7 +7,8 @@
 //! it is still a list.
 //!
 //! This file reads and lists; [`manifest`] and [`stylesheet`] say what is
-//! acceptable, [`scaffold`] makes one, [`promote`] copies one onto a branch and
+//! acceptable, [`scaffold`] makes one, [`promote`] puts one into a repository by
+//! a Job of its own, [`built_in`] holds the ones Fleet was built with and
 //! [`serving`] is the part that speaks for Fleet.
 
 use std::collections::BTreeMap;
@@ -18,8 +19,9 @@ use std::path::Path;
 use std::sync::Mutex;
 use std::time::UNIX_EPOCH;
 
-use ipc::{Instant, ModKind, ModList, ModSummary};
+use ipc::{Instant, ModKind, ModList, ModOrigin, ModSummary};
 
+mod built_in;
 pub(crate) mod fleet_rules;
 pub(crate) mod manifest;
 mod promote;
@@ -29,6 +31,7 @@ pub(crate) mod stylesheet;
 pub(crate) mod words;
 pub(crate) mod tracker;
 
+pub use built_in::{BuiltIn, BuiltIns};
 pub use serving::keep_reading;
 pub use tracker::{ModSwitches, TrackerMods};
 
@@ -77,15 +80,18 @@ pub(crate) fn theme_problem(id: &str) -> Option<String> {
 /// The prefix of a theme Bridge ships in its catalogue. No mod's name has a `:`.
 const CATALOGUE: &str = "catalogue:";
 
-/// Why `id` cannot be saved as the theme: a plain name, or a catalogue theme's
-/// id, which is Bridge's own spelling and is a plain name after its prefix.
+/// Why `id` cannot be saved as the theme: a plain name, a catalogue theme's
+/// id, which is Bridge's own spelling and is a plain name after its prefix, or a
+/// built-in mod's, which is too.
 pub(crate) fn theme_id_problem(id: &str) -> Option<String> {
-    theme_problem(id.strip_prefix(CATALOGUE).unwrap_or(id))
+    theme_problem(id.strip_prefix(CATALOGUE).or_else(|| id.strip_prefix(built_in::PREFIX)).unwrap_or(id))
 }
 
 /// One mod's folder, read.
 pub(crate) struct Examined {
+    /// The folder's name, or a built-in mod's id.
     pub(crate) name: String,
+    pub(crate) origin: ModOrigin,
     pub(crate) manifest: manifest::Manifest,
     pub(crate) problems: Vec<String>,
     /// The two files as they were checked, kept only where nothing at all was
@@ -144,6 +150,7 @@ impl Examined {
     pub(crate) fn summary(&self, enabled: bool) -> ModSummary {
         ModSummary {
             name: self.name.clone(),
+            origin: self.origin,
             kind: self.manifest.kind,
             version: self.manifest.version.clone(),
             description: self.manifest.description.clone(),
@@ -163,17 +170,48 @@ impl Examined {
     }
 }
 
-/// The mod in `mods_dir/name`. **`name` must have passed [`slug_problem`]**,
-/// or be a folder's own name the listing is describing.
-pub(crate) fn examine(mods_dir: &Path, name: &str) -> Examined {
-    let mut found = Examined {
-        name: name.to_string(),
+/// Where a mod's files are read: its folder on this machine, or the set Fleet was built with.
+pub(super) enum Source<'a> {
+    Folder(&'a Path),
+    BuiltIn(&'a BuiltIn),
+}
+
+impl Source<'_> {
+    /// `file` of at most `most` bytes, and when it was written where it is a file on this machine.
+    pub(super) fn read(&self, file: &str, most: u64) -> Result<(String, Option<i64>), String> {
+        match self {
+            Source::Folder(dir) => read_small(&dir.join(file), most, file).map(|(text, ms)| (text, Some(ms))),
+            Source::BuiltIn(one) => one.read(file, most).map(|text| (text, None)),
+        }
+    }
+}
+
+fn unread(name: String, origin: ModOrigin) -> Examined {
+    Examined {
+        name,
+        origin,
         manifest: manifest::Manifest::default(),
         problems: Vec::new(),
         files: None,
         changed_ms: None,
         tried: None,
-    };
+    }
+}
+
+/// A built-in mod, under its id, checked by the rules [`examine`] holds a folder to.
+pub(crate) fn examine_built_in(one: &BuiltIn) -> Examined {
+    let mut found = unread(one.id(), ModOrigin::BuiltIn);
+    match slug_problem(one.name()) {
+        Some(why) => found.problems.push(why),
+        None => checked(&mut found, one.name(), &Source::BuiltIn(one)),
+    }
+    found
+}
+
+/// The mod in `mods_dir/name`. **`name` must have passed [`slug_problem`]**,
+/// or be a folder's own name the listing is describing.
+pub(crate) fn examine(mods_dir: &Path, name: &str) -> Examined {
+    let mut found = unread(name.to_string(), ModOrigin::Local);
     if let Some(why) = slug_problem(name) {
         found.problems.push(why);
         return found;
@@ -190,11 +228,17 @@ pub(crate) fn examine(mods_dir: &Path, name: &str) -> Examined {
             return found;
         }
     }
+    checked(&mut found, name, &Source::Folder(&dir));
+    found
+}
+
+/// The mod's files read from `source` and checked, `name` being the one its `mod.toml` repeats.
+fn checked(found: &mut Examined, name: &str, source: &Source) {
     let mut stamps = Vec::new();
     let mut texts = (None, None);
-    match read_small(&dir.join(MANIFEST), manifest::MOST_BYTES, MANIFEST) {
+    match source.read(MANIFEST, manifest::MOST_BYTES) {
         Ok((text, ms)) => {
-            stamps.push(ms);
+            stamps.extend(ms);
             let (read, problems) = manifest::read(&text, name);
             found.manifest = read;
             found.problems.extend(problems);
@@ -203,8 +247,8 @@ pub(crate) fn examine(mods_dir: &Path, name: &str) -> Examined {
         Err(why) => found.problems.push(why),
     }
     if found.manifest.kind == Some(ModKind::Tracker) {
-        tracker::examined(&dir, &mut found, stamps, texts.0);
-        return found;
+        tracker::examined(source, found, stamps, texts.0);
+        return;
     }
     // A manifest that names no kind this build has is read as a theme, as it always was, so what
     // is said about a broken mod's stylesheet does not change.
@@ -216,9 +260,9 @@ pub(crate) fn examine(mods_dir: &Path, name: &str) -> Examined {
         Some(ModKind::Tweak) => (TWEAK, stylesheet::MOST_BYTES),
         Some(ModKind::Theme | ModKind::Tracker) | None => (THEME, stylesheet::MOST_BYTES),
     };
-    match read_small(&dir.join(file), most, file) {
+    match source.read(file, most) {
         Ok((text, ms)) => {
-            stamps.push(ms);
+            stamps.extend(ms);
             found.problems.extend(match kind {
                 Some(ModKind::Layout) => ipc::layout::problems(&text),
                 Some(ModKind::Words) => words::problems(&text),
@@ -241,7 +285,6 @@ pub(crate) fn examine(mods_dir: &Path, name: &str) -> Examined {
         };
         found.files = Some(Files { manifest, payload });
     }
-    found
 }
 
 /// A TOML file's parse failure as a problem on the line it stopped at.
@@ -287,27 +330,31 @@ pub(super) fn read_small(path: &Path, most: u64, what: &str) -> Result<(String, 
     Ok((text, ms))
 }
 
-/// Every folder in `mods_dir`, by name. A folder that does not exist yet is an
-/// empty list, and one that will not read is the same: there is nothing to show.
+/// Every folder in `mods_dir`, by name, and every built-in mod beside the local
+/// one of its name. A folder that does not exist yet holds no local mod, and one
+/// that will not read is the same: there is nothing to show.
 ///
 /// **Files and names that begin with `.` are not mods** and are not listed. A
 /// folder whose name is not a slug is listed, invalid, so the owner can see why
 /// the thing they made is not offered.
-pub(crate) fn scan(mods_dir: &Path, switches: &BTreeMap<String, bool>) -> ModList {
-    let Ok(entries) = std::fs::read_dir(mods_dir) else {
-        return ModList::default();
-    };
-    let mut mods: Vec<ModSummary> = entries
+pub(crate) fn scan(mods_dir: &Path, switches: &BTreeMap<String, bool>, built_in: &BuiltIns) -> ModList {
+    let local = std::fs::read_dir(mods_dir)
+        .into_iter()
+        .flatten()
         .filter_map(Result::ok)
         .filter(|entry| entry.file_type().is_ok_and(|kind| kind.is_dir() || kind.is_symlink()))
         .map(|entry| entry.file_name().to_string_lossy().into_owned())
         .filter(|name| !name.starts_with('.'))
-        .map(|name| {
-            let enabled = switches.get(&name).copied().unwrap_or(true);
-            examine(mods_dir, &name).summary(enabled)
+        .map(|name| examine(mods_dir, &name));
+    let mut mods: Vec<ModSummary> = local
+        .chain(built_in.iter().map(examine_built_in))
+        .map(|found| {
+            let enabled = switches.get(&found.name).copied().unwrap_or(true);
+            found.summary(enabled)
         })
         .collect();
-    mods.sort_by(|a, b| a.name.cmp(&b.name));
+    let folder = |one: &ModSummary| (one.name.strip_prefix(built_in::PREFIX).unwrap_or(&one.name).to_string(), one.origin);
+    mods.sort_by_key(folder);
     ModList { mods }
 }
 

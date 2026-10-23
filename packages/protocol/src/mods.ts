@@ -13,10 +13,15 @@ import type { FleetRule } from "./teaching";
  */
 export type ModKind = "theme" | "layout" | "words" | "fleet" | "tweak" | "tracker";
 
+/** Where a mod comes from: this machine's mods folder, or `packages/mods/` in the build Fleet runs. */
+export type ModOrigin = "local" | "built_in";
+
 /** One mod on disk. A broken one is a row with `valid` false, never a failed read. */
 export type ModSummary = {
-  /** The folder's name, a slug. */
+  /** The folder's name, a slug. A built-in mod's is `built-in:` and its folder's name, so it never answers to a local mod's. */
   name: string;
+  /** Absent from a Fleet built before built-in mods, and read as `local`. */
+  origin?: ModOrigin;
   /** Absent where `mod.toml` could not be read or names a kind this build does not have. */
   kind?: ModKind;
   version?: string;
@@ -120,5 +125,15 @@ export type PromoteMod = {
   manifest_id?: string;
 };
 
-/** A mod on a branch of the repository. Pushed nowhere, and no pull request opened. */
-export type ModPromoted = { name: string; branch: string; commit: string };
+/** A mod committed by a Job of its own, on that Job's branch, and the pull request it opened. */
+export type ModPromoted = {
+  name: string;
+  /** The Job made for this promote, which watches its pull request until it merges. Optional here only until Bridge's fakes carry it; Fleet always sends it. */
+  session_id?: string;
+  branch: string;
+  commit: string;
+  /** The pull request's address, where one was opened. */
+  pull_request?: string;
+  /** Why no pull request was opened, where none was. The commit stays on the Job's branch. */
+  pull_request_not_opened?: string;
+};

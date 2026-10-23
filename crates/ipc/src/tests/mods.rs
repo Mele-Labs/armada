@@ -2,13 +2,14 @@
 //! empty field is left out and never `null`, and the event carries the list whole.
 
 use crate::{
-    decode, encode, Delivered, Event, Instant, ModChecked, ModKind, ModList, ModSummary, Preferences,
+    decode, encode, Delivered, Event, Instant, ModChecked, ModKind, ModList, ModOrigin, ModSummary, Preferences,
     SavePreference, ScaffoldMod, StreamMessage,
 };
 
 fn a_mod(name: &str) -> ModSummary {
     ModSummary {
         name: name.to_string(),
+        origin: ModOrigin::Local,
         kind: Some(ModKind::Theme),
         version: Some("0.1.0".to_string()),
         description: Some("Softer greys".to_string()),
@@ -36,6 +37,7 @@ fn a_valid_mod_carries_what_it_read_and_no_reason() {
 fn a_broken_mod_leaves_out_what_could_not_be_read_rather_than_sending_null() {
     let broken = ModSummary {
         name: "bad".to_string(),
+        origin: ModOrigin::Local,
         kind: None,
         version: None,
         description: None,
