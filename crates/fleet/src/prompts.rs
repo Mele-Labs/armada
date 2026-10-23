@@ -41,6 +41,7 @@ fn shipped_texts() -> Vec<(Words, String)> {
         (keys::PROMPT_RETRO_REVIEW, crate::retro::REVIEW.to_string()),
         (keys::PROMPT_RETRO_ASK, crate::retro::ASK.to_string()),
         (keys::PROMPT_LOGBOOK_DISTIL, crate::logbook::QUESTION.to_string()),
+        (keys::PROMPT_TEACHING_READ, crate::teaching::QUESTION.to_string()),
         (keys::PROMPT_HELM, crate::helm::shipped(Authority::Acting)),
         (
             keys::PROMPT_HELM_READ_ONLY,

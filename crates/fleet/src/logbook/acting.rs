@@ -311,14 +311,19 @@ where
     async fn forget_logbook_entry(&self, entry_id: String) -> Result<ForgottenLogbookEntry, Refusal> {
         let entry = self.logbook_held(&entry_id).await?;
         let now = self.logbook_now();
-        let forgot = self
-            .store()
-            .lock()
-            .await
-            .forget_logbook_entry(entry.id.unwrap_or_default(), now)
-            .map_err(|why| self.logbook_fault(why))?;
-        if !forgot {
-            return Err(self.logbook_missing(format!("No entry has the id {entry_id}. It may have been forgotten.")));
+        let taken = {
+            let mut store = self.store().lock().await;
+            let forgot = store
+                .forget_logbook_entry(entry.id.unwrap_or_default(), now)
+                .map_err(|why| self.logbook_fault(why))?;
+            if !forgot {
+                return Err(self.logbook_missing(format!("No entry has the id {entry_id}. It may have been forgotten.")));
+            }
+            // The mods a teaching made from this entry go with it, and under the same lock.
+            crate::teaching::forget_effects(&self.mods_dir(), &entry_id)
+        };
+        if !taken.is_empty() {
+            let _ = self.mods_announced().await;
         }
         self.logbook_mirrored(&entry.repository).await;
         Ok(ForgottenLogbookEntry { id: entry_id })

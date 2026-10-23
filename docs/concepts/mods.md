@@ -1,6 +1,6 @@
 # Mod
 
-**What it is:** A folder on this machine that changes how Bridge looks or how it is arranged, or teaches Fleet a tracker it was not built for, written by a person or by a job, which Fleet reads and checks and which can never stop Fleet from starting or from listing.
+**What it is:** A folder on this machine that changes how Bridge looks, how it is arranged, what it links or what Fleet tells a Session, or teaches Fleet a tracker it was not built for, written by a person or by a job, which Fleet reads and checks and which can never stop Fleet from starting or from listing.
 
 ---
 
@@ -15,8 +15,8 @@ A month later you ask for it in the repository, and it is on a branch under `pac
 > **Rule.** A mod is a folder under the machine's `mods/` directory, and nothing else is one.
 > Why: a job that can write a file can make one, without a build and without touching Bridge's source.
 
-> **Rule.** Fleet stores and checks a mod, and Bridge is what applies a theme or a layout.
-> Why: Fleet never draws. A tracker mod is the one kind Fleet runs itself, because Fleet is what reads a tracker.
+> **Rule.** Fleet stores and checks a mod, and Bridge is what applies a theme, a layout or a tweak.
+> Why: Fleet never draws, and a mod is a look, an arrangement, a pattern to link or a rule for a notice. A tracker mod is the one kind Fleet runs itself, because Fleet is what reads a tracker.
 
 > **Rule.** A broken mod is a row with `valid` false, and never a failure of Fleet's start or of `list_mods`.
 > Why: the folder is written by anything on the machine, so every read of it is bounded and every fault is that mod's own.
@@ -33,6 +33,9 @@ A month later you ask for it in the repository, and it is on a branch under `pac
 | `mod.toml` | `name`, `kind`, `version`, `description` |
 | `theme.css` | Token values Bridge injects, in a theme mod |
 | `layout.json` | Which tabs, panels and places Bridge draws and in what order, in a layout mod. [Layout mods](layout-mods.md) |
+| `words.toml` | A pattern Bridge links and where it opens in each repository, in a Words mod |
+| `fleet.toml` | What Fleet does with a notice, by Job, repository or everywhere, in a Fleet mod |
+| `tweak.css` | Token values layered over whichever theme is chosen, in a tweak mod |
 | `tracker.toml` | How to list, search and read a tracker's issues, in a tracker mod. *Tracker mods* below |
 | `.tried.toml` | A tracker mod's last try, written by Fleet and never promoted |
 | `.git/` | The mod's own history, one commit at scaffold |
@@ -46,13 +49,15 @@ A flat file of `key = "value"` lines and `#` comments, read by hand: a table, an
 | field | type | required | default | meaning |
 |---|---|---|---|---|
 | `name` | string | yes | | The folder's name |
-| `kind` | string | yes | | `theme`, `layout` or `tracker` |
+| `kind` | string | yes | | `theme`, `layout`, `words`, `fleet`, `tweak` or `tracker` |
 | `version` | string | yes | | Up to 32 letters, digits, `.`, `+`, `-` |
 | `description` | string | no | none | Up to 200 characters |
+| `taught_on` | string | no | none | What Teach was pressed on, up to 120 characters. The mod's row lists it |
+| `entry` | string | no | none | The Logbook entry a teaching from a Job made. Forgetting that entry removes the mod |
 
 Any other key is a problem.
 A `kind` this build does not have makes the mod invalid, so a valid mod's kind is always one Bridge can act on.
-A theme mod holds `theme.css`, a layout mod `layout.json` and a tracker mod `tracker.toml`, and the kind says which file is read.
+A theme mod holds `theme.css`, a layout mod `layout.json`, a Words mod `words.toml`, a Fleet mod `fleet.toml`, a tweak mod `tweak.css` and a tracker mod `tracker.toml`, and the kind says which file is read.
 
 ## theme.css
 
@@ -71,6 +76,56 @@ The tokens are the names in `packages/tokens/tokens.json`, compiled into Fleet, 
 | A regular file | A link, a pipe, a file that is not UTF-8 |
 
 Every problem is returned with its line, up to 20.
+
+## tweak.css
+
+> **Rule.** A tweak is checked as `theme.css` is, token declarations and nothing else, and names `tweak.css` in its problems.
+> Why: it is substituted into the same page a theme is, so it gets the same whitelist.
+
+Bridge layers every tweak that is on and valid over whichever theme is chosen, and `validate_mod` returns its text as `css`.
+A tweak is never chosen as the theme.
+
+## words.toml
+
+> **Rule.** A Words mod holds a pattern learned once and an address for each repository that has one.
+> Why: `ARM-123` links to one place in one repository and to another place in the next, and the pattern is the same.
+
+```toml
+name = "Jira key"
+pattern = "[A-Z][A-Z0-9]+-\\d+"
+example = "ARM-123"
+
+[[address]]
+repository = "armada"
+template = "https://acme.example.net/browse/{match}"
+found = "settings"
+```
+
+`repository` is a Manifest id, or `*` for a repository with no address of its own.
+`found` is `settings` (the Manifest's tracker named the site), `pull_request #<number>` (a merged pull request's text held it) or `person`.
+The pattern is held to what both Bridge's JavaScript engine and Fleet's read: no lookaround, backreference or inline flag, no repeated group that holds a repeat or a choice, at most 200 characters, and it matches `example` whole.
+An address is an `http` or `https` address with `{match}` outside its host. At most 100 addresses and 16 KiB.
+
+**A repository with no address is looked for, once, when a teaching or a read of the rules names it.**
+Fleet asks the Manifest's tracker first (a Jira site gives its `browse` page, `found = "settings"`), then reads the text of up to five recently merged pull requests for a web address that holds a match of the pattern on its own in a path or query value (`found = "pull_request #<number>"`).
+Where neither says, the Session whose person taught it is asked in Needs you, once for that mod and repository: they pick an address another repository has, or write one.
+An address a person wrote is never replaced by one that was found.
+
+## fleet.toml
+
+> **Rule.** A Fleet mod names a notice Fleet sends, what to do with it, and where.
+> Why: the same line is wanted once a day in one repository and never in another.
+
+```toml
+[[rule]]
+notice = "behind_base"
+does = "batch"
+where = "repo armada"
+```
+
+`does` is `tell`, `quiet`, `batch` or `call`. `where` is `job <id>`, `repo <manifest id>` or `everywhere`.
+`notice` is one of the words a notice goes by, so a word Fleet does not send is a problem.
+**The nearest place wins** (a Job's own over its repository's over everywhere), and among rules of one place the later mod name does. At most 64 rules and 8 KiB.
 
 ## Tracker mods
 
@@ -131,9 +186,9 @@ A tracker mod switched off in Mods is refused too, with that as the reason; the 
 
 | Operation | Kind | A job may | Does |
 |---|---|---|---|
-| `list_mods` | query | yes | Every mod: kind, version, description, `enabled`, `valid`, `reason`, `changed_at`, and a tracker's `tried` |
-| `scaffold_mod` | command | yes | Makes the folder, a starter `theme.css` or, for `kind` `layout`, a `layout.json` that changes nothing, or for `kind` `tracker` a `tracker.toml` that validates and fails its try, `git init` and one commit |
-| `validate_mod` | query | yes | Every problem found, and the checked text when there are none: `css` for a theme, `layout` for a layout |
+| `list_mods` | query | yes | Every mod: kind, version, description, `taught_on`, `enabled`, `valid`, `reason`, `changed_at`, and a tracker's `tried` |
+| `scaffold_mod` | command | yes | Makes the folder, a starter file for its `kind` that changes nothing (a tracker's validates and fails its try), `git init` and one commit |
+| `validate_mod` | query | yes | Every problem found, and the checked text when there are none: `css` for a theme or a tweak, `layout` for a layout |
 | `try_tracker_mod` | command | yes | Runs a tracker mod against a repository and keeps how it went |
 | `set_mod_enabled` | command | Helm only | This machine's switch for one mod |
 | `promote_mod` | command | no | Copies the mod onto a new branch of a repository |

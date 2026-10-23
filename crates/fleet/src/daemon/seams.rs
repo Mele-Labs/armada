@@ -139,6 +139,9 @@ where
     pub(crate) fn behind_told(&self) -> &crate::behind_bay::BehindTold {
         &self.behind_told
     }
+    pub(crate) fn searched(&self) -> &crate::teaching::Searched {
+        &self.searched
+    }
     pub(crate) fn logbook_distils(&self) -> &crate::logbook::Distils {
         &self.logbook
     }

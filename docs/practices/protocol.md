@@ -606,6 +606,30 @@ Bridge's half is `packages/protocol/src/logbook.ts`, written by hand, field for 
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 **The event stream.** Untouched.
 
+## Teaching: `read_teaching`, `save_teaching` and `list_word_rules`
+
+Since 22 Oct 2026. **Additive only**: three operations and routes and the types they carry; no event kind and no field on an existing type but `taught_on` on `ModSummary` and three `ModKind` words.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `packages/protocol/src/teaching.ts` and the `ModKind` union in `packages/protocol/src/mods.ts`, written by hand, field for field.
+**A teaching is a Logbook entry for the agent note and mods by what it changes**; `save_teaching` makes both, so Bridge files nothing itself.
+`docs/concepts/mods.md` is the mod files.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `read_teaching` (`POST /teachings/read`) | Bridge sends `{ words?, message?, said, repository?, reach, session_id?, source? }` (`reach` is `repository` or `everywhere`, `source` is `{ kind, text, ids? }` with `kind` one of `words`, `command`, `notice`, `task`, `check`, `pull_request`, `panel`, `row`, `title_bar`), Fleet answers `{ note?, words?, fleet?, tweak?, layout? }` | One model call, nothing kept. `note` is `{ section, kind, text }`, `words` is `{ name, pattern, example, address? }`, `fleet` is `{ notice, does, where }`, `tweak` is a list of `{ token, was, now, used_in?, note? }`, `layout` is `{ name, layout }`; at least one is present. 422 `fleet.teaching_words_refused`, `fleet.teaching_note_refused`, `fleet.teaching_rule_refused`, `fleet.teaching_tweak_refused`, `fleet.teaching_layout_refused`, `fleet.teaching_input_refused`, `fleet.teaching_nothing_read`; 500 `fleet.teaching_read_failed` |
+| `save_teaching` (`POST /teachings`) | Bridge sends the parts as left, then `{ reach, repository?, session_id?, cite?, source? }`, Fleet answers `{ entry?, mods }` | Held to what `read_teaching` holds a proposal to, all before any write. The note becomes a Logbook entry with `{ session_id, cite }` as its evidence; each other part becomes an enabled mod. With `session_id` and a note the Session is told "From now on: <note>": queued behind a turn in progress, never refused |
+| `list_word_rules` (`GET /teachings/words?repository=&session_id=`, `agent_access = "Yes"`) | Bridge reads | `{ rules }` of `{ mod_name, name, pattern, example, address }`: one per enabled, valid Words mod with an address for the repository, its own before the one for every repository. 404 `fleet.run_memory_repository_not_served` |
+
+**A Words mod with no address for a repository is looked for**, off the request, when a save names the repository or `list_word_rules` is read for it: the Manifest's tracker first (`found = "settings"`, through `Tracker::address_template`), then up to five recently merged pull requests' text (`found = "pull_request #N"`).
+**Where neither says, the Session is asked once**: `WaitingSource` gains `words_address`, a derived item with id `words:<mod>:<manifest id>`, text `Where does <name> open in <manifest id>?`, an `answer` act, and options of each address any Words mod holds (label the address, description the repositories using it) then `Other`.
+`answer_waiting` with a `choice` of an address, or `Other` and `text`, writes it to the mod as `found = "person"`; 422 `fleet.session_waiting_empty` for an address with no `{match}`.
+Dismissing it is kept: it is not asked again for that mod and repository.
+**Skew for `words_address`.** A Bridge before this reads an item of a source it does not know; the IDs differ and the lifeboat serves.
+
+**Removed**: `list_taught_links` and `forget_taught_link`, with the `taught_links` table, which never shipped. Forgetting a Logbook entry removes the mods whose `mod.toml` records it as `entry`.
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+**The event stream.** Untouched.
+
 ## A Fleet notice disputed: `dispute_fleet` and the `disputed` row
 
 Since 19 Oct 2026. `docs/concepts/session/what-fleet-tells-a-job.md`.

@@ -48,6 +48,7 @@ mod watches;
 mod reply_misreads;
 /// The sentences read from a reply that he confirmed with thumbs up.
 mod reply_confirmed;
+mod word_asks;
 mod notice_mutes;
 mod session_waiting;
 mod sleep_night;
@@ -144,6 +145,7 @@ pub use session_tells::KeptTell;
 pub use session_later::KeptLater;
 pub use watches::{KeptWatch, KeptWatchReading, KeptWatchSetAside, KeptWatchTaken, KeptWatchVerdict, KeptWatchWhole, READINGS_KEPT};
 pub use notice_mutes::LiveMutes;
+pub use word_asks::KeptWordAsk;
 pub use session_waiting::KeptWaiting;
 pub use session_checks::KeptSessionCheck;
 pub use test_map::{StaleTest, TestsReaching};

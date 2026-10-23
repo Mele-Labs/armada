@@ -38,7 +38,7 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    pub(super) fn mods_dir(&self) -> PathBuf {
+    pub(crate) fn mods_dir(&self) -> PathBuf {
         PathBuf::from(&self.host().mods_dir)
     }
 
@@ -46,14 +46,18 @@ where
         Refusal::Fault(WireError::raised(MOD_NOT_WRITTEN, said, self.run_id()))
     }
 
-    /// The folder as it stands, read off the disk now.
-    async fn mods_listed(&self) -> Result<ModList, Refusal> {
-        let switches = self
-            .store()
+    /// This machine's switches, by mod name.
+    pub(crate) async fn mod_switches_read(&self) -> Result<std::collections::BTreeMap<String, bool>, Refusal> {
+        self.store()
             .lock()
             .await
             .mod_switches()
-            .map_err(|fault| self.refusal(Adrift::Reading(ReadError::Database(fault))))?;
+            .map_err(|fault| self.refusal(Adrift::Reading(ReadError::Database(fault))))
+    }
+
+    /// The folder as it stands, read off the disk now.
+    async fn mods_listed(&self) -> Result<ModList, Refusal> {
+        let switches = self.mod_switches_read().await?;
         self.host().mod_switches.replace(&switches);
         let dir = self.mods_dir();
         tokio::task::spawn_blocking(move || scan(&dir, &switches))
@@ -63,7 +67,7 @@ where
 
     /// Say the list now, because something here just changed it. The rescan
     /// would find it in a moment; this is for the Bridge that is waiting.
-    async fn mods_announced(&self) -> Result<ModList, Refusal> {
+    pub(crate) async fn mods_announced(&self) -> Result<ModList, Refusal> {
         let list = self.mods_listed().await?;
         self.mods().published(&list);
         self.publish(Event::ModsChanged(list.clone()));
@@ -148,10 +152,12 @@ where
         let valid = found.valid();
         let (mut css, mut layout) = (None, None);
         match found.files.map(|files| files.payload) {
-            Some(Payload::Css(text)) => css = Some(text),
+            // A tweak is token values like a theme's, and Bridge injects it the same way.
+            Some(Payload::Css(text) | Payload::Tweak(text)) => css = Some(text),
             Some(Payload::Layout(text)) => layout = Some(text),
-            // A tracker is not Bridge's to apply; what it is checked against is `try_tracker_mod`.
-            Some(Payload::Tracker(_)) | None => {}
+            // Words are read through `list_word_rules` and Fleet's own are read by Fleet. A tracker
+            // is not Bridge's to apply; what it is checked against is `try_tracker_mod`.
+            Some(Payload::Words(_) | Payload::Fleet(_) | Payload::Tracker(_)) | None => {}
         }
         Ok(ModChecked {
             name,

@@ -180,6 +180,8 @@ mod session_waits;
 mod session_summary;
 mod run_memory;
 mod logbook;
+mod teaching;
+mod taught_mods;
 mod notices;
 mod session_import;
 mod sessions;
@@ -442,6 +444,11 @@ pub use logbook::{
     EditLogbookEntry, Logbook, LogbookEarlier, LogbookEntry, LogbookEvidence, ForgottenLogbookEntry, LogbookKind, LogbookReplacedBy,
     LogbookSection, LogbookState, LockLogbookEntry, TeachLogbookEntry, TeachSource,
 };
+pub use teaching::{
+    ReadTeaching, SaveTeaching, SavedTeaching, TeachingLayout, TeachingNote, TeachingProposal, TeachingReach,
+    TeachingSource, TeachingSourceKind, TeachingWords, TweakChange, WordRule, WordRules,
+};
+pub use taught_mods::{AddressFound, Does, FleetFile, FleetRule, RuleScope, WordsAddress, WordsFile};
 pub use notices::{Notice, NoticeScope, SetNoticeMute};
 pub use run_memory::{
     DropRunFact, RememberedRun, RunCloud, RunFactState, RunMemory, RunMemoryPlace, RunPlace, RunWorkspace, SetRunMemoryPlace,

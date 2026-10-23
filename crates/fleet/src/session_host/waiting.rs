@@ -87,6 +87,8 @@ pub(crate) struct WaitingReads {
     misreads: Vec<String>,
     /// Every sentence read from a reply that he confirmed with thumbs up, in any Session.
     confirmed: Vec<String>,
+    /// The questions about where taught words open that were put to this Session.
+    word_asks: Vec<store::KeptWordAsk>,
 }
 
 /// What [`Fleet::waiting_from`] read: the items, and how the Session stands.
@@ -117,6 +119,7 @@ pub(crate) fn waiting_reads(
         concerns: store.session_concerns(&session.id)?,
         misreads: store.misreads()?,
         confirmed: store.confirmed()?,
+        word_asks: store.word_asks_of(&session.id)?,
     })
 }
 
@@ -301,7 +304,7 @@ where
         session: &KeptSession,
         attachments: &[ipc::Attachment],
     ) -> Waited {
-        let WaitingReads { kept, rows, dismissed, done, turn_end, tell, plan, concerns, misreads, confirmed } = reads;
+        let WaitingReads { kept, rows, dismissed, done, turn_end, tell, plan, concerns, misreads, confirmed, word_asks } = reads;
         let asked = self.hosts().of(&session.id).state().asked.clone();
         let rows: Vec<SessionRow> = rows
             .iter()
@@ -465,6 +468,8 @@ where
                     .filter(|one| one.settled.is_none())
                     .map(|one| crate::rail_keeping::concern_item(&session.id, one)),
             );
+            // Taught words that open nowhere Fleet could find in this repository: asked once.
+            items.extend(self.words_ask_items(&word_asks, &dismissed));
             items.extend(rows.into_iter().filter_map(|row| match row {
                 SessionRow::Delivery { at, choice: None, .. } => Some(super::delivering::delivery_item(at)),
                 SessionRow::WindowAsk {
@@ -850,6 +855,7 @@ where
             )),
             WaitingSource::SlotChoice => self.slot_chosen(&id, said.choice).await,
             WaitingSource::Delivery => self.delivery_chosen(&id, said.choice).await,
+            WaitingSource::WordsAddress => self.words_address_chosen(&id, &item, picked.as_deref(), words).await,
         };
         if let (Ok(record), false) = (
             &settled,

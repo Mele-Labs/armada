@@ -176,3 +176,25 @@ fn the_search_filter_reads_the_flat_shape_too() {
         ]
     );
 }
+
+// ------------------------------------------------------------------ the address of a key
+
+#[test]
+fn a_jira_key_opens_on_the_blocks_site_and_anything_else_has_no_address() {
+    let run = Scripted::saying(&[]);
+    let tracker = JiraTracker::with_runner(settings(), &run);
+    assert_eq!(tracker.address_template("ABC-123"), Some("https://acme.atlassian.net/browse/{match}".to_string()));
+    assert_eq!(
+        tracker.address_template(" OPS-7 "),
+        Some("https://acme.atlassian.net/browse/{match}".to_string()),
+        "any project's key opens on the same site"
+    );
+    for not_a_key in ["#123", "abc-1", "ABC", "ABC-", "see ABC-1"] {
+        assert_eq!(tracker.address_template(not_a_key), None, "{not_a_key}");
+    }
+    let by_host = JiraTracker::with_runner(
+        JiraSettings::read(&block(&[("site", "Jira.Example.Org"), ("project", "A1")])).expect("a block"),
+        &run,
+    );
+    assert_eq!(by_host.address_template("A1-9"), Some("https://jira.example.org/browse/{match}".to_string()));
+}

@@ -27,6 +27,7 @@ impl Mods for FakeDaemon {
             kind: Some(ipc::ModKind::Theme),
             version: Some(String::from("0.1.0")),
             description: None,
+            taught_on: None,
             enabled: set.enabled,
             valid: true,
             reason: None,

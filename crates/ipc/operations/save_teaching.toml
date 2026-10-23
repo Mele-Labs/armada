@@ -1,0 +1,21 @@
+[operations.save_teaching]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Keep a checked teaching: a Logbook entry for the agent note and a mod for each part that changes something"
+notes = """
+`POST /teachings`, body `{note?, words?, fleet?, tweak?, layout?, reach, repository?, session_id?, cite?, source?}`: the parts `read_teaching` answers with, as the person left them, then `reach` (`repository` or `everywhere`), `repository` (a root `list_repositories` names, required for `repository`), `session_id` and `cite` (the Session and message the teaching came from) and `source` (as `read_teaching` takes it). Answers `{entry?, mods}`: the Logbook entry's id when there was a note, and the names of the mods written, each of them on.
+
+**The note becomes a Logbook entry** through the same code as `teach_logbook_entry`, with `{session_id, cite}` as its one evidence row. **Each other part becomes a mod**, by what it changes:
+
+| Part | Mod | Name |
+| --- | --- | --- |
+| `words` | A Words mod (`words.toml`): the pattern once, and an address for `repository`'s Manifest id, or `*` for every repository. Teaching a pattern a Words mod already holds adds or replaces that address in it | the part's `name`, slugged |
+| `fleet` | A Fleet mod (`fleet.toml`): one rule | `fleet-<notice>` |
+| `tweak` | A Tweak mod (`tweak.css`): the tokens as `:root` declarations | `tweak-<first token>` |
+| `layout` | A Layout mod (`layout.json`) | the part's `name`, slugged |
+
+A name that is taken gets `-2`, `-3`. Each mod's `mod.toml` records `entry` (the Logbook entry's id, when there is one) and `taught_on`: `source.text` for a Bridge source, so the mod row can say what it was taught on. **Everything is checked before anything is written**, by what `read_teaching` holds a proposal to, so a refusal leaves no entry and no mod behind. A body with no part is a 422 `fleet.teaching_input_refused`; the part refusals are `read_teaching`'s 422 codes. A root Fleet does not serve is a 404 `fleet.run_memory_repository_not_served`.
+
+**When `session_id` and a `note` both come, Fleet tells that Session "From now on: <note>"** in its own voice, as news that asks nothing of the agent. A Session mid-turn has the line queued behind the turn, one that is idle is woken by it, and one that has ended or is not hosted is not told. The save never fails for want of someone to tell. A save that writes a mod announces the mods to Bridge.
+"""
