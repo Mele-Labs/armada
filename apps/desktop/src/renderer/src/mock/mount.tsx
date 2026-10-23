@@ -61,6 +61,8 @@ import { SharedPanelFrom } from "../shared-panel/reads";
 import { SharedPanelHost } from "../shared-panel/host";
 import { SharedPanelOver } from "../shared-panel/wired";
 import { reviewSourceOf } from "../pr-review/source";
+import { IssuesFrom, createIssuesStore } from "../issues-tab/store";
+import { issuesTabSource } from "./slices/issues";
 import type { Scenario } from "./scenario";
 import { withState } from "../state-feed";
 
@@ -160,6 +162,10 @@ export function mountApp(
     if (last !== undefined) writeKept(KEPT_LISTS, last);
   }
   const reviews = seed === undefined ? undefined : createReviewStore(reviewSourceOf(api));
+  // The Issues tab starts as a window does, with no query chosen and no draft kept from an earlier pass.
+  const tracked = chosen.draft?.issuesTab;
+  if (tracked !== undefined && seed === undefined) forgetAllKept();
+  const issues = tracked === undefined ? undefined : createIssuesStore(issuesTabSource(tracked));
   // A scenario that adds to its timeline as time passes holds it here, and moves it when the fake's moment does.
   const timeline = chosen.draft?.eventsLater === undefined ? undefined : eventsLater(chosen.draft.events ?? [], chosen.draft.eventsLater);
   if (timeline !== undefined && shared === undefined) alsoOnTimePassing(timeline.advance);
@@ -191,6 +197,7 @@ export function mountApp(
                                       <SharedHomeFrom home={chosen.draft?.sharedHome}>
                                         <PrOwnersFrom owners={chosen.draft?.prOwners}>
                                           <ReviewsFrom store={reviews}>
+                                          <IssuesFrom store={issues}>
                                             {panelReads === undefined ? (
                                               <SharedPanelOver api={withState(api)} testsReaching={chosen.draft?.testsReaching}>
                                                 <App />
@@ -205,6 +212,7 @@ export function mountApp(
                                                 <SharedPanelHost />
                                               </SharedPanelFrom>
                                             )}
+                                          </IssuesFrom>
                                           </ReviewsFrom>
                                         </PrOwnersFrom>
                                       </SharedHomeFrom>

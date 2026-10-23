@@ -1,0 +1,33 @@
+/* A repository as a chip: the dispatch panel's repository chip, unpressed, as a fact. The glyph in the muted ink, the name in mono. */
+.armada-repository-chip {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  max-width: 20ch;
+  height: var(--space-6);
+  padding: 0 var(--space-2);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-raised);
+  color: var(--fg-default);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-medium);
+  line-height: var(--leading-2xs);
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.armada-repository-chip > svg {
+  flex: none;
+  color: var(--fg-muted);
+}
+
+.armada-repository-chip__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

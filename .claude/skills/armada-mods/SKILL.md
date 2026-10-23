@@ -140,7 +140,7 @@ nothing: check the id against the table.
 |---|---|---|---|---|
 | `dashboard.panels` | `fleet`, `merge-line`, `field` | `fleet` | yes | no |
 | `job.tabs` | `overview`, `workflow`, `plan`, `record`, `checks`, `drones`, `pulse`, `settings` | `overview`, `plan` | yes | yes |
-| `rail` | `overview`, `jobs`, `sessions`, `kit`, `mods`, `settings`, `guides`, `workflows`, `studios`, `logbook`, `reviews` | `overview`, `mods`, `settings` | no | no |
+| `rail` | `overview`, `jobs`, `sessions`, `kit`, `mods`, `settings`, `guides`, `workflows`, `studios`, `logbook`, `reviews`, `issues` | `overview`, `mods`, `settings` | no | no |
 
 `packages/shell/layout-registry.json` is the list Fleet checks. **`rail`
 is the places: the Cockpit, the tabs `jobs` and `sessions` and the System strip's pages.

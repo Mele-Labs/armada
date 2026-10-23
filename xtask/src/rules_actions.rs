@@ -60,6 +60,7 @@ const SCOPES: &[&str] = &[
     "dashboard",
     "deck",
     "review",
+    "issues",
     "call",
     "logbook",
 ];

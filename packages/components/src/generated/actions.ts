@@ -42,6 +42,7 @@ export type ActionScope =
   | "call"
   | "dashboard"
   | "deck"
+  | "issues"
   | "list"
   | "list and detail"
   | "logbook"
@@ -658,6 +659,58 @@ export const ACTIONS: readonly Action[] = [
     iconAbsent: "undecided",
     shortcut: "W",
     scope: "review",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
+  {
+    id: "issues_panel",
+    kind: "Action",
+    tier: "Contextual",
+    verb: "Go to a part of Issues",
+    icon: null,
+    iconAbsent: "undecided",
+    shortcut: "l r",
+    scope: "issues",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
+  {
+    id: "issues_queries",
+    kind: "Action",
+    tier: "Contextual",
+    verb: "Open the queries",
+    icon: null,
+    iconAbsent: "undecided",
+    shortcut: "L",
+    scope: "issues",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
+  {
+    id: "issues_describe",
+    kind: "Action",
+    tier: "Contextual",
+    verb: "Describe a query",
+    icon: null,
+    iconAbsent: "undecided",
+    shortcut: "/",
+    scope: "issues",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
+  {
+    id: "issues_start",
+    kind: "Action",
+    tier: "Contextual",
+    verb: "Start a Job on the issue",
+    icon: null,
+    iconAbsent: "undecided",
+    shortcut: "s",
+    scope: "issues",
     destructive: false,
     confirms: false,
     unbuilt: null,

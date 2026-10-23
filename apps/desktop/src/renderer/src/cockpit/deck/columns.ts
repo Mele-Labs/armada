@@ -19,6 +19,8 @@ const REST_BY_LAYOUT: Partial<Record<string, Partial<Record<Side, number>>>> = {
 const FLOOR: Record<Side, number> = { left: 4.5, right: 4.75 };
 /** The least the stage keeps: a Session's thread. */
 const CENTRE_FLOOR = 10;
+/** Layouts drawn with no right column, so the left may take what the right would have held. */
+const NO_RIGHT: ReadonlySet<string> = new Set(["issues", "reviews"]);
 
 export type Columns = {
   left: number;
@@ -27,13 +29,13 @@ export type Columns = {
   range: Record<Side, { min: number; max: number }>;
 };
 
-/** What each column is drawn at, given the room the three share (the grid less its two gaps) and the unit in px. */
+/** What each column is drawn at, given the room the columns share (the grid less its gaps) and the unit in px. */
 export function settle(kept: Kept, room: number, unit: number, layout = ""): Columns {
   const floor = { left: FLOOR.left * unit, right: FLOOR.right * unit };
   const centre = CENTRE_FLOOR * unit;
   const wanted = (side: Side) => kept[side] ?? (REST_BY_LAYOUT[layout]?.[side] ?? REST[side]) * unit;
   const rightMax = Math.max(floor.right, room - floor.left - centre);
-  const right = clampToRange(wanted("right"), { min: floor.right, max: rightMax });
+  const right = NO_RIGHT.has(layout) ? 0 : clampToRange(wanted("right"), { min: floor.right, max: rightMax });
   const leftMax = Math.max(floor.left, room - right - centre);
   const left = clampToRange(wanted("left"), { min: floor.left, max: leftMax });
   return { left, right, range: { left: { min: floor.left, max: leftMax }, right: { min: floor.right, max: Math.max(floor.right, room - left - centre) } } };
@@ -72,13 +74,14 @@ export function useColumns(grid: RefObject<HTMLElement | null>, layout = "") {
   useLayoutEffect(() => {
     const element = grid.current;
     if (element === null) return;
-    const measure = () => setRoom(element.clientWidth - 2 * tokenPx("--space-3"));
+    const gaps = NO_RIGHT.has(layout) ? 1 : 2;
+    const measure = () => setRoom(element.clientWidth - gaps * tokenPx("--space-3"));
     measure();
     if (typeof ResizeObserver === "undefined") return;
     const watching = new ResizeObserver(measure);
     watching.observe(element);
     return () => watching.disconnect();
-  }, [grid]);
+  }, [grid, layout]);
   const columns = useMemo(() => {
     const unit = tokenPx("--space-12");
     return room === undefined || !Number.isFinite(room) || !Number.isFinite(unit) ? undefined : settle(kept, room, unit, layout);
