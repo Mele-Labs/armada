@@ -4,13 +4,16 @@
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
-import type { QueuedIdea, SessionsDraft } from "@armada/screens/src/draft/sessions";
+import type { QueuedIdea, Session, SessionsDraft } from "@armada/screens/src/draft/sessions";
 
 import "../../styles/index.css";
 import { SessionsFrom } from "../../sessions-draft";
 import { QueuedRow } from "./Deck";
 
 const IDEA: QueuedIdea = { id: "q1", text: "Make the Cleanup grid sortable by size\nThen the second line", root: "/code/armada", repository: "armada", model: "opus" };
+
+// One array for every read: the viewer notes' `useSyncExternalStore` loops on a `get` that answers a new one each time.
+const NO_SESSIONS: readonly Session[] = [];
 
 let mounted: { root: Root; host: HTMLElement } | undefined;
 const startQueued = vi.fn(async (_id: string) => "s-new");
@@ -23,7 +26,7 @@ beforeEach(() => {
   document.body.append(host);
   const root = createRoot(host);
   mounted = { root, host };
-  const draft = { get: () => [], subscribe: () => () => undefined, startQueued, dropQueued } as unknown as SessionsDraft;
+  const draft = { get: () => NO_SESSIONS, subscribe: () => () => undefined, startQueued, dropQueued } as unknown as SessionsDraft;
   root.render(
     <SessionsFrom held={draft}>
       <ul>
