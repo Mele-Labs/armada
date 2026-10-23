@@ -117,6 +117,8 @@ export type LedgerEntry = {
   fromReply?: boolean;
   /** A row read from a reply that asks nothing: the person says so at its end, and Fleet keeps the sentence as one that is no question. */
   onMisread?: () => void;
+  /** Marked as a question, beside `onMisread`: thumbs up. Nothing serves it yet, so the panel drops the thumbs itself. */
+  onConfirmed?: () => void;
   /**
    * A `waiting` row the agent stated: the person takes it off, with a reason for the agent that may be empty.
    * The row then draws Remove at its end, and its press opens the reason box.

@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
-import { BellRing, ChevronLeft, ChevronUp, ListChecks, MessageCircleQuestion, Scale } from "lucide-react";
+import { BellRing, ChevronLeft, ChevronUp, ListChecks, MessageCircleQuestion, Scale, ThumbsDown, ThumbsUp } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
+import { DropdownMenu } from "../../primitives/DropdownMenu/DropdownMenu";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { useEscapeFold } from "./useEscapeFold";
 import { useScrimFold } from "./useScrimFold";
@@ -37,7 +38,7 @@ const acts = (row: LedgerEntry): boolean => row.restart === undefined && row.opt
 const asks = (row: LedgerEntry): boolean => row.restart === undefined && !acts(row);
 
 /** One question waiting, as the list draws it and the detail opens it. */
-type Thing = { key: string; Glyph: LucideIcon; said: string; tip: string; text: ReactNode; name: string; row?: LedgerEntry; content?: ReactNode; press?: () => void; /** A second press beside the row, done where it stands. */ aside?: { label: string; press: () => void } };
+type Thing = { key: string; Glyph: LucideIcon; said: string; tip: string; text: ReactNode; name: string; row?: LedgerEntry; content?: ReactNode; press?: () => void; /** A second press beside the row, done where it stands. */ aside?: { label: string; press: () => void }; /** Not a question as thumbs at the row's end: the row is a sentence Fleet read from a reply. */ thumbs?: { down: () => void; up: () => void }; /** Not a question as the row's own menu. */ misread?: () => void };
 
 /** A question answered in the panel's place: the question, a judge's concern, or a row with choices or a reply box. The rest go where they point. */
 const opensHere = (one: Thing): boolean => one.press === undefined && (one.row === undefined || one.row.options !== undefined || one.row.onReply !== undefined);
@@ -57,6 +58,7 @@ export function NeedsYouPanel({
   question,
   plan,
   judges,
+  misreadAs = "button",
   open: wanted,
   onOpen,
 }: {
@@ -67,9 +69,14 @@ export function NeedsYouPanel({
   plan?: { id: string; onOpen: () => void; onSetAside?: () => void };
   /** A judge's concerns, after the question and before the items: `text` is the claim its row reads, `children` the card that sends or dismisses it. */
   judges?: readonly { id: string; text: string; children: ReactNode }[];
+  /** How a row read from a reply is marked Not a question: a button, thumbs, or the row's menu. Mock only, until one is picked. */
+  misreadAs?: "button" | "thumbs" | "menu";
   open: boolean;
   onOpen: (next: boolean) => void;
 }) {
+  // Rows he marked as a question with the thumb up: they keep the row and lose the thumbs.
+  const [confirmed, setConfirmed] = useState<ReadonlySet<string>>(new Set());
+  const [menu, setMenu] = useState<{ key: string; x: number; y: number; from: HTMLElement | null }>();
   const section = useRef<HTMLElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const [at, setAt] = useState<string | undefined>();
@@ -83,10 +90,20 @@ export function NeedsYouPanel({
   host.current = onOpen;
   // A plan is reviewed, not answered: its own group, above the questions.
   const planned: Thing[] = plan === undefined ? [] : [{ key: `plan:${plan.id}`, Glyph: ListChecks, said: "Plan", tip: "Plan to approve", text: "Plan to approve", name: "Plan to approve", press: plan.onOpen, ...(plan.onSetAside === undefined ? {} : { aside: { label: "Not yet", press: plan.onSetAside } }) }];
+  const misreadOf = (row: LedgerEntry): Pick<Thing, "aside" | "thumbs" | "misread"> => {
+    const no = row.onMisread;
+    if (no === undefined) return {};
+    if (misreadAs === "menu") return { misread: no };
+    if (misreadAs === "thumbs") {
+      if (confirmed.has(row.key)) return {};
+      return { thumbs: { down: no, up: () => (row.onConfirmed?.(), setConfirmed((now) => new Set(now).add(row.key))) } };
+    }
+    return { aside: { label: "Not a question", press: no } };
+  };
   const questions: Thing[] = [
     ...(question === undefined ? [] : [{ key: `question:${question.id}`, Glyph: MessageCircleQuestion, said: question.label, tip: question.label, text: question.text, name: question.text, content: question.children }]),
     ...(judges ?? []).map((one) => ({ key: `judge:${one.id}`, Glyph: Scale, said: "Judge", tip: "Judge", text: one.text, name: one.text, content: one.children })),
-    ...rows.filter(asks).map((row) => ({ key: row.key, ...waitingMark(row), tip: row.name, text: row.text, name: row.name, row, ...(row.onMisread === undefined ? {} : { aside: { label: "Not a question", press: row.onMisread } }) })),
+    ...rows.filter(asks).map((row) => ({ key: row.key, ...waitingMark(row), tip: row.name, text: row.text, name: row.name, row, ...misreadOf(row) })),
   ];
   const actions = ACTIONS.map((group) => ({ label: group.label, rows: rows.filter((row) => acts(row) && group.holds(row)) })).filter((group) => group.rows.length > 0);
   const restarts = rows.filter((row) => row.restart !== undefined);
@@ -142,7 +159,7 @@ export function NeedsYouPanel({
   }, [current?.key, listed, open]);
   // Dimmed, the thread is not there to be pressed: a press on it folds the panel.
   useScrimFold(section, open, () => host.current(false));
-  useEscapeFold(section, open, () => host.current(false));
+  useEscapeFold(section, open && menu === undefined, () => host.current(false));
   if (empty && restarts.length === 0) return null;
   const fold = () => {
     onOpen(false);
@@ -159,7 +176,7 @@ export function NeedsYouPanel({
     setAt(key);
   };
   const key = (event: KeyboardEvent) => {
-    if (!open || event.defaultPrevented) return;
+    if (!open || event.defaultPrevented || menu !== undefined) return;
     if (event.key === "Escape") {
       event.preventDefault();
       event.stopPropagation();
@@ -213,7 +230,18 @@ export function NeedsYouPanel({
                     <h3 className="armada-session-ledger__eyebrow">{group.label}</h3>
                     <ul className="armada-session-ledger__rows">
                       {group.rows.map((one) => (
-                        <li key={one.key} className="armada-session-ledger__row" aria-label={one.name}>
+                        <li
+                          key={one.key}
+                          className="armada-session-ledger__row"
+                          aria-label={one.name}
+                          onContextMenu={one.misread === undefined ? undefined : (event) => (event.preventDefault(), setMenu({ key: one.key, x: event.clientX, y: event.clientY, from: event.currentTarget.querySelector<HTMLElement>(".armada-session-ledger__open") }))}
+                          onKeyDown={one.misread === undefined ? undefined : (event) => {
+                            if (event.key !== "ContextMenu" && !(event.key === "F10" && event.shiftKey)) return;
+                            event.preventDefault();
+                            const box = event.currentTarget.querySelector<HTMLElement>(".armada-session-ledger__open")?.getBoundingClientRect() ?? event.currentTarget.getBoundingClientRect();
+                            setMenu({ key: one.key, x: box.left + box.width / 2, y: box.bottom, from: event.currentTarget.querySelector<HTMLElement>(".armada-session-ledger__open") });
+                          }}
+                        >
                           <button type="button" className="armada-session-ledger__open" aria-label={`Open ${one.name}`} data-thing={one.key} onClick={() => (opensHere(one) ? choose(one.key) : (one.press ?? one.row?.onOpen)?.())}>
                             <Tooltip label={one.said}>
                               <span className="armada-session-mark" role="img" aria-label={one.said}>
@@ -222,6 +250,20 @@ export function NeedsYouPanel({
                             </Tooltip>
                             <span className="armada-session-ledger__text">{one.text}</span>
                           </button>
+                          {one.thumbs === undefined ? null : (
+                            <span className="armada-needs-panel__thumbs">
+                              <Tooltip label="A question">
+                                <Button variant="ghost" size="sm" iconOnly data-aside="" aria-label="A question" onClick={(event) => (event.currentTarget.closest("li")?.querySelector<HTMLElement>(".armada-session-ledger__open")?.focus(), one.thumbs?.up())}>
+                                  <ThumbsUp size={16} aria-hidden />
+                                </Button>
+                              </Tooltip>
+                              <Tooltip label="Not a question">
+                                <Button variant="ghost" size="sm" iconOnly data-aside="" aria-label="Not a question" onClick={one.thumbs.down}>
+                                  <ThumbsDown size={16} aria-hidden />
+                                </Button>
+                              </Tooltip>
+                            </span>
+                          )}
                           {one.aside === undefined ? null : (
                             <Button variant="ghost" size="sm" data-aside="" onClick={one.aside.press}>
                               {one.aside.label}
@@ -254,6 +296,20 @@ export function NeedsYouPanel({
           </div>
         </div>
       </div>
+      {menu === undefined ? null : (
+        <DropdownMenu
+          triggerLabel="Question"
+          at={{ x: menu.x, y: menu.y }}
+          open
+          entries={[{ kind: "item", id: "misread", label: "Not a question" }]}
+          onOpenChange={(next) => {
+            if (next) return;
+            setMenu(undefined);
+            menu.from?.focus();
+          }}
+          onSelect={() => questions.find((one) => one.key === menu.key)?.misread?.()}
+        />
+      )}
     </section>
   );
 }

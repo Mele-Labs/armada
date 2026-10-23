@@ -219,6 +219,15 @@
   margin-inline-end: var(--space-2);
 }
 
+/* Thumbs at a row's end, the same hold as a lone second press. */
+.armada-needs-panel__list .armada-session-ledger__row > .armada-needs-panel__thumbs {
+  display: flex;
+  align-items: center;
+  align-self: center;
+  gap: var(--space-1);
+  margin-inline-end: var(--space-2);
+}
+
 .armada-needs-panel__content {
   align-self: stretch;
   min-width: 0;

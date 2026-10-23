@@ -1,48 +1,8 @@
-// A sentence Fleet read out of a reply as an ask that is only a plan's summary line, beside a question the agent asked itself. The row read from
-// the reply draws its own glyph and ends in Not a question. Fleet does not read a reply this way yet. The walk `not-a-question` plays it.
+// The `not-a-question` scenario in the take the address asks for: `?take=thumbs` or `?take=menu`, else the button. `../not-a-question-scenario.ts`.
 
-import type { Session } from "@armada/screens/src/draft/sessions";
-import { repository } from "@armada/screens/src/fixtures/repository";
-
-import { holding } from "../holding";
 import type { Scenario } from "../moment";
-import { sessionsStore } from "../sessions/script";
+import { notAQuestionOver, type Take } from "../not-a-question-scenario";
 
-const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
+const asked = new URLSearchParams(window.location.search).get("take");
 
-/** When the turn ended: the ids Fleet gives the asks it reads from the reply are `replied:<this>:<n>`. */
-const ENDED = ago(3);
-
-const SUMMARY = "What you get: The Progress header keeps its name and its few icons: Ask for an update, Sketch and the approved mark.";
-const QUESTION = "Should the header keep the approved mark, or drop it?";
-
-const REPLY = ["The plan is recorded.", SUMMARY].join("\n");
-
-const SESSION: Session = {
-  id: "naq-1",
-  title: "Trim the Progress header",
-  turn: { state: "idle" },
-  lastTurnAt: ENDED,
-  standing: "replied",
-  rows: [
-    { id: "naq-u", at: "14:02:00", kind: "message", from: { kind: "you" }, text: "Trim the Progress header to its few icons." },
-    { id: "naq-a", at: "14:19:40", kind: "message", from: { kind: "agent" }, text: REPLY },
-  ],
-  attachments: [],
-  work: { proposal: { workflow: null } },
-  waitingFor: [
-    { id: `replied:${ENDED}:0`, text: SUMMARY, since: ENDED, source: "replied" },
-    { id: "w-header", text: QUESTION, since: ago(4), source: "agent", act: { kind: "answer", target: "" }, options: [{ label: "Keep it" }, { label: "Drop it" }] },
-  ],
-};
-
-function build(): Scenario {
-  const base = holding("not-a-question", "A plan's summary line read from a reply as an ask, beside a question the agent asked itself");
-  return {
-    ...base,
-    state: { ...base.state, repository: repository().root },
-    draft: { sessions: () => sessionsStore([SESSION]) },
-  };
-}
-
-export const notAQuestion: Scenario = build();
+export const notAQuestion: Scenario = notAQuestionOver("not-a-question", asked === "thumbs" || asked === "menu" ? (asked satisfies Take) : "button");
