@@ -20,11 +20,13 @@ use std::time::UNIX_EPOCH;
 
 use ipc::{Instant, ModKind, ModList, ModSummary};
 
+pub(crate) mod fleet_rules;
 pub(crate) mod manifest;
 mod promote;
 pub(crate) mod scaffold;
 mod serving;
 pub(crate) mod stylesheet;
+pub(crate) mod words;
 
 pub use serving::keep_reading;
 
@@ -40,6 +42,9 @@ const SHIPPED: &[&str] = &["dark", "light", "system", "default"];
 const MANIFEST: &str = "mod.toml";
 const THEME: &str = "theme.css";
 const LAYOUT: &str = "layout.json";
+const WORDS: &str = "words.toml";
+const FLEET: &str = "fleet.toml";
+const TWEAK: &str = "tweak.css";
 
 /// Why `name` cannot be a mod's name, or `None`. **The only gate on a path
 /// segment**: a name that passes holds no `/`, no `.` and no way to climb.
@@ -95,6 +100,9 @@ pub(crate) struct Files {
 pub(crate) enum Payload {
     Css(String),
     Layout(String),
+    Words(String),
+    Fleet(String),
+    Tweak(String),
 }
 
 impl Payload {
@@ -103,12 +111,19 @@ impl Payload {
         match self {
             Payload::Css(_) => THEME,
             Payload::Layout(_) => LAYOUT,
+            Payload::Words(_) => WORDS,
+            Payload::Fleet(_) => FLEET,
+            Payload::Tweak(_) => TWEAK,
         }
     }
 
     pub(crate) fn text(&self) -> &str {
         match self {
-            Payload::Css(text) | Payload::Layout(text) => text,
+            Payload::Css(text)
+            | Payload::Layout(text)
+            | Payload::Words(text)
+            | Payload::Fleet(text)
+            | Payload::Tweak(text) => text,
         }
     }
 }
@@ -124,6 +139,7 @@ impl Examined {
             kind: self.manifest.kind,
             version: self.manifest.version.clone(),
             description: self.manifest.description.clone(),
+            taught_on: self.manifest.taught_on.clone(),
             enabled,
             valid: self.valid(),
             reason: self.problems.first().map(|first| match self.problems.len() {
@@ -177,22 +193,46 @@ pub(crate) fn examine(mods_dir: &Path, name: &str) -> Examined {
     }
     // A manifest that names no kind this build has is read as a theme, as it always was, so what
     // is said about a broken mod's stylesheet does not change.
-    let layout = found.manifest.kind == Some(ModKind::Layout);
-    let (file, most) = if layout { (LAYOUT, ipc::layout::MOST_BYTES as u64) } else { (THEME, stylesheet::MOST_BYTES) };
+    let kind = found.manifest.kind;
+    let (file, most) = match kind {
+        Some(ModKind::Layout) => (LAYOUT, ipc::layout::MOST_BYTES as u64),
+        Some(ModKind::Words) => (WORDS, words::MOST_BYTES),
+        Some(ModKind::Fleet) => (FLEET, fleet_rules::MOST_BYTES),
+        Some(ModKind::Tweak) => (TWEAK, stylesheet::MOST_BYTES),
+        Some(ModKind::Theme) | None => (THEME, stylesheet::MOST_BYTES),
+    };
     match read_small(&dir.join(file), most, file) {
         Ok((text, ms)) => {
             stamps.push(ms);
-            found.problems.extend(if layout { ipc::layout::problems(&text) } else { stylesheet::problems(&text) });
+            found.problems.extend(match kind {
+                Some(ModKind::Layout) => ipc::layout::problems(&text),
+                Some(ModKind::Words) => words::problems(&text),
+                Some(ModKind::Fleet) => fleet_rules::problems(&text),
+                Some(ModKind::Tweak) => stylesheet::problems_in(&text, TWEAK),
+                Some(ModKind::Theme) | None => stylesheet::problems(&text),
+            });
             texts.1 = Some(text);
         }
         Err(why) => found.problems.push(why),
     }
     found.changed_ms = stamps.into_iter().max();
     if let (true, (Some(manifest), Some(text))) = (found.problems.is_empty(), texts) {
-        let payload = if layout { Payload::Layout(text) } else { Payload::Css(text) };
+        let payload = match kind {
+            Some(ModKind::Layout) => Payload::Layout(text),
+            Some(ModKind::Words) => Payload::Words(text),
+            Some(ModKind::Fleet) => Payload::Fleet(text),
+            Some(ModKind::Tweak) => Payload::Tweak(text),
+            Some(ModKind::Theme) | None => Payload::Css(text),
+        };
         found.files = Some(Files { manifest, payload });
     }
     found
+}
+
+/// A TOML file's parse failure as a problem on the line it stopped at.
+pub(crate) fn toml_problem(file: &str, text: &str, why: &toml::de::Error) -> String {
+    let line = why.span().map_or(1, |span| text[..span.start.min(text.len())].matches('\n').count() + 1);
+    format!("{file} line {line}: {}", why.message().lines().next().unwrap_or_default())
 }
 
 /// A regular file of at most `most` bytes, and when it was last written.

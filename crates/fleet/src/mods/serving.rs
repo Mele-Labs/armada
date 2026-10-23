@@ -147,9 +147,11 @@ where
         let valid = found.valid();
         let (mut css, mut layout) = (None, None);
         match found.files.map(|files| files.payload) {
-            Some(Payload::Css(text)) => css = Some(text),
+            // A tweak is token values like a theme's, and Bridge injects it the same way.
+            Some(Payload::Css(text) | Payload::Tweak(text)) => css = Some(text),
             Some(Payload::Layout(text)) => layout = Some(text),
-            None => {}
+            // Words are read through `list_word_rules` and Fleet's own are read by Fleet.
+            Some(Payload::Words(_) | Payload::Fleet(_)) | None => {}
         }
         Ok(ModChecked {
             name,

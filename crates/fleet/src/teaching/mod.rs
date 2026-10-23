@@ -6,7 +6,7 @@
 //! here if Bridge could not run it. A link rule is kept by Fleet; an agent note is filed by Bridge.
 
 mod answer;
-mod link;
+pub(crate) mod link;
 mod serving;
 
 use adapter_traits::{AgentHarness, Ask, Delivery, Vcs, WorkProduct};

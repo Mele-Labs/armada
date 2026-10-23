@@ -12,7 +12,7 @@ pub(crate) fn fault(pattern: &str, address: &str, words: &str) -> Option<String>
     pattern_fault(pattern, words).or_else(|| address_fault(address))
 }
 
-fn pattern_fault(pattern: &str, words: &str) -> Option<String> {
+pub(crate) fn pattern_fault(pattern: &str, words: &str) -> Option<String> {
     if pattern.is_empty() || pattern.chars().count() > MOST_PATTERN {
         return Some(format!("the pattern is empty or over {MOST_PATTERN} characters"));
     }
@@ -126,7 +126,7 @@ fn repeats_a_repeat(pattern: &str) -> bool {
     false
 }
 
-fn address_fault(address: &str) -> Option<String> {
+pub(crate) fn address_fault(address: &str) -> Option<String> {
     let rest = ["https://", "http://"]
         .iter()
         .find(|scheme| address.len() >= scheme.len() && address[..scheme.len()].eq_ignore_ascii_case(scheme))

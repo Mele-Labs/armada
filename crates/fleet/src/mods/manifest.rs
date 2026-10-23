@@ -1,4 +1,4 @@
-//! `mod.toml`: four `key = "value"` lines.
+//! `mod.toml`: a few `key = "value"` lines.
 //!
 //! **A subset of TOML read by hand.** A mod's file has no table, no array
 //! and no number, and a TOML crate would be a dependency in the daemon to read
@@ -12,6 +12,8 @@ pub(crate) const MOST_BYTES: u64 = 4 * 1024;
 
 const MOST_VERSION: usize = 32;
 pub(crate) const MOST_DESCRIPTION: usize = 200;
+pub(crate) const MOST_TAUGHT_ON: usize = 120;
+const MOST_ENTRY: usize = 80;
 
 /// What was read, field by field. A field that was wrong is `None` and has a
 /// problem beside it, so a list can still show the ones that were right.
@@ -20,6 +22,10 @@ pub(crate) struct Manifest {
     pub(crate) kind: Option<ModKind>,
     pub(crate) version: Option<String>,
     pub(crate) description: Option<String>,
+    /// What Teach was pressed on, where a person taught the mod.
+    pub(crate) taught_on: Option<String>,
+    /// The Logbook entry a teaching from a Job made, which forgetting removes the mod with.
+    pub(crate) entry: Option<String>,
 }
 
 /// `text` read for the mod in the folder called `folder`, and everything wrong with it.
@@ -29,6 +35,8 @@ pub(crate) fn read(text: &str, folder: &str) -> (Manifest, Vec<String>) {
     let mut kind = None;
     let mut version = None;
     let mut description = None;
+    let mut taught_on = None;
+    let mut entry = None;
     for (index, line) in text.lines().enumerate() {
         let number = index + 1;
         let line = line.trim();
@@ -52,6 +60,8 @@ pub(crate) fn read(text: &str, folder: &str) -> (Manifest, Vec<String>) {
             "kind" => &mut kind,
             "version" => &mut version,
             "description" => &mut description,
+            "taught_on" => &mut taught_on,
+            "entry" => &mut entry,
             other => {
                 problems.push(format!(
                     "mod.toml line {number}: `{other}` is not a key a mod uses"
@@ -75,6 +85,9 @@ pub(crate) fn read(text: &str, folder: &str) -> (Manifest, Vec<String>) {
         None => problems.push("mod.toml has no `kind`".to_string()),
         Some("theme") => manifest.kind = Some(ModKind::Theme),
         Some("layout") => manifest.kind = Some(ModKind::Layout),
+        Some("words") => manifest.kind = Some(ModKind::Words),
+        Some("fleet") => manifest.kind = Some(ModKind::Fleet),
+        Some("tweak") => manifest.kind = Some(ModKind::Tweak),
         Some(other) => problems.push(format!("mod.toml `kind` is `{other}`, which is not a kind of mod this build has")),
     }
     match version {
@@ -90,7 +103,23 @@ pub(crate) fn read(text: &str, folder: &str) -> (Manifest, Vec<String>) {
         )),
         other => manifest.description = other,
     }
+    match taught_on {
+        Some(text) if text.chars().count() > MOST_TAUGHT_ON => problems.push(format!(
+            "mod.toml `taught_on` is longer than {MOST_TAUGHT_ON} characters"
+        )),
+        other => manifest.taught_on = other,
+    }
+    match entry {
+        Some(id) if !entry_is_plain(&id) => problems.push(format!(
+            "mod.toml `entry` must be 1 to {MOST_ENTRY} letters, digits, `.`, `:`, `_` or `-`"
+        )),
+        other => manifest.entry = other,
+    }
     (manifest, problems)
+}
+
+fn entry_is_plain(id: &str) -> bool {
+    !id.is_empty() && id.len() <= MOST_ENTRY && id.chars().all(|c| c.is_ascii_alphanumeric() || "._:-".contains(c))
 }
 
 fn version_is_plain(version: &str) -> bool {
