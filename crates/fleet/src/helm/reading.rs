@@ -92,10 +92,11 @@ pub(super) fn reaches_into_owners_files(said: &str) -> Vec<(String, bool)> {
     // A quoted path is one word: `"~/Library/Application Support/x"` is no `~/Library/Application`.
     let words = words_of(&said);
     let script = script_run(&words);
+    let sets = settings(&words);
     let named: Vec<(String, bool)> = words
         .into_iter()
         .enumerate()
-        .filter(|(_, word)| reaches_outside(word))
+        .filter(|(at, word)| *at >= sets && reaches_outside(word))
         .map(|(at, word)| (word.replace('\u{0}', " "), Some(at) == script))
         .collect();
     if named.is_empty() {
@@ -112,6 +113,19 @@ pub(super) fn reaches_into_owners_files(said: &str) -> Vec<(String, bool)> {
         })
         .collect()
 }
+
+/// How many of a segment's first words only set a variable: `NAME=value` before the program, or
+/// after `export`. **Setting one touches no file** (22 Oct 2026): `export PATH="$HOME/x:$PATH"`
+/// asked, as a write, on every line that put rbenv on the path. Where the value is used, the
+/// segment that uses it is read with it filled in.
+fn settings(words: &[String]) -> usize {
+    let declares = words.first().is_some_and(|word| DECLARES.contains(&word.as_str()));
+    let skip = usize::from(declares);
+    skip + words[skip..].iter().take_while(|word| assignment(word).is_some()).count()
+}
+
+/// What sets every assignment after it rather than running a program with it.
+const DECLARES: &[&str] = &["export", "local", "readonly", "declare", "typeset"];
 
 /// Which of a segment's words is the script it runs: its program, the operand handed to
 /// `bash`, `sh` or `zsh`, or what `source` and `.` read.

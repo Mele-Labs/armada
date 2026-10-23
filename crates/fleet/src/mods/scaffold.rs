@@ -6,7 +6,7 @@ use std::process::Command;
 
 use ipc::ModKind;
 
-use super::{manifest, slug_problem, LAYOUT, MANIFEST, THEME};
+use super::{manifest, slug_problem, LAYOUT, MANIFEST, THEME, TRACKER};
 
 /// Why a scaffold did not happen.
 #[derive(Debug, PartialEq, Eq)]
@@ -32,6 +32,35 @@ const STARTER: &str = "\
 /// The starter layout: the version and no region, so it validates and changes nothing until
 /// someone names a region.
 const STARTER_LAYOUT: &str = "{\n  \"version\": 1\n}\n";
+
+/// The starter tracker: every section a tracker needs, over a command line that is not there, so
+/// it passes the file's checks and fails its try until someone names the real one.
+const STARTER_TRACKER: &str = r#"# How Armada lists, searches and reads this tracker. Check it with validate_mod, then
+# try it with try_tracker_mod against a repository before a Manifest names it.
+
+[guide]
+language = "The tracker's query language"
+guide = """
+How a query is written for this tracker, with examples, and what it cannot ask.
+"""
+open = "state:open"
+assigned_to_me = "state:open assignee:me"
+fields = []
+
+[search]
+transport = "cli"
+argv = ["tracker-cli", "search", "--json", "{query}"]
+map = """
+map({reference: .id, title: .title, url: .url, closed: (.state == "closed")})
+"""
+
+[read]
+transport = "cli"
+argv = ["tracker-cli", "show", "--json", "{reference}"]
+map = """
+{reference: .id, title: .title, url: .url, closed: (.state == "closed"), body: .body}
+"""
+"#;
 
 /// Make `mods_dir/name` and commit it. **The folder is made with `create_dir`**,
 /// which refuses one that exists in the same step it makes this one, so a
@@ -76,6 +105,7 @@ fn written(dir: &Path, name: &str, description: &str, kind: ModKind) -> Result<(
     let (word, file, starter) = match kind {
         ModKind::Theme => ("theme", THEME, STARTER),
         ModKind::Layout => ("layout", LAYOUT, STARTER_LAYOUT),
+        ModKind::Tracker => ("tracker", TRACKER, STARTER_TRACKER),
     };
     let toml = format!(
         "name = \"{name}\"\nkind = \"{word}\"\nversion = \"0.1.0\"\ndescription = \"{escaped}\"\n"
