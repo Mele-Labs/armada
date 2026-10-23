@@ -48,6 +48,7 @@ const QUERIES: &[(&str, &[&str])] = &[
     ("search_files", &["q"]),
     ("get_events_since", &["since"]),
     ("list_lessons", &["lands_in", "state", "most"]),
+    ("recall", &["query", "section"]),
     ("list_sessions", &["q", "state"]),
     ("who_owns", &["kind", "target"]),
     ("validate_mod", &["name"]),
@@ -175,6 +176,8 @@ const NAMES_ITS_SCOPE: &[&str] = &[
     "undo_checkout_run",
     "start_checkout_verify",
     "list_lessons",
+    // The Logbook searched is the caller's repository's.
+    "recall",
     // The thread that keeps where the words went is the session's own repository's.
     "tell_session",
 ];

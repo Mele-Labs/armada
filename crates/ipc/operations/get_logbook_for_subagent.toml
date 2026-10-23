@@ -1,0 +1,16 @@
+[operations.get_logbook_for_subagent]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "The Logbook entries a subagent is handed as it starts: the owner's habits and the repository's standing entries whose paths match those its prompt names"
+notes = """
+`POST /logbook/subagent`, body `SubagentAsk`: the Job's `session_id` and the subagent's `prompt`. Answers `ForSubagent`: `text`, empty where the Logbook holds nothing for it. A `POST` because a prompt is too long for a query. Nothing is written but the entries' `last_served`. `docs/concepts/logbook.md`, *Recall*.
+
+**Paths are read out of the prompt.** Every word with a `/` in it is taken as a path, with a repository root or slot folder in front cut off. An entry is handed over when one of its `paths` globs matches one. A prompt that names no path is handed the habits and the repository's best-ranked standing entries.
+
+**Cut near 800 tokens**, as the start note is cut near 2,000, by the same order. Only `standing` entries.
+
+**A Job Fleet does not know, or one with no repository, is handed the habits alone.** The mod's hook asks and never blocks on the answer: a Fleet that does not answer gives the subagent nothing and an error to no one.
+
+`agent_access` is `No`: the harness asks on the subagent's behalf, and the subagent reaches the rest through `recall`.
+"""

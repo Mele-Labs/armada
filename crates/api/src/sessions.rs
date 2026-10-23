@@ -1,4 +1,5 @@
 //! `report_session`, `list_sessions` and `who_owns`. Since 23.43. `rename_session`, since 23.52.
+//! `recall` and `get_logbook_for_subagent`, the Logbook's two mid-task reads, beside them.
 //! `docs/concepts/session.md`.
 
 use axum::body::Bytes;
@@ -828,6 +829,43 @@ pub(crate) async fn get_session_check_output<D: Sessions>(
 ) -> Response {
     match served.daemon().get_session_check_output(run).await {
         Ok(output) => answer(StatusCode::OK, &output, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// `?query=` and `?section=` on `recall`, beside `?manifest_id=`.
+#[derive(Deserialize)]
+pub(crate) struct Recalling {
+    query: String,
+    #[serde(default)]
+    section: Option<String>,
+    #[serde(default)]
+    manifest_id: Option<String>,
+}
+
+/// A search of the whole Logbook for the caller's repository, its habits and this Mac.
+pub(crate) async fn recall<D: Sessions>(
+    State(served): State<Served<D>>,
+    Query(asked): Query<Recalling>,
+) -> Response {
+    let manifest = asked.manifest_id.map(ipc::ManifestId::carried);
+    match served.daemon().recall(manifest, asked.query, asked.section).await {
+        Ok(recalled) => answer(StatusCode::OK, &recalled, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// The entries a subagent starting under a Session is handed, for the paths its prompt names.
+pub(crate) async fn get_logbook_for_subagent<D: Sessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let asked: ipc::SubagentAsk = match ipc::decode("a subagent's start", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().get_logbook_for_subagent(asked.session_id, asked.prompt).await {
+        Ok(handed) => answer(StatusCode::OK, &handed, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }

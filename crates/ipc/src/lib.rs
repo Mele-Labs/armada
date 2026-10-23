@@ -122,6 +122,8 @@ mod clashes;
 /// What each served repository holds and where each agent is changing it, for the deck's map.
 /// `docs/concepts/fleet.md`, *The territory*.
 mod territory;
+/// What the Logbook hands out mid-task. `docs/concepts/logbook.md`, *Recall*.
+mod logbook;
 /// A person's Bridge preferences, kept the way `limits` are kept. **A value
 /// out of the closed set does not save**, `limits`' reason one field over.
 mod preferences;
@@ -380,6 +382,7 @@ pub use mods::{
 pub use clashes::{
     ClashFile, ClashHolder, ClashSide, WriteClash, WriteClashes,
 };
+pub use logbook::{ForSubagent, Recalled, RecalledEntry, SubagentAsk};
 pub use territory::{
     AreaKid, AreasOfRepository, HolderTouches, RepositoryArea, RepositoryAreas, SessionFileChange,
     SlotTouches, TouchesInRepository,

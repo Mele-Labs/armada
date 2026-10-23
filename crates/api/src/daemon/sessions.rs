@@ -378,6 +378,25 @@ pub trait Sessions: Send + Sync + 'static {
         manifest_id: Option<ManifestId>,
     ) -> impl Future<Output = Result<Owners, Refusal>> + Send;
 
+    /// `recall` — the Logbook entries for `manifest_id`'s repository (absent is the first served),
+    /// the habits and this Mac's that match `query`, faded ones included, best first. `section` is
+    /// `repo`, `habits` or `machine`; any other is [`Refusal::Unacceptable`], as is a blank `query`.
+    fn recall(
+        &self,
+        manifest_id: Option<ManifestId>,
+        query: String,
+        section: Option<String>,
+    ) -> impl Future<Output = Result<ipc::Recalled, Refusal>> + Send;
+
+    /// `get_logbook_for_subagent` — what a subagent starting under `session_id` is handed: the
+    /// habits and the standing entries whose paths match those `prompt` names. Empty where there
+    /// is none, and for a Session Fleet does not know.
+    fn get_logbook_for_subagent(
+        &self,
+        session_id: String,
+        prompt: String,
+    ) -> impl Future<Output = Result<ipc::ForSubagent, Refusal>> + Send;
+
     /// `get_session_usage` — a session's turns from `since` to before `until` (RFC3339, either may
     /// be left out), oldest first. [`Refusal::Unacceptable`] for a session Fleet does not know.
     fn get_session_usage(

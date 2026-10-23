@@ -199,6 +199,8 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/mods/promote", post(crate::mods::promote_mod::<D>))
         .route("/sessions", get(crate::sessions::list_sessions::<D>))
         .route("/sessions/owner", get(crate::sessions::who_owns::<D>))
+        .route("/logbook/recall", get(crate::sessions::recall::<D>))
+        .route("/logbook/subagent", post(crate::sessions::get_logbook_for_subagent::<D>))
         .route("/sessions/loadout", get(crate::sessions::get_session_loadout::<D>))
         .route("/sessions/usage", get(crate::sessions::get_session_usage::<D>))
         .route("/usage/summary", get(crate::sessions::get_usage_summary::<D>))
