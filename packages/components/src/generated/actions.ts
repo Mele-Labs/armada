@@ -23,7 +23,7 @@
 // person presses and gets nothing from, which is worse than one that is
 // absent.
 
-import { ChartNoAxesGantt, ChevronLeft, File, Link, Maximize2, MessageSquare, Plus, Settings, Shapes, StickyNote, VectorSquare, X, Zap } from "lucide-react";
+import { ChartNoAxesGantt, ChevronLeft, File, Link, Lock, Maximize2, MessageSquare, Plus, Settings, Shapes, StickyNote, VectorSquare, X, Zap } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 /** Whether the row is an act or a movement of the cursor. */
@@ -44,6 +44,7 @@ export type ActionScope =
   | "deck"
   | "list"
   | "list and detail"
+  | "logbook"
   | "open studio"
   | "review";
 
@@ -737,6 +738,58 @@ export const ACTIONS: readonly Action[] = [
     scope: "call",
     destructive: false,
     confirms: false,
+    unbuilt: null,
+  },
+  {
+    id: "logbook_edit",
+    kind: "Action",
+    tier: "Contextual",
+    verb: "Edit the entry",
+    icon: null,
+    iconAbsent: "undecided",
+    shortcut: "e",
+    scope: "logbook",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
+  {
+    id: "logbook_lock",
+    kind: "Action",
+    tier: "Contextual",
+    verb: "Lock or unlock the entry",
+    icon: Lock,
+    iconAbsent: null,
+    shortcut: "l",
+    scope: "logbook",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
+  {
+    id: "logbook_unhanded",
+    kind: "Action",
+    tier: "Contextual",
+    verb: "Add what is not handed out",
+    icon: null,
+    iconAbsent: "undecided",
+    shortcut: "h",
+    scope: "logbook",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
+  {
+    id: "logbook_forget",
+    kind: "Action",
+    tier: "Contextual",
+    verb: "Forget the entry",
+    icon: null,
+    iconAbsent: "undecided",
+    shortcut: "f",
+    scope: "logbook",
+    destructive: true,
+    confirms: true,
     unbuilt: null,
   },
 ];
