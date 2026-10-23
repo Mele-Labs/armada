@@ -25,17 +25,11 @@ async function reviews() {
   return app;
 }
 
-/**
- * A row of the list opens the pull request in the side panel, on its Review tab, and the reader the Reviews page keeps is under it.
- * The panel is put away to work in the reader.
- */
+/** A row of the list opens the pull request in the reader the Reviews page keeps, and no side panel opens over it. */
 async function open(number: number) {
   await row(number).click();
-  const panel = page.getByRole("dialog", { name: `Pull request #${number}` });
-  await expect.element(panel).toBeVisible();
-  await expect.element(panel.getByRole("group", { name: "Review tools" })).toBeVisible();
-  await panel.getByRole("button", { name: /^Close/ }).click();
-  await expect.element(panel).not.toBeInTheDocument();
+  await expect.element(reader(number)).toBeVisible();
+  await expect.element(page.getByRole("dialog", { name: `Pull request #${number}` })).not.toBeInTheDocument();
 }
 
 async function choose(name: string) {
