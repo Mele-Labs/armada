@@ -187,6 +187,15 @@ pub trait Tracker {
 
     /// How to write a query [`search_issues`](Tracker::search_issues) takes.
     fn query_guide(&self) -> QueryGuide;
+
+    /// The address an issue named like `example` opens at, with `{match}` where its reference goes:
+    /// what turns a taught pattern into a link for this repository without asking anyone. `None`
+    /// where this tracker does not know one, or `example` is not how it names an issue. **Built
+    /// from the Manifest's own settings**, so it runs no process and reads no network.
+    fn address_template(&self, example: &str) -> Option<String> {
+        let _ = example;
+        None
+    }
 }
 
 /// Which tracker a repository's Manifest chose: the provider where it named
