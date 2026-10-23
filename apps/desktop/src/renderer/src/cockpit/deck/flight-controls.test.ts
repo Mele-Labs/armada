@@ -31,12 +31,12 @@ describe("tilesOf", () => {
   test("a hidden tile is kept in the list, has no key, and does not take a position's digit", () => {
     const tiles = tilesOf("job", file([{ id: "ask", hidden: true }]));
     expect(tiles[0]).toMatchObject({ id: "ask", hidden: true, key: undefined });
-    expect(tiles[1]).toMatchObject({ id: "land", key: "1" });
+    expect(tiles[1]).toMatchObject({ id: "land", key: "⌥⇧1" });
   });
 
   test("keys follow position, an explicit key wins, and the tile whose digit it took has none", () => {
-    const tiles = tilesOf("job", file([{ id: "ask" }, { id: "land", key: "1" }, { id: "compact" }]));
-    expect(tiles.map((one) => one.key).slice(0, 3)).toEqual([undefined, "1", "3"]);
+    const tiles = tilesOf("job", file([{ id: "ask" }, { id: "land", key: "⌥⇧1" }, { id: "compact" }]));
+    expect(tiles.map((one) => one.key).slice(0, 3)).toEqual([undefined, "⌥⇧1", "⌥⇧3"]);
   });
 
   test("Pause answers p however it is placed", () => {
@@ -94,16 +94,16 @@ describe("tilesOf, with a repository's own", () => {
     const hidden = withoutPause.slice(0, 5).map((id) => ({ id, hidden: true }));
     const tiles = tilesOf("job", file(hidden), file([SPECS, LINT]));
     const key = (id: string) => tiles.find((one) => one.id === id)?.key;
-    expect(key(withoutPause.at(-1)!)).toBe("8");
-    expect(key("my-run-specs")).toBe("9");
-    expect(key("my-lint")).toBe("0");
+    expect(key(withoutPause.at(-1)!)).toBe("⌥⇧8");
+    expect(key("my-run-specs")).toBe("⌥⇧9");
+    expect(key("my-lint")).toBe("⌥⇧0");
     expect(key("pause")).toBe("p");
   });
 
   test("a key of the repository's that one of yours already has is dropped", () => {
     const tiles = tilesOf("deck", file([], [{ id: "map", key: "R" }]), file([], [{ id: "my-ci", kind: "page", name: "CI", text: "https://ci.example", key: "R" }]));
     expect(tiles.find((one) => one.id === "map")?.key).toBe("r");
-    expect(tiles.find((one) => one.id === "my-ci")?.key).toBe("5");
+    expect(tiles.find((one) => one.id === "my-ci")?.key).toBe("⌥⇧5");
   });
 
   test("a repository with none draws exactly the tiles drawn without one", () => {
@@ -140,8 +140,8 @@ describe("a tile's key", () => {
   });
 
   test("a key that is not a tile's is read as none, and the tile keeps its place's digit", () => {
-    expect(keyOf("ask", [{ id: "ask", key: "Tab" }])).toBe("1");
-    expect(keyOf("ask", [{ id: "ask", key: "⇧J" }])).toBe("1");
+    expect(keyOf("ask", [{ id: "ask", key: "Tab" }])).toBe("⌥⇧1");
+    expect(keyOf("ask", [{ id: "ask", key: "⇧J" }])).toBe("⌥⇧1");
   });
 
   test("Pause may be given a key, and then does not answer p", () => {
@@ -197,7 +197,7 @@ describe("keyProblem", () => {
   });
 
   test("a free digit, letter or chord, and no key, are fine", () => {
-    expect([problem("5"), problem("r"), problem("⌥R"), problem("⇧⌘J"), problem("")]).toEqual([undefined, undefined, undefined, undefined, undefined]);
+    expect([problem("5"), problem("r"), problem("⌥R"), problem("⇧⌘J"), problem("⌥⇧1"), problem("")]).toEqual([undefined, undefined, undefined, undefined, undefined, undefined]);
   });
 
   test("p is Pause's while it wears p, and free once Pause has another key", () => {

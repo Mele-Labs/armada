@@ -25,7 +25,7 @@ export function reportRoot(repositories: readonly RepositorySummary[], reported:
 }
 
 /**
- * In the order their keys, `1` to `9` and `0`, press them; the last has none. `label` is the accessible name, `text` the word under the glyph.
+ * In the order their keys, ⌥⇧1 to ⌥⇧9 and ⌥⇧0, press them; the last has none. `label` is the accessible name, `text` the word under the glyph.
  * The last four open a layer over the stage (`session-view/layers.ts`): Artifacts, Subagents and Checks always, Bays where the Session holds one, lit when a bay is wrong or its work clashes.
  */
 export const SESSION_TILES: readonly { id: SessionTileId; label: string; text: string }[] = [
@@ -51,8 +51,11 @@ export const SESSION_TILES: readonly { id: SessionTileId; label: string; text: s
 /** The key that presses Pause, or Resume while paused, with a Session open or on the list's cursor row. Not an act of the registry: `p` is Pilot's there. */
 export const PAUSE_KEY = "p";
 
-/** The key of the tile at `at`: `1` to `9`, then `0`, and none for any after. */
-export const tileKey = (at: number): string | undefined => (at < 9 ? String(at + 1) : at === 9 ? "0" : undefined);
+/** The key of the tile at `at`: ⌥⇧1 to ⌥⇧9, then ⌥⇧0, and none for any after. A bare digit is a question's answer. */
+export const tileKey = (at: number): string | undefined => (at < 9 ? `⌥⇧${at + 1}` : at === 9 ? "⌥⇧0" : undefined);
+
+/** What a tile's corner cap draws: the digit alone for ⌥⇧ and a digit, which every tile shares and the tooltip spells out; any other key whole. */
+export const tileCap = (key: string): string => key.replace(/^⌥⇧(\d)$/, "$1");
 
 // Fleet turns on the forge's auto-merge and merges on a green `ci` (`draft.autoLand`); these words only tell the agent where it stands.
 export const LAND_ON_TEXT = "Auto land is on. Fleet turns on auto-merge when your pull request opens and merges it once ci is green. Open the pull request. Fix ci failures and merge conflicts when you are told of them. Do not merge it yourself.";
