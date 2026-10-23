@@ -46,6 +46,9 @@ export type PanelHosts = {
   settleMs?: number;
 };
 
+/** Where a hosted Job's checkout sits under its repository root. */
+const SLOTS = `${sep}.armada${sep}slots${sep}`;
+
 const NOT_OPENED = "Not a file this panel opened";
 
 /** The most paths one question about a thread looks at, so a long thread is not a long walk of the disk. */
@@ -114,11 +117,21 @@ export function createFilePanel(hosts: PanelHosts) {
 
   /**
    * The file `path` names inside the Session's checkout, links followed, or null. **A link that leaves the checkout
-   * is outside it**: the check is on where the path ends up, not on how it was written.
+   * is outside it**: the check is on where the path ends up, not on how it was written. A relative path that misses
+   * from the checkout is tried from the repository root, which a slot's cwd names (`<root>/.armada/slots/<slot>`):
+   * an agent writes paths from there.
    */
   async function inCheckout(record: SessionRecord, path: string): Promise<string | null> {
-    const [there, root] = await Promise.all([disk.real(isAbsolute(path) ? path : resolve(record.cwd, path)), disk.real(record.cwd)]);
-    return there?.file === true && root !== null && there.path.startsWith(root.path + sep) ? there.path : null;
+    const root = await disk.real(record.cwd);
+    if (root === null) return null;
+    const fromHere = isAbsolute(path) ? [path] : [resolve(record.cwd, path)];
+    const at = record.cwd.indexOf(SLOTS);
+    if (!isAbsolute(path) && at > 0) fromHere.push(resolve(record.cwd.slice(0, at), path));
+    for (const candidate of fromHere) {
+      const there = await disk.real(candidate);
+      if (there?.file === true && there.path.startsWith(root.path + sep)) return there.path;
+    }
+    return null;
   }
 
   /** Where on disk the item is, or null where its source does not name it. */
@@ -129,7 +142,7 @@ export function createFilePanel(hosts: PanelHosts) {
         const record = typeof item.sessionId === "string" ? hosts.recordOf(item.sessionId) : undefined;
         if (record === undefined) return null;
         if (namesFile(record, item.path)) return isAbsolute(item.path) ? item.path : resolve(record.cwd, item.path);
-        return inCheckout(record, item.path);
+        return inCheckout(record, item.path); // the same file `known` offered the link for
       }
       case "settings":
         return item.path === hosts.settingsPath() ? item.path : null;

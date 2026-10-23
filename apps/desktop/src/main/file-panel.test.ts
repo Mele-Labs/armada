@@ -374,3 +374,43 @@ describe("a path in the Job's checkout", () => {
     expect(await panel.read({}, { ...session("docs/plan.md"), sessionId: "S2" })).toEqual({ ok: false, why: "not_addressable" });
   });
 });
+
+describe("a path written from the repository root", () => {
+  /** A repository with a Job's slot under `.armada/slots`, as a hosted Job runs in one. */
+  async function slot() {
+    const repo = await mkdtemp(join(tmpdir(), "file-panel-repo-"));
+    const cwd = join(repo, ".armada", "slots", "slot-5");
+    await mkdir(cwd, { recursive: true });
+    await mkdir(join(repo, ".armada", "slots", "slot-6"));
+    await writeFile(join(cwd, "example.md"), "# Example");
+    await writeFile(join(repo, "top.md"), "# Top");
+    await writeFile(join(repo, ".armada", "slots", "slot-6", "other.md"), "# Other");
+    await symlink(join(repo, "top.md"), join(cwd, "link.md"));
+    const held = { id: "S1", cwd, attachments: [] } as unknown as SessionRecord;
+    const panel = createFilePanel({
+      disk: diskPanel,
+      recordOf: (id) => (id === "S1" ? held : undefined),
+      settingsPath: () => undefined,
+      kitInventory: async () => undefined,
+      pick: async () => null,
+      inEditor: async () => null,
+      showInFolder: () => {},
+      send: () => {},
+    });
+    return { cwd, panel };
+  }
+
+  it("is found when it lands on a file in the slot, and opens that file", async () => {
+    const { panel } = await slot();
+    const written = ".armada/slots/slot-5/example.md";
+    expect(await panel.known("S1", [written])).toEqual([written]);
+    expect(await panel.read({}, session(written))).toMatchObject({ ok: true, text: "# Example" });
+  });
+
+  it("is refused when it lands outside the slot, by name or by link", async () => {
+    const { panel } = await slot();
+    const asked = ["top.md", ".armada/slots/slot-6/other.md", ".armada/slots/slot-5/link.md"];
+    expect(await panel.known("S1", asked)).toEqual([]);
+    expect(await panel.read({}, session("top.md"))).toEqual({ ok: false, why: "not_addressable" });
+  });
+});
