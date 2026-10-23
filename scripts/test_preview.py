@@ -361,6 +361,26 @@ class Preview(unittest.TestCase):
         self.assertIn("skipped (does not build: apps/desktop/src/App.tsx)", done.stdout)
         self.assertTrue(os.path.exists(os.path.join(self.wt, "elsewhere/src/Other.tsx")))
 
+    def test_a_branch_whose_import_has_no_file_is_left_out_and_the_restart_run_once_more(self):
+        index = "apps/desktop/src/preload/index.ts"
+        self.branch("feat/bad", {index: 'import { logbookPreload } from "./logbook";\n'})
+        self.branch("feat/good", {"good.txt": "g\n"})
+        self.hold("feat/bad", "feat/good")
+        runs = os.path.join(self.dir, "restart-runs")
+        script = os.path.join(self.dir, "restart")
+        with open(script, "w") as f:
+            f.write(f'#!/bin/sh\necho run >> "{runs}"\n'
+                    f'if [ -f "$2/{index}" ]; then\n'
+                    f'  echo "error during build:" >&2\n'
+                    f'  echo \'Could not resolve "./logbook" from "src/preload/index.ts"\' >&2\n'
+                    f'  echo "file: $2/{index}" >&2; exit 1\nfi\n')
+        os.chmod(script, 0o755)
+        done = self.preview_restart(script)
+        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+        self.assertEqual(self.count(runs), 2)
+        self.assertIn(f"feat/bad   skipped (does not build: {index})", done.stdout)
+        self.assertTrue(os.path.exists(os.path.join(self.wt, "good.txt")))
+
     def test_the_retry_is_once_and_a_second_failure_is_reported(self):
         self.branch("feat/bad", {"bad.rs": "x\n"})
         self.hold("feat/bad")
@@ -380,6 +400,16 @@ class Preview(unittest.TestCase):
         )
         self.assertEqual(PREVIEW_MODULE.error_paths(output, wt),
                          ["crates/x/src/y.rs", "apps/desktop/src/a.ts", "apps/desktop/src/b.tsx"])
+
+    def test_an_import_rollup_cannot_resolve_names_the_importing_file(self):
+        wt = os.path.join(self.dir, "wt")
+        # What `electron-vite build` said when a branch imported a file it never committed.
+        output = (
+            "✗ Build failed in 9ms\nerror during build:\n"
+            'Could not resolve "./logbook" from "src/preload/index.ts"\n'
+            f"file: {wt}/apps/desktop/src/preload/index.ts\n"
+        )
+        self.assertEqual(PREVIEW_MODULE.error_paths(output, wt), ["apps/desktop/src/preload/index.ts"])
 
     def test_a_kept_slot_and_a_stopped_jobs_slot_are_left_out_and_named(self):
         for name in ("feat/live", "feat/kept", "feat/dead", "feat/orphan", "feat/review"):
