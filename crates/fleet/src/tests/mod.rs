@@ -127,6 +127,7 @@ mod session_waiting;
 mod session_later;
 mod sleeping;
 mod session_running;
+mod session_terminal;
 mod session_shell;
 mod sessioning;
 mod loadout;
