@@ -49,3 +49,19 @@ test("a Session calling him pulses its row and names the call, and the open Sess
   await userEvent.hover(list().getByRole("button", { name: "Prune the stale branches", exact: true }));
   await expect.element(page.getByText(/^Permission/)).toBeVisible();
 });
+
+test("the Field starts level with the open Job whichever of the handle's two stylesheets loads last", async () => {
+  // The column handle is a `.armada-dock-handle` (components) placed by `.deck-handle` (deck.css), one class each: the order the bundle
+  // writes them in decides which `position` holds, and a handle left in the flow pushes the Field down by the column's gap.
+  const later = document.createElement("style");
+  later.textContent = ".armada-dock-handle { position: relative; margin-inline: 4px; }";
+  document.head.append(later);
+  try {
+    await open("compact-session-view", "Retry the slot lease");
+    await expect.poll(() => panels("Progress").length).toBe(1);
+    const top = (name: string) => page.getByRole("region", { name, exact: true }).element().getBoundingClientRect().top;
+    expect(top("Field")).toBe(top("Job: Retry the slot lease"));
+  } finally {
+    later.remove();
+  }
+});
