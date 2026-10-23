@@ -24,6 +24,9 @@ const issue = (number: number, title: string): TrackedIssue => ({
   updated_at: "2026-10-11T11:40:00Z",
   excerpt: "",
   linked_pull_request: false,
+  state: "open",
+  fields: [],
+  holders: [],
 });
 const pull = (number: number, title: string, branch: string): HubPullRequest => ({ number, title, branch, url: `https://forge.invalid/pull/${number}` });
 const line = (root: string, pulls: HubPullRequest[]): MergeLine => ({ root, line: [], off: [], landed: [], sent_back: [], hub: { pull_requests: pulls } });

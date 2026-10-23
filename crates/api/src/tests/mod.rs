@@ -20,6 +20,7 @@ mod door_without_manifest;
 mod fake;
 mod following;
 mod helm_box;
+mod issue_queries;
 mod helm_tells;
 mod hosted_sessions;
 mod door_receipts;
