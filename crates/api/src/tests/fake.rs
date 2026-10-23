@@ -18,6 +18,7 @@ mod issues;
 mod logbook;
 mod mods;
 mod settings;
+mod shared_home;
 mod pull_requests;
 mod queries;
 mod rehearsing;

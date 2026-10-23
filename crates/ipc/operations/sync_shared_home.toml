@@ -1,0 +1,10 @@
+[operations.sync_shared_home]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Make the shared home where it does not exist, bring this machine's copy up to date, and read it"
+notes = """
+`POST /shared_home/sync`, no body, answered with `SharedHomeRead` as `get_shared_home` answers it. The home is the private repository `armada-home` under the login the forge on this machine is signed in as. Where it does not exist it is made, private; where this machine has no copy it is cloned into the machine directory; otherwise the copy is pulled. **Nothing is settled by a sync**: a row that differs still differs.
+
+Refused with a 422 `fleet.home_refused` where no account is signed in to the forge here or the forge refused, and a 500 `fleet.home_unreachable` where the forge or the remote did not answer. `agent_access` is `No`, `get_shared_home`'s reason.
+"""
