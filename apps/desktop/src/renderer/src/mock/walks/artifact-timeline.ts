@@ -21,10 +21,10 @@ function steps(take: "spine" | "lanes" | "pixi"): Step[] {
     { press: inside(artifacts, tab("Timeline")), say: "Timeline" },
     {
       look: timeline,
-      say: take === "lanes" ? "A lane for each kind, left to right in time. Each artifact is a line in its lane, with a point for each version" : take === "pixi" ? "The whole Job fitted to the panel on a canvas. Wheel or pinch zooms the time axis, a drag pans it" : "The whole Job along its own line, left to right in time. Each artifact branches off where it first appeared, with a point for each version",
+      say: take === "lanes" ? "A lane for each kind, left to right in time. Each artifact is a line in its lane, with a point for each version" : take === "pixi" ? "The whole Job fitted to the panel on a canvas, every title whole on its own track. Pinch or Control and wheel zooms the time axis, a drag pans it, and scrolling goes up and down the tracks" : "The whole Job along its own line, left to right in time. Each artifact branches off where it first appeared, with a point for each version",
     },
     { look: point(/^Checks failed, .*#1913/), say: "The pull request: opened, checks failed, checks passed, merged. The issue it closes is joined to it" },
-    ...(take === "pixi" ? [{ key: "+", on: point(/^Written by you, example.com\/rfc/), say: "Plus zooms in about the link under it, and the labels open out. Minus zooms out and 0 fits the whole Job again" } satisfies Step] : []),
+    ...(take === "pixi" ? [{ key: "+", on: point(/^Written by you, example.com\/rfc/), say: "Plus zooms in about the link under it, and the lines fold back toward the Job as they spread. Minus zooms out and 0 fits the whole Job again" } satisfies Step] : []),
     { key: "ArrowRight", on: point(/^Drawn, Store clock reads/), say: "The arrows walk the points, Enter opens one, and T switches back to the list" },
     { press: point(/^Drawn, Store clock reads/), say: "The first version of the sketch opens as it was drawn, not the latest" },
     { press: close(sheet), say: "Close" },

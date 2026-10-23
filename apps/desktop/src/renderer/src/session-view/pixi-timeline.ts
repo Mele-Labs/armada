@@ -1,24 +1,28 @@
 // The Pixi take of the Artifacts timeline, as arithmetic: which track each artifact stands on, and how time maps to the canvas as it is zoomed
-// and panned. The same `Timeline` as the other takes draw (`artifact-timeline.ts`); only the drawing differs. Tracks are laid out once at the
-// fitted zoom and kept, since zooming in only draws everything further apart, and a label is cut to the room it has at the zoom it is drawn at.
+// and panned. The same `Timeline` as the other takes draw (`artifact-timeline.ts`); only the drawing differs.
 //
-// A branch leaves its parent in a curve over `STEM` pixels and arrives level on its own track, so the way out is the one place it can cross
-// anything. A line is put on the first track on a side where its own extent is free and so is every track its branch passes through; where no
-// track on either side is, it takes a new one. A label sits on the far side of its line from the Job, so the branch that reaches the line never
-// runs through the line's own label.
+// **Labels win over compactness.** A line takes the room it really needs on its track, its first point to the end of its full title (cut past
+// `MOST_TITLE`), measured with the canvas's own type, and lines are packed greedily in time order onto the first track on a side, nearest the Job,
+// where that room is free and so is the way its branch takes to get there. Zooming changes how wide a title is in time, so it packs again and
+// lines fold back towards the Job's line.
+//
+// A branch leaves its parent in a curve over `STEM` pixels and arrives level on its own track. A title sits beside its line's first point, on the
+// far side of the line from the Job, so the branch that reaches the line never runs through the line's own title. A branch may cross another
+// line, which the canvas draws it faint behind, but is kept from crossing another line's title where a track allows.
 
 import type { Placed, Timeline, TimelineLine } from "./artifact-timeline";
 
 export const ROW = 52;
-export const BAND = 36;
 export const POINT = 24;
 export const STEM = 44;
 /** Left of where time begins, for the Job's own mark; right of where it ends. */
 export const LEFT = 48;
 export const RIGHT = 24;
 const GAP = 12;
-const CHAR = 7;
-const WANT = 110;
+/** A title is shown whole up to this, and cut past it. */
+export const MOST_TITLE = 240;
+/** From a line's first point to where its title begins, and from where it ends to the next thing on the track. */
+const TO_TITLE = POINT / 2 + 4;
 const MINUTE = 60_000;
 /** A tick's label needs this much room. */
 const TICK_ROOM = 72;
@@ -29,59 +33,75 @@ export type Row = {
   line: TimelineLine;
   side: Side;
   track: number;
-  /** The line's y from the top of the plot, below the band. */
+  /** The line's y from the top of the plot. */
   y: number;
   /** The parent it branches from: the Job's own line, or another row's artifact. */
   parent: { job: true } | { job?: undefined; row: string };
-  /** The tracks its branch passes through on its way, for the labels there to give way to it. */
-  passes: { side: Side; track: number }[];
+  /** Where its title stands as packed (the plot's left at the Job's start): its left edge, its width, and whether it hangs left of the first point. */
+  label: { x: number; w: number; flip: boolean };
 };
 
 export type Tracks = { rows: Row[]; up: number; down: number; jobY: number; height: number };
-
-const natural = (title: string) => Math.min(title.length, 40) * CHAR + 8;
 
 /** The y of a line on a track: the Job's row between, labels on the far side of their lines. */
 const yOf = (side: Side, track: number, up: number): number => (side === "up" ? (up - 1 - track) * ROW + 36 : (up + 1 + track) * ROW + 16);
 
 type Span = { a: number; b: number };
+/** What a line holds on its track: all of it, and the part its title is written in. */
+type Foot = Span & { title: Span };
 
-export function tracksOf(timeline: Timeline, panel: number): Tracks {
-  const span = timeline.end - timeline.start;
-  const k = span === 0 ? 0 : Math.max(0, (panel - LEFT - RIGHT) / span);
-  const x = (t: number) => LEFT + (t - timeline.start) * k;
-  const taken: Record<Side, Span[][]> = { up: [], down: [] };
-  const free = (side: Side, track: number, a: number, b: number) => !(taken[side][track] ?? []).some((one) => one.a < b && a < one.b);
-  const claim = (side: Side, track: number, a: number, b: number) => void (taken[side][track] ??= []).push({ a, b });
+const overlap = (one: Span, two: Span) => one.a < two.b && two.a < one.b;
+
+/**
+ * Packs every line onto a track, in the order they appeared. A line takes the first track, nearest the Job, where the room its title really needs is
+ * free and where the branch that carries it there crosses no one else's title. The branch may cross another line, which is drawn behind it.
+ * `view.k` is the zoom it is packed at, so zooming packs again; panning moves everything together and changes nothing.
+ */
+export function tracksOf(timeline: Timeline, view: View, measure: (title: string) => number): Tracks {
+  const x = (t: number) => xOf(view, t);
+  const reach = x(timeline.end) + RIGHT;
+  const feet: Record<Side, Foot[][]> = { up: [], down: [] };
+  const stems: Record<Side, Span[][]> = { up: [], down: [] };
   const placed = new Map<string, { side: Side; track: number }>();
   const made: Omit<Row, "y">[] = [];
 
   for (const [index, line] of timeline.lines.entries()) {
     const first = x(line.points[0]!.t);
-    const from = first - POINT / 2;
-    const to = Math.max(x(line.points[line.points.length - 1]!.t) + POINT / 2, from + POINT + Math.min(natural(line.title), WANT));
-    const above = line.parents.map((one) => (one.key === "job" ? undefined : placed.get(one.key))).find((one) => one !== undefined);
+    const last = x(line.points[line.points.length - 1]!.t);
+    const w = Math.min(measure(line.title), MOST_TITLE);
+    // A title that would run past the end of the Job hangs left of its first point instead, level with it.
+    const flip = first + TO_TITLE + w + GAP > reach && first - TO_TITLE - w - GAP > LEFT - POINT;
+    const label = flip ? { x: first + POINT / 2 - w, w, flip } : { x: first + TO_TITLE, w, flip };
+    const title = flip ? { a: label.x - GAP, b: first + POINT / 2 } : { a: label.x, b: label.x + w + GAP };
+    const whole: Foot = { a: Math.min(first - POINT / 2, title.a), b: Math.max(last + POINT / 2, title.b), title };
     const owner = line.parents.find((one) => one.key !== "job" && placed.has(one.key))?.key;
-    const stem = { a: first - STEM, b: first + POINT / 2 };
+    const above = owner === undefined ? undefined : placed.get(owner);
+    const stem: Span = { a: first - STEM, b: first };
+
     const sides: Side[] = above === undefined ? ["up", "down"] : [above.side];
     const choices = sides.map((side) => {
-      const count = taken[side].length;
+      const count = Math.max(feet[side].length, stems[side].length);
+      const between = (track: number) => {
+        const low = above === undefined ? 0 : Math.min(track, above.track) + 1;
+        const high = above === undefined ? track : Math.max(track, above.track);
+        return Array.from({ length: Math.max(0, high - low) }, (_, i) => low + i);
+      };
+      // Another line's title is in the way of this branch, on a track it passes or on this one before the line begins.
+      const blocked = (track: number) =>
+        [...between(track), track].some((at) => (feet[side][at] ?? []).some((one) => overlap(one.title, at === track ? { a: stem.a, b: whole.a } : stem)));
+      const room = (track: number) =>
+        !(feet[side][track] ?? []).some((one) => one.a < whole.b + GAP && whole.a < one.b + GAP) && !(stems[side][track] ?? []).some((one) => overlap(one, title));
       for (let track = 0; track <= count; track++) {
         if (above !== undefined && track === above.track) continue;
-        const from0 = above === undefined ? 0 : Math.min(track, above.track) + 1;
-        const to0 = above === undefined ? track : Math.max(track, above.track);
-        const through = Array.from({ length: Math.max(0, to0 - from0) }, (_, i) => from0 + i);
-        if (free(side, track, from, to) && through.every((one) => free(side, one, stem.a, stem.b))) return { side, track, through, clean: true };
+        if (room(track) && !blocked(track)) return { side, track, through: between(track), clean: true };
       }
-      const from0 = above === undefined ? 0 : Math.min(count, above.track) + 1;
-      const to0 = above === undefined ? count : Math.max(count, above.track);
-      return { side, track: count, through: Array.from({ length: Math.max(0, to0 - from0) }, (_, i) => from0 + i), clean: false };
+      return { side, track: count, through: between(count), clean: false };
     });
     const best = choices.sort((a, b) => Number(b.clean) - Number(a.clean) || a.track - b.track || (index % 2 === 0 ? (a.side === "up" ? -1 : 1) : a.side === "down" ? -1 : 1))[0]!;
-    claim(best.side, best.track, from, to);
-    for (const through of best.through) claim(best.side, through, stem.a, stem.b);
+    (feet[best.side][best.track] ??= []).push(whole);
+    for (const through of best.through) (stems[best.side][through] ??= []).push(stem);
     placed.set(line.key, { side: best.side, track: best.track });
-    made.push({ line, side: best.side, track: best.track, parent: owner === undefined ? { job: true } : { row: owner }, passes: best.through.map((track) => ({ side: best.side, track })) });
+    made.push({ line, side: best.side, track: best.track, parent: owner === undefined ? { job: true } : { row: owner }, label });
   }
   const up = Math.max(0, ...made.filter((one) => one.side === "up").map((one) => one.track + 1));
   const down = Math.max(0, ...made.filter((one) => one.side === "down").map((one) => one.track + 1));
@@ -145,19 +165,14 @@ export function ticksFor(timeline: Timeline, view: View, width: number): { t: nu
   return out;
 }
 
-/** The fitted points as `neighbour` reads them: the arrows go by where things are drawn at the fit, which is the order at any zoom. */
-export function placedOf(tracks: Tracks, timeline: Timeline, width: number): Placed[] {
-  const x = (t: number) => xOf(fitted(timeline, width), t);
-  return tracks.rows.map((row) => ({ line: row.line, y: row.y, xs: row.line.points.map((point) => x(point.t)), from: x(row.line.points[0]!.t) - POINT / 2, to: x(row.line.points[row.line.points.length - 1]!.t) + POINT / 2, title: natural(row.line.title) }));
-}
-
-/** The room a title has: to the next thing on its track or the branch that crosses it, never past the edge. */
-export function roomFor(row: Row, tracks: Tracks, view: View, width: number, labelX: number): number {
-  let edge = width - RIGHT;
-  for (const other of tracks.rows) {
-    const x = xOf(view, other.line.points[0]!.t);
-    if (other !== row && other.side === row.side && other.track === row.track && x - POINT / 2 > labelX) edge = Math.min(edge, x - POINT / 2 - GAP);
-    if (other !== row && other.passes.some((one) => one.side === row.side && one.track === row.track) && x - STEM > labelX) edge = Math.min(edge, x - STEM - GAP);
-  }
-  return edge - labelX;
+/** The points as `neighbour` reads them: the arrows go by where things are drawn now. */
+export function placedOf(tracks: Tracks, view: View): Placed[] {
+  return tracks.rows.map((row) => ({
+    line: row.line,
+    y: row.y,
+    xs: row.line.points.map((point) => xOf(view, point.t)),
+    from: xOf(view, row.line.points[0]!.t) - POINT / 2,
+    to: xOf(view, row.line.points[row.line.points.length - 1]!.t) + POINT / 2,
+    title: row.label.w,
+  }));
 }
