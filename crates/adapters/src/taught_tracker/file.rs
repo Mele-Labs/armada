@@ -13,9 +13,10 @@ pub const MOST_BYTES: u64 = 32 * 1024;
 
 const SECTIONS: &[&str] = &["guide", "credential", "search", "list", "read"];
 const GUIDE_KEYS: &[&str] = &["language", "guide", "open", "assigned_to_me", "fields"];
-const TRANSPORTS: &str = "cli, http";
+const TRANSPORTS: &str = "cli, http, mcp";
 const CLI_KEYS: &[&str] = &["transport", "argv", "map"];
 const HTTP_KEYS: &[&str] = &["transport", "method", "url", "headers", "body", "map"];
+const MCP_KEYS: &[&str] = &["transport", "server", "env", "tool", "arguments", "map"];
 
 /// The placeholders a call may hold. Any other `{word}` is text, so a body's own braces stand.
 pub(crate) const QUERY: &str = "query";
@@ -47,6 +48,9 @@ pub(crate) enum Transport {
     /// A program and its arguments, run with no shell.
     Cli { argv: Vec<String> },
     Http { method: String, url: String, headers: Vec<(String, String)>, body: Option<String> },
+    /// A server started on standard input and output, and one tool called on it. `arguments` is
+    /// JSON text, so a placeholder is filled into it as it is into an HTTP body.
+    Mcp { server: Vec<String>, env: Vec<(String, String)>, tool: String, arguments: String },
 }
 
 impl TrackerFile {
@@ -128,7 +132,7 @@ fn guide_of(table: &Table, problems: &mut Vec<String>) -> QueryGuide {
 
 fn credential_of(table: &Table, problems: &mut Vec<String>) -> Option<Vec<String>> {
     unknown_keys("credential", table, &["argv"], "a credential", problems);
-    let argv = argv_of("credential", table, problems)?;
+    let argv = argv_of("credential", table, "argv", problems)?;
     if let Some(used) = argv.iter().find_map(|one| placeholders_in(one).into_iter().next()) {
         problems.push(format!("`[credential]` uses `{{{used}}}`, which nothing fills before the credential is read"));
         return None;
@@ -155,11 +159,15 @@ fn call_of(name: &str, table: &Table, fills: &[&str], has_credential: bool, prob
         Some(Value::String(word)) => match word.as_str() {
             "cli" => {
                 unknown_keys(name, table, CLI_KEYS, "a cli call", problems);
-                argv_of(name, table, problems).map(|argv| Transport::Cli { argv })
+                argv_of(name, table, "argv", problems).map(|argv| Transport::Cli { argv })
             }
             "http" => {
                 unknown_keys(name, table, HTTP_KEYS, "an http call", problems);
                 http_of(name, table, problems)
+            }
+            "mcp" => {
+                unknown_keys(name, table, MCP_KEYS, "an mcp call", problems);
+                mcp_of(name, table, problems)
             }
             other => {
                 problems.push(format!("`[{name}]` transport `{other}` is not one this build has: {TRANSPORTS}"));
@@ -247,6 +255,85 @@ fn http_of(name: &str, table: &Table, problems: &mut Vec<String>) -> Option<Tran
     Some(Transport::Http { method, url, headers, body })
 }
 
+fn mcp_of(name: &str, table: &Table, problems: &mut Vec<String>) -> Option<Transport> {
+    let before = problems.len();
+    let server = argv_of(name, table, "server", problems);
+    if server.as_ref().is_some_and(|all| all.iter().any(|one| !placeholders_in(one).is_empty())) {
+        problems.push(format!("`[{name}]` holds a placeholder in its `server`: it is started as written, and a token goes through `env`"));
+    }
+    let tool = text_of(name, table, "tool", problems);
+    match &tool {
+        Some(tool) if tool.trim().is_empty() => problems.push(format!("`[{name}]` `tool` must name the tool to call")),
+        Some(tool) if !placeholders_in(tool).is_empty() => {
+            problems.push(format!("`[{name}]` holds a placeholder in its `tool`: the tool is named as written"));
+        }
+        _ => {}
+    }
+    let mut env = Vec::new();
+    match table.get("env") {
+        None => {}
+        Some(Value::Table(named)) => {
+            for (variable, value) in named {
+                match value {
+                    Value::String(_) if variable.is_empty() || variable.contains(['=', '\0']) => {
+                        problems.push(format!("`[{name}]` env `{variable}` is not a variable name"));
+                    }
+                    Value::String(_) if !placeholders_in(variable).is_empty() => {
+                        problems.push(format!("`[{name}]` env `{variable}` holds a placeholder in its name"));
+                    }
+                    Value::String(value) => env.push((variable.clone(), value.clone())),
+                    _ => problems.push(format!("`[{name}]` env `{variable}` must be a string")),
+                }
+            }
+        }
+        Some(_) => problems.push(format!("`[{name}]` `env` must be a table of strings")),
+    }
+    let arguments = match table.get("arguments") {
+        None => Some("{}".to_string()),
+        Some(Value::Table(given)) => arguments_of(name, given, problems),
+        Some(_) => {
+            problems.push(format!("`[{name}]` `arguments` must be a table"));
+            None
+        }
+    };
+    (problems.len() == before).then_some(Transport::Mcp { server: server?, env, tool: tool?, arguments: arguments? })
+}
+
+/// The arguments as JSON text, once nothing in them is a date, which JSON has no form for, or a
+/// name that holds a placeholder.
+fn arguments_of(name: &str, given: &Table, problems: &mut Vec<String>) -> Option<String> {
+    fn walk(value: &Value, found: &mut Vec<&'static str>) {
+        match value {
+            Value::Datetime(_) => found.push("a date or time, which JSON has no form for"),
+            Value::Array(all) => all.iter().for_each(|one| walk(one, found)),
+            Value::Table(named) => {
+                if named.keys().any(|key| !placeholders_in(key).is_empty()) {
+                    found.push("a placeholder in a name");
+                }
+                named.values().for_each(|one| walk(one, found));
+            }
+            _ => {}
+        }
+    }
+    let mut found = Vec::new();
+    walk(&Value::Table(given.clone()), &mut found);
+    found.sort();
+    found.dedup();
+    for what in &found {
+        problems.push(format!("`[{name}]` `arguments` holds {what}"));
+    }
+    if !found.is_empty() {
+        return None;
+    }
+    match ipc::encode(given) {
+        Ok(json) => Some(json),
+        Err(why) => {
+            problems.push(format!("`[{name}]` `arguments` {why}"));
+            None
+        }
+    }
+}
+
 /// Why `url` may not be asked, or `None`. **The host is written out and never filled**, so a
 /// credential goes to the host named and nowhere else, and only over TLS off this machine.
 fn url_problem(url: &str) -> Option<String> {
@@ -286,14 +373,15 @@ fn text_of(name: &str, table: &Table, key: &str, problems: &mut Vec<String>) -> 
     }
 }
 
-fn argv_of(name: &str, table: &Table, problems: &mut Vec<String>) -> Option<Vec<String>> {
-    let Some(value) = table.get("argv") else {
-        problems.push(format!("`[{name}]` has no `argv`: the program and its arguments"));
+/// The program and its arguments under `key`: `argv` for a command, `server` for an MCP server.
+fn argv_of(name: &str, table: &Table, key: &str, problems: &mut Vec<String>) -> Option<Vec<String>> {
+    let Some(value) = table.get(key) else {
+        problems.push(format!("`[{name}]` has no `{key}`: the program and its arguments"));
         return None;
     };
-    let argv = strings_of(name, "argv", value, problems)?;
+    let argv = strings_of(name, key, value, problems)?;
     if argv.first().is_none_or(|program| program.trim().is_empty()) {
-        problems.push(format!("`[{name}]` `argv` must start with the program to run"));
+        problems.push(format!("`[{name}]` `{key}` must start with the program to run"));
         return None;
     }
     Some(argv)
@@ -315,6 +403,12 @@ pub(crate) fn texts_of(transport: &Transport) -> Vec<&str> {
             let mut all = vec![url.as_str()];
             all.extend(headers.iter().map(|(_, value)| value.as_str()));
             all.extend(body.as_deref());
+            all
+        }
+        // Only what a placeholder may fill: the server and the tool are written as they are.
+        Transport::Mcp { env, arguments, .. } => {
+            let mut all: Vec<&str> = env.iter().map(|(_, value)| value.as_str()).collect();
+            all.push(arguments.as_str());
             all
         }
     }

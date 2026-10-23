@@ -454,6 +454,13 @@ pub(crate) fn end_the_group(group: Option<u32>) {
     signal_group(group, libc::SIGKILL);
 }
 
+/// `SIGKILL` to the process group `group`, for a caller outside this crate that started a program
+/// with `process_group(0)` and so leads the group: the one place `libc::killpg` is called from here,
+/// so the caller needs no `unsafe` and no `libc`. A group already gone is not an error.
+pub fn end_group(group: u32) {
+    signal_group(Some(group), libc::SIGKILL);
+}
+
 /// Send `signal` to the child's whole process group.
 #[allow(unsafe_code)]
 fn signal_group(group: Option<u32>, signal: libc::c_int) {
