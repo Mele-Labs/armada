@@ -1066,7 +1066,11 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
   const selected = sel?.key;
   const grid = useRef<HTMLDivElement>(null);
   const deckMarks = useMarking(DECK_MARKS);
-  const layout = unified ? "session" : reading ? "reading" : "idle";
+  // What a layout leaves drawn of the deck's panels. A right column it empties, or a foot, is not drawn and gives its room to the stage.
+  const panels = new Set(useLayout("dashboard.panels").shown.map((one) => one.id));
+  const bare = !reading && !panels.has("bays") && !panels.has("activity");
+  const footed = panels.has("controls") || (!unified && (panels.has("dispatch") || panels.has("autopilot")));
+  const layout = unified ? "session" : reading ? "reading" : bare ? "bare" : "idle";
   const { columns, resize, reset } = useColumns(grid, layout);
   const splits = useSplits(grid, layout);
   useActivityBeside(grid, layout);
@@ -1077,7 +1081,7 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
     <ReplayHost props={props} ship={ship} />
     <AutopilotAsked control={autopilot.control} />
     <div ref={deckMarks} className="armada-cockpit deck">
-      <div ref={grid} className="deck-grid" style={columns === undefined ? undefined : ({ "--deck-left": `${columns.left}px`, "--deck-right": `${columns.right}px` } as CSSProperties)}>
+      <div ref={grid} className="deck-grid" data-bare={bare || undefined} style={columns === undefined ? undefined : ({ "--deck-left": `${columns.left}px`, "--deck-right": `${columns.right}px` } as CSSProperties)}>
         <div className="deck-left">
           <RepositoryScope props={props} />
           <List subjects={listed} calling={calling} banding={banding} selected={sel?.kind === "session" ? selected : undefined} builds={builds} picked={props.picked} found={found} onPick={(one) => openSubject(ship, one)} onEarlier={(id) => openLinked({ kind: "session", key: `session:${id}` })} onMove={(key, target, after) => moveRow(ship, key, target, after)} onAutopilot={(root) => (props.onPickRepository?.(root), enterAutopilot())} />
@@ -1089,21 +1093,25 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
             {onStage === undefined ? null : <ShellPanel key={onStage} sessionId={onStage} />}
             <MergeQueue props={props} ship={ship} />
           </div>
-          <div className="deck-foot">
-            <FlightControl ship={ship} props={props} />
-            {unified ? null : <DispatchDeck />}
-            {unified ? null : <AutopilotPanel props={props} autopilot={autopilot} />}
+          {footed ? (
+            <div className="deck-foot">
+              {panels.has("controls") ? <FlightControl ship={ship} props={props} /> : null}
+              {unified || !panels.has("dispatch") ? null : <DispatchDeck />}
+              {unified || !panels.has("autopilot") ? null : <AutopilotPanel props={props} autopilot={autopilot} />}
+            </div>
+          ) : null}
+        </div>
+        {bare ? null : (
+          <div className="deck-right">
+            {columns === undefined ? null : <DockHandle quiet className="deck-handle" grows="left" label="the right column" width={columns.right} {...columns.range.right} onResize={(width) => resize("right", width)} onReset={() => reset("right")} />}
+            {unified ? (
+              <div className="sv-side" ref={setSideHost} />
+            ) : reading ? (
+              <LedgerPanel host={setLedgerHost} />
+            ) : panels.has("bays") ? <BaysPanel props={props} ship={ship} picked={sel?.kind === "session" ? selected : undefined} /> : null}
+            {unified || !panels.has("activity") ? null : <Activity props={props} listed={listed} ship={ship} />}
           </div>
-        </div>
-        <div className="deck-right">
-          {columns === undefined ? null : <DockHandle quiet className="deck-handle" grows="left" label="the right column" width={columns.right} {...columns.range.right} onResize={(width) => resize("right", width)} onReset={() => reset("right")} />}
-          {unified ? (
-            <div className="sv-side" ref={setSideHost} />
-          ) : reading ? (
-            <LedgerPanel host={setLedgerHost} />
-          ) : <BaysPanel props={props} ship={ship} picked={sel?.kind === "session" ? selected : undefined} />}
-          {unified ? null : <Activity props={props} listed={listed} ship={ship} />}
-        </div>
+        )}
         {splits}
       </div>
     </div>

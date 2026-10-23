@@ -39,6 +39,8 @@
   grid-template-rows: minmax(0, 1fr);
   gap: var(--space-3);
 }
+/* A layout that hides every panel of the right column takes the column away. */
+.deck-grid[data-bare] { grid-template-columns: var(--deck-left, calc(var(--space-12) * 6)) minmax(0, 1fr); }
 .deck-left,
 .deck-centre,
 .deck-right { display: flex; flex-direction: column; min-width: 0; min-height: 0; gap: var(--space-3); }
@@ -305,8 +307,9 @@
 .deck-queue .armada-view__dot[data-selected]::before { box-shadow: 0 0 0 var(--space-1) var(--accent); }
 .deck-queue__gap { flex: none; width: var(--space-4); }
 /* On All, one repository's line at a time: the stack scrolls down a row at a time and snaps, each row scrolls across. */
-.deck-queue__stack { flex: 1 1 auto; min-width: 0; height: calc(var(--h-badge) + var(--space-2) * 2); overflow-x: hidden; overflow-y: auto; scroll-snap-type: y mandatory; overscroll-behavior-y: contain; scrollbar-width: none; }
-.deck-queue__stack > .deck-chips { box-sizing: border-box; height: 100%; scroll-snap-align: start; scroll-snap-stop: always; }
+/* 48px holds the 32px queue track over a thin classic scrollbar, the single line's own height; at 36 a row scrolled down inside the stack and stopped it between rows. */
+.deck-queue__stack { flex: 1 1 auto; min-width: 0; height: var(--space-12); overflow-x: hidden; overflow-y: auto; scroll-snap-type: y mandatory; overscroll-behavior-y: contain; scrollbar-width: none; }
+.deck-queue__stack > .deck-chips { box-sizing: border-box; height: 100%; padding-block: 0; overflow-y: hidden; scroll-snap-align: start; scroll-snap-stop: always; }
 
 .deck-queue__row { display: flex; align-items: center; gap: var(--space-3); padding: 0 var(--space-4); color: var(--fg-subtle); }
 .deck-chips { display: flex; flex: 1 1 auto; flex-wrap: nowrap; align-items: center; gap: var(--space-2); min-width: 0; margin: 0; padding: var(--space-2) 0; list-style: none; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: thin; }

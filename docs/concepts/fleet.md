@@ -409,6 +409,7 @@ One Job, not every row: a Job that read the pull request from a directory in a s
 
 **A Job's wait on a merge the forge will do is not the owner's, and Fleet takes it off Needs you.**
 While the queue or auto-merge holds the pull request, every reading takes off each owner Job's `waiting_for` item that names it, and tells the Job only where something came off.
+Fleet knows the pull request by `#N`, "pull request N", "PR N", its link, its branch or its title, and takes off a line it read from a reply as well as the agent's own.
 The job note tells agents not to state it.
 
 ### Watches
@@ -423,6 +424,9 @@ It tells the Job when one turns failed, ends passed, gives up or breaks, once fo
 **Fleet tells, checks and draws a call for the person's own pull requests, and for no one else's.** Mine is the pull request's author login equalling, in any case, either the GitHub login Armada is signed in as for the repository (the profile bound to it, `SigningIn::login_for`) or the login the forge's command line is signed in as on this machine (`gh api user`, asked until it answers and then kept).
 **Where neither login is known every pull request is mine**, and so is one whose forge named no author: a rule that cannot be read does not go quiet.
 Fleet puts the result on each open pull request in the hub as `mine`, absent meaning mine.
+**The hub's list also asks the forge for each known login's open pull requests**, one call a login after the list answers, and adds those the list left out.
+In a busy repository the 100 created last, or 25, can all be other people's, and the merge line would show none of the person's.
+A forge silent on that call keeps what the list gave.
 
 | Pull request | Merge line | Call cards | Messages to owners, merged notices | Timeline |
 |---|---|---|---|---|
@@ -432,7 +436,7 @@ Fleet puts the result on each open pull request in the hub as `mine`, absent mea
 
 **The queue is where a team shares a line, so it stays whole.** Someone else's pull request in the queue is a fact about when yours lands.
 Outside it, it is theirs to watch.
-The pull reading reads every open pull request with its author on one call, so the rule costs no second ask.
+The pull reading reads every open pull request with its author on one call, so the rule costs it no second ask.
 
 ### The pull requests waiting on a person
 
