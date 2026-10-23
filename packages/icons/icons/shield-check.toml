@@ -40,3 +40,10 @@
     size = "16px"
     status = "Specified"
     notes = "Approved 16 Oct 2026 on the walk `compactSessionView`. The key opens the list of runs over the thread; a press on a run opens its output. Same glyph as the build ring's Checks stop. Tooltip `Checks`."
+
+[[icons.shield-check.usage]]
+  means = "A tracker mod that passes its checks"
+  group = "Mods"
+  size = "16px"
+  status = "Proposed"
+  notes = "Tooltip `Valid`, in the success hue. Proposed 23 Oct 2026 for the walk `mods-trackers`, for the owner to rule on. The shield family is gates and checks, and a valid mod has passed its checks."

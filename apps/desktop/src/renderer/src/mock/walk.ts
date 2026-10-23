@@ -376,8 +376,10 @@ function pressKey(element: HTMLElement, spec: string): void {
   const key = parts[parts.length - 1] === "" ? "+" : parts[parts.length - 1]!;
   const held = new Set(parts.slice(0, -1));
   const code = /^[0-9]$/.test(key) ? `Digit${key}` : /^[a-z]$/i.test(key) ? `Key${key.toUpperCase()}` : key;
+  // xterm reads a Control chord from the legacy key code, which is the letter's capital.
+  const keyCode = /^[0-9a-z]$/i.test(key) ? key.toUpperCase().charCodeAt(0) : 0;
   element.dispatchEvent(
-    new KeyboardEvent("keydown", { key, code, altKey: held.has("Alt"), shiftKey: held.has("Shift"), metaKey: held.has("Meta"), ctrlKey: held.has("Control"), bubbles: true, cancelable: true }),
+    new KeyboardEvent("keydown", { key, code, keyCode, altKey: held.has("Alt"), shiftKey: held.has("Shift"), metaKey: held.has("Meta"), ctrlKey: held.has("Control"), bubbles: true, cancelable: true }),
   );
 }
 

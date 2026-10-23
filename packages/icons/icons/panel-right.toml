@@ -1,0 +1,8 @@
+[icons.panel-right]
+  means = "A frame with a column divided off on its trailing edge - the side panel, as a place"
+  group = "Chrome"
+  size = "16px"
+  status = "Proposed"
+  paired_with = "panel-bottom"
+  reserved = "Moving a Job's shell from under its thread to the side panel, the toggle in the docked pane's head. Never opening or hiding a Session's ledger, which is `panel-right-open` and `panel-right-close`."
+  notes = "Proposed 23 Oct 2026 for the walk `job-shell`, on the owner's word that the terminal should carry a toggle that picks its place, as VS Code's panel does. Tooltip and aria-label `Move to the side panel`. The glyph pictures where the shell goes. Pressing it saves `terminal.openJobTerminalIn`. No caret, so it does not read as a fold."

@@ -1,11 +1,11 @@
 // The mods on this machine: read when Fleet connects, replaced whole by `mods.changed`, and the
-// three acts Bridge makes on one. `docs/concepts/mods.md`.
+// four acts Bridge makes on one. `docs/concepts/mods.md`.
 //
 // **Bridge keeps no copy of a mod's files.** The list says which mods exist and whether each may
 // be drawn; the stylesheet itself is asked for at the moment it is applied, so what is injected is
 // what Fleet just checked.
 
-import type { ModChecked, ModList, ModPromoted, ModSummary, Outcome } from "@armada/protocol";
+import type { ModChecked, ModList, ModPromoted, ModSummary, Outcome, TrackerTry } from "@armada/protocol";
 import type { BridgeState } from "../shared/bridge";
 import { ask } from "./request";
 
@@ -58,6 +58,15 @@ export class Modding {
     const answer = await ask(port, "POST", "/mods/promote", { name });
     if (answer.ok !== true) return answer.outcome;
     return { ok: true, modPromoted: answer.body as ModPromoted };
+  }
+
+  /** Run a tracker mod's try against the first repository Fleet serves. A try that fails is an answer, so it comes back `ok`; Fleet's `mods.changed` follows. */
+  async tryTracker(name: string): Promise<Outcome> {
+    const port = this.port();
+    if (port === null) return NOT_CONNECTED;
+    const answer = await ask(port, "POST", "/mods/try", { name });
+    if (answer.ok !== true) return answer.outcome;
+    return { ok: true, trackerTried: answer.body as TrackerTry };
   }
 
   private replaced(row: ModSummary): void {

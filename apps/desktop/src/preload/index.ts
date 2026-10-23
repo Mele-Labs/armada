@@ -42,7 +42,7 @@ import type { PackageSaved, SharingAnswer } from "../shared/api/sharing";
 import type { DropRunFact, ImportFolders, ImportRuns, ModInstalled, RunMemory, RunMemoryPlace, SetRunMemoryPlace } from "@armada/protocol";
 import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, ChangeWaiting, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimIssue, ClaimPullRequest, ConfirmWaiting, DismissConcern, DismissWaiting, IssueClaimed, IssueList, IssueQueries, SaveIssueQuery, SavedIssueQuery, WrittenIssueQuery, JudgeSession, LaterSettled, PullRequestClaimed, PullRequestFilePatch, PullRequestFilePatches, PullRequestPage, PullRequestState, RenameSession, SendConcern, SendPlanChanges, NoteSent, SendSessionMessage, SendSessionNote, SessionRunMessage, SessionRunUnderway, SessionLoadout, AttachmentHistory, McpServerAct, SessionMcp, SessionMcpActed, SessionSubagent, SessionWait, SettleLater, StartAfter, TuneSession, WaitReading } from "@armada/protocol";
 import type { ArtifactRead, LoadoutItemAsk, LoadoutItemBody, PageBounds, PageShot } from "@armada/screens/src/draft/sessions";
-import type { PullRequestPress, PullRequestWrite, SessionActed } from "../shared/api/sessions";
+import type { JobTerminalChange, PullRequestPress, PullRequestWrite, SessionActed } from "../shared/api/sessions";
 import type { RequestRepositoryRead } from "../shared/api/dispatch";
 import type { SleepActed } from "../shared/api/sleep";
 import type { AccountsActed } from "../shared/api/accounts";
@@ -171,6 +171,8 @@ const api: BridgeApi = {
     ipcRenderer.invoke(CHANNELS.setModEnabled, name, enabled),
   promoteMod: (name: string): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.promoteMod, name),
+  tryTrackerMod: (name: string): Promise<Outcome> =>
+    ipcRenderer.invoke(CHANNELS.tryTrackerMod, name),
 
   // One running Check's log, as it is written. Read-only like the entry above,
   // and its own because it is its own socket.
@@ -585,6 +587,9 @@ const api: BridgeApi = {
   // A shell block run from a Session's thread: one call to run, one to stop, one subscription for what runs print.
   startSessionRun: (sessionId: string, command: string, cols?: number, rows?: number): Promise<SessionActed<SessionRunUnderway>> =>
     ipcRenderer.invoke(CHANNELS.startSessionRun, sessionId, command, cols, rows),
+  // A Job's shell is a run: opened here, then written, resized, stopped and observed as any run is.
+  openTerminal: (sessionId: string, cols?: number, rows?: number): Promise<SessionActed<SessionRunUnderway>> =>
+    ipcRenderer.invoke(CHANNELS.openTerminal, sessionId, cols, rows),
   // The one pull a held checkout is offered: the repository's Manifest and no command.
   catchUpCheckout: (manifestId: string): Promise<SessionActed<CheckoutCaughtUp>> =>
     ipcRenderer.invoke(CHANNELS.catchUpCheckout, manifestId),
@@ -605,6 +610,14 @@ const api: BridgeApi = {
     ipcRenderer.on(CHANNELS.sessionRunMessage, handler);
     return () => {
       ipcRenderer.removeListener(CHANNELS.sessionRunMessage, handler);
+    };
+  },
+
+  onSessionTerminal: (on: (terminal: JobTerminalChange) => void): (() => void) => {
+    const handler = (_: unknown, terminal: JobTerminalChange): void => on(terminal);
+    ipcRenderer.on(CHANNELS.sessionTerminal, handler);
+    return () => {
+      ipcRenderer.removeListener(CHANNELS.sessionTerminal, handler);
     };
   },
 

@@ -1,0 +1,8 @@
+[operations."terminal.opened"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "A Job's shell opened, by the person's open_terminal or by its agent's first type_in_terminal: its session_id and run_id"
+notes = """
+`JobTerminal`: `session_id` and `run_id`. Published once, when the shell starts, and not when an open is handed one already open. What it prints is `observe_session_run`'s on `run_id`, so a pane that was not open can follow the agent into it.
+"""
