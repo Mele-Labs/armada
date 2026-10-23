@@ -124,7 +124,7 @@ where
         };
         let told = match to {
             Who::Session(id) => matches!(
-                self.told_by_fleet(id, &session_says(&about, &paths)).await,
+                self.told_by_fleet(id, &session_says(&about, &paths), ipc::Notice::WriteClash).await,
                 Ok(true)
             ),
         };

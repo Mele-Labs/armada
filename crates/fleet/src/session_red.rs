@@ -113,7 +113,7 @@ where
         }
         let facts = self.with_the_log(&served, main, brief_of(main)).await;
         let said = woken_words(main, merge.number, &facts);
-        if matches!(self.told_by_fleet(&id, &said).await, Ok(true)) {
+        if matches!(self.told_by_fleet(&id, &said, ipc::Notice::MainRed).await, Ok(true)) {
             self.recorded_session_take(main, &id, TakenHow::Took, None).await;
             return;
         }
@@ -130,7 +130,7 @@ where
             self.release_red(main).await;
         }
         let said = forked_words(main, merge.number, &id, &facts);
-        let _ = self.told_by_fleet(&fork, &said).await;
+        let _ = self.told_by_fleet(&fork, &said, ipc::Notice::MainRed).await;
         self.recorded_session_take(main, &fork, TakenHow::Dispatched, Some(&id)).await;
     }
 

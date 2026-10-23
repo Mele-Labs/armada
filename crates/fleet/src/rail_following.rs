@@ -106,7 +106,7 @@ where
             }
             let Some(step) = steps.get(at) else { continue };
             let name = self.workflow_name(manifest.as_str(), workflow);
-            let sent = self.told_by_fleet(&id, &rail::nudge(&name, step, skip)).await;
+            let sent = self.told_by_fleet(&id, &rail::nudge(&name, step, skip), ipc::Notice::RailNudge).await;
             if matches!(sent, Ok(true)) {
                 self.rail_nudged(&id, at as u32).await;
             }
@@ -176,7 +176,7 @@ where
             // which sends them with it.
             let held = step.asks_delivery && self.delivery_entered(id).await;
             if let Some(words) = rail::instructed(&self.workflow_name(manifest, workflow), step).filter(|_| !held) {
-                let _ = self.told_by_fleet(id, &words).await;
+                let _ = self.told_by_fleet(id, &words, ipc::Notice::RailStep).await;
             }
         }
         Some((kept, ran))

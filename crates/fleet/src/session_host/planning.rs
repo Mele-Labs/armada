@@ -247,7 +247,7 @@ where
         let plan = self.plan_at(&id, approve.version).await?;
         if plan.approved_at.is_none() {
             // Told before it is settled, so a send that fails leaves the plan to approve again.
-            self.told_by_fleet(&id, &plan_marks::approved_message(&plan)).await?;
+            self.told_by_fleet(&id, &plan_marks::approved_message(&plan), ipc::Notice::PlanApproved).await?;
             let now = self.now().as_str().to_string();
             self.store()
                 .lock()

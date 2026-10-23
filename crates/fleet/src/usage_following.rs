@@ -75,7 +75,7 @@ where
                 let context = trip.rule == Rule::Context;
                 if context && handing {
                     self.handed_on_by_setting(session).await;
-                } else if !matches!(self.told_by_fleet(session, &trip.text).await, Ok(true)) {
+                } else if !matches!(self.told_by_fleet(session, &trip.text, ipc::Notice::UsageTrip).await, Ok(true)) {
                     continue;
                 }
                 let kind = match trip.rule {

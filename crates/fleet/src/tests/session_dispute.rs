@@ -84,7 +84,7 @@ pub(super) async fn told_answering(rig: &Rig, notice: &str, after: Option<&str>)
     rig.send(&id, "Build the dispute call").await;
     rig.stand_in.init(0);
     agent_said(rig, &id, 0, BEFORE).await;
-    assert!(rig.fleet.told_by_fleet(id.as_str(), notice).await.expect("told"));
+    assert!(rig.fleet.told_by_fleet(id.as_str(), notice, ipc::Notice::SlotStranded).await.expect("told"));
     if let Some(after) = after {
         agent_said(rig, &id, 0, after).await;
     }
@@ -188,7 +188,7 @@ async fn a_second_dispute_of_the_same_notice_joins_the_open_review_and_starts_no
     let second = rig.start_titled(Some("Another job")).await;
     rig.send(&second, "Carry on").await;
     let again = "Subagents burned 6.2 units in your last hour, 91% of it, on opus. Pass model sonnet on reading and searching agents.";
-    assert!(rig.fleet.told_by_fleet(second.as_str(), again).await.expect("told"));
+    assert!(rig.fleet.told_by_fleet(second.as_str(), again, ipc::Notice::SlotStranded).await.expect("told"));
     let reason = "My readers run on haiku; the opus spend is my one builder.";
 
     let joined = Arc::clone(&rig.fleet).dispute_fleet(None, disputing(&second, reason)).await.expect("disputed");

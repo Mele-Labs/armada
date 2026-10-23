@@ -111,7 +111,7 @@ where
         }
         for (session, slots) in by_session {
             if matches!(
-                self.told_by_fleet_noticing(session, &said_of(&slots), Notice::BehindBase).await,
+                self.told_by_fleet(session, &said_of(&slots), Notice::BehindBase).await,
                 Ok(true)
             ) {
                 for (slot, _) in slots {
