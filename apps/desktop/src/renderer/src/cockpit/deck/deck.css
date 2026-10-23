@@ -803,7 +803,7 @@ button.deck-pr:hover { border-color: var(--border-strong); color: var(--fg-defau
 .deck-controls__block[data-take="pages"] .deck-tile[data-page-first] { scroll-snap-align: start; scroll-snap-stop: always; }
 .deck-controls__dots { position: absolute; inset-inline: 0; bottom: 0; height: var(--space-3); display: flex; align-items: center; justify-content: center; pointer-events: none; }
 .deck-controls__dots > button { all: unset; box-sizing: border-box; display: flex; align-items: center; justify-content: center; width: var(--space-3); height: var(--space-3); cursor: pointer; pointer-events: auto; border-radius: var(--radius-sm); }
-.deck-controls__dots > button > span { width: calc(var(--space-1) * 1.5); height: calc(var(--space-1) * 1.5); border-radius: 50%; background: var(--fg-muted); }
+.deck-controls__dots > button > span { width: calc(var(--space-1) * 1.5); height: calc(var(--space-1) * 1.5); border-radius: 50%; background: var(--fg-subtle); }
 .deck-controls__dots > button[aria-current] > span { background: var(--fg-default); }
 .deck-controls__dots > button:focus-visible { outline: var(--border-width) solid var(--accent); }
 /* The Slot key is lit only when something is wrong with the slot: its glyph and edge take the stranded hue, with no glow. */
