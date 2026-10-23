@@ -1473,6 +1473,18 @@ export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer
   useLayoutEffect(() => {
     pinned.current = true;
   }, [sessionId]);
+  // **A message the person sends brings the thread to its end**, from the box or from a viewer's notes, wherever he was reading.
+  const mine = useRef<{ session: string | undefined; key: string | undefined }>(undefined);
+  useLayoutEffect(() => {
+    let key: string | undefined;
+    for (let at = rows.length - 1; at >= 0 && key === undefined; at -= 1) {
+      const row = rows[at]!;
+      if (row.kind === "message" && row.from === "you") key = row.stableKey ?? row.id;
+    }
+    const was = mine.current;
+    if (was !== undefined && was.session === sessionId && key !== undefined && key !== was.key) pinned.current = true;
+    mine.current = { session: sessionId, key };
+  }, [rows, sessionId]);
   useLayoutEffect(() => {
     const one = scroller.current;
     if (one !== null && pinned.current) one.scrollTop = one.scrollHeight;
