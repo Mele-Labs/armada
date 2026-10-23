@@ -48,7 +48,7 @@ fn every_notice_carries_the_word_it_is_spelt_as_on_the_wire() {
         BehindBase, PrChecksFailed, PrConflicts, PrDropped, PrUnmergeable, PrMerged, PrAutoMerge, PrQueued,
         SlotFree, SlotKept, BuildMoved, WriteClash, SlotStranded, MainRed, RailNudge, RailStep, UsageTrip,
         LimitWake, PlanApproved, AutoLandRefused, RetroNote, ReplyClaim, ContextHandoff, WalkFailed,
-        WorkflowChanged, DeliveryAsked, DeliveryChosen,
+        WorkflowChanged, DeliveryAsked, DeliveryChosen, WatchSaw,
     ] {
         assert_eq!(encode(&notice).unwrap(), format!("\"{}\"", notice.word()));
     }

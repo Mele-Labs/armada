@@ -47,6 +47,7 @@ export const NOTICE_NAMES: Record<SessionNotice, string> = {
   workflow_changed: "workflow changed",
   delivery_asked: "delivery question",
   delivery_chosen: "delivery chosen",
+  watch_saw: "watch",
 };
 
 /** The folded row's name: the notice's first sentence, up to the first ". " or line break, without its closing full stop. */

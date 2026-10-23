@@ -86,7 +86,8 @@ export type SessionNotice =
   | "walk_failed"
   | "workflow_changed"
   | "delivery_asked"
-  | "delivery_chosen";
+  | "delivery_chosen"
+  | "watch_saw";
 export type NoticeChoice = "job" | "repo" | "hour";
 
 type SessionThreadKinds =

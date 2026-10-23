@@ -140,7 +140,7 @@ where
         let watch = domain(&kept);
         let text = notice(&kept, &watch).filter(|_| super::owed(&watch).as_deref() == Some(key.as_str()));
         let told = match &text {
-            Some(text) => matches!(self.told_by_fleet(&kept.watch.session_id, text).await, Ok(true)),
+            Some(text) => matches!(self.told_by_fleet(&kept.watch.session_id, text, ipc::Notice::WatchSaw).await, Ok(true)),
             // What it owed is no longer what it is, so there is nothing true to tell.
             None => true,
         };

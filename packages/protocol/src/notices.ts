@@ -26,7 +26,8 @@ export type Notice =
   | "walk_failed"
   | "workflow_changed"
   | "delivery_asked"
-  | "delivery_chosen";
+  | "delivery_chosen"
+  | "watch_saw";
 
 /** What a mute covers. `hour` is one Job for an hour from the press. */
 export type NoticeScope =

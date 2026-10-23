@@ -61,6 +61,8 @@ pub enum Notice {
     DeliveryAsked,
     /// How the work is delivered was chosen.
     DeliveryChosen,
+    /// A watch Fleet runs for the Job saw what it was watching for.
+    WatchSaw,
 }
 
 impl Notice {
@@ -93,6 +95,7 @@ impl Notice {
             Notice::WorkflowChanged => "workflow_changed",
             Notice::DeliveryAsked => "delivery_asked",
             Notice::DeliveryChosen => "delivery_chosen",
+            Notice::WatchSaw => "watch_saw",
         }
     }
 }
