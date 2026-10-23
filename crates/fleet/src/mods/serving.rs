@@ -176,10 +176,17 @@ where
 
     async fn try_tracker_mod(&self, asked: TryTrackerMod) -> Result<TrackerTry, Refusal> {
         self.mod_named(&asked.name)?;
-        let served = self.served_named(Some(&asked.manifest_id))?;
+        // No repository named: one whose Manifest names this mod as its tracker, since a try against a repository that uses
+        // another tracker proves nothing; the first served only where none does.
+        let using = || self.repositories().served().into_iter().find(|one| one.manifest().tracker().and_then(|block| block.provider()) == Some(asked.name.as_str()));
+        let served = match (asked.manifest_id.as_ref(), using()) {
+            (None, Some(using)) => using,
+            (named, _) => self.served_named(named)?,
+        };
         let (dir, root) = (self.mods_dir(), served.root().to_string());
         let at = Instant::carried(self.now().as_str());
-        let (name, manifest_id) = (asked.name.clone(), asked.manifest_id);
+        let manifest_id = ipc::ManifestId::carried(served.manifest().id().as_str());
+        let name = asked.name.clone();
         let tried = tokio::task::spawn_blocking(move || tracker::try_it(&dir, &name, &root, manifest_id, at))
             .await
             .map_err(|why| self.mod_fault(format!("the try did not finish: {why}")))?;

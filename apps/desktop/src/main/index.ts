@@ -568,6 +568,9 @@ void app.whenReady().then(() => {
   ipcMain.handle(CHANNELS.promoteMod, async (_event, name: string): Promise<Outcome> =>
     (await connection?.mods.promote(name)) ?? { ok: false, why: "not_connected" },
   );
+  ipcMain.handle(CHANNELS.tryTrackerMod, async (_event, name: string): Promise<Outcome> =>
+    (await connection?.mods.tryTracker(name)) ?? { ok: false, why: "not_connected" },
+  );
   // Which running Check's log is open. A fourth socket, carrying lines only,
   // and read-only.
   ipcMain.handle(
