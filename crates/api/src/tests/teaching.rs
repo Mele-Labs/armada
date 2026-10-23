@@ -1,11 +1,11 @@
-//! Teaching's four routes over the router: each is served at its path and answers its wire type, and
+//! Teaching's three routes over the router: each is served at its path and answers its wire type, and
 //! a body or reach the wire does not hold is a 400 the daemon never sees.
 
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use axum::Router;
 use http_body_util::BodyExt;
-use ipc::{ForgottenTaughtLink, SavedTeaching, TaughtLinks, TeachingProposal};
+use ipc::{SavedTeaching, TeachingProposal, WordRules};
 use tower::ServiceExt;
 
 use crate::tests::fake::FakeDaemon;
@@ -38,21 +38,20 @@ async fn each_route_is_served_and_answers_its_wire_type() {
     let (status, body) = call(&app, "POST", "/teachings/read", read).await;
     assert_eq!(status, StatusCode::OK);
     let proposal: TeachingProposal = ipc::decode("a proposal", &body).expect("decodes");
-    assert_eq!(proposal.link.expect("a link").example, "STORE-1234");
+    assert_eq!(proposal.words.expect("words").example, "STORE-1234");
 
-    let save = r#"{"link":{"pattern":"STORE-\\d+","address":"https://x.example/{match}","example":"STORE-1234"},"repository":"/work/shop","session_id":"s1","note":"Use it."}"#;
+    let pressed = r#"{"said":"Warmer","reach":"everywhere","source":{"kind":"title_bar","text":"The title bar"}}"#;
+    assert_eq!(call(&app, "POST", "/teachings/read", pressed).await.0, StatusCode::OK, "words may be absent for Bridge's own interface");
+
+    let save = r#"{"words":{"name":"Key","pattern":"STORE-\\d+","example":"STORE-1234"},"note":{"section":"repo","kind":"convention","text":"Use it."},"reach":"repository","repository":"/work/shop","session_id":"s1","cite":"m3","source":{"kind":"words","text":"STORE-1234"}}"#;
     let (status, body) = call(&app, "POST", "/teachings", save).await;
     assert_eq!(status, StatusCode::OK);
     let saved: SavedTeaching = ipc::decode("a saved teaching", &body).expect("decodes");
-    assert_eq!(saved.link.expect("a rule").repository.as_deref(), Some("/work/shop"));
+    assert_eq!((saved.entry.as_deref(), saved.mods.as_slice()), (Some("7"), ["key".to_string()].as_slice()));
 
-    let (status, body) = call(&app, "GET", "/teachings/links?repository=/work/shop", "").await;
+    let (status, body) = call(&app, "GET", "/teachings/words?repository=/work/shop&session_id=s1", "").await;
     assert_eq!(status, StatusCode::OK);
-    assert!(ipc::decode::<TaughtLinks>("the rules", &body).expect("decodes").links.is_empty());
-
-    let (status, body) = call(&app, "POST", "/teachings/links/7/forget", "").await;
-    assert_eq!(status, StatusCode::OK);
-    assert_eq!(ipc::decode::<ForgottenTaughtLink>("a forgotten rule", &body).expect("decodes").id, "7");
+    assert!(ipc::decode::<WordRules>("the rules", &body).expect("decodes").rules.is_empty());
 }
 
 #[tokio::test]
@@ -61,5 +60,7 @@ async fn a_bad_reach_or_body_is_a_400() {
     let reach = r#"{"words":"a","message":"b","said":"c","reach":"nowhere"}"#;
     assert_eq!(call(&app, "POST", "/teachings/read", reach).await.0, StatusCode::BAD_REQUEST);
     assert_eq!(call(&app, "POST", "/teachings/read", "{}").await.0, StatusCode::BAD_REQUEST);
-    assert_eq!(call(&app, "POST", "/teachings", r#"{"link":{"pattern":"a"}}"#).await.0, StatusCode::BAD_REQUEST);
+    assert_eq!(call(&app, "POST", "/teachings", r#"{"words":{"pattern":"a"},"reach":"everywhere"}"#).await.0, StatusCode::BAD_REQUEST);
+    let kind = r#"{"said":"c","reach":"everywhere","source":{"kind":"sidebar","text":"x"}}"#;
+    assert_eq!(call(&app, "POST", "/teachings/read", kind).await.0, StatusCode::BAD_REQUEST);
 }

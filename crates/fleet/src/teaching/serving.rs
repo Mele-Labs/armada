@@ -1,34 +1,33 @@
-//! Teaching as the wire has it: read into a proposal, a link rule kept, listed and forgotten, and a
-//! live Session told the note the person kept.
+//! Teaching as the wire has it: read into a proposal, saved as a Logbook entry and mods, and the
+//! patterns Bridge links listed for a repository.
 
 use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Refusal, Teaching};
 use ipc::{
-    ForgottenTaughtLink, Instant, ReadTeaching, SaveTeaching, SavedTeaching, TaughtLinks, TeachingProposal, WireError,
+    Does, FleetFile, ModKind, ReadTeaching, SaveTeaching, SavedTeaching, TeachingProposal, WireError, WordRule, WordRules,
+    WordsFile,
 };
 
-use super::{link, INPUT_REFUSED, LINK_REFUSED};
-use crate::clock::rfc3339_utc;
 use crate::daemon::Fleet;
-use crate::run_memory::places::key_of;
+use crate::mods::{self, fleet_rules, words};
 
-/// An id that names no rule. A 404.
-const NO_SUCH_LINK: &str = "fleet.no_such_taught_link";
-/// The store would not read or keep it. A 500.
+/// The mods folder would not be read. A 500.
 const FAILED: &str = "fleet.teaching_failed";
 
-/// A kept rule as the wire has it. `root` is the repository it was read for, which a rule with a
-/// repository belongs to.
-fn wired(kept: store::TaughtLink, root: Option<&str>) -> ipc::TaughtLink {
-    ipc::TaughtLink {
-        id: kept.id.unwrap_or_default().to_string(),
-        pattern: kept.pattern,
-        address: kept.address,
-        example: kept.example,
-        repository: kept.repository.and(root.map(str::to_string)),
-        made_at: Instant::carried(rfc3339_utc(kept.made_at)),
+/// A Words mod that is on and valid.
+pub(crate) struct KeptWords {
+    pub(crate) name: String,
+    pub(crate) file: WordsFile,
+}
+
+impl KeptWords {
+    /// Where this pattern opens for `manifest`: the repository's own address, else the one for every
+    /// repository.
+    pub(crate) fn address_for(&self, manifest: &str) -> Option<&str> {
+        let named = |key: &str| self.file.address.iter().find(|one| one.repository == key).map(|one| one.template.as_str());
+        named(manifest).or_else(|| named("*"))
     }
 }
 
@@ -47,63 +46,28 @@ where
     }
 
     async fn save_teaching(self: Arc<Self>, save: SaveTeaching) -> Result<SavedTeaching, Refusal> {
-        let note = save.note.as_deref().map(str::trim).filter(|note| !note.is_empty());
-        if save.link.is_none() && note.is_none() {
-            return Err(Refusal::Unacceptable(WireError::raised(
-                INPUT_REFUSED,
-                "There is nothing to keep: no link rule and no note.",
-                self.run_id(),
-            )));
-        }
-        let root = save.repository.as_deref().map(|named| self.run_repository(named)).transpose()?;
-        let kept = match &save.link {
-            Some(rule) => {
-                if let Some(why) = link::fault(&rule.pattern, &rule.address, &rule.example) {
-                    return Err(Refusal::Unacceptable(WireError::raised(LINK_REFUSED, why, self.run_id())));
-                }
-                let mut row = store::TaughtLink {
-                    id: None,
-                    pattern: rule.pattern.clone(),
-                    address: rule.address.clone(),
-                    example: rule.example.clone(),
-                    repository: root.as_deref().map(key_of),
-                    made_at: self.now().epoch_millis().unwrap_or(0).max(0),
-                };
-                let id = self.store().lock().await.save_taught_link(&row).map_err(|why| self.teaching_fault(why))?;
-                row.id = Some(id);
-                Some(wired(row, root.as_deref()))
-            }
-            None => None,
-        };
-        // The rule is kept, so nobody to tell is not a failure: the Session ended, or Fleet hosts
-        // none of that name. A Session mid-turn has the line queued behind it.
-        if let (Some(session), Some(note)) = (&save.session_id, note) {
-            let _ = self.told_news_by_fleet(session, &format!("From now on: {note}")).await;
-        }
-        Ok(SavedTeaching { link: kept })
+        self.teaching_saved(save).await
     }
 
-    async fn list_taught_links(&self, repository: Option<String>) -> Result<TaughtLinks, Refusal> {
+    async fn list_word_rules(
+        self: Arc<Self>,
+        repository: Option<String>,
+        _session_id: Option<String>,
+    ) -> Result<WordRules, Refusal> {
         let root = repository.map(|named| self.run_repository(&named)).transpose()?;
-        let key = root.as_deref().map(key_of).unwrap_or_default();
-        let rules = self.store().lock().await.taught_links_for(&key).map_err(|why| self.teaching_fault(why))?;
-        Ok(TaughtLinks { links: rules.into_iter().map(|rule| wired(rule, root.as_deref())).collect() })
-    }
-
-    async fn forget_taught_link(&self, link_id: String) -> Result<ForgottenTaughtLink, Refusal> {
-        let missing = || {
-            Refusal::NotFound(WireError::raised(
-                NO_SUCH_LINK,
-                format!("No link rule has the id {link_id}. It may have been forgotten."),
-                self.run_id(),
-            ))
-        };
-        let number: i64 = link_id.parse().map_err(|_| missing())?;
-        let gone = self.store().lock().await.forget_taught_link(number).map_err(|why| self.teaching_fault(why))?;
-        if !gone {
-            return Err(missing());
+        let manifest = root.as_deref().and_then(|root| self.manifest_id_at(root));
+        let mut rules = Vec::new();
+        for one in self.words_kept().await? {
+            let Some(address) = one.address_for(manifest.as_deref().unwrap_or("")) else { continue };
+            rules.push(WordRule {
+                mod_name: one.name.clone(),
+                name: one.file.name.clone(),
+                pattern: one.file.pattern.clone(),
+                example: one.file.example.clone(),
+                address: address.to_string(),
+            });
         }
-        Ok(ForgottenTaughtLink { id: link_id })
+        Ok(WordRules { rules })
     }
 }
 
@@ -117,7 +81,32 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    fn teaching_fault(&self, why: impl std::fmt::Display) -> Refusal {
+    pub(crate) fn teaching_fault(&self, why: impl std::fmt::Display) -> Refusal {
         Refusal::Fault(WireError::raised(FAILED, why.to_string(), self.run_id()))
+    }
+
+    /// Every file of `kind` that is on and valid, off the async thread.
+    async fn mod_files_kept(&self, kind: ModKind) -> Result<Vec<(String, String)>, Refusal> {
+        let switches = self.mod_switches_read().await?;
+        let dir = self.mods_dir();
+        tokio::task::spawn_blocking(move || mods::kept(&dir, &switches, kind))
+            .await
+            .map_err(|why| self.teaching_fault(format!("the mods folder could not be read: {why}")))
+    }
+
+    /// Every Words mod that is on and valid, by name.
+    pub(crate) async fn words_kept(&self) -> Result<Vec<KeptWords>, Refusal> {
+        let files = self.mod_files_kept(ModKind::Words).await?;
+        Ok(files.into_iter().filter_map(|(name, text)| words::read(&text).ok().map(|file| KeptWords { name, file })).collect())
+    }
+
+    /// What the Fleet mods say to do with `notice` for `session` in the repository `manifest`, if
+    /// any does. **Not read by what sends a notice yet**: the notice kinds land on another branch,
+    /// and sending is wired to this once they have.
+    #[allow(dead_code)]
+    pub(crate) async fn fleet_rule_for(&self, notice: &str, session: &str, manifest: &str) -> Option<Does> {
+        let files = self.mod_files_kept(ModKind::Fleet).await.ok()?;
+        let read: Vec<FleetFile> = files.iter().filter_map(|(_, text)| fleet_rules::read(text).ok()).collect();
+        fleet_rules::does_for(&read, notice, session, manifest)
     }
 }

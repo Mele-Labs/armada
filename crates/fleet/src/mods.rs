@@ -296,6 +296,37 @@ pub(crate) fn scan(mods_dir: &Path, switches: &BTreeMap<String, bool>) -> ModLis
     ModList { mods }
 }
 
+/// Every mod of `kind` that is on and valid, by name, with the text of its file as it was checked.
+/// **What Fleet itself acts on is read through this**, so a mod that fails its checks or is switched
+/// off changes nothing.
+pub(crate) fn kept(mods_dir: &Path, switches: &BTreeMap<String, bool>, kind: ModKind) -> Vec<(String, String)> {
+    let Ok(entries) = std::fs::read_dir(mods_dir) else {
+        return Vec::new();
+    };
+    let mut found: Vec<(String, String)> = entries
+        .filter_map(Result::ok)
+        .map(|entry| entry.file_name().to_string_lossy().into_owned())
+        .filter(|name| !name.starts_with('.') && switches.get(name).copied().unwrap_or(true))
+        .filter_map(|name| {
+            let examined = examine(mods_dir, &name);
+            let files = examined.files?;
+            (examined.manifest.kind == Some(kind)).then(|| (name, files.payload.text().to_string()))
+        })
+        .collect();
+    found.sort();
+    found
+}
+
+/// The Logbook entry `mods_dir/name` was made from, read from its `mod.toml` whatever else is
+/// wrong with the mod.
+pub(crate) fn entry_of(mods_dir: &Path, name: &str) -> Option<String> {
+    if slug_problem(name).is_some() {
+        return None;
+    }
+    let (text, _) = read_small(&mods_dir.join(name).join(MANIFEST), manifest::MOST_BYTES, MANIFEST).ok()?;
+    manifest::read(&text, name).0.entry
+}
+
 /// The list as last published, so a rescan says something only when it moved.
 #[derive(Default)]
 pub(crate) struct Told(Mutex<Option<ModList>>);

@@ -38,7 +38,7 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    pub(super) fn mods_dir(&self) -> PathBuf {
+    pub(crate) fn mods_dir(&self) -> PathBuf {
         PathBuf::from(&self.host().mods_dir)
     }
 
@@ -46,14 +46,18 @@ where
         Refusal::Fault(WireError::raised(MOD_NOT_WRITTEN, said, self.run_id()))
     }
 
-    /// The folder as it stands, read off the disk now.
-    async fn mods_listed(&self) -> Result<ModList, Refusal> {
-        let switches = self
-            .store()
+    /// This machine's switches, by mod name.
+    pub(crate) async fn mod_switches_read(&self) -> Result<std::collections::BTreeMap<String, bool>, Refusal> {
+        self.store()
             .lock()
             .await
             .mod_switches()
-            .map_err(|fault| self.refusal(Adrift::Reading(ReadError::Database(fault))))?;
+            .map_err(|fault| self.refusal(Adrift::Reading(ReadError::Database(fault))))
+    }
+
+    /// The folder as it stands, read off the disk now.
+    async fn mods_listed(&self) -> Result<ModList, Refusal> {
+        let switches = self.mod_switches_read().await?;
         let dir = self.mods_dir();
         tokio::task::spawn_blocking(move || scan(&dir, &switches))
             .await
@@ -62,7 +66,7 @@ where
 
     /// Say the list now, because something here just changed it. The rescan
     /// would find it in a moment; this is for the Bridge that is waiting.
-    async fn mods_announced(&self) -> Result<ModList, Refusal> {
+    pub(crate) async fn mods_announced(&self) -> Result<ModList, Refusal> {
         let list = self.mods_listed().await?;
         self.mods().published(&list);
         self.publish(Event::ModsChanged(list.clone()));

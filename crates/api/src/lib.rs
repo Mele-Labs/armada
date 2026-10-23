@@ -96,7 +96,7 @@ mod requests;
 mod retros;
 /// What Armada learned, and a person's acts on it.
 mod logbook;
-/// Words a person taught, and the link rules they keep.
+/// What a person taught, and the entry and mods they keep.
 mod teaching;
 mod routes;
 mod scoped;

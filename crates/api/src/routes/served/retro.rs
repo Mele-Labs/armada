@@ -60,7 +60,7 @@ pub(super) const ROUTES: &[Route] = &[
         method: "POST",
         path: "/logbook/entries/:entry_id/forget",
     },
-    // Teaching: words a person selected, read into a proposal, and the link rules they keep.
+    // Teaching: something a person pressed Teach on, read into a proposal, kept as an entry and mods.
     Route {
         operation: "read_teaching",
         method: "POST",
@@ -72,14 +72,9 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/teachings",
     },
     Route {
-        operation: "list_taught_links",
+        operation: "list_word_rules",
         method: "GET",
-        path: "/teachings/links",
-    },
-    Route {
-        operation: "forget_taught_link",
-        method: "POST",
-        path: "/teachings/links/:link_id/forget",
+        path: "/teachings/words",
     },
     // Two model calls over the open items, neither of which stores anything.
     // `review` is a literal segment beside `:lesson_id`, which axum ranks first.

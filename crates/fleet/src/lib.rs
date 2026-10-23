@@ -250,7 +250,7 @@ mod machine_note;
 mod run_memory;
 /// What Fleet learns from every Session of a repository — `docs/concepts/logbook.md`.
 mod logbook;
-/// Words a person taught: a link rule Fleet keeps, and a note Bridge files.
+/// What a person taught: a Logbook entry for the agent note, and the mods it changes.
 mod teaching;
 mod notice_mutes;
 /// Folders and runs read from a person's agent CLI, and installing the mod into it.

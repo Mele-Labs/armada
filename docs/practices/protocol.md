@@ -606,19 +606,19 @@ Bridge's half is `packages/protocol/src/logbook.ts`, written by hand, field for 
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 **The event stream.** Untouched.
 
-## Teaching: `read_teaching`, `save_teaching` and the link rules a person taught
+## Teaching: `read_teaching`, `save_teaching` and `list_word_rules`
 
-Since 22 Oct 2026. **Additive only**: four operations and routes and the types they carry; no event kind and no field on an existing type.
+Since 22 Oct 2026. **Additive only**: three operations and routes and the types they carry; no event kind and no field on an existing type but `taught_on` on `ModSummary` and three `ModKind` words.
 The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `packages/protocol/src/teaching.ts`, written by hand, field for field. **A link rule is Fleet's; an agent note is filed by Bridge** with `teach_logbook_entry`, so nothing here reads or writes the Logbook, and the note's `section` and `kind` are the words that route takes.
+Bridge's half is `packages/protocol/src/teaching.ts` and the `ModKind` union in `packages/protocol/src/mods.ts`, written by hand, field for field. **A teaching is a Logbook entry for the agent note and mods by what it changes**; `save_teaching` makes both, so Bridge files nothing itself. `docs/concepts/mods.md` is the mod files.
 
 | Where | Side | Carries |
 | --- | --- | --- |
-| `read_teaching` (`POST /teachings/read`) | Bridge sends `{ words, message, said, repository?, reach }` (`reach` is `repository` or `everywhere`), Fleet answers `{ link?, note? }` | One model call, nothing kept. `link` is `{ pattern, address, example }`, `note` is `{ section, kind, text }`; at least one is present. 422 `fleet.teaching_link_refused`, `fleet.teaching_note_refused`, `fleet.teaching_input_refused`, `fleet.teaching_nothing_read`; 500 `fleet.teaching_read_failed` |
-| `save_teaching` (`POST /teachings`) | Bridge sends `{ link?, repository?, session_id?, note? }`, Fleet answers `{ link? }` | The link is held to what `read_teaching` holds it to. With `session_id` and `note` the Session is told "From now on: <note>": queued behind a turn in progress, never refused |
-| `list_taught_links` (`GET /teachings/links?repository=`, `agent_access = "Yes"`) | Bridge reads | `{ links }` of `{ id, pattern, address, example, repository?, made_at }`: the repository's own and those for every repository. 404 `fleet.run_memory_repository_not_served` |
-| `forget_taught_link` (`POST /teachings/links/:link_id/forget`) | Bridge sends nothing, Fleet answers `{ id }` | A second forget is a 404 `fleet.no_such_taught_link` |
+| `read_teaching` (`POST /teachings/read`) | Bridge sends `{ words?, message?, said, repository?, reach, session_id?, source? }` (`reach` is `repository` or `everywhere`, `source` is `{ kind, text, ids? }` with `kind` one of `words`, `command`, `notice`, `task`, `check`, `pull_request`, `panel`, `row`, `title_bar`), Fleet answers `{ note?, words?, fleet?, tweak?, layout? }` | One model call, nothing kept. `note` is `{ section, kind, text }`, `words` is `{ name, pattern, example, address? }`, `fleet` is `{ notice, does, where }`, `tweak` is a list of `{ token, was, now, used_in?, note? }`, `layout` is `{ name, layout }`; at least one is present. 422 `fleet.teaching_words_refused`, `fleet.teaching_note_refused`, `fleet.teaching_rule_refused`, `fleet.teaching_tweak_refused`, `fleet.teaching_layout_refused`, `fleet.teaching_input_refused`, `fleet.teaching_nothing_read`; 500 `fleet.teaching_read_failed` |
+| `save_teaching` (`POST /teachings`) | Bridge sends the parts as left, then `{ reach, repository?, session_id?, cite?, source? }`, Fleet answers `{ entry?, mods }` | Held to what `read_teaching` holds a proposal to, all before any write. The note becomes a Logbook entry with `{ session_id, cite }` as its evidence; each other part becomes an enabled mod. With `session_id` and a note the Session is told "From now on: <note>": queued behind a turn in progress, never refused |
+| `list_word_rules` (`GET /teachings/words?repository=&session_id=`, `agent_access = "Yes"`) | Bridge reads | `{ rules }` of `{ mod_name, name, pattern, example, address }`: one per enabled, valid Words mod with an address for the repository, its own before the one for every repository. 404 `fleet.run_memory_repository_not_served` |
 
+**Removed**: `list_taught_links` and `forget_taught_link`, with the `taught_links` table, which never shipped. Forgetting a Logbook entry removes the mods whose `mod.toml` records it as `entry`.
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 **The event stream.** Untouched.
 

@@ -443,8 +443,8 @@ pub use logbook::{
     LogbookSection, LogbookState, LockLogbookEntry, TeachLogbookEntry, TeachSource,
 };
 pub use teaching::{
-    ForgottenTaughtLink, NoteKind, NoteSection, ReadTeaching, SaveTeaching, SavedTeaching, TaughtLink, TaughtLinks,
-    TeachingLink, TeachingNote, TeachingProposal, TeachingReach,
+    ReadTeaching, SaveTeaching, SavedTeaching, TeachingLayout, TeachingNote, TeachingProposal, TeachingReach,
+    TeachingSource, TeachingSourceKind, TeachingWords, TweakChange, WordRule, WordRules,
 };
 pub use taught_mods::{AddressFound, Does, FleetFile, FleetRule, RuleScope, WordsAddress, WordsFile};
 pub use notices::{Notice, NoticeScope, SetNoticeMute};

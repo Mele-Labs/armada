@@ -1,17 +1,14 @@
-//! Whether a taught link rule can work where it will run. Bridge reads the pattern as a JavaScript
-//! `RegExp` and opens the address, so a rule is held to the part of regular expressions both
-//! engines read the same, and to an address that is a web address with a host of its own.
+//! Whether a taught pattern and address can work where they will run. Bridge reads the pattern as a
+//! JavaScript `RegExp` and opens the address, so a rule is held to the part of regular expressions
+//! both engines read the same, and to an address that is a web address with a host of its own.
 
 use regex::RegexBuilder;
 
 /// The longest pattern, in characters.
 const MOST_PATTERN: usize = 200;
 
-/// Why this rule cannot be kept, where it cannot. `words` are the selected words it was taught from.
-pub(crate) fn fault(pattern: &str, address: &str, words: &str) -> Option<String> {
-    pattern_fault(pattern, words).or_else(|| address_fault(address))
-}
-
+/// Why `pattern` cannot work, where it cannot. `words` are the words it was taught from, which it
+/// must match whole.
 pub(crate) fn pattern_fault(pattern: &str, words: &str) -> Option<String> {
     if pattern.is_empty() || pattern.chars().count() > MOST_PATTERN {
         return Some(format!("the pattern is empty or over {MOST_PATTERN} characters"));
@@ -126,6 +123,8 @@ fn repeats_a_repeat(pattern: &str) -> bool {
     false
 }
 
+/// Why `address` cannot be opened, where it cannot: an http or https address with a host of its own,
+/// and `{match}` nowhere in the host.
 pub(crate) fn address_fault(address: &str) -> Option<String> {
     let rest = ["https://", "http://"]
         .iter()

@@ -593,8 +593,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/logbook/entries/:entry_id/forget", post(crate::logbook::forget_logbook_entry::<D>))
         .route("/teachings", post(crate::teaching::save_teaching::<D>))
         .route("/teachings/read", post(crate::teaching::read_teaching::<D>))
-        .route("/teachings/links", get(crate::teaching::list_taught_links::<D>))
-        .route("/teachings/links/:link_id/forget", post(crate::teaching::forget_taught_link::<D>))
+        .route("/teachings/words", get(crate::teaching::list_word_rules::<D>))
         .route("/lessons", get(crate::retros::list_lessons::<D>))
         .route("/lessons/review", post(crate::retros::review_lessons::<D>))
         .route(

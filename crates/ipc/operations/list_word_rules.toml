@@ -1,0 +1,8 @@
+[operations.list_word_rules]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "The words a person taught Fleet to open, with the address each has for a repository"
+notes = """
+`GET /teachings/words?repository=&session_id=`, where `repository` is a root `list_repositories` names. Answers `{rules: [{mod_name, name, pattern, example, address}]}`, in mod name order: one per enabled, valid Words mod that has an address for the repository, its own address before the one for every repository (`*`). With no `repository` only the addresses for every repository are listed. A root Fleet does not serve is a 404 `fleet.run_memory_repository_not_served`.
+"""

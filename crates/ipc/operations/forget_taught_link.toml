@@ -1,8 +1,0 @@
-[operations.forget_taught_link]
-kind = "command"
-transport = "HTTP"
-agent_access = "No"
-description = "Forget a link rule a person taught"
-notes = """
-`POST /teachings/links/:link_id/forget`, no body. Answers `{id}`. The rule is gone from every read. A second forget, or an id that names none, is a 404 `fleet.no_such_taught_link`.
-"""

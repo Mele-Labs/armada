@@ -50,7 +50,7 @@ const QUERIES: &[(&str, &[&str])] = &[
     ("list_lessons", &["lands_in", "state", "most"]),
     ("recall", &["query", "section"]),
     ("get_logbook", &["repository", "section", "state"]),
-    ("list_taught_links", &["repository"]),
+    ("list_word_rules", &["repository", "session_id"]),
     ("list_sessions", &["q", "state"]),
     ("who_owns", &["kind", "target"]),
     ("validate_mod", &["name"]),

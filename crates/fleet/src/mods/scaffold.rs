@@ -156,6 +156,13 @@ fn written(dir: &Path, name: &str, description: &str, kind: ModKind, taught: Opt
     git(dir, &["commit", "--quiet", "-m", &format!("Start the {name} {word}")])
 }
 
+/// `file` of the mod in `dir`, committed as it stands. **Best effort**: the file is what counts, and
+/// a history that would not take the commit is no reason to refuse the change.
+pub(crate) fn committed(dir: &Path, file: &str, message: &str) -> Result<(), String> {
+    git(dir, &["add", "--", file])?;
+    git(dir, &["commit", "--quiet", "-m", message])
+}
+
 /// One git command in `dir`, with no configuration but what is passed here.
 ///
 /// **The user's own git configuration is turned off**, so a global hook, a

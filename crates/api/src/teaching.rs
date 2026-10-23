@@ -1,8 +1,8 @@
-//! Teaching's reads and acts: a person's selected words read into a proposal, and the link rules
-//! they keep from it.
+//! Teaching's reads and acts: something a person pressed Teach on read into a proposal, the Logbook
+//! entry and mods they keep from it, and the patterns Bridge links.
 
 use axum::body::Bytes;
-use axum::extract::{Path, Query, State};
+use axum::extract::{Query, State};
 use axum::http::StatusCode;
 use axum::response::Response;
 use serde::Deserialize;
@@ -11,22 +11,18 @@ use crate::answers::{answer, refused, undecodable};
 use crate::daemon::Teaching;
 use crate::served::Served;
 
-/// `?repository=` on `list_taught_links`.
+/// `?repository=&session_id=` on `list_word_rules`.
 #[derive(Deserialize)]
 pub(crate) struct Listing {
     #[serde(default)]
     repository: Option<String>,
+    #[serde(default)]
+    session_id: Option<String>,
 }
 
-/// The rule an act names.
-#[derive(Deserialize)]
-pub(crate) struct NamedLink {
-    link_id: String,
-}
-
-/// Read what a person taught into a proposal. Nothing is kept.
+/// Read what a person pressed Teach on into a proposal. Nothing is kept.
 pub(crate) async fn read_teaching<D: Teaching>(State(served): State<Served<D>>, body: Bytes) -> Response {
-    let teach: ipc::ReadTeaching = match ipc::decode("words to teach", &body) {
+    let teach: ipc::ReadTeaching = match ipc::decode("something to teach", &body) {
         Ok(teach) => teach,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -36,7 +32,7 @@ pub(crate) async fn read_teaching<D: Teaching>(State(served): State<Served<D>>, 
     }
 }
 
-/// Keep a link rule, and tell a live Session what it was taught.
+/// Keep a teaching: the Logbook entry for its note and the mods it changes, and tell a live Session.
 pub(crate) async fn save_teaching<D: Teaching>(State(served): State<Served<D>>, body: Bytes) -> Response {
     let save: ipc::SaveTeaching = match ipc::decode("a teaching to keep", &body) {
         Ok(save) => save,
@@ -48,21 +44,10 @@ pub(crate) async fn save_teaching<D: Teaching>(State(served): State<Served<D>>, 
     }
 }
 
-/// The rules for a repository and for every one.
-pub(crate) async fn list_taught_links<D: Teaching>(State(served): State<Served<D>>, Query(listing): Query<Listing>) -> Response {
-    match served.daemon().list_taught_links(listing.repository).await {
-        Ok(links) => answer(StatusCode::OK, &links, served.run_id()),
-        Err(refusal) => refused(refusal),
-    }
-}
-
-/// Forget a rule for good.
-pub(crate) async fn forget_taught_link<D: Teaching>(
-    State(served): State<Served<D>>,
-    Path(NamedLink { link_id }): Path<NamedLink>,
-) -> Response {
-    match served.daemon().forget_taught_link(link_id).await {
-        Ok(forgotten) => answer(StatusCode::OK, &forgotten, served.run_id()),
+/// The patterns that have an address for a repository.
+pub(crate) async fn list_word_rules<D: Teaching>(State(served): State<Served<D>>, Query(listing): Query<Listing>) -> Response {
+    match served.shared().list_word_rules(listing.repository, listing.session_id).await {
+        Ok(rules) => answer(StatusCode::OK, &rules, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }

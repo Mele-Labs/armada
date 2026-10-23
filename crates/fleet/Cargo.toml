@@ -60,7 +60,7 @@ portable-pty = "0.9"
 # Flight controls are a TOML file a person edits, `crate::flight_controls`. Read and written
 # through `ipc`'s own types, so nothing here describes the file twice.
 toml = "1"
-# A taught link rule's pattern is compiled once, `crate::teaching`, to refuse one that is not a
+# A taught words pattern is compiled once, `crate::teaching`, to refuse one that is not a
 # pattern or does not match the words it was taught from. It has no lookaround or backreference,
 # which is the subset Bridge's JavaScript engine shares. Matching only: no case tables.
 regex = { version = "1", default-features = false, features = ["std", "unicode-perl"] }
