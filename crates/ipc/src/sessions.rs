@@ -654,6 +654,9 @@ pub struct WaitingItem {
     /// Where a `judge` item points: the files its quotation lands in, as the change leaves them.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub cites: Vec<crate::session_rail::WaitingCite>,
+    /// A `replied` item whose sentence he said is a question (`confirm_waiting`). Absent where he has not.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub confirmed: bool,
 }
 
 /// One item as the agent states it. Fleet stamps `since` and `source`.
@@ -794,6 +797,14 @@ pub struct DismissWaiting {
     /// asks nothing. Refused on an item of any other source. Absent where false.
     #[serde(default, skip_serializing_if = "is_false")]
     pub misread: bool,
+}
+
+/// `confirm_waiting`: thumbs up on an item Fleet read from a reply. Its sentence is kept as one that
+/// asks, the item stays, and it reads `confirmed` from then on. Refused on an item of any other source.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ConfirmWaiting {
+    pub session_id: SessionId,
+    pub item_id: String,
 }
 
 fn is_false(value: &bool) -> bool {

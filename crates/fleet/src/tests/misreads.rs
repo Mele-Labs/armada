@@ -24,6 +24,7 @@ fn item(id: &str, text: &str, source: WaitingSource) -> WaitingItem {
         concern: None,
         cites: Vec::new(),
     }
+        confirmed: false,
 }
 
 /// Hand vectors by text: the two summary lines share an axis, the real question has its own.

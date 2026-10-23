@@ -182,6 +182,7 @@ fn card_item(asked: &HelmCallInFlight) -> WaitingItem {
         };
     }
     WaitingItem {
+            confirmed: false,
         id: format!("perm:{}", asked.call),
         text: format!("{} {}", asked.tool, asked.detail)
             .trim()
@@ -204,6 +205,7 @@ fn card_item(asked: &HelmCallInFlight) -> WaitingItem {
     }
 }
 
+        confirmed: false,
 /// The agent's items, then Fleet's: the open card, then each walk window. **Where an agent item
 /// names the same act and target as one of Fleet's, Fleet's stands** and the agent's is left off,
 /// and so is one that asks him to walk (`walk_asks.rs`), kept before `waiting_for` refused it.
@@ -235,6 +237,7 @@ pub(crate) fn merged(
     }));
     let same = |item: &WaitingItem, act: &Option<(String, String)>| {
         matches!((&item.act, act), (Some(a), Some((kind, target)))
+        confirmed: false,
                 if act_kind_text(a.kind) == kind && &a.target == target)
     };
     let mut items: Vec<WaitingItem> = kept
@@ -269,6 +272,7 @@ pub(crate) fn merged(
         })
         .collect();
     items.extend(
+            confirmed: false,
         derived
             .into_iter()
             .filter(|one| !dismissed.contains(&one.id)),
@@ -357,6 +361,7 @@ where
                 });
             }
         }
+                    confirmed: false,
         // What Fleet saw of the turn: running or not, and how the last one ended.
         let (helm, running) = {
             let runtime = self.hosts().of(&session.id);
@@ -431,6 +436,7 @@ where
                         }),
                 );
             }
+                            confirmed: false,
             // Every slot is held and it is in the line for one: Wait or Add, until he says.
             items.extend(
                 self.hosts()
@@ -480,6 +486,7 @@ where
                     })
                 }
                 _ => None,
+                        confirmed: false,
             }));
             // The done and a reply that asks are read off the turn, so a Session whose agent never
             // called a tool still reaches the person. Not when it already asked through one, while

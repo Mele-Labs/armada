@@ -507,7 +507,7 @@ pub use session_summary::{
 };
 pub use sessions::{
     AnswerWaiting, Attachment, AttachmentNamed, AttachmentReport, AttachmentState,
-    DismissWaiting, ClaimPullRequest, Holder, HolderKind, MainRedTaken, Owners, Ownership,
+    ConfirmWaiting, DismissWaiting, ClaimPullRequest, Holder, HolderKind, MainRedTaken, Owners, Ownership,
     PullRequestClaimed, RenameSession, TakeMainRed, SessionFact, SessionId, SessionList,
     SessionOrigin, ProposedField, SessionProposal, SessionRecord, SessionReport,
     LaterHow, LaterSettled, SessionLater, SettleLater,
