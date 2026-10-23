@@ -95,3 +95,7 @@
   from { grid-template-rows: 0fr; opacity: 0; }
   to { grid-template-rows: 1fr; opacity: 1; }
 }
+
+/* The Workflow band has no acts to share it with, so the steps wrap whole under the label and picker where the column is narrow, and are never clipped. */
+.sv-panel[data-area="workflow"] > .sv-panel__band { flex-wrap: wrap; row-gap: var(--space-1); padding-block: var(--space-1); }
+.sv-panel[data-area="workflow"] .sv-rail { flex: 1 1 auto; min-width: max-content; overflow: visible; }
