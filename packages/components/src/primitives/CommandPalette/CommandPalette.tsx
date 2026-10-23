@@ -4,6 +4,9 @@ import type { LucideIcon } from "lucide-react";
 import { KbdChord } from "../Kbd/Kbd";
 import { DISPATCH_ROW, DispatchKeys, DispatchRow, nextKind, readsAsWork, useAnchor, type PaletteDispatch } from "./dispatch-row";
 
+import { PATH_ROW, PathRow, readsAsPath, type PalettePath } from "./path-row";
+
+export { readsAsPath, type PalettePath } from "./path-row";
 export { readsAsWork, type DispatchKind, type PaletteDispatch } from "./dispatch-row";
 
 /**
@@ -117,6 +120,8 @@ export type CommandPaletteProps = {
   onClose?: () => void;
   /** The title bar's one bar: what was typed can be dispatched as well as searched. Absent draws no dispatch row. */
   dispatch?: PaletteDispatch;
+  /** A typed path offered as a file to open, first in the list. Absent offers none. */
+  path?: PalettePath;
   /**
    * A selector for the box the palette's field opens over, so the search and the field it opened from
    * read as one bar. Absent, or not on screen (the narrow title row hides it), the palette centres.
@@ -159,10 +164,13 @@ export function CommandPalette({
   onConfirm,
   onClose,
   dispatch,
+  path,
   anchor,
 }: CommandPaletteProps) {
   const [query, setQuery] = useState(defaultQuery);
   const [at, setAt] = useState(0);
+  // Why the path typed was not opened. Gone with the next keystroke, since the words it names are gone.
+  const [refused, setRefused] = useState<string | null>(null);
   const input = useRef<HTMLInputElement>(null);
   const active = useRef<HTMLDivElement>(null);
   const panel = useRef<HTMLDivElement>(null);
@@ -186,14 +194,16 @@ export function CommandPalette({
   // for. ⌘↵ always sends.
   const offered = dispatch !== undefined && query.trim() !== "";
   const leading = offered && (hits.length === 0 || readsAsWork(query));
-  const flat: (Hit | "dispatch")[] = !offered ? hits : leading ? ["dispatch", ...hits] : [...hits, "dispatch"];
+  const typedPath = path === undefined ? null : readsAsPath(query);
+  const rest: (Hit | "dispatch")[] = !offered ? hits : leading ? ["dispatch", ...hits] : [...hits, "dispatch"];
+  const flat: (Hit | "dispatch" | "path")[] = typedPath === null ? rest : ["path", ...rest];
   const place = useAnchor(open, anchor);
 
   // **The first row is always active**, so a query narrowed to one result is a
   // two-key act. Reset on every change to the query rather than clamped: a
   // cursor left at position four in a list that now has two is a cursor
   // somewhere the person did not put it.
-  useEffect(() => setAt(0), [query]);
+  useEffect(() => (setAt(0), setRefused(null)), [query]);
   // Closed, it forgets what was typed: the one bar reopens empty rather than holding words `n` could send.
   useEffect(() => void (open || setQuery(defaultQuery)), [open, defaultQuery]);
 
@@ -248,8 +258,17 @@ export function CommandPalette({
     if (dispatch !== undefined && query.trim() !== "") (dispatch.onDispatch(query.trim(), dispatch.kind), onClose?.());
   }
 
-  function choose(held: Hit | "dispatch" | undefined) {
+  function openPath() {
+    if (path === undefined || typedPath === null) return;
+    void Promise.resolve(path.onOpen(typedPath)).then((opened) => {
+      if (opened) onClose?.();
+      else setRefused(`Could not open “${typedPath}”. It is not a readable file here.`);
+    });
+  }
+
+  function choose(held: Hit | "dispatch" | "path" | undefined) {
     if (held === undefined) return;
+    if (held === "path") return openPath();
     if (held === "dispatch") return send();
     // Drawn so the binding can be learned, and inert because the row already
     // says why. Pressing it does nothing rather than reaching something
@@ -288,7 +307,7 @@ export function CommandPalette({
     }
   }
 
-  let n = leading ? 0 : -1;
+  let n = (leading ? 0 : -1) + (typedPath === null ? 0 : 1);
   const current = flat[at];
   const sendRow = !offered ? null : (
     <DispatchRow words={query.trim()} kind={dispatch.kind} trailing={!leading} active={current === "dispatch"} ref={current === "dispatch" ? active : undefined} onEnter={() => setAt(flat.indexOf("dispatch"))} onChoose={send} />
@@ -311,7 +330,7 @@ export function CommandPalette({
           role="combobox"
           aria-expanded="true"
           aria-controls="armada-palette-list"
-          aria-activedescendant={current === undefined ? undefined : current === "dispatch" ? DISPATCH_ROW : rowId(current.entry)}
+          aria-activedescendant={current === undefined ? undefined : current === "path" ? PATH_ROW : current === "dispatch" ? DISPATCH_ROW : rowId(current.entry)}
           aria-label={placeholder}
           placeholder={placeholder}
           value={query}
@@ -319,8 +338,10 @@ export function CommandPalette({
           onKeyDown={onKey}
         />
         <div className="armada-palette__list" id="armada-palette-list" role="listbox">
+          {typedPath === null ? null : <PathRow path={typedPath} active={current === "path"} ref={current === "path" ? active : undefined} onEnter={() => setAt(0)} onChoose={openPath} />}
+          {refused === null ? null : <p className="armada-palette__empty" role="alert">{refused}</p>}
           {leading ? sendRow : null}
-          {hits.length === 0 ? (
+          {hits.length === 0 && typedPath === null ? (
             /* **Names the query and says what was searched.** No suggestions
                and no did-you-mean: the palette is the discovery surface, so
                the honest answer to a miss is the extent of the index. */

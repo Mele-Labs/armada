@@ -8,8 +8,9 @@
 
 import type { KitInventory, SessionRecord } from "@armada/protocol";
 import { createHash, randomBytes } from "node:crypto";
-import { watch } from "node:fs";
-import { chmod, open, readFile, realpath, rename, stat, unlink, writeFile } from "node:fs/promises";
+import { constants, watch } from "node:fs";
+import { access, chmod, open, readFile, realpath, rename, stat, unlink, writeFile } from "node:fs/promises";
+import { homedir } from "node:os";
 import { basename, dirname, isAbsolute, join, resolve, sep } from "node:path";
 
 import type { PanelFileItem, PanelFileOpenedIn, PanelFileRead, PanelFileSaved } from "../shared/api/files";
@@ -21,6 +22,8 @@ import type { FileReads } from "./session-file";
 export type PanelDisk = FileReads & {
   /** Where `path` is with its links followed, and whether it is a file; null where nothing is there. */
   real: (path: string) => Promise<{ path: string; file: boolean } | null>;
+  /** Whether this process may read the file. */
+  readable: (path: string) => Promise<boolean>;
   /** Atomic: a temporary file beside the target, then a rename, so a reader sees the old file or the new and never half. */
   replace: (path: string, bytes: Uint8Array) => Promise<void>;
   /** `{}\n` where nothing is, as opening settings.json does. A file already there is left alone. */
@@ -42,6 +45,8 @@ export type PanelHosts = {
   showInFolder: (path: string) => void;
   /** A change to the file `owner` read. */
   send: (owner: unknown, item: PanelFileItem) => void;
+  /** The home folder `~` stands for. The user's, where absent. */
+  home?: () => string;
   /** How long a burst of events is left to settle. */
   settleMs?: number;
 };
@@ -64,6 +69,7 @@ export const diskPanel: PanelDisk = {
       return null;
     }
   },
+  readable: (path) => access(path, constants.R_OK).then(() => true, () => false),
   replace: async (path, bytes) => {
     // The target itself, so a link to a file is written through and not replaced by one.
     const target = await realpath(path).catch(() => path);
@@ -248,6 +254,24 @@ export function createFilePanel(hosts: PanelHosts) {
     async pick(): Promise<PanelFileItem | null> {
       const path = await hosts.pick();
       if (path === null) return null;
+      chosen.add(path);
+      return { kind: "file", path, from: "picked" };
+    },
+
+    /**
+     * A path typed or pasted into the palette. **Any readable file opens, as the dialog would let through**; a relative one
+     * is the Session's checkout's, and with no Session there is nothing to resolve it against. Null is refused.
+     */
+    async openPath(text: string, sessionId?: string): Promise<PanelFileItem | null> {
+      if (typeof text !== "string") return null;
+      const typed = text.trim().replace(/^["'`“”‘’]+|["'`“”‘’]+$/g, "").trim();
+      if (typed === "") return null;
+      const home = (hosts.home ?? homedir)();
+      const cwd = typeof sessionId === "string" ? hosts.recordOf(sessionId)?.cwd : undefined;
+      const path = typed === "~" || typed.startsWith("~/") ? join(home, typed.slice(1)) : isAbsolute(typed) ? typed : cwd === undefined ? null : resolve(cwd, typed);
+      if (path === null) return null;
+      const there = await disk.real(path);
+      if (there?.file !== true || !(await disk.readable(path))) return null;
       chosen.add(path);
       return { kind: "file", path, from: "picked" };
     },

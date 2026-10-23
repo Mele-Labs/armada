@@ -45,6 +45,7 @@ function memory(files: Record<string, string>) {
       return one;
     },
     real: async (path) => (held.has(path) ? { path, file: true } : null),
+    readable: async (path) => held.has(path),
     replace: async (path, bytes) => {
       replaced.push(path);
       held.set(path, bytes);
@@ -412,5 +413,61 @@ describe("a path written from the repository root", () => {
     const asked = ["top.md", ".armada/slots/slot-6/other.md", ".armada/slots/slot-5/link.md"];
     expect(await panel.known("S1", asked)).toEqual([]);
     expect(await panel.read({}, session("top.md"))).toEqual({ ok: false, why: "not_addressable" });
+  });
+});
+
+// A path typed or pasted into the palette: any readable file, as the open dialog would let through, and nothing else.
+describe("a typed path", () => {
+  async function typed() {
+    const home = await mkdtemp(join(tmpdir(), "file-panel-home-"));
+    const root = await mkdtemp(join(tmpdir(), "file-panel-job-"));
+    await mkdir(join(home, "notes"));
+    await writeFile(join(home, "notes", "a.md"), "home note");
+    await mkdir(join(root, "docs"));
+    await writeFile(join(root, "docs", "plan.md"), "# Plan");
+    const held = { id: "S1", cwd: root, attachments: [] } as unknown as SessionRecord;
+    const panel = createFilePanel({
+      disk: diskPanel,
+      recordOf: (id) => (id === "S1" ? held : undefined),
+      settingsPath: () => undefined,
+      kitInventory: async () => undefined,
+      pick: async () => null,
+      inEditor: async () => null,
+      showInFolder: () => {},
+      send: () => {},
+      home: () => home,
+    });
+    return { home, root, panel };
+  }
+
+  it("opens an absolute path, with quotes and spaces trimmed, and the file then reads as picked", async () => {
+    const { root, panel } = await typed();
+    const path = join(root, "docs", "plan.md");
+    const item = await panel.openPath(`  "${path}" `);
+    expect(item).toEqual(picked(path));
+    expect(await panel.read({}, picked(path))).toMatchObject({ ok: true, text: "# Plan" });
+  });
+
+  it("expands ~ to the home folder", async () => {
+    const { home, panel } = await typed();
+    expect(await panel.openPath("~/notes/a.md")).toEqual(picked(join(home, "notes", "a.md")));
+  });
+
+  it("resolves a relative path against the Session's checkout", async () => {
+    const { root, panel } = await typed();
+    expect(await panel.openPath("docs/plan.md", "S1")).toEqual(picked(join(root, "docs", "plan.md")));
+  });
+
+  it("refuses a relative path with no Session to resolve it against", async () => {
+    const { panel } = await typed();
+    expect(await panel.openPath("docs/plan.md")).toBeNull();
+    expect(await panel.openPath("docs/plan.md", "S2")).toBeNull();
+  });
+
+  it("refuses a missing file and a directory, and chooses neither", async () => {
+    const { root, panel } = await typed();
+    expect(await panel.openPath(join(root, "docs", "missing.md"))).toBeNull();
+    expect(await panel.openPath(join(root, "docs"))).toBeNull();
+    expect(await panel.read({}, picked(join(root, "docs")))).toEqual({ ok: false, why: "not_addressable" });
   });
 });

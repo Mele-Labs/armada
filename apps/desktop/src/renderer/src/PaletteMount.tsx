@@ -15,7 +15,7 @@ import { studioName } from "@armada/screens";
 import { askStudioAdd, askStudioRun, useStudioAddOff, useStudioRunOff } from "@armada/studios";
 import { askToDebugBridge } from "./debug-bridge";
 import { askToOpenSession, openSessionIn } from "./open-session";
-import { openRequestsInPanel } from "./shared-panel/store";
+import { openInPanel, openRequestsInPanel } from "./shared-panel/store";
 import { useSessions } from "./sessions-draft";
 import { absentIn, carryOut, dormantIn } from "./palette";
 
@@ -68,6 +68,14 @@ export function PaletteMount({
       open={open}
       onClose={onClose}
       dispatch={dispatch}
+      // A pasted path opens in the panel, in the Session's checkout where it is relative: any file the person can read.
+      path={{
+        onOpen: async (typed) => {
+          const item = await window.armada.openPanelPath(typed, openSessionIn(document));
+          if (item !== null) openInPanel(item);
+          return item !== null;
+        },
+      }}
       // Two places: a Studio open on its whiteboard is not the Cockpit, and the acts
       // scoped to it act on the board rather than on anything focused — #1364.
       context={shownStudio === null ? "board" : "studio"}
