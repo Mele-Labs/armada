@@ -255,6 +255,8 @@ where
     /// One hand, from the mark its caller made to the last: `Ok` is the new Job's id; `Err` is the
     /// reason, which stands on the old Job as a fresh `handoff_failed` row in place of any earlier one.
     async fn handing_on(self: &Arc<Self>, old: &str, brief: Option<String>) -> Result<String, String> {
+        // What the old Job learnt is distilled before the new one starts from it.
+        self.logbook_distils().queue(old);
         let result = self.hand_off(old, brief.as_deref()).await;
         self.handoff_ended(old, result.as_ref().err().map(String::as_str), brief.as_deref()).await;
         result
