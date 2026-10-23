@@ -83,6 +83,11 @@ It is written to the same rules for plain words as the retro call.
 | An entry is locked | It never fades and is never rewritten |
 | An entry is forgotten | It goes on a deny list and never comes back |
 
+**Tidy folds near-duplicates, which Curate's word overlap misses.** Once a week per repository, and only where an entry changed since, Fleet puts the repository's entries to one Sonnet call with no Job.
+It answers groups: one entry to keep, its new text, and the entries it absorbs.
+The kept entry takes every absorbed entry's evidence and keeps its earlier text as history, and the absorbed ones fade: kept, searchable, no longer served.
+A locked entry and a person's text are never offered. An answer that is wrong anywhere changes nothing.
+
 **The deny list is the rule run memory's dropped lines follow** ([Kit](kit.md), *A private repository*). The merge reads it first, so a later Distil does not bring a forgotten entry back.
 
 **A candidate is not served.** Only a standing entry reaches an agent.
