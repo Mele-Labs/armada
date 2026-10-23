@@ -744,7 +744,8 @@ Bridge's half is `packages/protocol/src/logbook.ts`, written by hand, field for 
 | `get_logbook_for_subagent` (`POST /logbook/subagent`, `No`) | The Armada mod asks, Fleet answers 200 | Body `SubagentAsk` `{ session_id, prompt }`; `ForSubagent` `{ text }`, empty where the Logbook holds nothing |
 
 **The start note is not on the wire.** It is built in Fleet and handed to the process as `--append-system-prompt`, so the Logbook note changes no type.
-**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves. A mod newer than its Fleet gets a 404 from `/logbook/subagent` and hands the subagent nothing.
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+A mod newer than its Fleet gets a 404 from `/logbook/subagent` and hands the subagent nothing.
 
 ## Open questions
 
