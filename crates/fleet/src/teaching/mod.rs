@@ -7,6 +7,7 @@
 
 mod answer;
 mod link;
+mod serving;
 
 use adapter_traits::{AgentHarness, Ask, Delivery, Vcs, WorkProduct};
 use api::Refusal;
@@ -83,7 +84,7 @@ where
 {
     /// Read a teaching into a proposal. **Refused before the model is asked** where an input is
     /// empty or over a bound, or the reach names a repository Fleet does not serve.
-    pub(crate) async fn read_teaching(&self, teach: ReadTeaching) -> Result<TeachingProposal, Refusal> {
+    pub(crate) async fn teaching_read(&self, teach: ReadTeaching) -> Result<TeachingProposal, Refusal> {
         let (words, said) = (teach.words.trim(), teach.said.trim());
         let input = |why: &str| Refusal::Unacceptable(WireError::raised(INPUT_REFUSED, why, self.run_id()));
         if words.is_empty() || said.is_empty() {

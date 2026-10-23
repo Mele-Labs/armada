@@ -25,6 +25,7 @@ mod requests;
 mod retros;
 mod sessions;
 mod studios;
+mod teaching;
 
 pub use accounts::profile;
 pub use conversing::SERVED_MANIFEST;

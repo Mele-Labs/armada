@@ -28,7 +28,7 @@ fn teaching(rig: &Rig, words: &str, said: &str) -> ReadTeaching {
 }
 
 async fn read(rig: &Rig, teach: ReadTeaching) -> Result<TeachingProposal, (u16, String)> {
-    rig.fleet.read_teaching(teach).await.map_err(|refusal: Refusal| (refusal.status(), refusal.error().code.clone()))
+    api::Teaching::read_teaching(&*rig.fleet, teach).await.map_err(|refusal: Refusal| (refusal.status(), refusal.error().code.clone()))
 }
 
 fn link_answer(pattern: &str, address: &str) -> String {

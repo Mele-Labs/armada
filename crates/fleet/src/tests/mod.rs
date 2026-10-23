@@ -100,6 +100,7 @@ mod session_done;
 mod session_finish_up;
 mod session_host;
 mod teaching_reading;
+mod teaching_routes;
 mod session_mcp;
 mod plan_held;
 mod plan_asks;

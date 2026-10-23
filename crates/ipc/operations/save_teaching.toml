@@ -1,0 +1,12 @@
+[operations.save_teaching]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Keep the link rule a person checked, and tell a live Session the note they kept"
+notes = """
+`POST /teachings`, body `{link?, repository?, session_id?, note?}`, where `link` is `{pattern, address, example}`, `repository` a root `list_repositories` names (absent is every repository), `session_id` the Session the person taught in and `note` the text of the agent note Bridge filed. Answers `{link?}`: the rule as kept, with its `id`.
+
+The link is held to what `read_teaching` holds a proposal to, against `link.example`, and is a 422 `fleet.teaching_link_refused` where it fails. A body with neither a link nor a note is a 422 `fleet.teaching_input_refused`. A root Fleet does not serve is a 404 `fleet.run_memory_repository_not_served`.
+
+**When `session_id` and `note` both come, Fleet tells that Session "From now on: <note>"** in its own voice, as news that asks nothing of the agent. A Session mid-turn has the line queued behind the turn, one that is idle is woken by it, and one that has ended or is not hosted is not told. The save never fails for want of someone to tell. Bridge files the note itself with `teach_logbook_entry`; this writes nothing to the Logbook.
+"""

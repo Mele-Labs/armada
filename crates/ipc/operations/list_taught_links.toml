@@ -1,0 +1,8 @@
+[operations.list_taught_links]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "The link rules a person taught for a repository, and those for every repository"
+notes = """
+`GET /teachings/links?repository=`, where `repository` is a root `list_repositories` names. Answers `{links: [{id, pattern, address, example, repository?, made_at}]}`, oldest first, `repository` absent on a rule for every repository. With no `repository` only those are listed. A root Fleet does not serve is a 404 `fleet.run_memory_repository_not_served`.
+"""

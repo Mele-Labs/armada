@@ -606,6 +606,22 @@ Bridge's half is `packages/protocol/src/logbook.ts`, written by hand, field for 
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 **The event stream.** Untouched.
 
+## Teaching: `read_teaching`, `save_teaching` and the link rules a person taught
+
+Since 22 Oct 2026. **Additive only**: four operations and routes and the types they carry; no event kind and no field on an existing type.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `packages/protocol/src/teaching.ts`, written by hand, field for field. **A link rule is Fleet's; an agent note is filed by Bridge** with `teach_logbook_entry`, so nothing here reads or writes the Logbook, and the note's `section` and `kind` are the words that route takes.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `read_teaching` (`POST /teachings/read`) | Bridge sends `{ words, message, said, repository?, reach }` (`reach` is `repository` or `everywhere`), Fleet answers `{ link?, note? }` | One model call, nothing kept. `link` is `{ pattern, address, example }`, `note` is `{ section, kind, text }`; at least one is present. 422 `fleet.teaching_link_refused`, `fleet.teaching_note_refused`, `fleet.teaching_input_refused`, `fleet.teaching_nothing_read`; 500 `fleet.teaching_read_failed` |
+| `save_teaching` (`POST /teachings`) | Bridge sends `{ link?, repository?, session_id?, note? }`, Fleet answers `{ link? }` | The link is held to what `read_teaching` holds it to. With `session_id` and `note` the Session is told "From now on: <note>": queued behind a turn in progress, never refused |
+| `list_taught_links` (`GET /teachings/links?repository=`, `agent_access = "Yes"`) | Bridge reads | `{ links }` of `{ id, pattern, address, example, repository?, made_at }`: the repository's own and those for every repository. 404 `fleet.run_memory_repository_not_served` |
+| `forget_taught_link` (`POST /teachings/links/:link_id/forget`) | Bridge sends nothing, Fleet answers `{ id }` | A second forget is a 404 `fleet.no_such_taught_link` |
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+**The event stream.** Untouched.
+
 ## A Fleet notice disputed: `dispute_fleet` and the `disputed` row
 
 Since 19 Oct 2026. `docs/concepts/session/what-fleet-tells-a-job.md`.
