@@ -204,6 +204,17 @@ test("Settings > Keyboard rebinds a key, and the new key is the one that acts", 
   await expect.element(helm.getByRole("button", { name: /^Helm: ⌘J$/ })).toBeVisible();
 });
 
+test("Terminal lists where a Job's terminal opens, docked by default or the side panel, and saves the choice by key", async () => {
+  const app = mount(onBoard(), { slices: ["core", "settings"] });
+  const save = vi.spyOn(app.api, "saveSettings");
+  await toSystemPage("Terminal");
+  const place = page.getByRole("combobox", { name: "Open a Job's terminal in", exact: true });
+  await expect.element(place).toHaveValue("docked");
+  expect([...(place.element() as HTMLSelectElement).options].map((one) => one.text)).toEqual(["docked", "side panel"]);
+  await place.selectOptions("side panel");
+  expect(save).toHaveBeenCalledWith({ "terminal.openJobTerminalIn": "side panel" });
+});
+
 test("Large context sits under Plan with no sentence, names Context limit in its tooltip, and saves its choice by key", async () => {
   const app = mount(onBoard(), { slices: ["core", "settings"] });
   const save = vi.spyOn(app.api, "saveSettings");
