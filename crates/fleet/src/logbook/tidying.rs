@@ -307,14 +307,9 @@ where
                 Err(why) => failed = Some(why),
             }
         }
-        match failed {
-            Some(why) => Err(why),
-            None => {
-                let at = self.now().epoch_millis().unwrap_or(0).max(0) as u64;
-                *self.logbook_distils().tidy_last.lock().expect("the last tidy is not held across a panic") =
-                    Some((u32::try_from(folded).unwrap_or(u32::MAX), at));
-                Ok(folded)
-            }
-        }
+        let at = self.now().epoch_millis().unwrap_or(0).max(0) as u64;
+        *self.logbook_distils().tidy_last.lock().expect("the last tidy is not held across a panic") =
+            Some((u32::try_from(folded).unwrap_or(u32::MAX), at, failed.is_some()));
+        failed.map_or(Ok(folded), Err)
     }
 }

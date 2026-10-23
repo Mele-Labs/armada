@@ -292,6 +292,16 @@ async fn tidy_answers_at_once_while_the_pass_runs_and_a_second_call_starts_no_se
 }
 
 #[tokio::test]
+async fn a_failed_pass_is_kept_as_the_last_one_and_says_it_failed() {
+    let rig = rig_fitted(|_| {});
+    seeded(&rig, LogSection::Repo, "Run the focused test command.", LogState::Standing).await;
+    seeded(&rig, LogSection::Repo, "Run the focused test command with a log.", LogState::Standing).await;
+    rig.fleet.logbook_tidy_started_with(Some(rig.root.clone()), |_question: String| async { Err("the call failed".to_string()) });
+    let last = settled(&rig).await.last.expect("a failed pass is remembered");
+    assert_eq!((last.merged, last.failed), (0, true));
+}
+
+#[tokio::test]
 async fn the_logbook_says_whether_a_tidy_is_running_and_what_the_last_one_merged() {
     let said = r#"{"groups":[{"keep":1,"text":"Run the focused test command, logging to a file.","absorb":[2]}]}"#;
     let rig = rig_fitted(|fittings| fittings.judge = std::sync::Arc::new(testkit::FakeJudge::saying(said)));
@@ -303,7 +313,7 @@ async fn the_logbook_says_whether_a_tidy_is_running_and_what_the_last_one_merged
     assert!(rig.fleet.clone().tidy_logbook(TidyLogbook { repository: Some(rig.root.clone()) }).await.expect("started").running);
     let after = settled(&rig).await;
     let last = after.last.expect("the pass is remembered");
-    assert_eq!(last.merged, 1);
+    assert_eq!((last.merged, last.failed), (1, false));
     assert!(!last.at.as_str().is_empty());
 }
 

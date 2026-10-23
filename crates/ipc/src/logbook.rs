@@ -110,7 +110,7 @@ pub struct Logbook {
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LogbookTidy {
     pub running: bool,
-    /// The last pass that finished since Fleet started; a failed pass leaves it as it was.
+    /// The last pass that ended since Fleet started, failed or not.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last: Option<LogbookTidyLast>,
 }
@@ -121,6 +121,8 @@ pub struct LogbookTidyLast {
     /// Entries folded into another and archived.
     pub merged: u32,
     pub at: Instant,
+    /// A repository's call failed: `merged` counts what was archived before it did.
+    pub failed: bool,
 }
 
 /// `edit_logbook_entry`' body: the text the entry now says.

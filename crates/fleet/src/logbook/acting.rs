@@ -286,7 +286,7 @@ where
         let last = *distils.tidy_last.lock().expect("the last tidy is not held across a panic");
         ipc::LogbookTidy {
             running: distils.tidying.load(std::sync::atomic::Ordering::Acquire),
-            last: last.map(|(merged, at)| ipc::LogbookTidyLast { merged, at: instant(at) }),
+            last: last.map(|(merged, at, failed)| ipc::LogbookTidyLast { merged, at: instant(at), failed }),
         }
     }
 }

@@ -52,11 +52,11 @@ type Acts = {
 };
 
 function opened(entries: LogbookEntry[], acts: Acts = {}) {
-  const read = vi.fn(async (): Promise<LogbookRead> => ({ ok: true, entries }));
+  const read = vi.fn(async (): Promise<LogbookRead> => ({ ok: true, entries, tidy: { running: false } }));
   const edit = vi.fn(acts.edit ?? (async (id: string, text: string): Promise<LogbookAnswer> => ({ ok: true, entry: { ...entries.find((one) => one.id === id)!, text, edited: true } })));
   const lock = vi.fn(acts.lock ?? (async (id: string, locked: boolean): Promise<LogbookAnswer> => ({ ok: true, entry: { ...entries.find((one) => one.id === id)!, locked } })));
   const forget = vi.fn(acts.forget ?? (async (): Promise<LogbookForgotten> => ({ ok: true })));
-  const tidy = vi.fn(acts.tidy ?? (async (): Promise<LogbookTidied> => ({ ok: true, merged: 0 })));
+  const tidy = vi.fn(acts.tidy ?? (async (): Promise<LogbookTidied> => ({ ok: true, running: false })));
   mount(<Logbook onRead={read} onEdit={edit} onLock={lock} onForget={forget} onTidy={tidy} />);
   return { read, edit, lock, forget, tidy };
 }
@@ -179,12 +179,12 @@ test("Tidy now is busy while Fleet works, then says how many entries merged and 
   const waiting = new Promise<LogbookTidied>((resolve) => (finish = resolve));
   const merged = entry("6", { section: "repo", repository: "/Users/user/widgets", text: "Survivor.", state: "standing" });
   let reads = 0;
-  const read = vi.fn(async (): Promise<LogbookRead> => ({ ok: true, entries: ++reads === 1 ? [WIDGETS, merged] : [merged] }));
+  const read = vi.fn(async (): Promise<LogbookRead> => ({ ok: true, entries: ++reads === 1 ? [WIDGETS, merged] : [merged], tidy: { running: false } }));
   mount(<Logbook onRead={read} onEdit={vi.fn()} onLock={vi.fn()} onForget={vi.fn()} onTidy={() => waiting} />);
   await expect.element(entries().getByText("Run specs with bin/rspec.")).toBeVisible();
   await tidyButton().click();
   await expect.element(tidyButton()).toHaveAttribute("aria-busy", "true");
-  finish({ ok: true, merged: 12 });
+  finish({ ok: true, running: true });
   await expect.element(page.getByRole("status")).toHaveTextContent("Merged 12 entries");
   await expect.element(tidyButton()).not.toHaveAttribute("aria-busy");
   expect(read).toHaveBeenCalledTimes(2);
@@ -192,7 +192,7 @@ test("Tidy now is busy while Fleet works, then says how many entries merged and 
 });
 
 test("Tidy now says so when nothing merged, and one entry is not plural", async () => {
-  const answers: LogbookTidied[] = [{ ok: true, merged: 0 }, { ok: true, merged: 1 }];
+  const answers: LogbookTidied[] = [{ ok: true, running: false }, { ok: true, running: true }];
   const { tidy } = opened([WIDGETS], { tidy: async () => answers.shift()! });
   await tidyButton().click();
   await expect.element(page.getByRole("status")).toHaveTextContent("Nothing to merge");

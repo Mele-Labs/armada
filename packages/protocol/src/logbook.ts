@@ -56,11 +56,11 @@ export type LogbookEntry = {
 /** `get_logbook` (`GET /logbook`): the entries asked for, forgotten ones left out. */
 export type Logbook = { entries: LogbookEntry[]; tidy: LogbookTidy };
 
-/** Whether a Tidy pass is running, and what the last one did. `last` is kept in memory, so a Fleet restart forgets it; a failed pass leaves it as it was. */
+/** Whether a Tidy pass is running, and what the last one did. `last` is kept in memory, so a Fleet restart forgets it; a failed pass is kept with `failed: true`. */
 export type LogbookTidy = { running: boolean; last?: LogbookTidyLast };
 
-/** What a finished Tidy pass did: the entries it folded into another and archived, and when. */
-export type LogbookTidyLast = { merged: number; at: string };
+/** What a Tidy pass did: the entries it folded into another and archived, when it ended, and whether a repository's call failed (`merged` then counts what was archived before it did). */
+export type LogbookTidyLast = { merged: number; at: string; failed: boolean };
 
 /**
  * `?repository=` (a root `list_repositories` names), `?section=` and `?state=` on `get_logbook`. With no repository the
