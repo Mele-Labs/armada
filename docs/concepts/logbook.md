@@ -95,7 +95,7 @@ It is written to the same rules for plain words as the retro call.
 
 | Step | Does |
 |---|---|
-| Ask | Fleet makes one model call per repository, and for `habits` and `machine`, over the standing and candidate entries it may offer |
+| Ask | Fleet makes one model call per repository, over its standing and candidate entries it may offer, with the `habits` and `machine` entries held under that repository's key |
 | Answer | The model groups the entries that say the same thing and writes one text for each group |
 | Keep | The survivor keeps every folded entry's evidence and takes the new text. Its earlier text stays in history with the reason Merged |
 | Fade | The folded entries become faded: kept and searchable under Archived, not deleted |
