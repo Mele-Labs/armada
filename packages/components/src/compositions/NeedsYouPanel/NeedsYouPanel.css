@@ -219,8 +219,17 @@
   margin-inline-end: var(--space-2);
 }
 
-/* Thumbs at a row's end. */
-.armada-needs-panel__list .armada-session-ledger__row > .armada-needs-panel__thumbs {
+/* Back on the left of an opened line, and its thumbs, when it has them, on the right. */
+.armada-needs-panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  align-self: stretch;
+}
+
+/* Thumbs at a row's end, and at the end of the opened line's head. */
+.armada-needs-panel__list .armada-session-ledger__row > .armada-needs-panel__thumbs,
+.armada-needs-panel__head > .armada-needs-panel__thumbs {
   display: flex;
   align-items: center;
   align-self: center;
@@ -230,7 +239,8 @@
 
 /* Each thumb no larger than the row's own glyph needs: a 12px mark on a 24px square. The Tooltip sits between
    them, and the Button's own icon-only size outranks a plainer rule. */
-.armada-needs-panel__list .armada-needs-panel__thumbs .armada-button[data-icon-only="true"] {
+.armada-needs-panel__list .armada-needs-panel__thumbs .armada-button[data-icon-only="true"],
+.armada-needs-panel__head .armada-needs-panel__thumbs .armada-button[data-icon-only="true"] {
   width: var(--space-6);
   height: var(--space-6);
 }
