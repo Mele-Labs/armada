@@ -12,6 +12,7 @@ import { BayPanel, CheckPanel, IssuePanel } from "./panels";
 import { FileSide, useOpenFileKey } from "./file";
 import { PullRequestSide } from "./pull-request";
 import { RequestsPanel } from "./requests";
+import { TeachSide } from "./teach";
 import { usePanelReads } from "./reads";
 import { openInPanel, usePanel } from "./store";
 import "./panel.css";
@@ -47,6 +48,8 @@ export function SharedPanelHost() {
         <BayPanel key={`bay:${open.manifestId}/${open.slot}`} item={open} />
       ) : open.kind === "requests" ? (
         <RequestsPanel key={`requests:${open.sessionId ?? ""}:${open.from ?? ""}`} item={open} />
+      ) : open.kind === "teach" ? (
+        <TeachSide key={`teach:${open.sessionId}:${open.words}`} item={open} />
       ) : (
         <CheckPanel key={`check:${open.id}`} item={open} />
       )}

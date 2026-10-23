@@ -105,6 +105,7 @@ import type { HeldWorktrees, Notice, RepositorySummary } from "@armada/protocol"
 import { askToTell } from "./tell";
 import { SessionRefs } from "./helm-refs";
 import { openInPanel } from "./shared-panel/store";
+import { useTeachingOffered, wordsOfQuote } from "./teach";
 import { useShownFiles } from "./session-shown-file";
 import { startOf } from "./shared-panel/requests-model";
 import { SURFACE, useAtFloor, useNarrow } from "@armada/shell";
@@ -783,6 +784,15 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
     // eslint-disable-next-line react-hooks/exhaustive-deps -- originRows is derived from origin and the fork's `at`.
   }, [session.attachments, repositories, thread, carried, origin, forkedFrom?.at, earlier]);
   // A request in the thread opens in Requests for this Job, to edit and send again.
+  // Teach is offered where the window can read what is taught. It opens in the side panel, over this Session.
+  const teaching = useTeachingOffered();
+  const teachFrom = useCallback(
+    ({ quote }: { quote: string }) => {
+      const at = rootOfSession(session, repositories);
+      void openInPanel({ kind: "teach", sessionId: session.id, ...(session.manifestId === undefined ? {} : { manifestId: session.manifestId }), repository: (at ?? session.cwd ?? session.manifestId ?? session.id).split("/").pop()!, words: wordsOfQuote(quote) });
+    },
+    [session, repositories],
+  );
   const openRequest = useCallback((row: RequestedThreadRow) => void openInPanel({ kind: "requests", sessionId: session.id, start: startOf(row), from: row.id }), [session.id]);
   const openSaved = useCallback((row: SavedThreadRow) => void openInPanel({ kind: "requests", sessionId: session.id, saved: { collection: row.collectionId, request: row.request }, from: row.id }), [session.id]);
   // A run drawn as a terminal: the pane is the view's own, docked above its box.
@@ -1070,6 +1080,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
             onOpenRetro={openRetro}
             {...(draft.retry === undefined ? {} : { onRetry: (rowId: string) => draft.retry!(session.id, rowId) })}
             {...(draft.forkAt === undefined ? {} : { onForkAt: (pick) => opening(forkAtPick(draft.forkAt!, session.id, pick, setFocusFor), onOpen) })}
+            {...(teaching ? { onTeachAt: teachFrom } : {})}
             {...(draft.muteNotice === undefined ? {} : { onMuteNotice: (notice, choice) => muteNoticeFor(draft.muteNotice!, session, notice, choice) })}
             {...(session.dead !== undefined ? {} : { onReplyAt: ({ quote }) => {
               quoteIntoDraft(session.id, quote);

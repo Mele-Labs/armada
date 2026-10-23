@@ -21,7 +21,9 @@ export type PanelItem =
    * Requests, for the Job it was opened in where there was one, starting from a request where it was opened on one (`from` is
    * that row's id), or on a saved request where it was opened on a `saved` row.
    */
-  | { kind: "requests"; sessionId?: string; start?: RequestStart; from?: string; saved?: { collection: string; request: string } };
+  | { kind: "requests"; sessionId?: string; start?: RequestStart; from?: string; saved?: { collection: string; request: string } }
+  /** Teach, for the words selected in a message of this Session: the repository it is in, by id and by name. */
+  | { kind: "teach"; sessionId: string; manifestId?: string; repository: string; words: string };
 
 type Held = { open: PanelItem | undefined; back: PanelItem | undefined; hosts: number };
 
