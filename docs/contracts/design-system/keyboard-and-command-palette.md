@@ -110,6 +110,10 @@ Q              go to the quick actions   (review only)
 A              ask about the pull request   (review only)
 D              show the description   (review only)
 W              show where changes run   (review only)
+l r            go to a part of Issues: the list, the reader   (issues only)
+L              open the queries   (issues only)
+/              describe a query   (issues only)
+s              start a Job on the issue   (issues only)
 1–9            pick an answer   (call only)
 Enter          send the answer   (call only)
 l              later   (call only)
@@ -143,6 +147,10 @@ field and while a dialog is up.
 any list does; the rest are its own: `l r f` go to the list, the reader and the review tools,
 `L` opens the lists, `/` is Natural Search, `Q` the quick actions, `A` the question box, `D` the
 description and `W` the places changes run. They stand down in a text field and while a dialog is up.
+
+**The Issues tab has a scope of its own, `issues`.** Its list takes `j`, `k`, `Enter` and `o` as any
+list does; `l r` go to the list and the reader, `L` opens the queries, `/` describes a query and `s`
+starts a Job on the open issue. They stand down in a text field and while a dialog is up.
 
 **The flight deck is the Cockpit, and its keys are in the `deck` scope (#2301).**
 The deck takes `w` and `?` and a list's `j`, `k` and `Enter`; the acts that need a row in

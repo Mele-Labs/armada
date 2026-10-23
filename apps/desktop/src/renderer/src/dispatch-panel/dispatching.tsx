@@ -76,8 +76,11 @@ export type Dispatching = {
   choose: (kind: DispatchKind) => void;
   /** The sheet is up. */
   sheet: boolean;
-  /** A dispatch row chosen in the palette, a thought routed, a pull request's fix: the sheet holding these words, for the repository `root` where one is named. */
-  openSheet: (words: string, root?: string) => void;
+  /**
+   * A dispatch row chosen in the palette, a thought routed, a pull request's fix: the sheet holding these words, for the repository `root` where one is named.
+   * `tags` are held as a `#` chosen in the request would be, so each is sent with the words while its title is still in them.
+   */
+  openSheet: (words: string, root?: string, tags?: readonly ComposerTag[]) => void;
   /** Every New session and compose entry: the panel on the draft as it stands, or an empty one for the repository `root` where one is named. */
   openNew: (root?: string) => void;
   /** ⌥A: the panel on a Session, with an `@` typed at the end of the request and its menu open. Absent where a Session cannot wait. */
@@ -432,9 +435,10 @@ export function useDispatch({ state, repositories, openSession, openAutopilot }:
     sheet,
     openNew,
     ...(draft?.readsWait === undefined || !kinds.includes("session") ? {} : { openAfter }),
-    openSheet: (next, at) => {
+    openSheet: (next, at, tags) => {
       stamp.current += 1;
       writeKept(REQUEST, next);
+      if (tags !== undefined) tagged.current = [...tags];
       if (at !== undefined) pick(at);
       setLatest(undefined);
       setAsking(false);

@@ -388,6 +388,12 @@ export * from "./compositions/SessionThread/debug-info";
 export * from "./compositions/SessionThread/RequestedRow";
 export * from "./compositions/SessionThread/SavedRow";
 export * from "./compositions/SessionRepository/SessionRepository";
+// A repository as a chip, where a surface names the repository a thing belongs to.
+export * from "./compositions/RepositoryChip/RepositoryChip";
+// A Job as a card, framed in its state, where a surface names one.
+export * from "./compositions/JobCard/JobCard";
+// A pull request as a Job's Progress lists it, or framed as a chip among cards.
+export * from "./compositions/PullRequestChip/PullRequestChip";
 export * from "./compositions/RepositoryRuns/RepositoryRuns";
 export * from "./compositions/RepositoryRuns/RunsAll";
 export * from "./compositions/AskCard/AskCard";

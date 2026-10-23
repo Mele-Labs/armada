@@ -194,6 +194,7 @@ Also unconfirmed: the wording `acli` prints for an issue that does not exist, wh
 |---|---|
 | The composer | The repository's open issues, newest edit first. `#` at the start of a word offers them by number, or by key where the tracker names issues by one |
 | Each row | The issue's reference as its tracker writes it: `#123`, `ABC-123`. Autopilot's Next up and its picks draw the same |
+| The Issues tab | Each repository's issues under its heading, or one repository's. Open, Assigned to me and the queries he saved are run with `search_issues`, and a query described in his words is written by `write_issue_query`, the one act that spends, which Bridge asks about first. An issue is read whole with `get_issue`, with the Jobs working it from `holders`. Start a Job opens the dispatch sheet on the issue held as a tag, and Fleet claims it for the Job from that tag |
 
 ## What it does not do yet
 

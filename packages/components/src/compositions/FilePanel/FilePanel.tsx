@@ -5,7 +5,9 @@ import { Alert } from "../../primitives/Alert/Alert";
 import { Button } from "../../primitives/Button/Button";
 import { KbdBinding } from "../../primitives/Kbd/Kbd";
 import { Sheet } from "../../primitives/Sheet/Sheet";
+import { Switch } from "../../primitives/Switch/Switch";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
+import { readKept, useKept } from "../../keep";
 import type { NoteRegion } from "../ViewerNotes/compose";
 import { NotableImage } from "../ViewerNotes/NotableImage";
 import { useViewerNotes, type NoteAnchor, type ViewerNotes, type ViewerNotesScope } from "../ViewerNotes/ViewerNotes";
@@ -210,10 +212,14 @@ function FileBody({ name, path, type, text, imageSrc, saving = false, onChange, 
 /** Markdown is the one text a rendered view has something to say of. */
 const isMarkdown = (name: string, type: string): boolean => type.startsWith("text/") && /\.(md|markdown)$/i.test(name);
 
+/** Where a person's choice to open a markdown file with its preview is kept, for every file and every window. */
+const PREVIEW_BY_DEFAULT = "file-panel.preview-by-default";
+
 export function FilePanel({ onClose, floor = false, back, beside, onPreviewing, onOpenInEditor, onShowInFinder, ...file }: FilePanelProps) {
   useSaveKey(file);
   const { name, path, dirty } = file;
-  const [previewing, setPreviewing] = useState(false);
+  const [previewByDefault, setPreviewByDefault] = useKept<boolean>(PREVIEW_BY_DEFAULT, false);
+  const [previewing, setPreviewing] = useState(() => isMarkdown(name, file.type) && readKept<boolean>(PREVIEW_BY_DEFAULT) === true);
   // The line either side was last scrolled to, and which side it was: the other follows it.
   const [lock, setLock] = useState<{ line: number; by: "file" | "preview" } | undefined>(undefined);
   const preview = isMarkdown(name, file.type) ? { on: previewing, toggle: () => setPreviewing((was) => !was) } : undefined;
@@ -256,7 +262,7 @@ export function FilePanel({ onClose, floor = false, back, beside, onPreviewing, 
       />
     </Sheet>
     {preview?.on !== true ? null : (
-      <Sheet kind="file-preview" beside="side-panel" open floating floor={floor} title="Preview" size="panel" closeLabel="Close" closeBinding="Esc" onClose={preview.toggle}>
+      <Sheet kind="file-preview" beside="side-panel" open floating floor={floor} title="Preview" size="panel" closeLabel="Close" closeBinding="Esc" controls={<Switch checked={previewByDefault} onChange={(event) => setPreviewByDefault(event.target.checked)}>Open previews by default</Switch>} onClose={previewByDefault ? onClose : preview.toggle}>
         <div ref={read} className="armada-file-panel__read" onKeyDown={noted.viewer.onKeyDown}>
           <MarkdownPreview
             text={file.text ?? ""}

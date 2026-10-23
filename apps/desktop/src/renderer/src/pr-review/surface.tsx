@@ -16,7 +16,7 @@ import "./pr-review.css";
 
 export function ReviewsSurface({ picked, onOpenLink, onOpenSession }: { picked: RepositorySummary | null; onOpenLink: (address: string) => void; onOpenSession: (id: string) => void }) {
   const grid = useRef<HTMLDivElement>(null);
-  const { columns, resize, reset } = useColumns(grid);
+  const { columns, resize, reset } = useColumns(grid, "reviews");
   return (
     <PickedRepository.Provider value={picked}>
     <div className="armada-cockpit deck pr-surface">
