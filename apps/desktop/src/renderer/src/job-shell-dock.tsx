@@ -1,6 +1,6 @@
 // A Job view's docked place: a block's run and the Job's shell, switched as tabs where both show.
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { DockedTerminal, XtermScreen, type ShellDockPane, type ShellPaneProps, type TerminalDockRun } from "@armada/components";
 
 import { shellsOf, useJobShell, type ShellPlace } from "./job-shell";
@@ -19,6 +19,16 @@ export function useJobDock(sessionId: string, place: ShellPlace, run: TerminalDo
   const shells = served ? shellsOf(window.armada) : null;
   const { shell, shown } = useJobShell(shells, place, sessionId);
   const [front, setFront] = useState<ShellDockPane>("shell");
+  // A shell the agent opened shows in the view of its Job, in front.
+  useEffect(
+    () =>
+      shells?.onOpened((opened) => {
+        if (opened !== sessionId) return;
+        shells.show(place, sessionId, true);
+        setFront("shell");
+      }),
+    [shells, place, sessionId],
+  );
   if (!served) return { dock: run, terminal: undefined, pane: null };
   const dock: TerminalDockRun = {
     ...run,

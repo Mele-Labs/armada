@@ -8,6 +8,7 @@ import { page, userEvent } from "vitest/browser";
 
 import { s322SessionShell, shellCalls } from "./scenarios/session-shell";
 import { mount, onScreen, toSession, unmountAfterEach } from "./testing";
+import { timePasses } from "./time-passes";
 
 unmountAfterEach();
 
@@ -92,4 +93,40 @@ test("A block Run beside the shell: two tabs, the run's named by its command cut
   await pane().getByRole("button", { name: "Close" }).click();
   await expect.element(pane().getByRole("button", { name: "End shell" })).toBeVisible();
   expect(pane().getByRole("tablist").query()).toBeNull();
+});
+
+const SERVED = /Local:.*localhost:5173/;
+
+test("The agent opening the Job's shell shows its pane in front, and the shell ending says so", async () => {
+  await open();
+  expect(document.querySelector(".armada-terminal")).toBeNull();
+  timePasses();
+
+  await expect.element(pane()).toBeVisible();
+  await expect.element(pane().getByText(SERVED)).toBeVisible();
+  await expect.element(pane().getByRole("button", { name: "End shell" })).toBeVisible();
+  expect(shellCalls()!.opened).toEqual([]);
+  await userEvent.click(pane().getByRole("textbox", { name: "Terminal input" }));
+  await userEvent.keyboard("{Control>}c{/Control}");
+  await userEvent.keyboard("exit{Enter}");
+  await expect.element(pane().getByText("Shell ended")).toBeVisible();
+});
+
+test("A shell the agent opened while another Job was open draws whole once Terminal shows it", async () => {
+  mount(s322SessionShell);
+  await onScreen();
+  await toSession(/Store migration spike/);
+  timePasses();
+  // The server's first lines, before it prints more and they scroll off the pane.
+  await new Promise((done) => window.setTimeout(done, 1000));
+  // Not this Job's shell: its view docks nothing.
+  expect(document.querySelector(".armada-terminal")).toBeNull();
+
+  const view = await toSession(/Deploy the store/);
+  expect(document.querySelector(".armada-terminal")).toBeNull();
+  await view.getByRole("button", { name: "Terminal", exact: true }).click();
+  // Handed the shell already open, which printed everything before this pane was drawn.
+  await expect.element(pane().getByText(SERVED)).toBeVisible();
+  await expect.element(pane().getByText(/VITE v6\.3\.5/)).toBeVisible();
+  expect(shellCalls()!.opened).toEqual([]);
 });
