@@ -13,6 +13,8 @@ pub const SLOT_BUILD_TRIM_AFTER_DAYS: Integer = Integer("limits.slotBuildTrimAft
 pub const SLOT_BUILD_CEILING_GIB: Integer = Integer("limits.slotBuildCeilingGib");
 pub const PORT_RANGE_BASE: Integer = Integer("limits.portRangeBase");
 pub const PORT_BLOCK_GRANULE: Integer = Integer("limits.portBlockGranule");
+pub const WATCHES_AT_ONCE: Integer = Integer("limits.watchesAtOnce");
+pub const WATCHES_PER_JOB: Integer = Integer("limits.watchesPerJob");
 
 pub(super) const LIMITS: &[Entry] = &[
     // **Two, and the ceiling is not what bounds it.** Spike 012 ran five Drones
@@ -147,6 +149,34 @@ pub(super) const LIMITS: &[Entry] = &[
         shipped: Shipped::Integer(8),
         applies: Applies::AtRestart,
         row: Some("port-block-granule"),
+        env: None,
+        tip: None,
+    },
+    // **Two, as Drones at once.** A watch's command is a provider's command-line tool, mostly
+    // waiting on the network, so it costs little; two bounds what Fleet runs on a clock nobody
+    // is watching. Measured on nothing.
+    Entry {
+        key: WATCHES_AT_ONCE.0,
+        section: Section::Limits,
+        title: "Watches at once",
+        description: "How many watches run their command at the same time on this machine. One that is due waits for a place.",
+        kind: Kind::Integer { min: 1, max: 8, unit: "watches" },
+        shipped: Shipped::Integer(2),
+        applies: Applies::Live,
+        row: Some("watches-at-once"),
+        env: None,
+        tip: None,
+    },
+    // Five: the Job spike 36 replayed needed two, a CI run and a deploy.
+    Entry {
+        key: WATCHES_PER_JOB.0,
+        section: Section::Limits,
+        title: "Watches a Job may hold",
+        description: "How many live watches one Job may hold. Starting one more is refused, and the refusal says so.",
+        kind: Kind::Integer { min: 1, max: 20, unit: "watches" },
+        shipped: Shipped::Integer(5),
+        applies: Applies::Live,
+        row: Some("watches-per-job"),
         env: None,
         tip: None,
     },

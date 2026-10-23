@@ -205,6 +205,18 @@ fn the_rules_say_which_subagent_and_which_model() {
     }
 }
 
+/// A watch is what a session starts to follow a deploy, and is a wait it holds without a `waiting_for`
+/// item, so the rules name the call and the ending that a live one forbids.
+#[test]
+fn the_rules_say_to_start_a_watch_and_that_a_live_one_is_a_wait() {
+    let watching = rules().split("\n\n").find(|block| block.starts_with("Watching.")).expect("a watching paragraph");
+    for named in ["`start_watch`", "`weigh_watch`", "pull request's own checks", "set aside"] {
+        assert!(watching.contains(named), "{named}");
+    }
+    let finishing = rules().split("\n\n").find(|block| block.starts_with("Finishing.")).expect("a finishing paragraph");
+    assert!(finishing.contains("A live watch is a wait as an open pull request is: do not call `all_done` while one runs, add no `waiting_for` item for it"));
+}
+
 /// A hosted session is told to dispute a Fleet notice it finds wrong through the call, not only in
 /// its reply, since the call is what starts the review.
 #[test]
@@ -226,7 +238,7 @@ const HOSTED_ONLY: &str = "Fleet's notices.";
 fn the_output_style_carries_the_rules_verbatim() {
     let style = include_str!("../../../../plugins/armada/output-styles/armada.md");
     let blocks: Vec<&str> = rules().split("\n\n").skip(1).filter(|block| !block.starts_with(HOSTED_ONLY)).collect();
-    assert_eq!(blocks.len(), 5, "needs, progress, planning, subagents, finishing");
+    assert_eq!(blocks.len(), 6, "needs, progress, planning, subagents, watching, finishing");
     for block in blocks {
         assert!(style.contains(block), "the style has drifted from: {block}");
     }

@@ -365,6 +365,8 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
                 turn_interval,
                 |why| eprintln!("main was not read: {why}"),
             );
+            // Each Job's watches: a command run when due, on a timer of their own, and the notices they owe.
+            fleet::watches::keep_running_watches(Arc::clone(&fleet), fleet::watches::EVERY);
             // Pull requests and issues, for the same reason: a landing is told to its Job
             // without waiting behind a Check.
             fleet::notice_loop::keep_noticing(

@@ -20,7 +20,7 @@ import { bayActs } from "../commands";
 
 type Of<K extends PanelItem["kind"]> = Extract<PanelItem, { kind: K }>;
 
-function Open({ address, onOpenLink }: { address: string; onOpenLink: (address: string) => void }) {
+export function Open({ address, onOpenLink }: { address: string; onOpenLink: (address: string) => void }) {
   return (
     <span className="armada-pr-panel__open">
       <Tooltip label="Open in browser">
@@ -49,7 +49,7 @@ export function useBack(): SheetBack | undefined {
   return was === undefined ? undefined : { label: `Back to ${nameOf(was)}`, tooltip: `Back to ${nameOf(was)}`, onBack: panelBack };
 }
 
-const nameOf = (item: PanelItem): string => (item.kind === "pr" ? `#${item.number}` : item.kind === "issue" ? issueLabel(item.number) : item.kind === "bay" ? `slot-${item.slot}` : item.kind === "file" ? (item.path.split("/").pop() ?? item.path) : item.kind === "requests" ? "Requests" : item.kind === "teach" ? "Teach" : (item.name ?? "Check"));
+const nameOf = (item: PanelItem): string => (item.kind === "pr" ? `#${item.number}` : item.kind === "issue" ? issueLabel(item.number) : item.kind === "bay" ? `slot-${item.slot}` : item.kind === "file" ? (item.path.split("/").pop() ?? item.path) : item.kind === "requests" ? "Requests" : item.kind === "watch" ? item.name : item.kind === "teach" ? "Teach" : (item.name ?? "Check"));
 
 // ---- An issue -----------------------------------------------------------------------------------------
 

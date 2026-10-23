@@ -14,6 +14,9 @@ pub const HELM_REPLY_SECONDS: Seconds = Seconds("timeouts.helmReplySeconds");
 pub const MERGE_NOTICE_SECONDS: Seconds = Seconds("timeouts.mergeNoticeSeconds");
 pub const RESOURCE_POLL_SECONDS: Seconds = Seconds("timeouts.resourcePollSeconds");
 pub const BUILD_SWEEP_SECONDS: Seconds = Seconds("timeouts.buildSweepSeconds");
+pub const WATCH_RUN_SECONDS: Seconds = Seconds("timeouts.watchRunSeconds");
+pub const WATCH_EVERY_SECONDS: Seconds = Seconds("timeouts.watchEverySeconds");
+pub const WATCH_GIVE_UP_MINUTES: Integer = Integer("timeouts.watchGiveUpMinutes");
 pub const TURN_INTERVAL_MS: Integer = Integer("timeouts.turnIntervalMs");
 pub const BRIDGE_RECONNECT_MS: Integer = Integer("timeouts.bridgeReconnectMs");
 
@@ -197,6 +200,48 @@ pub(super) const TIMEOUTS: &[Entry] = &[
         shipped: Shipped::Integer(2_000),
         applies: Applies::Live,
         row: Some("bridge-to-fleet-reconnect-timeout-attempts"),
+        env: None,
+        tip: None,
+    },
+    // Measured on nothing: spike 36 replayed readings and never timed a live command. Thirty
+    // seconds is half the minute it read at, so a hung run cannot overlap the next.
+    Entry {
+        key: WATCH_RUN_SECONDS.0,
+        section: Section::Timeouts,
+        title: "Watch run",
+        description: "How long one run of a watch's command may take before it is stopped and read as broken.",
+        kind: Kind::Seconds { min: 5, max: 600 },
+        shipped: Shipped::Seconds(30),
+        applies: Applies::Live,
+        row: Some("watch-run-timeout"),
+        env: None,
+        tip: None,
+    },
+    // **The floor, not a cadence.** A recipe or an agent names how often; one asking for less
+    // than this is refused. Spike 36 read once a minute and missed no moment that mattered.
+    Entry {
+        key: WATCH_EVERY_SECONDS.0,
+        section: Section::Timeouts,
+        title: "Fastest a watch may run",
+        description: "The shortest wait between two runs of a watch's command. A watch asking to run more often is refused.",
+        kind: Kind::Seconds { min: 10, max: 3_600 },
+        shipped: Shipped::Seconds(30),
+        applies: Applies::Live,
+        row: Some("watch-every-floor"),
+        env: None,
+        tip: None,
+    },
+    // Two hours where nothing is named, and a day at most, which is also the most a watch may
+    // ask for. Spike 36's three deploy runs each ended within 30 minutes of the push.
+    Entry {
+        key: WATCH_GIVE_UP_MINUTES.0,
+        section: Section::Timeouts,
+        title: "Watch gives up after",
+        description: "How long a watch that names no time of its own runs before it gives up. None may ask for more than a day.",
+        kind: Kind::Integer { min: 1, max: 1_440, unit: "minutes" },
+        shipped: Shipped::Integer(120),
+        applies: Applies::Live,
+        row: Some("watch-give-up"),
         env: None,
         tip: None,
     },
