@@ -43,6 +43,8 @@ mod fleet_disputes;
 mod session_tells;
 mod session_later;
 mod notice_mutes;
+/// The link rules a person taught.
+mod taught_links;
 mod session_waiting;
 mod sleep_night;
 /// A repository's Autopilot and what it picked. #2092.
@@ -136,6 +138,7 @@ pub use session_rail::{KeptCite, KeptConcern, KeptRail, KeptReading, SETTLED_KEP
 pub use session_tells::KeptTell;
 pub use session_later::KeptLater;
 pub use notice_mutes::LiveMutes;
+pub use taught_links::TaughtLink;
 pub use session_waiting::KeptWaiting;
 pub use session_checks::KeptSessionCheck;
 pub use test_map::{StaleTest, TestsReaching};
