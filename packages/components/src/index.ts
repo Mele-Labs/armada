@@ -5,6 +5,7 @@
 export * from "./primitives/Alert/Alert";
 export * from "./primitives/AttachmentChip/AttachmentChip";
 export * from "./primitives/Badge/Badge";
+export * from "./primitives/Enlargeable/Enlargeable";
 export * from "./primitives/Button/Button";
 export * from "./primitives/Card/Card";
 export * from "./primitives/Checkbox/Checkbox";
@@ -435,3 +436,6 @@ export { CodeEditor, languageOf, typeIntoEditor } from "./compositions/FilePanel
 export type { CodeEditorProps, CodeLanguage } from "./compositions/FilePanel/CodeEditor";
 export * from "./compositions/LinkPanel/LinkPanel";
 export * from "./compositions/LinkPanel/LinkOffer";
+
+// A Job's Artifacts as a graph of how it grew, on GraphCanvas: one node to an artifact, its versions marks inside it.
+export * from "./compositions/ArtifactGraph/ArtifactGraph";

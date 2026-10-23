@@ -16,6 +16,7 @@ import type { Scenario } from "./moment";
 import { SLICES } from "./slices";
 import type { AnySlice } from "./slices";
 import { cockpitRoutes } from "./cockpit-routes";
+import { readHistory } from "../session-history";
 import type { SessionsStore } from "./sessions/script";
 import { onTimePassing } from "./time-passes";
 
@@ -67,6 +68,8 @@ export function fakeBridge(scenario: Scenario, options: FakeOptions = {}): Bridg
         },
   );
   if (sessions !== undefined) {
+    // Fixtures hold no history of their own: it is read from the scenario's Fleet, as the window reads it from the real one.
+    sessions.history ??= (id) => readHistory(fake, id);
     SESSIONS.set(fake, sessions);
     // The Cockpit's session routes over those Sessions, unless the scenario serves its own or leaves Sessions out.
     if (kept.some((one) => one.name === "sessions")) {
@@ -75,6 +78,7 @@ export function fakeBridge(scenario: Scenario, options: FakeOptions = {}): Bridg
       if (own?.claimPullRequest === undefined) fake.claimPullRequest = served.claimPullRequest;
       if (own?.claimIssue === undefined) fake.claimIssue = served.claimIssue;
       if (own?.dismissWaiting === undefined) fake.dismissWaiting = served.dismissWaiting;
+      if (own?.confirmWaiting === undefined) fake.confirmWaiting = served.confirmWaiting;
     }
   }
   return fake;

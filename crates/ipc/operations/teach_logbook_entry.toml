@@ -1,0 +1,8 @@
+[operations.teach_logbook_entry]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Teach Armada an entry by hand, which stands at once"
+notes = """
+`POST /logbook/entries`, body `{section, repository?, kind, text, paths?, source?}`. Answers with the entry. It stands with no Job behind it, marked edited, and is handed to the next Job. It has no evidence unless `source` `{session_id, cite}` names what the person pressed Teach on (a message, notice or Check): that is its one evidence row, the Session as the Job and the cite as given. Teaching text an entry already says leaves the evidence that entry had. `repository` is a root `list_repositories` names and is required for `repo`; the other sections ignore it. A `section` or `kind` outside its set is a 400. A `repo` entry with no `repository` is a 422 `fleet.logbook_repository_missing`, and a root Fleet does not serve a 404 `fleet.run_memory_repository_not_served`. Text that is empty or over 400 characters is a 422 `fleet.logbook_text_refused`. **Teaching text the person forgot lifts that forgetting**, since teaching it is asking it back. Teaching text an entry already says stands that entry and answers with it.
+"""

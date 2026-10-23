@@ -3,11 +3,16 @@
 
 use std::collections::BTreeMap;
 
+use crate::migrations::MIGRATIONS;
 use crate::tests::{open, TempDir};
 use crate::{
     AttachmentState, Holder, KeptAttachment, KeptSession, SessionFigures,
-    SessionSearch, SessionState,
+    SessionSearch, SessionState, Store,
 };
+
+const VERSIONS: &str = "session_ledger.versions";
+/// Reads the versions' table, so a build without that table has none of it either.
+const ORIGINS: &str = "session_ledger.version_origins";
 
 fn session(id: &str) -> KeptSession {
     KeptSession {
@@ -450,4 +455,166 @@ fn a_repositorys_helm_session_is_found_live_and_the_latest_is_found_ended() {
     assert!(store.live_helm_of("armada").expect("read").is_none());
     let latest = store.latest_helm_of("armada").expect("read").expect("the newest");
     assert_eq!((latest.session_id.as_str(), latest.model.as_deref()), ("new", Some("opus")));
+}
+
+fn story(store: &Store, holder: &Holder) -> Vec<(String, String, AttachmentState, String)> {
+    store
+        .attachment_versions(holder)
+        .expect("reads")
+        .into_iter()
+        .map(|v| (v.kind, v.target, v.state, v.at))
+        .collect()
+}
+
+#[test]
+fn an_artifact_keeps_each_version_it_stood_in_and_a_repeat_adds_none() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    let holder = Holder::session("s1");
+    let mut file = attachment(holder.clone(), "artifact", "notes.md", "t1");
+    store.attach(&file, false).expect("taken");
+    file.detail = BTreeMap::from([("lines".to_string(), "40".to_string())]);
+    file.changed_at = "t2".into();
+    assert!(store.attach(&file, false).expect("taken"));
+    assert!(store
+        .give_back(&holder, Some("artifact"), "t3")
+        .expect("given back"));
+
+    let versions = store.attachment_versions(&holder).expect("reads");
+    let seen: Vec<_> = versions.iter().map(|v| (v.state, v.at.as_str())).collect();
+    assert_eq!(
+        seen,
+        [
+            (AttachmentState::Standing, "t1"),
+            (AttachmentState::Standing, "t2"),
+            (AttachmentState::GivenBack, "t3")
+        ]
+    );
+    assert!(versions[0].detail.is_empty());
+    assert_eq!(versions[1].detail.get("lines").map(String::as_str), Some("40"));
+
+    // The same detail and state again changes the row not at all, so adds no version.
+    let mut again = file.clone();
+    again.state = AttachmentState::GivenBack;
+    again.changed_at = "t4".into();
+    assert!(!store.attach(&again, false).expect("taken"));
+    assert_eq!(store.attachment_versions(&holder).expect("reads").len(), 3);
+}
+
+#[test]
+fn every_writer_that_moves_a_row_leaves_a_version_and_one_that_moves_nothing_leaves_none() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    let holder = Holder::session("s1");
+    let other = Holder::session("s2");
+    store
+        .attach(&attachment(holder.clone(), "pr", "41", "t1"), false)
+        .expect("taken");
+    store
+        .attach(&attachment(holder.clone(), "slot", "3", "t1"), true)
+        .expect("taken");
+    store
+        .attach(&attachment(holder.clone(), "subagent", "a", "t1"), false)
+        .expect("taken");
+    store
+        .attach(&attachment(other.clone(), "pr", "41", "t1"), false)
+        .expect("taken");
+    // Exclusive: slot 4 gives slot 3 back.
+    store
+        .attach(&attachment(holder.clone(), "slot", "4", "t2"), true)
+        .expect("taken");
+    // Follow: the forge says the pull request merged, with a new detail.
+    let pr = store.attachments_of(&holder).expect("reads")
+        .into_iter()
+        .find(|row| row.kind == "pr")
+        .expect("the pull request");
+    let merged = BTreeMap::from([("state".to_string(), "merged".to_string())]);
+    store.follow(&pr, AttachmentState::Spent, &merged, "t3").expect("followed");
+    // Settle one, settle all, stop a subagent: stamped again where it already reads spent.
+    store
+        .settle(&holder, "slot", "armada", "4", AttachmentState::Spent, "t4")
+        .expect("settled");
+    store.subagent_stopped(&holder, "armada", "a", "t5").expect("stopped");
+    store.subagent_stopped(&holder, "armada", "a", "t6").expect("stopped");
+
+    let read: Vec<_> = story(&store, &holder)
+        .into_iter()
+        .map(|(kind, target, state, at)| (kind, target, state.as_text(), at))
+        .collect();
+    let want = |kind: &str, target: &str, state: &'static str, at: &str| {
+        (kind.to_string(), target.to_string(), state, at.to_string())
+    };
+    assert_eq!(
+        read,
+        [
+            want("pr", "41", "standing", "t1"),
+            want("slot", "3", "standing", "t1"),
+            want("subagent", "a", "standing", "t1"),
+            want("slot", "3", "given_back", "t2"),
+            want("slot", "4", "standing", "t2"),
+            want("pr", "41", "spent", "t3"),
+            want("slot", "4", "spent", "t4"),
+            want("subagent", "a", "spent", "t5"),
+        ],
+        "oldest first; the second stop moved only changed_at"
+    );
+    assert_eq!(story(&store, &other).len(), 1, "another holder's history is its own");
+}
+
+#[test]
+fn a_row_kept_before_versions_were_is_seeded_with_one_version_at_its_since() {
+    let dir = TempDir::new();
+    let before: Vec<_> = MIGRATIONS
+        .iter()
+        .filter(|m| m.name != VERSIONS && m.name != ORIGINS)
+        .copied()
+        .collect();
+    let mut old = Store::open_with(&dir.db(), &before).expect("a build before versions");
+    let holder = Holder::session("s1");
+    old.attach(&attachment(holder.clone(), "artifact", "notes.md", "t1"), false)
+        .expect("taken");
+    old.give_back(&holder, None, "t2").expect("given back");
+    drop(old);
+
+    let store = open(&dir);
+    assert_eq!(
+        story(&store, &holder),
+        [("artifact".to_string(), "notes.md".to_string(), AttachmentState::GivenBack, "t1".to_string())]
+    );
+}
+
+#[test]
+fn forgetting_a_blank_session_forgets_its_versions_and_only_its_own() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    let blank = KeptSession {
+        manifest_id: None,
+        cwd: String::new(),
+        title: None,
+        state: SessionState::Ended,
+        ..session("blank")
+    };
+    store.keep_session(&blank).expect("kept");
+    // A version whose row is gone: blank means nothing is held, so only a leftover can be here.
+    for holder_id in ["blank", "elsewhere"] {
+        store.keep_session_message(holder_id, "m1").expect("a focus");
+        store
+            .conn
+            .execute(
+                "INSERT INTO ledger_attachment_versions
+                 (holder_kind, holder_id, kind, manifest_id, target, state, detail, at)
+                 VALUES ('session', ?1, 'artifact', '', 'x', 'standing', '{}', 't1')",
+                [holder_id],
+            )
+            .expect("a leftover");
+    }
+
+    assert_eq!(store.forget_blank_sessions().expect("forgets"), 1);
+    assert!(story(&store, &Holder::session("blank")).is_empty());
+    assert_eq!(story(&store, &Holder::session("elsewhere")).len(), 1);
+    let kept = |table: &str| -> i64 {
+        store.conn.query_row(&format!("SELECT count(*) FROM {table}"), [], |row| row.get(0)).expect("a count")
+    };
+    assert_eq!(kept("ledger_attachment_version_origins"), 1, "where its versions came from goes with them");
+    assert_eq!(kept("session_focus"), 1);
 }

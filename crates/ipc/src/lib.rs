@@ -179,6 +179,7 @@ mod session_starts;
 mod session_waits;
 mod session_summary;
 mod run_memory;
+mod logbook;
 mod notices;
 mod session_import;
 mod sessions;
@@ -380,6 +381,7 @@ pub use mods::{
 pub use clashes::{
     ClashFile, ClashHolder, ClashSide, WriteClash, WriteClashes,
 };
+pub use logbook::{ForSubagent, Recalled, RecalledEntry, SubagentAsk};
 pub use territory::{
     AreaKid, AreasOfRepository, HolderTouches, RepositoryArea, RepositoryAreas, SessionFileChange,
     SlotTouches, TouchesInRepository,
@@ -434,6 +436,10 @@ pub use repositories::{
     AddRepository, CloneRepository, CreateProject, RepositoryList, RepositorySummary, RequestRepository,
 };
 pub use requester::Requester;
+pub use logbook::{
+    EditLogbookEntry, Logbook, LogbookEarlier, LogbookEntry, LogbookEvidence, ForgottenLogbookEntry, LogbookKind, LogbookReplacedBy,
+    LogbookSection, LogbookState, LockLogbookEntry, TeachLogbookEntry, TeachSource,
+};
 pub use notices::{Notice, NoticeScope, SetNoticeMute};
 pub use run_memory::{
     DropRunFact, RememberedRun, RunCloud, RunFactState, RunMemory, RunMemoryPlace, RunPlace, RunWorkspace, SetRunMemoryPlace,
@@ -506,8 +512,8 @@ pub use session_summary::{
     HeldPullRequest, SessionSummaries, SessionSummary, SessionView, TurnState,
 };
 pub use sessions::{
-    AnswerWaiting, Attachment, AttachmentNamed, AttachmentReport, AttachmentState,
-    DismissWaiting, ClaimPullRequest, Holder, HolderKind, MainRedTaken, Owners, Ownership,
+    AnswerWaiting, Attachment, AttachmentHistory, AttachmentNamed, AttachmentReport, AttachmentState,
+    AttachmentVersion, ConfirmWaiting, DismissWaiting, ClaimPullRequest, Holder, HolderKind, MainRedTaken, Owners, Ownership,
     PullRequestClaimed, RenameSession, TakeMainRed, SessionFact, SessionId, SessionList,
     SessionOrigin, ProposedField, SessionProposal, SessionRecord, SessionReport,
     LaterHow, LaterSettled, SessionLater, SettleLater,

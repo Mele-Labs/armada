@@ -11,7 +11,6 @@ import { Button, DropdownMenu, Kbd, PrMark, Textarea, Tooltip, agoOf, forgetKept
 import type { DropdownMenuEntry } from "@armada/components";
 import type { RepositorySummary } from "@armada/protocol";
 
-import { openInPanel } from "../shared-panel/store";
 import { REVIEW_KEYS, capOf } from "./key-table";
 import { ChecksMark, ReviewMark, RunFailed } from "./marks";
 import type { Find, ReviewPr } from "./model";
@@ -142,7 +141,7 @@ export function ReviewList({ picked }: { picked: RepositorySummary | null }) {
       <ul className="deck-list__rows pr-list__rows">
         {rows.map(({ pr, reason }) => (
           <li key={pr.key} className="deck-list__item">
-            <button type="button" className="pr-row" data-selected={open === pr.key || undefined} aria-current={open === pr.key || undefined} aria-label={`#${pr.number} ${pr.title}`} onClick={() => void openInPanel({ kind: "pr", number: pr.number, address: pr.address, repository: pr.repository, manifestId: pr.manifestId, title: pr.title, branch: pr.branch, tab: "review" })}>
+            <button type="button" className="pr-row" data-selected={open === pr.key || undefined} aria-current={open === pr.key || undefined} aria-label={`#${pr.number} ${pr.title}`} onClick={() => store.open(pr.key)}>
               <span className="pr-row__title">{pr.title}</span>
               <ReviewMark review={work[pr.key]?.review ?? NO_WORK.review} />
               <ChecksMark checks={pr.checks} />

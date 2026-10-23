@@ -170,7 +170,7 @@ pub use conversing::{
 };
 pub use error::{CommitWorkError, CreateWorktreeError, ReadWorkProductError};
 pub use existing_setup::{ExistingSetup, Home};
-pub use forge_address::{issues_linked_in, linked_in, remote_of, ForgeAddress};
+pub use forge_address::{issues_linked_in, linked_in, links_in, remote_of, ForgeAddress};
 pub use github_api::{
     Answer, ApiFailure, GitHubApi, GitHubRepository, NotGitHub, Paged, RateLimit, GITHUB_HOST,
 };

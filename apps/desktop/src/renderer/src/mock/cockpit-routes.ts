@@ -60,7 +60,7 @@ const refused = (code: string, message: string) => ({
 /** The record a served act answers with. The Cockpit reads that it was taken and nothing more. */
 const taken = (id: string) => ({ ok: true as const, value: { id } as SessionRecord });
 
-export function cockpitRoutes(sessions: SessionsStore, state: () => BridgeState): Pick<BridgeApi, "answerWaiting" | "claimIssue" | "claimPullRequest" | "dismissWaiting"> {
+export function cockpitRoutes(sessions: SessionsStore, state: () => BridgeState): Pick<BridgeApi, "answerWaiting" | "claimIssue" | "claimPullRequest" | "confirmWaiting" | "dismissWaiting"> {
   return {
     answerWaiting: async ({ session_id, item_id, choice, text }) => {
       const paced = sessions.pace ?? INSTANT;
@@ -93,6 +93,15 @@ export function cockpitRoutes(sessions: SessionsStore, state: () => BridgeState)
         return refused("fleet.session_waiting_unheld", "nothing is waiting under that item. It was settled already, or the session stopped waiting");
       }
       settled(paced, () => sessions.drop(session_id, item_id, reason));
+      return taken(session_id);
+    },
+    confirmWaiting: async ({ session_id, item_id }) => {
+      await answered(sessions.pace ?? INSTANT);
+      const session = sessions.get().find((one) => one.id === session_id);
+      if (session === undefined || !waitingOf(session).some((one) => one.id === item_id)) {
+        return refused("fleet.session_waiting_unheld", "nothing is waiting under that item. It was settled already, or the session stopped waiting");
+      }
+      sessions.confirm(session_id, item_id);
       return taken(session_id);
     },
     claimPullRequest: async ({ number, session_id }) => {

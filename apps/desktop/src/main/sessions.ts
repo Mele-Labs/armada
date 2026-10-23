@@ -38,6 +38,7 @@ import type {
   SettleLater,
   ClaimPullRequest,
   DismissConcern,
+  ConfirmWaiting,
   DismissWaiting,
   Followed,
   FrameRead,
@@ -68,6 +69,7 @@ import type {
   SessionRunUnderway,
   SessionSubagent,
   SessionLoadout,
+  AttachmentHistory,
   McpServerAct,
   SessionMcp,
   SessionMcpActed,
@@ -610,6 +612,10 @@ export class SessionsHost {
     return await this.act("POST", "/sessions/waiting/dismiss", dismiss);
   }
 
+  async confirmWaiting(confirm: ConfirmWaiting): Promise<SessionActed> {
+    return await this.act("POST", "/sessions/waiting/confirm", confirm);
+  }
+
   /** The person approved a plan. Fleet tells the agent and answers the record, which is folded. */
   async approvePlan(approve: ApprovePlan): Promise<SessionActed> {
     return await this.act("POST", "/sessions/plan/approve", approve);
@@ -760,6 +766,14 @@ export class SessionsHost {
     if (port === null) return { ok: false, outcome: NOT_CONNECTED };
     const answer = await ask(port, "GET", `/sessions/loadout?session_id=${encodeURIComponent(sessionId)}`);
     return answer.ok === true ? { ok: true, value: answer.body as SessionLoadout } : { ok: false, outcome: answer.outcome };
+  }
+
+  /** Every version of everything a session holds, read whole each time the window asks. */
+  async attachmentHistory(sessionId: string): Promise<SessionActed<AttachmentHistory>> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    const answer = await ask(port, "GET", `/sessions/attachment_history?session_id=${encodeURIComponent(sessionId)}`);
+    return answer.ok === true ? { ok: true, value: answer.body as AttachmentHistory } : { ok: false, outcome: answer.outcome };
   }
 
   /** What one item of a session's Loadout says, as Fleet read it from disk. */

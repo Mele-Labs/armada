@@ -14,6 +14,7 @@ import type {
   SettleLater,
   ClaimPullRequest,
   DismissConcern,
+  ConfirmWaiting,
   DismissWaiting,
   Followed,
   FrameRead,
@@ -43,6 +44,7 @@ import type {
   SessionRunUnderway,
   SessionSubagent,
   SessionLoadout,
+  AttachmentHistory,
   McpServerAct,
   SessionMcp,
   SessionMcpActed,
@@ -103,6 +105,8 @@ export type SessionsApi = {
   settleLater: (settle: SettleLater) => Promise<SessionActed<LaterSettled>>;
   /** Drops one thing a session waits on for good. Nothing is sent to the agent. */
   dismissWaiting: (dismiss: DismissWaiting) => Promise<SessionActed>;
+  /** Thumbs up on a question Fleet read from a reply: the item stays and reads `confirmed`. Fleet refuses an item of any other source. */
+  confirmWaiting: (confirm: ConfirmWaiting) => Promise<SessionActed>;
   /** Approves the plan a Session recorded, the version he read. Fleet tells the agent. A newer version refuses. */
   approvePlan: (approve: ApprovePlan) => Promise<SessionActed>;
   /** Sends the marks he made on a plan to the agent as one message. The plan stays until the agent records it again. */
@@ -170,6 +174,8 @@ export type SessionsApi = {
   readSessionSubagent: (sessionId: string, subagentId: string) => Promise<SessionActed<SessionSubagent>>;
   /** What a Session's agent knows, was told and used each turn: `get_session_loadout`. Read again on a `session.changed`. */
   readSessionLoadout: (sessionId: string) => Promise<SessionActed<SessionLoadout>>;
+  /** Every version of everything a Session holds, oldest first: `get_attachment_history`. Read again on a `session.changed`. */
+  readAttachmentHistory: (sessionId: string) => Promise<SessionActed<AttachmentHistory>>;
   /** What one item of a Session's Loadout says, read from disk by Fleet: `read_loadout_item`. */
   readLoadoutItem: (sessionId: string, item: LoadoutItemAsk) => Promise<SessionActed<LoadoutItemBody>>;
   /** A hosted Session's MCP servers, asked of its process now: `get_session_mcp`. No event says to read again. */
@@ -289,6 +295,7 @@ export const SESSIONS_CHANNELS = {
   changeWaiting: "bridge:change-waiting",
   startWaitingNow: "bridge:start-waiting-now",
   dismissWaiting: "bridge:dismiss-waiting",
+  confirmWaiting: "bridge:confirm-waiting",
   approvePlan: "bridge:approve-plan",
   sendPlanChanges: "bridge:send-plan-changes",
   judgeSession: "bridge:judge-session",
@@ -313,6 +320,7 @@ export const SESSIONS_CHANNELS = {
   readSessionFile: "bridge:read-session-file",
   readSessionSubagent: "bridge:read-session-subagent",
   readSessionLoadout: "bridge:read-session-loadout",
+  readAttachmentHistory: "bridge:read-attachment-history",
   readLoadoutItem: "bridge:read-loadout-item",
   readSessionMcp: "bridge:read-session-mcp",
   actOnSessionMcp: "bridge:act-on-session-mcp",

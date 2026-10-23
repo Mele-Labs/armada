@@ -9,7 +9,7 @@
 //! [`studios`](mod@studios), event kinds in [`events`](mod@events), workflows' and Triggers' in [`authoring`](mod@authoring), settings in
 //! [`settings`](mod@settings), Autopilot's in [`autopilot`](mod@autopilot), a pull request panel's
 //! in [`pull_request_panel`](mod@pull_request_panel), repositories and Kit in
-//! [`repositories`](mod@repositories), retros and Lessons in [`retro`](mod@retro), runs and Servers
+//! [`repositories`](mod@repositories), retros, Lessons and the Logbook in [`retro`](mod@retro), runs and Servers
 //! in [`runs`](mod@runs), and every other row here. Each is a subject a reader opens on its own;
 //! [`SERVED`] stays one slice. The gate rule reads every file — `xtask/src/rules_protocol.rs`.
 
@@ -204,6 +204,16 @@ const ROUTES: &[Route] = &[
         path: "/sessions/owner",
     },
     Route {
+        operation: "recall",
+        method: "GET",
+        path: "/logbook/recall",
+    },
+    Route {
+        operation: "get_logbook_for_subagent",
+        method: "POST",
+        path: "/logbook/subagent",
+    },
+    Route {
         operation: "get_session_usage",
         method: "GET",
         path: "/sessions/usage",
@@ -222,6 +232,11 @@ const ROUTES: &[Route] = &[
         operation: "get_session_loadout",
         method: "GET",
         path: "/sessions/loadout",
+    },
+    Route {
+        operation: "get_attachment_history",
+        method: "GET",
+        path: "/sessions/attachment_history",
     },
     Route {
         operation: "read_loadout_item",
@@ -422,6 +437,11 @@ const ROUTES: &[Route] = &[
         operation: "dismiss_waiting",
         method: "POST",
         path: "/sessions/waiting/dismiss",
+    },
+    Route {
+        operation: "confirm_waiting",
+        method: "POST",
+        path: "/sessions/waiting/confirm",
     },
     Route {
         operation: "list_manifests",

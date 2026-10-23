@@ -275,3 +275,15 @@ fn a_clear_ask_keeps_its_own_words() {
     let got = extracted(reply, &close, &scores(reply, &["Should I split it into two files?"]), &scores(reply, &[]), Some(&clear));
     assert_eq!(sentences_of(&got), [(0, "Should I split it into two files?")]);
 }
+
+/// Beside a waiting walk, an ask that only names his approval is left out and the rest are numbered
+/// again; with no walk it is kept.
+#[test]
+fn beside_a_walk_an_ask_that_only_names_his_approval_is_left_out() {
+    let said = "When you approve one, I'll delete the other two, then land it.";
+    let reply = format!("Both takes are ready.\n\nWhich one do you want first?\n\n{said}");
+    let both = asks_of(&reply, &["Which one do you want first?", said], &[]);
+    assert_eq!(both.asks.len(), 2);
+    let beside = both.beside_a_walk();
+    assert_eq!(beside.asks.iter().map(|one| (one.sentence.as_str(), one.index)).collect::<Vec<_>>(), vec![("Which one do you want first?", 0)]);
+}

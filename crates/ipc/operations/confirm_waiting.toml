@@ -1,0 +1,10 @@
+[operations.confirm_waiting]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Say a question Fleet read from a job's reply is one, with thumbs up"
+notes = """
+`POST /sessions/waiting/confirm`, body `ConfirmWaiting`: `session_id` and `item_id`. Answered with the `SessionRecord`, and `SessionChanged` is published.
+
+**Only an item read from a reply** (source `replied`, id `replied:<ended>:<n>`) is confirmed; an item of any other source, or one nothing holds, is a 409. The item's sentence is kept for good, in no Session's name, as one that asks: `tools/lm-train` reads it as a positive example. The item stays, the agent is told nothing, and it carries `confirmed: true` on every read from then on, in any later turn that says the same sentence. The thumbs down is `dismiss_waiting` with `misread`.
+"""

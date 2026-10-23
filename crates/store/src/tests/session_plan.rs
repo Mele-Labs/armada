@@ -6,7 +6,7 @@ use crate::tests::{open, TempDir};
 use crate::{KeptPlan, KeptPlanChange, KeptPlanGroup, KeptPlanTask, KeptTouch};
 
 fn task(id: &str, text: &str) -> KeptPlanTask {
-    KeptPlanTask { id: id.to_string(), text: text.to_string(), listed: None, completed_at: None, edited: false }
+    KeptPlanTask { id: id.to_string(), text: text.to_string(), listed: None, completed_at: None, edited: false, started_at: None }
 }
 
 fn plan(version: u32, tasks: &[(&str, &str)]) -> KeptPlan {

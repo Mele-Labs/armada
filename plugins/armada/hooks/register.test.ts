@@ -13,7 +13,7 @@ type Posted = { url: string; body: any }
 
 function world(
   on: On,
-  options: { running?: () => boolean; slowReports?: boolean; heldGate?: Promise<void>; held?: string[]; heldCommands?: { command: string; args: string }[]; heldEnd?: boolean; model?: () => string; onCommand?: () => void; transcript?: string; tasksOnDisk?: Record<string, string>; env?: Record<string, string>; pullRequest?: string; cwd?: () => string; polls?: (string | Promise<string> | Error)[]; asks?: string; permission?: Record<string, unknown>; limits?: { kind: string; percentUsed: number; resetsAt?: string }[]; breakdown?: unknown; stopBlock?: string; thread?: unknown } = {},
+  options: { running?: () => boolean; slowReports?: boolean; heldGate?: Promise<void>; held?: string[]; heldCommands?: { command: string; args: string }[]; heldEnd?: boolean; model?: () => string; onCommand?: () => void; transcript?: string; tasksOnDisk?: Record<string, string>; env?: Record<string, string>; pullRequest?: string; cwd?: () => string; polls?: (string | Promise<string> | Error)[]; asks?: string; permission?: Record<string, unknown>; limits?: { kind: string; percentUsed: number; resetsAt?: string }[]; breakdown?: unknown; stopBlock?: string; thread?: unknown; logbook?: 'down' | 'slow' | 'refused' | string } = {},
 ) {
   const running = options.running ?? (() => true)
   const posts: Posted[] = []
@@ -22,6 +22,7 @@ function world(
   const submitted: { text: string; asUser?: boolean }[] = []
   const usages: unknown[] = []
   const asked: unknown[] = []
+  const logbookAsks: Posted[] = []
   const questions: any[] = []
   const ran: { command: string; args?: string }[] = []
   // What reached the engine, submits and commands alike, in the order they did.
@@ -71,6 +72,14 @@ function world(
         return Promise.resolve(poll).then(text => ({ value: { status: 200, ok: true, headers: {}, text } }))
       }
       return { value: { status: 200, ok: true, headers: {}, text: '{"outcome":"gone"}' } }
+    }
+    // What the Logbook hands a subagent: its text, a Fleet that fails, one too slow to wait for, or one without the route.
+    if (e.url.endsWith('/logbook/subagent')) {
+      logbookAsks.push({ url: e.url, body: JSON.parse(e.init?.body ?? '{}') })
+      if (options.logbook === 'down') throw new Error('connection refused')
+      if (options.logbook === 'slow') return new Promise(() => undefined)
+      if (options.logbook === 'refused') return { value: { status: 404, ok: false, headers: {}, text: '{}' } }
+      return { value: { status: 200, ok: true, headers: {}, text: JSON.stringify({ text: options.logbook ?? '' }) } }
     }
     // The session as Fleet holds it, or a Fleet that does not know it.
     if (e.url.includes('/sessions/one?')) {
@@ -129,7 +138,7 @@ function world(
   on('classic.SessionStart', () => ({}))
   on('classic.Stop', () => (options.stopBlock === undefined ? {} : { block: options.stopBlock }))
   on('tool.call', { tool: 'mcp__armada-fleet__waiting_for' }, () => ({ result: {}, text: '{}' }))
-  return { posts, attempts, clock, submitted, asked, ran, questions, order, usages, processes }
+  return { posts, attempts, clock, submitted, asked, ran, questions, order, usages, processes, logbookAsks }
 }
 
 const facts = (posts: Posted[]) => posts.map(one => one.body.fact)
@@ -264,6 +273,55 @@ test('a subagent is attached by its agent id and names the call that started it'
     kind: 'attached',
     attachment: { kind: 'subagent', target: 'a4c6', detail: { type: 'bridge-engineer', description: 'Mock walk', call: 'toolu_1' } },
   })
+})
+
+// What the subagent runs with is what the hook beneath the mod is handed.
+async function spawnedWith(on: On, $: any, prompt: string, options: Parameters<typeof world>[1]) {
+  const { posts, clock, logbookAsks } = world(on, options)
+  const prompts: string[] = []
+  on('agent.spawn', (_$, e) => {
+    prompts.push(e.prompt)
+    return { model: 'claude-haiku-4-5', agentId: 'a4c6' }
+  })
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  const spawning = $.agent.spawn({ prompt, description: 'Mock walk', subagentType: 'bridge-engineer', tool_use_id: 'toolu_1' } as never)
+  // Past the wait for the Logbook, which a Fleet too slow to answer runs out.
+  await clock.advance(2000)
+  const out = await spawning
+  await clock.settle()
+  return { prompts, posts, out, logbookAsks }
+}
+
+test('a subagent is given the Logbook lines Fleet has for the paths its prompt names', async ($, on) => {
+  const lines = 'How the owner works:\n- No AI-sounding copy.'
+  const { prompts, logbookAsks, out } = await spawnedWith(on, $, 'Fix apps/desktop/src/main.ts', { logbook: lines })
+
+  expect(logbookAsks.map(one => one.body)).toEqual([{ session_id: 'S1', prompt: 'Fix apps/desktop/src/main.ts' }])
+  expect(prompts).toEqual([`Fix apps/desktop/src/main.ts\n\n${lines}`])
+  expect(out.agentId).toBe('a4c6')
+})
+
+for (const logbook of ['down', 'slow', 'refused', '']) {
+  test(`a Fleet that answers ${logbook === '' ? 'nothing' : logbook} gives the subagent its prompt as it was, and no error`, async ($, on) => {
+    const { prompts, out } = await spawnedWith(on, $, 'Fix apps/desktop/src/main.ts', { logbook })
+
+    expect(prompts).toEqual(['Fix apps/desktop/src/main.ts'])
+    expect(out.agentId).toBe('a4c6')
+  })
+}
+
+test('a Fleet that is not running is not asked for the Logbook', async ($, on) => {
+  const { prompts, logbookAsks } = await spawnedWith(on, $, 'Fix apps/desktop/src/main.ts', { running: () => false, logbook: 'text' })
+
+  expect(prompts).toEqual(['Fix apps/desktop/src/main.ts'])
+  expect(logbookAsks).toEqual([])
+})
+
+test('a Drone gives its subagents no Logbook', async ($, on) => {
+  const { prompts, logbookAsks } = await spawnedWith(on, $, 'Fix it', { env: { ARMADA_DRONE: '1' }, logbook: 'text' })
+
+  expect(prompts).toEqual(['Fix it'])
+  expect(logbookAsks).toEqual([])
 })
 
 test('a subagent that stops is settled as spent', async ($, on) => {

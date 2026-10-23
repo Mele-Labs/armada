@@ -34,6 +34,32 @@ pub(super) const ROUTES: &[Route] = &[
         method: "POST",
         path: "/lessons/:lesson_id/disagree",
     },
+    // The Logbook: what Armada learned, and a person's acts on an entry.
+    Route {
+        operation: "get_logbook",
+        method: "GET",
+        path: "/logbook",
+    },
+    Route {
+        operation: "teach_logbook_entry",
+        method: "POST",
+        path: "/logbook/entries",
+    },
+    Route {
+        operation: "edit_logbook_entry",
+        method: "POST",
+        path: "/logbook/entries/:entry_id/edit",
+    },
+    Route {
+        operation: "lock_logbook_entry",
+        method: "POST",
+        path: "/logbook/entries/:entry_id/lock",
+    },
+    Route {
+        operation: "forget_logbook_entry",
+        method: "POST",
+        path: "/logbook/entries/:entry_id/forget",
+    },
     // Two model calls over the open items, neither of which stores anything.
     // `review` is a literal segment beside `:lesson_id`, which axum ranks first.
     Route {

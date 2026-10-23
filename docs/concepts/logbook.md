@@ -37,7 +37,7 @@ A `repo` section belongs to one repository, and a Job in another never sees it. 
 | `confirmed_by` | How many distinct Jobs confirmed it |
 | `first_seen`, `last_confirmed`, `last_served` | When |
 | `state` | `candidate`, `standing` or `faded` |
-| `pinned`, `edited` | Whether the person pinned it, and whether he changed its text |
+| `locked`, `edited` | Whether the person locked it, and whether he changed its text |
 
 ## The loop
 
@@ -80,7 +80,7 @@ It is written to the same rules for plain words as the retro call.
 | An entry is contradicted | Its text is **rewritten**, and the old text is kept as history |
 | An entry is tripped on | It is **strengthened**: rewritten more plainly, and moved to the top of what is served |
 | A standing entry is neither confirmed nor served for 30 days and 20 Jobs of its repository, or of any repository for `habits` and `machine` | It **fades**: kept and searchable, no longer served |
-| An entry is pinned | It never fades and is never rewritten |
+| An entry is locked | It never fades and is never rewritten |
 | An entry is forgotten | It goes on a deny list and never comes back |
 
 **The deny list is the rule run memory's dropped lines follow** ([Kit](kit.md), *A private repository*). The merge reads it first, so a later Distil does not bring a forgotten entry back.
@@ -94,19 +94,19 @@ Standing entries reach agents three ways.
 | Way | What is handed over |
 |---|---|
 | The start note of every new Job | `habits` first, then the repository's standing entries, then `machine`. Capped near 2k tokens, and what the cap leaves out is found with `recall` |
-| A subagent | The entries whose `paths` match where it works, through the Armada mod's hook ([Installing the Claude Code mod](session/installing-the-claude-code-mod.md)) |
-| The `recall` tool | A search of the whole Logbook, faded entries included, mid-task |
+| A subagent | The `habits` and the entries whose `paths` match the paths its prompt names, near 800 tokens, appended to its prompt by the Armada mod's `agent.spawn` hook ([Installing the Claude Code mod](session/installing-the-claude-code-mod.md)). A prompt that names no path gets the `habits` and the repository's best entries. A Fleet that does not answer hands it nothing |
+| The `recall` tool | A search of the whole Logbook for the Job's repository, its `habits` and `machine`, faded entries included, mid-task: the words of `query` held in an entry's text, those holding more first, then those more Jobs confirmed. It marks nothing served |
 
-**Serving an entry sets its `last_served`.** A strengthened entry leads its section when the cap cuts.
+**Serving an entry sets its `last_served`,** on the start note and on a subagent's, never on a search. A strengthened entry leads its section when the cap cuts.
 
 ## What the person does
 
-**The person sees one Logbook page in Bridge.** He can read an entry and its evidence, edit it, pin it or forget it. Nothing else is asked of him.
+**The person sees one Logbook page in Bridge.** He can read an entry and its evidence, edit it, lock it or forget it. Nothing else is asked of him.
 
 | Act | Does |
 |---|---|
 | Edit | Replaces the text and marks the entry `edited` |
-| Pin | It never fades and is never rewritten |
+| Lock | It never fades and is never rewritten |
 | Forget | Puts it on the deny list |
 
 ## Where it is kept
@@ -128,7 +128,7 @@ A `repo` section follows the place that repository's Armada configuration is kep
 
 | Existing | Relation |
 |---|---|
-| [Retro](retro.md) | Keeps only what Armada itself got wrong: bugs for Fleet or Bridge. A repository fact stops going to the Retros page, and Distil takes it. The open items that are really repository facts move into the Logbook once, and close |
+| [Retro](retro.md) | Keeps only what Armada itself got wrong: bugs for Fleet or Bridge. A repository fact stops going to the Retros page, and Distil takes it. The open items that are really repository facts move into the Logbook once, and close as `discarded` (*What the Logbook takes* in Retro) |
 | Run memory, in [Kit](kit.md) (*What a repository runs*) | Keeps its detector, which reads results off a Job's stream with no agent's word. Its facts become entries of the `repo` section, and its note is part of the Logbook note |
 | The machine note, in [Machine](machine.md) (*What a Job is told about this Mac*) | Keeps its detector. Its facts become entries of the `machine` section, and its note is part of the Logbook note |
 | The start note | The run note and the machine note become one Logbook note |

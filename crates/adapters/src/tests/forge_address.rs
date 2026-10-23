@@ -1,6 +1,6 @@
 //! Remotes and links reduced to the same address, so they can be compared.
 
-use crate::{issues_linked_in, linked_in, remote_of, ForgeAddress};
+use crate::{issues_linked_in, linked_in, links_in, remote_of, ForgeAddress};
 
 use super::repo::TempRepo;
 
@@ -70,4 +70,67 @@ fn the_issues_linked_into_one_repository_are_its_own_and_nothing_else() {
                  https://github.com/mele-labs/pocket/issues/9, #10 and https://github.com/mele-labs/armada/issues/7";
     assert_eq!(issues_linked_in(words, &armada), vec![7, 31]);
     assert!(issues_linked_in("#12 and issue 12", &armada).is_empty());
+}
+
+#[test]
+fn a_reply_keeps_the_pages_it_names_and_not_the_ones_on_this_machine_or_this_repositorys_tickets() {
+    let armada = address("https://github.com/mele-labs/armada");
+    let words = "Read https://docs.example.com/guide/start, then open http://localhost:5361/?walk=x \
+                 and https://github.com/Mele-Labs/armada/pull/12 for the change.";
+    assert_eq!(links_in(words, Some(&armada)), vec!["https://docs.example.com/guide/start"]);
+}
+
+#[test]
+fn a_link_loses_the_punctuation_that_ended_its_sentence() {
+    let armada = address("https://github.com/mele-labs/armada");
+    assert_eq!(links_in("See https://example.com/a.", Some(&armada)), vec!["https://example.com/a"]);
+    assert_eq!(links_in("(https://example.com/a?b=1, or https://example.com/c!)", Some(&armada)), vec![
+        "https://example.com/a?b=1",
+        "https://example.com/c",
+    ]);
+}
+
+#[test]
+fn a_markdown_link_yields_its_address() {
+    let armada = address("https://github.com/mele-labs/armada");
+    assert_eq!(links_in("the [spec](https://example.com/spec#part) says", Some(&armada)), vec!["https://example.com/spec#part"]);
+}
+
+#[test]
+fn a_link_is_kept_once_and_in_the_order_it_was_written() {
+    let armada = address("https://github.com/mele-labs/armada");
+    let words = "https://b.example.com/ https://a.example.com/ https://b.example.com/";
+    assert_eq!(links_in(words, Some(&armada)), vec!["https://b.example.com/", "https://a.example.com/"]);
+}
+
+#[test]
+fn only_web_addresses_are_links() {
+    let armada = address("https://github.com/mele-labs/armada");
+    let words = "git@github.com:a/b.git ssh://git@example.com/a/b file:///tmp/x ftp://example.com/x https://example.com/ok";
+    assert_eq!(links_in(words, Some(&armada)), vec!["https://example.com/ok"]);
+}
+
+#[test]
+fn every_spelling_of_this_machine_is_dropped() {
+    let armada = address("https://github.com/mele-labs/armada");
+    let words = "http://localhost/ http://127.0.0.1:8080/x http://[::1]:3000/ http://0.0.0.0:1/ \
+                 http://app.localhost:5173/ http://user@LOCALHOST:9/ https://notlocalhost.example.com/";
+    assert_eq!(links_in(words, Some(&armada)), vec!["https://notlocalhost.example.com/"]);
+}
+
+#[test]
+fn another_repositorys_tickets_are_links_and_this_ones_are_not() {
+    let armada = address("https://github.com/mele-labs/armada");
+    let words = "https://github.com/mele-labs/armada/issues/7 https://github.com/Mele-Labs/Armada/pull/8/files \
+                 https://github.com/mele-labs/pocket/issues/9 https://github.com/mele-labs/armada/blob/main/a.rs";
+    assert_eq!(links_in(words, Some(&armada)), vec![
+        "https://github.com/mele-labs/pocket/issues/9",
+        "https://github.com/mele-labs/armada/blob/main/a.rs",
+    ]);
+}
+
+#[test]
+fn a_checkout_with_no_forge_drops_only_what_is_on_this_machine() {
+    let words = "https://github.com/mele-labs/armada/pull/12 http://localhost:1/";
+    assert_eq!(links_in(words, None), vec!["https://github.com/mele-labs/armada/pull/12"]);
 }

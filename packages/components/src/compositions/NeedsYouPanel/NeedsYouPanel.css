@@ -213,10 +213,26 @@
   gap: var(--space-2);
 }
 
-/* A second press beside a row, Not yet on the plan's, held in from the row's trailing edge. */
+/* A second press beside a row, Not a question on one read from a reply, held in from the row's trailing edge. */
 .armada-needs-panel__list .armada-session-ledger__row > .armada-button {
   align-self: center;
   margin-inline-end: var(--space-2);
+}
+
+/* Thumbs at a row's end. */
+.armada-needs-panel__list .armada-session-ledger__row > .armada-needs-panel__thumbs {
+  display: flex;
+  align-items: center;
+  align-self: center;
+  gap: var(--space-1);
+  margin-inline-end: var(--space-2);
+}
+
+/* Each thumb no larger than the row's own glyph needs: a 12px mark on a 24px square. The Tooltip sits between
+   them, and the Button's own icon-only size outranks a plainer rule. */
+.armada-needs-panel__list .armada-needs-panel__thumbs .armada-button[data-icon-only="true"] {
+  width: var(--space-6);
+  height: var(--space-6);
 }
 
 .armada-needs-panel__content {
@@ -232,6 +248,41 @@
   background: transparent;
   box-shadow: none;
   overflow: visible;
+}
+
+/* An open question keeps Back, the question and the Answer row in view, and only the options scroll. The body's max-height bounds a column of
+   min-height 0 boxes down to the options, so a long description pushes nothing off. What sits below the options (a preview, Other) is held at its
+   own height. Scoped to the flat deck: the walk, command and handoff details still scroll as one block. */
+.armada-needs-panel__detail:has(.armada-question-deck[data-flat]) {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.armada-needs-panel__detail:has(.armada-question-deck[data-flat]) :is(
+  .armada-needs-panel__content,
+  .armada-session-thread__ask,
+  .armada-question-deck,
+  .armada-question-deck__stack,
+  .armada-question-deck__card,
+  .armada-question-deck__body
+) {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.armada-needs-panel__detail:has(.armada-question-deck[data-flat]) .armada-question-deck__body > :not(.armada-question-deck__answers) {
+  flex: none;
+}
+
+/* The scroll box clips its own edge, so it carries the focus ring's room as padding and gives it back as margin. */
+.armada-needs-panel__detail:has(.armada-question-deck[data-flat]) .armada-question-deck__answers {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-1);
+  margin: calc(-1 * var(--space-1));
 }
 
 @media (prefers-reduced-motion: reduce) {
