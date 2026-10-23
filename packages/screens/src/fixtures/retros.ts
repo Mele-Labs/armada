@@ -46,7 +46,8 @@ export function retroFixtures(): { retros: Record<string, Retro>; lessons: Lesso
   const newer = sessionRetro(NEWER, WRITTEN_NEWER);
   const older = olderRetro();
   return {
-    retros: { [NEWER.id]: newer.retro, [OLDER.id]: older.retro },
+    // The newer is read by its retro number as the listing names it, and the older, whose item has none, by its Session.
+    retros: { [NEWER.id]: newer.retro, [`${NEWER.id}-r1`]: newer.retro, [OLDER.id]: older.retro },
     lessons: [...newer.lessons, ...older.lessons],
   };
 }
