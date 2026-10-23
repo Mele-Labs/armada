@@ -40,8 +40,9 @@ struct Line {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     paths: Vec<String>,
     state: String,
-    #[serde(default)]
-    pinned: bool,
+    /// Written before the rename as `pinned`; still read.
+    #[serde(default, alias = "pinned")]
+    locked: bool,
     #[serde(default)]
     edited_by_person: bool,
     #[serde(default)]
@@ -68,7 +69,7 @@ fn line_of(entry: &LogEntry) -> Line {
         text: entry.text.clone(),
         paths: entry.paths.clone(),
         state: entry.state.as_text().to_string(),
-        pinned: entry.pinned,
+        locked: entry.locked,
         edited_by_person: entry.edited_by_person,
         tripped: entry.tripped,
         first_seen: entry.first_seen,
@@ -94,7 +95,7 @@ fn entry_of(line: Line, section: LogSection, repository: &str) -> Option<LogEntr
         last_confirmed: line.last_confirmed,
         last_served: None,
         state: LogState::of_text(&line.state)?,
-        pinned: line.pinned,
+        locked: line.locked,
         edited_by_person: line.edited_by_person,
         tripped: line.tripped,
         history: Vec::new(),
@@ -220,4 +221,26 @@ fn write_file(path: &Path, text: &str) -> Result<(), String> {
     let staging = path.with_extension("toml.writing");
     std::fs::write(&staging, text).map_err(|why| format!("{} could not be written: {why}", staging.display()))?;
     std::fs::rename(&staging, path).map_err(|why| format!("{} could not be written: {why}", path.display()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const LINE: &str = "version = 1\nsection = \"habits\"\n\n[[entry]]\nkind = \"habit\"\ntext = \"Chrome is in /Applications.\"\nstate = \"standing\"\n";
+    const TIMES: &str = "first_seen = 1\nlast_confirmed = 2\n";
+
+    #[test]
+    fn a_file_written_with_pinned_still_loads_as_locked_and_is_written_back_as_locked() {
+        let old = format!("{LINE}pinned = true\n{TIMES}");
+        let entries = decode(Some(&old), LogSection::Habits, "").expect("the old key reads");
+        assert!(entries.len() == 1 && entries[0].locked, "pinned reads as locked");
+
+        let written = encode(LogSection::Habits, "", &entries).expect("encodes");
+        assert!(written.contains("locked = true") && !written.contains("pinned"), "{written}");
+        assert!(decode(Some(&written), LogSection::Habits, "").expect("reads back")[0].locked);
+
+        let new = format!("{LINE}locked = true\n{TIMES}");
+        assert!(decode(Some(&new), LogSection::Habits, "").expect("the new key reads")[0].locked);
+    }
 }

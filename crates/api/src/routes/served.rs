@@ -204,6 +204,16 @@ const ROUTES: &[Route] = &[
         path: "/sessions/owner",
     },
     Route {
+        operation: "recall",
+        method: "GET",
+        path: "/logbook/recall",
+    },
+    Route {
+        operation: "get_logbook_for_subagent",
+        method: "POST",
+        path: "/logbook/subagent",
+    },
+    Route {
         operation: "get_session_usage",
         method: "GET",
         path: "/sessions/usage",
@@ -427,6 +437,11 @@ const ROUTES: &[Route] = &[
         operation: "dismiss_waiting",
         method: "POST",
         path: "/sessions/waiting/dismiss",
+    },
+    Route {
+        operation: "confirm_waiting",
+        method: "POST",
+        path: "/sessions/waiting/confirm",
     },
     Route {
         operation: "list_manifests",

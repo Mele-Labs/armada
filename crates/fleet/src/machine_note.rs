@@ -47,13 +47,6 @@ pub(crate) fn browser_line(shell: Option<&Path>) -> String {
     }
 }
 
-/// The note: one line for each missing command, then the browser.
-pub(crate) fn machine_note(missing: &[String], shell: Option<&Path>) -> String {
-    let mut lines: Vec<String> = missing.iter().map(|name| format!("- {}", missing_line(name))).collect();
-    lines.push(format!("- {}", browser_line(shell)));
-    format!("What this Mac has, from what its Jobs ran.\n{}", lines.join("\n"))
-}
-
 impl<H, V, W> Fleet<H, V, W>
 where
     H: AgentHarness + Send + Sync + 'static,
@@ -85,10 +78,5 @@ where
             !resolves
         });
         missing
-    }
-
-    /// What every process of a Job is told of this Mac. Read at each start.
-    pub(crate) async fn machine_note_of(&self) -> String {
-        machine_note(&self.missing_now().await, browser_shell::found().as_deref())
     }
 }

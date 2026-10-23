@@ -222,7 +222,7 @@ async fn a_hosted_turn_that_ends_on_a_question_raises_an_item_and_dismissing_it_
     let before = rig.rows(&id).await.len();
 
     let gone = Arc::clone(&rig.fleet)
-        .dismiss_waiting(DismissWaiting { session_id: id.clone(), item_id, reason: None })
+        .dismiss_waiting(DismissWaiting { session_id: id.clone(), item_id, reason: None, misread: false })
         .await
         .unwrap();
     assert!(asked(&gone).is_none());

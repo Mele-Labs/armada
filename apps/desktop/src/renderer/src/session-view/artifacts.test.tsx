@@ -92,3 +92,26 @@ test("typing narrows the groups to the rows it matches, or to a group whose name
   expect(ids(matching(all, "  "))).toEqual(ids(all));
   expect(matching(all, "nothing like it")).toEqual([]);
 });
+
+test("issues and links are groups of their own, a link titled by its host and path and marked by who wrote it", () => {
+  const session = parent(
+    [
+      { kind: "issue", number: "1887", title: "store_flaky fails", address: "https://forge/issues/1887", state: "closed" },
+      { kind: "link", url: "https://example.com/rfc/injectable-clocks/?utm=1", by: "you" },
+      { kind: "link", url: "https://example.com/docs/instant", by: "agent" },
+    ],
+    [],
+    false,
+  );
+  const groups = artifactsOf(session, []);
+  expect(groups.map((one) => [one.id, one.label])).toEqual([
+    ["issue", "Issues"],
+    ["link", "Links"],
+  ]);
+  expect(groups[0]!.rows.map((one) => [one.title, one.mark?.said])).toEqual([["#1887 store_flaky fails", "Closed"]]);
+  // Newest first, as every group lists.
+  expect(groups[1]!.rows.map((one) => [one.title, one.sub])).toEqual([
+    ["example.com/docs/instant", "Agent"],
+    ["example.com/rfc/injectable-clocks", "You"],
+  ]);
+});

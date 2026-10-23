@@ -140,7 +140,7 @@ import type { HealthRead } from "@armada/screens/src/overview-reads";
 import type {
   Outstanding,
 } from "@armada/screens/src/outstanding";
-import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimIssue, ClaimPullRequest, DismissConcern, DismissWaiting, IssueClaimed, JudgeSession, LaterSettled, PullRequestClaimed, PullRequestFilePatch, PullRequestPage, PullRequestState, RenameSession, SendConcern, SendPlanChanges, NoteSent, SendSessionMessage, SendSessionNote, SessionRow, SessionRunMessage, SessionRunUnderway, SessionLoadout, AttachmentHistory, McpServerAct, SessionMcp, SessionMcpActed, SessionSubagent, SettleLater, TuneSession } from "@armada/protocol";
+import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimIssue, ClaimPullRequest, ConfirmWaiting, DismissConcern, DismissWaiting, IssueClaimed, JudgeSession, LaterSettled, PullRequestClaimed, PullRequestFilePatch, PullRequestPage, PullRequestState, RenameSession, SendConcern, SendPlanChanges, NoteSent, SendSessionMessage, SendSessionNote, SessionRow, SessionRunMessage, SessionRunUnderway, SessionLoadout, AttachmentHistory, McpServerAct, SessionMcp, SessionMcpActed, SessionSubagent, SettleLater, TuneSession } from "@armada/protocol";
 import type { RequestRepositoryRead } from "./api/dispatch";
 import type { PullRequestPress, PullRequestWrite, SessionActed, SessionsRead } from "./api/sessions";
 import type { SleepActed } from "./api/sleep";
@@ -361,6 +361,7 @@ type OldBridgeApi = {
     changeWaiting: (change: ChangeWaiting) => Promise<SessionActed<SessionWait>>;
     startWaitingNow: (sessionId: string) => Promise<SessionActed>;
     dismissWaiting: (dismiss: DismissWaiting) => Promise<SessionActed>;
+    confirmWaiting: (confirm: ConfirmWaiting) => Promise<SessionActed>;
     approvePlan: (approve: ApprovePlan) => Promise<SessionActed>;
     sendPlanChanges: (changes: SendPlanChanges) => Promise<SessionActed>;
     judgeSession: (judge: JudgeSession) => Promise<SessionActed>;
@@ -637,6 +638,7 @@ const OLD_CHANNELS = {
     changeWaiting: "bridge:change-waiting",
     startWaitingNow: "bridge:start-waiting-now",
     dismissWaiting: "bridge:dismiss-waiting",
+    confirmWaiting: "bridge:confirm-waiting",
     approvePlan: "bridge:approve-plan",
     sendPlanChanges: "bridge:send-plan-changes",
     judgeSession: "bridge:judge-session",

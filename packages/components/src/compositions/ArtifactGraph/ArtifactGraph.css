@@ -1,0 +1,110 @@
+/* A Job's Artifacts as a graph. The canvas, its rail and the React Flow mapping are GraphCanvas.css. Quiet nodes: a glyph, a title, a mono sub
+   where it helps; weight comes from the frame, never from a hue. State is a registry glyph in its hue on a version's mark. */
+
+.armada-artifact-graph {
+  flex: 1 1 auto;
+  min-height: calc(var(--space-12) * 8);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--bg-sunken);
+  overflow: hidden;
+}
+
+.armada-artifact-node {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--bg-raised);
+  color: var(--fg-default);
+}
+/* A message is the person's own words: the plainest frame. The plan carries the heaviest. */
+.armada-artifact-node[data-kind="message"] { background: var(--bg-base); }
+.armada-artifact-node[data-kind="plan"] { border-color: var(--border-strong); }
+.armada-artifact-node[data-kind="group"] { border-style: dashed; }
+.armada-artifact-node[data-dim] { border-color: var(--border-subtle); color: var(--fg-subtle); }
+
+.armada-artifact-node__main {
+  display: flex;
+  flex: 1 1 0;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 0;
+  padding: 0 var(--space-2);
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  text-align: left;
+  cursor: pointer;
+}
+.armada-artifact-node__main[aria-disabled] { cursor: default; }
+.armada-artifact-node__main:hover { background: var(--bg-hover); }
+.armada-artifact-node__main:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--border-width) * -1); }
+.armada-artifact-node__glyph { flex: none; color: var(--fg-muted); }
+.armada-artifact-node[data-dim] .armada-artifact-node__glyph { color: var(--fg-subtle); }
+.armada-artifact-node__title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.armada-artifact-node__sub { flex: none; max-width: 40%; overflow: hidden; color: var(--fg-subtle); font-family: var(--font-mono); font-size: var(--text-2xs); text-overflow: ellipsis; white-space: nowrap; }
+
+.armada-artifact-node__marks {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0 var(--space-2) var(--space-1);
+}
+
+.armada-artifact-mark {
+  display: grid;
+  box-sizing: border-box;
+  width: var(--space-6);
+  height: var(--space-6);
+  padding: 0;
+  place-items: center;
+  border: var(--border-width) solid var(--border-strong);
+  border-radius: 50%;
+  background: var(--bg-raised);
+  color: var(--fg-muted);
+  cursor: pointer;
+}
+.armada-artifact-mark[aria-disabled] { cursor: default; }
+.armada-artifact-mark:hover { background: var(--bg-hover); }
+.armada-artifact-mark:focus-visible { outline: none; border-color: var(--edge-focus); background: var(--accent-faint); }
+.armada-artifact-mark[data-tone="passed"], .armada-artifact-mark[data-tone="done"] { color: var(--step-advanced); border-color: var(--step-advanced); }
+.armada-artifact-mark[data-tone="failed"] { color: var(--step-failed); border-color: var(--step-failed); }
+.armada-artifact-mark[data-tone="pending"] { color: var(--status-awaiting-review); border-color: var(--status-awaiting-review); }
+.armada-artifact-mark[data-tone]:focus-visible { border-color: var(--edge-focus); }
+.armada-artifact-node[data-dim] .armada-artifact-mark { color: var(--fg-subtle); border-color: var(--border-subtle); }
+
+/* Edges: a thin curve; the second source of a later version thinner and dashed. */
+.armada-artifact-canvas .armada-artifact-edge { fill: none; stroke: var(--fg-subtle); stroke-width: var(--border-width); }
+.armada-artifact-canvas .armada-artifact-edge--again { stroke: var(--border-strong); stroke-width: var(--border-width); stroke-dasharray: var(--space-1) var(--space-1); }
+.armada-artifact-edge__hit { stroke: transparent; stroke-width: var(--space-3); pointer-events: stroke; }
+
+/* The tooltip, in the body. A whole title fits: it wraps at a measure past the primitive's and never shrinks to a column. */
+.armada-artifact-tip {
+  position: fixed;
+  z-index: var(--z-tooltip);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  inline-size: max-content;
+  max-inline-size: calc(var(--w-tooltip) + var(--space-3));
+  padding: var(--space-1) var(--space-2);
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-overlay);
+  box-shadow: var(--shadow-overlay);
+  color: var(--fg-default);
+  font: var(--weight-body) var(--text-xs) / var(--leading-xs) var(--font-sans);
+  text-wrap: pretty;
+  pointer-events: none;
+}
+.armada-artifact-tip__line { overflow-wrap: anywhere; color: var(--fg-muted); }
+.armada-artifact-tip__line[data-first] { color: var(--fg-default); }

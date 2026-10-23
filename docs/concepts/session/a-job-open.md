@@ -16,12 +16,14 @@ Approved on `?walk=compactSessionView`; the calls were the thread's last card (`
 
 | Layer | Key | Reads |
 |---|---|---|
-| Artifacts | `8` | The Job's rows as they stand: `pr`, `artifact` (pages, files, docs, images), `sketch`, `subagent`, `background`, `studio` and `started_to` (the Jobs it handed a plan group to, each with the group and its state), the files its drones touched (`touches`), and from the thread the commands it ran and the commits it made. **The wire holds no commit record, so a commit is the thread's `git commit -m` line**, not Fleet's observation,. A field at the top narrows every group as it is typed in |
+| Artifacts | `8` | The Job's rows as they stand: `pr`, `issue`, `link` (an address the person or the agent wrote in the thread, kept by host and path; loopback addresses and the repository's own issue and pull request links are not), `artifact` (pages, files, docs, images), `sketch`, `subagent`, `background`, `studio` and `started_to` (the Jobs it handed a plan group to, each with the group and its state), the files its drones touched (`touches`), and from the thread the commands it ran and the commits it made. **The wire holds no commit record, so a commit is the thread's `git commit -m` line**, not Fleet's observation,. A field at the top narrows every group as it is typed in |
 | Subagents | `9` | Every `subagent` row, the running ones first. A press opens its own thread |
 | Checks | `0` | The `check` rows of the thread, newest first. A press opens the run on the Checks page |
 | Bays | none | Every bay the Job holds, or held last before it stranded, each with its lease and how far it is behind its base, and the Job's write clashes: `slot-trouble.ts`. **Lit only when a bay is stranded or 20 or more commits behind.** A write clash puts the swords glyph at the key's corner and does not light it. A stranded bay is also a call in the thread's last card. A bay behind and a write clash are not: Fleet tells the agent, so they leave the owner nothing to do. Off, with its reason, where the Job holds no bay |
 
 A layer covers the thread and the composer, which stay mounted under it: Back (the key again, the button, or Esc) returns to the thread at the same offset with focus where it was.
 The arrows walk its rows, and focus goes in when it opens, to the search field in Artifacts and to the first row elsewhere.
+Artifacts has a List and a Graph, switched by the tabs in its head or by `V` anywhere in the layer but the field.
+The Graph draws how the Job grew, each thing hanging off what produced it, and is [The evolution graph](the-evolution-graph.md).
 Esc is the layer's while one is open, and a sheet over it keeps its own.
 The layer is dropped when another Job is opened.

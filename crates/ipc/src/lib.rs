@@ -381,6 +381,7 @@ pub use mods::{
 pub use clashes::{
     ClashFile, ClashHolder, ClashSide, WriteClash, WriteClashes,
 };
+pub use logbook::{ForSubagent, Recalled, RecalledEntry, SubagentAsk};
 pub use territory::{
     AreaKid, AreasOfRepository, HolderTouches, RepositoryArea, RepositoryAreas, SessionFileChange,
     SlotTouches, TouchesInRepository,
@@ -437,7 +438,7 @@ pub use repositories::{
 pub use requester::Requester;
 pub use logbook::{
     EditLogbookEntry, Logbook, LogbookEarlier, LogbookEntry, LogbookEvidence, ForgottenLogbookEntry, LogbookKind, LogbookReplacedBy,
-    LogbookSection, LogbookState, PinLogbookEntry, TeachLogbookEntry,
+    LogbookSection, LogbookState, LockLogbookEntry, TeachLogbookEntry, TeachSource,
 };
 pub use notices::{Notice, NoticeScope, SetNoticeMute};
 pub use run_memory::{
@@ -512,7 +513,7 @@ pub use session_summary::{
 };
 pub use sessions::{
     AnswerWaiting, Attachment, AttachmentHistory, AttachmentNamed, AttachmentReport, AttachmentState,
-    AttachmentVersion, DismissWaiting, ClaimPullRequest, Holder, HolderKind, MainRedTaken, Owners, Ownership,
+    AttachmentVersion, ConfirmWaiting, DismissWaiting, ClaimPullRequest, Holder, HolderKind, MainRedTaken, Owners, Ownership,
     PullRequestClaimed, RenameSession, TakeMainRed, SessionFact, SessionId, SessionList,
     SessionOrigin, ProposedField, SessionProposal, SessionRecord, SessionReport,
     LaterHow, LaterSettled, SessionLater, SettleLater,

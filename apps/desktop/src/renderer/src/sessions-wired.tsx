@@ -47,6 +47,7 @@ import { clashFileRead } from "./clash-file-read";
 import { fileChangeRead } from "./file-change-read";
 import { catchingUp } from "./checkout-catch-up";
 import { uploadOfFile, uploadOfSketch, wireTagOf } from "./session-uploads";
+import { readHistory } from "./session-history";
 import { SessionsFrom } from "./sessions-draft";
 import type { TimelineSource } from "./fleet-timeline";
 import { markViewed } from "./cockpit/viewed";
@@ -656,6 +657,7 @@ export class WiredStore {
       const read = await this.api.readSessionLoadout(id);
       return read.ok ? read.value : undefined;
     },
+    history: (id) => readHistory(this.api, id),
     loadoutItem: async (id, item) => {
       const read = await this.api.readLoadoutItem(id, item);
       return read.ok ? read.value : undefined;

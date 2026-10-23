@@ -654,6 +654,9 @@ pub struct WaitingItem {
     /// Where a `judge` item points: the files its quotation lands in, as the change leaves them.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub cites: Vec<crate::session_rail::WaitingCite>,
+    /// A `replied` item whose sentence he said is a question (`confirm_waiting`). Absent where he has not.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub confirmed: bool,
 }
 
 /// One item as the agent states it. Fleet stamps `since` and `source`.
@@ -790,6 +793,22 @@ pub struct DismissWaiting {
     /// Why he removed it, sent to the agent after the item where it is non-blank. Absent where he gave none.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
+    /// He pressed Not a question on an item Fleet read from a reply: its sentence is kept as one that
+    /// asks nothing. Refused on an item of any other source. Absent where false.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub misread: bool,
+}
+
+/// `confirm_waiting`: thumbs up on an item Fleet read from a reply. Its sentence is kept as one that
+/// asks, the item stays, and it reads `confirmed` from then on. Refused on an item of any other source.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ConfirmWaiting {
+    pub session_id: SessionId,
+    pub item_id: String,
+}
+
+fn is_false(value: &bool) -> bool {
+    !*value
 }
 
 /// One row of the ledger as the wire carries it.
@@ -820,6 +839,13 @@ pub struct AttachmentVersion {
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub detail: BTreeMap<String, String>,
     pub at: Instant,
+    /// The thread row id of the person's latest message when this version was written. Fleet works it out:
+    /// absent for a version written before there was a message, or before this was kept.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub from_message: Option<String>,
+    /// The plan task in progress when this version was written, absent where none was.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub from_task: Option<String>,
 }
 
 /// `get_attachment_history`: every version of everything one session holds, oldest first. Read on

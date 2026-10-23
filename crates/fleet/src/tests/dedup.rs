@@ -23,6 +23,7 @@ fn item(id: &str, text: &str, since: &str, source: WaitingSource, act: bool) -> 
         place: None,
         concern: None,
         cites: Vec::new(),
+        confirmed: false,
     }
 }
 

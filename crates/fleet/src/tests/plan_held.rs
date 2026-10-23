@@ -420,7 +420,7 @@ async fn a_plan_set_aside_holds_nothing_and_the_next_version_waits_again() {
     record(&rig, &id, None).await;
     assert!(call(&rig, &id).await.is_some(), "asked at its recording");
     Arc::clone(&rig.fleet)
-        .dismiss_waiting(DismissWaiting { session_id: id.clone(), item_id: "plan:1".into(), reason: None })
+        .dismiss_waiting(DismissWaiting { session_id: id.clone(), item_id: "plan:1".into(), reason: None, misread: false })
         .await
         .unwrap();
 

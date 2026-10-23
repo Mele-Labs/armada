@@ -147,7 +147,7 @@ async fn a_dismissed_question_waits_no_more_and_nothing_is_sent() {
     let item = the_ask(&record).id.clone();
     let before = sent(&rig.rows(&id).await).len();
     let gone = Arc::clone(&rig.fleet)
-        .dismiss_waiting(DismissWaiting { session_id: id.clone(), item_id: item, reason: None })
+        .dismiss_waiting(DismissWaiting { session_id: id.clone(), item_id: item, reason: None, misread: false })
         .await
         .unwrap();
     assert!(gone.waiting_for.iter().all(|one| one.source != WaitingSource::WindowAsk));

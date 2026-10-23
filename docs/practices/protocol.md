@@ -596,9 +596,9 @@ Bridge's half is `packages/protocol/src/logbook.ts`, written by hand, field for 
 | --- | --- | --- |
 | `get_logbook` (`GET /logbook?repository=&section=&state=`, `agent_access = "Yes"`) | Bridge reads | `Logbook` `{ entries }` of `LogbookEntry`. `repository` is a root, and absent the answer is the habits and this Mac's alone; `section` and `state` absent narrow nothing, so every state is listed. A root Fleet does not serve is a 404 `fleet.run_memory_repository_not_served` |
 | `edit_logbook_entry` (`POST /logbook/entries/:entry_id/edit`) | Bridge sends `{ text }`, Fleet answers the entry | The old text goes on `history` with `by: "person"`, `edited` is true. 404 `fleet.no_such_logbook_entry`; 422 `fleet.logbook_entry_not_kept`, `fleet.logbook_text_refused`, `fleet.logbook_text_forgotten` |
-| `pin_logbook_entry` (`POST /logbook/entries/:entry_id/pin`) | Bridge sends `{ pinned }`, Fleet answers the entry | Refused as an edit is |
+| `lock_logbook_entry` (`POST /logbook/entries/:entry_id/lock`) | Bridge sends `{ locked }`, Fleet answers the entry | Refused as an edit is |
 | `forget_logbook_entry` (`POST /logbook/entries/:entry_id/forget`) | Bridge sends nothing, Fleet answers `{ id }` | The text, and every text it had, goes on the deny list. A second forget is a 404 `fleet.no_such_logbook_entry` |
-| `teach_logbook_entry` (`POST /logbook/entries`) | Bridge sends `{ section, repository?, kind, text, paths? }`, Fleet answers the entry | Stands at once, with no Job behind it. 422 `fleet.logbook_repository_missing` for a `repo` entry naming none; teaching forgotten text lifts the forgetting |
+| `teach_logbook_entry` (`POST /logbook/entries`) | Bridge sends `{ section, repository?, kind, text, paths?, source? }`, Fleet answers the entry | Stands at once, with no Job behind it; `source` `{ session_id, cite }` is what Teach was pressed on and becomes its one evidence row. 422 `fleet.logbook_repository_missing` for a `repo` entry naming none; teaching forgotten text lifts the forgetting |
 
 **An id is a number for an entry Fleet keeps, and a word and a hash (`runs-…`, `machine-…`) for one read in from run memory or the machine note.** The acts refuse the second kind with `fleet.logbook_entry_not_kept`: Fleet rebuilds them on every read.
 **`LogbookEvidence.says` is optional**, since a list does not read each Job's record back. `last_tripped` is the latest time a Job tripped on the entry, read off its evidence.
@@ -730,6 +730,54 @@ The row is stored as written, so no read of the thread parses a log, and a row k
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 **The event stream.** The row is published as `session.row` and the Session as `session.changed`, as before; a failed row grows by one short path.
 The open risk below is neither better nor worse.
+
+## What the Logbook hands out mid-task: `recall` and `get_logbook_for_subagent`
+
+Since 22 Oct 2026. `docs/concepts/logbook.md`, *Recall*.
+**Additive only**: two operations, two routes and the types they answer; no event kind, no error on an existing operation and no field on an existing type.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `packages/protocol/src/logbook.ts`, written by hand, field for field; no screen reads either yet.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `recall` (`GET /logbook/recall?query=&section=&manifest_id=`, `Yes`) | An agent asks, Fleet answers 200 | `Recalled` `{ entries[] }`, each `{ section, kind, state, text, confirmed_by }`. 422 `fleet.session_unnamed` for a blank `query` or a `section` that is not `repo`, `habits` or `machine` |
+| `get_logbook_for_subagent` (`POST /logbook/subagent`, `No`) | The Armada mod asks, Fleet answers 200 | Body `SubagentAsk` `{ session_id, prompt }`; `ForSubagent` `{ text }`, empty where the Logbook holds nothing |
+
+**The start note is not on the wire.** It is built in Fleet and handed to the process as `--append-system-prompt`, so the Logbook note changes no type.
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+A mod newer than its Fleet gets a 404 from `/logbook/subagent` and hands the subagent nothing.
+
+## Not a question: `misread` on `dismiss_waiting`
+
+Since 23 Oct 2026. `docs/concepts/session/waiting-on-the-person.md`, *A question that asks nothing*.
+**Additive only**: one optional field on an existing body; no operation, route, event kind or error.
+The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `misread` on `DismissWaiting` in `packages/protocol/src/sessions.ts`, written by hand.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `DismissWaiting` (`POST /sessions/waiting/dismiss`) | Bridge writes, Fleet reads | Gains `misread`, sent only as `true`; absent reads as `false` |
+
+**Only an item Fleet read from a reply takes it**: on a `replied` item Fleet drops the item as before and keeps its text in `reply_misreads`; on any other source the dismiss is refused and the item stands.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+**The event stream.** Untouched: the Session is published as `session.changed` as on any dismiss, so the open risk below is neither better nor worse.
+
+## A question: `confirm_waiting` and `confirmed`
+
+Since 23 Oct 2026, the thumbs up beside *Not a question* above.
+**One operation and one field**: a new route, and an optional field on an existing type; no event kind or error.
+Bridge's half is `ConfirmWaiting` and `confirmed` on `WaitingItem` in `packages/protocol/src/sessions.ts`, written by hand.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `ConfirmWaiting` (`POST /sessions/waiting/confirm`) | Bridge writes, Fleet reads | `session_id` and `item_id`; answered with the Session's record |
+| `WaitingItem.confirmed` | Fleet writes, Bridge reads | `true` on a `replied` item whose text is in `reply_confirmed`; sent only as `true` |
+
+**Only an item Fleet read from a reply takes it**: on a `replied` item Fleet keeps its text in `reply_confirmed` and the item stays; on any other source the confirm is refused and the item stands unconfirmed.
+
+**Skew.** As above.
+**The event stream.** The Session is published as `session.changed`, so the open risk below is neither better nor worse.
 
 ## Open questions
 
