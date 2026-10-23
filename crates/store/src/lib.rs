@@ -48,6 +48,8 @@ mod watches;
 mod reply_misreads;
 /// The sentences read from a reply that he confirmed with thumbs up.
 mod reply_confirmed;
+/// What this Mac syncs with the shared home.
+mod home_kinds;
 mod notice_mutes;
 /// The issue queries a person saved, per repository.
 mod issue_queries;

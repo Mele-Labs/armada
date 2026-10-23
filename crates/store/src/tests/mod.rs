@@ -7,6 +7,7 @@ mod corrupt;
 mod devices;
 mod helm_sessions;
 mod helm_tuning;
+mod home_kinds;
 mod kit;
 mod lessons;
 mod limits;
