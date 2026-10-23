@@ -40,6 +40,25 @@ const asks = (row: LedgerEntry): boolean => row.restart === undefined && !acts(r
 /** One question waiting, as the list draws it and the detail opens it. */
 type Thing = { key: string; Glyph: LucideIcon; said: string; tip: string; text: ReactNode; name: string; row?: LedgerEntry; content?: ReactNode; press?: () => void; /** A sentence Fleet read from a reply: `no` is Not a question, `yes` is A question and is absent once Fleet has it confirmed. Both are thumbs at the row's end and items of its menu. */ misread?: { no: () => void; yes?: () => void } };
 
+/** The two thumbs at a read line's end, in the list and opened. Confirmed, Fleet has nothing left to ask, so there are none. `keep` is where focus goes when A question takes the thumbs away. */
+function Thumbs({ misread, keep }: { misread: NonNullable<Thing["misread"]>; keep: (thumb: HTMLElement) => HTMLElement | null }) {
+  if (misread.yes === undefined) return null;
+  return (
+    <span className="armada-needs-panel__thumbs">
+      <Tooltip label="A question">
+        <Button variant="ghost" size="sm" iconOnly data-aside="" aria-label="A question" onClick={(event) => (keep(event.currentTarget)?.focus(), misread.yes?.())}>
+          <ThumbsUp size={12} strokeWidth={2} aria-hidden />
+        </Button>
+      </Tooltip>
+      <Tooltip label="Not a question">
+        <Button variant="ghost" size="sm" iconOnly data-aside="" aria-label="Not a question" onClick={misread.no}>
+          <ThumbsDown size={12} strokeWidth={2} aria-hidden />
+        </Button>
+      </Tooltip>
+    </span>
+  );
+}
+
 /** A question answered in the panel's place: the question, a judge's concern, or a row with choices or a reply box. The rest go where they point. */
 const opensHere = (one: Thing): boolean => one.press === undefined && (one.row === undefined || one.row.options !== undefined || one.row.onReply !== undefined);
 
@@ -231,20 +250,7 @@ export function NeedsYouPanel({
                             </Tooltip>
                             <span className="armada-session-ledger__text">{one.text}</span>
                           </button>
-                          {one.misread?.yes === undefined ? null : (
-                            <span className="armada-needs-panel__thumbs">
-                              <Tooltip label="A question">
-                                <Button variant="ghost" size="sm" iconOnly data-aside="" aria-label="A question" onClick={(event) => (event.currentTarget.closest("li")?.querySelector<HTMLElement>(".armada-session-ledger__open")?.focus(), one.misread?.yes?.())}>
-                                  <ThumbsUp size={12} strokeWidth={2} aria-hidden />
-                                </Button>
-                              </Tooltip>
-                              <Tooltip label="Not a question">
-                                <Button variant="ghost" size="sm" iconOnly data-aside="" aria-label="Not a question" onClick={one.misread.no}>
-                                  <ThumbsDown size={12} strokeWidth={2} aria-hidden />
-                                </Button>
-                              </Tooltip>
-                            </span>
-                          )}
+                          {one.misread === undefined ? null : <Thumbs misread={one.misread} keep={(thumb) => thumb.closest("li")?.querySelector<HTMLElement>(".armada-session-ledger__open") ?? null} />}
                         </li>
                       ))}
                     </ul>
@@ -259,11 +265,14 @@ export function NeedsYouPanel({
               </div>
             ) : (
               <div className="armada-needs-panel__detail">
-                <Tooltip label="Back" shortcut="Esc">
-                  <Button variant="ghost" size="sm" iconOnly aria-label="Back" onClick={back}>
-                    <ChevronLeft size={16} aria-hidden />
-                  </Button>
-                </Tooltip>
+                <div className="armada-needs-panel__head">
+                  <Tooltip label="Back" shortcut="Esc">
+                    <Button variant="ghost" size="sm" iconOnly aria-label="Back" onClick={back}>
+                      <ChevronLeft size={16} aria-hidden />
+                    </Button>
+                  </Tooltip>
+                  {current.misread === undefined ? null : <Thumbs misread={current.misread} keep={(thumb) => thumb.closest(".armada-needs-panel__head")?.querySelector<HTMLElement>("button[aria-label='Back']") ?? null} />}
+                </div>
                 <div className="armada-needs-panel__content">
                   {current.row === undefined ? current.content : <LedgerRows kind="waiting" Glyph={BellRing} rows={[current.row]} expanded />}
                 </div>
