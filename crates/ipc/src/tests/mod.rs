@@ -70,3 +70,4 @@ mod bay_history;
 mod window_asks;
 mod sketch;
 mod taught_mods;
+mod watch_wire;

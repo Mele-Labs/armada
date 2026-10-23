@@ -1,0 +1,12 @@
+[operations.stop_watch]
+kind = "command"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Stop one of this Job's watches, when what it follows no longer matters. Body: watch (its id). It ends stopped and its command is not run again"
+notes = """
+`POST /watches/stop`, body `StopWatch`: `watch` and an optional `session_id`. Answers 200 with the `WatchSummary`, ended `stopped`. A watch that had already ended keeps the end it had and is answered as it stands, so a Stop pressed twice is not an error.
+
+**Whose watch**, as `weigh_watch`'s: a placed Job stops its own only, and another Job's id or one nothing holds is a 404 `fleet.no_such_watch`. Bridge places no Job, so the person's **Stop** in the side panel stops any.
+
+`agent_access` is `Yes`, and Bridge's Stop is the same route.
+"""

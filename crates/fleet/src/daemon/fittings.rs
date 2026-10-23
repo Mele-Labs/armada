@@ -379,6 +379,7 @@ where
             searched: Default::default(),
             usage_following: Default::default(),
             rehearsals: crate::rehearsing::Rehearsals::default(),
+            watches: crate::watches::Watches::default(),
             servers: crate::servers::Servers::default(),
             peers: fittings.peers,
             requests: fittings.requests,

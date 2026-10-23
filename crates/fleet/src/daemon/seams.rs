@@ -389,6 +389,9 @@ where
     pub(crate) fn rehearsals(&self) -> &crate::rehearsing::Rehearsals {
         &self.rehearsals
     }
+    pub(crate) fn watches(&self) -> &crate::watches::Watches {
+        &self.watches
+    }
     pub(crate) fn servers(&self) -> &crate::servers::Servers {
         &self.servers
     }

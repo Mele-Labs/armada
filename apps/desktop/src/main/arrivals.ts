@@ -51,7 +51,7 @@ export interface ArrivalHost {
   /** The mods on this machine — `mods.ts`. */
   readonly mods: Pick<Modding, "read" | "listed">;
   /** Every session and the threads a window opened — `sessions.ts`. */
-  readonly sessions: Pick<SessionsHost, "again" | "changed" | "row">;
+  readonly sessions: Pick<SessionsHost, "again" | "changed" | "row" | "watchesChanged">;
   /** What Fleet holds disk for, read once for nobody so the first surface to open has a list, and again on a slot lease or release — `holding.ts`. */
   readonly held: Pick<HeldReader, "warm" | "again">;
   /** Sleep mode, told when Fleet changes the night — `sleep.ts`. */
@@ -263,6 +263,13 @@ export function applyArrival(host: ArrivalHost, text: string, fleet: BridgeState
     host.publish({ connection });
     const { kind: _kind, ...record } = event;
     host.sessions.changed(record);
+    return;
+  }
+  if (event.kind === "watches.changed") {
+    // One Job's watches, whole.
+    host.publish({ connection });
+    const { kind: _kind, ...change } = event;
+    host.sessions.watchesChanged(change);
     return;
   }
   if (event.kind === "sleep.changed") {

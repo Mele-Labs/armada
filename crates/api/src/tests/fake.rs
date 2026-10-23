@@ -26,10 +26,12 @@ mod retros;
 mod sessions;
 mod studios;
 mod teaching;
+mod watches;
 
 pub use accounts::profile;
 pub use conversing::SERVED_MANIFEST;
 pub use studios::{the_studio, THE_FRAME, THE_STUDIO};
+pub use watches::THE_WATCH;
 
 use std::sync::Mutex;
 
