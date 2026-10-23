@@ -134,9 +134,15 @@ Past twelve tiles the rest wrap onto a new row of the same size at six columns, 
 With no Job open the deck's tiles edit the same way, and only Page can be added there.
 
 A built-in has a name, a glyph, a key and whether it is shown; Ask for update, Auto land and Compact also have the words they send, and Reset puts Armada's own back.
-A key is set by pressing it in the tile's sheet: a digit, a letter, or a chord with ⌘, ⌃ or ⌥ such as `⌥R` or `⇧⌘J`, spelled as the keymap spells it and kept so in the file. A lone letter in an older file means that key unshifted. Esc lets go of the control and Delete clears the key. Every tile can have one, Pause too.
-A key another tile has, or the Cockpit already answers, is named under the control ("Used by Report", "Used by Show the map") and Save waits; so are ⌘C, ⌘V, ⌘X, ⌘A, ⌘Z and ⇧⌘Z, which a text box keeps. ⇧ with a letter is not a key, and ⌘ and ⌃ are one key to a tile, as they are to the keymap. Tile keys are not listed in Settings → Keyboard: Edit is the one place to set them.
-A key presses its tile anywhere on the Cockpit while a Job is open, a tile on another page too, and brings that page in. In a text box a chord with ⌥ or ⇧ types, and one with ⌘ or ⌃ presses. Nothing presses while the tiles are edited.
+A key is set by pressing it in the tile's sheet: a digit, a letter, or a chord with ⌘, ⌃ or ⌥ such as `⌥R` or `⇧⌘J`, spelled as the keymap spells it and kept so in the file.
+A lone letter in an older file means that key unshifted.
+Esc lets go of the control and Delete clears the key.
+Every tile can have one, Pause too.
+A key another tile has, or the Cockpit already answers, is named under the control ("Used by Report", "Used by Show the map") and Save waits; so are ⌘C, ⌘V, ⌘X, ⌘A, ⌘Z and ⇧⌘Z, which a text box keeps. ⇧ with a letter is not a key, and ⌘ and ⌃ are one key to a tile, as they are to the keymap.
+Tile keys are not listed in Settings → Keyboard: Edit is the one place to set them.
+A key presses its tile anywhere on the Cockpit while a Job is open, a tile on another page too, and brings that page in.
+In a text box a chord with ⌥ or ⇧ types, and one with ⌘ or ⌃ presses.
+Nothing presses while the tiles are edited.
 By default keys follow position, `1` to `9` then `0`, and Pause answers `p`. Once Pause has another key, `p` is free for a tile given it; in the list `p` still pauses the row under the cursor.
 A built-in the file does not list is appended in Armada's order.
 
