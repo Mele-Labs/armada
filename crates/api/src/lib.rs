@@ -117,6 +117,8 @@ mod bay_history;
 /// A person's run's output, on a socket of its own per run — never `/events`.
 mod watching_run;
 mod watching_session_run;
+/// A command Fleet runs on a cadence for one Job: started, weighed, stopped and listed.
+mod watches;
 
 #[cfg(test)]
 mod tests;
@@ -126,7 +128,7 @@ pub use daemon::{
     offerable, Accounts, Admitting, Authoring, Commands, Conversations, Daemon,
     Autopilots, HelmReach, HostedSessions, Issues, Logbook, Mods, Clashing,
     PullRequestPanel, PullRequests, Queries, Redirector, Refusal, Rehearsing, Requests, Retros, Sessions, Settings, Steerer,
-    ShownFile, StoredFile, Studios,
+    ShownFile, StoredFile, Studios, Watches,
 };
 pub use door::{door_within, door_without_a_manifest, offered, Scope, DOOR_PATH};
 pub use following::{Follow, Followed, LandOutput, SessionCheckLive, FOLLOW};

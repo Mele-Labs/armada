@@ -76,6 +76,12 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/events",
     },
+    // A Job's watches after any change to one, whole, as `list_watches` answers them.
+    Route {
+        operation: "watches.changed",
+        method: "GET",
+        path: "/events",
+    },
     // One entry Fleet just kept for the timeline, for a client holding a window to append.
     Route {
         operation: "timeline.appended",

@@ -36,6 +36,10 @@ import type {
   ClaimIssue,
   LaterSettled,
   SettleLater,
+  StopWatch,
+  WatchesChanged,
+  WatchList,
+  WatchSummary,
   ClaimPullRequest,
   DismissConcern,
   ConfirmWaiting,
@@ -143,6 +147,10 @@ export class SessionsHost {
   private readonly port: () => number | null;
   private sessions: SessionRecord[] | null = null;
   private threads: Record<string, SessionRow[]> = {};
+  /** Each Job's watches as `watches.changed` last carried them, or `list_watches` answered on opening it. */
+  private watches: Record<string, WatchSummary[]> = {};
+  /** The Jobs `watches.changed` has spoken for since the connection: an older `list_watches` answer must not land over it. */
+  private readonly heardWatches = new Set<string>();
   /** The ids of the threads held, least recently opened first. */
   private opening: string[] = [];
   /** Puts a page a Session showed in the walk window. Set once by main, which owns windows. `pressed`: the owner asked for it. */
@@ -192,6 +200,7 @@ export class SessionsHost {
 
   /** Read every session, and every thread a window holds again. Once per connection, and on a refresh. */
   async again(port: number): Promise<void> {
+    this.heardWatches.clear();
     const answer = await ask(port, "GET", "/sessions");
     if (answer.ok !== true) {
       // **A list already held stays when the next read fails**, as the pool's does (`holding.ts`): a read that times out
@@ -246,6 +255,22 @@ export class SessionsHost {
   /** `session.changed`: the session, whole. */
   changed(record: SessionRecord): void {
     this.fold(record);
+  }
+
+  /** `watches.changed`: one Job's watches, whole. Replaces what is held for it. */
+  watchesChanged(change: WatchesChanged): void {
+    this.heardWatches.add(change.session_id);
+    this.watches = { ...this.watches, [change.session_id]: change.watches };
+    this.publish({ sessionWatches: this.watches });
+  }
+
+  /** The starting list of a Job's watches, read once as its thread is opened; `watches.changed` keeps it current after. */
+  private async readWatches(port: number, sessionId: string): Promise<void> {
+    const answer = await ask(port, "GET", `/watches?session_id=${encodeURIComponent(sessionId)}`);
+    if (answer.ok !== true || this.heardWatches.has(sessionId)) return;
+    const list = answer.body as WatchList;
+    this.watches = { ...this.watches, [sessionId]: list.watches };
+    this.publish({ sessionWatches: this.watches });
   }
 
   /** Say who is told each Session list after it changes: main's, as `onWindow` is. */
@@ -448,6 +473,7 @@ export class SessionsHost {
     this.reading.set(sessionId, []);
     this.publish({ sessionThreadsReading: [...this.reading.keys()] });
     const drawn = this.threads[sessionId] === undefined ? this.drawFromDisk(sessionId) : Promise.resolve();
+    void this.readWatches(port, sessionId);
     const answer = await ask(port, "GET", `/sessions/one?session_id=${encodeURIComponent(sessionId)}`);
     // The disk copy is drawn or skipped before Fleet's answer, so it can never land over it.
     await drawn;
@@ -585,6 +611,11 @@ export class SessionsHost {
   /** A follow-up a Session kept, settled. The row without it is published by Fleet, so nothing is folded here. */
   async settleLater(settle: SettleLater): Promise<SessionActed<LaterSettled>> {
     return await this.asked("/sessions/settle_later", settle);
+  }
+
+  /** A watch the person stopped. Its Job's watches are published by Fleet, so nothing is folded here. */
+  async stopWatch(stop: StopWatch): Promise<SessionActed<WatchSummary>> {
+    return await this.asked("/watches/stop", stop);
   }
 
   /** The proposer's reading of a brief that tags a Session. Nothing is held from it. */
@@ -893,6 +924,8 @@ export class SessionsHost {
     this.sessions = null;
     this.readAt = null;
     this.threads = {};
+    this.watches = {};
+    this.heardWatches.clear();
     this.opening = [];
     this.reading.clear();
     clearTimeout(this.writing);

@@ -972,6 +972,11 @@ pub struct SessionRecord {
     /// `all_done` is refused while any is open.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub later: Vec<SessionLater>,
+    /// The name of the live watch that started first, set while it is all that keeps the Job open: its
+    /// turn has ended, nothing is in `waiting_for`, and nothing of its own runs in the background. Absent
+    /// otherwise. Not a Needs you item. `docs/design/fleet-watches-ci-and-deploys-for-a-job.md`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub held_open_by: Option<String>,
 }
 
 /// A value of a Session the proposer can pick.

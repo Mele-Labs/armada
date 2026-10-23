@@ -53,6 +53,8 @@ pub(crate) struct LedgerReads {
     wait: Option<(store::KeptWait, Option<String>, Option<String>)>,
     /// The follow-ups its agent keeps for itself, still open.
     later: Vec<store::KeptLater>,
+    /// The name of the live watch that started first, if it holds one.
+    watching: Option<String>,
 }
 
 /// A report that names nothing it can be kept against. A 422.

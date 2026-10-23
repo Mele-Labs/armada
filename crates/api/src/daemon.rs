@@ -43,6 +43,7 @@ mod retros;
 mod sessions;
 mod settings;
 mod studios;
+mod watches;
 
 pub use accounts::Accounts;
 pub use admitting::{offerable, Admitting, HelmReach, Redirector, Steerer};
@@ -64,6 +65,7 @@ pub use retros::Retros;
 pub use sessions::Sessions;
 pub use settings::Settings;
 pub use studios::Studios;
+pub use watches::Watches;
 
 use ipc::WireError;
 
@@ -101,7 +103,7 @@ use ipc::WireError;
 /// is a sixth and [`Retros`] a seventh, each for a reason its own module gives.
 /// [`Authoring`] is one more, for [`Retros`]' reason, and [`Sessions`] another,
 /// [`HostedSessions`] one more beside it, and [`Clashing`] and [`PullRequests`] two
-/// more, [`Rehearsing`] split out of [`Commands`], [`Mods`] and [`Settings`], and [`Accounts`] and [`Requests`] beside them, and [`Logbook`] with them.
+/// more, [`Rehearsing`] split out of [`Commands`], [`Mods`] and [`Settings`], and [`Accounts`] and [`Requests`] beside them, [`Logbook`] with them, and [`Watches`].
 pub trait Daemon:
     Queries
     + Commands
@@ -123,6 +125,7 @@ pub trait Daemon:
     + Settings
     + Accounts
     + Requests
+    + Watches
 {
 }
 
@@ -146,7 +149,8 @@ impl<
             + Mods
             + Settings
             + Accounts
-            + Requests,
+            + Requests
+            + Watches,
     > Daemon for D
 {
 }

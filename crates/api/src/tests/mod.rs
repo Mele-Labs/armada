@@ -42,6 +42,7 @@ mod shapes;
 mod stream;
 mod studios;
 mod watching_run;
+mod watch_routes;
 
 use axum::Router;
 use hyper::service::service_fn;
