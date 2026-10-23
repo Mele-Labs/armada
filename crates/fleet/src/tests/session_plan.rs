@@ -32,7 +32,7 @@ fn plan(session: &SessionId, groups: Vec<PlanGroupInput>) -> RecordPlan {
 }
 
 /// Two groups: the store's and Fleet's.
-fn first(session: &SessionId) -> RecordPlan {
+pub(super) fn first(session: &SessionId) -> RecordPlan {
     plan(
         session,
         vec![
@@ -52,7 +52,7 @@ fn sketch(title: &str, scene: &str) -> PlanSketchInput {
     ipc::decode("a plan sketch", format!(r#"{{"title":"{title}","scene":{scene}}}"#).as_bytes()).unwrap()
 }
 
-async fn recorded(rig: &Rig, groups: RecordPlan) -> SessionRecord {
+pub(super) async fn recorded(rig: &Rig, groups: RecordPlan) -> SessionRecord {
     rig.fleet.record_plan(None, groups).await.expect("recorded")
 }
 
@@ -330,11 +330,11 @@ async fn changes_sent_with_approve_approve_the_plan_and_a_mark_naming_nothing_is
     eventually(|| async { told(&rig, "marked changes on plan v1") == 1 }).await;
 }
 
-fn task(text: &str, status: ReportedTaskStatus) -> ReportedTask {
+pub(super) fn task(text: &str, status: ReportedTaskStatus) -> ReportedTask {
     ReportedTask { id: text.to_string(), text: text.to_string(), status, by: None }
 }
 
-async fn tasks(rig: &Rig, id: &SessionId, list: Vec<ReportedTask>) -> SessionRecord {
+pub(super) async fn tasks(rig: &Rig, id: &SessionId, list: Vec<ReportedTask>) -> SessionRecord {
     let harness = read(rig, id).await.harness;
     rig.fleet
         .report_session(SessionReport { harness, session_id: id.clone(), fact: SessionFact::Tasks { tasks: list } })

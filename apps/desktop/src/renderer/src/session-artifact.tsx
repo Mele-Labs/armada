@@ -8,7 +8,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AppWindow, Files, Globe, Image, NotebookText } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { Prose } from "@armada/components";
+import { Enlargeable, Prose } from "@armada/components";
 import type { ArtifactRead, PageBounds, SessionsDraft } from "@armada/screens/src/draft/sessions";
 
 type ArtifactForm = "page" | "file" | "image" | "doc" | "window";
@@ -48,7 +48,7 @@ function Picture({ bytes, type, label }: { bytes: Uint8Array; type: string; labe
     setSrc(url);
     return () => URL.revokeObjectURL(url);
   }, [bytes, type]);
-  return src === undefined ? null : <img className="armada-session-artifact__picture" src={src} alt={label} />;
+  return src === undefined ? null : <Enlargeable className="armada-session-artifact__picture" src={src} name={label} />;
 }
 
 function Contents({ read, label }: { read: ArtifactRead; label: string }) {

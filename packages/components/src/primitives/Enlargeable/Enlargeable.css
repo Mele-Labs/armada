@@ -1,0 +1,36 @@
+/* Enlargeable. The thumbnail is a bare button around the picture; the large view is the picture on the
+ * scrim, with no frame, header or text. */
+.armada-enlargeable {
+  display: inline-flex;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: zoom-in;
+  border-radius: var(--radius-md);
+}
+
+.armada-enlargeable:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.armada-enlargeable__scrim {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6);
+  background: var(--scrim);
+  cursor: zoom-out;
+  outline: none;
+}
+
+.armada-enlargeable__picture {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-overlay);
+}

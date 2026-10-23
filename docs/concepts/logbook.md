@@ -94,10 +94,10 @@ Standing entries reach agents three ways.
 | Way | What is handed over |
 |---|---|
 | The start note of every new Job | `habits` first, then the repository's standing entries, then `machine`. Capped near 2k tokens, and what the cap leaves out is found with `recall` |
-| A subagent | The entries whose `paths` match where it works, through the Armada mod's hook ([Installing the Claude Code mod](session/installing-the-claude-code-mod.md)) |
-| The `recall` tool | A search of the whole Logbook, faded entries included, mid-task |
+| A subagent | The `habits` and the entries whose `paths` match the paths its prompt names, near 800 tokens, appended to its prompt by the Armada mod's `agent.spawn` hook ([Installing the Claude Code mod](session/installing-the-claude-code-mod.md)). A prompt that names no path gets the `habits` and the repository's best entries. A Fleet that does not answer hands it nothing |
+| The `recall` tool | A search of the whole Logbook for the Job's repository, its `habits` and `machine`, faded entries included, mid-task: the words of `query` held in an entry's text, those holding more first, then those more Jobs confirmed. It marks nothing served |
 
-**Serving an entry sets its `last_served`.** A strengthened entry leads its section when the cap cuts.
+**Serving an entry sets its `last_served`,** on the start note and on a subagent's, never on a search. A strengthened entry leads its section when the cap cuts.
 
 ## What the person does
 

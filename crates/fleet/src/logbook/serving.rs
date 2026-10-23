@@ -50,14 +50,17 @@ impl Logged {
         }
     }
 
-    /// Tripped first, then by how many Sessions bore it out, then the most recent. A folded fact
-    /// counts as one: the stream showed it.
-    fn rank(&self) -> (u32, usize, u64) {
-        let confirmations = match self.from {
+    /// How many Sessions bore it out. A folded fact counts as one: the stream showed it.
+    pub(crate) fn borne_out(&self) -> usize {
+        match self.from {
             Source::Learnt => self.entry.confirmations(),
             Source::Runs | Source::Machine => 1,
-        };
-        (self.entry.tripped, confirmations, self.entry.last_confirmed)
+        }
+    }
+
+    /// Tripped first, then by how many Sessions bore it out, then the most recent.
+    fn rank(&self) -> (u32, usize, u64) {
+        (self.entry.tripped, self.borne_out(), self.entry.last_confirmed)
     }
 
     /// What it costs to serve, in tokens: about four characters each, and a few for the line.

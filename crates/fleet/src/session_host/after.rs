@@ -347,7 +347,7 @@ where
         if wait.held {
             self.first_message_held(&waiting, &message).await;
         } else if let Err(why) = self
-            .first_message_from(&waiting, SessionVoice::Session { id: on.clone(), title: on_title }, &message)
+            .waited_brief_from(&waiting, SessionVoice::Session { id: on.clone(), title: on_title }, &message)
             .await
         {
             eprintln!("job {waiting}: the start it waited for was not sent: {why:?}");
