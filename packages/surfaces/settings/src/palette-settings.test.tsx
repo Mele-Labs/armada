@@ -61,5 +61,6 @@ test("choosing Fleet limits from the palette shows the Settings screen", async (
 
   // The row names a section, and its group is what opens.
   await expect.element(page.getByRole("heading", { name: "Limits" })).toBeVisible();
-  await expect.element(page.getByRole("tab", { name: "Fleet" })).toHaveAttribute("aria-selected", "true");
+  // The Mods "Fleet" page is a tab of its own here, so the Fleet group is the one that is selected.
+  await expect.element(page.getByRole("tab", { name: "Fleet", selected: true })).toBeVisible();
 });

@@ -11,6 +11,7 @@ import { editLogbookEntry, forgetLogbookEntry, lockLogbookEntry, readLogbook } f
 import { ArmadaFixes } from "./lessons";
 import { takeFixesAsked, useFixesAsked } from "./open-retro";
 import { askToOpenSession } from "./open-session";
+import { alsoChanges } from "./teach-also";
 
 export function LogbookSurface({
   repository,
@@ -32,6 +33,7 @@ export function LogbookSurface({
         onLock={lockLogbookEntry}
         onForget={forgetLogbookEntry}
         onOpenJob={askToOpenSession}
+        also={alsoChanges}
         fixes={<ArmadaFixes repository={repository} />}
         toFixes={toFixes}
       />

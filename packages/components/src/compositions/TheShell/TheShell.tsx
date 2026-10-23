@@ -18,6 +18,8 @@ import { DockHandle, clampToRange, defaultDockWidth, dockWidthRange, tokenPx } f
  * The panel scrolls; the dock does not. `min-height: 0` on the scrolling child is what stops the window growing instead.
  */
 export type TheShellProps = {
+  /** Teach on the title row. See `TitleBar`. */
+  onTeach?: TitleBarProps["onTeach"];
   /** The places the title row draws in its centre, before the search trigger. See `TitleBar`. */
   places?: TitleBarProps["places"];
   /** The word the title row draws at its start in place of the lockup. See `TitleBar`. */
@@ -109,6 +111,7 @@ export function TheShell({
   dispatchDisabled,
   sleep,
   planUsage,
+  onTeach,
   children,
   dock,
   fleet,
@@ -125,6 +128,7 @@ export function TheShell({
           helm={helmButtonOf(dock)}
           {...(sleep === undefined ? {} : { sleep })}
           {...(planUsage === undefined ? {} : { planUsage })}
+          {...(onTeach === undefined ? {} : { onTeach })}
           {...(places === undefined ? {} : { places })}
           {...(wordmark === undefined ? {} : { wordmark })}
           {...(repository === undefined ? {} : { repository })}

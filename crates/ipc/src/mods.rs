@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::ids::{Instant, ManifestId};
 use crate::sessions::SessionId;
+use crate::taught_mods::{FleetFile, WordsFile};
 
 /// What a mod changes. The kinds this build knows; a `mod.toml` naming another
 /// is invalid, so a valid row's kind is always one Bridge can act on.
@@ -18,6 +19,12 @@ pub enum ModKind {
     Theme,
     /// A `layout.json` that reorders and hides Bridge's tabs, panels and rail rows.
     Layout,
+    /// A `words.toml`: a pattern Bridge links in a Session, and where it opens in each repository.
+    Words,
+    /// A `fleet.toml`: what Fleet does with a notice it would send, by Job, repository or everywhere.
+    Fleet,
+    /// A `tweak.css`: token values layered over whichever theme is chosen, several at once.
+    Tweak,
     /// A `tracker.toml` that teaches Fleet a tracker this build has no adapter for.
     Tracker,
 }
@@ -56,6 +63,13 @@ pub struct ModSummary {
     pub version: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
+    /// What Teach was pressed on, where a person taught this mod. Absent for a mod written by hand.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub taught_on: Option<String>,
+    /// The Logbook entry a teaching from a Job made this mod with. Absent for a mod written by hand
+    /// or taught somewhere no entry was made.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub entry: Option<String>,
     /// This machine's switch. A mod nobody switched is enabled.
     pub enabled: bool,
     /// Whether Bridge may load it. Anything wrong with `mod.toml` or the files
@@ -119,6 +133,12 @@ pub struct ModChecked {
     /// applies this text and no other, as it does `css`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub layout: Option<String>,
+    /// A Words mod's `words.toml` as it was checked, present only where it passed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub words: Option<WordsFile>,
+    /// A Fleet mod's `fleet.toml` as it was checked, present only where it passed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fleet: Option<FleetFile>,
 }
 
 /// `try_tracker_mod`: run a tracker mod's Open query, and read one issue it listed, against a

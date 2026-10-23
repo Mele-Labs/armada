@@ -30,6 +30,8 @@ impl Mods for FakeDaemon {
             kind: Some(ipc::ModKind::Theme),
             version: Some(String::from("0.1.0")),
             description: None,
+            taught_on: None,
+            entry: None,
             enabled: set.enabled,
             valid: true,
             reason: None,
@@ -45,6 +47,8 @@ impl Mods for FakeDaemon {
             problems: Vec::new(),
             css: None,
             layout: None,
+            words: None,
+            fleet: None,
         })
     }
 

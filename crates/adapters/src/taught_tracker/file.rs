@@ -11,8 +11,9 @@ use toml::{Table, Value};
 /// The most `tracker.toml` may weigh.
 pub const MOST_BYTES: u64 = 32 * 1024;
 
-const SECTIONS: &[&str] = &["guide", "credential", "search", "list", "read"];
+const SECTIONS: &[&str] = &["guide", "credential", "search", "list", "read", "links"];
 const GUIDE_KEYS: &[&str] = &["language", "guide", "open", "assigned_to_me", "fields"];
+const LINKS_KEYS: &[&str] = &["reference"];
 const TRANSPORTS: &str = "cli, http, mcp";
 const CLI_KEYS: &[&str] = &["transport", "argv", "map"];
 const HTTP_KEYS: &[&str] = &["transport", "method", "url", "headers", "body", "map"];
@@ -34,6 +35,9 @@ pub struct TrackerFile {
     /// Absent is a search for the guide's `open`.
     pub(crate) list: Option<Call>,
     pub(crate) read: Call,
+    /// How a ticket reference is written in a pull request's words. Absent, a pull request links
+    /// nothing to this tracker.
+    pub(crate) reference: Option<String>,
 }
 
 /// One way of asking, and the `jq` filter that turns its answer into Armada's issues.
@@ -99,8 +103,16 @@ pub fn read(text: &str) -> Result<TrackerFile, Vec<String>> {
     };
     let read = section(&table, "read", &mut problems)
         .and_then(|it| call_of("read", it, &[REFERENCE], has_credential, &mut problems));
+    let reference = match table.get("links") {
+        None => None,
+        Some(Value::Table(it)) => reference_of(it, &mut problems),
+        Some(_) => {
+            problems.push("`links` must be a section, `[links]`".to_string());
+            None
+        }
+    };
     match (problems.is_empty(), guide, search, read) {
-        (true, Some(guide), Some(search), Some(read)) => Ok(TrackerFile { guide, credential, search, list, read }),
+        (true, Some(guide), Some(search), Some(read)) => Ok(TrackerFile { guide, credential, search, list, read, reference }),
         _ => Err(problems),
     }
 }
@@ -128,6 +140,25 @@ fn guide_of(table: &Table, problems: &mut Vec<String>) -> QueryGuide {
         Some(value) => strings_of("guide", "fields", value, problems).unwrap_or_default(),
     };
     QueryGuide { language, guide, open, assigned_to_me, fields }
+}
+
+fn reference_of(table: &Table, problems: &mut Vec<String>) -> Option<String> {
+    unknown_keys("links", table, LINKS_KEYS, "the links", problems);
+    let pattern = text_of("links", table, "reference", problems)?;
+    match regex::Regex::new(&pattern) {
+        Err(why) => {
+            // The crate draws the pattern and a caret above its reason; the reason is the last line.
+            let said = why.to_string();
+            let reason = said.lines().rev().find(|line| !line.trim().is_empty()).unwrap_or_default();
+            problems.push(format!("`[links]` `reference` is not a pattern: {}", reason.trim().trim_start_matches("error: ")));
+            None
+        }
+        Ok(regex) if regex.is_match("") => {
+            problems.push("`[links]` `reference` matches the empty text, so it would link every pull request".to_string());
+            None
+        }
+        Ok(_) => Some(pattern),
+    }
 }
 
 fn credential_of(table: &Table, problems: &mut Vec<String>) -> Option<Vec<String>> {

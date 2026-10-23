@@ -76,7 +76,7 @@ where
                 self.pull_attached(&served, session_id.as_str(), &tree.branch, &url).await;
                 let base = served.manifest().base().unwrap_or("main");
                 // A refused word leaves the pull request on the Job's row, where Fleet's notices still reach it.
-                let _ = self.told_by_fleet(session_id.as_str(), &brief(&title, &url, base)).await;
+                let _ = self.told_by_fleet(session_id.as_str(), &brief(&title, &url, base), ipc::Notice::PrHanded).await;
                 (Some(url), None)
             }
             Err(why) => (None, Some(why)),
@@ -98,6 +98,9 @@ fn written(name: &str, files: &Files) -> (Vec<(String, String)>, String) {
     let kind = match files.payload {
         Payload::Css(_) => "theme",
         Payload::Layout(_) => "layout",
+        Payload::Words(_) => "words",
+        Payload::Fleet(_) => "fleet",
+        Payload::Tweak(_) => "tweak",
         Payload::Tracker(_) => "tracker",
     };
     let written = vec![

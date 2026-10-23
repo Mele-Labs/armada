@@ -87,6 +87,10 @@ pub(crate) struct WaitingReads {
     misreads: Vec<String>,
     /// Every sentence read from a reply that he confirmed with thumbs up, in any Session.
     confirmed: Vec<String>,
+    /// The questions about where taught words open that were put to this Session.
+    word_asks: Vec<store::KeptWordAsk>,
+    /// The notices a Fleet rule raised as calls on this Session.
+    calls: Vec<store::KeptCall>,
 }
 
 /// What [`Fleet::waiting_from`] read: the items, and how the Session stands.
@@ -117,6 +121,8 @@ pub(crate) fn waiting_reads(
         concerns: store.session_concerns(&session.id)?,
         misreads: store.misreads()?,
         confirmed: store.confirmed()?,
+        word_asks: store.word_asks_of(&session.id)?,
+        calls: store.calls_of(&session.id)?,
     })
 }
 
@@ -301,7 +307,7 @@ where
         session: &KeptSession,
         attachments: &[ipc::Attachment],
     ) -> Waited {
-        let WaitingReads { kept, rows, dismissed, done, turn_end, tell, plan, concerns, misreads, confirmed } = reads;
+        let WaitingReads { kept, rows, dismissed, done, turn_end, tell, plan, concerns, misreads, confirmed, word_asks, calls } = reads;
         let asked = self.hosts().of(&session.id).state().asked.clone();
         let rows: Vec<SessionRow> = rows
             .iter()
@@ -465,6 +471,10 @@ where
                     .filter(|one| one.settled.is_none())
                     .map(|one| crate::rail_keeping::concern_item(&session.id, one)),
             );
+            // Taught words that open nowhere Fleet could find in this repository: asked once.
+            items.extend(self.words_ask_items(&word_asks, &dismissed));
+            // Notices a Fleet mod's rule raised as calls, until he dismisses each.
+            items.extend(calls.iter().filter(|one| !dismissed.contains(&one.id)).map(super::fleet_calls::call_item));
             items.extend(rows.into_iter().filter_map(|row| match row {
                 SessionRow::Delivery { at, choice: None, .. } => Some(super::delivering::delivery_item(at)),
                 SessionRow::WindowAsk {
@@ -827,7 +837,8 @@ where
             }
             // Derived from the turn and `done_since`, never kept: the person's words are a message to
             // the Session, which is what makes either stop standing, so there is nothing to drop.
-            WaitingSource::Done => {
+            // A call a Fleet rule raised is the same: his words are a message, and dismissing is what settles it.
+            WaitingSource::Done | WaitingSource::FleetCall => {
                 let body = both.clone().unwrap_or_default();
                 self.send_known(terminal.then_some(session), message(body)).await
             }
@@ -850,6 +861,7 @@ where
             )),
             WaitingSource::SlotChoice => self.slot_chosen(&id, said.choice).await,
             WaitingSource::Delivery => self.delivery_chosen(&id, said.choice).await,
+            WaitingSource::WordsAddress => self.words_address_chosen(&id, &item, picked.as_deref(), words).await,
         };
         if let (Ok(record), false) = (
             &settled,

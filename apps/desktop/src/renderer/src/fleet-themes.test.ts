@@ -58,8 +58,8 @@ describe("the list, folded as mods.changed carries it", () => {
     expect(source.get().mods.map((mod) => [mod.name, mod.enabled])).toEqual([["warm", true]]);
   });
 
-  it("lists neither a layout mod nor a tracker mod as a theme", async () => {
-    const { source } = fake(facts([row("calm"), row("tidy", { kind: "layout" }), row("linear", { kind: "tracker" })]));
+  it("lists no mod that is not a theme: not a layout, tracker, Words, Fleet or tweak mod", async () => {
+    const { source } = fake(facts([row("calm"), row("tidy", { kind: "layout" }), row("linear", { kind: "tracker" }), row("jira-keys", { kind: "words" }), row("batch", { kind: "fleet" }), row("louder", { kind: "tweak" })]));
     await settled();
     expect(source.get().mods.map((mod) => mod.name)).toEqual(["calm"]);
   });

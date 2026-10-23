@@ -1,6 +1,6 @@
 # Mod
 
-**What it is:** A folder on this machine that changes how Bridge looks or how it is arranged, or teaches Fleet a tracker it was not built for, written by a person or by a job, which Fleet reads and checks and which can never stop Fleet from starting or from listing.
+**What it is:** A folder on this machine that changes how Bridge looks, how it is arranged, what it links or what Fleet tells a Session, or teaches Fleet a tracker it was not built for, written by a person or by a job, which Fleet reads and checks and which can never stop Fleet from starting or from listing.
 
 ---
 
@@ -15,8 +15,8 @@ A month later you promote it, and a Job of its own opens a pull request that put
 > **Rule.** A mod is a folder under the machine's `mods/` directory or, built in, under the repository's `packages/mods/`, and nothing else is one.
 > Why: a job that can write a file can make one, without a build and without touching Bridge's source.
 
-> **Rule.** Fleet stores and checks a mod, and Bridge is what applies a theme or a layout.
-> Why: Fleet never draws. A tracker mod is the one kind Fleet runs itself, because Fleet is what reads a tracker.
+> **Rule.** Fleet stores and checks a mod, and Bridge is what applies a theme, a layout or a tweak.
+> Why: Fleet never draws, and a mod is a look, an arrangement, a pattern to link or a rule for a notice. A tracker mod is the one kind Fleet runs itself, because Fleet is what reads a tracker.
 
 > **Rule.** A broken mod is a row with `valid` false, and never a failure of Fleet's start or of `list_mods`.
 > Why: the folder is written by anything on the machine, so every read of it is bounded and every fault is that mod's own.
@@ -33,6 +33,9 @@ A month later you promote it, and a Job of its own opens a pull request that put
 | `mod.toml` | `name`, `kind`, `version`, `description` |
 | `theme.css` | Token values Bridge injects, in a theme mod |
 | `layout.json` | Which tabs, panels and places Bridge draws and in what order, in a layout mod. [Layout mods](layout-mods.md) |
+| `words.toml` | A pattern Bridge links and where it opens in each repository, in a Words mod |
+| `fleet.toml` | What Fleet does with a notice, by Job, repository or everywhere, in a Fleet mod |
+| `tweak.css` | Token values layered over whichever theme is chosen, in a tweak mod |
 | `tracker.toml` | How to list, search and read a tracker's issues, in a tracker mod. *Tracker mods* below |
 | `.tried.toml` | A tracker mod's last try, written by Fleet and never promoted |
 | `.git/` | The mod's own history, one commit at scaffold |
@@ -46,13 +49,17 @@ A flat file of `key = "value"` lines and `#` comments, read by hand: a table, an
 | field | type | required | default | meaning |
 |---|---|---|---|---|
 | `name` | string | yes | | The folder's name |
-| `kind` | string | yes | | `theme`, `layout` or `tracker` |
+| `kind` | string | yes | | `theme`, `layout`, `words`, `fleet`, `tweak` or `tracker` |
 | `version` | string | yes | | Up to 32 letters, digits, `.`, `+`, `-` |
 | `description` | string | no | none | Up to 200 characters |
+| `taught_on` | string | no | none | What Teach was pressed on, up to 120 characters. The mod's row lists it |
+| `entry` | string | no | none | The Logbook entry a teaching from a Job made. Forgetting that entry removes the mod |
+
+A teaching writes a Words, Fleet, tweak or layout mod, and records `taught_on` and `entry` in it. [Teaching](teaching.md).
 
 Any other key is a problem.
 A `kind` this build does not have makes the mod invalid, so a valid mod's kind is always one Bridge can act on.
-A theme mod holds `theme.css`, a layout mod `layout.json` and a tracker mod `tracker.toml`, and the kind says which file is read.
+A theme mod holds `theme.css`, a layout mod `layout.json`, a Words mod `words.toml`, a Fleet mod `fleet.toml`, a tweak mod `tweak.css` and a tracker mod `tracker.toml`, and the kind says which file is read.
 
 ## theme.css
 
@@ -71,6 +78,100 @@ The tokens are the names in `packages/tokens/tokens.json`, compiled into Fleet, 
 | A regular file | A link, a pipe, a file that is not UTF-8 |
 
 Every problem is returned with its line, up to 20.
+
+## tweak.css
+
+> **Rule.** A tweak is checked as `theme.css` is, token declarations and nothing else, and names `tweak.css` in its problems.
+> Why: it is substituted into the same page a theme is, so it gets the same whitelist.
+
+Bridge layers every tweak that is on and valid over whichever theme is chosen, in mod name order, and `validate_mod` returns its text as `css`.
+A tweak sits in a sheet of its own with every selector raised above a theme's, so choosing another theme replaces the theme's sheet and leaves the tweak, and `--no-mods` lays none.
+A tweak is never chosen as the theme.
+
+## words.toml
+
+> **Rule.** A Words mod holds a pattern learned once and an address for each repository that has one.
+> Why: `ARM-123` links to one place in one repository and to another place in the next, and the pattern is the same.
+
+```toml
+name = "Jira key"
+pattern = "[A-Z][A-Z0-9]+-\\d+"
+example = "ARM-123"
+
+[[address]]
+repository = "armada"
+template = "https://acme.example.net/browse/{match}"
+found = "settings"
+```
+
+`repository` is a Manifest id, or `*` for a repository with no address of its own.
+`found` is `settings` (the Manifest's tracker named the site), `pull_request #<number>` (a merged pull request's text held it) or `person`.
+The pattern is held to what both Bridge's JavaScript engine and Fleet's read: no lookaround, backreference or inline flag, no repeated group that holds a repeat or a choice, at most 200 characters, and it matches `example` whole.
+An address is an `http` or `https` address with `{match}` outside its host. At most 100 addresses and 16 KiB.
+
+**A repository with no address is looked for, once, when a teaching or a read of the rules names it.**
+Fleet asks the Manifest's tracker first (a Jira site gives its `browse` page, `found = "settings"`), then reads the text of up to five recently merged pull requests for a web address that holds a match of the pattern on its own in a path or query value (`found = "pull_request #<number>"`).
+Where neither says, the Session whose person taught it is asked in Needs you, once for that mod and repository: they pick an address another repository has, or write one.
+An address a person wrote is never replaced by one that was found.
+`read_teaching` runs the same search before a save, so the proposal carries the address, and the save writes it without searching again.
+
+## fleet.toml
+
+> **Rule.** A Fleet mod names a notice Fleet sends, what to do with it, and where.
+> Why: the same line is wanted once a day in one repository and never in another.
+
+```toml
+[[rule]]
+notice = "behind_base"
+does = "batch"
+where = "repo armada"
+```
+
+`does` is `tell`, `quiet`, `batch` or `call`. `where` is `job <id>`, `repo <manifest id>` or `everywhere`.
+`notice` is one of the words a notice goes by, so a word Fleet does not send is a problem.
+**The nearest place wins** (a Job's own over its repository's over everywhere), and among rules of one place the later mod name does. At most 64 rules and 8 KiB.
+
+A rule may also say which notices of its word it covers, and what to do instead when something is true of the Job:
+
+```toml
+[[rule]]
+notice = "pr_checks_failed"
+does = "batch"
+where = "everywhere"
+matches = "lint|fmt"
+when = [{ if = "blocks_merge", does = "tell" }, { if = "owner_away", does = "quiet" }]
+```
+
+> **Rule.** A rule covers a notice of its word whose text `matches`, and the first condition of `when` that holds replaces its `does`.
+> Why: "batch these, and tell me only when it blocks a merge" is one wish, and a rule that could only name a word would make it two mods and a guess.
+
+`matches` is a pattern over the notice's text, held to what a Words pattern is held to (no lookaround, backreference or inline flag, no repeated group that holds a repeat or a choice, at most 200 characters, never the empty string) except that it need not match whole: it finds its words anywhere in the text.
+A rule taught on a notice must find words in that notice's text. A bad pattern makes the mod invalid, with the reason.
+Two rules for one word and place are different when their `matches` differ, and the nearest place of those whose pattern finds words in the notice wins.
+
+`when` is a list of `{ if, does }` tried in order. **The conditions are a closed set**, and a word outside it makes the mod invalid:
+
+| `if` | Holds when | Read from |
+|---|---|---|
+| `blocks_merge` | The Job has an open pull request that cannot merge now: its required checks failed, it conflicts, or the merge queue marked it unmergeable | The ledger's `pr` rows for the Job (their `checks`), and the forge reading the pull request watch last made (`mergeable`, the queue) |
+| `open_pull_request` | The Job has an open pull request, a draft included | The ledger's `pr` rows for the Job, standing and `open` or `draft` |
+| `working` | The Job's agent is in the middle of a turn | The Job's turn in Fleet's memory |
+| `owner_away` | Sleep mode is on | The sleep switch |
+
+**Unknown does not hold.** Nothing here calls the forge when a notice is sent, so a pull request the forge has not yet been read for, a merge the forge is still computing and a pull request behind its base (nothing Fleet keeps says so) do not block a merge.
+With no condition holding, the rule's own `does` stands. A condition tested twice in one rule is a problem, since the second could never be reached.
+
+Fleet reads the rules where it sends every notice (`told_by_fleet`), after the person's mute: a mute beats any rule, with or without conditions, and a notice with no rule is told.
+
+| `does` | The Session | Needs you | A caller that marks the notice done |
+|---|---|---|---|
+| `tell` | Told, as with no rule | | After the send |
+| `quiet` | Nothing is sent or written to the thread | | At once: it is handled |
+| `batch` | Notices of the word held for the Job and sent as one message, joined by a blank line, when `timeouts.noticeBatchSeconds` after the first ends | | At once: it is held. A Job that cannot be told when the window ends loses them, and a restart inside a window does the same |
+| `call` | Told, as with no rule | An item on the Job with the words it was told, until the person dismisses it | After the send |
+
+A mute is not handled: the notice is asked again at the caller's next reading, so lifting the mute resumes it.
+A notice that is a line to the Session and not a word of the table above (the answer to a request, a plan's change, a linked Job's news) carries no word and no rule reads it.
 
 ## Tracker mods
 
@@ -91,6 +192,7 @@ At most 32 KiB of TOML, read by `crates/adapters/src/taught_tracker/file.rs`.
 | `[search]` | yes | A call: `{query}` is the query, in the tracker's own language |
 | `[list]` | no | A call listing the open issues. Absent is a search for the guide's `open` |
 | `[read]` | yes | A call: `{reference}` is the issue's reference. Its `map` yields one issue or `null` |
+| `[links]` | no | `reference`, a regular expression for how a ticket's reference is written in the words of a dispatch or a message. Text that matches links to that ticket |
 
 A call names its `transport` and takes that transport's keys and no others.
 
@@ -122,7 +224,13 @@ A URL is `https://`, or `http://` to this machine, and names its host as written
 | A placeholder the section cannot fill | `{query}` in `[read]`, `{credential}` with no `[credential]` |
 | A search that never uses `{query}`, a read that never uses `{reference}` | Every call would ask the same |
 | A call with no `map` | |
+| A `[links] reference` that is not a pattern, or matches the empty text | `LIN-(\d+`, `x*` |
 | An `mcp` call with no `server` or no `tool`, or `arguments` holding a date | |
+
+`[links] reference` is a regular expression in Rust's syntax, which has no backtracking.
+Each match links the reference it holds, once and in the order written: the first group where the pattern has one, so `linear\.app/acme/issue/(LIN-\d+)` links `LIN-42` from an address, and the whole match where it has none, so `\bLIN-\d+\b` links `LIN-42` from the words.
+What it yields is the reference as the tracker writes it and `read` takes it, `7` or `LIN-42`; a match that is not one of those is dropped.
+A file with no `[links]` links nothing, and a request that names a ticket is dispatched as written.
 
 Every program and request is bounded: 30 seconds, and 4 MiB of answer.
 An `mcp` exchange is bounded as a whole by the same, and a server that says more or is slower is stopped and the call refused.
@@ -178,9 +286,9 @@ A tracker mod switched off in Mods is refused too, with that as the reason; the 
 
 | Operation | Kind | A job may | Does |
 |---|---|---|---|
-| `list_mods` | query | yes | Every mod, local and built in: `origin`, kind, version, description, `enabled`, `valid`, `reason`, `changed_at`, and a tracker's `tried` |
-| `scaffold_mod` | command | yes | Makes the folder, a starter `theme.css` or, for `kind` `layout`, a `layout.json` that changes nothing, or for `kind` `tracker` a `tracker.toml` that validates and fails its try, `git init` and one commit |
-| `validate_mod` | query | yes | Every problem found, and the checked text when there are none: `css` for a theme, `layout` for a layout |
+| `list_mods` | query | yes | Every mod, local and built in: `origin`, kind, version, description, `taught_on`, `entry` (the Logbook entry that made it), `enabled`, `valid`, `reason`, `changed_at`, and a tracker's `tried` |
+| `scaffold_mod` | command | yes | Makes the folder, a starter file for its `kind` that changes nothing (a tracker's validates and fails its try), `git init` and one commit |
+| `validate_mod` | query | yes | Every problem found, and the checked text when there are none: `css` for a theme or a tweak, `layout` for a layout, `words` for a Words mod and `fleet` for a Fleet mod, each the file as typed data |
 | `try_tracker_mod` | command | yes | Runs a tracker mod against a repository and keeps how it went |
 | `set_mod_enabled` | command | Helm only | This machine's switch for one mod |
 | `promote_mod` | command | no | Puts the mod into a repository by a Job of its own, which opens the pull request and sees it merged |
@@ -242,7 +350,7 @@ A built-in tracker mod is listed and validated but cannot be tried or used, sinc
 Fleet's half is above: a bad mod is a row with its reason, and `set_mod_enabled` and `save_preferences` are Fleet calls, so switching a mod off or saving `dark` works while Bridge cannot draw the mod.
 
 `bridge --no-mods` is Bridge's half.
-Main loads the window with `?nomods`, and the window then lists no mod in Settings or on the Mods surface and never calls `validate_mod`, so no mod's CSS reaches the page and the layout is the shipped one.
+Main loads the window with `?nomods`, and the window then lists no mod in Settings or on the Mods surface and never calls `validate_mod` or `list_word_rules`, so no mod's CSS reaches the page, no taught words are linked and the layout is the shipped one.
 Dark, Light and the catalogue still choose.
 Safe mode does not touch the saved theme: a mod chosen before stays chosen for the next ordinary start, and a built-in or catalogue theme picked in safe mode is saved like any other.
 

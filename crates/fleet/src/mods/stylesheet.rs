@@ -46,7 +46,13 @@ fn tokens() -> &'static HashSet<&'static str> {
 
 /// Every problem in `css`, in the order they appear. Empty means Bridge may inject it.
 pub(crate) fn problems(css: &str) -> Vec<String> {
-    let mut found = Found::default();
+    problems_in(css, "theme.css")
+}
+
+/// The same checks for a stylesheet called `file`, which its problems name: `tweak.css` holds the
+/// same token declarations a theme does.
+pub(crate) fn problems_in(css: &str, file: &'static str) -> Vec<String> {
+    let mut found = Found { file, ..Found::default() };
     let Some(plain) = without_comments(css, &mut found) else {
         return found.said;
     };
@@ -62,6 +68,7 @@ pub(crate) fn problems(css: &str) -> Vec<String> {
 
 #[derive(Default)]
 struct Found {
+    file: &'static str,
     said: Vec<String>,
     more: usize,
 }
@@ -70,7 +77,7 @@ impl Found {
     fn add(&mut self, text: &str, at: usize, said: &str) {
         if self.said.len() < MOST_PROBLEMS {
             let line = text[..at.min(text.len())].matches('\n').count() + 1;
-            self.said.push(format!("theme.css line {line}: {said}"));
+            self.said.push(format!("{} line {line}: {said}", self.file));
         } else {
             self.more += 1;
         }

@@ -27,6 +27,7 @@ fn a_batch_of_notes_and_its_answer_round_trip_in_order() {
         },
         state: NoteState::default(),
         crop: None,
+        job: Vec::new(),
     };
     let batch = SendSessionNotes { session_id: SessionId::carried("s1"), notes: vec![note("one"), note("two")] };
     let wire = crate::encode(&batch).unwrap();
@@ -37,4 +38,17 @@ fn a_batch_of_notes_and_its_answer_round_trip_in_order() {
     let lines = vec![vec![Candidate { file: "a.tsx".into(), line: 3, why: "w".into(), text: "t".into() }], Vec::new()];
     let wire = crate::encode(&lines).unwrap();
     assert_eq!(wire, r#"[[{"file":"a.tsx","line":3,"why":"w","text":"t"}],[]]"#, "one list a note, an empty one kept");
+}
+
+#[test]
+fn a_notes_job_lines_ride_on_the_wire_only_where_there_are_some() {
+    let with: SendSessionNote = crate::decode(
+        "a note",
+        ONE.replace(r#""state":{},"#, r#""state":{},"job":["Job: Fix it (s2)","State: working"],"#).as_bytes(),
+    )
+    .unwrap();
+    assert_eq!(with.note.job, vec!["Job: Fix it (s2)".to_string(), "State: working".to_string()]);
+    let without: SendSessionNote = crate::decode("a note", ONE.as_bytes()).unwrap();
+    assert!(without.note.job.is_empty());
+    assert!(!crate::encode(&without).unwrap().contains("\"job\""), "an empty list is left off");
 }

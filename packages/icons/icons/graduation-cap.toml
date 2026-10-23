@@ -4,3 +4,10 @@
   size = "16px"
   status = "Retired"
   notes = "Minted 3 Oct 2026 for the Lessons rail row, retired 5 Oct 2026 when the owner renamed the page Retros: a mortarboard says the person is the one learning, and the page lists what got in the way. The glyph is free again."
+
+[[icons.graduation-cap.usage]]
+  means = "Teach: the act on anything Armada can be taught from, in a Session: the bar over words selected in a message, a tool call, a Fleet notice, a plan task, a Check and a pull request. In a menu it leads the row's acts"
+  group = "Session"
+  size = "16px"
+  status = "Proposed"
+  notes = "Proposed 22 Oct 2026 for the walk `session-teach`, widened the same day for `teach-anything`: the owner wants to teach Armada about anything that happens in a Job, not only words. The Retros rail row it was minted for is gone, so the glyph is free; a mortarboard is the person teaching, which is what the act is. Tooltip `Teach`. Refused: `lightbulb` says an idea, and the source is not one; `pencil-line` is an edit to the source, and nothing in it changes. The owner may rule otherwise."

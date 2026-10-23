@@ -181,3 +181,62 @@ export const PreviewScrollsWithTheFile: Story = {
     await waitFor(() => expect(editor.scrollTop).toBeLessThan(2));
   },
 };
+
+/** The colour a token is drawn in, found by its text inside the editor's shadow root. */
+const colourOf = (editor: HTMLElement, token: string): string | undefined => {
+  const spans = [...(editor.shadowRoot?.querySelectorAll(".cm-line span") ?? [])];
+  const found = spans.find((one) => one.textContent === token);
+  return found === undefined ? undefined : getComputedStyle(found).color;
+};
+const plainColour = (editor: HTMLElement): string => getComputedStyle(editor.shadowRoot?.querySelector(".cm-content") as Element).color;
+
+/**
+ * **Every common language is drawn in colour, not only the few the editor was first given.** Go, Ruby and SQL are loaded when
+ * the file opens, and a fenced block in markdown is drawn in its own language.
+ */
+export const HighlightsGo: Story = {
+  args: { name: "main.go", path: "/Users/user/Development/app/main.go", type: "text/plain", text: "package main\n\nfunc main() {\n}\n" },
+  play: async ({ canvas }) => {
+    const editor = canvas.getByRole("group", { name: "Editor main.go" });
+    await waitFor(() => expect(colourOf(editor, "func")).toBeDefined());
+    await expect(colourOf(editor, "func")).not.toBe(plainColour(editor));
+  },
+};
+
+export const HighlightsRuby: Story = {
+  args: { name: "app.rb", path: "/Users/user/Development/app/app.rb", type: "text/plain", text: "def hello\n  puts 1\nend\n" },
+  play: async ({ canvas }) => {
+    const editor = canvas.getByRole("group", { name: "Editor app.rb" });
+    await waitFor(() => expect(colourOf(editor, "def")).toBeDefined());
+    await expect(colourOf(editor, "def")).not.toBe(plainColour(editor));
+  },
+};
+
+export const HighlightsSql: Story = {
+  args: { name: "q.sql", path: "/Users/user/Development/app/q.sql", type: "text/plain", text: "SELECT 1 FROM loans;\n" },
+  play: async ({ canvas }) => {
+    const editor = canvas.getByRole("group", { name: "Editor q.sql" });
+    await waitFor(() => expect(colourOf(editor, "SELECT")).toBeDefined());
+    await expect(colourOf(editor, "SELECT")).not.toBe(plainColour(editor));
+  },
+};
+
+export const HighlightsAFenceInMarkdown: Story = {
+  args: { name: "notes.md", path: "/Users/user/Development/app/notes.md", type: "text/markdown", text: "# Notes\n\n```go\nfunc main() {}\n```\n" },
+  play: async ({ canvas }) => {
+    const editor = canvas.getByRole("group", { name: "Editor notes.md" });
+    await waitFor(() => expect(colourOf(editor, "func")).toBeDefined());
+    await expect(colourOf(editor, "func")).not.toBe(plainColour(editor));
+  },
+};
+
+/** **Markdown's own marks are coloured too**: a code span, and the `-` that starts a list item, where both were plain text. */
+export const HighlightsMarkdownMarks: Story = {
+  args: { name: "marks.md", path: "/Users/user/Development/app/marks.md", type: "text/markdown", text: "A `span` here.\n\n- item\n" },
+  play: async ({ canvas }) => {
+    const editor = canvas.getByRole("group", { name: "Editor marks.md" });
+    await waitFor(() => expect(colourOf(editor, "`span`")).toBeDefined());
+    await expect(colourOf(editor, "`span`")).not.toBe(plainColour(editor));
+    await expect(colourOf(editor, "-")).not.toBe(plainColour(editor));
+  },
+};

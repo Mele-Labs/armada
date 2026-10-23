@@ -38,3 +38,18 @@ fn a_message_row_carries_its_notice_and_an_older_row_reads_without_one() {
     assert!(noticed.contains(r#""notice":"behind_base""#), "{noticed}");
     assert_eq!(decode::<SessionRow>("a row", noticed.as_bytes()).unwrap(), row(Some("behind_base")));
 }
+
+/// **The word a row carries is the word a mute is sent by**: `word` and the wire spelling are written
+/// apart, so each is read against the other.
+#[test]
+fn every_notice_carries_the_word_it_is_spelt_as_on_the_wire() {
+    use Notice::*;
+    for notice in [
+        BehindBase, PrChecksFailed, PrConflicts, PrDropped, PrUnmergeable, PrMerged, PrAutoMerge, PrQueued, PrHanded,
+        SlotFree, SlotKept, BuildMoved, WriteClash, SlotStranded, MainRed, RailNudge, RailStep, UsageTrip,
+        LimitWake, PlanApproved, AutoLandRefused, RetroNote, ReplyClaim, ContextHandoff, WalkFailed,
+        WorkflowChanged, DeliveryAsked, DeliveryChosen, WatchSaw, Taught,
+    ] {
+        assert_eq!(encode(&notice).unwrap(), format!("\"{}\"", notice.word()));
+    }
+}

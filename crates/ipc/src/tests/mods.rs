@@ -13,6 +13,8 @@ fn a_mod(name: &str) -> ModSummary {
         kind: Some(ModKind::Theme),
         version: Some("0.1.0".to_string()),
         description: Some("Softer greys".to_string()),
+        taught_on: None,
+        entry: None,
         enabled: true,
         valid: true,
         reason: None,
@@ -39,6 +41,8 @@ fn a_broken_mod_leaves_out_what_could_not_be_read_rather_than_sending_null() {
         kind: None,
         version: None,
         description: None,
+        taught_on: None,
+        entry: None,
         enabled: true,
         valid: false,
         reason: Some("mod.toml is missing".to_string()),
@@ -97,7 +101,7 @@ fn a_layout_mod_and_the_owners_choices_are_left_out_when_empty_and_never_null() 
     assert_eq!(scaffold(None), r#"{"name":"tidy"}"#, "a theme scaffold is the body it always was");
     assert_eq!(scaffold(Some(ModKind::Layout)), r#"{"name":"tidy","kind":"layout"}"#);
 
-    let checked = ModChecked { name: "tidy".into(), valid: true, problems: vec![], css: None, layout: Some("{}".into()) };
+    let checked = ModChecked { name: "tidy".into(), valid: true, problems: vec![], css: None, layout: Some("{}".into()), words: None, fleet: None };
     assert_eq!(encode(&checked).expect("plain data"), r#"{"name":"tidy","valid":true,"problems":[],"layout":"{}"}"#);
 
     assert!(!encode(&Preferences::default()).expect("plain data").contains("layout_choices"));

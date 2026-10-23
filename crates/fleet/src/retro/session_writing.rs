@@ -319,7 +319,8 @@ where
         runtime: Arc<crate::session_host::Runtime>,
     ) -> Option<(String, String)> {
         let asked_at = self.instant();
-        if !matches!(self.told_by_fleet(id, &note_asked(since)).await, Ok(true)) {
+        // The note is waited for, so only a Session that has the ask is waited on.
+        if !matches!(self.noticed_by_fleet(id, &note_asked(since), ipc::Notice::RetroNote).await, Ok(told) if told.sent()) {
             return None;
         }
         let began = Clock::now();

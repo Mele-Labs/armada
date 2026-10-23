@@ -607,6 +607,20 @@ pub enum WaitingSource {
     /// options, `Auto land` (choice 0), `Open PR only` (choice 1) and `Keep local` (choice 2), each
     /// with a description. The `choice` is kept on the row and the agent is told it.
     Delivery,
+    /// Fleet: words a person taught open nowhere Fleet could find in this Session's repository. Derived
+    /// on every read from the store's question and the mod, while the Words mod has no address for
+    /// the repository: id `words:<mod>:<manifest id>`, text `Where does <name> open in <manifest id>?`,
+    /// an `answer` act, and an option for each address any Words mod holds (label the address, a
+    /// description naming the repositories that use it) then `Other`. A `choice` of an address
+    /// writes it to the mod; `Other` takes the `text`, which needs `{match}` where the matched words go.
+    /// Asked once for a mod and repository, and dismissing it does not ask again. No message goes to
+    /// the agent.
+    WordsAddress,
+    /// Fleet: a Fleet mod's rule says this notice is a call, so the Session was told it and the person
+    /// is asked to look. Derived on every read from the store's call: id `call:<n>`, text the words the
+    /// Session was told, a `message` act that opens the Session. Dismissing it settles it and tells the
+    /// agent nothing.
+    FleetCall,
 }
 
 /// What a Session is doing, read from what happened and never from what the agent said. One answer,
