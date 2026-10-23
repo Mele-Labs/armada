@@ -28,7 +28,7 @@ function shellFleet() {
   const watching = new Set<(change: JobTerminalChange) => void>();
   const shells = new Map<string, FakeShell>();
   const openIn = new Map<string, string>();
-  const calls = { opened: [] as { sessionId: string; cols?: number; rows?: number }[], stopped: [] as string[] };
+  const calls = { opened: [] as { sessionId: string; cols?: number; rows?: number }[], stopped: [] as string[], written: [] as string[] };
   let minted = 0;
   const send = (runId: string, message: SessionRunMessage) => hearing.forEach((one) => one(runId, message));
   const tell = (change: JobTerminalChange) => watching.forEach((one) => one(change));
@@ -68,6 +68,7 @@ function shellFleet() {
         return { ok: true as const, value: { run_id: open(sessionId) } };
       },
       writeSessionRun: async (runId: string, data: string) => {
+        calls.written.push(data);
         shells.get(runId)?.write(data);
         return { ok: true as const, value: { run_id: runId } };
       },
