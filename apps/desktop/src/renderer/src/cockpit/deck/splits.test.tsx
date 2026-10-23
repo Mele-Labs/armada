@@ -19,7 +19,7 @@ afterEach(() => {
   localStorage.clear();
 });
 
-function Grid({ layout }: { layout: string }) {
+function Grid({ layout, bandOnly = false }: { layout: string; bandOnly?: boolean }) {
   const grid = useRef<HTMLDivElement>(null);
   const splits = useSplits(grid, layout);
   return (
@@ -27,17 +27,18 @@ function Grid({ layout }: { layout: string }) {
       <div className="deck-left" style={{ display: "flex", flexDirection: "column", gap: 8, height: 400 }}>
         <section className="sv-panel" data-area="alpha" aria-label="Alpha" style={{ height: 196 }} />
         <section className="sv-panel" data-area="beta" aria-label="Beta" style={{ height: 196 }} />
+        {bandOnly ? <section className="sv-panel" data-area="band" data-band-only="" aria-label="Band" style={{ height: 34 }} /> : null}
       </div>
       {splits}
     </div>
   );
 }
 
-function mount(layout: string): HTMLElement {
+function mount(layout: string, bandOnly = false): HTMLElement {
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
-  act(() => root.render(<Grid layout={layout} />));
+  act(() => root.render(<Grid layout={layout} bandOnly={bandOnly} />));
   roots.push({ root, host });
   return host;
 }
@@ -95,4 +96,11 @@ test("a panel folded to its band stands outside the shares and has no handle bes
   await vi.waitFor(() => expect(handle(host)).not.toBeNull());
   act(() => host.querySelector('[aria-label="Beta"]')!.setAttribute("data-collapsed", ""));
   await vi.waitFor(() => expect(handle(host)).toBeNull());
+});
+
+test("a panel that is only a band stands outside the shares and has no handle beside it", async () => {
+  const host = mount("session", true);
+  await vi.waitFor(() => expect(handle(host)).not.toBeNull());
+  expect(host.querySelectorAll('[role="separator"]')).toHaveLength(1);
+  expect(handle(host)!.getAttribute("aria-label")).toBe("Resize Alpha and Beta");
 });
