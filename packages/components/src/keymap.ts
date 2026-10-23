@@ -369,7 +369,7 @@ export function digitKeyFor(id: string, digit: number): string | undefined {
  * the list and the output on a Job, and those are never the same screen.
  */
 const PLACES: Readonly<Record<ActionScope, readonly string[]>> = {
-  anywhere: ["board", "detail", "studio", "dashboard", "deck", "review", "call"],
+  anywhere: ["board", "detail", "studio", "dashboard", "deck", "review", "issues", "call"],
   // The deck's list takes `j`, `k` and `Enter` as any list does. The acts that need a Job or Session in
   // hand (`list and detail`: attest, redirect, kill and the rest) are on its page, not on the deck.
   // The Reviews list is not here: it moves by `j`, `k` and `Enter` as a list does, but its `r` goes to the reader, where a
@@ -385,6 +385,8 @@ const PLACES: Readonly<Record<ActionScope, readonly string[]>> = {
   deck: ["deck"],
   // The Reviews tab is a tab of the places bar, not the deck, so its letters do not meet the deck's.
   review: ["review"],
+  // The Issues tab is a tab of the places bar too, so its letters meet neither the deck's nor Reviews'.
+  issues: ["issues"],
   call: ["call"],
 };
 
@@ -434,6 +436,7 @@ export const KEYMAP_GROUPS: readonly KeymapGroup[] = [
   { title: "Dashboard", scopes: ["dashboard", "deck"] },
   { title: "Calls", scopes: ["call"] },
   { title: "Reviews", scopes: ["review"] },
+  { title: "Issues", scopes: ["issues"] },
   { title: "Studios", scopes: ["open studio"] },
 ];
 

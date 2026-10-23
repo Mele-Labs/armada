@@ -25,7 +25,8 @@
       { "id": "workflows", "hideable": true },
       { "id": "studios", "hideable": true },
       { "id": "lessons", "hideable": true },
-      { "id": "reviews", "hideable": true }
+      { "id": "reviews", "hideable": true },
+      { "id": "issues", "hideable": true }
     ] }
   }
 }

@@ -23,6 +23,7 @@ import {
   Puzzle,
   Presentation,
   Settings as SettingsIcon,
+  Ticket,
   ShieldCheck,
   Stethoscope,
   SquareTerminal,
@@ -52,6 +53,7 @@ export const SURFACE = {
   jobs: "jobs",
   account: "account",
   reviews: "reviews",
+  issues: "issues",
   usage: "usage",
   requests: "requests",
 } as const;
@@ -219,6 +221,14 @@ export const SURFACES: readonly PaletteSurface[] = [
     icon: Eye,
   },
   {
+    id: SURFACE.issues,
+    label: "Issues",
+    // No key, as Reviews: `deck_tabs` spells six digits.
+    aliases: ["issue", "tickets", "tracker", "jira", "backlog"],
+    // `ticket` is the registry's issue.
+    icon: Ticket,
+  },
+  {
     id: SURFACE.workflows,
     label: "Workflows",
     // No key; reached from a System entry, a link on the deck and by name.
@@ -289,11 +299,12 @@ export const DECK_TABS = [
   { id: "studios", label: "Studios", surface: SURFACE.studios },
   { id: "retros", label: "Retros", surface: SURFACE.lessons },
   { id: "reviews", label: "Reviews", surface: SURFACE.reviews },
+  { id: "issues", label: "Issues", surface: SURFACE.issues },
   { id: "system", label: "System", surface: SURFACE.kit },
 ] as const;
 
-/** The tabs a digit reaches. Reviews takes none: `deck_tabs` binds `⌘1` to `⌘6`, so the digits skip it and System keeps `⌘6`. */
-const DIGIT_TABS = DECK_TABS.filter((tab) => tab.id !== "reviews");
+/** The tabs a digit reaches. Reviews and Issues take none: `deck_tabs` binds `⌘1` to `⌘6`, so the digits skip them and System keeps `⌘6`. */
+const DIGIT_TABS = DECK_TABS.filter((tab) => tab.id !== "reviews" && tab.id !== "issues");
 
 export type DeckTabId = (typeof DECK_TABS)[number]["id"];
 
@@ -322,6 +333,7 @@ export const PLACES: readonly string[] = [
   SURFACE.studios,
   SURFACE.lessons,
   SURFACE.reviews,
+  SURFACE.issues,
 ];
 
 /** The tab a surface is under, or `undefined` where the Cockpit window places none (Manifest, the merge line). */

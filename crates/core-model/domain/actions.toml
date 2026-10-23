@@ -31,7 +31,8 @@
 #                 An Action with neither a glyph nor a reason fails the gate
 #   shortcut    - the binding, as the contract's map spells it
 #   scope       - where the binding is offered: anywhere | list |
-#                 list and detail | open studio | dashboard | deck | review | call
+#                 list and detail | open studio | dashboard | deck | review |
+#                 issues | call
 #   destructive - whether it ends or overrules a record
 #   confirms    - whether it takes a confirmation. Destructive implies it
 #   unbuilt     - the issue that builds the act, on a row Bridge cannot answer
@@ -582,6 +583,54 @@ scope = "review"
 destructive = false
 confirms = false
 notes = "Opens the sheet of places Armada remembers a change runs, by repository and area, from anywhere on the Reviews tab outside a text box. Each can be edited or forgotten there. `W` is the capital: `w` is `call_recall`, in the dashboard scope."
+
+[actions.issues_panel]
+kind = "Action"
+tier = "Contextual"
+verb = "Go to a part of Issues"
+icon = ""
+icon_absent = "undecided"
+shortcut = "l r"
+scope = "issues"
+destructive = false
+confirms = false
+notes = "Moves focus to a part of the Issues tab: `l` the list of issues, `r` the issue open in the reader. Reviews' letters for the same two parts, in the scope of the tab that has them. A part's key is its slot in this row, so Settings → Keyboard moves the key and the tab follows. Mock-backed until the tracker routes land."
+
+[actions.issues_queries]
+kind = "Action"
+tier = "Contextual"
+verb = "Open the queries"
+icon = ""
+icon_absent = "undecided"
+shortcut = "L"
+scope = "issues"
+destructive = false
+confirms = false
+notes = "Opens the dropdown that chooses the query: Open, Assigned to me, the queries he saved for the repository, and Describe a query. Reviews' `L` for its lists."
+
+[actions.issues_describe]
+kind = "Action"
+tier = "Contextual"
+verb = "Describe a query"
+icon = ""
+icon_absent = "undecided"
+shortcut = "/"
+scope = "issues"
+destructive = false
+confirms = false
+notes = "Puts up the box a query is described in, in place of the list. Sending it asks first, since a model writes the query in the tracker's own language. Reviews' `/` for Natural Search."
+
+[actions.issues_start]
+kind = "Action"
+tier = "Contextual"
+verb = "Start a Job on the issue"
+icon = ""
+icon_absent = "undecided"
+shortcut = "s"
+scope = "issues"
+destructive = false
+confirms = false
+notes = "Opens the dispatch sheet holding the open issue as a tag, on its repository. Starting is the sheet's own act, so nothing starts on this key alone."
 
 [actions.deck_tabs]
 kind = "Action"
