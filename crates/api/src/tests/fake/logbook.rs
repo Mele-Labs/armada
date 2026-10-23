@@ -2,7 +2,7 @@
 
 use ipc::{
     EditLogbookEntry, Instant, Logbook as LogbookRead, LogbookEntry, ForgottenLogbookEntry, LogbookKind, LogbookSection,
-    LogbookState, LockLogbookEntry, TeachLogbookEntry,
+    LogbookState, LockLogbookEntry, TeachLogbookEntry, TidiedLogbook, TidyLogbook,
 };
 
 use super::FakeDaemon;
@@ -49,6 +49,10 @@ impl Logbook for FakeDaemon {
 
     async fn forget_logbook_entry(&self, entry_id: String) -> Result<ForgottenLogbookEntry, Refusal> {
         Ok(ForgottenLogbookEntry { id: entry_id })
+    }
+
+    async fn tidy_logbook(&self, tidy: TidyLogbook) -> Result<TidiedLogbook, Refusal> {
+        Ok(TidiedLogbook { merged: tidy.repository.map_or(0, |root| root.len() as u32) })
     }
 
     async fn teach_logbook_entry(&self, teach: TeachLogbookEntry) -> Result<LogbookEntry, Refusal> {

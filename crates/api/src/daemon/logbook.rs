@@ -7,7 +7,7 @@ use std::future::Future;
 
 use ipc::{
     EditLogbookEntry, Logbook as LogbookRead, LogbookEntry, ForgottenLogbookEntry, LogbookSection, LogbookState,
-    LockLogbookEntry, TeachLogbookEntry,
+    LockLogbookEntry, TeachLogbookEntry, TidiedLogbook, TidyLogbook,
 };
 
 use crate::daemon::Refusal;
@@ -41,6 +41,11 @@ pub trait Logbook: Send + Sync + 'static {
 
     /// `forget_logbook_entry` — onto the deny list, for good. [`Refusal::NotFound`] the second time.
     fn forget_logbook_entry(&self, entry_id: String) -> impl Future<Output = Result<ForgottenLogbookEntry, Refusal>> + Send;
+
+    /// `tidy_logbook` — fold near-duplicate entries now, of one repository or of every one. The
+    /// answer counts the entries folded into another. [`Refusal::Fault`] where the model call
+    /// fails.
+    fn tidy_logbook(&self, tidy: TidyLogbook) -> impl Future<Output = Result<TidiedLogbook, Refusal>> + Send;
 
     /// `teach_logbook_entry` — an entry a person wrote, standing at once. [`Refusal::Unacceptable`]
     /// for a `repo` entry naming no repository, or for text that is empty or too long;

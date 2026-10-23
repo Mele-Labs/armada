@@ -56,6 +56,8 @@ pub struct LogbookEvidence {
 pub enum LogbookReplacedBy {
     Distil,
     Person,
+    /// Tidy folded a near-duplicate into this entry and wrote the one line for both.
+    Merged,
 }
 
 /// Text an entry held before.
@@ -119,6 +121,20 @@ pub struct LockLogbookEntry {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ForgottenLogbookEntry {
     pub id: String,
+}
+
+/// `tidy_logbook`' body: the repository whose Logbook to tidy.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TidyLogbook {
+    /// A served repository's root. **Absent**: every served repository, with the habits and this Mac's.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub repository: Option<String>,
+}
+
+/// `tidy_logbook`' answer: how many entries were folded into another and archived.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TidiedLogbook {
+    pub merged: u32,
 }
 
 /// `teach_logbook_entry`' body: an entry a person wrote, which stands at once.

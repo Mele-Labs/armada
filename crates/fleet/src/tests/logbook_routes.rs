@@ -5,11 +5,11 @@
 use api::{Logbook, Refusal};
 use ipc::{
     EditLogbookEntry, LogbookEntry, LogbookKind, LogbookReplacedBy, LogbookSection, LogbookState, LockLogbookEntry,
-    TeachLogbookEntry,
+    TeachLogbookEntry, TidyLogbook,
 };
 use store::{LogEntry, LogEvidence, LogHistory, LogHow, LogKind, LogRewrite, LogSection, LogState};
 
-use super::session_host::{rig_placing, Rig};
+use super::session_host::{rig_fitted, rig_placing, Rig};
 use crate::run_memory::places::key_of;
 
 fn learnt(section: LogSection, key: &str, text: &str, state: LogState) -> LogEntry {
@@ -243,4 +243,21 @@ async fn a_repository_entry_without_a_repository_or_with_empty_text_is_refused()
     assert_eq!(code(empty), (422, "fleet.logbook_text_refused".to_string()));
     let elsewhere = TeachLogbookEntry { repository: Some("/nowhere".into()), ..teach(&rig, LogbookSection::Repo, false, "Text.") };
     assert_eq!(rig.fleet.teach_logbook_entry(elsewhere).await.expect_err("not served").status(), 404);
+}
+
+#[tokio::test]
+async fn tidy_logbook_merges_near_duplicates_and_answers_the_count() {
+    // A fresh store numbers its entries 1 and 2, so the judge can name them before they exist.
+    let said = r#"{"groups":[{"keep":1,"text":"Run the focused test command, logging to a file.","absorb":[2]}]}"#;
+    let rig = rig_fitted(|fittings| fittings.judge = std::sync::Arc::new(testkit::FakeJudge::saying(said)));
+    let first = seeded(&rig, LogSection::Repo, "Run the focused test command.", LogState::Standing).await;
+    let second = seeded(&rig, LogSection::Repo, "Run the focused test command with a log.", LogState::Standing).await;
+    assert_eq!((first.as_str(), second.as_str()), ("1", "2"));
+
+    let tidied = rig.fleet.tidy_logbook(TidyLogbook { repository: Some(rig.root.clone()) }).await.expect("tidied");
+    assert_eq!(tidied.merged, 1);
+
+    let kept = read(&rig, true, Some(LogbookSection::Repo), Some(LogbookState::Standing)).await;
+    assert_eq!(kept.len(), 1);
+    assert_eq!(kept[0].history.first().map(|earlier| earlier.by), Some(LogbookReplacedBy::Merged));
 }

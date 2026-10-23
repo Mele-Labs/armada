@@ -1,0 +1,8 @@
+[operations.tidy_logbook]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Tidy the Logbook now: fold near-duplicate entries into one and archive the rest"
+notes = """
+`POST /logbook/tidy`, body `{repository?}`. Answers `{merged}`, the number of entries folded into another. `repository` is a served repository's root; absent tidies every served repository, with the habits and this Mac's. One model call per repository, so the press can take a while. An entry that is locked or a person's is never merged. A 500 `fleet.logbook_failed` where a call failed; the repositories before it were tidied.
+"""

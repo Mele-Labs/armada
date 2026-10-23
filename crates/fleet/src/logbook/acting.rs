@@ -1,6 +1,6 @@
 //! The Logbook as the wire has it: read as entries of every state, and a person's acts on one.
 //! `get_logbook`, `edit_logbook_entry`, `lock_logbook_entry`, `forget_logbook_entry` and
-//! `teach_logbook_entry`. `docs/concepts/logbook.md`.
+//! `teach_logbook_entry`, and `tidy_logbook`. `docs/concepts/logbook.md`.
 //!
 //! **The `From` step is where a store row becomes a wire entry.** An entry run memory or the machine
 //! note keeps is read in beside the learnt ones with an id of a word and a hash, and no act takes it.
@@ -11,7 +11,7 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Logbook, Refusal};
 use ipc::{
     EditLogbookEntry, Instant, LogbookEarlier, LogbookEntry, LogbookEvidence, ForgottenLogbookEntry, LogbookKind,
-    LogbookReplacedBy, LogbookSection, LogbookState, LockLogbookEntry, TeachLogbookEntry, WireError,
+    LogbookReplacedBy, LogbookSection, LogbookState, LockLogbookEntry, TeachLogbookEntry, TidiedLogbook, TidyLogbook, WireError,
 };
 use store::{logbook_words, LogEntry, LogEvidence, LogHistory, LogHow, LogKind, LogRewrite, LogSection, LogState};
 
@@ -156,7 +156,8 @@ fn wired(logged: &Logged, root: Option<&str>, titles: &HashMap<String, String>) 
                 until: instant(was.replaced_at),
                 by: match was.why {
                     LogRewrite::Person => LogbookReplacedBy::Person,
-                    LogRewrite::Contradicted | LogRewrite::Tripped | LogRewrite::Merged => LogbookReplacedBy::Distil,
+                    LogRewrite::Contradicted | LogRewrite::Tripped => LogbookReplacedBy::Distil,
+                    LogRewrite::Merged => LogbookReplacedBy::Merged,
                 },
             })
             .collect(),
@@ -340,6 +341,11 @@ where
         }
         self.logbook_mirrored(&entry.repository).await;
         Ok(ForgottenLogbookEntry { id: entry_id })
+    }
+
+    async fn tidy_logbook(&self, tidy: TidyLogbook) -> Result<TidiedLogbook, Refusal> {
+        let merged = self.logbook_tidied(tidy.repository.as_deref()).await.map_err(|why| self.logbook_fault(why))?;
+        Ok(TidiedLogbook { merged: merged as u32 })
     }
 
     async fn teach_logbook_entry(&self, teach: TeachLogbookEntry) -> Result<LogbookEntry, Refusal> {

@@ -25,8 +25,8 @@ export type LogbookEvidence = {
   at: string;
 };
 
-/** Text the entry held before, and who replaced it: Distil on a contradiction or a trip, or the person. */
-export type LogbookEarlier = { text: string; until: string; by: "distil" | "person" };
+/** Text the entry held before, and who replaced it: Distil on a contradiction or a trip, Tidy when it merged a near-duplicate in, or the person. */
+export type LogbookEarlier = { text: string; until: string; by: "distil" | "person" | "merged" };
 
 export type LogbookEntry = {
   id: string;
@@ -70,6 +70,15 @@ export type LockLogbookEntry = { locked: boolean };
 
 /** What `forget_logbook_entry` (`POST /logbook/entries/:entry_id/forget`) answers. */
 export type ForgottenLogbookEntry = { id: string };
+
+/**
+ * The body of `tidy_logbook` (`POST /logbook/tidy`). `repository` is a served repository's root; absent tidies every
+ * repository, with the habits and this Mac's.
+ */
+export type TidyLogbook = { repository?: string };
+
+/** What `tidy_logbook` answers: the entries folded into another and archived. */
+export type TidiedLogbook = { merged: number };
 
 /**
  * The body of `teach_logbook_entry` (`POST /logbook/entries`): an entry a person wrote, which stands at once and

@@ -239,8 +239,7 @@ where
 
     /// Tidy one served repository by its root, or every one, now. The count is the entries folded
     /// into another. `Err` is the last repository whose call failed; the others were tidied.
-    #[allow(dead_code)] // the wire operation that asks for a tidy calls it
-    pub(crate) async fn logbook_tidied(self: &Arc<Self>, repository: Option<&str>) -> Result<usize, String> {
+    pub(crate) async fn logbook_tidied(&self, repository: Option<&str>) -> Result<usize, String> {
         let roots: Vec<String> = match repository {
             Some(root) => vec![root.to_string()],
             None => self.repositories().served().iter().map(|served| served.root().to_string()).collect(),
