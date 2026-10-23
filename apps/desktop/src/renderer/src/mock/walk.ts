@@ -98,7 +98,7 @@ export function inside(scope: Target, target: Target): Target {
   return { ...target, within: scope, said: `${target.said} in ${scope.said}` };
 }
 
-/** One of the title bar's six places: Cockpit, Jobs, Sessions, Studios, Retros or System. Not matched whole: a tab with a call waiting names it too. */
+/** One of the title bar's six places: Cockpit, Jobs, Sessions, Studios, Logbook or System. Not matched whole: a tab with a call waiting names it too. */
 export const place = (name: string): Target => inside(role("navigation", "Places"), tab(name));
 
 /** A row of the Cockpit's list of Sessions, by its title. */
@@ -116,9 +116,10 @@ export const systemPage = (name: string): Target => {
   return inside(role("navigation", "System"), button(new RegExp(`^${entry.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}( |$)`)));
 };
 
-/** The steps that reach a System entry from anywhere: System, then the entry in its sidebar. Studios and Retros are places of their own, one press. */
+/** The steps that reach a System entry from anywhere: System, then the entry in its sidebar. Studios is a place of its own, one press, and Retros is the Logbook's Armada fixes. */
 export function toSystemPage(name: string, say: string): Step[] {
-  if (name === "Studios" || name === "Retros") return [{ press: place(name), say }];
+  if (name === "Retros") return [{ press: place("Logbook"), say }];
+  if (name === "Studios") return [{ press: place(name), say }];
   return [
     { press: place("System"), say: `System, for ${name}` },
     { press: systemPage(name), say },

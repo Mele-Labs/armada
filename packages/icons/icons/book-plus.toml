@@ -1,0 +1,7 @@
+[icons.book-plus]
+  means = "A book with a plus on its cover: not in the book yet"
+  group = "Logbook"
+  size = "12px"
+  status = "Proposed"
+  reserved = "A Logbook entry still a candidate, not yet handed to an agent. Never adding something by hand."
+  notes = "Proposed 22 Oct 2026 for the walk `logbook`. Tooltip `Candidate`."

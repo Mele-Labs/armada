@@ -1,8 +1,8 @@
-// The guided review on the Retros page (`docs/concepts/retro.md`, *Reviewing*):
+// The guided review in Armada fixes, on the Logbook (`docs/concepts/retro.md`, *Reviewing*):
 // Review beside the tabs reads the open items together and draws them one at a
 // time, with the model's reason, a thread to ask about the card, and Skip and
 // Back. The mock Fleet orders the items as listed and folds two with the same
-// headline. The review is kept while the window is open: leaving Retros for Kit and
+// headline. The review is kept while the window is open: leaving the Logbook for Kit and
 // coming back finds the same card and its thread, and Review again asks on purpose.
 // `retro-page.test.tsx` holds the claims.
 
@@ -11,7 +11,7 @@ import { button, region, role, text, toSystemPage, walk } from "../walk";
 const ASK = role("textbox", "Ask about this item");
 
 export const reviewingTheRetros = walk("retro/lessons", [
-  ...toSystemPage("Retros", "Retros, under Work"),
+  ...toSystemPage("Retros", "The Logbook, with Armada fixes under the entries"),
   { press: button("Review", { exact: true }), say: "Review, beside the tabs" },
   { look: text(/^1 of \d+$/), say: "One item at a time, and where it stands" },
   { look: text("Why this one"), say: "The model's line on why it is here" },
@@ -25,7 +25,7 @@ export const reviewingTheRetros = walk("retro/lessons", [
   { look: text("Which Sessions did this cost?"), say: "Its thread is still there" },
   { look: region("Review"), say: "The review, whole" },
   { press: button("Skip", { exact: true }), say: "On to the second card again" },
-  ...toSystemPage("Kit", "Leave Retros in the middle of the review"),
+  ...toSystemPage("Kit", "Leave Armada fixes in the middle of the review"),
   ...toSystemPage("Retros", "And come back"),
   { look: text(/^2 of \d+$/), say: "The same card, with no Review pressed and no wait" },
   { look: text(/^Reviewed .* ago$|^Reviewed just now$/), say: "How old the review is" },

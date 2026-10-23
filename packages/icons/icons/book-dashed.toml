@@ -1,0 +1,7 @@
+[icons.book-dashed]
+  means = "A book drawn in a broken line: kept, and no longer handed on"
+  group = "Logbook"
+  size = "12px"
+  status = "Proposed"
+  reserved = "A faded Logbook entry, kept and searchable and not handed to agents. Never a forgotten one, which leaves the page."
+  notes = "Proposed 22 Oct 2026 for the walk `logbook`. Tooltip `Faded`."

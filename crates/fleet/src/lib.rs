@@ -187,6 +187,8 @@ mod pull_review_lists;
 mod review_runs;
 /// Natural Search: the person's words put to every open pull request. `docs/concepts/pull-review.md`.
 mod review_searches;
+/// Saved issue queries and the query writer. `docs/concepts/tracker.md`, *Saved queries*.
+mod issue_queries;
 /// The review tools and explanations a repository has, and writing one.
 mod review_tools;
 /// A Walk run: where the change runs, and the walk played there. `docs/concepts/pull-review.md`, *Walk*.

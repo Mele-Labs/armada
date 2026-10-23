@@ -8,13 +8,13 @@ import { mount, onScreen, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
-test("Retros names the pick in the title row, All says so, and the Cockpit draws no tag", async () => {
+test("The Logbook names the pick in the title row, All says so, and the Cockpit draws no tag", async () => {
   mount("sessions-by-repository");
   await onScreen();
   const tag = () => document.querySelector(".armada-title-bar__repository");
   expect(tag()).toBeNull();
 
-  await userEvent.click(page.getByRole("tab", { name: "Retros", exact: true }));
+  await userEvent.click(page.getByRole("tab", { name: "Logbook", exact: true }));
   await expect.element(page.getByTitle("All repositories")).toHaveTextContent("All repositories");
 
   // The pick is made on the Cockpit, where the picker is, and the title row follows it elsewhere.
@@ -23,6 +23,6 @@ test("Retros names the pick in the title row, All says so, and the Cockpit draws
   await userEvent.click(page.getByRole("combobox", { name: "Repository" }));
   await userEvent.click(page.getByRole("option", { name: "storefront" }));
   expect(tag()).toBeNull();
-  await userEvent.click(page.getByRole("tab", { name: "Retros", exact: true }));
+  await userEvent.click(page.getByRole("tab", { name: "Logbook", exact: true }));
   await expect.element(page.getByTitle("storefront")).toHaveTextContent("storefront");
 });

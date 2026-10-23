@@ -1,0 +1,12 @@
+[operations.search_issues]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Run one query, written in a repository's tracker's own language, and list the issues it matches"
+notes = """
+`POST /issue_queries/:repository/search`, `repository` a manifest id, body `SearchIssues`: `query`. `docs/concepts/tracker.md`, *Saved queries*. Answers `IssueList` as `list_issues` does: `manifest_id`, `fetched_at`, `issues` newest edit first and at most a hundred, each a `TrackedIssue` with its `state`, `author`, `fields` and `holders`. `stale` is never set.
+
+**A command only because the query is typed text carried in a body**: it reads the tracker and writes nothing, and no model is asked. **Not held**: unlike `list_issues` it is read from the tracker each time, since a query is run when a person presses it and a saved one is meant to be current.
+
+A 422 `fleet.issue_query_refused` carrying the tracker's own words where it refuses the query (a syntax error, a field it does not have, no tool, nobody signed in), and a 422 for a repository Fleet does not serve.
+"""
