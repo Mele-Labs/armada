@@ -6,7 +6,7 @@
 // matches on it, which `ModKind` is.
 
 /** What a mod changes. A `mod.toml` naming another kind makes the mod invalid, so a valid row's is one of these. */
-export type ModKind = "theme" | "layout";
+export type ModKind = "theme" | "layout" | "tracker";
 
 /** One mod on disk. A broken one is a row with `valid` false, never a failed read. */
 export type ModSummary = {
@@ -24,6 +24,8 @@ export type ModSummary = {
   reason?: string;
   /** When the newest of the mod's own files was written. */
   changed_at?: string;
+  /** A tracker mod's last try, present only where it tried the `tracker.toml` that is there now. */
+  tried?: TrackerTry;
 };
 
 /** `GET /mods`, and the body of `mods.changed`: every mod by name, which a client replaces its list with. */
@@ -52,6 +54,22 @@ export type ModChecked = {
   css?: string;
   /** A layout mod's `layout.json` as it was checked, present only where it passed. Bridge applies this text and no other. */
   layout?: string;
+};
+
+/** `POST /mods/try`'s body: the tracker mod, and the repository to try it against. */
+export type TryTrackerMod = { name: string; manifest_id: string };
+
+/** How a tracker mod's try went. Only a tracker that passed one is used by a Manifest naming it. */
+export type TrackerTry = {
+  at: string;
+  manifest_id: string;
+  passed: boolean;
+  /** Why it did not pass. Present only where `passed` is false. */
+  reason?: string;
+  /** How many issues the Open query listed. */
+  listed: number;
+  /** The reference read back, where the Open query listed one. */
+  read?: string;
 };
 
 /** `POST /mods/promote`'s body. */

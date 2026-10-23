@@ -17,6 +17,8 @@ pub enum ModKind {
     Theme,
     /// A `layout.json` that reorders and hides Bridge's tabs, panels and rail rows.
     Layout,
+    /// A `tracker.toml` that teaches Fleet a tracker this build has no adapter for.
+    Tracker,
 }
 
 /// One mod on disk, as `list_mods` answers it and `mods.changed` carries it.
@@ -44,6 +46,9 @@ pub struct ModSummary {
     /// When the newest of the mod's own files was written.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub changed_at: Option<Instant>,
+    /// A tracker mod's last try, present only where it tried the `tracker.toml` that is there now.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tried: Option<TrackerTry>,
 }
 
 /// Every mod on this machine, by name. The answer to `list_mods` and the body
@@ -92,6 +97,31 @@ pub struct ModChecked {
     /// applies this text and no other, as it does `css`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub layout: Option<String>,
+}
+
+/// `try_tracker_mod`: run a tracker mod's Open query, and read one issue it listed, against a
+/// repository Fleet serves.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TryTrackerMod {
+    pub name: String,
+    pub manifest_id: ManifestId,
+}
+
+/// How a tracker mod's try went. **Only a tracker that passed one is used** by a Manifest naming it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TrackerTry {
+    pub at: Instant,
+    /// The repository it was tried against.
+    pub manifest_id: ManifestId,
+    pub passed: bool,
+    /// Why it did not pass. Present only where `passed` is false.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+    /// How many issues the Open query listed.
+    pub listed: u32,
+    /// The reference read back, where the Open query listed one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub read: Option<String>,
 }
 
 /// `promote_mod`: put the mod on a branch of a repository.
