@@ -1,4 +1,4 @@
-// The Job's shell, docked where a block's run docks: Terminal in the Job's header opens it at the pane's
+// The Job's shell, docked where a block's run docks: Terminal in Flight control opens it at the pane's
 // size, keys reach it, Hide leaves it running, End shell stops it and New shell opens another. Beside a
 // block Run the two are tabs. Through `App` on `session-shell`, whose Fleet holds a fake zsh. The whole
 // story is the walk `job-shell`.
@@ -15,6 +15,7 @@ unmountAfterEach();
 
 const pane = () => page.getByRole("group", { name: "Terminal", exact: true });
 const thread = () => page.getByRole("region", { name: "Thread" });
+const terminal = () => page.getByRole("region", { name: "Flight controls" }).getByRole("button", { name: "Terminal", exact: true });
 const PROMPT = "slot-1 %";
 
 async function open() {
@@ -26,9 +27,9 @@ async function open() {
 }
 
 test("Terminal opens the Job's shell at the pane's size, docked above the box, and keys reach it", async () => {
-  const view = await open();
+  await open();
   expect(document.querySelector(".armada-terminal")).toBeNull();
-  await view.getByRole("button", { name: "Terminal", exact: true }).click();
+  await terminal().click();
 
   await expect.element(pane()).toBeVisible();
   await expect.element(pane().getByText(PROMPT)).toBeVisible();
@@ -45,9 +46,23 @@ test("Terminal opens the Job's shell at the pane's size, docked above the box, a
   await expect.element(pane().getByText(/CONTRIBUTING\.md/)).toBeVisible();
 });
 
-test("Hide leaves the shell running and Terminal brings it back whole; End shell stops it, and New shell opens another", async () => {
+test("Terminal is Flight control's and not the header's, lit while the shell shows, and a second press hides it with the shell still running", async () => {
   const view = await open();
-  await view.getByRole("button", { name: "Terminal", exact: true }).click();
+  expect(view.getByRole("button", { name: "Terminal", exact: true }).query()).toBeNull();
+  await expect.element(terminal()).toHaveAttribute("aria-pressed", "false");
+  await terminal().click();
+  await expect.element(pane().getByText(PROMPT)).toBeVisible();
+  await expect.element(terminal()).toHaveAttribute("aria-pressed", "true");
+
+  await terminal().click();
+  await expect.element(pane()).not.toBeInTheDocument();
+  await expect.element(terminal()).toHaveAttribute("aria-pressed", "false");
+  expect(shellCalls()!.stopped).toEqual([]);
+});
+
+test("Hide leaves the shell running and Terminal brings it back whole; End shell stops it, and New shell opens another", async () => {
+  await open();
+  await terminal().click();
   await expect.element(pane().getByText(PROMPT)).toBeVisible();
   await userEvent.keyboard("pwd{Enter}");
   await expect.element(pane().getByText("~/Development/armada/.armada/slots/slot-1", { exact: true })).toBeVisible();
@@ -55,7 +70,7 @@ test("Hide leaves the shell running and Terminal brings it back whole; End shell
   await pane().getByRole("button", { name: "Hide" }).click();
   expect(document.querySelector(".armada-terminal")).toBeNull();
   expect(shellCalls()!.stopped).toEqual([]);
-  await view.getByRole("button", { name: "Terminal", exact: true }).click();
+  await terminal().click();
   // The same shell, with what it printed before the pane was put away.
   await expect.element(pane().getByText("~/Development/armada/.armada/slots/slot-1", { exact: true })).toBeVisible();
   expect(shellCalls()!.opened).toHaveLength(1);
@@ -72,8 +87,8 @@ test("Hide leaves the shell running and Terminal brings it back whole; End shell
 });
 
 test("A block Run beside the shell: two tabs, the run's named by its command cut short with the whole command on hover, and the Run works as before", async () => {
-  const view = await open();
-  await view.getByRole("button", { name: "Terminal", exact: true }).click();
+  await open();
+  await terminal().click();
   await expect.element(pane().getByText(PROMPT)).toBeVisible();
 
   await thread().getByRole("group", { name: /wrangler deploy/ }).getByRole("button", { name: "Run", exact: true }).click();
@@ -123,9 +138,9 @@ test("A shell the agent opened while another Job was open draws whole once Termi
   // Not this Job's shell: its view docks nothing.
   expect(document.querySelector(".armada-terminal")).toBeNull();
 
-  const view = await toSession(/Deploy the store/);
+  await toSession(/Deploy the store/);
   expect(document.querySelector(".armada-terminal")).toBeNull();
-  await view.getByRole("button", { name: "Terminal", exact: true }).click();
+  await terminal().click();
   // Handed the shell already open, which printed everything before this pane was drawn.
   await expect.element(pane().getByText(SERVED)).toBeVisible();
   await expect.element(pane().getByText(/VITE v6\.3\.5/)).toBeVisible();
@@ -145,10 +160,11 @@ async function openInSidePanel() {
 
 test("Side panel: Terminal opens the shell in the side panel, nothing docks under the thread, and Close keeps it running with its output", async () => {
   const view = await openInSidePanel();
-  await view.getByRole("button", { name: "Terminal", exact: true }).click();
+  await terminal().click();
 
   await expect.element(panel()).toBeVisible();
   await expect.element(panel().getByText(PROMPT)).toBeVisible();
+  await expect.element(terminal()).toHaveAttribute("aria-pressed", "true");
   expect(view.getByRole("group", { name: "Terminal", exact: true }).query()).toBeNull();
   // The panel closes itself: the pane offers no Hide of its own.
   expect(panel().getByRole("button", { name: "Hide" }).query()).toBeNull();
@@ -159,7 +175,7 @@ test("Side panel: Terminal opens the shell in the side panel, nothing docks unde
   await panel().getByRole("button", { name: /^Close/ }).click();
   await expect.element(panel()).not.toBeInTheDocument();
   expect(shellCalls()!.stopped).toEqual([]);
-  await view.getByRole("button", { name: "Terminal", exact: true }).click();
+  await terminal().click();
   // The same shell, with what it printed before the panel closed.
   await expect.element(panel().getByText("~/Development/armada/.armada/slots/slot-1", { exact: true })).toBeVisible();
   expect(shellCalls()!.opened).toHaveLength(1);
@@ -189,7 +205,7 @@ test("The terminal's toggle moves the open shell between docked and the side pan
   const app = mount(s322SessionShell);
   await onScreen();
   const view = await toSession(/Deploy the store/);
-  await view.getByRole("button", { name: "Terminal", exact: true }).click();
+  await terminal().click();
   await expect.element(pane().getByText(PROMPT)).toBeVisible();
   await userEvent.keyboard("pwd{Enter}");
   const printed = "~/Development/armada/.armada/slots/slot-1";

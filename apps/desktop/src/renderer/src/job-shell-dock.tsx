@@ -6,12 +6,12 @@ import { DockedTerminal, XtermScreen, type ShellDockPane, type ShellPaneProps, t
 
 import { shellsOf, useJobShell, type JobShells, type ShellPlace } from "./job-shell";
 import { saveJobTerminalPlace, useJobTerminalPlace } from "./job-terminal-place";
-import { openInPanel } from "./shared-panel/store";
+import { closePanel, openInPanel, usePanel } from "./shared-panel/store";
 
 export type JobDock = {
   /** The runs' dock, which brings its run to the front as it starts or is shown again. */
   dock: TerminalDockRun;
-  /** Terminal: the shell's pane in front, with a new shell where none is running. Absent where the view serves no terminal. */
+  /** Terminal: the shell's pane in front, with a new shell where none is running. Absent where the view serves no terminal. Flight control's tile does the same (`useJobTerminal`). */
   terminal: (() => void) | undefined;
   /** What is docked, or nothing. */
   pane: ReactNode;
@@ -79,12 +79,41 @@ export function useJobDock(sessionId: string, place: ShellPlace, run: TerminalDo
   return {
     dock,
     terminal: () => {
-      if (sidePanel && toPanel(shells, place, sessionId)) return;
-      shells.want(place, sessionId);
+      openShell(shells, place, sessionId, sidePanel);
       setFront("shell");
     },
     pane: <DockedTerminal dock={dock} shell={{ pane, front, onFront: setFront }} />,
   };
+}
+
+/** The Job's shell as Flight control's Terminal tile reads and presses it: whether it shows on the Job's page, docked or in the side panel. */
+export type JobTerminal = { shown: boolean; press: () => void };
+
+/**
+ * The Job page's shell from outside its view. A press opens it as the view's own Terminal did; while it shows, a press puts it away and
+ * it keeps running, as a layer tile closes its layer. Absent where the window serves no shell.
+ */
+export function useJobTerminal(sessionId: string, served: boolean): JobTerminal | undefined {
+  const shells = served ? shellsOf(window.armada) : null;
+  const { shown: docked } = useJobShell(shells, "page", sessionId);
+  const open = usePanel().open;
+  const inPanel = open?.kind === "terminal" && open.sessionId === sessionId;
+  const sidePanel = useJobTerminalPlace(shells !== null) === "side panel";
+  if (shells === null) return undefined;
+  return {
+    shown: docked || inPanel,
+    press: () => {
+      if (docked) shells.show("page", sessionId, false);
+      else if (inPanel) closePanel();
+      else openShell(shells, "page", sessionId, sidePanel);
+    },
+  };
+}
+
+/** The pane in front, with a new shell where none is running: in the side panel where the setting says so and a panel is hosted. */
+function openShell(shells: JobShells, place: ShellPlace, sessionId: string, sidePanel: boolean): void {
+  if (sidePanel && toPanel(shells, place, sessionId)) return;
+  shells.want(place, sessionId);
 }
 
 /** The shell in the side panel, with a new one where none is running; a pane docked before the setting changed is put away. */

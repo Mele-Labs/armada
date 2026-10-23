@@ -704,6 +704,8 @@ export type DeckSession = {
   ledger: HTMLElement | null;
   /** The deck's places a Session with `work` draws its own panels into, in place of Activity, Bays and Autopilot. */
   hosts?: Hosts;
+  /** Flight control is drawn beside the view and carries Terminal, so the header does not. */
+  flight?: true;
 };
 
 /** A hand off that did not start as the failure toast carries a failure to a new Job: the code is Fleet's attachment kind, the reason is `detail.reason`. */
@@ -1070,7 +1072,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
                       </Button>
                     </Tooltip>
                   ) : null}
-                  {docked.terminal === undefined || session.dead !== undefined ? null : (
+                  {docked.terminal === undefined || session.dead !== undefined || deck?.flight === true ? null : (
                     <Button variant="ghost" size="sm" onClick={docked.terminal}>
                       Terminal
                     </Button>

@@ -98,6 +98,7 @@ export function SessionPane({ subject, props, acts, ledger, hosts, openSession }
             ...(subject.stoppable && acts.can.stop(subject) ? [{ id: "stop", label: "Stop", icon: Square, run: () => acts.stop(subject) }] : []),
           ],
           back: <BackAct />,
+          flight: true,
         }}
       />
     </section>
