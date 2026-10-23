@@ -14,6 +14,11 @@ export type RefWorld = {
   slug?: string;
   /** Paths the window has found to be files in the Job's checkout, as the words write them. */
   files?: readonly string[];
+  /**
+   * Words the person taught Armada to draw as a link: `pattern` is a regular expression, and `address` is where a match goes, with
+   * `{match}` standing for the words matched. A pattern that is no regular expression finds nothing.
+   */
+  links?: readonly { pattern: string; address: string }[];
 };
 
 export type RefSpan = { from: number; to: number; ref: ProseReference };
@@ -73,13 +78,20 @@ export function refScanner(world: RefWorld): (text: string) => RefSpan[] {
     return { ref, needles: needles.filter((needle) => needle !== "").map((needle) => ({ needle, pattern: wholeWord(needle) })) };
   });
   const files = new Set(world.files);
+  const links = (world.links ?? []).flatMap((rule) => {
+    try {
+      return [{ pattern: new RegExp(rule.pattern, "g"), address: rule.address }];
+    } catch {
+      return [];
+    }
+  });
   const kept = new Map<string, RefSpan[]>();
   return (text) => {
     const had = kept.get(text);
     if (had !== undefined) return had;
     if (kept.size >= KEPT_TEXTS) kept.clear();
     // A path names a file only as the whole text, which is how `Prose` hands over a code span: the same words in a sentence are not it.
-    const spans = files.has(text) ? [{ from: 0, to: text.length, ref: { kind: "file", id: text, title: text } satisfies ProseReference }] : scan(text, world, sessions);
+    const spans = files.has(text) ? [{ from: 0, to: text.length, ref: { kind: "file", id: text, title: text } satisfies ProseReference }] : scan(text, world, sessions, links);
     kept.set(text, spans);
     return spans;
   };
@@ -88,7 +100,12 @@ export function refScanner(world: RefWorld): (text: string) => RefSpan[] {
 /** Spans of `text` that name something, longest first where two overlap. */
 export const scanRefs = (text: string, world: RefWorld): RefSpan[] => refScanner(world)(text);
 
-function scan(text: string, world: RefWorld, sessions: readonly { ref: ProseReference; needles: readonly { needle: string; pattern: RegExp }[] }[]): RefSpan[] {
+function scan(
+  text: string,
+  world: RefWorld,
+  sessions: readonly { ref: ProseReference; needles: readonly { needle: string; pattern: RegExp }[] }[],
+  links: readonly { pattern: RegExp; address: string }[],
+): RefSpan[] {
   const found: RefSpan[] = [];
   const local = (number: string) => world.numbered.find((it) => it.number === number);
   const same = (slug: string) => world.slug !== undefined && world.slug.toLowerCase() === slug.toLowerCase();
@@ -114,6 +131,13 @@ function scan(text: string, world: RefWorld, sessions: readonly { ref: ProseRefe
   for (const { ref, needles } of sessions)
     for (const { needle, pattern } of needles)
       for (const at of text.matchAll(pattern)) found.push({ from: at.index, to: at.index + needle.length, ref });
+  // Taught words: where the pattern matches, the address with the match in it. A match of nothing is not a link.
+  for (const rule of links)
+    for (const one of text.matchAll(rule.pattern)) {
+      if (one[0] === "") continue;
+      const address = rule.address.replaceAll("{match}", encodeURIComponent(one[0]));
+      found.push({ from: one.index, to: one.index + one[0].length, ref: { kind: "link", id: address, title: address } });
+    }
   const kept: RefSpan[] = [];
   for (const one of found.sort((a, b) => b.to - b.from - (a.to - a.from) || a.from - b.from)) {
     if (!kept.some((it) => one.from < it.to && it.from < one.to)) kept.push(one);
