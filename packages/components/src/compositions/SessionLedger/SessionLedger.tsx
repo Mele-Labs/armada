@@ -113,7 +113,7 @@ export type LedgerEntry = {
   restart?: { command: string; runner?: CodeRunner };
   /** What the reply box's draft is about (the Session and the item), so it survives closing the box and leaving the panel. */
   replyKeep?: string;
-  /** A `waiting` row Fleet read out of the agent's reply rather than the agent stating it: its glyph says so, where its press would otherwise read as Reply. */
+  /** A `waiting` row Fleet read out of the agent's reply rather than the agent stating it: where it asks, its glyph says so in place of Reply or Question. */
   fromReply?: boolean;
   /** A row read from a reply that asks nothing: the person says so at its end, and Fleet keeps the sentence as one that is no question. */
   onMisread?: () => void;
@@ -146,7 +146,7 @@ const WAITING_ACT: Record<WaitingActKind | "none", { Glyph: LucideIcon; said: st
 
 const REPLY = { Glyph: Reply, said: "Reply" };
 
-/** A reply box on a row Fleet read out of the agent's words. */
+/** A question Fleet read out of the agent's words. */
 const READ_FROM_REPLY = { Glyph: ScanText, said: "Read from the reply" };
 
 /** A row with choices is a question, whatever its press does: one asked in the walk window still opens the walk. */
@@ -441,11 +441,12 @@ function LedgerSection({ kind, label, Glyph, all }: { kind: LedgerKind; label: s
   );
 }
 
-/** What a waiting row's glyph is and what its tooltip names: Question where it has choices, Reply (or Read from the reply, where Fleet read it out of one) where its press opens a box, else its act's. */
+/** What a waiting row's glyph is and what its tooltip names: Read from the reply where Fleet read a question out of one, Question where it has choices, Reply where its press opens a box, else its act's. */
 export function waitingMark(row: LedgerEntry): { Glyph: LucideIcon; said: string } {
+  const replies = row.act === undefined && row.onReply !== undefined;
+  if (row.fromReply === true && (row.options !== undefined || replies)) return READ_FROM_REPLY;
   if (row.options !== undefined) return QUESTION;
-  if (row.act === undefined && row.onReply !== undefined) return row.fromReply === true ? READ_FROM_REPLY : REPLY;
-  return WAITING_ACT[row.act ?? "none"];
+  return replies ? REPLY : WAITING_ACT[row.act ?? "none"];
 }
 
 /** A section's rows, also drawn by the thread's Needs you panel so a waiting item reads and acts the same in both. */
