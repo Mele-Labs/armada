@@ -809,6 +809,23 @@ Bridge's half is `ConfirmWaiting` and `confirmed` on `WaitingItem` in `packages/
 **Skew.** As above.
 **The event stream.** The Session is published as `session.changed`, so the open risk below is neither better nor worse.
 
+## The Job open when a note was pinned: `SessionNote.job`
+
+Since 23 Oct 2026. The pinned note above, `docs/concepts/session.md`.
+**One optional field on an existing type**: no operation, route, event kind or error.
+Bridge's half is `job` on `SessionNote` in `packages/protocol/src/session-notes.ts`, written by hand.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `SessionNote.job` | Bridge sends | Labelled lines of what Bridge held about the Job open when he pinned the note; left off when empty |
+
+**Fleet puts them after his words**, under a line calling them background, not the task, and before the handoff.
+A batch puts them in the block of the note that carries them.
+Bridge sends them on the first note of a send alone, and none to the Job that is open.
+
+**Skew.** As above.
+**The event stream.** Untouched.
+
 ## Open questions
 
 Naming these rather than deciding them, per this document's brief:
