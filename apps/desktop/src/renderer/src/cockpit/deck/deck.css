@@ -790,10 +790,16 @@ button.deck-pr:hover { border-color: var(--border-strong); color: var(--fg-defau
    share narrower than a tile asks for a tile instead, so the columns that fit stop growing and the rest wrap below and scroll. The half pixel is
    so `auto-fill` rounds to the share's own count and not one fewer. */
 .deck-controls__block[data-take="wider"] .deck-controls__tiles { grid-template-columns: repeat(auto-fill, minmax(max(var(--tile), calc((100cqw - var(--space-2) * (var(--across) - 1)) / var(--across) - 0.5px)), 1fr)); }
-/* The take `peek`: a strip under the two rows, kept while tiles sit below them, holds the chevron that marks them (`MoreBelow.tsx`). */
-.deck-controls__block[data-spill] { padding-bottom: calc(var(--h-control-sm) + var(--space-2)); }
-.deck-controls__more { position: sticky; bottom: 0; height: 0; display: flex; justify-content: center; }
-.deck-controls__more > .armada-button { position: absolute; bottom: var(--space-1); }
+/* The take `peek`: the rows are a padding's depth apart, so the third starts where the block ends and no sliver of it shows under the second. */
+.deck-controls__block[data-take="peek"] .deck-controls__tiles { row-gap: var(--space-3); grid-auto-rows: calc((100cqh - var(--space-3)) / 2); }
+@container tiles (min-aspect-ratio: 11 / 1) {
+  .deck-controls__block[data-take="peek"] .deck-controls__tiles { grid-auto-rows: 100cqh; }
+}
+/* The chevron that marks tiles below the two rows (`MoreBelow.tsx`) is stuck to the block's foot, in the padding the block keeps under its rows.
+   The block's height is its panel's, so a strip added beside the rows would be taken from the tiles. A sticky offset is measured from inside
+   the padding, so the foot is the padding's depth below it. */
+.deck-controls__more { position: sticky; bottom: calc(var(--space-3) * -1); height: 0; }
+.deck-controls__more > .armada-button[data-icon-only] { position: absolute; bottom: 0; left: 50%; translate: -50% 0; width: var(--space-8); height: var(--space-4); }
 /* The Slot key is lit only when something is wrong with the slot: its glyph and edge take the stranded hue, with no glow. */
 .deck-tile[data-lit] { border-color: var(--slot-stranded); color: var(--slot-stranded); }
 .deck-tile[data-lit] .deck-tile__text { color: var(--fg-default); }

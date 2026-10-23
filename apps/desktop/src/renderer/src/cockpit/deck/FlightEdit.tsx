@@ -229,7 +229,7 @@ export function FlightEdit({ set, host, repository, sessionId, onClose }: { set:
         className="deck-controls__block deck-flight-edit"
         data-flight-editing=""
         // The grid keeps the columns and tile size the shown tiles have outside edit mode; hidden tiles and `+` take the cells after them.
-        {...(set === "job" ? { "data-subject": "edit", "data-take": take, "data-spill": spills || undefined, style: flightGrid(shown, take) as CSSProperties } : {})}
+        {...(set === "job" ? { "data-subject": "edit", "data-take": take, style: flightGrid(shown, take) as CSSProperties } : {})}
       >
         <div ref={list} className={set === "job" ? "deck-controls__tiles" : "deck-flight-edit__flat"} role="listbox" aria-label="Flight controls, editing" onKeyDown={key} onKeyUp={(event) => event.key === " " && event.preventDefault()}>
           {tiles.map((tile) => {

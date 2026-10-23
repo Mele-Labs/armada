@@ -286,7 +286,7 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
   return (
     <>
       {dialog}
-      <div className="deck-controls__block" data-subject="session" data-take={take} data-spill={(take === "peek" && shown.length > 12) || undefined}>
+      <div className="deck-controls__block" data-subject="session" data-take={take}>
         <div className="deck-controls__tiles" style={flightGrid(shown.length, take) as CSSProperties}>
           {shown.map((tile) => {
             const id = tile.builtIn === undefined ? undefined : (tile.id as SessionTileId);

@@ -32,7 +32,7 @@ export function MoreBelow() {
       {!more ? null : (
         <Tooltip label="More controls" asChild>
           <Button variant="ghost" size="sm" iconOnly aria-label="More controls" onClick={down}>
-            <ChevronDown size={16} aria-hidden="true" />
+            <ChevronDown size={12} aria-hidden="true" />
           </Button>
         </Tooltip>
       )}
