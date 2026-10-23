@@ -4,7 +4,7 @@
 // this, the body and the keys are one thing and a body that unmounts while a page is open comes back exact. #2301.
 
 import { useEffect, useMemo, useState } from "react";
-import { isPressed, pressedDigit, pressedSlot, useNow } from "@armada/components";
+import { isPressed, pressedSlot, useNow } from "@armada/components";
 import { DECK_TABS, SURFACE, useLayout } from "@armada/shell";
 import { holdsText } from "@armada/screens/src/keys";
 
@@ -30,9 +30,6 @@ import { useShip } from "./ship";
 import { useOpenSessionInCockpitAsked } from "../../open-session";
 
 const NO_HOSTS: Hosts = { onOpenSession: () => {}, onOpenLink: () => {} };
-
-/** The flight control wearing `key`, among the tiles drawn now. */
-const flightTile = (key: string): HTMLElement | null => document.querySelector<HTMLElement>(`.deck-controls .deck-tile[data-key="${CSS.escape(key)}"]`);
 
 /** How long a Session asked for on the deck is waited on before it is let go: one the ship never holds, Helm's own, is the dock's. */
 const AWAIT_SESSION_MS = 3000;
@@ -76,7 +73,7 @@ export function DeckPlaces({ state, picked, showing, away, hidden, onGoTo, onBac
 
 /**
  * The deck's keys and housekeeping, drawn as nothing but the key sheet. Every key is asked of the keymap (`isPressed`,
- * `pressedSlot`, `pressedDigit`) and none is spelled here.
+ * `pressedSlot`) and none is spelled here.
  */
 export function DeckHost({ state, picked, here, hidden, onGoTo, onOpenSession }: Where & {
   /** Surfaces nothing serves yet, left off the places beside what a layout hides. */
@@ -169,8 +166,6 @@ export function DeckHost({ state, picked, here, hidden, onGoTo, onOpenSession }:
     if ((repositories ?? []).length === 0) return;
     const state = deckNow();
     const target = event.target as HTMLElement;
-    // A question's number picks its answer, and the tile of the same digit is not pressed as well.
-    if (/^[0-9]$/.test(event.key) && target.closest?.(".armada-question-deck") != null) return;
     // ⌥↑ and ⌥↓ move the row under the cursor past its neighbour, and take the modifier the keys below stand down for.
     const shove = event.altKey && !event.metaKey && !event.ctrlKey ? pressedSlot("deck_reorder", event) : -1;
     if (shove !== -1) {
@@ -240,16 +235,6 @@ export function DeckHost({ state, picked, here, hidden, onGoTo, onOpenSession }:
         act.click();
         return;
       }
-    }
-    const digit = pressedDigit("deck_tile", event);
-    if (digit !== null) {
-      // A key presses the tile that wears it, whichever tiles are drawn: the Job's with one open, the deck's without, in the order and with
-      // the keys the owner gave them (`flight-controls.ts`).
-      const tile = flightTile(String(digit));
-      if (tile === null) return;
-      event.preventDefault();
-      tile.click();
-      return;
     }
     // A letter the owner gave a tile. The registry's keys are never given (`keyProblem`), so this reads none of the keys above.
     const lettered = /^[a-z]$/i.test(event.key) ? flightTileFor(event) : null;

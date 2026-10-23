@@ -435,11 +435,11 @@ tier = "Contextual"
 verb = "Press a flight control"
 icon = ""
 icon_absent = "undecided"
-shortcut = "0–9"
+shortcut = "⌥⇧0–⌥⇧9"
 scope = "deck"
 destructive = false
 confirms = false
-notes = "Presses the flight control tile that wears the key, from anywhere on the deck. Bare digits, as `call_pick` is: a call pane in front takes them while it is up, and gives them back. With no Job open the tiles are Checks, Calls, Map and Timeline, `1` to `4` until the owner rearranges them. While a Job is open on the stage the same digits press its tiles, `1` to `9` and `0`: Ask for update, Auto land, Compact, Report, Map, Judge, Release, Artifacts, Subagents and Checks. Bays has no digit: it is lit only when a bay is wrong, and the call in the thread opens it. Pause answers `P`, which is no row of the registry since `p` is Pilot's there. Edit in the flight control band gives a tile another digit or a letter, and hiding or moving a tile moves the keys after it, so these are Armada's own. A letter given to a tile is never one the registry binds on the deck. They are not rows of their own because each is a press on a tile and the key is the only way."
+notes = "Presses the flight control tile that wears the key, from anywhere on the deck. Option and Shift with a digit, never a bare one: a question's numbers (`call_pick`) are the bare digits, and the owner's note of 23 Oct 2026 was that the tiles pressed when he meant an answer. With no Job open the tiles are Checks, Calls, Map and Timeline, ⌥⇧1 to ⌥⇧4 until the owner rearranges them. While a Job is open on the stage the same keys press its tiles, ⌥⇧1 to ⌥⇧9 and ⌥⇧0: Ask for update, Auto land, Compact, Report, Map, Judge, Release, Artifacts, Subagents and Checks. Bays has no digit: it is lit only when a bay is wrong, and the call in the thread opens it. Pause answers `P`, which is no row of the registry since `p` is Pilot's there. Edit in the flight control band gives a tile another key, and hiding or moving a tile moves the keys after it, so these are Armada's own. A letter given to a tile is never one the registry binds on the deck. They are not rows of their own because each is a press on a tile and the key is the only way."
 
 [actions.deck_timeline]
 kind = "Action"

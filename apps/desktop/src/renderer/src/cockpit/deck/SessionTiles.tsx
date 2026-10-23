@@ -36,7 +36,7 @@ import { HoldsReleasedBox, ReleaseHoldsDialog } from "./ReleaseHolds";
 import { ReportBox } from "./ReportBox";
 import { OverTheApp } from "../../session-view/OverTheApp";
 import { reportBrief, reportFacts, reportLists, type ReportFrom } from "./report-brief";
-import { COMPACT, handTargets, heldOf, mute, nameOfHeldRow, offeredOf, plain, type Held, type SessionTileId } from "./session-tiles";
+import { COMPACT, handTargets, heldOf, mute, nameOfHeldRow, offeredOf, plain, tileCap, type Held, type SessionTileId } from "./session-tiles";
 import { ShellBox, type ShellRun } from "./ShellBox";
 import { select, setView } from "./store";
 import { openRequestsInPanel } from "../../shared-panel/store";
@@ -370,7 +370,7 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
                   )}
                   {key === undefined ? null : (
                     <Kbd className="deck-tile__key" aria-hidden="true">
-                      {key}
+                      {tileCap(key)}
                     </Kbd>
                   )}
                 </button>
