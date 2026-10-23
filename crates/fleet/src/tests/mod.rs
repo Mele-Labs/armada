@@ -60,6 +60,7 @@ mod run_memory;
 mod logbook_curating;
 mod logbook_note;
 mod logbook_recall;
+mod logbook_routes;
 mod logbook_answer;
 mod notice_mutes;
 mod session_import;

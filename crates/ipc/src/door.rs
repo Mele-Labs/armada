@@ -619,6 +619,11 @@ fn describe_in(operation: &str, name: &str) -> String {
         ("get_requests", "repository") => String::from(
             "A repository root, as `list_repositories` names it. Absent, your Job's repository",
         ),
+        ("get_logbook", "repository") => String::from(
+            "A repository root, as `list_repositories` names it. Absent, only the habits and this Mac's entries",
+        ),
+        ("get_logbook", "section") => String::from("`repo`, `habits` or `machine`. Absent is all three"),
+        ("get_logbook", "state") => String::from("`candidate`, `standing` or `faded`. Absent is every state"),
         _ => describe(name),
     }
 }

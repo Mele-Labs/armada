@@ -6,6 +6,7 @@
 //! machine note keep their own detectors and are read in beside, so one read shows everything.
 
 pub(crate) mod answer;
+mod acting;
 pub(crate) mod curating;
 mod distilling;
 mod kept;
@@ -79,11 +80,19 @@ where
     /// Everything the Logbook holds for a repository: its entries, the habits and this Mac's, and
     /// what run memory and the machine note know, as entries. Forgotten entries are not in it.
     pub(crate) async fn logbook_read(&self, root: &str) -> Vec<Logged> {
-        let key = crate::run_memory::places::key_of(root);
+        self.logbook_read_in(Some(root)).await
+    }
+
+    /// [`Self::logbook_read`], or with no repository the habits and this Mac's alone.
+    pub(crate) async fn logbook_read_in(&self, root: Option<&str>) -> Vec<Logged> {
+        let key = root.map(crate::run_memory::places::key_of).unwrap_or_default();
         let learnt = self.store().lock().await.logbook_of(&key).unwrap_or_default();
         let mut all: Vec<Logged> = learnt.into_iter().map(|entry| Logged { entry, from: Source::Learnt }).collect();
         let missing = self.missing_now().await;
-        let runs = self.store().lock().await.run_facts(root).unwrap_or_default();
+        let runs = match root {
+            Some(root) => self.store().lock().await.run_facts(root).unwrap_or_default(),
+            None => Vec::new(),
+        };
         all.extend(
             runs.iter()
                 .filter(|fact| fact.succeeded && !crate::machine_note::starts_with_missing(&fact.command, &missing))

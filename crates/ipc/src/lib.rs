@@ -122,8 +122,6 @@ mod clashes;
 /// What each served repository holds and where each agent is changing it, for the deck's map.
 /// `docs/concepts/fleet.md`, *The territory*.
 mod territory;
-/// What the Logbook hands out mid-task. `docs/concepts/logbook.md`, *Recall*.
-mod logbook;
 /// A person's Bridge preferences, kept the way `limits` are kept. **A value
 /// out of the closed set does not save**, `limits`' reason one field over.
 mod preferences;
@@ -181,6 +179,7 @@ mod session_starts;
 mod session_waits;
 mod session_summary;
 mod run_memory;
+mod logbook;
 mod notices;
 mod session_import;
 mod sessions;
@@ -437,6 +436,10 @@ pub use repositories::{
     AddRepository, CloneRepository, CreateProject, RepositoryList, RepositorySummary, RequestRepository,
 };
 pub use requester::Requester;
+pub use logbook::{
+    EditLogbookEntry, Logbook, LogbookEarlier, LogbookEntry, LogbookEvidence, ForgottenLogbookEntry, LogbookKind, LogbookReplacedBy,
+    LogbookSection, LogbookState, PinLogbookEntry, TeachLogbookEntry,
+};
 pub use notices::{Notice, NoticeScope, SetNoticeMute};
 pub use run_memory::{
     DropRunFact, RememberedRun, RunCloud, RunFactState, RunMemory, RunMemoryPlace, RunPlace, RunWorkspace, SetRunMemoryPlace,
