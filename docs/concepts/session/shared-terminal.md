@@ -3,7 +3,9 @@
 **Part of:** [Job](../session.md).
 
 A Job has one shell that the person and the Job's agent both type into.
-Terminal in the Job's view opens it, docked where a block's run docks, and it stays open until it is ended, the Job ends, or the shell exits.
+Terminal in the Job's Flight control opens it ([Cockpit](../cockpit.md), *The Job's flight controls*), docked where a block's run docks, and it stays open until it is ended, the Job ends, or the shell exits.
+The tile is lit while the shell shows, and pressed again it puts the pane away with the shell still running.
+Beside a page in the walk panel, where no Flight control is drawn, Terminal is in the Job's header.
 Hide puts the pane away and the shell keeps running; End shell stops it.
 Once it has ended the pane says *Shell ended* and offers New shell, which opens another, and Close.
 With a block's run open as well, the two are tabs in one dock, *Terminal* beside the run's command, and each keeps its own screen.
