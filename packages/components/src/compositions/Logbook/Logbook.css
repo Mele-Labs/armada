@@ -80,7 +80,7 @@
 .armada-logbook__band + .armada-logbook__row { border-top: none; }
 .armada-logbook__row:hover { background: color-mix(in srgb, var(--bg-hover) 50%, transparent); }
 .armada-logbook__row[aria-selected="true"] { background: var(--bg-hover); }
-/* Not handed out: dimmed, and its state mark names why. */
+/* Shown by Show all: dimmed, and its state mark names why. */
 .armada-logbook__row[data-handed="not"] .armada-logbook__text { color: var(--fg-muted); }
 /* Where the list holds focus, the selected row carries the accent's hairline so the keys' target is plain. */
 .armada-logbook__list:focus-visible .armada-logbook__row[aria-selected="true"] {
