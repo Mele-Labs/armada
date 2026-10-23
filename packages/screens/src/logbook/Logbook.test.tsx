@@ -6,7 +6,7 @@
 
 import { afterEach, expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
-import type { LogbookAnswer, LogbookEntry, LogbookForgotten, LogbookRead, LogbookTidied } from "@armada/protocol";
+import type { LogbookAnswer, LogbookEntry, LogbookForgotten, LogbookRead, LogbookTidied, LogbookTidy } from "@armada/protocol";
 
 import { Logbook } from "./Logbook";
 import { mount, unmount } from "../mounted";
@@ -173,32 +173,80 @@ test("a Logbook Fleet could not read says so in place of the panels", async () =
 });
 
 const tidyButton = () => page.getByRole("button", { name: "Tidy now" });
+const status = () => page.getByRole("status");
 
-test("Tidy now is busy while Fleet works, then says how many entries merged and reads the list again", async () => {
-  let finish: (answer: LogbookTidied) => void = () => {};
-  const waiting = new Promise<LogbookTidied>((resolve) => (finish = resolve));
-  const merged = entry("6", { section: "repo", repository: "/Users/user/widgets", text: "Survivor.", state: "standing" });
-  let reads = 0;
-  const read = vi.fn(async (): Promise<LogbookRead> => ({ ok: true, entries: ++reads === 1 ? [WIDGETS, merged] : [merged], tidy: { running: false } }));
-  mount(<Logbook onRead={read} onEdit={vi.fn()} onLock={vi.fn()} onForget={vi.fn()} onTidy={() => waiting} />);
+const EARLIER = { merged: 4, at: "2026-10-20T08:00:00.000Z", failed: false };
+const FINISHED = "2026-10-23T09:00:00.000Z";
+const SEVERAL = 3_000;
+
+/** A Logbook whose Tidy state and entries the test moves; the poll's timer is the only fake. */
+function tidying(first: LogbookTidy, entries: LogbookEntry[] = [WIDGETS]) {
+  vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+  const fleet = { tidy: first, entries };
+  const read = vi.fn(async (): Promise<LogbookRead> => ({ ok: true, entries: fleet.entries, tidy: fleet.tidy }));
+  const onTidy = vi.fn(async (): Promise<LogbookTidied> => {
+    fleet.tidy = { ...fleet.tidy, running: true };
+    return { ok: true, running: true };
+  });
+  mount(<Logbook onRead={read} onEdit={vi.fn()} onLock={vi.fn()} onForget={vi.fn()} onTidy={onTidy} />);
+  return { fleet, read, onTidy };
+}
+
+afterEach(() => vi.useRealTimers());
+
+test("Tidy now says Tidying until the read says the pass ended, then states what it merged and reads the entries again", async () => {
+  const survivor = entry("6", { section: "repo", repository: "/Users/user/widgets", text: "Survivor.", state: "standing" });
+  const { fleet, read, onTidy } = tidying({ running: false, last: EARLIER }, [WIDGETS, survivor]);
   await expect.element(entries().getByText("Run specs with bin/rspec.")).toBeVisible();
+  await expect.element(status()).not.toHaveTextContent("Merged");
   await tidyButton().click();
   await expect.element(tidyButton()).toHaveAttribute("aria-busy", "true");
-  finish({ ok: true, running: true });
-  await expect.element(page.getByRole("status")).toHaveTextContent("Merged 12 entries");
+  await expect.element(status()).toHaveTextContent("Tidying");
+  await tidyButton().click({ force: true });
+  expect(onTidy).toHaveBeenCalledTimes(1);
+  await vi.advanceTimersByTimeAsync(SEVERAL);
+  await expect.element(status()).toHaveTextContent("Tidying");
+  fleet.tidy = { running: false, last: { merged: 12, at: FINISHED, failed: false } };
+  fleet.entries = [survivor];
+  await vi.advanceTimersByTimeAsync(SEVERAL);
+  await expect.element(status()).toHaveTextContent("Merged 12 entries");
   await expect.element(tidyButton()).not.toHaveAttribute("aria-busy");
-  expect(read).toHaveBeenCalledTimes(2);
   expect(entries().getByText("Run specs with bin/rspec.").elements()).toHaveLength(0);
+  const reads = read.mock.calls.length;
+  await vi.advanceTimersByTimeAsync(SEVERAL * 3);
+  expect(read).toHaveBeenCalledTimes(reads);
 });
 
-test("Tidy now says so when nothing merged, and one entry is not plural", async () => {
-  const answers: LogbookTidied[] = [{ ok: true, running: false }, { ok: true, running: true }];
-  const { tidy } = opened([WIDGETS], { tidy: async () => answers.shift()! });
+test.each([
+  ["Nothing to merge", { merged: 0, at: FINISHED, failed: false }],
+  ["Merged 1 entry", { merged: 1, at: FINISHED, failed: false }],
+  ["Tidy failed after merging 3 entries", { merged: 3, at: FINISHED, failed: true }],
+  ["Tidy failed after merging 1 entry", { merged: 1, at: FINISHED, failed: true }],
+  ["Tidy failed before merging anything", { merged: 0, at: FINISHED, failed: true }],
+])("a finished pass reads %s", async (words, last) => {
+  const { fleet } = tidying({ running: false });
+  await expect.element(entries().getByText("Run specs with bin/rspec.")).toBeVisible();
   await tidyButton().click();
-  await expect.element(page.getByRole("status")).toHaveTextContent("Nothing to merge");
-  await tidyButton().click();
-  await expect.element(page.getByRole("status")).toHaveTextContent("Merged 1 entry");
-  expect(tidy).toHaveBeenCalledTimes(2);
+  fleet.tidy = { running: false, last };
+  await vi.advanceTimersByTimeAsync(SEVERAL);
+  await expect.element(status()).toHaveTextContent(words);
+});
+
+test("a page opened while a pass runs already says Tidying, and states the result when it ends", async () => {
+  const { fleet } = tidying({ running: true, last: EARLIER });
+  await expect.element(tidyButton()).toHaveAttribute("aria-busy", "true");
+  await expect.element(status()).toHaveTextContent("Tidying");
+  fleet.tidy = { running: false, last: { merged: 2, at: FINISHED, failed: false } };
+  await vi.advanceTimersByTimeAsync(SEVERAL);
+  await expect.element(status()).toHaveTextContent("Merged 2 entries");
+});
+
+test("a pass that ended before the page opened is not announced", async () => {
+  const { read } = tidying({ running: false, last: EARLIER });
+  await expect.element(entries().getByText("Run specs with bin/rspec.")).toBeVisible();
+  await vi.advanceTimersByTimeAsync(SEVERAL * 3);
+  expect(read).toHaveBeenCalledTimes(1);
+  await expect.element(status()).toHaveTextContent("");
 });
 
 test("a refused Tidy says why in Fleet's words and leaves the list as it was", async () => {

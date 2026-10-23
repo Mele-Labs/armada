@@ -3,10 +3,10 @@
 // **Nothing in the entries waits on the owner.** He reads an entry and its evidence, and can edit, lock or forget it.
 // Each act goes to Fleet and the entry is drawn as it came back. Armada fixes, the retro items, is the host's (`fixes`).
 
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 
 import { LogbookView } from "@armada/components";
-import type { LogbookAnswer, LogbookEntry, LogbookForgotten, LogbookRead, LogbookState, LogbookTidied, Outcome } from "@armada/protocol";
+import type { LogbookAnswer, LogbookEntry, LogbookForgotten, LogbookRead, LogbookState, LogbookTidied, LogbookTidy, LogbookTidyLast, Outcome } from "@armada/protocol";
 
 import { refusalWords } from "../refusal-words";
 import { groupsOf, orderOf } from "./groups";
@@ -31,6 +31,17 @@ export type LogbookProps = {
 /** What the page holds: the entries once read, or that the read failed. */
 type Held = { state: "reading" } | { state: "read"; entries: LogbookEntry[] } | { state: "unread" };
 
+/** How often the page asks again while a Tidy pass runs. */
+const TIDY_POLL_MS = 3_000;
+
+const entriesOf = (count: number) => `${count} ${count === 1 ? "entry" : "entries"}`;
+
+/** A finished pass as a plain fact. */
+function tidiedWords(last: LogbookTidyLast): string {
+  if (last.failed) return last.merged === 0 ? "Tidy failed before merging anything" : `Tidy failed after merging ${entriesOf(last.merged)}`;
+  return last.merged === 0 ? "Nothing to merge" : `Merged ${entriesOf(last.merged)}`;
+}
+
 /** Fleet's refusal of the last act, and the entry it was on. */
 type Refused = { id: string; title: string; said: string };
 
@@ -40,13 +51,26 @@ export function Logbook({ onRead, onEdit, onLock, onForget, onTidy, onOpenJob, a
   const [selected, setSelected] = useState<string>();
   const [editing, setEditing] = useState(false);
   const [refused, setRefused] = useState<Refused>();
-  const [tidying, setTidying] = useState(false);
+  const [tidy, setTidy] = useState<LogbookTidy>({ running: false });
   const [tidied, setTidied] = useState<string>();
+  // Set once the page has seen a pass running: the `last` it began with, so only a newer one is announced.
+  const watching = useRef<{ last?: string }>();
 
   const read = useCallback(
     (live: () => boolean) =>
       onRead()
-        .then((answer) => live() && setHeld(answer.ok ? { state: "read", entries: answer.entries } : { state: "unread" }))
+        .then((answer) => {
+          if (!live()) return;
+          if (!answer.ok) return setHeld({ state: "unread" });
+          setHeld({ state: "read", entries: answer.entries });
+          setTidy(answer.tidy);
+          if (answer.tidy.running) watching.current ??= { ...(answer.tidy.last === undefined ? {} : { last: answer.tidy.last.at }) };
+          else if (watching.current !== undefined) {
+            const began = watching.current.last;
+            watching.current = undefined;
+            if (answer.tidy.last !== undefined && answer.tidy.last.at !== began) setTidied(tidiedWords(answer.tidy.last));
+          }
+        })
         .catch(() => live() && setHeld({ state: "unread" })),
     [onRead],
   );
@@ -59,17 +83,36 @@ export function Logbook({ onRead, onEdit, onLock, onForget, onTidy, onOpenJob, a
     };
   }, [read]);
 
-  const tidy = () => {
-    setTidying(true);
+  useEffect(() => {
+    if (!tidy.running) return;
+    let live = true;
+    const poll = setInterval(() => void read(() => live), TIDY_POLL_MS);
+    return () => {
+      live = false;
+      clearInterval(poll);
+    };
+  }, [tidy.running, read]);
+
+  const startTidy = () => {
+    if (tidy.running) return;
+    watching.current = { ...(tidy.last === undefined ? {} : { last: tidy.last.at }) };
+    setTidy({ ...tidy, running: true });
     setTidied(undefined);
     onTidy()
       .then(async (answer) => {
-        if (!answer.ok) return setTidied(refusalWords(answer.outcome));
-        setTidied(answer.merged === 0 ? "Nothing to merge" : `Merged ${answer.merged} ${answer.merged === 1 ? "entry" : "entries"}`);
-        await read(() => true);
+        if (!answer.ok) {
+          watching.current = undefined;
+          setTidy({ ...tidy, running: false });
+          return setTidied(refusalWords(answer.outcome));
+        }
+        // Fleet answers at once: the pass may already be over, and the read says so.
+        if (!answer.running) await read(() => true);
       })
-      .catch(() => setTidied(refusalWords({ ok: false, why: "not_connected" })))
-      .finally(() => setTidying(false));
+      .catch(() => {
+        watching.current = undefined;
+        setTidy({ ...tidy, running: false });
+        setTidied(refusalWords({ ok: false, why: "not_connected" }));
+      });
   };
 
   const entries = held.state === "read" ? held.entries : [];
@@ -95,9 +138,9 @@ export function Logbook({ onRead, onEdit, onLock, onForget, onTidy, onOpenJob, a
         setShown(next);
         setEditing(false);
       }}
-      onTidy={tidy}
-      tidying={tidying}
-      {...(tidied === undefined ? {} : { tidied })}
+      onTidy={startTidy}
+      tidying={tidy.running}
+      {...(tidy.running ? { tidied: "Tidying" } : tidied === undefined ? {} : { tidied })}
       {...(held.state === "unread" ? { unread: true } : {})}
       {...(fixes === undefined ? {} : { fixes })}
       {...(toFixes === undefined ? {} : { toFixes })}
