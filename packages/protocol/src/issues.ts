@@ -84,3 +84,67 @@ export type LinkedPullRequest = {
   url: string;
   state: "open" | "merged" | "closed";
 };
+
+/** `search_issues` (`POST /issue_queries/:repository/search`): a query in the tracker's own language, run once. Answers `IssueList`. 422 `fleet.issue_query_refused` carries the tracker's words. */
+export type SearchIssues = {
+  query: string;
+};
+
+/** What a person needs of a tracker's query language: its name, the two queries every repository starts from, and the fields a row can show. */
+export type IssueQueryGuide = {
+  /** As a person would say it: `JQL`. */
+  language: string;
+  /** The open issues, in the tracker's own language. */
+  open: string;
+  /** The open issues assigned to whoever the tracker's credentials are. */
+  assigned_to_me: string;
+  /** The tracker's field names a row can show. */
+  fields: string[];
+};
+
+/** One query a person saved, on this Mac. */
+export type SavedIssueQuery = {
+  id: string;
+  name: string;
+  /** What the person said, which the query was written from. Empty for one typed by hand. */
+  words: string;
+  /** In the tracker's own language. Shown to the person, who may edit it. */
+  query: string;
+  /** The tracker's field names a row shows, in order. */
+  row_fields: string[];
+};
+
+/** `list_issue_queries` (`GET /issue_queries/:repository`). */
+export type IssueQueries = {
+  manifest_id: string;
+  /** Absent where the tracker cannot be read, and then `refused` says why. */
+  guide?: IssueQueryGuide;
+  /** Why the tracker cannot be read, in its own words. Offer to teach Armada this tracker from it. */
+  refused?: string;
+  /** Oldest first. Listed whether or not the tracker can be read. */
+  saved: SavedIssueQuery[];
+};
+
+/** `write_issue_query` (`POST /issue_queries/:repository/write`). */
+export type WriteIssueQuery = {
+  words: string;
+};
+
+/** `write_issue_query`'s answer: the query, already run. Nothing is kept until `save_issue_query`. */
+export type WrittenIssueQuery = {
+  query: string;
+  row_fields: string[];
+  /** What the tracker answered the query, in `list_issues`' shape. */
+  issues: TrackedIssue[];
+  /** What the one model call cost, in millionths of a dollar. Absent where the call ended without saying. */
+  cost_micros?: number;
+};
+
+/** `save_issue_query` (`POST /issue_queries/:repository`). With an `id` it edits that query. Answers `SavedIssueQuery`. */
+export type SaveIssueQuery = {
+  id?: string;
+  name: string;
+  words: string;
+  query: string;
+  row_fields: string[];
+};

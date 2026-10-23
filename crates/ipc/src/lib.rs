@@ -96,6 +96,7 @@ mod sharing;
 mod issues;
 /// What names an issue a Session works on, the forge's number or a tracker's key, and `claim_issue`.
 mod issue_reference;
+mod issue_queries;
 /// Kit's MCP servers and each Manifest's word over one (`#1275`), and the
 /// setup a person already works with, read to be shown (`#1491`).
 mod kit;
@@ -343,6 +344,10 @@ pub use sharing::{
 };
 pub use sharing::{KitManifestSaved, SaveKitManifest};
 pub use issue_reference::{ClaimIssue, IssueClaimed, IssueReference};
+pub use issue_queries::{
+    IssueQueries, IssueQueryGuide, SaveIssueQuery, SavedIssueQuery, SearchIssues, WriteIssueQuery,
+    WrittenIssueQuery,
+};
 pub use issues::{
     IssueComment, IssueField, IssueList, IssueRead, IssueState, LinkedPullRequest, LinkedPullRequestState,
     TrackedIssue,

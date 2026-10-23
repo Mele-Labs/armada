@@ -72,6 +72,14 @@ pub struct QueryGuide {
     pub fields: Vec<String>,
 }
 
+impl QueryGuide {
+    /// Why the tracker cannot be queried, where it cannot: a tracker that refuses every call teaches
+    /// no language and puts its reason where the guide would be.
+    pub fn refusal(&self) -> Option<&str> {
+        self.language.is_empty().then_some(self.guide.as_str())
+    }
+}
+
 /// One issue read by its reference, open or closed.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ReadIssue {

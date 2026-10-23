@@ -19,8 +19,9 @@ use adapter_traits::{
 use api::{Issues, Refusal};
 use core_model::Timestamp;
 use ipc::{
-    Instant, IssueComment, IssueField, IssueList, IssueRead, IssueReference, IssueState, LinkedPullRequest,
-    ManifestId, TrackedIssue, WireError,
+    Instant, IssueComment, IssueField, IssueList, IssueQueries, IssueRead, IssueReference, IssueState,
+    LinkedPullRequest, ManifestId, SaveIssueQuery, SavedIssueQuery, SearchIssues, TrackedIssue, WireError,
+    WriteIssueQuery, WrittenIssueQuery,
 };
 use store::HolderKind;
 
@@ -31,7 +32,7 @@ use crate::daemon::Fleet;
 pub(crate) const HELD_FOR: Duration = Duration::from_secs(5 * 60);
 
 /// The tracker would not answer and nothing is held. A 500: asking again is reasonable.
-const UNREADABLE: &str = "fleet.issues_unreadable";
+pub(crate) const UNREADABLE: &str = "fleet.issues_unreadable";
 
 /// The tracker has no issue by that reference, or the number is a pull request's. A 404.
 const NO_SUCH_ISSUE: &str = "fleet.no_such_issue";
@@ -247,6 +248,34 @@ where
     ) -> Result<IssueList, Refusal> {
         let (held, stale) = self.held_or_read(&manifest_id, refresh).await?;
         self.issue_list(manifest_id, held, stale).await
+    }
+
+    async fn search_issues(&self, manifest_id: ManifestId, search: SearchIssues) -> Result<IssueList, Refusal> {
+        self.issues_searched(manifest_id, search).await
+    }
+
+    async fn list_issue_queries(&self, manifest_id: ManifestId) -> Result<IssueQueries, Refusal> {
+        self.issue_queries_read(manifest_id).await
+    }
+
+    async fn write_issue_query(
+        &self,
+        manifest_id: ManifestId,
+        write: WriteIssueQuery,
+    ) -> Result<WrittenIssueQuery, Refusal> {
+        self.issue_query_written(manifest_id, write).await
+    }
+
+    async fn save_issue_query(
+        &self,
+        manifest_id: ManifestId,
+        save: SaveIssueQuery,
+    ) -> Result<SavedIssueQuery, Refusal> {
+        self.issue_query_saved(manifest_id, save).await
+    }
+
+    async fn forget_issue_query(&self, manifest_id: ManifestId, id: String) -> Result<IssueQueries, Refusal> {
+        self.issue_query_forgotten(manifest_id, id).await
     }
 
     /// **Read from the tracker each time**: it is for an issue the held list does not have, which
