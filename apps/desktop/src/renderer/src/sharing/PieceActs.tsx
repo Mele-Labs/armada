@@ -33,7 +33,7 @@ export async function commitPiece(repository: string, piece: PieceToCommit, over
   const answer = await window.armada.commitToRepository({ repository, piece, ...(overwrite ? { overwrite } : {}) });
   if (!answer.ok) return failedSaid(answer.outcome);
   const job = answer.value;
-  return { said: job.pull_request_not_opened === undefined ? "Job started" : `${job.branch} pushed. Pull request not opened: ${job.pull_request_not_opened}`, job };
+  return { said: "Job started", job };
 }
 
 /** Share writes the package where the person picks; Copy puts its text on the clipboard. */
@@ -87,11 +87,6 @@ export function PieceActs({ repository, piece }: { repository: string; piece: Pi
           {job === undefined ? null : (
             <Button variant="ghost" size="sm" onClick={() => askToOpenSessionInCockpit(job.session_id)}>
               Open the Job
-            </Button>
-          )}
-          {job?.pull_request === undefined ? null : (
-            <Button variant="ghost" size="sm" onClick={() => void window.armada.openLink(job.pull_request!)}>
-              Open the pull request
             </Button>
           )}
         </p>

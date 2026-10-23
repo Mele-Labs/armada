@@ -1,5 +1,5 @@
 //! `layout.json`: what a layout mod, or the owner's own choice, may say about how Bridge arranges
-//! its panels, Job tabs and places. `docs/concepts/layout-mods.md`.
+//! its Cockpit panels, an open Job's panels and its places. `docs/concepts/layout-mods.md`.
 //!
 //! **Here for `codec`'s reason**: reading JSON nobody typed is bytes entering the process, and
 //! `serde_json::from_*` may appear only in `ipc` and `store`. The rules are the ones `parseLayout`

@@ -24,10 +24,11 @@ pub trait PullRequests: Send + Sync + 'static {
     ) -> impl Future<Output = Result<PullRequestState, Refusal>> + Send;
 
     /// `ready_pull_request` — take a draft out of draft. **A write to the
-    /// forge, a person's ask.** [`Refusal::IllegalMove`] where it is not a
+    /// forge, a person's ask**, answered once the forge has taken it: the ledger
+    /// follows after the reply, as a `session.changed`. [`Refusal::IllegalMove`] where it is not a
     /// draft or is over.
     fn ready_pull_request(
-        &self,
+        self: Arc<Self>,
         manifest_id: ManifestId,
         number: u64,
     ) -> impl Future<Output = Result<PullRequestState, Refusal>> + Send;
@@ -36,7 +37,7 @@ pub trait PullRequests: Send + Sync + 'static {
     /// checks have passed**. The one write that changes what everybody else
     /// builds on. [`Refusal::IllegalMove`] with a code naming the reason.
     fn merge_pull_request_by_number(
-        &self,
+        self: Arc<Self>,
         manifest_id: ManifestId,
         number: u64,
     ) -> impl Future<Output = Result<PullRequestState, Refusal>> + Send;
@@ -44,7 +45,7 @@ pub trait PullRequests: Send + Sync + 'static {
     /// `enable_auto_merge` — ask the forge to merge it once its checks pass,
     /// **while they are still running**. Merges nothing itself.
     fn enable_auto_merge(
-        &self,
+        self: Arc<Self>,
         manifest_id: ManifestId,
         number: u64,
     ) -> impl Future<Output = Result<PullRequestState, Refusal>> + Send;

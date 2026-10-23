@@ -26,17 +26,15 @@ describe("the registry file both sides check", () => {
 
 describe("the examples the armada-mods skill teaches", () => {
   // Written out as the skill has them: a skill is not a file a test may read, so a change to either is a change to both.
-  const tidy = '{\n  "version": 1,\n  "dashboard.panels": { "order": ["merge-line", "fleet"] },\n  "rail": { "hidden": ["logbook"] }\n}\n';
-  const job = '{\n  "version": 1,\n  "job.tabs": { "order": ["overview", "workflow", "record", "plan"], "hidden": ["pulse"], "first": "plan" }\n}\n';
+  const tidy = '{\n  "version": 1,\n  "dashboard.panels": { "hidden": ["merge-line", "activity"] },\n  "rail": { "hidden": ["logbook"] }\n}\n';
+  const job = '{\n  "version": 1,\n  "job.panels": { "order": ["progress", "workflow"], "hidden": ["field"] }\n}\n';
   it("pass, and do what the skill says they do", () => {
     expect(parseLayout(tidy).problems).toEqual([]);
     expect(parseLayout(job).problems).toEqual([]);
     const layers = layersOf({ mods: [mod("tidy", tidy), mod("jobs", job)], own: { regions: {} } });
-    expect(shown("dashboard.panels", layers)[0]).toBe("merge-line");
+    expect(shown("dashboard.panels", layers)).toEqual(["list", "bays", "controls", "dispatch", "autopilot"]);
     expect(shown("rail", layers)).not.toContain("logbook");
-    expect(shown("job.tabs", layers).slice(0, 4)).toEqual(["overview", "workflow", "record", "plan"]);
-    expect(shown("job.tabs", layers)).not.toContain("pulse");
-    expect(resolveLayout("job.tabs", layers).first).toBe("plan");
+    expect(shown("job.panels", layers)).toEqual(["progress", "workflow"]);
   });
 });
 
@@ -52,7 +50,7 @@ describe("parseLayout refuses what Fleet refuses", () => {
     ['{"version":1,"rail":{"colour":"red"}}', "rail.colour is not a field"],
     ['{"version":1,"rail":{"hidden":"logbook"}}', "rail.hidden is not a list"],
     ['{"version":1,"rail":{"hidden":["Lessons"]}}', "rail.hidden is not a list"],
-    ['{"version":1,"job.tabs":{"first":["plan"]}}', "job.tabs.first is not an id"],
+    ['{"version":1,"job.panels":{"first":["field"]}}', "job.panels.first is not an id"],
     [long(33), "rail.hidden is not a list"],
     [`{"version":1,"x":"${"a".repeat(LAYOUT_BYTES)}"}`, `larger than ${LAYOUT_BYTES} bytes`],
   ])("%s", (text, why) => {
@@ -63,10 +61,10 @@ describe("parseLayout refuses what Fleet refuses", () => {
 
   it("accepts a file at the limit of 32 ids, ignores what this build does not have, and names it", () => {
     expect(parseLayout(long(32)).problems).toEqual([]);
-    const parsed = parseLayout('{"version":1,"sidebar":7,"rail":{"hidden":["gone","logbook"],"order":["logbook"]},"job.tabs":{"first":"gone"}}');
+    const parsed = parseLayout('{"version":1,"sidebar":7,"job.tabs":{"first":"plan"},"rail":{"hidden":["gone","logbook"],"order":["logbook"]},"job.panels":{"first":"field"}}');
     expect(parsed.problems).toEqual([]);
-    expect(parsed.file.regions).toEqual({ rail: { hidden: ["logbook"] }, "job.tabs": {} });
-    expect(parsed.ignored).toEqual(expect.arrayContaining(["sidebar", "rail.hidden gone", "rail.order", "job.tabs.first gone"]));
+    expect(parsed.file.regions).toEqual({ rail: { hidden: ["logbook"] }, "job.panels": {} });
+    expect(parsed.ignored).toEqual(expect.arrayContaining(["sidebar", "job.tabs", "rail.hidden gone", "rail.order", "job.panels.first"]));
   });
 });
 
@@ -74,7 +72,7 @@ describe("serializeLayout", () => {
   it("is empty for nothing chosen, and reads back as what was chosen", () => {
     expect(serializeLayout({ regions: {} })).toBe("");
     expect(serializeLayout({ regions: { rail: {} } })).toBe("");
-    const file: LayoutFile = { regions: { "dashboard.panels": { order: ["merge-line", "fleet"] }, rail: { hidden: ["logbook"] } } };
+    const file: LayoutFile = { regions: { "job.panels": { order: ["progress", "field"] }, rail: { hidden: ["logbook"] } } };
     const text = serializeLayout(file);
     expect(parseLayout(text).problems).toEqual([]);
     expect(parseLayout(text).file).toEqual(file);
@@ -82,15 +80,16 @@ describe("serializeLayout", () => {
 });
 
 describe("what is drawn, layer on layer", () => {
-  const TIDY = '{"version":1,"dashboard.panels":{"order":["merge-line","fleet"]},"rail":{"hidden":["logbook"]}}';
+  const TIDY = '{"version":1,"job.panels":{"order":["progress","field"]},"rail":{"hidden":["logbook"]}}';
 
   it("is the registry's own order and every entry with no layer", () => {
-    expect(shown("dashboard.panels", layersOf({ mods: [], own: { regions: {} } }))).toEqual(["fleet", "merge-line", "field"]);
+    expect(shown("dashboard.panels", layersOf({ mods: [], own: { regions: {} } }))).toEqual(["list", "merge-line", "activity", "bays", "controls", "dispatch", "autopilot"]);
+    expect(shown("job.panels", layersOf({ mods: [], own: { regions: {} } }))).toEqual(["field", "workflow", "progress"]);
   });
 
   it("applies a mod that is on and valid, and not one that is off or has a problem", () => {
     const on = layersOf({ mods: [mod("tidy", TIDY)], own: { regions: {} } });
-    expect(shown("dashboard.panels", on)).toEqual(["merge-line", "fleet", "field"]);
+    expect(shown("job.panels", on)).toEqual(["progress", "field", "workflow"]);
     expect(shown("rail", on)).not.toContain("logbook");
     const off = layersOf({ mods: [mod("tidy", TIDY, { enabled: false })], own: { regions: {} } });
     expect(shown("rail", off)).toContain("logbook");
@@ -99,9 +98,9 @@ describe("what is drawn, layer on layer", () => {
   });
 
   it("applies mods in name order, so a later name's list replaces an earlier one's", () => {
-    const a = mod("a-first", '{"version":1,"job.tabs":{"order":["record","overview"]}}');
-    const z = mod("z-last", '{"version":1,"job.tabs":{"order":["checks","overview"]}}');
-    expect(shown("job.tabs", layersOf({ mods: [z, a], own: { regions: {} } })).slice(0, 2)).toEqual(["checks", "overview"]);
+    const a = mod("a-first", '{"version":1,"job.panels":{"order":["workflow","field"]}}');
+    const z = mod("z-last", '{"version":1,"job.panels":{"order":["progress","field"]}}');
+    expect(shown("job.panels", layersOf({ mods: [z, a], own: { regions: {} } })).slice(0, 2)).toEqual(["progress", "field"]);
   });
 
   it("puts the owner's own choice over every mod, in both directions", () => {
@@ -111,25 +110,26 @@ describe("what is drawn, layer on layer", () => {
     const hidesIt: LayoutFile = { regions: { rail: { hidden: ["checks"] } } };
     const result = shown("rail", layersOf({ mods: [mod("tidy", '{"version":1}')], own: hidesIt }));
     expect(result).not.toContain("checks");
-    const ordered: LayoutFile = { regions: { "dashboard.panels": { order: ["fleet", "merge-line"] } } };
-    expect(shown("dashboard.panels", layersOf({ mods: [hides], own: ordered })).slice(0, 2)).toEqual(["fleet", "merge-line"]);
+    const ordered: LayoutFile = { regions: { "job.panels": { order: ["workflow", "field"] } } };
+    expect(shown("job.panels", layersOf({ mods: [hides], own: ordered })).slice(0, 2)).toEqual(["workflow", "field"]);
   });
 
   it("never hides what cannot be hidden, whoever asks", () => {
-    const asks = mod("greedy", '{"version":1,"rail":{"hidden":["settings","mods","overview","logbook"]},"job.tabs":{"hidden":["plan","overview","pulse"]},"dashboard.panels":{"hidden":["fleet"]}}');
+    const asks = mod("greedy", '{"version":1,"rail":{"hidden":["settings","mods","overview","logbook"]},"job.panels":{"hidden":["progress","field"]},"dashboard.panels":{"hidden":["list","bays"]}}');
     const layers = layersOf({ mods: [asks], own: { regions: {} } });
     expect(shown("rail", layers)).toEqual(expect.arrayContaining(["settings", "mods", "overview"]));
     expect(shown("rail", layers)).not.toContain("logbook");
-    expect(shown("job.tabs", layers)).toEqual(expect.arrayContaining(["plan", "overview"]));
-    expect(shown("job.tabs", layers)).not.toContain("pulse");
-    expect(shown("dashboard.panels", layers)).toContain("fleet");
+    expect(shown("job.panels", layers)).toEqual(["workflow", "progress"]);
+    expect(shown("dashboard.panels", layers)).toContain("list");
+    expect(shown("dashboard.panels", layers)).not.toContain("bays");
   });
 
-  it("skips an id that is gone, and opens on the first entry that is shown when `first` is hidden", () => {
-    const stale = mod("old", '{"version":1,"job.tabs":{"order":["removed-tab","record"],"hidden":["removed-tab","record"],"first":"record"}}');
-    const resolved = resolveLayout("job.tabs", layersOf({ mods: [stale], own: { regions: {} } }));
-    expect(resolved.all.map((one) => one.id)).not.toContain("removed-tab");
-    expect(resolved.shown.map((one) => one.id)).not.toContain("record");
-    expect(resolved.first).toBe("overview");
+  it("skips an id that is gone, and never orders the Cockpit's panels", () => {
+    const stale = mod("old", '{"version":1,"job.panels":{"order":["removed-panel","workflow"],"hidden":["removed-panel","workflow"]},"dashboard.panels":{"order":["bays","list"]}}');
+    const layers = layersOf({ mods: [stale], own: { regions: {} } });
+    const resolved = resolveLayout("job.panels", layers);
+    expect(resolved.all.map((one) => one.id)).toEqual(["workflow", "field", "progress"]);
+    expect(resolved.shown.map((one) => one.id)).toEqual(["field", "progress"]);
+    expect(shown("dashboard.panels", layers)[0]).toBe("list");
   });
 });

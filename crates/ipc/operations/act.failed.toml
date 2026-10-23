@@ -1,0 +1,10 @@
+[operations."act.failed"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "A background act failed after its request had been answered"
+notes = """
+Carries the act (`checkout_to_pull_request`, `commit_to_repository` or `pull_request_press`), the repository's `manifest_id` and the Job's `session_id` where the act had them, and the refusal under `error`, the same `WireError` a request's refusal answers with. Published by a request that replied first and finished in a spawned task, which has no answer left to refuse with. Bridge shows it as the toast a refusal shows.
+
+A resync does not carry it; a failure while Bridge was disconnected is not told again.
+"""

@@ -32,6 +32,7 @@ import type { ClashesApi } from "./api/clashes";
 import type { ReviewsApi } from "./api/reviews";
 import type { TerritoryApi } from "./api/territory";
 import type { TimelineApi } from "./api/timeline";
+import type { ActFailedApi } from "./api/act-failed";
 import type { BayHistoryApi } from "./api/bay-history";
 import type { UsageSummaryApi } from "./api/usage-summary";
 import type { IssuesApi } from "./api/issues";
@@ -69,6 +70,7 @@ export type BridgeApi = CoreApi<BridgeState> &
   ReviewsApi &
   TerritoryApi &
   TimelineApi &
+  ActFailedApi &
   BayHistoryApi &
   UsageSummaryApi &
   IssuesApi &

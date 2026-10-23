@@ -82,6 +82,12 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/events",
     },
+    // A background act failed after its reply.
+    Route {
+        operation: "act.failed",
+        method: "GET",
+        path: "/events",
+    },
     // One entry Fleet just kept for the timeline, for a client holding a window to append.
     Route {
         operation: "timeline.appended",

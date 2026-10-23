@@ -3,14 +3,17 @@
 
 use std::path::{Path, PathBuf};
 
+use std::time::Duration;
+
 use adapter_traits::Opened;
+use api::Next;
 use ipc::{
     CommitToRepository, CommittedToRepository, FlightControl, FlightControlKind, FlightControls,
     FlightControlsRead, PieceToCommit, SaveRepositoryFlightControls, SessionId, WorkflowId,
 };
 use testkit::{CommitScope, Delivered, Delivering, FakeVcs};
 
-use super::session_host::{rig_fitted, rig_placing, Rig};
+use super::session_host::{eventually, rig_fitted, rig_placing, Rig};
 use crate::committing::{EXISTS, NOT_YOURS};
 use crate::flight_controls::repository::IN_REPOSITORY;
 
@@ -68,6 +71,34 @@ async fn tree_of(rig: &Rig, committed: &CommittedToRepository) -> PathBuf {
     PathBuf::from(adapter_traits::slot_path(&rig.root, hosting.lease_slot.expect("a slot")))
 }
 
+/// Wait for the pull request to be on the Job's row, which is the last thing a commit does.
+async fn finished(rig: &Rig, committed: &CommittedToRepository) {
+    let holder = store::Holder::session(committed.session_id.as_str());
+    eventually(|| async {
+        let rows = rig.fleet.store().lock().await.attachments_of(&holder).unwrap_or_default();
+        rows.iter().any(|row| row.kind == "pr")
+    })
+    .await;
+}
+
+/// The `act.failed` the stream carries next.
+async fn failure_told(watching: &mut api::Subscription) -> ipc::ActFailed {
+    tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            match watching.next().await {
+                Some(Next::Send(delivered)) => {
+                    if let ipc::Event::ActFailed(failed) = delivered.event {
+                        return failed;
+                    }
+                }
+                other => panic!("the stream ended: {other:?}"),
+            }
+        }
+    })
+    .await
+    .expect("an act.failed arrives")
+}
+
 fn tiles(job: &[&str]) -> PieceToCommit {
     PieceToCommit::FlightControls { job: job.iter().map(|id| id.to_string()).collect(), deck: Vec::new() }
 }
@@ -103,6 +134,7 @@ async fn committing_with_no_job_open_makes_a_job_of_its_own_with_one_commit_and_
     let made = rig.fleet.vcs().committed().len();
 
     let committed = rig.fleet.committed_to_repository(asking(&rig, tiles(&["specs"]), false)).await.expect("committed");
+    finished(&rig, &committed).await;
 
     let tree = tree_of(&rig, &committed).await;
     assert_ne!(tree, PathBuf::from(&rig.root));
@@ -123,8 +155,6 @@ async fn committing_with_no_job_open_makes_a_job_of_its_own_with_one_commit_and_
         _ => None,
     });
     assert_eq!(opened.as_deref(), Some("Commit the tile specs"));
-    assert_eq!(committed.pull_request.as_deref(), Some("https://forge.invalid/armada/pull/1"));
-    assert_eq!(committed.pull_request_not_opened, None);
     let held = rig.fleet.store().lock().await.attachments_of(&store::Holder::session(committed.session_id.as_str())).expect("read");
     assert!(held.iter().any(|row| row.kind == "pr" && row.target == "1"), "the Job holds its pull request");
 
@@ -133,7 +163,7 @@ async fn committing_with_no_job_open_makes_a_job_of_its_own_with_one_commit_and_
 }
 
 /// **Opening the pull request failing loses nothing**: the Job keeps its branch, pushed, with the
-/// commit on it, and the answer says why there is no pull request.
+/// commit on it, and the stream says why there is no pull request.
 #[tokio::test]
 async fn a_pull_request_that_does_not_open_leaves_the_jobs_branch_pushed_and_says_so() {
     let rig = rig_fitted(|fittings| {
@@ -144,18 +174,63 @@ async fn a_pull_request_that_does_not_open_leaves_the_jobs_branch_pushed_and_say
         });
     });
     yours(&rig, vec![own("specs", None)]).await;
+    let mut watching = rig.fleet.events().subscribe();
 
     let committed = rig.fleet.committed_to_repository(asking(&rig, tiles(&["specs"]), false)).await.expect("committed");
 
-    assert_eq!(committed.pull_request, None);
-    let said = committed.pull_request_not_opened.clone().expect("says why");
-    assert_eq!(said, format!("{} is pushed. No pull request was opened: gh is not installed", committed.branch));
+    let told = failure_told(&mut watching).await;
+    assert_eq!(told.act, ipc::BackgroundAct::CommitToRepository);
+    assert_eq!(told.session_id, Some(committed.session_id.clone()));
+    assert_eq!(told.manifest_id.as_ref().map(|id| id.as_str()), Some(rig.fleet.repositories().first().expect("served").manifest().id().as_str()));
+    assert_eq!(told.error.code, crate::committing::PULL_REQUEST_NOT_OPENED);
+    assert_eq!(told.error.message, format!("{} is pushed. No pull request was opened: gh is not installed", committed.branch));
     assert!(rig.fleet.vcs().delivered().contains(&Delivered::Pushed { branch: committed.branch.clone() }));
     assert_eq!(rig.fleet.vcs().committed().last().expect("a commit").branch, committed.branch);
     let tree = tree_of(&rig, &committed).await;
     assert!(tree.join(IN_REPOSITORY).exists(), "the commit's file stays in the Job's tree");
     let session = rig.fleet.store().lock().await.session(committed.session_id.as_str()).expect("read").expect("kept");
     assert_eq!(session.state, store::SessionState::Live, "the Job stays");
+}
+
+/// **The reply does not wait on the push.** Once the Job and its branch exist the press has
+/// answered; the commit's push and pull request finish when the push is let through.
+#[tokio::test]
+async fn the_reply_comes_back_while_the_push_is_held_and_the_pull_request_follows() {
+    let rig = rig_placing(None);
+    yours(&rig, vec![own("specs", None)]).await;
+    let hold = rig.fleet.vcs().hold_pushes();
+
+    let committed = tokio::time::timeout(Duration::from_secs(3), rig.fleet.committed_to_repository(asking(&rig, tiles(&["specs"]), false)))
+        .await
+        .expect("the reply waited on the push")
+        .expect("committed");
+
+    assert_eq!(committed.paths, [IN_REPOSITORY.to_string()]);
+    let held = rig.fleet.store().lock().await.attachments_of(&store::Holder::session(committed.session_id.as_str())).expect("read");
+    assert!(!held.iter().any(|row| row.kind == "pr"), "no pull request while the push is held");
+    hold.open();
+    finished(&rig, &committed).await;
+    assert!(rig.fleet.vcs().delivered().contains(&Delivered::Pushed { branch: committed.branch.clone() }));
+}
+
+/// A commit git refuses, once the Job exists, is told as `act.failed` with the Job it was for.
+#[tokio::test]
+async fn a_commit_git_refuses_after_the_reply_is_told_as_act_failed() {
+    let rig = rig_fitted(|fittings| {
+        let vcs = std::mem::replace(&mut fittings.vcs, FakeVcs::new());
+        fittings.vcs = vcs.refusing_to_commit("hooks refused it");
+    });
+    yours(&rig, vec![own("specs", None)]).await;
+    let mut watching = rig.fleet.events().subscribe();
+
+    let committed = rig.fleet.committed_to_repository(asking(&rig, tiles(&["specs"]), false)).await.expect("accepted");
+
+    let told = failure_told(&mut watching).await;
+    assert_eq!(told.act, ipc::BackgroundAct::CommitToRepository);
+    assert_eq!(told.session_id, Some(committed.session_id));
+    assert_eq!(told.error.code, crate::committing::UNWRITABLE);
+    assert!(told.error.message.contains("hooks refused it"), "{}", told.error.message);
+    assert!(!rig.fleet.vcs().delivered().iter().any(|one| matches!(one, Delivered::Pushed { .. })), "nothing was pushed");
 }
 
 /// **Against main's tree, before any Job is made**: a tile main already holds is refused without
@@ -176,6 +251,7 @@ async fn a_tile_main_already_holds_is_refused_without_overwrite_and_makes_no_job
     assert_eq!(rig.fleet.vcs().committed().len(), made, "nothing committed");
 
     let committed = rig.fleet.committed_to_repository(asking(&rig, tiles(&["specs"]), true)).await.expect("replaced");
+    finished(&rig, &committed).await;
     let text = std::fs::read_to_string(tree_of(&rig, &committed).await.join(IN_REPOSITORY)).expect("there");
     assert!(text.contains("bin/specs") && !text.contains("old"), "{text}");
     assert_eq!(std::fs::read_to_string(Path::new(&rig.root).join(IN_REPOSITORY)).expect("on main"), on_main);
@@ -212,6 +288,7 @@ async fn committing_a_workflow_copies_kits_file_onto_its_jobs_branch() {
     let piece = PieceToCommit::Workflow { workflow_id: WorkflowId::carried("quick") };
 
     let committed = rig.fleet.committed_to_repository(asking(&rig, piece, false)).await.expect("committed");
+    finished(&rig, &committed).await;
 
     assert_eq!(committed.paths, [".armada/workflows/quick.yml"]);
     let tree = tree_of(&rig, &committed).await;
@@ -234,6 +311,7 @@ async fn committing_a_review_tool_copies_kits_file_and_refuses_one_main_holds() 
     let piece = PieceToCommit::ReviewTool { id: "security".into() };
 
     let committed = rig.fleet.committed_to_repository(asking(&rig, piece.clone(), false)).await.expect("committed");
+    finished(&rig, &committed).await;
     assert_eq!(committed.paths, [".armada/review-tools/security.md"]);
     let tree = tree_of(&rig, &committed).await;
     assert_eq!(std::fs::read_to_string(tree.join(".armada/review-tools/security.md")).expect("on the branch"), text);
@@ -280,6 +358,7 @@ async fn committing_the_manifest_copies_kits_file_to_the_workspace_root_and_leav
     let made = rig.fleet.vcs().committed().len();
 
     let committed = rig.fleet.committed_to_repository(asking(&rig, PieceToCommit::Manifest, false)).await.expect("committed");
+    finished(&rig, &committed).await;
 
     assert_eq!(committed.paths, ["armada.yml".to_string()]);
     let tree = tree_of(&rig, &committed).await;
@@ -303,6 +382,7 @@ async fn an_armada_yml_main_holds_is_replaced_only_with_overwrite() {
     assert_eq!((code.as_str(), said.as_str()), (EXISTS, "armada.yml on main already exists. Commit with overwrite to replace it."));
 
     let committed = rig.fleet.committed_to_repository(asking(&rig, PieceToCommit::Manifest, true)).await.expect("replaced");
+    finished(&rig, &committed).await;
     assert_eq!(std::fs::read_to_string(tree_of(&rig, &committed).await.join("armada.yml")).expect("there"), WHOLE);
     assert!(std::fs::read_to_string(&on_main).expect("there").contains("OLDONE"), "the checkout is untouched");
 }
@@ -349,6 +429,7 @@ async fn committing_requests_copies_the_chosen_and_carries_a_secrets_name_and_ne
     };
 
     let committed = rig.fleet.committed_to_repository(asking(&rig, requests(&["users"], &["staging"]), false)).await.expect("committed");
+    finished(&rig, &committed).await;
     assert_eq!(committed.paths, [held.to_string()]);
     let text = std::fs::read_to_string(tree_of(&rig, &committed).await.join(held)).expect("in the tree");
     let on_branch = crate::requesting::parse(&text).expect("reads");

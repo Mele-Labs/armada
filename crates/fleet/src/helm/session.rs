@@ -183,7 +183,7 @@ where
     ) -> Result<HelmSession, Refusal> {
         let served = self.served_named(manifest_id.as_ref())?;
         if let Some(live) = self.live_helm(served.manifest().id().as_str()).await? {
-            self.close_session(CloseSession {
+            self.closed_and_parked(CloseSession {
                 session_id: SessionId::carried(live.session_id),
             })
             .await?;

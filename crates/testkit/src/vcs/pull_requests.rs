@@ -70,6 +70,9 @@ pub(super) struct PullRequests {
     /// taken, as a real forge's would. A test that wants them to stay put
     /// scripts nothing.
     pub(super) follows_writes: bool,
+    /// Held shut by `hold_reads_after_a_write`, and whether a write has been taken since.
+    pub(super) hold_after_write: Option<Arc<super::Hold>>,
+    pub(super) wrote: bool,
 }
 
 impl Default for PullRequests {
@@ -89,6 +92,8 @@ impl Default for PullRequests {
             review_lists_together: None,
             thread_resolved: Ok(()),
             follows_writes: true,
+            hold_after_write: None,
+            wrote: false,
         }
     }
 }
@@ -96,6 +101,7 @@ impl Default for PullRequests {
 impl PullRequests {
     /// A write the forge took, as it would show on the next read.
     pub(super) fn took_ready(&mut self) {
+        self.wrote = true;
         if let (true, Some(facts)) = (self.follows_writes, self.facts.as_mut()) {
             if facts.standing == PullRequestStanding::Draft {
                 facts.standing = PullRequestStanding::Open;
@@ -104,18 +110,21 @@ impl PullRequests {
     }
 
     pub(super) fn took_auto_merge(&mut self) {
+        self.wrote = true;
         if let (true, Some(facts)) = (self.follows_writes, self.facts.as_mut()) {
             facts.auto_merge = true;
         }
     }
 
     pub(super) fn took_auto_merge_off(&mut self) {
+        self.wrote = true;
         if let (true, Some(facts)) = (self.follows_writes, self.facts.as_mut()) {
             facts.auto_merge = false;
         }
     }
 
     pub(super) fn took_merge(&mut self) {
+        self.wrote = true;
         if let (true, Some(facts)) = (self.follows_writes, self.facts.as_mut()) {
             facts.standing = PullRequestStanding::Merged;
         }
@@ -153,6 +162,13 @@ impl FakeVcs {
 
     /// `Forge::pull_request_facts`: recorded, then answered as scripted.
     pub(super) fn pull_request_read(&self, pull_request: &str) -> Option<PullRequestFacts> {
+        let held = {
+            let forge = self.pull_requests.lock().expect("not poisoned");
+            forge.hold_after_write.clone().filter(|_| forge.wrote)
+        };
+        if let Some(held) = held {
+            held.pass();
+        }
         self.delivered
             .lock()
             .expect("not poisoned")

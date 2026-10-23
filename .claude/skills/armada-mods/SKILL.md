@@ -110,9 +110,9 @@ primitive, not the alias. Keep body text at 4.5 to 1 against the layer it sits o
 
 # Making a layout mod
 
-**A layout names tabs, panels and places by id and nothing else.** It can
-reorder them, hide some, and say which tab opens first. It cannot add a panel,
-change a label or reach any code. `docs/concepts/layout-mods.md` is what Fleet
+**A layout names panels and places by id and nothing else.** It can hide the
+Cockpit's panels and places, and reorder and hide an open Job's panels. It
+cannot add a panel, change a label or reach any code. `docs/concepts/layout-mods.md` is what Fleet
 accepts and how layers combine.
 
 ## The steps
@@ -138,44 +138,46 @@ nothing: check the id against the table.
 
 | Region | Ids, in the order shipped | Cannot be hidden | `order` | `first` |
 |---|---|---|---|---|
-| `dashboard.panels` | `fleet`, `merge-line`, `field` | `fleet` | yes | no |
-| `job.tabs` | `overview`, `workflow`, `plan`, `record`, `checks`, `drones`, `pulse`, `settings` | `overview`, `plan` | yes | yes |
-| `rail` | `overview`, `jobs`, `sessions`, `kit`, `mods`, `settings`, `guides`, `workflows`, `studios`, `logbook`, `reviews`, `issues` | `overview`, `mods`, `settings` | no | no |
+| `dashboard.panels` | `list`, `merge-line`, `activity`, `bays`, `controls`, `dispatch`, `autopilot` | `list` | no | no |
+| `job.panels` | `field`, `workflow`, `progress` | `progress` | yes | no |
+| `rail` | `overview`, `sessions`, `kit`, `mods`, `settings`, `guides`, `workflows`, `studios`, `logbook`, `reviews`, `issues` | `overview`, `mods`, `settings` | no | no |
 
 `packages/shell/layout-registry.json` is the list Fleet checks. **`rail`
-is the places: the Cockpit, the tabs `jobs` and `sessions` and the System strip's pages.
-The Logbook page is the place `logbook`.** A hidden `merge-line` panel hides the
-deck's merge queue, a hidden `field` hides the Field panel of an open Session, and `order` on the panels has no effect on the deck. Hiding takes an
-entry off the tab bar or the strip and nothing else: it stays in the palette and in
-links.
+is the places: the Cockpit, the Jobs tab (`sessions`) and the System strip's pages.
+The Logbook page is the place `logbook`.** `dashboard.panels` is the Cockpit's
+panels: `list` the Jobs list, `merge-line` the merge queue, `controls` Flight
+control. A right column the layout empties gives its room to the stage.
+`job.panels` is the panels an open Job stacks in the right column, in that
+order. Hiding a place takes it off the tab bar or the strip and nothing else:
+it stays in the palette and in links.
 
 | Field | Is | Notes |
 |---|---|---|
 | `version` | `1` | Required |
 | `order` | List of ids | Named first, in this order; the rest keep their place after |
 | `hidden` | List of ids | Not drawn. A non-hideable id is ignored |
-| `first` | One id | What opens first, if it is shown |
+| `first` | One id | No region takes it today; it is ignored |
 
 A list is at most 32 ids, an id is lowercase letters, digits and `-` of at most
 40 characters, the file is at most 4 KiB, and any other key inside a region makes
 the whole file invalid.
 
-## Example: the merge queue hidden, Retros off the strip
+## Example: the merge queue and Activity hidden, the Logbook off the tabs
 
 ```json
 {
   "version": 1,
-  "dashboard.panels": { "hidden": ["merge-line"] },
+  "dashboard.panels": { "hidden": ["merge-line", "activity"] },
   "rail": { "hidden": ["logbook"] }
 }
 ```
 
-## Example: Record before Plan in a Job, Pulse hidden, open on Plan
+## Example: Progress first in a Job, then Workflow, the Field hidden
 
 ```json
 {
   "version": 1,
-  "job.tabs": { "order": ["overview", "workflow", "record", "plan"], "hidden": ["pulse"], "first": "plan" }
+  "job.panels": { "order": ["progress", "workflow"], "hidden": ["field"] }
 }
 ```
 

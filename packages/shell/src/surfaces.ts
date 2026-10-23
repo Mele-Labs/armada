@@ -331,10 +331,9 @@ export const SYSTEM_PAGES: readonly { surface: string; label: string }[] = [
   SURFACE.workflows,
 ].map((surface) => ({ surface, label: SURFACES.find((one) => one.id === surface)?.label ?? surface }));
 
-/** The places a layout may name: the tabs that are a surface, then the pages under System the layout reaches. */
+/** The places a layout may name: the tabs that are a surface, then the pages under System the layout reaches. The old Jobs tab is never drawn (`App.tsx`), so it is not one. */
 export const PLACES: readonly string[] = [
   SURFACE.overview,
-  SURFACE.jobs,
   SURFACE.sessions,
   SURFACE.kit,
   SURFACE.mods,

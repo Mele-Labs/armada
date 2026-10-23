@@ -370,7 +370,7 @@ where
             return Err(reason_of("old job did not end", &why));
         }
         // Ended as a move ends a Job. What it still ran goes with the process; the hand left it no slot.
-        self.close_session(CloseSession { session_id: SessionId::carried(old) })
+        self.closed_and_parked(CloseSession { session_id: SessionId::carried(old) })
             .await
             .map_err(|why| reason_of("old job did not end", &said_of(&why)))?;
         Ok(())
@@ -395,7 +395,7 @@ where
                 let _ = store.settle(&Holder::session(holder), kind, &manifest, target, AttachmentState::GivenBack, &now);
             }
         }
-        let _ = self.close_session(CloseSession { session_id: SessionId::carried(new) }).await;
+        let _ = self.closed_and_parked(CloseSession { session_id: SessionId::carried(new) }).await;
     }
 
     /// At Fleet's start: a `handoff_starting` still standing is a hand a Fleet that stopped left

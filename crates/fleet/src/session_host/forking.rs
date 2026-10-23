@@ -16,6 +16,8 @@
 //! `detail.moved`, and the fork is told [`move_note`] in place of [`fork_note`].
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
+use std::sync::Arc;
+
 use api::{HostedSessions, Refusal};
 use ipc::{CloseSession, ForkFrom, MoveSession, SessionRecord, StartSession, WireError};
 use store::{AttachmentState, Holder, KeptAttachment, KeptHosting, KeptSession};
@@ -173,7 +175,7 @@ where
 
     /// Ends session `moved.session_id` if it is live and starts its whole conversation again in
     /// `moved.manifest_id`, under the same title. Every refusal comes before anything is ended.
-    pub(crate) async fn moved_session(&self, moved: MoveSession) -> Result<SessionRecord, Refusal> {
+    pub(crate) async fn moved_session(self: Arc<Self>, moved: MoveSession) -> Result<SessionRecord, Refusal> {
         let old_id = moved.session_id.as_str().to_string();
         let to = moved.manifest_id.as_str().to_string();
         let (session, hosting, branches) = {
@@ -232,7 +234,7 @@ where
             .collect::<Vec<_>>()
             .join(", ");
         if live && hosting.is_some() {
-            self.close_session(CloseSession { session_id: moved.session_id.clone() }).await?;
+            Arc::clone(&self).close_session(CloseSession { session_id: moved.session_id.clone() }).await?;
         }
         let start = StartSession {
             manifest_id: moved.manifest_id,

@@ -46,7 +46,7 @@ pub(super) async fn queued_and_idle(rig: &Rig, text: &str) -> (SessionId, String
 }
 
 pub(super) async fn close(rig: &Rig, id: &SessionId) {
-    rig.fleet
+    Arc::clone(&rig.fleet)
         .close_session(CloseSession {
             session_id: id.clone(),
         })
@@ -178,5 +178,25 @@ async fn a_slot_freed_where_fleet_did_not_see_it_is_found_on_the_timer() {
         resumes(&rig, &waiting)[0].directory,
         adapter_traits::slot_path(&rig.root, 3)
     );
+    keeper.abort();
+}
+
+#[tokio::test]
+async fn a_waiting_session_is_not_moved_into_a_slot_until_the_closing_ones_park_has_finished() {
+    let (rig, holder) = with_slot_one_held().await;
+    let keeper = the_keeper(&rig);
+    let (waiting, _) = queued_and_idle(&rig, "change a file").await;
+    let gate = rig.fleet.vcs().hold_parks();
+
+    tokio::time::timeout(Duration::from_secs(2), close(&rig, &holder))
+        .await
+        .expect("the reply does not wait on the park");
+    eventually(|| async { gate.arrived() == 1 }).await;
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    assert!(resumes(&rig, &waiting).is_empty(), "the slot is not free while it is mid-park");
+
+    gate.open();
+
+    eventually(|| async { resumes(&rig, &waiting).len() == 1 }).await;
     keeper.abort();
 }

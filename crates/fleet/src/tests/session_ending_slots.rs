@@ -3,19 +3,24 @@
 //! 2026-10-13 ("Forking Sessions") was closed, read as given back, and held its slot.
 
 use std::sync::Arc;
+use std::time::Duration;
 
 use adapter_traits::SlotParkRefused;
 use api::{HostedSessions, Sessions};
 use ipc::{ShowWindow, SessionId};
 
 use super::session_gate::{in_its_slot, standing};
+use super::session_host::eventually;
 use crate::tests::peer::Placing;
 
 async fn close(rig: &super::session_host::Rig, id: &SessionId) {
+    let holding = Arc::strong_count(&rig.fleet);
     Arc::clone(&rig.fleet)
         .close_session(ipc::CloseSession { session_id: id.clone() })
         .await
         .expect("closed");
+    // The park runs on a task that holds the Fleet until it is done.
+    eventually(|| async { Arc::strong_count(&rig.fleet) == holding }).await;
 }
 
 #[tokio::test]
@@ -93,4 +98,28 @@ async fn a_walk_the_session_had_open_ends_with_it() {
     close(&rig, &id).await;
 
     assert_eq!(rig.fleet.walk_open(id.as_str()).await, None);
+}
+
+#[tokio::test]
+async fn a_close_replies_ended_while_the_park_is_held_and_the_slot_stays_held_until_it_finishes() {
+    let (rig, id) = in_its_slot(&Placing::nothing()).await;
+    let gate = rig.fleet.vcs().hold_parks();
+
+    let (fleet, closed) = (Arc::clone(&rig.fleet), ipc::CloseSession { session_id: id.clone() });
+    let closing = async move { fleet.close_session(closed).await };
+    let record = tokio::time::timeout(Duration::from_secs(2), closing)
+        .await
+        .expect("the reply does not wait on the park")
+        .expect("closed");
+
+    assert_eq!(record.state, ipc::SessionState::Ended);
+    assert_eq!(record.end_reason.as_deref(), Some("closed"));
+    eventually(|| async { gate.arrived() == 1 }).await;
+    assert!(rig.fleet.vcs().parked_slots().is_empty(), "the park is still held");
+    assert_eq!(standing(&rig, &id, "slot").await, vec!["1"], "the slot is still the ledger's until it is parked");
+
+    gate.open();
+
+    eventually(|| async { standing(&rig, &id, "slot").await.is_empty() }).await;
+    assert_eq!(rig.fleet.vcs().parked_slots(), vec![(1, id.as_str().to_string())]);
 }

@@ -912,7 +912,7 @@ async fn a_terminal_walk_stops_waiting_once_the_person_has_written_to_it() {
 
 impl Rig {
     async fn ends(&self) -> Result<ipc::SessionRecord, String> {
-        self.fleet
+        Arc::clone(&self.fleet)
             .close_session(ipc::CloseSession {
                 session_id: SessionId::carried(ID),
             })

@@ -186,7 +186,7 @@ where
                         };
                         if fleet.first_message_from(&id, voice, &request).await.is_err() {
                             let _ = fleet
-                                .close_session(CloseSession {
+                                .closed_and_parked(CloseSession {
                                     session_id: SessionId::carried(&id),
                                 })
                                 .await;

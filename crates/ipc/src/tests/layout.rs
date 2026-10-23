@@ -15,9 +15,9 @@ fn a_file_of_known_shapes_is_accepted() {
     for text in [
         r#"{"version":1}"#,
         r#"{"version":1.0}"#,
-        r#"{"version":1,"dashboard.panels":{"order":["merge-line","fleet"]},"rail":{"hidden":["logbook"]}}"#,
-        r#"{"version":1,"job.tabs":{"order":["overview","record","plan"],"hidden":["pulse"],"first":"plan"}}"#,
-        r#"{"version":1,"job.tabs":{}}"#,
+        r#"{"version":1,"dashboard.panels":{"hidden":["merge-line","activity"]},"rail":{"hidden":["logbook"]}}"#,
+        r#"{"version":1,"job.panels":{"order":["workflow","field"],"hidden":["field"]}}"#,
+        r#"{"version":1,"job.panels":{}}"#,
     ] {
         assert_eq!(problems(text), Vec::<String>::new(), "{text}");
     }
@@ -31,10 +31,10 @@ fn what_this_build_does_not_have_is_ignored_and_never_a_reason_to_refuse() {
         r#"{"version":1,"sidebar":7}"#,
         // An id it does not have, in every place an id is read.
         r#"{"version":1,"rail":{"hidden":["a-panel-removed-in-a-release"]}}"#,
-        r#"{"version":1,"job.tabs":{"order":["gone"],"first":"gone"}}"#,
+        r#"{"version":1,"job.panels":{"order":["gone"],"hidden":["gone"]}}"#,
         // Fields a region does not use: read as ids, then ignored.
         r#"{"version":1,"rail":{"order":["logbook"]}}"#,
-        r#"{"version":1,"dashboard.panels":{"first":"fleet"}}"#,
+        r#"{"version":1,"dashboard.panels":{"first":"list","order":["bays"]}}"#,
     ] {
         assert_eq!(problems(text), Vec::<String>::new(), "{text}");
     }
@@ -62,8 +62,8 @@ fn one_wrong_shape_refuses_the_whole_file() {
         (r#"{"version":1,"rail":{"hidden":["Lessons"]}}"#, "rail.hidden is not a list"),
         (r#"{"version":1,"rail":{"hidden":["../x"]}}"#, "rail.hidden is not a list"),
         (r#"{"version":1,"rail":{"hidden":["1x"]}}"#, "rail.hidden is not a list"),
-        (r#"{"version":1,"job.tabs":{"first":["plan"]}}"#, "job.tabs.first is not an id"),
-        (r#"{"version":1,"job.tabs":{"first":"Plan"}}"#, "job.tabs.first is not an id"),
+        (r#"{"version":1,"job.panels":{"first":["field"]}}"#, "job.panels.first is not an id"),
+        (r#"{"version":1,"job.panels":{"first":"Field"}}"#, "job.panels.first is not an id"),
         (&long_ids, "rail.hidden is not a list"),
         (&long_id, "rail.hidden is not a list"),
         (&oversize, "larger than 4096 bytes"),
@@ -88,5 +88,5 @@ fn a_file_at_the_limit_is_accepted_and_one_byte_over_is_not() {
 fn the_regions_are_the_ones_the_registry_file_names() {
     let mut found = regions();
     found.sort();
-    assert_eq!(found, ["dashboard.panels", "job.tabs", "rail"]);
+    assert_eq!(found, ["dashboard.panels", "job.panels", "rail"]);
 }
