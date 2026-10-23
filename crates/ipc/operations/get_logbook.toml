@@ -4,7 +4,7 @@ transport = "HTTP"
 agent_access = "Yes"
 description = "What Armada learned: a repository's entries, the owner's habits and this Mac's, of every state, each with its evidence and earlier texts"
 notes = """
-`?repository=` is a root `list_repositories` names and narrows to that repository's `repo` entries beside the habits and this Mac's; absent, the answer is the habits and this Mac's alone, and a root Fleet does not serve is a 404 `fleet.run_memory_repository_not_served`. `?section=` (`repo`, `habits` or `machine`) and `?state=` (`candidate`, `standing` or `faded`) narrow it further, and absent they narrow nothing: every state is listed. Any other value is a 400. Forgotten entries are never listed.
+`?repository=` is a root `list_repositories` names and narrows to that repository's `repo` entries beside the habits and this Mac's; absent, the answer is the habits and this Mac's alone, and a root Fleet does not serve is a 404 `fleet.run_memory_repository_not_served`. `?section=` (`repo`, `habits` or `machine`) and `?state=` (`candidate`, `standing` or `faded`) narrow it further, and absent they narrow nothing: every state is listed. Any other value is a 400. Forgotten entries are never listed. `tidy` is `{running, last?: {merged, at}}`: whether a Tidy pass is going, and what the last one that finished since Fleet started merged and when; a restart forgets `last`.
 
 **What run memory and the machine note know is in it**, as standing entries with no Job behind them. Their `id` is a word and a hash rather than a number, and the acts on an entry refuse them. An entry's `evidence` has a row for each record row it cites; `says` is absent, since a list does not read the record back. `docs/concepts/logbook.md`.
 """

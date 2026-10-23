@@ -245,8 +245,70 @@ async fn a_repository_entry_without_a_repository_or_with_empty_text_is_refused()
     assert_eq!(rig.fleet.teach_logbook_entry(elsewhere).await.expect_err("not served").status(), 404);
 }
 
+/// Wait until no tidy is running, and say what the Logbook then reports of it.
+async fn settled(rig: &Rig) -> ipc::LogbookTidy {
+    for _ in 0..200 {
+        let tidy = rig.fleet.get_logbook(None, None, None).await.expect("read").tidy;
+        if !tidy.running {
+            return tidy;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    }
+    panic!("the tidy never finished");
+}
+
 #[tokio::test]
-async fn tidy_logbook_merges_near_duplicates_and_answers_the_count() {
+async fn tidy_answers_at_once_while_the_pass_runs_and_a_second_call_starts_no_second_pass() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Arc;
+    use tokio::sync::{Notify, Semaphore};
+    let rig = rig_fitted(|_| {});
+    seeded(&rig, LogSection::Repo, "Run the focused test command.", LogState::Standing).await;
+    seeded(&rig, LogSection::Repo, "Run the focused test command with a log.", LogState::Standing).await;
+    let (gate, asked, calls) = (Arc::new(Semaphore::new(0)), Arc::new(Notify::new()), Arc::new(AtomicUsize::new(0)));
+    let holding = {
+        let (gate, asked, calls) = (Arc::clone(&gate), Arc::clone(&asked), Arc::clone(&calls));
+        move |_question: String| {
+            let (gate, asked, calls) = (Arc::clone(&gate), Arc::clone(&asked), Arc::clone(&calls));
+            async move {
+                calls.fetch_add(1, Ordering::SeqCst);
+                asked.notify_one();
+                gate.acquire().await.expect("open").forget();
+                Ok(r#"{"groups":[{"keep":1,"text":"Run the focused test command, logging to a file.","absorb":[2]}]}"#.to_string())
+            }
+        }
+    };
+    let wait = std::time::Duration::from_secs(5);
+
+    rig.fleet.logbook_tidy_started_with(Some(rig.root.clone()), holding.clone());
+    tokio::time::timeout(wait, asked.notified()).await.expect("the pass asked");
+    assert!(rig.fleet.get_logbook(None, None, None).await.expect("read").tidy.running);
+
+    rig.fleet.logbook_tidy_started_with(Some(rig.root.clone()), holding);
+    gate.add_permits(1);
+    let tidy = settled(&rig).await;
+    assert_eq!(calls.load(Ordering::SeqCst), 1, "a second pass was started");
+    assert_eq!(tidy.last.map(|last| last.merged), Some(1));
+}
+
+#[tokio::test]
+async fn the_logbook_says_whether_a_tidy_is_running_and_what_the_last_one_merged() {
+    let said = r#"{"groups":[{"keep":1,"text":"Run the focused test command, logging to a file.","absorb":[2]}]}"#;
+    let rig = rig_fitted(|fittings| fittings.judge = std::sync::Arc::new(testkit::FakeJudge::saying(said)));
+    seeded(&rig, LogSection::Repo, "Run the focused test command.", LogState::Standing).await;
+    seeded(&rig, LogSection::Repo, "Run the focused test command with a log.", LogState::Standing).await;
+    let before = rig.fleet.get_logbook(None, None, None).await.expect("read").tidy;
+    assert_eq!((before.running, before.last), (false, None));
+
+    assert!(rig.fleet.clone().tidy_logbook(TidyLogbook { repository: Some(rig.root.clone()) }).await.expect("started").running);
+    let after = settled(&rig).await;
+    let last = after.last.expect("the pass is remembered");
+    assert_eq!(last.merged, 1);
+    assert!(!last.at.as_str().is_empty());
+}
+
+#[tokio::test]
+async fn tidy_logbook_merges_near_duplicates_in_the_background() {
     // A fresh store numbers its entries 1 and 2, so the judge can name them before they exist.
     let said = r#"{"groups":[{"keep":1,"text":"Run the focused test command, logging to a file.","absorb":[2]}]}"#;
     let rig = rig_fitted(|fittings| fittings.judge = std::sync::Arc::new(testkit::FakeJudge::saying(said)));
@@ -254,8 +316,9 @@ async fn tidy_logbook_merges_near_duplicates_and_answers_the_count() {
     let second = seeded(&rig, LogSection::Repo, "Run the focused test command with a log.", LogState::Standing).await;
     assert_eq!((first.as_str(), second.as_str()), ("1", "2"));
 
-    let tidied = rig.fleet.tidy_logbook(TidyLogbook { repository: Some(rig.root.clone()) }).await.expect("tidied");
-    assert_eq!(tidied.merged, 1);
+    let started = rig.fleet.clone().tidy_logbook(TidyLogbook { repository: Some(rig.root.clone()) }).await.expect("started");
+    assert!(started.running);
+    assert_eq!(settled(&rig).await.last.map(|last| last.merged), Some(1));
 
     let kept = read(&rig, true, Some(LogbookSection::Repo), Some(LogbookState::Standing)).await;
     assert_eq!(kept.len(), 1);

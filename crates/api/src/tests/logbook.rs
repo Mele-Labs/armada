@@ -72,17 +72,17 @@ async fn a_bad_section_state_or_body_is_a_400() {
 }
 
 #[tokio::test]
-async fn tidy_logbook_is_served_and_answers_the_merged_count() {
+async fn tidy_logbook_is_served_and_answers_that_a_pass_is_running() {
     let app = wired();
 
-    // The fake answers the length of the repository named, so the body is shown to have been read.
+    // The fake answers `running` only for a named repository, so the body is shown to have been read.
     let (status, body) = call(&app, "POST", "/logbook/tidy", r#"{"repository":"/repo"}"#).await;
     assert_eq!(status, StatusCode::OK);
-    assert_eq!(ipc::decode::<TidiedLogbook>("a tidy", &body).expect("decodes").merged, 5);
+    assert_eq!(ipc::decode::<TidiedLogbook>("a tidy", &body).expect("decodes").running, true);
 
     let (status, body) = call(&app, "POST", "/logbook/tidy", "{}").await;
     assert_eq!(status, StatusCode::OK);
-    assert_eq!(ipc::decode::<TidiedLogbook>("a tidy", &body).expect("decodes").merged, 0);
+    assert_eq!(ipc::decode::<TidiedLogbook>("a tidy", &body).expect("decodes").running, false);
 
     assert_eq!(call(&app, "POST", "/logbook/tidy", "").await.0, StatusCode::BAD_REQUEST);
 }

@@ -54,7 +54,13 @@ export type LogbookEntry = {
 };
 
 /** `get_logbook` (`GET /logbook`): the entries asked for, forgotten ones left out. */
-export type Logbook = { entries: LogbookEntry[] };
+export type Logbook = { entries: LogbookEntry[]; tidy: LogbookTidy };
+
+/** Whether a Tidy pass is running, and what the last one did. `last` is kept in memory, so a Fleet restart forgets it; a failed pass leaves it as it was. */
+export type LogbookTidy = { running: boolean; last?: LogbookTidyLast };
+
+/** What a finished Tidy pass did: the entries it folded into another and archived, and when. */
+export type LogbookTidyLast = { merged: number; at: string };
 
 /**
  * `?repository=` (a root `list_repositories` names), `?section=` and `?state=` on `get_logbook`. With no repository the
@@ -77,8 +83,8 @@ export type ForgottenLogbookEntry = { id: string };
  */
 export type TidyLogbook = { repository?: string };
 
-/** What `tidy_logbook` answers: the entries folded into another and archived. */
-export type TidiedLogbook = { merged: number };
+/** What `tidy_logbook` answers at once: a pass is running. What it merged shows in `Logbook.tidy` once it finishes. */
+export type TidiedLogbook = { running: boolean };
 
 /**
  * The body of `teach_logbook_entry` (`POST /logbook/entries`): an entry a person wrote, which stands at once and
@@ -95,7 +101,7 @@ export type TeachLogbookEntry = {
 };
 
 /** Bridge's envelope over `Logbook`: the entries, or why they could not be read. */
-export type LogbookRead = { ok: true; entries: LogbookEntry[] } | { ok: false; outcome: Outcome };
+export type LogbookRead = { ok: true; entries: LogbookEntry[]; tidy: LogbookTidy } | { ok: false; outcome: Outcome };
 
 /** What an edit or a lock came back as: the entry as it now stands, or the refusal. */
 export type LogbookAnswer = { ok: true; entry: LogbookEntry } | { ok: false; outcome: Outcome };
@@ -103,8 +109,8 @@ export type LogbookAnswer = { ok: true; entry: LogbookEntry } | { ok: false; out
 /** What Forget came back as. The entry is on the deny list and gone from every read. */
 export type LogbookForgotten = { ok: true } | { ok: false; outcome: Outcome };
 
-/** What Tidy came back as: how many entries it folded into another, or the refusal. */
-export type LogbookTidied = { ok: true; merged: number } | { ok: false; outcome: Outcome };
+/** What pressing Tidy came back as: a pass is running, or the refusal. */
+export type LogbookTidied = { ok: true; running: boolean } | { ok: false; outcome: Outcome };
 
 /**
  * `recall`: `GET /logbook/recall?query=&section=&manifest_id=`. The Logbook entries whose text holds the

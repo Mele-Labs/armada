@@ -39,6 +39,8 @@ pub(crate) struct Distils {
     /// failed waits a day.
     tidying: AtomicBool,
     tried: Mutex<BTreeMap<String, u64>>,
+    /// What the last tidy that finished folded, and when (epoch millis). Lost on a restart.
+    tidy_last: Mutex<Option<(u32, u64)>>,
 }
 
 impl Distils {

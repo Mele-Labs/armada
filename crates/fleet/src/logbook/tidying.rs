@@ -87,6 +87,14 @@ struct SaidGroup {
     absorb: Vec<i64>,
 }
 
+async fn ask_model(explaining: &crate::judging::Explaining, question: &str) -> Result<String, String> {
+    let ask = Ask::put(explaining.model.clone(), question, explaining.environment.clone())
+        .map_err(|_| "the call could not be put together".to_string())?;
+    crate::judging::said(explaining.client.as_ref(), &ask, explaining.budget)
+        .await
+        .map_err(|why| format!("the call failed: {why}"))
+}
+
 /// Whether Tidy may touch an entry: a live one nobody locked and no person wrote.
 fn tidyable(entry: &LogEntry) -> bool {
     entry.id.is_some() && entry.state != LogState::Faded && !entry.locked && !entry.edited_by_person
@@ -222,6 +230,34 @@ where
         });
     }
 
+    /// Start a tidy on a task of its own, and return at once. Where a pass is already running
+    /// (this one's or the tick's) nothing starts: the one going will fold what is there.
+    pub(crate) fn logbook_tidy_started_with<F, Fut>(self: &Arc<Self>, repository: Option<String>, ask: F)
+    where
+        F: Fn(String) -> Fut + Send + Sync + 'static,
+        Fut: Future<Output = Result<String, String>> + Send,
+    {
+        if self.logbook_distils().tidying.swap(true, Ordering::AcqRel) {
+            return;
+        }
+        let fleet = Arc::clone(self);
+        tokio::spawn(async move {
+            // Quiet: a failed pass changes nothing and leaves the last result as it was.
+            let _ = fleet.logbook_tidied_asking(repository.as_deref(), ask).await;
+            fleet.logbook_distils().tidying.store(false, Ordering::Release);
+        });
+    }
+
+    /// [`Self::logbook_tidy_started_with`] asking the retro model.
+    pub(crate) fn logbook_tidy_started(self: &Arc<Self>, repository: Option<String>) -> Result<(), String> {
+        let explaining = Arc::new(self.writing_retros().map_err(|_| "the call could not be put together on this machine")?);
+        self.logbook_tidy_started_with(repository, move |question: String| {
+            let explaining = Arc::clone(&explaining);
+            async move { ask_model(&explaining, &question).await }
+        });
+        Ok(())
+    }
+
     async fn logbook_tidy_due(self: &Arc<Self>) {
         let now = self.now().epoch_millis().unwrap_or(0).max(0) as u64;
         for served in self.repositories().served() {
@@ -240,20 +276,23 @@ where
     /// Tidy one served repository by its root, or every one, now. The count is the entries folded
     /// into another. `Err` is the last repository whose call failed; the others were tidied.
     pub(crate) async fn logbook_tidied(&self, repository: Option<&str>) -> Result<usize, String> {
+        let explaining = self.writing_retros().map_err(|_| "the call could not be put together on this machine")?;
+        self.logbook_tidied_asking(repository, |question: String| {
+            let explaining = &explaining;
+            async move { ask_model(explaining, &question).await }
+        })
+        .await
+    }
+
+    /// [`Self::logbook_tidied`] with the model's answer from `ask`.
+    pub(crate) async fn logbook_tidied_asking<F, Fut>(&self, repository: Option<&str>, ask: F) -> Result<usize, String>
+    where
+        F: Fn(String) -> Fut,
+        Fut: Future<Output = Result<String, String>>,
+    {
         let roots: Vec<String> = match repository {
             Some(root) => vec![root.to_string()],
             None => self.repositories().served().iter().map(|served| served.root().to_string()).collect(),
-        };
-        let explaining = self.writing_retros().map_err(|_| "the call could not be put together on this machine")?;
-        let ask = |question: String| {
-            let explaining = &explaining;
-            async move {
-                let ask = Ask::put(explaining.model.clone(), &question, explaining.environment.clone())
-                    .map_err(|_| "the call could not be put together".to_string())?;
-                crate::judging::said(explaining.client.as_ref(), &ask, explaining.budget)
-                    .await
-                    .map_err(|why| format!("the call failed: {why}"))
-            }
         };
         let (mut folded, mut failed) = (0, None);
         for root in roots {
@@ -268,6 +307,14 @@ where
                 Err(why) => failed = Some(why),
             }
         }
-        failed.map_or(Ok(folded), Err)
+        match failed {
+            Some(why) => Err(why),
+            None => {
+                let at = self.now().epoch_millis().unwrap_or(0).max(0) as u64;
+                *self.logbook_distils().tidy_last.lock().expect("the last tidy is not held across a panic") =
+                    Some((u32::try_from(folded).unwrap_or(u32::MAX), at));
+                Ok(folded)
+            }
+        }
     }
 }

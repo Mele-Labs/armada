@@ -36,7 +36,7 @@ impl Logbook for FakeDaemon {
         _section: Option<LogbookSection>,
         _state: Option<LogbookState>,
     ) -> Result<LogbookRead, Refusal> {
-        Ok(LogbookRead { entries: Vec::new() })
+        Ok(LogbookRead { entries: Vec::new(), tidy: Default::default() })
     }
 
     async fn edit_logbook_entry(&self, entry_id: String, edit: EditLogbookEntry) -> Result<LogbookEntry, Refusal> {
@@ -51,8 +51,8 @@ impl Logbook for FakeDaemon {
         Ok(ForgottenLogbookEntry { id: entry_id })
     }
 
-    async fn tidy_logbook(&self, tidy: TidyLogbook) -> Result<TidiedLogbook, Refusal> {
-        Ok(TidiedLogbook { merged: tidy.repository.map_or(0, |root| root.len() as u32) })
+    async fn tidy_logbook(self: std::sync::Arc<Self>, tidy: TidyLogbook) -> Result<TidiedLogbook, Refusal> {
+        Ok(TidiedLogbook { running: tidy.repository.is_some() })
     }
 
     async fn teach_logbook_entry(&self, teach: TeachLogbookEntry) -> Result<LogbookEntry, Refusal> {

@@ -42,10 +42,11 @@ pub trait Logbook: Send + Sync + 'static {
     /// `forget_logbook_entry` — onto the deny list, for good. [`Refusal::NotFound`] the second time.
     fn forget_logbook_entry(&self, entry_id: String) -> impl Future<Output = Result<ForgottenLogbookEntry, Refusal>> + Send;
 
-    /// `tidy_logbook` — fold near-duplicate entries now, of one repository or of every one. The
-    /// answer counts the entries folded into another. [`Refusal::Fault`] where the model call
-    /// fails.
-    fn tidy_logbook(&self, tidy: TidyLogbook) -> impl Future<Output = Result<TidiedLogbook, Refusal>> + Send;
+    /// `tidy_logbook` — start folding near-duplicate entries, of one repository or of every one, on
+    /// a task of its own. **Answers at once** that a pass is running, and starts none where one
+    /// is; what it merged is in `get_logbook`. [`Refusal::Fault`] where the call cannot be put
+    /// together on this machine.
+    fn tidy_logbook(self: std::sync::Arc<Self>, tidy: TidyLogbook) -> impl Future<Output = Result<TidiedLogbook, Refusal>> + Send;
 
     /// `teach_logbook_entry` — an entry a person wrote, standing at once. [`Refusal::Unacceptable`]
     /// for a `repo` entry naming no repository, or for text that is empty or too long;
