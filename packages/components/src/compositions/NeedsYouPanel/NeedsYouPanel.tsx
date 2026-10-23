@@ -248,12 +248,12 @@ export function NeedsYouPanel({
                             <span className="armada-needs-panel__thumbs">
                               <Tooltip label="A question">
                                 <Button variant="ghost" size="sm" iconOnly data-aside="" aria-label="A question" onClick={(event) => (event.currentTarget.closest("li")?.querySelector<HTMLElement>(".armada-session-ledger__open")?.focus(), one.thumbs?.up())}>
-                                  <ThumbsUp size={16} aria-hidden />
+                                  <ThumbsUp size={12} strokeWidth={2} aria-hidden />
                                 </Button>
                               </Tooltip>
                               <Tooltip label="Not a question">
                                 <Button variant="ghost" size="sm" iconOnly data-aside="" aria-label="Not a question" onClick={one.thumbs.down}>
-                                  <ThumbsDown size={16} aria-hidden />
+                                  <ThumbsDown size={12} strokeWidth={2} aria-hidden />
                                 </Button>
                               </Tooltip>
                             </span>

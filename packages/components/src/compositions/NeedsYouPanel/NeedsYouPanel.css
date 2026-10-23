@@ -228,6 +228,12 @@
   margin-inline-end: var(--space-2);
 }
 
+/* Each thumb no larger than the row's own glyph needs: a 12px mark on a 24px square. */
+.armada-needs-panel__thumbs > .armada-button {
+  width: var(--space-6);
+  height: var(--space-6);
+}
+
 .armada-needs-panel__content {
   align-self: stretch;
   min-width: 0;
