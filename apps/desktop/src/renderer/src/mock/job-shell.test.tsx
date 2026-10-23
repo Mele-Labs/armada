@@ -41,7 +41,7 @@ test("Terminal opens the Job's shell at the pane's size, docked above the box, a
 
   await expect.poll(() => document.activeElement?.getAttribute("aria-label")).toBe("Terminal input");
   await userEvent.keyboard("ls{Enter}");
-  await expect.element(pane().getByText(/CLAUDE\.md/)).toBeVisible();
+  await expect.element(pane().getByText(/CONTRIBUTING\.md/)).toBeVisible();
 });
 
 test("Hide leaves the shell running and Terminal brings it back whole; End shell stops it, and New shell opens another", async () => {

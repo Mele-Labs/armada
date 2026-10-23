@@ -21,7 +21,7 @@ const steps: Step[] = [
   { press: terminal, say: "Terminal" },
   { look: inside(pane, text(/slot-1 %/)), say: "A shell in the Job's worktree, docked above the box" },
   { type: "ls\n", into: typed, say: "ls, Enter" },
-  { later: inside(pane, text(/CLAUDE\.md/)), say: "The worktree's files" },
+  { later: inside(pane, text(/CONTRIBUTING\.md/)), say: "The worktree's files" },
   { look: inside(thread, text("Starting the dev server in the terminal.")), say: "The agent starts the dev server" },
   { look: inside(pane, text(/VITE v6\.3\.5/)), say: "It typed pnpm dev into the same shell" },
   { look: inside(pane, text(/hmr update/)), say: "The server's output streams in" },

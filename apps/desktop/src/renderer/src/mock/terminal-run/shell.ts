@@ -12,7 +12,7 @@ const cyan = sgr("36", 39);
 const green = sgr("32", 39);
 const folder = sgr("1;34", 0);
 
-const LISTING = ["ARCHITECTURE.md", "CLAUDE.md", "Cargo.toml", "README.md", folder("apps"), folder("crates"), folder("docs"), "package.json", folder("packages"), folder("xtask")];
+const LISTING = ["ARCHITECTURE.md", "CONTRIBUTING.md", "Cargo.toml", "README.md", folder("apps"), folder("crates"), folder("docs"), "package.json", folder("packages"), folder("xtask")];
 
 /** How often the dev server prints while it serves, and the most it prints before it goes quiet. */
 const SERVED_EVERY = 1200;

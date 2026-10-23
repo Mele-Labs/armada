@@ -11,7 +11,7 @@ import { XtermScreen } from "./XtermScreen";
  * shell stops it, and once it has ended the pane offers a new one.
  */
 const meta: Meta<typeof ShellPane> = {
-  title: "Primitives/Terminal pane/Shell",
+  title: "Primitives/Terminal pane",
   component: ShellPane,
   args: { onHide: fn(), onEnd: fn(), onOpen: fn(), onClose: fn() },
   decorators: [
@@ -28,7 +28,7 @@ type Story = StoryObj<typeof ShellPane>;
 
 const body = (text: string): ShellPaneProps["children"] => <pre style={{ margin: 0, padding: "var(--space-2) var(--space-3)", fontFamily: "var(--font-mono)" }}>{text}</pre>;
 
-export const Running: Story = {
+export const ShellRunning: Story = {
   args: { phase: { state: "running" }, children: body("~/armada $ git status") },
   play: async ({ canvasElement, args, userEvent }) => {
     const pane = within(canvasElement);
@@ -49,7 +49,7 @@ export const Running: Story = {
   },
 };
 
-export const Ended: Story = {
+export const ShellEnded: Story = {
   args: { phase: { state: "ended" }, children: body("~/armada $ exit") },
   play: async ({ canvasElement, args, userEvent }) => {
     const pane = within(canvasElement);
@@ -67,7 +67,7 @@ export const Ended: Story = {
 };
 
 /** What the app puts in the body: xterm, the same screen a block's run draws on. */
-export const OnTheTerminalScreen: Story = {
+export const ShellOnTheTerminalScreen: Story = {
   args: { phase: { state: "running" } },
   render: (args) => (
     <ShellPane {...args}>
