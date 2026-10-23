@@ -165,7 +165,7 @@ the whole file invalid.
 {
   "version": 1,
   "dashboard.panels": { "hidden": ["merge-line"] },
-  "rail": { "hidden": ["lessons"] }
+  "rail": { "hidden": ["logbook"] }
 }
 ```
 

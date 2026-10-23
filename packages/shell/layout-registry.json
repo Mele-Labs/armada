@@ -24,7 +24,7 @@
       { "id": "guides", "hideable": true },
       { "id": "workflows", "hideable": true },
       { "id": "studios", "hideable": true },
-      { "id": "lessons", "hideable": true },
+      { "id": "logbook", "hideable": true },
       { "id": "reviews", "hideable": true }
     ] }
   }

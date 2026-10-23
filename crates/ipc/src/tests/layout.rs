@@ -15,7 +15,7 @@ fn a_file_of_known_shapes_is_accepted() {
     for text in [
         r#"{"version":1}"#,
         r#"{"version":1.0}"#,
-        r#"{"version":1,"dashboard.panels":{"order":["merge-line","fleet"]},"rail":{"hidden":["lessons"]}}"#,
+        r#"{"version":1,"dashboard.panels":{"order":["merge-line","fleet"]},"rail":{"hidden":["logbook"]}}"#,
         r#"{"version":1,"job.tabs":{"order":["overview","record","plan"],"hidden":["pulse"],"first":"plan"}}"#,
         r#"{"version":1,"job.tabs":{}}"#,
     ] {
@@ -33,7 +33,7 @@ fn what_this_build_does_not_have_is_ignored_and_never_a_reason_to_refuse() {
         r#"{"version":1,"rail":{"hidden":["a-panel-removed-in-a-release"]}}"#,
         r#"{"version":1,"job.tabs":{"order":["gone"],"first":"gone"}}"#,
         // Fields a region does not use: read as ids, then ignored.
-        r#"{"version":1,"rail":{"order":["lessons"]}}"#,
+        r#"{"version":1,"rail":{"order":["logbook"]}}"#,
         r#"{"version":1,"dashboard.panels":{"first":"fleet"}}"#,
     ] {
         assert_eq!(problems(text), Vec::<String>::new(), "{text}");
@@ -42,7 +42,7 @@ fn what_this_build_does_not_have_is_ignored_and_never_a_reason_to_refuse() {
 
 #[test]
 fn one_wrong_shape_refuses_the_whole_file() {
-    let long_ids = format!(r#"{{"version":1,"rail":{{"hidden":[{}]}}}}"#, vec![r#""lessons""#; 33].join(","));
+    let long_ids = format!(r#"{{"version":1,"rail":{{"hidden":[{}]}}}}"#, vec![r#""logbook""#; 33].join(","));
     let long_id = format!(r#"{{"version":1,"rail":{{"hidden":["{}"]}}}}"#, "a".repeat(41));
     let oversize = format!(r#"{{"version":1,"x":"{}"}}"#, "a".repeat(MOST_BYTES));
     for (text, why) in [
@@ -57,7 +57,7 @@ fn one_wrong_shape_refuses_the_whole_file() {
         (r#"{"version":1,"rail":[]}"#, "rail is not an object"),
         (r#"{"version":1,"rail":null}"#, "rail is not an object"),
         (r#"{"version":1,"rail":{"colour":"red"}}"#, "rail.colour is not a field"),
-        (r#"{"version":1,"rail":{"hidden":"lessons"}}"#, "rail.hidden is not a list"),
+        (r#"{"version":1,"rail":{"hidden":"logbook"}}"#, "rail.hidden is not a list"),
         (r#"{"version":1,"rail":{"hidden":[1]}}"#, "rail.hidden is not a list"),
         (r#"{"version":1,"rail":{"hidden":["Lessons"]}}"#, "rail.hidden is not a list"),
         (r#"{"version":1,"rail":{"hidden":["../x"]}}"#, "rail.hidden is not a list"),
