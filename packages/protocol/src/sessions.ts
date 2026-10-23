@@ -291,6 +291,8 @@ export type WaitingItem = {
   concern?: JudgeConcern;
   /** Where a `judge` item points: the files its quotation lands in. Absent when it lands in none. */
   cites?: WaitingCite[];
+  /** A `replied` item whose sentence he said is a question (`confirm_waiting`). Absent where he has not. */
+  confirmed?: boolean;
 };
 
 /**
@@ -388,8 +390,15 @@ export type MainRedTaken = { root: string; claimed: boolean };
  * `POST /sessions/waiting/dismiss`: drop one item for good. Its id never comes back, whether Fleet derived
  * it (`ask:`, `perm:`, `walk:`) or the agent stated it. Nothing is sent to the agent, except for an item
  * the agent stated: it is told `Owner removed "<item text>"`, with `reason` after it where the person gave one.
+ * `misread` is Not a question on an item Fleet read from a reply: its sentence is kept as one that asks nothing.
  */
-export type DismissWaiting = { session_id: string; item_id: string; reason?: string };
+export type DismissWaiting = { session_id: string; item_id: string; reason?: string; misread?: boolean };
+
+/**
+ * `POST /sessions/waiting/confirm`: thumbs up on an item Fleet read from a reply. Its sentence is kept as one
+ * that asks, the item stays, and it reads `confirmed` from then on. Refused on an item of any other source.
+ */
+export type ConfirmWaiting = { session_id: string; item_id: string };
 
 /** One take of a change a session shows in its window. `url` is `http` or `https`. */
 export type WindowTake = { name: string; url: string };

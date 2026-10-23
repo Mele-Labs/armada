@@ -44,6 +44,10 @@ mod fleet_disputes;
 mod session_tells;
 mod session_later;
 mod watches;
+/// The sentences read from a reply that he marked Not a question.
+mod reply_misreads;
+/// The sentences read from a reply that he confirmed with thumbs up.
+mod reply_confirmed;
 mod notice_mutes;
 mod session_waiting;
 mod sleep_night;
