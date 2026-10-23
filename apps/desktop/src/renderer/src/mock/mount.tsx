@@ -47,11 +47,10 @@ import { installSystemMods } from "./system-mods";
 import { provideKitModels } from "../kit-models";
 import { createMockKitModels } from "./kit-models";
 import { provideTeaching } from "../teach";
-import { forgetTaughtEntries } from "../taught-entries";
 import { createFleetTaught, NO_TAUGHT } from "../fleet-taught";
 import { NO_TWEAKS, createFleetTweaks } from "../fleet-tweaks";
 import { TweakSourceProvider, TweaksApplied } from "../tweaks";
-import { TEACH_FLAVOUR, seedTaught } from "./teach";
+import { seedTaught } from "./teach";
 import { repository } from "@armada/screens/src/fixtures/repository";
 import { AccountFrom } from "./account";
 import { SharedHomeFrom } from "./shared-home";
@@ -132,8 +131,7 @@ export function mountApp(
   if (shared === undefined) provideKitModels(createMockKitModels());
   // Teach is read only in the scenario that plays it, which starts with nothing taught.
   if (shared === undefined) {
-    provideTeaching(chosen.name === "teach-anything" || chosen.name === "teach-mods", chosen.name === "teach-anything" || chosen.name === "teach-mods" ? TEACH_FLAVOUR : undefined);
-    forgetTaughtEntries();
+    provideTeaching(chosen.name === "teach-anything" || chosen.name === "teach-mods");
   }
   // `teach-mods` starts with the Jira key and the notice already taught.
   if (shared === undefined && chosen.name === "teach-mods") seedTaught(repository().root);

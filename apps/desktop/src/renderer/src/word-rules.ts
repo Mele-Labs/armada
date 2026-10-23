@@ -7,7 +7,7 @@ import type { WordRule } from "@armada/protocol";
 
 import { useModList } from "./mod-list";
 import { skipsMods } from "./theme-loader";
-import { teachFlavour, useTeachingsSaved } from "./teach";
+import { foundSaid, useTeachingsSaved } from "./teach";
 
 /** One pattern to draw as a link, in the form `refScanner` takes. */
 export type TaughtLink = { pattern: string; address: string; from?: string };
@@ -52,9 +52,5 @@ export function useWordRules(root: string | undefined, sessionId: string | undef
   }, [root, sessionId, words, saved]);
   // Another repository's addresses are never this one's, and a Words mod that is gone leaves nothing to link.
   const rules = root !== undefined && words !== "" && read?.root === root ? read.rules : [];
-  const flavour = teachFlavour();
-  return rules.map((one) => {
-    const from = flavour?.linkFrom?.(one, root);
-    return { pattern: one.pattern, address: one.address, ...(from === undefined ? {} : { from }) };
-  });
+  return rules.map((one) => ({ pattern: one.pattern, address: one.address, from: foundSaid(one.found) }));
 }

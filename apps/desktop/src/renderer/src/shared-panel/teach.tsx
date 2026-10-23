@@ -11,9 +11,8 @@ import type { TeachReach } from "@armada/components";
 import type { TeachingProposal } from "@armada/protocol";
 import { useAtFloor } from "@armada/shell";
 
-import { previewTeaching, teachFlavour, teachingSaved } from "../teach";
+import { previewTeaching, teachingSaved } from "../teach";
 import { previewOf, readBody, readingOf, saveBody } from "../teach-wire";
-import { rememberTaught } from "../taught-entries";
 import { raiseOutcome } from "../tell";
 import { closePanel } from "./store";
 import type { PanelItem } from "./store";
@@ -33,13 +32,11 @@ export function TeachSide({ item }: { item: Extract<PanelItem, { kind: "teach" }
   const latest = useRef(0);
   useEffect(() => () => void (latest.current += 1), []);
 
-  const flavour = teachFlavour();
-  const reading = proposal === undefined ? undefined : (flavour?.reading?.(proposal, item.repository) ?? readingOf(proposal, item.repository));
+  const reading = proposal === undefined ? undefined : readingOf(proposal, item.repository);
 
   useEffect(() => {
-    previewTeaching(stage === "shown" && proposal !== undefined ? previewOf(proposal, reach, item.manifestId, flavour?.link?.(proposal)) : undefined);
+    previewTeaching(stage === "shown" && proposal !== undefined ? previewOf(proposal, reach, item.manifestId) : undefined);
     return () => previewTeaching(undefined);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- `flavour` is the window's, set before any panel opens.
   }, [stage, proposal, reach, item]);
 
   const teach = () => {
@@ -63,7 +60,6 @@ export function TeachSide({ item }: { item: Extract<PanelItem, { kind: "teach" }
     void window.armada.saveTeaching(saveBody(item, proposal, reach)).then((saved) => {
       saving.current = false;
       if (!saved.ok) return raiseOutcome(saved.outcome);
-      rememberTaught(saved.value.entry, saved.value.mods);
       teachingSaved();
       // What was written is now taught, and the box starts empty the next time.
       forgetKept(keep);

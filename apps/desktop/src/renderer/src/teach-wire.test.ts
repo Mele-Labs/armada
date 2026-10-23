@@ -1,5 +1,5 @@
 // What a press on something becomes in Fleet's `read_teaching` and `save_teaching`, and what the panel draws back of a proposal when
-// the Fleet that read it says no more than the wire does.
+// the wire carries.
 
 import { describe, expect, it } from "vitest";
 import type { TeachingProposal } from "@armada/protocol";
@@ -76,8 +76,14 @@ describe("what the panel draws of a proposal", () => {
   it("is the note, the words with their example in the address, and the colour as Fleet named it", () => {
     const reading = readingOf({ note: { section: "repo", kind: "convention", text: "Tickets are Jira keys." }, words: { name: "Jira key", pattern: "[A-Z]+-\\d+", example: "STORE-1234", address: { template: "https://acme.atlassian.net/browse/{match}", found: "settings" } }, tweak: [TWEAK] }, "armada");
     expect(reading.agents).toBe("Tickets are Jira keys.");
-    expect(reading.bridge).toEqual({ name: "Jira key", pattern: "[A-Z]+-\\d+", example: "STORE-1234", address: "https://acme.atlassian.net/browse/STORE-1234" });
+    expect(reading.bridge).toEqual({ name: "Jira key", pattern: "[A-Z]+-\\d+", example: "STORE-1234", address: "https://acme.atlassian.net/browse/STORE-1234", found: "Found in this repository's settings" });
     expect(reading.tweak).toEqual({ colour: "Needs you amber", token: "--status-awaiting-review", was: "#old", now: "#new", places: ["--run-waiting"] });
+  });
+
+  it("says where the address was found, as the wire spells it", () => {
+    const found = (word: string) => readingOf({ words: { name: "Jira key", pattern: "x", example: "STORE-1234", address: { template: "https://acme.atlassian.net/browse/{match}", found: word } } }, "armada").bridge?.found;
+    expect(found("pull_request #2712")).toBe("Found in pull request #2712");
+    expect(found("person")).toBe("You said");
   });
 
   it("says no address where Fleet found none, since it finds one when the teaching is kept", () => {
@@ -95,15 +101,15 @@ describe("what the panel draws of a proposal", () => {
 describe("what a proposal draws behind the panel before it is kept", () => {
   it("is the link where an address came with the words, and the colour", () => {
     const words = { name: "Jira key", pattern: "[A-Z]+-\\d+", example: "STORE-1234", address: { template: "https://acme.atlassian.net/browse/{match}", found: "settings" } };
-    expect(previewOf({ words, tweak: [TWEAK] }, "all", "armada", undefined)).toEqual({
+    expect(previewOf({ words, tweak: [TWEAK] }, "all", "armada")).toEqual({
       reach: "all",
       manifestId: "armada",
-      link: { pattern: "[A-Z]+-\\d+", address: "https://acme.atlassian.net/browse/{match}" },
+      link: { pattern: "[A-Z]+-\\d+", address: "https://acme.atlassian.net/browse/{match}", from: "Found in this repository's settings" },
       tweak: { token: "--status-awaiting-review", now: "#new" },
     });
   });
 
   it("is nothing where the proposal changes neither", () => {
-    expect(previewOf({ note: { section: "repo", kind: "convention", text: "x" } }, "repository", "armada", undefined)).toBeUndefined();
+    expect(previewOf({ note: { section: "repo", kind: "convention", text: "x" } }, "repository", "armada")).toBeUndefined();
   });
 });

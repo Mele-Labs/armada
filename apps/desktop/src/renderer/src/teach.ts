@@ -11,13 +11,11 @@
 // `listWordRules`, the tweaks from the mod list, the Mods page from the mod list. What this holds is the window's own: whether Teach
 // is offered, the version of the rules it has saved, and the panel's preview of a link or a tweak before it is kept.
 //
-// **The mock is the one window with more.** A mock Fleet words what it read more fully than the wire does and holds the lessons it
-// was taught (`lessons`), which the thread's notice rules and the Logbook's taught entries read. A real window holds none.
+// **The mock is the one window with lessons.** A mock Fleet holds what it was taught (`lessons`), which the thread's notice rules and
+// the Logbook's taught entries read. A real window holds none, and draws everything else from what Fleet's wire carries.
 
 import { createContext, useContext, useMemo, useSyncExternalStore } from "react";
-import type { SessionThreadRow, TeachReach, TeachReading, TeachSourceKind } from "@armada/components";
-import type { ModSummary, TeachingProposal, WordRule } from "@armada/protocol";
-import type { TaughtPart } from "@armada/settings";
+import type { SessionThreadRow, TeachReach, TeachSourceKind } from "@armada/components";
 import type { LayoutRegion } from "@armada/shell";
 
 import { useModList } from "./mod-list";
@@ -62,37 +60,21 @@ export type Tweak = {
 };
 
 /** A layout change: entries of one region not drawn. */
-export type LayoutChange = { mod: string; region: LayoutRegion; hidden: readonly string[]; hides: string; where: string };
+export type LayoutChange = { mod: string; region: LayoutRegion; hidden: readonly string[] };
 
 /** What Fleet understood. Any of the parts, only those the teaching changes. Each part but the note is kept by a mod named by Fleet. */
 export type TeachAnswer = {
   agents?: string;
   /** Words matching `pattern` are links. `example` is one match; `site` is where this repository's matches go, if found. Kept by a Words mod. */
   bridge?: { mod: string; name: string; pattern: string; example: string; site?: Site };
-  /** What Fleet does with a notice whose text matches `match`. `says` is that in words. Kept by a Fleet mod. */
-  fleet?: { mod: string; name: string; match: string; does: FleetDoes; says: string; scope: "job" | "repository" | "all" };
+  /** What Fleet does with a notice whose text matches `match`. Kept by a Fleet mod. */
+  fleet?: { mod: string; name: string; match: string; does: FleetDoes; scope: "job" | "repository" | "all" };
   tweak?: Tweak;
   layout?: LayoutChange;
 };
 
 /** One thing taught. */
 export type Lesson = { id: string; reach: TeachReach; teaching: Teaching; say: string; answer: TeachAnswer; at: string };
-
-/**
- * What a mock Fleet adds to the wire, in the words the approved walks show. Fleet's own answer says less: it finds an address at
- * save and not at read, names a notice by its word, and does not say where a link's address was found. A window with none draws
- * what the wire carries, and nothing else.
- */
-export type TeachFlavour = {
-  /** What the panel shows back of a proposal, in place of what the proposal alone says. */
-  reading?: (proposal: TeachingProposal, repository: string) => TeachReading | undefined;
-  /** The rule a link preview draws, where the proposal's reading gives the address the wire does not. */
-  link?: (proposal: TeachingProposal) => PreviewLink | undefined;
-  /** Where a listed rule's address was found, for the tooltip a link leads with. */
-  linkFrom?: (rule: WordRule, root: string | undefined) => string | undefined;
-  /** What a mod holds, for its row opened, and how a Logbook entry's line words it, where the mod list says no more than its description. */
-  mod?: (row: ModSummary) => { parts: readonly TaughtPart[]; also?: string } | undefined;
-};
 
 /** A pattern to draw as a link before it is kept, in the form `refScanner` takes. */
 export type PreviewLink = { pattern: string; address: string; from?: string };
@@ -102,14 +84,13 @@ export type Preview = { reach: TeachReach; manifestId?: string; link?: PreviewLi
 
 type Held = {
   offered: boolean;
-  flavour: TeachFlavour | undefined;
   lessons: readonly Lesson[];
   preview: Preview | undefined;
   /** How many teachings this window has saved, which the rules Fleet lists are read again on. */
   saved: number;
 };
 
-const NOTHING: Held = { offered: false, flavour: undefined, lessons: [], preview: undefined, saved: 0 };
+const NOTHING: Held = { offered: false, lessons: [], preview: undefined, saved: 0 };
 let held: Held = NOTHING;
 const listeners = new Set<() => void>();
 const set = (next: Partial<Held>) => {
@@ -117,15 +98,12 @@ const set = (next: Partial<Held>) => {
   listeners.forEach((on) => on());
 };
 
-/** Whether this window offers Teach, and what its Fleet adds to the wire. A new window starts from nothing taught. */
-export function provideTeaching(offered: boolean, flavour?: TeachFlavour): void {
-  held = { ...NOTHING, offered, flavour };
+/** Whether this window offers Teach. A new window starts from nothing taught. */
+export function provideTeaching(offered: boolean): void {
+  held = { ...NOTHING, offered };
   modOpened.set(undefined);
   listeners.forEach((on) => on());
 }
-
-/** What a mock Fleet adds to the wire, or none. */
-export const teachFlavour = (): TeachFlavour | undefined => held.flavour;
 
 /** A teaching was kept: the rules Fleet lists may have changed. */
 export const teachingSaved = (): void => set({ saved: held.saved + 1 });
@@ -178,9 +156,12 @@ export const DOES: Record<FleetDoes, string> = { batch: "batched", quiet: "quiet
 /** Where a Fleet rule reaches, as `Also changes` words it. */
 export const SCOPE = { job: "for this Job", repository: "for this repository", all: "for every repository" } as const;
 
-/** Where an address came from, in the words a tooltip says. */
-export function siteSaid(from: SiteFrom): string {
-  return from.kind === "settings" ? "Found in this repository's settings" : from.kind === "pull_request" ? `Found in pull request #${from.number}` : "You said";
+/** Where an address was found, from the words the wire spells it in (`settings`, `pull_request #N`, `person`), as a tooltip says it. */
+export function foundSaid(found: string): string {
+  if (found === "settings") return "Found in this repository's settings";
+  if (found === "person") return "You said";
+  const number = /^pull_request #(\d+)$/.exec(found)?.[1];
+  return number === undefined ? found : `Found in pull request #${number}`;
 }
 
 /** The address one match goes to under a site. */

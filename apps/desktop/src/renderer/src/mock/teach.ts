@@ -4,20 +4,17 @@
 // layout change, neither with a note; any other words are read as a note alone. Fleet also finds each repository's Jira site: from its
 // settings, else from its recent pull requests, else it asks once, when the rules for that repository are listed.
 //
-// **The wire says less than the approved walks show**, so this Fleet also holds what it understood in words the wire has no field for
-// (`TEACH_FLAVOUR`): the panel's reading, where a link's address was found and what a mod's row opens to. A real window has none of it.
-// And the Logbook entries a lesson becomes, which the scenario's Logbook serves beside its own.
+// It answers as Fleet does and no more: a notice by its word, an address with where it was found, a mod with the entry it came from,
+// and what each mod holds in the file `validate_mod` checks. And the Logbook entries a lesson becomes, which the scenario's Logbook
+// serves beside its own.
 
-import type { LogbookEntry, ModChecked, ModSummary, Outcome, ReadTeaching, SaveTeaching, TeachingProposal, TeachingRead, TeachingSaved, WordRule, WordRulesRead } from "@armada/protocol";
+import type { FleetRule, LogbookEntry, ModChecked, ModSummary, Outcome, ReadTeaching, SaveTeaching, TeachingProposal, TeachingRead, TeachingSaved, WordRule, WordRulesRead } from "@armada/protocol";
 import { TEACH_SOURCE } from "@armada/components";
-import type { TeachReading } from "@armada/components";
-import type { TaughtPart } from "@armada/settings";
 import { parseLayout } from "@armada/shell";
 
 import type { BridgeState } from "../../../shared/bridge";
-import { rememberTaught } from "../taught-entries";
-import { BRIDGE, DOES, SCOPE, forgetLesson, lessonsNow, saveLesson, siteSaid, taughtId } from "../teach";
-import type { LayoutChange, Lesson, Site, SiteFrom, TeachAnswer, TeachFlavour, Teaching, Tweak } from "../teach";
+import { BRIDGE, DOES, forgetLesson, lessonsNow, saveLesson, taughtId } from "../teach";
+import type { LayoutChange, Lesson, Site, SiteFrom, TeachAnswer, Teaching, Tweak } from "../teach";
 import { mockLayout, TIDY_DASHBOARD } from "./layout";
 import { unanswered } from "./moment";
 import { ARMADA_JOB, ARMADA_TITLE, BEHIND, BEHIND_AT, LEDGER_JOB, LEDGER_TITLE, PAYMENTS_JOB, PAYMENTS_TITLE } from "./sessions/teach";
@@ -109,7 +106,7 @@ const LIGHTER: Tweak = {
 };
 
 /** A panel of the Cockpit taught away: the layout `hide-<panel>` names it and the registry's id is the panel's name, lowercased. */
-const hiding = (panel: string): LayoutChange => ({ mod: `hide-${panel.toLowerCase()}`, region: "dashboard.panels", hidden: [panel.toLowerCase()], hides: panel, where: "Cockpit panels" });
+const hiding = (panel: string): LayoutChange => ({ mod: `hide-${panel.toLowerCase()}`, region: "dashboard.panels", hidden: [panel.toLowerCase()] });
 
 const sentence = (words: string): string => {
   const said = words.trim().replace(/\s+/g, " ");
@@ -133,7 +130,7 @@ export function understood({ teaching, say, reach }: { teaching: Teaching; say: 
     const scope = said.includes("this job") ? "job" : reach === "all" ? "all" : "repository";
     return {
       agents: "Slot behind main notices arrive batched. One that blocks a merge is called out on its own.",
-      fleet: { mod: "slot-behind-batched", name: "Slot behind main", match: "\\d+ commits behind main", does: "batch", says: "Batch, and tell only when it blocks a merge", scope },
+      fleet: { mod: "slot-behind-batched", name: "Slot behind main", match: "\\d+ commits behind main", does: "batch", scope },
     };
   }
   if (teaching.kind === "row" && /louder|bolder|brighter|stand out/.test(said)) return { tweak: LOUDER };
@@ -178,22 +175,6 @@ function fleetDoes(lesson: Lesson): string {
   return `${fleet!.name} notices ${DOES[fleet!.does]}, ${where}`;
 }
 
-/** The tweak's facts: the colour, its token, what it was and is, and each other place it is drawn. */
-function tweakParts(tweak: Tweak): TaughtPart[] {
-  return [
-    {
-      part: "Theme tweak",
-      facts: [
-        { label: "Colour", value: tweak.colour },
-        { label: "Token", value: tweak.token, code: true },
-        { label: "Was", value: tweak.was, code: true },
-        { label: "Now", value: tweak.now, code: true },
-        ...tweak.places.map((place, at) => ({ label: at === 0 ? "Also drawn in" : "", value: place })),
-      ],
-    },
-  ];
-}
-
 const noteKind = (kind: Teaching["kind"]): LogbookEntry["kind"] => (kind === "command" ? "command" : kind === "check" ? "gotcha" : kind === "task" ? "habit" : "convention");
 
 /** The proposal Fleet reads a lesson into. The wire names a notice by its word and a layout by its file; the words stay in `understanding`. */
@@ -202,11 +183,18 @@ function proposalOf(answer: TeachAnswer, teaching: Teaching, reach: "repository"
   return {
     ...(agents === undefined ? {} : { note: { section: reach === "everywhere" ? ("habits" as const) : ("repo" as const), kind: noteKind(teaching.kind), text: agents } }),
     ...(bridge === undefined ? {} : { words: { name: bridge.name, pattern: bridge.pattern, example: bridge.example, ...(bridge.site === undefined ? {} : { address: { template: `${bridge.site.address}/browse/{match}`, found: foundOf(bridge.site.from) } }) } }),
-    ...(rule === undefined ? {} : { fleet: { notice: "behind_base", does: rule.does, where: rule.scope === "all" ? "everywhere" : rule.scope === "job" ? `job ${teaching.sessionId}` : `repo ${teaching.manifestId ?? ""}` } }),
+    ...(rule === undefined ? {} : { fleet: ruleOf(rule, teaching) }),
     ...(tweak === undefined ? {} : { tweak: [{ token: tweak.token, was: tweak.was, now: tweak.now, used_in: [...tweak.places], note: tweak.colour }] }),
     ...(layout === undefined ? {} : { layout: { name: layout.mod, layout: layoutText(layout) } }),
   };
 }
+
+/** The rule as the wire has it: a notice by its word, and one string for where. */
+const ruleOf = (rule: NonNullable<TeachAnswer["fleet"]>, teaching: Teaching): FleetRule => ({
+  notice: "behind_base",
+  does: rule.does,
+  where: rule.scope === "all" ? "everywhere" : rule.scope === "job" ? `job ${teaching.sessionId}` : `repo ${teaching.manifestId ?? ""}`,
+});
 
 /** How the wire spells where an address was found. */
 const foundOf = (from: SiteFrom): string => (from.kind === "settings" ? "settings" : from.kind === "pull_request" ? `pull_request #${from.number}` : "person");
@@ -338,12 +326,14 @@ function modRows(): ModSummary[] {
   };
   for (const lesson of lessonsNow()) {
     const { bridge, fleet: rule, tweak, layout } = lesson.answer;
+    // Only a teaching with a note made an entry for the Logbook, and its mods say which.
+    const made = lesson.answer.agents === undefined ? {} : { entry: taughtId(lesson) };
     const taught_on = taughtOn(lesson.teaching);
     const at = Date.parse(lesson.at);
-    if (bridge !== undefined) add({ name: bridge.mod, kind: "words", description: wordsDo(lesson), taught_on, changed_at: new Date(at + written).toISOString() });
-    if (rule !== undefined) add({ name: rule.mod, kind: "fleet", description: fleetDoes(lesson), taught_on, changed_at: new Date(at).toISOString() });
-    if (tweak !== undefined) add({ name: tweak.mod, kind: "tweak", description: `${tweak.colour}, ${tweak.now}`, taught_on, changed_at: new Date(at).toISOString() });
-    if (layout !== undefined) add({ name: layout.mod, kind: "layout", taught_on, changed_at: new Date(at).toISOString() });
+    if (bridge !== undefined) add({ ...made, name: bridge.mod, kind: "words", description: wordsDo(lesson), taught_on, changed_at: new Date(at + written).toISOString() });
+    if (rule !== undefined) add({ ...made, name: rule.mod, kind: "fleet", description: fleetDoes(lesson), taught_on, changed_at: new Date(at).toISOString() });
+    if (tweak !== undefined) add({ ...made, name: tweak.mod, kind: "tweak", description: `${tweak.colour}, ${tweak.now}`, taught_on, changed_at: new Date(at).toISOString() });
+    if (layout !== undefined) add({ ...made, name: layout.mod, kind: "layout", taught_on, changed_at: new Date(at).toISOString() });
   }
   return rows.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
 }
@@ -357,85 +347,6 @@ function lessonOf(name: string): Lesson | undefined {
   return lessonsNow().find((one) => modsOf(one.answer).includes(name));
 }
 
-/** What a mod holds, for its row opened, and how a Logbook entry's line words it. */
-function modHolds(row: ModSummary): { parts: readonly TaughtPart[]; also?: string } | undefined {
-  const lesson = lessonOf(row.name);
-  if (lesson === undefined) return undefined;
-  const { bridge, fleet: rule, tweak, layout } = lesson.answer;
-  if (bridge?.mod === row.name) {
-    const reached = Object.entries(sites).filter(([manifestId]) => lesson.reach === "all" || manifestId === lesson.teaching.manifestId);
-    return {
-      also: wordsDo(lesson),
-      parts: [
-        {
-          part: "Words",
-          facts: [
-            { label: "Pattern", value: bridge.pattern, code: true },
-            ...reached.map(([manifestId, site]) => ({ label: manifestId, value: addressIn(site), code: true, from: siteSaid(site.from) })),
-          ],
-        },
-      ],
-    };
-  }
-  if (rule?.mod === row.name) {
-    return {
-      also: `${rule.name.charAt(0).toLowerCase()}${rule.name.slice(1)}, ${DOES[rule.does]} ${SCOPE[rule.scope]}`,
-      parts: [
-        {
-          part: "Fleet",
-          facts: [
-            { label: "Notice", value: rule.name },
-            { label: "Matches", value: rule.match, code: true },
-            { label: "Does", value: rule.says },
-            { label: "Where", value: rule.scope === "all" ? "Every repository" : rule.scope === "job" ? "This Job" : lesson.teaching.repository },
-          ],
-        },
-      ],
-    };
-  }
-  if (tweak?.mod === row.name) return { parts: tweakParts(tweak) };
-  if (layout?.mod === row.name) return { parts: [{ part: "Layout", facts: [{ label: "Hides", value: layout.hides }, { label: "In", value: layout.where }] }] };
-  return undefined;
-}
-
-/** What the panel shows back of what was read, as the walks have always drawn it. */
-function readingOf(answer: TeachAnswer, repository: string): TeachReading {
-  const { agents, bridge, fleet: rule, tweak, layout } = answer;
-  return {
-    ...(agents === undefined ? {} : { agents }),
-    ...(bridge === undefined
-      ? {}
-      : {
-          bridge: {
-            name: bridge.name,
-            pattern: bridge.pattern,
-            example: bridge.example,
-            ...(bridge.site === undefined ? {} : { address: addressIn(bridge.site).replace("{match}", bridge.example), found: siteSaid(bridge.site.from) }),
-          },
-        }),
-    ...(rule === undefined ? {} : { fleet: { notice: rule.name, does: rule.says, scope: rule.scope === "job" ? "This Job" : rule.scope === "all" ? "Every repository" : repository } }),
-    ...(tweak === undefined ? {} : { tweak: { colour: tweak.colour, token: tweak.token, was: tweak.was, now: tweak.now, places: tweak.places } }),
-    ...(layout === undefined ? {} : { layout: { hides: layout.hides, where: layout.where } }),
-  };
-}
-
-/** What this Fleet adds to the wire. */
-export const TEACH_FLAVOUR: TeachFlavour = {
-  reading: (proposal, repository) => {
-    const answer = understanding.get(keyOf(proposal));
-    return answer === undefined ? undefined : readingOf(answer, repository);
-  },
-  link: (proposal) => {
-    const bridge = understanding.get(keyOf(proposal))?.bridge;
-    return bridge?.site === undefined ? undefined : { pattern: bridge.pattern, address: addressIn(bridge.site), from: siteSaid(bridge.site.from) };
-  },
-  linkFrom: (_rule, root) => {
-    const site = root === undefined ? undefined : sites[manifestOf(root)];
-    return site === undefined ? undefined : siteSaid(site.from);
-  },
-  mod: modHolds,
-};
-
 // -- The mods' own routes, which a scenario that teaches adds to its Fleet's --------------------------------------------------
 
 const OK: Outcome = { ok: true };
@@ -445,7 +356,13 @@ export const teachedMods = {
   validateMod: async (name: string): Promise<ModChecked | null> => {
     const lesson = lessonOf(name);
     if (lesson === undefined) return null;
-    const { tweak, layout } = lesson.answer;
+    const { bridge, fleet: rule, tweak, layout } = lesson.answer;
+    if (bridge?.mod === name) {
+      const reached = Object.entries(sites).filter(([manifestId]) => lesson.reach === "all" || manifestId === lesson.teaching.manifestId);
+      const address = reached.map(([repository, site]) => ({ repository, template: addressIn(site), found: foundOf(site.from) }));
+      return { name, valid: true, problems: [], words: { name: bridge.name, pattern: bridge.pattern, example: bridge.example, ...(address.length === 0 ? {} : { address }) } };
+    }
+    if (rule?.mod === name) return { name, valid: true, problems: [], fleet: { rule: [ruleOf(rule, lesson.teaching)] } };
     if (tweak?.mod === name) return { name, valid: true, problems: [], css: `:root { ${tweak.token}: ${tweak.now}; }` };
     if (layout?.mod === name) return { name, valid: true, problems: [], layout: layoutText(layout) };
     return { name, valid: true, problems: [] };
@@ -500,10 +417,7 @@ export const taughtEntries = (): LogbookEntry[] => lessonsNow().flatMap((one) =>
  */
 export function seedTaught(root: string): void {
   const here = { sessionId: ARMADA_JOB, jobTitle: ARMADA_TITLE, manifestId: "armada", root, repository: "armada" };
-  const taught = (input: Omit<Lesson, "id" | "at">) => {
-    const lesson = keep(input, false);
-    rememberTaught(entryOf(lesson)?.id, modsOf(lesson.answer));
-  };
+  const taught = (input: Omit<Lesson, "id" | "at">) => void keep(input, false);
   const key = { teaching: { kind: "words" as const, text: "STORE-1234", ...here }, say: "A Jira key. Link it to our Jira", reach: "all" as const };
   taught({ ...key, answer: understood(key) });
   const notice = { teaching: { kind: "notice" as const, text: BEHIND, at: BEHIND_AT, ...here }, say: "Batch these, and don't tell me unless it blocks a merge", reach: "repository" as const };
@@ -515,7 +429,7 @@ export function seedTaught(root: string): void {
   const row = { ...here, kind: "row" as const, text: PAYMENTS_TITLE };
   taught({ teaching: row, say: "Make stopped Jobs easier to see", reach: "all", answer: { tweak: LIGHTER } });
   const panel = { ...here, kind: "panel" as const, text: "Guides" };
-  taught({ teaching: panel, say: "Hide this, I never look at it", reach: "all", answer: { layout: { mod: "hide-guides", region: "rail", hidden: ["guides"], hides: "Guides", where: "Rail" } } });
+  taught({ teaching: panel, say: "Hide this, I never look at it", reach: "all", answer: { layout: { mod: "hide-guides", region: "rail", hidden: ["guides"] } } });
   mockThemes.install(DUSK_MOD);
   mockThemes.setActive(DUSK_MOD.name);
   // A layout mod written by hand and switched off, which the list keeps under those that are on.

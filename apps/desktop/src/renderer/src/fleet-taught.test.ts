@@ -19,6 +19,7 @@ function fake(mods: ModSummary[] | null, over: Partial<FleetTaught> = {}) {
     subscribe: (on) => ((hear = on), () => undefined),
     setModEnabled: async (name, enabled) => (switched.push(`${enabled ? "on" : "off"} ${name}`), { ok: true }),
     promoteMod: async (name) => ({ ok: true, modPromoted: { name, branch: `armada/mod-${name}-1`, commit: "abc" } }),
+    validateMod: async () => null,
     ...over,
   };
   const source = createFleetTaught(fleet, (sentence) => told.push(sentence));
@@ -64,6 +65,29 @@ describe("the rows", () => {
     const { source } = fake([row("hide-field", { kind: "layout", taught_on: "the Field panel" }), row("tidy", { kind: "layout" })]);
     await settled();
     expect(source.get().details).toEqual({ "hide-field": { on: "the Field panel", parts: [] } });
+  });
+
+  it("open to what Fleet's checked file holds, read for each mod once and again when the mod changes", async () => {
+    const reads: string[] = [];
+    const validateMod = async (name: string) => (reads.push(name), { name, valid: true, problems: [], words: { name: "Jira key", pattern: "[A-Z]+-\\d+", example: "STORE-1234", address: [{ repository: "armada", template: "https://acme.atlassian.net/browse/{match}", found: "settings" }] } });
+    const { source, push } = fake([row("jira-keys", { changed_at: "1" }), row("hide-field", { kind: "layout", taught_on: "the Field panel", changed_at: "1" }), row("linear", { kind: "tracker" }), row("dusk", { kind: "theme" })], { validateMod });
+    await settled();
+    expect(reads).toEqual(["jira-keys", "hide-field"]);
+    expect(source.get().mods[0]?.parts).toEqual([
+      { part: "Words", facts: [{ label: "Pattern", value: "[A-Z]+-\\d+", code: true }, { label: "armada", value: "https://acme.atlassian.net/browse/{match}", code: true, from: "Found in this repository's settings" }] },
+    ]);
+    push([row("jira-keys", { changed_at: "1" })]);
+    await settled();
+    expect(reads).toEqual(["jira-keys", "hide-field"]);
+    push([row("jira-keys", { changed_at: "2" })]);
+    await settled();
+    expect(reads).toEqual(["jira-keys", "hide-field", "jira-keys"]);
+  });
+
+  it("have no parts where Fleet has no file for the mod", async () => {
+    const { source } = fake([row("jira-keys")]);
+    await settled();
+    expect(source.get().mods[0]?.parts).toEqual([]);
   });
 });
 
