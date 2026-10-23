@@ -14,7 +14,7 @@
 // `docs/design/who-sees-each-piece-of-configuration.md`.
 
 import { useEffect, useSyncExternalStore } from "react";
-import { ACTIONS, slotsOf } from "@armada/components";
+import { conflictsOf, formatChord, parseChord, pressesChord, type Chord, type Press } from "@armada/components";
 import type { FlightControl, FlightControlKind, FlightControls, RunPlace } from "@armada/protocol";
 import type { TileAsk } from "@armada/protocol";
 import { refusalWords } from "@armada/screens/src/refusal-words";
@@ -50,7 +50,7 @@ export type BuiltIn = {
   /** `land` sends one of two. */
   on?: string;
   off?: string;
-  /** Its key never moves: Pause answers P. */
+  /** Pause answers P when it is given no other key. */
   fixedKey?: true;
 };
 
@@ -130,7 +130,30 @@ export type Tile = {
 
 const isKind = (value: unknown): value is ActionKind => value === "words" || value === "command" || value === "shell" || value === "page";
 const worded = (value: string | undefined): string | undefined => (value === undefined || value.trim() === "" ? undefined : value);
-const normalKey = (key: string | undefined): string | undefined => (key === undefined || !/^[0-9a-z]$/i.test(key) ? undefined : key.toUpperCase());
+const bareKey = (key: string): boolean => /^[0-9a-z]$/i.test(key);
+
+/**
+ * The chord a tile's key spells. A lone digit or letter is that key unshifted, so `R` in an older file is `r`; anything else is the registry's
+ * spelling, `⌥1` or `⇧⌘J`.
+ */
+export function keyChord(key: string): Chord | null {
+  if (bareKey(key)) return { ctrl: false, alt: false, shift: false, meta: false, key: key.toLowerCase() };
+  return parseChord(key);
+}
+
+/** A key as it is kept and drawn: a lone digit or letter in capitals, a chord as the registry draws one. Nothing where it cannot be a tile's. */
+const normalKey = (key: string | undefined): string | undefined => {
+  if (key === undefined) return undefined;
+  if (bareKey(key)) return key.toUpperCase();
+  const chord = parseChord(key);
+  return chord !== null && (chord.ctrl || chord.alt || chord.meta) ? formatChord(chord) : undefined;
+};
+
+/** Whether a press is the key a tile wears. */
+export const keyPressed = (key: string, press: Press): boolean => {
+  const chord = keyChord(key);
+  return chord !== null && pressesChord(chord, press);
+};
 
 /** Whether the owner has laid anything over a built-in. */
 const overlaid = (entry: FlightEntry): boolean => ["name", "glyph", "key", "hidden", "text", "on_text", "off_text"].some((one) => (entry as Record<string, unknown>)[one] !== undefined);
@@ -292,27 +315,23 @@ export function freshId(entries: readonly FlightEntry[], name: string): string {
 
 // ---- Keys ---------------------------------------------------------------------------------------------------------
 
-/** The letters the deck and the window already answer to, so no tile takes one. Read from the registry, with Pause's. */
-export function reservedLetters(): ReadonlySet<string> {
-  const taken = new Set<string>([PAUSE_KEY]);
-  for (const act of ACTIONS) {
-    if (act.scope !== "anywhere" && act.scope !== "deck") continue;
-    for (const slot of slotsOf(act.id)) {
-      if (slot.kind !== "chord" || slot.chord === null) continue;
-      const { ctrl, alt, meta, shift, key } = slot.chord;
-      if (!ctrl && !alt && !meta && !shift && /^[a-z]$/i.test(key)) taken.add(key.toUpperCase());
-    }
-  }
-  return taken;
-}
-
-/** Why `key` cannot be this tile's, or nothing where it can. An empty key is always fine. */
+/**
+ * Why `key` cannot be this tile's, or nothing where it can. An empty key is always fine. The key is a digit, a letter or a chord in the
+ * registry's spelling; Shift alone makes no chord, for a capital `R` in a file has always meant `r`.
+ */
 export function keyProblem(key: string, tiles: readonly Tile[], own: string | undefined): string | undefined {
   if (key === "") return undefined;
-  if (!/^[0-9a-z]$/i.test(key)) return "A digit or a letter";
-  const upper = key.toUpperCase();
-  if (/[A-Z]/.test(upper) && reservedLetters().has(upper)) return "Used by the deck";
-  const other = tiles.find((one) => one.id !== own && one.entry?.key !== undefined && normalKey(one.entry.key) === upper);
+  const chord = keyChord(key);
+  if (chord === null) return "A digit, a letter or a chord";
+  if (!chord.ctrl && !chord.alt && !chord.meta) {
+    if (chord.shift) return "⇧ needs ⌘, ⌃ or ⌥ with it";
+    if (!bareKey(chord.key)) return "A digit, a letter or a chord";
+  }
+  const held = normalKey(key);
+  // Pause answers P when it is given none, and may be given it.
+  const pauses = tiles.find((one) => one.id === own)?.builtIn?.fixedKey === true;
+  if (held === PAUSE_KEY ? !pauses : conflictsOf("deck_tile", { kind: "chord", chord }).length > 0) return "Used by the deck";
+  const other = tiles.find((one) => one.id !== own && one.entry?.key !== undefined && normalKey(one.entry.key) === held);
   return other === undefined ? undefined : `Used by ${other.label}`;
 }
 

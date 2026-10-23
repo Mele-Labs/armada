@@ -14,6 +14,7 @@ import type { BridgeState } from "../../../../shared/bridge";
 import type { RepositorySummary } from "@armada/protocol";
 import { bandingOf } from "./bands";
 import { AGE_MS } from "./clock";
+import { keyPressed } from "./flight-controls";
 import { holdFor } from "./props";
 import { walkOrder } from "./queued";
 import { DeckKeySheet, armChord, cycleFrom, focusPanel, panelAt, remember, stepBy, stepIn, useDeckKeys } from "./keys";
@@ -32,6 +33,8 @@ const NO_HOSTS: Hosts = { onOpenSession: () => {}, onOpenLink: () => {} };
 
 /** The flight control wearing `key`, among the tiles drawn now. */
 const flightTile = (key: string): HTMLElement | null => document.querySelector<HTMLElement>(`.deck-controls .deck-tile[data-key="${CSS.escape(key)}"]`);
+/** The drawn tile whose key, a letter or a chord, this press is. */
+const flightTileFor = (event: KeyboardEvent): HTMLElement | null => [...document.querySelectorAll<HTMLElement>(".deck-controls .deck-tile[data-key]")].find((one) => keyPressed(one.dataset.key ?? "", event)) ?? null;
 
 /** How long a Session asked for on the deck is waited on before it is let go: one the ship never holds, Helm's own, is the dock's. */
 const AWAIT_SESSION_MS = 3000;
@@ -183,7 +186,14 @@ export function DeckHost({ state, picked, here, hidden, onGoTo, onOpenSession }:
       window.requestAnimationFrame(() => rowFocus(key));
       return;
     }
-    if (event.metaKey || event.ctrlKey || event.altKey) return;
+    // A chord the owner gave a tile presses it from anywhere on the deck, but in a text box only with ⌘ or ⌃, where ⌥ and ⇧ type.
+    if (event.metaKey || event.ctrlKey || event.altKey) {
+      const tile = state.here && target.closest?.("[data-flight-editing]") == null && target.closest?.('[role="menu"]') == null && (!holdsText(event.target) || event.metaKey || event.ctrlKey) ? flightTileFor(event) : null;
+      if (tile === null) return;
+      event.preventDefault();
+      tile.click();
+      return;
+    }
     // The flight controls while they are edited take their own keys (`FlightEdit.tsx`).
     if (target.closest?.("[data-flight-editing]") != null) return;
     if (holdsText(event.target) && target.getAttribute("role") !== "switch") {
@@ -242,14 +252,12 @@ export function DeckHost({ state, picked, here, hidden, onGoTo, onOpenSession }:
       tile.click();
       return;
     }
-    // A letter the owner gave a tile. The registry's letters are never given (`reservedLetters`), so this reads none of the keys above.
-    if (!event.shiftKey && /^[a-z]$/i.test(event.key)) {
-      const tile = flightTile(event.key.toUpperCase());
-      if (tile !== null) {
-        event.preventDefault();
-        tile.click();
-        return;
-      }
+    // A letter the owner gave a tile. The registry's keys are never given (`keyProblem`), so this reads none of the keys above.
+    const lettered = /^[a-z]$/i.test(event.key) ? flightTileFor(event) : null;
+    if (lettered !== null) {
+      event.preventDefault();
+      lettered.click();
+      return;
     }
     const slot = pressedSlot("deck_panel", event);
     const goes = slot === -1 ? undefined : panelOfSlot(slot);

@@ -861,6 +861,11 @@ button.deck-pr:hover { border-color: var(--border-strong); color: var(--fg-defau
 /* The sheet that adds or changes a tile. */
 .flight-form { display: grid; gap: var(--space-4); }
 .flight-form__acts { display: flex; gap: var(--space-2); }
+/* The key is recorded by pressing it; Settings' own row, here without its rule and its glyph slot, with what is wrong under it. */
+.flight-form__key .armada-key-binding-row { padding: 0; border-bottom: 0; }
+.flight-form__key .armada-key-binding-row__mark,
+.flight-form__key .armada-key-binding-row__reset { display: none; }
+.flight-form__said { display: block; margin-top: var(--space-1); font-size: var(--text-xs); line-height: var(--leading-xs); color: var(--status-completed-failed); }
 .flight-glyphs { display: grid; gap: var(--space-2); }
 .flight-glyphs__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--space-8), 1fr)); gap: var(--space-1); max-height: calc(var(--space-12) * 3); overflow: auto; }
 .flight-glyphs__one { display: inline-flex; align-items: center; justify-content: center; height: var(--space-8); padding: 0; border: var(--border-width) solid transparent; border-radius: var(--radius-md); background: transparent; color: var(--fg-muted); cursor: pointer; }
