@@ -21,7 +21,7 @@
 use std::collections::BTreeMap;
 
 use adapter_traits::{
-    AgentHarness, Delivery, FailureWeight, NotMerged, PullRequestStanding as Forge, Vcs,
+    AgentHarness, Delivery, FailureWeight, Forge as TheForge, NotMerged, PullRequestStanding as Forge, Vcs,
     WhatTheForgeRan, WorkProduct,
 };
 use api::{PullRequests, Refusal};
@@ -31,6 +31,7 @@ use ipc::{
 use store::HolderKind;
 
 use crate::daemon::Fleet;
+use crate::repositories::Served;
 use crate::session_issues::issue_held;
 use crate::refusing::{
     MERGE_BRANCH_PROTECTED, MERGE_CHECKS_NOT_PASSED, MERGE_CONFLICTED, MERGE_NOT_OPEN,
@@ -42,11 +43,11 @@ use crate::refusing::{
 /// asking again is reasonable.
 pub(crate) const UNREADABLE: &str = "fleet.pull_request_unreadable";
 /// A draft cannot be merged, or have auto-merge asked of it. A 409.
-const IS_A_DRAFT: &str = "fleet.pull_request_is_a_draft";
+pub(crate) const IS_A_DRAFT: &str = "fleet.pull_request_is_a_draft";
 /// Taking out of draft what is not one. A 409.
-const NOT_A_DRAFT: &str = "fleet.pull_request_not_a_draft";
+pub(crate) const NOT_A_DRAFT: &str = "fleet.pull_request_not_a_draft";
 /// The forge would not take it out of draft, in its own sentence. A 409.
-const READY_REFUSED: &str = "fleet.ready_refused";
+pub(crate) const READY_REFUSED: &str = "fleet.ready_refused";
 /// The forge would not turn auto-merge on, in its own sentence. A 409.
 pub(crate) const AUTO_MERGE_REFUSED: &str = "fleet.auto_merge_refused";
 /// A review pressed from a Session the ledger has never heard of. A 422.
@@ -141,6 +142,73 @@ fn detail_of(state: &PullRequestState) -> BTreeMap<String, String> {
     detail
 }
 
+/// What one read of a pull request needs from the Manifest, owned so it can go to a thread.
+pub(crate) struct PullRequestAsk {
+    manifest_id: ManifestId,
+    root: String,
+    number: u64,
+    gate: String,
+    base: Option<String>,
+}
+
+impl PullRequestAsk {
+    fn of(manifest_id: &ManifestId, root: &str, number: u64, served: &Served) -> Self {
+        Self {
+            manifest_id: manifest_id.clone(),
+            root: root.to_string(),
+            number,
+            gate: served.manifest().ci_gate().to_string(),
+            base: served.manifest().base().map(str::to_string),
+        }
+    }
+}
+
+/// The pull request as the forge shows it. **Two asks, and either one silent is silent**: a
+/// state with no checks would let a merge be pressed on a guess.
+fn read_from_forge<V: TheForge>(
+    vcs: &V,
+    run: &ipc::RunId,
+    ask: &PullRequestAsk,
+) -> Result<PullRequestState, Refusal> {
+    let PullRequestAsk { manifest_id, root, number, gate, base } = ask;
+    let number = *number;
+    let named = number.to_string();
+    let unreadable = || {
+        Refusal::Fault(WireError::raised(
+            UNREADABLE,
+            format!("the forge would not say what pull request {number} is"),
+            run.clone(),
+        ))
+    };
+    let facts = vcs.pull_request_facts(root, &named).ok_or_else(unreadable)?;
+    let checks = checks_of(&vcs.under_review(root, &named, gate).checks).ok_or_else(unreadable)?;
+    // Only an open pull request waits in the queue, and a forge that will not
+    // say leaves it out of the queue: the read stays the pull request's own.
+    let queued = facts.standing == Forge::Open
+        && base
+            .as_deref()
+            .and_then(|base| vcs.merge_queue(root, base))
+            .is_some_and(|queue| queue.iter().any(|entry| entry.number == number));
+    Ok(PullRequestState {
+        manifest_id: manifest_id.clone(),
+        number,
+        state: match facts.standing {
+            Forge::Draft => PullRequestStanding::Draft,
+            Forge::Open => PullRequestStanding::Open,
+            Forge::Merged => PullRequestStanding::Merged,
+            Forge::Closed => PullRequestStanding::Closed,
+        },
+        auto_merge: facts.auto_merge,
+        queued,
+        checks,
+        title: facts.title,
+        branch: facts.branch,
+        address: facts.url,
+        body: facts.body,
+        closes: facts.closes,
+    })
+}
+
 impl<H, V, W> Fleet<H, V, W>
 where
     H: AgentHarness + Send + Sync + 'static,
@@ -164,51 +232,28 @@ where
         root: &str,
         number: u64,
     ) -> Result<PullRequestState, Refusal> {
-        let named = number.to_string();
-        let unreadable = || {
-            Refusal::Fault(self.pr_refusal(
-                UNREADABLE,
-                format!("the forge would not say what pull request {number} is"),
-            ))
-        };
-        let facts = self
-            .vcs()
-            .pull_request_facts(root, &named)
-            .ok_or_else(unreadable)?;
         let served = self.served_named(Some(manifest_id))?;
-        let checks = checks_of(
-            &self
-                .vcs()
-                .under_review(root, &named, served.manifest().ci_gate())
-                .checks,
+        read_from_forge(
+            &**self.vcs(),
+            &self.run_id(),
+            &PullRequestAsk::of(manifest_id, root, number, &served),
         )
-        .ok_or_else(unreadable)?;
-        // Only an open pull request waits in the queue, and a forge that will not
-        // say leaves it out of the queue: the read stays the pull request's own.
-        let queued = facts.standing == Forge::Open
-            && served
-                .manifest()
-                .base()
-                .and_then(|base| self.vcs().merge_queue(root, base))
-                .is_some_and(|queue| queue.iter().any(|entry| entry.number == number));
-        Ok(PullRequestState {
-            manifest_id: manifest_id.clone(),
-            number,
-            state: match facts.standing {
-                Forge::Draft => PullRequestStanding::Draft,
-                Forge::Open => PullRequestStanding::Open,
-                Forge::Merged => PullRequestStanding::Merged,
-                Forge::Closed => PullRequestStanding::Closed,
-            },
-            auto_merge: facts.auto_merge,
-            queued,
-            checks,
-            title: facts.title,
-            branch: facts.branch,
-            address: facts.url,
-            body: facts.body,
-            closes: facts.closes,
-        })
+    }
+
+    /// [`pull_request_read`](Self::pull_request_read), asked of the forge off the runtime's
+    /// threads: three processes in a row are not for a worker to wait on.
+    pub(crate) async fn pull_request_read_off(
+        &self,
+        manifest_id: &ManifestId,
+        root: &str,
+        number: u64,
+    ) -> Result<PullRequestState, Refusal> {
+        let served = self.served_named(Some(manifest_id))?;
+        let ask = PullRequestAsk::of(manifest_id, root, number, &served);
+        let (vcs, run) = (std::sync::Arc::clone(self.vcs()), self.run_id());
+        tokio::task::spawn_blocking(move || read_from_forge(&*vcs, &run, &ask))
+            .await
+            .expect("the forge process panicked")
     }
 
     /// Every Session still holding this pull request takes the state as the
@@ -299,7 +344,7 @@ where
         Ok(state)
     }
 
-    fn not_merged_refusal(&self, number: u64, why: NotMerged) -> Refusal {
+    pub(crate) fn not_merged_refusal(&self, number: u64, why: NotMerged) -> Refusal {
         let said = why.said();
         let raised = |code: &'static str| {
             self.pr_refusal(code, said.clone())
@@ -323,7 +368,7 @@ where
     }
 
     /// A pull request that is not open, as a refusal. `None` where it is.
-    fn not_open_refusal(&self, state: &PullRequestState) -> Option<Refusal> {
+    pub(crate) fn not_open_refusal(&self, state: &PullRequestState) -> Option<Refusal> {
         let raised = |code: &'static str, said: &str| {
             Refusal::IllegalMove(
                 self.pr_refusal(code, format!("pull request {} {said}", state.number)),
@@ -341,7 +386,7 @@ where
     }
 
     /// What a check that has not passed is called to a person.
-    fn checks_not_passed(&self, state: &PullRequestState) -> Refusal {
+    pub(crate) fn checks_not_passed(&self, state: &PullRequestState) -> Refusal {
         let said = match &state.checks {
             ForgeChecks::Failed { failing, .. } => {
                 format!(
@@ -380,106 +425,30 @@ where
     }
 
     async fn ready_pull_request(
-        &self,
+        self: std::sync::Arc<Self>,
         manifest_id: ManifestId,
         number: u64,
     ) -> Result<PullRequestState, Refusal> {
-        let served = self.served_named(Some(&manifest_id))?;
-        let root = served.root();
-        let before = self.pull_request_read(&manifest_id, root, number)?;
-        match before.state {
-            PullRequestStanding::Draft => {}
-            PullRequestStanding::Open => {
-                return Err(Refusal::IllegalMove(self.pr_refusal(
-                    NOT_A_DRAFT,
-                    format!("pull request {number} is open already"),
-                )))
-            }
-            _ => return Err(self.not_open_refusal(&before).expect("not open")),
-        }
-        self.vcs()
-            .mark_ready(root, &number.to_string())
-            .map_err(|said| Refusal::IllegalMove(self.pr_refusal(READY_REFUSED, said)))?;
-        // A forge that took the write and would not answer after it is not a
-        // refusal of the write.
-        let after = PullRequestState {
-            state: PullRequestStanding::Open,
-            ..before
-        };
-        let state = self
-            .pull_request_read(&manifest_id, root, number)
-            .unwrap_or(after);
-        self.ledger_follows(&state).await;
-        Ok(state)
+        let acted = self.ready_acted(&manifest_id, number).await?;
+        Ok(self.replied_to(acted))
     }
 
     async fn merge_pull_request_by_number(
-        &self,
+        self: std::sync::Arc<Self>,
         manifest_id: ManifestId,
         number: u64,
     ) -> Result<PullRequestState, Refusal> {
-        let served = self.served_named(Some(&manifest_id))?;
-        let root = served.root();
-        let before = self.pull_request_read(&manifest_id, root, number)?;
-        match before.state {
-            // **Not a refusal**: the work is where the press was trying to put it.
-            PullRequestStanding::Merged => {
-                self.ledger_follows(&before).await;
-                return Ok(before);
-            }
-            PullRequestStanding::Open => {}
-            _ => return Err(self.not_open_refusal(&before).expect("not open")),
-        }
-        if before.checks != ForgeChecks::Passed {
-            return Err(self.checks_not_passed(&before));
-        }
-        self.vcs()
-            .merge(root, &number.to_string())
-            .map_err(|why| self.not_merged_refusal(number, why))?;
-        let after = PullRequestState {
-            state: PullRequestStanding::Merged,
-            ..before
-        };
-        let state = self
-            .pull_request_read(&manifest_id, root, number)
-            .unwrap_or(after);
-        self.ledger_follows(&state).await;
-        Ok(state)
+        let acted = self.merge_acted(&manifest_id, number).await?;
+        Ok(self.replied_to(acted))
     }
 
     async fn enable_auto_merge(
-        &self,
+        self: std::sync::Arc<Self>,
         manifest_id: ManifestId,
         number: u64,
     ) -> Result<PullRequestState, Refusal> {
-        let served = self.served_named(Some(&manifest_id))?;
-        let root = served.root();
-        let before = self.pull_request_read(&manifest_id, root, number)?;
-        if let Some(refusal) = self.not_open_refusal(&before) {
-            return Err(refusal);
-        }
-        // Asked twice, the second answers as it stands. A pull request in the
-        // queue has been asked already, whatever the flag says.
-        if before.auto_merge || before.queued {
-            self.ledger_follows(&before).await;
-            return Ok(before);
-        }
-        // Passed already is not a refusal: the forge queues it, as `gh pr merge --auto` does.
-        if let ForgeChecks::Failed { .. } = &before.checks {
-            return Err(self.checks_not_passed(&before));
-        }
-        self.vcs()
-            .enable_auto_merge(root, &number.to_string())
-            .map_err(|said| Refusal::IllegalMove(self.pr_refusal(AUTO_MERGE_REFUSED, said)))?;
-        let after = PullRequestState {
-            auto_merge: true,
-            ..before
-        };
-        let state = self
-            .pull_request_read(&manifest_id, root, number)
-            .unwrap_or(after);
-        self.ledger_follows(&state).await;
-        Ok(state)
+        let acted = self.auto_merge_acted(&manifest_id, number).await?;
+        Ok(self.replied_to(acted))
     }
 
     async fn refresh_pull_request(

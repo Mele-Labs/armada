@@ -200,6 +200,7 @@ mod review_walks;
 mod walk_places;
 /// A pull request by repository and number, and the acts a Session takes on one.
 /// Since 23.48.
+mod pull_request_acts;
 mod pull_requesting;
 /// A person's refresh of one pull request: everything the pull reading does for it, now.
 mod pull_refreshing;
