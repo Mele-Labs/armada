@@ -1558,7 +1558,7 @@ export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer
           )}
           {items.flatMap((item, at) => [
             item.kind === "calls" ? (
-              <Calls key={item.id} rows={item.rows} working={working === true && at === items.length - 1} {...(onStop === undefined ? {} : { onStop })} />
+              <Calls key={item.id} rows={item.rows} working={working === true && !asking && at === items.length - 1} {...(onStop === undefined ? {} : { onStop })} />
             ) : item.kind === "fleetTurn" ? (
               <FleetTurn key={item.id} notice={item.notice} reply={item.reply} handled={item.handled}{...(onMuteNotice === undefined ? {} : { onMuteNotice })} />
             ) : item.kind === "checks" ? (
@@ -1582,7 +1582,7 @@ export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer
               {cards}
             </li>
           ) : null}
-          {working === true && !endsInCalls ? (
+          {working === true && (!endsInCalls || asking) ? (
             <li className="armada-session-thread__working">
               <SessionMark state="working" said="Working" />
               {onStop === undefined ? null : <SessionStop onStop={onStop} />}
