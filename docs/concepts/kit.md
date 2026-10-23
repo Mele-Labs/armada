@@ -269,7 +269,7 @@ A key that may not list the bucket reads a missing object as refused.
 What another machine wrote is merged in before each write, and `get_run_memory` does not call the cloud.
 
 **Run memory becomes a section of the [Logbook](logbook.md).** Its detector is unchanged and still reads results off the stream with no agent's word.
-Its facts are Logbook entries, the Logbook follows the place chosen here except In the repository, which keeps it on this Mac, and the run note and the machine note become one Logbook note.
+Its facts are Logbook entries, the Logbook follows the place chosen here except In the repository, which keeps it on this Mac, and the run note and the machine note are one Logbook note.
 
 ### A private repository
 
@@ -286,13 +286,12 @@ A copy already in a synced folder or a bucket stays where it was.
 
 **Bridge names a repository's remembered runs, with its Manifest, Armada configuration.** It is how Armada remembers the repository runs, so an agent does not guess a test command or a port.
 
-**A Job is told what was kept, in its system prompt.** Every process of a hosted Job or Helm Session in the repository carries the remembered runs as a note after the job rules and after Helm's or a successor's note, read from Fleet's store at each start.
+**A Job is told what was kept, in its system prompt.** Every process of a hosted Job or Helm Session in the repository carries the Logbook note after the job rules and after Helm's or a successor's note, read from Fleet's store at each start: the habits, then the repository's standing entries, then this Mac's ([Logbook](logbook.md), *Recall*).
+The remembered runs whose last run worked are entries of it, ranked with the rest and cut with them near 2k tokens, each as kind, workspace, command and port where there is one.
 So a run one Job kept reaches the next Job started there, even one started before the first Job's turn ended.
-The note names only the runs whose last run worked, newest first, at most 20, each as kind, workspace, command and port where there is one.
-**Every line is a command to run, never a Check, and nothing in the note gates a pull request.** A dropped line is not in it.
+**A command under the repository's heading is to run, never a Check, and nothing in the note gates a pull request.** A dropped line is not in it.
 The note is told from this Mac's store, and is written nowhere.
-**A Job is also told what this Mac has**, in a third part after the run note: `machine.md`, *What a Job is told about this Mac*.
-A remembered run whose first word is a missing command is left out of the run note.
+A remembered run whose first word is a missing command is left out of it: `machine.md`, *What a Job is told about this Mac*.
 `get_manifest` does not serve remembered runs.
 The places are named as a person reads them:
 

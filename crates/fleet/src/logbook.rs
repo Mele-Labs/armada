@@ -9,6 +9,7 @@ pub(crate) mod answer;
 pub(crate) mod curating;
 mod distilling;
 mod kept;
+pub(crate) mod noting;
 pub(crate) mod serving;
 
 use std::collections::VecDeque;
@@ -100,7 +101,6 @@ where
     /// The entries to serve a repository's next agent: standing ones, tripped first, then by how
     /// many Sessions bore each out, then the most recent, cut to `budget` tokens. Each learnt one
     /// served is marked, which keeps it from fading. **For the start note to call.**
-    #[allow(dead_code, reason = "the start note calls it, and another change wires that")]
     pub(crate) async fn logbook_to_serve(&self, root: &str, budget: usize) -> Vec<Logged> {
         let served = serving::served(self.logbook_read(root).await, budget);
         let ids: Vec<i64> = served
@@ -111,5 +111,13 @@ where
         let now = self.now().epoch_millis().unwrap_or(0).max(0) as u64;
         let _ = self.store().lock().await.logbook_served(&ids, now);
         served
+    }
+
+    /// The Logbook note a Session's process is started with: habits, then the repository's
+    /// standing entries, then this Mac, about [`noting::NOTE_TOKENS`] in all. `root` is `None` for
+    /// a Session with no repository, which is handed the habits and this Mac's.
+    pub(crate) async fn logbook_note_of(&self, root: Option<&str>) -> Option<String> {
+        let served = self.logbook_to_serve(root.unwrap_or_default(), noting::NOTE_TOKENS - noting::HEADER_TOKENS).await;
+        noting::note(&served)
     }
 }
