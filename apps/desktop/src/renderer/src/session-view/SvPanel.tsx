@@ -36,7 +36,7 @@ export function SvPanel({ label, state, acts, rail, place, area, empty = false, 
       }
     : own;
   return (
-    <section className="sv-panel" data-area={area} data-place={place} data-state={state} data-collapsed={collapsed || undefined} data-empty={empty || undefined} aria-label={label}>
+    <section className="sv-panel" data-area={area} data-place={place} data-state={state} data-collapsed={collapsed || undefined} data-empty={empty || undefined} data-band-only={children === undefined || undefined} aria-label={label}>
       <header className="sv-panel__band" {...band}>
         <h3 className="sv-panel__label">{label}</h3>
         {rail}
