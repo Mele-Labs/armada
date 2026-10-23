@@ -1,5 +1,5 @@
-// The Logbook page's members of the preload surface. Main does not handle these channels yet, so an invoke rejects
-// until it does; the mock answers them.
+// The Logbook page's members of the preload surface. Main answers them from Fleet (`main/logbook-channels.ts`); the
+// mock answers them in a walk.
 
 import { ipcRenderer } from "electron";
 

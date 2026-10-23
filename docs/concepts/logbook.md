@@ -87,6 +87,8 @@ It is written to the same rules for plain words as the retro call.
 
 **A candidate is not served.** Only a standing entry reaches an agent.
 
+**An entry folded in from run memory or the machine note cannot be edited, locked or forgotten.** Its id starts `runs-` or `machine-`, Fleet refuses every act on it, and Bridge draws none.
+
 ### Recall
 
 Standing entries reach agents three ways.

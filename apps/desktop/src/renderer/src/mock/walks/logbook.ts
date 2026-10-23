@@ -1,6 +1,5 @@
 // The Logbook page, driven by its keys: Enter opens an entry, E edits its text in place, L locks it, the arrows move, F
-// forgets one. Over the `logbook` scenario. Mock only: no Fleet route serves the
-// Logbook yet. `docs/concepts/logbook.md`.
+// forgets one. Over the `logbook` scenario. `docs/concepts/logbook.md`.
 
 import { button, dialog, inside, place, region, role, walk } from "../walk";
 
