@@ -53,7 +53,7 @@ import { FlightEdit } from "./FlightEdit";
 import { isWebAddress, repositoryFileOf, tilesOf, useFlightFile, useRepositoryFlight, type FlightSet } from "./flight-controls";
 import { glyphOf as flightGlyph } from "./flight-glyphs";
 import { SessionTiles } from "./SessionTiles";
-import { reportRoot } from "./session-tiles";
+import { reportRoot, tileCap } from "./session-tiles";
 import { checkoutSaid, heldOf } from "./YourCheckout";
 import { forgeOf, quietSaid, ReadAgo } from "./forge";
 import { useListed } from "./listed";
@@ -836,7 +836,7 @@ function FlightControl({ ship, props }: { ship: Ship; props: CockpitProps }) {
                   <span className="deck-tile__text">{tile.text}</span>
                   {tile.key === undefined ? null : (
                     <Kbd className="deck-tile__key" aria-hidden="true">
-                      {tile.key}
+                      {tileCap(tile.key)}
                     </Kbd>
                   )}
                 </button>

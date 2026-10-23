@@ -415,6 +415,7 @@ test("a chord given to a tile presses it from anywhere on the Cockpit while the 
 test("a tile's own key is Option and Shift with its number, so a bare number, which answers a question, presses nothing", async () => {
   const host = await drawn();
   expect(tile(host, "Hand off").dataset.key).toBe("⌥⇧1");
+  expect(tile(host, "Hand off").querySelector(".deck-tile__key")?.textContent).toBe("1");
   expect(reach(document.body, { key: "1", code: "Digit1" }, flightTileFor)).toBeNull();
   expect(reach(document.body, { key: "¡", code: "Digit1", altKey: true, shiftKey: true })).toBe(tile(host, "Hand off"));
 });

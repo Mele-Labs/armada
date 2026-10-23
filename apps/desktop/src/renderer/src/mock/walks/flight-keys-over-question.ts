@@ -8,6 +8,6 @@ const controls = region("Flight controls");
 
 export const flightKeysOverQuestion = walk("flight-keys-over-question", [
   { press: deckRow("Retry the slot lease"), say: "The Job is open, and its question is in Needs you" },
-  { look: inside(controls, button("Ask for update")), say: "The tiles wear ⌥⇧ and a number, not a bare one" },
+  { hover: inside(controls, button("Ask for update")), say: "The tile wears ⌥⇧1: the corner shows the number, and the tooltip spells the keys. Say if the corner should show ⌥⇧ too" },
   { key: "1", on: inside(needs, role("radio", "Carry on in a new Job", { exact: true })), say: "1 picks the first answer and presses no tile" },
 ]);
