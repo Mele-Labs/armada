@@ -1,4 +1,4 @@
-// Where a Job's own shell opens, off `terminal.openJobTerminalIn`: docked (in its own panel under the Job in the Cockpit, under the thread elsewhere), or in the side panel.
+// Where a Job's own shell opens, off `terminal.openJobTerminalIn`: docked (in its own panel under the Job in the Cockpit, under the thread elsewhere), in the side panel, or in a window of its own.
 
 import { useEffect, useState } from "react";
 import type { SettingsList } from "@armada/protocol";
@@ -7,13 +7,14 @@ import type { BridgeApi } from "../../shared/api";
 import type { BridgeState } from "../../shared/bridge";
 import { stateOf } from "./state-feed";
 
-export type JobTerminalPlace = "docked" | "side panel";
+export type JobTerminalPlace = "docked" | "side panel" | "window";
 
 const KEY = "terminal.openJobTerminalIn";
 
-/** `side panel` only where Fleet has said so; unread, absent or any other value is docked. */
+/** `side panel` or `window` only where Fleet has said so; unread, absent or any other value is docked. */
 export function jobTerminalPlaceOf(settings: SettingsList | null | undefined): JobTerminalPlace {
-  return settings?.settings.find((one) => one.key === KEY)?.value === "side panel" ? "side panel" : "docked";
+  const value = settings?.settings.find((one) => one.key === KEY)?.value;
+  return value === "side panel" || value === "window" ? value : "docked";
 }
 
 /** Saves the place, as Settings does: the terminal's own toggle, which moves the shell there as well. */
