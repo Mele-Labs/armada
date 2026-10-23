@@ -79,7 +79,9 @@ export function ModRow({ title, kind = "theme", enabled, onEnabled, detail, prom
           {title}
         </Switch>
       </div>
-      {onOpened === undefined ? null : (
+      {onOpened === undefined ? (
+        <span className="armada-mod-row__slot" aria-hidden="true" />
+      ) : (
         <Tooltip label={opened ? "Hide the details" : "Show the details"}>
           <Button
             ref={toggle}

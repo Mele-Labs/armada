@@ -284,7 +284,20 @@ export const wordsOfQuote = (quote: string): string => quote.replace(/^> ?/gm, "
 
 /** What a lesson was taught on, in the words a mod's row says. */
 function taughtOn(teaching: Teaching): string {
-  return teaching.kind === "panel" ? `Panel ${teaching.text}` : TEACH_SOURCE[teaching.kind];
+  const text = teaching.text.split("\n")[0]!.trim();
+  const named = text.length > 60 ? `${text.slice(0, 59)}…` : text;
+  switch (teaching.kind) {
+    case "words":
+      return named;
+    case "panel":
+      return `the ${named} panel`;
+    case "pull_request":
+      return `the pull request ${named}`;
+    case "title_bar":
+      return `the title bar ${named}`;
+    default:
+      return `the ${TEACH_SOURCE[teaching.kind].toLowerCase()} ${named}`;
+  }
 }
 
 /** What a Words mod does, in one line. */
