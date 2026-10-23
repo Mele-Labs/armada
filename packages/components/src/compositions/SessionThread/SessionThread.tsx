@@ -29,8 +29,9 @@ import { SessionRetroRow, type SessionRetroRowData } from "../SessionRetroRow/Se
 import { QuestionDeck } from "./QuestionDeck";
 import { LinkedRow } from "./LinkedRow";
 import { DisputedMark, DisputedRow } from "./DisputedRow";
-import { FleetTurn, NOTICE_CHOICES, NOTICE_NAMES } from "./FleetTurn";
+import { FleetTurn, noticeEntries } from "./FleetTurn";
 import type { TurnReply } from "./FleetTurn";
+import { useTeachMenu } from "../TeachPanel/TeachMenu";
 import { MovedRow } from "./MovedRow";
 import { StartedRow } from "./StartedRow";
 import { WaiterRow } from "./WaiterRow";
@@ -61,6 +62,9 @@ import type { ComposerTag } from "../SessionComposer/InlineTag";
 export type SessionNotice = "behind_base";
 export type NoticeChoice = "job" | "repo" | "hour";
 
+/** What Teach was pressed on in a row: a tool call, a Fleet notice, or a Check. `at` is when the row was written. */
+export type TeachPick = { kind: "command" | "notice" | "check"; text: string; at?: string };
+
 type SessionThreadKinds =
   | {
       id: string;
@@ -86,6 +90,8 @@ type SessionThreadKinds =
       text: string;
       /** The Fleet notice this message was sent for. Where `onMuteNotice` is given, a right press on it offers to turn it off. */
       notice?: SessionNotice;
+      /** Several notices Fleet held and sent as one: what the person taught Fleet to batch, named. Each line of `text` is one notice. */
+      batch?: string;
     }
   /** Words typed in Helm's box that went to a Session and never to Helm: Helm's own thread has these, a Session's does not. */
   | {
@@ -321,6 +327,11 @@ export type SessionThreadProps = {
    */
   /** Turns a Fleet notice off. Absent, a notice draws as any message and has no menu. */
   onMuteNotice?: (notice: SessionNotice, choice: NoticeChoice) => void;
+  /**
+   * Teaches Armada about a tool call, a Fleet notice or a Check: a right press on its row, the ContextMenu key or Shift+F10 opens a
+   * menu with Teach. Absent where nothing serves it, and those rows have no menu.
+   */
+  onTeachRow?: (pick: TeachPick) => void;
   onForkAt?: (pick: ForkPick) => void;
   /**
    * Replies to the words the person selected in a message: the bar offers it beside Fork. The caller
@@ -451,7 +462,7 @@ function namesOf(rows: readonly { text: string }[]): string[] {
  * **Calls that ran one after another are one row, closed.** It names the tools it holds and draws no
  * count; pressing it shows each call. A lone call is a group of one.
  */
-function Calls({ rows, working, onStop }: { rows: readonly { id: string; text: string; fromPhone?: true }[]; working?: boolean; onStop?: () => void }) {
+function Calls({ rows, working, onStop, onTeach }: { rows: readonly { id: string; at: string; text: string; fromPhone?: true }[]; working?: boolean; onStop?: () => void; onTeach?: (pick: TeachPick) => void }) {
   const names = namesOf(rows);
   return (
     <li className="armada-session-fold armada-session-fold--calls">
@@ -464,19 +475,28 @@ function Calls({ rows, working, onStop }: { rows: readonly { id: string; text: s
         </summary>
         <ol className="armada-session-fold__calls">
           {rows.map((one) => (
-            <li key={one.id} className="armada-session-command">
-              <code className="armada-session-command__text">{one.text}</code>
-              {one.fromPhone === true ? (
-                <Tooltip label="From phone">
-                  <span className="armada-session-command__door">
-                    <Smartphone size={12} strokeWidth={2} aria-hidden />
-                  </span>
-                </Tooltip>
-              ) : null}
-            </li>
+            <Command key={one.id} row={one} {...(onTeach === undefined ? {} : { onTeach })} />
           ))}
         </ol>
       </details>
+    </li>
+  );
+}
+
+/** One call of a group. Where Teach is offered it takes focus, and the menu opens on it. */
+function Command({ row, onTeach }: { row: { id: string; at: string; text: string; fromPhone?: true }; onTeach?: (pick: TeachPick) => void }) {
+  const { on, menu } = useTeachMenu("Command", onTeach === undefined ? undefined : () => onTeach({ kind: "command", text: row.text, at: row.at }));
+  return (
+    <li className="armada-session-command" {...(onTeach === undefined ? {} : { tabIndex: 0 })} {...on}>
+      <code className="armada-session-command__text">{row.text}</code>
+      {row.fromPhone === true ? (
+        <Tooltip label="From phone">
+          <span className="armada-session-command__door">
+            <Smartphone size={12} strokeWidth={2} aria-hidden />
+          </span>
+        </Tooltip>
+      ) : null}
+      {menu}
     </li>
   );
 }
@@ -492,8 +512,9 @@ const checkSaid = (row: CheckRow) => `Check ${row.name}${row.target === undefine
  * Check's name, and draws no count; opened, each run is a line with what it was narrowed to. A lone run
  * is a group of one, drawn as a press with its target beside the name.
  */
-function CheckRuns({ rows, onOpenCheck }: { rows: readonly CheckRow[]; onOpenCheck?: (run: number) => void }) {
+function CheckRuns({ rows, onOpenCheck, onTeach }: { rows: readonly CheckRow[]; onOpenCheck?: (run: number) => void; onTeach?: (pick: TeachPick) => void }) {
   const latest = rows[rows.length - 1]!;
+  const { on, menu } = useTeachMenu("Check", onTeach === undefined ? undefined : () => onTeach({ kind: "check", text: `${latest.name} ${latest.target === undefined ? "" : `${latest.target} `}${latest.state}`.replace(/\s+/g, " ").trim(), at: latest.at }));
   if (rows.length === 1) {
     const inner = (
       <>
@@ -503,19 +524,21 @@ function CheckRuns({ rows, onOpenCheck }: { rows: readonly CheckRow[]; onOpenChe
       </>
     );
     return (
-      <li className="armada-session-fold">
+      <li className="armada-session-fold" {...on}>
         {onOpenCheck === undefined ? (
-          <span className="armada-session-fold__head">{inner}</span>
+          <span className="armada-session-fold__head" {...(onTeach === undefined ? {} : { tabIndex: 0 })}>{inner}</span>
         ) : (
           <button type="button" className="armada-session-fold__head armada-session-fold__head--press" aria-label={checkSaid(latest)} onClick={() => onOpenCheck(latest.run)}>
             {inner}
           </button>
         )}
+        {menu}
       </li>
     );
   }
   return (
-    <li className="armada-session-fold armada-session-fold--checks">
+    <li className="armada-session-fold armada-session-fold--checks" {...on}>
+      {menu}
       <details>
         <summary className="armada-session-fold__head" aria-label={`Check ${latest.name}, latest ${latest.state}`}>
           <ChevronRight size={12} strokeWidth={2} aria-hidden className="armada-session-fold__chevron" />
@@ -672,22 +695,25 @@ function FromSession({
   disputed,
   onOpenSession,
   onMuteNotice,
+  onTeach,
 }: {
   row: Extract<SessionThreadRow, { kind: "message"; from: "session" }>;
   forkable: boolean;
   disputed: boolean;
   onOpenSession: (id: string) => void;
   onMuteNotice?: (notice: SessionNotice, choice: NoticeChoice) => void;
+  onTeach?: (pick: TeachPick) => void;
 }) {
   const { sender, notice } = row;
   const [menu, setMenu] = useState<{ x: number; y: number; row: HTMLElement | null } | undefined>(undefined);
   const muting = notice !== undefined && onMuteNotice !== undefined;
+  const teaching = sender.id === "fleet" && onTeach !== undefined;
   return (
     <li
       className="armada-session-from"
       role="region"
       aria-label={`Message from ${sender.title}`}
-      {...(!muting
+      {...(!muting && !teaching
         ? {}
         : {
             onContextMenu: (event: ReactMouseEvent<HTMLLIElement>) => {
@@ -712,22 +738,20 @@ function FromSession({
       <div className="armada-session-from__body" {...(forkable ? { [FORK_ROW]: row.id } : {})}>
         <Prose text={row.text} />
       </div>
-      {menu === undefined || !muting ? null : (
+      {menu === undefined || (!muting && !teaching) ? null : (
         <DropdownMenu
           triggerLabel="Fleet notice"
           at={{ x: menu.x, y: menu.y }}
           open
-          entries={[
-            { kind: "label" as const, id: "heading", label: `Disable ${NOTICE_NAMES[notice!]}` },
-            ...NOTICE_CHOICES.map(({ id, label }) => ({ kind: "item" as const, id, label })),
-          ]}
+          entries={noticeEntries(notice, muting, teaching)}
           onOpenChange={(open) => {
             if (open) return;
             setMenu(undefined);
             menu.row?.focus();
           }}
           onSelect={(chosen) => {
-            if (notice !== undefined) onMuteNotice?.(notice, chosen as NoticeChoice);
+            if (chosen === "teach") onTeach?.({ kind: "notice", text: row.text, at: row.at });
+            else if (notice !== undefined) onMuteNotice?.(notice, chosen as NoticeChoice);
           }}
         />
       )}
@@ -748,6 +772,7 @@ function Row({
   forkable,
   disputed = false,
   onMuteNotice,
+  onTeach,
 }: {
   row: Exclude<SessionThreadRow, { kind: "tool" | "check" }>;
   onRetry?: (rowId: string) => void;
@@ -755,6 +780,7 @@ function Row({
   /** A later row disputes this one, so Fleet's card draws the Disputed mark. */
   disputed?: boolean;
   onMuteNotice?: (notice: SessionNotice, choice: NoticeChoice) => void;
+  onTeach?: (pick: TeachPick) => void;
   onOpenSession: (id: string) => void;
   onOpenWindow?: (url: string) => void;
   onOpenSketch?: (sketch: string) => void;
@@ -954,7 +980,7 @@ function Row({
     );
   }
   if (row.from === "session") {
-    return <FromSession row={row} forkable={forkable} disputed={disputed} onOpenSession={onOpenSession} {...(onMuteNotice === undefined ? {} : { onMuteNotice })} />;
+    return <FromSession row={row} forkable={forkable} disputed={disputed} onOpenSession={onOpenSession} {...(onMuteNotice === undefined ? {} : { onMuteNotice })} {...(onTeach === undefined ? {} : { onTeach })} />;
   }
   if (row.from === "you") {
     const act = actOf(row.text);
@@ -1466,7 +1492,7 @@ export function AskCards({ asked, askRef, onAnswer, lapsed, flat, keep }: Pick<S
   );
 }
 
-export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer, lapsed, waitingOnYou, workingOn, onOpenSession, onOpenWindow, onOpenSketch, onOpenFile, onOpenCheck, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt, onReplyAt, onTeachAt, onMuteNotice, lead, trailing, transcript }: SessionThreadProps) {
+export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer, lapsed, waitingOnYou, workingOn, onOpenSession, onOpenWindow, onOpenSketch, onOpenFile, onOpenCheck, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt, onReplyAt, onTeachAt, onTeachRow, onMuteNotice, lead, trailing, transcript }: SessionThreadProps) {
   const whole = useRef<HTMLDivElement>(null);
   useCopyOnSelect(whole);
   const slash = useMemo(() => (onCommand === undefined ? null : { send: onCommand, names: new Set(commandNames ?? []) }), [onCommand, commandNames]);
@@ -1562,13 +1588,13 @@ export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer
           )}
           {items.flatMap((item, at) => [
             item.kind === "calls" ? (
-              <Calls key={item.id} rows={item.rows} working={working === true && at === items.length - 1} {...(onStop === undefined ? {} : { onStop })} />
+              <Calls key={item.id} rows={item.rows} working={working === true && at === items.length - 1} {...(onStop === undefined ? {} : { onStop })} {...(onTeachRow === undefined ? {} : { onTeach: onTeachRow })} />
             ) : item.kind === "fleetTurn" ? (
-              <FleetTurn key={item.id} notice={item.notice} reply={item.reply} handled={item.handled}{...(onMuteNotice === undefined ? {} : { onMuteNotice })} />
+              <FleetTurn key={item.id} notice={item.notice} reply={item.reply} handled={item.handled}{...(onMuteNotice === undefined ? {} : { onMuteNotice })} {...(onTeachRow === undefined ? {} : { onTeach: onTeachRow })} />
             ) : item.kind === "checks" ? (
-              <CheckRuns key={item.id} rows={item.rows} {...(onOpenCheck === undefined ? {} : { onOpenCheck })} />
+              <CheckRuns key={item.id} rows={item.rows} {...(onOpenCheck === undefined ? {} : { onOpenCheck })} {...(onTeachRow === undefined ? {} : { onTeach: onTeachRow })} />
             ) : (
-              <Row key={"stableKey" in item.row && item.row.stableKey !== undefined ? item.row.stableKey : item.row.id} row={item.row} {...(onRetry === undefined ? {} : { onRetry })} onOpenSession={onOpenSession} onOpenWindow={onOpenWindow} onOpenSketch={onOpenSketch} {...(onOpenFile === undefined ? {} : { onOpenFile })} onOpenRetro={onOpenRetro} onOpenSent={onOpenSent} forkable={onForkAt !== undefined || onReplyAt !== undefined || onTeachAt !== undefined} disputed={disputes.has(item.row.id)} {...(onMuteNotice === undefined ? {} : { onMuteNotice })} {...(agentName === undefined ? {} : { agentName })} />
+              <Row key={"stableKey" in item.row && item.row.stableKey !== undefined ? item.row.stableKey : item.row.id} row={item.row} {...(onRetry === undefined ? {} : { onRetry })} onOpenSession={onOpenSession} onOpenWindow={onOpenWindow} onOpenSketch={onOpenSketch} {...(onOpenFile === undefined ? {} : { onOpenFile })} onOpenRetro={onOpenRetro} onOpenSent={onOpenSent} forkable={onForkAt !== undefined || onReplyAt !== undefined || onTeachAt !== undefined} disputed={disputes.has(item.row.id)} {...(onMuteNotice === undefined ? {} : { onMuteNotice })} {...(onTeachRow === undefined ? {} : { onTeach: onTeachRow })} {...(agentName === undefined ? {} : { agentName })} />
             ),
             approval?.approved === true && item.kind === "row" && item.row.id === approval.after ? <li key="plan-approved" className="armada-session-thread__record"><PlanCard approval={approval} /></li> : null,
           ])}

@@ -17,6 +17,8 @@ export type LogbookProps = {
   onLock: (id: string, locked: boolean) => Promise<LogbookAnswer>;
   onForget: (id: string) => Promise<LogbookForgotten>;
   onOpenJob?: (jobId: string) => void;
+  /** What else an entry changed, drawn under its text. */
+  also?: (entry: LogbookEntry) => ReactNode;
   /** Armada fixes, the retro items, drawn below the entries. */
   fixes?: ReactNode;
   /** Changes when something asks for Armada fixes. */
@@ -26,7 +28,7 @@ export type LogbookProps = {
 /** What the page holds: the entries once read, or that the read failed. */
 type Held = { state: "reading" } | { state: "read"; entries: LogbookEntry[] } | { state: "unread" };
 
-export function Logbook({ onRead, onEdit, onLock, onForget, onOpenJob, fixes, toFixes }: LogbookProps) {
+export function Logbook({ onRead, onEdit, onLock, onForget, onOpenJob, also, fixes, toFixes }: LogbookProps) {
   const [held, setHeld] = useState<Held>({ state: "reading" });
   const [unhanded, setUnhanded] = useState(false);
   const [selected, setSelected] = useState<string>();
@@ -83,6 +85,7 @@ export function Logbook({ onRead, onEdit, onLock, onForget, onOpenJob, fixes, to
         })
       }
       {...(onOpenJob === undefined ? {} : { onOpenJob })}
+      {...(also === undefined ? {} : { also })}
       now={Date.now()}
     />
   );

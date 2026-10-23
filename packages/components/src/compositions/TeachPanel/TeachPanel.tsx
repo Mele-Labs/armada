@@ -10,18 +10,42 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 /** Where a lesson applies: the repository the Session is in, or all of them. */
 export type TeachReach = "repository" | "all";
 
+/** What Teach was pressed on. */
+export type TeachSourceKind = "words" | "command" | "notice" | "task" | "check" | "pull_request";
+
+/** The name of each, as the panel's first section captions it. */
+export const TEACH_SOURCE: Record<TeachSourceKind, string> = {
+  words: "Words",
+  command: "Command",
+  notice: "Notice",
+  task: "Task",
+  check: "Check",
+  pull_request: "Pull request",
+};
+
 /**
- * What Fleet understood of the person's words. **Either part, or both**: a link rule makes matching words links in every
- * Session, an agent note goes to agents. `address` writes `{match}` where the matched words go.
+ * What Fleet understood of the person's words. **Any of the three, and only those that apply**: `agents` is the note
+ * agents are handed, `bridge` is how Bridge draws words that match a pattern, `fleet` is what Fleet does with a notice.
+ * Every string is drawn as it is given.
  */
 export type TeachReading = {
-  link?: { example: string; address: string };
-  note?: string;
+  agents?: string;
+  bridge?: {
+    /** What the pattern finds, as the person would name it. */
+    name: string;
+    pattern: string;
+    /** One thing the pattern found, and the address it goes to in this repository. Absent while none is found. */
+    example: string;
+    address?: string;
+    /** Where the address came from. */
+    found?: string;
+  };
+  fleet?: { notice: string; does: string; scope: string };
 };
 
 export type TeachPanelProps = {
-  /** The words selected in the message, as they stand there. */
-  words: string;
+  /** What Teach was pressed on, and its text as it stands there. */
+  source: { kind: TeachSourceKind; text: string };
   /** What the person said they are and what Armada should do. */
   say: string;
   onSay: (say: string) => void;
@@ -31,22 +55,22 @@ export type TeachPanelProps = {
   repository: string;
   reach: TeachReach;
   onReach: (reach: TeachReach) => void;
-  /** `writing`: the words and the box. `reading`: Fleet is reading them. `shown`: what it understood, to save or change. */
+  /** `writing`: the source and the box. `reading`: Fleet is reading them. `shown`: what it understood, to save or change. */
   stage: "writing" | "reading" | "shown";
   /** What Fleet understood. Drawn in `shown`. */
   reading?: TeachReading | undefined;
   onTeach: () => void;
-  /** Back to the box, with the words kept. */
+  /** Back to the box, with the source kept. */
   onChange: () => void;
   onSave: () => void;
 };
 
 /**
- * The body of the panel Teach opens: the selected words, a box for what to do with them, and the reach. **Armada shows
- * back what it understood before it keeps anything**: the link rule as an example and its address, the note agents will
- * be given, and Change or Save. ⌘↵ is the forward key in both steps; the stage's one primary button wears it.
+ * The body of the panel Teach opens: what it was pressed on, a box for what to do about it, and the reach. **Armada shows
+ * back what it understood before it keeps anything**, in a section for each of Agents, Bridge and Fleet that the teaching
+ * changes, then Change or Save. ⌘↵ is the forward key in both steps; the stage's one primary button wears it.
  */
-export function TeachPanel({ words, say, onSay, keep, repository, reach, onReach, stage, reading, onTeach, onChange, onSave }: TeachPanelProps) {
+export function TeachPanel({ source, say, onSay, keep, repository, reach, onReach, stage, reading, onTeach, onChange, onSave }: TeachPanelProps) {
   const body = useRef<HTMLDivElement>(null);
   // A sheet puts focus on its close as it opens. The box, or the stage's forward button, takes it a beat later.
   useEffect(() => {
@@ -61,11 +85,12 @@ export function TeachPanel({ words, say, onSay, keep, repository, reach, onReach
     else if (stage === "shown") onSave();
   };
   const everywhere = reach === "all";
+  const caption = TEACH_SOURCE[source.kind];
   return (
     <div className="armada-teach-panel" ref={body} onKeyDown={forward}>
-      <section className="armada-teach-panel__section" aria-label="Words">
-        <h4 className="armada-teach-panel__caption">Words</h4>
-        <p className="armada-teach-panel__words mono">{words}</p>
+      <section className="armada-teach-panel__section" aria-label={caption}>
+        <h4 className="armada-teach-panel__caption">{caption}</h4>
+        <p className={`armada-teach-panel__words${source.kind === "words" || source.kind === "notice" || source.kind === "task" ? "" : " mono"}`}>{source.text}</p>
       </section>
 
       {stage === "writing" ? (
@@ -104,19 +129,39 @@ export function TeachPanel({ words, say, onSay, keep, repository, reach, onReach
 
       {stage === "shown" ? (
         <>
-          {reading?.link === undefined ? null : (
-            <section className="armada-teach-panel__section" aria-label="Link">
-              <h4 className="armada-teach-panel__caption">Link</h4>
-              <p className="armada-teach-panel__rule">
-                <span className="mono">{reading.link.example}</span>
-                <span className="armada-teach-panel__address mono">{reading.link.address.replaceAll("{match}", reading.link.example)}</span>
-              </p>
-            </section>
-          )}
-          {reading?.note === undefined ? null : (
+          {reading?.agents === undefined ? null : (
             <section className="armada-teach-panel__section" aria-label="Agents">
               <h4 className="armada-teach-panel__caption">Agents</h4>
-              <p className="armada-teach-panel__said">{reading.note}</p>
+              <p className="armada-teach-panel__said">{reading.agents}</p>
+            </section>
+          )}
+          {reading?.bridge === undefined ? null : (
+            <section className="armada-teach-panel__section" aria-label="Bridge">
+              <h4 className="armada-teach-panel__caption">Bridge</h4>
+              <dl className="armada-teach-panel__facts">
+                <dt>{reading.bridge.name}</dt>
+                <dd className="mono">{reading.bridge.pattern}</dd>
+                {reading.bridge.address === undefined ? null : (
+                  <>
+                    <dt className="mono">{reading.bridge.example}</dt>
+                    <dd className="mono">{reading.bridge.address}</dd>
+                    {reading.bridge.found === undefined ? null : <dd className="armada-teach-panel__found">{reading.bridge.found}</dd>}
+                  </>
+                )}
+              </dl>
+            </section>
+          )}
+          {reading?.fleet === undefined ? null : (
+            <section className="armada-teach-panel__section" aria-label="Fleet">
+              <h4 className="armada-teach-panel__caption">Fleet</h4>
+              <dl className="armada-teach-panel__facts">
+                <dt>Notice</dt>
+                <dd>{reading.fleet.notice}</dd>
+                <dt>Does</dt>
+                <dd>{reading.fleet.does}</dd>
+                <dt>Applies to</dt>
+                <dd>{reading.fleet.scope}</dd>
+              </dl>
             </section>
           )}
           <div className="armada-teach-panel__acts">

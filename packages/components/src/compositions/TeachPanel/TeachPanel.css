@@ -1,4 +1,4 @@
-/* The body of the Teach panel: the selected words, the instruction, the reach, then what was understood. */
+/* The body of the Teach panel: what it was pressed on, the instruction, the reach, then what was understood. */
 .armada-teach-panel {
   display: flex;
   flex-direction: column;
@@ -22,7 +22,7 @@
   text-transform: uppercase;
 }
 
-/* The words as they stand in the message: a well, not a second message. */
+/* The source as it stands where Teach was pressed: a well, not a second message. */
 .armada-teach-panel__words {
   margin: 0;
   padding: var(--space-2) var(--space-3);
@@ -45,11 +45,11 @@
   white-space: pre-wrap;
 }
 
-/* An example and where it goes, the address under the words. */
-.armada-teach-panel__rule {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
+/* What Fleet understood, a name and its value to a row. */
+.armada-teach-panel__facts {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--space-1) var(--space-4);
   margin: 0;
   color: var(--fg-default);
   font-size: var(--text-sm);
@@ -57,7 +57,17 @@
   overflow-wrap: anywhere;
 }
 
-.armada-teach-panel__address {
+.armada-teach-panel__facts > dt {
+  color: var(--fg-muted);
+}
+
+.armada-teach-panel__facts > dd {
+  margin: 0;
+  min-width: 0;
+}
+
+.armada-teach-panel__facts > .armada-teach-panel__found {
+  grid-column: 2;
   color: var(--fg-muted);
 }
 

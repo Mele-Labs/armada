@@ -16,9 +16,10 @@ export type RefWorld = {
   files?: readonly string[];
   /**
    * Words the person taught Armada to draw as a link: `pattern` is a regular expression, and `address` is where a match goes, with
-   * `{match}` standing for the words matched. A pattern that is no regular expression finds nothing.
+   * `{match}` standing for the words matched. `from` says where the address was found, and is what the link's tooltip leads with.
+   * A pattern that is no regular expression finds nothing.
    */
-  links?: readonly { pattern: string; address: string }[];
+  links?: readonly { pattern: string; address: string; from?: string }[];
 };
 
 export type RefSpan = { from: number; to: number; ref: ProseReference };
@@ -80,7 +81,7 @@ export function refScanner(world: RefWorld): (text: string) => RefSpan[] {
   const files = new Set(world.files);
   const links = (world.links ?? []).flatMap((rule) => {
     try {
-      return [{ pattern: new RegExp(rule.pattern, "g"), address: rule.address }];
+      return [{ pattern: new RegExp(rule.pattern, "g"), address: rule.address, from: rule.from }];
     } catch {
       return [];
     }
@@ -104,7 +105,7 @@ function scan(
   text: string,
   world: RefWorld,
   sessions: readonly { ref: ProseReference; needles: readonly { needle: string; pattern: RegExp }[] }[],
-  links: readonly { pattern: RegExp; address: string }[],
+  links: readonly { pattern: RegExp; address: string; from: string | undefined }[],
 ): RefSpan[] {
   const found: RefSpan[] = [];
   const local = (number: string) => world.numbered.find((it) => it.number === number);
@@ -136,7 +137,7 @@ function scan(
     for (const one of text.matchAll(rule.pattern)) {
       if (one[0] === "") continue;
       const address = rule.address.replaceAll("{match}", encodeURIComponent(one[0]));
-      found.push({ from: one.index, to: one.index + one[0].length, ref: { kind: "link", id: address, title: address } });
+      found.push({ from: one.index, to: one.index + one[0].length, ref: { kind: "link", id: address, title: rule.from ?? address } });
     }
   const kept: RefSpan[] = [];
   for (const one of found.sort((a, b) => b.to - b.from - (a.to - a.from) || a.from - b.from)) {

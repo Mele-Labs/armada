@@ -349,7 +349,7 @@
 @import "./compositions/StartedBy/StartedBy.css";
 @import "./compositions/ForkFromSelection/ForkFromSelection.css";
 @import "./compositions/TeachPanel/TeachPanel.css";
-@import "./compositions/TaughtLinkRow/TaughtLinkRow.css";
+@import "./compositions/AlsoChanges/AlsoChanges.css";
 @import "./compositions/SessionLedger/SessionLedger.css";
 @import "./compositions/LinkedSession/LinkedSession.css";
 @import "./compositions/StepsPanel/StepsPanel.css";
