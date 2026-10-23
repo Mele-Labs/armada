@@ -186,7 +186,7 @@ async fn the_account_is_kept_through_the_end_of_a_turn_and_a_notice_and_goes_wit
     assert_eq!(kept.now.as_deref(), Some("Writing the rest"));
 
     // A turn Fleet's own notice begins is not his message.
-    assert!(rig.fleet.told_by_fleet(id.as_str(), "Commit and push slot 3.").await.expect("told"));
+    assert!(rig.fleet.told_by_fleet(id.as_str(), "Commit and push slot 3.", ipc::Notice::SlotStranded).await.expect("told"));
     rig.stand_in.init(0);
     eventually(|| async { runtime.state().turn_began.is_some() }).await;
     assert!(account(&rig, &id).await.is_some(), "a notice's turn leaves it");

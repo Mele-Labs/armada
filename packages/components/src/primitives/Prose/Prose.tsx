@@ -58,17 +58,18 @@ function isWalkLink(address: string): boolean {
 
 /**
  * Something in the words that Bridge itself can open: a pull request or an issue by its number, a
- * Session, a file in the Job's checkout by its path. **A thing the host found, never one the text claims**: `scan` is the host's and reads its own state,
+ * Session, a file in the Job's checkout by its path, or a web address the person taught Armada to draw words as (`link`,
+ * whose `id` is the address). **A thing the host found, never one the text claims**: `scan` is the host's and reads its own state,
  * so a number that names nothing it holds stays plain text.
  */
 export type ProseReference = {
-  kind: "pull_request" | "issue" | "session" | "file";
+  kind: "pull_request" | "issue" | "session" | "file" | "link";
   id: string;
   title: string;
 };
 
 /** What each kind is called, in the tooltip that leads a reference's title. */
-export const REFERENCE_KIND: Record<ProseReference["kind"], string> = { pull_request: "Pull request", issue: "Issue", session: "Job", file: "File" };
+export const REFERENCE_KIND: Record<ProseReference["kind"], string> = { pull_request: "Pull request", issue: "Issue", session: "Job", file: "File", link: "Link" };
 
 /**
  * Where a reference is found and where it goes. Provided by the one surface that wants its words linked,

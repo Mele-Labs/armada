@@ -19,3 +19,10 @@
   size = "12 and 16px"
   status = "Proposed"
   notes = "Proposed 22 Oct 2026 for the walk `watching`, from docs/design/fleet-watches-ci-and-deploys-for-a-job.md, which names `radar` for a watch because `eye` is reserved to Review. Drawn as a Job's state mark on its Cockpit row and its header, tooltip `Held open by <watch name>`, while its turn has ended, nothing waits on the person and a live watch is all that keeps it open. A sweep that keeps looking is what a watch does, as it is what a Monitor does; the reservation's Check, Judge, live Drone and search are none of these."
+
+[[icons.radar.usage]]
+  means = "The Field panel, as an entry in the layout's Cockpit panels"
+  group = "Layout"
+  size = "16px"
+  status = "Proposed"
+  notes = "Proposed 23 Oct 2026 for the walk `teach-mods`, drawn in Settings, Layout beside the other panels. The Field is the map of the repository a Job flies over. Borrowed and not minted: the owner may rule otherwise."

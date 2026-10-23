@@ -18,6 +18,8 @@ export type LogbookProps = {
   onLock: (id: string, locked: boolean) => Promise<LogbookAnswer>;
   onForget: (id: string) => Promise<LogbookForgotten>;
   onOpenJob?: (jobId: string) => void;
+  /** What else an entry changed, drawn under its text. */
+  also?: (entry: LogbookEntry) => ReactNode;
   /** Armada fixes, the retro items, drawn below the entries. */
   fixes?: ReactNode;
   /** Changes when something asks for Armada fixes. */
@@ -30,7 +32,7 @@ type Held = { state: "reading" } | { state: "read"; entries: LogbookEntry[] } | 
 /** Fleet's refusal of the last act, and the entry it was on. */
 type Refused = { id: string; title: string; said: string };
 
-export function Logbook({ onRead, onEdit, onLock, onForget, onOpenJob, fixes, toFixes }: LogbookProps) {
+export function Logbook({ onRead, onEdit, onLock, onForget, onOpenJob, also, fixes, toFixes }: LogbookProps) {
   const [held, setHeld] = useState<Held>({ state: "reading" });
   const [shown, setShown] = useState<LogbookState>("standing");
   const [selected, setSelected] = useState<string>();
@@ -102,6 +104,7 @@ export function Logbook({ onRead, onEdit, onLock, onForget, onOpenJob, fixes, to
         });
       }}
       {...(onOpenJob === undefined ? {} : { onOpenJob })}
+      {...(also === undefined ? {} : { also })}
       now={Date.now()}
     />
   );

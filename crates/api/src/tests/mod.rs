@@ -34,6 +34,7 @@ mod limits;
 mod pull_requests;
 mod settings;
 mod logbook;
+mod teaching;
 mod preferences;
 mod reconciling;
 mod retros;

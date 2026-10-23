@@ -10,7 +10,7 @@ import type { KitKindId, KitPiecesProps, KitRef, KitSetupRead } from "@armada/co
 import type { ModelChoices, SettingsList } from "@armada/protocol";
 import { said } from "@armada/screens/src/copy";
 import { addressReads, addressTyped, useKit, type KitSlice } from "@armada/screens/src/manifest-kit";
-import { ModList, SETTINGS_SECTIONS, SettingsFile, SettingsSectionsView, useThemes } from "@armada/settings";
+import { ModList, SETTINGS_SECTIONS, SettingsFile, SettingsSectionsView, taughtOf, useTaught, useThemes } from "@armada/settings";
 import { Boundary, useLayouts, type BoundaryProps } from "@armada/shell";
 
 import { entryOf, entryOfKind, foundBy, SYSTEM_ENTRIES, SYSTEM_GROUPS, type SystemEntryDef } from "./system-entries";
@@ -88,7 +88,10 @@ export function SystemSurface({ repository, settings, modelChoices, live, guarde
   };
 
   const found = new Map(SYSTEM_ENTRIES.map((one) => [one.id, foundBy(one, query, names, settings)] as const));
-  const visible = SYSTEM_ENTRIES.filter((one) => found.get(one.id) !== null);
+  // Words and Fleet are listed once a teaching has made a mod of that kind, and not before.
+  const taught = useTaught();
+  const made = (id: string) => (id === "bridge:words" ? taughtOf(taught, "words").length > 0 : id === "bridge:fleet" ? taughtOf(taught, "fleet").length > 0 : true);
+  const visible = SYSTEM_ENTRIES.filter((one) => found.get(one.id) !== null && made(one.id));
   // A search that hides the entry last picked draws the first it found, without forgetting the pick.
   const shown: SystemEntryDef | undefined = visible.find((one) => one.id === entry) ?? visible[0];
   const narrow = shown !== undefined && found.get(shown.id) === "items" ? query : "";
@@ -138,7 +141,15 @@ export function SystemSurface({ repository, settings, modelChoices, live, guarde
         onOpenAccount={onOpenAccount}
         onReadGuides={onReadGuides}
         {...(guarded.onCopied === undefined ? {} : { onCopied: guarded.onCopied })}
-        under={{ theme: <ModList kind="theme" onOpenPull={openPull} onOpenJob={askToOpenSession} />, layout: <ModList kind="layout" onOpenPull={openPull} onOpenJob={askToOpenSession} /> }}
+        under={{
+          theme: (
+            <>
+              <ModList kind="theme" onOpenPull={openPull} onOpenJob={askToOpenSession} />
+              <ModList kind="tweak" title="Tweaks" />
+            </>
+          ),
+          layout: <ModList kind="layout" onOpenPull={openPull} onOpenJob={askToOpenSession} />,
+        }}
       />
       {def.id === "bridge:guides" ? <div className="armada-system__catalogue">{guides}</div> : null}
     </div>

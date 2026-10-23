@@ -5,13 +5,15 @@
 
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Duration;
 
 use api::{HostedSessions as _, Clashing as _, Sessions as _};
 use core_model::Timestamp;
-use ipc::{SessionFact, SessionId, SessionOrigin, SessionReport, TakeHeld};
+use ipc::{ManifestId, SessionFact, SessionId, SessionOrigin, SessionReport, SessionRow, StartSession, TakeHeld};
 use testkit::{FakeHarness, FakeVcs, FakeWorkProduct};
 
 use super::daemon::fittings;
+use super::session_host::{Shared, StandIn};
 use super::slot_leases::{lease_record, By};
 use super::tmp::TempDir;
 use crate::clashing::{Opposed, Side, Who, Writes};
@@ -30,6 +32,18 @@ struct Rig {
 }
 
 fn a_rig() -> Rig {
+    let (home, fleet) = a_repository();
+    Rig { fleet: Arc::new(fleet), home }
+}
+
+/// [`a_rig`] where Fleet hosts the Sessions it starts.
+fn a_hosted_rig() -> Rig {
+    let (home, fleet) = a_repository();
+    let hosted = fleet.hosting_sessions_on(Arc::new(Shared(Arc::new(StandIn::default()))), Duration::from_secs(600));
+    Rig { fleet: Arc::new(hosted), home }
+}
+
+fn a_repository() -> (TempDir, Hosted) {
     let home = TempDir::new();
     git(home.path(), &["-c", "init.defaultBranch=main", "init", "--quiet"]);
     std::fs::write(home.path().join("f.txt"), twenty_lines()).unwrap();
@@ -38,10 +52,7 @@ fn a_rig() -> Rig {
     git(home.path(), &["commit", "--quiet", "-m", "start"]);
     let mut fittings = fittings(&home, FakeWorkProduct::changed(&["src/log.rs"]));
     fittings.concurrency = Concurrency::of(2);
-    Rig {
-        fleet: Arc::new(Fleet::assembled(fittings)),
-        home,
-    }
+    (home, Fleet::assembled(fittings))
 }
 
 impl Rig {
@@ -68,6 +79,47 @@ impl Rig {
         })
         .await;
         assert!(self.the_mod_asks(id).await.is_empty(), "now it is listening");
+    }
+
+    /// A hosted Session standing in a new slot, which has written `file`.
+    async fn a_hosted_session_in_slot(&self, n: u32, file: &str, line: usize, to: &str) -> String {
+        let at = self.slot(n);
+        git(
+            self.home.path(),
+            &["worktree", "add", "--quiet", "-b", &format!("branch-{n}"), &at.to_string_lossy()],
+        );
+        let root = self.fleet.repositories().first().expect("served").root().to_string();
+        let manifest = self.fleet.repositories().first().expect("served").manifest().id().as_str().to_string();
+        let id = Arc::clone(&self.fleet)
+            .start_session(StartSession {
+                manifest_id: ManifestId::carried(manifest),
+                title: None,
+                model: None,
+                effort: None,
+                mode: None,
+                root: None,
+                fork: None,
+                request: None,
+                after: None,
+            })
+            .await
+            .expect("started")
+            .id
+            .as_str()
+            .to_string();
+        lease_record(&root, n, &format!("branch-{n}"), By::Session(&id));
+        self.writes(&id, n, file, line, to).await;
+        id
+    }
+
+    async fn notices_of(&self, id: &str) -> Vec<Option<String>> {
+        let rows = Arc::clone(&self.fleet).get_session(SessionId::carried(id)).await.unwrap().rows;
+        rows.into_iter()
+            .filter_map(|row| match row {
+                SessionRow::Message { notice, .. } => Some(notice),
+                _ => None,
+            })
+            .collect()
     }
 
     async fn report(&self, id: &str, fact: SessionFact) {
@@ -160,6 +212,19 @@ async fn the_same_lines_are_named_to_both_sides_once_and_again_only_when_the_fil
     let again = rig.the_mod_asks("sess-a").await;
     let [said] = again.as_slice() else { panic!("told again: {again:?}") };
     assert!(said.contains("`f.txt`") && said.contains("`g.txt`"), "{said}");
+}
+
+/// **The clash a hosted Session is told is a write clash on its thread**, so a person can name it.
+#[tokio::test]
+async fn a_clash_told_to_a_hosted_session_carries_its_kind() {
+    let rig = a_hosted_rig();
+    let one = rig.a_hosted_session_in_slot(1, "f.txt", 5, "a").await;
+    let other = rig.a_hosted_session_in_slot(2, "f.txt", 5, "b").await;
+
+    rig.checks(&one, &other).await;
+
+    assert_eq!(rig.notices_of(&one).await, vec![Some(String::from("write_clash"))]);
+    assert_eq!(rig.notices_of(&other).await, vec![Some(String::from("write_clash"))]);
 }
 
 #[tokio::test]

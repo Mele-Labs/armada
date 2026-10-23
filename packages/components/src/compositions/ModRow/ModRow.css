@@ -1,9 +1,9 @@
-/* One mod: its kind, a switch that takes the width, then the home's mark, its act and Promote, one control wide each.
- * Every cell is kept where a mod lacks it, so the switches and controls line up down a list. The head sits on one
- * centre line; what Promote opened is a row of its own under it, so it never moves the controls. */
+/* One mod: its kind, a switch that takes the width, then a slot for Details, the home's mark, its act and Promote, each one
+ * control wide. Every cell is kept where a mod lacks it, so the switches and controls line up down a list. The head sits on one
+ * centre line; what Promote opened and what an opened mod holds are rows of their own under it, so they never move the controls. */
 .armada-mod-row {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) var(--h-control) var(--h-control) var(--h-control);
+  grid-template-columns: auto minmax(0, 1fr) var(--h-control) var(--h-control) var(--h-control) var(--h-control);
   align-items: center;
   column-gap: var(--space-3);
   min-width: 0;
@@ -20,6 +20,12 @@
   align-items: center;
 }
 
+/* Details' slot when the mod has none. */
+.armada-mod-row__slot {
+  grid-column: 3;
+}
+
+
 .armada-mod-row__kind {
   display: inline-flex;
   color: var(--fg-muted);
@@ -29,13 +35,19 @@
   min-width: 0;
 }
 
+/* What an opened mod holds takes its own line under the row. */
+.armada-mod-row__held {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
 /* A mod only the shared home has: its name, with no switch to draw it beside. */
 .armada-mod-row__title {
   color: var(--fg-default);
 }
 
 /* What Promote opened: the pull request, then the Job holding it, under the switch. */
-.armada-mod-row__held {
+.armada-mod-row__promoted {
   grid-column: 2 / -1;
   display: flex;
   flex-direction: column;

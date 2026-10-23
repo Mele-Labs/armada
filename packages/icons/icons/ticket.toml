@@ -19,3 +19,10 @@
   size = "16px"
   status = "Proposed"
   notes = "Proposed 17 Oct 2026 for the walk `field-outposts`, for the owner to rule on. The registry already draws an issue as `ticket`, so the place issues are kept is a ticket too."
+
+[[icons.ticket.usage]]
+  means = "A tracker mod in the Mods list, the kind an issue tracker Armada was not built for is taught by"
+  group = "Mods"
+  size = "16px"
+  status = "Specified"
+  notes = "Added 23 Oct 2026 with tracker mods in the list of every mod. The registry already draws an issue as `ticket`, so the tracker that keeps issues is a ticket too, beside `palette`, `eclipse`, `panels-top-left`, `link` and `bell` for the other kinds. Tooltip: Tracker."

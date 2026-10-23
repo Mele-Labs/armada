@@ -70,6 +70,7 @@ fn note(id: &SessionId, label: &str, stamp: Option<&str>) -> SendSessionNote {
             scenario: Some("usage".to_string()),
         },
         crop: Some(NoteCrop { media_type: "image/png".to_string(), data: "aGVsbG8=".to_string() }),
+        job: Vec::new(),
     } }
 }
 
@@ -111,6 +112,26 @@ async fn a_note_hands_the_session_its_lines_and_the_thread_keeps_only_the_words(
         matches!(&rows[..], [SessionRow::Message { text, .. }] if text == SAID),
         "the thread keeps the words alone: {rows:#?}"
     );
+}
+
+#[tokio::test]
+async fn a_notes_job_lines_come_after_his_words_as_background_and_before_the_handoff() {
+    let rig = rig_fitted(|_| {});
+    a_repository(&rig);
+    let id = rig.start().await;
+    let mut sent = note(&id, "Other commands, 16.1% of the burn", None);
+    sent.note.job = vec!["Job: Fix the flaky store test (01OPEN)".to_string(), "State: working".to_string()];
+
+    Arc::clone(&rig.fleet).send_session_note(sent).await.expect("taken");
+
+    let turn = turn_of(&rig).await;
+    let at = |wanted: &str| turn.find(wanted).unwrap_or_else(|| panic!("the turn carries {wanted}: {turn}"));
+    let order = [
+        at("this row should say which commands"),
+        at("Background, not the task: the Job he had open when he pinned this\\nJob: Fix the flaky store test (01OPEN)\\nState: working"),
+        at("Handoff: deliver the way the owner chose"),
+    ];
+    assert!(order.windows(2).all(|pair| pair[0] < pair[1]), "his words, then the Job, then the handoff: {turn}");
 }
 
 #[tokio::test]

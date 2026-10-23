@@ -62,10 +62,13 @@ pub(crate) fn folded(items: Vec<WaitingItem>, vector: impl Fn(&str) -> Option<Ve
     order.sort_by(|&a, &b| precedence(&items[a]).cmp(&precedence(&items[b])).then_with(|| items[a].since.as_str().cmp(items[b].since.as_str())));
     let mut kept: Vec<usize> = Vec::with_capacity(items.len());
     for at_item in order {
-        let folds = match &vectors[at_item] {
-            Some(own) => kept.iter().any(|&other| vectors[other].as_ref().is_some_and(|theirs| cosine(own, theirs) >= at)),
-            None => false,
-        };
+        // One command listed twice is one ask whatever each says around it.
+        let same_act = |other: usize| items[at_item].act.as_ref().is_some_and(|own| items[other].act.as_ref().is_some_and(|theirs| own.kind == theirs.kind && own.target == theirs.target && !own.target.is_empty()));
+        let folds = kept.iter().any(|&other| same_act(other))
+            || match &vectors[at_item] {
+                Some(own) => kept.iter().any(|&other| vectors[other].as_ref().is_some_and(|theirs| cosine(own, theirs) >= at)),
+                None => false,
+            };
         if !folds {
             kept.push(at_item);
         }

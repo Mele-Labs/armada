@@ -32,6 +32,8 @@ export type SessionNote = {
   place: NotePlace;
   state: NoteState;
   crop?: NoteCrop;
+  /** What Bridge held about the Job open when he pinned the note, as labelled lines. Background, never the task: Fleet puts them after his words. */
+  job?: string[];
 };
 
 /** Where the person pointed. */

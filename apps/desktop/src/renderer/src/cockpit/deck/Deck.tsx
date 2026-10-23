@@ -260,7 +260,7 @@ function List({ subjects, calling, banding, selected, builds, picked, found, onP
     const here = selected === one.key || (one.earlier !== undefined && selected === `session:${one.earlier}`);
     const needs = one.kind === "session" && toneOf(one) === "ask" && !here;
     return (
-      <li key={one.key} className="deck-list__item" data-movable={band} data-lifted={dragging?.key === one.key || undefined} data-drop={dragging?.drop?.key === one.key ? (dragging.drop.after ? "after" : "before") : undefined} onContextMenu={one.kind === "session" ? (event) => (event.preventDefault(), setMenu({ id: one.id, root: one.root, x: event.clientX, y: event.clientY, row: event.currentTarget.querySelector<HTMLElement>(".deck-row") })) : undefined}>
+      <li key={one.key} className="deck-list__item" data-movable={band} data-lifted={dragging?.key === one.key || undefined} data-drop={dragging?.drop?.key === one.key ? (dragging.drop.after ? "after" : "before") : undefined} onContextMenu={one.kind === "session" ? (event) => (event.preventDefault(), setMenu({ id: one.id, root: one.root, title: one.title, x: event.clientX, y: event.clientY, row: event.currentTarget.querySelector<HTMLElement>(".deck-row") })) : undefined}>
         <Inspect card={<SubjectCard one={one} {...(call === undefined ? {} : { calling: callLabel(call) })} />} name={one.title} side="beside" pin={false}>
         <button type="button" className="deck-row" data-row={one.key} data-calling={call === undefined && !needs ? undefined : ""} data-needs={needs || undefined} data-linked={one.linked !== undefined || undefined} data-reply={one.reply} data-tone={toneOf(one)} data-past={one.past} data-selected={here || undefined} data-cursor={cursor === one.key || undefined} data-hover={hover === one.key || undefined} aria-label={one.title} aria-current={here || undefined} onPointerDown={band === undefined ? undefined : (event) => grab(event, one.key, band)} onClickCapture={(event) => swallowed() && (event.preventDefault(), event.stopPropagation())} onClick={() => onPick(one)} onFocus={() => (moveCursor(one.key), setHover(one.key))} onBlur={() => setHover(undefined)} onMouseEnter={() => setHover(one.key)} onMouseLeave={() => setHover(undefined)} onKeyDown={one.kind === "session" ? (event) => {
           // The earlier Job behind this row, where it took one's place. Not the registry's yet: the key waits on the look.
@@ -268,7 +268,7 @@ function List({ subjects, calling, banding, selected, builds, picked, found, onP
           if (event.key !== "ContextMenu" && !(event.key === "F10" && event.shiftKey)) return;
           event.preventDefault();
           const box = event.currentTarget.getBoundingClientRect();
-          setMenu({ id: one.id, root: one.root, x: box.left + box.width / 2, y: box.bottom, row: event.currentTarget });
+          setMenu({ id: one.id, root: one.root, title: one.title, x: box.left + box.width / 2, y: box.bottom, row: event.currentTarget });
         } : undefined}>
           <span className="deck-row__title">
             {one.linked === undefined ? null : (
