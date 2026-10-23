@@ -180,7 +180,12 @@ where
             let ours = store.logbook_of(&key).map_err(|why| why.to_string())?;
             for entry in theirs {
                 let words = logbook_words(&entry.text);
-                let held = ours.iter().any(|one| one.section == section && one.repository == entry.repository && logbook_words(&one.text) == words);
+                // An earlier text of an entry is held too, or a rewrite would come back from the file as a second entry.
+                let held = ours.iter().any(|one| {
+                    one.section == section
+                        && one.repository == entry.repository
+                        && (logbook_words(&one.text) == words || one.history.iter().any(|was| logbook_words(&was.text) == words))
+                });
                 if !held {
                     store.save_logbook_entry(&entry).map_err(|why| why.to_string())?;
                 }
