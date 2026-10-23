@@ -141,6 +141,8 @@ export function SystemSurface({ repository, settings, modelChoices, live, guarde
         onOpenAccount={onOpenAccount}
         onReadGuides={onReadGuides}
         {...(guarded.onCopied === undefined ? {} : { onCopied: guarded.onCopied })}
+        onOpenPull={openPull}
+        onOpenJob={askToOpenSession}
         under={{
           theme: (
             <>

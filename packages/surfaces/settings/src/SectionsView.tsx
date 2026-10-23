@@ -3,7 +3,7 @@
 
 import { Button, Card, CardContent, CardHeader, CardTitle, GuidesSetting } from "@armada/components";
 import type { Outcome, SaveSettings, SettingsList } from "@armada/protocol";
-import type { ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
 
 import { KeyboardSettings } from "./KeyboardSettings";
 import { LayoutSettings } from "./LayoutSettings";
@@ -28,9 +28,12 @@ export type SettingsSectionsViewProps = {
   onCopied?: (value: string) => void;
   /** Drawn directly under a category, by id. */
   under?: Readonly<Record<string, ReactNode>>;
+  /** Open a promoted mod's pull request and its Job from the All list, as the Theme and Layout pages do. */
+  onOpenPull?: ComponentProps<typeof ModList>["onOpenPull"];
+  onOpenJob?: ComponentProps<typeof ModList>["onOpenJob"];
 };
 
-export function SettingsSectionsView({ ids, settings, live, onSaveSettings, onOpenAccount, onReadGuides, onCopied, under = {} }: SettingsSectionsViewProps) {
+export function SettingsSectionsView({ ids, settings, live, onSaveSettings, onOpenAccount, onReadGuides, onCopied, under = {}, onOpenPull, onOpenJob }: SettingsSectionsViewProps) {
   const card = (title: string, body: ReactNode) => (
     <Card>
       <CardHeader>
@@ -41,7 +44,7 @@ export function SettingsSectionsView({ ids, settings, live, onSaveSettings, onOp
   );
   const panes: Record<string, (title: string) => ReactNode> = {
     phone: () => <PhoneSettings {...(onCopied === undefined ? {} : { onCopied })} />,
-    "mods-all": (title) => <ModList kind="all" title={title} />,
+    "mods-all": (title) => <ModList kind="all" title={title} {...(onOpenPull === undefined ? {} : { onOpenPull })} {...(onOpenJob === undefined ? {} : { onOpenJob })} />,
     theme: (title) => card(title, <ThemeSettings />),
     layout: (title) => card(title, <LayoutSettings />),
     words: (title) => <ModList kind="words" title={title} />,
