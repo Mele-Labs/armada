@@ -110,6 +110,23 @@ function When({ at, now }: { at: string; now: number }) {
   );
 }
 
+/** Words with their `quoted` spans set in the mono face, as an entry writes a command. */
+function Words({ text }: { text: string }) {
+  return (
+    <>
+      {text.split("`").map((part, at) =>
+        at % 2 === 1 ? (
+          <code key={at} className="armada-logbook__code">
+            {part}
+          </code>
+        ) : (
+          part
+        ),
+      )}
+    </>
+  );
+}
+
 const optionId = (id: string) => `logbook-entry-${id}`;
 const draftKey = (id: string) => `logbook:${id}`;
 
@@ -205,7 +222,9 @@ export function LogbookView({ panels, filter, onFilter, selected, onSelect, edit
                     list.current?.focus();
                   }}
                 >
-                  <span className="armada-logbook__text">{entry.text}</span>
+                  <span className="armada-logbook__text">
+                    <Words text={entry.text} />
+                  </span>
                   <span className="armada-logbook__marks">{marksOf(entry, now, false)}</span>
                 </div>
               ))}
@@ -311,7 +330,9 @@ function Detail({
           </div>
         ) : (
           <>
-            <p className="armada-logbook__said">{entry.text}</p>
+            <p className="armada-logbook__said">
+              <Words text={entry.text} />
+            </p>
             <div className="armada-logbook__acts">
               <Act label="Edit" act="logbook_edit" onPress={() => onEdit(true)} />
               <Act label={entry.pinned ? "Unpin" : "Pin"} act="logbook_pin" onPress={onPin} />
@@ -366,7 +387,9 @@ function Detail({
                     <span className="armada-logbook__cite">{row.cite}</span>
                     <When at={row.at} now={now} />
                   </span>
-                  <span className="armada-logbook__says">{row.says}</span>
+                  <span className="armada-logbook__says">
+                    <Words text={row.says} />
+                  </span>
                 </li>
               ))}
             </ul>
@@ -378,7 +401,9 @@ function Detail({
             <ul className="armada-logbook__history">
               {entry.history.map((one) => (
                 <li key={one.until}>
-                  <span className="armada-logbook__says">{one.text}</span>
+                  <span className="armada-logbook__says">
+                    <Words text={one.text} />
+                  </span>
                   <span className="armada-logbook__from">
                     {one.by === "person" ? "Replaced by you" : "Rewritten by Armada"} <When at={one.until} now={now} />
                   </span>

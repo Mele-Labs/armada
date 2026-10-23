@@ -226,3 +226,17 @@
   line-height: var(--leading-xs);
 }
 .armada-logbook__history .armada-logbook__says { color: var(--fg-muted); }
+
+.armada-logbook__unread {
+  margin: 0;
+  padding: var(--space-4);
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+}
+
+.armada-logbook__code {
+  font-family: var(--font-mono);
+  font-size: inherit;
+  color: var(--fg-default);
+}

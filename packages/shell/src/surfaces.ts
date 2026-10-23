@@ -20,6 +20,7 @@ import {
   HardDrive,
   LayoutDashboard,
   Merge,
+  NotebookTabs,
   Puzzle,
   Presentation,
   Settings as SettingsIcon,
@@ -54,6 +55,7 @@ export const SURFACE = {
   reviews: "reviews",
   usage: "usage",
   requests: "requests",
+  logbook: "logbook",
 } as const;
 
 type SurfaceId = (typeof SURFACE)[keyof typeof SURFACE];
@@ -211,6 +213,14 @@ export const SURFACES: readonly PaletteSurface[] = [
     icon: Rewind,
   },
   {
+    id: SURFACE.logbook,
+    label: "Logbook",
+    // No key: `deck_tabs` spells six digits, as for Reviews. Reached from its tab and by name.
+    aliases: ["memory", "learned"],
+    // A sketch: `notebook-tabs` is Proposed in the registry for this place. The owner's to rule on.
+    icon: NotebookTabs,
+  },
+  {
     id: SURFACE.reviews,
     label: "Reviews",
     // No key: the registry's `deck_tabs` spells six digits, and a seventh is the owner's to bind.
@@ -288,12 +298,13 @@ export const DECK_TABS = [
   { id: "sessions", label: "Jobs", surface: SURFACE.sessions },
   { id: "studios", label: "Studios", surface: SURFACE.studios },
   { id: "retros", label: "Retros", surface: SURFACE.lessons },
+  { id: "logbook", label: "Logbook", surface: SURFACE.logbook },
   { id: "reviews", label: "Reviews", surface: SURFACE.reviews },
   { id: "system", label: "System", surface: SURFACE.kit },
 ] as const;
 
-/** The tabs a digit reaches. Reviews takes none: `deck_tabs` binds `⌘1` to `⌘6`, so the digits skip it and System keeps `⌘6`. */
-const DIGIT_TABS = DECK_TABS.filter((tab) => tab.id !== "reviews");
+/** The tabs a digit reaches. Logbook and Reviews take none: `deck_tabs` binds `⌘1` to `⌘6`, so the digits skip them and System keeps `⌘6`. */
+const DIGIT_TABS = DECK_TABS.filter((tab) => tab.id !== "reviews" && tab.id !== "logbook");
 
 export type DeckTabId = (typeof DECK_TABS)[number]["id"];
 
@@ -321,6 +332,7 @@ export const PLACES: readonly string[] = [
   SURFACE.workflows,
   SURFACE.studios,
   SURFACE.lessons,
+  SURFACE.logbook,
   SURFACE.reviews,
 ];
 

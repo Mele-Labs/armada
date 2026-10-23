@@ -119,6 +119,11 @@ export const setupSessionFleet = { startSession: (title?: string, root?: string)
 export const reviewLessons = () => window.armada.reviewLessons();
 export const askLesson = (lessonId: string, question: string, history: AskTurn[]) =>
   window.armada.askLesson(lessonId, question, history);
+/** The Logbook, read on open, and the owner's three acts on an entry — `docs/concepts/logbook.md`. */
+export const readLogbook = () => window.armada.readLogbook();
+export const editLogbookEntry = (id: string, text: string) => window.armada.editLogbookEntry(id, text);
+export const pinLogbookEntry = (id: string, pinned: boolean) => window.armada.pinLogbookEntry(id, pinned);
+export const forgetLogbookEntry = (id: string) => window.armada.forgetLogbookEntry(id);
 export const followCheckOutput = (jobId: string | null, kept: string | null): void =>
   void window.armada.followCheckOutput(jobId, kept);
 export const followLandCheck = (at: LandCheckAt | null): void => void window.armada.followLandCheck(at);
