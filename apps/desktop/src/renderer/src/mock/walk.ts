@@ -7,7 +7,7 @@
 // pass on a walk the owner then found broken, and the walk is only evidence if
 // what CI ran is what he clicks.
 
-import { typeIntoEditor } from "@armada/components";
+import { selectInEditor, typeIntoEditor } from "@armada/components";
 
 import { PATIENCE_MS, WALK_UI, arriveAt, find } from "../walk-find";
 import type { Name } from "../walk-find";
@@ -49,8 +49,8 @@ export type Step =
   | { paste: Target; say: string }
   /** Words pasted on a target, as a browser hands them over: a paste event carrying plain text. */
   | { paste: Target; text: string; say: string }
-  /** Picked up by its middle and put down `by` this far away, in screen pixels — a node on a canvas. */
-  | { drag: Target; by: { x: number; y: number }; say: string };
+  /** Picked up by its middle and put down `by` this far away, in screen pixels — a node on a canvas. `shift` holds Shift down through it. */
+  | { drag: Target; by: { x: number; y: number }; shift?: true; say: string };
 
 /** A walk is played at the window the test starts from unless it names its own: a narrow one shows what folds. */
 export type Walk = { scenario: string; steps: readonly Step[]; viewport?: { width: number; height: number } };
@@ -278,7 +278,7 @@ function fill(element: HTMLElement, words: string): void {
  * which is where a canvas listens once a drag has started — React Flow's drag
  * follows the pointer off the node it picked up.
  */
-function drag(element: HTMLElement, by: { x: number; y: number }): void {
+function drag(element: HTMLElement, by: { x: number; y: number }, shiftKey = false): void {
   const box = element.getBoundingClientRect();
   const from = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
   const at = (x: number, y: number, buttons: number) => ({
@@ -290,6 +290,7 @@ function drag(element: HTMLElement, by: { x: number; y: number }): void {
     clientY: y,
     button: 0,
     buttons,
+    shiftKey,
   });
   // A resize handle listens for pointer events on itself, having captured the
   // pointer, so each step is sent there as a pointer event too.
@@ -352,8 +353,9 @@ function pasteText(element: HTMLElement, text: string): void {
   if (went && (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement)) fill(element, element.value + text);
 }
 
-/** `words` selected where they stand in `element`'s text, as the page hears a selection change. */
+/** `words` selected where they stand in `element`'s text, as the page hears a selection change. A code editor selects in its own view. */
 function selectWords(element: HTMLElement, words: string): void {
+  if (selectInEditor(element, words)) return;
   const nodes = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
   for (let node = nodes.nextNode(); node !== null; node = nodes.nextNode()) {
     const at = (node as Text).data.indexOf(words);
@@ -395,7 +397,7 @@ export function act(step: Step, element: HTMLElement, next?: Step): void {
   else if ("key" in step) pressKey(element, step.key);
   else if ("later" in step) timePasses();
   else if ("press" in step) press(element);
-  else if ("drag" in step) drag(element, step.by);
+  else if ("drag" in step) drag(element, step.by, step.shift === true);
   else if ("type" in step) {
     // Words ending in a newline are sent with Enter, as a field that saves on it is used.
     fill(element, step.type.replace(/\n$/, ""));
