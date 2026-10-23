@@ -16,7 +16,6 @@ import { IssuesList } from "./list";
 import type { TicketRead } from "./model";
 import { IssuesReader } from "./reader";
 import { useIssues, useIssuesStore } from "./store";
-import { issuesTake } from "./take";
 import "../cockpit/cockpit.css";
 import "../cockpit/deck/deck.css";
 import "./issues-tab.css";
@@ -33,7 +32,6 @@ export function IssuesSurface({ picked, repositories, onOpenLink, onOpenSession 
   const snap = useIssues();
   const dispatching = useDispatching();
   const grid = useRef<HTMLDivElement>(null);
-  const take = issuesTake();
   const { columns, resize, reset } = useColumns(grid, "issues");
   const bands = bandsIn(picked, repositories, snap.trackers ?? []);
 
@@ -52,7 +50,7 @@ export function IssuesSurface({ picked, repositories, onOpenLink, onOpenSession 
   };
 
   return (
-    <div className="armada-cockpit deck issues-surface" data-take={take}>
+    <div className="armada-cockpit deck issues-surface">
       <div ref={grid} className="deck-grid" data-issues style={columns === undefined ? undefined : ({ "--deck-left": `${columns.left}px`, "--deck-right": `${columns.right}px` } as React.CSSProperties)}>
         <div className="deck-left">
           <IssuesList picked={picked} repositories={repositories} onTeach={teach} />

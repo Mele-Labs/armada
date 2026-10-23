@@ -1,8 +1,7 @@
 /* The Issues tab: a repository's issues from its tracker, in the Cockpit's grid, drawn to the Cockpit's bar. A Job's state is
    a hue, carried by the frame and the left edge of whatever it works (`--hue`, from the Job card's tones); a repository
    heading is a band with weight; a chip has a real fill; what is open is lit in the accent. A query is the tracker's own
-   text, so it is drawn as code in a well. Two takes, on `.issues-surface[data-take]` (`take.ts`): `cards` draws an issue
-   as a card and the reader's parts as raised panels, `rows` a dense table on hairlines and the reader one flat page.
+   text, so it is drawn as code in a well. An issue is a card and the reader's parts are raised panels.
    Tokens only; no gradient, no glow, no grain. */
 
 .deck-grid[data-issues] { grid-template-columns: var(--deck-left, calc(var(--space-12) * 6)) minmax(0, 1fr); }
@@ -88,18 +87,18 @@
 /* What is open is lit: the accent's ground and a hairline of the accent round it, as the Cockpit's Jobs row. */
 .issues-row[data-selected] { background: var(--accent-muted); box-shadow: inset 0 0 0 var(--border-width) var(--accent); }
 
-/* cards: an issue a card on a fill, with depth, its Job's hue on the frame, the left edge and the ground. The reference
+/* An issue a card on a fill, with depth, its Job's hue on the frame, the left edge and the ground. The reference
    is a filled tag over the title, which takes two lines, and the Job working it is named under the title in its hue. */
-[data-take="cards"] .issues-list__rows,
-[data-take="cards"] .issues-list .deck-list__group { gap: var(--space-2); }
-[data-take="cards"] .issues-list .deck-list__band + .deck-list__band { margin-top: var(--space-4); }
-[data-take="cards"] .issues-list__repository {
+.issues-surface .issues-list__rows,
+.issues-surface .issues-list .deck-list__group { gap: var(--space-2); }
+.issues-surface .issues-list .deck-list__band + .deck-list__band { margin-top: var(--space-4); }
+.issues-surface .issues-list__repository {
   min-height: var(--h-control-sm);
   padding: 0 var(--space-3);
   border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--fg-default) 8%, transparent);
 }
-[data-take="cards"] .issues-row {
+.issues-surface .issues-row {
   grid-template-columns: auto minmax(0, 1fr) auto;
   grid-template-areas: "reference . jobs" "title title title" "held held held" "fields fields fields";
   border: var(--border-width) solid var(--border-subtle);
@@ -108,43 +107,16 @@
   background: color-mix(in srgb, var(--fg-default) 5%, var(--bg-raised));
   box-shadow: var(--shadow-card);
 }
-[data-take="cards"] .issues-row[data-tone] { border-color: color-mix(in srgb, var(--hue) 40%, var(--border-subtle)); border-inline-start-color: var(--hue); background: color-mix(in srgb, var(--hue) 8%, var(--bg-raised)); }
-[data-take="cards"] .issues-row:hover { background: color-mix(in srgb, var(--fg-default) 10%, var(--bg-raised)); }
-[data-take="cards"] .issues-row[data-tone]:hover { background: color-mix(in srgb, var(--hue) 14%, var(--bg-raised)); }
-[data-take="cards"] .issues-row[data-selected] { background: var(--accent-muted); box-shadow: inset 0 0 0 var(--border-width) var(--accent), var(--shadow-card); }
-[data-take="cards"] .issues-row__reference { grid-area: reference; justify-self: start; padding: 0 var(--space-2); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--fg-default) 12%, transparent); line-height: var(--leading-xs); }
-[data-take="cards"] .issues-row[data-tone] .issues-row__reference { background: color-mix(in srgb, var(--hue) 22%, transparent); }
-[data-take="cards"] .issues-row__title { grid-area: title; display: -webkit-box; font-size: var(--text-xs); white-space: normal; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
-[data-take="cards"] .issues-row__jobs { display: none; }
-[data-take="cards"] .issues-row__held { grid-area: held; }
-[data-take="cards"] .issues-row__fields { grid-area: fields; }
-
-/* rows: a dense table on hairlines, a heading a solid band that stays in view, the reference a column of its own. The Job's
-   hue is the left edge alone, and its glyph at the right. */
-[data-take="rows"] .issues-list__rows { gap: 0; padding: 0; }
-[data-take="rows"] .issues-list .deck-list__band,
-[data-take="rows"] .issues-list .deck-list__group { gap: 0; }
-[data-take="rows"] .issues-list .deck-list__band + .deck-list__band { margin-top: 0; }
-[data-take="rows"] .issues-list__repository {
-  position: sticky;
-  z-index: 1;
-  top: 0;
-  min-height: var(--h-control-sm);
-  padding: 0 var(--space-3);
-  border-block: var(--border-width) solid var(--border-default);
-  background: var(--bg-raised);
-}
-[data-take="rows"] .issues-row {
-  grid-template-columns: calc(var(--space-12) + var(--space-4)) minmax(0, 1fr) auto;
-  border-bottom: var(--border-width) solid var(--border-subtle);
-  border-inline-start: calc(var(--border-width) * 3) solid transparent;
-  border-radius: 0;
-  background: none;
-}
-[data-take="rows"] .issues-row[data-tone] { border-inline-start-color: var(--hue); background: color-mix(in srgb, var(--hue) 5%, transparent); }
-[data-take="rows"] .issues-row:hover { background: color-mix(in srgb, var(--fg-default) 8%, transparent); }
-[data-take="rows"] .issues-row__held { display: none; }
-[data-take="rows"] .issues-row__fields { grid-column: 2 / -1; }
+.issues-surface .issues-row[data-tone] { border-color: color-mix(in srgb, var(--hue) 40%, var(--border-subtle)); border-inline-start-color: var(--hue); background: color-mix(in srgb, var(--hue) 8%, var(--bg-raised)); }
+.issues-surface .issues-row:hover { background: color-mix(in srgb, var(--fg-default) 10%, var(--bg-raised)); }
+.issues-surface .issues-row[data-tone]:hover { background: color-mix(in srgb, var(--hue) 14%, var(--bg-raised)); }
+.issues-surface .issues-row[data-selected] { background: var(--accent-muted); box-shadow: inset 0 0 0 var(--border-width) var(--accent), var(--shadow-card); }
+.issues-surface .issues-row__reference { grid-area: reference; justify-self: start; padding: 0 var(--space-2); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--fg-default) 12%, transparent); line-height: var(--leading-xs); }
+.issues-surface .issues-row[data-tone] .issues-row__reference { background: color-mix(in srgb, var(--hue) 22%, transparent); }
+.issues-surface .issues-row__title { grid-area: title; display: -webkit-box; font-size: var(--text-xs); white-space: normal; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.issues-surface .issues-row__jobs { display: none; }
+.issues-surface .issues-row__held { grid-area: held; }
+.issues-surface .issues-row__fields { grid-area: fields; }
 
 /* ---- A query, as the tracker reads it ------------------------------------------------------------------- */
 
@@ -154,7 +126,6 @@
 .issues-query__fields { display: flex; flex-wrap: wrap; min-width: 0; gap: var(--space-1); }
 .issues-query__acts { display: inline-flex; align-items: center; gap: var(--space-1); margin-left: auto; }
 .issues-query--editing .armada-textarea-field textarea { font-family: var(--font-mono); font-size: var(--text-xs); }
-[data-take="rows"] .issues-list .deck-list__band > .issues-query { margin: var(--space-2); }
 
 .issues-describe { display: flex; flex: none; align-items: flex-end; gap: var(--space-2); padding: 0 var(--space-2) var(--space-2); }
 .issues-describe .armada-textarea-field { flex: 1 1 0; min-width: 0; }
@@ -164,7 +135,6 @@
 /* A tracker nothing reads: Fleet's words, and the act that teaches it, framed in the waiting hue. */
 .issues-refused { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-2); margin: 0 var(--space-2); padding: var(--space-3); border: var(--border-width) solid color-mix(in srgb, var(--status-awaiting-review) 40%, var(--border-subtle)); border-inline-start: calc(var(--border-width) * 3) solid var(--status-awaiting-review); border-radius: var(--radius-lg); background: color-mix(in srgb, var(--status-awaiting-review) 8%, var(--bg-raised)); }
 .issues-refused__said { margin: 0; overflow-wrap: anywhere; color: var(--fg-default); font-size: var(--text-xs); line-height: var(--leading-xs); }
-[data-take="rows"] .issues-list .deck-list__band > .issues-refused { margin: var(--space-2); }
 
 /* ---- The reader ----------------------------------------------------------------------------------------- */
 
@@ -193,10 +163,6 @@
 .issues-fields__name { color: var(--fg-muted); font-size: var(--text-xs); line-height: var(--leading-xs); }
 .issues-fields__values { display: flex; flex-wrap: wrap; gap: var(--space-1); margin: 0; }
 
-/* cards: the fields and each part a raised panel, with depth. */
-[data-take="cards"] .issues-fields,
-[data-take="cards"] .issues-reader__part[aria-label="Description"] { padding: var(--space-3); border: var(--border-width) solid var(--border-subtle); border-radius: var(--radius-lg); background: var(--bg-raised); box-shadow: var(--shadow-card); }
-
-/* rows: one flat page, the parts on hairlines. */
-[data-take="rows"] .issues-reader__body { gap: var(--space-3); }
-[data-take="rows"] .issues-reader__body > * + * { padding-top: var(--space-3); border-top: var(--border-width) solid var(--border-subtle); }
+/* The fields and each part a raised panel, with depth. */
+.issues-surface .issues-fields,
+.issues-surface .issues-reader__part[aria-label="Description"] { padding: var(--space-3); border: var(--border-width) solid var(--border-subtle); border-radius: var(--radius-lg); background: var(--bg-raised); box-shadow: var(--shadow-card); }
