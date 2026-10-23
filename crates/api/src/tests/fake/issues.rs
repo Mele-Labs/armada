@@ -124,13 +124,14 @@ impl Issues for FakeDaemon {
     }
 
     async fn forget_issue_query(&self, manifest_id: ManifestId, id: String) -> Result<IssueQueries, Refusal> {
+        // Only `nope` is missing, so the route table's walk, which calls with `:id` as written, finds it routed.
         match id.as_str() {
-            "q1" => Ok(IssueQueries { manifest_id, guide: None, refused: Some(String::from("no tool")), saved: Vec::new() }),
-            _ => Err(Refusal::NotFound(WireError::raised(
+            "nope" => Err(Refusal::NotFound(WireError::raised(
                 "fleet.no_such_issue_query",
                 format!("the repository has no saved query {id}"),
                 crate::tests::shapes::run_id(),
             ))),
+            _ => Ok(IssueQueries { manifest_id, guide: None, refused: Some(String::from("no tool")), saved: Vec::new() }),
         }
     }
 }
