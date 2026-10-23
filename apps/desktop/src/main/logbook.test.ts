@@ -51,7 +51,7 @@ async function fleet(seen: Seen[], answer: (method: string, url: string) => { st
   return (server.address() as AddressInfo).port;
 }
 
-const repositories = { repositories: [{ root: "/Users/me/widgets", records_root: "/r/w" }, { root: "/Users/me/store front", records_root: "/r/s" }] };
+const repositories = { repositories: [{ root: "/Users/user/widgets", records_root: "/r/w" }, { root: "/Users/user/store front", records_root: "/r/s" }] };
 
 describe("reading the Logbook", () => {
   it("asks for the habits and this Mac's, then each served repository by its root, and joins the answers", async () => {
@@ -59,19 +59,19 @@ describe("reading the Logbook", () => {
     const port = await fleet(seen, (_method, url) => {
       if (url === "/repositories") return { status: 200, body: repositories };
       if (url === "/logbook") return { status: 200, body: { entries: [entry("h1", "habits"), entry("machine-ab", "machine")] } };
-      if (url.includes("widgets")) return { status: 200, body: { entries: [entry("w1", "repo", "/Users/me/widgets")] } };
-      return { status: 200, body: { entries: [entry("s1", "repo", "/Users/me/store front")] } };
+      if (url.includes("widgets")) return { status: 200, body: { entries: [entry("w1", "repo", "/Users/user/widgets")] } };
+      return { status: 200, body: { entries: [entry("s1", "repo", "/Users/user/store front")] } };
     });
     const read = await new LogbookHost(() => port).read();
     expect(seen.map((one) => one.url).sort()).toEqual([
       "/logbook",
-      "/logbook?section=repo&repository=%2FUsers%2Fme%2Fstore%20front",
-      "/logbook?section=repo&repository=%2FUsers%2Fme%2Fwidgets",
+      "/logbook?section=repo&repository=%2FUsers%2Fuser%2Fstore%20front",
+      "/logbook?section=repo&repository=%2FUsers%2Fuser%2Fwidgets",
       "/repositories",
     ]);
     expect(read).toEqual({
       ok: true,
-      entries: [entry("h1", "habits"), entry("machine-ab", "machine"), entry("w1", "repo", "/Users/me/widgets"), entry("s1", "repo", "/Users/me/store front")],
+      entries: [entry("h1", "habits"), entry("machine-ab", "machine"), entry("w1", "repo", "/Users/user/widgets"), entry("s1", "repo", "/Users/user/store front")],
     });
   });
 

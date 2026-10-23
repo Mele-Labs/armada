@@ -31,12 +31,12 @@ function entry(id: string, fields: Partial<LogbookEntry> & Pick<LogbookEntry, "s
   };
 }
 
-const WIDGETS = entry("1", { section: "repo", repository: "/Users/me/widgets", text: "Run specs with bin/rspec." });
-const LEDGER = entry("2", { section: "repo", repository: "/Users/me/ledger", text: "Migrations run on port 5433." });
+const WIDGETS = entry("1", { section: "repo", repository: "/Users/user/widgets", text: "Run specs with bin/rspec." });
+const LEDGER = entry("2", { section: "repo", repository: "/Users/user/ledger", text: "Migrations run on port 5433." });
 const HABIT = entry("3", { section: "habits", kind: "habit", text: "Never run rustfmt." });
-const NEW = entry("4", { section: "repo", repository: "/Users/me/widgets", text: "Seen once.", state: "candidate" });
+const NEW = entry("4", { section: "repo", repository: "/Users/user/widgets", text: "Seen once.", state: "candidate" });
 const OLD = entry("5", { section: "habits", kind: "habit", text: "Faded words.", state: "faded" });
-const RUNS = entry("runs-00000000000000ff", { section: "repo", repository: "/Users/me/widgets", text: "Run memory says use pnpm." });
+const RUNS = entry("runs-00000000000000ff", { section: "repo", repository: "/Users/user/widgets", text: "Run memory says use pnpm." });
 const MACHINE = entry("machine-00000000000000aa", { section: "machine", kind: "environment", text: "Chrome is not installed." });
 
 const REFUSED = {
