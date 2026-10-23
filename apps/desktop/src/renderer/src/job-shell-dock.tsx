@@ -1,9 +1,12 @@
-// A Job view's docked place: a block's run and the Job's shell, switched as tabs where both show.
+// A Job view's docked place: a block's run and the Job's shell, switched as tabs where both show. On a Job's page the shell opens
+// in the side panel instead where `terminal.openJobTerminalIn` says so, read at each open; a block's run docks either way.
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { DockedTerminal, XtermScreen, type ShellDockPane, type ShellPaneProps, type TerminalDockRun } from "@armada/components";
 
-import { shellsOf, useJobShell, type ShellPlace } from "./job-shell";
+import { shellsOf, useJobShell, type JobShells, type ShellPlace } from "./job-shell";
+import { useJobTerminalPlace } from "./job-terminal-place";
+import { openInPanel } from "./shared-panel/store";
 
 export type JobDock = {
   /** The runs' dock, which brings its run to the front as it starts or is shown again. */
@@ -19,11 +22,16 @@ export function useJobDock(sessionId: string, place: ShellPlace, run: TerminalDo
   const shells = served ? shellsOf(window.armada) : null;
   const { shell, shown } = useJobShell(shells, place, sessionId);
   const [front, setFront] = useState<ShellDockPane>("shell");
+  // A call card's box keeps its shell docked.
+  const sidePanel = useJobTerminalPlace(shells !== null && place === "page") === "side panel" && place === "page";
+  const inPanel = useRef(sidePanel);
+  inPanel.current = sidePanel;
   // A shell the agent opened shows in the view of its Job, in front.
   useEffect(
     () =>
       shells?.onOpened((opened) => {
         if (opened !== sessionId) return;
+        if (inPanel.current && toPanel(shells, place, sessionId)) return;
         shells.show(place, sessionId, true);
         setFront("shell");
       }),
@@ -58,9 +66,18 @@ export function useJobDock(sessionId: string, place: ShellPlace, run: TerminalDo
   return {
     dock,
     terminal: () => {
+      if (sidePanel && toPanel(shells, place, sessionId)) return;
       shells.want(place, sessionId);
       setFront("shell");
     },
     pane: <DockedTerminal dock={dock} shell={{ pane, front, onFront: setFront }} />,
   };
+}
+
+/** The shell in the side panel, with a new one where none is running; a pane docked before the setting changed is put away. */
+function toPanel(shells: JobShells, place: ShellPlace, sessionId: string): boolean {
+  shells.fresh(sessionId);
+  if (!openInPanel({ kind: "terminal", sessionId })) return false;
+  shells.show(place, sessionId, false);
+  return true;
 }

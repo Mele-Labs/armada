@@ -62,6 +62,17 @@
   color: var(--fg-muted);
 }
 
+/* In the side panel the sheet is the frame: the pane fills its body, edge to edge. */
+.armada-terminal[data-placed="panel"] {
+  flex: 1;
+  border: none;
+  border-radius: 0;
+}
+
+.armada-terminal[data-placed="panel"] .armada-xterm {
+  border-radius: 0;
+}
+
 /* The dock's tabs, where it holds the shell and a run: the strip is taller than the line, so it takes its own inset. */
 .armada-terminal__tabs {
   display: flex;

@@ -40,9 +40,9 @@ type PaneHead = { lead: ReactNode; line: ReactNode; keys: ReactNode };
  * The frame every docked pane is drawn in. One component for the run and the shell, so the dock's tabs
  * stay mounted, and keep the focus, as the pane in front changes.
  */
-function PaneFrame({ state, head, tabs, children }: { state: string; head: PaneHead; tabs?: ReactNode; children: ReactNode }) {
+function PaneFrame({ state, head, tabs, placed, children }: { state: string; head: PaneHead; tabs?: ReactNode; placed?: "panel"; children: ReactNode }) {
   return (
-    <section className="armada-terminal" role="group" aria-label="Terminal" data-state={state}>
+    <section className="armada-terminal" role="group" aria-label="Terminal" data-state={state} data-placed={placed}>
       <header className="armada-terminal__head">
         {tabs === undefined ? head.lead : <span className="armada-terminal__tabs">{tabs}</span>}
         <span className="armada-terminal__command">{head.line}</span>
@@ -119,16 +119,22 @@ export type ShellPaneProps = {
   children: ReactNode;
 };
 
-function shellHead({ phase, onHide, onEnd, onOpen, onClose }: Omit<ShellPaneProps, "children">): PaneHead {
+/** The shell in the side panel, which names it and closes it. */
+export type ShellPanelPaneProps = Omit<ShellPaneProps, "onHide" | "onClose">;
+
+/** `docked` holds the pane's own way away, which a panel's shell leaves to the panel. */
+function shellHead({ phase, onEnd, onOpen }: Omit<ShellPanelPaneProps, "children">, docked: Pick<ShellPaneProps, "onHide" | "onClose"> | null): PaneHead {
   const running = phase.state === "running";
   return {
-    lead: <span className="armada-terminal__name">Terminal</span>,
+    lead: docked === null ? null : <span className="armada-terminal__name">Terminal</span>,
     line: running ? null : <span className="armada-terminal__said">Shell ended</span>,
     keys: running ? (
       <>
-        <Button variant="ghost" size="sm" onClick={onHide}>
-          Hide
-        </Button>
+        {docked === null ? null : (
+          <Button variant="ghost" size="sm" onClick={docked.onHide}>
+            Hide
+          </Button>
+        )}
         <Button variant="ghost" size="sm" onClick={onEnd}>
           End shell
         </Button>
@@ -138,9 +144,11 @@ function shellHead({ phase, onHide, onEnd, onOpen, onClose }: Omit<ShellPaneProp
         <Button variant="ghost" size="sm" onClick={onOpen}>
           New shell
         </Button>
-        <Button variant="ghost" size="sm" onClick={onClose}>
-          Close
-        </Button>
+        {docked === null ? null : (
+          <Button variant="ghost" size="sm" onClick={docked.onClose}>
+            Close
+          </Button>
+        )}
       </>
     ),
   };
@@ -153,7 +161,19 @@ function shellHead({ phase, onHide, onEnd, onOpen, onClose }: Omit<ShellPaneProp
  */
 export function ShellPane({ children, ...shell }: ShellPaneProps) {
   return (
-    <PaneFrame state={shell.phase.state} head={shellHead(shell)}>
+    <PaneFrame state={shell.phase.state} head={shellHead(shell, shell)}>
+      {children}
+    </PaneFrame>
+  );
+}
+
+/**
+ * **The Job's shell in the side panel**, filling it. The panel names it and its Close stands for Hide
+ * and Close, so the pane keeps End shell while it runs and New shell once it has ended.
+ */
+export function ShellPanelPane({ children, ...shell }: ShellPanelPaneProps) {
+  return (
+    <PaneFrame state={shell.phase.state} head={shellHead(shell, null)} placed="panel">
       {children}
     </PaneFrame>
   );
@@ -219,7 +239,7 @@ export function ShellDock({ shell, run, front, onFront }: ShellDockProps) {
     pane = { key: "run", state: rest.phase.state, head: runHead(rest, tabs !== undefined), body: children };
   } else if (shell !== null) {
     const { children, ...rest } = shell;
-    pane = { key: "shell", state: rest.phase.state, head: shellHead(rest), body: children };
+    pane = { key: "shell", state: rest.phase.state, head: shellHead(rest, rest), body: children };
   } else return null;
   return (
     <DockFrame>

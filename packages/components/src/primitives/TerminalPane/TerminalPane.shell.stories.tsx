@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, within } from "storybook/test";
 
-import { ShellDock, ShellPane, type ShellPaneProps, type TerminalPhase } from "./TerminalPane";
+import { ShellDock, ShellPane, ShellPanelPane, type ShellPaneProps, type TerminalPhase } from "./TerminalPane";
 import { XtermScreen } from "./XtermScreen";
 
 /**
@@ -63,6 +63,32 @@ export const ShellEnded: Story = {
     await expect(args.onOpen).toHaveBeenCalledTimes(1);
     await userEvent.click(pane.getByRole("button", { name: "Close" }));
     await expect(args.onClose).toHaveBeenCalledTimes(1);
+  },
+};
+
+/** In the side panel, which names the shell and closes it: End shell is the pane's one key. */
+export const ShellInThePanel: Story = {
+  args: { phase: { state: "running" }, children: body("~/armada $ git status") },
+  render: (args) => <ShellPanelPane {...args} />,
+  play: async ({ canvasElement, args, userEvent }) => {
+    const pane = within(canvasElement);
+    await expect(pane.queryByText("Terminal", { selector: "header *" })).toBeNull();
+    await expect(pane.queryByRole("button", { name: "Hide" })).toBeNull();
+    await userEvent.click(pane.getByRole("button", { name: "End shell" }));
+    await expect(args.onEnd).toHaveBeenCalledTimes(1);
+  },
+};
+
+/** Ended in the side panel: New shell, and the panel's own Close rather than one of the pane's. */
+export const ShellEndedInThePanel: Story = {
+  args: { phase: { state: "ended" }, children: body("~/armada $ exit") },
+  render: (args) => <ShellPanelPane {...args} />,
+  play: async ({ canvasElement, args, userEvent }) => {
+    const pane = within(canvasElement);
+    await expect(pane.getByText("Shell ended")).toBeVisible();
+    await expect(pane.queryByRole("button", { name: "Close" })).toBeNull();
+    await userEvent.click(pane.getByRole("button", { name: "New shell" }));
+    await expect(args.onOpen).toHaveBeenCalledTimes(1);
   },
 };
 

@@ -130,3 +130,56 @@ test("A shell the agent opened while another Job was open draws whole once Termi
   await expect.element(pane().getByText(/VITE v6\.3\.5/)).toBeVisible();
   expect(shellCalls()!.opened).toEqual([]);
 });
+
+const panel = () => page.getByRole("dialog", { name: "Terminal", exact: true });
+
+async function openInSidePanel() {
+  const app = mount(s322SessionShell);
+  await onScreen();
+  await app.api.saveSettings({ "terminal.openJobTerminalIn": "side panel" });
+  const view = await toSession(/Deploy the store/);
+  await expect.element(thread()).toBeVisible();
+  return view;
+}
+
+test("Side panel: Terminal opens the shell in the side panel, nothing docks under the thread, and Close keeps it running with its output", async () => {
+  const view = await openInSidePanel();
+  await view.getByRole("button", { name: "Terminal", exact: true }).click();
+
+  await expect.element(panel()).toBeVisible();
+  await expect.element(panel().getByText(PROMPT)).toBeVisible();
+  expect(view.getByRole("group", { name: "Terminal", exact: true }).query()).toBeNull();
+  // The panel closes itself: the pane offers no Hide of its own.
+  expect(panel().getByRole("button", { name: "Hide" }).query()).toBeNull();
+  await expect.poll(() => document.activeElement?.getAttribute("aria-label")).toBe("Terminal input");
+  await userEvent.keyboard("pwd{Enter}");
+  await expect.element(panel().getByText("~/Development/armada/.armada/slots/slot-1", { exact: true })).toBeVisible();
+
+  await panel().getByRole("button", { name: /^Close/ }).click();
+  await expect.element(panel()).not.toBeInTheDocument();
+  expect(shellCalls()!.stopped).toEqual([]);
+  await view.getByRole("button", { name: "Terminal", exact: true }).click();
+  // The same shell, with what it printed before the panel closed.
+  await expect.element(panel().getByText("~/Development/armada/.armada/slots/slot-1", { exact: true })).toBeVisible();
+  expect(shellCalls()!.opened).toHaveLength(1);
+
+  await panel().getByRole("button", { name: "End shell" }).click();
+  await expect.element(panel().getByText("Shell ended")).toBeVisible();
+  expect(shellCalls()!.stopped).toEqual(["shell-1"]);
+  await panel().getByRole("button", { name: "New shell" }).click();
+  await expect.element(panel().getByRole("button", { name: "End shell" })).toBeVisible();
+  await expect.poll(() => shellCalls()!.opened.length).toBe(2);
+});
+
+test("Side panel: the agent opening the Job's shell opens the side panel on it, and a block Run still docks", async () => {
+  const view = await openInSidePanel();
+  timePasses();
+  await expect.element(panel().getByText(SERVED)).toBeVisible();
+  expect(view.getByRole("group", { name: "Terminal", exact: true }).query()).toBeNull();
+  await panel().getByRole("button", { name: /^Close/ }).click();
+  await expect.element(panel()).not.toBeInTheDocument();
+
+  await thread().getByRole("group", { name: /wrangler deploy/ }).getByRole("button", { name: "Run", exact: true }).click();
+  await expect.element(pane().getByText("Attempting to login via OAuth...")).toBeVisible();
+  expect(pane().getByRole("tablist").query()).toBeNull();
+});

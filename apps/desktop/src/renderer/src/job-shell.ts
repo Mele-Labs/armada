@@ -80,13 +80,17 @@ export class JobShells {
     this.changed();
   }
 
-  /** Shows the pane, with a new shell where none is running: it opens once the pane has its size. */
-  want(place: ShellPlace, sessionId: string): void {
+  /** A new shell where none is running: it opens once a pane has its size. */
+  fresh(sessionId: string): void {
     const now = this.shells.get(sessionId);
-    if (now === undefined || now.ended) {
-      this.typed.delete(sessionId);
-      this.set(sessionId, { runId: null, out: "", screen: (this.screens += 1), ended: false, waiting: true });
-    }
+    if (now !== undefined && !now.ended) return;
+    this.typed.delete(sessionId);
+    this.set(sessionId, { runId: null, out: "", screen: (this.screens += 1), ended: false, waiting: true });
+  }
+
+  /** Shows the pane, with a new shell where none is running. */
+  want(place: ShellPlace, sessionId: string): void {
+    this.fresh(sessionId);
     this.show(place, sessionId, true);
   }
 
@@ -185,6 +189,12 @@ export function shellsOf(api: ShellApi): JobShells | null {
     SHELLS.set(api, made);
   }
   return made;
+}
+
+/** One Job's shell, drawn again as it changes: the side panel's, which shows it while it is open. */
+export function useShellOf(shells: JobShells | null, sessionId: string): JobShell | undefined {
+  const subscribe = useCallback((listener: () => void) => shells?.subscribe(listener) ?? (() => undefined), [shells]);
+  return useSyncExternalStore(subscribe, () => shells?.shell(sessionId));
 }
 
 /** One Job's shell and whether its pane shows in `place`, drawn again as either changes. */
