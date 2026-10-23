@@ -75,6 +75,7 @@ export function fakeBridge(scenario: Scenario, options: FakeOptions = {}): Bridg
       if (own?.claimPullRequest === undefined) fake.claimPullRequest = served.claimPullRequest;
       if (own?.claimIssue === undefined) fake.claimIssue = served.claimIssue;
       if (own?.dismissWaiting === undefined) fake.dismissWaiting = served.dismissWaiting;
+      if (own?.confirmWaiting === undefined) fake.confirmWaiting = served.confirmWaiting;
     }
   }
   return fake;
