@@ -8,6 +8,8 @@ notes = """
 
 **A broken mod is a row, never a failed read.** A `mod.toml` that does not parse, a `theme.css` that is a link, too large or full of things a theme may not say, a `layout.json` that is not valid JSON of the shape `docs/concepts/layout-mods.md` allows, a folder that is not a name Fleet accepts: each is its own row with `valid` false and the rest of the list is untouched. The folder is rescanned on every call, so a job that wrote files shows up without a restart.
 
+**Built-in mods are listed beside them** (since 23 Oct 2026): every folder under the repository's `packages/mods/`, where a merged `promote_mod` puts one, compiled into this Fleet and checked by the same rules. Such a row carries `origin` `built_in` and is named `built-in:<folder>`, so a local mod of the same name is its own row beside it, switched, validated and chosen as the theme apart. A local row leaves `origin` out. A built-in mod that breaks a rule is listed with its reason and never applied.
+
 Fleet also rescans every two seconds and publishes `mods.changed` when the list differs from the last it published, so an open Bridge refreshes when a job writes a file.
 
 `agent_access` is `Yes`: a job making a mod asks what is already there before it picks a name.

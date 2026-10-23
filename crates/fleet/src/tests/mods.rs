@@ -153,7 +153,7 @@ fn a_list_with_every_kind_of_broken_mod_in_it_still_answers() {
     let made = std::process::Command::new("mkfifo").arg(mods.join("pipe-css/theme.css")).status().expect("mkfifo");
     assert!(made.success());
 
-    let list = scan(&mods, &Default::default());
+    let list = scan(&mods, &Default::default(), &Default::default());
     let names: Vec<&str> = list.mods.iter().map(|one| one.name.as_str()).collect();
     assert!(!names.contains(&".hidden") && !names.contains(&"stray-file"), "{names:?}");
 
@@ -186,7 +186,7 @@ fn a_list_with_every_kind_of_broken_mod_in_it_still_answers() {
 #[test]
 fn a_folder_that_is_not_there_is_an_empty_list() {
     let home = TempDir::new();
-    assert_eq!(scan(&home.path().join("mods"), &Default::default()), ModList::default());
+    assert_eq!(scan(&home.path().join("mods"), &Default::default(), &Default::default()), ModList::default());
 }
 
 #[test]
@@ -194,9 +194,9 @@ fn a_mod_nobody_switched_is_on_and_a_switch_holds() {
     let home = TempDir::new();
     let mods = home.path().join("mods");
     a_mod(&mods, "calm", GOOD_TOML, GOOD_CSS);
-    assert!(only(&scan(&mods, &Default::default()), "calm").enabled);
+    assert!(only(&scan(&mods, &Default::default(), &Default::default()), "calm").enabled);
     let off = [("calm".to_string(), false)].into();
-    assert!(!only(&scan(&mods, &off), "calm").enabled);
+    assert!(!only(&scan(&mods, &off, &Default::default()), "calm").enabled);
 }
 
 #[test]

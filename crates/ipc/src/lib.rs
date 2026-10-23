@@ -382,7 +382,7 @@ pub use merge_line::{
     MergeLineCheck, MergeLineEntry, MergeLinePullRequest, MergeLines,
 };
 pub use mods::{
-    ModChecked, ModKind, ModList, ModPromoted, ModScaffolded, ModSummary, PromoteMod,
+    ModChecked, ModKind, ModList, ModOrigin, ModPromoted, ModScaffolded, ModSummary, PromoteMod,
     ScaffoldMod, SetModEnabled, TrackerTry, TryTrackerMod,
 };
 pub use clashes::{

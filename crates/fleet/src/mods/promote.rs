@@ -1,21 +1,22 @@
-//! Putting a mod on a branch of a repository, without touching the checkout the
-//! owner works in.
+//! Promote: a mod put into a repository by a Job of its own, as Commit to repository puts a piece
+//! (`crate::committing`, the owner's 21 Oct 2026 decision): the Job's own slot and branch, the
+//! mod's files committed alone under `packages/mods/<name>/`, the branch pushed, a pull request
+//! opened for it, and the Job told to see that pull request merged. Once merged, the mod ships
+//! built in (`super::built_in`).
 //!
-//! The way a Job gets a worktree: a slot is leased from the repository's pool
-//! with a branch cut fresh from the base, the files are written there, those
-//! paths are committed, and the slot is given back. The owner's checkout is never
-//! the place written, and **nothing is pushed**: the branch is local until a
-//! person says otherwise.
+//! **Every refusal is decided before the Job is made**, so a refused promote leaves no Job behind,
+//! and the owner's checkout is read and never written. **A pull request that does not open loses
+//! nothing**: the Job keeps the commit on its branch and the answer says why. The Job is then told
+//! nothing, since it has no pull request to watch.
 
 use std::path::Path;
+use std::sync::Arc;
 
-use adapter_traits::{
-    AgentHarness, CommitTime, Committed, Delivery, SlotLeased, Vcs, WorkProduct, WorktreeSpec,
-};
+use adapter_traits::{AgentHarness, Delivery, Review, Vcs, WorkProduct};
 use api::Refusal;
 use ipc::{ModPromoted, PromoteMod, WireError};
 
-use super::serving::MOD_NOT_PROMOTABLE;
+use super::serving::{Named, MOD_NOT_PROMOTABLE};
 use super::{examine, Files, Payload, MANIFEST};
 use crate::daemon::Fleet;
 
@@ -32,9 +33,11 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    pub(super) async fn mod_promoted(&self, promote: PromoteMod) -> Result<ModPromoted, Refusal> {
+    pub(super) async fn mod_promoted(self: &Arc<Self>, promote: PromoteMod) -> Result<ModPromoted, Refusal> {
         let name = promote.name;
-        self.mod_named(&name)?;
+        if let Named::BuiltIn(_) = self.mod_named(&name)? {
+            return Err(self.cannot_promote(&name, format!("`{name}` is built in, so it is in the repository already")));
+        }
         let dir = self.mods_dir();
         let asked = name.clone();
         let found = tokio::task::spawn_blocking(move || examine(&dir, &asked))
@@ -47,58 +50,38 @@ where
             ));
         };
         let served = self.served_named(promote.manifest_id.as_ref())?;
-        if !Path::new(served.root()).join("packages").is_dir() {
+        let root = Path::new(served.root());
+        if !root.join("packages").is_dir() {
             return Err(self.cannot_promote(
                 &name,
                 String::from("this repository has no packages/ folder to put a mod in"),
             ));
         }
-        let millis = self.now().epoch_millis().unwrap_or_default();
-        let holder = format!("mod-{name}-{millis}");
-        let spec = WorktreeSpec::for_job(served.root(), &holder)
-            .map_err(|why| self.mod_fault(format!("no branch could be named: {why:?}")))?;
-        let pool = crate::leasing::pool_of(&served);
-        let (slot, worktree) = match self.vcs().lease_slot(&pool, &spec, &holder) {
-            Ok(SlotLeased::Took { slot, worktree, .. }) => (slot, worktree),
-            Ok(SlotLeased::Full) => {
-                return Err(self.cannot_promote(
-                    &name,
-                    String::from("every worktree slot is in use; try again when one is free"),
-                ))
-            }
-            Err(why) => return Err(self.mod_fault(format!("a slot could not be leased: {why}"))),
-        };
-        let at = CommitTime::seconds_since_epoch(millis.div_euclid(1_000));
-        let made = write_and_commit(self, &worktree, &name, &files, at);
-        // Given back whether or not the commit was made: it holds nothing but this.
-        let parked = self.vcs().park_slot(&pool, slot, &holder);
-        let outcome = made.and_then(|committed| match committed {
-            Committed::Made { commit } => Ok(commit),
-            Committed::NothingToCommit => Err(Refused::Nothing),
-        });
-        match (outcome, parked) {
-            (Ok(commit), Ok(_)) => Ok(ModPromoted {
-                name,
-                branch: worktree.branch().to_string(),
-                commit,
-            }),
-            (Ok(_), Err(why)) => Err(self.mod_fault(format!(
-                "the mod is on `{}` but the slot would not be given back: {}",
-                worktree.branch(),
-                why.said()
-            ))),
-            (Err(refused), _) => {
-                // The branch was cut for this and holds nothing of the owner's.
-                let _ = self.vcs().delete_repair_branch(&spec);
-                Err(match refused {
-                    Refused::Nothing => self.cannot_promote(
-                        &name,
-                        String::from("this repository already holds the mod exactly as it is"),
-                    ),
-                    Refused::Failed(why) => self.mod_fault(why),
-                })
-            }
+        let (written, title) = written(&name, &files);
+        let held = |(at, text): &(String, String)| std::fs::read_to_string(root.join(at)).is_ok_and(|on| &on == text);
+        if written.iter().all(held) {
+            return Err(self.cannot_promote(&name, String::from("this repository already holds the mod exactly as it is")));
         }
+        let (session_id, tree) = match self.job_of_its_own(&served, title.clone()).await? {
+            Ok(job) => job,
+            Err(why) => return Err(self.cannot_promote(&name, format!("no Job could be made for this promote. {why}"))),
+        };
+        let paths: Vec<&str> = written.iter().map(|(at, _)| at.as_str()).collect();
+        let commit = self.committed_in(&tree, &written, &title).await.map_err(|why| self.mod_fault(why))?.ok_or_else(|| {
+            self.mod_fault(format!("git found nothing to commit for {} on {}", paths.join(", "), tree.branch))
+        })?;
+        let body = format!("{title}.\n\nMade by Promote in Mods, as a Job of its own: {}.", paths.join(", "));
+        let (pull_request, pull_request_not_opened) = match self.delivered_for_review(&served, &tree, Review::assembled(title.clone(), body)).await {
+            Ok(url) => {
+                self.pull_attached(&served, session_id.as_str(), &tree.branch, &url).await;
+                let base = served.manifest().base().unwrap_or("main");
+                // A refused word leaves the pull request on the Job's row, where Fleet's notices still reach it.
+                let _ = self.told_by_fleet(session_id.as_str(), &brief(&title, &url, base)).await;
+                (Some(url), None)
+            }
+            Err(why) => (None, Some(why)),
+        };
+        Ok(ModPromoted { name, session_id, branch: tree.branch, commit, pull_request, pull_request_not_opened })
     }
 
     fn cannot_promote(&self, name: &str, said: String) -> Refusal {
@@ -109,50 +92,27 @@ where
     }
 }
 
-enum Refused {
-    Nothing,
-    Failed(String),
+/// The mod's two files under `packages/mods/<name>/`, **from the bytes that were checked**, not
+/// read again, and the title its commit, Job and pull request carry.
+fn written(name: &str, files: &Files) -> (Vec<(String, String)>, String) {
+    let kind = match files.payload {
+        Payload::Css(_) => "theme",
+        Payload::Layout(_) => "layout",
+        Payload::Tracker(_) => "tracker",
+    };
+    let written = vec![
+        (format!("{PLACE}/{name}/{MANIFEST}"), files.manifest.clone()),
+        (format!("{PLACE}/{name}/{}", files.payload.file()), files.payload.text().to_string()),
+    ];
+    (written, format!("Add the {name} {kind} mod"))
 }
 
-/// The two files into `packages/mods/<name>/` in the slot, and those two paths
-/// committed. **Written from the bytes that were checked**, not read again.
-fn write_and_commit<H, V, W>(
-    fleet: &Fleet<H, V, W>,
-    worktree: &adapter_traits::Worktree,
-    name: &str,
-    files: &Files,
-    at: CommitTime,
-) -> Result<Committed, Refused>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
-{
-    let relative = format!("{PLACE}/{name}");
-    let inside = Path::new(worktree.path()).join(&relative);
-    std::fs::create_dir_all(&inside)
-        .map_err(|why| Refused::Failed(format!("{relative} could not be made: {why}")))?;
-    let file = files.payload.file();
-    for (file, text) in [(MANIFEST, files.manifest.as_str()), (file, files.payload.text())] {
-        std::fs::write(inside.join(file), text)
-            .map_err(|why| Refused::Failed(format!("{relative}/{file} could not be written: {why}")))?;
-    }
-    let paths = [format!("{relative}/{MANIFEST}"), format!("{relative}/{file}")];
-    fleet
-        .vcs()
-        .commit_paths(
-            worktree,
-            &[paths[0].as_str(), paths[1].as_str()],
-            &format!("Add the {name} {} mod", match files.payload {
-                Payload::Css(_) => "theme",
-                Payload::Layout(_) => "layout",
-                Payload::Tracker(_) => "tracker",
-            }),
-            at,
-        )
-        .map_err(|why| Refused::Failed(format!("the mod could not be committed: {why}")))
+/// What the Job is told once its pull request is open: what it holds, what Fleet tells it, and
+/// when it is done.
+fn brief(title: &str, url: &str, base: &str) -> String {
+    format!(
+        "This Job holds {url}, the pull request titled \"{title}\". Fleet tells you when its ci fails, when it \
+         conflicts with {base}, and when it merges. Fix what goes red, keep the branch current with {base}, and \
+         finish when it merges."
+    )
 }

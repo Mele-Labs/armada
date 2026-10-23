@@ -10,7 +10,7 @@ A try runs the mod's search with its guide's `open`, then its `[list]` where it 
 
 The outcome is kept beside the mod with the digest of the `tracker.toml` it tried, and `list_mods` carries it as the row's `tried` until that file changes. **A Manifest whose `tracker` names the mod uses it only while its try of the file as it stands passed.** A try publishes `mods.changed`.
 
-422 `fleet.unacceptable_mod` for a mod that is not a tracker or a name that is not a slug, 404 `fleet.no_such_mod` for a slug naming no folder, and a `manifest_id` Fleet does not serve is refused as it is by every operation that names a repository.
+422 `fleet.unacceptable_mod` for a mod that is not a tracker, a built-in mod (it has no folder on this machine to keep a try in) or a name that is not a slug, 404 `fleet.no_such_mod` for a slug naming no folder, and a `manifest_id` Fleet does not serve is refused as it is by every operation that names a repository.
 
 `agent_access` is `Yes`: a job that writes a tracker mod tries it before it says it is done.
 """
