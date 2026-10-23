@@ -8,7 +8,7 @@ Terminal in the Job's Flight control opens it ([Cockpit](../cockpit.md), *The Jo
 The thread keeps the Job's whole pane, since nothing docks under it.
 Where no merge queue is drawn, the panel is the last under the Job.
 Elsewhere, beside a page in the walk panel and in a call card, docked is under the thread, where a block's run docks.
-The tile is lit while the shell shows, and pressed again it puts the pane away with the shell still running.
+The tile is lit while the shell shows, and pressed again it puts the pane away with the shell still running, except in its window, where it brings the window to the front.
 Beside a page in the walk panel, where no Flight control is drawn, Terminal is in the Job's header.
 Hide puts the pane away and the shell keeps running; End shell stops it.
 Once it has ended the pane says *Shell ended* and offers New shell, which opens another, and Close.
@@ -16,12 +16,24 @@ A block's run docks in the Job view in either place.
 In the Cockpit the run and the shell are two panes, the run in the Job and the shell in its panel.
 Elsewhere, with both open, the two are tabs in one dock, *Terminal* beside the run's command, and each keeps its own screen.
 
-**Where it opens is the setting `terminal.openJobTerminalIn`**: `docked`, as above and as shipped, or `side panel`.
-A toggle on the pane's head moves an open shell between the two and saves the setting: Move to the side panel on the docked pane, and Dock on the side panel's.
+**Where it opens is the setting `terminal.openJobTerminalIn`**: `docked`, as above and as shipped, `side panel`, or `window`.
+Each pane's head offers the two other places, each a glyph that pictures where the shell goes: Dock, Move to the side panel and Open in a window.
+Pressing one moves the open shell there and saves the setting.
+The shell shows in one place at a time, so when it moves to its window it leaves the dock or the side panel, and only one screen sizes it.
 In the side panel it opens where a pull request or an issue does, headed *Terminal* with the Job's title, and the thread keeps its whole height.
 Close puts the panel away and the shell keeps running; Terminal brings it back with everything it printed.
 While the shell has focus, Esc goes to the shell, so a program that reads it still works, and Close is the way out.
 A change of the setting takes effect at the next Terminal, and a block's run stays docked either way.
+A call card keeps its shell docked, and beside a page in the walk panel Terminal follows the setting.
+
+**At `window` the shell has a window of its own**, one per Job, titled *Terminal* with the Job's title.
+Closing the window puts the shell away and it keeps running; Terminal opens the window again with everything it printed.
+A Terminal press while the window is open brings it to the front, and does not put the shell away.
+Dock and Move to the side panel on the window's head bring the shell back into Bridge.
+Esc goes to the shell here too, and the window's own close is the way out.
+The window has End shell, and New shell once the shell has ended.
+A window opened after the shell started shows what it printed so far, since Bridge keeps each shell's last 256 KiB of output, as Fleet does.
+Terminal windows close when Bridge quits and are not restored, and every Job's terminal window shares one size.
 
 **It is an interactive `$SHELL -l` on a pseudo-terminal**, in the Job's slot worktree, or its directory where it holds no slot.
 `/bin/zsh` stands where `SHELL` is unset or empty, and `TERM` is `xterm-256color`.
