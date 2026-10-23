@@ -55,6 +55,8 @@ A flat file of `key = "value"` lines and `#` comments, read by hand: a table, an
 | `taught_on` | string | no | none | What Teach was pressed on, up to 120 characters. The mod's row lists it |
 | `entry` | string | no | none | The Logbook entry a teaching from a Job made. Forgetting that entry removes the mod |
 
+A teaching writes a Words, Fleet, tweak or layout mod, and records `taught_on` and `entry` in it. [Teaching](teaching.md).
+
 Any other key is a problem.
 A `kind` this build does not have makes the mod invalid, so a valid mod's kind is always one Bridge can act on.
 A theme mod holds `theme.css`, a layout mod `layout.json`, a Words mod `words.toml`, a Fleet mod `fleet.toml`, a tweak mod `tweak.css` and a tracker mod `tracker.toml`, and the kind says which file is read.
