@@ -26,6 +26,14 @@ export default meta;
 
 type Story = StoryObj<typeof ShellPane>;
 
+/** An act on the shell's head drawn as a glyph alone: named, and described, by its tooltip. */
+async function iconAct(pane: ReturnType<typeof within>, label: string): Promise<HTMLElement> {
+  const button = pane.getByRole("button", { name: label });
+  await expect(button).toHaveAccessibleDescription(label);
+  await expect(button.textContent).toBe("");
+  return button;
+}
+
 const body = (text: string): ShellPaneProps["children"] => <pre style={{ margin: 0, padding: "var(--space-2) var(--space-3)", fontFamily: "var(--font-mono)" }}>{text}</pre>;
 
 export const ShellRunning: Story = {
@@ -40,11 +48,11 @@ export const ShellRunning: Story = {
     await expect(pane.queryByRole("button", { name: "Stop" })).toBeNull();
 
     // Hide puts the pane away and leaves the shell running.
-    await userEvent.click(pane.getByRole("button", { name: "Hide" }));
+    await userEvent.click(await iconAct(pane, "Hide"));
     await expect(args.onHide).toHaveBeenCalledTimes(1);
     await expect(args.onEnd).not.toHaveBeenCalled();
 
-    await userEvent.click(pane.getByRole("button", { name: "End shell" }));
+    await userEvent.click(await iconAct(pane, "End shell"));
     await expect(args.onEnd).toHaveBeenCalledTimes(1);
   },
 };
@@ -61,7 +69,7 @@ export const ShellEnded: Story = {
 
     await userEvent.click(pane.getByRole("button", { name: "New shell" }));
     await expect(args.onOpen).toHaveBeenCalledTimes(1);
-    await userEvent.click(pane.getByRole("button", { name: "Close" }));
+    await userEvent.click(await iconAct(pane, "Close"));
     await expect(args.onClose).toHaveBeenCalledTimes(1);
   },
 };
@@ -74,7 +82,7 @@ export const ShellInThePanel: Story = {
     const pane = within(canvasElement);
     await expect(pane.queryByText("Terminal", { selector: "header *" })).toBeNull();
     await expect(pane.queryByRole("button", { name: "Hide" })).toBeNull();
-    await userEvent.click(pane.getByRole("button", { name: "End shell" }));
+    await userEvent.click(await iconAct(pane, "End shell"));
     await expect(args.onEnd).toHaveBeenCalledTimes(1);
   },
 };

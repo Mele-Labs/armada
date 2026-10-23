@@ -49,3 +49,10 @@
     size = "12px"
     status = "Proposed"
     notes = "Proposed 19 Oct 2026 for the walk `requests-with-the-owners-header`, as the ledger's non-zero exit draws it: the request failed and nobody decided. Failed hue, tooltip the status, `401`. The status is also drawn as text. That walk is replaced by `requests-collections-and-environments`, which sends no request that fails."
+
+  [[icons.x.usage]]
+    means = "Close on a docked terminal pane whose run or shell has ended"
+    group = "Chrome"
+    size = "16px"
+    status = "Proposed"
+    notes = "Chrome, as the dialog close is: it puts the pane away and nothing else. Tooltip and aria-label `Close`. A block's run had it first; a Job's shell that has ended takes it from 23 Oct 2026, for the walk `job-shell`."

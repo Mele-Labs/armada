@@ -1,5 +1,5 @@
 import { Fragment, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
-import { CircleCheck, CircleX, RotateCcw, Square, SquareTerminal, X } from "lucide-react";
+import { CircleCheck, CircleX, PanelBottomClose, PowerOff, RotateCcw, Square, SquareTerminal, X } from "lucide-react";
 
 import { Button } from "../Button/Button";
 import { Tabs } from "../Tabs/Tabs";
@@ -122,6 +122,17 @@ export type ShellPaneProps = {
 /** The shell in the side panel, which names it and closes it. */
 export type ShellPanelPaneProps = Omit<ShellPaneProps, "onHide" | "onClose">;
 
+/** An act drawn as its glyph alone, which the tooltip names. */
+function IconAct({ label, onClick, children }: { label: string; onClick: () => void; children: ReactNode }) {
+  return (
+    <Tooltip label={label}>
+      <Button variant="ghost" size="sm" iconOnly aria-label={label} onClick={onClick}>
+        {children}
+      </Button>
+    </Tooltip>
+  );
+}
+
 /** `docked` holds the pane's own way away, which a panel's shell leaves to the panel. */
 function shellHead({ phase, onEnd, onOpen }: Omit<ShellPanelPaneProps, "children">, docked: Pick<ShellPaneProps, "onHide" | "onClose"> | null): PaneHead {
   const running = phase.state === "running";
@@ -131,13 +142,13 @@ function shellHead({ phase, onEnd, onOpen }: Omit<ShellPanelPaneProps, "children
     keys: running ? (
       <>
         {docked === null ? null : (
-          <Button variant="ghost" size="sm" onClick={docked.onHide}>
-            Hide
-          </Button>
+          <IconAct label="Hide" onClick={docked.onHide}>
+            <PanelBottomClose size={16} strokeWidth={2} aria-hidden />
+          </IconAct>
         )}
-        <Button variant="ghost" size="sm" onClick={onEnd}>
-          End shell
-        </Button>
+        <IconAct label="End shell" onClick={onEnd}>
+          <PowerOff size={16} strokeWidth={2} aria-hidden />
+        </IconAct>
       </>
     ) : (
       <>
@@ -145,9 +156,9 @@ function shellHead({ phase, onEnd, onOpen }: Omit<ShellPanelPaneProps, "children
           New shell
         </Button>
         {docked === null ? null : (
-          <Button variant="ghost" size="sm" onClick={docked.onClose}>
-            Close
-          </Button>
+          <IconAct label="Close" onClick={docked.onClose}>
+            <X size={16} strokeWidth={2} aria-hidden />
+          </IconAct>
         )}
       </>
     ),

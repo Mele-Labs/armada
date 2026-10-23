@@ -11,3 +11,10 @@
     size = "16px"
     status = "Specified"
     notes = "Icon-only, tooltip and aria-label `End session`. A Session in the done state wears `power` as its state mark (`session_standing_marks`), so the act could not wear it too. Approved 15 Oct 2026."
+
+  [[icons.power-off.usage]]
+    means = "End shell, on a Job's own shell, docked or in the side panel"
+    group = "Session"
+    size = "16px"
+    status = "Proposed"
+    notes = "Proposed 23 Oct 2026 for the walk `job-shell`, on the owner's word that End shell should be an icon button with a tooltip. Icon-only, tooltip and aria-label `End shell`. Turning off a thing that stays open until someone ends it, as End session is. `square` is the Stop on a block's run, which docks beside the shell as a tab, so the shell could not wear it too."
