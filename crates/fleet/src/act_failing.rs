@@ -19,8 +19,6 @@ where
     W::Error: std::error::Error + Send + Sync + 'static,
 {
     /// Say that `act` failed with `refusal`, for the repository and the Job it had, if it had them.
-    // Nothing sends it until the acts that reply first land; their change drops this.
-    #[allow(dead_code)]
     pub(crate) fn act_failed(
         &self,
         act: BackgroundAct,

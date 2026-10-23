@@ -449,7 +449,7 @@ impl Commands for FakeDaemon {
         )))
     }
     async fn checkout_to_pull_request(
-        &self,
+        self: std::sync::Arc<Self>,
         asked: ipc::CheckoutToPullRequest,
     ) -> Result<ipc::CheckoutSentAsPullRequest, Refusal> {
         Err(Refusal::IllegalMove(ipc::WireError::raised(

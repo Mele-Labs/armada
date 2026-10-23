@@ -16,6 +16,7 @@
 //! caller happened to be looking at.
 
 use std::future::Future;
+use std::sync::Arc;
 
 use crate::daemon::Refusal;
 use ipc::{ManifestSaved, SaveManifestFile};
@@ -45,10 +46,11 @@ pub trait Commands: Send + Sync + 'static {
     /// Reads the hold again first and refuses on `catch_up_checkout`'s
     /// conditions, and where the hold already carries a pull request.
     /// [`Refusal::IllegalMove`] for those; [`Refusal::Unacceptable`] on a
-    /// repository this Fleet does not serve; [`Refusal::Fault`] where git or the
-    /// forge would not take it.
+    /// repository this Fleet does not serve. **Answered when the send can be
+    /// tried**: where git or the forge would not take it, the stream says
+    /// `act.failed`.
     fn checkout_to_pull_request(
-        &self,
+        self: Arc<Self>,
         asked: ipc::CheckoutToPullRequest,
     ) -> impl Future<Output = Result<ipc::CheckoutSentAsPullRequest, Refusal>> + Send;
 

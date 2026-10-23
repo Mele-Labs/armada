@@ -716,7 +716,7 @@ export class WiredStore {
       this.say(undefined);
       const done = await this.api.sendCheckoutAsPullRequest(manifestId);
       if (!done.ok) return void this.tell(done.outcome);
-      return { number: done.value.pull_request };
+      return {};
     },
     // The file is read by its Manifest and path; Fleet refuses one the hold does not list.
     diffInRepository: async (root, path) => {

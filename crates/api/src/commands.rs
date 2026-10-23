@@ -70,7 +70,7 @@ pub(crate) async fn checkout_to_pull_request<D: Commands>(
         Ok(asked) => asked,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
-    match served.daemon().checkout_to_pull_request(asked).await {
+    match served.shared().checkout_to_pull_request(asked).await {
         Ok(sent) => answer(StatusCode::OK, &sent, served.run_id()),
         Err(refusal) => refused(refusal),
     }
