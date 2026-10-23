@@ -3,6 +3,7 @@
 
 use std::collections::BTreeMap;
 
+use crate::session_build::{LANDED_PULLS, PREVIOUS_LANDING};
 use crate::tests::{open, TempDir};
 use crate::{AttachmentState, Holder, KeptAttachment, KeptBuild, KeptTask, RoadAsk, Store, TimelineEntry};
 
@@ -148,4 +149,26 @@ fn the_landed_pulls_are_those_a_session_held_and_the_forge_merged() {
         Some("2026-10-14T10:20:00.000Z")
     );
     assert_eq!(store.previous_landing("s1", "armada", "2026-10-14T10:20:00.000Z").expect("reads"), None);
+}
+
+#[test]
+fn the_landed_pulls_are_read_off_an_index_of_merged_pulls_not_a_walk_of_the_timeline() {
+    let dir = TempDir::new();
+    let store = open(&dir);
+    for (name, sql, bound) in [("landed_pulls", LANDED_PULLS, 2), ("previous_landing", PREVIOUS_LANDING, 3)] {
+        let mut explain = store.conn.prepare(&format!("EXPLAIN QUERY PLAN {sql}")).expect("explains");
+        let details: Vec<String> = if bound == 2 {
+            explain.query_map(rusqlite::params!["armada", 10], |row| row.get(3)).expect("plans").collect::<Result<_, _>>()
+        } else {
+            explain.query_map(rusqlite::params!["s1", "armada", "2026-10-14T13:00:00.000Z"], |row| row.get(3)).expect("plans").collect::<Result<_, _>>()
+        }
+        .expect("rows");
+        let on_timeline: Vec<&String> = details.iter().filter(|line| line.contains(" t ")).collect();
+        assert!(
+            on_timeline.iter().any(|line| line.starts_with("SEARCH") && line.contains("timeline_events_by_repo_kind")),
+            "{name} searches the merged-pull index; plan: {details:?}"
+        );
+        assert!(!on_timeline.iter().any(|line| line.starts_with("SCAN")), "{name} does not walk the timeline; plan: {details:?}");
+        assert!(!details.iter().any(|line| line.contains("TEMP B-TREE")), "{name} needs no sort; plan: {details:?}");
+    }
 }
