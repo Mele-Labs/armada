@@ -839,6 +839,13 @@ pub struct AttachmentVersion {
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub detail: BTreeMap<String, String>,
     pub at: Instant,
+    /// The thread row id of the person's latest message when this version was written. Fleet works it out:
+    /// absent for a version written before there was a message, or before this was kept.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub from_message: Option<String>,
+    /// The plan task in progress when this version was written, absent where none was.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub from_task: Option<String>,
 }
 
 /// `get_attachment_history`: every version of everything one session holds, oldest first. Read on

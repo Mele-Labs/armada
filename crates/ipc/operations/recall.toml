@@ -1,0 +1,14 @@
+[operations.recall]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Search the whole Logbook for your repository, the owner's habits and this Mac: every entry whose text has your words, faded ones included, with its section, kind and state"
+notes = """
+`GET /logbook/recall?query=&section=&manifest_id=`. Answers `Recalled`: `entries`, each with `section`, `kind`, `state`, `text` and `confirmed_by`. `docs/concepts/logbook.md`, *Recall*.
+
+**Plain words, no model.** `query` is split into words and an entry matches by holding any of them as a substring, in either case. Entries that hold more of the words come first, then those more Sessions bore out, then the most recently confirmed. At most 20 are answered. A blank `query` is a 422 `fleet.session_unnamed`.
+
+**`section` narrows it** to `repo`, `habits` or `machine`; absent is all three, and any other word is a 422. A `repo` entry is of the repository `manifest_id` names, and the door names the Job's own.
+
+**What the start note left out is here, and so is what has faded.** `state` says which: `standing` entries are the ones every new Job is handed, `faded` ones are kept and no longer served, and a `candidate` is one Job's claim not yet borne out. Reading does not mark an entry served.
+"""
