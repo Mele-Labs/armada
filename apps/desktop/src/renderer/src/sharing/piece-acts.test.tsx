@@ -14,7 +14,7 @@ import { PieceActs } from "./PieceActs";
 const ROOT = "/Users/user/widgets";
 const refused = (code: string, message: string): Outcome => ({ ok: false, why: "refused", error: { code, message, run_id: "", fields: {}, chain: [] } });
 
-const JOB = { repository: ROOT, session_id: "c1", branch: "armada/commit-run-tests", paths: [".armada/flight-controls.toml"], commit: "4f2c9a1", pull_request: "https://git.example/acme/widgets/pull/42" };
+const JOB = { repository: ROOT, session_id: "c1", branch: "armada/commit-run-tests", paths: [".armada/flight-controls.toml"] };
 
 function fleet(commit: Outcome | undefined = undefined, answered: Record<string, unknown> = JOB) {
   const armada = {
@@ -54,7 +54,7 @@ const press = async (host: HTMLElement, name: string) => {
 };
 const said = (host: HTMLElement) => host.querySelector('[role="status"]')?.textContent;
 
-test("Commit names no Job, and offers the Job it started and its pull request", async () => {
+test("Commit names no Job, and offers the Job it started", async () => {
   const armada = fleet();
   const opened = vi.fn();
   window.addEventListener("armada:open-session-in-cockpit", opened);
@@ -62,20 +62,9 @@ test("Commit names no Job, and offers the Job it started and its pull request", 
   await press(host, "Commit to repository");
   expect(armada.commitToRepository).toHaveBeenCalledWith({ repository: ROOT, piece: { kind: "flight_controls", job: ["run-tests"] } });
   expect(said(host)).toContain("Job started");
-  await press(host, "Open the pull request");
-  expect(armada.openLink).toHaveBeenCalledWith("https://git.example/acme/widgets/pull/42");
   await press(host, "Open the Job");
   window.removeEventListener("armada:open-session-in-cockpit", opened);
   expect((opened.mock.calls[0]![0] as CustomEvent<string>).detail).toBe("c1");
-});
-
-test("a pull request that did not open says the branch was pushed, and why", async () => {
-  const { pull_request: _none, ...rest } = JOB;
-  fleet(undefined, { ...rest, pull_request_not_opened: "The forge refused the token" });
-  const host = await mount();
-  await press(host, "Commit to repository");
-  expect(said(host)).toContain("armada/commit-run-tests pushed. Pull request not opened: The forge refused the token");
-  expect([...host.querySelectorAll("button")].some((one) => one.textContent === "Open the pull request")).toBe(false);
 });
 
 test("an id main holds offers Replace, which commits over it", async () => {

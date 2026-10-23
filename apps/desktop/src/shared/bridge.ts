@@ -47,6 +47,7 @@ import { CLASHES_CHANNELS } from "./api/clashes";
 import { REVIEWS_CHANNELS } from "./api/reviews";
 import { TERRITORY_CHANNELS } from "./api/territory";
 import { TIMELINE_CHANNELS } from "./api/timeline";
+import { ACT_FAILED_CHANNELS } from "./api/act-failed";
 import { BAY_HISTORY_CHANNELS } from "./api/bay-history";
 import { USAGE_SUMMARY_CHANNELS } from "./api/usage-summary";
 import { ISSUES_CHANNELS } from "./api/issues";
@@ -171,6 +172,7 @@ export const CHANNELS = {
   ...REVIEWS_CHANNELS,
   ...TERRITORY_CHANNELS,
   ...TIMELINE_CHANNELS,
+  ...ACT_FAILED_CHANNELS,
   ...BAY_HISTORY_CHANNELS,
   ...USAGE_SUMMARY_CHANNELS,
   ...ISSUES_CHANNELS,

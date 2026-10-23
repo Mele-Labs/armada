@@ -13,6 +13,8 @@ pub(super) struct CheckoutSends {
     /// What the push or the pull request refuses with. Absent sends cleanly.
     pub(super) refusing: Option<String>,
     pub(super) sent: Vec<CheckoutToSend>,
+    /// Held shut by `hold_checkout_sends`.
+    pub(super) held: Option<std::sync::Arc<super::Hold>>,
 }
 
 impl FakeVcs {
@@ -28,6 +30,10 @@ impl FakeVcs {
 
     /// Recorded, then answered: a pull request at `.../pull/2402` unless refused.
     pub(super) fn checkout_sent(&self, sending: &CheckoutToSend) -> Result<CheckoutSent, NotDelivered> {
+        let held = self.checkout_sends.lock().expect("not poisoned").held.clone();
+        if let Some(held) = held {
+            held.pass();
+        }
         let number = {
             let mut sends = self.checkout_sends.lock().expect("not poisoned");
             sends.sent.push(sending.clone());

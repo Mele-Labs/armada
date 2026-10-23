@@ -33,7 +33,7 @@ import type { ModChecked } from "@armada/protocol";
 import type { ForgetReviewSearch, OpenReviewWalk, PullReviewLists, PullThreadResolved, RememberedPlace, RememberedPlaces, ResolvePullThread, ReviewRun, ReviewRuns, ReviewTools, ReviewWalk, SaveReviewTool, SaveWalkPlace, StartReviewRun, StartReviewSearch, WalkPlaceFound, WritePullRequest } from "@armada/protocol";
 import type { ReviewWalkNote, ShownReviewWalk, ShownReviewWalkOutcome } from "../shared/review-walk";
 import type { ChosenHold, SessionHeld, SessionHoldsReleased, SetNoticeMute } from "@armada/protocol";
-import type { ModelDownshiftState, PlanUsage, SignedOut, SleepState, TimelineAsk, TimelineEvent } from "@armada/protocol";
+import type { ActFailed, ModelDownshiftState, PlanUsage, SignedOut, SleepState, TimelineAsk, TimelineEvent } from "@armada/protocol";
 import type { FlightControls } from "@armada/protocol";
 import type { StopWatch, WatchSummary } from "@armada/protocol";
 import type { ApproveRepositoryTile, RepositoryTile } from "@armada/protocol";
@@ -401,6 +401,13 @@ const api: BridgeApi = {
   listUnboundPieces: (): Promise<SharingAnswer<UnboundPieces>> => ipcRenderer.invoke(CHANNELS.listUnboundPieces),
   bindUnboundPiece: (body: BindUnboundPiece): Promise<SharingAnswer<PieceAdded>> => ipcRenderer.invoke(CHANNELS.bindUnboundPiece, body),
   savePackageFile: (name: string, text: string): Promise<PackageSaved> => ipcRenderer.invoke(CHANNELS.savePackageFile, name, text),
+  onActFailed: (onFailed: (failed: ActFailed) => void): (() => void) => {
+    const handler = (_event: unknown, failed: ActFailed): void => onFailed(failed);
+    ipcRenderer.on(CHANNELS.actFailed, handler);
+    return () => {
+      ipcRenderer.removeListener(CHANNELS.actFailed, handler);
+    };
+  },
   onTimelineAppended: (onAppended: (event: TimelineEvent) => void): (() => void) => {
     const handler = (_event: unknown, event: TimelineEvent): void => onAppended(event);
     ipcRenderer.on(CHANNELS.timelineAppended, handler);

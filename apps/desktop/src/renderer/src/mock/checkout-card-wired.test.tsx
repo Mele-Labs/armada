@@ -45,7 +45,7 @@ test("Run asks Fleet to catch the repository up by its Manifest alone, and sends
 
 test("Pull request asks Fleet by the repository's Manifest alone, and waits for the hold to carry the pull request", async () => {
   const { app, section } = await opened();
-  const send = vi.spyOn(app.api, "sendCheckoutAsPullRequest").mockResolvedValue({ ok: true, value: { pull_request: 2402, auto_merge: true } });
+  const send = vi.spyOn(app.api, "sendCheckoutAsPullRequest").mockResolvedValue({ ok: true, value: {} });
   const button = section.getByRole("button", { name: "Pull request" });
   await userEvent.click(button);
   await expect.poll(() => send.mock.calls.length).toBe(1);
