@@ -774,23 +774,32 @@ button.deck-pr:hover { border-color: var(--border-strong); color: var(--fg-defau
 
 /* ---- A Session's flight controls fill the panel ------------------------------------------------------------- */
 
-/* The tiles take the whole of what the foot gives the panel: the block is sized by its place and the grid fills it. One row of seven where
-   the block is wide and low, two rows of four where it is not, whichever makes the tiles closest to square. Each tile sizes its glyph and
-   its word from its own box. */
+/* The tiles take the whole of what the foot gives the panel: the block is sized by its place and the grid fills it. The tiles are in pages of six
+   columns and two rows that sit side by side in a strip and snap into view one page at a time, as iPhone home screens do, with a dot for each page
+   (`FlightBlock.tsx`, `flight-pages.ts`); while every tile fits on one page it has the columns it needs. Each tile sizes its glyph and its word from
+   its own box. The owner's ask of 23 Oct 2026. */
 .deck-controls__block[data-subject="session"],
-.deck-controls__block[data-subject="edit"] { display: block; flex: 1 1 0; container: tiles / size; min-height: calc(var(--tile) * 2 + var(--space-2)); }
-/* `--count` and `--cols` are set by the block from the tiles it draws, which the owner can add to and hide, and stop at twelve tiles' worth.
-   Tiles past twelve wrap to rows of the same height, and the block scrolls to reach them. */
+.deck-controls__block[data-subject="edit"] { display: block; position: relative; flex: 1 1 0; container: tiles / size; min-height: calc(var(--tile) * 2 + var(--space-2)); }
 .deck-controls__block[data-subject="session"] { overflow-y: auto; }
-.deck-controls__tiles { display: grid; grid-template-columns: repeat(var(--cols, 6), minmax(0, 1fr)); grid-auto-rows: calc((100cqh - var(--space-2)) / 2); gap: var(--space-2); }
-@container tiles (min-aspect-ratio: 11 / 1) {
-  .deck-controls__tiles { grid-template-columns: repeat(var(--count, 12), minmax(0, 1fr)); grid-auto-rows: 100cqh; }
-}
+/* The strip stands inside the block's padding, so a tile of the next page is never seen at its edge, and the dots stand over the padding under it. */
+.deck-controls__pages { height: 100cqh; overflow: auto; scroll-snap-type: x mandatory; overscroll-behavior-x: contain; scrollbar-width: none; }
+.deck-controls__pages::-webkit-scrollbar { display: none; }
+/* `--cols` is the columns of a page and `--span` the columns of every page. Each column is its share of the block's width, so a page is the block's
+   width wide and the next starts one gap past it, and the grid is every column wide, so the last page can be reached though it is not full. Each
+   tile has its cell set inline. */
+.deck-controls__tiles { --column: calc((100cqw - var(--space-2) * (var(--cols) - 1)) / var(--cols)); display: grid; width: calc(var(--span) * var(--column) + var(--space-2) * (var(--span) - 1)); grid-template-columns: repeat(var(--span), var(--column)); grid-template-rows: repeat(2, calc((100cqh - var(--space-2)) / 2)); grid-auto-rows: calc((100cqh - var(--space-2)) / 2); gap: var(--space-2); }
+.deck-controls__tiles > .deck-tile[data-page-first] { scroll-snap-align: start; scroll-snap-stop: always; }
+.deck-controls__dots { position: absolute; inset-inline: 0; bottom: 0; height: var(--space-3); display: flex; align-items: center; justify-content: center; pointer-events: none; }
+.deck-controls__dots > button { all: unset; box-sizing: border-box; display: flex; align-items: center; justify-content: center; width: var(--space-3); height: var(--space-3); cursor: pointer; pointer-events: auto; border-radius: var(--radius-sm); }
+.deck-controls__dots > button > span { width: calc(var(--space-1) * 1.5); height: calc(var(--space-1) * 1.5); border-radius: 50%; background: var(--fg-subtle); }
+.deck-controls__dots > button[aria-current] > span { background: var(--fg-default); }
+.deck-controls__dots > button:focus-visible { outline: var(--border-width) solid var(--accent); }
 /* The Slot key is lit only when something is wrong with the slot: its glyph and edge take the stranded hue, with no glow. */
 .deck-tile[data-lit] { border-color: var(--slot-stranded); color: var(--slot-stranded); }
 .deck-tile[data-lit] .deck-tile__text { color: var(--fg-default); }
-/* The foot of each tile is left clear for the context rule under Compact's word, so every word stands at one height; the top as much, so glyph and word sit centred. */
-.deck-controls__tiles > .deck-tile { container: tile / size; gap: var(--space-1); padding-block: var(--space-2); }
+/* The foot of each tile is left clear for the context rule under Compact's word, so every word stands at one height; the top as much, so glyph and word sit centred.
+   The word's box keeps its height in a tile 48px tall: its glyph, gap and word need 36px between the paddings, and a box that shrank cut the descenders. */
+.deck-controls__tiles > .deck-tile { container: tile / size; gap: var(--space-1); padding-block: var(--space-1); }
 .deck-controls__tiles > .deck-tile svg,
 .deck-controls__tiles > .deck-tile > .armada-session-mark svg { width: clamp(var(--space-4), 34cqmin, var(--space-12)); height: clamp(var(--space-4), 34cqmin, var(--space-12)); }
 /* The clash glyph keeps the mark's own size, not the key's. */

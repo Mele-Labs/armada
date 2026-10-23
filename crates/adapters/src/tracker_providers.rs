@@ -12,7 +12,7 @@
 use std::sync::Arc;
 
 use adapter_traits::{
-    IssueAddress, LinkLookup, LookupCall, NotTracked, OpenIssue, ReadIssue, Tracker,
+    IssueAddress, LinkLookup, LookupCall, NotTracked, OpenIssue, QueryGuide, ReadIssue, Tracker,
     TrackerChoice, Trackers,
 };
 
@@ -104,6 +104,14 @@ impl Tracker for Refusing {
         Err(self.no("reading the issue"))
     }
 
+    fn search_issues(&self, _in_repo: &str, _query: &str) -> Result<Vec<OpenIssue>, NotTracked> {
+        Err(self.no("searching the issues"))
+    }
+
+    /// No language to teach: the guide is why every call is refused.
+    fn query_guide(&self) -> QueryGuide {
+        QueryGuide { guide: self.why.clone(), ..QueryGuide::default() }
+    }
 }
 
 /// With no tracker there is no link to read: a request is dispatched as written.

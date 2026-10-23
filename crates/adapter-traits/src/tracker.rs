@@ -15,7 +15,11 @@ use alloc::vec::Vec;
 
 use crate::{FromOutside, LinkLookup};
 
-/// One open issue, as the tracker listed it.
+/// One issue, as the tracker listed it: open where [`Tracker::open_issues`] listed it, either
+/// where [`Tracker::search_issues`] did.
+///
+/// **Reference, title, address and state are always said.** The rest is said where the tracker
+/// has it, and is empty where it does not.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct OpenIssue {
     /// How the tracker names it, as a person writes it: the forge's `#123`, Jira's `ABC-123`.
@@ -35,6 +39,37 @@ pub struct OpenIssue {
     pub excerpt: FromOutside,
     /// The tracker says a pull request already closes it.
     pub linked_pull_request: bool,
+    /// Who opened it. Empty where the tracker did not say, or the account is gone.
+    pub author: FromOutside,
+    /// The tracker no longer holds it open.
+    pub closed: bool,
+    /// Everything else the tracker said of it that a query may show, by the tracker's own names.
+    pub fields: Vec<IssueField>,
+}
+
+/// One of an issue's own fields that Armada has no slot for, under the tracker's name for it.
+/// Each value is a display string; a field with none is not listed.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct IssueField {
+    pub name: String,
+    pub values: Vec<FromOutside>,
+}
+
+/// What a model needs to write a query in one tracker's own language, and the two queries
+/// every list starts from.
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
+pub struct QueryGuide {
+    /// The language's name, as a person would say it.
+    pub language: String,
+    /// Prose for a model: the syntax, its operators, examples, and what it cannot ask.
+    pub guide: String,
+    /// The open issues.
+    pub open: String,
+    /// The open issues assigned to whoever the tracker's credentials are, in the tracker's own
+    /// word for them, so no identity has to be looked up.
+    pub assigned_to_me: String,
+    /// The [`IssueField::name`]s this tracker fills, so a query can choose its row's fields.
+    pub fields: Vec<String>,
 }
 
 /// One issue read by its reference, open or closed.
@@ -58,6 +93,8 @@ pub struct ReadIssue {
     pub comments: Vec<IssueComment>,
     /// The pull requests that close it or name it, each once.
     pub linked_pull_requests: Vec<LinkedPullRequest>,
+    /// As [`OpenIssue::fields`].
+    pub fields: Vec<IssueField>,
 }
 
 impl ReadIssue {
@@ -75,6 +112,7 @@ impl ReadIssue {
             assignees: Vec::new(),
             comments: Vec::new(),
             linked_pull_requests: Vec::new(),
+            fields: Vec::new(),
         }
     }
 }
@@ -123,7 +161,7 @@ impl NotTracked {
     }
 }
 
-/// Reading a repository's open issues.
+/// Reading a repository's issues.
 ///
 /// **No method writes.** Nothing comments on an issue, moves its labels, edits
 /// its text or puts a closing line on a pull request; `the_tracker_trait_has_no_write_method`
@@ -142,6 +180,13 @@ pub trait Tracker {
     /// [`open_issues`](Tracker::open_issues).
     fn read_issue(&self, in_repo: &str, reference: &str) -> Result<Option<ReadIssue>, NotTracked>;
 
+    /// The issues `query` matches, open or closed as it says, newest edit first and at most a
+    /// hundred. **`query` is in the tracker's own language**, as [`query_guide`](Tracker::query_guide)
+    /// teaches it, and runs as one call.
+    fn search_issues(&self, in_repo: &str, query: &str) -> Result<Vec<OpenIssue>, NotTracked>;
+
+    /// How to write a query [`search_issues`](Tracker::search_issues) takes.
+    fn query_guide(&self) -> QueryGuide;
 }
 
 /// Which tracker a repository's Manifest chose: the provider where it named

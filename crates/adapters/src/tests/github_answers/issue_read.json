@@ -1,5 +1,6 @@
 {"data":{"repository":{"issue":{"number":214,"title":"Doctor reports a stale pid","url":"https://github.com/Mele-Labs/armada/issues/214","state":"CLOSED","body":"It says running.\n\n- one\n- two\twith a tab","createdAt":"2026-10-01T09:00:00Z","author":{"login":"nick"},
-"labels":{"nodes":[{"name":"bug"},{"name":"armada: in progress"}]},"assignees":{"nodes":[{"login":"nick"},{"login":"sam"}]},
+"labels":{"nodes":[{"name":"bug"},{"name":"armada: in progress"}]},"milestone":{"title":"v2"},
+"projectItems":{"nodes":[{"project":{"title":"Roadmap"},"fieldValueByName":{"name":"Done"}}]},"assignees":{"nodes":[{"login":"nick"},{"login":"sam"}]},
 "comments":{"nodes":[{"author":{"login":"sam"},"createdAt":"2026-10-01T10:00:00Z","body":"Same here.\nOn two machines."},{"author":null,"createdAt":"2026-10-02T10:00:00Z","body":"ghost"}]},
 "closedByPullRequestsReferences":{"nodes":[{"number":300,"title":"Fix the pid","url":"https://github.com/Mele-Labs/armada/pull/300","state":"MERGED"}]},
 "timelineItems":{"nodes":[{"source":{"number":300,"title":"Fix the pid","url":"https://github.com/Mele-Labs/armada/pull/300","state":"MERGED"}},{"source":{"number":301,"title":"Names it\tonly","url":"https://github.com/Mele-Labs/armada/pull/301","state":"OPEN"}},{"source":{}},{"source":{"number":302,"title":"Abandoned","url":"https://github.com/Mele-Labs/armada/pull/302","state":"CLOSED"}},{"source":null}]}}}}}
