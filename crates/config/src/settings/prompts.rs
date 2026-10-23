@@ -18,6 +18,7 @@ pub const PROMPT_RETRO_WHERE_FIXES_LAND: Words = Words("prompts.retroWhereFixesL
 pub const PROMPT_RETRO_HOW_TO_WRITE: Words = Words("prompts.retroHowToWrite");
 pub const PROMPT_RETRO_REVIEW: Words = Words("prompts.retroReview");
 pub const PROMPT_RETRO_ASK: Words = Words("prompts.retroAsk");
+pub const PROMPT_LOGBOOK_DISTIL: Words = Words("prompts.logbookDistil");
 pub const PROMPT_HELM: Words = Words("prompts.helm");
 pub const PROMPT_HELM_READ_ONLY: Words = Words("prompts.helmReadOnly");
 pub const PROMPT_HELM_ROUTE: Words = Words("prompts.helmRoute");
@@ -177,6 +178,13 @@ pub(super) const PROMPTS: &[Entry] = &[
         "A question about an item",
         "What the model is asked when a person asks about one retro item. {item} is the item, {rows} the record rows it cites, {history} the earlier turns and {question} the question.",
         &["item", "rows", "history", "question"],
+    ),
+    prompt(
+        PromptSection::Retros,
+        PROMPT_LOGBOOK_DISTIL,
+        "What a job learnt",
+        "What the model is asked when a job ends or hands on, to say what the Logbook learns from it. {record} is the job's record since it was last read and {entries} what the Logbook holds now. Its answer is read by field name, so keep the field names.",
+        &["record", "entries"],
     ),
     prompt(
         PromptSection::Helm,

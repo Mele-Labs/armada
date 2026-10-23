@@ -79,6 +79,7 @@ export * from "./setup";
 export * from "./session-import";
 export * from "./run-memory";
 export * from "./notices";
+export * from "./logbook";
 export * from "./studio";
 export * from "./territory";
 export * from "./timeline";

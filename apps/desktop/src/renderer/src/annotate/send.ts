@@ -1,5 +1,6 @@
 // A note sent to Fleet, #1250: to a Session, a new one or one that is live, as a pinned note.
 
+import { DEBUG_INFO_HEADING } from "@armada/components";
 import { said } from "@armada/screens/src/copy";
 import type { Outcome } from "@armada/protocol";
 
@@ -49,6 +50,12 @@ const base64 = (bytes: ArrayBuffer): string => {
   return btoa(binary);
 };
 
+/** The Job open in the window when the notes were sent, and its labelled fact lines as its pane gave them (`job-facts.ts`). */
+export type OpenJob = { id: string; facts: readonly string[] };
+
+/** What the facts message says before them: where they are from, so the agent reads them as the Job the notes were pinned on. */
+const FACTS_LEAD = "The owner pinned the notes that follow in Bridge with this Job open. What follows is what Bridge held about that Job, as Report gives it.";
+
 /** A new Session's name: the first note's first line, cut short. */
 export const titleOf = (notes: readonly Annotation[]): string => (notes[0]?.text.split("\n")[0] ?? "").trim().slice(0, 60);
 
@@ -57,6 +64,8 @@ export const titleOf = (notes: readonly Annotation[]): string => (notes[0]?.text
  * started for them where `target` is null. `address` is the page's url. **A whole-window note stays a message**
  * (`requestOf`), since what Bridge held has no place in a pinned note. **Nothing is saved here**, as `sendToFleet`.
  * A Session Fleet refuses, a terminal one among them, comes back as its words.
+ *
+ * **With a Job open** (`open`), its facts go first as one message, unless they are for the Job the notes are going to, which holds them.
  */
 export async function sendToSession(
   notes: readonly { note: Annotation; box: Box | null }[],
@@ -65,6 +74,7 @@ export async function sendToSession(
   fleet: SessionSender,
   address: string,
   at: Date,
+  open?: OpenJob,
 ): Promise<SendAnswer> {
   const crops: (string | null)[] = [];
   for (const { note, box } of notes) {
@@ -85,6 +95,10 @@ export async function sendToSession(
 
   const sent: Sent = { sessionId: into.id, title: into.title, at: at.toISOString() };
   const sentIds: string[] = [];
+  if (open !== undefined && open.facts.length > 0 && open.id !== into.id) {
+    const facts = await fleet.sendSessionMessage({ session_id: into.id, text: [FACTS_LEAD, "", DEBUG_INFO_HEADING, ...open.facts].join("\n") });
+    if (!facts.ok) return { ok: false, saying: `Notes not sent to "${into.title}": ${refusal(facts.outcome)}` };
+  }
   for (const [index, { note }] of notes.entries()) {
     const crop = crops[index] ?? null;
     const answer =

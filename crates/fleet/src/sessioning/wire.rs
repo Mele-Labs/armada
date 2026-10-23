@@ -73,6 +73,21 @@ pub(super) fn attachment_wire(row: &KeptAttachment) -> ipc::Attachment {
     }
 }
 
+pub(super) fn version_wire(row: &store::KeptAttachmentVersion) -> ipc::AttachmentVersion {
+    ipc::AttachmentVersion {
+        kind: row.kind.clone(),
+        manifest_id: (!row.manifest_id.is_empty()).then(|| ManifestId::carried(&row.manifest_id)),
+        target: row.target.clone(),
+        state: match row.state {
+            AttachmentState::Standing => ipc::AttachmentState::Standing,
+            AttachmentState::Spent => ipc::AttachmentState::Spent,
+            AttachmentState::GivenBack => ipc::AttachmentState::GivenBack,
+        },
+        detail: row.detail.clone(),
+        at: wire_instant(&row.at),
+    }
+}
+
 pub(super) fn held_wire(row: &KeptAttachment, title: Option<String>) -> ipc::Ownership {
     ipc::Ownership {
         holder: ipc::Holder { kind: ipc::HolderKind::Session, id: row.holder.id.clone() },

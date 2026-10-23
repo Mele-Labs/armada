@@ -48,6 +48,7 @@ const QUERIES: &[(&str, &[&str])] = &[
     ("search_files", &["q"]),
     ("get_events_since", &["since"]),
     ("list_lessons", &["lands_in", "state", "most"]),
+    ("get_logbook", &["repository", "section", "state"]),
     ("list_sessions", &["q", "state"]),
     ("who_owns", &["kind", "target"]),
     ("validate_mod", &["name"]),

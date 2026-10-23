@@ -496,6 +496,10 @@ impl Sessions for FakeDaemon {
         Ok(ipc::SessionLoadout::default())
     }
 
+    async fn get_attachment_history(&self, _session_id: ipc::SessionId) -> Result<ipc::AttachmentHistory, Refusal> {
+        Ok(ipc::AttachmentHistory::default())
+    }
+
     async fn read_loadout_item(&self, _asked: ipc::LoadoutItemAsked) -> Result<ipc::LoadoutItemBody, Refusal> {
         Ok(ipc::LoadoutItemBody::NotRead { why: String::from("A fake reads nothing.") })
     }

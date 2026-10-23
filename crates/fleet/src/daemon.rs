@@ -129,6 +129,8 @@ pub struct Fleet<H, V, W> {
     /// a row the store says is going that is not here died with the process that held it
     /// (`crate::review_runs`).
     review_going: Mutex<std::collections::BTreeSet<String>>,
+    /// The Sessions waiting to be distilled into the Logbook. Never written down — `crate::logbook`.
+    logbook: crate::logbook::Distils,
     /// Whom each slot far behind its base was told to merge it. Never written down — `crate::behind_bay`.
     behind_told: crate::behind_bay::BehindTold,
     /// Which Jobs were told which token rule. Rebuilt from the trip rows when needed — `crate::usage_rules`.

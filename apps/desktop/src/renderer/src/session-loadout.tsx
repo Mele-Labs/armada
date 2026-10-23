@@ -16,7 +16,7 @@ import { kitChanged } from "@armada/screens/src/manifest-kit";
 
 import { openLink, readKitInventory, removeKitPiece, restoreKitPiece } from "./commands";
 import { OverTheApp } from "./session-view/OverTheApp";
-import { closePanel, filesBeside, openInPanel, usePanel } from "./shared-panel/store";
+import { closePanel, filesBeside, openInPanel, useFilePreviewing, usePanel } from "./shared-panel/store";
 import { useSessions, useSessionsDraft } from "./sessions-draft";
 import { useAtFloor } from "@armada/shell";
 
@@ -269,7 +269,10 @@ function SessionLoadout({ session, draft, at, onClose }: { session: Session; dra
   const [opened, openItem] = useOpenedItem(session.id, draft?.loadoutItem);
   const mcp = useMcpGroup(session, draft);
   const skills = useSkillGroup(got, () => openItem(null));
-  useEffect(() => filesBeside("session-loadout"), []);
+  // A file's Preview beside the file has no room beside the Loadout too, so the Loadout steps aside while it is open
+  // and the file goes back to the trailing edge. Its state stays here, so it comes back as it was.
+  const aside = useFilePreviewing();
+  useEffect(() => (aside ? undefined : filesBeside("session-loadout")), [aside]);
   // A row pressed while a file is open to the Loadout's left takes that place, so the file closes.
   const fileOpen = usePanel().open?.kind === "file";
   const onOpenItem = useCallback(
@@ -280,12 +283,13 @@ function SessionLoadout({ session, draft, at, onClose }: { session: Session; dra
     [fileOpen, openItem],
   );
   // On the body, as the side panel is: a file opened beside it is then drawn after it in the same layer, and over its
-  // scrim, as the item's panel beside it is. Drawn inside the app, its scrim lay over the file.
+  // scrim, as the item's panel beside it is. Drawn inside the app, its scrim lay over the file. Held in its own place
+  // there, so coming back from a Preview it is drawn under the file again.
   return (
-    <OverTheApp open>
+    <OverTheApp open held>
       <LoadoutSheet
         key={session.id}
-        open
+        open={!aside}
         read={got}
         floor={floor}
         onClose={onClose}

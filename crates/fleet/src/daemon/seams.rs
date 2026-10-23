@@ -139,6 +139,9 @@ where
     pub(crate) fn behind_told(&self) -> &crate::behind_bay::BehindTold {
         &self.behind_told
     }
+    pub(crate) fn logbook_distils(&self) -> &crate::logbook::Distils {
+        &self.logbook
+    }
     pub(crate) fn review_going(&self) -> &Mutex<std::collections::BTreeSet<String>> {
         &self.review_going
     }

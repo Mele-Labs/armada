@@ -369,6 +369,7 @@ where
             feed: Arc::default(),
             territory: Arc::default(),
             review_going: Mutex::new(std::collections::BTreeSet::new()),
+            logbook: crate::logbook::Distils::default(),
             behind_told: Default::default(),
             usage_following: Default::default(),
             rehearsals: crate::rehearsing::Rehearsals::default(),

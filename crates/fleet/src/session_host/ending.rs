@@ -104,6 +104,7 @@ where
     /// servers are ended by the park (`Vcs::park_hosted_slot`), and a run's
     /// process is among them, since Fleet holds no pid for a run its CLI makes.
     pub(crate) async fn session_wound_up(&self, session: &str) {
+        self.logbook_distils().queue(session);
         self.activity_ended(session);
         self.window_sign_ins().forget(session);
         self.session_checks_ended(session).await;

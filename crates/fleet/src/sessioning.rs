@@ -974,6 +974,16 @@ where
         crate::loadout_keeping::whole(&store, id).map_err(|why| self.ledger_fault(why))
     }
 
+    async fn get_attachment_history(&self, session_id: ipc::SessionId) -> Result<ipc::AttachmentHistory, Refusal> {
+        let id = session_id.as_str().trim();
+        let store = self.store().lock().await;
+        if store.session(id).map_err(|why| self.ledger_fault(why))?.is_none() {
+            return Err(self.ledger_unnamed("a job Fleet knows"));
+        }
+        let versions = store.attachment_versions(&Holder::session(id)).map_err(|why| self.ledger_fault(why))?;
+        Ok(ipc::AttachmentHistory { versions: versions.iter().map(wire::version_wire).collect() })
+    }
+
     async fn read_loadout_item(&self, asked: ipc::LoadoutItemAsked) -> Result<ipc::LoadoutItemBody, Refusal> {
         self.loadout_item(asked).await
     }

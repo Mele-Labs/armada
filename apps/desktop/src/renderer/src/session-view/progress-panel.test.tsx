@@ -11,6 +11,7 @@ import type { SessionsDraft } from "@armada/screens/src/draft/sessions";
 import { SessionsFrom } from "../sessions-draft";
 import type { PlanEditing } from "./PlanEdit";
 import { ProgressPanel } from "./ProgressPanel";
+import { WorkflowPanel } from "./WorkflowPanel";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -40,22 +41,31 @@ function mount(work: SessionWork, editing: PlanEditing | undefined = undefined, 
   return host;
 }
 
+function mountFlow(work: SessionWork, acts: SessionWorkActs | undefined = undefined): HTMLElement {
+  const host = document.createElement("div");
+  document.body.append(host);
+  const root = createRoot(host);
+  act(() => root.render(<WorkflowPanel work={work} place="side" id="s1" acts={acts} />));
+  roots.push({ root, host });
+  return host;
+}
+
 const states = (host: HTMLElement) => [...host.querySelectorAll<HTMLElement>(".sv-rail__step")].map((one) => one.dataset["state"]);
 
 test("the step Fleet names is lit, the ones before it are done and the ones after are to come", () => {
-  const host = mount({ workflow: { name: "Feature", steps: ["Plan", "Build", "Pull request"], at: 1 } });
+  const host = mountFlow({ workflow: { name: "Feature", steps: ["Plan", "Build", "Pull request"], at: 1 } });
   expect(states(host)).toEqual(["done", "now", "next"]);
   expect(host.querySelector('[aria-current="step"] [aria-label="Build · current"]')).not.toBeNull();
 });
 
 test("with no step named every step is to come and none is lit", () => {
-  const host = mount({ workflow: { name: "Feature", steps: ["Plan", "Build"] } });
+  const host = mountFlow({ workflow: { name: "Feature", steps: ["Plan", "Build"] } });
   expect(states(host)).toEqual(["next", "next"]);
   expect(host.querySelector('[aria-current="step"]')).toBeNull();
 });
 
 test("a step is a glyph with its name in its hover card, and no name is written beside it", () => {
-  const host = mount({ workflow: { name: "Feature", steps: ["Plan", "Build"], at: 0 } });
+  const host = mountFlow({ workflow: { name: "Feature", steps: ["Plan", "Build"], at: 0 } });
   expect(host.querySelector('[aria-label="Plan · current"]')).not.toBeNull();
   expect(host.querySelector('[aria-label="Build · next"]')).not.toBeNull();
   expect(host.querySelectorAll(".sv-rail__step [role='img']")).toHaveLength(2);
@@ -88,6 +98,27 @@ test("Ask for an update is a button in the band, and pressing it leaves the pane
   expect(ask).not.toBeNull();
   act(() => ask!.click());
   expect(section.dataset["collapsed"]).toBeUndefined();
+});
+
+test("the Workflow panel holds the picker and the step rail in its band, and has no body", () => {
+  const acts = { workflows: [{ id: "feature", name: "Feature" }], choose: () => undefined } as unknown as SessionWorkActs;
+  const host = mountFlow({ workflow: { name: "Feature", steps: ["Plan", "Build"], at: 0 }, proposal: { workflow: "feature" } }, acts);
+  const band = host.querySelector<HTMLElement>('section[aria-label="Workflow"] > header')!;
+  expect(band.querySelector(".sv-flow")).not.toBeNull();
+  expect(band.querySelector(".sv-rail")).not.toBeNull();
+  expect(host.querySelector(".sv-panel__body")!.childElementCount).toBe(0);
+});
+
+test("a Session with the rail off or no workflow draws no Workflow panel", () => {
+  expect(mountFlow({ workflow: { name: "Feature", steps: ["Plan"], at: 0 }, railOff: true }).querySelector("section")).toBeNull();
+  expect(mountFlow({}).querySelector("section")).toBeNull();
+});
+
+test("Progress holds neither the workflow picker nor the step rail", () => {
+  const acts = { workflows: [{ id: "feature", name: "Feature" }], choose: () => undefined } as unknown as SessionWorkActs;
+  const host = mount({ workflow: { name: "Feature", steps: ["Plan", "Build"], at: 0 }, proposal: { workflow: "feature" }, plan }, ed, session, acts);
+  const section = host.querySelector<HTMLElement>('section[aria-label="Progress"]')!;
+  expect(section.querySelector(".sv-flow, .sv-rail")).toBeNull();
 });
 
 test("a Session with no plan is its band alone", () => {

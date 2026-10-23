@@ -20,6 +20,7 @@ import { FieldPanel } from "./FieldPanel";
 import { dropLayer, useLayer } from "./layers";
 import type { PlanEditing } from "./PlanEdit";
 import { ProgressPanel } from "./ProgressPanel";
+import { WorkflowPanel } from "./WorkflowPanel";
 import type { LiveOpen } from "./TurnAccountBlock";
 import { Layer } from "./SessionLayers";
 import type { SessionBays } from "./slot-trouble";
@@ -43,6 +44,7 @@ export function SessionWorkspace({ session, entries, repositories, hosts, ed, ba
   const right = (
     <>
       <FieldPanel session={session} repositories={repositories} place="side" />
+      <WorkflowPanel work={work} place="side" id={id} manifestId={session.manifestId} acts={draft.work} />
       <ProgressPanel work={work} place="side" id={id} session={session} manifestId={session.manifestId} acts={draft.work} ed={ed} onOpenSketch={onOpenSketch} onOpenSession={onOpenSession} live={live} />
     </>
   );
