@@ -20,7 +20,36 @@ export const NOTICE_CHOICES: { id: NoticeChoice; label: string }[] = [
 ];
 
 /** What each notice is called in the menu's header, which reads "Disable <name>". */
-export const NOTICE_NAMES: Record<SessionNotice, string> = { behind_base: "slot behind notice" };
+export const NOTICE_NAMES: Record<SessionNotice, string> = {
+  behind_base: "slot behind notice",
+  pr_checks_failed: "checks failed",
+  pr_conflicts: "conflicts",
+  pr_dropped: "left the queue",
+  pr_unmergeable: "unmergeable",
+  pr_merged: "merged",
+  pr_auto_merge: "auto-merge on",
+  pr_queued: "in the queue",
+  slot_free: "slot free",
+  slot_kept: "slot kept",
+  build_moved: "build moved",
+  write_clash: "write clash",
+  slot_stranded: "slot stranded",
+  main_red: "main red",
+  rail_nudge: "rail nudge",
+  rail_step: "step instructions",
+  usage_trip: "usage notice",
+  limit_wake: "limit wake",
+  plan_approved: "plan approved",
+  auto_land_refused: "auto land refused",
+  retro_note: "retro note",
+  reply_claim: "reply claim",
+  context_handoff: "context handoff",
+  walk_failed: "walk failed",
+  workflow_changed: "workflow changed",
+  delivery_asked: "delivery question",
+  delivery_chosen: "delivery chosen",
+  watch_saw: "watch",
+};
 
 /**
  * The menu a Fleet notice's row opens: **Teach first, on every notice**, then Disable and its three choices on the one

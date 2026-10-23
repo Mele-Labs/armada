@@ -66,6 +66,20 @@ impl Cause {
     }
 }
 
+impl Cause {
+    fn notice(self) -> ipc::Notice {
+        match self {
+            Cause::ChecksFailed => ipc::Notice::PrChecksFailed,
+            Cause::Conflicts => ipc::Notice::PrConflicts,
+            Cause::Dropped => ipc::Notice::PrDropped,
+            Cause::Unmergeable => ipc::Notice::PrUnmergeable,
+            Cause::Merged => ipc::Notice::PrMerged,
+            Cause::AutoMerge => ipc::Notice::PrAutoMerge,
+            Cause::Queued => ipc::Notice::PrQueued,
+        }
+    }
+}
+
 /// The pull request a notice is about.
 struct About<'a> {
     number: u64,
@@ -283,7 +297,7 @@ where
                 text.push_str(
                     "\nThe merge is Fleet's to follow, not the owner's to do: do not put it back in waiting_for.",
                 );
-                let _ = self.told_news_by_fleet(id, &text).await;
+                let _ = self.told_news_by_fleet(id, &text, cause.notice()).await;
             }
         }
         self.auto_land_followed(served, pull, head).await;
@@ -551,10 +565,10 @@ where
                 for taken in self.waits_taken_off(id, &named).await {
                     text.push_str(&format!("\nTaken off Needs you: {taken}"));
                 }
-                matches!(self.told_news_by_fleet(id, &text).await, Ok(true))
+                matches!(self.told_news_by_fleet(id, &text, cause.notice()).await, Ok(true))
             }
             Owner::Session(id) => {
-                matches!(self.told_by_fleet(id, &text).await, Ok(true))
+                matches!(self.told_by_fleet(id, &text, cause.notice()).await, Ok(true))
             }
         };
         if done {

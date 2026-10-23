@@ -168,7 +168,7 @@ where
                     Arc::clone(self).settle_waiting(answer(&session, item, &text)).await.is_ok()
                 }
                 None if moved.is_empty() => continue,
-                None => matches!(self.told_news_by_fleet(&session, &said(build, commit, &moved)).await, Ok(true)),
+                None => matches!(self.told_news_by_fleet(&session, &said(build, commit, &moved), ipc::Notice::BuildMoved).await, Ok(true)),
             };
             if !told {
                 everyone = false;

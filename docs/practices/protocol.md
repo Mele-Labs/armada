@@ -578,7 +578,7 @@ Bridge calls neither yet.
 | Where | Side | Carries |
 | --- | --- | --- |
 | `set_notice_mute` (`POST /notices/mute`, `No`) | Bridge sends `SetNoticeMute` `{ notice, scope, muted }`, Fleet answers 200 | The same body; `scope` is `job` or `hour` with `session_id`, or `repo` with `manifest_id`; `muted: false` lifts it; 422 `fleet.notice_mute_unnamed` |
-| `SessionRow` `message` | Fleet sends | Gains optional `notice` (`behind_base`), set on Fleet's own notice only |
+| `SessionRow` `message` | Fleet sends | Gains optional `notice`, set on Fleet's own notice only. Every notice Fleet writes to a Session carries its word (`behind_base`, `pr_checks_failed`, `write_clash` and the rest of `crates/ipc/src/notices.rs`); a row of its own kind (`linked`, `moved`, `started`) carries none |
 
 **A mute stops the send, and is kept on disk.** A slot Fleet skipped is not marked told, so lifting the mute resumes the notice, and an hour mute ends at its time across a restart.
 **Rows are stored, not rebuilt**, so a row kept before this change has no `notice` and is never read as one.

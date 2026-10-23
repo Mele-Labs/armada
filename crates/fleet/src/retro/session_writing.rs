@@ -319,7 +319,7 @@ where
         runtime: Arc<crate::session_host::Runtime>,
     ) -> Option<(String, String)> {
         let asked_at = self.instant();
-        if !matches!(self.told_by_fleet(id, &note_asked(since)).await, Ok(true)) {
+        if !matches!(self.told_by_fleet(id, &note_asked(since), ipc::Notice::RetroNote).await, Ok(true)) {
             return None;
         }
         let began = Clock::now();

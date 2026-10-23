@@ -128,7 +128,7 @@ where
                     if done.told_at.is_some() || done.scouted {
                         false
                     } else if matches!(
-                        self.told_by_fleet(&holder.id, &asked_of(slot, work)).await,
+                        self.told_by_fleet(&holder.id, &asked_of(slot, work), ipc::Notice::SlotStranded).await,
                         Ok(true)
                     ) {
                         done.told_at = Some(self.now().as_str().to_string());

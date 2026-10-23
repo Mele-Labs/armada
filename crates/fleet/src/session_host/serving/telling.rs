@@ -110,17 +110,9 @@ where
     /// Fleet's own word to a session, started as a turn that wakes it. **Drawn as Fleet's** in a
     /// hosted thread, and held for the mod to submit in a terminal one, whose thread Fleet cannot
     /// write to. `Ok(false)` where there is nobody to tell: the session ended, or a terminal one
-    /// that is not listening, and a caller asks again later.
+    /// that is not listening, and a caller asks again later. **The thread's row carries `notice`,**
+    /// which every caller names, so a notice with no kind cannot be written.
     pub(crate) async fn told_by_fleet(
-        self: &Arc<Self>,
-        session: &str,
-        text: &str,
-    ) -> Result<bool, Refusal> {
-        self.fleet_word(session, text, false, None).await
-    }
-
-    /// [`Self::told_by_fleet`] for a notice a person can mute: the thread's row carries `notice`.
-    pub(crate) async fn told_by_fleet_noticing(
         self: &Arc<Self>,
         session: &str,
         text: &str,
@@ -159,8 +151,9 @@ where
         self: &Arc<Self>,
         session: &str,
         text: &str,
+        notice: ipc::Notice,
     ) -> Result<bool, Refusal> {
-        self.fleet_word(session, text, true, None).await
+        self.fleet_word(session, text, true, Some(Written::Noticed(notice))).await
     }
 
     /// [`Self::told_news_by_fleet`] where a hosted thread keeps `row` in place of Fleet's message.
