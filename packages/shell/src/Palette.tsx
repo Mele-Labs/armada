@@ -38,7 +38,7 @@ import { useEffect, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 
 import { actsIn, ALIASES, globalActs, CommandPalette, isPressed, keyFor } from "@armada/components";
-import type { Action, ActionContext, PaletteDispatch, PaletteEntry, PaletteSection } from "@armada/components";
+import type { Action, ActionContext, PaletteDispatch, PalettePath, PaletteEntry, PaletteSection } from "@armada/components";
 
 /** A Session as a search result: found by any word of its title, or by its id. */
 export type PaletteSession = { id: string; label: string; aliases: readonly string[] };
@@ -191,6 +191,8 @@ export type PaletteProps = {
   onConfirmAct?: (actionId: string) => void;
   /** The one bar's dispatch row: what was typed, sent as a Session or an Autopilot. */
   dispatch?: PaletteDispatch;
+  /** A typed path, offered as a file to open. */
+  path?: PalettePath;
   /** The title bar's field, which the palette opens over. */
   anchor?: string;
 };
@@ -262,6 +264,7 @@ export function Palette({
   onChoose,
   onConfirmAct,
   dispatch,
+  path,
   anchor,
 }: PaletteProps) {
   const sections: PaletteSection[] = [
@@ -362,6 +365,7 @@ export function Palette({
       searched={searchedSentence(sessions.length, settings.length, runnables.length, repositories.length)}
       onClose={onClose}
       {...(dispatch === undefined ? {} : { dispatch })}
+      {...(path === undefined ? {} : { path })}
       {...(anchor === undefined ? {} : { anchor })}
       onSelect={(entry) => onChoose(choiceOf(entry.id))}
       // A destructive board row opens its own confirmation, so it is a choice.

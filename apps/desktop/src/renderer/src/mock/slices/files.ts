@@ -46,6 +46,11 @@ export const files: Slice<FilesApi, Record<string, never>> = {
         return { state: "saved", version: versionOf(next) };
       },
       pickPanelFile: async () => (picked++ % 2 === 0 ? CLOCK_FILE : PICTURE_FILE),
+      // A path is a file where the pretend disk holds it, as written or relative to the checkout.
+      openPanelPath: async (text) => {
+        const path = text.trim().replace(/^["'`]+|["'`]+$/g, "");
+        return disk.has(keyOf(path)) ? { kind: "file", path: keyOf(path), from: "picked" } : null;
+      },
       openPanelFileIn: async () => ({ ok: true }),
       // The files a scenario put on the pretend disk are the ones its checkout has.
       findPanelFiles: async (_sessionId, paths) => paths.filter((one) => disk.has(keyOf(one))),
