@@ -1,4 +1,4 @@
-//! Fleet's side of the mod operations: what the five answer, and the loop that
+//! Fleet's side of the mod operations: what the six answer, and the loop that
 //! says the folder changed.
 
 use std::path::PathBuf;
@@ -8,13 +8,13 @@ use std::time::Duration;
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Mods, Refusal};
 use ipc::{
-    Event, ModChecked, ModKind, ModList, ModPromoted, ModScaffolded, ModSummary, PromoteMod, ScaffoldMod,
-    SetModEnabled, WireError,
+    Event, Instant, ModChecked, ModKind, ModList, ModPromoted, ModScaffolded, ModSummary, PromoteMod, ScaffoldMod,
+    SetModEnabled, TrackerTry, TryTrackerMod, WireError,
 };
 use store::ReadError;
 use tokio::task::JoinHandle;
 
-use super::{examine, scaffold, scan, slug_problem, Payload};
+use super::{examine, scaffold, scan, slug_problem, tracker, Payload};
 use crate::adrift::Adrift;
 use crate::daemon::Fleet;
 
@@ -54,6 +54,7 @@ where
             .await
             .mod_switches()
             .map_err(|fault| self.refusal(Adrift::Reading(ReadError::Database(fault))))?;
+        self.host().mod_switches.replace(&switches);
         let dir = self.mods_dir();
         tokio::task::spawn_blocking(move || scan(&dir, &switches))
             .await
@@ -149,7 +150,8 @@ where
         match found.files.map(|files| files.payload) {
             Some(Payload::Css(text)) => css = Some(text),
             Some(Payload::Layout(text)) => layout = Some(text),
-            None => {}
+            // A tracker is not Bridge's to apply; what it is checked against is `try_tracker_mod`.
+            Some(Payload::Tracker(_)) | None => {}
         }
         Ok(ModChecked {
             name,
@@ -158,6 +160,26 @@ where
             layout,
             problems: found.problems,
         })
+    }
+
+    async fn try_tracker_mod(&self, asked: TryTrackerMod) -> Result<TrackerTry, Refusal> {
+        self.mod_named(&asked.name)?;
+        let served = self.served_named(Some(&asked.manifest_id))?;
+        let (dir, root) = (self.mods_dir(), served.root().to_string());
+        let at = Instant::carried(self.now().as_str());
+        let (name, manifest_id) = (asked.name.clone(), asked.manifest_id);
+        let tried = tokio::task::spawn_blocking(move || tracker::try_it(&dir, &name, &root, manifest_id, at))
+            .await
+            .map_err(|why| self.mod_fault(format!("the try did not finish: {why}")))?;
+        let tried = tried.map_err(|not| match not {
+            tracker::NotTried::NotATracker(why) => Refusal::Unacceptable(
+                WireError::raised(UNACCEPTABLE_MOD, why, self.run_id())
+                    .with_field("name", ipc::WireValue::Str(asked.name.clone())),
+            ),
+            tracker::NotTried::Failed(why) => self.mod_fault(why),
+        })?;
+        self.mods_announced().await?;
+        Ok(tried)
     }
 
     async fn promote_mod(&self, promote: PromoteMod) -> Result<ModPromoted, Refusal> {

@@ -31,6 +31,7 @@ impl Mods for FakeDaemon {
             valid: true,
             reason: None,
             changed_at: None,
+            tried: None,
         })
     }
 
@@ -41,6 +42,17 @@ impl Mods for FakeDaemon {
             problems: Vec::new(),
             css: None,
             layout: None,
+        })
+    }
+
+    async fn try_tracker_mod(&self, asked: ipc::TryTrackerMod) -> Result<ipc::TrackerTry, Refusal> {
+        Ok(ipc::TrackerTry {
+            at: ipc::Instant::carried("2026-10-23T00:00:00.000Z"),
+            manifest_id: asked.manifest_id,
+            passed: true,
+            reason: None,
+            listed: 0,
+            read: None,
         })
     }
 

@@ -43,6 +43,7 @@ dependencies = [
  "serde_yaml_ng",
  "sha2",
  "tokio",
+ "toml",
 ]
 
 [[package]]

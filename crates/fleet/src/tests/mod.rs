@@ -53,6 +53,7 @@ mod listener;
 mod manifest_proposals;
 mod mods;
 mod tracker_per_manifest;
+mod tracker_mods;
 mod orphans;
 mod run_cloud;
 mod machine_note;

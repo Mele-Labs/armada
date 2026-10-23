@@ -7,13 +7,15 @@
 // **The open repository's actions are a group at the end**, moved only among themselves, and Done saves each file that changed. A save to
 // the repository that fails keeps the edit on screen and says why.
 
-import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { createPortal } from "react-dom";
 import { Plus } from "lucide-react";
 import { Eclipse } from "lucide-react";
 import { Button, Kbd, Tooltip } from "@armada/components";
 
 import { FlightActionSheet } from "./FlightActionSheet";
+import { flightGrid, pageCell, pagesOf } from "./flight-pages";
+import { FlightBlock } from "./FlightBlock";
 import {
   NOTHING_CHANGED,
   committedFileOf,
@@ -71,7 +73,8 @@ export function FlightEdit({ set, host, repository, sessionId, onClose }: { set:
   const [said, setSaid] = useState("");
   const list = useRef<HTMLDivElement>(null);
   const order = [...tiles.map((one) => one.id), ADD];
-  const shown = tiles.filter((one) => !one.hidden).length;
+  // Pages are laid out over every cell drawn, the hidden tiles and `+` too, which is the last cell of the last page.
+  const laid = tiles.length + 1;
   const focusTile = (id: string) => window.requestAnimationFrame(() => list.current?.querySelector<HTMLElement>(`[data-edit-tile="${CSS.escape(id)}"]`)?.focus());
   // Entering edit mode puts focus on the first tile, and closing the sheet puts it back where it was.
   useEffect(() => {
@@ -220,14 +223,14 @@ export function FlightEdit({ set, host, repository, sessionId, onClose }: { set:
             </>,
             host,
           )}
-      <div
+      <FlightBlock
+        pages={set === "job" ? pagesOf(laid).count : undefined}
         className="deck-controls__block deck-flight-edit"
         data-flight-editing=""
-        // The grid keeps the columns and tile size the shown tiles have outside edit mode; hidden tiles and `+` take the cells after them.
-        {...(set === "job" ? { "data-subject": "edit", style: { "--count": Math.min(shown, 12), "--cols": Math.min(Math.ceil(shown / 2), 6) } as CSSProperties } : {})}
+        {...(set === "job" ? { "data-subject": "edit", style: flightGrid(laid) } : {})}
       >
         <div ref={list} className={set === "job" ? "deck-controls__tiles" : "deck-flight-edit__flat"} role="listbox" aria-label="Flight controls, editing" onKeyDown={key} onKeyUp={(event) => event.key === " " && event.preventDefault()}>
-          {tiles.map((tile) => {
+          {tiles.map((tile, cell) => {
             const Glyph = glyphOf(tile.glyph, "zap");
             return (
               <Tooltip key={tile.id} label={[tile.label, ...(tile.fromRepository ? [`only in ${named}`] : []), ...(tile.hidden ? ["hidden"] : []), ...(tile.hides === undefined ? [] : [`hides the repository's ${tile.hides}`])].join(", ")} asChild>
@@ -237,6 +240,7 @@ export function FlightEdit({ set, host, repository, sessionId, onClose }: { set:
                   aria-selected={at === tile.id}
                   aria-label={tile.label}
                   className="deck-tile"
+                  {...pageCell(cell, laid)}
                   data-edit-tile={tile.id}
                   data-hidden={tile.hidden || undefined}
                   data-lifted={lifted === tile.id || undefined}
@@ -287,7 +291,7 @@ export function FlightEdit({ set, host, repository, sessionId, onClose }: { set:
             );
           })}
           <Tooltip label="Add an action" asChild>
-            <button type="button" role="option" aria-selected={at === ADD} aria-label="Add action" className="deck-tile" data-edit-tile={ADD} data-add="" tabIndex={at === ADD ? 0 : -1} onFocus={() => setAt(ADD)} onClick={() => setSheet({ id: undefined })}>
+            <button type="button" role="option" aria-selected={at === ADD} aria-label="Add action" className="deck-tile" {...pageCell(tiles.length, laid)} data-edit-tile={ADD} data-add="" tabIndex={at === ADD ? 0 : -1} onFocus={() => setAt(ADD)} onClick={() => setSheet({ id: undefined })}>
               <Plus size={20} aria-hidden="true" />
             </button>
           </Tooltip>
@@ -305,7 +309,7 @@ export function FlightEdit({ set, host, repository, sessionId, onClose }: { set:
             {failed}
           </p>
         )}
-      </div>
+      </FlightBlock>
       {sheet === undefined ? null : createPortal(adding, document.body)}
     </>
   );

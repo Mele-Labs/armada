@@ -7,31 +7,41 @@
 use std::sync::Arc;
 
 use adapter_traits::{
-    IssueAddress, LinkLookup, LookupCall, NotTracked, OpenIssue, ReadIssue, Tracker, TrackerChoice, Trackers,
+    IssueAddress, LinkLookup, LookupCall, NotTracked, OpenIssue, QueryGuide, ReadIssue, Tracker, TrackerChoice,
+    Trackers,
 };
 
 use super::{issues, ApiForge};
 use crate::forge_address::ForgeAddress;
 use crate::github_api::{ApiFailure, GitHubApi, GitHubRepository};
 use crate::issue_lookup::issue_reference;
+use crate::taught_tracker::TaughtTrackers;
 use crate::{IssueLookup, IssueTracker};
 
 /// The trackers a Manifest can choose, the forge's own read over the forge's API.
 #[derive(Clone)]
 pub struct ApiTrackers {
     forge: ApiForge,
+    taught: Option<Arc<dyn TaughtTrackers>>,
 }
 
 impl ApiForge {
     /// The trackers that read through this forge's client, so Fleet holds one.
     pub fn trackers(&self) -> ApiTrackers {
-        ApiTrackers { forge: self.clone() }
+        ApiTrackers { forge: self.clone(), taught: None }
+    }
+}
+
+impl ApiTrackers {
+    /// The same, with a provider no tracker here answers to looked up among `mods`.
+    pub fn taught_by(self, mods: Arc<dyn TaughtTrackers>) -> ApiTrackers {
+        ApiTrackers { taught: Some(mods), ..self }
     }
 }
 
 impl Trackers for ApiTrackers {
     fn tracker(&self, choice: &TrackerChoice) -> Arc<dyn Tracker + Send + Sync> {
-        crate::tracker_providers::tracker_over(choice, Some(&self.forge))
+        crate::tracker_providers::tracker_over(choice, Some(&self.forge), self.taught.as_ref())
     }
 
     fn links(&self, choice: &TrackerChoice) -> Arc<dyn LinkLookup + Send + Sync> {
@@ -68,6 +78,18 @@ impl Tracker for ApiTracker {
             Err(why) if issues::is_no_such_issue(&why) => Ok(None),
             read => read.map_err(|why| NotTracked::of("reading the issue", why.to_string())),
         }
+    }
+
+    fn search_issues(&self, in_repo: &str, query: &str) -> Result<Vec<OpenIssue>, NotTracked> {
+        let Some(repository) = self.forge.on_github(in_repo) else { return IssueTracker.search_issues(in_repo, query) };
+        match issues::search_issues(&self.forge.api, &repository, query) {
+            Err(ApiFailure::NoToken(_)) => IssueTracker.search_issues(in_repo, query),
+            found => found.map_err(|why| NotTracked::of("searching the issues", why.to_string())),
+        }
+    }
+
+    fn query_guide(&self) -> QueryGuide {
+        crate::issue_tracker::forge_guide()
     }
 }
 
