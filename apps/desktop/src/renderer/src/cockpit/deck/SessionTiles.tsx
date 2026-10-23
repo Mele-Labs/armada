@@ -255,7 +255,8 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
     checks: checksRunning ? "A Check the agent ran is still out. The agent gets its result when it ends" : "The Checks the agent ran. Each result went back to it as the run ended",
     slot: wrongs.length === 0 ? "Every bay the Job holds" : wrongs.join(", "),
     requests: "Send a request with your cookie for its host",
-    terminal: terminal?.shown === true ? "Hide the Job's terminal" : "Open the Job's terminal",
+    // A press while it is in its window brings the window forward and leaves the shell showing.
+    terminal: terminal?.windowed === true ? "Bring the Job's terminal window to the front" : terminal?.shown === true ? "Hide the Job's terminal" : "Open the Job's terminal",
     pause: session.paused === true ? "Resume" : "Pause",
   };
   const tipCustom = (tile: Tile): string => {

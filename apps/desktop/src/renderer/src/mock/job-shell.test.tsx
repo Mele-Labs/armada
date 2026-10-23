@@ -268,6 +268,12 @@ test("Window: Terminal opens the Job's shell in a window of its own, lit while i
   await terminal().click();
   await expect.element(popOut()).toBeVisible();
   await expect.element(terminal()).toHaveAttribute("aria-pressed", "true");
+  // A press brings the window forward rather than hiding the shell, and the tile says so.
+  const tip = () => {
+    const ids = terminal().element().getAttribute("aria-describedby") ?? "";
+    return ids.split(" ").map((id) => document.getElementById(id)?.textContent ?? "").join(" ").trim();
+  };
+  await expect.poll(tip).toBe("Bring the Job's terminal window to the front");
   // One place at a time: nothing docks and no panel opens.
   expect(docked().query()).toBeNull();
   expect(panel().query()).toBeNull();

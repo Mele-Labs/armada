@@ -145,7 +145,7 @@ export function useDeckShell(sessionId: string, served: boolean): ShellPaneProps
 }
 
 /** The Job's shell as Flight control's Terminal tile reads and presses it: whether it shows on the Job's page, docked, in the side panel or in its window. */
-export type JobTerminal = { shown: boolean; press: () => void };
+export type JobTerminal = { shown: boolean; windowed: boolean; press: () => void };
 
 /**
  * The Job page's shell from outside its view. A press opens it as the view's own Terminal did; while it shows, a press puts it away and
@@ -161,6 +161,7 @@ export function useJobTerminal(sessionId: string, served: boolean): JobTerminal 
   if (shells === null) return undefined;
   return {
     shown: docked || inPanel || windowed,
+    windowed,
     press: () => {
       if (windowed) shells.toWindow(sessionId);
       else if (docked) shells.show("page", sessionId, false);

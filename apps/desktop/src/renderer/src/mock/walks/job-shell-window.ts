@@ -30,7 +30,7 @@ const steps: Step[] = [
   { look: inside(docked, files), say: "The worktree's files" },
   { press: inside(docked, button("Open in a window")), say: "Open in a window" },
   { look: inside(inWindow, files), say: "The window shows everything the shell printed" },
-  { hover: terminal, say: "Terminal is still lit, and says Hide the Job's terminal" },
+  { hover: terminal, say: "Terminal is still lit, and brings the window to the front" },
   { type: "pwd\n", into: inside(popOut, typed), say: "pwd, Enter, in the window" },
   { look: inside(inWindow, here), say: "The same shell answers in its window" },
   { press: terminal, say: "Terminal, with the window open" },
