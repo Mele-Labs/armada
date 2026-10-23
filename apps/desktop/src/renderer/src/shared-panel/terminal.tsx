@@ -47,11 +47,16 @@ export function TerminalPanel({ item }: { item: Item }) {
         phase={running ? { state: "running" } : { state: "ended" }}
         onEnd={() => shells.stop(sessionId)}
         onOpen={() => shells.fresh(sessionId)}
-        onMove={() => {
-          saveJobTerminalPlace("docked");
-          shells.show("page", sessionId, true);
-          closePanel();
-        }}
+        moves={[
+          {
+            to: "docked",
+            onMove: () => {
+              saveJobTerminalPlace("docked");
+              shells.show("page", sessionId, true);
+              closePanel();
+            },
+          },
+        ]}
       >
         {/* Esc typed into a running shell is the shell's, as vim and less take it. */}
         <div ref={screen} className="side-terminal" {...(running ? { "data-keeps-esc": "" } : {})}>

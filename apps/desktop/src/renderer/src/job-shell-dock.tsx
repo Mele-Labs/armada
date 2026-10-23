@@ -81,10 +81,15 @@ function shellPane(shells: JobShells, place: ShellPlace, sessionId: string, shel
     // A call card's box keeps its shell docked.
     ...(place === "page"
       ? {
-          onMove: () => {
-            saveJobTerminalPlace("side panel");
-            toPanel(shells, place, sessionId);
-          },
+          moves: [
+            {
+              to: "side panel",
+              onMove: () => {
+                saveJobTerminalPlace("side panel");
+                toPanel(shells, place, sessionId);
+              },
+            },
+          ],
         }
       : {}),
     // Keyed by the shell, so a new one is a new screen that fits and says its size before it opens.
