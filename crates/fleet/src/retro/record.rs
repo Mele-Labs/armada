@@ -24,7 +24,7 @@ pub(super) fn cite(kind: &str, n: usize) -> String {
     format!("{kind}:{}", n + 1)
 }
 
-pub(super) fn cut(text: &str, most: usize) -> String {
+pub(crate) fn cut(text: &str, most: usize) -> String {
     match text.char_indices().nth(most) {
         Some((at, _)) => format!("{}…", &text[..at]),
         None => text.to_string(),

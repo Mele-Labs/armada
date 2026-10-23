@@ -261,6 +261,41 @@ export const AReferenceInCode: Story = {
   },
 };
 
+/** What a host that knows #2772 hands back: its number, and its address said alone. */
+const PULL = "https://github.com/o/r/pull/2772";
+const scanPull = (text: string) =>
+  [...text.matchAll(/#2772|https:\/\/github\.com\/o\/r\/pull\/2772/g)]
+    .filter((one) => !one[0].startsWith("h") || (one.index === 0 && one[0].length === text.length))
+    .map((one) => ({ from: one.index, to: one.index + one[0].length, ref: { kind: "pull_request", id: "2772", title: "Describe the Logbook" } satisfies ProseReference }));
+
+/**
+ * A link a model writes is the one link it wrote: a reference inside its words is not a second. One whose address is a
+ * pull request the host holds opens where a bare `#2772` does; any other keeps its address.
+ */
+export const AReferenceInsideALink: Story = {
+  args: {
+    text: `[#2772](${PULL}) merges into main once its checks pass. [the #2772 notes](https://example.com/notes) are elsewhere.`,
+  },
+  decorators: [
+    (Story) => (
+      <ProseRefs.Provider value={{ scan: scanPull, open: pressed }}>
+        <Story />
+      </ProseRefs.Provider>
+    ),
+  ],
+  beforeEach: () => {
+    pressed.mockClear();
+  },
+  play: async ({ canvas, userEvent }) => {
+    await expect(canvas.queryByText(/\[|\]\(/)).toBeNull();
+    await expect(canvas.getAllByRole("link")).toHaveLength(2);
+    await userEvent.click(canvas.getByRole("link", { name: "#2772" }));
+    await expect(pressed).toHaveBeenCalledWith({ kind: "pull_request", id: "2772", title: "Describe the Logbook" });
+    await userEvent.click(canvas.getByRole("link", { name: "the #2772 notes" }));
+    await expect(opened).toHaveBeenCalledWith("https://example.com/notes");
+  },
+};
+
 /** Raw HTML is the characters it was written as. This text arrives from a model. */
 /** What a host that knows `docs/plan.md` is a file in the Job's checkout hands back: it finds it anywhere, plain words included. */
 const scanFile = (text: string) =>

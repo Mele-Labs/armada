@@ -1,8 +1,8 @@
 // The Logbook: what Armada learned about each repository, about how the owner works, and about this Mac, as short
-// entries every new Job is handed. `docs/concepts/logbook.md`.
+// entries every new Job is handed. `docs/concepts/logbook.md`. Fleet serves it: `crates/ipc/src/logbook.rs`.
 //
-// **No Fleet route serves it yet.** These are the shapes the mock answers, written from the concept, so the wiring
-// swaps the source and nothing above it. The Rust side mirrors them in `crates/ipc` when the routes land.
+// The wire types are `LogbookEntry`, `Logbook` and the request bodies. `LogbookRead`, `LogbookAnswer` and
+// `LogbookForgotten` are Bridge's own envelopes over them, an outcome in place of a body.
 
 import type { Outcome } from "./reads";
 
@@ -20,8 +20,8 @@ export type LogbookEvidence = {
   job_title: string;
   /** The row's own cite in that record, as Distil named it. */
   cite: string;
-  /** What the row shows, in a line. */
-  says: string;
+  /** What the row shows, in a line. Fleet leaves it out of a list: it does not read the record back. */
+  says?: string;
   at: string;
 };
 
@@ -53,7 +53,37 @@ export type LogbookEntry = {
   history: LogbookEarlier[];
 };
 
-/** `GET /logbook`: every section, forgotten entries left out. */
+/** `get_logbook` (`GET /logbook`): the entries asked for, forgotten ones left out. */
+export type Logbook = { entries: LogbookEntry[] };
+
+/**
+ * `?repository=` (a root `list_repositories` names), `?section=` and `?state=` on `get_logbook`. With no repository the
+ * answer is the habits and this Mac's alone; with no section or state it narrows nothing.
+ */
+export type LogbookQuery = { repository?: string; section?: LogbookSection; state?: LogbookState };
+
+/** The body of `edit_logbook_entry` (`POST /logbook/entries/:entry_id/edit`). Answers the entry. */
+export type EditLogbookEntry = { text: string };
+
+/** The body of `pin_logbook_entry` (`POST /logbook/entries/:entry_id/pin`). Answers the entry. */
+export type PinLogbookEntry = { pinned: boolean };
+
+/** What `forget_logbook_entry` (`POST /logbook/entries/:entry_id/forget`) answers. */
+export type ForgottenLogbookEntry = { id: string };
+
+/**
+ * The body of `teach_logbook_entry` (`POST /logbook/entries`): an entry a person wrote, which stands at once and
+ * answers as the entry. `repository` is a root, required for `repo` and ignored for the others.
+ */
+export type TeachLogbookEntry = {
+  section: LogbookSection;
+  repository?: string;
+  kind: LogbookKind;
+  text: string;
+  paths?: string[];
+};
+
+/** Bridge's envelope over `Logbook`: the entries, or why they could not be read. */
 export type LogbookRead = { ok: true; entries: LogbookEntry[] } | { ok: false; outcome: Outcome };
 
 /** What an edit or a pin came back as: the entry as it now stands, or the refusal. */

@@ -1,0 +1,8 @@
+[operations.get_attachment_history]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "Every version of everything one job holds, with when each began"
+notes = """
+`GET /sessions/attachment_history?session_id=`. `AttachmentHistory`: `versions`, oldest first, each an `AttachmentVersion` (`kind`, `manifest_id?`, `target`, `state`, `detail`, `at`) as the attachment stood from `at`: one for its insert and one for each change of its state or detail. Read on demand and never carried on a `SessionRecord`, which is published whole on every change; a `session.changed` is when to read it again. Refused where Fleet knows no such job.
+"""

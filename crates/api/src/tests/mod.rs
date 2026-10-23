@@ -32,6 +32,7 @@ mod importing;
 mod limits;
 mod pull_requests;
 mod settings;
+mod logbook;
 mod preferences;
 mod reconciling;
 mod retros;
