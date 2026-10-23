@@ -57,6 +57,7 @@ export function fixtureMacs(now: number, origins: { studio: string; laptop: stri
   const asked = phone({ id: "a1", title: "Trim the Drone pool", repository: "armada", kind: "hosted", waiting: true, working: false, started_at: ago(now, 50), waiting_since: ago(now, 12) });
   const showed = phone({ id: "a2", title: "Redraw the Needs you band", repository: "armada", kind: "hosted", waiting: false, working: true, started_at: ago(now, 34) });
   const merged = phone({ id: "a3", title: "Fix the merge line", repository: "armada", kind: "hosted", waiting: false, working: false, started_at: ago(now, 300), ended_at: ago(now, 180) });
+  const idle = phone({ id: "a4", title: "Check the restart notes", repository: "armada", kind: "hosted", waiting: false, working: false, started_at: ago(now, 120) });
   const plan = phone({ id: "b1", title: "Rename the slot pool", repository: "store", kind: "hosted", waiting: true, working: false, started_at: ago(now, 90), waiting_since: ago(now, 40) });
   const reading = phone({ id: "b2", title: "Read the push payload", repository: "store", kind: "hosted", waiting: false, working: true, started_at: ago(now, 8) });
 
@@ -163,7 +164,7 @@ export function fixtureMacs(now: number, origins: { studio: string; laptop: stri
     [origins.studio]: {
       name: "studio",
       needs: [asked],
-      live: [asked, showed],
+      live: [asked, showed, idle],
       ended: [merged],
       threads: { a1, a2, a3 },
       shown: { a2: { "/Users/owner/armada/docs/concepts/pocket.md": "# Pocket\n\nThe phone app. It shows a Job's whole thread and any file or sketch the Job showed.\n" } },
