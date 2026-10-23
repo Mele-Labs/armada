@@ -13,7 +13,7 @@ use ipc::{
     EditLogbookEntry, Instant, LogbookEarlier, LogbookEntry, LogbookEvidence, ForgottenLogbookEntry, LogbookKind,
     LogbookReplacedBy, LogbookSection, LogbookState, LockLogbookEntry, TeachLogbookEntry, WireError,
 };
-use store::{logbook_words, LogEntry, LogHistory, LogHow, LogKind, LogRewrite, LogSection, LogState};
+use store::{logbook_words, LogEntry, LogEvidence, LogHistory, LogHow, LogKind, LogRewrite, LogSection, LogState};
 
 use super::answer::MOST_CHARS;
 use super::{Logged, Source};
@@ -338,6 +338,13 @@ where
         };
         let key = root.as_deref().map(key_of).unwrap_or_default();
         let now = self.logbook_now();
+        let evidence = teach.source.map(|from| LogEvidence {
+            session_id: from.session_id,
+            cites: vec![from.cite],
+            how: LogHow::First,
+            hard: false,
+            at: now,
+        });
         let entry = {
             let mut store = self.store().lock().await;
             let words = logbook_words(&text);
@@ -356,7 +363,7 @@ where
                 }
                 None => Some(
                     store
-                        .teach_logbook_entry(section, &key, kind_in(teach.kind), &text, &teach.paths, now)
+                        .teach_logbook_entry(section, &key, kind_in(teach.kind), &text, &teach.paths, evidence, now)
                         .map_err(|why| self.logbook_fault(why))?,
                 ),
             };

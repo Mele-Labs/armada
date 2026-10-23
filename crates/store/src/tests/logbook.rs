@@ -74,7 +74,7 @@ fn a_taught_logbook_entry_stands_at_once_as_the_persons() {
     let id = store.save_logbook_entry(&entry("Chrome is not in /Applications.")).expect("kept").expect("an id");
     store.forget_logbook_entry(id, 20).expect("forgot");
     let taught = store
-        .teach_logbook_entry(LogSection::Repo, KEY, LogKind::Gotcha, "Chrome is not in /Applications.", &[], 30)
+        .teach_logbook_entry(LogSection::Repo, KEY, LogKind::Gotcha, "Chrome is not in /Applications.", &[], None, 30)
         .expect("taught");
     let read = store.logbook_of(KEY).expect("reads");
     assert_eq!(read.len(), 1);

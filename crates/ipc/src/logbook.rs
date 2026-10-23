@@ -132,6 +132,16 @@ pub struct TeachLogbookEntry {
     pub text: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub paths: Vec<String>,
+    /// What the person pressed Teach on. It becomes the entry's one evidence row.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source: Option<TeachSource>,
+}
+
+/// What a taught entry was taught from: the Session, and the message, notice or Check in its record.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TeachSource {
+    pub session_id: String,
+    pub cite: String,
 }
 
 /// `recall`: the entries that match, best first. `GET /logbook/recall?query=&section=&manifest_id=`.

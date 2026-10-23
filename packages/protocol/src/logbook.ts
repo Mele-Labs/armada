@@ -81,6 +81,8 @@ export type TeachLogbookEntry = {
   kind: LogbookKind;
   text: string;
   paths?: string[];
+  /** What the person pressed Teach on: a message, notice or Check. It becomes the entry's one evidence row. */
+  source?: { session_id: string; cite: string };
 };
 
 /** Bridge's envelope over `Logbook`: the entries, or why they could not be read. */

@@ -57,6 +57,7 @@ fn teach(rig: &Rig, section: LogbookSection, repository: bool, text: &str) -> Te
         kind: LogbookKind::Convention,
         text: text.to_string(),
         paths: Vec::new(),
+        source: None,
     }
 }
 
@@ -208,6 +209,18 @@ async fn a_taught_entry_stands_at_once_marked_the_person_s_and_teaching_it_again
 
     let habit = rig.fleet.teach_logbook_entry(teach(&rig, LogbookSection::Habits, true, "Walk before landing.")).await.expect("taught");
     assert_eq!((habit.section, habit.repository), (LogbookSection::Habits, None), "habits name no repository");
+}
+
+#[tokio::test]
+async fn a_taught_entry_with_a_source_shows_it_as_its_one_evidence_row() {
+    let rig = rig_placing(None);
+    let source = ipc::TeachSource { session_id: "job-9".into(), cite: "message:4".into() };
+    let from = TeachLogbookEntry { source: Some(source), ..teach(&rig, LogbookSection::Habits, false, "Walk before landing.") };
+    let taught = rig.fleet.teach_logbook_entry(from).await.expect("taught");
+    assert_eq!(taught.evidence.len(), 1);
+    assert_eq!((taught.evidence[0].job_id.as_str(), taught.evidence[0].cite.as_str()), ("job-9", "message:4"));
+    let read = read(&rig, false, Some(LogbookSection::Habits), None).await;
+    assert_eq!(read[0].evidence, taught.evidence, "kept, not only answered");
 }
 
 #[tokio::test]

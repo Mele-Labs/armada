@@ -345,7 +345,7 @@ impl Store {
         Ok(true)
     }
 
-    /// An entry a person wrote: it stands at once, marked theirs, with no Session behind it. **A
+    /// An entry a person wrote: it stands at once, marked theirs, with no Session behind it unless `evidence` names the one it was taught from. **A
     /// person's own act lifts the deny list** for that text, since teaching it is asking it back.
     pub fn teach_logbook_entry(
         &mut self,
@@ -354,6 +354,7 @@ impl Store {
         kind: LogKind,
         text: &str,
         paths: &[String],
+        evidence: Option<LogEvidence>,
         at: u64,
     ) -> Result<i64, WriteError> {
         let repository = if section == LogSection::Repo { repository } else { "" };
@@ -370,7 +371,7 @@ impl Store {
             kind,
             text: text.trim().to_string(),
             paths: paths.to_vec(),
-            evidence: Vec::new(),
+            evidence: evidence.into_iter().collect(),
             first_seen: at,
             last_confirmed: at,
             last_served: None,
