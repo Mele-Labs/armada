@@ -594,7 +594,8 @@ fn assemble(
     let retro_model = model_at(shipped.get(keys::MODELS_RETRO), String::new())?;
     // One client for every forge call Fleet makes, so they share its connections.
     let forge = ApiForge::new();
-    let trackers = forge.trackers();
+    // A provider no tracker here answers to is looked up among the machine's tracker mods.
+    let trackers = forge.trackers().taught_by(Arc::new(fleet::mods::TrackerMods::in_dir(mods_dir.clone())));
     let fleet = Fleet::assembled(Fittings {
         store,
         harness: agent,
