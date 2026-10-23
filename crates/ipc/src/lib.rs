@@ -229,6 +229,8 @@ mod triggers;
 /// The lines a running log carries over its socket, and why one stopped arriving.
 mod underway;
 mod walk_steps;
+/// A command Fleet runs on a cadence for one Job, the agent's weighing of it, and its line.
+mod watches;
 
 #[cfg(test)]
 mod tests;
@@ -376,7 +378,7 @@ pub use merge_line::{
 };
 pub use mods::{
     ModChecked, ModKind, ModList, ModPromoted, ModScaffolded, ModSummary, PromoteMod,
-    ScaffoldMod, SetModEnabled,
+    ScaffoldMod, SetModEnabled, TrackerTry, TryTrackerMod,
 };
 pub use clashes::{
     ClashFile, ClashHolder, ClashSide, WriteClash, WriteClashes,
@@ -602,6 +604,11 @@ pub use triggers::{
     LeftOutTrigger, OverriddenTrigger, RemoveTrigger, SaveTrigger, TriggerDefinition,
     TriggerLevel, TriggerList, TriggerMoment, TriggerRemoved, TriggerRuns, TriggerSaved,
     TriggerScope, TriggerSkip, TriggerSkipReason, TriggerSummary,
+};
+pub use watches::{
+    read_watch_line, StartWatch, StopWatch, WatchList, WatchPart, WatchReading,
+    WatchReadingState, WatchSetAside, WatchStarts, WatchState, WatchSummary, WatchVerdict,
+    WatchVerdictGiven, WatchVerdictWord, WeighWatch,
 };
 pub use underway::{
     OutputClosed, OutputEnded, OutputLines,

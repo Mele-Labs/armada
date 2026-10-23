@@ -215,6 +215,23 @@ pub async fn run_stoppable<S: std::future::Future<Output = Stop>>(
     let Some((program, args)) = split(command) else {
         return Attempt::never(NeverRan::NothingToRun);
     };
+    run_words(program, args, worktree, budget, writing, env, stop, priority, grace).await
+}
+
+/// [`run_stoppable`] for a command already in whole argument items, which nothing splits: a
+/// watch's, whose values may hold a space or a quote.
+#[allow(clippy::too_many_arguments)]
+pub async fn run_words<S: std::future::Future<Output = Stop>>(
+    program: String,
+    args: Vec<String>,
+    worktree: &Path,
+    budget: Duration,
+    writing: Writing<'_>,
+    env: &[(String, String)],
+    stop: S,
+    priority: Priority,
+    grace: Duration,
+) -> Attempt {
     let (spawned, args) = priority.command(program.clone(), args, worktree);
 
     let mut spawning = Command::new(&spawned);

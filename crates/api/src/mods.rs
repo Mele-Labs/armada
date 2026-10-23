@@ -1,4 +1,4 @@
-//! The five mod operations. `docs/concepts/mods.md`.
+//! The six mod operations. `docs/concepts/mods.md`.
 
 use axum::body::Bytes;
 use axum::extract::{Query, State};
@@ -58,6 +58,21 @@ pub(crate) async fn validate_mod<D: Mods>(
 ) -> Response {
     match served.daemon().validate_mod(named.name).await {
         Ok(checked) => answer(StatusCode::OK, &checked, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// 200 with how the try went, passed or not; 422 for a mod that is not a tracker.
+pub(crate) async fn try_tracker_mod<D: Mods>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let asked: ipc::TryTrackerMod = match ipc::decode("a tracker mod to try", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().try_tracker_mod(asked).await {
+        Ok(tried) => answer(StatusCode::OK, &tried, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }

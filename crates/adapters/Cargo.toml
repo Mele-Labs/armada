@@ -30,6 +30,9 @@ ipc = { path = "../ipc" }
 serde = { version = "1", features = ["derive"] }
 # CI workflow files. The version `config` already reads `armada.yml` with.
 serde_yaml_ng = "0.10"
+# A tracker mod's `tracker.toml`, `taught_tracker/file.rs`. The version `fleet` already reads its
+# own files with, so nothing new is compiled.
+toml = "1"
 # The central store: a blocking client, and the signature on each request it
 # makes. `reqwest` is `pocket`'s posture (rustls, nothing else) with `blocking`
 # added, because Fleet's ports are plain sync traits. `p256` and `sha2` are the

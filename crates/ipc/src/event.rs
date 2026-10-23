@@ -29,6 +29,7 @@ use crate::plan_usage::PlanUsage;
 use crate::sleep::SleepState;
 use crate::timeline::TimelineAppended;
 use crate::autopilot::Autopilot;
+use crate::watches::WatchList;
 use crate::sessions::SessionRecord;
 use crate::studio::{Studio, StudioDeleted, StudioHelmActed};
 
@@ -163,6 +164,10 @@ pub enum Event {
     // closed, whole. `docs/concepts/pull-review.md`, *Walk*.
     #[serde(rename = "review_walk.changed")]
     ReviewWalkChanged { walk: crate::review_walks::ReviewWalk },
+    // A Job's watches after any change to one, whole, as `list_watches` answers them: a start, a
+    // reading, a weighing, a stop or an end. `docs/design/fleet-watches-ci-and-deploys-for-a-job.md`.
+    #[serde(rename = "watches.changed")]
+    WatchesChanged(WatchList),
     // One entry Fleet just kept for the timeline. Since 23.82.
     #[serde(rename = "timeline.appended")]
     TimelineAppended(TimelineAppended),

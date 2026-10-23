@@ -17,6 +17,7 @@ use adapter_traits::{
 };
 
 use crate::jira::{self, JiraSettings};
+use crate::taught_tracker::{Taught, TaughtTrackers};
 use crate::jira_lookup::JiraLookup;
 use crate::jira_tracker::JiraTracker;
 use crate::api_forge::{ApiLinkLookup, ApiTracker};
@@ -30,6 +31,8 @@ pub struct TrackersByProvider;
 enum Chosen {
     Forge,
     Jira(JiraSettings),
+    /// A word this build has no tracker for, which a tracker mod may answer to.
+    Taught { name: String, unknown: String },
     Refused(String),
 }
 
@@ -46,16 +49,23 @@ fn chosen(choice: &TrackerChoice) -> Chosen {
             Ok(settings) => Chosen::Jira(settings),
             Err(why) => Chosen::Refused(why),
         },
-        Some(other) => Chosen::Refused(format!(
-            "no tracker is called `{other}`; the ones this build has are {FORGE_OWN} and {}",
-            jira::PROVIDER
+        Some(other) if !choice.settings().is_empty() => Chosen::Refused(format!(
+            "no tracker this build has is called `{other}`, and a tracker mod takes no keys beyond `provider`; found {}",
+            choice.settings().keys().cloned().collect::<Vec<_>>().join(", ")
         )),
+        Some(other) => Chosen::Taught {
+            name: other.to_string(),
+            unknown: format!(
+                "no tracker is called `{other}`; the ones this build has are {FORGE_OWN} and {}, and no tracker mod is called that",
+                jira::PROVIDER
+            ),
+        },
     }
 }
 
 impl Trackers for TrackersByProvider {
     fn tracker(&self, choice: &TrackerChoice) -> Arc<dyn Tracker + Send + Sync> {
-        tracker_over(choice, None)
+        tracker_over(choice, None, None)
     }
 
     fn links(&self, choice: &TrackerChoice) -> Arc<dyn LinkLookup + Send + Sync> {
@@ -64,13 +74,20 @@ impl Trackers for TrackersByProvider {
 }
 
 /// The tracker `choice` names. The forge's own reads through `forge` where there is one, and
-/// through `gh` where there is not.
-pub(crate) fn tracker_over(choice: &TrackerChoice, forge: Option<&ApiForge>) -> Arc<dyn Tracker + Send + Sync> {
-    match (chosen(choice), forge) {
-        (Chosen::Forge, Some(forge)) => Arc::new(ApiTracker::over(forge.clone())),
-        (Chosen::Forge, None) => Arc::new(IssueTracker),
-        (Chosen::Jira(settings), _) => Arc::new(JiraTracker::over(settings)),
-        (Chosen::Refused(why), _) => Arc::new(Refusing { why }),
+/// through `gh` where there is not. A word this build has no tracker for is looked up in `taught`,
+/// the tracker mods, where there are any.
+pub(crate) fn tracker_over(
+    choice: &TrackerChoice,
+    forge: Option<&ApiForge>,
+    taught: Option<&Arc<dyn TaughtTrackers>>,
+) -> Arc<dyn Tracker + Send + Sync> {
+    match (chosen(choice), forge, taught) {
+        (Chosen::Forge, Some(forge), _) => Arc::new(ApiTracker::over(forge.clone())),
+        (Chosen::Forge, None, _) => Arc::new(IssueTracker),
+        (Chosen::Jira(settings), _, _) => Arc::new(JiraTracker::over(settings)),
+        (Chosen::Taught { name, unknown }, _, Some(mods)) => Arc::new(Taught { name, mods: Arc::clone(mods), unknown }),
+        (Chosen::Taught { unknown, .. }, _, None) => Arc::new(Refusing { why: unknown }),
+        (Chosen::Refused(why), _, _) => Arc::new(Refusing { why }),
     }
 }
 
@@ -80,7 +97,8 @@ pub(crate) fn links_over(choice: &TrackerChoice, forge: Option<&ApiForge>) -> Ar
         (Chosen::Forge, Some(forge)) => Arc::new(ApiLinkLookup::over(forge)),
         (Chosen::Forge, None) => Arc::new(IssueLookup),
         (Chosen::Jira(settings), _) => Arc::new(JiraLookup::over(settings)),
-        (Chosen::Refused(_), _) => Arc::new(Refusing { why: String::new() }),
+        // A taught tracker reads no link: a request naming one is dispatched as written.
+        (Chosen::Taught { .. } | Chosen::Refused(_), _) => Arc::new(Refusing { why: String::new() }),
     }
 }
 

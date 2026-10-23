@@ -1,0 +1,44 @@
+/* Progress: the Watching block. A watch's state is its mark's hue alone, as a Check's is; the name carries weight, the sentence and age are muted.
+   Tokens only. */
+
+.sv-watching { display: flex; flex-direction: column; gap: var(--space-1); }
+.sv-watching__label { font-family: var(--font-sans); font-size: var(--text-xs); line-height: var(--leading-xs); color: var(--fg-muted); }
+.sv-watching__list { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; border: var(--border-width) solid var(--border-subtle); border-radius: var(--radius-md); background: var(--bg-raised); overflow: hidden; }
+.sv-watching__list > li + li { border-top: var(--border-width) solid var(--border-subtle); }
+
+/* The hue a state's mark wears, here and in the side panel. */
+.sv-watch-mark { display: inline-flex; align-items: center; flex: none; color: var(--fg-muted); }
+.sv-watch-mark[data-state="running"] { color: var(--status-running); }
+.sv-watch-mark[data-state="passed"] { color: var(--status-completed-success); }
+.sv-watch-mark[data-state="failed"] { color: var(--status-completed-failed); }
+.sv-watch-mark[data-state="gave_up"],
+.sv-watch-mark[data-state="broken"] { color: var(--status-escalated); }
+.sv-watch-mark[data-state="stopped"] { color: var(--status-killed); }
+
+.sv-watch__row {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  background: none;
+  color: var(--fg-default);
+  font: inherit;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  text-align: start;
+  cursor: pointer;
+}
+.sv-watch__row:hover { background: color-mix(in srgb, var(--fg-default) 5%, transparent); }
+.sv-watch__row:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--border-width) * -2); }
+.sv-watch__row > .armada-tooltip { display: inline-flex; align-items: center; }
+.sv-watch__name { font-family: var(--font-sans); font-weight: var(--weight-medium); white-space: nowrap; }
+.sv-watch__says { min-width: 0; font-family: var(--font-sans); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--fg-muted); }
+.sv-watch__age { color: var(--fg-subtle); white-space: nowrap; }
+
+/* What the agent made of the reading, under the name. */
+.sv-watch__verdicts { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: 0 var(--space-3) var(--space-2) calc(var(--space-3) + var(--space-2) + var(--space-3)); list-style: none; }
+.sv-watch__verdict { font-family: var(--font-sans); font-size: var(--text-xs); line-height: var(--leading-xs); color: var(--fg-muted); overflow-wrap: anywhere; }
+.sv-watch__verdict[data-verdict="ours"] { color: var(--fg-default); }
