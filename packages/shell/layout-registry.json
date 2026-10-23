@@ -2,7 +2,8 @@
   "regions": {
     "dashboard.panels": { "ordered": true, "firstable": false, "entries": [
       { "id": "fleet", "hideable": false },
-      { "id": "merge-line", "hideable": true }
+      { "id": "merge-line", "hideable": true },
+      { "id": "field", "hideable": true }
     ] },
     "job.tabs": { "ordered": true, "firstable": true, "entries": [
       { "id": "overview", "hideable": false },

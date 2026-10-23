@@ -12,3 +12,10 @@
   size = "12px"
   status = "Proposed"
   notes = "Proposed 16 Oct 2026 for the walk `ledger-background`, tooltip `Monitor`. A sweep that keeps watching is what a Monitor does. Not a Check, a Judge, a live Drone or a search, which are what the reservation keeps it from."
+
+[[icons.radar.usage]]
+  means = "The Field panel, as an entry in the layout's Cockpit panels"
+  group = "Layout"
+  size = "16px"
+  status = "Proposed"
+  notes = "Proposed 23 Oct 2026 for the walk `teach-mods`, drawn in Settings, Layout beside the other panels. The Field is the map of the repository a Job flies over. Borrowed and not minted: the owner may rule otherwise."
