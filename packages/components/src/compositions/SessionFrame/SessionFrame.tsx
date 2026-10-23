@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
-import { BatteryLow, Check, CircleDashed, CircleDot, Clock, Ellipsis, Eye, GitFork, Link, MessageSquareDashed, MoveRight, Power, Reply, RotateCw, ShieldX, SquarePen, Unplug } from "lucide-react";
+import { BatteryLow, Check, CircleDashed, CircleDot, Clock, Ellipsis, Eye, GitFork, Link, MessageSquareDashed, MoveRight, Power, Radar, Reply, RotateCw, ShieldX, SquarePen, Unplug } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
@@ -21,10 +21,11 @@ import { stampOf, timeFormat } from "../../time-format";
  * working is a Drone running, waiting is a Job at review, idle is a turn finished with nothing asked, failing is a
  * pull request's Checks red, and ended is nothing listening, whether it was ended
  * or its terminal stopped asking, limited is held until the plan's limit resets, and after is dispatched to wait on another Session and not started
- * (`link`, the Queued reason's upstream that has not finished), and draft is a Job holding a first message nobody has sent (`message-square-dashed`). `[conventions.session_state_borrowing]` and
+ * (`link`, the Queued reason's upstream that has not finished), draft is a Job holding a first message nobody has sent (`message-square-dashed`), and
+ * held is a Job whose turn ended with nothing asked of the person and a live watch all that keeps it open (`radar`, the watch's own glyph). `[conventions.session_state_borrowing]` and
  * `[conventions.session_fork_marks]` in `packages/icons/` lend them.
  */
-export type SessionState = "blank" | "working" | "stuck" | "waiting" | "replied" | "done" | "failing" | "idle" | "quiet" | "ended" | "limited" | "after" | "draft";
+export type SessionState = "blank" | "working" | "stuck" | "waiting" | "replied" | "done" | "failing" | "idle" | "quiet" | "ended" | "limited" | "after" | "draft" | "held";
 
 /**
  * `stuck` is a turn running that has been quiet, `replied` a turn that ended on the agent's message
@@ -46,6 +47,7 @@ const MARK: Record<SessionState, LucideIcon> = {
   limited: BatteryLow,
   after: Link,
   draft: MessageSquareDashed,
+  held: Radar,
 };
 
 /** The glyph a state wears, for a surface that draws the mark itself, as a tile does. */

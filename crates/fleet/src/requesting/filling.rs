@@ -110,19 +110,34 @@ impl Filling {
         secrets: &dyn RequestSecrets,
     ) -> Result<Values, Unsent> {
         let Some(named) = environment else { return Ok(Values::default()) };
+        let wanted: Vec<String> = texts.iter().flat_map(|text| names_in(text)).collect();
+        self.values_where(named, |name| wanted.iter().any(|one| one == name), secrets)
+    }
+
+    /// Every value of `named`, each secret read: a watch's command is given the environment
+    /// whole, since no text names what it reads.
+    pub(crate) fn every_value(&self, named: &str, secrets: &dyn RequestSecrets) -> Result<Values, Unsent> {
+        self.values_where(named, |_| true, secrets)
+    }
+
+    fn values_where(
+        &self,
+        named: &str,
+        wanted: impl Fn(&str) -> bool,
+        secrets: &dyn RequestSecrets,
+    ) -> Result<Values, Unsent> {
         let environment = self
             .environments
             .iter()
             .find(|one| one.name == named)
             .ok_or_else(|| Unsent::Refused(format!("there is no environment {named:?}")))?;
-        let wanted: Vec<String> = texts.iter().flat_map(|text| names_in(text)).collect();
         let mut values = Values::default();
         for variable in &environment.variables {
             match variable {
                 RequestVariable::Plain { name, value } => {
                     values.known.insert(name.clone(), value.clone());
                 }
-                RequestVariable::Secret { name } if wanted.contains(name) => {
+                RequestVariable::Secret { name } if wanted(name) => {
                     let Some(repository) = &self.repository else { continue };
                     let asked = SecretVariable {
                         repository: repository.clone(),
@@ -173,7 +188,7 @@ fn placeholders(text: &str) -> Vec<(usize, usize, String)> {
 /// The values a send is filled with. **Holds secrets' values**, so it never leaves this module's
 /// caller and has no `Debug`.
 #[derive(Default)]
-pub(super) struct Values {
+pub(crate) struct Values {
     known: BTreeMap<String, String>,
     /// Each secret filled in, by name: what [`Values::hidden`] takes back out.
     secret: Vec<(String, String)>,
@@ -209,6 +224,16 @@ impl Values {
     /// `text` with each secret's value put back as `{{name}}`.
     pub(super) fn hidden(&self, text: &str) -> String {
         hidden(text, &self.secret)
+    }
+
+    /// Every value, by name, secrets among them: a watch command's environment.
+    pub(crate) fn variables(&self) -> Vec<(String, String)> {
+        self.known.iter().map(|(name, value)| (name.clone(), value.clone())).collect()
+    }
+
+    /// Each secret filled in, by name, for [`hidden`] to take back out of what is kept.
+    pub(crate) fn secrets(&self) -> &[(String, String)] {
+        &self.secret
     }
 
     /// The longest secret's length.

@@ -150,6 +150,9 @@ approximations.
 
 ## Designs
 
+- [`design/fleet-watches-ci-and-deploys-for-a-job.md`](design/fleet-watches-ci-and-deploys-for-a-job.md)
+  — Fleet runs a command a recipe names to watch CI or a deploy for a Job,
+  wakes the agent when it changes, and the agent weighs whether a red is ours.
 - [`design/who-sees-each-piece-of-configuration.md`](design/who-sees-each-piece-of-configuration.md)
   — who sees a person's tiles, `armada.yml`, workflows and review tools for a
   repository: yours, the repository's, or a package shared by hand.
@@ -271,6 +274,9 @@ approximations.
 - [`spikes/035-which-mcp-settings-keep-a-hosted-jobs-first-turn-quick.md`](spikes/035-which-mcp-settings-keep-a-hosted-jobs-first-turn-quick.md)
   — a startup wait of 0 with a 120-second `MCP_TIMEOUT` starts a hosted Job's first turn in a second
   and still connects a 45-second server; the door is waited for because it serves the permission tool.
+- [`spikes/036-is-one-line-enough-to-watch-a-deploy.md`](spikes/036-is-one-line-enough-to-watch-a-deploy.md)
+  — three real QA deploy runs replayed through a watch's wake rules: with parts, 7 wakes in 52 readings, 4 of them set aside;
+  without parts, every run reads failed while its deploys run; the line has no field for finished, skipped or replaced.
 - [`spikes/item-clarity.md`](spikes/item-clarity.md)
   — whether the owner can act on an item an agent puts on his Needs you list, by rules and by an
   `item_clear` head: 569 labelled items, rules alone against the head and both, dev folds and a held half,
