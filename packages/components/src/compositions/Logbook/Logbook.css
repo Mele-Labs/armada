@@ -1,0 +1,269 @@
+/* The Logbook page: the filter over a list of panels, one a repository and then Habits and This Mac, each under a mono
+   band as PoolSlots draws its pools, and the open entry on the right. Flat fills and hairlines; selection is a fill,
+   never a glow. The layout follows the page's own width. Tokens only. */
+
+.armada-logbook {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  height: 100%;
+  min-height: 0;
+  padding: var(--space-2) var(--space-4) var(--space-8);
+  box-sizing: border-box;
+  overflow-y: auto;
+  container-type: inline-size;
+}
+.armada-logbook > * { width: min(100%, 90rem); align-self: center; flex: none; }
+
+.armada-logbook__page {
+  display: grid;
+  gap: var(--space-4);
+  align-items: start;
+  grid-template-columns: minmax(0, 1fr);
+}
+@container (min-width: 820px) {
+  .armada-logbook__page { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .armada-logbook__detail { position: sticky; top: 0; }
+}
+
+.armada-logbook__filters { display: flex; justify-content: flex-end; }
+.armada-logbook__filters .armada-switch { gap: var(--space-3); }
+
+/* ---- The list ------------------------------------------------------------------------------- */
+
+.armada-logbook__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+  outline: none;
+}
+
+.armada-logbook__panel,
+.armada-logbook__card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--bg-sunken);
+  overflow: hidden;
+}
+
+.armada-logbook__band {
+  display: flex;
+  align-items: center;
+  min-height: calc(var(--h-row) * 1.25);
+  padding: var(--space-1) var(--space-4);
+  border-bottom: var(--border-width) solid var(--border-default);
+  background: var(--bg-raised);
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.armada-logbook__row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  border-top: var(--border-width) solid var(--border-subtle);
+  color: var(--fg-default);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  cursor: default;
+}
+.armada-logbook__band + .armada-logbook__row { border-top: none; }
+.armada-logbook__row:hover { background: color-mix(in srgb, var(--bg-hover) 50%, transparent); }
+.armada-logbook__row[aria-selected="true"] { background: var(--bg-hover); }
+/* Not handed out: dimmed, and its state mark names why. */
+.armada-logbook__row[data-handed="not"] .armada-logbook__text { color: var(--fg-muted); }
+/* Where the list holds focus, the selected row carries the accent's hairline so the keys' target is plain. */
+.armada-logbook__list:focus-visible .armada-logbook__row[aria-selected="true"] {
+  box-shadow: inset calc(var(--border-width) * 2) 0 0 var(--accent);
+}
+
+.armada-logbook__text {
+  flex: 1;
+  min-width: 0;
+}
+
+.armada-logbook__marks {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: none;
+  min-height: var(--leading-sm);
+  color: var(--fg-muted);
+}
+
+.armada-logbook__mark {
+  display: inline-flex;
+  align-items: center;
+}
+.armada-logbook__mark[data-tone="tripped"] { color: var(--fg-default); }
+
+/* ---- The open entry ------------------------------------------------------------------------- */
+
+.armada-logbook__detail {
+  min-width: 0;
+  outline: none;
+}
+.armada-logbook__detail:focus-visible .armada-logbook__card { border-color: var(--border-strong); }
+
+.armada-logbook__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-4);
+}
+
+.armada-logbook__said {
+  margin: 0;
+  color: var(--fg-default);
+  font-size: var(--text-base);
+  line-height: var(--leading-base);
+  font-weight: var(--weight-medium);
+}
+
+.armada-logbook__edit {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.armada-logbook__acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.armada-logbook__facts {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  column-gap: var(--space-4);
+  row-gap: var(--space-1);
+  margin: 0;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+.armada-logbook__facts dt { color: var(--fg-muted); }
+.armada-logbook__facts dd { margin: 0; color: var(--fg-default); font-family: var(--font-mono); }
+
+.armada-logbook__part {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.armada-logbook__head {
+  margin: 0;
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.armada-logbook__paths,
+.armada-logbook__evidence,
+.armada-logbook__history {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.armada-logbook__paths { gap: var(--space-1); }
+.armada-logbook__paths li {
+  color: var(--fg-default);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  overflow-wrap: anywhere;
+}
+
+.armada-logbook__evidence li,
+.armada-logbook__history li {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2) 0;
+  border-top: var(--border-width) solid var(--border-subtle);
+}
+.armada-logbook__evidence li:first-child,
+.armada-logbook__history li:first-child { border-top: none; padding-top: 0; }
+
+.armada-logbook__from {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+  color: var(--fg-muted);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+}
+
+.armada-logbook__job {
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--fg-default);
+  font: inherit;
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+}
+.armada-logbook__job:hover { color: var(--accent-hover); }
+.armada-logbook__job:focus-visible { outline: calc(var(--border-width) * 2) solid var(--accent); outline-offset: var(--border-width); }
+
+.armada-logbook__cite { font-family: var(--font-mono); }
+
+.armada-logbook__says {
+  color: var(--fg-default);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+.armada-logbook__history .armada-logbook__says { color: var(--fg-muted); }
+
+.armada-logbook__unread {
+  margin: 0;
+  padding: var(--space-4);
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+}
+
+.armada-logbook__code {
+  font-family: var(--font-mono);
+  font-size: inherit;
+  color: var(--fg-default);
+}
+
+/* ---- Armada fixes ----------------------------------------------------------------------------- */
+/* The retro items, drawn by the Lessons list inside the panel's body. Its own card chrome steps back so the panel is
+   the one frame. */
+
+.armada-logbook__fixes { outline: none; }
+.armada-logbook__fixes:focus-visible { border-color: var(--border-strong); }
+.armada-logbook__fixes-body .armada-lessons-page {
+  padding: 0;
+  gap: var(--space-3);
+}
+.armada-logbook__fixes-body .armada-lessons__bar { padding: var(--space-3) var(--space-4) 0; }
+:root[data-look="new"] .armada-logbook__fixes-body .armada-lessons-page > :is(.armada-lessons, .armada-alert, .armada-lessons__bar) {
+  width: 100%;
+  align-self: stretch;
+}
+:root[data-look="new"] .armada-logbook__fixes-body .armada-lessons-page .armada-lessons {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}

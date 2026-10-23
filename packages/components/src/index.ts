@@ -439,3 +439,4 @@ export * from "./compositions/LinkPanel/LinkOffer";
 
 // A Job's Artifacts as a graph of how it grew, on GraphCanvas: one node to an artifact, its versions marks inside it.
 export * from "./compositions/ArtifactGraph/ArtifactGraph";
+export * from "./compositions/Logbook/Logbook";

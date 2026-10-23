@@ -1,0 +1,7 @@
+[icons.repeat]
+  means = "Two arrows chasing each other round a loop: done the same way each time"
+  group = "Logbook"
+  size = "12px"
+  status = "Proposed"
+  reserved = "A Logbook entry of kind habit, how the owner works. Never a retry, a loop in a workflow or a schedule."
+  notes = "Proposed 22 Oct 2026 for the walk `logbook`. Tooltip `Habit`."

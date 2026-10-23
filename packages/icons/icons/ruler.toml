@@ -1,0 +1,7 @@
+[icons.ruler]
+  means = "A ruler: a measure the work is held to"
+  group = "Logbook"
+  size = "12px"
+  status = "Proposed"
+  reserved = "A Logbook entry of kind convention. Never a size, a layout or a measurement on a canvas."
+  notes = "Proposed 22 Oct 2026 for the walk `logbook`. Tooltip `Convention`."

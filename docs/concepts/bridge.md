@@ -65,13 +65,13 @@ Below the row's narrow width the other controls are listed in the menu, and the 
 | Cockpit | The flight deck | `⌘1` |
 | Jobs | Every Job | `⌘3` |
 | Studios | One repository's Studios, and a Studio opened from the list | `⌘4` |
-| Retros | The items every Job's retro raised | `⌘5` |
+| Logbook | What agents know, and Armada fixes: the items every Job's retro raised | `⌘5` |
 | System | The System page last used, Kit where none has been | `⌘6` |
 
 **System is a strip of pages under the tab bar**, drawn while System is the place: Kit, Mods, Settings, Guides, Workflows.
 Settings answers `⌘,` and the title menu's entry.
 **Doctor is a row of the title menu** and not a page of the strip (the owner, 15 Oct 2026: *"Doctor should live in the menu in the top right"*); `⌘K` reaches it by name.
-**Studios and Retros are tabs** (the owner, 15 Oct 2026: *"Studios and retros should live in the main bar at the top of the app"*), and every page of an open Studio counts as the Studios tab being current.
+**Studios is a tab** (the owner, 15 Oct 2026: *"Studios and retros should live in the main bar at the top of the app"*), and every page of an open Studio counts as the Studios tab being current. **Retros is not a tab since 22 Oct 2026**: its items are Armada fixes, the lower part of the Logbook, and every way to Retros opens the Logbook there.
 A page with no tab and no strip place stays reachable: Worktree Slots, Merge line, Manifest and Checks open from the palette (`⌘K`) by name.
 The rule is that no page is reachable only by a place the window does not draw.
 `packages/shell/src/surfaces.ts` is the one roster the tabs, the strip and the palette read.
