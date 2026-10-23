@@ -167,10 +167,18 @@ where
         let handing_on = matches!(written, Written::Message(SessionVoice::You))
             && self.handoff_answered_later(&id, &text).await;
         let row = self.written_row(&id, &written, &text, &kept.files, &sent.mentions);
+        let row_id = row.id().to_string();
         if matches!(written, Written::Message(SessionVoice::You)) {
             self.hosts().of(&id).state().activity.writing.person_said(row.id(), &text);
         }
         self.row_put(&id, row).await;
+        // Before the early returns below: a handoff's answer is still the person's latest message.
+        if matches!(written, Written::Message(SessionVoice::You)) {
+            // The artifacts drawn from here on follow this message, until the next one.
+            if let Err(why) = self.store().lock().await.keep_session_message(&id, &row_id) {
+                self.session_warned(&id, "a job's latest message was not kept", format!("{why:?}"));
+            }
+        }
         if handing_on {
             return self.published_hosted(&id).await;
         }

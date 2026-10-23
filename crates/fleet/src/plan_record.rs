@@ -194,7 +194,8 @@ enum Pass {
 /// says it, the same words or reworded close enough (see `said`), one item to one task. A task
 /// completed now is `edited` if an edit was seen under its group's paths since the group's last
 /// completion (or the version was recorded): those completing together share the window. A task that
-/// goes back to not completed loses its instant. A task no item matches keeps what it had. Whether
+/// goes back to not completed loses its instant. A task put in progress is stamped, for the store to
+/// say which of several began last. A task no item matches keeps what it had. Whether
 /// the plan moved.
 pub(crate) fn listed(plan: &mut KeptPlan, list: &[ReportedTask], now: &str) -> bool {
     let recorded = plan.recorded_at.clone();
@@ -224,6 +225,7 @@ pub(crate) fn listed(plan: &mut KeptPlan, list: &[ReportedTask], now: &str) -> b
             }
             moved = true;
             task.listed = Some(status.to_string());
+            task.started_at = (status == "in_progress").then(|| now.to_string());
             if status == "completed" {
                 task.completed_at = Some(now.to_string());
                 task.edited = worked;
