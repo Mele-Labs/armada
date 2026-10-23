@@ -236,6 +236,7 @@
 
 /* The right column holds the Field, which takes the room, and Progress under it. A Progress with no plan is its band, and the Field has the rest. */
 .sv-side > .sv-panel[data-area="field"] { flex: 2 1 0; min-height: calc(var(--space-12) * 3); }
+.sv-side > .sv-panel[data-area="workflow"] { flex: 0 0 auto; }
 .sv-side > .sv-panel[data-area="progress"] { flex: 3 1 0; min-height: calc(var(--space-12) * 4); }
 .sv-side > .sv-panel[data-area="progress"]:has(> .sv-panel__body:empty) { flex: 0 0 auto; min-height: 0; }
 

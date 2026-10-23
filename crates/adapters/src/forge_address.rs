@@ -103,6 +103,46 @@ pub fn pull_linked_in(link: &str, repository: &ForgeAddress) -> Option<u64> {
         .then(|| number.parse().ok())?
 }
 
+/// The web links in `words`, each once and in the order written: `http` and `https` only, without
+/// the punctuation that ended a sentence. A link to this machine, or to one of `repository`'s own
+/// issues or pull requests (the Job already holds those), is not kept; a checkout with no forge
+/// has no such tickets to drop.
+///
+/// Splits on `://` as `tickets_in` does, so `[text](url)` yields the url.
+pub fn links_in(words: &str, repository: Option<&ForgeAddress>) -> Vec<String> {
+    let mut found: Vec<String> = Vec::new();
+    for (at, _) in words.match_indices("://") {
+        let scheme = words[..at].rsplit(|c: char| !c.is_ascii_alphabetic()).next().unwrap_or_default();
+        if !scheme.eq_ignore_ascii_case("http") && !scheme.eq_ignore_ascii_case("https") {
+            continue;
+        }
+        let rest = words[at + 3..]
+            .split(|c: char| c.is_whitespace() || "()[]<>\"'`".contains(c))
+            .next()
+            .unwrap_or_default()
+            .trim_end_matches(['.', ',', ';', ':', '!', '?']);
+        let link = format!("{}://{rest}", scheme.to_ascii_lowercase());
+        if rest.is_empty() || is_this_machine(rest) || tickets_in(&link).any(|(address, _, _)| repository == Some(&address)) {
+            continue;
+        }
+        if !found.contains(&link) {
+            found.push(link);
+        }
+    }
+    found
+}
+
+/// Whether the address after `://` is `localhost`, a loopback or the unspecified address.
+fn is_this_machine(rest: &str) -> bool {
+    let authority = rest.split(['/', '?', '#']).next().unwrap_or_default();
+    let host = authority.rsplit('@').next().unwrap_or(authority).to_ascii_lowercase();
+    let host = match host.strip_prefix('[') {
+        Some(inside) => inside.split(']').next().unwrap_or_default().to_string(),
+        None => host.split(':').next().unwrap_or_default().to_string(),
+    };
+    host == "localhost" || host.ends_with(".localhost") || matches!(host.as_str(), "127.0.0.1" | "::1" | "0.0.0.0")
+}
+
 /// Each issue or pull request link in `words`: the repository, `issues` or `pull`, and the number
 /// as written, in the order they appear.
 fn tickets_in(words: &str) -> impl Iterator<Item = (ForgeAddress, &str, &str)> {

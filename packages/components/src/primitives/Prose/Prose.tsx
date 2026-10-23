@@ -87,6 +87,11 @@ const REF = "armada-ref:";
 /** A part of an address, with the brackets a markdown link would end on written out too. */
 const escaped = (part: string): string => encodeURIComponent(part).replace(/[()]/g, (one) => `%${one.charCodeAt(0).toString(16)}`);
 
+const addressOf = (ref: ProseReference): string => `${REF}${ref.kind}/${escaped(ref.id)}?t=${escaped(ref.title)}`;
+
+/** A link a model wrote, `[words](address)`. */
+const WRITTEN = /(!?\[(?:\\.|[^\[\]\\\n])*\]\([^()\s]*\))/;
+
 /** The words with each reference they name written as a link, and code left alone. */
 function linked(text: string, refs: ProseReferences): string {
   // A fenced block or an inline span is code, and a number in it is not a reference, unless the span is
@@ -98,20 +103,35 @@ function linked(text: string, refs: ProseReferences): string {
       if (at % 2 === 1) {
         const inner = part.startsWith("```") ? "" : part.slice(1, -1);
         const whole = inner === "" ? undefined : refs.scan(inner).find((one) => one.from === 0 && one.to === inner.length && (one.ref.kind === "session" || one.ref.kind === "file"));
-        return whole === undefined ? part : `[${part}](${REF}${whole.ref.kind}/${escaped(whole.ref.id)}?t=${escaped(whole.ref.title)})`;
+        return whole === undefined ? part : `[${part}](${addressOf(whole.ref)})`;
       }
-      const found = refs.scan(part).filter((one) => one.ref.kind !== "file").sort((a, b) => a.from - b.from);
-      let out = "";
-      let from = 0;
-      for (const one of found) {
-        if (one.from < from) continue;
-        const words = part.slice(one.from, one.to).replace(/[\[\]]/g, "\\$&");
-        out += `${part.slice(from, one.from)}[${words}](${REF}${one.ref.kind}/${escaped(one.ref.id)}?t=${escaped(one.ref.title)})`;
-        from = one.to;
-      }
-      return out + part.slice(from);
+      // A link a model wrote is one link, and a reference in its words would be a link inside it, which markdown
+      // draws as its brackets. One to a pull request or an issue the host holds opens where its number does.
+      return part
+        .split(WRITTEN)
+        .map((piece, index) => {
+          if (index % 2 === 0) return words(piece, refs);
+          const address = piece.slice(piece.lastIndexOf("](") + 2, -1);
+          const whole = refs.scan(address).find((one) => one.from === 0 && one.to === address.length && (one.ref.kind === "pull_request" || one.ref.kind === "issue"));
+          return whole === undefined || piece.startsWith("!") ? piece : `${piece.slice(0, piece.length - address.length - 1)}${addressOf(whole.ref)})`;
+        })
+        .join("");
     })
     .join("");
+}
+
+/** Words outside code and outside a written link, each reference in them made a link. */
+function words(part: string, refs: ProseReferences): string {
+  const found = refs.scan(part).filter((one) => one.ref.kind !== "file").sort((a, b) => a.from - b.from);
+  let out = "";
+  let from = 0;
+  for (const one of found) {
+    if (one.from < from) continue;
+    const named = part.slice(one.from, one.to).replace(/[\[\]]/g, "\\$&");
+    out += `${part.slice(from, one.from)}[${named}](${addressOf(one.ref)})`;
+    from = one.to;
+  }
+  return out + part.slice(from);
 }
 
 function referenceOf(href: string | undefined): ProseReference | null {

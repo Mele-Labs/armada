@@ -36,6 +36,7 @@ use super::serving::SESSION_COMMAND_REFUSED;
 use super::uploads::Kept;
 use crate::daemon::Fleet;
 use crate::judging::watched;
+use crate::session_links::LinkedBy;
 use crate::session_proposer::{SessionBrief, SessionProposed};
 use crate::timeline::{Fact, Subject};
 
@@ -187,6 +188,7 @@ where
             }
             let record = self.start_session(start).await?;
             self.issues_named(record.id.as_str(), &request, &[]).await;
+            self.links_seen(record.id.as_str(), &request, LinkedBy::You).await;
             return self.after_begun(record, after, request).await;
         }
         start.request = Some(request.clone());
@@ -197,6 +199,7 @@ where
         tokio::spawn(async move { fleet.read_request(id, words).await });
         // The request is the person's first message, sent or not: a Session that waits holds it as its brief.
         self.issues_named(record.id.as_str(), &request, &[]).await;
+        self.links_seen(record.id.as_str(), &request, LinkedBy::You).await;
         self.after_begun(record, after, request).await
     }
 
