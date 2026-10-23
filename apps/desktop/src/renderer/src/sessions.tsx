@@ -47,7 +47,7 @@ import {
   useTerminalDock,
   FILE_SHOWN,
 } from "@armada/components";
-import type { DebugPayload, RunsPlace } from "@armada/components";
+import type { DebugPayload, RunsPlace, TeachPick } from "@armada/components";
 import { PROTOCOL_ID, spoken } from "@armada/protocol";
 import type {
   ProseTerminalValue,
@@ -105,7 +105,8 @@ import type { HeldWorktrees, Notice, RepositorySummary } from "@armada/protocol"
 import { askToTell } from "./tell";
 import { SessionRefs } from "./helm-refs";
 import { openInPanel } from "./shared-panel/store";
-import { useTeachingOffered, wordsOfQuote } from "./teach";
+import { TeachHereContext, batchNotices, useNoticeRules, useTeachFrom, wordsOfQuote } from "./teach";
+import type { TeachHere } from "./teach";
 import { useShownFiles } from "./session-shown-file";
 import { startOf } from "./shared-panel/requests-model";
 import { SURFACE, useAtFloor, useNarrow } from "@armada/shell";
@@ -785,14 +786,19 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
   }, [session.attachments, repositories, thread, carried, origin, forkedFrom?.at, earlier]);
   // A request in the thread opens in Requests for this Job, to edit and send again.
   // Teach is offered where the window can read what is taught. It opens in the side panel, over this Session.
-  const teaching = useTeachingOffered();
-  const teachFrom = useCallback(
-    ({ quote }: { quote: string }) => {
-      const at = rootOfSession(session, repositories);
-      void openInPanel({ kind: "teach", sessionId: session.id, ...(session.manifestId === undefined ? {} : { manifestId: session.manifestId }), repository: (at ?? session.cwd ?? session.manifestId ?? session.id).split("/").pop()!, words: wordsOfQuote(quote) });
-    },
-    [session, repositories],
-  );
+  const teachHere = useMemo((): TeachHere => {
+    const at = rootOfSession(session, repositories);
+    return {
+      sessionId: session.id,
+      jobTitle: session.title ?? session.id,
+      ...(session.manifestId === undefined ? {} : { manifestId: session.manifestId }),
+      ...(at === undefined ? {} : { root: at }),
+      repository: (at ?? session.cwd ?? session.manifestId ?? session.id).split("/").pop()!,
+    };
+  }, [session, repositories]);
+  const teachOpen = useTeachFrom(teachHere);
+  const noticeRules = useNoticeRules(session.id, session.manifestId);
+  const batched = useMemo(() => batchNotices(shown, noticeRules), [shown, noticeRules]);
   const openRequest = useCallback((row: RequestedThreadRow) => void openInPanel({ kind: "requests", sessionId: session.id, start: startOf(row), from: row.id }), [session.id]);
   const openSaved = useCallback((row: SavedThreadRow) => void openInPanel({ kind: "requests", sessionId: session.id, saved: { collection: row.collectionId, request: row.request }, from: row.id }), [session.id]);
   // A run drawn as a terminal: the pane is the view's own, docked above its box.
@@ -994,6 +1000,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
   const cardLead = !unread && where !== undefined && root !== undefined && cardOn(root, session.id, sentTo(session) || inUse);
   const marked = unread || where === undefined || cardLead ? undefined : <RunsPlaceControl {...where} />;
   return (
+    <TeachHereContext.Provider value={teachHere}>
     <SessionRefs session={session}>
       <ProseTerminal.Provider value={terminal}>
       <SessionWorkspace session={session} ed={planEditing} entries={entries} repositories={repositories} hosts={deck?.hosts} bays={bays} onOpenSketch={(sketch) => read({ kind: "sketch", id: sketch })} onOpenSession={onOpen} onOpenCheck={(run) => goes.onOpenCheck(session.id, run)} live={{ open: reading?.kind === "live", onOpen: (url) => read({ kind: "live", id: url }) }}>
@@ -1074,13 +1081,13 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
           <SavedOpen.Provider value={openSaved}>
           <SessionThread
             sessionId={session.id}
-            rows={shown}
+            rows={batched}
             {...(!cardLead ? {} : { lead: <RunsPlaceCard {...where!} /> })}
             {...(session.transcript === undefined ? {} : { transcript: session.transcript })}
             onOpenRetro={openRetro}
             {...(draft.retry === undefined ? {} : { onRetry: (rowId: string) => draft.retry!(session.id, rowId) })}
             {...(draft.forkAt === undefined ? {} : { onForkAt: (pick) => opening(forkAtPick(draft.forkAt!, session.id, pick, setFocusFor), onOpen) })}
-            {...(teaching ? { onTeachAt: teachFrom } : {})}
+            {...(teachOpen === undefined ? {} : { onTeachAt: ({ quote }: { quote: string }) => teachOpen("words", wordsOfQuote(quote)), onTeachRow: ({ kind, text, at }: TeachPick) => teachOpen(kind, text, at) })}
             {...(draft.muteNotice === undefined ? {} : { onMuteNotice: (notice, choice) => muteNoticeFor(draft.muteNotice!, session, notice, choice) })}
             {...(session.dead !== undefined ? {} : { onReplyAt: ({ quote }) => {
               quoteIntoDraft(session.id, quote);
@@ -1207,6 +1214,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
       />
       </ProseTerminal.Provider>
     </SessionRefs>
+    </TeachHereContext.Provider>
   );
 }
 

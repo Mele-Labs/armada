@@ -126,7 +126,7 @@ export function mountApp(
   if (shared === undefined && chosen.name === "system-sidebar") installSystemMods();
   if (shared === undefined) provideKitModels(createMockKitModels());
   // Teach is read only in the scenario that plays it, which starts with nothing taught.
-  if (shared === undefined) provideTeaching(chosen.name === "session-teach" ? createMockTeaching() : undefined);
+  if (shared === undefined) provideTeaching(chosen.name === "teach-anything" ? createMockTeaching() : undefined);
   // Every window starts with the deck as it begins.
   if (shared === undefined) forgetDeck();
   // And with no repository having shown its first Job's card.

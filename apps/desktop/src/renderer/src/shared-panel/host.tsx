@@ -49,7 +49,7 @@ export function SharedPanelHost() {
       ) : open.kind === "requests" ? (
         <RequestsPanel key={`requests:${open.sessionId ?? ""}:${open.from ?? ""}`} item={open} />
       ) : open.kind === "teach" ? (
-        <TeachSide key={`teach:${open.sessionId}:${open.words}`} item={open} />
+        <TeachSide key={`teach:${open.sessionId}:${open.source}:${open.text}`} item={open} />
       ) : (
         <CheckPanel key={`check:${open.id}`} item={open} />
       )}

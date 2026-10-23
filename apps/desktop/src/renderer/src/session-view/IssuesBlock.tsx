@@ -76,7 +76,7 @@ function PrMark({ pr }: { pr: PullRequest }) {
 }
 
 function PrSlot({ pr, manifestId }: { pr: PullRequest; manifestId: string | undefined }) {
-  const { on, menu } = usePullRequestMenu(manifestId, pr.number);
+  const { on, menu } = usePullRequestMenu(manifestId, pr.number, pr.title);
   return (
     <li>
       <button type="button" className="sv-row" data-kind="pr" aria-label={`Pull request #${pr.number} ${pr.title}`} onClick={() => openPrPanel(pr)} {...on}>

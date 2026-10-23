@@ -15,7 +15,6 @@ import { Boundary, type BoundaryProps } from "@armada/shell";
 
 import { entryOf, entryOfKind, foundBy, SYSTEM_ENTRIES, SYSTEM_GROUPS, type SystemEntryDef } from "./system-entries";
 import { useKitModels } from "./kit-models";
-import { TaughtLinks } from "./teach-links";
 import { openLinkPanel } from "./link-drop";
 import { FileInline } from "./shared-panel/file";
 import { openInPanel } from "./shared-panel/store";
@@ -118,7 +117,7 @@ export function SystemSurface({ repository, settings, modelChoices, live, guarde
         onOpenAccount={onOpenAccount}
         onReadGuides={onReadGuides}
         {...(guarded.onCopied === undefined ? {} : { onCopied: guarded.onCopied })}
-        under={{ theme: <ModList kind="theme" />, layout: <ModList kind="layout" />, links: <TaughtLinks /> }}
+        under={{ theme: <ModList kind="theme" />, layout: <ModList kind="layout" /> }}
       />
       {def.id === "bridge:guides" ? <div className="armada-system__catalogue">{guides}</div> : null}
     </div>

@@ -98,7 +98,7 @@ function useRefs({ repositories, openSession, openLink }: Host, { manifestId, se
   );
   const known = [...opened, ...(numbered?.open ?? []), ...Object.entries(looked).flatMap(([key, hit]) => (hit !== null && key.startsWith(`${manifestId}#`) ? [hit] : []))];
   // Words the owner taught as links, in this repository or in every one, and the rule the Teach panel is showing back.
-  const taught = useTaughtLinks(manifestId);
+  const taught = useTaughtLinks(manifestId, root?.split("/").pop());
   const linkable: RefWorld = {
     ...(slug === undefined ? {} : { slug }),
     ...(taught.length === 0 ? {} : { links: taught }),

@@ -1,11 +1,13 @@
-// A pull request chip's menu, the merge line's and Progress's: Refresh, which has Fleet read the pull request from the forge now.
-// It opens at the pointer on a right press, and under the chip on the ContextMenu key or Shift+F10. A chip whose window has no
-// way to refresh has no menu.
+// A pull request chip's menu, the merge line's and Progress's: Refresh, which has Fleet read the pull request from the forge now,
+// and Teach where the chip is in a Job. It opens at the pointer on a right press, and under the chip on the ContextMenu key or
+// Shift+F10. A chip whose window can do neither has no menu.
 
 import { useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
 import { DropdownMenu } from "@armada/components";
+import { GraduationCap } from "lucide-react";
 
 import { useRepositoryActs } from "./sessions-draft";
+import { useTeach } from "./teach";
 
 type At = { x: number; y: number; from: HTMLElement };
 
@@ -15,10 +17,11 @@ export type PullRequestMenu = {
   menu: ReactNode;
 };
 
-export function usePullRequestMenu(manifestId: string | undefined, number: number): PullRequestMenu {
+export function usePullRequestMenu(manifestId: string | undefined, number: number, title?: string): PullRequestMenu {
   const refresh = useRepositoryActs().refreshPullRequest;
+  const teach = useTeach();
   const [at, setAt] = useState<At | undefined>(undefined);
-  if (refresh === undefined) return { on: {}, menu: null };
+  if (refresh === undefined && teach === undefined) return { on: {}, menu: null };
   const on: PullRequestMenu["on"] = {
     onContextMenu: (event) => {
       event.preventDefault();
@@ -39,7 +42,8 @@ export function usePullRequestMenu(manifestId: string | undefined, number: numbe
         open
         entries={[
           { kind: "label", id: "heading", label: `Pull request #${number}` },
-          { kind: "item", id: "refresh", label: "Refresh" },
+          ...(refresh === undefined ? [] : [{ kind: "item" as const, id: "refresh", label: "Refresh" }]),
+          ...(teach === undefined ? [] : [{ kind: "item" as const, id: "teach", label: "Teach", icon: GraduationCap }]),
         ]}
         onOpenChange={(open) => {
           if (open) return;
@@ -47,7 +51,8 @@ export function usePullRequestMenu(manifestId: string | undefined, number: numbe
           at.from.focus();
         }}
         onSelect={(chosen) => {
-          if (chosen === "refresh") void refresh(manifestId, number);
+          if (chosen === "refresh") void refresh?.(manifestId, number);
+          else if (chosen === "teach") teach?.("pull_request", title === undefined ? `#${number}` : `#${number} ${title}`);
         }}
       />
     );
@@ -55,8 +60,8 @@ export function usePullRequestMenu(manifestId: string | undefined, number: numbe
 }
 
 /** The menu for a chip drawn inline, where a hook cannot be called per chip: `children` is given what to spread onto the chip. */
-export function PullRequestMenuOn({ manifestId, number, children }: { manifestId: string | undefined; number: number; children: (on: PullRequestMenu["on"]) => ReactNode }) {
-  const { on, menu } = usePullRequestMenu(manifestId, number);
+export function PullRequestMenuOn({ manifestId, number, title, children }: { manifestId: string | undefined; number: number; title?: string; children: (on: PullRequestMenu["on"]) => ReactNode }) {
+  const { on, menu } = usePullRequestMenu(manifestId, number, title);
   return (
     <>
       {children(on)}
