@@ -6,10 +6,14 @@
 //! one process start. Each call also gets its own `env`, so a credential is never one a server
 //! kept from the call before.
 //!
+//! **The server leads a process group of its own, and the group is ended at the end of every call**,
+//! on success, error and timeout alike, so whatever a launcher or the server forked goes with it.
+//!
 //! **Nothing here reads JSON but `ipc::decode`**, for a message's `id`, `method` and `error`;
 //! what the tool said is read by `jq`, which is also how `map` reads it.
 
 use std::io::{BufRead, BufReader, Read, Write};
+use std::os::unix::process::CommandExt;
 use std::process::{Child, ChildStderr, ChildStdin, ChildStdout, Command, Stdio};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError};
 use std::sync::{Arc, Mutex};
@@ -92,11 +96,12 @@ pub(crate) fn call(
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
+        .process_group(0)
         .spawn()
         .map_err(|why| running::not_started(program, &why))?;
     let (Some(mut stdin), Some(stdout), Some(stderr)) = (child.stdin.take(), child.stdout.take(), child.stderr.take())
     else {
-        let _ = child.kill();
+        stop(&mut child);
         return Err(format!("`{program}` could not be talked to"));
     };
     let heard = listen(stdout);
@@ -235,15 +240,17 @@ fn keep(mut stderr: ChildStderr) -> (Arc<Mutex<Vec<u8>>>, std::thread::JoinHandl
     (kept, keeping)
 }
 
-/// The server, whose input is closed, given [`GRACE`] to end and killed after it.
+/// The server, whose input is closed, given [`GRACE`] to end, and then its whole group killed:
+/// the group id is the server's pid, which `process_group(0)` made its own.
 fn stop(child: &mut Child) {
     let until = Instant::now() + GRACE;
     while Instant::now() < until {
         match child.try_wait() {
             Ok(None) => std::thread::sleep(Duration::from_millis(5)),
-            _ => return,
+            _ => break,
         }
     }
+    checks_runner::end_group(child.id());
     let _ = child.kill();
     let _ = child.wait();
 }

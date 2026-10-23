@@ -240,6 +240,54 @@ fn an_mcp_server_that_says_more_than_the_most_an_answer_may_weigh_is_stopped() {
     assert!(refused.said.contains("said more than 4194304 bytes"), "{}", refused.said);
 }
 
+// ------------------------------------------------------------------ what a server leaves behind
+
+/// Whether the child the server started, and left running when it ended, is still there after the
+/// call. It is waited on for a moment, since a killed process takes a moment to be gone, and it is
+/// ended here whatever the answer, so a failing run leaves nothing behind either.
+fn child_outlives_the_call(dir: &Scratch) -> bool {
+    let pid = kept(dir, "child").trim().to_string();
+    let alive = || std::process::Command::new("kill").args(["-0", &pid]).output().is_ok_and(|ran| ran.status.success());
+    let until = Instant::now() + Duration::from_secs(3);
+    while alive() && Instant::now() < until {
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    let outlived = alive();
+    let _ = std::process::Command::new("kill").args(["-9", &pid]).output();
+    outlived
+}
+
+/// The shell that starts a child which would outlive it, and keeps its pid.
+fn forking(dir: &Scratch) -> String {
+    format!("sleep 60 &\necho $! > {}/child\n", dir.path().display())
+}
+
+#[test]
+fn a_child_an_mcp_server_leaves_behind_is_gone_after_the_call() {
+    let dir = Scratch::new();
+    dir.file("ok.json", &structured(FOUND));
+    let server = fake_server(&dir, &format!("{}cat {}/ok.json", forking(&dir), dir.path().display()));
+    tracker_of(&mcp_file(&server)).search_issues("/repo", "x").expect("searched");
+    assert!(!child_outlives_the_call(&dir), "the server's child was left running");
+}
+
+#[test]
+fn a_child_an_mcp_server_leaves_behind_is_gone_after_a_tool_error() {
+    let dir = Scratch::new();
+    let line = result_line(r#"{"isError":true,"content":[{"type":"text","text":"no"}]}"#);
+    let server = fake_server(&dir, &format!("{}printf '%s\\n' '{line}'", forking(&dir)));
+    tracker_of(&mcp_file(&server)).search_issues("/repo", "x").expect_err("the tool failed");
+    assert!(!child_outlives_the_call(&dir), "the server's child was left running");
+}
+
+#[test]
+fn a_child_an_mcp_server_leaves_behind_is_gone_after_a_timeout() {
+    let dir = Scratch::new();
+    let server = script(&dir, "silent", &format!("{}read -r hello\nexec sleep 30", forking(&dir)));
+    tracker_of(&mcp_file(&server)).within(Duration::from_millis(300)).search_issues("/repo", "x").expect_err("no answer");
+    assert!(!child_outlives_the_call(&dir), "the server's child was left running");
+}
+
 // ------------------------------------------------------------------ the file
 
 #[test]
