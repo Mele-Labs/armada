@@ -103,7 +103,7 @@ enum OrNot<T> {
     Unread(IgnoredAny),
 }
 
-fn lenient<'de, D: Deserializer<'de>, T: Deserialize<'de>>(input: D) -> Result<Vec<T>, D::Error> {
+pub(super) fn lenient<'de, D: Deserializer<'de>, T: Deserialize<'de>>(input: D) -> Result<Vec<T>, D::Error> {
     Ok(Option::<Vec<OrNot<T>>>::deserialize(input)?
         .unwrap_or_default()
         .into_iter()
@@ -115,14 +115,14 @@ fn lenient<'de, D: Deserializer<'de>, T: Deserialize<'de>>(input: D) -> Result<V
 }
 
 /// An entry's text as it may be kept: trimmed, one or two lines, not too long. `None` otherwise.
-fn written(text: &str) -> Option<String> {
+pub(super) fn written(text: &str) -> Option<String> {
     let text = text.trim();
     let lines = text.lines().filter(|line| !line.trim().is_empty()).count();
     (!text.is_empty() && lines <= MOST_LINES && text.chars().count() <= MOST_CHARS).then(|| text.to_string())
 }
 
 /// The section and kind a new entry names, where they go together.
-fn placed(section: &str, kind: &str) -> Option<(LogSection, LogKind)> {
+pub(super) fn placed(section: &str, kind: &str) -> Option<(LogSection, LogKind)> {
     let section = LogSection::of_text(section)?;
     let kind = LogKind::of_text(kind)?;
     let fits = match section {
