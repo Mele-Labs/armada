@@ -57,7 +57,8 @@ export function createFleetSharedHome(fleet: FleetHome, account: AccountSource, 
   let syncing = false;
   let held: SharedHome | undefined;
   // Each row drawn, back to the wire row it came from: a memory note's act names its repository, which Kit's row does not carry.
-  let wires = new WeakMap<SharedRow, HomeRow>();
+  // Kept across reads, so a row a compare sheet still holds names itself as it was drawn.
+  const wires = new WeakMap<SharedRow, HomeRow>();
   let off: (() => void) | null = null;
   const listeners = new Set<() => void>();
 
@@ -73,7 +74,6 @@ export function createFleetSharedHome(fleet: FleetHome, account: AccountSource, 
   const build = (): SharedHome | undefined => {
     if (login === undefined || read === undefined) return undefined;
     const as = login;
-    wires = new WeakMap();
     const rows = read.rows.map((wire) => {
       const row = rowOf(wire);
       wires.set(row, wire);

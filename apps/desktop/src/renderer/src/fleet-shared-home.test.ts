@@ -117,6 +117,19 @@ describe("the shared home over Fleet", () => {
     expect(home.get()?.rows.find((one) => one.name === "dusk")?.state).toBe("same");
   });
 
+  it("names a row drawn before a read again as it was drawn, as a compare sheet left open holds it", async () => {
+    const fleet = fake(HELD);
+    const home = createFleetSharedHome(fleet.fleet, account([profile("nickmele", true)]).source, () => undefined);
+    home.subscribe(() => undefined);
+    await settled();
+    const note = home.get()?.rows[1];
+    home.readAgain("nickmele");
+    await settled();
+    home.get()?.choose(note!, "here");
+    await settled();
+    expect(fleet.asked.at(-1)).toBe(`choose ${JSON.stringify({ login: "nickmele", kind: "memory", name: "Walks, not pictures", repository: "armada" })} here`);
+  });
+
   it("tells a refused press in Fleet's words, keeps the rows, and stops turning", async () => {
     const told: string[] = [];
     const said = "gh does not hold nickmele here: run gh auth login --hostname github.com";
