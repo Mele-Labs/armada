@@ -59,7 +59,34 @@ import type { ComposerTag } from "../SessionComposer/InlineTag";
  * branch cut, in the thread where it happened.
  */
 /** A Fleet notice a person can turn off, and the reach of one choice: this Job, its repository, or this Job for an hour. */
-export type SessionNotice = "behind_base";
+export type SessionNotice =
+  | "behind_base"
+  | "pr_checks_failed"
+  | "pr_conflicts"
+  | "pr_dropped"
+  | "pr_unmergeable"
+  | "pr_merged"
+  | "pr_auto_merge"
+  | "pr_queued"
+  | "slot_free"
+  | "slot_kept"
+  | "build_moved"
+  | "write_clash"
+  | "slot_stranded"
+  | "main_red"
+  | "rail_nudge"
+  | "rail_step"
+  | "usage_trip"
+  | "limit_wake"
+  | "plan_approved"
+  | "auto_land_refused"
+  | "retro_note"
+  | "reply_claim"
+  | "context_handoff"
+  | "walk_failed"
+  | "workflow_changed"
+  | "delivery_asked"
+  | "delivery_chosen";
 export type NoticeChoice = "job" | "repo" | "hour";
 
 type SessionThreadKinds =
