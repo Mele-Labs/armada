@@ -2,6 +2,7 @@
 // reported Session as plain labelled lines, so the new agent starts from the facts and digs through nothing. Every line is read from
 // Fleet's record or the window's state and is left out where it is not known; the agent is never asked for one. The owner's ask of 15 Oct 2026.
 
+import { DEBUG_INFO_HEADING } from "@armada/components";
 import type { TimelineEvent } from "@armada/protocol";
 import type { Session, SessionAttachment, SessionRow } from "@armada/screens/src/draft/sessions";
 
@@ -127,11 +128,13 @@ export function reportBrief(words: string, session: Session, from: ReportFrom): 
   return [
     words.trim(),
     "",
-    "The owner reported the Job below from Bridge. What follows is what Bridge held about it when he pressed Report.",
-    "",
-    ...reportFacts(session, from),
-    ...reportLists(session, from),
+    "The owner reported the Job below from Bridge. What Bridge held about it when he pressed Report is under Debug info.",
     "",
     "Read its transcript and its Fleet record (list_sessions, get_events_since), work out what happened, and say what you found. If the fix is small, make it on a branch. If it is not small, file an issue.",
+    "",
+    // The thread folds what follows, so the owner's words and what to do stay in view.
+    DEBUG_INFO_HEADING,
+    ...reportFacts(session, from),
+    ...reportLists(session, from),
   ].join("\n");
 }
