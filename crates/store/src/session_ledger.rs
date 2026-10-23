@@ -131,7 +131,7 @@ impl AttachmentState {
         }
     }
 
-    fn of(text: &str) -> AttachmentState {
+    pub(crate) fn of(text: &str) -> AttachmentState {
         match text {
             "spent" => AttachmentState::Spent,
             "given_back" => AttachmentState::GivenBack,

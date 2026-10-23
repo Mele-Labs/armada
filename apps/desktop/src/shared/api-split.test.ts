@@ -140,7 +140,7 @@ import type { HealthRead } from "@armada/screens/src/overview-reads";
 import type {
   Outstanding,
 } from "@armada/screens/src/outstanding";
-import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimIssue, ClaimPullRequest, DismissConcern, DismissWaiting, IssueClaimed, JudgeSession, LaterSettled, PullRequestClaimed, PullRequestFilePatch, PullRequestPage, PullRequestState, RenameSession, SendConcern, SendPlanChanges, NoteSent, SendSessionMessage, SendSessionNote, SessionRow, SessionRunMessage, SessionRunUnderway, SessionLoadout, McpServerAct, SessionMcp, SessionMcpActed, SessionSubagent, SettleLater, TuneSession } from "@armada/protocol";
+import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimIssue, ClaimPullRequest, DismissConcern, DismissWaiting, IssueClaimed, JudgeSession, LaterSettled, PullRequestClaimed, PullRequestFilePatch, PullRequestPage, PullRequestState, RenameSession, SendConcern, SendPlanChanges, NoteSent, SendSessionMessage, SendSessionNote, SessionRow, SessionRunMessage, SessionRunUnderway, SessionLoadout, AttachmentHistory, McpServerAct, SessionMcp, SessionMcpActed, SessionSubagent, SettleLater, TuneSession } from "@armada/protocol";
 import type { RequestRepositoryRead } from "./api/dispatch";
 import type { PullRequestPress, PullRequestWrite, SessionActed, SessionsRead } from "./api/sessions";
 import type { SleepActed } from "./api/sleep";
@@ -417,6 +417,7 @@ type OldBridgeApi = {
     readSessionFile: (sessionId: string, file: string) => Promise<FrameRead>;
     readSessionSubagent: (sessionId: string, subagentId: string) => Promise<SessionActed<SessionSubagent>>;
     readSessionLoadout: (sessionId: string) => Promise<SessionActed<SessionLoadout>>;
+    readAttachmentHistory: (sessionId: string) => Promise<SessionActed<AttachmentHistory>>;
     readLoadoutItem: (sessionId: string, item: LoadoutItemAsk) => Promise<SessionActed<LoadoutItemBody>>;
     readSessionMcp: (sessionId: string) => Promise<SessionActed<SessionMcp>>;
     actOnSessionMcp: (sessionId: string, server: string, act: McpServerAct) => Promise<SessionActed<SessionMcpActed>>;
@@ -690,6 +691,7 @@ const OLD_CHANNELS = {
     readSessionFile: "bridge:read-session-file",
     readSessionSubagent: "bridge:read-session-subagent",
     readSessionLoadout: "bridge:read-session-loadout",
+    readAttachmentHistory: "bridge:read-attachment-history",
     readLoadoutItem: "bridge:read-loadout-item",
     readSessionMcp: "bridge:read-session-mcp",
     actOnSessionMcp: "bridge:act-on-session-mcp",

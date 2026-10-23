@@ -99,6 +99,7 @@ mod schema;
 /// Every agent session a person runs and what each holds. `docs/concepts/session.md`.
 mod session_ledger;
 mod blank_sessions;
+mod attachment_versions;
 mod session_retro;
 /// The Finding a rescue Scout brought back from a stranded slot. Since V106;
 /// its verdict and items since V107.
@@ -152,6 +153,7 @@ pub use retro::RetroLine;
 pub use review_runs::KeptReviewRun;
 pub use walk_places::{HeldReviewWalk, KeptWalkPlace};
 pub use session_retro::{KeptRestart, KeptSessionLesson, KeptSessionRetro};
+pub use attachment_versions::KeptAttachmentVersion;
 pub use session_ledger::{
     AttachmentState, Holder, HolderKind, KeptAttachment, KeptSession, SessionFigures,
     SessionSearch, SessionState,

@@ -557,7 +557,7 @@ pub(crate) async fn who_owns<D: Sessions>(
     }
 }
 
-/// `?session_id=` on `get_session_loadout`.
+/// `?session_id=` on `get_session_loadout` and `get_attachment_history`.
 #[derive(Deserialize)]
 pub(crate) struct WhichSession {
     session_id: String,
@@ -631,6 +631,20 @@ pub(crate) async fn get_session_loadout<D: Sessions>(
         .await
     {
         Ok(loadout) => answer(StatusCode::OK, &loadout, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+pub(crate) async fn get_attachment_history<D: Sessions>(
+    State(served): State<Served<D>>,
+    Query(which): Query<WhichSession>,
+) -> Response {
+    match served
+        .daemon()
+        .get_attachment_history(ipc::SessionId::carried(which.session_id))
+        .await
+    {
+        Ok(history) => answer(StatusCode::OK, &history, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }
