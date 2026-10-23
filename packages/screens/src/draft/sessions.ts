@@ -696,8 +696,6 @@ export type QueuedIdea = {
  */
 export type SessionsDraft = {
   get: () => readonly Session[];
-  /** How a row read from a reply is marked Not a question: a button (today's), thumbs, or the row's menu. Mock only, until one is picked. */
-  misreadAs?: "button" | "thumbs" | "menu";
   /**
    * The live Helm Session of the repository Helm's dock answers for, **whatever the rail picked**: the
    * list holds the picked repository's Sessions, and Helm may be pointed at another. Absent where the

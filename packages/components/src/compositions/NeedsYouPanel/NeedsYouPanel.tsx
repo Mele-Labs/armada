@@ -38,7 +38,7 @@ const acts = (row: LedgerEntry): boolean => row.restart === undefined && row.opt
 const asks = (row: LedgerEntry): boolean => row.restart === undefined && !acts(row);
 
 /** One question waiting, as the list draws it and the detail opens it. */
-type Thing = { key: string; Glyph: LucideIcon; said: string; tip: string; text: ReactNode; name: string; row?: LedgerEntry; content?: ReactNode; press?: () => void; /** A second press beside the row, done where it stands. */ aside?: { label: string; press: () => void }; /** Not a question as thumbs at the row's end: the row is a sentence Fleet read from a reply. */ thumbs?: { down: () => void; up: () => void }; /** Not a question as the row's own menu. */ misread?: () => void };
+type Thing = { key: string; Glyph: LucideIcon; said: string; tip: string; text: ReactNode; name: string; row?: LedgerEntry; content?: ReactNode; press?: () => void; /** A sentence Fleet read from a reply: `no` is Not a question, `yes` is A question and is absent once Fleet has it confirmed. Both are thumbs at the row's end and items of its menu. */ misread?: { no: () => void; yes?: () => void } };
 
 /** A question answered in the panel's place: the question, a judge's concern, or a row with choices or a reply box. The rest go where they point. */
 const opensHere = (one: Thing): boolean => one.press === undefined && (one.row === undefined || one.row.options !== undefined || one.row.onReply !== undefined);
@@ -57,7 +57,6 @@ export function NeedsYouPanel({
   rows,
   question,
   judges,
-  misreadAs = "button",
   open: wanted,
   onOpen,
 }: {
@@ -66,13 +65,9 @@ export function NeedsYouPanel({
   question?: { id: string; label: string; text: string; children: ReactNode };
   /** A judge's concerns, after the question and before the items: `text` is the claim its row reads, `children` the card that sends or dismisses it. */
   judges?: readonly { id: string; text: string; children: ReactNode }[];
-  /** How a row read from a reply is marked Not a question: a button, thumbs, or the row's menu. Mock only, until one is picked. */
-  misreadAs?: "button" | "thumbs" | "menu";
   open: boolean;
   onOpen: (next: boolean) => void;
 }) {
-  // Rows he marked as a question with the thumb up: they keep the row and lose the thumbs.
-  const [confirmed, setConfirmed] = useState<ReadonlySet<string>>(new Set());
   const [menu, setMenu] = useState<{ key: string; x: number; y: number; from: HTMLElement | null }>();
   const section = useRef<HTMLElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
@@ -85,21 +80,13 @@ export function NeedsYouPanel({
   const quiet = useRef(false);
   const host = useRef(onOpen);
   host.current = onOpen;
-  const misreadOf = (row: LedgerEntry): Pick<Thing, "aside" | "thumbs" | "misread"> => {
-    const no = row.onMisread;
-    if (no === undefined) return {};
-    if (misreadAs === "menu") return { misread: no };
-    if (misreadAs === "thumbs") {
-      if (confirmed.has(row.key)) return {};
-      return { thumbs: { down: no, up: () => (row.onConfirmed?.(), setConfirmed((now) => new Set(now).add(row.key))) } };
-    }
-    return { aside: { label: "Not a question", press: no } };
-  };
+  const misreadOf = (row: LedgerEntry): Pick<Thing, "misread"> => (row.onMisread === undefined ? {} : { misread: { no: row.onMisread, ...(row.confirmed === true || row.onConfirmed === undefined ? {} : { yes: row.onConfirmed }) } });
   const questions: Thing[] = [
     ...(question === undefined ? [] : [{ key: `question:${question.id}`, Glyph: MessageCircleQuestion, said: question.label, tip: question.label, text: question.text, name: question.text, content: question.children }]),
     ...(judges ?? []).map((one) => ({ key: `judge:${one.id}`, Glyph: Scale, said: "Judge", tip: "Judge", text: one.text, name: one.text, content: one.children })),
     ...rows.filter(asks).map((row) => ({ key: row.key, ...waitingMark(row), tip: row.name, text: row.text, name: row.name, row, ...misreadOf(row) })),
   ];
+  const menuOf = menu === undefined ? undefined : questions.find((one) => one.key === menu.key)?.misread;
   const actions = ACTIONS.map((group) => ({ label: group.label, rows: rows.filter((row) => acts(row) && group.holds(row)) })).filter((group) => group.rows.length > 0);
   const restarts = rows.filter((row) => row.restart !== undefined);
   const things: Thing[] = [...questions, ...actions.flatMap((group) => group.rows.map((row) => ({ key: row.key, ...waitingMark(row), tip: row.name, text: row.text, name: row.name, row })))];
@@ -244,24 +231,19 @@ export function NeedsYouPanel({
                             </Tooltip>
                             <span className="armada-session-ledger__text">{one.text}</span>
                           </button>
-                          {one.thumbs === undefined ? null : (
+                          {one.misread?.yes === undefined ? null : (
                             <span className="armada-needs-panel__thumbs">
                               <Tooltip label="A question">
-                                <Button variant="ghost" size="sm" iconOnly data-aside="" aria-label="A question" onClick={(event) => (event.currentTarget.closest("li")?.querySelector<HTMLElement>(".armada-session-ledger__open")?.focus(), one.thumbs?.up())}>
+                                <Button variant="ghost" size="sm" iconOnly data-aside="" aria-label="A question" onClick={(event) => (event.currentTarget.closest("li")?.querySelector<HTMLElement>(".armada-session-ledger__open")?.focus(), one.misread?.yes?.())}>
                                   <ThumbsUp size={12} strokeWidth={2} aria-hidden />
                                 </Button>
                               </Tooltip>
                               <Tooltip label="Not a question">
-                                <Button variant="ghost" size="sm" iconOnly data-aside="" aria-label="Not a question" onClick={one.thumbs.down}>
+                                <Button variant="ghost" size="sm" iconOnly data-aside="" aria-label="Not a question" onClick={one.misread.no}>
                                   <ThumbsDown size={12} strokeWidth={2} aria-hidden />
                                 </Button>
                               </Tooltip>
                             </span>
-                          )}
-                          {one.aside === undefined ? null : (
-                            <Button variant="ghost" size="sm" data-aside="" onClick={one.aside.press}>
-                              {one.aside.label}
-                            </Button>
                           )}
                         </li>
                       ))}
@@ -295,13 +277,16 @@ export function NeedsYouPanel({
           triggerLabel="Question"
           at={{ x: menu.x, y: menu.y }}
           open
-          entries={[{ kind: "item", id: "misread", label: "Not a question" }]}
+          entries={[
+            ...(menuOf?.yes === undefined ? [] : [{ kind: "item" as const, id: "yes", label: "A question", icon: ThumbsUp }]),
+            { kind: "item", id: "no", label: "Not a question", icon: ThumbsDown },
+          ]}
           onOpenChange={(next) => {
             if (next) return;
             setMenu(undefined);
             menu.from?.focus();
           }}
-          onSelect={() => questions.find((one) => one.key === menu.key)?.misread?.()}
+          onSelect={(id) => (id === "yes" ? menuOf?.yes : menuOf?.no)?.()}
         />
       )}
     </section>

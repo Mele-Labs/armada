@@ -103,6 +103,13 @@ export async function dismissWaiting(sessionId: string, itemId: string, reason?:
   return { kind: "refused", said: refusalWords(outcome) };
 }
 
+/** Thumbs up on an item Fleet read from a reply: its sentence is kept as an ask and the item reads `confirmed` from then on. */
+export async function confirmWaiting(sessionId: string, itemId: string): Promise<{ kind: "confirmed" } | { kind: "refused"; said: string }> {
+  const done = await window.armada.confirmWaiting({ session_id: sessionId, item_id: itemId });
+  if (done.ok) return { kind: "confirmed" };
+  return { kind: "refused", said: refusalWords(done.outcome) };
+}
+
 /** Dismiss the call in front for good, by whichever way it is kept. A refusal comes back in Fleet's words. */
 export async function dismissItem(item: Pick<Item, "key" | "fact" | "waiting">, reason?: string): Promise<WaitingDismissed> {
   if (item.waiting === undefined) {
