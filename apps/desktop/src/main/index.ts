@@ -43,6 +43,7 @@ import { soundOf } from "./telling";
 import { settingOf } from "./settings";
 import { handleTimeline } from "./timeline-channels";
 import { handleClashes } from "./clashes-channels";
+import { handleTeaching } from "./teaching-channels";
 import { handleReviews } from "./reviews-channels";
 import { handleTerritory } from "./territory-channels";
 import { handleBayHistory } from "./bay-history-channels";
@@ -660,6 +661,7 @@ void app.whenReady().then(() => {
   handleModelDownshift({ ipc: ipcMain, connection: () => connection });
   handleTimeline({ ipc: ipcMain, connection: () => connection });
   handleClashes({ ipc: ipcMain, connection: () => connection });
+  handleTeaching({ ipc: ipcMain, connection: () => connection });
   handleReviews({ ipc: ipcMain, connection: () => connection, walks: { show: (shown) => captureWindows.openForReview(shown) } });
   handleTerritory({ ipc: ipcMain, connection: () => connection });
   handleBayHistory({ ipc: ipcMain, connection: () => connection });

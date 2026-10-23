@@ -40,3 +40,10 @@
   size = "12px"
   status = "Proposed"
   notes = "Proposed 16 Oct 2026 for the walk `linkedSessions`. A plan group handed to a Session of its own. Leads the Session's row on the Plan, in the Ledger's Linked section, under its parent in Work, and in the parent's thread where it needs him, finishes or merges; it is also the Hand to a Session act. A chain is what a link between two things draws. Tooltip `Linked Session`. Refused: `corner-up-right` is Redirect and the Started row's glyph, and a Session its agent started with no group stays that; `git-fork` is Fork a Session, which copies a conversation. The owner may rule otherwise."
+
+[[icons.link.usage]]
+  means = "A mod of kind Words, which keeps how Bridge shows words: a Jira key linking to each repository's own site"
+  group = "Mods"
+  size = "16px"
+  status = "Proposed"
+  notes = "Proposed 23 Oct 2026 for the walk `teach-mods`, tooltip `Words`. A chain is what a Jira key becomes when it is taught. Leads the Mods row as the palette leads a theme. Borrowed and not minted: the owner may rule otherwise."

@@ -187,7 +187,8 @@ where
     /// What the Job replied to [`BRIEF_ASKED`], once its turn is over: its messages after the ask.
     /// `None` where it was not told, or said nothing inside [`BRIEF_WAIT`].
     async fn brief_replied(self: &Arc<Self>, old: &str) -> Option<String> {
-        if !matches!(self.told_by_fleet(old, BRIEF_ASKED).await, Ok(true)) {
+        // The brief is waited for, so only a Session that has the ask is waited on.
+        if !matches!(self.noticed_by_fleet(old, BRIEF_ASKED, ipc::Notice::ContextHandoff).await, Ok(told) if told.sent()) {
             return None;
         }
         let until = tokio::time::Instant::now() + BRIEF_WAIT;
@@ -330,7 +331,7 @@ where
             return Err(why);
         }
         // Its first process reads the links, so it is told the handoff and the brief.
-        let _ = self.told_by_fleet(&new, CARRY_ON).await;
+        let _ = self.told_by_fleet(&new, CARRY_ON, ipc::Notice::ContextHandoff).await;
         let _ = self.published_hosted(&new).await;
         Ok(new)
     }
@@ -415,7 +416,7 @@ where
             match (ended, &new) {
                 (true, Some(new)) => {
                     self.handoff_ended(old, None, None).await;
-                    let _ = self.told_by_fleet(new, CARRY_ON).await;
+                    let _ = self.told_by_fleet(new, CARRY_ON, ipc::Notice::ContextHandoff).await;
                 }
                 _ => {
                     if let Some(new) = &new {

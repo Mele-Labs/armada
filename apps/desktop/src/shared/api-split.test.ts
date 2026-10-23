@@ -164,6 +164,7 @@ import { ONBOARDING_CHANNELS, type OnboardingApi } from "./api/onboarding";
 import { REQUESTS_CHANNELS, type RequestsApi } from "./api/requests";
 import { SHARING_CHANNELS, type SharingApi } from "./api/sharing";
 import { LOGBOOK_CHANNELS, type LogbookApi } from "./api/logbook";
+import { TEACHING_CHANNELS, type TeachingApi } from "./api/teaching";
 import type { ModelDownshiftState, PlanUsage, SignedOut, SleepState, TimelineAsk, TimelineEvent } from "@armada/protocol";
 import type { BridgeApi } from "./api";
 import { CHANNELS, NOTHING_YET } from "./bridge";
@@ -458,7 +459,7 @@ type OldBridgeApi = {
     resizeSessionRun: (runId: string, cols: number, rows: number) => Promise<SessionActed<SessionRunUnderway>>;
     onSessionRunMessage: (on: (runId: string, message: SessionRunMessage) => void) => () => void;
     onSessionTerminal: (on: (terminal: JobTerminalChange) => void) => () => void;
-} & AutopilotApi & SketchShareApi & FilesApi & ReviewsApi & FlightControlsApi & OnboardingApi & RequestsApi & SharingApi & LogbookApi;
+} & AutopilotApi & SketchShareApi & FilesApi & ReviewsApi & FlightControlsApi & OnboardingApi & RequestsApi & SharingApi & LogbookApi & TeachingApi;
 
 const OLD_NOTHING_YET: OldBridgeState = {
     connection: { state: "reading" },
@@ -751,6 +752,7 @@ const OLD_CHANNELS = {
     ...REQUESTS_CHANNELS,
     ...SHARING_CHANNELS,
     ...LOGBOOK_CHANNELS,
+    ...TEACHING_CHANNELS,
 } as const;
 
 type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;

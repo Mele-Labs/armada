@@ -572,7 +572,7 @@ where
         // A Session that has not run is told with its first turn, which is when it starts.
         if hosting.ran {
             if let Some(words) = workflow_words(&held, workflow.as_deref(), true) {
-                if let Err(why) = self.told_by_fleet(&id, &words).await {
+                if let Err(why) = self.told_by_fleet(&id, &words, ipc::Notice::WorkflowChanged).await {
                     eprintln!("job {id}: the workflow change was not sent to the agent: {why:?}");
                 }
             }

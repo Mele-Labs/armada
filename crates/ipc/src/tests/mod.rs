@@ -69,4 +69,5 @@ mod bay_history;
 /// Walk notes: absent where empty, so a 23.17 peer sees nothing new.
 mod window_asks;
 mod sketch;
+mod taught_mods;
 mod watch_wire;

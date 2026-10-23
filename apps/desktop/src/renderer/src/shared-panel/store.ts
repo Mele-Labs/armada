@@ -4,6 +4,7 @@
 
 import { useSyncExternalStore } from "react";
 import type { RequestHeader } from "@armada/protocol";
+import type { TeachSourceKind } from "@armada/components";
 
 /** What Requests starts from: a request's sent half, as a `requested` row holds it. */
 export type RequestStart = { method: string; url: string; environment?: string; headers: readonly RequestHeader[]; body?: string };
@@ -29,7 +30,9 @@ export type PanelItem =
    */
   | { kind: "requests"; sessionId?: string; start?: RequestStart; from?: string; saved?: { collection: string; request: string } }
   /** A Job's own shell, where `terminal.openJobTerminalIn` says the side panel. */
-  | { kind: "terminal"; sessionId: string };
+  | { kind: "terminal"; sessionId: string }
+  /** Teach, for something in this Session (`source` is what, `text` its text as it stands, `at` when the row was written): the repository it is in, by id, root and name. */
+  | { kind: "teach"; sessionId: string; jobTitle: string; manifestId?: string; root?: string; repository: string; source: TeachSourceKind; text: string; at?: string; /** What names the thing, as Fleet reads it: a notice's word, a panel's id. */ ids?: string[] };
 
 type Held = { open: PanelItem | undefined; back: PanelItem | undefined; hosts: number };
 

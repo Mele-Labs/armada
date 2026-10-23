@@ -64,6 +64,7 @@ mod logbook_recall;
 mod logbook_routes;
 mod logbook_answer;
 mod notice_mutes;
+mod notice_rules;
 mod session_import;
 mod session_limit;
 mod peer;

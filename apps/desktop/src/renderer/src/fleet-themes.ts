@@ -137,9 +137,9 @@ export function createFleetThemes(fleet: FleetThemes, catalogue: readonly Catalo
     const key = JSON.stringify([next.mods, theme]);
     if (key === seen) return;
     seen = key;
-    // A layout mod is not a theme, and the Mods surface lists it from the layout source. A tracker
-    // mod is Fleet's alone.
-    facts = next.mods === null ? null : { mods: next.mods.mods.filter((row) => row.kind !== "layout" && row.kind !== "tracker") };
+    // Only a theme mod is a theme. A layout mod is listed from the layout source, a tweak is laid over whichever theme is chosen,
+    // words and Fleet rules are what a teaching made, and a tracker mod is Fleet's alone.
+    facts = next.mods === null ? null : { mods: next.mods.mods.filter((row) => row.kind === undefined || row.kind === "theme") };
     declined = null;
     if (saving === 0) chosen = theme;
     refresh();

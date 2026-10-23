@@ -6,7 +6,7 @@ use std::process::Command;
 
 use ipc::ModKind;
 
-use super::{manifest, slug_problem, LAYOUT, MANIFEST, THEME, TRACKER};
+use super::{manifest, slug_problem, FLEET, LAYOUT, MANIFEST, THEME, TRACKER, TWEAK, WORDS};
 
 /// Why a scaffold did not happen.
 #[derive(Debug, PartialEq, Eq)]
@@ -33,6 +33,38 @@ const STARTER: &str = "\
 /// someone names a region.
 const STARTER_LAYOUT: &str = "{\n  \"version\": 1\n}\n";
 
+/// The starter Words file: a pattern and no address, so it links nothing until a repository has one.
+const STARTER_WORDS: &str = "\
+# A pattern Bridge links in a Session, and where it opens in each repository.
+name = \"Example key\"
+pattern = \"EX-[0-9]+\"
+example = \"EX-1\"
+
+# [[address]]
+# repository = \"a-manifest-id\"
+# template = \"https://example.com/browse/{match}\"
+# found = \"person\"
+";
+
+/// The starter Fleet file: no rule, so every notice goes as it always has.
+const STARTER_FLEET: &str = "\
+# What Fleet does with a notice: tell, quiet, batch or call, for a job, a repo or everywhere.
+# [[rule]]
+# notice = \"behind_base\"
+# does = \"batch\"
+# where = \"everywhere\"
+";
+
+/// The starter tweak: no declaration, so the chosen theme draws as it did.
+const STARTER_TWEAK: &str = "/* Token values only, set in :root. Check it with validate_mod. */\n:root {\n}\n";
+
+/// What a teaching sets on a scaffold: the file's text in place of the starter, and where the mod
+/// came from.
+pub(crate) struct Taught<'a> {
+    pub(crate) text: &'a str,
+    pub(crate) taught_on: Option<&'a str>,
+    pub(crate) entry: Option<&'a str>,
+}
 /// The starter tracker: every section a tracker needs, over a command line that is not there, so
 /// it passes the file's checks and fails its try until someone names the real one.
 const STARTER_TRACKER: &str = r#"# How Armada lists, searches and reads this tracker. Check it with validate_mod, then
@@ -71,6 +103,17 @@ pub(crate) fn make(
     description: Option<&str>,
     kind: ModKind,
 ) -> Result<PathBuf, Refused> {
+    make_taught(mods_dir, name, description, kind, None)
+}
+
+/// [`make`], with the file a teaching wrote where there would be a starter.
+pub(crate) fn make_taught(
+    mods_dir: &Path,
+    name: &str,
+    description: Option<&str>,
+    kind: ModKind,
+    taught: Option<&Taught>,
+) -> Result<PathBuf, Refused> {
     if let Some(why) = slug_problem(name) {
         return Err(Refused::Unacceptable(why));
     }
@@ -83,6 +126,14 @@ pub(crate) fn make(
             manifest::MOST_DESCRIPTION
         )));
     }
+    if let Some(on) = taught.and_then(|one| one.taught_on) {
+        if on.chars().count() > manifest::MOST_TAUGHT_ON || on.chars().any(char::is_control) {
+            return Err(Refused::Unacceptable(format!(
+                "what Teach was pressed on is at most {} characters on one line",
+                manifest::MOST_TAUGHT_ON
+            )));
+        }
+    }
     std::fs::create_dir_all(mods_dir)
         .map_err(|why| Refused::Failed(format!("the mods folder could not be made: {why}")))?;
     let dir = mods_dir.join(name);
@@ -90,7 +141,7 @@ pub(crate) fn make(
         std::io::ErrorKind::AlreadyExists => Refused::Unacceptable(format!("a mod called `{name}` already exists")),
         _ => Refused::Failed(format!("the mod's folder could not be made: {why}")),
     })?;
-    match written(&dir, name, description, kind) {
+    match written(&dir, name, description, kind, taught) {
         Ok(()) => Ok(dir),
         Err(why) => {
             // Ours, made a moment ago and holding only what this wrote.
@@ -100,16 +151,27 @@ pub(crate) fn make(
     }
 }
 
-fn written(dir: &Path, name: &str, description: &str, kind: ModKind) -> Result<(), String> {
-    let escaped = description.replace('\\', "\\\\").replace('"', "\\\"");
+fn written(dir: &Path, name: &str, description: &str, kind: ModKind, taught: Option<&Taught>) -> Result<(), String> {
+    let escape = |text: &str| text.replace('\\', "\\\\").replace('"', "\\\"");
     let (word, file, starter) = match kind {
         ModKind::Theme => ("theme", THEME, STARTER),
         ModKind::Layout => ("layout", LAYOUT, STARTER_LAYOUT),
+        ModKind::Words => ("words", WORDS, STARTER_WORDS),
+        ModKind::Fleet => ("fleet", FLEET, STARTER_FLEET),
+        ModKind::Tweak => ("tweak", TWEAK, STARTER_TWEAK),
         ModKind::Tracker => ("tracker", TRACKER, STARTER_TRACKER),
     };
-    let toml = format!(
-        "name = \"{name}\"\nkind = \"{word}\"\nversion = \"0.1.0\"\ndescription = \"{escaped}\"\n"
+    let mut toml = format!(
+        "name = \"{name}\"\nkind = \"{word}\"\nversion = \"0.1.0\"\ndescription = \"{}\"\n",
+        escape(description)
     );
+    if let Some(on) = taught.and_then(|one| one.taught_on) {
+        toml.push_str(&format!("taught_on = \"{}\"\n", escape(on)));
+    }
+    if let Some(entry) = taught.and_then(|one| one.entry) {
+        toml.push_str(&format!("entry = \"{}\"\n", escape(entry)));
+    }
+    let starter = taught.map_or(starter, |one| one.text);
     for (file, text) in [(MANIFEST, toml.as_str()), (file, starter)] {
         std::fs::OpenOptions::new()
             .write(true)
@@ -121,6 +183,13 @@ fn written(dir: &Path, name: &str, description: &str, kind: ModKind) -> Result<(
     git(dir, &["init", "--quiet", "--initial-branch=main"])?;
     git(dir, &["add", "--", MANIFEST, file])?;
     git(dir, &["commit", "--quiet", "-m", &format!("Start the {name} {word}")])
+}
+
+/// `file` of the mod in `dir`, committed as it stands. **Best effort**: the file is what counts, and
+/// a history that would not take the commit is no reason to refuse the change.
+pub(crate) fn committed(dir: &Path, file: &str, message: &str) -> Result<(), String> {
+    git(dir, &["add", "--", file])?;
+    git(dir, &["commit", "--quiet", "-m", message])
 }
 
 /// One git command in `dir`, with no configuration but what is passed here.
