@@ -145,7 +145,7 @@ function sessionMark(session: Session): Mark {
 }
 
 /** The row's line under the title is the last of these: the account's now line while a turn runs, else what it last said. */
-function peekOfSession(session: Session): string[] {
+export function peekOfSession(session: Session): string[] {
   const now = accountNowOf(session);
   return [
     ...session.rows

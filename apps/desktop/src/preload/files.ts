@@ -10,6 +10,7 @@ export const filesPreload: FilesApi = {
   readPanelFile: (item) => ipcRenderer.invoke(CHANNELS.readPanelFile, item),
   savePanelFile: (item, text, version) => ipcRenderer.invoke(CHANNELS.savePanelFile, item, text, version),
   pickPanelFile: () => ipcRenderer.invoke(CHANNELS.pickPanelFile),
+  openPanelPath: (text, sessionId) => ipcRenderer.invoke(CHANNELS.openPanelPath, text, sessionId),
   openPanelFileIn: (item, where) => ipcRenderer.invoke(CHANNELS.openPanelFileIn, item, where),
   findPanelFiles: (sessionId, paths) => ipcRenderer.invoke(CHANNELS.findPanelFiles, sessionId, paths),
   onPanelFileChanged: (onChanged) => {

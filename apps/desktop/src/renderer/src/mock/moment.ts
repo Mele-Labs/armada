@@ -19,6 +19,7 @@ import type { BayHistory } from "@armada/protocol";
 import type { FlightControls } from "@armada/protocol";
 import type { BayControl, SessionsStore } from "./sessions/script";
 import type { RequestsSeed } from "./slices/requests";
+import type { IssuesSeed } from "./slices/issues";
 import type { LaterBatch } from "./events-later";
 
 import type { BridgeApi } from "../../../shared/api";
@@ -54,6 +55,8 @@ export type MockDraft = {
   areas?: AreaSource;
   /** The pull requests waiting on him and what an agent review of each would find: the review surface's seed, built into a store per window. Mock only. */
   prReview?: ReviewSeed;
+  /** Each repository's tracker for the Issues tab, its issues and what the model writes, built into a store per window. Mock only: no route serves the tab yet. */
+  issuesTab?: IssuesSeed;
   /** The pages of pull requests a Session's ledger holds, as `readReviewPage` serves them and `writeReview` moves them, built per window. Mock only. */
   pullRequestPages?: () => PullRequestPages;
   /** What the one side panel reads a pull request, an issue, a bay and a Check from, built per window. Mock only: no Fleet serves these reads yet. */

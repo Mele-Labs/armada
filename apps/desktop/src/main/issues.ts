@@ -1,9 +1,9 @@
 // A repository's open issues, as main asks Fleet for them: one request, and nothing kept here, since
 // Fleet holds the list. #91. And the Autopilot that works them (#2092), which Fleet holds too.
 
-import type { Autopilot, AutopilotList, AutopilotProposal, IssueList, IssueRead, Outcome, PullRequestState } from "@armada/protocol";
+import type { Autopilot, AutopilotList, AutopilotProposal, IssueList, IssueQueries, IssueRead, Outcome, PullRequestState, SaveIssueQuery, SavedIssueQuery, WrittenIssueQuery } from "@armada/protocol";
 import type { AutopilotActed } from "../shared/api/autopilot";
-import type { IssueNumberRead, IssuesRead, PullRequestNumberRead } from "../shared/api/issues";
+import type { IssueNumberRead, IssueQueryActed, IssuesRead, PullRequestNumberRead } from "../shared/api/issues";
 import { ask, MODEL_CALL_MS } from "./request";
 
 const NOT_CONNECTED: Outcome = { ok: false, why: "not_connected" };
@@ -31,6 +31,40 @@ export class IssuesHost {
     if (port === null) return { ok: false, outcome: NOT_CONNECTED };
     const answer = await ask(port, "GET", `/issues/${encodeURIComponent(manifestId)}/${encodeURIComponent(reference)}`);
     return answer.ok === true ? { ok: true, value: answer.body as IssueRead } : { ok: false, outcome: answer.outcome };
+  }
+
+  /** One of the tracker query routes, which sit under `/issue_queries` so a reference can never be read as one of them. */
+  private async query<T>(method: "GET" | "POST", manifestId: string, rest: string, body?: unknown, slow = false): Promise<IssueQueryActed<T>> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    const path = `/issue_queries/${encodeURIComponent(manifestId)}${rest}`;
+    const answer = slow ? await ask(port, method, path, body, MODEL_CALL_MS) : await ask(port, method, path, body);
+    return answer.ok === true ? { ok: true, value: answer.body as T } : { ok: false, outcome: answer.outcome };
+  }
+
+  /** `POST /issue_queries/:repository/search`: one query run, nothing kept and no model asked. */
+  searchIssues(manifestId: string, query: string): Promise<IssueQueryActed<IssueList>> {
+    return this.query("POST", manifestId, "/search", { query });
+  }
+
+  /** `GET /issue_queries/:repository`: the tracker's guide and the saved queries. */
+  issueQueries(manifestId: string): Promise<IssueQueryActed<IssueQueries>> {
+    return this.query("GET", manifestId, "");
+  }
+
+  /** `POST /issue_queries/:repository/write`: a model call, so it waits as one does. */
+  writeIssueQuery(manifestId: string, words: string): Promise<IssueQueryActed<WrittenIssueQuery>> {
+    return this.query("POST", manifestId, "/write", { words }, true);
+  }
+
+  /** `POST /issue_queries/:repository`: keeps a query, or edits the one its `id` names. */
+  saveIssueQuery(manifestId: string, save: SaveIssueQuery): Promise<IssueQueryActed<SavedIssueQuery>> {
+    return this.query("POST", manifestId, "", save);
+  }
+
+  /** `POST /issue_queries/:repository/:id/forget`. */
+  forgetIssueQuery(manifestId: string, id: string): Promise<IssueQueryActed<IssueQueries>> {
+    return this.query("POST", manifestId, `/${encodeURIComponent(id)}/forget`);
   }
 
   /** `GET /pull_requests/:repository/:number`: one pull request by the repository's Manifest, with no Session. */

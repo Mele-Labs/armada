@@ -30,6 +30,8 @@ import { createFleetDownshift } from "./fleet-downshift";
 import { DownshiftSourceProvider } from "./downshift";
 import { createFleetClashes } from "./fleet-clashes";
 import { ReviewsFrom, createReviewStore } from "./pr-review/store";
+import { IssuesFrom, createIssuesStore } from "./issues-tab/store";
+import { issuesSourceOf } from "./issues-tab/source";
 import { WiredSharedPanel } from "./shared-panel/wired";
 import { reviewSourceOf } from "./pr-review/source";
 import { createFleetTerritory } from "./fleet-territory";
@@ -80,6 +82,8 @@ const CLASHES = createFleetClashes(withState(window.armada));
 const TERRITORY = createFleetTerritory(withState(window.armada));
 /** The pull requests waiting on him, read from the forge by Fleet when the Reviews tab opens, and what an agent says of them, as runs. Natural Search and the Walk are runs too. */
 const REVIEWS = createReviewStore(reviewSourceOf(window.armada));
+/** A repository's issues and the queries saved for its tracker, read from the tracker by Fleet when the Issues tab opens. */
+const ISSUES = createIssuesStore(issuesSourceOf(window.armada));
 /** The title menu's account entry: the profiles and the sign-in, over Fleet. */
 const ACCOUNT = createFleetAccount(withState(window.armada));
 
@@ -115,9 +119,11 @@ function Root() {
                             <AccountFromFleet source={ACCOUNT}>
                               <FleetEventsOver source={TIMELINE}>
                                 <ReviewsFrom store={REVIEWS}>
-                                  <WiredSharedPanel>
-                                    <App />
-                                  </WiredSharedPanel>
+                                  <IssuesFrom store={ISSUES}>
+                                    <WiredSharedPanel>
+                                      <App />
+                                    </WiredSharedPanel>
+                                  </IssuesFrom>
                                 </ReviewsFrom>
                               </FleetEventsOver>
                             </AccountFromFleet>

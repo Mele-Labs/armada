@@ -37,3 +37,25 @@ test("session is still a search word for the renamed entries", async () => {
   await expect.element(list.getByRole("option", { name: /^Jobs/ })).toBeVisible();
   await expect.element(list.getByRole("option", { name: /^Dispatch/ })).toBeVisible();
 });
+
+// A pasted path is a first row: ↵ opens the file in the panel, and a path that is no readable file says so.
+test("a pasted path is offered first and opens in the file panel", async () => {
+  mount("file-panel");
+  await onScreen();
+  const list = await palette();
+  await userEvent.type(list.getByRole("combobox"), '  "/Users/user/Development/armada/crates/store/src/clock.rs" ');
+  const row = list.getByRole("option").first();
+  await expect.element(row).toHaveTextContent("Open /Users/user/Development/armada/crates/store/src/clock.rs");
+  await userEvent.keyboard("{Enter}");
+  await expect.element(page.getByRole("dialog", { name: "clock.rs", exact: true })).toBeVisible();
+});
+
+test("a pasted path that is no file stays in the palette and says so", async () => {
+  mount("file-panel");
+  await onScreen();
+  const list = await palette();
+  await userEvent.type(list.getByRole("combobox"), "/nowhere/missing.txt");
+  // The pretend disk reads a ledger's file as its own name, so only the opener's answer refuses: none is held for this path.
+  await userEvent.keyboard("{Enter}");
+  await expect.element(list.getByRole("alert")).toHaveTextContent("It is not a readable file here");
+});

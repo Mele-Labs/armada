@@ -1,0 +1,46 @@
+/* A Job as a card: the Cockpit's Jobs row, framed in its state. The hue is the frame, a heavier left edge and the glyph;
+   the ground takes a little of it. Line 1 is the title and the glyph, line 2 what it last said and its age, line 3 its
+   repository where the surface does not name it already. Tokens only; no glow, no gradient. */
+.armada-job-card {
+  --hue: var(--fg-subtle);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  align-items: center;
+  column-gap: var(--space-3);
+  row-gap: calc(var(--space-1) / 2);
+  width: 100%;
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid color-mix(in srgb, var(--hue) 40%, var(--border-subtle));
+  border-inline-start: calc(var(--border-width) * 3) solid var(--hue);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--hue) 8%, var(--bg-raised));
+  box-shadow: var(--shadow-card);
+  color: var(--fg-default);
+  font: inherit;
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  letter-spacing: normal;
+  text-align: start;
+  text-transform: none;
+  cursor: pointer;
+}
+
+.armada-job-card[data-tone="ask"] { --hue: var(--status-awaiting-review); }
+.armada-job-card[data-tone="bad"] { --hue: var(--status-completed-failed); }
+.armada-job-card[data-tone="live"] { --hue: var(--status-running); }
+
+.armada-job-card:hover { background: color-mix(in srgb, var(--hue) 14%, var(--bg-raised)); }
+.armada-job-card:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+/* What is open is lit in the accent round the frame; the state keeps its edge. */
+.armada-job-card[data-selected] { box-shadow: inset 0 0 0 var(--border-width) var(--accent), var(--shadow-card); }
+
+.armada-job-card__title { grid-column: 1; grid-row: 1; min-width: 0; overflow: hidden; font-weight: var(--weight-heading); text-overflow: ellipsis; white-space: nowrap; }
+.armada-job-card[data-tone="calm"] .armada-job-card__title { font-weight: var(--weight-medium); }
+.armada-job-card__mark { grid-column: 2; grid-row: 1; display: inline-flex; justify-self: end; color: var(--hue); }
+.armada-job-card[data-tone="calm"] .armada-job-card__mark { color: var(--fg-muted); }
+.armada-job-card__says { grid-column: 1; grid-row: 2; min-width: 0; min-height: var(--leading-xs); overflow: hidden; color: var(--fg-muted); font-size: var(--text-2xs); text-overflow: ellipsis; white-space: nowrap; }
+.armada-job-card__at { grid-column: 2; grid-row: 2; justify-self: end; color: var(--fg-muted); font-family: var(--font-mono); font-size: var(--text-2xs); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.armada-job-card__repository { grid-column: 1 / -1; grid-row: 3; display: flex; min-width: 0; margin-top: var(--space-1); }
