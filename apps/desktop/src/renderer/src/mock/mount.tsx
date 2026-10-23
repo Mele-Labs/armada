@@ -46,6 +46,8 @@ import { mockThemes } from "./themes";
 import { installSystemMods } from "./system-mods";
 import { provideKitModels } from "../kit-models";
 import { createMockKitModels } from "./kit-models";
+import { provideTeaching } from "../teach";
+import { createMockTeaching } from "./teach";
 import { AccountFrom } from "./account";
 import { SharedHomeFrom } from "./shared-home";
 import { PrOwnersFrom } from "./pr-owners";
@@ -123,6 +125,8 @@ export function mountApp(
   if (shared === undefined) mockLayout.reset();
   if (shared === undefined && chosen.name === "system-sidebar") installSystemMods();
   if (shared === undefined) provideKitModels(createMockKitModels());
+  // Teach is read only in the scenario that plays it, which starts with nothing taught.
+  if (shared === undefined) provideTeaching(chosen.name === "session-teach" ? createMockTeaching() : undefined);
   // Every window starts with the deck as it begins.
   if (shared === undefined) forgetDeck();
   // And with no repository having shown its first Job's card.
