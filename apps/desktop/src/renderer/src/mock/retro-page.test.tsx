@@ -1,16 +1,14 @@
-// Session retros in Bridge (23.12, `docs/concepts/retro.md`): the Retros page lists what got in the
-// way across Sessions, newest first, each item as words, a headline, what happened, a fix and its
+// Session retros in Bridge (23.12, `docs/concepts/retro.md`): Armada fixes, under the Logbook's entries, lists what got in
+// the way across Sessions, newest first, each item as words, a headline, what happened, a fix and its
 // answers. A Session label opens its retro. Start Job agrees with an Armada item (see
 // `retro-start-session.test.tsx`), Accept saves a Kit item, and Reject change discards.
 
-import { beforeEach, expect, test } from "vitest";
+import { expect, test } from "vitest";
 import { page } from "vitest/browser";
 
 import { entered, mount, onScreen, toSystemPage, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
-
-beforeEach(() => localStorage.removeItem("armada.bridge.lessons-tab"));
 
 // Core and Lessons only: the surface's own members, and the scenario answers the rest.
 const SLICES = { slices: ["core", "lessons"] } as const;
@@ -25,23 +23,20 @@ const SESSION = "Retire guides 8 and 20, add validation that";
 
 const card = (title: RegExp) => page.getByRole("listitem").filter({ hasText: title });
 
-/** The Retros surface, and the headlines its cards draw. */
+/** The Logbook, where Armada fixes is drawn below the entries, and the headlines its cards draw. */
 async function lessons(): Promise<() => string[]> {
   await toSystemPage("Retros");
   await expect.element(page.getByRole("list", { name: "Retros" })).toBeVisible();
   return () => [...document.querySelectorAll(".armada-lesson")].map((one) => one.getAttribute("aria-label") ?? "");
 }
 
-/** The tabs that narrow the list, not the title bar's places or the System strip. */
-const lessonTabs = () => page.getByRole("tablist").filter({ has: page.getByRole("tab", { name: "Manifest", exact: true }) });
-
-test("Retros is a page under System, and lists every Session's items newest first", async () => {
+test("Armada fixes is under the Logbook's entries, and lists every Session's items newest first", async () => {
   mount("retro/lessons", SLICES);
   await onScreen();
 
   const titles = await lessons();
   // The places bar marks where the window is.
-  await expect.element(page.getByRole("navigation", { name: "Places" }).getByRole("tab", { name: "Retros" })).toHaveAttribute("aria-selected", "true");
+  await expect.element(page.getByRole("navigation", { name: "Places" }).getByRole("tab", { name: "Logbook" })).toHaveAttribute("aria-selected", "true");
   const from = [...document.querySelectorAll(".armada-lesson__from")].map((one) => one.textContent?.split(" · ")[0]);
   // The newer Session's five items, then the older one's: Fleet's order, newest retro first.
   expect(from).toEqual([...Array<string>(5).fill(SESSION), "Pin the Bridge store clock"]);
@@ -80,37 +75,6 @@ test("a Session label opens its retro, each item with the record rows it cites b
   expect(sheet.getByText(/Allow git reset --hard origin\/main\?/).elements()).toHaveLength(0);
   await sheet.getByRole("listitem").filter({ hasText: RESET }).getByRole("button", { name: "Evidence" }).click();
   await expect.element(sheet.getByText(/Allow git reset --hard origin\/main\?/)).toBeVisible();
-});
-
-test("the retro lessons tabs narrow the list to where each fix lands, with All first and no counts", async () => {
-  mount("retro/lessons", SLICES);
-  await onScreen();
-  const titles = await lessons();
-
-  const tabs = lessonTabs().getByRole("tab").elements();
-  expect(tabs.map((one) => one.textContent)).toEqual(["All", "Armada", "Kit", "Manifest"]);
-  expect(tabs[0]?.getAttribute("aria-selected")).toBe("true");
-  expect(titles()).toHaveLength(6);
-
-  await lessonTabs().getByRole("tab", { name: "Kit", exact: true }).click();
-  await expect.poll(() => titles()).toEqual(["Walks opened in your browser"]);
-  await lessonTabs().getByRole("tab", { name: "Manifest", exact: true }).click();
-  await expect.poll(() => titles()).toEqual([]);
-  await lessonTabs().getByRole("tab", { name: "Armada", exact: true }).click();
-  // The older item predates where a fix lands, so it is under All alone.
-  await expect.poll(() => titles()).toHaveLength(4);
-});
-
-test("the retro lessons tab is remembered for the viewer", async () => {
-  localStorage.setItem("armada.bridge.lessons-tab", "kit");
-  mount("retro/lessons", SLICES);
-  await onScreen();
-  const titles = await lessons();
-
-  await expect.element(lessonTabs().getByRole("tab", { name: "Kit", exact: true })).toHaveAttribute("aria-selected", "true");
-  await expect.poll(() => titles()).toHaveLength(1);
-  await lessonTabs().getByRole("tab", { name: "Manifest", exact: true }).click();
-  expect(localStorage.getItem("armada.bridge.lessons-tab")).toBe("manifest");
 });
 
 test("Accept on a Kit item saves it under Accepted, and Reject change on an Armada item discards it", async () => {

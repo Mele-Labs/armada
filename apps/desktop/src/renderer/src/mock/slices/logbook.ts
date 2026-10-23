@@ -1,5 +1,5 @@
 // The Logbook: the scenario's entries, as edits, pins and forgets leave them for the next read. A forgotten entry is
-// gone from every read, as the deny list keeps it out. Mock only: no Fleet route serves the Logbook yet.
+// gone from every read, as the deny list keeps it out. Mock of Fleet's routes, which main reaches in `main/logbook.ts`.
 
 import type { LogbookEntry } from "@armada/protocol";
 

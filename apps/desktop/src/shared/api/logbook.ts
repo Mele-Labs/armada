@@ -1,8 +1,7 @@
 // The Logbook page's reads and acts. A slice imports protocol, never another slice; `../api.ts` and `../bridge.ts`
 // compose them. `docs/concepts/logbook.md`.
 //
-// **Main is not written yet, and Fleet serves no route.** The renderer is built against these types and the mock
-// answers them; in the app an invoke rejects until main handles the channel.
+// Main answers each channel from Fleet's routes (`main/logbook.ts`); the mock answers them in a walk.
 
 import type { LogbookAnswer, LogbookForgotten, LogbookRead } from "@armada/protocol";
 

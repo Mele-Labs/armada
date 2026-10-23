@@ -143,17 +143,18 @@ export async function motion(): Promise<void> {
   onTestFinished(() => commands.motion(false));
 }
 
-/** A place in the title bar: Cockpit, Jobs, Studios, Retros or System. Pressing the one a person is in goes up to its list. A Session is no place: `toSession` reaches it. */
-export async function toPlace(name: "Cockpit" | "Jobs" | "Studios" | "Retros" | "System"): Promise<void> {
+/** A place in the title bar: Cockpit, Jobs, Studios, Logbook or System. Pressing the one a person is in goes up to its list. A Session is no place: `toSession` reaches it. */
+export async function toPlace(name: "Cockpit" | "Jobs" | "Studios" | "Logbook" | "System"): Promise<void> {
   await userEvent.click(page.getByRole("navigation", { name: "Places" }).getByRole("tab", { name }));
 }
 
 /** What the System strip's five pages were called, and the sidebar entry each opens now. A name that is an entry of its own is passed through. */
 const SIDEBAR_ENTRY: Readonly<Record<string, string>> = { Kit: "Skills", Mods: "Theme", Settings: "Limits" };
 
-/** An entry of the System sidebar, from anywhere: System, then the entry's button. Studios and Retros are tabs of their own, one press. */
+/** An entry of the System sidebar, from anywhere: System, then the entry's button. Studios is a tab of its own, one press, and Retros is the Logbook's Armada fixes. */
 export async function toSystemPage(name: string): Promise<void> {
-  if (name === "Studios" || name === "Retros") return toPlace(name);
+  if (name === "Studios") return toPlace(name);
+  if (name === "Retros") return toPlace("Logbook");
   await toPlace("System");
   const entry = SIDEBAR_ENTRY[name] ?? name;
   await userEvent.click(page.getByRole("navigation", { name: "System" }).getByRole("button", { name: new RegExp(`^${entry}( |$)`) }));

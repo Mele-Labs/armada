@@ -1,5 +1,5 @@
 // The Logbook with something in every part: two repositories' entries, Habits and This Mac, a tripped entry, a locked
-// one, a candidate and two faded ones, and the retro items under Armada fixes. `docs/concepts/logbook.md`. Mock only: no Fleet route serves the Logbook yet.
+// one, a candidate and two faded ones, and the retro items under Armada fixes. `docs/concepts/logbook.md`.
 // The walk `logbook` plays over it.
 
 import type { LogbookEntry, LogbookEvidence, RepositorySummary } from "@armada/protocol";
