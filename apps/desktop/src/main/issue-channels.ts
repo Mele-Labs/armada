@@ -3,7 +3,7 @@
 
 import type { IpcMain } from "electron";
 
-import type { AutopilotSettings } from "@armada/protocol";
+import type { AutopilotSettings, SaveIssueQuery } from "@armada/protocol";
 
 import { CHANNELS } from "../shared/bridge";
 import type { FleetConnection } from "./connection";
@@ -21,6 +21,19 @@ export function handleIssues({ ipc, connection }: Hosts): void {
   );
   ipc.handle(CHANNELS.getIssue, (_event, manifestId: unknown, reference: unknown) =>
     named(manifestId) && named(reference) ? (connection()?.issues.issue(manifestId, reference) ?? unsent) : unsent,
+  );
+  ipc.handle(CHANNELS.searchIssues, (_event, manifestId: unknown, query: unknown) =>
+    named(manifestId) && named(query) ? (connection()?.issues.searchIssues(manifestId, query) ?? unsent) : unsent,
+  );
+  ipc.handle(CHANNELS.listIssueQueries, (_event, manifestId: unknown) => (named(manifestId) ? (connection()?.issues.issueQueries(manifestId) ?? unsent) : unsent));
+  ipc.handle(CHANNELS.writeIssueQuery, (_event, manifestId: unknown, words: unknown) =>
+    named(manifestId) && named(words) ? (connection()?.issues.writeIssueQuery(manifestId, words) ?? unsent) : unsent,
+  );
+  ipc.handle(CHANNELS.saveIssueQuery, (_event, manifestId: unknown, save: unknown) =>
+    named(manifestId) && typeof save === "object" && save !== null ? (connection()?.issues.saveIssueQuery(manifestId, save as SaveIssueQuery) ?? unsent) : unsent,
+  );
+  ipc.handle(CHANNELS.forgetIssueQuery, (_event, manifestId: unknown, id: unknown) =>
+    named(manifestId) && named(id) ? (connection()?.issues.forgetIssueQuery(manifestId, id) ?? unsent) : unsent,
   );
   ipc.handle(CHANNELS.getPullRequest, (_event, manifestId: unknown, number: unknown) =>
     named(manifestId) && Number.isInteger(number) ? (connection()?.issues.pullRequest(manifestId, number as number) ?? unsent) : unsent,

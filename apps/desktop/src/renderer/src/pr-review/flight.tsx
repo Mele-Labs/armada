@@ -4,7 +4,7 @@
 // small glyph: Armada's, his Kit's (`~/.armada/review-tools/`), or the repository's (`.armada/review-tools/`).
 // The last tile adds one: Fleet writes the file, in the Kit's folder or the repository's.
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CircleX, History, LoaderCircle, RefreshCw, SquarePlus } from "lucide-react";
 import { Eclipse } from "lucide-react";
 import { Button, Checkbox, Dialog, Input, Kbd, PrMark, Radio, RadioGroup, Sheet, Textarea, Tooltip, agoOf, forgetKept } from "@armada/components";
@@ -128,7 +128,15 @@ export function ReviewTools() {
 export function SpendConfirm() {
   const store = useReviewStore()!;
   const { spending } = useReviews();
+  return <SpendDialog spending={spending} onConfirm={(again) => store.confirmSpend(again)} onCancel={() => store.cancelSpend()} />;
+}
+
+/** The box itself, for any surface that spends: `spending` names the act while it asks, and `again` is Don't ask again. */
+export function SpendDialog({ spending, onConfirm, onCancel }: { spending: string | undefined; onConfirm: (again: boolean) => void; onCancel: () => void }) {
   const [again, setAgain] = useState(false);
+  // Read through a ref, so a host that passes a new function each draw does not put the focus back on the box.
+  const confirm = useRef(onConfirm);
+  confirm.current = onConfirm;
   // Focus lands on the box in it. Enter runs from anywhere in it but Cancel, and Space turns the question off where focus is not on a button.
   useEffect(() => {
     if (spending === undefined) return;
@@ -144,7 +152,7 @@ export function SpendConfirm() {
         event.stopPropagation();
         const skip = again;
         setAgain(false);
-        store.confirmSpend(skip);
+        confirm.current(skip);
       } else if (event.key === " " && !onButton && target.tagName !== "INPUT") {
         event.preventDefault();
         setAgain((now) => !now);
@@ -155,7 +163,7 @@ export function SpendConfirm() {
       window.cancelAnimationFrame(frame);
       window.removeEventListener("keydown", listen, true);
     };
-  }, [spending, again, store]);
+  }, [spending, again]);
   return (
     <Dialog
       open={spending !== undefined}
@@ -170,11 +178,11 @@ export function SpendConfirm() {
       onConfirm={() => {
         const skip = again;
         setAgain(false);
-        store.confirmSpend(skip);
+        onConfirm(skip);
       }}
       onCancel={() => {
         setAgain(false);
-        store.cancelSpend();
+        onCancel();
       }}
     >
       <p>Running this uses tokens.</p>

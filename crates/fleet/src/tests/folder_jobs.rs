@@ -54,6 +54,28 @@ async fn a_repository_with_no_manifest_is_listed_with_the_id_a_job_there_carries
 }
 
 #[tokio::test]
+async fn a_repository_with_no_manifest_answers_its_logbook_and_is_taught() {
+    let home = TempDir::new();
+    let bare = without_a_manifest(&home, "shop");
+    let root = bare.root.clone();
+    let planted = Arc::new(Planted::nothing().with(&root, bare));
+    let fleet = Arc::new(a_fleet_reading(&home, &planted));
+    let app = served(&fleet);
+    let (status, _) = call(&app, "POST", "/repositories/add", &body_of(&root)).await;
+    assert_eq!(status, StatusCode::CREATED);
+
+    let taught = format!(r#"{{"section":"repo","repository":{root:?},"kind":"convention","text":"Run the shop's own tests."}}"#);
+    let (status, body) = call(&app, "POST", "/logbook/entries", &taught).await;
+    assert_eq!(status, StatusCode::OK, "taught: {}", String::from_utf8_lossy(&body));
+
+    let asked = format!("/logbook?section=repo&repository={}", root.replace('/', "%2F"));
+    let (status, body) = call(&app, "GET", &asked, "").await;
+    assert_eq!(status, StatusCode::OK, "read: {}", String::from_utf8_lossy(&body));
+    let read: ipc::Logbook = ipc::decode("a Logbook", &body).expect("a Logbook");
+    assert!(read.entries.iter().any(|one| one.text == "Run the shop's own tests."));
+}
+
+#[tokio::test]
 async fn the_implicit_id_names_the_repository_before_and_after_its_manifest_is_written() {
     let home = TempDir::new();
     let bare = without_a_manifest(&home, "shop");

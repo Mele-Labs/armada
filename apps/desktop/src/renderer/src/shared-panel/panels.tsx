@@ -69,9 +69,7 @@ export function IssuePanel({ item, onOpenLink }: { item: Of<"issue">; onOpenLink
       heading={read.title}
       meta={
         <>
-          <Badge status={read.state === "open" ? "running" : "completed-success"} icon={read.state === "open" ? CircleDot : CircleCheck}>
-            {read.state === "open" ? "Open" : "Closed"}
-          </Badge>
+          <IssueState state={read.state} />
           {read.labels.map((one) => (
             <Tooltip key={one} label="Label">
               <span className="armada-pr-panel__branch mono">{one}</span>
@@ -101,18 +99,32 @@ export function IssuePanel({ item, onOpenLink }: { item: Of<"issue">; onOpenLink
       onClose={closePanel}
     >
       {tab === "conversation" ? <PrConversation page={{ author: read.author, created_at: read.openedAt, conversation: entries, checks: [], files: [], commits: [] }} description={read.body} /> : null}
-      {tab === "linked" ? (
-        <ul className="armada-pr-list armada-pr-rows" aria-label="Pull requests">
-          {read.linked.map((one) => (
-            <Press key={one.number} columns="link" label={`Pull request #${one.number} ${one.title}`} onPress={() => openInPanel({ kind: "pr", number: one.number, address: one.address, title: one.title })}>
-              <PrMark Glyph={LINKED[one.state].Glyph} said={LINKED[one.state].said} tone={one.state === "merged" ? "success" : undefined} />
-              <span className="armada-pr-row__name">{`#${one.number} ${one.title}`}</span>
-              <span />
-            </Press>
-          ))}
-        </ul>
-      ) : null}
+      {tab === "linked" ? <LinkedPullRequests linked={read.linked} onPress={(one) => openInPanel({ kind: "pr", number: one.number, address: one.address, title: one.title })} /> : null}
     </SidePanel>
+  );
+}
+
+/** Whether an issue is open or closed, as its badge. */
+export function IssueState({ state }: { state: IssueRead["state"] }) {
+  return (
+    <Badge status={state === "open" ? "running" : "completed-success"} icon={state === "open" ? CircleDot : CircleCheck}>
+      {state === "open" ? "Open" : "Closed"}
+    </Badge>
+  );
+}
+
+/** The pull requests that name an issue, each a row that opens it. */
+function LinkedPullRequests({ linked, onPress }: { linked: IssueRead["linked"]; onPress: (one: IssueRead["linked"][number]) => void }) {
+  return (
+    <ul className="armada-pr-list armada-pr-rows" aria-label="Pull requests">
+      {linked.map((one) => (
+        <Press key={one.number} columns="link" label={`Pull request #${one.number} ${one.title}`} onPress={() => onPress(one)}>
+          <PrMark Glyph={LINKED[one.state].Glyph} said={LINKED[one.state].said} tone={one.state === "merged" ? "success" : undefined} />
+          <span className="armada-pr-row__name">{`#${one.number} ${one.title}`}</span>
+          <span />
+        </Press>
+      ))}
+    </ul>
   );
 }
 

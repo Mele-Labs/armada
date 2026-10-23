@@ -1,0 +1,168 @@
+/* The Issues tab: a repository's issues from its tracker, in the Cockpit's grid, drawn to the Cockpit's bar. A Job's state is
+   a hue, carried by the frame and the left edge of whatever it works (`--hue`, from the Job card's tones); a repository
+   heading is a band with weight; a chip has a real fill; what is open is lit in the accent. A query is the tracker's own
+   text, so it is drawn as code in a well. An issue is a card and the reader's parts are raised panels.
+   Tokens only; no gradient, no glow, no grain. */
+
+.deck-grid[data-issues] { grid-template-columns: var(--deck-left, calc(var(--space-12) * 6)) minmax(0, 1fr); }
+.deck-grid[data-issues] .deck-handle { display: revert; }
+
+/* A Job's state, as the Job card reads it. */
+.issues-row,
+.issues-reader { --hue: var(--border-subtle); }
+.issues-row[data-tone="calm"],
+.issues-reader[data-tone="calm"] { --hue: var(--fg-subtle); }
+.issues-row[data-tone="live"],
+.issues-reader[data-tone="live"] { --hue: var(--status-running); }
+.issues-row[data-tone="ask"],
+.issues-reader[data-tone="ask"] { --hue: var(--status-awaiting-review); }
+.issues-row[data-tone="bad"],
+.issues-reader[data-tone="bad"] { --hue: var(--status-completed-failed); }
+
+/* ---- The list ------------------------------------------------------------------------------------------- */
+
+.issues-list__pick { display: flex; align-items: center; gap: var(--space-2); padding: 0 var(--space-2) var(--space-2); }
+.issues-list__pick .armada-dropdown-menu__trigger { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.issues-list__mod { display: inline-flex; color: var(--fg-muted); text-transform: none; }
+.issues-list__said { margin: 0; padding: var(--space-1) var(--space-3); overflow-wrap: anywhere; color: var(--fg-muted); font-size: var(--text-xs); line-height: var(--leading-xs); }
+
+/* A repository's heading: the band its issues stand under, in the heading weight and the default ink. */
+.issues-list__repository {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  color: var(--fg-default);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  line-height: var(--leading-xs);
+  text-transform: uppercase;
+}
+
+.issues-row {
+  position: relative;
+  display: grid;
+  align-items: center;
+  column-gap: var(--space-2);
+  row-gap: var(--space-1);
+  width: 100%;
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  color: var(--fg-default);
+  font: inherit;
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  text-align: left;
+  cursor: pointer;
+}
+.issues-row:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }
+.issues-row__reference { flex: none; color: var(--fg-default); font-family: var(--font-mono); font-size: var(--text-2xs); font-weight: var(--weight-heading); line-height: var(--leading-2xs); }
+.issues-row__title { min-width: 0; overflow: hidden; font-weight: var(--weight-medium); text-overflow: ellipsis; white-space: nowrap; }
+.issues-row[data-selected] .issues-row__title { font-weight: var(--weight-heading); }
+.issues-row__jobs { display: inline-flex; align-items: center; gap: var(--space-1); color: var(--hue); }
+.issues-row__held { display: flex; flex-direction: column; min-width: 0; gap: var(--space-1); }
+.issues-row__job { display: flex; align-items: center; min-width: 0; gap: var(--space-2); color: var(--hue); font-size: var(--text-2xs); font-weight: var(--weight-medium); }
+.issues-row__job .armada-session-mark > svg { width: var(--space-3); height: var(--space-3); }
+.issues-row__job-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.issues-row__fields { display: flex; flex-wrap: wrap; min-width: 0; gap: var(--space-1); }
+
+/* A value the tracker returned, a field the model chose: a chip on a fill, in mono. */
+.issues-row__value,
+.issues-query__field,
+.issues-fields__value {
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--fg-default) 10%, transparent);
+  color: var(--fg-default);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-xs);
+  white-space: nowrap;
+}
+
+/* What is open is lit: the accent's ground and a hairline of the accent round it, as the Cockpit's Jobs row. */
+.issues-row[data-selected] { background: var(--accent-muted); box-shadow: inset 0 0 0 var(--border-width) var(--accent); }
+
+/* An issue a card on a fill, with depth, its Job's hue on the frame, the left edge and the ground. The reference
+   is a filled tag over the title, which takes two lines, and the Job working it is named under the title in its hue. */
+.issues-surface .issues-list__rows,
+.issues-surface .issues-list .deck-list__group { gap: var(--space-2); }
+.issues-surface .issues-list .deck-list__band + .deck-list__band { margin-top: var(--space-4); }
+.issues-surface .issues-list__repository {
+  min-height: var(--h-control-sm);
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--fg-default) 8%, transparent);
+}
+.issues-surface .issues-row {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas: "reference . jobs" "title title title" "held held held" "fields fields fields";
+  border: var(--border-width) solid var(--border-subtle);
+  border-inline-start: calc(var(--border-width) * 3) solid var(--hue);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--fg-default) 5%, var(--bg-raised));
+  box-shadow: var(--shadow-card);
+}
+.issues-surface .issues-row[data-tone] { border-color: color-mix(in srgb, var(--hue) 40%, var(--border-subtle)); border-inline-start-color: var(--hue); background: color-mix(in srgb, var(--hue) 8%, var(--bg-raised)); }
+.issues-surface .issues-row:hover { background: color-mix(in srgb, var(--fg-default) 10%, var(--bg-raised)); }
+.issues-surface .issues-row[data-tone]:hover { background: color-mix(in srgb, var(--hue) 14%, var(--bg-raised)); }
+.issues-surface .issues-row[data-selected] { background: var(--accent-muted); box-shadow: inset 0 0 0 var(--border-width) var(--accent), var(--shadow-card); }
+.issues-surface .issues-row__reference { grid-area: reference; justify-self: start; padding: 0 var(--space-2); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--fg-default) 12%, transparent); line-height: var(--leading-xs); }
+.issues-surface .issues-row[data-tone] .issues-row__reference { background: color-mix(in srgb, var(--hue) 22%, transparent); }
+.issues-surface .issues-row__title { grid-area: title; display: -webkit-box; font-size: var(--text-xs); white-space: normal; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.issues-surface .issues-row__jobs { display: none; }
+.issues-surface .issues-row__held { grid-area: held; }
+.issues-surface .issues-row__fields { grid-area: fields; }
+
+/* ---- A query, as the tracker reads it ------------------------------------------------------------------- */
+
+.issues-query { display: flex; flex: none; flex-direction: column; gap: var(--space-2); margin: 0 var(--space-2) var(--space-2); padding: var(--space-2) var(--space-3); border: var(--border-width) solid var(--border-default); border-radius: var(--radius-lg); background: var(--bg-sunken); }
+.issues-query__text { overflow-wrap: anywhere; color: var(--fg-default); font-size: var(--text-xs); line-height: var(--leading-xs); white-space: pre-wrap; }
+.issues-query__foot { display: flex; align-items: center; gap: var(--space-2); }
+.issues-query__fields { display: flex; flex-wrap: wrap; min-width: 0; gap: var(--space-1); }
+.issues-query__acts { display: inline-flex; align-items: center; gap: var(--space-1); margin-left: auto; }
+.issues-query--editing .armada-textarea-field textarea { font-family: var(--font-mono); font-size: var(--text-xs); }
+
+.issues-describe { display: flex; flex: none; align-items: flex-end; gap: var(--space-2); padding: 0 var(--space-2) var(--space-2); }
+.issues-describe .armada-textarea-field { flex: 1 1 0; min-width: 0; }
+.issues-save { display: flex; flex: none; align-items: center; gap: var(--space-2); padding: 0 var(--space-2) var(--space-2); }
+.issues-save .armada-input-field { flex: 1 1 0; min-width: 0; }
+
+/* A tracker nothing reads: Fleet's words, and the act that teaches it, framed in the waiting hue. */
+.issues-refused { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-2); margin: 0 var(--space-2); padding: var(--space-3); border: var(--border-width) solid color-mix(in srgb, var(--status-awaiting-review) 40%, var(--border-subtle)); border-inline-start: calc(var(--border-width) * 3) solid var(--status-awaiting-review); border-radius: var(--radius-lg); background: color-mix(in srgb, var(--status-awaiting-review) 8%, var(--bg-raised)); }
+.issues-refused__said { margin: 0; overflow-wrap: anywhere; color: var(--fg-default); font-size: var(--text-xs); line-height: var(--leading-xs); }
+
+/* ---- The reader ----------------------------------------------------------------------------------------- */
+
+/* The issue a Job works wears the Job's hue across the top of the pane. */
+.issues-reader { position: relative; min-height: 0; }
+.issues-reader[data-tone]::before { content: ""; position: absolute; z-index: 1; inset: 0 0 auto; height: calc(var(--border-width) * 3); background: var(--hue); pointer-events: none; }
+.issues-reader > .deck-pane__head { align-items: center; padding: var(--space-4) var(--space-4) var(--space-2); }
+.issues-reader .deck-pane__title { display: -webkit-box; overflow: hidden; color: var(--fg-default); font-family: var(--font-sans); font-size: var(--text-sm); line-height: var(--leading-sm); letter-spacing: 0; text-transform: none; white-space: normal; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.issues-reader .deck-pane__acts { gap: var(--space-2); }
+.issues-reader__jobs { display: grid; grid-template-columns: repeat(auto-fill, minmax(calc(var(--space-12) * 6), 1fr)); gap: var(--space-2); }
+.issues-reader__pulls { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-2); }
+.issues-reader__pulls > .armada-pull-chip { width: auto; max-width: 100%; min-width: calc(var(--space-12) * 6); }
+.issues-reader__meta { display: flex; flex: none; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); padding: var(--space-1) var(--space-4) var(--space-3); }
+.issues-reader__reference { padding: 0 var(--space-2); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--fg-default) 12%, transparent); color: var(--fg-default); font-family: var(--font-mono); font-size: var(--text-xs); font-weight: var(--weight-heading); line-height: var(--leading-xs); }
+.issues-reader[data-tone] .issues-reader__reference { background: color-mix(in srgb, var(--hue) 22%, transparent); }
+.issues-reader__who { color: var(--fg-muted); font-size: var(--text-xs); line-height: var(--leading-xs); }
+.issues-reader__body { display: flex; flex: 1 1 0; flex-direction: column; gap: var(--space-4); min-height: 0; padding: var(--space-3) var(--space-4) var(--space-4); overflow-y: auto; overscroll-behavior: contain; border-top: var(--border-width) solid var(--border-subtle); }
+.issues-reader__part { display: flex; flex-direction: column; gap: var(--space-2); }
+.issues-reader__eyebrow { margin: 0; color: var(--fg-default); font-family: var(--font-mono); font-size: var(--text-2xs); font-weight: var(--weight-heading); letter-spacing: var(--tracking-caps); line-height: var(--leading-2xs); text-transform: uppercase; }
+.issues-reader:focus-visible,
+.issues-list:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }
+
+/* Every field the tracker returned: its name, then its values, two columns down. */
+.issues-fields { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: var(--space-2) var(--space-4); margin: 0; }
+.issues-fields__row { display: contents; }
+.issues-fields__name { color: var(--fg-muted); font-size: var(--text-xs); line-height: var(--leading-xs); }
+.issues-fields__values { display: flex; flex-wrap: wrap; gap: var(--space-1); margin: 0; }
+
+/* The fields and each part a raised panel, with depth. */
+.issues-surface .issues-fields,
+.issues-surface .issues-reader__part[aria-label="Description"] { padding: var(--space-3); border: var(--border-width) solid var(--border-subtle); border-radius: var(--radius-lg); background: var(--bg-raised); box-shadow: var(--shadow-card); }

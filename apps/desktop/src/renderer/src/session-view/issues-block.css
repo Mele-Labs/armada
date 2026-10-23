@@ -29,8 +29,6 @@
 .sv-row__title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sv-row > .armada-tooltip { display: inline-flex; align-items: center; }
 
-/* The glyph's hue is the state: an open issue or a passing pull request the quiet ink. */
+/* The glyph's hue is the state: an open issue the quiet ink. A pull request's row is `PullRequestChip`, which draws its own. */
 .sv-row__mark { display: inline-flex; align-items: center; color: var(--fg-subtle); }
-.sv-row__mark[data-state="closed"], .sv-row__mark[data-pr="merged"] { color: var(--step-advanced); }
-.sv-row__mark[data-checks="running"]:not([data-pr="merged"]) { color: var(--step-running); }
-.sv-row__mark[data-checks="failed"]:not([data-pr="merged"]) { color: var(--step-failed); }
+.sv-row__mark[data-state="closed"] { color: var(--step-advanced); }

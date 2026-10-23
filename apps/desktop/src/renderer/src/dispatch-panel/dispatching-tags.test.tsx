@@ -10,7 +10,7 @@ import { page, userEvent } from "vitest/browser";
 
 import "../styles/index.css";
 import { connected } from "../mock/moment";
-import { NumberedFrom, pullRequestHit, type NumberedSource } from "../numbered";
+import { NumberedFrom, issueHit, pullRequestHit, type NumberedSource } from "../numbered";
 import { SessionsFrom } from "../sessions-draft";
 import { DispatchSheet } from "./entries";
 import { DispatchingProvider, useDispatch, useDispatching, type Dispatching } from "./dispatching";
@@ -121,4 +121,20 @@ test("# offers the repository's open pull requests, and choosing one writes it i
   await userEvent.keyboard("{Enter}");
   await expect.poll(() => send.mock.calls.length).toBe(1);
   expect(send).toHaveBeenCalledWith("01SESSION", expect.objectContaining({ tags: [expect.objectContaining({ kind: "pull_request", id: "2214" })] }));
+});
+
+// The Issues tab's Start a Job: the sheet opens on the ticket's words with the ticket held as a tag, and the Job is sent it, which is
+// what Fleet claims the ticket from (`issues_named`).
+test.each([
+  { reference: "#2810", id: "2810", url: "https://github.com/acme/storefront/issues/2810" },
+  { reference: "ABC-41", id: "ABC-41", url: "https://acme.atlassian.net/browse/ABC-41" },
+])("an issue the Issues tab opens the sheet on is sent with the Job as a tag ($reference)", async ({ reference, id, url }) => {
+  mount([armada]);
+  await expect.poll(() => held).toBeDefined();
+  const { tag } = issueHit({ reference, title: "Coupon field accepts an expired code", url });
+  held?.openSheet(`${tag.title} `, armada.root, [tag]);
+  await expect.element(page.getByRole("textbox", { name: "Request" })).toHaveValue(`${tag.title} `);
+  await userEvent.keyboard("{Enter}");
+  await expect.poll(() => send.mock.calls.length).toBe(1);
+  expect(send).toHaveBeenCalledWith("01SESSION", expect.objectContaining({ tags: [{ kind: "issue", id, title: `${reference} Coupon field accepts an expired code`, url }] }));
 });

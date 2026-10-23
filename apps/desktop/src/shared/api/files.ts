@@ -30,6 +30,8 @@ export type FilesApi = {
   savePanelFile: (item: PanelFileItem, text: string, version: string) => Promise<PanelFileSaved>;
   /** Main opens a native open dialog. Null where it was closed without a file. */
   pickPanelFile: () => Promise<PanelFileItem | null>;
+  /** Text typed into the palette, read as a path: `~` expanded, a relative one resolved in the Session's checkout. Null where it is not a readable file. */
+  openPanelPath: (text: string, sessionId?: string) => Promise<PanelFileItem | null>;
   /** The file in the editor the machine opens it with, or selected in Finder. */
   openPanelFileIn: (item: PanelFileItem, where: "editor" | "finder") => Promise<PanelFileOpenedIn>;
   /** Of the paths a Session's words name, those that are files in its checkout, as written. Asked once per path, not per draw. */
@@ -42,6 +44,7 @@ export const FILES_CHANNELS = {
   readPanelFile: "bridge:read-panel-file",
   savePanelFile: "bridge:save-panel-file",
   pickPanelFile: "bridge:pick-panel-file",
+  openPanelPath: "bridge:open-panel-path",
   openPanelFileIn: "bridge:open-panel-file-in",
   findPanelFiles: "bridge:find-panel-files",
   panelFileChanged: "bridge:panel-file-changed",
