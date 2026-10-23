@@ -81,8 +81,8 @@ export type LessonsProps = {
    */
   hold?: ReviewHold;
   /**
-   * Drawn inside the Logbook's Armada fixes: only the items whose fix lands in Armada, with no title and no place
-   * tabs. The host owns the heading.
+   * Drawn inside the Logbook's Armada fixes: every item, Armada, Kit and Manifest, in one list with no title and no
+   * place tabs. Each card keeps its own word label. The host owns the heading.
    */
   embedded?: boolean;
   /** A retro to open over the list as the page opens: the one a Session's retro card asked for, by its number, or the newest. */
@@ -112,7 +112,7 @@ export function Lessons({
   const reviewing = useSyncExternalStore(reviews.subscribe, reviews.reviewing);
   const [held, setHeld] = useState<LessonsTab>("all");
   const [view, setView] = useState<LessonsView>("open");
-  const showing = embedded ? "armada" : (tab ?? held);
+  const showing = embedded ? "all" : (tab ?? held);
   // Keyed by the pick and the list, so another of either is another read.
   // Leaving the review reads the list again: it answered items the list's own read still holds.
   const [reads, setReads] = useState(0);

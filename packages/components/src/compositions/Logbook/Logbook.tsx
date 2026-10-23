@@ -32,7 +32,7 @@ import { ageOf } from "../../time-format";
  * it. Every repository's Logbook is drawn at once, each in its own panel, then Habits and This Mac. The panels hold what
  * agents are handed; one switch adds the candidates and faded entries to them, dimmed, each with its state.
  *
- * Below the panels, Armada fixes holds the retro items, drawn by the host (`fixes`).
+ * Below the panels, Armada fixes holds every retro item, whether its fix lands in Armada, Kit or Manifest, drawn by the host (`fixes`).
  *
  * The page is keyed by the registry's acts: the arrows move, `Enter` opens the entry, `e`, `l` and `f` edit, lock and
  * forget it, `h` adds what is not handed out, and `Esc` backs out a level.
@@ -295,7 +295,7 @@ export function LogbookView({ panels, unhanded, onUnhanded, fixes, toFixes, unre
       )}
       {fixes === undefined ? null : (
         <section ref={part} className="armada-logbook__panel armada-logbook__fixes" aria-labelledby="logbook-panel-fixes" tabIndex={-1}>
-          <Tooltip label="What Armada got wrong, to fix in Armada" asChild>
+          <Tooltip label="What got in a Job's way, and where its fix lands" asChild>
             <div className="armada-logbook__band" id="logbook-panel-fixes">
               Armada fixes
             </div>

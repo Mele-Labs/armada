@@ -1,7 +1,7 @@
 // The Logbook page: what agents know, read on open, and Armada fixes below it. `docs/concepts/logbook.md`.
 //
 // **Nothing in the entries waits on the owner.** He reads an entry and its evidence, and can edit, lock or forget it.
-// Each act goes to Fleet and the entry is drawn as it came back. Armada fixes is the host's (`fixes`).
+// Each act goes to Fleet and the entry is drawn as it came back. Armada fixes, the retro items, is the host's (`fixes`).
 
 import { useEffect, useState, type ReactNode } from "react";
 

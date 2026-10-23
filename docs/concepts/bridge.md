@@ -65,7 +65,7 @@ Below the row's narrow width the other controls are listed in the menu, and the 
 | Cockpit | The flight deck | `⌘1` |
 | Jobs | Every Job | `⌘3` |
 | Studios | One repository's Studios, and a Studio opened from the list | `⌘4` |
-| Logbook | What agents know, and Armada fixes: the items every Job's retro raised that Armada must fix | `⌘5` |
+| Logbook | What agents know, and Armada fixes: the items every Job's retro raised | `⌘5` |
 | System | The System page last used, Kit where none has been | `⌘6` |
 
 **System is a strip of pages under the tab bar**, drawn while System is the place: Kit, Mods, Settings, Guides, Workflows.
