@@ -36,6 +36,8 @@ import { openSettingsAt } from "@armada/settings";
 import { SystemSurface } from "./system-surface";
 import { entryForSurface, entryOfSettingsRow } from "./system-entries";
 import { openSystemEntry, systemEntryNow } from "./system-entry";
+import { useOpenModAsked } from "./open-mod";
+import { useTeachBridge } from "./teach";
 import { useLandings, useSummoned, useUiSounds } from "./app-effects";
 import { Overview } from "./Overview"; import { DoctorSurfaceNow, ManifestNow, SetupNow, StudiosSurfaceNow, WorktreesNow } from "./clocked-screens";
 import { CallAlerts } from "./cockpit/CallAlerts";
@@ -355,6 +357,8 @@ export function App() {
     });
   }
   useOpenSessionAsked(openSession); useOpenHolderAsked({ session: openSession }); useOpenRetroAsked(() => goTo(SURFACE.lessons)); // The annotation layer's Start session; a Session's Retro press.
+  const teachBridge = useTeachBridge();
+  useOpenModAsked((kind) => (openSystemEntry(`bridge:${kind}`), goTo(SURFACE.settings))); // A taught entry's mod, opened in Mods.
 
   function goTo(requested: string): void {
     // Retros is the Logbook's Armada fixes: every way to the old page arrives there, with that part in view.
@@ -461,6 +465,7 @@ export function App() {
           onCompose={() => newSession()}
           onSearch={palette.onOpen}
           {...titleRow}
+          {...(teachBridge === undefined ? {} : { onTeach: () => teachBridge("title_bar", "") })}
           {...(titleRow.sleep === undefined ? {} : { sleep: { ...titleRow.sleep, calling: callingHomes.has(SLEEP_HOME) } })}
           helmCalling={callingHomes.has(HELM_HOME)}
           wordmark={<ArmadaMark size={20} title="Armada" />}

@@ -78,6 +78,8 @@ export type ShellProps = {
   sleep?: TheShellProps["sleep"];
   /** The plan's limits, in the title row. Absent draws none. */
   planUsage?: TheShellProps["planUsage"];
+  /** Teach on the title row. Absent draws no menu. */
+  onTeach?: TheShellProps["onTeach"];
   /** The title row's centre, before the search trigger. See `TheShell`. */
   places?: TheShellProps["places"];
   /** The title row's word in place of the lockup. See `TheShell`. */
@@ -120,6 +122,7 @@ export function Shell({
   onSearch,
   sleep,
   planUsage,
+  onTeach,
   places,
   wordmark,
   repository,
@@ -199,6 +202,7 @@ export function Shell({
       onSearch={onSearch}
       {...(sleep === undefined ? {} : { sleep })}
       {...(planUsage === undefined ? {} : { planUsage })}
+      {...(onTeach === undefined ? {} : { onTeach })}
       onDispatch={onCompose}
       dispatchDisabled={!live}
       fleet={fleet}

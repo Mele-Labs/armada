@@ -45,6 +45,17 @@ test("Terminal opens the Job's shell at the pane's size, docked under the Job, a
   await expect.element(pane().getByText(/CONTRIBUTING\.md/)).toBeVisible();
 });
 
+test("Ctrl+C in the shell reaches it as the interrupt byte", async () => {
+  await open();
+  await terminal().click();
+  await expect.element(pane().getByText(PROMPT)).toBeVisible();
+  await expect.poll(() => document.activeElement?.getAttribute("aria-label")).toBe("Terminal input");
+
+  await userEvent.keyboard("{Control>}c{/Control}");
+  await expect.poll(() => shellCalls()!.written).toContain("\u0003");
+  await expect.element(pane().getByText("^C")).toBeVisible();
+});
+
 test("Terminal is Flight control's and not the header's, lit while the shell shows, and a second press hides it with the shell still running", async () => {
   const view = await open();
   expect(view.getByRole("button", { name: "Terminal", exact: true }).query()).toBeNull();
@@ -179,6 +190,24 @@ test("Side panel: Terminal opens the shell in the side panel, nothing docks unde
   await panel().getByRole("button", { name: "New shell" }).click();
   await expect.element(panel().getByRole("button", { name: "End shell" })).toBeVisible();
   await expect.poll(() => shellCalls()!.opened.length).toBe(2);
+});
+
+test("Side panel: Ctrl+C in the shell reaches it as the interrupt byte", async () => {
+  await openInSidePanel();
+  await terminal().click();
+  await expect.element(panel().getByText(PROMPT)).toBeVisible();
+  await expect.poll(() => document.activeElement?.getAttribute("aria-label")).toBe("Terminal input");
+  await userEvent.keyboard("{Control>}c{/Control}");
+  await expect.poll(() => shellCalls()!.written).toContain("\u0003");
+});
+
+test("Agent's running command: Ctrl+C reaches it as the interrupt byte", async () => {
+  await open();
+  timePasses();
+  await expect.element(pane().getByText(SERVED)).toBeVisible();
+  await userEvent.click(pane().getByRole("textbox", { name: "Terminal input" }));
+  await userEvent.keyboard("{Control>}c{/Control}");
+  await expect.poll(() => shellCalls()!.written).toContain("\u0003");
 });
 
 test("Side panel: the agent opening the Job's shell opens the side panel on it, and a block Run still docks", async () => {

@@ -98,7 +98,7 @@ async fn news_is_not_kept_to_be_read() {
     let id = rig.start_titled(Some("Build the dispute call")).await;
     rig.send(&id, "Build the dispute call").await;
 
-    assert!(rig.fleet.told_news_by_fleet(id.as_str(), "Pull request #12 merged.").await.unwrap());
+    assert!(rig.fleet.told_news_by_fleet(id.as_str(), "Pull request #12 merged.", ipc::Notice::PrMerged).await.unwrap());
 
     assert!(rig.fleet.store().lock().await.unread_fleet_notices().unwrap().is_empty());
 }

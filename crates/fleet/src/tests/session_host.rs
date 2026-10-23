@@ -1166,8 +1166,8 @@ async fn fleets_notices_told_while_a_write_is_held_reach_the_session_after_it_mo
     let path = format!("{}/src/lib.rs", rig.root);
     assert!(denied(&rig.gate(&id, "Edit", &format!(r#"{{"file_path":"{path}"}}"#)).await), "the write is held");
 
-    Arc::clone(&rig.fleet).told_by_fleet(id.as_str(), "The owner approved plan v1.").await.expect("told");
-    Arc::clone(&rig.fleet).told_by_fleet(id.as_str(), "You are on the Implement step.").await.expect("told");
+    Arc::clone(&rig.fleet).told_by_fleet(id.as_str(), "The owner approved plan v1.", ipc::Notice::PlanApproved).await.expect("told");
+    Arc::clone(&rig.fleet).told_by_fleet(id.as_str(), "You are on the Implement step.", ipc::Notice::RailStep).await.expect("told");
     rig.stand_in.finishes(0, "I will stop here");
 
     eventually(|| async { rig.stand_in.starts().len() == 2 }).await;

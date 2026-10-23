@@ -22,6 +22,8 @@ import { useHelmSession } from "./helm-session";
 import { useNumbered } from "./numbered";
 import { openInPanel } from "./shared-panel/store";
 import { useSessions } from "./sessions-draft";
+import { usePreviewLink } from "./teach";
+import { useWordRules } from "./word-rules";
 import { jobIdOf } from "@armada/shell";
 
 export type Host = {
@@ -96,8 +98,14 @@ function useRefs({ repositories, openSession, openLink }: Host, { manifestId, se
     one.kind === "pull_request" ? [{ tag: { kind: "pull_request", id: String(one.number), title: `#${one.number} ${one.title}`, url: one.address } }] : [],
   );
   const known = [...opened, ...(numbered?.open ?? []), ...Object.entries(looked).flatMap(([key, hit]) => (hit !== null && key.startsWith(`${manifestId}#`) ? [hit] : []))];
+  // Words the owner taught as links: what Fleet lists for this repository's root, which has no address for a pattern it found none
+  // for, and the rule the Teach panel is showing back.
+  const listed = useWordRules(root, sessionId);
+  const previewed = usePreviewLink(manifestId);
+  const taught = previewed === undefined ? listed : [...listed, previewed];
   const linkable: RefWorld = {
     ...(slug === undefined ? {} : { slug }),
+    ...(taught.length === 0 ? {} : { links: taught }),
     files: Object.entries(filed).flatMap(([key, there]) => (there && sessionId !== undefined && key.startsWith(`${sessionId}\n`) ? [key.slice(sessionId.length + 1)] : [])),
     // Helm's own Session is named by its repository, which would link every mention of it. An ended one
     // still has its page.
@@ -121,6 +129,8 @@ function useRefs({ repositories, openSession, openLink }: Host, { manifestId, se
       scan,
       open: (ref: ProseReference) => {
         if (ref.kind === "session") return openers.current.openSession(ref.id);
+        // A taught link's id is its address, which opens in the browser as any web address does.
+        if (ref.kind === "link") return openers.current.openLink(ref.id);
         if (ref.kind === "file") return openInPanel({ kind: "file", path: ref.id, from: "session", ...(sessionId === undefined ? {} : { sessionId }) });
         // Another repository's number is only a page on the forge.
         if (isElsewhere(ref.id)) return openers.current.openLink(forgeAddress(ref));

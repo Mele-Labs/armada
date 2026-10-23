@@ -12,5 +12,7 @@ A `slot_choice` item (id `slot-choice`) takes a `choice` only: 0 is *Wait for a 
 
 A `delivery` item (id `delivery`) takes a `choice` only: 0 is *Auto land*, 1 is *Open PR only* and 2 is *Keep local*. Fleet keeps the choice on the job's `delivery` row and sends the agent the choice with the instructions of the step that asked. Words or a mode alone are a 422, and a second answer is a 409.
 
+A `words_address` item (id `words:<mod>:<manifest id>`) takes a `choice` of one of the addresses it offers, or the last option, `Other`, with `text` holding the address. **Either writes the address into the Words mod** for that repository as `found = "person"`, which closes the question; no message goes to the agent. An address with no `{match}`, or that is not an http or https address with a host of its own, is a 422 and the item stays. It is asked once for a mod and repository, so dismissing it does not bring it back.
+
 The mode lines: `best` tells the agent to decide for itself and think it through; `quick` tells it to just get it done: finish the work and land it, skipping the formalities.
 """

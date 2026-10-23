@@ -66,6 +66,16 @@ async fn thread_of(fleet: &Arc<Rescued>, id: &str) -> Vec<String> {
         .collect()
 }
 
+async fn notices_of(fleet: &Arc<Rescued>, id: &str) -> Vec<Option<String>> {
+    let rows = Arc::clone(fleet).get_session(SessionId::carried(id)).await.unwrap().rows;
+    rows.into_iter()
+        .filter_map(|row| match row {
+            SessionRow::Message { notice, .. } => Some(notice),
+            _ => None,
+        })
+        .collect()
+}
+
 fn strand(home: &TempDir, fleet: &Rescued, slot: u32, branch: &str, after: Option<&str>) {
     let (root, diff) = (root(home), "+fn parse() {}\n");
     match after {
@@ -138,6 +148,7 @@ async fn an_open_session_that_held_a_stranded_slot_is_told_once() {
     assert_eq!(said.len(), 1, "{said:?}");
     assert!(said[0].contains("slot-2 on branch fleet/half-done"), "{said:?}");
     assert!(said[0].contains("armada worktree release"), "{said:?}");
+    assert_eq!(notices_of(&fleet, &session).await, vec![Some(String::from("slot_stranded"))]);
     let tell = fleet.store().lock().await.tell_of(&session).unwrap().expect("the tell is kept for the refusal reader");
     assert_eq!(tell.kind, "stranded_slot");
     let after = slot(&fleet, 2).await;

@@ -134,13 +134,13 @@ async fn a_turn_fleets_news_starts_leaves_it_standing_and_a_request_clears_it() 
     eventually(|| async { rig.turn(&id).await == ipc::SessionTurn::Idle }).await;
 
     rig.fleet.all_done(None, done(&id)).await.unwrap();
-    Arc::clone(&rig.fleet).told_news_by_fleet(id.as_str(), "#1 merged into main.").await.unwrap();
+    Arc::clone(&rig.fleet).told_news_by_fleet(id.as_str(), "#1 merged into main.", ipc::Notice::PrMerged).await.unwrap();
     rig.stand_in.init(0);
     eventually(|| async { rig.fleet.hosts().of(id.as_str()).state().fleet_told == 0 }).await;
     assert!(read(&rig, &id).await.done_since.is_some(), "the notice gave the agent nothing to do");
 
     // A word that asks for work is a turn like any other.
-    Arc::clone(&rig.fleet).told_by_fleet(id.as_str(), "Commit and push slot 3.").await.unwrap();
+    Arc::clone(&rig.fleet).told_by_fleet(id.as_str(), "Commit and push slot 3.", ipc::Notice::SlotStranded).await.unwrap();
     rig.stand_in.init(0);
     eventually(|| async { read(&rig, &id).await.done_since.is_none() }).await;
 }
@@ -156,9 +156,9 @@ async fn a_session_goes_idle_after_a_turn_fleets_news_started() {
         eventually(|| async { rig.turn(&id).await == ipc::SessionTurn::Idle }).await;
 
         let told = if news {
-            Arc::clone(&rig.fleet).told_news_by_fleet(id.as_str(), "#1 merged into main.").await
+            Arc::clone(&rig.fleet).told_news_by_fleet(id.as_str(), "#1 merged into main.", ipc::Notice::PrMerged).await
         } else {
-            Arc::clone(&rig.fleet).told_by_fleet(id.as_str(), "#1 merged into main.").await
+            Arc::clone(&rig.fleet).told_by_fleet(id.as_str(), "#1 merged into main.", ipc::Notice::PrMerged).await
         };
         assert!(told.unwrap());
         rig.stand_in.init(0);

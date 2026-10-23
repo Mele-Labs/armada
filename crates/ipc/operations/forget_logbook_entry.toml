@@ -5,4 +5,6 @@ agent_access = "No"
 description = "Forget an entry: it goes on the deny list and no later Job brings it back"
 notes = """
 `POST /logbook/entries/:entry_id/forget`, no body. Answers `{id}`. The entry's text and every text it had go on the deny list, so a later Distil does not bring it back; only the person teaching the same text again does. A second forget is a 404 `fleet.no_such_logbook_entry`, as is an id that names none; a 422 `fleet.logbook_entry_not_kept` for one run memory or the machine note keeps.
+
+**The mods a teaching made from the entry go with it**: every mod whose `mod.toml` records the entry as its `entry` is removed from this machine under the same lock, and Bridge is told the mods moved. A mod with no `entry`, such as one taught on Bridge's own interface, stays.
 """

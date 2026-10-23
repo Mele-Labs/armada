@@ -13,7 +13,7 @@ use tokio::time::timeout;
 
 /// How long a request's own link may take to resolve before the request goes through
 /// unresolved. The failure this waits out is a slow network, not a model that will not answer.
-const LOOKUP_BUDGET: Duration = Duration::from_secs(10);
+pub(crate) const LOOKUP_BUDGET: Duration = Duration::from_secs(10);
 
 /// What became of the request's own link, once it was looked at.
 pub(crate) enum Enriched {

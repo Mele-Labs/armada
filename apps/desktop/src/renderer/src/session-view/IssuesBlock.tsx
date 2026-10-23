@@ -62,7 +62,7 @@ function IssueMark({ issue }: { issue: Issue }) {
 }
 
 function PrSlot({ pr, manifestId }: { pr: PullRequest; manifestId: string | undefined }) {
-  const { on, menu } = usePullRequestMenu(manifestId, pr.number);
+  const { on, menu } = usePullRequestMenu(manifestId, pr.number, pr.title);
   return (
     <li>
       <PullRequestChip number={pr.number} title={pr.title} state={pr.state} checks={{ state: checksOf(pr), said: checksSaid(pr.checks) }} onOpen={() => openPrPanel(pr)} {...on} />

@@ -14,6 +14,7 @@ window.armada.onWalkFocus((focused) => {
 import type { BridgeIdentity } from "@armada/protocol";
 import { createPhoneGatewaySource, PhoneSourceProvider } from "@armada/settings";
 import { App, WAITING } from "./App";
+import { TaughtSourceProvider } from "@armada/settings";
 import { Boundary, LayoutSourceProvider, createLayoutSource } from "@armada/shell";
 import { HapticsProvider } from "@armada/components";
 import { WiredNumbered } from "./numbered-fleet";
@@ -43,6 +44,10 @@ import { CATALOGUE } from "./catalogue";
 import { Themed } from "./theme";
 import { createFleetThemes } from "./fleet-themes";
 import { createFleetLayout } from "./fleet-layout";
+import { createFleetTaught, NO_TAUGHT } from "./fleet-taught";
+import { NO_TWEAKS, createFleetTweaks } from "./fleet-tweaks";
+import { provideTeaching } from "./teach";
+import { TweakSourceProvider, TweaksApplied } from "./tweaks";
 import { wireFleetKeymap } from "./fleet-keymap";
 import { wireFleetTimeFormat } from "./fleet-time-format";
 import { skipsMods } from "./theme-loader";
@@ -63,6 +68,11 @@ const THEMES = createFleetThemes(withState(window.armada), CATALOGUE, { builtIn:
 
 /** The layout this window draws: Fleet's layout mods and the owner's saved choices, or the shipped layout in safe mode. */
 const LAYOUT = skipsMods() ? createLayoutSource() : createFleetLayout(withState(window.armada));
+/** The theme tweaks laid over whichever theme is chosen, and the words, Fleet and tracker mods the Mods list shows, over Fleet. Safe mode reads neither. */
+const TWEAKS = skipsMods() ? NO_TWEAKS : createFleetTweaks(withState(window.armada));
+const TAUGHT = skipsMods() ? NO_TAUGHT : createFleetTaught(withState(window.armada));
+/** Teach is offered in every window: Fleet reads what is said and keeps it (`readTeaching`, `saveTeaching`). */
+provideTeaching(true);
 /** The owner's key bindings, over Fleet. Not a mod, so safe mode keeps them. */
 wireFleetKeymap(withState(window.armada));
 /** How the owner has a time drawn, over Fleet. Not a mod, so safe mode keeps it. */
@@ -108,6 +118,8 @@ function Root() {
       <HapticsProvider perform={window.armada.tap}>
         <Themed source={THEMES}>
           <LayoutSourceProvider value={LAYOUT}>
+            <TaughtSourceProvider value={TAUGHT}>
+            <TweakSourceProvider source={TWEAKS}>
             <PhoneSourceProvider value={PHONE}>
               <SleepSourceProvider value={SLEEP}>
                 <WiredNumbered>
@@ -122,6 +134,7 @@ function Root() {
                                   <IssuesFrom store={ISSUES}>
                                     <WiredSharedPanel>
                                       <App />
+                                      <TweaksApplied />
                                     </WiredSharedPanel>
                                   </IssuesFrom>
                                 </ReviewsFrom>
@@ -135,6 +148,8 @@ function Root() {
                 </WiredNumbered>
               </SleepSourceProvider>
             </PhoneSourceProvider>
+            </TweakSourceProvider>
+            </TaughtSourceProvider>
           </LayoutSourceProvider>
         </Themed>
       </HapticsProvider>

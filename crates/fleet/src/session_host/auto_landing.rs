@@ -161,7 +161,7 @@ where
                 if let Some(why) = self.auto_land_attached(id, manifest, pull.number).await {
                     let number = pull.number;
                     let _ = self
-                        .told_by_fleet(id, &format!("Auto land is on, and the forge would not turn on auto-merge for #{number}: {why}"))
+                        .told_by_fleet(id, &format!("Auto land is on, and the forge would not turn on auto-merge for #{number}: {why}"), ipc::Notice::AutoLandRefused)
                         .await;
                 }
             }

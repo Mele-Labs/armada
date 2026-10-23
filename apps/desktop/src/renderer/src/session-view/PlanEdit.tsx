@@ -5,10 +5,11 @@
 
 import { useState } from "react";
 import type { DragEvent, KeyboardEvent } from "react";
-import { Bot, MessageSquarePlus, MessageSquare, Pencil, Plus, Send, Trash2, Undo2, X } from "lucide-react";
+import { Bot, GraduationCap, MessageSquarePlus, MessageSquare, Pencil, Plus, Send, Trash2, Undo2, X } from "lucide-react";
 import { Button, Input, Select, TaskMark, Textarea, Tooltip } from "@armada/components";
 import type { PlanMark, WorkPlan } from "@armada/screens/src/draft/sessions";
 
+import { useTeach } from "../teach";
 import { addGroup, addNote, addTask, dropNote, move, remove, rename, setAgent, type Since, type ViewGroup, type ViewTask } from "./plan-marks";
 
 /** The marks on the plan, and what changes them. `send` puts them to the agent as one message. */
@@ -54,8 +55,8 @@ function EditText({ value, was, label, onSave, className }: { value: string; was
   );
 }
 
-/** The glyphs a row shows on hover: a note pinned to it, and remove, which becomes undo once it is removed. */
-function Tools({ what, removed, onNote, onRemove }: { what: string; removed: boolean; onNote: () => void; onRemove: () => void }) {
+/** The glyphs a row shows on hover: a note pinned to it, Teach where the row offers it, and remove, which becomes undo once it is removed. */
+function Tools({ what, removed, onNote, onRemove, onTeach }: { what: string; removed: boolean; onNote: () => void; onRemove: () => void; onTeach?: (() => void) | undefined }) {
   return (
     <span className="sv-edit__tools">
       <Tooltip label="Suggest">
@@ -63,6 +64,13 @@ function Tools({ what, removed, onNote, onRemove }: { what: string; removed: boo
           <MessageSquarePlus size={16} strokeWidth={2} aria-hidden />
         </Button>
       </Tooltip>
+      {onTeach === undefined ? null : (
+        <Tooltip label="Teach">
+          <Button variant="ghost" size="sm" iconOnly aria-label={`Teach on ${what}`} onClick={onTeach}>
+            <GraduationCap size={16} strokeWidth={2} aria-hidden />
+          </Button>
+        </Tooltip>
+      )}
       <Tooltip label={removed ? "Keep" : "Remove"}>
         <Button variant="ghost" size="sm" iconOnly aria-label={`${removed ? "Keep" : "Remove"} ${what}`} onClick={onRemove}>
           {removed ? <Undo2 size={16} strokeWidth={2} aria-hidden /> : <Trash2 size={16} strokeWidth={2} aria-hidden />}
@@ -141,6 +149,7 @@ function SinceMark({ since }: { since: Since }) {
 
 function TaskRow({ task, group, ed }: { task: ViewTask; group: ViewGroup; ed: PlanEditing }) {
   const [noting, setNoting] = useState(false);
+  const teach = useTeach();
   const target = { group: task.home, task: task.id };
   return (
     <li
@@ -164,7 +173,7 @@ function TaskRow({ task, group, ed }: { task: ViewTask; group: ViewGroup; ed: Pl
           ) : null}
           {task.movedFrom === undefined ? null : <span className="sv-moved">from {task.movedFrom}</span>}
           {task.since === undefined ? null : <SinceMark since={task.since} />}
-          <Tools what={`task ${task.text}`} removed={task.removed === true} onNote={() => setNoting(true)} onRemove={() => ed.set(remove(ed.marks, target))} />
+          <Tools what={`task ${task.text}`} removed={task.removed === true} onNote={() => setNoting(true)} onRemove={() => ed.set(remove(ed.marks, target))} onTeach={teach === undefined ? undefined : () => teach("task", task.text)} />
         </span>
         <Notes notes={task.notes} ed={ed} />
         {noting ? (
