@@ -185,17 +185,17 @@ const onPage = (host: HTMLElement, page: number) => host.querySelectorAll(`.deck
 /** A page takes a moment to scroll in, and the dot follows the scroll. */
 const settle = () => act(async () => void (await new Promise((done) => setTimeout(done, 900))));
 
-test("seventeen tiles sit on two pages, twelve and five, with a dot for each and the first current", async () => {
+test("eighteen tiles sit on two pages, twelve and six, with a dot for each and the first current", async () => {
   const host = await mount(<SessionTiles session={jobOf()} draft={draftOf()} repository={REPOSITORY} bays={BAYS} />);
-  expect(host.querySelectorAll(".deck-controls__tiles > button").length).toBe(17);
-  expect([onPage(host, 0), onPage(host, 1)]).toEqual([12, 5]);
+  expect(host.querySelectorAll(".deck-controls__tiles > button").length).toBe(18);
+  expect([onPage(host, 0), onPage(host, 1)]).toEqual([12, 6]);
   expect(dots(host).map((one) => one.getAttribute("aria-label"))).toEqual(["Page 1", "Page 2"]);
   expect(current(host)).toBe(0);
   expect(strip(host).scrollWidth).toBeGreaterThan(strip(host).clientWidth);
 });
 
 test("twelve tiles sit on one page with no dots", async () => {
-  const hidden = ["land", "report", "map", "judge", "release"].map((id) => ({ id, hidden: true }));
+  const hidden = ["land", "report", "map", "judge", "release", "terminal"].map((id) => ({ id, hidden: true }));
   (window as unknown as { armada: unknown }).armada = { ...(base as object), getFlightControls: async () => ({ ok: true, value: { what: "read", controls: { ...FILE, job: [...FILE.job, ...hidden] } } }) };
   const host = await mount(<SessionTiles session={jobOf()} draft={draftOf()} repository={REPOSITORY} bays={BAYS} />);
   expect(host.querySelectorAll(".deck-controls__tiles > button").length).toBe(12);
@@ -228,7 +228,7 @@ test("a tile on the second page taking focus brings its page in", async () => {
 test("edit mode pages the same way, with + the last cell of the last page", async () => {
   const host = await mount(<FlightEdit set="job" host={null} onClose={() => {}} />);
   const add = host.querySelector<HTMLElement>("[data-add]")!;
-  expect([onPage(host, 0), onPage(host, 1)]).toEqual([12, 6]);
+  expect([onPage(host, 0), onPage(host, 1)]).toEqual([12, 7]);
   expect(add.dataset.page).toBe("1");
   expect(host.querySelector(".deck-controls__tiles")!.lastElementChild).toBe(add);
   expect(dots(host)).toHaveLength(2);
@@ -361,7 +361,7 @@ test("a refused repository save says Fleet's words and keeps the edit on screen"
 test("a repository file that will not read draws your own tiles only, and Edit says why", async () => {
   fleetWith({ what: "not_read", why: "line 3: unknown key" });
   const tiles = await mount(<SessionTiles session={jobOf()} draft={draftOf()} repository={LH} bays={BAYS} />);
-  expect(tiles.querySelectorAll(".deck-controls__tiles > button").length).toBe(13);
+  expect(tiles.querySelectorAll(".deck-controls__tiles > button").length).toBe(14);
   const { host } = await editing();
   expect(host.querySelector('[role="status"]:not(.deck-sr)')?.textContent).toBe("Actions in widgets not read: line 3: unknown key");
   await userEvent.click(page.getByRole("option", { name: "Add action" }));
@@ -410,6 +410,14 @@ test("a chord given to a tile presses it from anywhere on the Cockpit while the 
   const host = await drawn();
   expect(reach(document.body, OPTION_R)).toBe(tile(host, "Hand off"));
   expect(reach(host, { key: "r", code: "KeyR", altKey: true, shiftKey: true })).toBeNull();
+});
+
+test("a tile's own key is Option and Shift with its number, so a bare number, which answers a question, presses nothing", async () => {
+  const host = await drawn();
+  expect(tile(host, "Hand off").dataset.key).toBe("⌥⇧1");
+  expect(tile(host, "Hand off").querySelector(".deck-tile__key")?.textContent).toBe("1");
+  expect(reach(document.body, { key: "1", code: "Digit1" }, flightTileFor)).toBeNull();
+  expect(reach(document.body, { key: "¡", code: "Digit1", altKey: true, shiftKey: true })).toBe(tile(host, "Hand off"));
 });
 
 test("a chord on a tile of the second page presses it, and its page comes into view", async () => {

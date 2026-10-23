@@ -24,7 +24,7 @@ import type { SleepState } from "./sleep";
 import type { TimelineAppended } from "./timeline";
 import type { Autopilot } from "./autopilot";
 import type { WatchesChanged } from "./watches";
-import type { SessionRecord } from "./sessions";
+import type { JobTerminal, SessionRecord } from "./sessions";
 import type { RepositoryList } from "./setup";
 import type { Studio, StudioDeleted, StudioHelmActed } from "./studio";
 import type { HelmAskingToRun, HelmCallAnswered } from "./helm-calls";
@@ -80,6 +80,10 @@ export type Event =
   | ({ kind: "session.changed" } & SessionRecord)
   /** One row of a hosted session's thread, appended or replaced by its id. Since 23.49. */
   | ({ kind: "session.row" } & SessionRowChanged)
+  /** A Job's shell opened, by the person's `open_terminal` or its agent's first `type_in_terminal`. */
+  | ({ kind: "terminal.opened" } & JobTerminal)
+  /** A Job's shell ended: it exited, was stopped, or its Job ended. */
+  | ({ kind: "terminal.exited" } & JobTerminal)
   /** Sleep mode after any change to it, whole. */
   | ({ kind: "sleep.changed" } & SleepState)
   /** A repository's Autopilot after any change to it, whole. #2092. */

@@ -385,3 +385,11 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
+/* A Job's shell: the screen fills the pane the sheet's body holds. */
+.side-terminal {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}

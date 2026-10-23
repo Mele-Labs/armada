@@ -46,14 +46,14 @@ import { PanelKey, panelAt } from "./keys";
 import { queuedIn, queuedKey } from "./queued";
 import type { QueuedIdea } from "@armada/screens/src/draft/sessions";
 import { MapView } from "./MapPane";
-import { CallPane, PaneHead, SessionPane } from "./panes";
+import { CallPane, PaneHead, SessionPane, ShellPanel } from "./panes";
 import { inOrder, useReplayDriver, useReplayKeys, windowOf } from "./replay";
 import { RowMenu, type RowMenuAt } from "./RowMenu";
 import { FlightEdit } from "./FlightEdit";
 import { isWebAddress, repositoryFileOf, tilesOf, useFlightFile, useRepositoryFlight, type FlightSet } from "./flight-controls";
 import { glyphOf as flightGlyph } from "./flight-glyphs";
 import { SessionTiles } from "./SessionTiles";
-import { reportRoot } from "./session-tiles";
+import { reportRoot, tileCap } from "./session-tiles";
 import { checkoutSaid, heldOf } from "./YourCheckout";
 import { forgeOf, quietSaid, ReadAgo } from "./forge";
 import { useListed } from "./listed";
@@ -632,7 +632,7 @@ function MergeQueue({ props, ship }: { props: CockpitProps; ship: Ship }) {
       chips: [<li key={`main:${view.root}`}>{lightOf([view], nameOf(view.root), view.root === summoner)}</li>, ...chipsOf(view)],
     }));
     return (
-      <section className="deck-panel deck-queue" aria-label="Merge queue" tabIndex={-1}>
+      <section className="deck-panel deck-queue" aria-label="Merge queue" tabIndex={-1} data-band-only="">
         <div className="deck-queue__row">
           {merge}
           <QueueStack rows={rows} />
@@ -642,7 +642,7 @@ function MergeQueue({ props, ship }: { props: CockpitProps; ship: Ship }) {
     );
   }
   return (
-    <section className="deck-panel deck-queue" aria-label="Merge queue" tabIndex={-1}>
+    <section className="deck-panel deck-queue" aria-label="Merge queue" tabIndex={-1} data-band-only="">
       <div className="deck-queue__row">
         {merge}
         <ol className="deck-chips" onWheel={(event) => {
@@ -836,7 +836,7 @@ function FlightControl({ ship, props }: { ship: Ship; props: CockpitProps }) {
                   <span className="deck-tile__text">{tile.text}</span>
                   {tile.key === undefined ? null : (
                     <Kbd className="deck-tile__key" aria-hidden="true">
-                      {tile.key}
+                      {tileCap(tile.key)}
                     </Kbd>
                   )}
                 </button>
@@ -1038,7 +1038,8 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
   // The selected Session's own calls are cards in its thread, so its row does not call him as well.
   const incoming = withoutOpenSession(incomingOf(ship.calls, held, visited, needingOf(ship)), sel);
   const [ledgerHost, setLedgerHost] = useState<HTMLElement | null>(null);
-  const reading = sel?.kind === "session" && ship.subjects.some((one) => one.key === sel.key && one.kind === "session");
+  const onStage = sel?.kind === "session" ? ship.subjects.find((one) => one.key === sel.key && one.kind === "session")?.id : undefined;
+  const reading = onStage !== undefined;
   // A Session with `work` draws its own panels in the places of Activity, Bays and Autopilot, and its status in the ring's.
   const sessions = useSessions();
   const unified = reading && sessions.some((one) => `session:${one.id}` === sel?.key && one.work !== undefined);
@@ -1069,6 +1070,7 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
         <div className="deck-centre">
           <div className="deck-stage">
             <Stage props={props} ship={ship} listed={listed} autopilot={autopilot} ledger={reading && !unified ? ledgerHost : null} hosts={hosts} />
+            {onStage === undefined ? null : <ShellPanel key={onStage} sessionId={onStage} />}
             <MergeQueue props={props} ship={ship} />
           </div>
           <div className="deck-foot">

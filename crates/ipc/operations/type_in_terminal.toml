@@ -1,0 +1,16 @@
+[operations.type_in_terminal]
+kind = "command"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Type into this Job's terminal, the one the person sees in Bridge, and read what it printed once it goes quiet. The person may be typing in it too. Use it for what the person should see or join, such as a dev server; use your own shell tool for ordinary work. It opens the terminal in your worktree if none is open, and it stays open until it exits or the Job ends. Body: text; optional enter (true unless false, presses Enter after text); optional wait_seconds (10 unless set, at most 60); optional session_id, only where you run in a terminal. Ctrl-C is text set to the one character U+0003 with enter false. The answer is the lines printed after your text, and still_printing true where output was still arriving when the wait ran out, as a server's does: read the rest with read_terminal"
+notes = """
+`POST /sessions/terminal/type`, body `TypeInTerminal`: `text`, `enter` (absent is `true`, which writes a carriage return after `text`), `wait_seconds` (absent is 10, held to between 1 and 60) and `session_id`. Answered 200 with `TerminalTyped`: `run_id`, `printed` and `still_printing`.
+
+**The Job is the one the connection places when Fleet hosts it**, else `session_id`. Nothing placing one is refused with 422, and so is a Job `open_terminal` refuses.
+
+**The shell is the Job's one shell**, `open_terminal`'s: where none is open it opens at 80 by 24, and Fleet waits for it to print its prompt and go quiet before typing. `text` is written as it is, so Ctrl-C is the character 3.
+
+**The answer waits for quiet.** It comes once the shell has printed nothing for 1.5 seconds, or once `wait_seconds` has passed, whichever is first; `still_printing` is `true` in the second case. A command silent for longer than that answers early, and its output is `read_terminal`'s. `printed` is what arrived after the text was typed, the echo of the text included, with escapes and carriage-return overwrites resolved, the last 200 lines and the last 32 KiB at most, so the door's 64 KiB cut never reaches it.
+
+`agent_access` is `Yes`: the shell is the one the person watches, in the Job's own worktree, and typing into it writes no Evidence and moves nothing on the Job. The wait is held under a minute because the agent's own limit on a tool call is not known here.
+"""

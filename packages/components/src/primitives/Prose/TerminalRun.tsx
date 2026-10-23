@@ -1,7 +1,7 @@
 import { createContext, useEffect, useRef, useState } from "react";
 
 import { Button } from "../Button/Button";
-import { TerminalDock, TerminalMark } from "../TerminalPane/TerminalPane";
+import { ShellDock, TerminalDock, TerminalMark, type ShellDockPane, type ShellPaneProps, type TerminalPaneProps } from "../TerminalPane/TerminalPane";
 import { XtermScreen } from "../TerminalPane/XtermScreen";
 import type { CodePhase, CodeRun, TerminalSize } from "./RunnableBlock";
 
@@ -70,16 +70,29 @@ export function useTerminalDock(run: CodeRun, key: string): TerminalDockRun {
   };
 }
 
-/** The view's docked pane, between its thread and its composer: drawn while it holds a run and has not been put away. */
-export function DockedTerminal({ dock }: { dock: TerminalDockRun }) {
+/** The Job's shell, where the view docks it beside its runs: its pane while showing, and which of the two is in front. */
+export type DockedShell = { pane: ShellPaneProps | null; front: ShellDockPane; onFront: (pane: ShellDockPane) => void };
+
+/**
+ * The view's docked pane, between its thread and its composer: drawn while it holds a run and has not been put away.
+ * With `shell`, the Job's shell shares the place, and with both showing they are tabs.
+ */
+export function DockedTerminal({ dock, shell }: { dock: TerminalDockRun; shell?: DockedShell }) {
   const { command, run, shown, waiting } = dock;
   const phase: CodePhase = waiting ? { state: "running" } : run.phase;
-  if (!shown || command === null || phase.state === "idle") return null;
-  return (
-    <TerminalDock command={command} phase={phase} onStop={run.stop} onRerun={() => dock.start(command)} onClose={dock.hide}>
-      <XtermScreen out={run.out} run={run.runs} running={phase.state === "running"} write={run.write} onSize={(cols, rows) => dock.sized({ cols, rows })} />
-    </TerminalDock>
-  );
+  const pane: TerminalPaneProps | null =
+    !shown || command === null || phase.state === "idle"
+      ? null
+      : {
+          command,
+          phase,
+          onStop: run.stop,
+          onRerun: () => dock.start(command),
+          onClose: dock.hide,
+          children: <XtermScreen out={run.out} run={run.runs} running={phase.state === "running"} write={run.write} onSize={(cols, rows) => dock.sized({ cols, rows })} />,
+        };
+  if (shell !== undefined) return <ShellDock shell={shell.pane} run={pane} front={shell.front} onFront={shell.onFront} />;
+  return pane === null ? null : <TerminalDock {...pane} />;
 }
 
 /** What a block shows of a docked run: its mark, which a press brings the pane back from. */

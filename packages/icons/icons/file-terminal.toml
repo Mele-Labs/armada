@@ -1,0 +1,21 @@
+[icons.file-terminal]
+  means = "A page with a prompt caret on it: the Job's own shell"
+  group = "Session"
+  size = "16px"
+  status = "Proposed"
+  reserved = "The Job's shell: Flight control's Terminal and the shell pane's New shell. Never Pilot, which is `terminal`'s, never a Session, which is `square-terminal`'s, and never a Logbook command, which is `square-chevron-right`'s."
+  notes = "Proposed 23 Oct 2026, when Terminal moved from the Job's header into Flight control, for the owner to rule on. The three other glyphs with a prompt caret were each reserved, and this is the one lucide draws that was not."
+
+  [[icons.file-terminal.usage]]
+    means = "Terminal, a built-in tile of the Job's flight controls, which opens the Job's shell and is lit while it shows"
+    group = "Flight control"
+    size = "16px"
+    status = "Proposed"
+    notes = "Tooltip `Open the Job's terminal`, and `Hide the Job's terminal` while it shows."
+
+  [[icons.file-terminal.usage]]
+    means = "New shell, on the head of the Job's shell once it has ended"
+    group = "Session"
+    size = "16px"
+    status = "Proposed"
+    notes = "Drawn as the glyph alone, as Hide, End shell and Close beside it are, with the tooltip `New shell`."

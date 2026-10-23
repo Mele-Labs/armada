@@ -1,5 +1,6 @@
 //! A shell block run from a Session's thread: the person's own command, in the Session's slot
-//! worktree (or its directory where it holds none), on a pseudo-terminal of its own.
+//! worktree (or its directory where it holds none), on a pseudo-terminal of its own. A Job's
+//! shell is one more run, [`job_shell`]'s.
 //!
 //! **The command is the terminal's session leader**, so Ctrl-C written to it reaches it as SIGINT.
 //! **Nothing is written down**: a run keeps its last [`RING`] bytes while it lives and
@@ -10,6 +11,7 @@
 //! for the read that finishes it**, so no message splits one.
 
 mod ended;
+mod job_shell;
 pub(crate) mod plain;
 
 use std::collections::BTreeMap;
@@ -67,6 +69,8 @@ struct Run {
     session: String,
     command: String,
     stopped: AtomicBool,
+    /// What stopping it first sends: a shell ignores TERM but leaves on the HUP a closing terminal sends.
+    stop_signal: &'static str,
     state: Mutex<State>,
     terminal: Mutex<Option<Terminal>>,
     feed: broadcast::Sender<SessionRunEvent>,
@@ -125,12 +129,15 @@ impl Run {
 pub(crate) struct SessionRuns {
     held: Arc<Mutex<BTreeMap<String, Arc<Run>>>>,
     minted: AtomicU64,
+    /// Each Job's shell, by the Job's id.
+    shells: Mutex<BTreeMap<String, String>>,
 }
 
 /// What a run needs to start.
 struct Launch<'a> {
     session: &'a str,
-    command: &'a str,
+    /// `None` is an interactive login shell, a Job's shell.
+    command: Option<&'a str>,
     dir: &'a str,
     size: PtySize,
 }
@@ -163,6 +170,10 @@ impl SessionRuns {
         self.get(run_id).filter(|run| !run.ended())
     }
 
+    fn mint(&self) -> String {
+        format!("session-run-{}", self.minted.fetch_add(1, Ordering::Relaxed) + 1)
+    }
+
     /// Start `launch` and answer its id. The reading and the wait are threads of their own, and
     /// `ended` runs once the run is over and its viewers have been told.
     fn start<F, Fut>(&self, launch: Launch<'_>, ended: F) -> std::io::Result<String>
@@ -170,9 +181,23 @@ impl SessionRuns {
         F: FnOnce(Ended) -> Fut + Send + 'static,
         Fut: Future<Output = ()> + Send + 'static,
     {
+        let id = self.mint();
+        self.start_as(id.clone(), launch, ended)?;
+        Ok(id)
+    }
+
+    /// [`Self::start`], under an id minted already.
+    fn start_as<F, Fut>(&self, id: String, launch: Launch<'_>, ended: F) -> std::io::Result<()>
+    where
+        F: FnOnce(Ended) -> Fut + Send + 'static,
+        Fut: Future<Output = ()> + Send + 'static,
+    {
         let pair = native_pty_system().openpty(launch.size).map_err(other)?;
         let mut shell = CommandBuilder::new(shell());
-        shell.args(["-lc", launch.command]);
+        match launch.command {
+            Some(command) => shell.args(["-lc", command]),
+            None => shell.arg("-l"),
+        }
         shell.cwd(launch.dir);
         shell.env("TERM", "xterm-256color");
         let mut child = pair.slave.spawn_command(shell).map_err(other)?;
@@ -186,13 +211,13 @@ impl SessionRuns {
             // The command is its own session, so its group is its pid.
             pgid: pid as i32,
             session: launch.session.to_string(),
-            command: launch.command.to_string(),
+            command: launch.command.unwrap_or_default().to_string(),
             stopped: AtomicBool::new(false),
+            stop_signal: if launch.command.is_some() { "TERM" } else { "HUP" },
             state: Mutex::new(State { held: String::new(), exited: None }),
             terminal: Mutex::new(Some(Terminal { master: pair.master, keys })),
             feed: broadcast::channel(SESSION_RUN_BACKLOG).0,
         });
-        let id = format!("session-run-{}", self.minted.fetch_add(1, Ordering::Relaxed) + 1);
         self.held
             .lock()
             .expect("not poisoned")
@@ -233,16 +258,16 @@ impl SessionRuns {
             tokio::time::sleep(KEPT_AFTER_EXIT).await;
             held.lock().expect("not poisoned").remove(&forget);
         });
-        Ok(id)
+        Ok(())
     }
 
-    /// SIGTERM, then SIGKILL if the group is still there after [`GRACE`].
+    /// The run's stop signal, then SIGKILL if the group is still there after [`GRACE`].
     fn stop(&self, run_id: &str) -> bool {
         let Some(run) = self.in_flight(run_id) else {
             return false;
         };
         run.stopped.store(true, Ordering::Relaxed);
-        run.signal("TERM");
+        run.signal(run.stop_signal);
         tokio::spawn(async move {
             tokio::time::sleep(GRACE).await;
             if !run.ended() {
@@ -353,32 +378,11 @@ where
         if cols == 0 || rows == 0 {
             return Err(self.no_cells());
         }
-        let dir = {
-            let store = self.store().lock().await;
-            let session = store
-                .session(start.session_id.as_str())
-                .map_err(|why| self.ledger_fault(why))?
-                .ok_or_else(|| refusal("no job Fleet knows by that id", self.run_id()))?;
-            if session.state == store::SessionState::Ended {
-                return Err(refusal("the job has ended", self.run_id()));
-            }
-            let held = store
-                .attachments_of(&Holder::session(&session.id))
-                .map_err(|why| self.ledger_fault(why))?;
-            let roots = self.ledger_roots();
-            held.iter()
-                .find(|one| one.kind == "slot" && one.state == AttachmentState::Standing)
-                .and_then(|one| {
-                    let slot = one.target.parse::<u32>().ok()?;
-                    let root = &roots.iter().find(|(id, _)| *id == one.manifest_id)?.1;
-                    Some(adapter_traits::slot_path(root.trim_end_matches('/'), slot))
-                })
-                .unwrap_or(session.cwd)
-        };
+        let dir = self.run_dir(start.session_id.as_str()).await?;
         let fleet = Arc::clone(&self);
         let launch = Launch {
             session: start.session_id.as_str(),
-            command: &start.command,
+            command: Some(&start.command),
             dir: &dir,
             size: size(cols, rows),
         };
@@ -392,6 +396,32 @@ where
                 self.run_id(),
             )),
         }
+    }
+
+    /// Where a Job's runs and its shell stand: the worktree of the slot it holds, or its
+    /// directory where it holds none. A Job that has ended or that Fleet has no row for is refused.
+    async fn run_dir(&self, session_id: &str) -> Result<String, Refusal> {
+        let store = self.store().lock().await;
+        let session = store
+            .session(session_id)
+            .map_err(|why| self.ledger_fault(why))?
+            .ok_or_else(|| refusal("no job Fleet knows by that id", self.run_id()))?;
+        if session.state == store::SessionState::Ended {
+            return Err(refusal("the job has ended", self.run_id()));
+        }
+        let held = store
+            .attachments_of(&Holder::session(&session.id))
+            .map_err(|why| self.ledger_fault(why))?;
+        let roots = self.ledger_roots();
+        Ok(held
+            .iter()
+            .find(|one| one.kind == "slot" && one.state == AttachmentState::Standing)
+            .and_then(|one| {
+                let slot = one.target.parse::<u32>().ok()?;
+                let root = &roots.iter().find(|(id, _)| *id == one.manifest_id)?.1;
+                Some(adapter_traits::slot_path(root.trim_end_matches('/'), slot))
+            })
+            .unwrap_or(session.cwd))
     }
 
     pub(crate) fn end_session_run(

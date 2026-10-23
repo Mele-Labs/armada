@@ -97,6 +97,22 @@ fn keeping(why: rusqlite::Error) -> WriteError {
     WriteError::Database(fault("keeping what a job built")(why))
 }
 
+/// Read off `timeline_events_by_repo_kind`: the merged pulls of one repository in `at, seq` order.
+pub(crate) const LANDED_PULLS: &str = "SELECT a.holder_id, t.subject_id, t.at
+     FROM timeline_events t
+     JOIN ledger_attachments a
+       ON a.kind = 'pr' AND a.holder_kind = 'session' AND a.target = t.subject_id AND a.manifest_id = t.repo
+     WHERE t.kind = 'pr.merged' AND t.subject_kind = 'pull_request' AND t.repo = ?1
+     ORDER BY t.at DESC, t.seq DESC
+     LIMIT ?2";
+
+pub(crate) const PREVIOUS_LANDING: &str = "SELECT MAX(t.at)
+     FROM timeline_events t
+     JOIN ledger_attachments a
+       ON a.kind = 'pr' AND a.holder_kind = 'session' AND a.target = t.subject_id AND a.manifest_id = t.repo
+     WHERE t.kind = 'pr.merged' AND t.subject_kind = 'pull_request' AND t.repo = ?2
+       AND a.holder_id = ?1 AND t.at < ?3";
+
 impl Store {
     pub fn session_build(&self, session_id: &str) -> Result<Option<KeptBuild>, WriteError> {
         self.conn
@@ -270,15 +286,7 @@ impl Store {
     pub fn landed_pulls(&self, manifest: &str, limit: u32) -> Result<Vec<LandedPull>, WriteError> {
         let mut read = self
             .conn
-            .prepare(
-                "SELECT a.holder_id, t.subject_id, t.at
-                 FROM timeline_events t
-                 JOIN ledger_attachments a
-                   ON a.kind = 'pr' AND a.holder_kind = 'session' AND a.target = t.subject_id AND a.manifest_id = t.repo
-                 WHERE t.kind = 'pr.merged' AND t.subject_kind = 'pull_request' AND t.repo = ?1
-                 ORDER BY t.at DESC, t.seq DESC
-                 LIMIT ?2",
-            )
+            .prepare(LANDED_PULLS)
             .map_err(reading)?;
         let rows = read
             .query_map(params![manifest, i64::from(limit)], |row| {
@@ -291,16 +299,7 @@ impl Store {
     /// When the latest pull request this Session held that merged before `before` did. Absent if none.
     pub fn previous_landing(&self, session: &str, manifest: &str, before: &str) -> Result<Option<String>, WriteError> {
         self.conn
-            .query_row(
-                "SELECT MAX(t.at)
-                 FROM timeline_events t
-                 JOIN ledger_attachments a
-                   ON a.kind = 'pr' AND a.holder_kind = 'session' AND a.target = t.subject_id AND a.manifest_id = t.repo
-                 WHERE t.kind = 'pr.merged' AND t.subject_kind = 'pull_request' AND t.repo = ?2
-                   AND a.holder_id = ?1 AND t.at < ?3",
-                params![session, manifest, before],
-                |row| row.get(0),
-            )
+            .query_row(PREVIOUS_LANDING, params![session, manifest, before], |row| row.get(0))
             .map_err(reading)
     }
 }

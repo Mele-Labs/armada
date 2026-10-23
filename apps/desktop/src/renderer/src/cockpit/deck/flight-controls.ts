@@ -67,6 +67,7 @@ const JOB_GLYPH: Record<SessionTileId, string> = {
   checks: "shield-check",
   slot: "rows-3",
   requests: "arrow-right-left",
+  terminal: "file-terminal",
   pause: "circle-pause",
 };
 

@@ -188,6 +188,8 @@ mod taught_mods;
 mod notices;
 mod session_import;
 mod sessions;
+/// A Job's shell, shared by the person and its agent.
+mod terminals;
 mod setup;
 mod phone;
 mod show_file;
@@ -544,6 +546,7 @@ pub use sessions::{
     WaitingActKind, WaitingInput, WaitingItem, WaitingMode, WaitingOption, WaitingSource,
     WalkTold, WindowClosed, WindowFailed, WithdrawWindow,
 };
+pub use terminals::{JobTerminal, OpenTerminal, TerminalScreen, TerminalTyped, TypeInTerminal};
 pub use autopilot::{
     Autopilot, AutopilotCap, AutopilotList, AutopilotPick, AutopilotPickState,
     AutopilotProposal, AutopilotQuoted, AutopilotSettings, AutopilotState, ProposeAutopilot,

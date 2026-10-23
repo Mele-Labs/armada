@@ -37,6 +37,7 @@ import {
   type FlightSet,
 } from "./flight-controls";
 import { glyphOf } from "./flight-glyphs";
+import { tileCap } from "./session-tiles";
 
 const ADD = "+";
 
@@ -283,7 +284,7 @@ export function FlightEdit({ set, host, repository, sessionId, onClose }: { set:
                   )}
                   {tile.key === undefined ? null : (
                     <Kbd className="deck-tile__key" aria-hidden="true">
-                      {tile.key}
+                      {tileCap(tile.key)}
                     </Kbd>
                   )}
                 </button>

@@ -10,7 +10,7 @@
 import type { RepositorySummary } from "@armada/protocol";
 import { attachmentsOf, type Session, type SessionAttachment, type SessionsDraft } from "@armada/screens/src/draft/sessions";
 
-export type SessionTileId = "ask" | "land" | "compact" | "report" | "map" | "judge" | "release" | "artifacts" | "subagents" | "checks" | "slot" | "requests" | "pause";
+export type SessionTileId = "ask" | "land" | "compact" | "report" | "map" | "judge" | "release" | "artifacts" | "subagents" | "checks" | "slot" | "requests" | "terminal" | "pause";
 
 const ARMADA = "armada";
 
@@ -25,7 +25,7 @@ export function reportRoot(repositories: readonly RepositorySummary[], reported:
 }
 
 /**
- * In the order their keys, `1` to `9` and `0`, press them; the last has none. `label` is the accessible name, `text` the word under the glyph.
+ * In the order their keys, ⌥⇧1 to ⌥⇧9 and ⌥⇧0, press them; the last has none. `label` is the accessible name, `text` the word under the glyph.
  * The last four open a layer over the stage (`session-view/layers.ts`): Artifacts, Subagents and Checks always, Bays where the Session holds one, lit when a bay is wrong or its work clashes.
  */
 export const SESSION_TILES: readonly { id: SessionTileId; label: string; text: string }[] = [
@@ -42,6 +42,8 @@ export const SESSION_TILES: readonly { id: SessionTileId; label: string; text: s
   { id: "slot", label: "Bays", text: "Bays" },
   // Opens Requests in the side panel for this Job. Past the tenth, so no key.
   { id: "requests", label: "Requests", text: "Requests" },
+  // The Job's shell, docked or in the side panel as `terminal.openJobTerminalIn` says (`job-shell-dock.tsx`). Moved here from the Job's header on the owner's ask of 23 Oct 2026.
+  { id: "terminal", label: "Terminal", text: "Terminal" },
   // Pause reads Resume while the Session is paused (`SessionTiles.tsx`). Its key is p, not a digit.
   { id: "pause", label: "Pause", text: "Pause" },
 ];
@@ -49,8 +51,11 @@ export const SESSION_TILES: readonly { id: SessionTileId; label: string; text: s
 /** The key that presses Pause, or Resume while paused, with a Session open or on the list's cursor row. Not an act of the registry: `p` is Pilot's there. */
 export const PAUSE_KEY = "p";
 
-/** The key of the tile at `at`: `1` to `9`, then `0`, and none for any after. */
-export const tileKey = (at: number): string | undefined => (at < 9 ? String(at + 1) : at === 9 ? "0" : undefined);
+/** The key of the tile at `at`: ⌥⇧1 to ⌥⇧9, then ⌥⇧0, and none for any after. A bare digit is a question's answer. */
+export const tileKey = (at: number): string | undefined => (at < 9 ? `⌥⇧${at + 1}` : at === 9 ? "⌥⇧0" : undefined);
+
+/** What a tile's corner cap draws: the digit alone for ⌥⇧ and a digit, which every tile shares and the tooltip spells out; any other key whole. */
+export const tileCap = (key: string): string => key.replace(/^⌥⇧(\d)$/, "$1");
 
 // Fleet turns on the forge's auto-merge and merges on a green `ci` (`draft.autoLand`); these words only tell the agent where it stands.
 export const LAND_ON_TEXT = "Auto land is on. Fleet turns on auto-merge when your pull request opens and merges it once ci is green. Open the pull request. Fix ci failures and merge conflicts when you are told of them. Do not merge it yourself.";
@@ -134,6 +139,7 @@ export function offeredOf(session: Session, draft: SessionsDraft, root: string |
   else if (heldOf(session).length === 0) off.release = "The Job holds nothing";
   if (draft.pause === undefined) off.pause = "Fleet does not offer this";
   if (draft.autoLand === undefined) off.land = "Fleet does not offer this";
+  if (draft.terminalRuns === undefined) off.terminal = "Fleet does not offer this";
   const silent = mute(session);
   if (silent !== undefined) {
     off.pause = silent;
@@ -141,6 +147,7 @@ export function offeredOf(session: Session, draft: SessionsDraft, root: string |
     off.ask = silent;
     off.land = silent;
     off.compact = silent;
+    off.terminal = silent;
     return { off };
   }
   if (session.terminal === true) {

@@ -93,6 +93,7 @@ import { firstContactOf, machineOf } from "./settings-surface";
 import { fleetBuildOf, useFleetBuild } from "./fleet-build";
 import { useBuildFailed } from "./build-failed";
 import { stateOf } from "./state-feed";
+import { shellsOf } from "./job-shell";
 import { copyDebugInfoFor, useCommandPalette } from "@armada/shell";
 import { askToOpenHelm, Shell, SURFACE, SURFACES, useAtFloor, useLayout, useNarrow, useSurfaceKeys } from "@armada/shell";
 
@@ -225,6 +226,9 @@ export function App() {
     return () => watchOverview(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Every Job's shell is kept from the window's start, so one the agent opens before its Job is open draws whole later.
+  useEffect(() => void shellsOf(window.armada), []);
 
   // The Manifest file and an edit of it. **Held here rather than by the
   // screen**, which unmounts whenever the rail moves: an unsaved correction the

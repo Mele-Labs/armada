@@ -4,7 +4,7 @@
 // follow. Two things are not the registry's: the panels' names, and the second letter of the page chord, which the
 // `deck_page` row names in its notes. #2301.
 
-import { actionOf, digitKeyFor, formatSlot, slotsOf } from "@armada/components";
+import { actionOf, formatSlot, slotsOf } from "@armada/components";
 
 import { PAUSE_KEY, SESSION_TILES, tileKey } from "./session-tiles";
 
@@ -95,9 +95,9 @@ export function keySheetOf(): readonly SheetGroup[] {
             head: "Controls",
             rows: [
               { keys: caps("deck_tile"), does: actionOf("deck_tile").verb },
-              // With a Session open the same digits press its tiles instead, `1` to `9` and `0`; the last tile has no digit.
+              // With a Session open the same keys press its tiles instead, ⌥⇧1 to ⌥⇧9 and ⌥⇧0; the last tile has no key.
               ...SESSION_TILES.flatMap((tile, at) => {
-                const key = tileKey(at) === undefined ? undefined : digitKeyFor("deck_tile", Number(tileKey(at)));
+                const key = tileKey(at);
                 return key === undefined ? [] : [{ keys: [key], does: `Job open: ${tile.label}` }];
               }),
               { keys: [PAUSE_KEY], does: "Pause the Job, or Resume it while paused" },

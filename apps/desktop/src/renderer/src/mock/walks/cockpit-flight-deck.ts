@@ -61,7 +61,7 @@ const cockpitFlightDeck = walk("cockpit-ship-flightdeck", [
   { key: "ArrowDown", on: list, say: "Arrows, or j and k, move along the list by where things are drawn" },
   { key: "Enter", on: list, say: "Enter opens it in the area" },
   { key: "Escape", on: stage(/^(Job|Call|Pull request)/), say: "Esc puts it away, and focus is still in the list" },
-  { key: "1", on: list, say: "1 to 4 press the flight tiles in order: this is Checks" },
+  { key: "Alt+Shift+1", on: list, say: "⌥⇧1 to ⌥⇧4 press the flight tiles in order: this is Checks" },
   { key: "Shift+?", on: list, say: "? opens the keys" },
   { look: role("dialog", "Keys"), say: "Every key the deck answers, in six groups" },
   { key: "Escape", on: role("dialog", "Keys"), say: "Esc closes it" },

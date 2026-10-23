@@ -111,6 +111,7 @@ mod shown;
 /// settings.json, read and saved.
 mod settling;
 mod sockets;
+mod terminals;
 mod stream;
 /// A Studio's routes: the list, one Studio, and every act on one. `#1285`.
 mod studios;
