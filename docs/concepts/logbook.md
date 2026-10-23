@@ -79,7 +79,7 @@ It is written to the same rules for plain words as the retro call.
 | One Job shows hard evidence, a command failed and a different form then worked | It **stands** |
 | An entry is contradicted | Its text is **rewritten**, and the old text is kept as history |
 | An entry is tripped on | It is **strengthened**: rewritten more plainly, and moved to the top of what is served |
-| A standing entry is neither confirmed nor served for 30 days and 20 Jobs of its repository | It **fades**: kept and searchable, no longer served |
+| A standing entry is neither confirmed nor served for 30 days and 20 Jobs of its repository, or of any repository for `habits` and `machine` | It **fades**: kept and searchable, no longer served |
 | An entry is pinned | It never fades and is never rewritten |
 | An entry is forgotten | It goes on a deny list and never comes back |
 

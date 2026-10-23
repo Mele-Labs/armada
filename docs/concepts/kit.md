@@ -269,7 +269,7 @@ A key that may not list the bucket reads a missing object as refused.
 What another machine wrote is merged in before each write, and `get_run_memory` does not call the cloud.
 
 **Run memory becomes a section of the [Logbook](logbook.md).** Its detector is unchanged and still reads results off the stream with no agent's word.
-Its facts are Logbook entries, the Logbook follows the place chosen here, and the run note and the machine note become one Logbook note.
+Its facts are Logbook entries, the Logbook follows the place chosen here except In the repository, which keeps it on this Mac, and the run note and the machine note become one Logbook note.
 
 ### A private repository
 
