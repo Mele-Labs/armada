@@ -119,6 +119,15 @@ Every ask is an item `replied:<ended>:<n>` with its act and options, the `called
 
 A read is one more pair of forward passes beside the asks reader's, on the same blocking thread and with the same `Reads` cache by reply text, so a reply is read once however many times its Session is derived.
 
+## What he marks Not a question
+
+On 23 Oct 2026 the head raised a plan's summary line, "What you get: The Progress header keeps its name and its few icons: Ask for an update, Sketch and the approved mark.", at 0.872, over `ASKS_AT`; the rules found nothing in that reply.
+`lm-train score <reply.txt>` prints each sentence of a close with its probability, the way that one was found.
+A question read from a reply that he marks **Not a question** in Bridge is kept in the store's `reply_misreads` (`docs/concepts/session/waiting-on-the-person.md`).
+`sentences-train` reads them with `sqlite3` from the store and adds each to the dev half as a reply of its own, asking nothing, weighted 3 as a positive is.
+They are never in the held half, so the held figures above stay comparable.
+None was trained on when this was written: the committed head is the one measured above.
+
 ## What this does not cover
 
 The 30 `question` sentences are read by the same head as the 232 `act` ones, and nothing says which of the two a sentence is beyond the act rules, so a question with no act words is an `answer` with no options.
