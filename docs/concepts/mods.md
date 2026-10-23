@@ -8,11 +8,11 @@
 
 You ask a job for a warmer dark theme.
 It makes a mod called `warm`, edits its colours and checks them; you pick `warm` in Settings, Theme, and Bridge redraws.
-A month later you ask for it in the repository, and it is on a branch under `packages/mods/<name>/`, ready to open as a pull request.
+A month later you promote it, and a Job of its own opens a pull request that puts it under `packages/mods/<name>/`; once that merges, the mod ships built in.
 
 ## What it is
 
-> **Rule.** A mod is a folder under the machine's `mods/` directory, and nothing else is one.
+> **Rule.** A mod is a folder under the machine's `mods/` directory or, built in, under the repository's `packages/mods/`, and nothing else is one.
 > Why: a job that can write a file can make one, without a build and without touching Bridge's source.
 
 > **Rule.** Fleet stores and checks a mod, and Bridge is what applies a theme or a layout.
@@ -178,12 +178,12 @@ A tracker mod switched off in Mods is refused too, with that as the reason; the 
 
 | Operation | Kind | A job may | Does |
 |---|---|---|---|
-| `list_mods` | query | yes | Every mod: kind, version, description, `enabled`, `valid`, `reason`, `changed_at`, and a tracker's `tried` |
+| `list_mods` | query | yes | Every mod, local and built in: `origin`, kind, version, description, `enabled`, `valid`, `reason`, `changed_at`, and a tracker's `tried` |
 | `scaffold_mod` | command | yes | Makes the folder, a starter `theme.css` or, for `kind` `layout`, a `layout.json` that changes nothing, or for `kind` `tracker` a `tracker.toml` that validates and fails its try, `git init` and one commit |
 | `validate_mod` | query | yes | Every problem found, and the checked text when there are none: `css` for a theme, `layout` for a layout |
 | `try_tracker_mod` | command | yes | Runs a tracker mod against a repository and keeps how it went |
 | `set_mod_enabled` | command | Helm only | This machine's switch for one mod |
-| `promote_mod` | command | no | Copies the mod onto a new branch of a repository |
+| `promote_mod` | command | no | Puts the mod into a repository by a Job of its own, which opens the pull request and sees it merged |
 
 `mods.changed` carries the whole list.
 Fleet rescans every two seconds and publishes it when the list differs from the last, and `scaffold_mod` and `set_mod_enabled` publish at once, so a file a job wrote reaches an open Bridge without a restart.
@@ -196,7 +196,7 @@ Fleet rescans every two seconds and publishes it when the list differs from the 
 | What | Where | Default |
 |---|---|---|
 | A mod's switch | `mod_switches`, a row per mod, with the other preferences | On |
-| The active theme | `theme` in `get_preferences`, saved by `save_preferences` with `text`: a built-in's id, `catalogue:<slug>` or a mod's name | `dark` |
+| The active theme | `theme` in `get_preferences`, saved by `save_preferences` with `text`: one of Bridge's own themes' ids, `catalogue:<slug>`, `built-in:<folder>` or a local mod's name | `dark` |
 | The owner's own layout | `layout_choices` in `get_preferences`, saved with `text` holding a `layout.json`, which outranks every layout mod | None |
 
 A mod nobody switched is on. A switch only says whether the owner allows the mod, and `valid` says whether Bridge may act on it: a mod can be on and invalid.
@@ -206,16 +206,33 @@ A mod nobody switched is on. A switch only says whether the owner allows the mod
 
 ## Promotion
 
-> **Rule.** Promotion puts the mod on a local branch of the repository and pushes nothing.
-> Why: landing it is the pull request's, as for any other change.
+> **Rule.** Promotion puts the mod into the repository by a Job of its own, which sees the pull request merged.
+> Why: landing it is the pull request's, as for any other change, and a Job is what fixes a red check and keeps the branch current.
 
-1. `promote_mod` refuses a mod that is invalid, and a repository with no `packages/` directory.
-2. Fleet leases a slot from the repository's pool, with a branch `armada/mod-<name>-<milliseconds>` cut fresh from the base.
-3. It writes the two checked files, `mod.toml` and `theme.css`, `layout.json` or `tracker.toml`, to `packages/mods/<name>/` in the slot, never the mod's `.git` or its `.tried.toml`.
-4. It commits exactly those paths and gives the slot back.
-5. It answers with the branch and the commit.
+1. `promote_mod` refuses, before any Job is made, a mod that is invalid, a built-in mod, a repository with no `packages/` directory and a repository that holds the mod exactly as it is.
+2. Fleet starts a Job titled `Add the <name> <kind> mod`, with a slot from the repository's pool and a branch of its own.
+3. It writes the two checked files, `mod.toml` and `theme.css`, `layout.json` or `tracker.toml`, to `packages/mods/<name>/` in the Job's tree, never the mod's `.git` or its `.tried.toml`, and commits exactly those paths.
+4. It pushes the branch, opens a pull request into the base and attaches it to the Job's row.
+5. It tells the Job, in Fleet's words, to fix a red ci or a conflict with the base and to finish when the pull request merges.
+6. It answers with the Job, its branch, the commit and the pull request's address.
 
-The owner's checkout is never written, and a branch that exists is never moved. Every slot being in use is a refusal to try again.
+A pull request that does not open loses nothing.
+The Job keeps the commit on its branch, the answer names the Job and says why in `pull_request_not_opened`, and the Job is told nothing, since it has no pull request to watch.
+The owner's checkout is never written, and a branch that exists is never moved.
+Every slot being in use is a refusal to try again.
+
+## Built-in mods
+
+> **Rule.** A mod under the repository's `packages/mods/` ships with Fleet and is never promoted.
+> Why: it is in the repository already, and a merged promote is how one gets there.
+
+Fleet's `crates/fleet/build.rs` compiles every folder under `packages/mods/` in, and `list_mods` lists each as `built-in:<folder>` with `origin` `built_in`.
+A local row leaves `origin` out.
+A local mod of the same name is its own row beside it, and the two are switched, validated and chosen as the theme apart, by their ids.
+A built-in mod is checked by the rules a local mod is, from the text compiled in, so one that breaks a rule is a row with its reason and is never applied.
+`validate_mod` and `set_mod_enabled` take its id, and `promote_mod` and `try_tracker_mod` refuse it.
+A built-in tracker mod is listed and validated but cannot be tried or used, since it has no folder on the machine to keep a try in.
+`packages/mods/README.md` keeps the folder in every checkout, so the build always has it to watch.
 
 ## Safe mode
 
@@ -242,5 +259,5 @@ Safe mode does not touch the saved theme: a mod chosen before stays chosen for t
 A layout mod in the list applies while it is on and valid and draws the shipped layout otherwise, with the owner's own choices over it; the table above is a theme's. [Layout mods](layout-mods.md), *Precedence*.
 
 Bridge saves the theme with `save_preferences` as `theme` with `text`.
-A catalogue theme is saved as `catalogue:<slug>`, the id Bridge gives it, and a mod's name has no `:`, so the two cannot meet.
-Promote shows the branch `promote_mod` named and nothing more, since nothing is pushed and no pull request is opened.
+A catalogue theme is saved as `catalogue:<slug>`, the id Bridge gives it, and a built-in mod as `built-in:<folder>`, and a local mod's name has no `:`, so none of them can meet.
+Promote shows what `promote_mod` answered: the pull request's address where one opened, otherwise why none did, and the Job that holds the branch.

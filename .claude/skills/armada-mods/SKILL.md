@@ -43,12 +43,13 @@ preference are his.
 | Edit anything under `apps/desktop` or `packages/` for a local mod | A mod exists so a look needs no source change |
 | Edit `mod.toml` beyond `description` and `version` | `name` must equal the folder, and `kind` is `theme` |
 | Add a second file or a link in the folder | Only `mod.toml` and `theme.css` are read |
-| Promote a mod unprompted | It puts the mod on a branch of the repository, and that is his ask |
+| Promote a mod unprompted | It starts a Job that opens a pull request in the repository, and that is his ask |
 
 **Promotion is the owner's act.** `promote_mod` is not a tool you have: Bridge
-calls it when he asks. If he asks you to do it, copy `mod.toml` and `theme.css`,
-and not `.git`, to `packages/mods/<name>/` in your own slot and land it like any
-other change.
+calls it when he asks, and Fleet starts a Job of its own that writes the mod to
+`packages/mods/<name>/`, opens the pull request and sees it merged. Do not copy
+the files yourself. A mod that is merged there ships built in as
+`built-in:<folder>`, and cannot be promoted again.
 
 ## What theme.css may say
 
@@ -194,8 +195,7 @@ the whole file invalid.
 Settings, Layout apply over all of them. Reset to defaults there clears his
 choices and switches layout mods off, so tell him the mod is still installed
 and can be switched back on in Mods. **Promotion is his act**, as for a theme:
-copy `mod.toml` and `layout.json`, and not `.git`, to `packages/mods/<name>/`
-in your own slot if he asks you to.
+Bridge calls `promote_mod`, and a Job of its own opens the pull request.
 
 # Making a tracker mod
 
