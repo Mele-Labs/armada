@@ -102,7 +102,7 @@ export const SentWithFiles: Story = {
     ],
   },
   play: async ({ canvas }) => {
-    await expect(canvas.getByRole("img", { name: /Screenshot\.png/ })).toBeInTheDocument();
+    await expect(canvas.getByRole("button", { name: /Screenshot\.png/ })).toBeInTheDocument();
     await expect(canvas.getByText("clock.log")).toBeInTheDocument();
   },
 };
@@ -139,6 +139,6 @@ export const SentWithTags: Story = {
 export const SentWithNoWords: Story = {
   args: { rows: [{ ...asked, message: "", files: [{ id: "f1", name: "Screenshot.png", src: PIXEL }] }] },
   play: async ({ canvas }) => {
-    await expect(canvas.getByRole("img", { name: /Screenshot\.png/ })).toBeInTheDocument();
+    await expect(canvas.getByRole("button", { name: /Screenshot\.png/ })).toBeInTheDocument();
   },
 };

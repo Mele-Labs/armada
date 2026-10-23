@@ -2,7 +2,7 @@
 //! for the test, in the shapes real replies take; `docs/spikes/reply-asks-classifier.md` has the
 //! measurement over real ones.
 
-use crate::session_host::asks::asking_line;
+use crate::session_host::asks::{asking_line, only_approving};
 
 /// Replies that need the person, and the sentence that should be put in front of him.
 const ASKS: &[(&str, &str)] = &[
@@ -90,4 +90,22 @@ fn only_the_close_of_a_long_reply_is_read() {
 fn the_last_ask_of_the_close_wins() {
     let reply = "Should I rename it?\n\nShould I also move it?";
     assert_eq!(asking_line(reply).as_deref(), Some("Should I also move it?"));
+}
+
+const APPROVING: &str = "When you approve one, I'll delete the other two, write the Bridge tests, then open the pull request, and land it.";
+
+/// With a walk waiting on him, a sentence that asks only by naming his approval asks nothing more.
+#[test]
+fn a_sentence_that_only_names_his_approval_asks_nothing_beside_a_walk() {
+    assert!(only_approving(APPROVING));
+    assert!(only_approving("Once you approve the look, I will add the tests."));
+}
+
+/// With no walk waiting the same sentence still asks, and a real question is never only approving.
+#[test]
+fn the_same_sentence_still_asks_with_no_walk_and_a_question_is_never_only_approving() {
+    assert_eq!(asking_line(APPROVING).as_deref(), Some(APPROVING));
+    assert!(!only_approving("Should I land it once you approve?"));
+    assert!(!only_approving("Which one do you want fixed first?"));
+    assert!(!only_approving("The retry cap is in."));
 }
