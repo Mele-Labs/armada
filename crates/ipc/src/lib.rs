@@ -376,7 +376,7 @@ pub use merge_line::{
 };
 pub use mods::{
     ModChecked, ModKind, ModList, ModPromoted, ModScaffolded, ModSummary, PromoteMod,
-    ScaffoldMod, SetModEnabled,
+    ScaffoldMod, SetModEnabled, TrackerTry, TryTrackerMod,
 };
 pub use clashes::{
     ClashFile, ClashHolder, ClashSide, WriteClash, WriteClashes,

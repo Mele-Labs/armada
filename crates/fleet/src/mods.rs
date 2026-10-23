@@ -25,8 +25,10 @@ mod promote;
 pub(crate) mod scaffold;
 mod serving;
 pub(crate) mod stylesheet;
+pub(crate) mod tracker;
 
 pub use serving::keep_reading;
+pub use tracker::{ModSwitches, TrackerMods};
 
 /// How often the folder is rescanned for a mod a session wrote.
 pub const EVERY: std::time::Duration = std::time::Duration::from_secs(2);
@@ -40,6 +42,7 @@ const SHIPPED: &[&str] = &["dark", "light", "system", "default"];
 const MANIFEST: &str = "mod.toml";
 const THEME: &str = "theme.css";
 const LAYOUT: &str = "layout.json";
+const TRACKER: &str = "tracker.toml";
 
 /// Why `name` cannot be a mod's name, or `None`. **The only gate on a path
 /// segment**: a name that passes holds no `/`, no `.` and no way to climb.
@@ -84,6 +87,8 @@ pub(crate) struct Examined {
     /// wrong with the mod. Whatever is handed on is these bytes and not a second read.
     pub(crate) files: Option<Files>,
     pub(crate) changed_ms: Option<i64>,
+    /// A tracker mod's last try of the file as it stands.
+    pub(crate) tried: Option<ipc::TrackerTry>,
 }
 
 pub(crate) struct Files {
@@ -95,6 +100,7 @@ pub(crate) struct Files {
 pub(crate) enum Payload {
     Css(String),
     Layout(String),
+    Tracker(String),
 }
 
 impl Payload {
@@ -103,12 +109,13 @@ impl Payload {
         match self {
             Payload::Css(_) => THEME,
             Payload::Layout(_) => LAYOUT,
+            Payload::Tracker(_) => TRACKER,
         }
     }
 
     pub(crate) fn text(&self) -> &str {
         match self {
-            Payload::Css(text) | Payload::Layout(text) => text,
+            Payload::Css(text) | Payload::Layout(text) | Payload::Tracker(text) => text,
         }
     }
 }
@@ -133,6 +140,7 @@ impl Examined {
             changed_at: self
                 .changed_ms
                 .map(|ms| Instant::carried(crate::clock::rfc3339_utc(ms))),
+            tried: self.tried.clone(),
         }
     }
 }
@@ -146,6 +154,7 @@ pub(crate) fn examine(mods_dir: &Path, name: &str) -> Examined {
         problems: Vec::new(),
         files: None,
         changed_ms: None,
+        tried: None,
     };
     if let Some(why) = slug_problem(name) {
         found.problems.push(why);
@@ -175,6 +184,10 @@ pub(crate) fn examine(mods_dir: &Path, name: &str) -> Examined {
         }
         Err(why) => found.problems.push(why),
     }
+    if found.manifest.kind == Some(ModKind::Tracker) {
+        tracker::examined(&dir, &mut found, stamps, texts.0);
+        return found;
+    }
     // A manifest that names no kind this build has is read as a theme, as it always was, so what
     // is said about a broken mod's stylesheet does not change.
     let layout = found.manifest.kind == Some(ModKind::Layout);
@@ -200,7 +213,7 @@ pub(crate) fn examine(mods_dir: &Path, name: &str) -> Examined {
 /// **Opened without following a link**, so a `theme.css` that points at some
 /// other file reads as a problem and not as that file. Opened without blocking,
 /// so a named pipe is refused rather than waited on.
-fn read_small(path: &Path, most: u64, what: &str) -> Result<(String, i64), String> {
+pub(super) fn read_small(path: &Path, most: u64, what: &str) -> Result<(String, i64), String> {
     let file: File = OpenOptions::new()
         .read(true)
         .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
