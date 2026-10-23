@@ -32,7 +32,7 @@ function entry(id: string, fields: Partial<LogbookEntry> & Pick<LogbookEntry, "s
     last_confirmed: ago(30),
     last_served: ago(2),
     state: "standing",
-    pinned: false,
+    locked: false,
     edited: false,
     history: [],
     ...fields,
@@ -142,7 +142,7 @@ const ENTRIES: LogbookEntry[] = [
     confirmed_by: 11,
     first_seen: ago(24 * 21),
     last_confirmed: ago(4),
-    pinned: true,
+    locked: true,
     evidence: [
       row("44c7a2", "Dispatch panel", "turn 9, owner", "\"show me the walk first\"", 24 * 21),
       row("71f09a", "Walk window keeps two rows", "turn 25, show_window", "Walk approved, then landed", 4),

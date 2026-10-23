@@ -27,7 +27,7 @@ export const logbook: Slice<LogbookApi, Record<string, never>> = {
           edited: true,
           history: [{ text: entry.text, until: new Date().toISOString(), by: "person" as const }, ...entry.history],
         })),
-      pinLogbookEntry: async (id, pinned) => changed(id, (entry) => ({ ...entry, pinned })),
+      lockLogbookEntry: async (id, locked) => changed(id, (entry) => ({ ...entry, locked })),
       forgetLogbookEntry: async (id) => {
         if (held === undefined || !held.some((one) => one.id === id)) return fleet.refused(`/logbook/${id}/forget`);
         held = held.filter((one) => one.id !== id);

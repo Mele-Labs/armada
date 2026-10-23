@@ -7,7 +7,7 @@ import { Logbook } from "@armada/screens/src/logbook/Logbook";
 import { Boundary } from "@armada/shell";
 
 import type { BridgeState } from "../../shared/bridge";
-import { editLogbookEntry, forgetLogbookEntry, pinLogbookEntry, readLogbook } from "./commands";
+import { editLogbookEntry, forgetLogbookEntry, lockLogbookEntry, readLogbook } from "./commands";
 import { ArmadaFixes } from "./lessons";
 import { takeFixesAsked, useFixesAsked } from "./open-retro";
 import { askToOpenSession } from "./open-session";
@@ -30,7 +30,7 @@ export function LogbookSurface({
       <Logbook
         onRead={readLogbook}
         onEdit={editLogbookEntry}
-        onLock={pinLogbookEntry}
+        onLock={lockLogbookEntry}
         onForget={forgetLogbookEntry}
         onOpenJob={askToOpenSession}
         also={alsoChanges}

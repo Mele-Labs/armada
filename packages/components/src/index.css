@@ -349,8 +349,6 @@
 @import "./compositions/NeedsYouPanel/NeedsYouPanel.css";
 @import "./compositions/StartedBy/StartedBy.css";
 @import "./compositions/ForkFromSelection/ForkFromSelection.css";
-@import "./compositions/TeachPanel/TeachPanel.css";
-@import "./compositions/AlsoChanges/AlsoChanges.css";
 @import "./compositions/SessionLedger/SessionLedger.css";
 @import "./compositions/LinkedSession/LinkedSession.css";
 @import "./compositions/StepsPanel/StepsPanel.css";
@@ -415,5 +413,5 @@
 @import "./compositions/LinkPanel/LinkPanel.css";
 @import "./compositions/SessionAccount/SessionAccount.css";
 @import "./compositions/PullRequestPanel/PullRequestReach.css";
-@import "./compositions/Logbook/Logbook.css";
 @import "./compositions/ArtifactGraph/ArtifactGraph.css";
+@import "./compositions/Logbook/Logbook.css";

@@ -9,6 +9,6 @@ import { CHANNELS } from "../shared/bridge";
 export const logbookPreload: LogbookApi = {
   readLogbook: () => ipcRenderer.invoke(CHANNELS.readLogbook),
   editLogbookEntry: (id, text) => ipcRenderer.invoke(CHANNELS.editLogbookEntry, id, text),
-  pinLogbookEntry: (id, pinned) => ipcRenderer.invoke(CHANNELS.pinLogbookEntry, id, pinned),
+  lockLogbookEntry: (id, locked) => ipcRenderer.invoke(CHANNELS.lockLogbookEntry, id, locked),
   forgetLogbookEntry: (id) => ipcRenderer.invoke(CHANNELS.forgetLogbookEntry, id),
 };

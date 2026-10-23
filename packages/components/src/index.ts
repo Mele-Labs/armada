@@ -398,9 +398,6 @@ export * from "./compositions/NeedsYouPanel/SessionEndBand";
 export * from "./compositions/SessionAccount/SessionAccount";
 export * from "./compositions/StartedBy/StartedBy";
 export * from "./compositions/ForkFromSelection/ForkFromSelection";
-export * from "./compositions/TeachPanel/TeachPanel";
-export * from "./compositions/TeachPanel/TeachMenu";
-export * from "./compositions/AlsoChanges/AlsoChanges";
 export * from "./compositions/SessionLedger/SessionLedger";
 export * from "./compositions/LinkedSession/LinkedSession";
 export * from "./compositions/StepsPanel/StepsPanel";
@@ -439,7 +436,7 @@ export { CodeEditor, languageOf, typeIntoEditor } from "./compositions/FilePanel
 export type { CodeEditorProps, CodeLanguage } from "./compositions/FilePanel/CodeEditor";
 export * from "./compositions/LinkPanel/LinkPanel";
 export * from "./compositions/LinkPanel/LinkOffer";
-export * from "./compositions/Logbook/Logbook";
 
 // A Job's Artifacts as a graph of how it grew, on GraphCanvas: one node to an artifact, its versions marks inside it.
 export * from "./compositions/ArtifactGraph/ArtifactGraph";
+export * from "./compositions/Logbook/Logbook";

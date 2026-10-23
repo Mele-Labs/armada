@@ -122,7 +122,7 @@ export const askLesson = (lessonId: string, question: string, history: AskTurn[]
 /** The Logbook, read on open, and the owner's three acts on an entry — `docs/concepts/logbook.md`. */
 export const readLogbook = () => window.armada.readLogbook();
 export const editLogbookEntry = (id: string, text: string) => window.armada.editLogbookEntry(id, text);
-export const pinLogbookEntry = (id: string, pinned: boolean) => window.armada.pinLogbookEntry(id, pinned);
+export const lockLogbookEntry = (id: string, locked: boolean) => window.armada.lockLogbookEntry(id, locked);
 export const forgetLogbookEntry = (id: string) => window.armada.forgetLogbookEntry(id);
 export const followCheckOutput = (jobId: string | null, kept: string | null): void =>
   void window.armada.followCheckOutput(jobId, kept);

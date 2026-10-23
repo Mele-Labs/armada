@@ -21,5 +21,5 @@ export const logbook = walk("logbook", [
   { key: "ArrowDown", on: ENTRIES, say: "↓ moves to the next entry" },
   { key: "f", on: ENTRIES, say: "F forgets it, after asking" },
   { press: inside(dialog("Forget this entry"), button("Forget", { exact: true })), say: "Forgotten. No later Job brings it back" },
-  { key: "h", on: ENTRIES, say: "H adds what is not handed out, dimmed" },
+  { key: "h", on: ENTRIES, say: "H shows all: candidates and faded entries, dimmed" },
 ]);

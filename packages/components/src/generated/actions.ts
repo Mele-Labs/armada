@@ -770,7 +770,7 @@ export const ACTIONS: readonly Action[] = [
     id: "logbook_unhanded",
     kind: "Action",
     tier: "Contextual",
-    verb: "Add what is not handed out",
+    verb: "Show all",
     icon: null,
     iconAbsent: "undecided",
     shortcut: "h",

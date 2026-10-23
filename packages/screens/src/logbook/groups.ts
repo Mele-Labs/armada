@@ -12,7 +12,7 @@ function sorted(list: LogbookEntry[]): LogbookEntry[] {
   const rank = (one: LogbookEntry): [number, number, number, number] => [
     one.state === "standing" ? 0 : 1,
     one.last_tripped === undefined ? 1 : 0,
-    one.pinned ? 0 : 1,
+    one.locked ? 0 : 1,
     -Date.parse(one.last_confirmed),
   ];
   return [...list].sort((a, b) => {

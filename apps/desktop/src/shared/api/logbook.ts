@@ -11,8 +11,8 @@ export type LogbookApi = {
   readLogbook: () => Promise<LogbookRead>;
   /** Replaces the entry's text and marks it edited. */
   editLogbookEntry: (id: string, text: string) => Promise<LogbookAnswer>;
-  /** A pinned entry never fades and is never rewritten. */
-  pinLogbookEntry: (id: string, pinned: boolean) => Promise<LogbookAnswer>;
+  /** A locked entry never fades and is never rewritten. */
+  lockLogbookEntry: (id: string, locked: boolean) => Promise<LogbookAnswer>;
   /** Puts the entry on the deny list, so no later Job brings it back. */
   forgetLogbookEntry: (id: string) => Promise<LogbookForgotten>;
 };
@@ -20,6 +20,6 @@ export type LogbookApi = {
 export const LOGBOOK_CHANNELS = {
   readLogbook: "bridge:read-logbook",
   editLogbookEntry: "bridge:edit-logbook-entry",
-  pinLogbookEntry: "bridge:pin-logbook-entry",
+  lockLogbookEntry: "bridge:lock-logbook-entry",
   forgetLogbookEntry: "bridge:forget-logbook-entry",
 } as const;

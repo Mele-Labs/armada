@@ -104,7 +104,7 @@ function marksOf(entry: LogbookEntry, now: number, withState: boolean): ReactNod
   return (
     <>
       {entry.last_tripped === undefined ? null : <Mark Glyph={CircleAlert} said={`Tripped ${ago(entry.last_tripped, now)}`} tone="tripped" />}
-      {entry.pinned ? <Mark Glyph={Lock} said={LOCKED} /> : null}
+      {entry.locked ? <Mark Glyph={Lock} said={LOCKED} /> : null}
       {withState ? <Mark Glyph={state.Glyph} said={state.said} /> : null}
       <Mark Glyph={kind.Glyph} said={kind.said} />
     </>
@@ -215,7 +215,7 @@ export function LogbookView({ panels, unhanded, onUnhanded, fixes, toFixes, unre
       onEdit(true);
     } else if (isPressed("logbook_lock", event)) {
       event.preventDefault();
-      onLock(open.id, !open.pinned);
+      onLock(open.id, !open.locked);
     } else if (isPressed("logbook_forget", event)) {
       event.preventDefault();
       setForgetting(open.id);
@@ -231,7 +231,7 @@ export function LogbookView({ panels, unhanded, onUnhanded, fixes, toFixes, unre
           <div className="armada-logbook__filters">
             <Tooltip label="Add candidates and faded entries" shortcut={keyFor("logbook_unhanded")}>
               <Switch checked={unhanded} onChange={(event) => onUnhanded(event.currentTarget.checked)} aria-keyshortcuts={keyFor("logbook_unhanded") || undefined}>
-                Not handed out
+                Show all
               </Switch>
             </Tooltip>
           </div>
@@ -286,7 +286,7 @@ export function LogbookView({ panels, unhanded, onUnhanded, fixes, toFixes, unre
                     onSave(open.id, text);
                     window.requestAnimationFrame(() => detail.current?.focus());
                   }}
-                  onLock={() => onLock(open.id, !open.pinned)}
+                  onLock={() => onLock(open.id, !open.locked)}
                   onForget={() => setForgetting(open.id)}
                   {...(onOpenJob === undefined ? {} : { onOpenJob })}
                   {...(also === undefined ? {} : { also: also(open) })}
@@ -393,7 +393,7 @@ function Detail({
             {also}
             <div className="armada-logbook__acts">
               <Act label="Edit" act="logbook_edit" onPress={() => onEdit(true)} />
-              <Act label={entry.pinned ? "Unlock" : "Lock"} act="logbook_lock" tip={entry.pinned ? "Armada may rewrite it and let it fade again" : "Armada never rewrites it or lets it fade"} onPress={onLock} />
+              <Act label={entry.locked ? "Unlock" : "Lock"} act="logbook_lock" tip={entry.locked ? "Armada may rewrite it and let it fade again" : "Armada never rewrites it or lets it fade"} onPress={onLock} />
               <Act label="Forget" act="logbook_forget" onPress={onForget} />
             </div>
           </>
