@@ -11,7 +11,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 use store::{LogKind, LogSection};
 
 /// The most characters of an entry's text, and its most lines: one or two lines saying what to do.
-const MOST_CHARS: usize = 400;
+pub(crate) const MOST_CHARS: usize = 400;
 const MOST_LINES: usize = 2;
 
 /// One command a Session ran and how it came back, as the record lays it: `ran:n`.
