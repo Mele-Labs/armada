@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
 import { expect, fn, waitFor, within } from "storybook/test";
 
+import { forgetAllKept } from "../../keep";
 import { typeIntoEditor } from "./CodeEditor";
 import { FilePanel } from "./FilePanel";
 // `index.css` imports this after rules, which a browser drops, so the stylesheet that bounds the editor is named here too.
@@ -133,6 +134,22 @@ export const PreviewBesideTheFile: Story = {
     await waitFor(() => expect(within(preview).getByText("A line. Extra")).toBeVisible());
     await userEvent.click(canvas.getByRole("button", { name: "Preview" }));
     await expect(canvas.queryByRole("dialog", { name: "Preview" })).toBeNull();
+  },
+};
+
+/**
+ * **The switch in the preview's head makes every markdown file open with its preview, and Esc then closes both panels.** The
+ * choice is kept, so the next file opens the same way.
+ */
+export const PreviewByDefault: Story = {
+  args: { name: "notes.md", path: "/Users/user/Development/armada/docs/notes.md", type: "text/markdown", text: "# Notes\n\nA line.\n" },
+  play: async ({ args, canvas, userEvent }) => {
+    forgetAllKept();
+    await userEvent.click(canvas.getByRole("button", { name: "Preview" }));
+    await userEvent.click(canvas.getByRole("switch", { name: "Open previews by default" }));
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(args.onClose).toHaveBeenCalled());
+    forgetAllKept();
   },
 };
 
