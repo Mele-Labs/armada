@@ -782,10 +782,18 @@ button.deck-pr:hover { border-color: var(--border-strong); color: var(--fg-defau
 /* `--count` and `--cols` are set by the block from the tiles it draws, which the owner can add to and hide, and stop at twelve tiles' worth.
    Tiles past twelve wrap to rows of the same height, and the block scrolls to reach them. */
 .deck-controls__block[data-subject="session"] { overflow-y: auto; }
-.deck-controls__tiles { display: grid; grid-template-columns: repeat(var(--cols, 6), minmax(0, 1fr)); grid-auto-rows: calc((100cqh - var(--space-2)) / 2); gap: var(--space-2); }
+.deck-controls__tiles { --across: var(--cols, 6); display: grid; grid-template-columns: repeat(var(--across), minmax(0, 1fr)); grid-auto-rows: calc((100cqh - var(--space-2)) / 2); gap: var(--space-2); }
 @container tiles (min-aspect-ratio: 11 / 1) {
-  .deck-controls__tiles { grid-template-columns: repeat(var(--count, 12), minmax(0, 1fr)); grid-auto-rows: 100cqh; }
+  .deck-controls__tiles { --across: var(--count, 12); grid-auto-rows: 100cqh; }
 }
+/* The take `wider` (`flight-take.ts`): `--cols` is half the tiles, so every tile is on two rows. Each column asks for its share of the width, and a
+   share narrower than a tile asks for a tile instead, so the columns that fit stop growing and the rest wrap below and scroll. The half pixel is
+   so `auto-fill` rounds to the share's own count and not one fewer. */
+.deck-controls__block[data-take="wider"] .deck-controls__tiles { grid-template-columns: repeat(auto-fill, minmax(max(var(--tile), calc((100cqw - var(--space-2) * (var(--across) - 1)) / var(--across) - 0.5px)), 1fr)); }
+/* The take `peek`: a strip under the two rows, kept while tiles sit below them, holds the chevron that marks them (`MoreBelow.tsx`). */
+.deck-controls__block[data-spill] { padding-bottom: calc(var(--h-control-sm) + var(--space-2)); }
+.deck-controls__more { position: sticky; bottom: 0; height: 0; display: flex; justify-content: center; }
+.deck-controls__more > .armada-button { position: absolute; bottom: var(--space-1); }
 /* The Slot key is lit only when something is wrong with the slot: its glyph and edge take the stranded hue, with no glow. */
 .deck-tile[data-lit] { border-color: var(--slot-stranded); color: var(--slot-stranded); }
 .deck-tile[data-lit] .deck-tile__text { color: var(--fg-default); }

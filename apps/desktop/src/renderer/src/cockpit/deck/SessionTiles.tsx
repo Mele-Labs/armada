@@ -24,6 +24,8 @@ import { refusalWords } from "@armada/screens/src/refusal-words";
 import { provideJobFacts } from "../../job-facts";
 import { useSessionsSaid } from "../../sessions-draft";
 import { useFleetEvents } from "../fleet-events";
+import { flightGrid, flightTake } from "./flight-take";
+import { MoreBelow } from "./MoreBelow";
 import { filled, repositoryFileOf, tilesOf, useFlightFile, useRepositoryFlight, type JobFacts, type Tile } from "./flight-controls";
 import { approveTile, committedFileOf } from "./flight-controls";
 import { TileAskDialog, askOfRefusal } from "./TileAskDialog";
@@ -256,6 +258,7 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
     return tile.hides === undefined ? does : `${does}. Hides the repository's ${tile.hides}`;
   };
   const shown = tiles.filter((one) => !one.hidden);
+  const take = flightTake();
   // Over the whole window, never in the panel: the panel's glass is the containing block of anything fixed inside it, and clipped them.
   const dialog = releasing ? (
     <OverTheApp open>
@@ -283,8 +286,8 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
   return (
     <>
       {dialog}
-      <div className="deck-controls__block" data-subject="session">
-        <div className="deck-controls__tiles" style={{ "--count": Math.min(shown.length, 12), "--cols": Math.min(Math.ceil(shown.length / 2), 6) } as CSSProperties}>
+      <div className="deck-controls__block" data-subject="session" data-take={take} data-spill={(take === "peek" && shown.length > 12) || undefined}>
+        <div className="deck-controls__tiles" style={flightGrid(shown.length, take) as CSSProperties}>
           {shown.map((tile) => {
             const id = tile.builtIn === undefined ? undefined : (tile.id as SessionTileId);
             const paused = id === "pause" && session.paused === true;
@@ -368,6 +371,7 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
             );
           })}
         </div>
+        {take === "peek" && shown.length > 12 ? <MoreBelow /> : null}
       </div>
     </>
   );
