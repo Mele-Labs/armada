@@ -1,5 +1,5 @@
 //! The Logbook as the wire has it: read as entries of every state, and a person's acts on one.
-//! `get_logbook`, `edit_logbook_entry`, `pin_logbook_entry`, `forget_logbook_entry` and
+//! `get_logbook`, `edit_logbook_entry`, `lock_logbook_entry`, `forget_logbook_entry` and
 //! `teach_logbook_entry`. `docs/concepts/logbook.md`.
 //!
 //! **The `From` step is where a store row becomes a wire entry.** An entry run memory or the machine
@@ -11,9 +11,9 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Logbook, Refusal};
 use ipc::{
     EditLogbookEntry, Instant, LogbookEarlier, LogbookEntry, LogbookEvidence, ForgottenLogbookEntry, LogbookKind,
-    LogbookReplacedBy, LogbookSection, LogbookState, PinLogbookEntry, TeachLogbookEntry, WireError,
+    LogbookReplacedBy, LogbookSection, LogbookState, LockLogbookEntry, TeachLogbookEntry, WireError,
 };
-use store::{logbook_words, LogEntry, LogHistory, LogHow, LogKind, LogRewrite, LogSection, LogState};
+use store::{logbook_words, LogEntry, LogEvidence, LogHistory, LogHow, LogKind, LogRewrite, LogSection, LogState};
 
 use super::answer::MOST_CHARS;
 use super::{Logged, Source};
@@ -145,7 +145,7 @@ fn wired(logged: &Logged, root: Option<&str>, titles: &HashMap<String, String>) 
         last_served: entry.last_served.map(instant),
         last_tripped: entry.evidence.iter().filter(|one| one.how == LogHow::Tripped).map(|one| one.at).max().map(instant),
         state: state_of(entry.state),
-        pinned: entry.pinned,
+        locked: entry.locked,
         edited: entry.edited_by_person,
         history: entry
             .history
@@ -299,11 +299,11 @@ where
         Ok(self.logbook_entry_wired(entry).await)
     }
 
-    async fn pin_logbook_entry(&self, entry_id: String, pin: PinLogbookEntry) -> Result<LogbookEntry, Refusal> {
+    async fn lock_logbook_entry(&self, entry_id: String, lock: LockLogbookEntry) -> Result<LogbookEntry, Refusal> {
         let mut entry = self.logbook_held(&entry_id).await?;
         let number = entry.id.unwrap_or_default();
-        self.store().lock().await.pin_logbook_entry(number, pin.pinned).map_err(|why| self.logbook_fault(why))?;
-        entry.pinned = pin.pinned;
+        self.store().lock().await.lock_logbook_entry(number, lock.locked).map_err(|why| self.logbook_fault(why))?;
+        entry.locked = lock.locked;
         self.logbook_mirrored(&entry.repository).await;
         Ok(self.logbook_entry_wired(entry).await)
     }
@@ -338,6 +338,13 @@ where
         };
         let key = root.as_deref().map(key_of).unwrap_or_default();
         let now = self.logbook_now();
+        let evidence = teach.source.map(|from| LogEvidence {
+            session_id: from.session_id,
+            cites: vec![from.cite],
+            how: LogHow::First,
+            hard: false,
+            at: now,
+        });
         let entry = {
             let mut store = self.store().lock().await;
             let words = logbook_words(&text);
@@ -356,7 +363,7 @@ where
                 }
                 None => Some(
                     store
-                        .teach_logbook_entry(section, &key, kind_in(teach.kind), &text, &teach.paths, now)
+                        .teach_logbook_entry(section, &key, kind_in(teach.kind), &text, &teach.paths, evidence, now)
                         .map_err(|why| self.logbook_fault(why))?,
                 ),
             };

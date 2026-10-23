@@ -314,7 +314,7 @@ export type LedgerGoes = {
 };
 
 /** What the ledger opens beside it, where no surface of Bridge's draws the thing: a sketch, a subagent, an artifact. `live` is the page the turn is building, from Progress. */
-export type Reading = { kind: "sketch"; id: string } | { kind: "subagent"; id: string } | { kind: "background"; id: string } | { kind: "artifact"; id: string } | { kind: "steps"; id: string } | { kind: "live"; id: string };
+export type Reading = { kind: "sketch"; id: string; /** The version drawn then, from `versions`; absent is the sketch as it stands. */ at?: string } | { kind: "subagent"; id: string } | { kind: "background"; id: string } | { kind: "artifact"; id: string } | { kind: "steps"; id: string } | { kind: "live"; id: string };
 
 /** What a press on a ledger row asks to read: a pull request opens in the side panel, the rest beside the thread. */
 export type ReadAsked = Reading | { kind: "pull_request"; number: number };
@@ -325,7 +325,9 @@ export const readingOf = (session: Session, open: Reading | undefined): SessionA
     : open.kind === "live"
       ? // The page being built is not in the ledger yet: it opens large as a page artifact would.
         session.live?.url === open.id ? { kind: "artifact", form: "page", id: session.live.url, title: session.live.title } : undefined
-      : session.attachments.find((one) => one.kind === open.kind && "id" in one && one.id === open.id);
+      : open.kind === "sketch" && open.at !== undefined
+        ? session.versions?.find((one) => one.at === open.at && one.attachment.kind === "sketch" && one.attachment.id === open.id)?.attachment
+        : session.attachments.find((one) => one.kind === open.kind && "id" in one && one.id === open.id);
 
 /** A waiting item's steps as the panel beside the thread draws them: the item is not an attachment, so it has its own reading. */
 export type StepsReading = Omit<StepsPanelProps, "onOpenInBrowser">;
@@ -560,8 +562,8 @@ export function entriesOf(
   });
   // A slot a branch row already carries as its chip has no row of its own.
   const carried = new Set(attachmentsOf(session, "branch").map((one) => one.slot));
-  // An issue is drawn in Progress, with its pull requests under it, and has no row here.
-  const drawn = session.attachments.filter((one): one is Exclude<SessionAttachment, { kind: "issue" }> => one.kind !== "issue" && (one.kind !== "slot" || !carried.has(one.slot)));
+  // An issue is drawn in Progress, with its pull requests under it, and has no row here. A link is read in the Artifacts layer only.
+  const drawn = session.attachments.filter((one): one is Exclude<SessionAttachment, { kind: "issue" | "link" }> => one.kind !== "issue" && one.kind !== "link" && (one.kind !== "slot" || !carried.has(one.slot)));
   return [
     ...waiting,
     ...drawn.map((one): LedgerEntry => {
@@ -988,7 +990,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
   return (
     <SessionRefs session={session}>
       <ProseTerminal.Provider value={terminal}>
-      <SessionWorkspace session={session} ed={planEditing} entries={entries} repositories={repositories} hosts={deck?.hosts} bays={bays} onOpenSketch={(sketch) => read({ kind: "sketch", id: sketch })} onOpenSession={onOpen} onOpenCheck={(run) => goes.onOpenCheck(session.id, run)} live={{ open: reading?.kind === "live", onOpen: (url) => read({ kind: "live", id: url }) }}>
+      <SessionWorkspace session={session} ed={planEditing} entries={entries} repositories={repositories} hosts={deck?.hosts} bays={bays} onOpenSketch={(sketch, at) => read({ kind: "sketch", id: sketch, ...(at === undefined ? {} : { at }) })} onOpenSession={onOpen} onOpenCheck={(run) => goes.onOpenCheck(session.id, run)} live={{ open: reading?.kind === "live", onOpen: (url) => read({ kind: "live", id: url }) }}>
       <SessionFrame
         state={state}
         said={said}
