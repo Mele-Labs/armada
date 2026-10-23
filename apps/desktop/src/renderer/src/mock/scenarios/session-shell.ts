@@ -29,12 +29,13 @@ function shellFleet() {
   const watching = new Set<(change: JobTerminalChange) => void>();
   const shells = new Map<string, FakeShell>();
   const openIn = new Map<string, string>();
-  const calls = { opened: [] as { sessionId: string; cols?: number; rows?: number }[], stopped: [] as string[], written: [] as string[], windows: [] as string[] };
+  const calls = { opened: [] as { sessionId: string; cols?: number; rows?: number }[], stopped: [] as string[], started: [] as string[], written: [] as string[], windows: [] as string[] };
   let minted = 0;
   // Main's half: what each shell printed, for a window that comes to it late, and the Jobs with a window of their own.
   const printed = new Map<string, string>();
   const windowed = new Set<string>();
   const windowsHeard = new Set<(sessionIds: readonly string[]) => void>();
+  const raisedHeard = new Set<(sessionId: string) => void>();
   const movesHeard = new Set<(move: TerminalMovedBack) => void>();
   const lastShell = new Map<string, { runId: string; ended: boolean }>();
   const send = (runId: string, message: SessionRunMessage) => {
@@ -52,6 +53,7 @@ function shellFleet() {
     const already = openIn.get(sessionId);
     if (already !== undefined) return already;
     const runId = `shell-${(minted += 1)}`;
+    calls.started.push(runId);
     openIn.set(sessionId, runId);
     lastShell.set(sessionId, { runId, ended: false });
     // Main follows the shell before the window hears it opened, so nothing it prints is missed.
@@ -74,6 +76,10 @@ function shellFleet() {
   return {
     calls,
     closeWindow,
+    onRaised: (on: (sessionId: string) => void) => {
+      raisedHeard.add(on);
+      return () => void raisedHeard.delete(on);
+    },
     /** The agent's `type_in_terminal`: the Job's shell, opened where it has none, and its words with Enter after a beat. */
     agentTypes: (sessionId: string, words: string) => {
       const runId = open(sessionId);
@@ -104,10 +110,13 @@ function shellFleet() {
         watching.add(on);
         return () => void watching.delete(on);
       },
-      // A second open brings the Job's window to the front, which here is one more call and no change.
+      // A second open brings the Job's window to the front: the mock's window hears it raised, and the Jobs with a window do not change.
       openTerminalWindow: async (sessionId: string) => {
         calls.windows.push(sessionId);
-        if (windowed.has(sessionId)) return;
+        if (windowed.has(sessionId)) {
+          raisedHeard.forEach((one) => one(sessionId));
+          return;
+        }
         windowed.add(sessionId);
         windowsChanged();
       },
@@ -135,6 +144,9 @@ export const shellCalls = () => live?.calls;
 
 /** The person closing a Job's terminal window with the window's own close. */
 export const closeTerminalWindow = (sessionId: string) => live?.closeWindow(sessionId);
+
+/** The mock's window for a Job hearing its window asked for again, which brings it to the front. */
+export const onTerminalWindowRaised = (on: (sessionId: string) => void): (() => void) => live?.onRaised(on) ?? (() => undefined);
 
 const base = s256SessionRunInTerminal;
 

@@ -16,6 +16,10 @@ unmountAfterEach();
 const pane = () => page.getByRole("group", { name: "Terminal", exact: true });
 const thread = () => page.getByRole("region", { name: "Thread" });
 const terminal = () => page.getByRole("region", { name: "Flight controls" }).getByRole("button", { name: "Terminal", exact: true });
+// The Cockpit's panel for the shell: a pop-out drawn on the same page has a pane of its own, which this leaves out.
+const docked = () => page.getByRole("region", { name: "Terminal", exact: true }).getByRole("group", { name: "Terminal", exact: true });
+// The Job's terminal window, which the mock draws on the page as a dialog named as the real window's title.
+const popOut = () => page.getByRole("dialog", { name: "Terminal: Deploy the store", exact: true });
 const PROMPT = "slot-1 %";
 
 async function open() {
@@ -262,14 +266,17 @@ async function openInWindow() {
 test("Window: Terminal opens the Job's shell in a window of its own, lit while it is open, a second press brings it to the front, and closing it puts the shell away", async () => {
   await openInWindow();
   await terminal().click();
-  await expect.poll(() => shellCalls()!.windows).toEqual([SHELL_JOB]);
+  await expect.element(popOut()).toBeVisible();
   await expect.element(terminal()).toHaveAttribute("aria-pressed", "true");
   // One place at a time: nothing docks and no panel opens.
-  expect(document.querySelector(".armada-terminal")).toBeNull();
+  expect(docked().query()).toBeNull();
   expect(panel().query()).toBeNull();
 
+  // The window opening the shell is heard by this one, which asks for the window again: main raises it.
+  const asked = shellCalls()!.windows.length;
   await terminal().click();
-  await expect.poll(() => shellCalls()!.windows).toEqual([SHELL_JOB, SHELL_JOB]);
+  await expect.poll(() => shellCalls()!.windows.length).toBe(asked + 1);
+  expect(new Set(shellCalls()!.windows)).toEqual(new Set([SHELL_JOB]));
   await expect.element(terminal()).toHaveAttribute("aria-pressed", "true");
 
   closeTerminalWindow(SHELL_JOB);
@@ -286,7 +293,7 @@ test("Window: the docked pane and the side panel each open the shell in a window
   await expect.element(pane().getByText(PROMPT)).toBeVisible();
 
   await pane().getByRole("button", { name: "Open in a window" }).click();
-  await expect.element(pane()).not.toBeInTheDocument();
+  await expect.element(docked()).not.toBeInTheDocument();
   await expect.poll(() => shellCalls()!.windows).toEqual([SHELL_JOB]);
   await expect.poll(placed).toBe("window");
 
@@ -300,7 +307,7 @@ test("Window: the docked pane and the side panel each open the shell in a window
   await expect.poll(() => shellCalls()!.windows).toEqual([SHELL_JOB, SHELL_JOB]);
   await expect.poll(placed).toBe("window");
   await expect.element(terminal()).toHaveAttribute("aria-pressed", "true");
-  expect(shellCalls()!.opened).toHaveLength(1);
+  expect(shellCalls()!.started).toEqual(["shell-1"]);
 });
 
 test("Window: a shell moved back from its window docks, or opens in the side panel, with all it printed", async () => {
@@ -314,16 +321,16 @@ test("Window: a shell moved back from its window docks, or opens in the side pan
   await expect.element(pane().getByText(printed, { exact: true })).toBeVisible();
 
   await pane().getByRole("button", { name: "Open in a window" }).click();
-  await expect.element(pane()).not.toBeInTheDocument();
+  await expect.element(docked()).not.toBeInTheDocument();
   await app.api.moveTerminalBack(SHELL_JOB, "docked");
   await expect.element(pane().getByText(printed, { exact: true })).toBeVisible();
   await expect.element(terminal()).toHaveAttribute("aria-pressed", "true");
 
   await pane().getByRole("button", { name: "Open in a window" }).click();
-  await expect.element(pane()).not.toBeInTheDocument();
+  await expect.element(docked()).not.toBeInTheDocument();
   await app.api.moveTerminalBack(SHELL_JOB, "side panel");
   await expect.element(panel().getByText(printed, { exact: true })).toBeVisible();
-  expect(shellCalls()!.opened).toHaveLength(1);
+  expect(shellCalls()!.started).toEqual(["shell-1"]);
   expect(shellCalls()!.stopped).toEqual([]);
 });
 
@@ -337,19 +344,61 @@ test("Window: a shell that ended in its window moves back ended, docked or in th
   const printed = "~/Development/armada/.armada/slots/slot-1";
   await expect.element(pane().getByText(printed, { exact: true })).toBeVisible();
   await pane().getByRole("button", { name: "Open in a window" }).click();
-  await expect.element(pane()).not.toBeInTheDocument();
+  await expect.element(docked()).not.toBeInTheDocument();
   // End shell, pressed in the window.
   await app.api.stopSessionRun("shell-1");
 
   await app.api.moveTerminalBack(SHELL_JOB, "docked");
   await expect.element(pane().getByText("Shell ended")).toBeVisible();
   await expect.element(pane().getByText(printed, { exact: true })).toBeVisible();
+  // A window opened on a shell that has ended is a new document: it opens a new shell, as main's does, and that one ends in its turn.
   await pane().getByRole("button", { name: "Open in a window" }).click();
-  await expect.element(pane()).not.toBeInTheDocument();
+  await expect.element(docked()).not.toBeInTheDocument();
+  await expect.poll(() => shellCalls()!.started).toEqual(["shell-1", "shell-2"]);
+  await expect.element(popOut().getByRole("button", { name: "End shell" })).toBeVisible();
+  await app.api.stopSessionRun("shell-2");
+  await expect.element(popOut().getByText("Shell ended")).toBeVisible();
   await app.api.moveTerminalBack(SHELL_JOB, "side panel");
   await expect.element(panel().getByText("Shell ended")).toBeVisible();
-  await expect.element(panel().getByText(printed, { exact: true })).toBeVisible();
-  expect(shellCalls()!.opened).toHaveLength(1);
+  expect(popOut().query()).toBeNull();
+});
+
+test("Window: the pop-out is drawn as a window of its own with the docked shell's output, keeps the shell running when closed, and shows all it printed when opened again", async () => {
+  await open();
+  await terminal().click();
+  await expect.element(pane().getByText(PROMPT)).toBeVisible();
+  await userEvent.keyboard("ls{Enter}");
+  await expect.element(pane().getByText(/CONTRIBUTING\.md/)).toBeVisible();
+
+  await pane().getByRole("button", { name: "Open in a window" }).click();
+  await expect.element(popOut().getByText(/CONTRIBUTING\.md/)).toBeVisible();
+  await expect.element(docked()).not.toBeInTheDocument();
+  await expect.element(terminal()).toHaveAttribute("aria-pressed", "true");
+  await expect.poll(() => popOut().element().contains(document.activeElement) && document.activeElement?.getAttribute("aria-label")).toBe("Terminal input");
+
+  await userEvent.keyboard("pwd{Enter}");
+  const printed = "~/Development/armada/.armada/slots/slot-1";
+  await expect.element(popOut().getByText(printed, { exact: true })).toBeVisible();
+
+  // A second press brings the one window forward: no second window, and the shell is not put away.
+  await terminal().click();
+  await expect.element(popOut()).toBeVisible();
+  expect(page.getByRole("dialog", { name: /^Terminal: / }).elements()).toHaveLength(1);
+
+  await popOut().getByRole("button", { name: "Close window" }).click();
+  await expect.element(popOut()).not.toBeInTheDocument();
+  await expect.element(terminal()).toHaveAttribute("aria-pressed", "false");
+  expect(shellCalls()!.stopped).toEqual([]);
+
+  await terminal().click();
+  await expect.element(popOut().getByText(/CONTRIBUTING\.md/)).toBeVisible();
+  await expect.element(popOut().getByText(printed, { exact: true })).toBeVisible();
+
+  // Moving back closes the window, as main does.
+  await popOut().getByRole("button", { name: "Dock", exact: true }).click();
+  await expect.element(popOut()).not.toBeInTheDocument();
+  await expect.element(docked().getByText(printed, { exact: true })).toBeVisible();
+  expect(shellCalls()!.stopped).toEqual([]);
 });
 
 test("Window: the agent opening the Job's shell opens its window, and docks nothing", async () => {
@@ -357,5 +406,5 @@ test("Window: the agent opening the Job's shell opens its window, and docks noth
   timePasses();
   await expect.poll(() => shellCalls()!.windows).toEqual([SHELL_JOB]);
   await expect.element(terminal()).toHaveAttribute("aria-pressed", "true");
-  expect(document.querySelector(".armada-terminal")).toBeNull();
+  expect(docked().query()).toBeNull();
 });
