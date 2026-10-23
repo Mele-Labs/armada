@@ -46,7 +46,8 @@
 /* A side column's resize handle, on the middle of the gap beside it and out of the flow, so drawing it moves nothing. */
 .deck-left,
 .deck-right { position: relative; }
-.deck-handle {
+/* Doubled over `.armada-dock-handle`, which sets `position: relative` and a margin: bundle order must not decide where the handle sits. */
+.armada-dock-handle.deck-handle {
   position: absolute;
   inset-block: 0;
   margin: 0;
