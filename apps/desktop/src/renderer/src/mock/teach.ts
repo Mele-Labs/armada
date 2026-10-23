@@ -508,11 +508,11 @@ export function seedTaught(root: string): void {
   siteFound("payments", SITES["payments"]!);
   siteAnswered("ledger", "acme-payments.atlassian.net");
   // And one mod of each other kind, so the list of every mod on the machine has all five: a tweak taught on a row, a layout taught on
-  // the rail's Lessons, and a theme mod in force.
+  // the rail's Guides, and a theme mod in force.
   const row = { ...here, kind: "row" as const, text: PAYMENTS_TITLE };
   taught({ teaching: row, say: "Make stopped Jobs easier to see", reach: "all", answer: { tweak: LIGHTER } });
-  const panel = { ...here, kind: "panel" as const, text: "Lessons" };
-  taught({ teaching: panel, say: "Hide this, I never look at it", reach: "all", answer: { layout: { mod: "hide-lessons", region: "rail", hidden: ["lessons"], hides: "Lessons", where: "Rail" } } });
+  const panel = { ...here, kind: "panel" as const, text: "Guides" };
+  taught({ teaching: panel, say: "Hide this, I never look at it", reach: "all", answer: { layout: { mod: "hide-guides", region: "rail", hidden: ["guides"], hides: "Guides", where: "Rail" } } });
   mockThemes.install(DUSK_MOD);
   mockThemes.setActive(DUSK_MOD.name);
   // A layout mod written by hand and switched off, which the list keeps under those that are on.
