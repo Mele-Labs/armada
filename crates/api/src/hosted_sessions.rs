@@ -307,7 +307,7 @@ pub(crate) async fn close_session<D: HostedSessions>(
         Ok(closed) => closed,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
-    match served.daemon().close_session(closed).await {
+    match served.shared().close_session(closed).await {
         Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
         Err(refusal) => refused(refusal),
     }
@@ -323,7 +323,7 @@ pub(crate) async fn move_session<D: HostedSessions>(
         Ok(moved) => moved,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
-    match served.daemon().move_session(moved).await {
+    match served.shared().move_session(moved).await {
         Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
         Err(refusal) => refused(refusal),
     }

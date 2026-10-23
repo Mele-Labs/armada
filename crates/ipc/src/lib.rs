@@ -196,6 +196,8 @@ mod show_file;
 mod sketch;
 /// Which tests reach a set of paths, and which paths nothing reaches. `get_tests_reaching`.
 mod test_map;
+/// A background act that failed after its reply.
+mod act_failed;
 /// Autopilot: a repository working its own backlog. #2092.
 mod autopilot;
 /// Sleep mode: the switch and the night it keeps.
@@ -547,6 +549,7 @@ pub use sessions::{
     WalkTold, WindowClosed, WindowFailed, WithdrawWindow,
 };
 pub use terminals::{JobTerminal, OpenTerminal, TerminalScreen, TerminalTyped, TypeInTerminal};
+pub use act_failed::{ActFailed, BackgroundAct};
 pub use autopilot::{
     Autopilot, AutopilotCap, AutopilotList, AutopilotPick, AutopilotPickState,
     AutopilotProposal, AutopilotQuoted, AutopilotSettings, AutopilotState, ProposeAutopilot,

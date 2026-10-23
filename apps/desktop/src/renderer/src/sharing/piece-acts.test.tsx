@@ -1,5 +1,5 @@
-// Commit to repository, Share and Copy on a piece of the person's own: a commit starts a Job of its own and offers it and its pull
-// request, or says the branch was pushed where no pull request opened; a refusal is said in Fleet's words, and an id main holds offers Replace; Share saves Fleet's package and Copy puts its text on
+// Commit to repository, Share and Copy on a piece of the person's own: a commit starts a Job of its own and offers it; a pull request that
+// fails to open afterwards is `act.failed`, the window's toast, not a line here; a refusal is said in Fleet's words, and an id main holds offers Replace; Share saves Fleet's package and Copy puts its text on
 // the clipboard; a route this Fleet does not serve is the window's toast. Browser, from a fake `window.armada`.
 
 import { act } from "react";
@@ -14,7 +14,7 @@ import { PieceActs } from "./PieceActs";
 const ROOT = "/Users/user/widgets";
 const refused = (code: string, message: string): Outcome => ({ ok: false, why: "refused", error: { code, message, run_id: "", fields: {}, chain: [] } });
 
-const JOB = { repository: ROOT, session_id: "c1", branch: "armada/commit-run-tests", paths: [".armada/flight-controls.toml"], commit: "4f2c9a1", pull_request: "https://git.example/acme/widgets/pull/42" };
+const JOB = { repository: ROOT, session_id: "c1", branch: "armada/commit-run-tests", paths: [".armada/flight-controls.toml"] };
 
 function fleet(commit: Outcome | undefined = undefined, answered: Record<string, unknown> = JOB) {
   const armada = {
@@ -54,7 +54,7 @@ const press = async (host: HTMLElement, name: string) => {
 };
 const said = (host: HTMLElement) => host.querySelector('[role="status"]')?.textContent;
 
-test("Commit names no Job, and offers the Job it started and its pull request", async () => {
+test("Commit names no Job, and offers the Job it started", async () => {
   const armada = fleet();
   const opened = vi.fn();
   window.addEventListener("armada:open-session-in-cockpit", opened);
@@ -62,20 +62,25 @@ test("Commit names no Job, and offers the Job it started and its pull request", 
   await press(host, "Commit to repository");
   expect(armada.commitToRepository).toHaveBeenCalledWith({ repository: ROOT, piece: { kind: "flight_controls", job: ["run-tests"] } });
   expect(said(host)).toContain("Job started");
-  await press(host, "Open the pull request");
-  expect(armada.openLink).toHaveBeenCalledWith("https://git.example/acme/widgets/pull/42");
   await press(host, "Open the Job");
   window.removeEventListener("armada:open-session-in-cockpit", opened);
   expect((opened.mock.calls[0]![0] as CustomEvent<string>).detail).toBe("c1");
 });
 
-test("a pull request that did not open says the branch was pushed, and why", async () => {
-  const { pull_request: _none, ...rest } = JOB;
-  fleet(undefined, { ...rest, pull_request_not_opened: "The forge refused the token" });
+test("Commit holds the buttons until Fleet's reply, then frees them and shows Job started with Open the Job at once", async () => {
+  const armada = fleet();
+  let reply: (answer: { ok: true; value: typeof JOB }) => void = () => undefined;
+  armada.commitToRepository.mockImplementationOnce(() => new Promise((done) => (reply = done as typeof reply)));
   const host = await mount();
+  const buttons = () => [...host.querySelectorAll("button")];
   await press(host, "Commit to repository");
-  expect(said(host)).toContain("armada/commit-run-tests pushed. Pull request not opened: The forge refused the token");
-  expect([...host.querySelectorAll("button")].some((one) => one.textContent === "Open the pull request")).toBe(false);
+  expect(buttons().every((one) => one.disabled)).toBe(true);
+  expect(said(host)).toBeUndefined();
+  await act(async () => reply({ ok: true, value: JOB }));
+  await flush();
+  expect(buttons().find((one) => one.textContent?.trim() === "Commit to repository")!.disabled).toBe(false);
+  expect(said(host)).toContain("Job started");
+  expect(buttons().some((one) => one.textContent?.trim() === "Open the Job")).toBe(true);
 });
 
 test("an id main holds offers Replace, which commits over it", async () => {

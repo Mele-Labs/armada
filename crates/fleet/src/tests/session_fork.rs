@@ -512,7 +512,7 @@ impl Rig {
     }
 
     async fn moves(&self, id: &str, to: &ManifestId) -> Result<SessionRecord, Refusal> {
-        self.fleet
+        Arc::clone(&self.fleet)
             .move_session(MoveSession { session_id: SessionId::carried(id), manifest_id: to.clone() })
             .await
     }
@@ -631,4 +631,27 @@ async fn a_move_of_a_dead_terminal_session_needs_no_end_and_is_told_the_branch_s
     assert!(note.contains(&second_root), "{note}");
     let from = row_of(&rig.record(moved.id.as_str()).await, "forked_from").expect("link").clone();
     assert_eq!(from.detail.get("branch").map(String::as_str), Some("armada/the-reader"));
+}
+
+#[tokio::test]
+async fn a_move_starts_the_new_job_while_the_old_ones_park_is_held() {
+    let rig = rig();
+    let (second, _) = rig.a_second_repository();
+    let hosted = rig.a_hosted_session().await;
+    let at = adapter_traits::slot_path(&rig.root, 1);
+    std::fs::create_dir_all(&at).expect("a slot");
+    std::fs::write(format!("{at}.lease"), format!("branch sessions/own\nholder job {}\nsince 1\n", hosted.as_str()))
+        .expect("a lease record");
+    let gate = rig.fleet.vcs().hold_parks();
+
+    let moved = tokio::time::timeout(Duration::from_secs(2), rig.moves(hosted.as_str(), &second))
+        .await
+        .expect("the move does not wait on the park")
+        .expect("moved");
+
+    assert_ne!(moved.id, hosted);
+    assert_eq!(rig.record(hosted.as_str()).await.state, SessionState::Ended);
+    assert!(rig.fleet.vcs().parked_slots().is_empty(), "the old one's park is still held");
+    gate.open();
+    crate::tests::session_host::eventually(|| async { !rig.fleet.vcs().parked_slots().is_empty() }).await;
 }

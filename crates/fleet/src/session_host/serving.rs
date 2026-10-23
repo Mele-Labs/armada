@@ -39,7 +39,7 @@ pub(crate) const NO_SUCH_SESSION: &str = "fleet.no_such_session";
 /// A message or a tune to a session that was closed. A 409.
 const SESSION_CLOSED: &str = "fleet.session_closed";
 /// The ledger rows that say a session holds a slot in the pool.
-const SLOT_KINDS: [&str; 2] = ["slot", "branch"];
+pub(super) const SLOT_KINDS: [&str; 2] = ["slot", "branch"];
 /// A command that is not one slash command, or a session that is not a terminal one. A 422.
 pub(super) const SESSION_COMMAND_REFUSED: &str = "fleet.session_command_refused";
 /// A message with neither words nor a file. A 422.
@@ -351,68 +351,20 @@ where
         self.run_terminal_command(&session, &run.command).await
     }
 
-    async fn close_session(&self, closed: CloseSession) -> Result<SessionRecord, Refusal> {
-        let id = closed.session_id.as_str().to_string();
-        if let Some(session) = self.terminal_session(&id).await? {
-            return self.end_terminal(&session).await;
+    async fn close_session(self: Arc<Self>, closed: CloseSession) -> Result<SessionRecord, Refusal> {
+        let (ended, owed) = self.session_ended(closed).await?;
+        if let Some((id, hosting)) = owed {
+            // The park commits a tree and ends what runs in it: the reply does not wait for it.
+            tokio::spawn(async move { self.parked_after_close(&id, hosting).await });
         }
-        let (session, hosting) = self.session_and_hosting(&id).await?;
-        if session.state == store::SessionState::Ended {
-            return self.published_hosted(&id).await;
-        }
-        {
-            let runtime = self.hosts().of(&id);
-            let mut state = runtime.state();
-            if let Some(asked) = state.asked.take() {
-                self.hosts().asks().withdraw(&asked.call);
-            }
-            Self::let_go(&mut state);
-            state.turn = SessionTurn::Idle;
-            state.moving = None;
-            state.allowed_folders.clear();
-        }
-        let mut still_held = Vec::new();
-        if let Ok(served) = self.served_named(Some(&ManifestId::carried(&hosting.manifest_id))) {
-            // Parked: what is in each slot is committed to the branch it is on and
-            // nothing is pushed, so closing loses no work.
-            still_held = self.park_every_slot_of(&id, &served, hosting.lease_slot).await;
-        }
-        // Out of the line if it was in it, and its slot, if it had one, is the next one's.
-        self.hosts().slot_queue().leave(&id);
-        self.hosts().slot_freed();
-        let now = self.now().as_str().to_string();
-        {
-            let mut store = self.store().lock().await;
-            let mut row = session;
-            row.state = store::SessionState::Ended;
-            row.ended_at = Some(now.clone());
-            row.end_reason = Some(String::from("closed"));
-            row.last_seen_at = now.clone();
-            store
-                .keep_session(&row)
-                .map_err(|why| self.ledger_fault(why))?;
-            // A slot the pool still holds for it stays on the ledger as held, or it is
-            // stranded with nothing saying so. The boot pass parks it once it can.
-            let holder = Holder::session(&id);
-            if still_held.is_empty() {
-                store.give_back(&holder, None, &now).map_err(|why| self.ledger_fault(why))?;
-            } else {
-                let held = store.attachments_of(&holder).map_err(|why| self.ledger_fault(why))?;
-                for kind in held.iter().map(|one| one.kind.as_str()).filter(|kind| !SLOT_KINDS.contains(kind)) {
-                    store.give_back(&holder, Some(kind), &now).map_err(|why| self.ledger_fault(why))?;
-                }
-            }
-        }
-        self.session_wound_up(&id).await;
-        self.writes().left(&crate::clashing::Who::Session(id.clone()));
-        self.published_hosted(&id).await
+        Ok(ended)
     }
 
     async fn retry_handoff(self: Arc<Self>, retry: ipc::RetryHandoff) -> Result<SessionRecord, Refusal> {
         self.handoff_retried(retry).await
     }
 
-    async fn move_session(&self, moved: MoveSession) -> Result<SessionRecord, Refusal> {
+    async fn move_session(self: Arc<Self>, moved: MoveSession) -> Result<SessionRecord, Refusal> {
         self.moved_session(moved).await
     }
 

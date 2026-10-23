@@ -159,7 +159,7 @@ async fn ends_starts_it_with_the_handoff_then_the_brief() {
     rig.thread_has(&agent, "the row that tells it", |row| matches!(row, SessionRow::Waiter { .. })).await;
     assert!(rig.record(&waiting.id).await.waits.is_some(), "still waiting while the other runs");
 
-    rig.fleet.close_session(CloseSession { session_id: agent.clone() }).await.expect("closed");
+    Arc::clone(&rig.fleet).close_session(CloseSession { session_id: agent.clone() }).await.expect("closed");
 
     let started = rig.eventually(&waiting.id, "the start", |one| one.waits.is_none()).await;
     assert!(started.hosted.is_some());
@@ -189,7 +189,7 @@ async fn a_condition_already_met_starts_it_at_once() {
 async fn a_session_that_has_ended_cannot_be_waited_on() {
     let rig = super::agent_starts::rig(None);
     let agent = rig.a_waited_on_agent().await;
-    rig.fleet.close_session(CloseSession { session_id: agent.clone() }).await.expect("closed");
+    Arc::clone(&rig.fleet).close_session(CloseSession { session_id: agent.clone() }).await.expect("closed");
 
     let refused = Arc::clone(&rig.fleet).start_session_reading(brief_after(&rig, &agent, StartCondition::Ends, StartBase::Main)).await;
 
@@ -252,8 +252,8 @@ async fn a_session_closed_while_it_waits_never_starts() {
     let agent = rig.a_waited_on_agent().await;
     let waiting = rig.waits(&agent, StartCondition::Ends, StartBase::Main).await;
 
-    rig.fleet.close_session(CloseSession { session_id: waiting.id.clone() }).await.expect("closed");
-    rig.fleet.close_session(CloseSession { session_id: agent.clone() }).await.expect("closed");
+    Arc::clone(&rig.fleet).close_session(CloseSession { session_id: waiting.id.clone() }).await.expect("closed");
+    Arc::clone(&rig.fleet).close_session(CloseSession { session_id: agent.clone() }).await.expect("closed");
     tokio::time::sleep(Duration::from_millis(200)).await;
 
     assert_eq!(rig.processes(), 1);
@@ -517,7 +517,7 @@ async fn a_session_an_agent_started_to_wait_holds_its_first_message_for_the_pers
     assert!(kind(&record, "unsent").is_none(), "no first message is waiting for him yet");
     assert!(kind(&record, "started_by").is_some(), "and the agent that started it still follows it");
 
-    rig.fleet.close_session(CloseSession { session_id: agent.clone() }).await.expect("closed");
+    Arc::clone(&rig.fleet).close_session(CloseSession { session_id: agent.clone() }).await.expect("closed");
 
     let met = rig.eventually(&held.session_id, "the condition met", |one| one.waits.is_none()).await;
     let unsent = kind(&met, "unsent").expect("its first message now waits for him");
@@ -628,7 +628,7 @@ async fn a_session_waiting_on_a_workflow_gets_no_step_prompt_before_its_conditio
     assert!(rig.rows(&waiting.id).await.is_empty(), "and nothing is sent to it");
 
     // Once met it starts on one turn that holds the step, and the rail adds none.
-    rig.fleet.close_session(CloseSession { session_id: agent.clone() }).await.expect("closed");
+    Arc::clone(&rig.fleet).close_session(CloseSession { session_id: agent.clone() }).await.expect("closed");
     rig.processes_reach(processes + 1).await;
     rig.rail_has_acted().await;
     let sent = rig.sent_to(processes);

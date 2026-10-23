@@ -97,6 +97,8 @@ pub(super) struct FakeSlots {
     branch_of: Mutex<BTreeMap<String, String>>,
     /// What the next park answers instead of freeing the slot.
     park_refusal: Mutex<Option<SlotParkRefused>>,
+    /// Where every hosted park waits, where a case holds them.
+    park_gate: Mutex<Option<std::sync::Arc<super::ParkGate>>>,
     parked: Mutex<Vec<(u32, String)>>,
     /// Every lease of an existing branch: the branch, the slot, the Job.
     reseated: Mutex<Vec<(String, u32, String)>>,
@@ -197,6 +199,10 @@ impl FakeSlots {
         slot: u32,
         job: &str,
     ) -> Result<SlotParked, SlotParkRefused> {
+        let gate = self.park_gate.lock().expect("not poisoned").clone();
+        if let Some(gate) = gate {
+            gate.pass();
+        }
         if let Some(refused) = self.park_refusal.lock().expect("not poisoned").take() {
             return Err(refused);
         }
@@ -608,6 +614,13 @@ impl FakeVcs {
     /// slot on the base, or one another holds.
     pub fn refuse_next_park(&self, why: SlotParkRefused) {
         self.slots.refuse_next_park(why);
+    }
+
+    /// Hold every park at a gate until the test opens it (or drops the hold).
+    pub fn hold_parks(&self) -> super::ParkHold {
+        let gate = std::sync::Arc::new(super::ParkGate::default());
+        *self.slots.park_gate.lock().expect("not poisoned") = Some(std::sync::Arc::clone(&gate));
+        super::ParkHold(gate)
     }
 
     /// What slot `slot` holds once its branch merged, in place of nothing.

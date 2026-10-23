@@ -7,11 +7,12 @@
 // are drawn only when something is wrong with them: as a call in the thread, and by lighting the Slot key. The panels are drawn into the deck's
 // right column (`hosts`).
 
-import { useEffect } from "react";
+import { Fragment, useEffect } from "react";
 import { createPortal } from "react-dom";
 import type { ReactNode } from "react";
 import type { LedgerEntry } from "@armada/components";
 import type { RepositorySummary } from "@armada/protocol";
+import { useLayout } from "@armada/shell";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
 import { useSessionsDraft } from "../sessions-draft";
@@ -31,6 +32,7 @@ export type Hosts = { side: HTMLElement | null };
 
 export function SessionWorkspace({ session, entries, repositories, hosts, ed, bays, onOpenSketch, onOpenSession, onOpenCheck, live, children }: { session: Session; ed: PlanEditing | undefined; entries: readonly LedgerEntry[]; repositories: readonly RepositorySummary[]; hosts?: Hosts | undefined; bays: SessionBays | undefined; onOpenSketch: (sketch: string, at?: string) => void; onOpenSession: (id: string) => void; onOpenCheck: (run: number) => void; live?: LiveOpen; children: ReactNode }) {
   const draft = useSessionsDraft();
+  const order = useLayout("job.panels").all;
   const { id } = session;
   const open = useLayer(id);
   // The Field large draws itself (`FieldLayer.tsx`); the other layers are `Layer`'s.
@@ -41,13 +43,13 @@ export function SessionWorkspace({ session, entries, repositories, hosts, ed, ba
   const work = session.work;
   const layered = layer === undefined ? null : <Layer id={layer} session={session} entries={entries} bays={bays} onOpenCheck={onOpenCheck} onOpenSession={onOpenSession} onOpenSketch={onOpenSketch} />;
   if (work === undefined || draft === undefined || hosts === undefined) return <>{children}{layered}{large}</>;
-  const right = (
-    <>
-      <FieldPanel session={session} repositories={repositories} place="side" />
-      <WorkflowPanel work={work} place="side" id={id} manifestId={session.manifestId} acts={draft.work} />
-      <ProgressPanel work={work} place="side" id={id} session={session} manifestId={session.manifestId} acts={draft.work} ed={ed} onOpenSketch={onOpenSketch} onOpenSession={onOpenSession} live={live} />
-    </>
-  );
+  // In the order a layout gives; each panel leaves itself out where a layout hides it (`SvPanel`).
+  const panels: Record<string, ReactNode> = {
+    field: <FieldPanel session={session} repositories={repositories} place="side" />,
+    workflow: <WorkflowPanel work={work} place="side" id={id} manifestId={session.manifestId} acts={draft.work} />,
+    progress: <ProgressPanel work={work} place="side" id={id} session={session} manifestId={session.manifestId} acts={draft.work} ed={ed} onOpenSketch={onOpenSketch} onOpenSession={onOpenSession} live={live} />,
+  };
+  const right = order.map((one) => <Fragment key={one.id}>{panels[one.id]}</Fragment>);
   return (
     <>
       {children}

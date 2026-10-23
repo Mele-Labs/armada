@@ -381,7 +381,7 @@ pub struct Subscription {
 }
 
 /// What a subscription has for the socket to send next.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Next {
     /// An event, at its position.
     Send(Delivered),

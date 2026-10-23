@@ -140,6 +140,8 @@ export function others(): Session[] {
 
 /** How long the mock's pull request act takes to come back from the forge. */
 const ACT_MS = 1500;
+/** How long after End answers a Job reads as ended: past the pane leaving, so the row settles after it. */
+const END_MS = 700;
 
 /** What a subagent's window holds: a running one starts at the first and takes in the second with each row it has drawn. */
 const SUBAGENT_TOKENS_FROM = 18_000;
@@ -643,7 +645,8 @@ export function sessionsStore(
       edit(id, ({ autoLand: _, ...one }) => (on ? { ...one, autoLand: true as const } : one));
       return true;
     },
-    close: (id) => edit(id, (one) => ({ ...one, dead: "ended" as const })),
+    // Fleet answers End at once and parks the Job in the background: it reads as ended a moment later.
+    close: (id) => after(END_MS, () => void edit(id, (one) => ({ ...one, dead: "ended" as const }))),
     tune: (id, tuning) =>
       edit(id, (one) => {
         const { model, effort, ...rest } = one;

@@ -59,6 +59,15 @@ impl<F: Forge> Forge for GitVcs<F> {
         self.forge.open_pull_request(in_repo, gate, number)
     }
 
+    fn open_pull_requests_by(
+        &self,
+        in_repo: &str,
+        gate: &str,
+        author: &str,
+    ) -> Option<adapter_traits::OpenPulls> {
+        self.forge.open_pull_requests_by(in_repo, gate, author)
+    }
+
     fn merge_queue(&self, in_repo: &str, base: &str) -> Option<adapter_traits::MergeQueue> {
         self.forge.merge_queue(in_repo, base)
     }

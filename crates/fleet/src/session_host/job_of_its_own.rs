@@ -10,7 +10,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, CommitTime, Committed, Delivery, Opened, Pushed, Review, Vcs, WorkProduct, Worktree};
-use api::{HostedSessions, Refusal};
+use api::Refusal;
 use ipc::{CloseSession, ManifestId, SessionId, StartSession};
 use store::{AttachmentState, Holder, KeptAttachment};
 
@@ -65,7 +65,7 @@ where
         match leased {
             Ok(tree) => Ok(Ok((id, tree))),
             Err(why) => {
-                let _ = self.close_session(CloseSession { session_id: id }).await;
+                let _ = self.closed_and_parked(CloseSession { session_id: id }).await;
                 Ok(Err(why))
             }
         }

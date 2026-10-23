@@ -10,7 +10,7 @@
 
 import type { FleetRule, LogbookEntry, ModChecked, ModSummary, Outcome, ReadTeaching, SaveTeaching, TeachingProposal, TeachingRead, TeachingSaved, WordRule, WordRulesRead } from "@armada/protocol";
 import { TEACH_SOURCE } from "@armada/components";
-import { parseLayout } from "@armada/shell";
+import { LAYOUT, parseLayout } from "@armada/shell";
 
 import type { BridgeState } from "../../../shared/bridge";
 import { BRIDGE, forgetLesson, lessonsNow, saveLesson, taughtId } from "../teach";
@@ -87,8 +87,12 @@ export function siteAnswered(manifestId: string, host: string): void {
   siteFound(manifestId, { address: `https://${host}`, from: { kind: "you" } });
 }
 
-/** A panel of the Cockpit taught away: the layout `hide-<panel>` names it and the registry's id is the panel's name, lowercased. */
-const hiding = (panel: string): LayoutChange => ({ mod: `hide-${panel.toLowerCase()}`, region: "dashboard.panels", hidden: [panel.toLowerCase()] });
+/** A panel taught away: the layout `hide-<panel>` names it, in the region that registers the panel's name, lowercased. */
+const hiding = (panel: string): LayoutChange => {
+  const id = panel.toLowerCase();
+  const region = LAYOUT["job.panels"].entries.some((one) => one.id === id) ? "job.panels" : "dashboard.panels";
+  return { mod: `hide-${id}`, region, hidden: [id] };
+};
 
 const sentence = (words: string): string => {
   const said = words.trim().replace(/\s+/g, " ");

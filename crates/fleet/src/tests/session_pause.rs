@@ -2,6 +2,7 @@
 //! what is read is the ledger, the row Fleet publishes and the pool's lease.
 
 use std::sync::atomic::Ordering;
+use std::sync::Arc;
 
 use adapter_traits::Vcs;
 use api::HostedSessions;
@@ -155,7 +156,7 @@ async fn pause_and_resume_refuse_what_they_cannot_do() {
     assert_eq!(code(refused), "fleet.session_pause_refused");
 
     // Ended.
-    rig.fleet
+    Arc::clone(&rig.fleet)
         .close_session(ipc::CloseSession { session_id: bare.clone() })
         .await
         .expect("closed");

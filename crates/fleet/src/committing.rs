@@ -6,22 +6,24 @@
 //! **A copy, never a move**: the person's own piece is read and left where it is kept. **Every
 //! refusal is decided against the checkout, before the Job is made**, so a refused commit leaves
 //! no Job behind; the checkout is read and never written. **A pull request that does not open
-//! loses nothing**: the Job keeps the commit on its branch, and the answer says why.
+//! loses nothing**: the Job keeps the commit on its branch, and the stream says why.
 
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Review, Vcs, WorkProduct};
 use api::Refusal;
 use config::KitRead;
 use core_model::WorkflowSource;
 use ipc::{
-    CommitToRepository, CommittedToRepository, FlightControl, FlightControlsRead,
+    BackgroundAct, CommitToRepository, CommittedToRepository, FlightControl, FlightControlsRead,
     PieceToCommit, ReviewToolScope, SessionId, WireError,
 };
 
 use crate::daemon::Fleet;
 use crate::flight_controls::repository::{check_repository, parse_repository, IN_REPOSITORY};
 use crate::flight_controls::read_at;
+use crate::repositories::Served;
 use crate::requesting::{self, NotCopied};
 use crate::run_memory::JobTree;
 
@@ -35,6 +37,8 @@ pub(crate) const EXISTS: &str = "fleet.commit_exists";
 pub(crate) const REFUSED: &str = "fleet.commit_refused";
 /// A file could not be written or git refused the commit. A 500.
 pub(crate) const UNWRITABLE: &str = "fleet.commit_unwritable";
+/// The commit is on the Job's branch and the pull request would not open. A 500, told as `act.failed`.
+pub(crate) const PULL_REQUEST_NOT_OPENED: &str = "fleet.commit_pull_request_not_opened";
 
 /// The repository's own folders, relative to its root.
 const WORKFLOWS: &str = ".armada/workflows";
@@ -73,15 +77,17 @@ where
     fn commit_refusal(&self, code: &str, said: String) -> Refusal {
         let raised = WireError::raised(code, said, self.run_id());
         match code {
-            UNWRITABLE => Refusal::Fault(raised),
+            UNWRITABLE | PULL_REQUEST_NOT_OPENED => Refusal::Fault(raised),
             _ => Refusal::Unacceptable(raised),
         }
     }
 
     /// `commit_to_repository`: the piece read against the checkout, then a Job of its own that
-    /// commits it on its branch, pushes it and opens its pull request.
+    /// commits it on its branch, pushes it and opens its pull request. **Answered once the Job and
+    /// its branch exist**; the commit, the push and the pull request finish in a task of their own,
+    /// and a failure there is `act.failed` for that Job.
     pub(crate) async fn committed_to_repository(
-        &self,
+        self: &Arc<Self>,
         asked: CommitToRepository,
     ) -> Result<CommittedToRepository, Refusal> {
         let root = self.run_repository(&asked.repository)?;
@@ -107,18 +113,30 @@ where
             Ok(job) => job,
             Err(why) => return Err(self.commit_refusal(REFUSED, format!("No Job could be made for this commit. {why}"))),
         };
-        let commit = self.committed_in(&tree, &copy.files, &copy.message).await.map_err(|why| self.commit_refusal(UNWRITABLE, why))?.ok_or_else(|| {
+        let reply = CommittedToRepository { repository: root, session_id: session_id.clone(), branch: tree.branch.clone(), paths: paths.clone() };
+        let (fleet, manifest) = (Arc::clone(self), ipc::ManifestId::carried(served.manifest().id().as_str()));
+        tokio::spawn(async move {
+            if let Err(refusal) = fleet.copy_finished(&served, &session_id, &tree, copy, &paths).await {
+                fleet.act_failed(BackgroundAct::CommitToRepository, Some(manifest), Some(session_id), refusal);
+            }
+        });
+        Ok(reply)
+    }
+
+    /// What follows the reply: the commit on the Job's branch, its push and its pull request. A pull
+    /// request that does not open is a failure of this act, **the commit and the push standing**.
+    async fn copy_finished(&self, served: &Served, session_id: &SessionId, tree: &JobTree, copy: Copy, paths: &[String]) -> Result<(), Refusal> {
+        self.committed_in(tree, &copy.files, &copy.message).await.map_err(|why| self.commit_refusal(UNWRITABLE, why))?.ok_or_else(|| {
             self.commit_refusal(UNWRITABLE, format!("git found nothing to commit for {} on {}.", paths.join(", "), tree.branch))
         })?;
         let body = format!("{}.\n\nMade by Commit to repository, as a Job of its own: {}.", copy.message, paths.join(", "));
-        let (pull_request, pull_request_not_opened) = match self.delivered_for_review(&served, &tree, Review::assembled(copy.title, body)).await {
+        match self.delivered_for_review(served, tree, Review::assembled(copy.title, body)).await {
             Ok(url) => {
-                self.pull_attached(&served, session_id.as_str(), &tree.branch, &url).await;
-                (Some(url), None)
+                self.pull_attached(served, session_id.as_str(), &tree.branch, &url).await;
+                Ok(())
             }
-            Err(why) => (None, Some(why)),
-        };
-        Ok(CommittedToRepository { repository: root, session_id, branch: tree.branch, paths, commit, pull_request, pull_request_not_opened })
+            Err(why) => Err(self.commit_refusal(PULL_REQUEST_NOT_OPENED, why)),
+        }
     }
 
     /// The chosen tiles from the person's own, added to the tiles the branch already holds.

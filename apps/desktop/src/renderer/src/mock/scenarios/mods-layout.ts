@@ -34,7 +34,7 @@ function build(): Scenario {
   return {
     ...sessions().scenario(board),
     name: "mods-layout",
-    says: "A Session that writes a layout: the Dashboard and the rail follow, and Settings → Layout takes it back",
+    says: "A Session that writes a layout: the Cockpit, a Job and the tabs follow, and Settings → Layout takes it back",
     behaves: (handle) => {
       mockLayout.reset();
       const fake = sessions();
@@ -53,7 +53,7 @@ function build(): Scenario {
             at: "2026-10-08T09:10:08.000Z",
             kind: "message",
             from: { kind: "agent" },
-            text: "Merge line is first on the Dashboard. Retros is off the rail.",
+            text: "Activity is off the Cockpit, Workflow is first in a Job, and the Logbook is off the tabs.",
           });
           writeTidy(TIDY_DASHBOARD);
           // The turn is over, so the next request can be sent.

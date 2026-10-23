@@ -70,6 +70,29 @@ fn a_listing_the_forge_will_not_answer_is_asked_again_for_fewer_over_the_api_too
     assert_eq!(down.seen().len(), 2, "both sizes were asked");
 }
 
+/// The search answers what the listing does, its nodes under `search` rather than the repository.
+#[test]
+fn one_authors_open_pull_requests_over_the_api_are_a_search_for_their_login() {
+    let searched = OPEN.replacen(r#"{"data":{"repository":{"pullRequests":"#, r#"{"data":{"search":"#, 1);
+    let searched = searched.trim_end().strip_suffix('}').unwrap().to_string();
+    let server = serve(move |seen| match seen.body.as_str() {
+        body if body.contains("search(query:$q,type:ISSUE") => ok(&searched),
+        _ => not_found(),
+    });
+    let forge = ApiForge::through(api(&server.url, &["t"]).0);
+    let repo = on_github();
+
+    let pulls = forge.open_pull_requests_by(&repo.root_str(), "ci", "grace").unwrap();
+    let expected: Vec<_> = lines(OPEN_GH).iter().filter_map(|line| open_pull_of_line(line, "ci")).collect();
+    assert_eq!(pulls, expected);
+    assert_eq!(server.seen().len(), 1);
+    let asked = &server.seen()[0].body;
+    assert!(asked.contains(r#""q":"repo:mele-labs/armada is:pr is:open author:grace sort:created-desc""#), "{asked}");
+    assert!(asked.contains(r#""first":100"#), "{asked}");
+    assert_eq!(forge.open_pull_requests_by(&repo.root_str(), "ci", "-grace"), None, "an option is not a login");
+    assert_eq!(forge.open_pull_requests_by(&repo.root_str(), "ci", "grace is:closed"), None);
+}
+
 #[test]
 fn one_open_pull_request_over_the_api_is_the_one_gh_reads_and_a_closed_one_is_none() {
     let server = serve(|seen| match seen.body.as_str() {
