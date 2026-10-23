@@ -169,6 +169,7 @@ impl Examined {
                 .map(|ms| Instant::carried(crate::clock::rfc3339_utc(ms))),
             tried: self.tried.clone(),
             stale: self.stale,
+            pull_request: None,
         }
     }
 }

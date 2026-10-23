@@ -8,13 +8,19 @@
 //! and the owner's checkout is read and never written. **A pull request that does not open loses
 //! nothing**: the Job keeps the commit on its branch and the answer says why. The Job is then told
 //! nothing, since it has no pull request to watch.
+//!
+//! **The Job keeps which mod it promoted**, as a `mod` row on its ledger beside its pull request, so
+//! `list_mods` carries that pull request on the mod's row while it is open and a second promote is
+//! refused, however often Bridge is reloaded.
 
+use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Review, Vcs, WorkProduct};
 use api::Refusal;
-use ipc::{ModPromoted, PromoteMod, WireError};
+use ipc::{ModPromoted, ModPullRequest, PromoteMod, SessionId, WireError};
+use store::{AttachmentState, Holder, KeptAttachment};
 
 use super::serving::{Named, MOD_NOT_PROMOTABLE};
 use super::{examine, Files, Payload, MANIFEST};
@@ -22,6 +28,8 @@ use crate::daemon::Fleet;
 
 /// Where a promoted mod lives in the repository.
 const PLACE: &str = "packages/mods";
+/// The ledger row a promote's Job keeps: its target is the mod's name, its `title` what the promote titled.
+const MOD: &str = "mod";
 
 impl<H, V, W> Fleet<H, V, W>
 where
@@ -37,6 +45,9 @@ where
         let name = promote.name;
         if let Named::BuiltIn(_) = self.mod_named(&name)? {
             return Err(self.cannot_promote(&name, format!("`{name}` is built in, so it is in the repository already")));
+        }
+        if let Some(open) = self.mods_in_review().await.remove(&name) {
+            return Err(self.cannot_promote(&name, format!("`{name}` is in a pull request that is still open, {}", open.address)));
         }
         let dir = self.mods_dir();
         let asked = name.clone();
@@ -73,6 +84,7 @@ where
         let body = format!("{title}.\n\nMade by Promote in Mods, as a Job of its own: {}.", paths.join(", "));
         let (pull_request, pull_request_not_opened) = match self.delivered_for_review(&served, &tree, Review::assembled(title.clone(), body)).await {
             Ok(url) => {
+                self.promote_kept(&served, session_id.as_str(), &name, &title).await;
                 self.pull_attached(&served, session_id.as_str(), &tree.branch, &url).await;
                 let base = served.manifest().base().unwrap_or("main");
                 // A refused word leaves the pull request on the Job's row, where Fleet's notices still reach it.
@@ -81,7 +93,55 @@ where
             }
             Err(why) => (None, Some(why)),
         };
-        Ok(ModPromoted { name, session_id, branch: tree.branch, commit, pull_request, pull_request_not_opened })
+        // Every window's list carries the pull request now, not at the next rescan.
+        let _ = self.mods_announced().await;
+        Ok(ModPromoted { name, session_id, title, branch: tree.branch, commit, pull_request, pull_request_not_opened })
+    }
+
+    /// The `mod` row on the Job's ledger. **Held, never raised**: the pull request is open either way.
+    async fn promote_kept(&self, served: &crate::repositories::Served, id: &str, name: &str, title: &str) {
+        let now = self.now().as_str().to_string();
+        let kept = KeptAttachment {
+            holder: Holder::session(id),
+            kind: MOD.into(),
+            manifest_id: served.manifest().id().as_str().to_string(),
+            target: name.to_string(),
+            state: AttachmentState::Standing,
+            detail: [("title".to_string(), title.to_string())].into(),
+            since: now.clone(),
+            changed_at: now,
+        };
+        let _ = self.store().lock().await.attach(&kept, false);
+    }
+
+    /// Each mod a promote's Job holds an open pull request for, by name. A ledger that will not read
+    /// leaves a mod out, since nothing here may fail the list.
+    pub(super) async fn mods_in_review(&self) -> BTreeMap<String, ModPullRequest> {
+        let served = self.repositories().served();
+        let store = self.store().lock().await;
+        let mut open = BTreeMap::new();
+        for one in &served {
+            let manifest = one.manifest().id().as_str();
+            for promote in store.standing_of_kind(MOD, manifest).unwrap_or_default() {
+                let held = store.attachments_of(&promote.holder).unwrap_or_default();
+                let Some(pull) = held.iter().find(|row| {
+                    row.kind == crate::pull_requesting::PR
+                        && row.manifest_id == manifest
+                        && row.state == AttachmentState::Standing
+                        && matches!(row.detail.get("state").map(String::as_str), Some("open" | "draft"))
+                }) else {
+                    continue;
+                };
+                let (Ok(number), Some(address)) = (pull.target.parse::<u64>(), pull.detail.get("address")) else { continue };
+                open.entry(promote.target.clone()).or_insert_with(|| ModPullRequest {
+                    address: address.clone(),
+                    number,
+                    title: promote.detail.get("title").cloned().unwrap_or_default(),
+                    session_id: SessionId::carried(promote.holder.id.as_str()),
+                });
+            }
+        }
+        open
     }
 
     fn cannot_promote(&self, name: &str, said: String) -> Refusal {

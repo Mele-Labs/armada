@@ -38,6 +38,7 @@ impl Mods for FakeDaemon {
             changed_at: None,
             tried: None,
             stale: false,
+            pull_request: None,
         })
     }
 
@@ -69,6 +70,7 @@ impl Mods for FakeDaemon {
             branch: format!("armada/mod-{}-0", promote.name),
             name: promote.name,
             session_id: ipc::SessionId::carried("fake-session"),
+            title: String::from("Add the mod"),
             commit: String::from("0000000"),
             pull_request: None,
             pull_request_not_opened: None,

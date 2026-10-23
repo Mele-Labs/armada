@@ -89,6 +89,21 @@ pub struct ModSummary {
     /// Absent, like `tried`, for a mod never tried.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub stale: bool,
+    /// The pull request a promote opened for this mod, while it is open, and the Job that holds it.
+    /// Absent for a mod never promoted, and once that pull request merges or closes.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pull_request: Option<ModPullRequest>,
+}
+
+/// A promoted mod's open pull request, as the Job of its own holds it on its row.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ModPullRequest {
+    pub address: String,
+    pub number: u64,
+    /// What the promote titled the pull request and its Job: `Add the calm theme mod`.
+    pub title: String,
+    /// The Job of its own that holds it.
+    pub session_id: SessionId,
 }
 
 /// Every mod on this machine, by name. The answer to `list_mods` and the body
@@ -188,6 +203,8 @@ pub struct ModPromoted {
     pub name: String,
     /// The Job made for this promote, which watches its pull request until it merges.
     pub session_id: SessionId,
+    /// What the commit, the Job and the pull request are titled: `Add the calm theme mod`.
+    pub title: String,
     /// The Job's own branch, which holds the one commit.
     pub branch: String,
     pub commit: String,

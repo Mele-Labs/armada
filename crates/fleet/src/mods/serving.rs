@@ -65,14 +65,19 @@ where
             .map_err(|fault| self.refusal(Adrift::Reading(ReadError::Database(fault))))
     }
 
-    /// The folder as it stands, read off the disk now.
+    /// The folder as it stands, read off the disk now, each mod with the pull request a promote holds open for it.
     async fn mods_listed(&self) -> Result<ModList, Refusal> {
         let switches = self.mod_switches_read().await?;
         self.host().mod_switches.replace(&switches);
         let (dir, built_in) = (self.mods_dir(), self.host().built_in_mods.clone());
-        tokio::task::spawn_blocking(move || scan(&dir, &switches, &built_in))
+        let mut list = tokio::task::spawn_blocking(move || scan(&dir, &switches, &built_in))
             .await
-            .map_err(|why| self.mod_fault(format!("the mods folder could not be read: {why}")))
+            .map_err(|why| self.mod_fault(format!("the mods folder could not be read: {why}")))?;
+        let mut open = self.mods_in_review().await;
+        for one in &mut list.mods {
+            one.pull_request = open.remove(&one.name);
+        }
+        Ok(list)
     }
 
     /// Say the list now, because something here just changed it. The rescan

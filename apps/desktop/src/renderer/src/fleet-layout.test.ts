@@ -37,7 +37,7 @@ function fake(start: Facts, texts: Record<string, string> = { tidy: TIDY }, over
       return layout === undefined ? { name, valid: false, problems: ["layout.json is missing"] } : { name, valid: true, problems: [], layout };
     },
     setModEnabled: async (name, enabled) => (asked.push(`${enabled ? "on" : "off"} ${name}`), { ok: true }),
-    promoteMod: async (name) => ({ ok: true, modPromoted: { name, branch: `armada/mod-${name}-1`, commit: "abc" } }),
+    promoteMod: async (name) => ({ ok: true, modPromoted: { name, session_id: "s1", title: `Add the ${name} mod`, branch: `armada/mod-${name}-1`, commit: "abc" } }),
     savePreference: async (save) => (saved.push(save), { ok: true }),
     ...over,
   };

@@ -356,7 +356,7 @@ export const teachedMods = {
     return OK;
   },
   tryTrackerMod: async (): Promise<Outcome> => OK,
-  promoteMod: async (name: string): Promise<Outcome> => ({ ok: true, modPromoted: { name, branch: `armada/mod-${name}-${Date.now()}`, commit: "abc1234" } }),
+  promoteMod: async (name: string): Promise<Outcome> => ({ ok: true, modPromoted: { name, session_id: "01SESSIONTEACHPROMOTEAAAAAA", title: `Add the ${name} mod`, branch: `armada/mod-${name}-${Date.now()}`, commit: "abc1234" } }),
 };
 
 /** What the evidence row names the thing Teach was pressed on, in the Logbook's own style. */

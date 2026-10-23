@@ -42,6 +42,18 @@ export type ModSummary = {
   tried?: TrackerTry;
   /** A tracker mod that was tried, and whose `tracker.toml` has been edited since, so `tried` is absent. Left out otherwise, and for one never tried. */
   stale?: boolean;
+  /** The pull request a promote opened for this mod, while it is open, and the Job that holds it. Absent once it merges or closes. */
+  pull_request?: ModPullRequest;
+};
+
+/** A promoted mod's open pull request, as the Job of its own holds it on its row. */
+export type ModPullRequest = {
+  address: string;
+  number: number;
+  /** What the promote titled the pull request and its Job: `Add the calm theme mod`. */
+  title: string;
+  /** The Job of its own that holds it. */
+  session_id: string;
 };
 
 /** `GET /mods`, and the body of `mods.changed`: every mod by name, which a client replaces its list with. */
@@ -130,8 +142,10 @@ export type PromoteMod = {
 /** A mod committed by a Job of its own, on that Job's branch, and the pull request it opened. */
 export type ModPromoted = {
   name: string;
-  /** The Job made for this promote, which watches its pull request until it merges. Optional here only until Bridge's fakes carry it; Fleet always sends it. */
-  session_id?: string;
+  /** The Job made for this promote, which watches its pull request until it merges. */
+  session_id: string;
+  /** What the commit, the Job and the pull request are titled: `Add the calm theme mod`. */
+  title: string;
   branch: string;
   commit: string;
   /** The pull request's address, where one was opened. */

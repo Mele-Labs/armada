@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use adapter_traits::Opened;
 use api::Mods;
-use ipc::{ModPromoted, PromoteMod};
+use ipc::{ModPromoted, ModPullRequest, PromoteMod};
 use testkit::{CommitScope, Delivered, Delivering, FakeVcs};
 
 use super::session_host::{eventually, rig_fitted, rig_placing, Rig};
@@ -103,4 +103,35 @@ async fn a_pull_request_that_does_not_open_answers_why_and_still_names_the_job()
     let session = rig.fleet.store().lock().await.session(promoted.session_id.as_str()).expect("read").expect("kept");
     assert_eq!(session.state, store::SessionState::Live, "the Job stays");
     assert!(rig.stand_in.process_of(promoted.session_id.as_str()).is_none(), "nothing was sent to it");
+}
+
+/// **A promote outlives the window that pressed it**: `list_mods` carries the open pull request and
+/// its Job on the mod's row, so a Bridge read again is not offered Promote, and a second promote is
+/// refused while that pull request is open. Once it merges the row carries none.
+#[tokio::test]
+async fn an_open_pull_request_is_listed_on_its_mod_and_refuses_a_second_promote() {
+    let rig = rig_placing(None);
+    a_mod_to_promote(&rig);
+    let promoted = promoted(&rig).await;
+    assert_eq!(promoted.title, "Add the calm theme mod");
+
+    let listed = rig.fleet.list_mods().await.expect("listed");
+    let calm = listed.mods.iter().find(|one| one.name == "calm").expect("calm is listed");
+    let open = ModPullRequest {
+        address: String::from("https://forge.invalid/armada/pull/1"),
+        number: 1,
+        title: String::from("Add the calm theme mod"),
+        session_id: promoted.session_id.clone(),
+    };
+    assert_eq!(calm.pull_request.as_ref(), Some(&open));
+
+    let again = Arc::clone(&rig.fleet).promote_mod(PromoteMod { name: "calm".into(), manifest_id: None }).await.expect_err("refused");
+    assert_eq!((again.status(), again.error().code.as_str()), (409, "fleet.mod_not_promotable"));
+    assert!(again.error().message.contains("https://forge.invalid/armada/pull/1"), "{}", again.error().message);
+
+    let holder = store::Holder::session(promoted.session_id.as_str());
+    let manifest = rig.fleet.repositories().served()[0].manifest().id().as_str().to_string();
+    rig.fleet.store().lock().await.settle(&holder, "pr", &manifest, "1", store::AttachmentState::Spent, "2026-10-23T12:00:00Z").expect("merged");
+    let merged = rig.fleet.list_mods().await.expect("listed");
+    assert_eq!(merged.mods.iter().find(|one| one.name == "calm").expect("calm").pull_request, None);
 }

@@ -21,6 +21,7 @@ fn a_mod(name: &str) -> ModSummary {
         changed_at: Some(Instant::carried("2026-10-08T21:00:00.000Z")),
         tried: None,
         stale: false,
+        pull_request: None,
     }
 }
 
@@ -50,6 +51,7 @@ fn a_broken_mod_leaves_out_what_could_not_be_read_rather_than_sending_null() {
         changed_at: None,
         tried: None,
         stale: false,
+        pull_request: None,
     };
     let json = encode(&broken).expect("plain data");
     assert_eq!(
