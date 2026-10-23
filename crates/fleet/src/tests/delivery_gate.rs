@@ -131,7 +131,7 @@ async fn the_question_is_answered_with_one_of_the_three_and_never_dismissed() {
         .await;
     assert!(words.is_err(), "words alone are refused");
     let dismissed = Arc::clone(&rig.fleet)
-        .dismiss_waiting(DismissWaiting { session_id: id.clone(), item_id: "delivery".into(), reason: None })
+        .dismiss_waiting(DismissWaiting { session_id: id.clone(), item_id: "delivery".into(), reason: None, misread: false })
         .await;
     assert!(dismissed.is_err(), "the question is answered, not dismissed");
     assert!(question(&rig, &id).await.is_some(), "it still stands");

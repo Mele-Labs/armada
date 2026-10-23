@@ -238,6 +238,7 @@ fn what_counts_as_destructive_reads_the_text_and_the_options() {
         place: None,
         concern: None,
         cites: Vec::new(),
+        confirmed: false,
     };
     assert!(crate::sleeping::destructive(&one("Close PR 12?", &[])));
     assert!(crate::sleeping::destructive(&one("Which?", &["Overwrite it", "Keep"])));

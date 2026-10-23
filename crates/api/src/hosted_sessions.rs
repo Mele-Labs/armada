@@ -164,6 +164,22 @@ pub(crate) async fn dismiss_waiting<D: HostedSessions>(
     }
 }
 
+/// The person says a question Fleet read from a reply is one. 200 with the row; 409 where nothing holds
+/// the item, and where it was not read from a reply.
+pub(crate) async fn confirm_waiting<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let confirm: ipc::ConfirmWaiting = match ipc::decode("a confirmation of what a job waits on", &body) {
+        Ok(confirm) => confirm,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().confirm_waiting(confirm).await {
+        Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// The newest reading of the plan's windows.
 pub(crate) async fn get_plan_usage<D: HostedSessions>(State(served): State<Served<D>>) -> Response {
     match served.daemon().get_plan_usage().await {

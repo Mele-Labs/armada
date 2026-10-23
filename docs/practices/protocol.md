@@ -763,6 +763,38 @@ Bridge's half is `packages/protocol/src/logbook.ts`, written by hand, field for 
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 A mod newer than its Fleet gets a 404 from `/logbook/subagent` and hands the subagent nothing.
 
+## Not a question: `misread` on `dismiss_waiting`
+
+Since 23 Oct 2026. `docs/concepts/session/waiting-on-the-person.md`, *A question that asks nothing*.
+**Additive only**: one optional field on an existing body; no operation, route, event kind or error.
+The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `misread` on `DismissWaiting` in `packages/protocol/src/sessions.ts`, written by hand.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `DismissWaiting` (`POST /sessions/waiting/dismiss`) | Bridge writes, Fleet reads | Gains `misread`, sent only as `true`; absent reads as `false` |
+
+**Only an item Fleet read from a reply takes it**: on a `replied` item Fleet drops the item as before and keeps its text in `reply_misreads`; on any other source the dismiss is refused and the item stands.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+**The event stream.** Untouched: the Session is published as `session.changed` as on any dismiss, so the open risk below is neither better nor worse.
+
+## A question: `confirm_waiting` and `confirmed`
+
+Since 23 Oct 2026, the thumbs up beside *Not a question* above.
+**One operation and one field**: a new route, and an optional field on an existing type; no event kind or error.
+Bridge's half is `ConfirmWaiting` and `confirmed` on `WaitingItem` in `packages/protocol/src/sessions.ts`, written by hand.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `ConfirmWaiting` (`POST /sessions/waiting/confirm`) | Bridge writes, Fleet reads | `session_id` and `item_id`; answered with the Session's record |
+| `WaitingItem.confirmed` | Fleet writes, Bridge reads | `true` on a `replied` item whose text is in `reply_confirmed`; sent only as `true` |
+
+**Only an item Fleet read from a reply takes it**: on a `replied` item Fleet keeps its text in `reply_confirmed` and the item stays; on any other source the confirm is refused and the item stands unconfirmed.
+
+**Skew.** As above.
+**The event stream.** The Session is published as `session.changed`, so the open risk below is neither better nor worse.
+
 ## Open questions
 
 Naming these rather than deciding them, per this document's brief:
