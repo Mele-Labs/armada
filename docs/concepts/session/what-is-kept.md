@@ -2,12 +2,13 @@
 
 **Part of:** [Job](../session.md).
 
-Two tables, in `crates/store`. The second is not the first's child.
+Three tables, in `crates/store`. The second is not the first's child, and the third is the second's history.
 
 | Table | One row is | Key |
 |---|---|---|
 | `sessions` | A job: harness, origin, repository, directory, title, `live` or `ended`, when it started, was last seen and last finished a turn, the figures it last reported | `id`, the harness's own |
 | `ledger_attachments` | One thing a holder took or did | `holder_kind`, `holder_id`, `kind`, `manifest_id`, `target` |
+| `ledger_attachment_versions` | One version of one of those rows, from `at` | `seq`, in the order written |
 
 A holder is `{ kind: session, id }` and points at neither table, so another kind of holder can hold rows without a table of its own. A `kind` is open text:
 
@@ -44,6 +45,15 @@ The terminal mod tells the first five (`plugins/armada/hooks/facts.ts`, `artifac
 **A hosted job tells files and pictures looked at**, because its stream carries a `Write` call but not its result, so a published page's address and a Docs link are not seen; and it cannot tell a new file from a rewrite, so a rewritten document counts.
 The extension lists are the same rule written twice, in `facts.ts` and `adapters::written_document` / `adapters::viewed_image`.
 Files made by other tools, such as a screenshot a command saved, are not seen.
+
+## Every version
+
+**A row of `ledger_attachments` is replaced in place, and every version it stood in is kept.**
+A trigger on the table writes one to `ledger_attachment_versions` when a row is inserted and whenever its `state` or `detail` changes, whichever of Fleet's writers made the change, stamped with the row's `changed_at`.
+A write that moves neither, such as a subagent stopping a second time, adds none.
+A row kept before the table existed has one version, the state it was in, at its `since`.
+Bridge reads a Job's versions whole, oldest first, with `get_attachment_history`; they ride no `session.changed`, which carries the latest row only.
+A session Fleet forgets as blank takes its versions with it, and an ended Job's stay with its rows.
 
 ## Whose slot it is
 

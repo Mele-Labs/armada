@@ -155,6 +155,7 @@ WebSocket event stream, read this first.
 | [Sessions absorb Jobs, group 1: the Job arms and piloting a Job leave the wire](protocol/sessions-absorb-jobs-group-1-the-job-arms-and-piloting-a-job-leave-the.md) |
 | [Sessions absorb Jobs, group 2: the Job surface leaves the wire](protocol/sessions-absorb-jobs-group-2-the-job-surface-leaves-the-wire.md) |
 | [A Job's Loadout](protocol/a-jobs-loadout.md) |
+| [A Job's attachment history](protocol/a-jobs-attachment-history.md) |
 | [Needs are deleted](protocol/needs-are-deleted.md) |
 | [A write clash's file is read as two patches](protocol/a-write-clashs-file-is-read-as-two-patches.md) |
 | [Usage a turn at a time](protocol/usage-a-turn-at-a-time.md) |
@@ -581,6 +582,26 @@ Bridge calls neither yet.
 
 **A mute stops the send, and is kept on disk.** A slot Fleet skipped is not marked told, so lifting the mute resumes the notice, and an hour mute ends at its time across a restart.
 **Rows are stored, not rebuilt**, so a row kept before this change has no `notice` and is never read as one.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+**The event stream.** Untouched.
+
+## The Logbook: `get_logbook` and four acts on an entry
+
+Since 22 Oct 2026. `docs/concepts/logbook.md`. **Additive only**: five operations and routes and the types they carry; no event kind and no field on an existing type.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `packages/protocol/src/logbook.ts`, written by hand, field for field. Bridge calls none of them yet.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `get_logbook` (`GET /logbook?repository=&section=&state=`, `agent_access = "Yes"`) | Bridge reads | `Logbook` `{ entries }` of `LogbookEntry`. `repository` is a root, and absent the answer is the habits and this Mac's alone; `section` and `state` absent narrow nothing, so every state is listed. A root Fleet does not serve is a 404 `fleet.run_memory_repository_not_served` |
+| `edit_logbook_entry` (`POST /logbook/entries/:entry_id/edit`) | Bridge sends `{ text }`, Fleet answers the entry | The old text goes on `history` with `by: "person"`, `edited` is true. 404 `fleet.no_such_logbook_entry`; 422 `fleet.logbook_entry_not_kept`, `fleet.logbook_text_refused`, `fleet.logbook_text_forgotten` |
+| `pin_logbook_entry` (`POST /logbook/entries/:entry_id/pin`) | Bridge sends `{ pinned }`, Fleet answers the entry | Refused as an edit is |
+| `forget_logbook_entry` (`POST /logbook/entries/:entry_id/forget`) | Bridge sends nothing, Fleet answers `{ id }` | The text, and every text it had, goes on the deny list. A second forget is a 404 `fleet.no_such_logbook_entry` |
+| `teach_logbook_entry` (`POST /logbook/entries`) | Bridge sends `{ section, repository?, kind, text, paths? }`, Fleet answers the entry | Stands at once, with no Job behind it. 422 `fleet.logbook_repository_missing` for a `repo` entry naming none; teaching forgotten text lifts the forgetting |
+
+**An id is a number for an entry Fleet keeps, and a word and a hash (`runs-…`, `machine-…`) for one read in from run memory or the machine note.** The acts refuse the second kind with `fleet.logbook_entry_not_kept`: Fleet rebuilds them on every read.
+**`LogbookEvidence.says` is optional**, since a list does not read each Job's record back. `last_tripped` is the latest time a Job tripped on the entry, read off its evidence.
 
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 **The event stream.** Untouched.

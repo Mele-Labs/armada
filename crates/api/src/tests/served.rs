@@ -320,6 +320,20 @@ async fn a_loadout_item_is_asked_on_the_query_string() {
     assert_eq!(status, StatusCode::BAD_REQUEST);
 }
 
+/// `get_attachment_history` reads its session off the query string, and a request without one is
+/// the transport's 400 rather than a read.
+#[tokio::test]
+async fn a_jobs_attachment_history_is_asked_on_the_query_string() {
+    let events = Broadcaster::new();
+    let app = wired(FakeDaemon::new(events.clone()), events);
+    let (status, body) = call(&app, "GET", "/sessions/attachment_history?session_id=s1", "").await;
+    assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&body));
+    let answer: ipc::AttachmentHistory = ipc::decode("an attachment history", &body).expect("a history");
+    assert!(answer.versions.is_empty());
+    let (status, _) = call(&app, "GET", "/sessions/attachment_history", "").await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+}
+
 /// A hosted job's MCP servers read on the query string, each state its snake_case word and an absent
 /// field left out; an act answers the servers after it and, for a sign-in, where to go.
 #[tokio::test]
