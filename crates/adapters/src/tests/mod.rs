@@ -47,6 +47,7 @@ mod issue_search;
 mod jira;
 mod jira_search;
 mod jira_links;
+mod jira_published;
 mod judge;
 mod kit_pieces;
 mod keeping_current;

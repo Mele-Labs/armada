@@ -175,7 +175,10 @@ A block naming neither is refused, since it would list every open issue on the s
 | Dispatch by link | Only `https://<site>.atlassian.net/browse/ABC-123` is recognised, any project's key, and a Job dispatched with one holds `ABC-123` on its ledger. A bare number or another host is not |
 | Close the issue | The tracker returns no closing line, because nothing in a pull request body closes a Jira issue. The pull request **title** is prefixed with the key (`ABC-123 The title`), which Jira's integration with the forge reads, and left alone where it already holds the key |
 
-**Not verified against a real `acli`.** The output shapes below were written from the documentation and are unconfirmed.
+**Not verified against a real `acli`.** Atlassian's reference confirms the flags this tracker passes: `search` takes `--jql`, `--fields`, `--json` and `--limit` (`--paginate` fetches all), and `view` takes `--fields` and `--json`; its output guide reads `view --json | jq '.fields.summary'`, so a view prints `fields` beside `key`.
+It publishes no sample of what either prints.
+The tests run the filters over the Jira Cloud REST v3 shapes instead, the user, status, resolution, rich-text description and `+0000` timestamp the REST pages give, and over a search wrapped in `issues`.
+What is still unconfirmed is below.
 Every filter reads both `.fields.x` and a flat `.x`, and flattens a rich-text description to plain text, so a plausible variation reads.
 Whoever first points a repository at Jira runs these and compares, with a real key and project:
 
