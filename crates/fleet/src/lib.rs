@@ -248,6 +248,8 @@ pub mod kit_manifests;
 /// How a repository runs, remembered from what its Jobs did. `docs/concepts/kit.md`.
 mod machine_note;
 mod run_memory;
+/// What Fleet learns from every Session of a repository — `docs/concepts/logbook.md`.
+mod logbook;
 mod notice_mutes;
 /// Folders and runs read from a person's agent CLI, and installing the mod into it.
 mod session_import;

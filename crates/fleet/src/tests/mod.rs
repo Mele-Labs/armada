@@ -57,6 +57,8 @@ mod orphans;
 mod run_cloud;
 mod machine_note;
 mod run_memory;
+mod logbook_curating;
+mod logbook_answer;
 mod notice_mutes;
 mod session_import;
 mod session_limit;

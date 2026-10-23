@@ -73,6 +73,11 @@ impl RunLog {
         let over = self.records.len().saturating_sub(MOST_RECORDS);
         self.records.drain(..over);
     }
+
+    /// What the session ran, oldest first: the Logbook's record of commands.
+    pub(crate) fn records(&self) -> &[Record] {
+        &self.records
+    }
 }
 
 fn word(kind: RunKind) -> &'static str {
@@ -129,6 +134,12 @@ pub(crate) fn place_of(word: &str) -> RunPlace {
 
 fn instant(millis: u64) -> Instant {
     Instant::carried(rfc3339_utc(millis as i64))
+}
+
+/// One remembered run as a line: what it is, where, and the command.
+pub(crate) fn run_line(fact: &KeptRun) -> String {
+    let port = fact.port.map(|port| format!(", port {port}")).unwrap_or_default();
+    format!("{} in `{}`: `{}`{port}", fact.kind.replace('_', " "), fact.workspace, fact.command)
 }
 
 /// A Job's tree and branch, where `repository` writes.
@@ -216,13 +227,7 @@ where
         }
         facts.sort_by(|one, other| other.last_ran.cmp(&one.last_ran));
         facts.truncate(MOST_TOLD);
-        let lines: Vec<String> = facts
-            .iter()
-            .map(|fact| {
-                let port = fact.port.map(|port| format!(", port {port}")).unwrap_or_default();
-                format!("- {} in `{}`: `{}`{port}", fact.kind.replace('_', " "), fact.workspace, fact.command)
-            })
-            .collect();
+        let lines: Vec<String> = facts.iter().map(|fact| format!("- {}", run_line(fact))).collect();
         Some(format!(
             "How this repository runs, remembered from what its Jobs ran. Each line is a command to run, \
              never a Check: nothing here gates a pull request.\n{}",

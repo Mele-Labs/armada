@@ -31,22 +31,26 @@ pub(crate) fn starts_with_missing(command: &str, missing: &[String]) -> bool {
     command.split_whitespace().next().is_some_and(|first| missing.iter().any(|name| name == first))
 }
 
+/// A missing command as a line, with its stand-in where it has one.
+pub(crate) fn missing_line(name: &str) -> String {
+    match SUBSTITUTES.iter().find(|(held, _)| *held == name) {
+        Some((_, instead)) => format!("`{name}` is not installed here. Use {instead}."),
+        None => format!("`{name}` is not installed here."),
+    }
+}
+
+/// The browser the Playwright tool drives, as a line.
+pub(crate) fn browser_line(shell: Option<&Path>) -> String {
+    match shell {
+        Some(shell) => format!("The Playwright tool drives the headless shell at `{}`.", shell.display()),
+        None => format!("The Playwright tool has no browser here. `{}` installs one.", browser_shell::INSTALL_COMMAND),
+    }
+}
+
 /// The note: one line for each missing command, then the browser.
 pub(crate) fn machine_note(missing: &[String], shell: Option<&Path>) -> String {
-    let mut lines: Vec<String> = missing
-        .iter()
-        .map(|name| match SUBSTITUTES.iter().find(|(held, _)| held == name) {
-            Some((_, instead)) => format!("- `{name}` is not installed here. Use {instead}."),
-            None => format!("- `{name}` is not installed here."),
-        })
-        .collect();
-    lines.push(match shell {
-        Some(shell) => format!("- The Playwright tool drives the headless shell at `{}`.", shell.display()),
-        None => format!(
-            "- The Playwright tool has no browser here. `{}` installs one.",
-            browser_shell::INSTALL_COMMAND
-        ),
-    });
+    let mut lines: Vec<String> = missing.iter().map(|name| format!("- {}", missing_line(name))).collect();
+    lines.push(format!("- {}", browser_line(shell)));
     format!("What this Mac has, from what its Jobs ran.\n{}", lines.join("\n"))
 }
 
