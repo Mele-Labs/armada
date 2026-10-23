@@ -816,6 +816,14 @@ where
         self.watch_session_run(&run_id)
     }
 
+    async fn open_terminal(
+        self: Arc<Self>,
+        open: ipc::OpenTerminal,
+    ) -> Result<ipc::SessionRunUnderway, Refusal> {
+        let run_id = self.open_job_shell(open.session_id.as_str(), open.cols, open.rows).await?;
+        Ok(ipc::SessionRunUnderway { run_id })
+    }
+
     async fn rename_session(&self, rename: ipc::RenameSession) -> Result<SessionRecord, Refusal> {
         let title = rename
             .title

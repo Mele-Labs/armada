@@ -115,6 +115,14 @@ impl Sessions for FakeDaemon {
         self.runs_nothing_here()
     }
 
+    /// Opens nothing: answers the run id a shell for the Job would have.
+    async fn open_terminal(
+        self: std::sync::Arc<Self>,
+        open: ipc::OpenTerminal,
+    ) -> Result<ipc::SessionRunUnderway, Refusal> {
+        Ok(ipc::SessionRunUnderway { run_id: format!("shell-of-{}", open.session_id.as_str()) })
+    }
+
     async fn report_session_check(
         &self,
         call: ipc::SessionCheckCall,

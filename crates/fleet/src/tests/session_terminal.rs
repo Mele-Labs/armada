@@ -4,6 +4,7 @@
 use std::sync::Arc;
 
 use api::Sessions;
+use ipc::{OpenTerminal, SessionFact, SessionId, SessionReport};
 
 use crate::tests::session_host::eventually;
 use crate::tests::session_running::{rig, Rig};
@@ -27,6 +28,35 @@ async fn a_second_open_hands_back_the_same_shell_and_it_stands_in_the_jobs_direc
     let third = Arc::clone(&rig.fleet).open_job_shell(rig.session.as_str(), None, None).await.expect("opened");
     assert_ne!(third, first, "a shell that exited is replaced");
     ends(&rig, &third).await;
+}
+
+#[tokio::test]
+async fn the_person_opens_the_same_shell_and_an_ended_or_unknown_job_is_refused() {
+    let rig = rig().await;
+    let open = |session_id: &str, cols| OpenTerminal { session_id: SessionId::carried(session_id), cols, rows: None };
+    let first = Arc::clone(&rig.fleet).open_terminal(open(rig.session.as_str(), Some(100))).await.expect("opened");
+    let again = Arc::clone(&rig.fleet).open_terminal(open(rig.session.as_str(), None)).await.expect("opened");
+    assert_eq!(first.run_id, again.run_id);
+    assert!(matches!(
+        Arc::clone(&rig.fleet).open_terminal(open(rig.session.as_str(), Some(0))).await,
+        Err(api::Refusal::Unacceptable(_))
+    ));
+    ends(&rig, &first.run_id).await;
+
+    rig.fleet
+        .report_session(SessionReport {
+            harness: "a_harness".into(),
+            session_id: rig.session.clone(),
+            fact: SessionFact::Ended { reason: "prompt_input_exit".into() },
+        })
+        .await
+        .unwrap();
+    for named in [rig.session.as_str(), "nobody"] {
+        assert!(matches!(
+            Arc::clone(&rig.fleet).open_terminal(open(named, None)).await,
+            Err(api::Refusal::Unacceptable(_))
+        ));
+    }
 }
 
 /// Stop a shell and wait for it to go: a runtime that shuts down waits on a shell still open.

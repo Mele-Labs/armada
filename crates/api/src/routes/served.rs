@@ -278,6 +278,12 @@ const ROUTES: &[Route] = &[
         method: "GET",
         path: "/sessions/run/:run_id/observe",
     },
+    // A Job's shell is a run: what it prints, and its keys, size and stop, are the rows above.
+    Route {
+        operation: "open_terminal",
+        method: "POST",
+        path: "/sessions/terminal/open",
+    },
     Route {
         operation: "show_window",
         method: "POST",
