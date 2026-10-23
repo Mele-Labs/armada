@@ -25,7 +25,7 @@ export type ThemeMod = {
   /** The pull request Promote opened for it, and the Job that holds that pull request. */
   pull?: { number: number; title: string; address: string };
   job?: { id: string; title: string };
-  /** Ships with Armada rather than written into the mod folder. Its name carries a `builtin:` prefix, which no mod's name has. */
+  /** Ships with Armada rather than written into the mod folder. Its name carries a `built-in:` prefix, which no mod's name has. */
   builtIn?: boolean;
   /** Its preview colours, from the CSS Fleet checked. Absent until that CSS has been read. */
   swatch?: readonly string[];

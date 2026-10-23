@@ -16,7 +16,7 @@ export function installSystemMods(): void {
 /** The `mods-travel` machine: Dusk, the Harbour Armada ships beside a local one of the same name, and the Tidy layout. */
 export function installTravelMods(): void {
   mockThemes.install(DUSK_MOD);
-  mockThemes.install({ ...DUSK_MOD, name: "builtin:harbour", title: "Harbour", enabled: true, builtIn: true });
+  mockThemes.install({ ...DUSK_MOD, name: "built-in:harbour", title: "Harbour", enabled: true, builtIn: true });
   mockThemes.install({ ...DUSK_MOD, name: "harbour", title: "Harbour", enabled: false });
   mockLayout.install({ name: "tidy", title: "Tidy", enabled: false, file: parseLayout(TIDY_DASHBOARD).file });
 }

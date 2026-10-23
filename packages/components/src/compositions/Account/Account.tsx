@@ -35,7 +35,6 @@ export type Scope = "global" | "repo" | "private";
 export type SyncKindWord =
   | "skills"
   | "plugins"
-  | "agent_file"
   | "global_instructions"
   | "sub_agents"
   | "commands"
@@ -167,7 +166,6 @@ const ALL_SCOPES: readonly Scope[] = ["global", "repo", "private"];
 const KIND: Record<SyncKindWord, { label: string; scopes: readonly Scope[] }> = {
   skills: { label: "Skills", scopes: ALL_SCOPES },
   plugins: { label: "Plugins", scopes: ["global", "private"] },
-  agent_file: { label: "Agent file", scopes: ["global", "private"] },
   global_instructions: { label: "Global instructions", scopes: ["global", "private"] },
   sub_agents: { label: "Sub agents", scopes: ALL_SCOPES },
   commands: { label: "Commands", scopes: ALL_SCOPES },
@@ -183,7 +181,6 @@ const KIND: Record<SyncKindWord, { label: string; scopes: readonly Scope[] }> = 
 export const SYNC_KINDS: readonly SyncKindWord[] = [
   "skills",
   "plugins",
-  "agent_file",
   "global_instructions",
   "sub_agents",
   "commands",

@@ -268,4 +268,36 @@ describe("the acts on a mod", () => {
     await settled();
     expect(source.get().mods[0]?.branch).toBe("armada/mod-calm-1");
   });
+
+  it("draws the pull request and Job a promote opened, from the answer and then from Fleet's list, and neither once it merges", async () => {
+    const ADDRESS = "https://forge.example/mele-labs/armada/pull/2841";
+    const { source, push } = fake(facts([row("calm")]), {
+      promoteMod: async (name) => ({ ok: true, modPromoted: { name, session_id: "s1", title: "Add the calm theme mod", branch: "armada/session-s1", commit: "abc", pull_request: ADDRESS } }),
+    });
+    await settled();
+    source.promote("calm");
+    await settled();
+    const drawn = { pull: { number: 2841, title: "Add the calm theme mod", address: ADDRESS }, job: { id: "s1", title: "Add the calm theme mod" } };
+    expect(source.get().mods[0]).toMatchObject(drawn);
+
+    // A window read again holds no answer: what it draws is what the list keeps.
+    const kept = row("calm", { pull_request: { address: ADDRESS, number: 2841, title: "Add the calm theme mod", session_id: "s1" } });
+    const reloaded = fake(facts([kept]));
+    await settled();
+    expect(reloaded.source.get().mods[0]).toMatchObject(drawn);
+
+    push(facts([kept]));
+    push(facts([row("calm")]));
+    expect(source.get().mods[0]?.pull).toBeUndefined();
+    expect(source.get().mods[0]?.job).toBeUndefined();
+  });
+
+  it("marks a mod Armada ships as built in, titled by its folder", async () => {
+    const { source } = fake(facts([row("built-in:harbour", { origin: "built_in" }), row("harbour")]));
+    await settled();
+    expect(source.get().mods.map((mod) => [mod.name, mod.title, mod.builtIn === true])).toEqual([
+      ["built-in:harbour", "harbour", true],
+      ["harbour", "harbour", false],
+    ]);
+  });
 });

@@ -52,7 +52,7 @@ function useWithMods(setup: KitSetupRead | undefined): KitSetupRead | undefined 
   const layouts = useLayouts();
   if (setup === undefined) return undefined;
   const items = [
-    ...themes.mods.map((mod) => ({ name: mod.name.replace(/^builtin:/, ""), source: mod.builtIn === true ? "Armada" : "", mod: { kind: "theme" as const, ...(mod.builtIn === true ? { builtIn: true } : {}) } })),
+    ...themes.mods.map((mod) => ({ name: mod.name.replace(/^built-in:/, ""), source: mod.builtIn === true ? "Armada" : "", mod: { kind: "theme" as const, ...(mod.builtIn === true ? { builtIn: true } : {}) } })),
     ...layouts.mods.map((mod) => ({ name: mod.name, source: "", mod: { kind: "layout" as const } })),
   ];
   return { ...setup, kinds: [...setup.kinds.filter((one) => one.kind !== "mods"), { kind: "mods", read: { what: "read", items, unreadable: [] } }] };

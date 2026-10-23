@@ -77,10 +77,16 @@ export function closePanel(): void {
 /** A pull request's address as the forge writes it: `/<owner>/<name>/pull/<number>`, with nothing after the number. */
 const PULL = /^https?:\/\/[^/]+\/(?:[^/]+\/)+pull\/(\d+)\/?$/;
 
+/** The number of the pull request an address names, or `undefined` for any other address. */
+export function pullNumberOf(address: string): number | undefined {
+  const number = PULL.exec(address)?.[1];
+  return number === undefined ? undefined : Number(number);
+}
+
 /** Opens the pull request an address names, where one is hosted. Any other address is left alone. */
 export function openAddressInPanel(address: string, tab?: string): boolean {
-  const number = PULL.exec(address)?.[1];
-  return number === undefined ? false : openInPanel({ kind: "pr", number: Number(number), address, ...(tab === undefined ? {} : { tab }) });
+  const number = pullNumberOf(address);
+  return number === undefined ? false : openInPanel({ kind: "pr", number, address, ...(tab === undefined ? {} : { tab }) });
 }
 
 /** A bay's key on the deck, `slot:<manifest>/<slot>`. */

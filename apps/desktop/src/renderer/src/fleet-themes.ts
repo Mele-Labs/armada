@@ -8,13 +8,17 @@
 // the owner can no longer have meant it: the mod is gone or switched off. A mod that merely fails a
 // check returns by itself once it passes, and a mod that appears later under a forgotten name is not
 // chosen by having appeared.
+//
+// **What Promote opened is Fleet's to keep.** The list carries a mod's open pull request and the Job holding it, so a
+// window read again offers no second Promote; the answer to a press draws them before the list arrives.
 
-import type { ModChecked, Outcome, SavePreference } from "@armada/protocol";
+import type { ModChecked, ModPromoted, ModSummary, Outcome, SavePreference } from "@armada/protocol";
 import { BUILT_IN_THEMES, offered } from "@armada/settings";
 import type { CatalogueTheme, ModsSource, ThemeMod, ThemeState } from "@armada/settings";
 import { refusalWords } from "@armada/screens/src/refusal-words";
 
 import type { BridgeState } from "../../shared/bridge";
+import { pullNumberOf } from "./shared-panel/store";
 import { askToTell } from "./tell";
 
 const DARK = "dark";
@@ -34,6 +38,28 @@ export type FleetThemes = {
 
 const isBuiltIn = (id: string) => (BUILT_IN_THEMES as readonly string[]).includes(id);
 
+/** A mod Armada ships is named `built-in:` and its folder's name; its title is the folder's name. */
+const BUILT_IN_MOD = "built-in:";
+
+/** What a promote leaves on its row: the Job's branch, and the pull request and Job it opened. */
+type Promoted = Pick<ThemeMod, "branch" | "pull" | "job">;
+
+/** What the answer to a press says Promote opened. */
+export const promotedOf = (done: ModPromoted): Promoted => {
+  const number = done.pull_request === undefined ? undefined : pullNumberOf(done.pull_request);
+  return {
+    branch: done.branch,
+    ...(done.pull_request === undefined || number === undefined ? {} : { pull: { number, title: done.title, address: done.pull_request } }),
+    job: { id: done.session_id, title: done.title },
+  };
+};
+
+/** What Fleet's list keeps of a promote: the pull request while it is open, and its Job. */
+const keptOf = (row: ModSummary): Promoted => {
+  const open = row.pull_request;
+  return open === undefined ? {} : { pull: { number: open.number, title: open.title, address: open.address }, job: { id: open.session_id, title: open.title } };
+};
+
 /** How a theme is previewed: Dark and Light by id, and a mod from the stylesheet Fleet checked. */
 export type Colours = {
   builtIn: Readonly<Record<string, readonly string[]>>;
@@ -48,7 +74,8 @@ export function createFleetThemes(fleet: FleetThemes, catalogue: readonly Catalo
   let declined: string | null = null;
   let saving = 0;
   let seen = "";
-  const branches = new Map<string, string>();
+  // What the answer to a Promote said, until Fleet's list says otherwise.
+  const promoted = new Map<string, Promoted>();
   // A mod's strip, kept with the `changed_at` it was read at, so an edited mod is read again.
   const strips = new Map<string, { at: string; swatch: readonly string[] }>();
   const reading = new Set<string>();
@@ -79,10 +106,11 @@ export function createFleetThemes(fleet: FleetThemes, catalogue: readonly Catalo
   const modsNow = (): ThemeMod[] =>
     (facts?.mods ?? []).map((row) => ({
       name: row.name,
-      title: row.name,
+      title: row.name.startsWith(BUILT_IN_MOD) ? row.name.slice(BUILT_IN_MOD.length) : row.name,
       enabled: row.enabled,
       ...(row.valid ? {} : { problem: row.reason ?? "Did not pass its checks" }),
-      ...(branches.has(row.name) ? { branch: branches.get(row.name)! } : {}),
+      ...(row.origin === "built_in" ? { builtIn: true } : {}),
+      ...(row.pull_request === undefined ? promoted.get(row.name) : keptOf(row)),
       ...(strips.get(row.name)?.at === (row.changed_at ?? "") ? { swatch: strips.get(row.name)!.swatch } : {}),
       load: loadOf(row.name),
     }));
@@ -140,6 +168,8 @@ export function createFleetThemes(fleet: FleetThemes, catalogue: readonly Catalo
     // Only a theme mod is a theme. A layout mod is listed from the layout source, a tweak is laid over whichever theme is chosen,
     // words and Fleet rules are what a teaching made, and a tracker mod is Fleet's alone.
     facts = next.mods === null ? null : { mods: next.mods.mods.filter((row) => row.kind === undefined || row.kind === "theme") };
+    // A promote the list now keeps is the list's from here, so it is gone once its pull request merges.
+    for (const row of facts?.mods ?? []) if (row.pull_request !== undefined) promoted.delete(row.name);
     declined = null;
     if (saving === 0) chosen = theme;
     refresh();
@@ -176,7 +206,7 @@ export function createFleetThemes(fleet: FleetThemes, catalogue: readonly Catalo
       void fleet.promoteMod(name).then((outcome) => {
         if (!outcome.ok) return tell(refusalWords(outcome));
         if (outcome.modPromoted === undefined) return;
-        branches.set(name, outcome.modPromoted.branch);
+        promoted.set(name, promotedOf(outcome.modPromoted));
         refresh();
       });
     },
