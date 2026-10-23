@@ -84,6 +84,13 @@ describe("the rows", () => {
     expect(reads).toEqual(["jira-keys", "hide-field", "jira-keys"]);
   });
 
+  it("say a Fleet mod's rules in the words its row opened uses, not the file's own description", async () => {
+    const validateMod = async (name: string) => ({ name, valid: true, problems: [], fleet: { rule: [{ notice: "behind_base", does: "batch" as const, where: "repo armada", when: [{ if: "blocks_merge" as const, does: "tell" as const }] }] } });
+    const { source } = fake([row("slot-behind", { kind: "fleet", description: "behind_base: batch repo armada" })], { validateMod });
+    await settled();
+    expect(source.get().mods[0]?.description).toMatch(/^Slot behind notice, batched .*told only when it blocks a merge$/);
+  });
+
   it("have no parts where Fleet has no file for the mod", async () => {
     const { source } = fake([row("jira-keys")]);
     await settled();

@@ -12,7 +12,7 @@ import { refusalWords } from "@armada/screens/src/refusal-words";
 import type { BridgeState } from "../../shared/bridge";
 import { modOpened } from "./open-mod";
 import { askToTell } from "./tell";
-import { partsOf } from "./taught-parts";
+import { fleetAlso, partsOf } from "./taught-parts";
 
 type Facts = Pick<BridgeState, "mods">;
 
@@ -45,7 +45,7 @@ export function createFleetTaught(fleet: FleetTaught, tell: (sentence: string) =
   const switched = new Map<string, boolean>();
   const branches = new Map<string, string>();
   // What each mod holds, from the file Fleet last checked for it, and the change of the mod that read was of.
-  const checked = new Map<string, { at: string; parts: readonly TaughtPart[] }>();
+  const checked = new Map<string, { at: string; parts: readonly TaughtPart[]; line?: string }>();
   const asking = new Set<string>();
   const listeners = new Set<() => void>();
 
@@ -57,7 +57,7 @@ export function createFleetTaught(fleet: FleetTaught, tell: (sentence: string) =
             {
               name: row.name,
               kind: row.kind,
-              description: row.valid ? (row.description ?? "") : (row.reason ?? "Did not pass its checks"),
+              description: row.valid ? (checked.get(row.name)?.line ?? row.description ?? "") : (row.reason ?? "Did not pass its checks"),
               on: row.taught_on ?? "",
               enabled: switched.get(row.name) ?? row.enabled,
               ...(branches.has(row.name) ? { branch: branches.get(row.name)! } : {}),
@@ -88,7 +88,9 @@ export function createFleetTaught(fleet: FleetTaught, tell: (sentence: string) =
       (read) => {
         asking.delete(key);
         if (read === null) return;
-        checked.set(row.name, { at, parts: partsOf(read) });
+        // A Fleet mod's line is its rules in the words its row opened and the Logbook use, not the file's own description.
+        const line = read.fleet === undefined ? undefined : fleetAlso(read.fleet);
+        checked.set(row.name, { at, parts: partsOf(read), ...(line === undefined ? {} : { line: `${line.charAt(0).toUpperCase()}${line.slice(1)}` }) });
         refresh();
       },
       () => void asking.delete(key),
