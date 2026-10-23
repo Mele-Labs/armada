@@ -51,9 +51,10 @@ export function waitingOf(session: Session): WaitingItem[] {
  * What holds a turn open on the owner: an agent mid-turn on one of these is waiting, not at work. A recorded plan and a
  * judge's concern call too while the turn goes on: the plan is the agent's to start from, and a judge never blocks.
  * A full pool (`slot_choice`) holds the agent's first write until he answers, and the delivery question (`delivery`)
- * holds the agent at its start.
+ * holds the agent at its start. A `fleet_call` is a notice a taught rule made a call: it holds nothing, and it calls while the
+ * turn goes on because calling him is all it is for.
  */
-const BLOCKING = new Set(["ask_card", "permission", "window_ask", "plan", "judge", "slot_choice", "delivery"]);
+const BLOCKING = new Set(["ask_card", "permission", "window_ask", "plan", "judge", "slot_choice", "delivery", "fleet_call"]);
 
 /** The latest message from the owner on the Session's thread, as an instant; 0 where he has sent none. */
 export function lastOwnerMessageAt(session: Session): number {

@@ -533,11 +533,12 @@ export function entriesOf(
       ...(one.options === undefined || answerWaiting === undefined
         ? {}
         : {
-            options: one.options.map((option, at) => ({
-              label: option.label,
-              ...(option.description === undefined ? {} : { description: option.description }),
-              onPick: () => answerWaiting(one.id, { choice: at }),
-            })),
+            // Fleet's `Other` on a words question takes the person's own address, which the deck's own Other already does: pressed as a choice it would send none.
+            options: one.options.flatMap((option, at) =>
+              one.source === "words_address" && option.label === "Other"
+                ? []
+                : [{ label: option.label, ...(option.description === undefined ? {} : { description: option.description }), onPick: () => answerWaiting(one.id, { choice: at }) }],
+            ),
             onOther: (text: string) => answerWaiting(one.id, { text }),
           }),
       ...(act !== undefined || one.steps !== undefined || (one.source !== "agent" && one.source !== "replied") || answerWaiting === undefined
@@ -547,6 +548,8 @@ export function entriesOf(
       ...(one.source !== "replied" ? {} : { fromReply: true, onMisread: () => void dismissWaiting(session.id, one.id, undefined, true), onConfirmed: () => void confirmWaiting(session.id, one.id), ...(one.confirmed === true ? { confirmed: true } : {}) }),
       // An item the agent stated is the person's to take off; the agent is told, with his reason where he gave one.
       ...(one.source !== "agent" || removeWaiting === undefined ? {} : { onRemove: (reason: string) => removeWaiting(one.id, reason), removeKeep: `remove:${session.id}:${one.id}` }),
+      // A call a taught rule made is the person's to take off. The agent is told nothing, so a reason typed is not sent.
+      ...(one.source !== "fleet_call" ? {} : { onRemove: () => void dismissWaiting(session.id, one.id), removeKeep: `remove:${session.id}:${one.id}` }),
       onOpen: () => {
         if (one.steps !== undefined) return read({ kind: "steps", id: one.id });
         if (act === undefined || restart !== undefined) return;
