@@ -110,9 +110,7 @@ where
     }
 
     /// What the Fleet mods say to do with `notice` for `session` in the repository `manifest`, if
-    /// any does. **Not read by what sends a notice yet**: the notice kinds land on another branch,
-    /// and sending is wired to this once they have.
-    #[allow(dead_code)]
+    /// any does. **Read by what sends every notice**, `told_by_fleet`, after the person's mute.
     pub(crate) async fn fleet_rule_for(&self, notice: &str, session: &str, manifest: &str) -> Option<Does> {
         let files = self.mod_files_kept(ModKind::Fleet).await.ok()?;
         let read: Vec<FleetFile> = files.iter().filter_map(|(_, text)| fleet_rules::read(text).ok()).collect();

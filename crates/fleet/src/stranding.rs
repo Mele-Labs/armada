@@ -127,14 +127,20 @@ where
                 Some(holder) if holder.open && holder.kind == SlotHolderKind::Session => {
                     if done.told_at.is_some() || done.scouted {
                         false
-                    } else if matches!(
-                        self.told_by_fleet(&holder.id, &asked_of(slot, work), ipc::Notice::SlotStranded).await,
-                        Ok(true)
-                    ) {
-                        done.told_at = Some(self.now().as_str().to_string());
-                        self.tell_kept(&holder.id, crate::session_host::tell_refusal::STRANDED_SLOT).await;
-                        changed = true;
-                        false
+                    } else if let Ok(told) =
+                        self.noticed_by_fleet(&holder.id, &asked_of(slot, work), ipc::Notice::SlotStranded).await
+                    {
+                        if told.settled() {
+                            done.told_at = Some(self.now().as_str().to_string());
+                            // Only a Session that was told can have refused it.
+                            if told.sent() {
+                                self.tell_kept(&holder.id, crate::session_host::tell_refusal::STRANDED_SLOT).await;
+                            }
+                            changed = true;
+                            false
+                        } else {
+                            true
+                        }
                     } else {
                         true
                     }

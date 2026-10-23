@@ -616,6 +616,11 @@ pub enum WaitingSource {
     /// Asked once for a mod and repository, and dismissing it does not ask again. No message goes to
     /// the agent.
     WordsAddress,
+    /// Fleet: a Fleet mod's rule says this notice is a call, so the Session was told it and the person
+    /// is asked to look. Derived on every read from the store's call: id `call:<n>`, text the words the
+    /// Session was told, a `message` act that opens the Session. Dismissing it settles it and tells the
+    /// agent nothing.
+    FleetCall,
 }
 
 /// What a Session is doing, read from what happened and never from what the agent said. One answer,

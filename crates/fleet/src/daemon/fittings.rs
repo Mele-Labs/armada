@@ -377,6 +377,7 @@ where
             logbook: crate::logbook::Distils::default(),
             behind_told: Default::default(),
             searched: Default::default(),
+            notice_batches: Default::default(),
             usage_following: Default::default(),
             rehearsals: crate::rehearsing::Rehearsals::default(),
             watches: crate::watches::Watches::default(),

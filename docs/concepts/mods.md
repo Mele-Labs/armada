@@ -127,6 +127,18 @@ where = "repo armada"
 `notice` is one of the words a notice goes by, so a word Fleet does not send is a problem.
 **The nearest place wins** (a Job's own over its repository's over everywhere), and among rules of one place the later mod name does. At most 64 rules and 8 KiB.
 
+Fleet reads the rules where it sends every notice (`told_by_fleet`), after the person's mute: a mute beats any rule, and a notice with no rule is told.
+
+| `does` | The Session | Needs you | A caller that marks the notice done |
+|---|---|---|---|
+| `tell` | Told, as with no rule | | After the send |
+| `quiet` | Nothing is sent or written to the thread | | At once: it is handled |
+| `batch` | Notices of the word held for the Job and sent as one message, joined by a blank line, when `timeouts.noticeBatchSeconds` after the first ends | | At once: it is held. A Job that cannot be told when the window ends loses them, and a restart inside a window does the same |
+| `call` | Told, as with no rule | An item on the Job with the words it was told, until the person dismisses it | After the send |
+
+A mute is not handled: the notice is asked again at the caller's next reading, so lifting the mute resumes it.
+A notice that is a line to the Session and not a word of the table above (the answer to a request, a plan's change, a linked Job's news) carries no word and no rule reads it.
+
 ## Tracker mods
 
 A tracker mod teaches Fleet a tracker this build has no adapter for, over the tracker's command line or its HTTP API.

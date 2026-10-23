@@ -40,6 +40,7 @@ mod session_tells;
 mod session_later;
 mod notice_mutes;
 mod word_asks;
+mod fleet_calls;
 mod settings_file;
 mod studio;
 mod studio_authors;
