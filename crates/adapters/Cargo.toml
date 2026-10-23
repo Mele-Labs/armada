@@ -33,6 +33,11 @@ serde_yaml_ng = "0.10"
 # A tracker mod's `tracker.toml`, `taught_tracker/file.rs`. The version `fleet` already reads its
 # own files with, so nothing new is compiled.
 toml = "1"
+# The shape of a tracker mod's ticket references, `[links]` in `tracker.toml`: a pattern the mod writes
+# is compiled when the file is checked, so a bad one is refused with its reason. Linear time, no
+# backtracking, so a pattern someone else wrote cannot hang a scan. Nothing under `core-model` or
+# `adapter-traits` takes it.
+regex = "1"
 # The central store: a blocking client, and the signature on each request it
 # makes. `reqwest` is `pocket`'s posture (rustls, nothing else) with `blocking`
 # added, because Fleet's ports are plain sync traits. `p256` and `sha2` are the

@@ -192,6 +192,7 @@ At most 32 KiB of TOML, read by `crates/adapters/src/taught_tracker/file.rs`.
 | `[search]` | yes | A call: `{query}` is the query, in the tracker's own language |
 | `[list]` | no | A call listing the open issues. Absent is a search for the guide's `open` |
 | `[read]` | yes | A call: `{reference}` is the issue's reference. Its `map` yields one issue or `null` |
+| `[links]` | no | `reference`, a regular expression for how a ticket's reference is written in the words of a dispatch or a message. Text that matches links to that ticket |
 
 A call names its `transport` and takes that transport's keys and no others.
 
@@ -223,7 +224,13 @@ A URL is `https://`, or `http://` to this machine, and names its host as written
 | A placeholder the section cannot fill | `{query}` in `[read]`, `{credential}` with no `[credential]` |
 | A search that never uses `{query}`, a read that never uses `{reference}` | Every call would ask the same |
 | A call with no `map` | |
+| A `[links] reference` that is not a pattern, or matches the empty text | `LIN-(\d+`, `x*` |
 | An `mcp` call with no `server` or no `tool`, or `arguments` holding a date | |
+
+`[links] reference` is a regular expression in Rust's syntax, which has no backtracking.
+Each match links the reference it holds, once and in the order written: the first group where the pattern has one, so `linear\.app/acme/issue/(LIN-\d+)` links `LIN-42` from an address, and the whole match where it has none, so `\bLIN-\d+\b` links `LIN-42` from the words.
+What it yields is the reference as the tracker writes it and `read` takes it, `7` or `LIN-42`; a match that is not one of those is dropped.
+A file with no `[links]` links nothing, and a request that names a ticket is dispatched as written.
 
 Every program and request is bounded: 30 seconds, and 4 MiB of answer.
 An `mcp` exchange is bounded as a whole by the same, and a server that says more or is slower is stopped and the call refused.

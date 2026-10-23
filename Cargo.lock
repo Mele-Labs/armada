@@ -37,6 +37,7 @@ dependencies = [
  "ipc",
  "notify",
  "p256",
+ "regex",
  "reqwest",
  "ring",
  "serde",
