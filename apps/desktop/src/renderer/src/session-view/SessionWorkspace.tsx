@@ -20,6 +20,8 @@ import { FieldPanel } from "./FieldPanel";
 import { dropLayer, useLayer } from "./layers";
 import type { PlanEditing } from "./PlanEdit";
 import { ProgressPanel } from "./ProgressPanel";
+import { WorkflowPanel } from "./WorkflowPanel";
+import type { LiveOpen } from "./TurnAccountBlock";
 import { Layer } from "./SessionLayers";
 import type { SessionBays } from "./slot-trouble";
 import "./session-view.css";
@@ -27,7 +29,7 @@ import "./session-view.css";
 /** The deck's own place for a Session's panels, as an element: `null` before the deck has drawn it. */
 export type Hosts = { side: HTMLElement | null };
 
-export function SessionWorkspace({ session, entries, repositories, hosts, ed, bays, onOpenSketch, onOpenSession, onOpenCheck, children }: { session: Session; ed: PlanEditing | undefined; entries: readonly LedgerEntry[]; repositories: readonly RepositorySummary[]; hosts?: Hosts | undefined; bays: SessionBays | undefined; onOpenSketch: (sketch: string) => void; onOpenSession: (id: string) => void; onOpenCheck: (run: number) => void; children: ReactNode }) {
+export function SessionWorkspace({ session, entries, repositories, hosts, ed, bays, onOpenSketch, onOpenSession, onOpenCheck, live, children }: { session: Session; ed: PlanEditing | undefined; entries: readonly LedgerEntry[]; repositories: readonly RepositorySummary[]; hosts?: Hosts | undefined; bays: SessionBays | undefined; onOpenSketch: (sketch: string) => void; onOpenSession: (id: string) => void; onOpenCheck: (run: number) => void; live?: LiveOpen; children: ReactNode }) {
   const draft = useSessionsDraft();
   const { id } = session;
   const open = useLayer(id);
@@ -42,7 +44,8 @@ export function SessionWorkspace({ session, entries, repositories, hosts, ed, ba
   const right = (
     <>
       <FieldPanel session={session} repositories={repositories} place="side" />
-      <ProgressPanel work={work} place="side" id={id} session={session} manifestId={session.manifestId} acts={draft.work} ed={ed} onOpenSketch={onOpenSketch} onOpenSession={onOpenSession} />
+      <WorkflowPanel work={work} place="side" id={id} manifestId={session.manifestId} acts={draft.work} />
+      <ProgressPanel work={work} place="side" id={id} session={session} manifestId={session.manifestId} acts={draft.work} ed={ed} onOpenSketch={onOpenSketch} onOpenSession={onOpenSession} live={live} />
     </>
   );
   return (

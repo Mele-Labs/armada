@@ -38,8 +38,8 @@ import type { ApproveRepositoryTile, RepositoryTile } from "@armada/protocol";
 import type { AddPackage, BindUnboundPiece, CommitToRepository, CommittedToRepository, PackageAdded, PackageRead, PieceAdded, SharePieces, SharedPackage, UnboundPieces } from "@armada/protocol";
 import type { PackageSaved, SharingAnswer } from "../shared/api/sharing";
 import type { DropRunFact, ImportFolders, ImportRuns, ModInstalled, RunMemory, RunMemoryPlace, SetRunMemoryPlace } from "@armada/protocol";
-import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, ChangeWaiting, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimIssue, ClaimPullRequest, DismissConcern, DismissWaiting, IssueClaimed, JudgeSession, LaterSettled, PullRequestClaimed, PullRequestFilePatch, PullRequestFilePatches, PullRequestPage, PullRequestState, RenameSession, SendConcern, SendPlanChanges, NoteSent, SendSessionMessage, SendSessionNote, SessionRunMessage, SessionRunUnderway, SessionLoadout, McpServerAct, SessionMcp, SessionMcpActed, SessionSubagent, SessionWait, SettleLater, StartAfter, TuneSession, WaitReading } from "@armada/protocol";
-import type { ArtifactRead, LoadoutItemAsk, LoadoutItemBody, PageBounds } from "@armada/screens/src/draft/sessions";
+import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, ChangeWaiting, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimIssue, ClaimPullRequest, ConfirmWaiting, DismissConcern, DismissWaiting, IssueClaimed, JudgeSession, LaterSettled, PullRequestClaimed, PullRequestFilePatch, PullRequestFilePatches, PullRequestPage, PullRequestState, RenameSession, SendConcern, SendPlanChanges, NoteSent, SendSessionMessage, SendSessionNote, SessionRunMessage, SessionRunUnderway, SessionLoadout, AttachmentHistory, McpServerAct, SessionMcp, SessionMcpActed, SessionSubagent, SessionWait, SettleLater, StartAfter, TuneSession, WaitReading } from "@armada/protocol";
+import type { ArtifactRead, LoadoutItemAsk, LoadoutItemBody, PageBounds, PageShot } from "@armada/screens/src/draft/sessions";
 import type { PullRequestPress, PullRequestWrite, SessionActed } from "../shared/api/sessions";
 import type { RequestRepositoryRead } from "../shared/api/dispatch";
 import type { SleepActed } from "../shared/api/sleep";
@@ -481,6 +481,7 @@ const api: BridgeApi = {
   settleLater: (settle: SettleLater): Promise<SessionActed<LaterSettled>> => ipcRenderer.invoke(CHANNELS.settleLater, settle),
   stopWatch: (stop: StopWatch): Promise<SessionActed<WatchSummary>> => ipcRenderer.invoke(CHANNELS.stopWatch, stop),
   dismissWaiting: (dismiss: DismissWaiting): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.dismissWaiting, dismiss),
+  confirmWaiting: (confirm: ConfirmWaiting): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.confirmWaiting, confirm),
   approvePlan: (approve: ApprovePlan): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.approvePlan, approve),
   sendPlanChanges: (changes: SendPlanChanges): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.sendPlanChanges, changes),
   judgeSession: (judge: JudgeSession): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.judgeSession, judge),
@@ -512,6 +513,7 @@ const api: BridgeApi = {
   readSessionSubagent: (sessionId: string, subagentId: string): Promise<SessionActed<SessionSubagent>> =>
     ipcRenderer.invoke(CHANNELS.readSessionSubagent, sessionId, subagentId),
   readSessionLoadout: (sessionId: string): Promise<SessionActed<SessionLoadout>> => ipcRenderer.invoke(CHANNELS.readSessionLoadout, sessionId),
+  readAttachmentHistory: (sessionId: string): Promise<SessionActed<AttachmentHistory>> => ipcRenderer.invoke(CHANNELS.readAttachmentHistory, sessionId),
   readLoadoutItem: (sessionId: string, item: LoadoutItemAsk): Promise<SessionActed<LoadoutItemBody>> => ipcRenderer.invoke(CHANNELS.readLoadoutItem, sessionId, item),
   readSessionMcp: (sessionId: string): Promise<SessionActed<SessionMcp>> => ipcRenderer.invoke(CHANNELS.readSessionMcp, sessionId),
   actOnSessionMcp: (sessionId: string, server: string, act: McpServerAct): Promise<SessionActed<SessionMcpActed>> =>
@@ -540,6 +542,16 @@ const api: BridgeApi = {
     ipcRenderer.on(CHANNELS.sessionPageEscape, handler);
     return () => {
       ipcRenderer.removeListener(CHANNELS.sessionPageEscape, handler);
+    };
+  },
+  watchSessionSnapshot: (sessionId: string, address: string): Promise<Followed> =>
+    ipcRenderer.invoke(CHANNELS.watchSessionSnapshot, sessionId, address),
+  stopSessionSnapshot: (): Promise<void> => ipcRenderer.invoke(CHANNELS.stopSessionSnapshot),
+  onSessionSnapshot: (on: (shot: PageShot) => void): (() => void) => {
+    const handler = (_: unknown, shot: PageShot): void => on(shot);
+    ipcRenderer.on(CHANNELS.sessionSnapshot, handler);
+    return () => {
+      ipcRenderer.removeListener(CHANNELS.sessionSnapshot, handler);
     };
   },
   pressPullRequest: (

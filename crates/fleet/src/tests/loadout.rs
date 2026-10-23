@@ -146,3 +146,43 @@ async fn the_whole_loadout_is_answered_turn_by_turn_and_an_unknown_session_is_re
         .collect();
     assert_eq!(turns, [("2026-10-17T09:01:00.000Z", vec!["land"]), ("2026-10-17T09:02:00.000Z", vec!["land", "walk"])]);
 }
+
+#[tokio::test]
+async fn a_jobs_attachment_history_is_every_version_oldest_first_and_an_unknown_job_is_refused() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
+    assert!(fleet.get_attachment_history(SessionId::carried("s1")).await.is_err(), "no such session");
+
+    let artifact = |detail: &[(&str, &str)]| SessionFact::Attached {
+        attachment: ipc::AttachmentReport {
+            kind: "artifact".into(),
+            target: "notes.md".into(),
+            detail: detail.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect(),
+        },
+    };
+    fleet.report_session(report(artifact(&[]))).await.unwrap();
+    fleet.report_session(report(artifact(&[("lines", "40")]))).await.unwrap();
+    fleet.report_session(report(artifact(&[("lines", "40")]))).await.unwrap();
+    fleet
+        .report_session(report(SessionFact::Settled {
+            attachment: ipc::AttachmentNamed { kind: "artifact".into(), target: "notes.md".into() },
+            state: ipc::AttachmentState::Spent,
+        }))
+        .await
+        .unwrap();
+
+    let history = fleet.get_attachment_history(SessionId::carried("s1")).await.unwrap();
+    let read: Vec<_> = history.versions.iter().map(|v| (v.kind.as_str(), v.target.as_str(), v.state)).collect();
+    assert_eq!(
+        read,
+        [
+            ("artifact", "notes.md", ipc::AttachmentState::Standing),
+            ("artifact", "notes.md", ipc::AttachmentState::Standing),
+            ("artifact", "notes.md", ipc::AttachmentState::Spent),
+        ],
+        "a repeat adds none"
+    );
+    assert!(history.versions[0].detail.is_empty());
+    assert_eq!(history.versions[1].detail.get("lines").map(String::as_str), Some("40"));
+    assert!(history.versions.windows(2).all(|pair| pair[0].at.as_str() <= pair[1].at.as_str()));
+}

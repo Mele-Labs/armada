@@ -108,6 +108,24 @@ export function filesBeside(kind: string): () => void {
   };
 }
 
+let previewing = false;
+
+/**
+ * A file's markdown Preview is open, or closed. The sheet a file sat beside steps aside meanwhile, since the file, its
+ * Preview and that sheet have no room in one row.
+ */
+export function filePreviewing(on: boolean): void {
+  if (previewing === on) return;
+  previewing = on;
+  listeners.forEach((one) => one());
+}
+
+export const useFilePreviewing = (): boolean =>
+  useSyncExternalStore(
+    (listener) => (listeners.add(listener), () => listeners.delete(listener)),
+    () => previewing,
+  );
+
 export const useFilesBeside = (): string | undefined =>
   useSyncExternalStore(
     (listener) => (listeners.add(listener), () => listeners.delete(listener)),
@@ -117,6 +135,7 @@ export const useFilesBeside = (): string | undefined =>
 /** A window starting over: nothing open, and nothing hosted until its own host mounts. */
 export function forgetPanel(): void {
   held = { open: undefined, back: undefined, hosts: 0 };
+  previewing = false;
 }
 
 /** Requests, for the Job named where one is open. */

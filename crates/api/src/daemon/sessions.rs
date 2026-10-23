@@ -378,6 +378,25 @@ pub trait Sessions: Send + Sync + 'static {
         manifest_id: Option<ManifestId>,
     ) -> impl Future<Output = Result<Owners, Refusal>> + Send;
 
+    /// `recall` — the Logbook entries for `manifest_id`'s repository (absent is the first served),
+    /// the habits and this Mac's that match `query`, faded ones included, best first. `section` is
+    /// `repo`, `habits` or `machine`; any other is [`Refusal::Unacceptable`], as is a blank `query`.
+    fn recall(
+        &self,
+        manifest_id: Option<ManifestId>,
+        query: String,
+        section: Option<String>,
+    ) -> impl Future<Output = Result<ipc::Recalled, Refusal>> + Send;
+
+    /// `get_logbook_for_subagent` — what a subagent starting under `session_id` is handed: the
+    /// habits and the standing entries whose paths match those `prompt` names. Empty where there
+    /// is none, and for a Session Fleet does not know.
+    fn get_logbook_for_subagent(
+        &self,
+        session_id: String,
+        prompt: String,
+    ) -> impl Future<Output = Result<ipc::ForSubagent, Refusal>> + Send;
+
     /// `get_session_usage` — a session's turns from `since` to before `until` (RFC3339, either may
     /// be left out), oldest first. [`Refusal::Unacceptable`] for a session Fleet does not know.
     fn get_session_usage(
@@ -412,6 +431,13 @@ pub trait Sessions: Send + Sync + 'static {
         &self,
         session_id: ipc::SessionId,
     ) -> impl Future<Output = Result<ipc::SessionLoadout, Refusal>> + Send;
+
+    /// `get_attachment_history` — every version of everything a session holds, oldest first.
+    /// [`Refusal::Unacceptable`] for a session Fleet does not know.
+    fn get_attachment_history(
+        &self,
+        session_id: ipc::SessionId,
+    ) -> impl Future<Output = Result<ipc::AttachmentHistory, Refusal>> + Send;
 
     /// `read_loadout_item` — what one row of a session's Loadout says, read from disk where Fleet
     /// runs. A row the Loadout does not list, or with no file behind it, is `not_read` with why.

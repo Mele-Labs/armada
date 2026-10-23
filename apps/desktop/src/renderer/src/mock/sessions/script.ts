@@ -29,6 +29,8 @@ export type SessionsStore = SessionsDraft & {
   attach: (id: string, attachment: SessionAttachment) => void;
   /** Fleet drops an item for good. One the agent stated also reaches it as the person's message, with `reason` where he gave one. */
   drop: (id: string, itemId: string, reason?: string) => void;
+  /** Fleet keeps an item read from a reply as an ask: it stays, and reads `confirmed` from then on. */
+  confirm: (id: string, itemId: string) => void;
   /** Changes a Session as it stands, for a scenario that scripts one Session of its own. */
   edit: (id: string, change: (one: Session) => Session) => void;
   /**
@@ -849,6 +851,7 @@ export function sessionsStore(
       });
       if (stated !== undefined) addTo(id, [row((rid, stamp) => ({ id: rid, at: stamp, kind: "message", from: { kind: "you" }, text: removedSaid(stated.text, reason) }))]);
     },
+    confirm: (id, itemId) => edit(id, (one) => ({ ...one, waitingFor: one.waitingFor?.map((it) => (it.id === itemId ? { ...it, confirmed: true } : it)) })),
   };
   // A message goes through `delivery` where a scenario sets one: the thread then shows it going, and refused.
   const sendNow = store.send;

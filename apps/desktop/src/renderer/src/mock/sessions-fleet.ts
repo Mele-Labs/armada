@@ -10,6 +10,7 @@ import type {
   AnswerSessionAsk,
   AnswerWaiting,
   ChangeWaiting,
+  ConfirmWaiting,
   DismissWaiting,
   Attachment,
   ClaimPullRequest,
@@ -139,6 +140,7 @@ export type Calls = {
   waited: AnswerWaiting[];
   claimed: ClaimPullRequest[];
   dismissed: DismissWaiting[];
+  confirmed: ConfirmWaiting[];
   tuned: TuneSession[];
   renamed: RenameSession[];
   closed: string[];
@@ -171,7 +173,7 @@ export class FakeSessionsFleet {
   pageEscape(): void {
     this.escape.forEach((on) => on());
   }
-  readonly calls: Calls = { started: 0, startedIn: [], startedAfter: [], readWaits: [], changedWaits: [], startedNow: [], sent: [], answered: [], waited: [], claimed: [], dismissed: [], tuned: [], renamed: [], closed: [], stopped: [], forked: [], handed: [], forkedAt: [], moved: [], muted: [], refreshed: [], retroed: [], pressed: [], watched: [], pages: [], pagesHidden: 0 };
+  readonly calls: Calls = { started: 0, startedIn: [], startedAfter: [], readWaits: [], changedWaits: [], startedNow: [], sent: [], answered: [], waited: [], claimed: [], dismissed: [], confirmed: [], tuned: [], renamed: [], closed: [], stopped: [], forked: [], handed: [], forkedAt: [], moved: [], muted: [], refreshed: [], retroed: [], pressed: [], watched: [], pages: [], pagesHidden: 0 };
   /** What `readSessionWait` answers: the defaults, unless a test says otherwise. */
   reading: WaitReading = { condition: { kind: "ends" }, base: "main" };
   private records: SessionRecord[];
@@ -369,6 +371,14 @@ export class FakeSessionsFleet {
               waiting_for: (one.waiting_for ?? []).filter((item) => item.id !== dismiss.item_id),
             }));
           },
+          confirmWaiting: async (confirm) => {
+            this.calls.confirmed.push(confirm);
+            // Fleet keeps the item and reads it confirmed from then on.
+            return this.change(confirm.session_id, (one) => ({
+              ...one,
+              waiting_for: (one.waiting_for ?? []).map((item) => (item.id === confirm.item_id ? { ...item, confirmed: true } : item)),
+            }));
+          },
           tuneSession: async (tune) => {
             this.calls.tuned.push(tune);
             return this.change(tune.session_id, (one) => ({
@@ -538,7 +548,7 @@ export class FakeSessionsFleet {
 
   /**
    * A forge read as Fleet's refresh reads it: the merge line's hub row and the ledger row of whoever holds the pull request
-   * change, and a failure is told to the Job that holds it, as the pull watch tells it.
+   * change, and a failure is told to the Job that holds it, as the pull reading tells it.
    */
   private readFromForge(number: number, reading: ForgeReading): void {
     const lines = this.fleet?.state().mergeLines;

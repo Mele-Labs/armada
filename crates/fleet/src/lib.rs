@@ -45,7 +45,7 @@ mod plan_keeping;
 mod loadout_keeping;
 /// Where a Session's turn usage meets the store.
 mod turn_ingest;
-mod usage_watch;
+mod usage_following;
 pub mod usage_rules;
 mod usage_summarising;
 mod turn_usage_keeping;
@@ -55,9 +55,9 @@ mod rail;
 /// Where the rail and the judges meet the store, and a concern as a waiting item.
 mod rail_keeping;
 /// What Fleet does when a Session's step moves or shows a step skipped.
-pub mod linked_watching;
-pub mod after_watching;
-pub mod rail_watching;
+pub mod linked_following;
+pub mod after_following;
+pub mod rail_following;
 /// Telling sessions the build Fleet and Bridge now run, once per build.
 mod build_notices;
 /// The build Fleet runs on and the detached restart onto another. `scripts/restart-build`.
@@ -198,10 +198,12 @@ mod walk_places;
 /// A pull request by repository and number, and the acts a Session takes on one.
 /// Since 23.48.
 mod pull_requesting;
-/// A person's refresh of one pull request: everything the pull watch does for it, now.
+/// A person's refresh of one pull request: everything the pull reading does for it, now.
 mod pull_refreshing;
 /// The issues a Session works on: named by the person, or closed by its pull requests.
 mod session_issues;
+/// The web links a Session's person and agent write, kept on its ledger.
+mod session_links;
 /// Reading a Link in: the source, fetched by Fleet. `#1293`.
 mod reading_in;
 /// Links already on a Studio, read as what their addresses name — `#1394`.
@@ -215,7 +217,7 @@ mod refusing;
 /// the snapshot taken before it. **A rehearsal, never a verdict.**
 mod rehearsing;
 /// A command Fleet runs on a cadence for one Job, and the agent's weighing of it.
-mod watches;
+pub mod watches;
 /// The repositories one Fleet serves, and adding one by folder.
 pub mod repositories;
 /// Which profile a repository claims and syncs as: matched by its owner, or chosen.
@@ -248,6 +250,8 @@ pub mod kit_manifests;
 /// How a repository runs, remembered from what its Jobs did. `docs/concepts/kit.md`.
 mod machine_note;
 mod run_memory;
+/// What Fleet learns from every Session of a repository — `docs/concepts/logbook.md`.
+mod logbook;
 mod notice_mutes;
 /// Folders and runs read from a person's agent CLI, and installing the mod into it.
 mod session_import;

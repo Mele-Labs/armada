@@ -15,7 +15,7 @@ There are two implementations, and each repository's Manifest chooses between th
 **An issue's identity is its reference and its address, never a bare number.** A number names nothing once a tracker has more than one project.
 `TrackedIssue` and `IssueRead` carry `reference` as text, `get_issue` takes it, and Autopilot's picker is offered and answers it.
 Bridge draws the reference as it is.
-A Session's `issue` rows on the ledger are held the same way: the forge's number as digits, or a key such as `ABC-12`, and the pull watch reads each through the Manifest's tracker.
+A Session's `issue` rows on the ledger are held the same way: the forge's number as digits, or a key such as `ABC-12`, and the pull reading reads each through the Manifest's tracker.
 An issue tag, a plan group's `issue` and `claim_issue` all take either. [what-is-kept.md](session/what-is-kept.md).
 
 ## Why Fleet reads it, and not an agent

@@ -27,7 +27,7 @@ fn with_origin(root: &str) {
     }
 }
 
-fn a_rig() -> Rig {
+pub(super) fn a_rig() -> Rig {
     let rig = rig_fitted(|_| {});
     with_origin(&rig.root);
     rig
@@ -65,7 +65,7 @@ fn targets(rows: &[ipc::Attachment]) -> Vec<&str> {
     rows.iter().map(|one| one.target.as_str()).collect()
 }
 
-async fn said(rig: &Rig, id: &SessionId, text: &str, mentions: Vec<SessionTag>) {
+pub(super) async fn said(rig: &Rig, id: &SessionId, text: &str, mentions: Vec<SessionTag>) {
     Arc::clone(&rig.fleet)
         .send_session_message(SendSessionMessage {
             session_id: id.clone(),
@@ -203,10 +203,10 @@ async fn the_issues_a_sessions_pull_request_closes_are_held_by_the_session() {
     assert!(rows.iter().all(|one| one.state == AttachmentState::Standing));
 }
 
-/// The pull watch reads each issue a Session holds once a pass, as it reads each pull request: a
+/// The pull reading reads each issue a Session holds once a pass, as it reads each pull request: a
 /// title and a state from the forge, over what the mod or a tag said. A closed issue stands.
 #[tokio::test]
-async fn the_pull_watch_keeps_each_issue_row_as_the_forge_has_it_and_a_closed_one_stands() {
+async fn the_pull_reading_keeps_each_issue_row_as_the_forge_has_it_and_a_closed_one_stands() {
     let home = TempDir::new();
     let tracker = Arc::new(FakeTracker::listing(vec![FakeTracker::issue(5, "Walk the queue")]));
     let mut fitted = fittings(&home, FakeWorkProduct::changed(&[]));
@@ -240,7 +240,7 @@ async fn the_pull_watch_keeps_each_issue_row_as_the_forge_has_it_and_a_closed_on
 
 /// An issue held by a tracker's key is read through the Manifest's tracker as a number is.
 #[tokio::test]
-async fn the_pull_watch_keeps_an_issue_held_by_a_trackers_key_as_the_tracker_has_it() {
+async fn the_pull_reading_keeps_an_issue_held_by_a_trackers_key_as_the_tracker_has_it() {
     let home = TempDir::new();
     let tracker = Arc::new(FakeTracker::empty());
     tracker.knows(ReadIssue::bare(

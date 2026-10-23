@@ -143,6 +143,7 @@ async fn an_answer_that_is_not_one_of_the_two_choices_is_refused() {
             session_id: waiting.clone(),
             item_id: "slot-choice".into(),
             reason: None,
+            misread: false,
         })
         .await;
     assert!(dismissed.is_err(), "it is answered, not dismissed");

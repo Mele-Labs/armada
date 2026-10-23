@@ -39,6 +39,7 @@ fn waiting(id: &str, text: &str, source: WaitingSource, place: Option<WindowPlac
         place,
         concern: None,
         cites: Vec::new(),
+        confirmed: false,
     }
 }
 
@@ -110,6 +111,7 @@ fn long_lived() -> SessionRecord {
         settled: Vec::new(),
         waits: None,
         later: Vec::new(),
+        held_open_by: None,
     }
 }
 

@@ -21,7 +21,7 @@ The row is the only place it is kept, so a restart keeps the question standing a
 Auto land, answered or named, turns the Job's Auto land flag on, the same flag `set_session_auto_land` sets, so the forge's auto-merge follows it. Open PR only and Keep local leave the flag as it is.
 A forge refusal does not undo the answer: the forge's words go to the agent.
 **Auto land merges a pull request however it was attached (#2679, 21 Oct 2026).** One the agent opened itself is reported by its mod, and nothing asked the forge then.
-So the pull watch asks for auto-merge on each pull request a Job with Auto land holds, once its checks pass, it conflicts with nothing and nothing merges it.
+So the pull reading asks for auto-merge on each pull request a Job with Auto land holds, once its checks pass, it conflicts with nothing and nothing merges it.
 It asks once a commit: a commit it saw queued or on auto-merge is not asked again, so a merge somebody stopped stays stopped.
 Fleet otherwise acts on it only by telling the agent. The agent delivers by it at `land`, the last step of `bug` and `feature`, whose instructions name what each answer means.
 A change the owner would see in Bridge is walked and approved before any of the three runs.

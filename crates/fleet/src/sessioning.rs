@@ -53,6 +53,8 @@ pub(crate) struct LedgerReads {
     wait: Option<(store::KeptWait, Option<String>, Option<String>)>,
     /// The follow-ups its agent keeps for itself, still open.
     later: Vec<store::KeptLater>,
+    /// The name of the live watch that started first, if it holds one.
+    watching: Option<String>,
 }
 
 /// A report that names nothing it can be kept against. A 422.
@@ -878,6 +880,19 @@ where
         Ok(SessionList { sessions })
     }
 
+    async fn recall(
+        &self,
+        manifest_id: Option<ManifestId>,
+        query: String,
+        section: Option<String>,
+    ) -> Result<ipc::Recalled, Refusal> {
+        self.logbook_recalled(manifest_id.as_ref(), &query, section.as_deref()).await
+    }
+
+    async fn get_logbook_for_subagent(&self, session_id: String, prompt: String) -> Result<ipc::ForSubagent, Refusal> {
+        Ok(ipc::ForSubagent { text: self.logbook_for_subagent(&session_id, &prompt).await })
+    }
+
     async fn who_owns(
         &self,
         kind: String,
@@ -970,6 +985,16 @@ where
             return Err(self.ledger_unnamed("a job Fleet knows"));
         }
         crate::loadout_keeping::whole(&store, id).map_err(|why| self.ledger_fault(why))
+    }
+
+    async fn get_attachment_history(&self, session_id: ipc::SessionId) -> Result<ipc::AttachmentHistory, Refusal> {
+        let id = session_id.as_str().trim();
+        let store = self.store().lock().await;
+        if store.session(id).map_err(|why| self.ledger_fault(why))?.is_none() {
+            return Err(self.ledger_unnamed("a job Fleet knows"));
+        }
+        let versions = store.attachment_versions(&Holder::session(id)).map_err(|why| self.ledger_fault(why))?;
+        Ok(ipc::AttachmentHistory { versions: versions.iter().map(wire::version_wire).collect() })
     }
 
     async fn read_loadout_item(&self, asked: ipc::LoadoutItemAsked) -> Result<ipc::LoadoutItemBody, Refusal> {

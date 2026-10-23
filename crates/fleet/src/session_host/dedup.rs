@@ -87,6 +87,20 @@ pub(crate) fn folded(items: Vec<WaitingItem>, vector: impl Fn(&str) -> Option<Ve
         .collect()
 }
 
+/// `items` with every sentence read from a reply that is within `at` of one he marked Not a question
+/// left off: the reader called it once and he said it asks nothing. An item the agent stated stands, and
+/// one with no vector yet is kept this read.
+pub(crate) fn left_off_as_misread(items: Vec<WaitingItem>, misreads: &[String], vector: impl Fn(&str) -> Option<Vec<f32>>, at: f32) -> Vec<WaitingItem> {
+    let marked: Vec<Vec<f32>> = misreads.iter().filter_map(|one| vector(one)).collect();
+    items
+        .into_iter()
+        .filter(|item| {
+            item.source != WaitingSource::Replied
+                || !vector(&item.text).is_some_and(|own| marked.iter().any(|theirs| cosine(&own, theirs) >= at))
+        })
+        .collect()
+}
+
 /// The model's vectors of items' texts, and the Sessions whose texts were embedded since the last look.
 /// Modelled on `asks_model::Reads`: kept by the text's hash, embedded in one batch per read on a
 /// blocking thread, and the Session published again once they are in.

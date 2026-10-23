@@ -9,6 +9,7 @@ use rusqlite::{params, OptionalExtension};
 
 use crate::error::{fault, WriteError};
 use crate::open::Store;
+use crate::session_focus::refocus;
 
 /// One task of the plan.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -21,6 +22,9 @@ pub struct KeptPlanTask {
     pub completed_at: Option<String>,
     /// An edit was seen under the group's paths while it was worked.
     pub edited: bool,
+    /// When the agent's list last put it in progress. Absent while it is not, and for one that was before
+    /// this was kept.
+    pub started_at: Option<String>,
 }
 
 /// One group, with its tasks in order.
@@ -147,7 +151,7 @@ impl Store {
         let mut tasks = self
             .conn
             .prepare(
-                "SELECT group_id, task_id, text, listed, completed_at, edited FROM session_plan_tasks
+                "SELECT group_id, task_id, text, listed, completed_at, edited, started_at FROM session_plan_tasks
                  WHERE session_id = ?1 ORDER BY position",
             )
             .map_err(reading)?;
@@ -161,6 +165,7 @@ impl Store {
                         listed: row.get(3)?,
                         completed_at: row.get(4)?,
                         edited: row.get::<_, i64>(5)? == 1,
+                        started_at: row.get(6)?,
                     },
                 ))
             })
@@ -242,9 +247,19 @@ impl Store {
             for (nth, task) in group.tasks.iter().enumerate() {
                 kept.execute(
                     "INSERT INTO session_plan_tasks
-                         (session_id, group_id, position, task_id, text, listed, completed_at, edited)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-                    params![session_id, group.id, nth as i64, task.id, task.text, task.listed, task.completed_at, task.edited],
+                         (session_id, group_id, position, task_id, text, listed, completed_at, edited, started_at)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+                    params![
+                        session_id,
+                        group.id,
+                        nth as i64,
+                        task.id,
+                        task.text,
+                        task.listed,
+                        task.completed_at,
+                        task.edited,
+                        task.started_at
+                    ],
                 )
                 .map_err(keeping)?;
             }
@@ -256,6 +271,7 @@ impl Store {
             )
             .map_err(keeping)?;
         }
+        refocus(&kept, session_id).map_err(keeping)?;
         kept.commit().map_err(keeping)
     }
 
@@ -295,13 +311,14 @@ impl Store {
             .map_err(keeping)?;
             for task in &group.tasks {
                 kept.execute(
-                    "UPDATE session_plan_tasks SET listed = ?3, completed_at = ?4, edited = ?5
+                    "UPDATE session_plan_tasks SET listed = ?3, completed_at = ?4, edited = ?5, started_at = ?6
                      WHERE session_id = ?1 AND task_id = ?2",
-                    params![session_id, task.id, task.listed, task.completed_at, task.edited],
+                    params![session_id, task.id, task.listed, task.completed_at, task.edited, task.started_at],
                 )
                 .map_err(keeping)?;
             }
         }
+        refocus(&kept, session_id).map_err(keeping)?;
         kept.commit().map_err(keeping)
     }
 

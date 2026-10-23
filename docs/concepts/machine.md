@@ -147,7 +147,7 @@ A model chosen for one Job wins, and a terminal Job reports its own.
 
 ## What a Job is told about this Mac
 
-**Every process of a hosted Job or Helm Session is told what this Mac has.** It is the third part of the start note, after the run note (`kit.md`, *What a person is shown*), read from Fleet at each start.
+**Every process of a hosted Job or Helm Session is told what this Mac has.** It is the last section of the Logbook note (`logbook.md`, *Recall*), after the habits and the repository's entries, read from Fleet at each start.
 
 | Line | Where it comes from | Dropped when |
 |---|---|---|
@@ -157,6 +157,9 @@ A model chosen for one Job wins, and a terminal Job reports its own.
 
 **Missing commands are kept for the machine, not the repository.** They are read off the stream, never from an agent's word.
 A result that names a missing command counts as failed, because a pipe hides the exit of what is before it.
+
+**The machine note is a section of the [Logbook](logbook.md).** Its detector is unchanged.
+Its facts are Logbook entries in the `machine` section, and the run note and this note are one Logbook note, cut near 2k tokens. What the cut leaves out is found with `recall`.
 
 ### The browser
 

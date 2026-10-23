@@ -239,6 +239,13 @@ where
         self.dismiss_waited(dismiss).await
     }
 
+    async fn confirm_waiting(
+        self: Arc<Self>,
+        confirm: ipc::ConfirmWaiting,
+    ) -> Result<SessionRecord, Refusal> {
+        self.confirm_waited(confirm).await
+    }
+
     async fn get_plan_usage(&self) -> Result<ipc::PlanUsage, Refusal> {
         let held = self.hosts().plan_usage();
         if !held.windows.is_empty() {

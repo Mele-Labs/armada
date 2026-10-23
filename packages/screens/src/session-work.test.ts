@@ -112,6 +112,17 @@ describe("the plan", () => {
     expect(groups[1]).not.toHaveProperty("issue");
   });
 
+  it("carries the summary, what each group gives and when he set it aside, and leaves each off where Fleet has none", () => {
+    const plain = planOf({ ...PLAN, summary: "He can queue a Session for later.", set_aside_at: AT, groups: [{ ...PLAN.groups[0]!, gives: "A queue that survives a restart" }, { id: "g2", agent: "bridge-engineer", title: "Draw it", paths: [], tasks: [] }] }, { attachments: [], rows: undefined, drawn: [] });
+    expect(plain.summary).toBe("He can queue a Session for later.");
+    expect(plain.setAside).toBe(true);
+    expect(plain.groups[0]?.gives).toBe("A queue that survives a restart");
+    expect(plain.groups[1]).not.toHaveProperty("gives");
+    const old = planOf(PLAN, { attachments: [], rows: undefined, drawn: [] });
+    expect(old).not.toHaveProperty("summary");
+    expect(old).not.toHaveProperty("setAside");
+  });
+
   it("leaves the sketch off until the ledger holds it", () => {
     expect(planOf(PLAN, { attachments: [], rows: undefined, drawn: [] }).sketch).toBeUndefined();
   });

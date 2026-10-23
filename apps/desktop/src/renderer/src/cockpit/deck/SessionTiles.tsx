@@ -14,13 +14,14 @@
 // changes (`TileAskDialog`). A tile of the person's that hides the repository's carries the eclipse mark naming what it hides.
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
-import { Circle, CircleCheck, CircleDot, Play, Swords } from "lucide-react";
+import { Circle, CircleCheck, CircleDot, LoaderCircle, Play, Swords } from "lucide-react";
 import { Eclipse } from "lucide-react";
 import { Kbd, Tooltip, type SentFromComposer } from "@armada/components";
 import type { TileAsk } from "@armada/protocol";
 import { attachmentsOf, type HoldsReleased, type Session, type SessionTag, type SessionsDraft } from "@armada/screens/src/draft/sessions";
 import { refusalWords } from "@armada/screens/src/refusal-words";
 
+import { provideJobFacts } from "../../job-facts";
 import { useSessionsSaid } from "../../sessions-draft";
 import { useFleetEvents } from "../fleet-events";
 import { filled, repositoryFileOf, tilesOf, useFlightFile, useRepositoryFlight, type JobFacts, type Tile } from "./flight-controls";
@@ -30,7 +31,7 @@ import { glyphOf } from "./flight-glyphs";
 import { HoldsReleasedBox, ReleaseHoldsDialog } from "./ReleaseHolds";
 import { ReportBox } from "./ReportBox";
 import { OverTheApp } from "../../session-view/OverTheApp";
-import { reportBrief } from "./report-brief";
+import { reportBrief, reportFacts, reportLists, type ReportFrom } from "./report-brief";
 import { COMPACT, handTargets, heldOf, mute, nameOfHeldRow, offeredOf, plain, type Held, type SessionTileId } from "./session-tiles";
 import { ShellBox, type ShellRun } from "./ShellBox";
 import { select, setView } from "./store";
@@ -83,6 +84,21 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
   const started = useRef<string | undefined>(undefined);
   const events = useFleetEvents();
   const refused = useSessionsSaid();
+  /** What a report of this Job is told besides the owner's words, `screen` being where it was pressed from. */
+  const reportFrom = (screen: string, root: string, name: string | undefined): ReportFrom => ({ at: new Date(), screen, root, ...(name === undefined ? {} : { repository: name }), events, ...(refused === undefined ? {} : { refused }) });
+  /** The latest of these, so what the annotation layer reads when a note is sent is the Job as it stands then. */
+  const latest = useRef({ session, repository, reportFrom });
+  latest.current = { session, repository, reportFrom };
+  useEffect(
+    () =>
+      provideJobFacts(session.id, () => {
+        const { session: now, repository: where, reportFrom: from } = latest.current;
+        if (where === undefined) return [];
+        const asked = from("Cockpit, a pinned note", where.root, where.name);
+        return [...reportFacts(now, asked), ...reportLists(now, asked)];
+      }),
+    [session.id],
+  );
   const on = session.autoLand === true;
   const { off, compact } = offeredOf(session, draft, repository?.root, (bays?.bays.length ?? 0) > 0);
   const sent = async (text: string): Promise<boolean> => (await draft.send(session.id, plain(text))) !== false;
@@ -206,7 +222,7 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
     const id = started.current ?? (await draft.start(undefined, startIn ?? repository.root));
     if (id === undefined) return false;
     started.current = id;
-    const brief = reportBrief(words.text, session, { at: new Date(), screen: "Cockpit, flight controls", root: repository.root, ...(repository.name === undefined ? {} : { repository: repository.name }), events, ...(refused === undefined ? {} : { refused }) });
+    const brief = reportBrief(words.text, session, reportFrom("Cockpit, flight controls", repository.root, repository.name));
     if ((await draft.send(id, { text: brief, files: words.files, sketches: [], tags: words.tags as readonly SessionTag[] })) === false) return false;
     started.current = undefined;
     select({ kind: "session", key: `session:${id}` });
@@ -279,8 +295,10 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
             const reading = id === "judge" && judging;
             const cleared = id === "judge" && clear && !reading;
             const pulsing = id === "checks" && checksRunning;
+            // Pressed, and Fleet has not answered: the tile already reads the new state (`pressed.ts`), and a going mark says so.
+            const going = (id === "pause" && session.pressed?.includes("paused") === true) || (id === "land" && session.pressed?.includes("autoLand") === true);
             return (
-              <Tooltip key={tile.id} label={why ?? (id === undefined ? tipCustom(tile) : tip[id])} {...(key === undefined ? {} : { shortcut: key })} asChild>
+              <Tooltip key={tile.id} label={going ? "Sending" : (why ?? (id === undefined ? tipCustom(tile) : tip[id]))} {...(key === undefined ? {} : { shortcut: key })} asChild>
                 <button
                   type="button"
                   className="deck-tile"
@@ -311,6 +329,11 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
                     // A mark in the corner, as Subagents carries its count, so the tile keeps its place: a filled dot while on, a ring while off.
                     <span className="deck-tile__state" role="img" aria-label={on ? "Auto land on" : "Auto land off"} data-on={on || undefined}>
                       {on ? <CircleDot size={12} strokeWidth={2} aria-hidden="true" /> : <Circle size={12} strokeWidth={2} aria-hidden="true" />}
+                    </span>
+                  )}
+                  {!going ? null : (
+                    <span className="deck-tile__going" role="img" aria-label="Sending">
+                      <LoaderCircle size={12} strokeWidth={2} aria-hidden="true" />
                     </span>
                   )}
                   {id !== "slot" || clashSaid === undefined ? null : (

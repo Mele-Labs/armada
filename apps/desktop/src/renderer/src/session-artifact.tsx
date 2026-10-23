@@ -8,7 +8,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AppWindow, Files, Globe, Image, NotebookText } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { Prose } from "@armada/components";
+import { Enlargeable, Prose } from "@armada/components";
 import type { ArtifactRead, PageBounds, SessionsDraft } from "@armada/screens/src/draft/sessions";
 
 type ArtifactForm = "page" | "file" | "image" | "doc" | "window";
@@ -48,7 +48,7 @@ function Picture({ bytes, type, label }: { bytes: Uint8Array; type: string; labe
     setSrc(url);
     return () => URL.revokeObjectURL(url);
   }, [bytes, type]);
-  return src === undefined ? null : <img className="armada-session-artifact__picture" src={src} alt={label} />;
+  return src === undefined ? null : <Enlargeable className="armada-session-artifact__picture" src={src} name={label} />;
 }
 
 function Contents({ read, label }: { read: ArtifactRead; label: string }) {
@@ -78,7 +78,7 @@ function mockPage(): string {
  * The body a page's view lies over. **Reported on every frame it moves**, since the panel travels
  * in and is dragged wider and no resize event says so; main is only told when the rect changed.
  */
-function PageFrame({ draft, sessionId, address, label, onClose }: { draft: SessionsDraft | undefined; sessionId: string; address: string; label: string; onClose: () => void }) {
+export function PageFrame({ draft, sessionId, address, label, onClose }: { draft: SessionsDraft | undefined; sessionId: string; address: string; label: string; onClose: () => void }) {
   const body = useRef<HTMLDivElement>(null);
   const page = draft?.page;
   useEffect(() => {
@@ -106,11 +106,37 @@ function PageFrame({ draft, sessionId, address, label, onClose }: { draft: Sessi
   // Esc in the view, which holds the keyboard where the panel's own binding cannot hear it.
   useEffect(() => page?.onEscape(onClose), [page, onClose]);
   const testing = (import.meta as { env?: { MODE?: string } }).env?.MODE === "test";
+  // An address from `/` is a page of the mock's own server, a live view's, and is shown as it is.
   return (
     <div ref={body} className="armada-session-artifact__page" role="region" aria-label="Page">
-      {page === undefined ? <iframe title={label} src={testing ? "about:blank" : mockPage()} /> : null}
+      {page === undefined ? <iframe title={label} src={testing ? "about:blank" : address.startsWith("/") ? address : mockPage()} /> : null}
     </div>
   );
+}
+
+/**
+ * A page drawn small: the picture main takes of it out of sight, taken again as the page changes. **A view over the panel cannot be scaled**, so the
+ * live view asks for pictures instead; the bytes cross the preload as an array and become a `blob:` the window makes itself, which `img-src` already draws.
+ */
+export function PageSnapshot({ snapshot, sessionId, address, label }: { snapshot: NonNullable<NonNullable<SessionsDraft["page"]>["snapshot"]>; sessionId: string; address: string; label: string }) {
+  const [shown, setShown] = useState<string>();
+  useEffect(() => {
+    let current: string | undefined;
+    const off = snapshot.onShot((shot) => {
+      if (shot.address !== address) return;
+      const next = URL.createObjectURL(new Blob([shot.png as Uint8Array<ArrayBuffer>], { type: "image/png" }));
+      if (current !== undefined) URL.revokeObjectURL(current);
+      current = next;
+      setShown(next);
+    });
+    snapshot.watch(sessionId, address);
+    return () => {
+      off();
+      snapshot.stop();
+      if (current !== undefined) URL.revokeObjectURL(current);
+    };
+  }, [snapshot, sessionId, address]);
+  return shown === undefined ? null : <img className="sv-account__snapshot" src={shown} alt={label} draggable={false} />;
 }
 
 /** The panel's body for one artifact of the ledger. */

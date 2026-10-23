@@ -2,12 +2,13 @@
 
 **Part of:** [Job](../session.md).
 
-Two tables, in `crates/store`. The second is not the first's child.
+Three tables, in `crates/store`. The second is not the first's child, and the third is the second's history.
 
 | Table | One row is | Key |
 |---|---|---|
 | `sessions` | A job: harness, origin, repository, directory, title, `live` or `ended`, when it started, was last seen and last finished a turn, the figures it last reported | `id`, the harness's own |
 | `ledger_attachments` | One thing a holder took or did | `holder_kind`, `holder_id`, `kind`, `manifest_id`, `target` |
+| `ledger_attachment_versions` | One version of one of those rows, from `at` | `seq`, in the order written |
 
 A holder is `{ kind: session, id }` and points at neither table, so another kind of holder can hold rows without a table of its own. A `kind` is open text:
 
@@ -16,7 +17,7 @@ A holder is `{ kind: session, id }` and points at neither table, so another kind
 | `slot` | the slot's number | the job leaves it, the pool shows it held by another or free, or the job ends |
 | `branch` | the branch's name | the job checks out another, its slot is given back, or it ends |
 | `pr` | the pull request's number | it merges (`spent`) or closes (`given_back`) |
-| `issue` | the issue's reference: the forge's number as digits, or a tracker's key such as `ABC-12`; `detail` is `title`, `state` (`open` or `closed`) and `address`, which the pull watch reads through the Manifest's tracker each pass, one read an issue, as it reads each `pr` row, and `pull_requests`, the numbers of the pull requests that work it, comma-joined ascending, which only grows. Taken when the person names it to the job, by an issue tag or a link into the job's own repository, in a message or the request it was dispatched with; or when the job's agent files it in that repository, which the mod reads off the address `gh issue create` printed; or when a pull request it holds closes it, as the `pr` row's `closes` says; or when a group of its recorded plan names it as `issue`; or when the agent or the person claims it with `claim_issue`, which may name its pull requests. Taking the issue off the group in a later recording does not give the row back. A bare `#123` is not naming it | a terminal job ends, which gives back all it holds. A closed issue's row stands, and naming it again takes nothing a second time |
+| `issue` | the issue's reference: the forge's number as digits, or a tracker's key such as `ABC-12`; `detail` is `title`, `state` (`open` or `closed`) and `address`, which the pull reading reads through the Manifest's tracker each pass, one read an issue, as it reads each `pr` row, and `pull_requests`, the numbers of the pull requests that work it, comma-joined ascending, which only grows. Taken when the person names it to the job, by an issue tag or a link into the job's own repository, in a message or the request it was dispatched with; or when the job's agent files it in that repository, which the mod reads off the address `gh issue create` printed; or when a pull request it holds closes it, as the `pr` row's `closes` says; or when a group of its recorded plan names it as `issue`; or when the agent or the person claims it with `claim_issue`, which may name its pull requests. Taking the issue off the group in a later recording does not give the row back. A bare `#123` is not naming it | a terminal job ends, which gives back all it holds. A closed issue's row stands, and naming it again takes nothing a second time |
 | `subagent` | the agent's id | it stops (`spent`) or its process is cut off (`given_back`); more work after either holds it again, *A terminal job's thread* |
 | `background` | the task id the harness gave a shell command the agent ran beside its turn (`run_in_background`) or a `Monitor` watch; `detail.form` is `command` or `monitor`, `task` its description, `command` the command, and once it ends `status` (`completed`, `failed` or `killed`), `output` (the file its output went to) and `exit` (the code, for a command that exited on its own) | the task ends (`spent`, with `status`), or the process that ran it is replaced (`given_back`). Several stand at once, and a hosted Job's only; *Background tasks* |
 | `message` | `to:<who>` or `from:<who>`, with a count in `detail` | |
@@ -25,6 +26,7 @@ A holder is `{ kind: session, id }` and points at neither table, so another kind
 | `started_to`, `started_by` | the other job's id | `spent` when written, as a fork's links are. The caller holds `started_to` and the Job its agent started holds `started_by` |
 | `unsent` | the words of the first message another job's agent wrote | `standing` until the person's next send, which spends it; ending the job gives it back |
 | `artifact` | a page's or document's address, or a file's absolute path; `detail.form` is `page`, `file`, `image`, `doc` or `window`, `detail.title` its name | nothing: it stays on the ledger after the job ends |
+| `link` | a web address (`http` or `https`) the person wrote in a message or the request the job was dispatched with, or the agent wrote in its reply; `detail.by` is `you` or `agent`, the first to write it. Not one to this machine (`localhost`, `127.0.0.1`, `[::1]`, `0.0.0.0`, `*.localhost`) or to the job's own repository's issues and pull requests, which the `issue` and `pr` rows hold. A sentence's closing punctuation is not part of it | nothing: `spent` when written, so it stays after the job ends, as a fork's link does. Writing it again changes nothing |
 
 **An artifact is something a person would open, and a code edit is never one.** Edits are Branches and Pull requests. Five forms:
 
@@ -43,6 +45,22 @@ The terminal mod tells the first five (`plugins/armada/hooks/facts.ts`, `artifac
 **A hosted job tells files and pictures looked at**, because its stream carries a `Write` call but not its result, so a published page's address and a Docs link are not seen; and it cannot tell a new file from a rewrite, so a rewritten document counts.
 The extension lists are the same rule written twice, in `facts.ts` and `adapters::written_document` / `adapters::viewed_image`.
 Files made by other tools, such as a screenshot a command saved, are not seen.
+
+## Every version
+
+**A row of `ledger_attachments` is replaced in place, and every version it stood in is kept.**
+A trigger on the table writes one to `ledger_attachment_versions` when a row is inserted and whenever its `state` or `detail` changes, whichever of Fleet's writers made the change, stamped with the row's `changed_at`.
+A write that moves neither, such as a subagent stopping a second time, adds none.
+A row kept before the table existed has one version, the state it was in, at its `since`.
+Bridge reads a Job's versions whole, oldest first, with `get_attachment_history`; they ride no `session.changed`, which carries the latest row only.
+A session Fleet forgets as blank takes its versions with it, and an ended Job's stay with its rows.
+
+**A version also says what it followed.** Fleet keeps, for each Job, the thread row id of the person's latest message and the plan task in progress (`session_focus`), and a trigger on `ledger_attachment_versions` copies both into `ledger_attachment_version_origins` as the version is written.
+The message is the one a person's send to a hosted Job wrote, set before anything else in the send can return, or, for a Job that waited on another, the brief it is sent when its wait is met; the task is the one the agent's task list put in progress most recently, and none once that task is completed or nothing is in progress.
+Fleet works both out from what it saw, never from what the agent says.
+A version written before this, by a holder that is not a session, or before the Job had a message or a task, follows nothing known.
+It is a second table because a migration that adds only cannot change the triggers that write the version, and a new trigger on the version cannot update its row.
+The same two ids ride `AttachmentVersion` as `from_message` and `from_task`, so Bridge can hang an artifact off the plan group of its task, or else off the message it followed.
 
 ## Whose slot it is
 

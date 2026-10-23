@@ -16,11 +16,11 @@ use store::KeptWait;
 use testkit::FakeJudge;
 
 use super::agent_starts::{begins, caller, kind, two_groups, Rig};
-use crate::after_watching::{judged, Verdict};
+use crate::after_following::{judged, Verdict};
 
-const BRIEF: &str = "after @The agent lands its PR, let the Field expand into the overlay";
+pub(super) const BRIEF: &str = "after @The agent lands its PR, let the Field expand into the overlay";
 
-fn brief_after(rig: &Rig, on: &SessionId, condition: StartCondition, base: StartBase) -> StartSession {
+pub(super) fn brief_after(rig: &Rig, on: &SessionId, condition: StartCondition, base: StartBase) -> StartSession {
     StartSession {
         manifest_id: rig.manifest.clone(),
         title: None,
@@ -36,17 +36,17 @@ fn brief_after(rig: &Rig, on: &SessionId, condition: StartCondition, base: Start
 
 impl Rig {
     /// The Session waited on, with the Fleet reading what waits on it.
-    async fn a_waited_on_agent(&self) -> SessionId {
-        crate::after_watching::keep_the_waiting(Arc::clone(&self.fleet));
+    pub(super) async fn a_waited_on_agent(&self) -> SessionId {
+        crate::after_following::keep_the_waiting(Arc::clone(&self.fleet));
         self.an_agent().await
     }
 
-    async fn waits(&self, on: &SessionId, condition: StartCondition, base: StartBase) -> SessionRecord {
+    pub(super) async fn waits(&self, on: &SessionId, condition: StartCondition, base: StartBase) -> SessionRecord {
         Arc::clone(&self.fleet).start_session_reading(brief_after(self, on, condition, base)).await.expect("made to wait")
     }
 
     /// The first thing the record satisfies, within five seconds.
-    async fn eventually<F: Fn(&SessionRecord) -> bool>(&self, id: &SessionId, what: &str, held: F) -> SessionRecord {
+    pub(super) async fn eventually<F: Fn(&SessionRecord) -> bool>(&self, id: &SessionId, what: &str, held: F) -> SessionRecord {
         for _ in 0..500 {
             let record = self.record(id).await;
             if held(&record) {
@@ -57,7 +57,7 @@ impl Rig {
         panic!("{what} did not hold within five seconds");
     }
 
-    async fn thread_has(&self, id: &SessionId, what: &str, held: impl Fn(&SessionRow) -> bool) -> SessionRow {
+    pub(super) async fn thread_has(&self, id: &SessionId, what: &str, held: impl Fn(&SessionRow) -> bool) -> SessionRow {
         for _ in 0..500 {
             if let Some(row) = self.rows(id).await.into_iter().find(|one| held(one)) {
                 return row;

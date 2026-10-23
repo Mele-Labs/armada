@@ -76,8 +76,8 @@ where
     }
 
     /// [`Self::turns_gained`], and then the Jobs whose turns changed are read against the token
-    /// rules (`crate::usage_watch`). How many turns changed the store.
-    pub(crate) async fn turns_followed_and_watched(self: &Arc<Self>) -> usize {
+    /// rules (`crate::usage_following`). How many turns changed the store.
+    pub(crate) async fn turns_followed_and_read(self: &Arc<Self>) -> usize {
         let (changed, gained) = self.turns_gained().await;
         self.usage_rules_read(&gained).await;
         changed

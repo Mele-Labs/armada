@@ -70,6 +70,7 @@ pub(crate) fn concern_item(session: &str, kept: &KeptConcern) -> WaitingItem {
             produced: kept.produced.clone(),
             consequence: kept.consequence.clone(),
         }),
+        confirmed: false,
     }
 }
 

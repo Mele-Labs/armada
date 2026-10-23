@@ -320,6 +320,36 @@ async fn a_loadout_item_is_asked_on_the_query_string() {
     assert_eq!(status, StatusCode::BAD_REQUEST);
 }
 
+/// `get_attachment_history` reads its session off the query string, and a request without one is
+/// the transport's 400 rather than a read.
+#[tokio::test]
+async fn a_jobs_attachment_history_is_asked_on_the_query_string() {
+    let events = Broadcaster::new();
+    let app = wired(FakeDaemon::new(events.clone()), events);
+    let (status, body) = call(&app, "GET", "/sessions/attachment_history?session_id=s1", "").await;
+    assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&body));
+    let answer: ipc::AttachmentHistory = ipc::decode("an attachment history", &body).expect("a history");
+    assert!(answer.versions.is_empty());
+    let (status, _) = call(&app, "GET", "/sessions/attachment_history", "").await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+}
+
+/// A version says which message and which plan task it followed, and leaves a part out where it
+/// followed none, as the TypeScript mirror's optional fields are.
+#[tokio::test]
+async fn a_version_carries_the_message_and_task_it_followed_and_leaves_out_what_it_did_not() {
+    let events = Broadcaster::new();
+    let app = wired(FakeDaemon::new(events.clone()), events);
+    let (status, body) = call(&app, "GET", "/sessions/attachment_history?session_id=followed", "").await;
+    assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&body));
+    let answer: ipc::AttachmentHistory = ipc::decode("an attachment history", &body).expect("a history");
+    let read: Vec<_> = answer.versions.iter().map(|one| (one.from_message.as_deref(), one.from_task.as_deref())).collect();
+    assert_eq!(read, [(Some("m1"), Some("t3")), (Some("m2"), None)]);
+    let wire = String::from_utf8_lossy(&body);
+    assert!(wire.contains(r#""from_message":"m1""#) && wire.contains(r#""from_task":"t3""#), "{wire}");
+    assert_eq!(wire.matches("from_task").count(), 1, "the version that followed no task leaves it out: {wire}");
+}
+
 /// A hosted job's MCP servers read on the query string, each state its snake_case word and an absent
 /// field left out; an act answers the servers after it and, for a sign-in, where to go.
 #[tokio::test]

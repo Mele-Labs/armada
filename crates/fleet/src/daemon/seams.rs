@@ -132,12 +132,15 @@ where
     pub(crate) fn budget(&self) -> crate::budget::CheckBudget {
         self.tuned(|dials| dials.budget)
     }
-    pub(crate) fn usage_watch(&self) -> &crate::usage_rules::Watch {
-        &self.usage_watch
+    pub(crate) fn usage_following(&self) -> &crate::usage_rules::Following {
+        &self.usage_following
     }
 
     pub(crate) fn behind_told(&self) -> &crate::behind_bay::BehindTold {
         &self.behind_told
+    }
+    pub(crate) fn logbook_distils(&self) -> &crate::logbook::Distils {
+        &self.logbook
     }
     pub(crate) fn review_going(&self) -> &Mutex<std::collections::BTreeSet<String>> {
         &self.review_going

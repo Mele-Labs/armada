@@ -57,6 +57,26 @@ export type Attachment = {
 };
 
 /**
+ * One attachment as it stood from `at`, until its next version or for good. `get_attachment_history`
+ * answers them, oldest first; a `SessionRecord` carries only the latest, in `Attachment`.
+ */
+export type AttachmentVersion = {
+  kind: string;
+  manifest_id?: string;
+  target: string;
+  state: AttachmentState;
+  detail?: Record<string, string>;
+  at: string;
+  /** The thread row id of the person's latest message when it was written. */
+  from_message?: string;
+  /** The plan task in progress when it was written. */
+  from_task?: string;
+};
+
+/** `get_attachment_history`: every version of everything one session holds, oldest first. */
+export type AttachmentHistory = { versions: AttachmentVersion[] };
+
+/**
  * A session and everything it holds. `report_session` answers it, `list_sessions`
  * lists it and `session.changed` publishes it whole, so a client replaces the
  * row it has.
@@ -271,6 +291,8 @@ export type WaitingItem = {
   concern?: JudgeConcern;
   /** Where a `judge` item points: the files its quotation lands in. Absent when it lands in none. */
   cites?: WaitingCite[];
+  /** A `replied` item whose sentence he said is a question (`confirm_waiting`). Absent where he has not. */
+  confirmed?: boolean;
 };
 
 /**
@@ -368,8 +390,15 @@ export type MainRedTaken = { root: string; claimed: boolean };
  * `POST /sessions/waiting/dismiss`: drop one item for good. Its id never comes back, whether Fleet derived
  * it (`ask:`, `perm:`, `walk:`) or the agent stated it. Nothing is sent to the agent, except for an item
  * the agent stated: it is told `Owner removed "<item text>"`, with `reason` after it where the person gave one.
+ * `misread` is Not a question on an item Fleet read from a reply: its sentence is kept as one that asks nothing.
  */
-export type DismissWaiting = { session_id: string; item_id: string; reason?: string };
+export type DismissWaiting = { session_id: string; item_id: string; reason?: string; misread?: boolean };
+
+/**
+ * `POST /sessions/waiting/confirm`: thumbs up on an item Fleet read from a reply. Its sentence is kept as one
+ * that asks, the item stays, and it reads `confirmed` from then on. Refused on an item of any other source.
+ */
+export type ConfirmWaiting = { session_id: string; item_id: string };
 
 /** One take of a change a session shows in its window. `url` is `http` or `https`. */
 export type WindowTake = { name: string; url: string };

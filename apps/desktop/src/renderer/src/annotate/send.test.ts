@@ -187,4 +187,43 @@ describe("a note sent to a Session", () => {
     expect(await sendToSession([item], null, sink(), sessions(refusal("No such manifest")), ADDRESS, AT)).toEqual({ ok: false, saying: "Job not started: No such manifest" });
     expect(await sendToSession([item], null, sink(), sessions(refusal("")), ADDRESS, AT)).toEqual({ ok: false, saying: "Job not started: Fleet refused it" });
   });
+
+  describe("with a Job open", () => {
+    const open = { id: "01OPEN", facts: ["Job: Fix the flaky store test (01OPEN)", "State: working"] };
+    const factsMessage = (fleet: ReturnType<typeof sessions>) => (fleet.sendSessionMessage.mock.calls as unknown as [{ session_id: string; text: string }][]).map(([sent]) => sent);
+
+    it("sends the Job's facts as one message to the new Session, before the notes", async () => {
+      const fleet = sessions();
+      await sendToSession([item, { note: note({ id: "20260917-140300-next" }), box: null }], null, sink(), fleet, ADDRESS, AT, open);
+      const messages = factsMessage(fleet);
+      expect(messages).toHaveLength(1);
+      expect(messages[0]?.session_id).toBe("01NEW");
+      expect(messages[0]?.text).toContain("\n## Debug info\nJob: Fix the flaky store test (01OPEN)\nState: working");
+      expect(fleet.sendSessionMessage.mock.invocationCallOrder[0]).toBeLessThan(fleet.sendSessionNote.mock.invocationCallOrder[0] ?? 0);
+    });
+
+    it("sends the same to a live Session that is not the open Job", async () => {
+      const fleet = sessions();
+      await sendToSession([item], { id: "01T", title: "t" }, sink(), fleet, ADDRESS, AT, open);
+      expect(factsMessage(fleet).map((one) => one.session_id)).toEqual(["01T"]);
+    });
+
+    it("sends none to the open Job itself, which holds them, nor where no Job is open", async () => {
+      const toSelf = sessions();
+      await sendToSession([item], { id: "01OPEN", title: "t" }, sink(), toSelf, ADDRESS, AT, open);
+      expect(toSelf.sendSessionMessage).not.toHaveBeenCalled();
+      const none = sessions();
+      await sendToSession([item], { id: "01T", title: "t" }, sink(), none, ADDRESS, AT, undefined);
+      expect(none.sendSessionMessage).not.toHaveBeenCalled();
+      const empty = sessions();
+      await sendToSession([item], { id: "01T", title: "t" }, sink(), empty, ADDRESS, AT, { id: "01OPEN", facts: [] });
+      expect(empty.sendSessionMessage).not.toHaveBeenCalled();
+    });
+
+    it("sends no notes and says so where Fleet refuses the facts", async () => {
+      const fleet = { ...sessions(), sendSessionMessage: vi.fn(async () => refused as never) };
+      expect(await sendToSession([item], { id: "01T", title: "t" }, sink(), fleet, ADDRESS, AT, open)).toEqual({ ok: false, saying: 'Notes not sent to "t": Fleet is not connected. Nothing was sent.' });
+      expect(fleet.sendSessionNote).not.toHaveBeenCalled();
+    });
+  });
 });

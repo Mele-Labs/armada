@@ -70,7 +70,7 @@ pub(crate) async fn enable_auto_merge<D: PullRequests>(
     }
 }
 
-/// Read it now and do what the pull watch would. Bridge's press, never an agent's.
+/// Read it now and do what the pull reading would. Bridge's press, never an agent's.
 pub(crate) async fn refresh_pull_request<D: PullRequests>(
     State(served): State<Served<D>>,
     Path((repository, number)): Path<(String, u64)>,

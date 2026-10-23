@@ -46,10 +46,10 @@ mod landable;
 mod link_lookup;
 mod main_ci;
 mod manifest_edit;
+mod pull_reading;
 mod pull_request;
 mod pull_request_detail;
 mod pull_review;
-mod pull_watch;
 mod request;
 mod secret;
 mod setup;
@@ -95,6 +95,7 @@ pub use main_ci::{
     PullMergeable, PullReview, QueueEntry, QueueState, RecentlyMerged, RecentlyMergedPulls,
 };
 pub use manifest_edit::{ManifestEditSent, ManifestEditToSend, ManifestOnTheBase, PullRequestFor};
+pub use pull_reading::{PullQueue, FollowedCheck, FollowedPull, FollowedPulls};
 pub use pull_request::{PullRequestFacts, PullRequestStanding};
 pub use pull_request_detail::{
     CheckRow, CheckStanding, CommitLine, FileChange, FilePatch, Mergeability, Omitted, PageFile,
@@ -105,7 +106,6 @@ pub use pull_review::{
     DiffSide, ListedChecks, ListedPull, ReviewComment, ReviewList, ReviewListAsk, ReviewThreadFacts,
     ThreadSaid,
 };
-pub use pull_watch::{PullQueue, WatchedCheck, WatchedPull, WatchedPulls};
 pub use request::{
     Incoming, Outgoing, RequestFailure, RequestSecrets, RequestSender, SecretError, SecretVariable,
 };

@@ -1,7 +1,7 @@
-//! The open pull requests as a watcher reads them, over GitHub's API: the query `gh api graphql`
+//! The open pull requests as a pull reading reads them, over GitHub's API: the query `gh api graphql`
 //! is given, its nodes folded by the function that folds `gh`'s lines.
 
-use adapter_traits::{WatchedPull, WatchedPulls};
+use adapter_traits::{FollowedPull, FollowedPulls};
 use core_model::Timestamp;
 use serde::{Deserialize, Serialize};
 
@@ -10,7 +10,7 @@ use super::open_pulls::Repo;
 use super::page::InRepository;
 use super::{login_of, Login, Nodes};
 use crate::github_api::{ApiFailure, GitHubApi, GitHubRepository};
-use crate::pull_watch::{list_query, one_query, watched_built, WatchedPullRead, WatchedRead};
+use crate::pull_reading::{list_query, one_query, followed_built, FollowedPullRead, FollowedRead};
 
 #[derive(Serialize)]
 struct Asked<'a> {
@@ -76,29 +76,29 @@ struct Context {
 }
 
 /// Every open pull request, the hundred last updated.
-pub(super) fn watch(api: &GitHubApi, repository: &GitHubRepository, gate: &str) -> Result<Option<WatchedPulls>, ApiFailure> {
+pub(super) fn read(api: &GitHubApi, repository: &GitHubRepository, gate: &str) -> Result<Option<FollowedPulls>, ApiFailure> {
     let named = Named::of(repository);
     let found: Repo<Listed> = api.graphql(&list_query(), &Asked { owner: named.owner(), name: named.name() })?;
     let pulls = found.repository.and_then(|it| it.pull_requests);
-    Ok(Some(Nodes::all(pulls).filter_map(|pull| watched_pull_of(pull, gate)).collect()))
+    Ok(Some(Nodes::all(pulls).filter_map(|pull| followed_pull_of(pull, gate)).collect()))
 }
 
 /// One pull request by its number. `Ok(None)` where it is not open.
-pub(super) fn watched(
+pub(super) fn followed(
     api: &GitHubApi,
     repository: &GitHubRepository,
     gate: &str,
     number: u64,
-) -> Result<Option<WatchedPull>, ApiFailure> {
+) -> Result<Option<FollowedPull>, ApiFailure> {
     let found: InRepository<Pull> = api.graphql(&one_query(), &Named::of(repository).asked(number))?;
-    Ok(found.pull().filter(|pull| pull.state.as_deref() == Some("OPEN")).and_then(|pull| watched_pull_of(pull, gate)))
+    Ok(found.pull().filter(|pull| pull.state.as_deref() == Some("OPEN")).and_then(|pull| followed_pull_of(pull, gate)))
 }
 
-/// A pull request as `crate::pull_watch::pull_of_line` makes one from `gh`'s line.
-pub(crate) fn watched_pull_of(pull: Pull, gate: &str) -> Option<WatchedPull> {
+/// A pull request as `crate::pull_reading::pull_of_line` makes one from `gh`'s line.
+pub(crate) fn followed_pull_of(pull: Pull, gate: &str) -> Option<FollowedPull> {
     let contexts = Nodes::all(pull.commits).next().and_then(|it| it.commit?.status_check_rollup?.contexts);
     let checks = Nodes::all(contexts)
-        .map(|check| WatchedRead {
+        .map(|check| FollowedRead {
             name: check.name.or(check.context).unwrap_or_default(),
             status: check.status.unwrap_or_default().to_ascii_lowercase(),
             conclusion: check.conclusion.or(check.state).unwrap_or_default().to_ascii_lowercase(),
@@ -106,8 +106,8 @@ pub(crate) fn watched_pull_of(pull: Pull, gate: &str) -> Option<WatchedPull> {
             seconds: seconds_between(check.started_at.as_deref(), check.completed_at.as_deref()),
         })
         .collect();
-    Some(watched_built(
-        WatchedPullRead {
+    Some(followed_built(
+        FollowedPullRead {
             number: pull.number?,
             branch: pull.head_ref_name.unwrap_or_default(),
             url: pull.url.unwrap_or_default(),

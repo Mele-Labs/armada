@@ -94,6 +94,8 @@ mod test_map;
 mod requests;
 /// A Job's retro and the Lessons listing. Since 23.12.
 mod retros;
+/// What Armada learned, and a person's acts on it.
+mod logbook;
 mod routes;
 mod scoped;
 /// Everything a handler is given. **Next door to the table**, which is what
@@ -124,7 +126,7 @@ mod tests;
 pub use acting::{asked_by, asking, carrying, via, BRIDGE, CALLER_HEADER, PHONE};
 pub use daemon::{
     offerable, Accounts, Admitting, Authoring, Commands, Conversations, Daemon,
-    Autopilots, HelmReach, HostedSessions, Issues, Mods, Clashing,
+    Autopilots, HelmReach, HostedSessions, Issues, Logbook, Mods, Clashing,
     PullRequestPanel, PullRequests, Queries, Redirector, Refusal, Rehearsing, Requests, Retros, Sessions, Settings, Steerer,
     ShownFile, StoredFile, Studios, Watches,
 };

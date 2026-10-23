@@ -155,6 +155,7 @@ WebSocket event stream, read this first.
 | [Sessions absorb Jobs, group 1: the Job arms and piloting a Job leave the wire](protocol/sessions-absorb-jobs-group-1-the-job-arms-and-piloting-a-job-leave-the.md) |
 | [Sessions absorb Jobs, group 2: the Job surface leaves the wire](protocol/sessions-absorb-jobs-group-2-the-job-surface-leaves-the-wire.md) |
 | [A Job's Loadout](protocol/a-jobs-loadout.md) |
+| [A Job's attachment history](protocol/a-jobs-attachment-history.md) |
 | [Needs are deleted](protocol/needs-are-deleted.md) |
 | [A write clash's file is read as two patches](protocol/a-write-clashs-file-is-read-as-two-patches.md) |
 | [Usage a turn at a time](protocol/usage-a-turn-at-a-time.md) |
@@ -585,6 +586,26 @@ Bridge calls neither yet.
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 **The event stream.** Untouched.
 
+## The Logbook: `get_logbook` and four acts on an entry
+
+Since 22 Oct 2026. `docs/concepts/logbook.md`. **Additive only**: five operations and routes and the types they carry; no event kind and no field on an existing type.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `packages/protocol/src/logbook.ts`, written by hand, field for field. Bridge calls none of them yet.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `get_logbook` (`GET /logbook?repository=&section=&state=`, `agent_access = "Yes"`) | Bridge reads | `Logbook` `{ entries }` of `LogbookEntry`. `repository` is a root, and absent the answer is the habits and this Mac's alone; `section` and `state` absent narrow nothing, so every state is listed. A root Fleet does not serve is a 404 `fleet.run_memory_repository_not_served` |
+| `edit_logbook_entry` (`POST /logbook/entries/:entry_id/edit`) | Bridge sends `{ text }`, Fleet answers the entry | The old text goes on `history` with `by: "person"`, `edited` is true. 404 `fleet.no_such_logbook_entry`; 422 `fleet.logbook_entry_not_kept`, `fleet.logbook_text_refused`, `fleet.logbook_text_forgotten` |
+| `pin_logbook_entry` (`POST /logbook/entries/:entry_id/pin`) | Bridge sends `{ pinned }`, Fleet answers the entry | Refused as an edit is |
+| `forget_logbook_entry` (`POST /logbook/entries/:entry_id/forget`) | Bridge sends nothing, Fleet answers `{ id }` | The text, and every text it had, goes on the deny list. A second forget is a 404 `fleet.no_such_logbook_entry` |
+| `teach_logbook_entry` (`POST /logbook/entries`) | Bridge sends `{ section, repository?, kind, text, paths? }`, Fleet answers the entry | Stands at once, with no Job behind it. 422 `fleet.logbook_repository_missing` for a `repo` entry naming none; teaching forgotten text lifts the forgetting |
+
+**An id is a number for an entry Fleet keeps, and a word and a hash (`runs-…`, `machine-…`) for one read in from run memory or the machine note.** The acts refuse the second kind with `fleet.logbook_entry_not_kept`: Fleet rebuilds them on every read.
+**`LogbookEvidence.says` is optional**, since a list does not read each Job's record back. `last_tripped` is the latest time a Job tripped on the entry, read off its evidence.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+**The event stream.** Untouched.
+
 ## A Fleet notice disputed: `dispute_fleet` and the `disputed` row
 
 Since 19 Oct 2026. `docs/concepts/session/what-fleet-tells-a-job.md`.
@@ -710,20 +731,37 @@ The row is stored as written, so no read of the thread parses a log, and a row k
 **The event stream.** The row is published as `session.row` and the Session as `session.changed`, as before; a failed row grows by one short path.
 The open risk below is neither better nor worse.
 
+## What the Logbook hands out mid-task: `recall` and `get_logbook_for_subagent`
+
+Since 22 Oct 2026. `docs/concepts/logbook.md`, *Recall*.
+**Additive only**: two operations, two routes and the types they answer; no event kind, no error on an existing operation and no field on an existing type.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `packages/protocol/src/logbook.ts`, written by hand, field for field; no screen reads either yet.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `recall` (`GET /logbook/recall?query=&section=&manifest_id=`, `Yes`) | An agent asks, Fleet answers 200 | `Recalled` `{ entries[] }`, each `{ section, kind, state, text, confirmed_by }`. 422 `fleet.session_unnamed` for a blank `query` or a `section` that is not `repo`, `habits` or `machine` |
+| `get_logbook_for_subagent` (`POST /logbook/subagent`, `No`) | The Armada mod asks, Fleet answers 200 | Body `SubagentAsk` `{ session_id, prompt }`; `ForSubagent` `{ text }`, empty where the Logbook holds nothing |
+
+**The start note is not on the wire.** It is built in Fleet and handed to the process as `--append-system-prompt`, so the Logbook note changes no type.
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+A mod newer than its Fleet gets a 404 from `/logbook/subagent` and hands the subagent nothing.
+
 ## Watches on the wire: `start_watch`, `weigh_watch`, `stop_watch`, `list_watches`
 
 Since 22 Oct 2026. The design is *Fleet watches CI and deploys for a Job*, under `docs/design/`, and spike 36 is what backs it.
-**Additive only**: four operations, four routes and the types they carry; no event kind, no error on an existing operation and no field on an existing type.
+Four operations, four routes, one event kind and the types they carry. `weigh_watch`'s `ours` carries a `sentence` since its first build, which a body without one is refused for.
 The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
 Bridge's half is `packages/protocol/src/watches.ts`, written by hand, field for field; no main-process call, channel or screen reads it yet.
 
 | Where | Side | Carries |
 | --- | --- | --- |
 | `start_watch` (`POST /watches/start`, `agent_access = "Yes"`) | An agent starts one | `StartWatch` `{ session_id?, name, recipe, values? \| command[], every, gives_up_after?, follows?, set_aside[]? }`; answers `WatchSummary`. 400 for neither shape or both; 422 `fleet.watches_unplaced`, `fleet.watch_refused`, `fleet.watch_recipe_unknown`, `fleet.watch_value_refused`, `fleet.watch_too_often`, `fleet.watch_gives_up_too_late`; 409 `fleet.watch_limit_reached` |
-| `weigh_watch` (`POST /watches/weigh`, `Yes`) | An agent weighs a failed reading | `WeighWatch` `{ session_id?, watch, verdict: "ours" }` or `{ ..., verdict: "not_ours", sentence, parts[] }`; answers `WatchSummary`. 404 `fleet.no_such_watch`; 409 `fleet.watch_ended`, `fleet.watch_not_failed`; 422 `fleet.watch_part_unreported`, `fleet.watch_refused` |
+| `weigh_watch` (`POST /watches/weigh`, `Yes`) | An agent weighs a failed reading | `WeighWatch` `{ session_id?, watch, verdict: "ours", sentence }` or `{ ..., verdict: "not_ours", sentence, parts[] }`; answers `WatchSummary`. 404 `fleet.no_such_watch`; 409 `fleet.watch_ended`, `fleet.watch_not_failed`; 422 `fleet.watch_part_unreported`, `fleet.watch_refused` |
 | `stop_watch` (`POST /watches/stop`, `Yes`) | Bridge's Stop, or an agent | `StopWatch` `{ session_id?, watch }`; answers `WatchSummary`, ended `stopped`, or as it stands where it had ended. 404 `fleet.no_such_watch` |
-| `list_watches` (`GET /watches?session_id=`, `Yes`) | Bridge or an agent reads | `WatchList` `{ watches[] }`, the newest first. 422 `fleet.watches_unplaced` |
-| `WatchSummary` | Fleet writes | `{ id, session_id, name, command[], recipe?, every_seconds, gives_up_after_seconds, follows?, state, live, started_at, last?, set_aside[]? }`, `state` one of `waiting`, `running`, `passed`, `failed`, `gave_up`, `broken`, `stopped` |
+| `list_watches` (`GET /watches?session_id=`, `Yes`) | Bridge or an agent reads | `WatchList` `{ session_id, watches[] }`, the newest first. 422 `fleet.watches_unplaced`, `fleet.no_such_session` |
+| `watches.changed` (event, Bridge only) | Fleet publishes on any change to one of a Job's watches | `WatchList`, whole |
+| `WatchSummary` | Fleet writes | `{ id, session_id, name, command[], recipe?, every_seconds, gives_up_after_seconds, follows?, environment?, state, live, started_at, last?, readings[]?, set_aside[]?, verdicts[]? }`; `readings` the newest 50, oldest first, `last` the newest; a verdict `{ at, verdict, sentence, parts[]? }`, `state` one of `waiting`, `running`, `passed`, `failed`, `gave_up`, `broken`, `stopped` |
 | `WatchReading` | Fleet writes | `kind: "read"` `{ at, state, finished, says, link?, parts[]? }` or `kind: "broken"` `{ at, why, output? }` |
 
 **DTOs, not `core_model::Watch`.** The domain type keeps every part a reading carried and the last reading whole, so a weighing can be held to them; neither list reaches the wire.
@@ -731,11 +769,44 @@ Bridge's half is `packages/protocol/src/watches.ts`, written by hand, field for 
 **A value fills one whole argument.** A recipe's item written `{sha}` is replaced by `values.sha`, and no item is read by a shell.
 **The Job is the connection's** where Fleet hosts it, else the body's `session_id`, as `send_request`'s is. A placed Job weighs and stops its own watches only; Bridge places none and stops any.
 
-**Recorded, not yet run.** This build keeps a watch in memory, so a restart forgets it, and runs no command: `last` is always absent, no notice is told, and `limits.watchesAtOnce` and `timeouts.watchRunSeconds` bound nothing yet.
+**Run and kept.** The store keeps every watch, its newest 50 readings, set-asides, verdicts and the notices told, so a restart carries on (`store::KeptWatch`).
+Fleet runs due watches on a 5 second timer of their own, `fleet::watches::running`.
 
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
-**The event stream.** Untouched: nothing is published on a start, a weighing or a stop yet, so the open risk below is neither better nor worse.
-When readings are taken, publishing one per change rather than per run keeps it so; a reading carries up to 81 parts, 5.3 KB, in spike 36.
+**The event stream.** `watches.changed` carries a Job's watches whole, history included, on a start, a weighing, a Stop, an end and a reading that reads differently from the one before.
+A reading that reads the same is published at most every 5 minutes, so Bridge's age of a reading stays near and the stream does not carry 50 readings every 30 seconds; a reading carries up to 81 parts, 5.3 KB, in spike 36.
+
+## Not a question: `misread` on `dismiss_waiting`
+
+Since 23 Oct 2026. `docs/concepts/session/waiting-on-the-person.md`, *A question that asks nothing*.
+**Additive only**: one optional field on an existing body; no operation, route, event kind or error.
+The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `misread` on `DismissWaiting` in `packages/protocol/src/sessions.ts`, written by hand.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `DismissWaiting` (`POST /sessions/waiting/dismiss`) | Bridge writes, Fleet reads | Gains `misread`, sent only as `true`; absent reads as `false` |
+
+**Only an item Fleet read from a reply takes it**: on a `replied` item Fleet drops the item as before and keeps its text in `reply_misreads`; on any other source the dismiss is refused and the item stands.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+**The event stream.** Untouched: the Session is published as `session.changed` as on any dismiss, so the open risk below is neither better nor worse.
+
+## A question: `confirm_waiting` and `confirmed`
+
+Since 23 Oct 2026, the thumbs up beside *Not a question* above.
+**One operation and one field**: a new route, and an optional field on an existing type; no event kind or error.
+Bridge's half is `ConfirmWaiting` and `confirmed` on `WaitingItem` in `packages/protocol/src/sessions.ts`, written by hand.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `ConfirmWaiting` (`POST /sessions/waiting/confirm`) | Bridge writes, Fleet reads | `session_id` and `item_id`; answered with the Session's record |
+| `WaitingItem.confirmed` | Fleet writes, Bridge reads | `true` on a `replied` item whose text is in `reply_confirmed`; sent only as `true` |
+
+**Only an item Fleet read from a reply takes it**: on a `replied` item Fleet keeps its text in `reply_confirmed` and the item stays; on any other source the confirm is refused and the item stands unconfirmed.
+
+**Skew.** As above.
+**The event stream.** The Session is published as `session.changed`, so the open risk below is neither better nor worse.
 
 ## Open questions
 

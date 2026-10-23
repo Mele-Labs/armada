@@ -16,6 +16,7 @@ use super::{address_of, Move, Runtime};
 use crate::daemon::Fleet;
 use crate::build_keeping::build_heard;
 use crate::build_record::Observed;
+use crate::session_links::LinkedBy;
 use crate::timeline::{Doer, FileAct, Seen};
 
 /// How long after a turn ends a line Fleet wrote may take to begin the next one. A process takes a
@@ -294,6 +295,7 @@ where
                 if by == Speaker::Drone {
                     runtime.state().said = Some(text.clone());
                     self.said_seen(id, &text);
+                    self.links_seen(id, &text, LinkedBy::Agent).await;
                 }
                 self.row_put(
                     id,

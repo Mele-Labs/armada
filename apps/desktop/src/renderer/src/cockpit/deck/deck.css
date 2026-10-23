@@ -46,7 +46,8 @@
 /* A side column's resize handle, on the middle of the gap beside it and out of the flow, so drawing it moves nothing. */
 .deck-left,
 .deck-right { position: relative; }
-.deck-handle {
+/* Doubled over `.armada-dock-handle`, which sets `position: relative` and a margin: bundle order must not decide where the handle sits. */
+.armada-dock-handle.deck-handle {
   position: absolute;
   inset-block: 0;
   margin: 0;
@@ -821,6 +822,11 @@ button.deck-pr:hover { border-color: var(--border-strong); color: var(--fg-defau
 .deck-tile__meter[data-high] > span { background: var(--status-awaiting-review); }
 /* The number of subagents running, in the corner opposite the key. */
 .deck-tile__count { position: absolute; top: var(--space-1); left: var(--space-2); font-family: var(--font-mono); font-size: var(--text-2xs); line-height: var(--leading-xs); color: var(--fg-default); }
+/* Pressed and not yet answered: the turning glyph in the corner the clash mark takes, until Fleet's row carries the press. */
+.deck-tile__going { position: absolute; top: var(--space-1); right: var(--space-1); display: inline-flex; color: var(--fg-muted); }
+.deck-tile__going > svg { animation: deck-going-turn var(--duration-pulse) linear infinite; }
+@keyframes deck-going-turn { to { transform: rotate(1turn); } }
+@media (prefers-reduced-motion: reduce) { .deck-tile__going > svg { animation: none; } }
 /* Checks breathes while any of the Job's Checks runs: opacity alone, as a bay's state does. */
 .deck-tile[data-running] { color: var(--status-running); }
 .deck-tile[data-running] svg { animation: deck-bay-pulse calc(var(--duration-pulse) * 1.5) ease-in-out infinite; }

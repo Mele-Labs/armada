@@ -861,6 +861,52 @@ export const PlanFoldsToOneLine: Story = {
   },
 };
 
+const PLAIN_PLAN = {
+  ...LIVE_PLAN,
+  summary: "He can queue a Session for later, and it starts when a bay is free.",
+  groups: LIVE_PLAN.groups.map((group, at) => ({ ...group, gives: ["A queue that survives a restart", "Fleet takes a Session off the queue", "A Queue press in the dispatch panel", "The queue written down"][at]! })),
+  onSetAside: fn(),
+};
+
+/** A plan with a summary reads first: the summary, a line of what each group gives, and the groups under Details. */
+export const PlanReadsSummaryThenGivesThenDetails: Story = {
+  args: { rows: LIVE_ROWS, approval: PLAIN_PLAN },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText("He can queue a Session for later, and it starts when a bay is free.")).toBeVisible();
+    const gives = canvas.getByRole("list", { name: "What each group gives" });
+    await expect(within(gives).getAllByRole("listitem").map((one) => one.textContent)).toEqual(["A queue that survives a restart", "Fleet takes a Session off the queue", "A Queue press in the dispatch panel", "The queue written down"]);
+    await expect(canvas.queryByText("Keep the queue in the store")).toBeNull();
+    await userEvent.click(canvas.getByRole("button", { name: "Details" }));
+    await expect(canvas.getByText("Keep the queue in the store")).toBeVisible();
+    await userEvent.click(canvas.getByRole("button", { name: "Show less" }));
+    await expect(canvas.queryByText("Keep the queue in the store")).toBeNull();
+  },
+};
+
+/** Not yet tells the agent to keep talking; the plan then draws folded to a `Plan set aside` chip with nothing to press but its own band. */
+export const NotYetSetsThePlanAside: Story = {
+  args: { rows: LIVE_ROWS, approval: PLAIN_PLAN },
+  play: async ({ canvas, args }) => {
+    await userEvent.click(canvas.getByRole("button", { name: "Not yet" }));
+    await expect(args.approval!.onSetAside).toHaveBeenCalled();
+  },
+};
+
+/** A plan he set aside arrives folded to a chip: no Approve, no Not yet, no groups, until a press on the chip unfolds it. */
+export const SetAsidePlanDrawsFolded: Story = {
+  args: { rows: LIVE_ROWS, approval: { ...PLAIN_PLAN, setAside: true } },
+  play: async ({ canvas }) => {
+    const chip = canvas.getByRole("button", { name: "Plan set aside" });
+    await expect(chip).toHaveAttribute("aria-expanded", "false");
+    await expect(canvas.getByRole("article", { name: "Plan set aside" })).toBeInTheDocument();
+    await expect(canvas.queryByRole("button", { name: "Approve" })).toBeNull();
+    await expect(canvas.queryByRole("button", { name: "Not yet" })).toBeNull();
+    await expect(canvas.queryByText("He can queue a Session for later, and it starts when a bay is free.")).toBeNull();
+    await userEvent.click(chip);
+    await expect(canvas.getByText("He can queue a Session for later, and it starts when a bay is free.")).toBeVisible();
+  },
+};
+
 /** The cards a judge's concerns draw, as the Needs you panel holds them: ConcernCard alone, since the thread no longer draws them. */
 function Concerns({ concerns }: { concerns: readonly ThreadConcern[] }) {
   return (
@@ -1090,5 +1136,50 @@ export const RequestsSent: Story = {
     await expect(row.getByRole("log", { name: "Response" })).toHaveTextContent('{"errors":[{"message":"Not signed in"}]}');
     await userEvent.click(row.getByRole("button", { name: "Open in Requests" }));
     await expect(opened).toHaveBeenCalledWith(expect.objectContaining({ id: "q1", body: '{"query":"{ me { id } }"}' }));
+  },
+};
+
+const WITH_DEBUG: SessionThreadRow[] = [
+  { id: "d1", at: "14:03:07", kind: "message", from: "you", text: "The title is cut off in the row.\n\n## Debug info\nJob: Fix the flaky store test (01SESSION)\nState: working" },
+  { id: "d2", at: "14:03:14", kind: "message", from: "you", text: "Nothing is under this one." },
+];
+
+/** A message holding a Job's facts shows the words and folds the facts under Debug info; one without is as it was. */
+export const DebugInfoFolded: Story = {
+  args: { rows: WITH_DEBUG },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText("The title is cut off in the row.")).toBeVisible();
+    await expect(canvas.getByText(/State: working/)).not.toBeVisible();
+    await expect(canvas.queryByText("## Debug info")).toBeNull();
+    await expect(canvas.getAllByText("Debug info")).toHaveLength(1);
+    await userEvent.click(canvas.getByText("Debug info"));
+    await expect(canvas.getByText(/State: working/)).toBeVisible();
+  },
+};
+
+const PIXEL =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
+
+/** A sent picture is a thumbnail that opens larger; a file with no picture stays a chip. */
+export const SentPicture: Story = {
+  args: {
+    rows: [
+      {
+        id: "p1",
+        at: "14:03:07",
+        kind: "message",
+        from: "you",
+        text: "See these.",
+        files: [
+          { id: "f1", name: "login-error.png", src: PIXEL },
+          { id: "f2", name: "notes.txt" },
+        ],
+      },
+    ],
+  },
+  play: async ({ canvas }) => {
+    await userEvent.click(canvas.getByRole("button", { name: "login-error.png" }));
+    await expect(await within(document.body).findByRole("dialog", { name: "login-error.png" })).toBeVisible();
+    await expect(canvas.queryByRole("button", { name: "notes.txt" })).toBeNull();
   },
 };

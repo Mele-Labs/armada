@@ -5,6 +5,7 @@ import type { LucideIcon } from "lucide-react";
 
 import { AttachmentChip } from "../../primitives/AttachmentChip/AttachmentChip";
 import { Button } from "../../primitives/Button/Button";
+import { Enlargeable } from "../../primitives/Enlargeable/Enlargeable";
 import { Card } from "../../primitives/Card/Card";
 import { DropdownMenu } from "../../primitives/DropdownMenu/DropdownMenu";
 import { PathPicker } from "../../primitives/PathPicker/PathPicker";
@@ -17,6 +18,7 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { SentTo } from "../HelmThread/SentTo";
 import type { ThoughtTarget } from "../ThoughtCard/ThoughtCard";
 import { SessionMark } from "../SessionFrame/SessionFrame";
+import { splitDebugInfo } from "./debug-info";
 import { SessionStop } from "./SessionStop";
 import { TASK_GLYPH, TaskMark, taskMarkSaid, type TaskMarkState } from "../TaskMark/TaskMark";
 import { artifactOf, PullRequestChecksMark, PullRequestStateMark, type LedgerEntry } from "../SessionLedger/SessionLedger";
@@ -214,8 +216,14 @@ export type QuestionAnswer = { question: string; chosen: string[] };
 export type PlanApproval = {
   /** The version the agent recorded, named on the folded line. */
   version?: number;
-  groups: readonly { id: string; agent: string; title: string; tasks: readonly { id: string; text: string }[] }[];
+  /** The plan in his words, read first. Present, the groups fold under Details; absent, the card draws the groups as it always did. */
+  summary?: string;
+  groups: readonly { id: string; agent: string; title: string; /** What the group gives him, one line; the title stands in where absent. */ gives?: string; paths?: readonly string[]; tasks: readonly { id: string; text: string }[] }[];
   approved: boolean;
+  /** He said Not yet: the card is a chip, `Plan set aside`, that unfolds on press, and nothing waits on him for it. */
+  setAside?: true;
+  /** Approve was pressed and Fleet has not answered: the card draws approved with a going mark in the state's place. */
+  going?: true;
   after?: string;
   /** What the agent changed since the plan before this one: what is added, renamed (and what it was) and removed. */
   changes?: readonly { kind: "added" | "renamed" | "removed"; text: string; from?: string }[];
@@ -224,6 +232,8 @@ export type PlanApproval = {
   /** A sketch drawn with the plan, shown under the groups as a sketch card is and opened as one is. */
   sketch?: { id: string; title: string; scene: Scene };
   onApprove: () => void;
+  /** Not yet: sets the plan aside and tells the agent to keep talking. Absent draws no Not yet. */
+  onSetAside?: () => void;
   /** Opens the plan to read in full: a press on the card anywhere but Approve, and on its sketch. Absent leaves the card plain. */
   onReview?: () => void;
 };
@@ -365,7 +375,7 @@ function Sent({ row, tags }: { row: { files?: readonly { id: string; name: strin
         file.src === undefined ? (
           <AttachmentChip key={file.id} filename={file.name} />
         ) : (
-          <img key={file.id} className="armada-session-sent__picture" src={file.src} alt={file.name} />
+          <Enlargeable key={file.id} className="armada-session-sent__picture" src={file.src} name={file.name} />
         ),
       )}
       {sketches.map((one) => (
@@ -605,7 +615,8 @@ export function YourMessage({ row, onRetry, forkable = false }: { row: YourRow; 
   // Where the host can open what a chip in a row names (Helm's thread links them), a tag is a link.
   const refs = useContext(ProseRefs);
   const openTag = refs === null ? undefined : (tag: ComposerTag): void => (tag.kind === "branch" ? undefined : refs.open({ kind: tag.kind, id: tag.id, title: titleWithoutReference(tag) }));
-  const placed = placeTags(row.text, row.tags ?? [], openTag);
+  const { said, debug } = splitDebugInfo(row.text);
+  const placed = placeTags(said, row.tags ?? [], openTag);
   return (
     <li className="armada-session-you" role="region" aria-label="Your message" data-delivery={row.delivery}>
       <div className="armada-session-you__band">
@@ -620,9 +631,22 @@ export function YourMessage({ row, onRetry, forkable = false }: { row: YourRow; 
           // Run is on what the agent wrote, not on what the person did.
           <ProseRunner.Provider value={null}>
             <ProseCommand.Provider value={null}>
-              <Prose text={row.text} />
+              <Prose text={said} />
             </ProseCommand.Provider>
           </ProseRunner.Provider>
+        )}
+        {debug === undefined || debug === "" ? null : (
+          <details className="armada-session-you__debug">
+            <summary className="armada-session-you__debug-head">
+              <ChevronRight size={12} strokeWidth={2} aria-hidden className="armada-session-you__debug-chevron" />
+              Debug info
+            </summary>
+            <ProseRunner.Provider value={null}>
+              <ProseCommand.Provider value={null}>
+                <Prose text={debug} />
+              </ProseCommand.Provider>
+            </ProseRunner.Provider>
+          </details>
         )}
         <Sent row={row} tags={placed.loose} />
         {row.delivery === "failed" && onRetry !== undefined ? (
@@ -1071,12 +1095,20 @@ function ReachAnswers({ reaches, reachesTo, offers, onAnswer }: { reaches: strin
  */
 function PlanCard({ approval }: { approval: PlanApproval }) {
   const { approved, onReview } = approval;
-  const [folded, setFolded] = useState(false);
+  const aside = approval.setAside === true && !approved;
+  // A plan set aside folds to a chip, at the press and on arriving so; its press unfolds it.
+  const [folded, setFolded] = useState(aside);
+  useEffect(() => {
+    if (aside) setFolded(true);
+  }, [aside]);
+  // The groups, with their subagent types, paths and task marks, fold under Details where the plan has a summary to read first.
+  const [detailed, setDetailed] = useState(false);
+  const plain = approval.summary !== undefined;
   const Fold = folded ? ChevronRight : ChevronDown;
   const revising = approval.revision !== undefined && !approved;
   const unchanged = useUnchanged(revising ? approval.revision : undefined);
-  const stateSaid = approved ? "Plan approved" : "Plan waiting for approval";
-  const StateGlyph = approved ? BadgeCheck : BellRing;
+  const stateSaid = approval.going === true ? "Sending" : approved ? "Plan approved" : aside ? "Plan set aside" : "Plan waiting for approval";
+  const StateGlyph = approval.going === true ? LoaderCircle : approved ? BadgeCheck : BellRing;
   const review = onReview === undefined || folded ? undefined : { tabIndex: 0, "data-reviewable": "", onClick: (event: ReactMouseEvent<HTMLElement>) => { if ((event.target as Element).closest("button") === null) onReview(); }, onKeyDown: (event: KeyboardEvent<HTMLElement>) => { if (event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); onReview(); } } };
   // U opens the unchanged groups of a revision, or closes them all, wherever focus is on the card.
   const onKeys = (event: KeyboardEvent<HTMLElement>) => {
@@ -1085,21 +1117,53 @@ function PlanCard({ approval }: { approval: PlanApproval }) {
       unchanged.toggleAll();
     } else review?.onKeyDown(event);
   };
-  return (
-    <Card flat className="armada-session-thread__ask armada-session-thread__plan" role="article" aria-label={approved ? "Plan approved" : "Plan to approve"} data-approved={approved || undefined} data-folded={folded || undefined} {...review} {...(revising ? { onKeyDown: onKeys } : {})}>
-      <div className="armada-session-thread__plan-head">
-        <button type="button" className="armada-session-thread__plan-band" aria-expanded={!folded} aria-label="Plan" onClick={() => setFolded(!folded)}>
-          <ListChecks size={12} strokeWidth={2} aria-hidden />
-          <span className="armada-session-thread__eyebrow">Plan</span>
-          {approval.version === undefined ? null : <span className="armada-session-thread__plan-version">v{approval.version}</span>}
-          <Tooltip label={stateSaid}>
-            <span className="armada-session-thread__settled" role="img" aria-label={stateSaid} data-state={approved ? "approved" : "waiting"}>
-              <StateGlyph size={16} strokeWidth={2} aria-hidden />
+  const groups = (
+    <ul className="armada-session-thread__groups">
+      {approval.groups.map((group) => (
+        <li key={group.id} className="armada-session-thread__group">
+          <span className="armada-session-thread__group-title">{group.title}</span>
+          {approved ? null : (
+            <span className="armada-session-thread__marks">
+              {group.tasks.map((task) => (
+                <TaskMark key={task.id} state="open" />
+              ))}
+            </span>
+          )}
+          <Tooltip label="Subagent type">
+            <span className="armada-session-thread__agent" role="img" aria-label={`Subagent type ${group.agent}`}>
+              <Bot size={12} strokeWidth={2} aria-hidden />
+              <code>{group.agent}</code>
             </span>
           </Tooltip>
+          {!plain || group.paths === undefined || group.paths.length === 0 ? null : (
+            <span className="armada-session-thread__paths" aria-label="Paths">
+              {group.paths.map((path) => (
+                <code key={path}>{path}</code>
+              ))}
+            </span>
+          )}
+        </li>
+      ))}
+    </ul>
+  );
+  const technical = revising ? <PlanRevisionView revision={approval.revision!} unchanged={unchanged} /> : groups;
+  return (
+    <Card flat className="armada-session-thread__ask armada-session-thread__plan" role="article" aria-label={approved ? "Plan approved" : aside ? "Plan set aside" : "Plan to approve"} data-approved={approved || undefined} data-aside={aside || undefined} data-folded={folded || undefined} {...review} {...(revising ? { onKeyDown: onKeys } : {})}>
+      <div className="armada-session-thread__plan-head">
+        <button type="button" className="armada-session-thread__plan-band" aria-expanded={!folded} aria-label={aside ? "Plan set aside" : "Plan"} onClick={() => setFolded(!folded)}>
+          <ListChecks size={12} strokeWidth={2} aria-hidden />
+          <span className="armada-session-thread__eyebrow">{aside ? "Plan set aside" : "Plan"}</span>
+          {approval.version === undefined ? null : <span className="armada-session-thread__plan-version">v{approval.version}</span>}
+          {aside ? null : (
+            <Tooltip label={stateSaid}>
+              <span className="armada-session-thread__settled" role="img" aria-label={stateSaid} data-state={approval.going === true ? "going" : approved ? "approved" : "waiting"}>
+                <StateGlyph size={16} strokeWidth={2} aria-hidden />
+              </span>
+            </Tooltip>
+          )}
           <Fold className="armada-session-thread__plan-fold" size={12} strokeWidth={2} aria-hidden />
         </button>
-        {approved || !folded ? null : (
+        {approved || !folded || aside ? null : (
           <Button size="sm" variant="primary" onClick={approval.onApprove}>
             Approve
           </Button>
@@ -1125,28 +1189,20 @@ function PlanCard({ approval }: { approval: PlanApproval }) {
         </ul>
       )}
       <div className="armada-session-thread__plan-body">
-        {revising ? <PlanRevisionView revision={approval.revision!} unchanged={unchanged} /> : (
-        <ul className="armada-session-thread__groups">
-          {approval.groups.map((group) => (
-            <li key={group.id} className="armada-session-thread__group">
-              <span className="armada-session-thread__group-title">{group.title}</span>
-              {approved ? null : (
-                <span className="armada-session-thread__marks">
-                  {group.tasks.map((task) => (
-                    <TaskMark key={task.id} state="open" />
-                  ))}
-                </span>
-              )}
-              <Tooltip label="Subagent type">
-                <span className="armada-session-thread__agent" role="img" aria-label={`Subagent type ${group.agent}`}>
-                  <Bot size={12} strokeWidth={2} aria-hidden />
-                  <code>{group.agent}</code>
-                </span>
-              </Tooltip>
-            </li>
-          ))}
-        </ul>
-        )}
+        {plain ? (
+          <div className="armada-session-thread__plain">
+            <p className="armada-session-thread__plan-summary">{approval.summary}</p>
+            <ul className="armada-session-thread__gives" aria-label="What each group gives">
+              {approval.groups.map((group) => (
+                <li key={group.id}>{group.gives ?? group.title}</li>
+              ))}
+            </ul>
+            <Button size="sm" variant="ghost" aria-expanded={detailed} onClick={() => setDetailed(!detailed)}>
+              {detailed ? "Show less" : "Details"}
+            </Button>
+            {detailed ? technical : null}
+          </div>
+        ) : technical}
         {approval.sketch === undefined ? null : (
           <ul className="armada-session-thread__sketch">
             <SketchRow row={{ id: approval.sketch.id, at: "", kind: "sketch", sketch: approval.sketch.id, title: approval.sketch.title, drawing: approval.sketch.scene }} onOpen={() => onReview?.()} />
@@ -1158,6 +1214,11 @@ function PlanCard({ approval }: { approval: PlanApproval }) {
           <Button size="sm" variant="primary" onClick={approval.onApprove}>
             Approve
           </Button>
+          {aside || approval.onSetAside === undefined ? null : (
+            <Button size="sm" variant="secondary" onClick={approval.onSetAside}>
+              Not yet
+            </Button>
+          )}
         </div>
       )}
         </>

@@ -37,6 +37,7 @@ export * from "./holding";
 export * from "./kit";
 export * from "./building";
 export * from "./limits";
+export * from "./logbook";
 export * from "./manifest-proposal";
 export * from "./merge-lines";
 export * from "./mods";

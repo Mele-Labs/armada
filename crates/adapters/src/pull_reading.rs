@@ -1,8 +1,8 @@
-//! The open pull requests as a watcher reads them, in one forge call: `gh api graphql` reduced
+//! The open pull requests as a pull reading reads them, in one forge call: `gh api graphql` reduced
 //! by `--jq` to `@tsv`, so the vendor's words stop in [`check_state`] and [`queue_of`].
 //! `docs/concepts/fleet.md`, *Telling the owner of a pull request*.
 
-use adapter_traits::{CiState, FromOutside, PullQueue, WatchedCheck, WatchedPull, WatchedPulls};
+use adapter_traits::{CiState, FromOutside, PullQueue, FollowedCheck, FollowedPull, FollowedPulls};
 
 use crate::delivery::{run_in, FORGE};
 use crate::under_review::as_written;
@@ -11,7 +11,7 @@ use crate::under_review::as_written;
 /// limit, and a runner that hung is the likeliest cause.
 const HUNG_AFTER_SECONDS: u64 = 40 * 60;
 
-/// What the watch reads of each pull request, in the list's query and in the by-number one.
+/// What the pull reading reads of each pull request, in the list's query and in the by-number one.
 const FIELDS: &str = "number title autoMergeRequest{enabledAt} headRefName url headRefOid mergeable author{login} \
     mergeQueueEntry{state} \
     commits(last:1){nodes{commit{statusCheckRollup{contexts(first:100){nodes{__typename \
@@ -48,7 +48,7 @@ const LINE: &str = "[(.number | tostring), (.headRefName // \"\"), \
     (if .autoMergeRequest then \"1\" else \"0\" end)] | @tsv";
 
 /// Every open pull request, `None` where the forge would not answer.
-pub(crate) fn read(in_repo: &str, gate: &str) -> Option<WatchedPulls> {
+pub(crate) fn read(in_repo: &str, gate: &str) -> Option<FollowedPulls> {
     let query = format!("query={}", list_query());
     let lines = format!(".data.repository.pullRequests.nodes[]? | {LINE}");
     let run = run_in(
@@ -67,7 +67,7 @@ pub(crate) fn read(in_repo: &str, gate: &str) -> Option<WatchedPulls> {
 
 /// One pull request by its number. `None` where the forge would not answer, or it is not open:
 /// the answer's line is empty then.
-pub(crate) fn read_one(in_repo: &str, gate: &str, number: u64) -> Option<WatchedPull> {
+pub(crate) fn read_one(in_repo: &str, gate: &str, number: u64) -> Option<FollowedPull> {
     let query = format!("query={}", one_query());
     let number = format!("number={number}");
     let line = format!(".data.repository.pullRequest | select(.state == \"OPEN\") | {LINE}");
@@ -89,7 +89,7 @@ pub(crate) fn read_one(in_repo: &str, gate: &str, number: u64) -> Option<Watched
 }
 
 /// `gate` is the check that decides where the pull request carries one.
-pub(crate) fn pull_of_line(line: &str, gate: &str) -> Option<WatchedPull> {
+pub(crate) fn pull_of_line(line: &str, gate: &str) -> Option<FollowedPull> {
     let mut field = line.split('\t');
     let number = field.next()?.parse().ok()?;
     let branch = field.next().unwrap_or_default();
@@ -111,7 +111,7 @@ pub(crate) fn pull_of_line(line: &str, gate: &str) -> Option<WatchedPull> {
             let conclusion = part.next().unwrap_or_default().to_ascii_lowercase();
             let address = part.next().unwrap_or_default();
             let seconds: u64 = part.next().unwrap_or_default().parse().unwrap_or(0);
-            WatchedRead {
+            FollowedRead {
                 name: as_written(name),
                 status,
                 conclusion,
@@ -120,8 +120,8 @@ pub(crate) fn pull_of_line(line: &str, gate: &str) -> Option<WatchedPull> {
             }
         })
         .collect();
-    Some(watched_built(
-        WatchedPullRead {
+    Some(followed_built(
+        FollowedPullRead {
             number,
             branch: as_written(branch),
             url: as_written(url),
@@ -138,7 +138,7 @@ pub(crate) fn pull_of_line(line: &str, gate: &str) -> Option<WatchedPull> {
 }
 
 /// One check as the forge listed it, lowercase and as written; `seconds` is how long it ran.
-pub(crate) struct WatchedRead {
+pub(crate) struct FollowedRead {
     pub(crate) name: String,
     pub(crate) status: String,
     pub(crate) conclusion: String,
@@ -147,7 +147,7 @@ pub(crate) struct WatchedRead {
 }
 
 /// One open pull request as the forge told it. The words `mergeable` and `queue` are the forge's.
-pub(crate) struct WatchedPullRead {
+pub(crate) struct FollowedPullRead {
     pub(crate) number: u64,
     pub(crate) branch: String,
     pub(crate) url: String,
@@ -155,19 +155,19 @@ pub(crate) struct WatchedPullRead {
     pub(crate) head: String,
     pub(crate) mergeable: String,
     pub(crate) queue: String,
-    pub(crate) checks: Vec<WatchedRead>,
+    pub(crate) checks: Vec<FollowedRead>,
     pub(crate) title: String,
     pub(crate) auto_merge: bool,
 }
 
-/// What the watch holds of one pull request, the vendor's words stopped here.
-pub(crate) fn watched_built(read: WatchedPullRead, gate: &str) -> WatchedPull {
-    let WatchedPullRead { number, branch, url, author, head, mergeable, queue, checks, title, auto_merge } = read;
-    let mut checks: Vec<WatchedCheck> = checks
+/// What the pull reading holds of one pull request, the vendor's words stopped here.
+pub(crate) fn followed_built(read: FollowedPullRead, gate: &str) -> FollowedPull {
+    let FollowedPullRead { number, branch, url, author, head, mergeable, queue, checks, title, auto_merge } = read;
+    let mut checks: Vec<FollowedCheck> = checks
         .into_iter()
         .map(|one| {
             let state = check_state(&one.status, &one.conclusion);
-            WatchedCheck {
+            FollowedCheck {
                 name: FromOutside::verbatim(one.name),
                 state,
                 required: false,
@@ -182,7 +182,7 @@ pub(crate) fn watched_built(read: WatchedPullRead, gate: &str) -> WatchedPull {
     for check in &mut checks {
         check.required = !gated || check.name.as_written() == gate;
     }
-    WatchedPull {
+    FollowedPull {
         number,
         branch: FromOutside::verbatim(branch),
         url: FromOutside::verbatim(url),

@@ -5,7 +5,7 @@
 
 import type { IpcMain } from "electron";
 
-import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, ChangeWaiting, ChosenHold, ClaimIssue, ClaimPullRequest, DismissConcern, DismissWaiting, JudgeSession, RenameSession, SendConcern, SendPlanChanges, SendSessionMessage, SendSessionNote, SettleLater, TuneSession } from "@armada/protocol";
+import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, ChangeWaiting, ChosenHold, ClaimIssue, ClaimPullRequest, ConfirmWaiting, DismissConcern, DismissWaiting, JudgeSession, RenameSession, SendConcern, SendPlanChanges, SendSessionMessage, SendSessionNote, SettleLater, TuneSession } from "@armada/protocol";
 import type { SetNoticeMute, StartAfter, StopWatch } from "@armada/protocol";
 import { HELM_CALL_ANSWERS } from "@armada/protocol";
 import { CHANNELS } from "../shared/bridge";
@@ -120,6 +120,10 @@ export function handleSessions({ ipc, connection, windowIdOf, pages }: Hosts): v
     if (!text(dismiss?.session_id) || !text(dismiss.item_id)) return unread;
     return connection()?.sessions.dismissWaiting(dismiss) ?? unsent;
   });
+  ipc.handle(CHANNELS.confirmWaiting, (_event, confirm: ConfirmWaiting) => {
+    if (!text(confirm?.session_id) || !text(confirm.item_id)) return unread;
+    return connection()?.sessions.confirmWaiting(confirm) ?? unsent;
+  });
   ipc.handle(CHANNELS.approvePlan, (_event, approve: ApprovePlan) => {
     if (!text(approve?.session_id) || !Number.isInteger(approve.version) || approve.version < 1) return unread;
     return connection()?.sessions.approvePlan({ session_id: approve.session_id, version: approve.version }) ?? unsent;
@@ -216,6 +220,9 @@ export function handleSessions({ ipc, connection, windowIdOf, pages }: Hosts): v
     text(sessionId) && text(subagentId) ? (connection()?.sessions.subagent(sessionId, subagentId) ?? unsent) : unread,
   );
   ipc.handle(CHANNELS.readSessionLoadout, (_event, sessionId: string) => (text(sessionId) ? (connection()?.sessions.loadout(sessionId) ?? unsent) : unread));
+  ipc.handle(CHANNELS.readAttachmentHistory, (_event, sessionId: string) =>
+    text(sessionId) ? (connection()?.sessions.attachmentHistory(sessionId) ?? unsent) : unread,
+  );
   ipc.handle(CHANNELS.readLoadoutItem, (_event, sessionId: string, item: unknown) => {
     const asked = loadoutItemAsk(item);
     return text(sessionId) && asked !== undefined ? (connection()?.sessions.loadoutItem(sessionId, asked) ?? unsent) : unread;
@@ -234,6 +241,12 @@ export function handleSessions({ ipc, connection, windowIdOf, pages }: Hosts): v
   );
   ipc.handle(CHANNELS.moveSessionPage, (event, bounds: unknown) => pages.move(event.sender, bounds));
   ipc.handle(CHANNELS.hideSessionPage, (event) => pages.hide(event.sender));
+  ipc.handle(CHANNELS.watchSessionSnapshot, (event, sessionId: string, address: string) =>
+    text(sessionId) && text(address)
+      ? pages.watch(event.sender, connection()?.sessions.recordOf(sessionId), address)
+      : { ok: false, why: "not_addressable", address: "" },
+  );
+  ipc.handle(CHANNELS.stopSessionSnapshot, (event) => pages.stop(event.sender));
   ipc.handle(CHANNELS.startSessionRun, (_event, sessionId: string, command: string, cols?: number, rows?: number) =>
     text(sessionId) && text(command) && (cols === undefined) === (rows === undefined) && (cols === undefined || (cells(cols) && cells(rows)))
       ? (connection()?.sessions.startRun({ session_id: sessionId, command, ...(cols === undefined || rows === undefined ? {} : { cols, rows }) }) ?? unsent)

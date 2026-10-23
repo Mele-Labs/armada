@@ -6,7 +6,7 @@
 has got.** `crates/adapters/src/session_rules.md`, read at build by `include_str!`
 into `hosted_session::SESSION_RULES`, which `render_hosted_session` puts first in
 the one `--append-system-prompt` argument of every process: plain, Helm, fork,
-move and resuming alike. Helm's note (5a) and a fork's note follow it, and the repository's remembered runs follow those ([Kit](../../concepts/kit.md), *What a repository runs*).
+move and resuming alike. Helm's note (5a) and a fork's note follow it, and the Logbook note follows those ([Logbook](../../concepts/logbook.md), *Recall*).
 
 **Compiled in, and no settings key.** Layer 1 is unreachable from config, and so
 is this. A text a person can edit away is a rule the job can fall back out
@@ -25,7 +25,8 @@ stays empty. The rules ride the system prompt, which no style replaces.
 | **Progress** | Keep multi-step work in the task list with TaskCreate and TaskUpdate | The mod reports the list's items for the build ring (`docs/concepts/session.md`, *The build record*) |
 | **Planning** | For work of more than one sitting or agent, settle the plan with the person, call `record_plan` with a plain `summary` and a `gives` line per group, wait for approval, treat his marks as proposals and record again; record no plan while he says he is not ready | A plan the person never saw is a plan he cannot steer. Fleet keeps the versions and the marks; the agent decides what changes (`docs/concepts/session.md`, *The plan*) |
 | **Subagents** | Dispatch the most specific type: the repository's `.claude/agents/`, then the mod's `armada:` agents, then built-ins; pass `model` by the work: `haiku` to find or run, `sonnet` for a decided change, the job's model for design and boundaries | A job that sends every piece to `general-purpose` on its own model spends its most expensive tier on lookups, and loses the expertise the repository wrote down. `docs/practices/subagents.md` has the fleet |
-| **Finishing** | `finish_up`, then `all_done`; never idle without `waiting_for` naming what it waits on or `all_done` | A job that neither waits nor is done reads as stuck to the person |
+| **Watching** | Follow CI, a deploy or an environment with `start_watch`, never a loop, a background sleep or a monitor; never watch a pull request's own checks; weigh a failed watch with `weigh_watch`, ours or not ours, with a sentence, setting aside the parts that are not ours; a redeploy's watch starts with what the last one set aside | Fleet runs the command and tells the Job once per change; polling spends turns on what Fleet already reads (`docs/design/fleet-watches-ci-and-deploys-for-a-job.md`) |
+| **Finishing** | A pull request in the merge queue or a live watch is a wait: no `finish_up` or `all_done` while one runs, no `waiting_for` item for it, end the turn; otherwise `finish_up`, then `all_done`; never idle without `waiting_for` naming what it waits on, a live watch, or `all_done` | A job that neither waits nor is done reads as stuck to the person |
 | **Order of authority** | None. The person's style governs tone, length and format; these rules win on surfacing | Without it a model reads the two as a conflict and keeps the style |
 
 **Pinned** by `crates/adapters/src/tests/hosted_session.rs`: every launch carries
@@ -45,5 +46,7 @@ Planning. For work that spans more than one sitting or more than one agent, sett
 
 Subagents. Hand each piece of work to the most specific subagent type that does it: the repository's own in `.claude/agents/` first, then the Armada mod's, named `armada:` and the type, then the built-in ones. A plan's group names the type you will dispatch. Pick the model by the work and pass it as the Agent tool's `model`: `haiku` to find, read, or run a command and report what it said; `sonnet` for a change whose shape is already decided, such as a rename, a merge, a doc edit, a test for a named behaviour or a fix whose cause is known; the session's own model for design, a change across a boundary, and anything still undecided. A type that sets its own model runs on it unless you pass another, so pass one whenever the work needs a different tier.
 
-Finishing. When the work is done, call `finish_up`, then `all_done`. Never leave a session idle without either naming in `waiting_for` what it waits on or calling `all_done`.
+Watching. To follow CI, a deploy or an environment, start a watch with `start_watch` rather than polling with a loop, a background sleep or a monitor. Never watch a pull request's own checks: Fleet already tells you about them. When Fleet tells you a watch failed, weigh it with `weigh_watch`: ours or not ours, with a sentence, setting aside the parts that are not ours. A redeploy's watch starts with what the last one set aside.
+
+Finishing. A pull request in the merge queue, or with auto-merge on, is not done: the work ends when it is merged into main. While one of yours is open, name the wait in `waiting_for`, do not call `finish_up` or `all_done`, and end your turn. Fleet tells you when it merges, fails or conflicts. A live watch is a wait as an open pull request is: do not call `all_done` while one runs, add no `waiting_for` item for it, and end your turn. Fleet tells you when it ends. When the work is done, call `finish_up`, then `all_done`. Never leave a job idle without either naming in `waiting_for` what it waits on, holding a live watch, or calling `all_done`.
 ```

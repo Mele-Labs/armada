@@ -10,9 +10,9 @@ notes = """
 
 **Limits, from settings.json.** `every` below `timeouts.watchEverySeconds` is a 422 `fleet.watch_too_often`; `gives_up_after` past a day, the ceiling of `timeouts.watchGiveUpMinutes`, a 422 `fleet.watch_gives_up_too_late`, and absent it is that setting. A Job already holding `limits.watchesPerJob` live watches is a 409 `fleet.watch_limit_reached`. A blank `name`, an empty command or blank item, a span that is not a count and `s`, `m` or `h`, and a `set_aside` with a blank part or sentence are a 422 `fleet.watch_refused`.
 
-**The Job** is the one whose process holds the connection when Fleet hosts it, whatever the body says; `session_id` is read only for a Job in a terminal, as `waiting_for`'s is. Nothing placing a Job is a 422 `fleet.watches_unplaced`.
+**The Job** is the one whose process holds the connection when Fleet hosts it, whatever the body says; `session_id` is read only for a Job in a terminal, as `waiting_for`'s is, and one Fleet holds no Job by is a 422 `fleet.no_such_session`. Nothing placing a Job is a 422 `fleet.watches_unplaced`.
 
-**Recorded, not yet run.** This build keeps the watch in memory, so a restart forgets it, and runs nothing: no reading is taken, no notice is told, and `watchesAtOnce` and `watchRunSeconds` bound nothing yet.
+**Run, and kept.** The watch is kept in the store and its first reading taken within `fleet::watches::EVERY`, 5 seconds, then every `every`, slowing to 2 minutes after 30 unchanged and 5 after an hour. A run is a Check's: no shell, its own process group, `timeouts.watchRunSeconds`, utility priority, in the Job's folder, with Fleet's environment, the `ARMADA_SPAWNED_BY` mark and, where the recipe names `environment`, that Requests environment's variables, secrets included and taken back out of every reading. At most `limits.watchesAtOnce` run at once across the machine. The Job is told once each time it fails (by the failing parts), passes and is finished, gives up, or breaks three readings in a row; it ends with its Job. `watches.changed` publishes every change.
 
 `agent_access` is `Yes`: the agent is who knows what its change is waiting on, and the person decided a watch needs no one's sign-off.
 """

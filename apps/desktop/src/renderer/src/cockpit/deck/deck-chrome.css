@@ -9,19 +9,20 @@
   -webkit-app-region: no-drag;
 }
 
-/* Pill tabs: a glass track, the raised tab clearly lighter and filled. One line at every width: where the row has no
-   room for the labels, `TabBar` draws each tab as its glyph rather than letting the track wrap. */
+/* Tabs set straight on the title bar's notch, which is their ground: no track, no raised tab. The chosen one is the
+   brighter word with a line under it. One line at every width: where the row has no room for the labels, `TabBar`
+   draws each tab as its glyph rather than letting the strip wrap. */
 .deck-places .armada-tabs {
   flex-wrap: nowrap;
   max-width: none;
-  border-color: var(--border-glass);
-  border-radius: calc(var(--radius-lg) * 2);
-  background: var(--bg-glass);
-  box-shadow: inset 0 var(--border-width) 0 var(--border-highlight);
+  padding: 0;
+  border-color: transparent;
+  border-radius: 0;
+  background: transparent;
 }
 
 .deck-places .armada-tabs__tab {
-  border-radius: calc(var(--radius-lg) * 2);
+  border-radius: calc(var(--armada-notch-radius) - var(--armada-notch-gap));
   color: var(--fg-muted);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
@@ -29,10 +30,14 @@
   text-transform: uppercase;
 }
 
+.deck-places .armada-tabs__tab:hover {
+  color: var(--fg-default);
+}
+
 .deck-places .armada-tabs__fill {
-  border-radius: calc(var(--radius-lg) * 2);
-  background: color-mix(in srgb, var(--fg-default) 16%, var(--bg-raised));
-  box-shadow: inset 0 var(--border-width) 0 var(--border-highlight), var(--shadow-card);
+  border-radius: calc(var(--armada-notch-radius) - var(--armada-notch-gap));
+  background: color-mix(in srgb, var(--fg-default) 8%, transparent);
+  box-shadow: none;
 }
 
 .deck-places .armada-tabs__tab--active {

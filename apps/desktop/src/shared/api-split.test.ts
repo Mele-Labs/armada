@@ -94,7 +94,7 @@ import type {
   ManifestFileRead,
   ManifestSaveAnswer,
 } from "@armada/screens/src/editing";
-import type { ArtifactRead, LoadoutItemAsk, LoadoutItemBody, PageBounds } from "@armada/screens/src/draft/sessions";
+import type { ArtifactRead, LoadoutItemAsk, LoadoutItemBody, PageBounds, PageShot } from "@armada/screens/src/draft/sessions";
 import type {
   RepositoryAllowedCommandsRead,
 } from "@armada/screens/src/manifest-allows";
@@ -140,7 +140,7 @@ import type { HealthRead } from "@armada/screens/src/overview-reads";
 import type {
   Outstanding,
 } from "@armada/screens/src/outstanding";
-import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimIssue, ClaimPullRequest, DismissConcern, DismissWaiting, IssueClaimed, JudgeSession, LaterSettled, PullRequestClaimed, PullRequestFilePatch, PullRequestPage, PullRequestState, RenameSession, SendConcern, SendPlanChanges, NoteSent, SendSessionMessage, SendSessionNote, SessionRow, SessionRunMessage, SessionRunUnderway, SessionLoadout, McpServerAct, SessionMcp, SessionMcpActed, SessionSubagent, SettleLater, StopWatch, TuneSession, WatchSummary } from "@armada/protocol";
+import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimIssue, ClaimPullRequest, ConfirmWaiting, DismissConcern, DismissWaiting, IssueClaimed, JudgeSession, LaterSettled, PullRequestClaimed, PullRequestFilePatch, PullRequestPage, PullRequestState, RenameSession, SendConcern, SendPlanChanges, NoteSent, SendSessionMessage, SendSessionNote, SessionRow, SessionRunMessage, SessionRunUnderway, SessionLoadout, AttachmentHistory, McpServerAct, SessionMcp, SessionMcpActed, SessionSubagent, SettleLater, StopWatch, TuneSession, WatchSummary } from "@armada/protocol";
 import type { RequestRepositoryRead } from "./api/dispatch";
 import type { PullRequestPress, PullRequestWrite, SessionActed, SessionsRead } from "./api/sessions";
 import type { SleepActed } from "./api/sleep";
@@ -199,6 +199,7 @@ type OldBridgeState = {
     studio: StudioRead;
     sessions: SessionsRead;
     sessionThreads: Record<string, SessionRow[]>;
+    sessionWatches: Record<string, WatchSummary[]>;
     sessionThreadsReading: string[];
 };
 
@@ -361,6 +362,7 @@ type OldBridgeApi = {
     changeWaiting: (change: ChangeWaiting) => Promise<SessionActed<SessionWait>>;
     startWaitingNow: (sessionId: string) => Promise<SessionActed>;
     dismissWaiting: (dismiss: DismissWaiting) => Promise<SessionActed>;
+    confirmWaiting: (confirm: ConfirmWaiting) => Promise<SessionActed>;
     approvePlan: (approve: ApprovePlan) => Promise<SessionActed>;
     sendPlanChanges: (changes: SendPlanChanges) => Promise<SessionActed>;
     judgeSession: (judge: JudgeSession) => Promise<SessionActed>;
@@ -418,6 +420,7 @@ type OldBridgeApi = {
     readSessionFile: (sessionId: string, file: string) => Promise<FrameRead>;
     readSessionSubagent: (sessionId: string, subagentId: string) => Promise<SessionActed<SessionSubagent>>;
     readSessionLoadout: (sessionId: string) => Promise<SessionActed<SessionLoadout>>;
+    readAttachmentHistory: (sessionId: string) => Promise<SessionActed<AttachmentHistory>>;
     readLoadoutItem: (sessionId: string, item: LoadoutItemAsk) => Promise<SessionActed<LoadoutItemBody>>;
     readSessionMcp: (sessionId: string) => Promise<SessionActed<SessionMcp>>;
     actOnSessionMcp: (sessionId: string, server: string, act: McpServerAct) => Promise<SessionActed<SessionMcpActed>>;
@@ -430,6 +433,9 @@ type OldBridgeApi = {
     moveSessionPage: (bounds: PageBounds) => Promise<void>;
     hideSessionPage: () => Promise<void>;
     onSessionPageEscape: (on: () => void) => () => void;
+    watchSessionSnapshot: (sessionId: string, address: string) => Promise<Followed>;
+    stopSessionSnapshot: () => Promise<void>;
+    onSessionSnapshot: (on: (shot: PageShot) => void) => () => void;
     pressPullRequest: (sessionId: string, number: number, press: PullRequestPress) => Promise<SessionActed<PullRequestState>>;
     pressRepositoryPullRequest: (manifestId: string, number: number, press: PullRequestPress) => Promise<SessionActed<PullRequestState>>;
     readPullRequestPage: (sessionId: string, number: number) => Promise<SessionActed<PullRequestPage>>;
@@ -474,6 +480,7 @@ const OLD_NOTHING_YET: OldBridgeState = {
     landFollowed: { state: "none" },
     sessions: { state: "none" },
     sessionThreads: {},
+    sessionWatches: {},
     sessionThreadsReading: [],
 };
 
@@ -634,6 +641,7 @@ const OLD_CHANNELS = {
     changeWaiting: "bridge:change-waiting",
     startWaitingNow: "bridge:start-waiting-now",
     dismissWaiting: "bridge:dismiss-waiting",
+    confirmWaiting: "bridge:confirm-waiting",
     approvePlan: "bridge:approve-plan",
     sendPlanChanges: "bridge:send-plan-changes",
     judgeSession: "bridge:judge-session",
@@ -689,6 +697,7 @@ const OLD_CHANNELS = {
     readSessionFile: "bridge:read-session-file",
     readSessionSubagent: "bridge:read-session-subagent",
     readSessionLoadout: "bridge:read-session-loadout",
+    readAttachmentHistory: "bridge:read-attachment-history",
     readLoadoutItem: "bridge:read-loadout-item",
     readSessionMcp: "bridge:read-session-mcp",
     actOnSessionMcp: "bridge:act-on-session-mcp",
@@ -701,6 +710,9 @@ const OLD_CHANNELS = {
     moveSessionPage: "bridge:move-session-page",
     hideSessionPage: "bridge:hide-session-page",
     sessionPageEscape: "bridge:session-page-escape",
+    watchSessionSnapshot: "bridge:watch-session-snapshot",
+    stopSessionSnapshot: "bridge:stop-session-snapshot",
+    sessionSnapshot: "bridge:session-snapshot",
     pressPullRequest: "bridge:press-pull-request",
     pressRepositoryPullRequest: "bridge:press-repository-pull-request",
     readPullRequestPage: "bridge:read-pull-request-page",

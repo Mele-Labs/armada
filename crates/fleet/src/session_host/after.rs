@@ -2,7 +2,7 @@
 //! waits on another*.
 //!
 //! **A waiting Session is a blank Session and a wait.** It exists and is listed, holds its brief, takes
-//! no slot and runs no process. [`crate::after_watching`] reads what Fleet observes of the Session waited
+//! no slot and runs no process. [`crate::after_following`] reads what Fleet observes of the Session waited
 //! on and calls [`Fleet::wait_met`] when the condition holds: the waiting Session then starts on that
 //! Session's handoff followed by the brief. **A Session an agent started waits the same way and is
 //! released the same way, except that its first message is then held for the person**, as every start
@@ -247,7 +247,7 @@ where
     }
 
     /// Keep the wait of a Session just made, tell the Session it waits on, and publish both.
-    /// **The waiting Session's record carries the wait from here on**, which is what [`crate::after_watching`] reads.
+    /// **The waiting Session's record carries the wait from here on**, which is what [`crate::after_following`] reads.
     pub(crate) async fn wait_begun(
         &self,
         waiting: &str,
@@ -269,7 +269,7 @@ where
             needs: after.needs.trim().to_string(),
             brief,
             held,
-            // The Session waited on is told by [`crate::after_watching`], which sees the wait once it is published.
+            // The Session waited on is told by [`crate::after_following`], which sees the wait once it is published.
             told: !tell,
             by: by_kept(by).to_string(),
             pull_number: None,
@@ -347,7 +347,7 @@ where
         if wait.held {
             self.first_message_held(&waiting, &message).await;
         } else if let Err(why) = self
-            .first_message_from(&waiting, SessionVoice::Session { id: on.clone(), title: on_title }, &message)
+            .waited_brief_from(&waiting, SessionVoice::Session { id: on.clone(), title: on_title }, &message)
             .await
         {
             eprintln!("job {waiting}: the start it waited for was not sent: {why:?}");

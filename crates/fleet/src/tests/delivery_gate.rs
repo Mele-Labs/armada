@@ -53,7 +53,7 @@ fn rig() -> Rig {
 
 async fn on_the_rail(rig: &Rig, first: &str) -> SessionId {
     crate::timeline::keep_timeline(Arc::clone(&rig.fleet));
-    crate::rail_watching::keep_the_rail(Arc::clone(&rig.fleet));
+    crate::rail_following::keep_the_rail(Arc::clone(&rig.fleet));
     let id = rig.start().await;
     rig.send(&id, first).await;
     rig.stand_in.init(0);
@@ -131,7 +131,7 @@ async fn the_question_is_answered_with_one_of_the_three_and_never_dismissed() {
         .await;
     assert!(words.is_err(), "words alone are refused");
     let dismissed = Arc::clone(&rig.fleet)
-        .dismiss_waiting(DismissWaiting { session_id: id.clone(), item_id: "delivery".into(), reason: None })
+        .dismiss_waiting(DismissWaiting { session_id: id.clone(), item_id: "delivery".into(), reason: None, misread: false })
         .await;
     assert!(dismissed.is_err(), "the question is answered, not dismissed");
     assert!(question(&rig, &id).await.is_some(), "it still stands");

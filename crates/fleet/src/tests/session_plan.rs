@@ -32,7 +32,7 @@ fn plan(session: &SessionId, groups: Vec<PlanGroupInput>) -> RecordPlan {
 }
 
 /// Two groups: the store's and Fleet's.
-fn first(session: &SessionId) -> RecordPlan {
+pub(super) fn first(session: &SessionId) -> RecordPlan {
     plan(
         session,
         vec![
@@ -52,7 +52,7 @@ fn sketch(title: &str, scene: &str) -> PlanSketchInput {
     ipc::decode("a plan sketch", format!(r#"{{"title":"{title}","scene":{scene}}}"#).as_bytes()).unwrap()
 }
 
-async fn recorded(rig: &Rig, groups: RecordPlan) -> SessionRecord {
+pub(super) async fn recorded(rig: &Rig, groups: RecordPlan) -> SessionRecord {
     rig.fleet.record_plan(None, groups).await.expect("recorded")
 }
 
@@ -251,7 +251,7 @@ async fn not_yet_sets_the_plan_aside_drops_its_call_and_tells_the_agent_to_keep_
     assert_eq!(told(&rig, "Not ready for a plan yet"), 0);
 
     let gone = Arc::clone(&rig.fleet)
-        .dismiss_waiting(DismissWaiting { session_id: id.clone(), item_id: "plan:1".into(), reason: None })
+        .dismiss_waiting(DismissWaiting { session_id: id.clone(), item_id: "plan:1".into(), reason: None, misread: false })
         .await
         .unwrap();
     let plan = gone.plan.expect("the plan stays on the record");
@@ -330,11 +330,11 @@ async fn changes_sent_with_approve_approve_the_plan_and_a_mark_naming_nothing_is
     eventually(|| async { told(&rig, "marked changes on plan v1") == 1 }).await;
 }
 
-fn task(text: &str, status: ReportedTaskStatus) -> ReportedTask {
+pub(super) fn task(text: &str, status: ReportedTaskStatus) -> ReportedTask {
     ReportedTask { id: text.to_string(), text: text.to_string(), status, by: None }
 }
 
-async fn tasks(rig: &Rig, id: &SessionId, list: Vec<ReportedTask>) -> SessionRecord {
+pub(super) async fn tasks(rig: &Rig, id: &SessionId, list: Vec<ReportedTask>) -> SessionRecord {
     let harness = read(rig, id).await.harness;
     rig.fleet
         .report_session(SessionReport { harness, session_id: id.clone(), fact: SessionFact::Tasks { tasks: list } })

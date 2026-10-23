@@ -129,10 +129,12 @@ pub struct Fleet<H, V, W> {
     /// a row the store says is going that is not here died with the process that held it
     /// (`crate::review_runs`).
     review_going: Mutex<std::collections::BTreeSet<String>>,
+    /// The Sessions waiting to be distilled into the Logbook. Never written down — `crate::logbook`.
+    logbook: crate::logbook::Distils,
     /// Whom each slot far behind its base was told to merge it. Never written down — `crate::behind_bay`.
     behind_told: crate::behind_bay::BehindTold,
     /// Which Jobs were told which token rule. Rebuilt from the trip rows when needed — `crate::usage_rules`.
-    usage_watch: crate::usage_rules::Watch,
+    usage_following: crate::usage_rules::Following,
     /// Which Jobs have a person's run out in their worktree, and how to stop
     /// it. Never written down, for `pressing`'s reason — `crate::rehearsing`.
     rehearsals: crate::rehearsing::Rehearsals,
@@ -143,7 +145,7 @@ pub struct Fleet<H, V, W> {
     peers: Arc<dyn PeerOf>,
     /// What sends a request and the secrets it is filled with — `crate::requesting`.
     requests: crate::requesting::Requesting,
-    /// Every watch started for a Job, live and ended. Memory only for now — `crate::watches`.
+    /// The watch commands running now. Every watch itself is in the store: `crate::watches`.
     watches: crate::watches::Watches,
     /// The rebase-and-push tail, held by one Job at a time.
     ///

@@ -204,6 +204,19 @@
 .armada-session-thread__plan-version { font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--fg-subtle); }
 .armada-session-thread__plan-fold { margin-inline-start: auto; }
 .armada-session-thread__settled[data-state="waiting"] { color: var(--step-waiting); }
+/* Approve pressed, Fleet's answer still coming: the state's place turns. */
+.armada-session-thread__settled[data-state="going"] { color: var(--fg-muted); }
+.armada-session-thread__settled[data-state="going"] > svg { animation: armada-session-you-turn var(--duration-pulse) linear infinite; }
+@media (prefers-reduced-motion: reduce) { .armada-session-thread__settled[data-state="going"] > svg { animation: none; } }
+/* A plan set aside is a chip: the band alone, quiet, until its press unfolds it. */
+.armada-session-thread__plan[data-aside][data-folded] { padding-block: var(--space-1); color: var(--fg-muted); }
+.armada-session-thread__plan[data-aside][data-folded] .armada-session-thread__plan-band { color: var(--fg-subtle); }
+/* The plan in his words first, one line a group for what it gives, and the groups under Details. */
+.armada-session-thread__plain { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-2); min-width: 0; }
+.armada-session-thread__plan-summary { margin: 0; white-space: pre-line; font-size: var(--text-sm); line-height: var(--leading-sm); color: var(--fg-default); }
+.armada-session-thread__gives { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: 0 0 0 var(--space-4); color: var(--fg-muted); }
+.armada-session-thread__plain > .armada-session-thread__groups { align-self: stretch; }
+.armada-session-thread__paths { grid-column: 1; display: flex; flex-wrap: wrap; gap: var(--space-2); font-size: var(--text-2xs); color: var(--fg-subtle); }
 .armada-session-thread__plan > .armada-session-thread__plan-body { min-height: 0; overflow: auto; }
 .armada-session-thread__plan .armada-session-thread__eyebrow { display: flex; align-items: center; gap: var(--space-2); }
 .armada-session-thread__settled { display: inline-flex; color: var(--step-advanced); }
@@ -825,6 +838,32 @@
   padding: var(--space-2) var(--space-3);
   font-size: var(--text-sm);
   line-height: var(--leading-sm);
+}
+
+/* The facts a message carries about a Job, folded under one quiet line. */
+.armada-session-you__debug-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  width: fit-content;
+  cursor: pointer;
+  list-style: none;
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--fg-muted);
+}
+
+.armada-session-you__debug-head::-webkit-details-marker {
+  display: none;
+}
+
+.armada-session-you__debug-chevron {
+  flex: none;
+  transition: transform var(--duration-fast) ease;
+}
+
+.armada-session-you__debug[open] > .armada-session-you__debug-head .armada-session-you__debug-chevron {
+  transform: rotate(90deg);
 }
 
 /* An act: the eyebrow, the target and the time on one line; the answer under it at

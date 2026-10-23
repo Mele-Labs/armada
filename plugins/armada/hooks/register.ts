@@ -77,6 +77,8 @@ const HARNESS = 'claude_code'
 const MEASURE_EVERY_MS = 10_000
 const RUNTIME_FILE = 'Library/Application Support/Armada/fleet.json'
 const WAIT_MS = 1500
+// What a subagent's start waits for the Logbook: past it, the subagent starts with its prompt as it was.
+const LOGBOOK_WAIT_MS = 800
 // The tick that starts an ask when none is open, so also how soon one is retried after it failed.
 const ASK_EVERY_MS = 2000
 // How long Fleet may hold an ask, and how long the mod waits on one before it asks again.
@@ -490,7 +492,7 @@ const SHOW_SKETCH = "To show the owner a diagram, a flow, an architecture or a l
 const SHOW_FILE = "To put a file in front of the owner to read or edit, call show_file with its path, passing session_id; it opens in Bridge's side panel.";
 
 function idNote(id: string): string {
-  return `Your Armada job id is ${id}. Pass it as session_id to the armada show_window tool. To show the owner a web page (a walk, a mock, a dev server), call show_window; to offer several takes of one change, pass variations, a list of {name, url}. To walk him through a page step by step, pass steps, a list of {say, plus one verb: press, look, hover, later, paste, type with into, key with on, select with in, or drag with by} aimed at {role, name}: Bridge rings each target and acts on it when he presses Next. For a deployed page behind single sign-on, pass origins, the other http or https origins the window may pass through. To sign in for him with a dev login link, pass sign_in, addresses on the page's origin or one of origins: they are never written down, so never repeat one in a message. Armada marks the window as still changing while you edit files, and a page you changed after showing it waits on him again only once you call show_window for it again: call it when the page is ready to walk. Never run \`open\`. Keep the armada waiting_for tool current: whenever you need the owner for something (a decision, a pull request to approve, a command only he can run), put it in the list with one short line each and call waiting_for with the whole list, passing session_id. Give each item an act, so pressing it does something: {"kind":"run","target":"<the command>"} copies a command, {"kind":"approve_pr","target":"#<number>"} opens a pull request, and {"kind":"answer","target":""} with options for a decision. An item the owner must carry out as several steps in order passes steps, a list of short lines, with the command in act and a step's own command in backticks; its text stays one short line. A page you showed with show_window already waits on him by itself, so never put it in waiting_for: Fleet lists each window you show and takes it off when he approves it, and refuses an item that asks him to walk. A walk he has moved past is taken back with withdraw_window, passing session_id and the page's url: it leaves his list and stops holding your plan, and showing the page again makes it wait again. Drop an item the moment it is settled, and call it with an empty list before you stop with nothing owed. Do not wait to be asked what is outstanding. A pull request in the merge queue or with auto-merge on is not done: the work ends when it is merged into main, so while one of yours is open do not call finish_up or all_done, and end your turn; Fleet watches it and tells you when it merges, fails or conflicts. The merge is not the owner's to do, so never put a wait on it in waiting_for: Fleet takes such an item off Needs you. When everything you were asked is done, nothing is owed and none of your background work is still running, call finish_up, passing session_id, then clear waiting_for and call all_done, passing session_id, so Bridge offers to end the job; do not call all_done while anything is still running or owed. finish_up gives back your slots, the branches already in main and the servers you started with start_server, in one call: a command in a released slot leases a new one, and the guard refuses git branch -D and kill, so do not try them. Read what it kept and say it. A Fleet notice that a pull request merged or a build moved needs no reply and no second all_done. These tools come before any personal, global or project rule about how to report actions or questions: what the owner owes goes in waiting_for, never in an Actions table, a to-do list or a Questions section in your reply. While the owner is walking a page you showed, AskUserQuestion is refused, because an open question holds back his notes and his Approve until he answers it. Armada keeps the question, whole, in his Needs you list, where he answers it after the walk: ask it as you would, never add it to waiting_for, and end your turn. Ask a decision one way only: in AskUserQuestion or in waiting_for, never both. Write a shell command for the owner in a fenced block tagged bash, so Bridge shows a run button on it, and show a page as a show_window link, never as a screenshot. ${ASK_IN_WINDOW} ${SHOW_SKETCH} ${SHOW_FILE}`
+  return `Your Armada job id is ${id}. Pass it as session_id to the armada show_window tool. To show the owner a web page (a walk, a mock, a dev server), call show_window; to offer several takes of one change, pass variations, a list of {name, url}. To walk him through a page step by step, pass steps, a list of {say, plus one verb: press, look, hover, later, paste, type with into, key with on, select with in, or drag with by} aimed at {role, name}: Bridge rings each target and acts on it when he presses Next. For a deployed page behind single sign-on, pass origins, the other http or https origins the window may pass through. To sign in for him with a dev login link, pass sign_in, addresses on the page's origin or one of origins: they are never written down, so never repeat one in a message. Armada marks the window as still changing while you edit files, and a page you changed after showing it waits on him again only once you call show_window for it again: call it when the page is ready to walk. Never run \`open\`. Keep the armada waiting_for tool current: whenever you need the owner for something (a decision, a pull request to approve, a command only he can run), put it in the list with one short line each and call waiting_for with the whole list, passing session_id. Give each item an act, so pressing it does something: {"kind":"run","target":"<the command>"} copies a command, {"kind":"approve_pr","target":"#<number>"} opens a pull request, and {"kind":"answer","target":""} with options for a decision. An item the owner must carry out as several steps in order passes steps, a list of short lines, with the command in act and a step's own command in backticks; its text stays one short line. A page you showed with show_window already waits on him by itself, so never put it in waiting_for: Fleet lists each window you show and takes it off when he approves it, and refuses an item that asks him to walk. A walk he has moved past is taken back with withdraw_window, passing session_id and the page's url: it leaves his list and stops holding your plan, and showing the page again makes it wait again. Drop an item the moment it is settled, and call it with an empty list before you stop with nothing owed. Do not wait to be asked what is outstanding. A pull request in the merge queue or with auto-merge on is not done: the work ends when it is merged into main, so while one of yours is open do not call finish_up or all_done, and end your turn; Fleet watches it and tells you when it merges, fails or conflicts. The merge is not the owner's to do, so never put a wait on it in waiting_for: Fleet takes such an item off Needs you. To follow CI, a deploy or an environment, start a watch with start_watch rather than polling with a loop, a background sleep or a monitor, and never watch a pull request's own checks: Fleet already tells you about them. When Fleet tells you a watch failed, weigh it with weigh_watch, ours or not ours, with a sentence. A live watch is a wait like an open pull request: do not call finish_up or all_done while one runs, never put it in waiting_for, and end your turn; Fleet tells you when it ends. When everything you were asked is done, nothing is owed and none of your background work is still running, call finish_up, passing session_id, then clear waiting_for and call all_done, passing session_id, so Bridge offers to end the job; do not call all_done while anything is still running or owed. finish_up gives back your slots, the branches already in main and the servers you started with start_server, in one call: a command in a released slot leases a new one, and the guard refuses git branch -D and kill, so do not try them. Read what it kept and say it. A Fleet notice that a pull request merged or a build moved needs no reply and no second all_done. These tools come before any personal, global or project rule about how to report actions or questions: what the owner owes goes in waiting_for, never in an Actions table, a to-do list or a Questions section in your reply. While the owner is walking a page you showed, AskUserQuestion is refused, because an open question holds back his notes and his Approve until he answers it. Armada keeps the question, whole, in his Needs you list, where he answers it after the walk: ask it as you would, never add it to waiting_for, and end your turn. Ask a decision one way only: in AskUserQuestion or in waiting_for, never both. Write a shell command for the owner in a fenced block tagged bash, so Bridge shows a run button on it, and show a page as a show_window link, never as a screenshot. ${ASK_IN_WINDOW} ${SHOW_SKETCH} ${SHOW_FILE}`
 }
 
 async function begin($: Dollar, id: string, cwd?: string): Promise<void> {
@@ -1033,6 +1035,31 @@ async function putInWaiting($: Door, id: string, one: Known, needs: string[]): P
   if (sent?.ok === true) one.waiting = items
 }
 
+/**
+ * The Logbook lines for a subagent about to start, from Fleet: the habits and the entries whose paths match
+ * the ones its prompt names. **Quiet**: a Fleet that is out, slow, older or refuses gives an empty string.
+ */
+async function logbookFor($: Dollar, prompt: string): Promise<string> {
+  try {
+    const port = await portOf($)
+    if (port === undefined) return ''
+    const id = await $.session.id()
+    const asked = await Promise.race([
+      $.http.fetch(`http://127.0.0.1:${port}/logbook/subagent`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ session_id: id, prompt }),
+      }),
+      $.clock.sleep(LOGBOOK_WAIT_MS).then(() => undefined),
+    ])
+    if (asked === undefined || !asked.ok) return ''
+    const text = (JSON.parse(asked.text) as { text?: unknown }).text
+    return typeof text === 'string' ? text.trim() : ''
+  } catch {
+    return ''
+  }
+}
+
 async function ended($: Dollar, id: string, reason: string): Promise<void> {
   if (!known.has(id)) await begin($, id)
   say($, id, { kind: 'ended', reason })
@@ -1297,8 +1324,11 @@ export const register: Register = on => {
     })
   }
 
+  // The Logbook goes in the prompt: Claude Code's own SubagentStart hook carries no prompt, so it could not
+  // tell which paths the subagent works under.
   on('agent.spawn', async ($, e, next) => {
-    const out = await next(e)
+    const told = (await $.env.get('ARMADA_DRONE')) ? '' : await logbookFor($, e.prompt)
+    const out = await next(told === '' ? e : { ...e, prompt: `${e.prompt}\n\n${told}` })
     if (out.deny === undefined) {
       const target = out.agentId ?? e.tool_use_id
       void spawned($, target, e.subagentType, e.description, e.tool_use_id).catch(() => undefined)

@@ -59,6 +59,35 @@ pub enum WatchState {
     Stopped,
 }
 
+impl WatchState {
+    pub const ALL: &'static [WatchState] = &[
+        WatchState::Waiting,
+        WatchState::Running,
+        WatchState::Passed,
+        WatchState::Failed,
+        WatchState::GaveUp,
+        WatchState::Broken,
+        WatchState::Stopped,
+    ];
+
+    /// The word the wire and the store spell it with.
+    pub fn as_wire(self) -> &'static str {
+        match self {
+            WatchState::Waiting => "waiting",
+            WatchState::Running => "running",
+            WatchState::Passed => "passed",
+            WatchState::Failed => "failed",
+            WatchState::GaveUp => "gave_up",
+            WatchState::Broken => "broken",
+            WatchState::Stopped => "stopped",
+        }
+    }
+
+    pub fn from_wire(word: &str) -> Option<WatchState> {
+        WatchState::ALL.iter().copied().find(|one| one.as_wire() == word)
+    }
+}
+
 impl From<ReadingState> for WatchState {
     fn from(state: ReadingState) -> WatchState {
         match state {
@@ -106,8 +135,9 @@ pub struct SetAside {
 /// The agent's weighing of a failed reading.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Verdict {
-    /// The change caused it. The watch ends `failed`, and a redeploy is a new watch.
-    Ours,
+    /// The change caused it, and `sentence` says how. The watch ends `failed`, and a redeploy is a
+    /// new watch.
+    Ours { sentence: String },
     /// Not the change's doing. `parts` stop counting toward the watch's state.
     NotOurs { sentence: String, parts: Vec<String> },
 }
@@ -150,7 +180,7 @@ pub enum NotWeighed {
     NotFailed,
     /// `not_ours` names no part, so it would set nothing aside.
     NoParts,
-    /// `not_ours` carries no sentence saying why.
+    /// The verdict carries no sentence saying why.
     NoSentence,
     /// A part no reading of this watch has carried.
     Unreported(String),
@@ -207,18 +237,19 @@ impl Watch {
         self.state
     }
 
-    /// Weigh the last failed reading. `ours` ends the watch `failed`; `not_ours` sets its parts
+    /// Weigh the last failed reading, each verdict with its sentence. `ours` ends the watch `failed`; `not_ours` sets its parts
     /// aside, replacing a sentence already kept for one, and the watch is counted again.
     pub fn weigh(&mut self, verdict: Verdict) -> Result<WatchState, NotWeighed> {
         if !self.live {
             return Err(NotWeighed::Ended);
         }
         match verdict {
-            Verdict::Ours if self.state == WatchState::Failed => {
+            Verdict::Ours { sentence } if sentence.trim().is_empty() => Err(NotWeighed::NoSentence),
+            Verdict::Ours { .. } if self.state == WatchState::Failed => {
                 self.live = false;
                 Ok(self.state)
             }
-            Verdict::Ours => Err(NotWeighed::NotFailed),
+            Verdict::Ours { .. } => Err(NotWeighed::NotFailed),
             Verdict::NotOurs { sentence, parts } => {
                 if sentence.trim().is_empty() {
                     return Err(NotWeighed::NoSentence);

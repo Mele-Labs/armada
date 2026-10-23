@@ -28,6 +28,7 @@ assuming it is restated here.
 | [kit.md](kit.md) | The tool set you bring — Skills, MCP, sub agents, Commands, the allowlist |
 | [layout-mods.md](layout-mods.md) | A mod whose `layout.json` reorders, hides and sets the opening choice of Bridge's Cockpit panels and places, by id |
 | [log-envelope.md](log-envelope.md) | The field contract every log line carries across Fleet and Bridge |
+| [logbook.md](logbook.md) | What Armada has learned about a repository, the owner's habits and this Mac, kept as short entries, curated with no approval and handed to every new Job |
 | [machine.md](machine.md) | How this installation behaves: resources, timing, notification routing |
 | [manifest.md](manifest.md) | Per-project config, backed by `armada.yml` |
 | [mods.md](mods.md) | A folder on this machine that changes how Bridge looks, which Fleet reads and checks and which can never stop Fleet |
@@ -43,4 +44,5 @@ assuming it is restated here.
 | [themes.md](themes.md) | The colours Bridge is drawn in: Dark, Light, a catalogue of terminal colour schemes, and the themes mods add |
 | [tracker.md](tracker.md) | The adapter through which Fleet lists a repository's open issues |
 | [trigger.md](trigger.md) | A saved Command, skill or prompt tied to a moment in a workflow's steps, set by a repository or this machine |
+| [watch.md](watch.md) | A command Fleet runs on a cadence for one Job, whose last line says where a deploy or pipeline stands, and which the Job's agent weighs when it fails |
 | [workflow.md](workflow.md) | The template a Job may follow: ordered steps as a soft rail |

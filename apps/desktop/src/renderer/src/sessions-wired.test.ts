@@ -381,3 +381,19 @@ it("words a clash that no longer stands in Fleet's own sentence", async () => {
   const store = new WiredStore({ readClashFile: async () => refused } as unknown as BridgeApi);
   expect(await store.draft.clashFile!("a", { kind: "session", id: "b" }, "f.txt")).toEqual({ ok: false, said: "the clash over `f.txt` no longer stands" });
 });
+
+// ---- Not yet on a plan ---------------------------------------------------------------------------------------
+
+it("sets a plan aside by dismissing the item Fleet holds for it, `plan:<version>`, as the Needs you row dismisses one", async () => {
+  const dismissWaiting = vi.fn(async () => ({ ok: true as const, value: {} }));
+  let wire: (change: StateChange<BridgeState>) => void = () => undefined;
+  const api = { syncState: () => Promise.resolve({ full: NOTHING_YET, seq: 0 }), subscribeChanges: (on: typeof wire) => ((wire = on), () => undefined), dismissWaiting } as unknown as BridgeApi;
+  const store = new WiredStore(api);
+  store.attach();
+  await new Promise((done) => setTimeout(done, 0));
+  wire({ full: structuredClone({ ...NOTHING_YET, sessions: { state: "read", sessions: [{ ...record("a"), plan: { ...PLAN, version: 3, approved: false } }] } }), seq: 0 });
+
+  expect(store.draft.work?.setAside).toBeDefined();
+  store.draft.work!.setAside!("a");
+  expect(dismissWaiting).toHaveBeenCalledWith({ session_id: "a", item_id: "plan:3" });
+});

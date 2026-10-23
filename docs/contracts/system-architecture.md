@@ -214,6 +214,7 @@ it.
 | `hosted_sessions` | What only a session Bridge hosts has: its model, effort and mode, whether its process has run, and the slot and branch it leased | `fleet` |
 | `session_rows` | A hosted session's thread, one row each in order, kept whole | `fleet` |
 | `ledger_attachments` | What a holder took or did, keyed by holder (`session` or `job`, no foreign key), kind (open text), repository and target; its state is `standing`, `spent` or `given_back` for every kind | `fleet` |
+| `ledger_attachment_versions` | Every version a `ledger_attachments` row stood in, written by triggers on each insert and each change of state or detail; read oldest first | `fleet` |
 
 **Captured Check output lives on disk, with a pointer in the Evidence row.**
 A Check captures stdout and stderr whole, since deciding which lines are

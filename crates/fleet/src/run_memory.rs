@@ -5,7 +5,7 @@
 //! off its stream (`adapters::session_runs`), kept for the session, and derived into facts as each
 //! command comes back: the same rules as the import of past sessions, so the two merge under one
 //! key. Fleet's working record is the store's `run_facts`, and every process of a Job is told it
-//! ([`run_note_of`](Fleet::run_note_of)); the place chosen for the repository when it was added is
+//! (the Logbook note, `logbook::noting`); the place chosen for the repository when it was added is
 //! where the facts are *written*, as each turn ends:
 //!
 //! | place | written to |
@@ -50,8 +50,6 @@ pub(crate) const NOT_SERVED: &str = "fleet.run_memory_repository_not_served";
 
 /// The most records a session keeps, oldest dropped first.
 const MOST_RECORDS: usize = 2000;
-/// The most remembered runs a Job is told, newest first.
-const MOST_TOLD: usize = 20;
 
 /// The commands a session ran and what came back, in memory.
 #[derive(Default)]
@@ -72,6 +70,11 @@ impl RunLog {
         }
         let over = self.records.len().saturating_sub(MOST_RECORDS);
         self.records.drain(..over);
+    }
+
+    /// What the session ran, oldest first: the Logbook's record of commands.
+    pub(crate) fn records(&self) -> &[Record] {
+        &self.records
     }
 }
 
@@ -129,6 +132,12 @@ pub(crate) fn place_of(word: &str) -> RunPlace {
 
 fn instant(millis: u64) -> Instant {
     Instant::carried(rfc3339_utc(millis as i64))
+}
+
+/// One remembered run as a line: what it is, where, and the command.
+pub(crate) fn run_line(fact: &KeptRun) -> String {
+    let port = fact.port.map(|port| format!(", port {port}")).unwrap_or_default();
+    format!("{} in `{}`: `{}`{port}", fact.kind.replace('_', " "), fact.workspace, fact.command)
 }
 
 /// A Job's tree and branch, where `repository` writes.
@@ -202,32 +211,6 @@ where
             _ => None,
         };
         Some((root, job))
-    }
-
-    /// What every process of a Job in `root` is told of how the repository runs: the runs whose
-    /// last run worked, newest first. `None` where nothing is remembered. Read at each start, so
-    /// what one Job kept reaches the next. `docs/concepts/kit.md`, *What a repository runs*.
-    pub(crate) async fn run_note_of(&self, root: &str) -> Option<String> {
-        let mut facts = self.store().lock().await.run_facts(root).ok()?;
-        let missing = self.missing_now().await;
-        facts.retain(|fact| fact.succeeded && !crate::machine_note::starts_with_missing(&fact.command, &missing));
-        if facts.is_empty() {
-            return None;
-        }
-        facts.sort_by(|one, other| other.last_ran.cmp(&one.last_ran));
-        facts.truncate(MOST_TOLD);
-        let lines: Vec<String> = facts
-            .iter()
-            .map(|fact| {
-                let port = fact.port.map(|port| format!(", port {port}")).unwrap_or_default();
-                format!("- {} in `{}`: `{}`{port}", fact.kind.replace('_', " "), fact.workspace, fact.command)
-            })
-            .collect();
-        Some(format!(
-            "How this repository runs, remembered from what its Jobs ran. Each line is a command to run, \
-             never a Check: nothing here gates a pull request.\n{}",
-            lines.join("\n")
-        ))
     }
 
     /// The first time a repository is touched: the runs its past sessions show are merged in, and

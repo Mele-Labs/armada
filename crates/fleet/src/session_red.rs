@@ -3,7 +3,7 @@
 //! *When a Session's pull request turns main red*.
 //!
 //! **Fleet takes the claim itself.** A Job's red is sent back by `main_fix`; this is the same
-//! pickup for a pull request nobody's Job opened, which the pull watch placed with the Session
+//! pickup for a pull request nobody's Job opened, which the pull reading placed with the Session
 //! that held it (`MainMerge::session`). The red is claimed for that Session first
 //! (`Taker::Session`), then the Session is told as Fleet tells it anything (`told_by_fleet`),
 //! which wakes it. A Session that cannot be told, because it ended or was refused, is forked,

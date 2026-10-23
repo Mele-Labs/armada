@@ -32,6 +32,7 @@ mod hosted_sessions;
 mod session_checks;
 mod session_build;
 mod session_plan;
+mod session_focus;
 mod session_rail;
 mod session_limit;
 mod session_loadout;
@@ -42,6 +43,11 @@ mod usage_rule_trips;
 mod fleet_disputes;
 mod session_tells;
 mod session_later;
+mod watches;
+/// The sentences read from a reply that he marked Not a question.
+mod reply_misreads;
+/// The sentences read from a reply that he confirmed with thumbs up.
+mod reply_confirmed;
 mod notice_mutes;
 mod session_waiting;
 mod sleep_night;
@@ -84,6 +90,8 @@ mod linked_told;
 /// A Session dispatched to wait on another, until its condition is met.
 mod run_memory;
 mod session_waits;
+/// What Fleet learnt from every Session of a repository.
+mod logbook;
 /// What Fleet told the owner of a pull request, so it is told once.
 mod pull_notice;
 mod repositories;
@@ -97,6 +105,7 @@ mod schema;
 /// Every agent session a person runs and what each holds. `docs/concepts/session.md`.
 mod session_ledger;
 mod blank_sessions;
+mod attachment_versions;
 mod session_retro;
 /// The Finding a rescue Scout brought back from a stranded slot. Since V106;
 /// its verdict and items since V107.
@@ -119,16 +128,21 @@ pub use devices::{Device, PushSubscription};
 pub use error::{DatabaseFault, OpenError, ReadError, RowError, WriteError};
 pub use hosted_sessions::{KeptHosting, KeptTerminalAsk};
 pub use run_memory::{KeptPlace, KeptRun};
+pub use logbook::{
+    logbook_words, LogEntry, LogEvidence, LogHistory, LogHow, LogKind, LogRewrite, LogSection, LogState,
+};
 pub use session_waits::KeptWait;
 pub use session_build::{KeptBuild, KeptTask, LandedPull, RoadAsk, RoadTimes, WorkTimes};
 pub use session_turn_usage::KeptTurnUsage;
 pub use usage_summary::{turn_units, DayUsage, Named, PriorUsage, UsageSplit, UsageSummaryRead, TOP_SESSIONS};
 pub use usage_rule_trips::KeptTrip;
 pub use fleet_disputes::{KeptDispute, KeptNotice};
+pub use session_focus::KeptFocus;
 pub use session_plan::{KeptPlan, KeptPlanChange, KeptPlanGroup, KeptPlanTask, KeptTouch};
 pub use session_rail::{KeptCite, KeptConcern, KeptRail, KeptReading, SETTLED_KEPT};
 pub use session_tells::KeptTell;
 pub use session_later::KeptLater;
+pub use watches::{KeptWatch, KeptWatchReading, KeptWatchSetAside, KeptWatchTaken, KeptWatchVerdict, KeptWatchWhole, READINGS_KEPT};
 pub use notice_mutes::LiveMutes;
 pub use session_waiting::KeptWaiting;
 pub use session_checks::KeptSessionCheck;
@@ -147,6 +161,7 @@ pub use retro::RetroLine;
 pub use review_runs::KeptReviewRun;
 pub use walk_places::{HeldReviewWalk, KeptWalkPlace};
 pub use session_retro::{KeptRestart, KeptSessionLesson, KeptSessionRetro};
+pub use attachment_versions::KeptAttachmentVersion;
 pub use session_ledger::{
     AttachmentState, Holder, HolderKind, KeptAttachment, KeptSession, SessionFigures,
     SessionSearch, SessionState,

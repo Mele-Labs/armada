@@ -1,5 +1,5 @@
 import { Children, isValidElement, useState, type ReactNode } from "react";
-import { AppWindow, BellRing, Link, CircleCheck, CircleX, GitPullRequestArrow, LoaderCircle, CornerUpRight, SquarePen, MessageSquare, Check, CircleDot, Files, Globe, Image, ListChecks, Megaphone, MessageCircleQuestion, MoveRight, NotebookText, Power, Radar, Reply, Search, Terminal, GitBranch, GitPullRequest, KeyRound, Presentation, PencilRuler, RotateCw, ShieldCheck, ShieldEllipsis, ShieldX, Split, SquareTerminal, Trash2, Unplug, X } from "lucide-react";
+import { AppWindow, BellRing, Link, CircleCheck, CircleX, GitPullRequestArrow, LoaderCircle, CornerUpRight, SquarePen, MessageSquare, Check, CircleDot, Files, Globe, Image, ListChecks, Megaphone, MessageCircleQuestion, MoveRight, NotebookText, Power, Radar, Reply, ScanText, Search, Terminal, GitBranch, GitPullRequest, KeyRound, Presentation, PencilRuler, RotateCw, ShieldCheck, ShieldEllipsis, ShieldX, Split, SquareTerminal, Trash2, Unplug, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { forgetKept, readKept } from "../../keep";
@@ -113,6 +113,14 @@ export type LedgerEntry = {
   restart?: { command: string; runner?: CodeRunner };
   /** What the reply box's draft is about (the Session and the item), so it survives closing the box and leaving the panel. */
   replyKeep?: string;
+  /** A `waiting` row Fleet read out of the agent's reply rather than the agent stating it: where it asks, its glyph says so in place of Reply or Question. */
+  fromReply?: boolean;
+  /** A row read from a reply that asks nothing: the person says so at its end, and Fleet keeps the sentence as one that is no question. */
+  onMisread?: () => void;
+  /** Marked as a question, beside `onMisread`: Fleet keeps the sentence as an ask. */
+  onConfirmed?: () => void;
+  /** Fleet holds the row as confirmed: it draws no thumbs, and its menu offers only Not a question. */
+  confirmed?: boolean;
   /**
    * A `waiting` row the agent stated: the person takes it off, with a reason for the agent that may be empty.
    * The row then draws Remove at its end, and its press opens the reason box.
@@ -141,6 +149,9 @@ const WAITING_ACT: Record<WaitingActKind | "none", { Glyph: LucideIcon; said: st
 };
 
 const REPLY = { Glyph: Reply, said: "Reply" };
+
+/** A question Fleet read out of the agent's words. */
+const READ_FROM_REPLY = { Glyph: ScanText, said: "Read from the reply" };
 
 /** A row with choices is a question, whatever its press does: one asked in the walk window still opens the walk. */
 const QUESTION = { Glyph: MessageCircleQuestion, said: "Question" };
@@ -434,10 +445,12 @@ function LedgerSection({ kind, label, Glyph, all }: { kind: LedgerKind; label: s
   );
 }
 
-/** What a waiting row's glyph is and what its tooltip names: Question where it has choices, Reply where its press opens a box, else its act's. */
+/** What a waiting row's glyph is and what its tooltip names: Read from the reply where Fleet read a question out of one, Question where it has choices, Reply where its press opens a box, else its act's. */
 export function waitingMark(row: LedgerEntry): { Glyph: LucideIcon; said: string } {
+  const replies = row.act === undefined && row.onReply !== undefined;
+  if (row.fromReply === true && (row.options !== undefined || replies)) return READ_FROM_REPLY;
   if (row.options !== undefined) return QUESTION;
-  return row.act === undefined && row.onReply !== undefined ? REPLY : WAITING_ACT[row.act ?? "none"];
+  return replies ? REPLY : WAITING_ACT[row.act ?? "none"];
 }
 
 /** A section's rows, also drawn by the thread's Needs you panel so a waiting item reads and acts the same in both. */
