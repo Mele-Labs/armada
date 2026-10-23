@@ -68,9 +68,8 @@ where
         let Some(session) = self.logbook_distils().next() else { return };
         let fleet = Arc::clone(self);
         tokio::spawn(async move {
-            if let Err(why) = fleet.logbook_distilled(&session).await {
-                eprintln!("job {session} was not distilled into the Logbook: {why}");
-            }
+            // Quiet, as run memory is: nothing was kept, so the Session's next distil reads it again.
+            let _ = fleet.logbook_distilled(&session).await;
             fleet.logbook_distils().running.store(false, Ordering::Release);
         });
     }
@@ -101,6 +100,7 @@ where
     /// The entries to serve a repository's next agent: standing ones, tripped first, then by how
     /// many Sessions bore each out, then the most recent, cut to `budget` tokens. Each learnt one
     /// served is marked, which keeps it from fading. **For the start note to call.**
+    #[allow(dead_code, reason = "the start note calls it, and another change wires that")]
     pub(crate) async fn logbook_to_serve(&self, root: &str, budget: usize) -> Vec<Logged> {
         let served = serving::served(self.logbook_read(root).await, budget);
         let ids: Vec<i64> = served

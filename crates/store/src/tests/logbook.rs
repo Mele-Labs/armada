@@ -66,3 +66,19 @@ fn a_repositorys_sessions_are_counted_once_each_after_a_time() {
     assert_eq!(store.logbook_sessions_since(KEY, 200).expect("counts"), 0);
     assert_eq!(store.logbook_last_distil("s1").expect("reads").as_deref(), Some("2026-10-02T00:00:00Z"));
 }
+
+#[test]
+fn a_taught_logbook_entry_stands_at_once_as_the_persons() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    let id = store.save_logbook_entry(&entry("Chrome is not in /Applications.")).expect("kept").expect("an id");
+    store.forget_logbook_entry(id, 20).expect("forgot");
+    let taught = store
+        .teach_logbook_entry(LogSection::Repo, KEY, LogKind::Gotcha, "Chrome is not in /Applications.", &[], 30)
+        .expect("taught");
+    let read = store.logbook_of(KEY).expect("reads");
+    assert_eq!(read.len(), 1);
+    let entry = &read[0];
+    assert_eq!((entry.id, entry.state, entry.edited_by_person), (Some(taught), LogState::Standing, true));
+    assert!(entry.evidence.is_empty());
+}

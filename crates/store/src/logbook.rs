@@ -331,6 +331,44 @@ impl Store {
         Ok(true)
     }
 
+    /// An entry a person wrote: it stands at once, marked theirs, with no Session behind it. **A
+    /// person's own act lifts the deny list** for that text, since teaching it is asking it back.
+    pub fn teach_logbook_entry(
+        &mut self,
+        section: LogSection,
+        repository: &str,
+        kind: LogKind,
+        text: &str,
+        paths: &[String],
+        at: u64,
+    ) -> Result<i64, WriteError> {
+        let repository = if section == LogSection::Repo { repository } else { "" };
+        self.conn
+            .execute(
+                "DELETE FROM logbook_forgotten WHERE section = ?1 AND repository = ?2 AND words = ?3",
+                params![section.as_text(), repository, logbook_words(text)],
+            )
+            .map_err(database("lifting a forgotten Logbook entry"))?;
+        let entry = LogEntry {
+            id: None,
+            section,
+            repository: repository.to_string(),
+            kind,
+            text: text.trim().to_string(),
+            paths: paths.to_vec(),
+            evidence: Vec::new(),
+            first_seen: at,
+            last_confirmed: at,
+            last_served: None,
+            state: LogState::Standing,
+            pinned: false,
+            edited_by_person: true,
+            tripped: 0,
+            history: Vec::new(),
+        };
+        self.save_logbook_entry(&entry)?.ok_or_else(|| WriteError::Database(fault("teaching a Logbook entry")(rusqlite::Error::QueryReturnedNoRows)))
+    }
+
     /// Pin an entry, or let it go: a pinned entry never fades and is never rewritten.
     pub fn pin_logbook_entry(&mut self, id: i64, pinned: bool) -> Result<(), WriteError> {
         self.conn

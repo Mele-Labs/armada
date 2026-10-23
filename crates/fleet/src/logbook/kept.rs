@@ -156,9 +156,7 @@ where
         ];
         for (section, at) in sections {
             if let Some(at) = at {
-                if let Err(why) = self.logbook_section_written(root, section, at).await {
-                    eprintln!("the Logbook's {} section was not written: {why}", section.as_text());
-                }
+                let _ = self.logbook_section_written(root, section, at).await;
             }
         }
     }
