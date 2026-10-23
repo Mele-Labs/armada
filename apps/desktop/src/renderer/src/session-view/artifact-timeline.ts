@@ -7,7 +7,7 @@
 
 import { Check, GitMerge, ShieldCheck, ShieldEllipsis, ShieldX, type LucideIcon } from "lucide-react";
 import type { SessionLedgerTone } from "@armada/components";
-import type { Session, SessionAttachment } from "@armada/screens/src/draft/sessions";
+import { issueLabel, type Session, type SessionAttachment } from "@armada/screens/src/draft/sessions";
 
 import { shownOnly } from "../session-cards";
 import type { ArtifactGroup, ArtifactRow } from "./artifacts";
@@ -45,7 +45,7 @@ export type TimelineLine = {
   said: string;
   title: string;
   points: TimelinePoint[];
-  /** The lines it branches off. `job` is the Job's own. Empty never: a line with no known join is born off the Job. */
+  /** The lines it branches off, and the join said for the tooltip of its first point. `job` is the Job's own. Empty never: a line with no known join is born off the Job. */
   parents: { key: string; said?: string }[];
 };
 
@@ -149,14 +149,17 @@ export function timelineOf(session: Session, groups: readonly ArtifactGroup[], a
     const parents: TimelineLine["parents"] = [];
     for (const attachment of all(one.key)) {
       if (attachment.kind === "pull_request") {
-        for (const number of attachment.closes ?? []) if (line.has(`issue:${number}`)) parents.push({ key: `issue:${number}`, said: "Closes" });
-        for (const issue of lines) if (all(issue.key).some((it) => it.kind === "issue" && it.pull_requests?.includes(attachment.number) === true)) parents.push({ key: issue.key, said: "Closes" });
+        for (const number of attachment.closes ?? []) if (line.has(`issue:${number}`)) parents.push({ key: `issue:${number}`, said: `Closes ${issueLabel(String(number))}` });
+        for (const issue of lines) {
+          const named = all(issue.key).find((it) => it.kind === "issue" && it.pull_requests?.includes(attachment.number) === true);
+          if (named?.kind === "issue") parents.push({ key: issue.key, said: `Closes ${issueLabel(named.number)}` });
+        }
       }
       if (attachment.kind === "sketch" && attachment.against !== undefined) {
         const earlier = lines.find((other) => other.key !== one.key && other.lane === "sketch" && other.title === attachment.against!.title);
-        if (earlier !== undefined) parents.push({ key: earlier.key, said: "Against" });
+        if (earlier !== undefined) parents.push({ key: earlier.key, said: `Against ${earlier.title}` });
       }
-      if (attachment.kind === "started_to") parents.push({ key: "job", said: rows.get(one.key)?.sub });
+      if (attachment.kind === "started_to") parents.push({ key: "job" });
     }
     const seen = new Set<string>();
     const unique = parents.filter((one) => !seen.has(one.key) && (seen.add(one.key), true));
@@ -187,7 +190,7 @@ const MINUTE = 60_000;
 const TICK_STEPS = [5, 10, 15, 30, 60, 120, 240].map((one) => one * MINUTE);
 
 export type Placed = { line: TimelineLine; y: number; xs: number[]; from: number; to: number; /** The most its title may draw before it is cut with an ellipsis. */ title: number };
-export type Path = { key: string; d: string; said?: string; at: { x: number; y: number } };
+export type Path = { key: string; d: string };
 export type Tick = { x: number; said?: string };
 export type Lane = { id: LaneId; label: string; top: number; height: number };
 
@@ -263,14 +266,12 @@ function pathsOf(placed: readonly Placed[], jobY: number | undefined): Path[] {
   return placed.flatMap((child) =>
     child.line.parents.flatMap((parent): Path[] => {
       const x = child.xs[0]!;
-      const label = parent.said === undefined ? {} : { said: parent.said };
-      if (parent.key === "job") return jobY === undefined ? [] : [{ key: `${child.line.key}<job`, d: `M ${x} ${jobY} V ${child.y}`, ...label, at: { x, y: (jobY + child.y) / 2 } }];
+      if (parent.key === "job") return jobY === undefined ? [] : [{ key: `${child.line.key}<job`, d: `M ${x} ${jobY} V ${child.y}` }];
       const above = at.get(parent.key);
       if (above === undefined) return [];
       const born = child.line.points[0]!.t;
       const index = above.line.points.reduce((last, point, i) => (point.t <= born ? i : last), 0);
-      const from = above.xs[index]!;
-      return [{ key: `${child.line.key}<${parent.key}`, d: `M ${from} ${above.y} H ${x} V ${child.y}`, ...label, at: { x, y: (above.y + child.y) / 2 } }];
+      return [{ key: `${child.line.key}<${parent.key}`, d: `M ${above.xs[index]!} ${above.y} H ${x} V ${child.y}` }];
     }),
   );
 }

@@ -90,7 +90,7 @@ export function ArtifactTimeline({ timeline, take }: { timeline: Timeline; take:
                 <line key={one.line.key} className="at__run" x1={one.xs[0]} x2={one.xs[one.xs.length - 1]} y1={one.y} y2={one.y} />
               ))}
               {layout.paths.map((path) => (
-                <path key={path.key} className="at__branch" data-join={path.said === undefined ? undefined : ""} d={path.d} />
+                <path key={path.key} className="at__branch" data-join={path.key.endsWith("<job") ? undefined : ""} d={path.d} />
               ))}
             </svg>
             {layout.job === undefined ? null : (
@@ -101,13 +101,6 @@ export function ArtifactTimeline({ timeline, take }: { timeline: Timeline; take:
                   </span>
                 </Tooltip>
               </div>
-            )}
-            {layout.paths.map((path) =>
-              path.said === undefined ? null : (
-                <span key={path.key} className="at__join" style={{ left: path.at.x + 6, top: path.at.y - 8 }}>
-                  {path.said}
-                </span>
-              ),
             )}
             {layout.placed.map((one) => (
               <Line key={one.line.key} one={one} here={here} points={points.current} clock={clock} timed={timeline.timed} onAt={setCurrent} />
@@ -123,6 +116,8 @@ export function ArtifactTimeline({ timeline, take }: { timeline: Timeline; take:
 function Line({ one, here, points, clock, timed, onAt }: { one: Placed; here: At | undefined; points: Map<string, HTMLButtonElement>; clock: (ms: number) => string; timed: boolean; onAt: (at: At) => void }) {
   const { line } = one;
   const Kind = line.Glyph;
+  // What the line was born of, said on its first point: the join is not drawn over the titles beside it.
+  const joins = line.parents.flatMap((parent) => (parent.key === "job" || parent.said === undefined ? [] : [parent.said]));
   return (
     <>
       <span className="at__title" style={{ left: one.xs[0]! - POINT / 2, top: one.y - POINT / 2 - 18, maxWidth: one.title }}>
@@ -135,7 +130,7 @@ function Line({ one, here, points, clock, timed, onAt }: { one: Placed; here: At
         const Glyph = index === 0 ? Kind : point.Glyph;
         return (
           <div key={key} className="at__spot" style={{ left: one.xs[index]! - POINT / 2, top: one.y - POINT / 2 }}>
-            <Tooltip label={[line.title, index === 0 ? line.said : undefined, point.said, time].filter((part) => part !== undefined).join(", ")}>
+            <Tooltip label={[line.title, index === 0 ? line.said : undefined, point.said, ...(index === 0 ? joins : []), time].filter((part) => part !== undefined).join(", ")}>
               <button
                 type="button"
                 ref={(element) => void (element === null ? points.delete(key) : points.set(key, element))}
