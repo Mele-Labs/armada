@@ -677,12 +677,14 @@
 .armada-question-deck__option { display: flex; align-items: baseline; flex-wrap: wrap; column-gap: var(--space-3); min-width: 0; }
 .armada-question-deck__description { font-size: var(--text-xs); line-height: var(--leading-xs); font-weight: var(--weight-body); color: var(--fg-muted); }
 
-.armada-question-deck__previews { display: grid; }
-.armada-question-deck__previews > * { grid-area: 1 / 1; }
-.armada-question-deck__preview[data-hidden] { visibility: hidden; }
-
-/* The agent's own text for the option in focus, as it wrote it: monospace, its line breaks kept. */
+/* The agent's own text for the option in focus, as it wrote it: monospace, its line breaks kept, in a small card over the panel beside its row. */
 .armada-question-deck__preview {
+  position: fixed;
+  z-index: var(--z-menu);
+  /* As wide as its longest line, anchored at the row's trailing edge and growing back from it, held inside the window. */
+  max-width: calc(100vw - var(--space-8));
+  pointer-events: none;
+  box-shadow: var(--shadow-overlay);
   margin: 0;
   padding: var(--space-3);
   border: var(--border-width) solid var(--border-default);

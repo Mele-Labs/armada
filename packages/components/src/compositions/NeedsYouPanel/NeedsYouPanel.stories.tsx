@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
-import { expect, fn, userEvent, waitFor } from "storybook/test";
+import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 
 import type { LedgerEntry } from "../SessionLedger/SessionLedger";
 import { AskCards } from "../SessionThread/SessionThread";
@@ -324,5 +324,36 @@ export const AnOpenQuestionScrollsOnlyItsOptions: Story = {
     const after = answer.getBoundingClientRect();
     await expect([after.top, after.left]).toEqual([before.top, before.left]);
     await expect(inside("Answer")).toBe(true);
+  },
+};
+
+const LANDS: AskedQuestion = {
+  question:
+    "Where should you choose how a Job lands? Right now you type a request into Dispatch and send it. The Job starts, a few seconds later Armada picks its kind, and only then does the delivery question land in Needs you, next to whatever else Fleet and the agent are already asking. Where should it go instead?",
+  header: "Lands",
+  multi_select: false,
+  options: [
+    { label: "In the Dispatch box", description: "A row beside Send.", preview: "┌ New Job ─────────┐\n│ Lands  ● Auto land │\n│        ○ PR only   │\n│        ○ Keep local│\n│ [ Start ↵ ]        │\n│                    │\n│                    │\n│                    │\n│                    │\n│                    │\n└────────────────────┘" },
+    { label: "On the Job's first card", description: "Asked once the kind is known." },
+    { label: "As a default per repository", description: "Asked once, then remembered." },
+  ],
+};
+const LANDS_ASK = { id: "q3", label: "Question", text: LANDS.question, children: <AskCards flat asked={{ command: "AskUserQuestion", questions: [LANDS] }} onAnswer={fn()} /> };
+
+/** A preview is a small card beside the option pointed at, not a box under the options, so a long question and a tall preview leave the options their rows. */
+export const APreviewIsACardOnHover: Story = {
+  render: () => <Frame question={LANDS_ASK} rows={[]} startOpen threadH={400} />,
+  play: async ({ canvas }) => {
+    const options = canvas.getByRole("radiogroup", { name: "Options" });
+    const row = canvas.getByRole("radio", { name: "In the Dispatch box" });
+    await expect(canvas.queryByRole("region", { name: "Preview" })).toBeNull();
+    await waitFor(() => expect(options.clientHeight).toBeGreaterThanOrEqual(row.getBoundingClientRect().height * 3));
+    const before = options.getBoundingClientRect().height;
+    await userEvent.hover(row);
+    const card = await within(document.body).findByRole("region", { name: "Preview" });
+    await expect(card.closest(".armada-needs-panel__body")).toBeNull();
+    await expect(options.getBoundingClientRect().height).toBe(before);
+    await userEvent.unhover(row);
+    await waitFor(() => expect(within(document.body).queryByRole("region", { name: "Preview" })).toBeNull());
   },
 };

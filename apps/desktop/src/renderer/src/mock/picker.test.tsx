@@ -149,7 +149,8 @@ test("choosing one mounts it — the reload `?scenario=` is read on", async () =
   document.body.append(host2);
   const app = mountApp(asked!, host2);
   await app.onScreen;
-  await expect.element(page.getByText("Fleet is not running").first()).toBeVisible();
+  // The Cockpit powers on over a Fleet that is down, so the title row's Fleet button is what names it (`cockpit/boot.ts`).
+  await expect.element(page.getByRole("button", { name: "Fleet — Not running" })).toBeVisible();
   app.unmount();
   host2.remove();
 });
