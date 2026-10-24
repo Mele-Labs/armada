@@ -15,6 +15,8 @@ Fleet's local language model has a workflow reader (`session_host/workflow_pick.
 | `proposal.reading` | The call is still out |
 | `proposal.picked` | The fields the proposer filled (`title`, `workflow`, `model`, `effort`), each dropped when the person sets that field |
 
+**A title follows his renames.** A Job he renames in Bridge is kept against the name it had, and the next Job's call is shown his last 12 as examples (`job-proposer.md`, *Names he gave*).
+
 **Which starts are read.** Every Job is read once, at the first message that is its brief.
 A start with a `request` (the dispatch sheet) is read at the start.
 Any other start is read at the first message it is sent or given, and that turn is held behind the reading exactly as a dispatch's is.
