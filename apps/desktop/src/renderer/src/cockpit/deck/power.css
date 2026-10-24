@@ -1,0 +1,121 @@
+/* The deck powering on (`cockpit/boot.ts`), the one entrance the motion contract allows on data. On standby each panel comes online in
+   turn: its frame draws, its label lights, and a ruler waits where its data will be. Filling, each panel's data comes in, in the same
+   order. Strokes and opacity steps only: no gradient, glow or blur. Reduced motion zeroes the durations, so each state is drawn at once.
+   `data-power-take` on the root is a mock's choice between looks (`mock/main.tsx`); none is the trace. */
+
+.deck[data-power] {
+  --power-step: var(--duration-press);
+  --power-trace: calc(var(--duration-sheet) * 2);
+}
+.deck[data-power] :is(.deck-panel, .deck-pane:not([data-bare])) { position: relative; }
+
+/* The order the systems come online in: the list, the stage, the queue under it, the right column, then the foot. */
+.deck[data-power] .deck-list { --power-n: 0; }
+.deck[data-power] .deck-stage > .deck-pane { --power-n: 1; }
+.deck[data-power] .deck-queue { --power-n: 2; }
+.deck[data-power] :is(.deck-bays, .deck-ledger) { --power-n: 3; }
+.deck[data-power] .deck-activity { --power-n: 4; }
+.deck[data-power] .deck-controls { --power-n: 5; }
+.deck[data-power] .deck-dispatch { --power-n: 6; }
+.deck[data-power] .deck-autopilot { --power-n: 7; }
+
+/* ---- Standby: the frame, the label, the ruler ------------------------------------------------------------ */
+
+.deck[data-power="standby"] :is(.deck-panel, .deck-pane:not([data-bare])) { border-color: transparent; }
+.deck[data-power="standby"] :is(.deck-panel, .deck-pane:not([data-bare])) > :not(.deck-band) { visibility: hidden; }
+
+/* The frame: the top rule draws across, then the sides drop to the foot. */
+.deck[data-power="standby"] :is(.deck-panel, .deck-pane:not([data-bare]))::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: var(--border-width) solid var(--border-strong);
+  border-radius: inherit;
+  pointer-events: none;
+  animation: power-trace var(--power-trace) var(--ease) calc(var(--power-n, 0) * var(--power-step)) both;
+}
+@keyframes power-trace {
+  0% { clip-path: inset(0 100% calc(100% - var(--border-width) * 2) 0); }
+  45% { clip-path: inset(0 0 calc(100% - var(--border-width) * 2) 0); }
+  100% { clip-path: inset(0); }
+}
+
+/* The label lights in two steps once its frame is drawn, as a readout does. */
+.deck[data-power="standby"] .deck-band {
+  animation: power-label calc(var(--power-trace) + var(--duration-base)) step-end calc(var(--power-n, 0) * var(--power-step)) both;
+}
+@keyframes power-label {
+  0% { opacity: 0.2; }
+  70% { opacity: 0.55; }
+  82% { opacity: 0.3; }
+  90% { opacity: 1; }
+}
+
+/* The ruler: an instrument scale, end ticks and a rule, where the data will be. It draws, then breathes while Fleet is away. */
+.deck[data-power="standby"] :is(.deck-panel, .deck-pane:not([data-bare]))::after {
+  content: "";
+  position: absolute;
+  top: calc(50% + var(--h-row-header) / 2);
+  left: 50%;
+  width: min(40%, calc(var(--space-12) * 3));
+  height: var(--space-2);
+  translate: -50% -50%;
+  border: var(--border-width) solid var(--fg-subtle);
+  border-top: 0;
+  pointer-events: none;
+  animation:
+    power-rule var(--power-trace) var(--ease) calc(var(--power-n, 0) * var(--power-step) + var(--power-trace)) both,
+    power-breathe var(--duration-pulse) ease-in-out calc(var(--power-n, 0) * var(--power-step) + var(--power-trace) * 2) infinite;
+}
+/* A band-only panel is one row: its ruler sits on the row. */
+.deck[data-power="standby"] .deck-panel[data-band-only]::after { top: 50%; }
+@keyframes power-rule { from { scale: 0 1; } }
+@keyframes power-breathe { 50% { opacity: 0.35; } }
+
+/* ---- Filling: each panel's data comes in, in the same order --------------------------------------------- */
+
+.deck[data-power="filling"] :is(.deck-panel, .deck-pane:not([data-bare])) > :not(.deck-band) {
+  animation: power-fill var(--duration-travel) var(--ease) calc(var(--power-n, 0) * var(--duration-fast)) backwards;
+}
+@keyframes power-fill { from { opacity: 0; } }
+
+/* ---- Take: sweep. The frames stand dim, a scan line passes down each in turn, and the data comes in behind a second pass. ---- */
+
+:root[data-power-take="sweep"] .deck[data-power="standby"] :is(.deck-panel, .deck-pane:not([data-bare])) { border-color: var(--border-glass); }
+:root[data-power-take="sweep"] .deck[data-power="standby"] :is(.deck-panel, .deck-pane:not([data-bare]))::before {
+  inset: 0 0 auto;
+  height: var(--border-width);
+  border: 0;
+  background: var(--border-strong);
+  clip-path: none;
+  animation: power-scan calc(var(--power-trace) * 2) var(--ease) calc(var(--power-n, 0) * var(--power-step) * 2) both;
+}
+@keyframes power-scan {
+  from { top: 0; opacity: 1; }
+  90% { opacity: 1; }
+  to { top: 100%; opacity: 0; }
+}
+:root[data-power-take="sweep"] .deck[data-power="filling"] :is(.deck-panel, .deck-pane:not([data-bare])) > :not(.deck-band) {
+  animation: power-wipe calc(var(--duration-travel) * 1.5) var(--ease) calc(var(--power-n, 0) * var(--duration-fast)) backwards;
+}
+@keyframes power-wipe { from { clip-path: inset(0 0 100% 0); } }
+
+/* ---- Take: step. No strokes: frame, label and data each come on in hard steps, as a panel of lamps does. ---- */
+
+:root[data-power-take="step"] .deck[data-power="standby"] :is(.deck-panel, .deck-pane:not([data-bare]))::before {
+  clip-path: none;
+  animation: power-lamp var(--power-trace) steps(3, jump-none) calc(var(--power-n, 0) * var(--power-step) * 1.5) both;
+}
+@keyframes power-lamp { from { opacity: 0; } }
+:root[data-power-take="step"] .deck[data-power="standby"] :is(.deck-panel, .deck-pane:not([data-bare]))::after {
+  animation: power-lamp var(--power-trace) steps(2, jump-none) calc(var(--power-n, 0) * var(--power-step) * 1.5 + var(--power-trace)) both;
+}
+:root[data-power-take="step"] .deck[data-power="filling"] :is(.deck-panel, .deck-pane:not([data-bare])) > :not(.deck-band) {
+  animation: power-lamp var(--duration-travel) steps(3, jump-none) calc(var(--power-n, 0) * var(--duration-fast)) backwards;
+}
+
+/* Reduced motion zeroes the durations; the ruler's loop is movement of a kind, so it stops too. */
+@media (prefers-reduced-motion: reduce) {
+  /* As specific as a take's rule, and after it. */
+  :root .deck[data-power][data-power] :is(.deck-panel, .deck-pane:not([data-bare]))::after { animation: none; }
+}

@@ -71,6 +71,8 @@ import { openPullRequestInPanel, openSlotKeyInPanel, usePanel } from "../../shar
 import { PullRequestMenuOn } from "../../pull-request-menu";
 import "../cockpit.css";
 import "./deck.css";
+import "./power.css";
+import { powering, usePowerOn } from "../boot";
 
 
 /** The slots the pool serves, narrowed to the picked repository as the ship's are. */
@@ -1075,12 +1077,14 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
   const splits = useSplits(grid, layout);
   useActivityBeside(grid, layout);
   const builds = useBuilds(props.now);
+  const power = usePowerOn();
   return (
     <ClashesOpenHere ship={ship}>
     {/* A replay plays on while the deck is drawn, from the events Bridge holds, and takes its own keys while it is up. */}
     <ReplayHost props={props} ship={ship} />
     <AutopilotAsked control={autopilot.control} />
-    <div ref={deckMarks} className="armada-cockpit deck">
+    {/* Powering on, each panel comes online in turn and fills as Fleet answers (`power.css`). */}
+    <div ref={deckMarks} className="armada-cockpit deck" data-power={powering(power) ? power : undefined}>
       <div ref={grid} className="deck-grid" data-bare={bare || undefined} style={columns === undefined ? undefined : ({ "--deck-left": `${columns.left}px`, "--deck-right": `${columns.right}px` } as CSSProperties)}>
         <div className="deck-left">
           <RepositoryScope props={props} />
