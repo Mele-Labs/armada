@@ -344,7 +344,7 @@ export const Questions: Story = {
   },
 };
 
-/** An option the agent attached a preview to shows it, line breaks kept, while it is in focus; one without leaves the last in place, so nothing moves. */
+/** An option the agent attached a preview to shows it as a card, line breaks kept, while it is pointed at or in focus; the card goes with the pointer, and an option without one shows none. */
 export const QuestionPreview: Story = {
   args: {
     rows: ROWS,
@@ -366,11 +366,14 @@ export const QuestionPreview: Story = {
   play: async ({ canvas }) => {
     await expect(canvas.queryByRole("region", { name: "Preview" })).toBeNull();
     await userEvent.hover(canvas.getByRole("radio", { name: "Yes" }));
-    const preview = canvas.getByRole("region", { name: "Preview" });
+    // The card is drawn on the page, out of the panel that would clip it.
+    const preview = await within(document.body).findByRole("region", { name: "Preview" });
     await expect(preview.textContent).toBe("ops: cargo test\nconsumer: pnpm test");
     await expect(getComputedStyle(preview).whiteSpace).toBe("pre");
+    await userEvent.unhover(canvas.getByRole("radio", { name: "Yes" }));
+    await waitFor(() => expect(within(document.body).queryByRole("region", { name: "Preview" })).toBeNull());
     await userEvent.hover(canvas.getByRole("radio", { name: "No" }));
-    await expect(canvas.getByRole("region", { name: "Preview" }).textContent).toBe("ops: cargo test\nconsumer: pnpm test");
+    await expect(within(document.body).queryByRole("region", { name: "Preview" })).toBeNull();
   },
 };
 
