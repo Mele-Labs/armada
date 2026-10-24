@@ -140,7 +140,7 @@ nothing: check the id against the table.
 | Region | Ids, in the order shipped | Cannot be hidden | `order` | `first` |
 |---|---|---|---|---|
 | `dashboard.panels` | `list`, `merge-line`, `activity`, `bays`, `controls`, `dispatch`, `autopilot` | `list` | no | no |
-| `job.panels` | `field`, `workflow`, `progress` | `progress` | yes | no |
+| `job.panels` | `field`, `workflow`, `progress`, `mods` | `progress` | yes | no |
 | `rail` | `overview`, `sessions`, `kit`, `mods`, `settings`, `guides`, `workflows`, `studios`, `logbook`, `reviews`, `issues` | `overview`, `mods`, `settings` | no | no |
 
 `packages/shell/layout-registry.json` is the list Fleet checks. **`rail`
@@ -149,7 +149,8 @@ The Logbook page is the place `logbook`.** `dashboard.panels` is the Cockpit's
 panels: `list` the Jobs list, `merge-line` the merge queue, `controls` Flight
 control. A right column the layout empties gives its room to the stage.
 `job.panels` is the panels an open Job stacks in the right column, in that
-order. Hiding a place takes it off the tab bar or the strip and nothing else:
+order. `mods` is the mods a Mod Job made, drawn only for one.
+Hiding a place takes it off the tab bar or the strip and nothing else:
 it stays in the palette and in links.
 
 | Field | Is | Notes |

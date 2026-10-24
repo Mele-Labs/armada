@@ -49,8 +49,6 @@ import { installSystemMods, installTravelMods } from "./system-mods";
 import { provideKitModels } from "../kit-models";
 import { createMockKitModels } from "./kit-models";
 import { provideTeaching } from "../teach";
-import { provideModsMade } from "../mods-made";
-import { mockModsMade } from "./mods-made";
 import { createFleetTaught, NO_TAUGHT } from "../fleet-taught";
 import { NO_TWEAKS, createFleetTweaks } from "../fleet-tweaks";
 import { TweakSourceProvider, TweaksApplied } from "../tweaks";
@@ -133,11 +131,6 @@ export function mountApp(
   const api = shared ?? fakeBridge(chosen, options);
   // A window starts on Dark with the mods a machine starts with; a second window on the same main shares them.
   if (shared === undefined) mockThemes.reset();
-  // Mod Jobs list the mods they made only in the scenario that plays them, and start with none.
-  if (shared === undefined) {
-    mockModsMade.reset();
-    provideModsMade(chosen.name === "mod-job" ? mockModsMade : undefined);
-  }
   mockSleep.reset(chosen.name === "sleep-cockpit" ? overnight() : undefined);
   if (shared === undefined) mockLayout.reset();
   if (shared === undefined && chosen.name === "system-sidebar") installSystemMods();

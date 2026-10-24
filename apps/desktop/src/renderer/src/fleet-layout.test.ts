@@ -53,7 +53,7 @@ describe("layout mods from Fleet's list", () => {
     await settled();
     expect(source.get().mods.map((mod) => [mod.name, mod.enabled, mod.problem])).toEqual([["tidy", true, undefined]]);
     await settled();
-    expect(drawn("job.panels")).toEqual(["progress", "field", "workflow"]);
+    expect(drawn("job.panels")).toEqual(["progress", "field", "workflow", "mods"]);
     expect(drawn("rail")).not.toContain("logbook");
   });
 
@@ -109,7 +109,7 @@ describe("layout mods from Fleet's list", () => {
     await settled();
     expect(drawn("rail")).toEqual(expect.arrayContaining(["settings", "mods", "overview"]));
     expect(drawn("rail")).not.toContain("logbook");
-    expect(drawn("job.panels")).toEqual(["field", "workflow", "progress"]);
+    expect(drawn("job.panels")).toEqual(["field", "workflow", "progress", "mods"]);
   });
 });
 
@@ -121,7 +121,7 @@ describe("the owner's own choices", () => {
     await settled();
     expect(source.get().own.regions).toEqual({ rail: { hidden: [] } });
     expect(drawn("rail")).toContain("logbook");
-    expect(drawn("job.panels")).toEqual(["progress", "field", "workflow"]);
+    expect(drawn("job.panels")).toEqual(["progress", "field", "workflow", "mods"]);
   });
 
   it("text that does not parse is no choices", async () => {

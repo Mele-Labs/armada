@@ -1,32 +1,25 @@
-// The mods a Mod Job made, and each one's switch. **The seam between the Job's panel and whatever knows which mods a Job made**:
-// the mock provides a source; where none is provided the panel is not drawn. Turning a mod off is the undo, and a mod applies as
-// it is saved, so the switch is the only act.
+// The mods a Mod Job made, from Fleet's mod list: the rows whose `made_by` is the Job. Each has the switch the Mods page has, and a mod
+// applies as it is saved, so turning one off is the undo.
 
-import { useSyncExternalStore } from "react";
-import type { ModKind } from "@armada/components";
+import { useCallback, useMemo } from "react";
+import type { ModKind, ModSummary } from "@armada/protocol";
+import { refusalWords } from "@armada/screens/src/refusal-words";
 
-export type ModMade = { name: string; title: string; kind: ModKind; enabled: boolean };
+import { useModList } from "./mod-list";
+import { askToTell } from "./tell";
 
-export interface ModsMadeSource {
-  /** The same array until a mod of this Job changes. */
-  get(jobId: string): readonly ModMade[];
-  subscribe(on: () => void): () => void;
-  setEnabled(jobId: string, name: string, enabled: boolean): void;
-}
+export type ModMade = { name: string; kind: ModKind; enabled: boolean };
 
-let held: ModsMadeSource | undefined;
+const madeBy = (jobId: string) => (row: ModSummary): row is ModSummary & { kind: ModKind } => row.made_by === jobId && row.kind !== undefined;
 
-/** Set by the mock's mount for the scenario that plays Mod Jobs, and cleared by every other. */
-export function provideModsMade(source: ModsMadeSource | undefined): void {
-  held = source;
-}
-
-const NONE: readonly ModMade[] = [];
-const NEVER = () => () => undefined;
-
-/** The Job's mods and the switch for each, or `undefined` where nothing serves them. */
-export function useModsMade(jobId: string): { mods: readonly ModMade[]; setEnabled: (name: string, enabled: boolean) => void } | undefined {
-  const source = held;
-  const mods = useSyncExternalStore(source?.subscribe ?? NEVER, () => source?.get(jobId) ?? NONE);
-  return source === undefined ? undefined : { mods, setEnabled: (name, enabled) => source.setEnabled(jobId, name, enabled) };
+/** The Job's mods, and the switch for each: Fleet's own `set_mod_enabled`, whose refusal is told as the Mods page tells it. */
+export function useModsMade(jobId: string): { mods: readonly ModMade[]; setEnabled: (name: string, enabled: boolean) => void } {
+  const listed = useModList();
+  const mods = useMemo(() => listed.filter(madeBy(jobId)).map((row) => ({ name: row.name, kind: row.kind, enabled: row.enabled })), [listed, jobId]);
+  const setEnabled = useCallback((name: string, enabled: boolean): void => {
+    void window.armada.setModEnabled(name, enabled).then((outcome) => {
+      if (!outcome.ok) askToTell(refusalWords(outcome));
+    });
+  }, []);
+  return { mods, setEnabled };
 }

@@ -48,9 +48,10 @@ export function SessionWorkspace({ session, entries, repositories, hosts, ed, ba
   const panels: Record<string, ReactNode> = {
     field: <FieldPanel session={session} repositories={repositories} place="side" />,
     workflow: <WorkflowPanel work={work} place="side" id={id} manifestId={session.manifestId} acts={draft.work} />,
+    mods: <ModsPanel id={id} mod={session.mod === true} place="side" />,
     progress: <ProgressPanel work={work} place="side" id={id} session={session} manifestId={session.manifestId} acts={draft.work} ed={ed} onOpenSketch={onOpenSketch} onOpenSession={onOpenSession} live={live} />,
   };
-  const right = [...order.map((one) => <Fragment key={one.id}>{panels[one.id]}</Fragment>), <ModsPanel key="mods" id={id} mod={session.mod === true} place="side" />];
+  const right = order.map((one) => <Fragment key={one.id}>{panels[one.id]}</Fragment>);
   return (
     <>
       {children}

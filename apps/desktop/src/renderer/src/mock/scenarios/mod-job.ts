@@ -2,12 +2,11 @@
 // A Mod Job sits under Mods in the Cockpit's Jobs list, and its right column lists the mods it made, each with its switch. The walk
 // `mod-job` plays it. Mock only: the Job the mock Fleet starts is marked `mod` as Fleet marks it, and it writes the dusk theme.
 
-import type { RepositorySummary, SessionNote } from "@armada/protocol";
+import type { ModSummary, RepositorySummary, SessionNote } from "@armada/protocol";
 import { repository } from "@armada/screens/src/fixtures/repository";
 
 import { onBoard } from "../moment";
 import type { Scenario } from "../moment";
-import { mockModsMade } from "../mods-made";
 import { FakeSessionsFleet, held, hosted } from "../sessions-fleet";
 import { DUSK_MOD, mockThemes } from "../themes";
 
@@ -38,8 +37,18 @@ function build(): Scenario {
       const fake = new FakeSessionsFleet(sessions());
       fake.startsNow = true;
       const own = fake.scenario(board).behaves!(handle);
+      // The mod list Fleet publishes: the dusk theme once the Job has written it, `made_by` the Job, and this machine's switch.
+      let mods: ModSummary[] = [];
+      const publish = () => handle.publish({ mods: { mods } });
       return {
         ...own,
+        setModEnabled: async (name, enabled) => {
+          mods = mods.map((one) => (one.name === name ? { ...one, enabled } : one));
+          mockThemes.setEnabled(name, enabled);
+          if (enabled) mockThemes.setActive(name);
+          publish();
+          return { ok: true };
+        },
         // What Fleet does for the real operation: starts the Job marked `mod`, sends it the note, and the agent writes the dusk theme.
         startModSession: async (start) => {
           const started = await own.startSession!(start.title, undefined, undefined, undefined, undefined);
@@ -57,7 +66,8 @@ function build(): Scenario {
             .then(() => {
               mockThemes.install(DUSK_MOD);
               mockThemes.setActive(DUSK_MOD.name);
-              mockModsMade.add(record.id, { name: DUSK_MOD.name, title: DUSK_MOD.title, kind: "theme", enabled: true });
+              mods = [...mods, { name: DUSK_MOD.name, kind: "theme", enabled: true, valid: true, made_by: record.id }];
+              publish();
             });
           return { ok: true, value: { session_id: record.id, title: record.title, ...(sent.ok ? {} : { send_failed: "not sent" }) } };
         },

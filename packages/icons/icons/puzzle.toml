@@ -18,3 +18,10 @@
     size = "16px"
     status = "Proposed"
     notes = "Proposed 23 Oct 2026 for the walk `mod-job`. Label `Mod`. The same glyph as the Mods surface in the rail, since a Mod Job makes the mods that surface lists."
+
+  [[icons.puzzle.usage]]
+    means = "The Mods made panel, as an entry in the layout's Job panels"
+    group = "Layout"
+    size = "16px"
+    status = "Proposed"
+    notes = "Proposed 23 Oct 2026 for the walk `mod-job`, drawn in Settings, Layout beside the other panels and as a Mod Job's panel of the mods it made. The same glyph as the Mods surface, since the panel lists what that surface lists."
