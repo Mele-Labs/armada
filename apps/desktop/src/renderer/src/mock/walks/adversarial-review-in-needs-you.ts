@@ -9,8 +9,7 @@ const found = (words: string) => inside(needs, role("group", new RegExp(`^Judge:
 
 export const adversarialReviewInNeedsYou = walk("adversarial-review-in-needs-you", [
   { press: deckRow("Warm the next bay"), say: "The Job is open, plan v1 waiting" },
-  { press: inside(card, button("Adversarial review")), say: "The press is the same, in the answers row" },
-  { look: inside(card, role("img", "Adversarial review running")), say: "A turning mark while it reads" },
+  { press: inside(card, button("Adversarial review")), say: "The press is the same, in the answers row. A turning mark stands in its place while it reads" },
   { look: inside(card, role("img", "Adversarial review done")), say: "Done. The card keeps only the mark, and the findings are in Needs you" },
   { press: inside(needs, button("Needs you", { exact: true })), say: "The band opens on the findings" },
   { press: inside(needs, button(/^Open A lease waits/)), say: "A finding opens as a concern card" },
