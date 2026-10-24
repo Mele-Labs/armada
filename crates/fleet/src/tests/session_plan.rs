@@ -15,7 +15,7 @@ use ipc::{
 use super::session_host::{eventually, rig_placing, Rig};
 use crate::session_host::Heard;
 
-fn group(id: Option<&str>, title: &str, agent: &str, paths: &[&str], tasks: &[(Option<&str>, &str)]) -> PlanGroupInput {
+pub(super) fn group(id: Option<&str>, title: &str, agent: &str, paths: &[&str], tasks: &[(Option<&str>, &str)]) -> PlanGroupInput {
     PlanGroupInput {
         id: id.map(String::from),
         title: title.to_string(),
@@ -27,7 +27,7 @@ fn group(id: Option<&str>, title: &str, agent: &str, paths: &[&str], tasks: &[(O
     }
 }
 
-fn plan(session: &SessionId, groups: Vec<PlanGroupInput>) -> RecordPlan {
+pub(super) fn plan(session: &SessionId, groups: Vec<PlanGroupInput>) -> RecordPlan {
     RecordPlan { summary: "You get a plan.".into(), groups, sketch: None, walk: None, session_id: Some(session.clone()) }
 }
 

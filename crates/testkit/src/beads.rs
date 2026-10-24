@@ -314,7 +314,7 @@ impl Backlog for FakeBeads {
             return Err(NotTracked::of(doing, format!("no issue found matching \"{parent}\"")));
         }
         let at = self.remote.0.tick();
-        let reference = format!("{parent}.{at}");
+        let reference = format!("{parent}.{at:06}");
         copy.issues.insert(
             reference.clone(),
             Issue {

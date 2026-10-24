@@ -522,6 +522,9 @@ where
                     &mut none,
                 )
                 .await;
+                // Marks its beads issue to be closed by the backlog's next look: this waits on no `bd`.
+                let Owner::Session(id) = &owner;
+                self.issues_merged(served, id, url).await;
             }
             self.slots_told_of_merge(served, one.pull.number, branch).await;
         }
