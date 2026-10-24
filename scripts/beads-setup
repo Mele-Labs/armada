@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+#
+# Put Armada's backlog on this machine: install beads, and make the one beads
+# database the main checkout holds from the copy on its origin remote.
+# `docs/practices/joining.md` says when to run it and what the output means.
+#
+# **Nothing here destroys data.** It never runs `bd init`, whose re-init flags
+# can replace a database or a remote's history. `bd bootstrap` only clones when
+# there is no database and says "nothing to do" when there is one. When origin
+# holds no `refs/dolt/data` this stops, because bootstrap would mint a second,
+# empty backlog under a new identity that never joins the first.
+#
+# Run it again at any time; every step checks before it acts.
+#
+# Usage: scripts/beads-setup [main checkout]
+#   With no argument it finds the main checkout from wherever it is run,
+#   including from inside a worktree. Beads keeps one database per machine
+#   there, and every worktree reaches it through the git common directory.
+
+set -euo pipefail
+
+here=${1:-$PWD}
+main=$(git -C "$here" worktree list --porcelain | sed -n '1s/^worktree //p')
+if [ -z "$main" ] || [ ! -d "$main" ]; then
+  echo "beads-setup: $here is not inside a git checkout" >&2
+  exit 1
+fi
+cd "$main"
+
+if ! command -v bd >/dev/null 2>&1; then
+  if ! command -v brew >/dev/null 2>&1; then
+    echo "beads-setup: bd is not installed and Homebrew is not available to install it" >&2
+    exit 1
+  fi
+  brew install beads
+fi
+
+# Usage metrics are off for every user of this machine, so this runs anywhere.
+bd metrics off >/dev/null
+
+origin=$(git remote get-url origin)
+
+# Beads files are this machine's copy of the backlog, not part of the code.
+exclude="$(git rev-parse --path-format=absolute --git-common-dir)/info/exclude"
+mkdir -p "$(dirname "$exclude")"
+for pattern in /.beads/ /.beads.gate.lock; do
+  grep -qxF "$pattern" "$exclude" 2>/dev/null || echo "$pattern" >>"$exclude"
+done
+
+if [ -f .beads/metadata.json ]; then
+  echo "beads-setup: $main already has a beads database, leaving it as it is"
+else
+  if ! git ls-remote --exit-code "$origin" refs/dolt/data >/dev/null 2>&1; then
+    echo "beads-setup: $origin holds no beads data (refs/dolt/data), so there is no backlog to pull." >&2
+    echo "beads-setup: stopping rather than starting an empty one beside it." >&2
+    exit 1
+  fi
+  bd bootstrap --yes
+fi
+
+[ -d .beads ] && chmod 700 .beads
+
+# Beads reads its role from git config. Maintainer means this clone pushes to origin itself.
+git config beads.role maintainer
+
+echo "beads-setup: $(bd count 2>/dev/null) issues on this machine"
