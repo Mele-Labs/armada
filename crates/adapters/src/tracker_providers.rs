@@ -12,9 +12,11 @@
 use std::sync::Arc;
 
 use adapter_traits::{
-    IssueAddress, LinkLookup, LookupCall, NotTracked, OpenIssue, QueryGuide, ReadIssue, Tracker,
+    Backlog, IssueAddress, LinkLookup, LookupCall, NotTracked, OpenIssue, QueryGuide, ReadIssue, Tracker,
     TrackerChoice, Trackers,
 };
+
+use crate::beads_tracker::{self, BeadsTracker};
 
 use crate::jira::{self, JiraSettings};
 use crate::taught_tracker::{Taught, TaughtTrackers};
@@ -31,6 +33,7 @@ pub struct TrackersByProvider;
 enum Chosen {
     Forge,
     Jira(JiraSettings),
+    Beads,
     /// A word this build has no tracker for, which a tracker mod may answer to.
     Taught { name: String, unknown: String },
     Refused(String),
@@ -49,6 +52,12 @@ fn chosen(choice: &TrackerChoice) -> Chosen {
             Ok(settings) => Chosen::Jira(settings),
             Err(why) => Chosen::Refused(why),
         },
+        Some(beads_tracker::PROVIDER) if choice.settings().is_empty() => Chosen::Beads,
+        Some(beads_tracker::PROVIDER) => Chosen::Refused(format!(
+            "the {} tracker takes no keys beyond `provider`; found {}",
+            beads_tracker::PROVIDER,
+            choice.settings().keys().cloned().collect::<Vec<_>>().join(", ")
+        )),
         Some(other) if !choice.settings().is_empty() => Chosen::Refused(format!(
             "no tracker this build has is called `{other}`, and a tracker mod takes no keys beyond `provider`; found {}",
             choice.settings().keys().cloned().collect::<Vec<_>>().join(", ")
@@ -56,8 +65,9 @@ fn chosen(choice: &TrackerChoice) -> Chosen {
         Some(other) => Chosen::Taught {
             name: other.to_string(),
             unknown: format!(
-                "no tracker is called `{other}`; the ones this build has are {FORGE_OWN} and {}, and no tracker mod is called that",
-                jira::PROVIDER
+                "no tracker is called `{other}`; the ones this build has are {FORGE_OWN}, {} and {}, and no tracker mod is called that",
+                jira::PROVIDER,
+                beads_tracker::PROVIDER
             ),
         },
     }
@@ -70,6 +80,18 @@ impl Trackers for TrackersByProvider {
 
     fn links(&self, choice: &TrackerChoice) -> Arc<dyn LinkLookup + Send + Sync> {
         links_over(choice, None)
+    }
+
+    fn backlog(&self, choice: &TrackerChoice) -> Option<Arc<dyn Backlog + Send + Sync>> {
+        backlog_over(choice)
+    }
+}
+
+/// What writes to the tracker `choice` names: beads alone, the one tracker Fleet writes to.
+pub(crate) fn backlog_over(choice: &TrackerChoice) -> Option<Arc<dyn Backlog + Send + Sync>> {
+    match chosen(choice) {
+        Chosen::Beads => Some(Arc::new(BeadsTracker::over())),
+        _ => None,
     }
 }
 
@@ -85,6 +107,7 @@ pub(crate) fn tracker_over(
         (Chosen::Forge, Some(forge), _) => Arc::new(ApiTracker::over(forge.clone())),
         (Chosen::Forge, None, _) => Arc::new(IssueTracker),
         (Chosen::Jira(settings), _, _) => Arc::new(JiraTracker::over(settings)),
+        (Chosen::Beads, _, _) => Arc::new(BeadsTracker::over()),
         (Chosen::Taught { name, unknown }, _, Some(mods)) => Arc::new(Taught { name, mods: Arc::clone(mods), unknown }),
         (Chosen::Taught { unknown, .. }, _, None) => Arc::new(Refusing { why: unknown }),
         (Chosen::Refused(why), _, _) => Arc::new(Refusing { why }),
@@ -97,8 +120,8 @@ pub(crate) fn links_over(choice: &TrackerChoice, forge: Option<&ApiForge>) -> Ar
         (Chosen::Forge, Some(forge)) => Arc::new(ApiLinkLookup::over(forge)),
         (Chosen::Forge, None) => Arc::new(IssueLookup),
         (Chosen::Jira(settings), _) => Arc::new(JiraLookup::over(settings)),
-        // A taught tracker reads no link: a request naming one is dispatched as written.
-        (Chosen::Taught { .. } | Chosen::Refused(_), _) => Arc::new(Refusing { why: String::new() }),
+        // A taught tracker and beads read no link: a request naming one is dispatched as written.
+        (Chosen::Beads | Chosen::Taught { .. } | Chosen::Refused(_), _) => Arc::new(Refusing { why: String::new() }),
     }
 }
 

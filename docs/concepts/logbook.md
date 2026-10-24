@@ -87,7 +87,7 @@ It is written to the same rules for plain words as the retro call.
 
 **A candidate is not served.** Only a standing entry reaches an agent.
 
-**An entry folded in from run memory or the machine note cannot be edited, locked or forgotten.** Its id starts `runs-` or `machine-`, Fleet refuses every act on it, and Bridge draws none.
+**An entry folded in from the machine note cannot be edited, locked or forgotten.** Its id starts `machine-`, Fleet refuses every act on it, and Bridge draws none.
 
 ### Tidy
 
@@ -159,9 +159,9 @@ A `repo` section follows the place that repository's Armada configuration is kep
 | Existing | Relation |
 |---|---|
 | [Retro](retro.md) | Keeps only what Armada itself got wrong: bugs for Fleet or Bridge. A repository fact stops going to the Retros page, and Distil takes it. The open items that are really repository facts move into the Logbook once, and close as `discarded` (*What the Logbook takes* in Retro) |
-| Run memory, in [Kit](kit.md) (*What a repository runs*) | Keeps its detector, which reads results off a Job's stream with no agent's word. Its facts become entries of the `repo` section, and its note is part of the Logbook note |
+| Run memory, in [Kit](kit.md) (*What a repository runs*) | Kept apart. It keeps every command that worked word for word, so its facts are not entries: folded in, one-off runs buried what Jobs learnt. The owner's decision, 23 Oct 2026 |
 | The machine note, in [Machine](machine.md) (*What a Job is told about this Mac*) | Keeps its detector. Its facts become entries of the `machine` section, and its note is part of the Logbook note |
-| The start note | The run note and the machine note become one Logbook note |
+| The start note | The machine note becomes part of the Logbook note |
 | Claude Code's own memory | Untouched. It is shared by every worktree of a repository on one Mac and written at an agent's choice. The Logbook is written for every Job and curated |
 
 **No memory tool from outside is used.** claude-mem, Mem0 and Graphiti were weighed and turned down.

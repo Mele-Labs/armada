@@ -38,6 +38,9 @@ Each ends with the questions it found and did not answer.
 - [`practices/writing-an-issue.md`](practices/writing-an-issue.md) — an issue has
   two readers who need opposite things. Where the consequence goes, where the
   detail goes, and why the answer was in third position
+- [`practices/joining.md`](practices/joining.md) — who may read and change the
+  beads backlog, `scripts/beads-setup` and what it prints, and how an issue is
+  claimed: claim, sync, read back
 - [`practices/half-built.md`](practices/half-built.md) — the defect this
   codebase produces most: a thing that exists and nothing reaches. Read before
   calling a change finished

@@ -39,6 +39,7 @@ the gate asserts about it.
 | Token watching | A Job that crosses a token rule's limit is told once, with the number and one action; staying over tells it nothing more, it is told again only after the figure fell back under and a cooldown passed, and a Job under every limit hears nothing | `crates/acceptance/tests/usage_rules.rs` |
 | Requests | A secret `{{token}}` fills in on an agent's send, the agent never reads it, and a commit or package carries only its name | `crates/acceptance/tests/requests.rs` |
 | Shared home | A mod and a skill added to the home on one Mac are only in the home on another, Bring puts them in its mods and skills folders and they then read the same, and a server carried across holds its name and host and no key | `crates/acceptance/tests/shared_home.rs` |
+| Beads | An issue filed on one machine shows on the other machine's Issues within a minute with nobody pulling by hand, and when two machines claim one issue both name the same winner after a sync and the loser is told who holds it | `crates/acceptance/tests/beads.rs` |
 
 The apparatus is `crates/acceptance/tests/bench/`, shared, with a file per
 milestone. Claim and apparatus are separated so that what a milestone claims and

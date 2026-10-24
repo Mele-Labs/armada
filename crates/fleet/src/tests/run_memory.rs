@@ -155,7 +155,7 @@ async fn a_dropped_line_is_not_offered_or_written_again_even_when_a_job_runs_it_
 }
 
 #[tokio::test]
-async fn the_next_job_in_the_repository_is_told_the_commands_and_the_port_the_last_one_ran() {
+async fn the_next_job_in_the_repository_is_not_told_the_commands_the_last_one_ran() {
     let rig = rig_placing(None);
     let first = running(&rig).await;
     rig.stand_in.hears(0, Heard::Ran(ran("t1", "cargo test", "test result: ok")));
@@ -165,46 +165,7 @@ async fn the_next_job_in_the_repository_is_told_the_commands_and_the_port_the_la
 
     let note = told(&rig, &the_next_job(&rig).await).await;
 
-    assert!(note.contains("`cargo test`"), "{note}");
-    assert!(note.contains("`pnpm dev`") && note.contains("port 5173"), "{note}");
-    assert!(note.contains("never a Check"), "nothing remembered gates a pull request: {note}");
-}
-
-#[tokio::test]
-async fn a_job_started_before_the_last_turn_ended_is_told_a_command_that_already_came_back() {
-    let rig = rig_placing(None);
-    let _first = running(&rig).await;
-    rig.stand_in.hears(0, Heard::Ran(ran("d1", "pnpm dev", "ready on http://localhost:5173")));
-    // The first Job's turn does not end.
-    eventually(|| async { !commands(&read(&rig).await).is_empty() }).await;
-
-    let note = told(&rig, &the_next_job(&rig).await).await;
-
-    assert!(note.contains("`pnpm dev`") && note.contains("port 5173"), "{note}");
-}
-
-#[tokio::test]
-async fn a_dropped_line_is_not_told_to_the_next_job() {
-    let rig = rig_placing(None);
-    let first = running(&rig).await;
-    rig.stand_in.hears(0, Heard::Ran(ran("t1", "cargo test", "ok")));
-    rig.stand_in.hears(0, Heard::Ran(ran("l1", "cargo clippy", "no warnings")));
-    turn_over(&rig, &first).await;
-    eventually(|| async { commands(&read(&rig).await).len() == 2 }).await;
-    rig.fleet
-        .drop_run_fact(DropRunFact {
-            repository: rig.root.clone(),
-            workspace: ".".into(),
-            kind: RunFactKind::Tests,
-            command: "cargo test".into(),
-        })
-        .await
-        .expect("dropped");
-
-    let note = told(&rig, &the_next_job(&rig).await).await;
-
-    assert!(note.contains("`cargo clippy`"), "{note}");
-    assert!(!note.contains("cargo test"), "{note}");
+    assert!(!note.contains("cargo test") && !note.contains("pnpm dev"), "{note}");
 }
 
 #[tokio::test]

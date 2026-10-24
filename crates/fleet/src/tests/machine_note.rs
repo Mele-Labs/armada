@@ -6,7 +6,7 @@ use std::path::Path;
 
 use super::run_memory::{ran, running, the_next_job, told, turn_over};
 use super::session_host::rig_placing;
-use crate::machine_note::{browser_line, missing_line, on_path, starts_with_missing};
+use crate::machine_note::{browser_line, missing_line, on_path};
 use crate::session_host::Heard;
 
 #[test]
@@ -74,12 +74,3 @@ async fn a_kept_name_drops_out_once_it_resolves_on_the_path_a_job_is_started_wit
     assert!(rig.fleet.store().lock().await.missing_commands().expect("reads").is_empty());
 }
 
-#[test]
-fn a_remembered_line_that_starts_with_a_missing_command_is_left_out_of_the_logbook_note() {
-    let missing = vec!["timeout".to_string()];
-
-    assert!(starts_with_missing("timeout 200 pnpm exec vitest run", &missing));
-    assert!(!starts_with_missing("pnpm exec vitest run", &missing));
-    assert!(!starts_with_missing("pnpm exec timeout", &missing));
-    assert!(!starts_with_missing("", &missing));
-}

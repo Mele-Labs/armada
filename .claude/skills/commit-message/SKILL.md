@@ -91,7 +91,9 @@ edit to the PR. Commit, then open the PR, in two calls.
 ## An issue number is looked up before it is written
 
 **Every `#1234` you type, in a comment, a commit or a contract, is a link a
-reader will follow.** `gh issue view <n>` once, before it goes in.
+reader will follow.** `gh issue view <n>` once, before it goes in. A beads
+issue is cited by its id, such as `armada-a3f2`, and `bd show <id>` is the same
+look.
 
 Confirmed 18 Sep 2026. A job wrote `#1481` into twenty-four comments and a
 rule in `docs/contracts/design-system.md`, citing it for work that landed as

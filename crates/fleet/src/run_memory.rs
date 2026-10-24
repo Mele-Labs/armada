@@ -134,12 +134,6 @@ fn instant(millis: u64) -> Instant {
     Instant::carried(rfc3339_utc(millis as i64))
 }
 
-/// One remembered run as a line: what it is, where, and the command.
-pub(crate) fn run_line(fact: &KeptRun) -> String {
-    let port = fact.port.map(|port| format!(", port {port}")).unwrap_or_default();
-    format!("{} in `{}`: `{}`{port}", fact.kind.replace('_', " "), fact.workspace, fact.command)
-}
-
 /// A Job's tree and branch, where `repository` writes.
 pub(crate) struct JobTree {
     pub(crate) path: String,

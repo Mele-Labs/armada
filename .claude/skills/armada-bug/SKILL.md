@@ -91,10 +91,11 @@ issue leaves nothing for the changelog or the milestone to point at.
 
 ### 5. Do what he chose
 
-**Filed:** `gh issue create` with a milestone and a label. `bug` for a defect,
-`step` for something unbuilt. Milestone by when it has to be true — `M1 — Dogfood`
+**Filed:** `bd create` under a milestone's epic, with a label: `bd create "…"
+-l <label> --parent <milestone epic id>`. `bug` for a defect, `step` for
+something unbuilt. Milestone by when it has to be true — `M1 — Dogfood`
 for anything the current milestone's claim depends on, and a later one otherwise.
-Give him the URL.
+Give him the issue's id, such as `armada-a3f2`.
 
 **Fixed now:** dispatch with the file ownership stated, because agents collide,
 into a slot you lease for it (`agent-worktrees`), never `isolation: "worktree"`.
@@ -127,7 +128,7 @@ agent may propose and may not file on its own judgement. Finding a second defect
 while chasing the first is exactly the case where you propose it in the same
 breath and let him decide.
 
-**Do not file the same bug twice.** Search first — `gh issue list --search` —
+**Do not file the same bug twice.** Search first — `bd search` —
 and say when something is already tracked.
 
 **Do not soften it.** "The workflow rail does not match its design" is the
