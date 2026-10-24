@@ -6,7 +6,7 @@
 
 .deck[data-power] {
   --power-step: var(--duration-press);
-  --power-trace: calc(var(--duration-sheet) * 2);
+  --power-draw: calc(var(--duration-sheet) * 2);
 }
 .deck[data-power] :is(.deck-panel, .deck-pane:not([data-bare])) { position: relative; }
 
@@ -33,7 +33,7 @@
   border: var(--border-width) solid var(--border-strong);
   border-radius: inherit;
   pointer-events: none;
-  animation: power-trace var(--power-trace) var(--ease) calc(var(--power-n, 0) * var(--power-step)) both;
+  animation: power-trace var(--power-draw) var(--ease) calc(var(--power-n, 0) * var(--power-step)) both;
 }
 @keyframes power-trace {
   0% { clip-path: inset(0 100% calc(100% - var(--border-width) * 2) 0); }
@@ -43,7 +43,7 @@
 
 /* The label lights in two steps once its frame is drawn, as a readout does. */
 .deck[data-power="standby"] .deck-band {
-  animation: power-label calc(var(--power-trace) + var(--duration-base)) step-end calc(var(--power-n, 0) * var(--power-step)) both;
+  animation: power-label calc(var(--power-draw) + var(--duration-base)) step-end calc(var(--power-n, 0) * var(--power-step)) both;
 }
 @keyframes power-label {
   0% { opacity: 0.2; }
@@ -67,7 +67,7 @@
   left: 50%;
   translate: -50% -50%;
   color: var(--fg-subtle);
-  animation: standby-glyph calc(var(--duration-sheet) * 3) step-end calc(var(--power-n, 0) * var(--power-step) + var(--power-trace)) both;
+  animation: standby-glyph calc(var(--duration-sheet) * 3) step-end calc(var(--power-n, 0) * var(--power-step) + var(--power-draw)) both;
 }
 @keyframes standby-glyph {
   0% { opacity: 0; }
@@ -78,21 +78,23 @@
 .deck[data-power="filling"] .deck-standby { animation: standby-out var(--duration-travel) var(--ease) calc(var(--power-n, 0) * var(--duration-fast)) forwards; }
 @keyframes standby-out { to { opacity: 0; } }
 
-/* Once the frame is drawn, a scan line passes down it, and again, while Fleet is still away. */
+/* Once the frame is drawn, a scan line passes down it, and again, while Fleet is still away. The loop never ends, so it moves by
+   `translate` alone (`compositor-motion.test.ts`): the layer is the panel's height with the line along its top edge, and it slides one
+   height less the line. */
 .deck[data-power="standby"] :is(.deck-panel, .deck-pane:not([data-bare]))::after {
   content: "";
   position: absolute;
-  inset: 0 0 auto;
-  height: var(--border-width);
-  background: var(--border-strong);
+  inset: 0;
+  border-top: var(--border-width) solid var(--border-strong);
   pointer-events: none;
-  animation: power-rescan calc(var(--power-trace) * 6) linear calc(var(--power-n, 0) * var(--power-step) + var(--power-trace)) infinite both;
+  will-change: translate, opacity;
+  animation: power-rescan calc(var(--power-draw) * 6) linear calc(var(--power-n, 0) * var(--power-step) + var(--power-draw)) infinite both;
 }
 @keyframes power-rescan {
-  from { top: 0; opacity: 0; }
+  from { translate: 0 0; opacity: 0; }
   2% { opacity: 1; }
-  30% { top: 100%; opacity: 1; }
-  33%, to { top: 100%; opacity: 0; }
+  30% { translate: 0 calc(100% - var(--border-width)); opacity: 1; }
+  33%, to { translate: 0 calc(100% - var(--border-width)); opacity: 0; }
 }
 
 /* ---- Filling: each panel's data wipes in from the top, in the same order --------------------------------- */
