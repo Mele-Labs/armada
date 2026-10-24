@@ -72,6 +72,7 @@ import { PullRequestMenuOn } from "../../pull-request-menu";
 import "../cockpit.css";
 import "./deck.css";
 import "./power.css";
+import { Standby } from "./Standby";
 import { powering, usePowerOn } from "../boot";
 
 
@@ -317,6 +318,7 @@ function List({ subjects, calling, banding, selected, builds, picked, found, onP
   return (
     // A press on the list and on no row lets the cursor go.
     <section ref={panel} className="deck-panel deck-list" aria-label="Jobs" tabIndex={-1} data-collapsed={folded.collapsed || undefined} onClick={(event) => (event.target as Element).closest(".deck-row") === null && moveCursor(undefined)}>
+      <Standby kind="jobs" />
       <header className="deck-band" {...folded.band}>
         Jobs
         <Filter rows={panel} />
@@ -388,6 +390,7 @@ function Activity({ props, listed, ship }: { props: CockpitProps; listed: readon
   }, [events, focus, replay === undefined ? undefined : replay.at]);
   return (
     <section className="deck-panel deck-activity" aria-label="Activity" tabIndex={-1}>
+      <Standby kind="activity" />
       <header className="deck-band">Activity</header>
       <ActivityGraph
         now={props.now}
@@ -418,6 +421,7 @@ function TimelineView({ props, ship, listed }: { props: CockpitProps; ship: Ship
   };
   return (
     <section className="deck-pane" aria-label="Fleet timeline">
+      <Standby kind="timeline" />
       <header className="deck-band deck-pane__head">
         <ChartNoAxesGantt size={16} aria-hidden="true" />
         <h2 className="deck-pane__title">Timeline</h2>
@@ -650,6 +654,7 @@ function MergeQueue({ props, ship }: { props: CockpitProps; ship: Ship }) {
     }));
     return (
       <section className="deck-panel deck-queue" aria-label="Merge queue" tabIndex={-1} data-band-only="">
+        <Standby kind="queue" />
         <div className="deck-queue__row">
           {merge}
           <QueueStack rows={rows} />
@@ -660,6 +665,7 @@ function MergeQueue({ props, ship }: { props: CockpitProps; ship: Ship }) {
   }
   return (
     <section className="deck-panel deck-queue" aria-label="Merge queue" tabIndex={-1} data-band-only="">
+      <Standby kind="queue" />
       <div className="deck-queue__row">
         {merge}
         <ol className="deck-chips" onWheel={(event) => {
@@ -770,6 +776,7 @@ function BaysPanel({ props, ship, picked }: { props: CockpitProps; ship: Ship; p
 function LedgerPanel({ host }: { host: (element: HTMLElement | null) => void }) {
   return (
     <section className="deck-panel deck-ledger" aria-label="Ledger" tabIndex={-1}>
+      <Standby kind="ledger" />
       <header className="deck-band">Ledger</header>
       <div className="deck-ledger__body" ref={host} />
     </section>
@@ -819,6 +826,7 @@ function FlightControl({ ship, props }: { ship: Ship; props: CockpitProps }) {
   useEffect(() => setEditing(false), [set]);
   return (
     <section className="deck-panel deck-controls" aria-label="Flight controls" tabIndex={-1} data-collapsed={folded.collapsed || undefined}>
+      <Standby kind="controls" />
       <header className="deck-band" {...folded.band}>
         Flight control
         <PanelKey id="controls" />
@@ -872,6 +880,7 @@ function DispatchDeck() {
   if (dispatching === undefined) return null;
   return (
     <section className="deck-panel deck-dispatch" aria-label="Dispatch controls" tabIndex={-1}>
+      <Standby kind="dispatch" />
       <header className="deck-band">
         Dispatch
         <PanelKey id="dispatch" />
@@ -934,6 +943,7 @@ function AutopilotPanel({ props, autopilot }: { props: CockpitProps; autopilot: 
   };
   return (
     <section className="deck-panel deck-autopilot" aria-label="Autopilot" tabIndex={-1}>
+      <Standby kind="autopilot" />
       <header className="deck-band">
         <Switch checked={open || state !== "off"} onChange={flip} disabled={control === undefined}>
           Autopilot

@@ -1,7 +1,8 @@
 /* The deck powering on (`cockpit/boot.ts`), the one entrance the motion contract allows on data. On standby each panel comes online in
-   turn: its frame draws, its label lights, and a ruler waits where its data will be. Filling, each panel's data comes in, in the same
-   order. Strokes and opacity steps only: no gradient, glow or blur. Reduced motion zeroes the durations, so each state is drawn at once.
-   `data-power-take` on the root is a mock's choice between looks (`mock/main.tsx`); none is the trace. */
+   turn: its frame draws, its label lights, and its standby body (`Standby.tsx`) lights where its data will be. Filling, each panel's
+   data replaces its standby body in place, in the same order. Strokes and opacity steps only: no gradient, glow, fill block or shimmer.
+   Reduced motion zeroes the durations and delays, so each state is drawn at once. In the mock `data-power-take` on the root picks the
+   frame's look and `data-standby-take` the body's (`mock/main.tsx`); none is the trace and the outlines. */
 
 .deck[data-power] {
   --power-step: var(--duration-press);
@@ -19,10 +20,10 @@
 .deck[data-power] .deck-dispatch { --power-n: 6; }
 .deck[data-power] .deck-autopilot { --power-n: 7; }
 
-/* ---- Standby: the frame, the label, the ruler ------------------------------------------------------------ */
+/* ---- Standby: the frame and the label ------------------------------------------------------------------- */
 
 .deck[data-power="standby"] :is(.deck-panel, .deck-pane:not([data-bare])) { border-color: transparent; }
-.deck[data-power="standby"] :is(.deck-panel, .deck-pane:not([data-bare])) > :not(.deck-band) { visibility: hidden; }
+.deck[data-power="standby"] :is(.deck-panel, .deck-pane:not([data-bare])) > :not(.deck-band, .deck-standby) { visibility: hidden; }
 
 /* The frame: the top rule draws across, then the sides drop to the foot. */
 .deck[data-power="standby"] :is(.deck-panel, .deck-pane:not([data-bare]))::before {
@@ -51,30 +52,83 @@
   90% { opacity: 1; }
 }
 
-/* The ruler: an instrument scale, end ticks and a rule, where the data will be. It draws, then breathes while Fleet is away. */
-.deck[data-power="standby"] :is(.deck-panel, .deck-pane:not([data-bare]))::after {
-  content: "";
+/* ---- Standby: the body, where the data will be ----------------------------------------------------------- */
+
+/* Under the band, over the hidden body, at the body's own padding: what stands here is where the data will stand. */
+.deck-standby {
+  --standby-at: calc(var(--power-n, 0) * var(--power-step) + var(--power-trace));
   position: absolute;
-  top: calc(50% + var(--h-row-header) / 2);
-  left: 50%;
-  width: min(40%, calc(var(--space-12) * 3));
-  height: var(--space-2);
-  translate: -50% -50%;
-  border: var(--border-width) solid var(--fg-subtle);
-  border-top: 0;
+  inset: var(--h-row-header) 0 0;
   pointer-events: none;
-  animation:
-    power-rule var(--power-trace) var(--ease) calc(var(--power-n, 0) * var(--power-step) + var(--power-trace)) both,
-    power-breathe var(--duration-pulse) ease-in-out calc(var(--power-n, 0) * var(--power-step) + var(--power-trace) * 2) infinite;
+  overflow: hidden;
 }
-/* A band-only panel is one row: its ruler sits on the row. */
-.deck[data-power="standby"] .deck-panel[data-band-only]::after { top: 50%; }
-@keyframes power-rule { from { scale: 0 1; } }
-@keyframes power-breathe { 50% { opacity: 0.35; } }
+.deck-panel[data-band-only] > .deck-standby { inset: 0; }
+.deck[data-power="filling"] .deck-standby { animation: standby-out var(--duration-travel) var(--ease) calc(var(--power-n, 0) * var(--duration-fast)) forwards; }
+@keyframes standby-out { to { opacity: 0; } }
+
+/* Outlines, the default: each instrument's bezel, lit one after another. Thin strokes in a border token, never filled. */
+.deck-standby__shapes { display: flex; flex-direction: column; gap: calc(var(--space-1) * 1.5); padding: var(--space-2); }
+.deck-standby__shapes > i {
+  position: relative;
+  display: block;
+  flex: none;
+  height: calc(var(--space-12) + var(--space-2));
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-md);
+  animation: standby-light var(--duration-sheet) step-end calc(var(--standby-at) + var(--i) * var(--duration-fast) / 2) both;
+}
+@keyframes standby-light {
+  0% { opacity: 0; }
+  40% { opacity: 0.45; }
+  100% { opacity: 1; }
+}
+
+/* Jobs: rows below the repository's heading. */
+.deck-standby[data-standby="jobs"] > .deck-standby__shapes { padding-top: calc(var(--space-12) - var(--border-width)); }
+/* Bays: cards below the repository's heading, the number in its own column. */
+.deck-standby[data-standby="bays"] > .deck-standby__shapes { gap: var(--space-2); padding: calc(var(--space-8) + var(--space-3)) var(--space-2) var(--space-2); }
+.deck-standby[data-standby="bays"] > .deck-standby__shapes > i { height: calc(var(--space-12) + var(--space-8) + var(--space-1)); }
+.deck-standby[data-standby="bays"] > .deck-standby__shapes > i::before { content: ""; position: absolute; inset-block: 0; left: calc(var(--space-12) + var(--space-2)); border-left: var(--border-width) solid var(--border-default); }
+/* Flight control and Dispatch: tiles in a row. */
+.deck-standby:is([data-standby="controls"], [data-standby="dispatch"]) > .deck-standby__shapes { flex-direction: row; gap: var(--space-2); padding: var(--space-2) var(--space-3); }
+.deck-standby:is([data-standby="controls"], [data-standby="dispatch"]) > .deck-standby__shapes > i { width: calc(var(--space-12) + var(--space-4) + var(--space-1)); }
+.deck-standby[data-standby="dispatch"] > .deck-standby__shapes > i { flex: 1 1 auto; }
+/* Autopilot: the repository's box and the track under it, a rule only. */
+.deck-standby[data-standby="autopilot"] > .deck-standby__shapes { gap: var(--space-3); padding: calc(var(--space-1) * 1.5) var(--space-3) var(--space-3); }
+.deck-standby[data-standby="autopilot"] > .deck-standby__shapes > i { height: calc(var(--space-12) - var(--space-1)); }
+.deck-standby[data-standby="autopilot"] > .deck-standby__shapes > i + i { height: 0; border-width: var(--border-width) 0 0; border-radius: 0; }
+/* The merge line: chips along its one row, after its glyph. */
+.deck-standby[data-standby="queue"] > .deck-standby__shapes { flex-direction: row; align-items: center; height: 100%; padding: 0 var(--space-4) 0 calc(var(--space-12) + var(--space-3)); }
+.deck-standby[data-standby="queue"] > .deck-standby__shapes > i { width: calc(var(--space-12) + var(--space-8)); height: var(--space-6); border-radius: var(--space-3); }
+.deck-standby[data-standby="queue"] > .deck-standby__shapes > i:first-child { width: calc(var(--space-12) * 1.75); }
+/* Activity: a row of dots along its foot. */
+.deck-standby[data-standby="activity"] > .deck-standby__shapes { flex-direction: row; align-items: flex-end; justify-content: space-between; height: 100%; padding: var(--space-4) var(--space-4) calc(var(--space-12) + var(--space-3)); }
+.deck-standby[data-standby="activity"] > .deck-standby__shapes > i { width: var(--space-2); height: var(--space-2); border-radius: 50%; }
+/* The timeline and the ledger: lanes. */
+.deck-standby:is([data-standby="timeline"], [data-standby="ledger"]) > .deck-standby__shapes { gap: var(--space-2); padding: var(--space-3); }
+.deck-standby:is([data-standby="timeline"], [data-standby="ledger"]) > .deck-standby__shapes > i { height: var(--space-6); }
+
+/* Glyph: the panel's own glyph, dim in the middle of its body, lit once as the panel comes online. */
+.deck-standby__glyph {
+  display: none;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  translate: -50% -50%;
+  color: var(--fg-subtle);
+}
+:root[data-standby-take="glyph"] .deck-standby__shapes { display: none; }
+:root[data-standby-take="glyph"] .deck-standby__glyph { display: block; animation: standby-glyph calc(var(--duration-sheet) * 3) step-end var(--standby-at) both; }
+@keyframes standby-glyph {
+  0% { opacity: 0; }
+  20% { opacity: 0.3; }
+  45% { opacity: 1; }
+  75%, 100% { opacity: 0.3; }
+}
 
 /* ---- Filling: each panel's data comes in, in the same order --------------------------------------------- */
 
-.deck[data-power="filling"] :is(.deck-panel, .deck-pane:not([data-bare])) > :not(.deck-band) {
+.deck[data-power="filling"] :is(.deck-panel, .deck-pane:not([data-bare])) > :not(.deck-band, .deck-standby) {
   animation: power-fill var(--duration-travel) var(--ease) calc(var(--power-n, 0) * var(--duration-fast)) backwards;
 }
 @keyframes power-fill { from { opacity: 0; } }
@@ -95,7 +149,7 @@
   90% { opacity: 1; }
   to { top: 100%; opacity: 0; }
 }
-:root[data-power-take="sweep"] .deck[data-power="filling"] :is(.deck-panel, .deck-pane:not([data-bare])) > :not(.deck-band) {
+:root[data-power-take="sweep"] .deck[data-power="filling"] :is(.deck-panel, .deck-pane:not([data-bare])) > :not(.deck-band, .deck-standby) {
   animation: power-wipe calc(var(--duration-travel) * 1.5) var(--ease) calc(var(--power-n, 0) * var(--duration-fast)) backwards;
 }
 @keyframes power-wipe { from { clip-path: inset(0 0 100% 0); } }
@@ -107,15 +161,6 @@
   animation: power-lamp var(--power-trace) steps(3, jump-none) calc(var(--power-n, 0) * var(--power-step) * 1.5) both;
 }
 @keyframes power-lamp { from { opacity: 0; } }
-:root[data-power-take="step"] .deck[data-power="standby"] :is(.deck-panel, .deck-pane:not([data-bare]))::after {
-  animation: power-lamp var(--power-trace) steps(2, jump-none) calc(var(--power-n, 0) * var(--power-step) * 1.5 + var(--power-trace)) both;
-}
-:root[data-power-take="step"] .deck[data-power="filling"] :is(.deck-panel, .deck-pane:not([data-bare])) > :not(.deck-band) {
+:root[data-power-take="step"] .deck[data-power="filling"] :is(.deck-panel, .deck-pane:not([data-bare])) > :not(.deck-band, .deck-standby) {
   animation: power-lamp var(--duration-travel) steps(3, jump-none) calc(var(--power-n, 0) * var(--duration-fast)) backwards;
-}
-
-/* Reduced motion zeroes the durations; the ruler's loop is movement of a kind, so it stops too. */
-@media (prefers-reduced-motion: reduce) {
-  /* As specific as a take's rule, and after it. */
-  :root .deck[data-power][data-power] :is(.deck-panel, .deck-pane:not([data-bare]))::after { animation: none; }
 }
