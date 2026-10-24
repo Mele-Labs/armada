@@ -26,11 +26,6 @@ pub(crate) fn on_path(name: &str, path: &str) -> bool {
     })
 }
 
-/// Whether a remembered line opens with a command kept as missing, so it cannot be run here.
-pub(crate) fn starts_with_missing(command: &str, missing: &[String]) -> bool {
-    command.split_whitespace().next().is_some_and(|first| missing.iter().any(|name| name == first))
-}
-
 /// A missing command as a line, with its stand-in where it has one.
 pub(crate) fn missing_line(name: &str) -> String {
     match SUBSTITUTES.iter().find(|(held, _)| *held == name) {

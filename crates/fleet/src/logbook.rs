@@ -2,8 +2,9 @@
 //! the next agent does not learn it again. `docs/concepts/logbook.md`.
 //!
 //! **Distil reads, Curate decides.** A Session's record is distilled into claims as it ends and
-//! before it hands on ([`distilling`]); plain rules merge them ([`curating`]). Run memory and the
-//! machine note keep their own detectors and are read in beside, so one read shows everything.
+//! before it hands on ([`distilling`]); plain rules merge them ([`curating`]). The machine note
+//! keeps its own detector and is read in beside. Run memory is not: it keeps every command that
+//! worked, word for word, and folded in it buried what Sessions learnt.
 
 pub(crate) mod answer;
 mod acting;
@@ -88,7 +89,7 @@ where
     }
 
     /// Everything the Logbook holds for a repository: its entries, the habits and this Mac's, and
-    /// what run memory and the machine note know, as entries. Forgotten entries are not in it.
+    /// what the machine note knows, as entries. Forgotten entries are not in it.
     pub(crate) async fn logbook_read(&self, root: &str) -> Vec<Logged> {
         self.logbook_read_in(Some(root)).await
     }
@@ -99,15 +100,6 @@ where
         let learnt = self.store().lock().await.logbook_of(&key).unwrap_or_default();
         let mut all: Vec<Logged> = learnt.into_iter().map(|entry| Logged { entry, from: Source::Learnt }).collect();
         let missing = self.missing_now().await;
-        let runs = match root {
-            Some(root) => self.store().lock().await.run_facts(root).unwrap_or_default(),
-            None => Vec::new(),
-        };
-        all.extend(
-            runs.iter()
-                .filter(|fact| fact.succeeded && !crate::machine_note::starts_with_missing(&fact.command, &missing))
-                .map(|fact| Logged::folded(Source::Runs, LogKind::Command, crate::run_memory::run_line(fact), fact.last_ran)),
-        );
         all.extend(
             missing
                 .iter()
