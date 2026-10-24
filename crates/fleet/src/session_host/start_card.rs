@@ -20,6 +20,8 @@ use ipc::{
 use store::{KeptHosting, Store};
 
 use super::delivering::{delivery_asked, first_message, named_delivery};
+use super::hearing::from_job;
+use super::serving::FLEET_NAME;
 use super::proposing::Held;
 use super::uploads::Kept;
 use crate::daemon::Fleet;
@@ -85,6 +87,12 @@ pub(crate) fn start_read(store: &Store, hosting: &KeptHosting) -> Result<StartRe
     Ok(StartReads { first, usual })
 }
 
+/// Another Job's message, held for the agent to read as `said`.
+pub(crate) fn job_turn(text: &str, said: String) -> Held {
+    let kept = Kept { files: Vec::new(), pictures: Vec::new(), paths: Vec::new(), picture_paths: Vec::new() };
+    Held { text: text.to_string(), kept, addressed: Vec::new(), ahead: None, instead: Some(said) }
+}
+
 impl<H, V, W> Fleet<H, V, W>
 where
     H: AgentHarness + Send + Sync + 'static,
@@ -137,9 +145,17 @@ where
         }
         let mut held = Vec::new();
         for row in self.rows_of(id).await? {
-            if let SessionRow::Message { from: SessionVoice::You, text, files, tags, .. } = row {
-                let addressed = self.addressed(&tags).await?;
-                held.push(Held { text, kept: self.uploads_again(id, &files), addressed, ahead: None, instead: None });
+            match row {
+                SessionRow::Message { from: SessionVoice::You, text, files, tags, .. } => {
+                    let addressed = self.addressed(&tags).await?;
+                    held.push(Held { text, kept: self.uploads_again(id, &files), addressed, ahead: None, instead: None });
+                }
+                // Another Job's message. Fleet's own notices are not read back: Begin's first turn says what they did.
+                SessionRow::Message { from: SessionVoice::Session { id: from, title }, text, .. } if from != FLEET_NAME.to_lowercase() => {
+                    let said = from_job(&from, &title, &text);
+                    held.push(job_turn(&text, said));
+                }
+                _ => {}
             }
         }
         let mut state = runtime.state();

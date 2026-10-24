@@ -4,6 +4,7 @@
 
 use std::sync::Arc;
 
+use adapter_traits::{CallDetail, DroneEvent};
 use api::{HostedSessions, Refusal};
 use ipc::{
     BeginSession, DeliveryChoice, DeliveryPicked, DeliveryPickedFrom, SessionId, SessionRecord, SessionRow, SetSessionWorkflow, StartHeld,
@@ -14,6 +15,7 @@ use testkit::{FakeHarness, FakeJudge, FakeVcs, FakeWorkProduct};
 use super::delivery_gate::workflow;
 use super::session_host::{eventually, rig_fitted, Rig};
 use crate::daemon::Fittings;
+use crate::session_host::address_of;
 use crate::session_host::delivering::delivery_of;
 
 const FIRST: &str = "the log reader drops the last line of every file";
@@ -366,4 +368,56 @@ async fn every_way_he_chooses_is_recorded_as_a_pick() {
 
     let kept = rig.fleet.store().lock().await.delivery_picks(&manifest(&rig), "gate", 10).unwrap();
     assert_eq!(kept, ["auto_land", "keep_local", "open_pr"], "newest first");
+}
+
+/// Job `a` tells `to`, with `SendMessage`, to "please review". `a` is the first process the stand-in starts.
+async fn a_job_writes_to(rig: &Rig, to: &SessionId) -> SessionId {
+    let a = rig.start().await;
+    rig.send(&a, "hello a").await;
+    rig.stand_in.init(0);
+    rig.stand_in.says(
+        0,
+        vec![DroneEvent::Called {
+            tool: "SendMessage".into(),
+            call: "toolu_1".into(),
+            detail: CallDetail::of(&format!("to {}: please review", address_of(to.as_str()))),
+        }],
+    );
+    eventually(|| async { rig.rows(to).await.iter().filter(|row| matches!(row, SessionRow::Message { .. })).count() == 2 }).await;
+    a
+}
+
+fn lines_of(rig: &Rig, process: usize) -> Vec<String> {
+    rig.stand_in.process(process).sent.lock().unwrap().clone()
+}
+
+#[tokio::test]
+async fn another_jobs_message_to_a_held_job_reaches_the_agent_once_after_begin_and_after_the_first_message() {
+    let rig = rig();
+    let held = rig.start_held().await;
+    rig.send_unsettled(&held, FIRST).await;
+    a_job_writes_to(&rig, &held).await;
+    assert_eq!(rig.stand_in.starts().len(), 1, "only the Job that wrote has an agent; the held one is not woken");
+
+    begin(&rig, &held, None).await.expect("begun");
+    eventually(|| async { rig.stand_in.starts().len() == 2 && lines_of(&rig, 1).len() == 2 }).await;
+    let lines = lines_of(&rig, 1);
+    assert!(lines[0].contains(FIRST), "{lines:?}");
+    assert!(lines[1].contains("please review") && lines[1].contains("A message from job"), "{lines:?}");
+    assert_eq!(lines.iter().filter(|line| line.contains("please review")).count(), 1, "once");
+}
+
+#[tokio::test]
+async fn another_jobs_message_to_a_held_job_survives_a_fleet_restart() {
+    let rig = rig();
+    let held = rig.start_held().await;
+    rig.send_unsettled(&held, FIRST).await;
+    a_job_writes_to(&rig, &held).await;
+    let rig = rig.restarted(fitted);
+
+    begin(&rig, &held, None).await.expect("begun");
+    eventually(|| async { rig.stand_in.starts().len() == 1 && lines_of(&rig, 0).len() == 2 }).await;
+    let lines = lines_of(&rig, 0);
+    assert!(lines[0].contains(FIRST) && lines[1].contains("please review"), "in the order the rows were written: {lines:?}");
+    assert_eq!(lines.iter().filter(|line| line.contains("please review")).count(), 1, "once");
 }
