@@ -171,6 +171,7 @@ WebSocket event stream, read this first.
 | [A background act's failure: `act.failed`](protocol/a-background-acts-failure-act-failed.md) |
 | [Kit's Add and Remove: a plugin or a skill](protocol/kit-add-and-remove-a-plugin-or-a-skill.md) |
 | [The shared home: Kit's rows against it, three acts, and what syncs](protocol/the-shared-home.md) |
+| [A Mod Job: `start_mod_session`, `mod` and `made_by`](protocol/a-mod-job.md) |
 | [Open questions](#open-questions) |
 
 ## A pinned note, sent whole: `send_session_note`

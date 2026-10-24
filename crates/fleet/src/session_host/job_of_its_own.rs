@@ -47,7 +47,7 @@ where
             request: None,
             after: None,
         };
-        let id = self.started_hosted(start, false).await?.id;
+        let id = self.started_hosted(start, super::Marked::Plain).await?.id;
         let leased = match self.take_lease(id.as_str(), served).await {
             // No process runs, so there is nothing to move.
             Taken::Moving(moving) => {

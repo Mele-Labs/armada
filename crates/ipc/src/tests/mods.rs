@@ -15,6 +15,7 @@ fn a_mod(name: &str) -> ModSummary {
         description: Some("Softer greys".to_string()),
         taught_on: None,
         entry: None,
+        made_by: None,
         enabled: true,
         valid: true,
         reason: None,
@@ -45,6 +46,7 @@ fn a_broken_mod_leaves_out_what_could_not_be_read_rather_than_sending_null() {
         description: None,
         taught_on: None,
         entry: None,
+        made_by: None,
         enabled: true,
         valid: false,
         reason: Some("mod.toml is missing".to_string()),
@@ -110,7 +112,7 @@ fn a_layout_mod_and_the_owners_choices_are_left_out_when_empty_and_never_null() 
     assert!(json.contains(r#""kind":"layout""#), "{json}");
     assert_eq!(decode::<ModSummary>("a mod", json.as_bytes()).expect("round-trips"), layout);
 
-    let scaffold = |kind| encode(&ScaffoldMod { name: "tidy".into(), description: None, kind }).expect("plain data");
+    let scaffold = |kind| encode(&ScaffoldMod { name: "tidy".into(), description: None, kind, session_id: None }).expect("plain data");
     assert_eq!(scaffold(None), r#"{"name":"tidy"}"#, "a theme scaffold is the body it always was");
     assert_eq!(scaffold(Some(ModKind::Layout)), r#"{"name":"tidy","kind":"layout"}"#);
 

@@ -21,12 +21,11 @@ where
         Some((model, window))
     }
 
-    /// A plain hosted session's ledger row and its hosting. `helm` marks it as a repository's Helm
-    /// (`helm_session.rs`), which no `start_session` call can: the mark is Fleet's to give.
+    /// A hosted session's ledger row and its hosting, marked as `marked` says.
     pub(crate) async fn started_hosted(
         &self,
         mut start: StartSession,
-        helm: bool,
+        marked: Marked,
     ) -> Result<SessionRecord, Refusal> {
         let rooted = start.root.is_some();
         let (manifest, cwd) = match start.root.take() {
@@ -99,7 +98,7 @@ where
                     lease_slot: None,
                     lease_branch: None,
                     fork_of: None,
-                    helm,
+                    helm: marked == Marked::Helm,
                     setup,
                     workflow: None,
                     proposed: String::new(),
@@ -108,6 +107,7 @@ where
                     paused_at: None,
                     paused_resuming: false,
                     auto_land: false,
+                    mod_job: marked == Marked::Mod,
                 })
                 .map_err(|why| self.ledger_fault(why))?;
         }

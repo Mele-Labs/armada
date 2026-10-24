@@ -5,6 +5,7 @@
 // rules in `events.ts` hold: hand-written, and every closed set left as `string` unless Bridge
 // matches on it, which `ModKind` is.
 
+import type { SessionNote } from "./session-notes";
 import type { FleetRule } from "./teaching";
 
 /**
@@ -30,6 +31,8 @@ export type ModSummary = {
   taught_on?: string;
   /** The Logbook entry a teaching from a Job made this mod with. Absent for a mod written by hand or taught where no entry was made. */
   entry?: string;
+  /** The Job whose `scaffold_mod` made this mod. Absent for a mod made by hand, by a teaching, or by a call that named no Job. */
+  made_by?: string;
   /** This machine's switch. A mod nobody switched is on. */
   enabled: boolean;
   /** Whether Bridge may load it. */
@@ -65,7 +68,25 @@ export type ScaffoldMod = {
   description?: string;
   /** Absent is a theme. */
   kind?: ModKind;
+  /** The Job calling, which the mod records as `made_by`. */
+  session_id?: string;
 };
+
+/**
+ * `POST /mods/session`'s body: a Mod Job, a hosted Job on Armada's own repository for modding Armada
+ * itself. `note` is what he pointed at, as `send_session_note` takes it, and is the Job's first message.
+ * Refused 422 `fleet.mod_armada_not_served` where Fleet does not serve that repository.
+ */
+export type StartModSession = {
+  /** Absent is the first line of the note's words. */
+  title?: string;
+  model?: string;
+  effort?: string;
+  note: SessionNote;
+};
+
+/** A Mod Job started. `send_failed` is why its first message was not sent, where it was refused; open the Job and send by hand. */
+export type ModSessionStarted = { session_id: string; title: string; send_failed?: string };
 
 /** A mod made. `path` is the folder, where `theme.css` or `layout.json` is edited. */
 export type ModScaffolded = { name: string; path: string };

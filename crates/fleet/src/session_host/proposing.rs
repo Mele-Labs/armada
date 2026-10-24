@@ -192,7 +192,7 @@ where
             return self.after_begun(record, after, request).await;
         }
         start.request = Some(request.clone());
-        let record = self.started_hosted(start, false).await?;
+        let record = self.started_hosted(start, super::Marked::Plain).await?;
         let id = record.id.as_str().to_string();
         let fleet = Arc::clone(&self);
         let words = request.clone();

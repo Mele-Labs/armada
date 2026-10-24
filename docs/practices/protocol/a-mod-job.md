@@ -1,0 +1,23 @@
+# A Mod Job: `start_mod_session`, `mod` and `made_by`
+
+**Part of:** [Protocol: the Fleet/Bridge seam](../protocol.md).
+
+Since 23 Oct 2026. `docs/concepts/mods.md`, *A Mod Job*.
+**Additive**: one operation, one route, one error code, the two types they carry, and three optional fields on existing types; no event kind.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `packages/protocol/src/mods.ts` and `sessions.ts`, written by hand, field for field.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `start_mod_session` (`POST /mods/session`, `agent_access = "No"`) | Bridge sends, Fleet answers 200 | `StartModSession` `{ title?, model?, effort?, note }`, `note` a `SessionNote` as `send_session_note` takes it; answered with `ModSessionStarted` `{ session_id, title, send_failed? }` |
+| `SessionRecord.mod` | Fleet answers | `true` on a Mod Job, left out on every other |
+| `ScaffoldMod.session_id` | an agent sends | The Job calling. Left out records nothing |
+| `ModSummary.made_by` | Fleet answers | The Job whose `scaffold_mod` made the mod, from its `mod.toml`. Left out where none was recorded |
+
+**Refusals**: a 422 `fleet.mod_armada_not_served` where this Fleet does not serve the Manifest named `armada`, and nothing is started; a 422 `fleet.unacceptable_mod` for a `session_id` that names no Job Fleet knows, and nothing is made.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+Were a pair to meet anyway, a Fleet without the route answers 404, an older Bridge ignores `mod` and `made_by`, and an older Fleet ignores `session_id` and records nothing.
+
+**The event stream.** Untouched: the start publishes `session.changed` as any start and first message do, and a scaffold publishes `mods.changed` as before, now carrying `made_by`.
+The open risk below is neither better nor worse.

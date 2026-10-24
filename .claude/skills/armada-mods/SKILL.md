@@ -23,7 +23,7 @@ Fleet refuses.
 | # | Do | Tool |
 |---|---|---|
 | 1 | See what exists, so the name is new | `list_mods` |
-| 2 | Make the folder; it answers with its `path` | `scaffold_mod` with `name` and a `description` |
+| 2 | Make the folder; it answers with its `path` | `scaffold_mod` with `name`, a `description` and your `session_id` |
 | 3 | Edit `theme.css` in that path | Your editor |
 | 4 | Check it; read `problems`, fix, check again | `validate_mod` with `name` |
 | 5 | Tell the owner | Settings, Theme, then the mod's name |
@@ -121,7 +121,7 @@ accepts and how layers combine.
 | # | Do | Tool |
 |---|---|---|
 | 1 | See what exists, so the name is new | `list_mods` |
-| 2 | Make the folder; it answers with its `path` | `scaffold_mod` with `name`, `description` and `kind` set to `layout` |
+| 2 | Make the folder; it answers with its `path` | `scaffold_mod` with `name`, `description`, your `session_id` and `kind` set to `layout` |
 | 3 | Edit `layout.json` in that path | Your editor |
 | 4 | Check it; read `problems`, fix, check again | `validate_mod` with `name` |
 | 5 | Tell the owner where to see it | Mods lists it; Settings, Layout shows what it did |
@@ -212,7 +212,7 @@ whole file format.
 |---|---|---|
 | 1 | Find how the tracker is read: a CLI that prints JSON, an HTTP API, or an MCP server. Run it by hand once and keep a real answer | Your shell |
 | 2 | See what exists, so the name is new | `list_mods` |
-| 3 | Make the folder | `scaffold_mod` with `name`, `description` and `kind` set to `tracker` |
+| 3 | Make the folder | `scaffold_mod` with `name`, `description`, your `session_id` and `kind` set to `tracker` |
 | 4 | Write `tracker.toml` in that path. Test each `map` against the answer you kept: `jq '<map>' answer.json` | Your editor |
 | 5 | Check it; read `problems`, fix, check again | `validate_mod` with `name` |
 | 6 | Try it against the repository; read `reason`, fix, try again | `try_tracker_mod` with `name` and `manifest_id` |

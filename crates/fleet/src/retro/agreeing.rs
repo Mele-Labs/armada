@@ -54,9 +54,14 @@ where
     }
 
     /// Armada's own repository, where this Fleet serves it.
-    pub(super) fn armada_served(&self, lesson_id: &str) -> Result<ManifestId, Refusal> {
+    pub(crate) fn armadas_own(&self) -> Option<ManifestId> {
         let own = ManifestId::carried(ARMADAS_OWN);
-        self.served_named(Some(&own)).map(|_| own).map_err(|_| {
+        self.served_named(Some(&own)).is_ok().then_some(own)
+    }
+
+    /// [`Self::armadas_own`], or the refusal for a fix in Armada.
+    pub(super) fn armada_served(&self, lesson_id: &str) -> Result<ManifestId, Refusal> {
+        self.armadas_own().ok_or_else(|| {
             Refusal::Unacceptable(WireError::raised(
                 ARMADA_NOT_SERVED,
                 format!(

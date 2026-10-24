@@ -128,10 +128,21 @@ where
     }
 
     async fn scaffold_mod(&self, asked: ScaffoldMod) -> Result<ModScaffolded, Refusal> {
+        let made_by = asked.session_id.as_ref().map(|id| id.as_str().to_string());
+        if let Some(job) = &made_by {
+            let known = self.store().lock().await.session(job).map_err(|why| self.ledger_fault(why))?;
+            if known.is_none() {
+                return Err(Refusal::Unacceptable(
+                    WireError::raised(UNACCEPTABLE_MOD, format!("no Job is named {job}, so the mod could not say who made it"), self.run_id())
+                        .with_field("session_id", ipc::WireValue::Str(job.clone())),
+                ));
+            }
+        }
         let dir = self.mods_dir();
         let name = asked.name.clone();
         let made = tokio::task::spawn_blocking(move || {
-            scaffold::make(&dir, &name, asked.description.as_deref(), asked.kind.unwrap_or(ModKind::Theme))
+            let kind = asked.kind.unwrap_or(ModKind::Theme);
+            scaffold::make(&dir, &name, asked.description.as_deref(), kind, made_by.as_deref())
         })
         .await
         .map_err(|why| self.mod_fault(format!("the mod could not be made: {why}")))?;
@@ -228,6 +239,10 @@ where
         })?;
         self.mods_announced().await?;
         Ok(tried)
+    }
+
+    async fn start_mod_session(self: Arc<Self>, start: ipc::StartModSession) -> Result<ipc::ModSessionStarted, Refusal> {
+        self.mod_job_started(start).await
     }
 
     async fn promote_mod(self: Arc<Self>, promote: PromoteMod) -> Result<ModPromoted, Refusal> {

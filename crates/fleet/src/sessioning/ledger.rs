@@ -217,6 +217,7 @@ where
         }
         record.helm = reads.hosting.as_ref().is_some_and(|hosting| hosting.helm);
         record.auto_land = reads.hosting.as_ref().is_some_and(|hosting| hosting.auto_land);
+        record.r#mod = reads.hosting.as_ref().is_some_and(|hosting| hosting.mod_job);
         if reads.hosting.is_some() && session.state == store::SessionState::Live {
             record.activity = self.activity_of(&session.id);
         }

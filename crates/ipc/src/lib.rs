@@ -394,8 +394,8 @@ pub use merge_line::{
     MergeLineCheck, MergeLineEntry, MergeLinePullRequest, MergeLines,
 };
 pub use mods::{
-    ModChecked, ModKind, ModList, ModOrigin, ModPromoted, ModPullRequest, ModScaffolded, ModSummary, PromoteMod,
-    ScaffoldMod, SetModEnabled, TrackerTry, TryTrackerMod,
+    ModChecked, ModKind, ModList, ModOrigin, ModPromoted, ModPullRequest, ModScaffolded, ModSessionStarted, ModSummary,
+    PromoteMod, ScaffoldMod, SetModEnabled, StartModSession, TrackerTry, TryTrackerMod,
 };
 pub use clashes::{
     ClashFile, ClashHolder, ClashSide, WriteClash, WriteClashes,
