@@ -27,6 +27,7 @@ mod bucket;
 mod harness;
 mod judge;
 mod link_lookup;
+mod shared_home;
 mod sign_in;
 mod store;
 mod test_map;
@@ -40,12 +41,13 @@ pub use bucket::FakeBucket;
 pub use harness::{FakeHarness, EDITS, READS, REACHES, REPLAYED, RUNS};
 pub use judge::{refusal, FakeJudge};
 pub use link_lookup::FakeLinkLookup;
+pub use shared_home::{FakeHarnessHome, FakeHome, FakeHomes, FakeRemote, HeldFolder};
 pub use sign_in::{FakeSignIn, USER_CODE, VERIFICATION_URI};
 pub use store::FakeStore;
 pub use test_map::FakeCollector;
 pub use tracker::FakeTracker;
 pub use trackers::FakeTrackers;
-pub use vcs::{CommitScope, Delivered, Delivering, FakeCommit, FakeVcs, FakeVcsError, Merging};
+pub use vcs::{CommitScope, Delivered, Delivering, FakeCommit, FakeVcs, FakeVcsError, Hold, Merging, ParkHold};
 pub use work_product::{FakeDiffRefused, FakeWorkProduct, Holding, Written};
 pub use workflow::{
     delivering, frozen, handing_off, modelled, narrowing, narrowing_and_testing_one, panelled,

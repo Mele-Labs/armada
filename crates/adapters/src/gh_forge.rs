@@ -77,6 +77,15 @@ impl Forge for GhForge {
         crate::main_ci::open_pull(in_repo, gate, number)
     }
 
+    fn open_pull_requests_by(
+        &self,
+        in_repo: &str,
+        gate: &str,
+        author: &str,
+    ) -> Option<adapter_traits::OpenPulls> {
+        crate::main_ci::open_pulls_of(in_repo, gate, author)
+    }
+
     fn pull_reading(&self, in_repo: &str, gate: &str) -> Option<adapter_traits::FollowedPulls> {
         crate::pull_reading::read(in_repo, gate)
     }

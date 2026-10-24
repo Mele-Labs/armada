@@ -12,6 +12,7 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::act_failed::ActFailed;
 use crate::helm_call::{HelmAskingToRun, HelmCallAnswered};
 use crate::thought::HelmThoughtRouted;
 use crate::hosted_sessions::SessionRowChanged;
@@ -53,7 +54,7 @@ impl Cursor {
 }
 
 /// One message from Fleet to a connected client.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "message", rename_all = "snake_case")]
 pub enum StreamMessage {
     /// The first message on every connection, and the message after a drop.
@@ -78,7 +79,7 @@ pub struct Resync {
 }
 
 /// One event, at its position.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Delivered {
     pub cursor: Cursor,
     pub event: Event,
@@ -92,7 +93,9 @@ pub struct Missed {
 
 /// An unsolicited push. The `kind` is the dotted name `operations/` keys it
 /// under, so a rule can compare the two without a mapping in between.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+///
+/// Not `Eq`: `act.failed` carries a `WireError`, whose field values include a float.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum Event {
     #[serde(rename = "manifest.reread")]
@@ -178,6 +181,9 @@ pub enum Event {
     // One entry Fleet just kept for the timeline. Since 23.82.
     #[serde(rename = "timeline.appended")]
     TimelineAppended(TimelineAppended),
+    // A background act failed after its request was answered, so the refusal rides the stream.
+    #[serde(rename = "act.failed")]
+    ActFailed(ActFailed),
 }
 
 impl Event {

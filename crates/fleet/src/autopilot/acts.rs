@@ -7,7 +7,7 @@
 use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-use api::{Autopilots, HostedSessions, Refusal};
+use api::{Autopilots, Refusal};
 use ipc::{
     Autopilot, AutopilotList, AutopilotProposal, AutopilotQuoted, AutopilotSettings, ManifestId,
     ProposeAutopilot, WireError,
@@ -120,7 +120,7 @@ where
             {
                 continue;
             }
-            self.close_session(ipc::CloseSession { session_id: ipc::SessionId::carried(session) })
+            self.closed_and_parked(ipc::CloseSession { session_id: ipc::SessionId::carried(session) })
                 .await?;
             self.store()
                 .lock()

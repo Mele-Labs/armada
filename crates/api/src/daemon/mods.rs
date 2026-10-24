@@ -3,6 +3,7 @@
 //! handler that takes only this cannot reach for a Job. `docs/concepts/mods.md`.
 
 use std::future::Future;
+use std::sync::Arc;
 
 use ipc::{
     ModChecked, ModList, ModPromoted, ModScaffolded, ModSummary, PromoteMod, ScaffoldMod,
@@ -40,11 +41,12 @@ pub trait Mods: Send + Sync + 'static {
     /// answer with `passed` false; [`Refusal::Unacceptable`] for a mod that is not a tracker.
     fn try_tracker_mod(&self, asked: TryTrackerMod) -> impl Future<Output = Result<TrackerTry, Refusal>> + Send;
 
-    /// `promote_mod` — a valid mod copied onto a new branch, pushed nowhere.
-    /// [`Refusal::IllegalMove`] where it cannot be: invalid, no `packages/`, no
-    /// free slot.
+    /// `promote_mod` — a valid mod put into the repository by a Job of its own,
+    /// which pushes its branch, opens its pull request and is told to see it merged.
+    /// [`Refusal::IllegalMove`] where it cannot be: invalid, built in, no
+    /// `packages/`, no free slot.
     fn promote_mod(
-        &self,
+        self: Arc<Self>,
         promote: PromoteMod,
     ) -> impl Future<Output = Result<ModPromoted, Refusal>> + Send;
 }

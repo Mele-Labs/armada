@@ -26,7 +26,7 @@
 
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use adapter_traits::{
     Base, BaseCheckout, BaseFetched, BaseMergedIn, BaseOnTheRemote, BaseSpec, BranchMerged, BroughtUpToDate,
@@ -44,9 +44,11 @@ mod delivered;
 mod delivering;
 mod failed;
 mod forge;
+mod holding;
 mod main_ci;
 mod manifest_edits;
 mod merging;
+mod park_gate;
 mod pull_requests;
 mod scripting;
 mod slots;
@@ -57,8 +59,11 @@ pub use commit::{CommitScope, FakeCommit};
 pub use delivering::Delivering;
 pub use delivered::Delivered;
 pub use failed::FakeVcsError;
+pub use holding::Hold;
 use main_ci::MainCiScript;
 pub use merging::Merging;
+pub use park_gate::ParkHold;
+use park_gate::ParkGate;
 use merging::Trees;
 use slots::FakeSlots;
 
@@ -159,6 +164,8 @@ pub struct FakeVcs {
     /// leaves this where it was.
     pool_reads: AtomicU64,
     whole_pool_reads: AtomicU64,
+    /// Held shut by [`FakeVcs::hold_pushes`]: a push waits on it.
+    pushes_held: Mutex<Option<Arc<Hold>>>,
 }
 
 impl Delivery for FakeVcs {
@@ -270,6 +277,10 @@ impl Delivery for FakeVcs {
     }
 
     fn push(&self, worktree: &Worktree) -> Result<Pushed, NotDelivered> {
+        let held = self.pushes_held.lock().expect("not poisoned").clone();
+        if let Some(held) = held {
+            held.pass();
+        }
         let pushed = self.delivery.lock().expect("not poisoned").push.clone();
         if pushed != Pushed::NoRemote {
             self.delivered

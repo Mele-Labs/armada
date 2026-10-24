@@ -1,14 +1,14 @@
 # Layout mods
 
-**What it is:** A mod whose `layout.json` reorders, hides and sets the opening choice of Bridge's Cockpit panels and places, by id, and nothing else, which Fleet checks and Bridge applies.
+**What it is:** A mod whose `layout.json` hides the Cockpit's panels and places and orders an open Job's panels, by id, and nothing else, which Fleet checks and Bridge applies.
 
 ---
 
 **Kind:** Concept.
 
-You ask a job to hide the merge queue on the Cockpit and the Retros page.
+You ask a job to hide Activity on the Cockpit and put Workflow first in an open Job.
 It writes `mods/tidy/layout.json`, and the window re-lays out with no restart.
-A month later you promote the mod to a branch, as a theme is.
+A month later you promote the mod, and a Job of its own opens a pull request for it, as for a theme.
 
 ## The registry
 
@@ -23,7 +23,6 @@ The registry is `LAYOUT` in `packages/shell/src/layout.tsx`. A panel written in 
 | `label` | The name drawn |
 | `icon` | A glyph from `packages/icons/icons/` |
 | `hideable` | False where the owner has to decide on it, or has to reach it to undo a layout |
-| `slot` | Cockpit panels only: `top`, above the panel, or `board` |
 | order | Position in the region's list, which is the default order |
 
 Every entry is drawn until a layout hides it.
@@ -32,8 +31,9 @@ Every entry is drawn until a layout hides it.
 
 | Region | Entries | Never hidden | Orders | Opens on |
 |---|---|---|---|---|
-| `dashboard.panels` | `fleet`, `merge-line`, `field` | `fleet` | yes, within a slot | |
-| `rail` | The places: `overview`, `sessions`, `kit`, `mods`, `settings`, `guides`, `workflows`, `studios`, `lessons`, `reviews` | `overview`, `mods`, `settings` | no | |
+| `dashboard.panels` | The Cockpit's panels: `list`, `merge-line`, `activity`, `bays`, `controls`, `dispatch`, `autopilot` | `list` | no | |
+| `job.panels` | An open Job's panels: `field`, `workflow`, `progress` | `progress` | yes | |
+| `rail` | The places: `overview`, `sessions`, `kit`, `mods`, `settings`, `guides`, `workflows`, `studios`, `logbook`, `reviews`, `issues` | `overview`, `mods`, `settings` | no | |
 
 **`rail` is the region of places, and it hides them and never orders them.** The key keeps its name and its label is Places.
 An entry is a tab or a System strip page: Cockpit, Jobs, Studios, Logbook and Reviews (`reviews`) are tabs, and Kit, Mods, Settings, Guides and Workflows are strip pages.
@@ -42,10 +42,15 @@ The bar's order is the shell's own, and `⌘1` to `⌘6` follow it.
 System is never hidden.
 Doctor is a row of the title menu with no entry, and so is every place with no tab and no strip page (Worktree Slots, Merge line, Manifest, Checks), so a layout cannot name them.
 
-**`dashboard.panels` has the merge queue as its one counterpart on the deck.** A hidden `merge-line` hides the deck's merge queue.
-`field` is the Field panel of an open Session, and a hidden `field` is not drawn.
-`fleet` has no panel on the deck, and `order` has no effect there.
-A layout row with no counterpart is ignored, and `dashboard.tabs` went with the old Cockpit (#2301), so a layout that names it is ignored like any region this build does not have.
+**`dashboard.panels` is the deck's panels, and it hides them and never orders them**, because they stand in fixed columns.
+`list` is the Jobs list, `merge-line` the merge queue, `controls` Flight control, and the rest are named as drawn.
+The stage is not an entry.
+A right column a layout empties is not drawn and gives its room to the stage, and so is an emptied foot.
+
+**`job.panels` is the panels an open Job stacks in the right column**, drawn in the region's order.
+Progress holds the plan the owner approves, so it is never hidden.
+
+`dashboard.tabs` went with the old Cockpit (#2301), and `job.tabs` with the Job's tabs, so a layout that names either is ignored like any region this build does not have.
 A layout is machine-wide, with no repository in it.
 
 A hidden entry leaves the strip or the bar and nothing else. It stays in the palette and in links, so an act that jumps to it still lands.
@@ -55,7 +60,8 @@ A hidden entry leaves the strip or the bar and nothing else. It stays in the pal
 ```json
 {
   "version": 1,
-  "dashboard.panels": { "hidden": ["merge-line"] },
+  "dashboard.panels": { "hidden": ["activity"] },
+  "job.panels": { "order": ["workflow"] },
   "rail": { "hidden": ["logbook"] }
 }
 ```
@@ -66,7 +72,7 @@ A hidden entry leaves the strip or the bar and nothing else. It stays in the pal
 | `<region>` | object | no | none | One of the regions above |
 | `order` | list of ids | no | registry order | Named first, in this order |
 | `hidden` | list of ids | no | none | Not drawn |
-| `first` | id | no | first entry | What opens first |
+| `first` | id | no | first entry | What opens first, in a region that has one; none does today |
 
 An entry a list does not name keeps its default place after the named ones.
 
@@ -86,7 +92,7 @@ Fleet checks the file with `ipc::layout` and Bridge reads the text it returns wi
 | A list over 32 items, or an item that is not a slug of 40 characters or fewer | Invalid |
 | A region this build does not have | Ignored |
 | An id this build does not have | Ignored |
-| `order` on the rail, `first` on panels | Ignored |
+| `order` on the rail or the Cockpit's panels, `first` anywhere | Ignored |
 | A `hidden` id that is not hideable | Ignored when resolved |
 
 `parseLayout` returns the problems and what it ignored. An invalid layout mod is a row with `valid` false, as for a theme, and stays listed with its reason.
@@ -138,10 +144,10 @@ The mods stay installed.
 | The regions and ids both sides check | `packages/shell/layout-registry.json` |
 | Fleet's check of `layout.json` | `crates/ipc/src/layout.rs` |
 | Fleet's list, scaffold, validation and promotion for `kind = "layout"` | `crates/fleet/src/mods/` |
-| Cockpit panels and places | Read `useLayout(region)` |
+| Cockpit panels, Job panels and places | Read `useLayout(region)` |
 | Settings → Layout, Mods row | `packages/surfaces/settings/src/` |
 | The source over Fleet | `apps/desktop/src/renderer/src/fleet-layout.ts` |
-| The mock | `apps/desktop/src/renderer/src/mock/layout.ts`, walk `?walk=modsLayout` |
+| The mock | `apps/desktop/src/renderer/src/mock/layout.ts`, walk `?walk=layoutAsDrawn` |
 
 ## What is kept
 
@@ -155,7 +161,8 @@ The mods stay installed.
 Bridge applies that text and no other.
 `save_preferences` refuses a `layout_choices` that `layout.json`'s rules would refuse, with 422 `fleet.unacceptable_layout`.
 `scaffold_mod` takes a `kind`, and a layout scaffold holds `{ "version": 1 }`, which changes nothing.
-Promotion copies `mod.toml` and `layout.json` to `packages/mods/<name>/`.
+Promotion writes `mod.toml` and `layout.json` to `packages/mods/<name>/` in a Job's tree and opens a pull request. [Mods](mods.md), *Promotion*.
+Its row shows that pull request and its Job from `list_mods`, as a theme's does, so a window read again offers no second Promote.
 
 ## Promotion and code panels
 
@@ -163,6 +170,6 @@ Promotion copies `mod.toml` and `layout.json` to `packages/mods/<name>/`.
 |---|---|
 | Promotion | Copy `mod.toml` and `layout.json` to `packages/mods/<name>/`, as a theme's two files |
 | A panel written in code | Registers an entry in the same registry, so `layout.json` already orders it |
-| A rework of the Cockpit | Registers each panel it draws as an entry of `dashboard.panels`, and an entry it removes is an id that is gone, which every layout skips |
+| A rework of the Cockpit or a Job | Registers each panel it draws as an entry of `dashboard.panels` or `job.panels`, and an entry it removes is an id that is gone, which every layout skips |
 | A new region | One `LAYOUT` entry, one `useLayout` call, and its entries in `layout-registry.json` |
 | A new entry | One `LAYOUT` line and the same in `layout-registry.json` |

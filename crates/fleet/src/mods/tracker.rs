@@ -15,7 +15,7 @@ use ipc::{Instant, ManifestId, ModKind, TrackerTry};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use super::{examine, read_small, slug_problem, Examined, Files, Payload, TRACKER};
+use super::{examine, read_small, slug_problem, Examined, Files, Payload, Source, TRACKER};
 
 /// Beside the mod's own files, and none of them: never promoted, never checked as the mod.
 const RECORD: &str = ".tried.toml";
@@ -36,14 +36,17 @@ struct Record {
 }
 
 /// The rest of [`examine`] for a tracker mod: `tracker.toml` read and checked, and its last try
-/// where it tried this text. **Runs nothing**, so a scan stays a read of a few small files.
-pub(super) fn examined(dir: &Path, found: &mut Examined, mut stamps: Vec<i64>, manifest: Option<String>) {
-    match read_small(&dir.join(TRACKER), taught_tracker::MOST_BYTES, TRACKER) {
+/// where it tried this text. **Runs nothing**, so a scan stays a read of a few small files. A
+/// built-in tracker has no folder here to keep a try in, so it has none.
+pub(super) fn examined(source: &Source, found: &mut Examined, mut stamps: Vec<i64>, manifest: Option<String>) {
+    match source.read(TRACKER, taught_tracker::MOST_BYTES) {
         Ok((text, ms)) => {
-            stamps.push(ms);
+            stamps.extend(ms);
             found.problems.extend(taught_tracker::problems(&text));
-            let (tried, stale) = tried_of(dir, &text);
-            (found.tried, found.stale) = (tried, stale);
+            (found.tried, found.stale) = match source {
+                Source::Folder(dir) => tried_of(dir, &text),
+                Source::BuiltIn(_) => (None, false),
+            };
             if let (true, Some(manifest)) = (found.problems.is_empty(), manifest) {
                 found.files = Some(Files { manifest, payload: Payload::Tracker(text) });
             }

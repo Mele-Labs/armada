@@ -111,11 +111,8 @@ export type CheckoutToPullRequest = {
   manifest_id: string;
 };
 
-/** `checkout_to_pull_request`'s answer: the pull request that was opened. `auto_merge` is false where the forge refused it; the pull request is open all the same. */
-export type CheckoutSentAsPullRequest = {
-  pull_request: number;
-  auto_merge: boolean;
-};
+/** `checkout_to_pull_request`'s answer: the send was accepted, and nothing more. The pull request arrives on the hold (`HeldCheckout.pull_request`) when it has opened; a failure arrives as `act.failed`. */
+export type CheckoutSentAsPullRequest = Record<string, never>;
 
 /** `checkout_diff`'s query: which uncommitted file of a held checkout to read. */
 export type CheckoutDiffAsk = {

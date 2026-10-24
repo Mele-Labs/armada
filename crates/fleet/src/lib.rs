@@ -125,11 +125,14 @@ pub(crate) mod main_hub;
 /// A possible `armada.yml` per workspace, from Scan, and the Write that ends it.
 pub mod manifest_proposal;
 pub mod merge_lines;
+mod act_failing;
 mod model_downshift;
 mod model_downshifting;
 /// The models the harness offers, asked after Fleet is serving.
 pub mod models_read;
 pub mod phone;
+/// Kit against the shared home, and what this machine syncs. `docs/concepts/kit.md`.
+pub mod home;
 /// Mods: folders on this machine that change how Bridge looks.
 pub mod mods;
 pub mod mint;
@@ -199,6 +202,7 @@ mod review_walks;
 mod walk_places;
 /// A pull request by repository and number, and the acts a Session takes on one.
 /// Since 23.48.
+mod pull_request_acts;
 mod pull_requesting;
 /// A person's refresh of one pull request: everything the pull reading does for it, now.
 mod pull_refreshing;

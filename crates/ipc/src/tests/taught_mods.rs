@@ -1,7 +1,7 @@
 //! The files a teaching writes, as one type for the file and the wire: `found` and `where` are one
 //! string each, and a spelling nobody sanctioned does not decode.
 
-use crate::{decode, encode, AddressFound, Condition, Does, FleetRule, Instead, ModKind, ModSummary, RuleScope, WordsAddress};
+use crate::{decode, encode, AddressFound, Condition, Does, FleetRule, Instead, ModKind, ModOrigin, ModSummary, RuleScope, WordsAddress};
 
 #[test]
 fn the_new_kinds_are_spelled_as_their_files_are_named_and_taught_on_is_left_out_when_absent() {
@@ -10,6 +10,7 @@ fn the_new_kinds_are_spelled_as_their_files_are_named_and_taught_on_is_left_out_
     }
     let row = ModSummary {
         name: "jira".into(),
+        origin: ModOrigin::Local,
         kind: Some(ModKind::Words),
         version: None,
         description: None,
@@ -21,6 +22,7 @@ fn the_new_kinds_are_spelled_as_their_files_are_named_and_taught_on_is_left_out_
         changed_at: None,
         tried: None,
         stale: false,
+        pull_request: None,
     };
     let json = encode(&row).expect("plain data");
     assert!(json.contains(r#""taught_on":"ARM-123 in a message""#), "{json}");

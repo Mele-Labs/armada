@@ -86,6 +86,8 @@ pub struct Host {
     /// The mod switches as Fleet last read them, shared with the tracker mods' lookup, which runs
     /// on a tracker's blocking thread and cannot take the store's lock. Fleet refreshes it on each scan.
     pub mod_switches: crate::mods::ModSwitches,
+    /// The mods listed as built in beside `mods_dir`'s: `packages/mods/` as this build compiled it.
+    pub built_in_mods: crate::mods::BuiltIns,
     /// How long one Helm reply may take before its process is ended.
     /// `timeouts.helmReplySeconds`, read at start.
     pub helm_reply_budget: std::time::Duration,
@@ -109,6 +111,7 @@ pub(crate) struct Local {
     pub(crate) kit_home: String,
     pub(crate) mods_dir: String,
     pub(crate) mod_switches: crate::mods::ModSwitches,
+    pub(crate) built_in_mods: crate::mods::BuiltIns,
 }
 
 /// One repository a Fleet is assembled already serving.
@@ -336,6 +339,7 @@ where
                 kit_home: fittings.host.kit_home,
                 mods_dir: fittings.host.mods_dir,
                 mod_switches: fittings.host.mod_switches,
+                built_in_mods: fittings.host.built_in_mods,
             },
             port_range: fittings.port_range,
             tuning: std::sync::RwLock::new(tuning),
@@ -350,6 +354,7 @@ where
             models: fittings.models,
             models_held: Default::default(),
             phone_held: Default::default(),
+            home_held: Default::default(),
             downshift: Default::default(),
             events: fittings.events,
             helm,

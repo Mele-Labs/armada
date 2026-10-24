@@ -36,7 +36,7 @@ use crate::forge_address::{remote_of, ForgeAddress};
 
 /// The one host this adapter answers for.
 pub const GITHUB_HOST: &str = "github.com";
-const API_BASE: &str = "https://api.github.com";
+pub(crate) const API_BASE: &str = "https://api.github.com";
 /// The REST version every call is pinned to, so a change at GitHub is opted into.
 const API_VERSION: &str = "2022-11-28";
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
@@ -510,8 +510,17 @@ pub(crate) fn next_link(link: &str) -> Option<String> {
 
 /// The token `gh` holds for `host`, read at utility priority like Fleet's other reads.
 fn token_from_gh(host: &str) -> Result<Secret<String>, ApiFailure> {
+    token_read(&["auth", "token", "--hostname", host])
+}
+
+/// The token `gh` holds for `login` on `host`, whichever account is active: `gh` can hold several.
+pub(crate) fn token_from_gh_as(host: &str, login: &str) -> Result<Secret<String>, ApiFailure> {
+    token_read(&["auth", "token", "--hostname", host, "--user", login])
+}
+
+fn token_read(args: &[&str]) -> Result<Secret<String>, ApiFailure> {
     let run = crate::background::command("gh")
-        .args(["auth", "token", "--hostname", host])
+        .args(args)
         .output()
         .map_err(|why| ApiFailure::NoToken(format!("gh could not be started: {why}")))?;
     if !run.status.success() {

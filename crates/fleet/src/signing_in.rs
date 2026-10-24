@@ -30,7 +30,7 @@ mod enrolling;
 mod serving;
 
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+use std::sync::{Arc, Mutex, MutexGuard, OnceLock, PoisonError};
 use std::time::{Duration, Instant};
 
 use adapter_traits::{Polled, Secret, SignIn, SignInError};
@@ -119,7 +119,13 @@ struct Inner {
     clock: Arc<dyn Clock>,
     pacing: Pacing,
     state: Mutex<State>,
+    /// A profile's shared home as `login/repository`, where this machine holds a copy of it.
+    /// `crate::home` hands it in.
+    home: OnceLock<HomeHere>,
 }
+
+/// Whether this machine holds a copy of a login's shared home, and its name.
+type HomeHere = Arc<dyn Fn(&str) -> Option<String> + Send + Sync>;
 
 /// The machine's sign-in and its profiles.
 #[derive(Clone)]
@@ -145,6 +151,7 @@ impl SigningIn {
                 clock,
                 pacing: Pacing::forge(),
                 state: Mutex::new(State { generation: 0, flow: Flow::Idle, ended: None }),
+                home: OnceLock::new(),
             }),
         }
     }
@@ -154,6 +161,25 @@ impl SigningIn {
     pub fn paced(self, pacing: Pacing) -> SigningIn {
         let inner = Arc::try_unwrap(self.inner).unwrap_or_else(|_| unreachable!("paced before it is shared"));
         SigningIn { inner: Arc::new(Inner { pacing, ..inner }) }
+    }
+
+    /// Read whether a profile's shared home is here through `here`. Only the first is kept.
+    pub fn knowing_home(&self, here: HomeHere) {
+        let _ = self.inner.home.set(here);
+    }
+
+    /// `login`'s home where this machine holds a copy. **None for a login not read yet**, which a
+    /// home cannot be named for.
+    fn home_here(&self, login: &str) -> Option<String> {
+        if login.is_empty() {
+            return None;
+        }
+        self.inner.home.get().and_then(|here| here(login))
+    }
+
+    /// The login of every profile this machine holds.
+    pub(crate) fn logins(&self) -> Result<Vec<String>, String> {
+        Ok(self.inner.profiles.list()?.into_iter().map(|joined| joined.login).collect())
     }
 
     fn state(&self) -> MutexGuard<'_, State> {
@@ -197,12 +223,17 @@ impl SigningIn {
                 address: address.clone(),
                 expires_in_seconds: expires.saturating_duration_since(Instant::now()).as_secs(),
             },
-            Flow::Setup { login, steps } => AccountFlow::Setup {
-                login: login.clone(),
-                // The shared home does not exist yet, so there is no repository to name.
-                repository: String::new(),
-                steps: *steps,
-            },
+            Flow::Setup { login, steps } => {
+                // Read as it is asked: the home's row is done once this machine holds a copy of
+                // this login's own home, and waits while the forge here does not hold the login.
+                let home = self.home_here(login);
+                let state = if home.is_some() { SetUpState::Done } else { steps.home };
+                AccountFlow::Setup {
+                    login: login.clone(),
+                    repository: home.unwrap_or_default(),
+                    steps: SetUpSteps { home: state, ..*steps },
+                }
+            }
         }
     }
 

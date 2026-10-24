@@ -497,6 +497,7 @@ void app.whenReady().then(() => {
   });
   connection.modelDownshift.onSeeded((state) => downshiftNotice.seed(state));
   connection.timeline.onAppended((event) => everyWindow(CHANNELS.timelineAppended, event));
+  connection.acts.onFailed((failed) => everyWindow(CHANNELS.actFailed, failed));
   connection.reviews.onRun((run) => everyWindow(CHANNELS.reviewRunChanged, run));
   connection.reviews.onWalk((walk) => everyWindow(CHANNELS.reviewWalkChanged, walk));
   connection.issues.onAutopilotChanged((autopilot) => everyWindow(CHANNELS.autopilotChanged, autopilot));

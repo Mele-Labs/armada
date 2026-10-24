@@ -128,6 +128,8 @@ mod territory;
 mod preferences;
 /// settings.json: every setting as Fleet resolved it, the save, and a refusal.
 mod settings;
+/// Kit against the shared home: each row's state, the acts that settle one, and what syncs.
+mod shared_home;
 /// Which wire a build speaks: a hash `build.rs` takes of the wire surface.
 mod protocol_id;
 /// A pull request, by repository and number, and the acts a Session takes on one.
@@ -194,6 +196,8 @@ mod show_file;
 mod sketch;
 /// Which tests reach a set of paths, and which paths nothing reaches. `get_tests_reaching`.
 mod test_map;
+/// A background act that failed after its reply.
+mod act_failed;
 /// Autopilot: a repository working its own backlog. #2092.
 mod autopilot;
 /// Sleep mode: the switch and the night it keeps.
@@ -349,6 +353,10 @@ pub use sharing::{
     UnboundPiece, UnboundPieces, PACKAGE_VERSION,
 };
 pub use sharing::{KitManifestSaved, SaveKitManifest};
+pub use shared_home::{
+    ChooseHomeSide, HomeKind, HomeKindSwitch, HomeKinds, HomeNamed, HomeProfile, HomeRow, HomeRowAt, HomeRowState,
+    HomeSide, HomeUnreadable, SetHomeKind, SharedHomeRead,
+};
 pub use issue_reference::{ClaimIssue, IssueClaimed, IssueReference};
 pub use issue_queries::{
     IssueQueries, IssueQueryGuide, SaveIssueQuery, SavedIssueQuery, SearchIssues, WriteIssueQuery,
@@ -386,7 +394,7 @@ pub use merge_line::{
     MergeLineCheck, MergeLineEntry, MergeLinePullRequest, MergeLines,
 };
 pub use mods::{
-    ModChecked, ModKind, ModList, ModPromoted, ModScaffolded, ModSummary, PromoteMod,
+    ModChecked, ModKind, ModList, ModOrigin, ModPromoted, ModPullRequest, ModScaffolded, ModSummary, PromoteMod,
     ScaffoldMod, SetModEnabled, TrackerTry, TryTrackerMod,
 };
 pub use clashes::{
@@ -541,6 +549,7 @@ pub use sessions::{
     WalkTold, WindowClosed, WindowFailed, WithdrawWindow,
 };
 pub use terminals::{JobTerminal, OpenTerminal, TerminalScreen, TerminalTyped, TypeInTerminal};
+pub use act_failed::{ActFailed, BackgroundAct};
 pub use autopilot::{
     Autopilot, AutopilotCap, AutopilotList, AutopilotPick, AutopilotPickState,
     AutopilotProposal, AutopilotQuoted, AutopilotSettings, AutopilotState, ProposeAutopilot,

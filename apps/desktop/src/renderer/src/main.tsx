@@ -37,6 +37,7 @@ import { WiredSharedPanel } from "./shared-panel/wired";
 import { reviewSourceOf } from "./pr-review/source";
 import { createFleetTerritory } from "./fleet-territory";
 import { createFleetAccount } from "./fleet-account";
+import { createFleetSharedHome } from "./fleet-shared-home";
 import { AccountFromFleet } from "./account-fleet";
 import { ClashesFromFleet } from "./clashes";
 import { TerritoryFromFleet } from "./territory";
@@ -94,8 +95,10 @@ const TERRITORY = createFleetTerritory(withState(window.armada));
 const REVIEWS = createReviewStore(reviewSourceOf(window.armada));
 /** A repository's issues and the queries saved for its tracker, read from the tracker by Fleet when the Issues tab opens. */
 const ISSUES = createIssuesStore(issuesSourceOf(window.armada));
-/** The title menu's account entry: the profiles and the sign-in, over Fleet. */
-const ACCOUNT = createFleetAccount(withState(window.armada));
+/** The title menu's account entry: the profiles, the sign-in and What syncs, over Fleet. A kind switched reads the home again. */
+const ACCOUNT = createFleetAccount(withState(window.armada), undefined, { kindSwitched: (login) => HOME.readAgain(login) });
+/** Kit and the Theme rows against the chosen profile's shared home, over Fleet. */
+const HOME = createFleetSharedHome(window.armada, ACCOUNT);
 
 /**
  * Who Bridge is, read once. The only state above the boundary, and the least
@@ -128,7 +131,7 @@ function Root() {
                       <WiredSessions events={TIMELINE}>
                         <ClashesFromFleet source={CLASHES}>
                           <TerritoryFromFleet source={TERRITORY}>
-                            <AccountFromFleet source={ACCOUNT}>
+                            <AccountFromFleet source={ACCOUNT} home={HOME}>
                               <FleetEventsOver source={TIMELINE}>
                                 <ReviewsFrom store={REVIEWS}>
                                   <IssuesFrom store={ISSUES}>

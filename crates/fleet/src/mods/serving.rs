@@ -14,7 +14,9 @@ use ipc::{
 use store::ReadError;
 use tokio::task::JoinHandle;
 
-use super::{examine, fleet_rules, scaffold, scan, slug_problem, tracker, words, Payload};
+use super::{
+    built_in, examine, examine_built_in, fleet_rules, scaffold, scan, slug_problem, tracker, words, BuiltIn, Payload,
+};
 use crate::adrift::Adrift;
 use crate::daemon::Fleet;
 
@@ -22,11 +24,19 @@ use crate::daemon::Fleet;
 const UNACCEPTABLE_MOD: &str = "fleet.unacceptable_mod";
 /// A name no folder has. A 404.
 const NO_SUCH_MOD: &str = "fleet.no_such_mod";
-/// A mod that cannot go onto a branch: invalid, no `packages/` to put it in, no
-/// free slot, or already there exactly. A 409.
+/// A mod that cannot be promoted: invalid, built in, no `packages/` to put it in,
+/// no free slot, or already there exactly. A 409.
 pub(super) const MOD_NOT_PROMOTABLE: &str = "fleet.mod_not_promotable";
-/// Git or the disk would not scaffold or promote. A 500, with nothing left behind.
+/// Git or the disk would not scaffold or promote. A 500: a scaffold leaves nothing behind, and a
+/// promote leaves its Job holding the tree.
 pub(super) const MOD_NOT_WRITTEN: &str = "fleet.mod_not_written";
+
+/// Which mod a name names.
+pub(super) enum Named {
+    /// A folder in the machine's `mods/`.
+    Local,
+    BuiltIn(BuiltIn),
+}
 
 impl<H, V, W> Fleet<H, V, W>
 where
@@ -55,14 +65,19 @@ where
             .map_err(|fault| self.refusal(Adrift::Reading(ReadError::Database(fault))))
     }
 
-    /// The folder as it stands, read off the disk now.
+    /// The folder as it stands, read off the disk now, each mod with the pull request a promote holds open for it.
     async fn mods_listed(&self) -> Result<ModList, Refusal> {
         let switches = self.mod_switches_read().await?;
         self.host().mod_switches.replace(&switches);
-        let dir = self.mods_dir();
-        tokio::task::spawn_blocking(move || scan(&dir, &switches))
+        let (dir, built_in) = (self.mods_dir(), self.host().built_in_mods.clone());
+        let mut list = tokio::task::spawn_blocking(move || scan(&dir, &switches, &built_in))
             .await
-            .map_err(|why| self.mod_fault(format!("the mods folder could not be read: {why}")))
+            .map_err(|why| self.mod_fault(format!("the mods folder could not be read: {why}")))?;
+        let mut open = self.mods_in_review().await;
+        for one in &mut list.mods {
+            one.pull_request = open.remove(&one.name);
+        }
+        Ok(list)
     }
 
     /// Say the list now, because something here just changed it. The rescan
@@ -74,8 +89,17 @@ where
         Ok(list)
     }
 
-    /// `name` as a slug naming a folder that is there, or the refusal.
-    pub(super) fn mod_named(&self, name: &str) -> Result<(), Refusal> {
+    /// `name` as a built-in mod's id, or a slug naming a folder that is there, or the refusal.
+    pub(super) fn mod_named(&self, name: &str) -> Result<Named, Refusal> {
+        let none = || {
+            Refusal::NotFound(
+                WireError::raised(NO_SUCH_MOD, format!("there is no mod called `{name}`"), self.run_id())
+                    .with_field("name", ipc::WireValue::Str(name.to_string())),
+            )
+        };
+        if name.starts_with(built_in::PREFIX) {
+            return self.host().built_in_mods.named(name).cloned().map(Named::BuiltIn).ok_or_else(none);
+        }
         if let Some(why) = slug_problem(name) {
             return Err(Refusal::Unacceptable(
                 WireError::raised(UNACCEPTABLE_MOD, why, self.run_id())
@@ -83,11 +107,8 @@ where
             ));
         }
         match std::fs::symlink_metadata(self.mods_dir().join(name)) {
-            Ok(meta) if meta.is_dir() => Ok(()),
-            _ => Err(Refusal::NotFound(
-                WireError::raised(NO_SUCH_MOD, format!("there is no mod called `{name}`"), self.run_id())
-                    .with_field("name", ipc::WireValue::Str(name.to_string())),
-            )),
+            Ok(meta) if meta.is_dir() => Ok(Named::Local),
+            _ => Err(none()),
         }
     }
 }
@@ -143,12 +164,15 @@ where
     }
 
     async fn validate_mod(&self, name: String) -> Result<ModChecked, Refusal> {
-        self.mod_named(&name)?;
+        let named = self.mod_named(&name)?;
         let dir = self.mods_dir();
         let asked = name.clone();
-        let found = tokio::task::spawn_blocking(move || examine(&dir, &asked))
-            .await
-            .map_err(|why| self.mod_fault(format!("the mod could not be read: {why}")))?;
+        let found = tokio::task::spawn_blocking(move || match named {
+            Named::Local => examine(&dir, &asked),
+            Named::BuiltIn(one) => examine_built_in(&one),
+        })
+        .await
+        .map_err(|why| self.mod_fault(format!("the mod could not be read: {why}")))?;
         let valid = found.valid();
         let (mut css, mut layout, mut taught_words, mut taught_fleet) = (None, None, None, None);
         match found.files.map(|files| files.payload) {
@@ -175,7 +199,12 @@ where
     }
 
     async fn try_tracker_mod(&self, asked: TryTrackerMod) -> Result<TrackerTry, Refusal> {
-        self.mod_named(&asked.name)?;
+        if let Named::BuiltIn(_) = self.mod_named(&asked.name)? {
+            let why = format!("`{}` is built in, and only a mod in this machine's mods folder has a place to keep a try", asked.name);
+            return Err(Refusal::Unacceptable(
+                WireError::raised(UNACCEPTABLE_MOD, why, self.run_id()).with_field("name", ipc::WireValue::Str(asked.name.clone())),
+            ));
+        }
         // No repository named: one whose Manifest names this mod as its tracker, since a try against a repository that uses
         // another tracker proves nothing; the first served only where none does.
         let using = || self.repositories().served().into_iter().find(|one| one.manifest().tracker().and_then(|block| block.provider()) == Some(asked.name.as_str()));
@@ -201,7 +230,7 @@ where
         Ok(tried)
     }
 
-    async fn promote_mod(&self, promote: PromoteMod) -> Result<ModPromoted, Refusal> {
+    async fn promote_mod(self: Arc<Self>, promote: PromoteMod) -> Result<ModPromoted, Refusal> {
         self.mod_promoted(promote).await
     }
 }

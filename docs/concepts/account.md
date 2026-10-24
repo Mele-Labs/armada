@@ -68,9 +68,11 @@ An organisation that restricts third-party apps is not listed, and its repositor
 
 **Rule.** What syncs is chosen per kind and per machine, and every kind is off until it is turned on.
 
-The kinds are Kit's: Skills, Plugins, Agent file, Global instructions, Sub agents, Commands, MCP servers, the allowlist, Workflows and Memory.
+The kinds are Kit's: Mods, Skills, Plugins, Global instructions, Sub agents, Commands, MCP servers, the allowlist, Workflows and Memory.
+Agent file is not a kind of its own; it is the global instructions.
+The choice is kept in this machine's store for each profile, and a kind switched off has no rows in Kit. [Kit](kit.md), *The shared home*.
 
-**Rule.** Each synced item has one scope.
+**Rule.** Each synced item has one scope. **Not built:** a kind is the unit today, and no item carries a scope.
 
 | Scope | Where the item lives |
 | --- | --- |
@@ -112,4 +114,9 @@ The glyphs are registry entries marked Proposed: `packages/icons/icons/user-chec
 **Fleet serves binding.** `get_accounts` carries each profile's repositories and the ones bound to none, and `set_repository_profile` chooses a profile or None for a repository; Bridge draws them.
 There is no active profile and no set-active act.
 
-**Not built.** What syncs and the shared home. The central store is deployed outside this repository, [Central store](../contracts/central-store.md).
+**Built in Fleet.** What syncs, per kind and per machine and kept in the store, and the shared home: Fleet makes the repository, and the sign-in's home step reads done once the home exists. [Kit](kit.md), *The shared home*, and [the protocol page](../practices/protocol/the-shared-home.md).
+
+**Built in Bridge.** What syncs reads a profile's kinds from `get_home_kinds` when it opens and switches one with `set_home_kind`, drawn at once and then as Fleet answers; the home chip is made once this machine holds a copy of that profile's home.
+A refused switch goes back and is said on the page, as the other refusals are.
+**Not built.** Per-item scopes: Fleet sends no item of a kind, so a kind turned on lists none, and nothing shows it pulling.
+The central store is deployed outside this repository, [Central store](../contracts/central-store.md).

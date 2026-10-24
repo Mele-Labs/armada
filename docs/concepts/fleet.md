@@ -297,7 +297,8 @@ Fleet never drops, pops or applies one.
 Fleet reads the hold again, refuses with the pull's own codes, and makes a commit from objects: its parent is the tip `origin` holds of the base, its tree is that tip's with each listed path's working-tree content (a file gone from the working tree is removed), and it is pushed to `armada/checkout-<hex>` and opened as a pull request titled by the path or `<n> files`, with auto-merge on.
 The working tree, the index and `HEAD` are only read, under the merge end so a pull's stash cannot hide a file from the commit.
 The commit itself refuses a path main changed to something else since the hold was read, and leaves out a path that already equals the tip.
-The answer is the pull request's number and whether the forge took auto-merge (a forge that refused it still has the pull request open).
+The answer comes once the hold has been read and lists files to send, with nothing in it.
+The commit, the push and the pull request finish after it; the hold carries the pull request's number and whether the forge took auto-merge (a forge that refused it still has the pull request open), and a send that fails is `act.failed`.
 Fleet keeps the number in memory beside the hold and serves it as `checkout.pull_request` until the hold clears; the files stay listed, because here they are still uncommitted.
 A second press is `fleet.checkout_already_sent` (409).
 Once the pull request is on main, the catch-up above finds every file main's own and pulls by itself.
@@ -408,6 +409,7 @@ One Job, not every row: a Job that read the pull request from a directory in a s
 
 **A Job's wait on a merge the forge will do is not the owner's, and Fleet takes it off Needs you.**
 While the queue or auto-merge holds the pull request, every reading takes off each owner Job's `waiting_for` item that names it, and tells the Job only where something came off.
+Fleet knows the pull request by `#N`, "pull request N", "PR N", its link, its branch or its title, and takes off a line it read from a reply as well as the agent's own.
 The job note tells agents not to state it.
 
 ### Watches
@@ -422,6 +424,9 @@ It tells the Job when one turns failed, ends passed, gives up or breaks, once fo
 **Fleet tells, checks and draws a call for the person's own pull requests, and for no one else's.** Mine is the pull request's author login equalling, in any case, either the GitHub login Armada is signed in as for the repository (the profile bound to it, `SigningIn::login_for`) or the login the forge's command line is signed in as on this machine (`gh api user`, asked until it answers and then kept).
 **Where neither login is known every pull request is mine**, and so is one whose forge named no author: a rule that cannot be read does not go quiet.
 Fleet puts the result on each open pull request in the hub as `mine`, absent meaning mine.
+**The hub's list also asks the forge for each known login's open pull requests**, one call a login after the list answers, and adds those the list left out.
+In a busy repository the 100 created last, or 25, can all be other people's, and the merge line would show none of the person's.
+A forge silent on that call keeps what the list gave.
 
 | Pull request | Merge line | Call cards | Messages to owners, merged notices | Timeline |
 |---|---|---|---|---|
@@ -431,7 +436,7 @@ Fleet puts the result on each open pull request in the hub as `mine`, absent mea
 
 **The queue is where a team shares a line, so it stays whole.** Someone else's pull request in the queue is a fact about when yours lands.
 Outside it, it is theirs to watch.
-The pull reading reads every open pull request with its author on one call, so the rule costs no second ask.
+The pull reading reads every open pull request with its author on one call, so the rule costs it no second ask.
 
 ### The pull requests waiting on a person
 

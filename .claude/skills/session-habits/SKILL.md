@@ -62,7 +62,9 @@ the owner's corrections on top of it.
 - **A brief for a screen** says: no aggregate counts, a state is a registry
   glyph with a tooltip, never an emoji, textareas pass a `keep` key (29 Sep,
   2 and 8 Oct). A styling pass is bold in weight, not volume: `PoolSlots` is
-  the bar (4 Oct).
+  the bar (4 Oct). Controls repeated down a list sit in fixed columns, kept
+  where a row lacks one (`docs/contracts/design-system/spacing-and-shape.md`;
+  23 Oct, asked twice).
 - **When an agent's report says it skipped a step a doc requires**, send it
   back before relaying the report (7 Oct).
 

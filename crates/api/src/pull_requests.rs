@@ -30,7 +30,7 @@ pub(crate) async fn ready_pull_request<D: PullRequests>(
     Path((repository, number)): Path<(String, u64)>,
 ) -> Response {
     match served
-        .daemon()
+        .shared()
         .ready_pull_request(ManifestId::carried(repository), number)
         .await
     {
@@ -46,7 +46,7 @@ pub(crate) async fn merge_pull_request_by_number<D: PullRequests>(
     Path((repository, number)): Path<(String, u64)>,
 ) -> Response {
     match served
-        .daemon()
+        .shared()
         .merge_pull_request_by_number(ManifestId::carried(repository), number)
         .await
     {
@@ -61,7 +61,7 @@ pub(crate) async fn enable_auto_merge<D: PullRequests>(
     Path((repository, number)): Path<(String, u64)>,
 ) -> Response {
     match served
-        .daemon()
+        .shared()
         .enable_auto_merge(ManifestId::carried(repository), number)
         .await
     {

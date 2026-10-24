@@ -745,7 +745,7 @@ async fn a_quiet_process_is_ended_and_closing_ends_the_row_and_refuses_more() {
         .unwrap();
     assert!(stand_in.starts()[1].resuming);
 
-    let closed = quick
+    let closed = Arc::clone(&quick)
         .close_session(CloseSession {
             session_id: id.clone(),
         })
@@ -939,7 +939,7 @@ async fn allow_for_the_session_lets_its_next_call_run_and_is_gone_when_it_closes
     rig.fleet.answer_session_ask(answer(&other, &ask.call, HelmCallAnswer::Refuse, None)).await.unwrap();
     assert!(matches!(theirs.await.unwrap().unwrap(), ipc::RunOrNot::Deny { .. }));
 
-    rig.fleet.close_session(CloseSession { session_id: id.clone() }).await.unwrap();
+    Arc::clone(&rig.fleet).close_session(CloseSession { session_id: id.clone() }).await.unwrap();
     assert!(rig.fleet.hosts().of(id.as_str()).state().allowed_folders.is_empty());
 }
 

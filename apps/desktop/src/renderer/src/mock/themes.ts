@@ -16,8 +16,20 @@ const FILES = (
 ).glob("../../../../../../packages/tokens/themes/example-mod/dusk/theme.css", { eager: true, query: "?raw", import: "default" });
 
 /** The theme a Session writes into the mod folder in the `mods-themes` scenario. */
-const DUSK_CSS = Object.values(FILES)[0] ?? "";
+export const DUSK_CSS = Object.values(FILES)[0] ?? "";
 export const DUSK_MOD: ThemeMod = { name: "dusk", title: "Dusk", enabled: true, swatch: modSwatch(DUSK_CSS), load: () => Promise.resolve(DUSK_CSS) };
 
+/** What a scenario's Promote leaves on a mod, where it opens a pull request and a Job. Absent leaves the branch alone. */
+type Promotes = (name: string) => Pick<ThemeMod, "branch" | "pull" | "job">;
+let promotes: Promotes | undefined;
+
+/** Set by a scenario's `behaves`, and cleared by every window before its scenario is built. */
+export function promoteThemesWith(how: Promotes | undefined): void {
+  promotes = how;
+}
+
 /** The catalogue and no mods, Dark in force: where every mock window starts. */
-export const mockThemes = createThemeSource(() => ({ mods: [], catalogue: CATALOGUE, active: "dark", swatches: BUILT_IN_SWATCHES }));
+export const mockThemes = createThemeSource(
+  () => ({ mods: [], catalogue: CATALOGUE, active: "dark", swatches: BUILT_IN_SWATCHES }),
+  (name) => promotes?.(name) ?? { branch: `armada/mod-${name}-${Date.now()}` },
+);

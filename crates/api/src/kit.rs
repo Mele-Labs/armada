@@ -134,7 +134,7 @@ pub(crate) async fn commit_to_repository<D: Commands>(
         Ok(asked) => asked,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
-    match served.daemon().commit_to_repository(asked).await {
+    match served.shared().commit_to_repository(asked).await {
         Ok(committed) => answer(StatusCode::OK, &committed, served.run_id()),
         Err(refusal) => refused(refusal),
     }

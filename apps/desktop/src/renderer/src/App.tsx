@@ -84,6 +84,7 @@ import { ReviewsSurface } from "./pr-review/surface"; import { reviewsHidden, us
 import { SessionsOwnership } from "./sessions";
 import { askToOpenSessionInCockpit, useOpenSessionAsked } from "./open-session"; import { askForFixes, useOpenRetroAsked } from "./open-retro"; import { useOpenHolderAsked } from "./open-holder";
 import { useTellAsked } from "./tell";
+import { tellActFailures } from "./act-failed";
 import { useOutcomeRaised } from "./tell";
 import { ImportPackage } from "./sharing/ImportPackage";
 import { useHistory } from "./history"; import { showingOf } from "./showing"; import { WorkflowCreatorSurface, workflowsWarned } from "./workflow-creator";
@@ -312,6 +313,7 @@ export function App() {
   const { raised, lower, tell, raiseBuildFailed } = useRaised(commands.outcome);
   const dispatchFailure = useDispatchFailure(repositories, openSession, state);
   useTellAsked(tell); // The annotation layer's send that failed.
+  useEffect(() => tellActFailures(window.armada), []); // A background act that failed after its reply.
   useOutcomeRaised(commands.setOutcome); // A press on a surface with no command of its own, such as Share.
   useBuildFailed(state.fleetBuild, raiseBuildFailed); // A restart Fleet reports as failed.
   // The only reading of the time App makes: how long an unreachable Fleet has been silent, in its failure.

@@ -146,9 +146,10 @@ function Repositories({ account, profile }: { account: Account; profile: Profile
 /** One profile: its login and whose it is, its set-up rows, the repositories bound to it, and the acts on it. */
 function ProfileTile({ account, profile, setup }: { account: Account; profile: Profile; setup: Setup | undefined }) {
   const noHome = account.home === false;
-  const steps: Steps = setup?.steps ?? { identity: "done", store: "done", home: noHome && profile.repository === undefined ? "waiting" : "done" };
+  const steps: Steps = setup?.steps ?? { identity: "done", store: "done", home: profile.repository === undefined ? "waiting" : "done" };
   const repository = setup === undefined ? (profile.repository ?? "") : setup.repository;
-  const unset = repository === "" && steps.home !== "done";
+  // A home with no repository named does not exist yet, whatever the step says.
+  const unset = repository === "";
   return (
     <li className="armada-account__tile" data-tile="profile" aria-label={profile.login}>
       <header className="armada-account__tile-head">

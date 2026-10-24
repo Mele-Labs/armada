@@ -11,7 +11,7 @@
 use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, PullQueue, Vcs, FollowedPull, WorkProduct};
-use api::{PullRequests, Refusal};
+use api::Refusal;
 use ipc::{ManifestId, PullRequestStanding, SessionRecord, SetSessionAutoLand};
 use store::{AttachmentState, Holder};
 

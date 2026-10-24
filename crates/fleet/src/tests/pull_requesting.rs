@@ -5,10 +5,13 @@
 //! **No forge is called.** `FakeVcs` stands in for `gh`, and a test that says a
 //! merge was refused says so by counting what the fake was asked to write.
 
+use std::sync::Arc;
+use std::time::Duration;
+
 use adapter_traits::{
     NotMerged, PullRequestFacts, PullRequestStanding, UnderReview, WhatTheForgeRan,
 };
-use api::{PullRequests, Refusal, Sessions};
+use api::{Next, PullRequests, Refusal, Sessions, Subscription};
 use ipc::{
     AttachmentReport, AttachmentState, ForgeChecks, ManifestId, PullRequestStanding as Wire, SessionFact, SessionId, SessionRecord, SessionReport,
 };
@@ -102,6 +105,27 @@ pub(super) async fn a_session_holding_pull_request_12(fleet: &Fixture, id: &str)
         }))
         .await
         .expect("attached")
+}
+
+/// Wait for the `session.changed` the ledger publishes when it follows an act's pull request, which
+/// is after the act's reply.
+async fn ledger_followed(watching: &mut Subscription, id: &str) {
+    tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            match watching.next().await {
+                Some(Next::Send(delivered)) => {
+                    if let ipc::Event::SessionChanged(record) = delivered.event {
+                        if record.id.as_str() == id {
+                            return;
+                        }
+                    }
+                }
+                other => panic!("the stream ended: {other:?}"),
+            }
+        }
+    })
+    .await
+    .expect("the ledger followed the act");
 }
 
 pub(super) async fn the_row(fleet: &Fixture, id: &str, kind: &str) -> ipc::Attachment {
@@ -316,18 +340,20 @@ async fn a_row_in_another_repository_or_another_number_is_left_alone() {
 #[tokio::test]
 async fn a_draft_is_taken_out_of_draft_and_the_answer_is_the_new_state() {
     let home = TempDir::new();
-    let fleet = a_fleet(&home);
+    let fleet = Arc::new(a_fleet(&home));
     let (id, _) = manifest(&fleet);
     a_session_holding_pull_request_12(&fleet, "s1").await;
     fleet
         .vcs()
         .now_pull_request(Some(facts(PullRequestStanding::Draft)));
     forge_ran(&fleet, running());
+    let mut watching = fleet.events().subscribe();
 
-    let now = fleet.ready_pull_request(id, 12).await.expect("readied");
+    let now = Arc::clone(&fleet).ready_pull_request(id, 12).await.expect("readied");
 
     assert_eq!(now.state, Wire::Open);
     assert_eq!(fleet.vcs().times_asked_to_ready(), 1);
+    ledger_followed(&mut watching, "s1").await;
     assert_eq!(
         the_row(&fleet, "s1", "pr")
             .await
@@ -338,6 +364,53 @@ async fn a_draft_is_taken_out_of_draft_and_the_answer_is_the_new_state() {
     );
 }
 
+/// **The reply does not wait on the read after the write.** The forge is held shut for that read,
+/// and the press has answered; the ledger follows when the read is let through.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn the_reply_comes_back_while_the_forge_is_held_on_the_read_after_the_write() {
+    for act in ["ready", "merge", "auto_merge"] {
+        let home = TempDir::new();
+        let fleet = Arc::new(a_fleet(&home));
+        let (id, _) = manifest(&fleet);
+        a_session_holding_pull_request_12(&fleet, "s1").await;
+        let (standing, ran) = match act {
+            "ready" => (PullRequestStanding::Draft, running()),
+            "merge" => (PullRequestStanding::Open, passed()),
+            _ => (PullRequestStanding::Open, running()),
+        };
+        fleet.vcs().now_pull_request(Some(facts(standing)));
+        forge_ran(&fleet, ran);
+        let hold = fleet.vcs().hold_reads_after_a_write();
+        let mut watching = fleet.events().subscribe();
+
+        let pressed = tokio::spawn({
+            let fleet = Arc::clone(&fleet);
+            async move {
+                match act {
+                    "ready" => fleet.ready_pull_request(id, 12).await,
+                    "merge" => fleet.merge_pull_request_by_number(id, 12).await,
+                    _ => fleet.enable_auto_merge(id, 12).await,
+                }
+            }
+        });
+        let now = tokio::time::timeout(Duration::from_secs(3), pressed)
+            .await
+            .unwrap_or_else(|_| panic!("{act}: the reply waited on the forge's read"))
+            .expect("joined")
+            .expect("pressed");
+
+        match act {
+            "ready" => assert_eq!(now.state, Wire::Open),
+            "merge" => assert_eq!(now.state, Wire::Merged),
+            _ => assert!(now.auto_merge),
+        }
+        assert!(the_row(&fleet, "s1", "pr").await.detail.is_empty(), "{act}: the ledger waits on the read");
+        hold.open();
+        ledger_followed(&mut watching, "s1").await;
+        assert!(!the_row(&fleet, "s1", "pr").await.detail.is_empty(), "{act}");
+    }
+}
+
 #[tokio::test]
 async fn readying_what_is_not_a_draft_is_refused_without_a_write() {
     for (standing, expected) in [
@@ -346,12 +419,12 @@ async fn readying_what_is_not_a_draft_is_refused_without_a_write() {
         (PullRequestStanding::Closed, "fleet.merge_not_open"),
     ] {
         let home = TempDir::new();
-        let fleet = a_fleet(&home);
+        let fleet = Arc::new(a_fleet(&home));
         let (id, _) = manifest(&fleet);
         fleet.vcs().now_pull_request(Some(facts(standing)));
         forge_ran(&fleet, passed());
 
-        let refused = fleet.ready_pull_request(id, 12).await.unwrap_err();
+        let refused = Arc::clone(&fleet).ready_pull_request(id, 12).await.unwrap_err();
 
         assert_eq!(code(&refused), expected);
         assert_eq!(refused.status(), 409);
@@ -362,7 +435,7 @@ async fn readying_what_is_not_a_draft_is_refused_without_a_write() {
 #[tokio::test]
 async fn a_forge_that_will_not_ready_it_says_so_in_its_own_words() {
     let home = TempDir::new();
-    let fleet = a_fleet(&home);
+    let fleet = Arc::new(a_fleet(&home));
     let (id, _) = manifest(&fleet);
     fleet
         .vcs()
@@ -370,7 +443,7 @@ async fn a_forge_that_will_not_ready_it_says_so_in_its_own_words() {
     forge_ran(&fleet, running());
     fleet.vcs().ready_refuses("GraphQL: not permitted");
 
-    let refused = fleet.ready_pull_request(id, 12).await.unwrap_err();
+    let refused = Arc::clone(&fleet).ready_pull_request(id, 12).await.unwrap_err();
 
     assert_eq!(code(&refused), "fleet.ready_refused");
     assert!(refused.error().message.contains("not permitted"));
@@ -381,21 +454,23 @@ async fn a_forge_that_will_not_ready_it_says_so_in_its_own_words() {
 #[tokio::test]
 async fn a_pull_request_whose_checks_passed_is_merged_and_the_row_is_spent() {
     let home = TempDir::new();
-    let fleet = a_fleet(&home);
+    let fleet = Arc::new(a_fleet(&home));
     let (id, _) = manifest(&fleet);
     a_session_holding_pull_request_12(&fleet, "s1").await;
     fleet
         .vcs()
         .now_pull_request(Some(facts(PullRequestStanding::Open)));
     forge_ran(&fleet, passed());
+    let mut watching = fleet.events().subscribe();
 
-    let now = fleet
+    let now = Arc::clone(&fleet)
         .merge_pull_request_by_number(id, 12)
         .await
         .expect("merged");
 
     assert_eq!(now.state, Wire::Merged);
     assert_eq!(fleet.vcs().times_asked_to_merge(), 1);
+    ledger_followed(&mut watching, "s1").await;
     let row = the_row(&fleet, "s1", "pr").await;
     assert_eq!(row.state, AttachmentState::Spent);
     assert_eq!(row.detail.get("state").map(String::as_str), Some("merged"));
@@ -415,14 +490,14 @@ async fn a_merge_while_the_checks_have_not_passed_is_refused_before_it_writes() 
         },
     ] {
         let home = TempDir::new();
-        let fleet = a_fleet(&home);
+        let fleet = Arc::new(a_fleet(&home));
         let (id, _) = manifest(&fleet);
         fleet
             .vcs()
             .now_pull_request(Some(facts(PullRequestStanding::Open)));
         forge_ran(&fleet, ran.clone());
 
-        let refused = fleet
+        let refused = Arc::clone(&fleet)
             .merge_pull_request_by_number(id, 12)
             .await
             .unwrap_err();
@@ -443,12 +518,12 @@ async fn a_draft_and_a_closed_pull_request_are_not_merged() {
         (PullRequestStanding::Closed, "fleet.merge_not_open"),
     ] {
         let home = TempDir::new();
-        let fleet = a_fleet(&home);
+        let fleet = Arc::new(a_fleet(&home));
         let (id, _) = manifest(&fleet);
         fleet.vcs().now_pull_request(Some(facts(standing)));
         forge_ran(&fleet, passed());
 
-        let refused = fleet
+        let refused = Arc::clone(&fleet)
             .merge_pull_request_by_number(id, 12)
             .await
             .unwrap_err();
@@ -461,14 +536,14 @@ async fn a_draft_and_a_closed_pull_request_are_not_merged() {
 #[tokio::test]
 async fn one_already_merged_is_answered_as_it_stands_and_nothing_is_written() {
     let home = TempDir::new();
-    let fleet = a_fleet(&home);
+    let fleet = Arc::new(a_fleet(&home));
     let (id, _) = manifest(&fleet);
     fleet
         .vcs()
         .now_pull_request(Some(facts(PullRequestStanding::Merged)));
     forge_ran(&fleet, passed());
 
-    let now = fleet.merge_pull_request_by_number(id, 12).await.unwrap();
+    let now = Arc::clone(&fleet).merge_pull_request_by_number(id, 12).await.unwrap();
 
     assert_eq!(now.state, Wire::Merged);
     assert_eq!(fleet.vcs().times_asked_to_merge(), 0);
@@ -507,7 +582,7 @@ async fn the_forges_own_refusals_keep_the_codes_a_job_merge_has() {
         ),
     ] {
         let home = TempDir::new();
-        let fleet = a_fleet(&home);
+        let fleet = Arc::new(a_fleet(&home));
         let (id, _) = manifest(&fleet);
         fleet
             .vcs()
@@ -515,7 +590,7 @@ async fn the_forges_own_refusals_keep_the_codes_a_job_merge_has() {
         forge_ran(&fleet, passed());
         fleet.vcs().merging(Merging::Refuses(why));
 
-        let refused = fleet
+        let refused = Arc::clone(&fleet)
             .merge_pull_request_by_number(id, 12)
             .await
             .unwrap_err();
@@ -531,19 +606,21 @@ async fn the_forges_own_refusals_keep_the_codes_a_job_merge_has() {
 #[tokio::test]
 async fn auto_merge_is_asked_for_while_the_checks_run() {
     let home = TempDir::new();
-    let fleet = a_fleet(&home);
+    let fleet = Arc::new(a_fleet(&home));
     let (id, _) = manifest(&fleet);
     a_session_holding_pull_request_12(&fleet, "s1").await;
     fleet
         .vcs()
         .now_pull_request(Some(facts(PullRequestStanding::Open)));
     forge_ran(&fleet, running());
+    let mut watching = fleet.events().subscribe();
 
-    let now = fleet.enable_auto_merge(id.clone(), 12).await.expect("on");
+    let now = Arc::clone(&fleet).enable_auto_merge(id.clone(), 12).await.expect("on");
 
     assert!(now.auto_merge);
     assert_eq!(now.state, Wire::Open, "it merges nothing itself");
     assert_eq!(fleet.vcs().times_asked_for_auto_merge(), 1);
+    ledger_followed(&mut watching, "s1").await;
     assert_eq!(
         the_row(&fleet, "s1", "pr")
             .await
@@ -554,25 +631,27 @@ async fn auto_merge_is_asked_for_while_the_checks_run() {
     );
 
     // Asked twice, the second answers as it stands.
-    fleet.enable_auto_merge(id, 12).await.expect("as it stands");
+    Arc::clone(&fleet).enable_auto_merge(id, 12).await.expect("as it stands");
     assert_eq!(fleet.vcs().times_asked_for_auto_merge(), 1);
 }
 
 #[tokio::test]
 async fn auto_merge_on_checks_that_passed_already_queues_it_instead_of_refusing() {
     let home = TempDir::new();
-    let fleet = a_fleet(&home);
+    let fleet = Arc::new(a_fleet(&home));
     let (id, _) = manifest(&fleet);
     a_session_holding_pull_request_12(&fleet, "s1").await;
     fleet
         .vcs()
         .now_pull_request(Some(facts(PullRequestStanding::Open)));
     forge_ran(&fleet, passed());
+    let mut watching = fleet.events().subscribe();
 
-    let now = fleet.enable_auto_merge(id, 12).await.expect("queued");
+    let now = Arc::clone(&fleet).enable_auto_merge(id, 12).await.expect("queued");
 
     assert!(now.auto_merge);
     assert_eq!(fleet.vcs().times_asked_for_auto_merge(), 1);
+    ledger_followed(&mut watching, "s1").await;
     assert_eq!(
         the_row(&fleet, "s1", "pr")
             .await
@@ -586,7 +665,7 @@ async fn auto_merge_on_checks_that_passed_already_queues_it_instead_of_refusing(
 #[tokio::test]
 async fn a_pull_request_already_in_the_merge_queue_is_answered_as_queued_and_not_asked_again() {
     let home = TempDir::new();
-    let fleet = a_fleet(&home);
+    let fleet = Arc::new(a_fleet(&home));
     let (id, _) = manifest(&fleet);
     a_session_holding_pull_request_12(&fleet, "s1").await;
     fleet
@@ -599,7 +678,7 @@ async fn a_pull_request_already_in_the_merge_queue_is_answered_as_queued_and_not
         state: adapter_traits::QueueState::Queued,
     }]));
 
-    let now = fleet.enable_auto_merge(id, 12).await.expect("as it stands");
+    let now = Arc::clone(&fleet).enable_auto_merge(id, 12).await.expect("as it stands");
 
     assert!(now.queued);
     assert_eq!(fleet.vcs().times_asked_for_auto_merge(), 0);
@@ -616,7 +695,7 @@ async fn a_pull_request_already_in_the_merge_queue_is_answered_as_queued_and_not
 #[tokio::test]
 async fn the_pull_reading_settles_a_terminal_sessions_merged_pull_request_nobody_opened() {
     let home = TempDir::new();
-    let fleet = a_fleet(&home);
+    let fleet = Arc::new(a_fleet(&home));
     let (id, root) = manifest(&fleet);
     a_session_holding_pull_request_12(&fleet, "s1").await;
     fleet
@@ -634,7 +713,7 @@ async fn the_pull_reading_settles_a_terminal_sessions_merged_pull_request_nobody
 #[tokio::test]
 async fn a_row_a_session_took_again_after_the_merge_is_settled_by_the_next_watch() {
     let home = TempDir::new();
-    let fleet = a_fleet(&home);
+    let fleet = Arc::new(a_fleet(&home));
     let (id, root) = manifest(&fleet);
     a_session_holding_pull_request_12(&fleet, "s1").await;
     fleet
@@ -681,12 +760,12 @@ async fn auto_merge_is_refused_once_a_check_failed_and_on_a_draft() {
         ),
     ] {
         let home = TempDir::new();
-        let fleet = a_fleet(&home);
+        let fleet = Arc::new(a_fleet(&home));
         let (id, _) = manifest(&fleet);
         fleet.vcs().now_pull_request(Some(facts(standing)));
         forge_ran(&fleet, ran);
 
-        let refused = fleet.enable_auto_merge(id, 12).await.unwrap_err();
+        let refused = Arc::clone(&fleet).enable_auto_merge(id, 12).await.unwrap_err();
 
         assert_eq!(code(&refused), expected);
         assert_eq!(refused.status(), 409);
@@ -697,7 +776,7 @@ async fn auto_merge_is_refused_once_a_check_failed_and_on_a_draft() {
 #[tokio::test]
 async fn a_repository_that_does_not_allow_auto_merge_says_so_in_the_forges_words() {
     let home = TempDir::new();
-    let fleet = a_fleet(&home);
+    let fleet = Arc::new(a_fleet(&home));
     let (id, _) = manifest(&fleet);
     fleet
         .vcs()
@@ -707,7 +786,7 @@ async fn a_repository_that_does_not_allow_auto_merge_says_so_in_the_forges_words
         .vcs()
         .now_auto_merge(Err("Auto merge is not allowed".into()));
 
-    let refused = fleet.enable_auto_merge(id, 12).await.unwrap_err();
+    let refused = Arc::clone(&fleet).enable_auto_merge(id, 12).await.unwrap_err();
 
     assert_eq!(code(&refused), "fleet.auto_merge_refused");
     assert!(refused.error().message.contains("not allowed"));

@@ -365,7 +365,7 @@ async fn an_ended_session_has_no_reply_and_no_standing() {
     rig.stand_in.finishes(0, "The cap is five.");
     eventually(|| async { replied(&record(&rig, &id).await) }).await;
 
-    rig.fleet.close_session(CloseSession { session_id: id.clone() }).await.expect("closed");
+    Arc::clone(&rig.fleet).close_session(CloseSession { session_id: id.clone() }).await.expect("closed");
     assert_eq!(record(&rig, &id).await.standing, None);
 }
 

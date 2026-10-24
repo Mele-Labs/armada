@@ -15,6 +15,8 @@
 //! - `asked_run` is `gate` asked from the other side, before a step is spent.
 //! - `peer` is the primitive `concurrency` rests on: a call attributed by the
 //!   connection it arrived on rather than by which Job was admitted first.
+mod act_failing;
+mod sending_checkout;
 mod agent_starts;
 mod session_after;
 mod asking_in_window;

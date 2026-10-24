@@ -80,7 +80,7 @@ async fn the_brief_a_waiting_job_is_sent_when_its_wait_is_met_is_what_its_first_
         .start_session_reading(brief_after(&rig, &agent, StartCondition::Ends, StartBase::Main))
         .await
         .expect("made to wait");
-    rig.fleet.close_session(CloseSession { session_id: agent.clone() }).await.expect("closed");
+    Arc::clone(&rig.fleet).close_session(CloseSession { session_id: agent.clone() }).await.expect("closed");
     rig.eventually(&waiting.id, "the start", |one| one.waits.is_none()).await;
     let brief = rig
         .thread_has(&waiting.id, "the brief", |row| matches!(row, SessionRow::Message { text, .. } if text.ends_with(BRIEF)))

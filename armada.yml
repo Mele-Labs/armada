@@ -113,8 +113,10 @@ checks:
     # `include_str!`. `armada.yml` is here because a change to this file is a
     # change to the command itself.
     #
-    # `apps/**` and `packages/**` are deliberately absent: nothing outside a
-    # test compiles them in, and `test` below says why it needs them.
+    # `packages/mods/**` is here because `crates/fleet/build.rs` compiles it in
+    # as built-in mods. `apps/**` and the rest of `packages/**` are deliberately
+    # absent: nothing outside a test compiles them in, and `test` below says why
+    # it needs them.
     when:
       - ".github/**"
       - "crates/**"
@@ -123,6 +125,7 @@ checks:
       - "Cargo.lock"
       - ".cargo/**"
       - "packages/protocol/**"
+      - "packages/mods/**"
       - ".armada/workflows/**"
       - "armada.yml"
 
@@ -145,13 +148,20 @@ checks:
     # `git show ecfffb2c1ebd:docs/capabilities/merge-line.md`, *What a narrowed Check runs*.
     #
     # `outside` is what that `-p xtask` already measures on its own: `apps/`
-    # and `packages/`, which `when` below covers only because xtask's tests
-    # read them. No other member reads either tree, by test or `include_str!`
-    # — checked 4 Oct 2026. So a change there runs xtask alone rather than
-    # every test in the workspace after a cold compile, which is what Job 3's
-    # Bridge-only change paid. Owner, 4 Oct 2026. A path a member other than
-    # xtask reads does not belong here: it would run without the tests that
-    # read it.
+    # and the packages but `mods`, which `when` below covers only because
+    # xtask's tests read them. No other member reads those trees, by test or
+    # `include_str!` — checked 4 Oct 2026. So a change there runs xtask alone
+    # rather than every test in the workspace after a cold compile, which is
+    # what Job 3's Bridge-only change paid. Owner, 4 Oct 2026. A path a member
+    # other than xtask reads does not belong here: it would run without the
+    # tests that read it.
+    #
+    # **`packages/mods/` is such a path**: `fleet`'s `build.rs` compiles it in
+    # as built-in mods, which `fleet` lists. The dialect
+    # has no negation, so `outside` names each package but `mods` and never
+    # `packages/**`. A change to `packages/mods/` is then a path `under` cannot
+    # name, which runs the Check whole and so `-p fleet` with the rest. A package
+    # added later runs whole until it is listed here.
     #
     # **`outside` is now `brand`, `protocol`, `shell`, `tokens` and `icons`
     # alone**: the root owns only what no workspace claims, so a change under
@@ -166,7 +176,16 @@ checks:
         - acceptance
       outside:
         - "apps/**"
-        - "packages/**"
+        - "packages/README.md"
+        - "packages/brand/**"
+        - "packages/bridge-api/**"
+        - "packages/components/**"
+        - "packages/icons/**"
+        - "packages/protocol/**"
+        - "packages/screens/**"
+        - "packages/shell/**"
+        - "packages/surfaces/**"
+        - "packages/tokens/**"
     # One test by name, which Fleet runs against a checkout of main before a
     # Drone's `draft_fix` drafts anything. #999.
     #

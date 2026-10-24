@@ -14,7 +14,7 @@ A `words.toml` (at most 16 KiB) or a `fleet.toml` (at most 8 KiB) is read in pla
 
 A `tracker.toml` is read in place of `theme.css` for a mod whose kind is `tracker`: at most 32 KiB, TOML with `[guide]`, `[search]` and `[read]`, an optional `[credential]` and `[list]`, and nothing else. Each call section names a `transport` this build has (`cli` or `http`), only the keys that transport takes, a `map`, and only the placeholders it can fill. Nothing is run: passing here is not passing a try, see `try_tracker_mod`. No text is returned for a tracker, since Bridge applies none. `docs/concepts/mods.md`, *Tracker mods*.
 
-**A mod that cannot be read at all is `valid: false` with the reason, not an error.** A name that is not a slug is a 422 `fleet.unacceptable_mod`, a slug naming no folder a 404 `fleet.no_such_mod`.
+**A mod that cannot be read at all is `valid: false` with the reason, not an error.** A name that is not a slug is a 422 `fleet.unacceptable_mod`, a slug naming no folder or a `built-in:` id naming no built-in mod a 404 `fleet.no_such_mod`. A built-in mod is checked from the text compiled in.
 
 `agent_access` is `Yes`: a job checks its own work with this before it says it is done.
 """

@@ -116,6 +116,16 @@ pub trait Forge {
         number: u64,
     ) -> Option<crate::OpenPull>;
 
+    /// That list's rows for **one author's** open pull requests: the person's own, which a busy
+    /// repository's newest can leave out entirely. `None` is the forge's silence, and also an
+    /// author it would read as something else.
+    fn open_pull_requests_by(
+        &self,
+        in_repo: &str,
+        gate: &str,
+        author: &str,
+    ) -> Option<crate::OpenPulls>;
+
     /// The merge queue of `base`, one forge call. `None` is the forge's silence.
     fn merge_queue(&self, in_repo: &str, base: &str) -> Option<crate::MergeQueue>;
 

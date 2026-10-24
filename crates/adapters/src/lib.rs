@@ -66,6 +66,8 @@ mod filing;
 /// Where a repository lives on its forge, and what a request's links name.
 mod forge_address;
 mod gh_forge;
+/// Claude Code's folder, as the shared home writes into it.
+mod harness_home;
 /// GitHub's API over one pooled HTTPS client, in place of a `gh` process per call.
 mod github_api;
 mod harness;
@@ -121,6 +123,8 @@ mod scouting;
 pub mod session_folders;
 pub mod session_runs;
 /// Signing in with the forge's device flow.
+/// The shared home on GitHub, and a folder on this machine read and written.
+mod shared_home;
 mod sign_in;
 /// The tracked files of a checkout that hold some words, for a pinned note.
 pub mod source_search;
@@ -200,6 +204,8 @@ pub use scouting::{
 pub use subagent_lines::{subagent_calls, subagent_parent, SubagentCall};
 pub use transcript::{background_form, init_commands, inside_a_subagent, sent_message, viewed_image, written_document};
 pub use trigger_files::{triggers_on_base, watch_recipes_on_base};
+pub use harness_home::AgentHome;
+pub use shared_home::{Folder, ForgeHomes};
 pub use sign_in::ForgeSignIn;
 pub use bucket::{BucketAddress, ObjectBucket};
 pub use request_secrets::{KeychainSecrets, SECRET_SERVICE};

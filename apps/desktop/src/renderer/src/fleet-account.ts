@@ -2,13 +2,17 @@
 // no event for it, so a read follows connecting, and while a flow is not idle another follows every
 // `POLL_MS` until it is. Nothing is held for a Fleet that has no such route or is not connected, and
 // nothing is drawn for it: the title menu offers no account where none is provided.
+//
+// What syncs is read when it is opened for a profile: its kinds, and whether its home is made. A kind switched is drawn
+// at once and then as Fleet answers, and the home is read again, since a kind left off has no rows.
 
-import type { Account, AccountFlow, BlankSetting, Profile, SignedOutNote, UnboundRepository } from "@armada/components";
+import type { Account, AccountFlow, BlankSetting, Profile, SignedOutNote, SyncChoice, UnboundRepository } from "@armada/components";
 import { openSettingsAt } from "@armada/settings";
-import type { AccountFlow as WireFlow, Accounts, SignedOut, SignInEnded } from "@armada/protocol";
+import type { AccountFlow as WireFlow, Accounts, HomeKind, HomeKinds, SharedHomeRead, SignedOut, SignInEnded } from "@armada/protocol";
 
 import type { AccountsActed } from "../../shared/api/accounts";
 import type { BridgeState } from "../../shared/bridge";
+import { HOME_REPOSITORY } from "./fleet-shared-home";
 
 /** How often a flow that is not idle is read again. */
 export const POLL_MS = 2_000;
@@ -39,7 +43,13 @@ export type FleetAccounts = {
   /** Binds the repository at `root` to the profile, or to none (`null`). */
   setRepositoryProfile: (root: string, accountId: number | null) => Promise<AccountsActed>;
   openLink: (address: string) => Promise<unknown>;
+  getSharedHome: (login: string) => Promise<AccountsActed<SharedHomeRead>>;
+  getHomeKinds: (login: string) => Promise<AccountsActed<HomeKinds>>;
+  setHomeKind: (login: string, kind: HomeKind, on: boolean) => Promise<AccountsActed<HomeKinds>>;
 };
+
+/** What What syncs tells the rest of the window: a kind was switched for `login`. */
+export type AccountHooks = { kindSwitched?: (login: string) => void };
 
 /** Where a pending read waits: `setTimeout` in the app, a hand-turned clock in a test. */
 export type Later = (run: () => void, ms: number) => () => void;
@@ -62,7 +72,10 @@ const flowOf = (wire: WireFlow): AccountFlow =>
       ? { phase: "setup", login: wire.login, repository: wire.repository, steps: wire.steps }
       : { phase: "idle" };
 
-export function createFleetAccount(fleet: FleetAccounts, later: Later = timer): AccountSource {
+/** The profile whose What syncs is open: its kinds once read, a switch pressed and not yet answered, and its home. */
+type Sheet = { login: string; kinds?: HomeKinds; pressed: Partial<Record<HomeKind, boolean>>; home?: { repository: string; made: boolean } };
+
+export function createFleetAccount(fleet: FleetAccounts, later: Later = timer, hooks: AccountHooks = {}): AccountSource {
   let wire: Accounts | undefined;
   let refused: string | undefined;
   // Who signed out, until the panel is put away; and the ended sign-in the panel has been put away on.
@@ -74,6 +87,7 @@ export function createFleetAccount(fleet: FleetAccounts, later: Later = timer): 
   let starting = false;
   let cancel: (() => void) | null = null;
   let stop: (() => void) | null = null;
+  let sheet: Sheet | null = null;
   const listeners = new Set<() => void>();
 
   // Each request takes a number as it leaves, and an answer older than one already taken is dropped, so
@@ -104,11 +118,23 @@ export function createFleetAccount(fleet: FleetAccounts, later: Later = timer): 
     // A repository is bound to a profile and the machine has none that is active, so there is nothing to switch.
     switchTo: () => {},
     bind: (root: string, login: string | null) => void bind(root, login),
-    // What syncs is not served yet.
-    choose: () => {},
-    closeSyncs: () => {},
-    setKind: () => {},
+    choose: (login: string) => void open(login),
+    closeSyncs: () => {
+      if (sheet === null) return;
+      sheet = null;
+      publish(wire, refused);
+    },
+    setKind: (kind: string, on: boolean) => void switchKind(kind as HomeKind, on),
+    // Fleet keeps no scope for an item yet, so there is nothing to move.
     setScope: () => {},
+  };
+
+  /** What syncs as the sheet draws it: nothing until the kinds are read. Fleet sends no item of a kind, so none is drawn. */
+  const syncsOf = (): Account["syncs"] => {
+    if (sheet?.kinds === undefined) return null;
+    const pressed = sheet.pressed;
+    const kinds: SyncChoice[] = sheet.kinds.kinds.map((one) => ({ kind: one.kind, on: pressed[one.kind] ?? one.on, pulling: false, items: [] }));
+    return { login: sheet.login, kinds, home: sheet.home ?? { repository: HOME_REPOSITORY, made: false } };
   };
 
   const heldOf = (from: Accounts, said: string | undefined): AccountHeld => {
@@ -131,7 +157,7 @@ export function createFleetAccount(fleet: FleetAccounts, later: Later = timer): 
     const account: Account = {
       profiles,
       flow: flowOf(from.flow),
-      syncs: null,
+      syncs: syncsOf(),
       ...(unbound.length === 0 ? {} : { unbound }),
       ...(end === undefined ? {} : { ended: end }),
       ...(said === undefined ? {} : blank.length > 0 ? { unavailable: { said, blank } } : { ended: { outcome: "refused" as const, said } }),
@@ -142,7 +168,7 @@ export function createFleetAccount(fleet: FleetAccounts, later: Later = timer): 
   };
 
   const publish = (to: Accounts | undefined, said: string | undefined): void => {
-    const key = JSON.stringify([to, said, left, put]);
+    const key = JSON.stringify([to, said, left, put, sheet]);
     const same = key === shown;
     wire = to;
     refused = said;
@@ -222,6 +248,35 @@ export function createFleetAccount(fleet: FleetAccounts, later: Later = timer): 
     else took(answer, at);
   };
 
+  /** Open What syncs for `login`, reading its kinds and whether its home is made. */
+  const open = async (login: string): Promise<void> => {
+    sheet = { login, pressed: {} };
+    const [kinds, home] = await Promise.all([fleet.getHomeKinds(login), fleet.getSharedHome(login)]);
+    if (sheet?.login !== login) return;
+    if (!kinds.ok) {
+      sheet = null;
+      if (kinds.outcome.ok === false && kinds.outcome.why === "refused" && wire !== undefined) publish(wire, kinds.outcome.error.message);
+      return;
+    }
+    const made = home.ok && home.value.home !== undefined;
+    sheet = { ...sheet, kinds: kinds.value, home: { repository: home.ok ? (home.value.home?.repository ?? HOME_REPOSITORY) : HOME_REPOSITORY, made } };
+    publish(wire, refused);
+  };
+
+  const switchKind = async (kind: HomeKind, on: boolean): Promise<void> => {
+    if (sheet?.kinds === undefined) return;
+    const login = sheet.login;
+    sheet = { ...sheet, pressed: { ...sheet.pressed, [kind]: on } };
+    publish(wire, refused);
+    const answer = await fleet.setHomeKind(login, kind, on);
+    if (sheet?.login !== login) return;
+    const { [kind]: _answered, ...pressed } = sheet.pressed;
+    sheet = { ...sheet, pressed, ...(answer.ok ? { kinds: answer.value } : {}) };
+    // Fleet's refusal is shown as the page shows the others; the switch goes back to where it stood.
+    publish(wire, !answer.ok && answer.outcome.ok === false && answer.outcome.why === "refused" ? answer.outcome.error.message : refused);
+    if (answer.ok) hooks.kindSwitched?.(login);
+  };
+
   const changed = (facts: Pick<BridgeState, "connection">): void => {
     const connected = facts.connection.state === "connected";
     if (connected && !wasConnected) read();
@@ -229,6 +284,7 @@ export function createFleetAccount(fleet: FleetAccounts, later: Later = timer): 
       cancel?.();
       cancel = null;
       left = undefined;
+      sheet = null;
       publish(undefined, undefined);
     }
     wasConnected = connected;

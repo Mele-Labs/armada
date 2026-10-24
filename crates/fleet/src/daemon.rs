@@ -76,6 +76,8 @@ pub struct Fleet<H, V, W> {
     models_held: crate::models_read::ModelsHeld,
     /// What turns the Phone Gateway on and off. See [`crate::phone`].
     phone_held: crate::phone::PhoneHeld,
+    /// The shared home's adapters. See [`crate::home`].
+    home_held: crate::home::HomeHeld,
     /// The default model's step down, never held but for what the store keeps. See [`crate::model_downshifting`].
     downshift: crate::model_downshifting::Holding,
     events: api::Broadcaster,

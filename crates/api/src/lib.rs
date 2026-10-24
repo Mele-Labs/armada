@@ -27,6 +27,8 @@
 mod acting;
 /// The account a machine is signed in to: its profiles, signing in and out.
 mod accounting;
+/// The shared home: Kit's rows against it, the acts that settle one, and what syncs.
+mod homing;
 mod amending;
 mod answers;
 /// Who the listener answers at all: a page in a browser is refused before any
@@ -130,7 +132,7 @@ pub use acting::{asked_by, asking, carrying, via, BRIDGE, CALLER_HEADER, PHONE};
 pub use daemon::{
     offerable, Accounts, Admitting, Authoring, Commands, Conversations, Daemon,
     Autopilots, HelmReach, HostedSessions, Issues, Logbook, Teaching, Mods, Clashing,
-    PullRequestPanel, PullRequests, Queries, Redirector, Refusal, Rehearsing, Requests, Retros, Sessions, Settings, Steerer,
+    PullRequestPanel, PullRequests, Queries, Redirector, Refusal, Rehearsing, Requests, Retros, Sessions, Settings, SharedHome, Steerer,
     ShownFile, StoredFile, Studios, Watches,
 };
 pub use door::{door_within, door_without_a_manifest, offered, Scope, DOOR_PATH};

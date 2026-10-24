@@ -9,15 +9,15 @@ use std::time::Duration;
 use adapter_traits::{CiState, FromOutside, PullQueue, RecentlyMerged, FollowedCheck, FollowedPull};
 use api::{HostedSessions, Sessions};
 use ipc::{
-    ManifestId, SessionFact, SessionId, SessionOrigin, SessionReport, SessionRow, SessionVoice,
-    SetWaitingFor, StartSession, TakeHeld, WaitingInput,
+    ManifestId, SendSessionMessage, SessionFact, SessionId, SessionOrigin, SessionReport, SessionRow, SessionVoice,
+    SetWaitingFor, StartSession, TakeHeld, WaitingInput, WaitingSource,
 };
 use store::{AttachmentState, Holder, KeptAttachment};
 use testkit::{Delivered, FakeHarness, FakeVcs, FakeWorkProduct};
 
 use super::main_ci::{run, ONE};
 use super::main_fix::a_fleet_holding_bug;
-use super::session_host::{Shared, StandIn};
+use super::session_host::{eventually, Shared, StandIn};
 use crate::daemon::Fleet;
 use crate::tests::slot_leases::{leased, released, By};
 use crate::tests::tmp::TempDir;
@@ -1139,4 +1139,33 @@ async fn a_wait_stated_after_the_queue_notice_is_taken_off_at_the_next_reading()
 
     rig.reads().await;
     assert_eq!(rig.runs_sent_to_the_session().len(), 2, "nothing more to take off, nothing said");
+}
+
+/// A line Fleet read off the reply's close is the person's to answer like the agent's own, and a
+/// merge that is Fleet's to wait for settles it the same.
+#[tokio::test]
+async fn an_ask_read_off_a_reply_naming_the_pull_request_is_taken_off_at_auto_merge() {
+    let rig = a_rig();
+    let session = rig.a_hosted_session_on(7).await;
+    let id = SessionId::carried(&session);
+    Arc::clone(&rig.fleet)
+        .send_session_message(SendSessionMessage { session_id: id.clone(), text: "land it".into(), attachments: Vec::new(), mentions: Vec::new() })
+        .await
+        .unwrap();
+    eventually(|| async { !rig.stand_in.starts().is_empty() }).await;
+    rig.stand_in.init(0);
+    rig.stand_in.finishes(0, "The change is in.\n\nWill you merge #7 once ci is green?");
+    let asked = || async { Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session.waiting_for.iter().any(|one| one.source == WaitingSource::Replied) };
+    eventually(asked).await;
+    let sends = rig.runs_sent_to_the_session().len();
+
+    rig.fleet.vcs().main_ci.followed_are(Some(vec![FollowedPull { auto_merge: true, ..pull(7, Vec::new()) }]));
+    rig.reads().await;
+
+    let sent = rig.runs_sent_to_the_session();
+    assert_eq!(sent.len(), sends + 1, "the notice is sent: {sent:?}");
+    let line = sent.last().unwrap();
+    assert!(line.contains("Taken off Needs you: Will you merge #7 once ci is green?"), "{line}");
+    let left = Arc::clone(&rig.fleet).get_session(id).await.unwrap().session.waiting_for;
+    assert!(left.iter().all(|one| one.source != WaitingSource::Replied), "{left:?}");
 }

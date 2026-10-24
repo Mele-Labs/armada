@@ -36,7 +36,7 @@ impl PullRequests for FakeDaemon {
     }
 
     async fn ready_pull_request(
-        &self,
+        self: std::sync::Arc<Self>,
         manifest_id: ManifestId,
         number: u64,
     ) -> Result<PullRequestState, Refusal> {
@@ -44,7 +44,7 @@ impl PullRequests for FakeDaemon {
     }
 
     async fn merge_pull_request_by_number(
-        &self,
+        self: std::sync::Arc<Self>,
         manifest_id: ManifestId,
         number: u64,
     ) -> Result<PullRequestState, Refusal> {
@@ -55,7 +55,7 @@ impl PullRequests for FakeDaemon {
     }
 
     async fn enable_auto_merge(
-        &self,
+        self: std::sync::Arc<Self>,
         manifest_id: ManifestId,
         number: u64,
     ) -> Result<PullRequestState, Refusal> {

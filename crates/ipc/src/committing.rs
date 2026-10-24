@@ -52,21 +52,16 @@ pub enum PieceToCommit {
     },
 }
 
-/// `commit_to_repository`'s answer.
+/// `commit_to_repository`'s answer, given once the Job and its branch exist. **The commit and the
+/// pull request are not in it**: they finish after it, the pull request arrives on the Job, and a
+/// failure arrives as `act.failed` for that Job.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CommittedToRepository {
     pub repository: String,
     /// The Job made for this commit alone.
     pub session_id: SessionId,
-    /// The Job's own branch, which holds the one commit.
+    /// The Job's own branch, which will hold the one commit.
     pub branch: String,
     /// Each file written, relative to the repository's root.
     pub paths: Vec<String>,
-    pub commit: String,
-    /// The pull request's address, where one was opened.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub pull_request: Option<String>,
-    /// Why no pull request was opened, where none was. The commit stays on the Job's branch.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub pull_request_not_opened: Option<String>,
 }

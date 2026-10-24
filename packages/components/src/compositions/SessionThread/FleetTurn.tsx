@@ -29,6 +29,7 @@ export const NOTICE_NAMES: Record<SessionNotice, string> = {
   pr_merged: "merged",
   pr_auto_merge: "auto-merge on",
   pr_queued: "in the queue",
+  pr_handed: "pull request handed over",
   slot_free: "slot free",
   slot_kept: "slot kept",
   build_moved: "build moved",

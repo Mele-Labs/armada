@@ -13,12 +13,13 @@ const mergeLineByRepository = walk("merge-line-by-repository", [
   { look: inside(queue, button(/^#3011/)), say: "storefront's pull requests across the row" },
   { key: "ArrowUp", on: inside(queue, button(/^#3011/)), say: "↑ moves the stack to the row above. A wheel turned over the line does the same, and it snaps" },
   { look: inside(queue, button(/^#2101/)), say: "armada's row, led by its main. Left alone, the stack moves to the next repository every 15 seconds" },
+  { look: inside(queue, role("list", "Merge queue")), say: "armada's forge queue sits whole in the row. A wheel turned here moves the stack a whole row, and never stops between two" },
   { press: inside(list, button("Draft the migration notes")), say: "Open a Job in armada" },
   { look: inside(queue, button(/^#2101/)), say: "The line is armada's alone, one row, its light named main" },
   { press: inside(list, button("Lay out the invoice PDF")), say: "Open a Job in storefront" },
   { look: inside(queue, button(/^#3011/)), say: "The line is storefront's now" },
-  { press: button("Repository"), say: "Pick one repository" },
-  { press: role("menuitem", "armada"), say: "armada" },
+  { press: role("combobox", "Repository"), say: "Pick one repository" },
+  { press: role("option", "armada", { exact: true }), say: "armada" },
   { look: inside(queue, button(/^#2102/)), say: "One picked draws that repository's line, whatever is open" },
 ]);
 

@@ -12,8 +12,7 @@ const item = (name: string, scope: SyncItem["scope"], repo = "armada"): SyncItem
 export const PERSONAL_ITEMS: Partial<Record<SyncKindWord, readonly SyncItem[]>> = {
   skills: [item("humanizer", "global"), item("impact-analysis", "global"), item("recipe-scaler", "private")],
   plugins: [item("code-simplifier@official", "global")],
-  agent_file: [item("AGENTS.md", "global")],
-  global_instructions: [item("instructions.md", "global")],
+  global_instructions: [item("AGENTS.md", "global"), item("instructions.md", "global")],
   sub_agents: [item("bridge-engineer", "repo"), item("rust-engineer", "repo")],
   commands: [item("land", "global")],
   mcp_servers: [item("gitnexus", "global"), item("linear", "private")],

@@ -60,7 +60,7 @@ fn scanning_a_tracker_mod_runs_none_of_its_commands() {
     let program = fake_cli(home.path());
     a_tracker_mod(&mods, &program);
 
-    let list = scan(&mods, &BTreeMap::new());
+    let list = scan(&mods, &BTreeMap::new(), &Default::default());
     let row = &list.mods[0];
     assert_eq!((row.kind, row.valid, row.tried.is_some()), (Some(ModKind::Tracker), true, false), "{row:?}");
     let refused = TrackerMods::in_dir(mods.clone(), Default::default()).taught("linear").expect("a mod").expect_err("not tried");

@@ -126,11 +126,11 @@ impl HostedSessions for FakeDaemon {
         Err(nothing_hosted())
     }
 
-    async fn close_session(&self, _closed: CloseSession) -> Result<SessionRecord, Refusal> {
+    async fn close_session(self: std::sync::Arc<Self>, _closed: CloseSession) -> Result<SessionRecord, Refusal> {
         Err(nothing_hosted())
     }
 
-    async fn move_session(&self, _moved: MoveSession) -> Result<SessionRecord, Refusal> {
+    async fn move_session(self: std::sync::Arc<Self>, _moved: MoveSession) -> Result<SessionRecord, Refusal> {
         Err(nothing_hosted())
     }
 
