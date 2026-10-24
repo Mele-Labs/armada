@@ -82,7 +82,7 @@ What already makes a try cheap:
 - **A tracker mod.** Fleet reads a tracker it has no adapter for through `tracker.toml`, over a `cli` transport, [Mods](../concepts/mods.md), *Tracker mods*.
   A mod that runs `bd … --json` lists and reads issues with no Fleet code, and beads syncs through the repository's own GitHub remote, so no new account.
 - **Read only stays read only.** The tracker port never writes, so agents would file with `bd create` themselves, as they use `gh` today.
-- **Beads' claim is not the store's.** It is atomic inside one database; two machines with their own copies meet the conflict the experiment above shows.
+- **Beads' claim is not the store's.** It is atomic inside one database; two machines with their own copies are both told yes, and the sync settles it silently, [spike 38](038-how-far-behind-is-another-machine-on-beads.md).
 - **Beads overlaps Armada's own plans.** `bd ready`, its dependencies and its claims cover what a Job's plan, its task list and claiming an issue cover, so tracking Armada's work in it would mean two answers to what is next and who has it.
 
 ### The try, on Armada

@@ -73,6 +73,10 @@ pub struct StartSession {
     /// waits on another*.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub after: Option<crate::session_waits::StartAfter>,
+    /// Start on the start card: no agent runs and a message sent is kept, until `begin_session`.
+    /// Not read with `fork`, `root` or `after`.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub held: bool,
 }
 
 /// The session a new one is forked from. Since 23.69.
@@ -170,6 +174,15 @@ pub struct SetSessionWorkflow {
     /// A workflow id the Session's repository holds. Absent clears it: a custom Session.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub workflow: Option<String>,
+}
+
+/// `begin_session`: Start pressed on the start card. Answers the `SessionRecord`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BeginSession {
+    pub session_id: SessionId,
+    /// How the work lands. Required where `hosted.start.asks_delivery` holds; read nowhere else.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub delivery: Option<crate::session_delivery::DeliveryChoice>,
 }
 
 /// `run_session_command`: a slash command, written whole (`/update-armada`, `/model opus`), that a
@@ -334,6 +347,10 @@ pub struct HostedFacts {
     /// its branch. `docs/concepts/session.md`, *Pausing a Session*. Since 23.92.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub paused: Option<SessionPaused>,
+    /// Present while the Job waits for `begin_session`. Absent once it has begun, and for a Job
+    /// that was never held.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub start: Option<crate::session_delivery::StartHeld>,
 }
 
 /// The marker on a paused hosted session. Not a state: the session stays live and `hosted.turn`

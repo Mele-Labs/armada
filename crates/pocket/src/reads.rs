@@ -88,8 +88,8 @@ pub(crate) async fn repositories(gateway: &Gateway) -> BTreeMap<String, String> 
 
 #[derive(Serialize)]
 struct Needs {
-    /// Sessions waiting on the owner: a hosted one with its ask, a Terminal
-    /// one as waiting and nothing more.
+    /// Sessions waiting on the owner as Bridge counts it: an ask (a hosted one
+    /// carries it, a Terminal one is waiting and nothing more) or an open item.
     sessions: Vec<PhoneSession>,
 }
 

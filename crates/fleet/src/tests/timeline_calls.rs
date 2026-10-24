@@ -113,6 +113,7 @@ async fn a_hosted_sessions_call_is_entered_through_the_harness() {
             fork: None,
             request: None,
             after: None,
+            held: false,
         })
         .await
         .expect("started");

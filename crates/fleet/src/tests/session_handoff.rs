@@ -333,6 +333,7 @@ async fn left_partway(rig: &Rig, named: bool) -> (SessionId, SessionId) {
             fork: None,
             request: None,
             after: None,
+            held: false,
         })
         .await
         .expect("started")
@@ -527,6 +528,7 @@ async fn stay_and_do_not_ask_again_is_kept_on_the_ledger_and_the_job_is_never_to
             fork: None,
             request: None,
             after: None,
+            held: false,
         })
         .await
         .expect("started")

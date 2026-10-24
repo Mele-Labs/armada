@@ -192,7 +192,7 @@ export function useDispatch({ state, repositories, openSession, openAutopilot }:
         const refers = read?.plain === true && waitsOn !== undefined ? ({ kind: "session", id: read.on.id, title: read.on.title } as const) : undefined;
         const one = read === undefined || waitsOn === undefined || refers !== undefined ? undefined : waitChosen(read, hand, planPartsOf(waitsOn));
         const after = one === undefined ? undefined : { on: one.on, when: one.when, base: one.base, needs: one.needs, ...(one.part === undefined ? {} : { part: one.part }) };
-        return Promise.resolve(after === undefined ? draft.start(undefined, at, text, tuningNow()) : draft.start(undefined, at, text, tuningNow(), after)).then((id) => ({ id, after, refers }));
+        return Promise.resolve(after === undefined ? draft.start(undefined, at, text, tuningNow(), undefined, true) : draft.start(undefined, at, text, tuningNow(), after)).then((id) => ({ id, after, refers }));
       })
       .then(({ id, after, refers }) => {
         if (id === undefined) return setSending(false);

@@ -87,6 +87,7 @@ import type {
   StartSessionRun,
   StopSessionRun,
   TuneSession,
+  BeginSession,
   WaitReading,
   WindowClosed,
   WalkTold,
@@ -644,6 +645,10 @@ export class SessionsHost {
 
   async start(start: StartSession): Promise<SessionActed> {
     return await this.act("POST", "/sessions/start", start);
+  }
+
+  async begin(begin: BeginSession): Promise<SessionActed> {
+    return await this.act("POST", "/sessions/begin", begin);
   }
 
   async send(send: SendSessionMessage): Promise<SessionActed> {

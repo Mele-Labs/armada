@@ -151,6 +151,7 @@ where
                 }),
                 request: None,
                 after: None,
+                held: false,
             })
         };
         let made: Result<SessionRecord, _> = match fork(None).await {

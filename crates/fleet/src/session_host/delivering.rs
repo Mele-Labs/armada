@@ -56,6 +56,20 @@ pub(crate) fn delivery_asked(rows: &[SessionRow]) -> bool {
     rows.iter().any(|row| matches!(row, SessionRow::Delivery { .. }))
 }
 
+/// What the agent is told of a landing the owner chose.
+pub(crate) fn chosen_words(choice: DeliveryChoice) -> String {
+    format!("Fleet: the owner chose {}. {}", choice.label(), choice.detail())
+}
+
+/// The landing the start card answered, for a Job whose first message did not name one: the agent was
+/// not told it with the message.
+pub(crate) fn card_choice(rows: &[SessionRow]) -> Option<DeliveryChoice> {
+    rows.iter().find_map(|row| match row {
+        SessionRow::Delivery { choice: Some(choice), named: false, .. } => Some(*choice),
+        _ => None,
+    })
+}
+
 /// The Job's first message from the person.
 pub(crate) fn first_message(rows: &[SessionRow]) -> Option<&str> {
     rows.iter().find_map(|row| match row {
@@ -139,7 +153,7 @@ where
     /// Auto land answered turns the Session's flag on, by the path `set_session_auto_land` takes.
     /// The other two answers leave the flag as it is. **A refusal never undoes the answer**: the
     /// forge's words go to the agent, as a pull request attaching under Auto land does.
-    async fn auto_land_follows(self: &Arc<Self>, id: &str, choice: Option<DeliveryChoice>) {
+    pub(crate) async fn auto_land_follows(self: &Arc<Self>, id: &str, choice: Option<DeliveryChoice>) {
         if choice != Some(DeliveryChoice::AutoLand) {
             return;
         }
@@ -156,6 +170,9 @@ where
         let named = named_delivery(message);
         let row = SessionRow::Delivery { id: self.row_id(id), at: self.instant(), choice: named, named: named.is_some() };
         self.row_put(id, row).await;
+        if let Some(choice) = named {
+            self.delivery_pick_kept(id, choice).await;
+        }
         if named == Some(DeliveryChoice::AutoLand) {
             // Named before any pull request exists, so only a terminal or ended Job refuses, and it is said in the log.
             if let Err(refusal) = self.session_auto_land_set(SetSessionAutoLand { id: SessionId::carried(id), on: true }).await {
@@ -183,8 +200,9 @@ where
         };
         self.row_put(id, SessionRow::Delivery { id: row_id, at, choice: Some(chosen), named: false }).await;
         self.auto_land_follows(id, Some(chosen)).await;
+        self.delivery_pick_kept(id, chosen).await;
         let record = self.published_hosted(id).await?;
-        let mut words = format!("Fleet: the owner chose {}. {}", chosen.label(), chosen.detail());
+        let mut words = chosen_words(chosen);
         let (manifest, workflow) = (record.manifest_id.as_ref().map_or("", |one| one.as_str()), record.workflow.as_deref().unwrap_or(""));
         let held = self
             .rail_steps(manifest, workflow)

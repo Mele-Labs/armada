@@ -93,11 +93,15 @@ async fn events(upgrade: WebSocketUpgrade) -> impl IntoResponse {
 }
 
 async fn fake_fleet(seen: Seen, start_status: u16) -> u16 {
+    fake_fleet_serving(seen, start_status, sessions()).await
+}
+
+async fn fake_fleet_serving(seen: Seen, start_status: u16, rows: String) -> u16 {
     let manifests = r#"[{"id":"m1","repository":"armada","path":"/a/armada.yml","records_root":"/r","version":1,"checks":[]},{"id":"m2","repository":"notes","path":"/n/armada.yml","records_root":"/r","version":1,"checks":[]}]"#;
     let answered = seen.clone();
     let started = seen;
     let app = Router::new()
-        .route("/sessions", get(|| async { sessions() }))
+        .route("/sessions", get(move || async move { rows }))
         .route("/manifests", get(move || async move { manifests }))
         .route("/events", get(events))
         .route(
@@ -188,6 +192,90 @@ async fn sessions_are_trimmed_and_a_terminal_one_carries_its_ask_while_held() {
     let deaf = &body[body.find(r#""id":"t4""#).unwrap()..];
     let deaf = &deaf[..deaf.find('}').unwrap()];
     assert!(deaf.contains(r#""waiting":true"#) && !deaf.contains("ask"), "{deaf}");
+}
+
+fn owed(id: &str, source: &str, since: &str) -> String {
+    format!(r#"{{"id":"{id}","text":"Owed {id}","since":"2026-10-08T{since}:00.000Z","source":"{source}"}}"#)
+}
+
+/// A live hosted Job: `turn` is the hosted turn, `tail` the rest of the record.
+fn job(id: &str, turn: &str, tail: &str) -> String {
+    let hosted = format!(r#","hosted":{{"turn":{{"state":"{turn}"}},"mode":"auto","running":true}}"#);
+    record(id, "bridge", "live", &format!("{hosted}{tail}"))
+}
+
+fn owing(items: &[String]) -> String {
+    format!(r#","waiting_for":[{}]"#, items.join(","))
+}
+
+/// Rows that Bridge counts as waiting or not by what the Job owes.
+fn owing_sessions() -> String {
+    let asked = format!(r#","asked":{}"#, ask("ca", "Bash", "ls", ""));
+    let ask_and_plan = record(
+        "p6",
+        "bridge",
+        "live",
+        &format!(
+            r#","hosted":{{"turn":{{"state":"idle"}},"mode":"auto","running":true{asked}}}{}"#,
+            owing(&[owed("plan:1", "plan", "03:00")])
+        ),
+    );
+    let rows = [
+        job("p1", "idle", &owing(&[owed("plan:1", "plan", "03:00")])),
+        job("p2", "idle", &owing(&[owed("done:1", "done", "03:00")])),
+        job("p3", "working", &owing(&[owed("a1", "agent", "03:00")])),
+        job("p4", "working", &owing(&[owed("delivery", "delivery", "02:00")])),
+        job("p5", "idle", &format!(r#"{}{}"#, r#","standing":"stuck""#, owing(&[owed("a1", "agent", "03:00")]))),
+        ask_and_plan,
+        job(
+            "p7",
+            "idle",
+            &owing(&[owed("a1", "agent", "04:00"), owed("w1", "walk", "03:30"), owed("done:1", "done", "01:00")]),
+        ),
+        job("p8", "working", &owing(&[owed("a1", "agent", "02:00"), owed("delivery", "delivery", "04:00")])),
+        record("p9", "bridge", "ended", &format!(r#"{}{}"#, owing(&[owed("plan:1", "plan", "03:00")]), r#","ended_at":"2026-10-08T04:00:00.000Z""#)),
+    ];
+    format!(r#"{{"sessions":[{}]}}"#, rows.join(","))
+}
+
+/// One row of a `/api/sessions` or `/api/needs` body, up to the next row.
+fn row<'a>(body: &'a str, id: &str) -> &'a str {
+    let from = &body[body.find(&format!(r#""id":"{id}""#)).unwrap_or_else(|| panic!("{id} not in {body}"))..];
+    &from[..from[1..].find(r#""id":""#).map_or(from.len(), |at| at + 1)]
+}
+
+#[tokio::test]
+async fn a_job_owing_the_person_something_is_waiting_as_bridge_counts_it() {
+    let app = on(fake_fleet_serving(Seen::default(), 200, owing_sessions()).await).await;
+    let (_, body) = send(&app, Method::GET, "/api/sessions", "").await;
+    let (_, needs) = send(&app, Method::GET, "/api/needs", "").await;
+    for waiting in ["p1", "p4", "p6", "p7", "p8"] {
+        assert!(row(&body, waiting).contains(r#""waiting":true"#), "{waiting} in {body}");
+        assert!(needs.contains(&format!(r#""id":"{waiting}""#)), "{waiting} in {needs}");
+    }
+    // Only a done, or an agent's item on a Job at work, is nothing owed.
+    for idle in ["p2", "p3", "p5"] {
+        assert!(!row(&body, idle).contains(r#""waiting":true"#), "{idle} in {body}");
+        assert!(!needs.contains(&format!(r#""id":"{idle}""#)), "{idle} in {needs}");
+    }
+    assert!(!body.contains(r#""id":"p9""#) && !needs.contains(r#""id":"p9""#), "{body}");
+}
+
+#[tokio::test]
+async fn the_wait_is_dated_from_the_ask_or_else_the_oldest_item_that_made_it_wait() {
+    let app = on(fake_fleet_serving(Seen::default(), 200, owing_sessions()).await).await;
+    let (_, body) = send(&app, Method::GET, "/api/sessions", "").await;
+    for (id, since) in [
+        // The ask, though the plan is older.
+        ("p6", "2026-10-08T05:00:00.000Z"),
+        // The walk, not the newer agent item and not the older done.
+        ("p7", "2026-10-08T03:30:00.000Z"),
+        // The delivery, not the agent item the working turn sets aside.
+        ("p8", "2026-10-08T04:00:00.000Z"),
+        ("p4", "2026-10-08T02:00:00.000Z"),
+    ] {
+        assert!(row(&body, id).contains(&format!(r#""waiting_since":"{since}""#)), "{id} in {body}");
+    }
 }
 
 #[tokio::test]

@@ -374,10 +374,15 @@ export class WiredStore {
     if (!done.ok) this.tell(done.outcome);
   }
 
-  private async starting(tag: SessionTag | undefined, root: string | undefined, request?: string, tuning?: { model?: string; effort?: string }, after?: Pick<SessionWait, "on" | "when" | "part" | "base" | "needs">): Promise<string | undefined> {
+  private async starting(tag: SessionTag | undefined, root: string | undefined, request?: string, tuning?: { model?: string; effort?: string }, after?: Pick<SessionWait, "on" | "when" | "part" | "base" | "needs">, held?: boolean): Promise<string | undefined> {
     this.say(undefined);
-    // A start that waits on nothing is the call it always was.
-    const done = after === undefined ? await this.api.startSession(undefined, root, request, tuning) : await this.api.startSession(undefined, root, request, tuning, this.afterOf(after));
+    // A start that waits on nothing is the call it always was; one held waits on its start card, and never on a wait.
+    const done =
+      after !== undefined
+        ? await this.api.startSession(undefined, root, request, tuning, this.afterOf(after))
+        : held === true
+          ? await this.api.startSession(undefined, root, request, tuning, undefined, true)
+          : await this.api.startSession(undefined, root, request, tuning);
     if (!done.ok) return void this.say(done.outcome);
     const id = done.value.id;
     if (tag !== undefined) this.pending.set(id, [tag]);
@@ -627,7 +632,8 @@ export class WiredStore {
     get: () => this.mapped,
     helmOf: (manifestId) => (this.helm?.manifestId === manifestId ? this.helm : undefined),
     subscribe: this.subscribe,
-    start: (tag, root, request, tuning, after) => this.starting(tag, root, request, tuning, after),
+    start: (tag, root, request, tuning, after, held) => this.starting(tag, root, request, tuning, after, held),
+    begin: (id, delivery) => this.took(this.api.beginSession({ session_id: id, ...(delivery === undefined ? {} : { delivery }) })),
     readsWait: (words) => this.readingWait(words),
     settlesWait: (words) => this.settledWait(words),
     startWhen: (id, when, part) => void this.changingWait(id, when, part),

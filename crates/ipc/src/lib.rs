@@ -322,7 +322,7 @@ pub use holding::{
     SlotReleased, SlotRescued, SlotStranded, SlotVerdict, WorktreeSlot, WorktreesHeld,
 };
 pub use hosted_sessions::{
-    AnswerSessionAsk, ChosenHold, CloseSession, ForkFrom, GateAnswer, GateHold, HeldCommand,
+    AnswerSessionAsk, BeginSession, ChosenHold, CloseSession, ForkFrom, GateAnswer, GateHold, HeldCommand,
     HoldKept, HoldMoved, HostedFacts, LinkedEvent, MessagesHeld, MoveSession,
     ReleaseSessionHolds, RunSessionCommand, SendSessionMessage, SentFile, SessionAskState,
     SessionGate, SessionHoldsReleased, SessionMode, SessionRow, SessionRowChanged, SessionTag,
@@ -569,7 +569,7 @@ pub use loadout::{
 pub use session_activity::{
     SessionAccount, SessionActivity, SessionLive, SessionTodo, SessionTodoState, SubagentActivity,
 };
-pub use session_delivery::DeliveryChoice;
+pub use session_delivery::{DeliveryChoice, DeliveryPicked, DeliveryPickedFrom, StartHeld};
 pub use session_plan::{
     ApprovePlan, CheckedPlan, FileTouch, PlanChangeLine, PlanChanges, PlanGroupInput, PlanMark,
     PlanHold, PlanHoldWhy, PlanMoved, PlanRemoved, PlanRenamed, PlanSketch, PlanSketchInput, PlanTaskInput,

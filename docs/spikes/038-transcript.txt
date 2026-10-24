@@ -1,0 +1,56 @@
+== seed: machine a is a copy of the 955-issue database
+Added remote "origin" → https://github.com/Mele-Labs/armada-beads-spike.git
+Push complete.
+first push: 11.1s
+remote ref, fetched whole: 204K
+== machine b clones
+
+clone: 5.0s
+b holds: 0
+== a writes five issues; does a write push by itself?
+create 1 (armada-rr6y): 1.0s
+create 2 (armada-pg89): 1.1s
+create 3 (armada-mtan): 1.0s
+create 4 (armada-h914): 1.0s
+create 5 (armada-lb23): 1.0s
+remote ref before cd44bc0466c9, after cd44bc0466c9
+b sees spike write 5 before syncing: 0
+Sync complete.
+a sync (push five): 11.7s
+Sync complete.
+b sync (pull five): 16.0s
+b sees spike write 5 after syncing: 1
+remote ref, fetched whole: 1.7M
+== two writers at once: a and b each create, then both sync at once
+b exit 0
+a exit 0
+both synced: 32.7s
+==> /tmp/beads-spike/sync-a.log <==
+sync: push
+Sync complete.
+
+==> /tmp/beads-spike/sync-b.log <==
+sync: push
+Sync complete.
+a holds from-a and from-b: 6
+b holds from-a and from-b: 6
+== claim race: a and b claim the same open issue, then both sync at once
+✓ Updated issue: armada-rr6y — spike write 1
+✓ Updated issue: armada-rr6y — spike write 1
+b exit 0
+a exit 0
+==> /tmp/beads-spike/claim-a.log <==
+sync: recompute-blocked
+sync: push
+Sync complete.
+
+==> /tmp/beads-spike/claim-b.log <==
+sync: recompute-blocked
+sync: push
+Sync complete.
+a says armada-rr6y is held by: mac-b
+b says armada-rr6y is held by: mac-b
+== size on disk
+ 67M	/tmp/beads-spike/a/.beads
+4.4M	/tmp/beads-spike/b/.beads
+remote ref, fetched whole: 1.9M

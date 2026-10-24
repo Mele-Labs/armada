@@ -226,6 +226,63 @@ it("passes the model and effort of a dispatcher start to Fleet, and none where n
   expect(startSession).toHaveBeenLastCalledWith(undefined, "/code/armada", "fix it", undefined);
 });
 
+// ---- A Job held on its start card ----------------------------------------------------------------------------
+
+/** A store whose Fleet takes every act the start card makes, with the Job already in the window; `begun` is what Fleet answers Start. */
+async function onItsCard(begun: "ok" | "refused" = "ok") {
+  vi.stubGlobal("window", { ...(window as object), dispatchEvent: vi.fn() });
+  vi.stubGlobal("CustomEvent", class { constructor(readonly type: string, readonly init: { detail: unknown }) {} });
+  const ok = async (..._args: unknown[]) => ({ ok: true as const, value: record("new") });
+  const startSession = vi.fn(ok);
+  const beginSession = vi.fn(async () => (begun === "ok" ? { ok: true as const, value: record("new") } : { ok: false as const, outcome: { ok: false as const, why: "not_connected" as const } }));
+  const renameSession = vi.fn(ok);
+  const tuneSession = vi.fn(ok);
+  const setSessionWorkflow = vi.fn(ok);
+  let wire: (change: StateChange<BridgeState>) => void = () => undefined;
+  const api = { syncState: () => Promise.resolve({ full: NOTHING_YET, seq: 0 }), subscribeChanges: (on: typeof wire) => ((wire = on), () => undefined), startSession, beginSession, renameSession, tuneSession, setSessionWorkflow } as unknown as BridgeApi;
+  const store = new WiredStore(api);
+  store.attach();
+  await new Promise((done) => setTimeout(done, 0));
+  wire({ full: structuredClone({ ...NOTHING_YET, sessions: { state: "read", sessions: [record("new")] } }), seq: 0 });
+  return { store, startSession, beginSession, renameSession, tuneSession, setSessionWorkflow };
+}
+
+it("starts a Job held on its card only when Dispatch says so, and never one that waits on another", async () => {
+  const { store, startSession } = await onItsCard();
+  await store.draft.start(undefined, "/code/armada", "fix it", {}, undefined, true);
+  expect(startSession).toHaveBeenLastCalledWith(undefined, "/code/armada", "fix it", {}, undefined, true);
+  await store.draft.start(undefined, "/code/armada", "fix it", {});
+  expect(startSession).toHaveBeenLastCalledWith(undefined, "/code/armada", "fix it", {});
+  await store.draft.start(undefined, "/code/armada", "fix it", {}, { on: { id: "a", title: "Retry loop" }, when: { kind: "ends" }, base: "main", needs: "" } as never, true);
+  expect(startSession.mock.calls.at(-1)).toHaveLength(5);
+  expect(startSession.mock.calls.at(-1)![4]).toMatchObject({ session: "a" });
+});
+
+it("begins the Job with the delivery chosen on the card, or with none where its kind has no landing step", async () => {
+  const { store, beginSession } = await onItsCard();
+  expect(await store.draft.begin!("new", "open_pr")).toBe(true);
+  expect(beginSession).toHaveBeenLastCalledWith({ session_id: "new", delivery: "open_pr" });
+  expect(await store.draft.begin!("new")).toBe(true);
+  expect(beginSession).toHaveBeenLastCalledWith({ session_id: "new" });
+});
+
+it("says Start was refused and does not count the Job as begun", async () => {
+  const { store } = await onItsCard("refused");
+  expect(await store.draft.begin!("new", "keep_local")).toBe(false);
+});
+
+it("sends the card's title, kind, model and effort through rename, workflow and tune, with the mode unchanged", async () => {
+  const { store, renameSession, setSessionWorkflow, tuneSession } = await onItsCard();
+  store.draft.rename!("new", "Retry the store client");
+  expect(renameSession).toHaveBeenCalledWith({ session_id: "new", title: "Retry the store client" });
+  store.draft.work!.choose("new", "bug");
+  expect(setSessionWorkflow).toHaveBeenCalledWith("new", "bug");
+  store.draft.tune("new", { model: "opus", effort: "high", mode: "plan" });
+  expect(tuneSession).toHaveBeenCalledWith({ session_id: "new", model: "opus", effort: "high", mode: "plan" });
+  store.draft.tune("new", { model: null, effort: null, mode: "auto" });
+  expect(tuneSession).toHaveBeenLastCalledWith({ session_id: "new", mode: "auto" });
+});
+
 it("shows in this window what another window queued, and what it started", () => {
   const store = new WiredStore({ syncState: () => Promise.resolve({ full: NOTHING_YET, seq: 0 }), subscribeChanges: () => () => undefined } as unknown as BridgeApi);
   store.attach();
