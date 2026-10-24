@@ -2,8 +2,8 @@
 // band and its answers as tiles, the rest only peeking out behind it. A single choice moves on as
 // it is picked; the last one sends.
 
-import { Fragment, useState } from "react";
-import type { KeyboardEvent, SyntheticEvent } from "react";
+import { Fragment, useLayoutEffect, useRef, useState } from "react";
+import type { CSSProperties, KeyboardEvent, SyntheticEvent } from "react";
 import { createPortal } from "react-dom";
 import { Check, ChevronDown, ChevronRight, MessageCircleQuestion } from "lucide-react";
 
@@ -16,6 +16,31 @@ import type { AskedQuestion, QuestionAnswer } from "./SessionThread";
 const BEHIND = 3;
 
 type Held = { front: number; picked: readonly (readonly string[])[]; using: readonly boolean[]; words: readonly string[] };
+
+const GAP = 8;
+
+/**
+ * A preview as a card out of the panel's own box, which clips and scrolls: fixed to the window and level with its row, in the room beside the
+ * whole panel so every answer stays readable. It is drawn once unseen to learn its width; then the right of the panel is preferred, then the left,
+ * and with room for it on neither it lies over the row's trailing end.
+ */
+function PreviewCard({ text, row, frame }: { text: string; row: DOMRect; frame: DOMRect }) {
+  const card = useRef<HTMLPreElement>(null);
+  const [place, setPlace] = useState<CSSProperties>({ visibility: "hidden", insetBlockStart: 0, insetInlineStart: 0 });
+  useLayoutEffect(() => {
+    const width = card.current?.offsetWidth ?? 0;
+    const down = row.top > window.innerHeight / 2 ? { insetBlockEnd: window.innerHeight - row.bottom } : { insetBlockStart: row.top };
+    if (window.innerWidth - frame.right - 2 * GAP >= width) setPlace({ ...down, insetInlineStart: frame.right + GAP });
+    else if (frame.left - 2 * GAP >= width) setPlace({ ...down, insetInlineEnd: window.innerWidth - frame.left + GAP });
+    else setPlace({ ...down, insetInlineEnd: window.innerWidth - row.right + GAP });
+  }, [text, row, frame]);
+  return createPortal(
+    <pre ref={card} className="armada-question-deck__preview" role="region" aria-label="Preview" style={place}>
+      {text}
+    </pre>,
+    document.body,
+  );
+}
 
 export function QuestionDeck({
   questions,
@@ -48,8 +73,8 @@ export function QuestionDeck({
   const setUsing = (next: readonly boolean[]) => patch({ using: next });
   const setWords = (next: readonly string[]) => patch({ words: next });
   const [open, setOpen] = useState(true);
-  // The option the person is pointing at or has focused, on the card it was on, and where its row sits so the preview can stand beside it.
-  const [looking, setLooking] = useState<{ at: number; label: string; row: DOMRect } | null>(null);
+  // The option the person is pointing at or has focused, on the card it was on, and where its row and the box it sits in are, so the preview can stand beside that box.
+  const [looking, setLooking] = useState<{ at: number; label: string; row: DOMRect; frame: DOMRect } | null>(null);
   const [sending, setSending] = useState(false);
   const at = <T,>(list: readonly T[], index: number, value: T): T[] => list.map((one, i) => (i === index ? value : one));
   const chosenFor = (index: number): string[] => {
@@ -61,7 +86,7 @@ export function QuestionDeck({
   const one = questions[front]!;
   const previewed = looking?.at === front ? one.options.find((option) => option.label === looking.label) : undefined;
   const look = (option: { label: string; preview?: string }, event: SyntheticEvent<HTMLElement>) =>
-    option.preview === undefined || option.preview === "" ? undefined : setLooking({ at: front, label: option.label, row: event.currentTarget.getBoundingClientRect() });
+    option.preview === undefined || option.preview === "" ? undefined : setLooking({ at: front, label: option.label, row: event.currentTarget.getBoundingClientRect(), frame: (event.currentTarget.closest(".armada-needs-panel") ?? event.currentTarget.closest(".armada-question-deck") ?? event.currentTarget).getBoundingClientRect() });
   // Flat, there is no card for the strips to stand behind.
   const behind = flat ? [] : questions.slice(front + 1, front + 1 + BEHIND);
 
@@ -198,20 +223,7 @@ export function QuestionDeck({
                 </span>
               </button>
             </div>
-            {previewed?.preview === undefined || looking === null ? null : (
-              // Out of the panel's own box, which clips and scrolls: fixed to the window at the row's trailing edge and level with it, so the labels to its left stay readable. It grows down from the row's top in the upper half, up from its bottom in the lower.
-              createPortal(
-                <pre
-                  className="armada-question-deck__preview"
-                  role="region"
-                  aria-label="Preview"
-                  style={looking.row.top > window.innerHeight / 2 ? { insetBlockEnd: window.innerHeight - looking.row.bottom, insetInlineEnd: window.innerWidth - looking.row.right + 8 } : { insetBlockStart: looking.row.top, insetInlineEnd: window.innerWidth - looking.row.right + 8 }}
-                >
-                  {previewed.preview}
-                </pre>,
-                document.body,
-              )
-            )}
+            {previewed?.preview === undefined || looking === null ? null : <PreviewCard text={previewed.preview} row={looking.row} frame={looking.frame} />}
             {using[front] === true ? (
               <Input aria-label="Other" autoFocus value={words[front] ?? ""} onChange={(event) => setWords(at(words, front, event.target.value))} />
             ) : null}
