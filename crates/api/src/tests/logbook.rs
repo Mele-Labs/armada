@@ -5,7 +5,7 @@ use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use axum::Router;
 use http_body_util::BodyExt;
-use ipc::{Logbook, LogbookEntry, ForgottenLogbookEntry};
+use ipc::{Logbook, LogbookEntry, ForgottenLogbookEntry, TidiedLogbook};
 use tower::ServiceExt;
 
 use crate::tests::fake::FakeDaemon;
@@ -69,4 +69,20 @@ async fn a_bad_section_state_or_body_is_a_400() {
     assert_eq!(call(&app, "GET", "/logbook?state=gone", "").await.0, StatusCode::BAD_REQUEST);
     assert_eq!(call(&app, "POST", "/logbook/entries/7/edit", "{}").await.0, StatusCode::BAD_REQUEST);
     assert_eq!(call(&app, "POST", "/logbook/entries/7/lock", "").await.0, StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn tidy_logbook_is_served_and_answers_that_a_pass_is_running() {
+    let app = wired();
+
+    // The fake answers `running` only for a named repository, so the body is shown to have been read.
+    let (status, body) = call(&app, "POST", "/logbook/tidy", r#"{"repository":"/repo"}"#).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(ipc::decode::<TidiedLogbook>("a tidy", &body).expect("decodes").running, true);
+
+    let (status, body) = call(&app, "POST", "/logbook/tidy", "{}").await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(ipc::decode::<TidiedLogbook>("a tidy", &body).expect("decodes").running, false);
+
+    assert_eq!(call(&app, "POST", "/logbook/tidy", "").await.0, StatusCode::BAD_REQUEST);
 }

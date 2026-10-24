@@ -57,6 +57,8 @@ pub enum LogRewrite {
     Contradicted,
     Tripped,
     Person,
+    /// Tidy folded a near-duplicate into it.
+    Merged,
 }
 
 macro_rules! words {
@@ -76,7 +78,7 @@ words!(LogSection { Repo => "repo", Machine => "machine", Habits => "habits" });
 words!(LogKind { Command => "command", Gotcha => "gotcha", Convention => "convention", Environment => "environment", Habit => "habit" });
 words!(LogState { Candidate => "candidate", Standing => "standing", Faded => "faded" });
 words!(LogHow { First => "first", Confirmed => "confirmed", Contradicted => "contradicted", Tripped => "tripped" });
-words!(LogRewrite { Contradicted => "contradicted", Tripped => "tripped", Person => "person" });
+words!(LogRewrite { Contradicted => "contradicted", Tripped => "tripped", Person => "person", Merged => "merged" });
 
 /// One Session's evidence for a claim about an entry.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -417,6 +419,23 @@ impl Store {
             .execute("INSERT OR IGNORE INTO logbook_backlog_moved (id, at) VALUES (1, ?1)", [at as i64])
             .map(|_| ())
             .map_err(database("keeping that the backlog was moved"))
+    }
+
+    /// When a repository's Logbook was last tidied. `None` before its first.
+    pub fn logbook_last_tidied(&self, repository: &str) -> Result<Option<u64>, WriteError> {
+        self.conn
+            .query_row("SELECT at FROM logbook_tidied WHERE repository = ?1", [repository], |row| row.get::<_, i64>(0))
+            .optional()
+            .map(|at| at.map(|at| at.max(0) as u64))
+            .map_err(database("reading when the Logbook was last tidied"))
+    }
+
+    /// Keep that a repository's Logbook was tidied at `at`.
+    pub fn logbook_tidy_finished(&mut self, repository: &str, at: u64) -> Result<(), WriteError> {
+        self.conn
+            .execute("INSERT OR REPLACE INTO logbook_tidied (repository, at) VALUES (?1, ?2)", params![repository, at as i64])
+            .map(|_| ())
+            .map_err(database("keeping that the Logbook was tidied"))
     }
 
     /// Keep that a Session was distilled up to `covers_to`, for its repository's key.

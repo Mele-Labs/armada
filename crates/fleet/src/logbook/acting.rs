@@ -1,17 +1,18 @@
 //! The Logbook as the wire has it: read as entries of every state, and a person's acts on one.
 //! `get_logbook`, `edit_logbook_entry`, `lock_logbook_entry`, `forget_logbook_entry` and
-//! `teach_logbook_entry`. `docs/concepts/logbook.md`.
+//! `teach_logbook_entry`, and `tidy_logbook`. `docs/concepts/logbook.md`.
 //!
 //! **The `From` step is where a store row becomes a wire entry.** An entry run memory or the machine
 //! note keeps is read in beside the learnt ones with an id of a word and a hash, and no act takes it.
 
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Logbook, Refusal};
 use ipc::{
     EditLogbookEntry, Instant, LogbookEarlier, LogbookEntry, LogbookEvidence, ForgottenLogbookEntry, LogbookKind,
-    LogbookReplacedBy, LogbookSection, LogbookState, LockLogbookEntry, TeachLogbookEntry, WireError,
+    LogbookReplacedBy, LogbookSection, LogbookState, LockLogbookEntry, TeachLogbookEntry, TidiedLogbook, TidyLogbook, WireError,
 };
 use store::{logbook_words, LogEntry, LogEvidence, LogHistory, LogHow, LogKind, LogRewrite, LogSection, LogState};
 
@@ -157,6 +158,7 @@ fn wired(logged: &Logged, root: Option<&str>, titles: &HashMap<String, String>) 
                 by: match was.why {
                     LogRewrite::Person => LogbookReplacedBy::Person,
                     LogRewrite::Contradicted | LogRewrite::Tripped => LogbookReplacedBy::Distil,
+                    LogRewrite::Merged => LogbookReplacedBy::Merged,
                 },
             })
             .collect(),
@@ -268,6 +270,27 @@ where
     }
 }
 
+impl<H, V, W> Fleet<H, V, W>
+where
+    H: AgentHarness + Send + Sync + 'static,
+    H::Error: std::error::Error + Send + Sync + 'static,
+    V: Vcs + Delivery + Send + Sync + 'static,
+    V::Error: std::error::Error + Send + Sync + 'static,
+    V::CommitError: std::error::Error + Send + Sync + 'static,
+    W: WorkProduct + Send + Sync + 'static,
+    W::Error: std::error::Error + Send + Sync + 'static,
+{
+    /// Whether a tidy is running, and what the last finished one did.
+    fn logbook_tidy_state(&self) -> ipc::LogbookTidy {
+        let distils = self.logbook_distils();
+        let last = *distils.tidy_last.lock().expect("the last tidy is not held across a panic");
+        ipc::LogbookTidy {
+            running: distils.tidying.load(std::sync::atomic::Ordering::Acquire),
+            last: last.map(|(merged, at, failed)| ipc::LogbookTidyLast { merged, at: instant(at), failed }),
+        }
+    }
+}
+
 impl<H, V, W> Logbook for Fleet<H, V, W>
 where
     H: AgentHarness + Send + Sync + 'static,
@@ -290,7 +313,7 @@ where
         all.retain(|one| state.is_none_or(|asked| state_of(one.entry.state) == asked));
         let learnt: Vec<LogEntry> = all.iter().filter(|one| one.from == Source::Learnt).map(|one| one.entry.clone()).collect();
         let titles = self.logbook_titles(&learnt).await;
-        Ok(ipc::Logbook { entries: all.iter().map(|one| wired(one, root.as_deref(), &titles)).collect() })
+        Ok(ipc::Logbook { entries: all.iter().map(|one| wired(one, root.as_deref(), &titles)).collect(), tidy: self.logbook_tidy_state() })
     }
 
     async fn edit_logbook_entry(&self, entry_id: String, edit: EditLogbookEntry) -> Result<LogbookEntry, Refusal> {
@@ -340,6 +363,11 @@ where
         }
         self.logbook_mirrored(&entry.repository).await;
         Ok(ForgottenLogbookEntry { id: entry_id })
+    }
+
+    async fn tidy_logbook(self: Arc<Self>, tidy: TidyLogbook) -> Result<TidiedLogbook, Refusal> {
+        self.logbook_tidy_started(tidy.repository).map_err(|why| self.logbook_fault(why))?;
+        Ok(TidiedLogbook { running: true })
     }
 
     async fn teach_logbook_entry(&self, teach: TeachLogbookEntry) -> Result<LogbookEntry, Refusal> {

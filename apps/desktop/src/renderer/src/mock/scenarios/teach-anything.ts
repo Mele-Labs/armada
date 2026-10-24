@@ -136,7 +136,7 @@ export function build(asking = false, wordsAsk = false): Scenario {
         return { ok: true, entry: { ...was, ...how(was) } };
       };
       const logbook: Pick<BridgeApi, "readLogbook" | "editLogbookEntry" | "lockLogbookEntry" | "forgetLogbookEntry"> = {
-        readLogbook: async () => ({ ok: true, entries: all() }),
+        readLogbook: async () => ({ ok: true, entries: all(), tidy: { running: false } }),
         editLogbookEntry: async (id, text) =>
           change(id, (was) => ({ text, edited: true, history: [{ text: was.text, until: new Date().toISOString(), by: "person" as const }, ...was.history] })),
         lockLogbookEntry: async (id, locked) => change(id, () => ({ locked })),
