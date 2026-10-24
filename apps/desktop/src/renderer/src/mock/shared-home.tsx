@@ -6,7 +6,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { SharedHomeProvider } from "@armada/components";
+import { SharedHomeProvider, useAccount } from "@armada/components";
 import type { SharedHome, SharedRow } from "@armada/components";
 
 import { askToTell } from "../tell";
@@ -20,6 +20,8 @@ function Held({ home, children }: { home: NonNullable<MockDraft["sharedHome"]>; 
   // Against an account that has not signed in yet there is no home to draw.
   const signedIn = useSignedIn();
   const synced = useSyncedKinds(home.account);
+  const account = useAccount();
+  const profile = account?.profiles.find((one) => one.login === home.account);
   const [rows, setRows] = useState<readonly SharedRow[]>(home.rows);
   const [syncing, setSyncing] = useState(false);
   useEffect(() => {
@@ -44,6 +46,7 @@ function Held({ home, children }: { home: NonNullable<MockDraft["sharedHome"]>; 
       repository: home.repository,
       rows: synced === undefined ? [...rows] : rows.filter((row) => (synced as readonly string[]).includes(row.kind)),
       syncing,
+      ...(account?.home === false ? { made: false, owners: profile?.orgs ?? [] } : {}),
       choose: (row, side) => {
         const kept = side === "here" ? row.here : row.there;
         settle(row, { state: "same", ...(kept === undefined ? {} : { here: kept, there: kept }) });
@@ -56,7 +59,7 @@ function Held({ home, children }: { home: NonNullable<MockDraft["sharedHome"]>; 
       },
       sync: () => setSyncing(true),
     };
-  }, [home, rows, syncing, synced]);
+  }, [home, rows, syncing, synced, account?.home, profile?.orgs]);
 
   return <SharedHomeProvider value={signedIn ? value : undefined}>{children}</SharedHomeProvider>;
 }

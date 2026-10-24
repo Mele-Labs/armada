@@ -95,6 +95,7 @@ import { fleetBuildOf, useFleetBuild } from "./fleet-build";
 import { useBuildFailed } from "./build-failed";
 import { stateOf } from "./state-feed";
 import { shellsOf } from "./job-shell";
+import { usePower } from "./cockpit/boot";
 import { copyDebugInfoFor, useCommandPalette } from "@armada/shell";
 import { askToOpenHelm, Shell, SURFACE, SURFACES, useAtFloor, useLayout, useNarrow, useSurfaceKeys } from "@armada/shell";
 
@@ -326,7 +327,9 @@ export function App() {
     raised: raised.flatMap((one) => raisedFailure(one, state.bridge) ?? []),
     now: silentFor,
   });
-  const guarded = { bridge: state.bridge, onCopied: setCopied };
+  // The Cockpit powering on: a Fleet coming back holds its banner until the grace is out (`cockpit/boot.ts`).
+  const power = usePower(state.connection);
+  const guarded ={ bridge: state.bridge, onCopied: setCopied };
 
   /**
    * Go to a place in the rail. **One function, because the rail and the palette
@@ -535,7 +538,7 @@ export function App() {
               story can check it. `.armada-screen__mounted` says why. */}
           <div className="armada-screen__mounted">
             <Standing
-              fleet={fleet} connection={state.connection} bridge={state.bridge} onRestartFleet={restartFleet}
+              fleet={power === "standby" ? null : fleet} connection={state.connection} bridge={state.bridge} onRestartFleet={restartFleet}
               // **Not while the file is on screen**, which draws the same
               // reading beside the text it is about. Twice at once is two places
               // to read one refusal and one to dismiss while the other stands.
@@ -672,12 +675,13 @@ export function App() {
                 onRestoreKitPiece={restoreKitPiece}
               />
             ) : accounting ? (
-              <Boundary region="Account" {...guarded}><AccountPage onSettings={() => goTo(SURFACE.settings)} machine={machineOf(state.settings)} /></Boundary>
+              <Boundary region="Account" {...guarded}><AccountPage onSettings={() => goTo(SURFACE.settings)} onKit={() => goTo(SURFACE.kit)} machine={machineOf(state.settings)} /></Boundary>
             ) : (
               <Overview
                 state={state}
                 repositories={repositories}
                 disconnected={live ? null : statement.headline}
+                power={power}
                 onCopied={setCopied}
                 bring={lands.bringing}
                 onBrought={lands.brought}

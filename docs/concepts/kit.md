@@ -478,6 +478,10 @@ A scrubbed copy would read as differing from the original for good, and the pers
 The refusal names the host and never the value.
 
 **Sync makes the repository.** The first Sync creates `<gh login>/armada-home` as a private repository, through `gh`, acting as the profile's login.
+
+**The person chooses where it is made, before it exists.** The owner is the login or one of its organisations, and the name starts as `armada-home`; the Sync bar's chip, `Home: <owner>/<name>`, opens both, and the Account page's step and Shared home row echo the choice.
+Once the home exists it is shown and not changed; moving an existing home is out of scope.
+**Not built:** the choice is drawn in the mock only, and Fleet's make step still creates `<gh login>/armada-home`.
 Where `gh` does not hold that login, Sync refuses and names `gh auth login`.
 Git runs over HTTPS with `gh`'s own credential, never SSH.
 
