@@ -74,6 +74,41 @@ pub struct SessionProposed {
 /// The longest title a proposer may give a Session, in characters.
 const MOST_TITLE: usize = 80;
 
+/// How many of his renames the question carries.
+pub(crate) const RENAMES_SHOWN: usize = 12;
+
+/// How much of a renamed Job's request the question carries, in characters.
+const MOST_RENAMED_REQUEST: usize = 200;
+
+/// The person's renames as examples, ahead of the answer format. Empty where he has renamed none,
+/// so the question is as it was before he did.
+fn names_he_gave(renames: &[store::KeptRename]) -> String {
+    if renames.is_empty() {
+        return String::new();
+    }
+    let mut said = String::from(
+        "The person renamed these Jobs after Armada named them. Name this Job the way he names his: \
+         his words, his order, his length. Where his names differ from the title line's advice \
+         below, follow his names.\n\n",
+    );
+    for one in renames {
+        let request: String = one
+            .request
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ")
+            .chars()
+            .take(MOST_RENAMED_REQUEST)
+            .collect();
+        said.push_str(&format!(
+            "  in {}, asked: {request}\n    Armada named it: {}\n    he renamed it: {}\n",
+            one.repository, one.was, one.title
+        ));
+    }
+    said.push('\n');
+    said
+}
+
 /// A Session's question, assembled. **Held rather than passed as a bare string**, for the
 /// reason `verification::Brief` is: what the proposer is told is built in one place and asserted
 /// on without a model.
@@ -96,15 +131,20 @@ impl fmt::Display for NamesNoWorkflow {
 impl std::error::Error for NamesNoWorkflow {}
 
 impl SessionBrief {
-    /// The question for a Session: the request, the workflows held and the models run.
+    /// The question for a Session: the request, the workflows held, the models run and the Jobs
+    /// the person renamed. **His renames go in after the placeholders are filled**, so a brace in
+    /// his words is never read as one.
     pub fn about(
         request: &str,
         workflows: &BTreeMap<WorkflowId, ResolvedWorkflow>,
         models: &[String],
+        renames: &[store::KeptRename],
     ) -> SessionBrief {
-        SessionBrief {
-            question: question_for(&session_shipped(), request, workflows, models),
+        let mut question = question_for(&session_shipped(), request, workflows, models);
+        if let Some(asked) = question.strip_suffix(SESSION_ANSWER_FORMAT) {
+            question = format!("{asked}{}{SESSION_ANSWER_FORMAT}", names_he_gave(renames));
         }
+        SessionBrief { question }
     }
 
     /// The text that goes to the model, exactly as it goes.
