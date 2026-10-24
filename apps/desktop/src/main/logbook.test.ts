@@ -58,7 +58,7 @@ describe("reading the Logbook", () => {
     const seen: Seen[] = [];
     const port = await fleet(seen, (_method, url) => {
       if (url === "/repositories") return { status: 200, body: repositories };
-      if (url === "/logbook") return { status: 200, body: { entries: [entry("h1", "habits"), entry("machine-ab", "machine")] } };
+      if (url === "/logbook") return { status: 200, body: { entries: [entry("h1", "habits"), entry("machine-ab", "machine")], tidy: { running: true, last: { merged: 3, at: "2026-10-23T10:00:00Z", failed: true } } } };
       if (url.includes("widgets")) return { status: 200, body: { entries: [entry("w1", "repo", "/Users/user/widgets")] } };
       return { status: 200, body: { entries: [entry("s1", "repo", "/Users/user/store front")] } };
     });
@@ -72,6 +72,7 @@ describe("reading the Logbook", () => {
     expect(read).toEqual({
       ok: true,
       entries: [entry("h1", "habits"), entry("machine-ab", "machine"), entry("w1", "repo", "/Users/user/widgets"), entry("s1", "repo", "/Users/user/store front")],
+      tidy: { running: true, last: { merged: 3, at: "2026-10-23T10:00:00Z", failed: true } },
     });
   });
 
@@ -109,5 +110,20 @@ describe("the acts on an entry", () => {
     expect(forgotten.ok).toBe(false);
     const edited = await new LogbookHost(() => port).edit("runs-00000000000000ff", "x");
     expect(edited.ok === false && edited.outcome.ok === false && edited.outcome.why).toBe("refused");
+  });
+});
+
+describe("tidying the Logbook", () => {
+  it("asks Fleet to tidy every repository and hands back that a pass is running", async () => {
+    const seen: Seen[] = [];
+    const port = await fleet(seen, () => ({ status: 200, body: { running: true } }));
+    expect(await new LogbookHost(() => port).tidy()).toEqual({ ok: true, running: true });
+    expect(seen.map((one) => [one.method, one.url, one.body])).toEqual([["POST", "/logbook/tidy", "{}"]]);
+  });
+
+  it("says Fleet is not connected with no port, and hands back a refusal", async () => {
+    expect(await new LogbookHost(() => null).tidy()).toEqual({ ok: false, outcome: { ok: false, why: "not_connected" } });
+    const port = await fleet([], () => ({ status: 422, body: { code: "fleet.logbook_tidy_refused", message: "No model." } }));
+    expect((await new LogbookHost(() => port).tidy()).ok).toBe(false);
   });
 });
