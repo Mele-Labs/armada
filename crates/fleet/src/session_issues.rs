@@ -37,11 +37,6 @@ pub(crate) const PULL_REQUESTS: &str = "pull_requests";
 /// without it was named, not claimed, and the backlog naming someone else for it is no lost claim.
 pub(crate) const CLAIMED_AS: &str = "claimed_as";
 
-/// The detail key naming the pull request, by address, that merged for the Job's issue and is to
-/// close it, and the one a close was made for. The two are equal once it is closed.
-pub(crate) const MERGED_IN: &str = "merged_in";
-pub(crate) const CLOSED_IN: &str = "closed_in";
-
 /// Stand `holder`'s row for `issue`, with `known` where the row says nothing yet. `true` where
 /// anything changed. **`pull_requests` only grows**: what `known` names is added to what the row
 /// names.
@@ -189,6 +184,8 @@ where
         let mut known = BTreeMap::new();
         if let Some(actor) = claimed_as {
             known.insert(CLAIMED_AS.to_string(), actor);
+            // Kept past the Job's end, so its pull request's merge still closes the issue.
+            let _ = store.keep_job_issue(&id, &manifest, issue.as_str());
         }
         if !claim.pull_requests.is_empty() {
             known.insert(PULL_REQUESTS.to_string(), pull_requests_joined(&claim.pull_requests.iter().copied().collect::<BTreeSet<_>>()));

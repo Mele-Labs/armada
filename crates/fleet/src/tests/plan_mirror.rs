@@ -326,6 +326,58 @@ async fn a_merge_closes_the_issue_and_every_open_child_with_the_pull_requests_ad
     assert_eq!(boat.remote.bead(&boat.issue).expect("pushed").status, "closed");
 }
 
+#[tokio::test]
+async fn a_job_that_ended_before_its_pull_request_merged_still_has_its_issue_closed_at_the_merge() {
+    let boat = boat_reading(ON_MAIN).await;
+    boat.plans_and_approves().await;
+    let at = boat.rig.fleet.now().as_str().to_string();
+    {
+        let mut store = boat.rig.fleet.store().lock().await;
+        for (kind, target) in [("pr", "1"), ("branch", "armada/1")] {
+            store
+                .attach(
+                    &KeptAttachment {
+                        holder: Holder::session(boat.job.as_str()),
+                        kind: kind.into(),
+                        manifest_id: manifest(&boat.rig).as_str().to_string(),
+                        target: target.into(),
+                        state: AttachmentState::Standing,
+                        detail: Default::default(),
+                        since: at.clone(),
+                        changed_at: at.clone(),
+                    },
+                    false,
+                )
+                .unwrap();
+        }
+    }
+    boat.looks().await;
+    // The Job ends: everything it held is given back, its issue row too.
+    boat.rig.fleet.store().lock().await.give_back(&Holder::session(boat.job.as_str()), None, &at).unwrap();
+
+    let forge = &boat.rig.fleet.vcs().main_ci;
+    forge.followed_are(Some(Vec::new()));
+    forge.recently_merged_are(Some(vec![RecentlyMerged {
+        number: 1,
+        title: FromOutside::verbatim("Mirror the plan"),
+        branch: FromOutside::verbatim("armada/1"),
+        url: FromOutside::verbatim(PULL),
+        author: None,
+        // Older than the time a merge is news.
+        merged_at: FromOutside::verbatim("2026-10-20T00:00:00.000Z"),
+        commit: None,
+    }]));
+    let served = boat.rig.fleet.repositories().served().remove(0);
+    boat.rig.fleet.notice_merged(&served).await;
+    boat.rig.fleet.pulls_told(&served).await;
+    boat.looks().await;
+
+    for one in std::iter::once(boat.issue.clone()).chain(boat.groups()) {
+        assert_eq!(boat.status(&one), "closed", "{one}");
+    }
+    assert_eq!(boat.copy.bead(&boat.issue).expect("the issue").reason, format!("merged in {PULL}"));
+}
+
 /// Another machine's Fleet claims the issue in a copy that synced before this Job's claim, and its
 /// write is the later one.
 async fn lost_to(boat: &Boat, other: &Arc<FakeBeads>, holder: &str) {

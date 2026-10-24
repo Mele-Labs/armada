@@ -43,6 +43,7 @@ mod session_later;
 mod notice_mutes;
 mod word_asks;
 mod job_renames;
+mod job_issues;
 mod plan_beads;
 mod fleet_calls;
 mod issue_queries;
