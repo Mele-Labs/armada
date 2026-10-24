@@ -9,7 +9,7 @@ Bridge's half is `packages/protocol/src/mods.ts` and `sessions.ts`, written by h
 
 | Where | Side | Carries |
 | --- | --- | --- |
-| `start_mod_session` (`POST /mods/session`, `agent_access = "No"`) | Bridge sends, Fleet answers 200 | `StartModSession` `{ title?, model?, effort?, note }`, `note` a `SessionNote` as `send_session_note` takes it; answered with `ModSessionStarted` `{ session_id, title, send_failed? }` |
+| `start_mod_session` (`POST /mods/session`, `agent_access = "No"`) | Bridge sends, Fleet answers 200 | `StartModSession` `{ title?, model?, effort?, note?, said? }`, **exactly one of** `note`, a `SessionNote` as `send_session_note` takes it, and `said`, his words where Mod was pressed on nothing; answered with `ModSessionStarted` `{ session_id, title, send_failed? }` |
 | `SessionRecord.mod` | Fleet answers | `true` on a Mod Job, left out on every other |
 | `ScaffoldMod.session_id` | an agent sends | The Job calling. Left out records nothing |
 | `ModSummary.made_by` | Fleet answers | The Job whose `scaffold_mod` made the mod, from its `mod.toml`. Left out where none was recorded |
@@ -17,7 +17,10 @@ Bridge's half is `packages/protocol/src/mods.ts` and `sessions.ts`, written by h
 **Where this Fleet does not serve the Manifest named `armada`** the Job starts in the mods folder, with no Manifest, slot or branch, and `SessionRecord.manifest_id` is left out.
 The agent door a Job with no Manifest stands at offers `list_mods`, `scaffold_mod`, `validate_mod` and `try_tracker_mod` beside the Job's own acts, so that Job can make one.
 
-**Refusals**: a 500 `fleet.mod_not_written` where the mods folder cannot be made, and nothing is started; a 422 `fleet.unacceptable_mod` for a `session_id` that names no Job Fleet knows, and nothing is made.
+**Create mod** (24 Oct 2026) makes `note` optional and adds `said`, both on `StartModSession` and both Bridge-sent.
+With `said` the first message is the Mod brief and then his words, by the road a message takes, and the title defaults to the first line of the words.
+
+**Refusals**: a 422 `fleet.unacceptable_mod_start` for neither `note` nor `said`, for both, and for a `said` with nothing in it, and nothing is started; a 500 `fleet.mod_not_written` where the mods folder cannot be made, and nothing is started; a 422 `fleet.unacceptable_mod` for a `session_id` that names no Job Fleet knows, and nothing is made.
 
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 Were a pair to meet anyway, a Fleet without the route answers 404, an older Bridge ignores `mod` and `made_by`, and an older Fleet ignores `session_id` and records nothing.
