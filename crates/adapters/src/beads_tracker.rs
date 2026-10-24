@@ -30,7 +30,7 @@ const GUIDE: &str = "A query is `field=value` comparisons joined by AND, OR and 
 Fields: status (open, in_progress, blocked, deferred, closed), priority (0 to 4), \
 type (bug, feature, task, epic, chore, decision), assignee (none for unassigned), label, title and \
 description (both contain), created, updated, closed (dates, or 7d for seven days ago), id (wildcards: armada-*). \
-Quote a value with spaces: assignee=\"Nick Mele\". \
+Quote a value with spaces: assignee=\"Ana Ruiz\". \
 Examples: `status=open AND label=bug`, `status=open AND title=shell`, `priority<=1 AND NOT status=closed`. \
 It cannot search comments.";
 

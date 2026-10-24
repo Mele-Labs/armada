@@ -46,7 +46,12 @@ impl Keepings {
 }
 
 /// Look at every backlog every `every`. [`crate::backlog::LOOK_EVERY`] is what it is run at.
-pub fn keep_syncing<H, V, W>(fleet: Arc<Fleet<H, V, W>>, every: Duration) -> JoinHandle<()>
+/// `said` hears a repository's sync start failing and stop.
+pub fn keep_syncing<H, V, W>(
+    fleet: Arc<Fleet<H, V, W>>,
+    every: Duration,
+    said: impl Fn(&str) + Send + Sync + 'static,
+) -> JoinHandle<()>
 where
     H: AgentHarness + Send + Sync + 'static,
     H::Error: std::error::Error + Send + Sync + 'static,
@@ -61,7 +66,9 @@ where
         ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
         loop {
             ticker.tick().await;
-            fleet.backlogs_looked().await;
+            for line in fleet.backlogs_looked().await {
+                said(&line);
+            }
         }
     })
 }
@@ -76,8 +83,10 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// One look at each served repository whose tracker Fleet writes to, one after another.
-    pub(crate) async fn backlogs_looked(&self) {
+    /// One look at each served repository whose tracker Fleet writes to, one after another, and
+    /// what is worth saying of them: a sync that starts failing or stops, once each, not every turn.
+    pub(crate) async fn backlogs_looked(&self) -> Vec<String> {
+        let mut lines = Vec::new();
         for served in self.repositories().served() {
             let Some(backlog) = self.backlog_of(&served) else {
                 continue;
@@ -88,27 +97,29 @@ where
             let (root, now) = (served.root().to_string(), self.tracking().keepings.now());
             let looked = tokio::task::spawn_blocking(move || {
                 let looked = kept.keeping.look(backlog.as_ref(), &root, now);
-                let said = match &looked {
+                let failing = match &looked {
+                    Looked::Waited => return (looked, None),
                     Looked::Failed(why) => Some(format!("{} did not happen: {}", why.doing, why.said)),
+                    Looked::Synced { .. } => None,
+                };
+                let line = match (&kept.failing, &failing) {
+                    (was, Some(now)) if was.as_ref() != Some(now) => Some(format!("{root}: {now}")),
+                    (Some(_), None) => Some(format!("{root}: the backlog synced again")),
                     _ => None,
                 };
-                // Said when a repository starts failing and when it stops, not every turn.
-                if matches!(looked, Looked::Waited) {
-                    return looked;
-                }
-                match (&kept.failing, &said) {
-                    (was, Some(now)) if was.as_ref() != Some(now) => eprintln!("{root}: {now}"),
-                    (Some(_), None) => eprintln!("{root}: the backlog synced again"),
-                    _ => {}
-                }
-                kept.failing = said;
-                looked
+                kept.failing = failing;
+                (looked, line)
             })
             .await;
-            if let Ok(Looked::Synced { moved: true }) = looked {
+            let Ok((looked, line)) = looked else {
+                continue;
+            };
+            lines.extend(line);
+            if let Looked::Synced { moved: true } = looked {
                 self.tracking().forget(served.manifest().id().as_str());
             }
         }
+        lines
     }
 
     /// `actor` claims `reference` in `served`'s backlog: sync, claim, sync, read back.

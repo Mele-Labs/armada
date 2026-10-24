@@ -72,17 +72,17 @@ async fn a_look_syncs_a_copy_once_it_was_written_and_the_issues_are_read_again_a
     let a = machine("mac-a", &copy_a).await;
     assert!(a.fleet.list_issues(manifest(&a), false).await.expect("listed").issues.is_empty());
 
-    a.fleet.backlogs_looked().await;
-    a.fleet.backlogs_looked().await;
+    let _ = a.fleet.backlogs_looked().await;
+    let _ = a.fleet.backlogs_looked().await;
     assert_eq!(copy_a.syncs(), 1, "the first look syncs, and one with nothing written and the timer not due does not");
 
     let theirs = copy_b.create("Filed on the other machine");
     copy_b.sync("/").expect("pushed");
-    a.fleet.backlogs_looked().await;
+    let _ = a.fleet.backlogs_looked().await;
     assert_eq!(copy_a.syncs(), 1, "another machine's write is heard on the timer, not at once");
 
     let ours = copy_a.create("Filed by an agent here with bd");
-    a.fleet.backlogs_looked().await;
+    let _ = a.fleet.backlogs_looked().await;
     assert_eq!(copy_a.syncs(), 2, "a write here is synced at the next look");
     assert_eq!(remote.holder(&ours), Some(String::new()), "and pushed");
 

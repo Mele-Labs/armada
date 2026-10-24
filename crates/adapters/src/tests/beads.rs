@@ -19,16 +19,16 @@ use crate::TrackersByProvider;
 /// What `bd query --json` printed for two issues, the second closed and claimed.
 const QUERIED: &str = r#"[
   {"id":"armada-3fz","title":"Sync the backlog","description":"First line\n\n  second","status":"open",
-   "priority":1,"issue_type":"task","created_at":"2026-10-24T03:23:58Z","created_by":"Nick Mele",
+   "priority":1,"issue_type":"task","created_at":"2026-10-24T03:23:58Z","created_by":"Ana Ruiz",
    "updated_at":"2026-10-24T03:23:58Z","labels":["fleet","beads"]},
   {"id":"armada-1792806783819-955-760bc69c","title":"Imported","status":"in_progress","priority":2,
-   "issue_type":"bug","assignee":"mac-a/7d2b2166","created_by":"Nick Mele","updated_at":"2026-10-25T09:00:00Z"}
+   "issue_type":"bug","assignee":"mac-a/7d2b2166","created_by":"Ana Ruiz","updated_at":"2026-10-25T09:00:00Z"}
 ]"#;
 
 /// What `bd show --json` printed for one.
 const SHOWN: &str = r#"[{"id":"armada-3fz","title":"Sync the backlog","description":"All of it.\nTwo lines.",
   "status":"in_progress","priority":0,"issue_type":"feature","assignee":"mac-b/0a1b2c3d","owner":"nick@example.com",
-  "created_at":"2026-10-24T03:23:58Z","created_by":"Nick Mele","updated_at":"2026-10-24T03:24:44Z",
+  "created_at":"2026-10-24T03:23:58Z","created_by":"Ana Ruiz","updated_at":"2026-10-24T03:24:44Z",
   "labels":["x"],"comments_omitted":true}]"#;
 
 type Answer = (i32, &'static str, &'static str);
@@ -127,7 +127,7 @@ fn the_open_issues_are_read_through_bd_readonly_newest_edit_first() {
     assert_eq!(claimed.assignees[0].as_written(), "mac-a/7d2b2166");
     assert_eq!(open.title.as_written(), "Sync the backlog");
     assert_eq!(open.excerpt.as_written(), "First line second");
-    assert_eq!(open.author.as_written(), "Nick Mele");
+    assert_eq!(open.author.as_written(), "Ana Ruiz");
     assert!(open.assignees.is_empty());
     let labels: Vec<&str> = open.labels.iter().map(|one| one.as_written()).collect();
     assert_eq!(labels, ["fleet", "beads"]);
