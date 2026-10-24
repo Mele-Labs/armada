@@ -64,6 +64,8 @@ import type {
   SendPlanChanges,
   SendSessionMessage,
   SendSessionNote,
+  StartModSession,
+  ModSessionStarted,
   NoteSent,
   SendSessionNotes,
   NotesSent,
@@ -664,6 +666,11 @@ export class SessionsHost {
     const sent = answer.body as NoteSent;
     this.fold(sent.session);
     return { ok: true, value: sent };
+  }
+
+  /** A Mod Job on a pointed-at spot. Fleet starts it and sends its first message; the record comes on Fleet's events, so none is folded here. */
+  async startMod(start: StartModSession): Promise<SessionActed<ModSessionStarted>> {
+    return await this.asked<ModSessionStarted>("/mods/session", start);
   }
 
   /** A walk's notes as one turn, folded as one note is; the lines come back one list per note, in order. */

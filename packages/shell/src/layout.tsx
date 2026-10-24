@@ -6,7 +6,7 @@
 // Nothing here draws: a surface reads `useLayout(region)` and draws what it is handed.
 
 import { createContext, useContext, useMemo, useSyncExternalStore } from "react";
-import { Activity, Box, GitMerge, ListTodo, PanelBottom, Plane, Radar, Rows3, Send, Workflow, type LucideIcon } from "lucide-react";
+import { Activity, Box, GitMerge, ListTodo, PanelBottom, Plane, Puzzle, Radar, Rows3, Send, Workflow, type LucideIcon } from "lucide-react";
 
 import { PLACES, SURFACE, SURFACES } from "./surfaces";
 
@@ -58,6 +58,8 @@ export const LAYOUT: Readonly<Record<LayoutRegion, Spec>> = {
       { id: "field", label: "Field", icon: Radar, hideable: true },
       { id: "workflow", label: "Workflow", icon: Workflow, hideable: true },
       { id: "progress", label: "Progress", icon: ListTodo, hideable: false },
+      // Drawn only for a Mod Job: the mods it made, each with its switch.
+      { id: "mods", label: "Mods made", icon: Puzzle, hideable: true },
     ],
   },
   rail: {

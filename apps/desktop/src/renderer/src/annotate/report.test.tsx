@@ -7,6 +7,7 @@ import { afterEach, expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import type { Annotation } from "../../../shared/annotations";
+import { PointMenu } from "../point-menu";
 import { askToReport } from "../report";
 import "../styles/index.css";
 import { Layer, type LayerFleet } from "./Layer";
@@ -45,7 +46,7 @@ afterEach(() => {
   sessionStorage.removeItem("armada.annotate.on");
 });
 
-/** The layer mounted and off, as Bridge under `pnpm dev` runs it until ⌥⌘A. */
+/** The layer mounted and off, as Bridge under `pnpm dev` runs it until ⌥⌘A, with the app's right-click menu beside it. */
 async function layerOff(saved: Annotation[] = []) {
   const host = document.createElement("div");
   host.setAttribute("data-armada-annotate", "");
@@ -54,6 +55,7 @@ async function layerOff(saved: Annotation[] = []) {
   const fleet = fleetOf();
   root.render(
     <StrictMode>
+      <PointMenu />
       <Layer sink={{ ...sink, save: async (note) => void saved.push(note) }} fleet={fleet} />
     </StrictMode>,
   );
@@ -116,7 +118,7 @@ test("cancelling a card the layer's own click opened leaves the layer on", async
   await expect.element(page.getByRole("status")).toBeVisible();
 });
 
-test("a right press the app handled itself opens no menu of the layer's", async () => {
+test("a right press the app handled itself opens no menu", async () => {
   await layerOff();
   const one = target();
   one.addEventListener("contextmenu", (event) => event.preventDefault());

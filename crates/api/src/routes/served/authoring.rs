@@ -82,4 +82,10 @@ pub(super) const ROUTES: &[Route] = &[
         method: "POST",
         path: "/mods/try",
     },
+    // A Job on Armada's own repository, which the start finds by its name and no body names.
+    Route {
+        operation: "start_mod_session",
+        method: "POST",
+        path: "/mods/session",
+    },
 ];

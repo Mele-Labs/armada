@@ -142,6 +142,17 @@ Switching a mod off in Mods is the way to stop one without forgetting the note.
 
 The codes, `fleet.teaching_words_refused` and its siblings, are in `crates/ipc/operations/read_teaching.toml`.
 
+## Teach or Mod
+
+| | Teach | Mod |
+|---|---|---|
+| Press it for | A note, a pattern, a notice rule, a token tweak or a layout change | Anything Teach cannot propose |
+| It is | One press, one model call, a proposal saved in place | A Job he talks with |
+| Conversation | None | Yes |
+
+Teach is the first to press when the ask fits one of its five parts.
+Mod is for the rest, and starts a Mod Job: [A Mod Job](mods.md#a-mod-job).
+
 ## What it is not
 
 > **Rule.** A teaching never changes Armada's code.

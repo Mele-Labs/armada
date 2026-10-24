@@ -166,6 +166,7 @@ async fn a_helm_thread(fleet: &Arc<Reading>, manifest: &str, said: &[(ipc::Sessi
             paused_at: None,
             paused_resuming: false,
             auto_land: false,
+            mod_job: false,
             start_held: false,
         })
         .expect("a hosting");

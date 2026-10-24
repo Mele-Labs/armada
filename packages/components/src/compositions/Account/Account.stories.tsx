@@ -354,7 +354,9 @@ export const SetUpWithoutHome: Story = {
   play: async ({ canvas }) => {
     const home = within(canvas.getByRole("listitem", { name: "Shared home" }));
     await expect(home.getByRole("img", { name: "Not set up yet" })).toBeVisible();
-    await expect(canvas.getByRole("listitem", { name: "Shared home" })).not.toHaveTextContent("/");
+    // The name slot stays empty (no owner/name to show yet); the "/" lives only in the tooltip that says what the first Sync makes.
+    await expect(canvas.getByRole("listitem", { name: "Shared home" }).querySelector(".armada-account__name")).toBeEmptyDOMElement();
+    await expect(home.queryByRole("button", { name: "Set up the shared home" })).toBeNull();
     await expect(home.queryByRole("img", { name: "Setting up" })).toBeNull();
   },
 };

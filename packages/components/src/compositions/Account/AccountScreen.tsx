@@ -6,6 +6,7 @@ import { Button } from "../../primitives/Button/Button";
 import { DropdownMenu } from "../../primitives/DropdownMenu/DropdownMenu";
 import type { DropdownMenuEntry } from "../../primitives/DropdownMenu/DropdownMenu";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
+import { homePath, useHomeChoice } from "../KitSetup/HomeChoice";
 import { ForgeMark } from "./ForgeMark";
 import { DEVICE_PAGE, ENDED, SETTING, SIGN_IN_SAID, Turning, accountNeed, useAccount } from "./Account";
 import type { Account, AccountFlow, Binding, Profile, SetUpId, SetUpState, UnboundRepository } from "./Account";
@@ -30,13 +31,13 @@ const ROWS: readonly { id: SetUpId; label: string; Glyph: typeof House }[] = [
 type Setup = Extract<AccountFlow, { phase: "setup" }>;
 
 /** What signing in set up for one profile: a row each, a registry glyph and a mark for how far it has got. */
-function SetUpRows({ accountId, login, repository, steps, unset }: { accountId: number | undefined; login: string; repository: string; steps: Steps; unset: boolean }) {
+function SetUpRows({ accountId, login, repository, steps, unset, planned, onKit }: { accountId: number | undefined; login: string; repository: string; steps: Steps; unset: boolean; planned?: string; onKit?: (() => void) | undefined }) {
   return (
     <ul className="armada-account__rows">
       {ROWS.map(({ id, label, Glyph }) => {
         const state = unset && id === "home" ? "waiting" : steps[id];
         const name =
-          id === "identity" ? (accountId === undefined ? "GitHub account" : `GitHub #${accountId}`) : id === "store" ? "This machine's key" : unset ? "" : `${login}/${repository}`;
+          id === "identity" ? (accountId === undefined ? "GitHub account" : `GitHub #${accountId}`) : id === "store" ? "This machine's key" : unset ? (planned ?? "") : `${login}/${repository}`;
         return (
           <li key={id} className="armada-account__row" aria-label={label} data-state={state}>
             <Tooltip beside label={label}>
@@ -46,8 +47,13 @@ function SetUpRows({ accountId, login, repository, steps, unset }: { accountId: 
             </Tooltip>
             <span className="armada-account__name">{name}</span>
             <span className="armada-account__state">
+              {id === "home" && unset && onKit !== undefined ? (
+                <Button variant="secondary" size="sm" ground="sunken" aria-label="Set up the shared home" onClick={onKit}>
+                  Set up
+                </Button>
+              ) : null}
               {id === "home" && unset ? (
-                <Tooltip beside label="Not set up yet">
+                <Tooltip beside label={`Not set up yet. The first Sync on Kit makes ${planned ?? `${login}/armada-home`}, a private repository, through gh. Every machine signed in as ${login} reads it`}>
                   <span className="armada-account__unset" role="img" aria-label="Not set up yet">
                     <CircleDashed size={16} strokeWidth={2} aria-hidden="true" />
                   </span>
@@ -144,12 +150,13 @@ function Repositories({ account, profile }: { account: Account; profile: Profile
 }
 
 /** One profile: its login and whose it is, its set-up rows, the repositories bound to it, and the acts on it. */
-function ProfileTile({ account, profile, setup }: { account: Account; profile: Profile; setup: Setup | undefined }) {
+function ProfileTile({ account, profile, setup, onKit }: { account: Account; profile: Profile; setup: Setup | undefined; onKit?: (() => void) | undefined }) {
   const noHome = account.home === false;
   const steps: Steps = setup?.steps ?? { identity: "done", store: "done", home: profile.repository === undefined ? "waiting" : "done" };
   const repository = setup === undefined ? (profile.repository ?? "") : setup.repository;
   // A home with no repository named does not exist yet, whatever the step says.
   const unset = repository === "";
+  const [choice] = useHomeChoice(profile.login);
   return (
     <li className="armada-account__tile" data-tile="profile" aria-label={profile.login}>
       <header className="armada-account__tile-head">
@@ -157,7 +164,7 @@ function ProfileTile({ account, profile, setup }: { account: Account; profile: P
         <span className="armada-account__login">{profile.login}</span>
         <Origin chosen={profile.chosen} />
       </header>
-      <SetUpRows accountId={profile.account_id} login={profile.login} repository={repository} steps={steps} unset={unset} />
+      <SetUpRows accountId={profile.account_id} login={profile.login} repository={repository} steps={steps} unset={unset} planned={homePath(choice)} onKit={onKit} />
       <Repositories account={account} profile={profile} />
       <footer className="armada-account__tile-foot">
         {!profile.chosen ? null : !noHome ? (
@@ -165,7 +172,7 @@ function ProfileTile({ account, profile, setup }: { account: Account; profile: P
             What syncs
           </Button>
         ) : (
-          <Tooltip beside label="No shared home yet">
+          <Tooltip beside label="No shared home yet. Press Sync on Kit to make it, then choose what syncs here">
             <Button variant="ghost" size="sm" disabled>
               What syncs
             </Button>
@@ -505,6 +512,71 @@ function Never() {
   );
 }
 
+/** The way to a second machine, one row a step. Step 1 and 2 read the account; step 3 happens on the other machine, so it never reads done. */
+const SYNC_STEPS: readonly { id: string; name: string; why: string; Glyph: typeof House }[] = [
+  { id: "sign-in", name: "Sign in here", why: "The same GitHub account on each machine is what ties them together", Glyph: UserCheck },
+  { id: "sync", name: "Sync on Kit", why: "Choose what syncs, then press Sync: the first one makes your private armada-home repository", Glyph: House },
+  { id: "add", name: "Add to this machine", why: "On the other machine, sign in as the same account, open Kit and press this on each row", Glyph: Laptop },
+];
+
+/** Sync your Kit: the three steps, the next undone one carrying the button. Drawn signed out too, so the reason comes before the sign-in. */
+function SyncGuide({ account, onKit }: { account: Account; onKit: (() => void) | undefined }) {
+  const signedIn = account.profiles.length > 0;
+  const homeMade = signedIn && account.home !== false;
+  const [choice] = useHomeChoice(account.profiles[0]?.login ?? "");
+  const made = account.profiles[0]?.repository;
+  const sync = homeMade
+    ? `The home is ${account.profiles[0]?.login}/${made ?? "armada-home"}. Press Sync on Kit to push or pull`
+    : `Choose what syncs, then press Sync: the first one makes ${signedIn ? homePath(choice) : "<login>/armada-home"}, a private repository`;
+  const done = [signedIn, homeMade, false] as const;
+  const next = done.findIndex((one) => !one);
+  return (
+    <Frame label="Sync your Kit">
+      <div className="armada-account-screen__glass">
+        <div className="armada-account__tile" data-tile="plan">
+          <ul className="armada-account__rows">
+            {SYNC_STEPS.map(({ id, name, why: said, Glyph }, at) => {
+              const why = at === 1 ? sync : said;
+              return (
+              <li key={id} className="armada-account__row" aria-label={name} data-state={done[at] || at === next ? "done" : "waiting"}>
+                <Tooltip beside label={name}>
+                  <span className="armada-account__glyph" role="img" aria-label={name}>
+                    <Glyph size={16} strokeWidth={2} aria-hidden="true" />
+                  </span>
+                </Tooltip>
+                <span className="armada-account__step">
+                  <span className="armada-account__name">{name}</span>
+                  <span className="armada-account__why">{why}</span>
+                </span>
+                <span className="armada-account__state">
+                  {at === 1 && next === 1 && onKit !== undefined ? (
+                    <Button variant="secondary" size="sm" ground="sunken" onClick={onKit}>
+                      Open Kit
+                    </Button>
+                  ) : done[at] ? (
+                    <Tooltip beside label="Done">
+                      <span className="armada-account__done" role="img" aria-label="Done">
+                        <Check size={16} strokeWidth={2} aria-hidden="true" />
+                      </span>
+                    </Tooltip>
+                  ) : (
+                    <Tooltip beside label="Not yet">
+                      <span className="armada-account__unset" role="img" aria-label="Not yet">
+                        <CircleDashed size={16} strokeWidth={2} aria-hidden="true" />
+                      </span>
+                    </Tooltip>
+                  )}
+                </span>
+              </li>
+              );
+            })}
+          </ul>
+        </div>
+      </div>
+    </Frame>
+  );
+}
+
 /** Before signing in: the rows set-up will show, none yet. */
 function BeforeSignIn() {
   return (
@@ -543,7 +615,7 @@ function BeforeSignIn() {
  * what it will set up and never do while signed out. The band is the page's header where `band` is set.
  * `onSettings` opens Settings for the buttons that name a blank setting; without it they are not drawn.
  */
-export function AccountView({ account, onSettings, band = false, machine }: { account: Account; onSettings?: () => void; band?: boolean; machine?: string | undefined }) {
+export function AccountView({ account, onSettings, onKit, band = false, machine }: { account: Account; onSettings?: () => void; onKit?: () => void; band?: boolean; machine?: string | undefined }) {
   const { profiles, flow, ended, unavailable, left } = account;
   const setup = flow.phase === "setup" ? flow : undefined;
   const pending = setup !== undefined && !profiles.some((one) => one.login === setup.login) ? setup : undefined;
@@ -572,6 +644,7 @@ export function AccountView({ account, onSettings, band = false, machine }: { ac
             <ProfileTile
               key={one.login}
               account={account}
+              onKit={onKit}
               profile={one}
               setup={setup !== undefined && setup.login === one.login ? setup : undefined}
             />
@@ -603,6 +676,7 @@ export function AccountView({ account, onSettings, band = false, machine }: { ac
         </ul>
       </Frame>
       {account.unbound === undefined || account.unbound.length === 0 ? null : <NotMatched account={account} rows={account.unbound} />}
+      <SyncGuide account={account} onKit={onKit} />
       <Frame label="Turns on">
         <TurnsOnTiles on={turnedOn(account, setup)} />
       </Frame>
@@ -613,8 +687,8 @@ export function AccountView({ account, onSettings, band = false, machine }: { ac
 }
 
 /** The account as a page in the work area, the way Settings opens. Nothing where no account is provided. */
-export function AccountPage({ onSettings, machine }: { onSettings?: () => void; machine?: string | undefined }) {
+export function AccountPage({ onSettings, onKit, machine }: { onSettings?: () => void; onKit?: () => void; machine?: string | undefined }) {
   const account = useAccount();
   if (account === undefined) return null;
-  return <AccountView account={account} band machine={machine} {...(onSettings === undefined ? {} : { onSettings })} />;
+  return <AccountView account={account} band machine={machine} {...(onSettings === undefined ? {} : { onSettings })} {...(onKit === undefined ? {} : { onKit })} />;
 }

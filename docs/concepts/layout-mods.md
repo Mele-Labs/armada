@@ -32,7 +32,7 @@ Every entry is drawn until a layout hides it.
 | Region | Entries | Never hidden | Orders | Opens on |
 |---|---|---|---|---|
 | `dashboard.panels` | The Cockpit's panels: `list`, `merge-line`, `activity`, `bays`, `controls`, `dispatch`, `autopilot` | `list` | no | |
-| `job.panels` | An open Job's panels: `field`, `workflow`, `progress` | `progress` | yes | |
+| `job.panels` | An open Job's panels: `field`, `workflow`, `progress`, `mods` | `progress` | yes | |
 | `rail` | The places: `overview`, `sessions`, `kit`, `mods`, `settings`, `guides`, `workflows`, `studios`, `logbook`, `reviews`, `issues` | `overview`, `mods`, `settings` | no | |
 
 **`rail` is the region of places, and it hides them and never orders them.** The key keeps its name and its label is Places.
@@ -49,6 +49,7 @@ A right column a layout empties is not drawn and gives its room to the stage, an
 
 **`job.panels` is the panels an open Job stacks in the right column**, drawn in the region's order.
 Progress holds the plan the owner approves, so it is never hidden.
+`mods` is the mods a Mod Job made, each with its switch; it is drawn only for a Mod Job, after `progress`, and a layout may hide or move it like the others.
 
 `dashboard.tabs` went with the old Cockpit (#2301), and `job.tabs` with the Job's tabs, so a layout that names either is ignored like any region this build does not have.
 A layout is machine-wide, with no repository in it.

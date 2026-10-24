@@ -11,6 +11,19 @@ Bridge arranges, in `layout.json`; a tracker teaches Fleet an issue tracker, in
 trackers the last. Pick the kind from the ask: "warmer", "darker" and "higher
 contrast" are themes; "move", "hide", "put first" and "reorder" are layouts.
 
+# In a Mod Job
+
+**A Mod Job's first message is the owner's note on what he pointed at.**
+`docs/concepts/mods.md`, *A Mod Job*, is what one is.
+
+| Do | Because |
+|---|---|
+| Reach for a mod first | A mod needs no source change and applies live once valid |
+| Pass your `session_id` to `scaffold_mod` | The mod lists you as `made_by`, and *Mods made* shows it with its switch, which is his undo |
+| Where a mod cannot say it, tell him so | He should not wait on a mod that cannot do the ask |
+| On Armada's repository, change the source on the Job's branch, then put `scripts/preview --restart` in `waiting_for` as a `run` item | The change reaches him through the preview |
+| In the mods folder, with no repository, say a mod cannot do it and stop | There is no source to change and no preview to restart |
+
 # Making a theme mod
 
 **A mod is a folder on this machine, and a local one never touches Bridge's
@@ -23,7 +36,7 @@ Fleet refuses.
 | # | Do | Tool |
 |---|---|---|
 | 1 | See what exists, so the name is new | `list_mods` |
-| 2 | Make the folder; it answers with its `path` | `scaffold_mod` with `name` and a `description` |
+| 2 | Make the folder; it answers with its `path` | `scaffold_mod` with `name`, a `description` and your `session_id` |
 | 3 | Edit `theme.css` in that path | Your editor |
 | 4 | Check it; read `problems`, fix, check again | `validate_mod` with `name` |
 | 5 | Tell the owner | Settings, Theme, then the mod's name |
@@ -40,7 +53,7 @@ preference are his.
 
 | Never | Because |
 |---|---|
-| Edit anything under `apps/desktop` or `packages/` for a local mod | A mod exists so a look needs no source change |
+| Edit anything under `apps/desktop` or `packages/` for a local mod | A mod exists so a look needs no source change. In a Mod Job on Armada's repository, the source is for what a mod cannot say |
 | Edit `mod.toml` beyond `description` and `version` | `name` must equal the folder, and `kind` is `theme` |
 | Add a second file or a link in the folder | Only `mod.toml` and `theme.css` are read |
 | Promote a mod unprompted | It starts a Job that opens a pull request in the repository, and that is his ask |
@@ -121,7 +134,7 @@ accepts and how layers combine.
 | # | Do | Tool |
 |---|---|---|
 | 1 | See what exists, so the name is new | `list_mods` |
-| 2 | Make the folder; it answers with its `path` | `scaffold_mod` with `name`, `description` and `kind` set to `layout` |
+| 2 | Make the folder; it answers with its `path` | `scaffold_mod` with `name`, `description`, your `session_id` and `kind` set to `layout` |
 | 3 | Edit `layout.json` in that path | Your editor |
 | 4 | Check it; read `problems`, fix, check again | `validate_mod` with `name` |
 | 5 | Tell the owner where to see it | Mods lists it; Settings, Layout shows what it did |
@@ -140,7 +153,7 @@ nothing: check the id against the table.
 | Region | Ids, in the order shipped | Cannot be hidden | `order` | `first` |
 |---|---|---|---|---|
 | `dashboard.panels` | `list`, `merge-line`, `activity`, `bays`, `controls`, `dispatch`, `autopilot` | `list` | no | no |
-| `job.panels` | `field`, `workflow`, `progress` | `progress` | yes | no |
+| `job.panels` | `field`, `workflow`, `progress`, `mods` | `progress` | yes | no |
 | `rail` | `overview`, `sessions`, `kit`, `mods`, `settings`, `guides`, `workflows`, `studios`, `logbook`, `reviews`, `issues` | `overview`, `mods`, `settings` | no | no |
 
 `packages/shell/layout-registry.json` is the list Fleet checks. **`rail`
@@ -149,7 +162,8 @@ The Logbook page is the place `logbook`.** `dashboard.panels` is the Cockpit's
 panels: `list` the Jobs list, `merge-line` the merge queue, `controls` Flight
 control. A right column the layout empties gives its room to the stage.
 `job.panels` is the panels an open Job stacks in the right column, in that
-order. Hiding a place takes it off the tab bar or the strip and nothing else:
+order. `mods` is the mods a Mod Job made, drawn only for one.
+Hiding a place takes it off the tab bar or the strip and nothing else:
 it stays in the palette and in links.
 
 | Field | Is | Notes |
@@ -212,7 +226,7 @@ whole file format.
 |---|---|---|
 | 1 | Find how the tracker is read: a CLI that prints JSON, an HTTP API, or an MCP server. Run it by hand once and keep a real answer | Your shell |
 | 2 | See what exists, so the name is new | `list_mods` |
-| 3 | Make the folder | `scaffold_mod` with `name`, `description` and `kind` set to `tracker` |
+| 3 | Make the folder | `scaffold_mod` with `name`, `description`, your `session_id` and `kind` set to `tracker` |
 | 4 | Write `tracker.toml` in that path. Test each `map` against the answer you kept: `jq '<map>' answer.json` | Your editor |
 | 5 | Check it; read `problems`, fix, check again | `validate_mod` with `name` |
 | 6 | Try it against the repository; read `reason`, fix, try again | `try_tracker_mod` with `name` and `manifest_id` |
