@@ -17,6 +17,7 @@ mod api_forge_lists;
 mod api_forge_pulls;
 mod api_forge_reads;
 mod api_forge_writes;
+mod beads;
 mod background_task;
 mod basing;
 mod bucket;

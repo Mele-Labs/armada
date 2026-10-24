@@ -2,21 +2,21 @@
 
 **What it is:** The adapter through which Fleet reads a repository's open issues.
 Bridge lists the issues from Fleet, and a person starts a Job on one by its address.
-Each issue is named by its tracker's own reference: `#123` on the forge, `ABC-123` on Jira.
+Each issue is named by its tracker's own reference: `#123` on the forge, `ABC-123` on Jira, `armada-3fz` on beads.
 
 ---
 
 **Kind:** Adapter.
 `#91`.
 The seam is `Tracker` in `crates/adapter-traits/src/tracker.rs`.
-There are two implementations, and each repository's Manifest chooses between them: `crates/adapters/src/issue_tracker.rs`, against the same forge the rest of delivery assumes, and `crates/adapters/src/jira_tracker.rs`, [Jira](#jira).
+There are three implementations, and each repository's Manifest chooses between them: `crates/adapters/src/issue_tracker.rs`, against the same forge the rest of delivery assumes, `crates/adapters/src/jira_tracker.rs`, [Jira](#jira), and `crates/adapters/src/beads_tracker.rs`, [Beads](#beads).
 Any other tracker is taught by a tracker mod, `crates/adapters/src/taught_tracker.rs`.
 *Choosing a tracker* says how.
 
 **An issue's identity is its reference and its address, never a bare number.** A number names nothing once a tracker has more than one project.
 `TrackedIssue` and `IssueRead` carry `reference` as text, `get_issue` takes it, and Autopilot's picker is offered and answers it.
 Bridge draws the reference as it is.
-A Session's `issue` rows on the ledger are held the same way: the forge's number as digits, or a key such as `ABC-12`, and the pull reading reads each through the Manifest's tracker.
+A Session's `issue` rows on the ledger are held the same way: the forge's number as digits, a key such as `ABC-12`, or a lowercase id such as `armada-3fz`, and the pull reading reads each through the Manifest's tracker.
 An issue tag, a plan group's `issue` and `claim_issue` all take either. [what-is-kept.md](session/what-is-kept.md).
 
 ## Why Fleet reads it, and not an agent
@@ -38,6 +38,7 @@ The credential stays where the forge CLI already keeps it, in the operator's own
 | Run, save, edit and forget a query | On ask from Bridge, a saved one run as one tracker call | `crates/fleet/src/issue_queries.rs`, `crates/store/src/issue_queries.rs` |
 
 **Fleet never comments on, labels or edits an issue or a pull request on the owner's behalf**, unless he presses for it.
+The one exception is a beads backlog, which Fleet syncs and claims in: [Beads](#beads).
 A review or comment he approves or types and sends from Bridge is his own act. #91 asked for write-back to the issue a Job came from, and it is not built.
 
 ## Rules
@@ -63,6 +64,7 @@ Everything else is a named field, under the tracker's own name, each value a dis
 |---|---|
 | The forge | `Labels`, `Milestone` (its title), `Projects` (each project's title, with its Status where it has one: `Roadmap: In progress`) |
 | Jira | `Status`, `Priority`, `Issue type`, `Labels`: all `acli`'s search returns. A block naming `fields` is refused |
+| Beads | `Status`, `Priority` (`P0` to `P4`), `Type` |
 
 A token that may not read projects (`read:project`) still searches: it is asked again without them, and the rest is read.
 
@@ -192,6 +194,55 @@ acli jira workitem search --jql 'project = "ABC"' --fields updated --json --limi
 ```
 
 Still unconfirmed: the wording `acli` prints for an issue that does not exist, which `read_issue` matches on (`does not exist`, `not found`, `404`).
+
+## Beads
+
+The `beads` provider reads Armada's own backlog, an issue tracker on Dolt, through `bd`, and reduces its JSON with `jq`.
+It takes no keys beyond `provider`.
+
+```yaml
+tracker:
+  provider: beads
+```
+
+> **Rule.** Beads is the one tracker Fleet writes to.
+> Why: it is Armada's own backlog, not a forge or someone else's tracker, so a write there is not a write on the owner's behalf somewhere he did not choose.
+> The owner decided it on 24 Oct 2026, when Armada's work moved out of the forge's issues.
+
+**Every machine keeps its own copy, and copies meet only when one syncs.** [Spike 38](../spikes/038-how-far-behind-is-another-machine-on-beads.md) measured it: a write is not pushed by itself, a sync takes 12 to 33 seconds, and two writes to one field settle on a sync with the later one winning on both copies.
+So Fleet runs the syncs, since an agent cannot be trusted to.
+
+**One database a machine.** Every call runs `bd -C` in the repository's main checkout, found from git's common directory, so a slot reaches the same database as the checkout it was cut from.
+Fleet does nothing else to make it: making the database and its remote on a new machine is the setup's, and a sync passes `--no-adopt` so it never picks a remote itself.
+
+| Act | When | What runs |
+|---|---|---|
+| List, search, read | As for every tracker | `bd --readonly query` or `show`, `--json`, through `jq`. Open is `status=open OR status=in_progress OR status=blocked`. Assigned to me is `status=in_progress`, since beads has no word for whoever is asking |
+| Sync after a write | Within 2 seconds of anything writing to this machine's copy | `bd sync --no-adopt`. A write is the root hash in each Dolt store's `noms/manifest` moving: a `--readonly` read moves the files' times, so they cannot tell |
+| Sync on a timer | Every 30 seconds while Fleet runs, for each repository whose tracker is beads | The same. With every machine doing it, an issue filed on one shows on another within about a minute |
+| Claim | `claim_issue` from a Job | Sync, `bd update <id> --claim --actor <machine>/<job id start>`, sync, read the assignee back |
+
+**A claim is sync, claim, sync, read back.** Only the copy after a sync names the winner.
+The first sync is one more than the spike's three steps: without it a machine whose copy has not pulled another's claim yet takes the issue anyway, and the later write takes it from a Job already told it holds it.
+A claim the synced copy gives to someone else is refused with 409 `fleet.issue_held` naming them, as a red claim's names its holder.
+The syncs of one repository never overlap: the timer and a claim take one lock, and the timer skips a turn rather than wait.
+
+**A sync that moved the copy drops the list held for five minutes**, so the next read of Issues has what came in.
+Nothing yet tells an Issues page that is already open to read again.
+
+**Fleet also writes four things into the Job's issue**, each through the same lock and followed by the same sync, never a loop of its own.
+A write that fails is said once and tried again 30 seconds later; none of them holds up an approval, a task's progress or a merge notice.
+
+| What | When | What is written |
+|---|---|---|
+| The plan | The Job's plan is approved and the Job holds a beads issue | One child of the issue a group, one child of its group a task, `bd dep add` so each group waits on the one before. A plan approved again keeps a matched task's bead, renames it if its title changed, files a bead for a new one and closes one that went with the reason `removed from the plan`. The mapping from plan id to bead is Fleet's own, in `plan_beads`, kept when the bead is made, so a retry after a failed sync files nothing twice. A task moved to another group keeps its bead under the old one |
+| A task's status | The state Fleet reads for it changes (`plan_record::state_of`) | `working` is `in_progress`, `done` and `handed_in` are closed, `open` is open. A group closes when all its tasks are closed, and opens again when one does. Nothing the agent says about progress is written |
+| The merge | A pull request a Job held is heard merged, however long ago, and whether or not the Job is still live or its issue row stands | The issue the Job worked and every child still open are closed, with `merged in <the pull request's address>` as the reason. One already closed keeps its own. The issue is kept per Job in `job_issues` when it is claimed or first seen held, and forgotten if the Job loses the claim |
+| A lost claim | After each sync, for each issue a Job claimed through Fleet | The assignee is read back; if it names someone else, the Job is told once, naming them (`issue_lost`), and the issue row is dropped from it. A Job only named an issue, or never claimed it through Fleet, is not told |
+
+Still open:
+
+- Beads reads no links, so a request naming an issue is dispatched as written.
 
 ## What a person sees
 

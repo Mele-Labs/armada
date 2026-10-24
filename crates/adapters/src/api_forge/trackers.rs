@@ -47,6 +47,10 @@ impl Trackers for ApiTrackers {
     fn links(&self, choice: &TrackerChoice) -> Arc<dyn LinkLookup + Send + Sync> {
         crate::tracker_providers::links_over(choice, Some(&self.forge))
     }
+
+    fn backlog(&self, choice: &TrackerChoice) -> Option<Arc<dyn adapter_traits::Backlog + Send + Sync>> {
+        crate::tracker_providers::backlog_over(choice)
+    }
 }
 
 /// [`IssueTracker`], over the API.

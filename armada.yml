@@ -505,3 +505,7 @@ setup:
       - warm_tests
 
 auto_merge: checks-pass
+
+# Armada's own work is kept in beads, on this repository's refs/dolt/data. docs/practices/joining.md
+tracker:
+  provider: beads
