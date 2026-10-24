@@ -6,6 +6,7 @@
 // one. Ten props would be ten chances for a caller to wire one to the wrong
 // thing; the object is the shape that function already agrees on.
 
+import { Puzzle } from "lucide-react";
 import { Palette, type PaletteRepository, type PaletteSurface } from "@armada/shell";
 import type { PaletteDispatch } from "@armada/components";
 import type { BridgeState } from "../../shared/bridge";
@@ -88,7 +89,7 @@ export function PaletteMount({
       // surface is gone, so there is nothing here for a row to set.
       filters={[]}
       // A row about the window as a whole: it starts a Mod Job through Fleet, so it waits on the connection.
-      board={[{ id: CREATE_MOD, label: "Create mod", ...(live ? {} : { dormant: FLEET_DOWN }) }]}
+      board={[{ id: CREATE_MOD, label: "Create mod", icon: Puzzle, ...(live ? {} : { dormant: FLEET_DOWN }) }]}
       // One row per Check and Command, off the same reading the Manifest
       // surface draws from — Journey 9's own table. Empty until that read has
       // answered, which is what `App.tsx`'s effect holds open.
