@@ -55,6 +55,7 @@ mod delivery_picks;
 mod word_asks;
 /// The Jobs a person renamed, which the proposer names later Jobs from.
 mod job_renames;
+mod plan_beads;
 mod fleet_calls;
 mod notice_mutes;
 /// The issue queries a person saved, per repository.
@@ -156,6 +157,7 @@ pub use watches::{KeptWatch, KeptWatchReading, KeptWatchSetAside, KeptWatchTaken
 pub use notice_mutes::LiveMutes;
 pub use word_asks::KeptWordAsk;
 pub use job_renames::KeptRename;
+pub use plan_beads::KeptBead;
 pub use fleet_calls::KeptCall;
 pub use issue_queries::KeptIssueQuery;
 pub use session_waiting::KeptWaiting;
