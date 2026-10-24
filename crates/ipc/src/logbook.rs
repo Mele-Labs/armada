@@ -56,6 +56,8 @@ pub struct LogbookEvidence {
 pub enum LogbookReplacedBy {
     Distil,
     Person,
+    /// Tidy folded a near-duplicate into this entry and wrote the one line for both.
+    Merged,
 }
 
 /// Text an entry held before.
@@ -101,6 +103,26 @@ pub struct LogbookEntry {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Logbook {
     pub entries: Vec<LogbookEntry>,
+    pub tidy: LogbookTidy,
+}
+
+/// Whether a Tidy pass is running, and what the last one did. Kept in memory: a restart forgets `last`.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LogbookTidy {
+    pub running: bool,
+    /// The last pass that ended since Fleet started, failed or not.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last: Option<LogbookTidyLast>,
+}
+
+/// What a finished Tidy pass did.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LogbookTidyLast {
+    /// Entries folded into another and archived.
+    pub merged: u32,
+    pub at: Instant,
+    /// A repository's call failed: `merged` counts what was archived before it did.
+    pub failed: bool,
 }
 
 /// `edit_logbook_entry`' body: the text the entry now says.
@@ -119,6 +141,21 @@ pub struct LockLogbookEntry {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ForgottenLogbookEntry {
     pub id: String,
+}
+
+/// `tidy_logbook`' body: the repository whose Logbook to tidy.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TidyLogbook {
+    /// A served repository's root. **Absent**: every served repository, with the habits and this Mac's.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub repository: Option<String>,
+}
+
+/// `tidy_logbook`' answer, given at once: a pass is running, whether this call started it or one was already going.
+/// What it merged is in `get_logbook`'s `tidy`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TidiedLogbook {
+    pub running: bool,
 }
 
 /// `teach_logbook_entry`' body: an entry a person wrote, which stands at once.

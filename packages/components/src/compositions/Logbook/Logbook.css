@@ -30,7 +30,8 @@
   .armada-logbook__detail { position: sticky; top: 0; }
 }
 
-.armada-logbook__filters { display: flex; justify-content: flex-start; }
+.armada-logbook__filters { display: flex; justify-content: flex-start; align-items: center; gap: var(--space-3); }
+.armada-logbook__tidied { color: var(--fg-muted); font-size: var(--text-sm); }
 
 /* ---- The list ------------------------------------------------------------------------------- */
 

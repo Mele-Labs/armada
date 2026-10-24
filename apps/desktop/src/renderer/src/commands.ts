@@ -124,6 +124,7 @@ export const readLogbook = () => window.armada.readLogbook();
 export const editLogbookEntry = (id: string, text: string) => window.armada.editLogbookEntry(id, text);
 export const lockLogbookEntry = (id: string, locked: boolean) => window.armada.lockLogbookEntry(id, locked);
 export const forgetLogbookEntry = (id: string) => window.armada.forgetLogbookEntry(id);
+export const tidyLogbook = () => window.armada.tidyLogbook();
 export const followCheckOutput = (jobId: string | null, kept: string | null): void =>
   void window.armada.followCheckOutput(jobId, kept);
 export const followLandCheck = (at: LandCheckAt | null): void => void window.armada.followLandCheck(at);

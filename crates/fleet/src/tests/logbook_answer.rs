@@ -61,3 +61,12 @@ fn logbook_hard_evidence_is_a_failure_then_a_different_form_that_worked() {
     assert!(!hard(&cites(&["ran:3", "ran:1"]), &[ran(1, "a", false), ran(2, "x", false), ran(3, "b", true)]), "worked before it failed");
     assert!(!hard(&cites(&["ran:1"]), &rows));
 }
+
+#[test]
+fn the_question_asks_for_one_canonical_form_of_a_command() {
+    let question = crate::logbook::QUESTION;
+    for left_out in ["redirect", "/tmp", "--reporter="] {
+        assert!(question.contains(left_out), "the question never says to leave out `{left_out}`");
+    }
+    assert!(question.contains("one canonical form"), "the question never asks for one canonical form of a command");
+}

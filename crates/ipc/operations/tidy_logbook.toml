@@ -1,0 +1,8 @@
+[operations.tidy_logbook]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Start Tidy: fold near-duplicate entries into one and archive the rest, in the background"
+notes = """
+`POST /logbook/tidy`, body `{repository?}`. Answers `{running: true}` at once and does the work on a task of its own; a call while a pass is running starts no second one. What it merged, and when, is `tidy` in `get_logbook`. `repository` is a served repository's root; absent tidies every served repository, with the habits and this Mac's. One model call per repository, so a pass can take minutes. An entry that is locked or a person's is never merged. A 500 `fleet.logbook_failed` where the call cannot be put together on this machine. A pass whose call fails later is kept as `tidy.last` with `failed: true`; that repository changed nothing.
+"""

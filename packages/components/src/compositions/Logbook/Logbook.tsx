@@ -4,6 +4,7 @@ import {
   BookMarked,
   BookPlus,
   CircleAlert,
+  Combine,
   Container,
   Lock,
   Repeat,
@@ -12,7 +13,7 @@ import {
   TrafficCone,
   type LucideIcon,
 } from "lucide-react";
-import type { LogbookEntry, LogbookKind, LogbookState } from "@armada/protocol";
+import type { LogbookEarlier, LogbookEntry, LogbookKind, LogbookState } from "@armada/protocol";
 
 import { keyFor } from "../../actions";
 import { forgetKept, readKept } from "../../keep";
@@ -62,6 +63,12 @@ export type LogbookViewProps = {
   onSave: (id: string, text: string) => void;
   onLock: (id: string, locked: boolean) => void;
   onForget: (id: string) => void;
+  /** Tidy now: folds near-duplicates together. Absent, the button is not drawn. */
+  onTidy?: () => void;
+  /** Fleet is tidying, so the button is busy. */
+  tidying?: boolean;
+  /** What the last tidy came to, as a plain fact. */
+  tidied?: string;
   /** Opens the Job an evidence row came from. */
   onOpenJob?: (jobId: string) => void;
   /** What else an entry changed, drawn under its text. Absent, or absent for an entry, nothing is drawn. */
@@ -96,6 +103,9 @@ const TABS: { id: LogbookState; label: string; hint: string }[] = [
   { id: "candidate", label: "New", hint: "Seen in one Job. A second Job puts it in use" },
   { id: "faded", label: "Archived", hint: "Unused for 30 days. Recall still finds it" },
 ];
+
+/** Who replaced an earlier text, in the words its line in Earlier opens with. */
+const EARLIER: Record<LogbookEarlier["by"], string> = { person: "Replaced by you", distil: "Rewritten by Armada", merged: "Merged" };
 
 const LOCKED = "Locked: Armada never rewrites it or lets it fade.";
 
@@ -155,7 +165,7 @@ function Words({ text }: { text: string }) {
 const optionId = (id: string) => `logbook-entry-${id}`;
 const draftKey = (id: string) => `logbook:${id}`;
 
-export function LogbookView({ panels, shown, onShown, fixes, toFixes, unread, selected, onSelect, editing, onEdit, onSave, onLock, onForget, onOpenJob, also, refusal, now }: LogbookViewProps) {
+export function LogbookView({ panels, shown, onShown, fixes, toFixes, unread, selected, onSelect, editing, onEdit, onSave, onLock, onForget, onTidy, tidying, tidied, onOpenJob, also, refusal, now }: LogbookViewProps) {
   const list = useRef<HTMLDivElement>(null);
   const part = useRef<HTMLElement>(null);
   const detail = useRef<HTMLElement>(null);
@@ -240,6 +250,16 @@ export function LogbookView({ panels, shown, onShown, fixes, toFixes, unread, se
         <>
           <div className="armada-logbook__filters">
             <Tabs items={TABS} value={shown} onChange={(id) => onShown(id as LogbookState)} />
+            {onTidy === undefined ? null : (
+              <Tooltip label="Tidy now">
+                <Button variant="ghost" size="sm" iconOnly aria-label="Tidy now" pending={tidying === true} onClick={onTidy}>
+                  <Combine size={12} strokeWidth={2} aria-hidden />
+                </Button>
+              </Tooltip>
+            )}
+            <span className="armada-logbook__tidied" role="status">
+              {tidied}
+            </span>
           </div>
           <div className="armada-logbook__page">
             <div
@@ -476,12 +496,12 @@ function Detail({
             <h3 className="armada-logbook__head">Earlier</h3>
             <ul className="armada-logbook__history">
               {entry.history.map((one) => (
-                <li key={one.until}>
+                <li key={`${one.until}:${one.text}`}>
                   <span className="armada-logbook__says">
                     <Words text={one.text} />
                   </span>
                   <span className="armada-logbook__from">
-                    {one.by === "person" ? "Replaced by you" : "Rewritten by Armada"} <When at={one.until} now={now} />
+                    {EARLIER[one.by]} <When at={one.until} now={now} />
                   </span>
                 </li>
               ))}
