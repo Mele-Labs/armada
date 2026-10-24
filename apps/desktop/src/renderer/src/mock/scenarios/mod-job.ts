@@ -56,7 +56,7 @@ function build(): Scenario {
           const record = { ...started.value, title: start.title ?? "Mod", mod: true as const };
           fake.changed(record);
           await own.watchSession!(record.id);
-          const sent = await own.sendSessionMessage!({ session_id: record.id, text: pointedAt(start.note) });
+          const sent = await own.sendSessionMessage!({ session_id: record.id, text: start.note ? pointedAt(start.note) : (start.said ?? "") });
           void fake
             .agentTurn(record.id, [
               { kind: "tool", id: "w1", at: "2026-10-23T09:00:05.000Z", text: `Write ${MODS}/mod.toml` },

@@ -46,10 +46,10 @@ test("Mod posts the note a Report would carry, with no Session, titled Mod and t
 
   const body = start.mock.calls[0]![0];
   expect(body.title).toBe("Mod Usage meter");
-  expect(body.note.said).toBe("");
-  expect(body.note.address).toBe(window.location.href);
-  expect(body.note.place.element).toMatchObject({ tag: "button", label: "Usage meter" });
-  expect(body.note.place.selector).not.toBe("");
+  expect(body.note!.said).toBe("");
+  expect(body.note!.address).toBe(window.location.href);
+  expect(body.note!.place.element).toMatchObject({ tag: "button", label: "Usage meter" });
+  expect(body.note!.place.selector).not.toBe("");
   expect(body.note).not.toHaveProperty("session_id");
   expect(heard).toEqual(["open 01MOD"]);
 });
