@@ -42,7 +42,8 @@ export function SessionWorkspace({ session, entries, repositories, hosts, ed, ba
   useEffect(() => () => dropLayer(id), [id]);
   const work = session.work;
   const layered = layer === undefined ? null : <Layer id={layer} session={session} entries={entries} bays={bays} onOpenCheck={onOpenCheck} onOpenSession={onOpenSession} onOpenSketch={onOpenSketch} />;
-  if (work === undefined || draft === undefined || hosts === undefined) return <>{children}{layered}{large}</>;
+  // Held on its start card: its Workflow, Progress and Field wait for the agent, and the card carries the workflow.
+  if (work === undefined || draft === undefined || hosts === undefined || session.start !== undefined) return <>{children}{layered}{large}</>;
   // In the order a layout gives; each panel leaves itself out where a layout hides it (`SvPanel`).
   const panels: Record<string, ReactNode> = {
     field: <FieldPanel session={session} repositories={repositories} place="side" />,

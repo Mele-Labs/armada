@@ -55,6 +55,12 @@ export type StartSession = {
    * by the brief. The Session waited on is told. Not read with `fork` or `root`.
    */
   after?: StartAfter;
+  /**
+   * Start the session held: it is answered at once, the proposer reads `request`, and no process starts until
+   * `POST /sessions/begin`. Its `hosted.start` is present while it waits. Dispatch sends it. Not read with
+   * `fork`, `root` or `after`.
+   */
+  held?: boolean;
 };
 
 export type TagKind = "session" | "pull_request" | "branch" | "issue";
@@ -92,6 +98,13 @@ export type AnswerSessionAsk = {
   /** The folder an `always_allow`, `always_block` or `allow_for_session` is for. A 422 `fleet.session_answer_not_a_folder` without one that holds `reaches`. */
   folder?: string;
 };
+
+/**
+ * `POST /sessions/begin`. Starts a held session: its process starts on `request`, and `hosted.start` goes. `delivery`
+ * is how the work lands, where the session's workflow has a landing step; left out, the choice `start.picked` names
+ * stands. Refused 422 `fleet.session_delivery_unchosen` where the workflow asks and neither names one. Answers the record.
+ */
+export type BeginSession = { session_id: string; delivery?: DeliveryChoice };
 
 /** `POST /sessions/tune`. A model or effort left out is the machine's own. */
 export type TuneSession = {
@@ -220,6 +233,18 @@ export type HostedFacts = {
   commands?: string[];
   /** Set while the person has paused the session. Since 23.92. */
   paused?: SessionPaused;
+  /** Present while a held session waits for `POST /sessions/begin`, and gone once it is begun. */
+  start?: SessionStart;
+};
+
+/**
+ * What a held session waits on. `asks_delivery` is whether its workflow has a landing step, so a choice is owed before it begins.
+ * `picked` is the choice already standing: the person's `usual` for this kind of workflow in this repository, or one the request
+ * `named`. Fleet recomputes it when the workflow changes, and leaves it out where there is none.
+ */
+export type SessionStart = {
+  asks_delivery: boolean;
+  picked?: { choice: DeliveryChoice; from: "usual" | "named" };
 };
 
 /** Who said a row. Another session that wrote to this one is named. */

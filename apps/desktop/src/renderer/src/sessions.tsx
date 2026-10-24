@@ -134,6 +134,7 @@ import { planRevision } from "./session-view/plan-revision";
 import { PlanReview } from "./session-view/PlanReview";
 import { groupTitleOf, linkedPropsOf } from "./session-view/linked";
 import { SessionWorkspace, type Hosts } from "./session-view/SessionWorkspace";
+import { StartCard } from "./session-view/StartCard";
 import { CallChip, callWord } from "./session-view/CallChip";
 import { useLedgerRelease, type LedgerRelease } from "./session-ledger-release";
 
@@ -1129,6 +1130,10 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
             </ForkedFrom>
           )}
           {startedBy}
+          {session.start !== undefined ? (
+            <StartCard key={session.id} session={session} start={session.start} repositories={repositories} />
+          ) : (
+          <>
           <RequestOpen.Provider value={openRequest}>
           <SavedOpen.Provider value={openSaved}>
           <SessionThread
@@ -1232,6 +1237,8 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
             />
           )}
           </div>
+          </>
+          )}
         </div>
       </SessionFrame>
       </SessionWorkspace>
