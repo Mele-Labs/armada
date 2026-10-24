@@ -106,3 +106,33 @@ pub fn claim_settled(
         }))),
     }
 }
+
+/// An issue a Job claimed through Fleet, and who as.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ClaimHeld {
+    pub session: String,
+    pub issue: String,
+    pub actor: String,
+}
+
+/// A claim the copy, synced, gave to someone else.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ClaimLoss {
+    pub claim: ClaimHeld,
+    pub holder: String,
+}
+
+/// Which of `held` the copy now names someone else for. **Two claims whose syncs overlap are both
+/// answered yes**, and the later write wins at the next sync (spike 38): this is where the other
+/// Job learns it. An issue the copy names nobody for, or cannot be read, is no loss.
+pub fn claims_lost(tracker: &dyn Tracker, root: &str, held: &[ClaimHeld]) -> Vec<ClaimLoss> {
+    held.iter()
+        .filter_map(|claim| {
+            let read = tracker.read_issue(root, &claim.issue).ok().flatten()?;
+            let holders: Vec<String> =
+                read.assignees.iter().map(|one| one.as_written().trim().to_string()).filter(|one| !one.is_empty()).collect();
+            let holder = holders.first().filter(|_| !holders.contains(&claim.actor))?;
+            Some(ClaimLoss { claim: claim.clone(), holder: holder.clone() })
+        })
+        .collect()
+}

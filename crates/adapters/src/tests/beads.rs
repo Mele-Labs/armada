@@ -10,7 +10,7 @@ use std::path::Path;
 use std::process::{ExitStatus, Output};
 use std::sync::Mutex;
 
-use adapter_traits::{Backlog, Tracker, TrackerChoice, Trackers};
+use adapter_traits::{Backlog, BeadState, Tracker, TrackerChoice, Trackers};
 
 use crate::beads_tracker::{main_checkout, mark_of, BeadsTracker};
 use crate::jira_tracker::{Process, Run};
@@ -170,6 +170,75 @@ fn a_claim_names_its_actor_a_sync_never_adopts_a_remote_and_each_refusal_is_bds_
     let calls = bd.calls();
     assert_eq!(calls[0], ["-C", "/repo", "update", "armada-3fz", "--claim", "--actor", "mac-b/0a1b2c3d"]);
     assert_eq!(calls[2], ["-C", "/repo", "sync", "--no-adopt"]);
+}
+
+#[test]
+fn a_child_is_filed_with_its_parent_and_answers_the_id_bd_printed() {
+    let bd = Bd::saying(&[(0, "armada-3fz.1\n", ""), (1, "", "Error: parent armada-zzz not found"), (0, "", "")]);
+    let tracker = BeadsTracker::with_runner(&bd);
+
+    let made = tracker.create_child("/repo", "armada-3fz", "Store - add tables").expect("filed");
+    assert_eq!(made, "armada-3fz.1");
+    assert!(tracker.create_child("/repo", "armada-zzz", "x").expect_err("no parent").said.contains("not found"));
+    let empty = tracker.create_child("/repo", "armada-3fz", "y").expect_err("printed nothing");
+    assert!(empty.said.contains("no issue id"), "{}", empty.said);
+    assert_eq!(bd.calls()[0], ["-C", "/repo", "create", "--title", "Store - add tables", "--parent", "armada-3fz", "--silent"]);
+}
+
+#[test]
+fn a_state_is_an_update_and_a_close_is_forced_past_a_blocker_with_its_reason() {
+    let bd = Bd::saying(&[]);
+    let tracker = BeadsTracker::with_runner(&bd);
+
+    tracker.put_state("/repo", "armada-3fz.1", BeadState::InProgress, "").expect("started");
+    tracker.put_state("/repo", "armada-3fz.1", BeadState::Open, "").expect("reopened");
+    tracker.put_state("/repo", "armada-3fz.1", BeadState::Closed, "done in the plan").expect("closed");
+    tracker.retitle("/repo", "armada-3fz.1", "Store - add the tables").expect("renamed");
+    tracker.block("/repo", "armada-3fz.2", "armada-3fz.1").expect("ordered");
+    tracker.unblock("/repo", "armada-3fz.2", "armada-3fz.1").expect("unordered");
+
+    let calls = bd.calls();
+    assert_eq!(calls[0], ["-C", "/repo", "update", "armada-3fz.1", "--status", "in_progress"]);
+    assert_eq!(calls[1], ["-C", "/repo", "update", "armada-3fz.1", "--status", "open"]);
+    assert_eq!(calls[2], ["-C", "/repo", "close", "armada-3fz.1", "--reason", "done in the plan", "--force"]);
+    assert_eq!(calls[3], ["-C", "/repo", "update", "armada-3fz.1", "--title", "Store - add the tables"]);
+    assert_eq!(calls[4], ["-C", "/repo", "dep", "add", "armada-3fz.2", "armada-3fz.1"]);
+    assert_eq!(calls[5], ["-C", "/repo", "dep", "remove", "armada-3fz.2", "armada-3fz.1"]);
+}
+
+#[test]
+fn closing_a_tree_reads_the_children_at_every_depth_and_closes_the_open_ones_deepest_first() {
+    let children_of_issue = r#"[{"id":"armada-3fz.1","status":"open"},{"id":"armada-3fz.2","status":"closed"}]"#;
+    let children_of_first = r#"[{"id":"armada-3fz.1.1","status":"in_progress"}]"#;
+    let bd = Bd::saying(&[
+        (0, children_of_issue, ""),
+        (0, children_of_first, ""),
+        (0, "[]", ""),
+        (0, "[]", ""),
+        (0, r#"[{"id":"armada-3fz","status":"open"}]"#, ""),
+        (0, "", ""),
+    ]);
+    let tracker = BeadsTracker::with_runner(&bd);
+
+    tracker.close_tree("/repo", "armada-3fz", "merged in https://forge.invalid/pull/5").expect("closed");
+
+    let calls = bd.calls();
+    assert_eq!(calls[0], ["-C", "/repo", "--readonly", "children", "armada-3fz", "--json"]);
+    assert_eq!(calls[1], ["-C", "/repo", "--readonly", "children", "armada-3fz.1", "--json"]);
+    assert_eq!(
+        calls.last().expect("a close"),
+        &["-C", "/repo", "close", "armada-3fz.1.1", "armada-3fz.1", "armada-3fz", "--reason", "merged in https://forge.invalid/pull/5", "--force"]
+    );
+    assert_eq!(calls.iter().filter(|one| one.contains(&"close".to_string())).count(), 1, "one close for all of them");
+}
+
+#[test]
+fn a_tree_already_closed_is_left_as_it_was() {
+    let bd = Bd::saying(&[(0, "[]", ""), (0, r#"[{"id":"armada-3fz","status":"closed"}]"#, "")]);
+    let tracker = BeadsTracker::with_runner(&bd);
+
+    tracker.close_tree("/repo", "armada-3fz", "merged").expect("nothing to close");
+    assert!(bd.calls().iter().all(|one| !one.contains(&"close".to_string())), "{:?}", bd.calls());
 }
 
 #[test]

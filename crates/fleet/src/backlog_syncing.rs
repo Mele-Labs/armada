@@ -13,26 +13,38 @@ use adapter_traits::{AgentHarness, Backlog, Delivery, Vcs, WorkProduct};
 use config::settings as keys;
 use tokio::task::JoinHandle;
 
-use crate::backlog::{claim_settled, ClaimLost, Keeping, Looked};
+use crate::backlog::{claim_settled, claims_lost, ClaimLost, Keeping, Looked, SYNC_EVERY};
 use crate::daemon::Fleet;
 use crate::repositories::Served;
 
-/// One repository's [`Keeping`], and the failure last said for it.
+/// One repository's [`Keeping`], and the failures last said for it.
 #[derive(Default)]
-struct Kept {
+pub(crate) struct Kept {
     keeping: Keeping,
     failing: Option<String>,
+    /// What the writes of the last look said went wrong, joined.
+    writing: Option<String>,
+    /// When a write for something last failed, by what it was for. It is tried again once a
+    /// [`SYNC_EVERY`] has passed, as a sync is.
+    pub(crate) failed_at: BTreeMap<String, Duration>,
+}
+
+impl Kept {
+    /// Whether the write for `what` may be tried: it has not failed, or not lately.
+    pub(crate) fn due(&self, what: &str, now: Duration) -> bool {
+        self.failed_at.get(what).is_none_or(|at| now.saturating_sub(*at) >= SYNC_EVERY)
+    }
 }
 
 /// Every repository's [`Kept`], by root. Never written down: a restart syncs at its first look.
 pub(crate) struct Keepings {
-    started: Instant,
+    started: Mutex<Instant>,
     by_root: Mutex<BTreeMap<String, Arc<tokio::sync::Mutex<Kept>>>>,
 }
 
 impl Keepings {
     pub(crate) fn new() -> Keepings {
-        Keepings { started: Instant::now(), by_root: Mutex::new(BTreeMap::new()) }
+        Keepings { started: Mutex::new(Instant::now()), by_root: Mutex::new(BTreeMap::new()) }
     }
 
     fn of(&self, root: &str) -> Arc<tokio::sync::Mutex<Kept>> {
@@ -41,7 +53,14 @@ impl Keepings {
     }
 
     fn now(&self) -> Duration {
-        self.started.elapsed()
+        self.started.lock().unwrap_or_else(PoisonError::into_inner).elapsed()
+    }
+
+    /// Let `by` pass without waiting for it, so a test reaches the timer.
+    #[cfg(test)]
+    pub(crate) fn later(&self, by: Duration) {
+        let mut started = self.started.lock().unwrap_or_else(PoisonError::into_inner);
+        *started -= by;
     }
 }
 
@@ -84,8 +103,13 @@ where
     W::Error: std::error::Error + Send + Sync + 'static,
 {
     /// One look at each served repository whose tracker Fleet writes to, one after another, and
-    /// what is worth saying of them: a sync that starts failing or stops, once each, not every turn.
-    pub(crate) async fn backlogs_looked(&self) -> Vec<String> {
+    /// what is worth saying of them: a sync or a write that starts failing or stops, once each, not
+    /// every turn.
+    ///
+    /// **Writes come before the look**, so the look sees them in the copy's mark and syncs them: the
+    /// plan mirrored into a Job's issue, and the issue closed for a merge. **After a sync**, each
+    /// claim a Job made is read back, and a Job whose claim now names someone else is told.
+    pub(crate) async fn backlogs_looked(self: &Arc<Self>) -> Vec<String> {
         let mut lines = Vec::new();
         for served in self.repositories().served() {
             let Some(backlog) = self.backlog_of(&served) else {
@@ -95,10 +119,28 @@ where
                 continue;
             };
             let (root, now) = (served.root().to_string(), self.tracking().keepings.now());
+            let manifest = served.manifest().id().as_str().to_string();
+
+            let mut failed = self.plans_mirrored(&served, &backlog, &mut kept, now).await;
+            failed.extend(self.merged_issues_closed(&served, &backlog, &mut kept, now).await);
+            // A write waiting out its turn to be tried again has not recovered.
+            let writing = match (failed.is_empty(), kept.failed_at.is_empty()) {
+                (false, _) => Some(failed.join("; ")),
+                (true, true) => None,
+                (true, false) => kept.writing.clone(),
+            };
+            match (&kept.writing, &writing) {
+                (was, Some(now)) if was.as_ref() != Some(now) => lines.push(format!("{root}: {now}")),
+                (Some(_), None) => lines.push(format!("{root}: the backlog writes went through again")),
+                _ => {}
+            }
+            kept.writing = writing;
+
+            let (held, tracker) = (self.claims_held(&manifest).await, self.tracker_of(&served));
             let looked = tokio::task::spawn_blocking(move || {
                 let looked = kept.keeping.look(backlog.as_ref(), &root, now);
                 let failing = match &looked {
-                    Looked::Waited => return (looked, None),
+                    Looked::Waited => return (looked, None, Vec::new()),
                     Looked::Failed(why) => Some(format!("{} did not happen: {}", why.doing, why.said)),
                     Looked::Synced { .. } => None,
                 };
@@ -108,15 +150,22 @@ where
                     _ => None,
                 };
                 kept.failing = failing;
-                (looked, line)
+                let lost = match &looked {
+                    Looked::Synced { .. } => claims_lost(tracker.as_ref(), &root, &held),
+                    _ => Vec::new(),
+                };
+                (looked, line, lost)
             })
             .await;
-            let Ok((looked, line)) = looked else {
+            let Ok((looked, line, lost)) = looked else {
                 continue;
             };
             lines.extend(line);
             if let Looked::Synced { moved: true } = looked {
                 self.tracking().forget(served.manifest().id().as_str());
+            }
+            for one in &lost {
+                self.claim_lost_told(&manifest, one).await;
             }
         }
         lines

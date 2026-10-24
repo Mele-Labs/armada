@@ -67,6 +67,8 @@ pub enum Notice {
     WatchSaw,
     /// The owner taught Armada something the Session should follow from now on.
     Taught,
+    /// The backlog gave an issue the Job claimed to someone else.
+    IssueLost,
 }
 
 impl Notice {
@@ -102,6 +104,7 @@ impl Notice {
             Notice::DeliveryChosen => "delivery_chosen",
             Notice::WatchSaw => "watch_saw",
             Notice::Taught => "taught",
+            Notice::IssueLost => "issue_lost",
         }
     }
 }

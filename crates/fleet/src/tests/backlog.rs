@@ -11,31 +11,36 @@ use testkit::{FakeBeads, FakeBeadsRemote, FakeTrackers};
 
 use crate::tests::session_host::{rig_fitted, Rig};
 
-const BEADS: &str = "version: 1\nid: 01FIXTUREMANIFEST\ntracker:\n  provider: beads\n";
+pub(super) const BEADS: &str = "version: 1\nid: 01FIXTUREMANIFEST\ntracker:\n  provider: beads\n";
 
 /// A Fleet named `name` whose repository's tracker is `copy`.
-async fn machine(name: &str, copy: &Arc<FakeBeads>) -> Rig {
+pub(super) async fn machine(name: &str, copy: &Arc<FakeBeads>) -> Rig {
+    machine_reading(name, copy, BEADS).await
+}
+
+/// [`machine`] with a Manifest of the test's own.
+pub(super) async fn machine_reading(name: &str, copy: &Arc<FakeBeads>, manifest: &'static str) -> Rig {
     let planted = Arc::clone(copy);
     let rig = rig_fitted(move |fittings| {
         fittings.trackers = Arc::new(FakeTrackers::empty().beads_named("beads", planted));
-        fittings.starting().manifest = config::Manifest::parse(std::path::Path::new("armada.yml"), BEADS).expect("loads");
+        fittings.starting().manifest = config::Manifest::parse(std::path::Path::new("armada.yml"), manifest).expect("loads");
     });
     let changes = [("machine.name".to_string(), Some(ipc::SettingValue::Text(name.to_string())))].into_iter().collect();
     api::Settings::save_settings(&*rig.fleet, ipc::SaveSettings { changes }).await.expect("saved");
     rig
 }
 
-fn manifest(rig: &Rig) -> ManifestId {
+pub(super) fn manifest(rig: &Rig) -> ManifestId {
     ManifestId::carried(rig.fleet.repositories().first().expect("served").manifest().id().as_str())
 }
 
-async fn claims(rig: &Rig, id: &SessionId, issue: &str) -> Result<ipc::IssueClaimed, api::Refusal> {
+pub(super) async fn claims(rig: &Rig, id: &SessionId, issue: &str) -> Result<ipc::IssueClaimed, api::Refusal> {
     rig.fleet
         .claim_issue(None, ClaimIssue { issue: issue.into(), session_id: Some(id.clone()), pull_requests: Vec::new() })
         .await
 }
 
-fn actor(name: &str, id: &SessionId) -> String {
+pub(super) fn actor(name: &str, id: &SessionId) -> String {
     format!("{name}/{}", id.as_str().chars().take(8).collect::<String>())
 }
 
