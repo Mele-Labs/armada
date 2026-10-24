@@ -82,5 +82,11 @@ export const sessions: Slice<SessionsApi, SessionsState> = {
     resizeSessionRun: async () => ({ ok: false, outcome: unanswered("/sessions/run/resize") }),
     onSessionRunMessage: () => () => undefined,
     onSessionTerminal: () => () => undefined,
+    openTerminalWindow: async () => undefined,
+    getTerminalWindows: async () => [],
+    onTerminalWindows: () => () => undefined,
+    readTerminalSoFar: async () => null,
+    moveTerminalBack: async () => undefined,
+    onTerminalMovedBack: () => () => undefined,
   }),
 };

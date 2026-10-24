@@ -663,6 +663,74 @@ it("types into a run and resizes its terminal, and says so where nothing is conn
   expect(await host(null).sessions.writeRun({ run_id: "r1", data: "x" })).toEqual({ ok: false, outcome: { ok: false, why: "not_connected" } });
 });
 
+/** A Fleet that opens shells and blocks by the run ids given, each socket sending its run's messages and closing. */
+async function shellFleet(opens: string[], runs: Record<string, SessionRunMessage[]>): Promise<number> {
+  const sockets = new WebSocketServer({ noServer: true });
+  const server = createServer((request, response) => {
+    request.resume();
+    request.on("end", () => {
+      response.writeHead(request.url === "/sessions/run/start" ? 202 : 200, { "content-type": "application/json" });
+      response.end(JSON.stringify({ run_id: request.url === "/sessions/run/start" ? "b1" : opens.shift() }));
+    });
+  });
+  server.on("upgrade", (request, socket, head) => {
+    const runId = decodeURIComponent(/\/sessions\/run\/([^/]+)\/observe/.exec(request.url ?? "")?.[1] ?? "");
+    sockets.handleUpgrade(request, socket, head, (ws) => {
+      for (const message of runs[runId] ?? []) ws.send(JSON.stringify(message));
+      ws.close();
+    });
+  });
+  server.on("close", () => sockets.close());
+  listening = server;
+  await new Promise<void>((done) => server.listen(0, "127.0.0.1", () => done()));
+  return (server.address() as AddressInfo).port;
+}
+
+const endOf = (sessions: SessionsHost, runId: string) =>
+  new Promise<void>((done) => sessions.onRun((id, message) => id === runId && message.kind === "exited" && done()));
+
+it("keeps what a shell printed, its last 256 KiB cut at a line, for a window that comes to it late", async () => {
+  const lines = Array.from({ length: 30_000 }, (_, at) => `line ${String(at).padStart(5, "0")}\r\n`);
+  const chunks = Array.from({ length: 30 }, (_, at) => lines.slice(at * 1000, (at + 1) * 1000).join(""));
+  const port = await shellFleet(["r1"], { r1: [{ kind: "opened", protocol_id: "p", run_id: "r1" }, ...chunks.map((text) => ({ kind: "output" as const, text })), { kind: "exited", code: 0 }] });
+  const { sessions } = host(port);
+  const ended = endOf(sessions, "r1");
+  await sessions.openTerminal({ session_id: "a" });
+  await ended;
+  const kept = sessions.soFar("r1") ?? "";
+  expect(kept.length).toBeLessThanOrEqual(256 * 1024);
+  expect(kept.length).toBeGreaterThan(256 * 1024 - 20);
+  expect(lines.join("").endsWith(kept)).toBe(true);
+  expect(kept.startsWith("line ")).toBe(true);
+  expect(sessions.soFar("nobody")).toBeNull();
+});
+
+it("lets an ended shell's output go when its Job's next shell opens, and a block's as soon as it ends", async () => {
+  const port = await shellFleet(["r1"], {
+    r1: [{ kind: "output", text: "one\r\n" }, { kind: "exited", code: 0 }],
+    r2: [{ kind: "output", text: "two\r\n" }, { kind: "exited", code: 0 }],
+    b1: [{ kind: "output", text: "hi\r\n" }, { kind: "exited", code: 0 }],
+  });
+  const { sessions } = host(port);
+  let ended = endOf(sessions, "r1");
+  await sessions.openTerminal({ session_id: "a" });
+  await ended;
+  expect(sessions.soFar("r1")).toBe("one\r\n");
+  expect(sessions.shellNow("a")).toEqual({ runId: "r1", ended: true });
+  expect(sessions.shellNow("b")).toBeNull();
+  ended = endOf(sessions, "b1");
+  await sessions.startRun({ session_id: "a", command: "echo hi" });
+  await ended;
+  expect(sessions.soFar("b1")).toBeNull();
+  expect(sessions.soFar("r1")).toBe("one\r\n");
+  ended = endOf(sessions, "r2");
+  sessions.terminal("opened", { session_id: "a", run_id: "r2" });
+  await ended;
+  expect(sessions.soFar("r1")).toBeNull();
+  expect(sessions.soFar("r2")).toBe("two\r\n");
+  expect(sessions.shellNow("a")).toEqual({ runId: "r2", ended: true });
+});
+
 it("holds the twenty threads opened last, and reads one let go again when it is reopened", async () => {
   const sent: Sent[] = [];
   const ids = Array.from({ length: THREADS_HELD + 1 }, (_, at) => `s${at}`);

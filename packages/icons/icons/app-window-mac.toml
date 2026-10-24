@@ -1,0 +1,8 @@
+[icons.app-window-mac]
+  means = "A window with the three buttons of a macOS title bar - a window of its own, as a place"
+  group = "Chrome"
+  size = "16px"
+  status = "Proposed"
+  paired_with = "panel-right"
+  reserved = "Moving a Job's shell into a window of its own, the move on the head of its docked and side panel panes. Never opening a page a Job showed, which is the walk window's, and never a Bridge window of any other kind."
+  notes = "Proposed 23 Oct 2026 for the walk `job-shell-window`, the third place `terminal.openJobTerminalIn` names beside `panel-bottom` and `panel-right`. Tooltip and aria-label `Open in a window`. The glyph pictures where the shell goes. Pressing it saves the setting. Refused: `app-window`, reserved to a retro item's fix landing in Armada; `square-arrow-out-up-right`, reserved to handing a file to the machine's editor."

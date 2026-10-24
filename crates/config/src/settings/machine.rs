@@ -39,8 +39,8 @@ pub const STORE_URL: Words = Words("store.url");
 /// that runs `terminal.command` instead.
 pub const TERMINALS: &[&str] = &["Terminal", "iTerm", "Ghostty", "Warp", "WezTerm", "Custom"];
 
-/// Where a Job's own shell opens: under its thread, or in the side panel pull requests open in.
-pub const JOB_TERMINAL_PLACES: &[&str] = &["docked", "side panel"];
+/// Where a Job's own shell opens: under its thread, in the side panel pull requests open in, or in a window of its own.
+pub const JOB_TERMINAL_PLACES: &[&str] = &["docked", "side panel", "window"];
 
 /// Where a pull request link opens: Bridge's own panel, or the default browser.
 pub const PULL_REQUEST_PLACES: &[&str] = &["armada", "browser"];
@@ -243,7 +243,7 @@ pub(super) const TERMINAL: &[Entry] = &[
         key: OPEN_JOB_TERMINAL_IN.0,
         section: Section::Terminal,
         title: "Open a Job's terminal in",
-        description: "Where a Job's terminal opens: docked, in its own panel under the Job in the Cockpit and under the thread elsewhere, or in the side panel.",
+        description: "Where a Job's terminal opens: docked, in its own panel under the Job in the Cockpit and under the thread elsewhere, in the side panel, or in a window of its own.",
         kind: Kind::Choice(Options::Fixed(JOB_TERMINAL_PLACES)),
         shipped: Shipped::Text("docked"),
         applies: Applies::Live,
