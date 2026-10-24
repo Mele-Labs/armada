@@ -1,11 +1,10 @@
 // Mod: a right press on anything opens a menu with Mod, and Mod starts a Job for modding Armada itself, carrying what was pointed at.
 // A Mod Job sits under Mods in the Cockpit's Jobs list, and its right column lists the mods it made, each with its switch. The walk
-// `mod-job` plays it. Mock only: the Job the mock Fleet starts under a `Mod ` title is marked `mod`, and it writes the dusk theme.
+// `mod-job` plays it. Mock only: the Job the mock Fleet starts is marked `mod` as Fleet marks it, and it writes the dusk theme.
 
-import type { RepositorySummary } from "@armada/protocol";
+import type { RepositorySummary, SessionNote } from "@armada/protocol";
 import { repository } from "@armada/screens/src/fixtures/repository";
 
-import { MOD_TITLE } from "../../mod-job";
 import { onBoard } from "../moment";
 import type { Scenario } from "../moment";
 import { mockModsMade } from "../mods-made";
@@ -14,6 +13,13 @@ import { DUSK_MOD, mockThemes } from "../themes";
 
 const ARMADA: RepositorySummary = { ...repository(), manifest: { ...repository().manifest!, id: "armada" } };
 const MODS = "~/Library/Application Support/Armada/mods/dusk";
+
+/** The first message's lines about the spot, as the Mod brief and the note give them. */
+function pointedAt(note: SessionNote): string {
+  const { tag, text, label } = note.place.element;
+  const named = (label ?? "").trim() || text.trim();
+  return [`Pointed at: ${tag}${named === "" ? "" : ` "${named}"`}`, `Page: ${note.place.location}`].join("\n");
+}
 
 const sessions = () => [
   hosted("01SESSIONAAAAAAAAAAAAAAAAA", { title: "Fix the flaky store test", attachments: [held("slot", "3"), held("branch", "fix/flaky-store")] }),
@@ -34,18 +40,16 @@ function build(): Scenario {
       const own = fake.scenario(board).behaves!(handle);
       return {
         ...own,
-        startSession: async (title, root, request, tuning, after) => {
-          const started = await own.startSession!(title, root, request, tuning, after);
-          if (!started.ok || title === undefined || !title.startsWith(MOD_TITLE)) return started;
-          const record = { ...started.value, title, mod: true as const };
+        // What Fleet does for the real operation: starts the Job marked `mod`, sends it the note, and the agent writes the dusk theme.
+        startModSession: async (start) => {
+          const started = await own.startSession!(start.title, undefined, undefined, undefined, undefined);
+          if (!started.ok) return started;
+          const record = { ...started.value, title: start.title ?? "Mod", mod: true as const };
           fake.changed(record);
-          return { ok: true, value: record };
-        },
-        sendSessionMessage: async (send) => {
-          await own.watchSession!(send.session_id);
-          const sent = await own.sendSessionMessage!(send);
+          await own.watchSession!(record.id);
+          const sent = await own.sendSessionMessage!({ session_id: record.id, text: pointedAt(start.note) });
           void fake
-            .agentTurn(send.session_id, [
+            .agentTurn(record.id, [
               { kind: "tool", id: "w1", at: "2026-10-23T09:00:05.000Z", text: `Write ${MODS}/mod.toml` },
               { kind: "tool", id: "w2", at: "2026-10-23T09:00:06.000Z", text: `Write ${MODS}/theme.css` },
               { kind: "message", id: "w3", at: "2026-10-23T09:00:08.000Z", from: { kind: "agent" }, text: "Dusk is saved and on." },
@@ -53,9 +57,9 @@ function build(): Scenario {
             .then(() => {
               mockThemes.install(DUSK_MOD);
               mockThemes.setActive(DUSK_MOD.name);
-              mockModsMade.add(send.session_id, { name: DUSK_MOD.name, title: DUSK_MOD.title, kind: "theme", enabled: true });
+              mockModsMade.add(record.id, { name: DUSK_MOD.name, title: DUSK_MOD.title, kind: "theme", enabled: true });
             });
-          return sent;
+          return { ok: true, value: { session_id: record.id, title: record.title, ...(sent.ok ? {} : { send_failed: "not sent" }) } };
         },
       };
     },

@@ -11,7 +11,7 @@ const modJob = walk("mod-job", [
   { press: role("menuitem", "Mod"), say: "Mod starts a Job, titled after what was pointed at" },
   { look: text(/Pointed at:/), say: "Its first message says what was pointed at" },
   { look: inside(region("Jobs", { exact: true }), role("heading", "Mods")), say: "The Job sits under Mods in the list" },
-  { look: deckRow(/Mod /), say: "Beside the Jobs of the repository, not among them" },
+  { look: deckRow(/Activity/), say: "Beside the Jobs of the repository, not among them" },
   { look: inside(made, role("switch", "Dusk")), say: "The mod it made, on, and in force as it was saved" },
   { press: inside(made, role("switch", "Dusk")), say: "Off undoes it" },
 ]);

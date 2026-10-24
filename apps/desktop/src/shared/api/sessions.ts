@@ -1,7 +1,7 @@
 // The Sessions Fleet hosts and the ledger of every agent session: reads, and the acts a person takes.
 // A slice imports protocol and screens, never another slice; `../api.ts` and `../bridge.ts` compose them.
 
-import type { StopWatch, WatchSummary } from "@armada/protocol";
+import type { ModSessionStarted, StartModSession, StopWatch, WatchSummary } from "@armada/protocol";
 import type {
   AnswerSessionAsk,
   AnswerWaiting,
@@ -108,6 +108,8 @@ export type SessionsApi = {
   sendSessionMessage: (send: SendSessionMessage) => Promise<SessionActed>;
   /** A note pinned on a page, sent whole. Fleet answers with the turn taken and the lines of code the spot was drawn from. */
   sendSessionNote: (send: SendSessionNote) => Promise<SessionActed<NoteSent>>;
+  /** A Mod Job on what was pointed at. Fleet sends it the Mod brief and the note itself, and answers with the Job's id, not its record: the record arrives on Fleet's events. */
+  startModSession: (start: StartModSession) => Promise<SessionActed<ModSessionStarted>>;
   /** One of the offers on the ask the agent is held on. */
   answerSessionAsk: (answer: AnswerSessionAsk) => Promise<SessionActed>;
   /** Settles one thing a session waits on: a numbered choice, the person's words, or a mode that leaves it to the agent. */
@@ -323,6 +325,7 @@ export const SESSIONS_CHANNELS = {
   forkSessionAt: "bridge:fork-session-at",
   sendSessionMessage: "bridge:send-session-message",
   sendSessionNote: "bridge:send-session-note",
+  startModSession: "bridge:start-mod-session",
   answerSessionAsk: "bridge:answer-session-ask",
   answerWaiting: "bridge:answer-waiting",
   claimPullRequest: "bridge:claim-pull-request",
