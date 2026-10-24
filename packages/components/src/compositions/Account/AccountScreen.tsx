@@ -6,6 +6,7 @@ import { Button } from "../../primitives/Button/Button";
 import { DropdownMenu } from "../../primitives/DropdownMenu/DropdownMenu";
 import type { DropdownMenuEntry } from "../../primitives/DropdownMenu/DropdownMenu";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
+import { homePath, useHomeChoice } from "../KitSetup/HomeChoice";
 import { ForgeMark } from "./ForgeMark";
 import { DEVICE_PAGE, ENDED, SETTING, SIGN_IN_SAID, Turning, accountNeed, useAccount } from "./Account";
 import type { Account, AccountFlow, Binding, Profile, SetUpId, SetUpState, UnboundRepository } from "./Account";
@@ -30,13 +31,13 @@ const ROWS: readonly { id: SetUpId; label: string; Glyph: typeof House }[] = [
 type Setup = Extract<AccountFlow, { phase: "setup" }>;
 
 /** What signing in set up for one profile: a row each, a registry glyph and a mark for how far it has got. */
-function SetUpRows({ accountId, login, repository, steps, unset }: { accountId: number | undefined; login: string; repository: string; steps: Steps; unset: boolean }) {
+function SetUpRows({ accountId, login, repository, steps, unset, planned }: { accountId: number | undefined; login: string; repository: string; steps: Steps; unset: boolean; planned?: string }) {
   return (
     <ul className="armada-account__rows">
       {ROWS.map(({ id, label, Glyph }) => {
         const state = unset && id === "home" ? "waiting" : steps[id];
         const name =
-          id === "identity" ? (accountId === undefined ? "GitHub account" : `GitHub #${accountId}`) : id === "store" ? "This machine's key" : unset ? "" : `${login}/${repository}`;
+          id === "identity" ? (accountId === undefined ? "GitHub account" : `GitHub #${accountId}`) : id === "store" ? "This machine's key" : unset ? (planned ?? "") : `${login}/${repository}`;
         return (
           <li key={id} className="armada-account__row" aria-label={label} data-state={state}>
             <Tooltip beside label={label}>
@@ -47,7 +48,7 @@ function SetUpRows({ accountId, login, repository, steps, unset }: { accountId: 
             <span className="armada-account__name">{name}</span>
             <span className="armada-account__state">
               {id === "home" && unset ? (
-                <Tooltip beside label={`Not set up yet. The first Sync on Kit makes ${login}/${repository === "" ? "armada-home" : repository}, a private repository every machine signed in as ${login} reads`}>
+                <Tooltip beside label={`Not set up yet. The first Sync on Kit makes ${planned ?? `${login}/armada-home`}, a private repository, through gh. Every machine signed in as ${login} reads it`}>
                   <span className="armada-account__unset" role="img" aria-label="Not set up yet">
                     <CircleDashed size={16} strokeWidth={2} aria-hidden="true" />
                   </span>
@@ -150,6 +151,7 @@ function ProfileTile({ account, profile, setup }: { account: Account; profile: P
   const repository = setup === undefined ? (profile.repository ?? "") : setup.repository;
   // A home with no repository named does not exist yet, whatever the step says.
   const unset = repository === "";
+  const [choice] = useHomeChoice(profile.login);
   return (
     <li className="armada-account__tile" data-tile="profile" aria-label={profile.login}>
       <header className="armada-account__tile-head">
@@ -157,7 +159,7 @@ function ProfileTile({ account, profile, setup }: { account: Account; profile: P
         <span className="armada-account__login">{profile.login}</span>
         <Origin chosen={profile.chosen} />
       </header>
-      <SetUpRows accountId={profile.account_id} login={profile.login} repository={repository} steps={steps} unset={unset} />
+      <SetUpRows accountId={profile.account_id} login={profile.login} repository={repository} steps={steps} unset={unset} planned={homePath(choice)} />
       <Repositories account={account} profile={profile} />
       <footer className="armada-account__tile-foot">
         {!profile.chosen ? null : !noHome ? (
@@ -516,6 +518,11 @@ const SYNC_STEPS: readonly { id: string; name: string; why: string; Glyph: typeo
 function SyncGuide({ account, onKit }: { account: Account; onKit: (() => void) | undefined }) {
   const signedIn = account.profiles.length > 0;
   const homeMade = signedIn && account.home !== false;
+  const [choice] = useHomeChoice(account.profiles[0]?.login ?? "");
+  const made = account.profiles[0]?.repository;
+  const sync = homeMade
+    ? `The home is ${account.profiles[0]?.login}/${made ?? "armada-home"}. Press Sync on Kit to push or pull`
+    : `Choose what syncs, then press Sync: the first one makes ${signedIn ? homePath(choice) : "<login>/armada-home"}, a private repository`;
   const done = [signedIn, homeMade, false] as const;
   const next = done.findIndex((one) => !one);
   return (
@@ -523,7 +530,9 @@ function SyncGuide({ account, onKit }: { account: Account; onKit: (() => void) |
       <div className="armada-account-screen__glass">
         <div className="armada-account__tile" data-tile="plan">
           <ul className="armada-account__rows">
-            {SYNC_STEPS.map(({ id, name, why, Glyph }, at) => (
+            {SYNC_STEPS.map(({ id, name, why: said, Glyph }, at) => {
+              const why = at === 1 ? sync : said;
+              return (
               <li key={id} className="armada-account__row" aria-label={name} data-state={done[at] || at === next ? "done" : "waiting"}>
                 <Tooltip beside label={name}>
                   <span className="armada-account__glyph" role="img" aria-label={name}>
@@ -554,7 +563,8 @@ function SyncGuide({ account, onKit }: { account: Account; onKit: (() => void) |
                   )}
                 </span>
               </li>
-            ))}
+              );
+            })}
           </ul>
         </div>
       </div>

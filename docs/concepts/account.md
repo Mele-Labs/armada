@@ -97,7 +97,7 @@ The choice is kept in this machine's store for each profile, and a kind switched
 | Signed out | The one act, Sign in with GitHub, in a dashed strip across the Profiles frame, with the Turns on tiles off beneath it, a Sets up tile of the three rows none yet, and a Never frame at the foot of the page, signed in or out: nothing is written to your repositories or pull requests, your token is not kept, a work machine syncs nothing until you turn a kind on |
 | Signed out profile | Who left, struck through in a dashed tile; the store's row named only where it stays |
 | Sync your Kit | A frame of three steps, signed in or out: Sign in here, Sync on Kit, Add to this machine (done on the other machine, so it never reads done), each with its reason in one line; the next undone step carries the button, Open Kit on the second |
-| Home not made yet | The set-up row for the shared home is not set up, its tooltip saying the first Sync on Kit makes it; What syncs is greyed, its tooltip saying the same |
+| Home not made yet | The set-up row for the shared home is not set up, naming the repository the first Sync on Kit will make and its tooltip saying it is private and made through `gh`; What syncs is greyed, its tooltip saying the same. Step two of Sync your Kit echoes the same name. Where it is made is chosen on the Kit page's Sync bar, and shown read-only once the home exists. **Not built:** Fleet's make step, which still makes `<login>/armada-home` |
 | What syncs | A sheet over a profile added on purpose, one switch per kind |
 | Repository picker | The top of the Cockpit's left column; at the title row's narrow width its entries are in the title menu |
 

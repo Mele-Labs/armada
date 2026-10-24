@@ -82,6 +82,13 @@ const syncYourKit = walk("sync-your-kit", [
   { look: button("Open Kit", { exact: true }), say: "Step two is next, and carries the button" },
   { hover: role("img", "Not set up yet", { exact: true }), say: "The shared home: what it is and what makes it" },
   { press: button("Open Kit", { exact: true }), say: "Opens Kit, where Sync makes the home" },
+  { press: button(/^Home: nickmele/), say: "No home yet, so the chip picks where it is made" },
+  { press: inside(dialog("Where the shared home is made"), text("mele-labs")), say: "The account's login or one of its organisations owns it" },
+  { type: "kit-home", into: role("textbox", "Name", { exact: true }), say: "The name starts as armada-home; type another" },
+  { look: button("Home: mele-labs/kit-home", { exact: true }), say: "The chip reads the choice" },
+  { press: button("Menu", { exact: true }), say: "Back to the account" },
+  { press: inside(MENU, button("Account", { exact: true })), say: "The account page" },
+  { look: text("the first one makes mele-labs/kit-home"), say: "Step two names the same repository" },
 ]);
 
 export {

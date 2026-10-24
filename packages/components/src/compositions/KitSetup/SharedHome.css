@@ -148,3 +148,22 @@
   border-left-color: var(--status-awaiting-review);
   background: var(--status-awaiting-review-bg);
 }
+
+/* ---- Where the home is made: the chip as a button, and its picker -------------------------- */
+
+button.armada-shared-chip {
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+button.armada-shared-chip:hover {
+  border-color: var(--border-strong);
+}
+
+.armada-home-picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  min-width: calc(var(--h-row) * 7);
+}
