@@ -102,7 +102,7 @@ async fn a_hosted_session_with_no_manifest_is_offered_its_permission_tool_and_it
         );
     }
     let said = posted(&app, SESSION, HANDSHAKE).await;
-    assert!(said.contains("no armada.yml yet"), "{said}");
+    assert!(said.contains("No armada.yml is served here"), "{said}");
     assert!(!said.contains("inside Manifest"), "{said}");
 }
 
