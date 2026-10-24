@@ -6,6 +6,7 @@ import { Button } from "../../primitives/Button/Button";
 import { Sheet } from "../../primitives/Sheet/Sheet";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import type { ModKind } from "../ModRow/ModRow";
+import { HomePicker } from "./HomeChoice";
 
 /**
  * Kit against the shared home: a private repository on the person's own GitHub
@@ -44,6 +45,10 @@ export type SharedHomeRead = {
   repository: string;
   rows: SharedRow[];
   syncing: boolean;
+  /** Whether the home exists. Absent is that it does. */
+  made?: boolean;
+  /** The organisations the account belongs to. Where the home is not made and this is given, the chip opens a picker for its owner and name. */
+  owners?: readonly string[];
 };
 
 export type Side = "here" | "there";
@@ -134,7 +139,7 @@ export function SyncAct({ row, acts }: { row: SharedRow; acts: SharedHomeActs })
 /** The home's repository, `account/repository`. `made` false marks one no kind has synced to yet. */
 export function SharedHomeChip({ account, repository, made = true }: { account: string; repository: string; made?: boolean }) {
   return (
-    <Tooltip label={made ? "Shared home" : "Shared home, not made yet"}>
+    <Tooltip label={`${made ? "Shared home" : "Shared home, not made yet"}: ${account}/${repository}`}>
       <span className="armada-shared-chip" data-made={made ? undefined : "no"}>
         {made ? <House size={12} strokeWidth={2} aria-hidden="true" /> : <CircleDashed size={12} strokeWidth={2} aria-hidden="true" />}
         <span>
@@ -150,7 +155,11 @@ export function SharedHomeChip({ account, repository, made = true }: { account: 
 export function SharedHomeBar({ home }: { home: SharedHome }) {
   return (
     <div className="armada-shared-bar">
-      <SharedHomeChip account={home.account} repository={home.repository} />
+      {home.made === false && home.owners !== undefined ? (
+        <HomePicker login={home.account} owners={home.owners} />
+      ) : (
+        <SharedHomeChip account={home.account} repository={home.repository} made={home.made !== false} />
+      )}
       <Button variant="ghost" size="sm" pending={home.syncing} onClick={home.sync}>
         <RotateCw size={12} strokeWidth={2} aria-hidden="true" className="armada-shared-bar__turn" data-turning={home.syncing ? "" : undefined} />
         Sync

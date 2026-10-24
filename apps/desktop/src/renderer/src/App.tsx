@@ -675,7 +675,7 @@ export function App() {
                 onRestoreKitPiece={restoreKitPiece}
               />
             ) : accounting ? (
-              <Boundary region="Account" {...guarded}><AccountPage onSettings={() => goTo(SURFACE.settings)} machine={machineOf(state.settings)} /></Boundary>
+              <Boundary region="Account" {...guarded}><AccountPage onSettings={() => goTo(SURFACE.settings)} onKit={() => goTo(SURFACE.kit)} machine={machineOf(state.settings)} /></Boundary>
             ) : (
               <Overview
                 state={state}
