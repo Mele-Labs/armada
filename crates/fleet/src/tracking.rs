@@ -43,6 +43,8 @@ pub(crate) struct Tracking {
     lists: std::sync::Mutex<BTreeMap<String, Held>>,
     /// What Autopilot's pass remembers about these lists between intervals. #2092.
     pub(crate) autopilot: crate::autopilot::Remembered,
+    /// Each backlog Fleet syncs, by root — `crate::backlog_syncing`.
+    pub(crate) keepings: crate::backlog_syncing::Keepings,
 }
 
 #[derive(Clone)]
@@ -56,7 +58,13 @@ impl Tracking {
         Tracking {
             lists: std::sync::Mutex::new(BTreeMap::new()),
             autopilot: crate::autopilot::Remembered::default(),
+            keepings: crate::backlog_syncing::Keepings::new(),
         }
+    }
+
+    /// Drop the list held for `manifest`, so the next one is read again: a sync moved its copy.
+    pub(crate) fn forget(&self, manifest: &str) {
+        self.lists.lock().unwrap_or_else(std::sync::PoisonError::into_inner).remove(manifest);
     }
 
     fn held(&self, manifest: &str) -> Option<Held> {
@@ -187,6 +195,11 @@ where
     /// runs off the async thread.
     pub(crate) fn tracker_of(&self, served: &crate::repositories::Served) -> Arc<dyn Tracker + Send + Sync> {
         self.trackers().tracker(&choice_of(served.manifest()))
+    }
+
+    /// What writes to the tracker `served`'s Manifest chose, where it is one Fleet writes to.
+    pub(crate) fn backlog_of(&self, served: &crate::repositories::Served) -> Option<Arc<dyn adapter_traits::Backlog + Send + Sync>> {
+        self.trackers().backlog(&choice_of(served.manifest()))
     }
 
     /// What reads a link into the tracker `served`'s Manifest chose.

@@ -153,6 +153,7 @@ mod studios;
 // descendant of this module and need the same temporary directory every
 // fixture here already uses, rather than a second one invented beside it.
 pub(crate) mod tmp;
+mod backlog;
 mod bay_history;
 mod verify_runs;
 mod watching;
