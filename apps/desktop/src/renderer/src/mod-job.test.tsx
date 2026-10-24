@@ -40,12 +40,12 @@ function pointed(): HTMLElement {
 
 const started = (extra: Partial<ModSessionStarted> = {}): Started => ({ ok: true, value: { session_id: "01MOD", title: "Usage meter", ...extra } });
 
-test("Mod posts the note a Report would carry, with no Session and no title marker, and opens the Job", async () => {
+test("Mod posts the note a Report would carry, with no Session, titled Mod and the name, and opens the Job", async () => {
   const start = fleetAnswering(started());
   await startModJob(pointed());
 
   const body = start.mock.calls[0]![0];
-  expect(body.title).toBe("Usage meter");
+  expect(body.title).toBe("Mod Usage meter");
   expect(body.note.said).toBe("");
   expect(body.note.address).toBe(window.location.href);
   expect(body.note.place.element).toMatchObject({ tag: "button", label: "Usage meter" });
@@ -57,7 +57,7 @@ test("Mod posts the note a Report would carry, with no Session and no title mark
 test("a Job row passes the name it already has", async () => {
   const start = fleetAnswering(started());
   await startModJob(pointed(), "Fix the flaky store test");
-  expect(start.mock.calls[0]![0].title).toBe("Fix the flaky store test");
+  expect(start.mock.calls[0]![0].title).toBe("Mod Fix the flaky store test");
 });
 
 test("a refusal is told and no Job is opened", async () => {
