@@ -119,7 +119,8 @@ export function DeckHost({ state, picked, here, hidden, onGoTo, onOpenSession }:
 
   const incoming = incomingOf(ship.calls, held, visited, needingOf(ship));
   const repositories = state.holds.repositories;
-  const banding = useMemo(() => bandingOf(picked, repositories ?? []), [picked, repositories]);
+  const modded = ship.subjects.some((one) => one.mod === true);
+  const banding = useMemo(() => bandingOf(picked, repositories ?? [], modded), [picked, repositories, modded]);
   const { listed } = useListed(ship, banding);
   const queued = useQueued();
   const [keySheet, setKeySheet] = useState(false);

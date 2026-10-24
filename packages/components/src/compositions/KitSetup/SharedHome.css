@@ -6,10 +6,39 @@
 /* ---- The band: the account, and Sync ------------------------------------------------------- */
 
 .armada-shared-bar {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: var(--space-2);
   min-width: 0;
+  max-width: 100%;
+}
+
+/* Narrow: the chip gives way, its text ellipsized; Sync keeps its own width and never overlaps. Every
+   wrapper between the bar and the chip (tooltip, popover) has to let it shrink too. */
+.armada-shared-bar > .armada-shared-chip,
+.armada-shared-bar > .armada-tooltip,
+.armada-shared-bar > .armada-popover,
+.armada-shared-bar .armada-popover__trigger,
+.armada-shared-bar .armada-popover__trigger > .armada-tooltip {
+  display: flex;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.armada-shared-bar > :last-child {
+  flex: none;
+}
+
+.armada-shared-bar .armada-shared-chip {
+  overflow: hidden;
+}
+
+.armada-shared-chip > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .armada-shared-chip {
@@ -147,4 +176,23 @@
 .armada-sync-side__line[data-differs] {
   border-left-color: var(--status-awaiting-review);
   background: var(--status-awaiting-review-bg);
+}
+
+/* ---- Where the home is made: the chip as a button, and its picker -------------------------- */
+
+button.armada-shared-chip {
+  cursor: pointer;
+  max-width: 100%;
+}
+
+button.armada-shared-chip:hover {
+  border-color: var(--border-strong);
+}
+
+.armada-home-picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  min-width: calc(var(--h-row) * 7);
 }

@@ -26,6 +26,8 @@ pub(crate) struct Manifest {
     pub(crate) taught_on: Option<String>,
     /// The Logbook entry a teaching from a Job made, which forgetting removes the mod with.
     pub(crate) entry: Option<String>,
+    /// The Job whose `scaffold_mod` made the mod, where that call named one.
+    pub(crate) made_by: Option<String>,
 }
 
 /// `text` read for the mod in the folder called `folder`, and everything wrong with it.
@@ -37,6 +39,7 @@ pub(crate) fn read(text: &str, folder: &str) -> (Manifest, Vec<String>) {
     let mut description = None;
     let mut taught_on = None;
     let mut entry = None;
+    let mut made_by = None;
     for (index, line) in text.lines().enumerate() {
         let number = index + 1;
         let line = line.trim();
@@ -62,6 +65,7 @@ pub(crate) fn read(text: &str, folder: &str) -> (Manifest, Vec<String>) {
             "description" => &mut description,
             "taught_on" => &mut taught_on,
             "entry" => &mut entry,
+            "made_by" => &mut made_by,
             other => {
                 problems.push(format!(
                     "mod.toml line {number}: `{other}` is not a key a mod uses"
@@ -115,6 +119,12 @@ pub(crate) fn read(text: &str, folder: &str) -> (Manifest, Vec<String>) {
             "mod.toml `entry` must be 1 to {MOST_ENTRY} letters, digits, `.`, `:`, `_` or `-`"
         )),
         other => manifest.entry = other,
+    }
+    match made_by {
+        Some(id) if !entry_is_plain(&id) => problems.push(format!(
+            "mod.toml `made_by` must be 1 to {MOST_ENTRY} letters, digits, `.`, `:`, `_` or `-`"
+        )),
+        other => manifest.made_by = other,
     }
     (manifest, problems)
 }

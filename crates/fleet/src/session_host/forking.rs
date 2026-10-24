@@ -341,6 +341,7 @@ where
                     paused_at: None,
                     paused_resuming: false,
                     auto_land: false,
+                    mod_job: false,
                     start_held: false,
                 })
                 .map_err(|why| self.ledger_fault(why))?;

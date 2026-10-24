@@ -6,8 +6,8 @@ use std::future::Future;
 use std::sync::Arc;
 
 use ipc::{
-    ModChecked, ModList, ModPromoted, ModScaffolded, ModSummary, PromoteMod, ScaffoldMod,
-    SetModEnabled, TrackerTry, TryTrackerMod,
+    ModChecked, ModList, ModPromoted, ModScaffolded, ModSessionStarted, ModSummary, PromoteMod,
+    ScaffoldMod, SetModEnabled, StartModSession, TrackerTry, TryTrackerMod,
 };
 
 use crate::daemon::Refusal;
@@ -49,4 +49,11 @@ pub trait Mods: Send + Sync + 'static {
         self: Arc<Self>,
         promote: PromoteMod,
     ) -> impl Future<Output = Result<ModPromoted, Refusal>> + Send;
+
+    /// `start_mod_session` — a Mod Job on Armada's own repository, sent the brief and the note as
+    /// its first message. [`Refusal::Unacceptable`] where this Fleet does not serve that repository.
+    fn start_mod_session(
+        self: Arc<Self>,
+        start: StartModSession,
+    ) -> impl Future<Output = Result<ModSessionStarted, Refusal>> + Send;
 }

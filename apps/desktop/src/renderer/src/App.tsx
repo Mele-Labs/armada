@@ -37,6 +37,7 @@ import { SystemSurface } from "./system-surface";
 import { entryForSurface, entryOfSettingsRow } from "./system-entries";
 import { openSystemEntry, systemEntryNow } from "./system-entry";
 import { useOpenModAsked } from "./open-mod";
+import { PointMenu } from "./point-menu";
 import { useTeachBridge } from "./teach";
 import { useLandings, useSummoned, useUiSounds } from "./app-effects";
 import { Overview } from "./Overview"; import { DoctorSurfaceNow, ManifestNow, SetupNow, StudiosSurfaceNow, WorktreesNow } from "./clocked-screens";
@@ -675,7 +676,7 @@ export function App() {
                 onRestoreKitPiece={restoreKitPiece}
               />
             ) : accounting ? (
-              <Boundary region="Account" {...guarded}><AccountPage onSettings={() => goTo(SURFACE.settings)} machine={machineOf(state.settings)} /></Boundary>
+              <Boundary region="Account" {...guarded}><AccountPage onSettings={() => goTo(SURFACE.settings)} onKit={() => goTo(SURFACE.kit)} machine={machineOf(state.settings)} /></Boundary>
             ) : (
               <Overview
                 state={state}
@@ -708,6 +709,8 @@ export function App() {
         <CaptureLayer aim={captureAim} onCapture={captureStudioNote} />
 
         <Locate locating={locate} />
+
+        <PointMenu />
 
         <DispatchSheet />
         <TitleDispatchedStrip />

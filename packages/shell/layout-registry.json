@@ -12,7 +12,8 @@
     "job.panels": { "ordered": true, "firstable": false, "entries": [
       { "id": "field", "hideable": true },
       { "id": "workflow", "hideable": true },
-      { "id": "progress", "hideable": false }
+      { "id": "progress", "hideable": false },
+      { "id": "mods", "hideable": true }
     ] },
     "rail": { "ordered": false, "firstable": false, "entries": [
       { "id": "overview", "hideable": false },
