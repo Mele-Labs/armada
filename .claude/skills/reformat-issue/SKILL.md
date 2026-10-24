@@ -93,9 +93,9 @@ behind today's main"*. All of it goes to `## How this was found`, last.
 - `Updated 2026-08-31`, `Rewritten 2026-08-31 from the drawing` — edit history.
 - Commentary on the filing: *"Filing this small because…"*, *"Recorded here
   rather than filed separately."*
-- A `## Related` list of issue numbers with nothing said about them. GitHub
-  renders the backlink already. A related issue keeps its line when the sentence
-  says what the relationship costs.
+- A `## Related` list of ids with nothing said about them. A related issue
+  keeps its line, naming the id, when the sentence says what the relationship
+  costs. `bd dep add <a> <b> -t relates-to` links the two.
 
 Cut nothing else. If a paragraph is not on that list, it moves.
 
