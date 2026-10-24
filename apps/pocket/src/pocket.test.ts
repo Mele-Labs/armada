@@ -1,4 +1,4 @@
-import { readdirSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import { homeOf, type Mac } from "./fleet";
@@ -120,5 +120,17 @@ describe("the source folder", () => {
   it("has no two files that differ only in case or extension", () => {
     const stems = readdirSync(new URL(".", import.meta.url)).map((name) => name.replace(/\.[^.]+$/, "").toLowerCase());
     expect(stems.filter((stem, at) => stems.indexOf(stem) !== at)).toEqual([]);
+  });
+});
+
+describe("the text fields", () => {
+  // happy-dom does not compute imported CSS, so the stylesheet is read as text. iOS zooms into a focused field under 16 px.
+  const css = readFileSync(new URL("./pocket.css", import.meta.url), "utf8");
+  const tokens = readFileSync(new URL("../../../packages/tokens/tokens.css", import.meta.url), "utf8");
+  it("takes --text-base, which is 16 px, on every field the phone types in", () => {
+    expect(tokens).toMatch(/--text-base:\s*16px/);
+    const rule = /main\.pk-app\s*:is\(([^)]*)\)\s*\{([^}]*)\}/.exec(css);
+    expect(rule?.[2]).toMatch(/font-size:\s*var\(--text-base\)/);
+    for (const field of ["textarea", "input", "select", '[contenteditable="true"]']) expect(rule?.[1]).toContain(field);
   });
 });
