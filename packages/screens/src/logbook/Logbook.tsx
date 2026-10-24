@@ -3,13 +3,14 @@
 // **Nothing in the entries waits on the owner.** He reads an entry and its evidence, and can edit, lock or forget it.
 // Each act goes to Fleet and the entry is drawn as it came back. Armada fixes, the retro items, is the host's (`fixes`).
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 
 import { LogbookView } from "@armada/components";
 import type { LogbookAnswer, LogbookEntry, LogbookForgotten, LogbookRead, LogbookState, LogbookTidied, LogbookTidy, LogbookTidyLast, Outcome } from "@armada/protocol";
 
 import { refusalWords } from "../refusal-words";
 import { groupsOf, orderOf } from "./groups";
+import { forgetTidyWatch, tidyWatch, watchTidy } from "./tidy-watch";
 
 export type LogbookProps = {
   onRead: () => Promise<LogbookRead>;
@@ -53,9 +54,6 @@ export function Logbook({ onRead, onEdit, onLock, onForget, onTidy, onOpenJob, a
   const [refused, setRefused] = useState<Refused>();
   const [tidy, setTidy] = useState<LogbookTidy>({ running: false });
   const [tidied, setTidied] = useState<string>();
-  // Set once the page has seen a pass running: the `last` it began with, so only a newer one is announced.
-  const watching = useRef<{ last?: string } | undefined>(undefined);
-
   const read = useCallback(
     (live: () => boolean) =>
       onRead()
@@ -64,10 +62,12 @@ export function Logbook({ onRead, onEdit, onLock, onForget, onTidy, onOpenJob, a
           if (!answer.ok) return setHeld({ state: "unread" });
           setHeld({ state: "read", entries: answer.entries });
           setTidy(answer.tidy);
-          if (answer.tidy.running) watching.current ??= { ...(answer.tidy.last === undefined ? {} : { last: answer.tidy.last.at }) };
-          else if (watching.current !== undefined) {
-            const began = watching.current.last;
-            watching.current = undefined;
+          const watching = tidyWatch();
+          if (answer.tidy.running) {
+            if (watching === undefined) watchTidy({ ...(answer.tidy.last === undefined ? {} : { last: answer.tidy.last.at }) });
+          } else if (watching !== undefined) {
+            const began = watching.last;
+            forgetTidyWatch();
             if (answer.tidy.last !== undefined && answer.tidy.last.at !== began) setTidied(tidiedWords(answer.tidy.last));
           }
         })
@@ -95,13 +95,13 @@ export function Logbook({ onRead, onEdit, onLock, onForget, onTidy, onOpenJob, a
 
   const startTidy = () => {
     if (tidy.running) return;
-    watching.current = { ...(tidy.last === undefined ? {} : { last: tidy.last.at }) };
+    watchTidy({ ...(tidy.last === undefined ? {} : { last: tidy.last.at }) });
     setTidy({ ...tidy, running: true });
     setTidied(undefined);
     onTidy()
       .then(async (answer) => {
         if (!answer.ok) {
-          watching.current = undefined;
+          forgetTidyWatch();
           setTidy({ ...tidy, running: false });
           return setTidied(refusalWords(answer.outcome));
         }
@@ -109,7 +109,7 @@ export function Logbook({ onRead, onEdit, onLock, onForget, onTidy, onOpenJob, a
         if (!answer.running) await read(() => true);
       })
       .catch(() => {
-        watching.current = undefined;
+        forgetTidyWatch();
         setTidy({ ...tidy, running: false });
         setTidied(refusalWords({ ok: false, why: "not_connected" }));
       });

@@ -9,6 +9,7 @@ import { page, userEvent } from "vitest/browser";
 import type { LogbookAnswer, LogbookEntry, LogbookForgotten, LogbookRead, LogbookTidied, LogbookTidy } from "@armada/protocol";
 
 import { Logbook } from "./Logbook";
+import { forgetTidyWatch } from "./tidy-watch";
 import { mount, unmount } from "../mounted";
 
 afterEach(unmount);
@@ -188,11 +189,15 @@ function tidying(first: LogbookTidy, entries: LogbookEntry[] = [WIDGETS]) {
     fleet.tidy = { ...fleet.tidy, running: true };
     return { ok: true, running: true };
   });
-  mount(<Logbook onRead={read} onEdit={vi.fn()} onLock={vi.fn()} onForget={vi.fn()} onTidy={onTidy} />);
-  return { fleet, read, onTidy };
+  const open = () => mount(<Logbook onRead={read} onEdit={vi.fn()} onLock={vi.fn()} onForget={vi.fn()} onTidy={onTidy} />);
+  open();
+  return { fleet, read, onTidy, reopen: () => (unmount(), open()) };
 }
 
-afterEach(() => vi.useRealTimers());
+afterEach(() => {
+  vi.useRealTimers();
+  forgetTidyWatch();
+});
 
 test("Tidy now says Tidying until the read says the pass ended, then states what it merged and reads the entries again", async () => {
   const survivor = entry("6", { section: "repo", repository: "/Users/user/widgets", text: "Survivor.", state: "standing" });
@@ -239,6 +244,32 @@ test("a page opened while a pass runs already says Tidying, and states the resul
   fleet.tidy = { running: false, last: { merged: 2, at: FINISHED, failed: false } };
   await vi.advanceTimersByTimeAsync(SEVERAL);
   await expect.element(status()).toHaveTextContent("Merged 2 entries");
+});
+
+test("leaving the Logbook mid-pass and coming back to a pass still running says Tidying and polls again", async () => {
+  const { fleet, read, reopen } = tidying({ running: false, last: EARLIER });
+  await expect.element(entries().getByText("Run specs with bin/rspec.")).toBeVisible();
+  await tidyButton().click();
+  reopen();
+  await expect.element(status()).toHaveTextContent("Tidying");
+  const reads = read.mock.calls.length;
+  await vi.advanceTimersByTimeAsync(SEVERAL);
+  expect(read.mock.calls.length).toBeGreaterThan(reads);
+  fleet.tidy = { running: false, last: { merged: 5, at: FINISHED, failed: false } };
+  await vi.advanceTimersByTimeAsync(SEVERAL);
+  await expect.element(status()).toHaveTextContent("Merged 5 entries");
+});
+
+test("a pass that ended while the page was closed is stated once when it is opened again", async () => {
+  const { fleet, reopen } = tidying({ running: false, last: EARLIER });
+  await expect.element(entries().getByText("Run specs with bin/rspec.")).toBeVisible();
+  await tidyButton().click();
+  fleet.tidy = { running: false, last: { merged: 5, at: FINISHED, failed: false } };
+  reopen();
+  await expect.element(status()).toHaveTextContent("Merged 5 entries");
+  reopen();
+  await expect.element(entries().getByText("Run specs with bin/rspec.")).toBeVisible();
+  await expect.element(status()).toHaveTextContent("");
 });
 
 test("a pass that ended before the page opened is not announced", async () => {
