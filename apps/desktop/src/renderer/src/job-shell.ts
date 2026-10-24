@@ -66,8 +66,10 @@ export class JobShells {
       heard = true;
       this.windowsAre(sessionIds);
     });
-    // A push that came first is newer than this answer.
-    void api.getTerminalWindows?.().then((sessionIds) => heard || this.windowsAre(sessionIds));
+    // A push that came first is newer than this answer. A fake that left Sessions out answers a refusal, not a list.
+    void api.getTerminalWindows?.().then((sessionIds) => {
+      if (!heard && Array.isArray(sessionIds)) this.windowsAre(sessionIds);
+    });
     api.onTerminalMovedBack?.((move) => this.movedBack.forEach((one) => one(move)));
   }
 

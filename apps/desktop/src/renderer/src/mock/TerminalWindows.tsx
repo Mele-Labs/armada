@@ -60,7 +60,10 @@ export function TerminalWindows({ api }: { api: BridgeApi }) {
       heard = true;
       hear(sessionIds);
     });
-    void api.getTerminalWindows().then((sessionIds) => heard || hear(sessionIds));
+    // A fake that left Sessions out answers a refusal, not a list.
+    void api.getTerminalWindows().then((sessionIds) => {
+      if (!heard && Array.isArray(sessionIds)) hear(sessionIds);
+    });
     const offRaised = onTerminalWindowRaised((sessionId) => {
       setFront(sessionId);
       setRaised((was) => ({ ...was, [sessionId]: (was[sessionId] ?? 0) + 1 }));
