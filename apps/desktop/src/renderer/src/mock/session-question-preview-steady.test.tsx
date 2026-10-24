@@ -28,5 +28,8 @@ test("Preview: pointing at each option in turn leaves the question one height, a
 
   await userEvent.hover(ask.getByRole("radio", { name: "Per service" }));
   await expect.element(page.getByRole("region", { name: "Preview" })).toBeVisible();
+  // Its longest line is drawn whole: the card is as wide as the text, not cut at the panel's edge.
+  const card = page.getByRole("region", { name: "Preview" }).element();
+  expect(card.scrollWidth).toBeLessThanOrEqual(card.clientWidth);
   expect(height()).toBe(before);
 });
