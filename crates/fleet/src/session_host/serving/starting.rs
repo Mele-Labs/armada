@@ -28,15 +28,16 @@ where
         marked: Marked,
     ) -> Result<SessionRecord, Refusal> {
         let rooted = start.root.is_some();
-        let (manifest, cwd) = match start.root.take() {
-            Some(root) => {
+        let (manifest, cwd) = match (marked, start.root.take()) {
+            (Marked::ModsFolder, _) => (None, self.mods_dir().to_string_lossy().into_owned()),
+            (_, Some(root)) => {
                 let repository = self.repository_named(Some(&root))?;
                 let manifest = repository
                     .manifest()
                     .map(|one| one.id().as_str().to_string());
                 (manifest, repository.root().to_string())
             }
-            None => {
+            (_, None) => {
                 let served = self.served_named(Some(&start.manifest_id))?;
                 let manifest = served.manifest().id().as_str().to_string();
                 (Some(manifest), served.root().to_string())
@@ -89,7 +90,8 @@ where
             store
                 .keep_hosting(&KeptHosting {
                     session_id: id.clone(),
-                    // Empty is Setup's session, which has no Manifest to name.
+                    // Empty is Setup's session or a Mod Job in the mods folder, which have no
+                    // Manifest to name.
                     manifest_id: manifest.unwrap_or_default(),
                     model: start.model.filter(|model| !model.trim().is_empty()),
                     effort: start.effort.filter(|effort| !effort.trim().is_empty()),
@@ -107,7 +109,7 @@ where
                     paused_at: None,
                     paused_resuming: false,
                     auto_land: false,
-                    mod_job: marked == Marked::Mod,
+                    mod_job: matches!(marked, Marked::Mod | Marked::ModsFolder),
                 })
                 .map_err(|why| self.ledger_fault(why))?;
         }

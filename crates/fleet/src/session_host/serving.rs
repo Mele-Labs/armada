@@ -89,6 +89,9 @@ pub(crate) enum Marked {
     Helm,
     /// A Mod Job, started by `start_mod_session`.
     Mod,
+    /// A Mod Job where Armada's own repository is not served: it runs in the mods folder, with no
+    /// Manifest, and so never leases a slot or cuts a branch.
+    ModsFolder,
 }
 
 pub(crate) fn mode_text(mode: SessionMode) -> &'static str {

@@ -81,6 +81,10 @@ async fn a_hosted_session_with_no_manifest_is_offered_its_permission_tool_and_it
         "show_file",
         "record_plan",
         "ask_in_window",
+        "list_mods",
+        "scaffold_mod",
+        "validate_mod",
+        "try_tracker_mod",
     ] {
         assert!(
             listed.contains(&named(tool)),
@@ -121,6 +125,21 @@ async fn its_permission_prompt_is_answered() {
     assert!(answered.contains("allow"), "{answered}");
     assert!(!answered.contains("not a tool"), "{answered}");
     assert_eq!(daemon.asked_to_run.lock().expect("not poisoned").len(), 1);
+}
+
+/// **The machine's mods are read inside no Manifest**, so a Mod Job in the mods folder makes
+/// and checks one here.
+#[tokio::test]
+async fn a_mod_is_made_and_checked_through_it() {
+    let (_, app) = hosting_a_session();
+
+    let made = posted(&app, SESSION, &calling("scaffold_mod", r#"{"body":{"name":"calmer"}}"#)).await;
+    let checked = posted(&app, SESSION, &calling("validate_mod", r#"{"name":"calmer"}"#)).await;
+
+    for answered in [&made, &checked] {
+        assert!(!answered.contains("\"isError\":true"), "{answered}");
+        assert!(answered.contains("calmer"), "{answered}");
+    }
 }
 
 #[tokio::test]

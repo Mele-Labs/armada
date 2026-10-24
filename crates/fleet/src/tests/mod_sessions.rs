@@ -1,5 +1,6 @@
-//! `start_mod_session`: a Mod Job on Armada's own repository, sent the Mod brief and what the person
-//! pointed at as one first message, and the mods it scaffolds listing it as `made_by`.
+//! `start_mod_session`: a Mod Job on Armada's own repository, or in the mods folder where it is not
+//! served, sent the Mod brief and what the person pointed at as one first message, and the mods it
+//! scaffolds listing it as `made_by`.
 
 use std::sync::Arc;
 
@@ -7,7 +8,7 @@ use api::{HostedSessions, Mods, Refusal};
 use ipc::{ModKind, ScaffoldMod, SessionId, SessionRow, StartModSession};
 
 use super::session_dispute::serving;
-use super::session_host::Rig;
+use super::session_host::{denied, Rig};
 use super::session_notes::{a_repository, note, turn_of, PATH, SAID};
 
 fn pointed(title: Option<&str>) -> StartModSession {
@@ -33,14 +34,28 @@ async fn a_mod_job_starts_on_armadas_own_repository_marked_mod() {
 }
 
 #[tokio::test]
-async fn a_mod_job_is_refused_where_fleet_does_not_serve_armada() {
+async fn a_mod_job_starts_in_the_mods_folder_where_fleet_does_not_serve_armada() {
     let rig = serving("elsewhere").await;
+    let mods = rig.fleet.mods_dir().to_string_lossy().into_owned();
 
-    let refused = Arc::clone(&rig.fleet).start_mod_session(pointed(None)).await;
+    let started = started(&rig, None).await;
 
-    let Err(Refusal::Unacceptable(why)) = refused else { panic!("refused as a 422: {refused:?}") };
-    assert_eq!(why.code, "fleet.mod_armada_not_served");
-    assert!(rig.stand_in.starts().is_empty(), "nothing is started");
+    assert_eq!(started.send_failed, None);
+    let record = Arc::clone(&rig.fleet).get_session(started.session_id.clone()).await.expect("kept").session;
+    assert!(record.r#mod, "marked as a Mod Job: {record:#?}");
+    assert_eq!((record.manifest_id.as_ref(), record.cwd.as_str()), (None, mods.as_str()), "{record:#?}");
+    let turn = turn_of(&rig).await;
+    assert_eq!(rig.stand_in.starts()[0].directory, mods, "the process runs in the mods folder");
+    let at = |wanted: &str| turn.find(wanted).unwrap_or_else(|| panic!("the turn carries {wanted}: {turn}"));
+    let order = [at("This is a Mod Job"), at("armada:armada-mods"), at("Armada's source is not here"), at(SAID)];
+    assert!(order.windows(2).all(|pair| pair[0] < pair[1]), "the mods brief, then his words: {turn}");
+    assert!(!turn.contains("scripts/preview --restart"), "no source to bring in: {turn}");
+
+    let written = format!(r#"{{"file_path":"{mods}/calmer/tweak.css","content":"x"}}"#);
+    let answer = rig.gate_in(&mods, &started.session_id, "Write", &written).await;
+    assert!(!denied(&answer), "a write in the mods folder runs: {answer:?}");
+    let hosting = rig.fleet.store().lock().await.hosting(started.session_id.as_str()).expect("read").expect("hosted");
+    assert_eq!((hosting.lease_slot, hosting.lease_branch.as_deref()), (None, None), "no slot and no branch");
 }
 
 #[tokio::test]

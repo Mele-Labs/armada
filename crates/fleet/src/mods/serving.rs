@@ -52,7 +52,7 @@ where
         PathBuf::from(&self.host().mods_dir)
     }
 
-    pub(super) fn mod_fault(&self, said: String) -> Refusal {
+    pub(crate) fn mod_fault(&self, said: String) -> Refusal {
         Refusal::Fault(WireError::raised(MOD_NOT_WRITTEN, said, self.run_id()))
     }
 
