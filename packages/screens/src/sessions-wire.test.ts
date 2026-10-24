@@ -462,6 +462,11 @@ describe("a session", () => {
     expect(sessionOfRecord(record("01ABCDEFGHJKMNPQRSTVWXYZ02"), undefined, beside()).helm).toBeUndefined();
   });
 
+  it("carries the Mod mark from the record", () => {
+    expect(sessionOfRecord(record("01ABCDEFGHJKMNPQRSTVWXYZ01", { mod: true }), undefined, beside())).toMatchObject({ mod: true });
+    expect(sessionOfRecord(record("01ABCDEFGHJKMNPQRSTVWXYZ02"), undefined, beside()).mod).toBeUndefined();
+  });
+
   it("carries its turn, ask, tuning and address", () => {
     const session = sessionOfRecord(
       record("01ABCDEFGHJKMNPQRSTVWXYZ00", {

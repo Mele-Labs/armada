@@ -71,3 +71,10 @@ test("a Job held on its start card needs him: its row is under Needs you and its
   const after = shipOf({ sessions: [begun], lines: [], slots: [], repositories: [], calls: [], now: Date.parse(SINCE) + 60_000 });
   expect(after.asking.has("session:begun")).toBe(false);
 });
+
+test("a Mod Job's subject carries the mark the list groups it by, and another's does not", () => {
+  const ship = shipOf({ sessions: [reply("mod", { mod: true }), reply("plain")], lines: [], slots: [], repositories: [], calls: [], now: Date.parse(SINCE) + 60_000 });
+  const of = (id: string) => ship.subjects.find((one) => one.id === id)!;
+  expect(of("mod").mod).toBe(true);
+  expect(of("plain").mod).toBeUndefined();
+});
