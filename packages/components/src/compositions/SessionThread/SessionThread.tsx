@@ -32,6 +32,7 @@ import { SessionRetroRow, type SessionRetroRowData } from "../SessionRetroRow/Se
 import { QuestionDeck } from "./QuestionDeck";
 import { ConcernClaim } from "./ConcernClaim";
 import { AdversarialFindings, AdversarialReviewPress, findingsOf } from "../AdversarialReview/AdversarialReview";
+import { FindingNotes, GivesRow, GroupFindings, anchorsOf, useFindingKeys } from "../AdversarialReview/AnchoredFindings";
 import type { AdversarialReviewProps } from "../AdversarialReview/AdversarialReview";
 import { LinkedRow } from "./LinkedRow";
 import { DisputedMark, DisputedRow } from "./DisputedRow";
@@ -273,8 +274,10 @@ export type PlanApproval = {
   /**
    * An adversarial review of this plan. The press stands in the answers row; the findings are drawn on the card between the plan and its
    * answers, or, with `findingsElsewhere`, left to the host (the Needs you panel) and the card keeps only the mark of the review's state.
+   * With `anchored` they are pinned to the plan instead: a finding about the whole plan under the summary, a group's under its line, a task's
+   * under the task, inside the group that holds it.
    */
-  adversarial?: AdversarialReviewProps & { findingsElsewhere?: true };
+  adversarial?: AdversarialReviewProps & { findingsElsewhere?: true; anchored?: true };
   /** A sketch drawn with the plan, shown under the groups as a sketch card is and opened as one is. */
   sketch?: { id: string; title: string; scene: Scene };
   onApprove: () => void;
@@ -1191,6 +1194,11 @@ function PlanCard({ approval }: { approval: PlanApproval }) {
   const review = onReview === undefined || folded ? undefined : { tabIndex: 0, "data-reviewable": "", onClick: (event: ReactMouseEvent<HTMLElement>) => { if ((event.target as Element).closest("button") === null) onReview(); }, onKeyDown: (event: KeyboardEvent<HTMLElement>) => { if (event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); onReview(); } } };
   const adversarial = approved ? undefined : approval.adversarial;
   const findingsHere = adversarial !== undefined && adversarial.findingsElsewhere === undefined && findingsOf(adversarial.review).length > 0;
+  // Pinned to the plan: which finding is about what, and the keys that run down them wherever they stand.
+  const pinned = adversarial?.anchored === true && !folded;
+  const anchors = pinned && adversarial !== undefined ? anchorsOf(adversarial.review, approval.groups.flatMap((group) => [group.id, ...group.tasks.map((task) => task.id)])) : undefined;
+  const keys = useFindingKeys(adversarial?.review, { onSend: (id) => adversarial?.onSend(id), onDismiss: (id) => adversarial?.onDismiss(id) });
+  const acts = { onSend: keys.send, onDismiss: keys.dismiss };
   // U opens the unchanged groups of a revision, or closes them all; R sends an adversarial review (or sends it again); wherever focus is on the card.
   const onKeys = (event: KeyboardEvent<HTMLElement>) => {
     const plain = !event.metaKey && !event.ctrlKey && !event.altKey;
@@ -1227,6 +1235,7 @@ function PlanCard({ approval }: { approval: PlanApproval }) {
               ))}
             </span>
           )}
+          {anchors === undefined || plain ? null : <GroupFindings group={group} anchors={anchors} {...acts} />}
         </li>
       ))}
     </ul>
@@ -1273,28 +1282,32 @@ function PlanCard({ approval }: { approval: PlanApproval }) {
           ))}
         </ul>
       )}
-      <div className="armada-session-thread__plan-body">
+      <div className="armada-session-thread__plan-body" {...(pinned ? keys.bind : {})}>
         {plain ? (
           <div className="armada-session-thread__plain">
             <p className="armada-session-thread__plan-summary">{approval.summary}</p>
+            {anchors === undefined ? null : <FindingNotes findings={anchors.whole} label="Findings on the plan" {...acts} />}
             <ul className="armada-session-thread__gives" aria-label="What each group gives">
-              {approval.groups.map((group) => (
-                <li key={group.id}>{group.gives ?? group.title}</li>
-              ))}
+              {approval.groups.map((group) => (anchors === undefined ? <li key={group.id}>{group.gives ?? group.title}</li> : <GivesRow key={group.id} text={group.gives ?? group.title} group={group} anchors={anchors} {...acts} />))}
             </ul>
             <Button size="sm" variant="ghost" aria-expanded={detailed} onClick={() => setDetailed(!detailed)}>
               {detailed ? "Show less" : "Details"}
             </Button>
             {detailed ? technical : null}
           </div>
-        ) : technical}
+        ) : anchors === undefined ? technical : (
+          <div className="armada-session-thread__pinned">
+            <FindingNotes findings={anchors.whole} label="Findings on the plan" {...acts} />
+            {technical}
+          </div>
+        )}
         {approval.sketch === undefined ? null : (
           <ul className="armada-session-thread__sketch">
             <SketchRow row={{ id: approval.sketch.id, at: "", kind: "sketch", sketch: approval.sketch.id, title: approval.sketch.title, drawing: approval.sketch.scene }} onOpen={() => onReview?.()} />
           </ul>
         )}
       </div>
-      {adversarial === undefined || adversarial.findingsElsewhere !== undefined ? null : (
+      {adversarial === undefined || adversarial.findingsElsewhere !== undefined || (pinned && adversarial.review.state !== "failed") ? null : (
         <div className="armada-session-thread__plan-review" onClick={(event) => event.stopPropagation()}>
           <AdversarialFindings review={adversarial.review} onSend={adversarial.onSend} onDismiss={adversarial.onDismiss} />
         </div>

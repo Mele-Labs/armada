@@ -112,3 +112,72 @@
   font-size: var(--text-xs);
   line-height: var(--leading-xs);
 }
+
+/* Findings pinned to the plan. One mechanism, wherever they sit: a hairline down the edge of the notes ties them to the thing above,
+   and indent says which. A task is its mark and words; its findings hang under the words. */
+
+.armada-adversarial__notes {
+  display: flex;
+  flex-direction: column;
+  align-self: stretch;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-inline-start: var(--border-width) solid var(--border-default);
+}
+
+.armada-adversarial__notes > li {
+  padding-inline: var(--space-3) var(--space-2);
+  border-top: 0;
+}
+
+.armada-adversarial__notes > li + li {
+  border-top: var(--border-width) solid var(--border-default);
+}
+
+.armada-adversarial__given {
+  min-width: 0;
+}
+
+/* The mark's column is as wide as the mark, so it ends every row at the same edge. */
+.armada-adversarial__given-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--h-control-sm);
+  align-items: center;
+  column-gap: var(--space-2);
+}
+
+.armada-adversarial__given-row > span:last-child:not(:first-child) {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.armada-adversarial__anchored {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  margin-block: var(--space-1) var(--space-2);
+}
+
+.armada-adversarial__task {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.armada-adversarial__task-line {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+}
+
+.armada-adversarial__task > .armada-adversarial__notes {
+  margin-inline-start: calc(var(--space-3) + var(--space-2));
+}

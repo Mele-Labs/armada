@@ -24,6 +24,8 @@ export type Finding = {
   found: string;
   /** What it cites, as `path:line`. */
   cites?: readonly string[];
+  /** What it is about: a task id, a group id, or nothing for the plan as a whole. A host that draws the plan pins the finding there (`AnchoredFindings`). */
+  about?: string;
   /** Acted on: the finding folds to a line. */
   settled?: "sent" | "dismissed";
 };
@@ -118,9 +120,9 @@ export function AdversarialReviewPress({ review, onRun, shortcut }: Pick<Adversa
 }
 
 /** One finding: the claim on the left, its two acts in a column on the right. Focusable; Enter sends, Backspace or D dismisses. */
-function FindingRow({ finding, onSend, onDismiss, hold }: { finding: Finding; onSend: () => void; onDismiss: () => void; hold: (el: HTMLElement | null) => void }) {
+export function FindingRow({ finding, onSend, onDismiss, hold }: { finding: Finding; onSend: () => void; onDismiss: () => void; hold?: (el: HTMLElement | null) => void }) {
   return (
-    <li ref={hold} className="armada-adversarial__finding" role="group" aria-label={`Finding: ${finding.consequence}`} tabIndex={0} data-finding={finding.id}>
+    <li ref={hold} onClick={(event) => event.stopPropagation()} className="armada-adversarial__finding" role="group" aria-label={`Finding: ${finding.consequence}`} tabIndex={0} data-finding={finding.id}>
       <div className="armada-adversarial__claim">
         <ConcernClaim concern={{ text: finding.consequence, consequence: finding.consequence, expected: finding.expected, produced: finding.found, ...(finding.cites === undefined ? {} : { cites: finding.cites }) }} />
       </div>
@@ -141,11 +143,11 @@ function FindingRow({ finding, onSend, onDismiss, hold }: { finding: Finding; on
 }
 
 /** A finding acted on, as one muted line: a mark with its tooltip, then the consequence. */
-function SettledRow({ finding }: { finding: Finding }) {
+export function SettledRow({ finding }: { finding: Finding }) {
   const sent = finding.settled === "sent";
   const said = sent ? "Sent" : "Dismissed";
   return (
-    <li className="armada-adversarial__settled" role="group" aria-label={`Finding ${said.toLowerCase()}: ${finding.consequence}`}>
+    <li onClick={(event) => event.stopPropagation()} className="armada-adversarial__settled" role="group" aria-label={`Finding ${said.toLowerCase()}: ${finding.consequence}`}>
       <Mark said={said}>{sent ? <ArrowRight size={12} strokeWidth={2} aria-hidden /> : <Ban size={12} strokeWidth={2} aria-hidden />}</Mark>
       <span className="armada-adversarial__settled-text">{finding.consequence}</span>
     </li>
