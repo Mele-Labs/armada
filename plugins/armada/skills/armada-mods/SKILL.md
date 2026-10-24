@@ -11,6 +11,19 @@ Bridge arranges, in `layout.json`; a tracker teaches Fleet an issue tracker, in
 trackers the last. Pick the kind from the ask: "warmer", "darker" and "higher
 contrast" are themes; "move", "hide", "put first" and "reorder" are layouts.
 
+# In a Mod Job
+
+**A Mod Job's first message is the owner's note on what he pointed at.**
+`docs/concepts/mods.md`, *A Mod Job*, is what one is.
+
+| Do | Because |
+|---|---|
+| Reach for a mod first | A mod needs no source change and applies live once valid |
+| Pass your `session_id` to `scaffold_mod` | The mod lists you as `made_by`, and *Mods made* shows it with its switch, which is his undo |
+| Where a mod cannot say it, tell him so | He should not wait on a mod that cannot do the ask |
+| On Armada's repository, change the source on the Job's branch, then put `scripts/preview --restart` in `waiting_for` as a `run` item | The change reaches him through the preview |
+| In the mods folder, with no repository, say a mod cannot do it and stop | There is no source to change and no preview to restart |
+
 # Making a theme mod
 
 **A mod is a folder on this machine, and a local one never touches Bridge's
@@ -40,7 +53,7 @@ preference are his.
 
 | Never | Because |
 |---|---|
-| Edit anything under `apps/desktop` or `packages/` for a local mod | A mod exists so a look needs no source change |
+| Edit anything under `apps/desktop` or `packages/` for a local mod | A mod exists so a look needs no source change. In a Mod Job on Armada's repository, the source is for what a mod cannot say |
 | Edit `mod.toml` beyond `description` and `version` | `name` must equal the folder, and `kind` is `theme` |
 | Add a second file or a link in the folder | Only `mod.toml` and `theme.css` are read |
 | Promote a mod unprompted | It starts a Job that opens a pull request in the repository, and that is his ask |
