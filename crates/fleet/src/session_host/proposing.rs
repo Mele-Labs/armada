@@ -73,12 +73,18 @@ pub(crate) struct ProposalState {
     pub draining: bool,
     /// A reading was begun for this Session, whether or not it has landed. A Session is read once.
     pub asked: bool,
+    /// The Job waits on its start card: every turn is kept in `held` until it begins. Mirrors the
+    /// hosting's `start_held`, and is true only once `start_synced`.
+    pub start_held: bool,
+    /// `held` stands for the thread's unsent messages. False in a Fleet that restarted while the Job was
+    /// held, until `start_card::restored` has read them back.
+    pub start_synced: bool,
 }
 
 impl ProposalState {
     /// Whether a new message waits behind the proposal.
     pub(crate) fn holds_back(&self) -> bool {
-        self.reading.is_some() || self.draining
+        self.reading.is_some() || self.draining || self.start_held
     }
 
     /// The person set `field`: the answer leaves it alone.
@@ -174,6 +180,8 @@ where
         // A Session that waits on another holds the request as its brief and sends nothing. The Session it
         // waits on is checked before anything is made, so a refused wait leaves no Session behind.
         let after = start.after.take().filter(|_| request.is_some());
+        // A Job that waits on another has no start card.
+        start.held &= after.is_none();
         if let Some(after) = &after {
             self.after_checked("", after).await?;
         }
@@ -258,7 +266,8 @@ where
             if state.proposal.asked {
                 return false;
             }
-            state.proposal = ProposalState::begin(person);
+            let kept = std::mem::take(&mut state.proposal);
+            state.proposal = ProposalState { reading: Some(Reading { person }), asked: true, ..kept };
         }
         let (fleet, id, words) = (Arc::clone(self), session.id.clone(), brief.to_string());
         tokio::spawn(async move { fleet.read_request(id, words).await });
@@ -385,13 +394,27 @@ where
                 let _ = store.keep_hosting(&hosting);
             }
         }
-        // Held turns go first, in the order they came, and nothing newer overtakes them.
-        {
+        // Held turns go first, in the order they came, and nothing newer overtakes them. A Job still on its
+        // start card keeps them: `begin_session` sends them.
+        let kept_back = {
             let mut state = runtime.state();
             state.proposal.reading = None;
-            state.proposal.draining = true;
-        }
+            let kept_back = state.proposal.start_held;
+            state.proposal.draining |= !kept_back;
+            kept_back
+        };
         let _ = self.published_hosted(id).await;
+        if kept_back {
+            return;
+        }
+        self.held_sent(id).await;
+        let _ = self.published_hosted(id).await;
+    }
+
+    /// Send the turns that waited, oldest first. The caller has set `draining`, so a message arriving
+    /// meanwhile joins the line instead of overtaking it.
+    pub(crate) async fn held_sent(self: &Arc<Self>, id: &str) {
+        let runtime = self.hosts().of(id);
         loop {
             let next = {
                 let mut state = runtime.state();
@@ -408,7 +431,6 @@ where
                 eprintln!("job {id}: a turn held for the proposal was not sent: {why:?}");
             }
         }
-        let _ = self.published_hosted(id).await;
     }
 
     /// The person changed `field`: the answer to a call still out leaves it alone, and it is no

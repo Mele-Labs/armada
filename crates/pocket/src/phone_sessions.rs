@@ -9,7 +9,7 @@
 
 use ipc::{
     AskedChoice, AskedQuestion, HelmCallAnswer, HelmCallInFlight, SessionOrigin, SessionRecord,
-    SessionStanding, SessionState,
+    SessionStanding, SessionState, SessionTurn, WaitingItem, WaitingSource,
 };
 use serde::Serialize;
 
@@ -123,6 +123,25 @@ fn ask(held: &HelmCallInFlight) -> PhoneAsk {
     }
 }
 
+/// What a live Job owes the person besides an ask, as Bridge counts it (`stateOf` in
+/// `session-state.ts`): a slot choice or the delivery question holds the agent whatever its
+/// turn says; while a turn runs or is stuck nothing else is owed yet; otherwise every item
+/// but the `done` Fleet derives from the turn.
+fn owed(record: &SessionRecord) -> Vec<&WaitingItem> {
+    if record.state != SessionState::Live {
+        return Vec::new();
+    }
+    let holds = |one: &&WaitingItem| matches!(one.source, WaitingSource::SlotChoice | WaitingSource::Delivery);
+    let items = || record.waiting_for.iter().filter(|one| one.source != WaitingSource::Done);
+    let at_work = matches!(record.standing, Some(SessionStanding::Working | SessionStanding::Stuck))
+        || matches!(record.hosted.as_ref().map(|h| &h.turn), Some(SessionTurn::Working { .. }));
+    if at_work {
+        items().filter(holds).collect()
+    } else {
+        items().collect()
+    }
+}
+
 impl PhoneSession {
     pub fn of(record: &SessionRecord, repository: Option<&str>, now: i64) -> PhoneSession {
         let hosted = record.origin == SessionOrigin::Bridge;
@@ -132,16 +151,20 @@ impl PhoneSession {
             SessionOrigin::Terminal => record.terminal.as_ref().and_then(|t| t.asked.as_ref()),
         }
         .filter(|_| record.state == SessionState::Live);
+        let owed = owed(record);
+        let since = waiting_on
+            .map(|asked| asked.asked_at.as_str())
+            .or_else(|| owed.iter().map(|one| &one.since).min().map(|at| at.as_str()));
         PhoneSession {
             id: record.id.as_str().to_string(),
             title: record.title.clone(),
             repository: repository.map(str::to_string),
             kind: if hosted { "hosted" } else { "terminal" },
-            waiting: waiting_on.is_some(),
+            waiting: since.is_some(),
             working: matches!(record.standing, Some(SessionStanding::Working | SessionStanding::Stuck)),
             started_at: record.started_at.as_str().to_string(),
             ended_at: record.ended_at.as_ref().map(|at| at.as_str().to_string()),
-            waiting_since: waiting_on.map(|asked| asked.asked_at.as_str().to_string()),
+            waiting_since: since.map(str::to_string),
             ask: held_ask(record, now)
                 .filter(|_| record.state == SessionState::Live)
                 .map(ask),

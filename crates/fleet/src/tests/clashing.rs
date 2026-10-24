@@ -101,6 +101,7 @@ impl Rig {
                 fork: None,
                 request: None,
                 after: None,
+                held: false,
             })
             .await
             .expect("started")

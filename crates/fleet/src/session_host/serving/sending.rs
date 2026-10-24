@@ -157,6 +157,8 @@ where
                 "a message needs words or something sent with it",
             ));
         }
+        // Before this message is written, so a Job held across a restart does not read it back as an old one.
+        self.start_hold_restored(&id, &hosting).await?;
         let kept = self.keep_uploads(&self.uploads_of(&id), &id, &sent.attachments)?;
         let addressed = self.addressed(&sent.mentions).await?;
         // A person's first message to a Session that was started without a request is read as a request is.

@@ -431,6 +431,10 @@ where
         self.workflow_set(set).await
     }
 
+    async fn begin_session(self: Arc<Self>, begin: ipc::BeginSession) -> Result<SessionRecord, Refusal> {
+        self.session_begun(begin).await
+    }
+
     async fn release_session_holds(
         &self,
         release: ipc::ReleaseSessionHolds,

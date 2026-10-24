@@ -32,7 +32,7 @@ That document owns the call.
 A Job may follow one workflow, which the proposer picks at dispatch or a person sets.
 No step gates it.
 A step may carry `instructions`, the words the agent follows there, sent when the Job enters the step.
-A step with `asks_delivery: true` first asks the owner how the work is delivered, unless the first message says; `bug` and `feature` set it on `plan`.
+A step with `asks_delivery: true` first asks the owner how the work is delivered, unless the first message says or the Job's start card settled it; `bug` and `feature` set it on `plan`.
 `bug` runs `plan`, `implement`, `land`: root cause and proposed fix, the fix, then delivery.
 `feature` runs the same three, its `plan` also scoping with questions and proposing a walk where the owner would see the change.
 At `land` the agent delivers by the answer it was told, and a change the owner would see waits for his walk first.

@@ -1067,6 +1067,15 @@ describe("a Job handed on to a new one", () => {
     expect(sessionOfRecord(record("a", { attachments: [{ ...failed, state: "given_back" }] }), undefined, beside()).handoff).toBeUndefined();
   });
 
+  it("reads a held start's facts onto the Job, and nothing once it has begun or ended", () => {
+    const hosted = { turn: { state: "idle" as const }, mode: "auto" as const, running: false };
+    const held = record("a", { hosted: { ...hosted, start: { asks_delivery: true, picked: { choice: "open_pr", from: "usual" } } } });
+    expect(sessionOfRecord(held, undefined, beside()).start).toEqual({ asksDelivery: true, picked: { choice: "open_pr", from: "usual" } });
+    expect(sessionOfRecord(record("a", { hosted: { ...hosted, start: { asks_delivery: false } } }), undefined, beside()).start).toEqual({ asksDelivery: false });
+    expect(sessionOfRecord(record("a", { hosted }), undefined, beside()).start).toBeUndefined();
+    expect(sessionOfRecord({ ...held, state: "ended" }, undefined, beside()).start).toBeUndefined();
+  });
+
   it("carries Fleet's reason from the newest failed row, and none once the failure is cleared", () => {
     const older = held("handoff_failed", "2026-10-18T19:00:00Z", { reason: "old job did not end: the close was refused" });
     const newer = held("handoff_failed", "2026-10-18T19:05:00Z", { reason: "new job did not start: the manifest is gone" });

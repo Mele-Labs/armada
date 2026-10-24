@@ -1,0 +1,14 @@
+[operations.begin_session]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Press Start on a held Job's start card: settle how its work lands, lift the hold and send the messages that waited"
+notes = """
+`POST /sessions/begin`, body `BeginSession`: `session_id`, and `delivery` (`auto_land`, `open_pr` or `keep_local`), the landing the person settled on the card. Answers the `SessionRecord`, whose `hosted.start` is gone.
+
+**A Job is held when `start_session` carried `held`.** Until this call no agent runs: a message sent is written to the thread and kept, and a proposer reading that ends meanwhile settles the title, workflow, model and effort but sends nothing. The hold is kept with the Job, so a Fleet that restarts keeps it held; the messages are then read back off the thread.
+
+**`delivery` is read where `hosted.start.asks_delivery` holds**, that is where the Job's workflow has a step that asks how the work lands. It is kept as the answer to that question, so the step asks nothing; `auto_land` turns Auto land on as `set_session_auto_land` does; and the pick is recorded, from which `hosted.start.picked` offers the usual landing of the next Job of that workflow in that repository. Where the workflow asks nothing, `delivery` is ignored and nothing is written.
+
+422 `fleet.session_waiting_empty` where `asks_delivery` holds and `delivery` is absent. 409 `fleet.session_waiting_unheld` for a Job that is not held, begun already or never held, and 409 `fleet.session_closed` for one that ended. 422 `fleet.no_such_session` for one Fleet does not host. Nothing is changed by a refusal.
+"""

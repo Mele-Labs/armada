@@ -6,7 +6,7 @@
 import type { IpcMain } from "electron";
 
 import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, ChangeWaiting, ChosenHold, ClaimIssue, ClaimPullRequest, ConfirmWaiting, DismissConcern, DismissWaiting, JudgeSession, RenameSession, SendConcern, SendPlanChanges, SendSessionMessage, SendSessionNote, SettleLater, TuneSession } from "@armada/protocol";
-import type { SetNoticeMute, StartAfter, StopWatch } from "@armada/protocol";
+import type { BeginSession, SetNoticeMute, StartAfter, StopWatch } from "@armada/protocol";
 import { HELM_CALL_ANSWERS, isNotice } from "@armada/protocol";
 import { CHANNELS } from "../shared/bridge";
 import type { PullRequestPress, PullRequestWrite, TerminalMovedBack } from "../shared/api/sessions";
@@ -32,6 +32,7 @@ const WRITES: readonly PullRequestWrite["kind"][] = ["comment", "approve", "requ
 // and the card's press came back as Fleet not connected (16 Oct 2026).
 const ANSWERS: readonly string[] = HELM_CALL_ANSWERS;
 const MODES = ["ask", "auto", "accept_edits", "plan"];
+const DELIVERIES = ["auto_land", "open_pr", "keep_local"];
 const MCP_ACTS: readonly McpServerAct[] = ["reconnect", "turn_on", "turn_off", "sign_in"];
 
 const text = (value: unknown): value is string => typeof value === "string" && value !== "";
@@ -63,12 +64,16 @@ function noticeMute(value: unknown): SetNoticeMute | undefined {
 }
 
 export function handleSessions({ ipc, connection, windowIdOf, pages, terminals }: Hosts): void {
-  ipc.handle(CHANNELS.startSession, (event, title?: string, root?: string, request?: string, tuning?: { model?: string; effort?: string }, after?: StartAfter) => {
+  ipc.handle(CHANNELS.startSession, (event, title?: string, root?: string, request?: string, tuning?: { model?: string; effort?: string }, after?: StartAfter, held?: boolean) => {
     const fleet = connection();
     if (fleet === null) return unsent;
     // A model or effort the person did not pick is left off, so Fleet's proposer fills it in.
     const picked = { ...(text(tuning?.model) ? { model: tuning.model } : {}), ...(text(tuning?.effort) ? { effort: tuning.effort } : {}) };
-    return fleet.startSession(fleet.repositories.pickedByWindow.of(windowIdOf(event)), typeof title === "string" && title !== "" ? title : undefined, text(root) ? root : undefined, text(request) && request.trim() !== "" ? request : undefined, picked, after !== undefined && text(after.session) ? after : undefined);
+    return fleet.startSession(fleet.repositories.pickedByWindow.of(windowIdOf(event)), typeof title === "string" && title !== "" ? title : undefined, text(root) ? root : undefined, text(request) && request.trim() !== "" ? request : undefined, picked, after !== undefined && text(after.session) ? after : undefined, held === true);
+  });
+  ipc.handle(CHANNELS.beginSession, (_event, begin: BeginSession) => {
+    if (!text(begin?.session_id) || (begin.delivery !== undefined && !DELIVERIES.includes(begin.delivery))) return unread;
+    return connection()?.sessions.begin({ session_id: begin.session_id, ...(begin.delivery === undefined ? {} : { delivery: begin.delivery }) }) ?? unsent;
   });
   ipc.handle(CHANNELS.readSessionWait, (_event, sessionId: string, request: string) => {
     if (!text(sessionId) || typeof request !== "string") return unread;

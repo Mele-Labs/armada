@@ -3,7 +3,7 @@
 **Part of:** [Protocol: the Fleet/Bridge seam](../protocol.md).
 
 `docs/concepts/session.md`, *A job Fleet hosts*.
-**Additive only**: eight operations, one event kind, one optional field on `SessionRecord`, and the DTOs of `ipc::hosted_sessions`.
+**Additive only**: the operations below, one event kind, one optional field on `SessionRecord`, and the DTOs of `ipc::hosted_sessions`.
 Nothing an older Bridge reads changes, and Helm's operations are untouched.
 
 | Operation | Carries | Notes |
@@ -12,6 +12,7 @@ Nothing an older Bridge reads changes, and Helm's operations are untouched.
 | `send_session_message` (`POST /sessions/message`) | `SendSessionMessage`: `text`, `attachments` (`name`, `media_type`, base64 `data`), `mentions` (`SessionTag`) | **202**. Answers the `SessionRecord`; the reply is the thread's |
 | `answer_session_ask` (`POST /sessions/ask/answer`) | `AnswerSessionAsk`: `session_id`, the ask's `call`, an `answer` it offered, a `note` | 409 where nothing is waiting under that call |
 | `tune_session` (`POST /sessions/tune`) | `TuneSession`: `model`, `effort`, `mode` | A model or effort left out is the machine's own |
+| `begin_session` (`POST /sessions/begin`) | `BeginSession`: `session_id`, `delivery?` | Start pressed on a held Job's start card. Answers the `SessionRecord`. `a-job-starts-on-its-start-card.md` |
 | `close_session` (`POST /sessions/close`) | `CloseSession` | Parks the slot, ends the row |
 | `stop_session` (`POST /sessions/stop`) | `StopSession` | Ends the turn that is running, keeps the row live and the slot held. Since 23.84 |
 | `get_session` (`GET /sessions/one?session_id=`) | `SessionThread`: the record and its `rows` | |
