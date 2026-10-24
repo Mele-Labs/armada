@@ -34,7 +34,7 @@ describe("the examples the armada-mods skill teaches", () => {
     const layers = layersOf({ mods: [mod("tidy", tidy), mod("jobs", job)], own: { regions: {} } });
     expect(shown("dashboard.panels", layers)).toEqual(["list", "bays", "controls", "dispatch", "autopilot"]);
     expect(shown("rail", layers)).not.toContain("logbook");
-    expect(shown("job.panels", layers)).toEqual(["progress", "workflow"]);
+    expect(shown("job.panels", layers)).toEqual(["progress", "workflow", "mods"]);
   });
 });
 
@@ -84,12 +84,12 @@ describe("what is drawn, layer on layer", () => {
 
   it("is the registry's own order and every entry with no layer", () => {
     expect(shown("dashboard.panels", layersOf({ mods: [], own: { regions: {} } }))).toEqual(["list", "merge-line", "activity", "bays", "controls", "dispatch", "autopilot"]);
-    expect(shown("job.panels", layersOf({ mods: [], own: { regions: {} } }))).toEqual(["field", "workflow", "progress"]);
+    expect(shown("job.panels", layersOf({ mods: [], own: { regions: {} } }))).toEqual(["field", "workflow", "progress", "mods"]);
   });
 
   it("applies a mod that is on and valid, and not one that is off or has a problem", () => {
     const on = layersOf({ mods: [mod("tidy", TIDY)], own: { regions: {} } });
-    expect(shown("job.panels", on)).toEqual(["progress", "field", "workflow"]);
+    expect(shown("job.panels", on)).toEqual(["progress", "field", "workflow", "mods"]);
     expect(shown("rail", on)).not.toContain("logbook");
     const off = layersOf({ mods: [mod("tidy", TIDY, { enabled: false })], own: { regions: {} } });
     expect(shown("rail", off)).toContain("logbook");
@@ -119,7 +119,7 @@ describe("what is drawn, layer on layer", () => {
     const layers = layersOf({ mods: [asks], own: { regions: {} } });
     expect(shown("rail", layers)).toEqual(expect.arrayContaining(["settings", "mods", "overview"]));
     expect(shown("rail", layers)).not.toContain("logbook");
-    expect(shown("job.panels", layers)).toEqual(["workflow", "progress"]);
+    expect(shown("job.panels", layers)).toEqual(["workflow", "progress", "mods"]);
     expect(shown("dashboard.panels", layers)).toContain("list");
     expect(shown("dashboard.panels", layers)).not.toContain("bays");
   });
@@ -128,8 +128,8 @@ describe("what is drawn, layer on layer", () => {
     const stale = mod("old", '{"version":1,"job.panels":{"order":["removed-panel","workflow"],"hidden":["removed-panel","workflow"]},"dashboard.panels":{"order":["bays","list"]}}');
     const layers = layersOf({ mods: [stale], own: { regions: {} } });
     const resolved = resolveLayout("job.panels", layers);
-    expect(resolved.all.map((one) => one.id)).toEqual(["workflow", "field", "progress"]);
-    expect(resolved.shown.map((one) => one.id)).toEqual(["field", "progress"]);
+    expect(resolved.all.map((one) => one.id)).toEqual(["workflow", "field", "progress", "mods"]);
+    expect(resolved.shown.map((one) => one.id)).toEqual(["field", "progress", "mods"]);
     expect(shown("dashboard.panels", layers)[0]).toBe("list");
   });
 });

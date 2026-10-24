@@ -49,6 +49,8 @@ pub struct KeptHosting {
     /// Auto land is on: Fleet turns on the forge's auto-merge for each pull request the session
     /// holds, as it attaches and when this is turned on.
     pub auto_land: bool,
+    /// A Mod Job, started from Mod for modding Armada itself.
+    pub mod_job: bool,
     /// The Job waits on its start card: no agent runs and a message is kept, until it begins.
     pub start_held: bool,
 }
@@ -56,7 +58,7 @@ pub struct KeptHosting {
 const COLUMNS: &str =
     "session_id, manifest_id, model, effort, mode, ran, lease_slot, lease_branch, fork_of, helm, \
      setup, workflow, proposed, turn_model, turn_effort, paused_at, paused_resuming, auto_land, \
-     start_held";
+     mod_job, start_held";
 
 fn kept(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptHosting> {
     Ok(KeptHosting {
@@ -78,7 +80,8 @@ fn kept(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptHosting> {
         paused_at: row.get(15)?,
         paused_resuming: row.get::<_, i64>(16)? != 0,
         auto_land: row.get::<_, i64>(17)? != 0,
-        start_held: row.get::<_, i64>(18)? != 0,
+        mod_job: row.get::<_, i64>(18)? != 0,
+        start_held: row.get::<_, i64>(19)? != 0,
     })
 }
 
@@ -88,7 +91,7 @@ impl Store {
             .execute(
                 &format!(
                     "INSERT OR REPLACE INTO hosted_sessions ({COLUMNS})
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19)"
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20)"
                 ),
                 params![
                     hosting.session_id,
@@ -109,6 +112,7 @@ impl Store {
                     hosting.paused_at,
                     i64::from(hosting.paused_resuming),
                     i64::from(hosting.auto_land),
+                    i64::from(hosting.mod_job),
                     i64::from(hosting.start_held),
                 ],
             )

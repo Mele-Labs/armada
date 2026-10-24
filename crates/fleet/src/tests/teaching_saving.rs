@@ -291,7 +291,7 @@ async fn forgetting_the_entry_removes_the_mods_it_made_and_leaves_every_other_mo
     on_bridge.source = Some(TeachingSource { kind: TeachingSourceKind::Panel, text: "A panel".into(), ids: Vec::new() });
     on_bridge.proposal.tweak = vec![TweakChange { token: "--bg-raised".into(), was: String::new(), now: "#222".into(), used_in: vec![], note: None }];
     Arc::clone(&rig.fleet).save_teaching(on_bridge).await.expect("saved");
-    let by_hand = rig.fleet.scaffold_mod(ipc::ScaffoldMod { name: "mine".into(), description: Some("By hand".into()), kind: Some(ModKind::Theme) }).await.expect("made");
+    let by_hand = rig.fleet.scaffold_mod(ipc::ScaffoldMod { name: "mine".into(), description: Some("By hand".into()), kind: Some(ModKind::Theme), session_id: None }).await.expect("made");
     assert!(std::path::Path::new(&by_hand.path).is_dir());
 
     rig.fleet.forget_logbook_entry(entry.clone()).await.expect("forgotten");

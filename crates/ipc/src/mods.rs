@@ -8,6 +8,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::ids::{Instant, ManifestId};
+use crate::session_notes::SessionNote;
 use crate::sessions::SessionId;
 use crate::taught_mods::{FleetFile, WordsFile};
 
@@ -70,6 +71,10 @@ pub struct ModSummary {
     /// or taught somewhere no entry was made.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub entry: Option<String>,
+    /// The Job whose `scaffold_mod` made this mod. Absent for a mod made by hand, by a teaching, or
+    /// by a call that named no Job.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub made_by: Option<SessionId>,
     /// This machine's switch. A mod nobody switched is enabled.
     pub enabled: bool,
     /// Whether Bridge may load it. Anything wrong with `mod.toml` or the files
@@ -122,6 +127,9 @@ pub struct ScaffoldMod {
     /// Absent is a theme, which is all there was before layouts.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub kind: Option<ModKind>,
+    /// The Job calling, which the mod records as `made_by`. Absent records none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<SessionId>,
 }
 
 /// A mod made. `path` is the directory, where `theme.css` or `layout.json` is edited.
@@ -129,6 +137,33 @@ pub struct ScaffoldMod {
 pub struct ModScaffolded {
     pub name: String,
     pub path: String,
+}
+
+/// `start_mod_session`: a Mod Job, a hosted Job on Armada's own repository for modding Armada
+/// itself, started on what the person pointed at.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StartModSession {
+    /// Absent is the first line of the note's words.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    /// Absent is the machine's own default, as for `start_session`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub effort: Option<String>,
+    /// What he pointed at, as `send_session_note` takes it: the Job's first message.
+    pub note: SessionNote,
+}
+
+/// A Mod Job started, and sent its first message.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ModSessionStarted {
+    pub session_id: SessionId,
+    pub title: String,
+    /// Why the first message was not sent, in Fleet's words, where the Job started and the send
+    /// was refused. Bridge opens the Job and the person sends by hand. Absent when sent.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub send_failed: Option<String>,
 }
 
 /// `set_mod_enabled`: this machine's switch for one mod.

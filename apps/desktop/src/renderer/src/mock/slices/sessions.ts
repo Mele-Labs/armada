@@ -15,6 +15,7 @@ export const sessions: Slice<SessionsApi, SessionsState> = {
     beginSession: async () => ({ ok: false, outcome: unanswered("/sessions/begin") }),
     sendSessionMessage: async () => ({ ok: false, outcome: unanswered("/sessions/message") }),
     sendSessionNote: async () => ({ ok: false, outcome: unanswered("/sessions/note") }),
+    startModSession: async () => ({ ok: false, outcome: unanswered("/mods/session") }),
     answerSessionAsk: async () => ({ ok: false, outcome: unanswered("/sessions/ask/answer") }),
     answerWaiting: async () => ({ ok: false, outcome: unanswered("/sessions/waiting/answer") }),
     claimPullRequest: async () => ({ ok: false, outcome: unanswered("/sessions/claim_pull_request") }),

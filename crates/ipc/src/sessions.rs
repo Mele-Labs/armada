@@ -935,6 +935,9 @@ pub struct SessionRecord {
     /// dock, and at most one is live per `manifest_id`. Absent on every other session.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub helm: bool,
+    /// A Mod Job, started from Mod for modding Armada itself. Absent on every other session.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub r#mod: bool,
     /// Auto land is on: Fleet turns on the forge's auto-merge for each pull request the Session
     /// holds as it attaches, and off again when this is turned off. Absent is off. Hosted only.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]

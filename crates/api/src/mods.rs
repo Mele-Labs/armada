@@ -1,4 +1,4 @@
-//! The six mod operations. `docs/concepts/mods.md`.
+//! The mod operations, and the start of a Mod Job. `docs/concepts/mods.md`.
 
 use axum::body::Bytes;
 use axum::extract::{Query, State};
@@ -73,6 +73,21 @@ pub(crate) async fn try_tracker_mod<D: Mods>(
     };
     match served.daemon().try_tracker_mod(asked).await {
         Ok(tried) => answer(StatusCode::OK, &tried, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// 200 with the Job started; 422 where this Fleet does not serve Armada's own repository.
+pub(crate) async fn start_mod_session<D: Mods>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let start: ipc::StartModSession = match ipc::decode("a Mod Job to start", &body) {
+        Ok(start) => start,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().start_mod_session(start).await {
+        Ok(started) => answer(StatusCode::OK, &started, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }
