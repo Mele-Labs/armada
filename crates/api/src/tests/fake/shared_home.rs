@@ -2,7 +2,7 @@
 //! refused by name, and What syncs with every kind off. What is read, compared and pushed is
 //! `fleet::home`'s.
 
-use ipc::{ChooseHomeSide, HomeKind, HomeKindSwitch, HomeKinds, HomeProfile, HomeRowAt, SetHomeKind, SharedHomeRead};
+use ipc::{ChooseHomeSide, HomeKind, HomeKindSwitch, HomeKinds, HomeProfile, HomeRowAt, HomeSynced, SetHomeKind, SharedHomeRead};
 
 use super::FakeDaemon;
 use crate::tests::shapes::run_id;
@@ -27,7 +27,7 @@ impl SharedHome for FakeDaemon {
         Ok(SharedHomeRead { home: None, rows: Vec::new(), unreadable: Vec::new() })
     }
 
-    async fn sync_shared_home(&self, _profile: HomeProfile) -> Result<SharedHomeRead, Refusal> {
+    async fn sync_shared_home(&self, _profile: HomeProfile) -> Result<HomeSynced, Refusal> {
         Err(no_home())
     }
 

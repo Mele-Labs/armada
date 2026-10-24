@@ -7,7 +7,7 @@
 // profile is signed in or Fleet is not connected.
 
 import type { SharedHome, SharedRow } from "@armada/components";
-import type { HomeRow, HomeRowAt, SharedHomeRead as WireRead } from "@armada/protocol";
+import type { HomeRow, HomeRowAt, HomeSynced, SharedHomeRead as WireRead } from "@armada/protocol";
 import { refusalWords } from "@armada/screens/src/refusal-words";
 
 import type { AccountsActed } from "../../shared/api/accounts";
@@ -20,7 +20,7 @@ export const HOME_REPOSITORY = "armada-home";
 /** What Bridge reaches Fleet through: `window.armada` in the app, a fake in a test. */
 export type FleetHome = {
   getSharedHome: (login: string) => Promise<AccountsActed<WireRead>>;
-  syncSharedHome: (login: string) => Promise<AccountsActed<WireRead>>;
+  syncSharedHome: (login: string) => Promise<AccountsActed<HomeSynced>>;
   addToSharedHome: (row: HomeRowAt) => Promise<AccountsActed<WireRead>>;
   bringFromSharedHome: (row: HomeRowAt) => Promise<AccountsActed<WireRead>>;
   chooseSharedHomeSide: (row: HomeRowAt, side: "here" | "there") => Promise<AccountsActed<WireRead>>;
@@ -97,16 +97,17 @@ export function createFleetSharedHome(fleet: FleetHome, account: AccountSource, 
     listeners.forEach((on) => on());
   };
 
-  /** Take an answer for `as`, unless the drawn profile changed or a later answer was taken. A refusal is told, as a press that failed. */
-  const took = (as: string, at: number, answer: AccountsActed<WireRead>, told: boolean): void => {
-    if (as !== login || at <= taken) return;
+  /** Take an answer for `as`, unless the drawn profile changed or a later answer was taken, and say whether it was taken. A refusal is told, as a press that failed. */
+  const took = (as: string, at: number, answer: AccountsActed<WireRead>, told: boolean): boolean => {
+    if (as !== login || at <= taken) return false;
     if (!answer.ok) {
       if (told) tell(refusalWords(answer.outcome));
-      return;
+      return false;
     }
     taken = at;
     read = answer.value;
     publish();
+    return true;
   };
 
   const load = (as: string): void => {
@@ -126,7 +127,8 @@ export function createFleetSharedHome(fleet: FleetHome, account: AccountSource, 
     const at = ++issued;
     const answer = await fleet.syncSharedHome(as);
     syncing = false;
-    took(as, at, answer, true);
+    // A row the sync could not add stays on this machine, told one by one.
+    if (took(as, at, answer, true) && answer.ok) answer.value.left.forEach((one) => tell(one.why));
     // A refused or overtaken sync still stops turning.
     if (held?.syncing === true) publish();
   };

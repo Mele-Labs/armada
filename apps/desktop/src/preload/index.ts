@@ -33,7 +33,7 @@ import type { ModChecked } from "@armada/protocol";
 import type { ForgetReviewSearch, OpenReviewWalk, PullReviewLists, PullThreadResolved, RememberedPlace, RememberedPlaces, ResolvePullThread, ReviewRun, ReviewRuns, ReviewTools, ReviewWalk, SaveReviewTool, SaveWalkPlace, StartReviewRun, StartReviewSearch, WalkPlaceFound, WritePullRequest } from "@armada/protocol";
 import type { ReviewWalkNote, ShownReviewWalk, ShownReviewWalkOutcome } from "../shared/review-walk";
 import type { ChosenHold, SessionHeld, SessionHoldsReleased, SetNoticeMute } from "@armada/protocol";
-import type { ActFailed, HomeKind, HomeKinds, HomeRowAt, HomeSide, ModelDownshiftState, PlanUsage, SharedHomeRead, SignedOut, SleepState, TimelineAsk, TimelineEvent } from "@armada/protocol";
+import type { ActFailed, HomeKind, HomeKinds, HomeRowAt, HomeSide, HomeSynced, ModelDownshiftState, PlanUsage, SharedHomeRead, SignedOut, SleepState, TimelineAsk, TimelineEvent } from "@armada/protocol";
 import type { FlightControls } from "@armada/protocol";
 import type { StopWatch, WatchSummary } from "@armada/protocol";
 import type { ApproveRepositoryTile, RepositoryTile } from "@armada/protocol";
@@ -476,7 +476,7 @@ const api: BridgeApi = {
   setRepositoryProfile: (root: string, accountId: number | null): Promise<AccountsActed> =>
     ipcRenderer.invoke(CHANNELS.setRepositoryProfile, root, accountId),
   getSharedHome: (login: string): Promise<AccountsActed<SharedHomeRead>> => ipcRenderer.invoke(CHANNELS.getSharedHome, login),
-  syncSharedHome: (login: string): Promise<AccountsActed<SharedHomeRead>> => ipcRenderer.invoke(CHANNELS.syncSharedHome, login),
+  syncSharedHome: (login: string): Promise<AccountsActed<HomeSynced>> => ipcRenderer.invoke(CHANNELS.syncSharedHome, login),
   addToSharedHome: (row: HomeRowAt): Promise<AccountsActed<SharedHomeRead>> => ipcRenderer.invoke(CHANNELS.addToSharedHome, row),
   bringFromSharedHome: (row: HomeRowAt): Promise<AccountsActed<SharedHomeRead>> => ipcRenderer.invoke(CHANNELS.bringFromSharedHome, row),
   chooseSharedHomeSide: (row: HomeRowAt, side: HomeSide): Promise<AccountsActed<SharedHomeRead>> => ipcRenderer.invoke(CHANNELS.chooseSharedHomeSide, row, side),

@@ -5,7 +5,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { Profile } from "@armada/components";
-import type { HomeRow, HomeRowAt, Outcome, SharedHomeRead } from "@armada/protocol";
+import type { HomeRow, HomeRowAt, HomeSynced, Outcome, SharedHomeRead } from "@armada/protocol";
 
 import type { AccountsActed } from "../../shared/api/accounts";
 import type { AccountHeld, AccountSource } from "./fleet-account";
@@ -36,7 +36,7 @@ const refusal = (message: string): Outcome => ({ ok: false, why: "refused", erro
 /** A Fleet holding `read`, a record of what Bridge asked of it, and a Sync that answers when the test says. */
 function fake(read: SharedHomeRead, over: Partial<FleetHome> = {}) {
   const asked: string[] = [];
-  let synced: ((answer: AccountsActed<SharedHomeRead>) => void) | undefined;
+  let synced: ((answer: AccountsActed<HomeSynced>) => void) | undefined;
   const settle = (at: HomeRowAt): AccountsActed<SharedHomeRead> => ({ ok: true, value: { ...read, rows: read.rows.map((one) => (one.name === at.name ? { kind: one.kind, name: one.name, state: "same" } : one)) } });
   const fleet: FleetHome = {
     getSharedHome: async (login) => (asked.push(`read ${login}`), { ok: true, value: read }),
@@ -46,7 +46,7 @@ function fake(read: SharedHomeRead, over: Partial<FleetHome> = {}) {
     chooseSharedHomeSide: async (at, side) => (asked.push(`choose ${JSON.stringify(at)} ${side}`), settle(at)),
     ...over,
   };
-  return { fleet, asked, answerSync: (answer: AccountsActed<SharedHomeRead>) => synced?.(answer) };
+  return { fleet, asked, answerSync: (answer: AccountsActed<HomeSynced>) => synced?.(answer) };
 }
 
 describe("the shared home over Fleet", () => {
@@ -101,7 +101,7 @@ describe("the shared home over Fleet", () => {
     expect(home.get()?.syncing).toBe(true);
     home.get()?.sync();
     expect(fleet.asked.filter((one) => one.startsWith("sync"))).toEqual(["sync nickmele"]);
-    fleet.answerSync({ ok: true, value: { ...HELD, rows: [] } });
+    fleet.answerSync({ ok: true, value: { ...HELD, rows: [], left: [] } });
     await settled();
     expect(home.get()?.syncing).toBe(false);
     expect(home.get()?.rows).toEqual([]);

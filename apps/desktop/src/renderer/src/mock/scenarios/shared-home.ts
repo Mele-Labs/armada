@@ -94,6 +94,8 @@ const row = (kind: string, name: string, state: SharedRow["state"], more: Partia
 const ROWS: SharedRow[] = [
   row("skills", "humanizer", "same"),
   row("skills", "impact-analysis", "same"),
+  row("skills", "release-notes", "here"),
+  row("skills", "deploy", "here"),
   ...GENERATED_NAMES.map((name) => row("skills", name, "same")),
   row("plugins", "code-simplifier@official", "same"),
   row("global_instructions", "AGENTS.md", "differs", {
@@ -120,13 +122,16 @@ const ROWS: SharedRow[] = [
   row("memory", "Questions at the end", "home", { source: "armada", says: "Ask with the prompt at the end of the reply" }),
 ];
 
+/** The row a Sync leaves on this machine, with the sentence Fleet tells for it. */
+const STAYS_HERE = [{ kind: "skills", name: "deploy", why: "deploy stays on this machine: an address at git.acme.dev carries a user and password" }];
+
 function build(): Scenario {
   const base = manifesting({ kitInventory: INVENTORY });
   return {
     ...base,
     name: "shared-home",
     says: "Kit on a second machine against the shared home: each row's standing, and the two versions of a row that differs",
-    draft: { ...(base.draft ?? {}), sharedHome: { account: "nickmele", repository: "armada-home", rows: ROWS } },
+    draft: { ...(base.draft ?? {}), sharedHome: { account: "nickmele", repository: "armada-home", rows: ROWS, staysHere: STAYS_HERE } },
   };
 }
 

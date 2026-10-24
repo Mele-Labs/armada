@@ -10,7 +10,7 @@ Bridge's half is `packages/protocol/src/shared-home.ts`, written by hand, field 
 | Where | Side | Carries |
 | --- | --- | --- |
 | `get_shared_home` (`GET /shared_home?login=`, `agent_access = "No"`) | Bridge asks, Fleet answers 200 | `SharedHomeRead` `{ home?, rows, unreadable }`: `home` `{ account, repository }`, left out with no copy here; each row `HomeRow` `{ kind, name, state, says?, source?, repository?, key_here?, mod_kind?, here?, there? }` |
-| `sync_shared_home` (`POST /shared_home/sync`, `No`) | Bridge sends, Fleet answers 200 | `HomeProfile` `{ login }`; makes the home where it does not exist, clones or pulls it, and answers `SharedHomeRead` |
+| `sync_shared_home` (`POST /shared_home/sync`, `No`) | Bridge sends, Fleet answers 200 | `HomeProfile` `{ login }`; makes the home where it does not exist, clones or pulls it, adds every row only on this machine of each kind switched on in one commit and one push, and answers `HomeSynced`: `SharedHomeRead` flattened, and `left`, each `HomeLeft` `{ kind, name, repository?, why }` a row only here that stayed, `why` Fleet's sentence naming it |
 | `add_to_shared_home` (`POST /shared_home/add`, `No`) | Bridge sends, Fleet answers 200 | `HomeRowAt` `{ login, kind, name, repository? }`; answers `SharedHomeRead` |
 | `bring_from_shared_home` (`POST /shared_home/bring`, `No`) | Bridge sends, Fleet answers 200 | `HomeRowAt`; answers `SharedHomeRead` |
 | `choose_shared_home_side` (`POST /shared_home/choose`, `No`) | Bridge sends, Fleet answers 200 | `ChooseHomeSide` `{ row, side }`, `side` `here` or `there`; answers `SharedHomeRead` |
@@ -24,6 +24,10 @@ A memory row's act carries its `repository`, which Kit's row does not, so Bridge
 Bridge calls the seven through main, `apps/desktop/src/main/accounts.ts`, and draws them from `renderer/src/fleet-shared-home.ts` and `fleet-account.ts`.
 
 **A row that differs is never merged.** Add and Bring refuse it with a 409 `fleet.home_row_differs`; only `choose_shared_home_side` replaces a side, and it takes away the files the kept side has not.
+Sync passes it by, and Bring stays the person's act.
+
+**Sync adds as Add does, and refuses nothing for one row.** Each row only on this machine is written as `add_to_shared_home` writes one, and a row Add would refuse, for a credential, a mod that is not valid here or a home that cannot take it, is named in `left` while the rest go.
+Bridge tells each `left` row's `why` as a failure toast of its own, and never counts them.
 
 **Nothing secret leaves.** A server is carried as its name and host.
 Add and choosing `here` refuse a piece whose text holds an address with a user and password or a credential in its query, with a 422 `fleet.home_secret_refused` that names the host and never the value: refused, not scrubbed, so a scrubbed copy never reads as differing for good.

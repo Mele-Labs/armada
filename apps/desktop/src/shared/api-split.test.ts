@@ -145,7 +145,7 @@ import type { RequestRepositoryRead } from "./api/dispatch";
 import type { JobTerminalChange, PullRequestPress, PullRequestWrite, SessionActed, SessionsRead, TerminalMovedBack } from "./api/sessions";
 import type { SleepActed } from "./api/sleep";
 import type { AccountsActed } from "./api/accounts";
-import type { HomeKind, HomeKinds, HomeRowAt, HomeSide, SharedHomeRead } from "@armada/protocol";
+import type { HomeKind, HomeKinds, HomeRowAt, HomeSide, HomeSynced, SharedHomeRead } from "@armada/protocol";
 import type { PlanUsageRead } from "./api/plan-usage";
 import type { ModelDownshiftRead } from "./api/model-downshift";
 import type { FleetTimelineRead } from "./api/timeline";
@@ -412,7 +412,7 @@ type OldBridgeApi = {
     signOut: (accountId: number) => Promise<AccountsActed<SignedOut>>;
     setRepositoryProfile: (root: string, accountId: number | null) => Promise<AccountsActed>;
     getSharedHome: (login: string) => Promise<AccountsActed<SharedHomeRead>>;
-    syncSharedHome: (login: string) => Promise<AccountsActed<SharedHomeRead>>;
+    syncSharedHome: (login: string) => Promise<AccountsActed<HomeSynced>>;
     addToSharedHome: (row: HomeRowAt) => Promise<AccountsActed<SharedHomeRead>>;
     bringFromSharedHome: (row: HomeRowAt) => Promise<AccountsActed<SharedHomeRead>>;
     chooseSharedHomeSide: (row: HomeRowAt, side: HomeSide) => Promise<AccountsActed<SharedHomeRead>>;
