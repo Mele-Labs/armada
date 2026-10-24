@@ -40,7 +40,7 @@ fn models() -> Vec<String> {
 
 fn read(answer: &str) -> Result<SessionProposed, NamesNoWorkflow> {
     let held = catalogue();
-    SessionBrief::about(REQUEST, &held, &models()).read(answer, &held, &models())
+    SessionBrief::about(REQUEST, &held, &models(), &[]).read(answer, &held, &models())
 }
 
 /// A rig holding two workflows whose proposer answers `proposer`.
@@ -377,6 +377,92 @@ async fn words_that_are_not_a_person_s_first_message_are_not_read() {
     eventually(|| async { !rig.stand_in.starts().is_empty() }).await;
     assert!(judge.asked().is_empty());
     assert!(record(&rig, &id).await.proposal.is_none());
+}
+
+// ---- Names he gave ----
+
+fn rename_of(was: &str, title: &str) -> store::KeptRename {
+    store::KeptRename {
+        session_id: "s1".to_string(),
+        repository: "armada".to_string(),
+        request: "the phone app\nloads slowly".to_string(),
+        was: was.to_string(),
+        title: title.to_string(),
+        renamed_at: "2026-10-24T01:00:00Z".to_string(),
+    }
+}
+
+async fn renamed(rig: &Rig, id: &SessionId, title: &str) {
+    Arc::clone(&rig.fleet)
+        .rename_session(RenameSession { session_id: id.clone(), title: title.to_string() })
+        .await
+        .expect("renamed");
+}
+
+async fn renames(rig: &Rig) -> Vec<store::KeptRename> {
+    rig.fleet.store().lock().await.renames_for("", 12).expect("reads")
+}
+
+#[test]
+fn the_question_carries_his_renames_ahead_of_the_answer_format() {
+    let held = catalogue();
+    let renames = [rename_of("Fix slow phone load", "Armada pocket slow load")];
+    let question = SessionBrief::about(REQUEST, &held, &models(), &renames).question().to_string();
+    assert!(question.contains("in armada, asked: the phone app loads slowly"), "the request on one line: {question}");
+    assert!(question.contains("Armada named it: Fix slow phone load\n    he renamed it: Armada pocket slow load"));
+    let names = question.find("he renamed it").expect("his names");
+    assert!(names < question.find("Answer with nothing but the block below").expect("the format"), "read before the format");
+}
+
+#[test]
+fn with_no_renames_the_question_is_as_it_was() {
+    let held = catalogue();
+    assert_eq!(
+        SessionBrief::about(REQUEST, &held, &models(), &[]).question(),
+        crate::session_proposer::question_for(&crate::session_proposer::session_shipped(), REQUEST, &held, &models())
+    );
+}
+
+#[tokio::test]
+async fn a_rename_is_kept_against_the_name_armada_gave_and_a_second_keeps_that_name() {
+    let rig = proposing(FakeJudge::saying(ANSWER));
+    let id = rig.start_requesting(REQUEST, |_| {}).await.id;
+    rig.send(&id, REQUEST).await;
+    assert_eq!(landed(&rig, &id).await.title.as_deref(), Some("Log reader drops a line"));
+    eventually(|| async { !sent(&rig, 0).is_empty() }).await;
+
+    renamed(&rig, &id, "Logs: last line lost").await;
+    renamed(&rig, &id, "Logs  last line lost ").await;
+    let kept = renames(&rig).await;
+    assert_eq!(kept.len(), 1, "one row a Job");
+    assert_eq!((kept[0].was.as_str(), kept[0].title.as_str()), ("Log reader drops a line", "Logs last line lost"));
+    assert_eq!(kept[0].request, REQUEST);
+}
+
+#[tokio::test]
+async fn a_job_with_no_message_from_him_teaches_nothing() {
+    let rig = proposing(FakeJudge::saying(ANSWER));
+    let id = rig.start_titled(Some("Notes")).await;
+    renamed(&rig, &id, "Mine").await;
+    assert!(renames(&rig).await.is_empty());
+}
+
+#[tokio::test]
+async fn the_next_job_is_named_with_his_rename_in_the_question() {
+    let judge = Arc::new(FakeJudge::saying(ANSWER));
+    let rig = counting(&judge);
+    let id = rig.start_requesting(REQUEST, |_| {}).await.id;
+    rig.send(&id, REQUEST).await;
+    landed(&rig, &id).await;
+    eventually(|| async { !sent(&rig, 0).is_empty() }).await;
+    renamed(&rig, &id, "Logs: last line lost").await;
+
+    let next = rig.start_requesting("the footer overlaps the last row", |_| {}).await.id;
+    landed(&rig, &next).await;
+    let asked = judge.asked();
+    assert_eq!(asked.len(), 2);
+    assert!(!asked[0].contains("he renamed it"), "the first Job had nothing to learn from");
+    assert!(asked[1].contains("Armada named it: Log reader drops a line\n    he renamed it: Logs: last line lost"), "{}", asked[1]);
 }
 
 // ---- A change made in a panel reaches the agent ----
