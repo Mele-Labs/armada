@@ -159,7 +159,7 @@ A model chosen for one Job wins, and a terminal Job reports its own.
 A result that names a missing command counts as failed, because a pipe hides the exit of what is before it.
 
 **The machine note is a section of the [Logbook](logbook.md).** Its detector is unchanged.
-Its facts are Logbook entries in the `machine` section, and the run note and this note are one Logbook note, cut near 2k tokens. What the cut leaves out is found with `recall`.
+Its facts are Logbook entries in the `machine` section, and this note is the last section of the Logbook note, cut with it near 2k tokens. What the cut leaves out is found with `recall`.
 
 ### The browser
 

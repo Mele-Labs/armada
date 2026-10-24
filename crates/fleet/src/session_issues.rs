@@ -33,6 +33,10 @@ const HELD_ELSEWHERE: &str = "fleet.issue_held";
 /// The detail key naming the pull requests that work an issue, comma-joined ascending.
 pub(crate) const PULL_REQUESTS: &str = "pull_requests";
 
+/// The detail key naming who the Job claimed the issue as in a backlog Fleet writes to. A row
+/// without it was named, not claimed, and the backlog naming someone else for it is no lost claim.
+pub(crate) const CLAIMED_AS: &str = "claimed_as";
+
 /// Stand `holder`'s row for `issue`, with `known` where the row says nothing yet. `true` where
 /// anything changed. **`pull_requests` only grows**: what `known` names is added to what the row
 /// names.
@@ -174,10 +178,15 @@ where
             .map_err(|why| self.ledger_fault(why))?
             .and_then(|session| session.manifest_id)
             .ok_or_else(|| refuse(format!("job {id} is in no repository Fleet serves")))?;
-        self.claimed_where_written(&manifest, &issue, &id).await?;
+        let claimed_as = self.claimed_where_written(&manifest, &issue, &id).await?;
         let mut store = self.store().lock().await;
         let holder = Holder::session(&id);
         let mut known = BTreeMap::new();
+        if let Some(actor) = claimed_as {
+            known.insert(CLAIMED_AS.to_string(), actor);
+            // Kept past the Job's end, so its pull request's merge still closes the issue.
+            let _ = store.keep_job_issue(&id, &manifest, issue.as_str());
+        }
         if !claim.pull_requests.is_empty() {
             known.insert(PULL_REQUESTS.to_string(), pull_requests_joined(&claim.pull_requests.iter().copied().collect::<BTreeSet<_>>()));
         }
@@ -202,15 +211,15 @@ where
     }
 
     /// Claim `issue` for Job `id` in the backlog of `manifest`'s repository, where its tracker is one
-    /// Fleet writes to. Runs a sync or two, so it holds no lock on the ledger.
-    async fn claimed_where_written(&self, manifest: &str, issue: &IssueReference, id: &str) -> Result<(), Refusal> {
+    /// Fleet writes to, and who it was claimed as. Runs a sync or two, so it holds no lock on the ledger.
+    async fn claimed_where_written(&self, manifest: &str, issue: &IssueReference, id: &str) -> Result<Option<String>, Refusal> {
         let served = self.served_named(Some(&ManifestId::carried(manifest)))?;
         let Some(backlog) = self.backlog_of(&served) else {
-            return Ok(());
+            return Ok(None);
         };
         let actor = self.claim_actor(id).await;
         match self.claimed_in_backlog(&served, backlog, issue.as_str(), &actor).await {
-            Ok(()) => Ok(()),
+            Ok(()) => Ok(Some(actor)),
             Err(ClaimLost::Held { holder }) => Err(Refusal::IllegalMove(WireError::raised(
                 HELD_ELSEWHERE,
                 format!("{issue} is held by {holder}, as the backlog reads after a sync. Pick another issue"),

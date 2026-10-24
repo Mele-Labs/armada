@@ -82,7 +82,7 @@ The words are the `Notice` enum in `crates/ipc/src/notices.rs`.
 | Slots and the build | `behind_base`, `slot_free`, `slot_kept`, `slot_stranded`, `build_moved`, `write_clash`, `main_red` |
 | Workflow and delivery | `rail_nudge`, `rail_step`, `plan_approved`, `workflow_changed`, `delivery_asked`, `delivery_chosen`, `watch_saw` |
 | Usage and handoff | `usage_trip`, `limit_wake`, `context_handoff` |
-| Others | `retro_note`, `reply_claim`, `walk_failed` |
+| Others | `retro_note`, `reply_claim`, `walk_failed`, `issue_lost` |
 | Teaching | `taught` |
 
 > **Rule.** A mute beats a rule, and the nearest place beats a farther one: a Job's rule, then its repository's, then everywhere's.

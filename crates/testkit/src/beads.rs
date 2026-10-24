@@ -15,7 +15,7 @@ use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
-use adapter_traits::{Backlog, CopyMark, FromOutside, NotTracked, OpenIssue, QueryGuide, ReadIssue, Tracker};
+use adapter_traits::{Backlog, BeadState, CopyMark, FromOutside, NotTracked, OpenIssue, QueryGuide, ReadIssue, Tracker};
 
 /// One field's value and when it was written.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -29,6 +29,40 @@ struct Issue {
     title: Stamped,
     status: Stamped,
     assignee: Stamped,
+    /// Why it was closed.
+    reason: Stamped,
+    /// The issues it waits on, comma-joined and sorted.
+    blocked_by: Stamped,
+    /// The issue it was filed under. Fixed when it is made, so no copy disagrees about it.
+    parent: String,
+}
+
+/// An issue as a test reads it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Bead {
+    pub title: String,
+    pub status: String,
+    pub assignee: String,
+    pub reason: String,
+    pub parent: String,
+    pub blocked_by: Vec<String>,
+}
+
+impl Bead {
+    fn of(issue: &Issue) -> Bead {
+        Bead {
+            title: issue.title.value.clone(),
+            status: issue.status.value.clone(),
+            assignee: issue.assignee.value.clone(),
+            reason: issue.reason.value.clone(),
+            parent: issue.parent.clone(),
+            blocked_by: issue.blocked_by.value.split(',').filter(|one| !one.is_empty()).map(str::to_string).collect(),
+        }
+    }
+}
+
+fn children_in(issues: &Issues, parent: &str) -> Vec<String> {
+    issues.iter().filter(|(_, issue)| issue.parent == parent).map(|(reference, _)| reference.clone()).collect()
 }
 
 type Issues = BTreeMap<String, Issue>;
@@ -59,6 +93,16 @@ impl FakeBeadsRemote {
     pub fn holder(&self, reference: &str) -> Option<String> {
         lock(&self.0.issues).get(reference).map(|issue| issue.assignee.value.clone())
     }
+
+    /// `reference` as the remote holds it.
+    pub fn bead(&self, reference: &str) -> Option<Bead> {
+        lock(&self.0.issues).get(reference).map(Bead::of)
+    }
+
+    /// The issues the remote holds directly under `parent`, in the order they were filed.
+    pub fn children(&self, parent: &str) -> Vec<String> {
+        children_in(&lock(&self.0.issues), parent)
+    }
 }
 
 #[derive(Debug, Default)]
@@ -77,6 +121,7 @@ pub struct FakeBeads {
     copy: Mutex<Copy>,
     syncs: AtomicUsize,
     unreachable: AtomicBool,
+    refusing: AtomicBool,
 }
 
 impl FakeBeads {
@@ -87,6 +132,7 @@ impl FakeBeads {
             copy: Mutex::new(Copy::default()),
             syncs: AtomicUsize::new(0),
             unreachable: AtomicBool::new(false),
+            refusing: AtomicBool::new(false),
         }
     }
 
@@ -101,10 +147,44 @@ impl FakeBeads {
                 title: Stamped { value: title.to_string(), at },
                 status: Stamped { value: "open".to_string(), at },
                 assignee: Stamped { value: String::new(), at },
+                reason: Stamped { value: String::new(), at },
+                blocked_by: Stamped { value: String::new(), at },
+                parent: String::new(),
             },
         );
         copy.writes += 1;
         reference
+    }
+
+    /// `reference` as this copy holds it.
+    pub fn bead(&self, reference: &str) -> Option<Bead> {
+        lock(&self.copy).issues.get(reference).map(Bead::of)
+    }
+
+    /// The issues this copy holds directly under `parent`, in the order they were filed.
+    pub fn children(&self, parent: &str) -> Vec<String> {
+        children_in(&lock(&self.copy).issues, parent)
+    }
+
+    /// While set, every write but a sync fails as `bd` failing would and changes nothing.
+    pub fn set_refusing(&self, refusing: bool) {
+        self.refusing.store(refusing, Ordering::SeqCst);
+    }
+
+    /// Run `change` on `reference` in this copy, stamped now.
+    fn written(&self, doing: &'static str, reference: &str, change: impl FnOnce(&mut Issue, u64)) -> Result<(), NotTracked> {
+        if self.refusing.load(Ordering::SeqCst) {
+            return Err(NotTracked::of(doing, "the fake bd is switched off"));
+        }
+        let at = self.remote.0.tick();
+        let mut copy = lock(&self.copy);
+        let issue = copy
+            .issues
+            .get_mut(reference)
+            .ok_or_else(|| NotTracked::of(doing, format!("no issue found matching \"{reference}\"")))?;
+        change(issue, at);
+        copy.writes += 1;
+        Ok(())
     }
 
     /// How many syncs this copy ran, however they were asked for.
@@ -175,6 +255,9 @@ fn merged(base: &Issues, mine: &Issues, theirs: &Issues) -> Issues {
                 title: merged_field(was.map(|one| &one.title), &issue.title, &other.title),
                 status: merged_field(was.map(|one| &one.status), &issue.status, &other.status),
                 assignee: merged_field(was.map(|one| &one.assignee), &issue.assignee, &other.assignee),
+                reason: merged_field(was.map(|one| &one.reason), &issue.reason, &other.reason),
+                blocked_by: merged_field(was.map(|one| &one.blocked_by), &issue.blocked_by, &other.blocked_by),
+                parent: other.parent.clone(),
             },
         );
     }
@@ -218,6 +301,85 @@ impl Backlog for FakeBeads {
         issue.assignee = Stamped { value: actor.to_string(), at };
         issue.status = Stamped { value: "in_progress".to_string(), at };
         copy.writes += 1;
+        Ok(())
+    }
+
+    fn create_child(&self, _in_repo: &str, parent: &str, title: &str) -> Result<String, NotTracked> {
+        let doing = "filing a task under the issue";
+        if self.refusing.load(Ordering::SeqCst) {
+            return Err(NotTracked::of(doing, "the fake bd is switched off"));
+        }
+        let mut copy = lock(&self.copy);
+        if !copy.issues.contains_key(parent) {
+            return Err(NotTracked::of(doing, format!("no issue found matching \"{parent}\"")));
+        }
+        let at = self.remote.0.tick();
+        let reference = format!("{parent}.{at:06}");
+        copy.issues.insert(
+            reference.clone(),
+            Issue {
+                title: Stamped { value: title.to_string(), at },
+                status: Stamped { value: "open".to_string(), at },
+                assignee: Stamped { value: String::new(), at },
+                reason: Stamped { value: String::new(), at },
+                blocked_by: Stamped { value: String::new(), at },
+                parent: parent.to_string(),
+            },
+        );
+        copy.writes += 1;
+        Ok(reference)
+    }
+
+    fn retitle(&self, _in_repo: &str, reference: &str, title: &str) -> Result<(), NotTracked> {
+        self.written("renaming the issue", reference, |issue, at| issue.title = Stamped { value: title.to_string(), at })
+    }
+
+    fn put_state(&self, _in_repo: &str, reference: &str, state: BeadState, reason: &str) -> Result<(), NotTracked> {
+        self.written("moving the issue", reference, |issue, at| {
+            issue.status = Stamped { value: state.word().to_string(), at };
+            let said = if state == BeadState::Closed { reason } else { "" };
+            issue.reason = Stamped { value: said.to_string(), at };
+        })
+    }
+
+    fn block(&self, _in_repo: &str, blocked: &str, blocker: &str) -> Result<(), NotTracked> {
+        self.written("ordering the issues", blocked, |issue, at| {
+            let mut held = Bead::of(issue).blocked_by;
+            if !held.iter().any(|one| one == blocker) {
+                held.push(blocker.to_string());
+                held.sort();
+            }
+            issue.blocked_by = Stamped { value: held.join(","), at };
+        })
+    }
+
+    fn unblock(&self, _in_repo: &str, blocked: &str, blocker: &str) -> Result<(), NotTracked> {
+        self.written("ordering the issues", blocked, |issue, at| {
+            let held: Vec<String> = Bead::of(issue).blocked_by.into_iter().filter(|one| one != blocker).collect();
+            issue.blocked_by = Stamped { value: held.join(","), at };
+        })
+    }
+
+    fn close_tree(&self, _in_repo: &str, reference: &str, reason: &str) -> Result<(), NotTracked> {
+        let doing = "closing the issue and its children";
+        if self.refusing.load(Ordering::SeqCst) {
+            return Err(NotTracked::of(doing, "the fake bd is switched off"));
+        }
+        let mut under = vec![reference.to_string()];
+        let mut at = 0;
+        while at < under.len() {
+            let more = children_in(&lock(&self.copy).issues, &under[at]);
+            under.extend(more);
+            at += 1;
+        }
+        if !lock(&self.copy).issues.contains_key(reference) {
+            return Err(NotTracked::of(doing, format!("no issue found matching \"{reference}\"")));
+        }
+        for one in under {
+            if self.bead(&one).is_some_and(|bead| bead.status != "closed") {
+                self.put_state("", &one, BeadState::Closed, reason)?;
+            }
+        }
         Ok(())
     }
 }

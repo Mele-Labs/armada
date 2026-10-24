@@ -323,7 +323,7 @@ pub(crate) fn edit_seen(plan: &mut KeptPlan, path: &str, now: &str) -> Seen {
 }
 
 /// A task's state and whether an edit was seen for it.
-fn state_of(task: &KeptPlanTask) -> (PlanTaskState, bool) {
+pub(crate) fn state_of(task: &KeptPlanTask) -> (PlanTaskState, bool) {
     match task.listed.as_deref() {
         Some("completed") if task.edited => (PlanTaskState::Done, true),
         Some("completed") => (PlanTaskState::HandedIn, false),

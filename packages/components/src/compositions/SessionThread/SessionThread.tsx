@@ -92,7 +92,8 @@ export type SessionNotice =
   | "delivery_asked"
   | "delivery_chosen"
   | "watch_saw"
-  | "taught";
+  | "taught"
+  | "issue_lost";
 export type NoticeChoice = "job" | "repo" | "hour";
 
 /** What Teach was pressed on in a row: a tool call, a Fleet notice, or a Check. `at` is when the row was written. */

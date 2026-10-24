@@ -10,9 +10,9 @@
 
 use std::path::{Path, PathBuf};
 
-use adapter_traits::{Backlog, CopyMark, FromOutside, IssueField, NotTracked, OpenIssue, QueryGuide, ReadIssue, Tracker};
+use adapter_traits::{Backlog, BeadState, CopyMark, FromOutside, IssueField, NotTracked, OpenIssue, QueryGuide, ReadIssue, Tracker};
 
-use crate::delivery::said;
+use crate::delivery::{last_line, said};
 use crate::jira_tracker::{missing, Process, Run};
 use crate::under_review::as_written;
 
@@ -165,7 +165,110 @@ impl<R: Run> Backlog for BeadsTracker<R> {
             false => Err(NotTracked::of(doing, said(&claimed))),
         }
     }
+
+    fn create_child(&self, in_repo: &str, parent: &str, title: &str) -> Result<String, NotTracked> {
+        let doing = "filing a task under the issue";
+        let made = self.bd(in_repo, &["create", "--title", title, "--parent", parent.trim(), "--silent"], doing)?;
+        if !made.status.success() {
+            return Err(NotTracked::of(doing, said(&made)));
+        }
+        let reference = last_line(&made);
+        match reference.is_empty() || reference.contains(char::is_whitespace) {
+            true => Err(NotTracked::of(doing, format!("it printed no issue id: {}", said(&made)))),
+            false => Ok(reference),
+        }
+    }
+
+    fn retitle(&self, in_repo: &str, reference: &str, title: &str) -> Result<(), NotTracked> {
+        self.written(in_repo, &["update", reference.trim(), "--title", title], "renaming the issue")
+    }
+
+    fn put_state(&self, in_repo: &str, reference: &str, state: BeadState, reason: &str) -> Result<(), NotTracked> {
+        let reference = reference.trim();
+        match state {
+            // `--force`: a task closed while the one before it is open, or a group whose children
+            // are, is not for beads to refuse.
+            BeadState::Closed => self.written(in_repo, &["close", reference, "--reason", reason, "--force"], "closing the issue"),
+            _ => self.written(in_repo, &["update", reference, "--status", state.word()], "moving the issue"),
+        }
+    }
+
+    fn block(&self, in_repo: &str, blocked: &str, blocker: &str) -> Result<(), NotTracked> {
+        self.written(in_repo, &["dep", "add", blocked.trim(), blocker.trim()], "ordering the issues")
+    }
+
+    fn unblock(&self, in_repo: &str, blocked: &str, blocker: &str) -> Result<(), NotTracked> {
+        self.written(in_repo, &["dep", "remove", blocked.trim(), blocker.trim()], "ordering the issues")
+    }
+
+    fn close_tree(&self, in_repo: &str, reference: &str, reason: &str) -> Result<(), NotTracked> {
+        let doing = "closing the issue and its children";
+        let reference = reference.trim();
+        let mut open = Vec::new();
+        self.open_under(in_repo, reference, DEPTH, &mut open, doing)?;
+        // Deepest first, so nothing is closed over an open child.
+        open.reverse();
+        let mut args = vec!["close"];
+        args.extend(open.iter().map(String::as_str));
+        if let Some(own) = self.is_open(in_repo, reference, doing)?.then_some(reference) {
+            args.push(own);
+        }
+        if args.len() == 1 {
+            return Ok(());
+        }
+        args.extend(["--reason", reason, "--force"]);
+        self.written(in_repo, &args, doing)
+    }
 }
+
+/// How many generations of children a close looks down. A plan is group and task; this is room.
+const DEPTH: usize = 4;
+
+impl<R: Run> BeadsTracker<R> {
+    /// A write: `bd` with `args`, and whether it exited 0.
+    fn written(&self, in_repo: &str, args: &[&str], doing: &'static str) -> Result<(), NotTracked> {
+        let ran = self.bd(in_repo, args, doing)?;
+        match ran.status.success() {
+            true => Ok(()),
+            false => Err(NotTracked::of(doing, said(&ran))),
+        }
+    }
+
+    /// Whether `reference` is not closed. A read that finds no such issue says it is not.
+    fn is_open(&self, in_repo: &str, reference: &str, doing: &'static str) -> Result<bool, NotTracked> {
+        match self.read(in_repo, &["show", reference], STATUS_FILTER, doing)? {
+            Ok(text) => Ok(text.trim() != "closed"),
+            Err(said) if said.contains("no issue found") => Ok(false),
+            Err(said) => Err(NotTracked::of(doing, said)),
+        }
+    }
+
+    /// Every child of `reference` that is not closed, parents before their own children.
+    fn open_under(&self, in_repo: &str, reference: &str, depth: usize, found: &mut Vec<String>, doing: &'static str) -> Result<(), NotTracked> {
+        if depth == 0 {
+            return Ok(());
+        }
+        let text = self.read(in_repo, &["children", reference], CHILDREN_FILTER, doing)?.map_err(|said| NotTracked::of(doing, said))?;
+        for line in text.lines() {
+            let mut field = line.split('\t');
+            let (id, status) = (field.next().unwrap_or_default(), field.next().unwrap_or_default());
+            if id.is_empty() {
+                continue;
+            }
+            if status != "closed" {
+                found.push(id.to_string());
+            }
+            self.open_under(in_repo, id, depth - 1, found, doing)?;
+        }
+        Ok(())
+    }
+}
+
+/// One issue's status.
+const STATUS_FILTER: &str = r#"(if type == "array" then .[0] else . end) | (.status // "")"#;
+
+/// A child's id and status, one `@tsv` line each.
+const CHILDREN_FILTER: &str = r#"(if type == "array" then .[] else . end) | [(.id // ""), (.status // "")] | @tsv"#;
 
 const FIELD_NAMES: [&str; 3] = ["Status", "Priority", "Type"];
 

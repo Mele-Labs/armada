@@ -21,6 +21,29 @@ impl CopyMark {
     }
 }
 
+/// Where one issue of a backlog stands. A task is `Open` until it is started, and `Closed` once it is done.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum BeadState {
+    Open,
+    InProgress,
+    Closed,
+}
+
+impl BeadState {
+    /// The word the ledger keeps it as.
+    pub fn word(self) -> &'static str {
+        match self {
+            BeadState::Open => "open",
+            BeadState::InProgress => "in_progress",
+            BeadState::Closed => "closed",
+        }
+    }
+
+    pub fn read(word: &str) -> Option<BeadState> {
+        [BeadState::Open, BeadState::InProgress, BeadState::Closed].into_iter().find(|one| one.word() == word)
+    }
+}
+
 /// Writing to a backlog and keeping this machine's copy in step with the others'.
 ///
 /// **A write lands in this machine's copy only.** Another machine sees it after this one syncs and
@@ -37,4 +60,25 @@ pub trait Backlog {
     /// Assign `reference` to `actor` and start it, in this copy. **Refused where this copy says
     /// someone else holds it**, and not settled where it does not: see the trait.
     fn claim(&self, in_repo: &str, reference: &str, actor: &str) -> Result<(), NotTracked>;
+
+    /// File `title` as a child of `parent`, and its reference. **Not idempotent**: a second call
+    /// files a second issue, so a caller keeps what it was answered before it asks again.
+    fn create_child(&self, in_repo: &str, parent: &str, title: &str) -> Result<String, NotTracked>;
+
+    /// Give `reference` a new title.
+    fn retitle(&self, in_repo: &str, reference: &str, title: &str) -> Result<(), NotTracked>;
+
+    /// Put `reference` in `state`. `reason` is what a close says, and is ignored otherwise. **Closing
+    /// is not refused for a blocker or an open child**: the caller decides when a thing is done.
+    fn put_state(&self, in_repo: &str, reference: &str, state: BeadState, reason: &str) -> Result<(), NotTracked>;
+
+    /// `blocked` waits on `blocker`. Already so is not an error.
+    fn block(&self, in_repo: &str, blocked: &str, blocker: &str) -> Result<(), NotTracked>;
+
+    /// `blocked` no longer waits on `blocker`. Not waiting already is not an error.
+    fn unblock(&self, in_repo: &str, blocked: &str, blocker: &str) -> Result<(), NotTracked>;
+
+    /// Close `reference` and every child under it, at any depth, that is not closed yet, each with
+    /// `reason`. One already closed keeps the reason it was closed with.
+    fn close_tree(&self, in_repo: &str, reference: &str, reason: &str) -> Result<(), NotTracked>;
 }

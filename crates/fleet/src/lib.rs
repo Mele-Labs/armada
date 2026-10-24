@@ -45,6 +45,9 @@ mod plan_marks;
 mod plan_record;
 /// Where a Session's plan meets the store.
 mod plan_keeping;
+mod plan_mirror;
+mod plan_mirroring;
+mod backlog_closing;
 /// Where a Session's Loadout meets the store.
 mod loadout_keeping;
 /// Where a Session's turn usage meets the store.

@@ -2,8 +2,8 @@
 //! `get_logbook`, `edit_logbook_entry`, `lock_logbook_entry`, `forget_logbook_entry` and
 //! `teach_logbook_entry`, and `tidy_logbook`. `docs/concepts/logbook.md`.
 //!
-//! **The `From` step is where a store row becomes a wire entry.** An entry run memory or the machine
-//! note keeps is read in beside the learnt ones with an id of a word and a hash, and no act takes it.
+//! **The `From` step is where a store row becomes a wire entry.** An entry the machine note keeps is
+//! read in beside the learnt ones with an id of a word and a hash, and no act takes it.
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -24,7 +24,7 @@ use crate::run_memory::places::key_of;
 
 /// An id that names no entry. A 404.
 const NO_SUCH_ENTRY: &str = "fleet.no_such_logbook_entry";
-/// An entry run memory or the machine note keeps, which no act takes. A 422.
+/// An entry the machine note keeps, which no act takes. A 422.
 const NOT_KEPT: &str = "fleet.logbook_entry_not_kept";
 /// Text that is empty or over [`MOST_CHARS`]. A 422.
 const TEXT_REFUSED: &str = "fleet.logbook_text_refused";
@@ -88,15 +88,14 @@ fn hashed(text: &str) -> u64 {
     logbook_words(text).bytes().fold(0xcbf2_9ce4_8422_2325, |hash, byte| (hash ^ u64::from(byte)).wrapping_mul(0x0100_0000_01b3))
 }
 
-/// What an id is for an entry: its number where Fleet keeps it, a word and a hash where run memory
-/// or the machine note does.
+/// What an id is for an entry: its number where Fleet keeps it, a word and a hash where the
+/// machine note does.
 fn id_of(logged: &Logged) -> String {
     match (logged.from, logged.entry.id) {
         (Source::Learnt, Some(id)) => id.to_string(),
         (from, _) => {
             let word = match from {
                 Source::Learnt => "learnt",
-                Source::Runs => "runs",
                 Source::Machine => "machine",
             };
             format!("{word}-{:016x}", hashed(&logged.entry.text))
@@ -106,7 +105,7 @@ fn id_of(logged: &Logged) -> String {
 
 /// Whether an id is one [`id_of`] gives an entry Fleet does not keep.
 fn is_folded(id: &str) -> bool {
-    id.starts_with("runs-") || id.starts_with("machine-")
+    id.starts_with("machine-")
 }
 
 /// A store row as the wire reads it. `root` is the repository's root, where a `repo` entry's is
