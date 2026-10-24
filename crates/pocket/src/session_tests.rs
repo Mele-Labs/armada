@@ -191,15 +191,11 @@ async fn sessions_are_trimmed_and_a_terminal_one_carries_its_ask_while_held() {
 }
 
 #[tokio::test]
-async fn the_ended_sessions_come_newest_first_and_carry_no_marker() {
+async fn sessions_are_the_live_ones_and_a_state_is_not_asked_for() {
     let (app, _) = rig().await;
     let (status, body) = send(&app, Method::GET, "/api/sessions?state=ended", "").await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    let (e2, e1) = (body.find("\"e2\"").unwrap(), body.find("\"e1\"").unwrap());
-    assert!(e2 < e1, "{body}");
-    assert!(body.contains(r#""ended_at":"2026-10-08T05:00:00.000Z""#), "{body}");
-    assert!(!body.contains("\"h1\"") && !body.contains(SECRET) && !body.contains("ask_id"), "{body}");
-    assert_eq!(send(&app, Method::GET, "/api/sessions?state=nope", "").await.0, StatusCode::BAD_REQUEST);
+    assert!(body.contains("\"h1\"") && !body.contains("\"e1\"") && !body.contains("\"e2\""), "{body}");
 }
 
 #[tokio::test]
@@ -348,7 +344,6 @@ async fn unsigned_is_400_and_fleet_down_says_what_to_do() {
     let down = on(closed).await;
     for (method, path, body) in [
         (Method::GET, "/api/sessions", ""),
-        (Method::GET, "/api/sessions?state=ended", ""),
         (Method::GET, "/api/needs", ""),
         (Method::GET, "/api/live", ""),
         (Method::GET, "/api/repositories", ""),

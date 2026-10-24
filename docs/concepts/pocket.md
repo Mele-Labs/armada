@@ -117,6 +117,13 @@ It answers 201 with the Job.
 
 **`/api/live`** is Fleet's `/events` narrowed to `session.changed`, written as `{change: "session", session_id}`, and `{change: "resync"}` where the phone's lists may be behind.
 The app keeps one per Mac and reads again on either.
+While Fleet is quiet it writes a `: beat` comment line every 15 seconds, so the phone can tell a waiting stream from a dead one.
+
+**`/api/sessions` answers the live Jobs and takes no `state`.** The phone has no list of ended ones.
+
+**The app's files** are sent with `Content-Encoding: br` or `gzip` when the request accepts it and a `.br` or `.gz` copy sits beside the file.
+Anything under `/assets/` is hashed by the build and cached for a year, `immutable`.
+Every other file, `index.html` and `sw.js` included, is `no-cache`.
 
 ## Several Macs
 
