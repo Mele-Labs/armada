@@ -28,7 +28,9 @@ export type KitSetupKindWord =
   // The three the shared home carries that fleet's read does not: they are drawn only against a home.
   | "workflows"
   | "global_instructions"
-  | "memory";
+  | "memory"
+  // Bridge's own mods, read from the mod folder rather than the harness.
+  | "mods";
 
 export type KitSetupKind = {
   kind: KitSetupKindWord;
@@ -49,6 +51,8 @@ export type KitSetupItem = {
   plugin?: string;
   /** A plugin's: the command Remove runs, as Fleet spells it. */
   uninstall?: string;
+  /** Mods only: what the mod changes, and whether Armada ships it. */
+  mod?: { kind: "theme" | "layout"; builtIn?: boolean };
 };
 
 export type KitSetupStyle = {
@@ -76,6 +80,7 @@ const KIND_LABEL: Record<KitSetupKindWord, string> = {
   workflows: "Workflows",
   global_instructions: "Global instructions",
   memory: "Memory",
+  mods: "Mods",
 };
 
 /** Kit's words for its kinds, for the pages that draw a kind by itself. */

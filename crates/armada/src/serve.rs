@@ -73,6 +73,8 @@ pub const STORE_FILE: &str = "armada.db";
 /// configuration could read the address it reports evidence to, and one that
 /// could write it could name a different server.
 pub const MCP_FILE: &str = "mcp.json";
+/// The shared homes' clones, one a profile's login, in the machine directory. `fleet::home`.
+pub const HOME_DIR: &str = "home";
 
 /// Every number Fleet runs by is a setting now, read out of settings.json
 /// against `config::settings`' table: what ships, and the argument for each
@@ -260,6 +262,8 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
     // unserved or — as it was — dispatched and never settled.
     let models_reader = Arc::new(crate::agent::AgentModels(machine_facts.agent.clone()));
     let install_path = machine_facts.path.clone();
+    // Kit's shared home writes into the person's own folders, so it is handed what assembly consumes.
+    let (person_home, kit_dir) = (machine_facts.home.clone(), kit_home.clone());
     let fleet = assemble(
         &machine,
         store,
@@ -274,6 +278,13 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
     let phone = Arc::new(crate::pocketing::Phone::new(&machine, bound.port()));
     fleet.switching_phone_with(Arc::clone(&phone) as Arc<dyn fleet::phone::PhoneSwitch>);
     phone.start_if_marked();
+    // The shared home's clone sits in the machine directory, beside the mods it carries.
+    fleet.sharing_home_with(fleet::home::HomeFittings {
+        homes: Arc::new(adapters::ForgeHomes::in_dir(machine.join(HOME_DIR))),
+        mods: Arc::new(adapters::Folder::at(machine.join("mods"))),
+        kit: Arc::new(adapters::Folder::at(&kit_dir)),
+        harness: Arc::new(adapters::AgentHome::at(&person_home, &install_path)),
+    });
     // Asked of the agent CLI once the listener is up, off this path: Fleet serves the built-in
     // names, saying it has not read them, until the answer is in.
     fleet.reading_models_with(models_reader);
@@ -617,6 +628,7 @@ fn assemble(
             studio_frames_dir: studio_frames_dir.to_string_lossy().to_string(),
             mods_dir: mods_dir.to_string_lossy().to_string(),
             mod_switches,
+            built_in_mods: fleet::mods::BuiltIns::compiled(),
             kit_home,
             // `judge_binary`'s reason: the same override reaches Helm's host.
             // `#943`.

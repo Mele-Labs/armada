@@ -53,6 +53,7 @@ mod pull_review;
 mod request;
 mod secret;
 mod setup;
+mod shared_home;
 mod sign_in;
 mod slots;
 mod store;
@@ -110,6 +111,10 @@ pub use request::{
     Incoming, Outgoing, RequestFailure, RequestSecrets, RequestSender, SecretError, SecretVariable,
 };
 pub use secret::Secret;
+pub use shared_home::{
+    HarnessHome, HarnessPiece, HarnessPlace, HomeFailure, HomeRepositories, HomeRepository, KeptFolder, PluginRecord,
+    HOME_REPOSITORY,
+};
 pub use sign_in::{DeviceCode, Polled, SignIn, SignInError, SignedInAs};
 pub use store::{Claimed, Holder, HolderKind, OwnerKey, RedKey, RepositoryKey, RunRow, Store, StoreError};
 pub use tracker::{

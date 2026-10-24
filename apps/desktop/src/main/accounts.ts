@@ -1,7 +1,8 @@
-// The account, as main holds it: four requests to Fleet. Nothing is kept here; the profiles live in
-// Fleet and arrive whole, and the renderer decides when to read again.
+// The account, as main holds it: requests to Fleet for the profiles and the sign-in, and for each
+// profile's shared home and What syncs. Nothing is kept here; both live in Fleet and arrive whole, and
+// the renderer decides when to read again.
 
-import type { Accounts, Outcome, SignedOut } from "@armada/protocol";
+import type { Accounts, HomeKind, HomeKinds, HomeRowAt, HomeSide, Outcome, SharedHomeRead, SignedOut } from "@armada/protocol";
 import type { AccountsActed } from "../shared/api/accounts";
 import { ask } from "./request";
 
@@ -28,6 +29,34 @@ export class AccountsHost {
 
   async setRepositoryProfile(root: string, accountId: number | null): Promise<AccountsActed> {
     return await this.act<Accounts>("POST", "/accounts/set_repository_profile", { root, account_id: accountId });
+  }
+
+  async sharedHome(login: string): Promise<AccountsActed<SharedHomeRead>> {
+    return await this.act<SharedHomeRead>("GET", `/shared_home?login=${encodeURIComponent(login)}`);
+  }
+
+  async syncSharedHome(login: string): Promise<AccountsActed<SharedHomeRead>> {
+    return await this.act<SharedHomeRead>("POST", "/shared_home/sync", { login });
+  }
+
+  async addToSharedHome(row: HomeRowAt): Promise<AccountsActed<SharedHomeRead>> {
+    return await this.act<SharedHomeRead>("POST", "/shared_home/add", row);
+  }
+
+  async bringFromSharedHome(row: HomeRowAt): Promise<AccountsActed<SharedHomeRead>> {
+    return await this.act<SharedHomeRead>("POST", "/shared_home/bring", row);
+  }
+
+  async chooseSharedHomeSide(row: HomeRowAt, side: HomeSide): Promise<AccountsActed<SharedHomeRead>> {
+    return await this.act<SharedHomeRead>("POST", "/shared_home/choose", { row, side });
+  }
+
+  async homeKinds(login: string): Promise<AccountsActed<HomeKinds>> {
+    return await this.act<HomeKinds>("GET", `/shared_home/kinds?login=${encodeURIComponent(login)}`);
+  }
+
+  async setHomeKind(login: string, kind: HomeKind, on: boolean): Promise<AccountsActed<HomeKinds>> {
+    return await this.act<HomeKinds>("POST", "/shared_home/kinds/set", { login, kind, on });
   }
 
   private async act<T>(method: "GET" | "POST", path: string, body?: unknown): Promise<AccountsActed<T>> {

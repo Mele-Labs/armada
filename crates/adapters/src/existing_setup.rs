@@ -48,12 +48,12 @@ const HOME: &str = ".claude";
 /// The servers a person connected. **Beside the folder, not inside it**, which
 /// is why [`SetupFiles`] is rooted at the home rather than at `HOME`.
 const CONNECTED: &str = ".claude.json";
-const SKILLS: &str = ".claude/skills";
+pub(crate) const SKILLS: &str = ".claude/skills";
 const SKILL_FILE: &str = "SKILL.md";
-const SUB_AGENTS: &str = ".claude/agents";
-const COMMANDS: &str = ".claude/commands";
-const AGENT_FILE: &str = ".claude/CLAUDE.md";
-const PLUGINS: &str = ".claude/plugins/installed_plugins.json";
+pub(crate) const SUB_AGENTS: &str = ".claude/agents";
+pub(crate) const COMMANDS: &str = ".claude/commands";
+pub(crate) const AGENT_FILE: &str = ".claude/CLAUDE.md";
+pub(crate) const PLUGINS: &str = ".claude/plugins/installed_plugins.json";
 const OUTPUT_STYLES: &str = ".claude/output-styles";
 /// A plugin's own folder of styles, under where it is installed.
 const PLUGIN_STYLES: &str = "output-styles";

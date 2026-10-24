@@ -85,7 +85,7 @@ pub(crate) async fn promote_mod<D: Mods>(
         Ok(promote) => promote,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
-    match served.daemon().promote_mod(promote).await {
+    match served.shared().promote_mod(promote).await {
         Ok(promoted) => answer(StatusCode::OK, &promoted, served.run_id()),
         Err(refusal) => refused(refusal),
     }

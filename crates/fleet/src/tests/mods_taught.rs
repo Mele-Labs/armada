@@ -123,7 +123,7 @@ fn a_mod_with_a_bad_matches_is_invalid_in_the_list_with_the_reason() {
     a_taught_mod(&mods, "fine", "fleet", "fleet.toml", &format!("{head}matches = \"behind\"\n"));
     a_taught_mod(&mods, "hangs", "fleet", "fleet.toml", &format!("{head}matches = \"(a+)+\"\n"));
 
-    let list = scan(&mods, &Default::default());
+    let list = scan(&mods, &Default::default(), &Default::default());
     let row = |name: &str| list.mods.iter().find(|one| one.name == name).expect(name).clone();
     assert!(row("fine").valid);
     let hangs = row("hangs");
@@ -166,7 +166,7 @@ fn each_new_kind_is_read_from_its_own_file_and_a_wrong_file_is_that_mods_problem
     a_taught_mod(&mods, "bad-words", "words", "words.toml", "pattern = 1");
     a_taught_mod(&mods, "no-file", "fleet", "theme.css", ":root {}");
 
-    let list = scan(&mods, &Default::default());
+    let list = scan(&mods, &Default::default(), &Default::default());
     let row = |name: &str| list.mods.iter().find(|one| one.name == name).expect(name).clone();
     for (name, kind) in [("jira", ModKind::Words), ("quiet", ModKind::Fleet), ("warm", ModKind::Tweak)] {
         let one = row(name);
@@ -187,7 +187,7 @@ fn a_mod_row_lists_what_it_was_taught_on() {
     std::fs::create_dir_all(&at).expect("a folder");
     std::fs::write(at.join("mod.toml"), toml).expect("mod.toml");
     std::fs::write(at.join("tweak.css"), ":root {}\n").expect("css");
-    let list = scan(&mods, &Default::default());
+    let list = scan(&mods, &Default::default(), &Default::default());
     assert_eq!((list.mods[0].kind, list.mods[0].valid), (Some(ModKind::Tweak), true));
     assert_eq!(list.mods[0].taught_on.as_deref(), Some("The Cockpit's merge line header"));
     assert_eq!(examine(&mods, "tidy").manifest.entry.as_deref(), Some("41"));
@@ -251,7 +251,7 @@ fn a_mod_row_names_the_logbook_entry_that_made_it_and_a_hand_made_mod_names_none
     a_taught_mod(&mods, "broken", "tweak", "tweak.css", ":root { color: red; }");
     std::fs::write(mods.join("broken/mod.toml"), format!("{}entry = \"42\"\n", mod_toml("broken", "tweak"))).expect("mod.toml");
 
-    let list = scan(&mods, &Default::default());
+    let list = scan(&mods, &Default::default(), &Default::default());
     let entry = |name: &str| list.mods.iter().find(|one| one.name == name).expect(name).entry.clone();
     assert_eq!(entry("tidy").as_deref(), Some("41"));
     assert_eq!(entry("by-hand"), None);

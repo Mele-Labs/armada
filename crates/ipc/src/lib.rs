@@ -128,6 +128,8 @@ mod territory;
 mod preferences;
 /// settings.json: every setting as Fleet resolved it, the save, and a refusal.
 mod settings;
+/// Kit against the shared home: each row's state, the acts that settle one, and what syncs.
+mod shared_home;
 /// Which wire a build speaks: a hash `build.rs` takes of the wire surface.
 mod protocol_id;
 /// A pull request, by repository and number, and the acts a Session takes on one.
@@ -351,6 +353,10 @@ pub use sharing::{
     UnboundPiece, UnboundPieces, PACKAGE_VERSION,
 };
 pub use sharing::{KitManifestSaved, SaveKitManifest};
+pub use shared_home::{
+    ChooseHomeSide, HomeKind, HomeKindSwitch, HomeKinds, HomeNamed, HomeProfile, HomeRow, HomeRowAt, HomeRowState,
+    HomeSide, HomeUnreadable, SetHomeKind, SharedHomeRead,
+};
 pub use issue_reference::{ClaimIssue, IssueClaimed, IssueReference};
 pub use issue_queries::{
     IssueQueries, IssueQueryGuide, SaveIssueQuery, SavedIssueQuery, SearchIssues, WriteIssueQuery,
@@ -388,7 +394,7 @@ pub use merge_line::{
     MergeLineCheck, MergeLineEntry, MergeLinePullRequest, MergeLines,
 };
 pub use mods::{
-    ModChecked, ModKind, ModList, ModPromoted, ModScaffolded, ModSummary, PromoteMod,
+    ModChecked, ModKind, ModList, ModOrigin, ModPromoted, ModPullRequest, ModScaffolded, ModSummary, PromoteMod,
     ScaffoldMod, SetModEnabled, TrackerTry, TryTrackerMod,
 };
 pub use clashes::{

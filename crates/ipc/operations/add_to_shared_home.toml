@@ -1,0 +1,12 @@
+[operations.add_to_shared_home]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Put a Kit row that is only on this machine into the shared home, and push it"
+notes = """
+`POST /shared_home/add`, body `HomeRowAt` `{ login, kind, name, repository? }`: `login` is the profile whose home it is, and `repository` is on a memory note alone. Answered with `SharedHomeRead`, read again. The piece is written into the copy here and its paths alone are committed and pushed.
+
+**Nothing secret leaves.** A piece whose text holds an address with a user and password in it, or a query carrying a credential (`token`, `api_key`, `password` and the like), is refused with a 422 `fleet.home_secret_refused` naming the host and never the value: refused rather than scrubbed, so a scrubbed copy never reads as differing from this machine's for good. An MCP server goes as its name and host only. A mod that is not valid here is refused with a 422 `fleet.home_refused` and its first problem.
+
+Refused with a 404 `fleet.no_such_home_row` where the row is not on this machine, a 409 `fleet.home_row_differs` where the home holds a different one (only `choose_shared_home_side` settles that), and a 409 `fleet.no_home_yet` where this machine holds no copy. An act on a row already the same answers as a read. `agent_access` is `No`: the owner's press.
+"""

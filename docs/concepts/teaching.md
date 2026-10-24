@@ -78,7 +78,7 @@ The words are the `Notice` enum in `crates/ipc/src/notices.rs`.
 
 | Group | Words |
 |---|---|
-| Pull requests | `pr_checks_failed`, `pr_conflicts`, `pr_dropped`, `pr_unmergeable`, `pr_merged`, `pr_auto_merge`, `pr_queued`, `auto_land_refused` |
+| Pull requests | `pr_checks_failed`, `pr_conflicts`, `pr_dropped`, `pr_unmergeable`, `pr_merged`, `pr_auto_merge`, `pr_queued`, `pr_handed`, `auto_land_refused` |
 | Slots and the build | `behind_base`, `slot_free`, `slot_kept`, `slot_stranded`, `build_moved`, `write_clash`, `main_red` |
 | Workflow and delivery | `rail_nudge`, `rail_step`, `plan_approved`, `workflow_changed`, `delivery_asked`, `delivery_chosen`, `watch_saw` |
 | Usage and handoff | `usage_trip`, `limit_wake`, `context_handoff` |

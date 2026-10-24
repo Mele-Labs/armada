@@ -145,6 +145,7 @@ import type { RequestRepositoryRead } from "./api/dispatch";
 import type { JobTerminalChange, PullRequestPress, PullRequestWrite, SessionActed, SessionsRead } from "./api/sessions";
 import type { SleepActed } from "./api/sleep";
 import type { AccountsActed } from "./api/accounts";
+import type { HomeKind, HomeKinds, HomeRowAt, HomeSide, SharedHomeRead } from "@armada/protocol";
 import type { PlanUsageRead } from "./api/plan-usage";
 import type { ModelDownshiftRead } from "./api/model-downshift";
 import type { FleetTimelineRead } from "./api/timeline";
@@ -408,6 +409,13 @@ type OldBridgeApi = {
     startSignIn: () => Promise<AccountsActed>;
     signOut: (accountId: number) => Promise<AccountsActed<SignedOut>>;
     setRepositoryProfile: (root: string, accountId: number | null) => Promise<AccountsActed>;
+    getSharedHome: (login: string) => Promise<AccountsActed<SharedHomeRead>>;
+    syncSharedHome: (login: string) => Promise<AccountsActed<SharedHomeRead>>;
+    addToSharedHome: (row: HomeRowAt) => Promise<AccountsActed<SharedHomeRead>>;
+    bringFromSharedHome: (row: HomeRowAt) => Promise<AccountsActed<SharedHomeRead>>;
+    chooseSharedHomeSide: (row: HomeRowAt, side: HomeSide) => Promise<AccountsActed<SharedHomeRead>>;
+    getHomeKinds: (login: string) => Promise<AccountsActed<HomeKinds>>;
+    setHomeKind: (login: string, kind: HomeKind, on: boolean) => Promise<AccountsActed<HomeKinds>>;
     onSleepChanged: (onChanged: (state: SleepState) => void) => () => void;
     tuneSession: (tune: TuneSession) => Promise<SessionActed>;
     runSessionCommand: (sessionId: string, command: string) => Promise<SessionActed>;
@@ -696,6 +704,13 @@ const OLD_CHANNELS = {
     startSignIn: "bridge:start-sign-in",
     signOut: "bridge:sign-out",
     setRepositoryProfile: "bridge:set-repository-profile",
+    getSharedHome: "bridge:get-shared-home",
+    syncSharedHome: "bridge:sync-shared-home",
+    addToSharedHome: "bridge:add-to-shared-home",
+    bringFromSharedHome: "bridge:bring-from-shared-home",
+    chooseSharedHomeSide: "bridge:choose-shared-home-side",
+    getHomeKinds: "bridge:get-home-kinds",
+    setHomeKind: "bridge:set-home-kind",
     sleepChanged: "bridge:sleep-changed",
     tuneSession: "bridge:tune-session",
     runSessionCommand: "bridge:run-session-command",

@@ -63,7 +63,7 @@ function Held({
     ...extra,
     profiles,
     flow,
-    syncs: open ? { login: "nickmele", kinds } : null,
+    syncs: open ? { login: "nickmele", kinds, home: { repository: "armada-home", made: kinds.some((one) => one.on) } } : null,
     signOut: (login) => {
       spy?.signOut?.(login as never);
       setProfiles((was) => was.filter((one) => one.login !== login));

@@ -8,7 +8,7 @@
 
 You ask a job to hide Activity on the Cockpit and put Workflow first in an open Job.
 It writes `mods/tidy/layout.json`, and the window re-lays out with no restart.
-A month later you promote the mod to a branch, as a theme is.
+A month later you promote the mod, and a Job of its own opens a pull request for it, as for a theme.
 
 ## The registry
 
@@ -161,7 +161,8 @@ The mods stay installed.
 Bridge applies that text and no other.
 `save_preferences` refuses a `layout_choices` that `layout.json`'s rules would refuse, with 422 `fleet.unacceptable_layout`.
 `scaffold_mod` takes a `kind`, and a layout scaffold holds `{ "version": 1 }`, which changes nothing.
-Promotion copies `mod.toml` and `layout.json` to `packages/mods/<name>/`.
+Promotion writes `mod.toml` and `layout.json` to `packages/mods/<name>/` in a Job's tree and opens a pull request. [Mods](mods.md), *Promotion*.
+Its row shows that pull request and its Job from `list_mods`, as a theme's does, so a window read again offers no second Promote.
 
 ## Promotion and code panels
 

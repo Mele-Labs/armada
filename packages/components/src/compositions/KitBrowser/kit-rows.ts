@@ -7,7 +7,7 @@ import type { SharedHome, SharedRow } from "../KitSetup/SharedHome";
 import type { KitServerRowProps } from "../KitServers/KitServers";
 
 /** The kinds Kit draws as a list with the picked item beside it, by the id their sidebar entry has. */
-export type KitKindId = "skills" | "plugins" | "sub-agents" | "commands" | "servers" | "instructions" | "output-styles" | "allowlist";
+export type KitKindId = "skills" | "plugins" | "sub-agents" | "commands" | "servers" | "instructions" | "output-styles" | "allowlist" | "mods";
 
 export const KIT_KINDS: readonly { id: KitKindId; label: string }[] = [
   { id: "skills", label: "Skills" },
@@ -18,6 +18,7 @@ export const KIT_KINDS: readonly { id: KitKindId; label: string }[] = [
   { id: "instructions", label: "Instructions" },
   { id: "output-styles", label: "Output styles" },
   { id: "allowlist", label: "Allowlist" },
+  { id: "mods", label: "Mods" },
 ];
 
 /** What Fleet calls each kind. Instructions is the agent file, and Servers the ones connected outside Armada. */
@@ -30,6 +31,7 @@ const WORD: Record<KitKindId, KitSetupKindWord> = {
   instructions: "agent_file",
   "output-styles": "output_styles",
   allowlist: "allowlist",
+  mods: "mods",
 };
 
 /** A kind's word for one of its items, as a plugin's list of what it brings names it. */
@@ -79,6 +81,8 @@ export type KitRow = {
   from?: string;
   brings?: KitRef[];
   sync?: SharedRow | undefined;
+  /** A mod: what it changes, and whether Armada ships it. */
+  mod?: { kind: "theme" | "layout"; builtIn: boolean };
   /** A server connected outside Armada, or Kit's own. */
   server?: { tier: "outside" } | { tier: "kit"; row: KitServerRowProps };
 };
@@ -117,6 +121,11 @@ function rowOf(kind: KitKindId, item: KitSetupItem, sync: SharedRow | undefined,
   if (kind === "allowlist") {
     const { path: _path, opens: _opens, ...rest } = base;
     return { ...rest, mono: true, meta: sourceWords(item.source), removable: true };
+  }
+  if (kind === "mods") {
+    // A mod Armada ships is on every machine already, so it has no standing against the home.
+    const builtIn = item.mod?.builtIn === true;
+    return { ...base, ...(builtIn ? { sync: undefined } : {}), mod: { kind: item.mod?.kind ?? "theme", builtIn } };
   }
   if (kind === "plugins") {
     const version = /^version (.+)$/.exec(item.says ?? "")?.[1];
