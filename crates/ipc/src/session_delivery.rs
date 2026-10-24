@@ -38,3 +38,31 @@ impl DeliveryChoice {
         }
     }
 }
+
+/// Where the landing a start card offers came from.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DeliveryPickedFrom {
+    /// The one the person most often picks for this kind of work in this repository.
+    Usual,
+    /// The first message already says how the work lands.
+    Named,
+}
+
+/// A landing the start card has ready, and where it came from.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DeliveryPicked {
+    pub choice: DeliveryChoice,
+    pub from: DeliveryPickedFrom,
+}
+
+/// A Job that waits on its start card: the person settles it and presses Start (`begin_session`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StartHeld {
+    /// The Job's workflow has a step that asks how the work lands, so `begin_session` needs a
+    /// `delivery`. False for a custom Job and for a workflow with no such step.
+    pub asks_delivery: bool,
+    /// Absent where the person has no usual yet and the first message names none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub picked: Option<DeliveryPicked>,
+}

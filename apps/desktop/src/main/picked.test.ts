@@ -379,6 +379,15 @@ describe("the start a Session sends", () => {
     expect(startOn(SET_UP, undefined, SET_UP.root, "fix it", { model: "opus", effort: "high" })).toEqual({ manifest_id: "store-01", request: "fix it", model: "opus", effort: "high" });
   });
 
+  it("is held only where a request comes with it and it waits on no Session, and never for Setup's start", () => {
+    expect(startOn(SET_UP, undefined, SET_UP.root, "fix it", {}, undefined, true)).toEqual({ manifest_id: "store-01", request: "fix it", held: true });
+    expect(startOn(SET_UP, undefined, SET_UP.root, "fix it", {})).toEqual({ manifest_id: "store-01", request: "fix it" });
+    expect(startOn(SET_UP, undefined, SET_UP.root, undefined, {}, undefined, true)).toEqual({ manifest_id: "store-01" });
+    const after = { session: "s1", condition: "done", base: "main" } as unknown as Parameters<typeof startOn>[5];
+    expect(startOn(SET_UP, undefined, SET_UP.root, "fix it", {}, after, true)).not.toHaveProperty("held");
+    expect(startOn(NOT_SET_UP, undefined, NOT_SET_UP.root, "set it up", {}, undefined, true)).toEqual({ manifest_id: "", root: "/Users/user/scratch", request: "set it up" });
+  });
+
   it("is Setup's, in the root, for a named repository with no Manifest, and none where no root is named", () => {
     expect(startOn(NOT_SET_UP, "Set up scratch", NOT_SET_UP.root)).toEqual({ manifest_id: "", root: "/Users/user/scratch", title: "Set up scratch" });
     expect(startOn(NOT_SET_UP, "T")).toBeNull();

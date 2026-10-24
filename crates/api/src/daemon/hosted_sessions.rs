@@ -230,6 +230,11 @@ pub trait HostedSessions: Send + Sync + 'static {
         self: Arc<Self>,
         set: SetSessionWorkflow,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
+    /// `begin_session`: Start pressed on a held Job's start card.
+    fn begin_session(
+        self: Arc<Self>,
+        begin: ipc::BeginSession,
+    ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
     /// `release_session_holds`: the person gives back what a Session holds on the ledger, or hands
     /// it to another live Session of the same repository. [`Refusal::IllegalMove`] for a target
     /// that is the Session itself, has ended or is of another repository.

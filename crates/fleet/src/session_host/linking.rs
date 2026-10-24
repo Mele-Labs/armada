@@ -142,6 +142,7 @@ where
                 fork: None,
                 request: None,
                 after: None,
+                held: false,
             })
             .await?;
         let held = self.held_for_person(&parent, made, Words { title, message: brief.clone() }, false, Some(&group), true).await?;

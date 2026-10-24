@@ -97,7 +97,7 @@ The labels had not said that a refactor promises no visible change; the line now
 
 ## How a Job's request is read
 
-**A Job is read once, and the press does not wait for it.** `StartSession.request` is the words the person typed at the dispatch sheet; a start with none is read at its first message (`session.md`, *A Job's proposal*, lists which).
+**A Job is read once, and the press does not wait for it.** `StartSession.request` is the words the person typed at the dispatch sheet, and the Job then waits on [its start card](session/the-start-card.md); a start with none is read at its first message (`session.md`, *A Job's proposal*, lists which).
 Fleet makes the call on them, against the workflows and the models this machine runs, and the Job's process starts when the answer lands.
 `crates/fleet/src/session_host/proposing.rs`; the answer format is `SESSION_ANSWER_FORMAT` in `crates/fleet/src/session_proposer.rs`.
 
