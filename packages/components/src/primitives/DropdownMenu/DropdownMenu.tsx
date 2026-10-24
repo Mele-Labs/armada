@@ -329,6 +329,7 @@ export function DropdownMenu({
       className="armada-dropdown-menu"
       ref={root}
       data-align={align === "start" ? "start" : undefined}
+      data-at={at === undefined ? undefined : true}
       data-detail={triggerDetail === undefined ? undefined : true}
     >
       {at !== undefined ? null : Glyph === undefined ? (
