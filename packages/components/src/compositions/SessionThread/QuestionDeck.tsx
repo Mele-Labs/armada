@@ -18,11 +18,12 @@ const BEHIND = 3;
 type Held = { front: number; picked: readonly (readonly string[])[]; using: readonly boolean[]; words: readonly string[] };
 
 const GAP = 8;
+const MIN_BESIDE = 160;
 
 /**
  * A preview as a card out of the panel's own box, which clips and scrolls: fixed to the window and level with its row, in the room beside the
  * whole panel so every answer stays readable. It is drawn once unseen to learn its width; then the right of the panel is preferred, then the left,
- * and with room for it on neither it lies over the row's trailing end.
+ * and with room for it whole on neither it narrows into the wider side, or, with too little on both, lies over the row's trailing end.
  */
 function PreviewCard({ text, row, frame }: { text: string; row: DOMRect; frame: DOMRect }) {
   const card = useRef<HTMLPreElement>(null);
@@ -30,8 +31,14 @@ function PreviewCard({ text, row, frame }: { text: string; row: DOMRect; frame: 
   useLayoutEffect(() => {
     const width = card.current?.offsetWidth ?? 0;
     const down = row.top > window.innerHeight / 2 ? { insetBlockEnd: window.innerHeight - row.bottom } : { insetBlockStart: row.top };
-    if (window.innerWidth - frame.right - 2 * GAP >= width) setPlace({ ...down, insetInlineStart: frame.right + GAP });
-    else if (frame.left - 2 * GAP >= width) setPlace({ ...down, insetInlineEnd: window.innerWidth - frame.left + GAP });
+    const right = window.innerWidth - frame.right - 2 * GAP;
+    const left = frame.left - 2 * GAP;
+    const toRight = { ...down, insetInlineStart: frame.right + GAP };
+    const toLeft = { ...down, insetInlineEnd: window.innerWidth - frame.left + GAP };
+    if (right >= width) setPlace(toRight);
+    else if (left >= width) setPlace(toLeft);
+    // Beside the panel but too tight for the longest line: the card narrows and its lines wrap, rather than lie over an answer.
+    else if (Math.max(right, left) >= MIN_BESIDE) setPlace({ ...(right >= left ? toRight : toLeft), maxWidth: Math.max(right, left), whiteSpace: "pre-wrap" });
     else setPlace({ ...down, insetInlineEnd: window.innerWidth - row.right + GAP });
   }, [text, row, frame]);
   return createPortal(
