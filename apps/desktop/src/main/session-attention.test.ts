@@ -144,4 +144,17 @@ describe("SessionAttention", () => {
     vi.advanceTimersByTime(QUIET_MS * 2);
     expect(show).not.toHaveBeenCalled();
   });
+
+  it("counts a Job held on its start card as waiting, and tells one that arrives held as blocking", () => {
+    const { attention: a, show, count } = attention();
+    const held = (id: string): SessionRecord => session(id, [], { hosted: { start: { asks_delivery: true } } as SessionRecord["hosted"] });
+    a.read([session("a")], 1);
+    expect(count).toHaveBeenLastCalledWith(0);
+    a.read([session("a"), held("b")], 2);
+    expect(count).toHaveBeenLastCalledWith(1);
+    vi.advanceTimersByTime(QUIET_MS);
+    expect(show).toHaveBeenCalledWith({ sessionId: "b", title: "Job b", body: "Not started", tone: "blocked" });
+    a.read([session("a"), session("b")], 3);
+    expect(count).toHaveBeenLastCalledWith(0);
+  });
 });

@@ -234,7 +234,7 @@ export type HostedFacts = {
   /** Set while the person has paused the session. Since 23.92. */
   paused?: SessionPaused;
   /** Present while a held session waits for `POST /sessions/begin`, and gone once it is begun. */
-  start?: SessionStart;
+  start?: StartHeld;
 };
 
 /**
@@ -242,10 +242,13 @@ export type HostedFacts = {
  * `picked` is the choice already standing: the person's `usual` for this kind of workflow in this repository, or one the request
  * `named`. Fleet recomputes it when the workflow changes, and leaves it out where there is none.
  */
-export type SessionStart = {
+export type StartHeld = {
   asks_delivery: boolean;
-  picked?: { choice: DeliveryChoice; from: "usual" | "named" };
+  picked?: DeliveryPicked;
 };
+
+/** Where a standing delivery choice came from: the person's `usual`, or one the request `named`. */
+export type DeliveryPicked = { choice: DeliveryChoice; from: "usual" | "named" };
 
 /** Who said a row. Another session that wrote to this one is named. */
 export type SessionVoice =

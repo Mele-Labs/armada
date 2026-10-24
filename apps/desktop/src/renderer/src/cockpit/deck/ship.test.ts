@@ -57,3 +57,17 @@ test("a Job whose own turn ended while its subagent runs is working, not done", 
   expect(subject.phase).toBe("working");
   expect(subject.stoppable).toBe(false);
 });
+
+test("a Job held on its start card needs him: its row is under Needs you and its call stays after he has seen it", () => {
+  const held = reply("held", { standing: undefined, lastTurnAt: undefined, start: { asksDelivery: true } });
+  const ship = shipOf({ sessions: [held], lines: [], slots: [], repositories: [], calls: [], now: Date.parse(SINCE) + 60_000 });
+  const subject = ship.subjects.find((one) => one.id === "held")!;
+  expect(subject.needs).toBe(true);
+  expect(groupOf(subject)).toBe("needs");
+  expect(subject.call).toBeDefined();
+  expect(ship.asking.has(subject.key)).toBe(true);
+
+  const begun = reply("begun", { standing: undefined, lastTurnAt: undefined });
+  const after = shipOf({ sessions: [begun], lines: [], slots: [], repositories: [], calls: [], now: Date.parse(SINCE) + 60_000 });
+  expect(after.asking.has("session:begun")).toBe(false);
+});
