@@ -331,3 +331,60 @@
 .armada-mock-walk-window__page .armada-capture {
   position: absolute;
 }
+
+/* `TerminalWindows.tsx`: a Job's terminal window, drawn over the page because a browser has no second window. Every
+   window shares one size, as main's do, and each opens a step down from the one before it. */
+.armada-mock-terminal-window {
+  position: fixed;
+  top: var(--space-8);
+  right: var(--space-4);
+  width: min(70vw, calc(var(--space-8) * 14));
+  height: min(60vh, calc(var(--space-8) * 9));
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-floating);
+  box-shadow: var(--shadow-overlay);
+}
+
+.armada-mock-terminal-window + .armada-mock-terminal-window {
+  top: calc(var(--space-8) + var(--space-6));
+  right: calc(var(--space-4) + var(--space-6));
+}
+
+.armada-mock-terminal-window[data-front] {
+  z-index: 51;
+}
+
+.armada-mock-terminal-window__strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding-inline: var(--space-1);
+  color: var(--fg-muted);
+  font-size: var(--text-2xs);
+  user-select: none;
+}
+
+/* The window's document: the pane fills it, as `terminal-window.css` makes it fill `#root`. */
+.armada-mock-terminal-window__document {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--bg-base);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.armada-mock-terminal-window .terminal-window__screen {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}

@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <!--
+      Bridge's own CSP, unchanged. A Job's terminal window is an Armada document
+      loaded from disk, so `default-src 'self'` binds it as it binds Bridge's
+      window, and `127.0.0.1` is refused here too. `blob:` as `index.html` has it.
+    -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' blob:" />
+    <title>Terminal</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="./src/terminal-window/main.tsx"></script>
+  </body>
+</html>

@@ -62,14 +62,16 @@
   color: var(--fg-muted);
 }
 
-/* In the side panel the sheet is the frame: the pane fills its body, edge to edge. */
-.armada-terminal[data-placed="panel"] {
+/* In the side panel the sheet is the frame, and in a window of its own the window is: the pane fills it, edge to edge. */
+.armada-terminal[data-placed="panel"],
+.armada-terminal[data-placed="window"] {
   flex: 1;
   border: none;
   border-radius: 0;
 }
 
-.armada-terminal[data-placed="panel"] .armada-xterm {
+.armada-terminal[data-placed="panel"] .armada-xterm,
+.armada-terminal[data-placed="window"] .armada-xterm {
   border-radius: 0;
 }
 

@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, within } from "storybook/test";
 
-import { ShellDock, ShellPane, ShellPanelPane, type ShellPaneProps, type TerminalPhase } from "./TerminalPane";
+import { ShellDock, ShellPane, ShellPanelPane, ShellWindowPane, type ShellPaneProps, type TerminalPhase } from "./TerminalPane";
 import { XtermScreen } from "./XtermScreen";
 
 /**
@@ -100,27 +100,90 @@ export const ShellEndedInThePanel: Story = {
   },
 };
 
-/** Docked, the toggle moves the shell to the side panel. */
-export const ShellMovesToThePanel: Story = {
-  args: { phase: { state: "running" }, onMove: fn(), children: body("~/armada $ git status") },
+const toPanel = fn();
+const toWindow = fn();
+const toDock = fn();
+
+/** Docked, the head offers the two other places: the side panel and a window of its own. */
+export const ShellMovesFromTheDock: Story = {
+  args: {
+    phase: { state: "running" },
+    moves: [
+      { to: "side panel", onMove: toPanel },
+      { to: "window", onMove: toWindow },
+    ],
+    children: body("~/armada $ git status"),
+  },
   play: async ({ canvasElement, args, userEvent }) => {
     const pane = within(canvasElement);
+    toPanel.mockClear();
+    toWindow.mockClear();
     await userEvent.click(await iconAct(pane, "Move to the side panel"));
-    await expect(args.onMove).toHaveBeenCalledTimes(1);
+    await expect(toPanel).toHaveBeenCalledTimes(1);
+    await userEvent.click(await iconAct(pane, "Open in a window"));
+    await expect(toWindow).toHaveBeenCalledTimes(1);
+    await expect(toPanel).toHaveBeenCalledTimes(1);
     await expect(args.onHide).not.toHaveBeenCalled();
     await expect(pane.queryByRole("button", { name: "Dock" })).toBeNull();
   },
 };
 
-/** In the side panel, the same toggle docks it again. */
-export const ShellDocksFromThePanel: Story = {
-  args: { phase: { state: "running" }, onMove: fn(), children: body("~/armada $ git status") },
+/** In the side panel, the head docks it again or opens it in a window. */
+export const ShellMovesFromThePanel: Story = {
+  args: {
+    phase: { state: "running" },
+    moves: [
+      { to: "docked", onMove: toDock },
+      { to: "window", onMove: toWindow },
+    ],
+    children: body("~/armada $ git status"),
+  },
   render: (args) => <ShellPanelPane {...args} />,
+  play: async ({ canvasElement, userEvent }) => {
+    const pane = within(canvasElement);
+    toDock.mockClear();
+    await userEvent.click(await iconAct(pane, "Dock"));
+    await expect(toDock).toHaveBeenCalledTimes(1);
+    await expect(await iconAct(pane, "Open in a window")).toBeVisible();
+    await expect(pane.queryByRole("button", { name: "Move to the side panel" })).toBeNull();
+  },
+};
+
+/** In a window of its own, whose close stands for Hide and Close: End shell, and the moves back into Bridge. */
+export const ShellInAWindow: Story = {
+  args: {
+    phase: { state: "running" },
+    moves: [
+      { to: "docked", onMove: toDock },
+      { to: "side panel", onMove: toPanel },
+    ],
+    children: body("~/armada $ git status"),
+  },
+  render: (args) => <ShellWindowPane {...args} />,
   play: async ({ canvasElement, args, userEvent }) => {
     const pane = within(canvasElement);
-    await userEvent.click(await iconAct(pane, "Dock"));
-    await expect(args.onMove).toHaveBeenCalledTimes(1);
-    await expect(pane.queryByRole("button", { name: "Move to the side panel" })).toBeNull();
+    toPanel.mockClear();
+    await expect(pane.queryByText("Terminal", { selector: "header *" })).toBeNull();
+    await expect(pane.queryByRole("button", { name: "Hide" })).toBeNull();
+    await expect(pane.queryByRole("button", { name: "Open in a window" })).toBeNull();
+    await userEvent.click(await iconAct(pane, "Move to the side panel"));
+    await expect(toPanel).toHaveBeenCalledTimes(1);
+    await expect(await iconAct(pane, "Dock")).toBeVisible();
+    await userEvent.click(await iconAct(pane, "End shell"));
+    await expect(args.onEnd).toHaveBeenCalledTimes(1);
+  },
+};
+
+/** Ended in its window: New shell, and the window's own close rather than one of the pane's. */
+export const ShellEndedInAWindow: Story = {
+  args: { phase: { state: "ended" }, moves: [{ to: "docked", onMove: toDock }], children: body("~/armada $ exit") },
+  render: (args) => <ShellWindowPane {...args} />,
+  play: async ({ canvasElement, args, userEvent }) => {
+    const pane = within(canvasElement);
+    await expect(pane.getByText("Shell ended")).toBeVisible();
+    await expect(pane.queryByRole("button", { name: "Close" })).toBeNull();
+    await userEvent.click(await iconAct(pane, "New shell"));
+    await expect(args.onOpen).toHaveBeenCalledTimes(1);
   },
 };
 

@@ -59,6 +59,7 @@ import { handleStudios } from "./studio-channels";
 import { HeldNotes } from "./capture/held-notes";
 import { handleHeldNotes, tellHeld } from "./held-notes-channels";
 import { remember as rememberWindow, restore as restoreWindow } from "./window-state";
+import { makeTerminalWindow, TerminalWindows } from "./terminal-windows";
 
 // Bridge's window, and the one connection under it.
 //
@@ -188,6 +189,18 @@ const captureWindows = new CaptureWindows({
   },
 });
 
+/** Bridge's own windows, apart from a Job's terminal window: a summons, the dock tile and a terminal window's place read these. */
+const bridgeWindows = new Set<BrowserWindow>();
+
+/** Bridge's window up now, or null. */
+function bridgeWindow(): BrowserWindow | null {
+  const [window] = [...bridgeWindows].filter((one) => !one.isDestroyed());
+  return window ?? null;
+}
+
+/** Each Job's shell in a window of its own, opened over Bridge's window. */
+const terminalWindows = new TerminalWindows(makeTerminalWindow, () => bridgeWindow()?.getBounds() ?? null);
+
 function createWindow(): BrowserWindow {
   const placed = restoreWindow();
   const window = new BrowserWindow({
@@ -215,6 +228,7 @@ function createWindow(): BrowserWindow {
   if (placed.maximized) window.maximize();
   if (placed.fullScreen) window.setFullScreen(true);
   rememberWindow(window);
+  bridgeWindows.add(window);
   window.on("ready-to-show", () => window.show());
 
   // History from the OS: macOS's swipe gesture, and the browser keys on Windows and Linux.
@@ -232,6 +246,7 @@ function createWindow(): BrowserWindow {
 
   // This window's own pick and its per-window commands go with it.
   window.on("closed", () => {
+    bridgeWindows.delete(window);
     pickedViews.delete(window.id);
     connection?.dropWindow(window.id);
   });
@@ -365,8 +380,8 @@ let summoned: Summons | null = null;
  */
 function summon(to: Summons): void {
   summoned = to;
-  const [window] = BrowserWindow.getAllWindows();
-  if (window === undefined || window.isDestroyed()) {
+  const window = bridgeWindow();
+  if (window === null) {
     createWindow();
     return;
   }
@@ -378,8 +393,8 @@ function summon(to: Summons): void {
 
 /** Bring Bridge forward, opening a window if none is up. A press that names nothing to land on. */
 function focusBridge(): void {
-  const [window] = BrowserWindow.getAllWindows();
-  if (window === undefined || window.isDestroyed()) {
+  const window = bridgeWindow();
+  if (window === null) {
     createWindow();
     return;
   }
@@ -468,6 +483,12 @@ void app.whenReady().then(() => {
   connection.sessions.onRun((runId, message) => everyWindow(CHANNELS.sessionRunMessage, runId, message));
   // A Job's shell opened or ended in Fleet: every window, which follows it by run id.
   connection.sessions.onTerminal((change, terminal) => everyWindow(CHANNELS.sessionTerminal, { ...terminal, change }));
+  // Which Jobs have a terminal window, and a shell moved back out of one, reach the walk panel's Job too, whose Terminal follows the setting.
+  const everyDocument = (channel: string, ...values: unknown[]): void => {
+    everyWindow(channel, ...values);
+    for (const panel of captureWindows.panels()) panel.send(channel, ...values);
+  };
+  terminalWindows.onChanged((sessionIds) => everyDocument(CHANNELS.terminalWindowsChanged, sessionIds));
   connection.sleep.onChanged((state) => everyWindow(CHANNELS.sleepChanged, state));
   connection.planUsage.onChanged((usage) => everyWindow(CHANNELS.planUsageChanged, usage));
   connection.modelDownshift.onChanged((state) => {
@@ -647,7 +668,13 @@ void app.whenReady().then(() => {
   ipcMain.handle(CHANNELS.readHeld, (_event, want: boolean) =>
     connection?.readHeld(want),
   );
-  handleSessions({ ipc: ipcMain, connection: () => connection, windowIdOf, pages: new SessionPages() });
+  handleSessions({
+    ipc: ipcMain,
+    connection: () => connection,
+    windowIdOf,
+    pages: new SessionPages(),
+    terminals: { windows: terminalWindows, movedBack: (move) => everyDocument(CHANNELS.terminalMovedBack, move) },
+  });
   handleFilePanel({
     ipc: ipcMain,
     recordOf: (id) => connection?.sessions.recordOf(id),
@@ -695,8 +722,9 @@ void app.whenReady().then(() => {
   createWindow();
   connection.start();
 
+  // A terminal window left open is not Bridge, so the dock tile opens Bridge's beside it.
   app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    if (bridgeWindow() === null) createWindow();
   });
 });
 
