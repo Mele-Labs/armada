@@ -9,7 +9,6 @@ export type FixtureMac = {
   name: string;
   needs: PhoneSession[];
   live: PhoneSession[];
-  ended: PhoneSession[];
   threads: Record<string, SessionThread>;
   /** What `/api/sessions/shown` serves, by session and path. */
   shown: Record<string, Record<string, string>>;
@@ -56,7 +55,6 @@ const phone = (session: PhoneSession) => session;
 export function fixtureMacs(now: number, origins: { studio: string; laptop: string }): Record<string, FixtureMac> {
   const asked = phone({ id: "a1", title: "Trim the Drone pool", repository: "armada", kind: "hosted", waiting: true, working: false, started_at: ago(now, 50), waiting_since: ago(now, 12) });
   const showed = phone({ id: "a2", title: "Redraw the Needs you band", repository: "armada", kind: "hosted", waiting: false, working: true, started_at: ago(now, 34) });
-  const merged = phone({ id: "a3", title: "Fix the merge line", repository: "armada", kind: "hosted", waiting: false, working: false, started_at: ago(now, 300), ended_at: ago(now, 180) });
   const idle = phone({ id: "a4", title: "Check the restart notes", repository: "armada", kind: "hosted", waiting: false, working: false, started_at: ago(now, 120) });
   const plan = phone({ id: "b1", title: "Rename the slot pool", repository: "store", kind: "hosted", waiting: true, working: false, started_at: ago(now, 90), waiting_since: ago(now, 40) });
   const reading = phone({ id: "b2", title: "Read the push payload", repository: "store", kind: "hosted", waiting: false, working: true, started_at: ago(now, 8) });
@@ -119,11 +117,6 @@ export function fixtureMacs(now: number, origins: { studio: string; laptop: stri
     ],
   };
 
-  const a3: SessionThread = {
-    session: record(now, "a3", merged.title!, 300, { state: "ended", ended_at: ago(now, 180) }),
-    rows: [message("a3-1", ago(now, 300), "you", "The merge line overlaps the title. Fix it."), message("a3-2", ago(now, 181), "agent", "Merged. The line now sits under the title.")],
-  };
-
   const b1: SessionThread = {
     session: record(now, "b1", plan.title!, 90, {
       manifest_id: "store",
@@ -165,8 +158,7 @@ export function fixtureMacs(now: number, origins: { studio: string; laptop: stri
       name: "studio",
       needs: [asked],
       live: [asked, showed, idle],
-      ended: [merged],
-      threads: { a1, a2, a3 },
+      threads: { a1, a2 },
       shown: { a2: { "/Users/owner/armada/docs/concepts/pocket.md": "# Pocket\n\nThe phone app. It shows a Job's whole thread and any file or sketch the Job showed.\n" } },
       repositories: ["armada"],
     },
@@ -174,7 +166,6 @@ export function fixtureMacs(now: number, origins: { studio: string; laptop: stri
       name: "laptop",
       needs: [plan],
       live: [plan, reading],
-      ended: [],
       threads: { b1, b2 },
       shown: {},
       repositories: ["store"],

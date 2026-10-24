@@ -27,7 +27,13 @@ let sent: Sent[];
 let forgotten: Set<string>;
 let root: Root | undefined;
 let host: HTMLElement;
+/** Every `/api/live` body the stub opened, to feed bytes into or break. */
+type Live = { origin: string; aborted: boolean; push: (text: string) => void; end: () => void; fail: () => void };
+let lives: Live[];
+let unreachable: Set<string>;
+const realSleep = (ms: number) => new Promise<void>((resolve) => realTimeout(resolve, ms));
 
+const realTimeout = globalThis.setTimeout;
 const NOT_PAIRED = "This phone is not paired with this Mac. Pair it again from Bridge, Settings, Phone.";
 
 async function world() {
@@ -36,6 +42,8 @@ async function world() {
   posted = { [STUDIO]: [], [LAPTOP]: [] };
   sent = [];
   forgotten = new Set();
+  lives = [];
+  unreachable = new Set();
   const make = () => crypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, false, ["sign", "verify"]) as Promise<CryptoKeyPair>;
   keys = { [STUDIO]: { deviceId: "phone-on-studio", pair: await make() }, [LAPTOP]: { deviceId: "phone-on-laptop", pair: await make() } };
   const held = [STUDIO, LAPTOP].map((origin) => ({ origin, name: macs[origin]!.name, deviceId: keys[origin]!.deviceId, key: keys[origin]!.pair.privateKey }));
@@ -44,7 +52,7 @@ async function world() {
     keepMachine: async () => undefined,
     forgetMachine: async () => undefined,
   }));
-  vi.stubGlobal("fetch", async (url: string, init: { method?: string; body?: string; headers?: Record<string, string> } = {}) => {
+  vi.stubGlobal("fetch", async (url: string, init: { method?: string; body?: string; headers?: Record<string, string>; signal?: AbortSignal } = {}) => {
     const at = new URL(url);
     const method = init.method ?? "GET";
     const headers = init.headers ?? {};
@@ -54,7 +62,26 @@ async function world() {
     };
     sent.push(one);
     if (forgotten.has(at.origin)) return new Response(NOT_PAIRED, { status: 401 });
-    if (at.pathname === "/api/live") return new Response(new ReadableStream<Uint8Array>({ start: () => undefined }), { headers: { "Content-Type": "text/event-stream" } });
+    if (at.pathname === "/api/live") {
+      if (unreachable.has(at.origin)) throw new TypeError("Failed to fetch");
+      const body = new ReadableStream<Uint8Array>({
+        start(controller) {
+          const live: Live = {
+            origin: at.origin,
+            aborted: false,
+            push: (chunk) => controller.enqueue(new TextEncoder().encode(chunk)),
+            end: () => controller.close(),
+            fail: () => controller.error(new TypeError("network error")),
+          };
+          lives.push(live);
+          init.signal?.addEventListener("abort", () => {
+            live.aborted = true;
+            controller.error(new DOMException("The operation was aborted.", "AbortError"));
+          });
+        },
+      });
+      return new Response(body, { headers: { "Content-Type": "text/event-stream" } });
+    }
     const mac = macs[at.origin];
     if (mac === undefined) throw new TypeError("Failed to fetch");
     const said = answer(mac, posted[at.origin]!, method, one.target, one.body, /^[0-9a-f]{128}$/.test(one.signature));
@@ -95,6 +122,15 @@ beforeEach(async () => {
 afterEach(async () => {
   await act(async () => root?.unmount());
   root = undefined;
+  // Each Mac now answers 401 and every open stream breaks, so no stream of this world reconnects into the next.
+  forgotten = new Set([STUDIO, LAPTOP]);
+  lives.forEach((live) => live.fail());
+  await realSleep(40);
+  // A stream that broke moments after opening waits a second before it reconnects into the 401.
+  if (vi.isFakeTimers()) await vi.advanceTimersByTimeAsync(1_000);
+  await realSleep(40);
+  vi.useRealTimers();
+  Object.defineProperty(document, "visibilityState", { value: "visible", configurable: true });
   vi.unstubAllGlobals();
   vi.doUnmock("./machines");
 });
@@ -111,7 +147,8 @@ describe("Pocket v2 with two Macs", { timeout: 30_000 }, () => {
     expect(second).toContain("studio");
     await vi.waitFor(() => expect(rows("Running").join()).toContain("Read the push payload"));
     expect(rows("Running").join()).toContain("Redraw the Needs you band");
-    expect(rows("Done").join()).toContain("Fix the merge line");
+    expect(host.querySelector('[aria-label="Done"]')).toBeNull();
+    expect(text()).not.toContain("Fix the merge line");
   });
 
   it("marks only the Mac that answered 401 as not paired, and the other still lists", async () => {
@@ -168,5 +205,91 @@ describe("Pocket v2 with two Macs", { timeout: 30_000 }, () => {
     await vi.waitFor(() => expect(text()).toContain("Call the pool slots everywhere."));
     await press(button("Approve"));
     await vi.waitFor(() => expect(posted[LAPTOP]).toEqual([{ path: "/api/sessions/plan/approve", body: { session_id: "b1", version: 1 } }]));
+  });
+});
+
+describe("the lists stay fresh", { timeout: 30_000 }, () => {
+  const toFake = ["setTimeout", "clearTimeout", "setInterval", "clearInterval"] as const;
+  const settle = () => realSleep(40);
+  const until = async (ok: () => boolean) => {
+    for (let waited = 0; waited < 400 && !ok(); waited++) await realSleep(5);
+    expect(ok()).toBe(true);
+  };
+  const connects = (origin = STUDIO) => sent.filter((one) => one.origin === origin && one.target === "/api/live").length;
+  const listReads = (origin = STUDIO) => sent.filter((one) => one.origin === origin && /^\/api\/(needs|sessions(\?.*)?$)/.test(one.target)).map((one) => one.target);
+  const begin = async () => {
+    vi.useFakeTimers({ toFake: [...toFake] });
+    const fleet = await import("./fleet");
+    await fleet.start();
+    await until(() => lives.some((live) => live.origin === STUDIO));
+    return fleet;
+  };
+
+  it("reads each Mac's live Jobs once on open, and takes Needs you from the waiting ones", async () => {
+    const fleet = await begin();
+    await until(() => fleet.macOf(STUDIO)!.live.length > 0 && fleet.macOf(LAPTOP)!.live.length > 0);
+    await settle();
+    expect(listReads(STUDIO)).toEqual(["/api/sessions"]);
+    expect(listReads(LAPTOP)).toEqual(["/api/sessions"]);
+    expect(fleet.macOf(STUDIO)!.needs.map((one) => one.id)).toEqual(["a1"]);
+    expect(fleet.macOf(LAPTOP)!.needs.map((one) => one.id)).toEqual(["b1"]);
+  });
+
+  it("aborts a stream that has gone 40 s without a byte, and a beat counts as a byte", async () => {
+    const fleet = await begin();
+    const live = lives.find((one) => one.origin === STUDIO)!;
+    await vi.advanceTimersByTimeAsync(30_000);
+    live.push(": beat\n\n");
+    await settle();
+    await vi.advanceTimersByTimeAsync(39_000);
+    await settle();
+    expect(live.aborted).toBe(false);
+    await vi.advanceTimersByTimeAsync(1_001);
+    await until(() => live.aborted);
+    await until(() => connects() === 2);
+    expect(fleet.macOf(STUDIO)!.error).toBeUndefined();
+  });
+
+  it("reconnects without an error to a stream that opened and then ended or broke, a second later when it was brief", async () => {
+    const fleet = await begin();
+    lives.find((one) => one.origin === STUDIO)!.end();
+    await settle();
+    expect(connects()).toBe(1);
+    await vi.advanceTimersByTimeAsync(1_000);
+    await until(() => connects() === 2);
+    lives.filter((one) => one.origin === STUDIO)[1]!.fail();
+    await vi.advanceTimersByTimeAsync(1_000);
+    await until(() => connects() === 3);
+    expect(fleet.macOf(STUDIO)!.error).toBeUndefined();
+  });
+
+  it("tells the owner a Mac did not answer when the connect itself fails, and tries again after 3 s", async () => {
+    unreachable.add(STUDIO);
+    vi.useFakeTimers({ toFake: [...toFake] });
+    const fleet = await import("./fleet");
+    await fleet.start();
+    await until(() => connects() === 1 && fleet.macOf(STUDIO)!.error !== undefined);
+    await vi.advanceTimersByTimeAsync(2_999);
+    await settle();
+    expect(connects()).toBe(1);
+    await vi.advanceTimersByTimeAsync(1);
+    await until(() => connects() === 2);
+  });
+
+  it("reads again on every open stream when the app comes back on screen or the phone is online again", async () => {
+    await begin();
+    const first = lives.find((one) => one.origin === STUDIO)!;
+    await until(() => listReads().length === 1);
+    Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });
+    document.dispatchEvent(new Event("visibilitychange"));
+    await settle();
+    expect(connects()).toBe(1);
+    Object.defineProperty(document, "visibilityState", { value: "visible", configurable: true });
+    document.dispatchEvent(new Event("visibilitychange"));
+    await until(() => first.aborted && connects() === 2 && connects(LAPTOP) === 2);
+    await until(() => listReads().length === 2);
+    window.dispatchEvent(new Event("online"));
+    await until(() => connects() === 3);
+    await until(() => listReads().length === 3);
   });
 });
