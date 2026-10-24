@@ -302,6 +302,7 @@ where
                 fork: None,
                 request: None,
                 after: None,
+                held: false,
             })
             .await
             .map_err(|why| reason_of("new job did not start", &said_of(&why)))?;

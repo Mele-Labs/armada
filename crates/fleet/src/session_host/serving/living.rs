@@ -13,9 +13,15 @@ where
     W::Error: std::error::Error + Send + Sync + 'static,
 {
     /// What a hosted session carries beyond a terminal's row.
-    pub(crate) fn hosted_facts_of(&self, id: &str, hosting: KeptHosting) -> HostedFacts {
+    pub(crate) fn hosted_facts_of(
+        &self,
+        id: &str,
+        hosting: KeptHosting,
+        start: Option<crate::session_host::start_card::StartReads>,
+    ) -> HostedFacts {
         let runtime = self.hosts().of(id);
         let state = runtime.state();
+        let start = start.map(|reads| self.start_wire(&hosting, reads));
         HostedFacts {
             turn: state.turn.clone(),
             asked: state.asked.clone(),
@@ -33,6 +39,7 @@ where
                 at: ipc::Instant::carried(at),
                 resuming: hosting.paused_resuming,
             }),
+            start,
         }
     }
 

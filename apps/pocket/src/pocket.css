@@ -1,5 +1,8 @@
 /* Pocket (#1997), and v2: every Mac on one list, a Job's thread. Tokens only. */
 .pk-app { height: 100%; display: flex; flex-direction: column; background: var(--bg-base); color: var(--fg-default); }
+/* iOS zooms into a focused field under 16 px, and the page stays panned sideways after. `main.pk-app` outweighs the components' own
+   field sizes, the composer's typing area (a contenteditable) among them. */
+main.pk-app :is(textarea, input, select, [contenteditable="true"]) { font-size: var(--text-base); }
 .pk-screen { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 
 /* Bridge's panel header and Jobs list. The base rules are `deck.css`'s in the desktop app, which this app does not load; what

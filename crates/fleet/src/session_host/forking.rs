@@ -246,6 +246,7 @@ where
             fork: None,
             request: None,
             after: None,
+            held: false,
         };
         let whole = ForkFrom { session_id: moved.session_id, at: None };
         let moved = Moved {
@@ -340,6 +341,7 @@ where
                     paused_at: None,
                     paused_resuming: false,
                     auto_land: false,
+                    start_held: false,
                 })
                 .map_err(|why| self.ledger_fault(why))?;
             // `spent`, not `standing`: the old session ending gives back what

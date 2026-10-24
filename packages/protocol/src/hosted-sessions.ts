@@ -55,6 +55,11 @@ export type StartSession = {
    * by the brief. The Session waited on is told. Not read with `fork` or `root`.
    */
   after?: StartAfter;
+  /**
+   * Start on the start card: no agent runs and a message sent is kept, until `POST /sessions/begin`. Left out when false.
+   * Not read with `fork`, `root` or `after`.
+   */
+  held?: boolean;
 };
 
 export type TagKind = "session" | "pull_request" | "branch" | "issue";
@@ -220,7 +225,30 @@ export type HostedFacts = {
   commands?: string[];
   /** Set while the person has paused the session. Since 23.92. */
   paused?: SessionPaused;
+  /** Present while the Job waits for `POST /sessions/begin`. Absent once it has begun, and for a Job never held. */
+  start?: StartHeld;
 };
+
+/** A Job that waits on its start card: the person settles it and presses Start. */
+export type StartHeld = {
+  /** The Job's workflow has a step that asks how the work lands, so `BeginSession` needs a `delivery`. */
+  asks_delivery: boolean;
+  /** Absent where the person has no usual yet and the first message names none. */
+  picked?: DeliveryPicked;
+};
+
+/** A landing the start card has ready, and where it came from. */
+export type DeliveryPicked = { choice: DeliveryChoice; from: DeliveryPickedFrom };
+
+/** `usual`: what the person most often picks for this kind of work in this repository. `named`: the first message says how it lands. */
+export type DeliveryPickedFrom = "usual" | "named";
+
+/**
+ * `POST /sessions/begin`: Start pressed on a held Job's start card. Answers the `SessionRecord`.
+ * `delivery` is required where `hosted.start.asks_delivery` holds (422 `fleet.session_waiting_empty` without it) and ignored elsewhere.
+ * 409 `fleet.session_waiting_unheld` for a Job that is not held.
+ */
+export type BeginSession = { session_id: string; delivery?: DeliveryChoice };
 
 /** Who said a row. Another session that wrote to this one is named. */
 export type SessionVoice =

@@ -393,7 +393,7 @@ fn only_an_ended_session_that_was_never_anything_is_forgotten_as_blank() {
     }
 }
 
-fn hosting(session_id: &str, manifest: &str, helm: bool) -> crate::KeptHosting {
+pub(super) fn hosting(session_id: &str, manifest: &str, helm: bool) -> crate::KeptHosting {
     crate::KeptHosting {
         session_id: session_id.into(),
         manifest_id: manifest.into(),
@@ -413,6 +413,7 @@ fn hosting(session_id: &str, manifest: &str, helm: bool) -> crate::KeptHosting {
         paused_at: None,
         paused_resuming: false,
         auto_land: false,
+        start_held: false,
     }
 }
 
