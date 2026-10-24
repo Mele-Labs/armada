@@ -72,7 +72,7 @@ function ConcernCites({ cites }: { cites: readonly string[] | undefined }) {
     <ul className="armada-session-thread__cites" aria-label="Cites">
       {cites.map((path) => (
         <li key={path}>
-          <code>{path}</code>
+          <code title={path}>{path}</code>
         </li>
       ))}
     </ul>

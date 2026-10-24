@@ -1031,7 +1031,9 @@
 .armada-session-thread__claim-text { margin: 0; min-width: 0; color: var(--fg-default); font-size: var(--text-sm); line-height: var(--leading-sm); text-wrap: pretty; overflow-wrap: anywhere; }
 .armada-session-thread__claim-row > .armada-session-thread__claim-text:not([data-open]) { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
 .armada-session-thread__cites { display: flex; flex-wrap: wrap; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
-.armada-session-thread__cites code { padding: 0 var(--space-1); border-radius: var(--radius-sm); background: var(--bg-sunken); font-size: var(--text-2xs); }
+.armada-session-thread__cites li { min-width: 0; max-width: 100%; }
+/* A path is never broken inside its name: one that does not fit its column ends in an ellipsis, whole on hover. */
+.armada-session-thread__cites code { display: block; max-width: 100%; padding: 0 var(--space-1); border-radius: var(--radius-sm); background: var(--bg-sunken); font-size: var(--text-2xs); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; overflow-wrap: normal; }
 
 /* A dismissed concern, folded to one line. */
 .armada-session-concern-settled {
