@@ -261,4 +261,11 @@ pub trait Trackers {
     fn tracker(&self, choice: &TrackerChoice) -> Arc<dyn Tracker + Send + Sync>;
 
     fn links(&self, choice: &TrackerChoice) -> Arc<dyn LinkLookup + Send + Sync>;
+
+    /// What writes to and syncs the tracker `choice` names, **where it is one Fleet writes to**.
+    /// `None` for every other: a forge and Jira are read only.
+    fn backlog(&self, choice: &TrackerChoice) -> Option<Arc<dyn crate::Backlog + Send + Sync>> {
+        let _ = choice;
+        None
+    }
 }
