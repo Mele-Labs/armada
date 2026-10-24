@@ -44,14 +44,26 @@
   list-style: none;
 }
 
+/* A finding is a note laid on the plan, never a line of it: its own tinted surface and frame, in the hue a judge's
+   concern carries, so the eye finds every objection before it reads the plan around them. */
 .armada-adversarial__finding {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: start;
   column-gap: var(--space-3);
-  padding: var(--space-2);
-  border-top: var(--border-width) solid var(--border-default);
-  border-radius: var(--radius-sm);
+  padding: var(--space-3);
+  border: var(--border-width) solid color-mix(in srgb, var(--status-piloted) 45%, transparent);
+  border-radius: var(--radius-md);
+  background: var(--status-piloted-bg);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--bg-base) 60%, transparent);
+}
+
+.armada-adversarial__findings {
+  gap: var(--space-2);
+}
+
+.armada-adversarial__finding .armada-session-thread__claim-head {
+  color: var(--status-piloted);
 }
 
 .armada-adversarial__finding:focus-visible {
@@ -60,7 +72,7 @@
 }
 
 .armada-adversarial__finding:focus-within {
-  background: var(--bg-hover);
+  border-color: var(--status-piloted);
 }
 
 .armada-adversarial__claim {
@@ -124,16 +136,11 @@
   margin: 0;
   padding: 0;
   list-style: none;
-  border-inline-start: var(--border-width) solid var(--border-default);
+  gap: var(--space-2);
 }
 
 .armada-adversarial__notes > li {
-  padding-inline: var(--space-3) var(--space-2);
   border-top: 0;
-}
-
-.armada-adversarial__notes > li + li {
-  border-top: var(--border-width) solid var(--border-default);
 }
 
 .armada-adversarial__given {
