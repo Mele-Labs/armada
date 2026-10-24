@@ -28,6 +28,8 @@ where
         marked: Marked,
     ) -> Result<SessionRecord, Refusal> {
         let rooted = start.root.is_some();
+        // Only a plain start has a start card: Helm, Setup's and a fork run as soon as they are told.
+        let held = start.held && !rooted && marked != Marked::Helm && start.fork.is_none();
         let (manifest, cwd) = match (marked, start.root.take()) {
             (Marked::ModsFolder, _) => (None, self.mods_dir().to_string_lossy().into_owned()),
             (_, Some(root)) => {
@@ -110,8 +112,15 @@ where
                     paused_resuming: false,
                     auto_land: false,
                     mod_job: matches!(marked, Marked::Mod | Marked::ModsFolder),
+                    start_held: held,
                 })
                 .map_err(|why| self.ledger_fault(why))?;
+        }
+        if held {
+            let runtime = self.hosts().of(&id);
+            let mut state = runtime.state();
+            state.proposal.start_held = true;
+            state.proposal.start_synced = true;
         }
         self.published_hosted(&id).await
     }

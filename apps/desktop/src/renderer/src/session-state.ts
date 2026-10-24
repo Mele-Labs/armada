@@ -27,6 +27,8 @@ export function stateOf(session: Session): { state: SessionState; said: string }
   if (session.unsent !== undefined) return { state: "draft", said: "Draft" };
   // The proposer is reading the request: the Session starts on its answer.
   if (session.work?.proposal?.reading === true) return { state: "working", said: "Reading the request" };
+  // Read and held on its start card: nothing has moved, and nothing is asked of him but Start.
+  if (session.start !== undefined) return { state: "draft", said: "Not started" };
   if (session.limitedUntil !== undefined) return { state: "limited", said: limitHeldSaid(session.limitedUntil) };
   // A turn held on a question or a permission is waiting on him, though the turn is open.
   if (session.asked !== undefined) return { state: "waiting", said: "Waiting on you" };

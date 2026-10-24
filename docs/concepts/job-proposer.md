@@ -79,6 +79,7 @@ Why: a Job started on a near miss would be held to steps that are not its work, 
 | The request | Verbatim |
 | The workflows this Manifest holds | Each one's id, name and step labels, and what requests it is for where the definition declares `for_requests` |
 | The models this machine can run | By name |
+| The Jobs the person renamed | His last 12, this repository's first. *Names he gave*, below |
 
 **It is given nothing else.** Not the repository, not the `armada.yml`, not the Jobs already running.
 
@@ -96,7 +97,7 @@ The labels had not said that a refactor promises no visible change; the line now
 
 ## How a Job's request is read
 
-**A Job is read once, and the press does not wait for it.** `StartSession.request` is the words the person typed at the dispatch sheet; a start with none is read at its first message (`session.md`, *A Job's proposal*, lists which).
+**A Job is read once, and the press does not wait for it.** `StartSession.request` is the words the person typed at the dispatch sheet, and the Job then waits on [its start card](session/the-start-card.md); a start with none is read at its first message (`session.md`, *A Job's proposal*, lists which).
 Fleet makes the call on them, against the workflows and the models this machine runs, and the Job's process starts when the answer lands.
 `crates/fleet/src/session_host/proposing.rs`; the answer format is `SESSION_ANSWER_FORMAT` in `crates/fleet/src/session_proposer.rs`.
 
@@ -119,10 +120,26 @@ Nothing is refused, and there is no second try: a Job is a person's own conversa
 
 **Cost accepted:** a cheap model call and its budget on every start. The press never waits on it, so the latency is the Job's process starting a moment later and no one's screen.
 
+### Names he gave
+
+> **Rule.** A Job the person renames in Bridge teaches the proposer how he names Jobs, and nothing he does not rename teaches it.
+> Why: the owner, 24 October 2026 — *"after a few renames (specifically me renaming them) it learns how I name things and then over time I dont have to keep doing it."*
+
+**Each rename is kept against the name Armada gave.** One row a Job holds its first message, the title before his first rename and his latest title, in `job_renames`.
+A second rename of one Job replaces his title and keeps Armada's.
+A Job with no message from him, or no title before the rename, teaches nothing.
+
+**The question carries his last 12, this repository's first,** each as the request, Armada's name and his, ahead of the answer format.
+It is told to name the Job the way he names his, over the `title:` line's own advice where the two differ.
+With none kept, the question is as it was.
+
+**Nothing on screen says it learned.** He chose it invisible on 24 October 2026: a name that is wrong is renamed, and that rename is learned too.
+
 ## What is recorded
 
 **Its output is not stored as its own record.** `workflow`, `title`, `model` and `effort` land on the [Job](session.md), and `proposal.picked` names the fields the proposer filled until the person changes each.
 No field says a proposal happened beyond that.
+The one thing kept for the proposer's own sake is his renames, in `job_renames`.
 
 ## Relationship to Helm
 

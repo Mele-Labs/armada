@@ -107,6 +107,7 @@ where
                 fork: None,
                 request: None,
                 after: None,
+                held: false,
             })
             .await?;
         let brief = words.message.clone();
@@ -154,6 +155,7 @@ where
                 }),
                 request: None,
                 after: None,
+                held: false,
             })
             .await?;
         self.held_for_person(&me, made, words, true, None, true).await

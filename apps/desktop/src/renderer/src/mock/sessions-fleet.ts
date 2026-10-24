@@ -33,6 +33,7 @@ import type {
   SessionSubagent,
   SessionLoadout,
   StartAfter,
+  BeginSession,
   TuneSession,
   WaitReading,
 } from "@armada/protocol";
@@ -142,6 +143,8 @@ export type Calls = {
   dismissed: DismissWaiting[];
   confirmed: ConfirmWaiting[];
   tuned: TuneSession[];
+  /** The Sessions begun from their start card, in order. */
+  begun: BeginSession[];
   renamed: RenameSession[];
   closed: string[];
   /** The Sessions whose running turn was stopped. */
@@ -173,7 +176,7 @@ export class FakeSessionsFleet {
   pageEscape(): void {
     this.escape.forEach((on) => on());
   }
-  readonly calls: Calls = { started: 0, startedIn: [], startedAfter: [], readWaits: [], changedWaits: [], startedNow: [], sent: [], answered: [], waited: [], claimed: [], dismissed: [], confirmed: [], tuned: [], renamed: [], closed: [], stopped: [], forked: [], handed: [], forkedAt: [], moved: [], muted: [], refreshed: [], retroed: [], pressed: [], watched: [], pages: [], pagesHidden: 0 };
+  readonly calls: Calls = { started: 0, startedIn: [], startedAfter: [], readWaits: [], changedWaits: [], startedNow: [], sent: [], answered: [], waited: [], claimed: [], dismissed: [], confirmed: [], tuned: [], begun: [], renamed: [], closed: [], stopped: [], forked: [], handed: [], forkedAt: [], moved: [], muted: [], refreshed: [], retroed: [], pressed: [], watched: [], pages: [], pagesHidden: 0 };
   /** What `readSessionWait` answers: the defaults, unless a test says otherwise. */
   reading: WaitReading = { condition: { kind: "ends" }, base: "main" };
   private records: SessionRecord[];
@@ -289,7 +292,7 @@ export class FakeSessionsFleet {
         // (it clears the hook of a scenario with no `later`, right after this returns), and the latest wins.
         if (this.retroHeld) queueMicrotask(() => onTimePassing(() => this.releaseRetro?.()));
         return {
-          startSession: async (_title, root, request, _tuning, after) => {
+          startSession: async (_title, root, request, _tuning, after, held) => {
             this.calls.started += 1;
             this.calls.startedIn.push(root);
             if (after !== undefined) this.calls.startedAfter.push(after);
@@ -300,8 +303,18 @@ export class FakeSessionsFleet {
                 ? undefined
                 : { on: { id: after.session, title: this.records.find((one) => one.id === after.session)?.title ?? after.session }, condition: after.condition ?? { kind: "ends" as const }, base: after.base ?? ("main" as const), brief: request ?? "", by: "you" as const, ...(after.needs === undefined ? {} : { needs: after.needs }) };
             const record = hosted(`01SESSION${String((this.minted += 1)).padStart(8, "0")}ABCDEFGH`, { ...this.began(), ...(manifest_id === undefined ? {} : { manifest_id }), ...(waits === undefined ? {} : { waits }) });
-            this.set([record, ...this.records]);
-            return { ok: true, value: record };
+            // Held: it waits on its start card, with no choice standing, and nothing runs until `beginSession`.
+            const started = held === true && after === undefined ? { ...record, hosted: { ...record.hosted!, start: { asks_delivery: true } } } : record;
+            this.set([started, ...this.records]);
+            return { ok: true, value: started };
+          },
+          beginSession: async (begin) => {
+            this.calls.begun.push(begin);
+            // Fleet starts the agent and the card goes: `start` is gone from the record it answers.
+            return this.change(begin.session_id, (one) => {
+              const { start: _start, ...rest } = one.hosted!;
+              return { ...one, hosted: { ...rest, turn: { state: "working" } } };
+            });
           },
           readSessionWait: async (sessionId, request) => {
             this.calls.readWaits.push({ sessionId, request });

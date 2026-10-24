@@ -105,6 +105,7 @@ where
                     fork: None,
                     request: None,
                     after: None,
+                    held: false,
                 },
                 crate::session_host::Marked::Helm,
             )

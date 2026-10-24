@@ -176,6 +176,7 @@ where
                                 fork: None,
                                 request: None,
                                 after: None,
+                                held: false,
                             })
                             .await;
                         let Ok(record) = started else { return };

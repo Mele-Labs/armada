@@ -69,6 +69,7 @@ where
             fork: None,
             request: None,
             after: None,
+            held: false,
         };
         let session_id = self.started_hosted(begun, marked).await?.id;
         // **Not an error**: the Job exists, so the answer is 200 and `send_failed` says why

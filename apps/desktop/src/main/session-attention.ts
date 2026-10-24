@@ -27,7 +27,16 @@ export type Effects = {
   count: (waiting: number) => void;
 };
 
-type Entered = { sessionId: string; name: string; item: WaitingItem };
+/** What a live Session waits on him for, as this tells it: an item of `waiting_for`, or the start card it is held on. */
+type Waits = Pick<WaitingItem, "id" | "text" | "since"> & { blocks: boolean };
+
+type Entered = { sessionId: string; name: string; item: Waits };
+
+/** A Job held on its start card holds its agent before the first move, so it blocks like the delivery question; `Not started` is the word its row already says. */
+function waitsOf(session: SessionRecord): Waits[] {
+  const items = (session.waiting_for ?? []).map((one): Waits => ({ id: one.id, text: one.text, since: one.since, blocks: BLOCKED.has(one.source) }));
+  return session.hosted?.start === undefined ? items : [{ id: "start", text: "Not started", since: session.started_at, blocks: true }, ...items];
+}
 
 export class SessionAttention {
   private readonly effects: Effects;
@@ -55,7 +64,7 @@ export class SessionAttention {
     let sessionsWaiting = 0;
     for (const session of sessions) {
       if (session.state !== "live") continue;
-      const items = session.waiting_for ?? [];
+      const items = waitsOf(session);
       if (items.length > 0) sessionsWaiting += 1;
       for (const item of items) {
         const key = `${session.id}:${item.id}`;
@@ -96,7 +105,7 @@ export class SessionAttention {
         sessionId: first.sessionId,
         title: first.name,
         body: others === 0 ? first.item.text : `${first.item.text}\nand ${others} more`,
-        tone: batch.some((one) => BLOCKED.has(one.item.source)) ? "blocked" : "waiting",
+        tone: batch.some((one) => one.item.blocks) ? "blocked" : "waiting",
       });
     }, QUIET_MS);
   }

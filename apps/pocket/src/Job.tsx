@@ -1,8 +1,9 @@
 // A Job: its whole thread, read from the Mac that holds it, with every reply the phone makes sent to
-// that Mac. What it waits on sits at the end of the thread; a message box sits under it.
+// that Mac. What it waits on sits at the end of the thread; a message box sits under it. The frame, the
+// thread and the box are the ones Bridge's Job view draws.
 
 import { useEffect, useState } from "react";
-import { AskCards, Button, SessionThread, Textarea } from "@armada/components";
+import { AskCards, Button, SessionComposer, SessionFrame, SessionThread, Textarea, type SessionState } from "@armada/components";
 import type { HelmCallAnswer, QuestionAnswer, WaitingItem } from "@armada/protocol";
 import { lapsedAnswerText } from "@armada/screens/src/sessions-wire";
 
@@ -11,7 +12,14 @@ import { actsOn, attempt, useJob, type Acts } from "./jobState";
 import type { Machine } from "./machines";
 import { filePath, go, jobPath, sketchPath } from "./router";
 import { approvalOf, askedOf, asksOf, rowsOf, sessionOfThread } from "./thread";
-import { Band, Trouble } from "./ui";
+import { Back, Band, Trouble } from "./ui";
+
+const NONE: readonly never[] = [];
+const NOBODY = () => undefined;
+
+/** What a Job is doing, as the one mark in its header. */
+const standing = (waiting: boolean, working: boolean, ended: boolean): { state: SessionState; said: string } =>
+  ended ? { state: "ended", said: "Ended" } : waiting ? { state: "waiting", said: "Needs you" } : working ? { state: "working", said: "Working" } : { state: "idle", said: "Idle" };
 
 /** Runs a reply and keeps its refusal to show. */
 function useReply(machine: Machine): [string, (act: () => Promise<void>) => Promise<boolean>] {
@@ -57,7 +65,6 @@ function PlanChanges({ keep, send }: { keep: string; send: (text: string) => Pro
 function Thread({ machine, id, several }: { machine: Machine; id: string; several: boolean }) {
   const [read, reread] = useJob(machine, id);
   const [says, run] = useReply(machine);
-  const [message, setMessage] = useState("");
   const [skipped, setSkipped] = useState<string | undefined>(undefined);
   const acts: Acts = actsOn(machine, reread);
   const home = () => go("/");
@@ -108,29 +115,54 @@ function Thread({ machine, id, several }: { machine: Machine; id: string; severa
       <Trouble says={says} />
     </div>
   );
-  const send = () => void run(() => acts.message({ session_id: id, text: message.trim() })).then((went) => went && setMessage(""));
+  const { state, said } = standing(asked !== undefined || lapsed !== undefined || planPending || asksOf(session).length > 0, session.turn.state === "working", session.dead !== undefined);
   return (
     <section className="pk-screen" aria-label={session.title ?? "Job"}>
-      <Band title={session.title ?? ""} onBack={home} back="Home" end={several ? <span className="pk-band__mac">{machine.name}</span> : undefined} />
-      <div className="pk-body pk-thread">
-        <SessionThread
-          sessionId={`${machine.origin} ${id}`}
-          rows={rowsOf(session)}
-          {...(approval === undefined ? {} : { approval })}
-          working={session.turn.state === "working"}
-          onAnswer={onAnswer}
-          onOpenSession={(other) => go(jobPath(machine.origin, other))}
-          onOpenFile={(path) => go(filePath(machine.origin, id, path))}
-          onOpenSketch={(sketch) => go(sketchPath(machine.origin, id, sketch))}
-          trailing={trailing}
-        />
+      <div className="deck-pane pk-pane" data-frame data-bare>
+        <SessionFrame
+          state={state}
+          said={several ? `${said} · ${machine.name}` : said}
+          id={id}
+          {...(session.title === undefined ? {} : { title: session.title })}
+          back={<Back label="Home" onClick={home} />}
+        >
+          <div className="armada-session-frame__centre">
+            <SessionThread
+              sessionId={`${machine.origin} ${id}`}
+              rows={rowsOf(session)}
+              {...(approval === undefined ? {} : { approval })}
+              working={session.turn.state === "working"}
+              onAnswer={onAnswer}
+              onOpenSession={(other) => go(jobPath(machine.origin, other))}
+              onOpenFile={(path) => go(filePath(machine.origin, id, path))}
+              onOpenSketch={(sketch) => go(sketchPath(machine.origin, id, sketch))}
+              trailing={trailing}
+            />
+            {session.dead !== undefined ? null : (
+              <div className="pk-dock">
+                <SessionComposer
+                  bare
+                  working={session.turn.state === "working"}
+                  model={null}
+                  effort={null}
+                  models={NONE}
+                  efforts={NONE}
+                  onTune={NOBODY}
+                  commands={NONE}
+                  taggable={NONE}
+                  tags={NONE}
+                  onTags={NOBODY}
+                  drawn={NONE}
+                  onDraw={NOBODY}
+                  onRemoveDrawn={NOBODY}
+                  draftKey={keep("message")}
+                  onSend={(sent) => run(() => acts.message({ session_id: id, text: sent.text.trim() }))}
+                />
+              </div>
+            )}
+          </div>
+        </SessionFrame>
       </div>
-      {session.dead !== undefined ? null : (
-        <footer className="pk-bar pk-compose">
-          <Textarea keep={keep("message")} rows={2} aria-label="Message" placeholder="Message" value={message} onChange={(event) => setMessage(event.target.value)} />
-          <Button variant="primary" disabled={message.trim() === ""} onClick={send}>Send</Button>
-        </footer>
-      )}
     </section>
   );
 }

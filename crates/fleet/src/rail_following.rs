@@ -18,7 +18,7 @@ use tokio::task::JoinHandle;
 use crate::daemon::Fleet;
 use crate::rail::{self, Facts, RailStep, Skip};
 use crate::rail_keeping::rail_read;
-use crate::session_host::delivering::{delivery_asked, ASKED};
+use crate::session_host::delivering::{card_choice, chosen_words, delivery_asked, ASKED};
 use crate::session_host::session_judging::{Question, Reading};
 
 /// Whether a step left behind is read by a judge. **Off since 16 Oct 2026**, the owner's decision:
@@ -222,11 +222,19 @@ where
         }
         let step = &steps[to as usize];
         let words = rail::instructed(&self.workflow_name(&hosting.manifest_id, workflow), step);
-        let asked = self.rows_of(id).await.is_ok_and(|rows| delivery_asked(&rows));
+        let rows = self.rows_of(id).await.unwrap_or_default();
+        let asked = delivery_asked(&rows);
         if step.asks_delivery && !asked && self.delivery_row_kept(id, text).await {
             return Some(ASKED.to_string());
         }
-        words
+        // A landing the start card answered goes with the first turn, as an answer given later goes with its own.
+        match card_choice(&rows).filter(|_| step.asks_delivery) {
+            Some(choice) => Some(match words {
+                Some(words) => format!("{}\n\n{words}", chosen_words(choice)),
+                None => chosen_words(choice),
+            }),
+            None => words,
+        }
     }
 
     /// Remember that the agent was nudged about step `at`.

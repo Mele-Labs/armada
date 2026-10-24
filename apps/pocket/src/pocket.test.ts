@@ -1,7 +1,7 @@
-import { readdirSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-import { ago, homeOf, type Mac } from "./fleet";
+import { homeOf, type Mac } from "./fleet";
 import type { PhoneSession } from "./gateway";
 import { codeFromInput, linkOf } from "./pairing";
 import { routeOf } from "./router";
@@ -51,17 +51,6 @@ describe("the SSE parser", () => {
   it("joins multi-line data, ignores other fields and comments, and reads CRLF", () => {
     const parser = new SseParser();
     expect(parser.feed(": hello\r\nevent: x\r\ndata: a\r\ndata: b\r\n\r\n")).toEqual(["a\nb"]);
-  });
-});
-
-const NOW = Date.parse("2026-10-08T12:00:00Z");
-
-describe("data.ts mapping", () => {
-  it("counts ages the way the rows draw them", () => {
-    expect(ago("2026-10-08T11:59:30Z", NOW)).toBe("now");
-    expect(ago("2026-10-08T11:46:00Z", NOW)).toBe("14m");
-    expect(ago("2026-10-08T11:00:00Z", NOW)).toBe("1h");
-    expect(ago("2026-10-08T09:50:00Z", NOW)).toBe("2h 10m");
   });
 });
 
@@ -131,5 +120,17 @@ describe("the source folder", () => {
   it("has no two files that differ only in case or extension", () => {
     const stems = readdirSync(new URL(".", import.meta.url)).map((name) => name.replace(/\.[^.]+$/, "").toLowerCase());
     expect(stems.filter((stem, at) => stems.indexOf(stem) !== at)).toEqual([]);
+  });
+});
+
+describe("the text fields", () => {
+  // happy-dom does not compute imported CSS, so the stylesheet is read as text. iOS zooms into a focused field under 16 px.
+  const css = readFileSync(new URL("./pocket.css", import.meta.url), "utf8");
+  const tokens = readFileSync(new URL("../../../packages/tokens/tokens.css", import.meta.url), "utf8");
+  it("takes --text-base, which is 16 px, on every field the phone types in", () => {
+    expect(tokens).toMatch(/--text-base:\s*16px/);
+    const rule = /main\.pk-app\s*:is\(([^)]*)\)\s*\{([^}]*)\}/.exec(css);
+    expect(rule?.[2]).toMatch(/font-size:\s*var\(--text-base\)/);
+    for (const field of ["textarea", "input", "select", '[contenteditable="true"]']) expect(rule?.[1]).toContain(field);
   });
 });

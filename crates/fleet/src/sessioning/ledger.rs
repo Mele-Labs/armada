@@ -138,6 +138,10 @@ where
         let held = store.attachments_of(&Holder::session(&session.id)).map_err(fault)?;
         let build = build_read(store, session, &held).map_err(fault)?;
         let hosting = if session.origin == "bridge" { store.hosting(&session.id).map_err(fault)? } else { None };
+        let start = match &hosting {
+            Some(hosting) if hosting.start_held => Some(crate::session_host::start_card::start_read(store, hosting).map_err(fault)?),
+            _ => None,
+        };
         let rail = match &hosting {
             Some(hosting) => {
                 crate::rail_keeping::rail_read(store, session, hosting.workflow.is_some()).map_err(fault)?
@@ -170,6 +174,7 @@ where
             touches: store.session_touches(&session.id).map_err(fault)?,
             later: store.later_of(&session.id).map_err(fault)?,
             watching: store.first_live_watch_name(&session.id).map_err(fault)?,
+            start,
         })
     }
 
@@ -230,7 +235,7 @@ where
         }
         record.hosted = reads
             .hosting
-            .map(|hosting| self.hosted_facts_of(&session.id, hosting));
+            .map(|hosting| self.hosted_facts_of(&session.id, hosting, reads.start));
         if session.state == store::SessionState::Live {
             record.done_since = reads.waiting.done.as_deref().map(wire_instant);
             record.held_until = reads.limited.as_deref().map(wire_instant);

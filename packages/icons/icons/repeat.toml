@@ -5,3 +5,10 @@
   status = "Proposed"
   reserved = "A Logbook entry of kind habit, how the owner works. Never a retry, a loop in a workflow or a schedule."
   notes = "Proposed 22 Oct 2026 for the walk `logbook`. Tooltip `Habit`."
+
+[[icons.repeat.usage]]
+  means = "How a Job's work lands, when it is the choice he usually makes for this kind of work in this repository, on a Job's start card"
+  group = "Session"
+  size = "12px"
+  status = "Proposed"
+  notes = "Proposed 23 Oct 2026 for the walk `job-start-card`. A usual is a habit, which is what this glyph already says in the Logbook. Tooltip `Your usual for features in armada`. Shown beside Lands only while the choice in use is the usual one."

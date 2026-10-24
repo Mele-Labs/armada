@@ -245,7 +245,8 @@ a multi-select's labels joined with `, `. [Spike 29](../../spikes/029-why-a-sess
 
 | Operation | Does |
 |---|---|
-| `start_session` | A row for one repository, with optional title, model, effort and mode |
+| `start_session` | A row for one repository, with optional title, model, effort and mode; `held` keeps it on its start card (*The start card*) |
+| `begin_session` | Start pressed on the start card: keeps how the work lands, lifts the hold, sends the turns that waited |
 | `rename_session` | A person's name for a Job, hosted or in a terminal; stands until the next terminal `/rename` |
 | `start_session_run` | A shell block run from a Job's thread, on a terminal of its own, in its slot worktree or directory; output is held in memory only |
 | `stop_session_run` | Ends a run's process group |

@@ -143,7 +143,13 @@ pub(super) fn rig_placing(peers: Option<Arc<crate::tests::peer::Placing>>) -> Ri
 pub(super) fn rig_fitted(
     fit: impl FnOnce(&mut crate::daemon::Fittings<FakeHarness, FakeVcs, FakeWorkProduct>),
 ) -> Rig {
-    let home = TempDir::new();
+    rig_over(TempDir::new(), fit)
+}
+
+fn rig_over(
+    home: TempDir,
+    fit: impl FnOnce(&mut crate::daemon::Fittings<FakeHarness, FakeVcs, FakeWorkProduct>),
+) -> Rig {
     let stand_in = Arc::new(StandIn::default());
     let mut fittings = crate::tests::daemon::fittings(&home, FakeWorkProduct::changed(&[]));
     fit(&mut fittings);
@@ -164,8 +170,47 @@ pub(super) fn rig_fitted(
 }
 
 impl Rig {
+    /// Fleet restarted over the same home: what it kept in memory is gone and the store stays. The clock
+    /// is moved on, as real time is, so a row written now never takes the id of one written before.
+    pub(super) fn restarted(self, fit: impl FnOnce(&mut crate::daemon::Fittings<FakeHarness, FakeVcs, FakeWorkProduct>)) -> Rig {
+        let Rig { fleet, _home: home, .. } = self;
+        drop(fleet);
+        rig_over(home, |fittings| {
+            let later = crate::tests::planted::Ticking::from_nine();
+            for _ in 0..1000 {
+                crate::clock::Clock::now(&later);
+            }
+            fittings.clock = Arc::new(later);
+            fit(fittings);
+        })
+    }
+
     pub(super) async fn start(&self) -> SessionId {
         self.start_titled(None).await
+    }
+
+    /// A start that waits on its start card.
+    pub(super) async fn start_held(&self) -> SessionId {
+        self.start_requesting_nothing(true).await
+    }
+
+    async fn start_requesting_nothing(&self, held: bool) -> SessionId {
+        self.fleet
+            .start_session(StartSession {
+                manifest_id: self.manifest.clone(),
+                title: None,
+                model: None,
+                effort: None,
+                mode: None,
+                root: None,
+                fork: None,
+                request: None,
+                after: None,
+                held,
+            })
+            .await
+            .expect("started")
+            .id
     }
 
     pub(super) async fn start_titled(&self, title: Option<&str>) -> SessionId {
@@ -180,6 +225,7 @@ impl Rig {
                 fork: None,
                 request: None,
                 after: None,
+                held: false,
             })
             .await
             .expect("started")
@@ -203,6 +249,7 @@ impl Rig {
             fork: None,
             request: Some(request.to_string()),
             after: None,
+            held: false,
         };
         set(&mut start);
         Arc::clone(&self.fleet)
@@ -709,6 +756,7 @@ async fn a_quiet_process_is_ended_and_closing_ends_the_row_and_refuses_more() {
             fork: None,
             request: None,
             after: None,
+            held: false,
         })
         .await
         .unwrap()

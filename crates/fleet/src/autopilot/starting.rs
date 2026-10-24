@@ -59,6 +59,7 @@ where
                 fork: None,
                 request: None,
                 after: None,
+                held: false,
             })
             .await?;
         let id = record.id.as_str().to_string();

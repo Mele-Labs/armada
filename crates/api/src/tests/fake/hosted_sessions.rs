@@ -174,6 +174,10 @@ impl HostedSessions for FakeDaemon {
         Err(nothing_hosted())
     }
 
+    async fn begin_session(self: Arc<Self>, _begin: ipc::BeginSession) -> Result<SessionRecord, Refusal> {
+        Err(nothing_hosted())
+    }
+
     async fn release_session_holds(
         &self,
         _release: ipc::ReleaseSessionHolds,
