@@ -55,7 +55,7 @@ fn names(cell: &str) -> Vec<String> {
 #[test]
 fn the_skill_names_the_registrys_regions_ids_and_flags() {
     let root = crate::repo_root();
-    let skill = fs::read_to_string(root.join(".claude/skills/armada-mods/SKILL.md")).expect("the skill is there");
+    let skill = fs::read_to_string(root.join("plugins/armada/skills/armada-mods/SKILL.md")).expect("the skill is there");
     let shipped = registry(&fs::read_to_string(root.join("packages/shell/layout-registry.json")).expect("the registry is there"));
     assert!(!shipped.is_empty(), "the registry file was read as no regions");
 

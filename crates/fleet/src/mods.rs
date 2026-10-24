@@ -158,6 +158,7 @@ impl Examined {
             description: self.manifest.description.clone(),
             taught_on: self.manifest.taught_on.clone(),
             entry: self.manifest.entry.clone(),
+            made_by: self.manifest.made_by.clone().map(ipc::SessionId::carried),
             enabled,
             valid: self.valid(),
             reason: self.problems.first().map(|first| match self.problems.len() {

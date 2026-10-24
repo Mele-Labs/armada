@@ -80,6 +80,20 @@ enum Written {
     Row(SessionRow),
 }
 
+/// What Fleet marks a hosted session as at its start. **No `start_session` call can**: the mark is
+/// Fleet's to give.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Marked {
+    Plain,
+    /// A repository's Helm (`helm_session.rs`).
+    Helm,
+    /// A Mod Job, started by `start_mod_session`.
+    Mod,
+    /// A Mod Job where Armada's own repository is not served: it runs in the mods folder, with no
+    /// Manifest, and so never leases a slot or cuts a branch.
+    ModsFolder,
+}
+
 pub(crate) fn mode_text(mode: SessionMode) -> &'static str {
     match mode {
         SessionMode::Ask => "ask",
@@ -138,7 +152,7 @@ where
         if let Some(from) = start.fork.take() {
             return self.start_forked(start, from).await;
         }
-        self.started_hosted(start, false).await
+        self.started_hosted(start, Marked::Plain).await
     }
 
     async fn start_session_reading(

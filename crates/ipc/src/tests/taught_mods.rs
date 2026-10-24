@@ -16,6 +16,7 @@ fn the_new_kinds_are_spelled_as_their_files_are_named_and_taught_on_is_left_out_
         description: None,
         taught_on: Some("ARM-123 in a message".into()),
         entry: Some("41".into()),
+        made_by: None,
         enabled: true,
         valid: true,
         reason: None,

@@ -156,6 +156,11 @@ const WITHOUT_A_MANIFEST_OFFERS: &[&str] = &[
     // The Job's shell stands in its own worktree or directory, read inside no Manifest.
     "type_in_terminal",
     "read_terminal",
+    // The machine's mods, read inside no Manifest: a Mod Job in the mods folder makes them.
+    "list_mods",
+    "scaffold_mod",
+    "validate_mod",
+    "try_tracker_mod",
 ];
 
 /// The routes that read `?manifest_id=` and, absent it, answer about every

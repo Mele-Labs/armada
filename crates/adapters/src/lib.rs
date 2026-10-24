@@ -46,6 +46,8 @@ mod api_forge;
 mod background;
 mod base;
 mod basing;
+/// The beads tracker, which Fleet also writes to and syncs.
+mod beads_tracker;
 pub mod browser_shell;
 mod build_standing;
 pub mod check_blame;

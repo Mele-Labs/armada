@@ -488,6 +488,8 @@ export type Session = {
    * It runs in auto, so `mode` is never offered for it.
    */
   helm?: true;
+  /** A Mod Job: started from Mod, for modding Armada itself. */
+  mod?: true;
   /** Absent until the first turn has named it; a blank Session is known by its id alone. */
   title?: string;
   /** The repository it works in, by Manifest id: what `#` reads issues and pull requests of. */

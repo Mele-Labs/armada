@@ -16,15 +16,19 @@ use std::path::Path;
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use adapters::ForgeAddress;
 use api::{Caller, Refusal};
-use ipc::{ClaimIssue, IssueClaimed, IssueReference, ManifestId, SessionTag, TagKind};
+use ipc::{ClaimIssue, IssueClaimed, IssueReference, ManifestId, SessionTag, TagKind, WireError};
 use store::{AttachmentState, Holder, HolderKind, KeptAttachment, Store, WriteError};
 
+use crate::backlog::ClaimLost;
 use crate::daemon::Fleet;
 
 /// The ledger's kind for an issue a Session works on. `target` is its [`IssueReference`].
 pub(crate) const ISSUE: &str = "issue";
 
 const NOT_CLAIMABLE: &str = "fleet.issue_not_claimable";
+
+/// The backlog, synced, names someone else as holding the issue. A 409 naming them.
+const HELD_ELSEWHERE: &str = "fleet.issue_held";
 
 /// The detail key naming the pull requests that work an issue, comma-joined ascending.
 pub(crate) const PULL_REQUESTS: &str = "pull_requests";
@@ -144,7 +148,9 @@ where
     }
 
     /// `claim_issue`: the caller, placed as `claim_pull_request` places it, holds the issue it names,
-    /// with the pull requests that work it. Nothing is asked of the tracker: the pull reading reads it.
+    /// with the pull requests that work it. **Nothing is asked of a tracker Fleet only reads**: the
+    /// pull reading reads it. In one Fleet writes to, the issue is claimed there first, and a claim
+    /// the synced copy gives to someone else is refused naming them.
     pub(crate) async fn issue_claimed(&self, caller: Option<Caller>, claim: ClaimIssue) -> Result<IssueClaimed, Refusal> {
         let refuse = |why: String| self.hosted_refusal(NOT_CLAIMABLE, &why);
         let issue = IssueReference::read(&claim.issue).ok_or_else(|| {
@@ -160,12 +166,16 @@ where
                 claim.session_id.as_ref().map(|id| id.as_str().trim().to_string()).filter(|id| !id.is_empty())
             })
             .ok_or_else(|| refuse("an issue is claimed by a job, and this call is not one".into()))?;
-        let mut store = self.store().lock().await;
-        let manifest = store
+        let manifest = self
+            .store()
+            .lock()
+            .await
             .session(&id)
             .map_err(|why| self.ledger_fault(why))?
             .and_then(|session| session.manifest_id)
             .ok_or_else(|| refuse(format!("job {id} is in no repository Fleet serves")))?;
+        self.claimed_where_written(&manifest, &issue, &id).await?;
+        let mut store = self.store().lock().await;
         let holder = Holder::session(&id);
         let mut known = BTreeMap::new();
         if !claim.pull_requests.is_empty() {
@@ -189,6 +199,28 @@ where
             self.publish(ipc::Event::SessionChanged(record));
         }
         Ok(IssueClaimed { issue: issue.as_str().to_string(), holder_id: id, pull_requests })
+    }
+
+    /// Claim `issue` for Job `id` in the backlog of `manifest`'s repository, where its tracker is one
+    /// Fleet writes to. Runs a sync or two, so it holds no lock on the ledger.
+    async fn claimed_where_written(&self, manifest: &str, issue: &IssueReference, id: &str) -> Result<(), Refusal> {
+        let served = self.served_named(Some(&ManifestId::carried(manifest)))?;
+        let Some(backlog) = self.backlog_of(&served) else {
+            return Ok(());
+        };
+        let actor = self.claim_actor(id).await;
+        match self.claimed_in_backlog(&served, backlog, issue.as_str(), &actor).await {
+            Ok(()) => Ok(()),
+            Err(ClaimLost::Held { holder }) => Err(Refusal::IllegalMove(WireError::raised(
+                HELD_ELSEWHERE,
+                format!("{issue} is held by {holder}, as the backlog reads after a sync. Pick another issue"),
+                self.run_id(),
+            ))),
+            Err(ClaimLost::Unsettled(why)) => Err(self.hosted_refusal(
+                NOT_CLAIMABLE,
+                &format!("{issue} was not claimed: {} did not happen: {}. Claiming it again is safe", why.doing, why.said),
+            )),
+        }
     }
 
     /// Where the repository `manifest_id` serves lives on its forge: the only one whose issues a

@@ -204,7 +204,7 @@ fn a_scaffold_of_each_new_kind_is_valid_at_once_and_a_taught_one_carries_its_tex
     let home = TempDir::new();
     let mods = home.path().join("mods");
     for (name, kind) in [("w", ModKind::Words), ("f", ModKind::Fleet), ("t", ModKind::Tweak)] {
-        scaffold::make(&mods, name, None, kind).expect("made");
+        scaffold::make(&mods, name, None, kind, None).expect("made");
         let found = examine(&mods, name);
         assert!(found.valid(), "{name}: {:?}", found.problems);
     }
@@ -225,14 +225,14 @@ async fn fleet_scaffolds_validates_and_lists_a_tweak_and_hands_bridge_its_css() 
     let home = TempDir::new();
     let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
     let made = fleet
-        .scaffold_mod(ScaffoldMod { name: "warm".into(), description: None, kind: Some(ModKind::Tweak) })
+        .scaffold_mod(ScaffoldMod { name: "warm".into(), description: None, kind: Some(ModKind::Tweak), session_id: None })
         .await
         .expect("scaffolded");
     std::fs::write(Path::new(&made.path).join("tweak.css"), ":root { --accent: #E0954A; }\n").expect("edited");
     let checked = fleet.validate_mod("warm".into()).await.expect("checked");
     assert!(checked.valid && checked.css.as_deref() == Some(":root { --accent: #E0954A; }\n"), "{checked:?}");
     let words = fleet
-        .scaffold_mod(ScaffoldMod { name: "keys".into(), description: None, kind: Some(ModKind::Words) })
+        .scaffold_mod(ScaffoldMod { name: "keys".into(), description: None, kind: Some(ModKind::Words), session_id: None })
         .await
         .expect("scaffolded");
     assert!(Path::new(&words.path).join("words.toml").is_file());
