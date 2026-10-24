@@ -8,7 +8,9 @@ notes = """
 
 **The caller is placed as `claim_pull_request` places it**: a hosted job by the connection, a terminal job by `session_id`. A call that places none is refused with 422 `fleet.issue_not_claimable`.
 
-**`issue` is the forge's number (`7` or `#7`, held as `7`) or a tracker's key (`ABC-12`).** Anything else is refused with 422 `fleet.issue_not_claimable` and nothing is held. Fleet does not ask the tracker first: the pull reading reads the row's title, state and address on its next pass, and a reference the tracker does not answer for stays as it was named.
+**`issue` is the forge's number (`7` or `#7`, held as `7`), a tracker's key (`ABC-12`) or a lowercase id (`armada-3fz`).** Anything else is refused with 422 `fleet.issue_not_claimable` and nothing is held. Fleet does not ask a tracker it only reads: the pull reading reads the row's title, state and address on its next pass, and a reference the tracker does not answer for stays as it was named.
+
+**In a repository whose tracker Fleet writes to, the issue is claimed there first**, as sync, claim, sync, read back, by an actor naming this machine and the start of the job's id (`mac-a/7d2b2166`). It takes as long as two syncs, tens of seconds. Where the synced copy names someone else, the call is refused with 409 `fleet.issue_held` naming them and nothing is held; where a sync or the claim itself fails, with 422 `fleet.issue_not_claimable` in the tracker's words, and claiming again is safe. `docs/concepts/tracker.md`, *Beads*.
 
 **One row a job and issue**, as the person's tag holds it. A second claim stands the row again where it was given back. `pull_requests` are the numbers of the pull requests that work the issue; the row's detail carries them as `pull_requests`, comma-joined ascending, and a second claim adds to them. The answer lists every one the row now names.
 

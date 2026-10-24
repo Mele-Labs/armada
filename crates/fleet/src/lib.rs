@@ -27,6 +27,8 @@ pub mod autopilot;
 mod authoring;
 /// The backlog Fleet writes to: each copy kept in step, and an issue claimed in it.
 pub mod backlog;
+/// Fleet syncing each backlog while it runs, and claiming an issue in one.
+pub mod backlog_syncing;
 pub mod basing;
 /// What a Session has built: the rules between what Fleet observed and the record on its row.
 mod build_facts;

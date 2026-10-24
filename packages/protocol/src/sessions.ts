@@ -372,6 +372,8 @@ export type PullRequestClaimed = {
  * tracker's key (`ABC-12`), held as an `issue` row on its ledger. `pull_requests` are the numbers of the
  * pull requests that work it, which the row's detail carries as `pull_requests`, comma-joined ascending.
  * Fleet refuses 422 `fleet.issue_not_claimable` for a reference that is neither, or a call that places no Session.
+ * In a repository whose tracker Fleet writes to, it claims there first and refuses 409 `fleet.issue_held`, naming
+ * the holder, where the synced copy gives the issue to someone else.
  */
 export type ClaimIssue = { issue: string; session_id?: string; pull_requests?: number[] };
 

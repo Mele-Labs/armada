@@ -97,10 +97,22 @@ fn a_group_naming_neither_a_number_nor_a_key_is_refused_by_its_place() {
 
 #[test]
 fn an_issue_is_digits_or_a_trackers_key_and_nothing_else() {
-    for (written, held) in [("7", "7"), ("#7", "7"), (" 0031 ", "31"), ("ABC-12", "ABC-12"), ("A_1B-3", "A_1B-3")] {
+    for (written, held) in [
+        ("7", "7"),
+        ("#7", "7"),
+        (" 0031 ", "31"),
+        ("ABC-12", "ABC-12"),
+        ("A_1B-3", "A_1B-3"),
+        ("armada-3fz", "armada-3fz"),
+        ("armada-3fz.1", "armada-3fz.1"),
+        ("armada-1792806783819-955-760bc69c", "armada-1792806783819-955-760bc69c"),
+    ] {
         assert_eq!(IssueReference::read(written).map(|one| one.as_str().to_string()), Some(held.to_string()), "{written}");
     }
-    for written in ["", "#", "hello", "abc-1", "ABC-", "-12", "1ABC-2", "ABC-12-3", "ABC 12", "#ABC-12", "+7"] {
+    for written in [
+        "", "#", "hello", "abc-1", "ABC-", "-12", "1ABC-2", "ABC-12-3", "ABC 12", "#ABC-12", "+7", "armada-", "armada-3fz.",
+        "armada-3FZ", "1armada-3fz", "armada--3fz",
+    ] {
         assert_eq!(IssueReference::read(written), None, "{written:?}");
     }
     assert_eq!(IssueReference::number(7).to_string(), "#7");

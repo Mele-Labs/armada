@@ -1,6 +1,7 @@
 //! The issue tracker a repository keeps: what is open there, and one issue by
 //! its reference. **Read only**: Fleet never comments on, labels or edits an
-//! issue on the owner's behalf.
+//! issue on the owner's behalf. The one tracker Fleet writes to is a [`Backlog`](crate::Backlog)
+//! as well, and the writes are that trait's.
 //!
 //! **Its own trait, not more of [`Delivery`](crate::Delivery) or
 //! [`LinkLookup`](crate::LinkLookup).** Delivery publishes a Job's branch and is
