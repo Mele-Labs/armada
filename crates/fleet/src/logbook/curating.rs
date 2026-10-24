@@ -51,7 +51,7 @@ fn evidence(distil: &Distil<'_>, cites: &[String], how: LogHow, hard: bool) -> L
 }
 
 /// Replace an entry's text, keeping the one it had. Nothing where the words are the same.
-fn rewrite(entry: &mut LogEntry, text: &str, why: LogRewrite, now: u64) {
+pub(super) fn rewrite(entry: &mut LogEntry, text: &str, why: LogRewrite, now: u64) {
     if logbook_words(text) == logbook_words(&entry.text) {
         return;
     }

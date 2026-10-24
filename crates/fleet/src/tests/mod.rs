@@ -64,6 +64,7 @@ mod logbook_curating;
 mod logbook_note;
 mod logbook_recall;
 mod logbook_routes;
+mod logbook_tidying;
 mod logbook_answer;
 mod notice_mutes;
 mod notice_rules;

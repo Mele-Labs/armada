@@ -25,8 +25,8 @@ export type LogbookEvidence = {
   at: string;
 };
 
-/** Text the entry held before, and who replaced it: Distil on a contradiction or a trip, or the person. */
-export type LogbookEarlier = { text: string; until: string; by: "distil" | "person" };
+/** Text the entry held before, and who replaced it: Distil on a contradiction or a trip, Tidy when it merged a near-duplicate in, or the person. */
+export type LogbookEarlier = { text: string; until: string; by: "distil" | "person" | "merged" };
 
 export type LogbookEntry = {
   id: string;
@@ -54,7 +54,13 @@ export type LogbookEntry = {
 };
 
 /** `get_logbook` (`GET /logbook`): the entries asked for, forgotten ones left out. */
-export type Logbook = { entries: LogbookEntry[] };
+export type Logbook = { entries: LogbookEntry[]; tidy: LogbookTidy };
+
+/** Whether a Tidy pass is running, and what the last one did. `last` is kept in memory, so a Fleet restart forgets it; a failed pass is kept with `failed: true`. */
+export type LogbookTidy = { running: boolean; last?: LogbookTidyLast };
+
+/** What a Tidy pass did: the entries it folded into another and archived, when it ended, and whether a repository's call failed (`merged` then counts what was archived before it did). */
+export type LogbookTidyLast = { merged: number; at: string; failed: boolean };
 
 /**
  * `?repository=` (a root `list_repositories` names), `?section=` and `?state=` on `get_logbook`. With no repository the
@@ -72,6 +78,15 @@ export type LockLogbookEntry = { locked: boolean };
 export type ForgottenLogbookEntry = { id: string };
 
 /**
+ * The body of `tidy_logbook` (`POST /logbook/tidy`). `repository` is a served repository's root; absent tidies every
+ * repository, with the habits and this Mac's.
+ */
+export type TidyLogbook = { repository?: string };
+
+/** What `tidy_logbook` answers at once: a pass is running. What it merged shows in `Logbook.tidy` once it finishes. */
+export type TidiedLogbook = { running: boolean };
+
+/**
  * The body of `teach_logbook_entry` (`POST /logbook/entries`): an entry a person wrote, which stands at once and
  * answers as the entry. `repository` is a root, required for `repo` and ignored for the others.
  */
@@ -86,13 +101,16 @@ export type TeachLogbookEntry = {
 };
 
 /** Bridge's envelope over `Logbook`: the entries, or why they could not be read. */
-export type LogbookRead = { ok: true; entries: LogbookEntry[] } | { ok: false; outcome: Outcome };
+export type LogbookRead = { ok: true; entries: LogbookEntry[]; tidy: LogbookTidy } | { ok: false; outcome: Outcome };
 
 /** What an edit or a lock came back as: the entry as it now stands, or the refusal. */
 export type LogbookAnswer = { ok: true; entry: LogbookEntry } | { ok: false; outcome: Outcome };
 
 /** What Forget came back as. The entry is on the deny list and gone from every read. */
 export type LogbookForgotten = { ok: true } | { ok: false; outcome: Outcome };
+
+/** What pressing Tidy came back as: a pass is running, or the refusal. */
+export type LogbookTidied = { ok: true; running: boolean } | { ok: false; outcome: Outcome };
 
 /**
  * `recall`: `GET /logbook/recall?query=&section=&manifest_id=`. The Logbook entries whose text holds the
