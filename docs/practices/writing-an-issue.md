@@ -1,7 +1,9 @@
 # Writing an issue
 
-**Kind:** practice. **Governs:** the body of every GitHub issue in this
-repository. Read before filing one, and before reformatting one.
+**Kind:** practice. **Governs:** the body of every beads issue in this
+repository, filed with `bd create`. Read before filing one, and before
+reformatting one. GitHub issues are frozen as they stand, and `#123` in the
+examples below names one.
 
 An issue has two readers and they need opposite things. The owner reads it to
 decide what to pick up, and stops after two sentences. An agent reads it to
@@ -105,7 +107,7 @@ should care:
 > Doctor: the condition strip
 
 A colon-prefixed grouping (`Pilot:`, `Doctor:`) is a milestone's job, and the
-milestone field already does it. The third example above is repaired, along with
+milestone's epic already does it. The third example above is repaired, along with
 eleven others in the same pass — and **the replacement came out of the body every
 time**, because those bodies had just had their opening paragraphs rewritten to
 name what a person cannot do. A title that will not come is usually a body that
@@ -119,9 +121,10 @@ has not said it yet.
   this and nobody reads it in the body.
 - **Commentary on the filing.** "Filing this small because", "Recorded here
   rather than filed separately."
-- **A `## Related` list of issue numbers already cross-linked.** GitHub renders
-  the backlink. A related issue earns a line only when the sentence says what the
-  relationship costs.
+- **A `## Related` list of ids with nothing said about them.** A related issue
+  earns a line only when the sentence says what the relationship costs, and the
+  line names each id. `bd dep add <a> <b> -t relates-to` links the two issues;
+  beads shows no backlinks, so the body is where a reader finds the relation.
 
 ## Definition of done is a sentence a person can check
 
@@ -159,8 +162,8 @@ rather than a rule in `verify-foundations`.
 | Rejected | Why |
 |---|---|
 | **`As a user I want X so that Y`** | The role slot is constant in a one-owner repository, so it occupies line one and carries nothing. Worse, *"I want"* states a wanted solution — *"as a user I want the cache invalidated on write"* has already picked the fix. Ron Jeffries, who co-invented it, says the card was never the artifact and that a standard card format was tried in 1998 and *"realized it was a bad idea then"* ([Three C's revisited](https://ronjeffries.com/articles/019-01ff/3cs-revisited/)). The load-bearing part is the conversation, and an issue an agent implements has no conversation phase. **The `so that` survives, as the opening paragraph** |
-| **YAML issue forms** | Forms enforce required fields on the web form only. `gh issue create --body` takes a body directly and `--template` is opt-in starting text, so a form gates nothing on the path an agent files by. Markdown templates are also readable by an agent as a file it can follow; a form's YAML is not |
-| **A `type:` field in the template** | GitHub issue types are an organisation-level feature. This is a personal-account repository, so `type:` is inert. Labels do the work |
+| **YAML issue forms** | Forms enforce required fields on a web form only, and beads has none. `bd create --body-file` takes a body directly, so a form gates nothing on the path an agent files by. A Markdown template is also readable by an agent as a file it can follow; a form's YAML is not |
+| **A `type:` field in the template** | `bd create -t` already sets beads' own type. Labels name the kind, and a second field would say it twice |
 | **Observed-vs-expected as two required fields** | Six templates across five surveyed projects enforce it as separate required fields — kubernetes, go, node, vue, Homebrew (twice). It suits a stranger reporting against software they did not write. Here the filer has read the code, and `## What happened` already carries both halves in one paragraph |
 | **The job story's `When [situation]` clause** | The best-surviving fragment of the story formats — it is a reproduction step wearing a template — but `## What happened` already opens on the trigger in every issue that has one. Adding the clause would buy a keyword, not a fact |
 | **Shape Up's *appetite*** | It presumes a betting table and a fixed cycle. Milestones already do that job |
@@ -188,9 +191,9 @@ fix is demotion rather than deletion, which is what this page prescribes.
 
 ## Where the shape lives
 
-`.github/ISSUE_TEMPLATE/bug.md` and `work.md` carry the shape. They apply on the
-web form and on an interactive `gh issue create`; **they do not apply when a body
-is passed**, which is how an agent files. So the template is the copy of the
+`.github/ISSUE_TEMPLATE/bug.md` and `work.md` carry the shape. They serve the
+frozen GitHub issues; **`bd create` never applies them**, because it takes the
+body as written, which is how an agent files. So the template is the copy of the
 shape and this page is the rule. `armada-bug` and `reformat-issue` point here
 rather than restating it, for the reason `armada-voice` gives: a copy is a second
 source that drifts silently from the first.

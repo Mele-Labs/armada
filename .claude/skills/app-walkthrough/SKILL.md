@@ -23,9 +23,9 @@ This skill is the loop. It does not restate the rules it leans on:
 Either one being behind `main` makes a report about a merged fix look like a new
 bug. `git log -1 origin/main` and the Fleet's health say which.
 
-**Load the open issues once.** `gh issue list --state open --limit 300 --json
-number,title,labels,milestone` in a scratch file, so the duplicate check for
-each report is a grep and not a round trip.
+**Load the open issues once.** `bd list --status open --limit 0 --json` in a
+scratch file, so the duplicate check for each report is a grep and not a round
+trip.
 
 ## Each report
 
@@ -40,13 +40,13 @@ without stranding it on his screen.
 
 ### 2. Search for it
 
-Grep the scratch list, then `gh issue list --search "<words>" --state all`.
+Grep the scratch list, then `bd search "<words>"`, which includes closed issues.
 **A closed issue that matches is the most useful thing you can find** — it is
 either a regression or a fix that has not reached his build.
 
 | Found | Say |
 |---|---|
-| Open, and it covers this | The link, and whether his report adds a fact worth a comment he would post |
+| Open, and it covers this | The id, and whether his report adds a fact worth a comment he would post |
 | Closed, fix merged | Whether his build has it. If it does, it is a regression and gets filed as one, citing the old issue |
 | Nothing | Carry on |
 
@@ -90,14 +90,14 @@ moving.
 Print the title, labels, milestone and body. Get a yes. Then:
 
 ```
-gh issue create --title "…" --label <label> --milestone "<title>" --body-file <scratch path>
+bd create "…" -l <label> --parent <milestone epic id> --body-file <scratch path>
 ```
 
-`surface` belongs to no milestone, so drop `--milestone` for it. Give him the full link, so it opens from the terminal.
+A milestone is an epic, and `--parent` files the issue under it. `surface` belongs to no milestone, so drop `--parent` for it. Give him the issue's id, such as `armada-a3f2`.
 
 ## Across the job
 
-**Keep a table** of every report — the link, or why nothing was filed. When he
+**Keep a table** of every report — the id, or why nothing was filed. When he
 says he is done, that table is the reply, with an **Owner** and a **Next action**
 column.
 

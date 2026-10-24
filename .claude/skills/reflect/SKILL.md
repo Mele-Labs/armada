@@ -139,7 +139,7 @@ thing is the one that rots, and it rots silently because nothing tests prose.
 - **Close what merged**, with what was decided and why — not "done". That comment
   is what the next reader gets instead of the diff.
 - **Confirm the milestone is empty** before saying it is:
-  `gh issue list --milestone <name> --state open`.
+  `bd list --parent <milestone epic id> --status open`.
 
 ## 5. Follow-up work
 
