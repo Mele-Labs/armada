@@ -46,6 +46,7 @@ where
             fork: None,
             request: None,
             after: None,
+            held: false,
         };
         let id = self.started_hosted(start, false).await?.id;
         let leased = match self.take_lease(id.as_str(), served).await {

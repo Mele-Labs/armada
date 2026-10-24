@@ -354,7 +354,15 @@ export function shipOf(input: Inputs): Ship {
   // A Session that needs the person is a call, whether or not it raised one: its row's mark, opened as the row is. One that
   // asks (a question, a waiting item, a gate) keeps it until answered; a done turn or a stuck one is a call until seen. A reply that only tells is none.
   // The key carries the turn, so the next reply is a new call.
-  const asking = new Set(subjects.filter((one) => one.kind === "session" && stateOf(sessions.find((s) => s.id === one.id)!).state === "waiting").map((one) => one.key));
+  // A Job held on its start card asks the same: nothing moves until he presses Start.
+  const asking = new Set(
+    subjects
+      .filter((one) => {
+        const session = one.kind === "session" ? sessions.find((s) => s.id === one.id) : undefined;
+        return session !== undefined && (stateOf(session).state === "waiting" || session.start !== undefined);
+      })
+      .map((one) => one.key),
+  );
   const raised = [...calls];
   for (const subject of subjects) {
     if (subject.kind === "pr" || subject.phase !== "needs" || subject.call !== undefined) continue;

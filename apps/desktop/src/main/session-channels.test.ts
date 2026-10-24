@@ -93,3 +93,37 @@ describe("muting a notice", () => {
     expect(muteNotice).not.toHaveBeenCalled();
   });
 });
+
+describe("a Job held on its start card", () => {
+  function started() {
+    const handlers = new Map<string, Handler>();
+    const ipc = { handle: (channel: string, handler: Handler) => handlers.set(channel, handler) };
+    const begin = vi.fn(async () => ({ ok: true }));
+    const startSession = vi.fn(async (..._args: unknown[]) => ({ ok: true }));
+    const connection = () => ({ startSession, repositories: { pickedByWindow: { of: () => ({}) } }, sessions: { begin } });
+    handleSessions({ ipc, connection, windowIdOf: () => undefined, pages: {} } as unknown as Parameters<typeof handleSessions>[0]);
+    const call = (channel: string, ...args: unknown[]) => handlers.get(channel)?.({}, ...args);
+    return { call, begin, startSession };
+  }
+
+  it("passes `held` on to the start, and only when it is true", async () => {
+    const { call, startSession } = started();
+    await call(CHANNELS.startSession, undefined, "/r", "fix it", {}, undefined, true);
+    await call(CHANNELS.startSession, undefined, "/r", "fix it", {});
+    expect(startSession.mock.calls.map((one) => one[6])).toEqual([true, false]);
+  });
+
+  it("begins it with the delivery chosen, or none", async () => {
+    const { call, begin } = started();
+    await call(CHANNELS.beginSession, { session_id: "s", delivery: "open_pr" });
+    await call(CHANNELS.beginSession, { session_id: "s" });
+    expect(begin.mock.calls).toEqual([[{ session_id: "s", delivery: "open_pr" }], [{ session_id: "s" }]]);
+  });
+
+  it("sends nothing for a Job that is no id or a delivery that is no choice, and says so", async () => {
+    const { call, begin } = started();
+    expect(await call(CHANNELS.beginSession, { session_id: "", delivery: "open_pr" })).toEqual({ ok: false, outcome: { ok: false, why: "not_understood" } });
+    expect(await call(CHANNELS.beginSession, { session_id: "s", delivery: "merge_now" })).toEqual({ ok: false, outcome: { ok: false, why: "not_understood" } });
+    expect(begin).not.toHaveBeenCalled();
+  });
+});

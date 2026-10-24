@@ -528,6 +528,10 @@ where
         if target == from {
             return;
         }
+        // Before the row is written, so a Job held across a restart does not read it back as an old one.
+        if self.start_hold_restored(&target, &hosting).await.is_err() {
+            return;
+        }
         self.row_put(
             &target,
             SessionRow::Message {
@@ -555,10 +559,15 @@ where
         if runtime.state().process.is_some() {
             return;
         }
-        let said = format!(
-            "A message from job \"{title}\" (address {}): {message}",
-            address_of(from)
-        );
+        let said = from_job(from, &title, message);
+        // A Job on its start card keeps it with the turns that wait, and Begin sends it after them.
+        {
+            let mut state = runtime.state();
+            if state.proposal.start_held {
+                state.proposal.held.push_back(super::start_card::job_turn(message, said));
+                return;
+            }
+        }
         if self.ensure_process(&target, &hosting).await.is_err() {
             return;
         }
@@ -569,4 +578,9 @@ where
             }
         }
     }
+}
+
+/// What the agent reads of another Job's message.
+pub(crate) fn from_job(from: &str, title: &str, message: &str) -> String {
+    format!("A message from job \"{title}\" (address {}): {message}", address_of(from))
 }

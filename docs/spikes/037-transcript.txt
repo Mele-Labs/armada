@@ -1,0 +1,28 @@
+ * [new branch]          main -> main
+== claim: each machine claims red h1 offline
+-- a pushes:
+- Uploading...To file://<work>/sim/remote
+   o7svgdfj4v1bk4sn1p4quesp1mfg22ak..b9d8i3lramrt5lvqebh08ugfk0hb5ecm  main -> main
+-- b pushes:
+hint: 'dolt pull ...') before pushing again.
+-- b pulls:
+CONFLICT (content): Merge conflict in claims
+Automatic merge failed; 1 table(s) are unmerged.
+Use 'dolt conflicts' to investigate and resolve conflicts.
+-- b conflicts:
+our_machine,their_machine
+mac-b,mac-a
+== runs: a drops 'cargo clippy', b adds 'pnpm dev'
+   b9d8i3lramrt5lvqebh08ugfk0hb5ecm..hn9bk7dj9i2foqbfomq68ahd4t8jqqon  main -> main
+runs | 1 -
+1 tables changed, 0 rows added(+), 0 rows modified(*), 1 rows deleted(-)
+-- b after merge:
+command
+cargo test
+pnpm dev
+== history: who changed claims, cell by cell
+to_machine,from_machine,diff_type,to_commit
+mac-a,,added,b9d8i3lramrt5lvqebh08ugfk0hb5ecm
+== size on disk
+ 52K	<work>/sim/a/.dolt
+ 28K	<work>/sim/remote

@@ -11,7 +11,7 @@
 import type { ContextBreakdown } from "@armada/components/src/context-breakdown";
 import type { Scene } from "@armada/components/src/compositions/SketchScene/scene";
 import type { RunsPlace } from "@armada/components/src/compositions/RepositoryRuns/runs-places";
-import type { CheckBlame, LoadoutItemBody, LoadoutKind, LoadoutSource, LoadoutSummary, Notice, NoticeScope, PullRequestFilePatch, PullRequestPage, RequestBy, RequestHeader, SessionBuild, SessionLoadout, SessionStanding, ThoughtTarget, WaitingItem, WritePullRequest } from "@armada/protocol";
+import type { CheckBlame, DeliveryChoice, DeliveryPicked, LoadoutItemBody, LoadoutKind, LoadoutSource, LoadoutSummary, Notice, NoticeScope, PullRequestFilePatch, PullRequestPage, RequestBy, RequestHeader, SessionBuild, SessionLoadout, SessionStanding, ThoughtTarget, WaitingItem, WritePullRequest } from "@armada/protocol";
 import type { McpServerAct, McpSignIn, SessionMcpServer, WatchSummary } from "@armada/protocol";
 import type { RetroRowDrawn } from "../retro-row";
 
@@ -550,6 +550,12 @@ export type Session = {
    * Absent once it is sent, or on a Session nobody's agent started.
    */
   unsent?: string;
+  /**
+   * Held on its start card: the proposer has read the request or is reading it, and no agent moves until Start. `asksDelivery` is
+   * whether the Job's workflow has a landing step, so a choice is owed. `picked` is the choice already standing: his usual for this
+   * kind in this repository, or one his request named. Absent once the Job has begun.
+   */
+  start?: { asksDelivery: boolean; picked?: DeliveryPicked };
   /** Tags chosen and not yet sent: they wait in the message box as chips. */
   pendingTags?: readonly SessionTag[];
   /** The model and effort the next turn runs on. Absent is Auto. */
@@ -750,8 +756,14 @@ export type SessionsDraft = {
    * model and effort, and the Session starts on the answer without the press waiting for it.
    * `tuning` is a model or effort the person picked in Dispatch; it wins, and Fleet fills in only what is left out.
    * `after` is a Session this one waits on and when it starts: it then holds its words and runs nothing until the condition is met.
+   * `held` starts it on its start card: the words are read and nothing runs until `begin`.
    */
-  start: (tag?: SessionTag, root?: string, request?: string, tuning?: { model?: string; effort?: string }, after?: Pick<SessionWait, "on" | "when" | "part" | "base" | "needs">) => string | Promise<string | undefined>;
+  start: (tag?: SessionTag, root?: string, request?: string, tuning?: { model?: string; effort?: string }, after?: Pick<SessionWait, "on" | "when" | "part" | "base" | "needs">, held?: boolean) => string | Promise<string | undefined>;
+  /**
+   * Begins a Session held on its start card: the agent starts, and `delivery` is how the work lands where the Job's workflow has a landing
+   * step. Absent where nothing serves it, and the card offers no Start.
+   */
+  begin?: (id: string, delivery?: DeliveryChoice) => void | Promise<boolean>;
   /** Reads a brief for the wait it names: absent where nothing reads one, and Dispatch draws no sentence. */
   readsWait?: (words: string) => WaitReading | undefined;
   /**

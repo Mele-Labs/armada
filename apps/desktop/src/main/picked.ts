@@ -25,7 +25,7 @@ export function repositoryToStart(served: readonly RepositorySummary[], picked: 
  * it** (`implicit_id`) where a request comes with it or no root is named; **a root named without a request
  * is Setup's**: the Session runs in that root to write a Manifest. `null` where neither applies.
  */
-export function startOn(repository: RepositorySummary, title?: string, root?: string, request?: string, tuning?: { model?: string; effort?: string }, after?: StartAfter): StartSession | null {
+export function startOn(repository: RepositorySummary, title?: string, root?: string, request?: string, tuning?: { model?: string; effort?: string }, after?: StartAfter, held?: boolean): StartSession | null {
   const given = {
     ...(title === undefined ? {} : { title }),
     ...(request === undefined ? {} : { request }),
@@ -34,10 +34,14 @@ export function startOn(repository: RepositorySummary, title?: string, root?: st
     ...(tuning?.effort === undefined ? {} : { effort: tuning.effort }),
     // The Session it waits on: `request` is then the brief it starts on.
     ...(after === undefined ? {} : { after }),
+    // Held on its start card: only a request Fleet reads, never a wait's brief.
+    ...(held === true && request !== undefined && after === undefined ? { held } : {}),
   };
   if (repository.manifest !== undefined) return { manifest_id: repository.manifest.id, ...given };
   if (repository.implicit_id !== undefined && (request !== undefined || root === undefined)) return { manifest_id: repository.implicit_id, ...given };
-  return root === undefined ? null : { manifest_id: "", root: repository.root, ...given };
+  // Setup's start in a root is never held.
+  const { held: _held, ...setup } = given;
+  return root === undefined ? null : { manifest_id: "", root: repository.root, ...setup };
 }
 
 export class Picked {

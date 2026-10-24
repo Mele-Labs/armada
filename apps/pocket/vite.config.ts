@@ -38,6 +38,8 @@ function serve(mac: () => FixtureMac, posted: Posted[]) {
     }
     if (target.startsWith("/api/live")) {
       response.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" });
+      // A first beat at once, as the Gateway sends: the headers leave with it, and the phone reads its lists on connect.
+      response.write(": beat\n\n");
       const beat = setInterval(() => response.write(": beat\n\n"), 15_000);
       request.on("close", () => clearInterval(beat));
       return;

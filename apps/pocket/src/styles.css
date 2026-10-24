@@ -3,6 +3,8 @@
 @import "tailwindcss";
 @import "@armada/tokens/tokens.theme.css";
 @import "@armada/tokens/base.css";
+/* Bridge's look, applied under `data-look="new"`, which `@armada/components/src/look` sets. */
+@import "@armada/tokens/takes.css";
 @import "@armada/components/src/index.css";
 
 html, body, #root { height: 100%; overflow: hidden; }
