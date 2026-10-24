@@ -191,7 +191,11 @@ export function Battlefield({ repos, drones: given, pads, goals, prs: givenPrs, 
   const fit = (c: Cam): Cam => limited(plane, limits, c);
 
   // An arrival (a drone that was not there, a merge that landed) is shown whole: the camera pulls back to it, then returns.
-  const arrival = plays.filter((one) => one.id.startsWith("arrived:") || one.id.startsWith("merged:"));
+  // One that came in while the field filled is part of the fill, and pulls nothing once it is over.
+  const arrives = (one: Play) => one.id.startsWith("arrived:") || one.id.startsWith("merged:");
+  const filledPast = useRef(new Set<string>());
+  if (filled !== undefined) for (const one of givenPlays) if (arrives(one)) filledPast.current.add(one.id);
+  const arrival = plays.filter((one) => arrives(one) && !filledPast.current.has(one.id));
   const pull = (() => {
     if (arrival.length === 0) return undefined;
     const marks: Point[] = [];
