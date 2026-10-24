@@ -30,7 +30,7 @@ import { FORK_ROW, ForkFromSelection } from "../ForkFromSelection/ForkFromSelect
 import type { ForkPick } from "../ForkFromSelection/ForkFromSelection";
 import { SessionRetroRow, type SessionRetroRowData } from "../SessionRetroRow/SessionRetroRow";
 import { QuestionDeck } from "./QuestionDeck";
-import { ConcernCites, ConcernClaim } from "./ConcernClaim";
+import { ConcernClaim } from "./ConcernClaim";
 import { AdversarialFindings, AdversarialReviewPress, findingsOf } from "../AdversarialReview/AdversarialReview";
 import type { AdversarialReviewProps } from "../AdversarialReview/AdversarialReview";
 import { LinkedRow } from "./LinkedRow";
@@ -1384,7 +1384,6 @@ export function ConcernCard({ concern: one, onSend, onDismiss, bare }: { concern
         </div>
       ) : null}
       <ConcernClaim concern={one} />
-      <ConcernCites cites={one.cites} />
       <div className="armada-session-thread__answers" role="group" aria-label="Answers">
         <Tooltip label="Goes to the agent as your message">
           <Button size="sm" variant="secondary" onClick={onSend}>

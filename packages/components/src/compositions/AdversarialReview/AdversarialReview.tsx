@@ -4,7 +4,7 @@ import { ArrowRight, Ban, CircleCheck, ClockAlert, LoaderCircle, ScanSearch, X }
 
 import { Button } from "../../primitives/Button/Button";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
-import { ConcernCites, ConcernClaim } from "../SessionThread/ConcernClaim";
+import { ConcernClaim } from "../SessionThread/ConcernClaim";
 
 /**
  * An adversary reads a thing and says how it breaks. **It knows nothing of what it read**: a plan today, a diff or a
@@ -122,8 +122,7 @@ function FindingRow({ finding, onSend, onDismiss, hold }: { finding: Finding; on
   return (
     <li ref={hold} className="armada-adversarial__finding" role="group" aria-label={`Finding: ${finding.consequence}`} tabIndex={0} data-finding={finding.id}>
       <div className="armada-adversarial__claim">
-        <ConcernClaim concern={{ text: finding.consequence, consequence: finding.consequence, expected: finding.expected, produced: finding.found }} />
-        <ConcernCites cites={finding.cites} />
+        <ConcernClaim concern={{ text: finding.consequence, consequence: finding.consequence, expected: finding.expected, produced: finding.found, ...(finding.cites === undefined ? {} : { cites: finding.cites }) }} />
       </div>
       <div className="armada-adversarial__acts" role="group" aria-label="Answers">
         <Tooltip label="Goes to the agent as your message" shortcut="Enter">
