@@ -34,14 +34,26 @@ an object across a change (Heer & Robertson, InfoVis 2007); a new row
 does not travel, so nothing enters. "Placement resolves before paint"
 still holds: a layer never moves after it lands.
 
-**One exception: a call that needs the owner comes forward.** On Command
+**Two exceptions.** Nothing else on a board, row or tile enters, and a
+reading that merely changes still decays.
+
+**A call that needs the owner comes forward.** On Command
 Central a Plan question, a failed Check or a Session waiting on a command
 rises over the fleet at `--duration-travel`, and a call put off for later
-flies back up to the waiting calls at the edge. It is the one entrance on
-data, narrowly: nothing else on a board, row or tile enters, and a
-reading that merely changes still decays. Why: what needs the owner is
+flies back up to the waiting calls at the edge. Why: what needs the owner is
 the one event the screen exists to raise, and a call that arrived
 unannounced among the tiles could wait unseen (owner, 9 Oct 2026).
+
+**The Cockpit powers on.** While Fleet starts or comes back, each of the
+deck's panels comes online in turn: its frame traces, its label and glyph
+light, and a scan line passes down it until Fleet answers. Then each
+panel's data wipes in, in the same order, and the battlefield's
+territories arrive one at a time and glide when the layout changes. It
+plays on every launch, for at least a second, and on every restart. It
+never plays on a reading that merely changes. Reduced motion draws each
+state at once, with no scan line. Why: a restart used to read as a run
+of faults and a map that jumped into place, and the owner asked for the
+deck to come online instead (owner, 23 Oct 2026).
 
 **A changed row decays.** When a Job's status changes, its row takes its
 new status hue at `--row-tint-recent`, falling to the resting
