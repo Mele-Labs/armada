@@ -199,13 +199,13 @@ export function QuestionDeck({
               </button>
             </div>
             {previewed?.preview === undefined || looking === null ? null : (
-              // Out of the panel's own box, which clips and scrolls: fixed to the window, above the row in the lower half and below it in the upper.
+              // Out of the panel's own box, which clips and scrolls: fixed to the window at the row's trailing edge and level with it, so the labels to its left stay readable. It grows down from the row's top in the upper half, up from its bottom in the lower.
               createPortal(
                 <pre
                   className="armada-question-deck__preview"
                   role="region"
                   aria-label="Preview"
-                  style={looking.row.top > window.innerHeight / 2 ? { insetBlockEnd: window.innerHeight - looking.row.top + 4, insetInlineEnd: window.innerWidth - looking.row.right } : { insetBlockStart: looking.row.bottom + 4, insetInlineEnd: window.innerWidth - looking.row.right }}
+                  style={looking.row.top > window.innerHeight / 2 ? { insetBlockEnd: window.innerHeight - looking.row.bottom, insetInlineEnd: window.innerWidth - looking.row.right + 8 } : { insetBlockStart: looking.row.top, insetInlineEnd: window.innerWidth - looking.row.right + 8 }}
                 >
                   {previewed.preview}
                 </pre>,
