@@ -289,7 +289,8 @@
 /* The scroll box clips its own edge, so it carries the focus ring's room as padding and gives it back as margin. */
 .armada-needs-panel__detail:has(.armada-question-deck[data-flat]) .armada-question-deck__answers {
   flex: 1 1 auto;
-  min-height: 0;
+  /* A long question leaves the options three rows at least; the body scrolls the rest. */
+  min-height: calc(var(--space-6) * 5);
   overflow-y: auto;
   padding: var(--space-1);
   margin: calc(-1 * var(--space-1));

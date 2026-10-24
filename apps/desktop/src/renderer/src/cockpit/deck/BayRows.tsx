@@ -4,6 +4,7 @@
 // beside the list. The states are the pool's own (`bays.ts`). #2301.
 
 import { ArrowUpFromLine, FilePenLine, Flame, FolderPlus, HardDrive, Mail, Snowflake, SquareTerminal, Unplug } from "lucide-react";
+import { Standby } from "./Standby";
 import { useState, type ReactNode } from "react";
 import { Button, Inspect, Tooltip, timeSaid, useTimeFormat } from "@armada/components";
 import type { Outcome } from "@armada/protocol";
@@ -224,6 +225,7 @@ export function Bays({ views, repoName, working, selected, hovered, onHover, onS
   const groups = [...new Set(views.map((view) => view.slot.manifest_id))].map((manifest) => ({ manifest, views: views.filter((view) => view.slot.manifest_id === manifest) }));
   return (
     <section className="deck-panel deck-bays" aria-label="Bays" tabIndex={-1}>
+      <Standby kind="bays" />
       <header className="deck-band">
         Bays
         {onOpenSlots === undefined ? null : (
