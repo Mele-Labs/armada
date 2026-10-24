@@ -96,7 +96,8 @@ The choice is kept in this machine's store for each profile, and a kind switched
 | Turns on | Three tiles, Red main claims, Pull request owners and Shared home, dashed with a broken ring while off and framed with a check once the store (the first two) or the home (the third) exists |
 | Signed out | The one act, Sign in with GitHub, in a dashed strip across the Profiles frame, with the Turns on tiles off beneath it, a Sets up tile of the three rows none yet, and a Never frame at the foot of the page, signed in or out: nothing is written to your repositories or pull requests, your token is not kept, a work machine syncs nothing until you turn a kind on |
 | Signed out profile | Who left, struck through in a dashed tile; the store's row named only where it stays |
-| Home not made yet | The set-up row for the shared home is not set up, and What syncs is greyed, tooltip No shared home yet |
+| Sync your Kit | A frame of three steps, signed in or out: Sign in here, Sync on Kit, Add to this machine (done on the other machine, so it never reads done), each with its reason in one line; the next undone step carries the button, Open Kit on the second |
+| Home not made yet | The set-up row for the shared home is not set up, its tooltip saying the first Sync on Kit makes it; What syncs is greyed, its tooltip saying the same |
 | What syncs | A sheet over a profile added on purpose, one switch per kind |
 | Repository picker | The top of the Cockpit's left column; at the title row's narrow width its entries are in the title menu |
 
@@ -109,7 +110,7 @@ The glyphs are registry entries marked Proposed: `packages/icons/icons/user-chec
 
 **Built, on mock data.** The title bar menu, the device code, the set-up rows, the profiles and What syncs all draw from `draft.account` in the mock Fleet, and the walks `onboarding-home`, `onboarding-work` and `title-bar-menu` play them.
 
-**Drawn in the mock, awaiting the owner's walk.** The account page (`account-page`), the repositories bound to each profile and the ones that wait (`account-repositories`), the sign-in that ended or was refused, signing out, and the shared home not made yet: the walks `sign-in-ended`, `sign-out` and `sign-in-no-home`.
+**Drawn in the mock, awaiting the owner's walk.** The account page (`account-page`), the repositories bound to each profile and the ones that wait (`account-repositories`), the sign-in that ended or was refused, signing out, and the shared home not made yet: the walks `sign-in-ended`, `sign-out`, `sign-in-no-home` and `sync-your-kit`.
 
 **Fleet serves binding.** `get_accounts` carries each profile's repositories and the ones bound to none, and `set_repository_profile` chooses a profile or None for a repository; Bridge draws them.
 There is no active profile and no set-active act.

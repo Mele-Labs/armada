@@ -72,7 +72,20 @@ const signInNoHome = walk("sign-in-no-home", [
   { hover: button("What syncs", { exact: true }), say: "Why" },
 ]);
 
+// Straight to the point: the guide, why the home is blank, and the button that lands on Kit.
+const syncYourKit = walk("sync-your-kit", [
+  { press: button("Menu", { exact: true }), say: "Open the menu" },
+  { press: OPEN_ACCOUNT, say: "The account page" },
+  { look: role("region", "Sync your Kit", { exact: true }), say: "Signed out: the way to a second machine, before signing in" },
+  { press: SIGN_IN, say: "Sign in" },
+  { press: DEVICE_PAGE, say: "The code is typed" },
+  { look: button("Open Kit", { exact: true }), say: "Step two is next, and carries the button" },
+  { hover: role("img", "Not set up yet", { exact: true }), say: "The shared home: what it is and what makes it" },
+  { press: button("Open Kit", { exact: true }), say: "Opens Kit, where Sync makes the home" },
+]);
+
 export {
+  syncYourKit as "sync-your-kit",
   signInEnded as "sign-in-ended",
   signOut as "sign-out",
   signInNoHome as "sign-in-no-home",
