@@ -277,6 +277,9 @@ approximations.
 - [`spikes/036-is-one-line-enough-to-watch-a-deploy.md`](spikes/036-is-one-line-enough-to-watch-a-deploy.md)
   — three real QA deploy runs replayed through a watch's wake rules: with parts, 7 wakes in 52 readings, 4 of them set aside;
   without parts, every run reads failed while its deploys run; the line has no field for finished, skipped or replaced.
+- [`spikes/037-does-dolt-fit-the-central-store.md`](spikes/037-does-dolt-fit-the-central-store.md)
+  — two Dolt clones claiming one red both commit and the loser learns at its push, so no for the store;
+  a dropped run fact needs a tombstone instead; the tracker mod `beads` read Armada's 955 issues from a beads database and passed its try.
 - [`spikes/item-clarity.md`](spikes/item-clarity.md)
   — whether the owner can act on an item an agent puts on his Needs you list, by rules and by an
   `item_clear` head: 569 labelled items, rules alone against the head and both, dev folds and a held half,

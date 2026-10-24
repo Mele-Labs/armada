@@ -1,29 +1,38 @@
 /* Pocket (#1997), and v2: every Mac on one list, a Job's thread. Tokens only. */
-.pk-app { height: 100%; display: flex; flex-direction: column; background: var(--bg-base); font-family: var(--font-mono); font-size: var(--text-xs); color: var(--fg-default); }
+.pk-app { height: 100%; display: flex; flex-direction: column; background: var(--bg-base); color: var(--fg-default); }
 .pk-screen { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 
-.pk-band { display: flex; align-items: center; gap: var(--space-2); padding: calc(var(--space-4) + env(safe-area-inset-top)) var(--space-4) var(--space-4); background: var(--bg-overlay); border-bottom: var(--border-width) solid var(--border-strong); }
-.pk-band__title { flex: 1; min-width: 0; margin: 0; font-family: var(--font-sans); font-size: var(--text-xl); line-height: var(--leading-xl); font-weight: var(--weight-heading); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Bridge's panel header and Jobs list. The base rules are `deck.css`'s in the desktop app, which this app does not load; what
+   the look does to them is `depth.css`'s, which it does. A header clears the notch, and its icon presses take the touch height. */
+.deck-band { display: flex; flex: none; align-items: center; gap: var(--space-3); min-height: calc(var(--h-title-bar) + env(safe-area-inset-top)); padding: env(safe-area-inset-top) var(--space-3) 0 var(--space-4); color: var(--fg-muted); font-family: var(--font-mono); font-size: var(--text-xs); line-height: var(--leading-xs); font-weight: var(--weight-heading); letter-spacing: var(--tracking-caps); text-transform: uppercase; }
+.pk-band__title { flex: 1; min-width: 0; margin: 0; overflow: hidden; font: inherit; letter-spacing: inherit; text-overflow: ellipsis; white-space: nowrap; }
+:is(.deck-band, .armada-session-frame__head) .armada-button[data-icon-only] { width: var(--h-title-bar); height: var(--h-title-bar); }
 
-.pk-icon, .pk-icon { display: grid; place-items: center; width: var(--space-12); height: var(--space-12); margin: calc(-1 * var(--space-2)) 0; border: 0; border-radius: var(--radius-md); background: transparent; }
-.pk-icon svg { width: var(--space-6); height: var(--space-6); }
-
-.pk-body { flex: 1; min-height: 0; overflow-y: auto; padding: var(--space-4); }
-.pk-list { margin: calc(-1 * var(--space-4)); padding: 0; list-style: none; }
-.pk-row { display: grid; grid-template-columns: var(--space-6) minmax(0, 1fr) auto; column-gap: var(--space-3); row-gap: var(--space-1); align-items: center; width: 100%; padding: var(--space-4); border: 0; border-bottom: var(--border-width) solid var(--border-subtle); background: transparent; text-align: left; }
-button.pk-row:active { background: var(--bg-hover); }
-.pk-row[data-still] { color: var(--fg-muted); }
-.pk-row__title { font-family: var(--font-sans); font-size: var(--text-base); font-weight: var(--weight-medium); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pk-row__meta { grid-column: 2; color: var(--fg-muted); font-size: var(--text-2xs); }
-.pk-row__age { grid-row: 1; grid-column: 3; color: var(--fg-subtle); font-size: var(--text-2xs); }
-.pk-row__mark { grid-row: 1 / span 2; display: grid; place-items: center; }
-.pk-row__meta { display: flex; gap: var(--space-2); min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.pk-row__mac, .pk-band__mac { color: var(--fg-subtle); font-family: var(--font-mono); font-size: var(--text-2xs); }
+.deck-list__repository { margin: 0; padding: var(--space-1) var(--space-2) 0; color: var(--fg-subtle); font-family: var(--font-mono); font-size: var(--text-2xs); font-weight: var(--weight-heading); letter-spacing: var(--tracking-caps); text-transform: uppercase; }
+.deck-list__rows { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: var(--space-2); list-style: none; }
+.deck-list__item { display: flex; align-items: center; gap: var(--space-2); }
+.deck-list__item > .deck-row { flex: 1 1 0; width: auto; min-width: 0; }
+.deck-row { --deck-slot: var(--space-4); position: relative; display: grid; grid-template-columns: minmax(0, 1fr) var(--deck-slot); grid-template-rows: auto auto; align-items: center; column-gap: var(--space-3); row-gap: calc(var(--space-1) / 2); width: 100%; border: 0; border-radius: var(--radius-md); background: color-mix(in srgb, var(--fg-default) 6%, transparent); color: var(--fg-default); font: inherit; font-family: var(--font-sans); font-size: var(--text-xs); line-height: var(--leading-xs); text-align: left; cursor: pointer; }
+.deck-row:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }
+.deck-row__title { grid-column: 1; grid-row: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: var(--weight-medium); }
+.deck-row[data-tone="calm"] .deck-row__title { font-weight: var(--weight-body); }
+.deck-row__marks { grid-column: 2; grid-row: 1; display: grid; place-items: center; color: var(--fg-subtle); }
+.deck-row[data-tone="ask"] .deck-row__marks { color: var(--status-awaiting-review); }
+.deck-row[data-tone="bad"] .deck-row__marks { color: var(--status-completed-failed); }
+.deck-row__says { grid-column: 1; grid-row: 2; display: flex; gap: var(--space-2); min-height: var(--leading-xs); min-width: 0; overflow: hidden; white-space: nowrap; color: var(--fg-muted); font-size: var(--text-2xs); line-height: var(--leading-xs); }
+.deck-row__said { grid-column: 2; grid-row: 2; justify-self: end; color: var(--fg-muted); white-space: nowrap; }
+/* A Job that needs him: the row is the ask hue, flat, and its tint pulses on opacity alone. */
+.deck-row[data-needs]::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: var(--status-awaiting-review); opacity: 0.14; animation: deck-needs-pulse 1.6s ease-in-out infinite; pointer-events: none; }
+@keyframes deck-needs-pulse { 50% { opacity: 0.05; } }
+@media (prefers-reduced-motion: reduce) { .deck-row[data-needs]::after { animation: none; } }
+.pk-row__mac { color: var(--fg-subtle); font-family: var(--font-mono); }
 .pk-row__mac::before { content: "·"; margin-right: var(--space-2); }
 .pk-choice .pk-row__mac { margin-left: var(--space-2); }
-.pk-row__act { grid-row: 1 / span 2; grid-column: 3; }
-.pk-row[data-still] .pk-row__title { font-weight: var(--weight-body); }
-.pk-mac .pk-row__meta { white-space: normal; }
+
+/* A Job open: the pane is Bridge's, without its glass, and the frame's body is the thread over the box. */
+.pk-pane { display: flex; flex: 1; flex-direction: column; min-height: 0; padding-top: env(safe-area-inset-top); }
+.pk-dock { flex: none; padding-bottom: env(safe-area-inset-bottom); }
+.pk-body { flex: 1; min-height: 0; overflow-y: auto; padding: var(--space-4); }
 .pk-spin { animation: pk-turn 1.1s linear infinite; }
 @keyframes pk-turn { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .pk-spin { animation: none; } }
@@ -45,21 +54,14 @@ button.pk-row:active { background: var(--bg-hover); }
 .pk-fact svg { color: var(--status-completed-success); width: var(--space-6); height: var(--space-6); }
 .pk-waiting { border: 0; background: transparent; color: var(--status-awaiting-review); }
 .pk-waiting svg { width: var(--space-6); height: var(--space-6); }
-.pk-dim { color: var(--fg-subtle); }
 .pk-big { width: 100%; min-height: var(--space-12); }
 
 .pk-home { padding: 0; }
-.pk-home .pk-list { margin: 0; }
-.pk-home > .pk-fact { padding: var(--space-4); }
-.pk-section__head { margin: 0; padding: var(--space-4) var(--space-4) var(--space-2); color: var(--fg-muted); font-size: var(--text-2xs); font-weight: var(--weight-medium); }
 
-.pk-thread { padding: 0 var(--space-4); display: flex; flex-direction: column; }
-.pk-thread > * { flex: 1; min-height: 0; }
 .pk-trailing { display: grid; gap: var(--space-4); }
 .pk-ask { display: grid; gap: var(--space-2); }
 .pk-ask .pk-question { margin: 0; }
 .pk-ask .pk-choices { margin-top: 0; }
-.pk-compose { grid-template-columns: minmax(0, 1fr) auto; align-items: end; }
 
 .pk-shown__text { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-family: var(--font-mono); font-size: var(--text-xs); }
 .pk-shown__image { display: block; max-width: 100%; height: auto; }

@@ -1,7 +1,7 @@
 import { readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-import { ago, homeOf, type Mac } from "./fleet";
+import { homeOf, type Mac } from "./fleet";
 import type { PhoneSession } from "./gateway";
 import { codeFromInput, linkOf } from "./pairing";
 import { routeOf } from "./router";
@@ -51,17 +51,6 @@ describe("the SSE parser", () => {
   it("joins multi-line data, ignores other fields and comments, and reads CRLF", () => {
     const parser = new SseParser();
     expect(parser.feed(": hello\r\nevent: x\r\ndata: a\r\ndata: b\r\n\r\n")).toEqual(["a\nb"]);
-  });
-});
-
-const NOW = Date.parse("2026-10-08T12:00:00Z");
-
-describe("data.ts mapping", () => {
-  it("counts ages the way the rows draw them", () => {
-    expect(ago("2026-10-08T11:59:30Z", NOW)).toBe("now");
-    expect(ago("2026-10-08T11:46:00Z", NOW)).toBe("14m");
-    expect(ago("2026-10-08T11:00:00Z", NOW)).toBe("1h");
-    expect(ago("2026-10-08T09:50:00Z", NOW)).toBe("2h 10m");
   });
 });
 
