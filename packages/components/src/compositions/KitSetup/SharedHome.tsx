@@ -139,7 +139,7 @@ export function SyncAct({ row, acts }: { row: SharedRow; acts: SharedHomeActs })
 /** The home's repository, `account/repository`. `made` false marks one no kind has synced to yet. */
 export function SharedHomeChip({ account, repository, made = true }: { account: string; repository: string; made?: boolean }) {
   return (
-    <Tooltip label={made ? "Shared home" : "Shared home, not made yet"}>
+    <Tooltip label={`${made ? "Shared home" : "Shared home, not made yet"}: ${account}/${repository}`}>
       <span className="armada-shared-chip" data-made={made ? undefined : "no"}>
         {made ? <House size={12} strokeWidth={2} aria-hidden="true" /> : <CircleDashed size={12} strokeWidth={2} aria-hidden="true" />}
         <span>

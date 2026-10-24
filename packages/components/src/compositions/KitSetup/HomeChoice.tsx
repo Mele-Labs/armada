@@ -19,7 +19,9 @@ export type HomeChoice = { owner: string; name: string };
 /** The choice for `login`, kept across leaving the panel that holds it. */
 export function useHomeChoice(login: string): [HomeChoice, (next: Partial<HomeChoice>) => void] {
   const [kept, set] = useKept<HomeChoice>(`home-choice:${login}`, { owner: login, name: DEFAULT_HOME_NAME });
-  return [kept, (next) => set({ ...kept, ...next })];
+  // A login that arrives after the first draw leaves the first reading with no owner.
+  const owner = kept.owner === "" ? login : kept.owner;
+  return [{ ...kept, owner }, (next) => set({ ...kept, owner, ...next })];
 }
 
 /** A repository name as GitHub takes it: letters, digits, dot, dash and underscore. */
@@ -36,7 +38,7 @@ export function HomePicker({ login, owners }: { login: string; owners: readonly 
     <Popover
       label="Where the shared home is made"
       trigger={
-        <Tooltip label="Where the first Sync makes the shared home. Private, made through gh">
+        <Tooltip label={`${homePath(choice)}. Where the first Sync makes the shared home. Private, made through gh`}>
           <button type="button" className="armada-shared-chip" data-pick="" data-made="no" aria-label={`Home: ${homePath(choice)}`}>
             <CircleDashed size={12} strokeWidth={2} aria-hidden="true" />
             <span>
