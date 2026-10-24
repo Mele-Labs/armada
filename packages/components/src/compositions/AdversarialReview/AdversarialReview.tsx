@@ -119,7 +119,7 @@ export function AdversarialReviewPress({ review, onRun, shortcut }: Pick<Adversa
   );
 }
 
-/** One finding: the claim on the left, its two acts in a column on the right. Focusable; Enter sends, Backspace or D dismisses. */
+/** One finding: the claim, then its two acts in the card's footer. Focusable; Enter sends, Backspace or D dismisses. */
 export function FindingRow({ finding, onSend, onDismiss, hold }: { finding: Finding; onSend: () => void; onDismiss: () => void; hold?: (el: HTMLElement | null) => void }) {
   return (
     <li ref={hold} onClick={(event) => event.stopPropagation()} className="armada-adversarial__finding" role="group" aria-label={`Finding: ${finding.consequence}`} tabIndex={0} data-finding={finding.id}>

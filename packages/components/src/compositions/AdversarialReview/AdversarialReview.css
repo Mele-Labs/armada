@@ -47,11 +47,12 @@
 /* A finding is a note laid on the plan, never a line of it: its own tinted surface and frame, in the hue a judge's
    concern carries, so the eye finds every objection before it reads the plan around them. */
 .armada-adversarial__finding {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: start;
-  column-gap: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
   padding: var(--space-3);
+  scroll-margin-block: var(--space-3);
   border: var(--border-width) solid color-mix(in srgb, var(--status-piloted) 45%, transparent);
   border-radius: var(--radius-md);
   background: var(--status-piloted-bg);
@@ -82,19 +83,17 @@
   min-width: 0;
 }
 
-/* One width for the column in every row: both buttons fill the wider. */
+/* The card's footer: a hairline in the card's own hue, then the two acts. */
 .armada-adversarial__acts {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
+  align-items: center;
+  gap: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: var(--border-width) solid color-mix(in srgb, var(--status-piloted) 30%, transparent);
 }
 
 .armada-adversarial__acts > span {
   display: flex;
-}
-
-.armada-adversarial__acts button {
-  flex: 1;
 }
 
 .armada-adversarial__settled {

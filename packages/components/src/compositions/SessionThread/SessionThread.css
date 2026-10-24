@@ -224,7 +224,7 @@
 .armada-session-thread__pinned { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
 .armada-session-thread__group > .armada-adversarial__anchored { grid-column: 1 / -1; }
 .armada-session-thread__paths { grid-column: 1; display: flex; flex-wrap: wrap; gap: var(--space-2); font-size: var(--text-2xs); color: var(--fg-subtle); }
-.armada-session-thread__plan > .armada-session-thread__plan-body { min-height: 0; overflow: auto; }
+.armada-session-thread__plan > .armada-session-thread__plan-body { min-height: 0; overflow: auto; scroll-padding-block: var(--space-3); }
 .armada-session-thread__plan .armada-session-thread__eyebrow { display: flex; align-items: center; gap: var(--space-2); }
 .armada-session-thread__settled { display: inline-flex; color: var(--step-advanced); }
 .armada-session-thread__groups { display: flex; flex-direction: column; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
@@ -1022,14 +1022,17 @@
 .armada-session-thread__concern-from { margin-inline-start: auto; font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--fg-muted); }
 /* A concern as a claim: the consequence as its headline, then Expected, Found and Cites as labelled rows on one shared pair of
    columns (each row a subgrid), so every value starts on the same line whatever its label's width. Prose, never mono. */
-.armada-session-thread__claim { display: grid; grid-template-columns: max-content minmax(0, 1fr) auto; column-gap: var(--space-4); row-gap: var(--space-2); min-width: 0; font-family: var(--font-sans); }
+.armada-session-thread__claim { display: grid; grid-template-columns: max-content minmax(0, 1fr); column-gap: var(--space-4); row-gap: var(--space-2); min-width: 0; font-family: var(--font-sans); }
 .armada-session-thread__claim > .armada-session-thread__claim-text, .armada-session-thread__claim > .armada-session-thread__cites { grid-column: 1 / -1; }
 .armada-session-thread__claim-head { grid-column: 1 / -1; margin: 0 0 var(--space-1); color: var(--fg-default); font-size: var(--text-sm); font-weight: var(--weight-heading); line-height: var(--leading-sm); text-wrap: pretty; overflow-wrap: anywhere; }
 .armada-session-thread__claim-row { grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; align-items: baseline; min-width: 0; }
 .armada-session-thread__claim-row > :nth-child(2) { grid-column: 2; }
 .armada-session-thread__claim-label { color: var(--fg-muted); font-size: var(--text-2xs); font-weight: var(--weight-medium); letter-spacing: 0.06em; text-transform: uppercase; }
 .armada-session-thread__claim-text { margin: 0; min-width: 0; color: var(--fg-default); font-size: var(--text-sm); line-height: var(--leading-sm); text-wrap: pretty; overflow-wrap: anywhere; }
-.armada-session-thread__claim-row > .armada-session-thread__claim-text:not([data-open]) { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+/* The value and, under it where the clamp leaves words out, More: so More sits with the words it opens. */
+.armada-session-thread__claim-value { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; }
+.armada-session-thread__claim-more { margin-inline-start: calc(var(--space-2) * -1); }
+.armada-session-thread__claim-value > .armada-session-thread__claim-text:not([data-open]) { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
 .armada-session-thread__cites { display: flex; flex-wrap: wrap; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
 .armada-session-thread__cites li { min-width: 0; max-width: 100%; }
 /* A path is never broken inside its name: one that does not fit its column ends in an ellipsis, whole on hover. */

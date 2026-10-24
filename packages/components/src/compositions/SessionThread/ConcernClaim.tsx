@@ -55,12 +55,14 @@ function ClaimRow({ label, text }: { label: string; text: string }) {
   return (
     <div className="armada-session-thread__claim-row">
       <span className="armada-session-thread__claim-label">{label}</span>
-      <p ref={value} id={id} className="armada-session-thread__claim-text" data-open={open || undefined}>{text}</p>
-      {clamped || open ? (
-        <Button size="sm" variant="ghost" aria-expanded={open} aria-controls={id} aria-label={`${open ? "Less" : "More"} of ${label.toLowerCase()}`} onClick={() => setOpen(!open)}>
-          {open ? "Less" : "More"}
-        </Button>
-      ) : null}
+      <div className="armada-session-thread__claim-value">
+        <p ref={value} id={id} className="armada-session-thread__claim-text" data-open={open || undefined}>{text}</p>
+        {clamped || open ? (
+          <Button size="sm" variant="ghost" className="armada-session-thread__claim-more" aria-expanded={open} aria-controls={id} aria-label={`${open ? "Less" : "More"} of ${label.toLowerCase()}`} onClick={() => setOpen(!open)}>
+            {open ? "Less" : "More"}
+          </Button>
+        ) : null}
+      </div>
     </div>
   );
 }
