@@ -167,7 +167,7 @@ async fn a_scaffolded_tracker_validates_and_fails_its_try_until_it_names_a_real_
     let home = TempDir::new();
     let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
     fleet
-        .scaffold_mod(ipc::ScaffoldMod { name: "teach".into(), description: None, kind: Some(ModKind::Tracker) })
+        .scaffold_mod(ipc::ScaffoldMod { name: "teach".into(), description: None, kind: Some(ModKind::Tracker), session_id: None })
         .await
         .expect("scaffolded");
     let checked = fleet.validate_mod("teach".into()).await.expect("checked");
@@ -180,7 +180,7 @@ async fn a_scaffolded_tracker_validates_and_fails_its_try_until_it_names_a_real_
     assert!(!tried.passed && tried.reason.as_deref().unwrap_or_default().contains("`tracker-cli` is not installed"), "{tried:?}");
 
     fleet
-        .scaffold_mod(ipc::ScaffoldMod { name: "calm".into(), description: None, kind: None })
+        .scaffold_mod(ipc::ScaffoldMod { name: "calm".into(), description: None, kind: None, session_id: None })
         .await
         .expect("a theme");
     let refused = fleet

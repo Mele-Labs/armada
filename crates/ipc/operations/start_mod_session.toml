@@ -1,0 +1,16 @@
+[operations.start_mod_session]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Start a Mod Job on what the person pointed at: a hosted Job on Armada's own repository for modding Armada itself, or in the mods folder where that is not served, sent the Mod brief and his note as its first message"
+notes = """
+Since 23 Oct 2026. `POST /mods/session`, body `StartModSession`: `title?`, `model?`, `effort?` and `note`, a `SessionNote` in the shape `send_session_note` takes (`said`, `address`, `note_id?`, `place`, `state`, `crop?`, `job?`). Answered 200 with `ModSessionStarted`: `session_id`, `title` and `send_failed?`.
+
+**Where the Job starts.** Armada's own repository, the Manifest named `armada`, found as `start_lesson_session` finds it. Where this Fleet does not serve it, the Job starts in the mods folder, made if it is missing, with no Manifest, and never leases a slot or cuts a branch. A mods folder that cannot be made is a 500 `fleet.mod_not_written` and nothing is started.
+
+**The Job is started as `start_session` starts one**, hosted, in `auto` mode, on `model` and `effort` or the machine's own, and titled `title`, else the first line of `said`, else `Mod`. Its row carries `mod`. Fleet then **sends the first message at once, by `send_session_note`'s road**, so the process starts and the turn runs under the same budget and permission rules: the agent reads the Mod brief, then his words, where he pointed, the candidate lines and the page's state. The thread keeps only `said`. The brief says it is a Mod Job, to load the `armada:armada-mods` skill and reach for a mod first, that a mod applies live once `validate_mod` passes and he switches it off from the Job, and that an ask a mod cannot say is said so and changed in Armada's source on the Job's branch, with `scripts/preview --restart` asked for as a `waiting_for` run item. A Job in the mods folder is sent the mods-only brief instead: the same skill and `validate_mod`, and that Armada's source is not there, so an ask a mod cannot say is only told to the owner.
+
+**A first message that is refused** cannot be taken back, since the Job exists. The answer is still 200 and `send_failed` holds Fleet's words for why, so Bridge can open the Job and the person can send by hand.
+
+**A person's act.** `agent_access` is `No`: Bridge's Mod item starts it.
+"""

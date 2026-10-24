@@ -39,6 +39,28 @@ describe("answering a session's ask", () => {
   });
 });
 
+describe("starting a Mod Job", () => {
+  const note = { said: "", address: "file:///index.html", place: { selector: "li", element: { tag: "li", text: "x" }, location: "/usage" }, state: { selected: [] } };
+
+  it("passes the note and the words Bridge gave to Fleet, and drops a blank model", async () => {
+    const handlers = new Map<string, Handler>();
+    const startMod = vi.fn(async () => ({ ok: true }));
+    const ipc = { handle: (channel: string, handler: Handler) => handlers.set(channel, handler) };
+    handleSessions({ ipc, connection: () => ({ sessions: { startMod } }), windowIdOf: () => undefined, pages: {} } as unknown as Parameters<typeof handleSessions>[0]);
+    await handlers.get(CHANNELS.startModSession)?.({}, { title: "Usage meter", model: "", note });
+    expect(startMod).toHaveBeenCalledWith({ title: "Usage meter", note });
+  });
+
+  it("answers not understood to a body with no note, and sends nothing", async () => {
+    const handlers = new Map<string, Handler>();
+    const startMod = vi.fn(async () => ({ ok: true }));
+    const ipc = { handle: (channel: string, handler: Handler) => handlers.set(channel, handler) };
+    handleSessions({ ipc, connection: () => ({ sessions: { startMod } }), windowIdOf: () => undefined, pages: {} } as unknown as Parameters<typeof handleSessions>[0]);
+    expect(await handlers.get(CHANNELS.startModSession)?.({}, { title: "x" })).toEqual({ ok: false, outcome: { ok: false, why: "not_understood" } });
+    expect(startMod).not.toHaveBeenCalled();
+  });
+});
+
 function terminalWired() {
   const handlers = new Map<string, Handler>();
   const ipc = { handle: (channel: string, handler: Handler) => handlers.set(channel, handler) };

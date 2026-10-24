@@ -34,6 +34,16 @@ where
     W::Error: std::error::Error + Send + Sync + 'static,
 {
     pub(crate) async fn note_sent(self: Arc<Self>, sent: SendSessionNote) -> Result<NoteSent, Refusal> {
+        self.note_sent_after(sent, None).await
+    }
+
+    /// [`Self::note_sent`], with `brief` ahead of his words in what the agent reads: a Mod Job's.
+    /// The thread still keeps his words alone.
+    pub(super) async fn note_sent_after(
+        self: Arc<Self>,
+        sent: SendSessionNote,
+        brief: Option<&str>,
+    ) -> Result<NoteSent, Refusal> {
         let SendSessionNote { session_id, note } = sent;
         let id = session_id.as_str().to_string();
         let terminal = self.terminal_session(&id).await?;
@@ -41,7 +51,8 @@ where
         let text = note.said.trim().to_string();
         let mut lines = told(&note, &found, checkout.as_deref());
         lines.extend(background(&note));
-        let instead = format!("{text}\n{}\n{HANDOFF}", lines.join("\n"));
+        let ahead = brief.map(|brief| format!("{brief}\n\n")).unwrap_or_default();
+        let instead = format!("{ahead}{text}\n{}\n{HANDOFF}", lines.join("\n"));
         let sent = SendSessionMessage {
             session_id,
             text,

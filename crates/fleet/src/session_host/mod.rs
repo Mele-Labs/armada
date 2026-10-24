@@ -43,6 +43,7 @@ pub(crate) mod kept;
 /// `send_session_note` and `send_session_notes`: pinned notes, with the lines of code each was
 /// drawn from.
 mod noting;
+mod modding;
 mod auto_landing;
 mod pausing;
 mod reach_folders;
@@ -76,7 +77,7 @@ pub(crate) mod workflow_pick;
 mod standing_tick;
 mod thread_cache;
 pub(crate) use agent_starting::UNSENT_ITEM;
-pub(crate) use serving::{mode_of, RunEnd, MESSAGE_EMPTY, NO_SUCH_SESSION};
+pub(crate) use serving::{mode_of, Marked, RunEnd, MESSAGE_EMPTY, NO_SUCH_SESSION};
 mod terminal;
 pub(crate) mod uploads;
 pub(crate) mod waiting;

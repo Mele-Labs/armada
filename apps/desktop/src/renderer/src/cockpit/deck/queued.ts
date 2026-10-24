@@ -15,5 +15,5 @@ export const queuedIn = (ideas: readonly QueuedIdea[], picked: RepositorySummary
 /** The keys of the list in the order it draws them: each group's ideas before its subjects, or the ideas and then the subjects where there are no groups. */
 export function walkOrder(listed: readonly Subject[], banding: readonly Banding[] | undefined, ideas: readonly QueuedIdea[], picked: RepositorySummary | null): string[] {
   if (banding === undefined) return [...queuedIn(ideas, picked).map((one) => queuedKey(one.id)), ...listed.map((one) => one.key)];
-  return bandsOf(listed, banding, ideas).flatMap((band) => [...band.ideas.map((one) => queuedKey(one.id)), ...band.subjects.map((one) => one.key)]);
+  return bandsOf(listed, banding, queuedIn(ideas, picked)).flatMap((band) => [...band.ideas.map((one) => queuedKey(one.id)), ...band.subjects.map((one) => one.key)]);
 }

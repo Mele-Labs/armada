@@ -96,14 +96,16 @@ map = """
 
 /// Make `mods_dir/name` and commit it. **The folder is made with `create_dir`**,
 /// which refuses one that exists in the same step it makes this one, so a
-/// concurrent scaffold of the same name cannot get into the other's folder.
+/// concurrent scaffold of the same name cannot get into the other's folder. `made_by`, the Job that
+/// asked, is recorded in `mod.toml`.
 pub(crate) fn make(
     mods_dir: &Path,
     name: &str,
     description: Option<&str>,
     kind: ModKind,
+    made_by: Option<&str>,
 ) -> Result<PathBuf, Refused> {
-    make_taught(mods_dir, name, description, kind, None)
+    made(mods_dir, name, description, kind, None, made_by)
 }
 
 /// [`make`], with the file a teaching wrote where there would be a starter.
@@ -113,6 +115,17 @@ pub(crate) fn make_taught(
     description: Option<&str>,
     kind: ModKind,
     taught: Option<&Taught>,
+) -> Result<PathBuf, Refused> {
+    made(mods_dir, name, description, kind, taught, None)
+}
+
+fn made(
+    mods_dir: &Path,
+    name: &str,
+    description: Option<&str>,
+    kind: ModKind,
+    taught: Option<&Taught>,
+    made_by: Option<&str>,
 ) -> Result<PathBuf, Refused> {
     if let Some(why) = slug_problem(name) {
         return Err(Refused::Unacceptable(why));
@@ -141,7 +154,7 @@ pub(crate) fn make_taught(
         std::io::ErrorKind::AlreadyExists => Refused::Unacceptable(format!("a mod called `{name}` already exists")),
         _ => Refused::Failed(format!("the mod's folder could not be made: {why}")),
     })?;
-    match written(&dir, name, description, kind, taught) {
+    match written(&dir, name, description, kind, taught, made_by) {
         Ok(()) => Ok(dir),
         Err(why) => {
             // Ours, made a moment ago and holding only what this wrote.
@@ -151,7 +164,14 @@ pub(crate) fn make_taught(
     }
 }
 
-fn written(dir: &Path, name: &str, description: &str, kind: ModKind, taught: Option<&Taught>) -> Result<(), String> {
+fn written(
+    dir: &Path,
+    name: &str,
+    description: &str,
+    kind: ModKind,
+    taught: Option<&Taught>,
+    made_by: Option<&str>,
+) -> Result<(), String> {
     let escape = |text: &str| text.replace('\\', "\\\\").replace('"', "\\\"");
     let (word, file, starter) = match kind {
         ModKind::Theme => ("theme", THEME, STARTER),
@@ -170,6 +190,9 @@ fn written(dir: &Path, name: &str, description: &str, kind: ModKind, taught: Opt
     }
     if let Some(entry) = taught.and_then(|one| one.entry) {
         toml.push_str(&format!("entry = \"{}\"\n", escape(entry)));
+    }
+    if let Some(job) = made_by {
+        toml.push_str(&format!("made_by = \"{}\"\n", escape(job)));
     }
     let starter = taught.map_or(starter, |one| one.text);
     for (file, text) in [(MANIFEST, toml.as_str()), (file, starter)] {
