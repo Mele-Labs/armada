@@ -30,9 +30,6 @@ const READ: u32 = 10;
 /// The fewest picks that make one usual.
 const FEWEST: usize = 3;
 
-/// Begin on a Job that asks how the work lands, with no landing. A 422, as an unanswered delivery question is.
-const DELIVERY_UNCHOSEN: &str = "fleet.session_waiting_empty";
-
 /// A choice as the store keeps it.
 fn spelled(choice: DeliveryChoice) -> &'static str {
     match choice {
@@ -193,7 +190,7 @@ where
         }
         let delivery = match (self.asks_delivery_of(&hosting), begin.delivery) {
             (true, None) => {
-                return Err(self.hosted_refusal(DELIVERY_UNCHOSEN, "how the work is delivered is chosen before the job starts"));
+                return Err(self.hosted_refusal("fleet.session_waiting_empty", "how the work is delivered is chosen before the job starts"));
             }
             (true, choice) => choice,
             (false, _) => None,
