@@ -3,7 +3,7 @@
 
 use serde_json::json;
 
-use crate::{ForkThisSession, SessionHeld, SessionRow, StartAnotherSession, WaitingActKind, WaitingItem, WaitingSource};
+use crate::{BeginSession, DeliveryChoice, DeliveryPicked, DeliveryPickedFrom, ForkThisSession, HostedFacts, StartHeld, StartSession, SessionHeld, SessionRow, StartAnotherSession, WaitingActKind, WaitingItem, WaitingSource};
 
 #[test]
 fn a_start_reads_its_repository_title_and_first_message() {
@@ -86,4 +86,53 @@ fn a_release_row_round_trips_as_kind_release() {
     assert_eq!(read.id(), "r5");
     assert!(matches!(read, SessionRow::Release { slot: 3, .. }));
     assert_eq!(serde_json::to_value(&read).unwrap(), row);
+}
+
+#[test]
+fn a_start_is_held_only_when_it_says_so_and_a_plain_one_writes_nothing() {
+    let plain = r#"{"manifest_id":"armada"}"#;
+    let read: StartSession = crate::decode("a start", plain.as_bytes()).unwrap();
+    assert!(!read.held);
+    assert_eq!(serde_json::to_value(&read).unwrap(), json!({"manifest_id":"armada"}));
+    let held: StartSession = crate::decode("a start", br#"{"manifest_id":"armada","held":true}"#).unwrap();
+    assert!(held.held);
+    assert_eq!(serde_json::to_value(&held).unwrap(), json!({"manifest_id":"armada","held":true}));
+}
+
+#[test]
+fn a_held_jobs_start_card_round_trips_and_is_left_out_once_it_has_begun() {
+    let waiting = json!({
+        "turn": {"state": "idle"}, "mode": "auto", "running": false,
+        "start": {"asks_delivery": true, "picked": {"choice": "auto_land", "from": "usual"}}
+    });
+    let read: HostedFacts = serde_json::from_value(waiting.clone()).unwrap();
+    assert_eq!(
+        read.start,
+        Some(StartHeld {
+            asks_delivery: true,
+            picked: Some(DeliveryPicked { choice: DeliveryChoice::AutoLand, from: DeliveryPickedFrom::Usual }),
+        })
+    );
+    assert_eq!(serde_json::to_value(&read).unwrap(), waiting);
+
+    let named = json!({"asks_delivery": false, "picked": {"choice": "keep_local", "from": "named"}});
+    let read: StartHeld = serde_json::from_value(named.clone()).unwrap();
+    assert_eq!(read.picked.map(|one| one.from), Some(DeliveryPickedFrom::Named));
+    assert_eq!(serde_json::to_value(&read).unwrap(), named);
+
+    let begun = json!({"turn": {"state": "idle"}, "mode": "auto", "running": false});
+    let read: HostedFacts = serde_json::from_value(begun.clone()).unwrap();
+    assert_eq!(read.start, None);
+    assert_eq!(serde_json::to_value(&read).unwrap(), begun);
+}
+
+#[test]
+fn begin_names_the_job_and_the_landing_only_when_one_was_settled() {
+    let begin: BeginSession = crate::decode("a begin", br#"{"session_id":"s2","delivery":"open_pr"}"#).unwrap();
+    assert_eq!(begin.delivery, Some(DeliveryChoice::OpenPr));
+    assert_eq!(serde_json::to_value(&begin).unwrap(), json!({"session_id":"s2","delivery":"open_pr"}));
+    let bare: BeginSession = crate::decode("a begin", br#"{"session_id":"s2"}"#).unwrap();
+    assert_eq!(bare.delivery, None);
+    assert_eq!(serde_json::to_value(&bare).unwrap(), json!({"session_id":"s2"}));
+    assert!(crate::decode::<BeginSession>("a begin", br#"{"session_id":"s2","delivery":"push_it"}"#).is_err());
 }

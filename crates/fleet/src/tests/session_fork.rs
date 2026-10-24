@@ -98,6 +98,7 @@ impl Rig {
                 }),
                 request: None,
                 after: None,
+                held: false,
             })
             .await
     }
@@ -151,6 +152,7 @@ impl Rig {
                 fork: None,
                 request: None,
                 after: None,
+                held: false,
             })
             .await
             .expect("started");
@@ -306,6 +308,7 @@ async fn a_closed_hosted_session_forks_and_a_live_one_does_not() {
             fork: None,
             request: None,
             after: None,
+            held: false,
         })
         .await
         .expect("started");

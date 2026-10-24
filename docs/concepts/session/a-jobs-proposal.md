@@ -15,13 +15,15 @@ Fleet's local language model has a workflow reader (`session_host/workflow_pick.
 | `proposal.reading` | The call is still out |
 | `proposal.picked` | The fields the proposer filled (`title`, `workflow`, `model`, `effort`), each dropped when the person sets that field |
 
+**A title follows his renames.** A Job he renames in Bridge is kept against the name it had, and the next Job's call is shown his last 12 as examples (`job-proposer.md`, *Names he gave*).
+
 **Which starts are read.** Every Job is read once, at the first message that is its brief.
 A start with a `request` (the dispatch sheet) is read at the start.
 Any other start is read at the first message it is sent or given, and that turn is held behind the reading exactly as a dispatch's is.
 
 | Start | Read | When |
 |---|---|---|
-| Dispatch sheet (`request`) | Yes | At the start |
+| Dispatch sheet (`request`) | Yes | At the start. The Job then waits on its start card, and the reading sends nothing |
 | Annotations, Lessons, Hand to Job, any Bridge start with no `request` | Yes | At the person's first `send_session_message` |
 | `start_another_session` (an agent's start, with a plan group or a wait) | Yes | At creation, from the agent's brief, so the proposal is in the dispatcher before he sends. His send does not read it again |
 | A fork (`fork_this_session`, a fork in `start_session`, red main's fork) | No | It carries its source's conversation, model and settings |
@@ -46,3 +48,4 @@ No proposer, or a failed one, starts the Job as it is.
 The three events are `session.workflow`, `session.model` and `session.effort` on the timeline, where committed and pushed rows come from.
 
 **Held turns are in memory.** A Fleet that restarts while a Job is still being read loses them; the message row stays on the thread.
+A Job held on [its start card](the-start-card.md) is the exception: its hold is kept, and its turns are read back off the thread.

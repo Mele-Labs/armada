@@ -56,9 +56,8 @@ export type StartSession = {
    */
   after?: StartAfter;
   /**
-   * Start the session held: it is answered at once, the proposer reads `request`, and no process starts until
-   * `POST /sessions/begin`. Its `hosted.start` is present while it waits. Dispatch sends it. Not read with
-   * `fork`, `root` or `after`.
+   * Start on the start card: no agent runs and a message sent is kept, until `POST /sessions/begin`. Left out when false.
+   * Not read with `fork`, `root` or `after`.
    */
   held?: boolean;
 };
@@ -98,13 +97,6 @@ export type AnswerSessionAsk = {
   /** The folder an `always_allow`, `always_block` or `allow_for_session` is for. A 422 `fleet.session_answer_not_a_folder` without one that holds `reaches`. */
   folder?: string;
 };
-
-/**
- * `POST /sessions/begin`. Starts a held session: its process starts on `request`, and `hosted.start` goes. `delivery`
- * is how the work lands, where the session's workflow has a landing step; left out, the choice `start.picked` names
- * stands. Refused 422 `fleet.session_delivery_unchosen` where the workflow asks and neither names one. Answers the record.
- */
-export type BeginSession = { session_id: string; delivery?: DeliveryChoice };
 
 /** `POST /sessions/tune`. A model or effort left out is the machine's own. */
 export type TuneSession = {
@@ -233,22 +225,30 @@ export type HostedFacts = {
   commands?: string[];
   /** Set while the person has paused the session. Since 23.92. */
   paused?: SessionPaused;
-  /** Present while a held session waits for `POST /sessions/begin`, and gone once it is begun. */
+  /** Present while the Job waits for `POST /sessions/begin`. Absent once it has begun, and for a Job never held. */
   start?: StartHeld;
 };
 
-/**
- * What a held session waits on. `asks_delivery` is whether its workflow has a landing step, so a choice is owed before it begins.
- * `picked` is the choice already standing: the person's `usual` for this kind of workflow in this repository, or one the request
- * `named`. Fleet recomputes it when the workflow changes, and leaves it out where there is none.
- */
+/** A Job that waits on its start card: the person settles it and presses Start. */
 export type StartHeld = {
+  /** The Job's workflow has a step that asks how the work lands, so `BeginSession` needs a `delivery`. */
   asks_delivery: boolean;
+  /** Absent where the person has no usual yet and the first message names none. */
   picked?: DeliveryPicked;
 };
 
-/** Where a standing delivery choice came from: the person's `usual`, or one the request `named`. */
-export type DeliveryPicked = { choice: DeliveryChoice; from: "usual" | "named" };
+/** A landing the start card has ready, and where it came from. */
+export type DeliveryPicked = { choice: DeliveryChoice; from: DeliveryPickedFrom };
+
+/** `usual`: what the person most often picks for this kind of work in this repository. `named`: the first message says how it lands. */
+export type DeliveryPickedFrom = "usual" | "named";
+
+/**
+ * `POST /sessions/begin`: Start pressed on a held Job's start card. Answers the `SessionRecord`.
+ * `delivery` is required where `hosted.start.asks_delivery` holds (422 `fleet.session_waiting_empty` without it) and ignored elsewhere.
+ * 409 `fleet.session_waiting_unheld` for a Job that is not held.
+ */
+export type BeginSession = { session_id: string; delivery?: DeliveryChoice };
 
 /** Who said a row. Another session that wrote to this one is named. */
 export type SessionVoice =
