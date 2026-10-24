@@ -4,7 +4,7 @@
 //
 // **Keyboard.** Focus lands on the card. Up and Down move between rows, Left and Right change a row's choice, Tab goes through the fields,
 // Enter starts from anywhere (a title being edited is kept first), and Escape in the title puts the edit back. The title is kept as a draft
-// until it is committed on leaving the field or on Start.
+// until it is committed on leaving the field or on Start. The marks are read by hovering them and are not tab stops.
 
 import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
@@ -136,7 +136,7 @@ export function StartCard({ session, start, repositories }: { session: Session; 
 
   const bulb = (value: "workflow" | "model" | "effort") =>
     picked.includes(value) ? (
-      <Tooltip label="Picked by the proposer">
+      <Tooltip label="Picked by the proposer" decorative>
         <span className="sv-start__mark" role="img" aria-label="Picked by the proposer">
           <Lightbulb size={12} strokeWidth={2} aria-hidden />
         </span>
@@ -165,7 +165,7 @@ export function StartCard({ session, start, repositories }: { session: Session; 
             Title
           </span>
           {reading ? (
-            <Tooltip label="Reading the request">
+            <Tooltip label="Reading the request" decorative>
               <span className="sv-start__reading" role="img" aria-label="Reading the request">
                 <TextCursor size={12} strokeWidth={2} aria-hidden />
               </span>
@@ -208,7 +208,7 @@ export function StartCard({ session, start, repositories }: { session: Session; 
             {standing === undefined ? (
               <span />
             ) : (
-              <Tooltip label={standingSaid}>
+              <Tooltip label={standingSaid} decorative>
                 <span className="sv-start__mark" role="img" aria-label={standingSaid}>
                   {standing === "named" ? <Quote size={12} strokeWidth={2} aria-hidden /> : <Repeat size={12} strokeWidth={2} aria-hidden />}
                 </span>
