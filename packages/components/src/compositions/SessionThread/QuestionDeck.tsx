@@ -3,7 +3,8 @@
 // it is picked; the last one sends.
 
 import { Fragment, useState } from "react";
-import type { KeyboardEvent } from "react";
+import type { KeyboardEvent, SyntheticEvent } from "react";
+import { createPortal } from "react-dom";
 import { Check, ChevronDown, ChevronRight, MessageCircleQuestion } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
@@ -47,8 +48,8 @@ export function QuestionDeck({
   const setUsing = (next: readonly boolean[]) => patch({ using: next });
   const setWords = (next: readonly string[]) => patch({ words: next });
   const [open, setOpen] = useState(true);
-  // The option the person is pointing at or has focused, on the card it was on.
-  const [looking, setLooking] = useState<{ at: number; label: string } | null>(null);
+  // The option the person is pointing at or has focused, on the card it was on, and where its row sits so the preview can stand beside it.
+  const [looking, setLooking] = useState<{ at: number; label: string; row: DOMRect } | null>(null);
   const [sending, setSending] = useState(false);
   const at = <T,>(list: readonly T[], index: number, value: T): T[] => list.map((one, i) => (i === index ? value : one));
   const chosenFor = (index: number): string[] => {
@@ -59,7 +60,8 @@ export function QuestionDeck({
   const complete = questions.every((_, index) => chosenFor(index).length > 0);
   const one = questions[front]!;
   const previewed = looking?.at === front ? one.options.find((option) => option.label === looking.label) : undefined;
-  const previews = one.options.filter((option) => option.preview !== undefined && option.preview !== "");
+  const look = (option: { label: string; preview?: string }, event: SyntheticEvent<HTMLElement>) =>
+    option.preview === undefined || option.preview === "" ? undefined : setLooking({ at: front, label: option.label, row: event.currentTarget.getBoundingClientRect() });
   // Flat, there is no card for the strips to stand behind.
   const behind = flat ? [] : questions.slice(front + 1, front + 1 + BEHIND);
 
@@ -168,8 +170,10 @@ export function QuestionDeck({
                     className="armada-question-deck__answer"
                     data-on={on || undefined}
                     onClick={() => choose(option.label)}
-                    onMouseEnter={() => (option.preview === undefined || option.preview === "" ? undefined : setLooking({ at: front, label: option.label }))}
-                    onFocus={() => (option.preview === undefined || option.preview === "" ? undefined : setLooking({ at: front, label: option.label }))}
+                    onMouseEnter={(event) => look(option, event)}
+                    onFocus={(event) => look(option, event)}
+                    onMouseLeave={() => setLooking(null)}
+                    onBlur={() => setLooking(null)}
                   >
                     <kbd>{index + 1}</kbd>
                     <span className="armada-question-deck__option">
@@ -194,15 +198,19 @@ export function QuestionDeck({
                 </span>
               </button>
             </div>
-            {previews.length === 0 ? null : (
-              // Every preview shares one cell, so the box is as tall as the longest and pointing at another option moves nothing.
-              <div className="armada-question-deck__previews">
-                {previews.map((option) => (
-                  <pre key={option.label} className="armada-question-deck__preview" role="region" aria-label="Preview" data-hidden={option !== previewed || undefined}>
-                    {option.preview}
-                  </pre>
-                ))}
-              </div>
+            {previewed?.preview === undefined || looking === null ? null : (
+              // Out of the panel's own box, which clips and scrolls: fixed to the window, above the row in the lower half and below it in the upper.
+              createPortal(
+                <pre
+                  className="armada-question-deck__preview"
+                  role="region"
+                  aria-label="Preview"
+                  style={looking.row.top > window.innerHeight / 2 ? { insetBlockEnd: window.innerHeight - looking.row.top + 4, insetInlineEnd: window.innerWidth - looking.row.right } : { insetBlockStart: looking.row.bottom + 4, insetInlineEnd: window.innerWidth - looking.row.right }}
+                >
+                  {previewed.preview}
+                </pre>,
+                document.body,
+              )
             )}
             {using[front] === true ? (
               <Input aria-label="Other" autoFocus value={words[front] ?? ""} onChange={(event) => setWords(at(words, front, event.target.value))} />
