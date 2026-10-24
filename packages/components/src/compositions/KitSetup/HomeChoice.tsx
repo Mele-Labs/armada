@@ -24,7 +24,7 @@ export function useHomeChoice(login: string): [HomeChoice, (next: Partial<HomeCh
   return [{ ...kept, owner }, (next) => set({ ...kept, owner, ...next })];
 }
 
-/** A repository name as GitHub takes it: letters, digits, dot, dash and underscore. */
+/** A repository name as the forge takes it: letters, digits, dot, dash and underscore. */
 const clean = (typed: string): string => typed.replace(/\s+/g, "-").replace(/[^A-Za-z0-9._-]/g, "");
 
 /** `owner/name`, the name falling back to the default while the box is empty. */
