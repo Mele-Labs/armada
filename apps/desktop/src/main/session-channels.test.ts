@@ -39,6 +39,46 @@ describe("answering a session's ask", () => {
   });
 });
 
+function terminalWired() {
+  const handlers = new Map<string, Handler>();
+  const ipc = { handle: (channel: string, handler: Handler) => handlers.set(channel, handler) };
+  const soFar = vi.fn((runId: string) => (runId === "r1" ? "~ $ ls\r\n" : null));
+  const windows = { show: vi.fn(), close: vi.fn(), sessionIds: () => ["a"] };
+  const movedBack = vi.fn();
+  const shellNow = (sessionId: string) => (sessionId === "a" ? { runId: "r1", ended: true } : null);
+  handleSessions({ ipc, connection: () => ({ sessions: { soFar, shellNow } }), windowIdOf: () => undefined, pages: {}, terminals: { windows, movedBack } } as unknown as Parameters<typeof handleSessions>[0]);
+  const call = (channel: string, ...args: unknown[]) => handlers.get(channel)?.({}, ...args);
+  return { call, windows, movedBack, soFar };
+}
+
+describe("a Job's terminal window", () => {
+  it("opens a Job's window by its id, and nothing for an id that is not one", async () => {
+    const { call, windows } = terminalWired();
+    await call(CHANNELS.openTerminalWindow, "a");
+    await call(CHANNELS.openTerminalWindow, "");
+    await call(CHANNELS.openTerminalWindow, 7);
+    expect(windows.show.mock.calls).toEqual([["a"]]);
+    expect(await call(CHANNELS.getTerminalWindows)).toEqual(["a"]);
+  });
+
+  it("moves a shell back into Bridge, closing its window and telling every window where it went and which shell it is", async () => {
+    const { call, windows, movedBack } = terminalWired();
+    await call(CHANNELS.moveTerminalBack, "a", "side panel");
+    await call(CHANNELS.moveTerminalBack, "a", "window");
+    await call(CHANNELS.moveTerminalBack, "", "docked");
+    await call(CHANNELS.moveTerminalBack, "b", "docked");
+    expect(windows.close.mock.calls).toEqual([["a"], ["b"]]);
+    expect(movedBack.mock.calls).toEqual([[{ sessionId: "a", to: "side panel", shell: { runId: "r1", ended: true } }], [{ sessionId: "b", to: "docked" }]]);
+  });
+
+  it("reads what a shell has printed so far by its run id", async () => {
+    const { call, soFar } = terminalWired();
+    expect(await call(CHANNELS.readTerminalSoFar, "r1")).toBe("~ $ ls\r\n");
+    expect(await call(CHANNELS.readTerminalSoFar, 1)).toBeNull();
+    expect(soFar.mock.calls).toEqual([["r1"]]);
+  });
+});
+
 describe("muting a notice", () => {
   it("sends a mute for every word a notice goes by, not only the behind-base one", async () => {
     const { mute, muteNotice } = wired();

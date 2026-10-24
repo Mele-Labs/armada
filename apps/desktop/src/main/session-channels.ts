@@ -9,9 +9,10 @@ import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, ChangeWaiting, Chose
 import type { SetNoticeMute, StartAfter, StopWatch } from "@armada/protocol";
 import { HELM_CALL_ANSWERS, isNotice } from "@armada/protocol";
 import { CHANNELS } from "../shared/bridge";
-import type { PullRequestPress, PullRequestWrite } from "../shared/api/sessions";
+import type { PullRequestPress, PullRequestWrite, TerminalMovedBack } from "../shared/api/sessions";
 import type { FleetConnection } from "./connection";
 import type { SessionPages } from "./session-page";
+import type { TerminalWindows } from "./terminal-windows";
 import type { LoadoutKind, LoadoutSource, McpServerAct } from "@armada/protocol";
 
 type Hosts = {
@@ -19,7 +20,11 @@ type Hosts = {
   connection: () => FleetConnection | null;
   windowIdOf: (event: Electron.IpcMainInvokeEvent) => number;
   pages: SessionPages;
+  /** Each Job's terminal window, and where a shell moved back out of one is told: every window. */
+  terminals: { windows: Pick<TerminalWindows, "show" | "close" | "sessionIds">; movedBack: (move: TerminalMovedBack) => void };
 };
+
+const BACK_TO: readonly TerminalMovedBack["to"][] = ["docked", "side panel"];
 
 const PRESSES: readonly PullRequestPress[] = ["read", "ready", "merge", "auto_merge"];
 const WRITES: readonly PullRequestWrite["kind"][] = ["comment", "approve", "request_changes"];
@@ -57,7 +62,7 @@ function noticeMute(value: unknown): SetNoticeMute | undefined {
   return undefined;
 }
 
-export function handleSessions({ ipc, connection, windowIdOf, pages }: Hosts): void {
+export function handleSessions({ ipc, connection, windowIdOf, pages, terminals }: Hosts): void {
   ipc.handle(CHANNELS.startSession, (event, title?: string, root?: string, request?: string, tuning?: { model?: string; effort?: string }, after?: StartAfter) => {
     const fleet = connection();
     if (fleet === null) return unsent;
@@ -257,6 +262,18 @@ export function handleSessions({ ipc, connection, windowIdOf, pages }: Hosts): v
       ? (connection()?.sessions.openTerminal({ session_id: sessionId, ...(cols === undefined || rows === undefined ? {} : { cols, rows }) }) ?? unsent)
       : unread,
   );
+  ipc.handle(CHANNELS.openTerminalWindow, (_event, sessionId: unknown) => {
+    if (text(sessionId)) terminals.windows.show(sessionId);
+  });
+  ipc.handle(CHANNELS.getTerminalWindows, () => terminals.windows.sessionIds());
+  ipc.handle(CHANNELS.readTerminalSoFar, (_event, runId: unknown) => (text(runId) ? (connection()?.sessions.soFar(runId) ?? null) : null));
+  // The window closes here; the document that draws the Job's dock opens the shell where it went.
+  ipc.handle(CHANNELS.moveTerminalBack, (_event, sessionId: unknown, to: unknown) => {
+    if (!text(sessionId) || !BACK_TO.includes(to as TerminalMovedBack["to"])) return;
+    terminals.windows.close(sessionId);
+    const shell = connection()?.sessions.shellNow(sessionId) ?? null;
+    terminals.movedBack({ sessionId, to: to as TerminalMovedBack["to"], ...(shell === null ? {} : { shell }) });
+  });
   ipc.handle(CHANNELS.catchUpCheckout, (_event, manifestId: string) =>
     text(manifestId) ? (connection()?.sessions.catchUpCheckout({ manifest_id: manifestId }) ?? unsent) : unread,
   );

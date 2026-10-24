@@ -2,9 +2,6 @@
 // Hand-mirrored: the Gateway trims Fleet's Session to an allowlist, so this is not
 // `@armada/protocol`'s SessionRecord and nothing here is generated.
 
-/** GET /api/needs: the live Sessions waiting on the owner, oldest wait first. */
-export type NeedsBody = { sessions: PhoneSession[] };
-
 /** One `data:` line of GET /api/live. `resync` means read the lists again. */
 export type LiveChange = {
   change: "session" | "resync";
@@ -45,7 +42,7 @@ export type PhoneSession = {
   ask?: PhoneAsk;
 };
 
-/** GET /api/sessions (live Sessions), or with `?state=ended` the ones that are over, newest first. */
+/** GET /api/sessions: the live Sessions only. The phone takes Needs you from the ones waiting. */
 export type SessionsBody = { sessions: PhoneSession[] };
 
 /** One question's choice: the option labels, or the person's own words. */

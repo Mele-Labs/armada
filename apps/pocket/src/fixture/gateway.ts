@@ -26,7 +26,7 @@ export function answer(mac: FixtureMac, posted: Posted[], method: string, target
       case "/api/needs":
         return json({ sessions: mac.needs });
       case "/api/sessions":
-        return json({ sessions: url.searchParams.get("state") === "ended" ? mac.ended : mac.live });
+        return json({ sessions: mac.live });
       case "/api/repositories":
         return json(mac.repositories);
       case "/api/sessions/one": {
