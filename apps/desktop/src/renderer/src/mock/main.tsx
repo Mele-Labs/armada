@@ -19,7 +19,7 @@ import { mountNoWalk, mountWalk } from "./WalkPlayer";
 import { EVERY_WALK } from "./walks";
 
 const query = new URLSearchParams(window.location.search);
-// `?power=sweep` or `?power=step` draws the Cockpit's power-on in another take (`cockpit/deck/power.css`); none is the trace.
+// `?power=sweep`, `?power=trace-sweep` or `?power=step` draws the Cockpit's power-on in another take (`cockpit/deck/power.css`); none is the trace.
 const take = query.get("power");
 if (take !== null) document.documentElement.dataset.powerTake = take;
 // `?standby=glyph` puts each panel's glyph where its data will be while it stands by; none is its instruments' outlines.

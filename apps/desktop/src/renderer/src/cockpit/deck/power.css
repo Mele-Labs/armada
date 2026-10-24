@@ -154,6 +154,30 @@
 }
 @keyframes power-wipe { from { clip-path: inset(0 0 100% 0); } }
 
+/* ---- Take: trace-sweep. The trace, then a scan line passes down each drawn frame, again while Fleet is still starting. ---- */
+
+:root[data-power-take="trace-sweep"] .deck[data-power="standby"] :is(.deck-panel, .deck-pane:not([data-bare]))::after {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: var(--border-width);
+  background: var(--border-strong);
+  pointer-events: none;
+  animation: power-rescan calc(var(--power-trace) * 6) linear calc(var(--power-n, 0) * var(--power-step) + var(--power-trace)) infinite both;
+}
+@keyframes power-rescan {
+  from { top: 0; opacity: 0; }
+  2% { opacity: 1; }
+  30% { top: 100%; opacity: 1; }
+  33%, to { top: 100%; opacity: 0; }
+}
+:root[data-power-take="trace-sweep"] .deck[data-power="filling"] :is(.deck-panel, .deck-pane:not([data-bare])) > :not(.deck-band, .deck-standby) {
+  animation: power-wipe calc(var(--duration-travel) * 1.5) var(--ease) calc(var(--power-n, 0) * var(--duration-fast)) backwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  :root[data-power-take="trace-sweep"] .deck[data-power="standby"] :is(.deck-panel, .deck-pane:not([data-bare]))::after { animation: none; opacity: 0; }
+}
+
 /* ---- Take: step. No strokes: frame, label and data each come on in hard steps, as a panel of lamps does. ---- */
 
 :root[data-power-take="step"] .deck[data-power="standby"] :is(.deck-panel, .deck-pane:not([data-bare]))::before {
