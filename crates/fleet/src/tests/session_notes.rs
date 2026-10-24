@@ -14,9 +14,9 @@ use ipc::{
 
 use super::session_host::{eventually, rig_fitted, Rig};
 
-const PATH: &str = "packages/components/src/compositions/UsagePage/UsagePage.tsx";
+pub(super) const PATH: &str = "packages/components/src/compositions/UsagePage/UsagePage.tsx";
 const USAGE_PAGE: &str = include_str!("../../../acceptance/tests/bench/pinned_note/UsagePage.tsx.txt");
-const SAID: &str = "this row should say which commands";
+pub(super) const SAID: &str = "this row should say which commands";
 
 fn git(repo: &Path, args: &[&str]) {
     let run = std::process::Command::new("git")
@@ -31,7 +31,7 @@ fn git(repo: &Path, args: &[&str]) {
 
 /// The rig's root as a repository holding the page, and a test that says the row's words whole on
 /// an `<li>`, which is set aside while the page's own file matches.
-fn a_repository(rig: &Rig) {
+pub(super) fn a_repository(rig: &Rig) {
     let root = Path::new(&rig.root);
     git(root, &["-c", "init.defaultBranch=main", "init", "--quiet"]);
     let page = root.join(PATH);
@@ -47,7 +47,7 @@ fn a_repository(rig: &Rig) {
     git(root, &["commit", "--quiet", "-m", "the page"]);
 }
 
-fn note(id: &SessionId, label: &str, stamp: Option<&str>) -> SendSessionNote {
+pub(super) fn note(id: &SessionId, label: &str, stamp: Option<&str>) -> SendSessionNote {
     SendSessionNote { session_id: id.clone(), note: SessionNote {
         said: format!("  {SAID}  "),
         address: "http://127.0.0.1:1/?walk=burnBySessionModelTool".to_string(),
@@ -74,7 +74,7 @@ fn note(id: &SessionId, label: &str, stamp: Option<&str>) -> SendSessionNote {
     } }
 }
 
-async fn turn_of(rig: &Rig) -> String {
+pub(super) async fn turn_of(rig: &Rig) -> String {
     eventually(|| async { rig.stand_in.starts().len() == 1 && !rig.stand_in.process(0).sent.lock().unwrap().is_empty() }).await;
     rig.stand_in.process(0).sent.lock().unwrap()[0].clone()
 }

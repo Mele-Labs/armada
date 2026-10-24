@@ -59,6 +59,8 @@ export type Profile = {
   chosen: boolean;
   /** The repository of the shared home it set up, once there is one. */
   repository?: string;
+  /** The organisations the login belongs to, read at sign-in: the owners a shared home can be made under, beside the login. */
+  orgs?: readonly string[];
   /** The repositories bound to this profile, each marked for how it came to be. */
   repositories?: readonly BoundRepository[];
 };

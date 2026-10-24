@@ -90,6 +90,8 @@ where
         }
         let served = match self.served_named(Some(&ManifestId::carried(&hosting.manifest_id))) {
             Ok(served) => served,
+            // A Mod Job in the mods folder has no repository, so there is no slot to keep it to.
+            Err(_) if hosting.manifest_id.is_empty() && hosting.mod_job => return GateAnswer::pass(),
             // Setup's session, until its root's Manifest is served (the owner, 13 Oct 2026).
             Err(_) if hosting.manifest_id.is_empty() => {
                 let root = session.cwd.clone();

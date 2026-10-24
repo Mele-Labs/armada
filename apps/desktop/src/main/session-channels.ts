@@ -5,7 +5,7 @@
 
 import type { IpcMain } from "electron";
 
-import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, ChangeWaiting, ChosenHold, ClaimIssue, ClaimPullRequest, ConfirmWaiting, DismissConcern, DismissWaiting, JudgeSession, RenameSession, SendConcern, SendPlanChanges, SendSessionMessage, SendSessionNote, SettleLater, TuneSession } from "@armada/protocol";
+import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, ChangeWaiting, ChosenHold, ClaimIssue, ClaimPullRequest, ConfirmWaiting, DismissConcern, DismissWaiting, JudgeSession, RenameSession, SendConcern, SendPlanChanges, SendSessionMessage, SendSessionNote, SettleLater, StartModSession, TuneSession } from "@armada/protocol";
 import type { BeginSession, SetNoticeMute, StartAfter, StopWatch } from "@armada/protocol";
 import { HELM_CALL_ANSWERS, isNotice } from "@armada/protocol";
 import { CHANNELS } from "../shared/bridge";
@@ -95,6 +95,13 @@ export function handleSessions({ ipc, connection, windowIdOf, pages, terminals }
     if (!text(send?.session_id) || typeof send.said !== "string" || typeof send.address !== "string") return unread;
     if (typeof send.place?.selector !== "string" || typeof send.place.location !== "string" || typeof send.state !== "object" || send.state === null) return unread;
     return connection()?.sessions.sendNote(send) ?? unsent;
+  });
+  ipc.handle(CHANNELS.startModSession, (_event, start: StartModSession) => {
+    const note = start?.note;
+    if (typeof note?.said !== "string" || typeof note.address !== "string" || typeof note.place?.selector !== "string" || typeof note.place.location !== "string") return unread;
+    if (typeof note.state !== "object" || note.state === null) return unread;
+    for (const field of [start.title, start.model, start.effort]) if (field !== undefined && typeof field !== "string") return unread;
+    return connection()?.sessions.startMod({ note, ...(text(start.title) ? { title: start.title } : {}), ...(text(start.model) ? { model: start.model } : {}), ...(text(start.effort) ? { effort: start.effort } : {}) }) ?? unsent;
   });
   ipc.handle(CHANNELS.answerSessionAsk,(_event, answer: AnswerSessionAsk) => {
     if (!text(answer?.session_id) || !text(answer.call) || !ANSWERS.includes(answer.answer)) return unread;
