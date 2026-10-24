@@ -3,7 +3,7 @@
 use std::path::{Component, Path, PathBuf};
 
 use axum::extract::{Request, State};
-use axum::http::{header, Method, StatusCode};
+use axum::http::{header, HeaderMap, HeaderValue, Method, StatusCode};
 use crate::Gateway;
 use axum::response::{IntoResponse, Response};
 
@@ -30,10 +30,65 @@ pub async fn serve(State(gateway): State<Gateway>, request: Request) -> Response
     } else {
         file
     };
-    match tokio::fs::read(&file).await {
-        Ok(bytes) => ([(header::CONTENT_TYPE, kind(&file))], bytes).into_response(),
-        Err(_) => StatusCode::NOT_FOUND.into_response(),
+    // Vite names everything under `assets/` by its content hash, so it never changes.
+    // The SPA fallback is `index.html` and so is not under it.
+    let cache = if file.starts_with(dir.join("assets")) { IMMUTABLE } else { "no-cache" };
+    let accepted = request
+        .headers()
+        .get(header::ACCEPT_ENCODING)
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or("");
+    let mut varies = false;
+    let mut chosen = None;
+    for (coding, suffix) in [("br", "br"), ("gzip", "gz")] {
+        let copy = beside(&file, suffix);
+        if !tokio::fs::try_exists(&copy).await.unwrap_or(false) {
+            continue;
+        }
+        varies = true;
+        if chosen.is_none() && accepts(accepted, coding) {
+            chosen = Some((coding, copy));
+        }
     }
+    let (coding, source) = match chosen {
+        Some((coding, copy)) => (Some(coding), copy),
+        None => (None, file.clone()),
+    };
+    let Ok(bytes) = tokio::fs::read(&source).await else {
+        return StatusCode::NOT_FOUND.into_response();
+    };
+    let mut headers = HeaderMap::new();
+    headers.insert(header::CONTENT_TYPE, HeaderValue::from_static(kind(&file)));
+    headers.insert(header::CACHE_CONTROL, HeaderValue::from_static(cache));
+    if let Some(coding) = coding {
+        headers.insert(header::CONTENT_ENCODING, HeaderValue::from_static(coding));
+    }
+    if varies {
+        headers.insert(header::VARY, HeaderValue::from_static("Accept-Encoding"));
+    }
+    (headers, bytes).into_response()
+}
+
+const IMMUTABLE: &str = "public, max-age=31536000, immutable";
+
+/// `file` with `.suffix` added after its own extension.
+fn beside(file: &Path, suffix: &str) -> PathBuf {
+    let mut name = file.as_os_str().to_os_string();
+    name.push(".");
+    name.push(suffix);
+    PathBuf::from(name)
+}
+
+/// Whether an `Accept-Encoding` value lists `coding` with a quality above zero.
+fn accepts(accepted: &str, coding: &str) -> bool {
+    accepted.split(',').any(|item| {
+        let mut parts = item.split(';');
+        let named = parts.next().unwrap_or("").trim().eq_ignore_ascii_case(coding);
+        let refused = parts.any(|param| {
+            param.trim().strip_prefix("q=").and_then(|q| q.trim().parse::<f32>().ok()) == Some(0.0)
+        });
+        named && !refused
+    })
 }
 
 /// `path` under `dir`, or `None` if it would leave it.

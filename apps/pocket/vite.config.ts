@@ -1,5 +1,8 @@
+import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
+import { join } from "node:path";
+import { brotliCompressSync, constants as zlibConstants, gzipSync } from "node:zlib";
 
 import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
@@ -69,8 +72,27 @@ function fixtureGateway(): Plugin {
   };
 }
 
+/** Writes `<file>.br` and `<file>.gz` beside every built asset over 1 KB, for a host that serves them. */
+function precompress(): Plugin {
+  let out = "";
+  return {
+    name: "pocket-precompress",
+    apply: "build",
+    configResolved: (config) => void (out = join(config.root, config.build.outDir, "assets")),
+    closeBundle() {
+      for (const name of readdirSync(out)) {
+        const file = join(out, name);
+        if (/\.(br|gz)$/.test(name) || statSync(file).size <= 1024) continue;
+        const bytes = readFileSync(file);
+        writeFileSync(`${file}.br`, brotliCompressSync(bytes, { params: { [zlibConstants.BROTLI_PARAM_QUALITY]: 11 } }));
+        writeFileSync(`${file}.gz`, gzipSync(bytes, { level: 9 }));
+      }
+    },
+  };
+}
+
 // `appType: "spa"` so `/jobs/<Mac>/<id>` opens directly rather than 404ing.
 export default defineConfig(({ mode }) => ({
-  plugins: [react(), tailwindcss(), ...(mode === "fixture" ? [fixtureGateway()] : [])],
+  plugins: [react(), tailwindcss(), precompress(), ...(mode === "fixture" ? [fixtureGateway()] : [])],
   appType: "spa",
 }));
