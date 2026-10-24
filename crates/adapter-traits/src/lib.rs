@@ -98,7 +98,7 @@ pub use main_ci::{
 };
 pub use manifest_edit::{ManifestEditSent, ManifestEditToSend, ManifestOnTheBase, PullRequestFor};
 pub use pull_reading::{PullQueue, FollowedCheck, FollowedPull, FollowedPulls};
-pub use backlog::{Backlog, CopyMark};
+pub use backlog::{Backlog, BeadState, CopyMark};
 pub use pull_request::{PullRequestFacts, PullRequestStanding};
 pub use pull_request_detail::{
     CheckRow, CheckStanding, CommitLine, FileChange, FilePatch, Mergeability, Omitted, PageFile,

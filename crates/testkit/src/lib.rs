@@ -38,7 +38,7 @@ mod vcs;
 mod work_product;
 mod workflow;
 
-pub use beads::{FakeBeads, FakeBeadsRemote};
+pub use beads::{Bead, FakeBeads, FakeBeadsRemote};
 pub use bucket::FakeBucket;
 pub use harness::{FakeHarness, EDITS, READS, REACHES, REPLAYED, RUNS};
 pub use judge::{refusal, FakeJudge};
