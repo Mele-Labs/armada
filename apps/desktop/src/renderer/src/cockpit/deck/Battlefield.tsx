@@ -39,6 +39,8 @@ import { MOST_LOOPS } from "./doing";
 import type { Slab } from "./lens";
 import { LensWires } from "./LensWires";
 import { useCamera } from "./useCamera";
+import { clipLayout, useFill, useGlide } from "./glide";
+import { usePowerOn } from "../boot";
 import "./battlefield.css";
 
 const cssMs = (name: string, fallback: number): number => {
@@ -105,6 +107,7 @@ export type BattlefieldProps = {
 const NO_BUILDS: readonly BuildIn[] = [];
 const NO_OUTPOSTS: readonly Outpost[] = [];
 const NO_LINKS: readonly LinkIn[] = [];
+const NO_PLAYS: readonly Play[] = [];
 
 /** The points the whole field must show for its outposts: the foot of each and a height over its badge, which keeps the badge clear of the haze at the pane's top edge. */
 const outpostMarks = (world: Size, n: number): P3[] =>
@@ -113,7 +116,7 @@ const outpostMarks = (world: Size, n: number): P3[] =>
     return [{ x: at.x - 40, y: at.y * FLAT, z: 0 }, { x: at.x + 40, y: at.y * FLAT, z: 230 }];
   }).flat();
 
-export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, facts, calls, clashes, focus, selected, scope, own, builds = NO_BUILDS, planned, outposts = NO_OUTPOSTS, touched, glow, route, framing, lights, walk, lens, lensCard, typing = false, float = false, links = NO_LINKS, onSelect, onClear, onPad, onGoal, onPr }: BattlefieldProps) {
+export function Battlefield({ repos, drones: given, pads, goals, prs: givenPrs, trails, plays: givenPlays, facts, calls, clashes, focus, selected, scope, own, builds = NO_BUILDS, planned, outposts = NO_OUTPOSTS, touched, glow, route, framing, lights, walk, lens, lensCard, typing = false, float = false, links = NO_LINKS, onSelect, onClear, onPad, onGoal, onPr }: BattlefieldProps) {
   const host = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState<Size>({ width: 900, height: 560 });
   // Bumped when the pane takes a new size, or has one again after being folded away: an own camera refits then.
@@ -150,7 +153,18 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
   const sized = useMemo<Size>(() => ({ width: Math.round(size.width * WORLD), height: Math.round(size.height * WORLD) }), [size]);
   // The whole field lays out every repository to fit the pane.
   const world = sized;
-  const layout = useMemo(() => layoutOf(repos, drones, world, big, prs, clashes), [repos, drones, world, big, prs, clashes]);
+  const full = useMemo(() => layoutOf(repos, given, world, big, givenPrs, clashes), [repos, given, world, big, givenPrs, clashes]);
+  // Powering on, the field holds empty and then takes its territories left to right; after that a new layout glides (`glide.ts`).
+  // The camera rests on the whole of what is coming, so it does not move as each comes in.
+  const power = usePowerOn();
+  const order = useMemo(() => [...full.territories].sort((a, b) => a.rect.x - b.rect.x || a.rect.y - b.rect.y).map((one) => one.root), [full]);
+  const filled = useFill(order, full, power, own === undefined);
+  const clipped = useMemo(() => (filled === undefined ? full : clipLayout(full, filled)), [full, filled]);
+  const layout = useGlide(clipped, `${world.width}x${world.height}:${big}`, own === undefined);
+  const drones = useMemo(() => (filled === undefined ? given : given.filter((one) => filled.has(one.root))), [given, filled]);
+  const prs = useMemo(() => (filled === undefined ? givenPrs : givenPrs.filter((one) => filled.has(one.root))), [givenPrs, filled]);
+  // Nothing plays while the field fills, so no arrival pulls the camera back.
+  const plays = filled === undefined ? givenPlays : NO_PLAYS;
   const plane = { width: world.width, height: world.height * FLAT };
   const territory = new Map(layout.territories.map((one) => [one.root, one] as const));
   const padAt = new Map(layout.territories.flatMap((one) => one.pads.map((pad) => [pad.key, onPlane(pad)] as const)));
@@ -166,8 +180,8 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
 
   // The whole field at rest, found from the projection itself: every territory with its base and flag and every drone with its altitude.
   const whole = useMemo<Cam>(
-    () => homeOf(size, plane, [...marksOf(layout.territories, [...layout.at].map(([key, at]) => ({ at, call: calls.has(key) })), big, reachOf(FOOT, MARGIN, big)), ...outpostMarks(world, outposts.length)]),
-    [layout, plane.width, plane.height, size, big, calls, outposts.length],
+    () => homeOf(size, plane, [...marksOf(full.territories, [...full.at].map(([key, at]) => ({ at, call: calls.has(key) })), big, reachOf(FOOT, MARGIN, big)), ...outpostMarks(world, outposts.length)]),
+    [full, plane.width, plane.height, size, big, calls, outposts.length],
   );
   // Every map rests on the whole field, a Job's Field too: its drones are seen where they are in the repository, and the lens's card
   // stands over the map without moving the camera.
@@ -177,7 +191,11 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
   const fit = (c: Cam): Cam => limited(plane, limits, c);
 
   // An arrival (a drone that was not there, a merge that landed) is shown whole: the camera pulls back to it, then returns.
-  const arrival = plays.filter((one) => one.id.startsWith("arrived:") || one.id.startsWith("merged:"));
+  // One that came in while the field filled is part of the fill, and pulls nothing once it is over.
+  const arrives = (one: Play) => one.id.startsWith("arrived:") || one.id.startsWith("merged:");
+  const filledPast = useRef(new Set<string>());
+  if (filled !== undefined) for (const one of givenPlays) if (arrives(one)) filledPast.current.add(one.id);
+  const arrival = plays.filter((one) => arrives(one) && !filledPast.current.has(one.id));
   const pull = (() => {
     if (arrival.length === 0) return undefined;
     const marks: Point[] = [];

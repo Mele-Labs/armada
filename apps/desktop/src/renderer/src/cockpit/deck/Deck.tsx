@@ -71,6 +71,9 @@ import { openPullRequestInPanel, openSlotKeyInPanel, usePanel } from "../../shar
 import { PullRequestMenuOn } from "../../pull-request-menu";
 import "../cockpit.css";
 import "./deck.css";
+import "./power.css";
+import { Standby } from "./Standby";
+import { powering, usePowerOn } from "../boot";
 
 
 /** The slots the pool serves, narrowed to the picked repository as the ship's are. */
@@ -315,6 +318,7 @@ function List({ subjects, calling, banding, selected, builds, picked, found, onP
   return (
     // A press on the list and on no row lets the cursor go.
     <section ref={panel} className="deck-panel deck-list" aria-label="Jobs" tabIndex={-1} data-collapsed={folded.collapsed || undefined} onClick={(event) => (event.target as Element).closest(".deck-row") === null && moveCursor(undefined)}>
+      <Standby kind="jobs" />
       <header className="deck-band" {...folded.band}>
         Jobs
         <Filter rows={panel} />
@@ -386,6 +390,7 @@ function Activity({ props, listed, ship }: { props: CockpitProps; listed: readon
   }, [events, focus, replay === undefined ? undefined : replay.at]);
   return (
     <section className="deck-panel deck-activity" aria-label="Activity" tabIndex={-1}>
+      <Standby kind="activity" />
       <header className="deck-band">Activity</header>
       <ActivityGraph
         now={props.now}
@@ -416,6 +421,7 @@ function TimelineView({ props, ship, listed }: { props: CockpitProps; ship: Ship
   };
   return (
     <section className="deck-pane" aria-label="Fleet timeline">
+      <Standby kind="timeline" />
       <header className="deck-band deck-pane__head">
         <ChartNoAxesGantt size={16} aria-hidden="true" />
         <h2 className="deck-pane__title">Timeline</h2>
@@ -648,6 +654,7 @@ function MergeQueue({ props, ship }: { props: CockpitProps; ship: Ship }) {
     }));
     return (
       <section className="deck-panel deck-queue" aria-label="Merge queue" tabIndex={-1} data-band-only="">
+        <Standby kind="queue" />
         <div className="deck-queue__row">
           {merge}
           <QueueStack rows={rows} />
@@ -658,6 +665,7 @@ function MergeQueue({ props, ship }: { props: CockpitProps; ship: Ship }) {
   }
   return (
     <section className="deck-panel deck-queue" aria-label="Merge queue" tabIndex={-1} data-band-only="">
+      <Standby kind="queue" />
       <div className="deck-queue__row">
         {merge}
         <ol className="deck-chips" onWheel={(event) => {
@@ -768,6 +776,7 @@ function BaysPanel({ props, ship, picked }: { props: CockpitProps; ship: Ship; p
 function LedgerPanel({ host }: { host: (element: HTMLElement | null) => void }) {
   return (
     <section className="deck-panel deck-ledger" aria-label="Ledger" tabIndex={-1}>
+      <Standby kind="ledger" />
       <header className="deck-band">Ledger</header>
       <div className="deck-ledger__body" ref={host} />
     </section>
@@ -817,6 +826,7 @@ function FlightControl({ ship, props }: { ship: Ship; props: CockpitProps }) {
   useEffect(() => setEditing(false), [set]);
   return (
     <section className="deck-panel deck-controls" aria-label="Flight controls" tabIndex={-1} data-collapsed={folded.collapsed || undefined}>
+      <Standby kind="controls" />
       <header className="deck-band" {...folded.band}>
         Flight control
         <PanelKey id="controls" />
@@ -870,6 +880,7 @@ function DispatchDeck() {
   if (dispatching === undefined) return null;
   return (
     <section className="deck-panel deck-dispatch" aria-label="Dispatch controls" tabIndex={-1}>
+      <Standby kind="dispatch" />
       <header className="deck-band">
         Dispatch
         <PanelKey id="dispatch" />
@@ -932,6 +943,7 @@ function AutopilotPanel({ props, autopilot }: { props: CockpitProps; autopilot: 
   };
   return (
     <section className="deck-panel deck-autopilot" aria-label="Autopilot" tabIndex={-1}>
+      <Standby kind="autopilot" />
       <header className="deck-band">
         <Switch checked={open || state !== "off"} onChange={flip} disabled={control === undefined}>
           Autopilot
@@ -1076,12 +1088,14 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
   const splits = useSplits(grid, layout);
   useActivityBeside(grid, layout);
   const builds = useBuilds(props.now);
+  const power = usePowerOn();
   return (
     <ClashesOpenHere ship={ship}>
     {/* A replay plays on while the deck is drawn, from the events Bridge holds, and takes its own keys while it is up. */}
     <ReplayHost props={props} ship={ship} />
     <AutopilotAsked control={autopilot.control} />
-    <div ref={deckMarks} className="armada-cockpit deck">
+    {/* Powering on, each panel comes online in turn and fills as Fleet answers (`power.css`). */}
+    <div ref={deckMarks} className="armada-cockpit deck" data-power={powering(power) ? power : undefined}>
       <div ref={grid} className="deck-grid" data-bare={bare || undefined} style={columns === undefined ? undefined : ({ "--deck-left": `${columns.left}px`, "--deck-right": `${columns.right}px` } as CSSProperties)}>
         <div className="deck-left">
           <RepositoryScope props={props} />
