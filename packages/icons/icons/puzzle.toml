@@ -11,3 +11,10 @@
     size = "16px"
     status = "Specified"
     notes = "Tooltip `Mods`. Walked by the owner in the Mods mock."
+
+  [[icons.puzzle.usage]]
+    means = "Mod, in the menu a right press opens on anything in Bridge and on a Job's row"
+    group = "Mods"
+    size = "16px"
+    status = "Proposed"
+    notes = "Proposed 23 Oct 2026 for the walk `mod-job`. Label `Mod`. The same glyph as the Mods surface in the rail, since a Mod Job makes the mods that surface lists."

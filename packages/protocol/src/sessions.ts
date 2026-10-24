@@ -98,6 +98,7 @@ export type SessionRecord = {
   attachments: Attachment[];
   /** This is its repository's Helm Session, which Bridge draws marked. Absent for every other. */
   helm?: true;
+  /** A Mod Job: started from Mod, for modding Armada itself. */
   mod?: true;
   /** What a session Fleet hosts carries beyond a terminal's. Since 23.49. */
   hosted?: HostedFacts;
