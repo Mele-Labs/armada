@@ -49,6 +49,12 @@ export type HomeNamed = { account: string; repository: string };
 /** `GET /shared_home`, and what every act on it answers with. `home` is left out where this machine holds no copy yet. */
 export type SharedHomeRead = { home?: HomeNamed; rows: HomeRow[]; unreadable: HomeUnreadable[] };
 
+/** A row only on this machine that Sync did not add. `why` is a sentence naming the row and why it stayed: a host, never a credential. */
+export type HomeLeft = { kind: HomeKind; name: string; repository?: string; why: string };
+
+/** `POST /shared_home/sync`: the home read again, and each row only on this machine Sync left here. */
+export type HomeSynced = SharedHomeRead & { left: HomeLeft[] };
+
 /** `POST /shared_home/add` and `POST /shared_home/bring`: which row, in which profile's home. `repository` on a memory note alone. */
 export type HomeRowAt = { login: string; kind: HomeKind; name: string; repository?: string };
 

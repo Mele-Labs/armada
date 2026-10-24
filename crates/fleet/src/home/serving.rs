@@ -9,7 +9,7 @@ use adapter_traits::{
 };
 use api::{Refusal, SharedHome};
 use config::settings as keys;
-use ipc::{ChooseHomeSide, HomeKind, HomeKinds, HomeProfile, HomeRowAt, HomeSide, SetHomeKind, SharedHomeRead, WireError};
+use ipc::{ChooseHomeSide, HomeKind, HomeKinds, HomeProfile, HomeRowAt, HomeSide, HomeSynced, SetHomeKind, SharedHomeRead, WireError};
 
 use super::{Places, Refused, Repository};
 use crate::daemon::Fleet;
@@ -71,13 +71,13 @@ impl Read {
     }
 
     /// Refuse a mod that is not valid here before it travels: `crate::mods`' own reading of it.
-    fn valid_mod(&self, at: &HomeRowAt) -> Result<(), Refused> {
-        if at.kind != HomeKind::Mods {
+    fn valid_mod(&self, kind: HomeKind, name: &str) -> Result<(), Refused> {
+        if kind != HomeKind::Mods {
             return Ok(());
         }
-        let examined = crate::mods::examine(Path::new(&self.mods_dir), &at.name);
+        let examined = crate::mods::examine(Path::new(&self.mods_dir), name);
         match examined.problems.first() {
-            Some(problem) => Err(Refused::Cannot(format!("The mod {} is not valid here: {problem}", at.name))),
+            Some(problem) => Err(Refused::Cannot(format!("The mod {name} is not valid here: {problem}"))),
             None => Ok(()),
         }
     }
@@ -181,6 +181,16 @@ where
         needs_copy: bool,
         act: impl FnOnce(&Read, &Places<'_>, &str) -> Result<(), Refused> + Send + 'static,
     ) -> Result<SharedHomeRead, Refusal> {
+        self.at_home_with(login, needs_copy, act).await.map(|((), read)| read)
+    }
+
+    /// [`Self::at_home`], keeping what `act` answers beside the read.
+    async fn at_home_with<T: Send + 'static>(
+        &self,
+        login: &str,
+        needs_copy: bool,
+        act: impl FnOnce(&Read, &Places<'_>, &str) -> Result<T, Refused> + Send + 'static,
+    ) -> Result<(T, SharedHomeRead), Refusal> {
         let read = self.home_read(login).await?;
         if needs_copy && read.home.here().is_none() {
             return Err(Refusal::IllegalMove(WireError::raised(
@@ -192,7 +202,7 @@ where
         let done = tokio::task::spawn_blocking(move || {
             let machine = crate::signing_in::this_machine(&read.machine);
             let places = read.places();
-            act(&read, &places, &machine).map(|()| super::read(&places, &read.on))
+            act(&read, &places, &machine).map(|answer| (answer, super::read(&places, &read.on)))
         })
         .await
         .map_err(|why| self.home_not_kept(why))?;
@@ -220,14 +230,19 @@ where
         self.at_home(&profile.login, false, |_, _, _| Ok(())).await
     }
 
-    async fn sync_shared_home(&self, profile: HomeProfile) -> Result<SharedHomeRead, Refusal> {
-        self.at_home(&profile.login, false, |_, places, _| super::sync(places.home)).await
+    async fn sync_shared_home(&self, profile: HomeProfile) -> Result<HomeSynced, Refusal> {
+        let (left, read) = self
+            .at_home_with(&profile.login, false, |read, places, machine| {
+                super::sync(places, &read.on, machine, &|kind, name| read.valid_mod(kind, name))
+            })
+            .await?;
+        Ok(HomeSynced { read, left })
     }
 
     async fn add_to_shared_home(&self, at: HomeRowAt) -> Result<SharedHomeRead, Refusal> {
         let login = at.login.clone();
         self.at_home(&login, true, move |read, places, machine| {
-            read.valid_mod(&at)?;
+            read.valid_mod(at.kind, &at.name)?;
             super::add(places, &at, machine)
         })
         .await
@@ -242,7 +257,7 @@ where
         let login = choose.row.login.clone();
         self.at_home(&login, true, move |read, places, machine| {
             if choose.side == HomeSide::Here {
-                read.valid_mod(&choose.row)?;
+                read.valid_mod(choose.row.kind, &choose.row.name)?;
             }
             super::choose(places, &choose.row, choose.side, machine)
         })

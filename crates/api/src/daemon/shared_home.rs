@@ -4,7 +4,7 @@
 
 use std::future::Future;
 
-use ipc::{ChooseHomeSide, HomeKinds, HomeProfile, HomeRowAt, SetHomeKind, SharedHomeRead};
+use ipc::{ChooseHomeSide, HomeKinds, HomeProfile, HomeRowAt, HomeSynced, SetHomeKind, SharedHomeRead};
 
 use crate::daemon::Refusal;
 
@@ -13,8 +13,9 @@ pub trait SharedHome: Send + Sync + 'static {
     /// copy here of its home. **Reaches nothing**: no copy here is an answer with no home.
     fn get_shared_home(&self, profile: HomeProfile) -> impl Future<Output = Result<SharedHomeRead, Refusal>> + Send;
 
-    /// `sync_shared_home` — make the home where it does not exist, clone or pull it, then read.
-    fn sync_shared_home(&self, profile: HomeProfile) -> impl Future<Output = Result<SharedHomeRead, Refusal>> + Send;
+    /// `sync_shared_home` — make the home where it does not exist, clone or pull it, add every row
+    /// only on this machine in one push, then read, naming each row left here.
+    fn sync_shared_home(&self, profile: HomeProfile) -> impl Future<Output = Result<HomeSynced, Refusal>> + Send;
 
     /// `add_to_shared_home` — put a row only on this machine into the home and push it.
     fn add_to_shared_home(&self, at: HomeRowAt) -> impl Future<Output = Result<SharedHomeRead, Refusal>> + Send;

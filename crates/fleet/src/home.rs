@@ -23,7 +23,7 @@ use std::sync::Arc;
 
 use adapter_traits::{HarnessHome, HomeFailure, HomeRepositories, HomeRepository, KeptFolder};
 use core_model::KitServer;
-use ipc::{HomeKind, HomeKindSwitch, HomeKinds, HomeNamed, HomeRowAt, HomeSide, SharedHomeRead};
+use ipc::{HomeKind, HomeKindSwitch, HomeKinds, HomeLeft, HomeNamed, HomeRowAt, HomeSide, SharedHomeRead};
 
 pub use serving::HomeFittings;
 pub(crate) use serving::HomeHeld;
@@ -89,9 +89,41 @@ pub fn home_of(homes: &dyn HomeRepositories, login: &str, profiles: &[String]) -
     homes.of(login).map_err(Refused::Home)
 }
 
-/// Make the home where it does not exist and clone it, or pull the copy here.
-pub fn sync(home: &dyn HomeRepository) -> Result<(), Refused> {
-    home.open().map_err(Refused::Home)
+/// Make the home where it does not exist and clone it, or pull the copy here; then write every
+/// row only on this machine, of each kind in `on`, into the copy as [`add`] does, and push them
+/// in one commit. A row `valid` or the home refuses stays here and is named in what this answers;
+/// the others still go. `machine` names this one in the commit.
+pub fn sync(
+    places: &Places<'_>,
+    on: &[HomeKind],
+    machine: &str,
+    valid: &dyn Fn(HomeKind, &str) -> Result<(), Refused>,
+) -> Result<Vec<HomeLeft>, Refused> {
+    places.home.open().map_err(Refused::Home)?;
+    let (mut paths, mut added, mut left) = (Vec::new(), Vec::new(), Vec::new());
+    for kind in HomeKind::ALL.iter().copied().filter(|kind| on.contains(kind)) {
+        let there = pieces::home(places, kind).pieces;
+        let only_here = pieces::here(places, kind).pieces.into_iter().filter(|here| {
+            !there.iter().any(|piece| piece.name == here.name && piece.repository == here.repository)
+        });
+        for here in only_here {
+            let at = HomeRowAt { login: String::new(), kind, name: here.name.clone(), repository: here.repository.clone() };
+            match valid(kind, &here.name).and_then(|()| staged(places, kind, &here, None)) {
+                Ok(touched) => {
+                    paths.extend(touched);
+                    added.push(named(&at));
+                }
+                Err(refused) => left.push(HomeLeft { kind, name: at.name, repository: at.repository, why: refused.said() }),
+            }
+        }
+    }
+    if !added.is_empty() {
+        // An allowlist line each rewrites the one file.
+        paths.sort();
+        paths.dedup();
+        places.home.publish(&paths, &format!("Sync from {machine}: add {}", added.join(", "))).map_err(Refused::Home)?;
+    }
+    Ok(left)
 }
 
 fn named(at: &HomeRowAt) -> String {
@@ -145,9 +177,14 @@ fn the_two(places: &Places<'_>, at: &HomeRowAt) -> (Option<Piece>, Option<Piece>
     (find(pieces::here(places, at.kind).pieces, at), find(pieces::home(places, at.kind).pieces, at))
 }
 
-fn published(places: &Places<'_>, at: &HomeRowAt, here: &Piece, replacing: Option<&Piece>, said: String) -> Result<(), Refused> {
+/// Write `here` into the home's copy, refused where it carries a credential. The paths it touched.
+fn staged(places: &Places<'_>, kind: HomeKind, here: &Piece, replacing: Option<&Piece>) -> Result<Vec<String>, Refused> {
     kept_here(here)?;
-    let paths = pieces::put_home(places, at.kind, here, replacing)?;
+    pieces::put_home(places, kind, here, replacing)
+}
+
+fn published(places: &Places<'_>, at: &HomeRowAt, here: &Piece, replacing: Option<&Piece>, said: String) -> Result<(), Refused> {
+    let paths = staged(places, at.kind, here, replacing)?;
     places.home.publish(&paths, &said).map_err(Refused::Home)
 }
 

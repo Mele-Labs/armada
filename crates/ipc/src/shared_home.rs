@@ -141,6 +141,26 @@ pub struct SharedHomeRead {
     pub unreadable: Vec<HomeUnreadable>,
 }
 
+/// A row only on this machine that Sync did not add, and why.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HomeLeft {
+    pub kind: HomeKind,
+    pub name: String,
+    /// A memory note's repository, and only there.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub repository: Option<String>,
+    /// A sentence naming the row and why it stayed: a host, never a credential.
+    pub why: String,
+}
+
+/// `sync_shared_home`: the home read again, and each row only on this machine Sync left here.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HomeSynced {
+    #[serde(flatten)]
+    pub read: SharedHomeRead,
+    pub left: Vec<HomeLeft>,
+}
+
 /// Which row an act is on, in which profile's home.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct HomeRowAt {
