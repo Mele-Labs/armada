@@ -27,3 +27,25 @@ export async function startModJob(element: Element, named?: string): Promise<voi
   if (started.value.send_failed !== undefined) askToTell(`Mod Job not told what was pointed at: ${started.value.send_failed}`);
   askToOpenSessionInCockpit(started.value.session_id);
 }
+
+/** The title's share of the words: their first line, cut at a word where it runs past the width. */
+function titleOf(said: string): string {
+  const line = (said.split("\n").find((one) => one.trim() !== "") ?? "").trim();
+  if (line.length <= NAME_WIDTH) return line;
+  const cut = line.slice(0, NAME_WIDTH);
+  return (cut.includes(" ") ? cut.slice(0, cut.lastIndexOf(" ")) : cut).trimEnd();
+}
+
+/** Start a Mod Job from his words alone, pointed at nothing, and open it on the Cockpit. Resolves to whether it started: a refusal is told as a toast. */
+export async function startModJobFrom(said: string): Promise<boolean> {
+  const fleet = window.armada;
+  if (fleet === undefined) return false;
+  const started = await fleet.startModSession({ title: `Mod ${titleOf(said)}`, said: said.trim() });
+  if (!started.ok) {
+    askToTell(`Mod Job not started: ${refusal(started.outcome)}`);
+    return false;
+  }
+  if (started.value.send_failed !== undefined) askToTell(`Mod Job not told your words: ${started.value.send_failed}`);
+  askToOpenSessionInCockpit(started.value.session_id);
+  return true;
+}

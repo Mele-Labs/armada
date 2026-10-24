@@ -17,6 +17,7 @@ import { entryOf, entryOfKind, foundBy, SYSTEM_ENTRIES, SYSTEM_GROUPS, type Syst
 import { useKitModels } from "./kit-models";
 import { openLink } from "./commands";
 import { openLinkPanel } from "./link-drop";
+import { askToCreateMod } from "./create-mod";
 import { askToOpenSession } from "./open-session";
 import { FileInline } from "./shared-panel/file";
 import { openAddressInPanel, openInPanel } from "./shared-panel/store";
@@ -144,6 +145,7 @@ export function SystemSurface({ repository, settings, modelChoices, live, guarde
         {...(guarded.onCopied === undefined ? {} : { onCopied: guarded.onCopied })}
         onOpenPull={openPull}
         onOpenJob={askToOpenSession}
+        onCreateMod={askToCreateMod}
         under={{
           theme: (
             <>

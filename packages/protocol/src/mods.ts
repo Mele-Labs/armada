@@ -78,11 +78,14 @@ export type ScaffoldMod = {
  * Where Fleet does not serve that repository, the Job starts in the mods folder and makes mods only.
  */
 export type StartModSession = {
-  /** Absent is the first line of the note's words. */
+  /** Absent is the first line of the note's or the said words. */
   title?: string;
   model?: string;
   effort?: string;
-  note: SessionNote;
+  /** What he pointed at. Exactly one of `note` and `said`. */
+  note?: SessionNote;
+  /** His words, where Mod was pressed on nothing: the Job's first message after the brief. */
+  said?: string;
 };
 
 /** A Mod Job started. `send_failed` is why its first message was not sent, where it was refused; open the Job and send by hand. */

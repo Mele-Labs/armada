@@ -6,7 +6,7 @@
 // the same acts.
 
 import { useLayoutEffect, useRef, useState, type ReactElement } from "react";
-import { Card, CardContent, CardHeader, CardTitle, KIT_KIND_LABEL, ModRow, ModRules, SyncAct, SyncMarks, SyncSheet, useSharedHome } from "@armada/components";
+import { Button, Card, CardContent, CardHeader, CardTitle, KIT_KIND_LABEL, ModRow, ModRules, SyncAct, SyncMarks, SyncSheet, useSharedHome } from "@armada/components";
 import type { ModKind, ModTracker, SharedRow } from "@armada/components";
 import { useLayouts } from "@armada/shell";
 
@@ -45,7 +45,8 @@ const standingOf = (mod: { enabled: boolean; problem?: string }): "used" | "refu
 
 type Listed = { key: string; kind: ModKind; name: string; enabled: boolean; row: ReactElement };
 
-export function ModList({ kind, title, onOpenPull, onOpenJob }: { kind: ModListKind; title?: string; onOpenPull?: (address: string) => void; onOpenJob?: (id: string) => void }) {
+/** `onCreate` draws Create mod in the header, which starts a Mod Job from a description. */
+export function ModList({ kind, title, onOpenPull, onOpenJob, onCreate }: { kind: ModListKind; title?: string; onOpenPull?: (address: string) => void; onOpenJob?: (id: string) => void; onCreate?: () => void }) {
   const themes = useThemes();
   const layouts = useLayouts();
   const taught = useTaught();
@@ -58,6 +59,11 @@ export function ModList({ kind, title, onOpenPull, onOpenJob }: { kind: ModListK
     title === undefined ? null : (
       <CardHeader>
         <CardTitle>{title}</CardTitle>
+        {onCreate === undefined ? null : (
+          <Button variant="secondary" size="sm" ground="card" onClick={onCreate}>
+            Create mod
+          </Button>
+        )}
       </CardHeader>
     );
   const themeMods = themes.mods as readonly Mod[];
@@ -174,7 +180,8 @@ export function ModList({ kind, title, onOpenPull, onOpenJob }: { kind: ModListK
     document.querySelector<HTMLInputElement>(`[role="group"][aria-label="${CSS.escape(name)}"] input[role="switch"]`)?.focus();
   });
 
-  if (rows.length === 0 && homeOnly.length === 0) return null;
+  // With Create mod to draw, a machine with no mods yet still shows the page it is made from.
+  if (rows.length === 0 && homeOnly.length === 0 && onCreate === undefined) return null;
   return (
     <Card>
       {header}

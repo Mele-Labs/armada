@@ -1,6 +1,6 @@
 // Mod: a right press on anything opens a menu with Mod, and Mod starts a Job for modding Armada itself, carrying what was pointed at.
 // A Mod Job sits under Mods in the Cockpit's Jobs list, and its right column lists the mods it made, each with its switch. The walk
-// `mod-job` plays it. Mock only: the Job the mock Fleet starts is marked `mod` as Fleet marks it, and it writes the dusk theme.
+// `mod-job` plays it, and `create-mod` plays the same Job started by describing it. Mock only: the Job the mock Fleet starts is marked `mod` as Fleet marks it, and it writes the dusk theme.
 
 import type { ModSummary, RepositorySummary, SessionNote } from "@armada/protocol";
 import { repository } from "@armada/screens/src/fixtures/repository";
@@ -56,7 +56,7 @@ function build(): Scenario {
           const record = { ...started.value, title: start.title ?? "Mod", mod: true as const };
           fake.changed(record);
           await own.watchSession!(record.id);
-          const sent = await own.sendSessionMessage!({ session_id: record.id, text: pointedAt(start.note) });
+          const sent = await own.sendSessionMessage!({ session_id: record.id, text: start.note === undefined ? (start.said ?? "") : pointedAt(start.note) });
           void fake
             .agentTurn(record.id, [
               { kind: "tool", id: "w1", at: "2026-10-23T09:00:05.000Z", text: `Write ${MODS}/mod.toml` },
