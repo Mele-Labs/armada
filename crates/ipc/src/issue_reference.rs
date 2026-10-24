@@ -10,20 +10,21 @@ use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::sessions::SessionId;
 
-/// An issue as the ledger holds it: digits for the forge's number, with no `#`, or a key such as
-/// `ABC-12`. Nothing else is one.
+/// An issue as the ledger holds it: digits for the forge's number, with no `#`, a key such as
+/// `ABC-12`, or a lowercase id such as `armada-3fz`. Nothing else is one.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct IssueReference(String);
 
 impl IssueReference {
-    /// `7`, `#7` or `ABC-12`, trimmed. `None` for anything else, a lowercase key included.
+    /// `7`, `#7`, `ABC-12` or `armada-3fz`, trimmed. `None` for anything else, a lowercase name
+    /// whose id is shorter than three characters included: `abc-1` reads as a slip, not an issue.
     pub fn read(written: &str) -> Option<IssueReference> {
         let written = written.trim();
         let digits = written.strip_prefix('#').unwrap_or(written);
         if !digits.is_empty() && digits.bytes().all(|b| b.is_ascii_digit()) {
             return digits.parse::<u64>().ok().map(IssueReference::number);
         }
-        is_key(written).then(|| IssueReference(written.to_string()))
+        (is_key(written) || is_id(written)).then(|| IssueReference(written.to_string()))
     }
 
     pub fn number(number: u64) -> IssueReference {
@@ -84,6 +85,19 @@ fn is_key(text: &str) -> bool {
         && project.bytes().all(|b| b.is_ascii_uppercase() || b.is_ascii_digit() || b == b'_')
         && !number.is_empty()
         && number.bytes().all(|b| b.is_ascii_digit())
+}
+
+/// `[a-z][a-z0-9_]*-` and an id of at least three of `[a-z0-9]`, then any `-` or `.` parts: a
+/// tracker's hash id, its imported one (`armada-1792806783819-955-760bc69c`) or a child's (`armada-3fz.1`).
+fn is_id(text: &str) -> bool {
+    let Some((prefix, id)) = text.split_once('-') else {
+        return false;
+    };
+    let lower_alnum = |part: &str| !part.is_empty() && part.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit());
+    prefix.starts_with(|c: char| c.is_ascii_lowercase())
+        && prefix.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_')
+        && id.split(['-', '.']).all(lower_alnum)
+        && id.split(['-', '.']).next().is_some_and(|first| first.len() >= 3)
 }
 
 /// An `issue` field as written, where a caller from before keys sends a JSON number.

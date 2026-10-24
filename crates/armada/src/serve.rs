@@ -392,6 +392,12 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
                 fleet.timeline().clone(),
                 fleet::merge_lines::EVERY,
             );
+            // Each backlog Fleet writes to, synced after a write is seen in it and on a timer.
+            fleet::backlog_syncing::keep_syncing(
+                Arc::clone(&fleet),
+                fleet::backlog::LOOK_EVERY,
+                |said| eprintln!("{said}"),
+            );
             // `GET /worktrees` kept in memory and read again behind its requests.
             fleet::keep_worktrees_warm(Arc::clone(&fleet));
             // A hosted session refused a slot for a full pool, leased one when one frees.
