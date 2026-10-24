@@ -232,7 +232,7 @@ it("passes the model and effort of a dispatcher start to Fleet, and none where n
 async function onItsCard(begun: "ok" | "refused" = "ok") {
   vi.stubGlobal("window", { ...(window as object), dispatchEvent: vi.fn() });
   vi.stubGlobal("CustomEvent", class { constructor(readonly type: string, readonly init: { detail: unknown }) {} });
-  const ok = async () => ({ ok: true as const, value: record("new") });
+  const ok = async (..._args: unknown[]) => ({ ok: true as const, value: record("new") });
   const startSession = vi.fn(ok);
   const beginSession = vi.fn(async () => (begun === "ok" ? { ok: true as const, value: record("new") } : { ok: false as const, outcome: { ok: false as const, why: "not_connected" as const } }));
   const renameSession = vi.fn(ok);

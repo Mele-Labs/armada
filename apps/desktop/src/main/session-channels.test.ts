@@ -99,7 +99,7 @@ describe("a Job held on its start card", () => {
     const handlers = new Map<string, Handler>();
     const ipc = { handle: (channel: string, handler: Handler) => handlers.set(channel, handler) };
     const begin = vi.fn(async () => ({ ok: true }));
-    const startSession = vi.fn(async () => ({ ok: true }));
+    const startSession = vi.fn(async (..._args: unknown[]) => ({ ok: true }));
     const connection = () => ({ startSession, repositories: { pickedByWindow: { of: () => ({}) } }, sessions: { begin } });
     handleSessions({ ipc, connection, windowIdOf: () => undefined, pages: {} } as unknown as Parameters<typeof handleSessions>[0]);
     const call = (channel: string, ...args: unknown[]) => handlers.get(channel)?.({}, ...args);
