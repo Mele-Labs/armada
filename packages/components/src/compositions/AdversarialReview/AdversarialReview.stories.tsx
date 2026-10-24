@@ -28,14 +28,14 @@ const FINDINGS: readonly Finding[] = [
     id: "f1",
     consequence: "A lease waits ten minutes when every slot is held",
     expected: "The warm skips a held slot and tries the next",
-    found: "Task W2 warms the slot the pool picked, held or not, and the lease waits on that warm to end",
+    found: "\"Warm it in the background\" warms the slot the pool picked, held or not, and the lease waits on that warm to end",
     cites: ["crates/fleet/src/pool.rs:212"],
   },
   {
     id: "f2",
     consequence: "A bay shows warming for good after Fleet restarts",
     expected: "A warm that was running when Fleet stopped is cleared on the next start",
-    found: "Task W4 adds warming to the bay reply and nothing in the plan clears it, so the flag outlives the warm it described",
+    found: "\"Add warming to the bay reply\" sets the flag and nothing in the plan clears it, so it outlives the warm it described",
     cites: ["crates/ipc/src/bay.rs:48", "apps/desktop/src/renderer/src/cockpit/deck/BayTile.tsx:96"],
   },
 ];
