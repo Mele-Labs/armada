@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { ComponentProps, ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { ExternalLink, GitFork, PanelRightClose, PanelRightOpen, PowerOff, Rewind } from "lucide-react";
+import { ExternalLink, GitFork, PanelRightClose, PanelRightOpen, PowerOff, Rewind, ScanSearch } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import {
   Alert,
@@ -23,6 +23,7 @@ import {
   type PlanApproval,
   SessionEndBand,
   ConcernCard,
+  findingsOf,
   ProseTerminal,
   Tooltip,
   Sheet,
@@ -990,11 +991,25 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
           children: <AskCards flat {...(asked === undefined ? {} : { asked, keep: `${session.id}:${session.asked?.call ?? asked.command}` })} onAnswer={(answer, answers, folder) => draft.answer(session.id, answer as SessionAnswer | undefined, answers, folder)} {...(lapsed === undefined ? {} : { lapsed })} />,
         };
   // A judge's concerns wait in the Needs you list too, after the question and before the items.
-  const judges = (session.work?.concerns ?? []).map((one) => ({
+  const judges: { id: string; text: string; children: ReactNode; Glyph?: LucideIcon; said?: string }[] = (session.work?.concerns ?? []).map((one) => ({
     id: one.id,
     text: one.text,
     children: <ConcernCard bare concern={one} onSend={() => draft.work?.sendConcern(session.id, one.id)} onDismiss={() => draft.work?.dismissConcern(session.id, one.id)} />,
   }));
+  // An adversarial review of the plan: its press on the plan card, and its findings on the card or, by `place`, each as a call here.
+  const adversary = draft.work?.adversarial;
+  const adversarial = session.work?.plan === undefined || session.work.plan.approved || adversary === undefined ? undefined : session.work.adversarial ?? { review: { state: "idle" as const }, place: "card" as const };
+  if (adversarial !== undefined && adversarial.place === "needs-you") {
+    for (const one of findingsOf(adversarial.review).filter((it) => it.settled === undefined)) {
+      judges.push({
+        id: `adversarial:${one.id}`,
+        text: one.consequence,
+        Glyph: ScanSearch,
+        said: "Adversarial review",
+        children: <ConcernCard bare concern={{ id: one.id, text: one.consequence, consequence: one.consequence, expected: one.expected, produced: one.found, ...(one.cites === undefined ? {} : { cites: one.cites }) }} onSend={() => adversary?.send(session.id, one.id)} onDismiss={() => adversary?.dismiss(session.id, one.id)} />,
+      });
+    }
+  }
   // A pending plan is drawn only while Fleet puts it to him; held, it is not there yet, and a sheet open on it shuts.
   // A plan set aside stays in the thread as a chip, though nothing waits on him for it.
   const planDrawn = session.work?.plan !== undefined && (session.work.plan.approved || session.work.plan.setAside === true || planAsked(session));
@@ -1002,7 +1017,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
     if (!planDrawn) setReviewing(false);
   }, [planDrawn]);
   const setAside = draft.work?.setAside === undefined ? undefined : () => draft.work?.setAside?.(session.id);
-  const approval: PlanApproval | undefined = session.work?.plan === undefined || !planDrawn ? undefined : { ...(session.work.plan.version === undefined ? {} : { version: session.work.plan.version }), ...(session.work.plan.summary === undefined ? {} : { summary: session.work.plan.summary }), groups: session.work.plan.groups.map((one) => ({ id: one.id, agent: one.agent, title: one.title, ...(one.gives === undefined ? {} : { gives: one.gives }), paths: one.paths, tasks: one.tasks.map((task) => ({ id: task.id, text: task.text })) })), approved: session.work.plan.approved, ...(session.work.plan.setAside === true ? { setAside: true as const } : {}), ...(session.pressed?.includes("plan") === true ? { going: true as const } : {}), changes: changeLines(session.work.plan), ...planRevision(session.work.plan), ...(session.work.plan.sketch === undefined ? {} : { sketch: { id: session.work.plan.sketch.id, title: session.work.plan.sketch.title, scene: session.work.plan.sketch.scene } }), ...(session.work.plan.after === undefined ? {} : { after: session.work.plan.after }), onApprove: approvePlan, ...(setAside === undefined ? {} : { onSetAside: setAside }), onReview: () => setReviewing(true) };
+  const approval: PlanApproval | undefined = session.work?.plan === undefined || !planDrawn ? undefined : { ...(session.work.plan.version === undefined ? {} : { version: session.work.plan.version }), ...(session.work.plan.summary === undefined ? {} : { summary: session.work.plan.summary }), groups: session.work.plan.groups.map((one) => ({ id: one.id, agent: one.agent, title: one.title, ...(one.gives === undefined ? {} : { gives: one.gives }), paths: one.paths, tasks: one.tasks.map((task) => ({ id: task.id, text: task.text })) })), approved: session.work.plan.approved, ...(session.work.plan.setAside === true ? { setAside: true as const } : {}), ...(session.pressed?.includes("plan") === true ? { going: true as const } : {}), changes: changeLines(session.work.plan), ...planRevision(session.work.plan), ...(session.work.plan.sketch === undefined ? {} : { sketch: { id: session.work.plan.sketch.id, title: session.work.plan.sketch.title, scene: session.work.plan.sketch.scene } }), ...(session.work.plan.after === undefined ? {} : { after: session.work.plan.after }), ...(adversarial === undefined || adversary === undefined ? {} : { adversarial: { review: adversarial.review, onRun: () => adversary.run(session.id), onSend: (finding: string) => adversary.send(session.id, finding), onDismiss: (finding: string) => adversary.dismiss(session.id, finding), shortcut: "R", ...(adversarial.place === "needs-you" ? { findingsElsewhere: true as const } : {}) } }), onApprove: approvePlan, ...(setAside === undefined ? {} : { onSetAside: setAside }), onReview: () => setReviewing(true) };
   const waits = needs.length > 0 || question !== undefined || judges.length > 0;
   // Open only for what the panel lists: a restart is the band's own key, and a band with nothing in it is not drawn open.
   const listed = needs.some((one) => one.restart === undefined) || question !== undefined || judges.length > 0;

@@ -197,6 +197,10 @@
 .armada-session-thread__plan[data-reviewable]:hover { border-color: var(--accent); }
 .armada-session-thread__plan[data-reviewable]:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
 .armada-session-thread__plan { max-height: calc(var(--space-12) * 5); overflow: hidden; }
+/* A plan with findings on it grows to hold them; the findings scroll inside their own region and the answers stay in view. */
+.armada-session-thread__plan[data-findings] { max-height: 70vh; }
+.armada-session-thread__plan-review { flex: 0 1 auto; min-height: 0; max-height: calc(var(--space-12) * 8); overflow: auto; }
+.armada-session-thread__answers > .armada-adversarial__press { margin-inline-start: auto; }
 .armada-session-thread__plan-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
 .armada-session-thread__plan-band { display: flex; flex: 1 1 auto; align-items: center; gap: var(--space-2); min-width: 0; padding: 0; border: 0; background: transparent; color: var(--fg-muted); font: inherit; text-align: start; cursor: pointer; }
 .armada-session-thread__plan-band:hover { color: var(--fg-default); }
