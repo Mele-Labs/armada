@@ -113,6 +113,7 @@ mod session_plan;
 mod session_provenance;
 mod session_proposal;
 mod delivery_gate;
+mod start_card;
 mod session_rail;
 mod auto_land;
 mod session_pause;

@@ -55,6 +55,8 @@ pub(crate) struct LedgerReads {
     later: Vec<store::KeptLater>,
     /// The name of the live watch that started first, if it holds one.
     watching: Option<String>,
+    /// What the start card is drawn from, for a Job that waits on it.
+    start: Option<crate::session_host::start_card::StartReads>,
 }
 
 /// A report that names nothing it can be kept against. A 422.

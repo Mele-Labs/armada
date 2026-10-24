@@ -552,7 +552,7 @@ where
             id: from.to_string(),
             title: title.clone(),
         });
-        if runtime.state().process.is_some() {
+        if runtime.state().process.is_some() || hosting.start_held {
             return;
         }
         let said = format!(

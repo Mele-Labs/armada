@@ -50,6 +50,8 @@ mod reply_misreads;
 mod reply_confirmed;
 /// What this Mac syncs with the shared home.
 mod home_kinds;
+/// How the person chose to land work, per repository and kind of work.
+mod delivery_picks;
 mod word_asks;
 mod fleet_calls;
 mod notice_mutes;

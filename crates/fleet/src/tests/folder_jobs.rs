@@ -125,6 +125,7 @@ async fn a_job_on_a_repository_with_no_manifest_leases_a_slot_at_its_first_write
             fork: None,
             request: None,
             after: None,
+            held: false,
         })
         .await
         .expect("started")

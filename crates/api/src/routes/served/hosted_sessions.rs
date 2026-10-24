@@ -111,6 +111,11 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/sessions/workflow",
     },
     Route {
+        operation: "begin_session",
+        method: "POST",
+        path: "/sessions/begin",
+    },
+    Route {
         operation: "release_session_holds",
         method: "POST",
         path: "/sessions/release_holds",
