@@ -35,6 +35,7 @@ import { mockLayout, NO_LAYOUT_MODS } from "./layout";
 import { mockNumbered } from "./numbered";
 import { PhoneSourceProvider, TaughtSourceProvider } from "@armada/settings";
 import { mockPhone, type PhoneMoment } from "./phone";
+import { TerminalWindows } from "./TerminalWindows";
 import { WalkJobPanel } from "./WalkJobPanel";
 import { SleepSourceProvider } from "../sleep";
 import { mockSleep, overnight } from "./sleep";
@@ -207,12 +208,14 @@ export function mountApp(
                                               <SharedPanelOver api={withState(api)} testsReaching={chosen.draft?.testsReaching}>
                                                 <App />
                                                 <WalkJobPanel />
+                                                <TerminalWindows api={api} />
                                                 <TweaksApplied />
                                               </SharedPanelOver>
                                             ) : (
                                               <SharedPanelFrom reads={panelReads}>
                                                 <App />
                                                 <WalkJobPanel />
+                                                <TerminalWindows api={api} />
                                                 <TweaksApplied />
                                                 <SharedPanelHost />
                                               </SharedPanelFrom>

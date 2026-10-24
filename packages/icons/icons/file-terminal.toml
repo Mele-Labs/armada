@@ -11,7 +11,7 @@
     group = "Flight control"
     size = "16px"
     status = "Proposed"
-    notes = "Tooltip `Open the Job's terminal`, and `Hide the Job's terminal` while it shows."
+    notes = "Tooltip `Open the Job's terminal`, `Hide the Job's terminal` while it shows, and `Bring the Job's terminal window to the front` while it shows in its window."
 
   [[icons.file-terminal.usage]]
     means = "New shell, on the head of the Job's shell once it has ended"

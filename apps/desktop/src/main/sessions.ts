@@ -138,6 +138,19 @@ export function withSession(sessions: readonly SessionRecord[], record: SessionR
     : [record, ...sessions];
 }
 
+/** What is kept of a run's output for a window that comes late: Fleet's 256 KiB, counted in characters. */
+const KEEP_PRINTED = 256 * 1024;
+
+/** The last `KEEP_PRINTED` of it, cut at a line. */
+const lastOf = (out: string): string => {
+  if (out.length <= KEEP_PRINTED) return out;
+  const cut = out.indexOf("\n", out.length - KEEP_PRINTED);
+  return cut === -1 ? out.slice(-KEEP_PRINTED) : out.slice(cut + 1);
+};
+
+/** Cut only once it doubles, so a shell printing for hours is not cut on every chunk. */
+const keptOf = (out: string): string => (out.length <= 2 * KEEP_PRINTED ? out : lastOf(out));
+
 /** How many opened threads are held. Each is every row of a conversation, which runs to hundreds. */
 export const THREADS_HELD = 20;
 
@@ -181,6 +194,12 @@ export class SessionsHost {
   private terminalChanged: (change: "opened" | "exited", terminal: JobTerminal) => void = () => {};
   /** The socket each running block is read on, by run id. */
   private readonly runs = new Map<string, WebSocket>();
+  /** What each run printed, by run id: a running one's, and each Job's last shell's after it ends. */
+  private readonly printed = new Map<string, string>();
+  /** Each Job's last shell, whose output is kept until the next one replaces it. */
+  private readonly shellOf = new Map<string, string>();
+  /** Each Job's last shell that has said it exited, before its socket closes. */
+  private readonly exited = new Set<string>();
   /** Threads whose read has not answered, with the rows that arrived meanwhile. */
   private reading = new Map<string, SessionRow[]>();
   /** Where held threads are kept, one file each; none where nothing is kept. */
@@ -298,8 +317,23 @@ export class SessionsHost {
    */
   terminal(change: "opened" | "exited", terminal: JobTerminal): void {
     const port = this.port();
-    if (change === "opened" && port !== null) this.observeRun(port, terminal.run_id);
+    if (change === "opened" && port !== null) this.observeRun(port, terminal.run_id, terminal.session_id);
     this.terminalChanged(change, terminal);
+  }
+
+  /**
+   * What a run has printed, for a window that comes to it after main began following it, which Fleet
+   * replays nothing to. Null for a run not followed, or a block's that ended.
+   */
+  soFar(runId: string): string | null {
+    const out = this.printed.get(runId);
+    return out === undefined ? null : lastOf(out);
+  }
+
+  /** The Job's last shell main followed, and whether it has ended: what a shell moved back out of its window is shown as. */
+  shellNow(sessionId: string): { runId: string; ended: boolean } | null {
+    const runId = this.shellOf.get(sessionId);
+    return runId === undefined ? null : { runId, ended: this.exited.has(runId) || !this.runs.has(runId) };
   }
 
   /**
@@ -312,7 +346,7 @@ export class SessionsHost {
     const answer = await ask(port, "POST", "/sessions/terminal/open", open);
     if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
     const underway = answer.body as SessionRunUnderway;
-    this.observeRun(port, underway.run_id);
+    this.observeRun(port, underway.run_id, open.session_id);
     return { ok: true, value: underway };
   }
 
@@ -378,16 +412,27 @@ export class SessionsHost {
     return answer.ok === true ? { ok: true, value: answer.body as SessionRunUnderway } : { ok: false, outcome: answer.outcome };
   }
 
-  private observeRun(port: number, runId: string): void {
+  /** `shellOf` names the Job where the run is its shell, whose output outlives its end. */
+  private observeRun(port: number, runId: string, shellOf?: string): void {
+    if (shellOf !== undefined) {
+      const before = this.shellOf.get(shellOf);
+      if (before !== undefined && before !== runId && !this.runs.has(before)) this.printed.delete(before);
+      if (before !== runId) this.exited.delete(before ?? "");
+      this.shellOf.set(shellOf, runId);
+    }
     if (this.runs.has(runId)) return;
     const socket = new WebSocket(`ws://${HOST}:${port}/sessions/run/${encodeURIComponent(runId)}/observe`);
     this.runs.set(runId, socket);
+    // Fleet replays what it holds to a new follower, so a run followed again starts over.
+    this.printed.set(runId, "");
+    this.exited.delete(runId);
     let exited = false;
     // A socket that goes without `exited` ends the run for the reader all the same, as a stop does.
     const finish = (): void => {
       if (this.runs.get(runId) === socket) this.runs.delete(runId);
       if (!exited) this.ran(runId, { kind: "exited", code: null });
       exited = true;
+      this.letGo(runId);
     };
     socket.on("message", (data: WebSocket.RawData) => {
       let message: SessionRunMessage;
@@ -397,10 +442,19 @@ export class SessionsHost {
         return;
       }
       if (message.kind === "exited") exited = true;
+      // Kept before it is sent, so an answer to `soFar` holds every message sent ahead of it.
+      if (message.kind === "output") this.printed.set(runId, keptOf((this.printed.get(runId) ?? "") + message.text));
       this.ran(runId, message);
+      if (exited) this.letGo(runId);
     });
     socket.on("error", () => {});
     socket.on("close", finish);
+  }
+
+  /** A block's output goes as it ends; a shell's stays until its Job's next shell. */
+  private letGo(runId: string): void {
+    if ([...this.shellOf.values()].includes(runId)) this.exited.add(runId);
+    else this.printed.delete(runId);
   }
 
   /** Say what opens a window: main's, since a window is not a thing this host holds. */
