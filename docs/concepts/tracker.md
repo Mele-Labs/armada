@@ -230,9 +230,18 @@ The syncs of one repository never overlap: the timer and a claim take one lock, 
 **A sync that moved the copy drops the list held for five minutes**, so the next read of Issues has what came in.
 Nothing yet tells an Issues page that is already open to read again.
 
+**Fleet also writes four things into the Job's issue**, each through the same lock and followed by the same sync, never a loop of its own.
+A write that fails is said once and tried again 30 seconds later; none of them holds up an approval, a task's progress or a merge notice.
+
+| What | When | What is written |
+|---|---|---|
+| The plan | The Job's plan is approved and the Job holds a beads issue | One child of the issue a group, one child of its group a task, `bd dep add` so each group waits on the one before. A plan approved again keeps a matched task's bead, renames it if its title changed, files a bead for a new one and closes one that went with the reason `removed from the plan`. The mapping from plan id to bead is Fleet's own, in `plan_beads`, kept when the bead is made, so a retry after a failed sync files nothing twice. A task moved to another group keeps its bead under the old one |
+| A task's status | The state Fleet reads for it changes (`plan_record::state_of`) | `working` is `in_progress`, `done` and `handed_in` are closed, `open` is open. A group closes when all its tasks are closed, and opens again when one does. Nothing the agent says about progress is written |
+| The merge | The Job's pull request is heard merged and the Job's issue row is still standing | The issue and every child still open are closed, with `merged in <the pull request's address>` as the reason. One already closed keeps its own |
+| A lost claim | After each sync, for each issue a Job claimed through Fleet | The assignee is read back; if it names someone else, the Job is told once, naming them (`issue_lost`), and the issue row is dropped from it. A Job only named an issue, or never claimed it through Fleet, is not told |
+
 Still open:
 
-- Two claims through Fleet whose syncs overlap can both be answered yes until the next sync names the later one; the Job that lost is not told.
 - Beads reads no links, so a request naming an issue is dispatched as written.
 
 ## What a person sees
