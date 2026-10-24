@@ -6,9 +6,10 @@
 
 import { afterEach, expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
-import type { LogbookAnswer, LogbookEntry, LogbookForgotten, LogbookRead } from "@armada/protocol";
+import type { LogbookAnswer, LogbookEntry, LogbookForgotten, LogbookRead, LogbookTidied, LogbookTidy } from "@armada/protocol";
 
 import { Logbook } from "./Logbook";
+import { forgetTidyWatch } from "./tidy-watch";
 import { mount, unmount } from "../mounted";
 
 afterEach(unmount);
@@ -48,15 +49,17 @@ type Acts = {
   edit?: (id: string, text: string) => Promise<LogbookAnswer>;
   lock?: (id: string, locked: boolean) => Promise<LogbookAnswer>;
   forget?: (id: string) => Promise<LogbookForgotten>;
+  tidy?: () => Promise<LogbookTidied>;
 };
 
 function opened(entries: LogbookEntry[], acts: Acts = {}) {
-  const read = vi.fn(async (): Promise<LogbookRead> => ({ ok: true, entries }));
+  const read = vi.fn(async (): Promise<LogbookRead> => ({ ok: true, entries, tidy: { running: false } }));
   const edit = vi.fn(acts.edit ?? (async (id: string, text: string): Promise<LogbookAnswer> => ({ ok: true, entry: { ...entries.find((one) => one.id === id)!, text, edited: true } })));
   const lock = vi.fn(acts.lock ?? (async (id: string, locked: boolean): Promise<LogbookAnswer> => ({ ok: true, entry: { ...entries.find((one) => one.id === id)!, locked } })));
   const forget = vi.fn(acts.forget ?? (async (): Promise<LogbookForgotten> => ({ ok: true })));
-  mount(<Logbook onRead={read} onEdit={edit} onLock={lock} onForget={forget} />);
-  return { read, edit, lock, forget };
+  const tidy = vi.fn(acts.tidy ?? (async (): Promise<LogbookTidied> => ({ ok: true, running: false })));
+  mount(<Logbook onRead={read} onEdit={edit} onLock={lock} onForget={forget} onTidy={tidy} />);
+  return { read, edit, lock, forget, tidy };
 }
 
 const entries = () => page.getByRole("listbox", { name: "Entries" });
@@ -166,6 +169,136 @@ test("a refused Forget leaves the entry and says so", async () => {
 
 test("a Logbook Fleet could not read says so in place of the panels", async () => {
   const read = vi.fn(async (): Promise<LogbookRead> => ({ ok: false, outcome: { ok: false, why: "not_connected" } }));
-  mount(<Logbook onRead={read} onEdit={vi.fn()} onLock={vi.fn()} onForget={vi.fn()} />);
+  mount(<Logbook onRead={read} onEdit={vi.fn()} onLock={vi.fn()} onForget={vi.fn()} onTidy={vi.fn()} />);
   await expect.element(page.getByText("Fleet serves no Logbook yet.")).toBeVisible();
+});
+
+const tidyButton = () => page.getByRole("button", { name: "Tidy now" });
+const status = () => page.getByRole("status");
+
+const EARLIER = { merged: 4, at: "2026-10-20T08:00:00.000Z", failed: false };
+const FINISHED = "2026-10-23T09:00:00.000Z";
+const SEVERAL = 3_000;
+
+/** A Logbook whose Tidy state and entries the test moves; the poll's timer is the only fake. */
+function tidying(first: LogbookTidy, entries: LogbookEntry[] = [WIDGETS]) {
+  vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+  const fleet = { tidy: first, entries };
+  const read = vi.fn(async (): Promise<LogbookRead> => ({ ok: true, entries: fleet.entries, tidy: fleet.tidy }));
+  const onTidy = vi.fn(async (): Promise<LogbookTidied> => {
+    fleet.tidy = { ...fleet.tidy, running: true };
+    return { ok: true, running: true };
+  });
+  const open = () => mount(<Logbook onRead={read} onEdit={vi.fn()} onLock={vi.fn()} onForget={vi.fn()} onTidy={onTidy} />);
+  open();
+  return { fleet, read, onTidy, reopen: () => (unmount(), open()) };
+}
+
+afterEach(() => {
+  vi.useRealTimers();
+  forgetTidyWatch();
+});
+
+test("Tidy now says Tidying until the read says the pass ended, then states what it merged and reads the entries again", async () => {
+  const survivor = entry("6", { section: "repo", repository: "/Users/user/widgets", text: "Survivor.", state: "standing" });
+  const { fleet, read, onTidy } = tidying({ running: false, last: EARLIER }, [WIDGETS, survivor]);
+  await expect.element(entries().getByText("Run specs with bin/rspec.")).toBeVisible();
+  await expect.element(status()).not.toHaveTextContent("Merged");
+  await tidyButton().click();
+  await expect.element(tidyButton()).toHaveAttribute("aria-busy", "true");
+  await expect.element(status()).toHaveTextContent("Tidying");
+  await tidyButton().click({ force: true });
+  expect(onTidy).toHaveBeenCalledTimes(1);
+  await vi.advanceTimersByTimeAsync(SEVERAL);
+  await expect.element(status()).toHaveTextContent("Tidying");
+  fleet.tidy = { running: false, last: { merged: 12, at: FINISHED, failed: false } };
+  fleet.entries = [survivor];
+  await vi.advanceTimersByTimeAsync(SEVERAL);
+  await expect.element(status()).toHaveTextContent("Merged 12 entries");
+  await expect.element(tidyButton()).not.toHaveAttribute("aria-busy");
+  expect(entries().getByText("Run specs with bin/rspec.").elements()).toHaveLength(0);
+  const reads = read.mock.calls.length;
+  await vi.advanceTimersByTimeAsync(SEVERAL * 3);
+  expect(read).toHaveBeenCalledTimes(reads);
+});
+
+test.each([
+  ["Nothing to merge", { merged: 0, at: FINISHED, failed: false }],
+  ["Merged 1 entry", { merged: 1, at: FINISHED, failed: false }],
+  ["Tidy failed after merging 3 entries", { merged: 3, at: FINISHED, failed: true }],
+  ["Tidy failed after merging 1 entry", { merged: 1, at: FINISHED, failed: true }],
+  ["Tidy failed before merging anything", { merged: 0, at: FINISHED, failed: true }],
+])("a finished pass reads %s", async (words, last) => {
+  const { fleet } = tidying({ running: false });
+  await expect.element(entries().getByText("Run specs with bin/rspec.")).toBeVisible();
+  await tidyButton().click();
+  fleet.tidy = { running: false, last };
+  await vi.advanceTimersByTimeAsync(SEVERAL);
+  await expect.element(status()).toHaveTextContent(words);
+});
+
+test("a page opened while a pass runs already says Tidying, and states the result when it ends", async () => {
+  const { fleet } = tidying({ running: true, last: EARLIER });
+  await expect.element(tidyButton()).toHaveAttribute("aria-busy", "true");
+  await expect.element(status()).toHaveTextContent("Tidying");
+  fleet.tidy = { running: false, last: { merged: 2, at: FINISHED, failed: false } };
+  await vi.advanceTimersByTimeAsync(SEVERAL);
+  await expect.element(status()).toHaveTextContent("Merged 2 entries");
+});
+
+test("leaving the Logbook mid-pass and coming back to a pass still running says Tidying and polls again", async () => {
+  const { fleet, read, reopen } = tidying({ running: false, last: EARLIER });
+  await expect.element(entries().getByText("Run specs with bin/rspec.")).toBeVisible();
+  await tidyButton().click();
+  reopen();
+  await expect.element(status()).toHaveTextContent("Tidying");
+  const reads = read.mock.calls.length;
+  await vi.advanceTimersByTimeAsync(SEVERAL);
+  expect(read.mock.calls.length).toBeGreaterThan(reads);
+  fleet.tidy = { running: false, last: { merged: 5, at: FINISHED, failed: false } };
+  await vi.advanceTimersByTimeAsync(SEVERAL);
+  await expect.element(status()).toHaveTextContent("Merged 5 entries");
+});
+
+test("a pass that ended while the page was closed is stated once when it is opened again", async () => {
+  const { fleet, reopen } = tidying({ running: false, last: EARLIER });
+  await expect.element(entries().getByText("Run specs with bin/rspec.")).toBeVisible();
+  await tidyButton().click();
+  fleet.tidy = { running: false, last: { merged: 5, at: FINISHED, failed: false } };
+  reopen();
+  await expect.element(status()).toHaveTextContent("Merged 5 entries");
+  reopen();
+  await expect.element(entries().getByText("Run specs with bin/rspec.")).toBeVisible();
+  await expect.element(status()).toHaveTextContent("");
+});
+
+test("a pass that ended before the page opened is not announced", async () => {
+  const { read } = tidying({ running: false, last: EARLIER });
+  await expect.element(entries().getByText("Run specs with bin/rspec.")).toBeVisible();
+  await vi.advanceTimersByTimeAsync(SEVERAL * 3);
+  expect(read).toHaveBeenCalledTimes(1);
+  await expect.element(status()).toHaveTextContent("");
+});
+
+test("a refused Tidy says why in Fleet's words and leaves the list as it was", async () => {
+  const { read } = opened([WIDGETS], { tidy: async () => REFUSED });
+  await tidyButton().click();
+  await expect.element(page.getByRole("status")).toHaveTextContent("Text over 400 characters is refused.");
+  expect(read).toHaveBeenCalledTimes(1);
+});
+
+test("an earlier text Tidy merged in is marked Merged, apart from one the person or Armada replaced", async () => {
+  const history = [
+    { text: "Folded in.", until: "2026-10-19T09:00:00.000Z", by: "merged" as const },
+    { text: "Folded in too.", until: "2026-10-19T09:00:00.000Z", by: "merged" as const },
+    { text: "Rewritten.", until: "2026-10-18T09:00:00.000Z", by: "distil" as const },
+    { text: "Mine.", until: "2026-10-17T09:00:00.000Z", by: "person" as const },
+  ];
+  opened([entry("7", { section: "repo", repository: "/Users/user/widgets", text: "Survivor.", history })]);
+  // One pass folds several in at one moment, so each is drawn once.
+  await expect.element(detail().getByText("Folded in.")).toBeVisible();
+  await expect.element(detail().getByText("Folded in too.")).toBeVisible();
+  expect(detail().getByText(/^Merged/).elements()).toHaveLength(2);
+  await expect.element(detail().getByText(/^Rewritten by Armada/)).toBeVisible();
+  await expect.element(detail().getByText(/^Replaced by you/)).toBeVisible();
 });

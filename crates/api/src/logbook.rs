@@ -79,6 +79,18 @@ pub(crate) async fn forget_logbook_entry<D: Logbook>(
     }
 }
 
+/// Start tidying the Logbook; answers at once that a pass is running.
+pub(crate) async fn tidy_logbook<D: Logbook>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let tidy: ipc::TidyLogbook = match ipc::decode("which Logbook to tidy", &body) {
+        Ok(tidy) => tidy,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().tidy_logbook(tidy).await {
+        Ok(tidied) => answer(StatusCode::OK, &tidied, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// Teach an entry by hand; it stands at once.
 pub(crate) async fn teach_logbook_entry<D: Logbook>(State(served): State<Served<D>>, body: Bytes) -> Response {
     let teach: ipc::TeachLogbookEntry = match ipc::decode("an entry to teach", &body) {

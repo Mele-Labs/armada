@@ -21,6 +21,7 @@ const logbook = {
   edit: async (id: string, text: string) => (called.push(`edit ${id} ${text}`), { ok: true }),
   lock: async (id: string, locked: boolean) => (called.push(`lock ${id} ${locked}`), { ok: true }),
   forget: async (id: string) => (called.push(`forget ${id}`), { ok: true }),
+  tidy: async () => (called.push("tidy"), { ok: true, merged: 3 }),
 };
 const connected = { logbook } as unknown as FleetConnection;
 
@@ -31,7 +32,8 @@ describe("the Logbook channels", () => {
     await handlers.get(CHANNELS.editLogbookEntry)?.({}, "w1", "Words.");
     await handlers.get(CHANNELS.lockLogbookEntry)?.({}, "w1", true);
     await handlers.get(CHANNELS.forgetLogbookEntry)?.({}, "w1");
-    expect(called).toEqual(["read", "edit w1 Words.", "lock w1 true", "forget w1"]);
+    expect(await handlers.get(CHANNELS.tidyLogbook)?.({})).toEqual({ ok: true, merged: 3 });
+    expect(called).toEqual(["read", "edit w1 Words.", "lock w1 true", "forget w1", "tidy"]);
   });
 
   it("refuse an id or a value that is not the type it should be, without asking Fleet", async () => {
@@ -50,5 +52,6 @@ describe("the Logbook channels", () => {
     const unsent = { ok: false, outcome: { ok: false, why: "not_connected" } };
     expect(await handlers.get(CHANNELS.readLogbook)?.({})).toEqual(unsent);
     expect(await handlers.get(CHANNELS.forgetLogbookEntry)?.({}, "w1")).toEqual(unsent);
+    expect(await handlers.get(CHANNELS.tidyLogbook)?.({})).toEqual(unsent);
   });
 });

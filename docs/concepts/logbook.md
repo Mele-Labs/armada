@@ -41,7 +41,7 @@ A `repo` section belongs to one repository, and a Job in another never sees it. 
 
 ## The loop
 
-Three steps run with no one's press. Only the first calls a model.
+Three steps run with no one's press, and a fourth, Tidy, runs beside them on a timer. Distil and Tidy call a model.
 
 ```
 Job ends, or before a handoff
@@ -89,6 +89,25 @@ It is written to the same rules for plain words as the retro call.
 
 **An entry folded in from run memory or the machine note cannot be edited, locked or forgotten.** Its id starts `runs-` or `machine-`, Fleet refuses every act on it, and Bridge draws none.
 
+### Tidy
+
+**Tidy folds near-duplicates, which Curate's word overlap misses.** Curate merges only texts at least 80% alike in words, so a command that differs by a log path or a flag, or several entries restating one refusal, pile up.
+
+| Step | Does |
+|---|---|
+| Ask | Fleet makes one model call per repository, over its standing and candidate entries it may offer, with the `habits` and `machine` entries held under that repository's key |
+| Answer | The model groups the entries that say the same thing and writes one text for each group |
+| Keep | The survivor keeps every folded entry's evidence and takes the new text. Its earlier text stays in history with the reason Merged |
+| Fade | The folded entries become faded: kept and searchable under Archived, not deleted |
+
+**A locked entry, or one a person edited, is never shown to the model.** It is never merged and never rewritten.
+**A bad answer changes nothing for that repository.**
+
+**It runs on its own about once a week per repository, and only where an entry changed since the last tidy.** A call that failed is tried again after a day.
+A person can run it now with Tidy now on the Logbook page.
+It runs over every repository in the background: the button answers at once and the page says Tidying until Fleet is done, then how many entries it folded, or that it failed and how many it folded before it stopped.
+A second press while one runs starts nothing, and a page opened mid-run shows Tidying.
+
 ### Recall
 
 Standing entries reach agents three ways.
@@ -115,6 +134,7 @@ Armada fixes stays below in every tab.
 | Edit | Replaces the text and marks the entry `edited` |
 | Lock | It never fades and is never rewritten |
 | Forget | Puts it on the deny list |
+| Tidy now | Starts Tidy over every repository in the background and says how many entries it folded when done |
 
 He can also teach an entry by pressing Teach on words, a command, a notice, a task, a Check or a pull request.
 A taught entry stands at once, cites what it was taught from as its one evidence row, and forgetting it removes the mods the same teaching made. [Teaching](teaching.md).
