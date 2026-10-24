@@ -9,17 +9,6 @@ import type { LiveChange, PhoneSession, SessionsBody } from "./gateway";
 import { keepMachine, machines, type Machine } from "./machines";
 import { events } from "./sse";
 
-export function ago(from: string, now: number): string {
-  const minutes = Math.max(0, Math.floor((now - Date.parse(from)) / 60_000));
-  if (minutes < 1) return "now";
-  if (minutes < 60) return `${minutes}m`;
-  const hours = Math.floor(minutes / 60);
-  const rest = minutes % 60;
-  if (hours < 24) return rest === 0 ? `${hours}h` : `${hours}h ${String(rest).padStart(2, "0")}m`;
-  const days = Math.floor(hours / 24);
-  return hours % 24 === 0 ? `${days}d` : `${days}d ${hours % 24}h`;
-}
-
 export type Mac = {
   machine: Machine;
   /** False once the Mac answered 401; `why` is its sentence. */
