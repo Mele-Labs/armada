@@ -1,6 +1,6 @@
 ---
 name: reformat-issue
-description: Rewrite one existing GitHub issue so its first two sentences say what a person cannot do, without losing anything an implementer needs. Load when the owner says /reformat-issue with a number or a link, or asks to clean up an issue.
+description: Rewrite one existing issue so its first two sentences say what a person cannot do, without losing anything an implementer needs. Load when the owner says /reformat-issue with an id or a link, or asks to clean up an issue.
 ---
 
 # Reformatting one issue
@@ -26,8 +26,8 @@ made one up.
 ### 1. Read the whole issue, including every comment
 
 ```
-gh issue view <n> --json number,title,body,labels,milestone,state,url
-gh issue view <n> --comments
+bd show <id> --json
+bd comments <id>
 ```
 
 **Never reformat from the body alone.** This is the failure mode that matters,
@@ -134,13 +134,13 @@ hedge on it.
 Print the proposed title and body. Get a yes. Then:
 
 ```
-gh issue edit <n> --title "…" --body-file <path>
+bd update <id> --title "…" --body-file <path>
 ```
 
-**Save the original to a scratch file first**, and say where. GitHub keeps every
-prior body in the issue's edit history, but that history is not reachable from
-`gh` and does not survive a transfer, so the local copy is the one you can hand
-back within the job.
+**Save the original to a scratch file first**, and say where. Beads keeps every
+prior body in Dolt's history, reachable with `bd show <id> --as-of <commit>`,
+but finding the commit takes longer than keeping the copy, so the local copy is
+the one you can hand back within the job.
 
 Do not post the original as a comment. The comment stream is where decisions live
 in this repository, and burying them under an archive of text nobody will read

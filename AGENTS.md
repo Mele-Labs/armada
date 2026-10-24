@@ -8,8 +8,10 @@ verifies their work before advancing them. Rust daemon, Electron app, one repo.
 - **The acceptance test is a milestone's own claim**, written before the code.
   `docs/practices/acceptance-tests.md`.
 - **v1 is deleted.** A bare file path in a doc means `git show v1-final:<path>`.
-- **Cite an issue to a person as its full link**, so it opens from the terminal.
-  A bare `#123` stays bare *inside* the repo — docs autolink and gates parse it.
+- **Cite a beads issue by its id**, such as `armada-a3f2`: it has no web page.
+  An old GitHub `#123` keeps its full link when cited to a person, so it opens
+  from the terminal. A bare `#123` stays bare *inside* the repo — docs autolink
+  and gates parse it.
 - **Never edit the checkout at `main`.** Cut a worktree on a branch before the
   first edit, and land it as a pull request. `.claude/skills/agent-worktrees/`.
 - **Ask the code graph what a change breaks, before the edit and before the
@@ -29,7 +31,7 @@ verifies their work before advancing them. Rust daemon, Electron app, one repo.
 | What is open, and what is waiting on it | Grep `docs/OPEN.md` for a slug or topic; never read it whole |
 | A value — tokens, icons, settings | `packages/`, `crates/config/settings.toml` |
 | What was measured, and what was not | `docs/spikes/` |
-| What is being built, and in what order | GitHub issues, grouped by milestone |
+| What is being built, and in what order | Beads issues (`bd list`), with milestones as epics. `docs/practices/joining.md` |
 | What a thing is, and how it is used | `docs/concepts/`, `docs/journeys/` |
 | Skills and subagents, and which model each runs on | `.claude/skills/`, `.claude/agents/`, `plugins/armada/agents/`, `docs/practices/subagents.md` |
 | Landing a branch on `main` | `docs/practices/ci.md`, a pull request merged on a green `ci` |
