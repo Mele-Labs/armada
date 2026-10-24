@@ -124,6 +124,21 @@ async fn messages_sent_while_held_go_in_the_order_they_came() {
 }
 
 #[tokio::test]
+async fn a_message_sent_once_the_first_has_been_read_is_kept_too() {
+    let rig = rig();
+    let id = rig.start_held().await;
+    rig.send_unsettled(&id, "first words").await;
+    let runtime = rig.fleet.hosts().of(id.as_str());
+    eventually(|| async { runtime.state().proposal.reading.is_none() }).await;
+    rig.send_unsettled(&id, "second words").await;
+    assert!(rig.stand_in.starts().is_empty(), "nothing is reading, and the Job still waits for Start");
+    begin(&rig, &id, None).await.expect("begun");
+    eventually(|| async { sent(&rig).len() == 2 }).await;
+    let lines = sent(&rig);
+    assert!(lines[0].contains("first words") && lines[1].contains("second words"), "{lines:?}");
+}
+
+#[tokio::test]
 async fn a_job_that_is_not_held_starts_on_its_first_message_as_before() {
     let rig = rig();
     let id = rig.start().await;
@@ -329,6 +344,7 @@ async fn every_way_he_chooses_is_recorded_as_a_pick() {
     // The card.
     let held = held_with(&rig, FIRST).await;
     begin(&rig, &held, Some(DeliveryChoice::OpenPr)).await.expect("begun");
+    eventually(|| async { !rig.stand_in.starts().is_empty() }).await;
 
     // The question the plan step asks of a Job that was never held.
     let asked = rig.start().await;
