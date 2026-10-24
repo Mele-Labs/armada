@@ -43,6 +43,8 @@ async fn running(rig: &Rig) -> SessionId {
     let id = rig.start().await;
     rig.send(&id, "serve the page").await;
     rig.stand_in.init(0);
+    // Fleet hears the turn begin, and clears the live view for his message, a few awaits later: a page shown before then is cleared with it.
+    eventually(|| async { rig.fleet.hosts().of(id.as_str()).state().turn_began.is_some() }).await;
     id
 }
 
