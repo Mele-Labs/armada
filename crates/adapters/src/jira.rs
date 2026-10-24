@@ -172,6 +172,52 @@ impl JiraSettings {
         }
         keys
     }
+
+    /// Every key of the block's own projects a pull request names in its title, as written, then in
+    /// its branch, in any case: each once and in the order written. **Only its own projects**, so
+    /// `UTF-8` is no key, and a block of only `jql` names none.
+    pub(crate) fn keys_named_by(&self, title: &str, branch: &str) -> Vec<String> {
+        let mut keys: Vec<String> = Vec::new();
+        for (text, any_case) in [(title, false), (branch, true)] {
+            for key in self.own_keys_in(text, any_case) {
+                if !keys.contains(&key) {
+                    keys.push(key);
+                }
+            }
+        }
+        keys
+    }
+
+    /// `PROJECT-123` wherever it starts and ends at neither a letter nor a digit, so `ABC-12` is read
+    /// out of `abc-12-wire-it` and nothing out of `XABC-12` or `ABC-12a`.
+    fn own_keys_in(&self, text: &str, any_case: bool) -> Vec<String> {
+        let seen = if any_case { text.to_ascii_uppercase() } else { text.to_string() };
+        let bytes = seen.as_bytes();
+        let mut keys = Vec::new();
+        let mut at = 0;
+        while at < bytes.len() {
+            let found = (seen.is_char_boundary(at) && (at == 0 || !bytes[at - 1].is_ascii_alphanumeric()))
+                .then(|| self.projects.iter().filter_map(|project| key_at(&seen[at..], project)).max_by_key(String::len))
+                .flatten();
+            match found {
+                Some(key) => {
+                    at += key.len();
+                    keys.push(key);
+                }
+                None => at += 1,
+            }
+        }
+        keys
+    }
+}
+
+/// The key of `project` that `text` starts with, ending at neither a letter nor a digit.
+fn key_at(text: &str, project: &str) -> Option<String> {
+    let number = text.strip_prefix(project)?.strip_prefix('-')?;
+    let digits = number.bytes().take_while(u8::is_ascii_digit).count();
+    let ends = number.as_bytes().get(digits).is_none_or(|next| !next.is_ascii_alphanumeric());
+    let key = &text[..project.len() + 1 + digits];
+    (digits > 0 && ends && is_key(key)).then(|| key.to_string())
 }
 
 const JQL_GUIDE: &str = "Jira Query Language, as a filter. Write no ORDER BY: results come newest \

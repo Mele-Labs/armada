@@ -191,6 +191,10 @@ impl<R: Run> Tracker for JiraTracker<R> {
         self.settings.keys_in(text)
     }
 
+    fn issues_named_by_pull_request(&self, title: &str, branch: &str) -> Vec<String> {
+        self.settings.keys_named_by(title, branch)
+    }
+
     fn query_guide(&self) -> QueryGuide {
         self.settings.guide()
     }

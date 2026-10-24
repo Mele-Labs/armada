@@ -23,7 +23,7 @@ fn methods_of_tracker() -> Vec<String> {
 fn the_tracker_trait_has_no_write_method() {
     assert_eq!(
         methods_of_tracker(),
-        ["open_issues", "read_issue", "search_issues", "query_guide", "address_template", "issues_linked_in"],
+        ["open_issues", "read_issue", "search_issues", "query_guide", "address_template", "issues_linked_in", "issues_named_by_pull_request"],
         "a Tracker lists and reads; commenting, labelling and editing an issue are not Fleet's to do"
     );
 }
