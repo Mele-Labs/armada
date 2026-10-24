@@ -128,7 +128,7 @@ afterEach(async () => {
   await realSleep(40);
   // A stream that broke moments after opening waits a second before it reconnects into the 401.
   if (vi.isFakeTimers()) await vi.advanceTimersByTimeAsync(1_000);
-  await realSleep(40);
+  await realSleep(vi.isFakeTimers() ? 40 : 1_050);
   vi.useRealTimers();
   Object.defineProperty(document, "visibilityState", { value: "visible", configurable: true });
   vi.unstubAllGlobals();
@@ -205,6 +205,26 @@ describe("Pocket v2 with two Macs", { timeout: 30_000 }, () => {
     await vi.waitFor(() => expect(text()).toContain("Call the pool slots everywhere."));
     await press(button("Approve"));
     await vi.waitFor(() => expect(posted[LAPTOP]).toEqual([{ path: "/api/sessions/plan/approve", body: { session_id: "b1", version: 1 } }]));
+  });
+});
+
+describe("the phone draws as Bridge does", { timeout: 30_000 }, () => {
+  it("lists Home as the Cockpit's rows, Needs you in the ask tone above Running, each with its age", async () => {
+    await open("/");
+    await vi.waitFor(() => expect(host.querySelectorAll('[aria-label="Running"] .deck-row')).toHaveLength(3));
+    const asking = Array.from(host.querySelectorAll<HTMLElement>('[aria-label="Needs you"] .deck-row'));
+    expect(asking.map((row) => row.getAttribute("aria-label"))).toEqual(["Rename the slot pool", "Trim the Drone pool"]);
+    expect(asking.every((row) => row.dataset["tone"] === "ask" && row.dataset["needs"] !== undefined)).toBe(true);
+    expect(asking.every((row) => /ago$/.test(row.querySelector(".deck-row__said")?.textContent ?? ""))).toBe(true);
+    const headings = Array.from(host.querySelectorAll("h2")).map((one) => one.textContent);
+    expect(headings).toEqual(["Needs you", "Running"]);
+  });
+
+  it("opens a Job with Bridge's composer under its thread", async () => {
+    await open(`/jobs/${encodeURIComponent(STUDIO)}/a1`);
+    await vi.waitFor(() => expect(text()).toContain("The pool holds eight slots"));
+    expect(host.querySelector("form.armada-session-composer")).not.toBeNull();
+    expect(button("Home")).toBeTruthy();
   });
 });
 

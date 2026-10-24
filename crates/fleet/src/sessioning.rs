@@ -850,6 +850,9 @@ where
         if title.is_empty() {
             return Err(self.ledger_unnamed("a title"));
         }
+        // Read before the store is held: the proposer learns his names against the request.
+        let rows = self.rows_of(rename.session_id.as_str()).await.unwrap_or_default();
+        let request = crate::session_host::delivering::first_message(&rows).map(str::to_string);
         let mut store = self.store().lock().await;
         let Some(mut session) = store
             .session(rename.session_id.as_str())
@@ -858,6 +861,22 @@ where
             return Err(self.ledger_unnamed("a job Fleet knows"));
         };
         let changed = session.title.as_deref() != Some(title.as_str());
+        if let (true, Some(request), Some(was), Some(repository)) =
+            (changed, request, session.title.clone(), session.manifest_id.clone())
+        {
+            let kept = store::KeptRename {
+                session_id: session.id.clone(),
+                repository,
+                request,
+                was,
+                title: title.clone(),
+                renamed_at: self.now().as_str().to_string(),
+            };
+            // A rename that is not learned from is still a rename.
+            if let Err(why) = store.keep_rename(&kept) {
+                self.session_warned(&session.id, "a job's rename was not kept for naming", format!("{why:?}"));
+            }
+        }
         session.title = Some(title);
         store
             .keep_session(&session)

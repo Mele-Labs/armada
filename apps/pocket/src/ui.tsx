@@ -1,44 +1,62 @@
-// The pieces every phone screen is made of: the band at the top, a list row, and a refusal's sentence.
+// The pieces every phone screen is made of: Bridge's panel header, a list row and its heading, and a
+// refusal's sentence. The rows and headings carry the Cockpit's class names, so `depth.css` draws them.
 
 import type { ReactNode } from "react";
-import { ChevronLeft } from "lucide-react";
-import { SessionMark, type SessionState } from "@armada/components";
+import { X } from "lucide-react";
+import { Button, SessionMark, Stamp, Tooltip, type SessionState } from "@armada/components";
+
+/** A header's icon press, named by its tooltip as Bridge's are. */
+export function IconButton({ label, onClick, children }: { label: string; onClick: () => void; children: ReactNode }) {
+  return (
+    <Tooltip label={label} asChild>
+      <Button variant="ghost" size="sm" iconOnly aria-label={label} onClick={onClick}>
+        {children}
+      </Button>
+    </Tooltip>
+  );
+}
+
+/** Back, as Bridge's layers draw it: the close glyph at the header's trailing end. */
+export const Back = ({ label, onClick }: { label: string; onClick: () => void }) => (
+  <IconButton label={label} onClick={onClick}><X size={16} aria-hidden="true" /></IconButton>
+);
 
 export function Band({ title, onBack, back, end }: { title: string; onBack?: () => void; back?: string; end?: ReactNode }) {
   return (
-    <header className="pk-band">
-      {onBack !== undefined && (
-        <button className="pk-icon" aria-label={back ?? "Back"} onClick={onBack}><ChevronLeft /></button>
-      )}
+    <header className="deck-band pk-band">
       <h1 className="pk-band__title">{title}</h1>
       {end}
+      {onBack === undefined ? null : <Back label={back ?? "Back"} onClick={onBack} />}
     </header>
   );
 }
 
-/** One Job in a list: its state as a registry mark with a tooltip, its title, where it is, and an age. */
-export function Row({ state, said, title, where, mac, age, onOpen }: { state: SessionState; said: string; title: string; where: string; mac?: string; age: string; onOpen?: () => void }) {
-  const body = (
-    <>
-      <span className="pk-row__mark"><SessionMark state={state} said={said} /></span>
-      <span className="pk-row__title">{title}</span>
-      <span className="pk-row__meta">
-        {where}
-        {mac === undefined ? null : <span className="pk-row__mac">{mac}</span>}
-      </span>
-      <span className="pk-row__age">{age}</span>
-    </>
+/** One Job in the Cockpit's list: its title and state mark, what it says and its age. */
+export function Row({ state, said, title, says, mac, at, onOpen }: { state: SessionState; said: string; title: string; says: string; mac?: string; at: string; onOpen: () => void }) {
+  const needs = state === "waiting";
+  return (
+    <li className="deck-list__item">
+      <button type="button" className="deck-row" data-needs={needs || undefined} data-tone={needs ? "ask" : "calm"} aria-label={title} onClick={onOpen}>
+        <span className="deck-row__title">{title}</span>
+        <span className="deck-row__marks"><SessionMark state={state} said={said} /></span>
+        <span className="deck-row__says">
+          {says}
+          {mac === undefined ? null : <span className="pk-row__mac">{mac}</span>}
+        </span>
+        <span className="deck-row__said"><Stamp still first="age" at={at} /></span>
+      </button>
+    </li>
   );
-  return onOpen === undefined ? <li className="pk-row" data-still>{body}</li> : <li><button className="pk-row" onClick={onOpen}>{body}</button></li>;
 }
 
 export const Trouble = ({ says }: { says: string }) => (says === "" ? null : <p className="pk-fact" role="status">{says}</p>);
 
+/** A heading as the Cockpit's list draws one, over its rows. */
 export function Section({ label, children }: { label: string; children: ReactNode }) {
   return (
     <section className="pk-section" aria-label={label}>
-      <h2 className="pk-section__head">{label}</h2>
-      <ul className="pk-list">{children}</ul>
+      <h2 className="deck-list__repository">{label}</h2>
+      <ul className="deck-list__rows">{children}</ul>
     </section>
   );
 }

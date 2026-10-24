@@ -289,7 +289,14 @@ where
             .map_err(|_| String::from("the repository is not served"))?;
         // With workflows off the proposer is shown none, so it never picks one.
         let workflows = if self.workflows_on() { served.workflows() } else { Default::default() };
-        let brief = SessionBrief::about(request, &workflows, &proposing.choices);
+        // His renames teach the title. One that will not read leaves the question as it was.
+        let renames = self
+            .store()
+            .lock()
+            .await
+            .renames_for(&hosting.manifest_id, crate::session_proposer::RENAMES_SHOWN)
+            .unwrap_or_default();
+        let brief = SessionBrief::about(request, &workflows, &proposing.choices, &renames);
         let ask = Ask::put(
             proposing.model.clone(),
             brief.question(),

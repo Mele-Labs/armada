@@ -18,6 +18,11 @@
   text-align: left;
 }
 
+/* A context menu draws no trigger and portals its panel, so the root holds nothing; as a box it would take a cell in a grid parent. */
+.armada-dropdown-menu[data-at] {
+  display: contents;
+}
+
 .armada-dropdown-menu__trigger {
   display: inline-flex;
   align-items: center;
