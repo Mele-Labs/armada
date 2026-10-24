@@ -290,10 +290,14 @@ A tracker mod switched off in Mods is refused too, with that as the reason; the 
 
 Mod on a spot in Bridge starts a Mod Job: a hosted Job on Armada's own repository, the Manifest named `armada`, for modding Armada itself.
 Its row carries `mod`.
-Its first message is a pinned note's, sent as `send_session_note` sends one, with the Mod brief ahead of his words: load the `armada-mods` skill and reach for a mod first.
+Its first message is a pinned note's, sent as `send_session_note` sends one, with the Mod brief ahead of his words: load the `armada:armada-mods` skill and reach for a mod first.
+The skill ships in the Armada mod for Claude Code (`plugins/armada/skills/armada-mods/`), so a Job in any folder has it.
 A mod it makes applies live once `validate_mod` passes, and the owner switches it off from the Job.
 Where the ask needs more than a mod can say, the Job says so and changes Armada's source on its own branch, then asks for `scripts/preview --restart` as a `waiting_for` run item.
-A Fleet that does not serve Armada's own repository refuses the start, and nothing is made.
+
+**A Fleet that does not serve Armada's own repository starts the Job in the mods folder**, with no repository, no Manifest, no slot and no branch.
+That Job makes mods only, and its brief says so: there is no source to change and no preview to restart, so an ask a mod cannot say is told to the owner.
+It stands at the agent door a Job with no Manifest stands at, which offers `list_mods`, `scaffold_mod`, `validate_mod` and `try_tracker_mod` beside the Job's own acts.
 
 ## The operations
 

@@ -75,7 +75,7 @@ export type ScaffoldMod = {
 /**
  * `POST /mods/session`'s body: a Mod Job, a hosted Job on Armada's own repository for modding Armada
  * itself. `note` is what he pointed at, as `send_session_note` takes it, and is the Job's first message.
- * Refused 422 `fleet.mod_armada_not_served` where Fleet does not serve that repository.
+ * Where Fleet does not serve that repository, the Job starts in the mods folder and makes mods only.
  */
 export type StartModSession = {
   /** Absent is the first line of the note's words. */
