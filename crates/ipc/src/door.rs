@@ -503,7 +503,7 @@ fn instructions(scope: &str) -> String {
 }
 
 /// What a session standing in no Manifest is told at the handshake.
-const WITHOUT_A_MANIFEST: &str = "This repository has no armada.yml yet, so nothing here is \
+const WITHOUT_A_MANIFEST: &str = "No armada.yml is served here, so nothing here is \
      answered inside a Manifest: no other Jobs, Drones, runs or servers. This job's own acts are \
      served — what it is waiting for, that it is done, a page shown or asked about in the \
      window, a sketch drawn, and the mods on this machine — and those are the only tools listed.";
