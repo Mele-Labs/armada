@@ -1,5 +1,5 @@
-// Home: every paired Mac's Jobs in one list. Needs you first, oldest wait first, then Running, then
-// Done. Where more than one Mac is paired, each row names its Mac. A Mac that forgot the phone, or is
+// Home: every paired Mac's live Jobs in one list. Needs you first, oldest wait first, then Running.
+// Where more than one Mac is paired, each row names its Mac. A Mac that forgot the phone, or is
 // not answering, is a row of its own at the top, and the rest of the list carries on without it.
 
 import { Laptop, Plus } from "lucide-react";
@@ -25,10 +25,10 @@ function MacRow({ mac }: { mac: Mac }) {
 
 export function Home() {
   const fleet = useFleet();
-  const { several, needs, running, done, troubled } = homeOf(fleet);
+  const { several, needs, running, troubled } = homeOf(fleet);
   const macName = (item: Item) => (several ? item.mac.machine.name : undefined);
   const open = (item: Item) => () => go(jobPath(item.mac.machine.origin, item.session.id));
-  const row = (item: Item, state: "waiting" | "working" | "idle" | "ended", said: string, at: string) => {
+  const row = (item: Item, state: "waiting" | "working" | "idle", said: string, at: string) => {
     const mac = macName(item);
     return (
       <Row
@@ -43,7 +43,7 @@ export function Home() {
       />
     );
   };
-  const quiet = needs.length + running.length + done.length === 0;
+  const quiet = needs.length + running.length === 0;
   return (
     <section className="pk-screen" aria-label="Home">
       <Band
@@ -63,7 +63,6 @@ export function Home() {
         )}
         {needs.length === 0 ? null : <Section label="Needs you">{needs.map((item) => row(item, "waiting", "Needs you", item.session.waiting_since ?? item.session.started_at))}</Section>}
         {running.length === 0 ? null : <Section label="Running">{running.map((item) => (item.session.working ? row(item, "working", "Working", item.session.started_at) : row(item, "idle", "Idle", item.session.started_at)))}</Section>}
-        {done.length === 0 ? null : <Section label="Done">{done.map((item) => row(item, "ended", "Ended", item.session.ended_at ?? item.session.started_at))}</Section>}
         {quiet && fleet.loaded && troubled.length === 0 ? <p className="pk-fact pk-dim">Nothing needs you.</p> : null}
       </div>
     </section>

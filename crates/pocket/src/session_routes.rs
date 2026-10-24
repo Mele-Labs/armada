@@ -4,7 +4,7 @@
 use std::collections::BTreeSet;
 
 use axum::body::Bytes;
-use axum::extract::{Query, State};
+use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use ipc::{
@@ -23,36 +23,18 @@ const NOT_ASKING: &str = "That Job is not waiting on an answer.";
 const ASK_MOVED_ON: &str = "That question has been answered or has changed. Open it again.";
 const ANSWER_DOES_NOT_FIT: &str = "That answer does not fit the question. Open it again.";
 const UNREADABLE_REQUEST: &str = "Armada could not read that from this phone. Update the app.";
-/// How many ended Sessions the Done list holds.
-const DONE_SHOWN: usize = 50;
 const NO_SUCH_REPOSITORY: &str = "Armada does not know that repository. Pick one from the list.";
 
-#[derive(Deserialize)]
-pub struct Wanted {
-    state: Option<String>,
-}
-
-/// The live Sessions, or with `?state=ended` the ones that are over, newest first.
-pub async fn sessions(State(gateway): State<Gateway>, Query(wanted): Query<Wanted>) -> Response {
-    let state = match wanted.state.as_deref() {
-        None | Some("live") => SessionState::Live,
-        Some("ended") => SessionState::Ended,
-        Some(_) => return refusal(StatusCode::BAD_REQUEST, "Ask for state=live or state=ended."),
-    };
-    let path = if state == SessionState::Live { "/sessions?state=live" } else { "/sessions?state=ended" };
-    let list = match required::<SessionList>(&gateway, path, "a job list").await {
+/// The live Sessions. The phone has no list of ended ones.
+pub async fn sessions(State(gateway): State<Gateway>) -> Response {
+    let list = match required::<SessionList>(&gateway, "/sessions?state=live", "a job list").await {
         Ok(list) => list.sessions,
         Err(refused) => return refused,
     };
     let labels = repositories(&gateway).await;
-    let mut kept: Vec<&SessionRecord> = list.iter().filter(|record| record.state == state).collect();
-    if state == SessionState::Ended {
-        let over = |record: &SessionRecord| record.ended_at.as_ref().map(|at| at.as_str().to_string());
-        kept.sort_by(|a, b| (over(b), b.id.as_str()).cmp(&(over(a), a.id.as_str())));
-        kept.truncate(DONE_SHOWN);
-    }
-    let rows: Vec<PhoneSession> = kept
-        .into_iter()
+    let rows: Vec<PhoneSession> = list
+        .iter()
+        .filter(|record| record.state == SessionState::Live)
         .map(|record| {
             let repository = record
                 .manifest_id

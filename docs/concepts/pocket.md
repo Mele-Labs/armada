@@ -72,14 +72,13 @@ The opt-in is the file `pocket` in Armada's machine directory, `~/Library/Applic
 
 | Screen | Holds | Route |
 |---|---|---|
-| Needs you | The live Jobs waiting on the owner, oldest wait first | `GET /api/needs` |
+| Needs you | The live Jobs waiting on the owner, oldest wait first | `GET /api/sessions`, the ones waiting |
 | Running | The live Jobs not waiting on the owner, one with a turn running marked working and the rest idle | `GET /api/sessions` |
-| Done | The 50 Jobs that ended last, newest first | `GET /api/sessions?state=ended` |
 | A Job | Its whole thread, as Bridge reads it | `GET /api/sessions/one?session_id=` |
 | A file | A file the Job showed: its text, or a picture | `GET /api/sessions/shown?session_id=&path=` |
 | This Mac | The name its rows are labelled with: its tailnet name without the tailnet, or its host name | `GET /api/machine` |
 
-**The three lists are narrowed.** `crates/pocket/src/phone_sessions.rs` builds `PhoneSession` field by field, so a field Fleet adds to the Job record does not reach a list until someone writes it there.
+**The lists are narrowed.** `crates/pocket/src/phone_sessions.rs` builds `PhoneSession` field by field, so a field Fleet adds to the Job record does not reach a list until someone writes it there.
 
 **A Job's thread is not narrowed.** `/api/sessions/one` is Fleet's `SessionThread` as Fleet sends it, the Job record included.
 
@@ -118,6 +117,13 @@ It answers 201 with the Job.
 
 **`/api/live`** is Fleet's `/events` narrowed to `session.changed`, written as `{change: "session", session_id}`, and `{change: "resync"}` where the phone's lists may be behind.
 The app keeps one per Mac and reads again on either.
+While Fleet is quiet it writes a `: beat` comment line every 15 seconds, so the phone can tell a waiting stream from a dead one.
+
+**`/api/sessions` answers the live Jobs and takes no `state`.** The phone has no list of ended ones.
+
+**The app's files** are sent with `Content-Encoding: br` or `gzip` when the request accepts it and a `.br` or `.gz` copy sits beside the file.
+Anything under `/assets/` is hashed by the build and cached for a year, `immutable`.
+Every other file, `index.html` and `sw.js` included, is `no-cache`.
 
 ## Several Macs
 
