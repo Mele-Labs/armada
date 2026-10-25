@@ -14,6 +14,7 @@ import type {
   DismissWaiting,
   Attachment,
   ClaimPullRequest,
+  DeliveryPicked,
   McpServerAct,
   McpSignIn,
   SessionMcpActed,
@@ -22,6 +23,7 @@ import type {
   HelmCallInFlight,
   HubPullRequest,
   MergeLines,
+  ProposedField,
   PullRequestState,
   SendSessionMessage,
   SessionRecord,
@@ -329,6 +331,7 @@ export class FakeSessionsFleet {
             }
             return begun;
           },
+          setSessionWorkflow: async (sessionId, workflow) => this.change(sessionId, ({ workflow: _was, ...one }) => (workflow === undefined ? one : { ...one, workflow })),
           readSessionWait: async (sessionId, request) => {
             this.calls.readWaits.push({ sessionId, request });
             return { ok: true, value: this.reading };
@@ -712,6 +715,23 @@ export class FakeSessionsFleet {
     const back = how.fork === undefined ? held("started_to", id, grouped, "spent") : held("forked_to", id, {}, "spent");
     this.set([record, ...this.records.map((one) => (one.id === fromId ? { ...one, attachments: [...one.attachments, back] } : one))]);
     return id;
+  }
+
+  /**
+   * The proposer's reading of a held Job, as Fleet's record carries it: `reading` while the call is out, then the workflow it picked, the fields
+   * it chose, and the landing his usual or his words gave.
+   */
+  proposes(id: string, reading: { reading: true } | { workflow: string; picked: ProposedField[]; landing?: DeliveryPicked }): void {
+    this.change(id, (one) => {
+      if ("reading" in reading) return { ...one, proposal: { reading: true } };
+      const { landing, workflow, picked } = reading;
+      return {
+        ...one,
+        workflow,
+        proposal: { picked },
+        ...(landing === undefined || one.hosted?.start === undefined ? {} : { hosted: { ...one.hosted, start: { ...one.hosted.start, picked: landing } } }),
+      };
+    });
   }
 
   /** The agent takes a turn on its own clock: working, then the rows it writes (a function is made as its turn reaches it), then idle. */

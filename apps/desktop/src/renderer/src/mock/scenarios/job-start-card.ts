@@ -1,5 +1,5 @@
 // A Job dispatched from the Dispatch sheet opens held before any agent moves. The proposer reads the request for a moment, then the
-// title, Kind and Lands fill in. Changing Kind moves Lands to the usual for that kind, and words that name how it lands win over the usual.
+// title, Workflow and Delivery fill in. Changing Workflow moves Delivery to the usual for that kind, and words that name how it lands win over the usual.
 // Start begins the agent. Over `quick-dispatch`, and the walk `job-start-card` plays it.
 
 import type { DeliveryChoice } from "@armada/protocol";

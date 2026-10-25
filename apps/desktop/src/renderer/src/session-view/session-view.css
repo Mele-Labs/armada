@@ -346,7 +346,7 @@ button.sv-layer__row:focus-visible { outline: none; background: color-mix(in srg
 .sv-dock { position: relative; flex: none; }
 .sv-dock[data-needs] { margin-block-start: calc(var(--h-badge) + var(--space-3)); }
 .sv-dock[data-needs] .armada-session-composer { border-start-start-radius: 0; border-start-end-radius: 0; }
-/* A held Job's Kind and Lands: a strip on the composer's top edge, the width of the composer, the two drawn as one block. The composer's own top edge is the line between them. */
+/* A held Job's Workflow and Delivery: a strip on the composer's top edge, the width of the composer, the two drawn as one block. The composer's own top edge is the line between them, and the accent tint is what sets the strip apart. */
 .sv-start-strip {
   display: flex;
   flex-wrap: wrap;
@@ -356,7 +356,7 @@ button.sv-layer__row:focus-visible { outline: none; background: color-mix(in srg
   border: var(--border-width) solid var(--border-default);
   border-bottom: 0;
   border-radius: var(--radius-md) var(--radius-md) 0 0;
-  background: var(--bg-sunken);
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg-sunken));
 }
 .sv-start-strip .armada-select-field { flex: none; }
 .sv-start-strip .armada-select {

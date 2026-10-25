@@ -3,7 +3,7 @@
 // holds the note as the agent will read it. Over a Fleet that holds the start as Fleet would (`../sessions-fleet.ts`). The walk
 // `job-start-card-everywhere` plays it. Mock only: the layer's note turn is composed here in the shape of `crates/fleet/src/session_host/noting.rs`.
 
-import type { RepositorySummary, SendSessionNote, SessionRow } from "@armada/protocol";
+import type { RepositorySummary, SendSessionNote, SessionRow, WorkflowSummary } from "@armada/protocol";
 import { repository } from "@armada/screens/src/fixtures/repository";
 
 import { onBoard } from "../moment";
@@ -20,6 +20,16 @@ function elsewhere(name: string): RepositorySummary {
     manifest: { ...repository().manifest!, id: name, repository: name, path: `${name}/armada.yml` },
   };
 }
+
+/** The repository's workflows, which the Workflow select lists. */
+const WORKFLOWS = [
+  { id: "feature", name: "Feature", steps: ["Plan", "Build", "Verify", "Pull request"] },
+  { id: "bug", name: "Bug", steps: ["Reproduce", "Fix", "Verify", "Pull request"] },
+  { id: "review", name: "Review", steps: ["Read", "Review", "Report"] },
+].map((one): WorkflowSummary => ({ id: one.id, name: one.name, version: 1, manifest_id: "armada", steps: one.steps.map((label) => ({ step_id: label.toLowerCase(), label, checks: [], judge_checks: [] })) }) as unknown as WorkflowSummary);
+
+/** How long the proposer reads a dispatched request before it lands on a workflow. */
+const READ_MS = 1200;
 
 const SERVED = [ARMADA, elsewhere("storefront"), elsewhere("billing"), elsewhere("docs-site")];
 
@@ -53,7 +63,7 @@ function turnOf(note: SendSessionNote): string {
 }
 
 function build(): Scenario {
-  const board = onBoard({ repositories: SERVED });
+  const board = onBoard({ repositories: SERVED, workflows: WORKFLOWS });
   const served = new FakeSessionsFleet(records(), threads()).scenario(board);
   return {
     ...served,
@@ -90,10 +100,19 @@ function build(): Scenario {
         // The layer starts a Job with a title and no words, and Fleet would hold it as a Dispatch start is held:
         // the note it is sent next is the first message, composed the way the agent reads it.
         startSession: async (title, root, request, tuning, after, holds) => {
+          // A dispatched request is read for a moment: the proposer picks the workflow and his usual landing comes with it.
+          if (title === undefined && request !== undefined && after === undefined && holds === true) {
+            const started = await own.startSession!(title, root, request, tuning, after, holds);
+            if (!started.ok) return started;
+            const id = started.value.id;
+            fake.proposes(id, { reading: true });
+            window.setTimeout(() => fake.proposes(id, { workflow: "feature", picked: ["workflow"], landing: { choice: "auto_land", from: "usual" } }), READ_MS);
+            return started;
+          }
           if (title === undefined || request !== undefined || after !== undefined || holds === true) return own.startSession!(title, root, request, tuning, after, holds);
           const started = await own.startSession!(undefined, root, undefined, undefined, undefined, true);
           if (!started.ok) return started;
-          const record = { ...started.value, title, hosted: { ...started.value.hosted!, start: { asks_delivery: true, picked: { choice: "open_pr" as const, from: "usual" as const } } } };
+          const record = { ...started.value, title, hosted: { ...started.value.hosted!, start: { asks_delivery: true } } };
           fake.changed(record);
           noted.set(record.id, []);
           return { ok: true, value: record };

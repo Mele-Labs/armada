@@ -1,5 +1,6 @@
-// What a held Job settles before any agent moves, in the composer's own bar: its Kind and where its work Lands, beside the model and effort
+// What a held Job settles before any agent moves, in a strip pinned to the composer: its Workflow and its Delivery, beside the model and effort
 // the bar already has. The first message is the box, Send reads Start, and a press begins the agent. Nothing here once the Job has started.
+// Neither is ever blank once the proposer has read: each carries a default, and a mark only where the proposer or his usual chose it.
 
 import { useState } from "react";
 import type { ReactNode } from "react";
@@ -32,13 +33,16 @@ export function useStartPicks(session: Session, repositories: readonly Repositor
   const { id } = session;
   const proposal = session.work?.proposal;
   const reading = proposal?.reading === true;
-  const kind = proposal?.workflow ?? null;
   const picked = proposal?.picked ?? [];
   const kinds = (draft.work?.workflows ?? []).filter((one) => one.manifestId === undefined || session.manifestId === undefined || one.manifestId === session.manifestId);
+  // Fleet will supply these defaults (`start.picked`, the Job's workflow) once wired; until then Bridge decides: the proposer's pick, else the
+  // repository's `feature` workflow, else its first; the landing his words named, else his usual, else Auto land.
+  const proposed = proposal?.workflow ?? null;
+  const kind = reading ? null : (proposed ?? kinds.find((one) => one.id === "feature")?.id ?? kinds[0]?.id ?? null);
   const kindName = kinds.find((one) => one.id === kind)?.name;
   const repository = repositories.find((one) => one.manifest?.id === session.manifestId)?.manifest?.repository;
   const lands = start.asksDelivery;
-  const landing = (answered?.id === id ? answered.choice : undefined) ?? start.picked?.choice;
+  const landing = reading ? undefined : ((answered?.id === id ? answered.choice : undefined) ?? start.picked?.choice ?? "auto_land");
 
   // The standing choice is marked while it is the one in use: his usual, or the one his words named.
   const standing = start.picked !== undefined && landing === start.picked.choice ? start.picked.from : undefined;
@@ -47,11 +51,8 @@ export function useStartPicks(session: Session, repositories: readonly Repositor
 
   const begin = async (text: string): Promise<boolean> => {
     if (reading || draft.begin === undefined) return false;
-    // Nothing preselected: the pick he has to answer.
-    if (lands && landing === undefined) {
-      document.querySelector<HTMLElement>('select[aria-label="Lands"]')?.focus();
-      return false;
-    }
+    // The workflow shown is the one the Job runs under, so a default he did not change is recorded now.
+    if (proposed === null && kind !== null) draft.work?.choose(id, kind);
     const sent = await draft.begin(id, lands ? landing : undefined, start.message === undefined ? undefined : text);
     return sent !== false;
   };
@@ -65,9 +66,9 @@ export function useStartPicks(session: Session, repositories: readonly Repositor
           </span>
         </Tooltip>
       ) : null}
-      <Pick Glyph={Workflow} compact={compact} proposed={picked.includes("workflow")} label="The kind of Job">
-        <Select aria-label="Kind" value={kind ?? ""} disabled={reading} onChange={(event) => draft.work?.choose(id, event.target.value === "" ? null : event.target.value)}>
-          <option value="">{compact ? "Auto" : "Kind"}</option>
+      <Pick Glyph={Workflow} compact={compact} proposed={kind !== null && kind === proposed && picked.includes("workflow")} label="Workflow">
+        <Select aria-label="Workflow" value={kind ?? ""} disabled={reading} onChange={(event) => draft.work?.choose(id, event.target.value)}>
+          {kind === null ? <option value="">Workflow</option> : null}
           {kinds.map((one) => (
             <option key={one.id} value={one.id}>
               {one.name}
@@ -79,11 +80,11 @@ export function useStartPicks(session: Session, repositories: readonly Repositor
         <Pick
           Glyph={GitMerge}
           compact={compact}
-          label={LANDS.find((one) => one.choice === landing)?.detail ?? "Where the work lands"}
+          label={LANDS.find((one) => one.choice === landing)?.detail ?? "Delivery"}
           {...(standing === undefined ? {} : { mark: { Glyph: standing === "named" ? Quote : Repeat, label: standingSaid } })}
         >
-          <Select aria-label="Lands" value={landing ?? ""} disabled={reading} onChange={(event) => setAnswered({ id, choice: event.target.value as DeliveryChoice })}>
-            {landing === undefined ? <option value="">Lands</option> : null}
+          <Select aria-label="Delivery" value={landing ?? ""} disabled={reading} onChange={(event) => setAnswered({ id, choice: event.target.value as DeliveryChoice })}>
+            {landing === undefined ? <option value="">Select delivery</option> : null}
             {LANDS.map((one) => (
               <option key={one.choice} value={one.choice} title={one.detail}>
                 {one.label}
