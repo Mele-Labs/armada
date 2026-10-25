@@ -532,13 +532,13 @@ where
         if self.start_hold_restored(&target, &hosting).await.is_err() {
             return;
         }
-        // A held Job keeps the first word to reach it off the thread, for the person to read and Start.
+        // A held Job keeps every word to reach it off the thread, for Start to write and send in order.
         let voice = SessionVoice::Session { id: from.to_string(), title: title.clone() };
         let first = super::start_card::FirstTurn {
             instead: Some(from_job(from, &title, message)),
             ..super::start_card::FirstTurn::said(voice, message)
         };
-        if self.first_turn_kept(&target, &first).await.unwrap_or(false) {
+        if self.turn_kept_while_held(&target, &first).await.unwrap_or(false) {
             if !from_helm {
                 self.session_messaged(from, named, &target, message);
             }

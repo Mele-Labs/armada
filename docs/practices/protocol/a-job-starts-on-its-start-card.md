@@ -60,8 +60,8 @@ One wire behaviour goes: the `unsent` attachment.
 **The first turn waits off the thread.**
 The first message, note or other Job's message to reach a held Job is kept with the Job, its files and pictures with it, and is not written to the thread.
 It is what `StartHeld.message` reports.
-A later turn while held is written to the thread at once and queued, as before.
-`begin_session` writes the first turn to the thread and sends it first, then the rest.
+A later turn while held is kept the same way, behind the first, and is not written to the thread either.
+`begin_session` writes the first turn to the thread and sends it first, then writes each later turn's row and sends it, in the order they came.
 
 **`message` on `begin_session` replaces the first turn where it differs**, trimmed, from what `StartHeld.message` reported.
 The thread row and what the agent reads are then his words alone, in his voice, and the files stay with them.
@@ -84,7 +84,9 @@ A workflow the person set, custom too, is left alone.
 
 **One additive migration.**
 `held_first_turns.table` keeps the first turn, one row per Job, until Start takes it.
+`held_later_turns.table` keeps the turns after it, in order, until Start takes them.
 A Job held before this build has its first message on the thread, and it is sent as a queued turn.
+A later turn it queued is not read back: its row stays on the thread and the agent is not sent it.
 
 **Skew.** The protocol ID moves with these files, so a Bridge and a Fleet from either side are refused regardless.
 The event stream carries nothing new beyond the `session.changed` a hosted Job already rides on, which makes the unmeasured sink risk neither better nor worse.

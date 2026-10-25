@@ -170,7 +170,7 @@ where
         // Read against the thread before the answer's own row is put in it.
         let handing_on = matches!(written, Written::Message(SessionVoice::You))
             && self.handoff_answered_later(&id, &text).await;
-        // A held Job's first turn is kept off the thread, whole, for him to edit and Start to send.
+        // A held Job's turns are kept off the thread, whole: the first for him to edit, and Start writes and sends them all.
         let first = match &written {
             Written::Message(from) if !handing_on => Some(FirstTurn {
                 from: from.clone(),
@@ -183,7 +183,7 @@ where
             _ => None,
         };
         if let Some(first) = first {
-            if self.first_turn_kept(&id, &first).await? {
+            if self.turn_kept_while_held(&id, &first).await? {
                 if matches!(written, Written::Message(SessionVoice::You)) {
                     self.noted_on_the_ledger(&session, &text).await?;
                     self.issues_named(&id, &text, &sent.mentions).await;

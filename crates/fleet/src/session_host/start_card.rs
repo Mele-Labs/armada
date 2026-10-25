@@ -2,14 +2,15 @@
 //! The person settles the title, workflow, model, effort and how the work lands, then presses Start.
 //!
 //! **Held in two places.** The hosting's `start_held` survives a restart; the runtime's
-//! `proposal.start_held` is what `holds_back` reads, and `held` is the queue behind it. A Fleet that
-//! restarts loses the queue, so the first send or begin after it reads the person's messages back off
-//! the thread (`restored`) before anything else is done to the Job.
+//! `proposal.start_held` is what `holds_back` reads. A Fleet that restarts loses it, so the first send
+//! or begin after one sets it again (`start_hold_restored`) before anything else is done to the Job.
 //!
-//! **The first turn is kept apart, off the thread.** The first message, note or other Job's word to
-//! reach a held Job is the one the agent will read first, and the person's to edit in his message box
-//! (`StartHeld.message`). It is kept whole in the store with its files and Fleet's lines, so a restart
-//! loses none of it, and is written to the thread only when Start sends it. Later turns queue as above.
+//! **No turn reaches the thread while the Job is held.** The first message, note or other Job's word
+//! to reach a held Job is the one the agent will read first, and the person's to edit in his message
+//! box (`StartHeld.message`). Every turn after it waits behind it. Each is kept whole in the store with
+//! its files and Fleet's lines (`held_first_turns`, `held_later_turns`), so a restart loses none of
+//! them, and Start writes their rows in the order they came, then sends them, so the thread reads as
+//! the agent does.
 //!
 //! **Never blank.** A held Job with no workflow takes the repository's `feature` workflow, else its
 //! first, once the proposer has read it or at once where nothing will; and a card that asks how the
@@ -33,8 +34,7 @@ use serde::{Deserialize, Serialize};
 use store::{KeptHosting, Store};
 
 use super::delivering::{delivery_asked, first_message, named_delivery};
-use super::hearing::from_job;
-use super::serving::{FLEET_NAME, NO_SUCH_SESSION, SESSION_UNSTARTED};
+use super::serving::{NO_SUCH_SESSION, SESSION_UNSTARTED};
 use super::proposing::Held;
 use super::uploads::Kept;
 use crate::daemon::Fleet;
@@ -198,6 +198,16 @@ where
     /// Keep `turn` as the held Job's first, where it is held and has none yet. `false` where it is not
     /// the first, or the Job is not held: the caller writes and sends it as any other.
     pub(crate) async fn first_turn_kept(&self, id: &str, turn: &FirstTurn) -> Result<bool, Refusal> {
+        self.held_turn_kept(id, turn, false).await
+    }
+
+    /// Keep `turn` off the thread, as the held Job's first where it has none and behind its others where
+    /// it has. `false` only where the Job is not held: the caller writes and sends it as any other.
+    pub(crate) async fn turn_kept_while_held(&self, id: &str, turn: &FirstTurn) -> Result<bool, Refusal> {
+        self.held_turn_kept(id, turn, true).await
+    }
+
+    async fn held_turn_kept(&self, id: &str, turn: &FirstTurn, behind: bool) -> Result<bool, Refusal> {
         if !self.hosts().of(id).state().proposal.start_held {
             return Ok(false);
         }
@@ -206,7 +216,16 @@ where
             let mut store = self.store().lock().await;
             // Read under the lock Start claims the hold in, so a turn that arrives as it is pressed queues.
             let held = store.hosting(id).map_err(|why| self.ledger_fault(why))?.is_some_and(|one| one.start_held);
-            held && store.keep_held_first_turn(id, &body).map_err(|why| self.ledger_fault(why))?
+            if !held {
+                false
+            } else if store.keep_held_first_turn(id, &body).map_err(|why| self.ledger_fault(why))? {
+                true
+            } else if behind {
+                store.keep_held_later_turn(id, &body).map_err(|why| self.ledger_fault(why))?;
+                true
+            } else {
+                false
+            }
         };
         if kept {
             self.held_defaulted(id).await;
@@ -283,35 +302,16 @@ where
         }
     }
 
-    /// Make the runtime agree with a Job held across a restart: it holds back, and the queue holds
-    /// the person's messages as the thread has them. Once per Fleet, and before anything is written
-    /// to the thread, so a message sent now is not read back as an old one.
+    /// Make the runtime agree with a Job held across a restart: it holds back. The turns that came to it
+    /// are in the store, not the runtime, so nothing is read back. Once per Fleet, and before anything is
+    /// done to the Job.
     pub(crate) async fn start_hold_restored(self: &Arc<Self>, id: &str, hosting: &KeptHosting) -> Result<(), Refusal> {
         if !hosting.start_held {
             return Ok(());
         }
         let runtime = self.hosts().of(id);
-        if runtime.state().proposal.start_synced {
-            return Ok(());
-        }
-        let mut held = Vec::new();
-        for row in self.rows_of(id).await? {
-            match row {
-                SessionRow::Message { from: SessionVoice::You, text, files, tags, .. } => {
-                    let addressed = self.addressed(&tags).await?;
-                    held.push(Held { text, kept: self.uploads_again(id, &files), addressed, ahead: None, instead: None });
-                }
-                // Another Job's message. Fleet's own notices are not read back: Begin's first turn says what they did.
-                SessionRow::Message { from: SessionVoice::Session { id: from, title }, text, .. } if from != FLEET_NAME.to_lowercase() => {
-                    let said = from_job(&from, &title, &text);
-                    held.push(job_turn(&text, said));
-                }
-                _ => {}
-            }
-        }
         let mut state = runtime.state();
         if !state.proposal.start_synced {
-            state.proposal.held.extend(held);
             state.proposal.start_held = true;
             state.proposal.start_synced = true;
         }
@@ -341,7 +341,7 @@ where
         kept
     }
 
-    /// The first turn written to the thread as Start sends it, and the turn the agent is sent of it.
+    /// A kept turn written to the thread as Start sends it, and the turn the agent is sent of it.
     async fn first_turn_written(&self, id: &str, first: FirstTurn) -> Result<Held, Refusal> {
         let FirstTurn { from, text, files, tags, instead, ahead } = first;
         let his = from == SessionVoice::You;
@@ -393,12 +393,13 @@ where
         };
         self.start_hold_restored(id, &hosting).await?;
         // The press that claims the flag is the one that begins; a second finds it settled.
-        let first = {
+        let (first, later) = {
             let mut store = self.store().lock().await;
             let mut now = store.hosting(id).map_err(|why| self.ledger_fault(why))?.filter(|one| one.start_held).ok_or_else(|| self.settled_already())?;
             now.start_held = false;
             store.keep_hosting(&now).map_err(|why| self.ledger_fault(why))?;
-            store.take_held_first_turn(id).map_err(|why| self.ledger_fault(why))?
+            let first = store.take_held_first_turn(id).map_err(|why| self.ledger_fault(why))?;
+            (first, store.take_held_later_turns(id).map_err(|why| self.ledger_fault(why))?)
         };
         let edit = begin.message.as_deref().map(str::trim);
         let first = match (first.as_deref().and_then(first_turn_of), edit) {
@@ -407,10 +408,14 @@ where
             // A box he filled on a Job that held nothing: his words are its first turn.
             (None, Some(words)) => (!words.is_empty()).then(|| FirstTurn::said(SessionVoice::You, words)),
         };
-        let first = match first {
-            Some(first) => Some(self.first_turn_written(id, first).await?),
-            None => None,
-        };
+        // The thread reads as the agent will: his first, then the rest in the order they came.
+        let mut turns = Vec::new();
+        if let Some(first) = first {
+            turns.push(self.first_turn_written(id, first).await?);
+        }
+        for turn in later.iter().filter_map(|body| first_turn_of(body)) {
+            turns.push(self.first_turn_written(id, turn).await?);
+        }
         let rows = self.rows_of(id).await?;
         if let Some(choice) = delivery {
             if !delivery_asked(&rows) {
@@ -420,12 +425,12 @@ where
             self.auto_land_follows(id, Some(choice)).await;
             self.delivery_pick_kept(id, choice).await;
         }
-        // A reading still out sends the turns itself, on its answer. The first goes ahead of the rest.
+        // A reading still out sends the turns itself, on its answer. They go ahead of any that raced the press.
         let drain = {
             let runtime = self.hosts().of(id);
             let mut state = runtime.state();
-            if let Some(first) = first {
-                state.proposal.held.push_front(first);
+            for held in turns.into_iter().rev() {
+                state.proposal.held.push_front(held);
             }
             state.proposal.start_held = false;
             let drain = state.proposal.reading.is_none() && !state.proposal.draining;

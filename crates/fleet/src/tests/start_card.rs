@@ -269,6 +269,44 @@ async fn messages_sent_while_held_go_in_the_order_they_came() {
     assert!(lines[0].contains("first words") && lines[1].contains("second words"), "{lines:?}");
 }
 
+/// The thread's messages by their words, and the agent's lines, are in the order he sent them.
+async fn thread_and_agent_read_in_order(rig: &Rig, id: &SessionId, words: &[&str]) {
+    eventually(|| async { sent(rig).len() == words.len() }).await;
+    let lines = sent(rig);
+    for (line, word) in lines.iter().zip(words) {
+        assert!(line.contains(word), "the agent got {lines:?}");
+    }
+    assert_eq!(said_on_the_thread(rig, id).await, words, "the thread reads as the agent did");
+}
+
+#[tokio::test]
+async fn later_messages_sent_while_held_are_written_to_the_thread_on_start_after_the_first() {
+    let rig = rig();
+    let id = rig.start_held().await;
+    rig.send_unsettled(&id, "first words").await;
+    rig.send_unsettled(&id, "second words").await;
+    rig.send_unsettled(&id, "third words").await;
+    assert!(said_on_the_thread(&rig, &id).await.is_empty(), "nothing reaches the thread while he can still edit the first");
+
+    begin(&rig, &id, Some(DeliveryChoice::OpenPr)).await.expect("begun");
+    thread_and_agent_read_in_order(&rig, &id, &["first words", "second words", "third words"]).await;
+}
+
+#[tokio::test]
+async fn later_messages_sent_while_held_survive_a_fleet_restart_and_are_written_in_order_on_start() {
+    let rig = rig();
+    let id = rig.start_held().await;
+    rig.send_unsettled(&id, "first words").await;
+    rig.send_unsettled(&id, "second words").await;
+    let rig = rig.restarted(fitted);
+    rig.send_unsettled(&id, "third words").await;
+    assert!(said_on_the_thread(&rig, &id).await.is_empty(), "still nothing on the thread");
+    assert!(rig.stand_in.starts().is_empty(), "no agent runs before Start");
+
+    begin(&rig, &id, Some(DeliveryChoice::OpenPr)).await.expect("begun");
+    thread_and_agent_read_in_order(&rig, &id, &["first words", "second words", "third words"]).await;
+}
+
 #[tokio::test]
 async fn a_message_sent_once_the_first_has_been_read_is_kept_too() {
     let rig = rig();
@@ -522,7 +560,7 @@ async fn every_way_he_chooses_is_recorded_as_a_pick() {
 }
 
 /// Job `a` tells `to`, with `SendMessage`, to "please review". `a` is the first process the stand-in starts.
-/// `rows` is how many messages `to`'s thread holds before it: a held Job's first is not on it.
+/// `rows` is how many messages `to`'s thread holds before it: a held Job's turns are not on it.
 async fn a_job_writes_to(rig: &Rig, to: &SessionId, rows: usize) -> SessionId {
     let a = rig.start().await;
     rig.send(&a, "hello a").await;
@@ -537,7 +575,8 @@ async fn a_job_writes_to(rig: &Rig, to: &SessionId, rows: usize) -> SessionId {
     );
     eventually(|| async {
         let reached = rig.rows(to).await.iter().filter(|row| matches!(row, SessionRow::Message { .. })).count() == rows + 1;
-        reached || card(rig, to).await.and_then(|one| one.message).is_some_and(|said| said.contains("please review"))
+        let kept = !rig.fleet.store().lock().await.held_later_turns(to.as_str()).unwrap().is_empty();
+        reached || kept || card(rig, to).await.and_then(|one| one.message).is_some_and(|said| said.contains("please review"))
     })
     .await;
     a

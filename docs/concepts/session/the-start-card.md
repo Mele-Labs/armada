@@ -86,10 +86,11 @@ The mark goes at Start.
 | --- | --- |
 | The hold | With the Job, so a Fleet restart leaves it held |
 | The first message | In `held_first_turns`, off the thread |
-| A later message | Written to the thread at once, sent after Start |
+| A later message | In `held_later_turns`, off the thread, behind the first |
 
 Messages go in the order they came.
-After a restart Fleet reads them back off the thread at the first send or Start, before it writes anything else to the Job.
+Start writes each one's row to the thread in that order, the first first, as it sends them, so the thread reads as the agent does.
+A restart loses none of them, since both are in the store.
 
 ## Start
 
