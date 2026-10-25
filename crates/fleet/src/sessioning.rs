@@ -46,6 +46,8 @@ pub(crate) struct LedgerReads {
     build: BuildReads,
     /// The plan the Session recorded, and the files it and its subagents touched.
     plan: Option<store::KeptPlan>,
+    /// The latest adversarial review of the plan, whatever version it read.
+    adversarial: Option<store::KeptAdversarialReview>,
     touches: Vec<store::KeptTouch>,
     /// What the workflow rail and the judge's last reading are derived from.
     rail: crate::rail_keeping::RailReads,

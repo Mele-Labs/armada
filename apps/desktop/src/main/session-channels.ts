@@ -6,7 +6,7 @@
 import type { IpcMain } from "electron";
 
 import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, ChangeWaiting, ChosenHold, ClaimIssue, ClaimPullRequest, ConfirmWaiting, DismissConcern, DismissWaiting, JudgeSession, RenameSession, SendConcern, SendPlanChanges, SendSessionMessage, SendSessionNote, SettleLater, StartModSession, TuneSession } from "@armada/protocol";
-import type { BeginSession, SetNoticeMute, StartAfter, StopWatch } from "@armada/protocol";
+import type { BeginSession, DismissFinding, ReviewSubject, SendFinding, SetNoticeMute, StartAdversarialReview, StartAfter, StopWatch } from "@armada/protocol";
 import { HELM_CALL_ANSWERS, isNotice } from "@armada/protocol";
 import { CHANNELS } from "../shared/bridge";
 import type { PullRequestPress, PullRequestWrite, TerminalMovedBack } from "../shared/api/sessions";
@@ -160,6 +160,24 @@ export function handleSessions({ ipc, connection, windowIdOf, pages, terminals }
   ipc.handle(CHANNELS.dismissConcern, (_event, dismiss: DismissConcern) => {
     if (!text(dismiss?.session_id) || !text(dismiss.item_id)) return unread;
     return connection()?.sessions.dismissConcern({ session_id: dismiss.session_id, item_id: dismiss.item_id }) ?? unsent;
+  });
+  // A review's subject is a plan, by its Job and the version read: only those reach Fleet.
+  const subject = (one: ReviewSubject | undefined): ReviewSubject | undefined =>
+    one?.kind === "plan" && text(one.session_id) && Number.isInteger(one.version) && one.version >= 1 ? { kind: "plan", session_id: one.session_id, version: one.version } : undefined;
+  ipc.handle(CHANNELS.startAdversarialReview, (_event, start: StartAdversarialReview) => {
+    const read = subject(start?.subject);
+    if (read === undefined) return unread;
+    return connection()?.sessions.startAdversarialReview({ subject: read, ...(start.again === true ? { again: true } : {}) }) ?? unsent;
+  });
+  ipc.handle(CHANNELS.sendFinding, (_event, send: SendFinding) => {
+    const read = subject(send?.subject);
+    if (read === undefined || !text(send.finding_id)) return unread;
+    return connection()?.sessions.sendFinding({ subject: read, finding_id: send.finding_id }) ?? unsent;
+  });
+  ipc.handle(CHANNELS.dismissFinding, (_event, dismiss: DismissFinding) => {
+    const read = subject(dismiss?.subject);
+    if (read === undefined || !text(dismiss.finding_id)) return unread;
+    return connection()?.sessions.dismissFinding({ subject: read, finding_id: dismiss.finding_id }) ?? unsent;
   });
   ipc.handle(CHANNELS.renameSession, (_event, rename: RenameSession) => {
     if (!text(rename?.session_id) || typeof rename.title !== "string" || rename.title.trim() === "") return unread;

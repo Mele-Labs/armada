@@ -81,7 +81,7 @@ pub(crate) fn elisions(span: &str) -> Vec<String> {
 /// sentence was in `expected`. `expected` is where a call reaches for the
 /// yardstick it was shown, and so where it fabricates one: what is honestly
 /// quoted and what is fabricated are not sorted by field.
-pub(crate) fn invented(cited: &str, shown: &str) -> Option<String> {
+pub fn invented(cited: &str, shown: &str) -> Option<String> {
     let material = words(shown);
     quotations(cited)
         .into_iter()

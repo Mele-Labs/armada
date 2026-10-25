@@ -60,7 +60,7 @@ interest in the list being short.
 |---|---|
 | Settled this job, page not yet updated | Write the page |
 | You are unsure and could find out by reading | Research |
-| A thing to do rather than a call to make | A GitHub issue |
+| A thing to do rather than a call to make | A beads issue |
 | Nobody is blocked and nobody asked | Nothing |
 
 **Filing is not free.** Every question is something a person must later read,
