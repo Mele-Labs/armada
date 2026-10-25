@@ -123,7 +123,6 @@ async fn a_hosted_sessions_call_is_entered_through_the_harness() {
             text: "look it up".into(),
             attachments: Vec::new(),
             mentions: Vec::new(),
-            aim: None,
         })
         .await
         .expect("taken");

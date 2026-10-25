@@ -4,7 +4,7 @@ transport = "HTTP"
 agent_access = "No"
 description = "A message to a hosted job, with the pictures and files sent beside it and the jobs, pull requests and branches it names. It takes a turn"
 notes = """
-`POST /sessions/message`, body `SendSessionMessage`: `session_id`, `text`, `attachments` (`name`, `media_type`, base64 `data`) and `mentions` (`SessionTag`). **202**, answered with the `SessionRecord`: the reply is the thread's, one `session.row` at a time. Since 23.49.
+`POST /sessions/message`, body `SendSessionMessageBody`: the `SendSessionMessage` fields `session_id`, `text`, `attachments` (`name`, `media_type`, base64 `data`) and `mentions` (`SessionTag`), with `aim` beside them. **202**, answered with the `SessionRecord`: the reply is the thread's, one `session.row` at a time. Since 23.49.
 
 **Fleet stores an attachment and passes it on.** A picture reaches the job as a picture; any other file as a path in a directory the job may read. **`aim`** (`theme`, `layout`, `words`, `fleet`, `tracker` or `source`) is what he picked in an empty Mod Job. Fleet reads it with that Job's first message only, as one line after the Mod brief; on any other message, and on a Job that is not a Mod Job, it is ignored and not an error.
 

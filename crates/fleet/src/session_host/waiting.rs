@@ -759,7 +759,6 @@ where
             text: body,
             attachments: Vec::new(),
             mentions: Vec::new(),
-            aim: None,
         };
         // The card routes answer through `answer_session_ask`, which enters its own; the rest are
         // a message to the agent, entered here once it is sent.
@@ -941,7 +940,6 @@ where
                 text,
                 attachments: Vec::new(),
                 mentions: Vec::new(),
-                aim: None,
             };
             Arc::clone(&self).send_known(terminal, sent).await?;
         }

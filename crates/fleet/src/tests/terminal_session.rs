@@ -86,7 +86,6 @@ impl Rig {
                 text: text.into(),
                 attachments: Vec::new(),
                 mentions: Vec::new(),
-                aim: None,
             })
             .await
             .map(|_| ())
@@ -252,7 +251,6 @@ async fn a_file_is_saved_and_sent_as_its_path_and_nothing_goes_to_an_ended_sessi
                 },
             ],
             mentions: Vec::new(),
-            aim: None,
         })
         .await
         .expect("held");

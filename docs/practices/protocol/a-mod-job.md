@@ -23,7 +23,8 @@ With neither (25 Oct 2026) the Job opens empty, titled `Mod`, and sends nothing;
 The first message the person then sends reaches the agent with the brief ahead and retitles the Job `Mod <first line of his words>`, cut at a word within 40 characters, and the thread keeps his words alone.
 Fleet derives "first" from the thread, so nothing is kept for it.
 
-**An aim** (25 Oct 2026) adds `aim?: ModAim` to `SendSessionMessage`, Bridge-sent, with `ModAim` beside `StartModSession`: `theme`, `layout`, `words`, `fleet`, `tracker` or `source`.
+**An aim** (25 Oct 2026) adds `aim?: ModAim` to the body of `send_session_message`, Bridge-sent: `SendSessionMessageBody` is `SendSessionMessage` with `aim` beside its fields, so the JSON is flat and a message built anywhere else carries no aim.
+`ModAim` sits beside `StartModSession`: `theme`, `layout`, `words`, `fleet`, `tracker` or `source`.
 It is what he picked in an empty Mod Job, and Fleet reads it with that Job's first message only: one line after the brief and before his words, naming the aim in plain words, and for `source` in the mods folder saying that a source change cannot be made there and to tell him so if a mod cannot do it.
 On any other message, and on a Job that is not a Mod Job, it is ignored and not an error.
 The thread keeps his words alone.

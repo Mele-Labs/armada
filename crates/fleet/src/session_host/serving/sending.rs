@@ -45,7 +45,6 @@ where
             text: text.to_string(),
             attachments: Vec::new(),
             mentions: Vec::new(),
-            aim: None,
         };
         let written = match kept {
             Some(kept) => kept,

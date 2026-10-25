@@ -165,11 +165,12 @@ where
         self: Arc<Self>,
         terminal: Option<store::KeptSession>,
         sent: SendSessionMessage,
+        aim: Option<ModAim>,
     ) -> Result<SessionRecord, Refusal> {
         let words = sent.text.trim().to_string();
         let id = sent.session_id.as_str().to_string();
         let owed = match terminal.is_none() && !words.is_empty() {
-            true => self.brief_owed(&id, sent.aim).await?,
+            true => self.brief_owed(&id, aim).await?,
             false => None,
         };
         let Some((brief, untitled)) = owed else { return self.send_known(terminal, sent).await };
@@ -216,7 +217,7 @@ where
     ) -> Result<(), Refusal> {
         let terminal = self.terminal_session(session_id.as_str()).await?;
         let instead = format!("{brief}\n\n{words}");
-        let sent = SendSessionMessage { session_id, text: words, attachments: Vec::new(), mentions: Vec::new(), aim: None };
+        let sent = SendSessionMessage { session_id, text: words, attachments: Vec::new(), mentions: Vec::new() };
         self.send_known_added(terminal, sent, None, Some(instead)).await.map(|_| ())
     }
 }

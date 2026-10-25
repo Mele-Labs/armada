@@ -167,7 +167,6 @@ where
                 text: format!("Re: {}\n{}", held.text, words),
                 attachments: Vec::new(),
                 mentions: Vec::new(),
-                aim: None,
             })
             .await?;
         self.store()

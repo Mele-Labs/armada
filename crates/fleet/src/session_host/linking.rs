@@ -152,7 +152,6 @@ where
                 text: brief,
                 attachments: Vec::new(),
                 mentions: Vec::new(),
-                aim: None,
             })
             .await;
         Ok(held)

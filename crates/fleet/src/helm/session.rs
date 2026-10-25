@@ -173,7 +173,6 @@ where
             text: asked.text,
             attachments: asked.attachments,
             mentions: asked.mentions,
-            aim: None,
         };
         self.send_known_ahead(None, sent, ahead).await
     }

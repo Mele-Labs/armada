@@ -118,7 +118,6 @@ impl Rig {
                 text: text.into(),
                 attachments: Vec::new(),
                 mentions: Vec::new(),
-                aim: None,
             })
             .await
             .expect("taken");

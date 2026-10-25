@@ -137,7 +137,15 @@ pub struct SendSessionMessage {
     pub attachments: Vec<SessionUpload>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub mentions: Vec<SessionTag>,
-    /// What he picked in an empty Mod Job: the kind of mod he is aiming for, `source` for a change to Armada's code. Read with his first message only.
+}
+
+/// `send_session_message`'s body: the message, and what he picked in an empty Mod Job. The aim
+/// rides beside the message, not in it, so a message built anywhere else needs no word of it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SendSessionMessageBody {
+    #[serde(flatten)]
+    pub message: SendSessionMessage,
+    /// The kind of mod he is aiming for, `source` for a change to Armada's code. Read with his first message only.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub aim: Option<ModAim>,
 }

@@ -323,7 +323,6 @@ where
             text: concern_message(&kept),
             attachments: Vec::new(),
             mentions: Vec::new(),
-            aim: None,
         };
         Arc::clone(&self).send_known(None, sent).await?;
         self.concern_settled(&id, n, "sent").await

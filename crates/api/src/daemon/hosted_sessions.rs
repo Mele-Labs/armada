@@ -71,6 +71,16 @@ pub trait HostedSessions: Send + Sync + 'static {
         sent: SendSessionMessage,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
+    /// `send_session_message` with what he picked in an empty Mod Job. A host with no Mod Jobs
+    /// takes the message and leaves the aim.
+    fn send_session_message_aiming(
+        self: Arc<Self>,
+        sent: SendSessionMessage,
+        _aim: Option<ipc::ModAim>,
+    ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send {
+        self.send_session_message(sent)
+    }
+
     /// `send_session_note`: a note pinned on a page, sent as `send_session_message` sends with the
     /// lines of code it was drawn from. **Answers at once**, with the turn taken and the candidates
     /// the turn carried.

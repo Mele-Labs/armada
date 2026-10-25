@@ -126,7 +126,6 @@ where
                 text: brief.clone(),
                 attachments: Vec::new(),
                 mentions: Vec::new(),
-                aim: None,
             })
             .await;
         // **Not an error**: the Session exists and the item is agreed with it, so
