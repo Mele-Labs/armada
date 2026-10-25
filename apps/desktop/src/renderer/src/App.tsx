@@ -78,6 +78,7 @@ import { hiddenSurfaces, MergeLineSurface } from "./merge-line";
 import { useMergeByHand } from "./merge-by-hand";
 import { LogbookSurface } from "./logbook";
 import { useTitleRow } from "./title-row";
+import { AgentSignInAlert } from "./agent-sign-in";
 import { DownshiftAlert } from "./downshift";
 import { ChecksSurface, useAsked } from "./checks-surface";
 import { LoadoutPanel } from "./session-loadout";
@@ -750,6 +751,7 @@ export function App() {
           onDispatchSession={dispatchFailure}
         >
           <DownshiftAlert choose={openModelSetting} />
+          <AgentSignInAlert />
           <ImportPackage repositories={repositories} />
           <DeckHost state={state} picked={pickedRepository} here={atCockpit} hidden={hidden} onGoTo={goTo} onOpenSession={openSession} />
           {asked.loadoutFocus === undefined ? null : <LoadoutPanel id={asked.loadoutFocus} at={asked.loadoutAt} onClose={() => asked.setLoadoutFocus(undefined)} />}
