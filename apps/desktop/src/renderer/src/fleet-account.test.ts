@@ -18,10 +18,10 @@ vi.mock("@armada/settings", () => ({ openSettingsAt: vi.fn() }));
 const settled = () => new Promise((done) => setTimeout(done, 0));
 
 const ADDRESS = "https://forge.example/login/device";
-const work: Profile = { account_id: 1001, login: "mele-work", chosen: false, repositories: [] };
-const personal: Profile = { account_id: 1002, login: "nickmele", chosen: true, repositories: [] };
+const work: Profile = { account_id: 1001, login: "mele-work", chosen: false, orgs: [], home: { account: "mele-work", repository: "armada-home", made: false }, repositories: [] };
+const personal: Profile = { account_id: 1002, login: "nickmele", chosen: true, orgs: ["mele-labs"], home: { account: "mele-labs", repository: "team-home", made: true }, repositories: [] };
 /** `work` as the composition is handed it: no profile is marked active. */
-const workDrawn = { account_id: 1001, login: "mele-work", chosen: false, active: false, repositories: [] };
+const workDrawn = { account_id: 1001, login: "mele-work", chosen: false, active: false, orgs: [], home: { account: "mele-work", repository: "armada-home", made: false }, repositories: [] };
 const CODE: AccountFlow = { phase: "code", code: "WDJB-MJHT", address: ADDRESS, expires_in_seconds: 899 };
 const SETUP: AccountFlow = { phase: "setup", login: "mele-work", repository: "armada-home", steps: { identity: "working", store: "waiting", home: "waiting" } };
 const IDLE: AccountFlow = { phase: "idle" };
@@ -95,7 +95,7 @@ function fake(start: Accounts, over: Partial<FleetAccounts> = {}) {
       return { ok: true, value: held };
     },
     openLink: async (address) => void opened.push(address),
-    getSharedHome: async (login) => (asked.push(`home ${login}`), { ok: true, value: login === "nickmele" ? { home: { account: login, repository: "armada-home" }, rows: [], unreadable: [] } : { rows: [], unreadable: [] } }),
+    getSharedHome: async (login) => (asked.push(`home ${login}`), { ok: true, value: login === "nickmele" ? { home: { account: login, repository: "armada-home" }, rows: [], unreadable: [] } : { planned: { account: "mele-labs", repository: "team-home", exists: false }, rows: [], unreadable: [] } }),
     getHomeKinds: async (login) => (asked.push(`kinds ${login}`), { ok: true, value: kindsOf(login) }),
     setHomeKind: async (login, kind, turned) => {
       asked.push(`set ${login} ${kind} ${turned}`);
@@ -596,13 +596,37 @@ describe("what syncs", () => {
     expect(syncs?.login).toBe("nickmele");
     expect(syncs?.kinds.map((one) => one.kind)).toEqual(KINDS);
     expect(syncs?.kinds.every((one) => !one.on && !one.pulling && one.items.length === 0)).toBe(true);
-    expect(syncs?.home).toEqual({ repository: "armada-home", made: true });
+    expect(syncs?.home).toEqual({ account: "nickmele", repository: "armada-home", made: true });
 
     source.get()?.account.closeSyncs();
     expect(source.get()?.account.syncs).toBeNull();
     source.get()?.account.choose("mele-work");
     await settled();
-    expect(source.get()?.account.syncs?.home).toEqual({ repository: "armada-home", made: false });
+    expect(source.get()?.account.syncs?.home).toEqual({ account: "mele-labs", repository: "team-home", made: false });
+  });
+
+  it("names each profile's organisations and home as Fleet does, the repository once a copy is here, and whether the drawn home is made", async () => {
+    const { source } = await signedIn();
+    const [mine, theirs] = source.get()?.account.profiles ?? [];
+    // `signedIn` lists the work profile first and the chosen personal one second.
+    expect([mine?.login, mine?.orgs, mine?.home, mine?.repository]).toEqual(["mele-work", [], { account: "mele-work", repository: "armada-home", made: false }, undefined]);
+    expect([theirs?.login, theirs?.orgs, theirs?.home, theirs?.repository]).toEqual(["nickmele", ["mele-labs"], { account: "mele-labs", repository: "team-home", made: true }, "team-home"]);
+    expect(source.get()?.account.home).toBe(true);
+  });
+
+  it("draws the chosen profile's home as not made while it has no copy here", async () => {
+    const fleet = fake({ profiles: [work], unmatched: [], flow: IDLE });
+    const source = createFleetAccount(fleet.fleet, clock().later);
+    source.subscribe(() => undefined);
+    await settled();
+    expect(source.get()?.account.home).toBe(false);
+  });
+
+  it("reads the profiles again when asked, since a home was chosen or made", async () => {
+    const { fleet, source } = await signedIn();
+    source.refresh?.();
+    await settled();
+    expect(fleet.asked.filter((one) => one === "get")).toHaveLength(2);
   });
 
   it("switches a kind for the profile it is open on, draws it at once, and says so to the home", async () => {

@@ -476,13 +476,24 @@ A mod that is not valid here is not added.
 A scrubbed copy would read as differing from the original for good, and the person would be shown a file that is not theirs.
 The refusal names the host and never the value.
 
-**Sync makes the repository.** The first Sync creates `<gh login>/armada-home` as a private repository, through `gh`, acting as the profile's login.
+**Sync makes the repository.** The first Sync creates the home where the person chose, `<login>/armada-home` until they choose, as a private repository through the forge's API with `gh`'s token for the profile's login.
+Fleet marks it with the topic `armada-home` as it makes it, so another Mac can find it.
 
 **The person chooses where it is made, before it exists.** The owner is the login or one of its organisations, and the name starts as `armada-home`; the Sync bar's chip, `Home: <owner>/<name>`, opens both, and the Account page's step and Shared home row echo the choice.
+Fleet keeps the choice in this machine's store, a profile at a time, and refuses an owner that is neither the login nor one of its organisations, or a name the forge would not take.
 Once the home exists it is shown and not changed; moving an existing home is out of scope.
-**Not built:** the choice is drawn in the mock only, and Fleet's make step still creates `<gh login>/armada-home`.
+
+**A Mac with no copy finds a home made on another.** Where nothing is chosen here yet, Fleet asks the forge once a run, as the profile's login, for a repository with the `armada-home` topic under the login or one of its organisations.
+One found is the choice: the chip shows it as made, and Sync clones it.
+
 Where `gh` does not hold that login, Sync refuses and names `gh auth login`.
+Where an organisation will not let the login make the repository, or the repository exists and the login cannot push to it, Sync refuses in a sentence naming both and what to choose instead.
 Git runs over HTTPS with `gh`'s own credential, never SSH.
+
+**Sync also adds.** Once the copy here is up to date, Sync adds every row only on this machine, of each kind switched on, to the home in one commit and one push.
+A row Add to the home would refuse stays on this machine and keeps its mark: a piece holding a credential, a mod that is not valid here.
+Each one that stays is told in a toast of its own, naming the row and why, never the credential.
+A row that differs is left for the person to settle, and a row only in the home stays there until it is brought.
 
 **What syncs is chosen per kind and per machine, and is kept in the machine's store.** [Account](account.md), *What syncs*.
 A kind switched off has no rows in Kit, and every kind is off until it is turned on.
@@ -498,7 +509,7 @@ A server also carries whether its key is here.
 
 **A row that differs is never merged silently.** Where a kind's row is on both sides and the two disagree, Kit shows both versions side by side and the person picks one.
 Bring never overwrites a file that differs; only choosing a side replaces it.
-A row on one side only is added to the other by the person's act, in either direction.
+A row only on this machine goes into the home at the next Sync, or at once by the person's act; a row only in the home comes here by the person's act alone.
 A server whose key is not on this machine is marked as needing one; the home does not carry the key, so adding it here is the person's.
 
 **The page.** Each row carries a mark for how it stands against the home (the same, differs, only on this machine, only in the home, needs a key).
@@ -512,7 +523,7 @@ Mods are a list of their own, and the Theme rows carry the same marks.
 **Built in Fleet.** Fleet makes, clones and pushes the repository, compares each kind and carries the three acts.
 **Built in Bridge.** Bridge reads one profile's home through main: the profile added on purpose beside the machine's own, or the only profile where none was added.
 Fleet pushes no event for it, so it is read once that profile is signed in and again after every act and every kind switched in What syncs.
-Sync turns while it runs, and a refused act is a failure toast in Fleet's words, as any refused press is.
+Sync turns while it runs, and a refused act is a failure toast in Fleet's words, as any refused press is; so is each row a Sync left on this machine.
 A mod only the home has is listed under the kind its `mod.toml` names, which the home's row carries.
 **Not built.** Per-item scopes.
 The marks use Proposed glyphs, `packages/icons/icons/house.toml` for the home and `packages/icons/icons/laptop.toml` for this machine among them.

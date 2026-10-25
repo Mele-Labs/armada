@@ -2,7 +2,7 @@
 // profile's shared home and What syncs. Nothing is kept here; both live in Fleet and arrive whole, and
 // the renderer decides when to read again.
 
-import type { Accounts, HomeKind, HomeKinds, HomeRowAt, HomeSide, Outcome, SharedHomeRead, SignedOut } from "@armada/protocol";
+import type { Accounts, HomeKind, HomeKinds, HomeRowAt, HomeSide, HomeSynced, Outcome, SharedHomeRead, SignedOut } from "@armada/protocol";
 import type { AccountsActed } from "../shared/api/accounts";
 import { ask } from "./request";
 
@@ -35,8 +35,8 @@ export class AccountsHost {
     return await this.act<SharedHomeRead>("GET", `/shared_home?login=${encodeURIComponent(login)}`);
   }
 
-  async syncSharedHome(login: string): Promise<AccountsActed<SharedHomeRead>> {
-    return await this.act<SharedHomeRead>("POST", "/shared_home/sync", { login });
+  async syncSharedHome(login: string): Promise<AccountsActed<HomeSynced>> {
+    return await this.act<HomeSynced>("POST", "/shared_home/sync", { login });
   }
 
   async addToSharedHome(row: HomeRowAt): Promise<AccountsActed<SharedHomeRead>> {
@@ -57,6 +57,10 @@ export class AccountsHost {
 
   async setHomeKind(login: string, kind: HomeKind, on: boolean): Promise<AccountsActed<HomeKinds>> {
     return await this.act<HomeKinds>("POST", "/shared_home/kinds/set", { login, kind, on });
+  }
+
+  async setHomeRepository(login: string, owner: string, name: string): Promise<AccountsActed<SharedHomeRead>> {
+    return await this.act<SharedHomeRead>("POST", "/shared_home/repository", { login, owner, name });
   }
 
   private async act<T>(method: "GET" | "POST", path: string, body?: unknown): Promise<AccountsActed<T>> {

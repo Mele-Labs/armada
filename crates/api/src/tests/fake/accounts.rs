@@ -2,7 +2,7 @@
 //! starts, a code that is always the same, and an account it has not joined
 //! refused by name. What is polled, enrolled and written is `fleet::signing_in`'s.
 
-use ipc::{AccountFlow, Accounts as AccountsList, BoundHow, BoundRepository, Profile, SetRepositoryProfile, SignOut, SignedOut};
+use ipc::{AccountFlow, Accounts as AccountsList, BoundHow, BoundRepository, Profile, ProfileHome, SetRepositoryProfile, SignOut, SignedOut};
 
 use super::FakeDaemon;
 use crate::{Accounts, Refusal};
@@ -86,5 +86,12 @@ impl Accounts for FakeDaemon {
 
 /// A profile the fake can be planted with.
 pub fn profile(account_id: u64, login: &str, chosen: bool) -> Profile {
-    Profile { account_id, login: login.to_string(), chosen, repositories: Vec::new() }
+    Profile {
+        account_id,
+        login: login.to_string(),
+        orgs: Vec::new(),
+        chosen,
+        home: ProfileHome { account: login.to_string(), repository: "armada-home".to_string(), made: false },
+        repositories: Vec::new(),
+    }
 }

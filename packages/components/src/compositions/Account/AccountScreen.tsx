@@ -31,13 +31,13 @@ const ROWS: readonly { id: SetUpId; label: string; Glyph: typeof House }[] = [
 type Setup = Extract<AccountFlow, { phase: "setup" }>;
 
 /** What signing in set up for one profile: a row each, a registry glyph and a mark for how far it has got. */
-function SetUpRows({ accountId, login, repository, steps, unset, planned, onKit }: { accountId: number | undefined; login: string; repository: string; steps: Steps; unset: boolean; planned?: string; onKit?: (() => void) | undefined }) {
+function SetUpRows({ accountId, login, owner, repository, steps, unset, planned, onKit }: { accountId: number | undefined; login: string; owner: string; repository: string; steps: Steps; unset: boolean; planned?: string; onKit?: (() => void) | undefined }) {
   return (
     <ul className="armada-account__rows">
       {ROWS.map(({ id, label, Glyph }) => {
         const state = unset && id === "home" ? "waiting" : steps[id];
         const name =
-          id === "identity" ? (accountId === undefined ? "GitHub account" : `GitHub #${accountId}`) : id === "store" ? "This machine's key" : unset ? (planned ?? "") : `${login}/${repository}`;
+          id === "identity" ? (accountId === undefined ? "GitHub account" : `GitHub #${accountId}`) : id === "store" ? "This machine's key" : unset ? (planned ?? "") : `${owner}/${repository}`;
         return (
           <li key={id} className="armada-account__row" aria-label={label} data-state={state}>
             <Tooltip beside label={label}>
@@ -157,6 +157,7 @@ function ProfileTile({ account, profile, setup, onKit }: { account: Account; pro
   // A home with no repository named does not exist yet, whatever the step says.
   const unset = repository === "";
   const [choice] = useHomeChoice(profile.login);
+  const place = profile.home;
   return (
     <li className="armada-account__tile" data-tile="profile" aria-label={profile.login}>
       <header className="armada-account__tile-head">
@@ -164,7 +165,16 @@ function ProfileTile({ account, profile, setup, onKit }: { account: Account; pro
         <span className="armada-account__login">{profile.login}</span>
         <Origin chosen={profile.chosen} />
       </header>
-      <SetUpRows accountId={profile.account_id} login={profile.login} repository={repository} steps={steps} unset={unset} planned={homePath(choice)} onKit={onKit} />
+      <SetUpRows
+        accountId={profile.account_id}
+        login={profile.login}
+        owner={place?.account ?? profile.login}
+        repository={repository}
+        steps={steps}
+        unset={unset}
+        planned={place === undefined ? homePath(choice) : `${place.account}/${place.repository}`}
+        onKit={onKit}
+      />
       <Repositories account={account} profile={profile} />
       <footer className="armada-account__tile-foot">
         {!profile.chosen ? null : !noHome ? (
@@ -195,7 +205,7 @@ function PendingTile({ setup, first }: { setup: Setup; first: boolean }) {
         <span className="armada-account__login">{setup.login}</span>
         <Origin chosen={!first} />
       </header>
-      <SetUpRows accountId={undefined} login={setup.login} repository={setup.repository} steps={setup.steps} unset={setup.repository === "" && setup.steps.home !== "done"} />
+      <SetUpRows accountId={undefined} login={setup.login} owner={setup.login} repository={setup.repository} steps={setup.steps} unset={setup.repository === "" && setup.steps.home !== "done"} />
     </li>
   );
 }
@@ -523,11 +533,16 @@ const SYNC_STEPS: readonly { id: string; name: string; why: string; Glyph: typeo
 function SyncGuide({ account, onKit }: { account: Account; onKit: (() => void) | undefined }) {
   const signedIn = account.profiles.length > 0;
   const homeMade = signedIn && account.home !== false;
-  const [choice] = useHomeChoice(account.profiles[0]?.login ?? "");
-  const made = account.profiles[0]?.repository;
+  const first = account.profiles[0];
+  // Fleet's home is the drawn profile's, the chosen one first; the kept choice stays the first profile's.
+  const drawn = account.profiles.find((one) => one.chosen) ?? first;
+  const [choice] = useHomeChoice(first?.login ?? "");
+  const place = drawn?.home;
+  const made = first?.repository;
+  const path = place === undefined ? homePath(choice) : `${place.account}/${place.repository}`;
   const sync = homeMade
-    ? `The home is ${account.profiles[0]?.login}/${made ?? "armada-home"}. Press Sync on Kit to push or pull`
-    : `Choose what syncs, then press Sync: the first one makes ${signedIn ? homePath(choice) : "<login>/armada-home"}, a private repository`;
+    ? `The home is ${place === undefined ? `${first?.login}/${made ?? "armada-home"}` : path}. Press Sync on Kit to push or pull`
+    : `Choose what syncs, then press Sync: the first one makes ${signedIn ? path : "<login>/armada-home"}, a private repository`;
   const done = [signedIn, homeMade, false] as const;
   const next = done.findIndex((one) => !one);
   return (

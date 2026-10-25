@@ -6,12 +6,19 @@ export type BoundHow = "matched" | "chosen";
 /** A repository bound to a profile. `root` names it in `set_repository_profile`; `name` is the folder's own. */
 export type BoundRepository = { root: string; name: string; how: BoundHow };
 
+/** Where a profile's shared home is: the copy here where there is one (`made`), else where it will be made. `account` is the owner, the profile's login or one of its organisations. */
+export type ProfileHome = { account: string; repository: string; made: boolean };
+
 /** One profile this machine has joined. `account_id` is the forge's numeric id and names the profile in every act. There is no active profile: a repository is bound to one. */
 export type Profile = {
   account_id: number;
   login: string;
+  /** The organisations the account belonged to when it signed in, lowercase. Empty where the forge would not list them as well as where there are none. */
+  orgs: string[];
   /** Added beside the machine's own on purpose, so what it syncs is a choice. */
   chosen: boolean;
+  /** Where its shared home is. */
+  home: ProfileHome;
   /** The repositories whose claims and syncing go to this profile's store view. */
   repositories: BoundRepository[];
 };

@@ -9,6 +9,7 @@ mod helm_sessions;
 mod helm_tuning;
 mod delivery_picks;
 mod home_kinds;
+mod home_repositories;
 mod kit;
 mod lessons;
 mod limits;

@@ -63,8 +63,11 @@ export type MockDraft = {
   sharedPanel?: () => PanelReads;
   /** The tests that reach a pull request's changed files, for the Files tab's marks: the test map's read, which no Fleet serves to Bridge yet. Mock only. */
   testsReaching?: PanelReads["testsReaching"];
-  /** The shared home this machine is signed in to, and how each row stands against it. Mock only. */
-  sharedHome?: { account: string; repository: string; rows: readonly SharedRow[] };
+  /**
+   * The shared home this machine is signed in to, and how each row stands against it. `staysHere` names the
+   * rows only on this machine that a Sync cannot add, each with the sentence Fleet tells for it. Mock only.
+   */
+  sharedHome?: { account: string; repository: string; rows: readonly SharedRow[]; staysHere?: readonly { kind: string; name: string; why: string }[] };
   /**
    * The machine starts signed out. Signing in as `signIn.login` shows `signIn.code` and sets up the
    * shared home `repository`; `add` is the second login a profile adds, with the items each of its

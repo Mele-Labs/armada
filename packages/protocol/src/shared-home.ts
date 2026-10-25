@@ -46,8 +46,17 @@ export type HomeProfile = { login: string };
 /** The home this machine holds a copy of: the login it belongs to and the repository's name. */
 export type HomeNamed = { account: string; repository: string };
 
-/** `GET /shared_home`, and what every act on it answers with. `home` is left out where this machine holds no copy yet. */
-export type SharedHomeRead = { home?: HomeNamed; rows: HomeRow[]; unreadable: HomeUnreadable[] };
+/** Where a home is or will be, served while this machine holds no copy. `account` is the owner, the profile's login or one of its organisations. `exists` is set where the forge already has it, made on another Mac: shown and not changed, and Sync clones it. */
+export type HomePlanned = { account: string; repository: string; exists: boolean };
+
+/** `GET /shared_home`, and what every act on it answers with. `home` is left out where this machine holds no copy yet, and `planned` is served then. */
+export type SharedHomeRead = { home?: HomeNamed; planned?: HomePlanned; rows: HomeRow[]; unreadable: HomeUnreadable[] };
+
+/** A row only on this machine that Sync did not add. `why` is a sentence naming the row and why it stayed: a host, never a credential. */
+export type HomeLeft = { kind: HomeKind; name: string; repository?: string; why: string };
+
+/** `POST /shared_home/sync`: the home read again, and each row only on this machine Sync left here. */
+export type HomeSynced = SharedHomeRead & { left: HomeLeft[] };
 
 /** `POST /shared_home/add` and `POST /shared_home/bring`: which row, in which profile's home. `repository` on a memory note alone. */
 export type HomeRowAt = { login: string; kind: HomeKind; name: string; repository?: string };
@@ -66,3 +75,6 @@ export type SetHomeKind = { login: string; kind: HomeKind; on: boolean };
 
 /** `GET /shared_home/kinds`: one profile's every kind, in order, off until it is turned on. */
 export type HomeKinds = { login: string; kinds: HomeKindSwitch[] };
+
+/** `POST /shared_home/repository`'s body: where one profile's home is made, before it exists. `owner` is the profile's login or one of its organisations. Answers `SharedHomeRead`. */
+export type SetHomeRepository = { login: string; owner: string; name: string };
