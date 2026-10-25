@@ -689,7 +689,7 @@ async fn a_job_signed_out_waits_on_a_sign_in() {
     signed_out(&rig);
     eventually(|| async { sign_in_item(&rig, &id).await.is_some() }).await;
     let item = sign_in_item(&rig, &id).await.unwrap();
-    assert_eq!(item.text, "Sign in to Claude");
+    assert_eq!(item.text, adapters::SIGN_IN_ASK);
     assert_eq!(item.source, WaitingSource::FleetCall);
     assert_eq!(item.act, Some(WaitingAct { kind: WaitingActKind::Run, target: adapters::SIGN_IN_COMMAND.into() }));
 

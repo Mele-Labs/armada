@@ -23,7 +23,7 @@ const WAKE: &str = "Continue";
 pub(crate) fn sign_in_item(at: &str) -> WaitingItem {
     WaitingItem {
         id: format!("{SIGN_IN_ITEM}{at}"),
-        text: String::from("Sign in to Claude"),
+        text: adapters::SIGN_IN_ASK.to_string(),
         since: Instant::carried(at),
         source: WaitingSource::FleetCall,
         act: Some(WaitingAct { kind: WaitingActKind::Run, target: adapters::SIGN_IN_COMMAND.to_string() }),
