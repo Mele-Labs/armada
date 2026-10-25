@@ -18,9 +18,11 @@ directories:
   output: release
 
 # `out/` is the whole app: `electron.vite.config.ts` bundles every workspace
-# package into the three process bundles, so nothing under `packages/` is
-# copied and no symlink is followed. `ws` is the one runtime dependency left
-# external, and electron-builder collects it from `dependencies` itself.
+# package into the three process bundles. electron-builder still copies every
+# package in `dependencies` into the app, so that list holds only what main
+# loads at runtime, `ws` and `undici`; everything bundled is a devDependency.
+# With React, pixi.js and lucide there too, the archive was 153 MB of copies of
+# code already in `out/` (v0.1.11940), against 16 MB without them.
 files:
   - out/**
   - package.json
