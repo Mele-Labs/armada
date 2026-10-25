@@ -120,7 +120,7 @@ A linked Session alone has a glyph, `link`, before its title. A queued row keeps
 (WAI-ARIA: a text input with a listbox popup). Pressing or focusing it turns it into a search box in place,
 showing the current pick as its placeholder; the list opens under it as a glass layer and narrows as he types.
 ArrowDown and ArrowUp move, Enter picks, Esc puts the previous pick back and closes. All repositories leads, a rule under
-it; the repositories follow; Add a repository is a footer row outside the filter, reachable by arrow like any row.
+it; the repositories follow; New project and Add a repository are footer rows outside the filter, reachable by arrow like any row.
 
 **Studios on All repositories** draws one glass panel for each repository, headed by its name, and never
 asks for a repository first. Nothing else about a list changes with the scope.
