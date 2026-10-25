@@ -228,6 +228,7 @@
 .armada-session-thread__marks { display: flex; flex-wrap: wrap; flex: none; justify-content: flex-end; max-width: 50%; gap: var(--space-1); }
 .armada-session-thread__sketch { margin: 0; padding: 0; list-style: none; }
 .armada-session-thread__record { list-style: none; }
+.armada-session-thread__card { list-style: none; }
 .armada-session-thread__plan-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-4); align-items: center; }
 .armada-session-thread__plan-body:has(.armada-session-thread__sketch) { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); }
 .armada-session-thread__plan .armada-session-sketch__band { display: none; }

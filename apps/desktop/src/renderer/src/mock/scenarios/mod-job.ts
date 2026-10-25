@@ -60,7 +60,7 @@ function build(): Scenario {
           .then(() => {
             mockThemes.install(DUSK_MOD);
             mockThemes.setActive(DUSK_MOD.name);
-            mods = [...mods, { name: DUSK_MOD.name, kind: "theme", enabled: true, valid: true, made_by: id }];
+            mods = [...mods, { name: DUSK_MOD.name, kind: "theme", enabled: true, valid: true, made_by: id, changed_at: "2026-10-23T09:00:06.500Z" }];
             publish();
           });
       };

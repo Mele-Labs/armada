@@ -291,6 +291,26 @@ export type ThreadConcern = {
   cites?: readonly string[];
 };
 
+/** Something the host draws in the line of the thread, where it happened: a mod a Job made, as its card. Without an `at` it comes after the newest row. */
+export type ThreadCard = { key: string; at?: string; node: ReactNode };
+
+/** When an item's last row happened, in milliseconds, or `NaN` where it is words. */
+const timeOf = (item: Item): number => {
+  const at = item.kind === "row" ? item.row.at : item.kind === "calls" || item.kind === "checks" ? item.rows[item.rows.length - 1]?.at : (item.reply[item.reply.length - 1] ?? item.notice).at;
+  return at === undefined ? Number.NaN : Date.parse(at);
+};
+
+/** The index of the item a card comes after: the newest one written by its time, the first when it came before them all, the last when it has no time. */
+function afterWhich(items: readonly Item[], card: ThreadCard): number {
+  const when = card.at === undefined ? Number.NaN : Date.parse(card.at);
+  if (Number.isNaN(when)) return items.length - 1;
+  let found = 0;
+  items.forEach((item, at) => {
+    if (timeOf(item) <= when) found = at;
+  });
+  return found;
+}
+
 export type SessionThreadProps = {
   /** The Session is waiting on the person, whose question the host shows elsewhere (the Needs you panel): the thread's last Fleet turn stays open. */
   waitingOnYou?: boolean;
@@ -390,6 +410,8 @@ export type SessionThreadProps = {
    * follows a new row, for a person who is at the end. Absent, nothing is drawn and the thread is as it was.
    */
   trailing?: ReactNode;
+  /** Cards drawn inside the thread, each after the newest row written before its `at`. */
+  inline?: readonly ThreadCard[];
   /** `unread`: no rows held yet, and a transcript's shape stands in for them. `refreshing`: the rows held are being read again. */
   transcript?: "unread" | "refreshing";
 };
@@ -1534,7 +1556,7 @@ export function AskCards({ asked, askRef, onAnswer, lapsed, flat, keep }: Pick<S
   );
 }
 
-export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer, lapsed, waitingOnYou, workingOn, onOpenSession, onOpenWindow, onOpenSketch, onOpenFile, onOpenCheck, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt, onReplyAt, onTeachAt, onTeachRow, onMuteNotice, lead, trailing, transcript, noted }: SessionThreadProps) {
+export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer, lapsed, waitingOnYou, workingOn, onOpenSession, onOpenWindow, onOpenSketch, onOpenFile, onOpenCheck, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt, onReplyAt, onTeachAt, onTeachRow, onMuteNotice, lead, trailing, transcript, noted, inline }: SessionThreadProps) {
   const whole = useRef<HTMLDivElement>(null);
   useCopyOnSelect(whole);
   const slash = useMemo(() => (onCommand === undefined ? null : { send: onCommand, names: new Set(commandNames ?? []) }), [onCommand, commandNames]);
@@ -1593,6 +1615,7 @@ export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer
   const hidden = Math.max(0, all.length - drawn);
   const items = hidden === 0 ? all : all.slice(hidden);
   const endsInCalls = items[items.length - 1]?.kind === "calls";
+  const cardsAfter = (at: number): ThreadCard[] => (inline ?? []).filter((card) => afterWhich(items, card) === at);
   // What waits on him is the thread's last card, answered in place.
   const cards = (
     <>
@@ -1652,6 +1675,11 @@ export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer
               <Row key={"stableKey" in item.row && item.row.stableKey !== undefined ? item.row.stableKey : item.row.id} row={item.row} {...(onRetry === undefined ? {} : { onRetry })} onOpenSession={onOpenSession} onOpenWindow={onOpenWindow} onOpenSketch={onOpenSketch} {...(onOpenFile === undefined ? {} : { onOpenFile })} onOpenRetro={onOpenRetro} onOpenSent={onOpenSent} forkable={onForkAt !== undefined || onReplyAt !== undefined || onTeachAt !== undefined} disputed={disputes.has(item.row.id)} {...(onMuteNotice === undefined ? {} : { onMuteNotice })} {...(onTeachRow === undefined ? {} : { onTeach: onTeachRow })} {...(agentName === undefined ? {} : { agentName })} />
             ),
             approval?.approved === true && item.kind === "row" && item.row.id === approval.after ? <li key="plan-approved" className="armada-session-thread__record"><PlanCard approval={approval} /></li> : null,
+            ...cardsAfter(at).map((card) => (
+              <li key={card.key} className="armada-session-thread__card">
+                {card.node}
+              </li>
+            )),
           ])}
           {transcript === "refreshing" ? (
             <li className="armada-session-thread__refreshing">

@@ -81,6 +81,7 @@ import { useMinimized } from "./session-ledger-minimized";
 import { useWriteClashes } from "./clashes";
 import { showLayer } from "./session-view/layers";
 import { ModEmpty } from "./session-view/ModEmpty";
+import { useModCards } from "./session-view/mod-cards";
 import { OverTheApp } from "./session-view/OverTheApp";
 import { baysOf } from "./session-view/slot-trouble";
 import { ClashFileSheet } from "./session-view/ClashFileSheet";
@@ -1050,6 +1051,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
   const cardLead = !unread && where !== undefined && root !== undefined && cardOn(root, session.id, sentTo(session) || inUse);
   // A Mod Job with nothing said yet lists what it can make.
   const modEmpty = !unread && session.mod === true && batched.length === 0;
+  const modCards = useModCards(session.id);
   const marked = unread || where === undefined || cardLead ? undefined : <RunsPlaceControl {...where} />;
   return (
     <TeachHereContext.Provider value={teachHere}>
@@ -1145,6 +1147,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
             rows={batched}
             {...(!cardLead && !modEmpty ? {} : { lead: <>{cardLead ? <RunsPlaceCard {...where!} /> : null}{modEmpty ? <ModEmpty sessionId={session.id} /> : null}</> })}
             {...(session.transcript === undefined ? {} : { transcript: session.transcript })}
+            {...(modCards.length === 0 ? {} : { inline: modCards })}
             onOpenRetro={openRetro}
             {...(draft.retry === undefined ? {} : { onRetry: (rowId: string) => draft.retry!(session.id, rowId) })}
             {...(draft.forkAt === undefined ? {} : { onForkAt: (pick) => opening(forkAtPick(draft.forkAt!, session.id, pick, setFocusFor), onOpen) })}
