@@ -67,6 +67,10 @@ Bridge draws it with the done check and a faint mark for no edit seen, tooltip `
 `failed` is not set by anything Fleet observes yet.
 An edit under a group's paths marks the group worked (`worked_at`); a group that names no paths takes every edit.
 
+**An adversarial review rides on the plan as `adversarial`.** The owner presses it on a plan waiting for approval, and it comes back as findings pinned to the group or task each is about, with the plan's own task matcher doing the pinning.
+It advises and gates nothing, and recording the plan again marks it out of date rather than dropping it.
+[Adversarial review](../adversarial-review.md) owns the rest.
+
 **In a repository whose tracker is beads, an approved plan is also mirrored into the Job's issue.** Each group is filed as a child of the issue it holds, each task as a child of its group, and each group blocks the next in plan order ([tracker](../tracker.md), *Beads*).
 The plan in Fleet stays the source: nothing is read back from the backlog, and a task's bead follows `state_of`, not a word the agent said.
 A Job that holds no beads issue mirrors nothing.
