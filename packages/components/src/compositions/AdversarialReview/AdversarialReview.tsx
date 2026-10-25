@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import { ArrowRight, Ban, CircleCheck, ClockAlert, LoaderCircle, ScanSearch, X } from "lucide-react";
 
+import { keyFor } from "../../actions";
+import { useKeyBindings } from "../../keymap";
 import { Button } from "../../primitives/Button/Button";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { ConcernClaim } from "../SessionThread/ConcernClaim";
@@ -88,20 +90,21 @@ export function AdversarialReviewPress({ review, onRun, shortcut }: Pick<Adversa
   );
 }
 
-/** One finding: the claim, then its two acts in the card's footer. Focusable; Enter sends, Backspace or D dismisses. */
+/** One finding: the claim, then its two acts in the card's footer. Focusable; its keys are the registry's (`useFindingKeys`). */
 export function FindingRow({ finding, onSend, onDismiss }: { finding: Finding; onSend: () => void; onDismiss: () => void }) {
+  useKeyBindings();
   return (
     <li onClick={(event) => event.stopPropagation()} className="armada-adversarial__finding" role="group" aria-label={`Finding: ${finding.consequence}`} tabIndex={0} data-finding={finding.id}>
       <div className="armada-adversarial__claim">
         <ConcernClaim concern={{ text: finding.consequence, consequence: finding.consequence, expected: finding.expected, produced: finding.found, ...(finding.cites === undefined ? {} : { cites: finding.cites }) }} />
       </div>
       <div className="armada-adversarial__acts" role="group" aria-label="Answers">
-        <Tooltip label="Goes to the agent as your message" shortcut="Enter">
+        <Tooltip label="Goes to the agent as your message" shortcut={keyFor("finding_send")}>
           <Button size="sm" variant="secondary" onClick={onSend}>
             Send to agent
           </Button>
         </Tooltip>
-        <Tooltip label="Leaves it unsent" shortcut="D">
+        <Tooltip label="Leaves it unsent" shortcut={keyFor("finding_dismiss")}>
           <Button size="sm" variant="ghost" onClick={onDismiss}>
             Dismiss
           </Button>

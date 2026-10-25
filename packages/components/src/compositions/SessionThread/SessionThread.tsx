@@ -33,6 +33,7 @@ import { QuestionDeck } from "./QuestionDeck";
 import { ConcernClaim } from "./ConcernClaim";
 import { AdversarialReviewPress, ReviewFailed, findingsOf } from "../AdversarialReview/AdversarialReview";
 import { FindingNotes, GivesRow, GroupFindings, anchorsOf, useFindingKeys } from "../AdversarialReview/AnchoredFindings";
+import { isPressed } from "../../keymap";
 import type { AdversarialReviewProps } from "../AdversarialReview/AdversarialReview";
 import { LinkedRow } from "./LinkedRow";
 import { DisputedMark, DisputedRow } from "./DisputedRow";
@@ -1199,13 +1200,13 @@ function PlanCard({ approval }: { approval: PlanApproval }) {
   const anchors = pinned && adversarial !== undefined ? anchorsOf(adversarial.review, approval.groups.flatMap((group) => [group.id, ...group.tasks.map((task) => task.id)])) : undefined;
   const keys = useFindingKeys(adversarial?.review, { onSend: (id) => adversarial?.onSend(id), onDismiss: (id) => adversarial?.onDismiss(id) });
   const acts = { onSend: keys.send, onDismiss: keys.dismiss };
-  // U opens the unchanged groups of a revision, or closes them all; R sends an adversarial review (or sends it again); wherever focus is on the card.
+  // U opens the unchanged groups of a revision, or closes them all; the registry's `plan_adversarial_review` runs an adversarial review (or runs it again); wherever focus is on the card.
   const onKeys = (event: KeyboardEvent<HTMLElement>) => {
     const plain = !event.metaKey && !event.ctrlKey && !event.altKey;
     if (!folded && revising && event.key === "u" && plain) {
       event.preventDefault();
       unchanged.toggleAll();
-    } else if (!folded && adversarial !== undefined && (event.key === "r" || event.key === "R") && plain && (adversarial.review.state === "idle" || adversarial.review.state === "failed" || adversarial.review.state === "stale")) {
+    } else if (!folded && adversarial !== undefined && isPressed("plan_adversarial_review", event) && (adversarial.review.state === "idle" || adversarial.review.state === "failed" || adversarial.review.state === "stale")) {
       event.preventDefault();
       adversarial.onRun();
     } else review?.onKeyDown(event);

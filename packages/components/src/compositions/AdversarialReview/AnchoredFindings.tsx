@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import { ScanSearch } from "lucide-react";
 
+import { SLOT_NAMES, isPressed, pressedSlot } from "../../keymap";
 import { Button } from "../../primitives/Button/Button";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { TaskMark } from "../TaskMark/TaskMark";
@@ -29,9 +30,9 @@ export function anchorsOf(review: AdversarialReviewState, known: readonly string
 export type FindingActs = { onSend: (id: string) => void; onDismiss: (id: string) => void };
 
 /**
- * The keys of findings drawn in several places under one element: arrows or J and K move between those not yet acted on, in the order
- * on screen; Enter sends the one in focus, Backspace or D dismisses it, and focus passes to the next. `bind` goes on the element that
- * holds them all. A press on one of a finding's buttons keeps its own key.
+ * The keys of findings drawn in several places under one element, as the registry binds them (`finding_move`, `finding_send`,
+ * `finding_dismiss`): one moves between those not yet acted on, in the order on screen; one sends the one in focus, one dismisses it,
+ * and focus passes to the next. `bind` goes on the element that holds them all. A press on one of a finding's buttons keeps its own key.
  */
 export function useFindingKeys(review: AdversarialReviewState | undefined, acts: FindingActs) {
   const scope = useRef<HTMLElement | null>(null);
@@ -49,22 +50,21 @@ export function useFindingKeys(review: AdversarialReviewState | undefined, acts:
     run(id);
   };
   const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
-    if (event.metaKey || event.ctrlKey || event.altKey) return;
     const target = (event.target as HTMLElement).closest<HTMLElement>("[data-finding]");
     if (target === null || event.target !== target) return;
     const all = live();
     const at = all.indexOf(target);
-    const key = event.key.toLowerCase();
-    if (key === "arrowdown" || key === "arrowup" || key === "j" || key === "k") {
+    const moved = pressedSlot("finding_move", event);
+    if (moved !== -1) {
       event.preventDefault();
       event.stopPropagation();
-      const down = key === "arrowdown" || key === "j";
+      const down = SLOT_NAMES.finding_move?.[moved] === "Down";
       all[Math.min(all.length - 1, Math.max(0, at + (down ? 1 : -1)))]?.focus();
-    } else if (key === "enter") {
+    } else if (isPressed("finding_send", event)) {
       event.preventDefault();
       event.stopPropagation();
       act(target.dataset.finding!, acts.onSend);
-    } else if (key === "backspace" || key === "d") {
+    } else if (isPressed("finding_dismiss", event)) {
       event.preventDefault();
       event.stopPropagation();
       act(target.dataset.finding!, acts.onDismiss);
