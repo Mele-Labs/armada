@@ -15,6 +15,9 @@ use crate::daemon::Fleet;
 /// What a sign-in item's id begins with; the instant the Job was marked follows.
 const SIGN_IN_ITEM: &str = "signin:";
 
+/// What a Job the expiry stopped is told once the person has signed in, as the plan's limit wakes one.
+const WAKE: &str = "Continue";
+
 /// The item a signed-out Job is on the Needs you list: run the sign-in. A Fleet call, so Bridge
 /// offers to dismiss it.
 pub(crate) fn sign_in_item(at: &str) -> WaitingItem {
@@ -60,5 +63,25 @@ where
     /// A turn started, so the harness is signed in. Whether the Job was marked; the caller publishes.
     pub(crate) fn sign_in_cleared(&self, runtime: &Arc<Runtime>) -> bool {
         runtime.state().signed_out.take().is_some()
+    }
+
+    /// The sign-in run exited clean. **One sign-in is every Job's**, since they share the harness's
+    /// account: each marked Job is cleared, and each but `ran_by` is woken with `Continue`. The Job
+    /// that ran it is told of the run, which starts its turn, so a wake would be a second one.
+    pub(crate) async fn signed_in_everywhere(self: &Arc<Self>, ran_by: &str) {
+        let marked: Vec<String> = self
+            .hosts()
+            .all()
+            .into_iter()
+            .filter(|(_, runtime)| self.sign_in_cleared(runtime))
+            .map(|(id, _)| id)
+            .collect();
+        for id in marked {
+            let _ = self.published_hosted(&id).await;
+            if id != ran_by {
+                // A Job that ended is not told, which `told_by_fleet` answers.
+                let _ = self.told_by_fleet(&id, WAKE, ipc::Notice::SignInWake).await;
+            }
+        }
     }
 }
