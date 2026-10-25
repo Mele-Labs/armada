@@ -1,4 +1,4 @@
-// Workflow: the Session's workflow in a one-line panel between the Field and Progress. Its picker (or its name) and its steps stand in the band, with no label drawn, and the
+// Workflow: the Session's workflow in a one-line panel at the top of the Job's right column. Its picker (or its name) and its steps stand in the band, with no label drawn, and the
 // panel has no body. It is drawn only where there is a workflow or a picker to show: a Session with the rail off has none.
 
 import type { SessionWork, SessionWorkActs } from "@armada/screens/src/draft/sessions";

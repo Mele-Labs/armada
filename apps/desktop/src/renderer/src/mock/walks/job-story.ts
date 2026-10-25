@@ -5,7 +5,7 @@
 // The composer's Artifacts button opens the list over the right column and Esc gives the story back. Over `job-story`. `job-story-spike` lands the
 // same story in a findings doc and `job-story-report` in a report.
 
-import { button, deckRow, dialog, inside, region, role, walk } from "../walk";
+import { button, deckRow, dialog, inside, region, role, text, walk } from "../walk";
 
 const blueprint = region("Blueprint", { exact: true });
 const field = region("Field", { exact: true });
@@ -21,7 +21,7 @@ const story = walk("job-story", [
   { look: landing, say: "Field and Landing stand folded to their bands" },
   { press: inside(blueprint, button("Approve")), say: "Approve" },
   { look: blueprint, say: "The plan stays up, compact: each group over its tasks, with a glyph for the state of each" },
-  { look: inside(blueprint, role("listitem", /Back off between attempts/)), say: "The task being worked is lit, with what the turn is doing under it" },
+  { look: inside(blueprint, text("Backing off between attempts")), say: "The task being worked is lit, with what the turn is doing under it" },
   { press: inside(blueprint, button("Retry the lease when the pool is contended", { exact: true })), say: "A press on a group shows its subagent type and paths" },
   { look: inside(blueprint, role("combobox", /^Subagent type of Retry the lease/)), say: "The subagent type, with the paths beside it" },
   { look: field, say: "The Field opens while the drones work" },
@@ -44,7 +44,7 @@ const spike = walk("job-story", [
   { press: inside(blueprint, button("Approve")), say: "Approve" },
   { later: landing, say: "The findings are written up" },
   { look: inside(landing, role("list", "Findings")), say: "A spike lands in its findings doc, which opens as an artifact does" },
-  { look: landing, say: "No pull request, so no chip on the band and no merge" },
+  { look: landing, say: "No pull request, so nothing to merge" },
 ]);
 
 const report = walk("job-story", [

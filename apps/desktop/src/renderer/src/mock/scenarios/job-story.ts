@@ -80,9 +80,9 @@ const WATCH: WatchSummary = {
 /** The issues the Job was started on, more than a band could hold. */
 const issue = (number: string, title: string, state: "open" | "closed"): SessionAttachment => ({ kind: "issue", number, title, address: `https://forge.invalid/issues/${number}`, state });
 const ISSUES: SessionAttachment[] = [
-  issue("2371", "Two Jobs can lease one bay at once", "open"),
-  issue("2377", "The bay tile does not show a retry", "open"),
-  issue("2384", "The lease gives up without saying why", "closed"),
+  issue("2361", "Two Jobs can lease one bay at once", "open"),
+  issue("2367", "The bay tile does not show a retry", "open"),
+  issue("2374", "The lease gives up without saying why", "closed"),
 ];
 
 /** What the pull request Job holds at a stage. */
