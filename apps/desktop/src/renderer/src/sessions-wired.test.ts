@@ -264,6 +264,8 @@ it("begins the Job with the delivery chosen on the card, or with none where its 
   expect(beginSession).toHaveBeenLastCalledWith({ session_id: "new", delivery: "open_pr" });
   expect(await store.draft.begin!("new")).toBe(true);
   expect(beginSession).toHaveBeenLastCalledWith({ session_id: "new" });
+  expect(await store.draft.begin!("new", "keep_local", "Port the loader first")).toBe(true);
+  expect(beginSession).toHaveBeenLastCalledWith({ session_id: "new", delivery: "keep_local", message: "Port the loader first" });
 });
 
 it("says Start was refused and does not count the Job as begun", async () => {

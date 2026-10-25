@@ -35,17 +35,18 @@ export function useStartPicks(session: Session, repositories: readonly Repositor
   const reading = proposal?.reading === true;
   const picked = proposal?.picked ?? [];
   const kinds = (draft.work?.workflows ?? []).filter((one) => one.manifestId === undefined || session.manifestId === undefined || one.manifestId === session.manifestId);
-  // Fleet will supply these defaults (`start.picked`, the Job's workflow) once wired; until then Bridge decides: the proposer's pick, else the
-  // repository's `feature` workflow, else its first; the landing his words named, else his usual, else Auto land.
+  // Fleet gives the Job its workflow once it has read; the `feature`-else-first fallback is only for a Fleet that has not.
   const proposed = proposal?.workflow ?? null;
   const kind = reading ? null : (proposed ?? kinds.find((one) => one.id === "feature")?.id ?? kinds[0]?.id ?? null);
   const kindName = kinds.find((one) => one.id === kind)?.name;
   const repository = repositories.find((one) => one.manifest?.id === session.manifestId)?.manifest?.repository;
   const lands = start.asksDelivery;
+  // `start.picked` is Fleet's landing; Auto land is only for a Fleet that sends none.
   const landing = reading ? undefined : ((answered?.id === id ? answered.choice : undefined) ?? start.picked?.choice ?? "auto_land");
 
-  // The standing choice is marked while it is the one in use: his usual, or the one his words named.
-  const standing = start.picked !== undefined && landing === start.picked.choice ? start.picked.from : undefined;
+  // Marked while in use, only where Fleet took it from his usual or his words; its own `default` is no choice of his.
+  const from = start.picked !== undefined && landing === start.picked.choice ? start.picked.from : undefined;
+  const standing = from === "named" || from === "usual" ? from : undefined;
   const standingSaid =
     standing === "named" ? "Named in your request" : kindName === undefined || repository === undefined ? "Your usual" : `Your usual for ${plural(kindName)} in ${repository}`;
 

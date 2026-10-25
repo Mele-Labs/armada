@@ -72,8 +72,8 @@ export function handleSessions({ ipc, connection, windowIdOf, pages, terminals }
     return fleet.startSession(fleet.repositories.pickedByWindow.of(windowIdOf(event)), typeof title === "string" && title !== "" ? title : undefined, text(root) ? root : undefined, text(request) && request.trim() !== "" ? request : undefined, picked, after !== undefined && text(after.session) ? after : undefined, held === true);
   });
   ipc.handle(CHANNELS.beginSession, (_event, begin: BeginSession) => {
-    if (!text(begin?.session_id) || (begin.delivery !== undefined && !DELIVERIES.includes(begin.delivery))) return unread;
-    return connection()?.sessions.begin({ session_id: begin.session_id, ...(begin.delivery === undefined ? {} : { delivery: begin.delivery }) }) ?? unsent;
+    if (!text(begin?.session_id) || (begin.delivery !== undefined && !DELIVERIES.includes(begin.delivery)) || (begin.message !== undefined && typeof begin.message !== "string")) return unread;
+    return connection()?.sessions.begin({ session_id: begin.session_id, ...(begin.delivery === undefined ? {} : { delivery: begin.delivery }), ...(begin.message === undefined ? {} : { message: begin.message }) }) ?? unsent;
   });
   ipc.handle(CHANNELS.readSessionWait, (_event, sessionId: string, request: string) => {
     if (!text(sessionId) || typeof request !== "string") return unread;
