@@ -77,6 +77,17 @@ Helm and an ended job are not read, and a terminal job is reminded only while it
 The owner reported two jobs on 21 Oct 2026: one wrote "PR 2681 is merged and the job is done" and never called `all_done`, so no Done item came, and one listed walks for him in a table with no window open, until he asked "Please open the walks".
 These are phrase rules; #2692 is the language model reader that would replace them.
 
+**A turn that leaves the person's message unanswered is sent back once** (`unanswered.rs`).
+He reads only what the agent writes, never its reasoning.
+From his message until the agent writes him something other than a lone line starting "Status:", the job owes him a reply.
+The first `AskUserQuestion` while it does is refused with: "Not asked: since his last message you have written him nothing but a status line, and he reads only what you write, never your reasoning.
+Write your answer to his message, then ask this question again."
+The door waits up to two seconds for the stream to reach the question first, so an answer written just before it counts.
+A turn that ends still owing it sends the agent, through `told_by_fleet` and unless another turn is waiting to start, the same words without "Not asked:" and with "Write your answer to his message." to close.
+Either one settles the debt, so the question asked again is put to him and the reminder's turn is not read.
+A turn Fleet's own notice began owes nothing, and Helm is not read.
+Job 7f7f4ae4 did this twice on 24 Oct 2026: asked why commands were recorded, it worked the answer out in its reasoning and went straight to its question, so he saw a status line and the question and wrote "you never answered me or explained".
+
 **A job gives back what it is finished with using `finish_up`** (`session_id` only; the hosted job holding the connection wins).
 It releases each slot the pool holds for the job as `armada worktree release` does, which refuses a tree with uncommitted files or commits that neither its branch's remote nor the base has; stops the servers running in each slot it released; and deletes the local branches those slots were on, the one the job was leased and the head branch of each pull request it holds or held, where the base (the local branch or `origin`'s) already holds every commit.
 Answered with `released` (slot numbers), `deleted_branches` and `kept`, a sentence for each thing that stayed and why.
