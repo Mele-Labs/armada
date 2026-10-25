@@ -83,6 +83,7 @@ export type StartModSession = {
   title?: string;
   model?: string;
   effort?: string;
+  /** What he pointed at. Exactly one of `note` and `said`. */
   note?: SessionNote;
   /** His words, where Mod was pressed on nothing: the Job's first message after the brief. */
   said?: string;

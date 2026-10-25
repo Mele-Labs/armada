@@ -31,9 +31,11 @@ export type SettingsSectionsViewProps = {
   /** Open a promoted mod's pull request and its Job from the All list, as the Theme and Layout pages do. */
   onOpenPull?: ComponentProps<typeof ModList>["onOpenPull"];
   onOpenJob?: ComponentProps<typeof ModList>["onOpenJob"];
+  /** Create mod, in the All list's header. */
+  onCreateMod?: ComponentProps<typeof ModList>["onCreate"];
 };
 
-export function SettingsSectionsView({ ids, settings, live, onSaveSettings, onOpenAccount, onReadGuides, onCopied, under = {}, onOpenPull, onOpenJob }: SettingsSectionsViewProps) {
+export function SettingsSectionsView({ ids, settings, live, onSaveSettings, onOpenAccount, onReadGuides, onCopied, under = {}, onOpenPull, onOpenJob, onCreateMod }: SettingsSectionsViewProps) {
   const card = (title: string, body: ReactNode) => (
     <Card>
       <CardHeader>
@@ -44,7 +46,7 @@ export function SettingsSectionsView({ ids, settings, live, onSaveSettings, onOp
   );
   const panes: Record<string, (title: string) => ReactNode> = {
     phone: () => <PhoneSettings {...(onCopied === undefined ? {} : { onCopied })} />,
-    "mods-all": (title) => <ModList kind="all" title={title} {...(onOpenPull === undefined ? {} : { onOpenPull })} {...(onOpenJob === undefined ? {} : { onOpenJob })} />,
+    "mods-all": (title) => <ModList kind="all" title={title} {...(onOpenPull === undefined ? {} : { onOpenPull })} {...(onOpenJob === undefined ? {} : { onOpenJob })} {...(onCreateMod === undefined ? {} : { onCreate: onCreateMod })} />,
     theme: (title) => card(title, <ThemeSettings />),
     layout: (title) => card(title, <LayoutSettings />),
     words: (title) => <ModList kind="words" title={title} />,

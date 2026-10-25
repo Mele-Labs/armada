@@ -1,6 +1,6 @@
 // Mod: a right press on anything opens a menu with Mod, and Mod starts a Job for modding Armada itself, carrying what was pointed at.
 // A Mod Job sits under Mods in the Cockpit's Jobs list, and its right column lists the mods it made, each with its switch. The walk
-// `mod-job` plays it. Mock only: the Job the mock Fleet starts is marked `mod` as Fleet marks it, and it writes the dusk theme.
+// `mod-job` plays it, and `create-mod` plays the same Job started by describing it. Mock only: the Job the mock Fleet starts is marked `mod` as Fleet marks it, and it writes the dusk theme.
 
 import type { ModSummary, RepositorySummary, SessionNote } from "@armada/protocol";
 import { repository } from "@armada/screens/src/fixtures/repository";

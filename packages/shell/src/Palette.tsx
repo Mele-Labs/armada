@@ -121,7 +121,7 @@ export type PaletteFilter = { id: string; label: string; shortcut: string };
  * A row about the window as a whole, with no registry row and no rail row: Reported. Drawn under
  * Navigation beside the global acts. The palette is the only place Reported is drawn — the owner's note of 1 Oct 2026.
  */
-export type PaletteBoardRow = { id: string; label: string; destructive?: boolean; dormant?: string };
+export type PaletteBoardRow = { id: string; label: string; icon?: LucideIcon; destructive?: boolean; dormant?: string };
 
 /** What a chosen row was. The section it came from decides what happens. */
 export type PaletteChoice =
@@ -325,6 +325,7 @@ export function Palette({
       id: `board:${row.id}`,
       section: NAVIGATION,
       label: row.label,
+      ...(row.icon === undefined ? {} : { icon: row.icon }),
       ...(row.destructive === true ? { destructive: true } : {}),
       ...(row.dormant === undefined ? {} : { dormant: row.dormant }),
     })),
