@@ -295,6 +295,7 @@ where
         let width = checks_runner::CheckWidth::read(in_force.concurrency.jobs());
         let run = fittings.mint.ulid();
         let helm = crate::helm::Conversations::holding_for(fittings.helm_ask_hold);
+        let sign_in = crate::session_host::signed_out::SignInRun::of(&fittings.host);
         let sessions = crate::session_host::Hosts::hosted_by(
             Arc::new(crate::session_host::ProcessHost::on_this_machine(
                 &fittings.host,
@@ -356,7 +357,7 @@ where
             phone_held: Default::default(),
             home_held: Default::default(),
             downshift: Default::default(),
-            agent_sign_in: Default::default(),
+            agent_sign_in: crate::session_host::signed_out::Held::running(sign_in),
             events: fittings.events,
             helm,
             sessions,

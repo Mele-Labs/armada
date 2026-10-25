@@ -280,6 +280,10 @@ where
         Ok(self.agent_sign_in().now())
     }
 
+    async fn start_agent_sign_in(self: Arc<Self>) -> Result<ipc::AgentSignIn, Refusal> {
+        Ok(self.agent_sign_in_pressed())
+    }
+
     async fn accept_downshift(&self) -> Result<ipc::ModelDownshiftState, Refusal> {
         self.downshift_accepted().await
     }

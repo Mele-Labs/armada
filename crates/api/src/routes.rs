@@ -276,7 +276,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/model_downshift/restore", post(crate::hosted_sessions::restore_downshift::<D>))
         .route("/model_downshift/keep", post(crate::hosted_sessions::keep_downshift::<D>))
         .route("/model_downshift/settle", post(crate::hosted_sessions::settle_downshift::<D>))
-        .route("/agent/sign_in", get(crate::hosted_sessions::get_agent_sign_in::<D>))
+        .route(
+            "/agent/sign_in",
+            get(crate::hosted_sessions::get_agent_sign_in::<D>).post(crate::hosted_sessions::start_agent_sign_in::<D>),
+        )
         .route("/sleep", get(crate::hosted_sessions::get_sleep::<D>).post(crate::hosted_sessions::set_sleep::<D>))
         .route("/sleep/override", post(crate::hosted_sessions::override_sleep::<D>))
         .route("/sleep/review", post(crate::hosted_sessions::review_sleep::<D>))

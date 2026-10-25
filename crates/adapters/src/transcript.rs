@@ -70,9 +70,6 @@ const NO_MODEL: &str = "<synthetic>";
 /// would not renew: [`DroneEvent::SignedOut`].
 const SIGNED_OUT: &str = "authentication_failed";
 
-/// What a person runs to sign the harness in again. Kept here because the command is the vendor's.
-pub const SIGN_IN_COMMAND: &str = "claude auth login";
-
 /// Read one line.
 ///
 /// Never empty, and never a `Result` — see this module's note.

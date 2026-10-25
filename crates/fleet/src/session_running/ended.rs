@@ -77,14 +77,10 @@ where
     W::Error: std::error::Error + Send + Sync + 'static,
 {
     /// A clean exit takes the matching `run` item off the Session's list first, so Bridge has
-    /// nothing to settle, and a clean sign-in signs in every Job. **A Session that has ended is not
-    /// told**, which `told_by_fleet` answers.
+    /// nothing to settle. **A Session that has ended is not told**, which `told_by_fleet` answers.
     pub(crate) async fn session_run_ended(self: Arc<Self>, ended: Ended) {
         let taken_off =
             ended.code == Some(0) && self.run_item_settled(&ended.session, &ended.command).await;
-        if ended.code == Some(0) && ended.command.trim() == adapters::SIGN_IN_COMMAND {
-            self.signed_in_everywhere(&ended.session).await;
-        }
         let ran = RunEnd {
             command: ended.command.clone(),
             code: ended.code,

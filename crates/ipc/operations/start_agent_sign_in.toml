@@ -1,0 +1,12 @@
+[operations.start_agent_sign_in]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Fleet signs the agents' account in again, in the person's browser"
+notes = """
+`POST /agent/sign_in`, no body. Answered with `AgentSignIn`, `signing_in` now true, and `agent_sign_in.changed` is published.
+
+**Fleet runs the harness's own sign-in, with no terminal.** The program and its arguments are the adapter's, run in the person's home on the `PATH` an agent is given. It opens the browser and waits on the page's callback to a port of its own; its input is held open and its output is read and dropped. **One at a time**: a press while one runs starts nothing and answers the state as it is.
+
+**An exit of 0 signs every Job in.** The state is cleared, `signing_in` false, and every Job the expiry stopped is told `Continue` under the `sign_in_wake` notice; a Job that ended is not told. Any other exit, or ten minutes with no exit, leaves the Fleet signed out with `signing_in` false. Valid whether or not the Fleet is signed out. `agent_access` is `Bridge only`: it opens the person's browser, and only his press starts it.
+"""
