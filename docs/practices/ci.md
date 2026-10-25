@@ -233,7 +233,7 @@ A pull request and a merge group never release.
 
 | | |
 |---|---|
-| Builds | `armada` with the `installed` profile, and `Armada.app` for Apple Silicon, on a `macos-15` runner |
+| Builds | `armada` with the `shipped` profile, optimised and stripped, and `Armada.app` for Apple Silicon, on a `macos-15` runner |
 | Puts Fleet | Inside the app, at `Contents/Resources/bin/armada`, then signs the bundle again ad hoc |
 | Version | `v0.<minor>.<commits on main>`. The minor is the root `package.json`'s, bumped by hand. The hash is in the release notes and in `Contents/Resources/version` |
 | Attaches | `Armada-macos-arm64.zip` and `scripts/install.sh`, with no version in either name, so `releases/latest/download/<name>` never changes |
