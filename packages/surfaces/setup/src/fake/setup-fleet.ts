@@ -1,6 +1,6 @@
 // A Fleet far enough along to set a repository up: a storefront monorepo nobody
 // set up, the proposals Scan makes for it, each edit and Write applied the way
-// Fleet applies them, and a folder added or cloned. Moved here from the
+// Fleet applies them, and a folder added, cloned or made new. Moved here from the
 // `Screens/Setup` story's wrapper, so Setup and Locate run through `App` — #1224.
 
 import type {
@@ -207,6 +207,9 @@ export type WriteGoesTo = "took" | "refused" | "appeared";
 /** What a clone comes to: served, refused by git, into a folder already full, still running, or served late. */
 export type CloneGoesTo = "took" | "refused" | "occupied" | "underway" | "late";
 
+/** What a new project comes to: made and served, refused for a folder already full, or made and then not served. */
+export type CreateGoesTo = "took" | "occupied" | "unserved";
+
 /** How long a late clone runs: long enough for a test to close its dialog first. */
 const LATE_MS = 800;
 
@@ -216,6 +219,7 @@ const RESOLVED: Record<string, string> = { "/tmp": "/private/tmp" };
 export type SettingUp = {
   write?: WriteGoesTo;
   clone?: CloneGoesTo;
+  create?: CreateGoesTo;
   /** Whether a set-up repository's root already has an `armada.yml`. */
   rootSetUp?: boolean;
   /** Workspaces beyond the storefront's four, for a batch taller than the window. */
@@ -230,6 +234,7 @@ export type SettingUp = {
   onVerify?: (workspace?: string) => void;
   onAdded?: (path: string) => void;
   onCloned?: (url: string, parent: string) => void;
+  onCreated?: (parent: string, name: string) => void;
 };
 
 /**
@@ -240,6 +245,7 @@ export type SettingUpState = PublishedCore & SetupState & { checkoutRunSheet: Ch
 
 /** Setup's members, and the two Manifest ones its Verify press reaches. Desktop's `BridgeApi` has all of them. */
 export type SettingUpApi = SetupApi & {
+  createProject: (parent: string, name: string) => Promise<LocateAnswer>;
   watchCheckoutRunSheet: (want: boolean) => Promise<void>;
   startCheckoutVerify: (workspace?: string) => Promise<Outcome>;
 };
@@ -354,6 +360,14 @@ function behaviour(
         return Promise.resolve({ state: "refused", code: "fleet.destination_occupied", saying: `${into} already exists and is not empty` });
       }
       return Promise.resolve(served(into, true));
+    },
+    createProject: async (parent, name) => {
+      options.onCreated?.(parent, name);
+      // Main spells out `~` as the home it knows.
+      const into = `${parent.replace(/^~(?=\/|$)/, "/Users/user")}/${name}`;
+      if (options.create === "occupied") return { state: "refused", code: "fleet.destination_occupied", saying: `${into} already exists and is not empty` };
+      if (options.create === "unserved") return { state: "refused", code: "fleet.not_a_repository", saying: `${into} could not be read as a repository` };
+      return served(into);
     },
   };
 }

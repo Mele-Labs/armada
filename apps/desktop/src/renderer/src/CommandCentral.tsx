@@ -23,6 +23,7 @@ const ACTS: Record<Act, true> = {
   onGoTo: true,
   onPickRepository: true,
   onAddRepository: true,
+  onNewProject: true,
   onRescueSlot: true,
   onBrought: true,
 };
