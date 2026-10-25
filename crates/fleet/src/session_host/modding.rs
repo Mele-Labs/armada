@@ -13,7 +13,7 @@ use std::sync::Arc;
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use ipc::{
-    ManifestId, ModSessionStarted, SendSessionMessage, SendSessionNote, SessionRecord, SessionRow, SessionVoice,
+    ManifestId, ModAim, ModSessionStarted, SendSessionMessage, SendSessionNote, SessionRecord, SessionRow, SessionVoice,
     StartModSession, StartSession,
 };
 
@@ -131,6 +131,22 @@ impl First {
     }
 }
 
+/// The line that names what he picked, between the brief and his words. `source` in the mods
+/// folder says it cannot be made there.
+fn aim_line(aim: ModAim, in_mods_folder: bool) -> &'static str {
+    match aim {
+        ModAim::Theme => "He is aiming for: a theme (colours).",
+        ModAim::Layout => "He is aiming for: a layout (which tabs and panels are drawn, and in what order).",
+        ModAim::Words => "He is aiming for: words (a pattern Bridge links, and where it opens).",
+        ModAim::Fleet => "He is aiming for: a Fleet rule (what Fleet does with a notice it would send).",
+        ModAim::Tracker => "He is aiming for: a tracker (an issue tracker Armada has no adapter for).",
+        ModAim::Source if in_mods_folder => {
+            "He is aiming for: a change to Armada's source, which cannot be made here. Tell him so if a mod cannot do it."
+        }
+        ModAim::Source => "He is aiming for: a change to Armada's source.",
+    }
+}
+
 impl<H, V, W> Fleet<H, V, W>
 where
     H: AgentHarness + Send + Sync + 'static,
@@ -143,7 +159,8 @@ where
 {
     /// `send_session_message`: a message to a Job. **A Mod Job that has none of his yet is sent the
     /// brief ahead of it**, as a start with words is, and an untitled one is retitled `Mod` and the
-    /// first line of what he wrote. The thread keeps his words alone.
+    /// first line of what he wrote. **His `aim` rides with that first message only**, a line between
+    /// the brief and his words; on any other message it is ignored. The thread keeps his words alone.
     pub(crate) async fn mod_message_sent(
         self: Arc<Self>,
         terminal: Option<store::KeptSession>,
@@ -152,7 +169,7 @@ where
         let words = sent.text.trim().to_string();
         let id = sent.session_id.as_str().to_string();
         let owed = match terminal.is_none() && !words.is_empty() {
-            true => self.brief_owed(&id).await?,
+            true => self.brief_owed(&id, sent.aim).await?,
             false => None,
         };
         let Some((brief, untitled)) = owed else { return self.send_known(terminal, sent).await };
@@ -168,9 +185,10 @@ where
         self.send_known_added(None, sent, None, Some(instead)).await
     }
 
-    /// The brief a Mod Job is owed ahead of his first message, and whether it still has the title it
-    /// was started with. None for any other Job, and for a Mod Job he has already written in.
-    async fn brief_owed(&self, id: &str) -> Result<Option<(&'static str, bool)>, Refusal> {
+    /// The brief a Mod Job is owed ahead of his first message, with the line naming his `aim` after
+    /// it, and whether it still has the title it was started with. None for any other Job, and for a
+    /// Mod Job he has already written in.
+    async fn brief_owed(&self, id: &str, aim: Option<ModAim>) -> Result<Option<(String, bool)>, Refusal> {
         let (session, hosting) = self.session_and_hosting(id).await?;
         if !hosting.mod_job {
             return Ok(None);
@@ -180,7 +198,11 @@ where
             .await?
             .iter()
             .any(|row| matches!(row, SessionRow::Message { from: SessionVoice::You, .. }));
-        let brief = if hosting.manifest_id.is_empty() { MODS_FOLDER_BRIEF } else { BRIEF };
+        let in_mods_folder = hosting.manifest_id.is_empty();
+        let mut brief = (if in_mods_folder { MODS_FOLDER_BRIEF } else { BRIEF }).to_string();
+        if let Some(aim) = aim {
+            brief = format!("{brief}\n\n{}", aim_line(aim, in_mods_folder));
+        }
         Ok((!spoken).then_some((brief, session.title.as_deref() == Some(UNTITLED))))
     }
 
