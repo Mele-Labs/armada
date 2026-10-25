@@ -1,19 +1,11 @@
-/* Switch — inherits the input's border, focus and height rules.
+/* Switch: a panel switch, in three takes the root's `data-switch` picks. `lever` is the default.
  *
- * The contract gives one line: --accent when on, --border-strong when off.
- * It does not say whether --border-strong is the track's fill or its edge,
- * and it names nothing for the thumb. The component sheet draws the answer:
- * the off track is a --bg-hover fill with a --border-default edge, and the
- * thumb is --fg-default on and --fg-subtle off. That is what is built here.
- * --border-strong ends up unused, which is recorded rather than resolved.
+ * The footprint is the pill it replaced, one control wide (--h-control) and one badge tall (--h-badge), so a row does not
+ * move. Weight comes from shape and edges: a recess with a heavier top edge, a ledge under a raised segment, a guard's outline.
+ * No gradient, no glow, no sheen. Colour is --accent on, and a flat step of the ground off.
  *
- * The geometry is derived, not measured off the sheet. The track is one
- * control wide (--h-control) and one badge tall (--h-badge); the thumb is
- * --space-4, and the pill radius is exactly half the track. The thumb travels
- * by `left`, from the leading edge of the padding box to the trailing one, so
- * no offset is written down and the hairline border never has to be
- * subtracted from a number.
- */
+ * Motion is one short snap, --duration-press, which is zero under reduced motion with the rest of the durations.
+ * Keyboard and screen reader are the input's own: it stays in the label, clipped, and the control draws its state. */
 
 .armada-switch {
   /* The native input is absolutely positioned and clipped; the label is what
@@ -69,40 +61,170 @@
   box-sizing: border-box;
   width: var(--h-control);
   height: var(--h-badge);
-  border-radius: calc(var(--h-badge) / 2);
-  border-style: solid;
-  border-width: var(--border-width);
-  border-color: var(--border-default);
-  background: var(--bg-hover);
-  transition:
-    background-color var(--duration-fast) var(--ease),
-    border-color var(--duration-fast) var(--ease);
 }
 
+/* Parts a take does not draw. */
+.armada-switch__guard,
+.armada-switch__segment {
+  display: none;
+}
+
+/* ---- Lever: the recess, the lever pivoting at its centre, and the lamp beside it ---- */
+
+.armada-switch__track::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  box-sizing: border-box;
+  width: var(--h-badge);
+  border: var(--border-width) solid var(--border-default);
+  border-top: calc(var(--border-width) * 2) solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+}
+
+/* The lever rises from the pivot: up is on, down is off. Rotating it a half turn is the flip. */
 .armada-switch__thumb {
   position: absolute;
-  top: 50%;
-  left: 0;
-  transform: translateY(-50%);
-  width: var(--space-4);
-  height: var(--space-4);
-  border-radius: 50%;
+  inset-inline-start: calc(var(--h-badge) / 2);
+  inset-block-end: 50%;
+  width: var(--space-1);
+  height: var(--space-2);
+  margin-inline-start: calc(var(--space-1) / -2);
+  border-radius: var(--radius-sm);
   background: var(--fg-subtle);
+  transform-origin: 50% 100%;
+  transform: rotate(180deg);
   transition:
-    left var(--duration-fast) var(--ease),
-    background-color var(--duration-fast) var(--ease);
+    transform var(--duration-press) var(--ease),
+    background-color var(--duration-press) var(--ease);
 }
 
-.armada-switch__input:checked + .armada-switch__track {
+/* The collar the lever turns in: a bar across the recess at the pivot. */
+.armada-switch__thumb::after {
+  content: "";
+  position: absolute;
+  inset-inline-start: 50%;
+  inset-block-end: calc(var(--border-width) / -2 - var(--border-width));
+  width: var(--space-3);
+  height: calc(var(--border-width) * 2);
+  margin-inline-start: calc(var(--space-3) / -2);
+  background: var(--border-strong);
+}
+
+.armada-switch__lamp {
+  position: absolute;
+  inset-inline-start: calc(var(--h-badge) + (var(--h-control) - var(--h-badge) - var(--space-2)) / 2);
+  inset-block-start: 50%;
+  box-sizing: border-box;
+  width: var(--space-2);
+  height: var(--space-2);
+  margin-block-start: calc(var(--space-2) / -2);
+  border: var(--border-width) solid var(--border-default);
+  background: var(--bg-sunken);
+  transition:
+    background-color var(--duration-press) var(--ease),
+    border-color var(--duration-press) var(--ease);
+}
+
+.armada-switch__input:checked + .armada-switch__track .armada-switch__thumb {
+  transform: rotate(0deg);
+  background: var(--fg-default);
+}
+
+.armada-switch__input:checked + .armada-switch__track .armada-switch__lamp {
   background: var(--accent);
   border-color: var(--accent);
 }
 
-.armada-switch__input:checked + .armada-switch__track .armada-switch__thumb {
-  left: 100%;
-  transform: translate(-100%, -50%);
-  background: var(--fg-default);
+/* ---- Guarded: the lever under a hinged guard. It lies over the recess and lifts away on its top edge ---- */
+
+:root[data-switch="guarded"] .armada-switch__guard {
+  display: block;
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  box-sizing: border-box;
+  width: var(--h-badge);
+  border: calc(var(--border-width) * 2) solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  transform-origin: 50% 0;
+  transform: perspective(var(--space-8)) rotateX(0deg);
+  transition: transform var(--duration-press) var(--ease);
+  pointer-events: none;
 }
+
+:root[data-switch="guarded"] .armada-switch:hover .armada-switch__guard,
+:root[data-switch="guarded"] .armada-switch__input:focus-visible + .armada-switch__track .armada-switch__guard,
+:root[data-switch="guarded"] .armada-switch__input[data-preview-focus] + .armada-switch__track .armada-switch__guard {
+  transform: perspective(var(--space-8)) rotateX(-72deg);
+}
+
+/* ---- Rocker: two segments, the pressed one lit. A raised segment stands on a ledge, a pressed one is flush ---- */
+
+:root[data-switch="rocker"] .armada-switch__track {
+  display: flex;
+  overflow: hidden;
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+}
+
+:root[data-switch="rocker"] .armada-switch__track::before,
+:root[data-switch="rocker"] .armada-switch__thumb,
+:root[data-switch="rocker"] .armada-switch__lamp {
+  display: none;
+}
+
+:root[data-switch="rocker"] .armada-switch__segment {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-width: 0;
+  border-bottom: calc(var(--border-width) * 2) solid var(--border-strong);
+  /* Half a badge: the one size that sets ON and OFF side by side inside a control's width. */
+  font-family: var(--font-mono);
+  font-size: calc(var(--h-badge) / 2);
+  line-height: 1;
+  font-weight: var(--weight-medium);
+  color: var(--fg-subtle);
+  transition:
+    background-color var(--duration-press) var(--ease),
+    color var(--duration-press) var(--ease),
+    border-color var(--duration-press) var(--ease);
+}
+
+:root[data-switch="rocker"] .armada-switch__segment[data-segment="off"] {
+  flex: 3 1 0;
+  border-inline-end: var(--border-width) solid var(--border-default);
+}
+
+:root[data-switch="rocker"] .armada-switch__segment[data-segment="on"] {
+  flex: 2 1 0;
+}
+
+/* Off: OFF is pressed, flush and lit a step; ON stands on its ledge. */
+:root[data-switch="rocker"] .armada-switch__segment[data-segment="off"] {
+  border-bottom-color: transparent;
+  background: var(--border-strong);
+  color: var(--fg-default);
+}
+
+:root[data-switch="rocker"] .armada-switch__input:checked + .armada-switch__track .armada-switch__segment[data-segment="off"] {
+  border-bottom-color: var(--border-strong);
+  background: transparent;
+  color: var(--fg-subtle);
+}
+
+:root[data-switch="rocker"] .armada-switch__input:checked + .armada-switch__track .armada-switch__segment[data-segment="on"] {
+  border-bottom-color: transparent;
+  background: var(--accent);
+  color: var(--fg-inverse);
+}
+
+/* ---- Focus and disabled ---- */
 
 .armada-switch__input:focus-visible + .armada-switch__track,
 .armada-switch__input[data-preview-focus] + .armada-switch__track {
@@ -110,24 +232,43 @@
   outline-offset: var(--focus-ring-offset);
 }
 
-/* Disabled is --fg-subtle with hover suppressed. Never opacity — so an off
- * switch and a disabled one are told apart by the label's step and the
- * track's edge, not by a wash over the whole control. */
+/* Disabled is --fg-subtle with hover suppressed. Never opacity — so an off switch and a disabled one are told apart by the
+ * label's step and the control's edges, not by a wash over the whole control. */
 .armada-switch:has(.armada-switch__input:disabled) {
   color: var(--fg-subtle);
   cursor: default;
 }
 
-.armada-switch__input:disabled + .armada-switch__track {
-  background: var(--bg-sunken);
+.armada-switch__input:disabled + .armada-switch__track::before {
   border-color: var(--border-subtle);
 }
 
-.armada-switch__input:disabled:checked + .armada-switch__track {
-  background: var(--bg-sunken);
-  border-color: var(--border-subtle);
-}
-
-.armada-switch__input:disabled + .armada-switch__track .armada-switch__thumb {
+.armada-switch__input:disabled + .armada-switch__track .armada-switch__thumb,
+.armada-switch__input:disabled:checked + .armada-switch__track .armada-switch__thumb {
   background: var(--fg-subtle);
+}
+
+.armada-switch__input:disabled + .armada-switch__track .armada-switch__lamp,
+.armada-switch__input:disabled:checked + .armada-switch__track .armada-switch__lamp {
+  background: var(--bg-sunken);
+  border-color: var(--border-subtle);
+}
+
+:root[data-switch="rocker"] .armada-switch__input:disabled + .armada-switch__track,
+:root[data-switch="rocker"] .armada-switch__input:disabled:checked + .armada-switch__track {
+  border-color: var(--border-subtle);
+}
+
+:root[data-switch="rocker"] .armada-switch__input:disabled + .armada-switch__track .armada-switch__segment,
+:root[data-switch="rocker"] .armada-switch__input:disabled:checked + .armada-switch__track .armada-switch__segment {
+  background: transparent;
+  color: var(--fg-subtle);
+}
+
+:root[data-switch="rocker"] .armada-switch__input:disabled + .armada-switch__track .armada-switch__segment[data-segment="off"] {
+  border-bottom-color: transparent;
+}
+
+:root[data-switch="rocker"] .armada-switch__input:disabled:checked + .armada-switch__track .armada-switch__segment[data-segment="on"] {
+  border-bottom-color: transparent;
 }
