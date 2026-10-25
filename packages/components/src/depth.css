@@ -389,6 +389,9 @@
 }
 /* Needs you is the composer's head: the body is the composer's chip over the sheet's own tone (opaque, so the thread under it never shows), its band takes the composer's corner, and its rows and buttons are the composer's controls. The box meets the band square. */
 :root[data-look="new"] .deck-pane .sv-dock[data-needs] .armada-session-composer { border-start-start-radius: 0; border-start-end-radius: 0; }
+/* A held Job's Kind and Lands strip is the same chip as the composer, on its top edge: the chip radius at its top corners, squared where the two meet. */
+:root[data-look="new"] .deck-pane .sv-dock[data-starting] .armada-session-composer { border-start-start-radius: 0; border-start-end-radius: 0; }
+:root[data-look="new"] .deck-pane .sv-start-strip { border-color: var(--chip-edge); border-radius: var(--glass-radius-chip) var(--glass-radius-chip) 0 0; background: var(--chip); }
 :root[data-look="new"] .deck-pane .armada-needs-panel__band,
 :root[data-look="new"] .deck-pane .armada-needs-panel[data-open="true"] .armada-needs-panel__band { border-radius: var(--glass-radius-chip) var(--glass-radius-chip) 0 0; }
 :root[data-look="new"] .deck-pane .armada-needs-panel__body {

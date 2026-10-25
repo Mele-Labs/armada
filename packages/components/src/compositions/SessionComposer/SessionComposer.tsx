@@ -109,8 +109,6 @@ export type SessionComposerProps = {
   onTune: (tuning: { model: string | null; effort: string | null }) => void;
   /** A value the proposer picked and the person has not changed: a glyph beside it says so, and goes once he changes it. */
   proposed?: { model?: boolean; effort?: boolean };
-  /** Picks drawn on a row of their own between the box and the bar: a held Job's Kind and Lands, which go with the first message. */
-  lead?: ReactNode;
   /** Send's word where it is not Send: a held Job's Start. The glyph stays. */
   sendLabel?: string;
   /** Send works on an empty box: a held Job whose Fleet gave no first message starts on its press alone. */
@@ -292,7 +290,6 @@ export function SessionComposer({
   efforts,
   onTune,
   proposed,
-  lead,
   sendLabel = "Send",
   sendEmpty = false,
   commands,
@@ -642,7 +639,7 @@ export function SessionComposer({
   );
   const said = MODES.find((one) => one.id === mode)!.says;
   return (
-    <form ref={form} className="armada-session-composer" data-bare={bare || undefined} data-starting={lead === undefined ? undefined : ""} onSubmit={submit} onDragOver={(event) => event.preventDefault()} onDrop={onDrop}>
+    <form ref={form} className="armada-session-composer" data-bare={bare || undefined} onSubmit={submit} onDragOver={(event) => event.preventDefault()} onDrop={onDrop}>
       {!open ? null : (
         <div className="armada-mention armada-session-composer__offer" data-below={below ? "" : undefined} id={listId} role="listbox" aria-label={token?.trigger === "/" ? "Skills and commands" : token?.trigger === "#" ? "Tag an issue or pull request" : "Tag a Job or a file"} data-numbered={token?.trigger === "#" ? "" : undefined}>
           {token?.trigger === "/" || token?.trigger === "#"
@@ -680,7 +677,6 @@ export function SessionComposer({
         />
       </div>
       {compact && held ? <div className="armada-session-composer__held">{chips}</div> : null}
-      {lead === undefined ? null : <div className="armada-session-composer__lead">{lead}</div>}
       <div className="armada-session-composer__bar">
         {modeHidden || bare || onMode === undefined ? null : (
           <Pick Glyph={Shield} compact={compact} label={modeLocked ? `${said} The terminal holds it.` : said}>

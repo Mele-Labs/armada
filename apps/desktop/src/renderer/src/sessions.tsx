@@ -1168,7 +1168,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
           </RequestOpen.Provider>
           {docked.pane}
           <CallChip word={callWord(session)} scope={centre} />
-          <div className="sv-dock" data-needs={waits || endShown || failedShown ? "" : undefined} data-open={panelOpen || endOpen} data-end={endOpen ? "" : undefined}>
+          <div className="sv-dock" data-needs={waits || endShown || failedShown ? "" : undefined} data-open={panelOpen || endOpen} data-end={endOpen ? "" : undefined} data-starting={starting === undefined ? undefined : ""}>
           <NeedsYouPanel key={session.id} rows={needs} open={panelOpen} onOpen={(open) => setPanel({ id: session.id, open })} {...(question === undefined ? {} : { question })} judges={judges} />
           {failedShown ? (
             <HandoffBand
@@ -1179,6 +1179,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
             />
           ) : null}
           {endShown && doneProp !== undefined ? <SessionEndBand done={doneProp} open={endOpen} onOpen={(open) => setEndPanel({ id: session.id, open })} /> : null}
+          {session.dead !== undefined || starting === undefined ? null : <div className="sv-start-strip">{starting.lead}</div>}
           {session.dead !== undefined ? null : (
             <SessionComposer
               modeLocked={session.terminal === true}
@@ -1199,7 +1200,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
                 if (tuning.effort !== (session.effort ?? null)) draft.work?.unpick(session.id, "effort");
               }}
               {...(session.work?.proposal?.picked === undefined ? {} : { proposed: { model: session.work.proposal.picked.includes("model"), effort: session.work.proposal.picked.includes("effort") } })}
-              {...(starting === undefined ? {} : { lead: starting.lead, sendLabel: "Start", sendEmpty: session.start?.message === undefined })}
+              {...(starting === undefined ? {} : { sendLabel: "Start", sendEmpty: session.start?.message === undefined })}
               commands={session.terminal === true ? (session.commands ?? []) : hostedCommands(draft.commands)}
               compact={narrow}
               taggable={sessions.filter((one) => one.id !== session.id && one.dead === undefined && one.title !== undefined).map((one): SessionTag => ({ kind: "session", id: one.id, title: one.title! }))}

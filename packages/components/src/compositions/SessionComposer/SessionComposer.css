@@ -80,27 +80,15 @@
   padding: var(--space-2);
 }
 
-.armada-session-composer__bar .armada-select-field,
-.armada-session-composer__lead .armada-select-field {
+.armada-session-composer__bar .armada-select-field {
   flex: none;
 }
 
-.armada-session-composer__bar .armada-select,
-.armada-session-composer__lead .armada-select {
+.armada-session-composer__bar .armada-select {
   height: var(--h-control-sm);
   padding-block: 0;
   font-size: var(--text-xs);
   line-height: var(--leading-xs);
-}
-
-/* A held Job's Kind and Lands: a row of their own, the bar's own selects, each read whole. */
-.armada-session-composer__lead {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-1) var(--space-2);
-  border-top: var(--border-width) solid var(--border-subtle);
 }
 
 .armada-session-composer__chips {
@@ -193,12 +181,6 @@
   flex: 1 1 0;
   min-width: 0;
 }
-
-/* A held Job carries a row of picks as well, so its bar wraps rather than clip: each select keeps the width of its longest option and Start stays whole on the right. */
-.armada-session-composer[data-starting] .armada-session-composer__bar { flex-wrap: wrap; }
-.armada-session-composer[data-starting] .armada-session-composer__bar .armada-select-field { flex: none; }
-.armada-session-composer[data-starting] .armada-session-composer__bar .armada-select { width: auto; }
-.armada-session-composer[data-starting] .armada-session-composer__bar > :last-child { margin-inline-start: auto; }
 
 /* The typing area is a text box that holds tags in its lines. It is the Textarea's own well, two
    lines tall at rest, and it grows with its words to the cap the component sets, then scrolls. */
