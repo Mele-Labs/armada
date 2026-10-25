@@ -148,7 +148,7 @@ fn a_home_in_an_organisation_is_made_through_that_organisation_and_refused_by_na
 
 #[test]
 fn a_home_that_is_there_is_taken_where_the_login_may_push_to_it_and_refused_by_name_where_it_may_not() {
-    let (server, home) = forge(|_| ok(r#"{"permissions":{"admin":false,"push":true,"pull":true}}"#));
+    let (server, home) = forge(|_| ok(r#"{"topics":["armada-home"],"permissions":{"admin":false,"push":true,"pull":true}}"#));
     home.ensured(&at("mele-labs", "kit")).expect("taken");
     assert_eq!(server.seen().len(), 1, "nothing is made, nothing marked: {:?}", server.seen());
 
@@ -171,4 +171,18 @@ fn the_home_found_is_a_marked_repository_owned_by_the_login_or_its_organisation_
 
     let (_, home) = forge(|_| ok(r#"[{"name": "armada-home", "owner": {"login": "stranger"}, "topics": ["armada-home"]}, {"name": "x", "owner": {"login": "nick"}}, {"name": "y", "owner": {"login": "nick"}, "topics": ["rust"]}]"#));
     assert_eq!(home.listed().expect("listed"), None, "another owner's, and ones without the topic, are not its home");
+}
+
+#[test]
+fn a_home_that_is_there_without_the_topic_is_marked_keeping_its_other_topics_so_a_retry_heals_it() {
+    let (server, home) = forge(|seen| match seen.method.as_str() {
+        "GET" => ok(r#"{"topics":["rust"],"permissions":{"admin":false,"push":true,"pull":true}}"#),
+        _ => ok("{}"),
+    });
+    home.ensured(&at("mele-labs", "kit")).expect("taken");
+    let seen = server.seen();
+    let marked = seen.last().expect("marked");
+    assert_eq!((marked.method.as_str(), marked.target.as_str()), ("PUT", "/repos/mele-labs/kit/topics"));
+    assert_eq!(marked.body, r#"{"names":["rust","armada-home"]}"#);
+    assert!(seen.iter().all(|it| it.method != "POST"), "nothing is made: {seen:?}");
 }

@@ -265,7 +265,7 @@ impl HomeRepository for FakeHome {
             let mut repos = held(&self.remote.repos);
             match repos.get(&at) {
                 Some(there) if !there.writable => return Err(HomeFailure::cannot_write(&self.remote.login, place)),
-                Some(_) => {}
+                Some(_) => repos.get_mut(&at).expect("there").marked = true,
                 None => {
                     let own = place.owner.eq_ignore_ascii_case(&self.remote.login);
                     if !own && !held(&self.remote.makes_in).contains(&place.owner.to_lowercase()) {

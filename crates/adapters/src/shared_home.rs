@@ -172,13 +172,15 @@ struct NewRepository<'a> {
 
 #[derive(Serialize)]
 struct Topics<'a> {
-    names: [&'a str; 1],
+    names: Vec<&'a str>,
 }
 
 /// What the forge says of a repository that is there: whether the login may push to it.
 #[derive(Deserialize)]
 struct Existing {
     permissions: Option<Permissions>,
+    #[serde(default)]
+    topics: Vec<String>,
 }
 
 #[derive(Deserialize)]
@@ -273,10 +275,16 @@ impl ForgeHome {
         match self.api.get(&format!("/repos/{owner}/{name}")) {
             Ok(there) => {
                 let existing: Existing = there.decode("a repository").map_err(|why| self.failed(why))?;
-                return match existing.permissions.is_some_and(|it| it.push) {
-                    true => Ok(()),
-                    false => Err(HomeFailure::cannot_write(&self.login, place)),
-                };
+                if !existing.permissions.is_some_and(|it| it.push) {
+                    return Err(HomeFailure::cannot_write(&self.login, place));
+                }
+                // A home made before topics, or whose marking failed, is marked now: setting the
+                // topics replaces them, so the others are sent back with it.
+                if existing.topics.iter().any(|topic| topic == HOME_TOPIC) {
+                    return Ok(());
+                }
+                let names = existing.topics.iter().map(String::as_str).chain([HOME_TOPIC]).collect();
+                return self.marked(place, names);
             }
             Err(ApiFailure::Refused { status: 404, .. }) => {}
             Err(why) => return Err(self.failed(why)),
@@ -298,8 +306,13 @@ impl ForgeHome {
             Err(ApiFailure::Refused { status: 403 | 404, .. }) if !own => return Err(HomeFailure::cannot_make(&self.login, owner)),
             Err(why) => return Err(self.failed(why)),
         }
-        self.api.put(&format!("/repos/{owner}/{name}/topics"), &Topics { names: [HOME_TOPIC] }).map_err(|why| self.failed(why))?;
-        Ok(())
+        self.marked(place, vec![HOME_TOPIC])
+    }
+
+    /// Set the repository's topics to `names`.
+    fn marked(&self, place: &HomePlace, names: Vec<&str>) -> Result<(), HomeFailure> {
+        let path = format!("/repos/{}/{}/topics", place.owner, place.name);
+        self.api.put(&path, &Topics { names }).map(drop).map_err(|why| self.failed(why))
     }
 }
 
