@@ -36,10 +36,13 @@ impl FakeDaemon {
         }
     }
 
-    /// Settle one finding on the kept review, as the engine does, and answer the review.
+    /// Settle one finding on the kept review, as the engine does, and answer the review. A review the plan
+    /// was recorded past still settles; a version the plan never reached is unknown.
     fn settled(&self, subject: &ReviewSubject, finding_id: &str, how: FindingHow) -> Result<AdversarialReview, Refusal> {
-        let mut row = self.plan_of(subject)?;
-        let review = row.plan.as_mut().and_then(|plan| plan.adversarial.as_mut()).ok_or_else(|| finding_unknown(finding_id))?;
+        let ReviewSubject::Plan { session_id, version } = subject;
+        let mut row = self.session_row.lock().expect("session row").clone().filter(|row| &row.id == session_id).ok_or_else(unknown)?;
+        let plan = row.plan.as_mut().filter(|plan| plan.version >= *version).ok_or_else(unknown)?;
+        let review = plan.adversarial.as_mut().filter(|kept| &kept.subject == subject).ok_or_else(|| finding_unknown(finding_id))?;
         let found = review.findings.iter_mut().find(|found| found.id == finding_id).ok_or_else(|| finding_unknown(finding_id))?;
         if found.settled.is_none() {
             found.settled = Some(FindingSettled { how, at: at() });

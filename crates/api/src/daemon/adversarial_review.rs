@@ -20,8 +20,9 @@ pub trait AdversarialReviews: Send + Sync + 'static {
     ) -> impl Future<Output = Result<AdversarialReview, Refusal>> + Send;
 
     /// `send_finding` — a finding goes to the agent as the person's message, and is settled. One already
-    /// settled is answered as it stands. The subject's refusals, and [`Refusal::NotFound`]
-    /// (`fleet.finding_unknown`) for an id the review does not hold.
+    /// settled is answered as it stands, and a review the plan was recorded past still sends: only a start
+    /// is stale. [`Refusal::NotFound`] (`fleet.review_subject_unknown`) for no such Job, no plan or a version
+    /// it never reached, and (`fleet.finding_unknown`) for an id the review kept for the version does not hold.
     fn send_finding(
         self: std::sync::Arc<Self>,
         send: SendFinding,

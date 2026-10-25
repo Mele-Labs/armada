@@ -8,5 +8,5 @@ notes = """
 
 **The finding becomes his message to the agent**, sent before it is settled, so a failed send leaves it waiting. A finding already settled is answered as it stands, with nothing sent twice.
 
-404 `fleet.review_subject_unknown` where no Job has that id or it has no plan, 409 `fleet.review_subject_stale` where `version` is not the plan's current one, and 404 `fleet.finding_unknown` for an id the review does not hold.
+**A review the plan was recorded past still sends**: only a start is refused as stale. 404 `fleet.review_subject_unknown` where no Job has that id, it has no plan or the plan never reached `version`, and 404 `fleet.finding_unknown` for an id the review kept for `version` does not hold.
 """

@@ -6,5 +6,5 @@ description = "Dismiss an adversarial review's finding, telling the Job's agent 
 notes = """
 `POST /adversarial_review/dismiss`, body `DismissFinding`: `subject` and `finding_id`. Since 25 Oct 2026. Answers the `AdversarialReview` with the finding settled `{how: "dismissed", at}`, and `SessionChanged` is published. **The agent is told nothing.** A finding already settled is answered as it stands.
 
-The same 404 `fleet.review_subject_unknown`, 409 `fleet.review_subject_stale` and 404 `fleet.finding_unknown` as `send_finding`.
+The same 404 `fleet.review_subject_unknown` and 404 `fleet.finding_unknown` as `send_finding`, and a review the plan was recorded past dismisses all the same.
 """
