@@ -138,6 +138,11 @@ mod model_downshifting;
 /// The models the harness offers, asked after Fleet is serving.
 pub mod models_read;
 pub mod phone;
+/// An adversarial review of a plan: the three operations Fleet serves for it.
+mod adversarial_serving;
+/// What an adversarial review is shown, and how its answer is read and pinned. Pure.
+pub mod adversarial_review;
+mod adversarial_keeping;
 /// Kit against the shared home, and what this machine syncs. `docs/concepts/kit.md`.
 pub mod home;
 /// Mods: folders on this machine that change how Bridge looks.

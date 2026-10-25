@@ -1,7 +1,7 @@
 // The Sessions Fleet hosts and the ledger of every agent session: reads, and the acts a person takes.
 // A slice imports protocol and screens, never another slice; `../api.ts` and `../bridge.ts` compose them.
 
-import type { ModSessionStarted, StartModSession, StopWatch, WatchSummary } from "@armada/protocol";
+import type { AdversarialReview, DismissFinding, ModSessionStarted, SendFinding, StartAdversarialReview, StartModSession, StopWatch, WatchSummary } from "@armada/protocol";
 import type {
   AnswerSessionAsk,
   AnswerWaiting,
@@ -136,6 +136,12 @@ export type SessionsApi = {
   sendConcern: (send: SendConcern) => Promise<SessionActed>;
   /** Settles a judge's concern. The agent is told nothing. */
   dismissConcern: (dismiss: DismissConcern) => Promise<SessionActed>;
+  /** Starts an adversarial review of a plan, or answers the one kept for it where `again` is not set. Fleet answers the review, not the record: it lands on `plan.adversarial` by `session.changed`. */
+  startAdversarialReview: (start: StartAdversarialReview) => Promise<SessionActed<AdversarialReview>>;
+  /** Sends a finding to the agent as his message, and settles it. Answers the review. */
+  sendFinding: (send: SendFinding) => Promise<SessionActed<AdversarialReview>>;
+  /** Settles a finding. The agent is told nothing. Answers the review. */
+  dismissFinding: (dismiss: DismissFinding) => Promise<SessionActed<AdversarialReview>>;
   /** The model, effort and permission mode the next turn runs on. */
   tuneSession: (tune: TuneSession) => Promise<SessionActed>;
   /** A slash command written in a terminal Session's thread, run in its terminal as typed. Nothing comes back. */
@@ -342,6 +348,9 @@ export const SESSIONS_CHANNELS = {
   judgeSession: "bridge:judge-session",
   sendConcern: "bridge:send-concern",
   dismissConcern: "bridge:dismiss-concern",
+  startAdversarialReview: "bridge:start-adversarial-review",
+  sendFinding: "bridge:send-finding",
+  dismissFinding: "bridge:dismiss-finding",
   tuneSession: "bridge:tune-session",
   runSessionCommand: "bridge:run-session-command",
   renameSession: "bridge:rename-session",

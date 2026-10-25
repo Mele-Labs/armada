@@ -1,5 +1,5 @@
 // A Session that waits on the person for a command run once, with the steps that follow it: the store
-// Worker's first deploy, as session 2ea2e0dd sent it on 15 Oct, then again with a command in each step.
+// Worker's first deploy, as session 2ea2e0dd sent it on 15 Oct, then again with a command in each step, and a third whose commands run from their own keys.
 // Beside them a command with no steps, so they read the same. Over the `sessions` scenario. The walk `needs-you-steps-run` plays it.
 
 import type { Session } from "@armada/screens/src/draft/sessions";
@@ -47,6 +47,18 @@ const waiting: Session = {
         "Copy the workers.dev address it prints",
         "Check it answers: `curl -sf https://armada-store.workers.dev/health`",
         "On each machine, Settings: Store › address = that address",
+      ],
+    },
+    {
+      id: "beads-setup",
+      text: "Put the backlog on this Mac",
+      since: minutesAgo(2),
+      source: "agent",
+      act: { kind: "run", target: "scripts/beads-setup" },
+      steps: [
+        "Fetch main: `git fetch origin`",
+        "Run the store tests, which fail here: `pnpm exec vitest run`",
+        "It ends with a count of the issues on this machine",
       ],
     },
     { id: "store-tests", text: "Run the store tests", since: minutesAgo(3), source: "agent", act: { kind: "run", target: "pnpm -C apps/store test" } },

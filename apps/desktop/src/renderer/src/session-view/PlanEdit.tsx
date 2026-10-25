@@ -3,10 +3,11 @@
 // (`plan-marks.ts`) and goes to the agent together when he presses Send changes, so the agent can answer each one. The same pieces are
 // the review overlay's and the Plan panel's once the plan is approved.
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import type { DragEvent, KeyboardEvent } from "react";
 import { Bot, GraduationCap, MessageSquarePlus, MessageSquare, Pencil, Plus, Send, Trash2, Undo2, X } from "lucide-react";
-import { Button, Input, Select, TaskMark, Textarea, Tooltip } from "@armada/components";
+import { Button, FindingNotes, Input, Select, TaskMark, Textarea, Tooltip } from "@armada/components";
+import type { Anchors, FindingActs } from "@armada/components";
 import type { PlanMark, WorkPlan } from "@armada/screens/src/draft/sessions";
 
 import { useTeach } from "../teach";
@@ -17,6 +18,9 @@ export type PlanEditing = { id: string; plan: WorkPlan; marks: readonly PlanMark
 
 /** The subagent types a group can be handed to. */
 const AGENTS = ["rust-engineer", "bridge-engineer", "protocol-engineer", "fixture-author", "judge", "general-purpose"];
+
+/** An adversarial review's findings by what they are about, and their acts. Drawn under the group or task each names. */
+export type FindingPins = { anchors: Anchors } & FindingActs;
 
 const key = (ed: PlanEditing, what: string) => `plan-note:${ed.id}:${what}`;
 
@@ -231,7 +235,7 @@ function AddTask({ group, ed }: { group: ViewGroup; ed: PlanEditing }) {
  * A group, edited in place: its subagent type, its title, the glyphs for a note and for removing it, then its paths and its tasks,
  * which take a drop from another group. Drawn open, as the overlay draws a group and as the panel does under a group's row.
  */
-export function GroupEditor({ group, ed, head = true }: { group: ViewGroup; ed: PlanEditing; head?: boolean }) {
+export function GroupEditor({ group, ed, head = true, pins }: { group: ViewGroup; ed: PlanEditing; head?: boolean; pins?: FindingPins }) {
   const [noting, setNoting] = useState(false);
   // Without its head, the title and subagent type open behind a pencil, and stay open while either carries an edit.
   const [editing, setEditing] = useState(false);
@@ -296,6 +300,7 @@ export function GroupEditor({ group, ed, head = true }: { group: ViewGroup; ed: 
           }}
         />
       ) : null}
+      {pins === undefined ? null : <FindingNotes findings={pins.anchors.at(group.id)} label={`Findings on ${group.title}`} onSend={pins.onSend} onDismiss={pins.onDismiss} />}
       {group.paths.length === 0 ? null : (
         <ul className="sv-scope" aria-label="Paths">
           {group.paths.map((path) => (
@@ -307,7 +312,14 @@ export function GroupEditor({ group, ed, head = true }: { group: ViewGroup; ed: 
       )}
       <ul className="sv-tasks">
         {group.tasks.map((task) => (
-          <TaskRow key={task.id} task={task} group={group} ed={ed} />
+          <Fragment key={task.id}>
+            <TaskRow task={task} group={group} ed={ed} />
+            {pins === undefined || pins.anchors.at(task.id).length === 0 ? null : (
+              <li className="sv-task__findings">
+                <FindingNotes findings={pins.anchors.at(task.id)} label={`Findings on ${task.text}`} onSend={pins.onSend} onDismiss={pins.onDismiss} />
+              </li>
+            )}
+          </Fragment>
         ))}
         {group.gone.map((text) => (
           <li key={text} className="sv-task sv-task--gone">

@@ -150,6 +150,8 @@ mod repositories;
 mod requester;
 /// Requests: an HTTP request the owner or an agent sends, its collections and environments.
 mod requests;
+/// An adversarial review: a read-only call that tries to break what a person is about to approve.
+mod adversarial_review;
 /// What an agent says about one pull request, and the review tools it is asked with.
 mod review_runs;
 /// Natural Search, and where a change runs for the Walk tool.
@@ -473,6 +475,10 @@ pub use run_memory::{
 pub use session_import::{
     ImportFolder, ImportFolders, ImportGit, ImportRuns, InstallAgentMod, ModInstallStep, ModInstalled, RunFact,
     RunFactKind,
+};
+pub use adversarial_review::{
+    AdversarialFinding, AdversarialReview, AdversarialReviewState, DismissFinding, FindingAnchor, FindingHow,
+    FindingSettled, ReviewSubject, SendFinding, StartAdversarialReview,
 };
 pub use review_runs::{
     PullReviewHolder, ReviewChange, ReviewFinding, ReviewImpact, ReviewLink, ReviewPlace,
