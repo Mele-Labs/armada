@@ -25,6 +25,7 @@ mod helm_tells;
 mod hosted_sessions;
 mod door_receipts;
 mod accounts;
+mod adversarial_review;
 mod building;
 mod flight_controls;
 mod sharing;

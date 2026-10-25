@@ -171,6 +171,7 @@ where
             context: store.session_context(&session.id).map_err(fault)?,
             loadout: crate::loadout_keeping::summary_read(store, &session.id).map_err(fault)?,
             plan: store.session_plan(&session.id).map_err(fault)?,
+            adversarial: store.latest_adversarial_review(&session.id).map_err(fault)?,
             touches: store.session_touches(&session.id).map_err(fault)?,
             later: store.later_of(&session.id).map_err(fault)?,
             watching: store.first_live_watch_name(&session.id).map_err(fault)?,
@@ -251,7 +252,11 @@ where
         let plan_held = waited.plan_held;
         record.standing = (session.state == store::SessionState::Live).then_some(waited.standing);
         record.build = reads.build.record(record.standing == Some(ipc::SessionStanding::Stuck), workers_of(&record.attachments));
-        record.plan = reads.plan.as_ref().map(|kept| ipc::SessionPlan { held_by: plan_held, ..crate::plan_record::wire(kept) });
+        let adversarial = reads.adversarial.as_ref().map(|kept| self.adversarial_on_record(&session.id, kept));
+        record.plan = reads
+            .plan
+            .as_ref()
+            .map(|kept| ipc::SessionPlan { held_by: plan_held, adversarial, ..crate::plan_record::wire(kept) });
         record.touches = crate::plan_keeping::touches_wire(reads.touches);
         record.settled = settled;
         record.later = reads

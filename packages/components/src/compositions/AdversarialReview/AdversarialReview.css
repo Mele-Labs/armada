@@ -1,0 +1,169 @@
+/* An adversarial review: the press, and the findings it brings. Tokens only; state is a mark with a tooltip,
+   a finding's acts sit in one column so a list of them reads down, and a finding acted on is one muted line. */
+
+.armada-adversarial__press {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.armada-adversarial__mark {
+  display: inline-flex;
+  color: var(--fg-muted);
+}
+
+.armada-adversarial__mark[data-turning] > svg {
+  animation: armada-adversarial-turn var(--duration-pulse) linear infinite;
+}
+
+@keyframes armada-adversarial-turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-adversarial__mark[data-turning] > svg {
+    animation: none;
+  }
+}
+
+/* A finding is a note laid on the plan, never a line of it: its own tinted surface and frame, in the hue a judge's
+   concern carries, so the eye finds every objection before it reads the plan around them. */
+.armada-adversarial__finding {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-3);
+  scroll-margin-block: var(--space-3);
+  border: var(--border-width) solid color-mix(in srgb, var(--status-piloted) 45%, transparent);
+  border-radius: var(--radius-md);
+  background: var(--status-piloted-bg);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--bg-base) 60%, transparent);
+}
+
+.armada-adversarial__finding .armada-session-thread__claim-head {
+  color: var(--status-piloted);
+}
+
+.armada-adversarial__finding:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.armada-adversarial__finding:focus-within {
+  border-color: var(--status-piloted);
+}
+
+.armada-adversarial__claim {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+/* The card's footer: a hairline in the card's own hue, then the two acts. */
+.armada-adversarial__acts {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: var(--border-width) solid color-mix(in srgb, var(--status-piloted) 30%, transparent);
+}
+
+.armada-adversarial__acts > span {
+  display: flex;
+}
+
+.armada-adversarial__settled {
+  display: grid;
+  grid-template-columns: var(--space-4) minmax(0, 1fr);
+  align-items: center;
+  column-gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border-top: var(--border-width) solid var(--border-default);
+  color: var(--fg-subtle);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+.armada-adversarial__settled-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.armada-adversarial__failed {
+  margin: 0;
+  padding: var(--space-2);
+  border-top: var(--border-width) solid var(--border-default);
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+/* Findings pinned to the plan. One mechanism, wherever they sit: a hairline down the edge of the notes ties them to the thing above,
+   and indent says which. A task is its mark and words; its findings hang under the words. */
+
+.armada-adversarial__notes {
+  display: flex;
+  flex-direction: column;
+  align-self: stretch;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  gap: var(--space-2);
+}
+
+.armada-adversarial__notes > li {
+  border-top: 0;
+}
+
+.armada-adversarial__given {
+  min-width: 0;
+}
+
+/* The mark's column is as wide as the mark, so it ends every row at the same edge. */
+.armada-adversarial__given-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--h-control-sm);
+  align-items: center;
+  column-gap: var(--space-2);
+}
+
+.armada-adversarial__given-row > span:last-child:not(:first-child) {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.armada-adversarial__anchored {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  margin-block: var(--space-1) var(--space-2);
+}
+
+.armada-adversarial__task {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.armada-adversarial__task-line {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+}
+
+.armada-adversarial__task > .armada-adversarial__notes {
+  margin-inline-start: calc(var(--space-3) + var(--space-2));
+}

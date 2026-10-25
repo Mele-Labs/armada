@@ -32,7 +32,7 @@
 #   shortcut    - the binding, as the contract's map spells it
 #   scope       - where the binding is offered: anywhere | list |
 #                 list and detail | open studio | dashboard | deck | review | call |
-#                 logbook | issues
+#                 logbook | issues | plan
 #   destructive - whether it ends or overrules a record
 #   confirms    - whether it takes a confirmation. Destructive implies it
 #   unbuilt     - the issue that builds the act, on a row Bridge cannot answer
@@ -735,3 +735,50 @@ scope = "logbook"
 destructive = true
 confirms = true
 notes = "Puts the selected Logbook entry on the deny list, so no later Job brings it back. Asks first, since nothing undoes it. `f` and not Backspace, which the text box in place takes. Added 22 Oct 2026 with the mock walk `logbook`."
+
+[actions.plan_adversarial_review]
+kind = "Action"
+tier = "Contextual"
+verb = "Adversarial review"
+icon = ""
+icon_absent = "undecided"
+shortcut = "r"
+scope = "plan"
+destructive = false
+confirms = false
+notes = "Starts an adversarial review of the plan waiting on the card, or runs it again where one failed or read an older version. Answered wherever focus is on the plan card. `POST /adversarial_review`; the review lands on the plan by `session.changed`. Fleet refusing it is drawn on the card in Fleet's words. Lower case like every bare letter on a call: the mock drew it `R` and took either. Added 25 Oct 2026 with the mock walk `adversarial-review-in-plan`."
+
+[actions.finding_move]
+kind = "Motion"
+tier = "Contextual"
+verb = "Move between findings"
+icon = ""
+shortcut = "j / k / ↓ / ↑"
+scope = "plan"
+destructive = false
+confirms = false
+notes = "Moves focus to the next or the last finding not yet acted on, in the order the plan draws them: under the summary, under a group, under a task. The same on the card and in the plan in full. A list's own keys, kept apart from `move_focus` so Settings can move them on their own."
+
+[actions.finding_send]
+kind = "Action"
+tier = "Contextual"
+verb = "Send to agent"
+icon = ""
+icon_absent = "undecided"
+shortcut = "Enter"
+scope = "plan"
+destructive = false
+confirms = false
+notes = "Sends the finding in focus to the agent as the person's message, and focus passes to the next. `POST /adversarial_review/send`. The finding folds to one muted line."
+
+[actions.finding_dismiss]
+kind = "Action"
+tier = "Contextual"
+verb = "Dismiss"
+icon = ""
+icon_absent = "undecided"
+shortcut = "d / Backspace"
+scope = "plan"
+destructive = false
+confirms = false
+notes = "Settles the finding in focus with the agent told nothing, and focus passes to the next. `POST /adversarial_review/dismiss`. Not destructive: the finding stays on the plan as one muted line."
