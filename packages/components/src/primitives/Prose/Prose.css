@@ -68,7 +68,9 @@
   color: var(--fg-subtle);
 }
 
+/* The list sits in from the column's edge, so its markers do not stand against it. */
 .armada-prose__list {
+  margin-inline-start: var(--space-4);
   padding-left: var(--space-4);
   list-style: disc;
 }

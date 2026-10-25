@@ -90,6 +90,7 @@ function RepositoryScope({ props }: { props: CockpitProps }) {
   const repositories = props.state.holds.repositories ?? [];
   const pick = props.onPickRepository;
   const add = props.onAddRepository;
+  const create = props.onNewProject;
   if (props.onGoTo === undefined && (repositories.length === 0 || pick === undefined)) return null;
   return (
     <div className="deck-scope">
@@ -99,6 +100,7 @@ function RepositoryScope({ props }: { props: CockpitProps }) {
           picked={props.picked}
           onPick={(root) => pick(root)}
           onAdd={add}
+          onNew={create}
         />
       )}
       {props.onGoTo === undefined ? null : (
