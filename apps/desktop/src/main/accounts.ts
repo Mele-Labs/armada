@@ -59,6 +59,10 @@ export class AccountsHost {
     return await this.act<HomeKinds>("POST", "/shared_home/kinds/set", { login, kind, on });
   }
 
+  async setHomeRepository(login: string, owner: string, name: string): Promise<AccountsActed<SharedHomeRead>> {
+    return await this.act<SharedHomeRead>("POST", "/shared_home/repository", { login, owner, name });
+  }
+
   private async act<T>(method: "GET" | "POST", path: string, body?: unknown): Promise<AccountsActed<T>> {
     const port = this.port();
     if (port === null) return { ok: false, outcome: NOT_CONNECTED };
