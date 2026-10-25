@@ -26,6 +26,7 @@ const accounts = {
   chooseSharedHomeSide: said("choose"),
   homeKinds: said("kinds"),
   setHomeKind: said("set"),
+  setHomeRepository: said("repository"),
 };
 const connected = { accounts } as unknown as FleetConnection;
 const unread = { ok: false, outcome: { ok: false, why: "not_understood" } };
@@ -42,6 +43,7 @@ describe("the shared home's channels", () => {
     await handlers.get(CHANNELS.chooseSharedHomeSide)?.({}, { login: "nickmele", kind: "mods", name: "dusk" }, "there");
     await handlers.get(CHANNELS.getHomeKinds)?.({}, "nickmele");
     await handlers.get(CHANNELS.setHomeKind)?.({}, "nickmele", "mods", true);
+    await handlers.get(CHANNELS.setHomeRepository)?.({}, "nickmele", "mele-labs", "armada-home");
     expect(called).toEqual([
       'read ["nickmele"]',
       'sync ["nickmele"]',
@@ -50,6 +52,7 @@ describe("the shared home's channels", () => {
       'choose [{"login":"nickmele","kind":"mods","name":"dusk"},"there"]',
       'kinds ["nickmele"]',
       'set ["nickmele","mods",true]',
+      'repository ["nickmele","mele-labs","armada-home"]',
     ]);
   });
 
@@ -62,6 +65,7 @@ describe("the shared home's channels", () => {
     expect(await handlers.get(CHANNELS.bringFromSharedHome)?.({}, null)).toEqual(unread);
     expect(await handlers.get(CHANNELS.chooseSharedHomeSide)?.({}, { login: "nickmele", kind: "mods", name: "dusk" }, "both")).toEqual(unread);
     expect(await handlers.get(CHANNELS.setHomeKind)?.({}, "nickmele", "mods", "yes")).toEqual(unread);
+    expect(await handlers.get(CHANNELS.setHomeRepository)?.({}, "nickmele", "", "armada-home")).toEqual(unread);
     expect(called).toEqual([]);
   });
 

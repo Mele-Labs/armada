@@ -1,0 +1,12 @@
+[operations.send_finding]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Send an adversarial review's finding to the Job's agent as the person's message"
+notes = """
+`POST /adversarial_review/send`, body `SendFinding`: `subject` and `finding_id`. Since 25 Oct 2026. Answers the `AdversarialReview` with the finding settled `{how: "sent", at}`, and `SessionChanged` is published.
+
+**The finding becomes his message to the agent**, sent before it is settled, so a failed send leaves it waiting. A finding already settled is answered as it stands, with nothing sent twice.
+
+**A review the plan was recorded past still sends**: only a start is refused as stale. 404 `fleet.review_subject_unknown` where no Job has that id, it has no plan or the plan never reached `version`, and 404 `fleet.finding_unknown` for an id the review kept for `version` does not hold.
+"""

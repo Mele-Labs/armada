@@ -6,6 +6,8 @@
 // Fleet's observation: a task's state is read off the agent's task list and the edits Fleet saw under
 // its group's paths.
 
+import type { AdversarialReview } from "./adversarial-review";
+
 /** Where one task stands. `handed_in` is done by the agent's word with no edit seen under its group's paths. */
 export type PlanTaskState = "open" | "working" | "handed_in" | "done" | "failed";
 
@@ -64,6 +66,8 @@ export type SessionPlan = {
   sketch?: PlanSketch;
   /** The windows that keep a pending plan from being put to the person. Absent when none does. */
   held_by?: PlanHold[];
+  /** The latest adversarial review of this plan, whatever version it read. Out of date when its `subject.version` is not `version`. */
+  adversarial?: AdversarialReview;
 };
 
 /** A window that holds a pending plan back, and why: what settles it. */

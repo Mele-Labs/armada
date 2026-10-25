@@ -476,12 +476,18 @@ A mod that is not valid here is not added.
 A scrubbed copy would read as differing from the original for good, and the person would be shown a file that is not theirs.
 The refusal names the host and never the value.
 
-**Sync makes the repository.** The first Sync creates `<gh login>/armada-home` as a private repository, through `gh`, acting as the profile's login.
+**Sync makes the repository.** The first Sync creates the home where the person chose, `<login>/armada-home` until they choose, as a private repository through the forge's API with `gh`'s token for the profile's login.
+Fleet marks it with the topic `armada-home` as it makes it, so another Mac can find it.
 
 **The person chooses where it is made, before it exists.** The owner is the login or one of its organisations, and the name starts as `armada-home`; the Sync bar's chip, `Home: <owner>/<name>`, opens both, and the Account page's step and Shared home row echo the choice.
+Fleet keeps the choice in this machine's store, a profile at a time, and refuses an owner that is neither the login nor one of its organisations, or a name the forge would not take.
 Once the home exists it is shown and not changed; moving an existing home is out of scope.
-**Not built:** the choice is drawn in the mock only, and Fleet's make step still creates `<gh login>/armada-home`.
+
+**A Mac with no copy finds a home made on another.** Where nothing is chosen here yet, Fleet asks the forge once a run, as the profile's login, for a repository with the `armada-home` topic under the login or one of its organisations.
+One found is the choice: the chip shows it as made, and Sync clones it.
+
 Where `gh` does not hold that login, Sync refuses and names `gh auth login`.
+Where an organisation will not let the login make the repository, or the repository exists and the login cannot push to it, Sync refuses in a sentence naming both and what to choose instead.
 Git runs over HTTPS with `gh`'s own credential, never SSH.
 
 **Sync also adds.** Once the copy here is up to date, Sync adds every row only on this machine, of each kind switched on, to the home in one commit and one push.

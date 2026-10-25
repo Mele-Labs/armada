@@ -254,6 +254,9 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/sessions/judge", post(crate::sessions::judge_session::<D>))
         .route("/sessions/judge/send", post(crate::sessions::send_concern::<D>))
         .route("/sessions/judge/dismiss", post(crate::sessions::dismiss_concern::<D>))
+        .route("/adversarial_review", post(crate::adversarial_review::start_adversarial_review::<D>))
+        .route("/adversarial_review/send", post(crate::adversarial_review::send_finding::<D>))
+        .route("/adversarial_review/dismiss", post(crate::adversarial_review::dismiss_finding::<D>))
         .route(
             "/sessions/window/ask",
             post(crate::sessions::ask_in_window::<D>),
@@ -529,6 +532,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/shared_home/choose", post(crate::homing::choose_shared_home_side::<D>))
         .route("/shared_home/kinds", get(crate::homing::get_home_kinds::<D>))
         .route("/shared_home/kinds/set", post(crate::homing::set_home_kind::<D>))
+        .route("/shared_home/repository", post(crate::homing::set_home_repository::<D>))
         .route("/health", get(get_health::<D>))
         .route("/manifests/:manifest_id", get(get_manifest::<D>))
         .route("/events/since", get(get_events_since::<D>))

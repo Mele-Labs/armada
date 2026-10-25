@@ -12,6 +12,9 @@ export const ALL = "";
 /** No root is ever this, so it cannot collide with one. */
 export const ADD = "add-repository";
 
+/** No root is ever this either. */
+export const NEW = "new-project";
+
 /**
  * Past this many repositories the picker leads with the last few picked. Below it the list is short
  * enough to read and a Recent group would only repeat it. The filter field has no such floor: the
@@ -39,13 +42,15 @@ export function repositoryEntries(
     all?: string;
     /** Add a repository, last, below a rule. */
     add?: boolean;
+    /** New project, above Add a repository. */
+    create?: boolean;
     /** A repository a Job cannot start in (no Manifest and no `implicit_id`) is listed and cannot be picked — New job's, #959. */
     onlySetUp?: boolean;
     /** Roots picked last, newest first. Led with only where the picker is searchable. */
     recent?: readonly string[];
   },
 ): DropdownMenuEntry[] {
-  const { scope, all, add = false, onlySetUp = false, recent = [] } = options;
+  const { scope, all, add = false, create = false, onlySetUp = false, recent = [] } = options;
   const setUp = repositories.filter((one) => one.manifest !== undefined);
   const loose = repositories.filter((one) => one.manifest === undefined);
   const item = (repo: RepositorySummary, id = repo.root): DropdownMenuEntry => ({
@@ -75,9 +80,8 @@ export function repositoryEntries(
     entries.push({ kind: "label", id: "not-set-up", label: "Not set up" });
     entries.push(...loose.map((repo) => item(repo)));
   }
-  if (add) {
-    entries.push({ kind: "separator", id: "add-repository-rule" });
-    entries.push({ kind: "item", id: ADD, label: "Add a repository" });
-  }
+  if (add || create) entries.push({ kind: "separator", id: "add-repository-rule" });
+  if (create) entries.push({ kind: "item", id: NEW, label: "New project" });
+  if (add) entries.push({ kind: "item", id: ADD, label: "Add a repository" });
   return entries;
 }

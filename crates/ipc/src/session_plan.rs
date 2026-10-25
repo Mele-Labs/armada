@@ -385,6 +385,10 @@ pub struct SessionPlan {
     /// The windows that keep a pending plan from being put to the person, each with what settles it.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub held_by: Vec<PlanHold>,
+    /// The latest adversarial review of this Job's plan, whatever version it read. A reader marks it out of
+    /// date when its subject's `version` is not this plan's.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub adversarial: Option<crate::AdversarialReview>,
 }
 
 /// A window that holds a pending plan back.

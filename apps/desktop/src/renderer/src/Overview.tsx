@@ -35,6 +35,7 @@ export function Overview({
   bayActs,
   onPickRepository,
   onAddRepository,
+  onNewProject,
   onGoTo,
   onOpenCheck,
   onOpenLoadout,
@@ -66,6 +67,7 @@ export function Overview({
   /** Picks a repository, as the title row's picker does: Autopilot's control asks for one on All. */
   onPickRepository?: Hosts["onPickRepository"];
   onAddRepository?: Hosts["onAddRepository"];
+  onNewProject?: Hosts["onNewProject"];
   onGoTo?: Hosts["onGoTo"];
   onOpenCheck?: Hosts["onOpenCheck"];
   onOpenLoadout?: Hosts["onOpenLoadout"];
@@ -109,6 +111,7 @@ export function Overview({
               bayActs={bayActs}
               onPickRepository={onPickRepository}
               onAddRepository={onAddRepository}
+              onNewProject={onNewProject}
               onGoTo={onGoTo}
             />
           </PowerContext.Provider>

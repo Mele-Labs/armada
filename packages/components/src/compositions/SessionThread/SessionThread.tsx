@@ -1,4 +1,4 @@
-import { useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent, MouseEvent as ReactMouseEvent, ReactNode, Ref, RefObject } from "react";
 import { AppWindow, ArrowRight, BadgeCheck, BellRing, Bot, Check, ChevronDown, ChevronRight, ChevronUp, File, GitBranch, GitPullRequest, KeyRound, Layers, ListChecks, LoaderCircle, MessageSquare, MoveRight, Pencil, Play, Plus, Reply, Scale, Server, Smartphone, SquareTerminal, Trash2, Wrench, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -30,6 +30,11 @@ import { FORK_ROW, ForkFromSelection } from "../ForkFromSelection/ForkFromSelect
 import type { ForkPick } from "../ForkFromSelection/ForkFromSelection";
 import { SessionRetroRow, type SessionRetroRowData } from "../SessionRetroRow/SessionRetroRow";
 import { QuestionDeck } from "./QuestionDeck";
+import { ConcernClaim } from "./ConcernClaim";
+import { AdversarialReviewPress, ReviewFailed, findingsOf } from "../AdversarialReview/AdversarialReview";
+import { FindingNotes, GivesRow, GroupFindings, anchorsOf, useFindingKeys } from "../AdversarialReview/AnchoredFindings";
+import { isPressed } from "../../keymap";
+import type { AdversarialReviewProps } from "../AdversarialReview/AdversarialReview";
 import { LinkedRow } from "./LinkedRow";
 import { DisputedMark, DisputedRow } from "./DisputedRow";
 import { FleetTurn, noticeEntries } from "./FleetTurn";
@@ -268,6 +273,12 @@ export type PlanApproval = {
   changes?: readonly { kind: "added" | "renamed" | "removed"; text: string; from?: string }[];
   /** A later version drawn with what changed marked in place and the groups nothing touched closed to a line. Absent, the card draws the plan whole. */
   revision?: PlanRevision;
+  /**
+   * An adversarial review of this plan. The press stands in the answers row, and the findings are pinned to the plan: a finding about the
+   * whole plan under the summary, a group's under its line, a task's under the task, inside the group that holds it. A failed review's
+   * words stand between the plan and its answers.
+   */
+  adversarial?: AdversarialReviewProps;
   /** A sketch drawn with the plan, shown under the groups as a sketch card is and opened as one is. */
   sketch?: { id: string; title: string; scene: Scene };
   onApprove: () => void;
@@ -1182,11 +1193,22 @@ function PlanCard({ approval }: { approval: PlanApproval }) {
   const stateSaid = approval.going === true ? "Sending" : approved ? "Plan approved" : aside ? "Plan set aside" : "Plan waiting for approval";
   const StateGlyph = approval.going === true ? LoaderCircle : approved ? BadgeCheck : BellRing;
   const review = onReview === undefined || folded ? undefined : { tabIndex: 0, "data-reviewable": "", onClick: (event: ReactMouseEvent<HTMLElement>) => { if ((event.target as Element).closest("button") === null) onReview(); }, onKeyDown: (event: KeyboardEvent<HTMLElement>) => { if (event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); onReview(); } } };
-  // U opens the unchanged groups of a revision, or closes them all, wherever focus is on the card.
+  const adversarial = approved ? undefined : approval.adversarial;
+  const findingsHere = adversarial !== undefined && findingsOf(adversarial.review).length > 0;
+  // Pinned to the plan: which finding is about what, and the keys that run down them wherever they stand.
+  const pinned = adversarial !== undefined && !folded;
+  const anchors = pinned && adversarial !== undefined ? anchorsOf(adversarial.review, approval.groups.flatMap((group) => [group.id, ...group.tasks.map((task) => task.id)])) : undefined;
+  const keys = useFindingKeys(adversarial?.review, { onSend: (id) => adversarial?.onSend(id), onDismiss: (id) => adversarial?.onDismiss(id) });
+  const acts = { onSend: keys.send, onDismiss: keys.dismiss };
+  // U opens the unchanged groups of a revision, or closes them all; the registry's `plan_adversarial_review` runs an adversarial review (or runs it again); wherever focus is on the card.
   const onKeys = (event: KeyboardEvent<HTMLElement>) => {
-    if (!folded && event.key === "u" && !event.metaKey && !event.ctrlKey && !event.altKey) {
+    const plain = !event.metaKey && !event.ctrlKey && !event.altKey;
+    if (!folded && revising && event.key === "u" && plain) {
       event.preventDefault();
       unchanged.toggleAll();
+    } else if (!folded && adversarial !== undefined && isPressed("plan_adversarial_review", event) && (adversarial.review.state === "idle" || adversarial.review.state === "failed" || adversarial.review.state === "stale")) {
+      event.preventDefault();
+      adversarial.onRun();
     } else review?.onKeyDown(event);
   };
   const groups = (
@@ -1214,13 +1236,14 @@ function PlanCard({ approval }: { approval: PlanApproval }) {
               ))}
             </span>
           )}
+          {anchors === undefined || plain ? null : <GroupFindings group={group} anchors={anchors} {...acts} />}
         </li>
       ))}
     </ul>
   );
   const technical = revising ? <PlanRevisionView revision={approval.revision!} unchanged={unchanged} /> : groups;
   return (
-    <Card flat className="armada-session-thread__ask armada-session-thread__plan" role="article" aria-label={approved ? "Plan approved" : aside ? "Plan set aside" : "Plan to approve"} data-approved={approved || undefined} data-aside={aside || undefined} data-folded={folded || undefined} {...review} {...(revising ? { onKeyDown: onKeys } : {})}>
+    <Card flat className="armada-session-thread__ask armada-session-thread__plan" role="article" aria-label={approved ? "Plan approved" : aside ? "Plan set aside" : "Plan to approve"} data-approved={approved || undefined} data-aside={aside || undefined} data-folded={folded || undefined} data-findings={findingsHere || undefined} {...review} {...(revising || adversarial !== undefined ? { onKeyDown: onKeys } : {})}>
       <div className="armada-session-thread__plan-head">
         <button type="button" className="armada-session-thread__plan-band" aria-expanded={!folded} aria-label={aside ? "Plan set aside" : "Plan"} onClick={() => setFolded(!folded)}>
           <ListChecks size={12} strokeWidth={2} aria-hidden />
@@ -1260,27 +1283,36 @@ function PlanCard({ approval }: { approval: PlanApproval }) {
           ))}
         </ul>
       )}
-      <div className="armada-session-thread__plan-body">
+      <div className="armada-session-thread__plan-body" {...(pinned ? keys.bind : {})}>
         {plain ? (
           <div className="armada-session-thread__plain">
             <p className="armada-session-thread__plan-summary">{approval.summary}</p>
+            {anchors === undefined ? null : <FindingNotes findings={anchors.whole} label="Findings on the plan" {...acts} />}
             <ul className="armada-session-thread__gives" aria-label="What each group gives">
-              {approval.groups.map((group) => (
-                <li key={group.id}>{group.gives ?? group.title}</li>
-              ))}
+              {approval.groups.map((group) => (anchors === undefined ? <li key={group.id}>{group.gives ?? group.title}</li> : <GivesRow key={group.id} text={group.gives ?? group.title} group={group} anchors={anchors} {...acts} />))}
             </ul>
             <Button size="sm" variant="ghost" aria-expanded={detailed} onClick={() => setDetailed(!detailed)}>
               {detailed ? "Show less" : "Details"}
             </Button>
             {detailed ? technical : null}
           </div>
-        ) : technical}
+        ) : anchors === undefined ? technical : (
+          <div className="armada-session-thread__pinned">
+            <FindingNotes findings={anchors.whole} label="Findings on the plan" {...acts} />
+            {technical}
+          </div>
+        )}
         {approval.sketch === undefined ? null : (
           <ul className="armada-session-thread__sketch">
             <SketchRow row={{ id: approval.sketch.id, at: "", kind: "sketch", sketch: approval.sketch.id, title: approval.sketch.title, drawing: approval.sketch.scene }} onOpen={() => onReview?.()} />
           </ul>
         )}
       </div>
+      {adversarial?.review.state !== "failed" ? null : (
+        <div className="armada-session-thread__plan-review" onClick={(event) => event.stopPropagation()}>
+          <ReviewFailed said={adversarial.review.said} />
+        </div>
+      )}
       {approved ? null : (
         <div className="armada-session-thread__answers" role="group" aria-label="Answers">
           <Button size="sm" variant="primary" onClick={approval.onApprove}>
@@ -1291,63 +1323,12 @@ function PlanCard({ approval }: { approval: PlanApproval }) {
               Not yet
             </Button>
           )}
+          {adversarial === undefined ? null : <AdversarialReviewPress review={adversarial.review} onRun={adversarial.onRun} {...(adversarial.shortcut === undefined ? {} : { shortcut: adversarial.shortcut })} />}
         </div>
       )}
         </>
       )}
     </Card>
-  );
-}
-
-/**
- * A judge's concern as a claim to read: the consequence over everything, then what was expected and what was found, each a label and a
- * sentence clamped to two lines with a More press for the rest. A concern kept without its parts is its `text`, a line to a paragraph.
- */
-function ConcernClaim({ concern }: { concern: ThreadConcern }) {
-  const { expected, produced, consequence } = concern;
-  if (expected === undefined && produced === undefined && consequence === undefined) {
-    return (
-      <div className="armada-session-thread__claim">
-        {concern.text.split("\n").filter((line) => line.trim() !== "").map((line, at) => (
-          <p key={at} className="armada-session-thread__claim-text">{line}</p>
-        ))}
-      </div>
-    );
-  }
-  return (
-    <div className="armada-session-thread__claim">
-      {consequence === undefined ? null : <p className="armada-session-thread__claim-head">{consequence}</p>}
-      {expected === undefined ? null : <ClaimRow label="Expected" text={expected} />}
-      {produced === undefined ? null : <ClaimRow label="Found" text={produced} />}
-    </div>
-  );
-}
-
-function ClaimRow({ label, text }: { label: string; text: string }) {
-  const value = useRef<HTMLParagraphElement>(null);
-  const [open, setOpen] = useState(false);
-  const [clamped, setClamped] = useState(false);
-  const id = useId();
-  // More is offered only where the two lines leave words out: measured while it is closed, kept while it is open.
-  useLayoutEffect(() => {
-    const one = value.current;
-    if (one === null || open) return;
-    const measure = () => setClamped(one.scrollHeight > one.clientHeight + 1);
-    measure();
-    const watch = new ResizeObserver(measure);
-    watch.observe(one);
-    return () => watch.disconnect();
-  }, [text, open]);
-  return (
-    <div className="armada-session-thread__claim-row">
-      <span className="armada-session-thread__eyebrow">{label}</span>
-      <p ref={value} id={id} className="armada-session-thread__claim-text" data-open={open || undefined}>{text}</p>
-      {clamped || open ? (
-        <Button size="sm" variant="ghost" aria-expanded={open} aria-controls={id} aria-label={`${open ? "Less" : "More"} of ${label.toLowerCase()}`} onClick={() => setOpen(!open)}>
-          {open ? "Less" : "More"}
-        </Button>
-      ) : null}
-    </div>
   );
 }
 
@@ -1417,15 +1398,6 @@ export function ConcernCard({ concern: one, onSend, onDismiss, bare }: { concern
         </div>
       ) : null}
       <ConcernClaim concern={one} />
-      {one.cites === undefined || one.cites.length === 0 ? null : (
-        <ul className="armada-session-thread__cites" aria-label="Cites">
-          {one.cites.map((path) => (
-            <li key={path}>
-              <code>{path}</code>
-            </li>
-          ))}
-        </ul>
-      )}
       <div className="armada-session-thread__answers" role="group" aria-label="Answers">
         <Tooltip label="Goes to the agent as your message">
           <Button size="sm" variant="secondary" onClick={onSend}>

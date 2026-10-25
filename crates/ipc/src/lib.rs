@@ -150,6 +150,8 @@ mod repositories;
 mod requester;
 /// Requests: an HTTP request the owner or an agent sends, its collections and environments.
 mod requests;
+/// An adversarial review: a read-only call that tries to break what a person is about to approve.
+mod adversarial_review;
 /// What an agent says about one pull request, and the review tools it is asked with.
 mod review_runs;
 /// Natural Search, and where a change runs for the Walk tool.
@@ -354,8 +356,8 @@ pub use sharing::{
 };
 pub use sharing::{KitManifestSaved, SaveKitManifest};
 pub use shared_home::{
-    ChooseHomeSide, HomeKind, HomeKindSwitch, HomeKinds, HomeLeft, HomeNamed, HomeProfile, HomeRow, HomeRowAt, HomeRowState,
-    HomeSide, HomeSynced, HomeUnreadable, SetHomeKind, SharedHomeRead,
+    ChooseHomeSide, HomeKind, HomeKindSwitch, HomeKinds, HomeLeft, HomeNamed, HomePlanned, HomeProfile, HomeRow, HomeRowAt,
+    HomeRowState, HomeSide, HomeSynced, HomeUnreadable, SetHomeKind, SetHomeRepository, SharedHomeRead,
 };
 pub use issue_reference::{ClaimIssue, IssueClaimed, IssueReference};
 pub use issue_queries::{
@@ -471,6 +473,10 @@ pub use run_memory::{
 pub use session_import::{
     ImportFolder, ImportFolders, ImportGit, ImportRuns, InstallAgentMod, ModInstallStep, ModInstalled, RunFact,
     RunFactKind,
+};
+pub use adversarial_review::{
+    AdversarialFinding, AdversarialReview, AdversarialReviewState, DismissFinding, FindingAnchor, FindingHow,
+    FindingSettled, ReviewSubject, SendFinding, StartAdversarialReview,
 };
 pub use review_runs::{
     PullReviewHolder, ReviewChange, ReviewFinding, ReviewImpact, ReviewLink, ReviewPlace,
@@ -591,7 +597,7 @@ pub use plan_usage::{
     PlanUsage, PlanWindow,
 };
 pub use accounts::{
-    AccountFlow, Accounts, BoundHow, BoundRepository, Profile, SetRepositoryProfile, SetUpState,
+    AccountFlow, Accounts, BoundHow, BoundRepository, Profile, ProfileHome, SetRepositoryProfile, SetUpState,
     SetUpSteps, SignInEnded, SignInOutcome, SignOut, SignedOut, UnmatchedRepository,
 };
 pub use sleep::{

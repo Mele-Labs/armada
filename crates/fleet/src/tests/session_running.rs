@@ -341,6 +341,33 @@ async fn the_session_is_told_how_a_run_ended_and_a_clean_exit_takes_its_item_off
 }
 
 #[tokio::test]
+async fn a_clean_run_of_a_step_command_leaves_the_item_with_steps_standing() {
+    let rig = rig().await;
+    let _told = mod_holds(&rig);
+    eventually(|| async { rig.fleet.hosts().terminals().listening(ID) }).await;
+    rig.fleet
+        .waiting_for(
+            None,
+            SetWaitingFor {
+                session_id: Some(rig.session.clone()),
+                items: vec![WaitingInput {
+                    id: "r1".into(),
+                    text: "Set it up".into(),
+                    act: Some(WaitingAct { kind: WaitingActKind::Run, target: "echo built".into() }),
+                    options: Vec::new(),
+                    steps: vec!["Build it: `echo built`".into(), "Check it".into()],
+                }],
+            },
+        )
+        .await
+        .expect("kept");
+
+    let run = rig.runs("echo built").await;
+    whole(rig.observes(&run).await).await;
+    assert_eq!(waiting_now(&rig).await.len(), 1, "the procedure is not finished by its first step");
+}
+
+#[tokio::test]
 async fn a_failed_or_stopped_run_is_told_and_leaves_the_item_standing() {
     let rig = rig().await;
     let told = mod_holds(&rig);

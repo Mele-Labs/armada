@@ -7,6 +7,11 @@
 // an agent's reply, a row, a pull request's Checks moving — is a method the test calls.
 
 import type {
+  AdversarialFinding,
+  AdversarialReview,
+  StartAdversarialReview,
+  SendFinding,
+  DismissFinding,
   AnswerSessionAsk,
   AnswerWaiting,
   ChangeWaiting,
@@ -47,6 +52,8 @@ import { REACH_FOLDERS_KEY, reachFoldersOf } from "@armada/protocol";
 import { savedInto } from "@armada/settings/fake";
 
 import type { SessionActed } from "../../../shared/api/sessions";
+import { finished, settleFinding, startReview } from "./adversarial-fleet";
+import type { Answered } from "./adversarial-fleet";
 import { retroFrames } from "./session-retro-script";
 import { removedSaid } from "./sessions/removed";
 import { onTimePassing } from "./time-passes";
@@ -169,6 +176,10 @@ export type Calls = {
   /** The addresses a page view was shown on, and how many times it was taken away. */
   pages: string[];
   pagesHidden: number;
+  /** The adversarial reviews started, the findings sent and the findings dismissed, as Fleet was sent them. */
+  reviewed: StartAdversarialReview[];
+  findingsSent: SendFinding[];
+  findingsDismissed: DismissFinding[];
 };
 
 export class FakeSessionsFleet {
@@ -178,7 +189,7 @@ export class FakeSessionsFleet {
   pageEscape(): void {
     this.escape.forEach((on) => on());
   }
-  readonly calls: Calls = { started: 0, startedIn: [], startedAfter: [], readWaits: [], changedWaits: [], startedNow: [], sent: [], answered: [], waited: [], claimed: [], dismissed: [], confirmed: [], tuned: [], begun: [], renamed: [], closed: [], stopped: [], forked: [], handed: [], forkedAt: [], moved: [], muted: [], refreshed: [], retroed: [], pressed: [], watched: [], pages: [], pagesHidden: 0 };
+  readonly calls: Calls = { started: 0, startedIn: [], startedAfter: [], readWaits: [], changedWaits: [], startedNow: [], sent: [], answered: [], waited: [], claimed: [], dismissed: [], confirmed: [], tuned: [], begun: [], renamed: [], closed: [], stopped: [], forked: [], handed: [], forkedAt: [], moved: [], muted: [], refreshed: [], retroed: [], pressed: [], watched: [], pages: [], pagesHidden: 0, reviewed: [], findingsSent: [], findingsDismissed: [] };
   /** What `readSessionWait` answers: the defaults, unless a test says otherwise. */
   reading: WaitReading = { condition: { kind: "ends" }, base: "main" };
   private records: SessionRecord[];
@@ -237,6 +248,8 @@ export class FakeSessionsFleet {
   mcpRefuses: Record<string, string> = {};
   /** Every act on an MCP server, in order. */
   mcpActs: { session: string; server: string; act: McpServerAct }[] = [];
+  /** What the adversary finds in a plan it reads, and how long it reads. Absent: a review started stays running. */
+  adversary: { findings: readonly AdversarialFinding[]; readsMs: number } | undefined;
   /** Hears each message the person sends, to script what the agent does with it. */
   onSend: ((send: SendSessionMessage) => void) | undefined;
   /** A Session this Fleet starts or forks says it began now, where the fixtures' fixed instant would age it by days. */
@@ -407,6 +420,25 @@ export class FakeSessionsFleet {
               ...one,
               waiting_for: (one.waiting_for ?? []).map((item) => (item.id === confirm.item_id ? { ...item, confirmed: true } : item)),
             }));
+          },
+          startAdversarialReview: async (start) => {
+            this.calls.reviewed.push(start);
+            const answer = this.reviewed(start.subject.session_id, (plan) => startReview(plan, start, new Date().toISOString()));
+            const script = this.adversary;
+            if (answer.ok && answer.value.state === "running" && script !== undefined) {
+              const begun = answer.value;
+              // Fleet's own clock: the review reads, then lands on the plan by `session.changed`, unless the plan moved on meanwhile.
+              setTimeout(() => this.change(start.subject.session_id, (one) => (one.plan?.adversarial !== begun ? one : { ...one, plan: { ...one.plan, adversarial: finished(begun, script.findings, new Date().toISOString()) } })), script.readsMs);
+            }
+            return answer;
+          },
+          sendFinding: async (send) => {
+            this.calls.findingsSent.push(send);
+            return this.reviewed(send.subject.session_id, (plan) => settleFinding(plan, send, "sent", new Date().toISOString()));
+          },
+          dismissFinding: async (dismiss) => {
+            this.calls.findingsDismissed.push(dismiss);
+            return this.reviewed(dismiss.subject.session_id, (plan) => settleFinding(plan, dismiss, "dismissed", new Date().toISOString()));
           },
           tuneSession: async (tune) => {
             this.calls.tuned.push(tune);
@@ -646,6 +678,14 @@ export class FakeSessionsFleet {
   /** A turn of the agent has filled more of a Session's context window: the usage and what the window holds move together. */
   fillTo(sessionId: string, usage: SessionRecord["usage"], breakdown: SessionRecord["context_breakdown"]): void {
     this.change(sessionId, (one) => ({ ...one, usage, ...(breakdown === undefined ? {} : { context_breakdown: breakdown }) }));
+  }
+
+  /** One adversarial review route on a Job's plan: the review it answers is kept on the plan and published, as Fleet does. */
+  private reviewed(sessionId: string, route: (plan: SessionRecord["plan"]) => Answered): SessionActed<AdversarialReview> {
+    const answer = route(this.records.find((one) => one.id === sessionId)?.plan);
+    if (!answer.ok) return { ok: false, outcome: answer };
+    this.change(sessionId, (one) => (one.plan === undefined ? one : { ...one, plan: { ...one.plan, adversarial: answer.review } }));
+    return { ok: true, value: answer.review };
   }
 
   private set(records: SessionRecord[]): void {

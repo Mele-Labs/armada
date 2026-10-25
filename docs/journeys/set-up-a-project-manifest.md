@@ -38,6 +38,7 @@ Fix exists only when a Check fails. Once every Manifest is written, each workspa
 **A Fleet can start with nothing, and a fresh install does.** No repository is served until a person adds the first one, so Bridge opens on *Add a repository* with nothing set up yet.
 Nothing on screen reads as a fault meanwhile, and [First-run onboarding](first-run-onboarding.md) holds that first screen.
 Locate is that dialog, and the picker's *Add a repository* opens it for every repository after.
+*New project*, the row above it, opens it on a name and a location: Fleet makes the folder as a git repository and a new Job opens on it.
 It exists because the flow otherwise assumed Armada already knew which repo it was looking at.
 
 **A repository added or picked opens its Cockpit, with a Manifest or without one.** A Job starts on any folder, so Setup is opened from the repository when a person asks and is never put in front of it.

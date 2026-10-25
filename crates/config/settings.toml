@@ -438,7 +438,7 @@ peer_polarity = "Member of the Kit set"
 owner = "Fleet"
 read_by = "adapters, fleet"
 notes = """
-The model an agent run about one pull request runs on: an explanation, a review tool or a question asked in the Reviews tab. Ships as the Job model, the strongest tier on the roster, because a read of someone else's change that is wrong costs the owner a review. Its own row rather than a reading of `session-model`, so the plan's step down of Jobs leaves it where it was, and a machine that wants reviews cheaper says so here.
+The model an agent run about one pull request runs on: an explanation, a review tool or a question asked in the Reviews tab. Also the model an adversarial review of a plan runs on, one read-only call over the checkout Fleet serves (`docs/concepts/adversarial-review.md`). Ships as the Job model, the strongest tier on the roster, because a read of someone else's change that is wrong costs the owner a review. Its own row rather than a reading of `session-model`, so the plan's step down of Jobs leaves it where it was, and a machine that wants reviews cheaper says so here.
 
 Live: a run started after a change takes it. A run reads, never writes: it goes through the same read-only client as the Judge. Its spend is recorded on the run and shown beside it. No environment variable.
 

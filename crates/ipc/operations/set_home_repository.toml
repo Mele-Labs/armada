@@ -1,0 +1,10 @@
+[operations.set_home_repository]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Choose the owner and name of a profile's shared home, before it exists"
+notes = """
+`POST /shared_home/repository`, body `SetHomeRepository` `{ login, owner, name }`, answered with `SharedHomeRead` for that profile: `planned` now names the choice. Kept in this machine's store, a profile at a time, and replaced by the next choice. `owner` is the profile's login or one of the organisations kept at its sign-in (compared without regard to case); `name` is one the forge takes: 1 to 100 characters of letters, digits, `.`, `_` and `-`, and neither `.` nor `..`. Nothing is made by it: the first Sync makes the repository there, and until then the choice can be changed.
+
+A login that is not a profile here is a 404 `fleet.no_such_profile`. An owner that is neither the login nor one of its organisations, or a name the forge would not take, is a 422 `fleet.home_choice_refused`, naming which. Once this machine holds a copy of the home, or the forge already has one, found for the login on another Mac (`planned.exists`), the home is shown and not changed: a 409 `fleet.home_already_made`. `agent_access` is `No`: where a person's home lives is the person's.
+"""

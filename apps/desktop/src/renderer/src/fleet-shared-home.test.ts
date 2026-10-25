@@ -13,18 +13,20 @@ import { createFleetSharedHome, type FleetHome } from "./fleet-shared-home";
 
 const settled = () => new Promise((done) => setTimeout(done, 0));
 
-const profile = (login: string, chosen: boolean): Profile => ({ account_id: chosen ? 2 : 1, login, chosen, active: false });
+const profile = (login: string, chosen: boolean, orgs?: string[]): Profile => ({ account_id: chosen ? 2 : 1, login, chosen, active: false, ...(orgs === undefined ? {} : { orgs }) });
 
 /** An account source holding `profiles`, which the test moves. */
 function account(profiles: Profile[] | undefined) {
   let now = profiles;
+  let refreshed = 0;
   const listeners = new Set<() => void>();
   const source: AccountSource = {
+    refresh: () => void refreshed++,
     get: () => (now === undefined ? undefined : ({ account: { profiles: now } } as unknown as AccountHeld)),
     subscribe: (on) => (listeners.add(on), () => void listeners.delete(on)),
     signOut: async () => ({ ok: false, outcome: { ok: false, why: "not_connected" } }),
   };
-  return { source, become: (to: Profile[] | undefined) => ((now = to), listeners.forEach((on) => on())) };
+  return { source, refreshed: () => refreshed, become: (to: Profile[] | undefined) => ((now = to), listeners.forEach((on) => on())) };
 }
 
 const SERVER: HomeRow = { kind: "mcp_servers", name: "linear", state: "home", source: "mcp.linear.app", key_here: false };
@@ -44,6 +46,7 @@ function fake(read: SharedHomeRead, over: Partial<FleetHome> = {}) {
     addToSharedHome: async (at) => (asked.push(`add ${JSON.stringify(at)}`), settle(at)),
     bringFromSharedHome: async (at) => (asked.push(`bring ${JSON.stringify(at)}`), settle(at)),
     chooseSharedHomeSide: async (at, side) => (asked.push(`choose ${JSON.stringify(at)} ${side}`), settle(at)),
+    setHomeRepository: (login, owner, name) => (asked.push(`repository ${login} ${owner}/${name}`), Promise.resolve({ ok: true, value: { ...read, planned: { account: owner, repository: name, exists: false } } })),
     ...over,
   };
   return { fleet, asked, answerSync: (answer: AccountsActed<HomeSynced>) => synced?.(answer) };
@@ -167,5 +170,76 @@ describe("the shared home over Fleet", () => {
     home.readAgain("nickmele");
     await settled();
     expect(fleet.asked).toEqual(["read nickmele", "read nickmele"]);
+  });
+
+  it("draws the place Fleet plans for a home with no copy here, not yet made, with the profile's organisations as owners", async () => {
+    const planned: SharedHomeRead = { planned: { account: "mele-labs", repository: "team-home", exists: false }, rows: [], unreadable: [] };
+    const fleet = fake(planned);
+    const home = createFleetSharedHome(fleet.fleet, account([profile("nickmele", true, ["mele-labs", "other"])]).source, () => undefined);
+    home.subscribe(() => undefined);
+    await settled();
+    const drawn = home.get();
+    expect([drawn?.account, drawn?.repository, drawn?.made, drawn?.login]).toEqual(["mele-labs", "team-home", false, "nickmele"]);
+    expect(drawn?.owners).toEqual(["mele-labs", "other"]);
+  });
+
+  it("draws a home made on another Mac as made, with no picker to change it", async () => {
+    const fleet = fake({ planned: { account: "mele-labs", repository: "team-home", exists: true }, rows: [], unreadable: [] });
+    const home = createFleetSharedHome(fleet.fleet, account([profile("nickmele", true, ["mele-labs"])]).source, () => undefined);
+    home.subscribe(() => undefined);
+    await settled();
+    const drawn = home.get();
+    expect([drawn?.account, drawn?.repository, drawn?.made, drawn?.owners]).toEqual(["mele-labs", "team-home", undefined, undefined]);
+  });
+
+  it("falls back to the login and the default name where Fleet names no place", async () => {
+    const fleet = fake({ rows: [], unreadable: [] });
+    const home = createFleetSharedHome(fleet.fleet, account([profile("nickmele", true, [])]).source, () => undefined);
+    home.subscribe(() => undefined);
+    await settled();
+    expect([home.get()?.account, home.get()?.repository, home.get()?.made]).toEqual(["nickmele", "armada-home", false]);
+  });
+
+  it("sends the chosen owner and name for the drawn login, draws it at once, and takes Fleet's answer", async () => {
+    let answer: ((to: AccountsActed<SharedHomeRead>) => void) | undefined;
+    const fleet = fake({ planned: { account: "nickmele", repository: "armada-home", exists: false }, rows: [], unreadable: [] }, {
+      setHomeRepository: (login, owner, name) => (fleet.asked.push(`repository ${login} ${owner}/${name}`), new Promise((done) => (answer = done))),
+    });
+    const who = account([profile("nickmele", true, ["mele-labs"])]);
+    const home = createFleetSharedHome(fleet.fleet, who.source, () => undefined);
+    home.subscribe(() => undefined);
+    await settled();
+    home.get()?.setHome?.("mele-labs", "team-home");
+    expect(fleet.asked.at(-1)).toBe("repository nickmele mele-labs/team-home");
+    expect([home.get()?.account, home.get()?.repository]).toEqual(["mele-labs", "team-home"]);
+    answer?.({ ok: true, value: { planned: { account: "mele-labs", repository: "team-home", exists: false }, rows: [], unreadable: [] } });
+    await settled();
+    expect([home.get()?.account, home.get()?.repository, home.get()?.made]).toEqual(["mele-labs", "team-home", false]);
+    // The Account page names the same place, so it reads again.
+    expect(who.refreshed()).toBe(1);
+  });
+
+  it("tells a refused choice in Fleet's words and draws the place it stood at", async () => {
+    const told: string[] = [];
+    const said = "nickmele may not make repositories in mele-labs";
+    const fleet = fake({ planned: { account: "nickmele", repository: "armada-home", exists: false }, rows: [], unreadable: [] }, {
+      setHomeRepository: async () => ({ ok: false, outcome: refusal(said) }),
+    });
+    const home = createFleetSharedHome(fleet.fleet, account([profile("nickmele", true, ["mele-labs"])]).source, (sentence) => told.push(sentence));
+    home.subscribe(() => undefined);
+    await settled();
+    home.get()?.setHome?.("mele-labs", "team-home");
+    expect(home.get()?.account).toBe("mele-labs");
+    await settled();
+    expect(told).toEqual([said]);
+    expect([home.get()?.account, home.get()?.repository]).toEqual(["nickmele", "armada-home"]);
+  });
+
+  it("offers no choice once a copy is here", async () => {
+    const fleet = fake(HELD);
+    const home = createFleetSharedHome(fleet.fleet, account([profile("nickmele", true, ["mele-labs"])]).source, () => undefined);
+    home.subscribe(() => undefined);
+    await settled();
+    expect([home.get()?.made, home.get()?.owners]).toEqual([undefined, undefined]);
   });
 });

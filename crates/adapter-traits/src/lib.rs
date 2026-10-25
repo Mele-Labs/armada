@@ -114,7 +114,7 @@ pub use request::{
 };
 pub use secret::Secret;
 pub use shared_home::{
-    HarnessHome, HarnessPiece, HarnessPlace, HomeFailure, HomeRepositories, HomeRepository, KeptFolder, PluginRecord,
+    HarnessHome, HarnessPiece, HarnessPlace, HomeFailure, HomePlace, HomeRepositories, HomeRepository, KeptFolder, PluginRecord,
     HOME_REPOSITORY,
 };
 pub use sign_in::{DeviceCode, Polled, SignIn, SignInError, SignedInAs};

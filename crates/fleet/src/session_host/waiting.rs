@@ -1028,7 +1028,8 @@ where
     }
 
     /// A run the person made ended clean: take off the agent's `run` items for that command, so Bridge
-    /// has none to settle. Whether any was taken off.
+    /// has none to settle. Whether any was taken off. **An item with steps stays**: its command is one
+    /// step of several, and Bridge ticks that step where the run was pressed.
     pub(crate) async fn run_item_settled(&self, id: &str, command: &str) -> bool {
         let record = {
             let mut store = self.store().lock().await;
@@ -1043,6 +1044,7 @@ where
                 .filter(|one| {
                     matches!(&one.act, Some((kind, target))
                         if kind == "run" && target.trim() == command.trim())
+                        && one.steps.is_empty()
                 })
                 .map(|one| one.item_id)
                 .collect();

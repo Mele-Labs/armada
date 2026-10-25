@@ -14,6 +14,7 @@ import type { Scene } from "@armada/components/src/compositions/SketchScene/scen
 import { retroRowOf } from "./retro-row";
 import { waitOfWire } from "./session-waits";
 import { changeOfEvent, linesOfWire, settledRowsOf, workOf } from "./session-work";
+import type { ReviewRefused } from "./session-work";
 import { share } from "./share";
 import type {
   Session,
@@ -47,6 +48,8 @@ export type Beside = {
   unpicked?: ReadonlySet<ProposedField>;
   /** `features.workflows` is off, so the workflow picker, the steps and the proposer's mark for a workflow are not drawn. */
   workflowsOff?: boolean;
+  /** Fleet's refusal of the last press of the plan's adversarial review, for the version it was pressed on. */
+  reviewRefused?: ReviewRefused;
   /** Moves when something `picture` answers has changed without its identity doing so. */
   epoch?: number;
 };
@@ -562,7 +565,7 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
   const lapsed = rows === undefined || ended ? undefined : lapsedOf(rows);
   const activity = activityOf(record.activity);
   const account = accountOf(record.activity);
-  const work = workOf(record, { workflows: beside.workflows ?? NO_WORKFLOWS, attachments, rows, drawn: thread, unpicked: beside.unpicked ?? NO_PICKS, workflowsOff: beside.workflowsOff === true });
+  const work = workOf(record, { workflows: beside.workflows ?? NO_WORKFLOWS, attachments, rows, drawn: thread, unpicked: beside.unpicked ?? NO_PICKS, workflowsOff: beside.workflowsOff === true, ...(beside.reviewRefused === undefined ? {} : { reviewRefused: beside.reviewRefused }) });
   return {
     id: record.id,
     address: addressOf(record.id),
@@ -734,4 +737,4 @@ export class SessionMemo {
 }
 
 const sameBeside = (a: Beside, b: Beside): boolean =>
-  a.picture === b.picture && a.sketches === b.sketches && a.pending === b.pending && a.repository === b.repository && a.epoch === b.epoch && a.workflows === b.workflows && a.events === b.events && a.watches === b.watches && a.unpicked === b.unpicked && a.workflowsOff === b.workflowsOff;
+  a.picture === b.picture && a.sketches === b.sketches && a.pending === b.pending && a.repository === b.repository && a.epoch === b.epoch && a.workflows === b.workflows && a.events === b.events && a.watches === b.watches && a.unpicked === b.unpicked && a.workflowsOff === b.workflowsOff && a.reviewRefused === b.reviewRefused;

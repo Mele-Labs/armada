@@ -744,6 +744,21 @@ export const StartsOnItsLine: Story = {
   },
 };
 
+/**
+ * A numbered list and a bullet list sit in from the column's edge, so the
+ * numbers and bullets do not stand against it.
+ */
+export const ListsSitInset: Story = {
+  args: { text: "1. First step\n2. Second step\n\n- A bullet\n- Another bullet" },
+  play: async ({ canvasElement }) => {
+    const root = canvasElement.querySelector<HTMLElement>(".armada-prose")!;
+    const edge = root.getBoundingClientRect().left;
+    for (const list of root.querySelectorAll<HTMLElement>("ol, ul")) {
+      await expect(list.getBoundingClientRect().left - edge).toBeGreaterThanOrEqual(12);
+    }
+  },
+};
+
 /** Without `lines` nothing is marked: every other Prose is drawn as it was. */
 export const NoLinesByDefault: Story = {
   args: { text: "a\n\n# b" },

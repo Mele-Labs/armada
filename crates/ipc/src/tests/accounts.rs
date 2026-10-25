@@ -3,12 +3,19 @@
 //! has nothing to say leaves no key.
 
 use crate::{
-    decode, encode, AccountFlow, Accounts, BoundHow, BoundRepository, Profile, SetRepositoryProfile, SetUpState,
+    decode, encode, AccountFlow, Accounts, BoundHow, BoundRepository, Profile, ProfileHome, SetRepositoryProfile, SetUpState,
     SetUpSteps, SignInEnded, SignInOutcome, SignedOut, UnmatchedRepository,
 };
 
 fn octocat() -> Profile {
-    Profile { account_id: 583_231, login: "octocat".to_string(), chosen: false, repositories: Vec::new() }
+    Profile {
+        account_id: 583_231,
+        login: "octocat".to_string(),
+        orgs: vec!["acme".to_string()],
+        chosen: false,
+        home: ProfileHome { account: "acme".to_string(), repository: "kit".to_string(), made: false },
+        repositories: Vec::new(),
+    }
 }
 
 #[test]
@@ -56,7 +63,7 @@ fn the_accounts_list_carries_the_numeric_id_beside_the_login() {
     let accounts = Accounts { profiles: vec![octocat()], unmatched: Vec::new(), flow: AccountFlow::Idle { ended: None } };
     assert_eq!(
         encode(&accounts).unwrap(),
-        r#"{"profiles":[{"account_id":583231,"login":"octocat","chosen":false,"repositories":[]}],"unmatched":[],"flow":{"phase":"idle"}}"#
+        r#"{"profiles":[{"account_id":583231,"login":"octocat","orgs":["acme"],"chosen":false,"home":{"account":"acme","repository":"kit","made":false},"repositories":[]}],"unmatched":[],"flow":{"phase":"idle"}}"#
     );
 }
 

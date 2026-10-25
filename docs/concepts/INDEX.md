@@ -15,6 +15,7 @@ assuming it is restated here.
 | Concept | What it is |
 |---|---|
 | [account.md](account.md) | The GitHub account a machine signs in to, the profiles it joins, and what each profile syncs |
+| [adversarial-review.md](adversarial-review.md) | An advisory critique of a plan on the owner's press, by the strongest model, whose findings sit in the plan part they are about |
 | [bridge.md](bridge.md) | The Electron command-center shell — Armada's only engineer-facing surface |
 | [cockpit.md](cockpit.md) | Bridge's first tab: the flight deck, with every Job, the calls waiting on a person, the worktree slots and the merge queue on one screen |
 | [doctor.md](doctor.md) | The health-check surface — a passive per-module grid that gates nothing |

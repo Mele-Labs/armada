@@ -30,6 +30,7 @@ mod helm_box;
 mod thought;
 /// A Job's timeline, in the three shapes a row can be.
 mod limits;
+mod adversarial_review;
 mod review_runs;
 mod layout;
 mod key_bindings;
@@ -49,6 +50,7 @@ mod requester;
 /// Requests' file and wire: a secret's value is in no answer and no file.
 mod requests;
 mod servers;
+mod shared_home;
 /// The laps a run of a Check recorded, as the file that carries them from the forge.
 mod test_map;
 mod session_activity;

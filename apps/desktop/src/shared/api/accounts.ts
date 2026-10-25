@@ -29,6 +29,8 @@ export type AccountsApi = {
   /** What syncs for `login`: every kind, off until it is turned on. */
   getHomeKinds: (login: string) => Promise<AccountsActed<HomeKinds>>;
   setHomeKind: (login: string, kind: HomeKind, on: boolean) => Promise<AccountsActed<HomeKinds>>;
+  /** Where `login`'s shared home is made: the owner (the login or one of its organisations) and the repository name. Answers with the home read again. */
+  setHomeRepository: (login: string, owner: string, name: string) => Promise<AccountsActed<SharedHomeRead>>;
 };
 
 export const ACCOUNTS_CHANNELS = {
@@ -43,4 +45,5 @@ export const ACCOUNTS_CHANNELS = {
   chooseSharedHomeSide: "bridge:choose-shared-home-side",
   getHomeKinds: "bridge:get-home-kinds",
   setHomeKind: "bridge:set-home-kind",
+  setHomeRepository: "bridge:set-home-repository",
 } as const;

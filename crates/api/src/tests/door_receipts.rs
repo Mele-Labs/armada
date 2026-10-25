@@ -245,6 +245,7 @@ fn pending_plan() -> ipc::SessionPlan {
         changes: None,
         sketch: None,
         held_by: Vec::new(),
+        adversarial: None,
     }
 }
 

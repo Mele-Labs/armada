@@ -16,10 +16,26 @@ pub struct Profile {
     /// The forge's numeric id for the account, which names the profile in every act.
     pub account_id: u64,
     pub login: String,
+    /// The organisations the account belonged to when it signed in, lowercase. Empty where the
+    /// forge would not list them as well as where there are none.
+    pub orgs: Vec<String>,
     /// Added beside the machine's own on purpose, so what it syncs is a choice.
     pub chosen: bool,
+    /// Where its shared home is.
+    pub home: ProfileHome,
     /// The repositories whose claims and syncing go to this profile's store view.
     pub repositories: Vec<BoundRepository>,
+}
+
+/// Where a profile's shared home is: the copy here where there is one, else where it will be made.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ProfileHome {
+    /// The owner: the profile's login or one of its organisations.
+    pub account: String,
+    /// The repository's name under it.
+    pub repository: String,
+    /// This machine holds a copy of it.
+    pub made: bool,
 }
 
 /// How a repository came to be bound to its profile.

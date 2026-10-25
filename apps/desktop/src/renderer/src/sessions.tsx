@@ -23,6 +23,7 @@ import {
   type PlanApproval,
   SessionEndBand,
   ConcernCard,
+  keyFor,
   ProseTerminal,
   Tooltip,
   Sheet,
@@ -373,6 +374,7 @@ export function stepsReadingOf(session: Session, open: Reading | undefined, draf
   if (item?.steps === undefined) return undefined;
   const address = item.act?.kind === "walk" ? item.act.target : undefined;
   const command = item.act?.kind === "run" ? item.act.target : undefined;
+  const runner = draft === undefined ? undefined : runnerOf(draft, session);
   return {
     name: item.text,
     ...(address === undefined ? {} : { address }),
@@ -381,6 +383,7 @@ export function stepsReadingOf(session: Session, open: Reading | undefined, draf
     keep: `steps:${session.id}:${item.id}`,
     onOpenAddress: (url) => draft?.openWindow?.(session.id, url),
     onSend: (text) => draft?.answerWaiting?.(session.id, item.id, { text }),
+    ...(runner === undefined ? {} : { runner }),
   };
 }
 
@@ -995,6 +998,9 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
     text: one.text,
     children: <ConcernCard bare concern={one} onSend={() => draft.work?.sendConcern(session.id, one.id)} onDismiss={() => draft.work?.dismissConcern(session.id, one.id)} />,
   }));
+  // An adversarial review of the plan: its press on the plan card, and its findings pinned to the plan, on the card and in the plan in full.
+  const adversary = draft.work?.adversarial;
+  const adversarial = session.work?.plan === undefined || session.work.plan.approved || adversary === undefined ? undefined : (session.work.adversarial ?? { state: "idle" as const });
   // A pending plan is drawn only while Fleet puts it to him; held, it is not there yet, and a sheet open on it shuts.
   // A plan set aside stays in the thread as a chip, though nothing waits on him for it.
   const planDrawn = session.work?.plan !== undefined && (session.work.plan.approved || session.work.plan.setAside === true || planAsked(session));
@@ -1002,7 +1008,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
     if (!planDrawn) setReviewing(false);
   }, [planDrawn]);
   const setAside = draft.work?.setAside === undefined ? undefined : () => draft.work?.setAside?.(session.id);
-  const approval: PlanApproval | undefined = session.work?.plan === undefined || !planDrawn ? undefined : { ...(session.work.plan.version === undefined ? {} : { version: session.work.plan.version }), ...(session.work.plan.summary === undefined ? {} : { summary: session.work.plan.summary }), groups: session.work.plan.groups.map((one) => ({ id: one.id, agent: one.agent, title: one.title, ...(one.gives === undefined ? {} : { gives: one.gives }), paths: one.paths, tasks: one.tasks.map((task) => ({ id: task.id, text: task.text })) })), approved: session.work.plan.approved, ...(session.work.plan.setAside === true ? { setAside: true as const } : {}), ...(session.pressed?.includes("plan") === true ? { going: true as const } : {}), changes: changeLines(session.work.plan), ...planRevision(session.work.plan), ...(session.work.plan.sketch === undefined ? {} : { sketch: { id: session.work.plan.sketch.id, title: session.work.plan.sketch.title, scene: session.work.plan.sketch.scene } }), ...(session.work.plan.after === undefined ? {} : { after: session.work.plan.after }), onApprove: approvePlan, ...(setAside === undefined ? {} : { onSetAside: setAside }), onReview: () => setReviewing(true) };
+  const approval: PlanApproval | undefined = session.work?.plan === undefined || !planDrawn ? undefined : { ...(session.work.plan.version === undefined ? {} : { version: session.work.plan.version }), ...(session.work.plan.summary === undefined ? {} : { summary: session.work.plan.summary }), groups: session.work.plan.groups.map((one) => ({ id: one.id, agent: one.agent, title: one.title, ...(one.gives === undefined ? {} : { gives: one.gives }), paths: one.paths, tasks: one.tasks.map((task) => ({ id: task.id, text: task.text })) })), approved: session.work.plan.approved, ...(session.work.plan.setAside === true ? { setAside: true as const } : {}), ...(session.pressed?.includes("plan") === true ? { going: true as const } : {}), changes: changeLines(session.work.plan), ...planRevision(session.work.plan), ...(session.work.plan.sketch === undefined ? {} : { sketch: { id: session.work.plan.sketch.id, title: session.work.plan.sketch.title, scene: session.work.plan.sketch.scene } }), ...(session.work.plan.after === undefined ? {} : { after: session.work.plan.after }), ...(adversarial === undefined || adversary === undefined ? {} : { adversarial: { review: adversarial, onRun: () => adversary.run(session.id), onSend: (finding: string) => adversary.send(session.id, finding), onDismiss: (finding: string) => adversary.dismiss(session.id, finding), shortcut: keyFor("plan_adversarial_review") } }), onApprove: approvePlan, ...(setAside === undefined ? {} : { onSetAside: setAside }), onReview: () => setReviewing(true) };
   const waits = needs.length > 0 || question !== undefined || judges.length > 0;
   // Open only for what the panel lists: a restart is the band's own key, and a band with nothing in it is not drawn open.
   const listed = needs.some((one) => one.restart === undefined) || question !== undefined || judges.length > 0;
@@ -1243,7 +1249,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
       </SessionFrame>
       </SessionWorkspace>
       {session.work?.plan === undefined || !planDrawn ? null : (
-        <PlanReview open={reviewing} plan={session.work.plan} {...planRevision(session.work.plan)} ed={planEditing!} onApprove={approvePlan} onClose={() => setReviewing(false)} />
+        <PlanReview open={reviewing} plan={session.work.plan} {...planRevision(session.work.plan)} ed={planEditing!} {...(adversarial !== undefined && adversary !== undefined ? { findings: { review: adversarial, onSend: (finding: string) => adversary.send(session.id, finding), onDismiss: (finding: string) => adversary.dismiss(session.id, finding) } } : {})} onApprove={approvePlan} onClose={() => setReviewing(false)} />
       )}
       {deck?.ledger == null || workspace ? null : createPortal(<SessionLedger key={session.id} entries={ledger} keepKey={session.id} />, deck.ledger)}
       {released.dialog}

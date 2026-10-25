@@ -31,6 +31,8 @@ export type AccountSource = {
   subscribe(on: () => void): () => void;
   /** Signs a profile out of this machine, and holds who left until the panel is put away. */
   signOut(accountId: number): Promise<AccountsActed<SignedOut>>;
+  /** Read the profiles again, where a home was chosen or made and the Account page names it. */
+  refresh?(): void;
 };
 
 /** What Bridge reaches Fleet through: `window.armada` in the app, a fake in a test. */
@@ -73,7 +75,7 @@ const flowOf = (wire: WireFlow): AccountFlow =>
       : { phase: "idle" };
 
 /** The profile whose What syncs is open: its kinds once read, a switch pressed and not yet answered, and its home. */
-type Sheet = { login: string; kinds?: HomeKinds; pressed: Partial<Record<HomeKind, boolean>>; home?: { repository: string; made: boolean } };
+type Sheet = { login: string; kinds?: HomeKinds; pressed: Partial<Record<HomeKind, boolean>>; home?: { account: string; repository: string; made: boolean } };
 
 export function createFleetAccount(fleet: FleetAccounts, later: Later = timer, hooks: AccountHooks = {}): AccountSource {
   let wire: Accounts | undefined;
@@ -134,7 +136,7 @@ export function createFleetAccount(fleet: FleetAccounts, later: Later = timer, h
     if (sheet?.kinds === undefined) return null;
     const pressed = sheet.pressed;
     const kinds: SyncChoice[] = sheet.kinds.kinds.map((one) => ({ kind: one.kind, on: pressed[one.kind] ?? one.on, pulling: false, items: [] }));
-    return { login: sheet.login, kinds, home: sheet.home ?? { repository: HOME_REPOSITORY, made: false } };
+    return { login: sheet.login, kinds, home: sheet.home ?? { account: sheet.login, repository: HOME_REPOSITORY, made: false } };
   };
 
   const heldOf = (from: Accounts, said: string | undefined): AccountHeld => {
@@ -144,6 +146,10 @@ export function createFleetAccount(fleet: FleetAccounts, later: Later = timer, h
       login: one.login,
       chosen: one.chosen,
       active: false,
+      orgs: one.orgs,
+      // A home with no copy here has no repository yet, whatever Fleet plans for it.
+      ...(one.home.made ? { repository: one.home.repository } : {}),
+      home: { account: one.home.account, repository: one.home.repository, made: one.home.made },
       repositories: one.repositories.map((bound) => ({ root: bound.root, name: bound.name, by: bound.how })),
     }));
     const unbound: UnboundRepository[] = from.unmatched.map((loose) => ({ root: loose.root, name: loose.name, ...(loose.none_chosen ? { none: true } : {}) }));
@@ -154,9 +160,12 @@ export function createFleetAccount(fleet: FleetAccounts, later: Later = timer, h
       ended === undefined || ended.outcome === "signed_in" || JSON.stringify(ended) === put
         ? undefined
         : { outcome: ended.outcome, said: ended.said ?? "" };
+    // The home drawn is the chosen profile's, the one Kit draws.
+    const drawn = from.profiles.find((one) => one.chosen) ?? from.profiles[0];
     const account: Account = {
       profiles,
       flow: flowOf(from.flow),
+      ...(drawn === undefined ? {} : { home: drawn.home.made }),
       syncs: syncsOf(),
       ...(unbound.length === 0 ? {} : { unbound }),
       ...(end === undefined ? {} : { ended: end }),
@@ -259,7 +268,8 @@ export function createFleetAccount(fleet: FleetAccounts, later: Later = timer, h
       return;
     }
     const made = home.ok && home.value.home !== undefined;
-    sheet = { ...sheet, kinds: kinds.value, home: { repository: home.ok ? (home.value.home?.repository ?? HOME_REPOSITORY) : HOME_REPOSITORY, made } };
+    const place = home.ok ? (home.value.home ?? home.value.planned) : undefined;
+    sheet = { ...sheet, kinds: kinds.value, home: { account: place?.account ?? login, repository: place?.repository ?? HOME_REPOSITORY, made } };
     publish(wire, refused);
   };
 
@@ -314,6 +324,7 @@ export function createFleetAccount(fleet: FleetAccounts, later: Later = timer, h
         }
       };
     },
+    refresh: read,
     signOut: (accountId) => leave(accountId, wire?.profiles.find((one) => one.account_id === accountId)?.login ?? ""),
   };
 }
