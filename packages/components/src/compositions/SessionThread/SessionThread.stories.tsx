@@ -4,6 +4,7 @@ import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 import { ArrowUpToLine, Split } from "lucide-react";
 
 import { ConcernCard, SessionThread, type SessionThreadRow, type ThreadConcern } from "./SessionThread";
+import type { AdversarialReviewState, Finding } from "../AdversarialReview/AdversarialReview";
 import { RequestOpen } from "./RequestedRow";
 
 /**
@@ -921,6 +922,92 @@ export const SetAsidePlanDrawsFolded: Story = {
     await expect(canvas.queryByText("He can queue a Session for later, and it starts when a bay is free.")).toBeNull();
     await userEvent.click(chip);
     await expect(canvas.getByText("He can queue a Session for later, and it starts when a bay is free.")).toBeVisible();
+  },
+};
+
+/** An adversarial review's findings, each about a part of `PLAIN_PLAN`: a task, a group, the whole plan, and a task the plan no longer holds. */
+const FINDINGS: readonly Finding[] = [
+  { id: "a1", about: "q1-1", consequence: "A restart drops the Sessions queued while Fleet was down", expected: "The queue is read back whole", found: "It reads the table before the store has opened it" },
+  { id: "a2", about: "q3", consequence: "A queued Session cannot be told apart from a running one", expected: "A queued row reads as waiting", found: "Both draw the same mark" },
+  { id: "a3", consequence: "Nothing proves the queue survives a restart", expected: "A test restarts Fleet with a Session queued", found: "No task adds one" },
+  { id: "a4", about: "gone-task", consequence: "Two Fleets can take the same Session off the queue", expected: "One takes it, the other sees it gone", found: "Nothing holds the row while it is taken" },
+];
+
+/** The plan card with a review's findings pinned to it, settled as Fleet would settle them: a press folds a finding to a line. */
+function Reviewed({ review: first, onRun, onSend, onDismiss }: { review: AdversarialReviewState; onRun?: () => void; onSend?: (id: string) => void; onDismiss?: (id: string) => void }) {
+  const [review, setReview] = useState(first);
+  const settle = (id: string, settled: "sent" | "dismissed") =>
+    setReview((was) => (was.state === "done" ? { ...was, findings: was.findings.map((one) => (one.id === id ? { ...one, settled } : one)) } : was));
+  return (
+    <SessionThread
+      rows={LIVE_ROWS}
+      onAnswer={() => undefined}
+      onOpenSession={() => undefined}
+      approval={{
+        ...PLAIN_PLAN,
+        adversarial: {
+          review,
+          onRun: onRun ?? (() => undefined),
+          onSend: (id) => (onSend?.(id), settle(id, "sent")),
+          onDismiss: (id) => (onDismiss?.(id), settle(id, "dismissed")),
+          shortcut: "r",
+        },
+      }}
+    />
+  );
+}
+
+/** A finding sits under the task it is about, a group holding one carries its mark, and one about the whole plan, or a part it no longer holds, sits under the summary. */
+export const AdversarialFindingsPinnedToThePlan: Story = {
+  render: () => <Reviewed review={{ state: "done", findings: FINDINGS }} />,
+  play: async ({ canvas }) => {
+    const task = canvas.getByRole("list", { name: "Findings on Read it back when Fleet starts" });
+    await expect(within(task).getByRole("group", { name: "Finding: A restart drops the Sessions queued while Fleet was down" })).toBeVisible();
+    const group = canvas.getByRole("list", { name: "Findings on Queue from the dispatch panel" });
+    await expect(within(group).getByRole("group", { name: "Finding: A queued Session cannot be told apart from a running one" })).toBeVisible();
+    // The mark at the end of a group's line: on the two groups that hold findings, and on no other.
+    await expect(canvas.getByRole("button", { name: "Findings on A queue that survives a restart" })).toHaveAttribute("aria-expanded", "true");
+    await expect(canvas.getByRole("button", { name: "Findings on A Queue press in the dispatch panel" })).toBeVisible();
+    await expect(canvas.queryByRole("button", { name: "Findings on The queue written down" })).toBeNull();
+    const whole = canvas.getByRole("list", { name: "Findings on the plan" });
+    await expect(within(whole).getAllByRole("group", { name: /^Finding: / }).map((one) => one.getAttribute("aria-label"))).toEqual([
+      "Finding: Nothing proves the queue survives a restart",
+      "Finding: Two Fleets can take the same Session off the queue",
+    ]);
+  },
+};
+
+/** Send to agent and Dismiss fold a finding to one muted line in place, by press and by the registry's keys, and focus passes to the next. */
+export const SendAndDismissFoldAFinding: Story = {
+  render: (args) => <Reviewed review={{ state: "done", findings: FINDINGS }} onSend={args.approval?.adversarial?.onSend} onDismiss={args.approval?.adversarial?.onDismiss} />,
+  args: { approval: { ...PLAIN_PLAN, adversarial: { review: { state: "idle" }, onRun: fn(), onSend: fn(), onDismiss: fn() } } },
+  play: async ({ canvas, args }) => {
+    const lost = canvas.getByRole("group", { name: "Finding: A restart drops the Sessions queued while Fleet was down" });
+    await userEvent.click(within(lost).getByRole("button", { name: "Send to agent" }));
+    await expect(args.approval!.adversarial!.onSend).toHaveBeenCalledWith("a1");
+    await expect(canvas.getByRole("group", { name: "Finding sent: A restart drops the Sessions queued while Fleet was down" })).toBeVisible();
+    await expect(canvas.queryByRole("group", { name: "Finding: A restart drops the Sessions queued while Fleet was down" })).toBeNull();
+    const next = canvas.getByRole("group", { name: "Finding: Nothing proves the queue survives a restart" });
+    next.focus();
+    await userEvent.keyboard("d");
+    await expect(args.approval!.adversarial!.onDismiss).toHaveBeenCalledWith("a3");
+    await expect(canvas.getByRole("group", { name: "Finding dismissed: Nothing proves the queue survives a restart" })).toBeVisible();
+    await waitFor(() => expect(canvas.getByRole("group", { name: "Finding: Two Fleets can take the same Session off the queue" })).toHaveFocus());
+  },
+};
+
+/** A review of an older version keeps its findings on the plan, says which version it read, and offers Run again, by press and by its key. */
+export const StaleReviewOffersRunAgain: Story = {
+  render: (args) => <Reviewed review={{ state: "stale", read: 1, findings: FINDINGS }} onRun={args.approval?.adversarial?.onRun} />,
+  args: { approval: { ...PLAIN_PLAN, adversarial: { review: { state: "idle" }, onRun: fn(), onSend: fn(), onDismiss: fn() } } },
+  play: async ({ canvas, args }) => {
+    await expect(canvas.getByRole("img", { name: "Read v1" })).toBeInTheDocument();
+    await expect(canvas.getByRole("group", { name: "Finding: Nothing proves the queue survives a restart" })).toBeVisible();
+    await userEvent.click(canvas.getByRole("button", { name: "Run again" }));
+    await expect(args.approval!.adversarial!.onRun).toHaveBeenCalledTimes(1);
+    canvas.getByRole("article", { name: "Plan to approve" }).focus();
+    await userEvent.keyboard("r");
+    await expect(args.approval!.adversarial!.onRun).toHaveBeenCalledTimes(2);
   },
 };
 

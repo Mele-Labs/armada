@@ -10,6 +10,7 @@
 
 import type { ContextBreakdown } from "@armada/components/src/context-breakdown";
 import type { Scene } from "@armada/components/src/compositions/SketchScene/scene";
+import type { AdversarialReviewState } from "@armada/components/src/compositions/AdversarialReview/review-state";
 import type { RunsPlace } from "@armada/components/src/compositions/RepositoryRuns/runs-places";
 import type { CheckBlame, DeliveryChoice, DeliveryPicked, LoadoutItemBody, LoadoutKind, LoadoutSource, LoadoutSummary, Notice, NoticeScope, PullRequestFilePatch, PullRequestPage, RequestBy, RequestHeader, SessionBuild, SessionLoadout, SessionStanding, ThoughtTarget, WaitingItem, WritePullRequest } from "@armada/protocol";
 import type { McpServerAct, McpSignIn, SessionMcpServer, WatchSummary } from "@armada/protocol";
@@ -203,6 +204,8 @@ export type SessionWork = {
   /** The files the Field draws as bars on its plots. */
   files?: readonly WorkFile[];
   concerns?: readonly WorkConcern[];
+  /** The latest adversarial review of the pending plan, each finding pinned to the group or task it is about on the card and in the plan in full. Absent is none run, which draws the press. */
+  adversarial?: AdversarialReviewState;
   /** A judge is reading the work now. */
   judging?: true;
   /** The last reading's outcome: `concerns` 0 is how the tile says "No concerns". */
@@ -231,6 +234,8 @@ export type SessionWorkActs = {
   /** Sends the concern to the Session as a message to the agent. */
   sendConcern: (id: string, concern: string) => void;
   dismissConcern: (id: string, concern: string) => void;
+  /** The acts of an adversarial review of the plan: run it (again, where one was run), and send or dismiss a finding by its id. The review lands on the plan by Fleet's events. */
+  adversarial?: { run: (id: string) => void; send: (id: string, finding: string) => void; dismiss: (id: string, finding: string) => void };
   /** Sends a judge to read the Session's work so far against its plan. Fleet answers at once; the reading lands as `judging`, then `judged` and `concerns`. */
   judge?: (id: string) => Promise<void>;
 };

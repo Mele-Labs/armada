@@ -6,13 +6,13 @@ description: How Armada's written record is organised and how a document is writ
 # Armada's written record
 
 Everything an agent reads while writing code is a file in this repository. The
-roadmap is GitHub issues.
+roadmap is beads issues (`bd`).
 
 | Holds | Home |
 |---|---|
 | Contracts, practices, concepts, journeys, spikes, open questions | `docs/` |
 | Registries code reads — tokens, icons, settings, the domain model | `packages/`, `crates/` |
-| What is being built and in what order | GitHub issues and milestones |
+| What is being built and in what order | Beads issues, with milestones as epics |
 | A component as built, and how it is agreed | Storybook, `packages/components` |
 
 **The test when it is not obvious:** does an agent need this while writing code?

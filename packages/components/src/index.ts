@@ -460,3 +460,5 @@ export type { NotedOpen } from "./compositions/ViewerNotes/NotedMessage";
 export { aboutSaid, notedOf, notedSaid, notesMessage, shortPath } from "./compositions/ViewerNotes/compose";
 export type { HeldNote, NoteAbout, NotedBlock, NotedRef, NotePicture, NoteRegion, NotesMessage } from "./compositions/ViewerNotes/compose";
 export * from "./compositions/Logbook/Logbook";
+export * from "./compositions/AdversarialReview/AdversarialReview";
+export * from "./compositions/AdversarialReview/AnchoredFindings";

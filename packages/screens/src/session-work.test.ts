@@ -4,7 +4,8 @@ import type { BuildPiece, FileTouch, SessionPlan, SessionRecord, SessionRow as W
 import type { PlanMark, SessionAttachment } from "./draft/sessions";
 import { sessionOfRecord } from "./sessions-wire";
 import type { Beside } from "./sessions-wire";
-import { changeOfEvent, choicesOf, concernsOf, fieldOf, linesOfWire, planOf, tasksOf, workOf, wireMarksOf } from "./session-work";
+import { adversarialOf, changeOfEvent, choicesOf, concernsOf, fieldOf, linesOfWire, planOf, tasksOf, workOf, wireMarksOf } from "./session-work";
+import type { AdversarialReview } from "@armada/protocol";
 
 const AT = "2026-10-16T09:00:00Z";
 
@@ -333,5 +334,43 @@ describe("the agent's own tasks", () => {
   it("reach the Session the view draws", () => {
     const session = sessionOfRecord(record({ build: build(PIECES) }), undefined, { picture: () => undefined, sketches: [], pending: [], workflows: [FEATURE] } as Beside);
     expect(session.work?.tasks?.[2]).toEqual({ id: "3", subject: "Rename them", state: "working" });
+  });
+});
+
+describe("a plan's adversarial review, as the card draws it", () => {
+  const review = (change: Partial<AdversarialReview> = {}): AdversarialReview => ({
+    subject: { kind: "plan", session_id: "s1", version: 2 },
+    state: "done",
+    started_at: AT,
+    findings: [
+      { id: "f1", about: { kind: "task", id: "t1" }, consequence: "Breaks", expected: "One", found: "Two", settled: { how: "sent", at: AT } },
+      { id: "f2", about: { kind: "plan" }, consequence: "Also breaks", expected: "Three", found: "Four", cites: ["a.rs:1"] },
+    ],
+    ...change,
+  });
+
+  it("draws nothing where none was run, so the press stands", () => {
+    expect(adversarialOf({ version: 2 })).toBeUndefined();
+  });
+
+  it("pins each finding by its part's id, the whole plan by none, and folds a settled one", () => {
+    expect(adversarialOf({ version: 2, adversarial: review() })).toEqual({
+      state: "done",
+      findings: [
+        { id: "f1", about: "t1", consequence: "Breaks", expected: "One", found: "Two", settled: "sent" },
+        { id: "f2", consequence: "Also breaks", expected: "Three", found: "Four", cites: ["a.rs:1"] },
+      ],
+    });
+  });
+
+  it("is stale when it read another version, whatever state it was left in, and keeps its findings", () => {
+    expect(adversarialOf({ version: 3, adversarial: review({ state: "running", findings: [] }) })).toEqual({ state: "stale", read: 2, findings: [] });
+    expect(adversarialOf({ version: 3, adversarial: review() })).toMatchObject({ state: "stale", read: 2, findings: [{ id: "f1" }, { id: "f2" }] });
+  });
+
+  it("says a failure in Fleet's words, and a refused press only on the version it was pressed on", () => {
+    expect(adversarialOf({ version: 2, adversarial: review({ state: "failed", failed: "The adversary stopped" }) })).toEqual({ state: "failed", said: "The adversary stopped" });
+    expect(adversarialOf({ version: 2, adversarial: review() }, { version: 2, said: "No such Job" })).toEqual({ state: "failed", said: "No such Job" });
+    expect(adversarialOf({ version: 3, adversarial: review() }, { version: 2, said: "No such Job" })).toMatchObject({ state: "stale" });
   });
 });

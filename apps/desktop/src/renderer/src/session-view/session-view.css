@@ -173,6 +173,9 @@
 .sv-review__groups { display: flex; flex-direction: column; gap: var(--space-3); min-height: 0; overflow-y: auto; }
 .sv-review__group .sv-group__row { cursor: default; }
 .sv-review__group .sv-group__row:hover { background: none; }
+/* A task's findings hang under its words: past the state glyph and its gap, which is the indent the card draws them at. */
+.sv-task__findings { display: flex; margin-inline-start: calc(var(--space-3) + var(--space-2)); }
+.sv-task__findings > * { flex: 1; min-width: 0; }
 .sv-review__sketch { display: flex; min-width: 0; min-height: 0; }
 .sv-review__sketch > * { flex: 1 1 0; min-width: 0; }
 
