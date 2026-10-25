@@ -365,13 +365,7 @@ export class FakeSessionsFleet {
                 ? {}
                 : { files: send.attachments.map((one, at) => ({ id: `${this.rowed}-${at}`, name: one.name, media_type: one.media_type })) }),
             });
-            // The first message of a Session an agent started: sent, it is no longer unsent and nothing waits on it.
-            const sent = this.change(send.session_id, (one) => ({
-              ...one,
-              attachments: one.attachments.map((a) => (a.kind === "unsent" ? { ...a, state: "spent" as const } : a)),
-              waiting_for: (one.waiting_for ?? []).filter((item) => !item.id.startsWith("unsent:")),
-              hosted: { ...one.hosted!, turn: { state: "working" } },
-            }));
+            const sent = this.change(send.session_id, (one) => ({ ...one, hosted: { ...one.hosted!, turn: { state: "working" } } }));
             this.onSend?.(send);
             return sent;
           },
@@ -697,21 +691,13 @@ export class FakeSessionsFleet {
   /**
    * `start_session`, from the agent of `fromId` when the person asked it to: a new Session (`fork` absent), or a fork of
    * the agent's own conversation, whole or at one of its messages. **Fleet holds it for him**: the Job opens on its start
-   * card with the agent's first message in the Message box, and nothing runs until he presses Start. `unsent` holds it the
-   * older way instead, as an unsent message in the Job's own box. Answers the new id.
+   * card with the agent's first message in the Message box, and nothing runs until he presses Start. Answers the new id.
    */
-  agentStarts(fromId: string, how: { title: string; message: string; fork?: { at?: string }; group?: string; unsent?: true }): string {
+  agentStarts(fromId: string, how: { title: string; message: string; fork?: { at?: string }; group?: string }): string {
     const id = `01AGENT${String((this.minted += 1)).padStart(8, "0")}ABCDEFGHI`;
     const grouped: Record<string, string> = how.group === undefined ? {} : { group: how.group };
     const link = how.fork === undefined ? held("started_by", fromId, grouped, "spent") : held("forked_from", fromId, how.fork.at === undefined ? {} : { at: how.fork.at }, "spent");
-    const record =
-      how.unsent === true
-        ? hosted(id, {
-            title: how.title,
-            attachments: [link, held("unsent", how.message)],
-            waiting_for: [{ id: `unsent:${id}`, text: "First message", since: new Date().toISOString(), source: "first_message", act: { kind: "message", target: id } }],
-          })
-        : { ...hosted(id, { title: how.title, attachments: [link] }), hosted: { ...hosted(id).hosted!, start: { asks_delivery: true, picked: { choice: "open_pr" as const, from: "usual" as const }, message: how.message } } };
+    const record = { ...hosted(id, { title: how.title, attachments: [link] }), hosted: { ...hosted(id).hosted!, start: { asks_delivery: true, picked: { choice: "open_pr" as const, from: "usual" as const }, message: how.message } } };
     const back = how.fork === undefined ? held("started_to", id, grouped, "spent") : held("forked_to", id, {}, "spent");
     this.set([record, ...this.records.map((one) => (one.id === fromId ? { ...one, attachments: [...one.attachments, back] } : one))]);
     return id;

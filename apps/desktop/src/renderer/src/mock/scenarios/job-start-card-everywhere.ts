@@ -97,7 +97,7 @@ function build(): Scenario {
       };
       return {
         ...own,
-        // The layer starts a Job with a title and no words, and Fleet would hold it as a Dispatch start is held:
+        // The layer starts a Job held, with a title and no words, as a Dispatch start is held:
         // the note it is sent next is the first message, composed the way the agent reads it.
         startSession: async (title, root, request, tuning, after, holds) => {
           // A dispatched request is read for a moment: the proposer picks the workflow and his usual landing comes with it.
@@ -109,7 +109,7 @@ function build(): Scenario {
             window.setTimeout(() => fake.proposes(id, { workflow: "feature", picked: ["workflow"], landing: { choice: "auto_land", from: "usual" } }), READ_MS);
             return started;
           }
-          if (title === undefined || request !== undefined || after !== undefined || holds === true) return own.startSession!(title, root, request, tuning, after, holds);
+          if (title === undefined || request !== undefined || after !== undefined) return own.startSession!(title, root, request, tuning, after, holds);
           const started = await own.startSession!(undefined, root, undefined, undefined, undefined, true);
           if (!started.ok) return started;
           const record = { ...started.value, title, hosted: { ...started.value.hosted!, start: { asks_delivery: true } } };

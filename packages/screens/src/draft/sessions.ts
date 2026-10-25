@@ -548,16 +548,11 @@ export type Session = {
    */
   standing?: SessionStanding;
   /**
-   * The first message its starting Session's agent wrote, which has not been sent. Nothing runs until the person sends it.
-   * Absent once it is sent, or on a Session nobody's agent started.
-   */
-  unsent?: string;
-  /**
    * Held on its start card: the proposer has read the request or is reading it, and no agent moves until Start. `asksDelivery` is
-   * whether the Job's workflow has a landing step, so a choice is owed. `picked` is the choice already standing: his usual for this
-   * kind in this repository, or one his request named. Absent once the Job has begun.
+   * whether the Job's workflow has a landing step, so a choice is owed. `picked` is the choice already standing: one his request named, else his usual for this
+   * kind in this repository, else Fleet's `default`. Absent once the Job has begun.
    */
-  start?: { asksDelivery: boolean; picked?: DeliveryPicked; /** The first message the agent will read, shown on the card for him to edit. Absent where Fleet does not say. */ message?: string };
+  start?: { asksDelivery: boolean; picked?: DeliveryPicked; /** The first message the agent will read, held in the composer for him to edit. Absent until one is kept for the Job. */ message?: string };
   /** Tags chosen and not yet sent: they wait in the message box as chips. */
   pendingTags?: readonly SessionTag[];
   /** The model and effort the next turn runs on. Absent is Auto. */

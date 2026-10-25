@@ -548,8 +548,6 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
   const attachments = attachmentsOfRecord(record, beside).filter(
     (one) => !ended || one.kind === "forked_to" || one.kind === "forked_from" || one.kind === "started_to" || one.kind === "started_by" || one.kind === "pull_request" || one.kind === "artifact" || one.kind === "link",
   );
-  // The first message an agent wrote for a Session it started, held by Fleet until the person sends it.
-  const unsent = ended ? undefined : record.attachments.find((one) => one.kind === "unsent" && one.state === "standing")?.target;
   // A Job handed on to a new one. The ledger kinds are `docs/practices/protocol/a-job-hands-off-to-a-new-one.md`; a failed hand off outranks a starting one that was not given back.
   const replaces = record.attachments.find((one) => one.kind === "replaces" && one.state === "spent")?.target;
   const replacedBy = record.attachments.find((one) => one.kind === "replaced_by" && one.state === "spent")?.target;
@@ -612,7 +610,6 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
     ...(account === undefined ? {} : { account }),
     ...(record.activity?.live === undefined ? {} : { live: record.activity.live }),
     ...(ended || record.build === undefined ? {} : { build: record.build }),
-    ...(unsent === undefined ? {} : { unsent }),
     ...(ended || (record.waiting_for?.length ?? 0) === 0 ? {} : { waitingFor: record.waiting_for }),
     ...(ended || record.done_since === undefined ? {} : { done: { since: record.done_since } }),
     ...(ended || record.standing === undefined ? {} : { standing: record.standing }),

@@ -72,7 +72,7 @@ import { useDispatchFailureHere } from "./failure-session";
 import { handoffOf } from "./session-handoff";
 import { chooseFolder, readRetro, searchFiles } from "./commands";
 import { ArtifactBody, ARTIFACT_GLYPH, isAddress, type PictureMarked } from "./session-artifact";
-import { isUnsentItem, linkEntry, unsentEntry, useStartedBy } from "./session-started";
+import { linkEntry, useStartedBy } from "./session-started";
 import { readingOfSketch } from "./session-sketch";
 import { forkAtPick, threadRowsOf, upTo } from "./session-thread-rows";
 import { backgroundEntryOf } from "./session-background";
@@ -544,7 +544,6 @@ export function entriesOf(
   // An ended Session waits on nobody: its ledger is what it made, to be read.
   // A recorded plan and a judge's concern are cards in the thread, so the ledger does not list them again.
   const waiting = (session.dead === "ended" ? [] : owesOf(session).filter((one) => one.source !== "plan" && one.source !== "judge")).map((one): LedgerEntry => {
-    if (isUnsentItem(one)) return unsentEntry(one, scrollToAsk);
     // An `answer` with no choices and no question in the thread has nowhere to go, so it takes words as no act does.
     const act = one.act?.kind === "answer" && one.options === undefined && session.asked === undefined ? undefined : one.act;
     // A restart is the Fleet panel's build switch: it reads as its label and is one key, as on its call card.
