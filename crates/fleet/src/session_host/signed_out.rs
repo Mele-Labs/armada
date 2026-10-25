@@ -45,7 +45,16 @@ impl SignInRun {
     /// Whether it exited 0. **Its input is held open until it ends**: one that reads the end of it gives
     /// up on a pasted code. Its output is read and dropped, so a full pipe never stalls it.
     async fn ran(&self) -> bool {
-        let started = tokio::process::Command::new(&self.program)
+        let ended = self.ended().await;
+        if let Err(why) = &ended {
+            eprintln!("the agents' sign-in failed: {why}");
+        }
+        ended.is_ok()
+    }
+
+    /// `Err` of why it did not exit 0.
+    async fn ended(&self) -> Result<(), String> {
+        let mut child = tokio::process::Command::new(&self.program)
             .args(&self.args)
             .current_dir(&self.directory)
             .env("HOME", &self.directory)
@@ -54,31 +63,17 @@ impl SignInRun {
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .kill_on_drop(true)
-            .spawn();
-        let mut child = match started {
-            Ok(child) => child,
-            Err(why) => {
-                eprintln!("the agents' sign-in did not start: `{}`: {why}", self.program);
-                return false;
-            }
-        };
+            .spawn()
+            .map_err(|why| format!("`{}` did not start: {why}", self.program))?;
         let held = child.stdin.take();
         let ended = tokio::time::timeout(SIGN_IN_WITHIN, child.wait_with_output()).await;
         drop(held);
-        match ended {
-            Ok(Ok(output)) if output.status.success() => true,
-            Ok(Ok(output)) => {
-                eprintln!("the agents' sign-in ended {}: {}", output.status, String::from_utf8_lossy(&output.stderr).trim());
-                false
-            }
-            Ok(Err(why)) => {
-                eprintln!("the agents' sign-in could not be waited on: {why}");
-                false
-            }
-            Err(_) => {
-                eprintln!("the agents' sign-in was ended after {} minutes on the browser", SIGN_IN_WITHIN.as_secs() / 60);
-                false
-            }
+        let output = ended
+            .map_err(|_| format!("ended after {} minutes on the browser", SIGN_IN_WITHIN.as_secs() / 60))?
+            .map_err(|why| format!("could not be waited on: {why}"))?;
+        match output.status.success() {
+            true => Ok(()),
+            false => Err(format!("{}: {}", output.status, String::from_utf8_lossy(&output.stderr).trim())),
         }
     }
 }
