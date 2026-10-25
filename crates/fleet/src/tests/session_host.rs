@@ -277,6 +277,7 @@ impl Rig {
                 text: text.into(),
                 attachments: Vec::new(),
                 mentions: Vec::new(),
+                aim: None,
             })
             .await
             .expect("taken");
@@ -767,6 +768,7 @@ async fn a_quiet_process_is_ended_and_closing_ends_the_row_and_refuses_more() {
             text: "go".into(),
             attachments: Vec::new(),
             mentions: Vec::new(),
+            aim: None,
         })
         .await
         .unwrap();
@@ -788,6 +790,7 @@ async fn a_quiet_process_is_ended_and_closing_ends_the_row_and_refuses_more() {
             text: "again".into(),
             attachments: Vec::new(),
             mentions: Vec::new(),
+            aim: None,
         })
         .await
         .unwrap();
@@ -808,6 +811,7 @@ async fn a_quiet_process_is_ended_and_closing_ends_the_row_and_refuses_more() {
             text: "more".into(),
             attachments: Vec::new(),
             mentions: Vec::new(),
+            aim: None,
         })
         .await;
     assert!(refused.is_err());

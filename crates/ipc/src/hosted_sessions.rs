@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::helm_call::{HelmCallAnswer, HelmCallInFlight, QuestionAnswer};
 use crate::ids::{Instant, ManifestId};
+use crate::mods::ModAim;
 use crate::sessions::{SessionId, SessionRecord};
 
 /// The permission mode a hosted session runs in, as a terminal's are.
@@ -136,6 +137,9 @@ pub struct SendSessionMessage {
     pub attachments: Vec<SessionUpload>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub mentions: Vec<SessionTag>,
+    /// What he picked in an empty Mod Job: the kind of mod he is aiming for, `source` for a change to Armada's code. Read with his first message only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub aim: Option<ModAim>,
 }
 
 /// `answer_session_ask`: one of the ask's own offers.

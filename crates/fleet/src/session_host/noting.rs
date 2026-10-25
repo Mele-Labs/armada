@@ -58,6 +58,7 @@ where
             text,
             attachments: note.crop.iter().map(|crop| picture(crop, "pinned-note.png")).collect(),
             mentions: Vec::new(),
+            aim: None,
         };
         let session = Arc::clone(&self).send_known_added(terminal, sent, None, Some(instead)).await?;
         // A note taken in a window: the session will now change the page.
@@ -104,6 +105,7 @@ where
                 .filter_map(|(at, note)| Some(picture(note.crop.as_ref()?, &format!("pinned-note-{}.png", at + 1))))
                 .collect(),
             mentions: Vec::new(),
+            aim: None,
         };
         let session = Arc::clone(&self).send_known_added(terminal, sent, None, Some(instead)).await?;
         if notes.iter().any(in_a_window) {

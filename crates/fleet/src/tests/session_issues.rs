@@ -72,6 +72,7 @@ pub(super) async fn said(rig: &Rig, id: &SessionId, text: &str, mentions: Vec<Se
             text: text.into(),
             attachments: Vec::new(),
             mentions,
+            aim: None,
         })
         .await
         .expect("taken");

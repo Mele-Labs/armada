@@ -198,6 +198,7 @@ impl Rig {
                 text: "go on".into(),
                 attachments: Vec::new(),
                 mentions: Vec::new(),
+                aim: None,
             })
             .await
             .expect("taken");
@@ -228,6 +229,7 @@ async fn a_fork_of_an_ended_terminal_session_starts_from_its_conversation() {
             text: "go on".into(),
             attachments: Vec::new(),
             mentions: Vec::new(),
+            aim: None,
         })
         .await
         .expect("taken");

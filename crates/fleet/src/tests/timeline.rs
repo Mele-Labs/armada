@@ -365,6 +365,7 @@ async fn a_sessions_turn_is_entered_once_where_it_ends_with_its_length() {
         text: text.into(),
         attachments: Vec::new(),
         mentions: Vec::new(),
+        aim: None,
     };
     let working = || async {
         let thread = Arc::clone(&fleet).get_session(started.id.clone()).await;

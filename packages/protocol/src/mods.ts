@@ -89,6 +89,9 @@ export type StartModSession = {
   said?: string;
 };
 
+/** What he picked in an empty Mod Job: the kind of mod he is aiming for, `source` for a change to Armada's code. Read with his first message only. */
+export type ModAim = "theme" | "layout" | "words" | "fleet" | "tracker" | "source";
+
 /** A Mod Job started. `send_failed` is why its first message was not sent, where it was refused; open the Job and send by hand. */
 export type ModSessionStarted = { session_id: string; title: string; send_failed?: string };
 

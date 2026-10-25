@@ -27,7 +27,7 @@ fn spoken(title: Option<&str>, said: Option<&str>) -> StartModSession {
 }
 
 fn said_by_him(id: &SessionId, text: &str) -> SendSessionMessage {
-    SendSessionMessage { session_id: id.clone(), text: text.to_string(), attachments: Vec::new(), mentions: Vec::new() }
+    SendSessionMessage { session_id: id.clone(), text: text.to_string(), attachments: Vec::new(), mentions: Vec::new(), aim: None }
 }
 
 async fn started(rig: &Rig, title: Option<&str>) -> ipc::ModSessionStarted {

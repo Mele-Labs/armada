@@ -161,6 +161,18 @@ pub struct StartModSession {
     pub said: Option<String>,
 }
 
+/// What he picked in an empty Mod Job: the kind of mod he is aiming for, `source` for a change to Armada's code. Read with his first message only.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ModAim {
+    Theme,
+    Layout,
+    Words,
+    Fleet,
+    Tracker,
+    Source,
+}
+
 /// A Mod Job started, and sent its first message.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ModSessionStarted {
