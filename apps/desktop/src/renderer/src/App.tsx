@@ -55,7 +55,9 @@ import { RefsHost, useHelmRefs } from "./helm-refs";
 import type { Host as RefsHostProps } from "./helm-refs";
 import { useHelmHosted } from "./helm-session";
 import { openAddressInPanel } from "./shared-panel/store";
-import { useSessions } from "./sessions-draft";
+import { useSessions, useSessionsDraft } from "./sessions-draft";
+import { startOn } from "./start-on";
+import { defaultParent } from "./run-places";
 import { useThoughtRouting } from "./thought-routing";
 import { DispatchSheet, TitleDispatchedStrip } from "./dispatch-panel/entries";
 import { CaptureLayer, type CaptureAim } from "./capture/Layer";
@@ -73,7 +75,7 @@ import { DispatchFailure, useDispatchFailure } from "./failure-session";
 import { LinkPanelHost, useLinkDrop } from "./link-drop";
 import { usePasteAndDrop } from "./paste-and-drop";
 import { SketchSharing } from "./sketch-sharing";
-import { openServerLink, openLink, restartFleet, changeFleetBuild, observeCheckoutRun, pickRepository, chooseFolder, resolveFolder, addRepository, cloneRepository, helmDebugInfo, startHelmFresh, pointHelm, getCheckoutRunOutput, getCheckoutRunDiff, readManifestFile, saveManifestFile, editManifest, readRepositoryScan, readManifestProposals, editManifestProposal, writeManifestProposal, listRepositoryAllowedCommands, removeRepositoryAllowedCommand, listKitServers, readKitInventory, removeKitAllowedCommand, removeKitPiece, restoreKitPiece, addKitServer, forgetKitServer, setKitServerReach, setManifestServerReach, listCheckoutRuns, undoCheckoutRun, setupSessionFleet, captureStudioNote, readHeld, slotActs, bayActs, startCheckoutRun, startCheckoutVerify, startServer, stopCheckoutRun, stopServer, useCommands, watchCheckoutRunSheet, watchManifestDrift, watchOverview } from "./commands";
+import { openServerLink, openLink, restartFleet, changeFleetBuild, observeCheckoutRun, pickRepository, chooseFolder, resolveFolder, addRepository, cloneRepository, createProject, helmDebugInfo, startHelmFresh, pointHelm, getCheckoutRunOutput, getCheckoutRunDiff, readManifestFile, saveManifestFile, editManifest, readRepositoryScan, readManifestProposals, editManifestProposal, writeManifestProposal, listRepositoryAllowedCommands, removeRepositoryAllowedCommand, listKitServers, readKitInventory, removeKitAllowedCommand, removeKitPiece, restoreKitPiece, addKitServer, forgetKitServer, setKitServerReach, setManifestServerReach, listCheckoutRuns, undoCheckoutRun, setupSessionFleet, captureStudioNote, readHeld, slotActs, bayActs, startCheckoutRun, startCheckoutVerify, startServer, stopCheckoutRun, stopServer, useCommands, watchCheckoutRunSheet, watchManifestDrift, watchOverview } from "./commands";
 import { hiddenSurfaces, MergeLineSurface } from "./merge-line";
 import { useMergeByHand } from "./merge-by-hand";
 import { LogbookSurface } from "./logbook";
@@ -242,15 +244,20 @@ export function App() {
   // Whether Fleet has answered the listing. `models` is what says the holdings were read.
   const listed = state.connection.state === "connected" && state.holds.models !== null;
   // Locate, held here so a clone outlives its dialog. A Fleet that serves nothing opens the Cockpit's prompt, not this.
+  const draft = useSessionsDraft();
   const locate = useLocate({
     onChooseFolder: chooseFolder,
     onResolveFolder: resolveFolder,
     onAdd: addRepository,
     onClone: cloneRepository,
+    onCreate: createProject,
+    newPlace: defaultParent(repositories.map((one) => one.root)),
     landed: state.located,
-    onLocated: (one) => {
-      pickRepository(one.root);
+    onLocated: (one, made) => {
       goTo(SURFACE.overview);
+      // A new project has nothing in it to look at yet: it opens on a Job, as the first run's does.
+      if (made === true && draft !== undefined) void startOn(draft, one.root);
+      else pickRepository(one.root);
     },
   });
   const editing = useManifestEditing({
@@ -467,6 +474,7 @@ export function App() {
           scope={state.repository}
           onScope={pick}
           onAddRepository={locate.onOpen}
+          onNewProject={locate.onNew}
           onOpenManifest={() => goTo(SURFACE.manifest)}
           onCompose={() => newSession()}
           onSearch={palette.onOpen}
@@ -692,6 +700,7 @@ export function App() {
                 onWantHeld={readHeld}
                 onPickRepository={pick}
                 onAddRepository={locate.onOpen}
+                onNewProject={locate.onNew}
                 onGoTo={goTo}
                 onOpenCheck={(sessionId, run) => asked.setCheckFocus(sessionCheckId(sessionId, run))}
                 onOpenLoadout={asked.setLoadoutFocus}
