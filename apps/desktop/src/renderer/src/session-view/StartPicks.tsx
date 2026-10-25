@@ -54,7 +54,8 @@ export function useStartPicks(session: Session, repositories: readonly Repositor
     if (reading || draft.begin === undefined) return false;
     // The workflow shown is the one the Job runs under, so a default he did not change is recorded now.
     if (proposed === null && kind !== null) draft.work?.choose(id, kind);
-    const sent = await draft.begin(id, lands ? landing : undefined, start.message === undefined ? undefined : text);
+    // The box goes as he left it; with no held turn Fleet takes it as the first one.
+    const sent = await draft.begin(id, lands ? landing : undefined, text.trim() === "" ? undefined : text);
     return sent !== false;
   };
 

@@ -48,12 +48,14 @@ test("Start sends the message as he edited it, with the landing on the card", as
   expect(begin).toHaveBeenCalledWith("new1", "keep_local", "Port the clock, then the loader");
 });
 
-test("sends no message for a Job whose Fleet gave none to edit", async () => {
+test("sends what he typed for a Job whose Fleet held no message, and nothing for an empty box", async () => {
   begin.mockClear();
   mount(held({ asksDelivery: false }));
   await expect.poll(() => pressed).toBeDefined();
   await pressed!("typed");
-  expect(begin).toHaveBeenCalledWith("new1", undefined, undefined);
+  expect(begin).toHaveBeenLastCalledWith("new1", undefined, "typed");
+  await pressed!("  ");
+  expect(begin).toHaveBeenLastCalledWith("new1", undefined, undefined);
 });
 
 test("marks a landing from his usual, and one his words named", async () => {
