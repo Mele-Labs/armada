@@ -3,7 +3,7 @@
 **Part of:** [Protocol: the Fleet/Bridge seam](../protocol.md).
 
 Since 23 Oct 2026. `docs/concepts/mods.md`, *A Mod Job*.
-**Additive**: one operation, one route, the two types they carry, and three optional fields on existing types; no event kind.
+**Additive**: one operation, one route, the two types they carry, and four optional fields on existing types; no event kind.
 The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
 Bridge's half is `packages/protocol/src/mods.ts` and `sessions.ts`, written by hand, field for field.
 
@@ -22,6 +22,11 @@ With `said` the first message is the Mod brief and then his words, by the road a
 With neither (25 Oct 2026) the Job opens empty, titled `Mod`, and sends nothing; no field is added.
 The first message the person then sends reaches the agent with the brief ahead and retitles the Job `Mod <first line of his words>`, cut at a word within 40 characters, and the thread keeps his words alone.
 Fleet derives "first" from the thread, so nothing is kept for it.
+
+**An aim** (25 Oct 2026) adds `aim?: ModAim` to `SendSessionMessage`, Bridge-sent, with `ModAim` beside `StartModSession`: `theme`, `layout`, `words`, `fleet`, `tracker` or `source`.
+It is what he picked in an empty Mod Job, and Fleet reads it with that Job's first message only: one line after the brief and before his words, naming the aim in plain words, and for `source` in the mods folder saying that a source change cannot be made there and to tell him so if a mod cannot do it.
+On any other message, and on a Job that is not a Mod Job, it is ignored and not an error.
+The thread keeps his words alone.
 
 **Refusals**: a 422 `fleet.unacceptable_mod_start` for both `note` and `said`, and for a `said` with nothing in it, and nothing is started; a 500 `fleet.mod_not_written` where the mods folder cannot be made, and nothing is started; a 422 `fleet.unacceptable_mod` for a `session_id` that names no Job Fleet knows, and nothing is made.
 
