@@ -36,7 +36,7 @@ const spike = walk("job-story", [
   { press: inside(blueprint, button("Approve")), say: "Approve" },
   { later: landing, say: "The findings are written up" },
   { look: inside(landing, role("list", "Findings")), say: "A spike lands in its findings doc, which opens as an artifact does" },
-  { look: blueprint, say: "No pull request, so no chip on the band and no merge" },
+  { look: landing, say: "No pull request, so no chip on the band and no merge" },
 ]);
 
 export { story as "job-story", spike as "job-story-spike" };

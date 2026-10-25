@@ -1,6 +1,6 @@
 // A Job is a story, and the right column tells it in order: the workflow, the blueprint (the plan), the field it is built on, and what it lands in.
 // The stage is read from data the Job already holds. The Field and the Landing are open at their stage and folded to their bands otherwise. The
-// Blueprint is always open: drafted it is the plan to approve, and approved it stays up as a compact read of the build. A press on a band or its key
+// Blueprint is open until the Job lands: drafted it is the plan to approve, and approved it stays up as a compact read of the build. A press on a band or its key
 // opens or folds any of them by hand; that holds until the stage moves on. Mock: the landing kind comes from the scenario (`work.landing`) until Fleet says it.
 
 import { useCallback, useSyncExternalStore } from "react";
@@ -36,8 +36,11 @@ const hear = new Set<() => void>();
 const keyOf = (session: string, area: Stage) => `${session}:${area}`;
 const changed = () => hear.forEach((one) => one());
 
-/** Open unless the story has not come to it: the blueprint is never folded by the stage. */
-const openAt = (session: Session, area: Stage): boolean => area === "blueprint" || stageOf(session) === area;
+/** Open at its own stage. The blueprint stays up through the build too, and folds once the Job lands. */
+const openAt = (session: Session, area: Stage): boolean => {
+  const stage = stageOf(session);
+  return area === "blueprint" ? stage !== "landing" : stage === area;
+};
 
 /** Whether the panel is open: by hand where it was pressed, else as the stage has it. */
 export function useFold(session: Session, area: Stage): Fold {
