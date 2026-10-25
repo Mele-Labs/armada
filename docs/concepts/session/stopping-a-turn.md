@@ -11,6 +11,7 @@ The thread keeps every row the agent had written, and Stop draws no row of its o
 
 **A terminal Job has no Stop.** Fleet does not host its process and refuses the act.
 
-**Debug Bridge starts a Job with no turn.** `start_session` writes the row and runs nothing, so Bridge starts one for the note and leaves the note and its picture in the message box as a draft (`annotate/debug-draft.ts`).
-The first turn is the person's Enter, with whatever he added.
+**Debug Bridge starts a held Job with no turn.** `start_session` writes the row and runs nothing, so Bridge starts one for the note (*A held Job*).
+The note is its first message, off the thread: his words, then the `Pointed at:`, `Candidates:` and `Page:` lines Fleet adds, with the picture.
+The first turn is the person's Start, with whatever he added to the box.
 `docs/practices/running-locally.md`, *Annotating Bridge*.

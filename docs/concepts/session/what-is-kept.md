@@ -24,7 +24,6 @@ A holder is `{ kind: session, id }` and points at neither table, so another kind
 | `studio` | the Studio's id | not reported by anything yet |
 | `forked_to`, `forked_from` | the other job's id | `spent` when written, so the old job ending does not give the link back. A move's pair carries `detail.moved`, *A moved job* |
 | `started_to`, `started_by` | the other job's id | `spent` when written, as a fork's links are. The caller holds `started_to` and the Job its agent started holds `started_by` |
-| `unsent` | the words of the first message another job's agent wrote | `standing` until the person's next send, which spends it; ending the job gives it back |
 | `artifact` | a page's or document's address, or a file's absolute path; `detail.form` is `page`, `file`, `image`, `doc` or `window`, `detail.title` its name | nothing: it stays on the ledger after the job ends |
 | `link` | a web address (`http` or `https`) the person wrote in a message or the request the job was dispatched with, or the agent wrote in its reply; `detail.by` is `you` or `agent`, the first to write it. Not one to this machine (`localhost`, `127.0.0.1`, `[::1]`, `0.0.0.0`, `*.localhost`) or to the job's own repository's issues and pull requests, which the `issue` and `pr` rows hold. A sentence's closing punctuation is not part of it | nothing: `spent` when written, so it stays after the job ends, as a fork's link does. Writing it again changes nothing |
 
