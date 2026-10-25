@@ -19,7 +19,7 @@ export type PullRequest = Extract<SessionAttachment, { kind: "pull_request" }>;
 type Rows = { issues: { issue: Issue; prs: PullRequest[] }[]; loose: PullRequest[] };
 
 /** A pull request's Checks as the PR card's mark reads them. */
-const checksOf = (pr: PullRequest): "passed" | "running" | "failed" => (pr.checks.state === "failed" ? "failed" : pr.checks.state === "pending" ? "running" : "passed");
+export const checksOf = (pr: PullRequest): "passed" | "running" | "failed" => (pr.checks.state === "failed" ? "failed" : pr.checks.state === "pending" ? "running" : "passed");
 
 /** Whether a pull request works an issue: it closes the issue's forge number, or the issue's row names it. */
 const works = (pr: PullRequest, issue: Issue): boolean => pr.closes?.some((number) => String(number) === issue.number) === true || issue.pull_requests?.includes(pr.number) === true;

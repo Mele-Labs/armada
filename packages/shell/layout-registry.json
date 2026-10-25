@@ -10,10 +10,10 @@
       { "id": "autopilot", "hideable": true }
     ] },
     "job.panels": { "ordered": true, "firstable": false, "entries": [
-      { "id": "field", "hideable": true },
       { "id": "workflow", "hideable": true },
-      { "id": "progress", "hideable": false },
-      { "id": "mods", "hideable": true }
+      { "id": "blueprint", "hideable": false },
+      { "id": "field", "hideable": true },
+      { "id": "landing", "hideable": true }
     ] },
     "rail": { "ordered": false, "firstable": false, "entries": [
       { "id": "overview", "hideable": false },

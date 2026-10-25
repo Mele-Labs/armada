@@ -4,7 +4,6 @@
 
 /* ---- The body's rhythm ------------------------------------------------------------------------------------ */
 
-.sv-panel[data-area="progress"] > .sv-panel__body { gap: var(--space-6); padding-block: var(--space-4); }
 
 .sv-zone { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
 /* A zone's name reads above its rows: full ink and heading weight, where the rows under it are muted. */

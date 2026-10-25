@@ -79,7 +79,7 @@ import { backgroundEntryOf } from "./session-background";
 import { SubagentThread, useSubagentRead } from "./session-subagent";
 import { useMinimized } from "./session-ledger-minimized";
 import { useWriteClashes } from "./clashes";
-import { showLayer } from "./session-view/layers";
+import { showLayer, toggleLayer } from "./session-view/layers";
 import { OverTheApp } from "./session-view/OverTheApp";
 import { baysOf } from "./session-view/slot-trouble";
 import { ClashFileSheet } from "./session-view/ClashFileSheet";
@@ -134,6 +134,7 @@ import { planRevision } from "./session-view/plan-revision";
 import { PlanReview } from "./session-view/PlanReview";
 import { groupTitleOf, linkedPropsOf } from "./session-view/linked";
 import { SessionWorkspace, type Hosts } from "./session-view/SessionWorkspace";
+import { ARTIFACTS_KEY } from "./session-view/story";
 import { StartCard } from "./session-view/StartCard";
 import { CallChip, callWord } from "./session-view/CallChip";
 import { useLedgerRelease, type LedgerRelease } from "./session-ledger-release";
@@ -894,6 +895,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
             setMarks([]);
             setReviewing(false);
           },
+          approve: () => approvePlan(),
         };
   /** Approve, with what he marked on the plan going to the agent in the same press. */
   const approvePlan = () => {
@@ -1212,6 +1214,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
               onTags={(tags) => draft.setTags(session.id, tags)}
               drawn={drawn.map(({ id, title }) => ({ id, title }))}
               onDraw={() => setPadOpen(true)}
+              {...(workspace ? { onArtifacts: { open: () => toggleLayer(session.id, "artifacts"), key: ARTIFACTS_KEY.cap } } : {})}
               onRemoveDrawn={(id) => setDrawn((was) => was.filter((one) => one.id !== id))}
               onSend={(sent) => {
                 if (opensMcp(session, sent.text, sent.files.length)) {

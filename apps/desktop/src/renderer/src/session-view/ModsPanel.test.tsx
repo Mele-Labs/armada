@@ -1,4 +1,4 @@
-// Mods made: a Mod Job's panel lists the mods Fleet's list says it made (`made_by`), and its switch is the one the Mods page uses.
+// Mods made: the Landing panel of a Mod Job lists the mods Fleet's list says it made (`made_by`), and its switch is the one the Mods page uses.
 
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -8,7 +8,7 @@ import type { ModSummary, Outcome } from "@armada/protocol";
 import type { BridgeState } from "../../../shared/bridge";
 import { NOTHING_YET } from "../../../shared/bridge";
 import type { StateChange } from "../../../shared/state-change";
-import { ModsPanel } from "./ModsPanel";
+import { ModsMade } from "./ModsPanel";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -39,11 +39,11 @@ function fleet(mods: ModSummary[], outcome: Outcome = { ok: true }) {
   return { setModEnabled, listed: (next: ModSummary[]) => push({ full: { ...NOTHING_YET, mods: { mods: next } }, seq: 2 }) };
 }
 
-async function mount(id: string, mod = true): Promise<HTMLElement> {
+async function mount(id: string): Promise<HTMLElement> {
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
-  await act(async () => root.render(<ModsPanel id={id} mod={mod} place="side" />));
+  await act(async () => root.render(<ModsMade id={id} />));
   roots.push({ root, host });
   return host;
 }
@@ -53,14 +53,7 @@ const switches = (host: HTMLElement) => [...host.querySelectorAll<HTMLInputEleme
 test("lists the mods whose made_by is this Job and no others", async () => {
   fleet([row("dusk", { made_by: "job-1" }), row("by-another", { made_by: "job-2" }), row("by-hand"), row("built-in:calm", { origin: "built_in" })]);
   const host = await mount("job-1");
-  expect(host.querySelector('section[aria-label="Mods made"]')).not.toBeNull();
   expect(switches(host)).toEqual(["dusk"]);
-});
-
-test("draws nothing for a Job that is not a Mod Job", async () => {
-  fleet([row("dusk", { made_by: "job-1" })]);
-  const host = await mount("job-1", false);
-  expect(host.querySelector('section[aria-label="Mods made"]')).toBeNull();
 });
 
 test("a mod Fleet lists later joins the panel", async () => {

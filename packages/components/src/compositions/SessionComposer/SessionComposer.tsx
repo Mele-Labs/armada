@@ -1,6 +1,6 @@
 import { useContext, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import type { ClipboardEvent, DragEvent, FormEvent, KeyboardEvent, MouseEvent, ReactNode } from "react";
-import { Cpu, File, Lightbulb, Paperclip, PencilRuler, Send, Shield, Zap } from "lucide-react";
+import { Cpu, File, Files, Lightbulb, Paperclip, PencilRuler, Send, Shield, Zap } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { readKept, useKept, writeKept } from "../../keep";
@@ -145,6 +145,8 @@ export type SessionComposerProps = {
   drawn: readonly { id: string; title: string }[];
   /** Opens the pad. */
   onDraw: () => void;
+  /** Opens the list of what the Job made or used. Absent, the box has no such button. `key` is the key that does the same, named on its tooltip. */
+  onArtifacts?: { open: () => void; key: string };
   onRemoveDrawn: (id: string) => void;
   /** Resolving to `false` says the message did not go, and the box is given it back. */
   onSend: (sent: SentFromComposer) => void | Promise<boolean>;
@@ -300,6 +302,7 @@ export function SessionComposer({
   compact = false,
   drawn,
   onDraw,
+  onArtifacts,
   onRemoveDrawn,
   onSend,
   modeLocked = false,
@@ -725,6 +728,13 @@ export function SessionComposer({
                 <Paperclip size={16} strokeWidth={2} aria-hidden />
               </Button>
             </Tooltip>
+            {onArtifacts === undefined ? null : (
+              <Tooltip label="Everything the Job made or used" shortcut={onArtifacts.key}>
+                <Button type="button" variant="ghost" size="sm" aria-label="Artifacts" onClick={onArtifacts.open}>
+                  <Files size={16} strokeWidth={2} aria-hidden />
+                </Button>
+              </Tooltip>
+            )}
             {attachOnly ? null : (
               <Tooltip label="Draw a sketch to send with the message">
                 <Button type="button" variant="ghost" size="sm" aria-label="Draw sketch" onClick={onDraw}>

@@ -1,0 +1,46 @@
+/* The Job's right column as a story: the workflow, the blueprint, the field, the landing. The panel the stage is at is open and the rest stand
+   folded to their bands (`story.ts`). Tokens only; no gradient, glow or sheen. */
+
+/* ---- Where the panels stand ------------------------------------------------------------------------------ */
+
+.sv-side > .sv-panel[data-area="workflow"] { flex: 0 0 auto; }
+.sv-side > .sv-panel[data-area="blueprint"] { flex: 3 1 0; min-height: calc(var(--space-12) * 4); }
+.sv-side > .sv-panel[data-area="field"] { flex: 2 1 0; min-height: calc(var(--space-12) * 3); }
+.sv-side > .sv-panel[data-area="landing"] { flex: 2 1 0; min-height: calc(var(--space-12) * 3); }
+.sv-side > .sv-panel[data-area="blueprint"]:has(> .sv-panel__body:empty),
+.sv-side > .sv-panel[data-area="landing"]:has(> .sv-panel__body:empty) { flex: 0 0 auto; min-height: 0; }
+
+/* ---- Blueprint -------------------------------------------------------------------------------------------- */
+
+.sv-blueprint__summary { margin: 0; padding-inline: var(--space-2); color: var(--fg-default); font-family: var(--font-sans); font-size: var(--text-sm); line-height: var(--leading-sm); overflow-wrap: anywhere; }
+.sv-plan__acts { display: inline-flex; align-items: center; gap: var(--space-2); margin-inline-start: auto; }
+/* A plan being drafted shows every task, so its groups are not the stepper's single quiet lines. */
+.sv-plan[data-drafting] .sv-group[data-step] { border-color: var(--border-subtle); background: var(--bg-raised); }
+
+/* ---- Field: the turn's account over the map -------------------------------------------------------------- */
+
+.sv-field__now { flex: none; padding: var(--space-3); }
+
+/* ---- Landing: chips on the band --------------------------------------------------------------------------- */
+
+.sv-chips { display: inline-flex; align-items: center; gap: var(--space-1); min-width: 0; }
+.sv-chip { display: inline-flex; align-items: center; gap: var(--space-1); padding: 0 var(--space-1); border: 0; border-radius: var(--radius-sm); background: none; color: var(--fg-muted); font: inherit; font-size: var(--text-xs); line-height: var(--leading-sm); cursor: pointer; }
+.sv-chip:hover { background: color-mix(in srgb, var(--fg-default) 6%, transparent); color: var(--fg-default); }
+.sv-chip:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+.sv-chip code { color: inherit; font-size: var(--text-2xs); }
+.sv-chip[data-kind="issue"][data-state="closed"],
+.sv-chip[data-kind="pr"][data-state="merged"] { color: var(--step-advanced); }
+.sv-chip[data-kind="pr"][data-checks="running"]:not([data-state="merged"]) { color: var(--step-running); }
+.sv-chip[data-kind="pr"][data-checks="failed"]:not([data-state="merged"]) { color: var(--step-failed); }
+.sv-chip .armada-pr-card__check { display: inline-flex; align-items: center; }
+
+/* ---- Landing: the pull request, the doc, the mods ------------------------------------------------------------ */
+
+.sv-landing__prs, .sv-landing__docs { display: flex; flex-direction: column; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
+.sv-landing__pr { display: flex; flex-direction: column; align-items: stretch; gap: var(--space-2); }
+.sv-landing__pr .armada-pr-acts { align-self: flex-end; }
+.sv-landing__doc { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: var(--space-2); width: 100%; padding: var(--space-1) var(--space-2); border: 0; border-radius: var(--radius-md); background: none; color: var(--fg-muted); font-family: var(--font-sans); font-size: var(--text-xs); line-height: var(--leading-xs); text-align: start; cursor: pointer; }
+.sv-landing__doc:not(:disabled):hover { background: var(--bg-hover); color: var(--fg-default); }
+.sv-landing__doc:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--border-width) * -1); }
+.sv-landing__doc-mark { display: inline-flex; align-items: center; color: var(--fg-subtle); }
+.sv-landing__doc-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

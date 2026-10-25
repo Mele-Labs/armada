@@ -209,7 +209,12 @@ export type SessionWork = {
   judged?: { at: string; concerns: number };
   /** The owner's setting turned workflows off: the picker, the steps and the proposer's mark for a workflow are not drawn. */
   railOff?: true;
+  /** What the workflow ends in, which the Landing panel draws. Mock data until Fleet says it; absent is a pull request. */
+  landing?: WorkLanding;
 };
+
+/** What a workflow lands in: a pull request and its merge, a spike's findings doc, a mod and its switch, or a document. */
+export type WorkLanding = "pull_request" | "spike" | "mod" | "document";
 
 /** The acts on a Session's work. Absent where nothing serves them. */
 export type SessionWorkActs = {

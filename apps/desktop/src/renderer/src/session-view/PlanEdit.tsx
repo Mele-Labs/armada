@@ -13,7 +13,7 @@ import { useTeach } from "../teach";
 import { addGroup, addNote, addTask, dropNote, move, remove, rename, setAgent, type Since, type ViewGroup, type ViewTask } from "./plan-marks";
 
 /** The marks on the plan, and what changes them. `send` puts them to the agent as one message. */
-export type PlanEditing = { id: string; plan: WorkPlan; marks: readonly PlanMark[]; set: (next: PlanMark[]) => void; send: () => void };
+export type PlanEditing = { id: string; plan: WorkPlan; marks: readonly PlanMark[]; set: (next: PlanMark[]) => void; send: () => void; /** Approves the plan, with the marks he made going in the same press. */ approve?: () => void };
 
 /** The subagent types a group can be handed to. */
 const AGENTS = ["rust-engineer", "bridge-engineer", "protocol-engineer", "fixture-author", "judge", "general-purpose"];

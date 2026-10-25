@@ -234,11 +234,7 @@
 
 /* ==== Compact: what a Session open keeps on screen ================================================================ */
 
-/* The right column holds the Field, which takes the room, and Progress under it. A Progress with no plan is its band, and the Field has the rest. */
-.sv-side > .sv-panel[data-area="field"] { flex: 2 1 0; min-height: calc(var(--space-12) * 3); }
-.sv-side > .sv-panel[data-area="workflow"] { flex: 0 0 auto; }
-.sv-side > .sv-panel[data-area="progress"] { flex: 3 1 0; min-height: calc(var(--space-12) * 4); }
-.sv-side > .sv-panel[data-area="progress"]:has(> .sv-panel__body:empty) { flex: 0 0 auto; min-height: 0; }
+/* The right column tells the Job as a story: how its panels share the height is in `story.css`. */
 
 /* Progress: the workflow as one line of glyphs in the band. */
 .sv-rail { display: flex; flex: 1 1 0; align-items: center; min-width: 0; margin: 0; padding: 0; overflow: hidden; list-style: none; text-transform: none; letter-spacing: normal; }

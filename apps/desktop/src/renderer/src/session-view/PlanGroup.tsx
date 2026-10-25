@@ -56,10 +56,10 @@ export function StepMark({ step }: { step: Step }) {
  * **A group handed to a Session carries that Session's row** under its own; one not handed
  * offers the hand off in its open body.
  */
-export function Group({ group, working, step, ed, parent, manifestId, onOpenSession }: { group: ViewGroup; working?: boolean; /** Draws the group as a step of the plan: done and to-come ones as one muted line, the current one open and raised. */ step?: Step; ed: PlanEditing; parent: Session | undefined; manifestId?: string | undefined; onOpenSession: (id: string) => void }) {
+export function Group({ group, working, step, opened = false, ed, parent, manifestId, onOpenSession }: { group: ViewGroup; working?: boolean; /** Stands open until he presses it: the blueprint of a plan being drafted shows every task. */ opened?: boolean; /** Draws the group as a step of the plan: done and to-come ones as one muted line, the current one open and raised. */ step?: Step; ed: PlanEditing; parent: Session | undefined; manifestId?: string | undefined; onOpenSession: (id: string) => void }) {
   // A stepper's current group stands open until he presses it, and the others shut; a press is kept. Outside a stepper a group stands shut.
   const [pressed, setPressed] = useState<boolean | undefined>(() => (wasOpen(ed.id, group.id) ? true : undefined));
-  const open = pressed ?? step === "current";
+  const open = pressed ?? (opened || step === "current");
   const sessions = useSessions();
   const draft = useSessionsDraft();
   const child = parent === undefined ? undefined : childrenOf(sessions, parent).find((one) => one.group === group.id)?.session;
