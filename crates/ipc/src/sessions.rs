@@ -183,6 +183,10 @@ pub enum SessionFact {
     Limited {
         resets_at: Instant,
     },
+    /// A turn ended because the account's sign-in ran out and would not renew. Fleet signs itself out
+    /// for every Job, as a hosted Job's harness line does, and wakes the session once the account
+    /// works again: a later `turn_completed` from it is that.
+    SignedOut,
     /// Files the session wrote, relative to its `cwd`. **Paths only**, and only those under it.
     /// Fleet reads them for write clashes (`docs/concepts/fleet.md`, *Write clashes*). Since 23.81.
     /// `by` is the id of the subagent that wrote them, absent for the session's own agent, and `act`

@@ -83,15 +83,26 @@ impl SignInRun {
     }
 }
 
-/// The Fleet-wide state, and what a press runs. `std` locks, never held across an `.await`.
+/// The Fleet-wide state, what a press runs, and the Jobs owed a wake. `std` locks, never held across
+/// an `.await`.
 pub(crate) struct Held {
     state: Mutex<ipc::AgentSignIn>,
     run: Mutex<SignInRun>,
+    /// Jobs to tell `Continue`, for a caller that cannot tell them itself: a terminal Job's report.
+    owed: Mutex<Vec<String>>,
 }
 
 impl Held {
     pub(crate) fn running(run: SignInRun) -> Held {
-        Held { state: Mutex::default(), run: Mutex::new(run) }
+        Held { state: Mutex::default(), run: Mutex::new(run), owed: Mutex::default() }
+    }
+
+    fn owe(&self, woken: impl IntoIterator<Item = String>) {
+        self.owed.lock().expect("the wakes are not held across a panic").extend(woken);
+    }
+
+    fn owed(&self) -> Vec<String> {
+        std::mem::take(&mut *self.owed.lock().expect("the wakes are not held across a panic"))
     }
 
     /// Where a test plants a run that answers at once, in place of the browser.
@@ -171,18 +182,28 @@ where
         }
     }
 
-    /// The model answered in `id`, so the account works: where the Fleet was signed out, every other
-    /// Job it stopped is woken. **Not a turn's start**: the harness says `init` before every turn, the
-    /// failed ones too.
-    pub(crate) async fn signed_in_heard(self: &Arc<Self>, id: &str, runtime: &Arc<Runtime>) {
-        if !self.agent_sign_in().is_signed_out() && !runtime.state().signed_out {
-            return;
+    /// The model answered in hosted `id`, so the account works: where the Fleet was signed out, every
+    /// other Job it stopped is woken. **Not a turn's start**: the harness says `init` before every turn,
+    /// the failed ones too.
+    pub(crate) async fn signed_in_heard(self: &Arc<Self>, id: &str) {
+        if self.signed_in_by(id) {
+            self.sign_in_wakes_owed().await;
+        }
+    }
+
+    /// The account works, as `id`'s answer shows: where the Fleet was signed out, it is signed in and
+    /// every other Job it stopped is owed a wake. Whether it was signed out. **A terminal Job's
+    /// report** has no `Arc` to tell with, so the notice loop's next tick pays what it owes.
+    pub(crate) fn signed_in_by(&self, id: &str) -> bool {
+        if !self.agent_sign_in().is_signed_out() {
+            return false;
         }
         let marked = self.marks_taken();
         if let Some(now) = self.agent_sign_in().signed_in() {
             self.publish(ipc::Event::AgentSignInChanged(now));
         }
-        self.woken(marked.iter().filter(|one| *one != id)).await;
+        self.agent_sign_in().owe(marked.into_iter().filter(|one| one != id));
+        true
     }
 
     /// `start_agent_sign_in`: Fleet runs the sign-in, and the state is answered as it left it. **One at
@@ -207,7 +228,8 @@ where
     pub(crate) async fn signed_in_everywhere(self: &Arc<Self>) {
         let marked = self.marks_taken();
         self.publish(ipc::Event::AgentSignInChanged(self.agent_sign_in().finished(true)));
-        self.woken(marked.iter()).await;
+        self.agent_sign_in().owe(marked);
+        self.sign_in_wakes_owed().await;
     }
 
     /// Every Job the expiry stopped, its mark taken.
@@ -220,10 +242,11 @@ where
             .collect()
     }
 
-    /// Each told `Continue`. A Job that ended is not told, which `told_by_fleet` answers.
-    async fn woken(self: &Arc<Self>, marked: impl Iterator<Item = &String>) {
-        for id in marked {
-            let _ = self.told_by_fleet(id, WAKE, ipc::Notice::SignInWake).await;
+    /// Each Job owed a wake told `Continue`. **The notice loop's tick calls it too.** A Job that ended
+    /// is not told, which `told_by_fleet` answers.
+    pub(crate) async fn sign_in_wakes_owed(self: &Arc<Self>) {
+        for id in self.agent_sign_in().owed() {
+            let _ = self.told_by_fleet(&id, WAKE, ipc::Notice::SignInWake).await;
         }
     }
 }

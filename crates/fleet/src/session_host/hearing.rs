@@ -242,7 +242,7 @@ where
     async fn hear(self: &Arc<Self>, id: &str, runtime: &Arc<Runtime>, event: DroneEvent) {
         self.work_heard(id, &event, None).await;
         if matches!(event, DroneEvent::Said { by: Speaker::Drone, .. } | DroneEvent::Called { .. }) {
-            self.signed_in_heard(id, runtime).await;
+            self.signed_in_heard(id).await;
         }
         match event {
             DroneEvent::Started { model, .. } => {

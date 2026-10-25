@@ -7,8 +7,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use adapter_traits::{DroneEvent, Speaker};
-use api::{HostedSessions, Next, Subscription};
-use ipc::{AgentSignIn, Event, SessionId, SessionRow};
+use api::{HostedSessions, Next, Sessions, Subscription};
+use ipc::{AgentSignIn, Event, SessionFact, SessionId, SessionReport, SessionRow, TakeHeld};
 
 use crate::session_host::signed_out::SignInRun;
 use crate::tests::session_host::{eventually, rig_placing, Rig};
@@ -206,4 +206,57 @@ async fn a_second_press_while_signing_in_starts_nothing() {
     tokio::time::sleep(Duration::from_millis(300)).await;
     assert_eq!(runs(), 1, "the second press started a second sign-in");
     assert!(state(&rig).await.signing_in, "the first is still waiting");
+}
+
+/// What a terminal Job's mod tells Fleet about `id`.
+async fn reported(rig: &Rig, id: &str, fact: SessionFact) {
+    rig.fleet
+        .report_session(SessionReport { harness: "a_harness".into(), session_id: SessionId::carried(id), fact })
+        .await
+        .expect("kept");
+}
+
+/// A Job in the person's own terminal, its mod listening for what Fleet holds for it.
+async fn a_terminal_job(rig: &Rig, id: &str) {
+    let fact = SessionFact::Started { cwd: rig.root.clone(), title: None, origin: ipc::SessionOrigin::Terminal, mod_version: None };
+    reported(rig, id, fact).await;
+    handed_to_the_mod(rig, id).await;
+}
+
+/// What the terminal's mod is handed if it asks now. **Asking is also what makes it listening.**
+async fn handed_to_the_mod(rig: &Rig, id: &str) -> Vec<String> {
+    rig.fleet.take_held_messages(TakeHeld { session_id: id.into(), wait_ms: None }).await.unwrap().messages
+}
+
+/// **A Job in his own terminal fails the same way**, and its mod says so: the Fleet signs out as it does
+/// for a hosted Job, and the Job is one to wake.
+#[tokio::test]
+async fn a_terminal_job_signing_out_signs_the_fleet_out() {
+    let rig = rig_placing(None);
+    a_terminal_job(&rig, "t1").await;
+    reported(&rig, "t1", SessionFact::SignedOut).await;
+
+    assert!(state(&rig).await.signed_out_since.is_some());
+    assert!(marked(&rig, &SessionId::carried("t1")));
+}
+
+/// A terminal Job's finished turn is the account working, as a hosted Job's answer is: every other Job
+/// the expiry stopped, hosted or in a terminal, is woken.
+#[tokio::test]
+async fn a_terminal_job_finishing_a_turn_signs_the_fleet_back_in() {
+    let rig = rig_placing(None);
+    let (hosted, process) = a_working_job(&rig).await;
+    signs_out(&rig, process);
+    eventually(|| async { marked(&rig, &hosted) }).await;
+    a_terminal_job(&rig, "t1").await;
+    a_terminal_job(&rig, "t2").await;
+    reported(&rig, "t1", SessionFact::SignedOut).await;
+    reported(&rig, "t2", SessionFact::SignedOut).await;
+
+    reported(&rig, "t1", SessionFact::TurnCompleted { said: Some("Done.".into()) }).await;
+    assert_eq!(state(&rig).await, AgentSignIn::default());
+    rig.fleet.sign_in_wakes_owed().await;
+    eventually(|| async { noticed(&rig, &hosted, "sign_in_wake").await == ["Continue"] }).await;
+    assert!(handed_to_the_mod(&rig, "t2").await.iter().any(|said| said.ends_with("Continue")), "the other terminal Job is woken");
+    assert!(handed_to_the_mod(&rig, "t1").await.is_empty(), "the Job that answered is working");
 }
