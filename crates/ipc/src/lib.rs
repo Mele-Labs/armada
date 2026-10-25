@@ -354,8 +354,8 @@ pub use sharing::{
 };
 pub use sharing::{KitManifestSaved, SaveKitManifest};
 pub use shared_home::{
-    ChooseHomeSide, HomeKind, HomeKindSwitch, HomeKinds, HomeLeft, HomeNamed, HomeProfile, HomeRow, HomeRowAt, HomeRowState,
-    HomeSide, HomeSynced, HomeUnreadable, SetHomeKind, SharedHomeRead,
+    ChooseHomeSide, HomeKind, HomeKindSwitch, HomeKinds, HomeLeft, HomeNamed, HomePlanned, HomeProfile, HomeRow, HomeRowAt,
+    HomeRowState, HomeSide, HomeSynced, HomeUnreadable, SetHomeKind, SetHomeRepository, SharedHomeRead,
 };
 pub use issue_reference::{ClaimIssue, IssueClaimed, IssueReference};
 pub use issue_queries::{
@@ -591,7 +591,7 @@ pub use plan_usage::{
     PlanUsage, PlanWindow,
 };
 pub use accounts::{
-    AccountFlow, Accounts, BoundHow, BoundRepository, Profile, SetRepositoryProfile, SetUpState,
+    AccountFlow, Accounts, BoundHow, BoundRepository, Profile, ProfileHome, SetRepositoryProfile, SetUpState,
     SetUpSteps, SignInEnded, SignInOutcome, SignOut, SignedOut, UnmatchedRepository,
 };
 pub use sleep::{

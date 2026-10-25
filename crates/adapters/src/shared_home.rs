@@ -1,6 +1,6 @@
-//! The shared home on GitHub: `<login>/armada-home` for each profile, private, made through the
-//! API where it does not exist and kept in the machine directory as a clone, `home/<login>`.
-//! `docs/concepts/kit.md`.
+//! The shared home on GitHub: one repository for each profile, `<login>/armada-home` until the
+//! person chooses another owner or name, private, made through the API where it does not exist
+//! and kept in the machine directory as a clone, `home/<login>`. `docs/concepts/kit.md`.
 //!
 //! **Git over HTTPS with `gh`'s own token for that login, never SSH.** An SSH key's passphrase
 //! sits in the keychain, which will not open while the screen is locked, so a push at night would
@@ -12,11 +12,17 @@ use std::path::{Path, PathBuf};
 use std::process::Output;
 use std::sync::{Arc, Mutex, PoisonError};
 
-use adapter_traits::{FileEntry, FileRead, HomeFailure, HomeRepositories, HomeRepository, KeptFolder, HOME_REPOSITORY};
-use serde::Serialize;
+use adapter_traits::{FileEntry, FileRead, HomeFailure, HomePlace, HomeRepositories, HomeRepository, KeptFolder};
+use serde::{Deserialize, Serialize};
 
 use crate::delivery::{run_in, said};
 use crate::github_api::{token_from_gh_as, ApiFailure, GitHubApi, API_BASE, GITHUB_HOST};
+
+/// What marks a repository as somebody's shared home, so another Mac can find it.
+const HOME_TOPIC: &str = "armada-home";
+
+/// The most pages of a login's repositories read to find its home, a hundred to a page.
+const LISTING_PAGES: usize = 10;
 
 /// The most characters a GitHub login holds.
 const LOGIN_MOST: usize = 39;
@@ -125,19 +131,32 @@ impl ForgeHomes {
 }
 
 impl HomeRepositories for ForgeHomes {
-    fn of(&self, login: &str) -> Result<Arc<dyn HomeRepository>, HomeFailure> {
+    fn of(&self, login: &str, owners: &[String]) -> Result<Arc<dyn HomeRepository>, HomeFailure> {
         if !is_login(login) {
             return Err(HomeFailure::Refused(format!("{login:?} cannot be a GitHub login")));
         }
         let mut made = self.made.lock().unwrap_or_else(PoisonError::into_inner);
-        let home = made.entry(login.to_string()).or_insert_with(|| Arc::new(ForgeHome::as_login(self.dir.join(login), login)));
-        Ok(Arc::clone(home) as Arc<dyn HomeRepository>)
+        // A profile signed in again may belong to other organisations: a home made for the old
+        // list is made again for the new.
+        let home = match made.get(login).filter(|home| home.owners_are(owners)) {
+            Some(home) => Arc::clone(home),
+            None => {
+                let home = Arc::new(ForgeHome::as_login(self.dir.join(login), login, owners));
+                made.insert(login.to_string(), Arc::clone(&home));
+                home
+            }
+        };
+        Ok(home as Arc<dyn HomeRepository>)
     }
 }
 
 /// One login's home on GitHub, cloned at `dir`, through a client that holds that login's token.
 pub(crate) struct ForgeHome {
     login: String,
+    /// The logins a clone here may be owned by: the login's own and its organisations'.
+    owners: Vec<String>,
+    /// The list `owners` was made from, to tell a home made for another one.
+    given: Vec<String>,
     dir: PathBuf,
     files: Folder,
     api: GitHubApi,
@@ -151,13 +170,65 @@ struct NewRepository<'a> {
     description: &'a str,
 }
 
+#[derive(Serialize)]
+struct Topics<'a> {
+    names: [&'a str; 1],
+}
+
+/// What the forge says of a repository that is there: whether the login may push to it.
+#[derive(Deserialize)]
+struct Existing {
+    permissions: Option<Permissions>,
+}
+
+#[derive(Deserialize)]
+struct Permissions {
+    push: bool,
+}
+
+/// One repository of the login's listing.
+#[derive(Deserialize)]
+struct Listed {
+    name: String,
+    owner: ListedOwner,
+    #[serde(default)]
+    topics: Vec<String>,
+}
+
+#[derive(Deserialize)]
+struct ListedOwner {
+    login: String,
+}
+
+/// The home among a login's repositories: one marked as a home and owned by one of `owners`,
+/// the login's own before an organisation's.
+fn home_among(listed: &[Listed], login: &str, owners: &[String]) -> Option<HomePlace> {
+    let marked = |one: &&Listed| one.topics.iter().any(|topic| topic == HOME_TOPIC);
+    let owned = |one: &&Listed| owners.iter().any(|owner| owner.eq_ignore_ascii_case(&one.owner.login));
+    let mut homes: Vec<&Listed> = listed.iter().filter(marked).filter(owned).collect();
+    homes.sort_by_key(|one| !one.owner.login.eq_ignore_ascii_case(login));
+    homes.first().map(|one| HomePlace { owner: one.owner.login.clone(), name: one.name.clone() })
+}
+
 impl ForgeHome {
     /// `login`'s home kept at `dir`. Its own client: **the one Fleet shares holds the active
     /// account's token**, which may be another profile's.
-    fn as_login(dir: PathBuf, login: &str) -> ForgeHome {
+    fn as_login(dir: PathBuf, login: &str, owners: &[String]) -> ForgeHome {
         let asked = login.to_string();
         let api = GitHubApi::against(API_BASE, move || token_from_gh_as(GITHUB_HOST, &asked));
-        ForgeHome { login: login.to_string(), files: Folder::at(&dir), dir, api }
+        ForgeHome::through(dir, login, owners, api)
+    }
+
+    pub(crate) fn through(dir: PathBuf, login: &str, owners: &[String], api: GitHubApi) -> ForgeHome {
+        let mut accepted = owners.to_vec();
+        if !accepted.iter().any(|owner| owner.eq_ignore_ascii_case(login)) {
+            accepted.push(login.to_string());
+        }
+        ForgeHome { login: login.to_string(), owners: accepted, given: owners.to_vec(), files: Folder::at(&dir), dir, api }
+    }
+
+    fn owners_are(&self, owners: &[String]) -> bool {
+        self.given == owners
     }
 
     fn failed(&self, why: ApiFailure) -> HomeFailure {
@@ -184,12 +255,51 @@ impl ForgeHome {
         }
     }
 
-    fn exists(&self) -> Result<bool, HomeFailure> {
-        match self.api.get(&format!("/repos/{}/{HOME_REPOSITORY}", self.login)) {
-            Ok(_) => Ok(true),
-            Err(ApiFailure::Refused { status: 404, .. }) => Ok(false),
-            Err(why) => Err(self.failed(why)),
+    /// One listing as the login, which names each repository's owner and topics.
+    pub(crate) fn listed(&self) -> Result<Option<HomePlace>, HomeFailure> {
+        let path = "/user/repos?affiliation=owner,organization_member&per_page=100";
+        let paged = self.api.get_paged(path, LISTING_PAGES).map_err(|why| self.failed(why))?;
+        let mut listed = Vec::new();
+        for page in &paged.pages {
+            listed.extend(page.decode::<Vec<Listed>>("the repositories of a login").map_err(|why| self.failed(why))?);
         }
+        Ok(home_among(&listed, &self.login, &self.owners))
+    }
+
+    /// The repository at `place`, made where the forge has none. **As the login's own token**, a
+    /// user repository through `/user/repos` and an organisation's through `/orgs/<org>/repos`.
+    pub(crate) fn ensured(&self, place: &HomePlace) -> Result<(), HomeFailure> {
+        let (owner, name) = (&place.owner, &place.name);
+        match self.api.get(&format!("/repos/{owner}/{name}")) {
+            Ok(there) => {
+                let existing: Existing = there.decode("a repository").map_err(|why| self.failed(why))?;
+                return match existing.permissions.is_some_and(|it| it.push) {
+                    true => Ok(()),
+                    false => Err(HomeFailure::cannot_write(&self.login, place)),
+                };
+            }
+            Err(ApiFailure::Refused { status: 404, .. }) => {}
+            Err(why) => return Err(self.failed(why)),
+        }
+        let asked = NewRepository {
+            name,
+            private: true,
+            auto_init: true,
+            description: "Armada's shared home: Kit carried between my machines",
+        };
+        let own = owner.eq_ignore_ascii_case(&self.login);
+        let made = match own {
+            true => self.api.post("/user/repos", &asked),
+            false => self.api.post(&format!("/orgs/{owner}/repos"), &asked),
+        };
+        match made {
+            Ok(_) => {}
+            // GitHub answers 403 to a member who may not create, and 404 to one who is no member.
+            Err(ApiFailure::Refused { status: 403 | 404, .. }) if !own => return Err(HomeFailure::cannot_make(&self.login, owner)),
+            Err(why) => return Err(self.failed(why)),
+        }
+        self.api.put(&format!("/repos/{owner}/{name}/topics"), &Topics { names: [HOME_TOPIC] }).map_err(|why| self.failed(why))?;
+        Ok(())
     }
 }
 
@@ -205,28 +315,25 @@ impl HomeRepository for ForgeHome {
         })?;
         let path = url.strip_prefix(&format!("https://{GITHUB_HOST}/"))?.trim_end_matches(".git");
         let owner = path.split('/').next()?;
-        owner.eq_ignore_ascii_case(&self.login).then(|| path.to_string())
+        self.owners.iter().any(|accepted| accepted.eq_ignore_ascii_case(owner)).then(|| path.to_string())
     }
 
-    fn open(&self) -> Result<(), HomeFailure> {
+    fn open(&self, place: &HomePlace) -> Result<(), HomeFailure> {
         if self.here().is_some() {
             return self.pull();
         }
         self.holding()?;
-        if !self.exists()? {
-            let asked = NewRepository {
-                name: HOME_REPOSITORY,
-                private: true,
-                auto_init: true,
-                description: "Armada's shared home: Kit carried between my machines",
-            };
-            self.api.post("/user/repos", &asked).map_err(|why| self.failed(why))?;
-        }
+        self.ensured(place)?;
         let parent = self.dir.parent().ok_or_else(|| HomeFailure::Refused("the home's folder has no parent".to_string()))?;
         std::fs::create_dir_all(parent).map_err(|why| HomeFailure::Refused(why.to_string()))?;
-        let url = format!("https://{GITHUB_HOST}/{}/{HOME_REPOSITORY}.git", self.login);
+        let url = format!("https://{GITHUB_HOST}/{}/{}.git", place.owner, place.name);
         let into = self.dir.to_string_lossy().to_string();
         self.git(parent, &["clone", "--quiet", "--", &url, &into]).map(|_| ())
+    }
+
+    fn found(&self) -> Result<Option<HomePlace>, HomeFailure> {
+        self.holding()?;
+        self.listed()
     }
 
     fn pull(&self) -> Result<(), HomeFailure> {

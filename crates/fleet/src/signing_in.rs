@@ -33,9 +33,9 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard, OnceLock, PoisonError};
 use std::time::{Duration, Instant};
 
-use adapter_traits::{Polled, Secret, SignIn, SignInError};
+use adapter_traits::{Polled, Secret, SignIn, SignInError, HOME_REPOSITORY};
 use ipc::{
-    AccountFlow, Accounts, BoundRepository, Profile, SetUpState, SetUpSteps, SignInEnded, SignInOutcome, SignedOut,
+    AccountFlow, Accounts, BoundRepository, Profile, ProfileHome, SetUpState, SetUpSteps, SignInEnded, SignInOutcome, SignedOut,
     UnmatchedRepository,
 };
 
@@ -124,8 +124,9 @@ struct Inner {
     home: OnceLock<HomeHere>,
 }
 
-/// Whether this machine holds a copy of a login's shared home, and its name.
-type HomeHere = Arc<dyn Fn(&str) -> Option<String> + Send + Sync>;
+/// Whether this machine holds a copy of a login's shared home, and its name. It is given the
+/// owners a copy may be under: the login and its organisations.
+type HomeHere = Arc<dyn Fn(&str, &[String]) -> Option<String> + Send + Sync>;
 
 /// The machine's sign-in and its profiles.
 #[derive(Clone)]
@@ -174,12 +175,14 @@ impl SigningIn {
         if login.is_empty() {
             return None;
         }
-        self.inner.home.get().and_then(|here| here(login))
+        let orgs = self.inner.profiles.list().ok()?.into_iter().find(|one| one.login == login).map(|one| one.orgs).unwrap_or_default();
+        let owners: Vec<String> = std::iter::once(login.to_string()).chain(orgs).collect();
+        self.inner.home.get().and_then(|here| here(login, &owners))
     }
 
-    /// The login of every profile this machine holds.
-    pub(crate) fn logins(&self) -> Result<Vec<String>, String> {
-        Ok(self.inner.profiles.list()?.into_iter().map(|joined| joined.login).collect())
+    /// Every profile this machine holds.
+    pub(crate) fn joined(&self) -> Result<Vec<Joined>, String> {
+        self.inner.profiles.list()
     }
 
     fn state(&self) -> MutexGuard<'_, State> {
@@ -194,7 +197,7 @@ impl SigningIn {
         let flow = self.flow();
         let profiles = self.inner.profiles.list().map_err(Refused::Fault)?;
         let choices = self.inner.choices.all().map_err(Refused::Fault)?;
-        let mut wired: Vec<Profile> = profiles.iter().cloned().map(wire).collect();
+        let mut wired: Vec<Profile> = profiles.iter().cloned().map(|joined| self.wire(joined)).collect();
         let mut unmatched = Vec::new();
         for repo in repositories {
             match binding(&profiles, choices.get(&repo.root), repo) {
@@ -212,6 +215,23 @@ impl SigningIn {
             }
         }
         Ok(Accounts { profiles: wired, unmatched, flow })
+    }
+
+    /// A profile as the wire has it. Its home is the copy here where there is one and else the
+    /// default place, which Fleet replaces with what was chosen.
+    fn wire(&self, joined: Joined) -> Profile {
+        let home = match self.home_here(&joined.login).as_deref().and_then(|here| here.split_once('/')) {
+            Some((account, repository)) => ProfileHome { account: account.to_string(), repository: repository.to_string(), made: true },
+            None => ProfileHome { account: joined.login.clone(), repository: HOME_REPOSITORY.to_string(), made: false },
+        };
+        Profile {
+            account_id: joined.account_id,
+            login: joined.login,
+            orgs: joined.orgs,
+            chosen: joined.chosen,
+            home,
+            repositories: Vec::new(),
+        }
     }
 
     fn flow(&self) -> AccountFlow {
@@ -462,9 +482,6 @@ impl SigningIn {
     }
 }
 
-fn wire(joined: Joined) -> Profile {
-    Profile { account_id: joined.account_id, login: joined.login, chosen: joined.chosen, repositories: Vec::new() }
-}
 
 fn outcome_of(why: &SignInError) -> SignInOutcome {
     if why.is_unreachable() {

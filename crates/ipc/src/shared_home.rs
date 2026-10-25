@@ -130,12 +130,26 @@ pub struct HomeNamed {
     pub repository: String,
 }
 
+/// Where a home is or will be, while this machine holds no copy of it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HomePlanned {
+    /// The owner: the profile's login or one of its organisations.
+    pub account: String,
+    /// The repository's name under it.
+    pub repository: String,
+    /// The forge already has it, made on another Mac: shown and not changed, and Sync clones it.
+    pub exists: bool,
+}
+
 /// `get_shared_home`, and what every act on it answers with.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SharedHomeRead {
     /// Left out where this machine holds no copy yet: Sync makes and clones it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub home: Option<HomeNamed>,
+    /// Where the home is or will be, served whenever `home` is left out.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub planned: Option<HomePlanned>,
     /// Every row of every kind this machine syncs, kind by kind in [`HomeKind::ALL`]'s order.
     pub rows: Vec<HomeRow>,
     pub unreadable: Vec<HomeUnreadable>,
@@ -211,4 +225,14 @@ pub struct SetHomeKind {
 pub struct HomeKinds {
     pub login: String,
     pub kinds: Vec<HomeKindSwitch>,
+}
+
+/// `set_home_repository`: where one profile's home is made, before it exists.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SetHomeRepository {
+    pub login: String,
+    /// The profile's login or one of its organisations.
+    pub owner: String,
+    /// The repository's name.
+    pub name: String,
 }
