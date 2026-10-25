@@ -524,7 +524,10 @@ pub(crate) async fn asked_and_costed(
     let micros = cost
         .lock()
         .expect("not poisoned")
-        .and_then(|dollars| (dollars >= 0.0).then(|| (dollars * 1_000_000.0).round() as u64));
+        .and_then(|dollars| (dollars >= 0.0).then(|| (dollars * 1_000_000.0).round() as u64))
+        // A call that failed and billed nothing (a credential that expired reports `0`) did not say
+        // what it cost, and zero would say it cost nothing.
+        .filter(|micros| answered.is_ok() || *micros > 0);
     (answered, micros)
 }
 

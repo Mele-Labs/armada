@@ -49,7 +49,7 @@ You ask who has `fleet/session-ledger`, and the answer is a job by its title, st
 | [The evolution graph](session/the-evolution-graph.md) |
 | [Which model, and a fresh start](session/which-model-and-a-fresh-start.md) |
 | [A Job's proposal](session/a-jobs-proposal.md) |
-| [The start card](session/the-start-card.md) |
+| [A held Job](session/the-start-card.md) |
 | [A queued idea](session/a-queued-idea.md) |
 | [Stopping a turn](session/stopping-a-turn.md) |
 | [Pausing a Job](session/pausing-a-job.md) |

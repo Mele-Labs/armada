@@ -16,11 +16,15 @@ export type LocateSlice = {
   onResolveFolder: (path: string) => Promise<string | null>;
   onAdd: (path: string) => Promise<LocateAnswer>;
   onClone: (url: string, parent: string) => Promise<LocateAnswer>;
+  /** Makes `name` under `parent`, started as a git repository, and serves it. `parent` may start with `~`. */
+  onCreate: (parent: string, name: string) => Promise<LocateAnswer>;
+  /** Where a new project is offered: the folder most served repositories sit in. */
+  newPlace: string;
   /**
-   * Served: pick it and go to its Cockpit. **Called only on a person's press** — the send while the
-   * dialog is up, or the notice's Open where it finished after the dialog closed.
+   * Served: pick it and go to its Cockpit, with a new Job open on it where it was `made` new. **Called only on a person's press** — the
+   * send while the dialog is up, or the notice's Open where it finished after the dialog closed.
    */
-  onLocated: (repository: RepositorySummary) => void;
+  onLocated: (repository: RepositorySummary, made?: boolean) => void;
   /** Fleet has listed nothing: the dialog opens by itself, since there is nothing else to do. */
   nothingServed?: boolean;
   /** A clone main heard land, from any window. Announced here unless this window's own send is taking it (#926). */
@@ -30,6 +34,8 @@ export type LocateSlice = {
 export type Locating = {
   open: boolean;
   onOpen: () => void;
+  /** Opens the dialog on a new project. */
+  onNew: () => void;
   form: LocateFormProps;
   /** A repository located after its dialog closed, until the person opens its Setup or dismisses it. */
   late: RepositorySummary | null;
@@ -37,6 +43,14 @@ export type Locating = {
 };
 
 const FULL_PATH = "A full path, starting with /.";
+const FULL_PLACE = "A full path, starting with / or ~.";
+const FOLDER_NAME = "Letters, digits, dots, dashes and underscores.";
+
+/** What a new project's name may hold, as the first run's start allows: one folder, needing no escaping. */
+const NAMED = /^[A-Za-z0-9._-]+$/;
+
+/** A new project's place: absolute, or under home, which main spells out. */
+const placed = (place: string): boolean => isAbsolute(place) || place.trim() === "~" || place.trim().startsWith("~/");
 
 export function useLocate(slice: LocateSlice): Locating {
   const [open, setOpen] = useState(false);
@@ -44,6 +58,9 @@ export function useLocate(slice: LocateSlice): Locating {
   const [path, setPath] = useState("");
   const [url, setUrl] = useState("");
   const [parent, setParent] = useState("");
+  // The place a new project is made under, `null` while it is the one offered.
+  const [place, setPlace] = useState<string | null>(null);
+  const [name, setName] = useState("");
   const [sending, setSending] = useState(false);
   const [refusal, setRefusal] = useState<LocateFormProps["refusal"]>(undefined);
   const [late, setLate] = useState<RepositorySummary | null>(null);
@@ -82,7 +99,8 @@ export function useLocate(slice: LocateSlice): Locating {
   }, [parent]);
   const canonical = resolved?.parent === parent.trim() ? resolved.folder : null;
   const destination = landsIn(url, canonical ?? parent);
-  const ready = mode === "folder" ? isAbsolute(path) : url.trim() !== "" && destination !== null;
+  const where = place ?? slice.newPlace;
+  const ready = mode === "folder" ? isAbsolute(path) : mode === "new" ? NAMED.test(name) && placed(where) : url.trim() !== "" && destination !== null;
   const edited = <T,>(set: (value: T) => void) => (value: T) => {
     set(value);
     setRefusal(undefined);
@@ -93,6 +111,8 @@ export function useLocate(slice: LocateSlice): Locating {
     setPath("");
     setUrl("");
     setParent("");
+    setPlace(null);
+    setName("");
     setRefusal(undefined);
   }
 
@@ -102,18 +122,23 @@ export function useLocate(slice: LocateSlice): Locating {
     own.current.out = true;
     setRefusal(undefined);
     const cloning = mode === "clone";
+    const making = mode === "new";
     try {
-      const answer = cloning ? await latest.current.onClone(url.trim(), parent.trim()) : await latest.current.onAdd(path.trim());
+      const answer = making
+        ? await latest.current.onCreate(where.trim(), name)
+        : cloning
+          ? await latest.current.onClone(url.trim(), parent.trim())
+          : await latest.current.onAdd(path.trim());
       if (answer.state === "located") {
         own.current.took = answer.repository.root;
         const wasOpen = shown.current;
         reset();
         setOpen(false);
-        if (wasOpen) latest.current.onLocated(answer.repository);
+        if (wasOpen) latest.current.onLocated(answer.repository, making);
         else setLate(answer.repository);
         return;
       }
-      setRefusal(refusalOf(answer, cloning));
+      setRefusal(refusalOf(answer, mode));
     } finally {
       own.current.out = false;
       setSending(false);
@@ -123,6 +148,10 @@ export function useLocate(slice: LocateSlice): Locating {
   return {
     open,
     onOpen: () => setOpen(true),
+    onNew: () => {
+      if (!sending) setMode("new");
+      setOpen(true);
+    },
     late,
     onLate: (going) => {
       if (going && late !== null) latest.current.onLocated(late);
@@ -134,20 +163,26 @@ export function useLocate(slice: LocateSlice): Locating {
       path,
       url,
       parent,
+      place: where,
+      name,
       landsIn: destination,
       sending,
       ready,
       pathMessage: path.trim() !== "" && !isAbsolute(path) ? FULL_PATH : undefined,
       parentMessage: parent.trim() !== "" && !isAbsolute(parent) ? FULL_PATH : undefined,
+      placeMessage: where.trim() !== "" && !placed(where) ? FULL_PLACE : undefined,
+      nameMessage: name !== "" && !NAMED.test(name) ? FOLDER_NAME : undefined,
       refusal,
       onMode: edited(setMode),
       onPath: edited(setPath),
       onUrl: edited(setUrl),
       onParent: edited(setParent),
+      onPlace: edited(setPlace),
+      onName: edited(setName),
       onChoose: (field) =>
         void latest.current.onChooseFolder().then((chosen) => {
           if (chosen === null) return;
-          (field === "path" ? setPath : setParent)(chosen);
+          (field === "path" ? setPath : field === "place" ? setPlace : setParent)(chosen);
           setRefusal(undefined);
         }),
       onSend: () => void send(),
@@ -163,17 +198,17 @@ export function useLocate(slice: LocateSlice): Locating {
 /** What an answer that did not locate says, in the dialog. */
 function refusalOf(
   answer: Exclude<LocateAnswer, { state: "located" }>,
-  cloning: boolean,
+  mode: LocateMode,
 ): NonNullable<LocateFormProps["refusal"]> {
   switch (answer.state) {
     case "refused":
       return {
-        title: titleOf(answer.code, cloning),
+        title: titleOf(answer.code, mode),
         saying: sentence(answer.saying),
-        ...(answer.code === DESTINATION_OCCUPIED ? { next: "Choose another folder to clone into." } : {}),
+        ...(answer.code === DESTINATION_OCCUPIED ? { next: mode === "new" ? "Choose another name or location." : "Choose another folder to clone into." } : {}),
       };
     case "busy":
-      return { title: "Not sent", saying: "A repository is already being added or cloned." };
+      return { title: "Not sent", saying: "A repository is already being added, cloned or made." };
     case "failed":
       return { title: answer.outcome.ok === false && answer.outcome.why === "transport" ? "No answer from Fleet" : "Not sent", saying: said(answer.outcome) };
   }
@@ -182,8 +217,12 @@ function refusalOf(
 /** Fleet's own clone codes mean nothing landed; any other refusal of a clone came after git, and the clone stays. */
 const CLONE_CODES = new Set(["fleet.clone_refused", DESTINATION_OCCUPIED, "fleet.no_such_folder", "fleet.clone_not_finished"]);
 
-function titleOf(code: string, cloning: boolean): string {
-  if (!cloning) return "Not added";
+/** Fleet's own codes for a new project mean no folder was left; any other came after git started it, and the folder stays. */
+const CREATE_CODES = new Set(["fleet.project_name_refused", DESTINATION_OCCUPIED, "fleet.no_such_folder", "fleet.project_not_started"]);
+
+function titleOf(code: string, mode: LocateMode): string {
+  if (mode === "new") return CREATE_CODES.has(code) ? "Not made" : "Made, and not added";
+  if (mode === "folder") return "Not added";
   return CLONE_CODES.has(code) ? "Not cloned" : "Cloned, and not added";
 }
 

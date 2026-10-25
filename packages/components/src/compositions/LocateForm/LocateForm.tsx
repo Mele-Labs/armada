@@ -4,14 +4,15 @@ import { Dialog } from "../../primitives/Dialog/Dialog";
 import { Input } from "../../primitives/Input/Input";
 
 /**
- * Locate — Journey 3's *Getting in*: add a repository by its folder, or clone one from a URL.
+ * Locate — Journey 3's *Getting in*: add a repository by its folder, clone one from a URL, or
+ * make a new project: a name under a folder, started as a git repository.
  *
  * **The folder is the act and the clone is the quieter one**, because most onboarding is of
  * code already on disk. **Controlled**: every value and what it came to arrive as props, so a
  * clone still running when the dialog closes is still running when it opens again.
  */
 
-export type LocateMode = "folder" | "clone";
+export type LocateMode = "folder" | "clone" | "new";
 
 export type LocateFormProps = {
   open: boolean;
@@ -23,6 +24,10 @@ export type LocateFormProps = {
   parent: string;
   /** Where the clone lands, named as Fleet names it. `null` until the URL and the parent say. */
   landsIn: string | null;
+  /** The folder a new project is made under, `~` for home allowed. */
+  place: string;
+  /** The new project's folder name. */
+  name: string;
   /** Whether the press is out. A clone can take minutes, and nothing is sent twice. */
   sending: boolean;
   /** Whether what is typed would be sent. */
@@ -30,6 +35,8 @@ export type LocateFormProps = {
   /** A path that is not a full one, said under its own field. */
   pathMessage?: string;
   parentMessage?: string;
+  placeMessage?: string;
+  nameMessage?: string;
   /**
    * What did not happen, then Fleet's sentence whole — git's too — and what to do where the words
    * do not say. The Manifest form's refused save, read the same way.
@@ -39,8 +46,10 @@ export type LocateFormProps = {
   onPath: (path: string) => void;
   onUrl: (url: string) => void;
   onParent: (parent: string) => void;
+  onPlace: (place: string) => void;
+  onName: (name: string) => void;
   /** The OS's folder dialog, for the field named. */
-  onChoose: (field: "path" | "parent") => void;
+  onChoose: (field: "path" | "parent" | "place") => void;
   onSend: () => void;
   onCancel: () => void;
 };
@@ -48,24 +57,27 @@ export type LocateFormProps = {
 export function LocateForm(props: LocateFormProps) {
   const { open, mode, sending, ready, refusal, onMode, onSend, onCancel } = props;
   const cloning = mode === "clone";
+  const making = mode === "new";
   return (
     <Dialog
       open={open}
       tone="neutral"
-      title="Add a repository"
-      confirmLabel={cloning ? "Clone repository" : "Add repository"}
+      title={making ? "New project" : "Add a repository"}
+      confirmLabel={making ? "Create project" : cloning ? "Clone repository" : "Add repository"}
       confirmDisabled={!ready || sending}
       onConfirm={onSend}
       onCancel={onCancel}
       field={
         <div className="armada-locate">
-          {cloning ? <CloneFields {...props} /> : <FolderFields {...props} />}
-          {/* Gone while sending rather than disabled: the other act means nothing until this one answers. */}
+          {making ? <NewFields {...props} /> : cloning ? <CloneFields {...props} /> : <FolderFields {...props} />}
+          {/* Gone while sending rather than disabled: the other acts mean nothing until this one answers. */}
           {sending ? null : (
             <div className="armada-locate__other">
-              <Button variant="ghost" size="sm" onClick={() => onMode(cloning ? "folder" : "clone")}>
-                {cloning ? "Add a folder on disk" : "Clone from a URL"}
-              </Button>
+              {OTHERS.filter((other) => other.mode !== mode).map((other) => (
+                <Button key={other.mode} variant="ghost" size="sm" onClick={() => onMode(other.mode)}>
+                  {other.label}
+                </Button>
+              ))}
             </div>
           )}
         </div>
@@ -77,6 +89,8 @@ export function LocateForm(props: LocateFormProps) {
           <p className="armada-locate__saying">{refusal.saying}</p>
           {refusal.next === undefined ? null : <p className="armada-locate__saying">{refusal.next}</p>}
         </Alert>
+      ) : sending && making ? (
+        <p>Fleet is making the folder.</p>
       ) : sending && cloning ? (
         <p>
           Git is cloning into <span className="armada-locate__path">{props.landsIn}</span>. A large repository
@@ -84,6 +98,8 @@ export function LocateForm(props: LocateFormProps) {
         </p>
       ) : sending ? (
         <p>Fleet is reading the folder.</p>
+      ) : making ? (
+        <p>Armada makes the folder and starts it as a git repository. A new Job opens on it.</p>
       ) : cloning ? (
         <p>
           Git clones it into a new folder, with the credentials it already has. Armada serves the clone, and
@@ -93,6 +109,44 @@ export function LocateForm(props: LocateFormProps) {
         <p>Armada serves the folder as it is and changes nothing in it. Setup opens for it next.</p>
       )}
     </Dialog>
+  );
+}
+
+/** The other ways in, offered under the fields of the one shown. */
+const OTHERS: readonly { mode: LocateMode; label: string }[] = [
+  { mode: "folder", label: "Add a folder on disk" },
+  { mode: "clone", label: "Clone from a URL" },
+  { mode: "new", label: "New project" },
+];
+
+function NewFields({ place, name, placeMessage, nameMessage, sending, onPlace, onName, onChoose }: LocateFormProps) {
+  return (
+    <>
+      <div className="armada-locate__row">
+        <Input
+          label="Location"
+          mono
+          value={place}
+          disabled={sending}
+          invalid={placeMessage !== undefined}
+          message={placeMessage}
+          onChange={(event) => onPlace(event.target.value)}
+        />
+        <Button variant="secondary" disabled={sending} onClick={() => onChoose("place")}>
+          Choose a folder
+        </Button>
+      </div>
+      <Input
+        label="Name"
+        mono
+        autoFocus
+        value={name}
+        disabled={sending}
+        invalid={nameMessage !== undefined}
+        message={nameMessage}
+        onChange={(event) => onName(event.target.value)}
+      />
+    </>
   );
 }
 

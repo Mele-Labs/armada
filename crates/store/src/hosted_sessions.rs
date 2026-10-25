@@ -184,6 +184,75 @@ impl Store {
             .map_err(WriteError::Database)
     }
 
+    /// Keep the first turn of a Job on its start card. `false`, with nothing written, where one is
+    /// kept already: the first to arrive is the first turn.
+    pub fn keep_held_first_turn(&mut self, session_id: &str, body: &str) -> Result<bool, WriteError> {
+        self.conn
+            .execute("INSERT OR IGNORE INTO held_first_turns (session_id, body) VALUES (?1, ?2)", params![session_id, body])
+            .map(|changed| changed > 0)
+            .map_err(fault("keeping a held job's first turn"))
+            .map_err(WriteError::Database)
+    }
+
+    /// The first turn a Job on its start card keeps, if any.
+    pub fn held_first_turn(&self, session_id: &str) -> Result<Option<String>, WriteError> {
+        self.conn
+            .query_row("SELECT body FROM held_first_turns WHERE session_id = ?1", [session_id], |row| row.get(0))
+            .optional()
+            .map_err(fault("reading a held job's first turn"))
+            .map_err(WriteError::Database)
+    }
+
+    /// The first turn, taken: read and removed, so the press that begins the Job sends it once.
+    pub fn take_held_first_turn(&mut self, session_id: &str) -> Result<Option<String>, WriteError> {
+        let doing = "taking a held job's first turn";
+        let taken: Option<String> = self
+            .conn
+            .query_row("DELETE FROM held_first_turns WHERE session_id = ?1 RETURNING body", [session_id], |row| row.get(0))
+            .optional()
+            .map_err(fault(doing))
+            .map_err(WriteError::Database)?;
+        Ok(taken)
+    }
+
+    /// Keep a turn that reached a Job on its start card after its first, behind those kept already.
+    pub fn keep_held_later_turn(&mut self, session_id: &str, body: &str) -> Result<(), WriteError> {
+        self.conn
+            .execute("INSERT INTO held_later_turns (session_id, body) VALUES (?1, ?2)", params![session_id, body])
+            .map(|_| ())
+            .map_err(fault("keeping a held job's later turn"))
+            .map_err(WriteError::Database)
+    }
+
+    /// The later turns a Job on its start card keeps, oldest first.
+    pub fn held_later_turns(&self, session_id: &str) -> Result<Vec<String>, WriteError> {
+        let doing = "reading a held job's later turns";
+        let mut statement = self
+            .conn
+            .prepare("SELECT body FROM held_later_turns WHERE session_id = ?1 ORDER BY seq")
+            .map_err(fault(doing))
+            .map_err(WriteError::Database)?;
+        let rows = statement.query_map([session_id], |row| row.get(0)).map_err(fault(doing)).map_err(WriteError::Database)?;
+        rows.collect::<Result<_, _>>().map_err(fault(doing)).map_err(WriteError::Database)
+    }
+
+    /// The later turns, taken: read and removed, oldest first, so the press that begins the Job sends them once.
+    pub fn take_held_later_turns(&mut self, session_id: &str) -> Result<Vec<String>, WriteError> {
+        let doing = "taking a held job's later turns";
+        let mut statement = self
+            .conn
+            .prepare("DELETE FROM held_later_turns WHERE session_id = ?1 RETURNING seq, body")
+            .map_err(fault(doing))
+            .map_err(WriteError::Database)?;
+        let rows = statement
+            .query_map([session_id], |row| Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?)))
+            .map_err(fault(doing))
+            .map_err(WriteError::Database)?;
+        let mut taken: Vec<(i64, String)> = rows.collect::<Result<_, _>>().map_err(fault(doing)).map_err(WriteError::Database)?;
+        taken.sort_by_key(|(seq, _)| *seq);
+        Ok(taken.into_iter().map(|(_, body)| body).collect())
+    }
+
     /// Put a row on the end of a thread, or replace the one of the same id.
     pub fn keep_session_row(
         &mut self,

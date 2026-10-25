@@ -23,9 +23,9 @@ Any other start is read at the first message it is sent or given, and that turn 
 
 | Start | Read | When |
 |---|---|---|
-| Dispatch sheet (`request`) | Yes | At the start. The Job then waits on its start card, and the reading sends nothing |
-| Annotations, Lessons, Hand to Job, any Bridge start with no `request` | Yes | At the person's first `send_session_message` |
-| `start_another_session` (an agent's start, with a plan group or a wait) | Yes | At creation, from the agent's brief, so the proposal is in the dispatcher before he sends. His send does not read it again |
+| Dispatch sheet (`request`) | Yes | At the start. The Job is held, and the reading sends nothing |
+| Annotations, Lessons, Hand to Job, any Bridge start with no `request` | Yes | At the first message the Job is given: kept on a held Job, sent on any other |
+| `start_another_session` (an agent's start, with a plan group or a wait) | Yes | At creation, from the agent's brief, so the proposal is in the dispatcher before he presses Start. Start does not read it again |
 | A fork (`fork_this_session`, a fork in `start_session`, red main's fork) | No | It carries its source's conversation, model and settings |
 | Helm, and Setup's Job | No | Helm is a conversation with fixed values, not a brief; Setup has no Manifest to read against |
 | Autopilot, Rescue's continuation | No | Fleet's own dispatch: its brief is fixed, and Autopilot has picked the workflow |
@@ -48,4 +48,4 @@ No proposer, or a failed one, starts the Job as it is.
 The three events are `session.workflow`, `session.model` and `session.effort` on the timeline, where committed and pushed rows come from.
 
 **Held turns are in memory.** A Fleet that restarts while a Job is still being read loses them; the message row stays on the thread.
-A Job held on [its start card](the-start-card.md) is the exception: its hold is kept, and its turns are read back off the thread.
+A [held Job](the-start-card.md) is the exception: its hold and its first message are kept, and its other turns are read back off the thread.

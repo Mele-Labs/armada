@@ -142,6 +142,14 @@ describe("a Job held on its start card", () => {
     expect(begin.mock.calls).toEqual([[{ session_id: "s", delivery: "open_pr" }], [{ session_id: "s" }]]);
   });
 
+  it("passes the first message as he left it on the card, and refuses one that is no text rather than begin on the unedited words", async () => {
+    const { call, begin } = started();
+    await call(CHANNELS.beginSession, { session_id: "s", delivery: "keep_local", message: "Port the clock, then the loader" });
+    expect(begin.mock.calls).toEqual([[{ session_id: "s", delivery: "keep_local", message: "Port the clock, then the loader" }]]);
+    expect(await call(CHANNELS.beginSession, { session_id: "s", message: 4 })).toEqual({ ok: false, outcome: { ok: false, why: "not_understood" } });
+    expect(begin).toHaveBeenCalledTimes(1);
+  });
+
   it("sends nothing for a Job that is no id or a delivery that is no choice, and says so", async () => {
     const { call, begin } = started();
     expect(await call(CHANNELS.beginSession, { session_id: "", delivery: "open_pr" })).toEqual({ ok: false, outcome: { ok: false, why: "not_understood" } });

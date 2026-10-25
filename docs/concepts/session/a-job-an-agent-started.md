@@ -11,26 +11,26 @@ A Job's agent may start a Job, or fork its own conversation into one, through tw
 | The caller | Placed by the connection of its hosted process, as `show_window` places it. **No call names a Job**, so an agent cannot fork another's conversation, and a call from no hosted Job is refused 422 `fleet.agent_start_unplaced` |
 | Not offered | Tune, close, send and every other hosted-session command stay `agent_access` No |
 
-> **Rule.** An agent's Job is created and listed at once, and nothing runs until the owner sends its first message.
+> **Rule.** An agent's Job is created and listed at once, held, and nothing runs until the owner presses Start.
 > Why: a Job that started itself is a model spending tokens in a repository nobody chose to open. Holding the message makes the start a proposal he reads and may edit.
 
-**The first message is kept as an `unsent` attachment** on the new Job, and read back on every read as a waiting item: id `unsent:<session id>`, text *First message*, source `first_message`, act `message` on the Job.
+**The Job opens held** (*A held Job*): its title in the header, an empty thread under a *Started by* line naming the Job whose agent started it, and the agent's `message` in the composer, where he may edit it.
+Workflow and Delivery sit in the strip above the composer, filled and never blank.
+Send reads Start, and Start sends the box as he left it.
+
+**The first message is kept off the thread** in `held_first_turns`, and read back on every read as a waiting item: id `unsent:<session id>`, text *First message*, source `first_message`, act `message` on the Job.
 It has its own source and act so the Cockpit draws no reply box for it and a press opens the Job.
-Bridge puts the words in the new Job's message box once, where the box is empty.
-His ordinary send (`send_session_message`) sends what the box holds, starts the first turn, and spends the attachment and so the item; editing first is the same call.
-`answer_waiting` refuses the item, since sending is the answer.
-Ending the Job discards both.
+No `unsent` attachment stands for it.
+`answer_waiting` refuses the item, since Start is the answer.
+Start settles the item, and ending the Job discards both.
 While sleep is on, the item is left on the list and not decided for him.
 
-**Until he sends, the Job is a draft.** It wears the Draft mark, `message-square-dashed` with the tooltip `Draft`, on its list row, its header and its flight pane, and keeps the needs-you tone.
-The mark goes when he sends.
-Nothing runs before then, and no step prompt goes out either: his send is one first turn carrying the workflow line, the step's instructions and his message (*The rail*).
+Nothing runs before Start, and no step prompt goes out either: the first turn carries the workflow line, the step's instructions and the message (*The rail*).
 
-**The brief is read at creation**, so the proposal (title kept as the agent gave it, workflow, model, effort) is on the new Job before he sends, and his send goes out on it.
+**The brief is read at creation**, so the proposal (title kept as the agent gave it, workflow, model, effort) is on the new Job before he presses Start, and Start goes out on it.
 A fork is not read (*A Job's proposal*).
 
 **Both ledgers record it.** A start writes `started_by` on the new Job and `started_to` on the caller; a fork writes the `forked_from` and `forked_to` of *A forked job*, with `at` and `cut`.
 The caller's thread gets a `started` row naming the Job and whether it is a fork, which Bridge draws as the press that opens it.
-The new Job's thread opens under a line naming the Job whose agent started it.
 
-**Nothing bounds how many an agent starts.** Each waits for him, so none spends anything, but a loop would fill the list. A limit waits for one being seen.
+**Nothing bounds how many an agent starts.** Each is held, so none spends anything, but a loop would fill the list. A limit waits for one being seen.

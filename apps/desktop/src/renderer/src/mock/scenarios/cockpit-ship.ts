@@ -194,8 +194,11 @@ const REPLIED: Partial<Session> = {
   ],
 };
 
-/** The Sessions, with the moment that moves them, and Stop, which Fleet answers and the mock's fixtures do not. */
-function sessions(list: readonly Session[] = SESSIONS): SessionsStore {
+/**
+ * The Sessions, with the moment that moves them, and Stop, which Fleet answers and the mock's fixtures do not. Given `ownerOf`, a Job started here is shown
+ * too, with the Manifest id it names for the root it started in.
+ */
+function sessions(list: readonly Session[] = SESSIONS, ownerOf?: (root: string) => string | undefined): SessionsStore {
   const store = sessionsStore(list);
   let moment = 0;
   // The store carries the usual Sessions beside these; the ship holds only its own seven.
@@ -225,6 +228,18 @@ function sessions(list: readonly Session[] = SESSIONS): SessionsStore {
       return only;
     },
     stop: (id) => store.edit(id, (one) => ({ ...one, turn: { state: "idle" }, standing: "idle", lastTurnAt: new Date().toISOString() })),
+    ...(ownerOf === undefined
+      ? {}
+      : {
+          start: async (...args: Parameters<SessionsStore["start"]>) => {
+            const id = await store.start(...args);
+            if (id === undefined) return id;
+            own.add(id);
+            const manifestId = args[1] === undefined ? undefined : ownerOf(args[1]);
+            store.edit(id, (one) => ({ ...one, ...(manifestId === undefined ? {} : { manifestId }) }));
+            return id;
+          },
+        }),
     later() {
       moment += 1;
       if (moment !== 1) return;
@@ -459,3 +474,7 @@ function build(): Scenario {
 }
 
 export const s252CockpitShipFlightdeck: Scenario = build();
+
+/** The ship's Sessions, where a Job started is shown with the Manifest id `ownerOf` names for its root. */
+export const shipSessionsStarting = (ownerOf: (root: string) => string | undefined): NonNullable<NonNullable<Scenario["draft"]>["sessions"]> =>
+  (_control, more = []) => sessions([...SESSIONS, ...more], ownerOf);

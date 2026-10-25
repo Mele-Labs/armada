@@ -28,8 +28,8 @@ where
         marked: Marked,
     ) -> Result<SessionRecord, Refusal> {
         let rooted = start.root.is_some();
-        // Only a plain start has a start card: Helm, Setup's and a fork run as soon as they are told.
-        let held = start.held && !rooted && marked != Marked::Helm && start.fork.is_none();
+        // Helm and Setup's run as soon as they are told; a fork is held in `forking.rs`.
+        let held = start.held && !rooted && marked != Marked::Helm;
         let (manifest, cwd) = match (marked, start.root.take()) {
             (Marked::ModsFolder, _) => (None, self.mods_dir().to_string_lossy().into_owned()),
             (_, Some(root)) => {
@@ -117,10 +117,16 @@ where
                 .map_err(|why| self.ledger_fault(why))?;
         }
         if held {
-            let runtime = self.hosts().of(&id);
-            let mut state = runtime.state();
-            state.proposal.start_held = true;
-            state.proposal.start_synced = true;
+            {
+                let runtime = self.hosts().of(&id);
+                let mut state = runtime.state();
+                state.proposal.start_held = true;
+                state.proposal.start_synced = true;
+            }
+            // Where no proposer will read it, the card takes its default workflow at once.
+            if self.proposing().is_err() {
+                self.held_defaulted(&id).await;
+            }
         }
         self.published_hosted(&id).await
     }

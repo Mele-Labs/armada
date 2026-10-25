@@ -145,7 +145,7 @@ where
                 held: false,
             })
             .await?;
-        let held = self.held_for_person(&parent, made, Words { title, message: brief.clone() }, false, Some(&group), true).await?;
+        let held = self.held_for_person(&parent, made, Words { title, message: brief.clone() }, false, Some(&group)).await?;
         let _ = Arc::clone(&self)
             .send_session_message(SendSessionMessage {
                 session_id: held.session_id.clone(),

@@ -221,6 +221,7 @@ const threads = (): Record<string, SessionRow[]> => ({
     { kind: "message", id: "m1", at: AT, from: { kind: "you" }, text: "The mechanic pushed without running the Checks. Find out why." },
     { kind: "message", id: "m2", at: at(14), from: { kind: "agent" }, text: "Sent armada:mechanic to read the pull request." },
     { kind: "message", id: "m3", at: at(22), from: { kind: "agent" }, text: "It ran on sonnet and read the pull request through the forge MCP server. chrome-devtools failed to connect, so it could not open the page." },
+    { kind: "message", id: "m4", at: at(30), from: { kind: "agent" }, text: "Two things let the push through:\n\n1. The Checks were never listed in the plan.\n2. The mechanic treated a red check as a warning.\n\n- The fix is one line in the plan template.\n- The gate should refuse a push with no Checks." },
   ],
 });
 

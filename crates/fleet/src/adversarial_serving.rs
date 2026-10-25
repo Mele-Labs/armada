@@ -203,7 +203,11 @@ where
             .and_then(|ask| Ok(ask.reading(Reading::checkout(served.root(), READ_TURNS)?)))
             .map_err(|why| (format!("the question could not be put: {why:?}"), None))?;
         let (answered, micros) = asked_and_costed(&reviewing, &ask).await;
-        let answer = answered.map_err(|why| (format!("the agent did not answer: {why}"), micros))?;
+        let answer = answered.map_err(|why| {
+            // The full output is Fleet's to keep, and the card gets one line of it.
+            eprintln!("adversarial review of job {id}, version {version}: the agent did not answer: {why}");
+            (why.in_a_line("review"), micros)
+        })?;
         let root = served.root().to_string();
         let file = move |path: &str| std::fs::read_to_string(Path::new(&root).join(path)).ok();
         let findings = findings_read(&answer, &asked, &plan, &file).map_err(|why| (format!("the answer was refused: {why}"), micros))?;
