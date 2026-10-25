@@ -1,24 +1,21 @@
-// Create mod, in the palette and on the Mods page of System: a box with one field and Start, which starts a Mod Job from a description alone.
-// The Job opens on the Cockpit with his words as its first message and sits under Mods. Over the `mod-job` scenario.
+// Create mod, in the palette and on the Mods page of System: it starts an empty Mod Job at once and opens it on the Cockpit, the box ready for his words.
+// The empty thread lists what a Mod Job can make. His first message names the Job, which sits under Mods. Over the `mod-job` scenario.
 
-import { button, dialog, inside, region, role, systemPage, text, place, walk } from "../walk";
+import { button, inside, region, role, systemPage, text, place, viaPalette, walk } from "../walk";
 
-const palette = dialog("Command palette");
-const box = dialog("Create mod");
 const words = "Make the Cockpit tabs wider";
+const message = role("textbox", "Message");
 
 const createMod = walk("mod-job", [
-  { key: "Meta+k", on: role("navigation", "Places"), say: "⌘K opens the palette" },
-  { type: "Create mod", into: inside(palette, role("combobox")), say: "Create mod is found by its name" },
-  { press: role("option", /^Create mod/), say: "Choose Create mod" },
-  { look: inside(box, button("Start")), say: "One field and Start, which is off while the field is empty" },
-  { type: words, into: inside(box, role("textbox", "Description")), say: "What he wants, in his own words" },
-  { press: inside(box, button("Start")), say: "Start, or ⌘↵" },
-  { look: text(new RegExp(`^${words}$`)), say: "The Job opens with his words as its first message" },
+  ...viaPalette("Create mod", "⌘K, then Create mod"),
+  { look: inside(region("What a Mod Job makes"), text("Colours")), say: "An empty Mod Job opens, listing what it can make" },
+  { type: `${words}\n`, into: message, say: "The box has the caret: he types what he wants and sends it" },
+  { look: inside(region("Jobs", { exact: true }), button(`Mod ${words}`)), say: "His first line names the Job" },
   { look: inside(region("Jobs", { exact: true }), role("heading", "Mods")), say: "It sits under Mods in the list" },
   { press: place("System"), say: "System" },
   { press: systemPage("All"), say: "Mods, all of them" },
-  { look: button("Create mod"), say: "Create mod is in the header of the list, and opens the same box" },
+  { press: button("Create mod"), say: "Create mod in the header of the list opens another empty Mod Job" },
+  { look: inside(region("What a Mod Job makes"), text("Anything else")), say: "Empty again, with the list" },
 ]);
 
 export { createMod as "create-mod" };

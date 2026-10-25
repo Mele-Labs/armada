@@ -80,6 +80,7 @@ import { SubagentThread, useSubagentRead } from "./session-subagent";
 import { useMinimized } from "./session-ledger-minimized";
 import { useWriteClashes } from "./clashes";
 import { showLayer } from "./session-view/layers";
+import { ModEmpty } from "./session-view/ModEmpty";
 import { OverTheApp } from "./session-view/OverTheApp";
 import { baysOf } from "./session-view/slot-trouble";
 import { ClashFileSheet } from "./session-view/ClashFileSheet";
@@ -1046,6 +1047,8 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
   // A repository another Job has run in is not new, whatever this machine remembers: a draft Job there carries no card.
   const inUse = root !== undefined && sessions.some((other) => other.id !== session.id && other.lastTurnAt !== undefined && rootOfSession(other, repositories) === root);
   const cardLead = !unread && where !== undefined && root !== undefined && cardOn(root, session.id, sentTo(session) || inUse);
+  // A Mod Job with nothing said yet lists what it can make.
+  const modEmpty = !unread && session.mod === true && batched.length === 0;
   const marked = unread || where === undefined || cardLead ? undefined : <RunsPlaceControl {...where} />;
   return (
     <TeachHereContext.Provider value={teachHere}>
@@ -1139,7 +1142,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
           <SessionThread
             sessionId={session.id}
             rows={batched}
-            {...(!cardLead ? {} : { lead: <RunsPlaceCard {...where!} /> })}
+            {...(!cardLead && !modEmpty ? {} : { lead: <>{cardLead ? <RunsPlaceCard {...where!} /> : null}{modEmpty ? <ModEmpty /> : null}</> })}
             {...(session.transcript === undefined ? {} : { transcript: session.transcript })}
             onOpenRetro={openRetro}
             {...(draft.retry === undefined ? {} : { onRetry: (rowId: string) => draft.retry!(session.id, rowId) })}

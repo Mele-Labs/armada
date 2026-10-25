@@ -48,7 +48,6 @@ import { opensFor, placesOff } from "./cockpit/deck/system-page";
 import { focusPanel } from "./cockpit/deck/keys";
 import { deckNow } from "./cockpit/deck/store";
 import { PaletteMount } from "./PaletteMount";
-import { CreateModHost } from "./create-mod";
 import { useOneBar } from "./one-bar";
 import { DispatchingProvider, useDispatch } from "./dispatch-panel/dispatching";
 import { useHelmBox } from "./helm-box";
@@ -714,7 +713,6 @@ export function App() {
         <PointMenu />
 
         <DispatchSheet />
-        <CreateModHost />
         <TitleDispatchedStrip />
 
         <PaletteMount

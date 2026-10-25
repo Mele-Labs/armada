@@ -1,0 +1,23 @@
+/* A Mod Job's empty thread: set as a Cockpit panel is, a raised frame with the rows in mono, tokens only. */
+.sv-mod-empty {
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--bg-sunken);
+  overflow: hidden;
+}
+.sv-mod-empty__list { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
+.sv-mod-empty__row {
+  display: grid;
+  grid-template-columns: var(--space-4) calc(var(--space-12) * 3) minmax(0, 1fr);
+  align-items: center;
+  column-gap: var(--space-3);
+  min-height: calc(var(--h-row) * 1.25);
+  padding: var(--space-2) var(--space-4);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+.sv-mod-empty__row + .sv-mod-empty__row { border-top: var(--border-width) solid var(--border-subtle); }
+.sv-mod-empty__glyph { color: var(--fg-muted); }
+.sv-mod-empty__name { color: var(--fg-default); font-weight: var(--weight-heading); }
+.sv-mod-empty__what { color: var(--fg-muted); overflow-wrap: anywhere; }

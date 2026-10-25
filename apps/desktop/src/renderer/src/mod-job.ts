@@ -2,6 +2,7 @@
 // Fleet starts it and sends its first message, the Mod brief and the note, as a Report's note is built.
 
 import { askToOpenSessionInCockpit } from "./open-session";
+import { askComposerFocus } from "./session-focus";
 import { askToTell } from "./tell";
 import { capture } from "./annotate/capture";
 import { refusal } from "./annotate/send";
@@ -28,24 +29,12 @@ export async function startModJob(element: Element, named?: string): Promise<voi
   askToOpenSessionInCockpit(started.value.session_id);
 }
 
-/** The title's share of the words: their first line, cut at a word where it runs past the width. */
-function titleOf(said: string): string {
-  const line = (said.split("\n").find((one) => one.trim() !== "") ?? "").trim();
-  if (line.length <= NAME_WIDTH) return line;
-  const cut = line.slice(0, NAME_WIDTH);
-  return (cut.includes(" ") ? cut.slice(0, cut.lastIndexOf(" ")) : cut).trimEnd();
-}
-
-/** Start a Mod Job from his words alone, pointed at nothing, and open it on the Cockpit. Resolves to whether it started: a refusal is told as a toast. */
-export async function startModJobFrom(said: string): Promise<boolean> {
+/** Start an empty Mod Job, with nothing said and nothing pointed at, and open it on the Cockpit with the caret in its box. A refusal is told as a toast. */
+export async function startEmptyModJob(): Promise<void> {
   const fleet = window.armada;
-  if (fleet === undefined) return false;
-  const started = await fleet.startModSession({ title: `Mod ${titleOf(said)}`, said: said.trim() });
-  if (!started.ok) {
-    askToTell(`Mod Job not started: ${refusal(started.outcome)}`);
-    return false;
-  }
-  if (started.value.send_failed !== undefined) askToTell(`Mod Job not told your words: ${started.value.send_failed}`);
+  if (fleet === undefined) return;
+  const started = await fleet.startModSession({});
+  if (!started.ok) return askToTell(`Mod Job not started: ${refusal(started.outcome)}`);
+  askComposerFocus(started.value.session_id);
   askToOpenSessionInCockpit(started.value.session_id);
-  return true;
 }
