@@ -46,7 +46,8 @@ It also says a decision is asked one way, in the prompt or in `waiting_for` and 
 **An agent item that carries `steps` is a procedure**: its glyph is Steps, and its row reads its `text`, and its press opens the steps beside the thread in place of its `act`.
 A `walk` stays as the page they are about, one key at the top and a second that opens it in the browser; a `run` stays as its command, drawn whole at the top with a copy key in the block's corner, and left off where a step names it.
 A step's `backticked` command is set as code in its line and drawn again under it, whole, with its own run key beside the copy key, the same run key a fenced block has, and it runs where the Job works.
-A command that exits clean ticks its step, and Fleet keeps an item that has steps on the list where it would take off one that has none. Fleet tells the Job how every run ended, so Bridge sends nothing of its own.
+A command that exits clean ticks its step, and Fleet keeps an item that has steps on the list where it would take off one that has none.
+Fleet tells the Job how every run ended, so Bridge sends nothing of its own.
 The owner, 15 Oct 2026, on a run item whose steps hid its command: "The copy button should be embedded in the code block instead of outside of it." Each step has a tick that is the person's own place-keeping, a step the agent got wrong is edited in place, dropped (struck through, kept) or added at the end, and the key under the reply box reads Done while the box is empty and Send once something is typed.
 Done answers the item with `Done`, ticked or not; either key sends the corrections as plain lines after the reply (`Step 2 changed: "was" → "now"`, `Step 4 dropped: "was"`, `Added after step 6: "now"`).
 Fleet trims each step and drops a blank one; an empty list is no steps.
