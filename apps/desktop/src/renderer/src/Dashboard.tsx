@@ -119,6 +119,8 @@ export type Hosts = {
   onPickRepository?: ((root: string | null) => void) | undefined;
   /** Opens the Add a repository dialog, the act the title row's picker carries as its last row. */
   onAddRepository?: (() => void) | undefined;
+  /** Opens the same dialog on a new project, the row above it. */
+  onNewProject?: (() => void) | undefined;
   /** Rescues a stranded slot: a Scout started or stopped, and the work picked up, stashed or scrapped. Absent, the deck draws no rescue acts. */
   onRescueSlot?: BridgeApi["rescueSlot"] | undefined;
 };

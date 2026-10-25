@@ -42,7 +42,7 @@ import { useDockWidth } from "./dock-width";
 // two cannot answer a resize a pixel apart.
 import { useNarrow } from "./floor";
 import { useRecentRepositories } from "./recent-repositories";
-import { ADD, ALL, repositoryEntries, rootOf } from "./repository-entries";
+import { ADD, ALL, NEW, repositoryEntries, rootOf } from "./repository-entries";
 import { SURFACE, SURFACES } from "./surfaces";
 
 export type ShellProps = {
@@ -57,6 +57,8 @@ export type ShellProps = {
   onScope: (root: string | null) => void;
   /** Opens Locate. Absent draws no control. */
   onAddRepository?: () => void;
+  /** Opens Locate on a new project. Absent draws no row. */
+  onNewProject?: () => void;
   /**
    * Opens the Manifest of whatever the picker has picked — the owner, 28 Sep
    * 2026: *"I should be able to select a manifest from the dropdown and get a
@@ -116,6 +118,7 @@ export function Shell({
   scope,
   onScope,
   onAddRepository,
+  onNewProject,
   onOpenManifest,
   fleet,
   onCompose,
@@ -147,10 +150,12 @@ export function Shell({
     scope,
     all: repositories.length === 0 ? (listed ? "Nothing set up yet" : "No repository read yet") : "All repositories",
     add: onAddRepository !== undefined,
+    create: onNewProject !== undefined,
     recent,
   });
   const pick = (picked: string) => {
     if (picked === ADD) return onAddRepository?.();
+    if (picked === NEW) return onNewProject?.();
     const root = rootOf(picked);
     if (root !== ALL) remember(root);
     onScope(root === ALL ? null : root);
