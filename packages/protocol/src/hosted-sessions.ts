@@ -233,17 +233,17 @@ export type HostedFacts = {
 export type StartHeld = {
   /** The Job's workflow has a step that asks how the work lands, so `BeginSession` needs a `delivery`. */
   asks_delivery: boolean;
-  /** Absent where the person has no usual yet and the first message names none. */
+  /** Present wherever `asks_delivery` holds: named, else usual, else `default`. Absent elsewhere. */
   picked?: DeliveryPicked;
-  /** The first message the agent will read, which the card shows and lets him edit. **A mock's field**: Fleet does not send it yet. */
+  /** The first message the agent will read, as it will read it, which the composer holds for him to edit. Absent until one is kept for the Job. */
   message?: string;
 };
 
 /** A landing the start card has ready, and where it came from. */
 export type DeliveryPicked = { choice: DeliveryChoice; from: DeliveryPickedFrom };
 
-/** `usual`: what the person most often picks for this kind of work in this repository. `named`: the first message says how it lands. */
-export type DeliveryPickedFrom = "usual" | "named";
+/** `usual`: what the person most often picks for this kind of work in this repository. `named`: the first message says how it lands. `default`: neither, so Fleet picked Auto land; Bridge marks only the other two. */
+export type DeliveryPickedFrom = "usual" | "named" | "default";
 
 /**
  * `POST /sessions/begin`: Start pressed on a held Job's start card. Answers the `SessionRecord`.
@@ -253,7 +253,7 @@ export type DeliveryPickedFrom = "usual" | "named";
 export type BeginSession = {
   session_id: string;
   delivery?: DeliveryChoice;
-  /** The first message as he left it on the card. **A mock's field**: Fleet does not take it yet. */
+  /** The first message as he left it on the card: present, it replaces the held first turn's words (its files stay); absent, the turn goes as held. */
   message?: string;
 };
 

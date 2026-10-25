@@ -37,3 +37,20 @@ fn a_hosting_is_held_on_its_start_card_across_a_reopen() {
     drop(store);
     assert!(open(&dir).hosting("s1").expect("reads").expect("kept").start_held);
 }
+
+#[test]
+fn a_held_jobs_first_turn_is_kept_once_survives_a_reopen_and_is_taken_whole() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    assert_eq!(store.held_first_turn("s1").expect("reads"), None);
+    assert!(store.keep_held_first_turn("s1", "the first").expect("kept"));
+    assert!(!store.keep_held_first_turn("s1", "a second").expect("refused, not failed"), "the first one stands");
+    drop(store);
+
+    let mut store = open(&dir);
+    assert_eq!(store.held_first_turn("s1").expect("reads").as_deref(), Some("the first"));
+    assert_eq!(store.held_first_turn("s2").expect("reads"), None, "another Job's is its own");
+    assert_eq!(store.take_held_first_turn("s1").expect("taken").as_deref(), Some("the first"));
+    assert_eq!(store.take_held_first_turn("s1").expect("taken"), None, "taken once");
+    assert_eq!(store.held_first_turn("s1").expect("reads"), None);
+}

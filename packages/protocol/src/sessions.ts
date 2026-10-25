@@ -225,8 +225,8 @@ export type WaitingAct = { kind: "walk" | "answer" | "approve_pr" | "run" | "mes
 
 /**
  * Who put an item on the list: the agent, or Fleet from an open card, a permission, an unapproved walk
- * window, a question the session asked in its walk window (`ask_in_window`), or `first_message`: another
- * Session's agent started this one and the person has not sent its first message. A `first_message` item
+ * window, a question the session asked in its walk window (`ask_in_window`), or `first_message`: the
+ * Session waits on its start card until the person presses Start (`POST /sessions/begin`). A `first_message` item
  * has no reply and its `act` is a `message` on the Session, so a press opens it. Fleet also derives
  * `done` (id `done:<done_since>`, text `Done`) from the turn, so a Session that said it was done is on
  * the list whether or not the agent called a tool. `plan` (id `plan:<version>`) is a recorded plan the
@@ -315,8 +315,9 @@ export type AnswerWaiting = {
 };
 
 /**
- * `POST /sessions/start_another`, the agent's: a new Session in `manifest_id`'s repository. Its `message` is
- * held unsent and nothing runs until the person sends it. The caller is placed by its connection.
+ * `POST /sessions/start_another`, the agent's: a new Session in `manifest_id`'s repository, held on its start card
+ * with `message` as its first message (`hosted.start.message`); nothing runs until the person presses Start. The
+ * caller is placed by its connection.
  */
 export type StartAnotherSession = {
   manifest_id: string;
@@ -345,7 +346,7 @@ export type HandToSession = { session_id: string; group: string };
 /**
  * `POST /sessions/fork_this`, the agent's: a new Session that starts as a copy of the caller's own
  * conversation, ending at the row `at` (included) or, absent, at its latest message of its own that the
- * transcript holds. `message` is held unsent as `StartAnotherSession`'s is.
+ * transcript holds. It is held with `message` as `StartAnotherSession`'s is.
  */
 export type ForkThisSession = { title: string; message: string; at?: string };
 

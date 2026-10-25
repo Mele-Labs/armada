@@ -578,8 +578,8 @@ pub enum WaitingSource {
     Permission,
     /// Fleet: a question the session asked in its walk window, `ask_in_window`, is unanswered.
     WindowAsk,
-    /// Fleet: another Session's agent started this one and its first message has not been sent.
-    /// The item has no reply, since sending that message is the answer. Since 23.80.
+    /// Fleet: the Session waits on its start card for the person to press Start (`begin_session`).
+    /// The item has no reply, since Start is the answer. Since 23.80; every held Session since 25 Oct.
     FirstMessage,
     /// Fleet: the turn ended on a reply whose close asks the person something, and the agent has asked
     /// nothing through a tool. Derived on every read, never kept: id `replied:<turn ended at>`, text the

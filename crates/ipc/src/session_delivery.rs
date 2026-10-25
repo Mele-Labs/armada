@@ -47,6 +47,8 @@ pub enum DeliveryPickedFrom {
     Usual,
     /// The first message already says how the work lands.
     Named,
+    /// Neither: Fleet's own pick, Auto land, so the card is never blank. Bridge marks only the other two.
+    Default,
 }
 
 /// A landing the start card has ready, and where it came from.
@@ -57,12 +59,16 @@ pub struct DeliveryPicked {
 }
 
 /// A Job that waits on its start card: the person settles it and presses Start (`begin_session`).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StartHeld {
     /// The Job's workflow has a step that asks how the work lands, so `begin_session` needs a
     /// `delivery`. False for a custom Job and for a workflow with no such step.
     pub asks_delivery: bool,
-    /// Absent where the person has no usual yet and the first message names none.
+    /// Present wherever `asks_delivery` holds: named, else usual, else `default`. Absent elsewhere.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub picked: Option<DeliveryPicked>,
+    /// The first message the agent will read, as it will read it: a pinned note's with Fleet's lines
+    /// after his words. Absent until one is kept for the Job.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
 }
