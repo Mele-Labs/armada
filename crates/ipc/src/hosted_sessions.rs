@@ -183,6 +183,11 @@ pub struct BeginSession {
     /// How the work lands. Required where `hosted.start.asks_delivery` holds; read nowhere else.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub delivery: Option<crate::session_delivery::DeliveryChoice>,
+    /// The first message as he left it on the card. Present, it replaces the held first turn's
+    /// words, what the agent reads and what the thread keeps, and its files stay with it. Absent,
+    /// the first turn goes as it was held.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
 }
 
 /// `run_session_command`: a slash command, written whole (`/update-armada`, `/model opus`), that a

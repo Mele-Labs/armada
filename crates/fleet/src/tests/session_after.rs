@@ -516,15 +516,16 @@ async fn a_session_an_agent_started_to_wait_holds_its_first_message_for_the_pers
 
     let record = rig.record(&held.session_id).await;
     assert!(record.waits.as_ref().is_some_and(|wait| wait.by == WaitBy::Agent), "it waits on the one the agent named");
-    assert!(kind(&record, "unsent").is_none(), "no first message is waiting for him yet");
+    assert!(record.hosted.as_ref().and_then(|hosted| hosted.start.as_ref()).is_none(), "not held while it waits");
     assert!(kind(&record, "started_by").is_some(), "and the agent that started it still follows it");
 
     Arc::clone(&rig.fleet).close_session(CloseSession { session_id: agent.clone() }).await.expect("closed");
 
     let met = rig.eventually(&held.session_id, "the condition met", |one| one.waits.is_none()).await;
-    let unsent = kind(&met, "unsent").expect("its first message now waits for him");
-    assert!(unsent.target.starts_with("Handoff from The agent"), "{}", unsent.target);
-    assert!(unsent.target.trim_end().ends_with("Read crates/reader."));
+    let unsent = met.hosted.and_then(|hosted| hosted.start).and_then(|start| start.message).expect("held, its first message waiting for him");
+    assert!(unsent.starts_with("Handoff from The agent"), "{unsent}");
+    assert!(unsent.trim_end().ends_with("Read crates/reader."));
+    assert!(rig.rows(&held.session_id).await.iter().all(|row| !matches!(row, SessionRow::Message { .. })), "off the thread");
     assert_eq!(rig.processes(), 1, "and nothing runs until he sends it");
 }
 

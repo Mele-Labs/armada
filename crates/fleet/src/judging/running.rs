@@ -46,6 +46,16 @@ fn tail_of(stdout: &str, stderr: &str) -> String {
     }
 }
 
+/// What a failed call said about itself on one line: the harness's own error text where it printed
+/// one, else the last line on stderr. Empty where it said neither, and never the stream.
+fn own_words(failure: Option<&str>, stderr: &str) -> String {
+    let line = |text: &str| text.split_whitespace().collect::<Vec<_>>().join(" ");
+    match failure.map(line).filter(|said| !said.is_empty()) {
+        Some(said) => said,
+        None => stderr.lines().map(line).rfind(|said| !said.is_empty()).unwrap_or_default(),
+    }
+}
+
 /// Run one rendered call, reporting on it, and answer with what it said.
 ///
 /// **[`said`] with somebody waiting.** Same confinement, same failures, same
@@ -87,6 +97,7 @@ pub(crate) async fn watched(
 
     let reading = async {
         let mut said: Option<String> = None;
+        let mut failure: Option<String> = None;
         // Raw text, kept beside the parsed events, for `tail_of`'s reason:
         // a refused call still gets to say what it printed.
         let mut printed = String::new();
@@ -105,12 +116,17 @@ pub(crate) async fn watched(
                     // than the first is what keeps a harness that reprints one
                     // from being read as two answers.
                     Heard::Answer(answer) => said = Some(answer),
-                    Heard::Moved(progress) => telling(progress),
+                    Heard::Moved(progress) => {
+                        if let CallProgress::Ended { failure: Some(why), .. } = &progress {
+                            failure = Some(why.clone());
+                        }
+                        telling(progress)
+                    }
                     Heard::Nothing => {}
                 }
             }
         }
-        (said, printed)
+        (said, printed, failure)
     };
     // Drained alongside `reading`, never after it: a call that fills its
     // stderr pipe before closing stdout would otherwise block on a reader
@@ -124,14 +140,14 @@ pub(crate) async fn watched(
     };
 
     tokio::pin!(stopping);
-    let (said, out_text, err_text) = tokio::select! {
+    let (said, out_text, failure, err_text) = tokio::select! {
         // **The stop wins over the budget and over the reading**, which is the
         // point of it: a person who has decided not to wait is not made to wait
         // out the rest of Fleet's budget. Dropping `child` kills the process,
         // and `kill_on_drop` is what makes that true.
         () = &mut stopping => return Err(CallFailed::Stopped),
         read = tokio::time::timeout(budget.duration(), async { tokio::join!(reading, draining) }) => match read {
-            Ok(((said, out_text), err_text)) => (said, out_text, err_text),
+            Ok(((said, out_text, failure), err_text)) => (said, out_text, failure, err_text),
             Err(_) => return Err(CallFailed::TimedOut),
         },
     };
@@ -147,6 +163,7 @@ pub(crate) async fn watched(
         return Err(CallFailed::Refused {
             code: status.code(),
             tail: tail_of(&out_text, &err_text),
+            said: own_words(failure.as_deref(), &err_text),
         });
     }
     match said {
@@ -217,6 +234,7 @@ pub(crate) async fn said(
                 &String::from_utf8_lossy(&output.stdout),
                 &String::from_utf8_lossy(&output.stderr),
             ),
+            said: own_words(None, &String::from_utf8_lossy(&output.stderr)),
         });
     }
     let said = String::from_utf8_lossy(&output.stdout).into_owned();
