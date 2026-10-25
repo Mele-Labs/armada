@@ -117,13 +117,12 @@ export const NoAddress: Story = {
 
 const RUNS = ["Run `git fetch origin`", "Run `make broken`"];
 
-/** A command with a runner gets Run: a clean exit ticks its step, and a failed one tells the Job with the exit code and what it printed. */
+/** A command with a runner gets Run: a clean exit ticks its step, and a failed one leaves it as it was. */
 export const RunsCommands: Story = {
   args: {
     keep: keyOf("runs"),
     address: undefined,
     steps: RUNS,
-    onFailed: fn(),
     runner: (command, on) => {
       setTimeout(() => {
         if (command === "make broken") on({ kind: "out", text: "make: *** No rule\r\n" });
@@ -133,13 +132,13 @@ export const RunsCommands: Story = {
     },
   },
   beforeEach: () => forget(keyOf("runs")),
-  play: async ({ canvasElement, args }) => {
+  play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     const [fetch, broken] = canvas.getAllByRole("button", { name: "Run" });
     await userEvent.click(fetch!);
     await waitFor(() => expect(canvas.getByRole("checkbox", { name: "Run git fetch origin" })).toBeChecked());
     await userEvent.click(broken!);
-    await waitFor(() => expect(args.onFailed).toHaveBeenCalledWith("Step 2: `make broken` failed, exit code 2.\n\nmake: *** No rule"));
+    await waitFor(() => expect(canvas.getAllByRole("button", { name: "Run again" })).toHaveLength(2));
     await expect(canvas.getByRole("checkbox", { name: "Run make broken" })).not.toBeChecked();
   },
 };

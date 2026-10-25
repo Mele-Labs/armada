@@ -383,7 +383,6 @@ export function stepsReadingOf(session: Session, open: Reading | undefined, draf
     onOpenAddress: (url) => draft?.openWindow?.(session.id, url),
     onSend: (text) => draft?.answerWaiting?.(session.id, item.id, { text }),
     ...(runner === undefined ? {} : { runner }),
-    onFailed: (said) => void draft?.send(session.id, { text: said, files: [], sketches: [], tags: [] }),
   };
 }
 

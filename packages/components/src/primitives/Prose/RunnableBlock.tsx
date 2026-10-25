@@ -228,8 +228,8 @@ export function CopyAct({ text, label: named = "Copy" }: { text: string; label?:
   );
 }
 
-/** `run` is a run held elsewhere, which a call card's own key drives too; left out, the block holds its own. `copy` is the source a fenced block copies, beside Run. */
-export function RunnableBlock({ command, runner, run: held, copy, children }: { command: string; runner?: CodeRunner; run?: CodeRun; copy?: string; children: ReactNode }) {
+/** `copyLabel` names the copy key where one panel holds several blocks. `run` is a run held elsewhere, which a call card's own key drives too; left out, the block holds its own. `copy` is the source a fenced block copies, beside Run. */
+export function RunnableBlock({ command, runner, run: held, copy, copyLabel, children }: { command: string; runner?: CodeRunner; run?: CodeRun; copy?: string; copyLabel?: string; children: ReactNode }) {
   const own = useCodeRun(runner);
   const terminal = useContext(ProseTerminal);
   const run = held ?? own;
@@ -247,7 +247,7 @@ export function RunnableBlock({ command, runner, run: held, copy, children }: { 
         {children}
         {dock !== null && docked !== null ? <DockedMark dock={dock} phase={phase} /> : null}
         <span className="armada-prose__run-acts">
-          {copy === undefined ? null : <CopyAct text={copy} />}
+          {copy === undefined ? null : <CopyAct text={copy} {...(copyLabel === undefined ? {} : { label: copyLabel })} />}
           {running ? (
             <Tooltip label="Stop">
               <Button variant="ghost" size="sm" iconOnly aria-label="Stop" onClick={stop}>
