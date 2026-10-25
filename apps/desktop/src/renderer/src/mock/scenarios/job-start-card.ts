@@ -55,11 +55,14 @@ export const s323JobStartCard: Scenario = {
       const store = sessionsStore([], [], new Map([[repository().root, repository().manifest!.id]]), others().filter((one) => one.id !== MINE));
       /** What each held Job's request named, by id. */
       const named = new Map<string, DeliveryChoice>();
+      /** The first message each held Job will begin with: his words, then his edit. It is in the thread from Start. */
+      const first = new Map<string, string>();
       const startFor = (id: string, kind: string | null): NonNullable<Session["start"]> => {
         const choice = named.get(id);
         const usual = kind === null ? undefined : USUAL[kind];
         return {
           asksDelivery: kind !== "review",
+          message: first.get(id) ?? "",
           ...(choice !== undefined ? { picked: { choice, from: "named" as const } } : usual === undefined || kind === "review" ? {} : { picked: { choice: usual, from: "usual" as const } }),
         };
       };
@@ -72,8 +75,9 @@ export const s323JobStartCard: Scenario = {
           const words = request ?? "";
           const choice = namedIn(words);
           if (choice !== undefined) named.set(id, choice);
+          first.set(id, words);
           // The proposer is reading: the Job is up with nothing written.
-          store.edit(id, (one) => ({ ...one, start: { asksDelivery: true }, work: { proposal: { workflow: null, reading: true } } }));
+          store.edit(id, (one) => ({ ...one, start: { asksDelivery: true, message: words }, work: { proposal: { workflow: null, reading: true } } }));
           timers(READ_MS, () => {
             const kind = kindOf(words);
             store.edit(id, (one) => ({
@@ -92,16 +96,19 @@ export const s323JobStartCard: Scenario = {
           });
           return id;
         },
-        // His words are in the thread from the first moment; nothing runs on them until Start.
+        // His words are the first message, held in the composer: the thread has nothing until Start.
         send(id, sent) {
           if (store.get().find((one) => one.id === id)?.start === undefined) return store.send(id, sent);
-          store.edit(id, (one) => ({ ...one, rows: [...one.rows, message(`m${one.rows.length + 1}`, sent.text)] }));
+          first.set(id, sent.text);
+          store.edit(id, (one) => ({ ...one, start: { ...one.start!, message: sent.text } }));
         },
-        begin(id, delivery) {
+        begin(id, delivery, said) {
+          const opening = said ?? first.get(id) ?? "";
           store.edit(id, ({ start: _start, ...one }) => {
             const flow = WORKFLOWS.find((it) => it.id === one.work?.proposal?.workflow);
             return {
               ...one,
+              rows: opening.trim() === "" ? one.rows : [...one.rows, message(`m${one.rows.length + 1}`, opening)],
               turn: { state: "working" },
               ...(delivery === "auto_land" ? { autoLand: true as const } : {}),
               work: { ...one.work, ...(flow === undefined ? {} : { workflow: { name: flow.name, steps: flow.steps, at: 0 } }) },
