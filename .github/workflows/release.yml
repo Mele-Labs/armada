@@ -1,0 +1,136 @@
+# Publishes every green merge to main as a GitHub Release a person installs
+# with one line: `scripts/install.sh`, attached to each release. Runs after
+# `checks` finishes on a push to main, never on a pull request, so nothing that
+# failed `ci` is ever released. docs/practices/ci.md, *Releases*.
+name: release
+
+on:
+  workflow_run:
+    workflows: [checks]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+# One release builds at a time and is never cancelled. GitHub holds one run
+# waiting behind it and a newer merge replaces that one, so two quick merges
+# make one release holding both.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: never
+  CARGO_INCREMENTAL: "0"
+
+jobs:
+  release:
+    name: release
+    # A dispatch releases main's tip by hand. A workflow_run releases the commit
+    # `checks` ran on, and only a push to main that passed: a merge-queue or
+    # pull-request run of `checks` is not a merge.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push')
+    # Apple Silicon only, the owner's call (25 Oct 2026). Intel is a second build.
+    runs-on: macos-15
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    env:
+      SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+    steps:
+      # Whole history: the patch number is the count of commits on main.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ env.SHA }}
+          fetch-depth: 0
+
+      # `0.<minor>.<commits>`: the root package.json's major and minor, bumped by
+      # hand when they mean something, and the commit count, which only grows on
+      # main. The hash goes in the notes. A tag that already exists means this
+      # commit was released, so the run stops there.
+      - name: Version
+        id: version
+        run: |
+          set -euo pipefail
+          base=$(jq -r .version package.json | cut -d. -f1,2)
+          version="$base.$(git rev-list --count HEAD)"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "short=$(git rev-parse --short=12 HEAD)" >> "$GITHUB_OUTPUT"
+          if git ls-remote --exit-code --tags origin "refs/tags/v$version" >/dev/null; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::v$version is already released"
+          fi
+          echo "VERSION $version $(git rev-parse HEAD)"
+
+      - uses: ./.github/actions/rust-setup
+        if: steps.version.outputs.exists != 'true'
+        with:
+          key: release
+
+      - uses: ./.github/actions/node-setup
+        if: steps.version.outputs.exists != 'true'
+
+      # The `installed` profile is the one `scripts/restart` builds for the
+      # owner's own Fleet, so a release runs what he runs.
+      - name: Build armada
+        if: steps.version.outputs.exists != 'true'
+        run: cargo build -p armada --profile installed --locked
+
+      # The version lands in the bundle's package.json, which is what
+      # `app.getVersion()` and `CFBundleShortVersionString` read.
+      - name: Build Armada.app
+        if: steps.version.outputs.exists != 'true'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          cd apps/desktop
+          pnpm exec electron-vite build
+          pnpm exec electron-builder --mac --arm64 --publish never -c.extraMetadata.version="$VERSION"
+
+      # Fleet rides inside the app, so one download is the whole of Armada.
+      # Writing into the bundle breaks electron-builder's ad hoc seal, so the
+      # bundle is signed again, ad hoc, once it is complete. `ditto` keeps the
+      # bundle's symlinks and attributes, which `zip` does not.
+      - name: Bundle Fleet and package
+        if: steps.version.outputs.exists != 'true'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          app=apps/desktop/release/mac-arm64/Armada.app
+          mkdir -p "$app/Contents/Resources/bin"
+          cp target/installed/armada "$app/Contents/Resources/bin/armada"
+          printf '%s %s\n' "$VERSION" "$SHA" > "$app/Contents/Resources/version"
+          codesign --force --deep --sign - "$app"
+          codesign --verify --deep --strict "$app"
+          "$app/Contents/Resources/bin/armada" help >/dev/null
+          mkdir -p dist-release
+          ditto -c -k --sequesterRsrc --keepParent "$app" dist-release/Armada-macos-arm64.zip
+          cp scripts/install.sh dist-release/install.sh
+          ls -l dist-release
+
+      # The asset names carry no version, so `releases/latest/download/<name>`
+      # is a link that never changes. The newest release is marked Latest.
+      - name: Publish
+        if: steps.version.outputs.exists != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+          SHORT: ${{ steps.version.outputs.short }}
+        run: |
+          set -euo pipefail
+          {
+            echo "Built from $SHORT on main."
+            echo
+            echo '```sh'
+            echo "curl -fsSL https://github.com/$GITHUB_REPOSITORY/releases/latest/download/install.sh | sh"
+            echo '```'
+          } > notes.md
+          gh release create "v$VERSION" dist-release/* \
+            --target "$SHA" --title "Armada $VERSION" --notes-file notes.md --latest
