@@ -74,7 +74,7 @@ export type ScaffoldMod = {
 
 /**
  * `POST /mods/session`'s body: a Mod Job, a hosted Job on Armada's own repository for modding Armada
- * itself. Exactly one of `note` and `said`, else a 422 `fleet.unacceptable_mod_start`. `note` is what he
+ * itself. Not both `note` and `said`, nor a blank `said`: a 422 `fleet.unacceptable_mod_start`. `note` is what he
  * pointed at, as `send_session_note` takes it, and is the Job's first message.
  * Where Fleet does not serve that repository, the Job starts in the mods folder and makes mods only.
  */
@@ -83,7 +83,7 @@ export type StartModSession = {
   title?: string;
   model?: string;
   effort?: string;
-  /** What he pointed at. Exactly one of `note` and `said`. */
+  /** What he pointed at. Exactly one of `note` and `said`. Neither: an empty Mod Job, whose brief rides ahead of his first message. */
   note?: SessionNote;
   /** His words, where Mod was pressed on nothing: the Job's first message after the brief. */
   said?: string;

@@ -141,7 +141,8 @@ pub struct ModScaffolded {
 
 /// `start_mod_session`: a Mod Job, a hosted Job on Armada's own repository for modding Armada
 /// itself, started on what the person pointed at, or on his words where he pointed at nothing.
-/// **Exactly one of `note` and `said`**: neither or both is a 422 `fleet.unacceptable_mod_start`.
+/// **Not both `note` and `said`**, nor a blank `said`: a 422 `fleet.unacceptable_mod_start`.
+/// Neither is an empty Mod Job, whose brief rides ahead of his first message.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StartModSession {
     /// Absent is the first line of the note's words, or of `said`.
@@ -152,7 +153,7 @@ pub struct StartModSession {
     pub model: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub effort: Option<String>,
-    /// What he pointed at, as `send_session_note` takes it: the Job's first message.
+    /// What he pointed at, as `send_session_note` takes it: the Job's first message. Neither: an empty Mod Job, whose brief rides ahead of his first message.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub note: Option<SessionNote>,
     /// His words, where Mod was pressed on nothing: the Job's first message after the brief.

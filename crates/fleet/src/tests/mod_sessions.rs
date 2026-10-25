@@ -206,7 +206,7 @@ async fn an_empty_mod_jobs_first_message_carries_the_brief_and_retitles_it_from_
         "the thread keeps his words alone: {rows:#?}"
     );
     let record = Arc::clone(&rig.fleet).get_session(id.clone()).await.expect("kept").session;
-    assert_eq!(record.title.as_deref(), Some("Mod make the usage rows calmer and a good deal"), "cut at a word within 40");
+    assert_eq!(record.title.as_deref(), Some("Mod make the usage rows calmer and a good"), "cut at a word within 40");
 
     Arc::clone(&rig.fleet).send_session_message(said_by_him(&id, "and the tabs")).await.expect("sent");
     let again = Arc::clone(&rig.fleet).get_session(id.clone()).await.expect("kept").session;

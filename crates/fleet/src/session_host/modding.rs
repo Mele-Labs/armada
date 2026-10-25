@@ -5,12 +5,17 @@
 //! **The first message is a pinned note's**, sent by `send_session_note`'s road with the Mod brief
 //! ahead of his words, so the turn runs under the rules any message is under. Where he pointed at
 //! nothing it is his words alone, sent by `send_session_message`'s road with the brief ahead.
+//! **Where he gave neither** the Job starts empty, and the brief rides ahead of his first message
+//! when he writes it, which `mod_message_sent` adds.
 
 use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
-use ipc::{ManifestId, ModSessionStarted, SendSessionMessage, SendSessionNote, StartModSession, StartSession};
+use ipc::{
+    ManifestId, ModSessionStarted, SendSessionMessage, SendSessionNote, SessionRecord, SessionRow, SessionVoice,
+    StartModSession, StartSession,
+};
 
 use super::serving::title_of;
 use super::Marked;
@@ -103,6 +108,9 @@ where
     }
 }
 
+/// The width a Mod Job's title takes of his first words, as Bridge's `startModJobFrom` cuts it.
+const TITLE_WIDTH: usize = 40;
+
 /// What a Mod Job's first message is made of.
 enum First {
     /// What he pointed at.
@@ -133,6 +141,49 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
+    /// `send_session_message`: a message to a Job. **A Mod Job that has none of his yet is sent the
+    /// brief ahead of it**, as a start with words is, and an untitled one is retitled `Mod` and the
+    /// first line of what he wrote. The thread keeps his words alone.
+    pub(crate) async fn mod_message_sent(
+        self: Arc<Self>,
+        terminal: Option<store::KeptSession>,
+        sent: SendSessionMessage,
+    ) -> Result<SessionRecord, Refusal> {
+        let words = sent.text.trim().to_string();
+        let id = sent.session_id.as_str().to_string();
+        let owed = match terminal.is_none() && !words.is_empty() {
+            true => self.brief_owed(&id).await?,
+            false => None,
+        };
+        let Some((brief, untitled)) = owed else { return self.send_known(terminal, sent).await };
+        if untitled {
+            let title = format!("{UNTITLED} {}", cut_at_a_word(&words));
+            let mut store = self.store().lock().await;
+            if let Some(mut row) = store.session(&id).map_err(|why| self.ledger_fault(why))? {
+                row.title = Some(title);
+                store.keep_session(&row).map_err(|why| self.ledger_fault(why))?;
+            }
+        }
+        let instead = format!("{brief}\n\n{words}");
+        self.send_known_added(None, sent, None, Some(instead)).await
+    }
+
+    /// The brief a Mod Job is owed ahead of his first message, and whether it still has the title it
+    /// was started with. None for any other Job, and for a Mod Job he has already written in.
+    async fn brief_owed(&self, id: &str) -> Result<Option<(&'static str, bool)>, Refusal> {
+        let (session, hosting) = self.session_and_hosting(id).await?;
+        if !hosting.mod_job {
+            return Ok(None);
+        }
+        let spoken = self
+            .rows_of(id)
+            .await?
+            .iter()
+            .any(|row| matches!(row, SessionRow::Message { from: SessionVoice::You, .. }));
+        let brief = if hosting.manifest_id.is_empty() { MODS_FOLDER_BRIEF } else { BRIEF };
+        Ok((!spoken).then_some((brief, session.title.as_deref() == Some(UNTITLED))))
+    }
+
     /// His words as a message, with `brief` ahead of them in what the agent reads and the thread
     /// keeping the words alone: `note_sent_after` for a Mod Job pressed on nothing.
     async fn words_sent_after(
@@ -145,5 +196,18 @@ where
         let instead = format!("{brief}\n\n{words}");
         let sent = SendSessionMessage { session_id, text: words, attachments: Vec::new(), mentions: Vec::new() };
         self.send_known_added(terminal, sent, None, Some(instead)).await.map(|_| ())
+    }
+}
+
+/// The first line of `words`, cut at a word where it runs past [`TITLE_WIDTH`].
+fn cut_at_a_word(words: &str) -> String {
+    let line = words.lines().map(str::trim).find(|line| !line.is_empty()).unwrap_or_default();
+    if line.chars().count() <= TITLE_WIDTH {
+        return line.to_string();
+    }
+    let cut: String = line.chars().take(TITLE_WIDTH).collect();
+    match cut.rfind(' ') {
+        Some(at) => cut[..at].trim_end().to_string(),
+        None => cut,
     }
 }

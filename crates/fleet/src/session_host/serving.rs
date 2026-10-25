@@ -179,7 +179,7 @@ where
         sent: SendSessionMessage,
     ) -> Result<SessionRecord, Refusal> {
         let terminal = self.terminal_session(sent.session_id.as_str()).await?;
-        self.send_known(terminal, sent).await
+        self.mod_message_sent(terminal, sent).await
     }
 
     async fn send_session_note(self: Arc<Self>, note: ipc::SendSessionNote) -> Result<ipc::NoteSent, Refusal> {
