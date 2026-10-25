@@ -59,6 +59,8 @@ export type Profile = {
   chosen: boolean;
   /** The repository of the shared home it set up, once there is one. */
   repository?: string;
+  /** Where its shared home is, or will be made: the owner (the login or an organisation) and the name, and whether this machine holds it. Absent falls back to the choice kept on this window. */
+  home?: { account: string; repository: string; made: boolean };
   /** The organisations the login belongs to, read at sign-in: the owners a shared home can be made under, beside the login. */
   orgs?: readonly string[];
   /** The repositories bound to this profile, each marked for how it came to be. */
@@ -103,7 +105,7 @@ export type AccountRead = {
   profiles: readonly Profile[];
   flow: AccountFlow;
   /** The profile whose What syncs is open. */
-  syncs: { login: string; kinds: readonly SyncChoice[]; home: { repository: string; made: boolean } } | null;
+  syncs: { login: string; kinds: readonly SyncChoice[]; home: { account?: string; repository: string; made: boolean } } | null;
   /** The last sign-in ended without signing in. Absent while one is in flight or none has ended. */
   ended?: SignInEnd;
   /** Starting a sign-in was refused for a blank setting. */
@@ -285,7 +287,7 @@ export function WhatSyncsSheet() {
       open
       floating
       title="What syncs"
-      subtitle={<SharedHomeChip account={login} repository={home.repository} made={home.made} />}
+      subtitle={<SharedHomeChip account={home.account ?? login} repository={home.repository} made={home.made} />}
       closeLabel="Close panel"
       closeBinding="Esc"
       onClose={account.closeSyncs}

@@ -97,7 +97,7 @@ The choice is kept in this machine's store for each profile, and a kind switched
 | Signed out | The one act, Sign in with GitHub, in a dashed strip across the Profiles frame, with the Turns on tiles off beneath it, a Sets up tile of the three rows none yet, and a Never frame at the foot of the page, signed in or out: nothing is written to your repositories or pull requests, your token is not kept, a work machine syncs nothing until you turn a kind on |
 | Signed out profile | Who left, struck through in a dashed tile; the store's row named only where it stays |
 | Sync your Kit | A frame of three steps, signed in or out: Sign in here, Sync on Kit, Add to this machine (done on the other machine, so it never reads done), each with its reason in one line; the next undone step carries the button, Open Kit on the second |
-| Home not made yet | The set-up row for the shared home is not set up, naming the repository the first Sync on Kit will make and its tooltip saying it is private and made through `gh`; What syncs is greyed, its tooltip saying the same. Step two of Sync your Kit echoes the same name. Where it is made is chosen on the Kit page's Sync bar, and shown read-only once the home exists. **Not built:** Fleet's make step, which still makes `<login>/armada-home` |
+| Home not made yet | The set-up row for the shared home is not set up, naming the repository the first Sync on Kit will make and its tooltip saying it is private and made through `gh`; What syncs is greyed, its tooltip saying the same. Step two of Sync your Kit echoes the same name. Where it is made is chosen on the Kit page's Sync bar, kept by Fleet, and shown read-only once the home exists or another Mac made it |
 | What syncs | A sheet over a profile added on purpose, one switch per kind |
 | Repository picker | The top of the Cockpit's left column; at the title row's narrow width its entries are in the title menu |
 
@@ -115,7 +115,8 @@ The glyphs are registry entries marked Proposed: `packages/icons/icons/user-chec
 **Fleet serves binding.** `get_accounts` carries each profile's repositories and the ones bound to none, and `set_repository_profile` chooses a profile or None for a repository; Bridge draws them.
 There is no active profile and no set-active act.
 
-**Built in Fleet.** What syncs, per kind and per machine and kept in the store, and the shared home: Fleet makes the repository, and the sign-in's home step reads done once the home exists. [Kit](kit.md), *The shared home*, and [the protocol page](../practices/protocol/the-shared-home.md).
+**Built in Fleet.** What syncs, per kind and per machine and kept in the store, and the shared home: Fleet makes the repository where the person chose, keeps that choice per profile, and the sign-in's home step reads done once the home exists.
+`get_accounts` carries each profile's organisations, read at sign-in, and where its home is or will be. [Kit](kit.md), *The shared home*, and [the protocol page](../practices/protocol/the-shared-home.md).
 
 **Built in Bridge.** What syncs reads a profile's kinds from `get_home_kinds` when it opens and switches one with `set_home_kind`, drawn at once and then as Fleet answers; the home chip is made once this machine holds a copy of that profile's home.
 A refused switch goes back and is said on the page, as the other refusals are.

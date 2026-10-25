@@ -69,3 +69,10 @@ pub(crate) async fn set_home_kind<D: SharedHome>(State(served): State<Served<D>>
         Err(why) => undecodable(&why.to_string(), served.run_id()),
     }
 }
+
+pub(crate) async fn set_home_repository<D: SharedHome>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    match ipc::decode("an owner and a name for the shared home", &body) {
+        Ok(choice) => answered(served.daemon().set_home_repository(choice).await, served.run_id()),
+        Err(why) => undecodable(&why.to_string(), served.run_id()),
+    }
+}

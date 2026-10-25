@@ -14,7 +14,7 @@
 //! | A server goes into the home as its name and host: neither the userinfo, the path nor the query of its address. On B it reads as needing its key, and Bring refuses it | That the switches in What syncs are kept. `store::tests::home_kinds` |
 //! | | That a row that differs is refused by Add and Bring and settled by a chosen side. `fleet::tests::shared_home` |
 
-use adapter_traits::HomeRepository;
+use adapter_traits::{HomePlace, HomeRepository};
 use core_model::{Actor, KitServer, ServerAddress, ServerName, Timestamp};
 use fleet::home::{self, Places, Refused};
 use ipc::{HomeKind, HomeRow, HomeRowAt, HomeRowState};
@@ -94,13 +94,13 @@ fn a_mod_and_a_skill_added_on_one_mac_are_brought_onto_another_and_a_server_carr
     a.mods = a.mods.with("dusk/mod.toml", DUSK_MANIFEST).with("dusk/theme.css", DUSK_CSS);
     a.person = a.person.with("harness/skills/humanizer/SKILL.md", HUMANIZER);
     a.servers.push(linear());
-    a.home.open().expect("the home is made and cloned on Mac A");
+    a.home.open(&HomePlace::default_for(LOGIN)).expect("the home is made and cloned on Mac A");
     for added in [at(HomeKind::Mods, "dusk"), at(HomeKind::Skills, "humanizer"), at(HomeKind::McpServers, "linear")] {
         home::add(&a.places(), &added, "mac-a").unwrap_or_else(|why| panic!("{} goes into the home: {}", added.name, why.said()));
     }
 
     let b = Mac::on(&remote);
-    b.home.open().expect("Mac B clones the home");
+    b.home.open(&HomePlace::default_for(LOGIN)).expect("Mac B clones the home");
     let rows = b.rows();
     assert_eq!(row(&rows, HomeKind::Mods, "dusk").state, HomeRowState::Home);
     assert_eq!(row(&rows, HomeKind::Skills, "humanizer").state, HomeRowState::Home);

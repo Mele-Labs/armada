@@ -145,7 +145,7 @@ import type { RequestRepositoryRead } from "./api/dispatch";
 import type { JobTerminalChange, PullRequestPress, PullRequestWrite, SessionActed, SessionsRead, TerminalMovedBack } from "./api/sessions";
 import type { SleepActed } from "./api/sleep";
 import type { AccountsActed } from "./api/accounts";
-import type { HomeKind, HomeKinds, HomeRowAt, HomeSide, SharedHomeRead } from "@armada/protocol";
+import type { HomeKind, HomeKinds, HomeRowAt, HomeSide, HomeSynced, SharedHomeRead } from "@armada/protocol";
 import type { PlanUsageRead } from "./api/plan-usage";
 import type { ModelDownshiftRead } from "./api/model-downshift";
 import type { FleetTimelineRead } from "./api/timeline";
@@ -412,12 +412,13 @@ type OldBridgeApi = {
     signOut: (accountId: number) => Promise<AccountsActed<SignedOut>>;
     setRepositoryProfile: (root: string, accountId: number | null) => Promise<AccountsActed>;
     getSharedHome: (login: string) => Promise<AccountsActed<SharedHomeRead>>;
-    syncSharedHome: (login: string) => Promise<AccountsActed<SharedHomeRead>>;
+    syncSharedHome: (login: string) => Promise<AccountsActed<HomeSynced>>;
     addToSharedHome: (row: HomeRowAt) => Promise<AccountsActed<SharedHomeRead>>;
     bringFromSharedHome: (row: HomeRowAt) => Promise<AccountsActed<SharedHomeRead>>;
     chooseSharedHomeSide: (row: HomeRowAt, side: HomeSide) => Promise<AccountsActed<SharedHomeRead>>;
     getHomeKinds: (login: string) => Promise<AccountsActed<HomeKinds>>;
     setHomeKind: (login: string, kind: HomeKind, on: boolean) => Promise<AccountsActed<HomeKinds>>;
+    setHomeRepository: (login: string, owner: string, name: string) => Promise<AccountsActed<SharedHomeRead>>;
     onSleepChanged: (onChanged: (state: SleepState) => void) => () => void;
     tuneSession: (tune: TuneSession) => Promise<SessionActed>;
     runSessionCommand: (sessionId: string, command: string) => Promise<SessionActed>;
@@ -721,6 +722,7 @@ const OLD_CHANNELS = {
     chooseSharedHomeSide: "bridge:choose-shared-home-side",
     getHomeKinds: "bridge:get-home-kinds",
     setHomeKind: "bridge:set-home-kind",
+    setHomeRepository: "bridge:set-home-repository",
     sleepChanged: "bridge:sleep-changed",
     tuneSession: "bridge:tune-session",
     runSessionCommand: "bridge:run-session-command",
