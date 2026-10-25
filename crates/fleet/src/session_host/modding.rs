@@ -16,7 +16,7 @@ use super::serving::title_of;
 use super::Marked;
 use crate::daemon::Fleet;
 
-/// A start that names neither a note nor his words, both, or words with nothing in them. A 422.
+/// A start that names both a note and his words, or words with nothing in them. A 422.
 const UNACCEPTABLE_MOD_START: &str = "fleet.unacceptable_mod_start";
 
 /// A Mod Job's title where neither the start nor his words give one.
@@ -55,9 +55,7 @@ where
             (None, Some(_)) => {
                 return Err(self.hosted_refusal(UNACCEPTABLE_MOD_START, "a Mod Job needs his words: `said` is empty"))
             }
-            (None, None) => {
-                return Err(self.hosted_refusal(UNACCEPTABLE_MOD_START, "a Mod Job needs a `note` or `said`, and has neither"))
-            }
+            (None, None) => First::Nothing,
             (Some(_), Some(_)) => {
                 return Err(self.hosted_refusal(UNACCEPTABLE_MOD_START, "a Mod Job takes a `note` or `said`, not both"))
             }
@@ -93,6 +91,7 @@ where
         // **Not an error**: the Job exists, so the answer is 200 and `send_failed` says why
         // nothing was sent.
         let sent = match first {
+            First::Nothing => Ok(()),
             First::Note(note) => Arc::clone(&self)
                 .note_sent_after(SendSessionNote { session_id: session_id.clone(), note }, Some(brief))
                 .await
@@ -110,6 +109,8 @@ enum First {
     Note(ipc::SessionNote),
     /// His words, trimmed and not empty.
     Words(String),
+    /// Neither: an empty Mod Job, sent nothing until he writes in it.
+    Nothing,
 }
 
 impl First {
@@ -117,6 +118,7 @@ impl First {
         match self {
             First::Note(note) => &note.said,
             First::Words(words) => words,
+            First::Nothing => "",
         }
     }
 }
