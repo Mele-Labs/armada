@@ -335,5 +335,8 @@ pub enum CallProgress {
         /// How long the model itself took, in milliseconds. **Not the wait** —
         /// the wait includes starting a process and is the caller's to measure.
         api_ms: Option<u64>,
+        /// What the harness said went wrong, where the call ended in an error: its own one-line
+        /// text, such as a credential that has expired. Absent on a call that ended well.
+        failure: Option<String>,
     },
 }
