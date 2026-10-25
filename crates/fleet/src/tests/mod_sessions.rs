@@ -5,10 +5,10 @@
 use std::sync::Arc;
 
 use api::{HostedSessions, Mods, Refusal, Sessions};
-use ipc::{ModKind, ScaffoldMod, SendSessionMessage, SessionId, SessionRow, StartModSession};
+use ipc::{ModAim, ModKind, ScaffoldMod, SendSessionMessage, SessionId, SessionRow, StartModSession};
 
 use super::session_dispute::serving;
-use super::session_host::{denied, Rig};
+use super::session_host::{denied, eventually, Rig};
 use super::session_notes::{a_repository, note, turn_of, PATH, SAID};
 
 fn pointed(title: Option<&str>) -> StartModSession {
@@ -28,6 +28,10 @@ fn spoken(title: Option<&str>, said: Option<&str>) -> StartModSession {
 
 fn said_by_him(id: &SessionId, text: &str) -> SendSessionMessage {
     SendSessionMessage { session_id: id.clone(), text: text.to_string(), attachments: Vec::new(), mentions: Vec::new(), aim: None }
+}
+
+fn said_aiming(id: &SessionId, text: &str, aim: ModAim) -> SendSessionMessage {
+    SendSessionMessage { aim: Some(aim), ..said_by_him(id, text) }
 }
 
 async fn started(rig: &Rig, title: Option<&str>) -> ipc::ModSessionStarted {
@@ -232,6 +236,76 @@ async fn an_empty_mod_job_in_the_mods_folder_is_sent_the_mods_brief_and_keeps_a_
     assert!(order.windows(2).all(|pair| pair[0] < pair[1]), "the mods brief, then his words: {turn}");
     let record = Arc::clone(&rig.fleet).get_session(started.session_id).await.expect("kept").session;
     assert_eq!(record.title.as_deref(), Some("Calmer rows"));
+}
+
+#[tokio::test]
+async fn an_empty_mod_jobs_first_message_names_what_he_is_aiming_for_between_the_brief_and_his_words() {
+    let words = "calmer usage rows";
+    let aims = [
+        (ModAim::Theme, "He is aiming for: a theme (colours)."),
+        (ModAim::Layout, "He is aiming for: a layout (which tabs and panels are drawn, and in what order)."),
+        (ModAim::Words, "He is aiming for: words (a pattern Bridge links, and where it opens)."),
+        (ModAim::Fleet, "He is aiming for: a Fleet rule (what Fleet does with a notice it would send)."),
+        (ModAim::Tracker, "He is aiming for: a tracker (an issue tracker Armada has no adapter for)."),
+        (ModAim::Source, "He is aiming for: a change to Armada's source."),
+    ];
+    for (aim, line) in aims {
+        let rig = serving("armada").await;
+        let id = Arc::clone(&rig.fleet).start_mod_session(spoken(None, None)).await.expect("started").session_id;
+
+        Arc::clone(&rig.fleet).send_session_message(said_aiming(&id, words, aim)).await.expect("sent");
+
+        let turn = turn_of(&rig).await;
+        let at = |wanted: &str| turn.find(wanted).unwrap_or_else(|| panic!("{aim:?}: the turn carries {wanted}: {turn}"));
+        let order = [at("This is a Mod Job"), at(line), at(words)];
+        assert!(order.windows(2).all(|pair| pair[0] < pair[1]), "{aim:?}: the brief, the aim, his words: {turn}");
+        assert_eq!(turn.matches("He is aiming for").count(), 1, "{aim:?}: {turn}");
+        let rows = rig.rows(&id).await;
+        assert!(
+            matches!(&rows[..], [SessionRow::Message { text, .. }] if text == words),
+            "{aim:?}: the thread keeps his words alone: {rows:#?}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn a_source_aim_in_the_mods_folder_says_it_cannot_be_made_there() {
+    let rig = serving("elsewhere").await;
+    let id = Arc::clone(&rig.fleet).start_mod_session(spoken(None, None)).await.expect("started").session_id;
+
+    Arc::clone(&rig.fleet).send_session_message(said_aiming(&id, "the tab bar", ModAim::Source)).await.expect("sent");
+
+    let turn = turn_of(&rig).await;
+    let line = "He is aiming for: a change to Armada's source, which cannot be made here. Tell him so if a mod cannot do it.";
+    let at = |wanted: &str| turn.find(wanted).unwrap_or_else(|| panic!("the turn carries {wanted}: {turn}"));
+    let order = [at("This is a Mod Job in the mods folder"), at(line), at("the tab bar")];
+    assert!(order.windows(2).all(|pair| pair[0] < pair[1]), "the mods brief, the aim, his words: {turn}");
+}
+
+#[tokio::test]
+async fn an_aim_on_any_message_but_an_empty_mod_jobs_first_is_ignored_and_not_an_error() {
+    let rig = serving("armada").await;
+    let id = Arc::clone(&rig.fleet).start_mod_session(spoken(None, None)).await.expect("started").session_id;
+    Arc::clone(&rig.fleet).send_session_message(said_by_him(&id, "a quieter theme")).await.expect("sent");
+    turn_of(&rig).await;
+
+    Arc::clone(&rig.fleet).send_session_message(said_aiming(&id, "and the tabs", ModAim::Layout)).await.expect("taken");
+
+    eventually(|| async { rig.stand_in.process(0).sent.lock().unwrap().len() == 2 }).await;
+    let second = rig.stand_in.process(0).sent.lock().unwrap()[1].clone();
+    assert!(second.contains("and the tabs") && !second.contains("He is aiming for"), "after his first: {second}");
+
+    let started = Arc::clone(&rig.fleet).start_mod_session(spoken(None, Some("a quieter theme"))).await.expect("started");
+    Arc::clone(&rig.fleet).send_session_message(said_aiming(&started.session_id, "and the tabs", ModAim::Layout)).await.expect("taken");
+    eventually(|| async { rig.stand_in.starts().len() == 2 && rig.stand_in.process(1).sent.lock().unwrap().len() == 2 }).await;
+    let turns = rig.stand_in.process(1).sent.lock().unwrap().clone();
+    assert!(turns.iter().all(|turn| !turn.contains("He is aiming for")), "a Job started on his words: {turns:#?}");
+
+    let plain = serving("armada").await;
+    let job = plain.start().await;
+    Arc::clone(&plain.fleet).send_session_message(said_aiming(&job, "look", ModAim::Theme)).await.expect("taken");
+    let turn = turn_of(&plain).await;
+    assert!(turn.contains("look") && !turn.contains("He is aiming for") && !turn.contains("This is a Mod Job"), "{turn}");
 }
 
 #[tokio::test]
