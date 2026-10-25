@@ -718,7 +718,7 @@ export function sessionsStore(
           on({ kind: "end", code });
           // Fleet takes the item off the list on a clean exit and tells the agent; nothing in Bridge does.
           if (code === 0) {
-            edit(_id, (one) => ({ ...one, waitingFor: (one.waitingFor ?? []).filter((it) => !(it.act?.kind === "run" && it.act.target.trim() === command.trim())) }));
+            edit(_id, (one) => ({ ...one, waitingFor: (one.waitingFor ?? []).filter((it) => !(it.act?.kind === "run" && it.act.target.trim() === command.trim() && (it.steps ?? []).length === 0)) }));
             addTo(_id, [said("It ran clean.")]);
           }
           return;

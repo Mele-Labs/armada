@@ -606,11 +606,11 @@ jobs:
       - uses: ./.github/actions/node-setup
         if: steps.version.outputs.exists != 'true'
 
-      # The `installed` profile is the one `scripts/restart` builds for the
-      # owner's own Fleet, so a release runs what he runs.
+      # `shipped`: optimised and stripped, so the download carries no debug
+      # line tables. Cargo.toml says why it is not `installed`.
       - name: Build armada
         if: steps.version.outputs.exists != 'true'
-        run: cargo build -p armada --profile installed --locked
+        run: cargo build -p armada --profile shipped --locked
 
       # The version lands in the bundle's package.json, which is what
       # `app.getVersion()` and `CFBundleShortVersionString` read.
@@ -636,7 +636,7 @@ jobs:
           set -euo pipefail
           app=apps/desktop/release/mac-arm64/Armada.app
           mkdir -p "$app/Contents/Resources/bin"
-          cp target/installed/armada "$app/Contents/Resources/bin/armada"
+          cp target/shipped/armada "$app/Contents/Resources/bin/armada"
           printf '%s %s\n' "$VERSION" "$SHA" > "$app/Contents/Resources/version"
           codesign --force --deep --sign - "$app"
           codesign --verify --deep --strict "$app"

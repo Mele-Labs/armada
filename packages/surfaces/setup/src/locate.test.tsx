@@ -1,6 +1,6 @@
 // Locate, through `App` — Journey 3's *Getting in*, from the picker's own Add a
 // repository: a folder added, or a clone from a URL, landing on the Cockpit with
-// it picked; Setup opens only when asked for. Moved
+// it picked; or from New project above it, a folder made under a location; Setup opens only when asked for. Moved
 // here from `Screens/Locate`'s stories — #1224. Nothing native opens: the
 // folder dialog answers `CHOSEN`.
 
@@ -166,6 +166,65 @@ test("Escape closes it with nothing sent, and it opens again empty", async () =>
   await expect.element(again.getByLabelText("Project location")).toHaveValue("");
   await again.getByRole("button", { name: /^Cancel/ }).click();
   await expect.poll(() => dialog().query()).toBeNull();
+});
+
+const created = () => page.getByRole("dialog", { name: "New project" });
+
+/** New project is the row above Add a repository in the deck's picker: the same dialog, on a new project. */
+async function newProject() {
+  await repositoryPicker().click();
+  await page.getByRole("option", { name: "New project" }).click();
+  await entered(created());
+  return created();
+}
+
+/** A name typed and Create project pressed. */
+async function make(name = "my-app") {
+  const dialog = await newProject();
+  await userEvent.type(dialog.getByLabelText("Name"), name);
+  await dialog.getByRole("button", { name: /^Create project/ }).click();
+  return dialog;
+}
+
+test("a new project: offered where the projects are, made under it, and listed in the picker", async () => {
+  const onCreated = vi.fn();
+  locating({ repositories: [SET_UP, API], onCreated });
+  const dialog = await newProject();
+  await expect.element(dialog.getByLabelText("Location")).toHaveValue("/Users/user/code");
+  await expect.element(dialog.getByRole("button", { name: /^Create project/ })).toBeDisabled();
+  await userEvent.type(dialog.getByLabelText("Name"), "my-app");
+  await dialog.getByRole("button", { name: /^Create project/ }).click();
+  expect(onCreated).toHaveBeenCalledWith("/Users/user/code", "my-app");
+  await expect.poll(() => created().query()).toBeNull();
+  await repositoryPicker().click();
+  await expect.element(page.getByRole("listbox", { name: "Repositories" }).getByRole("option", { name: "my-app" })).toBeInTheDocument();
+});
+
+test("a name that is not one folder's is said under the field, and nothing is sent", async () => {
+  const onCreated = vi.fn();
+  locating({ repositories: [SET_UP, API], onCreated });
+  const dialog = await newProject();
+  await userEvent.type(dialog.getByLabelText("Name"), "my app");
+  await expect.element(dialog.getByText("Letters, digits, dots, dashes and underscores.")).toBeVisible();
+  await expect.element(dialog.getByRole("button", { name: /^Create project/ })).toBeDisabled();
+  await userEvent.keyboard("{Enter}");
+  expect(onCreated).not.toHaveBeenCalled();
+});
+
+test("a new project's folder already full: Fleet's words, and where to go from them", async () => {
+  locating({ repositories: [SET_UP, API], create: "occupied" });
+  const dialog = await make();
+  await expect.element(dialog.getByText("Not made")).toBeVisible();
+  await expect.element(dialog.getByText("/Users/user/code/my-app already exists and is not empty.")).toBeVisible();
+  await expect.element(dialog.getByText("Choose another name or location.")).toBeVisible();
+  await expect.element(dialog.getByRole("button", { name: /^Create project/ })).toBeEnabled();
+});
+
+test("a new project made and then not served says the folder stays", async () => {
+  locating({ repositories: [SET_UP, API], create: "unserved" });
+  const dialog = await make();
+  await expect.element(dialog.getByText("Made, and not added")).toBeVisible();
+  await expect.element(dialog.getByText("/Users/user/code/my-app could not be read as a repository.")).toBeVisible();
 });
 
 /**
