@@ -1,0 +1,12 @@
+[operations.start_adversarial_review]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Ask one read-only model call to try to break a plan the person is about to approve, its findings pinned to the part they are about"
+notes = """
+`POST /adversarial_review`, body `StartAdversarialReview`: `subject` (`{kind: "plan", session_id, version}`, the only kind so far) and `again`. Since 25 Oct 2026. `docs/concepts/adversarial-review.md`. **Answers at once** with an `AdversarialReview`, `running`; the finished review is carried by the Job's `plan.adversarial` on `session.changed`, so no event of its own.
+
+**Only a press starts one, and a kept review is answered as it stands.** Without `again`, the review kept for this subject is answered with no call, whatever its state. With `again` a call starts whatever is kept and replaces it. A review already running for the same subject is answered, not started twice.
+
+404 `fleet.review_subject_unknown` where no Job has that id or the Job has no plan. 409 `fleet.review_subject_stale` where `version` is not the plan's current one: the plan was recorded again, and a review of the old one is never started.
+"""

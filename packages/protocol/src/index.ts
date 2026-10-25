@@ -57,6 +57,7 @@ export * from "./rehearsal";
 export * from "./scan";
 export * from "./pull-requests";
 export * from "./pull-reviews";
+export * from "./adversarial-review";
 export * from "./review-runs";
 export * from "./review-walks";
 export * from "./issues";

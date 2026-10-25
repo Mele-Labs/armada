@@ -13,6 +13,7 @@
 //! in [`runs`](mod@runs), and every other row here. Each is a subject a reader opens on its own;
 //! [`SERVED`] stays one slice. The gate rule reads every file — `xtask/src/rules_protocol.rs`.
 
+mod adversarial_review;
 mod authoring;
 mod autopilot;
 mod events;
@@ -60,6 +61,7 @@ pub const SERVED: &[Route] = &joined::<
             + repositories::ROUTES.len()
             + retro::ROUTES.len()
             + runs::ROUTES.len()
+            + adversarial_review::ROUTES.len()
     },
 >([
     ROUTES,
@@ -74,10 +76,11 @@ pub const SERVED: &[Route] = &joined::<
     repositories::ROUTES,
     retro::ROUTES,
     runs::ROUTES,
+    adversarial_review::ROUTES,
 ]);
 
-/// The twelve tables as one, in order. A count that disagrees with `N` fails the build.
-const fn joined<const N: usize>(tables: [&[Route]; 12]) -> [Route; N] {
+/// The thirteen tables as one, in order. A count that disagrees with `N` fails the build.
+const fn joined<const N: usize>(tables: [&[Route]; 13]) -> [Route; N] {
     // Filled from the first row: a literal `Route` here would read as a row to the gate rule.
     let mut out = [tables[0][0]; N];
     let (mut table, mut at) = (0, 0);

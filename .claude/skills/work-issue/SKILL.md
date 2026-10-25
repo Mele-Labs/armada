@@ -1,6 +1,6 @@
 ---
 name: work-issue
-description: How to work one GitHub issue — worktree, plan, implement, self-check, commit, land. Load before starting any issue, and before dispatching agents at several.
+description: How to work one beads issue — worktree, plan, implement, self-check, commit, land. Load before starting any issue, and before dispatching agents at several.
 ---
 
 # Working one issue
