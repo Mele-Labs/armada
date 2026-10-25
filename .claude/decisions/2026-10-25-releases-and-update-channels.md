@@ -12,4 +12,4 @@
 
 **Not decided by him:** the version is `v0.<minor>.<commits on main>`. He said he did not mind the scheme so long as releases are tagged.
 
-**Where it landed:** the Ship issues `armada-p87.1` to `armada-p87.5`, `.github/workflows/release.yml`, `scripts/install.sh`, and `docs/practices/ci.md`, *Releases*.
+**Where it landed:** the Ship issues `armada-p87.1` to `armada-p87.5`, the `release` job in `.github/workflows/checks.yml`, `scripts/install.sh`, and `docs/practices/ci.md`, *Releases*.
