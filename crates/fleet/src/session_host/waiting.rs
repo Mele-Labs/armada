@@ -475,6 +475,9 @@ where
             items.extend(self.words_ask_items(&word_asks, &dismissed));
             // Notices a Fleet mod's rule raised as calls, until he dismisses each.
             items.extend(calls.iter().filter(|one| !dismissed.contains(&one.id)).map(super::fleet_calls::call_item));
+            // The harness's sign-in ran out, and only he can sign it in again.
+            let signed_out = self.hosts().of(&session.id).state().signed_out.clone();
+            items.extend(signed_out.map(|at| super::signed_out::sign_in_item(&at)).filter(|one| !dismissed.contains(&one.id)));
             items.extend(rows.into_iter().filter_map(|row| match row {
                 SessionRow::Delivery { at, choice: None, .. } => Some(super::delivering::delivery_item(at)),
                 SessionRow::WindowAsk {

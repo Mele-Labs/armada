@@ -244,6 +244,8 @@ where
         match event {
             DroneEvent::Started { model, .. } => {
                 self.limit_cleared(id).await;
+                // Published with the rest of the turn's start below.
+                self.sign_in_cleared(runtime);
                 let began = self.now().as_str().to_string();
                 let noticed = {
                     let mut state = runtime.state();
@@ -341,6 +343,8 @@ where
             DroneEvent::Ended { cost_micros, .. } => {
                 self.turn_ended(id, runtime, cost_micros).await;
             }
+            // The harness's words for it were shown as a row and ask nothing; this asks the person.
+            DroneEvent::SignedOut => self.signed_out_heard(id, runtime).await,
             _ => {}
         }
     }
