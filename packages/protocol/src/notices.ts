@@ -19,6 +19,7 @@ export const NOTICES = [
   "rail_step",
   "usage_trip",
   "limit_wake",
+  "sign_in_wake",
   "plan_approved",
   "auto_land_refused",
   "retro_note",

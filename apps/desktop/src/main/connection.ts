@@ -47,6 +47,7 @@ import { SleepHost } from "./sleep";
 import { AccountsHost } from "./accounts";
 import { PlanUsageHost } from "./plan-usage";
 import { ModelDownshiftHost } from "./model-downshift";
+import { AgentSignInHost } from "./agent-sign-in";
 import { ClashesHost } from "./clashes";
 import { TeachingHost } from "./teaching";
 import { ReviewsHost } from "./reviews";
@@ -158,6 +159,8 @@ export class FleetConnection {
   readonly planUsage: PlanUsageHost = new PlanUsageHost(() => this.connected()?.port ?? null);
   /** The default model's step down — `model-downshift.ts`. */
   readonly modelDownshift: ModelDownshiftHost = new ModelDownshiftHost(() => this.connected()?.port ?? null);
+  /** The agents' sign-in — `agent-sign-in.ts`. */
+  readonly agentSignIn: AgentSignInHost = new AgentSignInHost(() => this.connected()?.port ?? null);
   /** What happened across the Fleet — `timeline.ts`. */
   readonly timeline: TimelineHost = new TimelineHost(() => this.connected()?.port ?? null);
   /** A background act that failed after its reply — `act-failed.ts`. */
@@ -268,6 +271,7 @@ export class FleetConnection {
       sleep: this.sleep,
       planUsage: this.planUsage,
       modelDownshift: this.modelDownshift,
+      agentSignIn: this.agentSignIn,
       timeline: this.timeline,
       acts: this.acts,
       reviews: this.reviews,

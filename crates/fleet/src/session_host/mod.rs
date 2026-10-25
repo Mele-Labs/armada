@@ -62,6 +62,7 @@ mod rows;
 pub(crate) use rows::mention_line;
 /// A judge reading a Session's work, and sending or dismissing what it raised.
 pub(crate) mod session_judging;
+pub(crate) mod signed_out;
 mod serving;
 pub(crate) use serving::NoticeBatches;
 pub(crate) mod asks;
@@ -462,6 +463,9 @@ pub(crate) struct State {
     pub runs: crate::run_memory::RunLog,
     /// Who waits on each control line written to the process, by its request id. In memory.
     pub controls: HashMap<String, mcp_servers::Waiter>,
+    /// The harness said its sign-in ran out and the Job stopped, until the account works again. In
+    /// memory: `signed_out`.
+    pub signed_out: bool,
 }
 
 impl State {
@@ -509,6 +513,7 @@ impl State {
             background: backgrounding::Calls::default(),
             runs: crate::run_memory::RunLog::default(),
             controls: HashMap::new(),
+            signed_out: false,
         }
     }
 }

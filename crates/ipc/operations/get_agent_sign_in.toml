@@ -1,0 +1,10 @@
+[operations.get_agent_sign_in]
+kind = "query"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Whether the agents' account is signed out, since when, and whether Fleet is signing it in"
+notes = """
+`GET /agent/sign_in`, answered with `AgentSignIn`: `signed_out_since?`, absent where the account is signed in, and `signing_in`, absent where false.
+
+**One state a Fleet, and in memory only.** A Job whose harness says its sign-in ran out marks the Fleet signed out, at the first Job's instant; a repeat failure keeps it. A restarted Fleet has no mark, and the next failed turn marks it again. Served as well as published, so a Bridge opened later asks. `docs/concepts/session/a-job-whose-sign-in-expired.md`.
+"""

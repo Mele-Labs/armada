@@ -1469,10 +1469,13 @@ export const register: Register = on => {
 
 
   // A turn that died on an API error finished nothing, and Fleet reads a finished turn as the end
-  // of a hold for the limit, so the failed one is not told.
+  // of a hold for the limit, so the failed one is not told. A sign-in that ran out signs every Job
+  // out, and Fleet wakes this one once the account works again.
   on('classic.StopFailure', async ($, e, next) => {
     const out = await next(e)
-    if (e.error === 'rate_limit' && !(await $.env.get('ARMADA_DRONE'))) void limited($).catch(() => undefined)
+    if (await $.env.get('ARMADA_DRONE')) return out
+    if (e.error === 'rate_limit') void limited($).catch(() => undefined)
+    if (e.error === 'authentication_failed') void current($).then(([id]) => say($, id, { kind: 'signed_out' })).catch(() => undefined)
     return out
   })
 
