@@ -1,13 +1,15 @@
 /* Switch: a panel switch, in three takes the root's `data-switch` picks. `lever` is the default.
  *
- * The footprint is the pill it replaced, one control wide (--h-control) and one badge tall (--h-badge), so a row does not
- * move. Weight comes from shape and edges: a recess with a heavier top edge, a ledge under a raised segment, a guard's outline.
+ * The footprint is a small control tall (--h-control-sm), which still fits inside a row, and wide enough to set ON and OFF at
+ * the smallest type. Weight comes from shape and edges: a recess with a heavier top edge, a ledge under a raised segment, a guard's outline.
  * No gradient, no glow, no sheen. Colour is --accent on, and a flat step of the ground off.
  *
  * Motion is one short snap, --duration-press, which is zero under reduced motion with the rest of the durations.
  * Keyboard and screen reader are the input's own: it stays in the label, clipped, and the control draws its state. */
 
 .armada-switch {
+  --switch-h: var(--h-control-sm);
+  --switch-w: calc(var(--h-control) + var(--space-6));
   /* The native input is absolutely positioned and clipped; the label is what
      it is positioned against. */
   position: relative;
@@ -49,8 +51,8 @@
 
 .armada-switch__input {
   position: absolute;
-  width: var(--h-control);
-  height: var(--h-badge);
+  width: var(--switch-w);
+  height: var(--switch-h);
   margin: 0;
   clip-path: inset(50%);
 }
@@ -59,8 +61,8 @@
   position: relative;
   flex: none;
   box-sizing: border-box;
-  width: var(--h-control);
-  height: var(--h-badge);
+  width: var(--switch-w);
+  height: var(--switch-h);
 }
 
 /* Parts a take does not draw. */
@@ -77,7 +79,7 @@
   inset-block: 0;
   inset-inline-start: 0;
   box-sizing: border-box;
-  width: var(--h-badge);
+  width: var(--switch-h);
   border: var(--border-width) solid var(--border-default);
   border-top: calc(var(--border-width) * 2) solid var(--border-strong);
   border-radius: var(--radius-sm);
@@ -87,11 +89,11 @@
 /* The lever rises from the pivot: up is on, down is off. Rotating it a half turn is the flip. */
 .armada-switch__thumb {
   position: absolute;
-  inset-inline-start: calc(var(--h-badge) / 2);
+  inset-inline-start: calc(var(--switch-h) / 2);
   inset-block-end: 50%;
-  width: var(--space-1);
-  height: var(--space-2);
-  margin-inline-start: calc(var(--space-1) / -2);
+  width: calc(var(--space-1) + var(--border-width) * 2);
+  height: var(--space-3);
+  margin-inline-start: calc((var(--space-1) + var(--border-width) * 2) / -2);
   border-radius: var(--radius-sm);
   background: var(--fg-subtle);
   transform-origin: 50% 100%;
@@ -107,20 +109,20 @@
   position: absolute;
   inset-inline-start: 50%;
   inset-block-end: calc(var(--border-width) / -2 - var(--border-width));
-  width: var(--space-3);
+  width: var(--space-4);
   height: calc(var(--border-width) * 2);
-  margin-inline-start: calc(var(--space-3) / -2);
+  margin-inline-start: calc(var(--space-4) / -2);
   background: var(--border-strong);
 }
 
 .armada-switch__lamp {
   position: absolute;
-  inset-inline-start: calc(var(--h-badge) + (var(--h-control) - var(--h-badge) - var(--space-2)) / 2);
+  inset-inline-start: calc(var(--switch-h) + (var(--switch-w) - var(--switch-h) - var(--space-3)) / 2);
   inset-block-start: 50%;
   box-sizing: border-box;
-  width: var(--space-2);
-  height: var(--space-2);
-  margin-block-start: calc(var(--space-2) / -2);
+  width: var(--space-3);
+  height: var(--space-3);
+  margin-block-start: calc(var(--space-3) / -2);
   border: var(--border-width) solid var(--border-default);
   background: var(--bg-sunken);
   transition:
@@ -146,7 +148,7 @@
   inset-block: 0;
   inset-inline-start: 0;
   box-sizing: border-box;
-  width: var(--h-badge);
+  width: var(--switch-h);
   border: calc(var(--border-width) * 2) solid var(--border-strong);
   border-radius: var(--radius-sm);
   transform-origin: 50% 0;
@@ -184,9 +186,8 @@
   box-sizing: border-box;
   min-width: 0;
   border-bottom: calc(var(--border-width) * 2) solid var(--border-strong);
-  /* Half a badge: the one size that sets ON and OFF side by side inside a control's width. */
   font-family: var(--font-mono);
-  font-size: calc(var(--h-badge) / 2);
+  font-size: var(--text-xs);
   line-height: 1;
   font-weight: var(--weight-medium);
   color: var(--fg-subtle);
