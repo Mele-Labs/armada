@@ -11,7 +11,7 @@ import type { ImportFolder } from "@armada/protocol";
 
 import { refusalWords } from "@armada/screens/src/refusal-words";
 
-import { addRepository, chooseFolder, createProject, installAgentMod, listImportFolders } from "./commands";
+import { addRepository, chooseFolder, createProject, installAgentMod, listImportFolders, pickRepository } from "./commands";
 import { claudeFolderOf, defaultParent, homeRelative, rootOfImport } from "./run-places";
 import { useSessionsDraft } from "./sessions-draft";
 import { startOn } from "./start-on";
@@ -80,7 +80,9 @@ export function FirstRun({ onTell }: { onTell?: ((sentence: string) => void) | u
     if (draft === undefined || first === undefined) return;
     const added = served ? undefined : await addRepository(first);
     if (added !== undefined && added.state !== "located") return onTell?.(added.state === "refused" ? added.saying : "Folder not added");
-    await startOn(draft, added === undefined ? first : added.repository.root);
+    const top = added === undefined ? first : added.repository.root;
+    await startOn(draft, top);
+    pickRepository(top);
     for (const path of rest) {
       const more = await addRepository(path);
       if (more.state !== "located") onTell?.(more.state === "refused" ? more.saying : "Folder not added");

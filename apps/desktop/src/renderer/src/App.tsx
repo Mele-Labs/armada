@@ -255,7 +255,7 @@ export function App() {
     landed: state.located,
     onLocated: (one, made) => {
       goTo(SURFACE.overview);
-      // A new project has nothing in it to look at yet: it opens on a Job, as the first run's does.
+      // A new project has nothing in it to look at yet: it opens on a Job, as the first run's does, and the pick stays so the Job sits under its heading.
       if (made === true && draft !== undefined) void startOn(draft, one.root);
       else pickRepository(one.root);
     },
