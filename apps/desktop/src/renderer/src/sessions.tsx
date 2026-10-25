@@ -373,6 +373,7 @@ export function stepsReadingOf(session: Session, open: Reading | undefined, draf
   if (item?.steps === undefined) return undefined;
   const address = item.act?.kind === "walk" ? item.act.target : undefined;
   const command = item.act?.kind === "run" ? item.act.target : undefined;
+  const runner = draft === undefined ? undefined : runnerOf(draft, session);
   return {
     name: item.text,
     ...(address === undefined ? {} : { address }),
@@ -381,6 +382,8 @@ export function stepsReadingOf(session: Session, open: Reading | undefined, draf
     keep: `steps:${session.id}:${item.id}`,
     onOpenAddress: (url) => draft?.openWindow?.(session.id, url),
     onSend: (text) => draft?.answerWaiting?.(session.id, item.id, { text }),
+    ...(runner === undefined ? {} : { runner }),
+    onFailed: (said) => void draft?.send(session.id, { text: said, files: [], sketches: [], tags: [] }),
   };
 }
 
