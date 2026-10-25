@@ -4,10 +4,8 @@ import type { InputHTMLAttributes, ReactNode } from "react";
  * A setting that is on or off, with its label on the left and the control on
  * the right.
  *
- * **The control is a panel switch, three takes of it, chosen by `data-switch` on the root**: `lever` (the default), a toggle
- * lever in a recessed slot with a square lamp beside it; `guarded`, that lever under a hinged guard that lifts on hover and
- * focus; `rocker`, two segments with the pressed one lit. The markup carries every part and the sheet draws the take's own.
- * It is the footprint of the pill it replaced, `--h-control` by `--h-badge`, and takes `--accent` when on.
+ * **The control is a cockpit rocker**: a tall paddle in a bezel, rocked in at the top when on and at the bottom when off,
+ * under an ON legend lit in `--accent` while on. `data-switch="master"` on the root draws the paddle red, as a master switch.
  *
  * The optional description states what the setting does when on and what
  * happens when off. It is not help text for the label — a label that needs
@@ -25,14 +23,9 @@ function Control(rest: Omit<InputHTMLAttributes<HTMLInputElement>, "type">) {
     <>
       <input {...rest} type="checkbox" role="switch" className="armada-switch__input" />
       <span className="armada-switch__track" aria-hidden="true">
-        <span className="armada-switch__guard" />
-        <span className="armada-switch__thumb" />
-        <span className="armada-switch__lamp" />
-        <span className="armada-switch__segment" data-segment="off">
-          OFF
-        </span>
-        <span className="armada-switch__segment" data-segment="on">
-          ON
+        <span className="armada-switch__legend">ON</span>
+        <span className="armada-switch__bezel">
+          <span className="armada-switch__paddle" />
         </span>
       </span>
     </>
