@@ -1142,7 +1142,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
           <SessionThread
             sessionId={session.id}
             rows={batched}
-            {...(!cardLead && !modEmpty ? {} : { lead: <>{cardLead ? <RunsPlaceCard {...where!} /> : null}{modEmpty ? <ModEmpty /> : null}</> })}
+            {...(!cardLead && !modEmpty ? {} : { lead: <>{cardLead ? <RunsPlaceCard {...where!} /> : null}{modEmpty ? <ModEmpty sessionId={session.id} /> : null}</> })}
             {...(session.transcript === undefined ? {} : { transcript: session.transcript })}
             onOpenRetro={openRetro}
             {...(draft.retry === undefined ? {} : { onRetry: (rowId: string) => draft.retry!(session.id, rowId) })}

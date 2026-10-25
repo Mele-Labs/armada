@@ -7,6 +7,7 @@
 // the row. Read `get_session` once and follow `session.row`.
 
 import type { HelmCallAnswer, HelmCallInFlight, QuestionAnswer } from "./helm-calls";
+import type { ModAim } from "./mods";
 import type { LandsIn, Whose } from "./retro";
 import type { SlotReleased } from "./holding";
 import type { PlanChangeLine } from "./session-plan";
@@ -84,6 +85,8 @@ export type SendSessionMessage = {
   text: string;
   attachments?: SessionUpload[];
   mentions?: SessionTag[];
+  /** What he picked in an empty Mod Job: the kind of mod he is aiming for, `source` for a change to Armada's code. Read with his first message only. */
+  aim?: ModAim;
 };
 
 /** `POST /sessions/ask/answer`. `call` is the ask's own `HelmCallInFlight.call`. */

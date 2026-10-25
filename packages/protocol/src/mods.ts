@@ -72,6 +72,9 @@ export type ScaffoldMod = {
   session_id?: string;
 };
 
+/** The kind of mod he is aiming for in an empty Mod Job; `source` is a change to Armada's own code. */
+export type ModAim = "theme" | "layout" | "words" | "fleet" | "tracker" | "source";
+
 /**
  * `POST /mods/session`'s body: a Mod Job, a hosted Job on Armada's own repository for modding Armada
  * itself. Exactly one of `note` and `said`, else a 422 `fleet.unacceptable_mod_start`. `note` is what he

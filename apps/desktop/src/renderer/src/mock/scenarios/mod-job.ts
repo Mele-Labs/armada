@@ -2,7 +2,7 @@
 // A Mod Job sits under Mods in the Cockpit's Jobs list, and its right column lists the mods it made, each with its switch. The walk
 // `mod-job` plays it, and `create-mod` plays the same Job started empty and described in its box. Mock only: the Job the mock Fleet starts is marked `mod` as Fleet marks it, and it writes the dusk theme.
 
-import type { ModSummary, RepositorySummary, SessionNote } from "@armada/protocol";
+import type { ModAim, ModSummary, RepositorySummary, SessionNote } from "@armada/protocol";
 import { repository } from "@armada/screens/src/fixtures/repository";
 
 import { onBoard } from "../moment";
@@ -49,13 +49,13 @@ function build(): Scenario {
       let mods: ModSummary[] = [];
       const publish = () => handle.publish({ mods: { mods } });
       const empty = new Set<string>();
-      // The agent writes the dusk theme.
-      const writesDusk = (id: string): void => {
+      // The agent writes the dusk theme. Where he aimed at colours the reply says it is a theme, so the walk shows the pick arrived.
+      const writesDusk = (id: string, aim?: ModAim): void => {
         void fake
           .agentTurn(id, [
             { kind: "tool", id: "w1", at: "2026-10-23T09:00:05.000Z", text: `Write ${MODS}/mod.toml` },
             { kind: "tool", id: "w2", at: "2026-10-23T09:00:06.000Z", text: `Write ${MODS}/theme.css` },
-            { kind: "message", id: "w3", at: "2026-10-23T09:00:08.000Z", from: { kind: "agent" }, text: "Dusk is saved and on." },
+            { kind: "message", id: "w3", at: "2026-10-23T09:00:08.000Z", from: { kind: "agent" }, text: aim === "theme" ? "Dusk is a theme, saved and on." : "Dusk is saved and on." },
           ])
           .then(() => {
             mockThemes.install(DUSK_MOD);
@@ -95,7 +95,7 @@ function build(): Scenario {
           const sent = await own.sendSessionMessage!(send);
           if (sent.ok && empty.delete(send.session_id)) {
             fake.changed({ ...sent.value, title: `Mod ${titleOf(send.text)}` });
-            writesDusk(send.session_id);
+            writesDusk(send.session_id, send.aim);
           }
           return sent;
         },

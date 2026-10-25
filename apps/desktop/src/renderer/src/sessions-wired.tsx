@@ -51,6 +51,7 @@ import { readHistory } from "./session-history";
 import { SessionsFrom } from "./sessions-draft";
 import type { TimelineSource } from "./fleet-timeline";
 import { markViewed } from "./cockpit/viewed";
+import { aimOf, forgetAim } from "./session-view/mod-aim";
 import { stateOf } from "./state-feed";
 import { manifestLabel } from "@armada/shell";
 
@@ -398,11 +399,13 @@ export class WiredStore {
     const files = (await Promise.all(sent.files.map(uploadOfFile))).filter((one) => one !== undefined);
     const drawn = await Promise.all(sent.sketches.map(uploadOfSketch));
     const attachments = [...files, ...drawn];
+    const aim = aimOf(id);
     const done = await this.api.sendSessionMessage({
       session_id: id,
       text: sent.text,
       ...(attachments.length === 0 ? {} : { attachments }),
       ...(sent.tags.length === 0 ? {} : { mentions: sent.tags.map(wireTagOf) }),
+      ...(aim === undefined ? {} : { aim }),
     });
     if (!done.ok) {
       this.tagged(id, tags);
@@ -410,6 +413,7 @@ export class WiredStore {
       return false;
     }
     markViewed(id);
+    forgetAim(id);
     // The wire holds a sketch only as the picture it went as, so the ledger keeps what was drawn here.
     if (sent.sketches.length > 0) {
       this.sketches.set(id, [...(this.sketches.get(id) ?? NONE), ...sent.sketches.map((one): Sketch => ({ kind: "sketch", id: one.id, title: one.title, by: "you", drawing: one.drawing }))]);

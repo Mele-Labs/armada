@@ -1,5 +1,5 @@
 // Create mod, in the palette and on the Mods page of System: it starts an empty Mod Job at once and opens it on the Cockpit, the box ready for his words.
-// The empty thread lists what a Mod Job can make. His first message names the Job, which sits under Mods. Over the `mod-job` scenario.
+// The empty thread lists what a Mod Job can make, a card each; the one he picks goes with his first message. His first message names the Job, which sits under Mods. Over the `mod-job` scenario.
 
 import { button, inside, region, role, systemPage, text, place, viaPalette, walk } from "../walk";
 
@@ -9,7 +9,9 @@ const message = role("textbox", "Message");
 const createMod = walk("mod-job", [
   ...viaPalette("Create mod", "⌘K, then Create mod"),
   { look: inside(region("What a Mod Job makes"), text("Colours")), say: "An empty Mod Job opens, listing what it can make" },
+  { press: role("radio", "Colours"), say: "He picks Colours, and the Job knows what he is aiming for" },
   { type: `${words}\n`, into: message, say: "The box has the caret: he types what he wants and sends it" },
+  { look: text("Dusk is a theme, saved and on."), say: "The Job knew it was a theme" },
   { look: inside(region("Jobs", { exact: true }), button(`Mod ${words}`)), say: "His first line names the Job" },
   { look: inside(region("Jobs", { exact: true }), role("heading", "Mods")), say: "It sits under Mods in the list" },
   { press: place("System"), say: "System" },
