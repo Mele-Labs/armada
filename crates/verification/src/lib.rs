@@ -23,6 +23,7 @@ mod tests;
 
 pub use judge::{field, Brief, Refusals, Unreadable};
 pub use mechanical::{Exit, NeverRan};
+pub use quoted::invented;
 pub use session_work::Work;
 pub use shown::{digest, digest_of};
 pub use standing::{Standing, STANDING_RULES};

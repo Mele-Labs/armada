@@ -9,6 +9,7 @@ import type { PhoneAnswer, PhoneRequest, SettingsFileOpened } from "@armada/sett
 import type { AskLessonRead, AskTurn, LessonReviewRead } from "@armada/screens/src/lessons/review-wire";
 import type { LessonSessionRead } from "@armada/screens/src/lessons/session-wire";
 import type { PanelGo, PanelHeldNote } from "@armada/studios/api";
+import type { AdversarialReview, DismissFinding, SendFinding, StartAdversarialReview } from "@armada/protocol";
 import type {
   ChangeWaiting,
   SessionWait,
@@ -375,6 +376,9 @@ type OldBridgeApi = {
     judgeSession: (judge: JudgeSession) => Promise<SessionActed>;
     sendConcern: (send: SendConcern) => Promise<SessionActed>;
     dismissConcern: (dismiss: DismissConcern) => Promise<SessionActed>;
+    startAdversarialReview: (start: StartAdversarialReview) => Promise<SessionActed<AdversarialReview>>;
+    sendFinding: (send: SendFinding) => Promise<SessionActed<AdversarialReview>>;
+    dismissFinding: (dismiss: DismissFinding) => Promise<SessionActed<AdversarialReview>>;
     getSleep: () => Promise<SleepActed>;
     getPlanUsage: () => Promise<PlanUsageRead>;
     getWriteClashes: () => Promise<WriteClashesRead>;
@@ -679,6 +683,9 @@ const OLD_CHANNELS = {
     judgeSession: "bridge:judge-session",
     sendConcern: "bridge:send-concern",
     dismissConcern: "bridge:dismiss-concern",
+    startAdversarialReview: "bridge:start-adversarial-review",
+    sendFinding: "bridge:send-finding",
+    dismissFinding: "bridge:dismiss-finding",
     getSleep: "bridge:get-sleep",
     getPlanUsage: "bridge:get-plan-usage",
     getWriteClashes: "bridge:get-write-clashes",

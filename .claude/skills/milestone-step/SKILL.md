@@ -13,14 +13,16 @@ exactly the problem Armada is being built to solve.
 
 ## Where you are
 
-Steps and capabilities are **GitHub issues** in `Mele-Labs/armada`. A step's state
-and `git log` together say where work stopped; that is the whole resume protocol.
+Steps and capabilities are **beads issues** (`bd`), each under its milestone's
+epic. One filed on GitHub before the move keeps its number as `armada-<number>`.
+A step's state and `git log` together say where work stopped; that is the whole
+resume protocol.
 
 | | |
 |---|---|
-| Steps | Issues labelled `step`, titled `M1 7 — …`, grouped by milestone |
-| Capabilities | Issues labelled `capability`. A step serves up to five, named as `#N` |
-| Progress | Computed by `cargo xtask verify-roadmap`. **Nobody types a status** |
+| Steps | Issues labelled `step`, titled `M1 7 — …`, under the milestone's epic |
+| Capabilities | Issues labelled `capability`. A step serves up to five, named as `#N`, which is `armada-N` |
+| Progress | `cargo xtask verify-roadmap` still reads the closed GitHub issues, so its figure is wrong until `armada-hhj.2`. **Nobody types a status** |
 | The model | `crates/core-model/domain/` — the authority on the domain sets; Job statuses are the `job_status` rows of `enum-verbs.toml` |
 | Concepts and contracts | `docs/concepts/`, `docs/contracts/` |
 | Every open question | `docs/OPEN.md`, generated |
@@ -131,8 +133,8 @@ broken most often, because filing feels like finishing.
 |---|---|
 | A gap a later step should close | A comment on **that step's issue**, saying it was carried in |
 | An undecided design question | A `## Open questions` bullet in the document that blocks — **and only after a person defers it.** Read `.claude/skills/armada-open-questions/SKILL.md` |
-| Work nothing owns | A new issue, labelled and milestoned |
-| Something parked | An issue labelled `idea`, no milestone |
+| Work nothing owns | A new issue, labelled, under its milestone's epic |
+| Something parked | An issue labelled `idea`, under no epic |
 
 **No question is filed on an agent's judgement.** Propose it and wait for an
 explicit yes. Before proposing, answer it: read the concept, the contract and
