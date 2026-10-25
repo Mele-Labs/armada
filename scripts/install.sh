@@ -6,7 +6,7 @@
 #
 # Puts Armada.app in /Applications (or ~/Applications when that is not
 # writable), starts Fleet from the `armada` inside it under launchd, and opens
-# the app. `.github/workflows/release.yml` attaches this file to every release.
+# the app. The `release` job in `.github/workflows/checks.yml` attaches this file to every release.
 #
 # **Downloaded with curl, so nothing is quarantined.** macOS quarantines what a
 # browser downloads, and an ad hoc signed app with that flag set is refused

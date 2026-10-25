@@ -225,9 +225,11 @@ failure, which was a Linux-only test failing on `main`.
 
 ## Releases
 
-**Every merge to `main` that passes `ci` is published as a GitHub Release**, by `.github/workflows/release.yml`.
-It runs when `checks` finishes on a push to `main`, and only when that run succeeded.
+**Every merge to `main` that passes `ci` is published as a GitHub Release**, by the `release` job in `.github/workflows/checks.yml`.
+It runs on a push to `main` once `ci` has passed, and waits on nothing else, so a release is out about ten minutes after the merge.
 A pull request and a merge group never release.
+
+**It does not wait for `test_map`.** It did at first, as a separate workflow that ran once the whole `checks` run had finished, and `test_map` holds that run open for about two and a half hours: 154 minutes on 24 Oct 2026, run 40092571311.
 
 | | |
 |---|---|
@@ -239,7 +241,7 @@ A pull request and a merge group never release.
 
 **One release builds at a time.** A merge that lands meanwhile waits, and a newer merge replaces the one waiting, so two quick merges make one release.
 
-**Run it by hand** from the Actions tab with *Run workflow*, which releases `main`'s tip. It needs nothing else.
+**Run it by hand** from the Actions tab: *Run workflow* on `checks`, on `main`, runs every Check and then releases `main`'s tip.
 
 **Unsigned, on purpose for now.** `install.sh` downloads with `curl`, which sets no quarantine flag, so an ad hoc signed app opens without Gatekeeper's warning.
 A signed download a person double-clicks is `armada-67`.
@@ -248,7 +250,7 @@ A signed download a person double-clicks is `armada-67`.
 
 `checks` holds `contents: read` and nothing broader. It uses `pull_request`,
 never `pull_request_target`, reads no secret and runs on GitHub's hosted runners.
-`release` holds `contents: write` in its one job, to create the tag and the release, and runs only on a commit already on `main`.
+Its `release` job alone holds `contents: write`, to create the tag and the release, and runs only on a commit already on `main`.
 Every third-party action is pinned to a full commit SHA with its version beside it.
 
 ## Owed at the cutover
