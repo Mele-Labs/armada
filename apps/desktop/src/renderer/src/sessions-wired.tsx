@@ -552,9 +552,10 @@ export class WiredStore {
     this.recompute();
   }
 
-  /** A finding sent or dismissed, against the plan as it is now: Fleet settles it on the review it keeps, of whatever version. */
+  /** A finding sent or dismissed, against the version its review read: Fleet keeps a review per version. */
   private async finding(id: string, finding: string, how: "send" | "dismiss"): Promise<void> {
-    const version = this.lookup(id)?.work?.plan?.version;
+    const work = this.lookup(id)?.work;
+    const version = work?.adversarial?.state === "stale" ? work.adversarial.read : work?.plan?.version;
     if (version === undefined) return;
     const body = { subject: { kind: "plan" as const, session_id: id, version }, finding_id: finding };
     await this.plain(how === "send" ? this.api.sendFinding(body) : this.api.dismissFinding(body));
