@@ -128,6 +128,31 @@ describe("the default model's step down, carried whole by its event", () => {
   });
 });
 
+describe("the agents' sign-in, off `agent_sign_in.changed`", () => {
+  it("is passed on as the state and nothing of the event's kind", () => {
+    const { host } = fakeHost();
+    const changed = vi.fn();
+    const state = { signed_out_since: "2026-10-25T09:00:00Z", signing_in: true };
+    applyArrival(
+      { ...host, agentSignIn: { changed, seed: async () => {} } },
+      JSON.stringify({ message: "event", cursor: 4, event: { kind: "agent_sign_in.changed", ...state } }),
+      FLEET,
+    );
+    expect(changed).toHaveBeenCalledWith(state);
+  });
+
+  it("passes on an empty state when the event carries none: signed in", () => {
+    const { host } = fakeHost();
+    const changed = vi.fn();
+    applyArrival(
+      { ...host, agentSignIn: { changed, seed: async () => {} } },
+      JSON.stringify({ message: "event", cursor: 4, event: { kind: "agent_sign_in.changed" } }),
+      FLEET,
+    );
+    expect(changed).toHaveBeenCalledWith({});
+  });
+});
+
 describe("an entry on the Cockpit's timeline, off `timeline.appended`", () => {
   it("is told to the windows whole", () => {
     const { host } = fakeHost();
