@@ -183,6 +183,62 @@ async fn an_answer_quoting_words_it_was_never_shown_fails_the_review_and_keeps_n
     assert_eq!(review.cost_micros, Some(400_000), "what was spent is kept on a failed review too");
 }
 
+/// What the `claude` CLI printed when it was not logged in: a long stream of events, then the result that
+/// names the failure and, in the real run, a cost of zero.
+fn a_long_stream_ending_in(result: &str) -> String {
+    let init = format!(
+        r#"{{"type":"system","subtype":"init","original_cwd":"/Users/someone/work/repo","tools":[{}]}}"#,
+        (0..120).map(|n| format!("\"Command{n}\"")).collect::<Vec<_>>().join(",")
+    );
+    format!("{init}\n{result}")
+}
+
+/// The review of a Job whose call exited 3 after printing `stdout` and `stderr`.
+async fn failed_after_printing(stdout: &str, stderr: &str) -> AdversarialReview {
+    let judge = Arc::new(FakeJudge::that_fails_after_printing(stdout, stderr));
+    let rig = rig_fitted(|fittings| fittings.judge = judge);
+    let id = a_job_with_a_plan(&rig).await;
+    start(&rig, &id, 1, false).await.expect("started");
+    let review = ended(&rig, &id).await;
+    assert_eq!(review.state, AdversarialReviewState::Failed);
+    review
+}
+
+#[tokio::test]
+async fn a_call_that_failed_is_worded_in_one_short_line_from_what_the_call_said_and_not_its_stream() {
+    let result = r#"{"type":"result","subtype":"success","is_error":true,"result":"Not logged in · Please run /login","total_cost_usd":0,"duration_api_ms":0}"#;
+    let stream = a_long_stream_ending_in(result);
+    assert!(stream.len() > 1500, "the stream is long: {}", stream.len());
+
+    let failed = failed_after_printing(&stream, "").await.failed.expect("Fleet's words");
+    assert!(failed.contains("code 3") && failed.contains("Not logged in · Please run /login"), "{failed}");
+    assert!(failed.chars().count() <= 260, "one short line, not the stream: {failed}");
+    assert!(!failed.contains('{') && !failed.contains("original_cwd") && !failed.contains('\n'), "{failed}");
+
+    // No result event to read: the last line the call wrote to stderr.
+    let failed = failed_after_printing(&a_long_stream_ending_in("not an event"), "warming up\nNot logged in\n").await.failed.expect("words");
+    assert!(failed.contains("code 3") && failed.ends_with("Not logged in"), "{failed}");
+    assert!(!failed.contains("original_cwd") && !failed.contains("warming up"), "{failed}");
+
+    // A said text longer than the cut is cut, with the cut marked.
+    let long = format!(r#"{{"type":"result","is_error":true,"result":"{}"}}"#, "x".repeat(900));
+    let failed = failed_after_printing(&long, "").await.failed.expect("words");
+    assert!(failed.chars().count() <= 260 && failed.ends_with('…'), "{failed}");
+}
+
+#[tokio::test]
+async fn a_failed_call_that_billed_nothing_leaves_the_cost_absent_and_one_that_billed_keeps_it() {
+    let result = |cost: &str| format!(r#"{{"type":"result","is_error":true,"result":"Not logged in","total_cost_usd":{cost}}}"#);
+    let nothing = failed_after_printing(&a_long_stream_ending_in(&result("0")), "").await;
+    assert_eq!(nothing.cost_micros, None, "a reported zero is not a cost, and the wire says absent means the call did not say");
+
+    let unsaid = failed_after_printing(&a_long_stream_ending_in(r#"{"type":"result","is_error":true,"result":"Not logged in"}"#), "").await;
+    assert_eq!(unsaid.cost_micros, None);
+
+    let billed = failed_after_printing(&a_long_stream_ending_in(&result("0.37")), "").await;
+    assert_eq!(billed.cost_micros, Some(370_000), "what a failed call did cost is kept");
+}
+
 #[tokio::test]
 async fn a_finding_is_sent_as_the_persons_message_or_dismissed_even_once_the_plan_moved_on() {
     let (rig, _) = answered_with(FINDINGS);
