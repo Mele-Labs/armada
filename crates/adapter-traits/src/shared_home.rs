@@ -6,14 +6,29 @@
 //! setup and has no write; [`KeptFolder`] is the different type that one writes through, handed
 //! only to what acts on a person's press.
 
-use alloc::string::String;
+use alloc::string::{String, ToString};
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 
 use crate::ci::{FileEntry, FileRead};
 
-/// The home's repository name, under the person's own login.
+/// The home's repository name until a person chooses another, under the person's own login.
 pub const HOME_REPOSITORY: &str = "armada-home";
+
+/// Where a home is made: the owner, the profile's login or one of its organisations, and the
+/// repository's name under it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct HomePlace {
+    pub owner: String,
+    pub name: String,
+}
+
+impl HomePlace {
+    /// `<login>/armada-home`, where nobody chose.
+    pub fn default_for(login: &str) -> HomePlace {
+        HomePlace { owner: login.to_string(), name: HOME_REPOSITORY.to_string() }
+    }
+}
 
 /// A folder on this machine that Armada reads and writes: the home's copy, the mods folder, Kit's
 /// home, the person's home for a harness. Paths are relative and `/`-separated, and one that
@@ -38,6 +53,9 @@ pub enum HomeFailure {
     Unreachable(String),
     /// It answered no, or the copy here would not take the change.
     Refused(String),
+    /// It answered no to where the home was asked to be. **A whole sentence**, naming who cannot
+    /// do what and what to do instead, which only the adapter knows.
+    Declined(String),
 }
 
 impl HomeFailure {
@@ -47,16 +65,34 @@ impl HomeFailure {
             HomeFailure::NotSignedIn(said) => said.clone(),
             HomeFailure::Unreachable(said) => alloc::format!("The shared home could not be reached: {said}"),
             HomeFailure::Refused(said) => alloc::format!("The shared home refused: {said}"),
+            HomeFailure::Declined(said) => said.clone(),
         }
+    }
+
+    /// `login` may not make repositories under `owner`, an organisation.
+    pub fn cannot_make(login: &str, owner: &str) -> HomeFailure {
+        HomeFailure::Declined(alloc::format!(
+            "{login} cannot make repositories in {owner}. Ask an owner of {owner} to allow it, or choose {login}"
+        ))
+    }
+
+    /// `place` is there already and `login` may not write to it.
+    pub fn cannot_write(login: &str, place: &HomePlace) -> HomeFailure {
+        HomeFailure::Declined(alloc::format!(
+            "{}/{} exists and {login} cannot write to it. Choose another name",
+            place.owner,
+            place.name
+        ))
     }
 }
 
 /// Every profile's home, one a login: a machine can hold a personal profile and a work one, and
-/// each has its own `<login>/armada-home`.
+/// each has its own home, `<login>/armada-home` until the person chooses another place.
 pub trait HomeRepositories: Send + Sync {
-    /// `login`'s home, acting as `login` alone. **Asks the forge nothing**: whether it holds the
+    /// `login`'s home, acting as `login` alone. `owners` are the logins a copy here may come from:
+    /// the profile's own and its organisations'. **Asks the forge nothing**: whether it holds the
     /// login is found by the first act. A login that cannot be one is refused.
-    fn of(&self, login: &str) -> Result<Arc<dyn HomeRepository>, HomeFailure>;
+    fn of(&self, login: &str, owners: &[String]) -> Result<Arc<dyn HomeRepository>, HomeFailure>;
 }
 
 /// One login's home, and this machine's copy of it. **It acts as that login and no other**: there
@@ -65,11 +101,15 @@ pub trait HomeRepositories: Send + Sync {
 /// **Nothing here pushes anything but named paths**: [`HomeRepository::publish`] is the one way
 /// a change leaves the machine, and it takes the paths it commits.
 pub trait HomeRepository: Send + Sync {
-    /// `<login>/<repository>` where this machine holds a copy, `None` where it does not yet.
+    /// `<owner>/<repository>` where this machine holds a copy, `None` where it does not yet.
     fn here(&self) -> Option<String>;
-    /// Make the home where it does not exist, private, then clone it here, or bring the copy here
-    /// up to date where there is one.
-    fn open(&self) -> Result<(), HomeFailure>;
+    /// Make the home at `place` where it does not exist, private, then clone it here, or bring the
+    /// copy here up to date where there is one. **Refused where `place` is an organisation the
+    /// login may not make repositories in, or a repository it may not write to.**
+    fn open(&self, place: &HomePlace) -> Result<(), HomeFailure>;
+    /// A home another machine made, kept by the forge: a repository the login owns or belongs to
+    /// through one of its organisations, marked as a home. `None` where there is none.
+    fn found(&self) -> Result<Option<HomePlace>, HomeFailure>;
     /// Bring the copy here up to date.
     fn pull(&self) -> Result<(), HomeFailure>;
     /// The copy here, read and written. A write stays on this machine until it is published.

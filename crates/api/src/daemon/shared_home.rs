@@ -4,7 +4,7 @@
 
 use std::future::Future;
 
-use ipc::{ChooseHomeSide, HomeKinds, HomeProfile, HomeRowAt, HomeSynced, SetHomeKind, SharedHomeRead};
+use ipc::{ChooseHomeSide, HomeKinds, HomeProfile, HomeRowAt, HomeSynced, SetHomeKind, SetHomeRepository, SharedHomeRead};
 
 use crate::daemon::Refusal;
 
@@ -34,4 +34,7 @@ pub trait SharedHome: Send + Sync + 'static {
 
     /// `set_home_kind` — switch one kind.
     fn set_home_kind(&self, switch: SetHomeKind) -> impl Future<Output = Result<HomeKinds, Refusal>> + Send;
+
+    /// `set_home_repository` — where one profile's home is made, before it exists.
+    fn set_home_repository(&self, choice: SetHomeRepository) -> impl Future<Output = Result<SharedHomeRead, Refusal>> + Send;
 }

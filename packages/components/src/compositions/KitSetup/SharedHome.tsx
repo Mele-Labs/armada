@@ -39,8 +39,10 @@ export type SharedRow = {
 };
 
 export type SharedHomeRead = {
-  /** The GitHub login the home belongs to. */
+  /** The GitHub login the home belongs to, or the organisation it is made under. */
   account: string;
+  /** The signed-in login itself, where `account` may be an organisation. Absent is that `account` is the login. */
+  login?: string;
   /** The home's repository name. */
   repository: string;
   rows: SharedRow[];
@@ -61,6 +63,8 @@ export type SharedHomeActs = {
   /** Bring a row that is only in the home to this machine. */
   bring: (row: SharedRow) => void;
   sync: () => void;
+  /** Choose where the home is made: the owner and the repository name. Absent keeps the choice on this window alone. */
+  setHome?: (owner: string, name: string) => void;
 };
 
 export type SharedHome = SharedHomeRead & SharedHomeActs;
@@ -156,7 +160,11 @@ export function SharedHomeBar({ home }: { home: SharedHome }) {
   return (
     <div className="armada-shared-bar">
       {home.made === false && home.owners !== undefined ? (
-        <HomePicker login={home.account} owners={home.owners} />
+        <HomePicker
+          login={home.login ?? home.account}
+          owners={home.owners}
+          {...(home.setHome === undefined ? {} : { chosen: { owner: home.account, name: home.repository }, onChoose: home.setHome })}
+        />
       ) : (
         <SharedHomeChip account={home.account} repository={home.repository} made={home.made !== false} />
       )}

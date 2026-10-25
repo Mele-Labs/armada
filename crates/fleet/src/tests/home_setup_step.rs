@@ -7,7 +7,7 @@ use std::path::Path;
 use std::sync::{Arc, Condvar, Mutex, PoisonError};
 use std::time::{Duration, Instant};
 
-use adapter_traits::{HomeRepositories, Secret, SignedInAs, StoreError};
+use adapter_traits::{HomePlace, HomeRepositories, Secret, SignedInAs, StoreError};
 use ipc::{AccountFlow, SetUpState};
 use testkit::{FakeHomes, FakeRemote, FakeSignIn};
 
@@ -51,7 +51,7 @@ fn mid_setup(homes: FakeHomes) -> (SetUpState, String) {
     let forge = Arc::new(FakeSignIn::new().grants("tok", SignedInAs { id: 583_231, login: "octocat".into() }));
     let store = Arc::new(Held { open: Mutex::new(false), let_go: Condvar::new(), store: Enrolled::new() });
     let signing = SigningIn::new(dir.path(), forge, store.clone(), Arc::new(Ticking::from_nine())).paced(quickly());
-    signing.knowing_home(Arc::new(move |login: &str| homes.of(login).ok()?.here()));
+    signing.knowing_home(Arc::new(move |login: &str, owners: &[String]| homes.of(login, owners).ok()?.here()));
     signing.start(begin(), &[]).expect("begun");
     let deadline = Instant::now() + Duration::from_secs(20);
     let read = loop {
@@ -73,7 +73,7 @@ fn mid_setup(homes: FakeHomes) -> (SetUpState, String) {
 fn the_home_step_of_a_sign_in_is_done_and_names_the_home_once_this_machine_holds_a_copy_of_that_logins_own() {
     let opened = |remote: &FakeRemote| {
         let homes = FakeHomes::new().holding(remote);
-        homes.of(remote.login()).expect("a login").open().expect("opens");
+        homes.of(remote.login(), &[]).expect("a login").open(&HomePlace::default_for(remote.login())).expect("opens");
         homes
     };
     assert_eq!(mid_setup(FakeHomes::new()), (SetUpState::Waiting, String::new()), "the forge here does not hold the login");

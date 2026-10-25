@@ -529,6 +529,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/shared_home/choose", post(crate::homing::choose_shared_home_side::<D>))
         .route("/shared_home/kinds", get(crate::homing::get_home_kinds::<D>))
         .route("/shared_home/kinds/set", post(crate::homing::set_home_kind::<D>))
+        .route("/shared_home/repository", post(crate::homing::set_home_repository::<D>))
         .route("/health", get(get_health::<D>))
         .route("/manifests/:manifest_id", get(get_manifest::<D>))
         .route("/events/since", get(get_events_since::<D>))
