@@ -356,6 +356,7 @@ where
             phone_held: Default::default(),
             home_held: Default::default(),
             downshift: Default::default(),
+            agent_sign_in: Default::default(),
             events: fittings.events,
             helm,
             sessions,

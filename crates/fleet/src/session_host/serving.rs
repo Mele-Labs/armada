@@ -276,6 +276,10 @@ where
         self.model_downshift_state().await
     }
 
+    async fn get_agent_sign_in(&self) -> Result<ipc::AgentSignIn, Refusal> {
+        Ok(self.agent_sign_in().now())
+    }
+
     async fn accept_downshift(&self) -> Result<ipc::ModelDownshiftState, Refusal> {
         self.downshift_accepted().await
     }

@@ -73,9 +73,6 @@ const SIGNED_OUT: &str = "authentication_failed";
 /// What a person runs to sign the harness in again. Kept here because the command is the vendor's.
 pub const SIGN_IN_COMMAND: &str = "claude auth login";
 
-/// What the person is asked on a Job whose harness signed out. Here for the vendor's name in it.
-pub const SIGN_IN_ASK: &str = "Sign in to Claude";
-
 /// Read one line.
 ///
 /// Never empty, and never a `Result` — see this module's note.

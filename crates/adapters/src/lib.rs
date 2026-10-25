@@ -204,7 +204,7 @@ pub use scouting::{
     Looked, ScoutRefused, Scouting, Shown,
 };
 pub use subagent_lines::{subagent_calls, subagent_parent, SubagentCall};
-pub use transcript::{background_form, init_commands, inside_a_subagent, sent_message, viewed_image, written_document, SIGN_IN_ASK, SIGN_IN_COMMAND};
+pub use transcript::{background_form, init_commands, inside_a_subagent, sent_message, viewed_image, written_document, SIGN_IN_COMMAND};
 pub use trigger_files::{triggers_on_base, watch_recipes_on_base};
 pub use harness_home::AgentHome;
 pub use shared_home::{Folder, ForgeHomes};

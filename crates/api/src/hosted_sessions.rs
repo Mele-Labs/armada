@@ -228,6 +228,14 @@ pub(crate) async fn settle_downshift<D: HostedSessions>(State(served): State<Ser
     }
 }
 
+/// Whether the agents' account is signed out, and whether Fleet is signing it in.
+pub(crate) async fn get_agent_sign_in<D: HostedSessions>(State(served): State<Served<D>>) -> Response {
+    match served.daemon().get_agent_sign_in().await {
+        Ok(state) => answer(StatusCode::OK, &state, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// Whether sleep mode is on and what the night holds.
 pub(crate) async fn get_sleep<D: HostedSessions>(State(served): State<Served<D>>) -> Response {
     match served.daemon().get_sleep().await {

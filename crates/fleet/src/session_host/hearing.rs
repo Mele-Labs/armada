@@ -344,8 +344,8 @@ where
             DroneEvent::Ended { cost_micros, .. } => {
                 self.turn_ended(id, runtime, cost_micros).await;
             }
-            // The harness's words for it were shown as a row and ask nothing; this asks the person.
-            DroneEvent::SignedOut => self.signed_out_heard(id, runtime).await,
+            // The harness's words for it were shown as a row; this signs the Fleet out.
+            DroneEvent::SignedOut => self.signed_out_heard(runtime),
             _ => {}
         }
     }

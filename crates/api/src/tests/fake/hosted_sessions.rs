@@ -86,6 +86,10 @@ impl HostedSessions for FakeDaemon {
         Ok(ipc::ModelDownshiftState::default())
     }
 
+    async fn get_agent_sign_in(&self) -> Result<ipc::AgentSignIn, Refusal> {
+        Ok(ipc::AgentSignIn::default())
+    }
+
     async fn accept_downshift(&self) -> Result<ipc::ModelDownshiftState, Refusal> {
         Err(nothing_hosted())
     }

@@ -3,7 +3,6 @@
 
 use std::sync::Arc;
 
-use adapter_traits::{DroneEvent, Speaker};
 use api::{HostedSessions, Sessions};
 use ipc::{
     AnswerWaiting, DismissWaiting, HelmCallAnswer, HelmCallInFlight, Instant, ManifestId, RunOrNot, SessionMode,
@@ -657,85 +656,4 @@ async fn removing_a_done_fleet_derived_tells_the_agent_nothing() {
     let gone = Arc::clone(&rig.fleet).dismiss_waiting(removal(&id, &item, Some("not yet"))).await.unwrap();
     assert!(gone.waiting_for.is_empty());
     assert_eq!(said_by_the_person(&rig, &id).await, before, "the reason has nobody to go to");
-}
-
-/// The Job's agent tried a turn and the harness's sign-in had run out, as it says it.
-fn signed_out(rig: &Rig) {
-    rig.stand_in.says(
-        0,
-        vec![
-            DroneEvent::Said {
-                text: "Failed to authenticate: OAuth session expired and could not be refreshed".into(),
-                by: Speaker::Harness,
-            },
-            DroneEvent::SignedOut,
-        ],
-    );
-}
-
-async fn sign_in_item(rig: &Rig, id: &ipc::SessionId) -> Option<ipc::WaitingItem> {
-    let record = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session;
-    record.waiting_for.into_iter().find(|one| one.id.starts_with("signin:"))
-}
-
-/// **Every turn fails in under a second once the sign-in runs out**, and only the person can sign in
-/// again: the Job waits on him for it, with the command to run, until he dismisses it.
-#[tokio::test]
-async fn a_job_signed_out_waits_on_a_sign_in() {
-    let rig = rig_placing(None);
-    let id = rig.start().await;
-    rig.send(&id, "fix the ledger").await;
-    rig.stand_in.init(0);
-    signed_out(&rig);
-    eventually(|| async { sign_in_item(&rig, &id).await.is_some() }).await;
-    let item = sign_in_item(&rig, &id).await.unwrap();
-    assert_eq!(item.text, adapters::SIGN_IN_ASK);
-    assert_eq!(item.source, WaitingSource::FleetCall);
-    assert_eq!(item.act, Some(WaitingAct { kind: WaitingActKind::Run, target: adapters::SIGN_IN_COMMAND.into() }));
-
-    Arc::clone(&rig.fleet).dismiss_waiting(removal(&id, &item.id, None)).await.unwrap();
-    assert_eq!(sign_in_item(&rig, &id).await, None, "a dismissed sign-in does not come back");
-}
-
-/// How many times the harness has said its sign-in ran out, as rows of the thread.
-async fn failures_shown(rig: &Rig, id: &ipc::SessionId) -> usize {
-    rig.rows(id)
-        .await
-        .into_iter()
-        .filter(|row| matches!(row, SessionRow::Message { text, .. } if text.starts_with("Failed to authenticate")))
-        .count()
-}
-
-/// **The harness says `init` before a turn that fails as well**, so a turn starting is no sign-in.
-/// Another failed turn keeps the one item, under its id, so a dismissed one stays dismissed.
-#[tokio::test]
-async fn a_failed_turn_keeps_the_sign_in_it_raised() {
-    let rig = rig_placing(None);
-    let id = rig.start().await;
-    rig.send(&id, "fix the ledger").await;
-    rig.stand_in.init(0);
-    signed_out(&rig);
-    eventually(|| async { sign_in_item(&rig, &id).await.is_some() }).await;
-    let first = sign_in_item(&rig, &id).await.unwrap().id;
-
-    rig.send(&id, "where are we").await;
-    rig.stand_in.init(0);
-    signed_out(&rig);
-    eventually(|| async { failures_shown(&rig, &id).await == 2 }).await;
-    assert_eq!(sign_in_item(&rig, &id).await.map(|item| item.id), Some(first));
-}
-
-/// The model answering is the harness signed in again, however that came about.
-#[tokio::test]
-async fn the_model_answering_clears_the_sign_in() {
-    let rig = rig_placing(None);
-    let id = rig.start().await;
-    rig.send(&id, "fix the ledger").await;
-    rig.stand_in.init(0);
-    signed_out(&rig);
-    eventually(|| async { sign_in_item(&rig, &id).await.is_some() }).await;
-
-    rig.stand_in.init(0);
-    rig.stand_in.says(0, vec![DroneEvent::Said { text: "On it.".into(), by: Speaker::Drone }]);
-    eventually(|| async { sign_in_item(&rig, &id).await.is_none() }).await;
 }

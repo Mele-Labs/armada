@@ -456,8 +456,9 @@ pub(crate) struct State {
     pub runs: crate::run_memory::RunLog,
     /// Who waits on each control line written to the process, by its request id. In memory.
     pub controls: HashMap<String, mcp_servers::Waiter>,
-    /// When the harness said its sign-in ran out, until a turn starts. In memory: `signed_out`.
-    pub signed_out: Option<String>,
+    /// The harness said its sign-in ran out and the Job stopped, until the account works again. In
+    /// memory: `signed_out`.
+    pub signed_out: bool,
 }
 
 impl State {
@@ -503,7 +504,7 @@ impl State {
             background: backgrounding::Calls::default(),
             runs: crate::run_memory::RunLog::default(),
             controls: HashMap::new(),
-            signed_out: None,
+            signed_out: false,
         }
     }
 }
