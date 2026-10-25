@@ -254,6 +254,9 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/sessions/judge", post(crate::sessions::judge_session::<D>))
         .route("/sessions/judge/send", post(crate::sessions::send_concern::<D>))
         .route("/sessions/judge/dismiss", post(crate::sessions::dismiss_concern::<D>))
+        .route("/adversarial_review", post(crate::adversarial_review::start_adversarial_review::<D>))
+        .route("/adversarial_review/send", post(crate::adversarial_review::send_finding::<D>))
+        .route("/adversarial_review/dismiss", post(crate::adversarial_review::dismiss_finding::<D>))
         .route(
             "/sessions/window/ask",
             post(crate::sessions::ask_in_window::<D>),
