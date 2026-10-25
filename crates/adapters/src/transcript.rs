@@ -66,6 +66,13 @@ const EMPTY_TURN: &str = "a turn with nothing in it Armada names";
 /// behind it, such as a local command's output: [`Speaker::Harness`]'s line.
 const NO_MODEL: &str = "<synthetic>";
 
+/// The top-level `error` of an assistant line the harness wrote because its sign-in ran out and
+/// would not renew: [`DroneEvent::SignedOut`].
+const SIGNED_OUT: &str = "authentication_failed";
+
+/// What a person runs to sign the harness in again. Kept here because the command is the vendor's.
+pub const SIGN_IN_COMMAND: &str = "claude auth login";
+
 /// Read one line.
 ///
 /// Never empty, and never a `Result` — see this module's note.
@@ -97,7 +104,12 @@ pub fn read(line: &str) -> Vec<DroneEvent> {
                 Some(NO_MODEL) => Speaker::Harness,
                 _ => Speaker::Drone,
             };
-            blocks(message, by)
+            let signed_out = message.error.as_deref() == Some(SIGNED_OUT);
+            let mut events = blocks(message, by);
+            if signed_out {
+                events.push(DroneEvent::SignedOut);
+            }
+            events
         }
         Line::User(message) => blocks(message, Speaker::Armada),
         Line::Result(result) => vec![DroneEvent::Ended {
@@ -490,6 +502,10 @@ type Counted = serde::de::IgnoredAny;
 #[derive(Deserialize)]
 struct MessageLine {
     message: Message,
+    /// Set by the harness on a line it wrote in place of a turn it could not take. Read only for
+    /// [`SIGNED_OUT`].
+    #[serde(default)]
+    error: Option<String>,
 }
 
 #[derive(Deserialize)]

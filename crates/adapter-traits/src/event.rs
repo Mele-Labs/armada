@@ -250,6 +250,12 @@ pub enum DroneEvent {
         /// When the window opens again, in unix seconds. Absent from a line that carries none.
         resets_at: Option<i64>,
     },
+    /// The harness refused the turn because its sign-in has run out, and could
+    /// not renew it. **Every turn after fails the same way** until a person
+    /// signs in again, so it is read as a state of the session rather than as
+    /// one failed turn. The harness's own sentence for it still arrives as a
+    /// [`DroneEvent::Said`] before this.
+    SignedOut,
     /// A turn finished. **Not a verdict and not an exit** — see this module for
     /// the first, and this variant for the second.
     ///
