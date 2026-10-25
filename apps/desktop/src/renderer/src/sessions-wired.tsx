@@ -633,7 +633,8 @@ export class WiredStore {
     helmOf: (manifestId) => (this.helm?.manifestId === manifestId ? this.helm : undefined),
     subscribe: this.subscribe,
     start: (tag, root, request, tuning, after, held) => this.starting(tag, root, request, tuning, after, held),
-    begin: (id, delivery) => this.took(this.api.beginSession({ session_id: id, ...(delivery === undefined ? {} : { delivery }) })),
+    // Fleet does not take `message` yet and main's begin handler passes only the delivery on; the mock Fleet reads it.
+    begin: (id, delivery, message) => this.took(this.api.beginSession({ session_id: id, ...(delivery === undefined ? {} : { delivery }), ...(message === undefined ? {} : { message }) })),
     readsWait: (words) => this.readingWait(words),
     settlesWait: (words) => this.settledWait(words),
     startWhen: (id, when, part) => void this.changingWait(id, when, part),

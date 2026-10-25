@@ -1,15 +1,17 @@
 // The start card: what a Job dispatched held settles before any agent moves. A header band over a mono body, labels in one column and
-// controls in the next, a mark column after them. Title, Kind, Lands (hidden when the kind has no landing step), Model and Effort.
-// Start begins the agent, the card goes, and the Job view carries on.
+// controls in the next, a mark column after them. Title, Message (the first message the agent will read, where Fleet gives it), Kind, Lands
+// (hidden when the kind has no landing step), Model and Effort. Start begins the agent, the card goes, and the Job view carries on.
 //
 // **Keyboard.** Focus lands on the card. Up and Down move between rows, Left and Right change a row's choice, Tab goes through the fields,
-// Enter starts from anywhere (a title being edited is kept first), and Escape in the title puts the edit back. The title is kept as a draft
-// until it is committed on leaving the field or on Start. The marks are read by hovering them and are not tab stops.
+// Enter starts from anywhere (a title being edited is kept first), and Escape in the title or the message puts the edit back. In the message
+// Enter is a newline, Up and Down move the caret and leave the box only from its first or last position, and ⌘↵ starts. The title is kept as a
+// draft until it is committed on leaving the field or on Start; the message is kept until Start. The marks are read by hovering them and are
+// not tab stops.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import { Lightbulb, Quote, Repeat, TextCursor } from "lucide-react";
-import { Button, Input, Kbd, Radio, Select, Tooltip, useKept } from "@armada/components";
+import { Button, Input, Kbd, Radio, Select, Textarea, Tooltip, useKept } from "@armada/components";
 import type { DeliveryChoice, RepositorySummary } from "@armada/protocol";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
@@ -29,7 +31,7 @@ const plural = (name: string): string => {
 };
 
 /** The control a row's arrows and focus go to: the checked radio of a set, or the field. */
-const controlOf = (row: HTMLElement): HTMLElement | null => row.querySelector<HTMLElement>("input[type=radio]:checked") ?? row.querySelector<HTMLElement>("input, select");
+const controlOf = (row: HTMLElement): HTMLElement | null => row.querySelector<HTMLElement>("input[type=radio]:checked") ?? row.querySelector<HTMLElement>("input, select, textarea");
 
 const enabled = (control: HTMLElement | null): control is HTMLElement => control !== null && !(control as HTMLInputElement).disabled;
 
@@ -46,13 +48,24 @@ export function StartCard({ session, start, repositories }: { session: Session; 
   const repository = repositories.find((one) => one.manifest?.id === session.manifestId)?.manifest?.repository;
   const [chosen, setChosen] = useState<DeliveryChoice | undefined>(undefined);
   const [typed, setTyped, forgetTyped] = useKept<string | undefined>(`start:${id}:title`, undefined);
+  const [edited, setEdited, forgetEdited] = useKept<string | undefined>(`start:${id}:message`, undefined);
   const title = session.title ?? "";
+  // The message row is drawn where Fleet gave the first message; what is sent is his edit, else that.
+  const said = start.message === undefined ? undefined : (edited ?? start.message);
   const lands = start.asksDelivery;
   const landing = chosen ?? start.picked?.choice;
-  const ready = !reading && draft?.begin !== undefined && (!lands || landing !== undefined);
+  const ready = !reading && draft?.begin !== undefined && (!lands || landing !== undefined) && (said === undefined || said.trim() !== "");
 
   // Focus lands on the card when it opens.
   useEffect(() => card.current?.focus({ preventScroll: true }), []);
+
+  // The message box grows with its text; the stylesheet caps it and it scrolls beyond the cap.
+  useLayoutEffect(() => {
+    const box = card.current?.querySelector<HTMLTextAreaElement>("textarea");
+    if (box == null) return;
+    box.style.height = "auto";
+    box.style.height = `${box.scrollHeight + box.offsetHeight - box.clientHeight}px`;
+  }, [said]);
 
   /** The title as he left it goes to Fleet; a blank or unchanged one is let go. */
   function commit() {
@@ -64,7 +77,9 @@ export function StartCard({ session, start, repositories }: { session: Session; 
   function begin() {
     if (!ready || draft?.begin === undefined) return;
     commit();
-    void draft.begin(id, lands ? landing : undefined);
+    const message = said;
+    forgetEdited();
+    void draft.begin(id, lands ? landing : undefined, message);
   }
 
   function tune(next: { model: string | null; effort: string | null }) {
@@ -113,22 +128,32 @@ export function StartCard({ session, start, repositories }: { session: Session; 
     const target = event.target as HTMLElement;
     const row = target.closest<HTMLElement>("[data-row]")?.dataset.row;
     const plain = !event.shiftKey && !event.altKey && !event.metaKey && !event.ctrlKey;
-    if (event.key === "Enter" && plain) {
-      // Start's own press is a click, which begins.
-      if (target instanceof HTMLButtonElement) return;
+    const inMessage = target instanceof HTMLTextAreaElement;
+    if (event.key === "Enter" && inMessage && (event.metaKey || event.ctrlKey) && !event.shiftKey && !event.altKey) {
+      event.preventDefault();
+      if (ready) begin();
+    } else if (event.key === "Enter" && plain) {
+      // Start's own press is a click, which begins; in the message Enter is a newline.
+      if (target instanceof HTMLButtonElement || inMessage) return;
       event.preventDefault();
       if (ready) begin();
       // Nothing preselected: the row he has to answer.
       else if (!reading && lands && landing === undefined) controlOf(rows().find((one) => one.dataset.row === "lands")!)?.focus();
-    } else if (event.key === "Escape" && row === "title" && typed !== undefined) {
+    } else if (event.key === "Escape" && ((row === "title" && typed !== undefined) || (row === "message" && edited !== undefined))) {
       event.preventDefault();
       event.stopPropagation();
       event.nativeEvent.stopImmediatePropagation();
-      forgetTyped();
+      if (row === "title") forgetTyped();
+      else forgetEdited();
     } else if ((event.key === "ArrowDown" || event.key === "ArrowUp") && plain) {
+      // In the message the caret moves first: the box is left only from its start going up, or its end going down.
+      if (inMessage) {
+        const { selectionStart, selectionEnd, value } = target;
+        if (event.key === "ArrowUp" ? selectionStart !== 0 || selectionEnd !== 0 : selectionStart !== value.length || selectionEnd !== value.length) return;
+      }
       event.preventDefault();
       move(event.key === "ArrowDown" ? 1 : -1);
-    } else if ((event.key === "ArrowLeft" || event.key === "ArrowRight") && plain && row !== undefined && row !== "title") {
+    } else if ((event.key === "ArrowLeft" || event.key === "ArrowRight") && plain && row !== undefined && row !== "title" && row !== "message") {
       event.preventDefault();
       step(row, event.key === "ArrowRight" ? 1 : -1);
     }
@@ -175,6 +200,15 @@ export function StartCard({ session, start, repositories }: { session: Session; 
           )}
           <span />
         </div>
+        {said === undefined ? null : (
+          <div className="sv-start__row" data-row="message">
+            <span className="sv-start__name" aria-hidden>
+              Message
+            </span>
+            <Textarea aria-label="Message" rows={3} spellCheck={false} value={said} onChange={(event) => setEdited(event.target.value)} />
+            <span />
+          </div>
+        )}
         <div className="sv-start__row" data-row="kind">
           <span className="sv-start__name" aria-hidden>
             Kind

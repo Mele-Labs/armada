@@ -27,7 +27,7 @@ function fleet(): FakeSessionsFleet {
       ],
     },
   );
-  const started = served.agentStarts(DEBUG, { title: "Settings loader and the cap", message: START });
+  const started = served.agentStarts(DEBUG, { title: "Settings loader and the cap", message: START, unsent: true });
   served.onSend = (send) => {
     if (send.session_id !== started) return;
     void served.agentWorks(started, { kind: "tool", id: "s1", at: AT, text: "Read crates/settings/src/loader.rs" });

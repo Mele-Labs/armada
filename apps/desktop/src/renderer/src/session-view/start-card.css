@@ -88,3 +88,17 @@
 @media (prefers-reduced-motion: reduce) {
   .sv-start__reading svg { animation: none; }
 }
+
+/* The message: the first thing the agent reads, in the card's mono body. The box takes the width of the row, grows with its text to a cap and scrolls past it. */
+.sv-start__row[data-row="message"] { align-items: start; }
+.sv-start__row[data-row="message"] .sv-start__name { padding-top: var(--space-2); }
+.sv-start__row[data-row="message"] > :nth-child(2) { max-width: none; }
+.sv-start__row[data-row="message"] .armada-textarea {
+  box-sizing: border-box;
+  width: 100%;
+  max-height: calc(var(--space-12) * 4);
+  overflow-y: auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}

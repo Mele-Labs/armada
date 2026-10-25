@@ -557,7 +557,7 @@ export type Session = {
    * whether the Job's workflow has a landing step, so a choice is owed. `picked` is the choice already standing: his usual for this
    * kind in this repository, or one his request named. Absent once the Job has begun.
    */
-  start?: { asksDelivery: boolean; picked?: DeliveryPicked };
+  start?: { asksDelivery: boolean; picked?: DeliveryPicked; /** The first message the agent will read, shown on the card for him to edit. Absent where Fleet does not say. */ message?: string };
   /** Tags chosen and not yet sent: they wait in the message box as chips. */
   pendingTags?: readonly SessionTag[];
   /** The model and effort the next turn runs on. Absent is Auto. */
@@ -763,9 +763,9 @@ export type SessionsDraft = {
   start: (tag?: SessionTag, root?: string, request?: string, tuning?: { model?: string; effort?: string }, after?: Pick<SessionWait, "on" | "when" | "part" | "base" | "needs">, held?: boolean) => string | Promise<string | undefined>;
   /**
    * Begins a Session held on its start card: the agent starts, and `delivery` is how the work lands where the Job's workflow has a landing
-   * step. Absent where nothing serves it, and the card offers no Start.
+   * step. `message` is the first message as he left it on the card. Absent where nothing serves it, and the card offers no Start.
    */
-  begin?: (id: string, delivery?: DeliveryChoice) => void | Promise<boolean>;
+  begin?: (id: string, delivery?: DeliveryChoice, message?: string) => void | Promise<boolean>;
   /** Reads a brief for the wait it names: absent where nothing reads one, and Dispatch draws no sentence. */
   readsWait?: (words: string) => WaitReading | undefined;
   /**

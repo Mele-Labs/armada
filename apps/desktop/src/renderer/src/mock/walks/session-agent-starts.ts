@@ -1,6 +1,6 @@
 // A Session's agent starts a Session, and forks its own conversation, when the owner asks it to. The
-// new Session appears at once in the list, waiting on him, with the agent's first message in its box, unsent;
-// nothing runs until he sends it. In the Session that started it, a line in the thread names the new
+// new Session appears at once in the list, held on its start card with the agent's first message in the Message box;
+// nothing runs until he presses Start. In the Session that started it, a line in the thread names the new
 // Session and opens it with a press. Its own thread says where it came from. Told twice, wide and below the breakpoint.
 
 import { kit, NARROW, toSessions } from "../sessions/walk-kit";
@@ -9,6 +9,9 @@ import type { Step } from "../walk";
 
 function steps(narrow: boolean): Step[] {
   const { message, thread } = kit(narrow);
+  const card = role("region", "Start", { exact: true });
+  const first = inside(card, role("textbox", "Message"));
+  const start = inside(card, role("button", "Start", { exact: true }));
   const started = (title: string) => role("button", title, { exact: true });
   const sessions = region("Jobs", { exact: true });
   return [
@@ -19,13 +22,10 @@ function steps(narrow: boolean): Step[] {
     { hover: inside(thread, started("Settings loader and the cap")), say: "It reads as a press" },
     { press: inside(thread, started("Settings loader and the cap")), say: "He opens it from the thread" },
     { look: role("button", "Started by Debug the retry cap", { exact: true }), say: "Its thread opens on where it came from" },
-    { look: message, say: "The agent's first message waits in its box, unsent" },
-    // A running Session's items wait in Needs you over the composer, not the ledger.
-    { look: region("Needs you"), say: "And in Needs you, over the composer" },
+    { look: first, say: "The agent's first message waits in the Message box on the start card" },
     { press: place("Cockpit"), say: "Back to the list" },
-    { hover: inside(sessions, role("img", /^Draft/)), say: "The new Job has the Draft mark on its row" },
     { press: inside(sessions, button(/Settings loader and the cap/)), say: "He opens it from the list as well" },
-    { press: button("Send", { exact: true }), say: "He sends it" },
+    { press: start, say: "Start" },
     { look: inside(thread, text("A cap set for one repository never reaches it.")), say: "Now it runs" },
     { press: role("button", "Started by Debug the retry cap", { exact: true }), say: "The row opens the Job that started it" },
     { type: "Fork yourself at that finding and check the loop per attempt\n", into: message, say: "He asks the agent to fork itself at its finding" },
@@ -33,8 +33,7 @@ function steps(narrow: boolean): Step[] {
     { press: inside(thread, started("Debug the retry cap, cap per attempt")), say: "He opens it from the thread" },
     { press: role("button", "Forked from Debug the retry cap", { exact: true }), say: "It opens onto the conversation up to that finding" },
     { look: inside(role("group", "Forked from Debug the retry cap"), text("settings loader seems to ignore")), say: "Up to the message it was forked at" },
-    { look: message, say: "The agent's first message waits in its box, unsent" },
-    { look: region("Needs you"), say: "In Needs you, as the other was" },
+    { look: first, say: "The agent's first message waits in the Message box, as the other did" },
   ];
 }
 

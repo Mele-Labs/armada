@@ -235,6 +235,8 @@ export type StartHeld = {
   asks_delivery: boolean;
   /** Absent where the person has no usual yet and the first message names none. */
   picked?: DeliveryPicked;
+  /** The first message the agent will read, which the card shows and lets him edit. **A mock's field**: Fleet does not send it yet. */
+  message?: string;
 };
 
 /** A landing the start card has ready, and where it came from. */
@@ -248,7 +250,12 @@ export type DeliveryPickedFrom = "usual" | "named";
  * `delivery` is required where `hosted.start.asks_delivery` holds (422 `fleet.session_waiting_empty` without it) and ignored elsewhere.
  * 409 `fleet.session_waiting_unheld` for a Job that is not held.
  */
-export type BeginSession = { session_id: string; delivery?: DeliveryChoice };
+export type BeginSession = {
+  session_id: string;
+  delivery?: DeliveryChoice;
+  /** The first message as he left it on the card. **A mock's field**: Fleet does not take it yet. */
+  message?: string;
+};
 
 /** Who said a row. Another session that wrote to this one is named. */
 export type SessionVoice =
