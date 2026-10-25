@@ -21,7 +21,7 @@ Never re-explain what was just done unless asked.
 |---|---|
 | Contracts, practices, concepts, journeys, spikes, open questions | The repository, `NickMele/armada` |
 | Registries — tokens, icons, settings, the domain model | The repository, as data files with checks over them |
-| What is being built and in what order | GitHub issues and milestones |
+| What is being built and in what order | Beads issues, with milestones as epics |
 | A component as built, and how it is agreed | Storybook, `packages/components` |
 
 **Everything an agent reads while writing code is a file in the repository.**
@@ -71,13 +71,14 @@ Do not restate a procedure's contents here or in a document. Read it.
 
 ## The live plan model
 
-**Milestones, capabilities and steps are GitHub issues**, in `NickMele/armada`.
-Read them there, never from a summary or from what an earlier job said.
+**Milestones, capabilities and steps are beads issues** (`bd`), kept on
+`Mele-Labs/armada`. Read them there, never from a summary or from what an
+earlier job said.
 
 | | |
 |---|---|
-| Milestone | A GitHub milestone. Its description is a claim that is either true or not |
-| Capability | An issue labelled `capability`. Its body names its steps as `#N` references |
+| Milestone | An epic. Its description is a claim that is either true or not |
+| Capability | An issue labelled `capability`. Its body names its steps as `#N` references, each `armada-N` |
 | Step | An issue labelled `step`, titled `M0 7 — …`. Closed by the pull request that implements it |
 
 A capability's progress is computed from its step references by
@@ -91,7 +92,7 @@ and is named, not copied.
 
 A capability used to carry `Written against` and `Concept last edited`, so one
 whose acceptance criteria were written against a concept that had since changed
-said so by itself. **A GitHub issue has no equivalent and nothing replaces it.**
+said so by itself. **A beads issue has no equivalent and nothing replaces it.**
 
 So the discipline has to be stated:
 
@@ -114,7 +115,7 @@ not a convention someone has to remember.
 names it in a sentence. Filing it twice gives one question two identities.
 
 **Nothing carries a decision down to a step automatically.** When a decision is
-made, **name the affected GitHub issues explicitly, by number.** Nothing else
+made, **name the affected beads issues explicitly, by id.** Nothing else
 will. Every step under a changed capability is stale by definition — say so.
 
 Read the open-questions procedure before filing one. The bar is three things at
