@@ -11,6 +11,23 @@
 
 ---
 
+## Installing it
+
+On an Apple Silicon Mac, one line in Terminal:
+
+```sh
+curl -fsSL https://github.com/Mele-Labs/armada/releases/latest/download/install.sh | sh
+```
+
+| | |
+|---|---|
+| What it does | Puts `Armada.app` in `/Applications`, starts Fleet from the `armada` inside it under launchd, and opens the app. Run it again to move onto the newest release |
+| What it needs | macOS on Apple Silicon and Apple's Command Line Tools. It opens their installer when they are missing and asks you to run it again. No Rust, no Node |
+| When it refuses | When Fleet here runs from a checkout you build: `scripts/restart` updates that one |
+
+Every merge to `main` that passes `ci` is a release, tagged `v0.<minor>.<commits on main>`.
+[`docs/practices/ci.md`](docs/practices/ci.md), *Releases*, says how one is made.
+
 ## Status
 
 **Armada is pre-alpha, and part of it runs.** There is one binary, `armada`:
@@ -32,7 +49,7 @@ What holds today, and how each is known:
 | The machinery is proved | The acceptance test, hermetic — no process, no repository, no network |
 | The merge is proved | A real agent fixed a real defect here, and the commit is in the history |
 
-[Running it locally](#running-it-locally) is how to start. Watch the
+[Installing it](#installing-it) is how to start, and [Running it locally](#running-it-locally) is how to build it from source. Watch the
 [milestones](https://github.com/users/NickMele/projects/3/views/11) for what is next.
 
 ## What it is
@@ -90,23 +107,6 @@ armada/
 
 **[`ARCHITECTURE.md`](ARCHITECTURE.md) is the map** — the process topology, the
 crate graph, and the rules that hold everywhere, with diagrams.
-
-## Installing it
-
-On an Apple Silicon Mac, one line in Terminal:
-
-```sh
-curl -fsSL https://github.com/Mele-Labs/armada/releases/latest/download/install.sh | sh
-```
-
-| | |
-|---|---|
-| What it does | Puts `Armada.app` in `/Applications`, starts Fleet from the `armada` inside it under launchd, and opens the app. Run it again to move onto the newest release |
-| What it needs | macOS on Apple Silicon and Apple's Command Line Tools. It opens their installer when they are missing and asks you to run it again. No Rust, no Node |
-| When it refuses | When Fleet here runs from a checkout you build: `scripts/restart` updates that one |
-
-Every merge to `main` that passes `ci` is a release, tagged `v0.<minor>.<commits on main>`.
-[`docs/practices/ci.md`](docs/practices/ci.md), *Releases*, says how one is made.
 
 ## Building it
 
