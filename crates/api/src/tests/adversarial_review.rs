@@ -42,6 +42,11 @@ fn finding(id: &str, about: FindingAnchor) -> AdversarialFinding {
 
 /// A Job whose pending plan, at version two, has a review kept: two findings, none settled.
 async fn holding_a_review() -> Router {
+    holding_a_review_of(PLAN_VERSION).await
+}
+
+/// The same review of version two, on a plan recorded up to `plan_version`.
+async fn holding_a_review_of(plan_version: u32) -> Router {
     let events = Broadcaster::new();
     let daemon = Arc::new(FakeDaemon::new(events.clone()));
     let mut row = daemon
@@ -53,7 +58,7 @@ async fn holding_a_review() -> Router {
         .await
         .expect("a row");
     row.plan = Some(ipc::SessionPlan {
-        version: PLAN_VERSION,
+        version: plan_version,
         summary: String::new(),
         recorded_at: at(),
         approved: false,
@@ -175,6 +180,17 @@ async fn a_finding_is_sent_or_dismissed_and_one_already_settled_is_answered_as_i
 }
 
 #[tokio::test]
+async fn a_finding_on_a_review_the_plan_was_recorded_past_still_settles() {
+    let app = holding_a_review_of(PLAN_VERSION + 1).await;
+    let (status, body) = post(&app, "/adversarial_review/send", &finding_body(PLAN_VERSION, "f1")).await;
+    assert_eq!(status, StatusCode::OK, "out of date is not refused: {}", String::from_utf8_lossy(&body));
+    assert_eq!(review(&body).findings[0].settled.as_ref().map(|settled| settled.how), Some(FindingHow::Sent));
+
+    let (status, body) = post(&app, "/adversarial_review/dismiss", &finding_body(PLAN_VERSION + 1, "f2")).await;
+    assert_eq!((status, code(&body).as_str()), (StatusCode::NOT_FOUND, "fleet.finding_unknown"), "no review of the current version");
+}
+
+#[tokio::test]
 async fn a_finding_act_is_refused_for_an_unknown_finding_job_or_plan_version() {
     let app = holding_a_review().await;
     for route in ["/adversarial_review/send", "/adversarial_review/dismiss"] {
@@ -182,7 +198,7 @@ async fn a_finding_act_is_refused_for_an_unknown_finding_job_or_plan_version() {
         assert_eq!((status, code(&body).as_str()), (StatusCode::NOT_FOUND, "fleet.finding_unknown"), "{route}");
 
         let (status, body) = post(&app, route, &finding_body(PLAN_VERSION + 1, "f1")).await;
-        assert_eq!((status, code(&body).as_str()), (StatusCode::CONFLICT, "fleet.review_subject_stale"), "{route}");
+        assert_eq!((status, code(&body).as_str()), (StatusCode::NOT_FOUND, "fleet.review_subject_unknown"), "a version never reached: {route}");
 
         let nobody = r#"{"subject":{"kind":"plan","session_id":"session-9","version":2},"finding_id":"f1"}"#;
         let (status, body) = post(&app, route, nobody).await;
