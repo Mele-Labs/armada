@@ -1,7 +1,7 @@
 // Blueprint: the plan the agent recorded, in the Job's right column under the workflow. While it is being drafted it stands open and editable: the
 // summary in his words, every group with its tasks, the sketch from the band, and Approve at the foot beside the marks he put on it. Once approved
 // it stays up and compact: a line to each group with a mark for each task, the group being worked lit. A Job with no plan lists the agent's own
-// tasks and the subagents at work in its place, and with neither is its band alone. The stage opens it (`story.ts`); the band or ⌥B does too.
+// tasks and the subagents at work in its place, and with neither is its band alone. It is never folded by the stage (`story.ts`); the band or ⌥B folds it by hand.
 
 import { BadgeCheck, PencilRuler } from "lucide-react";
 import { Button, Tooltip } from "@armada/components";

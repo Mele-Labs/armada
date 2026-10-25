@@ -32,7 +32,7 @@ function Chips({ session, manifestId }: { session: Session; manifestId: string |
     <span className="sv-chips">
       {issues.map((issue) => (
         <Tooltip key={`issue:${issue.number}`} label={`${issue.title} · ${issue.state === "closed" ? "Closed" : "Open"}`} asChild>
-          <button type="button" className="sv-chip" data-kind="issue" data-state={issue.state} aria-label={`Issue ${issueLabel(issue.number)} ${issue.title}`} onClick={() => openIssuePanel(issue, manifestId)}>
+          <button type="button" className="sv-chip" data-kind="issue" data-state={issue.state} aria-label={`Issue ${issueLabel(issue.number)}`} onClick={() => openIssuePanel(issue, manifestId)}>
             <Ticket size={12} strokeWidth={2} aria-hidden />
             <code>{issueLabel(issue.number)}</code>
           </button>
@@ -40,7 +40,7 @@ function Chips({ session, manifestId }: { session: Session; manifestId: string |
       ))}
       {prs.map((pr) => (
         <Tooltip key={`pr:${pr.number}`} label={`${pr.title} · ${pr.queued === true ? "In merge queue" : PR_SAID[pr.state]}`} asChild>
-          <button type="button" className="sv-chip" data-kind="pr" data-state={pr.state} data-checks={checksOf(pr)} aria-label={`Pull request #${pr.number} ${pr.title}`} onClick={() => openPrPanel(pr)}>
+          <button type="button" className="sv-chip" data-kind="pr" data-state={pr.state} data-checks={checksOf(pr)} aria-label={`Pull request #${pr.number}`} onClick={() => openPrPanel(pr)}>
             {pr.state === "merged" ? <GitMerge size={12} strokeWidth={2} aria-hidden /> : <GitPullRequest size={12} strokeWidth={2} aria-hidden />}
             <code>#{pr.number}</code>
             <PullRequestChecksMark checks={checksOf(pr)} said={checksSaid(pr.checks)} />

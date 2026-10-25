@@ -7,6 +7,8 @@
 .sv-side > .sv-panel[data-area="blueprint"] { flex: 3 1 0; min-height: calc(var(--space-12) * 4); }
 .sv-side > .sv-panel[data-area="field"] { flex: 2 1 0; min-height: calc(var(--space-12) * 3); }
 .sv-side > .sv-panel[data-area="landing"] { flex: 2 1 0; min-height: calc(var(--space-12) * 3); }
+/* An approved plan is a few lines, so it takes its own height and the Field or the Landing has the rest. */
+.sv-side > .sv-panel[data-area="blueprint"]:has(.sv-plan:not([data-drafting])) { flex: 0 1 auto; min-height: 0; }
 .sv-side > .sv-panel[data-area="blueprint"]:has(> .sv-panel__body:empty),
 .sv-side > .sv-panel[data-area="landing"]:has(> .sv-panel__body:empty) { flex: 0 0 auto; min-height: 0; }
 

@@ -1,6 +1,7 @@
 // A Job is a story, and the right column tells it in order: the workflow, the blueprint (the plan), the field it is built on, and what it lands in.
-// Which of the three panels is open is read from data the Job already holds, and the rest fold to their bands. A press on a band or its key opens
-// any of them by hand; that holds until the stage moves on. Mock: the landing kind comes from the scenario (`work.landing`) until Fleet says it.
+// The stage is read from data the Job already holds. The Field and the Landing are open at their stage and folded to their bands otherwise. The
+// Blueprint is always open: drafted it is the plan to approve, and approved it stays up as a compact read of the build. A press on a band or its key
+// opens or folds any of them by hand; that holds until the stage moves on. Mock: the landing kind comes from the scenario (`work.landing`) until Fleet says it.
 
 import { useCallback, useSyncExternalStore } from "react";
 import { attachmentsOf, type Session, type WorkLanding } from "@armada/screens/src/draft/sessions";
@@ -35,13 +36,16 @@ const hear = new Set<() => void>();
 const keyOf = (session: string, area: Stage) => `${session}:${area}`;
 const changed = () => hear.forEach((one) => one());
 
-/** Whether the panel is open: by hand where it was pressed, else when the story is at it. */
+/** Open unless the story has not come to it: the blueprint is never folded by the stage. */
+const openAt = (session: Session, area: Stage): boolean => area === "blueprint" || stageOf(session) === area;
+
+/** Whether the panel is open: by hand where it was pressed, else as the stage has it. */
 export function useFold(session: Session, area: Stage): Fold {
   const byHand = useSyncExternalStore(
     (listener) => (hear.add(listener), () => void hear.delete(listener)),
     () => forced.get(keyOf(session.id, area)),
   );
-  const open = byHand ?? stageOf(session) === area;
+  const open = byHand ?? openAt(session, area);
   const id = session.id;
   const toggle = useCallback(() => {
     forced.set(keyOf(id, area), !open);
@@ -52,7 +56,7 @@ export function useFold(session: Session, area: Stage): Fold {
 
 /** A press of a panel's key: opens it if folded, folds it if open. */
 export function pressBand(session: Session, area: Stage): void {
-  const was = forced.get(keyOf(session.id, area)) ?? stageOf(session) === area;
+  const was = forced.get(keyOf(session.id, area)) ?? openAt(session, area);
   forced.set(keyOf(session.id, area), !was);
   changed();
 }

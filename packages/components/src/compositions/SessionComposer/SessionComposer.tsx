@@ -730,7 +730,7 @@ export function SessionComposer({
             </Tooltip>
             {onArtifacts === undefined ? null : (
               <Tooltip label="Everything the Job made or used" shortcut={onArtifacts.key}>
-                <Button type="button" variant="ghost" size="sm" aria-label="Artifacts" onClick={onArtifacts.open}>
+                <Button type="button" variant="ghost" size="sm" aria-label="Show artifacts" onClick={onArtifacts.open}>
                   <Files size={16} strokeWidth={2} aria-hidden />
                 </Button>
               </Tooltip>
