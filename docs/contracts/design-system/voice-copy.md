@@ -178,6 +178,11 @@ read plausibly under a different job has failed.
   A screen a person reads calls it **Armada configuration**.
 - **Judge** the semantic verification layer. Never the auditor, the
   reviewer, AI review.
+- **Adversarial review** the owner's press on a plan waiting for approval,
+  which asks the strongest model to break it and returns findings pinned to
+  the plan part each is about. Never the Judge, the audit, AI review — the
+  Judge is the veto on work done, and an adversarial review vetoes nothing.
+  [Adversarial review](../../concepts/adversarial-review.md) owns the rest.
 - **Evidence** the structured completion report. Never the report,
   output, proof.
 - **Doctor** the health check. Never diagnostics, system status.
