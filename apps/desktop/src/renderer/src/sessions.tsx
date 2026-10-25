@@ -1028,7 +1028,8 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
   // Open on coming into the Session, until he folds it there.
   const endOpen = (endPanel?.id === session.id ? endPanel.open : true) && endShown;
   // Where the repository keeps its Armada configuration: the first Job on it says so in words, every Job after in a glyph.
-  const root = session.dead !== undefined || session.helm === true || session.terminal === true ? undefined : rootOfSession(session, repositories);
+  // A Mod Job is about Armada, not the repository's configuration, so it carries neither.
+  const root = session.dead !== undefined || session.helm === true || session.mod === true || session.terminal === true ? undefined : rootOfSession(session, repositories);
   const profile = root === undefined ? undefined : boundProfile(account, root);
   const stands = root === undefined ? undefined : runBook.placeOf(root, profile);
   const where =
