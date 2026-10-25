@@ -1,8 +1,16 @@
 // A Job with plan v1 waiting, and an adversarial review of it that reads for two seconds and finds ways it breaks, each finding pinned to
-// the part of the plan it is about. Over the `one-session-view` scenario, with one of its Sessions given the plan.
+// the part of the plan it is about. Over the `one-session-view` scenario, with one of its Sessions given the plan. Its presses answer
+// through Fleet's routes as the mock Fleet answers them (`adversarial-fleet.ts`), and the review is drawn from Fleet's record of it
+// as a wired window draws it (`adversarialOf`), so the walk plays the rules a person's press meets.
 
-import type { AdversarialReviewState, Finding } from "@armada/components";
+import type { AdversarialFinding, AdversarialReview } from "@armada/protocol";
 import type { Session, WorkGroup, WorkTask } from "@armada/screens/src/draft/sessions";
+import { adversarialOf } from "@armada/screens/src/session-work";
+import type { ReviewRefused } from "@armada/screens/src/session-work";
+import { refusalWords } from "@armada/screens/src/refusal-words";
+
+import { finished, settleFinding, startReview } from "./adversarial-fleet";
+import type { Answered } from "./adversarial-fleet";
 
 import type { Scenario } from "./moment";
 import { planCall, withoutPlanCall } from "./plan-call";
@@ -43,10 +51,10 @@ const GROUPS: readonly WorkGroup[] = [
  * The findings, each about a part of the plan. The plan shows the part, so a finding does not say it again: none names a task in its
  * words. One is about a task, one about a task of another group, one about a group, one about the whole plan.
  */
-const ANCHORED: readonly Finding[] = [
+export const ANCHORED: readonly AdversarialFinding[] = [
   {
     id: "adv-1",
-    about: "W2",
+    about: { kind: "task", id: "W2" },
     consequence: "A lease waits ten minutes when every slot is held",
     expected: "The warm skips a held slot and tries the next",
     found: "It warms the slot the pool picked, held or not, and the lease waits on that warm to end",
@@ -54,7 +62,7 @@ const ANCHORED: readonly Finding[] = [
   },
   {
     id: "adv-2",
-    about: "W4",
+    about: { kind: "task", id: "W4" },
     consequence: "A bay reads as warming for good after Fleet restarts",
     expected: "A warm that was running when Fleet stopped is cleared on the next start",
     found: "The flag is set and nothing in the plan clears it, so it outlives the warm it described",
@@ -62,7 +70,7 @@ const ANCHORED: readonly Finding[] = [
   },
   {
     id: "adv-3",
-    about: "w3",
+    about: { kind: "group", id: "w3" },
     consequence: "A held bay shows as warming",
     expected: "Warming is drawn only on a bay no one holds",
     found: "Neither task checks who holds the bay before it draws the mark",
@@ -70,6 +78,7 @@ const ANCHORED: readonly Finding[] = [
   },
   {
     id: "adv-4",
+    about: { kind: "plan" },
     consequence: "A warm that never finishes goes unnoticed",
     expected: "Each group names the check that proves it",
     found: "No task adds or changes a test, so a stuck warm passes every check",
@@ -115,13 +124,22 @@ export function adversarialReview(name: string, says: string): Scenario {
         const store = base.draft!.sessions!(control);
         store.edit(QUIET, planned);
         const timers = new Set<number>();
-        const set = (review: AdversarialReviewState) => store.edit(QUIET, (one) => ({ ...one, work: { ...one.work, adversarial: review } }));
-        const settle = (_id: string, finding: string, settled: "sent" | "dismissed") =>
-          store.edit(QUIET, (one) => {
-            const was = one.work?.adversarial;
-            if (was === undefined || was.state !== "done") return one;
-            return { ...one, work: { ...one.work, adversarial: { ...was, findings: was.findings.map((it) => (it.id === finding ? { ...it, settled } : it)) } } };
-          });
+        // Fleet's record of the review, and its refusal of the last press: the card draws both as a wired window does.
+        let kept: AdversarialReview | undefined;
+        let refused: ReviewRefused | undefined;
+        const version = () => store.get().find((one) => one.id === QUIET)?.work?.plan?.version ?? 1;
+        const draw = () => store.edit(QUIET, (one) => {
+          const drawn = adversarialOf({ version: version(), ...(kept === undefined ? {} : { adversarial: kept }) }, refused);
+          const { adversarial: _was, ...work } = one.work ?? {};
+          return { ...one, work: drawn === undefined ? work : { ...work, adversarial: drawn } };
+        });
+        const answered = (answer: Answered) => {
+          if (answer.ok) kept = answer.review;
+          else refused = { version: version(), said: refusalWords(answer) };
+          draw();
+          return answer;
+        };
+        const subject = (id: string) => ({ kind: "plan" as const, session_id: id, version: version() });
         return {
           ...store,
           work: {
@@ -129,16 +147,21 @@ export function adversarialReview(name: string, says: string): Scenario {
             // Not yet sets the plan aside, as it does in the other plan scenarios, so the answers row is the row he will have.
             setAside: () => store.edit(QUIET, (one) => (one.work?.plan === undefined ? one : { ...one, waitingFor: withoutPlanCall(one.waitingFor), work: { ...one.work, plan: { ...one.work.plan, setAside: true } } })),
             adversarial: {
-              run: () => {
-                set({ state: "running" });
+              run: (id) => {
+                refused = undefined;
+                const answer = answered(startReview({ version: version(), ...(kept === undefined ? {} : { adversarial: kept }) }, { subject: subject(id), ...(kept === undefined ? {} : { again: true }) }, new Date().toISOString()));
+                if (!answer.ok || answer.review.state !== "running") return;
+                const begun = answer.review;
                 const handle = window.setTimeout(() => {
                   timers.delete(handle);
-                  set({ state: "done", findings: ANCHORED });
+                  if (kept !== begun) return;
+                  kept = finished(begun, ANCHORED, new Date().toISOString());
+                  draw();
                 }, READS_MS);
                 timers.add(handle);
               },
-              send: (id, finding) => settle(id, finding, "sent"),
-              dismiss: (id, finding) => settle(id, finding, "dismissed"),
+              send: (id, finding) => void answered(settleFinding({ version: version(), ...(kept === undefined ? {} : { adversarial: kept }) }, { subject: subject(id), finding_id: finding }, "sent", new Date().toISOString())),
+              dismiss: (id, finding) => void answered(settleFinding({ version: version(), ...(kept === undefined ? {} : { adversarial: kept }) }, { subject: subject(id), finding_id: finding }, "dismissed", new Date().toISOString())),
             },
           },
           dispose: () => {

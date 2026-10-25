@@ -3,7 +3,8 @@
 // beside it go in, a `SessionWork` comes out (`draft/sessions.ts`). Fleet's word is used as it comes: a step is lit only where
 // Fleet names one, and a task's state is the one Fleet kept.
 
-import type { BuildPiece, FileTouch, PlanMark as WirePlanMark, ProposedField, SessionPlan, SessionRecord, SessionRow as WireRow, WaitingItem, WorkflowSummary } from "@armada/protocol";
+import type { AdversarialReviewState, Finding } from "@armada/components/src/compositions/AdversarialReview/review-state";
+import type { AdversarialFinding, BuildPiece, FileTouch, PlanMark as WirePlanMark, ProposedField, SessionPlan, SessionRecord, SessionRow as WireRow, WaitingItem, WorkflowSummary } from "@armada/protocol";
 
 import type { AgentTask, PlanMark, SessionAttachment, SessionRow, SessionWork, SuggestLine, WorkConcern, WorkDrone, WorkFile, WorkflowChoice, WorkPlan } from "./draft/sessions";
 
@@ -21,7 +22,38 @@ export type WorkBeside = {
   unpicked: ReadonlySet<ProposedField>;
   /** The owner's setting `features.workflows` is off: no workflow, no steps and no proposer's mark for one are drawn. */
   workflowsOff?: boolean;
+  /** Fleet refused the last press of the adversarial review on this plan version, in its words. */
+  reviewRefused?: ReviewRefused;
 };
+
+/** Fleet's refusal of a press of the adversarial review, for the plan version it was pressed on. */
+export type ReviewRefused = { version: number; said: string };
+
+const findingOf = (one: AdversarialFinding): Finding => ({
+  id: one.id,
+  consequence: one.consequence,
+  expected: one.expected,
+  found: one.found,
+  ...(one.cites === undefined ? {} : { cites: one.cites }),
+  ...(one.about.kind === "plan" ? {} : { about: one.about.id }),
+  ...(one.settled === undefined ? {} : { settled: one.settled.how }),
+});
+
+/**
+ * The plan's adversarial review as the card draws it. Absent where none was run and nothing was refused, which draws the press.
+ * **A review of another version is stale whatever its state**, its findings kept where their parts still stand, so Run again reads
+ * the plan as it is now. A refusal of a press on this version is drawn as a failure, in Fleet's words.
+ */
+export function adversarialOf(plan: Pick<SessionPlan, "version" | "adversarial">, refused?: ReviewRefused): AdversarialReviewState | undefined {
+  if (refused !== undefined && refused.version === plan.version) return { state: "failed", said: refused.said };
+  const review = plan.adversarial;
+  if (review === undefined) return undefined;
+  const findings = review.findings.map(findingOf);
+  if (review.subject.version !== plan.version) return { state: "stale", read: review.subject.version, findings };
+  if (review.state === "running") return { state: "running" };
+  if (review.state === "failed") return { state: "failed", said: review.failed ?? "The review failed" };
+  return { state: "done", findings };
+}
 
 /** The workflows a Session may be given, as the picker lists them. */
 export const choicesOf = (workflows: readonly WorkflowSummary[]): WorkflowChoice[] =>
@@ -136,12 +168,14 @@ export function workOf(record: SessionRecord, beside: WorkBeside): SessionWork |
   const { field, files } = fieldOf(record.touches ?? []);
   const concerns = record.state === "ended" ? [] : concernsOf(record.waiting_for);
   const tasks = record.plan !== undefined || record.state === "ended" ? [] : tasksOf(record.build?.pieces ?? []);
+  const adversarial = record.plan === undefined ? undefined : adversarialOf(record.plan, beside.reviewRefused);
   return {
     ...(hosted
       ? { proposal: { workflow: record.workflow ?? null, ...(record.proposal?.reading === true ? { reading: true as const } : {}), ...(picked.length === 0 ? {} : { picked }) } }
       : {}),
     ...(workflow === undefined ? {} : { workflow }),
     ...(record.plan === undefined ? {} : { plan: planOf(record.plan, beside) }),
+    ...(adversarial === undefined ? {} : { adversarial }),
     ...(tasks.length === 0 ? {} : { tasks }),
     ...(field.length === 0 ? {} : { field, files }),
     ...(concerns.length === 0 ? {} : { concerns }),
