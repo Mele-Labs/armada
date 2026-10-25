@@ -1,4 +1,4 @@
-// Every way a Job starts opens on the same start card, with the first message the agent will read in the Message box to edit before Start:
+// Every way a Job starts opens held, with the first message the agent will read in the composer to edit before Start:
 // a Job dispatched from the Dispatch sheet, a Job another Job's agent started, and a Job started from the annotation layer, where the box
 // holds the note as the agent will read it. Over a Fleet that holds the start as Fleet would (`../sessions-fleet.ts`). The walk
 // `job-start-card-everywhere` plays it. Mock only: the layer's note turn is composed here in the shape of `crates/fleet/src/session_host/noting.rs`.
@@ -58,12 +58,12 @@ function build(): Scenario {
   return {
     ...served,
     name: "job-start-card-everywhere",
-    says: "A Job dispatched, a Job another Job started and a Job started from the annotation layer each open on the start card, with the first message to edit",
+    says: "A Job dispatched, a Job another Job started and a Job started from the annotation layer each open held, with the first message in the composer to edit",
     // A Fleet of its own for each window, so a walk told twice starts from the same Job.
     behaves: (handle) => {
       const fake = new FakeSessionsFleet(records(), threads());
       const own = fake.scenario(board).behaves!(handle);
-      /** The Jobs held on a card for the layer's notes, and the turns of the notes sent to each. */
+      /** The Jobs held for the layer's notes, and the turns of the notes sent to each. */
       const noted = new Map<string, string[]>();
       /** What each Job's agent does once Start is pressed, or its message is sent. */
       fake.onSend = (send) => {
@@ -87,7 +87,7 @@ function build(): Scenario {
       };
       return {
         ...own,
-        // The layer starts a Job with a title and no words, and Fleet would hold it on its card as a Dispatch start is held:
+        // The layer starts a Job with a title and no words, and Fleet would hold it as a Dispatch start is held:
         // the note it is sent next is the first message, composed the way the agent reads it.
         startSession: async (title, root, request, tuning, after, holds) => {
           if (title === undefined || request !== undefined || after !== undefined || holds === true) return own.startSession!(title, root, request, tuning, after, holds);

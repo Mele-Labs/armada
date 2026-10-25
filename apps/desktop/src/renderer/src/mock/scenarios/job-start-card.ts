@@ -1,6 +1,6 @@
-// A Job dispatched from the Dispatch sheet opens on its start card before any agent moves. The proposer reads the request for a moment, then the
+// A Job dispatched from the Dispatch sheet opens held before any agent moves. The proposer reads the request for a moment, then the
 // title, Kind and Lands fill in. Changing Kind moves Lands to the usual for that kind, and words that name how it lands win over the usual.
-// Start begins the agent and the card goes. Over `quick-dispatch`, and the walk `job-start-card` plays it.
+// Start begins the agent. Over `quick-dispatch`, and the walk `job-start-card` plays it.
 
 import type { DeliveryChoice } from "@armada/protocol";
 import { repository } from "@armada/screens/src/fixtures/repository";
@@ -13,7 +13,7 @@ import { others, sessionsStore } from "../sessions/script";
 /** The first Job dispatched in the mock takes this id. The usual Sessions are left without it, so the new Job is the only one under it. */
 const MINE = "s7";
 
-/** How long the proposer reads before the card fills in. */
+/** How long the proposer reads before the picks fill in. */
 const READ_MS = 1200;
 /** How long after Start the agent's first rows land. */
 const BEGIN_MS = 900;
@@ -48,7 +48,7 @@ const tool = (id: string, text: string): SessionRow => ({ id, at: "14:12:09", ki
 export const s323JobStartCard: Scenario = {
   ...s210QuickDispatch,
   name: "job-start-card",
-  says: "A Job dispatched from the Dispatch sheet opens on a start card: title, kind, how it lands, model and effort settled before the agent starts",
+  says: "A Job dispatched from the Dispatch sheet opens held: title, kind, how it lands, model and effort settled before the agent starts",
   draft: {
     ...s210QuickDispatch.draft,
     sessions: () => {
@@ -72,7 +72,7 @@ export const s323JobStartCard: Scenario = {
           const words = request ?? "";
           const choice = namedIn(words);
           if (choice !== undefined) named.set(id, choice);
-          // The proposer is reading: the card is up with nothing written.
+          // The proposer is reading: the Job is up with nothing written.
           store.edit(id, (one) => ({ ...one, start: { asksDelivery: true }, work: { proposal: { workflow: null, reading: true } } }));
           timers(READ_MS, () => {
             const kind = kindOf(words);

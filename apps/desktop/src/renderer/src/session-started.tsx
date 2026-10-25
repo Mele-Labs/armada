@@ -37,7 +37,9 @@ export function linkEntry(one: Extract<SessionAttachment, { kind: "forked_to" | 
 
 /** The row above the thread naming the Session whose agent started this one, if one did. Also seeds the box with its first message. */
 export function useStartedBy(session: Session, sessions: readonly Session[], open: (id: string) => void): ReactNode {
-  const { id, unsent } = session;
+  const { id } = session;
+  // The words a Job waits to send: what its agent left unsent, or the first message a held Job will begin with.
+  const unsent = session.unsent ?? session.start?.message;
   useEffect(() => {
     if (unsent !== undefined && readKept(`session:${id}`) === undefined) seedDraft(id, unsent);
   }, [id, unsent]);

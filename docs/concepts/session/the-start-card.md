@@ -2,8 +2,8 @@
 
 **Part of:** [Job](../session.md).
 
-A Job dispatched from Bridge opens on a start card before any agent moves.
-The card holds the Job's title, kind of work, how it lands, model and effort, each filled with Armada's pick.
+A Job dispatched from Bridge opens held before any agent moves, and Bridge draws it as it draws any Job: its title in the header, renamed in place, and the composer under the thread.
+Kind and Lands sit in the composer's bar beside model and effort, each filled with Armada's pick, and Send reads Start.
 He changes what he wants and presses Start (`↵`), and the agent begins.
 
 | Row | Filled from |

@@ -134,7 +134,7 @@ import { planRevision } from "./session-view/plan-revision";
 import { PlanReview } from "./session-view/PlanReview";
 import { groupTitleOf, linkedPropsOf } from "./session-view/linked";
 import { SessionWorkspace, type Hosts } from "./session-view/SessionWorkspace";
-import { StartCard } from "./session-view/StartCard";
+import { useStartPicks } from "./session-view/StartPicks";
 import { CallChip, callWord } from "./session-view/CallChip";
 import { useLedgerRelease, type LedgerRelease } from "./session-ledger-release";
 
@@ -812,6 +812,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
   const origin = forkedFrom === undefined ? undefined : sessions.find((one) => one.id === forkedFrom.id);
   // **Up to and including the message it was forked at**, and not what was said after it.
   const startedBy = useStartedBy(session, sessions, onOpen);
+  const starting = useStartPicks(session, repositories, narrow);
   const originRows = origin === undefined ? NO_ROWS : upTo(threadRowsOf(origin), forkedFrom?.at);
   // **A move carries its whole conversation into the thread**, under a row naming where it came from, and ends the old one's with where it went.
   const carried = forkedFrom?.moved !== undefined;
@@ -1130,9 +1131,6 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
             </ForkedFrom>
           )}
           {startedBy}
-          {session.start !== undefined ? (
-            <StartCard key={session.id} session={session} start={session.start} repositories={repositories} />
-          ) : (
           <>
           <RequestOpen.Provider value={openRequest}>
           <SavedOpen.Provider value={openSaved}>
@@ -1201,6 +1199,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
                 if (tuning.effort !== (session.effort ?? null)) draft.work?.unpick(session.id, "effort");
               }}
               {...(session.work?.proposal?.picked === undefined ? {} : { proposed: { model: session.work.proposal.picked.includes("model"), effort: session.work.proposal.picked.includes("effort") } })}
+              {...(starting === undefined ? {} : { lead: starting.lead, sendLabel: "Start", sendEmpty: session.start?.message === undefined })}
               commands={session.terminal === true ? (session.commands ?? []) : hostedCommands(draft.commands)}
               compact={narrow}
               taggable={sessions.filter((one) => one.id !== session.id && one.dead === undefined && one.title !== undefined).map((one): SessionTag => ({ kind: "session", id: one.id, title: one.title! }))}
@@ -1214,6 +1213,8 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
               onDraw={() => setPadOpen(true)}
               onRemoveDrawn={(id) => setDrawn((was) => was.filter((one) => one.id !== id))}
               onSend={(sent) => {
+                // A held Job's first send begins it: the box is the first message.
+                if (starting !== undefined) return starting.begin(sent.text);
                 if (opensMcp(session, sent.text, sent.files.length)) {
                   goes.onOpenLoadout(session.id, "mcp");
                   return Promise.resolve(true);
@@ -1238,7 +1239,6 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
           )}
           </div>
           </>
-          )}
         </div>
       </SessionFrame>
       </SessionWorkspace>
