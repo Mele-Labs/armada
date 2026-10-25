@@ -223,10 +223,32 @@ failure, which was a Linux-only test failing on `main`.
 
 `hooks_test` runs when `.claude/hooks/**` changes, since that is its `when:`. `preview_test` runs when `scripts/preview`, `scripts/restart`, its own test or `armada.yml` changes.
 
+## Releases
+
+**Every merge to `main` that passes `ci` is published as a GitHub Release**, by `.github/workflows/release.yml`.
+It runs when `checks` finishes on a push to `main`, and only when that run succeeded.
+A pull request and a merge group never release.
+
+| | |
+|---|---|
+| Builds | `armada` with the `installed` profile, and `Armada.app` for Apple Silicon, on a `macos-15` runner |
+| Puts Fleet | Inside the app, at `Contents/Resources/bin/armada`, then signs the bundle again ad hoc |
+| Version | `v0.<minor>.<commits on main>`. The minor is the root `package.json`'s, bumped by hand. The hash is in the release notes and in `Contents/Resources/version` |
+| Attaches | `Armada-macos-arm64.zip` and `scripts/install.sh`, with no version in either name, so `releases/latest/download/<name>` never changes |
+| A commit already tagged | Is not released twice. The run says so and stops |
+
+**One release builds at a time.** A merge that lands meanwhile waits, and a newer merge replaces the one waiting, so two quick merges make one release.
+
+**Run it by hand** from the Actions tab with *Run workflow*, which releases `main`'s tip. It needs nothing else.
+
+**Unsigned, on purpose for now.** `install.sh` downloads with `curl`, which sets no quarantine flag, so an ad hoc signed app opens without Gatekeeper's warning.
+A signed download a person double-clicks is `armada-67`.
+
 ## Safety posture
 
-The workflow holds `contents: read` and nothing broader. It uses `pull_request`,
+`checks` holds `contents: read` and nothing broader. It uses `pull_request`,
 never `pull_request_target`, reads no secret and runs on GitHub's hosted runners.
+`release` holds `contents: write` in its one job, to create the tag and the release, and runs only on a commit already on `main`.
 Every third-party action is pinned to a full commit SHA with its version beside it.
 
 ## Owed at the cutover
