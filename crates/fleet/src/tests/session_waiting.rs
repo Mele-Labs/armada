@@ -697,9 +697,37 @@ async fn a_job_signed_out_waits_on_a_sign_in() {
     assert_eq!(sign_in_item(&rig, &id).await, None, "a dismissed sign-in does not come back");
 }
 
-/// A turn that starts is the harness signed in again, however that came about.
+/// How many times the harness has said its sign-in ran out, as rows of the thread.
+async fn failures_shown(rig: &Rig, id: &ipc::SessionId) -> usize {
+    rig.rows(id)
+        .await
+        .into_iter()
+        .filter(|row| matches!(row, SessionRow::Message { text, .. } if text.starts_with("Failed to authenticate")))
+        .count()
+}
+
+/// **The harness says `init` before a turn that fails as well**, so a turn starting is no sign-in.
+/// Another failed turn keeps the one item, under its id, so a dismissed one stays dismissed.
 #[tokio::test]
-async fn a_turn_that_starts_clears_the_sign_in() {
+async fn a_failed_turn_keeps_the_sign_in_it_raised() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    rig.send(&id, "fix the ledger").await;
+    rig.stand_in.init(0);
+    signed_out(&rig);
+    eventually(|| async { sign_in_item(&rig, &id).await.is_some() }).await;
+    let first = sign_in_item(&rig, &id).await.unwrap().id;
+
+    rig.send(&id, "where are we").await;
+    rig.stand_in.init(0);
+    signed_out(&rig);
+    eventually(|| async { failures_shown(&rig, &id).await == 2 }).await;
+    assert_eq!(sign_in_item(&rig, &id).await.map(|item| item.id), Some(first));
+}
+
+/// The model answering is the harness signed in again, however that came about.
+#[tokio::test]
+async fn the_model_answering_clears_the_sign_in() {
     let rig = rig_placing(None);
     let id = rig.start().await;
     rig.send(&id, "fix the ledger").await;
@@ -708,5 +736,6 @@ async fn a_turn_that_starts_clears_the_sign_in() {
     eventually(|| async { sign_in_item(&rig, &id).await.is_some() }).await;
 
     rig.stand_in.init(0);
+    rig.stand_in.says(0, vec![DroneEvent::Said { text: "On it.".into(), by: Speaker::Drone }]);
     eventually(|| async { sign_in_item(&rig, &id).await.is_none() }).await;
 }

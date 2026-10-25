@@ -2,7 +2,7 @@
 //! can sign in again, so the Job waits on him for it with the command to run.
 //!
 //! **In memory, never written.** A Fleet that restarts has no mark, and the Job's next turn fails
-//! the same way and marks it again. A turn that starts is the harness signed in, and clears it.
+//! the same way and marks it again. The model's own words or call is the harness signed in, and clears it.
 
 use std::sync::Arc;
 
@@ -60,7 +60,15 @@ where
         let _ = self.published_hosted(id).await;
     }
 
-    /// A turn started, so the harness is signed in. Whether the Job was marked; the caller publishes.
+    /// The model answered, so the harness is signed in. **Not a turn's start**: the harness says
+    /// `init` before every turn, the failed ones too, and clearing there gave each failure a new item.
+    pub(crate) async fn signed_in_heard(&self, id: &str, runtime: &Arc<Runtime>) {
+        if self.sign_in_cleared(runtime) {
+            let _ = self.published_hosted(id).await;
+        }
+    }
+
+    /// Whether the Job was marked; the caller publishes.
     pub(crate) fn sign_in_cleared(&self, runtime: &Arc<Runtime>) -> bool {
         runtime.state().signed_out.take().is_some()
     }

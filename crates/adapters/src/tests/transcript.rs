@@ -252,6 +252,14 @@ fn an_expired_sign_in_reads_as_signed_out() {
     );
 }
 
+/// The live stream spells the same line its own way, and is the one Fleet reads. Taken from a run
+/// with a token the API refused.
+#[test]
+fn an_expired_sign_in_on_the_stream_reads_as_signed_out() {
+    let line = r#"{"type":"assistant","message":{"id":"49fe","model":"<synthetic>","role":"assistant","stop_reason":"stop_sequence","type":"message","content":[{"type":"text","text":"Failed to authenticate. API Error: 401 Invalid bearer token"}]},"parent_tool_use_id":null,"session_id":"70be","uuid":"efae","error":"authentication_failed","is_api_error_message":true,"api_error_status":401}"#;
+    assert_eq!(read(line).last(), Some(&DroneEvent::SignedOut));
+}
+
 #[test]
 fn a_line_that_is_not_json_is_an_event_rather_than_a_dropped_line() {
     let read = read("this is not a transcript at all");
