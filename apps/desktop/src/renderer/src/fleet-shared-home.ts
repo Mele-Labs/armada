@@ -6,7 +6,7 @@
 // is the person's choice. A machine with no chosen profile draws its one profile's home. Nothing is drawn while no
 // profile is signed in or Fleet is not connected.
 
-import type { SharedHome, SharedRow } from "@armada/components";
+import type { Profile, SharedHome, SharedRow } from "@armada/components";
 import type { HomeRow, HomeRowAt, HomeSynced, SharedHomeRead as WireRead } from "@armada/protocol";
 import { refusalWords } from "@armada/screens/src/refusal-words";
 
@@ -24,6 +24,7 @@ export type FleetHome = {
   addToSharedHome: (row: HomeRowAt) => Promise<AccountsActed<WireRead>>;
   bringFromSharedHome: (row: HomeRowAt) => Promise<AccountsActed<WireRead>>;
   chooseSharedHomeSide: (row: HomeRowAt, side: "here" | "there") => Promise<AccountsActed<WireRead>>;
+  setHomeRepository: (login: string, owner: string, name: string) => Promise<AccountsActed<WireRead>>;
 };
 
 export type SharedHomeSource = {
@@ -34,9 +35,9 @@ export type SharedHomeSource = {
 };
 
 /** The profile whose home is drawn. */
-const loginOf = (account: AccountSource): string | undefined => {
+const profileOf = (account: AccountSource): Profile | undefined => {
   const profiles = account.get()?.account.profiles ?? [];
-  return (profiles.find((one) => one.chosen) ?? profiles[0])?.login;
+  return profiles.find((one) => one.chosen) ?? profiles[0];
 };
 
 /** The wire's row as Kit draws it. `key_here: false` is a server whose key is not here, which Kit marks as needing its key. */
@@ -56,6 +57,8 @@ export function createFleetSharedHome(fleet: FleetHome, account: AccountSource, 
   let login: string | undefined;
   let read: WireRead | undefined;
   let syncing = false;
+  // A choice of owner and name pressed and not yet answered, drawn as if Fleet had taken it.
+  let chosen: { owner: string; name: string } | undefined;
   let held: SharedHome | undefined;
   // Each row drawn, back to the wire row it came from: a memory note's act names its repository, which Kit's row does not carry.
   // Kept across reads, so a row a compare sheet still holds names itself as it was drawn.
@@ -80,9 +83,16 @@ export function createFleetSharedHome(fleet: FleetHome, account: AccountSource, 
       wires.set(row, wire);
       return row;
     });
+    // Where the home is: the copy here, else where Fleet plans it, else the login's default. Only a home with no copy here
+    // and none made on another Mac can still be moved.
+    const place = read.home ?? read.planned;
+    const open = read.home === undefined && read.planned?.exists !== true;
+    const owner = open ? chosen?.owner : undefined;
     return {
-      account: read.home?.account ?? as,
-      repository: read.home?.repository ?? HOME_REPOSITORY,
+      account: owner ?? place?.account ?? as,
+      repository: (open ? chosen?.name : undefined) ?? place?.repository ?? HOME_REPOSITORY,
+      login: as,
+      ...(open ? { made: false, owners: profileOf(account)?.orgs ?? [], setHome: (to: string, name: string) => void choose(as, to, name) } : {}),
       rows,
       syncing,
       sync: () => void sync(as),
@@ -120,6 +130,18 @@ export function createFleetSharedHome(fleet: FleetHome, account: AccountSource, 
     took(as, at, await ask(), true);
   };
 
+  const choose = async (as: string, owner: string, name: string): Promise<void> => {
+    const mine = { owner, name };
+    chosen = mine;
+    publish();
+    const at = ++issued;
+    const answer = await fleet.setHomeRepository(as, owner, name);
+    if (chosen === mine) chosen = undefined;
+    // A refusal is told, and the place it stood at is drawn again.
+    if (took(as, at, answer, true)) account.refresh?.();
+    else if (as === login) publish();
+  };
+
   const sync = async (as: string): Promise<void> => {
     if (syncing) return;
     syncing = true;
@@ -128,16 +150,21 @@ export function createFleetSharedHome(fleet: FleetHome, account: AccountSource, 
     const answer = await fleet.syncSharedHome(as);
     syncing = false;
     // A row the sync could not add stays on this machine, told one by one.
-    if (took(as, at, answer, true) && answer.ok) answer.value.left.forEach((one) => tell(one.why));
+    if (took(as, at, answer, true) && answer.ok) {
+      answer.value.left.forEach((one) => tell(one.why));
+      // The Account page names the home it made.
+      account.refresh?.();
+    }
     // A refused or overtaken sync still stops turning.
     if (held?.syncing === true) publish();
   };
 
   const follow = (): void => {
-    const now = loginOf(account);
+    const now = profileOf(account)?.login;
     if (now === login) return;
     login = now;
     read = undefined;
+    chosen = undefined;
     syncing = false;
     publish();
     if (now !== undefined) load(now);
