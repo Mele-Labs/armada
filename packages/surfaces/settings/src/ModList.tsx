@@ -45,8 +45,11 @@ const standingOf = (mod: { enabled: boolean; problem?: string }): "used" | "refu
 
 type Listed = { key: string; kind: ModKind; name: string; enabled: boolean; row: ReactElement };
 
-/** `onCreate` draws Create mod in the header, which starts a Mod Job from a description. */
-export function ModList({ kind, title, onOpenPull, onOpenJob, onCreate }: { kind: ModListKind; title?: string; onOpenPull?: (address: string) => void; onOpenJob?: (id: string) => void; onCreate?: () => void }) {
+/** The mod a press on a row names: its folder, its title as the row draws it, and its kind. */
+export type ModOpened = { name: string; title: string; kind: ModKind };
+
+/** `onCreate` draws Create mod in the header, which starts a Mod Job from a description. `onOpenMod` opens a mod from a press on its row, anywhere but its switch. */
+export function ModList({ kind, title, onOpenPull, onOpenJob, onCreate, onOpenMod }: { kind: ModListKind; title?: string; onOpenPull?: (address: string) => void; onOpenJob?: (id: string) => void; onCreate?: () => void; onOpenMod?: (mod: ModOpened) => void }) {
   const themes = useThemes();
   const layouts = useLayouts();
   const taught = useTaught();
@@ -100,6 +103,7 @@ export function ModList({ kind, title, onOpenPull, onOpenJob, onCreate }: { kind
             source.setEnabled(mod.name, on);
           }}
           detail={mod.branch === undefined ? line : `${line} (${mod.branch})`}
+          {...(onOpenMod === undefined ? {} : { onOpen: () => onOpenMod({ name: mod.name, title: mod.name, kind: ROW_KIND[mod.kind] }) })}
           promoteDisabled={mod.branch !== undefined}
           onPromote={() => source.promote(mod.name)}
           {...(lined ? { withTracker: true, standing: mod.tracker === undefined ? standingOf(mod) : trackerStanding(mod, mod.tracker) } : {})}
@@ -137,6 +141,7 @@ export function ModList({ kind, title, onOpenPull, onOpenJob, onCreate }: { kind
             enable(mod.name, on);
           }}
           {...(line === undefined ? {} : { detail: line })}
+          {...(onOpenMod === undefined ? {} : { onOpen: () => onOpenMod({ name: mod.name, title: mod.title, kind: as }) })}
           builtIn={mod.builtIn === true}
           {...sync(mod.builtIn === true ? undefined : homeRows.find((row) => row.name === mod.name))}
           {...(mod.pull === undefined || onOpenPull === undefined ? {} : { pull: { number: mod.pull.number, title: mod.pull.title, onOpen: () => onOpenPull(mod.pull!.address) } })}

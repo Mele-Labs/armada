@@ -18,6 +18,17 @@ export type SwitchProps = Omit<InputHTMLAttributes<HTMLInputElement>, "type"> & 
   description?: ReactNode;
 };
 
+function Control(rest: Omit<InputHTMLAttributes<HTMLInputElement>, "type">) {
+  return (
+    <>
+      <input {...rest} type="checkbox" role="switch" className="armada-switch__input" />
+      <span className="armada-switch__track" aria-hidden="true">
+        <span className="armada-switch__thumb" />
+      </span>
+    </>
+  );
+}
+
 export function Switch({ children, description, ...rest }: SwitchProps) {
   return (
     <label className="armada-switch" data-described={description !== undefined || undefined}>
@@ -27,10 +38,19 @@ export function Switch({ children, description, ...rest }: SwitchProps) {
           <span className="armada-switch__description">{description}</span>
         )}
       </span>
-      <input {...rest} type="checkbox" role="switch" className="armada-switch__input" />
-      <span className="armada-switch__track" aria-hidden="true">
-        <span className="armada-switch__thumb" />
-      </span>
+      <Control {...rest} />
+    </label>
+  );
+}
+
+/**
+ * The switch alone, for a row whose text beside it does something else when pressed. `label` names it for a screen reader,
+ * and only the control itself toggles.
+ */
+export function SwitchControl({ label, ...rest }: Omit<InputHTMLAttributes<HTMLInputElement>, "type" | "children"> & { label: string }) {
+  return (
+    <label className="armada-switch" data-control="">
+      <Control {...rest} aria-label={label} />
     </label>
   );
 }

@@ -4,6 +4,7 @@ import { Card, CardContent, ModRow } from "@armada/components";
 import type { ThreadCard } from "@armada/components";
 
 import { useModsMade } from "../mods-made";
+import { openMod } from "../shared-panel/store";
 
 /** One card per mod the Job made, placed by when the mod's files were last written. Empty for a Job that made none. */
 export function useModCards(id: string): readonly ThreadCard[] {
@@ -14,7 +15,7 @@ export function useModCards(id: string): readonly ThreadCard[] {
     node: (
       <Card>
         <CardContent>
-          <ModRow title={one.title} kind={one.kind} enabled={one.enabled} onEnabled={(on) => made.setEnabled(one.name, on)} />
+          <ModRow title={one.title} kind={one.kind} enabled={one.enabled} onEnabled={(on) => made.setEnabled(one.name, on)} onOpen={() => openMod({ name: one.name, title: one.title, kind: one.kind })} />
         </CardContent>
       </Card>
     ),

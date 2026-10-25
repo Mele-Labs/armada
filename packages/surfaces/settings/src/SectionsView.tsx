@@ -31,11 +31,12 @@ export type SettingsSectionsViewProps = {
   /** Open a promoted mod's pull request and its Job from the All list, as the Theme and Layout pages do. */
   onOpenPull?: ComponentProps<typeof ModList>["onOpenPull"];
   onOpenJob?: ComponentProps<typeof ModList>["onOpenJob"];
+  onOpenMod?: ComponentProps<typeof ModList>["onOpenMod"];
   /** Create mod, in the All list's header. */
   onCreateMod?: ComponentProps<typeof ModList>["onCreate"];
 };
 
-export function SettingsSectionsView({ ids, settings, live, onSaveSettings, onOpenAccount, onReadGuides, onCopied, under = {}, onOpenPull, onOpenJob, onCreateMod }: SettingsSectionsViewProps) {
+export function SettingsSectionsView({ ids, settings, live, onSaveSettings, onOpenAccount, onReadGuides, onCopied, under = {}, onOpenPull, onOpenJob, onOpenMod, onCreateMod }: SettingsSectionsViewProps) {
   const card = (title: string, body: ReactNode) => (
     <Card>
       <CardHeader>
@@ -46,12 +47,12 @@ export function SettingsSectionsView({ ids, settings, live, onSaveSettings, onOp
   );
   const panes: Record<string, (title: string) => ReactNode> = {
     phone: () => <PhoneSettings {...(onCopied === undefined ? {} : { onCopied })} />,
-    "mods-all": (title) => <ModList kind="all" title={title} {...(onOpenPull === undefined ? {} : { onOpenPull })} {...(onOpenJob === undefined ? {} : { onOpenJob })} {...(onCreateMod === undefined ? {} : { onCreate: onCreateMod })} />,
+    "mods-all": (title) => <ModList kind="all" title={title} {...(onOpenPull === undefined ? {} : { onOpenPull })} {...(onOpenJob === undefined ? {} : { onOpenJob })} {...(onOpenMod === undefined ? {} : { onOpenMod })} {...(onCreateMod === undefined ? {} : { onCreate: onCreateMod })} />,
     theme: (title) => card(title, <ThemeSettings />),
     layout: (title) => card(title, <LayoutSettings />),
-    words: (title) => <ModList kind="words" title={title} />,
-    trackers: (title) => <ModList kind="tracker" title={title} />,
-    "fleet-mods": (title) => <ModList kind="fleet" title={title} />,
+    words: (title) => <ModList kind="words" title={title} {...(onOpenMod === undefined ? {} : { onOpenMod })} />,
+    trackers: (title) => <ModList kind="tracker" title={title} {...(onOpenMod === undefined ? {} : { onOpenMod })} />,
+    "fleet-mods": (title) => <ModList kind="fleet" title={title} {...(onOpenMod === undefined ? {} : { onOpenMod })} />,
     time: (title) => card(title, <TimeSettings />),
     keyboard: (title) => card(title, <KeyboardSettings query="" />),
     guides: (title) => card(title, <GuidesSetting {...(onReadGuides === undefined ? {} : { onReadGuides })} />),
