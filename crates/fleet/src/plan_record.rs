@@ -379,5 +379,6 @@ pub(crate) fn wire(plan: &KeptPlan) -> SessionPlan {
         }),
         sketch: plan.sketch.as_ref().map(|(id, title)| PlanSketch { id: id.clone(), title: title.clone() }),
         held_by: Vec::new(),
+        adversarial: None,
     }
 }
