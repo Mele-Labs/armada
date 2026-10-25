@@ -142,6 +142,7 @@ pub mod phone;
 mod adversarial_serving;
 /// What an adversarial review is shown, and how its answer is read and pinned. Pure.
 pub mod adversarial_review;
+mod adversarial_keeping;
 /// Kit against the shared home, and what this machine syncs. `docs/concepts/kit.md`.
 pub mod home;
 /// Mods: folders on this machine that change how Bridge looks.

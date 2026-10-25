@@ -217,3 +217,28 @@ async fn a_finding_is_sent_as_the_persons_message_or_dismissed_even_once_the_pla
     eventually(|| async { told(&rig, "the plan as a whole") == 1 }).await;
     assert_eq!(code(start(&rig, &id, 1, true).await.expect_err("an old version")), "fleet.review_subject_stale");
 }
+
+#[tokio::test]
+async fn a_review_left_running_by_a_fleet_that_stopped_reads_as_failed_and_a_press_runs_it_again() {
+    let (rig, judge) = answered_with(FINDINGS);
+    let id = a_job_with_a_plan(&rig).await;
+    let orphan = store::KeptAdversarialReview {
+        version: 1,
+        state: "running".into(),
+        started_at: "2026-10-25T09:00:00.000Z".into(),
+        finished_at: None,
+        failed: None,
+        cost_micros: None,
+        findings: Vec::new(),
+    };
+    rig.fleet.store().lock().await.keep_adversarial_review(id.as_str(), &orphan).expect("kept");
+
+    let read = on_the_plan(&rig, &id).await.expect("a review");
+    assert_eq!((read.state, read.failed.as_deref()), (AdversarialReviewState::Failed, Some("Fleet restarted before the review finished")));
+    let kept = start(&rig, &id, 1, false).await.expect("as it stands");
+    assert_eq!(kept.state, AdversarialReviewState::Failed, "without again nothing runs");
+    assert!(asked_of(&judge).is_empty());
+
+    assert_eq!(start(&rig, &id, 1, true).await.expect("again").state, AdversarialReviewState::Running);
+    assert_eq!(ended(&rig, &id).await.state, AdversarialReviewState::Done);
+}
