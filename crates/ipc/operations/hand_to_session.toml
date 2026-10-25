@@ -6,7 +6,7 @@ description = "Hand one group of a job's plan to a linked job of its own, which 
 notes = """
 `POST /sessions/hand_to_session`, body `HandToSession`: `session_id`, the Job whose plan holds the group, and `group`, the group's id. Answered with `SessionHeld`: the new Job's id, its title (the group's) and `fork` false. `docs/concepts/session.md`, *Linked Jobs*.
 
-**It is `start_another_session` with a `group`, from the person.** Fleet starts a Job in the same repository, titled with the group's title, whose first message is the group's tasks word for word and the parent's handoff (its title and id, its slot, branches and open pull requests, and the last rows of its thread). Both ledgers keep the group (`detail.group` on `started_by` and `started_to`) and the parent's thread gets its `started` row. **The first message is sent**, since the press is the person's: the new Job starts a turn at once, where an agent's own start is held unsent for him.
+**It is `start_another_session` with a `group`, from the person.** Fleet starts a Job in the same repository, titled with the group's title, whose first message is the group's tasks word for word and the parent's handoff (its title and id, its slot, branches and open pull requests, and the last rows of its thread). Both ledgers keep the group (`detail.group` on `started_by` and `started_to`) and the parent's thread gets its `started` row. **The first message is sent**, since the press is the person's: the new Job starts a turn at once, where an agent's own start is held on its start card for him.
 
 Refused 422 `fleet.group_unknown` where the Job's plan holds no such group, and 409 `fleet.group_handed` where the group has a Job already. A Job Fleet does not host is the refusal `start_session` gives.
 

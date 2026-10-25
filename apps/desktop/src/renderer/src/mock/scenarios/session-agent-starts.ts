@@ -1,6 +1,6 @@
 // A Session's agent starts a Session, and forks its own conversation, when the owner asks it to. Either
-// waits for him: the agent's first message sits in the new Session's box unsent, and nothing runs until
-// he sends it. The walk `session-agent-starts` plays it, over a Fleet that holds the start as Fleet
+// waits for him: held on its start card with the agent's first message in the box, and nothing runs until
+// he presses Start. The walk `session-agent-starts` plays it, over a Fleet that holds the start as Fleet
 // would (`../sessions-fleet.ts`), with the agent's turns scripted on what he types.
 
 import type { RepositorySummary, SessionRow } from "@armada/protocol";

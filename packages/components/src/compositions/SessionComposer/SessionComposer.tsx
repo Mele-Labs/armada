@@ -109,6 +109,10 @@ export type SessionComposerProps = {
   onTune: (tuning: { model: string | null; effort: string | null }) => void;
   /** A value the proposer picked and the person has not changed: a glyph beside it says so, and goes once he changes it. */
   proposed?: { model?: boolean; effort?: boolean };
+  /** Send's word where it is not Send: a held Job's Start. The glyph stays. */
+  sendLabel?: string;
+  /** Send works on an empty box: a held Job whose Fleet gave no first message starts on its press alone. */
+  sendEmpty?: boolean;
   /** What `/` offers. */
   commands: readonly { name: string; says: string }[];
   /** What `@` offers as chips, grouped by kind: other Sessions. */
@@ -286,6 +290,8 @@ export function SessionComposer({
   efforts,
   onTune,
   proposed,
+  sendLabel = "Send",
+  sendEmpty = false,
   commands,
   taggable,
   searchFiles,
@@ -599,7 +605,7 @@ export function SessionComposer({
   const held = files.length + drawn.length > 0;
 
   const send = () => {
-    if (disabled || (text.trim() === "" && !held)) return;
+    if (disabled || (text.trim() === "" && !held && !sendEmpty)) return;
     const sent = draft;
     const done = onSend({ text: sentText(text, draft.tags).trim(), files, tags: draft.tags });
     forget();
@@ -626,9 +632,9 @@ export function SessionComposer({
     </div>
   );
   const sendButton = (
-    <Button type="submit" variant={sendWeight} size="sm" {...(slim ? { "aria-label": "Send" } : {})} disabled={disabled || (text.trim() === "" && !held)}>
+    <Button type="submit" variant={sendWeight} size="sm" {...(slim ? { "aria-label": sendLabel } : {})} disabled={disabled || (text.trim() === "" && !held && !sendEmpty)}>
       <Send size={12} strokeWidth={2} aria-hidden />
-      {slim ? null : "Send"}
+      {slim ? null : sendLabel}
     </Button>
   );
   const said = MODES.find((one) => one.id === mode)!.says;
@@ -735,7 +741,7 @@ export function SessionComposer({
           </>
         )}
         {bare || (compact && held) ? null : chips}
-        {slim ? <Tooltip label="Send">{sendButton}</Tooltip> : sendButton}
+        {slim ? <Tooltip label={sendLabel}>{sendButton}</Tooltip> : sendButton}
       </div>
     </form>
   );
@@ -780,7 +786,7 @@ function Row({ item, on, onHover, onChoose }: { item: Item; on: boolean; onHover
  * A select with its tooltip, and below the breakpoint a glyph in front of it
  * naming what it sets, so the row is a glyph and a value and not a label.
  */
-export function Pick({ Glyph, compact, label, proposed = false, children }: { Glyph: LucideIcon; compact: boolean; label: string; proposed?: boolean; children: ReactNode }) {
+export function Pick({ Glyph, compact, label, proposed = false, mark, children }: { Glyph: LucideIcon; compact: boolean; label: string; proposed?: boolean; mark?: { Glyph: LucideIcon; label: string }; children: ReactNode }) {
   return (
     <Tooltip label={label}>
       <span className="armada-session-composer__pick" data-compact={compact || undefined}>
@@ -793,6 +799,13 @@ export function Pick({ Glyph, compact, label, proposed = false, children }: { Gl
             </span>
           </Tooltip>
         ) : null}
+        {mark === undefined ? null : (
+          <Tooltip label={mark.label}>
+            <span className="armada-session-composer__proposed" role="img" aria-label={mark.label}>
+              <mark.Glyph size={12} strokeWidth={2} aria-hidden />
+            </span>
+          </Tooltip>
+        )}
       </span>
     </Tooltip>
   );

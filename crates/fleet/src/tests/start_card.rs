@@ -53,7 +53,31 @@ fn told(rig: &Rig, containing: &str) -> usize {
 }
 
 async fn begin(rig: &Rig, id: &SessionId, delivery: Option<DeliveryChoice>) -> Result<SessionRecord, Refusal> {
-    Arc::clone(&rig.fleet).begin_session(BeginSession { session_id: id.clone(), delivery }).await
+    Arc::clone(&rig.fleet).begin_session(BeginSession { session_id: id.clone(), delivery, message: None }).await
+}
+
+/// Start pressed with the box as he left it.
+async fn begin_edited(rig: &Rig, id: &SessionId, delivery: Option<DeliveryChoice>, message: &str) -> Result<SessionRecord, Refusal> {
+    Arc::clone(&rig.fleet)
+        .begin_session(BeginSession { session_id: id.clone(), delivery, message: Some(message.to_string()) })
+        .await
+}
+
+/// The messages on the thread, by their words.
+async fn said_on_the_thread(rig: &Rig, id: &SessionId) -> Vec<String> {
+    rig.rows(id)
+        .await
+        .into_iter()
+        .filter_map(|row| match row {
+            SessionRow::Message { text, .. } => Some(text),
+            _ => None,
+        })
+        .collect()
+}
+
+/// The reading the first message began has landed, and with it any default.
+async fn read(rig: &Rig, id: &SessionId) {
+    eventually(|| async { record(rig, id).await.proposal.is_none_or(|one| !one.reading) }).await;
 }
 
 async fn on_gate(rig: &Rig, id: &SessionId) {
@@ -96,21 +120,141 @@ async fn offered(rig: &Rig) -> Option<DeliveryPicked> {
 }
 
 #[tokio::test]
-async fn a_held_jobs_first_message_starts_no_agent_until_begin() {
+async fn a_held_jobs_first_message_waits_off_the_thread_in_his_box_until_begin() {
     let rig = rig();
     let id = rig.start_held().await;
     assert!(card(&rig, &id).await.is_some(), "the row says it waits on its card");
 
     rig.send_unsettled(&id, FIRST).await;
     assert!(rig.stand_in.starts().is_empty(), "no agent runs before Start");
-    assert!(
-        rig.rows(&id).await.iter().any(|row| matches!(row, SessionRow::Message { text, .. } if text == FIRST)),
-        "the message is on the thread"
-    );
+    assert!(said_on_the_thread(&rig, &id).await.is_empty(), "the first message is not on the thread");
+    assert_eq!(card(&rig, &id).await.and_then(|one| one.message).as_deref(), Some(FIRST), "it is the card's");
 
-    let begun = begin(&rig, &id, None).await.expect("begun");
+    let begun = begin(&rig, &id, Some(DeliveryChoice::OpenPr)).await.expect("begun");
     assert!(begun.hosted.expect("hosted").start.is_none(), "the card is gone once it has begun");
     eventually(|| async { rig.stand_in.starts().len() == 1 && told(&rig, FIRST) == 1 }).await;
+    assert_eq!(said_on_the_thread(&rig, &id).await, [FIRST], "Start writes it to the thread");
+}
+
+#[tokio::test]
+async fn begin_with_his_edit_sends_his_words_and_keeps_the_picture() {
+    let rig = rig();
+    let id = rig.start_held().await;
+    Arc::clone(&rig.fleet)
+        .send_session_message(ipc::SendSessionMessage {
+            session_id: id.clone(),
+            text: FIRST.into(),
+            attachments: vec![ipc::SessionUpload { name: "shot.png".into(), media_type: "image/png".into(), data: "aGVsbG8=".into() }],
+            mentions: Vec::new(),
+        })
+        .await
+        .expect("taken");
+
+    begin_edited(&rig, &id, Some(DeliveryChoice::OpenPr), "  the reader drops blank lines too  ").await.expect("begun");
+    eventually(|| async { told(&rig, "the reader drops blank lines too") == 1 }).await;
+    assert_eq!(told(&rig, FIRST), 0, "what he replaced is not sent");
+    assert_eq!(told(&rig, "aGVsbG8="), 1, "the picture goes with his words");
+    let rows = rig.rows(&id).await;
+    let kept = rows.iter().find_map(|row| match row {
+        SessionRow::Message { from: ipc::SessionVoice::You, text, files, .. } => Some((text.clone(), files.len())),
+        _ => None,
+    });
+    assert_eq!(kept, Some(("the reader drops blank lines too".to_string(), 1)), "the thread keeps his words and the file");
+}
+
+#[tokio::test]
+async fn begin_with_words_on_a_job_that_held_none_makes_them_its_first_turn() {
+    let rig = rig();
+    let id = rig.start_held().await;
+    assert_eq!(card(&rig, &id).await.and_then(|one| one.message), None, "nothing is kept yet");
+
+    begin_edited(&rig, &id, None, "the reader drops blank lines").await.expect("begun");
+    eventually(|| async { rig.stand_in.starts().len() == 1 && told(&rig, "the reader drops blank lines") == 1 }).await;
+    assert_eq!(said_on_the_thread(&rig, &id).await, ["the reader drops blank lines"], "written to the thread as his");
+}
+
+#[tokio::test]
+async fn a_held_notes_composed_turn_is_the_cards_message_and_survives_a_restart_whole() {
+    let rig = rig();
+    let id = rig.start_held().await;
+    Arc::clone(&rig.fleet).send_session_note(super::session_notes::note(&id, "Other commands", None)).await.expect("taken");
+    let message = card(&rig, &id).await.and_then(|one| one.message).expect("the note is the first message");
+    assert!(message.starts_with(super::session_notes::SAID) && message.contains("Pointed at: li \"Other commands\""), "{message}");
+    assert!(said_on_the_thread(&rig, &id).await.is_empty());
+
+    let rig = rig.restarted(fitted);
+    assert_eq!(card(&rig, &id).await.and_then(|one| one.message), Some(message.clone()), "kept whole across the restart");
+    begin(&rig, &id, Some(DeliveryChoice::OpenPr)).await.expect("begun");
+    eventually(|| async { told(&rig, "Pointed at: li") == 1 }).await;
+    assert_eq!(told(&rig, "aGVsbG8="), 1, "with the note's picture");
+    assert_eq!(said_on_the_thread(&rig, &id).await, [super::session_notes::SAID], "the thread keeps his words alone");
+}
+
+#[tokio::test]
+async fn another_jobs_word_to_a_held_job_with_nothing_kept_is_its_first_turn() {
+    let rig = rig();
+    let held = rig.start_held().await;
+    a_job_writes_to(&rig, &held, 0).await;
+    let message = card(&rig, &held).await.and_then(|one| one.message).expect("its first message");
+    assert!(message.starts_with("A message from job") && message.ends_with("please review"), "{message}");
+    assert!(said_on_the_thread(&rig, &held).await.is_empty());
+
+    begin(&rig, &held, Some(DeliveryChoice::OpenPr)).await.expect("begun");
+    eventually(|| async { rig.stand_in.starts().len() == 2 && lines_of(&rig, 1).len() == 1 }).await;
+    assert!(lines_of(&rig, 1)[0].contains("A message from job"));
+    assert_eq!(said_on_the_thread(&rig, &held).await, ["please review"]);
+}
+
+#[tokio::test]
+async fn a_held_job_waits_in_needs_you_until_begin() {
+    let rig = rig();
+    let id = rig.start_held().await;
+    let item = record(&rig, &id).await.waiting_for.into_iter().find(|one| one.source == WaitingSource::FirstMessage).expect("it waits");
+    assert_eq!((item.id.clone(), item.text.as_str()), (format!("unsent:{}", id.as_str()), "First message"));
+    let act = item.act.expect("an act");
+    assert_eq!((act.kind, act.target.as_str()), (ipc::WaitingActKind::Message, id.as_str()));
+
+    rig.send_unsettled(&id, FIRST).await;
+    begin(&rig, &id, Some(DeliveryChoice::OpenPr)).await.expect("begun");
+    assert!(record(&rig, &id).await.waiting_for.iter().all(|one| one.source != WaitingSource::FirstMessage), "Start settles it");
+
+    let ended = rig.start_held().await;
+    let closed = Arc::clone(&rig.fleet).close_session(ipc::CloseSession { session_id: ended }).await.expect("closed");
+    assert!(closed.waiting_for.is_empty(), "ending it settles it too");
+}
+
+#[tokio::test]
+async fn a_held_job_with_no_workflow_takes_one_once_read_and_its_card_offers_auto_land() {
+    let rig = rig();
+    let id = rig.start_held().await;
+    rig.send_unsettled(&id, FIRST).await;
+    read(&rig, &id).await;
+    assert_eq!(record(&rig, &id).await.workflow.as_deref(), Some("gate"), "the repository's first, where it holds no feature");
+    assert_eq!(
+        card(&rig, &id).await.and_then(|one| one.picked),
+        Some(DeliveryPicked { choice: DeliveryChoice::AutoLand, from: DeliveryPickedFrom::Default })
+    );
+
+    // His custom pick stands: nothing defaults over it.
+    let custom = rig.start_held().await;
+    Arc::clone(&rig.fleet).set_session_workflow(SetSessionWorkflow { session_id: custom.clone(), workflow: None }).await.expect("set");
+    rig.send_unsettled(&custom, FIRST).await;
+    read(&rig, &custom).await;
+    assert_eq!(record(&rig, &custom).await.workflow, None);
+    assert_eq!(card(&rig, &custom).await.and_then(|one| one.picked), None, "a card that asks nothing offers nothing");
+}
+
+#[tokio::test]
+async fn a_held_job_takes_the_feature_workflow_where_the_repository_holds_one() {
+    let rig = rig_fitted(|fittings| {
+        fitted(fittings);
+        fittings.starting().workflows =
+            ["bug", "feature"].into_iter().map(super::daemon::workflow_named).map(|one| (one.id().clone(), one)).collect();
+    });
+    let id = rig.start_held().await;
+    rig.send_unsettled(&id, FIRST).await;
+    read(&rig, &id).await;
+    assert_eq!(record(&rig, &id).await.workflow.as_deref(), Some("feature"), "not bug, which sorts first");
 }
 
 #[tokio::test]
@@ -119,10 +263,48 @@ async fn messages_sent_while_held_go_in_the_order_they_came() {
     let id = rig.start_held().await;
     rig.send_unsettled(&id, "first words").await;
     rig.send_unsettled(&id, "second words").await;
-    begin(&rig, &id, None).await.expect("begun");
+    begin(&rig, &id, Some(DeliveryChoice::OpenPr)).await.expect("begun");
     eventually(|| async { sent(&rig).len() == 2 }).await;
     let lines = sent(&rig);
     assert!(lines[0].contains("first words") && lines[1].contains("second words"), "{lines:?}");
+}
+
+/// The thread's messages by their words, and the agent's lines, are in the order he sent them.
+async fn thread_and_agent_read_in_order(rig: &Rig, id: &SessionId, words: &[&str]) {
+    eventually(|| async { sent(rig).len() == words.len() }).await;
+    let lines = sent(rig);
+    for (line, word) in lines.iter().zip(words) {
+        assert!(line.contains(word), "the agent got {lines:?}");
+    }
+    assert_eq!(said_on_the_thread(rig, id).await, words, "the thread reads as the agent did");
+}
+
+#[tokio::test]
+async fn later_messages_sent_while_held_are_written_to_the_thread_on_start_after_the_first() {
+    let rig = rig();
+    let id = rig.start_held().await;
+    rig.send_unsettled(&id, "first words").await;
+    rig.send_unsettled(&id, "second words").await;
+    rig.send_unsettled(&id, "third words").await;
+    assert!(said_on_the_thread(&rig, &id).await.is_empty(), "nothing reaches the thread while he can still edit the first");
+
+    begin(&rig, &id, Some(DeliveryChoice::OpenPr)).await.expect("begun");
+    thread_and_agent_read_in_order(&rig, &id, &["first words", "second words", "third words"]).await;
+}
+
+#[tokio::test]
+async fn later_messages_sent_while_held_survive_a_fleet_restart_and_are_written_in_order_on_start() {
+    let rig = rig();
+    let id = rig.start_held().await;
+    rig.send_unsettled(&id, "first words").await;
+    rig.send_unsettled(&id, "second words").await;
+    let rig = rig.restarted(fitted);
+    rig.send_unsettled(&id, "third words").await;
+    assert!(said_on_the_thread(&rig, &id).await.is_empty(), "still nothing on the thread");
+    assert!(rig.stand_in.starts().is_empty(), "no agent runs before Start");
+
+    begin(&rig, &id, Some(DeliveryChoice::OpenPr)).await.expect("begun");
+    thread_and_agent_read_in_order(&rig, &id, &["first words", "second words", "third words"]).await;
 }
 
 #[tokio::test]
@@ -134,7 +316,7 @@ async fn a_message_sent_once_the_first_has_been_read_is_kept_too() {
     eventually(|| async { runtime.state().proposal.reading.is_none() }).await;
     rig.send_unsettled(&id, "second words").await;
     assert!(rig.stand_in.starts().is_empty(), "nothing is reading, and the Job still waits for Start");
-    begin(&rig, &id, None).await.expect("begun");
+    begin(&rig, &id, Some(DeliveryChoice::OpenPr)).await.expect("begun");
     eventually(|| async { sent(&rig).len() == 2 }).await;
     let lines = sent(&rig);
     assert!(lines[0].contains("first words") && lines[1].contains("second words"), "{lines:?}");
@@ -197,7 +379,10 @@ async fn begin_where_the_kind_asks_nothing_writes_no_delivery_row_and_ignores_a_
     let rig = rig();
     let id = rig.start_held().await;
     assert_eq!(card(&rig, &id).await.map(|one| one.asks_delivery), Some(false), "a custom Job asks nothing");
+    // He chose custom, so no default workflow goes over it once the message is read.
+    Arc::clone(&rig.fleet).set_session_workflow(SetSessionWorkflow { session_id: id.clone(), workflow: None }).await.expect("set");
     rig.send_unsettled(&id, FIRST).await;
+    read(&rig, &id).await;
     begin(&rig, &id, Some(DeliveryChoice::AutoLand)).await.expect("begun");
     assert!(rig.rows(&id).await.iter().all(|row| !matches!(row, SessionRow::Delivery { .. })));
     assert!(!record(&rig, &id).await.auto_land, "a landing nobody asked for turns nothing on");
@@ -284,7 +469,11 @@ async fn three_auto_land_picks_make_auto_land_the_usual_and_two_make_none() {
         let id = held_with(&rig, FIRST).await;
         begin(&rig, &id, Some(DeliveryChoice::AutoLand)).await.expect("begun");
     }
-    assert_eq!(offered(&rig).await, None, "two picks are not yet a habit");
+    assert_eq!(
+        offered(&rig).await,
+        Some(DeliveryPicked { choice: DeliveryChoice::AutoLand, from: DeliveryPickedFrom::Default }),
+        "two picks are not yet a habit, so the card offers Fleet's own"
+    );
     let id = held_with(&rig, FIRST).await;
     begin(&rig, &id, Some(DeliveryChoice::AutoLand)).await.expect("begun");
     assert_eq!(offered(&rig).await, Some(DeliveryPicked { choice: DeliveryChoice::AutoLand, from: DeliveryPickedFrom::Usual }));
@@ -371,7 +560,8 @@ async fn every_way_he_chooses_is_recorded_as_a_pick() {
 }
 
 /// Job `a` tells `to`, with `SendMessage`, to "please review". `a` is the first process the stand-in starts.
-async fn a_job_writes_to(rig: &Rig, to: &SessionId) -> SessionId {
+/// `rows` is how many messages `to`'s thread holds before it: a held Job's turns are not on it.
+async fn a_job_writes_to(rig: &Rig, to: &SessionId, rows: usize) -> SessionId {
     let a = rig.start().await;
     rig.send(&a, "hello a").await;
     rig.stand_in.init(0);
@@ -383,7 +573,12 @@ async fn a_job_writes_to(rig: &Rig, to: &SessionId) -> SessionId {
             detail: CallDetail::of(&format!("to {}: please review", address_of(to.as_str()))),
         }],
     );
-    eventually(|| async { rig.rows(to).await.iter().filter(|row| matches!(row, SessionRow::Message { .. })).count() == 2 }).await;
+    eventually(|| async {
+        let reached = rig.rows(to).await.iter().filter(|row| matches!(row, SessionRow::Message { .. })).count() == rows + 1;
+        let kept = !rig.fleet.store().lock().await.held_later_turns(to.as_str()).unwrap().is_empty();
+        reached || kept || card(rig, to).await.and_then(|one| one.message).is_some_and(|said| said.contains("please review"))
+    })
+    .await;
     a
 }
 
@@ -396,10 +591,10 @@ async fn another_jobs_message_to_a_held_job_reaches_the_agent_once_after_begin_a
     let rig = rig();
     let held = rig.start_held().await;
     rig.send_unsettled(&held, FIRST).await;
-    a_job_writes_to(&rig, &held).await;
+    a_job_writes_to(&rig, &held, 0).await;
     assert_eq!(rig.stand_in.starts().len(), 1, "only the Job that wrote has an agent; the held one is not woken");
 
-    begin(&rig, &held, None).await.expect("begun");
+    begin(&rig, &held, Some(DeliveryChoice::OpenPr)).await.expect("begun");
     eventually(|| async { rig.stand_in.starts().len() == 2 && lines_of(&rig, 1).len() == 2 }).await;
     let lines = lines_of(&rig, 1);
     assert!(lines[0].contains(FIRST), "{lines:?}");
@@ -412,10 +607,10 @@ async fn another_jobs_message_to_a_held_job_survives_a_fleet_restart() {
     let rig = rig();
     let held = rig.start_held().await;
     rig.send_unsettled(&held, FIRST).await;
-    a_job_writes_to(&rig, &held).await;
+    a_job_writes_to(&rig, &held, 0).await;
     let rig = rig.restarted(fitted);
 
-    begin(&rig, &held, None).await.expect("begun");
+    begin(&rig, &held, Some(DeliveryChoice::OpenPr)).await.expect("begun");
     eventually(|| async { rig.stand_in.starts().len() == 1 && lines_of(&rig, 0).len() == 2 }).await;
     let lines = lines_of(&rig, 0);
     assert!(lines[0].contains(FIRST) && lines[1].contains("please review"), "in the order the rows were written: {lines:?}");

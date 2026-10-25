@@ -9,15 +9,15 @@ A Job can be dispatched to **start when another Job reaches a point**, with that
 | What waits | A Job with no message sent: it holds its brief, takes **no slot and runs no process**. The wait is a fact on its record (`waits`), kept in `session_waits` and absent once it has started. It stands in Work under the Job it waits on, in the state `after` |
 | The condition | `ends` (the default), `group_done` (a group of the plan of the Job waited on), `task_done` (one task), `pr_pushed`, `pr_lands`. Fleet **reads it from what it observes**: the Job's state, its plan's progress and its pull request events, never from an agent's call. The first pull request seen is the one `pr_pushed` and `pr_lands` mean, and it is kept |
 | Where it starts from | `main` (the default) or `branch`, the branch of that pull request. Dispatch defaults `pr_pushed` to `branch` |
-| The start | Once, when the condition is met: the first message is the **handoff of the Job waited on** (the builder `hand_to_session` uses) followed by the brief. A restart cannot start it twice |
-| Who sets it | Dispatch, from a brief that tags a Job with `@` and says when, read by the proposer (`read_session_wait`). A tag with no condition in the words is **plain**: the new Job does not wait, starts at once, and the tag goes with its first message; or an agent's `start_another_session` with `after`. A reading that cannot be had is the defaults: it ends, from `main`, asking nothing |
+| The start | Once, when the condition is met: the Job is held (*A held Job*), its first message the **handoff of the Job waited on** (the builder `hand_to_session` uses) followed by the brief. A restart cannot start it twice |
+| Who sets it | Dispatch, from a brief that tags a Job with `@` and says when, read by the proposer (`read_session_wait`). A tag with no condition in the words is **plain**: the new Job does not wait, is held at once, and the tag goes with its first message; or an agent's `start_another_session` with `after`. A reading that cannot be had is the defaults: it ends, from `main`, asking nothing |
 | The Job waited on | Is told what the waiting one needs, once, and woken if idle, as any news. It may change the condition or the base with `change_waiting`, which is allowed only for a Job that waits on it; the owner may change any. Each change writes a `waiter` row in both threads. The owner can start a waiting Job at once (`start_waiting_now`) |
 | Refused before anything is made | The Job waited on is unknown, is the Job itself, has ended, or has no such group or task in its plan |
 
 > **Rule.** A waiting Job starts on what Fleet observed, and what it waits for can be changed by the Job it waits on.
 > Why: the Job doing the work knows when the point is reached and what is needed of it, and a hand that cannot move the condition leaves a Job waiting on a point that will not come.
 
-The owner's Job sends that message when the condition is met. An agent's waiting Job holds it for the owner instead, as any start an agent makes, so nothing runs until he sends it.
+When the condition is met the Job is held with that message in its composer, whoever dispatched it, so nothing runs until he presses Start. While it waits it is not held and holds no first message.
 
 Bridge draws it from the wire, with no state of its own:
 

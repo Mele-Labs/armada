@@ -1,10 +1,9 @@
 //! A Session's agent starts a Session, or forks its own conversation into one, and the new one waits
 //! for the person. Since 23.80. `docs/concepts/session.md`, *A Session an agent started*.
 //!
-//! **The new Session is created and listed at once, and nothing runs.** The agent's first message is
-//! kept as an `unsent` attachment on its ledger and read back as a waiting item, so it is the
-//! person's to send. His ordinary send settles both (`first_message_sent`), and ending the Session
-//! gives the attachment back with everything else it holds.
+//! **The new Session is created and listed at once, held on its start card, and nothing runs.** The
+//! agent's first message is its held first turn (`start_card.rs`), which the person edits in his
+//! message box and sends with Start; until then it waits in his list as a `first_message` item.
 //!
 //! **The caller is placed by its connection and never named**, so a fork can only be of the
 //! caller's own conversation.
@@ -26,10 +25,6 @@ use crate::daemon::Fleet;
 const AGENT_START_UNPLACED: &str = "fleet.agent_start_unplaced";
 const AGENT_START_EMPTY: &str = "fleet.agent_start_empty";
 
-/// On the new Session: its first message, which the person has not sent. The target is its words.
-pub(crate) const UNSENT: &str = "unsent";
-/// The id of the waiting item an `unsent` attachment is read as, followed by the Session's.
-pub(crate) const UNSENT_ITEM: &str = "unsent:";
 /// On the new Session, naming the one whose agent started it; and on that one, naming the new.
 const STARTED_BY: &str = "started_by";
 const STARTED_TO: &str = "started_to";
@@ -107,7 +102,8 @@ where
                 fork: None,
                 request: None,
                 after: None,
-                held: false,
+                // A Session that waits is held once its wait is met.
+                held: after.is_none(),
             })
             .await?;
         let brief = words.message.clone();
@@ -115,7 +111,11 @@ where
         if let Ok((session, hosting)) = self.session_and_hosting(made.id.as_str()).await {
             self.reading_begun(&session, &hosting, &brief);
         }
-        let held = self.held_for_person(&me, made, words, false, group.as_deref(), after.is_none()).await?;
+        let new = made.id.as_str().to_string();
+        if after.is_none() {
+            self.held_with(&new, &brief).await?;
+        }
+        let held = self.held_for_person(&me, made, words, false, group.as_deref()).await?;
         // A Session that waits holds its first message until the condition is met, and then for the person.
         if let Some(after) = after {
             let told = after.session.as_str() != me;
@@ -155,15 +155,15 @@ where
                 }),
                 request: None,
                 after: None,
-                held: false,
+                held: true,
             })
             .await?;
-        self.held_for_person(&me, made, words, true, None, true).await
+        self.held_with(made.id.as_str(), &words.message).await?;
+        self.held_for_person(&me, made, words, true, None).await
     }
 
-    /// Keep the first message unsent, link the two ledgers, write the callout in the caller's thread
-    /// and publish both. **A fork's links are the fork's own** (`forked_from`, `forked_to`), written
-    /// when it was made.
+    /// Link the two ledgers, write the callout in the caller's thread and publish both. **A fork's
+    /// links are the fork's own** (`forked_from`, `forked_to`), written when it was made.
     pub(super) async fn held_for_person(
         &self,
         caller: &str,
@@ -171,7 +171,6 @@ where
         words: Words,
         fork: bool,
         group: Option<&str>,
-        unsent: bool,
     ) -> Result<SessionHeld, Refusal> {
         let new = made.id.as_str().to_string();
         let manifest = made
@@ -181,11 +180,6 @@ where
             .unwrap_or_default();
         if !fork {
             self.started_linked(caller, &new, &manifest, group).await?;
-        }
-        if unsent {
-            let now = self.now().as_str().to_string();
-            let unsent = attachment(&new, UNSENT, &manifest, &words.message, AttachmentState::Standing, BTreeMap::new(), &now);
-            self.store().lock().await.attach(&unsent, false).map_err(|why| self.ledger_fault(why))?;
         }
         self.row_put(
             caller,
@@ -218,29 +212,6 @@ where
             store.attach(&link, false).map_err(|why| self.ledger_fault(why))?;
         }
         Ok(())
-    }
-
-    /// The person sent the Session a message, so the first one an agent held for him is sent: the
-    /// attachment is spent and the waiting item it was read as goes with it. Nothing, where none was held.
-    pub(crate) async fn first_message_sent(&self, session: &str) {
-        let now = self.now().as_str().to_string();
-        let mut store = self.store().lock().await;
-        let Ok(held) = store.attachments_of(&Holder::session(session)) else {
-            return;
-        };
-        for one in held
-            .into_iter()
-            .filter(|one| one.kind == UNSENT && one.state == AttachmentState::Standing)
-        {
-            let _ = store.settle(
-                &one.holder,
-                UNSENT,
-                &one.manifest_id,
-                &one.target,
-                AttachmentState::Spent,
-                &now,
-            );
-        }
     }
 }
 

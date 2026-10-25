@@ -19,6 +19,7 @@ import type {
   DismissWaiting,
   Attachment,
   ClaimPullRequest,
+  DeliveryPicked,
   McpServerAct,
   McpSignIn,
   SessionMcpActed,
@@ -27,6 +28,7 @@ import type {
   HelmCallInFlight,
   HubPullRequest,
   MergeLines,
+  ProposedField,
   PullRequestState,
   SendSessionMessage,
   SessionRecord,
@@ -316,19 +318,33 @@ export class FakeSessionsFleet {
                 ? undefined
                 : { on: { id: after.session, title: this.records.find((one) => one.id === after.session)?.title ?? after.session }, condition: after.condition ?? { kind: "ends" as const }, base: after.base ?? ("main" as const), brief: request ?? "", by: "you" as const, ...(after.needs === undefined ? {} : { needs: after.needs }) };
             const record = hosted(`01SESSION${String((this.minted += 1)).padStart(8, "0")}ABCDEFGH`, { ...this.began(), ...(manifest_id === undefined ? {} : { manifest_id }), ...(waits === undefined ? {} : { waits }) });
-            // Held: it waits on its start card, with no choice standing, and nothing runs until `beginSession`.
-            const started = held === true && after === undefined ? { ...record, hosted: { ...record.hosted!, start: { asks_delivery: true } } } : record;
+            // Held: it waits on its start card, with no choice standing, and nothing runs until `beginSession`. The words he dispatched
+            // are the first message, held on the card and not yet in the thread; the title is their first words, as the proposer would write it.
+            const words = request?.trim() ?? "";
+            const started =
+              held === true && after === undefined
+                ? { ...record, ...(words === "" ? {} : { title: words.split(/\s+/).slice(0, 8).join(" ") }), hosted: { ...record.hosted!, start: { asks_delivery: true, ...(words === "" ? {} : { message: request }) } } }
+                : record;
             this.set([started, ...this.records]);
             return { ok: true, value: started };
           },
           beginSession: async (begin) => {
             this.calls.begun.push(begin);
+            // The first message is his edit, else the one the card held. It lands in the thread now, and the agent plays in on it.
+            const first = begin.message ?? this.records.find((one) => one.id === begin.session_id)?.hosted?.start?.message;
             // Fleet starts the agent and the card goes: `start` is gone from the record it answers.
-            return this.change(begin.session_id, (one) => {
+            const begun = this.change(begin.session_id, (one) => {
               const { start: _start, ...rest } = one.hosted!;
               return { ...one, hosted: { ...rest, turn: { state: "working" } } };
             });
+            if (begun.ok && first !== undefined && first.trim() !== "") {
+              this.threads = { ...this.threads, [begin.session_id]: this.threads[begin.session_id] ?? [] };
+              this.row(begin.session_id, { kind: "message", id: this.rowId(), at: AT, from: { kind: "you" }, text: first });
+              this.onSend?.({ session_id: begin.session_id, text: first });
+            }
+            return begun;
           },
+          setSessionWorkflow: async (sessionId, workflow) => this.change(sessionId, ({ workflow: _was, ...one }) => (workflow === undefined ? one : { ...one, workflow })),
           readSessionWait: async (sessionId, request) => {
             this.calls.readWaits.push({ sessionId, request });
             return { ok: true, value: this.reading };
@@ -348,6 +364,10 @@ export class FakeSessionsFleet {
           sendSessionMessage: async (send) => {
             if (this.refusesSend !== undefined) return { ok: false, outcome: { ok: false, why: "refused", error: this.refusesSend } as never };
             this.calls.sent.push(send);
+            // A Job held on its start card takes the words as its first message, on the card; the thread has nothing until Start.
+            if (this.records.find((one) => one.id === send.session_id)?.hosted?.start !== undefined) {
+              return this.change(send.session_id, (one) => ({ ...one, hosted: { ...one.hosted!, start: { ...one.hosted!.start!, message: send.text } } }));
+            }
             this.row(send.session_id, {
               kind: "message",
               id: this.rowId(),
@@ -358,13 +378,7 @@ export class FakeSessionsFleet {
                 ? {}
                 : { files: send.attachments.map((one, at) => ({ id: `${this.rowed}-${at}`, name: one.name, media_type: one.media_type })) }),
             });
-            // The first message of a Session an agent started: sent, it is no longer unsent and nothing waits on it.
-            const sent = this.change(send.session_id, (one) => ({
-              ...one,
-              attachments: one.attachments.map((a) => (a.kind === "unsent" ? { ...a, state: "spent" as const } : a)),
-              waiting_for: (one.waiting_for ?? []).filter((item) => !item.id.startsWith("unsent:")),
-              hosted: { ...one.hosted!, turn: { state: "working" } },
-            }));
+            const sent = this.change(send.session_id, (one) => ({ ...one, hosted: { ...one.hosted!, turn: { state: "working" } } }));
             this.onSend?.(send);
             return sent;
           },
@@ -457,7 +471,10 @@ export class FakeSessionsFleet {
             if (parent === undefined || title === undefined) return { ok: false, outcome: { ok: false, why: "not_connected" } };
             // The press is his, so the brief is sent: nothing is left held.
             const id = this.agentStarts(sessionId, { title, message: title, group });
-            this.change(id, (one) => ({ ...one, attachments: one.attachments.filter((a) => a.kind !== "unsent"), waiting_for: [] }));
+            this.change(id, (one) => {
+              const { start: _start, ...rest } = one.hosted!;
+              return { ...one, hosted: rest };
+            });
             return { ok: true, value: { session_id: id, title, fork: false } };
           },
           forkSessionAt: async (sessionId, at) => {
@@ -713,21 +730,34 @@ export class FakeSessionsFleet {
 
   /**
    * `start_session`, from the agent of `fromId` when the person asked it to: a new Session (`fork` absent), or a fork of
-   * the agent's own conversation, whole or at one of its messages. **Fleet holds it for him**: the agent's first
-   * message is stored as the Session's unsent message, and nothing runs until he sends it. Answers the new id.
+   * the agent's own conversation, whole or at one of its messages. **Fleet holds it for him**: the Job opens on its start
+   * card with the agent's first message in the Message box, and nothing runs until he presses Start. Answers the new id.
    */
   agentStarts(fromId: string, how: { title: string; message: string; fork?: { at?: string }; group?: string }): string {
     const id = `01AGENT${String((this.minted += 1)).padStart(8, "0")}ABCDEFGHI`;
     const grouped: Record<string, string> = how.group === undefined ? {} : { group: how.group };
     const link = how.fork === undefined ? held("started_by", fromId, grouped, "spent") : held("forked_from", fromId, how.fork.at === undefined ? {} : { at: how.fork.at }, "spent");
-    const record = hosted(id, {
-      title: how.title,
-      attachments: [link, held("unsent", how.message)],
-      waiting_for: [{ id: `unsent:${id}`, text: "First message", since: new Date().toISOString(), source: "first_message", act: { kind: "message", target: id } }],
-    });
+    const record = { ...hosted(id, { title: how.title, attachments: [link] }), hosted: { ...hosted(id).hosted!, start: { asks_delivery: true, picked: { choice: "open_pr" as const, from: "usual" as const }, message: how.message } } };
     const back = how.fork === undefined ? held("started_to", id, grouped, "spent") : held("forked_to", id, {}, "spent");
     this.set([record, ...this.records.map((one) => (one.id === fromId ? { ...one, attachments: [...one.attachments, back] } : one))]);
     return id;
+  }
+
+  /**
+   * The proposer's reading of a held Job, as Fleet's record carries it: `reading` while the call is out, then the workflow it picked, the fields
+   * it chose, and the landing his usual or his words gave.
+   */
+  proposes(id: string, reading: { reading: true } | { workflow: string; picked: ProposedField[]; landing?: DeliveryPicked }): void {
+    this.change(id, (one) => {
+      if ("reading" in reading) return { ...one, proposal: { reading: true } };
+      const { landing, workflow, picked } = reading;
+      return {
+        ...one,
+        workflow,
+        proposal: { picked },
+        ...(landing === undefined || one.hosted?.start === undefined ? {} : { hosted: { ...one.hosted, start: { ...one.hosted.start, picked: landing } } }),
+      };
+    });
   }
 
   /** The agent takes a turn on its own clock: working, then the rows it writes (a function is made as its turn reaches it), then idle. */
