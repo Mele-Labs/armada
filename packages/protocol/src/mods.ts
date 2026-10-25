@@ -77,7 +77,7 @@ export type ModAim = "theme" | "layout" | "words" | "fleet" | "tracker" | "sourc
 
 /**
  * `POST /mods/session`'s body: a Mod Job, a hosted Job on Armada's own repository for modding Armada
- * itself. Exactly one of `note` and `said`, else a 422 `fleet.unacceptable_mod_start`. `note` is what he
+ * itself. Not both `note` and `said`, nor a blank `said`: a 422 `fleet.unacceptable_mod_start`. `note` is what he
  * pointed at, as `send_session_note` takes it, and is the Job's first message.
  * Where Fleet does not serve that repository, the Job starts in the mods folder and makes mods only.
  */
@@ -91,6 +91,9 @@ export type StartModSession = {
   /** His words, where Mod was pressed on nothing: the Job's first message after the brief. */
   said?: string;
 };
+
+/** What he picked in an empty Mod Job: the kind of mod he is aiming for, `source` for a change to Armada's code. Read with his first message only. */
+export type ModAim = "theme" | "layout" | "words" | "fleet" | "tracker" | "source";
 
 /** A Mod Job started. `send_failed` is why its first message was not sent, where it was refused; open the Job and send by hand. */
 export type ModSessionStarted = { session_id: string; title: string; send_failed?: string };

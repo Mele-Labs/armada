@@ -79,11 +79,11 @@ pub(crate) async fn send_session_message<D: HostedSessions>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let sent: ipc::SendSessionMessage = match ipc::decode("a message to a job", &body) {
+    let sent: ipc::SendSessionMessageBody = match ipc::decode("a message to a job", &body) {
         Ok(sent) => sent,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
-    match served.shared().send_session_message(sent).await {
+    match served.shared().send_session_message_aiming(sent.message, sent.aim).await {
         Ok(record) => answer(StatusCode::ACCEPTED, &record, served.run_id()),
         Err(refusal) => refused(refusal),
     }
