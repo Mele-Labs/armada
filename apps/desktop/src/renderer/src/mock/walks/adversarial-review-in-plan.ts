@@ -1,4 +1,4 @@
-// Take C: the review's findings pinned to the plan, under the group or task each is about, on the card and in the plan in full.
+// The review's findings pinned to the plan, under the group or task each is about, on the card and in the plan in full.
 // Over the `adversarial-review-in-plan` scenario.
 
 import { button, deckRow, dialog, inside, role, text, walk } from "../walk";

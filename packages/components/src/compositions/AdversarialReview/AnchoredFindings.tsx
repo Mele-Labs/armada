@@ -11,8 +11,8 @@ import type { AdversarialReviewState, Finding } from "./AdversarialReview";
 /**
  * Findings pinned to the plan they are about, where the host draws the plan itself. A finding's `about` names a task or a group; one
  * with none, or one the plan no longer holds, is about the plan as a whole and stands under its summary. A group holding findings
- * opens in place to show the task each names, by its words, with the finding directly under it. The same claim, the same acts and the
- * same keys as the findings drawn apart (`AdversarialFindings`), so a plan and the view of it in full offer the same things.
+ * opens in place to show the task each names, by its words, with the finding directly under it. The plan card and the view of the plan
+ * in full draw the same claim, the same acts and the same keys, so the two offer the same things.
  */
 export type Anchors = { whole: readonly Finding[]; at: (id: string) => readonly Finding[] };
 

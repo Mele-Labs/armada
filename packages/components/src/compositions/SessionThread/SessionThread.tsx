@@ -31,7 +31,7 @@ import type { ForkPick } from "../ForkFromSelection/ForkFromSelection";
 import { SessionRetroRow, type SessionRetroRowData } from "../SessionRetroRow/SessionRetroRow";
 import { QuestionDeck } from "./QuestionDeck";
 import { ConcernClaim } from "./ConcernClaim";
-import { AdversarialFindings, AdversarialReviewPress, findingsOf } from "../AdversarialReview/AdversarialReview";
+import { AdversarialReviewPress, ReviewFailed, findingsOf } from "../AdversarialReview/AdversarialReview";
 import { FindingNotes, GivesRow, GroupFindings, anchorsOf, useFindingKeys } from "../AdversarialReview/AnchoredFindings";
 import type { AdversarialReviewProps } from "../AdversarialReview/AdversarialReview";
 import { LinkedRow } from "./LinkedRow";
@@ -273,12 +273,11 @@ export type PlanApproval = {
   /** A later version drawn with what changed marked in place and the groups nothing touched closed to a line. Absent, the card draws the plan whole. */
   revision?: PlanRevision;
   /**
-   * An adversarial review of this plan. The press stands in the answers row; the findings are drawn on the card between the plan and its
-   * answers, or, with `findingsElsewhere`, left to the host (the Needs you panel) and the card keeps only the mark of the review's state.
-   * With `anchored` they are pinned to the plan instead: a finding about the whole plan under the summary, a group's under its line, a task's
-   * under the task, inside the group that holds it.
+   * An adversarial review of this plan. The press stands in the answers row, and the findings are pinned to the plan: a finding about the
+   * whole plan under the summary, a group's under its line, a task's under the task, inside the group that holds it. A failed review's
+   * words stand between the plan and its answers.
    */
-  adversarial?: AdversarialReviewProps & { findingsElsewhere?: true; anchored?: true };
+  adversarial?: AdversarialReviewProps;
   /** A sketch drawn with the plan, shown under the groups as a sketch card is and opened as one is. */
   sketch?: { id: string; title: string; scene: Scene };
   onApprove: () => void;
@@ -1194,9 +1193,9 @@ function PlanCard({ approval }: { approval: PlanApproval }) {
   const StateGlyph = approval.going === true ? LoaderCircle : approved ? BadgeCheck : BellRing;
   const review = onReview === undefined || folded ? undefined : { tabIndex: 0, "data-reviewable": "", onClick: (event: ReactMouseEvent<HTMLElement>) => { if ((event.target as Element).closest("button") === null) onReview(); }, onKeyDown: (event: KeyboardEvent<HTMLElement>) => { if (event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); onReview(); } } };
   const adversarial = approved ? undefined : approval.adversarial;
-  const findingsHere = adversarial !== undefined && adversarial.findingsElsewhere === undefined && findingsOf(adversarial.review).length > 0;
+  const findingsHere = adversarial !== undefined && findingsOf(adversarial.review).length > 0;
   // Pinned to the plan: which finding is about what, and the keys that run down them wherever they stand.
-  const pinned = adversarial?.anchored === true && !folded;
+  const pinned = adversarial !== undefined && !folded;
   const anchors = pinned && adversarial !== undefined ? anchorsOf(adversarial.review, approval.groups.flatMap((group) => [group.id, ...group.tasks.map((task) => task.id)])) : undefined;
   const keys = useFindingKeys(adversarial?.review, { onSend: (id) => adversarial?.onSend(id), onDismiss: (id) => adversarial?.onDismiss(id) });
   const acts = { onSend: keys.send, onDismiss: keys.dismiss };
@@ -1308,9 +1307,9 @@ function PlanCard({ approval }: { approval: PlanApproval }) {
           </ul>
         )}
       </div>
-      {adversarial === undefined || adversarial.findingsElsewhere !== undefined || (pinned && adversarial.review.state !== "failed") ? null : (
+      {adversarial?.review.state !== "failed" ? null : (
         <div className="armada-session-thread__plan-review" onClick={(event) => event.stopPropagation()}>
-          <AdversarialFindings review={adversarial.review} onSend={adversarial.onSend} onDismiss={adversarial.onDismiss} />
+          <ReviewFailed said={adversarial.review.said} />
         </div>
       )}
       {approved ? null : (

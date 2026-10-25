@@ -204,8 +204,8 @@ export type SessionWork = {
   /** The files the Field draws as bars on its plots. */
   files?: readonly WorkFile[];
   concerns?: readonly WorkConcern[];
-  /** An adversarial review of the pending plan, drawn in the mock only. `place` is where its findings go: on the plan card, each as a call in the Needs you panel, or `in-plan`, each pinned to the group or task it is about (a finding's `about`) on the card and in the plan in full. */
-  adversarial?: { review: AdversarialReviewState; place: "card" | "needs-you" | "in-plan" };
+  /** The latest adversarial review of the pending plan, each finding pinned to the group or task it is about on the card and in the plan in full. Absent is none run, which draws the press. */
+  adversarial?: AdversarialReviewState;
   /** A judge is reading the work now. */
   judging?: true;
   /** The last reading's outcome: `concerns` 0 is how the tile says "No concerns". */

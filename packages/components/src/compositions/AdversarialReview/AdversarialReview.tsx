@@ -1,5 +1,4 @@
-import { useEffect, useRef } from "react";
-import type { KeyboardEvent, ReactNode } from "react";
+import type { ReactNode } from "react";
 import { ArrowRight, Ban, CircleCheck, ClockAlert, LoaderCircle, ScanSearch, X } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
@@ -8,9 +7,8 @@ import { ConcernClaim } from "../SessionThread/ConcernClaim";
 
 /**
  * An adversary reads a thing and says how it breaks. **It knows nothing of what it read**: a plan today, a diff or a
- * design tomorrow. The host hands it a state and the callbacks, and draws the two parts where it likes: the press
- * (`AdversarialReviewPress`) in a row of acts, the findings (`AdversarialFindings`) in the card, or in a list of
- * calls. `AdversarialReview` draws both, stacked.
+ * design tomorrow. The host hands it a state and the callbacks: the press (`AdversarialReviewPress`) stands in a row of
+ * acts, and the findings are pinned to the parts of the thing they are about (`AnchoredFindings.tsx`).
  *
  * **A finding is a claim**, drawn as a judge's concern is: the consequence heads it, then Expected and Found, each
  * clamped to two lines. Its acts sit in one column, so a list of them reads down. A finding sent or dismissed folds
@@ -120,9 +118,9 @@ export function AdversarialReviewPress({ review, onRun, shortcut }: Pick<Adversa
 }
 
 /** One finding: the claim, then its two acts in the card's footer. Focusable; Enter sends, Backspace or D dismisses. */
-export function FindingRow({ finding, onSend, onDismiss, hold }: { finding: Finding; onSend: () => void; onDismiss: () => void; hold?: (el: HTMLElement | null) => void }) {
+export function FindingRow({ finding, onSend, onDismiss }: { finding: Finding; onSend: () => void; onDismiss: () => void }) {
   return (
-    <li ref={hold} onClick={(event) => event.stopPropagation()} className="armada-adversarial__finding" role="group" aria-label={`Finding: ${finding.consequence}`} tabIndex={0} data-finding={finding.id}>
+    <li onClick={(event) => event.stopPropagation()} className="armada-adversarial__finding" role="group" aria-label={`Finding: ${finding.consequence}`} tabIndex={0} data-finding={finding.id}>
       <div className="armada-adversarial__claim">
         <ConcernClaim concern={{ text: finding.consequence, consequence: finding.consequence, expected: finding.expected, produced: finding.found, ...(finding.cites === undefined ? {} : { cites: finding.cites }) }} />
       </div>
@@ -154,82 +152,11 @@ export function SettledRow({ finding }: { finding: Finding }) {
   );
 }
 
-/**
- * Where the findings go. A failed review's words stand here in one line. Arrow keys and Tab move through the findings
- * not yet acted on; the one in focus is sent with Enter and dismissed with Backspace or D, and focus passes to the next.
- */
-export function AdversarialFindings({ review, onSend, onDismiss }: Pick<AdversarialReviewProps, "review" | "onSend" | "onDismiss">) {
-  const found = findingsOf(review);
-  const held = useRef(new Map<string, HTMLElement>());
-  const next = useRef<string | undefined>(undefined);
-  useEffect(() => {
-    const id = next.current;
-    next.current = undefined;
-    if (id !== undefined) held.current.get(id)?.focus();
-  }, [found]);
-  if (review.state === "failed") {
-    return (
-      <p className="armada-adversarial__failed" role="status">
-        {review.said}
-      </p>
-    );
-  }
-  if (found.length === 0) return null;
-  const live = found.filter((one) => one.settled === undefined);
-  const act = (id: string, run: (id: string) => void) => {
-    const at = live.findIndex((one) => one.id === id);
-    next.current = (live[at + 1] ?? live[at - 1])?.id;
-    run(id);
-  };
-  const onKeyDown = (event: KeyboardEvent<HTMLUListElement>) => {
-    if (event.metaKey || event.ctrlKey || event.altKey) return;
-    const target = (event.target as HTMLElement).closest<HTMLElement>("[data-finding]");
-    // A press on one of the buttons keeps its own key; the finding's keys are for the finding itself.
-    if (target === null || event.target !== target) return;
-    const id = target.dataset.finding!;
-    const at = live.findIndex((one) => one.id === id);
-    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-      event.preventDefault();
-      event.stopPropagation();
-      held.current.get(live[Math.min(live.length - 1, Math.max(0, at + (event.key === "ArrowDown" ? 1 : -1)))]!.id)?.focus();
-    } else if (event.key === "Enter") {
-      event.preventDefault();
-      event.stopPropagation();
-      act(id, onSend);
-    } else if (event.key === "Backspace" || event.key === "d" || event.key === "D") {
-      event.preventDefault();
-      event.stopPropagation();
-      act(id, onDismiss);
-    }
-  };
+/** A failed review's words, in one line where its findings would stand. */
+export function ReviewFailed({ said }: { said: string }) {
   return (
-    <ul className="armada-adversarial__findings" aria-label="Adversarial findings" onKeyDown={onKeyDown}>
-      {found.map((one) =>
-        one.settled === undefined ? (
-          <FindingRow
-            key={one.id}
-            finding={one}
-            onSend={() => act(one.id, onSend)}
-            onDismiss={() => act(one.id, onDismiss)}
-            hold={(el) => {
-              if (el === null) held.current.delete(one.id);
-              else held.current.set(one.id, el);
-            }}
-          />
-        ) : (
-          <SettledRow key={one.id} finding={one} />
-        ),
-      )}
-    </ul>
-  );
-}
-
-/** The press and the findings together, findings over the press. */
-export function AdversarialReview(props: AdversarialReviewProps) {
-  return (
-    <div className="armada-adversarial">
-      <AdversarialFindings review={props.review} onSend={props.onSend} onDismiss={props.onDismiss} />
-      <AdversarialReviewPress review={props.review} onRun={props.onRun} {...(props.shortcut === undefined ? {} : { shortcut: props.shortcut })} />
-    </div>
+    <p className="armada-adversarial__failed" role="status">
+      {said}
+    </p>
   );
 }

@@ -83,7 +83,7 @@ export function NeedsYouPanel({
   /** `label` is the question's header, `text` the line its row reads, and `children` the card that answers it. */
   question?: { id: string; label: string; text: string; children: ReactNode };
   /** A judge's concerns, after the question and before the items: `text` is the claim its row reads, `children` the card that sends or dismisses it. */
-  judges?: readonly { id: string; text: string; children: ReactNode; /** Who raised it where it was not a judge: the mark and its tooltip. */ Glyph?: LucideIcon; said?: string }[];
+  judges?: readonly { id: string; text: string; children: ReactNode }[];
   open: boolean;
   onOpen: (next: boolean) => void;
 }) {
@@ -102,7 +102,7 @@ export function NeedsYouPanel({
   const misreadOf = (row: LedgerEntry): Pick<Thing, "misread"> => (row.onMisread === undefined ? {} : { misread: { no: row.onMisread, ...(row.confirmed === true || row.onConfirmed === undefined ? {} : { yes: row.onConfirmed }) } });
   const questions: Thing[] = [
     ...(question === undefined ? [] : [{ key: `question:${question.id}`, Glyph: MessageCircleQuestion, said: question.label, tip: question.label, text: question.text, name: question.text, content: question.children }]),
-    ...(judges ?? []).map((one) => ({ key: `judge:${one.id}`, Glyph: one.Glyph ?? Scale, said: one.said ?? "Judge", tip: one.said ?? "Judge", text: one.text, name: one.text, content: one.children })),
+    ...(judges ?? []).map((one) => ({ key: `judge:${one.id}`, Glyph: Scale, said: "Judge", tip: "Judge", text: one.text, name: one.text, content: one.children })),
     ...rows.filter(asks).map((row) => ({ key: row.key, ...waitingMark(row), tip: row.name, text: row.text, name: row.name, row, ...misreadOf(row) })),
   ];
   const menuOf = menu === undefined ? undefined : questions.find((one) => one.key === menu.key)?.misread;

@@ -1,13 +1,6 @@
 /* An adversarial review: the press, and the findings it brings. Tokens only; state is a mark with a tooltip,
    a finding's acts sit in one column so a list of them reads down, and a finding acted on is one muted line. */
 
-.armada-adversarial {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  min-width: 0;
-}
-
 .armada-adversarial__press {
   display: inline-flex;
   align-items: center;
@@ -35,15 +28,6 @@
   }
 }
 
-.armada-adversarial__findings {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
 /* A finding is a note laid on the plan, never a line of it: its own tinted surface and frame, in the hue a judge's
    concern carries, so the eye finds every objection before it reads the plan around them. */
 .armada-adversarial__finding {
@@ -57,10 +41,6 @@
   border-radius: var(--radius-md);
   background: var(--status-piloted-bg);
   box-shadow: 0 1px 2px color-mix(in srgb, var(--bg-base) 60%, transparent);
-}
-
-.armada-adversarial__findings {
-  gap: var(--space-2);
 }
 
 .armada-adversarial__finding .armada-session-thread__claim-head {
