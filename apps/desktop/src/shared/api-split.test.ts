@@ -149,6 +149,7 @@ import type { AccountsActed } from "./api/accounts";
 import type { HomeKind, HomeKinds, HomeRowAt, HomeSide, HomeSynced, SharedHomeRead } from "@armada/protocol";
 import type { PlanUsageRead } from "./api/plan-usage";
 import type { ModelDownshiftRead } from "./api/model-downshift";
+import type { AgentSignInRead } from "./api/agent-sign-in";
 import type { FleetTimelineRead } from "./api/timeline";
 import type { BayHistoryRead } from "./api/bay-history";
 import type { UsageRulesRead, UsageSummaryRead } from "./api/usage-summary";
@@ -167,7 +168,7 @@ import { REQUESTS_CHANNELS, type RequestsApi } from "./api/requests";
 import { SHARING_CHANNELS, type SharingApi } from "./api/sharing";
 import { LOGBOOK_CHANNELS, type LogbookApi } from "./api/logbook";
 import { TEACHING_CHANNELS, type TeachingApi } from "./api/teaching";
-import type { ActFailed, ModelDownshiftState, PlanUsage, SignedOut, SleepState, TimelineAsk, TimelineEvent } from "@armada/protocol";
+import type { ActFailed, AgentSignIn, ModelDownshiftState, PlanUsage, SignedOut, SleepState, TimelineAsk, TimelineEvent } from "@armada/protocol";
 import type { BridgeApi } from "./api";
 import { CHANNELS, NOTHING_YET } from "./bridge";
 import type { BridgeState, HistoryStep, Summons } from "./bridge";
@@ -399,6 +400,9 @@ type OldBridgeApi = {
     keepDownshift: () => Promise<ModelDownshiftRead>;
     settleDownshift: () => Promise<ModelDownshiftRead>;
     onModelDownshiftChanged: (onChanged: (state: ModelDownshiftState) => void) => () => void;
+    getAgentSignIn: () => Promise<AgentSignInRead>;
+    startAgentSignIn: () => Promise<AgentSignInRead>;
+    onAgentSignInChanged: (onChanged: (state: AgentSignIn) => void) => () => void;
     listIssues: (manifestId: string, refresh: boolean) => Promise<IssuesRead>;
     getIssue: (manifestId: string, reference: string) => Promise<IssueNumberRead>;
     searchIssues: (manifestId: string, query: string) => Promise<IssueQueryActed<IssueList>>;
@@ -706,6 +710,9 @@ const OLD_CHANNELS = {
     keepDownshift: "bridge:keep-downshift",
     settleDownshift: "bridge:settle-downshift",
     modelDownshiftChanged: "bridge:model-downshift-changed",
+    getAgentSignIn: "bridge:get-agent-sign-in",
+    startAgentSignIn: "bridge:start-agent-sign-in",
+    agentSignInChanged: "bridge:agent-sign-in-changed",
     listIssues: "bridge:list-issues",
     getIssue: "bridge:get-issue",
     searchIssues: "bridge:search-issues",

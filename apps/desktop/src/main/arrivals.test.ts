@@ -48,6 +48,7 @@ function fakeHost(
     sleep: { changed: () => {} },
     planUsage: { changed: () => {} },
     modelDownshift: { changed: () => {}, seed: async () => {} },
+    agentSignIn: { changed: () => {}, seed: async () => {} },
     timeline: { appended: () => {} },
     acts: { failed: () => {} },
     reviews: { changed: () => {}, walkChanged: () => {} },
