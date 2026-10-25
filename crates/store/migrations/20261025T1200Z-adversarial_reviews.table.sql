@@ -25,6 +25,7 @@ CREATE TABLE adversarial_findings (
     consequence TEXT    NOT NULL,
     expected    TEXT    NOT NULL,
     found       TEXT    NOT NULL,
+    impact      TEXT,
     cites       TEXT    NOT NULL DEFAULT '',
     how         TEXT,
     settled_at  TEXT,

@@ -38,6 +38,8 @@ pub struct KeptAdversarialFinding {
     pub consequence: String,
     pub expected: String,
     pub found: String,
+    /// What a person using the thing sees or cannot do because of it. None where the review gave none.
+    pub impact: Option<String>,
     pub cites: Vec<String>,
     /// `sent` or `dismissed`, and when. Absent while it waits.
     pub settled: Option<(String, String)>,
@@ -52,7 +54,7 @@ fn keeping(why: rusqlite::Error) -> WriteError {
 }
 
 const REVIEW: &str = "version, state, started_at, finished_at, failed, cost_micros";
-const FINDING: &str = "id, anchor, anchor_id, part, consequence, expected, found, cites, how, settled_at";
+const FINDING: &str = "id, anchor, anchor_id, part, consequence, expected, found, impact, cites, how, settled_at";
 
 fn review(row: &Row<'_>) -> rusqlite::Result<KeptAdversarialReview> {
     Ok(KeptAdversarialReview {
@@ -67,9 +69,9 @@ fn review(row: &Row<'_>) -> rusqlite::Result<KeptAdversarialReview> {
 }
 
 fn finding(row: &Row<'_>) -> rusqlite::Result<KeptAdversarialFinding> {
-    let cites: String = row.get(7)?;
-    let how: Option<String> = row.get(8)?;
-    let at: Option<String> = row.get(9)?;
+    let cites: String = row.get(8)?;
+    let how: Option<String> = row.get(9)?;
+    let at: Option<String> = row.get(10)?;
     Ok(KeptAdversarialFinding {
         id: row.get(0)?,
         anchor: row.get(1)?,
@@ -78,6 +80,7 @@ fn finding(row: &Row<'_>) -> rusqlite::Result<KeptAdversarialFinding> {
         consequence: row.get(4)?,
         expected: row.get(5)?,
         found: row.get(6)?,
+        impact: row.get(7)?,
         cites: cites.lines().filter(|line| !line.is_empty()).map(str::to_string).collect(),
         settled: how.zip(at),
     })
@@ -110,7 +113,7 @@ impl Store {
             held.execute(
                 &format!(
                     "INSERT INTO adversarial_findings (session_id, version, position, {FINDING})
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)"
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)"
                 ),
                 params![
                     session_id,
@@ -123,6 +126,7 @@ impl Store {
                     one.consequence,
                     one.expected,
                     one.found,
+                    one.impact,
                     one.cites.join("\n"),
                     one.settled.as_ref().map(|(how, _)| how.as_str()),
                     one.settled.as_ref().map(|(_, at)| at.as_str()),

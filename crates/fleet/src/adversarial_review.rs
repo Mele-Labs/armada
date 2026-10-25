@@ -85,11 +85,13 @@ pub fn brief(shown: &Shown<'_>) -> String {
          ## How to answer\n\n\
          Answer with one JSON object and nothing else: no prose before or after, no code fence. Its shape: \
          {{\"findings\": [{{\"about\": \"...\", \"consequence\": \"...\", \"expected\": \"...\", \"found\": \"...\", \
-         \"cites\": [\"path\", \"path:line\"]}}]}}.\n\n\
+         \"impact\": \"...\", \"cites\": [\"path\", \"path:line\"]}}]}}.\n\n\
          - `consequence`: what goes wrong for whoever relies on the work if the plan is carried out as \
          written, in one short sentence.\n\
          - `expected`: what the plan should say or do instead, in one short sentence.\n\
          - `found`: what the plan says or does, in one short sentence.\n\
+         - `impact`: what a person using the thing the plan builds sees or cannot do because of it, in one \
+         short sentence of plain words about that person, never about code.\n\
          - `cites`: each file you read that the finding rests on, as a path from the checkout's root, with \
          `:line` where one line is the point. A path that is not a file in the checkout refuses the whole answer.\n\
          - `about`: the exact words of the task, or the title of the group, the finding is about, copied from \
@@ -114,6 +116,8 @@ struct FindingOut {
     consequence: String,
     expected: String,
     found: String,
+    #[serde(default)]
+    impact: Option<String>,
     #[serde(default)]
     cites: Vec<String>,
 }
@@ -145,7 +149,7 @@ pub fn findings_read(
             shown.push('\n');
             shown.push_str(&text);
         }
-        for said in [&one.consequence, &one.expected, &one.found] {
+        for said in [&one.consequence, &one.expected, &one.found].into_iter().chain(one.impact.as_ref()) {
             if let Some(span) = verification::invented(said, &shown) {
                 return Err(format!(
                     "{what} quotes \"{span}\", which is in neither the brief nor a file it cites"
@@ -158,6 +162,7 @@ pub fn findings_read(
             consequence: one.consequence.trim().to_string(),
             expected: one.expected.trim().to_string(),
             found: one.found.trim().to_string(),
+            impact: one.impact.as_deref().map(str::trim).filter(|impact| !impact.is_empty()).map(str::to_string),
             cites: one.cites,
             settled: None,
         });

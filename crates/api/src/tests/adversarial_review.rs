@@ -35,6 +35,7 @@ fn finding(id: &str, about: FindingAnchor) -> AdversarialFinding {
         consequence: "A rotation can run twice".into(),
         expected: "One rotation a day".into(),
         found: "The task has no guard".into(),
+        impact: None,
         cites: vec!["crates/store/src/lib.rs:12".into()],
         settled: None,
     }

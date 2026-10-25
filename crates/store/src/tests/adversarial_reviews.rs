@@ -13,6 +13,7 @@ fn finding(id: &str, anchor: &str, anchor_id: &str) -> KeptAdversarialFinding {
         consequence: "Two rotations can land on one day.".into(),
         expected: "A lock.".into(),
         found: "None.".into(),
+        impact: (anchor != "plan").then(|| "Someone rotating their keys finds two on one day.".into()),
         cites: vec!["crates/store/src/keys.rs:2".into(), "crates/store/src/lib.rs".into()],
         settled: None,
     }

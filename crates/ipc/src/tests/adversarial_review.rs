@@ -46,6 +46,7 @@ fn a_finding_is_anchored_to_the_whole_plan_a_group_or_a_task_and_reads_back_whol
         consequence: "A rotation can run twice".into(),
         expected: "One rotation a day".into(),
         found: "The task has no guard".into(),
+        impact: None,
         cites: Vec::new(),
         settled: None,
     };
@@ -56,6 +57,7 @@ fn a_finding_is_anchored_to_the_whole_plan_a_group_or_a_task_and_reads_back_whol
         finding("f1", FindingAnchor::Plan),
         finding("f2", FindingAnchor::Group { id: "g1".into() }),
         AdversarialFinding {
+            impact: Some("Someone rotating their keys finds two on one day".into()),
             cites: vec!["crates/store/src/lib.rs:12".into(), "crates/store".into()],
             settled: Some(FindingSettled { how: FindingHow::Sent, at: Instant::carried("2026-10-25T09:05:00.000Z") }),
             ..finding("f3", FindingAnchor::Task { id: "t1".into() })
@@ -67,6 +69,13 @@ fn a_finding_is_anchored_to_the_whole_plan_a_group_or_a_task_and_reads_back_whol
     assert!(text.contains(r#""about":{"kind":"task","id":"t1"}"#), "{text}");
     assert!(text.contains(r#""settled":{"how":"sent","at":"2026-10-25T09:05:00.000Z"}"#), "{text}");
     assert_eq!(text.matches("cites").count(), 1, "an empty list leaves no key: {text}");
+    assert_eq!(text.matches("impact").count(), 1, "an absent impact leaves no key: {text}");
+    let without: AdversarialFinding = decode(
+        "a finding",
+        br#"{"id":"f9","about":{"kind":"plan"},"consequence":"c","expected":"e","found":"f"}"#,
+    )
+    .expect("a finding kept before impact was asked for decodes");
+    assert_eq!(without.impact, None);
     assert_eq!(decode::<AdversarialReview>("a review", text.as_bytes()).expect("decodes"), review);
 }
 

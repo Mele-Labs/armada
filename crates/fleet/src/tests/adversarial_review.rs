@@ -28,6 +28,7 @@ const KEYS: &str = "impl Keys {\n    pub fn rotate(&mut self, day: Day) -> Resul
 const FINDINGS: &str = r#"{"findings": [
     {"about": "Write the rotation behind a lock", "consequence": "Two rotations can land on one day.",
      "expected": "The rotation takes a lock the store holds.", "found": "The store has no lock.",
+     "impact": "Someone rotating their keys at midnight finds two of them on one day.",
      "cites": ["crates/store/src/keys.rs:2"]},
     {"about": "Keep the keys", "consequence": "The new table ships without a migration.",
      "expected": "A migration file beside the table.", "found": "No task writes one.", "cites": []},
@@ -121,6 +122,7 @@ async fn a_review_of_the_plan_answers_running_and_lands_done_with_each_finding_p
     for shown in [REQUEST, LATER, "Write the rotation behind a lock", "Keep the keys", "Old keys stay readable for a day"] {
         assert!(brief.contains(shown), "the brief lacks {shown:?}:\n{brief}");
     }
+    assert!(brief.contains("`impact`") && brief.contains("never about code"), "the brief asks for the impact:\n{brief}");
     assert!(!brief.contains(AGENT_SAID), "the agent's words are withheld:\n{brief}");
     assert!(!brief.contains("t2") && !brief.contains("g1"), "no id is shown:\n{brief}");
     assert_eq!(directory.as_deref(), Some(rig.root.as_str()));
@@ -194,6 +196,7 @@ async fn a_finding_is_sent_as_the_persons_message_or_dismissed_even_once_the_pla
     eventually(|| async { told(&rig, "Two rotations can land on one day.") == 1 }).await;
     assert_eq!(told(&rig, "Write the rotation behind a lock"), 1, "the message names the task by its words");
     assert_eq!(told(&rig, "crates/store/src/keys.rs:2"), 1, "and what it cites");
+    assert_eq!(told(&rig, "Impact: Someone rotating their keys at midnight finds two of them on one day."), 1, "and the impact");
 
     let dismissed = Arc::clone(&rig.fleet)
         .dismiss_finding(DismissFinding { subject: subject(&id, 1), finding_id: "f2".into() })
@@ -215,6 +218,7 @@ async fn a_finding_is_sent_as_the_persons_message_or_dismissed_even_once_the_pla
     let late = Arc::clone(&rig.fleet).send_finding(act("f3")).await.expect("an out-of-date review still sends");
     assert_eq!(late.findings[2].settled.as_ref().map(|settled| settled.how), Some(FindingHow::Sent));
     eventually(|| async { told(&rig, "the plan as a whole") == 1 }).await;
+    assert_eq!(told(&rig, "Impact:"), 1, "a finding that gave no impact leaves no line for it");
     assert_eq!(code(start(&rig, &id, 1, true).await.expect_err("an old version")), "fleet.review_subject_stale");
 }
 

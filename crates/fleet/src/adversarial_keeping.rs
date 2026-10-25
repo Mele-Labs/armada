@@ -60,6 +60,7 @@ fn finding_of(kept: &KeptAdversarialFinding) -> AdversarialFinding {
         consequence: kept.consequence.clone(),
         expected: kept.expected.clone(),
         found: kept.found.clone(),
+        impact: kept.impact.clone(),
         cites: kept.cites.clone(),
         settled: kept
             .settled
@@ -89,6 +90,7 @@ pub(crate) fn kept_of(finding: &AdversarialFinding, plan: &SessionPlan) -> KeptA
         consequence: finding.consequence.clone(),
         expected: finding.expected.clone(),
         found: finding.found.clone(),
+        impact: finding.impact.clone(),
         cites: finding.cites.clone(),
         settled: None,
     }
@@ -106,6 +108,9 @@ pub(crate) fn message(finding: &KeptAdversarialFinding) -> String {
         "An adversarial review of your plan raised this about {part}:\n\n{}\n\nExpected: {}\nFound: {}",
         finding.consequence, finding.expected, finding.found
     );
+    if let Some(impact) = finding.impact.as_deref().filter(|impact| !impact.is_empty()) {
+        said.push_str(&format!("\nImpact: {impact}"));
+    }
     if !finding.cites.is_empty() {
         said.push_str(&format!("\n\nIt points at {}.", finding.cites.join(", ")));
     }

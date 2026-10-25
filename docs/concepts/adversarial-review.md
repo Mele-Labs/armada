@@ -59,17 +59,18 @@ The check is containment over what the call was shown, as in the Judge (`judge.m
 
 ## A finding
 
-A finding is a claim in three parts, the Judge concern's own (`session/the-judges.md`), with the places it rests on.
+A finding is a claim in four parts, the Judge concern's own (`session/the-judges.md`) and an impact, with the places it rests on.
 
 | Part | Holds |
 | --- | --- |
 | Consequence | What the difference does to whoever consumes the work |
 | Expected | What the plan should say or do if it is right |
 | Found | What it says or does instead |
+| Impact | What a person using the thing sees or cannot do because of it, in one short sentence of plain words and never about code. Absent on a finding kept before it was asked for |
 | Cites | Each a `path` or `path:line` in the repository |
 | About | The plan part it concerns, quoted in that part's words |
 
-**The card heads with the consequence**, then a labelled row each for Expected and Found, each clamped to two lines with a More press under the words it opens, which reads Less once open.
+**The card heads with the consequence**, then a labelled row each for Expected, Found, Impact and Cites, each clamped to two lines with a More press under the words it opens, which reads Less once open.
 
 **A finding names its part by quoting that task's or group's words, and Fleet pins it there.** It uses the plan's own task matcher, the one that matches the agent's task list to the plan (`session/the-plan.md`, *How far it got is observed*).
 Where the quoted words match no task or group, the finding is pinned to the whole plan.
@@ -93,6 +94,7 @@ A group holding findings carries a mark, so a folded group still says it has som
 ## Send and dismiss
 
 **The person decides what the agent hears.** `send_finding` sends the claim to the agent as his message, naming the plan part it is about and the claim, and settles it.
+The message carries the impact after what was found, when the finding has one.
 The message goes first, so a send that fails leaves the finding waiting.
 `dismiss_finding` settles it and tells the agent nothing.
 
@@ -125,7 +127,7 @@ The review rides on the Job's plan as `adversarial`.
 | --- | --- |
 | `ReviewSubject` | What is reviewed: `plan { session_id, version }` |
 | `AdversarialReview` | The review for one subject, with its findings and the version it read |
-| `AdversarialFinding` | One claim: its three parts, its cites, its `about` and whether it is sent or dismissed |
+| `AdversarialFinding` | One claim: its four parts, its cites, its `about` and whether it is sent or dismissed |
 | `about` | `plan`, `group { id }` or `task { id }`: where Fleet pinned the finding |
 | `start_adversarial_review` | Bridge route that runs the call |
 | `send_finding` | Bridge route that sends one finding to the agent |

@@ -59,7 +59,7 @@ pub struct FindingSettled {
     pub at: Instant,
 }
 
-/// One way the subject breaks, in the three parts a judge's concern has.
+/// One way the subject breaks, in the four parts a judge's concern has.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AdversarialFinding {
     /// Unique within its review.
@@ -69,6 +69,10 @@ pub struct AdversarialFinding {
     pub consequence: String,
     pub expected: String,
     pub found: String,
+    /// What a person using the thing sees or cannot do because of it. Absent on a finding kept before it
+    /// was asked for.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub impact: Option<String>,
     /// `path` or `path:line`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub cites: Vec<String>,
