@@ -4,7 +4,7 @@ import type { InputHTMLAttributes, ReactNode } from "react";
  * A setting that is on or off, with its label on the left and the control on
  * the right.
  *
- * **The control is a cockpit rocker**: a tall paddle in a bezel, rocked in at the top when on and at the bottom when off,
+ * **The control is a cockpit rocker**: a wide paddle in a bezel, rocked in at the right when on and at the left when off,
  * under an ON legend lit in `--accent` while on. `data-switch="master"` on the root draws the paddle red, as a master switch.
  *
  * The optional description states what the setting does when on and what

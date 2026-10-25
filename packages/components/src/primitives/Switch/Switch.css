@@ -1,15 +1,13 @@
-/* Switch: a cockpit rocker. A tall paddle sits in a bezel under an ON legend, and rocks in at the top when on and at the
- * bottom when off. The raised end shows its edge as a heavier band, and the paddle tilts on a perspective about its middle.
- * `data-switch="master"` on the root draws the paddle red, as a master switch is.
- * Weight comes from shape and edges: a recess with a heavier top edge, a ledge under a raised segment, a guard's outline.
- * No gradient, no glow, no sheen. Colour is --accent on, and a flat step of the ground off.
+/* Switch: a cockpit rocker. A wide paddle sits in a bezel under an ON legend, and rocks in at the right when on and at the
+ * left when off. The paddle tilts on a perspective about its middle. `data-switch="master"` on the root draws it red.
+ * No gradient, no glow, no sheen. Colour is the legend's: --accent on, --fg-subtle off.
  *
  * Motion is one short snap, --duration-press, which is zero under reduced motion with the rest of the durations.
  * Keyboard and screen reader are the input's own: it stays in the label, clipped, and the control draws its state. */
 
 .armada-switch {
-  --switch-w: calc(var(--space-6) + var(--space-1));
-  --switch-h: calc(var(--space-12) + var(--space-2));
+  --switch-w: var(--space-12);
+  --switch-h: calc(var(--h-control) + var(--space-1));
   /* The native input is absolutely positioned and clipped; the label is what
      it is positioned against. */
   position: relative;
@@ -95,18 +93,17 @@
 }
 
 /* The paddle is two faces, as light falls on a rocker: the raised half stands lit and long, the pressed half sinks dark and
- * short. Off is rocked in at the bottom, so the top face is the raised one. A small tilt about the middle sets the lean. */
+ * short. Off is rocked in at the left, so the right face is the raised one. A small tilt about the middle sets the lean. */
 .armada-switch__paddle {
   --raised: var(--border-strong);
   --pressed: var(--bg-base);
   display: flex;
-  flex-direction: column;
   box-sizing: border-box;
   height: 100%;
   overflow: hidden;
   border: var(--border-width) solid var(--border-default);
   border-radius: var(--radius-sm);
-  transform: rotateX(-14deg);
+  transform: rotateY(14deg);
   transition: transform var(--duration-press) var(--ease);
 }
 
@@ -119,29 +116,29 @@
 }
 
 .armada-switch__paddle::before {
+  flex: 2 1 0;
+  border-inline-end: var(--border-width) solid var(--bg-sunken);
+  background: var(--pressed);
+}
+
+.armada-switch__paddle::after {
   flex: 3 1 0;
   background: var(--raised);
 }
 
-.armada-switch__paddle::after {
-  flex: 2 1 0;
-  border-top: var(--border-width) solid var(--bg-sunken);
-  background: var(--pressed);
-}
-
-/* On: rocked in at the top, the bottom face raised. */
+/* On: rocked in at the right, the left face raised. */
 .armada-switch__input:checked + .armada-switch__track .armada-switch__paddle {
-  transform: rotateX(14deg);
+  transform: rotateY(-14deg);
 }
 
 .armada-switch__input:checked + .armada-switch__track .armada-switch__paddle::before {
-  flex-grow: 2;
-  background: var(--pressed);
+  flex-grow: 3;
+  background: var(--raised);
 }
 
 .armada-switch__input:checked + .armada-switch__track .armada-switch__paddle::after {
-  flex-grow: 3;
-  background: var(--raised);
+  flex-grow: 2;
+  background: var(--pressed);
 }
 
 .armada-switch__input:checked + .armada-switch__track .armada-switch__legend {
