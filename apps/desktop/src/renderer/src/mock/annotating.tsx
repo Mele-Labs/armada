@@ -37,7 +37,7 @@ const NOTES: Record<string, () => Annotation[]> = {
   "debug-bridge-draft": () => [],
   // Off too: Report from a right press is what turns it on.
   "report-from-right-click": () => [],
-  // One note on the Jobs list, for Start job to open on the start card.
+  // One note on the Jobs list, for Start job to open on the start card. The layer is off until the walk turns it on, so the first two starts are not noted.
   "job-start-card-everywhere": () => [
     note("20261007-134802-aaaa", "The title is cut off in the row", 'section[aria-label="Jobs"]', "section", "Cockpit", "apps/desktop/src/renderer/src/cockpit/deck/Deck.tsx", { x: 300, y: 120, width: 900, height: 200 }),
   ],
@@ -80,7 +80,7 @@ function sinkOf(notes: Annotation[]): Sink {
 }
 
 /** Scenarios whose layer stays off until a person turns it on. */
-const LAYER_OFF = new Set(["debug-bridge-draft", "report-from-right-click"]);
+const LAYER_OFF = new Set(["debug-bridge-draft", "report-from-right-click", "job-start-card-everywhere"]);
 
 /** Whether the mock page draws this scenario's own layer, and so leaves the dev server's off. */
 export const annotatesWith = (scenario: string): boolean => scenario in NOTES;

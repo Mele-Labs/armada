@@ -31,8 +31,10 @@ const jobStartCardEverywhere = walk("job-start-card-everywhere", [
   { press: start, say: "Start" },
 
   { press: place("Cockpit"), say: "Back to the list" },
+  { key: "Alt+Meta+a", on: jobs, say: "⌥⌘A turns the annotation layer on over a note already pinned" },
   { press: inside(bar, button("Start job")), say: "On the annotation layer, Start job on a note" },
   { look: message, say: "The same card. The box holds the note as the agent will read it: his words, then where he pointed" },
+  { key: "Alt+Meta+a", on: jobs, say: "⌥⌘A turns the layer off, so the press on Start is a press" },
   { press: start, say: "Start" },
   { look: inside(thread, text(/Pointed at:/)), say: "The note is the first message in the thread" },
 ]);
