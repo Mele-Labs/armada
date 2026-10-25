@@ -58,6 +58,7 @@ export const ANCHORED: readonly AdversarialFinding[] = [
     consequence: "A lease waits ten minutes when every slot is held",
     expected: "The warm skips a held slot and tries the next",
     found: "It warms the slot the pool picked, held or not, and the lease waits on that warm to end",
+    impact: "A person who starts a Job waits ten minutes, and nothing on screen says why",
     cites: ["crates/fleet/src/pool.rs:212"],
   },
   {
@@ -66,6 +67,7 @@ export const ANCHORED: readonly AdversarialFinding[] = [
     consequence: "A bay reads as warming for good after Fleet restarts",
     expected: "A warm that was running when Fleet stopped is cleared on the next start",
     found: "The flag is set and nothing in the plan clears it, so it outlives the warm it described",
+    impact: "After a restart the tile says warming for good, so nobody picks a bay that is ready",
     cites: ["crates/ipc/src/bay.rs:48", "packages/protocol/src/bays.ts:31"],
   },
   {
@@ -74,6 +76,7 @@ export const ANCHORED: readonly AdversarialFinding[] = [
     consequence: "A held bay shows as warming",
     expected: "Warming is drawn only on a bay no one holds",
     found: "Neither task checks who holds the bay before it draws the mark",
+    impact: "The bay someone is working in reads as warming, as if it were free",
     cites: ["apps/desktop/src/renderer/src/cockpit/deck/bay-tile.tsx:64"],
   },
   {
@@ -82,6 +85,7 @@ export const ANCHORED: readonly AdversarialFinding[] = [
     consequence: "A warm that never finishes goes unnoticed",
     expected: "Each group names the check that proves it",
     found: "No task adds or changes a test, so a stuck warm passes every check",
+    impact: "Leases slow down and nobody is told",
   },
 ];
 

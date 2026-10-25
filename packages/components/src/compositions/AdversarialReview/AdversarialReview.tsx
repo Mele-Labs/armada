@@ -96,7 +96,7 @@ export function FindingRow({ finding, onSend, onDismiss }: { finding: Finding; o
   return (
     <li onClick={(event) => event.stopPropagation()} className="armada-adversarial__finding" role="group" aria-label={`Finding: ${finding.consequence}`} tabIndex={0} data-finding={finding.id}>
       <div className="armada-adversarial__claim">
-        <ConcernClaim concern={{ text: finding.consequence, consequence: finding.consequence, expected: finding.expected, produced: finding.found, ...(finding.cites === undefined ? {} : { cites: finding.cites }) }} />
+        <ConcernClaim concern={{ text: finding.consequence, consequence: finding.consequence, expected: finding.expected, produced: finding.found, ...(finding.impact === undefined ? {} : { impact: finding.impact }), ...(finding.cites === undefined ? {} : { cites: finding.cites }) }} />
       </div>
       <div className="armada-adversarial__acts" role="group" aria-label="Answers">
         <Tooltip label="Goes to the agent as your message" shortcut={keyFor("finding_send")}>

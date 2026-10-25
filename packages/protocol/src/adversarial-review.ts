@@ -30,6 +30,8 @@ export type AdversarialFinding = {
   consequence: string;
   expected: string;
   found: string;
+  /** What a person using the thing sees or cannot do because of it. Absent on a finding kept before it was asked for. */
+  impact?: string;
   /** `path` or `path:line`. Absent where it cites nothing. */
   cites?: string[];
   settled?: FindingSettled;

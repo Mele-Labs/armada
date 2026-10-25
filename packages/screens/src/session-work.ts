@@ -34,6 +34,7 @@ const findingOf = (one: AdversarialFinding): Finding => ({
   consequence: one.consequence,
   expected: one.expected,
   found: one.found,
+  ...(one.impact === undefined ? {} : { impact: one.impact }),
   ...(one.cites === undefined ? {} : { cites: one.cites }),
   ...(one.about.kind === "plan" ? {} : { about: one.about.id }),
   ...(one.settled === undefined ? {} : { settled: one.settled.how }),

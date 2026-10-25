@@ -3,15 +3,15 @@ import { useId, useLayoutEffect, useRef, useState } from "react";
 import { Button } from "../../primitives/Button/Button";
 
 /** What a claim is read from: a judge's concern, or an adversary's finding. `produced` is what was found. */
-export type Claim = { text: string; expected?: string; produced?: string; consequence?: string; cites?: readonly string[] };
+export type Claim = { text: string; expected?: string; produced?: string; consequence?: string; impact?: string; cites?: readonly string[] };
 
 /**
- * A claim to read: the consequence over everything, then what was expected, what was found and what it cites, each a label
+ * A claim to read: the consequence over everything, then what was expected, what was found, who feels it and what it cites, each a label
  * and its value in one shared pair of columns, so the values start on one line. A value is clamped to two lines with a More
  * press for the rest. A claim kept without its parts is its `text`, a line to a paragraph, with its cites under it.
  */
 export function ConcernClaim({ concern }: { concern: Claim }) {
-  const { expected, produced, consequence, cites } = concern;
+  const { expected, produced, consequence, impact, cites } = concern;
   if (expected === undefined && produced === undefined && consequence === undefined) {
     return (
       <div className="armada-session-thread__claim">
@@ -27,6 +27,7 @@ export function ConcernClaim({ concern }: { concern: Claim }) {
       {consequence === undefined ? null : <p className="armada-session-thread__claim-head">{consequence}</p>}
       {expected === undefined ? null : <ClaimRow label="Expected" text={expected} />}
       {produced === undefined ? null : <ClaimRow label="Found" text={produced} />}
+      {impact === undefined ? null : <ClaimRow label="Impact" text={impact} />}
       {cites === undefined || cites.length === 0 ? null : (
         <div className="armada-session-thread__claim-row">
           <span className="armada-session-thread__claim-label">Cites</span>

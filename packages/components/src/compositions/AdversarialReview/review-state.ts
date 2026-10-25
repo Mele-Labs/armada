@@ -15,6 +15,8 @@ export type Finding = {
   consequence: string;
   expected: string;
   found: string;
+  /** What a person using the thing sees or cannot do because of it. */
+  impact?: string;
   /** What it cites, as `path:line`. */
   cites?: readonly string[];
   /** What it is about: a task id, a group id, or nothing for the plan as a whole. A host that draws the plan pins the finding there (`AnchoredFindings`). */
