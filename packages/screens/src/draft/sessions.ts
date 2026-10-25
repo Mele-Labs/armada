@@ -216,8 +216,8 @@ export type SessionWork = {
   landing?: WorkLanding;
 };
 
-/** What a workflow lands in: a pull request and its merge, a spike's findings doc, a mod and its switch, or a document. */
-export type WorkLanding = "pull_request" | "spike" | "mod" | "document";
+/** What a workflow lands in: a pull request and its merge, a spike's findings doc, a mod and its switch, a document, or a report with no pull request. */
+export type WorkLanding = "pull_request" | "spike" | "mod" | "document" | "report";
 
 /** The acts on a Session's work. Absent where nothing serves them. */
 export type SessionWorkActs = {

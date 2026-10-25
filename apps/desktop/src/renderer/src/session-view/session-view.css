@@ -105,7 +105,6 @@
 .sv-group__chevron { margin-left: auto; transition: rotate calc(var(--duration-sheet)) var(--ease); }
 .sv-group[data-open] .sv-group__chevron { rotate: 180deg; }
 .sv-group__title { overflow-wrap: anywhere; color: var(--fg-muted); font-family: var(--font-sans); font-size: var(--text-xs); line-height: var(--leading-xs); font-weight: var(--weight-body); }
-.sv-group__marks { display: flex; gap: var(--space-1); }
 /* The Session a group was handed to: its row, under the group's own and set off by a rule. */
 .sv-group__linked { border-top: var(--border-width) solid var(--border-subtle); }
 /* A group that names an issue: the issue is a press target of its own before the title, in a column of its own so the toggle stays one button. */

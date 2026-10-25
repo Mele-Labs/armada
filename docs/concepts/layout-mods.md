@@ -31,7 +31,7 @@ Every entry is drawn until a layout hides it.
 
 | Region | Entries | Never hidden | Orders | Opens on |
 |---|---|---|---|---|
-| `dashboard.panels` | The Cockpit's panels: `list`, `merge-line`, `activity`, `bays`, `controls`, `dispatch`, `autopilot` | `list` | no | |
+| `dashboard.panels` | The Cockpit's panels: `list`, `issue-line`, `merge-line`, `activity`, `bays`, `controls`, `dispatch`, `autopilot` | `list` | no | |
 | `job.panels` | An open Job's panels: `workflow`, `blueprint`, `field`, `landing` | `blueprint` | yes | |
 | `rail` | The places: `overview`, `sessions`, `kit`, `mods`, `settings`, `guides`, `workflows`, `studios`, `logbook`, `reviews`, `issues` | `overview`, `mods`, `settings` | no | |
 
@@ -43,7 +43,7 @@ System is never hidden.
 Doctor is a row of the title menu with no entry, and so is every place with no tab and no strip page (Worktree Slots, Merge line, Manifest, Checks), so a layout cannot name them.
 
 **`dashboard.panels` is the deck's panels, and it hides them and never orders them**, because they stand in fixed columns.
-`list` is the Jobs list, `merge-line` the merge queue, `controls` Flight control, and the rest are named as drawn.
+`list` is the Jobs list, `issue-line` the open Job's issues above the merge queue, `merge-line` the merge queue, `controls` Flight control, and the rest are named as drawn.
 The stage is not an entry.
 A right column a layout empties is not drawn and gives its room to the stage, and so is an emptied foot.
 

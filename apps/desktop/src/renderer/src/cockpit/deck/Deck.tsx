@@ -61,6 +61,7 @@ import { forgeOf, quietSaid, ReadAgo } from "./forge";
 import { useListed } from "./listed";
 import type { Found } from "./find";
 import { MainLight } from "./MainLight";
+import { IssueLine } from "./IssueLine";
 import { MarkGlyph } from "./shared";
 import { toneOf } from "./order";
 import { callOwnerOf, enterAutopilot, incomingOf, keepOf, needingOf, leaveAutopilot, moveCursor, moveRow, openCall, openLinked, openSubject, select, selOfSubject, setFocus, setHover, setView, setQuery, setScope, setSearching, showMoreRows, toggleChecks, toggleNeeds, useDeck, withoutOpenSession, SCOPES, type DeckState, type Scope } from "./store";
@@ -1106,6 +1107,7 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
           <div className="deck-stage" data-exit={exiting ? "" : undefined}>
             <Stage props={props} ship={ship} listed={listed} autopilot={autopilot} ledger={reading && !unified ? ledgerHost : null} hosts={hosts} />
             {onStage === undefined ? null : <ShellPanel key={onStage} sessionId={onStage} />}
+            <IssueLine />
             <MergeQueue props={props} ship={ship} />
           </div>
           {footed ? (

@@ -1,5 +1,6 @@
-// A plan group, as Progress lists it: the type of subagent that takes it, and each task. Its approval is a card in the thread. Edits Fleet saw
-// are marked on the group. Nothing here blocks.
+// A plan group, as the Blueprint lists it. Drafted, it names the type of subagent that takes it. Approved, it is its title over a line for each task, the
+// one being worked lit with what the turn is doing under it; the subagent type and the paths open with the group. Its approval is a card in the thread.
+// Edits Fleet saw are marked on the group. Nothing here blocks.
 
 import { useState } from "react";
 import { Bot, Check, ChevronDown, Dot, Link, PencilLine, Ticket } from "lucide-react";
@@ -51,12 +52,39 @@ export function StepMark({ step }: { step: Step }) {
   );
 }
 
+/** The task a group's live line is about: the first one running. */
+const hereOf = (group: ViewGroup): string | undefined => group.tasks.find((task) => task.state === "working")?.id;
+
+/** A closed approved group's tasks: a state glyph and the plan's words for each, the one being worked lit with what the turn is doing under it. */
+function Tasks({ group, now }: { group: ViewGroup; now: string | undefined }) {
+  const here = hereOf(group);
+  return (
+    <ul className="sv-group__tasks" aria-label="Tasks">
+      {group.tasks.map((task) => (
+        <li key={task.id} className="sv-group__task" data-state={task.state} data-here={task.id === here || undefined}>
+          {task.id === here ? (
+            <Tooltip label="Working on this now">
+              <span className="armada-session-mark armada-task-mark" data-state="working" data-pulsing role="img" aria-label="Working on this now">
+                <TASK_GLYPH.working size={12} strokeWidth={2} aria-hidden />
+              </span>
+            </Tooltip>
+          ) : (
+            <TaskMark state={task.state} />
+          )}
+          <span className="sv-group__task-text">{task.text}</span>
+          {task.id === here && now !== undefined ? <span className="sv-group__task-now">{now}</span> : null}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 /**
- * A group is a row that opens: closed it is its title, the type of subagent that takes it and a glyph for each task; open it shows its own paths and its tasks in full.
+ * A group is a row that opens: closed it is its title over a line for each task; open it shows the type of subagent, its own paths and its tasks in full.
  * **A group handed to a Session carries that Session's row** under its own; one not handed
  * offers the hand off in its open body.
  */
-export function Group({ group, working, step, opened = false, ed, parent, manifestId, onOpenSession }: { group: ViewGroup; working?: boolean; /** Stands open until he presses it: the blueprint of a plan being drafted shows every task. */ opened?: boolean; /** Draws the group as a step of the plan: done and to-come ones as one muted line, the current one open and raised. */ step?: Step; ed: PlanEditing; parent: Session | undefined; manifestId?: string | undefined; onOpenSession: (id: string) => void }) {
+export function Group({ group, now, step, opened = false, ed, parent, manifestId, onOpenSession }: { group: ViewGroup; /** What the turn is doing in this group, in his words, drawn under the task being worked. */ now?: string; /** Stands open until he presses it: the blueprint of a plan being drafted shows every task. */ opened?: boolean; /** Draws the group as a step of the plan: done and to-come ones as one muted line, the current one open and raised. */ step?: Step; ed: PlanEditing; parent: Session | undefined; manifestId?: string | undefined; onOpenSession: (id: string) => void }) {
   // A stepper's current group stands open until he presses it, and the others shut; a press is kept. Outside a stepper a group stands shut.
   const [pressed, setPressed] = useState<boolean | undefined>(() => (wasOpen(ed.id, group.id) ? true : undefined));
   const open = pressed ?? (opened || step === "current");
@@ -84,14 +112,6 @@ export function Group({ group, working, step, opened = false, ed, parent, manife
         {step === undefined ? null : <StepMark step={step} />}
         <span className="sv-group__title">{group.title}</span>
         <span className="sv-group__head">
-          {working === true && step === undefined ? (
-            <Tooltip label="Working on this now">
-              <span className="armada-session-mark armada-task-mark" data-state="working" data-pulsing role="img" aria-label="Working on this now">
-                <TASK_GLYPH.working size={12} strokeWidth={2} aria-hidden />
-              </span>
-            </Tooltip>
-          ) : null}
-          {step === undefined ? agent : null}
           {group.tasks.some((task) => task.seen === true) ? (
             <Tooltip label="Edits seen">
               <span className="sv-group__seen" role="img" aria-label="Edits seen">
@@ -102,14 +122,8 @@ export function Group({ group, working, step, opened = false, ed, parent, manife
           <ChevronDown className="sv-group__chevron" size={12} strokeWidth={2} aria-hidden />
         </span>
         {step === undefined ? null : agent}
-        {open || step !== undefined ? null : (
-          <span className="sv-group__marks">
-            {group.tasks.map((task) => (
-              <TaskMark key={task.id} state={task.state} />
-            ))}
-          </span>
-        )}
       </button>
+      {open || step !== undefined ? null : <Tasks group={group} now={now} />}
       {child === undefined ? null : (
         <div className="sv-group__linked">
           <LinkedSession {...linkedPropsOf(child, onOpenSession)} />

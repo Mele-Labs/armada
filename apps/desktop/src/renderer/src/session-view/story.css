@@ -19,22 +19,22 @@
 /* A plan being drafted shows every task, so its groups are not the stepper's single quiet lines. */
 .sv-plan[data-drafting] .sv-group[data-step] { border-color: var(--border-subtle); background: var(--bg-raised); }
 
-/* ---- Field: the turn's account over the map -------------------------------------------------------------- */
+/* An approved plan is read, not edited: the title and its chevron on one line, then a line for each task. */
+.sv-plan:not([data-drafting]) .sv-group__row { flex-direction: row; align-items: center; gap: var(--space-2); }
+.sv-plan:not([data-drafting]) .sv-group__row > .sv-group__title { flex: 1 1 auto; min-width: 0; }
+.sv-plan:not([data-drafting]) .sv-group__head { flex: none; }
+.sv-group__tasks { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: 0 var(--space-2) var(--space-2); list-style: none; }
+.sv-group__task { display: grid; grid-template-columns: var(--space-4) minmax(0, 1fr); column-gap: var(--space-2); align-items: start; padding: var(--space-1) var(--space-2); border-radius: var(--radius-sm); color: var(--fg-muted); font-family: var(--font-sans); font-size: var(--text-xs); line-height: var(--leading-xs); }
+.sv-group__task > .armada-task-mark { display: inline-flex; align-items: center; height: 1lh; }
+.sv-group__task[data-state="done"], .sv-group__task[data-state="handed_in"] { color: var(--fg-subtle); }
+.sv-group__task[data-state="working"] { color: var(--fg-default); }
+/* The task the turn is on: raised, with what it is doing on a line of its own under the text. */
+.sv-group__task[data-here] { background: var(--bg-hover); color: var(--fg-default); font-weight: var(--weight-medium); }
+.sv-group__task-now { grid-column: 2; color: var(--fg-muted); font-size: var(--text-2xs); line-height: var(--leading-2xs); font-weight: var(--weight-body); }
+
+/* ---- Field: the page the turn is building, over the map -------------------------------------------------------------- */
 
 .sv-field__now { flex: none; padding: var(--space-3); }
-
-/* ---- Landing: chips on the band --------------------------------------------------------------------------- */
-
-.sv-chips { display: inline-flex; align-items: center; gap: var(--space-1); min-width: 0; }
-.sv-chip { display: inline-flex; align-items: center; gap: var(--space-1); padding: 0 var(--space-1); border: 0; border-radius: var(--radius-sm); background: none; color: var(--fg-muted); font: inherit; font-size: var(--text-xs); line-height: var(--leading-sm); cursor: pointer; }
-.sv-chip:hover { background: color-mix(in srgb, var(--fg-default) 6%, transparent); color: var(--fg-default); }
-.sv-chip:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
-.sv-chip code { color: inherit; font-size: var(--text-2xs); }
-.sv-chip[data-kind="issue"][data-state="closed"],
-.sv-chip[data-kind="pr"][data-state="merged"] { color: var(--step-advanced); }
-.sv-chip[data-kind="pr"][data-checks="running"]:not([data-state="merged"]) { color: var(--step-running); }
-.sv-chip[data-kind="pr"][data-checks="failed"]:not([data-state="merged"]) { color: var(--step-failed); }
-.sv-chip .armada-pr-card__check { display: inline-flex; align-items: center; }
 
 /* ---- Landing: the pull request, the doc, the mods ------------------------------------------------------------ */
 
@@ -46,3 +46,12 @@
 .sv-landing__doc:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--border-width) * -1); }
 .sv-landing__doc-mark { display: inline-flex; align-items: center; color: var(--fg-subtle); }
 .sv-landing__doc-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---- Landing: a report ------------------------------------------------------------------------------------------ */
+
+.sv-landing__report { display: flex; flex-direction: column; gap: var(--space-1); width: 100%; padding: var(--space-2); border: var(--border-width) solid var(--border-subtle); border-radius: var(--radius-md); background: var(--bg-raised); color: var(--fg-muted); font-family: var(--font-sans); text-align: start; cursor: pointer; }
+.sv-landing__report:hover { background: var(--bg-hover); }
+.sv-landing__report:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--border-width) * -1); }
+.sv-landing__report-head { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: var(--space-2); color: var(--fg-default); font-size: var(--text-sm); line-height: var(--leading-sm); font-weight: var(--weight-medium); }
+.sv-landing__report-mark { display: inline-flex; align-items: center; color: var(--fg-subtle); }
+.sv-landing__report-lines { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow: hidden; font-size: var(--text-xs); line-height: var(--leading-xs); overflow-wrap: anywhere; }

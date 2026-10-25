@@ -25,7 +25,6 @@ import { useAreas } from "../cockpit/deck/areas-source";
 import { areaOf, relativeTo } from "../cockpit/deck/areas";
 import { burstsOf, droneAt, glowAt, routeAt, type Burst } from "../cockpit/deck/afterglow";
 import { useClock } from "../cockpit/deck/clock";
-import { accountOf } from "../session-activity";
 import { outpostsOf } from "../cockpit/deck/outposts";
 import { messagesOf } from "../cockpit/deck/off-floor";
 import type { DroneIn, FileIn, RepoIn } from "../cockpit/deck/layout";
@@ -273,8 +272,6 @@ export function FieldPanel({ session, repositories, place, live }: { session: Se
   const id = session.id;
   useKeyBindings();
   const fold = useFold(session, "field");
-  // The turn's account in his words and the page it is building, above the map while a turn runs and until his next message (`TurnAccountBlock.tsx`).
-  const account = accountOf(session);
   const state: PanelState | undefined = resting ? undefined : "live";
   const expand = (
     <Tooltip label={expanded ? "Collapse" : "Expand"} shortcut={boundKeyFor("deck_field")}>
@@ -285,9 +282,9 @@ export function FieldPanel({ session, repositories, place, live }: { session: Se
   );
   return (
     <SvPanel label="Field" area="field" place={place} state={state} acts={expand} fold={fold} keycap={bandKeyFor("field")}>
-      {account === undefined ? null : (
+      {session.live === undefined || live === undefined ? null : (
         <div className="sv-field__now">
-          <TurnAccountBlock session={session} lines={account} live={live} />
+          <TurnAccountBlock session={session} live={live} />
         </div>
       )}
       {/* One canvas at a time: while the layer holds the Field large, the panel draws none. */}

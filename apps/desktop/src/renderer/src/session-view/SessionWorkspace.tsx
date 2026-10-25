@@ -78,7 +78,7 @@ export function SessionWorkspace({ session, entries, repositories, hosts, ed, ba
     workflow: <WorkflowPanel work={work} place="side" id={id} manifestId={session.manifestId} acts={draft.work} />,
     blueprint: <BlueprintPanel work={work} place="side" id={id} session={session} manifestId={session.manifestId} acts={draft.work} ed={ed} onOpenSketch={onOpenSketch} onOpenSession={onOpenSession} />,
     field: <FieldPanel session={session} repositories={repositories} place="side" live={live} />,
-    landing: <LandingPanel session={session} entries={entries} place="side" id={id} manifestId={session.manifestId} />,
+    landing: <LandingPanel session={session} entries={entries} place="side" id={id} />,
   };
   const right = order.map((one) => <Fragment key={one.id}>{panels[one.id]}</Fragment>);
   return (

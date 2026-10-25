@@ -340,6 +340,8 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 .deck-chip:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
 /* Selected is lit with the accent's ground. */
 .deck-chip[data-selected] { border-color: var(--accent); background: var(--accent-muted); color: var(--fg-default); }
+/* A closed issue reads as a landed pull request does. */
+.deck-chip[data-state="closed"] { color: var(--step-advanced); }
 /* A pull request of the Session that is open is framed, with the accent's ring outside its edge; picked as well, it is lit too. */
 .deck-chip[data-related] { border-color: var(--accent); box-shadow: 0 0 0 var(--border-width) var(--accent); color: var(--fg-default); }
 .deck-chip[data-calling] { position: relative; }

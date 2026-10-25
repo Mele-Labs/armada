@@ -1,6 +1,7 @@
 // Blueprint: the plan the agent recorded, in the Job's right column under the workflow. While it is being drafted it stands open and editable: the
 // summary in his words, every group with its tasks, the sketch from the band, and Approve at the foot beside the marks he put on it. Once approved
-// it stays up and compact: a line to each group with a mark for each task, the group being worked lit. A Job with no plan lists the agent's own
+// it stays up and compact: each group over a line for each task with its state glyph, the task being worked lit with what the turn is doing under it (the
+// subagent type and paths open with the group). A Job with no plan lists the agent's own
 // tasks and the subagents at work in its place, and with neither is its band alone. It is never folded by the stage (`story.ts`); the band or ⌥B folds it by hand.
 
 import { BadgeCheck, PencilRuler } from "lucide-react";
@@ -8,7 +9,7 @@ import { Button, Tooltip } from "@armada/components";
 import type { Session, SessionWork, SessionWorkActs } from "@armada/screens/src/draft/sessions";
 
 import { AskUpdate } from "../cockpit/deck/AskUpdate";
-import { accountGroupOf } from "../session-activity";
+import { accountGroupOf, accountNowOf } from "../session-activity";
 import { AgentTasks } from "./AgentTasks";
 import { AddGroup, SendChanges, type PlanEditing } from "./PlanEdit";
 import { Group } from "./PlanGroup";
@@ -31,6 +32,7 @@ export function BlueprintPanel({ work, place, id, session, manifestId, acts, ed,
   const tasks = planned ? [] : (work.tasks ?? []);
   const atWork = planned ? [] : subagentsAtWork(session);
   const workingGroup = accountGroupOf(session)?.id;
+  const now = accountNowOf(session);
   const groups = planned ? viewOf(plan, ed.marks) : [];
   const steps = stepsOf(groups, plan?.approved === true, workingGroup);
   const sketch = plan?.sketch;
@@ -64,7 +66,7 @@ export function BlueprintPanel({ work, place, id, session, manifestId, acts, ed,
           <div className="sv-plan__groups">
             {groups.map((group) => {
               const step = steps.get(group.id);
-              return <Group key={group.id} group={group} {...(drafting && step !== undefined ? { step, opened: true } : { working: group.id === workingGroup })} ed={ed} parent={session} manifestId={manifestId} onOpenSession={onOpenSession} />;
+              return <Group key={group.id} group={group} {...(drafting && step !== undefined ? { step, opened: true } : group.id === workingGroup && now !== undefined ? { now } : {})} ed={ed} parent={session} manifestId={manifestId} onOpenSession={onOpenSession} />;
             })}
           </div>
           <div className="sv-plan__foot">

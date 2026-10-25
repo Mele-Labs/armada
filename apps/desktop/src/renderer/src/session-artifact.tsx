@@ -27,7 +27,7 @@ const refusedSaid = (read: Extract<ArtifactRead, { ok: false }>): string =>
 type Held = { state: "reading" } | { state: "read"; read: ArtifactRead };
 
 /** A file the ledger names, read once for this open. */
-function useArtifact(draft: SessionsDraft | undefined, sessionId: string, path: string): Held {
+export function useArtifact(draft: SessionsDraft | undefined, sessionId: string, path: string): Held {
   const [held, setHeld] = useState<{ path: string; read: ArtifactRead } | undefined>();
   const read = draft?.readArtifact;
   useEffect(() => {

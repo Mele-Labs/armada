@@ -2,6 +2,7 @@
   "regions": {
     "dashboard.panels": { "ordered": false, "firstable": false, "entries": [
       { "id": "list", "hideable": false },
+      { "id": "issue-line", "hideable": true },
       { "id": "merge-line", "hideable": true },
       { "id": "activity", "hideable": true },
       { "id": "bays", "hideable": true },

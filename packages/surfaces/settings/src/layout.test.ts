@@ -32,7 +32,7 @@ describe("the examples the armada-mods skill teaches", () => {
     expect(parseLayout(tidy).problems).toEqual([]);
     expect(parseLayout(job).problems).toEqual([]);
     const layers = layersOf({ mods: [mod("tidy", tidy), mod("jobs", job)], own: { regions: {} } });
-    expect(shown("dashboard.panels", layers)).toEqual(["list", "bays", "controls", "dispatch", "autopilot"]);
+    expect(shown("dashboard.panels", layers)).toEqual(["list", "issue-line", "bays", "controls", "dispatch", "autopilot"]);
     expect(shown("rail", layers)).not.toContain("logbook");
     expect(shown("job.panels", layers)).toEqual(["blueprint", "workflow", "landing"]);
   });
@@ -83,7 +83,7 @@ describe("what is drawn, layer on layer", () => {
   const TIDY = '{"version":1,"job.panels":{"order":["blueprint","field"]},"rail":{"hidden":["logbook"]}}';
 
   it("is the registry's own order and every entry with no layer", () => {
-    expect(shown("dashboard.panels", layersOf({ mods: [], own: { regions: {} } }))).toEqual(["list", "merge-line", "activity", "bays", "controls", "dispatch", "autopilot"]);
+    expect(shown("dashboard.panels", layersOf({ mods: [], own: { regions: {} } }))).toEqual(["list", "issue-line", "merge-line", "activity", "bays", "controls", "dispatch", "autopilot"]);
     expect(shown("job.panels", layersOf({ mods: [], own: { regions: {} } }))).toEqual(["workflow", "blueprint", "field", "landing"]);
   });
 
