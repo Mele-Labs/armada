@@ -31,7 +31,8 @@ export function BlueprintPanel({ work, place, id, session, manifestId, acts, ed,
   const planned = plan !== undefined && ed !== undefined;
   const drafting = planned && !plan.approved;
   const finished = plan !== undefined && plan.approved && plan.groups.every((group) => group.tasks.every((task) => task.state === "done" || task.state === "handed_in"));
-  const state: PanelState | undefined = plan === undefined || !plan.approved ? undefined : finished ? "done" : "live";
+  const broke = plan !== undefined && plan.approved && plan.groups.some((group) => group.tasks.some((task) => task.state === "failed"));
+  const state: PanelState | undefined = plan === undefined ? undefined : !plan.approved ? "draft" : broke ? "failed" : finished ? "done" : "live";
   const tasks = planned ? [] : (work.tasks ?? []);
   const atWork = planned ? [] : subagentsAtWork(session);
   const workingGroup = accountGroupOf(session)?.id;

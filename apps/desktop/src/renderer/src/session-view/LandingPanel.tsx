@@ -81,7 +81,22 @@ export function LandingPanel({ session, entries, place, id }: { session: Session
   const watching = (session.watches ?? []).length > 0;
   const mine = kind === "pull_request" ? prs.length > 0 : kind === "mod" ? true : kind === "report" ? report !== undefined : docs.length > 0;
   const empty = !mine && !watching && later.length === 0 && filed.length === 0;
-  const state: PanelState | undefined = kind === "report" && report !== undefined ? "done" : kind === "pull_request" && prs.length > 0 && prs.every((pr) => pr.state === "merged") ? "done" : undefined;
+  const state: PanelState | undefined =
+    kind === "pull_request"
+      ? prs.length === 0
+        ? undefined
+        : prs.every((pr) => pr.state === "merged")
+          ? "done"
+          : prs.some((pr) => pr.state !== "merged" && pr.checks.state === "failed")
+            ? "failed"
+            : "live"
+      : kind === "report"
+        ? report !== undefined
+          ? "done"
+          : undefined
+        : docs.length > 0
+          ? "done"
+          : undefined;
   return (
     <SvPanel label="Landing" area="landing" place={place} state={state} empty={empty} fold={fold} keycap={bandKeyFor("landing")}>
       {kind === "pull_request" && prs.length > 0 ? (

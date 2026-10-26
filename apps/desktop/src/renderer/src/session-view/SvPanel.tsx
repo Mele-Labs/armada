@@ -1,18 +1,43 @@
 // One panel of a Session's view: a header band over a mono body, the state carried in the frame as the pool's bays are.
-// `asks` is what the person is owed, `live` is work going on, `done` is work finished, and none is a panel at rest.
+// `asks` is what the person is owed, `draft` is a plan waiting on its approval, `live` is work going on, `done` is work finished, `failed` is work that broke, and none is a panel at rest.
 // `place` is where it stands (the Cockpit's left column, its right column, its foot), which decides how its body is laid out.
 
 import { useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
+import { CircleCheck, CircleDashed, CircleX, Megaphone, type LucideIcon } from "lucide-react";
 
-import { Tooltip, useTeachMenu } from "@armada/components";
+import { TASK_GLYPH, Tooltip, useTeachMenu } from "@armada/components";
 import { useLayout } from "@armada/shell";
 
 import { useCollapse } from "../cockpit/deck/collapse";
 import type { Fold } from "./story";
 import { useTeachBridge } from "../teach";
 
-export type PanelState = "asks" | "live" | "done";
+export type PanelState = "asks" | "draft" | "live" | "done" | "failed";
 export type Place = "left" | "side" | "foot" | "calls";
+
+// The glyph that opens a band, in the band's state hue, and the word its tooltip says. A panel's own stage can name a state in its own words.
+const MARK: Record<PanelState, { Glyph: LucideIcon; said: string }> = {
+  asks: { Glyph: Megaphone, said: "Waiting on you" },
+  draft: { Glyph: CircleDashed, said: "Drafting" },
+  live: { Glyph: TASK_GLYPH.working, said: "Live" },
+  done: { Glyph: CircleCheck, said: "Done" },
+  failed: { Glyph: CircleX, said: "Failed" },
+};
+const SAID: Partial<Record<string, Partial<Record<PanelState, string>>>> = {
+  blueprint: { live: "Approved" },
+  landing: { live: "Waiting", done: "Landed" },
+};
+
+function StateMark({ state, said }: { state: PanelState; said: string }) {
+  const { Glyph } = MARK[state];
+  return (
+    <Tooltip asChild label={said}>
+      <span className="sv-panel__state armada-session-mark" role="img" aria-label={said} {...(state === "live" ? { "data-pulsing": "" } : {})}>
+        <Glyph size={12} strokeWidth={2} aria-hidden />
+      </span>
+    </Tooltip>
+  );
+}
 
 /**
  * `empty` is a panel with nothing to show: it stands folded to its band and gives its height to the panels round it, and opens on
@@ -47,6 +72,7 @@ export function SvPanel({ label, state, acts, rail, place, area, empty = false, 
     <section className="sv-panel" data-area={area} data-place={place} data-state={state} data-collapsed={collapsed || undefined} data-empty={empty || undefined} data-band-only={children === undefined || undefined} aria-label={label} {...teach.on}>
       {teach.menu}
       <header className="sv-panel__band" {...band}>
+        {state === undefined || rail !== undefined ? null : <StateMark state={state} said={SAID[area]?.[state] ?? MARK[state].said} />}
         {keycap === undefined ? (
           <h3 className="sv-panel__label">{label}</h3>
         ) : (

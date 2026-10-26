@@ -15,6 +15,7 @@
 
 .sv-panel {
   --folded: calc(var(--h-row) * 1.25 + var(--border-width) * 2);
+  --hue: var(--fg-subtle);
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -25,14 +26,20 @@
   overflow: hidden;
 }
 .sv-slot[data-place="foot"] > .sv-panel { flex: 1 1 auto; }
+/* The state is the frame's hue and the band's: a panel at rest keeps the plain edge. */
+.sv-panel[data-state="asks"] { --hue: var(--status-awaiting-review); }
+.sv-panel[data-state="draft"] { --hue: var(--status-awaiting-approval); }
+.sv-panel[data-state="live"] { --hue: var(--step-running); }
+.sv-panel[data-state="done"] { --hue: var(--step-advanced); }
+.sv-panel[data-state="failed"] { --hue: var(--step-failed); }
+.sv-panel[data-state] { border-color: color-mix(in srgb, var(--hue) 55%, var(--border-default)); }
+.sv-panel[data-state]:not([data-collapsed]) { background: color-mix(in srgb, var(--hue) 3%, var(--bg-sunken)); }
 .sv-panel[data-state="asks"] {
   border-color: var(--status-awaiting-review);
   box-shadow:
     inset 0 0 calc(var(--space-12) * 1.5) color-mix(in srgb, var(--status-awaiting-review) 10%, transparent),
     0 0 var(--space-6) color-mix(in srgb, var(--status-awaiting-review) 12%, transparent);
 }
-.sv-panel[data-state="live"] { border-color: color-mix(in srgb, var(--step-running) 55%, var(--border-default)); }
-.sv-panel[data-state="done"] { border-color: color-mix(in srgb, var(--step-advanced) 55%, var(--border-default)); }
 
 .sv-panel__band {
   display: flex;
@@ -51,7 +58,10 @@
   letter-spacing: var(--tracking-caps);
   text-transform: uppercase;
 }
-.sv-panel[data-state="asks"] > .sv-panel__band { background: color-mix(in srgb, var(--status-awaiting-review) 14%, var(--bg-raised)); color: var(--fg-default); }
+/* The open band is the state's word in its hue over a tint of it, ruled off in the hue; a folded band keeps the hue and a lighter tint. */
+.sv-panel[data-state] > .sv-panel__band { border-bottom-color: color-mix(in srgb, var(--hue) 45%, var(--border-subtle)); background: color-mix(in srgb, var(--hue) 14%, var(--bg-raised)); color: var(--hue); }
+.sv-panel[data-state][data-collapsed] > .sv-panel__band { background: color-mix(in srgb, var(--hue) 7%, var(--bg-raised)); }
+.sv-panel__state { display: inline-flex; flex: none; align-items: center; margin-inline-start: calc(var(--space-1) * -1); }
 .sv-panel__label { margin: 0; font: inherit; letter-spacing: inherit; }
 .sv-panel__acts { display: inline-flex; align-items: center; gap: var(--space-2); margin-left: auto; text-transform: none; letter-spacing: normal; }
 .sv-panel__mark { display: inline-flex; color: var(--step-advanced); }
@@ -93,9 +103,9 @@
   border-radius: var(--radius-md);
   background: var(--bg-raised);
 }
-.sv-group[data-state="live"] { border-color: color-mix(in srgb, var(--step-running) 55%, var(--border-subtle)); }
-.sv-group[data-state="failed"] { border-color: color-mix(in srgb, var(--step-failed) 55%, var(--border-subtle)); }
-.sv-group[data-state="done"] { border-color: color-mix(in srgb, var(--step-advanced) 45%, var(--border-subtle)); }
+.sv-group[data-state="live"] { border-color: color-mix(in srgb, var(--step-running) 55%, var(--border-subtle)); background: color-mix(in srgb, var(--step-running) 6%, var(--bg-raised)); box-shadow: inset 3px 0 0 var(--step-running); }
+.sv-group[data-state="failed"] { border-color: color-mix(in srgb, var(--step-failed) 55%, var(--border-subtle)); background: var(--step-failed-bg); box-shadow: inset 3px 0 0 var(--step-failed); }
+.sv-group[data-state="done"] { border-color: color-mix(in srgb, var(--step-advanced) 45%, var(--border-subtle)); box-shadow: inset 3px 0 0 color-mix(in srgb, var(--step-advanced) 70%, var(--bg-raised)); }
 .sv-group__row { display: flex; flex-direction: column; gap: var(--space-1); width: 100%; padding: var(--space-2) var(--space-3); border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
 .sv-group__row:hover { background: color-mix(in srgb, var(--fg-default) 5%, transparent); }
 .sv-group__row:focus-visible { outline: var(--border-width) solid var(--accent); outline-offset: calc(var(--border-width) * -1); }
@@ -105,6 +115,9 @@
 .sv-group__chevron { margin-left: auto; transition: rotate calc(var(--duration-sheet)) var(--ease); }
 .sv-group[data-open] .sv-group__chevron { rotate: 180deg; }
 .sv-group__title { overflow-wrap: anywhere; color: var(--fg-muted); font-family: var(--font-sans); font-size: var(--text-xs); line-height: var(--leading-xs); font-weight: var(--weight-body); }
+.sv-group[data-state="live"] .sv-group__title { color: var(--fg-default); font-weight: var(--weight-medium); }
+.sv-group[data-state="done"] .sv-group__title { color: color-mix(in srgb, var(--step-advanced) 35%, var(--fg-muted)); }
+.sv-group[data-state="failed"] .sv-group__title { color: var(--step-failed); font-weight: var(--weight-medium); }
 /* The Session a group was handed to: its row, under the group's own and set off by a rule. */
 .sv-group__linked { border-top: var(--border-width) solid var(--border-subtle); }
 /* A group that names an issue: the issue is a meta line of its own under the title, tucked up to it. */
@@ -113,9 +126,9 @@
 .sv-issue { display: flex; align-items: center; gap: var(--space-1); min-width: 0; max-width: 100%; padding: 0; border: 0; border-radius: var(--radius-sm); background: none; color: var(--fg-muted); font: inherit; font-family: var(--font-sans); font-size: var(--text-2xs); line-height: var(--leading-2xs); font-weight: var(--weight-body); text-align: start; white-space: nowrap; cursor: pointer; }
 .sv-issue:hover .sv-issue__title { color: var(--fg-default); text-decoration: underline; }
 .sv-issue:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
-.sv-issue__mark { display: inline-flex; flex: none; align-items: center; color: var(--fg-muted); }
+.sv-issue__mark { display: inline-flex; flex: none; align-items: center; color: var(--accent); }
 .sv-issue[data-state="closed"] .sv-issue__mark { color: var(--step-advanced); }
-.sv-issue__key { flex: none; max-width: 50%; overflow: hidden; color: var(--fg-default); font-family: var(--font-mono); font-size: inherit; line-height: inherit; text-overflow: ellipsis; }
+.sv-issue__key { flex: none; max-width: 50%; overflow: hidden; color: var(--accent); font-weight: var(--weight-medium); font-family: var(--font-mono); font-size: inherit; line-height: inherit; text-overflow: ellipsis; }
 .sv-issue__title { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 /* Its pull requests, under the tasks, when the plan holds them. */
 .sv-group__prs { padding: var(--space-2) var(--space-3); border-top: var(--border-width) solid var(--border-subtle); }
@@ -258,10 +271,14 @@ button.sv-group__head:focus-visible { outline: var(--focus-ring); outline-offset
 /* Progress: the workflow as one line of glyphs in the band. */
 .sv-rail { display: flex; flex: 1 1 0; align-items: center; min-width: 0; margin: 0; padding: 0; overflow: hidden; list-style: none; text-transform: none; letter-spacing: normal; }
 .sv-rail__step { display: flex; flex: none; align-items: center; gap: var(--space-1); min-width: 0; color: var(--fg-subtle); font-family: var(--font-sans); font-size: var(--text-2xs); line-height: var(--leading-xs); }
-.sv-rail__step + .sv-rail__step::before { content: ""; flex: none; width: var(--space-2); height: var(--border-width); margin-inline: var(--space-1); background: var(--border-default); }
-.sv-rail__mark { display: inline-flex; }
+.sv-rail__step + .sv-rail__step::before { content: ""; flex: none; width: var(--space-2); height: var(--border-width); margin-inline: var(--space-1); background: var(--border-strong); }
+.sv-rail__mark { display: inline-flex; border-radius: 50%; }
+/* A step is its state's dot: done in the advanced hue, the current one in the running hue on a ring of it, the rest dormant. The line into a step is lit once the Job has reached it. */
 .sv-rail__step[data-state="done"] { color: var(--step-advanced); }
-.sv-rail__step[data-state="now"] { color: var(--accent); }
+.sv-rail__step[data-state="now"] { color: var(--step-running); font-weight: var(--weight-heading); }
+.sv-rail__step[data-state="now"] .sv-rail__mark { background: color-mix(in srgb, var(--step-running) 22%, transparent); box-shadow: 0 0 0 var(--border-width) var(--step-running); }
+.sv-rail__step[data-state="done"]::before { background: color-mix(in srgb, var(--step-advanced) 70%, var(--border-strong)); }
+.sv-rail__step[data-state="now"]::before { background: var(--step-running); }
 
 /* ---- A layer over the stage ------------------------------------------------------------------------------------ */
 

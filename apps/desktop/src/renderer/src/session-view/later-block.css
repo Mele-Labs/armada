@@ -1,12 +1,13 @@
-/* Progress: the follow-ups the agent kept, folded. Set as a plan group is: a raised frame, a row that toggles, tokens only. */
-.sv-later { display: flex; flex-direction: column; border: var(--border-width) solid var(--border-subtle); border-radius: var(--radius-md); background: var(--bg-raised); }
-.sv-later__row { display: flex; align-items: center; gap: var(--space-2); width: 100%; padding: var(--space-2) var(--space-3); border: 0; background: none; color: var(--fg-muted); font: inherit; text-align: left; cursor: pointer; }
-.sv-later__row:hover { background: color-mix(in srgb, var(--fg-default) 5%, transparent); }
+/* Progress: the follow-ups the agent kept, folded. Set as a plan group is: a raised frame, a row that toggles, tokens only. Deferred is periwinkle, the soft
+   hue of looking ahead, in its frame, its edge and its label. */
+.sv-later { --hue: var(--tool-look); display: flex; flex-direction: column; border: var(--border-width) solid color-mix(in srgb, var(--hue) 40%, var(--border-subtle)); border-radius: var(--radius-md); background: color-mix(in srgb, var(--hue) 6%, var(--bg-raised)); box-shadow: inset 3px 0 0 var(--hue); }
+.sv-later__row { display: flex; align-items: center; gap: var(--space-2); width: 100%; padding: var(--space-2) var(--space-3); border: 0; background: none; color: var(--hue); font: inherit; text-align: left; cursor: pointer; }
+.sv-later__row:hover { background: color-mix(in srgb, var(--hue) 10%, transparent); }
 .sv-later__row:focus-visible { outline: var(--border-width) solid var(--accent); outline-offset: calc(var(--border-width) * -1); }
-.sv-later__label { font-family: var(--font-sans); font-size: var(--text-xs); line-height: var(--leading-xs); }
+.sv-later__label { font-family: var(--font-sans); font-size: var(--text-xs); line-height: var(--leading-xs); font-weight: var(--weight-medium); }
 .sv-later__chevron { margin-left: auto; transition: rotate calc(var(--duration-sheet)) var(--ease); }
 .sv-later[data-open] .sv-later__chevron { rotate: 180deg; }
-.sv-later__list { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: 0 var(--space-3) var(--space-2); list-style: none; border-top: var(--border-width) solid var(--border-subtle); }
+.sv-later__list { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: 0 var(--space-3) var(--space-2); list-style: none; border-top: var(--border-width) solid color-mix(in srgb, var(--hue) 30%, var(--border-subtle)); }
 .sv-later__item { display: flex; align-items: center; gap: var(--space-1); padding-top: var(--space-2); font-family: var(--font-sans); font-size: var(--text-xs); line-height: var(--leading-xs); color: var(--fg-default); }
 .sv-later__item > .sv-row { flex: 1; min-width: 0; }
 .sv-later__text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
