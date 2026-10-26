@@ -272,6 +272,10 @@ where
         self.confirm_waited(confirm).await
     }
 
+    async fn confirm_later(&self, confirm: ipc::ConfirmLater) -> Result<SessionRecord, Refusal> {
+        self.later_confirmed(confirm).await
+    }
+
     async fn get_plan_usage(&self) -> Result<ipc::PlanUsage, Refusal> {
         let held = self.hosts().plan_usage();
         if !held.windows.is_empty() {

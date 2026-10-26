@@ -306,6 +306,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::hosted_sessions::confirm_waiting::<D>),
         )
         .route(
+            "/sessions/later/confirm",
+            post(crate::hosted_sessions::confirm_later::<D>),
+        )
+        .route(
             "/sessions/checks",
             post(crate::sessions::report_session_check::<D>),
         )

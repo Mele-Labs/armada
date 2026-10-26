@@ -35,6 +35,17 @@ where
     /// Keep `sentences`, said when a reply ended at `said_at`. A sentence already kept, open or
     /// settled, is not kept again. Whether any was new.
     pub(crate) async fn later_kept(&self, id: &str, sentences: &[String], said_at: &str) -> bool {
+        // A sentence near one he marked Not deferred is not kept, by the vectors the asks read; one not
+        // embedded yet is kept this read.
+        let misreads = self.store().lock().await.later_misreads().unwrap_or_default();
+        let sentences = match (misreads.is_empty(), self.language_model().model()) {
+            (false, Some(model)) => {
+                let texts: Vec<&str> = sentences.iter().chain(misreads.iter()).map(String::as_str).collect();
+                let known = self.item_vectors().known(model, id, &texts);
+                super::dedup::left_off_as_misread_sentences(sentences.to_vec(), &misreads, |text| known.get(text).cloned(), super::dedup::FOLDS_AT)
+            }
+            _ => sentences.to_vec(),
+        };
         let mut store = self.store().lock().await;
         sentences.iter().fold(false, |any, sentence| store.keep_later(id, sentence, said_at).unwrap_or(false) || any)
     }
@@ -82,6 +93,9 @@ where
     pub(crate) async fn later_settled(&self, caller: Option<api::Caller>, settle: SettleLater) -> Result<LaterSettled, Refusal> {
         let by_agent = caller.as_ref().is_some_and(|caller| self.session_holding(caller).is_some());
         let id = self.waiting_session(caller, settle.session_id.as_ref())?;
+        if settle.misread && (by_agent || !matches!(settle.how, LaterHow::Dropped)) {
+            return Err(self.hosted_refusal(NOT_SETTLEABLE, "only the person's drop is marked as not deferred"));
+        }
         let reason = settle.reason.as_deref().map(str::trim).filter(|reason| !reason.is_empty());
         let (how, note) = match settle.how {
             LaterHow::Done => ("done", None),
@@ -118,10 +132,36 @@ where
                         self.run_id(),
                     ))
                 })?;
+            if settle.misread {
+                store.keep_later_misread(&id, &sentence, &now).map_err(|why| self.ledger_fault(why))?;
+            }
             let record = self.ledger_row(&store, &session)?;
             (LaterSettled { id: settle.id.clone(), sentence, open: record.later.clone() }, record)
         };
         self.publish(ipc::Event::SessionChanged(record));
         Ok(settled)
+    }
+
+    /// `confirm_later`: thumbs up on an open follow-up. Its sentence is kept for good as one, the row
+    /// stays open and reads confirmed. The agent is told nothing.
+    pub(crate) async fn later_confirmed(&self, confirm: ipc::ConfirmLater) -> Result<ipc::SessionRecord, Refusal> {
+        let id = self.waiting_session(None, confirm.session_id.as_ref())?;
+        let now = self.clock().now().as_str().to_string();
+        let record = {
+            let mut store = self.store().lock().await;
+            let session = store.session(&id).map_err(|why| self.ledger_fault(why))?.ok_or_else(|| self.hosted_refusal(NOT_SETTLEABLE, "a job Fleet knows"))?;
+            let open = store.later_of(&id).map_err(|why| self.ledger_fault(why))?;
+            let Some(one) = open.iter().find(|one| one.id == confirm.id) else {
+                return Err(Refusal::IllegalMove(WireError::raised(
+                    NOT_OPEN,
+                    format!("nothing is open under {}. It was settled already, or the job never kept it", confirm.id),
+                    self.run_id(),
+                )));
+            };
+            store.keep_later_confirmed(&id, &one.sentence, &now).map_err(|why| self.ledger_fault(why))?;
+            self.ledger_row(&store, &session)?
+        };
+        self.publish(ipc::Event::SessionChanged(record.clone()));
+        Ok(record)
     }
 }

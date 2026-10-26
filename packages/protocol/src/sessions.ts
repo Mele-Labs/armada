@@ -190,7 +190,7 @@ export type SessionRecord = {
 };
 
 /** A follow-up the agent kept for itself, read from the close of a reply. `id` is what `settle_later` names it by. */
-export type SessionLater = { id: string; sentence: string; said_at: string };
+export type SessionLater = { id: string; sentence: string; said_at: string; /** Thumbs up on it (`confirm_later`). Absent where not. */ confirmed?: boolean };
 
 /** How a follow-up was settled: the work is done, it is an issue now (`issue`), or it will not be done (`reason`). */
 export type LaterHow = "done" | "filed" | "dropped";
@@ -201,7 +201,10 @@ export type LaterHow = "done" | "filed" | "dropped";
  * Fleet refuses 422 `fleet.later_not_settleable` for a `filed` with no issue it can read or an agent's drop with no reason, and
  * 409 `fleet.later_not_open` for an id that names no open follow-up.
  */
-export type SettleLater = { id: string; how: LaterHow; issue?: string; reason?: string; session_id?: string };
+export type SettleLater = { id: string; how: LaterHow; issue?: string; reason?: string; session_id?: string; /** Thumbs down, Not deferred: the person's `dropped` only; keeps the sentence as no follow-up. */ misread?: boolean };
+
+/** `POST /sessions/later/confirm`: thumbs up on an open follow-up; answered with the `SessionRecord`. */
+export type ConfirmLater = { id: string; session_id?: string };
 
 /** What `settle_later` answers: the follow-up settled and the ones still open. */
 export type LaterSettled = { id: string; sentence: string; open: SessionLater[] };

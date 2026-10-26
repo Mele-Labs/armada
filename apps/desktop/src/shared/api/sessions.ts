@@ -12,6 +12,7 @@ import type {
   CheckoutSentAsPullRequest,
   ClaimIssue,
   LaterSettled,
+  ConfirmLater,
   SettleLater,
   ClaimPullRequest,
   DismissConcern,
@@ -124,6 +125,8 @@ export type SessionsApi = {
   stopWatch: (stop: StopWatch) => Promise<SessionActed<WatchSummary>>;
   /** Drops one thing a session waits on for good. Nothing is sent to the agent. */
   dismissWaiting: (dismiss: DismissWaiting) => Promise<SessionActed>;
+  /** Thumbs up on a follow-up Fleet read from a reply: the row stays open and reads `confirmed`. Fleet refuses an id that names no open follow-up. */
+  confirmLater: (confirm: ConfirmLater) => Promise<SessionActed>;
   /** Thumbs up on a question Fleet read from a reply: the item stays and reads `confirmed`. Fleet refuses an item of any other source. */
   confirmWaiting: (confirm: ConfirmWaiting) => Promise<SessionActed>;
   /** Approves the plan a Session recorded, the version he read. Fleet tells the agent. A newer version refuses. */
@@ -343,6 +346,7 @@ export const SESSIONS_CHANNELS = {
   startWaitingNow: "bridge:start-waiting-now",
   dismissWaiting: "bridge:dismiss-waiting",
   confirmWaiting: "bridge:confirm-waiting",
+  confirmLater: "bridge:confirm-later",
   approvePlan: "bridge:approve-plan",
   sendPlanChanges: "bridge:send-plan-changes",
   judgeSession: "bridge:judge-session",

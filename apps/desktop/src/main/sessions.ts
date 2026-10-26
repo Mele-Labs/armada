@@ -37,6 +37,7 @@ import type {
   ChangeWaiting,
   ClaimIssue,
   LaterSettled,
+  ConfirmLater,
   SettleLater,
   StopWatch,
   WatchesChanged,
@@ -745,6 +746,11 @@ export class SessionsHost {
 
   async dismissWaiting(dismiss: DismissWaiting): Promise<SessionActed> {
     return await this.act("POST", "/sessions/waiting/dismiss", dismiss);
+  }
+
+  /** Thumbs up on a follow-up. Fleet answers the record, which is folded. */
+  async confirmLater(confirm: ConfirmLater): Promise<SessionActed> {
+    return await this.act("POST", "/sessions/later/confirm", confirm);
   }
 
   async confirmWaiting(confirm: ConfirmWaiting): Promise<SessionActed> {

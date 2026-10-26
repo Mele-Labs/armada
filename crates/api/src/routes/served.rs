@@ -468,6 +468,11 @@ const ROUTES: &[Route] = &[
         path: "/sessions/waiting/confirm",
     },
     Route {
+        operation: "confirm_later",
+        method: "POST",
+        path: "/sessions/later/confirm",
+    },
+    Route {
         operation: "list_manifests",
         method: "GET",
         path: "/manifests",

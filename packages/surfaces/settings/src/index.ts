@@ -9,7 +9,8 @@ export type { CatalogueTheme, ModsSource, ThemeMod, ThemeSource, ThemeState } fr
 export { TaughtSourceProvider, taughtOf, trackerOf, useTaught } from "./taught-source";
 export type { TaughtDetail, TaughtFact, TaughtKind, TaughtMod, TaughtPart, TaughtSource, TaughtState } from "./taught-source";
 export { PhoneSourceProvider } from "./phone-source";
-export type { PhoneGateway, PhoneSource, PhoneState } from "./phone-source";
+export type { PhoneGateway, PhoneSetup, PhoneSource, PhoneState } from "./phone-source";
+export { reachable } from "./phone-source";
 export { createPhoneGatewaySource } from "./phone-gateway-source";
 export type { PhoneAsk } from "./phone-gateway-source";
 export { KeyboardSettings } from "./KeyboardSettings";
