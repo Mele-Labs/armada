@@ -50,6 +50,7 @@ export const core: Slice<CoreApi<BridgeState>, CoreState> = {
       onSummoned: () => () => undefined,
       // The mock provides no haptics, so nothing calls this; answered for the type.
       tap: () => undefined,
+      dockCount: () => undefined,
     };
   },
 };

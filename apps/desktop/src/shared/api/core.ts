@@ -85,6 +85,8 @@ export type CoreApi<S = CoreState> = {
    * ignores anything else. Touch, in `docs/contracts/design-system.md`.
    */
   tap: (pattern: Pattern) => void;
+  /** How many calls the Cockpit holds for him, for the dock's badge; none clears it. Sent, waits for nothing. */
+  dockCount: (calls: number) => void;
 };
 
 export type CoreState = {
@@ -165,6 +167,8 @@ export const CORE_CHANNELS = {
   history: "bridge:history",
   // A press Fleet answered, felt on the trackpad. Sent, never invoked: nothing waits on it.
   tap: "bridge:tap",
+  // The Cockpit's calls, counted for the dock. Sent, never invoked.
+  dockCount: "bridge:dock-count",
 } as const;
 
 /**

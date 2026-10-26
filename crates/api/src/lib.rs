@@ -128,13 +128,15 @@ mod watching_run;
 mod watching_session_run;
 /// A command Fleet runs on a cadence for one Job: started, weighed, stopped and listed.
 mod watches;
+/// A repository's app run from Bridge: several servers held as one run.
+mod app_runs;
 
 #[cfg(test)]
 mod tests;
 
 pub use acting::{asked_by, asking, carrying, via, BRIDGE, CALLER_HEADER, PHONE};
 pub use daemon::{
-    offerable, Accounts, Admitting, AdversarialReviews, Authoring, Commands, Conversations, Daemon,
+    offerable, Accounts, Admitting, AdversarialReviews, AppRuns, Authoring, Commands, Conversations, Daemon,
     Autopilots, HelmReach, HostedSessions, Issues, Logbook, Teaching, Mods, Clashing,
     Projects, PullRequestPanel, PullRequests, Queries, Redirector, Refusal, Rehearsing, Requests, Retros, Sessions, Settings, SharedHome, Steerer,
     ShownFile, StoredFile, Studios, Watches,

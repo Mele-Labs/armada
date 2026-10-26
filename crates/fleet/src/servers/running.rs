@@ -76,7 +76,9 @@ where
             let _ = finished.send(true);
             end
         };
-        let (end, ()) = tokio::join!(lived, pumped(&plan.feed, &log, finishing));
+        let servers = self.servers().clone();
+        let heard = |lines: &[(u64, String)]| servers.lines_heard(&plan.now.borrow(), lines);
+        let (end, ()) = tokio::join!(lived, pumped(&plan.feed, &log, finishing, heard));
         // Its group has been ended by now, on every road out of `lived`.
         super::left::forgotten(&plan.dir);
         let ended_at = ipc::Instant::from(&self.now());
@@ -259,12 +261,13 @@ async fn answering_now(state: &ServerState, end: &End) -> Option<u16> {
 
 /// Offer what the log has grown by, a pass every [`api::FOLLOW`], until the
 /// server is over and its last line has gone out.
-async fn pumped(feed: &api::RunFeed, log: &Path, mut finishing: watch::Receiver<bool>) {
+async fn pumped(feed: &api::RunFeed, log: &Path, mut finishing: watch::Receiver<bool>, heard: impl Fn(&[(u64, String)])) {
     let mut from = 0u64;
     loop {
         let last = *finishing.borrow();
         if let Some((lines, next)) = records::lines_from(log, from, last) {
             from = next;
+            heard(&lines);
             feed.offer(api::RunChunk { lines });
         }
         if last {

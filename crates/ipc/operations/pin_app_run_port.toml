@@ -1,0 +1,14 @@
+[operations.pin_app_run_port]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Pin a process of a run to the number its siblings expect it on"
+notes = """
+`POST /app_runs/pin?manifest_id=`, body `PinAppRunPort`: `{process, port, name?, job_id?}`. Answers with the `AppRun` as it stands, 200.
+
+**Written into Kit's copy and never the repository's `armada.yml`**, as `save_app_run` is: the port `process` listens on gets `fixed: <port>` under `ports:`, keeping the `env` and `container` the repository gave it. A process that listens on no leased port, a number below 1024, and a process no run lists are `fleet.app_run_pin_refused`.
+
+**Nothing is restarted.** A pinned process takes exactly that number the next time it starts, on the main checkout and on a Job's bay alike. Where something else holds it the start is refused with `fleet.pinned_port_taken`, naming the number and what holds it; the number is never swapped for another.
+
+`name` picks which run is answered where several list `process`; absent is the first. `job_id` is the Job whose worktree the answer is read on.
+"""

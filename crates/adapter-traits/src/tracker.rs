@@ -214,6 +214,14 @@ pub trait Tracker {
         let _ = (in_repo, text);
         Vec::new()
     }
+
+    /// The issues a pull request names by key in its `title` or `branch`, title first, once each
+    /// and in the order written: **how the tracker itself links a pull request to an issue**. Only
+    /// the Manifest's own projects, so `UTF-8` names none. None by default.
+    fn issues_named_by_pull_request(&self, title: &str, branch: &str) -> Vec<String> {
+        let _ = (title, branch);
+        Vec::new()
+    }
 }
 
 /// Which tracker a repository's Manifest chose: the provider where it named

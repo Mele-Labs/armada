@@ -592,6 +592,14 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/watches/start", post(crate::watches::start_watch::<D>))
         .route("/watches/weigh", post(crate::watches::weigh_watch::<D>))
         .route("/watches/stop", post(crate::watches::stop_watch::<D>))
+        .route("/app_runs", get(crate::app_runs::list_app_runs::<D>))
+        .route("/app_runs/draft", get(crate::app_runs::get_app_run_draft::<D>))
+        .route("/app_runs/start", post(crate::app_runs::start_app_run::<D>))
+        .route("/app_runs/stop", post(crate::app_runs::stop_app_run::<D>))
+        .route("/app_runs/restart", post(crate::app_runs::restart_app_run::<D>))
+        .route("/app_runs/save", post(crate::app_runs::save_app_run::<D>))
+        .route("/app_runs/pin", post(crate::app_runs::pin_app_run_port::<D>))
+        .route("/app_runs/unpin", post(crate::app_runs::unpin_app_run_port::<D>))
         .route("/kit/inventory", get(crate::kit::get_kit_inventory::<D>))
         .route(
             "/kit/flight_controls",

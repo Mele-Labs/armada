@@ -27,6 +27,7 @@
 mod accounts;
 mod adversarial_review;
 mod admitting;
+mod app_runs;
 mod authoring;
 mod clashing;
 mod commands;
@@ -72,6 +73,7 @@ pub use sessions::Sessions;
 pub use settings::Settings;
 pub use shared_home::SharedHome;
 pub use adversarial_review::AdversarialReviews;
+pub use app_runs::AppRuns;
 pub use studios::Studios;
 pub use watches::Watches;
 
@@ -111,7 +113,7 @@ use ipc::WireError;
 /// is a sixth and [`Retros`] a seventh, each for a reason its own module gives.
 /// [`Authoring`] is one more, for [`Retros`]' reason, and [`Sessions`] another,
 /// [`HostedSessions`] one more beside it, and [`Clashing`] and [`PullRequests`] two
-/// more, [`Rehearsing`] split out of [`Commands`], [`Mods`] and [`Settings`], and [`Accounts`] and [`Requests`] beside them, [`Logbook`] with them, [`Teaching`] beside it, [`Watches`], [`SharedHome`] beside [`Accounts`], and [`AdversarialReviews`] beside [`Sessions`], and [`Projects`] beside [`Issues`].
+/// more, [`Rehearsing`] split out of [`Commands`], [`Mods`] and [`Settings`], and [`Accounts`] and [`Requests`] beside them, [`Logbook`] with them, [`Teaching`] beside it, [`Watches`], [`SharedHome`] beside [`Accounts`], [`AdversarialReviews`] beside [`Sessions`], [`AppRuns`] beside [`Rehearsing`], and [`Projects`] beside [`Issues`].
 pub trait Daemon:
     Queries
     + Commands
@@ -138,6 +140,7 @@ pub trait Daemon:
     + AdversarialReviews
     + Requests
     + Watches
+    + AppRuns
 {
 }
 
@@ -166,7 +169,8 @@ impl<
             + SharedHome
             + AdversarialReviews
             + Requests
-            + Watches,
+            + Watches
+            + AppRuns,
     > Daemon for D
 {
 }

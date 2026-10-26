@@ -170,6 +170,8 @@ mod retro_session;
 mod scan;
 mod scouting;
 mod seeding;
+/// A repository's app started from Bridge: several servers held as one run.
+mod app_runs;
 /// A Command that stays running, held by Fleet. **Lifecycle on `/events`,
 /// output on a socket of its own.**
 mod servers;
@@ -518,6 +520,10 @@ pub use scouting::{
 };
 pub use seeding::{
     DeclaredSeed, SeedWarmth,
+};
+pub use app_runs::{
+    AppRun, AppRunCheckout, AppRunDraft, AppRunDraftProcess, AppRunLink, AppRunList, AppRunOpensIn,
+    AppRunProcess, AppRunState, NamedAppRun, PinAppRunPort, SaveAppRun, SavedAppRun, UnpinAppRunPort,
 };
 pub use servers::{
     NamedServer, ServerCheckout, ServerEntry, ServerLink, ServerList, ServerMessage,

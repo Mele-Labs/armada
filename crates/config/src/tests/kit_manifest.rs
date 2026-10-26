@@ -156,7 +156,7 @@ fn a_copy_naming_only_its_tracker_or_ci_gate_is_kept_and_any_other_key_is_refuse
         assert_eq!(kit_copy_fault(mine), None, "{mine}");
     }
     let said = kit_copy_fault("tracker:\n  provider: jira\n  site: acme\nflavour: x\n").expect("refused");
-    assert!(said.contains("`checks`, `commands`, `tracker` and `ci_gate`"), "says what a copy may hold: {said}");
+    assert!(said.contains("`checks`, `commands`, `ports`, `runs`, `tracker` and `ci_gate`"), "says what a copy may hold: {said}");
     assert!(!said.contains(['\u{2014}']), "no dash in {said}");
 }
 
@@ -207,4 +207,63 @@ fn every_manifest_check_takes_a_kit_check_only_where_it_is_marked() {
     };
     assert_eq!(labels("checks:\n  e2e:\n    run: make e2e\n"), ["test", "lint"]);
     assert_eq!(labels("checks:\n  e2e:\n    run: make e2e\n    gate: true\n"), ["test", "lint", "e2e"]);
+}
+
+const SERVING: &str = "version: 1\nid: 01FIXTUREMANIFEST\nports:\n  web: {}\ncommands:\n  web:\n    \
+                       serve: npx vite --port ${port.web}\n    dir: frontend\n";
+
+#[test]
+fn kits_copy_as_the_whole_manifest_takes_servers_and_runs() {
+    let mine = format!("{SERVING}runs:\n  app:\n    label: App\n    commands: [web]\n");
+    let manifest = Manifest::from_kit_alone(file(), kit(), &mine).expect("Kit's parses");
+    assert_eq!(manifest.server("web").and_then(|server| server.dir()), Some("frontend"));
+    assert_eq!(manifest.app_run("app").map(|run| run.servers().to_vec()), Some(vec![String::from("web")]));
+    assert_eq!(kit_copy_fault(&mine), None);
+}
+
+#[test]
+fn kits_copy_naming_only_a_server_and_a_run_is_kept_and_merged_over_the_repositorys() {
+    let mine = "commands:\n  web:\n    serve: npx vite --port ${port.web}\nruns:\n  app:\n    commands: [web]\n";
+    assert_eq!(kit_copy_fault(mine), None, "a Command with `serve` and no `run` is one");
+    let repository = format!("{REPOSITORY}ports:\n  web: {{}}\n");
+    let manifest = Manifest::with_kit(file(), &repository, kit(), mine).expect("they merge");
+    assert!(manifest.server("web").is_some(), "Kit's server is added");
+    assert_eq!(manifest.app_run("app").map(|run| run.servers().to_vec()), Some(vec![String::from("web")]));
+    let from = manifest.from_kit().expect("read from Kit");
+    assert!(from.names.contains(&added(KitKind::Run, "app", None)), "{:?}", from.names);
+}
+
+#[test]
+fn kits_run_naming_a_server_nobody_declares_leaves_the_copy_out() {
+    let mine = "runs:\n  app:\n    commands: [web]\n";
+    let manifest = Manifest::with_kit(file(), REPOSITORY, kit(), mine).expect("the repository's stands");
+    let said = manifest.from_kit().and_then(|from| from.left_out.clone()).expect("named");
+    assert!(said.contains("was left out"), "{said}");
+    assert!(manifest.app_run("app").is_none());
+}
+
+#[test]
+fn a_copy_entry_with_nothing_to_run_or_serve_is_refused() {
+    let said = kit_copy_fault("commands:\n  web:\n    ready: curl localhost\n").expect("refused");
+    assert!(said.contains("`run` or `serve`"), "{said}");
+    let said = kit_copy_fault("runs:\n  app:\n    label: App\n").expect("refused");
+    assert!(said.contains("`commands` list"), "{said}");
+}
+
+#[test]
+fn kits_copy_naming_only_its_ports_servers_and_run_brings_all_three_to_a_repository_that_has_none_of_them() {
+    let mine = "ports:\n  web: {}\ncommands:\n  web:\n    serve: npx vite --port ${port.web}\nruns:\n  app:\n    commands: [web]\n";
+    assert_eq!(kit_copy_fault(mine), None);
+    let manifest = Manifest::with_kit(file(), REPOSITORY, kit(), mine).expect("they merge");
+    assert!(manifest.from_kit().is_some_and(|from| from.left_out.is_none()), "{:?}", manifest.from_kit());
+    assert!(manifest.port("web").is_some() && manifest.server("web").is_some());
+    assert_eq!(manifest.app_run("app").map(|run| run.servers().to_vec()), Some(vec![String::from("web")]));
+    let from = manifest.from_kit().expect("read from Kit");
+    assert!(from.names.contains(&added(KitKind::Port, "web", None)), "{:?}", from.names);
+}
+
+#[test]
+fn a_port_in_kits_copy_that_is_not_a_mapping_is_refused() {
+    let said = kit_copy_fault("ports:\n  web: 80\n").expect("refused");
+    assert!(said.contains("`ports` entry `web` is not a mapping"), "{said}");
 }

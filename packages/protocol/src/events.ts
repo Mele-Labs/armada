@@ -16,6 +16,7 @@ import type { ReviewWalk } from "./review-walks";
 import type { ModList } from "./mods";
 import type { SettingsList } from "./settings";
 import type { CheckoutRunRecord } from "./rehearsal";
+import type { AppRun } from "./app-runs";
 import type { ServerState } from "./servers";
 import type { SessionRowChanged } from "./hosted-sessions";
 import type { ModelDownshiftState } from "./model-downshift";
@@ -71,6 +72,8 @@ export type Event =
   | ({ kind: "server.starting" } & ServerState)
   | ({ kind: "server.serving" } & ServerState)
   | ({ kind: "server.exited" } & ServerState)
+  /** A run after any of its servers' three facts, whole; a client replaces the run it holds for that checkout. Output stays `observe_server`'s. */
+  | ({ kind: "app_run.changed" } & AppRun)
   /** A Studio after a write to it, whole. Since 14.6. */
   | ({ kind: "studio.changed" } & Studio)
   /** A Studio a person deleted. Since 14.6. */

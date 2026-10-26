@@ -63,6 +63,7 @@ export * from "./review-walks";
 export * from "./issues";
 export * from "./autopilot";
 export * from "./servers";
+export * from "./app-runs";
 export * from "./hosted-sessions";
 export * from "./sessions";
 export * from "./session-notes";

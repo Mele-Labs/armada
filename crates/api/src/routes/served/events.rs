@@ -181,4 +181,10 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/events",
     },
+    // A run after any of its servers' three facts, whole.
+    Route {
+        operation: "app_run.changed",
+        method: "GET",
+        path: "/events",
+    },
 ];
