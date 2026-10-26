@@ -261,6 +261,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             "/sessions/window/ask",
             post(crate::sessions::ask_in_window::<D>),
         )
+        .route("/sessions/draft", post(crate::sessions::propose_draft::<D>))
         .route(
             "/sessions/window/closed",
             post(crate::sessions::window_closed::<D>),

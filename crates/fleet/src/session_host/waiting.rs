@@ -872,6 +872,11 @@ where
             WaitingSource::TaskDone => self.task_done_chosen(&id, &item.id, said.choice).await,
             WaitingSource::Delivery => self.delivery_chosen(&id, said.choice).await,
             WaitingSource::WordsAddress => self.words_address_chosen(&id, &item, picked.as_deref(), words).await,
+            // rust-engineer builds this next
+            WaitingSource::Draft => Err(self.hosted_refusal(
+                crate::session_host::drafting::DRAFT_UNBUILT,
+                "Fleet cannot settle a draft yet",
+            )),
         };
         if let (Ok(record), false) = (
             &settled,

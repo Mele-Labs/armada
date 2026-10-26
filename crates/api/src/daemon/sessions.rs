@@ -257,6 +257,15 @@ pub trait Sessions: Send + Sync + 'static {
         ask: ipc::AskInWindow,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
+    /// `propose_draft` — a session puts a draft to the person for approval. `caller` places a hosted
+    /// session as `show_window`'s does. Answers with the row at once, its `draft:<row id>` item
+    /// waiting. [`Refusal::Unacceptable`] for a blank title or text, or a call that places no session.
+    fn propose_draft(
+        &self,
+        caller: Option<crate::Caller>,
+        draft: ipc::ProposeDraft,
+    ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
+
     /// `window_closed` — the person closed a session's window, which ends its walk. Answers with
     /// the row. [`Refusal::Unacceptable`] for a session Fleet does not know.
     fn window_closed(

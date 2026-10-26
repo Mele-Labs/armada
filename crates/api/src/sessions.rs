@@ -346,6 +346,30 @@ pub(crate) async fn ask_in_window<D: Sessions>(
     }
 }
 
+/// A session puts a draft to the person. 200 with the row, or a [`Receipt`] through the door; 422 for
+/// a blank title or text, or a call that places no session.
+pub(crate) async fn propose_draft<D: Sessions>(
+    State(served): State<Served<D>>,
+    door: Option<Extension<DoorCalled>>,
+    body: Bytes,
+) -> Response {
+    let draft: ipc::ProposeDraft = match ipc::decode("a draft to propose", &body) {
+        Ok(draft) => draft,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served
+        .daemon()
+        .propose_draft(crate::acting::asking(), draft.clone())
+        .await
+    {
+        Ok(record) if door.is_some() => {
+            answer(StatusCode::OK, &Receipt::drafted(&record, &draft), served.run_id())
+        }
+        Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// The person closed a session's window. 200 with the row; 422 for a session Fleet does not know.
 pub(crate) async fn window_closed<D: Sessions>(
     State(served): State<Served<D>>,
