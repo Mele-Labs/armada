@@ -78,8 +78,18 @@ fn long_lived() -> SessionRecord {
         terminal: None,
         mod_out_of_date: false,
         waiting_for: vec![
-            waiting("merge", "Approve the pull request", WaitingSource::Agent, None),
-            waiting("pick", "Which of the two", WaitingSource::Agent, None),
+            WaitingItem {
+                act: Some(ipc::WaitingAct { kind: ipc::WaitingActKind::Run, target: "scripts/restart".into() }),
+                steps: vec!["Quit Bridge".into(), "Run `scripts/restart`".into()],
+                ..waiting("merge", "Approve the pull request", WaitingSource::Agent, None)
+            },
+            WaitingItem {
+                options: vec![
+                    ipc::WaitingOption { label: "The first".into(), description: None },
+                    ipc::WaitingOption { label: "The second".into(), description: Some("Slower".into()) },
+                ],
+                ..waiting("pick", "Which of the two", WaitingSource::Agent, None)
+            },
             waiting("walk:http://localhost:5173/", "Walk the page", WaitingSource::Walk, None),
             waiting(
                 "window_ask:7",
@@ -178,14 +188,14 @@ const ASK: &str = r#"{"question":"Is this the right label?","url":"http://localh
 const WAIT: &str = r#"{"items":[{"id":"merge","text":"Approve the pull request"}]}"#;
 
 #[tokio::test]
-async fn waiting_for_answers_the_ids_and_texts_it_set() {
+async fn waiting_for_answers_each_item_as_it_was_kept_with_its_act_steps_and_options() {
     let (app, row) = a_fleet();
     assert!(ipc::encode(&row).expect("a row encodes").len() > 40_000, "the fixture is too light");
     let said = through_the_door(&app, "waiting_for", WAIT).await;
     assert!(said.len() < MOST_A_RECEIPT_MAY_WEIGH, "{} bytes: {said}", said.len());
     assert_eq!(
         said,
-        r#"{"session_id":"session-1","waiting_for":[{"id":"merge","text":"Approve the pull request"},{"id":"pick","text":"Which of the two"}]}"#
+        r#"{"session_id":"session-1","waiting_for":[{"id":"merge","text":"Approve the pull request","act":{"kind":"run","target":"scripts/restart"},"steps":["Quit Bridge","Run `scripts/restart`"]},{"id":"pick","text":"Which of the two","options":[{"label":"The first"},{"label":"The second","description":"Slower"}]}]}"#
     );
 }
 
