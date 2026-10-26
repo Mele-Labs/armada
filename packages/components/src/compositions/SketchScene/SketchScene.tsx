@@ -77,6 +77,11 @@ export type SketchSceneProps = {
   within?: DocumentPlace;
   /** Parts a sent note named, by id: picked when it opens, so they stand out and a right press notes them again. */
   marked?: readonly string[];
+  /**
+   * Filled with a function that draws the sketch as it stands as static SVG markup, the way Save as web page does and with the theme's values
+   * written in. For a host that builds a file of its own around the sketch. Emptied when the sketch goes; the function gives nothing where the scene does not draw.
+   */
+  exporter?: { current: (() => string | undefined) | null };
 };
 
 const ICON: Record<SceneIcon, LucideIcon> = {
@@ -394,7 +399,7 @@ function overlay(kept: readonly SceneRfNode[], fresh: readonly SceneRfNode[]): S
 const JOINS_THE_PICK = ["Meta", "Control"];
 const NO_NOTES: NodeData["notes"] = [];
 
-export function SketchScene({ scene: given, against, title, onAsk, marks, onMarks, preview = false, autoplay = false, playing = false, notes: noteScope, within, marked }: SketchSceneProps) {
+export function SketchScene({ scene: given, against, title, onAsk, marks, onMarks, preview = false, autoplay = false, playing = false, notes: noteScope, within, marked, exporter }: SketchSceneProps) {
   const parsed = useMemo(() => parseScene(given), [given]);
   const before = useMemo(() => (against === undefined ? undefined : parseScene(against)), [against]);
   const diff = useMemo(() => (parsed === undefined || before === undefined ? undefined : diffScenes(before, parsed)), [parsed, before]);
@@ -410,6 +415,14 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
   const flow = useRef<ReactFlowInstance | null>(null);
   const figure = useRef<HTMLElement>(null);
   const host = useSketchShareHost();
+  const drawnAs = useRef<(() => string) | undefined>(undefined);
+  useEffect(() => {
+    if (exporter === undefined) return undefined;
+    exporter.current = () => drawnAs.current?.();
+    return () => {
+      exporter.current = null;
+    };
+  }, [exporter]);
   const viewer = useViewerNotes(preview ? undefined : noteScope, figure);
   // A Shift drag's box, in the figure's own pixels, while it is drawn.
   const [boxing, setBoxing] = useState<{ x0: number; y0: number; x1: number; y1: number } | undefined>(undefined);
@@ -723,6 +736,8 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
       standalone: true,
     };
   };
+
+  drawnAs.current = () => sketchSvg({ ...exportInput(false), standalone: false });
 
   /** Told either way, since a save or a copy is otherwise silent. */
   const share = async (id: string) => {

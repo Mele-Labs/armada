@@ -45,11 +45,13 @@ type Props = {
   notes: readonly PageNote[];
   lit: LitNote | undefined;
   onLit: (to: (was: LitNote | undefined) => LitNote | undefined) => void;
+  /** Each drawn sketch, by its place in the page, fills its slot with the function that gives it as static SVG: what the saved page is made of. */
+  exporters: RefObject<{ current: (() => string | undefined) | null }[]>;
 };
 
 const highlights = (): HighlightRegistry | undefined => (typeof CSS !== "undefined" && "highlights" in CSS && typeof Highlight !== "undefined" ? CSS.highlights : undefined);
 
-export function DocumentPage({ title, revision, root, css, sketches, against, scope, viewer, page, sent, focus, margin, notes, lit, onLit }: Props) {
+export function DocumentPage({ title, revision, root, css, sketches, against, scope, viewer, page, sent, focus, margin, notes, lit, onLit, exporters }: Props) {
   const [mounts, setMounts] = useState<readonly Mount[]>([]);
   const [anchors, setAnchors] = useState<readonly Anchor[]>([]);
 
@@ -262,6 +264,7 @@ export function DocumentPage({ title, revision, root, css, sketches, against, sc
             notes={scope}
             within={{ page: title, revision, section: one.section }}
             marked={markedIn(one.title)}
+            exporter={(exporters.current[one.index] ??= { current: null })}
           />,
           one.el,
           String(one.index),

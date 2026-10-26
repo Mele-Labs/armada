@@ -4,9 +4,9 @@
 // next revision is the reply: Changes marks what moved on, and each sent note shows the change that answers it. The thread and the
 // Landing under the layer are not unmounted, so Esc gives the Job back exactly as it was. `docs/concepts/session/noting-what-you-read.md`.
 
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { useContext, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { ExternalLink, FileDiff, PanelRightClose, PanelRightOpen, X } from "lucide-react";
-import { Button, DropdownMenu, KbdBinding, NoteNumber, Tooltip, aboutSaid, notedOf, setHeldOn, useHeldOn, useViewerNotes, type DropdownMenuEntry, type NotedRef } from "@armada/components";
+import { Button, DropdownMenu, KbdBinding, NoteNumber, SketchShareContext, Tooltip, aboutSaid, notedOf, savedSaid, setHeldOn, sketchFileName, useHeldOn, useViewerNotes, type DropdownMenuEntry, type NotedRef } from "@armada/components";
 import { popupIsOpen } from "@armada/screens/src/list-keyboard";
 import type { Session, SessionsDraft } from "@armada/screens/src/draft/sessions";
 
@@ -15,6 +15,7 @@ import { DocumentPage, type DocumentFocus, type LitNote, type PageNote, type Sen
 import { diffPages } from "./document-diff";
 import { placeOf } from "./document-find";
 import { readPage, type Page } from "./document-page";
+import { savedPage, valuesOf } from "./document-save";
 import { clearVisit, documentOf, useDocumentVisit } from "./document-state";
 import { closeLayer, useLayerPage } from "./layers";
 import "./document.css";
@@ -82,6 +83,8 @@ export function DocumentLayer({ session }: { session: Session }) {
   const scroller = useRef<HTMLDivElement>(null);
   const pageRef = useRef<HTMLDivElement>(null);
   const focused = useRef(false);
+  const exporters = useRef<{ current: (() => string | undefined) | null }[]>([]);
+  const shared = useContext(SketchShareContext);
 
   const revision = Math.min(pinned ?? latest, latest);
   const page = pages[revision - 1];
@@ -191,9 +194,25 @@ export function DocumentLayer({ session }: { session: Session }) {
     event.preventDefault();
   };
 
+  // The page as one file, with each sketch drawn into it as the sketch pane draws it, saved where the person says.
+  const save = async (kind: "html" | "pdf") => {
+    if (page === undefined || pageRef.current === null) return;
+    const name = sketchFileName(title, kind);
+    try {
+      const html = savedPage(page, exporters.current.map((one) => one?.current?.()), valuesOf(page, pageRef.current));
+      const saved = await window.armada.saveDocument({ kind, name, html });
+      const said = savedSaid(name, saved);
+      if (said !== undefined) shared.said?.(said);
+    } catch {
+      shared.said?.(`${name} was not saved.`);
+    }
+  };
+
   const share = (id: string) => {
-    // Saving is not wired in the mock. Adding to the repo asks the Job, as a person would.
-    if (id === "repo" && doc !== undefined) void draft?.send(session.id, { text: `Commit ${doc.id} to the repo.`, files: [], sketches: [], tags: [] });
+    if (id === "web") void save("html");
+    else if (id === "pdf") void save("pdf");
+    // Adding to the repo asks the Job, as a person would. The page is ignored by git, so the commit forces it in.
+    else if (id === "repo" && doc !== undefined) void draft?.send(session.id, { text: `Commit ${doc.id} to the repo. It is gitignored, so add it with git add -f.`, files: [], sketches: [], tags: [] });
   };
 
   const revisions: DropdownMenuEntry[] = pages.map((_, at): DropdownMenuEntry => ({ kind: "item", id: String(at + 1), label: `Revision ${String(at + 1)}`, selected: at + 1 === revision })).reverse();
@@ -256,6 +275,7 @@ export function DocumentLayer({ session }: { session: Session }) {
               notes={notes}
               lit={lit}
               onLit={setLit}
+              exporters={exporters}
             />
           </div>
           <aside className="armada-doc__notes" aria-label="Notes on the page" hidden={!margin}>
