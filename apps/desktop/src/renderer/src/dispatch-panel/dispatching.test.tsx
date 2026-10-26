@@ -62,7 +62,7 @@ beforeEach(() => {
   counts.window = 0;
   counts.outside = 0;
   readRequestRepository.mockClear();
-  (window as unknown as { armada: unknown }).armada = { readRequestRepository };
+  (window as unknown as { armada: unknown }).armada = { readRequestRepository, searchFiles: async () => [] };
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
@@ -238,7 +238,7 @@ test("the selects offer the draft's models and efforts, with the default model n
 
 test("an Autopilot has no Queue for later, and the key queues nothing there", async () => {
   const fleet = served();
-  (window as unknown as { armada: Record<string, unknown> }).armada = { readRequestRepository, proposeAutopilot: vi.fn() };
+  (window as unknown as { armada: Record<string, unknown> }).armada = { readRequestRepository, searchFiles: async () => [], proposeAutopilot: vi.fn() };
   await remount({ draft: fleet.draft, repositories: [ARMADA] });
   for (const kind of ["autopilot"] as const) {
     held?.choose(kind);

@@ -441,8 +441,8 @@ const agentSignInNotice = new AgentSignInNotice({
 
 /**
  * What the OS says when a Job starts waiting on the owner. The rule, the words and the tone are `session-attention.ts`'s; this is
- * the effect. **A banner only while no Bridge window has focus, and only while `features.notifications` is not off**; the dock count
- * needs neither. A press lands on the Job.
+ * the effect. **A banner only while no Bridge window has focus, and only while `features.notifications` is not off**. A press lands
+ * on the Job. The dock count is the Cockpit's, sent by the window (`DockCount`).
  */
 const sessionAttention = new SessionAttention({
   show: (told) => {
@@ -453,7 +453,6 @@ const sessionAttention = new SessionAttention({
     banner.on("click", () => summon({ sessionId: told.sessionId }));
     banner.show();
   },
-  count: (waiting) => app.dock?.setBadge(waiting === 0 ? "" : String(waiting)),
 });
 
 void app.whenReady().then(() => {
@@ -709,6 +708,11 @@ void app.whenReady().then(() => {
   handleSketchShare({ ipc: ipcMain });
   handleAccounts({ ipc: ipcMain, connection: () => connection });
   ipcMain.handle(CHANNELS.getSessionWindows, () => captureWindows.sessionAddresses());
+  // The Cockpit's calls, counted by the window that holds them. Anything but a count is ignored.
+  ipcMain.on(CHANNELS.dockCount, (_event, calls: unknown) => {
+    if (typeof calls !== "number" || !Number.isInteger(calls) || calls < 0) return;
+    app.dock?.setBadge(calls === 0 ? "" : String(calls));
+  });
   handlePlanUsage({ ipc: ipcMain, connection: () => connection });
   handleModelDownshift({ ipc: ipcMain, connection: () => connection });
   handleAgentSignIn({ ipc: ipcMain, connection: () => connection });

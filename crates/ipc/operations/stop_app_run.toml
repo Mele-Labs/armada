@@ -1,0 +1,8 @@
+[operations.stop_app_run]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Stop every process of a run on one checkout, and wait for each"
+notes = """
+`POST /app_runs/stop?manifest_id=`, body `NamedAppRun`. Answers with the `AppRun` once its processes have ended: `exited`, as somebody stopped them. **Only this run's servers**: no other the checkout holds. A run with nothing up answers as it stands.
+"""
