@@ -116,6 +116,12 @@ where
 
     async fn lived(&self, plan: &Plan, log: &Path, stopped: watch::Receiver<bool>) -> End {
         let path = plan.worktree.as_path();
+        let checkout = PathBuf::from(&plan.now.borrow().checkout.path);
+        let first = plan.run.as_deref().unwrap_or(&plan.serve);
+        if let Some((why, exit)) = unstartable(first, path, &checkout) {
+            marked(log, &why);
+            return End { exit, stopped: false };
+        }
         if let Some(run) = &plan.run {
             marked(log, &format!("--- `run` first: {run} ---"));
             let attempt = checks_runner::run_until(
@@ -143,6 +149,12 @@ where
                     }),
                     stopped: false,
                 };
+            }
+        }
+        if plan.run.is_some() {
+            if let Some((why, exit)) = unstartable(&plan.serve, path, &checkout) {
+                marked(log, &why);
+                return End { exit, stopped: false };
             }
         }
         marked(log, &format!("--- {} ---", plan.serve));
@@ -288,6 +300,47 @@ async fn until(mut stopped: watch::Receiver<bool>) {
     }
 }
 
+/// Why `command` cannot start in `folder`, as the line its log opens with, and the exit that says
+/// so: the folder is not there, or its program is a path that is not there or will not run, or a
+/// bare name no folder on `PATH` holds. **Asked before anything is spawned**, so a server that never
+/// ran has a log that says why instead of an empty one.
+fn unstartable(command: &str, folder: &Path, checkout: &Path) -> Option<(String, Exit)> {
+    if !folder.is_dir() {
+        let shown = folder.strip_prefix(checkout).unwrap_or(folder).display().to_string();
+        return Some((
+            format!("`{shown}` is not a folder in this checkout"),
+            Exit::NeverRan(NeverRan::WorktreeGone { worktree: folder.display().to_string() }),
+        ));
+    }
+    let (program, _) = checks_runner::split(command)?;
+    if !program.contains('/') {
+        let on_path = std::env::var_os("PATH")
+            .is_some_and(|dirs| std::env::split_paths(&dirs).any(|dir| runnable(&dir.join(&program))));
+        return (!on_path).then(|| {
+            (format!("`{program}` is not on this machine's PATH"), Exit::NeverRan(NeverRan::NoSuchCommand { program }))
+        });
+    }
+    let at = folder.join(&program);
+    if !at.exists() {
+        return Some((
+            format!("`{program}` is not in this checkout"),
+            Exit::NeverRan(NeverRan::NoSuchCommand { program }),
+        ));
+    }
+    (!runnable(&at)).then(|| {
+        (
+            format!("`{program}` is not executable"),
+            Exit::NeverRan(NeverRan::NotSpawned { program, kind: std::io::ErrorKind::PermissionDenied }),
+        )
+    })
+}
+
+/// A file with an execute bit.
+fn runnable(at: &Path) -> bool {
+    use std::os::unix::fs::PermissionsExt;
+    std::fs::metadata(at).is_ok_and(|meta| meta.is_file() && meta.permissions().mode() & 0o111 != 0)
+}
+
 /// A line of Fleet's own between commands, so one log reads as the sequence.
 fn marked(log: &Path, line: &str) {
     // **One write, line and newline together.** The server appends to this
@@ -324,6 +377,9 @@ fn said(exit: &Exit, stopped: bool) -> String {
         }
         Exit::NeverRan(NeverRan::NothingToRun) => {
             String::from("declares a `serve` with no program in it")
+        }
+        Exit::NeverRan(NeverRan::NoSuchCommand { program }) if program.contains('/') => {
+            format!("could not start: `{program}` is not in this checkout")
         }
         Exit::NeverRan(NeverRan::NoSuchCommand { program }) => {
             format!("needs `{program}`, which is not on this machine's PATH")

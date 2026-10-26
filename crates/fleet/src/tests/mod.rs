@@ -53,6 +53,7 @@ mod flight_controls;
 mod app_run_drafts;
 mod app_run_links;
 mod app_run_pins;
+mod app_run_setup;
 mod app_run_wire;
 mod app_runs;
 mod app_runs_fresh;
