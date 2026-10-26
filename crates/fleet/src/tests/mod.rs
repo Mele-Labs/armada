@@ -50,6 +50,7 @@ mod helm_studio;
 mod host;
 mod http;
 mod flight_controls;
+mod app_run_draft_setup;
 mod app_run_drafts;
 mod app_run_links;
 mod app_run_pins;

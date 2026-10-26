@@ -235,6 +235,7 @@ async fn a_draft_reads_its_port_as_a_placeholder_and_a_save_gives_each_listener_
                     process("web", "python3 -m http.server ${port} --bind 127.0.0.1"),
                     process("worker", "sleep 300"),
                 ],
+                setup: Vec::new(),
                 job_id: None,
             },
         )

@@ -23,11 +23,10 @@ const MOST_FOLDERS: usize = 300;
 const DEEPEST: usize = 2;
 
 /// One process for each folder whose files name a server.
-pub(super) fn found(root: &Path) -> Vec<DraftProcess> {
-    let folders = folders(root);
+pub(super) fn found(root: &Path, folders: &[(String, PathBuf)]) -> Vec<DraftProcess> {
     let root_has_dev = dev_script_in(root).is_some();
     let mut out = Vec::new();
-    for (relative, path) in &folders {
+    for (relative, path) in folders {
         let dir = (relative != ".").then(|| relative.clone());
         let below_a_library = relative.split('/').any(|part| LIBRARIES.contains(&part));
         // A root `dev` is how a monorepo starts everything, so its folders' own are not repeated.
@@ -45,7 +44,7 @@ pub(super) fn found(root: &Path) -> Vec<DraftProcess> {
 }
 
 /// The root, then the folders under it to [`DEEPEST`], by path.
-fn folders(root: &Path) -> Vec<(String, PathBuf)> {
+pub(super) fn folders(root: &Path) -> Vec<(String, PathBuf)> {
     let mut out = vec![(String::from("."), root.to_path_buf())];
     let mut next = 0;
     while next < out.len() && out.len() < MOST_FOLDERS {
@@ -159,30 +158,39 @@ fn javascript(root: &Path, folder: &Path, dir: Option<String>, relative: &str) -
     let manager = package_manager(root, folder);
     let name = safe_name(if relative == "." { "web" } else { relative });
     let first = script.split_whitespace().next().unwrap_or("");
-    let (serve, port) = match (first, script.contains("--port")) {
-        // A bundler that takes its port as a flag, which no environment variable moves.
-        ("vite", false) => {
+    let leased = format!("${{port.{name}}}");
+    let (serve, env) = match first {
+        // A bundler that takes its port as a flag, which no environment variable moves. A port the
+        // script names is the one a second checkout would collide on, so the leased one replaces it.
+        "vite" => {
             let runner = match manager {
                 "pnpm" => "pnpm exec",
                 "yarn" => "yarn",
                 "bun" => "bunx",
                 _ => "npx",
             };
-            (
-                format!("{runner} {} --port ${{port.{name}}} --strictPort", script.trim()),
-                Some(DraftPort { name: name.clone(), env: None }),
-            )
+            (format!("{runner} {} --port {leased} --strictPort", super::without_port(&script)), None)
         }
-        ("vite", true) => (format!("{manager} run dev"), None),
-        // Anything else reads `PORT`, as most dev servers do.
-        _ => (
+        // A script that starts several apps would hand each the one port, so it is told only `PORT`.
+        "turbo" | "nx" | "lerna" | "concurrently" | "npm-run-all" | "run-p" => (
             match manager {
                 "yarn" => String::from("yarn dev"),
                 other => format!("{other} run dev"),
             },
-            Some(DraftPort { name: name.clone(), env: Some(String::from("PORT")) }),
+            Some(String::from("PORT")),
+        ),
+        // Anything else is handed the port as a flag after the script, and in `PORT` for one that
+        // reads it from there instead.
+        _ => (
+            match manager {
+                "npm" => format!("npm run dev -- --port {leased}"),
+                "yarn" => format!("yarn dev --port {leased}"),
+                other => format!("{other} run dev --port {leased}"),
+            },
+            Some(String::from("PORT")),
         ),
     };
+    let port = Some(DraftPort { name: name.clone(), env });
     Some(DraftProcess { name, serve, dir, port, from: DraftSource::PackageJson })
 }
 
@@ -230,9 +238,13 @@ fn app_variable(line: &str) -> Option<String> {
     (!name.is_empty() && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')).then(|| name.to_string())
 }
 
-/// The virtual environment's Python where the folder or the root has one, as a path from the
-/// folder the process starts in; else the machine's.
+/// The virtual environment's Python: the one a setup Command makes beside the folder's
+/// `requirements.txt` or `pyproject.toml` (`super::setup`), else one the folder or the root already
+/// has, as a path from the folder the process starts in; else the machine's.
 fn interpreter(root: &Path, folder: &Path, relative: &str) -> String {
+    if folder.join("requirements.txt").is_file() || folder.join("pyproject.toml").is_file() {
+        return String::from(".venv/bin/python");
+    }
     if folder.join(".venv/bin/python").is_file() {
         return String::from(".venv/bin/python");
     }

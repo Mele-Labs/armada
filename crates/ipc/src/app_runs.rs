@@ -161,6 +161,17 @@ pub struct AppRunDraftProcess {
     pub port_env: Option<String>,
 }
 
+/// A Command the checkout runs before the run's processes can start: an install, a `.venv` made.
+/// Saved as a Command and named in `setup.requires`, so it runs once on each checkout and again when
+/// what it was traced from changes.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AppRunDraftSetup {
+    /// The Command's name. Letters, digits and `_`.
+    pub name: String,
+    /// What it runs, from the checkout's root.
+    pub command: String,
+}
+
 /// `get_app_run_draft`: the run Fleet proposes for a repository that declares none. **It saves
 /// nothing.** With no process the repository's files and Jobs suggested none, and a person writes
 /// their own.
@@ -177,6 +188,11 @@ pub struct AppRunDraft {
     /// not get. Absent where none was found.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub links: Vec<AppRunLink>,
+    /// What the checkout runs first, in order: an install for each lockfile beside a
+    /// `package.json`, a `.venv` for each `requirements.txt` or `pyproject.toml`. **Only what no
+    /// Command declared already runs.** Absent where there is nothing to install.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub setup: Vec<AppRunDraftSetup>,
 }
 
 /// The body of `pin_app_run_port`: a process, and the number its siblings expect it on.
@@ -210,6 +226,10 @@ pub struct SaveAppRun {
     /// What the person calls it. Its key under `runs:` is this written as letters, digits and `_`.
     pub name: String,
     pub processes: Vec<AppRunDraftProcess>,
+    /// The setup it needs, as confirmed: each written as a Command and added to `setup.requires`
+    /// after what is there. Absent: none.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub setup: Vec<AppRunDraftSetup>,
     /// The Job whose worktree it then starts on. Absent: the main checkout.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub job_id: Option<String>,

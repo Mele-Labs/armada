@@ -51,7 +51,8 @@ pub(super) struct SaveTarget {
     pub(super) text: Option<String>,
 }
 
-/// The edits that declare `draft`: each process's port, then its server, then the run.
+/// The edits that declare `draft`: each process's port, then its server, then each setup Command
+/// and `setup.requires`, then the run.
 pub(crate) fn edits(draft: &RunDraft) -> Vec<Edit> {
     let mut edits = Vec::new();
     for process in &draft.processes {
@@ -76,6 +77,15 @@ pub(crate) fn edits(draft: &RunDraft) -> Vec<Edit> {
         if process.dir.is_some() {
             edits.push(command(CommandEdit::Dir(process.dir.clone())));
         }
+    }
+    for one in &draft.setup {
+        edits.push(Edit::Command {
+            name: one.name.clone(),
+            edit: CommandEdit::Add(NewCommand { run: Some(one.run.clone()), destructive: false, serve: None, ready: None, links: Vec::new() }),
+        });
+    }
+    if !draft.setup.is_empty() {
+        edits.push(Edit::SetupRequiresAdded(draft.setup.iter().map(|one| one.name.clone()).collect()));
     }
     edits.push(Edit::Run {
         name: draft.name.clone(),
@@ -106,14 +116,25 @@ fn refused(draft: &RunDraft) -> Option<String> {
     if draft.processes.is_empty() {
         return Some(String::from("a run starts at least one server"));
     }
-    draft.processes.iter().find_map(|one: &DraftProcess| {
+    let setup = draft.setup.iter().find_map(|one| {
         if !named(&one.name) {
-            return Some(format!("`{}` is not a name for a server: letters, digits and `_`", one.name));
+            return Some(format!("`{}` is not a name for a setup command: letters, digits and `_`", one.name));
         }
-        if one.serve.trim().is_empty() {
-            return Some(format!("`{}` has nothing to serve", one.name));
+        if one.run.trim().is_empty() {
+            return Some(format!("`{}` has nothing to run", one.name));
         }
         None
+    });
+    setup.or_else(|| {
+        draft.processes.iter().find_map(|one: &DraftProcess| {
+            if !named(&one.name) {
+                return Some(format!("`{}` is not a name for a server: letters, digits and `_`", one.name));
+            }
+            if one.serve.trim().is_empty() {
+                return Some(format!("`{}` has nothing to serve", one.name));
+            }
+            None
+        })
     })
 }
 
@@ -148,6 +169,11 @@ fn already_declared(repository: &Manifest, draft: &RunDraft) -> Vec<String> {
             || process.port.as_ref().is_some_and(|port| ports.contains(&port.name));
         if taken {
             names.push(process.name.clone());
+        }
+    }
+    for one in &draft.setup {
+        if repository.command(&one.name).is_some() || repository.server(&one.name).is_some() {
+            names.push(one.name.clone());
         }
     }
     if repository.app_run(&draft.name).is_some() {
@@ -225,6 +251,8 @@ where
         let beside = Beside {
             dirs: saved.iter().map(|one| one.dir.clone().unwrap_or_else(|| String::from("."))).collect(),
             reserved: [declared.command_names(), declared.server_names(), declared.port_names()].concat(),
+            runs: declared.command_names().iter().filter_map(|name| declared.command(name)).map(|one| one.run().to_string()).collect(),
+            required: declared.prepared_by().iter().map(|one| one.name().to_string()).collect(),
         };
         let ports: std::collections::BTreeMap<String, String> =
             saved.iter().filter_map(|one| Some((one.name.clone(), port_name_in(&one.command)?))).collect();

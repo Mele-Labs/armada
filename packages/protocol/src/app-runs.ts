@@ -101,6 +101,17 @@ export type AppRunDraftProcess = {
 };
 
 /**
+ * A Command the checkout runs before the run's processes can start: an install, a `.venv` made.
+ * Saved as a Command and named in `setup.requires`, so it runs once on each checkout and again when what it was traced from changes.
+ */
+export type AppRunDraftSetup = {
+  /** Letters, digits and `_`. */
+  name: string;
+  /** What it runs, from the checkout's root. */
+  command: string;
+};
+
+/**
  * `GET /app_runs/draft`: what is proposed that no saved run already starts, so *Add a way to run* has a draft where the repository declares runs too. Saves nothing.
  * No `processes` is a repository nothing was learnt of, or one whose saved runs cover what was.
  */
@@ -112,12 +123,16 @@ export type AppRunDraft = {
   processes: AppRunDraftProcess[];
   /** Where a proposed process expects another, proposed or already saved. Left out when there is none. */
   links?: AppRunLink[];
+  /** What the checkout runs first, in order: an install for each lockfile beside a `package.json`, a `.venv` for each `requirements.txt` or `pyproject.toml`. Only what no Command declared already runs. Left out when there is nothing to install. */
+  setup?: AppRunDraftSetup[];
 };
 
 /** The body of `save_app_run`: a confirmed draft and the name its person gave it. */
 export type SaveAppRun = {
   name: string;
   processes: AppRunDraftProcess[];
+  /** The setup as confirmed: each written as a Command and added to `setup.requires` after what is there. */
+  setup?: AppRunDraftSetup[];
   /** The Job whose worktree it then starts on. Absent: the main checkout. */
   job_id?: string;
 };

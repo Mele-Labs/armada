@@ -6,12 +6,17 @@
 //! for somebody, so it beats a guess from `package.json`; the files only fill a folder memory says
 //! nothing of. One process per folder: the newest fact that succeeded.
 //!
+//! **A remembered command is proposed only if what it names will be there** ([`setup`]), and the
+//! draft proposes the setup that makes it: an install for each lockfile, a `.venv` for each Python
+//! folder. **Every process listens on a leased port**, named for it.
+//!
 //! **A fact is cleaned before it is proposed.** The stream a fact is read from carries the shell
 //! around the command (`... --strictPort /tmp/x.log &)`), and Fleet starts a server by exec, with
 //! no shell, so a redirect or a `&` would be handed to the program as an argument. A literal port
 //! becomes `${port.NAME}`, so each checkout gets a span of its own.
 
 mod files;
+mod setup;
 
 use std::path::Path;
 
@@ -53,6 +58,17 @@ pub(crate) struct DraftProcess {
     pub(crate) from: DraftSource,
 }
 
+/// A Command a checkout runs before its app can: written as a `commands.<name>` with `run`, and
+/// named in `setup.requires`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct DraftSetup {
+    pub(crate) name: String,
+    /// The line, run at the checkout's root.
+    pub(crate) run: String,
+    /// The path under the root it makes, where it makes one: `frontend/node_modules`, `.venv`.
+    pub(crate) creates: Option<String>,
+}
+
 /// A run proposed whole.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct RunDraft {
@@ -61,6 +77,8 @@ pub(crate) struct RunDraft {
     /// What a person is shown for it.
     pub(crate) label: Option<String>,
     pub(crate) processes: Vec<DraftProcess>,
+    /// What the checkout runs first, in order. Saved into `setup.requires`.
+    pub(crate) setup: Vec<DraftSetup>,
 }
 
 /// What a repository's saved runs already hold, so a draft proposes only the rest.
@@ -71,6 +89,11 @@ pub(crate) struct Beside {
     /// Every name a Command, server or port is declared under: a proposal never takes one, since
     /// Kit's copy would win by name and change what it is.
     pub(crate) reserved: Vec<String>,
+    /// The line of every Command declared, so a setup already saved is not proposed twice.
+    pub(crate) runs: Vec<String>,
+    /// What `setup.requires` already names: a proposal of one of these names was saved before,
+    /// perhaps with its line edited.
+    pub(crate) required: Vec<String>,
 }
 
 /// The run `facts` and the files under `root` suggest, or `None` where neither names a server.
@@ -82,19 +105,31 @@ pub(crate) fn drafted(root: &Path, facts: &[KeptRun]) -> Option<RunDraft> {
 
 /// [`drafted`] leaving out every process in a folder `beside` says a saved server starts in.
 pub(crate) fn drafted_beside(root: &Path, facts: &[KeptRun], beside: &Beside) -> Option<RunDraft> {
-    let mut processes = from_memory(facts);
+    let folders = files::folders(root);
+    let mut setup = setup::proposed(&folders);
+    setup.retain(|one| !beside.runs.contains(&one.run) && !beside.required.contains(&one.name));
+    let mut processes = from_memory(root, facts);
+    let named: Vec<Vec<String>> =
+        processes.iter().map(|one| setup::named_paths(&one.serve, one.dir.as_deref())).collect();
+    let asked: Vec<String> = named.iter().flatten().filter(|path| !setup::made_by(path, &setup)).cloned().collect();
+    let answered = setup::tracked(root, &asked);
+    let there = |path: &String| {
+        setup::made_by(path, &setup) || asked.iter().zip(&answered).any(|(one, tracked)| one == path && *tracked)
+    };
+    let mut kept = named.iter().map(|paths| paths.iter().all(there));
+    processes.retain(|_| kept.next().unwrap_or(false));
     let taken: Vec<String> = processes
         .iter()
         .map(|one| one.dir.clone().unwrap_or_else(|| String::from(".")))
         .collect();
-    for found in files::found(root) {
+    for found in files::found(root, &folders) {
         let dir = found.dir.clone().unwrap_or_else(|| String::from("."));
         if !taken.contains(&dir) {
             processes.push(found);
         }
     }
     processes.retain(|one| !beside.dirs.contains(&one.dir.clone().unwrap_or_else(|| String::from("."))));
-    unique_names(&mut processes, &beside.reserved);
+    unique_names(&mut processes, &mut setup, &beside.reserved);
     if processes.is_empty() {
         return None;
     }
@@ -102,11 +137,12 @@ pub(crate) fn drafted_beside(root: &Path, facts: &[KeptRun], beside: &Beside) ->
         name: String::from("dev"),
         label: root.file_name().map(|name| name.to_string_lossy().into_owned()),
         processes,
+        setup,
     })
 }
 
-/// One process per folder, newest first among the facts that succeeded.
-fn from_memory(facts: &[KeptRun]) -> Vec<DraftProcess> {
+/// One process per folder, newest first among the facts that succeeded, each on a leased port.
+fn from_memory(root: &Path, facts: &[KeptRun]) -> Vec<DraftProcess> {
     let mut newest: Vec<(String, &KeptRun)> = Vec::new();
     for fact in facts.iter().filter(|fact| fact.kind == "dev_server" && fact.succeeded) {
         let Some(folder) = in_the_repository(&fact.workspace) else {
@@ -122,23 +158,56 @@ fn from_memory(facts: &[KeptRun]) -> Vec<DraftProcess> {
         .into_iter()
         .filter_map(|(folder, fact)| {
             let line = cleaned(&fact.command)?;
-            let name = name_of(&folder, &line);
-            let (serve, port) = match fact.port {
-                Some(port) => match placed(&line, port, &name) {
-                    Some(serve) => (serve, Some(DraftPort { name: name.clone(), env: None })),
-                    None => (line, None),
-                },
-                None => (line, None),
+            let name = name_of(root, &folder, &line);
+            let (serve, env) = match fact.port.and_then(|port| placed(&line, port, &name)) {
+                Some(serve) => (serve, None),
+                None => leased(&line, &name),
             };
             Some(DraftProcess {
-                name,
+                name: name.clone(),
                 serve,
                 dir: (folder != ".").then_some(folder),
-                port,
+                port: Some(DraftPort { name, env }),
                 from: DraftSource::RunMemory,
             })
         })
         .collect()
+}
+
+/// `line` given the port leased as `name`, where it names none: the flag its program reads, after
+/// any number it was given. The variable, for a program known by none.
+fn leased(line: &str, name: &str) -> (String, Option<String>) {
+    let port = format!("${{port.{name}}}");
+    let words: Vec<&str> = line.split_whitespace().collect();
+    let runs = |program: &str| words.iter().any(|word| *word == program || word.ends_with(&format!("/{program}")));
+    if runs("vite") {
+        return (format!("{} --port {port} --strictPort", without_port(line)), None);
+    }
+    if runs("uvicorn") {
+        return (format!("{} --port {port}", without_port(line)), None);
+    }
+    match words.as_slice() {
+        ["npm", "run", ..] if words.contains(&"--") => (format!("{line} --port {port}"), Some(String::from("PORT"))),
+        ["npm", "run", ..] => (format!("{line} -- --port {port}"), Some(String::from("PORT"))),
+        _ => (format!("{line} --port {port}"), Some(String::from("PORT"))),
+    }
+}
+
+/// `line` without a `--port N`, `--port=N` or `--strictPort` it already holds.
+pub(super) fn without_port(line: &str) -> String {
+    let mut kept: Vec<&str> = Vec::new();
+    let mut words = line.split_whitespace();
+    while let Some(word) = words.next() {
+        match word {
+            "--port" => {
+                words.next();
+            }
+            "--strictPort" => {}
+            port if port.starts_with("--port=") => {}
+            other => kept.push(other),
+        }
+    }
+    kept.join(" ")
 }
 
 /// The folder a fact's workspace names inside the repository, `.` for its root. **A slot's copy is
@@ -215,13 +284,18 @@ fn placed(line: &str, port: u16, name: &str) -> Option<String> {
     found.then_some(out)
 }
 
-/// A name for a process: its folder's last segment, else the program it runs.
-fn name_of(folder: &str, line: &str) -> String {
+/// A name for a process: its folder's last segment. **At the root, the top-level folder an
+/// argument points into**, `backend` for `uvicorn backend.app.main:app`, else `app`: never the
+/// program, which says nothing of what is served.
+fn name_of(root: &Path, folder: &str, line: &str) -> String {
     let word = match folder {
         "." => line
             .split_whitespace()
-            .find(|token| !matches!(*token, "npx" | "pnpm" | "exec" | "yarn" | "bunx" | "npm" | "run" | "python" | "python3" | "-m" | "uv"))
-            .unwrap_or("dev"),
+            .enumerate()
+            .filter(|(at, word)| (*at > 0 || word.contains('/')) && !word.starts_with(['-', '.', '/']))
+            .filter_map(|(_, word)| word.split(['/', '.', ':']).next())
+            .find(|part| !part.is_empty() && root.join(part).is_dir())
+            .unwrap_or("app"),
         folder => folder.rsplit('/').next().unwrap_or(folder),
     };
     safe_name(word)
@@ -243,24 +317,32 @@ pub(super) fn safe_name(word: &str) -> String {
     }
 }
 
-/// Two processes never share a name: the second is `name_2`, the third `name_3`. The port follows.
-fn unique_names(processes: &mut [DraftProcess], reserved: &[String]) {
+/// Two processes or setup Commands never share a name: the second is `name_2`, the third `name_3`.
+/// The port follows.
+fn unique_names(processes: &mut [DraftProcess], setup: &mut [DraftSetup], reserved: &[String]) {
     let mut seen: Vec<String> = reserved.to_vec();
-    for process in processes {
-        let base = process.name.clone();
-        let mut name = base.clone();
+    let mut fresh = |base: &str| {
+        let mut name = base.to_string();
         let mut n = 2;
         while seen.contains(&name) {
             name = format!("{base}_{n}");
             n += 1;
         }
+        seen.push(name.clone());
+        name
+    };
+    for process in processes {
+        let base = process.name.clone();
+        let name = fresh(&base);
         if name != base {
             process.serve = process.serve.replace(&format!("${{port.{base}}}"), &format!("${{port.{name}}}"));
             if let Some(port) = &mut process.port {
                 port.name = name.clone();
             }
-            process.name = name.clone();
+            process.name = name;
         }
-        seen.push(name);
+    }
+    for one in setup {
+        one.name = fresh(&one.name);
     }
 }

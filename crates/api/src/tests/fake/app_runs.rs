@@ -68,7 +68,7 @@ impl AppRuns for FakeDaemon {
     }
 
     async fn get_app_run_draft(&self, _manifest_id: Option<ManifestId>) -> Result<AppRunDraft, Refusal> {
-        Ok(AppRunDraft { root: "/repos/armada".to_string(), place: RunPlace::ThisMac, processes: Vec::new(), links: Vec::new() })
+        Ok(AppRunDraft { root: "/repos/armada".to_string(), place: RunPlace::ThisMac, processes: Vec::new(), links: Vec::new(), setup: Vec::new() })
     }
 
     async fn start_app_run(

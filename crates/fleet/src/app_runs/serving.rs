@@ -13,14 +13,14 @@ use std::sync::Arc;
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{AppRuns, Refusal};
 use ipc::{
-    AppRun, AppRunCheckout, AppRunDraft, AppRunDraftProcess, AppRunLink, AppRunList, AppRunOpensIn,
+    AppRun, AppRunCheckout, AppRunDraft, AppRunDraftProcess, AppRunDraftSetup, AppRunLink, AppRunList, AppRunOpensIn,
     AppRunProcess, AppRunState, Event, ManifestId, NamedAppRun, PinAppRunPort, SaveAppRun,
     SavedAppRun, ServerState, UnpinAppRunPort,
 };
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 
-use super::draft::{safe_name, DraftPort, DraftProcess, DraftSource, RunDraft};
+use super::draft::{safe_name, DraftPort, DraftProcess, DraftSetup, DraftSource, RunDraft};
 use super::links::{self, notice, Link};
 use super::{ProcessState, RunProcess, RunTarget, RunView};
 use crate::daemon::Fleet;
@@ -270,6 +270,12 @@ where
             place: self.kit_place_of(&root).await?,
             processes: drafted.draft.iter().flat_map(|draft| &draft.processes).map(draft_process_wired).collect(),
             links: drafted.links.iter().map(|link| link_wired(link, port_of)).collect(),
+            setup: drafted
+                .draft
+                .iter()
+                .flat_map(|draft| &draft.setup)
+                .map(|one| AppRunDraftSetup { name: one.name.clone(), command: one.run.clone() })
+                .collect(),
             root,
         })
     }
@@ -298,6 +304,11 @@ where
             name: safe_name(&words),
             label: Some(words).filter(|words| !words.is_empty()),
             processes: asked.processes.into_iter().map(draft_process_read).collect(),
+            setup: asked
+                .setup
+                .into_iter()
+                .map(|one| DraftSetup { name: one.name.trim().to_string(), run: one.command, creates: None })
+                .collect(),
         };
         // A Job's run is saved for the Job's repository, which `?manifest_id=` need not name.
         let target = target_of(manifest_id.clone(), asked.job_id);

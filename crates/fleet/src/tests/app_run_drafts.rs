@@ -38,27 +38,28 @@ fn serves(draft: &RunDraft) -> Vec<(&str, &str, Option<&str>)> {
 #[test]
 fn a_remembered_dev_server_loses_the_shell_around_it_and_its_port_becomes_a_name() {
     let dir = TempDir::new();
+    write(dir.path(), "vite.mock.config.ts", "export default {}\n");
     for (said, port, expected) in [
         (
             "npx vite --config vite.mock.config.ts --port 5176 --strictPort /tmp/slot2-mock.log &)",
             5176,
-            "npx vite --config vite.mock.config.ts --port ${port.vite} --strictPort",
+            "npx vite --config vite.mock.config.ts --port ${port.app} --strictPort",
         ),
         (
             "nohup pnpm exec vite --port 5199 --strictPort /tmp/vite-file-panel.log &",
             5199,
-            "pnpm exec vite --port ${port.vite} --strictPort",
+            "pnpm exec vite --port ${port.app} --strictPort",
         ),
         (
             "pnpm exec vite --port 5199 --strictPort /tmp/vite-fp2.log & echo $! /tmp/vite-fp2.pid)",
             5199,
-            "pnpm exec vite --port ${port.vite} --strictPort",
+            "pnpm exec vite --port ${port.app} --strictPort",
         ),
-        ("npx vite --port=5373", 5373, "npx vite --port=${port.vite}"),
+        ("npx vite --port=5373", 5373, "npx vite --port=${port.app}"),
     ] {
         let draft = drafted(dir.path(), &[fact(".", said, Some(port), 1, true)]).expect("a draft");
         assert_eq!(draft.processes[0].serve, expected, "{said}");
-        assert_eq!(draft.processes[0].port, Some(DraftPort { name: String::from("vite"), env: None }));
+        assert_eq!(draft.processes[0].port, Some(DraftPort { name: String::from("app"), env: None }));
     }
 }
 
@@ -66,7 +67,7 @@ fn a_remembered_dev_server_loses_the_shell_around_it_and_its_port_becomes_a_name
 fn a_port_number_inside_a_longer_number_is_left_alone() {
     let dir = TempDir::new();
     let draft = drafted(dir.path(), &[fact(".", "serve --id 15173 --port 5173", Some(5173), 1, true)]).expect("a draft");
-    assert_eq!(draft.processes[0].serve, "serve --id 15173 --port ${port.serve}");
+    assert_eq!(draft.processes[0].serve, "serve --id 15173 --port ${port.app}");
 }
 
 #[test]
@@ -109,11 +110,20 @@ fn a_remembered_frontend_and_a_python_backend_from_the_files_make_one_run() {
             ("frontend", "npx vite --port ${port.frontend} --strictPort", Some("frontend")),
             (
                 "backend",
-                "../.venv/bin/python -m uvicorn main:app --reload --port ${port.backend}",
+                ".venv/bin/python -m uvicorn main:app --reload --port ${port.backend}",
                 Some("backend")
             ),
         ],
-        "memory first, and frontend's package.json is not read twice"
+        "memory first, frontend's package.json is not read twice, and the backend runs from the .venv its setup makes"
+    );
+    let setup: Vec<(&str, &str)> = draft.setup.iter().map(|one| (one.name.as_str(), one.run.as_str())).collect();
+    assert_eq!(
+        setup,
+        [
+            ("venv_backend", "python3 -m venv backend/.venv"),
+            ("pip_backend", "backend/.venv/bin/python -m pip install -r backend/requirements.txt"),
+        ],
+        "frontend has no lockfile, so nothing installs it"
     );
     assert_eq!(draft.processes[1].from, DraftSource::Python);
     assert_eq!(draft.name, "dev");
@@ -121,13 +131,13 @@ fn a_remembered_frontend_and_a_python_backend_from_the_files_make_one_run() {
 }
 
 #[test]
-fn a_package_json_dev_script_takes_its_port_the_way_the_script_reads_it() {
+fn a_package_json_dev_script_is_handed_a_leased_port_the_way_its_program_reads_one() {
     for (lock, script, expected, env) in [
         ("pnpm-lock.yaml", "vite", "pnpm exec vite --port ${port.web} --strictPort", None),
         ("package-lock.json", "vite --host", "npx vite --host --port ${port.web} --strictPort", None),
-        ("yarn.lock", "next dev", "yarn dev", Some("PORT")),
-        ("package-lock.json", "node server.js", "npm run dev", Some("PORT")),
-        ("pnpm-lock.yaml", "vite --port 4000", "pnpm run dev", None),
+        ("yarn.lock", "next dev", "yarn dev --port ${port.web}", Some("PORT")),
+        ("package-lock.json", "node server.js", "npm run dev -- --port ${port.web}", Some("PORT")),
+        ("pnpm-lock.yaml", "vite --port 4000 --strictPort", "pnpm exec vite --port ${port.web} --strictPort", None),
     ] {
         let dir = TempDir::new();
         write(dir.path(), lock, "");
@@ -136,7 +146,7 @@ fn a_package_json_dev_script_takes_its_port_the_way_the_script_reads_it() {
         let process = &draft.processes[0];
         assert_eq!((process.serve.as_str(), process.dir.as_deref()), (expected, None), "{script}");
         assert_eq!(process.port.as_ref().and_then(|port| port.env.as_deref()), env, "{script}");
-        assert_eq!(process.port.is_some(), script != "vite --port 4000", "{script}");
+        assert_eq!(process.port.as_ref().map(|port| port.name.as_str()), Some("web"), "{script}");
     }
 }
 
@@ -195,6 +205,7 @@ fn a_draft() -> RunDraft {
             process("backend", "python3 -m uvicorn main:app --port ${port.backend}", "backend"),
             process("frontend", "npx vite --port ${port.frontend} --strictPort", "frontend"),
         ],
+        setup: Vec::new(),
     }
 }
 
