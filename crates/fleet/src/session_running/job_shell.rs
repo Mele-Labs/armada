@@ -10,7 +10,7 @@ use std::time::Duration;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Refusal, SessionRunEvent};
-use ipc::{JobTerminal, TerminalScreen, TerminalTyped, TypeInTerminal};
+use ipc::{JobTerminal, ReadTerminal, TerminalScreen, TerminalTyped, TypeInTerminal};
 use tokio::sync::broadcast::error::RecvError;
 use tokio::time::Instant;
 
@@ -73,6 +73,28 @@ fn echoed(text: &str, printed: &str) -> bool {
         || plain::printed_through(printed).contains(&first)
 }
 
+/// What `read_terminal` waits for: text, or a regular expression.
+enum Until {
+    Text(String),
+    Pattern(regex::Regex),
+}
+
+impl Until {
+    fn of(until: String, regex: bool) -> Result<Until, String> {
+        if !regex {
+            return Ok(Until::Text(until));
+        }
+        regex::Regex::new(&until).map(Until::Pattern).map_err(|why| format!("until is not a regular expression: {why}"))
+    }
+
+    fn found(&self, printed: &str) -> bool {
+        match self {
+            Until::Text(text) => printed.contains(text.as_str()),
+            Until::Pattern(pattern) => pattern.is_match(printed),
+        }
+    }
+}
+
 /// What a run prints until it has printed nothing for [`QUIET`], it ends, or `until`; and whether
 /// `until` came while it was still printing.
 async fn heard(live: &mut tokio::sync::broadcast::Receiver<SessionRunEvent>, until: Instant) -> (String, bool) {
@@ -117,7 +139,11 @@ impl SessionRuns {
     /// where the run is not in flight or the keys did not reach it.
     async fn typed_and_heard(&self, run_id: &str, keys: String, wait: Duration) -> Option<(String, bool)> {
         let run = self.in_flight(run_id)?;
-        let mut live = run.feed.subscribe();
+        let mut live = {
+            let mut state = run.state.lock().expect("not poisoned");
+            state.typed_at = Some(state.printed);
+            run.feed.subscribe()
+        };
         let typing = Arc::clone(&run);
         // A command that is not reading can hold a write back.
         if !tokio::task::spawn_blocking(move || typing.type_in(&keys)).await.unwrap_or(false) {
@@ -146,12 +172,40 @@ impl SessionRuns {
         Ok((id, true))
     }
 
-    /// The Job's shell in flight and what it holds of its output.
-    fn shell_held(&self, session: &str) -> Option<(String, String)> {
+    /// The Job's shell in flight and what it holds, once `until` was printed since the agent last
+    /// typed or `deadline` passed, and whether it was. Read as the screen resolved it, so an escape
+    /// between two letters does not hide a match.
+    async fn shell_awaited(
+        &self,
+        session: &str,
+        until: Option<&Until>,
+        deadline: Instant,
+    ) -> Option<(String, String, Option<bool>)> {
         let id = self.shells.lock().expect("not poisoned").get(session).cloned()?;
         let run = self.in_flight(&id)?;
+        let Some(until) = until else {
+            let held = run.state.lock().expect("not poisoned").held.clone();
+            return Some((id, held, None));
+        };
+        // Taken under the lock output is appended under, so nothing printed between is missed.
+        let (mut live, mut since) = {
+            let state = run.state.lock().expect("not poisoned");
+            (run.feed.subscribe(), state.since_typed().to_string())
+        };
+        let matched = loop {
+            if until.found(&plain::last_lines(&since, usize::MAX)) {
+                break true;
+            }
+            match tokio::time::timeout_at(deadline, live.recv()).await {
+                Ok(Ok(SessionRunEvent::Output(text))) => since.push_str(&text),
+                Ok(Err(RecvError::Lagged(_))) => {
+                    since = run.state.lock().expect("not poisoned").since_typed().to_string();
+                }
+                Ok(Ok(SessionRunEvent::Exited(_)) | Err(RecvError::Closed)) | Err(_) => break false,
+            }
+        };
         let held = run.state.lock().expect("not poisoned").held.clone();
-        Some((id, held))
+        Some((id, held, Some(matched)))
     }
 
     /// Stop `session`'s shell, as a run is stopped, where it has one in flight.
@@ -265,19 +319,26 @@ where
         })
     }
 
-    /// The last `lines` of the Job's shell, as the person's pane shows them.
-    pub(crate) fn job_shell_read(
+    /// The last `lines` of the Job's shell, as the person's pane shows them, once `until` was
+    /// printed or its wait ran out.
+    pub(crate) async fn job_shell_read(
         &self,
         caller: Option<api::Caller>,
-        named: Option<&ipc::SessionId>,
-        lines: Option<usize>,
+        asked: ReadTerminal,
     ) -> Result<TerminalScreen, Refusal> {
-        let session = self.shell_job(caller, named)?;
-        let lines = lines.unwrap_or(SCREEN_LINES).clamp(1, MOST_SCREEN_LINES);
-        let (run_id, held) = self.session_runs().shell_held(&session).ok_or_else(|| {
-            refusal("this job has no terminal open. type_in_terminal opens one", self.run_id())
-        })?;
-        Ok(TerminalScreen { run_id, screen: kept(plain::last_lines(&held, lines)) })
+        let session = self.shell_job(caller, asked.session_id.as_ref())?;
+        let lines = asked.lines.unwrap_or(SCREEN_LINES).clamp(1, MOST_SCREEN_LINES);
+        let until = match asked.until.filter(|until| !until.is_empty()) {
+            None => None,
+            Some(until) => Some(Until::of(until, asked.regex).map_err(|why| refusal(why, self.run_id()))?),
+        };
+        let wait = Duration::from_secs(asked.wait_seconds.unwrap_or(WAIT).clamp(1, MOST_WAIT));
+        let (run_id, held, matched) = self
+            .session_runs()
+            .shell_awaited(&session, until.as_ref(), Instant::now() + wait)
+            .await
+            .ok_or_else(|| refusal("this job has no terminal open. type_in_terminal opens one", self.run_id()))?;
+        Ok(TerminalScreen { run_id, screen: kept(plain::last_lines(&held, lines)), matched })
     }
 
     /// A Job that ended takes its shell with it.

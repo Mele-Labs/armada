@@ -142,6 +142,7 @@ mod session_later;
 mod sleeping;
 mod session_running;
 mod session_terminal;
+mod session_terminal_reading;
 mod session_terminal_typing;
 mod session_shell;
 mod sessioning;

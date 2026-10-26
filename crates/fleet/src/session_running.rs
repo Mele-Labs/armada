@@ -56,6 +56,21 @@ struct State {
     held: String,
     /// `Some` once the run ended, with its code.
     exited: Option<Option<i32>>,
+    /// Bytes printed since the run started, [`Self::held`]'s dropped ones included.
+    printed: u64,
+    /// [`Self::printed`] when the agent last typed, which is where `read_terminal`'s `until` reads from.
+    typed_at: Option<u64>,
+}
+
+impl State {
+    /// What the run printed since the agent last typed into it, or all it holds where it never has.
+    fn since_typed(&self) -> &str {
+        let after = self.typed_at.map_or(u64::MAX, |at| self.printed - at);
+        match usize::try_from(after).ok().and_then(|after| self.held.len().checked_sub(after)) {
+            Some(from) if self.held.is_char_boundary(from) => &self.held[from..],
+            _ => &self.held,
+        }
+    }
 }
 
 /// What a run is typed into and resized through. Gone once the run has ended.
@@ -94,6 +109,7 @@ impl Run {
     fn output(&self, text: String) {
         let mut state = self.state.lock().expect("not poisoned");
         state.held.push_str(&text);
+        state.printed += text.len() as u64;
         if state.held.len() > RING {
             let mut cut = state.held.len() - RING;
             while !state.held.is_char_boundary(cut) {
@@ -214,7 +230,7 @@ impl SessionRuns {
             command: launch.command.unwrap_or_default().to_string(),
             stopped: AtomicBool::new(false),
             stop_signal: if launch.command.is_some() { "TERM" } else { "HUP" },
-            state: Mutex::new(State { held: String::new(), exited: None }),
+            state: Mutex::new(State { held: String::new(), exited: None, printed: 0, typed_at: None }),
             terminal: Mutex::new(Some(Terminal { master: pair.master, keys })),
             feed: broadcast::channel(SESSION_RUN_BACKLOG).0,
         });

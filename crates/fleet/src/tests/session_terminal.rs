@@ -110,7 +110,10 @@ async fn typing_with_no_job_placed_is_refused() {
 #[tokio::test]
 async fn the_agent_reads_what_the_person_typed_and_a_job_with_no_shell_is_refused() {
     let rig = rig().await;
-    let read = |lines| rig.fleet.read_terminal(None, Some(rig.session.clone()), lines);
+    let read = |lines| {
+        let asked = ipc::ReadTerminal { session_id: Some(rig.session.clone()), lines, ..Default::default() };
+        rig.fleet.read_terminal(None, asked)
+    };
     assert!(matches!(read(None).await, Err(api::Refusal::Unacceptable(_))), "no shell open");
 
     let shell = Arc::clone(&rig.fleet).open_job_shell(rig.session.as_str(), None, None).await.unwrap();

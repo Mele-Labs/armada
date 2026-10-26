@@ -555,8 +555,11 @@ export type TypeInTerminal = { text: string; enter?: boolean; clear?: boolean; w
 /** `type_in_terminal`'s answer: what the shell printed after the text was typed, as plain lines, the last 200 at most. `still_printing` is whether output was still arriving when the wait ran out. `echoed` is false where the text typed never appeared in what was printed. */
 export type TerminalTyped = { run_id: string; printed: string; still_printing: boolean; echoed: boolean };
 
-/** `read_terminal`'s answer: the last lines of the Job's shell, as its screen drew them. `GET /sessions/terminal/read`. */
-export type TerminalScreen = { run_id: string; screen: string };
+/** `read_terminal`: the Job's agent reads the Job's shell. `GET /sessions/terminal/read`, these as its query. `lines` absent is 60, at most 500; `until` is waited for in what the shell printed since the agent last typed, as text or, with `regex`, a regular expression; `wait_seconds` absent is 10, at most 60. */
+export type ReadTerminal = { session_id?: string; lines?: number; until?: string; regex?: boolean; wait_seconds?: number };
+
+/** `read_terminal`'s answer: the last lines of the Job's shell, as its screen drew them. `GET /sessions/terminal/read`. `matched` is whether `until` was printed before the wait ran out, absent where the read named none. */
+export type TerminalScreen = { run_id: string; screen: string; matched?: boolean };
 
 /** `terminal.opened` and `terminal.exited` on `/events`: a Job's shell opened or ended, so a pane can follow it. What it prints is `observe_session_run`'s, on `run_id`. */
 export type JobTerminal = { session_id: string; run_id: string };

@@ -106,14 +106,14 @@ pub trait Sessions: Send + Sync + 'static {
         typed: ipc::TypeInTerminal,
     ) -> impl Future<Output = Result<ipc::TerminalTyped, Refusal>> + Send;
 
-    /// `read_terminal` — the last `lines` of the Job's shell as its screen drew them. `caller` places
-    /// the Job as `type_in_terminal`'s does. [`Refusal::Unacceptable`] for a call that places no Job,
-    /// or a Job with no shell open.
+    /// `read_terminal` — the last `lines` of the Job's shell as its screen drew them, once `until`
+    /// was printed or its wait ran out. `caller` places the Job as `type_in_terminal`'s does.
+    /// [`Refusal::Unacceptable`] for a call that places no Job, a Job with no shell open, or an
+    /// `until` that is no regular expression.
     fn read_terminal(
         &self,
         caller: Option<crate::Caller>,
-        session_id: Option<ipc::SessionId>,
-        lines: Option<usize>,
+        asked: ipc::ReadTerminal,
     ) -> impl Future<Output = Result<ipc::TerminalScreen, Refusal>> + Send;
 
     /// `show_window` — a session shows the person a page. `caller` is the connection the call

@@ -850,10 +850,9 @@ where
     async fn read_terminal(
         &self,
         caller: Option<api::Caller>,
-        session_id: Option<ipc::SessionId>,
-        lines: Option<usize>,
+        asked: ipc::ReadTerminal,
     ) -> Result<ipc::TerminalScreen, Refusal> {
-        self.job_shell_read(caller, session_id.as_ref(), lines)
+        self.job_shell_read(caller, asked).await
     }
 
     async fn rename_session(&self, rename: ipc::RenameSession) -> Result<SessionRecord, Refusal> {
