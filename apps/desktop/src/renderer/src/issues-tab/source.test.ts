@@ -113,6 +113,12 @@ test("a search that failed for a missing program says which, beside the tracker'
   expect(await source.run("storefront", "status=open")).toEqual({ ok: false, said: "searching the issues did not happen: bd is not installed", missing: "bd" });
 });
 
+test("a search that failed for want of a project says which program to set up, beside the tracker's words", async () => {
+  const unset = { ok: false, outcome: { ok: false, why: "refused", error: { code: "fleet.issue_query_refused", message: "searching the issues did not happen: no beads project found", fields: { needs_setup: "bd" } } } } as never;
+  const { source } = api({ searchIssues: async () => unset } as Partial<IssuesApi>);
+  expect(await source.run("storefront", "status=open")).toEqual({ ok: false, said: "searching the issues did not happen: no beads project found", needsSetup: "bd" });
+});
+
 test("a refusal that names no tool carries none", async () => {
   const { source } = api({ searchIssues: async () => refused("Field 'colour' does not exist") } as Partial<IssuesApi>);
   expect(await source.run("storefront", "colour:red")).not.toHaveProperty("missing");
