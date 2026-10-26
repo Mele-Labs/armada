@@ -1,8 +1,10 @@
+import { useRef, useState } from "react";
+
 import type { PullRequestFile } from "@armada/protocol";
 
 import { SkeletonText } from "../../primitives/Skeleton/Skeleton";
 import { UnifiedDiff, type UnifiedDiffProps } from "../UnifiedDiff/UnifiedDiff";
-import { DiffSize, FileMark } from "./PullRequestTabs";
+import { DiffSize, FileMark, FileRows } from "./PullRequestTabs";
 
 /** One changed file's diff, as the host drew it from the forge's patch. A file with no patch has no lines and the forge's sentence as `emptyNote`. */
 export type PullRequestPatch = { path: string; diff: UnifiedDiffProps };
@@ -39,5 +41,25 @@ export function PatchStack({ rows, patches, target }: { rows: readonly PullReque
         );
       })}
     </div>
+  );
+}
+
+/**
+ * The Files tab for a host that has no panel around it: the file list, and under it every file's diff, where a press on a
+ * row scrolls to that file. The panel floats the same list beside its body and so draws the two itself.
+ */
+export function PullRequestFilesView({ rows, patches }: { rows: readonly PullRequestFile[]; patches: PullRequestPatches }) {
+  const sections = useRef(new Map<string, HTMLElement>());
+  const [current, setCurrent] = useState<string | undefined>(undefined);
+  const target = (path: string) => (element: HTMLElement | null) => void (element === null ? sections.current.delete(path) : sections.current.set(path, element));
+  const onFile = (path: string) => {
+    setCurrent(path);
+    sections.current.get(path)?.scrollIntoView({ block: "start" });
+  };
+  return (
+    <>
+      <FileRows rows={rows} current={current} onFile={onFile} />
+      <PatchStack rows={rows} patches={patches} target={target} />
+    </>
   );
 }
