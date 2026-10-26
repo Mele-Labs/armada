@@ -39,6 +39,10 @@ pub(crate) const PULL_REQUESTS: &str = "pull_requests";
 /// without it was named, not claimed, and the backlog naming someone else for it is no lost claim.
 pub(crate) const CLAIMED_AS: &str = "claimed_as";
 
+/// The detail key saying the Job claimed the issue (`claim_issue`), as against one it filed or was told of.
+/// Bridge draws a claimed issue as work in hand and any other as set aside.
+pub(crate) const CLAIMED: &str = "claimed";
+
 /// Stand `holder`'s row for `issue`, with `known` where the row says nothing yet. `true` where
 /// anything changed. **`pull_requests` only grows**: what `known` names is added to what the row
 /// names.
@@ -60,6 +64,10 @@ pub(crate) fn issue_held(
         let mut numbers = pull_requests_named(row.detail.get(PULL_REQUESTS));
         numbers.extend(pull_requests_named(known.get(PULL_REQUESTS)));
         detail.extend(row.detail);
+        // A claim comes after the naming: it is said over a row that was only named, never taken back.
+        if known.contains_key(CLAIMED) {
+            detail.insert(CLAIMED.to_string(), "true".to_string());
+        }
         if !numbers.is_empty() {
             detail.insert(PULL_REQUESTS.to_string(), pull_requests_joined(&numbers));
         }
@@ -183,7 +191,7 @@ where
         let claimed_as = self.claimed_where_written(&manifest, &issue, &id).await?;
         let mut store = self.store().lock().await;
         let holder = Holder::session(&id);
-        let mut known = BTreeMap::new();
+        let mut known = BTreeMap::from([(CLAIMED.to_string(), "true".to_string())]);
         if let Some(actor) = claimed_as {
             known.insert(CLAIMED_AS.to_string(), actor);
             // Kept past the Job's end, so its pull request's merge still closes the issue.

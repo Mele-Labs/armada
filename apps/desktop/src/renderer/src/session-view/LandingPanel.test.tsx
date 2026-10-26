@@ -156,6 +156,14 @@ test("an issue a plan group works stands in the Blueprint, not in Deferred", asy
   expect(deferred(host)).toBeNull();
 });
 
+test("an issue the Job claimed stands in the Landing, not in Deferred", async () => {
+  const claimed: SessionAttachment = { ...(issue(31) as Extract<SessionAttachment, { kind: "issue" }>), claimed: true, pull_requests: [7] };
+  const host = await mount(sessionOf("pull_request", [pull(7), claimed, issue(32)]));
+  expect(host.querySelector('[aria-label="Issues"] [aria-label="Issue #31 Issue 31"]')).not.toBeNull();
+  act(() => deferred(host)!.querySelector<HTMLElement>("button.sv-later__row")!.click());
+  expect([...deferred(host)!.querySelectorAll('.sv-later__item[data-kind="issue"] button')].map((one) => one.getAttribute("aria-label"))).toEqual(["Issue #32 Issue 32"]);
+});
+
 test("a Job with nothing filed and nothing set aside draws no Deferred", async () => {
   expect(deferred(await mount(sessionOf("pull_request", [pull(7)])))).toBeNull();
 });

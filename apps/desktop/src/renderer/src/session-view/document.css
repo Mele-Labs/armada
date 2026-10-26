@@ -34,10 +34,11 @@
 .armada-doc__sketch[data-focus] .armada-sketch, .armada-doc__sketch[data-lit] .armada-sketch { border-color: var(--accent); }
 .armada-doc__anchor { display: inline-flex; margin-inline: var(--space-1); vertical-align: text-top; }
 td > .armada-doc__anchor { margin-inline-start: 0; }
-/* A note's place in the page, in three strengths: sent, held, and the one lit from the margin, hovered in the page, or opened from the thread. */
-.armada-doc__page tr[data-sent] { background: var(--accent-faint); }
-.armada-doc__page tr[data-noted] { background: var(--accent-muted); }
-.armada-doc__page tr[data-focus], .armada-doc__page tr[data-lit] { background: color-mix(in srgb, var(--accent) 40%, transparent); }
+/* A note's place in the page, in three strengths: sent, held, and the one lit from the margin, hovered in the page, or opened from the thread.
+ * The root is named twice so a row's note beats the kit's zebra and hover, which the scoping weighs with a pseudo-class and a :not. */
+.armada-doc__page.armada-doc__page tbody tr[data-sent] { background: var(--accent-faint); }
+.armada-doc__page.armada-doc__page tbody tr[data-noted] { background: var(--accent-muted); }
+.armada-doc__page.armada-doc__page tbody tr[data-focus], .armada-doc__page.armada-doc__page tbody tr[data-lit] { background: color-mix(in srgb, var(--accent) 40%, transparent); }
 ::highlight(armada-doc-sent) { background-color: var(--accent-faint); }
 ::highlight(armada-doc-note) { background-color: var(--accent-muted); }
 ::highlight(armada-doc-focus), ::highlight(armada-doc-lit) { background-color: color-mix(in srgb, var(--accent) 40%, transparent); }
@@ -47,6 +48,7 @@ td > .armada-doc__anchor { margin-inline-start: 0; }
 .armada-doc__page ins { background: color-mix(in srgb, var(--status-completed-success) 20%, transparent); color: inherit; text-decoration: none; }
 .armada-doc__page del { background: color-mix(in srgb, var(--status-completed-failed) 16%, transparent); color: var(--fg-muted); text-decoration: line-through; text-decoration-color: var(--status-completed-failed); }
 .armada-doc__page [data-change="added"] { background: color-mix(in srgb, var(--status-completed-success) 12%, transparent); box-shadow: inset var(--edge-active) 0 0 var(--status-completed-success); }
+.armada-doc__page.armada-doc__page tbody tr[data-change="added"] { background: color-mix(in srgb, var(--status-completed-success) 12%, transparent); }
 .armada-doc__page [data-change="changed"] { box-shadow: inset var(--edge-active) 0 0 var(--status-awaiting-review); }
 .armada-doc__page [data-change="removed"] { color: var(--fg-muted); text-decoration: line-through; text-decoration-color: var(--status-completed-failed); box-shadow: inset var(--edge-active) 0 0 var(--status-completed-failed); }
 .armada-doc__page [data-change] { padding-inline-start: var(--space-2); }
