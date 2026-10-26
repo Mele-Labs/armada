@@ -147,3 +147,26 @@ fn a_fixed_port_below_1024_or_past_65535_does_not_load() {
         assert!(why.contains("ports.api.fixed") && why.contains("1024"), "{why}");
     }
 }
+
+#[test]
+fn setup_requires_added_keeps_what_the_copy_requires_and_adds_each_name_once() {
+    let command = |name: &str, run: &str| Edit::Command {
+        name: name.to_string(),
+        edit: CommandEdit::Add(NewCommand { run: Some(run.to_string()), destructive: false, serve: None, ready: None, links: Vec::new() }),
+    };
+    let kit = "# Mine.\ncommands:\n  bootstrap:\n    run: make bootstrap\nsetup:\n  requires: [bootstrap]\n";
+    let edits = [
+        command("install_web", "npm ci --prefix web"),
+        Edit::SetupRequiresAdded(vec!["install_web".to_string(), "bootstrap".to_string()]),
+    ];
+    let spliced = crate::amending::splice(kit, &edits).expect("they apply");
+    assert!(spliced.starts_with("# Mine.\n"), "{spliced}");
+    assert_eq!(crate::kit_copy_fault(&spliced), None, "{spliced}");
+    let manifest = crate::Manifest::with_kit(at(), "version: 1\nid: budget-app\n", Path::new("/kit/budget-app.yml"), &spliced).expect("it merges");
+    let names: Vec<&str> = manifest.prepared_by().iter().map(|step| step.name()).collect();
+    assert_eq!(names, ["bootstrap", "install_web"]);
+
+    let fresh = crate::amending::splice("", &[command("venv", "python3 -m venv .venv"), Edit::SetupRequiresAdded(vec!["venv".to_string()])])
+        .expect("an empty copy takes it");
+    assert!(fresh.contains("setup:") && fresh.contains("venv"), "{fresh}");
+}

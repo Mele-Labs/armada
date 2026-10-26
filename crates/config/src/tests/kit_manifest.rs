@@ -267,3 +267,26 @@ fn a_port_in_kits_copy_that_is_not_a_mapping_is_refused() {
     let said = kit_copy_fault("ports:\n  web: 80\n").expect("refused");
     assert!(said.contains("`ports` entry `web` is not a mapping"), "{said}");
 }
+
+#[test]
+fn kits_setup_requires_follows_the_repositorys_each_name_once() {
+    let repository = "version: 1\nid: 01FIXTUREMANIFEST\ncommands:\n  bootstrap:\n    run: make bootstrap\n  \
+                      install_web:\n    run: npm ci --prefix web\nsetup:\n  requires: [bootstrap, install_web]\n";
+    let mine = "commands:\n  venv:\n    run: python3 -m venv .venv\nsetup:\n  requires: [install_web, venv]\n";
+    let manifest = Manifest::with_kit(file(), repository, kit(), mine).expect("they merge");
+    assert!(manifest.from_kit().is_some_and(|from| from.left_out.is_none()));
+    let names: Vec<&str> = manifest.prepared_by().iter().map(|step| step.name()).collect();
+    assert_eq!(names, ["bootstrap", "install_web", "venv"], "the repository's first, then Kit's, each once");
+
+    let bare = "version: 1\nid: 01FIXTUREMANIFEST\n";
+    let manifest = Manifest::with_kit(file(), bare, kit(), mine).expect("they merge");
+    assert!(manifest.prepared_by().is_empty(), "a name declared nowhere leaves Kit's copy out whole");
+    assert!(manifest.from_kit().is_some_and(|from| from.left_out.is_some()));
+}
+
+#[test]
+fn a_copy_that_is_not_whole_holds_setup_requires_and_nothing_else_under_setup() {
+    assert_eq!(kit_copy_fault("commands:\n  venv:\n    run: python3 -m venv .venv\nsetup:\n  requires: [venv]\n"), None);
+    let said = kit_copy_fault("commands:\n  venv:\n    run: python3 -m venv .venv\nsetup:\n  worktrees: 4\n").expect("refused");
+    assert!(said.contains("holds only `requires`"), "{said}");
+}

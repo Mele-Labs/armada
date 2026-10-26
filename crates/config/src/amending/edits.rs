@@ -26,6 +26,9 @@ pub enum Edit {
     Id(String),
     /// `setup.requires`. Empty removes `setup`, which holds nothing else.
     SetupRequires(Vec<String>),
+    /// Each name added at the end of `setup.requires` where it is not already there, **after what the
+    /// file holds**: a run's setup saved into Kit's copy, which may already require others.
+    SetupRequiresAdded(Vec<String>),
     Check {
         name: String,
         edit: CheckEdit,
@@ -201,7 +204,7 @@ impl Edit {
         match self {
             Edit::Version(_) => "version".to_string(),
             Edit::Id(_) => "id".to_string(),
-            Edit::SetupRequires(_) => "setup.requires".to_string(),
+            Edit::SetupRequires(_) | Edit::SetupRequiresAdded(_) => "setup.requires".to_string(),
             Edit::Check { name, .. } => format!("checks.{name}"),
             Edit::Command { name, .. } => format!("commands.{name}"),
             Edit::Port { name, .. } => format!("ports.{name}"),
@@ -242,6 +245,21 @@ impl Edit {
                 true => Op::remove(&["setup"]),
                 false => Op::set(&["setup", "requires"], texts(names)),
             }]),
+            Edit::SetupRequiresAdded(names) => {
+                let mut held: Vec<String> = found(doc, &["setup", "requires"])
+                    .and_then(Value::as_sequence)
+                    .map(|items| items.iter().filter_map(Value::as_str).map(str::to_string).collect())
+                    .unwrap_or_default();
+                for name in names {
+                    if !held.contains(name) {
+                        held.push(name.clone());
+                    }
+                }
+                Ok(match held.is_empty() {
+                    true => Vec::new(),
+                    false => vec![Op::set(&["setup", "requires"], texts(&held))],
+                })
+            }
             Edit::Check { name, edit } => check(doc, name, edit),
             Edit::Command { name, edit } => command(doc, name, edit),
             Edit::Port { name, edit } => port(doc, name, edit),

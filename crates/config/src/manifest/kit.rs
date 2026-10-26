@@ -11,6 +11,11 @@
 //! on it. `gate` is read on no other Check: on one the repository declares it is refused, and Kit's
 //! copy is then left out as any that will not merge is.
 //!
+//! **`setup.requires` is the one list merged rather than replaced**: Kit's names follow the
+//! repository's, each once, so a person's own install (a run's setup) adds to what the repository
+//! already requires and never drops it. Nothing else under `setup` is read from a copy that is not
+//! whole: `seed` and `worktrees` are the repository's.
+//!
 //! **Merged as YAML, then parsed once**, so every rule a Manifest is held to (a Check's
 //! `requires` naming a declared Command, no name in both registries) is checked on the document
 //! that runs. **A Kit file that will not merge is left out and named**, and the repository's own
@@ -309,7 +314,7 @@ pub fn manifest_run_lines(text: &str) -> Result<Vec<String>, String> {
 
 /// Why `text` is not a person's own `armada.yml` to keep in Kit, or none where it is: **a whole
 /// Manifest, or a copy naming only what it changes.** The first is read as the repository's file
-/// would be. The second is a mapping holding only `checks`, `commands`, `ports` and `runs`, each Check with a `run`
+/// would be. The second is a mapping holding only `checks`, `commands`, `ports`, `runs` and `setup.requires`, each Check with a `run`
 /// line, each Command with a `run` or `serve` line, each run with a `commands` list, and `tracker` and `ci_gate`. The reason is a plain sentence a person can read.
 pub fn kit_copy_fault(text: &str) -> Option<String> {
     let document: Value = match serde_yaml_ng::from_str(text) {
@@ -330,12 +335,22 @@ pub fn kit_copy_fault(text: &str) -> Option<String> {
     let overlay = !keys.contains_key("id")
         && !keys.is_empty()
         && keys.keys().all(|key| {
-            key.as_str().is_some_and(|key| REGISTRIES.iter().any(|(held, _)| *held == key) || WHOLE_KEYS.contains(&key))
+            key.as_str().is_some_and(|key| {
+                REGISTRIES.iter().any(|(held, _)| *held == key) || WHOLE_KEYS.contains(&key) || key == "setup"
+            })
         });
     if !overlay {
         return Some(plain(&format!(
-            "The text is not a whole armada.yml: {whole}. A copy that is not whole holds only `checks`, `commands`, `ports`, `runs`, `tracker` and `ci_gate`."
+            "The text is not a whole armada.yml: {whole}. A copy that is not whole holds only `checks`, `commands`, `ports`, `runs`, `setup.requires`, `tracker` and `ci_gate`."
         )));
+    }
+    if let Some(setup) = keys.get("setup") {
+        let only_requires = setup.as_mapping().is_some_and(|setup| {
+            setup.len() == 1 && matches!(setup.get("requires"), Some(Value::Sequence(names)) if names.iter().all(Value::is_string))
+        });
+        if !only_requires {
+            return Some(String::from("`setup` in a copy that is not whole holds only `requires`, a list of Command names."));
+        }
     }
     for (registry, _) in REGISTRIES {
         let Some(entries) = keys.get(registry) else { continue };
@@ -408,6 +423,9 @@ fn merged(mut theirs: Value, mine: &Value) -> Result<Merged, String> {
             }
         }
     }
+    if let (Some(top), Some(added)) = (theirs.as_mapping_mut(), setup_requires(mine)) {
+        setup_joined(top, added);
+    }
     for (key, kind) in REGISTRIES {
         let Some(Value::Mapping(entries)) = mine.get(key) else { continue };
         let Some(top) = theirs.as_mapping_mut() else { continue };
@@ -443,4 +461,30 @@ fn merged(mut theirs: Value, mine: &Value) -> Result<Merged, String> {
         }
     }
     Ok((theirs, names))
+}
+
+/// The names a copy's `setup.requires` lists, where it lists any.
+fn setup_requires(mine: &Mapping) -> Option<Vec<Value>> {
+    match mine.get("setup")?.get("requires")? {
+        Value::Sequence(names) if !names.is_empty() => Some(names.clone()),
+        _ => None,
+    }
+}
+
+/// `added` after the repository's own `setup.requires`, each name once.
+fn setup_joined(top: &mut Mapping, added: Vec<Value>) {
+    if !top.get("setup").is_some_and(Value::is_mapping) {
+        top.insert(Value::from("setup"), Value::Mapping(Mapping::new()));
+    }
+    let Some(Value::Mapping(setup)) = top.get_mut("setup") else { return };
+    let mut held = match setup.get("requires") {
+        Some(Value::Sequence(names)) => names.clone(),
+        _ => Vec::new(),
+    };
+    for name in added {
+        if !held.contains(&name) {
+            held.push(name);
+        }
+    }
+    setup.insert(Value::from("requires"), Value::Sequence(held));
 }
