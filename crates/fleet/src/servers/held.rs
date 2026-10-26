@@ -34,6 +34,7 @@ pub(crate) struct Servers(
     Arc<Mutex<BTreeMap<String, Arc<config::Manifest>>>>,
     Arc<Mutex<BTreeMap<String, Vec<crate::app_runs::links::Link>>>>,
     Arc<Mutex<Option<LineTap>>>,
+    crate::app_runs::Setups,
 );
 
 /// Told each whole line a server's output grew by, from the pass that already reads it for
@@ -211,6 +212,11 @@ impl Servers {
         for links in self.3.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).values_mut() {
             links.retain(|link| link.to != process);
         }
+    }
+
+    /// Each checkout's last setup, which a run waits on before its servers start.
+    pub(crate) fn setups(&self) -> &crate::app_runs::Setups {
+        &self.5
     }
 
     /// Hear every server's output lines, as [`LineTap`] says. The last tap set is the one told.

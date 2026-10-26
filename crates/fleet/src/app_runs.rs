@@ -8,6 +8,7 @@
 //! | [`links`] | A process expecting another on a port it does not get: found, kept, briefed |
 //! | [`pins`] | A process pinned to a number, or given back to leasing |
 //! | [`serving`] | The wire: [`api::AppRuns`] over these, and `app_run.changed` after each server fact |
+//! | [`setting_up`] | `setup.requires` run on a checkout before a run's processes, when it needs it |
 //! | [`unrunnable`] | Every refusal, and its code on the wire |
 //!
 //! **A run is a set of servers and no supervisor of its own.** Each process is started through
@@ -32,9 +33,11 @@ pub(crate) mod links;
 mod pins;
 pub(crate) mod save;
 mod serving;
+mod setting_up;
 mod unrunnable;
 
 pub use serving::keep_the_runs;
+pub(crate) use setting_up::{SetupState, SetupView, Setups};
 
 use std::path::Path;
 use std::sync::Arc;
@@ -150,6 +153,8 @@ pub(crate) struct RunView {
     /// Whether it is opened at an address: some server of it listens on a leased port and offers a link.
     pub(crate) browser: bool,
     pub(crate) processes: Vec<RunProcess>,
+    /// The checkout's setup this run asked for: running, or how it last ended.
+    pub(crate) setup: Option<SetupView>,
 }
 
 #[cfg(test)]
@@ -173,7 +178,7 @@ impl RunView {
 }
 
 /// A run's view from the instances held on `path`.
-fn viewed(
+pub(super) fn viewed(
     manifest: &Manifest,
     servers: &crate::servers::Servers,
     id: &ipc::ManifestId,
@@ -212,6 +217,7 @@ fn viewed(
         checkout: path.to_string(),
         browser,
         processes,
+        setup: servers.setups().of(path, name),
     })
 }
 
@@ -268,7 +274,8 @@ where
     }
 
     /// Start `name` on `target` — **or answer with the run already up**, `true` beside the view
-    /// where this call started at least one of its processes. A process that will not start stops
+    /// where this call started at least one of its processes or the checkout's setup. **A checkout
+    /// that needs setting up answers at once**, setting up, and the processes start once it passes. A process that will not start stops
     /// the ones this call started, so a run is up whole or not at all.
     pub(crate) async fn run_started(
         self: Arc<Self>,
@@ -290,6 +297,11 @@ where
             .app_run(name)
             .cloned()
             .ok_or_else(|| self.not_a_run(&manifest, name))?;
+        // A checkout new to the setup, or whose setup was traced from files that changed, is set up
+        // first, and the setup starts the run when it passes.
+        if self.set_up_first(&checkout, &manifest, name) {
+            return Ok((self.run_viewed(&manifest, &checkout, name)?, true));
+        }
         // One run's starts at a time: each reads what ports the others hold before it picks.
         let turn = self.servers().starting();
         let _turn = turn.lock().await;
@@ -330,6 +342,7 @@ where
             .app_run(name)
             .cloned()
             .ok_or_else(|| self.not_a_run(&manifest, name))?;
+        self.servers().setups().stopped(checkout.path(), name).await;
         self.stopped_servers_named(checkout.path(), run.servers()).await;
         self.run_viewed(&manifest, checkout, name)
     }

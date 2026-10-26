@@ -78,6 +78,10 @@ pub struct AppRunProcess {
     /// next `app_run.changed`. Absent until it has started once.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub server_id: Option<String>,
+    /// The file its output is written to, absolute, so a Job handed it reads the whole of it. **The
+    /// instance's**, as `server_id` is. Absent until it has started once.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub log_path: Option<String>,
     /// How it ended, in a sentence. Present on `failed` and `exited`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ended: Option<String>,
@@ -98,6 +102,43 @@ pub struct AppRunLink {
     pub found_in: String,
     /// What to hand a Job to mend it. **Bridge opens Dispatch prefilled with it**; Fleet starts no Job.
     pub brief: String,
+}
+
+/// Where a checkout's setup stands, for a run that waits on it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AppRunSetupState {
+    /// A Command of `setup.requires` is running, and no process of the run has started.
+    SettingUp,
+    /// Every Command passed, and the run's processes were started.
+    Ready,
+    /// A Command failed or was stopped, and no process started; or the run would not start once
+    /// setup passed, where `failed` is absent.
+    Failed,
+}
+
+/// The checkout's `setup.requires`, run before a run's processes where the checkout is new to it
+/// or what it was traced from changed. **Absent where this Fleet has run none for the run on this
+/// checkout**: a checkout already set up starts its processes at once.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AppRunSetup {
+    /// What `observe_server` takes to read its output, as a process's `server_id` is. **A new id for
+    /// each setup**, so a viewer reads it again from the next `app_run.changed`.
+    pub id: String,
+    /// The file its output is written to, absolute, so a Job handed it reads the whole of it.
+    pub log_path: String,
+    pub state: AppRunSetupState,
+    /// The Commands it runs, in order.
+    pub commands: Vec<String>,
+    /// The Command running now. Only while `setting_up`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub running: Option<String>,
+    /// The Command that failed, by its name in `commands`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub failed: Option<String>,
+    /// How it ended, in a sentence. Present on `failed`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ended: Option<String>,
 }
 
 /// One run on one checkout, as it stands: a row of `list_app_runs`, what `start_app_run`,
@@ -123,6 +164,9 @@ pub struct AppRun {
     /// processes**, and absent where there is none.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub links: Vec<AppRunLink>,
+    /// The checkout's setup, which runs before the processes. Absent where none was run for it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub setup: Option<AppRunSetup>,
 }
 
 /// `list_app_runs`: every run the repository declares, as each stands on one checkout.

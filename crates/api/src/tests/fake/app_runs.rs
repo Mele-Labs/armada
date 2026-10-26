@@ -36,10 +36,12 @@ fn the_run(manifest_id: Option<ManifestId>, job_id: Option<String>, state: AppRu
             pinned_port: None,
             links: Vec::new(),
             server_id: None,
+            log_path: None,
             ended: None,
         }],
         last_used: None,
         links: Vec::new(),
+        setup: None,
     }
 }
 

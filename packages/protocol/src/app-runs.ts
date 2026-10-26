@@ -38,6 +38,8 @@ export type AppRunProcess = {
   links?: ServerLink[];
   /** The instance behind it, what `observe_server` takes. A restart is a new instance: read it again from the next `app_run.changed`. */
   server_id?: string;
+  /** The file its output is written to, absolute, so a Job handed it reads the whole of it. The instance's, as `server_id` is. Absent until it has started once. */
+  log_path?: string;
   /** How it ended, in a sentence. */
   ended?: string;
 };
@@ -58,6 +60,29 @@ export type AppRunLink = {
   brief: string;
 };
 
+/** Where a checkout's setup stands. `failed` with no `failed` Command is a run that would not start once setup passed. */
+export type AppRunSetupState = "setting_up" | "ready" | "failed";
+
+/**
+ * The checkout's `setup.requires`, run before a run's processes where the checkout is new to it or what it was traced from changed.
+ * Absent where this Fleet has run none for the run on this checkout: a checkout already set up starts its processes at once.
+ */
+export type AppRunSetup = {
+  /** What `observe_server` takes to read its output, as a process's `server_id` is. A new id for each setup. */
+  id: string;
+  /** The file its output is written to, absolute, so a Job handed it reads the whole of it. */
+  log_path: string;
+  state: AppRunSetupState;
+  /** The Commands it runs, in order. */
+  commands: string[];
+  /** The Command running now. Only while `setting_up`. */
+  running?: string;
+  /** The Command that failed, by its name in `commands`. */
+  failed?: string;
+  /** How it ended, in a sentence. Present on `failed`. */
+  ended?: string;
+};
+
 /**
  * One run on one checkout: a row of `list_app_runs`, what `start_app_run`, `stop_app_run` and `restart_app_run` answer, and `app_run.changed` whole.
  * Keyed by `manifest_id`, `checkout.path` and `name`. Not `kind`, which the event carries beside it.
@@ -76,6 +101,8 @@ export type AppRun = {
   last_used?: string;
   /** Where one process expects another on a port it was not given. Left out when there is none. */
   links?: AppRunLink[];
+  /** The checkout's setup, which runs before the processes. Left out where none was run for it. */
+  setup?: AppRunSetup;
 };
 
 /** `GET /app_runs`. */

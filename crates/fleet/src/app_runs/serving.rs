@@ -14,7 +14,7 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{AppRuns, Refusal};
 use ipc::{
     AppRun, AppRunCheckout, AppRunDraft, AppRunDraftProcess, AppRunDraftSetup, AppRunLink, AppRunList, AppRunOpensIn,
-    AppRunProcess, AppRunState, Event, ManifestId, NamedAppRun, PinAppRunPort, SaveAppRun,
+    AppRunProcess, AppRunSetup, AppRunSetupState, AppRunState, Event, ManifestId, NamedAppRun, PinAppRunPort, SaveAppRun,
     SavedAppRun, ServerState, UnpinAppRunPort,
 };
 use tokio::sync::mpsc;
@@ -22,7 +22,7 @@ use tokio::task::JoinHandle;
 
 use super::draft::{safe_name, DraftPort, DraftProcess, DraftSetup, DraftSource, RunDraft};
 use super::links::{self, notice, Link};
-use super::{ProcessState, RunProcess, RunTarget, RunView};
+use super::{ProcessState, RunProcess, RunTarget, RunView, SetupState, SetupView};
 use crate::daemon::Fleet;
 
 /// What stands in a command for the port Fleet leases the checkout. **The one spelling a person
@@ -104,7 +104,8 @@ fn state_of(process: &RunProcess) -> AppRunState {
     }
 }
 
-fn process_wired(process: &RunProcess) -> AppRunProcess {
+/// `records_root` is where each instance's `log` is read from.
+fn process_wired(process: &RunProcess, records_root: Option<&str>) -> AppRunProcess {
     let ready = process.state == ProcessState::Ready;
     AppRunProcess {
         name: process.name.clone(),
@@ -113,7 +114,28 @@ fn process_wired(process: &RunProcess) -> AppRunProcess {
         pinned_port: process.pinned,
         links: process.server.as_ref().filter(|_| ready).map(|one| one.links.clone()).unwrap_or_default(),
         server_id: process.server.as_ref().map(|one| one.id.clone()),
+        log_path: process
+            .server
+            .as_ref()
+            .zip(records_root)
+            .map(|(one, root)| std::path::Path::new(root).join(&one.log).display().to_string()),
         ended: process.server.as_ref().and_then(|one| one.ended.clone()),
+    }
+}
+
+fn setup_wired(setup: &SetupView) -> AppRunSetup {
+    AppRunSetup {
+        id: setup.id.clone(),
+        log_path: setup.log_path.clone(),
+        state: match setup.state {
+            SetupState::SettingUp => AppRunSetupState::SettingUp,
+            SetupState::Ready => AppRunSetupState::Ready,
+            SetupState::Failed => AppRunSetupState::Failed,
+        },
+        commands: setup.commands.clone(),
+        running: setup.running.clone(),
+        failed: setup.failed.clone(),
+        ended: setup.ended.clone(),
     }
 }
 
@@ -198,6 +220,7 @@ where
     /// A run as the wire spells it. `None` where its checkout is none a run is asked for.
     pub(crate) async fn app_run_wired(&self, view: RunView, job: Option<&str>) -> Option<AppRun> {
         let checkout = self.app_run_checkout(&view.manifest_id, &view.checkout, job).await?;
+        let records_root = self.served_named(Some(&view.manifest_id)).ok().map(|served| served.records_root().to_string());
         // Instants are fixed-width RFC 3339 in UTC, so the text orders as the time does.
         let last_used = view.processes.iter().filter_map(|one| one.server.as_ref()).map(|one| &one.started_at).max();
         let port_of = |name: &str| view.processes.iter().find(|one| one.name == name).and_then(|one| one.port_name.clone());
@@ -208,9 +231,10 @@ where
             opens_in: if view.browser { AppRunOpensIn::Browser } else { AppRunOpensIn::App },
             manifest_id: view.manifest_id,
             checkout,
-            processes: view.processes.iter().map(process_wired).collect(),
+            processes: view.processes.iter().map(|one| process_wired(one, records_root.as_deref())).collect(),
             last_used: last_used.cloned(),
             links,
+            setup: view.setup.as_ref().map(setup_wired),
         })
     }
 

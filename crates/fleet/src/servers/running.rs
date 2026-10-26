@@ -273,7 +273,7 @@ async fn answering_now(state: &ServerState, end: &End) -> Option<u16> {
 
 /// Offer what the log has grown by, a pass every [`api::FOLLOW`], until the
 /// server is over and its last line has gone out.
-async fn pumped(feed: &api::RunFeed, log: &Path, mut finishing: watch::Receiver<bool>, heard: impl Fn(&[(u64, String)])) {
+pub(crate) async fn pumped(feed: &api::RunFeed, log: &Path, mut finishing: watch::Receiver<bool>, heard: impl Fn(&[(u64, String)])) {
     let mut from = 0u64;
     loop {
         let last = *finishing.borrow();
@@ -294,7 +294,7 @@ async fn pumped(feed: &api::RunFeed, log: &Path, mut finishing: watch::Receiver<
 
 /// Resolves when something asks the server to stop. A stop that can no longer
 /// arrive never resolves, so a server is never ended by its bookkeeping going.
-async fn until(mut stopped: watch::Receiver<bool>) {
+pub(crate) async fn until(mut stopped: watch::Receiver<bool>) {
     if stopped.wait_for(|stop| *stop).await.is_err() {
         std::future::pending::<()>().await;
     }
@@ -342,7 +342,7 @@ fn runnable(at: &Path) -> bool {
 }
 
 /// A line of Fleet's own between commands, so one log reads as the sequence.
-fn marked(log: &Path, line: &str) {
+pub(crate) fn marked(log: &Path, line: &str) {
     // **One write, line and newline together.** The server appends to this
     // file at the same time, and `writeln!` issues two writes: its first line
     // could land between them, glued to the header.

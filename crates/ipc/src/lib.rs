@@ -517,7 +517,7 @@ pub use seeding::{
 };
 pub use app_runs::{
     AppRun, AppRunCheckout, AppRunDraft, AppRunDraftProcess, AppRunDraftSetup, AppRunLink, AppRunList, AppRunOpensIn,
-    AppRunProcess, AppRunState, NamedAppRun, PinAppRunPort, SaveAppRun, SavedAppRun, UnpinAppRunPort,
+    AppRunProcess, AppRunSetup, AppRunSetupState, AppRunState, NamedAppRun, PinAppRunPort, SaveAppRun, SavedAppRun, UnpinAppRunPort,
 };
 pub use servers::{
     NamedServer, ServerCheckout, ServerEntry, ServerLink, ServerList, ServerMessage,

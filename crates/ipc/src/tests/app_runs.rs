@@ -1,8 +1,8 @@
 //! A run, as the stream, the list and the save spell it.
 
 use crate::{
-    decode, encode, AppRun, AppRunCheckout, AppRunDraftProcess, AppRunOpensIn, AppRunProcess,
-    AppRunLink, AppRunState, Cursor, Delivered, Event, Instant, ManifestId, NamedAppRun, PinAppRunPort,
+    decode, encode, AppRun, AppRunCheckout, AppRunDraftProcess, AppRunDraftSetup, AppRunOpensIn, AppRunProcess,
+    AppRunLink, AppRunSetup, AppRunSetupState, AppRunState, Cursor, Delivered, Event, Instant, ManifestId, NamedAppRun, PinAppRunPort,
     SaveAppRun, ServerLink, StreamMessage, UnpinAppRunPort,
 };
 
@@ -26,6 +26,7 @@ fn running() -> AppRun {
                 pinned_port: Some(41207),
                 links: vec![ServerLink { url: "http://localhost:41207".to_string(), name: None }],
                 server_id: Some("01SERVER".to_string()),
+                log_path: Some("/repos/armada/.armada/servers/checkouts/slot-2/01SERVER/log".to_string()),
                 ended: None,
             },
             AppRunProcess {
@@ -35,6 +36,7 @@ fn running() -> AppRun {
                 pinned_port: None,
                 links: Vec::new(),
                 server_id: None,
+                log_path: None,
                 ended: None,
             },
         ],
@@ -46,6 +48,7 @@ fn running() -> AppRun {
             found_in: "web/vite.config.js".to_string(),
             brief: "Make `web` read `api`'s port from `ARMADA_PORT_API`, falling back to `8731`, in `web/vite.config.js`.".to_string(),
         }],
+        setup: None,
     }
 }
 
@@ -79,10 +82,10 @@ fn what_is_empty_is_left_out() {
     let api = spelled.split(r#""name":"api""#).nth(1).expect("the second process");
     // The run's own `last_used` and `links` follow its processes.
     let api = api.split(r#""last_used""#).next().expect("the process alone");
-    for absent in ["port", "pinned_port", "links", "server_id", "ended"] {
+    for absent in ["port", "pinned_port", "links", "server_id", "log_path", "ended"] {
         assert!(!api.contains(absent), "{absent}: {spelled}");
     }
-    assert!(!spelled.contains("null"), "{spelled}");
+    assert!(!spelled.contains("null") && !spelled.contains(r#""setup""#), "{spelled}");
 
     let main = AppRun { checkout: AppRunCheckout::Main { path: "/repos/armada".to_string() }, last_used: None, links: Vec::new(), ..running() };
     let spelled = encode(&main).expect("plain data");
@@ -128,4 +131,36 @@ fn a_pin_names_a_process_and_a_number_and_an_unpin_only_the_process() {
     let unpin: UnpinAppRunPort = decode("an unpin", br#"{"process":"api","name":"dev","job_id":"01JOB"}"#).expect("reads");
     assert_eq!(unpin.name.as_deref(), Some("dev"));
     assert!(decode::<PinAppRunPort>("a pin", br#"{"process":"api"}"#).is_err(), "a pin with no number is not one");
+}
+
+/// A run waiting on its checkout's setup carries it whole: the phase, the Commands, the one running
+/// and where its output is, read on `observe_server` by its id as a process's is.
+#[test]
+fn a_run_setting_up_carries_the_setup_and_where_its_output_is() {
+    let setup = AppRunSetup {
+        id: "01SETUP".to_string(),
+        log_path: "/repos/armada/.armada/servers/main/01SETUP/log".to_string(),
+        state: AppRunSetupState::SettingUp,
+        commands: vec!["venv".to_string(), "install_frontend".to_string()],
+        running: Some("install_frontend".to_string()),
+        failed: None,
+        ended: None,
+    };
+    let run = AppRun { setup: Some(setup.clone()), ..running() };
+    let spelled = encode(&run).expect("plain data");
+    assert!(
+        spelled.contains(r#""setup":{"id":"01SETUP","log_path":"/repos/armada/.armada/servers/main/01SETUP/log","state":"setting_up","commands":["venv","install_frontend"],"running":"install_frontend"}"#),
+        "{spelled}"
+    );
+    let back: AppRun = decode("a run", spelled.as_bytes()).expect("reads");
+    assert_eq!(back, run);
+    let failed = AppRunSetup { state: AppRunSetupState::Failed, running: None, failed: Some("venv".to_string()), ended: Some("it failed".to_string()), ..setup };
+    assert!(encode(&failed).expect("plain data").contains(r#""state":"failed","commands":["venv","install_frontend"],"failed":"venv","ended":"it failed""#));
+
+    let save: SaveAppRun = decode(
+        "a run to save",
+        br#"{"name":"Web app","processes":[{"name":"web","command":"vite --port ${port}"}],"setup":[{"name":"install","command":"npm ci"}]}"#,
+    )
+    .expect("reads");
+    assert_eq!(save.setup, vec![AppRunDraftSetup { name: "install".to_string(), command: "npm ci".to_string() }]);
 }

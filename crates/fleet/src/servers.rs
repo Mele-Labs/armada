@@ -43,6 +43,7 @@ use crate::daemon::Fleet;
 use crate::rehearsing::records;
 pub(crate) use held::{Holder, Servers};
 pub(crate) use launched::Launch;
+pub(crate) use running::{marked, pumped, until};
 pub use unservable::Unservable;
 
 /// A path that is not a checkout of the repository a server was asked for.
@@ -196,9 +197,11 @@ where
     /// An instance's socket, resolved before it opens: **the subscription
     /// first, then the log as history**. An ended one opens too, with its
     /// whole log — which is how one that fell over is read.
+    ///
+    /// **A run's setup is read here too, by its own id**, so its output is read as a process's is.
     pub(crate) fn observed_server(&self, id: &str) -> Result<api::ObservedServer, Unservable> {
         let Some((state, live, dir)) = self.servers().watching(id) else {
-            return Err(Unservable::NoSuchServer { id: id.to_string() });
+            return self.observed_setup(id);
         };
         let log = dir.join(records::LOG);
         let (history, skipped, read_to, unreadable) = match records::history(&log, live.is_none()) {
@@ -209,6 +212,28 @@ where
             id: state.id,
             name: state.name,
             path: state.log,
+            live,
+            history,
+            skipped,
+            read_to,
+            unreadable,
+        })
+    }
+
+    /// A run's setup on `observe_server`, named `setup`.
+    fn observed_setup(&self, id: &str) -> Result<api::ObservedServer, Unservable> {
+        let Some((_, live, dir, path)) = self.servers().setups().watching(id) else {
+            return Err(Unservable::NoSuchServer { id: id.to_string() });
+        };
+        let log = dir.join(records::LOG);
+        let (history, skipped, read_to, unreadable) = match records::history(&log, live.is_none()) {
+            Some((history, skipped, read_to)) => (history, skipped, read_to, false),
+            None => (Vec::new(), 0, 0, true),
+        };
+        Ok(api::ObservedServer {
+            id: id.to_string(),
+            name: String::from("setup"),
+            path,
             live,
             history,
             skipped,
