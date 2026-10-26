@@ -4,8 +4,8 @@
 // hold (`artifacts.ts`, `slot-trouble.ts`) and reads nothing of its own, but the Artifacts graph's history, read while the graph is open.
 
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
-import { ArrowDown, Check, CircleDot, CircleX, LoaderCircle, Megaphone, Power, ShieldCheck, ShieldEllipsis, ShieldX, Terminal, X, type LucideIcon } from "lucide-react";
-import { ArtifactGraph, Button, ClashPaths, Input, PullRequestChecksMark, PullRequestStateMark, Table, Tabs, TableBody, TableCell, TableHead, TableHeaderCell, TableRow, Tooltip, timeSaid, useTimeFormat, type ClashView, useOpenClash, type LedgerEntry, type SessionLedgerTone } from "@armada/components";
+import { ArrowDown, Check, CircleDot, CircleX, List, LoaderCircle, Megaphone, Power, ShieldCheck, ShieldEllipsis, ShieldX, Terminal, Waypoints, X, type LucideIcon } from "lucide-react";
+import { ArtifactGraph, Button, ClashPaths, Input, PullRequestChecksMark, PullRequestStateMark, Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow, Tooltip, timeSaid, useTimeFormat, type ClashView, useOpenClash, type LedgerEntry, type SessionLedgerTone } from "@armada/components";
 import type { Session, SessionRow } from "@armada/screens/src/draft/sessions";
 import { popupIsOpen } from "@armada/screens/src/list-keyboard";
 
@@ -183,9 +183,9 @@ function useVersions(session: Session, open: boolean): Session["versions"] {
   return versions;
 }
 
-const VIEWS = [
-  { id: "list", label: "List" },
-  { id: "graph", label: "Graph" },
+const VIEWS: { id: "list" | "graph"; label: string; Glyph: LucideIcon }[] = [
+  { id: "list", label: "List", Glyph: List },
+  { id: "graph", label: "Graph", Glyph: Waypoints },
 ];
 
 /** Everything the Session made or used, as groups or as a graph of how it grew; the field at the top narrows both as it is typed in, and V switches them. */
@@ -218,9 +218,15 @@ export function ArtifactsLayer({ session, entries, onOpenSession, onOpenSketch }
           <div className="sv-layer__search">
             <Input type="search" aria-label="Search artifacts" placeholder="Search" data-layer-field="" value={words} onChange={(event) => setWords(event.target.value)} autoComplete="off" spellCheck={false} />
           </div>
-          <Tooltip label="Switch view" shortcut="V">
-            <Tabs items={VIEWS} value={view} onChange={(id) => setView(id === "graph" ? "graph" : "list")} />
-          </Tooltip>
+          <div className="sv-layer__views" role="group" aria-label="View">
+            {VIEWS.map(({ id, label, Glyph }) => (
+              <Tooltip key={id} label={label} shortcut="V">
+                <Button variant="ghost" size="sm" iconOnly aria-label={label} aria-pressed={view === id} onClick={() => setView(id)}>
+                  <Glyph size={16} aria-hidden="true" />
+                </Button>
+              </Tooltip>
+            ))}
+          </div>
         </>
       }
     >

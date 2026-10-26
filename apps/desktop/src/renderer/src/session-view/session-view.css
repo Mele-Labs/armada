@@ -270,11 +270,11 @@ button.sv-group__head:focus-visible { outline: var(--focus-ring); outline-offset
 .sv-layer { position: absolute; inset: 0; z-index: 3; display: flex; flex-direction: column; min-height: 0; background: var(--bg-raised); }
 .sv-layer__head { display: flex; flex: none; align-items: center; gap: var(--space-3); min-height: var(--h-row-header); padding: 0 var(--space-3) 0 var(--space-4); border-bottom: var(--border-width) solid var(--border-subtle); }
 .sv-layer__title { margin: 0; color: var(--fg-muted); font-family: var(--font-mono); font-size: var(--text-xs); line-height: var(--leading-xs); font-weight: var(--weight-heading); letter-spacing: var(--tracking-caps); text-transform: uppercase; }
-.sv-layer__head > .armada-button { margin-inline-start: auto; }
+.sv-layer__head > .armada-tooltip { margin-inline-start: auto; }
 /* The search and the view switch stand on a row of their own under the head, the search filling what the switch leaves. */
 .sv-layer__tools { display: flex; flex: none; align-items: center; gap: var(--space-3); padding: var(--space-2) var(--space-3) var(--space-2) var(--space-4); border-bottom: var(--border-width) solid var(--border-subtle); }
 .sv-layer__search { flex: 1 1 0; min-width: 0; }
-.sv-layer__tools > .armada-tooltip { flex: none; }
+.sv-layer__views { display: flex; flex: none; align-items: center; gap: var(--space-1); }
 .sv-layer__body { display: flex; flex: 1 1 0; flex-direction: column; gap: var(--space-4); min-height: 0; padding: var(--space-3) var(--space-4) var(--space-4); overflow-y: auto; overscroll-behavior: contain; }
 .sv-layer__group { display: flex; flex-direction: column; gap: var(--space-1); }
 .sv-layer__group-label { margin: 0; padding: 0 var(--space-2); color: var(--fg-subtle); font-family: var(--font-mono); font-size: var(--text-2xs); line-height: var(--leading-xs); font-weight: var(--weight-heading); letter-spacing: var(--tracking-caps); text-transform: uppercase; }
