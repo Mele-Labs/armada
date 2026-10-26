@@ -83,7 +83,7 @@ export function fleetPanelReads(api: FleetPanelApi, now: () => FleetPanelState |
     if (repo === undefined || manifestId === undefined) return undefined;
     const [standing, page] = await Promise.all([api.getPullRequest(manifestId, item.number).catch(() => undefined), api.readReviewPage(manifestId, item.number).catch(() => undefined)]);
     // Only Fleet's own refusal carries words worth drawing; the rest keep the panel's fixed sentence.
-    if (page?.ok === false && page.outcome.why === "refused") return { refused: refusalWords(page.outcome) };
+    if (page?.ok === false && !page.outcome.ok && page.outcome.why === "refused") return { refused: refusalWords(page.outcome) };
     if (page?.ok !== true) return undefined;
     const facts: Held =
       standing?.ok === true

@@ -111,7 +111,7 @@ function Drawn({ item, reading, onFiles }: { item: Item; reading: Reading<PullRe
   const back = useBack();
 
   const answer = reading.out ? undefined : reading.value;
-  const refused = answer !== undefined && "refused" in answer ? answer.refused : undefined;
+  const refusal = answer !== undefined && "refused" in answer ? answer.refused : undefined;
   const read = answer !== undefined && !("refused" in answer) ? answer : undefined;
 
   // Every file's patch, read the first time Files is shown and kept with the head it was read on: another head is another diff.
@@ -150,7 +150,7 @@ function Drawn({ item, reading, onFiles }: { item: Item; reading: Reading<PullRe
     return (
       <PrOwnersOnTheWire lines={reads.lines}>
         <PullRequestPanel
-          reading={reading.out ? {} : { said: refused ?? "The forge did not answer for this pull request." }}
+          reading={reading.out ? {} : { said: refusal ?? "The forge did not answer for this pull request." }}
           number={item.number}
           address={item.address}
           {...(repository === undefined ? {} : { repository })}
