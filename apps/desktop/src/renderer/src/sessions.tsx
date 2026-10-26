@@ -47,7 +47,7 @@ import {
   useTerminalDock,
   FILE_SHOWN,
 } from "@armada/components";
-import type { DebugPayload, RunsPlace, TeachPick } from "@armada/components";
+import type { DebugPayload, DraftAnswer, RunsPlace, TeachPick } from "@armada/components";
 import { PROTOCOL_ID, spoken } from "@armada/protocol";
 import type {
   ProseTerminalValue,
@@ -551,8 +551,8 @@ export function entriesOf(
   release?: LedgerRelease["rowOf"],
 ): LedgerEntry[] {
   // An ended Session waits on nobody: its ledger is what it made, to be read.
-  // A recorded plan and a judge's concern are cards in the thread, so the ledger does not list them again.
-  const waiting = (session.dead === "ended" ? [] : owesOf(session).filter((one) => one.source !== "plan" && one.source !== "judge")).map((one): LedgerEntry => {
+  // A recorded plan, a judge's concern and a draft are cards in the thread, so the ledger does not list them again.
+  const waiting = (session.dead === "ended" ? [] : owesOf(session).filter((one) => one.source !== "plan" && one.source !== "judge" && one.source !== "draft")).map((one): LedgerEntry => {
     // An `answer` with no choices and no question in the thread has nowhere to go, so it takes words as no act does.
     const act = one.act?.kind === "answer" && one.options === undefined && session.asked === undefined ? undefined : one.act;
     // A restart is the Fleet panel's build switch: it reads as its label and is one key, as on its call card.
@@ -1170,6 +1170,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
             onOpenWindow={(url) => draft.openWindow?.(id, url)}
             onOpenSketch={(sketch) => read({ kind: "sketch", id: sketch })}
             onOpenFile={(path) => void openInPanel({ kind: "file", path, from: "session", sessionId: session.id })}
+            {...(draft.answerWaiting === undefined ? {} : { onDraft: (rowId: string, answer: DraftAnswer) => void draft.answerWaiting?.(session.id, `draft:${rowId}`, answer) })}
             noted={noted}
             onOpenCheck={(run) => goes.onOpenCheck(session.id, run)}
             working={session.turn.state === "working"}

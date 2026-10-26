@@ -163,7 +163,7 @@ async fn a_job_holding_two(rig: &Rig) -> (String, Vec<String>, SessionId) {
 }
 
 fn answer(job: &SessionId, item: &str, choice: u32) -> AnswerWaiting {
-    AnswerWaiting { session_id: job.clone(), item_id: item.to_string(), choice: Some(choice), text: None, mode: None }
+    AnswerWaiting { session_id: job.clone(), item_id: item.to_string(), choice: Some(choice), text: None, mode: None, fixed: None }
 }
 
 async fn says_done(rig: &Rig, job: &SessionId) {

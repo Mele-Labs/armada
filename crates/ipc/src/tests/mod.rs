@@ -19,6 +19,8 @@ mod commanding;
 /// row leaves behind.
 /// One entry added to a document this crate did not write.
 mod document;
+/// A draft put to the person: the call, the row open and settled, and the item it waits as.
+mod drafts;
 /// The agent's door: a tool call becomes a request on the HTTP surface, and an
 /// answer too large to carry says so.
 mod door;

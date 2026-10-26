@@ -433,6 +433,28 @@ pub enum SessionAskState {
     SessionGone,
 }
 
+/// How the person settled a draft the session proposed with `propose_draft`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DraftHow {
+    /// Approved as written.
+    Approved,
+    /// Approved with the person's own text, which the session uses instead.
+    Fixed,
+    /// Sent back with a note, to rewrite and propose again.
+    SentBack,
+}
+
+/// A draft's settling. `words` is the fixed text for `fixed` and the note for `sent_back`; absent
+/// for `approved`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DraftSettled {
+    pub how: DraftHow,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub words: Option<String>,
+    pub at: Instant,
+}
+
 /// What a Session that is followed did, for the parent's thread.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -575,6 +597,19 @@ pub enum SessionRow {
         window: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         answer: Option<String>,
+    },
+    /// A draft the session put to the person with `propose_draft`: `title` names what it is and
+    /// where it goes, `text` is the draft in markdown, `before` the text it replaces. **Replaced by
+    /// id once settled**, with `settled` saying how.
+    Draft {
+        id: String,
+        at: Instant,
+        title: String,
+        text: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        before: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        settled: Option<DraftSettled>,
     },
     /// An `armada check` the agent ran in its slot. **The row is replaced by id** as the run ends,
     /// so a client holds one row per run. `run` is the id the Checks page opens it by. Since 23.75.
@@ -750,6 +785,7 @@ impl SessionRow {
             | SessionRow::Saved { id, .. }
             | SessionRow::Retro { id, .. }
             | SessionRow::WindowAsk { id, .. }
+            | SessionRow::Draft { id, .. }
             | SessionRow::Sent { id, .. }
             | SessionRow::Plan { id, .. }
             | SessionRow::PlanChanges { id, .. }

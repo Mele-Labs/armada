@@ -678,6 +678,14 @@ where
         self.window_asked(caller, ask).await
     }
 
+    async fn propose_draft(
+        &self,
+        caller: Option<api::Caller>,
+        draft: ipc::ProposeDraft,
+    ) -> Result<SessionRecord, Refusal> {
+        self.draft_proposed(caller, draft).await
+    }
+
     async fn window_closed(&self, closed: ipc::WindowClosed) -> Result<SessionRecord, Refusal> {
         let id = closed.session_id.as_str().trim().to_string();
         let known = {

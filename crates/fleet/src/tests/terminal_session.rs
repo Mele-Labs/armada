@@ -750,7 +750,7 @@ async fn a_terminal_permission_is_allowed_from_its_call_and_the_allow_reaches_th
     assert!(rig.opened().await.is_empty(), "a permission is no card in the thread");
 
     Arc::clone(&rig.fleet)
-        .answer_waiting(ipc::AnswerWaiting { session_id: SessionId::carried(ID), item_id: item.id.clone(), choice: Some(0), text: None, mode: None })
+        .answer_waiting(ipc::AnswerWaiting { session_id: SessionId::carried(ID), item_id: item.id.clone(), choice: Some(0), text: None, mode: None, fixed: None })
         .await
         .expect("Allow once is answerable from the call");
     let ipc::TerminalAsked::Answered { updated_input } = polling.await.unwrap().unwrap() else {

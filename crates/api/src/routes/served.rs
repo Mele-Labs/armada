@@ -393,6 +393,11 @@ const ROUTES: &[Route] = &[
         path: "/sessions/window/ask",
     },
     Route {
+        operation: "propose_draft",
+        method: "POST",
+        path: "/sessions/draft",
+    },
+    Route {
         operation: "window_closed",
         method: "POST",
         path: "/sessions/window/closed",

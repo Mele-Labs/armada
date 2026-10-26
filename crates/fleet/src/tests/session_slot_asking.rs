@@ -32,6 +32,7 @@ async fn choose(rig: &Rig, id: &SessionId, choice: u32) {
             choice: Some(choice),
             text: None,
             mode: None,
+            fixed: None,
         })
         .await
         .expect("answered");
