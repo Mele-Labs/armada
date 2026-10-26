@@ -189,16 +189,7 @@
   & .deck-list .deck-list__band + .deck-list__band > .deck-list__repository { padding-top: var(--space-2); }
 }
 
-/* ---- 3, 4: a bay's state is a large faint mark behind its number; the kind and the time are not drawn --------------------------------------------- */
-
-:root[data-density="tight-type"][data-density][data-density] {
-  /* The mark is confined to the door, the darker cell that holds the number: the tooltip's own wrapper fills the cell, the cell clips, and the glyph is sized to it. */
-  & .deck-bay__door { position: relative; overflow: hidden; }
-  & .deck-bay__door > .armada-tooltip { position: absolute; inset: 0; display: grid; place-items: center; }
-  & .deck-bay__door .deck-bay__state { display: grid; place-items: center; }
-  & .deck-bay__door .deck-bay__state svg { width: calc(var(--space-12) - var(--space-2)); height: calc(var(--space-12) - var(--space-2)); opacity: 0.16; }
-  & .deck-bay__door .deck-bay__name { position: relative; }
-}
+/* ---- 3, 4: a bay is its number in the state's hue; the glyph, the kind and the time are not drawn (`BayRows.tsx`) ------------------------------------- */
 
 /* ---- 6: Autopilot is one row, its name and its switch -------------------------------------------------------------------------------------------- */
 
@@ -298,113 +289,34 @@
   & :is(.deck-panel, .sv-panel):not([data-collapsed], [data-band-only], .deck-autopilot) > :is(.deck-band, .sv-panel__band) > * { margin-inline-start: 0; }
 }
 
-/* ---- 13: `&jobname=notch`: the Job's state and name hang from the top of its panel --------------------------------------------------------------------
-   The shape is the title bar's notch (`TitleBar.css`) turned onto the panel's edge: square where it leaves the top, round below, and flared outward at the top corners so the edge runs
-   into it. Its curves are the panel's own corner radius, and it stands two radii in, so the corner's arc and the flare's meet with no straight between them. The panel's hairline is the
-   notch's outline: down the flare, down one side, round the bottom and up the other, and not drawn across the top of it. The panel's own border is drawn by `::after` with its top cut away
-   (a mask), and `::before` draws the top again from the notch's far flare to the corner, placed by anchor so no width is measured. The head keeps the views, the context, the menu and
-   the way out, in the notch's row, with no rule under itself: the notch's bottom edge is what that row ends on. Edges and opacity only. */
+/* ---- 13: `&jobname=notch`: the open Job's state and name join the title bar's centre notch ----------------------------------------------------------
+   `TabBar` draws a place after the Places (`title-notch.ts`) and the Job's head portals its state and name into it; the notch widens to hold them and keeps its own curves
+   (`TitleBar.css`). A thin vertical hairline divides the name from the Places, and a long name is cut with an ellipsis. The Job's head keeps the views, the context figure, the menu and the way out,
+   at the far end, with no title. With no Job open the place is empty and is not drawn. Edges and opacity only. */
 
-:root[data-density="tight-type"][data-jobname="notch"][data-density][data-density] {
-  --dn-r: var(--glass-radius);
-  --dn-notch-h: 32px;
-
-  & .deck-pane[data-frame] {
-    --dn-edge: var(--glass-edge);
-    --dn-top: linear-gradient(var(--dn-edge) 0 var(--border-width), color-mix(in srgb, var(--glass-tint) 24%, transparent) var(--border-width) calc(var(--border-width) * 2));
-    position: relative;
-    overflow: visible;
-    border-color: transparent;
-    box-shadow: var(--glass-shadow);
-  }
-  & .deck-pane[data-frame]:focus-within { --dn-edge: var(--glass-edge-lifted); box-shadow: var(--glass-shadow-lifted); }
-  /* The border the panel had, round the whole of it but the straight of its top. */
-  & .deck-pane[data-frame]::after {
-    content: "";
-    position: absolute;
-    inset: calc(var(--border-width) * -1);
-    z-index: 3;
-    border: var(--border-width) solid var(--dn-edge);
-    border-radius: var(--glass-radius);
-    box-shadow: var(--glass-highlight);
-    pointer-events: none;
-    mask:
-      linear-gradient(90deg, #000 var(--dn-r), transparent var(--dn-r) calc(100% - var(--dn-r)), #000 calc(100% - var(--dn-r))) top / 100% calc(var(--border-width) * 3) no-repeat,
-      linear-gradient(#000, #000) bottom / 100% calc(100% - var(--border-width) * 3) no-repeat;
-  }
-  /* The top again, from where the notch's far flare lands to where the corner's arc begins. */
-  & .deck-pane[data-frame]::before {
-    content: "";
-    position: absolute;
-    position-anchor: --dn-notch;
-    inset-block-start: calc(var(--border-width) * -1);
-    left: calc(anchor(right) + var(--dn-r) - var(--border-width));
-    right: calc(var(--dn-r) - var(--border-width));
-    z-index: 3;
-    height: calc(var(--border-width) * 2);
-    background: var(--dn-top);
-    pointer-events: none;
-  }
-  & .deck-pane[data-frame] .armada-session-frame { overflow: visible; }
-  & .deck-pane[data-frame] .armada-session-frame__head {
-    min-height: var(--dn-notch-h);
-    justify-content: flex-end;
-    padding: 0 var(--space-2) 0 calc(var(--dn-r) * 2);
-    box-shadow: none;
-  }
-  & .deck-pane[data-frame] .armada-session-frame__body { padding: var(--space-2) var(--space-3); }
-
-  /* The outline is the notch's own background in layers, since a border would run up the sides to the top where the flare's arc has already taken the line: the two sides from the arcs'
-     ends down, the bottom between the two corners, and the corners. */
-  & .deck-pane[data-frame] .armada-session-frame__notch {
-    anchor-name: --dn-notch;
-    position: absolute;
-    z-index: 2;
-    top: calc(var(--border-width) * -1);
-    inset-inline-start: calc(var(--dn-r) * 2 - var(--border-width) * 2);
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    box-sizing: border-box;
-    height: calc(var(--dn-notch-h) + var(--border-width));
-    max-width: calc(100% - var(--dn-r) * 4 - 280px);
-    padding: var(--border-width) var(--space-3) 0;
-    background:
-      radial-gradient(circle at 100% 0, transparent calc(var(--dn-r) - var(--border-width)), var(--dn-edge) calc(var(--dn-r) - var(--border-width)), var(--dn-edge) var(--dn-r), transparent calc(var(--dn-r) + 0.5px)) left bottom / var(--dn-r) var(--dn-r) no-repeat,
-      radial-gradient(circle at 0 0, transparent calc(var(--dn-r) - var(--border-width)), var(--dn-edge) calc(var(--dn-r) - var(--border-width)), var(--dn-edge) var(--dn-r), transparent calc(var(--dn-r) + 0.5px)) right bottom / var(--dn-r) var(--dn-r) no-repeat,
-      linear-gradient(var(--dn-edge), var(--dn-edge)) left var(--dn-r) / var(--border-width) calc(100% - var(--dn-r) * 2) no-repeat,
-      linear-gradient(var(--dn-edge), var(--dn-edge)) right var(--dn-r) / var(--border-width) calc(100% - var(--dn-r) * 2) no-repeat,
-      linear-gradient(var(--dn-edge), var(--dn-edge)) var(--dn-r) bottom / calc(100% - var(--dn-r) * 2) var(--border-width) no-repeat;
-  }
-  & .deck-pane[data-frame] .armada-session-frame__notch::before,
-  & .deck-pane[data-frame] .armada-session-frame__notch::after {
-    content: "";
-    position: absolute;
-    top: 0;
-    width: var(--dn-r);
-    height: var(--dn-r);
-    pointer-events: none;
-  }
-  /* A flare is a quarter of a ring: the edge's line along the arc from the panel's hairline down to the notch's side. It overlaps the notch by the line's own width, so its end is the side's
-     first pixels. */
-  & .deck-pane[data-frame] .armada-session-frame__notch::before {
-    right: calc(100% - var(--border-width));
-    background: radial-gradient(circle at 0 100%, transparent calc(var(--dn-r) - var(--border-width)), var(--dn-edge) calc(var(--dn-r) - var(--border-width)), var(--dn-edge) var(--dn-r), transparent calc(var(--dn-r) + 0.5px));
-  }
-  & .deck-pane[data-frame] .armada-session-frame__notch::after {
-    left: calc(100% - var(--border-width));
-    background: radial-gradient(circle at 100% 100%, transparent calc(var(--dn-r) - var(--border-width)), var(--dn-edge) calc(var(--dn-r) - var(--border-width)), var(--dn-edge) var(--dn-r), transparent calc(var(--dn-r) + 0.5px));
-  }
-  & .deck-pane[data-frame] .armada-session-frame__notch .armada-session-frame__title { flex: 0 1 auto; max-width: 100%; }
-  & .deck-pane[data-frame] .armada-session-frame__notch .armada-session-frame__title-text { font-size: var(--text-sm); line-height: var(--leading-sm); }
+.deck-places__job { display: flex; align-items: center; gap: var(--space-2); min-width: 0; max-width: 280px; margin-inline-start: var(--space-1); }
+.deck-places__job:empty { display: none; }
+.deck-places__job::before {
+  content: "";
+  flex: none;
+  align-self: center;
+  width: var(--border-width);
+  height: var(--space-4);
+  margin-inline-end: var(--space-1);
+  background: var(--border-default);
 }
+.deck-places__job > .armada-session-frame__notch { display: flex; align-items: center; gap: var(--space-2); min-width: 0; padding-inline-end: var(--space-2); }
+.deck-places__job .armada-session-frame__title { flex: 0 1 auto; max-width: 100%; }
+.deck-places__job .armada-session-frame__title-text { font-size: var(--text-sm); line-height: var(--leading-sm); }
+.deck-places__job .armada-session-frame__title[data-editing] { width: 200px; }
 
+:root[data-density="tight-type"][data-jobname="notch"][data-density][data-density] .deck-pane[data-frame] .armada-session-frame__head { justify-content: flex-end; }
 /* ======================================================================================================================================================
    The owner's second notes of 26 Oct 2026 on the walk of `tight-type`. */
 
 /* ---- The Jobs list's fields: a row draws what the person's View menu has on (`row-view.tsx`) -------------------------------------------------------
    Each field is a column of a fixed width, in the menu's order, so a row without the field leaves its place empty. The default, Conflicts and Status, is the three slots the row had:
-   the clash mark's, the phase's and the state's. Now is a second line under all of them and the row is as tall as it is. */
+   the clash mark's, the phase's and the state's. Now is a second line under all of them, and Active PRs a line of its own under that (or under the name where Now is off); the row is as tall as it is. */
 
 :root[data-density="tight-type"][data-density][data-density] {
   & .deck-list__rows { --dn-line: 28px; }
@@ -421,8 +333,9 @@
   & .deck-row__says { grid-column: 1 / -1; }
   /* The clash mark is drawn over the row, so it is set from the trailing edge by the columns after its own. */
   & :is(.deck-row__clash, .deck-row__earlier) { right: var(--dn-clash-right, calc(var(--space-3) + (var(--space-4) + var(--space-1)) * 2)); }
-  & .deck-list__rows[data-now] .deck-row:not([data-queued]) { grid-template-rows: var(--dn-line) auto; padding-block-end: var(--space-1); }
-  & .deck-list__rows[data-now] :is(.deck-row__clash, .deck-row__earlier) { inset-block: 0 auto; height: var(--dn-line); }
+  & .deck-row__prs { grid-column: 1 / -1; display: flex; align-items: center; gap: var(--space-1); min-width: 0; overflow: hidden; }
+  & .deck-list__rows:is([data-now], [data-pr]) .deck-row:not([data-queued]) { grid-template-rows: var(--dn-line) auto auto; padding-block-end: var(--space-1); }
+  & .deck-list__rows:is([data-now], [data-pr]) :is(.deck-row__clash, .deck-row__earlier) { inset-block: 0 auto; height: var(--dn-line); }
 }
 
 /* ---- 2: the flight control with no Job: the room above its tiles is the room below ------------------------------------------------------------------- */
@@ -452,3 +365,24 @@
   & .deck-chip { gap: var(--space-2); padding: 0 var(--space-4) 0 var(--space-3); }
   & .deck-queue__track { gap: var(--space-2); padding: calc(var(--space-1) / 2) var(--space-1); }
 }
+
+/* ---- 14: the Job's flight control is a grid of the deck's own tiles ------------------------------------------------------------------------------------
+   The columns are the deck's: a sixth of the block's width less the five gaps, so a tile here is the size of Checks, Calls, Map or Timeline in the block with no Job open, as wide as the panel makes them. Seven or more tiles do not
+   fit at that size in one row, so they take balanced rows (`--cols`, from `SessionTiles.tsx`). */
+
+:root[data-density="tight-type"][data-density][data-density][data-density] {
+  & .deck-controls__block[data-subject="session"][data-tiles] {
+    display: grid;
+    grid-template-columns: repeat(var(--cols), calc((100% - var(--space-2) * 5) / 6));
+    grid-auto-rows: var(--tile);
+    align-content: center;
+    align-items: stretch;
+    gap: var(--space-2);
+    min-height: 0;
+    overflow: visible;
+    padding: var(--space-1) var(--space-3) var(--space-3);
+  }
+}
+:root[data-density="tight-type"][data-heads="none"][data-density][data-density][data-density] .deck-controls__block[data-subject="session"][data-tiles] { padding-block: var(--space-2); }
+/* A lit tile, the deck's and the Job's alike, reads as lit: the look's chip takes only the word's colour, which beside its unlit neighbours is not seen. The accent's edge and tint, as the buttons of the take's own row had. */
+:root[data-density="tight-type"][data-density][data-density][data-density] .deck-controls__block .deck-tile:is([aria-pressed="true"], [data-on]) { border-color: var(--accent); background: var(--accent-muted); }

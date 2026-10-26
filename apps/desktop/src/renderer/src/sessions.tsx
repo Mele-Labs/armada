@@ -132,7 +132,8 @@ import { todosOf } from "./session-activity";
 import { confirmWaiting, dismissWaiting } from "./cockpit/dismissed";
 import { JobTabs } from "./cockpit/deck/JobTabs";
 import { HeadViews, LayerBounds, LeftViews, useJobViews } from "./cockpit/deck/JobViews";
-import { flightTake, tabsLook, tabsPos, viewsAt, viewsInComposer } from "./cockpit/deck/flight-take";
+import { flightTake, jobNameNotch, tabsLook, tabsPos, viewsAt, viewsInComposer } from "./cockpit/deck/flight-take";
+import { useTitleNotch } from "./cockpit/deck/title-notch";
 import { useCompactAct } from "./cockpit/deck/compact-act";
 import { holdsDelivery, stateOf } from "./session-state";
 import type { PlanEditing } from "./session-view/PlanEdit";
@@ -1070,6 +1071,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
   const marked = unread || where === undefined || cardLead ? undefined : <RunsPlaceControl {...where} />;
   const compactAct = useCompactAct(session, draft);
   const jobViews = useJobViews(session, bays);
+  const titleSlot = useTitleNotch();
   return (
     <TeachHereContext.Provider value={teachHere}>
     <SessionRefs session={session}>
@@ -1104,6 +1106,8 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
         {...(deck === undefined ? {} : { back: deck.back })}
         // The takes of Flight control, on the Cockpit only (`cockpit/deck/flight-take.ts`): the Job's views as tabs, on a second row of the head or in its row, and Compact in the context tank.
         {...(deck?.flight === true && flightTake() === "tabs" && viewsAt() === undefined ? { tabs: <JobTabs session={session} bays={bays} />, tabsPlace: tabsLook() === "segmented" ? ("head" as const) : tabsPos() === "foot" ? ("foot" as const) : ("row" as const) } : {})}
+        // `&jobname=notch`: the Job's state and name are in the title bar's notch, where it draws one.
+        {...(deck?.flight === true && jobNameNotch() && titleSlot !== null ? { titleInto: titleSlot } : {})}
         {...(deck?.flight === true && viewsAt() === "head" && jobViews !== undefined ? { headViews: <HeadViews views={jobViews} /> } : {})}
         {...(deck?.flight === true && compactAct !== undefined ? { compact: compactAct } : {})}
         {...{

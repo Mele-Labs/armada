@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { BatteryLow, Check, CircleDashed, CircleDot, Clock, Ellipsis, Eye, GitFork, Link, MessageSquareDashed, MoveRight, Power, Radar, Reply, RotateCw, ShieldX, SquarePen, Unplug } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -190,6 +191,8 @@ export type SessionFrameProps = {
   tabsPlace?: "row" | "head" | "foot";
   /** Icon buttons for the Session's views, in the head's row before `actions`, with a rule after them. */
   headViews?: ReactNode;
+  /** Where the state's mark and the title are drawn in place of the head's start, a surface's own place for them (the Cockpit's title bar). Absent draws them in the head. */
+  titleInto?: HTMLElement;
   children: ReactNode;
 };
 
@@ -255,20 +258,23 @@ function SessionTitle({ title, onRename }: { title?: string; onRename?: (title: 
 
 const DOCKED: readonly Mark[] = [{ of: ".armada-shell", as: "data-dock" }];
 
-export function SessionFrame({ state, said, id, address, title, onRename, modOutOfDate = false, checks, onOpenCheck, context, compact, loadout, fresh, repository, actions, menu, back, aside, tabs, tabsPlace = "row", headViews, children }: SessionFrameProps) {
+export function SessionFrame({ state, said, id, address, title, onRename, modOutOfDate = false, checks, onOpenCheck, context, compact, loadout, fresh, repository, actions, menu, back, aside, tabs, tabsPlace = "row", headViews, titleInto, children }: SessionFrameProps) {
   const named = address ?? id;
   const more = menuWithFresh(menu, fresh);
   // The aside wears the dock's class, and the shell's glow follows it (`TheShell.css`).
   const docked = useMarking(DOCKED);
+  // The state's mark and the name are one group, which a surface may draw apart from the row.
+  const notch = (
+    <span className="armada-session-frame__notch">
+      <span className="armada-session-frame__state">{state === "quiet" && modOutOfDate ? <ModMark /> : <SessionMark state={state} said={`${said} · ${named}`} />}</span>
+      <SessionTitle {...(title === undefined ? {} : { title })} {...(onRename === undefined ? {} : { onRename })} />
+    </span>
+  );
   return (
     <div ref={aside === undefined || aside === null ? undefined : docked} className="armada-session-panels">
     <Card className="armada-session-frame" role="region" aria-label={`Job ${named}`}>
       <header className="armada-session-frame__head">
-        {/* The state's mark and the name are one group, which a surface may draw apart from the row (the Cockpit's `jobname=notch` mock hangs it from the panel's top edge). */}
-        <span className="armada-session-frame__notch">
-          <span className="armada-session-frame__state">{state === "quiet" && modOutOfDate ? <ModMark /> : <SessionMark state={state} said={`${said} · ${named}`} />}</span>
-          <SessionTitle {...(title === undefined ? {} : { title })} {...(onRename === undefined ? {} : { onRename })} />
-        </span>
+        {titleInto === undefined ? notch : createPortal(notch, titleInto)}
         {repository}
         {headViews}
         {actions}

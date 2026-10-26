@@ -30,7 +30,7 @@ import { useJobTerminal } from "../../job-shell-dock";
 import { useSessionsSaid } from "../../sessions-draft";
 import { useFleetEvents } from "../fleet-events";
 import { flightGrid, pageCell, pagesOf } from "./flight-pages";
-import { flightTake, groupsOf, runsOf, takeKey } from "./flight-take";
+import { flightTake, groupsOf, runsOf, takeKey, tightType } from "./flight-take";
 import { FlightBlock } from "./FlightBlock";
 import { filled, repositoryFileOf, tilesOf, useFlightFile, useRepositoryFlight, type JobFacts, type Tile } from "./flight-controls";
 import { approveTile, committedFileOf } from "./flight-controls";
@@ -353,10 +353,10 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
             <Glyph size={20} aria-hidden="true" />
           )}
           {bare ? null : <span className="deck-tile__text">{paused ? "Resume" : tile.text}</span>}
-          {bare || id !== "land" ? null : (
-            // A mark in the corner, as Subagents carries its count, so the tile keeps its place: a filled dot while on, a ring while off.
-            <span className="deck-tile__state" role="img" aria-label={on ? "Auto land on" : "Auto land off"} data-on={on || undefined}>
-              {on ? <CircleDot size={12} strokeWidth={2} aria-hidden="true" /> : <Circle size={12} strokeWidth={2} aria-hidden="true" />}
+          {bare || (id !== "land" && id !== "pause") ? null : (
+            // A mark in the corner, as Subagents carries its count, so the tile keeps its place: a filled dot while on, a ring while off. Auto land is on while it is set and Pause while the Job is paused.
+            <span className="deck-tile__state" role="img" aria-label={id === "land" ? (on ? "Auto land on" : "Auto land off") : paused ? "Paused" : "Not paused"} data-on={(id === "land" ? on : paused) || undefined}>
+              {(id === "land" ? on : paused) ? <CircleDot size={12} strokeWidth={2} aria-hidden="true" /> : <Circle size={12} strokeWidth={2} aria-hidden="true" />}
             </span>
           )}
           {bare || !going ? null : (
@@ -485,6 +485,19 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
   }
   if (take === "tabs") {
     const { switches, runs } = runsOf(shown);
+    if (tightType()) {
+      // Under `&density=tight-type` the Job's controls are a grid of the deck's own tiles again: Auto land and Pause lit while on, then the buttons, one row where they fit and balanced rows where not.
+      const all = [...switches, ...runs.flat()];
+      const rows = Math.max(1, Math.ceil(all.length / 6));
+      return (
+        <>
+          {dialog}
+          <div className="deck-controls__block deck-flight" data-subject="session" data-take="tabs" data-tiles="" style={{ "--cols": Math.ceil(all.length / rows) } as CSSProperties}>
+            {all.map((tile) => drawTile(tile, "tile"))}
+          </div>
+        </>
+      );
+    }
     return (
       <>
         {dialog}

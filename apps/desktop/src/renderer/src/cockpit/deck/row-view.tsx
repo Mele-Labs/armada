@@ -1,7 +1,7 @@
 // What a Job's row draws, chosen by the person under `&density=tight-type` (`flight-take.ts`): a right press on a row or on the list's empty room opens a menu whose View group
 // switches seven fields on and off, saved in `localStorage` under one key. The default is what the row drew before: the Status and the Conflicts marks. Each field has a column of
 // its own, in the menu's order, that is there for every row while it is on, so a row without the field leaves its place empty and nothing moves. Now is the exception: it is a second
-// line, and rows grow by it. A mock of 26 Oct 2026 for the owner's note on the walk of `tight-type`.
+// line, and rows grow by it; so is Active PRs, a line of its own under the name, or under Now where that is on. A mock of 26 Oct 2026 for the owner's note on the walk of `tight-type`.
 
 import { useSyncExternalStore, type ReactNode } from "react";
 import { Stamp, Tooltip } from "@armada/components";
@@ -87,9 +87,8 @@ export const viewEntries = (view: RowView): DropdownMenuEntry[] => [
   ...VIEW_FIELDS.map(({ id, label }): DropdownMenuEntry => ({ kind: "item", id: `view:${id}`, label, selected: view[id] })),
 ];
 
-/** Each column's width in px and its place among the others, in the menu's order. Now is a line and has no column. The columns are the same for every row, so none shifts. */
-const COLUMNS: readonly { field: Exclude<ViewField, "now">; width: number }[] = [
-  { field: "pr", width: 48 },
+/** Each column's width in px and its place among the others, in the menu's order. Now and Active PRs are lines and have no column. The columns are the same for every row, so none shifts. */
+const COLUMNS: readonly { field: Exclude<ViewField, "now" | "pr">; width: number }[] = [
   { field: "issue", width: 48 },
   { field: "time", width: 52 },
   { field: "conflicts", width: 16 },
@@ -141,7 +140,7 @@ const cell = (field: ViewField, content: ReactNode) => (
 );
 
 /**
- * The cells of a row after its title, one for each field that is on, and Now's line. `status` and `hit` are the row's own: the state marks it drew before, and what a search
+ * The cells of a row after its title, one for each field that is on, then Now's line and Active PRs' line. `status` and `hit` are the row's own: the state marks it drew before, and what a search
  * matched in place of its age.
  */
 export function RowFields({ view, earlier, one, session, hit, status }: { view: RowView; earlier: boolean; one: Subject; session: Session | undefined; hit: { short: string; whole: string } | undefined; status: ReactNode }) {
@@ -151,7 +150,6 @@ export function RowFields({ view, earlier, one, session, hit, status }: { view: 
   const open = one.pr !== undefined && one.pr.stage !== "landed" ? one.pr : undefined;
   return (
     <>
-      {view.pr ? cell("pr", open === undefined ? null : <Tooltip label={`Pull request #${open.number}`}><span className="deck-row__chip">#{open.number}</span></Tooltip>) : null}
       {view.issue ? cell("issue", issue === undefined || issueText === undefined ? null : <Tooltip label={`Issue ${issueText}: ${issue.title}`}><span className="deck-row__issue">{issueText}</span></Tooltip>) : null}
       {view.time
         ? cell("time", hit !== undefined && hit.short !== "" ? <Tooltip label={hit.whole}><span className="deck-row__said" data-found="">{hit.short}</span></Tooltip> : one.at === undefined ? null : <Tooltip label="Last turn"><span className="deck-row__said"><Stamp still first="age" at={one.at} /></span></Tooltip>)
@@ -160,6 +158,11 @@ export function RowFields({ view, earlier, one, session, hit, status }: { view: 
       {view.status ? cell("status", status) : null}
       {view.workflow ? cell("workflow", flow === undefined ? null : <Tooltip label={`${flow.name}: ${flow.step}`}><span className="deck-row__flow">{flow.step}</span></Tooltip>) : null}
       {view.now ? <span className="deck-row__says">{one.peek.at(-1) ?? ""}</span> : null}
+      {view.pr && open !== undefined ? (
+        <span className="deck-row__prs">
+          <Tooltip label={`Pull request #${open.number}`}><span className="deck-row__chip">#{open.number}</span></Tooltip>
+        </span>
+      ) : null}
     </>
   );
 }

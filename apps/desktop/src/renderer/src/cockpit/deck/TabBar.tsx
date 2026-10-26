@@ -6,7 +6,8 @@ import { SlidersHorizontal, type LucideIcon } from "lucide-react";
 import { Tabs, usePlacesRoom } from "@armada/components";
 import { DECK_TABS, SURFACES, deckTabOf } from "@armada/shell";
 
-import { placesTake } from "./flight-take";
+import { jobNameNotch, placesTake } from "./flight-take";
+import { setTitleNotch } from "./title-notch";
 
 import "./deck-chrome.css";
 
@@ -46,7 +47,7 @@ export function TabBar({ showing, onGoTo, waiting = false, away = false, hidden 
     const width = Math.ceil(nav.current.getBoundingClientRect().width);
     if (labels?.drawn !== drawn || labels.width !== width) setLabels({ drawn, width });
   });
-  return (
+  const strip = (
     <nav ref={nav} className="deck-places" aria-label="Places" data-places={places}>
       <Tabs
         iconsOnly={iconsOnly}
@@ -68,5 +69,13 @@ export function TabBar({ showing, onGoTo, waiting = false, away = false, hidden 
         }}
       />
     </nav>
+  );
+  // Under `&jobname=notch` the notch has a place after the Places for the open Job's state and name; it draws nothing while no Job puts its name there.
+  if (!jobNameNotch()) return strip;
+  return (
+    <>
+      {strip}
+      <span ref={setTitleNotch} className="deck-places__job" />
+    </>
   );
 }

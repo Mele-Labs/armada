@@ -63,7 +63,7 @@ export const placesTake = (): Places | undefined => {
 /** `&autopilot=hidden`, under `tight-type`: the Autopilot panel is not drawn and its room goes to the column. A real setting is later wiring. */
 export const autopilotHidden = (): boolean => tightType() && param("autopilot") === "hidden";
 
-/** `&jobname=notch`, under `tight-type`: an open Job's state mark and name hang from the top of its panel in a notch, and the head keeps its views, context and acts. */
+/** `&jobname=notch`, under `tight-type`: an open Job's state mark and name join the title bar's centre notch, after the Places (`title-notch.ts`), and the Job's head keeps its views, context and acts. */
 export const jobNameNotch = (): boolean => tightType() && param("jobname") === "notch";
 
 export type ViewsAt = "composer" | "head" | "left";

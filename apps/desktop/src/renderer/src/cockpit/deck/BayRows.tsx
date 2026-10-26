@@ -169,9 +169,17 @@ export function Berth({ view, foot }: { view: BayView; foot?: ReactNode }) {
   return (
     <>
       <span className="deck-bay__door">
-        {/* Under `tight-type` the state's glyph is a large, faint mark behind the number, which stays. */}
-        <State view={view} size={tightType() ? 56 : 16} />
-        <Name view={view} />
+        {/* Under `tight-type` the door is the number alone, in the state's hue, and the state's word is the number's tooltip. */}
+        {tightType() ? (
+          <Tooltip label={view.said ?? view.word}>
+            <Name view={view} />
+          </Tooltip>
+        ) : (
+          <>
+            <State view={view} size={16} />
+            <Name view={view} />
+          </>
+        )}
       </span>
       <span className="deck-bay__body">
         <Lead view={view} />
