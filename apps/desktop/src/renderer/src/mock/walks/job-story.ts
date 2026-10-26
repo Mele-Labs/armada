@@ -2,7 +2,7 @@
 // is open and the other two stand folded to their bands. Blueprint while the plan is drafted, Field while drones work, Landing at the end. The Job's
 // issues are the Blueprint's: a group that works one carries it on a meta line under its title, and the task being worked in the Now view carries its group's under its live line. The issues the Job filed
 // for later stand in Deferred. Approved, the Blueprint reads as Now (the task finished last, the ones being worked with the turn's
-// live line, the next one), a button opens the whole plan, and a press on a group opens its subagent type and paths as one row of meta. One open panel fills the column.
+// live line, the next one), a button opens the whole plan, and a group's title opens the issue it works. The last line of a drafted group is an empty task to type into. One open panel fills the column.
 // The composer's Artifacts button opens the list over the right column and Esc gives the story back. Over `job-story`. `job-story-spike` lands the
 // same story in a findings doc and `job-story-report` in a report.
 
@@ -19,13 +19,16 @@ const story = walk("job-story", [
   { look: blueprint, say: "The plan is open: its summary and each group as a title over its tasks, with Approve at the foot" },
   { look: inside(blueprint, button(/^Issue LEASE-20481/)), say: "A group that works an issue carries it on a line under its title: ticket glyph, key and the issue's title, one press" },
   { press: inside(blueprint, button(/^Edit group Show the attempt/)), say: "The pencil opens a group" },
-  { look: inside(blueprint, role("combobox", /^Subagent type of Show the attempt/)), say: "The subagent type and the paths are one row of small meta under the header, which holds the only title. The tasks are set as the Now view's" },
+  { look: inside(blueprint, role("combobox", /^Subagent type of Show the attempt/)), say: "The subagent type is one small control under the header, which holds the only title. Each task's words run the width of the group" },
+  { look: inside(blueprint, role("textbox", "New task in Show the attempt on the bay tile")), say: "The last line of every group is an empty task: type into it and Enter adds the task, with the line left empty for the next" },
   { look: landing, say: "Field and Landing stand folded to bands as short as the Workflow's" },
   { press: inside(blueprint, button("Approve")), say: "Approve" },
   { look: inside(blueprint, text("Backing off between attempts")), say: "The Blueprint reads as Now: the task finished last in the done colour, the task being worked on a running tint with a running edge and its live line, the next one waiting. The band takes the running colour" },
   { look: inside(blueprint, button(/^Issue LEASE-20481/)), say: "A long key from another tracker fits under the task, after its live line, with the issue's title cut by an ellipsis" },
   { press: inside(blueprint, button("Whole blueprint")), say: "One press opens the whole blueprint, with a glyph for the state of every task. The same press, or ⌥N, folds it back to Now" },
-  { press: inside(blueprint, button("Retry the lease when the pool is contended", { exact: true })), say: "A press on a group shows its subagent type and paths as one row" },
+  { press: inside(blueprint, button("Retry the lease when the pool is contended", { exact: true })), say: "A group that works an issue opens that issue from its title. The chevron beside it opens the group" },
+  { look: dialog("LEASE-20481"), say: "The issue opens over the column" },
+  { key: "Escape", on: dialog("LEASE-20481"), say: "Esc" },
   { look: field, say: "The Field opens while the drones work" },
   { later: landing, say: "The build finishes and the pull request goes to the queue" },
   { look: landing, say: "Landing is the one open panel and fills the column to the bottom" },
