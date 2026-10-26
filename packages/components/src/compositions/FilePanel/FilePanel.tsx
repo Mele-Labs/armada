@@ -262,7 +262,7 @@ export function FilePanel({ onClose, floor = false, back, beside, onPreviewing, 
       />
     </Sheet>
     {preview?.on !== true ? null : (
-      <Sheet kind="file-preview" beside="side-panel" open floating floor={floor} title="Preview" size="panel" closeLabel="Close" closeBinding="Esc" controls={<Switch checked={previewByDefault} onChange={(event) => setPreviewByDefault(event.target.checked)}>Open previews by default</Switch>} onClose={previewByDefault ? onClose : preview.toggle}>
+      <Sheet kind="file-preview" beside="side-panel" open floating floor={floor} title="Preview" size="panel" closeLabel="Close" closeBinding="Esc" controls={<Switch size="sm" checked={previewByDefault} onChange={(event) => setPreviewByDefault(event.target.checked)}>Open previews by default</Switch>} onClose={previewByDefault ? onClose : preview.toggle}>
         <div ref={read} className="armada-file-panel__read" onKeyDown={noted.viewer.onKeyDown}>
           <MarkdownPreview
             text={file.text ?? ""}

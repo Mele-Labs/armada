@@ -1,16 +1,17 @@
 /* Switch: a recessed pill with a raised knob, and the state written in the half the knob leaves. On lights the track in
  * --accent with ON on it; off is the sunken ground with OFF. Depth is the track's inset shadow and the knob's rim and drop.
- * `data-switch` on the root picks a take: `chevrons` puts arrows where the words are, pointing the way the knob would go;
- * `lamp` keeps the knob still at the end as a lamp, lit when on, with the word beside it.
+ * The words are ON and OFF unless given, and the track widens to the longer. `data-size="sm"` is a band's or a bar's switch.
  *
  * No gradient, no glow, no sheen. Motion is one --duration-press slide, zero under reduced motion.
  * Keyboard and screen reader are the input's own: it stays in the label, clipped, and the track draws its state. */
 
 .armada-switch {
-  --switch-w: calc(var(--space-12) + var(--space-3));
   --switch-h: calc(var(--h-badge) + var(--space-2));
+  --switch-text: var(--text-xs);
   --pad: calc(var(--border-width) * 3);
   --knob: calc(var(--switch-h) - var(--pad) * 2);
+  /* The words' side of the track: a little air each side of the longest word. */
+  --air: var(--space-2);
   /* The native input is absolutely positioned and clipped; the label is what
      it is positioned against. */
   position: relative;
@@ -50,20 +51,32 @@
   text-wrap: pretty;
 }
 
+/* A band's or a bar's switch: one badge tall, the words at the smallest size. */
+.armada-switch[data-size="sm"] {
+  --switch-h: var(--h-badge);
+  --switch-text: var(--text-2xs);
+  --pad: calc(var(--border-width) * 2);
+  --air: var(--space-1);
+  min-height: 0;
+}
+
 .armada-switch__input {
   position: absolute;
-  width: var(--switch-w);
-  height: var(--switch-h);
+  inset: 0;
   margin: 0;
   clip-path: inset(50%);
 }
 
+/* The track is as wide as its longer word needs: both words share one cell, beside the knob's room, so the wider one sets it.
+ * Off, the words stand right of the knob; on, the knob crosses to the right and the words take its place on the left. */
 .armada-switch__track {
   position: relative;
   flex: none;
+  display: inline-grid;
+  align-items: center;
   box-sizing: border-box;
-  width: var(--switch-w);
   height: var(--switch-h);
+  padding-inline: calc(var(--knob) + var(--pad) + var(--air)) var(--air);
   border: var(--border-width) solid var(--border-strong);
   border-radius: calc(var(--switch-h) / 2);
   background: var(--bg-sunken);
@@ -75,14 +88,11 @@
 
 /* The words sit in the half the knob leaves, and only the one that is true is drawn. */
 .armada-switch__word {
-  position: absolute;
-  inset-block: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: calc(100% - var(--knob) - var(--pad));
+  grid-area: 1 / 1;
+  justify-self: center;
+  white-space: nowrap;
   font-family: var(--font-mono);
-  font-size: var(--text-xs);
+  font-size: var(--switch-text);
   line-height: 1;
   font-weight: var(--weight-heading);
   letter-spacing: var(--tracking-caps);
@@ -90,13 +100,12 @@
 }
 
 .armada-switch__word[data-word="on"] {
-  left: 0;
+  transform: translateX(calc(-1 * (var(--knob) + var(--pad))));
   color: var(--fg-inverse);
   opacity: 0;
 }
 
 .armada-switch__word[data-word="off"] {
-  right: 0;
   color: var(--fg-muted);
 }
 
@@ -139,71 +148,6 @@
 
 .armada-switch:not(:has(.armada-switch__input:disabled)):hover .armada-switch__input:not(:checked) + .armada-switch__track {
   border-color: var(--fg-subtle);
-}
-
-/* ---- Chevrons: arrows in place of the words, pointing the way the knob would go ---- */
-
-:root[data-switch="chevrons"] .armada-switch__word {
-  font-size: 0;
-}
-
-:root[data-switch="chevrons"] .armada-switch__word::before {
-  font-size: var(--text-sm);
-  letter-spacing: calc(var(--border-width) * -1);
-}
-
-:root[data-switch="chevrons"] .armada-switch__word[data-word="off"]::before {
-  content: "\203A\203A\203A";
-}
-
-:root[data-switch="chevrons"] .armada-switch__word[data-word="on"]::before {
-  content: "\2039\2039\2039";
-}
-
-/* The knob here is a ring: dark, with the state's colour in its well. */
-:root[data-switch="chevrons"] .armada-switch__thumb {
-  border: calc(var(--border-width) * 4) solid var(--bg-base);
-  background: var(--fg-subtle);
-}
-
-:root[data-switch="chevrons"] .armada-switch__input:checked + .armada-switch__track .armada-switch__thumb {
-  border-color: var(--bg-base);
-  background: var(--accent);
-}
-
-/* ---- Lamp: a dark pill with the word, and a lamp at the end that is lit when on ---- */
-
-:root[data-switch="lamp"] .armada-switch__input:checked + .armada-switch__track {
-  border-color: var(--border-strong);
-  background: var(--bg-sunken);
-}
-
-:root[data-switch="lamp"] .armada-switch__word {
-  left: var(--pad);
-  right: auto;
-  width: calc(100% - var(--knob) - var(--pad) * 2);
-}
-
-:root[data-switch="lamp"] .armada-switch__input:checked + .armada-switch__track .armada-switch__word[data-word="on"] {
-  color: var(--fg-default);
-}
-
-:root[data-switch="lamp"] .armada-switch__thumb,
-:root[data-switch="lamp"] .armada-switch__input:checked + .armada-switch__track .armada-switch__thumb {
-  left: calc(100% - var(--knob) - var(--pad) + var(--border-width));
-  transition:
-    background-color var(--duration-press) var(--ease),
-    border-color var(--duration-press) var(--ease);
-}
-
-:root[data-switch="lamp"] .armada-switch__thumb {
-  border-color: var(--bg-base);
-  background: var(--border-strong);
-}
-
-:root[data-switch="lamp"] .armada-switch__input:checked + .armada-switch__track .armada-switch__thumb {
-  border-color: color-mix(in srgb, var(--accent) 50%, var(--bg-base));
-  background: var(--accent);
 }
 
 /* ---- Focus and disabled ---- */
