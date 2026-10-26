@@ -15,6 +15,8 @@ import type { RepositorySummary } from "@armada/protocol";
 import { useLayout } from "@armada/shell";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
+import { JobTabs } from "../cockpit/deck/JobTabs";
+import { flightTake } from "../cockpit/deck/flight-take";
 import { useSessionsDraft } from "../sessions-draft";
 import { FieldLayer } from "./FieldLayer";
 import { FieldPanel } from "./FieldPanel";
@@ -43,7 +45,9 @@ export function SessionWorkspace({ session, entries, repositories, hosts, ed, ba
   useEffect(() => () => dropLayer(id), [id]);
   const work = session.work;
   const layered = layer === undefined ? null : <Layer id={layer} session={session} entries={entries} bays={bays} onOpenCheck={onOpenCheck} onOpenSession={onOpenSession} onOpenSketch={onOpenSketch} />;
-  if (work === undefined || draft === undefined || hosts === undefined) return <>{children}{layered}{large}</>;
+  // The `tabs` take of Flight control draws the Job's views as tabs over the thread, on the Cockpit only (`flight-take.ts`).
+  const tabs = flightTake() === "tabs" && hosts !== undefined && draft !== undefined ? <JobTabs session={session} bays={bays} /> : null;
+  if (work === undefined || draft === undefined || hosts === undefined) return <>{tabs}{children}{layered}{large}</>;
   // In the order a layout gives; each panel leaves itself out where a layout hides it (`SvPanel`).
   const panels: Record<string, ReactNode> = {
     field: <FieldPanel session={session} repositories={repositories} place="side" />,
@@ -54,6 +58,7 @@ export function SessionWorkspace({ session, entries, repositories, hosts, ed, ba
   const right = order.map((one) => <Fragment key={one.id}>{panels[one.id]}</Fragment>);
   return (
     <>
+      {tabs}
       {children}
       {layered}
       {large}
