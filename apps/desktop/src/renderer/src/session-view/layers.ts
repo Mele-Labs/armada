@@ -1,10 +1,10 @@
-// The layer open over a Session's stage: Artifacts, Subagents, Checks, Slot or the Field. One at a time, for one Session. Flight control's keys open
+// The layer open over a Session's stage: Artifacts, Subagents, Checks, Slot, the Field or the Job's document (which covers the whole Job view). One at a time, for one Session. Flight control's keys open
 // them and the layer's Back closes it, so the thread under it is never unmounted and is where he left it. The element that had focus
 // when a layer opened gets it back on Back.
 
 import { useSyncExternalStore } from "react";
 
-export type LayerId = "artifacts" | "subagents" | "checks" | "slot" | "field";
+export type LayerId = "artifacts" | "subagents" | "checks" | "slot" | "field" | "document";
 
 type Open = { session: string; layer: LayerId; from: HTMLElement | null };
 

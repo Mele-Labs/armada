@@ -99,6 +99,8 @@ export type SessionAttachment =
       by?: "agent";
       /** With `shown`: the Session wrote the file as well, and the ledger still says it wrote it. */
       written?: true;
+      /** An HTML page the Job wrote as its document: the path of each revision, oldest first. The newest is the one the Landing reads. Mock only until Fleet says it. */
+      revisions?: readonly string[];
     }
   /**
    * The Session this one was forked to, and the one it was forked from. `id` is the other Session's.

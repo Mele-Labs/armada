@@ -62,6 +62,8 @@ export type ViewerNotes = {
   settled: number;
   /** ⌘Enter on the viewer: every held note goes. */
   onKeyDown: (event: KeyboardEvent) => void;
+  /** The same send, for a button: every held note goes, to the Job the viewer is in or the one picked. */
+  send: () => void;
   /** The menu and the box, drawn where the viewer puts them. */
   layer: ReactNode;
 };
@@ -227,6 +229,7 @@ export function useViewerNotes(scope: ViewerNotesScope | undefined, from: RefObj
       setMenuAt({ at, about, anchor });
     },
     settled,
+    send: () => void send(),
     onKeyDown: (event) => {
       if (!on || event.defaultPrevented || !sends(event) || held.length === 0) return;
       event.preventDefault();

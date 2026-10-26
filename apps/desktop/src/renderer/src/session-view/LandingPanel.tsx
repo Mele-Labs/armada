@@ -14,6 +14,9 @@ import { useArtifact } from "../session-artifact";
 import { checksSaid } from "../session-cards";
 import { useSessionsDraft } from "../sessions-draft";
 import { artifactsOf, type ArtifactRow } from "./artifacts";
+import { documentOf } from "./document-state";
+import { readPage } from "./document-page";
+import { showLayer } from "./layers";
 import { checksOf, issuesOutsidePlan, openPrPanel, type PullRequest } from "./IssuesBlock";
 import { LaterBlock } from "./LaterBlock";
 import { ModsMade } from "./ModsPanel";
@@ -70,12 +73,18 @@ function conclusionOf(text: string): string {
   return lines.slice(start, end < 0 ? undefined : end).join(" ");
 }
 
-/** The report the Job wrote: its title over the first lines of its conclusion, read from the file. A press opens the whole report as a doc opens. */
+/**
+ * The report the Job wrote: its title over the first lines of its conclusion, read from the file. A press opens the whole report as a doc
+ * opens. A report that is an HTML page (the Job's document) reads its conclusion from the page's first paragraph, from the newest
+ * revision, and opens in the reading layer over the Job.
+ */
 function Report({ session, row }: { session: Session; row: ArtifactRow }) {
-  const held = useArtifact(useSessionsDraft(), session.id, row.sub ?? "");
-  const conclusion = held.state === "read" && held.read.ok ? conclusionOf(new TextDecoder().decode(held.read.bytes)) : "";
+  const doc = documentOf(session);
+  const held = useArtifact(useSessionsDraft(), session.id, doc === undefined ? (row.sub ?? "") : (doc.revisions[doc.revisions.length - 1] ?? ""));
+  const text = held.state === "read" && held.read.ok ? new TextDecoder().decode(held.read.bytes) : "";
+  const conclusion = doc === undefined ? conclusionOf(text) : text === "" ? "" : readPage(text).lede;
   return (
-    <button type="button" className="sv-landing__report" aria-label={row.title} disabled={row.open === undefined} onClick={row.open}>
+    <button type="button" className="sv-landing__report" aria-label={row.title} disabled={row.open === undefined} onClick={doc === undefined ? row.open : () => showLayer(session.id, "document")}>
       <span className="sv-landing__report-head">
         <Tooltip label="Report">
           <span className="sv-landing__report-mark" role="img" aria-label="Report">

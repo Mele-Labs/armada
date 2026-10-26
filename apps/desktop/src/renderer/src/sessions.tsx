@@ -80,6 +80,7 @@ import { backgroundEntryOf } from "./session-background";
 import { SubagentThread, useSubagentRead } from "./session-subagent";
 import { useMinimized } from "./session-ledger-minimized";
 import { useWriteClashes } from "./clashes";
+import { openDocumentAt } from "./session-view/document-state";
 import { showLayer, toggleLayer } from "./session-view/layers";
 import { OverTheApp } from "./session-view/OverTheApp";
 import { baysOf } from "./session-view/slot-trouble";
@@ -350,6 +351,8 @@ export const markedOf = (open: Reading | undefined): { parts?: readonly string[]
  * made with the region drawn, and any other file in the side panel on its lines or with its region drawn.
  */
 function openNoted(session: Session, read: (one: Reading) => void, ref: NotedRef): void {
+  // A note on the Job's document opens the document over the Job, at the place the note named.
+  if (ref.kind === "document") return openDocumentAt(session.id, ref.place, ref.target);
   const inside = session.cwd !== undefined && ref.kind !== "sketch" && ref.path.startsWith(`${session.cwd.replace(/\/+$/, "")}/`);
   const from = inside ? ("session" as const) : ("picked" as const);
   if (ref.kind === "sketch") {

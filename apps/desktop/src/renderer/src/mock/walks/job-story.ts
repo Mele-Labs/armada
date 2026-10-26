@@ -4,9 +4,9 @@
 // for later stand in Deferred. Approved, the Blueprint reads as Now (the task finished last, the ones being worked with the turn's
 // live line, the next one), a button opens the whole plan, and a press on a group opens its subagent type and paths as one row of meta. One open panel fills the column.
 // The composer's Artifacts button opens the list over the right column and Esc gives the story back. Over `job-story`. `job-story-spike` lands the
-// same story in a findings doc and `job-story-report` in a report.
+// same story in a findings doc and `job-story-report` in a report. `job-document` reads that report.
 
-import { button, deckRow, dialog, inside, region, role, text, walk } from "../walk";
+import { button, deckRow, inside, region, role, text, walk } from "../walk";
 
 const blueprint = region("Blueprint", { exact: true });
 const field = region("Field", { exact: true });
@@ -53,7 +53,7 @@ const report = walk("job-story", [
   { look: inside(landing, button("Why do slot leases expire early")), say: "Landing shows the report: its title and the first lines of its conclusion" },
   { look: mergeLine, say: "No pull request, so nothing of this Job in the Merge line" },
   { press: inside(landing, button("Why do slot leases expire early")), say: "A press opens the whole report" },
-  { look: dialog("slot-lease-expiry.md"), say: "It opens in the side panel" },
+  { look: region("Document", { exact: true }), say: "It opens in a layer over the whole Job" },
 ]);
 
 export { story as "job-story", spike as "job-story-spike", report as "job-story-report" };

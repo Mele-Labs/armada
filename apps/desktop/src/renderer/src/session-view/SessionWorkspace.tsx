@@ -17,6 +17,7 @@ import { useLayout } from "@armada/shell";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
 import { useSessionsDraft } from "../sessions-draft";
+import { DocumentLayer } from "./DocumentLayer";
 import { FieldLayer } from "./FieldLayer";
 import { FieldPanel } from "./FieldPanel";
 import { BlueprintPanel } from "./BlueprintPanel";
@@ -38,8 +39,8 @@ export function SessionWorkspace({ session, entries, repositories, hosts, ed, ba
   const order = useLayout("job.panels").all;
   const { id } = session;
   const open = useLayer(id);
-  // The Field large draws itself (`FieldLayer.tsx`); the other layers are `Layer`'s.
-  const layer = open === "field" ? undefined : open;
+  // The Field large draws itself (`FieldLayer.tsx`) and so does the document (`DocumentLayer.tsx`); the other layers are `Layer`'s.
+  const layer = open === "field" || open === "document" ? undefined : open;
   const large = open === "field" ? <FieldLayer session={session} repositories={repositories} /> : null;
   // A layer belongs to the Session it was opened over.
   useEffect(() => () => dropLayer(id), [id]);
@@ -51,6 +52,9 @@ export function SessionWorkspace({ session, entries, repositories, hosts, ed, ba
   const story = work !== undefined && draft !== undefined && side !== null;
   // Artifacts covers the right column, where the story is; every other layer covers the stage.
   const aside = story && layer === "artifacts";
+  // The document covers the whole Job view, the right column with the thread, so it is drawn into the deck's grid.
+  const grid = side?.closest(".deck-grid") ?? null;
+  const reading = open === "document" && grid !== null ? createPortal(<DocumentLayer session={session} />, grid) : null;
   const layered = layer === undefined ? null : <Layer id={layer} session={session} entries={entries} bays={bays} onOpenCheck={onOpenCheck} onOpenSession={onOpenSession} onOpenSketch={onOpenSketch} />;
   // A band opens by its key, the Blueprint's whole-plan key swaps its Now view, and the composer's Artifacts key opens the list. A band's key closes the list first: the story is what it asked for.
   useEffect(() => {
@@ -92,6 +96,7 @@ export function SessionWorkspace({ session, entries, repositories, hosts, ed, ba
       {children}
       {aside ? null : layered}
       {large}
+      {reading}
       {createPortal(right, side)}
       {aside ? createPortal(layered, side) : null}
     </>
