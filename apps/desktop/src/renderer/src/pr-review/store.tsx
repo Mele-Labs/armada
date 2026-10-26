@@ -10,10 +10,11 @@
 import { createContext, useContext, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 
-import type { PullRequestPage, PullReviewComment, PullReviewList, PullReviewLists, PullReviewRow } from "@armada/protocol";
+import type { PullRequestPage, PullRequestState, PullReviewChecks, PullReviewComment, PullReviewList, PullReviewLists, PullReviewRow } from "@armada/protocol";
 import { readKept, writeKept } from "@armada/components";
 import { SURFACE } from "@armada/shell";
 
+import type { PullLink } from "../../../shared/pull-link";
 import type { Draft, PatchRead, PrList, PrWork, ReviewPr, ReviewSnapshot, ReviewTab, ToolDef, Verdict, View, WalkWork } from "./model";
 import { linesOfPatch } from "./patch";
 import type { ReviewSource } from "./source";
@@ -59,6 +60,11 @@ export type ReviewStore = AgentActs &
   open: (key: string | undefined) => void;
   /** Takes a pull request that is on none of the lists, as a search does, so the review tools can run on it. Answers its key. */
   adopt: (row: PullReviewRow) => string;
+  /**
+   * Opens the pull request a link names, on whichever list it is on or on none, and reads its page. Answers its key, or the words for
+   * why it was not opened: the forge would not give it, or it is no longer open.
+   */
+  openLink: (manifestId: string, link: PullLink) => Promise<{ ok: true; key: string } | { ok: false; said: string }>;
   /** Puts the Natural Search box up in place of the list, or takes it down. */
   setSearching: (on: boolean) => void;
   setView: (key: string, view: View) => void;
@@ -95,6 +101,22 @@ const stubPage = (row: PullReviewRow): PullRequestPage => ({
   checks: [],
   files: [],
   commits: [],
+});
+
+/** What a row says of a pull request met by link: the forge's standing, the author and head left for the page to give. */
+const rowOfStanding = (state: PullRequestState, repository: string): PullReviewRow => ({
+  manifest_id: state.manifest_id,
+  repository,
+  number: state.number,
+  title: state.title,
+  branch: state.branch,
+  address: state.address,
+  draft: state.state === "draft",
+  checks: state.checks.state === "passed" ? "passed" : state.checks.state === "failed" ? "failed" : "running",
+  review: "none",
+  head: "",
+  author: "",
+  updated_at: new Date().toISOString(),
 });
 
 const keyOf = (row: PullReviewRow): string => `${row.repository}#${row.number}`;
@@ -257,6 +279,15 @@ export function createReviewStore(source: ReviewSource): ReviewStore {
   const last = readKept<PullReviewLists>(KEPT_LISTS);
   if (last !== undefined) arrive(last, false);
 
+  const open = (key: string | undefined) => {
+    set({ open: key });
+    if (key === undefined) return;
+    readPage(key);
+    acts.readRuns(key);
+    const pr = prOf(key);
+    if (pr !== undefined) acts.readTools(pr.manifestId);
+  };
+
   return {
     ...acts,
     ...search,
@@ -275,14 +306,21 @@ export function createReviewStore(source: ReviewSource): ReviewStore {
     },
     setTab: (tab) => set({ tab }),
     adopt,
-    open: (open) => {
-      set({ open });
-      if (open === undefined) return;
-      readPage(open);
-      acts.readRuns(open);
-      const pr = prOf(open);
-      if (pr !== undefined) acts.readTools(pr.manifestId);
+    openLink: async (manifestId, link) => {
+      const repository = `${link.owner}/${link.name}`;
+      // The forge spells a repository as it was made; a link may not.
+      const held = snapshot.prs.find((one) => one.key.toLowerCase() === `${repository}#${link.number}`.toLowerCase())?.key ?? `${repository}#${link.number}`;
+      if (prOf(held) === undefined) {
+        const answer = await source.pull(manifestId, link.number);
+        if (!answer.ok) return { ok: false, said: answer.said };
+        const standing = answer.value.state;
+        if (standing === "merged" || standing === "closed") return { ok: false, said: `#${link.number} is ${standing}, and only an open pull request is reviewed here.` };
+        adopt(rowOfStanding(answer.value, repository));
+      }
+      open(held);
+      return { ok: true, key: held };
     },
+    open,
     setSearching: (searching) => set({ searching }),
     setView: (key, view) => change(key, { view }),
     toggleOpen: (key, id) => {
