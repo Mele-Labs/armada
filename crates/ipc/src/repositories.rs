@@ -47,11 +47,12 @@ pub struct RepositorySummary {
     pub root: String,
     /// Where its Job records live, for the reason `ManifestSummary` carries it.
     pub records_root: String,
-    /// Absent until an `armada.yml` at `root` loads.
+    /// Absent until a Manifest at `root` loads: its `armada.yml`, Kit's copy, or both.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub manifest: Option<ManifestSummary>,
     /// The `manifest_id` a Job started here carries while there is no `manifest`:
-    /// the id Fleet gives a repository with no `armada.yml`. Absent where there is one.
+    /// the id Fleet gives a repository with no Manifest, no `armada.yml` and no Kit copy.
+    /// Absent where there is one.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub implicit_id: Option<ManifestId>,
 }

@@ -57,7 +57,7 @@ import { useHelmHosted } from "./helm-session";
 import { openAddressInPanel } from "./shared-panel/store";
 import { useSessions, useSessionsDraft } from "./sessions-draft";
 import { startOn } from "./start-on";
-import { defaultParent } from "./run-places";
+import { defaultParent, placeOf } from "./run-places";
 import { useThoughtRouting } from "./thought-routing";
 import { DispatchSheet, TitleDispatchedStrip } from "./dispatch-panel/entries";
 import { CaptureLayer, type CaptureAim } from "./capture/Layer";
@@ -75,7 +75,7 @@ import { DispatchFailure, useDispatchFailure } from "./failure-session";
 import { LinkPanelHost, useLinkDrop } from "./link-drop";
 import { usePasteAndDrop } from "./paste-and-drop";
 import { SketchSharing } from "./sketch-sharing";
-import { openServerLink, openLink, restartFleet, changeFleetBuild, observeCheckoutRun, pickRepository, chooseFolder, resolveFolder, addRepository, cloneRepository, createProject, helmDebugInfo, startHelmFresh, pointHelm, getCheckoutRunOutput, getCheckoutRunDiff, readManifestFile, saveManifestFile, editManifest, readRepositoryScan, readManifestProposals, editManifestProposal, writeManifestProposal, listRepositoryAllowedCommands, removeRepositoryAllowedCommand, listKitServers, readKitInventory, removeKitAllowedCommand, removeKitPiece, restoreKitPiece, addKitServer, forgetKitServer, setKitServerReach, setManifestServerReach, listCheckoutRuns, undoCheckoutRun, setupSessionFleet, captureStudioNote, readHeld, slotActs, bayActs, startCheckoutRun, startCheckoutVerify, startServer, stopCheckoutRun, stopServer, useCommands, watchCheckoutRunSheet, watchManifestDrift, watchOverview } from "./commands";
+import { openServerLink, openLink, restartFleet, changeFleetBuild, observeCheckoutRun, pickRepository, chooseFolder, resolveFolder, addRepository, cloneRepository, createProject, helmDebugInfo, startHelmFresh, pointHelm, getCheckoutRunOutput, getCheckoutRunDiff, readManifestFile, saveManifestFile, editManifest, readRepositoryScan, readManifestProposals, editManifestProposal, writeManifestProposal, listRepositoryAllowedCommands, removeRepositoryAllowedCommand, listKitServers, readKitInventory, removeKitAllowedCommand, removeKitPiece, restoreKitPiece, addKitServer, forgetKitServer, setKitServerReach, setManifestServerReach, listCheckoutRuns, undoCheckoutRun, setupSessionFleet, getRunMemoryPlace, captureStudioNote, readHeld, slotActs, bayActs, startCheckoutRun, startCheckoutVerify, startServer, stopCheckoutRun, stopServer, useCommands, watchCheckoutRunSheet, watchManifestDrift, watchOverview } from "./commands";
 import { hiddenSurfaces, MergeLineSurface } from "./merge-line";
 import { useMergeByHand } from "./merge-by-hand";
 import { LogbookSurface } from "./logbook";
@@ -364,11 +364,15 @@ export function App() {
   function setUpWithSession(held: typeof setting.held, root: string): void {
     if (held.state !== "open") return;
     setStartingSession(true);
-    void startSetupSession(held, root, setupSessionFleet, said).then((answer) => {
-      setStartingSession(false);
-      if (!answer.ok) setTelling(answer.saying);
-      if (answer.id !== undefined) openSession(answer.id);
-    });
+    // The Job cannot read where the configuration is kept, so Bridge does and the message names it.
+    void getRunMemoryPlace(root)
+      .then((kept) => (kept.ok ? placeOf(kept.value, []) : undefined), () => undefined)
+      .then((place) => startSetupSession(held, root, setupSessionFleet, said, place))
+      .then((answer) => {
+        setStartingSession(false);
+        if (!answer.ok) setTelling(answer.saying);
+        if (answer.id !== undefined) openSession(answer.id);
+      });
   }
   useOpenSessionAsked(openSession); useOpenHolderAsked({ session: openSession }); useOpenRetroAsked(() => goTo(SURFACE.lessons)); // The annotation layer's Start session; a Session's Retro press.
   const teachBridge = useTeachBridge();
