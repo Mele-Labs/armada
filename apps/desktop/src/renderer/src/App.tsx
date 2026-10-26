@@ -42,6 +42,7 @@ import { useTeachBridge } from "./teach";
 import { useLandings, useSummoned, useUiSounds } from "./app-effects";
 import { Overview } from "./Overview"; import { DoctorSurfaceNow, ManifestNow, SetupNow, StudiosSurfaceNow, WorktreesNow } from "./clocked-screens";
 import { CallAlerts } from "./cockpit/CallAlerts";
+import { DockCount } from "./cockpit/DockCount";
 import { DeckHost, DeckPlaces } from "./cockpit/deck/DeckHost";
 import { HELM_HOME, SLEEP_HOME, useCallingHomes } from "./cockpit/deck/homes";
 import { opensFor, placesOff } from "./cockpit/deck/system-page";
@@ -769,6 +770,7 @@ export function App() {
           <DeckHost state={state} picked={pickedRepository} here={atCockpit} hidden={hidden} onGoTo={goTo} onOpenSession={openSession} />
           {asked.loadoutFocus === undefined ? null : <LoadoutPanel id={asked.loadoutFocus} at={asked.loadoutAt} onClose={() => asked.setLoadoutFocus(undefined)} />}
           <CallAlerts state={state} picked={pickedRepository} onCockpit={atCockpit} onShow={(key) => (goTo(SURFACE.overview), lands.bring(key))} />
+          <DockCount state={state} />
           <LinkPanelHost />
         </Toasts>
         </DispatchFailure.Provider>

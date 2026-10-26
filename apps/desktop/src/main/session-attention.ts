@@ -23,8 +23,6 @@ export type Told = { sessionId: string; title: string; body: string; tone: Tone 
 export type Effects = {
   /** Post one banner, and land on `sessionId` when it is pressed. */
   show: (told: Told) => void;
-  /** Say how many Sessions wait on him, or none. Told on every reading, so the dock follows a change of nothing else. */
-  count: (waiting: number) => void;
 };
 
 /** What a live Session waits on him for, as this tells it: an item of `waiting_for`, or the start card it is held on. */
@@ -43,8 +41,6 @@ export class SessionAttention {
   /** `${sessionId}:${itemId}` for every item waiting as of the last reading. */
   private waiting: Set<string> = new Set();
   private seeded = false;
-  /** The last count told to the dock, so an unchanged one is not told again. */
-  private counted = -1;
   private collecting = new Map<string, Entered>();
   private window: ReturnType<typeof setTimeout> | null = null;
 
@@ -61,12 +57,9 @@ export class SessionAttention {
     if (readAt === null) return;
     const now = new Set<string>();
     const entered: Entered[] = [];
-    let sessionsWaiting = 0;
     for (const session of sessions) {
       if (session.state !== "live") continue;
-      const items = waitsOf(session);
-      if (items.length > 0) sessionsWaiting += 1;
-      for (const item of items) {
+      for (const item of waitsOf(session)) {
         const key = `${session.id}:${item.id}`;
         now.add(key);
         if (this.seeded && !this.waiting.has(key)) {
@@ -76,10 +69,6 @@ export class SessionAttention {
     }
     this.waiting = now;
     this.seeded = true;
-    if (sessionsWaiting !== this.counted) {
-      this.counted = sessionsWaiting;
-      this.effects.count(sessionsWaiting);
-    }
     if (entered.length === 0) return;
     for (const one of entered) this.collecting.set(`${one.sessionId}:${one.item.id}`, one);
     this.open();

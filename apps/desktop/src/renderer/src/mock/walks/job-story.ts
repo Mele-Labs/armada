@@ -4,7 +4,8 @@
 // for later stand in Deferred. Approved, the Blueprint reads as Now (the task finished last, the ones being worked with the turn's
 // live line, the next one), a button opens the whole plan, and a group's title opens the issue it works. The last line of a drafted group is an empty task to type into. One open panel fills the column.
 // The composer's Artifacts button opens the list over the right column and Esc gives the story back. Over `job-story`. `job-story-spike` lands the
-// same story in a findings doc and `job-story-report` in a report. `job-document` reads that report.
+// same story in a findings doc and `job-story-report` in a report. `job-document` reads that report. `job-story-page` is the pull request
+// Job's own page in its Landing.
 
 import { button, deckRow, dialog, inside, region, role, text, walk } from "../walk";
 
@@ -62,4 +63,16 @@ const report = walk("job-story", [
   { look: region("Document", { exact: true }), say: "It opens in a layer over the whole Job" },
 ]);
 
-export { story as "job-story", spike as "job-story-spike", report as "job-story-report" };
+// A Job that lands a pull request and also wrote a page with the document skill: the page stands in its Landing beside the pull requests.
+const page = walk("job-story", [
+  { press: deckRow("Retry the slot lease"), say: "A Job whose workflow lands a pull request" },
+  { press: inside(blueprint, button("Approve")), say: "Approve" },
+  { later: landing, say: "The build finishes, and the Job has written a page beside its pull request" },
+  { look: inside(landing, role("list", "Document")), say: "The page stands in the Landing under the pull requests, as a spike's findings do" },
+  { press: inside(inside(landing, role("list", "Document")), button(/^Why do slot leases expire early/)), say: "A press opens it" },
+  { look: region("Document", { exact: true }), say: "In the reading layer over the whole Job: contents, the page, the Notes margin" },
+  { key: "Escape", on: region("Document", { exact: true }), say: "Esc" },
+  { look: landing, say: "The Job is back as it was" },
+]);
+
+export { story as "job-story", spike as "job-story-spike", report as "job-story-report", page as "job-story-page" };

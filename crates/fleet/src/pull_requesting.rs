@@ -32,7 +32,7 @@ use store::HolderKind;
 
 use crate::daemon::Fleet;
 use crate::repositories::Served;
-use crate::session_issues::issue_held;
+use crate::session_issues::{issue_held, PULL_REQUESTS};
 use crate::refusing::{
     MERGE_BRANCH_PROTECTED, MERGE_CHECKS_NOT_PASSED, MERGE_CONFLICTED, MERGE_NOT_OPEN,
     MERGE_NO_TOOL, MERGE_REFUSED,
@@ -271,6 +271,14 @@ where
             _ => store::AttachmentState::Standing,
         };
         let now = self.clock().now().as_str().to_string();
+        // A key in its title or branch is how the Manifest's tracker itself links an issue to it.
+        let named: Vec<ipc::IssueReference> = self
+            .served_named(Some(&state.manifest_id))
+            .map(|served| self.tracker_of(&served).issues_named_by_pull_request(&state.title, &state.branch))
+            .unwrap_or_default()
+            .iter()
+            .filter_map(|key| ipc::IssueReference::read(key)).collect();
+        let working = BTreeMap::from([(PULL_REQUESTS.to_string(), target.clone())]);
         let mut changed = Vec::new();
         {
             let mut store = self.store().lock().await;
@@ -292,6 +300,9 @@ where
                     let issue = ipc::IssueReference::number(*number);
                     moved |= issue_held(&mut store, &row.holder, &row.manifest_id, &issue, &BTreeMap::new(), &now)
                         .unwrap_or(false);
+                }
+                for issue in &named {
+                    moved |= issue_held(&mut store, &row.holder, &row.manifest_id, issue, &working, &now).unwrap_or(false);
                 }
                 if !moved {
                     continue;

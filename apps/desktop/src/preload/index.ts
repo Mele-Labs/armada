@@ -856,6 +856,7 @@ const api: BridgeApi = {
   pointHelm: (manifestId: string): Promise<void> => ipcRenderer.invoke(CHANNELS.pointHelm, manifestId),
 
   tap: (pattern: Pattern): void => ipcRenderer.send(CHANNELS.tap, pattern),
+  dockCount: (calls: number): void => ipcRenderer.send(CHANNELS.dockCount, calls),
 };
 
 contextBridge.exposeInMainWorld("armada", api);

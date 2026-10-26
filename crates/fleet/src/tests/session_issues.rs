@@ -244,6 +244,52 @@ async fn the_issues_a_sessions_pull_request_closes_are_held_by_the_session() {
     assert!(rows.iter().all(|one| one.state == AttachmentState::Standing));
 }
 
+/// A Fleet whose Manifest chose Jira, read by the shipped providers, holding pull request 12 on `s1`.
+async fn a_jira_fleet_holding_pull_request_12(home: &TempDir) -> crate::tests::pull_requesting::Fixture {
+    let mut fitted = fittings(home, FakeWorkProduct::changed(&[]));
+    fitted.trackers = Arc::new(adapters::TrackersByProvider);
+    let text = "version: 1\nid: 01FIXTUREMANIFEST\nbase: main\ntracker:\n  provider: jira\n  site: acme\n  project: ABC\n";
+    fitted.starting().manifest = config::Manifest::parse(std::path::Path::new("armada.yml"), text).expect("loads");
+    let fleet = Fleet::assembled(fitted);
+    a_session_holding_pull_request_12(&fleet, "s1").await;
+    forge_ran(&fleet, passed());
+    fleet.vcs().now_pull_request(Some(adapter_traits::PullRequestFacts {
+        title: "[ABC-12] Wire it".into(),
+        ..facts(PullRequestStanding::Open)
+    }));
+    fleet
+}
+
+/// A key in a pull request's title is how Jira itself links the two, so the Session holding the
+/// pull request holds the issue, with the pull request under it.
+#[tokio::test]
+async fn the_key_a_sessions_pull_request_names_in_its_title_is_held_by_the_session() {
+    let home = TempDir::new();
+    let fleet = a_jira_fleet_holding_pull_request_12(&home).await;
+    let (id, _) = manifest(&fleet);
+
+    fleet.get_pull_request(id, 12).await.expect("read");
+
+    let rows = issues(&fleet, "s1").await;
+    assert_eq!(targets(&rows), vec!["ABC-12"]);
+    assert_eq!(rows[0].state, AttachmentState::Standing);
+    assert_eq!(rows[0].detail.get("pull_requests").map(String::as_str), Some("12"));
+}
+
+/// The issue list names its holders off the same rows, so the key's issue names the Session. The
+/// shipped Jira tracker lists nothing without `acli`, so the holders are read as the list reads them.
+#[tokio::test]
+async fn the_issue_a_pull_request_names_by_key_names_its_session_as_a_holder() {
+    let home = TempDir::new();
+    let fleet = a_jira_fleet_holding_pull_request_12(&home).await;
+    let (id, _) = manifest(&fleet);
+
+    fleet.get_pull_request(id.clone(), 12).await.expect("read");
+
+    let holders = fleet.issue_holders(&id).await.expect("read");
+    assert_eq!(holders.get("ABC-12").map(Vec::as_slice), Some(&["s1".to_string()][..]));
+}
+
 /// The pull reading reads each issue a Session holds once a pass, as it reads each pull request: a
 /// title and a state from the forge, over what the mod or a tag said. A closed issue stands.
 #[tokio::test]

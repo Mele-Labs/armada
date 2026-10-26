@@ -33,8 +33,8 @@ fn a_local_calm(mods: &Path) {
     std::fs::write(at.join("theme.css"), ":root {\n  --accent: #E0954A;\n}\n").expect("theme.css");
 }
 
-/// **Beside, never instead**: a local mod named as a built-in one is listed next to it, each
-/// under its own id and switched apart; a built-in that breaks a rule is listed with the problem.
+/// **Beside, never instead**: a local mod named as a built-in one and changed from it is listed
+/// next to it, each under its own id and switched apart; a built-in that breaks a rule is listed with the problem.
 #[test]
 fn a_built_in_mod_is_listed_beside_a_local_one_of_the_same_name_and_checked_as_one_is() {
     let home = TempDir::new();
@@ -56,6 +56,34 @@ fn a_built_in_mod_is_listed_beside_a_local_one_of_the_same_name_and_checked_as_o
     );
     assert!(list.mods[2].reason.as_deref().is_some_and(|why| why.contains("`url(`")), "{:?}", list.mods[2].reason);
     assert_eq!(list.mods[1].changed_at, None, "a built-in mod has no file on this machine");
+}
+
+/// **Shipped, so folded**: a local mod whose files are the built-in one's, as a promoted mod's are
+/// once its pull request merges, is listed once, as the built-in mod.
+#[test]
+fn a_local_mod_identical_to_its_built_in_copy_is_listed_once() {
+    let home = TempDir::new();
+    let mods = home.path().join("mods");
+    let at = mods.join("calm");
+    std::fs::create_dir_all(&at).expect("a folder");
+    std::fs::write(at.join("mod.toml"), CALM_TOML).expect("mod.toml");
+    std::fs::write(at.join("theme.css"), CALM_CSS).expect("theme.css");
+
+    let names: Vec<String> = scan(&mods, &BTreeMap::new(), &shipped()).mods.into_iter().map(|one| one.name).collect();
+
+    assert_eq!(names, ["built-in:calm", "built-in:loud"]);
+}
+
+/// A local copy that has been changed since is the owner's own and stays listed.
+#[test]
+fn a_local_mod_that_differs_from_its_built_in_copy_is_still_listed_beside_it() {
+    let home = TempDir::new();
+    let mods = home.path().join("mods");
+    a_local_calm(&mods);
+
+    let names: Vec<String> = scan(&mods, &BTreeMap::new(), &shipped()).mods.into_iter().map(|one| one.name).collect();
+
+    assert_eq!(names, ["calm", "built-in:calm", "built-in:loud"]);
 }
 
 /// An empty set lists only the machine's own: no `packages/mods/` is no built-in mod.

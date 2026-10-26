@@ -67,7 +67,7 @@ fn built_in_mods() {
         out.push_str(&format!("    ({name:?}, &[\n"));
         for file in MOD_FILES {
             if let Ok(bytes) = fs::read(folder.join(file)) {
-                out.push_str(&format!("        ({file:?}, &b\"{}\"[..]),\n", bytes.escape_ascii()));
+                out.push_str(&format!("        ({file:?}, b\"{}\" as &[u8]),\n", bytes.escape_ascii()));
             }
         }
         out.push_str("    ]),\n");
