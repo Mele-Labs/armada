@@ -1,6 +1,7 @@
 // The Fleet-backed source of runs, against a fake Fleet: a repository's runs mapped onto what the run control and the running panel
-// draw, `app_run.changed` replacing one run whole, the acts reaching Fleet's routes by name, and a process's output read only while
-// its pane is open. What the surfaces do with them is the walks' (`mock/walks-4of4.test.tsx`, `run-an-app` and `run-link`).
+// draw, `app_run.changed` replacing one run whole, the acts reaching Fleet's routes by name, a run's setup drawn as steps ahead of its
+// processes, and a process's output and setup's read only while its pane is open. What the surfaces do with them is the walks'
+// (`run-an-app`, `run-link` and `run-setup`).
 
 import { describe, expect, it } from "vitest";
 
@@ -19,16 +20,28 @@ const run = (over: Partial<AppRun> = {}): AppRun => ({
   manifest_id: "m-shop",
   checkout: { kind: "main", path: ROOT },
   processes: [
-    { name: "api", state: "not_started" },
-    { name: "web", state: "not_started" },
+    { name: "api", state: "not_started", command: "uvicorn app:app --port ${port}", dir: "api", port_env: "PORT" },
+    { name: "web", state: "not_started", command: "pnpm exec vite --port ${port}" },
   ],
+  in_kit: true,
   ...over,
 });
 
 const UP: AppRun["processes"] = [
-  { name: "api", state: "ready", port: 41210, pinned_port: 8731, server_id: "srv-api-1", links: [{ url: "http://localhost:8731" }] },
-  { name: "web", state: "starting", port: 41211, server_id: "srv-web-1" },
+  { name: "api", state: "ready", command: "uvicorn app:app --port ${port}", dir: "api", port_env: "PORT", port: 41210, pinned_port: 8731, server_id: "srv-api-1", links: [{ url: "http://localhost:8731" }], log_path: "/Users/nick/code/shop/.armada/servers/main/srv-api-1/log" },
+  { name: "web", state: "starting", command: "pnpm exec vite --port ${port}", port: 41211, server_id: "srv-web-1", log_path: "/Users/nick/code/shop/.armada/servers/main/srv-web-1/log" },
 ];
+
+const SETUP_COMMANDS: AppRun["setup_commands"] = [
+  { name: "venv", command: "python3 -m venv api/.venv" },
+  { name: "install_web", command: "pnpm install --frozen-lockfile --dir web" },
+];
+
+const SETUP_LOG = "/Users/nick/code/shop/.armada/servers/main/01SETUP/log";
+
+/** The run with its checkout's setup on it, its processes not started, and `setup` over it. */
+const settingUp = (setup: Partial<NonNullable<AppRun["setup"]>> = {}): AppRun =>
+  run({ setup_commands: SETUP_COMMANDS, setup: { id: "01SETUP", log_path: SETUP_LOG, state: "setting_up", commands: ["venv", "install_web"], running: "install_web", ...setup } });
 
 /** A Fleet serving one repository, and a record of what Bridge asked of it, in order. */
 function fake(listed: AppRun[] = [run()], connected = true) {
@@ -60,6 +73,7 @@ function fake(listed: AppRun[] = [run()], connected = true) {
           { name: "web", command: "pnpm exec vite --port ${port}" },
         ],
         links: [{ from: "web", to: "api", port: 8731, found_in: "vite.config.ts", brief: "Make web read the api's port" }],
+        setup: [{ name: "install_web", command: "pnpm install --frozen-lockfile --dir web" }],
       };
       return { ok: true, value: draft };
     },
@@ -132,8 +146,8 @@ describe("a run that was started", () => {
       repository: ROOT,
       checkout: { kind: "main", branch: "main" },
       processes: [
-        { id: "api", name: "api", phase: "ready", port: 41210, pinned: true, url: "http://localhost:8731", log: [] },
-        { id: "web", name: "web", phase: "starting", port: 41211, log: [] },
+        { id: "api", name: "api", phase: "ready", port: 41210, pinned: true, url: "http://localhost:8731", log: [], folder: "api", command: "uvicorn app:app --port ${port}", logFile: "/Users/nick/code/shop/.armada/servers/main/srv-api-1/log" },
+        { id: "web", name: "web", phase: "starting", port: 41211, log: [], folder: ".", command: "pnpm exec vite --port ${port}", logFile: "/Users/nick/code/shop/.armada/servers/main/srv-web-1/log" },
       ],
       links: [{ from: "web", to: "api", port: 8731, found: "log" }],
     });
@@ -143,9 +157,10 @@ describe("a run that was started", () => {
     const { source, push } = fake();
     await settled();
     push(run({ processes: UP }));
-    push(run({ processes: [{ name: "api", state: "failed", ended: "exited with 1" }, { name: "web", state: "exited" }] }));
+    push(run({ processes: [{ ...UP[0]!, state: "failed", ended: "exited 1", exit_code: 1 }, { ...UP[1]!, state: "exited" }] }));
     expect(source.get().apps).toHaveLength(1);
     expect(source.get().apps[0]?.processes.map((one) => one.phase)).toEqual(["failed", "exited"]);
+    expect(source.get().apps[0]?.processes[0]).toMatchObject({ code: 1, logFile: "/Users/nick/code/shop/.armada/servers/main/srv-api-1/log" });
   });
 
   it("on a Job's bay is named by the Job the Cockpit drew, on the bay Fleet says", async () => {
@@ -190,6 +205,7 @@ describe("the acts, as Fleet takes them", () => {
       ],
       savedIn: "armada.yml",
       links: [{ from: "web", to: "api", port: 8731, found: "vite.config.ts" }],
+      setup: [{ id: "install_web", name: "install_web", folder: ".", command: "pnpm install --frozen-lockfile --dir web" }],
     });
   });
 
@@ -265,5 +281,99 @@ describe("a process's output", () => {
     await settled();
     push(run({ processes: UP }));
     expect(asked.filter((one) => one.startsWith("follow"))).toEqual([]);
+  });
+});
+
+describe("a run's setup", () => {
+  it("is drawn as steps ahead of the processes while the checkout sets up: the Commands done, the one running, and the processes waiting", async () => {
+    const { source, push } = fake();
+    await settled();
+    push(settingUp());
+    const app = source.get().apps[0];
+    expect(app?.setup).toEqual({
+      steps: [
+        { id: "venv", name: "venv", folder: ".", command: "python3 -m venv api/.venv", phase: "ready", logFile: SETUP_LOG },
+        { id: "install_web", name: "install_web", folder: ".", command: "pnpm install --frozen-lockfile --dir web", phase: "setting-up", logFile: SETUP_LOG },
+      ],
+      log: [],
+    });
+    expect(app?.processes.map((one) => one.phase)).toEqual(["waiting", "waiting"]);
+    push(settingUp({ state: "ready", running: undefined }));
+    expect(source.get().apps[0]?.setup?.steps.map((one) => one.phase)).toEqual(["ready", "ready"]);
+  });
+
+  it("names the Command that failed with its code, and nothing after it ran", async () => {
+    const { source, push } = fake();
+    await settled();
+    push(settingUp({ state: "failed", running: undefined, failed: "venv", ended: "`venv` exited 4", exit_code: 4 }));
+    const app = source.get().apps[0];
+    expect(app?.setup?.steps.map((one) => [one.phase, one.code])).toEqual([
+      ["failed", 4],
+      ["exited", undefined],
+    ]);
+    expect(app?.processes.map((one) => one.phase)).toEqual(["exited", "exited"]);
+  });
+
+  it("prints into the Setup tab from `observe_server`, read by the setup's id while the pane is open", async () => {
+    const { source, asked, push, print } = fake();
+    await settled();
+    push(settingUp());
+    source.reading("m-shop:main:web");
+    expect(asked).toContain("follow 01SETUP");
+    print("01SETUP", { message: "opened", protocol_id: "1.0" as never, id: "01SETUP", name: "setup", path: ROOT, live: true, skipped: 0 });
+    print("01SETUP", { message: "lines", lines: ["--- install_web: pnpm install --frozen-lockfile --dir web ---", "Packages: +412"] });
+    expect(source.get().apps[0]?.setup?.log).toEqual(["--- install_web: pnpm install --frozen-lockfile --dir web ---", "Packages: +412"]);
+  });
+});
+
+describe("Edit the run", () => {
+  const MAIN = { repository: ROOT, checkout: { kind: "main", branch: "main" } } as const;
+
+  it("opens on the saved run whole, as Fleet answers it: each process's command, folder and pin, and the checkout's setup", async () => {
+    const { source, push } = fake();
+    await settled();
+    push(run({ processes: UP, setup_commands: SETUP_COMMANDS }));
+    expect(await source.saved("m-shop:main:web")).toEqual({
+      run: "web",
+      name: "Web",
+      draft: {
+        root: "~/code/shop",
+        setup: [
+          { id: "venv", name: "venv", folder: ".", command: "python3 -m venv api/.venv" },
+          { id: "install_web", name: "install_web", folder: ".", command: "pnpm install --frozen-lockfile --dir web" },
+        ],
+        processes: [
+          { id: "api", name: "api", folder: "api", command: "uvicorn app:app --port ${port}", pin: 8731 },
+          { id: "web", name: "web", folder: ".", command: "pnpm exec vite --port ${port}" },
+        ],
+        savedIn: "armada.yml",
+      },
+    });
+  });
+
+  it("saves the setup and the run it replaces by its key, writes no pin that did not change, and drops the old name", async () => {
+    const { source, asked, push } = fake();
+    await settled();
+    push(run({ processes: UP, setup_commands: SETUP_COMMANDS }));
+    const { draft } = (await source.saved("m-shop:main:web"))!;
+    const setup = [...draft.setup!, { id: "setup-new-3", name: "seed", folder: "api", command: "python3 seed.py" }];
+    const id = await source.save(MAIN, "Storybook", draft.processes, setup, "web");
+    await settled();
+    expect(id).toBe("m-shop:main:storybook");
+    expect(asked.slice(-1)).toEqual([
+      `save m-shop {"name":"Storybook","processes":[{"name":"api","command":"uvicorn app:app --port \${port}","dir":"api","port_env":"PORT"},{"name":"web","command":"pnpm exec vite --port \${port}"}],"setup":[{"name":"venv","command":"python3 -m venv api/.venv"},{"name":"install_web","command":"pnpm install --frozen-lockfile --dir web"},{"name":"seed","command":"cd 'api' && python3 seed.py"}],"replaces":"web"}`,
+    ]);
+    expect(source.get().apps.map((one) => one.id)).toEqual(["m-shop:main:storybook"]);
+  });
+
+  it("takes back a pin the edit removed, and starts the run again", async () => {
+    const { source, asked, push } = fake();
+    await settled();
+    push(run({ processes: UP }));
+    const { draft } = (await source.saved("m-shop:main:web"))!;
+    const [api, web] = draft.processes;
+    await source.save(MAIN, "Web", [{ ...api!, pin: undefined }, web!].map(({ pin: _pin, ...one }) => one), [], "web");
+    await settled();
+    expect(asked.slice(-2)).toEqual([`unpin m-shop {"process":"api","name":"storybook"}`, `restart m-shop {"name":"storybook"}`]);
   });
 });

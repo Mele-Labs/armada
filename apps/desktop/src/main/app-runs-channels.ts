@@ -2,7 +2,7 @@
 // is named, never a command, and Fleet reads a Job's checkout from its own record.
 
 import type { IpcMain, WebContents } from "electron";
-import type { AppRunDraftProcess, NamedAppRun, PinAppRunPort, SaveAppRun, UnpinAppRunPort } from "@armada/protocol";
+import type { AppRunDraftProcess, AppRunDraftSetup, NamedAppRun, PinAppRunPort, SaveAppRun, UnpinAppRunPort } from "@armada/protocol";
 
 import { CHANNELS } from "../shared/bridge";
 import type { FleetConnection } from "./connection";
@@ -29,12 +29,26 @@ function processOf(value: unknown): AppRunDraftProcess | null {
   return { name: one.name, command: one.command, ...(one.dir === undefined ? {} : { dir: one.dir }), ...(one.port_env === undefined ? {} : { port_env: one.port_env }) };
 }
 
+function setupOf(value: unknown): AppRunDraftSetup | null {
+  const one = record(value);
+  return one === null || !text(one.name) || !text(one.command) ? null : { name: one.name, command: one.command };
+}
+
+/** A confirmed run: its processes, the setup it saves, the Job it then starts on and the run it replaces. */
 function saveOf(value: unknown): SaveAppRun | null {
   const body = record(value);
   if (body === null || typeof body.name !== "string" || !Array.isArray(body.processes) || (body.job_id !== undefined && !text(body.job_id))) return null;
+  if ((body.setup !== undefined && !Array.isArray(body.setup)) || (body.replaces !== undefined && !text(body.replaces))) return null;
   const processes = body.processes.map(processOf);
-  if (processes.some((one) => one === null)) return null;
-  return { name: body.name, processes: processes as AppRunDraftProcess[], ...(body.job_id === undefined ? {} : { job_id: body.job_id }) };
+  const setup = ((body.setup as unknown[] | undefined) ?? []).map(setupOf);
+  if (processes.some((one) => one === null) || setup.some((one) => one === null)) return null;
+  return {
+    name: body.name,
+    processes: processes as AppRunDraftProcess[],
+    ...(setup.length === 0 ? {} : { setup: setup as AppRunDraftSetup[] }),
+    ...(body.job_id === undefined ? {} : { job_id: body.job_id }),
+    ...(body.replaces === undefined ? {} : { replaces: body.replaces }),
+  };
 }
 
 function unpinOf(value: unknown): UnpinAppRunPort | null {

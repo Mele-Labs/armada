@@ -1,9 +1,21 @@
 // A repository's app runs over Fleet: each served repository's runs on its main checkout, read once Fleet is connected and again on
-// every resync, a Job's while its header is drawn, and `app_run.changed` carrying one run whole in between. A process's output is
-// `observe_server`'s, read only while the app's pane is open. The mock has its own source (`mock/runs.ts`); this one is the real wire.
+// every resync, a Job's while its header is drawn, and `app_run.changed` carrying one run whole in between. A process's output, and
+// the checkout's setup's, is `observe_server`'s, read only while the app's pane is open. The mock has its own source (`mock/runs.ts`);
+// this one is the real wire.
 
-import type { RunCheckout, RunDraft, RunLink, RunPhase, RunProcess, SavedRun } from "@armada/components";
-import type { AppRun, AppRunDraftProcess, AppRunLink, AppRunProcess, AppRunState, Outcome, RepositorySummary, ServerMessage } from "@armada/protocol";
+import type { RunCheckout, RunDraft, RunLink, RunPhase, RunProcess, RunProcessSpec, RunSetup, RunSetupSpec, RunSetupStep, SavedRun } from "@armada/components";
+import type {
+  AppRun,
+  AppRunDraftProcess,
+  AppRunDraftSetup,
+  AppRunLink,
+  AppRunProcess,
+  AppRunSetup,
+  AppRunState,
+  Outcome,
+  RepositorySummary,
+  ServerMessage,
+} from "@armada/protocol";
 
 import type { AppRunsApi } from "../../shared/api/app-runs";
 import type { BridgeState } from "../../shared/bridge";
@@ -33,29 +45,66 @@ export const appIdOf = (run: AppRun) => `${run.manifest_id}:${run.checkout.kind 
 const linkOf = (link: AppRunLink): RunLink => ({ from: link.from, to: link.to, port: link.port, found: link.found_in });
 const linksOf = (links: readonly AppRunLink[] | undefined): { links?: RunLink[] } => (links === undefined || links.length === 0 ? {} : { links: links.map(linkOf) });
 
-/** A run as the picker offers it. Fleet's list carries no command or folder for a process, and nothing that draws a saved run reads them. */
+const specOf = (one: AppRunProcess): RunProcessSpec => ({ id: one.name, name: one.name, folder: one.dir ?? ".", command: one.command, ...(one.pinned_port === undefined ? {} : { pin: one.pinned_port }) });
+
+/** A setup Command as the panel edits it. Fleet's takes no folder, so its line names one where it needs one. */
+const setupSpecOf = (one: AppRunDraftSetup): RunSetupSpec => ({ id: one.name, name: one.name, folder: ".", command: one.command });
+
+/** A setup row as Fleet saves it: a folder typed in the panel is gone into before the line, since a setup Command has none of its own. */
+export const setupSaved = (one: RunSetupSpec): AppRunDraftSetup => ({
+  name: one.name,
+  command: one.folder === "." ? one.command : `cd '${one.folder.replace(/'/g, "'\\''")}' && ${one.command}`,
+});
+
+/** A run as the picker offers it, and as Edit the run reopens it: each process's command, folder and pin as Fleet saved them. */
 export function savedRunOf(run: AppRun): SavedRun {
-  return {
-    id: run.name,
-    name: run.label,
-    kind: run.opens_in,
-    processes: run.processes.map((one) => ({ id: one.name, name: one.name, folder: ".", command: "", ...(one.pinned_port === undefined ? {} : { pin: one.pinned_port }) })),
-    ...linksOf(run.links),
-  };
+  return { id: run.name, name: run.label, kind: run.opens_in, processes: run.processes.map(specOf), ...linksOf(run.links) };
 }
 
-function processOf(one: AppRunProcess, log: readonly string[], browser: boolean): RunProcess {
+/** A process held back by its checkout's setup waits; one that never started after setup failed is over with the run. */
+function processOf(one: AppRunProcess, log: readonly string[], browser: boolean, setup?: AppRunSetup): RunProcess {
   const port = one.port ?? one.pinned_port;
   const url = browser && one.state === "ready" ? one.links?.[0]?.url : undefined;
   return {
     id: one.name,
     name: one.name,
-    phase: PHASE[one.state],
+    phase: one.state === "not_started" && setup?.state === "setting_up" ? "waiting" : PHASE[one.state],
     ...(port === undefined ? {} : { port }),
     ...(one.pinned_port === undefined ? {} : { pinned: true }),
     ...(url === undefined ? {} : { url }),
     log,
+    folder: one.dir ?? ".",
+    command: one.command,
+    ...(one.exit_code === undefined ? {} : { code: one.exit_code }),
+    ...(one.log_path === undefined ? {} : { logFile: one.log_path }),
   };
+}
+
+/**
+ * The checkout's setup as the panel draws it: the Commands before the one running or failed are done, the one running is setting up, the one
+ * that failed has its code, and those after wait, or never ran once one failed. Each step's file is setup's one log, which holds every Command's
+ * output in turn. A setup that failed with no Command failed is a run that would not start once setup passed, so every Command is done.
+ */
+export function setupOf(setup: AppRunSetup, lines: ReadonlyMap<string, string>, log: readonly string[]): RunSetup {
+  const at = setup.commands.indexOf(setup.failed ?? setup.running ?? "");
+  const phaseOf = (n: number): RunPhase => {
+    if (setup.state === "ready" || (setup.state === "failed" && at < 0)) return "ready";
+    if (setup.state === "setting_up") return at < 0 || n > at ? "waiting" : n === at ? "setting-up" : "ready";
+    return n < at ? "ready" : n === at ? "failed" : "exited";
+  };
+  const steps = setup.commands.map((name, n): RunSetupStep => {
+    const phase = phaseOf(n);
+    return {
+      id: name,
+      name,
+      folder: ".",
+      command: lines.get(name) ?? "",
+      phase,
+      ...(phase === "failed" && setup.exit_code !== undefined ? { code: setup.exit_code } : {}),
+      logFile: setup.log_path,
+    };
+  });
+  return { steps, log };
 }
 
 /** A run that was started on its checkout. `job` is what the Cockpit knows of the Job, where it has drawn its header. */
@@ -64,6 +113,7 @@ export function appOf(run: AppRun, repository: string, logs: ReadonlyMap<string,
     run.checkout.kind === "main"
       ? { kind: "main", branch: "main" }
       : { kind: "job", title: job?.kind === "job" ? job.title : "Job", branch: run.checkout.branch ?? (job?.kind === "job" ? job.branch : ""), bay: run.checkout.bay };
+  const lines = new Map((run.setup_commands ?? []).map((one) => [one.name, one.command] as const));
   return {
     id: appIdOf(run),
     run: run.label,
@@ -71,7 +121,8 @@ export function appOf(run: AppRun, repository: string, logs: ReadonlyMap<string,
     repository,
     ...(run.checkout.kind === "job" ? { job: run.checkout.job_id } : {}),
     checkout,
-    processes: run.processes.map((one) => processOf(one, (one.server_id === undefined ? undefined : logs.get(one.server_id)) ?? [], run.opens_in === "browser")),
+    ...(run.setup === undefined ? {} : { setup: setupOf(run.setup, lines, logs.get(run.setup.id) ?? []) }),
+    processes: run.processes.map((one) => processOf(one, (one.server_id === undefined ? undefined : logs.get(one.server_id)) ?? [], run.opens_in === "browser", run.setup)),
     ...linksOf(run.links),
   };
 }
@@ -80,16 +131,18 @@ export function appOf(run: AppRun, repository: string, logs: ReadonlyMap<string,
 const SAVED_IN: Readonly<Record<string, RunDraft["savedIn"]>> = { repository: "armada.yml", this_mac: "this Mac", synced: "a synced folder", cloud: "cloud storage" };
 
 /** A draft as the running panel edits it. A process is known by its proposed name, which is how its `port_env` goes back with it. */
-export function draftOf(processes: readonly AppRunDraftProcess[], root: string, place: string, links?: readonly AppRunLink[]): RunDraft {
+export function draftOf(processes: readonly AppRunDraftProcess[], root: string, place: string, links?: readonly AppRunLink[], setup?: readonly AppRunDraftSetup[]): RunDraft {
   return {
     root: root.replace(/^\/Users\/[^/]+/, "~"),
+    ...(setup === undefined || setup.length === 0 ? {} : { setup: setup.map(setupSpecOf) }),
     processes: processes.map((one) => ({ id: one.name, name: one.name, folder: one.dir ?? ".", command: one.command })),
     savedIn: SAVED_IN[place] ?? "this Mac",
     ...linksOf(links),
   };
 }
 
-const started = (run: AppRun) => run.processes.some((one) => one.state !== "not_started");
+/** A run with something to show on its checkout: a setup run for it, or a process that has started. */
+const started = (run: AppRun) => run.setup !== undefined || run.processes.some((one) => one.state !== "not_started");
 
 export function createFleetRuns(fleet: FleetRuns, tell: (outcome: Outcome) => void = raiseOutcome): RunsSource {
   const runs = new Map<string, AppRun>();
@@ -143,7 +196,11 @@ export function createFleetRuns(fleet: FleetRuns, tell: (outcome: Outcome) => vo
   /** Follows what each process of an open pane prints, and lets go of what no open pane shows. A restart is a new server, so it is followed afresh. */
   const follow = (): void => {
     const wanted = new Set<string>();
-    for (const run of runs.values()) if (reading.has(appIdOf(run))) for (const one of run.processes) if (one.server_id !== undefined) wanted.add(one.server_id);
+    for (const run of runs.values()) {
+      if (!reading.has(appIdOf(run))) continue;
+      if (run.setup !== undefined) wanted.add(run.setup.id);
+      for (const one of run.processes) if (one.server_id !== undefined) wanted.add(one.server_id);
+    }
     for (const serverId of wanted) {
       if (followed.has(serverId)) continue;
       followed.add(serverId);
@@ -260,7 +317,7 @@ export function createFleetRuns(fleet: FleetRuns, tell: (outcome: Outcome) => vo
       const answer = await fleet.getAppRunDraft(manifestId);
       if (!answer.ok) return void tell(answer.outcome);
       portEnvs.set(repository, new Map(answer.value.processes.flatMap((one) => (one.port_env === undefined ? [] : [[one.name, one.port_env] as const]))));
-      return draftOf(answer.value.processes, answer.value.root, answer.value.place, answer.value.links);
+      return draftOf(answer.value.processes, answer.value.root, answer.value.place, answer.value.links, answer.value.setup);
     },
     start: async (target, run) => {
       const manifestId = manifestOf(target.repository);
@@ -270,31 +327,51 @@ export function createFleetRuns(fleet: FleetRuns, tell: (outcome: Outcome) => vo
       const ran = took(answer);
       return ran === undefined ? undefined : appIdOf(ran);
     },
-    // Editing a saved run is not wired to Fleet yet.
-    saved: async () => undefined,
-    save: async (target, name, processes) => {
+    // The run an app was started from, whole as Fleet answers it, with the root and the place a draft reads.
+    saved: async (id) => {
+      const run = byId(id);
+      if (run === undefined) return undefined;
+      const answer = await fleet.getAppRunDraft(run.manifest_id);
+      if (!answer.ok) return void tell(answer.outcome);
+      const root = rootOf(run.manifest_id);
+      if (root !== undefined) portEnvs.set(root, new Map(run.processes.flatMap((one) => (one.port_env === undefined ? [] : [[one.name, one.port_env] as const]))));
+      const draft = { ...draftOf([], answer.value.root, answer.value.place, run.links, run.setup_commands), processes: run.processes.map(specOf) };
+      return { run: run.name, name: run.label, draft };
+    },
+    save: async (target, name, processes, setup, replacing) => {
       const manifestId = manifestOf(target.repository);
       if (manifestId === undefined) return void tell(NO_MANIFEST);
       remember(target);
       const envs = portEnvs.get(target.repository);
       const job = target.job === undefined ? {} : { job_id: target.job };
+      // The pins the replaced run had are Fleet's to keep by process name, so only a pin that changed is written.
+      const was = new Map([...runs.values()].filter((one) => one.manifest_id === manifestId && one.name === replacing).flatMap((one) => one.processes).map((one) => [one.name, one.pinned_port] as const));
       const answer = await fleet.saveAppRun(manifestId, {
         name,
         processes: processes.map((spec) => {
           const portEnv = envs?.get(spec.id);
           return { name: spec.name, command: spec.command, ...(spec.folder === "." ? {} : { dir: spec.folder }), ...(portEnv === undefined ? {} : { port_env: portEnv }) };
         }),
+        ...(setup.length === 0 ? {} : { setup: setup.map(setupSaved) }),
         ...job,
+        ...(replacing === undefined ? {} : { replaces: replacing }),
       });
       if (!answer.ok) return void tell(answer.outcome);
       const saved = answer.value.run;
+      // A run renamed by the save is gone under its old name, on every checkout it was held for.
+      if (replacing !== undefined && replacing !== saved.name) for (const [key, one] of runs) if (one.manifest_id === manifestId && one.name === replacing) runs.delete(key);
       fold(saved);
       // A pin made while the run is edited is Fleet's to write once the run exists, and then the run starts again on it.
       void (async () => {
         let any = false;
         for (const spec of processes) {
-          if (spec.pin === undefined) continue;
-          any = took(await fleet.pinAppRunPort(manifestId, { process: spec.name, port: spec.pin, name: saved.name, ...job })) !== undefined || any;
+          const before = was.get(spec.name);
+          if (spec.pin === before) continue;
+          const answer =
+            spec.pin === undefined
+              ? await fleet.unpinAppRunPort(manifestId, { process: spec.name, name: saved.name, ...job })
+              : await fleet.pinAppRunPort(manifestId, { process: spec.name, port: spec.pin, name: saved.name, ...job });
+          any = took(answer) !== undefined || any;
         }
         if (any) took(await fleet.actOnAppRun("restart", manifestId, { name: saved.name, ...job }));
         // A Job's run is saved for its repository, which the picker reads from main.
