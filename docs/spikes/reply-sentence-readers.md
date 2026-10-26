@@ -99,6 +99,11 @@ Of the 262 `question` and `act` sentences kept, the rule gives options to none: 
 A first cut of the list shape took any list before any ask and gave 23 asks the findings above them as choices, so the shape now needs a choosing word ("which", "pick", "choose", "prefer", "one of", "option") and two to six lines of eight words or fewer.
 The rule earns its place on the paraphrases in `crates/fleet/src/tests/extracting.rs`, not on this data.
 
+A follow-up is kept only where its words put the work past this Job: an issue, another Job, a separate pull request, out of scope (`extracting::PAST_THIS_JOB`).
+The `follow_up` label reads any next step, so in force the head kept steps the agent takes itself in the same Job, such as "When it reports back, I'll play both walks again and then open them for you.", and each held `all_done` until settled.
+The owner asked on 26 Oct 2026 that Deferred hold only what is put off to another Job or an issue.
+The rule was not scored on this data; a label for "past this Job" would let the head learn it.
+
 The rules' own sentence (`asks::asking_line`) is always the first ask where the rules call it, so nothing the asks reader catches by rules today is lost; the asks head's own pick of sentence, where only it called the reply, is not carried over.
 
 ## What is in force
