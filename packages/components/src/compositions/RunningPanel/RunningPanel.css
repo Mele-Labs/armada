@@ -103,17 +103,21 @@
   grid-template-areas:
     "mark name folder link port remove"
     ". under path path path path"
-    ". command command command . .";
+    ". command command command command command"
+    ". acts acts acts acts acts";
   row-gap: var(--space-1);
   padding: var(--space-2) var(--space-2) var(--space-3);
 }
+/* Edited, a failed row's acts take a line of their own under its command, so the fields keep the row's width. */
 .armada-running[data-acts] .armada-running__row[data-edit] {
-  grid-template-columns: var(--space-4) minmax(0, 1fr) minmax(0, 1fr) var(--space-4) calc(var(--space-12) + var(--space-3)) var(--h-control-sm) calc(var(--space-12) * 4.5);
-  grid-template-areas:
-    "mark name folder link port remove acts"
-    ". under path path path path path"
-    ". command command command . . .";
+  grid-template-columns: var(--space-4) minmax(0, 1fr) minmax(0, 1fr) var(--space-4) calc(var(--space-12) + var(--space-3)) var(--h-control-sm);
 }
+.armada-running__row[data-edit] > .armada-running__acts { justify-content: flex-start; padding-top: var(--space-1); }
+.armada-running__row[data-edit] .armada-running__exit { white-space: nowrap; }
+
+/* While the rows are fields they take the room they need, and the log keeps a few lines under them. */
+.armada-running[data-editing] .armada-running__top { flex: 0 1 auto; }
+.armada-running[data-editing] .armada-running__well { min-height: calc(var(--space-12) * 2); }
 .armada-running__row[data-edit] > .armada-running__mark { grid-area: mark; display: inline-flex; align-items: center; justify-content: center; }
 .armada-running__row[data-edit] > [data-at="name"] { grid-area: name; }
 .armada-running__row[data-edit] > [data-at="folder"] { grid-area: folder; }
