@@ -280,6 +280,20 @@ pub enum Fault {
     /// exits has nothing to wait for and no address to offer, so either key is
     /// a server someone meant to declare and did not.
     OnlyAServerReads,
+    /// **`dir` on a Command with no `serve`.** A Command that exits runs in the
+    /// repository's root; only a server is started somewhere else.
+    OnlyAServerStartsIn,
+    /// A server's `dir` that names no folder inside the checkout.
+    NotAServeDir {
+        value: String,
+        why: crate::manifest::BadSeedPath,
+    },
+    /// **A run naming a Command that is not a server.** A run starts processes
+    /// and holds them; a Command that runs and exits has nothing to hold.
+    RunStartsACommand { value: String },
+    /// A run listing one server twice. A second start of it would be answered
+    /// with the first, so the line says nothing.
+    RunListsTwice { first_at: usize },
     /// **A `requires` entry naming a server.** A server never exits, so what
     /// was meant to run after it would wait forever.
     RequiresAServer { value: String },
@@ -555,6 +569,25 @@ impl fmt::Display for Fault {
             Fault::NotASeedPath { value, why } => write!(
                 f,
                 "is `{value}`, which cannot name a directory a worktree is seeded with: {why}"
+            ),
+            Fault::OnlyAServerStartsIn => f.write_str(
+                "is read only on a Command that declares `serve`. This one \
+                 declares `run` alone, so it exits in the repository's root — \
+                 add `serve`, or delete the key",
+            ),
+            Fault::NotAServeDir { value, why } => write!(
+                f,
+                "is `{value}`, which cannot name the folder a server starts in: {why}"
+            ),
+            Fault::RunStartsACommand { value } => write!(
+                f,
+                "is `{value}`, a Command that runs and exits. A run starts servers, \
+                 Commands with `serve`, and holds them"
+            ),
+            Fault::RunListsTwice { first_at } => write!(
+                f,
+                "is already listed at [{first_at}] of the same run, and starting a \
+                 server twice would change nothing"
             ),
             Fault::ServeReadyMustPair { present } => write!(
                 f,

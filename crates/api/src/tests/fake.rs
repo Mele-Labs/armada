@@ -9,6 +9,7 @@
 
 mod accounts;
 mod adversarial_review;
+mod app_runs;
 mod authoring;
 mod autopilots;
 mod clashing;
@@ -31,6 +32,7 @@ mod teaching;
 mod watches;
 
 pub use accounts::profile;
+pub use app_runs::THE_RUN;
 pub use conversing::SERVED_MANIFEST;
 pub use studios::{the_studio, THE_FRAME, THE_STUDIO};
 pub use watches::THE_WATCH;

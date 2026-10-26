@@ -26,6 +26,7 @@ pub struct Server {
     pub(super) serve: String,
     pub(super) ready: Option<String>,
     pub(super) links: Vec<Link>,
+    pub(super) dir: Option<String>,
     pub(super) destructive: bool,
 }
 
@@ -45,6 +46,13 @@ impl Server {
     /// once started**, never "never ready" — and never a duration either.
     pub fn ready(&self) -> Option<&str> {
         self.ready.as_deref()
+    }
+
+    /// The folder under the checkout `run`, `serve` and `ready` run in, as the
+    /// file wrote it. **`None` is the checkout's root**, which is where an app
+    /// with its backend and frontend in sibling folders cannot start both.
+    pub fn dir(&self) -> Option<&str> {
+        self.dir.as_deref()
     }
 
     /// The addresses offered as buttons, in the order the file wrote them.
@@ -116,11 +124,18 @@ pub(super) fn entry(
     let links = table
         .optional("links")
         .map(|value| links(&table.at("links"), value, out));
+    let dir = table
+        .optional("dir")
+        .and_then(|value| yaml::text(&table.at("dir"), value, out))
+        .and_then(|value| in_checkout(&table.at("dir"), value, out));
     if !serves {
         for key in ["ready", "links"] {
             if table.present(key) {
                 out.push(Refusal::new(table.at(key), Fault::OnlyAServerReads));
             }
+        }
+        if table.present("dir") {
+            out.push(Refusal::new(table.at("dir"), Fault::OnlyAServerStartsIn));
         }
     }
     table.close(known, out);
@@ -135,8 +150,22 @@ pub(super) fn entry(
         serve: serve?,
         ready,
         links: links.unwrap_or_default(),
+        dir,
         destructive,
     }))
+}
+
+/// `dir` kept when it names a folder inside the checkout. **The seed's rule**
+/// for the same reason: a path that starts at the filesystem root or climbs out
+/// with `..` would start a process somewhere no worktree owns.
+fn in_checkout(at: &str, value: String, out: &mut Vec<Refusal>) -> Option<String> {
+    match super::seed::refused(&value) {
+        None => Some(value.trim_end_matches('/').to_string()),
+        Some(why) => {
+            out.push(Refusal::new(at, Fault::NotAServeDir { value, why }));
+            None
+        }
+    }
 }
 
 /// `links`, each a `url` and an optional `name`. One entry that will not read

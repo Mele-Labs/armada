@@ -191,9 +191,17 @@ impl Command {
 pub struct Port {
     pub(super) container: Option<u32>,
     pub(super) env: Option<String>,
+    pub(super) fixed: Option<u16>,
 }
 
 impl Port {
+    /// The number a person pinned this port to, so a program that hardcodes it finds its sibling
+    /// where it looks. **Fleet hands out exactly this and never another**, and refuses to start a
+    /// server where something else holds it. `None`: Fleet leases the port, per checkout.
+    pub fn fixed(&self) -> Option<u16> {
+        self.fixed
+    }
+
     /// The container-side port — the join key the compose adapter matches a
     /// published port against. `None` where the file declares no `container`.
     pub fn container(&self) -> Option<u32> {

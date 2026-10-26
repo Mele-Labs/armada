@@ -1,0 +1,8 @@
+[operations.restart_app_run]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Stop a run, then start it again - the run as a whole, never one process of it"
+notes = """
+`POST /app_runs/restart?manifest_id=`, body `NamedAppRun`. Answers 202 with the `AppRun` starting again. **Every process is a new instance**, so a viewer of one process's output reads its `server_id` again.
+"""

@@ -63,7 +63,7 @@ beforeEach(() => {
   send.mockClear();
   opened.mockClear();
   settles.mockClear();
-  (window as unknown as { armada: unknown }).armada = { readRequestRepository: async () => ({ manifest_id: null, likely: [] }) };
+  (window as unknown as { armada: unknown }).armada = { readRequestRepository: async () => ({ manifest_id: null, likely: [] }), searchFiles: async () => [] };
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
