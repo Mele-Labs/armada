@@ -40,7 +40,9 @@ import { WalkJobPanel } from "./WalkJobPanel";
 import { SleepSourceProvider } from "../sleep";
 import { mockSleep, overnight } from "./sleep";
 import { PlanUsageSourceProvider } from "../plan-usage";
+import { AgentSignInSourceProvider } from "../agent-sign-in";
 import { DownshiftSourceProvider } from "../downshift";
+import { createMockAgentSignIn } from "./agent-sign-in";
 import { createMockDownshift } from "./downshift";
 import { createFleetPlanUsage } from "../fleet-plan-usage";
 import { mockThemes, promoteThemesWith } from "./themes";
@@ -155,6 +157,8 @@ export function mountApp(
   const tweaks = skipsMods() ? NO_TWEAKS : createFleetTweaks(withState(api));
   // Only the scenario that plays the offer has one; every other window draws the limits as they were.
   const downshift = chosen.name === "plan-downshift" ? createMockDownshift(planUsage, api) : null;
+  // Likewise the Fleet-wide sign-in alert: only the scenario that plays it starts signed out.
+  const agentSignIn = chosen.name === "agent-signed-out" ? createMockAgentSignIn() : null;
   // The side panel reads from fixtures where the scenario carries them, built for this window so a write is gone with it, and
   // from the fake Fleet as a real window does everywhere else.
   const panelReads = chosen.draft?.sharedPanel?.();
@@ -194,6 +198,7 @@ export function mountApp(
                   <SleepSourceProvider value={mockSleep}>
                     <NumberedFrom held={mockNumbered}>
                       <PlanUsageSourceProvider value={planUsage}>
+                        <AgentSignInSourceProvider value={agentSignIn}>
                         <DownshiftSourceProvider value={downshift}>
                           <EventsHere timeline={timeline} events={chosen.draft?.events}>
                             <SessionsHere held={heldSessions(api)}>
@@ -230,6 +235,7 @@ export function mountApp(
                             </SessionsHere>
                           </EventsHere>
                         </DownshiftSourceProvider>
+                        </AgentSignInSourceProvider>
                       </PlanUsageSourceProvider>
                     </NumberedFrom>
                   </SleepSourceProvider>

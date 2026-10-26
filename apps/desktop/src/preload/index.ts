@@ -33,7 +33,7 @@ import type { ModChecked } from "@armada/protocol";
 import type { ForgetReviewSearch, OpenReviewWalk, PullReviewLists, PullThreadResolved, RememberedPlace, RememberedPlaces, ResolvePullThread, ReviewRun, ReviewRuns, ReviewTools, ReviewWalk, SaveReviewTool, SaveWalkPlace, StartReviewRun, StartReviewSearch, WalkPlaceFound, WritePullRequest } from "@armada/protocol";
 import type { ReviewWalkNote, ShownReviewWalk, ShownReviewWalkOutcome } from "../shared/review-walk";
 import type { ChosenHold, SessionHeld, SessionHoldsReleased, SetNoticeMute } from "@armada/protocol";
-import type { ActFailed, HomeKind, HomeKinds, HomeRowAt, HomeSide, HomeSynced, ModelDownshiftState, PlanUsage, SharedHomeRead, SignedOut, SleepState, TimelineAsk, TimelineEvent } from "@armada/protocol";
+import type { ActFailed, AgentSignIn, HomeKind, HomeKinds, HomeRowAt, HomeSide, HomeSynced, ModelDownshiftState, PlanUsage, SharedHomeRead, SignedOut, SleepState, TimelineAsk, TimelineEvent } from "@armada/protocol";
 import type { FlightControls } from "@armada/protocol";
 import type { StopWatch, WatchSummary } from "@armada/protocol";
 import type { ApproveRepositoryTile, RepositoryTile } from "@armada/protocol";
@@ -50,6 +50,7 @@ import type { SleepActed } from "../shared/api/sleep";
 import type { AccountsActed } from "../shared/api/accounts";
 import type { PlanUsageRead } from "../shared/api/plan-usage";
 import type { ModelDownshiftRead } from "../shared/api/model-downshift";
+import type { AgentSignInRead } from "../shared/api/agent-sign-in";
 import type { FleetTimelineRead } from "../shared/api/timeline";
 import type { BayHistoryRead } from "../shared/api/bay-history";
 import type { UsageRulesRead, UsageSummaryRead } from "../shared/api/usage-summary";
@@ -377,6 +378,15 @@ const api: BridgeApi = {
     ipcRenderer.on(CHANNELS.modelDownshiftChanged, handler);
     return () => {
       ipcRenderer.removeListener(CHANNELS.modelDownshiftChanged, handler);
+    };
+  },
+  getAgentSignIn: (): Promise<AgentSignInRead> => ipcRenderer.invoke(CHANNELS.getAgentSignIn),
+  startAgentSignIn: (): Promise<AgentSignInRead> => ipcRenderer.invoke(CHANNELS.startAgentSignIn),
+  onAgentSignInChanged: (onChanged: (state: AgentSignIn) => void): (() => void) => {
+    const handler = (_event: unknown, state: AgentSignIn): void => onChanged(state);
+    ipcRenderer.on(CHANNELS.agentSignInChanged, handler);
+    return () => {
+      ipcRenderer.removeListener(CHANNELS.agentSignInChanged, handler);
     };
   },
   getFleetTimeline: (window?: TimelineAsk): Promise<FleetTimelineRead> => ipcRenderer.invoke(CHANNELS.getFleetTimeline, window),

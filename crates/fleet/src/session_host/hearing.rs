@@ -241,6 +241,9 @@ where
 
     async fn hear(self: &Arc<Self>, id: &str, runtime: &Arc<Runtime>, event: DroneEvent) {
         self.work_heard(id, &event, None).await;
+        if matches!(event, DroneEvent::Said { by: Speaker::Drone, .. } | DroneEvent::Called { .. }) {
+            self.signed_in_heard(id).await;
+        }
         match event {
             DroneEvent::Started { model, .. } => {
                 self.limit_cleared(id).await;
@@ -348,6 +351,8 @@ where
             DroneEvent::Ended { cost_micros, .. } => {
                 self.turn_ended(id, runtime, cost_micros).await;
             }
+            // The harness's words for it were shown as a row; this signs the Fleet out.
+            DroneEvent::SignedOut => self.signed_out_heard(runtime),
             _ => {}
         }
     }

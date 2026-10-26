@@ -229,6 +229,37 @@ fn a_line_the_harness_wrote_itself_is_the_harnesss_and_not_the_drones() {
     );
 }
 
+/// What Claude Code 2.1.300 wrote when its OAuth sign-in ran out mid-Job, from a reported Job's
+/// transcript with its working directory and branch left out. Only the top-level `error` says
+/// it is a sign-in failure and not something the harness printed.
+const SIGNED_OUT_LINE: &str = r#"{"parentUuid":"9df2fe1a-e465-4a5d-95e4-c34d5c4113b4","isSidechain":false,"type":"assistant","uuid":"d2289157-d513-41d9-9aae-8c07b2168ac3","timestamp":"2026-10-24T23:58:45.398Z","message":{"diagnostics":null,"id":"753f4ab6-1452-4279-84c9-e90f94b9d34a","container":null,"model":"<synthetic>","role":"assistant","stop_details":null,"stop_reason":"stop_sequence","stop_sequence":"","type":"message","usage":{"output_tokens_details":null,"input_tokens":0,"output_tokens":0,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"server_tool_use":{"web_search_requests":0,"web_fetch_requests":0},"service_tier":null,"cache_creation":{"ephemeral_1h_input_tokens":0,"ephemeral_5m_input_tokens":0},"inference_geo":null,"iterations":null,"speed":null,"fallback_credit":null},"content":[{"type":"text","text":"Failed to authenticate: OAuth session expired and could not be refreshed"}],"context_management":null},"error":"authentication_failed","isApiErrorMessage":true,"perTurnEffort":"high","userType":"external","entrypoint":"sdk-cli","sessionId":"a8f2c9a5-4bb8-44b7-af72-27f6987c126f","version":"2.1.300"}"#;
+
+/// **A sign-in that ran out fails every turn in under a second**, and read as the harness's
+/// prose alone it asked the person for nothing. Its own sentence still arrives, then the state.
+#[test]
+fn an_expired_sign_in_reads_as_signed_out() {
+    assert_eq!(
+        read(SIGNED_OUT_LINE),
+        vec![
+            DroneEvent::Said {
+                text: String::from(
+                    "Failed to authenticate: OAuth session expired and could not be refreshed"
+                ),
+                by: Speaker::Harness,
+            },
+            DroneEvent::SignedOut,
+        ]
+    );
+}
+
+/// The live stream spells the same line its own way, and is the one Fleet reads. Taken from a run
+/// with a token the API refused.
+#[test]
+fn an_expired_sign_in_on_the_stream_reads_as_signed_out() {
+    let line = r#"{"type":"assistant","message":{"id":"49fe","model":"<synthetic>","role":"assistant","stop_reason":"stop_sequence","type":"message","content":[{"type":"text","text":"Failed to authenticate. API Error: 401 Invalid bearer token"}]},"parent_tool_use_id":null,"session_id":"70be","uuid":"efae","error":"authentication_failed","is_api_error_message":true,"api_error_status":401}"#;
+    assert_eq!(read(line).last(), Some(&DroneEvent::SignedOut));
+}
+
 #[test]
 fn a_line_that_is_not_json_is_an_event_rather_than_a_dropped_line() {
     let read = read("this is not a transcript at all");

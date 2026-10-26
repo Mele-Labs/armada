@@ -45,6 +45,8 @@ pub enum Notice {
     UsageTrip,
     /// The plan's limit ended and the Session is woken.
     LimitWake,
+    /// The owner signed the harness in again and the Session its expiry stopped is woken.
+    SignInWake,
     /// The owner approved the plan.
     PlanApproved,
     /// Auto land is on and the forge would not turn on auto-merge.
@@ -93,6 +95,7 @@ impl Notice {
             Notice::RailStep => "rail_step",
             Notice::UsageTrip => "usage_trip",
             Notice::LimitWake => "limit_wake",
+            Notice::SignInWake => "sign_in_wake",
             Notice::PlanApproved => "plan_approved",
             Notice::AutoLandRefused => "auto_land_refused",
             Notice::RetroNote => "retro_note",

@@ -80,6 +80,8 @@ pub struct Fleet<H, V, W> {
     home_held: crate::home::HomeHeld,
     /// The default model's step down, never held but for what the store keeps. See [`crate::model_downshifting`].
     downshift: crate::model_downshifting::Holding,
+    /// The agents' account signed out, for every Job at once. In memory. See [`crate::session_host::signed_out`].
+    agent_sign_in: crate::session_host::signed_out::Held,
     events: api::Broadcaster,
     /// Every Helm conversation, one per repository, and the host that carries
     /// their messages. See [`crate::helm`].
