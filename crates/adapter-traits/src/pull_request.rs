@@ -29,6 +29,8 @@ pub struct PullRequestFacts {
     pub standing: PullRequestStanding,
     /// The branch it is opened from.
     pub branch: String,
+    /// The branch it merges into.
+    pub base: String,
     /// Whether the forge will merge it when its required checks pass.
     pub auto_merge: bool,
     /// Its title as the forge holds it now.
