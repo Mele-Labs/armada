@@ -155,3 +155,14 @@ async fn link_and_unlink_task_issue_take_the_task_and_the_reference() {
         "unlink_task_issue r1 ABC-12"
     );
 }
+
+#[tokio::test]
+async fn link_and_unlink_task_job_and_pull_take_the_task_and_what_is_linked() {
+    let base = "/projects/armada/p7/rows/r1";
+    assert_eq!(reached("POST", &format!("{base}/job"), r#"{"session_id":"s9"}"#).await.0, "link_task_job r1 s9");
+    assert_eq!(reached("POST", &format!("{base}/job/unlink"), "").await.0, "unlink_task_job r1");
+    assert_eq!(reached("POST", &format!("{base}/pulls"), r#"{"number":42}"#).await.0, "link_task_pull r1 42");
+    assert_eq!(reached("POST", &format!("{base}/pulls/unlink"), r#"{"number":42}"#).await.0, "unlink_task_pull r1 42");
+    let (status, _) = refused("POST", &format!("{base}/pulls"), r#"{"number":-1}"#).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+}
