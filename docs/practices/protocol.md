@@ -839,6 +839,17 @@ Bridge's half is `packages/protocol/src/watches.ts`, written by hand; nothing in
 **Always loaded.** An operation file may say `always_loaded = true`; the door then lists that tool with the harness's `_meta` key, which the harness adapter names (`AgentHarness::always_loads_tool`).
 The key is on the agent's tools list only, and Bridge reads nothing of it.
 
+### Tidying a Job's watches: a run of readings, ended watches on asking, and `delete_watch`
+
+Since 26 Oct 2026. The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `WatchReading` | Fleet writes | Gains `count?` and `last_at?` on both kinds. In `readings`, back-to-back readings that read the same are one: `at` the first, `last_at` the last, `count` how many, absent for one. A read is the same in `state`, `finished`, `says`, `link` and `parts`; a broken one in `why`, with the last one's `output` |
+| `WatchSummary.last` | Fleet writes | The newest reading as taken, never a run, so its `at` is its own |
+
+**The store keeps every reading.** Only the answer collapses them, in `ipc::collapsed`.
+
 ## Not a question: `misread` on `dismiss_waiting`
 
 Since 23 Oct 2026. `docs/concepts/session/waiting-on-the-person.md`, *A question that asks nothing*.

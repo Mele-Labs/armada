@@ -79,11 +79,11 @@ impl Watches for FakeDaemon {
             WatchTries::Recipe { recipe, .. } => vec![recipe],
         };
         Ok(WatchTried {
-            reading: WatchReading::Broken {
-                at: Instant::carried("2026-10-22T00:00:00.000Z"),
-                why: String::from("Nothing runs in the fake."),
-                output: None,
-            },
+            reading: WatchReading::broken(
+                Instant::carried("2026-10-22T00:00:00.000Z"),
+                String::from("Nothing runs in the fake."),
+                None,
+            ),
             command,
             cwd: String::from("/slot"),
             path: String::from("/usr/bin"),

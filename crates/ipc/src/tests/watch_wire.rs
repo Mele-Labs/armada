@@ -94,14 +94,14 @@ fn each_verdict_carries_its_sentence_and_only_not_ours_its_parts() {
 fn watches_changed_carries_the_jobs_list_with_its_history_and_verdicts() {
     use crate::{Event, Instant, SessionId, WatchList, WatchReading, WatchReadingState, WatchState, WatchSummary};
     use crate::{LoginShell, WatchVerdictGiven, WatchVerdictWord};
-    let reading = WatchReading::Read {
-        at: Instant::carried("2026-10-22T10:00:00.000Z"),
-        state: WatchReadingState::Failed,
-        finished: false,
-        says: "Deploy running.".into(),
-        link: None,
-        parts: Vec::new(),
-    };
+    let reading = WatchReading::read(
+        Instant::carried("2026-10-22T10:00:00.000Z"),
+        WatchReadingState::Failed,
+        false,
+        "Deploy running.".into(),
+        None,
+        Vec::new(),
+    );
     let watch = WatchSummary {
         id: "w-1".into(),
         session_id: SessionId::carried("s1"),
@@ -181,4 +181,41 @@ fn a_line_written_by_armada_reads_back_whole() {
     let reading = read_watch_line(PRINTED).expect("reads");
     let line = crate::watch_line(&reading).expect("writes");
     assert_eq!(read_watch_line(&line).expect("reads again"), reading);
+}
+
+/// Nine readings that read the same are one row, with the first time, the last and the count; a
+/// reading that differs in any field starts a new one, and a lone one carries neither.
+#[test]
+fn back_to_back_readings_that_read_the_same_are_one_with_first_last_and_count() {
+    use crate::{collapsed, Instant, WatchPart, WatchReading, WatchReadingState};
+    let at = |minute: u32| Instant::carried(format!("2026-10-22T10:{minute:02}:00.000Z"));
+    let running =
+        |minute| WatchReading::read(at(minute), WatchReadingState::Running, false, "Deploy running.".into(), None, Vec::new());
+    let mut readings: Vec<WatchReading> = (0..9).map(running).collect();
+    let part = vec![WatchPart { name: "build".into(), state: WatchReadingState::Running }];
+    readings.push(WatchReading::read(at(9), WatchReadingState::Running, false, "Deploy running.".into(), None, part));
+    readings.push(WatchReading::broken(at(10), "It exited 1.".into(), Some("first".into())));
+    readings.push(WatchReading::broken(at(11), "It exited 1.".into(), Some("second".into())));
+    readings.push(running(12));
+
+    let runs = collapsed(readings);
+    assert_eq!(runs.len(), 4, "{runs:?}");
+    assert!(
+        matches!(&runs[0], WatchReading::Read { at: first, count: 9, last_at: Some(last), .. } if *first == at(0) && *last == at(8)),
+        "{:?}",
+        runs[0]
+    );
+    assert!(matches!(&runs[1], WatchReading::Read { count: 1, last_at: None, parts, .. } if parts.len() == 1), "a part differs");
+    assert!(
+        matches!(&runs[2], WatchReading::Broken { count: 2, output: Some(output), .. } if output == "second"),
+        "the same reason, the last output: {:?}",
+        runs[2]
+    );
+    assert!(matches!(&runs[3], WatchReading::Read { count: 1, .. }), "not back to back with the first run");
+
+    let json = encode(&runs).expect("plain data");
+    assert!(json.contains(r#""count":9,"last_at":"2026-10-22T10:08:00.000Z""#), "{json}");
+    assert_eq!(json.matches("count").count(), 2, "a lone reading carries no count: {json}");
+    let again: Vec<WatchReading> = decode("readings", json.as_bytes()).expect("round trip");
+    assert_eq!(again, runs);
 }

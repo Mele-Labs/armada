@@ -15,10 +15,16 @@ export type WatchPart = { name: string; state: WatchReadingState };
 /** A part the agent weighed as not its change's doing, and why. Drawn struck through. */
 export type WatchSetAside = { part: string; sentence: string };
 
-/** One reading: what the command's line said, or why it gave none. */
+/**
+ * A run of readings that read the same, as `readings` carries one: `count` is how many in a row, absent for one, `at`
+ * the first and `last_at` the last. `last` never carries a run.
+ */
+type WatchRun = { count?: number; last_at?: string };
+
+/** One reading: what the command's line said, or why it gave none. A broken run's `output` is its last one's. */
 export type WatchReading =
-  | { kind: "read"; at: string; state: WatchReadingState; finished: boolean; says: string; link?: string; parts?: WatchPart[] }
-  | { kind: "broken"; at: string; why: string; output?: string };
+  | ({ kind: "read"; at: string; state: WatchReadingState; finished: boolean; says: string; link?: string; parts?: WatchPart[] } & WatchRun)
+  | ({ kind: "broken"; at: string; why: string; output?: string } & WatchRun);
 
 export type WatchSummary = {
   /** What `weigh_watch` and `stop_watch` name. */
@@ -39,9 +45,10 @@ export type WatchSummary = {
   /** False once it has ended, whichever way. */
   live: boolean;
   started_at: string;
+  /** The newest reading as taken, its own `at`, never a run. */
   last?: WatchReading;
   set_aside?: WatchSetAside[];
-  /** The kept readings, the newest 50, oldest first, `last` among them. Absent is none. */
+  /** The kept readings, the newest 50, oldest first, `last` among them, back-to-back ones that read the same as one run. Absent is none. */
   readings?: WatchReading[];
   /** The agent's weighings, the oldest first. Absent is none. */
   verdicts?: WatchVerdict[];

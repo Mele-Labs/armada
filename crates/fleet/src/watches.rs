@@ -252,18 +252,18 @@ pub(crate) fn moved(kept: &KeptWatch, watch: &core_model::Watch, now: &core_mode
 fn wire_reading(one: &KeptWatchReading) -> WatchReading {
     let at = Instant::carried(one.at.clone());
     match &one.taken {
-        KeptWatchTaken::Read { state, finished, says, link, parts } => WatchReading::Read {
+        KeptWatchTaken::Read { state, finished, says, link, parts } => WatchReading::read(
             at,
-            state: wire_reading_state(state),
-            finished: *finished,
-            says: says.clone(),
-            link: link.clone(),
-            parts: parts
+            wire_reading_state(state),
+            *finished,
+            says.clone(),
+            link.clone(),
+            parts
                 .iter()
                 .map(|(name, state)| WatchPart { name: name.clone(), state: wire_reading_state(state) })
                 .collect(),
-        },
-        KeptWatchTaken::Broken { why, output } => WatchReading::Broken { at, why: why.clone(), output: output.clone() },
+        ),
+        KeptWatchTaken::Broken { why, output } => WatchReading::broken(at, why.clone(), output.clone()),
     }
 }
 
@@ -271,7 +271,8 @@ fn wire_reading(one: &KeptWatchReading) -> WatchReading {
 /// where Fleet holds that.
 pub(crate) fn summary(kept: &KeptWatchWhole, login: Option<&LoginEnvironment>) -> WatchSummary {
     let held = &kept.watch;
-    let readings: Vec<WatchReading> = kept.readings.iter().map(wire_reading).collect();
+    let last = kept.readings.last().map(wire_reading);
+    let readings = ipc::collapsed(kept.readings.iter().map(wire_reading));
     WatchSummary {
         id: held.id.clone(),
         session_id: ipc::SessionId::carried(&held.session_id),
@@ -285,7 +286,7 @@ pub(crate) fn summary(kept: &KeptWatchWhole, login: Option<&LoginEnvironment>) -
         state: WatchState::from_wire(&held.state).unwrap_or(WatchState::Waiting).into(),
         live: held.live,
         started_at: Instant::carried(held.started_at.clone()),
-        last: readings.last().cloned(),
+        last,
         readings,
         set_aside: kept
             .set_aside

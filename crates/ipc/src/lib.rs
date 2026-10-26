@@ -653,7 +653,7 @@ pub use triggers::{
     TriggerScope, TriggerSkip, TriggerSkipReason, TriggerSummary,
 };
 pub use watches::{
-    read_watch_line, watch_line, LoginShell, StartWatch, StopWatch, WatchList, WatchPart,
+    collapsed, read_watch_line, watch_line, LoginShell, StartWatch, StopWatch, WatchList, WatchPart,
     WatchReading, WatchReadingState, WatchSetAside, WatchStarts, WatchState, WatchSummary,
     WatchVerdict, WatchVerdictGiven, WatchVerdictWord, WeighWatch,
 };

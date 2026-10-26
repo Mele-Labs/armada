@@ -55,6 +55,11 @@ pub struct WatchSetAside {
 }
 
 /// One reading a watch took: what its command's line said, or why it gave none.
+///
+/// **In `WatchSummary::readings`, back-to-back readings that read the same are one**: `at` is the
+/// first, `last_at` the last and `count` how many. Read is the same state, `finished`, `says`,
+/// `link` and parts; broken is the same `why`, and `output` is the last one's. The store keeps
+/// each; only the answer collapses them.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum WatchReading {
@@ -67,6 +72,12 @@ pub enum WatchReading {
         link: Option<String>,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         parts: Vec<WatchPart>,
+        /// How many readings in a row this stands for. Absent for one.
+        #[serde(default = "one", skip_serializing_if = "is_one")]
+        count: u32,
+        /// The last of them, where it stands for more than one.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        last_at: Option<Instant>,
     },
     /// It exited non-zero, ran out of time, or its last line was not one. `why` is said to a
     /// person; `output` is the end of what it printed, where it printed anything.
@@ -75,7 +86,76 @@ pub enum WatchReading {
         why: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         output: Option<String>,
+        #[serde(default = "one", skip_serializing_if = "is_one")]
+        count: u32,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        last_at: Option<Instant>,
     },
+}
+
+fn one() -> u32 {
+    1
+}
+
+#[allow(clippy::trivially_copy_pass_by_ref)]
+fn is_one(count: &u32) -> bool {
+    *count == 1
+}
+
+impl WatchReading {
+    /// One reading as taken, standing for itself alone.
+    pub fn read(
+        at: Instant,
+        state: WatchReadingState,
+        finished: bool,
+        says: String,
+        link: Option<String>,
+        parts: Vec<WatchPart>,
+    ) -> WatchReading {
+        WatchReading::Read { at, state, finished, says, link, parts, count: 1, last_at: None }
+    }
+
+    /// One broken run as taken, standing for itself alone.
+    pub fn broken(at: Instant, why: String, output: Option<String>) -> WatchReading {
+        WatchReading::Broken { at, why, output, count: 1, last_at: None }
+    }
+
+    /// `next` folded into `self` where the two read the same, else `next` back.
+    fn folded(&mut self, next: WatchReading) -> Option<WatchReading> {
+        match (self, next) {
+            (
+                WatchReading::Read { state, finished, says, link, parts, count, last_at, .. },
+                WatchReading::Read { at, state: s, finished: f, says: w, link: l, parts: p, .. },
+            ) if (*state, *finished, &*says, &*link, &*parts) == (s, f, &w, &l, &p) => {
+                *count += 1;
+                *last_at = Some(at);
+                None
+            }
+            (
+                WatchReading::Broken { why, output, count, last_at, .. },
+                WatchReading::Broken { at, why: y, output: o, .. },
+            ) if *why == y => {
+                *count += 1;
+                *last_at = Some(at);
+                *output = o;
+                None
+            }
+            (_, next) => Some(next),
+        }
+    }
+}
+
+/// `readings`, oldest first, with each run of back-to-back readings that read the same as one.
+pub fn collapsed(readings: impl IntoIterator<Item = WatchReading>) -> Vec<WatchReading> {
+    let mut runs: Vec<WatchReading> = Vec::new();
+    for reading in readings {
+        let unfolded = match runs.last_mut() {
+            Some(run) => run.folded(reading),
+            None => Some(reading),
+        };
+        runs.extend(unfolded);
+    }
+    runs
 }
 
 /// The agent's weighing of a failed reading.
@@ -129,10 +209,10 @@ pub struct WatchSummary {
     /// False once it has ended, whichever way.
     pub live: bool,
     pub started_at: Instant,
-    /// The newest reading, read or broken: the last of `readings`.
+    /// The newest reading, read or broken, as taken: never collapsed, so its `at` is its own.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last: Option<WatchReading>,
-    /// The readings it kept, the newest 50, oldest first.
+    /// The readings it kept, the newest 50, oldest first, a run that reads the same as one.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub readings: Vec<WatchReading>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
