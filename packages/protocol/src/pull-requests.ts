@@ -32,6 +32,8 @@ export type PullRequestState = {
   title: string;
   /** The branch it is opened from. */
   branch: string;
+  /** The branch it merges into. Absent where the forge named none. */
+  base?: string;
   /** Where it is on the forge. */
   address: string;
   /** Its description, as Markdown. Absent where the author wrote none. */
