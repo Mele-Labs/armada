@@ -59,7 +59,7 @@ A plan the person has not approved sets none.
 **`live` is the page being built.** It is the newest of a page the Job showed with `show_window` and the page of a server it started with `start_server`, which names the Job in its `session_id`.
 It is cleared with the account, and a turn ending clears neither.
 A server names the Job that started it only when the call came in on a hosted Job's own connection; a server the person starts, from Bridge or by hand, names none, and so is never a Job's live view.
-Bridge draws the account and the live view as the Now part of Progress (*In Bridge*).
+Bridge draws the account as the Blueprint's Now view and the live view in the Field (*In Bridge*).
 
 **Bridge draws nothing for a Job whose turn is not running, except the account's done lines.** Whether a line or a band is drawn is Bridge's rule, read off `hosted.turn` and these fields.
 Once the turn has ended the account's `now` and `next` are not drawn, only what is done, and that goes when a message from him follows the one it answers.

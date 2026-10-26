@@ -34,10 +34,10 @@ test("an open Job's panels stand in the order the layout gives", async () => {
   mount("one-session-view");
   await onScreen();
   await expect.element(list()).toBeVisible();
-  install('{"version":1,"job.panels":{"order":["progress","field"]}}');
+  install('{"version":1,"job.panels":{"order":["blueprint","field"]}}');
   await list().getByRole("button", { name: "Queue session for later", exact: true }).click();
-  await expect.poll(() => panels("Progress").length).toBe(1);
+  await expect.poll(() => panels("Blueprint").length).toBe(1);
   const field = page.getByRole("region", { name: "Field", exact: true }).element();
-  const progress = page.getByRole("region", { name: "Progress", exact: true }).element();
-  expect(progress.compareDocumentPosition(field) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  const blueprint = page.getByRole("region", { name: "Blueprint", exact: true }).element();
+  expect(blueprint.compareDocumentPosition(field) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 });

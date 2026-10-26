@@ -17,10 +17,10 @@ function steps(narrow: boolean): Step[] {
   const mine = inside(queue, role("listitem", /^Record each migration once/));
   return [
     { press: inside(sessions, button("Store migration spike")), say: "A Job holding two pull requests" },
-    ...row(/^#1849 /, "The first is in no queue"),
+    ...row(/^Pull request #1849 /, "The first is in no queue"),
     { look: sheet("Pull request #1849"), say: "Nothing is drawn under the card" },
     { press: close(sheet("Pull request #1849")), say: "Back to the Job" },
-    ...row(/^#1850 /, "The second is in the merge queue"),
+    ...row(/^Pull request #1850 /, "The second is in the merge queue"),
     { look: queue, say: "The queue in order: two ahead, this one ringed, one behind" },
     { hover: inside(mine, role("img", "In the merge queue, waiting its turn")), say: "Its mark names where it stands" },
     { hover: inside(mine, text("3")), say: "The place figure is named" },

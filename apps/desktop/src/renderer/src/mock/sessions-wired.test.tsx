@@ -143,12 +143,12 @@ test("Sessions wired: mode, model and effort go to Fleet as the person set them"
   await expect.poll(() => fleet.calls.tuned.at(-1)).toEqual({ session_id: ID, effort: "high", mode: "plan" });
 });
 
-test("Sessions wired: a terminal session opens to its Progress and takes a message, with its mode shown and not set", async () => {
+test("Sessions wired: a terminal session opens to its Blueprint and takes a message, with its mode shown and not set", async () => {
   const fleet = new FakeSessionsFleet([terminal(ID, { title: "Release notes script", attachments: [held("branch", "release/notes")], terminal: { mode: "plan", listening: true } })]);
   mount(served(fleet));
   await onScreen();
   await toSession("Release notes script");
-  await expect.element(page.getByRole("region", { name: "Progress", exact: true })).toBeVisible();
+  await expect.element(page.getByRole("region", { name: "Blueprint", exact: true })).toBeVisible();
   await expect.element(page.getByRole("textbox", { name: "Message" })).toBeVisible();
   await expect.element(page.getByRole("combobox", { name: "Permission mode" })).toBeDisabled();
 });
@@ -183,7 +183,7 @@ test("Sessions wired: a pull request the Session holds is merged from its sheet,
   await onScreen();
   await toSession("Fix the flaky store test");
   await key("Artifacts").click();
-  await userEvent.click(layer("Artifacts").getByRole("button", { name: /^#1847/ }));
+  await userEvent.click(layer("Artifacts").getByRole("button", { name: /^Pull request #1847/ }));
   const sheet = page.getByRole("dialog", { name: "Pull request #1847" });
   await userEvent.click(sheet.getByRole("button", { name: "Merge" }));
   await expect.poll(() => fleet.calls.pressed.filter((one) => one.press === "merge")).toEqual([{ sessionId: ID, number: 1847, press: "merge" }]);
@@ -196,7 +196,7 @@ test("Sessions wired: a refused press on a pull request says Fleet's words in it
   await onScreen();
   await toSession("Fix the flaky store test");
   await key("Artifacts").click();
-  await userEvent.click(layer("Artifacts").getByRole("button", { name: /^#1847/ }));
+  await userEvent.click(layer("Artifacts").getByRole("button", { name: /^Pull request #1847/ }));
   const sheet = page.getByRole("dialog", { name: "Pull request #1847" });
   fleet.refusesPress = { code: "fleet.auto_merge_refused", message: "Auto merge is not allowed" };
   await userEvent.click(sheet.getByRole("button", { name: "Enable auto-merge" }));

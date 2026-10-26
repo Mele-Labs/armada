@@ -80,7 +80,7 @@ import { backgroundEntryOf } from "./session-background";
 import { SubagentThread, useSubagentRead } from "./session-subagent";
 import { useMinimized } from "./session-ledger-minimized";
 import { useWriteClashes } from "./clashes";
-import { showLayer } from "./session-view/layers";
+import { showLayer, toggleLayer } from "./session-view/layers";
 import { ModEmpty } from "./session-view/ModEmpty";
 import { useModCards } from "./session-view/mod-cards";
 import { OverTheApp } from "./session-view/OverTheApp";
@@ -137,6 +137,7 @@ import { planRevision } from "./session-view/plan-revision";
 import { PlanReview } from "./session-view/PlanReview";
 import { groupTitleOf, linkedPropsOf } from "./session-view/linked";
 import { SessionWorkspace, type Hosts } from "./session-view/SessionWorkspace";
+import { ARTIFACTS_KEY } from "./session-view/story";
 import { useStartPicks } from "./session-view/StartPicks";
 import { CallChip, callWord } from "./session-view/CallChip";
 import { useLedgerRelease, type LedgerRelease } from "./session-ledger-release";
@@ -899,6 +900,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
             setMarks([]);
             setReviewing(false);
           },
+          approve: () => approvePlan(),
         };
   /** Approve, with what he marked on the plan going to the agent in the same press. */
   const approvePlan = () => {
@@ -1224,6 +1226,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
               onTags={(tags) => draft.setTags(session.id, tags)}
               drawn={drawn.map(({ id, title }) => ({ id, title }))}
               onDraw={() => setPadOpen(true)}
+              {...(workspace ? { onArtifacts: { open: () => toggleLayer(session.id, "artifacts"), key: ARTIFACTS_KEY.cap } } : {})}
               onRemoveDrawn={(id) => setDrawn((was) => was.filter((one) => one.id !== id))}
               onSend={(sent) => {
                 // A held Job's first send begins it: the box is the first message.

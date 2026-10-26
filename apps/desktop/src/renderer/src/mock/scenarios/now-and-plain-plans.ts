@@ -1,5 +1,5 @@
 // A Session answering his message, for the walk `now-and-plain-plans`: while the turn runs, a running account in his words (what is
-// done, what it is on, what is next) at the top of Progress and a live view of the page it is building under it, which move on together every few seconds from the
+// done, what it is on, what is next) in the Blueprint's Now view and a live view of the page it is building in the Field, which move on together every few seconds from the
 // moment the Session opens. Under a walk they move on its `later` steps alone, so no step misses what it looks at. At the turn's end the reply arrives with a plan in his words, the
 // technical groups under Details and Not yet beside Approve, and Pause, Resume, Auto land and Approve change the screen at the press
 // while Fleet takes two seconds to answer (`pressed.ts`). Over the `one-session-view` scenario, with its first Session rewritten and
@@ -256,5 +256,5 @@ const build = (name: string, says: string, take: Take): Scenario => ({
   draft: { ...base.draft, sessions: (control) => sessions(take, control) },
 });
 
-export const s275NowAndPlainPlans = build("now-and-plain-plans", "A Session answering his message: the account and the page it is building at the top of Progress, then the reply and a plan in his words", { refused: false });
+export const s275NowAndPlainPlans = build("now-and-plain-plans", "A Session answering his message: the Blueprint's Now view and the page it is building in the Field, then the reply and a plan in his words", { refused: false });
 export const s278NowAndPlainPlansRefused = build("now-and-plain-plans-refused", "The same, with Fleet refusing Auto land: the switch reverts with the refusal's words", { refused: true });

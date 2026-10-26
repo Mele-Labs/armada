@@ -27,7 +27,7 @@
 use std::path::PathBuf;
 
 use core_model::{
-    EvidenceScope, FrozenWorkflow, RepoPath, ResolvedCheck, ResolvedStep, WorkflowId,
+    EvidenceScope, FrozenWorkflow, Lands, RepoPath, ResolvedCheck, ResolvedStep, WorkflowId,
     WorkflowSource,
 };
 
@@ -53,6 +53,9 @@ pub struct ResolvedWorkflow {
     /// Job does once it has a workflow depends on what requests that workflow
     /// is for — so a record carrying it would store a sentence nobody reads.
     for_requests: Option<String>,
+    /// What the workflow lands in, resolved. Beside the frozen copy for
+    /// `for_requests`'s reason: Bridge reads it off the definition Fleet holds.
+    lands: Lands,
     frozen: FrozenWorkflow,
 }
 
@@ -134,6 +137,7 @@ impl ResolvedWorkflow {
             workflow: def.path().to_path_buf(),
             manifest: manifest.path().to_path_buf(),
             for_requests: def.for_requests().map(str::to_string),
+            lands: def.lands(),
             frozen: FrozenWorkflow::frozen(
                 def.id().clone(),
                 def.name().to_string(),
@@ -187,6 +191,11 @@ impl ResolvedWorkflow {
     /// [`crate::WorkflowDef::for_requests`].
     pub fn for_requests(&self) -> Option<&str> {
         self.for_requests.as_deref()
+    }
+
+    /// What the workflow lands in. See [`crate::WorkflowDef::lands`].
+    pub fn lands(&self) -> Lands {
+        self.lands
     }
 
     pub fn version(&self) -> u32 {

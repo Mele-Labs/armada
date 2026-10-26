@@ -153,7 +153,7 @@ nothing: check the id against the table.
 | Region | Ids, in the order shipped | Cannot be hidden | `order` | `first` |
 |---|---|---|---|---|
 | `dashboard.panels` | `list`, `merge-line`, `activity`, `bays`, `controls`, `dispatch`, `autopilot` | `list` | no | no |
-| `job.panels` | `field`, `workflow`, `progress`, `mods` | `progress` | yes | no |
+| `job.panels` | `workflow`, `blueprint`, `field`, `landing` | `blueprint` | yes | no |
 | `rail` | `overview`, `sessions`, `kit`, `mods`, `settings`, `guides`, `workflows`, `studios`, `logbook`, `reviews`, `issues` | `overview`, `mods`, `settings` | no | no |
 
 `packages/shell/layout-registry.json` is the list Fleet checks. **`rail`
@@ -162,7 +162,8 @@ The Logbook page is the place `logbook`.** `dashboard.panels` is the Cockpit's
 panels: `list` the Jobs list, `merge-line` the merge queue, `controls` Flight
 control. A right column the layout empties gives its room to the stage.
 `job.panels` is the panels an open Job stacks in the right column, in that
-order. `mods` is the mods a Mod Job made, drawn only for one.
+order, telling the Job as a story: `workflow`, `blueprint` (the plan), `field`
+and `landing` (what the workflow ends in, the mods a Mod Job made among it).
 Hiding a place takes it off the tab bar or the strip and nothing else:
 it stays in the palette and in links.
 
@@ -187,12 +188,12 @@ the whole file invalid.
 }
 ```
 
-## Example: Progress first in a Job, then Workflow, the Field hidden
+## Example: Blueprint first in a Job, then Workflow, the Field hidden
 
 ```json
 {
   "version": 1,
-  "job.panels": { "order": ["progress", "workflow"], "hidden": ["field"] }
+  "job.panels": { "order": ["blueprint", "workflow"], "hidden": ["field"] }
 }
 ```
 

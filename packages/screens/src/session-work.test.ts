@@ -76,6 +76,19 @@ describe("the workflow", () => {
     expect(workOf(record({ workflow: "feature", workflow_step: 9 }), beside())?.workflow?.at).toBeUndefined();
   });
 
+  it("carries the phase Fleet resolved for the step the Session is at", () => {
+    const phased = { ...FEATURE, steps: [{ ...step("plan", "Plan"), phase: "work" }, { ...step("pr", "Pull request"), phase: "delivery" }] } as WorkflowSummary;
+    expect(workOf(record({ workflow: "feature", workflow_step: 1 }), beside({ workflows: [phased] }))?.workflow?.phase).toBe("delivery");
+    expect(workOf(record({ workflow: "feature", workflow_step: 0 }), beside({ workflows: [phased] }))?.workflow?.phase).toBe("work");
+    expect(workOf(record({ workflow: "feature" }), beside({ workflows: [phased] }))?.workflow?.phase).toBeUndefined();
+  });
+
+  it("lands in what Fleet says the workflow lands in, and says nothing where Fleet does not", () => {
+    expect(workOf(record({ workflow: "feature" }), beside({ workflows: [{ ...FEATURE, lands: "spike" }] }))?.landing).toBe("spike");
+    expect(workOf(record({ workflow: "feature" }), beside())?.landing).toBeUndefined();
+    expect(workOf(record({}), beside({ workflows: [{ ...FEATURE, lands: "report" }] }))?.landing).toBeUndefined();
+  });
+
   it("is hidden while the setting turns workflows off: no steps, no picker, no mark for a workflow", () => {
     const one = record({ workflow: "feature", workflow_step: 1, proposal: { picked: ["workflow", "model"] } });
     const work = workOf(one, beside({ workflowsOff: true }));

@@ -170,6 +170,7 @@ pub(crate) fn workflow_summary(
         manifest_id: ManifestId::from(manifest_id),
         source: workflow.source().as_wire().to_string(),
         for_requests: workflow.for_requests().map(str::to_string),
+        lands: workflow.lands().into(),
         file: of_this()
             .find(|file| file.overridden_by().is_none())
             .map(|file| file.path().to_string_lossy().to_string())
