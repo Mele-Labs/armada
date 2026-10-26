@@ -96,7 +96,7 @@ function prAt(stage: number): Partial<Session> {
     summary: "The lease retries with a back off when two Jobs ask for one bay, and the bay tile shows which attempt it is on.",
     groups: prGroups(stage),
   };
-  const pr = (extra: Pick<Extract<SessionAttachment, { kind: "pull_request" }>, "checks" | "state" | "auto"> & { queued?: true; closes?: number[] }): SessionAttachment => ({ kind: "pull_request", number: 2390, title: "Retry the slot lease", branch: BRANCH, address: "https://git.example/armada/pull/2390", ...extra });
+  const pr = (extra: Pick<Extract<SessionAttachment, { kind: "pull_request" }>, "checks" | "state" | "auto"> & { queued?: true }): SessionAttachment => ({ kind: "pull_request", number: 2390, title: "Retry the slot lease", branch: BRANCH, address: "https://git.example/armada/pull/2390", closes: [2361, 2367], ...extra });
   return {
     turn: { state: stage === 1 ? "working" : "idle" },
     standing: stage === 1 ? "working" : "idle",
@@ -106,7 +106,7 @@ function prAt(stage: number): Partial<Session> {
       ...(stage === 1 ? [pr({ checks: { state: "pending" }, state: "draft", auto: false })] : []),
       ...(stage === 2
         ? [
-            pr({ checks: { state: "passed" }, state: "open", auto: true, queued: true, closes: [2402] }),
+            pr({ checks: { state: "passed" }, state: "open", auto: true, queued: true }),
             { kind: "issue" as const, number: "2402", title: "A slow attempt can outlive the lease", address: "https://forge.invalid/issues/2402", state: "open" as const },
           ]
         : []),

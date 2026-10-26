@@ -7,7 +7,7 @@
 import { actionOf, formatSlot, slotsOf } from "@armada/components";
 
 import { PAUSE_KEY, SESSION_TILES, tileKey } from "./session-tiles";
-import { ARTIFACTS_KEY, BAND_KEYS } from "../../session-view/story";
+import { ARTIFACTS_KEY, BAND_KEYS, WHOLE_KEY } from "../../session-view/story";
 
 export type PanelId = "list" | "activity" | "stage" | "bays" | "queue" | "controls" | "dispatch" | "autopilot";
 
@@ -126,6 +126,7 @@ export function keySheetOf(): readonly SheetGroup[] {
       head: "Job open",
       rows: [
         ...BAND_KEYS.map((one) => ({ keys: [one.cap], does: one.area === "workflow" ? "Choose the workflow" : `Open or fold ${one.area[0]!.toUpperCase()}${one.area.slice(1)}` })),
+        { keys: [WHOLE_KEY.cap], does: "Blueprint: now or the whole plan" },
         { keys: [ARTIFACTS_KEY.cap], does: "Artifacts over the right column" },
       ],
     },

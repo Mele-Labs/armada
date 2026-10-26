@@ -22,7 +22,7 @@ type Rows = { issues: { issue: Issue; prs: PullRequest[] }[]; loose: PullRequest
 export const checksOf = (pr: PullRequest): "passed" | "running" | "failed" => (pr.checks.state === "failed" ? "failed" : pr.checks.state === "pending" ? "running" : "passed");
 
 /** Whether a pull request works an issue: it closes the issue's forge number, or the issue's row names it. */
-const works = (pr: PullRequest, issue: Issue): boolean => pr.closes?.some((number) => String(number) === issue.number) === true || issue.pull_requests?.includes(pr.number) === true;
+export const works = (pr: PullRequest, issue: Issue): boolean => pr.closes?.some((number) => String(number) === issue.number) === true || issue.pull_requests?.includes(pr.number) === true;
 
 /** The Session's issues in the order it took them, each with its pull requests, and the pull requests that work none of them. */
 export function issuesOf(session: Session): Rows {

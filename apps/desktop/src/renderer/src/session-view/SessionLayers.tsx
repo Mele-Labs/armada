@@ -45,8 +45,8 @@ function Mark({ tone, said }: { tone: SessionLedgerTone; said: string }) {
 
 const ROW = "[data-layer-row]";
 
-/** The frame every layer shares: its name, what is beside it in the head, Back, and a body that scrolls. */
-function Shell({ label, head, keys, owns, children }: { label: string; head?: ReactNode; /** A key the layer owns, heard before the arrows walk the rows. */ keys?: (event: KeyboardEvent<HTMLElement>) => void; /** The letters `keys` answers to, which the deck does not take while focus is in the layer. */ owns?: string; children: ReactNode }) {
+/** The frame every layer shares: its name and Back in the head, a row of tools under it where there are any, and a body that scrolls. */
+function Shell({ label, tools, keys, owns, children }: { label: string; tools?: ReactNode; /** A key the layer owns, heard before the arrows walk the rows. */ keys?: (event: KeyboardEvent<HTMLElement>) => void; /** The letters `keys` answers to, which the deck does not take while focus is in the layer. */ owns?: string; children: ReactNode }) {
   const root = useRef<HTMLElement>(null);
   // Esc is Back, wherever focus is, unless a sheet or a menu is open over the layer: that one's Esc is its own.
   useEffect(() => {
@@ -77,13 +77,13 @@ function Shell({ label, head, keys, owns, children }: { label: string; head?: Re
     <section ref={root} className="sv-layer" aria-label={label} data-keeps-escape="" {...(owns === undefined ? {} : { "data-owns-keys": owns })} onKeyDown={walk}>
       <header className="sv-layer__head">
         <h3 className="sv-layer__title">{label}</h3>
-        {head}
         <Tooltip label="Back" shortcut="Esc">
           <Button variant="ghost" size="sm" iconOnly aria-label="Back" onClick={closeLayer}>
             <X size={16} aria-hidden="true" />
           </Button>
         </Tooltip>
       </header>
+      {tools === undefined ? null : <div className="sv-layer__tools">{tools}</div>}
       <div className="sv-layer__body">{children}</div>
     </section>
   );
@@ -213,7 +213,7 @@ export function ArtifactsLayer({ session, entries, onOpenSession, onOpenSketch }
       label="Artifacts"
       keys={keys}
       owns="v"
-      head={
+      tools={
         <>
           <div className="sv-layer__search">
             <Input type="search" aria-label="Search artifacts" placeholder="Search" data-layer-field="" value={words} onChange={(event) => setWords(event.target.value)} autoComplete="off" spellCheck={false} />

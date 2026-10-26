@@ -235,7 +235,7 @@ function AddTask({ group, ed }: { group: ViewGroup; ed: PlanEditing }) {
  * A group, edited in place: its subagent type, its title, the glyphs for a note and for removing it, then its paths and its tasks,
  * which take a drop from another group. Drawn open, as the overlay draws a group and as the panel does under a group's row.
  */
-export function GroupEditor({ group, ed, head = true, pins }: { group: ViewGroup; ed: PlanEditing; head?: boolean; pins?: FindingPins }) {
+export function GroupEditor({ group, ed, head = true, onEdit, pins }: { group: ViewGroup; ed: PlanEditing; head?: boolean; /** Where the pencil sends the caller that holds the head open itself, instead of the editor doing it. */ onEdit?: () => void; pins?: FindingPins }) {
   const [noting, setNoting] = useState(false);
   // Without its head, the title and subagent type open behind a pencil, and stay open while either carries an edit.
   const [editing, setEditing] = useState(false);
@@ -247,7 +247,7 @@ export function GroupEditor({ group, ed, head = true, pins }: { group: ViewGroup
     if (task !== "") ed.set(move(ed.plan, ed.marks, task, group.id));
   };
   return (
-    <div className="sv-edit-group" data-removed={group.removed || undefined} data-added={group.added || undefined} data-editing={(headed && !head) || undefined} onDragOver={(event) => event.preventDefault()} onDrop={drop}>
+    <div className="sv-edit-group" data-removed={group.removed || undefined} data-added={group.added || undefined} data-editing={(headed && (!head || onEdit !== undefined)) || undefined} onDragOver={(event) => event.preventDefault()} onDrop={drop}>
       {headed ? (
         <div className="sv-edit-group__head">
           <div className="sv-edit-group__name">
@@ -280,7 +280,7 @@ export function GroupEditor({ group, ed, head = true, pins }: { group: ViewGroup
         <div className="sv-edit-group__head">
           <span className="sv-edit__tools">
             <Tooltip label="Edit group">
-              <Button variant="ghost" size="sm" iconOnly aria-label={`Edit group ${group.title}`} onClick={() => setEditing(true)}>
+              <Button variant="ghost" size="sm" iconOnly aria-label={`Edit group ${group.title}`} onClick={() => (onEdit === undefined ? setEditing(true) : onEdit())}>
                 <Pencil size={16} strokeWidth={2} aria-hidden />
               </Button>
             </Tooltip>
@@ -301,7 +301,7 @@ export function GroupEditor({ group, ed, head = true, pins }: { group: ViewGroup
         />
       ) : null}
       {pins === undefined ? null : <FindingNotes findings={pins.anchors.at(group.id)} label={`Findings on ${group.title}`} onSend={pins.onSend} onDismiss={pins.onDismiss} />}
-      {group.paths.length === 0 ? null : (
+      {group.paths.length === 0 || !headed ? null : (
         <ul className="sv-scope" aria-label="Paths">
           {group.paths.map((path) => (
             <li key={path}>

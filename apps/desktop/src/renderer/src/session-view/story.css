@@ -8,14 +8,21 @@
 .sv-side > .sv-panel[data-area="field"] { flex: 2 1 0; min-height: calc(var(--space-12) * 3); }
 .sv-side > .sv-panel[data-area="landing"] { flex: 2 1 0; min-height: calc(var(--space-12) * 3); }
 /* An approved plan is a few lines, so it takes its own height and the Field or the Landing has the rest. */
-.sv-side > .sv-panel[data-area="blueprint"]:has(.sv-plan:not([data-drafting])) { flex: 0 1 auto; min-height: 0; }
+.sv-side > .sv-panel[data-area="blueprint"]:has(:is(.sv-plan:not([data-drafting]), .sv-now)) { flex: 0 1 auto; min-height: 0; }
 .sv-side > .sv-panel[data-area="blueprint"]:has(> .sv-panel__body:empty),
 .sv-side > .sv-panel[data-area="landing"]:has(> .sv-panel__body:empty) { flex: 0 0 auto; min-height: 0; }
+
+/* A folded band is the Workflow band's height, whatever the panel holds: the label and the acts centred in it, and nothing under. Stands over each
+   panel's own size above, and over the `:has` rules that size an approved Blueprint or a Landing with nothing in it. */
+.sv-side > .sv-panel[data-collapsed][data-collapsed][data-collapsed][data-collapsed] { flex: 0 0 var(--folded); height: var(--folded); min-height: 0; max-height: var(--folded); }
+.sv-side > .sv-panel[data-collapsed] > .sv-panel__band { height: calc(var(--folded) - var(--border-width) * 2); min-height: 0; border-bottom: 0; }
 
 /* ---- Blueprint -------------------------------------------------------------------------------------------- */
 
 .sv-blueprint__summary { margin: 0; padding-inline: var(--space-2); color: var(--fg-default); font-family: var(--font-sans); font-size: var(--text-sm); line-height: var(--leading-sm); overflow-wrap: anywhere; }
 .sv-plan__acts { display: inline-flex; align-items: center; gap: var(--space-2); margin-inline-start: auto; }
+/* A drafted group is its whole title over its tasks, not a single line cut short. */
+.sv-plan[data-drafting] .sv-group[data-step] .sv-group__title { overflow: visible; white-space: normal; }
 /* A plan being drafted shows every task, so its groups are not the stepper's single quiet lines. */
 .sv-plan[data-drafting] .sv-group[data-step] { border-color: var(--border-subtle); background: var(--bg-raised); }
 

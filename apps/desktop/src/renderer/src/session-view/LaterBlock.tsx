@@ -13,9 +13,9 @@ type One = NonNullable<Session["later"]>[number];
 export function LaterBlock({ later, onRemind, onDrop }: { later: NonNullable<Session["later"]>; onRemind: (sentence: string) => void; onDrop: (one: One) => void }) {
   const [open, setOpen] = useState(false);
   return (
-    <section className="sv-later" data-open={open || undefined} aria-label="Later">
+    <section className="sv-later" data-open={open || undefined} aria-label="Deferred">
       <button type="button" className="sv-later__row" aria-expanded={open} onClick={() => setOpen((was) => !was)}>
-        <span className="sv-later__label">Later</span>
+        <span className="sv-later__label">Deferred</span>
         <ChevronDown className="sv-later__chevron" size={12} strokeWidth={2} aria-hidden />
       </button>
       {open ? (

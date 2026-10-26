@@ -347,6 +347,10 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 .deck-chip[data-calling] { position: relative; }
 .deck-chip[data-calling]::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: var(--status-awaiting-review); opacity: 0.14; animation: deck-needs-pulse 1.6s ease-in-out infinite; pointer-events: none; }
 @media (prefers-reduced-motion: reduce) { .deck-chip[data-calling]::after { animation: none; } }
+/* The chip across the Issue line and the Merge line from the one hovered or focused: lit as a picked chip is. */
+.deck-chip[data-partner] { border-color: var(--accent); background: var(--accent-muted); color: var(--fg-default); }
+.deck-chip__pull { display: inline-flex; flex: none; align-items: center; gap: var(--space-1); padding-inline-start: var(--space-2); border-inline-start: var(--border-width) solid var(--border-glass); color: var(--fg-subtle); }
+.deck-chip:hover .deck-chip__pull, .deck-chip:focus-visible .deck-chip__pull, .deck-chip[data-partner] .deck-chip__pull { color: var(--fg-default); }
 .deck-chip__dot { --dot: var(--fg-subtle); flex: none; width: var(--space-2); height: var(--space-2); border-radius: 50%; background: transparent; box-shadow: inset 0 0 0 var(--border-width) var(--dot); }
 .deck-chip__dot[data-queued],
 .deck-chip__dot:not([data-state]) { background: var(--dot); }

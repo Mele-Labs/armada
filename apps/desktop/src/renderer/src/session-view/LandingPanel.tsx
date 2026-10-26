@@ -1,7 +1,7 @@
 // Landing: what the workflow ends in, so it differs by kind. A pull request draws the pull request, its Checks, its place in the merge queue and
 // the merge. A spike and a document draw the doc they made. A report draws the report itself: its title and the first lines of its conclusion, and a
 // press opens the whole of it in the side panel; it has no pull request and no merge. A mod draws the mods it made, each with its switch. Watching and
-// Later stand inside, whatever the kind. **The Job's issues are the Cockpit's Issue line and its pull requests stand in the Merge line**, not on this band.
+// Deferred stand inside, whatever the kind. **The Job's issues are the Cockpit's Issue line and its pull requests stand in the Merge line**, not on this band.
 // The stage opens it (`story.ts`); the band or ⌥L does too. `work.landing` names the kind in the mock until Fleet says it.
 
 import { useState } from "react";

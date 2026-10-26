@@ -1,7 +1,7 @@
 // A Job is a story, and the right column tells it in order: the workflow, the blueprint (the plan), the field it is built on, and what it lands in.
 // The stage is read from data the Job already holds. The Field and the Landing are open at their stage and folded to their bands otherwise. The
 // Blueprint is open until the Job lands: drafted it is the plan to approve, and approved it stays up as a compact read of the build. A press on a band or its key
-// opens or folds any of them by hand; that holds until the stage moves on. Mock: the landing kind comes from the scenario (`work.landing`) until Fleet says it.
+// opens or folds any of them by hand; that holds until the stage moves on. An approved Blueprint shows what is happening now; ⌥N or its button in the band shows the whole plan. Mock: the landing kind comes from the scenario (`work.landing`) until Fleet says it.
 
 import { useCallback, useSyncExternalStore } from "react";
 import { attachmentsOf, type Session, type WorkLanding } from "@armada/screens/src/draft/sessions";
@@ -64,7 +64,7 @@ export function pressBand(session: Session, area: Stage): void {
   changed();
 }
 
-/** The story moved on: what was opened or folded by hand gives way to the stage again. */
+/** The story moved on: what was opened or folded by hand gives way to the stage again, and the Blueprint to its Now view. */
 export function resetFolds(session: string): void {
   let any = false;
   for (const key of [...forced.keys()]) {
@@ -73,7 +73,37 @@ export function resetFolds(session: string): void {
       any = true;
     }
   }
+  if (whole.delete(session)) any = true;
   if (any) changed();
+}
+
+// ---- The whole blueprint ------------------------------------------------------------------------------------
+
+const whole = new Map<string, boolean>();
+
+/** Whether an approved Blueprint shows every group and task rather than the Now view. Drafting always shows the whole. */
+export function useWhole(session: string): { whole: boolean; toggle: () => void } {
+  const now = useSyncExternalStore(
+    (listener) => (hear.add(listener), () => void hear.delete(listener)),
+    () => whole.get(session) === true,
+  );
+  const toggle = useCallback(() => {
+    whole.set(session, !(whole.get(session) === true));
+    changed();
+  }, [session]);
+  return { whole: now, toggle };
+}
+
+/** A press of the whole-blueprint key: opens the Blueprint if it is folded, and swaps its Now view for the whole plan or back. */
+export function pressWhole(session: Session): void {
+  const key = keyOf(session.id, "blueprint");
+  if (forced.get(key) ?? openAt(session, "blueprint")) {
+    whole.set(session.id, !(whole.get(session.id) === true));
+  } else {
+    forced.set(key, true);
+    whole.set(session.id, true);
+  }
+  changed();
 }
 
 // ---- Keys ---------------------------------------------------------------------------------------------------
@@ -88,10 +118,15 @@ export const BAND_KEYS: readonly { area: Stage | "workflow"; code: string; cap: 
 
 export const bandKeyFor = (area: string): string | undefined => BAND_KEYS.find((one) => one.area === area)?.cap;
 
+/** Swaps the approved Blueprint between its Now view and the whole plan. */
+export const WHOLE_KEY = { code: "KeyN", cap: "⌥N" } as const;
+
 /** Artifacts over the right column. */
 export const ARTIFACTS_KEY = { code: "KeyA", cap: "⇧⌘A" } as const;
 
 export const bandOf = (event: KeyboardEvent): (typeof BAND_KEYS)[number] | undefined =>
   event.altKey && !event.metaKey && !event.ctrlKey && !event.shiftKey ? BAND_KEYS.find((one) => one.code === event.code) : undefined;
+
+export const isWholeKey = (event: KeyboardEvent): boolean => event.altKey && !event.metaKey && !event.ctrlKey && !event.shiftKey && event.code === WHOLE_KEY.code;
 
 export const isArtifactsKey = (event: KeyboardEvent): boolean => event.metaKey && event.shiftKey && !event.altKey && !event.ctrlKey && event.code === ARTIFACTS_KEY.code;

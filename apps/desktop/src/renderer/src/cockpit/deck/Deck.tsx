@@ -65,6 +65,7 @@ import { IssueLine } from "./IssueLine";
 import { MarkGlyph } from "./shared";
 import { toneOf } from "./order";
 import { callOwnerOf, enterAutopilot, incomingOf, keepOf, needingOf, leaveAutopilot, moveCursor, moveRow, openCall, openLinked, openSubject, select, selOfSubject, setFocus, setHover, setView, setQuery, setScope, setSearching, showMoreRows, toggleChecks, toggleNeeds, useDeck, withoutOpenSession, SCOPES, type DeckState, type Scope } from "./store";
+import { light, useLit } from "./issue-partner";
 import { callingHomes } from "./homes";
 import { useShip, type Ship, type Subject } from "./ship";
 import type { Hosts } from "../../session-view/SessionWorkspace";
@@ -525,6 +526,7 @@ function MergeQueue({ props, ship }: { props: CockpitProps; ship: Ship }) {
   const sel = useDeck((deck) => deck.sel);
   const panel = usePanel().open;
   const served = viewsOf(props.state);
+  const lit = useLit();
   // A layout that hides the merge line's panel hides this queue, its one counterpart.
   const shown = useLayout("dashboard.panels").shown.some((one) => one.id === "merge-line");
   if (served.length === 0 || !shown) return null;
@@ -589,6 +591,8 @@ function MergeQueue({ props, ship }: { props: CockpitProps; ship: Ship }) {
     const owner = pr === undefined ? undefined : ship.subjects.find((one) => one.pr?.key === pr.key);
     const tone = pr?.stage === "red" ? "bad" : owner?.mergeable === true ? "ask" : "calm";
     const place = dot.queued ? dot.card.place : undefined;
+    const partner = pr !== undefined && lit?.kind === "issue" && lit.pulls.includes(pr.number);
+    const lights = pr === undefined ? {} : { onMouseEnter: () => light({ kind: "pull", number: pr.number }), onMouseLeave: () => light(undefined), onFocus: () => light({ kind: "pull", number: pr.number }), onBlur: () => light(undefined) };
     const inside = (
       <>
         {place === undefined ? null : <span className="deck-chip__place" aria-hidden="true">{place}</span>}
@@ -604,7 +608,7 @@ function MergeQueue({ props, ship }: { props: CockpitProps; ship: Ship }) {
       </>
     );
     return (
-      <li key={`${view.root}:${dot.key}`}>
+      <li key={`${view.root}:${dot.key}`} {...lights}>
         {pr === undefined ? (
           <Inspect card={chipPreview(dot, false, openJob)} name={dot.tip} pin={false}>
             <span className="deck-chip" role="img" aria-label={dot.tip}>
@@ -615,7 +619,7 @@ function MergeQueue({ props, ship }: { props: CockpitProps; ship: Ship }) {
           <PullRequestMenuOn manifestId={manifestOf(pr.root)} number={pr.number}>
             {(on) => (
               <Inspect card={chipPreview(dot, true, openJob)} name={dot.tip} pin={false}>
-                <button type="button" className="deck-chip" data-selected={(panel?.kind === "pr" && panel.number === pr.number && (panel.root === undefined || panel.root === pr.root)) || undefined} data-related={related || undefined} data-calling={homes.has(dot.key) ? "" : undefined} aria-label={dot.tip} onClick={() => openPullRequestInPanel(pr)} {...on}>
+                <button type="button" className="deck-chip" data-selected={(panel?.kind === "pr" && panel.number === pr.number && (panel.root === undefined || panel.root === pr.root)) || undefined} data-related={related || undefined} data-partner={partner || undefined} data-calling={homes.has(dot.key) ? "" : undefined} aria-label={dot.tip} onClick={() => openPullRequestInPanel(pr)} {...on}>
                   {inside}
                 </button>
               </Inspect>

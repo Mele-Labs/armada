@@ -26,7 +26,7 @@ import type { PlanEditing } from "./PlanEdit";
 import { WorkflowPanel } from "./WorkflowPanel";
 import type { LiveOpen } from "./TurnAccountBlock";
 import { Layer } from "./SessionLayers";
-import { bandOf, isArtifactsKey, pressBand, resetFolds, stageOf } from "./story";
+import { bandOf, isArtifactsKey, isWholeKey, pressBand, pressWhole, resetFolds, stageOf } from "./story";
 import type { SessionBays } from "./slot-trouble";
 import "./session-view.css";
 
@@ -52,7 +52,7 @@ export function SessionWorkspace({ session, entries, repositories, hosts, ed, ba
   // Artifacts covers the right column, where the story is; every other layer covers the stage.
   const aside = story && layer === "artifacts";
   const layered = layer === undefined ? null : <Layer id={layer} session={session} entries={entries} bays={bays} onOpenCheck={onOpenCheck} onOpenSession={onOpenSession} onOpenSketch={onOpenSketch} />;
-  // A band opens by its key, and the composer's Artifacts key opens the list. A band's key closes the list first: the story is what it asked for.
+  // A band opens by its key, the Blueprint's whole-plan key swaps its Now view, and the composer's Artifacts key opens the list. A band's key closes the list first: the story is what it asked for.
   useEffect(() => {
     if (!story) return;
     const listen = (event: KeyboardEvent) => {
@@ -60,6 +60,12 @@ export function SessionWorkspace({ session, entries, repositories, hosts, ed, ba
       if (isArtifactsKey(event)) {
         event.preventDefault();
         return toggleLayer(id, "artifacts");
+      }
+      if (isWholeKey(event) && session.work?.plan !== undefined) {
+        event.preventDefault();
+        if (layer === "artifacts") closeLayer();
+        pressWhole(session);
+        return;
       }
       const band = bandOf(event);
       if (band === undefined) return;
