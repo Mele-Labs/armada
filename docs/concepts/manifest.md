@@ -56,7 +56,7 @@ The `kit.names` entry carries `gates` for it, so a person sees which of their ow
 A Check Kit's copy replaces by name gates as the repository's did, and `gate` on it is refused, as it is on any Check a repository declares: `gate` means nothing where there is nothing to add.
 A Command Kit's copy adds is available to a Job as any Command is.
 **Kit's `tracker` and `ci_gate` replace the repository's whole**, so a person whose issues are in Jira says so without committing it; nothing of the repository's block is kept in Kit's.
-A copy that is not the whole file holds only `checks`, `commands`, `tracker` and `ci_gate`.
+A copy that is not the whole file holds only `checks`, `commands`, `runs`, `ports`, `tracker` and `ci_gate`; servers are Commands, so their `dir` goes with them, and each is merged by name as Checks and Commands are.
 The rest of the repository's file stands, its id, base and policies among it.
 
 **A Kit copy that will not merge is left out and named, and the repository's own stands.** Fleet says it at start, and the summary carries the sentence as `left_out`.
@@ -250,8 +250,20 @@ commands:
 | `serve` | string | yes, for a server | — | Starts the server, held until stopped |
 | `ready` | string | no | serving once started | Exits zero once the server answers |
 | `links` | list | no | empty | Addresses offered as buttons, each a `url` and optional `name` |
+| `dir` | string | no | the checkout's root | A folder under the checkout the server starts in; one that leaves the checkout is refused |
 
 `${port.NAME}` resolves in every field from the claim the server runs under — see Ports, below. [Fleet](fleet.md) holds each server: one instance per checkout.
+
+**`runs:` names several servers started together, each on its own port.** A backend and a frontend in sibling folders are two servers with a `dir` each, and a run lists them.
+
+```yaml
+runs:
+  app:
+    label: The app
+    commands: [api, web]
+```
+
+`label` is optional and shows the run's name where it is absent. A run is a grouping of servers Fleet already holds, so it adds no process of its own ([Fleet](fleet.md), *Runs*).
 
 > **Rule.** A server that exits on its own has failed, whatever its exit code.
 > Why: staying up is the whole of what a server is for.
