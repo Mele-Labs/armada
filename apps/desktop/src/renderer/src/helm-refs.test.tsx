@@ -15,6 +15,7 @@ import type { Host } from "./helm-refs";
 import { dropLayer, useLayer, useLayerPage } from "./session-view/layers";
 import { SessionsFrom } from "./sessions-draft";
 import { openInPanel } from "./shared-panel/store";
+import "./styles/index.css";
 
 vi.mock("./shared-panel/store", async (actual) => ({ ...(await actual<typeof import("./shared-panel/store")>()), openInPanel: vi.fn(() => true) }));
 
@@ -164,6 +165,8 @@ test("a code span naming the Job's own document links once with its title, and a
     const links = page.getByRole("link");
     expect(links.all()).toHaveLength(1);
     await expect.element(links).toHaveAccessibleName("Bridge pricing schema");
+    // Under Bridge's own styles, whose reset draws every svg as a block, the glyph stays on the title's line.
+    expect((links.element() as HTMLElement).getClientRects()).toHaveLength(1);
     await act(async () => (links.element() as HTMLElement).click());
     expect(mount.querySelector("output")?.dataset).toMatchObject({ layer: "document", page: PAGE });
     expect(openInPanel).not.toHaveBeenCalled();
