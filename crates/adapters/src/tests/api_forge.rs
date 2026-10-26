@@ -142,8 +142,9 @@ fn a_page_the_api_refuses_says_why_and_what_to_do() {
     let repo = on_github();
 
     let said = forge.pull_request_page_said(&repo.root_str(), "2190").unwrap_err().expect("a reason");
-    assert!(said.contains("refused"), "names the cause: {said}");
-    assert!(said.contains("gh auth refresh"), "names the step: {said}");
+    assert!(said.contains("refused the token gh signed in with"), "names the cause: {said}");
+    assert!(said.contains("Sign in again with `gh auth refresh -s repo`"), "names the step: {said}");
+    assert!(said.contains("SAML enforcement"), "keeps the forge's own words: {said}");
     assert!(forge.pull_request_page(&repo.root_str(), "2190").is_none());
 }
 
