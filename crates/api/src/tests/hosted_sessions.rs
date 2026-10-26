@@ -74,3 +74,49 @@ async fn a_jobs_file_change_is_asked_over_the_router() {
     let no_path = app.oneshot(ask("session_id=s-1")).await.expect("an answer");
     assert_eq!(no_path.status(), StatusCode::BAD_REQUEST, "path is asked for");
 }
+
+/// `SendSessionMessageBody` is flat on the wire: `aim` sits beside the message's own fields, and the
+/// route hands both to the daemon. Held here, at the route, because the decode and the hand-over are
+/// what Fleet's own tests do not reach.
+async fn post_message(body: &str) -> (StatusCode, Vec<(ipc::SendSessionMessage, Option<ipc::ModAim>)>) {
+    let events = Broadcaster::new();
+    let daemon = std::sync::Arc::new(FakeDaemon::new(events.clone()));
+    let app = router(Served::sharing(daemon.clone(), run_id(), events));
+    let request = Request::builder()
+        .method("POST")
+        .uri("/sessions/message")
+        .header("content-type", "application/json")
+        .body(Body::from(body.to_string()))
+        .expect("a well-formed request");
+    let response = app.oneshot(request).await.expect("an answer");
+    let seen = daemon.messages_aimed.lock().expect("messages aimed").clone();
+    (response.status(), seen)
+}
+
+const SESSION: &str = "c279e883-d316-4202-8134-76ea8b531835";
+
+#[tokio::test]
+async fn a_flat_message_with_an_aim_reaches_the_daemon_with_both() {
+    let (status, seen) = post_message(&format!(r#"{{"session_id":"{SESSION}","text":"a darker theme","aim":"theme"}}"#)).await;
+    assert_ne!(status, StatusCode::BAD_REQUEST, "a flat body with an aim decodes");
+    assert_eq!(seen.len(), 1, "the daemon was handed one message");
+    assert_eq!(seen[0].0.text, "a darker theme");
+    assert_eq!(seen[0].0.session_id.as_str(), SESSION);
+    assert_eq!(seen[0].1, Some(ipc::ModAim::Theme), "the aim travels beside the message");
+}
+
+#[tokio::test]
+async fn a_flat_message_without_an_aim_reaches_the_daemon_with_none() {
+    let (status, seen) = post_message(&format!(r#"{{"session_id":"{SESSION}","text":"hello"}}"#)).await;
+    assert_ne!(status, StatusCode::BAD_REQUEST, "aim is optional");
+    assert_eq!(seen.len(), 1);
+    assert_eq!(seen[0].0.text, "hello");
+    assert_eq!(seen[0].1, None);
+}
+
+#[tokio::test]
+async fn an_aim_that_is_not_a_mod_kind_is_refused_before_the_daemon() {
+    let (status, seen) = post_message(&format!(r#"{{"session_id":"{SESSION}","text":"hello","aim":"sparkle"}}"#)).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "an unknown aim is undecodable");
+    assert!(seen.is_empty(), "nothing reached the daemon");
+}
