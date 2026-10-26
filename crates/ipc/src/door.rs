@@ -575,8 +575,8 @@ fn tool(shape: &Shape) -> Value {
                 "type": "object",
                 "description":
                     "The command's own fields, as JSON. Send it empty where the act takes \
-                     none; what a field is called is answered by the refusal you get for \
-                     leaving it out.",
+                     none. The tool's description names the fields, and a body Fleet cannot \
+                     read is refused with its whole shape.",
             }),
         );
     }
@@ -618,6 +618,16 @@ fn describe_in(operation: &str, name: &str) -> String {
         ),
         ("get_requests", "repository") => String::from(
             "A repository root, as `list_repositories` names it. Absent, your Job's repository",
+        ),
+        ("read_terminal", "until") => String::from(
+            "Text to wait for in what the shell printed since your last `type_in_terminal`, your own \
+             text's echo included. Absent, the read does not wait",
+        ),
+        ("read_terminal", "regex") => String::from(
+            "`true` reads `until` as a regular expression. Absent is `false`",
+        ),
+        ("read_terminal", "wait_seconds") => String::from(
+            "How long to wait for `until`. Absent is 10; at most 60. Read only with `until`",
         ),
         ("read_terminal", "lines") => String::from("How many of the last lines to read. Absent is 60; at most 500"),
         ("read_terminal", "session_id") => String::from(

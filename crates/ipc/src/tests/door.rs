@@ -480,3 +480,26 @@ fn the_permission_tools_name_is_the_one_both_ends_spell() {
     assert_eq!(crate::door::ASKS_A_PERSON, "ask_the_person");
     assert_eq!(crate::door::SERVER, "armada-fleet");
 }
+
+/// `read_terminal`'s three waiting arguments are its own, not the default text of a name any route may take.
+#[test]
+fn read_terminals_waiting_arguments_say_what_they_do() {
+    let listed: Value = serde_json::from_str(
+        &answer(Answered::Tools {
+            id: crate::door::CallId::of(json!(1)),
+            shapes: vec![Shape {
+                operation: "read_terminal",
+                method: "GET",
+                path: "/sessions/terminal/read",
+                query: &["until", "regex", "wait_seconds"],
+            }],
+        })
+        .expect("an answer"),
+    )
+    .expect("the answer is JSON");
+    let schema = &listed["result"]["tools"][0]["inputSchema"]["properties"];
+    for name in ["until", "regex", "wait_seconds"] {
+        let said = schema[name]["description"].as_str().expect("described");
+        assert!(!said.contains("this route names"), "{name}: {said}");
+    }
+}
