@@ -115,7 +115,7 @@ test("Deferred lists the issues the Job filed, once it is opened", async () => {
 });
 
 test("Deferred keeps the follow-ups the agent set aside beside the issues, and offers Remind and Drop on the follow-ups alone", async () => {
-  const host = await mount(sessionOf("pull_request", [pull(7), issue(31)], { later: [{ id: "l1", text: "Check the retry on Windows" }] } as Partial<Session>));
+  const host = await mount(sessionOf("pull_request", [pull(7), issue(31)], { later: [{ id: "l1", text: "Check the retry on Windows", at: "13:00:00" }] } as Partial<Session>));
   act(() => deferred(host)!.querySelector<HTMLElement>("button.sv-later__row")!.click());
   const items = [...deferred(host)!.querySelectorAll(".sv-later__item")];
   expect(items).toHaveLength(2);
