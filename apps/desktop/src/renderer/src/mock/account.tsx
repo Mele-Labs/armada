@@ -72,6 +72,7 @@ function Held({ offer, children }: { offer: Offer; children: ReactNode }) {
       login: one.login,
       active: at === 0,
       chosen: one.chosen,
+      ...(offer.orgs?.[one.login] === undefined ? {} : { orgs: offer.orgs[one.login] }),
       ...(offer.noHome === undefined ? { repository: offer.signIn.repository } : {}),
     })),
   );
@@ -152,7 +153,7 @@ function Held({ offer, children }: { offer: Offer; children: ReactNode }) {
         timers.push(
           window.setTimeout(() => {
             next(steps("done", "done", "waiting"));
-            setProfiles([{ account_id: 1, login, active: true, chosen: false }]);
+            setProfiles([{ account_id: 1, login, active: true, chosen: false, ...(offer.orgs?.[login] === undefined ? {} : { orgs: offer.orgs[login] }) }]);
             setAuthorized(false);
           }, STEP_MS * 2),
         );
@@ -161,7 +162,7 @@ function Held({ offer, children }: { offer: Offer; children: ReactNode }) {
         timers.push(
           window.setTimeout(() => {
             next(steps("done", "done", "done"));
-            setProfiles([{ account_id: 1, login, active: true, chosen: false, repository }]);
+            setProfiles([{ account_id: 1, login, active: true, chosen: false, repository, ...(offer.orgs?.[login] === undefined ? {} : { orgs: offer.orgs[login] }) }]);
             setAuthorized(false);
           }, STEP_MS * 3),
         );

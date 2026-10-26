@@ -47,6 +47,7 @@ export type ActionScope =
   | "list and detail"
   | "logbook"
   | "open studio"
+  | "plan"
   | "review";
 
 /** Why an act's glyph column is empty. `null` where it is not. */
@@ -830,6 +831,58 @@ export const ACTIONS: readonly Action[] = [
     scope: "logbook",
     destructive: true,
     confirms: true,
+    unbuilt: null,
+  },
+  {
+    id: "plan_adversarial_review",
+    kind: "Action",
+    tier: "Contextual",
+    verb: "Adversarial review",
+    icon: null,
+    iconAbsent: "undecided",
+    shortcut: "r",
+    scope: "plan",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
+  {
+    id: "finding_move",
+    kind: "Motion",
+    tier: "Contextual",
+    verb: "Move between findings",
+    icon: null,
+    iconAbsent: null,
+    shortcut: "j / k / ↓ / ↑",
+    scope: "plan",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
+  {
+    id: "finding_send",
+    kind: "Action",
+    tier: "Contextual",
+    verb: "Send to agent",
+    icon: null,
+    iconAbsent: "undecided",
+    shortcut: "Enter",
+    scope: "plan",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
+  {
+    id: "finding_dismiss",
+    kind: "Action",
+    tier: "Contextual",
+    verb: "Dismiss",
+    icon: null,
+    iconAbsent: "undecided",
+    shortcut: "d / Backspace",
+    scope: "plan",
+    destructive: false,
+    confirms: false,
     unbuilt: null,
   },
 ];

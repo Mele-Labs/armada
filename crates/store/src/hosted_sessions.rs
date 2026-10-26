@@ -49,6 +49,8 @@ pub struct KeptHosting {
     /// Auto land is on: Fleet turns on the forge's auto-merge for each pull request the session
     /// holds, as it attaches and when this is turned on.
     pub auto_land: bool,
+    /// A Mod Job, started from Mod for modding Armada itself.
+    pub mod_job: bool,
     /// The Job waits on its start card: no agent runs and a message is kept, until it begins.
     pub start_held: bool,
 }
@@ -56,7 +58,7 @@ pub struct KeptHosting {
 const COLUMNS: &str =
     "session_id, manifest_id, model, effort, mode, ran, lease_slot, lease_branch, fork_of, helm, \
      setup, workflow, proposed, turn_model, turn_effort, paused_at, paused_resuming, auto_land, \
-     start_held";
+     mod_job, start_held";
 
 fn kept(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptHosting> {
     Ok(KeptHosting {
@@ -78,7 +80,8 @@ fn kept(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptHosting> {
         paused_at: row.get(15)?,
         paused_resuming: row.get::<_, i64>(16)? != 0,
         auto_land: row.get::<_, i64>(17)? != 0,
-        start_held: row.get::<_, i64>(18)? != 0,
+        mod_job: row.get::<_, i64>(18)? != 0,
+        start_held: row.get::<_, i64>(19)? != 0,
     })
 }
 
@@ -88,7 +91,7 @@ impl Store {
             .execute(
                 &format!(
                     "INSERT OR REPLACE INTO hosted_sessions ({COLUMNS})
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19)"
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20)"
                 ),
                 params![
                     hosting.session_id,
@@ -109,6 +112,7 @@ impl Store {
                     hosting.paused_at,
                     i64::from(hosting.paused_resuming),
                     i64::from(hosting.auto_land),
+                    i64::from(hosting.mod_job),
                     i64::from(hosting.start_held),
                 ],
             )
@@ -178,6 +182,75 @@ impl Store {
         rows.collect::<Result<_, _>>()
             .map_err(fault(doing))
             .map_err(WriteError::Database)
+    }
+
+    /// Keep the first turn of a Job on its start card. `false`, with nothing written, where one is
+    /// kept already: the first to arrive is the first turn.
+    pub fn keep_held_first_turn(&mut self, session_id: &str, body: &str) -> Result<bool, WriteError> {
+        self.conn
+            .execute("INSERT OR IGNORE INTO held_first_turns (session_id, body) VALUES (?1, ?2)", params![session_id, body])
+            .map(|changed| changed > 0)
+            .map_err(fault("keeping a held job's first turn"))
+            .map_err(WriteError::Database)
+    }
+
+    /// The first turn a Job on its start card keeps, if any.
+    pub fn held_first_turn(&self, session_id: &str) -> Result<Option<String>, WriteError> {
+        self.conn
+            .query_row("SELECT body FROM held_first_turns WHERE session_id = ?1", [session_id], |row| row.get(0))
+            .optional()
+            .map_err(fault("reading a held job's first turn"))
+            .map_err(WriteError::Database)
+    }
+
+    /// The first turn, taken: read and removed, so the press that begins the Job sends it once.
+    pub fn take_held_first_turn(&mut self, session_id: &str) -> Result<Option<String>, WriteError> {
+        let doing = "taking a held job's first turn";
+        let taken: Option<String> = self
+            .conn
+            .query_row("DELETE FROM held_first_turns WHERE session_id = ?1 RETURNING body", [session_id], |row| row.get(0))
+            .optional()
+            .map_err(fault(doing))
+            .map_err(WriteError::Database)?;
+        Ok(taken)
+    }
+
+    /// Keep a turn that reached a Job on its start card after its first, behind those kept already.
+    pub fn keep_held_later_turn(&mut self, session_id: &str, body: &str) -> Result<(), WriteError> {
+        self.conn
+            .execute("INSERT INTO held_later_turns (session_id, body) VALUES (?1, ?2)", params![session_id, body])
+            .map(|_| ())
+            .map_err(fault("keeping a held job's later turn"))
+            .map_err(WriteError::Database)
+    }
+
+    /// The later turns a Job on its start card keeps, oldest first.
+    pub fn held_later_turns(&self, session_id: &str) -> Result<Vec<String>, WriteError> {
+        let doing = "reading a held job's later turns";
+        let mut statement = self
+            .conn
+            .prepare("SELECT body FROM held_later_turns WHERE session_id = ?1 ORDER BY seq")
+            .map_err(fault(doing))
+            .map_err(WriteError::Database)?;
+        let rows = statement.query_map([session_id], |row| row.get(0)).map_err(fault(doing)).map_err(WriteError::Database)?;
+        rows.collect::<Result<_, _>>().map_err(fault(doing)).map_err(WriteError::Database)
+    }
+
+    /// The later turns, taken: read and removed, oldest first, so the press that begins the Job sends them once.
+    pub fn take_held_later_turns(&mut self, session_id: &str) -> Result<Vec<String>, WriteError> {
+        let doing = "taking a held job's later turns";
+        let mut statement = self
+            .conn
+            .prepare("DELETE FROM held_later_turns WHERE session_id = ?1 RETURNING seq, body")
+            .map_err(fault(doing))
+            .map_err(WriteError::Database)?;
+        let rows = statement
+            .query_map([session_id], |row| Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?)))
+            .map_err(fault(doing))
+            .map_err(WriteError::Database)?;
+        let mut taken: Vec<(i64, String)> = rows.collect::<Result<_, _>>().map_err(fault(doing)).map_err(WriteError::Database)?;
+        taken.sort_by_key(|(seq, _)| *seq);
+        Ok(taken.into_iter().map(|(_, body)| body).collect())
     }
 
     /// Put a row on the end of a thread, or replace the one of the same id.

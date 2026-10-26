@@ -150,6 +150,8 @@ mod repositories;
 mod requester;
 /// Requests: an HTTP request the owner or an agent sends, its collections and environments.
 mod requests;
+/// An adversarial review: a read-only call that tries to break what a person is about to approve.
+mod adversarial_review;
 /// What an agent says about one pull request, and the review tools it is asked with.
 mod review_runs;
 /// Natural Search, and where a change runs for the Walk tool.
@@ -166,6 +168,8 @@ mod retro_session;
 mod scan;
 mod scouting;
 mod seeding;
+/// A repository's app started from Bridge: several servers held as one run.
+mod app_runs;
 /// A Command that stays running, held by Fleet. **Lifecycle on `/events`,
 /// output on a socket of its own.**
 mod servers;
@@ -206,6 +210,8 @@ mod sleep;
 mod plan_usage;
 /// The default model stepping down while the weekly window runs out.
 mod model_downshift;
+/// The agents' account signed out, for the whole Fleet.
+mod agent_sign_in;
 /// What fills a session's context window.
 mod context_breakdown;
 /// What a session's agent knows, was told, and used each turn, and where each came from.
@@ -324,7 +330,7 @@ pub use holding::{
 pub use hosted_sessions::{
     AnswerSessionAsk, BeginSession, ChosenHold, CloseSession, ForkFrom, GateAnswer, GateHold, HeldCommand,
     HoldKept, HoldMoved, HostedFacts, LinkedEvent, MessagesHeld, MoveSession,
-    ReleaseSessionHolds, RunSessionCommand, SendSessionMessage, SentFile, SessionAskState,
+    ReleaseSessionHolds, RunSessionCommand, SendSessionMessage, SendSessionMessageBody, SentFile, SessionAskState,
     SessionGate, SessionHoldsReleased, SessionMode, SessionRow, SessionRowChanged, SessionTag,
     SetSessionWorkflow, SessionSubagent, SessionThread, SessionTurn, SessionUpload,
     SessionVoice, SessionVoiceNamed, StartSession, StopSession, RetryHandoff, PauseSession, ResumeSession, SessionPaused, SetSessionAutoLand, TagKind, TakeHeld, TerminalAsk,
@@ -354,8 +360,8 @@ pub use sharing::{
 };
 pub use sharing::{KitManifestSaved, SaveKitManifest};
 pub use shared_home::{
-    ChooseHomeSide, HomeKind, HomeKindSwitch, HomeKinds, HomeNamed, HomeProfile, HomeRow, HomeRowAt, HomeRowState,
-    HomeSide, HomeUnreadable, SetHomeKind, SharedHomeRead,
+    ChooseHomeSide, HomeKind, HomeKindSwitch, HomeKinds, HomeLeft, HomeNamed, HomePlanned, HomeProfile, HomeRow, HomeRowAt,
+    HomeRowState, HomeSide, HomeSynced, HomeUnreadable, SetHomeKind, SetHomeRepository, SharedHomeRead,
 };
 pub use issue_reference::{ClaimIssue, IssueClaimed, IssueReference};
 pub use issue_queries::{
@@ -394,8 +400,8 @@ pub use merge_line::{
     MergeLineCheck, MergeLineEntry, MergeLinePullRequest, MergeLines,
 };
 pub use mods::{
-    ModChecked, ModKind, ModList, ModOrigin, ModPromoted, ModPullRequest, ModScaffolded, ModSummary, PromoteMod,
-    ScaffoldMod, SetModEnabled, TrackerTry, TryTrackerMod,
+    ModAim, ModChecked, ModKind, ModList, ModOrigin, ModPromoted, ModPullRequest, ModScaffolded, ModSessionStarted, ModSummary,
+    PromoteMod, ScaffoldMod, SetModEnabled, StartModSession, TrackerTry, TryTrackerMod,
 };
 pub use clashes::{
     ClashFile, ClashHolder, ClashSide, WriteClash, WriteClashes,
@@ -472,6 +478,10 @@ pub use session_import::{
     ImportFolder, ImportFolders, ImportGit, ImportRuns, InstallAgentMod, ModInstallStep, ModInstalled, RunFact,
     RunFactKind,
 };
+pub use adversarial_review::{
+    AdversarialFinding, AdversarialReview, AdversarialReviewState, DismissFinding, FindingAnchor, FindingHow,
+    FindingSettled, ReviewSubject, SendFinding, StartAdversarialReview,
+};
 pub use review_runs::{
     PullReviewHolder, ReviewChange, ReviewFinding, ReviewImpact, ReviewLink, ReviewPlace,
     ReviewResult, ReviewRun, ReviewRunKind, ReviewRunState, ReviewRuns, ReviewSeverity,
@@ -505,6 +515,10 @@ pub use scouting::{
 pub use seeding::{
     DeclaredSeed, SeedWarmth,
 };
+pub use app_runs::{
+    AppRun, AppRunCheckout, AppRunDraft, AppRunDraftProcess, AppRunLink, AppRunList, AppRunOpensIn,
+    AppRunProcess, AppRunState, NamedAppRun, PinAppRunPort, SaveAppRun, SavedAppRun, UnpinAppRunPort,
+};
 pub use servers::{
     NamedServer, ServerCheckout, ServerEntry, ServerLink, ServerList, ServerMessage,
     ServerOpened, ServerPhase, ServerPort, ServerState, StartServer, StartedBy,
@@ -523,7 +537,7 @@ pub use phone::{PhoneGateway, SetPhoneGateway};
 pub use show_file::{ShowFile, ShownText};
 pub use test_map::{ReachingCheck, ReachingTest, RecordedLap, RecordedLaps, TestsReaching};
 pub use sketch::{
-    RawScene, ShowSketch, Sketch,
+    page_scene_problems, RawScene, ShowSketch, Sketch,
 };
 pub use session_starts::{
     ForkThisSession, HandToSession, SessionHeld, SessionLink, StartAnotherSession,
@@ -587,11 +601,12 @@ pub use session_build::{
 pub use model_downshift::{
     ModelDownshift, ModelDownshiftState,
 };
+pub use agent_sign_in::AgentSignIn;
 pub use plan_usage::{
     PlanUsage, PlanWindow,
 };
 pub use accounts::{
-    AccountFlow, Accounts, BoundHow, BoundRepository, Profile, SetRepositoryProfile, SetUpState,
+    AccountFlow, Accounts, BoundHow, BoundRepository, Profile, ProfileHome, SetRepositoryProfile, SetUpState,
     SetUpSteps, SignInEnded, SignInOutcome, SignOut, SignedOut, UnmatchedRepository,
 };
 pub use sleep::{
@@ -600,7 +615,7 @@ pub use sleep::{
 };
 pub use setup::{
     LeftOutWorkflow, ManifestFromKit, ManifestKitName, ManifestSummary, ModelChoices, ModelsRead, OfferedModel,
-    OverriddenWorkflow, SaveWorkflow, StepPhase,
+    Lands, OverriddenWorkflow, SaveWorkflow, StepPhase,
     WorkflowDefinition, WorkflowSaved, WorkflowScope, WorkflowStep, WorkflowSummary,
 };
 pub use since::{

@@ -79,6 +79,10 @@ pub(crate) struct ProposalState {
     /// `held` stands for the thread's unsent messages. False in a Fleet that restarted while the Job was
     /// held, until `start_card::restored` has read them back.
     pub start_synced: bool,
+    /// The held Job's default workflow has been weighed, so it is not weighed again.
+    pub defaulted: bool,
+    /// The person set the workflow, custom too: no default goes over it.
+    pub workflow_chosen: bool,
 }
 
 impl ProposalState {
@@ -200,7 +204,7 @@ where
             return self.after_begun(record, after, request).await;
         }
         start.request = Some(request.clone());
-        let record = self.started_hosted(start, false).await?;
+        let record = self.started_hosted(start, super::Marked::Plain).await?;
         let id = record.id.as_str().to_string();
         let fleet = Arc::clone(&self);
         let words = request.clone();
@@ -403,10 +407,13 @@ where
             state.proposal.draining |= !kept_back;
             kept_back
         };
-        let _ = self.published_hosted(id).await;
         if kept_back {
+            // What the reading left blank is filled now, so the card is never without a workflow.
+            self.held_defaulted(id).await;
+            let _ = self.published_hosted(id).await;
             return;
         }
+        let _ = self.published_hosted(id).await;
         self.held_sent(id).await;
         let _ = self.published_hosted(id).await;
     }
@@ -574,6 +581,8 @@ where
                 ));
             }
         }
+        // Chosen, even where it is what the Job holds: a held Job's default does not go over it.
+        self.hosts().of(&id).state().proposal.workflow_chosen = true;
         if hosting.workflow == workflow {
             return self.published_hosted(&id).await;
         }

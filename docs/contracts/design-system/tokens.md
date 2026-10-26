@@ -76,8 +76,8 @@ so the grid shows round its floor and the panels sit around it; its zoom and rec
 blur while a scrim covers the panel: a Sheet or Dialog and what is inside it stay flat on `--bg-raised`.
 
 **One sheet, whatever the panel holds.** The Job pane is the thread's own frame: the card inside it draws no
-edge, shadow or glass, its head is the same band every panel has, and the message box is a frosted chip. The Field
-and Progress beside an open Job, the repository picker and its button over Jobs, and the bays strip are the same material at the same radius; the Field keeps an opaque fill, since its drawing animates.
+edge, shadow or glass, its head is the same band every panel has, and the message box is a frosted chip. The Workflow,
+Blueprint, Field and Landing beside an open Job, the repository picker and its button over Jobs, and the bays strip are the same material at the same radius; the Field keeps an opaque fill, since its drawing animates.
 A focused panel lifts its edge and shadow and fills no header. A state is the colour of a panel's edge,
 never a glow. The repository field inside Autopilot is a flat step at the control radius.
 
@@ -120,7 +120,7 @@ A linked Session alone has a glyph, `link`, before its title. A queued row keeps
 (WAI-ARIA: a text input with a listbox popup). Pressing or focusing it turns it into a search box in place,
 showing the current pick as its placeholder; the list opens under it as a glass layer and narrows as he types.
 ArrowDown and ArrowUp move, Enter picks, Esc puts the previous pick back and closes. All repositories leads, a rule under
-it; the repositories follow; Add a repository is a footer row outside the filter, reachable by arrow like any row.
+it; the repositories follow; New project and Add a repository are footer rows outside the filter, reachable by arrow like any row.
 
 **Studios on All repositories** draws one glass panel for each repository, headed by its name, and never
 asks for a repository first. Nothing else about a list changes with the scope.

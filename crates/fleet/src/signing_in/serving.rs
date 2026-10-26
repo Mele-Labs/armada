@@ -91,6 +91,22 @@ where
         }
     }
 
+    /// Where each profile's home is made, from what this machine recorded for it, in place of the
+    /// default a profile with no copy here is read with.
+    async fn homed(&self, mut accounts: AccountsList) -> Result<AccountsList, Refusal> {
+        let store = self.store().lock().await;
+        for profile in accounts.profiles.iter_mut().filter(|profile| !profile.home.made) {
+            let kept = store.home_repository(&profile.login).map_err(|why| {
+                Refusal::Fault(WireError::raised(ACCOUNTS_NOT_KEPT, format!("Where the shared home is made could not be read: {why}"), self.run_id()))
+            })?;
+            if let Some(kept) = kept {
+                profile.home.account = kept.owner;
+                profile.home.repository = kept.name;
+            }
+        }
+        Ok(accounts)
+    }
+
     fn refused_account(&self, refused: Refused) -> Refusal {
         let run = self.run_id();
         match refused {
@@ -122,7 +138,8 @@ where
     W::Error: std::error::Error + Send + Sync + 'static,
 {
     async fn get_accounts(&self) -> Result<AccountsList, Refusal> {
-        self.signing(|signing, repositories| signing.accounts(&repositories)).await
+        let accounts = self.signing(|signing, repositories| signing.accounts(&repositories)).await?;
+        self.homed(accounts).await
     }
 
     /// **The settings are read here and handed down**, so a change to either is
@@ -134,22 +151,27 @@ where
             store_url: now.get(keys::STORE_URL),
             machine: now.get(keys::MACHINE_NAME),
         };
-        self.signing(move |signing, repositories| {
-            let machine = machine_name(&begin.machine, host_name);
-            signing.start(Begin { machine, ..begin }, &repositories)
-        })
-        .await
+        let accounts = self
+            .signing(move |signing, repositories| {
+                let machine = machine_name(&begin.machine, host_name);
+                signing.start(Begin { machine, ..begin }, &repositories)
+            })
+            .await?;
+        self.homed(accounts).await
     }
 
     async fn sign_out(&self, sign_out: SignOut) -> Result<SignedOut, Refusal> {
         let store_url: String = self.machine_settings().now().get(keys::STORE_URL);
-        self.signing(move |signing, repositories| signing.sign_out(sign_out.account_id, &store_url, &repositories)).await
+        let mut signed_out =
+            self.signing(move |signing, repositories| signing.sign_out(sign_out.account_id, &store_url, &repositories)).await?;
+        signed_out.accounts = self.homed(signed_out.accounts).await?;
+        Ok(signed_out)
     }
 
     async fn set_repository_profile(&self, set: SetRepositoryProfile) -> Result<AccountsList, Refusal> {
-        self.signing(move |signing, repositories| {
-            signing.set_repository_profile(&set.root, set.account_id, &repositories)
-        })
-        .await
+        let accounts = self
+            .signing(move |signing, repositories| signing.set_repository_profile(&set.root, set.account_id, &repositories))
+            .await?;
+        self.homed(accounts).await
     }
 }

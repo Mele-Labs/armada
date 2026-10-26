@@ -38,6 +38,8 @@ import { handleAccounts } from "./accounts-channels";
 import { handlePlanUsage } from "./plan-usage-channels";
 import { handleModelDownshift } from "./model-downshift-channels";
 import { DownshiftNotice } from "./downshift-notice";
+import { handleAgentSignIn } from "./agent-sign-in-channels";
+import { AgentSignInNotice } from "./agent-sign-in-notice";
 import { SessionAttention } from "./session-attention";
 import { soundOf } from "./telling";
 import { settingOf } from "./settings";
@@ -424,6 +426,20 @@ const downshiftNotice = new DownshiftNotice({
 });
 
 /**
+ * What the OS says when the agents' account signs out. The rule, the words and the tone are `agent-sign-in-notice.ts`'s; this is the
+ * effect, and like the downshift's **it shows whether or not a Bridge window has focus**: Jobs have stopped, and the alert in a window
+ * he is not reading is no help. A press brings Bridge forward.
+ */
+const agentSignInNotice = new AgentSignInNotice({
+  show: (told) => {
+    if (!Notification.isSupported()) return;
+    const banner = new Notification({ title: told.title, sound: told.sound });
+    banner.on("click", focusBridge);
+    banner.show();
+  },
+});
+
+/**
  * What the OS says when a Job starts waiting on the owner. The rule, the words and the tone are `session-attention.ts`'s; this is
  * the effect. **A banner only while no Bridge window has focus, and only while `features.notifications` is not off**; the dock count
  * needs neither. A press lands on the Job.
@@ -496,6 +512,11 @@ void app.whenReady().then(() => {
     everyWindow(CHANNELS.modelDownshiftChanged, state);
   });
   connection.modelDownshift.onSeeded((state) => downshiftNotice.seed(state));
+  connection.agentSignIn.onChanged((state) => {
+    agentSignInNotice.read(state);
+    everyWindow(CHANNELS.agentSignInChanged, state);
+  });
+  connection.agentSignIn.onSeeded((state) => agentSignInNotice.seed(state));
   connection.timeline.onAppended((event) => everyWindow(CHANNELS.timelineAppended, event));
   connection.acts.onFailed((failed) => everyWindow(CHANNELS.actFailed, failed));
   connection.reviews.onRun((run) => everyWindow(CHANNELS.reviewRunChanged, run));
@@ -690,6 +711,7 @@ void app.whenReady().then(() => {
   ipcMain.handle(CHANNELS.getSessionWindows, () => captureWindows.sessionAddresses());
   handlePlanUsage({ ipc: ipcMain, connection: () => connection });
   handleModelDownshift({ ipc: ipcMain, connection: () => connection });
+  handleAgentSignIn({ ipc: ipcMain, connection: () => connection });
   handleTimeline({ ipc: ipcMain, connection: () => connection });
   handleClashes({ ipc: ipcMain, connection: () => connection });
   handleTeaching({ ipc: ipcMain, connection: () => connection });

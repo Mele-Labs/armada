@@ -15,9 +15,60 @@
   justify-content: center;
 }
 
-/* A described switch aligns its track to the top of its text; here the track shares the centre line with the other controls. */
-.armada-mod-row__switch .armada-switch[data-described="true"] {
+/* The name and the switch share the centre line with the other controls. Only the switch toggles; the name opens the mod. */
+.armada-mod-row__switch {
+  display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.armada-mod-row__text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  color: var(--fg-default);
+  text-align: start;
+}
+
+button.armada-mod-row__text {
+  cursor: pointer;
+}
+
+button.armada-mod-row__text:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.armada-mod-row__detail {
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  text-wrap: pretty;
+}
+
+/* A row that opens: the pointer says so, and the ground takes a pad without moving anything. */
+.armada-mod-row[data-openable] {
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+}
+
+.armada-mod-row[data-openable]:hover {
+  background: var(--bg-hover);
+  box-shadow: 0 0 0 var(--space-1) var(--bg-hover);
+}
+
+.armada-mod-row[data-openable]:hover .armada-switch,
+.armada-mod-row[data-openable] .armada-switch {
+  cursor: pointer;
 }
 
 /* Details' slot when the mod has none. */

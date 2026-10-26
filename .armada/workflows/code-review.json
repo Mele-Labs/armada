@@ -40,11 +40,15 @@
 # `records_plan: true` sits beside `evidence.submitted`, never inside it — and
 # `assess` follows. Code Review had no plan step before this; now a person
 # watching one sees the same task-by-task progress every other workflow shows.
+#
+# **`lands: report`**: the review is handed back and no pull request of its
+# own is opened, so its Landing is a report rather than a document.
 {
   "version": 1,
   "workflow_id": "code_review",
   "name": "code_review",
   "for_requests": "A pull request somebody wants reviewed: a link to one, where the code is already written and what is wanted is a judgement on it rather than a change to it.",
+  "lands": "report",
   "steps": [
     {
       "id": "read",

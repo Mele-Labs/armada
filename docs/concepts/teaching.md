@@ -81,8 +81,8 @@ The words are the `Notice` enum in `crates/ipc/src/notices.rs`.
 | Pull requests | `pr_checks_failed`, `pr_conflicts`, `pr_dropped`, `pr_unmergeable`, `pr_merged`, `pr_auto_merge`, `pr_queued`, `pr_handed`, `auto_land_refused` |
 | Slots and the build | `behind_base`, `slot_free`, `slot_kept`, `slot_stranded`, `build_moved`, `write_clash`, `main_red` |
 | Workflow and delivery | `rail_nudge`, `rail_step`, `plan_approved`, `workflow_changed`, `delivery_asked`, `delivery_chosen`, `watch_saw` |
-| Usage and handoff | `usage_trip`, `limit_wake`, `context_handoff` |
-| Others | `retro_note`, `reply_claim`, `walk_failed` |
+| Usage and handoff | `usage_trip`, `limit_wake`, `sign_in_wake`, `context_handoff` |
+| Others | `retro_note`, `reply_claim`, `walk_failed`, `issue_lost`, `document_sketch` |
 | Teaching | `taught` |
 
 > **Rule.** A mute beats a rule, and the nearest place beats a farther one: a Job's rule, then its repository's, then everywhere's.
@@ -141,6 +141,17 @@ Switching a mod off in Mods is the way to stop one without forgetting the note.
 | A condition outside the four, or one tested twice in a rule | Fleet can test only what it keeps, and the second could never be reached |
 
 The codes, `fleet.teaching_words_refused` and its siblings, are in `crates/ipc/operations/read_teaching.toml`.
+
+## Teach or Mod
+
+| | Teach | Mod |
+|---|---|---|
+| Press it for | A note, a pattern, a notice rule, a token tweak or a layout change | Anything Teach cannot propose |
+| It is | One press, one model call, a proposal saved in place | A Job he talks with |
+| Conversation | None | Yes |
+
+Teach is the first to press when the ask fits one of its five parts.
+Mod is for the rest, and starts a Mod Job: [A Mod Job](mods.md#a-mod-job).
 
 ## What it is not
 

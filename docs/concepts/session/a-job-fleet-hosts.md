@@ -18,7 +18,7 @@ engine with a note and a few more tools, one per repository.
 > **Rule.** Every process of a hosted job carries Armada's job rules in
 > its system prompt (`--append-system-prompt`), appended to whatever output style
 > the person has. They lead the argument; Helm's note and a fork's or move's note
-> follow, and the repository's remembered runs come last ([Kit](../kit.md), *What a repository runs*). Where the person's style and the rules conflict on how a need or
+> follow, and the Logbook note comes last ([Logbook](../logbook.md), *Recall*). Where the person's style and the rules conflict on how a need or
 > progress is surfaced, the rules win, and the style keeps tone, length and format.
 > Why: a style that asks for every action in a table leaves `waiting_for`, the task
 > list and `all_done` uncalled, and Bridge reads needs and progress from those
@@ -126,7 +126,7 @@ anything else, or by a holder that has gone, is refused. The main checkout stays
 refused, and a `..` is resolved by reading before the path is placed.
 
 **Setup's job is the one exception** (the owner, 13 Oct 2026). Started by `root` in a
-repository with no `armada.yml`, it has no pool to lease from, so until that root's
+repository with no Manifest (no `armada.yml` and no Kit copy), it has no pool to lease from, so until that root's
 Manifest is served it writes only its setup files and is refused anything else: a file
 named `armada.yml` or `.gitignore` at any depth under the root, one for each workspace of
 a monorepo, and `<root>/.git/info/exclude` (the owner, 14 Oct 2026). A path is placed
@@ -245,8 +245,8 @@ a multi-select's labels joined with `, `. [Spike 29](../../spikes/029-why-a-sess
 
 | Operation | Does |
 |---|---|
-| `start_session` | A row for one repository, with optional title, model, effort and mode; `held` keeps it on its start card (*The start card*) |
-| `begin_session` | Start pressed on the start card: keeps how the work lands, lifts the hold, sends the turns that waited |
+| `start_session` | A row for one repository, with optional title, model, effort and mode; `held` keeps it held (*A held Job*) |
+| `begin_session` | Start pressed on a held Job: keeps how the work lands, lifts the hold, and sends the first message as he left it in the box, with the turns that waited |
 | `rename_session` | A person's name for a Job, hosted or in a terminal; stands until the next terminal `/rename` |
 | `start_session_run` | A shell block run from a Job's thread, on a terminal of its own, in its slot worktree or directory; output is held in memory only |
 | `stop_session_run` | Ends a run's process group |

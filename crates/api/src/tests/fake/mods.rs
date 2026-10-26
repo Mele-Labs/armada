@@ -4,8 +4,8 @@
 use std::sync::Arc;
 
 use ipc::{
-    ModChecked, ModList, ModPromoted, ModScaffolded, ModSummary, PromoteMod, ScaffoldMod,
-    SetModEnabled,
+    ModChecked, ModList, ModPromoted, ModScaffolded, ModSessionStarted, ModSummary, PromoteMod,
+    ScaffoldMod, SetModEnabled, StartModSession,
 };
 
 use super::FakeDaemon;
@@ -32,6 +32,7 @@ impl Mods for FakeDaemon {
             description: None,
             taught_on: None,
             entry: None,
+            made_by: None,
             enabled: set.enabled,
             valid: true,
             reason: None,
@@ -74,6 +75,14 @@ impl Mods for FakeDaemon {
             commit: String::from("0000000"),
             pull_request: None,
             pull_request_not_opened: None,
+        })
+    }
+
+    async fn start_mod_session(self: Arc<Self>, start: StartModSession) -> Result<ModSessionStarted, Refusal> {
+        Ok(ModSessionStarted {
+            session_id: ipc::SessionId::carried("fake-session"),
+            title: start.title.unwrap_or_else(|| String::from("Mod")),
+            send_failed: None,
         })
     }
 }

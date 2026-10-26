@@ -413,6 +413,7 @@ pub(super) fn hosting(session_id: &str, manifest: &str, helm: bool) -> crate::Ke
         paused_at: None,
         paused_resuming: false,
         auto_land: false,
+        mod_job: false,
         start_held: false,
     }
 }

@@ -108,7 +108,7 @@ impl<R: Run> JiraTracker<R> {
 
 }
 
-fn missing(tool: &str, why: &std::io::Error, doing: &'static str) -> NotTracked {
+pub(crate) fn missing(tool: &str, why: &std::io::Error, doing: &'static str) -> NotTracked {
     match why.kind() {
         ErrorKind::NotFound => NotTracked::of(
             doing,

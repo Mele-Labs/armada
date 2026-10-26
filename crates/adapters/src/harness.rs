@@ -107,6 +107,13 @@ impl HeadlessAgent {
     pub fn default_model() -> &'static str {
         DEFAULT_MODEL
     }
+
+    /// What signs the CLI in again, after [`program`](Self::program). **It needs no terminal**: it
+    /// opens the person's browser and waits on the page's callback to a port of its own, and only
+    /// asks for a pasted code where the browser cannot call back.
+    pub fn sign_in_args() -> &'static [&'static str] {
+        &["auth", "login"]
+    }
 }
 
 impl AgentHarness for HeadlessAgent {

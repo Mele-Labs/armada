@@ -27,7 +27,7 @@ The five contract corrections stay because they record drift that was caught, an
 | First Job | Type in the box | The Cockpit with a new Job open on the folder, its box focused |
 | Armada configuration | Nothing | A card at the top of the Job's thread names where Armada keeps how the repository runs, On this Mac picked |
 
-**A folder with no Manifest takes a Job.** Fleet serves it under an implicit Manifest ([Fleet](../concepts/fleet.md), *Fleet starts with none*), and picking it opens its Cockpit.
+**A folder with no Manifest, neither an `armada.yml` nor a Kit copy, takes a Job.** Fleet serves it under an implicit Manifest ([Fleet](../concepts/fleet.md), *Fleet starts with none*), and picking it opens its Cockpit.
 Setup is opened from the repository when a person asks, as [Set Up a Project](set-up-a-project-manifest.md) describes.
 
 **Armada configuration is how Armada remembers a repository runs.** What it keeps, the four places it is kept, and the card, the header glyph and the picker's row glyph are [Kit](../concepts/kit.md), *What a repository runs*.

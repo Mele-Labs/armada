@@ -79,11 +79,11 @@ pub(crate) async fn send_session_message<D: HostedSessions>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let sent: ipc::SendSessionMessage = match ipc::decode("a message to a job", &body) {
+    let sent: ipc::SendSessionMessageBody = match ipc::decode("a message to a job", &body) {
         Ok(sent) => sent,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
-    match served.shared().send_session_message(sent).await {
+    match served.shared().send_session_message_aiming(sent.message, sent.aim).await {
         Ok(record) => answer(StatusCode::ACCEPTED, &record, served.run_id()),
         Err(refusal) => refused(refusal),
     }
@@ -223,6 +223,22 @@ pub(crate) async fn keep_downshift<D: HostedSessions>(State(served): State<Serve
 /// The owner sets the default by hand. 200 with the state; 409 unless offered.
 pub(crate) async fn settle_downshift<D: HostedSessions>(State(served): State<Served<D>>) -> Response {
     match served.daemon().settle_downshift().await {
+        Ok(state) => answer(StatusCode::OK, &state, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// Whether the agents' account is signed out, and whether Fleet is signing it in.
+pub(crate) async fn get_agent_sign_in<D: HostedSessions>(State(served): State<Served<D>>) -> Response {
+    match served.daemon().get_agent_sign_in().await {
+        Ok(state) => answer(StatusCode::OK, &state, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// Fleet runs the agents' sign-in. 200 with the state, `signing_in` set.
+pub(crate) async fn start_agent_sign_in<D: HostedSessions>(State(served): State<Served<D>>) -> Response {
+    match served.shared().start_agent_sign_in().await {
         Ok(state) => answer(StatusCode::OK, &state, served.run_id()),
         Err(refusal) => refused(refusal),
     }

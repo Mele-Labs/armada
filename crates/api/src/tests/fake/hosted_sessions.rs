@@ -45,6 +45,15 @@ impl HostedSessions for FakeDaemon {
         Err(nothing_hosted())
     }
 
+    async fn send_session_message_aiming(
+        self: Arc<Self>,
+        sent: SendSessionMessage,
+        aim: Option<ipc::ModAim>,
+    ) -> Result<SessionRecord, Refusal> {
+        self.messages_aimed.lock().expect("messages aimed").push((sent, aim));
+        Err(nothing_hosted())
+    }
+
     async fn send_session_note(self: Arc<Self>, _note: ipc::SendSessionNote) -> Result<ipc::NoteSent, Refusal> {
         Err(nothing_hosted())
     }
@@ -84,6 +93,14 @@ impl HostedSessions for FakeDaemon {
 
     async fn get_model_downshift(&self) -> Result<ipc::ModelDownshiftState, Refusal> {
         Ok(ipc::ModelDownshiftState::default())
+    }
+
+    async fn get_agent_sign_in(&self) -> Result<ipc::AgentSignIn, Refusal> {
+        Ok(ipc::AgentSignIn::default())
+    }
+
+    async fn start_agent_sign_in(self: Arc<Self>) -> Result<ipc::AgentSignIn, Refusal> {
+        Err(nothing_hosted())
     }
 
     async fn accept_downshift(&self) -> Result<ipc::ModelDownshiftState, Refusal> {

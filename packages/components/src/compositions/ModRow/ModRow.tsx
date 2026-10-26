@@ -1,8 +1,8 @@
-import { useEffect, useRef, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useId, useRef, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
 import { Bell, Box, ChevronDown, ChevronRight, CircleDashed, ClockAlert, Eclipse, FlaskConical, GitPullRequestArrow, Link, Package, Palette, PanelsTopLeft, ShieldCheck, ShieldX, Ticket } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
-import { Switch } from "../../primitives/Switch/Switch";
+import { SwitchControl } from "../../primitives/Switch/Switch";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { PullRequestChip } from "../PullRequestChip/PullRequestChip";
 import { RowLink } from "../RowLink/RowLink";
@@ -30,6 +30,7 @@ export type ModTracker = {
  * **A tracker mod adds two marks, each a glyph in a filled chip with its words on hover**: whether the
  * `tracker.toml` as it stands has been tried against the real tracker, and whether it is valid. A
  * Manifest uses the mod only while it is tried, valid and switched on, and the switch is the third fact.
+ * **Only the switch toggles the mod.** Its name and the row around it open it through `onOpen`.
  * `standing` frames the row in that hue (used, waiting for a try, refused, or grey where switched off); a row without it draws no frame.
  */
 export type ModRowProps = {
@@ -61,6 +62,8 @@ export type ModRowProps = {
   pull?: { number: number; title: string; onOpen: () => void };
   /** The Job that holds that pull request. */
   job?: { title: string; onOpen: () => void };
+  /** A press on the row anywhere but its controls, or Enter on its name, opens the mod. Only the switch toggles it. Absent, the row opens nothing. */
+  onOpen?: () => void;
   /** Promote is off while the mod is invalid or already on a branch. */
   promoteDisabled?: boolean;
   /** Absent draws no Promote. */
@@ -80,15 +83,15 @@ export type ModRowProps = {
 /** What a mod changes: how Bridge looks, how it is arranged, how it shows words, what Fleet does with a notice. */
 export type ModKind = "theme" | "tweak" | "layout" | "words" | "fleet" | "tracker";
 
-const KIND = { theme: "Theme", tweak: "Theme tweak", layout: "Layout", words: "Words", fleet: "Fleet", tracker: "Tracker" } as const;
+export const MOD_KIND_SAID = { theme: "Theme", tweak: "Theme tweak", layout: "Layout", words: "Words", fleet: "Fleet", tracker: "Tracker" } as const;
 const GLYPH = { theme: Palette, tweak: Eclipse, layout: PanelsTopLeft, words: Link, fleet: Bell, tracker: Ticket } as const;
 
 /** The kind's glyph, with its name on hover. Kit's Mods list draws the same one. */
 export function ModKindMark({ kind = "theme" }: { kind?: ModKind }) {
   const Glyph = GLYPH[kind];
   return (
-    <Tooltip label={KIND[kind]}>
-      <span className="armada-mod-row__kind" role="img" aria-label={KIND[kind]}>
+    <Tooltip label={MOD_KIND_SAID[kind]}>
+      <span className="armada-mod-row__kind" role="img" aria-label={MOD_KIND_SAID[kind]}>
         <Glyph size={16} />
       </span>
     </Tooltip>
@@ -120,11 +123,12 @@ export function BuiltInMark() {
   );
 }
 
-export function ModRow({ title, kind = "theme", tracker, withTracker = false, standing, enabled, onEnabled, detail, builtIn = false, syncMark, syncAct, pull, job, promoteDisabled = false, onPromote, onTry, opened, onOpened, autoFocus = false, children }: ModRowProps) {
+export function ModRow({ title, kind = "theme", tracker, withTracker = false, standing, enabled, onEnabled, detail, onOpen, builtIn = false, syncMark, syncAct, pull, job, promoteDisabled = false, onPromote, onTry, opened, onOpened, autoFocus = false, children }: ModRowProps) {
   const Glyph = GLYPH[kind];
   const Tried = tracker === undefined ? undefined : TRIED_GLYPH[tracker.tried.state];
   const lined = withTracker || tracker !== undefined;
   const toggle = useRef<HTMLButtonElement>(null);
+  const said = useId();
   useEffect(() => {
     if (autoFocus) toggle.current?.focus();
   }, [autoFocus]);
@@ -148,20 +152,43 @@ export function ModRow({ title, kind = "theme", tracker, withTracker = false, st
     event.preventDefault();
     event.stopPropagation();
   };
+  // A press on a control or on what the row holds is that control's; the rest of the row opens the mod.
+  const onPress = (event: MouseEvent<HTMLDivElement>) => {
+    if (onOpen === undefined || (event.target as HTMLElement).closest("button, input, label, a, .armada-mod-row__held") !== null) return;
+    onOpen();
+  };
+  const name = <span className="armada-mod-row__title">{title}</span>;
+  const line = detail === undefined ? null : (
+    <span id={said} className="armada-mod-row__detail">
+      {detail}
+    </span>
+  );
+  // The row's press is for a pointer: the name is a button, which is how a keyboard opens the mod.
   return (
-    <div className="armada-mod-row" role="group" aria-label={title} data-standing={standing} data-tracking={lined || undefined} onKeyDown={onKeyDown}>
-      <Tooltip label={KIND[kind]}>
-        <span className="armada-mod-row__kind" role="img" aria-label={KIND[kind]}>
+    <div className="armada-mod-row" role="group" aria-label={title} data-standing={standing} data-tracking={lined || undefined} data-openable={onOpen === undefined ? undefined : ""} onKeyDown={onKeyDown} onClick={onPress}>
+      <Tooltip label={MOD_KIND_SAID[kind]}>
+        <span className="armada-mod-row__kind" role="img" aria-label={MOD_KIND_SAID[kind]}>
           <Glyph size={16} />
         </span>
       </Tooltip>
       <div className="armada-mod-row__switch">
         {enabled === undefined ? (
-          <span className="armada-mod-row__title">{title}</span>
+          name
         ) : (
-          <Switch checked={enabled} onChange={(event) => onEnabled?.(event.target.checked)} {...(detail === undefined ? {} : { description: detail })}>
-            {title}
-          </Switch>
+          <>
+            {onOpen === undefined ? (
+              <span className="armada-mod-row__text">
+                {name}
+                {line}
+              </span>
+            ) : (
+              <button type="button" className="armada-mod-row__text" aria-label={`Open ${title}`} onClick={onOpen}>
+                {name}
+                {line}
+              </button>
+            )}
+            <SwitchControl label={title} checked={enabled} onChange={(event) => onEnabled?.(event.target.checked)} {...(detail === undefined ? {} : { "aria-describedby": said })} />
+          </>
         )}
       </div>
       {!lined ? null : tracker === undefined || Tried === undefined ? (

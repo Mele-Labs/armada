@@ -12,8 +12,7 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from "react";
-import { Flag } from "lucide-react";
-import { Button, Checkbox, DropdownMenu, KbdChord, SplitButton, Textarea, Tooltip } from "@armada/components";
+import { Button, Checkbox, KbdChord, SplitButton, Textarea, Tooltip } from "@armada/components";
 
 
 import type { BridgeApi } from "../../../shared/api";
@@ -42,6 +41,7 @@ import {
 import { sendToSession, unsendable, type SessionTarget } from "./send";
 import { painted, withoutLayer } from "./shoot";
 import type { Sink } from "./sink";
+import { inLayer, targetOf } from "./target";
 import "./annotate.css";
 
 /** ⌥⌘A. Free in Bridge's key map and in Electron's default menu, beside ⌥⌘I for devtools. */
@@ -80,18 +80,6 @@ const place = (box: Box): CSSProperties =>
     "--annotate-h": `${box.height}px`,
   }) as CSSProperties;
 
-function inLayer(target: EventTarget | null): boolean {
-  const element = target instanceof Element ? target : target instanceof Node ? target.parentElement : null;
-  // The mock's walk card (`WALK_UI`) is as much the layer's as its bar: a walk over the layer has to be able to go on.
-  return element?.closest("[data-armada-annotate], [data-walk-ui]") != null;
-}
-
-/** What the pointer is over, taking an SVG as the whole glyph rather than one path in it. */
-function targetOf(target: EventTarget | null): Element | null {
-  if (!(target instanceof Element)) return null;
-  return target.closest("svg") ?? target;
-}
-
 /** What the layer asks of Fleet's seam: the Session send, and the Sessions that are live. */
 export type LayerFleet = Pick<BridgeApi, "startSession" | "sendSessionMessage" | "sendSessionNote"> & StateSource;
 
@@ -115,8 +103,6 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
   const [hovered, setHovered] = useState<Element | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [opened, setOpened] = useState<string | null>(null);
-  // Where a right press opened the Report menu, and on what, with the layer on or off.
-  const [reporting, setReporting] = useState<{ x: number; y: number; element: Element } | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [listing, setListing] = useState(false);
   // The row whose Delete is armed, apart from the card's own.
@@ -227,26 +213,12 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
 
   /** Comes on if it is off, and opens the card on `element`: what a click does with the layer on. */
   const reportOn = useCallback((element: Element): void => {
-    setReporting(null);
     reportedOffRef.current = !onRef.current;
     setOn(true);
     setOpened(null);
     setDraft({ note: capture(element, new Date()), element, text: "" });
   }, []);
   useReportAsked(reportOn);
-
-  // A right press the app left alone: Report is in the menu it opens. One the app handled has its own menu, which carries Report itself.
-  useEffect(() => {
-    function pressed(event: MouseEvent): void {
-      if (on || event.defaultPrevented || inLayer(event.target)) return;
-      const element = targetOf(event.target);
-      if (element === null) return;
-      event.preventDefault();
-      setReporting({ x: event.clientX, y: event.clientY, element });
-    }
-    window.addEventListener("contextmenu", pressed);
-    return () => window.removeEventListener("contextmenu", pressed);
-  }, [on]);
 
   useEffect(() => {
     if (!on) return undefined;
@@ -536,21 +508,7 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
     }
   }
 
-  const menu =
-    reporting === null ? null : (
-      <DropdownMenu
-        triggerLabel="Element"
-        at={{ x: reporting.x, y: reporting.y }}
-        open
-        entries={[{ kind: "item", id: "report", label: "Report", icon: Flag }]}
-        onOpenChange={(open) => {
-          if (!open) setReporting(null);
-        }}
-        onSelect={() => reportOn(reporting.element)}
-      />
-    );
-
-  if (!on) return menu;
+  if (!on) return null;
 
   const measured = frames["window"];
   const size = { width: measured?.width ?? window.innerWidth, height: measured?.height ?? window.innerHeight };

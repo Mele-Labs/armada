@@ -1,4 +1,4 @@
-// Progress: the issues the Session works on, each a single row with the pull requests that work it as rows under it, then the pull requests
+// Issues: the issues the Session works on, each a single row with the pull requests that work it as rows under it, then the pull requests
 // that work none of them. A pull request works an issue whose forge number it closes, or one whose row names it, as a tracker's issue's row
 // does. A pull request working two of its issues stands under both. A press opens the issue or the pull request in the side
 // panel. A plan group that names an issue is that issue's place: its pull requests stand in the group, and this block lists only the issues no
@@ -19,10 +19,10 @@ export type PullRequest = Extract<SessionAttachment, { kind: "pull_request" }>;
 type Rows = { issues: { issue: Issue; prs: PullRequest[] }[]; loose: PullRequest[] };
 
 /** A pull request's Checks as the PR card's mark reads them. */
-const checksOf = (pr: PullRequest): "passed" | "running" | "failed" => (pr.checks.state === "failed" ? "failed" : pr.checks.state === "pending" ? "running" : "passed");
+export const checksOf = (pr: PullRequest): "passed" | "running" | "failed" => (pr.checks.state === "failed" ? "failed" : pr.checks.state === "pending" ? "running" : "passed");
 
 /** Whether a pull request works an issue: it closes the issue's forge number, or the issue's row names it. */
-const works = (pr: PullRequest, issue: Issue): boolean => pr.closes?.some((number) => String(number) === issue.number) === true || issue.pull_requests?.includes(pr.number) === true;
+export const works = (pr: PullRequest, issue: Issue): boolean => pr.closes?.some((number) => String(number) === issue.number) === true || issue.pull_requests?.includes(pr.number) === true;
 
 /** The Session's issues in the order it took them, each with its pull requests, and the pull requests that work none of them. */
 export function issuesOf(session: Session): Rows {
@@ -61,6 +61,17 @@ function IssueMark({ issue }: { issue: Issue }) {
   );
 }
 
+/** An issue as one row: its state glyph, number and title, which opens the issue in the side panel. */
+export function IssueRow({ issue, manifestId }: { issue: Issue; manifestId: string | undefined }) {
+  return (
+    <button type="button" className="sv-row" data-kind="issue" aria-label={`Issue ${issueLabel(issue.number)} ${issue.title}`} onClick={() => openIssuePanel(issue, manifestId)}>
+      <IssueMark issue={issue} />
+      <code className="sv-row__num">{issueLabel(issue.number)}</code>
+      <span className="sv-row__title">{issue.title}</span>
+    </button>
+  );
+}
+
 function PrSlot({ pr, manifestId }: { pr: PullRequest; manifestId: string | undefined }) {
   const { on, menu } = usePullRequestMenu(manifestId, pr.number, pr.title);
   return (
@@ -92,11 +103,7 @@ export function IssuesBlock({ session, manifestId }: { session: Session; manifes
         <ul className="sv-rows" aria-label="Issues">
           {issues.map(({ issue, prs }) => (
             <li key={issue.number}>
-              <button type="button" className="sv-row" data-kind="issue" aria-label={`Issue ${issueLabel(issue.number)} ${issue.title}`} onClick={() => openIssuePanel(issue, manifestId)}>
-                <IssueMark issue={issue} />
-                <code className="sv-row__num">{issueLabel(issue.number)}</code>
-                <span className="sv-row__title">{issue.title}</span>
-              </button>
+              <IssueRow issue={issue} manifestId={manifestId} />
               {prs.length === 0 ? null : (
                 <div className="sv-rows__nested">
                   <GroupPullRequests prs={prs} issue={issue.number} manifestId={manifestId} />

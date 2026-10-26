@@ -124,7 +124,7 @@ fn seed_paths(items: Vec<(String, String)>, out: &mut Vec<Refusal>) -> Vec<Strin
     kept
 }
 
-fn refused(path: &str) -> Option<BadSeedPath> {
+pub(super) fn refused(path: &str) -> Option<BadSeedPath> {
     if path.starts_with('/') {
         return Some(BadSeedPath::Absolute);
     }

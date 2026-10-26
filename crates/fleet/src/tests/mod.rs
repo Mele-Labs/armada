@@ -16,6 +16,7 @@
 //! - `peer` is the primitive `concurrency` rests on: a call attributed by the
 //!   connection it arrived on rather than by which Job was admitted first.
 mod act_failing;
+mod adversarial_review;
 mod sending_checkout;
 mod agent_starts;
 mod session_after;
@@ -23,6 +24,7 @@ mod asking_in_window;
 mod phone;
 mod showing_file;
 mod sketching;
+mod documents;
 mod building;
 mod checkouts_apart;
 mod committing;
@@ -48,6 +50,12 @@ mod helm_studio;
 mod host;
 mod http;
 mod flight_controls;
+mod app_run_drafts;
+mod app_run_links;
+mod app_run_pins;
+mod app_run_wire;
+mod app_runs;
+mod app_runs_fresh;
 mod kit_manifest;
 mod kit_allowlist;
 mod kit_pieces;
@@ -125,6 +133,7 @@ mod reply_asks;
 mod reply_asks_model;
 mod tell_refusal;
 mod reply_claims;
+mod unanswered;
 mod session_standing;
 pub(crate) mod slot_leases;
 mod slot_reclaim;
@@ -153,9 +162,12 @@ mod studios;
 // descendant of this module and need the same temporary directory every
 // fixture here already uses, rather than a second one invented beside it.
 pub(crate) mod tmp;
+mod backlog;
+mod plan_mirror;
 mod bay_history;
 mod verify_runs;
 mod watching;
+mod workflow_lands;
 mod workflow_promise;
 mod workspace_loading;
 mod workspace_ports;

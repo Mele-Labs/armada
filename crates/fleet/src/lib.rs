@@ -25,6 +25,10 @@ mod amending;
 pub mod autopilot;
 /// Saving a workflow definition, and reading the workflow folders again.
 mod authoring;
+/// The backlog Fleet writes to: each copy kept in step, and an issue claimed in it.
+pub mod backlog;
+/// Fleet syncing each backlog while it runs, and claiming an issue in one.
+pub mod backlog_syncing;
 pub mod basing;
 /// What a Session has built: the rules between what Fleet observed and the record on its row.
 mod build_facts;
@@ -41,6 +45,9 @@ mod plan_marks;
 mod plan_record;
 /// Where a Session's plan meets the store.
 mod plan_keeping;
+mod plan_mirror;
+mod plan_mirroring;
+mod backlog_closing;
 /// Where a Session's Loadout meets the store.
 mod loadout_keeping;
 /// Where a Session's turn usage meets the store.
@@ -131,6 +138,11 @@ mod model_downshifting;
 /// The models the harness offers, asked after Fleet is serving.
 pub mod models_read;
 pub mod phone;
+/// An adversarial review of a plan: the three operations Fleet serves for it.
+mod adversarial_serving;
+/// What an adversarial review is shown, and how its answer is read and pinned. Pure.
+pub mod adversarial_review;
+mod adversarial_keeping;
 /// Kit against the shared home, and what this machine syncs. `docs/concepts/kit.md`.
 pub mod home;
 /// Mods: folders on this machine that change how Bridge looks.
@@ -247,6 +259,8 @@ pub mod seeding;
 /// A held checkout's uncommitted files sent up as a pull request.
 mod sending_checkout;
 mod servers;
+/// A repository's app started in development: its `runs:`, drafted, saved and held. `docs/concepts/manifest.md`.
+pub mod app_runs;
 pub mod serving;
 /// The session ledger: what a harness says of an agent session. `docs/concepts/session.md`.
 pub mod session_host;

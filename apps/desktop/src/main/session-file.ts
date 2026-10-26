@@ -7,11 +7,18 @@
 
 import type { Followed, SessionRecord, WalkStep, WalkTarget, WindowTake } from "@armada/protocol";
 import type { ArtifactRead } from "@armada/screens/src/draft/sessions";
+import { revisionsOfDetail } from "@armada/screens/src/sessions-wire";
 import { extname } from "node:path";
 
 export function namesFile(record: SessionRecord | undefined, path: string): boolean {
   return (
-    record?.attachments.some((one) => one.kind === "artifact" && one.target === path && (one.detail?.["form"] === "file" || one.detail?.["form"] === "image")) === true
+    record?.attachments.some(
+      (one) =>
+        one.kind === "artifact" &&
+        ((one.target === path && (one.detail?.["form"] === "file" || one.detail?.["form"] === "image")) ||
+          // A document's pages are the revisions Fleet kept for it, and only those.
+          (one.detail?.["form"] === "document" && revisionsOfDetail(one.detail["revisions"]).includes(path))),
+    ) === true
   );
 }
 

@@ -21,6 +21,11 @@ use std::time::Duration;
 use config::Manifest;
 use store::{PortClaim, PortClaimant};
 
+mod widening;
+
+#[cfg(test)]
+pub(crate) use widening::spread as spread_for_tests;
+
 /// The range a checkout's port span is claimed from, and the unit its width rounds
 /// up to. `settings.port-range-base`, `settings.port-range-ceiling` and
 /// `settings.port-block-granule` in `crates/config/settings.toml`.
@@ -286,6 +291,9 @@ pub enum PortsRefused {
     /// a range with nothing left in it refuses rather than handing out a span
     /// the kernel might also assign.
     RangeExhausted { width: u16 },
+    /// A port a person pinned a server to is held by something else. `holder` says what where
+    /// Fleet knows: a server of its own on some checkout, and none for a program it did not start.
+    PinnedTaken { name: String, port: u16, holder: Option<String> },
     /// The store would not say what is occupied. Nothing was spawned.
     Database(store::ReadError),
     /// The claim itself would not write. Nothing was spawned.
@@ -301,6 +309,11 @@ impl std::fmt::Display for PortsRefused {
             PortsRefused::RangeExhausted { width } => {
                 write!(out, "no span of {width} free ports was left in the range")
             }
+            PortsRefused::PinnedTaken { name, port, holder } => write!(
+                out,
+                "`{name}` is pinned to port {port}, which {} holds",
+                holder.as_deref().unwrap_or("a program Armada did not start")
+            ),
             PortsRefused::Database(cause) => {
                 write!(out, "what is already claimed could not be read: {cause}")
             }
@@ -314,7 +327,9 @@ impl std::error::Error for PortsRefused {
         match self {
             PortsRefused::Database(cause) => Some(cause),
             PortsRefused::Write(cause) => Some(cause),
-            PortsRefused::CollidingEnv { .. } | PortsRefused::RangeExhausted { .. } => None,
+            PortsRefused::CollidingEnv { .. }
+            | PortsRefused::RangeExhausted { .. }
+            | PortsRefused::PinnedTaken { .. } => None,
         }
     }
 }

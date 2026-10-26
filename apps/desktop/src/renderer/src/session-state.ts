@@ -23,8 +23,6 @@ export function stateOf(session: Session): { state: SessionState; said: string }
   if (session.dead === "quiet") return { state: "quiet", said: "Not reachable" };
   // Dispatched after another Session: nothing runs, and nothing is asked of him, until its condition is met.
   if (session.waits !== undefined) return { state: "after", said: startsWhenSaid(session.waits) };
-  // Started by an agent and held: its first message waits in the box and nothing runs until he sends it.
-  if (session.unsent !== undefined) return { state: "draft", said: "Draft" };
   // The proposer is reading the request: the Session starts on its answer.
   if (session.work?.proposal?.reading === true) return { state: "working", said: "Reading the request" };
   // Read and held on its start card: nothing has moved, and nothing is asked of him but Start.
@@ -32,8 +30,9 @@ export function stateOf(session: Session): { state: SessionState; said: string }
   if (session.limitedUntil !== undefined) return { state: "limited", said: limitHeldSaid(session.limitedUntil) };
   // A turn held on a question or a permission is waiting on him, though the turn is open.
   if (session.asked !== undefined) return { state: "waiting", said: "Waiting on you" };
-  // A full pool holds the agent's first write, and the delivery question holds the agent at its start, whatever its turn says.
-  if (owesOf(session).some((one) => one.source === "slot_choice" || one.source === "delivery")) return { state: "waiting", said: "Waiting on you" };
+  // A full pool holds the agent's first write, the delivery question holds the agent at its start, and a plan put to him
+  // holds it until he answers, whatever its turn says.
+  if (owesOf(session).some((one) => one.source === "slot_choice" || one.source === "delivery" || one.source === "plan")) return { state: "waiting", said: "Waiting on you" };
   const standing = standingOf(session);
   if (standing === "stuck") return { state: "stuck", said: "Stuck" };
   if (session.turn.state === "working") {

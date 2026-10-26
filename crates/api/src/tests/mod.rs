@@ -25,6 +25,7 @@ mod helm_tells;
 mod hosted_sessions;
 mod door_receipts;
 mod accounts;
+mod adversarial_review;
 mod building;
 mod flight_controls;
 mod sharing;
@@ -45,6 +46,7 @@ mod studios;
 mod terminal_routes;
 mod watching_run;
 mod watch_routes;
+mod app_run_routes;
 
 use axum::Router;
 use hyper::service::service_fn;

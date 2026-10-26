@@ -98,6 +98,7 @@ fn long_lived() -> SessionRecord {
         context_breakdown: None,
         loadout_summary: None,
         helm: false,
+        r#mod: false,
         auto_land: false,
         activity: None,
         build: None,
@@ -244,6 +245,7 @@ fn pending_plan() -> ipc::SessionPlan {
         changes: None,
         sketch: None,
         held_by: Vec::new(),
+        adversarial: None,
     }
 }
 

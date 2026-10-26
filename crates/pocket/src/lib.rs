@@ -3,7 +3,8 @@
 //! Fleet listens on loopback, takes no auth and refuses any request that
 //! carries `Origin`, and that stays as it is. The Gateway sits between, inside
 //! Fleet's own process but on a listener of its own: `127.0.0.1` only, for
-//! `tailscale serve` to reach, calling Fleet over HTTP with no `Origin`.
+//! the owner's tunnel to reach (`tailscale serve` unless `pocket-address` names
+//! another), calling Fleet over HTTP with no `Origin`.
 //!
 //! **Every route is on a list.** [`router`] names each one, and anything else
 //! is 404. The routes whose issue has not landed answer 501.
@@ -34,7 +35,9 @@ use std::net::{Ipv4Addr, SocketAddr};
 use tokio::net::TcpListener;
 
 pub use fleet_client::{Answer, Unreachable};
-pub use pairing::{address_from_status, tailscale_address, Address, Clock, Pairing};
+pub use pairing::{
+    address_from_file, address_from_status, machine_address, tailscale_address, Address, Clock, Pairing, ADDRESS_FILE,
+};
 pub use push::{Push, PLACEHOLDER_SUBJECT};
 pub use watch::follow;
 pub use routes::{router, Fleet, Gateway};

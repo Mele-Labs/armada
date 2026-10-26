@@ -46,6 +46,8 @@ pub(crate) struct LedgerReads {
     build: BuildReads,
     /// The plan the Session recorded, and the files it and its subagents touched.
     plan: Option<store::KeptPlan>,
+    /// The latest adversarial review of the plan, whatever version it read.
+    adversarial: Option<store::KeptAdversarialReview>,
     touches: Vec<store::KeptTouch>,
     /// What the workflow rail and the judge's last reading are derived from.
     rail: crate::rail_keeping::RailReads,
@@ -106,6 +108,8 @@ where
         let mut plan_moved: Option<ipc::PlanUsage> = None;
         // A terminal turn's end and what it said, read for a claim once the store is let go.
         let mut replied: Option<(String, String)> = None;
+        // A terminal turn that failed on a sign-in that ran out, or one that finished, which is the account working.
+        let (mut signed_out, mut answered) = (false, false);
         let mut session = kept.unwrap_or_else(|| KeptSession {
             id: id.clone(),
             harness: report.harness.clone(),
@@ -294,6 +298,7 @@ where
                         store.keep_turn_end(&id, &now, &tail).map_err(fault)?;
                     }
                     replied = said.map(|said| (now.clone(), said));
+                    answered = true;
                 }
                 // A turn taken since the limit was hit: the wake is not owed.
                 store.clear_session_limit(&id).map_err(fault)?;
@@ -321,6 +326,8 @@ where
                     .keep_session_limit(&id, resets_at.as_str())
                     .map_err(fault)?;
             }
+            // A hosted session's own process says so, so only a terminal's is read here.
+            SessionFact::SignedOut => signed_out = terminal,
             // For the check of who else writes these files; nothing on the ledger changes.
             SessionFact::Touched { paths, by, act } => {
                 self.session_wrote(&store, &session, &roots, &paths);
@@ -423,6 +430,12 @@ where
         if let Some(usage) = plan_moved {
             self.publish(ipc::Event::PlanUsageChanged(usage.clone()));
             self.downshift_read(&usage).await;
+        }
+        if signed_out {
+            self.signed_out_heard(&self.hosts().of(&session.id));
+        }
+        if answered {
+            self.signed_in_by(&session.id);
         }
         if let Some((ended, said)) = replied {
             if let Some(claim) = self.unbacked_claim(&session.id, &ended, Some(&said)).await {

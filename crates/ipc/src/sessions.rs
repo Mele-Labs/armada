@@ -183,6 +183,10 @@ pub enum SessionFact {
     Limited {
         resets_at: Instant,
     },
+    /// A turn ended because the account's sign-in ran out and would not renew. Fleet signs itself out
+    /// for every Job, as a hosted Job's harness line does, and wakes the session once the account
+    /// works again: a later `turn_completed` from it is that.
+    SignedOut,
     /// Files the session wrote, relative to its `cwd`. **Paths only**, and only those under it.
     /// Fleet reads them for write clashes (`docs/concepts/fleet.md`, *Write clashes*). Since 23.81.
     /// `by` is the id of the subagent that wrote them, absent for the session's own agent, and `act`
@@ -578,8 +582,8 @@ pub enum WaitingSource {
     Permission,
     /// Fleet: a question the session asked in its walk window, `ask_in_window`, is unanswered.
     WindowAsk,
-    /// Fleet: another Session's agent started this one and its first message has not been sent.
-    /// The item has no reply, since sending that message is the answer. Since 23.80.
+    /// Fleet: the Session waits on its start card for the person to press Start (`begin_session`).
+    /// The item has no reply, since Start is the answer. Since 23.80; every held Session since 25 Oct.
     FirstMessage,
     /// Fleet: the turn ended on a reply whose close asks the person something, and the agent has asked
     /// nothing through a tool. Derived on every read, never kept: id `replied:<turn ended at>`, text the
@@ -935,6 +939,9 @@ pub struct SessionRecord {
     /// dock, and at most one is live per `manifest_id`. Absent on every other session.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub helm: bool,
+    /// A Mod Job, started from Mod for modding Armada itself. Absent on every other session.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub r#mod: bool,
     /// Auto land is on: Fleet turns on the forge's auto-merge for each pull request the Session
     /// holds as it attaches, and off again when this is turned off. Absent is off. Hosted only.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]

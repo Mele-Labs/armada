@@ -30,7 +30,7 @@ A month later you promote it, and a Job of its own opens a pull request that put
 
 | File | Holds |
 |---|---|
-| `mod.toml` | `name`, `kind`, `version`, `description` |
+| `mod.toml` | `name`, `kind`, `version`, `description`, and where it came from |
 | `theme.css` | Token values Bridge injects, in a theme mod |
 | `layout.json` | Which tabs, panels and places Bridge draws and in what order, in a layout mod. [Layout mods](layout-mods.md) |
 | `words.toml` | A pattern Bridge links and where it opens in each repository, in a Words mod |
@@ -54,8 +54,10 @@ A flat file of `key = "value"` lines and `#` comments, read by hand: a table, an
 | `description` | string | no | none | Up to 200 characters |
 | `taught_on` | string | no | none | What Teach was pressed on, up to 120 characters. The mod's row lists it |
 | `entry` | string | no | none | The Logbook entry a teaching from a Job made. Forgetting that entry removes the mod |
+| `made_by` | string | no | none | The Job whose `scaffold_mod` made the mod. The mod's row lists it |
 
 A teaching writes a Words, Fleet, tweak or layout mod, and records `taught_on` and `entry` in it. [Teaching](teaching.md).
+A Job that passes its own `session_id` to `scaffold_mod` is recorded as `made_by`; an id that names no Job Fleet knows is refused, and nothing is made.
 
 Any other key is a problem.
 A `kind` this build does not have makes the mod invalid, so a valid mod's kind is always one Bridge can act on.
@@ -284,16 +286,43 @@ Bridge's Try on a tracker row is this operation, sent without a repository, so F
 A scan and a Manifest's lookup read the record and run nothing.
 A tracker mod switched off in Mods is refused too, with that as the reason; the lookup reads the switches as Fleet last scanned them, every two seconds and at once on `set_mod_enabled`.
 
+## A Mod Job
+
+Mod on a spot in Bridge starts a Mod Job: a hosted Job on Armada's own repository, the Manifest named `armada`, for modding Armada itself.
+Its row carries `mod`.
+
+| Piece | Is |
+|---|---|
+| Entry points | Mod in the right-click menu over anything in Bridge or a Job row; Create mod in the palette and on System › Mods, which opens an empty Mod Job, where he writes in the composer himself |
+| The menu | Mod in every build; Report beside it in dev builds only |
+| Title | `Mod <name>`: the row's title, else the label, words or place pointed at |
+| In the Jobs list | A **Mods** group after the repository groups and before Other, whichever repository is picked |
+| Right column | The Landing draws *Mods made*: each mod the Job scaffolded (`made_by`), with its switch |
+
+Its first message is a pinned note's, sent as `send_session_note` sends one, with the Mod brief ahead of his words; from Create mod the Job opens empty and sends nothing, then his first message is sent as a message is, with the same brief ahead of his words, and retitles a Job still titled `Mod` as `Mod <first line>`: load the `armada:armada-mods` skill and reach for a mod first.
+The skill ships in the Armada mod for Claude Code (`plugins/armada/skills/armada-mods/`), so a Job in any folder has it.
+A mod it makes applies live once `validate_mod` passes, and the switch in *Mods made* is the owner's undo.
+Where the ask needs more than a mod can say, the Job says so and changes Armada's source on its own branch, then asks for `scripts/preview --restart` as a `waiting_for` run item.
+An empty Mod Job's thread lists six aims to pick from, Colours, Panels, Words, Notices, Issue trackers and Anything else, and he can pick what he is aiming for before he writes, a theme, layout, words, Fleet rule, tracker or a change to Armada's source, and his first message carries one line naming it after the brief.
+The pick is kept per Job until his first message, which is the only one that carries it.
+A mod the Job made is also drawn in its thread as the card System › Mods draws, where it was made.
+On either card only the switch turns the mod on or off; a press on the rest of the row, or on its name, opens the mod in the side panel with its facts, the switch, Promote and **Change it**, which starts an empty Mod Job aimed at the mod's kind with the box open on `Change the <Name> <kind>: `.
+
+**A Fleet that does not serve Armada's own repository starts the Job in the mods folder**, with no repository, no Manifest, no slot and no branch.
+That Job makes mods only, and its brief says so: there is no source to change and no preview to restart, so an ask a mod cannot say is told to the owner.
+It stands at the agent door a Job with no Manifest stands at, which offers `list_mods`, `scaffold_mod`, `validate_mod` and `try_tracker_mod` beside the Job's own acts.
+
 ## The operations
 
 | Operation | Kind | A job may | Does |
 |---|---|---|---|
-| `list_mods` | query | yes | Every mod, local and built in: `origin`, kind, version, description, `taught_on`, `entry` (the Logbook entry that made it), `enabled`, `valid`, `reason`, `changed_at`, a tracker's `tried` or `stale`, and the `pull_request` a promote holds open for it |
-| `scaffold_mod` | command | yes | Makes the folder, a starter file for its `kind` that changes nothing (a tracker's validates and fails its try), `git init` and one commit |
+| `list_mods` | query | yes | Every mod, local and built in: `origin`, kind, version, description, `taught_on`, `entry` (the Logbook entry that made it), `made_by` (the Job that scaffolded it), `enabled`, `valid`, `reason`, `changed_at`, a tracker's `tried` or `stale`, and the `pull_request` a promote holds open for it |
+| `scaffold_mod` | command | yes | Makes the folder, a starter file for its `kind` that changes nothing (a tracker's validates and fails its try), `git init` and one commit, recording the calling Job as `made_by` where it passes `session_id` |
 | `validate_mod` | query | yes | Every problem found, and the checked text when there are none: `css` for a theme or a tweak, `layout` for a layout, `words` for a Words mod and `fleet` for a Fleet mod, each the file as typed data |
 | `try_tracker_mod` | command | yes | Runs a tracker mod against a repository and keeps how it went |
 | `set_mod_enabled` | command | Helm only | This machine's switch for one mod |
 | `promote_mod` | command | no | Puts the mod into a repository by a Job of its own, which opens the pull request and sees it merged |
+| `start_mod_session` | command | no | Starts a Mod Job on what the person pointed at. *A Mod Job* above |
 
 `mods.changed` carries the whole list.
 Fleet rescans every two seconds and publishes it when the list differs from the last, and `scaffold_mod` and `set_mod_enabled` publish at once, so a file a job wrote reaches an open Bridge without a restart.

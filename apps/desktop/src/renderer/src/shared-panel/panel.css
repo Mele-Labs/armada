@@ -393,3 +393,18 @@
   min-width: 0;
   min-height: 0;
 }
+
+/* A mod in the panel: what it says it is, over the facts. */
+.side-mod {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.side-mod__description {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  color: var(--fg-default);
+  text-wrap: pretty;
+}

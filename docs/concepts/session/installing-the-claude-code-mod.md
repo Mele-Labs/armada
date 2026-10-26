@@ -27,6 +27,7 @@ A hosted job needs it no more than it needs the rules in its prompt; it is for a
 **The mod ships a fleet of subagents** (`plugins/armada/agents/`), named `armada:` and the type, so a job in any repository can hand a decided change to `armada:mechanic` on `sonnet` or a test run to `armada:test-runner` on `haiku`.
 The job rules say to prefer the repository's own types first.
 Each preloads the mod's skills its work needs (`plugins/armada/skills/`): `armada:reading-a-brief`, `armada:verify-before-done` and `armada:root-cause`, so a rule like "reproduce first" is written once.
+The mod ships `armada:armada-mods` too, for a Mod Job in the mods folder, which reads no repository's skills; this repository's `.claude/skills/armada-mods` is a link to it.
 `docs/practices/subagents.md` has the fleet, the model each runs on and the skills each preloads.
 
 It loads in a Judge call and a scout too, since they read the person's user settings.

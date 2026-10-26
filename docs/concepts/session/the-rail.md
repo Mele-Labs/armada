@@ -33,7 +33,7 @@ A step with `asks_delivery` holds its instructions until the owner has said how 
 The rail keeps its step and enters it on the timeline, and the Job's first turn carries the workflow line, the step's instructions and the message together, so no second message follows.
 That holds for a Job an agent started, which waits for the owner's send, and for one that waits on another, which gets no step prompt before its condition is met.
 A step with `asks_delivery` is read from that first message: one that names a delivery goes with the step's instructions, and one that does not goes with the question, the instructions waiting for the answer.
-A Job whose start card settled the landing is asked nothing, and its first turn carries the choice with the instructions.
+A Job whose Delivery was settled before Start is asked nothing, and its first turn carries the choice with the instructions.
 
 **A skipped step draws one nudge, and nothing blocks.** Two skips are told, each once for each step in a Job's life: files edited before the `records_plan` step's plan was approved, and a push while the plan's tasks are open.
 Fleet sends the agent one short message from Fleet naming the step and what it asks (the step's own `about`, cut at 200 characters, else a default), and ends it with *Nothing is blocked*.

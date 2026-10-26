@@ -35,6 +35,7 @@ You ask who has `fleet/session-ledger`, and the answer is a job by its title, st
 | [What fills the context window](session/what-fills-the-context-window.md) |
 | [Where the tokens went](session/where-the-tokens-went.md) |
 | [A job that hit the plan's limit](session/a-job-that-hit-the-plans-limit.md) |
+| [A Job whose sign-in expired](session/a-job-whose-sign-in-expired.md) |
 | [What Fleet tells a Job](session/what-fleet-tells-a-job.md) |
 | [Acts on a pull request](session/acts-on-a-pull-request.md) |
 | [A forked job](session/a-forked-job.md) |
@@ -48,7 +49,7 @@ You ask who has `fleet/session-ledger`, and the answer is a job by its title, st
 | [The evolution graph](session/the-evolution-graph.md) |
 | [Which model, and a fresh start](session/which-model-and-a-fresh-start.md) |
 | [A Job's proposal](session/a-jobs-proposal.md) |
-| [The start card](session/the-start-card.md) |
+| [A held Job](session/the-start-card.md) |
 | [A queued idea](session/a-queued-idea.md) |
 | [Stopping a turn](session/stopping-a-turn.md) |
 | [Pausing a Job](session/pausing-a-job.md) |

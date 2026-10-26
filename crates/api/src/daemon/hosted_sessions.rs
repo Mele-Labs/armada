@@ -71,6 +71,16 @@ pub trait HostedSessions: Send + Sync + 'static {
         sent: SendSessionMessage,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
+    /// `send_session_message` with what he picked in an empty Mod Job. A host with no Mod Jobs
+    /// takes the message and leaves the aim.
+    fn send_session_message_aiming(
+        self: Arc<Self>,
+        sent: SendSessionMessage,
+        _aim: Option<ipc::ModAim>,
+    ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send {
+        self.send_session_message(sent)
+    }
+
     /// `send_session_note`: a note pinned on a page, sent as `send_session_message` sends with the
     /// lines of code it was drawn from. **Answers at once**, with the turn taken and the candidates
     /// the turn carried.
@@ -132,6 +142,13 @@ pub trait HostedSessions: Send + Sync + 'static {
 
     /// `settle_downshift`: the owner sets the default by hand. [`Refusal::IllegalMove`] unless offered.
     fn settle_downshift(&self) -> impl Future<Output = Result<ipc::ModelDownshiftState, Refusal>> + Send;
+
+    /// `get_agent_sign_in`: whether the agents' account is signed out, and whether Fleet is signing it in.
+    fn get_agent_sign_in(&self) -> impl Future<Output = Result<ipc::AgentSignIn, Refusal>> + Send;
+
+    /// `start_agent_sign_in`: Fleet runs the agents' sign-in, answered with the state it left. A press
+    /// while one runs starts nothing.
+    fn start_agent_sign_in(self: Arc<Self>) -> impl Future<Output = Result<ipc::AgentSignIn, Refusal>> + Send;
 
     /// `get_sleep`: the switch and the night's rows.
     fn get_sleep(&self) -> impl Future<Output = Result<ipc::SleepState, Refusal>> + Send;

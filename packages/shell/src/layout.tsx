@@ -6,7 +6,7 @@
 // Nothing here draws: a surface reads `useLayout(region)` and draws what it is handed.
 
 import { createContext, useContext, useMemo, useSyncExternalStore } from "react";
-import { Activity, Box, GitMerge, ListTodo, PanelBottom, Plane, Radar, Rows3, Send, Workflow, type LucideIcon } from "lucide-react";
+import { Activity, Box, DraftingCompass, GitMerge, PanelBottom, Plane, PlaneLanding, Radar, Rows3, Send, Workflow, type LucideIcon } from "lucide-react";
 
 import { PLACES, SURFACE, SURFACES } from "./surfaces";
 
@@ -49,15 +49,17 @@ export const LAYOUT: Readonly<Record<LayoutRegion, Spec>> = {
       { id: "autopilot", label: "Autopilot", icon: Plane, hideable: true },
     ],
   },
-  // An open Job's panels, stacked in the Cockpit's right column in this order. Progress holds the plan the owner approves.
+  // An open Job's panels, stacked in the Cockpit's right column in the order the story is told: the workflow, the blueprint (the plan the owner approves),
+  // the field it is built on, and what it lands in. Landing also holds the mods a Mod Job made, each with its switch.
   "job.panels": {
     label: "Job panels",
     ordered: true,
     firstable: false,
     entries: [
-      { id: "field", label: "Field", icon: Radar, hideable: true },
       { id: "workflow", label: "Workflow", icon: Workflow, hideable: true },
-      { id: "progress", label: "Progress", icon: ListTodo, hideable: false },
+      { id: "blueprint", label: "Blueprint", icon: DraftingCompass, hideable: false },
+      { id: "field", label: "Field", icon: Radar, hideable: true },
+      { id: "landing", label: "Landing", icon: PlaneLanding, hideable: true },
     ],
   },
   rail: {

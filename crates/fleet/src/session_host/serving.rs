@@ -49,7 +49,7 @@ pub(crate) const MESSAGE_EMPTY: &str = "fleet.session_message_empty";
 const REATTACH_QUIET: Duration = Duration::from_secs(120);
 
 /// The agent's process would not start. A 500.
-const SESSION_UNSTARTED: &str = "fleet.session_unstarted";
+pub(crate) const SESSION_UNSTARTED: &str = "fleet.session_unstarted";
 /// An answer naming no ask that is waiting. A 409.
 const SESSION_ASK_NOT_WAITING: &str = "fleet.session_ask_not_waiting";
 
@@ -78,6 +78,20 @@ enum Written {
     Noticed(ipc::Notice),
     /// A row of the caller's own, in place of a message: the words are still what the agent is sent.
     Row(SessionRow),
+}
+
+/// What Fleet marks a hosted session as at its start. **No `start_session` call can**: the mark is
+/// Fleet's to give.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Marked {
+    Plain,
+    /// A repository's Helm (`helm_session.rs`).
+    Helm,
+    /// A Mod Job, started by `start_mod_session`.
+    Mod,
+    /// A Mod Job where Armada's own repository is not served: it runs in the mods folder, with no
+    /// Manifest, and so never leases a slot or cuts a branch.
+    ModsFolder,
 }
 
 pub(crate) fn mode_text(mode: SessionMode) -> &'static str {
@@ -138,7 +152,7 @@ where
         if let Some(from) = start.fork.take() {
             return self.start_forked(start, from).await;
         }
-        self.started_hosted(start, false).await
+        self.started_hosted(start, Marked::Plain).await
     }
 
     async fn start_session_reading(
@@ -164,8 +178,16 @@ where
         self: Arc<Self>,
         sent: SendSessionMessage,
     ) -> Result<SessionRecord, Refusal> {
+        self.send_session_message_aiming(sent, None).await
+    }
+
+    async fn send_session_message_aiming(
+        self: Arc<Self>,
+        sent: SendSessionMessage,
+        aim: Option<ipc::ModAim>,
+    ) -> Result<SessionRecord, Refusal> {
         let terminal = self.terminal_session(sent.session_id.as_str()).await?;
-        self.send_known(terminal, sent).await
+        self.mod_message_sent(terminal, sent, aim).await
     }
 
     async fn send_session_note(self: Arc<Self>, note: ipc::SendSessionNote) -> Result<ipc::NoteSent, Refusal> {
@@ -260,6 +282,14 @@ where
 
     async fn get_model_downshift(&self) -> Result<ipc::ModelDownshiftState, Refusal> {
         self.model_downshift_state().await
+    }
+
+    async fn get_agent_sign_in(&self) -> Result<ipc::AgentSignIn, Refusal> {
+        Ok(self.agent_sign_in().now())
+    }
+
+    async fn start_agent_sign_in(self: Arc<Self>) -> Result<ipc::AgentSignIn, Refusal> {
+        Ok(self.agent_sign_in_pressed())
     }
 
     async fn accept_downshift(&self) -> Result<ipc::ModelDownshiftState, Refusal> {

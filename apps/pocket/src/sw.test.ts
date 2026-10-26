@@ -74,6 +74,17 @@ describe("the service worker", () => {
     expect([...sw.stored.keys()].sort()).toEqual([PAGE, `${ORIGIN}/assets/index-new.js`].sort());
   });
 
+  it("keeps the assets of the page it kept before, for a navigation answered with that page", async () => {
+    const sw = worker(async () => html('<script src="/assets/index-new.js"></script>'));
+    sw.stored.set(PAGE, html('<script src="/assets/index-old.js"></script>'));
+    for (const name of ["index-older.js", "index-old.js"]) sw.stored.set(`${ORIGIN}/assets/${name}`, new Response("x"));
+    const { done } = await sw.ask("/", { mode: "navigate" });
+    await done();
+    expect(await text(sw.stored.get(PAGE))).toBe('<script src="/assets/index-new.js"></script>');
+    expect(sw.stored.has(`${ORIGIN}/assets/index-old.js`)).toBe(true);
+    expect(sw.stored.has(`${ORIGIN}/assets/index-older.js`)).toBe(false);
+  });
+
   it("answers an asset from the cache without fetching", async () => {
     const sw = worker(async () => { throw new Error("must not fetch"); });
     sw.stored.set(`${ORIGIN}/assets/index-a.js`, new Response("kept"));

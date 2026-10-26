@@ -1061,6 +1061,26 @@ test('a Drone that fails on the plan limit tells Fleet nothing', async ($, on) =
   expect(posts).toEqual([])
 })
 
+test('a turn that failed on a sign-in that ran out tells Fleet it signed out, and is not a finished turn', async ($, on) => {
+  const { posts, clock } = world(on)
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await $.turn.complete({ answer: '', durationMs: 1, isAborted: false, turnId: 't1', reason: 'error' })
+  await $.classic.StopFailure({ error: 'authentication_failed' })
+  await clock.settle()
+
+  expect(facts(posts)).toContainEqual({ kind: 'signed_out' })
+  expect(kinds(posts)).not.toContain('turn_completed')
+})
+
+test('a Drone whose sign-in ran out tells Fleet nothing, since Fleet reads its own', async ($, on) => {
+  const { posts, clock } = world(on, { env: { ARMADA_DRONE: '1' } })
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await $.classic.StopFailure({ error: 'authentication_failed' })
+  await clock.settle()
+
+  expect(posts).toEqual([])
+})
+
 test('what fills the context window is told as names, paths and counts, ten tools at most, and only as the context moves', async ($, on) => {
   const tools = Array.from({ length: 12 }, (_, at) => ({
     name: `mcp__srv__tool${at}`,

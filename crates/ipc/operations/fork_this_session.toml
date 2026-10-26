@@ -2,7 +2,7 @@
 kind = "command"
 transport = "HTTP"
 agent_access = "Yes"
-description = "Fork your own conversation into a new job, whole or at one of your messages, with a first message that waits for the person to send it. Body: title, message, optional at"
+description = "Fork your own conversation into a new job, whole or at one of your messages, with a first message that waits on its start card for the person to press Start. Body: title, message, optional at"
 notes = """
 `POST /sessions/fork_this`, body `ForkThisSession`: `title`, `message` and an optional `at`. Since 23.80. Answered with `SessionHeld`, `fork` true.
 
@@ -10,7 +10,7 @@ notes = """
 
 **`at` is a row id of the caller's thread, a message, and the copy ends at it, included.** It is `start_session`'s `fork.at`, and the caller being live is the live source that allows: the refusals are `fork.at`'s, 422 `fleet.fork_point_unwritten` before anything is written. **Absent, the copy ends at the caller's latest message of its own that the transcript holds**, since a fork of a live conversation needs a cut; one with no such message is refused the same way.
 
-**The rest is `start_another_session`'s.** The new job is created and listed at once with no process, the first message is held `unsent` and waits as `unsent:<session id>`, and the ledgers carry `forked_from` and `forked_to` (the first with `detail.at` and `cut`, as `start_session`'s fork) beside the caller's thread row, `started`, `fork` true.
+**The rest is `start_another_session`'s.** The new job is created and listed at once with no process, held on its start card with the message as its first turn, waiting as `unsent:<session id>` until `begin_session`, and the ledgers carry `forked_from` and `forked_to` (the first with `detail.at` and `cut`, as `start_session`'s fork) beside the caller's thread row, `started`, `fork` true.
 
 `agent_access` is `Yes` for the caller's own conversation only. `start_session`'s `fork` stays `No`.
 """

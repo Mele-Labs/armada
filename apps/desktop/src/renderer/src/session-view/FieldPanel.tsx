@@ -38,6 +38,9 @@ import { useSessions } from "../sessions-draft";
 import { touchedPlots, workingDrones } from "./field";
 import { flier, mainFileOf, rootedDrone, rootsOf } from "./field-drones";
 import { PlanBar } from "./FieldPlan";
+import { TurnAccountBlock, type LiveOpen } from "./TurnAccountBlock";
+import { bandKeyFor, useFold } from "./story";
+import "./story.css";
 import { FieldStrip } from "./FieldStrip";
 import { FieldLensCard } from "./FieldLensCard";
 import { useEngaged } from "./field-engaged";
@@ -256,18 +259,19 @@ export function FieldMap({ session, repositories, large = false }: { session: Se
           onPr={nothing}
         />
       </div>
-      {groups.length === 0 ? null : <PlanBar groups={groups} titled={large} />}
+      {!large || groups.length === 0 ? null : <PlanBar groups={groups} titled />}
       {held === undefined ? null : <FieldReplay events={mine} from={held.from} end={Math.max(clock, Date.parse(held.events.at(-1)!.at))} at={at} onAt={setAt} />}
     </div>
   );
 }
 
-export function FieldPanel({ session, repositories, place }: { session: Session; repositories: readonly RepositorySummary[]; place: Place }) {
+export function FieldPanel({ session, repositories, place, live }: { session: Session; repositories: readonly RepositorySummary[]; place: Place; live?: LiveOpen | undefined }) {
   const working = workingDrones(session, session.work?.field);
   const resting = working === undefined || working.length === 0;
   const expanded = useLayer(session.id) === "field";
   const id = session.id;
   useKeyBindings();
+  const fold = useFold(session, "field");
   const state: PanelState | undefined = resting ? undefined : "live";
   const expand = (
     <Tooltip label={expanded ? "Collapse" : "Expand"} shortcut={boundKeyFor("deck_field")}>
@@ -277,7 +281,12 @@ export function FieldPanel({ session, repositories, place }: { session: Session;
     </Tooltip>
   );
   return (
-    <SvPanel label="Field" area="field" place={place} state={state} acts={expand}>
+    <SvPanel label="Field" area="field" place={place} state={state} acts={expand} fold={fold} keycap={bandKeyFor("field")}>
+      {session.live === undefined || live === undefined ? null : (
+        <div className="sv-field__now">
+          <TurnAccountBlock session={session} live={live} />
+        </div>
+      )}
       {/* One canvas at a time: while the layer holds the Field large, the panel draws none. */}
       {expanded ? <div className="sv-field sv-field--plan" /> : <FieldMap session={session} repositories={repositories} />}
     </SvPanel>

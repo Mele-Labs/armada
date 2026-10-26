@@ -7,4 +7,5 @@ import { CHANNELS } from "../shared/bridge";
 
 export const sketchSharePreload: SketchShareApi = {
   saveSketchFile: (files) => ipcRenderer.invoke(CHANNELS.saveSketchFile, files),
+  saveDocument: (request) => ipcRenderer.invoke(CHANNELS.saveDocument, request),
 };

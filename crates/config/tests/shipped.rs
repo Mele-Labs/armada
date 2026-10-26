@@ -152,6 +152,35 @@ fn each_shipped_step_reads_in_its_phase() {
     }
 }
 
+/// **Every shipped workflow lands in what it is for**: the two that declare
+/// it, and every other by whether a step delivers.
+#[test]
+fn each_shipped_workflow_lands_in_what_it_is_for() {
+    use core_model::Lands::{Document, PullRequest, Report, Spike};
+    let mut lands: Vec<(String, core_model::Lands)> = shipped()
+        .into_iter()
+        .map(|(path, text)| {
+            let def = config::WorkflowDef::parse(&path, &text, &roster())
+                .unwrap_or_else(|why| panic!("{} is refused:\n{why}", path.display()));
+            (def.id().as_str().to_string(), def.lands())
+        })
+        .collect();
+    lands.sort_by(|a, b| a.0.cmp(&b.0));
+    let named: Vec<(&str, core_model::Lands)> = lands.iter().map(|(id, lands)| (id.as_str(), *lands)).collect();
+    assert_eq!(
+        named,
+        vec![
+            ("bug", PullRequest),
+            ("code_review", Report),
+            ("design_plan", Document),
+            ("feature", PullRequest),
+            ("prototype", Spike),
+            ("refactor", PullRequest),
+            ("revert", PullRequest),
+        ]
+    );
+}
+
 /// A phase outside the three is refused rather than drawn in the lane its
 /// fallback would pick.
 #[test]

@@ -39,6 +39,55 @@ describe("answering a session's ask", () => {
   });
 });
 
+describe("starting a Mod Job", () => {
+  const note = { said: "", address: "file:///index.html", place: { selector: "li", element: { tag: "li", text: "x" }, location: "/usage" }, state: { selected: [] } };
+
+  it("passes the note and the words Bridge gave to Fleet, and drops a blank model", async () => {
+    const handlers = new Map<string, Handler>();
+    const startMod = vi.fn(async () => ({ ok: true }));
+    const ipc = { handle: (channel: string, handler: Handler) => handlers.set(channel, handler) };
+    handleSessions({ ipc, connection: () => ({ sessions: { startMod } }), windowIdOf: () => undefined, pages: {} } as unknown as Parameters<typeof handleSessions>[0]);
+    await handlers.get(CHANNELS.startModSession)?.({}, { title: "Usage meter", model: "", note });
+    expect(startMod).toHaveBeenCalledWith({ title: "Usage meter", note });
+  });
+
+  it("passes an empty body through as an empty Mod Job", async () => {
+    const handlers = new Map<string, Handler>();
+    const startMod = vi.fn(async () => ({ ok: true }));
+    const ipc = { handle: (channel: string, handler: Handler) => handlers.set(channel, handler) };
+    handleSessions({ ipc, connection: () => ({ sessions: { startMod } }), windowIdOf: () => undefined, pages: {} } as unknown as Parameters<typeof handleSessions>[0]);
+    await handlers.get(CHANNELS.startModSession)?.({}, {});
+    expect(startMod).toHaveBeenCalledWith({});
+  });
+
+  it("passes his words as said, and answers not understood to a malformed note or words, sending nothing", async () => {
+    const handlers = new Map<string, Handler>();
+    const startMod = vi.fn(async () => ({ ok: true }));
+    const ipc = { handle: (channel: string, handler: Handler) => handlers.set(channel, handler) };
+    handleSessions({ ipc, connection: () => ({ sessions: { startMod } }), windowIdOf: () => undefined, pages: {} } as unknown as Parameters<typeof handleSessions>[0]);
+    const start = handlers.get(CHANNELS.startModSession);
+    await start?.({}, { said: "a dark theme" });
+    expect(startMod).toHaveBeenCalledWith({ said: "a dark theme" });
+    startMod.mockClear();
+    const notUnderstood = { ok: false, outcome: { ok: false, why: "not_understood" } };
+    expect(await start?.({}, { note: { said: "x" } })).toEqual(notUnderstood);
+    expect(await start?.({}, { said: 3 })).toEqual(notUnderstood);
+    expect(await start?.({}, null)).toEqual(notUnderstood);
+    expect(startMod).not.toHaveBeenCalled();
+  });
+});
+
+describe("sending a session message", () => {
+  it("passes the aim of an empty Mod Job's first message to Fleet unchanged", async () => {
+    const handlers = new Map<string, Handler>();
+    const send = vi.fn(async () => ({ ok: true }));
+    const ipc = { handle: (channel: string, handler: Handler) => handlers.set(channel, handler) };
+    handleSessions({ ipc, connection: () => ({ sessions: { send } }), windowIdOf: () => undefined, pages: {} } as unknown as Parameters<typeof handleSessions>[0]);
+    await handlers.get(CHANNELS.sendSessionMessage)?.({}, { session_id: "m", text: "a dark theme", aim: "theme" });
+    expect(send).toHaveBeenCalledWith({ session_id: "m", text: "a dark theme", aim: "theme" });
+  });
+});
+
 function terminalWired() {
   const handlers = new Map<string, Handler>();
   const ipc = { handle: (channel: string, handler: Handler) => handlers.set(channel, handler) };
@@ -118,6 +167,14 @@ describe("a Job held on its start card", () => {
     await call(CHANNELS.beginSession, { session_id: "s", delivery: "open_pr" });
     await call(CHANNELS.beginSession, { session_id: "s" });
     expect(begin.mock.calls).toEqual([[{ session_id: "s", delivery: "open_pr" }], [{ session_id: "s" }]]);
+  });
+
+  it("passes the first message as he left it on the card, and refuses one that is no text rather than begin on the unedited words", async () => {
+    const { call, begin } = started();
+    await call(CHANNELS.beginSession, { session_id: "s", delivery: "keep_local", message: "Port the clock, then the loader" });
+    expect(begin.mock.calls).toEqual([[{ session_id: "s", delivery: "keep_local", message: "Port the clock, then the loader" }]]);
+    expect(await call(CHANNELS.beginSession, { session_id: "s", message: 4 })).toEqual({ ok: false, outcome: { ok: false, why: "not_understood" } });
+    expect(begin).toHaveBeenCalledTimes(1);
   });
 
   it("sends nothing for a Job that is no id or a delivery that is no choice, and says so", async () => {

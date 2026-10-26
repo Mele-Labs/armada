@@ -31,6 +31,7 @@ import { publishSettings, readSettings } from "./settings";
 import type { SleepHost } from "./sleep";
 import type { PlanUsageHost } from "./plan-usage";
 import type { ModelDownshiftHost } from "./model-downshift";
+import type { AgentSignInHost } from "./agent-sign-in";
 import type { ReviewsHost } from "./reviews";
 import type { TimelineHost } from "./timeline";
 import type { ActFailures } from "./act-failed";
@@ -61,6 +62,8 @@ export interface ArrivalHost {
   readonly planUsage: Pick<PlanUsageHost, "changed">;
   /** The default model's step down, told when Fleet moves it and read once per connection — `model-downshift.ts`. */
   readonly modelDownshift: Pick<ModelDownshiftHost, "changed" | "seed">;
+  /** The agents' sign-in, told when Fleet moves it and read once per connection — `agent-sign-in.ts`. */
+  readonly agentSignIn: Pick<AgentSignInHost, "changed" | "seed">;
   /** What happened across the Fleet, told each entry as it is kept — `timeline.ts`. */
   readonly timeline: Pick<TimelineHost, "appended">;
   /** A background act that failed after its reply, told to the windows whole — `act-failed.ts`. */
@@ -183,6 +186,8 @@ export function applyArrival(host: ArrivalHost, text: string, fleet: BridgeState
     void host.issues.autopilotsAgain();
     // And the default model's step down, once, for nobody: the notification is told where it stands, not that it moved.
     void host.modelDownshift.seed();
+    // And the agents' sign-in, for the same reason.
+    void host.agentSignIn.seed();
     return;
   }
 
@@ -296,6 +301,13 @@ export function applyArrival(host: ArrivalHost, text: string, fleet: BridgeState
     host.modelDownshift.changed(state);
     // An accept or a restore moves `models.session`, which `holds.models` read once and would keep.
     void readModels(fleet.port, host);
+    return;
+  }
+  if (event.kind === "agent_sign_in.changed") {
+    // Above the tail for `model_downshift.changed`'s reason: no Job to find, and the state travels whole.
+    host.publish({ connection });
+    const { kind: _kind, ...state } = event;
+    host.agentSignIn.changed(state);
     return;
   }
   if (event.kind === "act.failed") {

@@ -4,7 +4,7 @@ import { expect, fn, waitFor, within } from "storybook/test";
 import { LocateForm, type LocateFormProps } from "./LocateForm";
 
 /**
- * Locate, as the app draws it: a folder to add, or the quieter clone. Controlled, so each story
+ * Locate, as the app draws it: a folder to add, the quieter clone, or a new project. Controlled, so each story
  * is one moment; `apps/desktop/src/renderer/src/mock/locate.test.tsx` presses them in order, in the app.
  */
 const meta: Meta<typeof LocateForm> = {
@@ -23,12 +23,16 @@ const BASE: LocateFormProps = {
   url: "",
   parent: "",
   landsIn: null,
+  place: "~/code",
+  name: "",
   sending: false,
   ready: false,
   onMode: fn(),
   onPath: fn(),
   onUrl: fn(),
   onParent: fn(),
+  onPlace: fn(),
+  onName: fn(),
   onChoose: fn(),
   onSend: fn(),
   onCancel: fn(),
@@ -106,5 +110,33 @@ export const DestinationNotEmpty: Story = {
       saying: "/Users/user/code/storefront already exists and is not empty.",
       next: "Choose another folder to clone into.",
     },
+  },
+};
+
+/** A new project: a location offered, a name typed, and Create project waits for both. The other two ways in sit under the fields. */
+export const ANewProject: Story = {
+  name: "A new project",
+  args: { ...BASE, mode: "new" },
+  play: async ({ args, canvasElement, userEvent }) => {
+    const dialog = within(canvasElement).getByRole("dialog", { name: "New project" });
+    await waitFor(() => expect(within(dialog).getByLabelText("Location")).toHaveValue("~/code"));
+    await expect(within(dialog).getByRole("button", { name: /^Create project/ })).toBeDisabled();
+    await expect(within(dialog).getByRole("button", { name: "Add a folder on disk" })).toBeVisible();
+    await expect(within(dialog).getByRole("button", { name: "Clone from a URL" })).toBeVisible();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Choose a folder" }));
+    await expect(args.onChoose).toHaveBeenCalledWith("place");
+    await userEvent.type(within(dialog).getByLabelText("Name"), "m");
+    await expect(args.onName).toHaveBeenCalledWith("m");
+  },
+};
+
+/** A name that is not one folder's: said under the field. */
+export const ANewProjectBadName: Story = {
+  name: "A new project, a name with a space",
+  args: { ...BASE, mode: "new", name: "my app", nameMessage: "Letters, digits, dots, dashes and underscores." },
+  play: async ({ canvasElement }) => {
+    const dialog = within(canvasElement).getByRole("dialog", { name: "New project" });
+    await waitFor(() => expect(within(dialog).getByText("Letters, digits, dots, dashes and underscores.")).toBeVisible());
+    await expect(within(dialog).getByRole("button", { name: /^Create project/ })).toBeDisabled();
   },
 };

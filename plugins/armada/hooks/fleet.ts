@@ -57,6 +57,7 @@ export type Fact =
   | { kind: 'turn_started' }
   | { kind: 'turn_completed'; said?: string }
   | { kind: 'limited'; resets_at: string }
+  | { kind: 'signed_out' }
   | { kind: 'touched'; paths: string[]; act?: 'write' | 'edit'; by?: string }
   | { kind: 'read'; path: string }
   | { kind: 'ran'; command: string }

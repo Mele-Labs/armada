@@ -22,7 +22,7 @@ struct Alert {
     title: String,
     reason: &'static str,
     /// This Mac's `https://<tailnet name>`, the address the phone paired with.
-    /// Absent while Tailscale is down; the app then finds the Mac holding the Job.
+    /// Absent while the Gateway cannot say its address; the app then finds the Mac holding the Job.
     #[serde(skip_serializing_if = "Option::is_none")]
     origin: Option<String>,
 }
@@ -96,8 +96,8 @@ async fn push(gateway: Gateway, retries: Vec<Duration>, mut alert: Alert) {
 
 async fn send(gateway: Gateway, retries: Vec<Duration>, sub: store::PushSubscription, payload: String) {
     let push = &gateway.push;
-    // The Gateway's own tailnet address says who is sending; with no
-    // Tailscale there is no phone to reach, so the fallback is rarely used.
+    // The Gateway's own address says who is sending; with none
+    // there is no phone to reach, so the fallback is rarely used.
     let subject = gateway.pairing.address().unwrap_or_else(|_| push.subject.clone());
     // A subscription made with another Mac's key is pushed to under that key,
     // or the push service refuses it. One whose key will not read cannot be sent.

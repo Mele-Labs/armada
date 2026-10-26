@@ -2,6 +2,7 @@
 // asks it to write armada.yml with the owner and carries the reading Setup already holds, so the
 // Session starts from it rather than scanning again. No React, so the message is a unit test.
 
+import { placePhrase, type RunsPlace } from "@armada/components";
 import type { ManifestProposal, Outcome, Provenance, SendSessionMessage } from "@armada/protocol";
 
 import type { SetupOpen } from "./setup-view";
@@ -12,19 +13,35 @@ import { stateOf } from "./setup-view";
  * whatever skill the machine's own Claude Code holds, and a Session in another repository may not
  * load it. `armada manifest config verify`, the step the skill ends on, is v1's and this binary has
  * no such verb, so the last rule names the one that runs a Check.
+ *
+ * **The place is named, never asked.** The Session cannot read or set it (`get_run_memory_place` is
+ * closed to agents), so Bridge reads it and the message says where the file is kept.
  */
-const INSTRUCTION = [
-  "Set up this repository's armada.yml with me, using the onboard-repo skill. Where that skill is not loaded, keep its rules, which are these:",
-  "",
-  "- Ask me one question at a time, and wait for my answer before the next.",
-  "- Say where every guess came from: the file and the key it was read from.",
-  "- Write nothing before I confirm it. Show me the whole file first.",
-  "- Before you write anything, ask me whose this armada.yml is, in these words: \"Do your colleagues use Armada on this repository? If they do not, I can keep this armada.yml as yours: it stays in your Kit and nothing is committed to the repository, so your colleagues never see it, and it runs only for you. Or I can write it as the repository's: it goes at the workspace root and is committed with this Job, so your colleagues see a new file in the pull request, and anyone who does use Armada here runs it too. Yours, or the repository's?\"",
-  "- Write it where I answered. If it is the repository's, write armada.yml here, at the repository's root, where this Job starts. A workspace that needs its own writes its armada.yml in its own directory. If it is mine, call the save_kit_manifest tool with this repository's root and the whole file, which keeps it where my Kit keeps it and puts nothing in the repository. If that tool refuses, tell me what it said and stop; never write the file into the repository instead.",
-  "- If it is the repository's, before writing it, ask me whether to add armada.yml to this repository's .gitignore, and do what I answer. Tell me with the question that an ignored armada.yml is missing from the worktrees Jobs work in, so `armada check` and `armada run` fail there, while Fleet's own Checks still run.",
-  "- Write only armada.yml files, .gitignore files and .git/info/exclude, with the Write or Edit tool; the file that is mine goes through save_kit_manifest instead. Fleet refuses anything else here until the root's armada.yml is served.",
-  "- End on a real run, never a claim. Run `armada check <name>` for each Check you wrote, from the directory its armada.yml is in (the repository's root, for one kept in Kit), and show me what each said. Not done until they pass.",
-].join("\n");
+function instructionOf(place: RunsPlace | undefined): string {
+  const inRepository = place?.id === "repository";
+  const kept = place === undefined ? "in your Kit" : placePhrase(place);
+  const where = inRepository
+    ? [
+        `- This repository's armada.yml is kept ${kept}. Do not ask me where to keep it.`,
+        "- Write armada.yml at the repository's root, on this Job's branch, where this Job starts. It lands with this Job's pull request. A workspace that needs its own writes its armada.yml in its own directory.",
+        "- Before writing it, ask me whether to add armada.yml to this repository's .gitignore, and do what I answer. Tell me with the question that an ignored armada.yml is missing from the worktrees Jobs work in, so `armada check` and `armada run` fail there, while Fleet's own Checks still run.",
+        "- Write only armada.yml files, .gitignore files and .git/info/exclude, with the Write or Edit tool. Fleet refuses anything else here until the root's armada.yml is served.",
+      ]
+    : [
+        `- This repository's armada.yml is kept ${kept}. Do not ask me where to keep it.`,
+        `- Save it by calling the save_kit_manifest tool with this repository's root and the whole file, which keeps it ${kept} and puts nothing in the repository. If that tool refuses, tell me what it said and stop; never write the file into the repository instead.`,
+        "- Write no file in the repository.",
+      ];
+  return [
+    "Set up this repository's armada.yml with me, using the onboard-repo skill. Where that skill is not loaded, keep its rules, which are these:",
+    "",
+    "- Ask me one question at a time, and wait for my answer before the next.",
+    "- Say where every guess came from: the file and the key it was read from.",
+    "- Write nothing before I confirm it. Show me the whole file first.",
+    ...where,
+    `- End on a real run, never a claim. Run \`armada check <name>\` for each Check you wrote, from ${inRepository ? "the directory its armada.yml is in" : "the repository's root"}, and show me what each said. Not done until they pass.`,
+  ].join("\n");
+}
 
 const READING =
   "Bridge has already scanned this checkout. Start from what it read rather than scanning again. Each workspace, the files it read there, and what Setup proposed:";
@@ -50,9 +67,9 @@ function workspaceLine(held: SetupOpen, proposal: ManifestProposal): string {
   return parts.join(" ");
 }
 
-/** The Session's first message: what to do and by which rules, then the reading, a line a workspace. */
-export function setupMessageOf(held: SetupOpen): string {
-  return [INSTRUCTION, "", READING, "", ...held.proposals.proposals.map((one) => workspaceLine(held, one))].join("\n");
+/** The Session's first message: what to do and by which rules, then the reading, a line a workspace. `place` is where the repository's configuration is kept, `undefined` where Fleet could not say. */
+export function setupMessageOf(held: SetupOpen, place: RunsPlace | undefined): string {
+  return [instructionOf(place), "", READING, "", ...held.proposals.proposals.map((one) => workspaceLine(held, one))].join("\n");
 }
 
 /** What the Session is called: the repository's folder, which is what a person knows it by. */
@@ -69,17 +86,18 @@ export type SetupSessionFleet = {
 /** `id` on a refusal is a Session that started and did not take the message: it is still opened. */
 export type SetupSessionAnswer = { ok: true; id: string } | { ok: false; saying: string; id?: string };
 
-/** Start a Session in `root` and send it the message. A refusal at either call comes back as its words. */
+/** Start a Session in `root` and send it the message, naming `place`. A refusal at either call comes back as its words. */
 export async function startSetupSession(
   held: SetupOpen,
   root: string,
   fleet: SetupSessionFleet,
   say: (outcome: Outcome) => string,
+  place: RunsPlace | undefined,
 ): Promise<SetupSessionAnswer> {
   const started = await fleet.startSession(setupTitleOf(root), root);
   if (!started.ok) return { ok: false, saying: `Job not started: ${say(started.outcome) || "Fleet refused it"}` };
   const { id } = started.value;
-  const sent = await fleet.sendSessionMessage({ session_id: id, text: setupMessageOf(held) });
+  const sent = await fleet.sendSessionMessage({ session_id: id, text: setupMessageOf(held, place) });
   if (!sent.ok) return { ok: false, id, saying: `Job started, but the reading was not sent: ${say(sent.outcome) || "Fleet refused it"}` };
   return { ok: true, id };
 }

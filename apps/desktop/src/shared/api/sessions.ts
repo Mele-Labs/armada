@@ -1,7 +1,7 @@
 // The Sessions Fleet hosts and the ledger of every agent session: reads, and the acts a person takes.
 // A slice imports protocol and screens, never another slice; `../api.ts` and `../bridge.ts` compose them.
 
-import type { StopWatch, WatchSummary } from "@armada/protocol";
+import type { AdversarialReview, DismissFinding, ModSessionStarted, SendFinding, StartAdversarialReview, StartModSession, StopWatch, WatchSummary } from "@armada/protocol";
 import type {
   AnswerSessionAsk,
   AnswerWaiting,
@@ -108,6 +108,8 @@ export type SessionsApi = {
   sendSessionMessage: (send: SendSessionMessage) => Promise<SessionActed>;
   /** A note pinned on a page, sent whole. Fleet answers with the turn taken and the lines of code the spot was drawn from. */
   sendSessionNote: (send: SendSessionNote) => Promise<SessionActed<NoteSent>>;
+  /** A Mod Job on what was pointed at. Fleet sends it the Mod brief and the note itself, and answers with the Job's id, not its record: the record arrives on Fleet's events. */
+  startModSession: (start: StartModSession) => Promise<SessionActed<ModSessionStarted>>;
   /** One of the offers on the ask the agent is held on. */
   answerSessionAsk: (answer: AnswerSessionAsk) => Promise<SessionActed>;
   /** Settles one thing a session waits on: a numbered choice, the person's words, or a mode that leaves it to the agent. */
@@ -134,6 +136,12 @@ export type SessionsApi = {
   sendConcern: (send: SendConcern) => Promise<SessionActed>;
   /** Settles a judge's concern. The agent is told nothing. */
   dismissConcern: (dismiss: DismissConcern) => Promise<SessionActed>;
+  /** Starts an adversarial review of a plan, or answers the one kept for it where `again` is not set. Fleet answers the review, not the record: it lands on `plan.adversarial` by `session.changed`. */
+  startAdversarialReview: (start: StartAdversarialReview) => Promise<SessionActed<AdversarialReview>>;
+  /** Sends a finding to the agent as his message, and settles it. Answers the review. */
+  sendFinding: (send: SendFinding) => Promise<SessionActed<AdversarialReview>>;
+  /** Settles a finding. The agent is told nothing. Answers the review. */
+  dismissFinding: (dismiss: DismissFinding) => Promise<SessionActed<AdversarialReview>>;
   /** The model, effort and permission mode the next turn runs on. */
   tuneSession: (tune: TuneSession) => Promise<SessionActed>;
   /** A slash command written in a terminal Session's thread, run in its terminal as typed. Nothing comes back. */
@@ -323,6 +331,7 @@ export const SESSIONS_CHANNELS = {
   forkSessionAt: "bridge:fork-session-at",
   sendSessionMessage: "bridge:send-session-message",
   sendSessionNote: "bridge:send-session-note",
+  startModSession: "bridge:start-mod-session",
   answerSessionAsk: "bridge:answer-session-ask",
   answerWaiting: "bridge:answer-waiting",
   claimPullRequest: "bridge:claim-pull-request",
@@ -339,6 +348,9 @@ export const SESSIONS_CHANNELS = {
   judgeSession: "bridge:judge-session",
   sendConcern: "bridge:send-concern",
   dismissConcern: "bridge:dismiss-concern",
+  startAdversarialReview: "bridge:start-adversarial-review",
+  sendFinding: "bridge:send-finding",
+  dismissFinding: "bridge:dismiss-finding",
   tuneSession: "bridge:tune-session",
   runSessionCommand: "bridge:run-session-command",
   renameSession: "bridge:rename-session",

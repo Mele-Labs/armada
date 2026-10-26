@@ -25,7 +25,7 @@ think is running is worse than no table.
 |---|---|
 | A branch or PR from this job | `gh pr view <n> --json state,mergeable`, `git log --oneline main..<branch>` |
 | An agent dispatched in this job | The task notifications received, and which have not reported back |
-| An issue filed in this job | `gh issue view <n> --json state` |
+| An issue filed in this job | `bd show <id> --json` |
 | A worktree cut in this job | `git worktree list`, then `git status --porcelain` in it |
 | A decision asked for and not given | Read the conversation back — an `AskUserQuestion` he answered with a deferral, or never answered |
 

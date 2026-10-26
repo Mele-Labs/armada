@@ -102,12 +102,15 @@ function walkFinder(): Plugin {
   }
 }
 
-/* Every workspace package, read off this app's own dependencies rather than
-   listed here. A package added to `package.json` is bundled from the day it is
-   added, with nothing to keep in step. */
-const WORKSPACE = Object.keys(
-  JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')).dependencies,
-).filter((name) => name.startsWith('@armada/'))
+/* Every workspace package, read off this app's own package.json rather than
+   listed here. A package added there is bundled from the day it is added, with
+   nothing to keep in step. They sit in `devDependencies`, as everything bundled
+   does: electron-builder ships `dependencies` again inside the app, and only
+   what main loads at runtime belongs there. */
+const MANIFEST = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8'))
+const WORKSPACE = Object.keys({ ...MANIFEST.dependencies, ...MANIFEST.devDependencies }).filter((name) =>
+  name.startsWith('@armada/'),
+)
 
 // Three builds from one config: the main process, the preload bridge, and the
 // renderer. The preload is the only thing that crosses between them, which is

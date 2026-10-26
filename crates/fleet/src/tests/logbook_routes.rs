@@ -143,6 +143,28 @@ async fn an_edit_is_not_undone_by_the_file_that_still_holds_the_old_text() {
 }
 
 #[tokio::test]
+async fn a_remembered_run_is_not_a_logbook_entry() {
+    let rig = rig_placing(None);
+    let ran = store::KeptRun {
+        workspace: "apps/desktop".into(),
+        kind: "tests".into(),
+        command: "pnpm exec vitest run src/renderer/src/mock/zz-debug.test.tsx".into(),
+        port: None,
+        succeeded: true,
+        last_ran: 1,
+        source: "jobs".into(),
+        kept_in: None,
+        why: None,
+    };
+    rig.fleet.store().lock().await.merge_run_facts(&rig.root, &[ran]).expect("kept");
+
+    let all = read(&rig, true, None, None).await;
+    assert!(all.iter().all(|one| !one.text.contains("zz-debug")), "{all:?}");
+    let note = rig.fleet.logbook_note_of(Some(&rig.root)).await.unwrap_or_default();
+    assert!(!note.contains("zz-debug"), "{note}");
+}
+
+#[tokio::test]
 async fn an_edit_is_refused_for_empty_text_an_unknown_id_a_kept_fact_and_forgotten_text() {
     let rig = rig_placing(None);
     let id = seeded(&rig, LogSection::Repo, "Use the focused test command.", LogState::Standing).await;
@@ -155,7 +177,7 @@ async fn an_edit_is_refused_for_empty_text_an_unknown_id_a_kept_fact_and_forgott
     assert_eq!(code(long), (422, "fleet.logbook_text_refused".to_string()));
     let unknown = rig.fleet.edit_logbook_entry("9999".into(), edit("Text.")).await.expect_err("unknown");
     assert_eq!(code(unknown), (404, "fleet.no_such_logbook_entry".to_string()));
-    let folded = rig.fleet.edit_logbook_entry("runs-00000000000000ff".into(), edit("Text.")).await.expect_err("kept elsewhere");
+    let folded = rig.fleet.edit_logbook_entry("machine-00000000000000ff".into(), edit("Text.")).await.expect_err("kept elsewhere");
     assert_eq!(code(folded), (422, "fleet.logbook_entry_not_kept".to_string()));
 
     rig.fleet.forget_logbook_entry(other).await.expect("forgot");

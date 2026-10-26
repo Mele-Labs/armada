@@ -1,13 +1,13 @@
 // The repository field at the head of the Cockpit's left column, as a combobox: the WAI-ARIA pattern with a listbox
 // popup. Pressing or focusing the field makes it a text box in place, the current pick shown as its placeholder; the list
 // opens under it and narrows as he types. Arrows move through it, Enter picks, Esc puts the previous value back and
-// closes. All repositories leads, a rule under it (no count beside it); the repositories follow; Add a repository is a footer action, outside the
-// filter and reachable by arrow like any row. A repository whose runs Fleet keeps wears the glyph of the place they are kept in: → on its row, or a press
+// closes. All repositories leads, a rule under it (no count beside it); the repositories follow; New project and Add a repository are footer actions,
+// outside the filter and reachable by arrow like any row. A repository whose runs Fleet keeps wears the glyph of the place they are kept in: → on its row, or a press
 // on the glyph, opens all of how it runs as a layer.
 
 import { useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { createPortal } from "react-dom";
-import { Check, ChevronDown, FolderGit2, Layers, Plus } from "lucide-react";
+import { Check, ChevronDown, FolderGit2, FolderPlus, Layers, Plus } from "lucide-react";
 import { PLACE_GLYPH, RunsAll, RunsPlaces, Tooltip, placePhrase, useAccount } from "@armada/components";
 import type { RepositorySummary } from "@armada/protocol";
 import { repositoryLabel } from "@armada/shell";
@@ -18,6 +18,7 @@ import { boundProfile } from "../../run-places";
 
 const ALL_ROW = "all";
 const ADD_ROW = "add";
+const NEW_ROW = "new";
 
 type Row = { readonly id: string; readonly root: string | null; readonly label: string };
 
@@ -26,12 +27,14 @@ export function RepositoryCombobox({
   picked,
   onPick,
   onAdd,
+  onNew,
 }: {
   repositories: readonly RepositorySummary[];
   /** The root picked, or null for All. */
   picked: RepositorySummary | null;
   onPick: (root: string | null) => void;
   onAdd?: (() => void) | undefined;
+  onNew?: (() => void) | undefined;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -53,8 +56,9 @@ export function RepositoryCombobox({
     const repos: Row[] = repositories.map((one) => ({ id: one.root, root: one.root, label: repositoryLabel(one, repositories) }));
     return [...all, ...repos].filter((row) => needle === "" || row.label.toLowerCase().includes(needle));
   }, [repositories, needle]);
-  // The arrow order: the filtered rows, then the footer action, which the filter never removes.
-  const order = onAdd === undefined ? rows.map((row) => row.id) : [...rows.map((row) => row.id), ADD_ROW];
+  // The arrow order: the filtered rows, then the footer actions, which the filter never removes.
+  const footer = [...(onNew === undefined ? [] : [NEW_ROW]), ...(onAdd === undefined ? [] : [ADD_ROW])];
+  const order = [...rows.map((row) => row.id), ...footer];
   const activeId = open && order.length > 0 ? order[Math.min(active, order.length - 1)] : undefined;
 
   const show = () => {
@@ -72,6 +76,7 @@ export function RepositoryCombobox({
   const choose = (id: string) => {
     close();
     if (id === ADD_ROW) return onAdd?.();
+    if (id === NEW_ROW) return onNew?.();
     const row = rows.find((one) => one.id === id);
     if (row !== undefined) onPick(row.root);
   };
@@ -112,7 +117,7 @@ export function RepositoryCombobox({
     }
   };
 
-  const optionId = (id: string) => `${listId}-${id === ALL_ROW || id === ADD_ROW ? id : `r${repositories.findIndex((one) => one.root === id)}`}`;
+  const optionId = (id: string) => `${listId}-${id === ALL_ROW || id === ADD_ROW || id === NEW_ROW ? id : `r${repositories.findIndex((one) => one.root === id)}`}`;
   /** The glyph of the place a repository's runs are kept in, which opens all of how it runs. */
   const mark = (row: Row) => {
     const kept = row.root === null ? undefined : book.placeOf(row.root, boundProfile(account, row.root));
@@ -194,24 +199,23 @@ export function RepositoryCombobox({
               {first === undefined ? <li role="presentation" className="deck-combo__empty">No repository matches</li> : first.root === null ? option(first) : null}
               {first !== undefined && first.root === null && rest.length > 0 ? <li role="presentation" className="deck-combo__rule" /> : null}
               {(first !== undefined && first.root === null ? rest : rows).map(option)}
-              {onAdd === undefined ? null : (
-                <>
-                  <li role="presentation" className="deck-combo__rule" />
-                  <li
-                    id={optionId(ADD_ROW)}
-                    role="option"
-                    aria-selected={undefined}
-                    data-active={activeId === ADD_ROW || undefined}
-                    className="deck-combo__option deck-combo__add"
-                    onMouseDown={(event) => event.preventDefault()}
-                    onMouseMove={() => setActive(order.indexOf(ADD_ROW))}
-                    onClick={() => choose(ADD_ROW)}
-                  >
-                    <Plus size={16} aria-hidden="true" />
-                    <span className="deck-combo__label">Add a repository</span>
-                  </li>
-                </>
-              )}
+              {footer.length === 0 ? null : <li role="presentation" className="deck-combo__rule" />}
+              {footer.map((id) => (
+                <li
+                  key={id}
+                  id={optionId(id)}
+                  role="option"
+                  aria-selected={undefined}
+                  data-active={activeId === id || undefined}
+                  className="deck-combo__option deck-combo__add"
+                  onMouseDown={(event) => event.preventDefault()}
+                  onMouseMove={() => setActive(order.indexOf(id))}
+                  onClick={() => choose(id)}
+                >
+                  {id === NEW_ROW ? <FolderPlus size={16} aria-hidden="true" /> : <Plus size={16} aria-hidden="true" />}
+                  <span className="deck-combo__label">{id === NEW_ROW ? "New project" : "Add a repository"}</span>
+                </li>
+              ))}
             </ul>,
             document.body,
           )

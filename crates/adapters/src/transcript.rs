@@ -66,6 +66,10 @@ const EMPTY_TURN: &str = "a turn with nothing in it Armada names";
 /// behind it, such as a local command's output: [`Speaker::Harness`]'s line.
 const NO_MODEL: &str = "<synthetic>";
 
+/// The top-level `error` of an assistant line the harness wrote because its sign-in ran out and
+/// would not renew: [`DroneEvent::SignedOut`].
+const SIGNED_OUT: &str = "authentication_failed";
+
 /// Read one line.
 ///
 /// Never empty, and never a `Result` — see this module's note.
@@ -97,7 +101,12 @@ pub fn read(line: &str) -> Vec<DroneEvent> {
                 Some(NO_MODEL) => Speaker::Harness,
                 _ => Speaker::Drone,
             };
-            blocks(message, by)
+            let signed_out = message.error.as_deref() == Some(SIGNED_OUT);
+            let mut events = blocks(message, by);
+            if signed_out {
+                events.push(DroneEvent::SignedOut);
+            }
+            events
         }
         Line::User(message) => blocks(message, Speaker::Armada),
         Line::Result(result) => vec![DroneEvent::Ended {
@@ -490,6 +499,10 @@ type Counted = serde::de::IgnoredAny;
 #[derive(Deserialize)]
 struct MessageLine {
     message: Message,
+    /// Set by the harness on a line it wrote in place of a turn it could not take. Read only for
+    /// [`SIGNED_OUT`].
+    #[serde(default)]
+    error: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -724,6 +737,31 @@ pub fn written_document(tool: &str, detail: &str, home: &str) -> Option<String> 
             .iter()
             .any(|root| path.starts_with(root));
     (document && !scratch).then_some(path)
+}
+
+/// The page of a Job's own document a `Write`, `Edit` or `MultiEdit` call wrote: an `.html` file under
+/// `.armada/documents/`, with the elided home put back as `home`. **Read here, beside the lines that
+/// compose the detail**: a `Write` carries `{path} +{lines}`, an `Edit` `{path} +{added} -{removed}`, and a
+/// `MultiEdit` its bare path, since the stream's `edits` list is not read. [`written_document`] leaves
+/// `/.armada/` out, so this is the one place such a page is told apart.
+pub fn written_job_page(tool: &str, detail: &str, home: &str) -> Option<String> {
+    if !matches!(tool, "Write" | "Edit" | "MultiEdit") {
+        return None;
+    }
+    let counted = |tail: &str| !tail.is_empty() && tail.bytes().all(|b| b.is_ascii_digit());
+    let mut shown = detail;
+    for mark in [" -", " +"] {
+        if let Some((head, tail)) = shown.rsplit_once(mark) {
+            if counted(tail) {
+                shown = head;
+            }
+        }
+    }
+    let path = match shown.strip_prefix("~/") {
+        Some(rest) => format!("{}/{rest}", home.trim_end_matches('/')),
+        None => shown.to_string(),
+    };
+    (path.contains("/.armada/documents/") && path.to_lowercase().ends_with(".html")).then_some(path)
 }
 
 /// The picture a `Read` call looked at, with the elided home put back as

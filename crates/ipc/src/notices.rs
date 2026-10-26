@@ -45,6 +45,8 @@ pub enum Notice {
     UsageTrip,
     /// The plan's limit ended and the Session is woken.
     LimitWake,
+    /// The owner signed the harness in again and the Session its expiry stopped is woken.
+    SignInWake,
     /// The owner approved the plan.
     PlanApproved,
     /// Auto land is on and the forge would not turn on auto-merge.
@@ -67,6 +69,10 @@ pub enum Notice {
     WatchSaw,
     /// The owner taught Armada something the Session should follow from now on.
     Taught,
+    /// The backlog gave an issue the Job claimed to someone else.
+    IssueLost,
+    /// A sketch in a Job's document will not draw.
+    DocumentSketch,
 }
 
 impl Notice {
@@ -91,6 +97,7 @@ impl Notice {
             Notice::RailStep => "rail_step",
             Notice::UsageTrip => "usage_trip",
             Notice::LimitWake => "limit_wake",
+            Notice::SignInWake => "sign_in_wake",
             Notice::PlanApproved => "plan_approved",
             Notice::AutoLandRefused => "auto_land_refused",
             Notice::RetroNote => "retro_note",
@@ -102,6 +109,8 @@ impl Notice {
             Notice::DeliveryChosen => "delivery_chosen",
             Notice::WatchSaw => "watch_saw",
             Notice::Taught => "taught",
+            Notice::IssueLost => "issue_lost",
+            Notice::DocumentSketch => "document_sketch",
         }
     }
 }

@@ -9,6 +9,7 @@ import type { IpcMain } from "electron";
 
 import type { SketchSaveFile, SketchSaveKind, SketchSaved } from "../shared/api/sketch-share";
 import { CHANNELS } from "../shared/bridge";
+import { printToPdf, saveDocumentFile } from "./document-save";
 
 /** A picture of a big sketch at 2x is a few MB; far past this is not a sketch. */
 export const MOST_BYTES = 64 * 1024 * 1024;
@@ -79,6 +80,18 @@ export function handleSketchShare({ ipc }: { ipc: IpcMain }): void {
         return chosen.canceled || chosen.filePath === "" ? undefined : chosen.filePath;
       },
       write: (path, bytes) => writeFile(path, bytes),
+    });
+  });
+  ipc.handle(CHANNELS.saveDocument, (event, request: unknown) => {
+    const window = BrowserWindow.fromWebContents(event.sender);
+    return saveDocumentFile(request, {
+      choose: async ({ defaultName, filters }) => {
+        const options = { defaultPath: join(app.getPath("downloads"), defaultName), filters };
+        const chosen = window === null ? await dialog.showSaveDialog(options) : await dialog.showSaveDialog(window, options);
+        return chosen.canceled || chosen.filePath === "" ? undefined : chosen.filePath;
+      },
+      write: (path, bytes) => writeFile(path, bytes),
+      print: printToPdf,
     });
   });
 }

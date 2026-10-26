@@ -5,6 +5,7 @@
 //! half-finished pairing is started again. Devices are in the store.
 
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 use store::{Device, Store};
@@ -12,7 +13,7 @@ use store::{Device, Store};
 /// Unix seconds now. Injected, so a test moves time.
 pub type Clock = Arc<dyn Fn() -> i64 + Send + Sync>;
 
-/// The Gateway's `https://<name>` on the tailnet, or the sentence saying why not.
+/// The `https://<name>` the phone reaches the Gateway at, or the sentence saying why not.
 pub type Address = Arc<dyn Fn() -> Result<String, String> + Send + Sync>;
 
 pub const CODE_TTL: i64 = 5 * 60;
@@ -215,6 +216,36 @@ pub fn address_from_status(output: &str) -> Result<String, String> {
     Ok(format!("https://{name}"))
 }
 
+/// The file in the machine directory naming the address the phone reaches this
+/// Mac at, for a way in the owner brings other than `tailscale serve`: Tailscale
+/// Funnel, ngrok, a Cloudflare Tunnel. Absent, the address is asked of Tailscale.
+pub const ADDRESS_FILE: &str = "pocket-address";
+
+/// `https://<host>` from what the owner wrote in [`ADDRESS_FILE`]: one origin,
+/// with no path, query or credentials, so it can be the phone's origin as written.
+pub fn address_from_file(text: &str) -> Result<String, String> {
+    let address = text.trim().trim_end_matches('/');
+    let wrong = format!(
+        "{ADDRESS_FILE} names {address:?}, which is not an https address such as https://mac.example.com. Correct it, then start pairing again."
+    );
+    let host = address.strip_prefix("https://").ok_or_else(|| wrong.clone())?;
+    let plain = |c: char| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | ':' | '[' | ']');
+    if host.is_empty() || !host.chars().all(plain) {
+        return Err(wrong);
+    }
+    Ok(address.to_ascii_lowercase())
+}
+
+/// The address [`ADDRESS_FILE`] in `machine` names, read at each call so an edit
+/// takes effect at the next pairing, else Tailscale's.
+pub fn machine_address(machine: PathBuf) -> Address {
+    Arc::new(move || match std::fs::read_to_string(machine.join(ADDRESS_FILE)) {
+        Ok(text) => address_from_file(&text),
+        Err(why) if why.kind() == std::io::ErrorKind::NotFound => tailscale_address(),
+        Err(why) => Err(format!("{ADDRESS_FILE} could not be read: {why}")),
+    })
+}
+
 /// The Mac app keeps its command line inside the bundle and puts it on `PATH`
 /// only if asked to, so the bundle's copy is tried when `tailscale` is not found.
 const TAILSCALE: [&str; 2] = ["tailscale", "/Applications/Tailscale.app/Contents/MacOS/Tailscale"];
@@ -224,6 +255,6 @@ pub fn tailscale_address() -> Result<String, String> {
     let output = TAILSCALE
         .iter()
         .find_map(|program| std::process::Command::new(program).args(["status", "--json"]).output().ok())
-        .ok_or_else(|| "Tailscale is not installed on this Mac. Install it and sign in, then start pairing again.".to_string())?;
+        .ok_or_else(|| "Tailscale is not installed on this Mac. Install it and sign in, or name this Mac's address in pocket-address, then start pairing again.".to_string())?;
     address_from_status(&String::from_utf8_lossy(&output.stdout))
 }

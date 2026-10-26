@@ -145,6 +145,7 @@ export const SLOT_NAMES: Readonly<Record<string, readonly string[] | undefined>>
   history: ["Back", "Forward"],
   move_focus: ["Down", "Up", "Down", "Up"],
   deck_reorder: ["Up", "Down"],
+  finding_move: ["Down", "Up", "Down", "Up"],
 };
 
 // ---- What this person has changed ------------------------------------------------------------
@@ -375,7 +376,7 @@ export function digitKeyFor(id: string, digit: number): string | undefined {
  * the list and the output on a Job, and those are never the same screen.
  */
 const PLACES: Readonly<Record<ActionScope, readonly string[]>> = {
-  anywhere: ["board", "detail", "studio", "dashboard", "deck", "review", "call", "logbook", "issues"],
+  anywhere: ["board", "detail", "studio", "dashboard", "deck", "review", "call", "logbook", "issues", "plan"],
   // The deck's list takes `j`, `k` and `Enter` as any list does. The acts that need a Job or Session in
   // hand (`list and detail`: attest, redirect, kill and the rest) are on its page, not on the deck.
   // The Reviews list is not here: it moves by `j`, `k` and `Enter` as a list does, but its `r` goes to the reader, where a
@@ -396,6 +397,8 @@ const PLACES: Readonly<Record<ActionScope, readonly string[]>> = {
   call: ["call"],
   // The Logbook is a tab of the places bar too, and its letters meet no other scope's.
   logbook: ["logbook"],
+  // A plan card or the plan in full holds focus while its keys are pressed, and takes them before the page it sits on.
+  plan: ["plan"],
 };
 
 const overlaps = (a: ActionScope, b: ActionScope): boolean => PLACES[a].some((place) => PLACES[b].includes(place));
@@ -445,6 +448,7 @@ export const KEYMAP_GROUPS: readonly KeymapGroup[] = [
   { title: "Calls", scopes: ["call"] },
   { title: "Reviews", scopes: ["review"] },
   { title: "Logbook", scopes: ["logbook"] },
+  { title: "Plans", scopes: ["plan"] },
   { title: "Issues", scopes: ["issues"] },
   { title: "Studios", scopes: ["open studio"] },
 ];

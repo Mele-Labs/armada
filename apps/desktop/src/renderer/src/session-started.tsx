@@ -1,30 +1,11 @@
-// A Session another Session's agent started or forked when the owner asked it to. **It waits for him**:
-// the agent's first message sits in the new Session's box unsent, and nothing runs until he sends it.
+// A Job another Job's agent started or forked when the owner asked it to. **It waits for him**: it is held on its start card,
+// the agent's first message sits in its box, and nothing runs until he presses Start.
 
 import { useEffect } from "react";
 import type { ReactNode } from "react";
 import { readKept, seedDraft, StartedBy } from "@armada/components";
 import type { LedgerEntry } from "@armada/components";
-import type { WaitingItem } from "@armada/protocol";
 import type { Session, SessionAttachment } from "@armada/screens/src/draft/sessions";
-
-/** The item that waits on the person sending the first message: Fleet gives it the source `first_message`. */
-export const isUnsentItem = (item: WaitingItem): boolean => item.source === "first_message";
-
-/** The row for the item that waits on the first message: a press goes to the box. */
-export function unsentEntry(item: WaitingItem, goToBox: () => void): LedgerEntry {
-  return {
-    key: `waiting${item.id}`,
-    kind: "waiting",
-    name: item.text,
-    text: item.text,
-    act: "message",
-    onOpen: () => {
-      goToBox();
-      document.querySelector<HTMLElement>('[role="textbox"][aria-label="Message"]')?.focus();
-    },
-  };
-}
 
 /** A fork or a start on the ledger, of the Session that made it and of the one it made. */
 export function linkEntry(one: Extract<SessionAttachment, { kind: "forked_to" | "forked_from" | "started_to" | "started_by" }>, sessions: readonly Session[], open: (id: string) => void): LedgerEntry {
@@ -37,10 +18,12 @@ export function linkEntry(one: Extract<SessionAttachment, { kind: "forked_to" | 
 
 /** The row above the thread naming the Session whose agent started this one, if one did. Also seeds the box with its first message. */
 export function useStartedBy(session: Session, sessions: readonly Session[], open: (id: string) => void): ReactNode {
-  const { id, unsent } = session;
+  const { id } = session;
+  // The first message a held Job will begin with.
+  const first = session.start?.message;
   useEffect(() => {
-    if (unsent !== undefined && readKept(`session:${id}`) === undefined) seedDraft(id, unsent);
-  }, [id, unsent]);
+    if (first !== undefined && readKept(`session:${id}`) === undefined) seedDraft(id, first);
+  }, [id, first]);
   const by = session.attachments.find((one): one is Extract<SessionAttachment, { kind: "started_by" }> => one.kind === "started_by");
   const from = by === undefined ? undefined : sessions.find((other) => other.id === by.id);
   return from === undefined ? null : <StartedBy title={from.title ?? from.id} onOpen={() => open(from.id)} />;

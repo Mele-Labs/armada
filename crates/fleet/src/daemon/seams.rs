@@ -255,6 +255,9 @@ where
     pub(crate) fn downshift(&self) -> &crate::model_downshifting::Holding {
         &self.downshift
     }
+    pub(crate) fn agent_sign_in(&self) -> &crate::session_host::signed_out::Held {
+        &self.agent_sign_in
+    }
     /// The model a proposal that names none is given. **Read when it is asked**: `models.default`
     /// is live, so a change reaches the next Job.
     pub(crate) fn default_model(&self) -> String {

@@ -45,7 +45,9 @@ The mod's first-message note tells the agent to keep the list current, to give e
 It also says a decision is asked one way, in the prompt or in `waiting_for` and never both, that a shell command for the owner goes in a block tagged `bash` so Bridge draws its run button, and that a page is shown as a link and never a screenshot.
 **An agent item that carries `steps` is a procedure**: its glyph is Steps, and its row reads its `text`, and its press opens the steps beside the thread in place of its `act`.
 A `walk` stays as the page they are about, one key at the top and a second that opens it in the browser; a `run` stays as its command, drawn whole at the top with a copy key in the block's corner, and left off where a step names it.
-A step's `backticked` command is set as code in its line and drawn again under it, whole, with its own copy key.
+A step's `backticked` command is set as code in its line and drawn again under it, whole, with its own run key beside the copy key, the same run key a fenced block has, and it runs where the Job works.
+A command that exits clean ticks its step, and Fleet keeps an item that has steps on the list where it would take off one that has none.
+Fleet tells the Job how every run ended, so Bridge sends nothing of its own.
 The owner, 15 Oct 2026, on a run item whose steps hid its command: "The copy button should be embedded in the code block instead of outside of it." Each step has a tick that is the person's own place-keeping, a step the agent got wrong is edited in place, dropped (struck through, kept) or added at the end, and the key under the reply box reads Done while the box is empty and Send once something is typed.
 Done answers the item with `Done`, ticked or not; either key sends the corrections as plain lines after the reply (`Step 2 changed: "was" → "now"`, `Step 4 dropped: "was"`, `Added after step 6: "now"`).
 Fleet trims each step and drops a blank one; an empty list is no steps.
@@ -76,6 +78,17 @@ It is kept as the job's tell (`reminded_done` or `reminded_walk`), and the reply
 Helm and an ended job are not read, and a terminal job is reminded only while its mod is listening, as any word Fleet holds for it.
 The owner reported two jobs on 21 Oct 2026: one wrote "PR 2681 is merged and the job is done" and never called `all_done`, so no Done item came, and one listed walks for him in a table with no window open, until he asked "Please open the walks".
 These are phrase rules; #2692 is the language model reader that would replace them.
+
+**A turn that leaves the person's message unanswered is sent back once** (`unanswered.rs`).
+He reads only what the agent writes, never its reasoning.
+From his message until the agent writes him something other than a lone line starting "Status:", the job owes him a reply.
+The first `AskUserQuestion` while it does is refused with: "Not asked: since his last message you have written him nothing but a status line, and he reads only what you write, never your reasoning.
+Write your answer to his message, then ask this question again."
+The door waits up to two seconds for the stream to reach the question first, so an answer written just before it counts.
+A turn that ends still owing it sends the agent, through `told_by_fleet` and unless another turn is waiting to start, the same words without "Not asked:" and with "Write your answer to his message." to close.
+Either one settles the debt, so the question asked again is put to him and the reminder's turn is not read.
+A turn Fleet's own notice began owes nothing, and Helm is not read.
+Job 7f7f4ae4 did this twice on 24 Oct 2026: asked why commands were recorded, it worked the answer out in its reasoning and went straight to its question, so he saw a status line and the question and wrote "you never answered me or explained".
 
 **A job gives back what it is finished with using `finish_up`** (`session_id` only; the hosted job holding the connection wins).
 It releases each slot the pool holds for the job as `armada worktree release` does, which refuses a tree with uncommitted files or commits that neither its branch's remote nor the base has; stops the servers running in each slot it released; and deletes the local branches those slots were on, the one the job was leased and the head branch of each pull request it holds or held, where the base (the local branch or `origin`'s) already holds every commit.
@@ -180,7 +193,7 @@ It reads a sentence of a close here, not an item, and that was not measured.
 The second head of *A reply that asks* finds it, and a sentence the first head calls an ask is not one.
 Fleet keeps it per job across replies (`session_later`, `SessionRecord.later`, `crates/fleet/src/session_host/later.rs`).
 The same sentence said again is the same item, and a settled one is not kept again when a reply is read again.
-Bridge shows the open ones folded in Progress under a Later label that a press opens.
+Bridge shows the open ones in the Landing, folded under a Deferred label that a press opens, with the issues the Job filed for later.
 
 The job settles one with `settle_later`, and the person has two presses on its row:
 

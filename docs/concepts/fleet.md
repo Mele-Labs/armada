@@ -107,7 +107,7 @@ A route that needs a repository refuses plainly while none is served, and reconc
 > **Rule.** Every change to the list is published as `repositories.changed`, carrying the list whole.
 > Why: a repository added in one window, or a clone that lands after its dialog closed, has to reach every open Bridge, and a delta would be a second shape to keep in step with `list_repositories`.
 
-**A folder with no `armada.yml` is served, for Scan to read, and a Job can start there.** It lists as a repository and not as a Manifest, and it gains its Manifest when Write puts one at its root.
+**A folder with no Manifest is served, for Scan to read, and a Job can start there.** It has neither an `armada.yml` nor a Kit copy, lists as a repository and not as a Manifest, and gains its Manifest when Write puts an `armada.yml` at its root or Kit keeps one for it.
 Until then Fleet hosts it under an implicit Manifest: an id made of the folder's name and a digest of its path, no Check, no Command, and the default pool of eight (`setup.worktrees` unstated).
 `list_repositories` carries that id as `implicit_id`, a Job started there carries it as its `manifest_id`, it leases a slot at its first write like any other, and it keeps naming the repository after an `armada.yml` is written.
 Nothing gates on a Check it has not got.
@@ -788,6 +788,24 @@ A server that falls over on its own leaves its address behind, and the next bind
 Fleet probes the port as the server ends and says on the row where something else is answering there now.
 
 **A Fleet holds the Manifest it resolved at startup.** A server added to `armada.yml` since is declared by the repository and unknown to this process, so the refusal names when Fleet last read the file and whether `commands` changed in that read — the list on its own reads as the repository's answer when it is this process's memory of it.
+
+### Runs
+
+A run is several servers Fleet already holds, started through the one server path above, so a run's ports, logs, `server.*` events and stops are every server's.
+It adds the grouping and nothing else: its process output is `observe_server`'s, addressed by `server_id`. There is one instance per checkout and run, which follows from one per checkout and server.
+The wire is `docs/practices/protocol/a-repositorys-app-run-from-bridge.md`.
+
+**A run is re-read from the tree's `armada.yml` with Kit's copy laid over it each time it is listed, started or stopped**, so a run saved a moment ago starts with no Fleet restart.
+Only runs, their servers and ports come from that read; Checks and workflows stay as booted.
+A Job's worktree reads its own file, so a Job that adds a server can run it.
+
+**A draft run is made from the repository's remembered dev servers, its `package.json` and a uvicorn app.** Saving it goes into Kit's copy only ([Kit](kit.md), *A repository's armada.yml*).
+
+**Names the booted Manifest did not know widen the checkout's port span.** It widens in place where the ports after it are free, else moves when nothing is up, else refuses.
+Booted names keep their offsets, and a port a live server is on is never handed to another name.
+
+**Fleet finds where a process expects a sibling's port**, a `localhost` port in its folder's config or a refused connection in its log, and remembers it as a link.
+A person can pin the port, and a pinned server starts on exactly that number or is refused where something holds it.
 
 ### Compose
 

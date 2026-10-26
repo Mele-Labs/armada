@@ -9,7 +9,17 @@ export type NoteRegion = { x: number; y: number; w: number; h: number };
 export type NoteAbout =
   | { kind: "sketch"; title: string; parts: readonly { id: string; label: string }[] }
   | { kind: "file"; path: string; from: number; to: number; quote: string }
-  | { kind: "image"; name: string; path?: string; region?: NoteRegion; crop: string };
+  | { kind: "image"; name: string; path?: string; region?: NoteRegion; crop: string }
+  | { kind: "document"; place: DocumentPlace; target: DocumentTarget };
+
+/** Where in a Job's document a note stands: the page's title, the revision read, and the heading of the section. */
+export type DocumentPlace = { page: string; revision: number; section: string };
+
+/** What in that section a note points at: words, the parts of a sketch the page embeds, or a row of one of its tables. */
+export type DocumentTarget =
+  | { kind: "words"; quote: string }
+  | { kind: "part"; sketch: string; parts: readonly { id: string; label: string }[] }
+  | { kind: "row"; table: string; row: string };
 
 export type HeldNote = { about: NoteAbout; text: string };
 
@@ -22,7 +32,8 @@ export type NotesMessage = { text: string; pictures: NotePicture[] };
 export type NotedRef =
   | { kind: "sketch"; title: string; parts: readonly { id: string; label: string }[] }
   | { kind: "file"; path: string; from: number; to: number }
-  | { kind: "image"; path: string; region?: NoteRegion };
+  | { kind: "image"; path: string; region?: NoteRegion }
+  | { kind: "document"; place: DocumentPlace; target: DocumentTarget };
 
 /** One note of a sent message: its number, what it names, and the lines under its heading. */
 export type NotedBlock = { n: number; ref: NotedRef; body: string };
@@ -34,7 +45,18 @@ const lines = (from: number, to: number) => (from === to ? String(from) : `${Str
 
 const pct = (n: number) => Math.round(n * 100);
 
+/** A word of the page set on one line, with no quote mark in it, so the heading reads back the way it was written. */
+export const onOneLine = (words: string): string => words.replace(/\s+/g, " ").replace(/"/g, "'").trim();
+
+function documentHeading(place: DocumentPlace, target: DocumentTarget): string {
+  const at = `Document "${onOneLine(place.page)}", revision ${String(place.revision)}, section "${onOneLine(place.section)}": `;
+  if (target.kind === "words") return `${at}words "${onOneLine(target.quote)}"`;
+  if (target.kind === "row") return `${at}row "${onOneLine(target.row)}" of "${onOneLine(target.table)}"`;
+  return `${at}sketch "${onOneLine(target.sketch)}", ${target.parts.length === 1 ? "part" : "parts"} ${target.parts.map((one) => `${one.id} (${one.label})`).join(", ")}`;
+}
+
 function heading(about: NoteAbout, picture: string | undefined): string {
+  if (about.kind === "document") return documentHeading(about.place, about.target);
   if (about.kind === "sketch") return `Sketch "${about.title}", ${about.parts.length === 1 ? "part" : "parts"} ${about.parts.map((one) => `${one.id} (${one.label})`).join(", ")}`;
   if (about.kind === "file") return `File ${about.path}:${lines(about.from, about.to)}`;
   const r = about.region;
@@ -74,9 +96,28 @@ const SKETCH = /^Sketch "(.*)", parts? (.+)$/;
 const PART = /([^\s(),]+) \((.*?)\)(?:, |$)/g;
 const FILE = /^File (.+):(\d+)(?:-(\d+))?$/;
 const PICTURE = /^Picture (.+?)(?:, region x (\d+)-(\d+)% y (\d+)-(\d+)%)?(?:, attached as picture-\d+\.png)?$/;
-const HEAD = /^(\d+)\. (Sketch|File|Picture) /;
+const DOCUMENT = /^Document "([^"]*)", revision (\d+), section "([^"]*)": (.+)$/;
+const DOC_WORDS = /^words "(.*)"$/;
+const DOC_ROW = /^row "(.*)" of "(.*)"$/;
+const DOC_SKETCH = /^sketch "(.*)", parts? (.+)$/;
+const HEAD = /^(\d+)\. (Sketch|File|Picture|Document) /;
+
+function documentOf(said: string): NotedRef | undefined {
+  const found = DOCUMENT.exec(said);
+  if (found === null) return undefined;
+  const place = { page: found[1]!, revision: Number(found[2]), section: found[3]! };
+  const words = DOC_WORDS.exec(found[4]!);
+  if (words !== null) return { kind: "document", place, target: { kind: "words", quote: words[1]! } };
+  const row = DOC_ROW.exec(found[4]!);
+  if (row !== null) return { kind: "document", place, target: { kind: "row", row: row[1]!, table: row[2]! } };
+  const sketch = DOC_SKETCH.exec(found[4]!);
+  if (sketch === null) return undefined;
+  const parts = [...sketch[2]!.matchAll(PART)].map((one) => ({ id: one[1]!, label: one[2]! }));
+  return parts.length === 0 ? undefined : { kind: "document", place, target: { kind: "part", sketch: sketch[1]!, parts } };
+}
 
 function refOf(said: string): NotedRef | undefined {
+  if (said.startsWith("Document ")) return documentOf(said);
   const sketch = SKETCH.exec(said);
   if (sketch !== null) {
     const parts = [...sketch[2]!.matchAll(PART)].map((one) => ({ id: one[1]!, label: one[2]! }));
@@ -111,8 +152,18 @@ export function notedOf(text: string): NotedBlock[] | undefined {
   return blocks.length === 0 ? undefined : blocks.map(({ n, ref, body }) => ({ n, ref, body: body.join("\n").trim() }));
 }
 
+const cut = (words: string, at: number) => (words.length > at ? `${words.slice(0, at).trimEnd()}…` : words);
+
+/** What a document note points at, short: the words, the parts' names, or the row's first cell. */
+function targetSaid(target: DocumentTarget): string {
+  if (target.kind === "words") return cut(onOneLine(target.quote), 40);
+  if (target.kind === "row") return cut(onOneLine(target.row.split(" | ")[0] ?? target.row), 40);
+  return target.parts.map((one) => one.label).join(", ");
+}
+
 /** What a note is about, short, for the note box and a mark's tooltip. */
 export function aboutSaid(about: NoteAbout): string {
+  if (about.kind === "document") return `${about.place.section}: ${targetSaid(about.target)}`;
   if (about.kind === "sketch") return about.parts.map((one) => one.label).join(", ");
   if (about.kind === "file") return `${about.path.split("/").pop() ?? about.path}:${lines(about.from, about.to)}`;
   return about.region === undefined ? about.name : `${about.name}, region`;
@@ -123,6 +174,7 @@ export function aboutSaid(about: NoteAbout): string {
  * `root` where it is in it and from the home folder elsewhere, a picture by its name. The message keeps the whole path.
  */
 export function notedSaid(ref: NotedRef, root?: string): string {
+  if (ref.kind === "document") return `${ref.place.section}: ${targetSaid(ref.target)}`;
   if (ref.kind === "sketch") return `${ref.title}: ${ref.parts.map((one) => one.label).join(", ")}`;
   if (ref.kind === "file") return `${shortPath(ref.path, root)}:${lines(ref.from, ref.to)}`;
   const name = ref.path.split("/").pop() ?? ref.path;

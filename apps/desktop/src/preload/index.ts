@@ -33,13 +33,15 @@ import type { ModChecked } from "@armada/protocol";
 import type { ForgetReviewSearch, OpenReviewWalk, PullReviewLists, PullThreadResolved, RememberedPlace, RememberedPlaces, ResolvePullThread, ReviewRun, ReviewRuns, ReviewTools, ReviewWalk, SaveReviewTool, SaveWalkPlace, StartReviewRun, StartReviewSearch, WalkPlaceFound, WritePullRequest } from "@armada/protocol";
 import type { ReviewWalkNote, ShownReviewWalk, ShownReviewWalkOutcome } from "../shared/review-walk";
 import type { ChosenHold, SessionHeld, SessionHoldsReleased, SetNoticeMute } from "@armada/protocol";
-import type { ActFailed, HomeKind, HomeKinds, HomeRowAt, HomeSide, ModelDownshiftState, PlanUsage, SharedHomeRead, SignedOut, SleepState, TimelineAsk, TimelineEvent } from "@armada/protocol";
+import type { ActFailed, AgentSignIn, HomeKind, HomeKinds, HomeRowAt, HomeSide, HomeSynced, ModelDownshiftState, PlanUsage, SharedHomeRead, SignedOut, SleepState, TimelineAsk, TimelineEvent } from "@armada/protocol";
 import type { FlightControls } from "@armada/protocol";
 import type { StopWatch, WatchSummary } from "@armada/protocol";
 import type { ApproveRepositoryTile, RepositoryTile } from "@armada/protocol";
 import type { AddPackage, BindUnboundPiece, CommitToRepository, CommittedToRepository, PackageAdded, PackageRead, PieceAdded, SharePieces, SharedPackage, UnboundPieces } from "@armada/protocol";
 import type { PackageSaved, SharingAnswer } from "../shared/api/sharing";
 import type { DropRunFact, ImportFolders, ImportRuns, ModInstalled, RunMemory, RunMemoryPlace, SetRunMemoryPlace } from "@armada/protocol";
+import type { ModSessionStarted, StartModSession } from "@armada/protocol";
+import type { AdversarialReview, DismissFinding, SendFinding, StartAdversarialReview } from "@armada/protocol";
 import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, ChangeWaiting, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimIssue, ClaimPullRequest, ConfirmWaiting, DismissConcern, DismissWaiting, IssueClaimed, IssueList, IssueQueries, SaveIssueQuery, SavedIssueQuery, WrittenIssueQuery, JudgeSession, LaterSettled, PullRequestClaimed, PullRequestFilePatch, PullRequestFilePatches, PullRequestPage, PullRequestState, RenameSession, SendConcern, SendPlanChanges, NoteSent, SendSessionMessage, SendSessionNote, SessionRunMessage, SessionRunUnderway, SessionLoadout, AttachmentHistory, McpServerAct, SessionMcp, SessionMcpActed, SessionSubagent, SessionWait, SettleLater, StartAfter, TuneSession, BeginSession, WaitReading } from "@armada/protocol";
 import type { ArtifactRead, LoadoutItemAsk, LoadoutItemBody, PageBounds, PageShot } from "@armada/screens/src/draft/sessions";
 import type { JobTerminalChange, PullRequestPress, PullRequestWrite, SessionActed, TerminalMovedBack } from "../shared/api/sessions";
@@ -48,6 +50,7 @@ import type { SleepActed } from "../shared/api/sleep";
 import type { AccountsActed } from "../shared/api/accounts";
 import type { PlanUsageRead } from "../shared/api/plan-usage";
 import type { ModelDownshiftRead } from "../shared/api/model-downshift";
+import type { AgentSignInRead } from "../shared/api/agent-sign-in";
 import type { FleetTimelineRead } from "../shared/api/timeline";
 import type { BayHistoryRead } from "../shared/api/bay-history";
 import type { UsageRulesRead, UsageSummaryRead } from "../shared/api/usage-summary";
@@ -377,6 +380,15 @@ const api: BridgeApi = {
       ipcRenderer.removeListener(CHANNELS.modelDownshiftChanged, handler);
     };
   },
+  getAgentSignIn: (): Promise<AgentSignInRead> => ipcRenderer.invoke(CHANNELS.getAgentSignIn),
+  startAgentSignIn: (): Promise<AgentSignInRead> => ipcRenderer.invoke(CHANNELS.startAgentSignIn),
+  onAgentSignInChanged: (onChanged: (state: AgentSignIn) => void): (() => void) => {
+    const handler = (_event: unknown, state: AgentSignIn): void => onChanged(state);
+    ipcRenderer.on(CHANNELS.agentSignInChanged, handler);
+    return () => {
+      ipcRenderer.removeListener(CHANNELS.agentSignInChanged, handler);
+    };
+  },
   getFleetTimeline: (window?: TimelineAsk): Promise<FleetTimelineRead> => ipcRenderer.invoke(CHANNELS.getFleetTimeline, window),
   getSlotHistory: (manifestId: string, slot: number): Promise<BayHistoryRead> => ipcRenderer.invoke(CHANNELS.getSlotHistory, manifestId, slot),
   getUsageSummary: (tzOffsetMinutes: number): Promise<UsageSummaryRead> => ipcRenderer.invoke(CHANNELS.getUsageSummary, tzOffsetMinutes),
@@ -475,12 +487,13 @@ const api: BridgeApi = {
   setRepositoryProfile: (root: string, accountId: number | null): Promise<AccountsActed> =>
     ipcRenderer.invoke(CHANNELS.setRepositoryProfile, root, accountId),
   getSharedHome: (login: string): Promise<AccountsActed<SharedHomeRead>> => ipcRenderer.invoke(CHANNELS.getSharedHome, login),
-  syncSharedHome: (login: string): Promise<AccountsActed<SharedHomeRead>> => ipcRenderer.invoke(CHANNELS.syncSharedHome, login),
+  syncSharedHome: (login: string): Promise<AccountsActed<HomeSynced>> => ipcRenderer.invoke(CHANNELS.syncSharedHome, login),
   addToSharedHome: (row: HomeRowAt): Promise<AccountsActed<SharedHomeRead>> => ipcRenderer.invoke(CHANNELS.addToSharedHome, row),
   bringFromSharedHome: (row: HomeRowAt): Promise<AccountsActed<SharedHomeRead>> => ipcRenderer.invoke(CHANNELS.bringFromSharedHome, row),
   chooseSharedHomeSide: (row: HomeRowAt, side: HomeSide): Promise<AccountsActed<SharedHomeRead>> => ipcRenderer.invoke(CHANNELS.chooseSharedHomeSide, row, side),
   getHomeKinds: (login: string): Promise<AccountsActed<HomeKinds>> => ipcRenderer.invoke(CHANNELS.getHomeKinds, login),
   setHomeKind: (login: string, kind: HomeKind, on: boolean): Promise<AccountsActed<HomeKinds>> => ipcRenderer.invoke(CHANNELS.setHomeKind, login, kind, on),
+  setHomeRepository: (login: string, owner: string, name: string): Promise<AccountsActed<SharedHomeRead>> => ipcRenderer.invoke(CHANNELS.setHomeRepository, login, owner, name),
   setSleep: (on: boolean): Promise<SleepActed> => ipcRenderer.invoke(CHANNELS.setSleep, on),
   overrideSleep: (id: string, text: string): Promise<SleepActed> => ipcRenderer.invoke(CHANNELS.overrideSleep, id, text),
   reviewSleep: (id: string): Promise<SleepActed> => ipcRenderer.invoke(CHANNELS.reviewSleep, id),
@@ -499,6 +512,7 @@ const api: BridgeApi = {
   sendSessionMessage: (send: SendSessionMessage): Promise<SessionActed> =>
     ipcRenderer.invoke(CHANNELS.sendSessionMessage, send),
   sendSessionNote: (send: SendSessionNote): Promise<SessionActed<NoteSent>> => ipcRenderer.invoke(CHANNELS.sendSessionNote, send),
+  startModSession: (start: StartModSession): Promise<SessionActed<ModSessionStarted>> => ipcRenderer.invoke(CHANNELS.startModSession, start),
   answerSessionAsk: (answer: AnswerSessionAsk): Promise<SessionActed> =>
     ipcRenderer.invoke(CHANNELS.answerSessionAsk, answer),
   answerWaiting: (answer: AnswerWaiting): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.answerWaiting, answer),
@@ -513,6 +527,9 @@ const api: BridgeApi = {
   judgeSession: (judge: JudgeSession): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.judgeSession, judge),
   sendConcern: (send: SendConcern): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.sendConcern, send),
   dismissConcern: (dismiss: DismissConcern): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.dismissConcern, dismiss),
+  startAdversarialReview: (start: StartAdversarialReview): Promise<SessionActed<AdversarialReview>> => ipcRenderer.invoke(CHANNELS.startAdversarialReview, start),
+  sendFinding: (send: SendFinding): Promise<SessionActed<AdversarialReview>> => ipcRenderer.invoke(CHANNELS.sendFinding, send),
+  dismissFinding: (dismiss: DismissFinding): Promise<SessionActed<AdversarialReview>> => ipcRenderer.invoke(CHANNELS.dismissFinding, dismiss),
   tuneSession: (tune: TuneSession): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.tuneSession, tune),
   runSessionCommand: (sessionId: string, command: string): Promise<SessionActed> =>
     ipcRenderer.invoke(CHANNELS.runSessionCommand, sessionId, command),

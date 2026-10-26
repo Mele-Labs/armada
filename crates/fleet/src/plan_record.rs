@@ -23,7 +23,7 @@ pub(crate) fn norm(text: &str) -> String {
     text.split_whitespace().collect::<Vec<_>>().join(" ").to_lowercase()
 }
 
-fn cut_norm(text: &str) -> String {
+pub(crate) fn cut_norm(text: &str) -> String {
     norm(&text.trim().chars().take(TEXT_AT_MOST).collect::<String>())
 }
 
@@ -250,7 +250,7 @@ fn words(text: &str) -> Vec<&str> {
 /// task's words in a row inside the item's, or the item's inside the task's, come next, the closer in
 /// length the better; failing that, 0.6 of the longer line's words shared. Two words at least, so one
 /// word that two tasks share never says either.
-fn said(task: &str, item: &str) -> Option<f64> {
+pub(crate) fn said(task: &str, item: &str) -> Option<f64> {
     if task == item {
         return Some(3.0);
     }
@@ -323,7 +323,7 @@ pub(crate) fn edit_seen(plan: &mut KeptPlan, path: &str, now: &str) -> Seen {
 }
 
 /// A task's state and whether an edit was seen for it.
-fn state_of(task: &KeptPlanTask) -> (PlanTaskState, bool) {
+pub(crate) fn state_of(task: &KeptPlanTask) -> (PlanTaskState, bool) {
     match task.listed.as_deref() {
         Some("completed") if task.edited => (PlanTaskState::Done, true),
         Some("completed") => (PlanTaskState::HandedIn, false),
@@ -379,5 +379,6 @@ pub(crate) fn wire(plan: &KeptPlan) -> SessionPlan {
         }),
         sketch: plan.sketch.as_ref().map(|(id, title)| PlanSketch { id: id.clone(), title: title.clone() }),
         held_by: Vec::new(),
+        adversarial: None,
     }
 }

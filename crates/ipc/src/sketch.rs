@@ -140,14 +140,38 @@ impl ShowSketch {
         let (nodes, edges) = counts.unwrap_or_default();
         let scene = crate::encode(&self.scene.0).map_err(|why| refusal_for(&[why.to_string()], tool))?;
         if scene.len() > MOST_SCENE_BYTES {
-            return Err(refusal_for(&[format!(
-                "the scene is {} bytes and a sketch holds at most {MOST_SCENE_BYTES}. Draw less \
-                 per sketch, or split it into two with their own titles",
-                scene.len()
-            )], tool));
+            return Err(refusal_for(&[too_heavy(scene.len())], tool));
         }
         Ok(Sketch { title, scene, nodes, edges, against: None })
     }
+}
+
+fn too_heavy(bytes: usize) -> String {
+    format!(
+        "the scene is {bytes} bytes and a sketch holds at most {MOST_SCENE_BYTES}. Draw less \
+         per sketch, or split it into two with their own titles"
+    )
+}
+
+/// Every reason the scene text of a sketch a Job's document embeds will not draw, in the words
+/// `show_sketch` refuses with and by the same rules; empty where it draws. **The page keeps a bad
+/// scene and Bridge draws it as an empty frame**, so this is how the Job hears of it.
+pub fn page_scene_problems(text: &str) -> Vec<String> {
+    let raw = match crate::decode::<RawScene>("sketch scene", text.trim().as_bytes()) {
+        Ok(raw) => raw,
+        Err(why) => return vec![format!("the scene is not JSON: {}", why.why)],
+    };
+    let mut problems = Vec::new();
+    scene_problems(&raw.0, &mut problems);
+    if problems.is_empty() {
+        if let Ok(written) = crate::encode(&raw.0) {
+            if written.len() > MOST_SCENE_BYTES {
+                problems.push(too_heavy(written.len()));
+            }
+        }
+    }
+    problems.truncate(MOST_PROBLEMS_SAID);
+    problems
 }
 
 fn refusal(problems: &[String]) -> String {

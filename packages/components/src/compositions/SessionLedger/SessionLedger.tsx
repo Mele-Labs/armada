@@ -1,5 +1,5 @@
 import { Children, isValidElement, useState, type ReactNode } from "react";
-import { AppWindow, BellRing, Link, CircleCheck, CircleX, GitPullRequestArrow, LoaderCircle, CornerUpRight, SquarePen, MessageSquare, Check, CircleDot, Files, Globe, Image, ListChecks, Megaphone, MessageCircleQuestion, MoveRight, NotebookText, Power, Radar, Reply, ScanText, Search, Terminal, GitBranch, GitPullRequest, KeyRound, Presentation, PencilRuler, RotateCw, ShieldCheck, ShieldEllipsis, ShieldX, Split, SquareTerminal, Trash2, Unplug, X } from "lucide-react";
+import { AppWindow, BellRing, Link, CircleCheck, CircleX, GitPullRequestArrow, LoaderCircle, CornerUpRight, SquarePen, MessageSquare, Check, CircleDot, Files, FileText, Globe, Image, ListChecks, Megaphone, MessageCircleQuestion, MoveRight, NotebookText, Power, Radar, Reply, ScanText, Search, Terminal, GitBranch, GitPullRequest, KeyRound, Presentation, PencilRuler, RotateCw, ShieldCheck, ShieldEllipsis, ShieldX, Split, SquareTerminal, Trash2, Unplug, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { forgetKept, readKept } from "../../keep";
@@ -36,7 +36,7 @@ import { LinkedSession, type LinkedSessionProps } from "../LinkedSession/LinkedS
 export type LedgerKind = "waiting" | "slot" | "branch" | "pull_request" | "studio" | "sketch" | "subagent" | "background" | "artifact" | "fork" | "start" | "linked";
 
 /** What an artifact is: a page published, a file written outside the code, a picture looked at, a Doc, or a page shown in a window. */
-export type ArtifactForm = "page" | "file" | "image" | "doc" | "window";
+export type ArtifactForm = "page" | "file" | "image" | "doc" | "document" | "window";
 
 /** What a background row is: a shell command the agent ran in the background, or a monitor it set to watch. */
 export type BackgroundForm = "command" | "monitor";
@@ -175,6 +175,7 @@ export const ARTIFACT: Record<ArtifactForm, { Glyph: LucideIcon; said: string }>
   file: { Glyph: Files, said: "File written" },
   image: { Glyph: Image, said: "Looked at" },
   doc: { Glyph: NotebookText, said: "Doc" },
+  document: { Glyph: FileText, said: "Document" },
   window: { Glyph: AppWindow, said: "Shown in a window" },
 };
 
@@ -248,21 +249,29 @@ const KINDS: { form: ArtifactForm; label: string }[] = [
   { form: "file", label: "Files" },
   { form: "image", label: "Pictures" },
   { form: "doc", label: "Docs" },
+  { form: "document", label: "Documents" },
 ];
 
 /** How many Artifacts rows show before More. */
 const NEWEST = 5;
 
-/** Which artifact kinds the viewer lets through, everything but Pictures to begin with. A viewer's convenience, so a blocked store only forgets it. */
+/**
+ * Which artifact kinds the viewer lets through, everything but Pictures to begin with. A viewer's convenience, so a blocked store only forgets it.
+ * The kinds hidden are kept, not the kinds shown, so a kind added later shows. A list of kinds shown from before is read once as what it hid.
+ */
 function useKinds(): [readonly ArtifactForm[], (next: readonly ArtifactForm[]) => void] {
-  const key = "armada.session-ledger.kinds.artifact";
-  const fallback: ArtifactForm[] = ["window", "page", "file", "doc"];
+  const key = "armada.session-ledger.kinds.artifact.hidden";
+  const shownBefore = "armada.session-ledger.kinds.artifact";
+  const forms = KINDS.map((one) => one.form);
   const [on, set] = useState<readonly ArtifactForm[]>(() => {
     try {
-      const kept: unknown = JSON.parse(localStorage.getItem(key) ?? "null");
-      return Array.isArray(kept) ? KINDS.map((one) => one.form).filter((form) => kept.includes(form)) : fallback;
+      const hidden: unknown = JSON.parse(localStorage.getItem(key) ?? "null");
+      if (Array.isArray(hidden)) return forms.filter((form) => !hidden.includes(form));
+      const shown: unknown = JSON.parse(localStorage.getItem(shownBefore) ?? "null");
+      if (Array.isArray(shown)) return forms.filter((form) => form === "document" || shown.includes(form));
+      return forms.filter((form) => form !== "image");
     } catch {
-      return fallback;
+      return forms.filter((form) => form !== "image");
     }
   });
   return [
@@ -270,7 +279,7 @@ function useKinds(): [readonly ArtifactForm[], (next: readonly ArtifactForm[]) =
     (next) => {
       set(next);
       try {
-        localStorage.setItem(key, JSON.stringify(next));
+        localStorage.setItem(key, JSON.stringify(forms.filter((form) => !next.includes(form))));
       } catch {
         // Not kept: the filter is as it was left until the window closes.
       }

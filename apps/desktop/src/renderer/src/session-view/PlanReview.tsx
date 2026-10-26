@@ -5,15 +5,15 @@
 
 import { useState } from "react";
 import { BadgeCheck } from "lucide-react";
-import { Button, PlanRevisionView, Sheet, SketchReading, Tooltip, useUnchanged, type PlanRevision } from "@armada/components";
+import { Button, FindingNotes, PlanRevisionView, Sheet, SketchReading, Tooltip, anchorsOf, useFindingKeys, useUnchanged, type AdversarialReviewState, type PlanRevision } from "@armada/components";
 import { useAtFloor } from "@armada/shell";
 import type { WorkPlan } from "@armada/screens/src/draft/sessions";
 
-import { AddGroup, GroupEditor, SendChanges, type PlanEditing } from "./PlanEdit";
+import { AddGroup, GroupEditor, SendChanges, type FindingPins, type PlanEditing } from "./PlanEdit";
 import { OverTheApp } from "./OverTheApp";
 import { viewOf } from "./plan-marks";
 
-export function PlanReview({ open, plan, revision, ed, onApprove, onClose }: { open: boolean; plan: WorkPlan; revision?: PlanRevision; ed: PlanEditing; onApprove: () => void; onClose: () => void }) {
+export function PlanReview({ open, plan, revision, ed, findings, onApprove, onClose }: { open: boolean; plan: WorkPlan; revision?: PlanRevision; ed: PlanEditing; /** An adversarial review of the plan, its findings pinned under the group or task each names, with the acts the card offers. */ findings?: { review: AdversarialReviewState; onSend: (id: string) => void; onDismiss: (id: string) => void }; onApprove: () => void; onClose: () => void }) {
   const floor = useAtFloor();
   const [editing, setEditing] = useState(false);
   const unchanged = useUnchanged(revision);
@@ -45,18 +45,21 @@ export function PlanReview({ open, plan, revision, ed, onApprove, onClose }: { o
     </div>
   );
   const groups = viewOf(plan, ed.marks);
+  const keys = useFindingKeys(findings?.review, { onSend: (id) => findings?.onSend(id), onDismiss: (id) => findings?.onDismiss(id) });
+  const pins: FindingPins | undefined = findings === undefined ? undefined : { anchors: anchorsOf(findings.review, groups.flatMap((group) => [group.id, ...group.tasks.map((task) => task.id)])), onSend: keys.send, onDismiss: keys.dismiss };
   return (
     <OverTheApp open={open}>
     <Sheet kind="plan-review" open={open} floating floor={floor} size="widest" title="Plan" controls={settled} footer={marked || !plan.approved ? foot : undefined} closeLabel="Close" closeBinding="Esc" onClose={onClose}>
       <div className="sv-review">
-        <div className="sv-review__groups">
+        <div className="sv-review__groups" {...(pins === undefined ? {} : keys.bind)}>
           {diff ? (
             <PlanRevisionView revision={revision} unchanged={unchanged} />
           ) : (
             <>
+              {pins === undefined ? null : <FindingNotes findings={pins.anchors.whole} label="Findings on the plan" onSend={pins.onSend} onDismiss={pins.onDismiss} />}
               {groups.map((group) => (
                 <section key={group.id} className="sv-group sv-review__group" data-open aria-label={group.title}>
-                  <GroupEditor group={group} ed={ed} />
+                  <GroupEditor group={group} ed={ed} {...(pins === undefined ? {} : { pins })} />
                 </section>
               ))}
               <AddGroup ed={ed} />

@@ -13,27 +13,27 @@ Defines Manifest — the per-project/repo definition of how Fleet and agents may
 ## What it is
 
 A Manifest defines a project's shape and boundaries — checks it must pass to land code, commands available to run against it, and which Skills/Agents/secrets it can use.
-It is backed by an `armada.yml` file.
+It is backed by an `armada.yml` file, the repository's or a person's own kept in Kit; where it is kept is chosen per repository and none of it has to be committed ([Kit](kit.md), *What a repository runs*).
 
 It is not the same shape as either tier above it. [Kit](kit.md) is the tool set you bring and holds defaults a Manifest may extend or restrict; [Machine](machine.md) is how this installation behaves and has no project-level counterpart at all.
 
 ## Armada remembers how a repository runs
 
 **A Manifest exists so an agent stops guessing how to run a repository's tests and commands.** Checks are one part of it and gate a change only where the repository declares them.
-A repository needs none to start a Job: Fleet serves a folder with no `armada.yml` under an implicit Manifest, with no Check and no Command ([Fleet](fleet.md), *Fleet starts with none*).
+A repository needs none to start a Job: Fleet serves a folder with no `armada.yml` and no Kit copy under an implicit Manifest, with no Check and no Command ([Fleet](fleet.md), *Fleet starts with none*).
 
 | Source | What Armada keeps |
 |---|---|
 | Jobs | Each command a Job ran, its exit and the ports it listened on |
 | Past agent sessions | The same, read from the sessions an agent CLI kept in the folder |
-| Setup | Lines each traced to a file Scan read, written to `armada.yml` |
+| Setup | Lines each traced to a file Scan read, written to an `armada.yml`: the repository's, or the person's own in Kit |
 
 > **Rule.** Setup is offered and never required.
 > Why: a Job starts on any folder, and what Jobs run is remembered without it.
 
 What passed is kept for each workspace and a command whose every run failed is left out.
 A dropped line is never offered again.
-The next Job in the repository is told what was kept, in its system prompt; `get_manifest` does not serve remembered runs, and none becomes a Check.
+A Job is not told what was kept: it reaches the next Job only as the [Logbook](logbook.md) learns it. `get_manifest` does not serve remembered runs, and none becomes a Check.
 [Kit](kit.md), *What a repository runs*, owns the rules, the four places it is kept, how a Job is told and what Bridge shows of it.
 
 ## Kit's copy
@@ -56,7 +56,7 @@ The `kit.names` entry carries `gates` for it, so a person sees which of their ow
 A Check Kit's copy replaces by name gates as the repository's did, and `gate` on it is refused, as it is on any Check a repository declares: `gate` means nothing where there is nothing to add.
 A Command Kit's copy adds is available to a Job as any Command is.
 **Kit's `tracker` and `ci_gate` replace the repository's whole**, so a person whose issues are in Jira says so without committing it; nothing of the repository's block is kept in Kit's.
-A copy that is not the whole file holds only `checks`, `commands`, `tracker` and `ci_gate`.
+A copy that is not the whole file holds only `checks`, `commands`, `runs`, `ports`, `tracker` and `ci_gate`; servers are Commands, so their `dir` goes with them, and each is merged by name as Checks and Commands are.
 The rest of the repository's file stands, its id, base and policies among it.
 
 **A Kit copy that will not merge is left out and named, and the repository's own stands.** Fleet says it at start, and the summary carries the sentence as `left_out`.
@@ -250,8 +250,20 @@ commands:
 | `serve` | string | yes, for a server | — | Starts the server, held until stopped |
 | `ready` | string | no | serving once started | Exits zero once the server answers |
 | `links` | list | no | empty | Addresses offered as buttons, each a `url` and optional `name` |
+| `dir` | string | no | the checkout's root | A folder under the checkout the server starts in; one that leaves the checkout is refused |
 
 `${port.NAME}` resolves in every field from the claim the server runs under — see Ports, below. [Fleet](fleet.md) holds each server: one instance per checkout.
+
+**`runs:` names several servers started together, each on its own port.** A backend and a frontend in sibling folders are two servers with a `dir` each, and a run lists them.
+
+```yaml
+runs:
+  app:
+    label: The app
+    commands: [api, web]
+```
+
+`label` is optional and shows the run's name where it is absent. A run is a grouping of servers Fleet already holds, so it adds no process of its own ([Fleet](fleet.md), *Runs*).
 
 > **Rule.** A server that exits on its own has failed, whatever its exit code.
 > Why: staying up is the whole of what a server is for.
@@ -602,6 +614,7 @@ Each entry has a name and these fields:
 | the name | What `${port.NAME}` resolves, and what an assignment keys to |
 | `container` | The container-side port — the join key Armada matches on |
 | `env` | The variable name the repo's own stack already expects |
+| `fixed` | A number to start the server on every time, from 1024 to 65535, instead of a leased one |
 
 `container` is what Armada matches on when it rewrites a compose document, so it knows which published port is which.
 
@@ -609,6 +622,10 @@ Each entry has a name and these fields:
 
 `ARMADA_PORT_<name>` is emitted alongside regardless, so a name with no `env` still gets a variable and anything generic has one guaranteed form.
 Requiring `env` would be a coupling the repo has to accept in the one channel whose whole purpose is working with a repo untouched.
+
+**`fixed` is for a program that hardcodes where a sibling listens.** A frontend whose dev proxy points at `127.0.0.1:8731` breaks when the backend is on a leased port, and pinning the backend's port to 8731 mends it without touching the frontend.
+A pinned server takes exactly that number, so a second checkout starting it refuses, naming the number and what holds it, rather than moving to another.
+Bridge writes it into Kit's copy, never the repository's file, and unpinning removes the key.
 
 **Colliding `env` names across a repository's Manifests are rejected at claim time.** Not at config load, and not scoped to a root: two independent roots can live in one repo, and a root-scoped check never compares them.
 The same check already exists for Manifest ids that mangle to one environment token.
@@ -628,7 +645,7 @@ Carried forward from the v1 prototype, where the pattern worked well.
 | --- | --- |
 | Scan | Read-only evidence gathering across the workspace. Nothing is written yet |
 | Proposal | A *possible* `armada.yml`, iterated on rather than approved or rejected |
-| Write | Commits the current state of the proposal to `armada.yml` |
+| Write | Commits the current state of the proposal to an `armada.yml`: the repository's, or the person's own in Kit (*Kit's copy*) |
 
 **Scan** reads lockfiles, package scripts, CI config, docker-compose services, pyproject tool sections and workspace globs.
 

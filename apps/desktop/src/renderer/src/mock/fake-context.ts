@@ -42,6 +42,7 @@ export type SliceName =
   | "accounts"
   | "planUsage"
   | "modelDownshift"
+  | "agentSignIn"
   | "clashes"
   | "reviews"
   | "territory"

@@ -6,15 +6,15 @@
 // mock has no second view and draws a frame of its own page in its place.
 
 import { useEffect, useRef, useState } from "react";
-import { AppWindow, Files, Globe, Image, NotebookText } from "lucide-react";
+import { AppWindow, Files, FileText, Globe, Image, NotebookText } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Enlargeable, NotableImage, Prose } from "@armada/components";
 import type { NoteRegion, ViewerNotesScope } from "@armada/components";
 import type { ArtifactRead, PageBounds, SessionsDraft } from "@armada/screens/src/draft/sessions";
 
-type ArtifactForm = "page" | "file" | "image" | "doc" | "window";
+type ArtifactForm = "page" | "file" | "image" | "doc" | "document" | "window";
 
-export const ARTIFACT_GLYPH: Record<ArtifactForm, LucideIcon> = { page: Globe, file: Files, image: Image, doc: NotebookText, window: AppWindow };
+export const ARTIFACT_GLYPH: Record<ArtifactForm, LucideIcon> = { page: Globe, file: Files, image: Image, doc: NotebookText, document: FileText, window: AppWindow };
 
 /** Whether a form is shown in a web view and has an address to open in the browser. */
 export const isAddress = (form: ArtifactForm): boolean => form === "page" || form === "doc";
@@ -27,7 +27,7 @@ const refusedSaid = (read: Extract<ArtifactRead, { ok: false }>): string =>
 type Held = { state: "reading" } | { state: "read"; read: ArtifactRead };
 
 /** A file the ledger names, read once for this open. */
-function useArtifact(draft: SessionsDraft | undefined, sessionId: string, path: string): Held {
+export function useArtifact(draft: SessionsDraft | undefined, sessionId: string, path: string): Held {
   const [held, setHeld] = useState<{ path: string; read: ArtifactRead } | undefined>();
   const read = draft?.readArtifact;
   useEffect(() => {

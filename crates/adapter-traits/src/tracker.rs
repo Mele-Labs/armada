@@ -1,6 +1,7 @@
 //! The issue tracker a repository keeps: what is open there, and one issue by
 //! its reference. **Read only**: Fleet never comments on, labels or edits an
-//! issue on the owner's behalf.
+//! issue on the owner's behalf. The one tracker Fleet writes to is a [`Backlog`](crate::Backlog)
+//! as well, and the writes are that trait's.
 //!
 //! **Its own trait, not more of [`Delivery`](crate::Delivery) or
 //! [`LinkLookup`](crate::LinkLookup).** Delivery publishes a Job's branch and is
@@ -269,4 +270,11 @@ pub trait Trackers {
     fn tracker(&self, choice: &TrackerChoice) -> Arc<dyn Tracker + Send + Sync>;
 
     fn links(&self, choice: &TrackerChoice) -> Arc<dyn LinkLookup + Send + Sync>;
+
+    /// What writes to and syncs the tracker `choice` names, **where it is one Fleet writes to**.
+    /// `None` for every other: a forge and Jira are read only.
+    fn backlog(&self, choice: &TrackerChoice) -> Option<Arc<dyn crate::Backlog + Send + Sync>> {
+        let _ = choice;
+        None
+    }
 }

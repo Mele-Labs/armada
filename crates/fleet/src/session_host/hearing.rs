@@ -241,6 +241,9 @@ where
 
     async fn hear(self: &Arc<Self>, id: &str, runtime: &Arc<Runtime>, event: DroneEvent) {
         self.work_heard(id, &event, None).await;
+        if matches!(event, DroneEvent::Said { by: Speaker::Drone, .. } | DroneEvent::Called { .. }) {
+            self.signed_in_heard(id).await;
+        }
         match event {
             DroneEvent::Started { model, .. } => {
                 self.limit_cleared(id).await;
@@ -293,7 +296,11 @@ where
                 // The harness's words are shown but are not the agent's reply, so a turn
                 // ending on them asks the person nothing.
                 if by == Speaker::Drone {
-                    runtime.state().said = Some(text.clone());
+                    {
+                        let mut state = runtime.state();
+                        state.said = Some(text.clone());
+                        state.owes_reply &= !super::unanswered::answers(&text);
+                    }
                     self.said_seen(id, &text);
                     self.links_seen(id, &text, LinkedBy::Agent).await;
                 }
@@ -311,7 +318,10 @@ where
                 )
                 .await;
             }
-            DroneEvent::Called { tool, detail, .. } => {
+            DroneEvent::Called { tool, detail, call } => {
+                if tool == ipc::ASKS_A_QUESTION {
+                    runtime.state().question_heard = Some(call.clone());
+                }
                 let shown = detail.whole().unwrap_or(detail.shown()).to_string();
                 if let Some((to, message)) = adapters::sent_message(&tool, &shown) {
                     self.delivered(id, to, message).await;
@@ -319,6 +329,9 @@ where
                 let home = std::env::var("HOME").unwrap_or_default();
                 if let Some(path) = adapters::written_document(&tool, &shown, &home) {
                     self.artifact_made(id, path, "file").await;
+                }
+                if let Some(path) = adapters::written_job_page(&tool, &shown, &home) {
+                    runtime.state().pages.insert(call, path);
                 }
                 if let Some(path) = adapters::viewed_image(&tool, &shown, &home) {
                     self.artifact_made(id, path, "image").await;
@@ -338,9 +351,18 @@ where
                 )
                 .await;
             }
+            // A page is read off the disk once the tool that wrote it has answered, and not when it was reached for.
+            DroneEvent::Answered { call, failed } => {
+                let page = runtime.state().pages.remove(&call);
+                if let (Some(path), false) = (page, failed) {
+                    self.page_written(id, path).await;
+                }
+            }
             DroneEvent::Ended { cost_micros, .. } => {
                 self.turn_ended(id, runtime, cost_micros).await;
             }
+            // The harness's words for it were shown as a row; this signs the Fleet out.
+            DroneEvent::SignedOut => self.signed_out_heard(runtime),
             _ => {}
         }
     }
@@ -421,6 +443,8 @@ where
         }
         if let Some(claim) = claim {
             self.claim_reminded(id, claim).await;
+        } else if super::unanswered::turn_unanswered(runtime) {
+            self.unanswered_reminded(id).await;
         }
         let _ = self.published_hosted(id).await;
         if runtime.state().queued > 0 {
@@ -530,6 +554,19 @@ where
         }
         // Before the row is written, so a Job held across a restart does not read it back as an old one.
         if self.start_hold_restored(&target, &hosting).await.is_err() {
+            return;
+        }
+        // A held Job keeps every word to reach it off the thread, for Start to write and send in order.
+        let voice = SessionVoice::Session { id: from.to_string(), title: title.clone() };
+        let first = super::start_card::FirstTurn {
+            instead: Some(from_job(from, &title, message)),
+            ..super::start_card::FirstTurn::said(voice, message)
+        };
+        if self.turn_kept_while_held(&target, &first).await.unwrap_or(false) {
+            if !from_helm {
+                self.session_messaged(from, named, &target, message);
+            }
+            let _ = self.published_hosted(&target).await;
             return;
         }
         self.row_put(

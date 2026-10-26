@@ -83,6 +83,7 @@ async function fleet(sent: Sent[], sessions: SessionRecord[], threads: Record<st
       if (url.pathname === "/sessions/window/sign_in") return answer(200, { sign_in: held });
       if (url.pathname === "/sessions/notes") return answer(202, { session: { ...sessions[0], title: "Noted twice" }, candidates: [[{ file: "src/Rows.tsx", line: 171, why: "the label is on this line", text: "<li>" }], []] });
       if (url.pathname === "/sessions/note") return answer(202, { session: { ...sessions[0], title: "Noted" }, candidates: [{ file: "src/Rows.tsx", line: 171, why: "the label is on this line", text: "<li>" }] });
+      if (url.pathname === "/mods/session") return answer(200, { session_id: "mod-1", title: "Usage meter" });
       if (url.pathname === "/sessions/mcp") return answer(200, { servers: [{ name: "linear", state: "needs_sign_in", tools: 0 }] });
       if (url.pathname === "/sessions/mcp/act") return answer(200, { servers: [{ name: "linear", state: "connecting", tools: 0 }], sign_in: { url: "https://linear.example/authorize", callback_expected: true } });
       if (url.pathname.startsWith("/sessions/")) return answer(200, sessions[0]);
@@ -473,6 +474,19 @@ it("sends a pinned note to its own route, folds the record Fleet answers and han
   expect(done).toMatchObject({ ok: true, value: { candidates: [{ file: "src/Rows.tsx", line: 171 }] } });
   expect(last("sessions")).toMatchObject({ sessions: [{ id: "a", title: "Noted" }] });
   expect(await host(null).sessions.sendNote(note)).toMatchObject({ ok: false, outcome: { why: "not_connected" } });
+});
+
+it("starts a Mod Job on its own route with the note as given, and folds no record", async () => {
+  const sent: Sent[] = [];
+  const port = await fleet(sent, [record("a")]);
+  const { sessions, published } = host(port);
+  const start = { title: "Usage meter", note: { said: "", address: "file:///index.html", place: { selector: "li", element: { tag: "li", text: "x" }, location: "/usage" }, state: { selected: [] } } };
+  const done = await sessions.startMod(start);
+  expect(sent.map((one) => `${one.method} ${one.path}`)).toEqual(["POST /mods/session"]);
+  expect(sent[0]!.body).toEqual(start);
+  expect(done).toEqual({ ok: true, value: { session_id: "mod-1", title: "Usage meter" } });
+  expect(published).toEqual([]);
+  expect(await host(null).sessions.startMod(start)).toMatchObject({ ok: false, outcome: { why: "not_connected" } });
 });
 
 it("sends a walk's notes together to their own route, folds the record and hands back one candidate list a note", async () => {

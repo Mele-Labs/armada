@@ -9,6 +9,7 @@ import type { PhoneAnswer, PhoneRequest, SettingsFileOpened } from "@armada/sett
 import type { AskLessonRead, AskTurn, LessonReviewRead } from "@armada/screens/src/lessons/review-wire";
 import type { LessonSessionRead } from "@armada/screens/src/lessons/session-wire";
 import type { PanelGo, PanelHeldNote } from "@armada/studios/api";
+import type { AdversarialReview, DismissFinding, SendFinding, StartAdversarialReview } from "@armada/protocol";
 import type {
   ChangeWaiting,
   SessionWait,
@@ -140,14 +141,15 @@ import type { HealthRead } from "@armada/screens/src/overview-reads";
 import type {
   Outstanding,
 } from "@armada/screens/src/outstanding";
-import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimIssue, ClaimPullRequest, ConfirmWaiting, DismissConcern, DismissWaiting, IssueClaimed, JudgeSession, LaterSettled, PullRequestClaimed, PullRequestFilePatch, PullRequestPage, PullRequestState, RenameSession, SendConcern, SendPlanChanges, NoteSent, SendSessionMessage, SendSessionNote, SessionRow, SessionRunMessage, SessionRunUnderway, SessionLoadout, AttachmentHistory, McpServerAct, SessionMcp, SessionMcpActed, SessionSubagent, SettleLater, StopWatch, TuneSession, BeginSession, WatchSummary } from "@armada/protocol";
+import type { ModSessionStarted, StartModSession, AnswerSessionAsk, AnswerWaiting, ApprovePlan, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimIssue, ClaimPullRequest, ConfirmWaiting, DismissConcern, DismissWaiting, IssueClaimed, JudgeSession, LaterSettled, PullRequestClaimed, PullRequestFilePatch, PullRequestPage, PullRequestState, RenameSession, SendConcern, SendPlanChanges, NoteSent, SendSessionMessage, SendSessionNote, SessionRow, SessionRunMessage, SessionRunUnderway, SessionLoadout, AttachmentHistory, McpServerAct, SessionMcp, SessionMcpActed, SessionSubagent, SettleLater, StopWatch, TuneSession, BeginSession, WatchSummary } from "@armada/protocol";
 import type { RequestRepositoryRead } from "./api/dispatch";
 import type { JobTerminalChange, PullRequestPress, PullRequestWrite, SessionActed, SessionsRead, TerminalMovedBack } from "./api/sessions";
 import type { SleepActed } from "./api/sleep";
 import type { AccountsActed } from "./api/accounts";
-import type { HomeKind, HomeKinds, HomeRowAt, HomeSide, SharedHomeRead } from "@armada/protocol";
+import type { HomeKind, HomeKinds, HomeRowAt, HomeSide, HomeSynced, SharedHomeRead } from "@armada/protocol";
 import type { PlanUsageRead } from "./api/plan-usage";
 import type { ModelDownshiftRead } from "./api/model-downshift";
+import type { AgentSignInRead } from "./api/agent-sign-in";
 import type { FleetTimelineRead } from "./api/timeline";
 import type { BayHistoryRead } from "./api/bay-history";
 import type { UsageRulesRead, UsageSummaryRead } from "./api/usage-summary";
@@ -166,7 +168,7 @@ import { REQUESTS_CHANNELS, type RequestsApi } from "./api/requests";
 import { SHARING_CHANNELS, type SharingApi } from "./api/sharing";
 import { LOGBOOK_CHANNELS, type LogbookApi } from "./api/logbook";
 import { TEACHING_CHANNELS, type TeachingApi } from "./api/teaching";
-import type { ActFailed, ModelDownshiftState, PlanUsage, SignedOut, SleepState, TimelineAsk, TimelineEvent } from "@armada/protocol";
+import type { ActFailed, AgentSignIn, ModelDownshiftState, PlanUsage, SignedOut, SleepState, TimelineAsk, TimelineEvent } from "@armada/protocol";
 import type { BridgeApi } from "./api";
 import { CHANNELS, NOTHING_YET } from "./bridge";
 import type { BridgeState, HistoryStep, Summons } from "./bridge";
@@ -358,6 +360,7 @@ type OldBridgeApi = {
     beginSession: (begin: BeginSession) => Promise<SessionActed>;
     sendSessionMessage: (send: SendSessionMessage) => Promise<SessionActed>;
     sendSessionNote: (send: SendSessionNote) => Promise<SessionActed<NoteSent>>;
+    startModSession: (start: StartModSession) => Promise<SessionActed<ModSessionStarted>>;
     answerSessionAsk: (answer: AnswerSessionAsk) => Promise<SessionActed>;
     answerWaiting: (answer: AnswerWaiting) => Promise<SessionActed>;
     claimPullRequest: (claim: ClaimPullRequest) => Promise<SessionActed<PullRequestClaimed>>;
@@ -374,6 +377,9 @@ type OldBridgeApi = {
     judgeSession: (judge: JudgeSession) => Promise<SessionActed>;
     sendConcern: (send: SendConcern) => Promise<SessionActed>;
     dismissConcern: (dismiss: DismissConcern) => Promise<SessionActed>;
+    startAdversarialReview: (start: StartAdversarialReview) => Promise<SessionActed<AdversarialReview>>;
+    sendFinding: (send: SendFinding) => Promise<SessionActed<AdversarialReview>>;
+    dismissFinding: (dismiss: DismissFinding) => Promise<SessionActed<AdversarialReview>>;
     getSleep: () => Promise<SleepActed>;
     getPlanUsage: () => Promise<PlanUsageRead>;
     getWriteClashes: () => Promise<WriteClashesRead>;
@@ -394,6 +400,9 @@ type OldBridgeApi = {
     keepDownshift: () => Promise<ModelDownshiftRead>;
     settleDownshift: () => Promise<ModelDownshiftRead>;
     onModelDownshiftChanged: (onChanged: (state: ModelDownshiftState) => void) => () => void;
+    getAgentSignIn: () => Promise<AgentSignInRead>;
+    startAgentSignIn: () => Promise<AgentSignInRead>;
+    onAgentSignInChanged: (onChanged: (state: AgentSignIn) => void) => () => void;
     listIssues: (manifestId: string, refresh: boolean) => Promise<IssuesRead>;
     getIssue: (manifestId: string, reference: string) => Promise<IssueNumberRead>;
     searchIssues: (manifestId: string, query: string) => Promise<IssueQueryActed<IssueList>>;
@@ -411,12 +420,13 @@ type OldBridgeApi = {
     signOut: (accountId: number) => Promise<AccountsActed<SignedOut>>;
     setRepositoryProfile: (root: string, accountId: number | null) => Promise<AccountsActed>;
     getSharedHome: (login: string) => Promise<AccountsActed<SharedHomeRead>>;
-    syncSharedHome: (login: string) => Promise<AccountsActed<SharedHomeRead>>;
+    syncSharedHome: (login: string) => Promise<AccountsActed<HomeSynced>>;
     addToSharedHome: (row: HomeRowAt) => Promise<AccountsActed<SharedHomeRead>>;
     bringFromSharedHome: (row: HomeRowAt) => Promise<AccountsActed<SharedHomeRead>>;
     chooseSharedHomeSide: (row: HomeRowAt, side: HomeSide) => Promise<AccountsActed<SharedHomeRead>>;
     getHomeKinds: (login: string) => Promise<AccountsActed<HomeKinds>>;
     setHomeKind: (login: string, kind: HomeKind, on: boolean) => Promise<AccountsActed<HomeKinds>>;
+    setHomeRepository: (login: string, owner: string, name: string) => Promise<AccountsActed<SharedHomeRead>>;
     onSleepChanged: (onChanged: (state: SleepState) => void) => () => void;
     tuneSession: (tune: TuneSession) => Promise<SessionActed>;
     runSessionCommand: (sessionId: string, command: string) => Promise<SessionActed>;
@@ -660,6 +670,7 @@ const OLD_CHANNELS = {
     forkSessionAt: "bridge:fork-session-at",
     sendSessionMessage: "bridge:send-session-message",
     sendSessionNote: "bridge:send-session-note",
+    startModSession: "bridge:start-mod-session",
     answerSessionAsk: "bridge:answer-session-ask",
     answerWaiting: "bridge:answer-waiting",
     claimPullRequest: "bridge:claim-pull-request",
@@ -676,6 +687,9 @@ const OLD_CHANNELS = {
     judgeSession: "bridge:judge-session",
     sendConcern: "bridge:send-concern",
     dismissConcern: "bridge:dismiss-concern",
+    startAdversarialReview: "bridge:start-adversarial-review",
+    sendFinding: "bridge:send-finding",
+    dismissFinding: "bridge:dismiss-finding",
     getSleep: "bridge:get-sleep",
     getPlanUsage: "bridge:get-plan-usage",
     getWriteClashes: "bridge:get-write-clashes",
@@ -696,6 +710,9 @@ const OLD_CHANNELS = {
     keepDownshift: "bridge:keep-downshift",
     settleDownshift: "bridge:settle-downshift",
     modelDownshiftChanged: "bridge:model-downshift-changed",
+    getAgentSignIn: "bridge:get-agent-sign-in",
+    startAgentSignIn: "bridge:start-agent-sign-in",
+    agentSignInChanged: "bridge:agent-sign-in-changed",
     listIssues: "bridge:list-issues",
     getIssue: "bridge:get-issue",
     searchIssues: "bridge:search-issues",
@@ -719,6 +736,7 @@ const OLD_CHANNELS = {
     chooseSharedHomeSide: "bridge:choose-shared-home-side",
     getHomeKinds: "bridge:get-home-kinds",
     setHomeKind: "bridge:set-home-kind",
+    setHomeRepository: "bridge:set-home-repository",
     sleepChanged: "bridge:sleep-changed",
     tuneSession: "bridge:tune-session",
     runSessionCommand: "bridge:run-session-command",

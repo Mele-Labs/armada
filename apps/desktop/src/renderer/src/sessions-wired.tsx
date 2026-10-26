@@ -16,6 +16,7 @@ import type { ReactNode } from "react";
 
 import type { ProposedField, Notice, NoticeScope, SessionHoldsReleased, StartAfter, SessionRunMessage, SettingsList, TimelineEvent, WorkflowSummary } from "@armada/protocol";
 import { choicesOf, wireMarksOf } from "@armada/screens/src/session-work";
+import type { ReviewRefused } from "@armada/screens/src/session-work";
 import type { QueuedIdea, SessionCommand, SessionWait, StartWhen, WaitReading, WorkflowChoice } from "@armada/screens/src/draft/sessions";
 import { refusalWords } from "@armada/screens/src/refusal-words";
 import { askToTell, NOT_REACHABLE, type RefusedAct } from "./tell";
@@ -51,6 +52,7 @@ import { readHistory } from "./session-history";
 import { SessionsFrom } from "./sessions-draft";
 import type { TimelineSource } from "./fleet-timeline";
 import { markViewed } from "./cockpit/viewed";
+import { aimOf, forgetAim } from "./session-view/mod-aim";
 import { stateOf } from "./state-feed";
 import { manifestLabel } from "@armada/shell";
 
@@ -98,6 +100,8 @@ export class WiredStore {
   private events: readonly TimelineEvent[] = NONE;
   /** Picks of the proposer he changed here, until the record says so too. */
   private readonly unpicked = new Map<string, ReadonlySet<ProposedField>>();
+  /** Fleet's refusal of the last adversarial review pressed on a Session's plan, drawn as the review failing until the next press. */
+  private readonly reviewRefused = new Map<string, ReviewRefused>();
   private choices: { from: readonly WorkflowSummary[]; are: readonly WorkflowChoice[] } = { from: NONE, are: NONE };
 
   /** The ideas saved to start later, replaced and never changed so a reader can tell when they moved. */
@@ -191,6 +195,7 @@ export class WiredStore {
     ...(this.inputs?.sessionWatches[id] === undefined ? {} : { watches: this.inputs.sessionWatches[id] }),
     ...(this.inputs?.workflowsOff === true ? { workflowsOff: true } : {}),
     ...(this.unpicked.has(id) ? { unpicked: this.unpicked.get(id)! } : {}),
+    ...(this.reviewRefused.has(id) ? { reviewRefused: this.reviewRefused.get(id)! } : {}),
   });
 
   /** The timeline's entries, of which only a value he changed in a panel is a row of a thread. Drawn again only when one of those changed. */
@@ -398,11 +403,13 @@ export class WiredStore {
     const files = (await Promise.all(sent.files.map(uploadOfFile))).filter((one) => one !== undefined);
     const drawn = await Promise.all(sent.sketches.map(uploadOfSketch));
     const attachments = [...files, ...drawn];
+    const aim = aimOf(id);
     const done = await this.api.sendSessionMessage({
       session_id: id,
       text: sent.text,
       ...(attachments.length === 0 ? {} : { attachments }),
       ...(sent.tags.length === 0 ? {} : { mentions: sent.tags.map(wireTagOf) }),
+      ...(aim === undefined ? {} : { aim }),
     });
     if (!done.ok) {
       this.tagged(id, tags);
@@ -410,6 +417,7 @@ export class WiredStore {
       return false;
     }
     markViewed(id);
+    forgetAim(id);
     // The wire holds a sketch only as the picture it went as, so the ledger keeps what was drawn here.
     if (sent.sketches.length > 0) {
       this.sketches.set(id, [...(this.sketches.get(id) ?? NONE), ...sent.sketches.map((one): Sketch => ({ kind: "sketch", id: one.id, title: one.title, by: "you", drawing: one.drawing }))]);
@@ -536,6 +544,27 @@ export class WiredStore {
     return done.ok;
   }
 
+  /** Runs the review of the plan as it is now: again where one was run, of whatever version. A refusal is drawn where the review fails. */
+  private async reviewing(id: string): Promise<void> {
+    const work = this.lookup(id)?.work;
+    const version = work?.plan?.version;
+    if (version === undefined) return;
+    if (this.reviewRefused.delete(id)) this.recompute();
+    const done = await this.api.startAdversarialReview({ subject: { kind: "plan", session_id: id, version }, ...(work?.adversarial === undefined ? {} : { again: true }) });
+    if (done.ok) return;
+    this.reviewRefused.set(id, { version, said: refusalWords(done.outcome) });
+    this.recompute();
+  }
+
+  /** A finding sent or dismissed, against the version its review read: Fleet keeps a review per version. */
+  private async finding(id: string, finding: string, how: "send" | "dismiss"): Promise<void> {
+    const work = this.lookup(id)?.work;
+    const version = work?.adversarial?.state === "stale" ? work.adversarial.read : work?.plan?.version;
+    if (version === undefined) return;
+    const body = { subject: { kind: "plan" as const, session_id: id, version }, finding_id: finding };
+    await this.plain(how === "send" ? this.api.sendFinding(body) : this.api.dismissFinding(body));
+  }
+
   /** The forge's refusal comes after Fleet kept the flag, so it is told and still counts as changed. */
   private async landing(id: string, on: boolean): Promise<boolean> {
     this.say(undefined);
@@ -633,7 +662,7 @@ export class WiredStore {
     helmOf: (manifestId) => (this.helm?.manifestId === manifestId ? this.helm : undefined),
     subscribe: this.subscribe,
     start: (tag, root, request, tuning, after, held) => this.starting(tag, root, request, tuning, after, held),
-    begin: (id, delivery) => this.took(this.api.beginSession({ session_id: id, ...(delivery === undefined ? {} : { delivery }) })),
+    begin: (id, delivery, message) => this.took(this.api.beginSession({ session_id: id, ...(delivery === undefined ? {} : { delivery }), ...(message === undefined ? {} : { message }) })),
     readsWait: (words) => this.readingWait(words),
     settlesWait: (words) => this.settledWait(words),
     startWhen: (id, when, part) => void this.changingWait(id, when, part),
@@ -785,6 +814,12 @@ export class WiredStore {
       },
       sendConcern: (id, concern) => void this.plain(this.api.sendConcern({ session_id: id, item_id: concern })),
       dismissConcern: (id, concern) => void this.plain(this.api.dismissConcern({ session_id: id, item_id: concern })),
+      // Fleet answers the review, which lands on the plan by `session.changed`; only a refusal is held here, in Fleet's words.
+      adversarial: {
+        run: (id) => void this.reviewing(id),
+        send: (id, finding) => void this.finding(id, finding, "send"),
+        dismiss: (id, finding) => void this.finding(id, finding, "dismiss"),
+      },
       // The answer is the record with `judging` set, which the state carries; the reading lands on it later.
       judge: async (id) => {
         this.say(undefined);

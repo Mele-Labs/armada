@@ -17,6 +17,8 @@ mod asking;
 mod backgrounding;
 mod cut_off;
 pub(crate) mod disputing;
+pub(crate) mod document_page;
+pub(crate) mod documents;
 pub(crate) mod dispute_review;
 pub(crate) mod dispute_reading;
 pub(crate) mod ending;
@@ -43,6 +45,7 @@ pub(crate) mod kept;
 /// `send_session_note` and `send_session_notes`: pinned notes, with the lines of code each was
 /// drawn from.
 mod noting;
+mod modding;
 mod auto_landing;
 mod pausing;
 mod reach_folders;
@@ -61,6 +64,7 @@ mod rows;
 pub(crate) use rows::mention_line;
 /// A judge reading a Session's work, and sending or dismissing what it raised.
 pub(crate) mod session_judging;
+pub(crate) mod signed_out;
 mod serving;
 pub(crate) use serving::NoticeBatches;
 pub(crate) mod asks;
@@ -70,13 +74,14 @@ pub(crate) mod dedup;
 pub(crate) mod extracting;
 pub(crate) mod tell_refusal;
 pub(crate) mod reply_claims;
+pub(crate) mod unanswered;
 pub(crate) mod plan_asks;
 pub(crate) mod standing;
 pub(crate) mod workflow_pick;
 mod standing_tick;
 mod thread_cache;
-pub(crate) use agent_starting::UNSENT_ITEM;
-pub(crate) use serving::{mode_of, RunEnd, MESSAGE_EMPTY, NO_SUCH_SESSION};
+pub(crate) use start_card::FIRST_MESSAGE_ITEM;
+pub(crate) use serving::{mode_of, Marked, RunEnd, MESSAGE_EMPTY, NO_SUCH_SESSION};
 mod terminal;
 pub(crate) mod uploads;
 pub(crate) mod waiting;
@@ -435,6 +440,15 @@ pub(crate) struct State {
     /// The last thing the agent said to the person in the turn running now, so the turn's end can say
     /// how it ended. Cleared when a turn starts. In memory.
     pub said: Option<String>,
+    /// The person wrote, and the agent has written him nothing since but a status line. Sent back
+    /// once a message, at its question or its turn's end (`unanswered`). In memory.
+    pub owes_reply: bool,
+    /// The call id of the last question the stream showed, so the door reads a question only once
+    /// what the agent wrote before it has been heard. In memory.
+    pub question_heard: Option<String>,
+    /// The calls of the stream that wrote a page of the Job's document, by call id, to be kept once the
+    /// tool has answered and the file is on disk. In memory.
+    pub pages: HashMap<String, String>,
     /// This is a repository's Helm Session: its door is Helm's, which places its calls.
     pub helm: bool,
     /// What its last `get_events_since` was answered, kept for Helm's debug record. In memory.
@@ -454,6 +468,9 @@ pub(crate) struct State {
     pub runs: crate::run_memory::RunLog,
     /// Who waits on each control line written to the process, by its request id. In memory.
     pub controls: HashMap<String, mcp_servers::Waiter>,
+    /// The harness said its sign-in ran out and the Job stopped, until the account works again. In
+    /// memory: `signed_out`.
+    pub signed_out: bool,
 }
 
 impl State {
@@ -490,6 +507,9 @@ impl State {
             reattached_busy: false,
             turn_began: None,
             said: None,
+            owes_reply: false,
+            question_heard: None,
+            pages: HashMap::new(),
             helm: false,
             polled: None,
             activity: activity::Activity::default(),
@@ -499,6 +519,7 @@ impl State {
             background: backgrounding::Calls::default(),
             runs: crate::run_memory::RunLog::default(),
             controls: HashMap::new(),
+            signed_out: false,
         }
     }
 }

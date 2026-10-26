@@ -31,6 +31,7 @@
 
 extern crate alloc;
 
+mod backlog;
 mod basing;
 mod bucket;
 mod checkout_send;
@@ -97,6 +98,7 @@ pub use main_ci::{
 };
 pub use manifest_edit::{ManifestEditSent, ManifestEditToSend, ManifestOnTheBase, PullRequestFor};
 pub use pull_reading::{PullQueue, FollowedCheck, FollowedPull, FollowedPulls};
+pub use backlog::{Backlog, BeadState, CopyMark};
 pub use pull_request::{PullRequestFacts, PullRequestStanding};
 pub use pull_request_detail::{
     CheckRow, CheckStanding, CommitLine, FileChange, FilePatch, Mergeability, Omitted, PageFile,
@@ -112,7 +114,7 @@ pub use request::{
 };
 pub use secret::Secret;
 pub use shared_home::{
-    HarnessHome, HarnessPiece, HarnessPlace, HomeFailure, HomeRepositories, HomeRepository, KeptFolder, PluginRecord,
+    HarnessHome, HarnessPiece, HarnessPlace, HomeFailure, HomePlace, HomeRepositories, HomeRepository, KeptFolder, PluginRecord,
     HOME_REPOSITORY,
 };
 pub use sign_in::{DeviceCode, Polled, SignIn, SignInError, SignedInAs};

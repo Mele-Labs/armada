@@ -98,6 +98,8 @@ export type SessionRecord = {
   attachments: Attachment[];
   /** This is its repository's Helm Session, which Bridge draws marked. Absent for every other. */
   helm?: true;
+  /** A Mod Job: started from Mod, for modding Armada itself. */
+  mod?: true;
   /** What a session Fleet hosts carries beyond a terminal's. Since 23.49. */
   hosted?: HostedFacts;
   /** What a session run in a terminal runs on, once its mod has said. Since 23.53. */
@@ -223,8 +225,8 @@ export type WaitingAct = { kind: "walk" | "answer" | "approve_pr" | "run" | "mes
 
 /**
  * Who put an item on the list: the agent, or Fleet from an open card, a permission, an unapproved walk
- * window, a question the session asked in its walk window (`ask_in_window`), or `first_message`: another
- * Session's agent started this one and the person has not sent its first message. A `first_message` item
+ * window, a question the session asked in its walk window (`ask_in_window`), or `first_message`: the
+ * Session waits on its start card until the person presses Start (`POST /sessions/begin`). A `first_message` item
  * has no reply and its `act` is a `message` on the Session, so a press opens it. Fleet also derives
  * `done` (id `done:<done_since>`, text `Done`) from the turn, so a Session that said it was done is on
  * the list whether or not the agent called a tool. `plan` (id `plan:<version>`) is a recorded plan the
@@ -313,8 +315,9 @@ export type AnswerWaiting = {
 };
 
 /**
- * `POST /sessions/start_another`, the agent's: a new Session in `manifest_id`'s repository. Its `message` is
- * held unsent and nothing runs until the person sends it. The caller is placed by its connection.
+ * `POST /sessions/start_another`, the agent's: a new Session in `manifest_id`'s repository, held on its start card
+ * with `message` as its first message (`hosted.start.message`); nothing runs until the person presses Start. The
+ * caller is placed by its connection.
  */
 export type StartAnotherSession = {
   manifest_id: string;
@@ -343,7 +346,7 @@ export type HandToSession = { session_id: string; group: string };
 /**
  * `POST /sessions/fork_this`, the agent's: a new Session that starts as a copy of the caller's own
  * conversation, ending at the row `at` (included) or, absent, at its latest message of its own that the
- * transcript holds. `message` is held unsent as `StartAnotherSession`'s is.
+ * transcript holds. It is held with `message` as `StartAnotherSession`'s is.
  */
 export type ForkThisSession = { title: string; message: string; at?: string };
 
@@ -372,6 +375,8 @@ export type PullRequestClaimed = {
  * tracker's key (`ABC-12`), held as an `issue` row on its ledger. `pull_requests` are the numbers of the
  * pull requests that work it, which the row's detail carries as `pull_requests`, comma-joined ascending.
  * Fleet refuses 422 `fleet.issue_not_claimable` for a reference that is neither, or a call that places no Session.
+ * In a repository whose tracker Fleet writes to, it claims there first and refuses 409 `fleet.issue_held`, naming
+ * the holder, where the synced copy gives the issue to someone else.
  */
 export type ClaimIssue = { issue: string; session_id?: string; pull_requests?: number[] };
 

@@ -8,6 +8,7 @@ import { toSessions } from "../sessions/walk-kit";
 
 const TITLE = "Deploy the store Worker once, from this machine";
 const BY_STEP = "Deploy the store Worker, a command a step";
+const RUNS = "Put the backlog on this Mac";
 
 function steps(): Step[] {
   const sessions = region("Jobs", { exact: true });
@@ -32,6 +33,13 @@ function steps(): Step[] {
     { press: inside(dialog(BY_STEP), button("Copy step 2 command")), say: "One press copies that step's command" },
     { look: inside(dialog(BY_STEP), role("checkbox", "Copy the workers.dev address it prints")), say: "A step with no command has no key" },
     { look: inside(dialog(BY_STEP), text(/workers\.dev\/health$/)), say: "The command at the top is left out, since step 1 names it" },
+    { press: inside(dialog(BY_STEP), role("button", /^Close( panel)?( Esc)?$/)), say: "Closed" },
+    { press: inside(needs, button(`Open ${RUNS}`)), say: "A procedure whose commands run from here" },
+    { look: inside(inside(dialog(RUNS), role("group", "git fetch origin")), button("Run")), say: "Each command has a Run key beside Copy" },
+    { press: inside(inside(dialog(RUNS), role("group", "git fetch origin")), button("Run")), say: "Run it in the Job's terminal" },
+    { look: inside(dialog(RUNS), role("checkbox", /Fetch main/)), say: "A clean exit ticks the step" },
+    { press: inside(inside(dialog(RUNS), role("group", "pnpm exec vitest run")), button("Run")), say: "A command that fails" },
+    { look: inside(dialog(RUNS), role("checkbox", /Run the store tests/)), say: "Its step stays unticked, and the Job is told the exit code and what it printed" },
   ];
 }
 

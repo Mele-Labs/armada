@@ -341,7 +341,8 @@ where
                     paused_at: None,
                     paused_resuming: false,
                     auto_land: false,
-                    start_held: false,
+                    mod_job: false,
+                    start_held: start.held,
                 })
                 .map_err(|why| self.ledger_fault(why))?;
             // `spent`, not `standing`: the old session ending gives back what
@@ -377,6 +378,16 @@ where
                     )
                     .map_err(|why| self.ledger_fault(why))?;
             }
+        }
+        if start.held {
+            {
+                let runtime = self.hosts().of(&id);
+                let mut state = runtime.state();
+                state.proposal.start_held = true;
+                state.proposal.start_synced = true;
+            }
+            // A fork is never read, so it takes its default workflow now.
+            self.held_defaulted(&id).await;
         }
         let _ = self.published_hosted(&old_id).await;
         self.published_hosted(&id).await

@@ -1,6 +1,6 @@
-// A Job dispatched from the Dispatch sheet opens on its start card before any agent moves. The proposer reads the request for a moment, then the
-// title, Kind and Lands fill in. Changing Kind moves Lands to the usual for that kind, and words that name how it lands win over the usual.
-// Start begins the agent and the card goes. Over `quick-dispatch`, and the walk `job-start-card` plays it.
+// A Job dispatched from the Dispatch sheet opens held before any agent moves. The proposer reads the request for a moment, then the
+// title, Workflow and Delivery fill in. Changing Workflow moves Delivery to the usual for that kind, and words that name how it lands win over the usual.
+// Start begins the agent. Over `quick-dispatch`, and the walk `job-start-card` plays it.
 
 import type { DeliveryChoice } from "@armada/protocol";
 import { repository } from "@armada/screens/src/fixtures/repository";
@@ -13,7 +13,7 @@ import { others, sessionsStore } from "../sessions/script";
 /** The first Job dispatched in the mock takes this id. The usual Sessions are left without it, so the new Job is the only one under it. */
 const MINE = "s7";
 
-/** How long the proposer reads before the card fills in. */
+/** How long the proposer reads before the picks fill in. */
 const READ_MS = 1200;
 /** How long after Start the agent's first rows land. */
 const BEGIN_MS = 900;
@@ -48,18 +48,21 @@ const tool = (id: string, text: string): SessionRow => ({ id, at: "14:12:09", ki
 export const s323JobStartCard: Scenario = {
   ...s210QuickDispatch,
   name: "job-start-card",
-  says: "A Job dispatched from the Dispatch sheet opens on a start card: title, kind, how it lands, model and effort settled before the agent starts",
+  says: "A Job dispatched from the Dispatch sheet opens held: title, kind, how it lands, model and effort settled before the agent starts",
   draft: {
     ...s210QuickDispatch.draft,
     sessions: () => {
       const store = sessionsStore([], [], new Map([[repository().root, repository().manifest!.id]]), others().filter((one) => one.id !== MINE));
       /** What each held Job's request named, by id. */
       const named = new Map<string, DeliveryChoice>();
+      /** The first message each held Job will begin with: his words, then his edit. It is in the thread from Start. */
+      const first = new Map<string, string>();
       const startFor = (id: string, kind: string | null): NonNullable<Session["start"]> => {
         const choice = named.get(id);
         const usual = kind === null ? undefined : USUAL[kind];
         return {
           asksDelivery: kind !== "review",
+          message: first.get(id) ?? "",
           ...(choice !== undefined ? { picked: { choice, from: "named" as const } } : usual === undefined || kind === "review" ? {} : { picked: { choice: usual, from: "usual" as const } }),
         };
       };
@@ -72,8 +75,9 @@ export const s323JobStartCard: Scenario = {
           const words = request ?? "";
           const choice = namedIn(words);
           if (choice !== undefined) named.set(id, choice);
-          // The proposer is reading: the card is up with nothing written.
-          store.edit(id, (one) => ({ ...one, start: { asksDelivery: true }, work: { proposal: { workflow: null, reading: true } } }));
+          first.set(id, words);
+          // The proposer is reading: the Job is up with nothing written.
+          store.edit(id, (one) => ({ ...one, start: { asksDelivery: true, message: words }, work: { proposal: { workflow: null, reading: true } } }));
           timers(READ_MS, () => {
             const kind = kindOf(words);
             store.edit(id, (one) => ({
@@ -92,16 +96,19 @@ export const s323JobStartCard: Scenario = {
           });
           return id;
         },
-        // His words are in the thread from the first moment; nothing runs on them until Start.
+        // His words are the first message, held in the composer: the thread has nothing until Start.
         send(id, sent) {
           if (store.get().find((one) => one.id === id)?.start === undefined) return store.send(id, sent);
-          store.edit(id, (one) => ({ ...one, rows: [...one.rows, message(`m${one.rows.length + 1}`, sent.text)] }));
+          first.set(id, sent.text);
+          store.edit(id, (one) => ({ ...one, start: { ...one.start!, message: sent.text } }));
         },
-        begin(id, delivery) {
+        begin(id, delivery, said) {
+          const opening = said ?? first.get(id) ?? "";
           store.edit(id, ({ start: _start, ...one }) => {
             const flow = WORKFLOWS.find((it) => it.id === one.work?.proposal?.workflow);
             return {
               ...one,
+              rows: opening.trim() === "" ? one.rows : [...one.rows, message(`m${one.rows.length + 1}`, opening)],
               turn: { state: "working" },
               ...(delivery === "auto_land" ? { autoLand: true as const } : {}),
               work: { ...one.work, ...(flow === undefined ? {} : { workflow: { name: flow.name, steps: flow.steps, at: 0 } }) },

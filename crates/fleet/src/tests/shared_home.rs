@@ -6,18 +6,21 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use adapter_traits::{HomeFailure, HomeRepository, PluginRecord};
+use adapter_traits::{HomeFailure, HomePlace, HomeRepository, PluginRecord};
 use core_model::{Actor, KitServer, ServerAddress, ServerName, Timestamp};
-use ipc::{HomeKind, HomeNamed, HomeRow, HomeRowAt, HomeRowState, HomeSide, ModKind};
+use ipc::{HomeKind, HomeLeft, HomeNamed, HomeRow, HomeRowAt, HomeRowState, HomeSide, ModKind};
 use testkit::{FakeHarnessHome, FakeHome, FakeHomes, FakeRemote, HeldFolder};
 
 use crate::home::{self, secrets, Places, Refused, Repository};
+use crate::profiles::Joined;
 
 const LOGIN: &str = "nick";
 const NOTE: &str = "---\nname: walks\ndescription: Show a walk, never a picture\nmetadata:\n  originSessionId: aaaa\n  modified: 2026-10-01T00:00:00Z\n---\n\nA walk link on its own line.\n";
 
 struct Mac {
     home: Arc<dyn HomeRepository>,
+    /// Where Sync and `opened` make the home.
+    place: HomePlace,
     mods: HeldFolder,
     kit: HeldFolder,
     person: HeldFolder,
@@ -36,6 +39,7 @@ impl Mac {
         let person = HeldFolder::new();
         Mac {
             home,
+            place: HomePlace::default_for(LOGIN),
             mods: HeldFolder::new(),
             kit: HeldFolder::new(),
             harness: FakeHarnessHome::over(person.clone()),
@@ -45,8 +49,14 @@ impl Mac {
         }
     }
 
+    /// The same machine making its home as `login`'s, for a profile other than `nick`.
+    fn at(mut self, login: &str) -> Mac {
+        self.place = HomePlace::default_for(login);
+        self
+    }
+
     fn opened(self) -> Mac {
-        self.home.open().expect("the home opens");
+        self.home.open(&self.place).expect("the home opens");
         self
     }
 
@@ -63,6 +73,11 @@ impl Mac {
 
     fn rows(&self) -> Vec<HomeRow> {
         home::read(&self.places(), HomeKind::ALL).rows
+    }
+
+    /// Sync, with the kinds in `on` switched on, every mod taken as valid.
+    fn synced(&self, on: &[HomeKind]) -> Result<Vec<HomeLeft>, Refused> {
+        home::sync(&self.places(), on, "mac-a", &self.place, &|_, _| Ok(()))
     }
 
     /// The memory folder of the one repository it serves.
@@ -215,6 +230,54 @@ fn a_memory_note_reads_the_same_whatever_stamps_and_line_endings_each_machine_wr
 }
 
 #[test]
+fn sync_adds_every_row_only_here_in_one_push_and_leaves_a_credential_and_a_row_that_differs() {
+    let remote = FakeRemote::of(LOGIN);
+    let mut b = Mac::on(&remote, "/b/shop");
+    b.person = b.person.with("harness/skills/tone/SKILL.md", "warm\n");
+    let b = b.opened();
+    home::add(&b.places(), &at(HomeKind::Skills, "tone"), "mac-b").expect("B's tone is in the home");
+
+    let mut a = Mac::on(&remote, "/a/shop");
+    a.person = a
+        .person
+        .with("harness/skills/humanizer/SKILL.md", "Rewrite text\n")
+        .with("harness/skills/tone/SKILL.md", "cool\n")
+        .with("harness/skills/deploy/SKILL.md", "Push to https://bot:hunter2@git.acme.dev/shop.git\n")
+        .with("harness/commands/ship.md", "Ship it\n")
+        .with("harness/agents/reviewer.md", "A reviewer, its kind off\n");
+    a.servers.push(server("linear", "https://bot:hunter2@mcp.linear.app/sse"));
+    let before = remote.published().len();
+
+    let left = a.synced(&[HomeKind::Skills, HomeKind::Commands, HomeKind::McpServers]).expect("Sync answers");
+
+    let published = remote.published();
+    assert_eq!(published.len(), before + 1, "one push: {published:?}");
+    let mut pushed = published.last().cloned().unwrap_or_default();
+    pushed.sort();
+    assert_eq!(pushed, ["commands/ship.md", "mcp_servers/linear.toml", "skills/humanizer/SKILL.md"].map(str::to_string));
+    assert_eq!(remote.text("mcp_servers/linear.toml").as_deref(), Some("name = \"linear\"\nhost = \"mcp.linear.app\"\n"));
+    assert_eq!(remote.text("skills/tone/SKILL.md").as_deref(), Some("warm\n"), "a row that differs is not touched");
+    assert_eq!(a.person.text("harness/skills/tone/SKILL.md").as_deref(), Some("cool\n"));
+    assert_eq!(remote.text("skills/deploy/SKILL.md"), None);
+    assert_eq!(remote.text("sub_agents/reviewer.md"), None, "a kind switched off stays");
+
+    match left.as_slice() {
+        [HomeLeft { kind: HomeKind::Skills, name, repository: None, why }] => {
+            assert_eq!(name, "deploy");
+            assert!(why.contains("deploy") && why.contains("git.acme.dev") && !why.contains("hunter2"), "{why}");
+        }
+        other => panic!("only deploy stays: {other:?}"),
+    }
+    let rows = a.rows();
+    assert_eq!(state(&rows, HomeKind::Skills, "humanizer"), HomeRowState::Same);
+    assert_eq!(state(&rows, HomeKind::Skills, "deploy"), HomeRowState::Here);
+    assert_eq!(state(&rows, HomeKind::Skills, "tone"), HomeRowState::Differs);
+
+    a.synced(&[HomeKind::Skills, HomeKind::Commands, HomeKind::McpServers]).expect("Sync again");
+    assert_eq!(remote.published().len(), before + 1, "nothing new, nothing pushed");
+}
+
+#[test]
 fn a_server_is_the_same_by_its_host_and_a_machine_holding_it_has_its_key() {
     let remote = FakeRemote::of(LOGIN);
     let mut a = Mac::on(&remote, "/a/shop");
@@ -275,15 +338,15 @@ fn every_kind_is_off_until_turned_on_and_a_kind_off_has_no_rows() {
 fn each_profile_has_a_home_of_its_own_and_a_login_the_forge_here_does_not_hold_is_refused_by_name() {
     let (personal, work) = (FakeRemote::of("nick"), FakeRemote::of("nick-work"));
     let homes = FakeHomes::new().holding(&personal).holding(&work);
-    let profiles = ["nick", "nick-work", "nick-contract"].map(str::to_string);
+    let profiles = ["nick", "nick-work", "nick-contract"].map(|login| Joined { account_id: 1, login: login.to_string(), orgs: Vec::new(), chosen: false });
     let of = |login: &str| home::home_of(&homes, login, &profiles);
 
     let mut mine = Mac::homed(of("nick").expect("a profile"), "/Users/user/code/shop");
     mine.person = mine.person.with("harness/skills/tone/SKILL.md", "warm\n");
-    home::sync(mine.home.as_ref()).expect("the personal home opens");
+    mine.synced(&[]).expect("the personal home opens");
     home::add(&mine.places(), &at(HomeKind::Skills, "tone"), "mac-a").expect("added");
-    let theirs = Mac::homed(of("nick-work").expect("a profile"), "/Users/user/code/shop");
-    home::sync(theirs.home.as_ref()).expect("the work home opens");
+    let theirs = Mac::homed(of("nick-work").expect("a profile"), "/Users/user/code/shop").at("nick-work");
+    theirs.synced(&[]).expect("the work home opens");
 
     assert_eq!(personal.paths(), vec!["skills/tone/SKILL.md".to_string()]);
     assert!(work.paths().is_empty(), "the work home is not the personal one's: {:?}", work.paths());
@@ -293,7 +356,7 @@ fn each_profile_has_a_home_of_its_own_and_a_login_the_forge_here_does_not_hold_i
     assert!(!theirs.rows().iter().any(|row| row.name == "tone"), "{:?}", theirs.rows());
 
     let contract = of("nick-contract").expect("a profile, though the forge here does not hold it");
-    match home::sync(contract.as_ref()) {
+    match Mac::homed(Arc::clone(&contract), "/Users/user/code/shop").at("nick-contract").synced(&[]) {
         Err(Refused::Home(HomeFailure::NotSignedIn(said))) => assert!(said.contains("nick-contract"), "{said}"),
         other => panic!("refused by name: {other:?}"),
     }

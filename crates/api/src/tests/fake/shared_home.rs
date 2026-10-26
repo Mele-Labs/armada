@@ -2,7 +2,7 @@
 //! refused by name, and What syncs with every kind off. What is read, compared and pushed is
 //! `fleet::home`'s.
 
-use ipc::{ChooseHomeSide, HomeKind, HomeKindSwitch, HomeKinds, HomeProfile, HomeRowAt, SetHomeKind, SharedHomeRead};
+use ipc::{ChooseHomeSide, HomeKind, HomeKindSwitch, HomeKinds, HomePlanned, HomeProfile, HomeRowAt, HomeSynced, SetHomeKind, SetHomeRepository, SharedHomeRead};
 
 use super::FakeDaemon;
 use crate::tests::shapes::run_id;
@@ -24,10 +24,10 @@ fn every_kind(login: String, on: Option<(HomeKind, bool)>) -> HomeKinds {
 
 impl SharedHome for FakeDaemon {
     async fn get_shared_home(&self, _profile: HomeProfile) -> Result<SharedHomeRead, Refusal> {
-        Ok(SharedHomeRead { home: None, rows: Vec::new(), unreadable: Vec::new() })
+        Ok(SharedHomeRead { home: None, planned: None, rows: Vec::new(), unreadable: Vec::new() })
     }
 
-    async fn sync_shared_home(&self, _profile: HomeProfile) -> Result<SharedHomeRead, Refusal> {
+    async fn sync_shared_home(&self, _profile: HomeProfile) -> Result<HomeSynced, Refusal> {
         Err(no_home())
     }
 
@@ -49,5 +49,10 @@ impl SharedHome for FakeDaemon {
 
     async fn set_home_kind(&self, switch: SetHomeKind) -> Result<HomeKinds, Refusal> {
         Ok(every_kind(switch.login, Some((switch.kind, switch.on))))
+    }
+
+    async fn set_home_repository(&self, choice: SetHomeRepository) -> Result<SharedHomeRead, Refusal> {
+        let planned = HomePlanned { account: choice.owner, repository: choice.name, exists: false };
+        Ok(SharedHomeRead { home: None, planned: Some(planned), rows: Vec::new(), unreadable: Vec::new() })
     }
 }

@@ -89,6 +89,7 @@ function RepositoryScope({ props }: { props: CockpitProps }) {
   const repositories = props.state.holds.repositories ?? [];
   const pick = props.onPickRepository;
   const add = props.onAddRepository;
+  const create = props.onNewProject;
   if (props.onGoTo === undefined && (repositories.length === 0 || pick === undefined)) return null;
   return (
     <div className="deck-scope">
@@ -98,6 +99,7 @@ function RepositoryScope({ props }: { props: CockpitProps }) {
           picked={props.picked}
           onPick={(root) => pick(root)}
           onAdd={add}
+          onNew={create}
         />
       )}
       {props.onGoTo === undefined ? null : (
@@ -327,7 +329,7 @@ function List({ subjects, calling, banding, selected, builds, picked, found, onP
       <ul className="deck-list__rows" data-reordering={dragging === undefined ? undefined : ""}>
         {banding === undefined
           ? [...queuedIn(ideas, picked).map((idea) => <QueuedRow key={queuedKey(idea.id)} idea={idea} />), ...drawn.map(row)]
-          : bandsOf(drawn, banding, ideas).map((band) => (
+          : bandsOf(drawn, banding, queuedIn(ideas, picked)).map((band) => (
               <li key={`band:${band.key}`} className="deck-list__band">
                 <h3 className="deck-list__repository">{band.label}</h3>
                 <ul className="deck-list__group">{[...band.ideas.map((idea) => <QueuedRow key={queuedKey(idea.id)} idea={idea} />), ...band.subjects.map(row)]}</ul>
@@ -945,7 +947,7 @@ function AutopilotPanel({ props, autopilot }: { props: CockpitProps; autopilot: 
     <section className="deck-panel deck-autopilot" aria-label="Autopilot" tabIndex={-1}>
       <Standby kind="autopilot" />
       <header className="deck-band">
-        <Switch checked={open || state !== "off"} onChange={flip} disabled={control === undefined}>
+        <Switch size="sm" checked={open || state !== "off"} onChange={flip} disabled={control === undefined}>
           Autopilot
         </Switch>
         <PanelKey id="autopilot" />
@@ -1061,7 +1063,8 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
     onBrought?.();
     // `at` alone: the same call pressed twice is two landings.
   }, [bring?.at]);
-  const banding = useMemo(() => bandingOf(props.picked, props.state.holds.repositories ?? []), [props.picked, props.state.holds.repositories]);
+  const modded = ship.subjects.some((one) => one.mod === true);
+  const banding = useMemo(() => bandingOf(props.picked, props.state.holds.repositories ?? [], modded), [props.picked, props.state.holds.repositories, modded]);
   const { listed, found } = useListed(ship, banding);
   // The selected Session's own calls are cards in its thread, so its row does not call him as well.
   const incoming = withoutOpenSession(incomingOf(ship.calls, held, visited, needingOf(ship)), sel);

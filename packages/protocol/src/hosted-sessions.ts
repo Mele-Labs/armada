@@ -7,6 +7,7 @@
 // the row. Read `get_session` once and follow `session.row`.
 
 import type { HelmCallAnswer, HelmCallInFlight, QuestionAnswer } from "./helm-calls";
+import type { ModAim } from "./mods";
 import type { LandsIn, Whose } from "./retro";
 import type { SlotReleased } from "./holding";
 import type { PlanChangeLine } from "./session-plan";
@@ -84,6 +85,8 @@ export type SendSessionMessage = {
   text: string;
   attachments?: SessionUpload[];
   mentions?: SessionTag[];
+  /** What he picked in an empty Mod Job: the kind of mod he is aiming for, `source` for a change to Armada's code. Read with his first message only. */
+  aim?: ModAim;
 };
 
 /** `POST /sessions/ask/answer`. `call` is the ask's own `HelmCallInFlight.call`. */
@@ -233,22 +236,29 @@ export type HostedFacts = {
 export type StartHeld = {
   /** The Job's workflow has a step that asks how the work lands, so `BeginSession` needs a `delivery`. */
   asks_delivery: boolean;
-  /** Absent where the person has no usual yet and the first message names none. */
+  /** Present wherever `asks_delivery` holds: named, else usual, else `default`. Absent elsewhere. */
   picked?: DeliveryPicked;
+  /** The first message the agent will read, as it will read it, which the composer holds for him to edit. Absent until one is kept for the Job. */
+  message?: string;
 };
 
 /** A landing the start card has ready, and where it came from. */
 export type DeliveryPicked = { choice: DeliveryChoice; from: DeliveryPickedFrom };
 
-/** `usual`: what the person most often picks for this kind of work in this repository. `named`: the first message says how it lands. */
-export type DeliveryPickedFrom = "usual" | "named";
+/** `usual`: what the person most often picks for this kind of work in this repository. `named`: the first message says how it lands. `default`: neither, so Fleet picked Auto land; Bridge marks only the other two. */
+export type DeliveryPickedFrom = "usual" | "named" | "default";
 
 /**
  * `POST /sessions/begin`: Start pressed on a held Job's start card. Answers the `SessionRecord`.
  * `delivery` is required where `hosted.start.asks_delivery` holds (422 `fleet.session_waiting_empty` without it) and ignored elsewhere.
  * 409 `fleet.session_waiting_unheld` for a Job that is not held.
  */
-export type BeginSession = { session_id: string; delivery?: DeliveryChoice };
+export type BeginSession = {
+  session_id: string;
+  delivery?: DeliveryChoice;
+  /** The first message as he left it on the card: present, it replaces the held first turn's words (its files stay); absent, the turn goes as held. */
+  message?: string;
+};
 
 /** Who said a row. Another session that wrote to this one is named. */
 export type SessionVoice =

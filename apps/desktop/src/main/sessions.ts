@@ -64,6 +64,8 @@ import type {
   SendPlanChanges,
   SendSessionMessage,
   SendSessionNote,
+  StartModSession,
+  ModSessionStarted,
   NoteSent,
   SendSessionNotes,
   NotesSent,
@@ -92,6 +94,10 @@ import type {
   WindowClosed,
   WalkTold,
   WindowFailed,
+  AdversarialReview,
+  StartAdversarialReview,
+  SendFinding,
+  DismissFinding,
   WalkStep,
   WindowSignIn,
   WindowTake,
@@ -666,6 +672,11 @@ export class SessionsHost {
     return { ok: true, value: sent };
   }
 
+  /** A Mod Job on a pointed-at spot. Fleet starts it and sends its first message; the record comes on Fleet's events, so none is folded here. */
+  async startMod(start: StartModSession): Promise<SessionActed<ModSessionStarted>> {
+    return await this.asked<ModSessionStarted>("/mods/session", start);
+  }
+
   /** A walk's notes as one turn, folded as one note is; the lines come back one list per note, in order. */
   async sendNotes(send: SendSessionNotes): Promise<SessionActed<NotesSent>> {
     const port = this.port();
@@ -763,6 +774,28 @@ export class SessionsHost {
   /** A judge's concern, settled with the agent told nothing. */
   async dismissConcern(dismiss: DismissConcern): Promise<SessionActed> {
     return await this.act("POST", "/sessions/judge/dismiss", dismiss);
+  }
+
+  /** An adversarial review started, or the one kept for the plan. Fleet answers the review, not the record, so nothing is folded: the review arrives on `session.changed`. */
+  async startAdversarialReview(start: StartAdversarialReview): Promise<SessionActed<AdversarialReview>> {
+    return await this.review("/adversarial_review", start);
+  }
+
+  /** A finding sent to the agent as the person's message, and settled. */
+  async sendFinding(send: SendFinding): Promise<SessionActed<AdversarialReview>> {
+    return await this.review("/adversarial_review/send", send);
+  }
+
+  /** A finding settled with the agent told nothing. */
+  async dismissFinding(dismiss: DismissFinding): Promise<SessionActed<AdversarialReview>> {
+    return await this.review("/adversarial_review/dismiss", dismiss);
+  }
+
+  private async review(path: string, body: StartAdversarialReview | SendFinding | DismissFinding): Promise<SessionActed<AdversarialReview>> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    const answer = await ask(port, "POST", path, body);
+    return answer.ok === true ? { ok: true, value: answer.body as AdversarialReview } : { ok: false, outcome: answer.outcome };
   }
 
   /** The person closed a window a Session showed: its walk is over, and its waiting item stands. */

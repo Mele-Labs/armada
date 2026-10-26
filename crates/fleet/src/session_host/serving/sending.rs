@@ -1,6 +1,7 @@
 //! Writing a turn to a hosted session: ahead of a running one, or after it has been started.
 
 use super::*;
+use super::super::start_card::FirstTurn;
 use crate::session_links::LinkedBy;
 
 /// The line after the person's words when a done stood as they wrote. The message clears the done
@@ -169,6 +170,29 @@ where
         // Read against the thread before the answer's own row is put in it.
         let handing_on = matches!(written, Written::Message(SessionVoice::You))
             && self.handoff_answered_later(&id, &text).await;
+        // A held Job's turns are kept off the thread, whole: the first for him to edit, and Start writes and sends them all.
+        let first = match &written {
+            Written::Message(from) if !handing_on => Some(FirstTurn {
+                from: from.clone(),
+                text: text.clone(),
+                files: kept.files.clone(),
+                tags: sent.mentions.clone(),
+                instead: instead.clone(),
+                ahead: ahead.clone(),
+            }),
+            _ => None,
+        };
+        if let Some(first) = first {
+            if self.turn_kept_while_held(&id, &first).await? {
+                if matches!(written, Written::Message(SessionVoice::You)) {
+                    self.noted_on_the_ledger(&session, &text).await?;
+                    self.issues_named(&id, &text, &sent.mentions).await;
+                    self.links_seen(&id, &text, LinkedBy::You).await;
+                    self.handoff_failure_cleared(&id).await;
+                }
+                return self.published_hosted(&id).await;
+            }
+        }
         let row = self.written_row(&id, &written, &text, &kept.files, &sent.mentions);
         let row_id = row.id().to_string();
         if matches!(written, Written::Message(SessionVoice::You)) {
@@ -187,11 +211,10 @@ where
             return self.published_hosted(&id).await;
         }
         if matches!(written, Written::Message(SessionVoice::You)) {
+            self.hosts().of(&id).state().owes_reply = true;
             self.noted_on_the_ledger(&session, &text).await?;
             self.issues_named(&id, &text, &sent.mentions).await;
             self.links_seen(&id, &text, LinkedBy::You).await;
-            // What the box held may be the first message another Session's agent wrote for him.
-            self.first_message_sent(&id).await;
             self.handoff_failure_cleared(&id).await;
         }
 

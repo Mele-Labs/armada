@@ -172,6 +172,11 @@ WebSocket event stream, read this first.
 | [A background act's failure: `act.failed`](protocol/a-background-acts-failure-act-failed.md) |
 | [Kit's Add and Remove: a plugin or a skill](protocol/kit-add-and-remove-a-plugin-or-a-skill.md) |
 | [The shared home: Kit's rows against it, three acts, and what syncs](protocol/the-shared-home.md) |
+| [A Mod Job: `start_mod_session`, `mod` and `made_by`](protocol/a-mod-job.md) |
+| [An adversarial review of a plan: `start_adversarial_review`, `send_finding`, `dismiss_finding`](protocol/an-adversarial-review-of-a-plan.md) |
+| [The agents' account signed out: `agent_sign_in.changed`, `get_agent_sign_in`, `start_agent_sign_in`](protocol/the-agents-account-signed-out.md) |
+| [A repository's app, run from Bridge: `list_app_runs`, `start_app_run`, `app_run.changed` and four more](protocol/a-repositorys-app-run-from-bridge.md) |
+| [What a workflow lands in: `WorkflowSummary.lands`](protocol/what-a-workflow-lands-in.md) |
 | [Open questions](#open-questions) |
 
 ## A pinned note, sent whole: `send_session_note`
@@ -517,8 +522,8 @@ A person's own copy wins over the repository's and can replace a Check, so an ag
 The Job is placed by its connection, and any other root is refused with 422 `fleet.kit_manifest_elsewhere`, as is a call the door cannot place on a Job.
 Bridge's call carries no connection and may keep one for any repository Fleet serves.
 
-**It follows the place, and Keep on this Mac.**
-The text is written through `KitManifest::write`: to the folder, synced folder or bucket the repository's tiles are kept in, and to `~/.armada` on this Mac while the repository is marked Keep on this Mac.
+**It follows the place.**
+The text is written through `KitManifest::write`: to the folder, synced folder or bucket the repository's tiles are kept in, and to `~/.armada` on this Mac where that place is This Mac or the repository, or none was chosen.
 A copy already there is replaced whole.
 
 **The text is checked first, and a refusal says why in plain words.**

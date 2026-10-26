@@ -10,9 +10,10 @@
 
 import type { ContextBreakdown } from "@armada/components/src/context-breakdown";
 import type { Scene } from "@armada/components/src/compositions/SketchScene/scene";
+import type { AdversarialReviewState } from "@armada/components/src/compositions/AdversarialReview/review-state";
 import type { RunsPlace } from "@armada/components/src/compositions/RepositoryRuns/runs-places";
 import type { CheckBlame, DeliveryChoice, DeliveryPicked, LoadoutItemBody, LoadoutKind, LoadoutSource, LoadoutSummary, Notice, NoticeScope, PullRequestFilePatch, PullRequestPage, RequestBy, RequestHeader, SessionBuild, SessionLoadout, SessionStanding, ThoughtTarget, WaitingItem, WritePullRequest } from "@armada/protocol";
-import type { McpServerAct, McpSignIn, SessionMcpServer, WatchSummary } from "@armada/protocol";
+import type { McpServerAct, McpSignIn, SessionMcpServer, StepPhase, WatchSummary } from "@armada/protocol";
 import type { RetroRowDrawn } from "../retro-row";
 
 /** When a Session's work happened, each as an ISO instant. `until` is a slot given back. */
@@ -98,6 +99,8 @@ export type SessionAttachment =
       by?: "agent";
       /** With `shown`: the Session wrote the file as well, and the ledger still says it wrote it. */
       written?: true;
+      /** An HTML page the Job wrote as its document (form `document`): the path of each revision, oldest first. The newest is the one the Landing reads. `id` is the page's path in the worktree. */
+      revisions?: readonly string[];
     }
   /**
    * The Session this one was forked to, and the one it was forked from. `id` is the other Session's.
@@ -120,7 +123,7 @@ export type SessionAttachment =
   | { kind: "link"; url: string; by: "you" | "agent" };
 
 /** A `window` is a page the Session showed in a window of Bridge's own; `id` is its address. */
-export type SessionArtifactForm = "page" | "file" | "image" | "doc" | "window";
+export type SessionArtifactForm = "page" | "file" | "image" | "doc" | "document" | "window";
 
 /**
  * A sketch as Dispatch and Studios hold one: boxes and the joins between them.
@@ -194,7 +197,7 @@ export type SessionWork = {
   /** What the proposer read the request to be. Changeable at any time; a change applies from the next turn. */
   proposal?: { /** The id of the workflow chosen. */ workflow: string | null; /** The proposer's call is out: the Session starts on its answer. */ reading?: boolean; /** What the proposer picked and the person has not changed: each is marked where it lives. */ picked?: readonly ("workflow" | "model" | "effort")[] };
   /** The workflow's steps and the index of the one the Session is at, where Fleet says. Absent is a custom Session, which has no rail; `at` absent draws the steps unlit. */
-  workflow?: { name: string; steps: readonly string[]; at?: number };
+  workflow?: { name: string; steps: readonly string[]; at?: number; /** The phase of the step at `at`, as Fleet resolves it. */ phase?: StepPhase };
   /** Absent until the agent records its plan after planning with the person. */
   plan?: WorkPlan;
   /** The agent's own task list (its TaskCreate and TaskUpdate), in the order made. Progress lists it where there is no plan. */
@@ -203,13 +206,20 @@ export type SessionWork = {
   /** The files the Field draws as bars on its plots. */
   files?: readonly WorkFile[];
   concerns?: readonly WorkConcern[];
+  /** The latest adversarial review of the pending plan, each finding pinned to the group or task it is about on the card and in the plan in full. Absent is none run, which draws the press. */
+  adversarial?: AdversarialReviewState;
   /** A judge is reading the work now. */
   judging?: true;
   /** The last reading's outcome: `concerns` 0 is how the tile says "No concerns". */
   judged?: { at: string; concerns: number };
   /** The owner's setting turned workflows off: the picker, the steps and the proposer's mark for a workflow are not drawn. */
   railOff?: true;
+  /** What the workflow ends in, which the Landing panel draws: the workflow's `lands`, as Fleet resolves it. Absent is a pull request. */
+  landing?: WorkLanding;
 };
+
+/** What a workflow lands in: a pull request and its merge, a spike's findings doc, a mod and its switch, a document, or a report with no pull request. */
+export type WorkLanding = "pull_request" | "spike" | "mod" | "document" | "report";
 
 /** The acts on a Session's work. Absent where nothing serves them. */
 export type SessionWorkActs = {
@@ -226,6 +236,8 @@ export type SessionWorkActs = {
   /** Sends the concern to the Session as a message to the agent. */
   sendConcern: (id: string, concern: string) => void;
   dismissConcern: (id: string, concern: string) => void;
+  /** The acts of an adversarial review of the plan: run it (again, where one was run), and send or dismiss a finding by its id. The review lands on the plan by Fleet's events. */
+  adversarial?: { run: (id: string) => void; send: (id: string, finding: string) => void; dismiss: (id: string, finding: string) => void };
   /** Sends a judge to read the Session's work so far against its plan. Fleet answers at once; the reading lands as `judging`, then `judged` and `concerns`. */
   judge?: (id: string) => Promise<void>;
 };
@@ -488,6 +500,8 @@ export type Session = {
    * It runs in auto, so `mode` is never offered for it.
    */
   helm?: true;
+  /** A Mod Job: started from Mod, for modding Armada itself. */
+  mod?: true;
   /** Absent until the first turn has named it; a blank Session is known by its id alone. */
   title?: string;
   /** The repository it works in, by Manifest id: what `#` reads issues and pull requests of. */
@@ -546,16 +560,11 @@ export type Session = {
    */
   standing?: SessionStanding;
   /**
-   * The first message its starting Session's agent wrote, which has not been sent. Nothing runs until the person sends it.
-   * Absent once it is sent, or on a Session nobody's agent started.
-   */
-  unsent?: string;
-  /**
    * Held on its start card: the proposer has read the request or is reading it, and no agent moves until Start. `asksDelivery` is
-   * whether the Job's workflow has a landing step, so a choice is owed. `picked` is the choice already standing: his usual for this
-   * kind in this repository, or one his request named. Absent once the Job has begun.
+   * whether the Job's workflow has a landing step, so a choice is owed. `picked` is the choice already standing: one his request named, else his usual for this
+   * kind in this repository, else Fleet's `default`. Absent once the Job has begun.
    */
-  start?: { asksDelivery: boolean; picked?: DeliveryPicked };
+  start?: { asksDelivery: boolean; picked?: DeliveryPicked; /** The first message the agent will read, held in the composer for him to edit. Absent until one is kept for the Job. */ message?: string };
   /** Tags chosen and not yet sent: they wait in the message box as chips. */
   pendingTags?: readonly SessionTag[];
   /** The model and effort the next turn runs on. Absent is Auto. */
@@ -761,9 +770,9 @@ export type SessionsDraft = {
   start: (tag?: SessionTag, root?: string, request?: string, tuning?: { model?: string; effort?: string }, after?: Pick<SessionWait, "on" | "when" | "part" | "base" | "needs">, held?: boolean) => string | Promise<string | undefined>;
   /**
    * Begins a Session held on its start card: the agent starts, and `delivery` is how the work lands where the Job's workflow has a landing
-   * step. Absent where nothing serves it, and the card offers no Start.
+   * step. `message` is the first message as he left it on the card. Absent where nothing serves it, and the card offers no Start.
    */
-  begin?: (id: string, delivery?: DeliveryChoice) => void | Promise<boolean>;
+  begin?: (id: string, delivery?: DeliveryChoice, message?: string) => void | Promise<boolean>;
   /** Reads a brief for the wait it names: absent where nothing reads one, and Dispatch draws no sentence. */
   readsWait?: (words: string) => WaitReading | undefined;
   /**

@@ -23,9 +23,11 @@ use crate::reading::ManifestReading;
 use crate::review_runs::ReviewRun;
 use crate::rehearsal::CheckoutRunRecord;
 use crate::repositories::RepositoryList;
+use crate::app_runs::AppRun;
 use crate::servers::ServerState;
 use crate::settings::SettingsList;
 use crate::model_downshift::ModelDownshiftState;
+use crate::agent_sign_in::AgentSignIn;
 use crate::plan_usage::PlanUsage;
 use crate::sleep::SleepState;
 use crate::timeline::TimelineAppended;
@@ -111,6 +113,9 @@ pub enum Event {
     ServerServing(ServerState),
     #[serde(rename = "server.exited")]
     ServerExited(ServerState),
+    // A run after any of its servers' three facts, whole, so a row is replaced rather than patched.
+    #[serde(rename = "app_run.changed")]
+    AppRunChanged(AppRun),
     // The list `list_repositories` answers, whole, whenever it changes.
     #[serde(rename = "repositories.changed")]
     RepositoriesChanged(RepositoryList),
@@ -166,6 +171,10 @@ pub enum Event {
     // The default model's step down after any change to it, whole. `docs/concepts/machine.md`, *Quota*.
     #[serde(rename = "model_downshift.changed")]
     ModelDownshiftChanged(ModelDownshiftState),
+    // The agents' account signed out or in, or its sign-in started or ended, whole.
+    // `docs/concepts/session/a-job-whose-sign-in-expired.md`.
+    #[serde(rename = "agent_sign_in.changed")]
+    AgentSignInChanged(AgentSignIn),
     // A run of an agent about one pull request moved: queued, running, done or failed, whole.
     // `docs/concepts/pull-review.md`, *Agent runs*.
     #[serde(rename = "review_run.changed")]

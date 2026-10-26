@@ -19,6 +19,7 @@ export const NOTICES = [
   "rail_step",
   "usage_trip",
   "limit_wake",
+  "sign_in_wake",
   "plan_approved",
   "auto_land_refused",
   "retro_note",
@@ -30,6 +31,8 @@ export const NOTICES = [
   "delivery_chosen",
   "watch_saw",
   "taught",
+  "issue_lost",
+  "document_sketch",
 ] as const;
 
 export type Notice = (typeof NOTICES)[number];

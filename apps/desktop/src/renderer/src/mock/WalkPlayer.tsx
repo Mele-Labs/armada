@@ -394,7 +394,7 @@ export function WalkPlayer({ name, script, autoplay: startPlaying, from = 0 }: {
                   </span>
                   <span className="armada-mock-walk__keyed">
                     <Tooltip label="Go on by itself">
-                      <Switch checked={autoplay} onChange={(event) => setAutoplay(event.target.checked)}>
+                      <Switch size="sm" checked={autoplay} onChange={(event) => setAutoplay(event.target.checked)}>
                         Autoplay
                       </Switch>
                     </Tooltip>

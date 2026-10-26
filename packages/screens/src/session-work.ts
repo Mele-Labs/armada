@@ -3,9 +3,10 @@
 // beside it go in, a `SessionWork` comes out (`draft/sessions.ts`). Fleet's word is used as it comes: a step is lit only where
 // Fleet names one, and a task's state is the one Fleet kept.
 
-import type { BuildPiece, FileTouch, PlanMark as WirePlanMark, ProposedField, SessionPlan, SessionRecord, SessionRow as WireRow, WaitingItem, WorkflowSummary } from "@armada/protocol";
+import type { AdversarialReviewState, Finding } from "@armada/components/src/compositions/AdversarialReview/review-state";
+import type { AdversarialFinding, BuildPiece, FileTouch, PlanMark as WirePlanMark, ProposedField, SessionPlan, SessionRecord, SessionRow as WireRow, WaitingItem, WorkflowSummary } from "@armada/protocol";
 
-import type { AgentTask, PlanMark, SessionAttachment, SessionRow, SessionWork, SuggestLine, WorkConcern, WorkDrone, WorkFile, WorkflowChoice, WorkPlan } from "./draft/sessions";
+import type { AgentTask, PlanMark, SessionAttachment, SessionRow, SessionWork, SuggestLine, WorkConcern, WorkDrone, WorkFile, WorkflowChoice, WorkLanding, WorkPlan } from "./draft/sessions";
 
 /** What the window holds beside a record that the work is read with. */
 export type WorkBeside = {
@@ -21,7 +22,39 @@ export type WorkBeside = {
   unpicked: ReadonlySet<ProposedField>;
   /** The owner's setting `features.workflows` is off: no workflow, no steps and no proposer's mark for one are drawn. */
   workflowsOff?: boolean;
+  /** Fleet refused the last press of the adversarial review on this plan version, in its words. */
+  reviewRefused?: ReviewRefused;
 };
+
+/** Fleet's refusal of a press of the adversarial review, for the plan version it was pressed on. */
+export type ReviewRefused = { version: number; said: string };
+
+const findingOf = (one: AdversarialFinding): Finding => ({
+  id: one.id,
+  consequence: one.consequence,
+  expected: one.expected,
+  found: one.found,
+  ...(one.impact === undefined ? {} : { impact: one.impact }),
+  ...(one.cites === undefined ? {} : { cites: one.cites }),
+  ...(one.about.kind === "plan" ? {} : { about: one.about.id }),
+  ...(one.settled === undefined ? {} : { settled: one.settled.how }),
+});
+
+/**
+ * The plan's adversarial review as the card draws it. Absent where none was run and nothing was refused, which draws the press.
+ * **A review of another version is stale whatever its state**, its findings kept where their parts still stand, so Run again reads
+ * the plan as it is now. A refusal of a press on this version is drawn as a failure, in Fleet's words.
+ */
+export function adversarialOf(plan: Pick<SessionPlan, "version" | "adversarial">, refused?: ReviewRefused): AdversarialReviewState | undefined {
+  if (refused !== undefined && refused.version === plan.version) return { state: "failed", said: refused.said };
+  const review = plan.adversarial;
+  if (review === undefined) return undefined;
+  const findings = review.findings.map(findingOf);
+  if (review.subject.version !== plan.version) return { state: "stale", read: review.subject.version, findings };
+  if (review.state === "running") return { state: "running" };
+  if (review.state === "failed") return { state: "failed", said: review.failed ?? "The review failed" };
+  return { state: "done", findings };
+}
 
 /** The workflows a Session may be given, as the picker lists them. */
 export const choicesOf = (workflows: readonly WorkflowSummary[]): WorkflowChoice[] =>
@@ -32,12 +65,27 @@ const PICKABLE: readonly ProposedField[] = ["workflow", "model", "effort"];
 /** The workflow a Session follows and the step it is at, where Fleet names one. */
 function workflowOf(record: SessionRecord, workflows: readonly WorkflowSummary[]): SessionWork["workflow"] {
   if (record.workflow === undefined) return undefined;
-  const found = workflows.find((one) => one.id === record.workflow && (record.manifest_id === undefined || one.manifest_id === record.manifest_id)) ?? workflows.find((one) => one.id === record.workflow);
+  const found = heldOf(record, workflows);
   if (found === undefined) return { name: record.workflow, steps: [] };
   // `workflow_step` is the step's index, which Fleet leaves off for a custom Session, after the last step's pull request merged, and while workflows are off.
   const at = record.workflow_step;
-  return { name: found.name, steps: found.steps.map((step) => step.label), ...(at === undefined || at < 0 || at >= found.steps.length ? {} : { at }) };
+  const phase = at === undefined ? undefined : found.steps[at]?.phase;
+  return {
+    name: found.name,
+    steps: found.steps.map((step) => step.label),
+    ...(at === undefined || at < 0 || at >= found.steps.length ? {} : { at }),
+    ...(phase === undefined ? {} : { phase }),
+  };
 }
+
+/** The workflow Fleet holds that the Session follows: the one of its repository, else any of that id. */
+function heldOf(record: SessionRecord, workflows: readonly WorkflowSummary[]): WorkflowSummary | undefined {
+  if (record.workflow === undefined) return undefined;
+  return workflows.find((one) => one.id === record.workflow && (record.manifest_id === undefined || one.manifest_id === record.manifest_id)) ?? workflows.find((one) => one.id === record.workflow);
+}
+
+/** What the Session's workflow lands in, as Fleet resolves it. Absent where Fleet does not say. */
+const landsOf = (record: SessionRecord, workflows: readonly WorkflowSummary[]): WorkLanding | undefined => heldOf(record, workflows)?.lands;
 
 /** The wire row that recorded this version of the plan, and the last row before it that the thread draws. */
 function afterOf(plan: SessionPlan, rows: readonly WireRow[] | undefined, drawn: readonly SessionRow[]): string | undefined {
@@ -133,21 +181,25 @@ export function workOf(record: SessionRecord, beside: WorkBeside): SessionWork |
   const off = beside.workflowsOff === true;
   const picked = (record.proposal?.picked ?? []).filter((one) => PICKABLE.includes(one) && !beside.unpicked.has(one) && !(off && one === "workflow")) as ("workflow" | "model" | "effort")[];
   const workflow = off ? undefined : workflowOf(record, beside.workflows);
+  const landing = landsOf(record, beside.workflows);
   const { field, files } = fieldOf(record.touches ?? []);
   const concerns = record.state === "ended" ? [] : concernsOf(record.waiting_for);
   const tasks = record.plan !== undefined || record.state === "ended" ? [] : tasksOf(record.build?.pieces ?? []);
+  const adversarial = record.plan === undefined ? undefined : adversarialOf(record.plan, beside.reviewRefused);
   return {
     ...(hosted
       ? { proposal: { workflow: record.workflow ?? null, ...(record.proposal?.reading === true ? { reading: true as const } : {}), ...(picked.length === 0 ? {} : { picked }) } }
       : {}),
     ...(workflow === undefined ? {} : { workflow }),
     ...(record.plan === undefined ? {} : { plan: planOf(record.plan, beside) }),
+    ...(adversarial === undefined ? {} : { adversarial }),
     ...(tasks.length === 0 ? {} : { tasks }),
     ...(field.length === 0 ? {} : { field, files }),
     ...(concerns.length === 0 ? {} : { concerns }),
     ...(record.judging === true && record.state !== "ended" ? { judging: true as const } : {}),
     ...(record.judge === undefined ? {} : { judged: { at: record.judge.at, concerns: record.judge.concerns } }),
     ...(off ? { railOff: true as const } : {}),
+    ...(landing === undefined ? {} : { landing }),
   };
 }
 

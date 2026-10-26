@@ -148,7 +148,7 @@ impl Standing {
     }
 
     /// The part of a brief this is, or an empty string.
-    pub(crate) fn told(&self, wording: &Wording) -> String {
+    pub fn told(&self, wording: &Wording) -> String {
         let readable = match self.readable {
             true => format!("{}\n\n", wording.get(JUDGE_READABLE)),
             false => String::new(),

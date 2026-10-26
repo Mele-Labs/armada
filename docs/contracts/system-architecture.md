@@ -211,9 +211,9 @@ it.
 | `alerts` | Condition, Alert Level, read state, acted state | `fleet` |
 | `helm_sessions` | One per Manifest. Transcript, cursor, token spend against the Machine budget | `fleet` |
 | `sessions` | One per agent session a person runs, terminal or Bridge: repository, directory, title, state, last turn, last reported figures | `fleet` |
-| `hosted_sessions` | What only a session Bridge hosts has: its model, effort and mode, whether its process has run, whether it waits on its start card, and the slot and branch it leased | `fleet` |
+| `hosted_sessions` | What only a session Bridge hosts has: its model, effort and mode, whether its process has run, whether it is held before Start, and the slot and branch it leased | `fleet` |
 | `session_rows` | A hosted session's thread, one row each in order, kept whole | `fleet` |
-| `delivery_picks` | Each landing he chose for a kind of work in a repository, oldest first. The start card's usual is read off the last ten | `fleet` |
+| `delivery_picks` | Each landing he chose for a kind of work in a repository, oldest first. A held Job's usual Delivery is read off the last ten | `fleet` |
 | `ledger_attachments` | What a holder took or did, keyed by holder (`session` or `job`, no foreign key), kind (open text), repository and target; its state is `standing`, `spent` or `given_back` for every kind | `fleet` |
 | `ledger_attachment_versions` | Every version a `ledger_attachments` row stood in, written by triggers on each insert and each change of state or detail; read oldest first | `fleet` |
 
@@ -502,10 +502,11 @@ Decisions. **A slot is never swept**: it goes back to the pool when its Job
 ends, or when a person clears a completed one, by the pool's own rules.
 
 **Manifests are not in `.armada/`.** A repository's `armada.yml` lives at the
-workspace root, version-controlled with the project it configures, and a
-person's own for it may live in Kit instead, as
-`~/.armada/manifests/<owner--name>.yml`, which replaces the repository's
-Checks and Commands by name (`docs/concepts/manifest.md`, *Kit's copy*). For a
+workspace root when the project keeps one, and none has to be committed: a
+person's own for it may live in Kit instead, as `manifests/<owner--name>.yml`
+at the place the repository's configuration is kept, which replaces the
+repository's Checks and Commands by name (`docs/concepts/kit.md`, *What a
+repository runs*; `docs/concepts/manifest.md`, *Kit's copy*). For a
 monorepo a root `armada.yml` holds Commands, and Checks for the artefacts
 the root itself owns, gated to diffs that touch root paths. Path ownership
 is nearest-ancestor: the nearest `armada.yml` up the tree owns a path, and

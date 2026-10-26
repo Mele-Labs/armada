@@ -371,6 +371,17 @@ describe("the thread", () => {
     expect(kept({ ...SHOWN, written: "true" })).toEqual([{ kind: "artifact", form: "file", id: "/work/notes.md", title: "notes.md", shown: SHOWN.shown, by: "agent", written: true }]);
   });
 
+  it("keeps a document the Job wrote with its revisions, and the row alone where they cannot be read", () => {
+    const page = (detail: Record<string, string>) => ({ ...held("artifact", "/work/.armada/documents/findings.html"), detail: { form: "document", title: "Findings", ...detail } });
+    const kept = (detail: Record<string, string>) => attachmentsOfRecord(record("a", { attachments: [page(detail)] }), beside());
+    const row = { kind: "artifact", form: "document", id: "/work/.armada/documents/findings.html", title: "Findings" };
+    expect(kept({ revisions: JSON.stringify(["/store/r1.html", "/store/r2.html"]) })).toEqual([{ ...row, revisions: ["/store/r1.html", "/store/r2.html"] }]);
+    expect(kept({ revisions: "[not json" })).toEqual([row]);
+    expect(kept({ revisions: JSON.stringify({ r1: "/store/r1.html" }) })).toEqual([row]);
+    expect(kept({ revisions: JSON.stringify(["/store/r1.html", 2]) })).toEqual([row]);
+    expect(kept({})).toEqual([row]);
+  });
+
   it("carries the notice a Fleet message was sent for, and no other row", () => {
     const wire: SessionRow[] = [
       { kind: "message", id: "n1", at: AT, from: { kind: "session", id: "fleet", title: "Fleet" }, text: "slot-4 is 23 commits behind master.", notice: "behind_base" },
@@ -460,6 +471,11 @@ describe("a session", () => {
   it("carries Helm's mark from the record", () => {
     expect(sessionOfRecord(record("01ABCDEFGHJKMNPQRSTVWXYZ01", { helm: true }), undefined, beside())).toMatchObject({ helm: true });
     expect(sessionOfRecord(record("01ABCDEFGHJKMNPQRSTVWXYZ02"), undefined, beside()).helm).toBeUndefined();
+  });
+
+  it("carries the Mod mark from the record", () => {
+    expect(sessionOfRecord(record("01ABCDEFGHJKMNPQRSTVWXYZ01", { mod: true }), undefined, beside())).toMatchObject({ mod: true });
+    expect(sessionOfRecord(record("01ABCDEFGHJKMNPQRSTVWXYZ02"), undefined, beside()).mod).toBeUndefined();
   });
 
   it("carries its turn, ask, tuning and address", () => {
@@ -789,17 +805,8 @@ describe("what a session has built", () => {
 });
 
 describe("a session its agent was started by another to hold", () => {
-  const unsent = (state: Attachment["state"]) => held("unsent", "Port the clock", {}, state);
-
-  it("carries the first message held unsent, and none once it is spent or the job ended", () => {
-    expect(sessionOfRecord(record("n", { attachments: [unsent("standing")] }), undefined, beside()).unsent).toBe("Port the clock");
-    expect(sessionOfRecord(record("n", { attachments: [unsent("spent")] }), undefined, beside()).unsent).toBeUndefined();
-    expect(sessionOfRecord(record("n", { state: "ended", attachments: [unsent("standing")] }), undefined, beside()).unsent).toBeUndefined();
-    expect(sessionOfRecord(record("n"), undefined, beside()).unsent).toBeUndefined();
-  });
-
-  it("keeps the unsent message off the ledger and links the two sessions both ways, even after one ended", () => {
-    const made = record("n", { attachments: [held("started_by", "old", {}, "spent"), unsent("standing")] });
+  it("links the two sessions both ways, even after one ended", () => {
+    const made = record("n", { attachments: [held("started_by", "old", {}, "spent")] });
     expect(sessionOfRecord(made, undefined, beside()).attachments).toEqual([{ kind: "started_by", id: "old" }]);
     const maker = record("old", { attachments: [held("started_to", "n", {}, "spent")] });
     expect(sessionOfRecord(maker, undefined, beside()).attachments).toEqual([{ kind: "started_to", id: "n" }]);
@@ -1072,6 +1079,8 @@ describe("a Job handed on to a new one", () => {
     const held = record("a", { hosted: { ...hosted, start: { asks_delivery: true, picked: { choice: "open_pr", from: "usual" } } } });
     expect(sessionOfRecord(held, undefined, beside()).start).toEqual({ asksDelivery: true, picked: { choice: "open_pr", from: "usual" } });
     expect(sessionOfRecord(record("a", { hosted: { ...hosted, start: { asks_delivery: false } } }), undefined, beside()).start).toEqual({ asksDelivery: false });
+    const worded = record("a", { hosted: { ...hosted, start: { asks_delivery: true, picked: { choice: "auto_land", from: "default" }, message: "Port the clock" } } });
+    expect(sessionOfRecord(worded, undefined, beside()).start).toEqual({ asksDelivery: true, picked: { choice: "auto_land", from: "default" }, message: "Port the clock" });
     expect(sessionOfRecord(record("a", { hosted }), undefined, beside()).start).toBeUndefined();
     expect(sessionOfRecord({ ...held, state: "ended" }, undefined, beside()).start).toBeUndefined();
   });

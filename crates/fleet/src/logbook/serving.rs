@@ -1,5 +1,5 @@
-//! What the Logbook serves a repository's next agent: what Curate stood, what run memory and the
-//! machine note know, in one order, cut to a budget. `docs/concepts/logbook.md`.
+//! What the Logbook serves a repository's next agent: what Curate stood and what the machine note
+//! knows, in one order, cut to a budget. `docs/concepts/logbook.md`.
 
 use store::{LogEntry, LogKind, LogSection, LogState};
 
@@ -8,8 +8,6 @@ use store::{LogEntry, LogKind, LogSection, LogState};
 pub(crate) enum Source {
     /// Learnt from Sessions, and curated.
     Learnt,
-    /// A run memory fact: read off the stream, so it stands as it is.
-    Runs,
     /// A machine note fact, read off the stream likewise.
     Machine,
 }
@@ -22,11 +20,11 @@ pub(crate) struct Logged {
 }
 
 impl Logged {
-    /// A fact run memory or the machine note keeps, as an entry: standing, with no Session behind it.
+    /// A fact the machine note keeps, as an entry: standing, with no Session behind it.
     pub(crate) fn folded(from: Source, kind: LogKind, text: String, at: u64) -> Logged {
         let section = match from {
             Source::Machine => LogSection::Machine,
-            Source::Learnt | Source::Runs => LogSection::Repo,
+            Source::Learnt => LogSection::Repo,
         };
         Logged {
             entry: LogEntry {
@@ -54,7 +52,7 @@ impl Logged {
     pub(crate) fn borne_out(&self) -> usize {
         match self.from {
             Source::Learnt => self.entry.confirmations(),
-            Source::Runs | Source::Machine => 1,
+            Source::Machine => 1,
         }
     }
 

@@ -111,13 +111,14 @@ fn a_held_jobs_start_card_round_trips_and_is_left_out_once_it_has_begun() {
         Some(StartHeld {
             asks_delivery: true,
             picked: Some(DeliveryPicked { choice: DeliveryChoice::AutoLand, from: DeliveryPickedFrom::Usual }),
+            message: None,
         })
     );
     assert_eq!(serde_json::to_value(&read).unwrap(), waiting);
 
     let named = json!({"asks_delivery": false, "picked": {"choice": "keep_local", "from": "named"}});
     let read: StartHeld = serde_json::from_value(named.clone()).unwrap();
-    assert_eq!(read.picked.map(|one| one.from), Some(DeliveryPickedFrom::Named));
+    assert_eq!(read.picked.as_ref().map(|one| one.from), Some(DeliveryPickedFrom::Named));
     assert_eq!(serde_json::to_value(&read).unwrap(), named);
 
     let begun = json!({"turn": {"state": "idle"}, "mode": "auto", "running": false});
@@ -135,4 +136,30 @@ fn begin_names_the_job_and_the_landing_only_when_one_was_settled() {
     assert_eq!(bare.delivery, None);
     assert_eq!(serde_json::to_value(&bare).unwrap(), json!({"session_id":"s2"}));
     assert!(crate::decode::<BeginSession>("a begin", br#"{"session_id":"s2","delivery":"push_it"}"#).is_err());
+}
+
+#[test]
+fn a_held_jobs_card_carries_the_first_message_and_a_landing_fleet_defaulted() {
+    let card = json!({
+        "asks_delivery": true,
+        "picked": {"choice": "auto_land", "from": "default"},
+        "message": "Fix the reader.\nPointed at: button \"Save\""
+    });
+    let read: StartHeld = serde_json::from_value(card.clone()).unwrap();
+    assert_eq!(read.picked.as_ref().map(|one| one.from), Some(DeliveryPickedFrom::Default));
+    assert_eq!(read.message.as_deref(), Some("Fix the reader.\nPointed at: button \"Save\""));
+    assert_eq!(serde_json::to_value(&read).unwrap(), card);
+
+    let bare: StartHeld = serde_json::from_value(json!({"asks_delivery": false})).unwrap();
+    assert_eq!(bare.message, None);
+    assert_eq!(serde_json::to_value(&bare).unwrap(), json!({"asks_delivery": false}));
+}
+
+#[test]
+fn begin_carries_the_message_as_he_left_it_only_when_given() {
+    let begin: BeginSession = crate::decode("a begin", br#"{"session_id":"s2","message":"Fix the reader, then the writer."}"#).unwrap();
+    assert_eq!(begin.message.as_deref(), Some("Fix the reader, then the writer."));
+    assert_eq!(serde_json::to_value(&begin).unwrap(), json!({"session_id":"s2","message":"Fix the reader, then the writer."}));
+    let bare: BeginSession = crate::decode("a begin", br#"{"session_id":"s2"}"#).unwrap();
+    assert_eq!(bare.message, None);
 }

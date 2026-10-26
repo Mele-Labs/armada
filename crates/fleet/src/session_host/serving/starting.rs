@@ -21,25 +21,25 @@ where
         Some((model, window))
     }
 
-    /// A plain hosted session's ledger row and its hosting. `helm` marks it as a repository's Helm
-    /// (`helm_session.rs`), which no `start_session` call can: the mark is Fleet's to give.
+    /// A hosted session's ledger row and its hosting, marked as `marked` says.
     pub(crate) async fn started_hosted(
         &self,
         mut start: StartSession,
-        helm: bool,
+        marked: Marked,
     ) -> Result<SessionRecord, Refusal> {
         let rooted = start.root.is_some();
-        // Only a plain start has a start card: Helm, Setup's and a fork run as soon as they are told.
-        let held = start.held && !rooted && !helm && start.fork.is_none();
-        let (manifest, cwd) = match start.root.take() {
-            Some(root) => {
+        // Helm and Setup's run as soon as they are told; a fork is held in `forking.rs`.
+        let held = start.held && !rooted && marked != Marked::Helm;
+        let (manifest, cwd) = match (marked, start.root.take()) {
+            (Marked::ModsFolder, _) => (None, self.mods_dir().to_string_lossy().into_owned()),
+            (_, Some(root)) => {
                 let repository = self.repository_named(Some(&root))?;
                 let manifest = repository
                     .manifest()
                     .map(|one| one.id().as_str().to_string());
                 (manifest, repository.root().to_string())
             }
-            None => {
+            (_, None) => {
                 let served = self.served_named(Some(&start.manifest_id))?;
                 let manifest = served.manifest().id().as_str().to_string();
                 (Some(manifest), served.root().to_string())
@@ -92,7 +92,8 @@ where
             store
                 .keep_hosting(&KeptHosting {
                     session_id: id.clone(),
-                    // Empty is Setup's session, which has no Manifest to name.
+                    // Empty is Setup's session or a Mod Job in the mods folder, which have no
+                    // Manifest to name.
                     manifest_id: manifest.unwrap_or_default(),
                     model: start.model.filter(|model| !model.trim().is_empty()),
                     effort: start.effort.filter(|effort| !effort.trim().is_empty()),
@@ -101,7 +102,7 @@ where
                     lease_slot: None,
                     lease_branch: None,
                     fork_of: None,
-                    helm,
+                    helm: marked == Marked::Helm,
                     setup,
                     workflow: None,
                     proposed: String::new(),
@@ -110,15 +111,22 @@ where
                     paused_at: None,
                     paused_resuming: false,
                     auto_land: false,
+                    mod_job: matches!(marked, Marked::Mod | Marked::ModsFolder),
                     start_held: held,
                 })
                 .map_err(|why| self.ledger_fault(why))?;
         }
         if held {
-            let runtime = self.hosts().of(&id);
-            let mut state = runtime.state();
-            state.proposal.start_held = true;
-            state.proposal.start_synced = true;
+            {
+                let runtime = self.hosts().of(&id);
+                let mut state = runtime.state();
+                state.proposal.start_held = true;
+                state.proposal.start_synced = true;
+            }
+            // Where no proposer will read it, the card takes its default workflow at once.
+            if self.proposing().is_err() {
+                self.held_defaulted(&id).await;
+            }
         }
         self.published_hosted(&id).await
     }

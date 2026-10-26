@@ -38,6 +38,9 @@ Each ends with the questions it found and did not answer.
 - [`practices/writing-an-issue.md`](practices/writing-an-issue.md) — an issue has
   two readers who need opposite things. Where the consequence goes, where the
   detail goes, and why the answer was in third position
+- [`practices/joining.md`](practices/joining.md) — who may read and change the
+  beads backlog, `scripts/beads-setup` and what it prints, and how an issue is
+  claimed: claim, sync, read back
 - [`practices/half-built.md`](practices/half-built.md) — the defect this
   codebase produces most: a thing that exists and nothing reaches. Read before
   calling a change finished
@@ -131,7 +134,7 @@ approximations.
 ## Concepts
 
 - [`concepts/`](concepts/) — what each thing in Armada is: Job, Fleet,
-  Bridge, Cockpit, Kit, Machine, Manifest, Workflow, Judge, Doctor and the rest, indexed
+  Bridge, Cockpit, Kit, Machine, Manifest, Workflow, Judge, Adversarial review, Doctor and the rest, indexed
   in its own `INDEX.md`. The state machine and the schemas they describe are
   data in `crates/core-model/domain/`. The Job concept is one file per
   section, under [`concepts/session/`](concepts/session/).

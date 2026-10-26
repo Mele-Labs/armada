@@ -2,7 +2,7 @@
 // main process. Reads when something is listening: the switch first, and the Gateway only while it is
 // on and Fleet's Gateway listens. A code that is shown and unexpired is polled for a claim every 2 s,
 // and nothing else polls except a card showing a problem with access on, which looks again every 5 s
-// so that a freed port or signing in to Tailscale clears it without a press.
+// so that a freed port, signing in to Tailscale or a corrected `pocket-address` clears it without a press.
 
 import type { PhoneAccess, PhoneAnswer, PhoneRequest } from "./api";
 import type { PhoneGateway, PhoneSource, PhoneState } from "./phone-source";

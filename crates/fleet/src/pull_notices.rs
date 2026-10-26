@@ -496,9 +496,13 @@ where
         let now = self.now();
         for one in merged {
             let at = core_model::Timestamp::from_rfc3339(one.pull.merged_at.as_written());
-            if elapsed(&at, &now) > MERGE_IS_NEWS
-                || !mine.owns(one.pull.author.as_ref().map(|it| it.as_written()))
-            {
+            if !mine.owns(one.pull.author.as_ref().map(|it| it.as_written())) {
+                continue;
+            }
+            // Marks the issues of the Jobs that held it, however long ago it merged and whether or
+            // not they still stand: this waits on no `bd`, and the backlog's next look closes them.
+            self.issues_merged(served, one.pull.number, one.pull.url.as_written()).await;
+            if elapsed(&at, &now) > MERGE_IS_NEWS {
                 continue;
             }
             let (url, branch) = (one.pull.url.as_written(), one.pull.branch.as_written());

@@ -70,6 +70,12 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/events",
     },
+    // The agents' account signed out or in, or its sign-in started or ended, whole.
+    Route {
+        operation: "agent_sign_in.changed",
+        method: "GET",
+        path: "/events",
+    },
     // A repository's Autopilot after any change to it, whole. #2092.
     Route {
         operation: "autopilot.changed",
@@ -166,6 +172,12 @@ pub(super) const ROUTES: &[Route] = &[
     },
     Route {
         operation: "server.exited",
+        method: "GET",
+        path: "/events",
+    },
+    // A run after any of its servers' three facts, whole.
+    Route {
+        operation: "app_run.changed",
         method: "GET",
         path: "/events",
     },

@@ -27,6 +27,8 @@
 mod acting;
 /// The account a machine is signed in to: its profiles, signing in and out.
 mod accounting;
+/// An adversarial review of a plan: started, and its findings sent or dismissed.
+mod adversarial_review;
 /// The shared home: Kit's rows against it, the acts that settle one, and what syncs.
 mod homing;
 mod amending;
@@ -124,13 +126,15 @@ mod watching_run;
 mod watching_session_run;
 /// A command Fleet runs on a cadence for one Job: started, weighed, stopped and listed.
 mod watches;
+/// A repository's app run from Bridge: several servers held as one run.
+mod app_runs;
 
 #[cfg(test)]
 mod tests;
 
 pub use acting::{asked_by, asking, carrying, via, BRIDGE, CALLER_HEADER, PHONE};
 pub use daemon::{
-    offerable, Accounts, Admitting, Authoring, Commands, Conversations, Daemon,
+    offerable, Accounts, Admitting, AdversarialReviews, AppRuns, Authoring, Commands, Conversations, Daemon,
     Autopilots, HelmReach, HostedSessions, Issues, Logbook, Teaching, Mods, Clashing,
     PullRequestPanel, PullRequests, Queries, Redirector, Refusal, Rehearsing, Requests, Retros, Sessions, Settings, SharedHome, Steerer,
     ShownFile, StoredFile, Studios, Watches,

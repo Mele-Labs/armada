@@ -55,3 +55,4 @@ An act id this build does not have is kept and ignored.
 | Arrows, Home and End inside a tab row, list box or resize handle | The control's own keyboard, as the platform has it |
 | The capture window, and a Job's page | Separate windows the main process keys, which keep `⌥⌘C` and Esc |
 | The annotation layer's `⌥⌘A`, and its `⌥⌘S` while it is on | Dev only, and not acts in the registry |
+| An open Job's right column: `⌥W` the workflow picker, `⌥B`, `⌥F` and `⌥L` open or fold the Blueprint, Field and Landing, `⌥N` the approved Blueprint's whole plan, `⇧⌘A` Artifacts | Bridge reads them where a Job is open (`apps/desktop/src/renderer/src/session-view/story.ts`), and they are not acts in the registry |

@@ -198,6 +198,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/mods/validate", get(crate::mods::validate_mod::<D>))
         .route("/mods/promote", post(crate::mods::promote_mod::<D>))
         .route("/mods/try", post(crate::mods::try_tracker_mod::<D>))
+        .route("/mods/session", post(crate::mods::start_mod_session::<D>))
         .route("/sessions", get(crate::sessions::list_sessions::<D>))
         .route("/sessions/owner", get(crate::sessions::who_owns::<D>))
         .route("/logbook/recall", get(crate::sessions::recall::<D>))
@@ -253,6 +254,9 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/sessions/judge", post(crate::sessions::judge_session::<D>))
         .route("/sessions/judge/send", post(crate::sessions::send_concern::<D>))
         .route("/sessions/judge/dismiss", post(crate::sessions::dismiss_concern::<D>))
+        .route("/adversarial_review", post(crate::adversarial_review::start_adversarial_review::<D>))
+        .route("/adversarial_review/send", post(crate::adversarial_review::send_finding::<D>))
+        .route("/adversarial_review/dismiss", post(crate::adversarial_review::dismiss_finding::<D>))
         .route(
             "/sessions/window/ask",
             post(crate::sessions::ask_in_window::<D>),
@@ -275,6 +279,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/model_downshift/restore", post(crate::hosted_sessions::restore_downshift::<D>))
         .route("/model_downshift/keep", post(crate::hosted_sessions::keep_downshift::<D>))
         .route("/model_downshift/settle", post(crate::hosted_sessions::settle_downshift::<D>))
+        .route(
+            "/agent/sign_in",
+            get(crate::hosted_sessions::get_agent_sign_in::<D>).post(crate::hosted_sessions::start_agent_sign_in::<D>),
+        )
         .route("/sleep", get(crate::hosted_sessions::get_sleep::<D>).post(crate::hosted_sessions::set_sleep::<D>))
         .route("/sleep/override", post(crate::hosted_sessions::override_sleep::<D>))
         .route("/sleep/review", post(crate::hosted_sessions::review_sleep::<D>))
@@ -528,6 +536,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/shared_home/choose", post(crate::homing::choose_shared_home_side::<D>))
         .route("/shared_home/kinds", get(crate::homing::get_home_kinds::<D>))
         .route("/shared_home/kinds/set", post(crate::homing::set_home_kind::<D>))
+        .route("/shared_home/repository", post(crate::homing::set_home_repository::<D>))
         .route("/health", get(get_health::<D>))
         .route("/manifests/:manifest_id", get(get_manifest::<D>))
         .route("/events/since", get(get_events_since::<D>))
@@ -574,6 +583,14 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/watches/start", post(crate::watches::start_watch::<D>))
         .route("/watches/weigh", post(crate::watches::weigh_watch::<D>))
         .route("/watches/stop", post(crate::watches::stop_watch::<D>))
+        .route("/app_runs", get(crate::app_runs::list_app_runs::<D>))
+        .route("/app_runs/draft", get(crate::app_runs::get_app_run_draft::<D>))
+        .route("/app_runs/start", post(crate::app_runs::start_app_run::<D>))
+        .route("/app_runs/stop", post(crate::app_runs::stop_app_run::<D>))
+        .route("/app_runs/restart", post(crate::app_runs::restart_app_run::<D>))
+        .route("/app_runs/save", post(crate::app_runs::save_app_run::<D>))
+        .route("/app_runs/pin", post(crate::app_runs::pin_app_run_port::<D>))
+        .route("/app_runs/unpin", post(crate::app_runs::unpin_app_run_port::<D>))
         .route("/kit/inventory", get(crate::kit::get_kit_inventory::<D>))
         .route(
             "/kit/flight_controls",

@@ -110,4 +110,9 @@ pub(super) const ROUTES: &[Route] = &[
         method: "POST",
         path: "/shared_home/kinds/set",
     },
+    Route {
+        operation: "set_home_repository",
+        method: "POST",
+        path: "/shared_home/repository",
+    },
 ];

@@ -14,6 +14,7 @@ import type { Scene } from "@armada/components/src/compositions/SketchScene/scen
 import { retroRowOf } from "./retro-row";
 import { waitOfWire } from "./session-waits";
 import { changeOfEvent, linesOfWire, settledRowsOf, workOf } from "./session-work";
+import type { ReviewRefused } from "./session-work";
 import { share } from "./share";
 import type {
   Session,
@@ -47,6 +48,8 @@ export type Beside = {
   unpicked?: ReadonlySet<ProposedField>;
   /** `features.workflows` is off, so the workflow picker, the steps and the proposer's mark for a workflow are not drawn. */
   workflowsOff?: boolean;
+  /** Fleet's refusal of the last press of the plan's adversarial review, for the version it was pressed on. */
+  reviewRefused?: ReviewRefused;
   /** Moves when something `picture` answers has changed without its identity doing so. */
   epoch?: number;
 };
@@ -158,6 +161,20 @@ export function sketchCallOf(text: string): { title: string; scene: Scene; again
   if (scene === undefined) return undefined;
   const against = args["against"];
   return { title: args["title"].trim(), scene, ...(typeof against === "string" && against.trim() !== "" ? { against: against.trim() } : {}) };
+}
+
+/**
+ * The revisions of a Job's document, from the `revisions` detail of its `document` row: a JSON list of paths, oldest first.
+ * **Anything that is not a list of non-empty strings reads as none**, so a row Fleet wrote badly is a document with no pages and not a throw.
+ */
+export function revisionsOfDetail(kept: string | undefined): string[] {
+  if (kept === undefined) return [];
+  try {
+    const read: unknown = JSON.parse(kept);
+    return Array.isArray(read) && read.every((one) => typeof one === "string" && one !== "") ? (read as string[]) : [];
+  } catch {
+    return [];
+  }
 }
 
 /** A pull request the ledger holds, with what Fleet last read of it. A merged one is `spent`; a closed one is let go. */
@@ -279,13 +296,15 @@ export function attachmentsOfRecord(record: Pick<SessionRecord, "attachments">, 
           out.push(sketchOf(one));
           break;
         }
-        if (form !== "page" && form !== "file" && form !== "image" && form !== "doc" && form !== "window") break;
+        if (form !== "page" && form !== "file" && form !== "image" && form !== "doc" && form !== "document" && form !== "window") break;
+        const revisions = form === "document" ? revisionsOfDetail(detail["revisions"]) : [];
         out.push({
           kind: "artifact",
           form,
           id: one.target,
           title: detail["title"] ?? one.target.slice(one.target.lastIndexOf("/") + 1),
           ...(form === "file" && detail["by"] === "agent" && detail["shown"] !== undefined ? { shown: detail["shown"], by: "agent" as const, ...(detail["written"] === "true" ? { written: true as const } : {}) } : {}),
+          ...(revisions.length === 0 ? {} : { revisions }),
         });
         break;
       }
@@ -548,8 +567,6 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
   const attachments = attachmentsOfRecord(record, beside).filter(
     (one) => !ended || one.kind === "forked_to" || one.kind === "forked_from" || one.kind === "started_to" || one.kind === "started_by" || one.kind === "pull_request" || one.kind === "artifact" || one.kind === "link",
   );
-  // The first message an agent wrote for a Session it started, held by Fleet until the person sends it.
-  const unsent = ended ? undefined : record.attachments.find((one) => one.kind === "unsent" && one.state === "standing")?.target;
   // A Job handed on to a new one. The ledger kinds are `docs/practices/protocol/a-job-hands-off-to-a-new-one.md`; a failed hand off outranks a starting one that was not given back.
   const replaces = record.attachments.find((one) => one.kind === "replaces" && one.state === "spent")?.target;
   const replacedBy = record.attachments.find((one) => one.kind === "replaced_by" && one.state === "spent")?.target;
@@ -564,7 +581,7 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
   const lapsed = rows === undefined || ended ? undefined : lapsedOf(rows);
   const activity = activityOf(record.activity);
   const account = accountOf(record.activity);
-  const work = workOf(record, { workflows: beside.workflows ?? NO_WORKFLOWS, attachments, rows, drawn: thread, unpicked: beside.unpicked ?? NO_PICKS, workflowsOff: beside.workflowsOff === true });
+  const work = workOf(record, { workflows: beside.workflows ?? NO_WORKFLOWS, attachments, rows, drawn: thread, unpicked: beside.unpicked ?? NO_PICKS, workflowsOff: beside.workflowsOff === true, ...(beside.reviewRefused === undefined ? {} : { reviewRefused: beside.reviewRefused }) });
   return {
     id: record.id,
     address: addressOf(record.id),
@@ -573,6 +590,7 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
     ...(record.cwd === "" ? {} : { cwd: record.cwd }),
     ...(hosted === undefined ? { terminal: true as const } : {}),
     ...(record.helm === true ? { helm: true as const } : {}),
+    ...(record.mod === true ? { mod: true as const } : {}),
     ...(dead === undefined ? {} : { dead }),
     ...(handoff === undefined ? {} : { handoff }),
     ...(handoff !== "failed" || handoffReason === undefined ? {} : { handoffReason }),
@@ -611,11 +629,10 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
     ...(account === undefined ? {} : { account }),
     ...(record.activity?.live === undefined ? {} : { live: record.activity.live }),
     ...(ended || record.build === undefined ? {} : { build: record.build }),
-    ...(unsent === undefined ? {} : { unsent }),
     ...(ended || (record.waiting_for?.length ?? 0) === 0 ? {} : { waitingFor: record.waiting_for }),
     ...(ended || record.done_since === undefined ? {} : { done: { since: record.done_since } }),
     ...(ended || record.standing === undefined ? {} : { standing: record.standing }),
-    ...(ended || hosted?.start === undefined ? {} : { start: { asksDelivery: hosted.start.asks_delivery, ...(hosted.start.picked === undefined ? {} : { picked: hosted.start.picked }) } }),
+    ...(ended || hosted?.start === undefined ? {} : { start: { asksDelivery: hosted.start.asks_delivery, ...(hosted.start.picked === undefined ? {} : { picked: hosted.start.picked }), ...(hosted.start.message === undefined ? {} : { message: hosted.start.message }) } }),
     ...(ended || record.waits === undefined ? {} : { waits: waitOfWire(record.waits) }),
     ...(ended || (record.later?.length ?? 0) === 0 ? {} : { later: (record.later ?? []).map((one) => ({ id: one.id, text: one.sentence, at: one.said_at })) }),
     ...(ended || record.held_open_by === undefined ? {} : { heldOpenBy: record.held_open_by }),
@@ -736,4 +753,4 @@ export class SessionMemo {
 }
 
 const sameBeside = (a: Beside, b: Beside): boolean =>
-  a.picture === b.picture && a.sketches === b.sketches && a.pending === b.pending && a.repository === b.repository && a.epoch === b.epoch && a.workflows === b.workflows && a.events === b.events && a.watches === b.watches && a.unpicked === b.unpicked && a.workflowsOff === b.workflowsOff;
+  a.picture === b.picture && a.sketches === b.sketches && a.pending === b.pending && a.repository === b.repository && a.epoch === b.epoch && a.workflows === b.workflows && a.events === b.events && a.watches === b.watches && a.unpicked === b.unpicked && a.workflowsOff === b.workflowsOff && a.reviewRefused === b.reviewRefused;

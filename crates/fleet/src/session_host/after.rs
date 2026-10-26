@@ -12,7 +12,6 @@
 //! the new one needs of it, and that it may change the condition and where the new one starts from
 //! (`change_waiting`). Each change is a row in both threads.
 
-use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Ask, Delivery, Vcs, WorkProduct};
@@ -21,9 +20,8 @@ use ipc::{
     ChangeWaiting, ReadSessionWait, SessionLink, SessionRecord, SessionRow, SessionVoice, SessionWait, StartAfter, StartBase,
     StartCondition, WaitBy, WaitPull, WaitReading, WaiterEvent, WaiterSide,
 };
-use store::{AttachmentState, Holder, KeptAttachment, KeptWait};
+use store::{AttachmentState, Holder, KeptWait};
 
-use super::agent_starting::UNSENT;
 use crate::daemon::Fleet;
 use crate::judging::watched;
 use crate::session_proposer::{unread_wait, PlanPart, WaitBrief};
@@ -345,7 +343,9 @@ where
         let handoff = self.handoff_of(&on).await.unwrap_or_else(|_| format!("Handoff from {on_title} ({on})"));
         let message = format!("{handoff}\n\nWhy you start now: {met}.\nYou start from {from}.\n\nYour brief:\n{}", wait.brief);
         if wait.held {
-            self.first_message_held(&waiting, &message).await;
+            if let Err(why) = self.held_with(&waiting, &message).await {
+                self.session_warned(&waiting, "the start it waited for was not held for the person", format!("{why:?}"));
+            }
         } else if let Err(why) = self
             .waited_brief_from(&waiting, SessionVoice::Session { id: on.clone(), title: on_title }, &message)
             .await
@@ -370,27 +370,6 @@ where
         .await;
         let _ = self.published_hosted(&waiting).await;
         let _ = self.published_hosted(&on).await;
-    }
-
-    /// An agent's start has met its condition: its first message waits for the person, as any it makes does.
-    async fn first_message_held(&self, session: &str, message: &str) {
-        let (manifest, now) = (
-            self.store().lock().await.session(session).ok().flatten().and_then(|one| one.manifest_id).unwrap_or_default(),
-            self.now().as_str().to_string(),
-        );
-        let _ = self.store().lock().await.attach(
-            &KeptAttachment {
-                holder: Holder::session(session),
-                kind: UNSENT.to_string(),
-                manifest_id: manifest,
-                target: message.to_string(),
-                state: AttachmentState::Standing,
-                detail: BTreeMap::new(),
-                since: now.clone(),
-                changed_at: now,
-            },
-            false,
-        );
     }
 
     /// Where the waiting Session starts from, in words: main, or the branch the Session waited on works on.

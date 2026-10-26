@@ -167,6 +167,10 @@ It is the Manifest where the repository has none, and replaces the repository's 
 A place that cannot be read reads as no copy, and the Manifest's summary says so.
 [Manifest](manifest.md), *Kit's copy*, holds the rule.
 
+**Kit's copy can carry servers, `runs`, a server's `dir` and ports**, merged by name like Checks and Commands, so a person's own app run needs nothing committed.
+**A run saved from Bridge goes into Kit's copy and never into the repository's `armada.yml`.** A name the repository's file already declares is refused, because Kit's copy would win over it.
+Pinning a port writes `fixed` on it into Kit's copy, and unpinning removes the key ([Manifest](manifest.md), *Ports*).
+
 ### Share
 
 **Share makes one file, `<name>.armada.toml`, from pieces a person picks, and Copy puts the same text on the clipboard.**
@@ -253,6 +257,7 @@ Fleet's working record holds it at once, and the place has it written as each tu
 A command whose every run failed is never kept, and the facts merge with those imported from past sessions for the same repository.
 `get_run_memory` reads them with where each is kept.
 
+**A repository's Armada configuration, its `armada.yml` among it, is kept at one of four places chosen per repository: this Mac, a synced folder, cloud storage, or the repository itself.** None of it has to be committed: a repository with no `armada.yml` of its own runs from Kit's copy ([Manifest](manifest.md), *Kit's copy*).
 **The place is chosen per repository when it is added**, `this_mac` until a person says otherwise (`get_run_memory_place`, `set_run_memory_place`):
 
 | Place | Written to |
@@ -269,8 +274,10 @@ A key that may not list the bucket reads a missing object as refused.
 **A cloud place that cannot be reached or signed in is refused when it is chosen, `422 fleet.run_cloud_unsigned`, `fleet.run_cloud_unreachable` or `fleet.run_cloud_refused`, and the old place stays.** A write that fails later keeps the facts waiting with the reason and tries again when the next turn ends; a fact is never dropped for it.
 What another machine wrote is merged in before each write, and `get_run_memory` does not call the cloud.
 
-**Run memory becomes a section of the [Logbook](logbook.md).** Its detector is unchanged and still reads results off the stream with no agent's word.
-Its facts are Logbook entries, the Logbook follows the place chosen here except In the repository, which keeps it on this Mac, and the run note and the machine note are one Logbook note.
+**Run memory is not part of the [Logbook](logbook.md).** It keeps every command that worked word for word, so a one-off debug run reads as a fact, and folded in as entries they buried what Jobs learnt.
+The owner's decision, 23 Oct 2026.
+How to run a repository reaches the Logbook the way any lesson does, from a Job's record.
+The Logbook follows the place chosen here, except In the repository, which keeps it on this Mac.
 
 ### A private repository
 
@@ -285,14 +292,11 @@ A copy already in a synced folder or a bucket stays where it was.
 
 ### What a person is shown
 
-**Bridge names a repository's remembered runs, with its Manifest, Armada configuration.** It is how Armada remembers the repository runs, so an agent does not guess a test command or a port.
+**Bridge names a repository's remembered runs, with its Manifest, Armada configuration.** It is how Armada remembers the repository runs.
 
-**A Job is told what was kept, in its system prompt.** Every process of a hosted Job or Helm Session in the repository carries the Logbook note after the job rules and after Helm's or a successor's note, read from Fleet's store at each start: the habits, then the repository's standing entries, then this Mac's ([Logbook](logbook.md), *Recall*).
-The remembered runs whose last run worked are entries of it, ranked with the rest and cut with them near 2k tokens, each as kind, workspace, command and port where there is one.
-So a run one Job kept reaches the next Job started there, even one started before the first Job's turn ended.
-**A command under the repository's heading is to run, never a Check, and nothing in the note gates a pull request.** A dropped line is not in it.
+**A Job is not told the remembered runs.** Every process of a hosted Job or Helm Session in the repository carries the Logbook note after the job rules and after Helm's or a successor's note, read from Fleet's store at each start: the habits, then the repository's standing entries, then this Mac's ([Logbook](logbook.md), *Recall*).
+**A command under the repository's heading is to run, never a Check, and nothing in the note gates a pull request.**
 The note is told from this Mac's store, and is written nowhere.
-A remembered run whose first word is a missing command is left out of it: `machine.md`, *What a Job is told about this Mac*.
 `get_manifest` does not serve remembered runs.
 The places are named as a person reads them:
 
@@ -477,9 +481,24 @@ A mod that is not valid here is not added.
 A scrubbed copy would read as differing from the original for good, and the person would be shown a file that is not theirs.
 The refusal names the host and never the value.
 
-**Sync makes the repository.** The first Sync creates `<gh login>/armada-home` as a private repository, through `gh`, acting as the profile's login.
+**Sync makes the repository.** The first Sync creates the home where the person chose, `<login>/armada-home` until they choose, as a private repository through the forge's API with `gh`'s token for the profile's login.
+Fleet marks it with the topic `armada-home` as it makes it, so another Mac can find it.
+
+**The person chooses where it is made, before it exists.** The owner is the login or one of its organisations, and the name starts as `armada-home`; the Sync bar's chip, `Home: <owner>/<name>`, opens both, and the Account page's step and Shared home row echo the choice.
+Fleet keeps the choice in this machine's store, a profile at a time, and refuses an owner that is neither the login nor one of its organisations, or a name the forge would not take.
+Once the home exists it is shown and not changed; moving an existing home is out of scope.
+
+**A Mac with no copy finds a home made on another.** Where nothing is chosen here yet, Fleet asks the forge once a run, as the profile's login, for a repository with the `armada-home` topic under the login or one of its organisations.
+One found is the choice: the chip shows it as made, and Sync clones it.
+
 Where `gh` does not hold that login, Sync refuses and names `gh auth login`.
+Where an organisation will not let the login make the repository, or the repository exists and the login cannot push to it, Sync refuses in a sentence naming both and what to choose instead.
 Git runs over HTTPS with `gh`'s own credential, never SSH.
+
+**Sync also adds.** Once the copy here is up to date, Sync adds every row only on this machine, of each kind switched on, to the home in one commit and one push.
+A row Add to the home would refuse stays on this machine and keeps its mark: a piece holding a credential, a mod that is not valid here.
+Each one that stays is told in a toast of its own, naming the row and why, never the credential.
+A row that differs is left for the person to settle, and a row only in the home stays there until it is brought.
 
 **What syncs is chosen per kind and per machine, and is kept in the machine's store.** [Account](account.md), *What syncs*.
 A kind switched off has no rows in Kit, and every kind is off until it is turned on.
@@ -495,7 +514,7 @@ A server also carries whether its key is here.
 
 **A row that differs is never merged silently.** Where a kind's row is on both sides and the two disagree, Kit shows both versions side by side and the person picks one.
 Bring never overwrites a file that differs; only choosing a side replaces it.
-A row on one side only is added to the other by the person's act, in either direction.
+A row only on this machine goes into the home at the next Sync, or at once by the person's act; a row only in the home comes here by the person's act alone.
 A server whose key is not on this machine is marked as needing one; the home does not carry the key, so adding it here is the person's.
 
 **The page.** Each row carries a mark for how it stands against the home (the same, differs, only on this machine, only in the home, needs a key).
@@ -509,7 +528,7 @@ Mods are a list of their own, and the Theme rows carry the same marks.
 **Built in Fleet.** Fleet makes, clones and pushes the repository, compares each kind and carries the three acts.
 **Built in Bridge.** Bridge reads one profile's home through main: the profile added on purpose beside the machine's own, or the only profile where none was added.
 Fleet pushes no event for it, so it is read once that profile is signed in and again after every act and every kind switched in What syncs.
-Sync turns while it runs, and a refused act is a failure toast in Fleet's words, as any refused press is.
+Sync turns while it runs, and a refused act is a failure toast in Fleet's words, as any refused press is; so is each row a Sync left on this machine.
 A mod only the home has is listed under the kind its `mod.toml` names, which the home's row carries.
 **Not built.** Per-item scopes.
 The marks use Proposed glyphs, `packages/icons/icons/house.toml` for the home and `packages/icons/icons/laptop.toml` for this machine among them.

@@ -16,9 +16,11 @@ import type { ReviewWalk } from "./review-walks";
 import type { ModList } from "./mods";
 import type { SettingsList } from "./settings";
 import type { CheckoutRunRecord } from "./rehearsal";
+import type { AppRun } from "./app-runs";
 import type { ServerState } from "./servers";
 import type { SessionRowChanged } from "./hosted-sessions";
 import type { ModelDownshiftState } from "./model-downshift";
+import type { AgentSignIn } from "./agent-sign-in";
 import type { PlanUsage } from "./plan-usage";
 import type { SleepState } from "./sleep";
 import type { TimelineAppended } from "./timeline";
@@ -69,6 +71,8 @@ export type Event =
   | ({ kind: "server.starting" } & ServerState)
   | ({ kind: "server.serving" } & ServerState)
   | ({ kind: "server.exited" } & ServerState)
+  /** A run after any of its servers' three facts, whole; a client replaces the run it holds for that checkout. Output stays `observe_server`'s. */
+  | ({ kind: "app_run.changed" } & AppRun)
   /** A Studio after a write to it, whole. Since 14.6. */
   | ({ kind: "studio.changed" } & Studio)
   /** A Studio a person deleted. Since 14.6. */
@@ -95,6 +99,8 @@ export type Event =
   | ({ kind: "plan_usage.changed" } & PlanUsage)
   /** The default model's step down after any change to it, whole. Absent `downshift` is none. */
   | ({ kind: "model_downshift.changed" } & ModelDownshiftState)
+  /** The agents' account signed out or back in, or Fleet's sign-in of it started or ended, whole. */
+  | ({ kind: "agent_sign_in.changed" } & AgentSignIn)
   /** Fleet kept one entry for the timeline; a client holding a window appends it. Since 23.82. */
   | ({ kind: "timeline.appended" } & TimelineAppended)
   /** A background act failed after its request was answered: the act, what it was for, and the refusal. Not replayed. */

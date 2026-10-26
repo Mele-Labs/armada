@@ -10,15 +10,17 @@
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 
-use adapter_traits::{LinkLookup, Tracker, TrackerChoice, Trackers};
+use adapter_traits::{Backlog, LinkLookup, Tracker, TrackerChoice, Trackers};
 
-use crate::{FakeLinkLookup, FakeTracker};
+use crate::{FakeBeads, FakeLinkLookup, FakeTracker};
 
 type Provider = Option<String>;
 
 pub struct FakeTrackers {
     trackers: Mutex<BTreeMap<Provider, Arc<dyn Tracker + Send + Sync>>>,
     links: Mutex<BTreeMap<Provider, Arc<dyn LinkLookup + Send + Sync>>>,
+    /// Only the providers a test planted a backlog for have one, as only beads does.
+    backlogs: Mutex<BTreeMap<Provider, Arc<dyn Backlog + Send + Sync>>>,
     asked: Mutex<Vec<TrackerChoice>>,
 }
 
@@ -34,6 +36,7 @@ impl FakeTrackers {
                 None,
                 Arc::new(FakeLinkLookup::resolving_nothing()) as Arc<dyn LinkLookup + Send + Sync>,
             )])),
+            backlogs: Mutex::new(BTreeMap::new()),
             asked: Mutex::new(Vec::new()),
         }
     }
@@ -56,6 +59,14 @@ impl FakeTrackers {
     /// This link reader for the Manifests that name `provider`.
     pub fn links_named(self, provider: &str, links: Arc<FakeLinkLookup>) -> FakeTrackers {
         self.links_for(Some(provider.to_string()), links)
+    }
+
+    /// This copy of a backlog, as the tracker and the backlog of the Manifests that name `provider`.
+    pub fn beads_named(self, provider: &str, beads: Arc<FakeBeads>) -> FakeTrackers {
+        let provider = Some(provider.to_string());
+        self.trackers.lock().expect("not poisoned").insert(provider.clone(), Arc::clone(&beads) as Arc<dyn Tracker + Send + Sync>);
+        self.backlogs.lock().expect("not poisoned").insert(provider, beads);
+        self
     }
 
     /// Every choice Fleet resolved a tracker or a link reader for, in order.
@@ -93,5 +104,10 @@ impl Trackers for FakeTrackers {
         let held = self.links.lock().expect("not poisoned");
         let provider = choice.provider().map(String::from);
         Arc::clone(held.get(&provider).unwrap_or_else(|| &held[&None]))
+    }
+
+    fn backlog(&self, choice: &TrackerChoice) -> Option<Arc<dyn Backlog + Send + Sync>> {
+        let provider = choice.provider().map(String::from);
+        self.backlogs.lock().expect("not poisoned").get(&provider).cloned()
     }
 }

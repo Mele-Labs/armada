@@ -1,4 +1,4 @@
-// The Field of an open Job carries its plan along its foot, and opens large over the stage: from the control in its band and from its key,
+// The Field of an open Job opens large over the stage, with its plan along the foot: from the control in its band and from its key,
 // `deck_field`'s `e`. Esc is Back, with focus back on the control, and only one canvas is live while it is large.
 
 import { expect, test } from "vitest";
@@ -16,13 +16,16 @@ async function open() {
   mount("field-expand-plan");
   await onScreen();
   await page.getByRole("region", { name: "Jobs", exact: true }).getByRole("button", { name: "Rotate the audit log" }).click();
-  await expect.element(field().getByRole("group", { name: "Plan" })).toBeVisible();
+  await expect.element(field()).toBeVisible();
 }
 
-test("the Field carries the plan as a segment for each task, in the marks of the map card, each group named", async () => {
+test("the large Field carries the plan as a segment for each task, in the marks of the map card, each group named", async () => {
   await open();
-  const plan = field().getByRole("group", { name: "Plan" });
-  const segments = [...document.querySelectorAll('section[aria-label="Field"] .sv-fieldplan li')];
+  await expect.element(field().getByRole("group", { name: "Plan" })).not.toBeInTheDocument();
+  await field().getByRole("button", { name: "Expand", exact: true }).click();
+  const plan = large().getByRole("group", { name: "Plan" });
+  await expect.element(plan).toBeVisible();
+  const segments = [...large().element().querySelectorAll(".sv-fieldplan li")];
   expect(segments.map((one) => one.getAttribute("data-piece"))).toEqual(["solid", "solid", "solid", "solid", "scaffold", "scaffold", "ghost", "ghost", "ghost", "ghost", "hollow"]);
   expect(segments.map((one) => one.getAttribute("aria-label"))[4]).toBe("Mirror it in the TypeScript types, Working");
   await expect.element(plan.getByRole("group", { name: "Show the rotation" })).toBeVisible();
