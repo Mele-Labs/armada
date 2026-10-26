@@ -1,0 +1,165 @@
+/* The Projects tab: his projects in the Cockpit's grid, drawn to the Issues tab's bar. A repository's heading is a band with
+   weight; what is open is lit in the accent. A project's rows are one list: the box, the state's glyph and the title share
+   the first line in fixed columns, and the Job holding a row is a line of its own beneath. A state's hue is the mark's, never
+   the row's. Tokens only; no gradient, no glow, no grain. */
+
+.deck-grid[data-projects] { grid-template-columns: var(--deck-left, calc(var(--space-12) * 6)) minmax(0, 1fr); }
+.deck-grid[data-projects] .deck-handle { display: revert; }
+
+/* ---- The list of projects ------------------------------------------------------------------------------- */
+
+.projects-list > .deck-band .projects-list__new { margin-left: auto; }
+.projects-list .projects-list__new .armada-button,
+.projects-list .projects-list__new .armada-dropdown-menu__trigger { font-family: var(--font-sans); font-size: var(--text-xs); letter-spacing: normal; text-transform: none; }
+.projects-surface .projects-list__rows { gap: var(--space-2); }
+.projects-surface .projects-list .deck-list__band + .deck-list__band { margin-top: var(--space-4); }
+
+/* A repository's heading: the band its projects stand under, as the Issues tab draws one. */
+.projects-band__head {
+  display: flex;
+  align-items: center;
+  min-height: var(--h-control-sm);
+  margin: 0;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--fg-default) 8%, transparent);
+  color: var(--fg-default);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  line-height: var(--leading-xs);
+  text-transform: uppercase;
+}
+
+.projects-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  min-height: var(--h-row);
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--fg-default);
+  font: inherit;
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  line-height: var(--leading-xs);
+  text-align: left;
+  cursor: pointer;
+}
+.projects-item:hover { background: var(--bg-hover); }
+.projects-item[data-selected] { background: var(--accent-muted); box-shadow: inset 0 0 0 var(--border-width) var(--accent); font-weight: var(--weight-heading); }
+.projects-item:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }
+
+.projects-name { padding: 0; }
+
+/* ---- The project open ----------------------------------------------------------------------------------- */
+
+.projects-pane { position: relative; min-height: 0; }
+.projects-pane > .deck-pane__head { align-items: center; padding: var(--space-4) var(--space-4) var(--space-2); }
+.projects-pane .deck-pane__title { color: var(--fg-default); font-family: var(--font-sans); font-size: var(--text-sm); line-height: var(--leading-sm); letter-spacing: 0; text-transform: none; }
+.projects-pane .deck-pane__acts { gap: var(--space-2); }
+.projects-pane:focus-visible,
+.projects-list:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }
+
+.projects-rows {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-height: 0;
+  margin: 0;
+  padding: var(--space-3) var(--space-3) var(--space-2);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-top: var(--border-width) solid var(--border-subtle);
+  list-style: none;
+}
+
+/* A row: the box, the mark and the title on the first line, each in its own column whatever the row carries; the Job beneath. */
+.projects-row {
+  display: grid;
+  grid-template-columns: var(--h-control-sm) var(--h-control-sm) minmax(0, 1fr);
+  grid-template-areas: "select mark title" ". . under";
+  align-items: center;
+  column-gap: var(--space-2);
+  row-gap: var(--space-1);
+  min-height: var(--h-row);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-md);
+  color: var(--fg-default);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+.projects-row:hover { background: var(--bg-hover); }
+.projects-row:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }
+.projects-row[data-selected] { background: var(--accent-muted); box-shadow: inset 0 0 0 var(--border-width) var(--accent); }
+
+.projects-row__select { grid-area: select; display: inline-flex; justify-content: center; }
+.projects-row__mark {
+  grid-area: mark;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--h-control-sm);
+  height: var(--h-control-sm);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--fg-subtle);
+}
+button.projects-row__mark { cursor: pointer; }
+button.projects-row__mark:hover { background: var(--bg-hover); }
+.projects-row__mark[data-state="held"] { color: var(--status-running); }
+.projects-row__mark[data-state="asking"] { color: var(--status-awaiting-review); }
+.projects-row__mark[data-state="done"],
+.projects-row__mark[data-state="closed"] { color: var(--step-advanced); }
+.projects-row[data-state="open"] .projects-row__mark:not(button) { color: var(--fg-muted); }
+
+.projects-row__title { grid-area: title; display: flex; align-items: baseline; gap: var(--space-2); min-width: 0; }
+.projects-row__words { min-width: 0; overflow: hidden; font-weight: var(--weight-medium); text-overflow: ellipsis; white-space: nowrap; }
+.projects-row[data-state="done"] .projects-row__words,
+.projects-row[data-state="closed"] .projects-row__words { color: var(--fg-muted); }
+.projects-row__reference { flex: none; padding: 0 var(--space-2); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--fg-default) 12%, transparent); color: var(--fg-default); font-family: var(--font-mono); font-size: var(--text-2xs); font-weight: var(--weight-heading); line-height: var(--leading-xs); }
+
+/* What a row adds under its title: the Job holding it, and the done ask's two answers. */
+.projects-row__under { grid-area: under; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); min-width: 0; }
+.projects-row__job { display: inline-flex; align-items: center; min-width: 0; gap: var(--space-2); color: var(--fg-muted); }
+.projects-row__job .armada-session-mark > svg { width: var(--space-3); height: var(--space-3); }
+.projects-row__job-title { min-width: 0; overflow: hidden; padding: 0; border: 0; background: transparent; color: var(--fg-default); font: inherit; font-size: var(--text-2xs); font-weight: var(--weight-medium); text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+.projects-row__job-title:hover { text-decoration: underline; }
+.projects-row__ask { display: inline-flex; align-items: center; gap: var(--space-1); }
+
+/* ---- The foot: the issue search and the task field ------------------------------------------------------ */
+
+.projects-foot { display: flex; flex: none; flex-direction: column; gap: var(--space-2); padding: var(--space-2) var(--space-3) var(--space-3); border-top: var(--border-width) solid var(--border-subtle); }
+.projects-add { display: flex; align-items: center; gap: var(--space-2); }
+.projects-add .armada-textarea-field { flex: 1 1 0; min-width: 0; }
+
+.projects-link { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-2); border: var(--border-width) solid var(--border-default); border-radius: var(--radius-lg); background: var(--bg-sunken); }
+.projects-link__hits { display: flex; flex-direction: column; gap: var(--space-1); max-height: calc(var(--h-row) * 5); margin: 0; padding: 0; overflow-y: auto; list-style: none; }
+.projects-link__hit {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  width: 100%;
+  min-width: 0;
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--fg-default);
+  font: inherit;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  text-align: left;
+  cursor: pointer;
+}
+.projects-link__hit:hover { background: var(--bg-hover); }
+.projects-link__hit:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }
+.projects-link__said { margin: 0; color: var(--fg-muted); font-size: var(--text-xs); line-height: var(--leading-xs); }

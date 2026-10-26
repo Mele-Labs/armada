@@ -19,6 +19,7 @@ import {
   Rewind,
   HardDrive,
   LayoutDashboard,
+  ListTodo,
   Merge,
   NotebookTabs,
   Puzzle,
@@ -55,6 +56,7 @@ export const SURFACE = {
   account: "account",
   reviews: "reviews",
   issues: "issues",
+  projects: "projects",
   usage: "usage",
   requests: "requests",
   logbook: "logbook",
@@ -240,6 +242,14 @@ export const SURFACES: readonly PaletteSurface[] = [
     icon: Ticket,
   },
   {
+    id: SURFACE.projects,
+    label: "Projects",
+    // No key, as Issues: `deck_tabs` spells six digits.
+    aliases: ["project", "tasks", "task list", "todo", "to do", "plan"],
+    // A sketch: `list-todo` is the registry's list of tasks, some open and some done. A Navigation glyph is the owner's to mint.
+    icon: ListTodo,
+  },
+  {
     id: SURFACE.workflows,
     label: "Workflows",
     // No key; reached from a System entry, a link on the deck and by name.
@@ -298,7 +308,7 @@ export const SURFACES: readonly PaletteSurface[] = [
 ];
 
 /**
- * The window's six tabs, and the surface each opens. These tabs are how a person moves about, and `⌘1` to `⌘6` reach them.
+ * The window's tabs, and the surface each opens. These tabs are how a person moves about, and `⌘1` to `⌘6` reach the six in `DIGIT_TABS`.
  *
  * System has no surface of its own: it opens the entry last picked, and the sidebar beside the page
  * lists them all.
@@ -311,11 +321,12 @@ export const DECK_TABS = [
   { id: "logbook", label: "Logbook", surface: SURFACE.logbook },
   { id: "reviews", label: "Reviews", surface: SURFACE.reviews },
   { id: "issues", label: "Issues", surface: SURFACE.issues },
+  { id: "projects", label: "Projects", surface: SURFACE.projects },
   { id: "system", label: "System", surface: SURFACE.kit },
 ] as const;
 
-/** The tabs a digit reaches. Reviews and Issues take none: `deck_tabs` binds `⌘1` to `⌘6`, so the digits skip them and System keeps `⌘6`. */
-const DIGIT_TABS = DECK_TABS.filter((tab) => tab.id !== "reviews" && tab.id !== "issues");
+/** The tabs a digit reaches. Reviews, Issues and Projects take none: `deck_tabs` binds `⌘1` to `⌘6`, so the digits skip them and System keeps `⌘6`. */
+const DIGIT_TABS = DECK_TABS.filter((tab) => tab.id !== "reviews" && tab.id !== "issues" && tab.id !== "projects");
 
 export type DeckTabId = (typeof DECK_TABS)[number]["id"];
 
@@ -344,6 +355,7 @@ export const PLACES: readonly string[] = [
   SURFACE.logbook,
   SURFACE.reviews,
   SURFACE.issues,
+  SURFACE.projects,
 ];
 
 /** The tab a surface is under, or `undefined` where the Cockpit window places none (Manifest, the merge line). */
