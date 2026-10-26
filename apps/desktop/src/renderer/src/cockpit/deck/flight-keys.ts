@@ -6,7 +6,8 @@ import { holdsText } from "@armada/screens/src/keys";
 import { keyPressed } from "./flight-controls";
 import { PAUSE_KEY } from "./session-tiles";
 
-const DRAWN = ".deck-controls .deck-tile[data-key]";
+// The tiles, and the buttons of the views in the Job's head (`JobViews.tsx`).
+const DRAWN = ".deck-controls .deck-tile[data-key], button[data-view][data-key]";
 
 /** The drawn tile whose key, a letter or a chord, this press is. */
 export const flightTileFor = (event: KeyboardEvent): HTMLElement | null => [...document.querySelectorAll<HTMLElement>(DRAWN)].find((one) => keyPressed(one.dataset.key ?? "", event)) ?? null;

@@ -84,7 +84,8 @@ describe("a press, as the shipped keys answer it", () => {
     expect(isPressed("key_sheet", press("?", { shift: true }))).toBe(true);
     expect(pressedSlot("history", press("]", { meta: true }))).toBe(1);
     expect(pressedDigit("deck_tabs", press("3", { meta: true }))).toBe(3);
-    expect(pressedDigit("deck_tabs", press("7", { meta: true }))).toBeNull();
+    expect(pressedDigit("deck_tabs", press("7", { meta: true }))).toBe(7);
+    expect(pressedDigit("deck_tabs", press("8", { meta: true }))).toBeNull();
   });
 
   it("queues a Session on ⇧⌘Enter, and leaves ⌘Enter to send and plain Enter to start", () => {

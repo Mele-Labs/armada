@@ -1,6 +1,8 @@
 import type { CSSProperties } from "react";
 
 import type { ContextBreakdown } from "../../context-breakdown";
+import { Button } from "../../primitives/Button/Button";
+import { Popover } from "../../primitives/Popover/Popover";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { usageLevel } from "../../usage";
 import { Layers } from "lucide-react";
@@ -8,6 +10,28 @@ import { Inspect, InspectCard, InspectFacts, InspectSection, type InspectFact } 
 
 /** How full the Session's context window is, as it last reported, and what it is made of where that is known. */
 export type ContextFill = { tokens: number; window: number; breakdown?: ContextBreakdown };
+
+/** Compact, offered by the figure: the act, and why it is off where it is. */
+export type ContextCompact = { onPress: () => void; why?: string };
+
+/** The button at the foot of the figure's card or popover. Off, it says why in its tooltip and does nothing. */
+function CompactButton({ compact, after }: { compact: ContextCompact; after?: () => void }) {
+  return (
+    <Tooltip label={compact.why ?? "Compact the Job's context"}>
+      <Button
+        variant="secondary"
+        size="sm"
+        disabled={compact.why !== undefined}
+        onClick={() => {
+          compact.onPress();
+          after?.();
+        }}
+      >
+        Compact
+      </Button>
+    </Tooltip>
+  );
+}
 
 /** 53840 as "53.8k", 5000 as "5.0k", 142000 as "142k", 1000000 as "1M". */
 export function tokensSaid(n: number): string {
@@ -50,7 +74,7 @@ function WindowBar({ breakdown, tone }: { breakdown: ContextBreakdown; tone: str
 
 const LEVEL_TONE: Record<string, string> = { warning: "var(--status-awaiting-review)", danger: "var(--status-completed-failed)" };
 
-function BreakdownCard({ fill, percent, breakdown }: { fill: ContextFill; percent: number; breakdown: ContextBreakdown }) {
+function BreakdownCard({ fill, percent, breakdown, compact }: { fill: ContextFill; percent: number; breakdown: ContextBreakdown; compact: ContextCompact | undefined }) {
   const tone = LEVEL_TONE[usageLevel(percent)];
   const rows = (list: readonly (readonly [string, number])[]): InspectFact[] => list.map(([label, tokens]) => ({ label, value: tokensSaid(tokens), mono: true }));
   return (
@@ -66,6 +90,11 @@ function BreakdownCard({ fill, percent, breakdown }: { fill: ContextFill; percen
       <InspectFacts facts={rows(breakdown.categories.filter((one) => one.kind !== "deferred").map((one) => [one.name, one.tokens] as const))} />
       <InspectSection heading="Memory files" facts={rows(heaviest(breakdown.memoryFiles.map((one) => ({ name: nameOf(one.path, breakdown.memoryFiles), tokens: one.tokens }))).map((one) => [one.name, one.tokens] as const))} />
       <InspectSection heading="MCP tools" facts={rows(heaviestServers(breakdown.mcpTools).map((one) => [one.name, one.tokens] as const))} />
+      {compact === undefined ? null : (
+        <div className="armada-context-foot">
+          <CompactButton compact={compact} />
+        </div>
+      )}
     </InspectCard>
   );
 }
@@ -91,11 +120,34 @@ function tankStyle(fill: ContextFill): CSSProperties {
  * threshold where the breakdown holds one. Where the breakdown is known it is a button: **hover or focus opens the
  * card, a press keeps it open**, and Esc or a press outside closes it. Nothing is drawn without a window to fill.
  */
-export function ContextFigure({ fill }: { fill: ContextFill }) {
+export function ContextFigure({ fill, compact }: { fill: ContextFill; compact?: ContextCompact }) {
   if (fill.window <= 0) return null;
   const percent = Math.round((fill.tokens / fill.window) * 100);
   const figure = `${tokensSaid(fill.tokens)} · ${percent}%`;
   const threshold = thresholdOf(fill) !== undefined || undefined;
+  // Offering Compact makes the figure a button that opens a small popover with the fill and Compact, where there is no breakdown to open a card of.
+  if (fill.breakdown === undefined && compact !== undefined) {
+    return (
+      <span className="armada-session-frame__context-host" data-level={usageLevel(percent)}>
+        <Popover
+          align="end"
+          label="Context"
+          trigger={
+            <button type="button" className="armada-session-frame__context" aria-label={`Context ${percent}%`} data-threshold={threshold} style={tankStyle(fill)}>
+              {figure}
+            </button>
+          }
+        >
+          {(close) => (
+            <div className="armada-context-pop">
+              <span className="armada-context-pop__fill">{`${tokensSaid(fill.tokens)} of ${tokensSaid(fill.window)} tokens`}</span>
+              <CompactButton compact={compact} after={close} />
+            </div>
+          )}
+        </Popover>
+      </span>
+    );
+  }
   if (fill.breakdown === undefined) {
     return (
       <Tooltip label={`Context · ${tokensSaid(fill.tokens)} of ${tokensSaid(fill.window)} tokens`}>
@@ -107,7 +159,7 @@ export function ContextFigure({ fill }: { fill: ContextFill }) {
   }
   return (
     <span className="armada-session-frame__context-host" data-level={usageLevel(percent)}>
-      <Inspect card={<BreakdownCard fill={fill} percent={percent} breakdown={fill.breakdown} />} name="Context">
+      <Inspect card={<BreakdownCard fill={fill} percent={percent} breakdown={fill.breakdown} compact={compact} />} name="Context">
         <button type="button" className="armada-session-frame__context" aria-label={`Context ${percent}%`} data-threshold={threshold} style={tankStyle(fill)}>
           {figure}
         </button>

@@ -1,17 +1,23 @@
 // A picker over many repositories: type to narrow it, and the next time the one picked leads under
-// Recent. Told through the Autopilot card's picker, the one the deck draws while no repository is
-// chosen, which lists the ones not set up as disabled. The left column's picker reads the Recent list
-// when the Cockpit is drawn, so it is shown after a trip to Studios and back.
+// Recent. Told through the dispatcher's More menu, which lists the repositories that do not fit as
+// chips. A repository counts as picked for Recent once a Job is started in it.
 
-import { button, place, role, text, walk } from "../walk";
+import { button, inside, region, role, text, walk } from "../walk";
+
+const jobs = region("Jobs", { exact: true });
+const frame = role("region", "Dispatch", { exact: true });
+const request = inside(frame, role("textbox", "Request"));
+const more = inside(frame, button(/^(More repositories|Repository )/));
 
 export const findingOneRepositoryOfMany = walk("many-repositories", [
-  { press: button("Repository", { exact: true }), say: "Twenty-one repositories, so the menu opens on a filter field" },
+  { key: "n", on: jobs, say: "N opens the dispatcher, with the repositories that fit as chips" },
+  { press: more, say: "Twenty-one repositories, so the rest are a menu that opens on a filter field" },
   { type: "arm", into: role("searchbox", "Find a repository"), say: "Typing narrows it to what matches" },
   { look: role("menuitem", "armada", { exact: true }), say: "Nothing else is left to read past but a repository not set up, which cannot be picked" },
-  { press: role("menuitem", "armada", { exact: true }), say: "Picking one scopes Bridge to it" },
-  { press: place("Studios"), say: "To Studios" },
-  { press: place("Cockpit"), say: "And back on the Cockpit" },
-  { press: button("Repository", { exact: true }), say: "The left column's picker, open again" },
+  { press: role("menuitem", "armada", { exact: true }), say: "Picking one chooses it for the request" },
+  { type: "Check the migration order", into: request, say: "An idea for it" },
+  { press: inside(frame, button("Start", { exact: true })), say: "Started, which is what makes it a recent pick" },
+  { key: "n", on: jobs, say: "N opens the dispatcher again" },
+  { press: more, say: "The menu, open again" },
   { look: text("Recent"), say: "The repository just picked leads, under Recent" },
 ]);

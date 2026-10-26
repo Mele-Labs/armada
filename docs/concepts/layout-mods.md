@@ -38,8 +38,10 @@ Every entry is drawn until a layout hides it.
 **`rail` is the region of places, and it hides them and never orders them.** The key keeps its name and its label is Places.
 An entry is a tab or a System strip page: Cockpit, Jobs, Studios, Logbook and Reviews (`reviews`) are tabs, and Kit, Mods, Settings, Guides and Workflows are strip pages.
 Hiding one takes that tab or strip page off the bar.
-The bar's order is the shell's own, and `⌘1` to `⌘6` follow it.
+The bar's order is the shell's own, and `⌘1` to `⌘7` follow the tabs it draws.
+A tab a layout hides takes no digit, and the digits behind it close up.
 System is never hidden.
+A right press on a tab hides it, and its View group shows it again; both write the owner's own choice for `rail`, so they and Settings → Layout are one set of switches.
 Doctor is a row of the title menu with no entry, and so is every place with no tab and no strip page (Worktree Slots, Merge line, Manifest, Checks), so a layout cannot name them.
 
 **`dashboard.panels` is the deck's panels, and it hides them and never orders them**, because they stand in fixed columns.
@@ -50,7 +52,7 @@ A right column a layout empties is not drawn and gives its room to the stage, an
 **`job.panels` is the panels an open Job stacks in the right column**, drawn in the region's order.
 A Job is a story and the column tells it in this order: the workflow, the blueprint, the field it is built on, and what it lands in.
 Blueprint holds the plan the owner approves, so it is never hidden.
-Landing holds the pull request, the doc or the mods a Mod Job made, each with its switch, by the kind of Job; a layout may hide or move it like the others.
+Delivery holds the pull request, the doc or the mods a Mod Job made, each with its switch, by the kind of Job; a layout may hide or move it like the others.
 `progress` and `mods` were ids of this region before the story, so a layout that names either is ignored like any id this build does not have.
 
 `dashboard.tabs` went with the old Cockpit (#2301), and `job.tabs` with the Job's tabs, so a layout that names either is ignored like any region this build does not have.

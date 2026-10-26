@@ -59,13 +59,13 @@ const issue = (n: number) => `#${n}`;
 const lane = () => page.getByRole("region", { name: "Autopilot lane" });
 const bar = () => lane().getByRole("region", { name: "Autopilot", exact: true });
 
-/** The switch in the deck's foot, which opens the lane on the stage and puts it away. */
-const foot = () => page.getByRole("region", { name: "Autopilot", exact: true }).filter({ has: page.getByRole("progressbar") });
+/** The panel in the deck's foot, one row of a name and a switch, after the stage's own bar, which opens the lane on the stage and puts it away. */
+const foot = () => page.getByRole("region", { name: "Autopilot", exact: true }).last();
 // The switch's input is hidden under its label, so the label is what is pressed.
 const control = () => foot().getByText("Autopilot", { exact: true });
 
-/** How the foot's card says Autopilot stands: its bar's name, which stays while the lane is put away. */
-const standing = () => page.getByRole("progressbar", { name: /^Autopilot, / });
+/** How the foot's switch says Autopilot stands: on while it runs, which holds while the lane is put away. */
+const standing = () => foot().getByRole("switch");
 
 /** The switch, pressed where a person presses it: on its label, since the native box is clipped. */
 const flip = () => bar().getByText("Autopilot", { exact: true }).click();
@@ -73,8 +73,10 @@ const flip = () => bar().getByText("Autopilot", { exact: true }).click();
 /** The lane is put away until the switch is pressed, so this opens it. */
 async function cockpit(scenario: Scenario = onTheRepository()): Promise<void> {
   localStorage.removeItem("armada.bridge.dashboard-tab");
-  mount(scenario);
+  const app = mount(scenario);
   await onScreen();
+  // The panel is off until the Features switch turns it on.
+  await app.api.saveSettings({ "features.autopilotPanel": true });
   expect(bar().query()).toBeNull();
   await control().click();
   await expect.element(bar().getByRole("status")).toBeVisible();
@@ -111,7 +113,7 @@ test("turning it off asks in the bar first, and turning it on reads a sentence b
   await expect.element(bar().getByRole("textbox", { name: "At once" })).toHaveValue("2");
   await expect.element(bar().getByRole("textbox", { name: "Spend, in dollars" })).toHaveValue("30");
   await expect.element(bar().getByText("not said")).toBeVisible();
-  await bar().getByRole("textbox", { name: "Sessions" }).fill("4");
+  await bar().getByRole("textbox", { name: "Jobs" }).fill("4");
   await bar().getByRole("button", { name: "Start Autopilot" }).click();
   await expect.element(bar().getByRole("status")).toHaveTextContent("Running");
   await expect.element(bar().getByText("0 of 4 started")).toBeVisible();
@@ -199,7 +201,7 @@ test("a cap paused it: the bar names the cap, Resume is refused while it holds, 
   await expect.element(bar().getByRole("status")).toHaveTextContent("Paused · Job cap reached");
 
   await bar().getByRole("button", { name: "Edit caps" }).click();
-  await bar().getByRole("textbox", { name: "Sessions" }).fill("5");
+  await bar().getByRole("textbox", { name: "Jobs" }).fill("5");
   await bar().getByRole("button", { name: "Save caps" }).click();
   await expect.element(bar().getByText("3 of 5 started")).toBeVisible();
   expect(bar().getByRole("form", { name: "Edit caps" }).query()).toBeNull();
@@ -209,8 +211,9 @@ test("a cap paused it: the bar names the cap, Resume is refused while it holds, 
 
 test("on All with no repository picked the lane asks for one, and the bar opens for the one picked", async () => {
   localStorage.removeItem("armada.bridge.dashboard-tab");
-  mount(scenarioNamed("dashboard-cockpit")!);
+  const app = mount(scenarioNamed("dashboard-cockpit")!);
   await onScreen();
+  await app.api.saveSettings({ "features.autopilotPanel": true });
   // Nothing stands at rest, and no line says where to start one.
   expect(bar().query()).toBeNull();
   expect(page.getByText("Pick a repository to start Autopilot").query()).toBeNull();
@@ -228,12 +231,12 @@ test("on All with no repository picked the lane asks for one, and the bar opens 
 test("pressing the switch again puts the lane away without stopping Autopilot", async () => {
   await cockpit();
   await expect.element(bar().getByRole("status")).toHaveTextContent("Running");
-  await expect.element(standing()).toHaveAttribute("aria-label", "Autopilot, running");
+  await expect.element(standing()).toBeChecked();
 
   await control().click();
   await expect.poll(() => lane().query()).toBeNull();
-  // Still on: the foot's card says so, and the bar comes back running where it was.
-  await expect.element(standing()).toHaveAttribute("aria-label", "Autopilot, running");
+  // Still on: the foot's switch says so, and the bar comes back running where it was.
+  await expect.element(standing()).toBeChecked();
   await control().click();
   await expect.element(bar().getByRole("status")).toHaveTextContent("Running");
   await expect.element(bar().getByText("1 of 2 running")).toBeVisible();

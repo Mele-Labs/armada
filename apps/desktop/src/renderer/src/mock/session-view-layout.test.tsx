@@ -26,8 +26,8 @@ test("the Blueprint, the Field and the Landing share the right column, in that o
   await open("one-session-view", "Queue session for later");
   await expect.poll(() => panels("Blueprint").length).toBe(1);
   expect(panels("Field")).toHaveLength(1);
-  expect(panels("Landing")).toHaveLength(1);
-  const [blueprint, field, landing] = ["Blueprint", "Field", "Landing"].map((name) => page.getByRole("region", { name, exact: true }).element());
+  expect(panels("Delivery")).toHaveLength(1);
+  const [blueprint, field, landing] = ["Blueprint", "Field", "Delivery"].map((name) => page.getByRole("region", { name, exact: true }).element());
   expect(blueprint!.compareDocumentPosition(field!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   expect(field!.compareDocumentPosition(landing!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   expect(field!.parentElement).toBe(blueprint!.parentElement);

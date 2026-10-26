@@ -33,6 +33,8 @@ async function deck() {
   const app = mount("cockpit-ship-flightdeck");
   await onScreen();
   await expect.element(list()).toBeVisible();
+  // Powering on, the panels' contents are hidden for the least second (`cockpit/boot.ts`), and a test that reads them with no retry would race it.
+  await expect.poll(() => document.querySelector(".deck")?.hasAttribute("data-power"), { timeout: 5000 }).toBe(false);
   return app;
 }
 
@@ -137,7 +139,10 @@ test("Checks filters list, Activity and Stage to subjects running a Check", asyn
 // **The owner, 15 Oct 2026**: when navigating the lists, `o` opens the item along with Enter. `open` is the registry's own row
 // for it, in the `list` scope the deck's lists are in, so this is the deck reading a key the registry already ships.
 test("in the deck's lists, o opens the item under the cursor as Enter does", async () => {
-  await deck();
+  const app = await deck();
+  // The Autopilot panel is off until the Features switch turns it on.
+  await app.api.saveSettings({ "features.autopilotPanel": true });
+  await expect.poll(() => document.querySelector('.deck-autopilot [role="switch"]')).not.toBeNull();
   // What the stage is labelled while nothing is picked.
   const AT_REST = "Flight map";
   const opened = async (selector: string, key: string) => {

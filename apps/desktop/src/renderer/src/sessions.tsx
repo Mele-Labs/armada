@@ -81,7 +81,7 @@ import { SubagentThread, useSubagentRead } from "./session-subagent";
 import { useMinimized } from "./session-ledger-minimized";
 import { useWriteClashes } from "./clashes";
 import { openDocumentAt } from "./session-view/document-state";
-import { showLayer, toggleLayer } from "./session-view/layers";
+import { showLayer } from "./session-view/layers";
 import { ModEmpty } from "./session-view/ModEmpty";
 import { useModCards } from "./session-view/mod-cards";
 import { OverTheApp } from "./session-view/OverTheApp";
@@ -130,6 +130,8 @@ import { bangOf, hostedCommands, opensMcp, runnerOf } from "./session-runner";
 import { useJobDock } from "./job-shell-dock";
 import { todosOf } from "./session-activity";
 import { confirmWaiting, dismissWaiting } from "./cockpit/dismissed";
+import { HeadViews, LayerBounds, useJobViews } from "./cockpit/deck/JobViews";
+import { useCompactAct } from "./cockpit/deck/compact-act";
 import { holdsDelivery, stateOf } from "./session-state";
 import type { PlanEditing } from "./session-view/PlanEdit";
 import type { LoadoutAt } from "./session-loadout";
@@ -138,7 +140,6 @@ import { planRevision } from "./session-view/plan-revision";
 import { PlanReview } from "./session-view/PlanReview";
 import { groupTitleOf, linkedPropsOf } from "./session-view/linked";
 import { SessionWorkspace, type Hosts } from "./session-view/SessionWorkspace";
-import { ARTIFACTS_KEY } from "./session-view/story";
 import { useStartPicks } from "./session-view/StartPicks";
 import { CallChip, callWord } from "./session-view/CallChip";
 import { useLedgerRelease, type LedgerRelease } from "./session-ledger-release";
@@ -1064,6 +1065,8 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
   const modEmpty = !unread && session.mod === true && batched.length === 0;
   const modCards = useModCards(session.id);
   const marked = unread || where === undefined || cardLead ? undefined : <RunsPlaceControl {...where} />;
+  const compactAct = useCompactAct(session, draft);
+  const jobViews = useJobViews(session, bays);
   return (
     <TeachHereContext.Provider value={teachHere}>
     <SessionRefs session={session}>
@@ -1096,6 +1099,9 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
           },
         }}
         {...(deck === undefined ? {} : { back: deck.back })}
+        // On the Cockpit only: the Job's views are buttons in its head, and Compact is in the context figure.
+        {...(deck?.flight === true && jobViews !== undefined ? { headViews: <HeadViews views={jobViews} /> } : {})}
+        {...(deck?.flight === true ? { compact: compactAct } : {})}
         {...{
               actions: (
                 <>
@@ -1198,6 +1204,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
           ) : null}
           {endShown && doneProp !== undefined ? <SessionEndBand done={doneProp} open={endOpen} onOpen={(open) => setEndPanel({ id: session.id, open })} /> : null}
           {session.dead !== undefined || starting === undefined ? null : <div className="sv-start-strip">{starting.lead}</div>}
+          {deck?.flight === true && jobViews !== undefined ? <LayerBounds /> : null}
           {session.dead !== undefined ? null : (
             <SessionComposer
               modeLocked={session.terminal === true}
@@ -1230,7 +1237,6 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
               onTags={(tags) => draft.setTags(session.id, tags)}
               drawn={drawn.map(({ id, title }) => ({ id, title }))}
               onDraw={() => setPadOpen(true)}
-              {...(workspace ? { onArtifacts: { open: () => toggleLayer(session.id, "artifacts"), key: ARTIFACTS_KEY.cap } } : {})}
               onRemoveDrawn={(id) => setDrawn((was) => was.filter((one) => one.id !== id))}
               onSend={(sent) => {
                 // A held Job's first send begins it: the box is the first message.

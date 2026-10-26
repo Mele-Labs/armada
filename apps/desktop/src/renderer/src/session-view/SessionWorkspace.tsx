@@ -4,7 +4,7 @@
 // **What stays on screen.** The Work list, the thread and composer, the Job's story in the right column, and Flight control. The story is told
 // top to bottom: the Workflow, the Blueprint (the plan), the Field and the Landing, the one the stage is at open and the rest folded to their
 // bands (`story.ts`). The rest is a key away: Flight control opens a layer over the stage for Subagents, Checks and Slot, and Back returns to the
-// thread as it was. **Artifacts is the exception: it opens over the right column**, from the composer's Artifacts key or from Flight control, the
+// thread as it was. **Artifacts is the exception: it opens over the right column**, from the head's Artifacts icon, its key or Flight control, the
 // story steps aside, and Esc returns to it. Pull requests stand in the Landing and on the Merge line. The slot and branch are drawn only when something is wrong with
 // them: as a call in the thread, and by lighting the Slot key. The panels are drawn into the deck's right column (`hosts`).
 
@@ -58,7 +58,7 @@ export function SessionWorkspace({ session, entries, repositories, hosts, ed, ba
   // mounted while the Job is, so focus goes back to the opener when the document closes, and not when a dev render mounts it twice.
   const reading = <OverTheApp open={open === "document"}>{open === "document" ? <DocumentLayer key={page} session={session} /> : null}</OverTheApp>;
   const layered = layer === undefined ? null : <Layer id={layer} session={session} entries={entries} bays={bays} onOpenCheck={onOpenCheck} onOpenSession={onOpenSession} onOpenSketch={onOpenSketch} />;
-  // A band opens by its key, the Blueprint's whole-plan key swaps its Now view, and the composer's Artifacts key opens the list. A band's key closes the list first: the story is what it asked for.
+  // A band opens by its key, the Blueprint's whole-plan key swaps its Now view, and the Artifacts key opens the list. A band's key closes the list first: the story is what it asked for.
   useEffect(() => {
     if (!story) return;
     const listen = (event: KeyboardEvent) => {
