@@ -24,7 +24,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-use api::{ObservedSessionRun, Refusal, SessionRunEvent, SESSION_RUN_BACKLOG};
+use api::{ObservedSessionRun, Refusal, SessionRunEnd, SessionRunEvent, SESSION_RUN_BACKLOG};
 use ipc::{
     ResizeSessionRun, SessionRunUnderway, StartSessionRun, StopSessionRun, WireError,
     WriteSessionRun,
@@ -57,7 +57,7 @@ struct State {
     /// The last [`RING`] bytes printed, cut at a character.
     held: String,
     /// `Some` once the run ended, with its code.
-    exited: Option<Option<i32>>,
+    exited: Option<SessionRunEnd>,
     /// Bytes printed since the run started, [`Self::held`]'s dropped ones included.
     printed: u64,
     /// [`Self::printed`] when the agent last typed, which is where `read_terminal`'s `until` reads from.
@@ -122,10 +122,10 @@ impl Run {
         let _ = self.feed.send(SessionRunEvent::Output(text));
     }
 
-    fn exit(&self, code: Option<i32>) {
+    fn exit(&self, end: SessionRunEnd) {
         let mut state = self.state.lock().expect("not poisoned");
-        state.exited = Some(code);
-        let _ = self.feed.send(SessionRunEvent::Exited(code));
+        state.exited = Some(end);
+        let _ = self.feed.send(SessionRunEvent::Exited(end));
     }
 
     /// Whether `keys` reached the terminal.
@@ -263,7 +263,7 @@ impl SessionRuns {
                 _ => None,
             };
             run.terminal.lock().expect("not poisoned").take();
-            run.exit(code);
+            run.exit(SessionRunEnd { code, stopped });
             let output = run.state.lock().expect("not poisoned").held.clone();
             ended(Ended {
                 session: run.session.clone(),
@@ -315,7 +315,7 @@ impl SessionRuns {
             run_id: run_id.to_string(),
             history: state.held.clone(),
             live: match state.exited {
-                Some(code) => Err(code),
+                Some(end) => Err(end),
                 None => Ok(run.feed.subscribe()),
             },
         })
