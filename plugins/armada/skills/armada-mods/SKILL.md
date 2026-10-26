@@ -231,7 +231,7 @@ whole file format.
 | 4 | Write `tracker.toml` in that path. Test each `map` against the answer you kept: `jq '<map>' answer.json` | Your editor |
 | 5 | Check it; read `problems`, fix, check again | `validate_mod` with `name` |
 | 6 | Try it against the repository; read `reason`, fix, try again | `try_tracker_mod` with `name` and `manifest_id` |
-| 7 | Name it in the repository's Manifest, `tracker:` then `provider: <name>` | A Manifest edit, landed like any other |
+| 7 | Name it in the repository's Manifest, `tracker:` then `provider: <name>` | A Manifest edit, in the repository's `armada.yml` or in Kit's copy of it (`docs/concepts/kit.md`, *What a repository runs*) |
 
 **You are not done until a try has `passed` true.** Fleet uses the mod only
 while its last try of the file as it stands passed, so every edit after a try

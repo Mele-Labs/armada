@@ -17,9 +17,10 @@ import { entryOf, entryOfKind, foundBy, SYSTEM_ENTRIES, SYSTEM_GROUPS, type Syst
 import { useKitModels } from "./kit-models";
 import { openLink } from "./commands";
 import { openLinkPanel } from "./link-drop";
+import { askToCreateMod } from "./create-mod";
 import { askToOpenSession } from "./open-session";
 import { FileInline } from "./shared-panel/file";
-import { openAddressInPanel, openInPanel } from "./shared-panel/store";
+import { openAddressInPanel, openInPanel, openMod } from "./shared-panel/store";
 import { useSystemEntry } from "./system-entry";
 
 export type SystemSurfaceProps = KitSlice & {
@@ -144,14 +145,16 @@ export function SystemSurface({ repository, settings, modelChoices, live, guarde
         {...(guarded.onCopied === undefined ? {} : { onCopied: guarded.onCopied })}
         onOpenPull={openPull}
         onOpenJob={askToOpenSession}
+        onOpenMod={openMod}
+        onCreateMod={askToCreateMod}
         under={{
           theme: (
             <>
-              <ModList kind="theme" onOpenPull={openPull} onOpenJob={askToOpenSession} />
-              <ModList kind="tweak" title="Tweaks" />
+              <ModList kind="theme" onOpenPull={openPull} onOpenJob={askToOpenSession} onOpenMod={openMod} />
+              <ModList kind="tweak" title="Tweaks" onOpenMod={openMod} />
             </>
           ),
-          layout: <ModList kind="layout" onOpenPull={openPull} onOpenJob={askToOpenSession} />,
+          layout: <ModList kind="layout" onOpenPull={openPull} onOpenJob={askToOpenSession} onOpenMod={openMod} />,
         }}
       />
       {def.id === "bridge:guides" ? <div className="armada-system__catalogue">{guides}</div> : null}

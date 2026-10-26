@@ -4,6 +4,7 @@
 import { ModRow } from "@armada/components";
 
 import { useModsMade } from "../mods-made";
+import { openMod } from "../shared-panel/store";
 
 export function ModsMade({ id }: { id: string }) {
   const made = useModsMade(id);
@@ -11,7 +12,7 @@ export function ModsMade({ id }: { id: string }) {
   return (
     <div className="sv-mods">
       {made.mods.map((one) => (
-        <ModRow key={one.name} title={one.name} kind={one.kind} enabled={one.enabled} onEnabled={(on) => made.setEnabled(one.name, on)} />
+        <ModRow key={one.name} title={one.title} kind={one.kind} enabled={one.enabled} onEnabled={(on) => made.setEnabled(one.name, on)} onOpen={() => openMod({ name: one.name, title: one.title, kind: one.kind })} />
       ))}
     </div>
   );

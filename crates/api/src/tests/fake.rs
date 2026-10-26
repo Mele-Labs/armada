@@ -111,6 +111,8 @@ pub struct FakeDaemon {
     pub sessions_held: Mutex<Vec<ipc::SessionRecord>>,
     /// The state each `list_sessions` was asked for, in order.
     pub sessions_asked: Mutex<Vec<Option<ipc::SessionState>>>,
+    /// Every message `send_session_message_aiming` was handed, with the aim beside it, in order.
+    pub messages_aimed: Mutex<Vec<(ipc::SendSessionMessage, Option<ipc::ModAim>)>>,
 }
 
 impl FakeDaemon {
@@ -139,6 +141,7 @@ impl FakeDaemon {
             read_via: Mutex::new(Vec::new()),
             sessions_held: Mutex::new(Vec::new()),
             sessions_asked: Mutex::new(Vec::new()),
+            messages_aimed: Mutex::new(Vec::new()),
         }
     }
 

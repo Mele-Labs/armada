@@ -39,6 +39,16 @@ test("the switches start as the shipped format and the sample is its clock", asy
   expect(saved).not.toHaveBeenCalled();
 });
 
+test("the clock switch says 24H and 12H, and the other two say ON and OFF", async () => {
+  mount(<TimeSettings />);
+
+  await expect.element(page.getByRole("switch", { name: "24-hour clock" })).toBeChecked();
+  const track = (name: string) => [...document.querySelectorAll<HTMLElement>("label.armada-switch")].find((one) => one.textContent?.includes(name))?.querySelectorAll(".armada-switch__word");
+  expect([...(track("24-hour clock") ?? [])].map((one) => one.textContent)).toEqual(["24H", "12H"]);
+  expect([...(track("Seconds") ?? [])].map((one) => one.textContent)).toEqual(["ON", "OFF"]);
+  expect([...(track("Date") ?? [])].map((one) => one.textContent)).toEqual(["ON", "OFF"]);
+});
+
 test("turning 24-hour clock off keeps a 12-hour one and draws the sample with AM or PM", async () => {
   mount(<TimeSettings />);
 
