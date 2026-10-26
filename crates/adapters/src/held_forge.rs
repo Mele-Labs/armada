@@ -150,6 +150,14 @@ impl<F: Forge> Forge for GitVcs<F> {
         self.forge.pull_request_page(in_repo, pull_request)
     }
 
+    fn pull_request_page_said(
+        &self,
+        in_repo: &str,
+        pull_request: &str,
+    ) -> Result<adapter_traits::PullRequestPageFacts, Option<String>> {
+        self.forge.pull_request_page_said(in_repo, pull_request)
+    }
+
     fn pull_request_file_patch(
         &self,
         in_repo: &str,

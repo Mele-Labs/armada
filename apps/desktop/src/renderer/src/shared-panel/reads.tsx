@@ -71,8 +71,11 @@ export type CheckRead = {
 /** Every changed file's patch in the forge's order, or Fleet's words for why they were not read. */
 export type PatchesRead = { ok: true; files: PullRequestFilePatches["files"] } | { ok: false; said: string };
 
+/** The page was refused: Fleet's own words, with the forge's reason and what to do. */
+export type PullRequestRefused = { refused: string };
+
 export type PanelReads = {
-  pullRequest: (item: Of<"pr">) => Promise<PullRequestRead | undefined>;
+  pullRequest: (item: Of<"pr">) => Promise<PullRequestRead | PullRequestRefused | undefined>;
   /** Every file's patch, read once the first time the Files tab is shown. Absent leaves the Files tab a list. */
   pullRequestPatches?: (item: Of<"pr">) => Promise<PatchesRead>;
   /**
