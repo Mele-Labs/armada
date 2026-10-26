@@ -26,7 +26,7 @@ export type RunsSource = {
   draft: (repository: string) => Promise<RunDraft | undefined>;
   /** Starts a saved run on a checkout, and answers the id of the app that is starting, or none where Fleet refused. */
   start: (target: RunTarget, run: SavedRun) => Promise<string | undefined>;
-  /** The saved run an app was started from, as the confirm edits it: its id, its name, and its processes with the repository's setup. None where it is not known. */
+  /** The saved run an app was started from, as the running panel edits it: its id, its name, and its processes with the repository's setup. None where it is not known. */
   saved: (id: string) => Promise<{ run: string; name: string; draft: RunDraft } | undefined>;
   /** Saves a run under `name` where the repository keeps its runs, and its setup with it, then starts it, and answers as `start` does. `replacing` is the id of a saved run this one takes the place of. */
   save: (target: RunTarget, name: string, processes: readonly RunProcessSpec[], setup: readonly RunSetupSpec[], replacing?: string) => Promise<string | undefined>;

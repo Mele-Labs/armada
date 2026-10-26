@@ -79,7 +79,7 @@ export function appOf(run: AppRun, repository: string, logs: ReadonlyMap<string,
 /** Fleet's place for a repository's Kit, in the words Kit's place picker uses. */
 const SAVED_IN: Readonly<Record<string, RunDraft["savedIn"]>> = { repository: "armada.yml", this_mac: "this Mac", synced: "a synced folder", cloud: "cloud storage" };
 
-/** A draft as the confirm edits it. A process is known by its proposed name, which is how its `port_env` goes back with it. */
+/** A draft as the running panel edits it. A process is known by its proposed name, which is how its `port_env` goes back with it. */
 export function draftOf(processes: readonly AppRunDraftProcess[], root: string, place: string, links?: readonly AppRunLink[]): RunDraft {
   return {
     root: root.replace(/^\/Users\/[^/]+/, "~"),
@@ -289,7 +289,7 @@ export function createFleetRuns(fleet: FleetRuns, tell: (outcome: Outcome) => vo
       if (!answer.ok) return void tell(answer.outcome);
       const saved = answer.value.run;
       fold(saved);
-      // A pin made in the confirm is Fleet's to write once the run exists, and then the run starts again on it.
+      // A pin made while the run is edited is Fleet's to write once the run exists, and then the run starts again on it.
       void (async () => {
         let any = false;
         for (const spec of processes) {

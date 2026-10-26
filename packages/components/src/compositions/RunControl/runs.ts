@@ -4,7 +4,7 @@
 /** A browser run is opened at an address; a desktop app run opens a window of its own and has no address. */
 export type RunKind = "browser" | "app";
 
-/** One process of a run, as it is saved and as the confirm edits it. `folder` is a path from the repository's root, `.` at the root. */
+/** One process of a run, as it is saved and as the running panel edits it. `folder` is a path from the repository's root, `.` at the root. */
 export type RunProcessSpec = {
   id: string;
   name: string;
