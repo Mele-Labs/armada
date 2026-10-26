@@ -602,6 +602,7 @@ Each entry has a name and these fields:
 | the name | What `${port.NAME}` resolves, and what an assignment keys to |
 | `container` | The container-side port — the join key Armada matches on |
 | `env` | The variable name the repo's own stack already expects |
+| `fixed` | A number to start the server on every time, from 1024 to 65535, instead of a leased one |
 
 `container` is what Armada matches on when it rewrites a compose document, so it knows which published port is which.
 
@@ -609,6 +610,10 @@ Each entry has a name and these fields:
 
 `ARMADA_PORT_<name>` is emitted alongside regardless, so a name with no `env` still gets a variable and anything generic has one guaranteed form.
 Requiring `env` would be a coupling the repo has to accept in the one channel whose whole purpose is working with a repo untouched.
+
+**`fixed` is for a program that hardcodes where a sibling listens.** A frontend whose dev proxy points at `127.0.0.1:8731` breaks when the backend is on a leased port, and pinning the backend's port to 8731 mends it without touching the frontend.
+A pinned server takes exactly that number, so a second checkout starting it refuses, naming the number and what holds it, rather than moving to another.
+Bridge writes it into Kit's copy, never the repository's file, and unpinning removes the key.
 
 **Colliding `env` names across a repository's Manifests are rejected at claim time.** Not at config load, and not scoped to a root: two independent roots can live in one repo, and a root-scoped check never compares them.
 The same check already exists for Manifest ids that mangle to one environment token.

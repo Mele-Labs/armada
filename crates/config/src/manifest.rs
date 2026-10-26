@@ -143,7 +143,7 @@ const ONE_TEST_KEYS: &[&str] = &["run"];
 /// The keys M1 reads inside `commands.<name>`.
 const COMMAND_KEYS: &[&str] = &["run", "destructive", "serve", "ready", "links", "dir"];
 /// The keys M1 reads inside `ports.<name>`.
-const PORT_KEYS: &[&str] = &["container", "env"];
+const PORT_KEYS: &[&str] = &["container", "env", "fixed"];
 /// The keys M1 reads inside `setup`.
 pub(super) const SETUP_KEYS: &[&str] = &[
     "requires",
@@ -1044,6 +1044,21 @@ fn covers(at: &str, value: &Value, out: &mut Vec<Refusal>) -> Result<Option<Cove
     }
 }
 
+/// A port a person pinned a process to: one Fleet could hand out, so not below 1024.
+fn fixed_port(at: &str, value: &Value, out: &mut Vec<Refusal>) -> Option<u16> {
+    let number = yaml::positive(at, value, out)?;
+    match u16::try_from(number).ok().filter(|port| *port >= 1024) {
+        Some(port) => Some(port),
+        None => {
+            out.push(Refusal::new(
+                at,
+                Fault::WrongType { wanted: "a port from 1024 to 65535", found: "a number outside that range" },
+            ));
+            None
+        }
+    }
+}
+
 fn port_entry(
     at: &str,
     value: &Value,
@@ -1057,6 +1072,7 @@ fn port_entry(
     let env = table
         .optional("env")
         .and_then(|value| yaml::text(&table.at("env"), value, out));
+    let fixed = table.optional("fixed").and_then(|value| fixed_port(&table.at("fixed"), value, out));
     table.close(known, out);
-    Some(Port { container, env })
+    Some(Port { container, env, fixed })
 }

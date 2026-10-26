@@ -114,6 +114,8 @@ pub enum PortEdit {
     Remove,
     Container(Option<u32>),
     Env(Option<String>),
+    /// The number a person pinned it to. `None` gives it back to leasing.
+    Fixed(Option<u16>),
 }
 
 /// An edit to `evidence:`.
@@ -395,6 +397,10 @@ fn port(doc: &Value, name: &str, edit: &PortEdit) -> Result<Vec<Op>, NotAmended>
         PortEdit::Env(env) => {
             declared(doc, "ports", name, true)?;
             vec![port_key(doc, name, "env", env.as_deref().map(text))]
+        }
+        PortEdit::Fixed(fixed) => {
+            declared(doc, "ports", name, true)?;
+            vec![port_key(doc, name, "fixed", fixed.map(|port| number(u32::from(port))))]
         }
     })
 }

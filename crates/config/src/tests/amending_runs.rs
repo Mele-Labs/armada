@@ -127,3 +127,23 @@ fn a_copy_that_names_only_what_it_changes_takes_a_run_by_splice_with_its_comment
     assert_eq!(manifest.app_run("app").map(|run| run.servers().len()), Some(2));
     assert_eq!(manifest.check("test").map(|check| check.run().to_string()).as_deref(), Some("make quick"));
 }
+
+#[test]
+fn a_port_pinned_to_a_number_reads_back_as_fixed_and_unpinning_gives_it_back_byte_for_byte() {
+    let before = amend(at(), "version: 1\nid: budget-app\n", &app()).expect("they apply");
+    let pin = |fixed| Edit::Port { name: "api".to_string(), edit: PortEdit::Fixed(fixed) };
+    let pinned = amend(at(), before.text(), &[pin(Some(8731))]).expect("pinned");
+    assert_eq!(pinned.manifest().port("api").and_then(|port| port.fixed()), Some(8731));
+    assert_eq!(pinned.manifest().port("web").and_then(|port| port.fixed()), None);
+    let given_back = amend(at(), pinned.text(), &[pin(None)]).expect("unpinned");
+    assert_eq!(given_back.text(), before.text());
+}
+
+#[test]
+fn a_fixed_port_below_1024_or_past_65535_does_not_load() {
+    for bad in ["80", "70000"] {
+        let text = format!("version: 1\nid: budget-app\nports:\n  api:\n    fixed: {bad}\n");
+        let why = crate::Manifest::parse(at(), &text).expect_err("refused").to_string();
+        assert!(why.contains("ports.api.fixed") && why.contains("1024"), "{why}");
+    }
+}
