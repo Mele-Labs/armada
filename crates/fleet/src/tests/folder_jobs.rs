@@ -126,6 +126,7 @@ async fn a_job_on_a_repository_with_no_manifest_leases_a_slot_at_its_first_write
             request: None,
             after: None,
             held: false,
+            project_rows: Vec::new(),
         })
         .await
         .expect("started")

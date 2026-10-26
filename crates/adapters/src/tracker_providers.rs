@@ -12,7 +12,7 @@
 use std::sync::Arc;
 
 use adapter_traits::{
-    Backlog, IssueAddress, LinkLookup, LookupCall, NotTracked, OpenIssue, QueryGuide, ReadIssue, Tracker,
+    Backlog, IssueAddress, LinkLookup, LookupCall, NotTracked, OpenIssue, QueryGuide, ReadIssue, Tool, ToolInstalled, Tracker,
     TrackerChoice, Trackers,
 };
 
@@ -21,7 +21,7 @@ use crate::beads_tracker::{self, BeadsTracker};
 use crate::jira::{self, JiraSettings};
 use crate::taught_tracker::{Taught, TaughtTrackers};
 use crate::jira_lookup::JiraLookup;
-use crate::jira_tracker::JiraTracker;
+use crate::jira_tracker::{JiraTracker, Process};
 use crate::api_forge::{ApiLinkLookup, ApiTracker};
 use crate::{ApiForge, IssueLookup, IssueTracker};
 
@@ -84,6 +84,10 @@ impl Trackers for TrackersByProvider {
 
     fn backlog(&self, choice: &TrackerChoice) -> Option<Arc<dyn Backlog + Send + Sync>> {
         backlog_over(choice)
+    }
+
+    fn install(&self, tool: Tool) -> ToolInstalled {
+        crate::tool_install::installed(&Process, tool)
     }
 }
 

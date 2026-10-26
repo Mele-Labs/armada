@@ -19,6 +19,7 @@ mod hosted_sessions;
 mod issues;
 mod logbook;
 mod mods;
+mod projects;
 mod settings;
 mod shared_home;
 mod pull_requests;

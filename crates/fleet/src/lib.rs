@@ -204,6 +204,9 @@ mod review_runs;
 mod review_searches;
 /// Saved issue queries and the query writer. `docs/concepts/tracker.md`, *Saved queries*.
 mod issue_queries;
+/// A repository's projects: tasks a person wrote and issues he linked, kept on this Mac.
+mod projects;
+mod project_holds;
 /// The review tools and explanations a repository has, and writing one.
 mod review_tools;
 /// A Walk run: where the change runs, and the walk played there. `docs/concepts/pull-review.md`, *Walk*.

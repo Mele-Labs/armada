@@ -49,6 +49,7 @@ mod plan_beads;
 mod adversarial_reviews;
 mod fleet_calls;
 mod issue_queries;
+mod projects;
 mod settings_file;
 mod studio;
 mod studio_authors;
