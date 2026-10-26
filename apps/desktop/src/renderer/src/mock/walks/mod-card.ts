@@ -1,6 +1,6 @@
 // A mod a Mod Job made is drawn in its thread as the card System draws, and only its switch toggles it: the rest of the row opens the mod
 // in the side panel, with Change it, which starts an empty Mod Job aimed at what the mod is. Over the `mod-job` scenario.
-// The switch is the slide toggle with cut corners; `?switch=rail` draws its track as a rail.
+// The switch is a recessed pill with ON and OFF in it; `?switch=chevrons` and `?switch=lamp` are the other takes.
 
 import { button, dialog, inside, region, role, systemPage, text, place, viaPalette, walk } from "../walk";
 
