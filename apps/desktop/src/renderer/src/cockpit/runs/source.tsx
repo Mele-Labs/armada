@@ -2,7 +2,7 @@
 // the mock's is `mock/runs.ts`. A window handed neither draws no run control.
 
 import { createContext, useContext, useSyncExternalStore, type ReactNode } from "react";
-import type { RunCheckout, RunDraft, RunningApp, RunProcessSpec, SavedRun } from "@armada/components";
+import type { RunCheckout, RunDraft, RunningApp, RunProcessSpec, RunSetupSpec, SavedRun } from "@armada/components";
 
 /** The checkout a run is asked for: a repository by its root, and main or the bay of the Job `job` names. */
 export type RunTarget = { repository: string; checkout: RunCheckout; job?: string };
@@ -26,8 +26,8 @@ export type RunsSource = {
   draft: (repository: string) => Promise<RunDraft | undefined>;
   /** Starts a saved run on a checkout, and answers the id of the app that is starting, or none where Fleet refused. */
   start: (target: RunTarget, run: SavedRun) => Promise<string | undefined>;
-  /** Saves a run under `name` where the repository keeps its runs, then starts it, and answers as `start` does. */
-  save: (target: RunTarget, name: string, processes: readonly RunProcessSpec[]) => Promise<string | undefined>;
+  /** Saves a run under `name` where the repository keeps its runs, and its setup with it, then starts it, and answers as `start` does. */
+  save: (target: RunTarget, name: string, processes: readonly RunProcessSpec[], setup: readonly RunSetupSpec[]) => Promise<string | undefined>;
   /** Pins a process's port to `port` in this repository, or releases the pin where `port` is absent. The run starts again, so the new port is the one it is on. */
   pin: (id: string, process: string, port: number | undefined) => void;
   restart: (id: string) => void;

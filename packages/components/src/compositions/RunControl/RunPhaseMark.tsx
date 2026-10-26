@@ -1,4 +1,4 @@
-import { AppWindowMac, Check, LoaderCircle, Power, X } from "lucide-react";
+import { AppWindowMac, Check, CircleDashed, LoaderCircle, Package, Power, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
@@ -6,12 +6,15 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { PHASE_SAID } from "./runs";
 import type { RunPhase } from "./runs";
 
-const GLYPH: Record<RunPhase, LucideIcon> = { starting: LoaderCircle, ready: Check, exited: Power, failed: X };
+const GLYPH: Record<RunPhase, LucideIcon> = { "setting-up": Package, waiting: CircleDashed, starting: LoaderCircle, ready: Check, exited: Power, failed: X };
 
-/** A run's state as one registry glyph with its name in a tooltip. `said` leads the tooltip where the glyph stands apart from a name, as on a repository's row. */
-export function RunPhaseMark({ phase, said, size = 12 }: { phase: RunPhase; said?: string; size?: 12 | 16 }) {
+/**
+ * A run's state as one registry glyph with its name in a tooltip. `said` leads the tooltip where the glyph stands apart from a name, as on a repository's row.
+ * `names` says the phases in other words, as a setup Command's are.
+ */
+export function RunPhaseMark({ phase, said, size = 12, names = PHASE_SAID }: { phase: RunPhase; said?: string; size?: 12 | 16; names?: Readonly<Record<RunPhase, string>> }) {
   const Glyph = GLYPH[phase];
-  const label = said === undefined ? PHASE_SAID[phase] : `${said}, ${PHASE_SAID[phase].toLowerCase()}`;
+  const label = said === undefined ? names[phase] : `${said}, ${names[phase].toLowerCase()}`;
   return (
     <Tooltip label={label}>
       <span className="armada-run-mark" data-phase={phase} role="img" aria-label={label}>

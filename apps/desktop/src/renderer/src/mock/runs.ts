@@ -2,7 +2,7 @@
 // passes, writing a few lines each. No Fleet is behind it, so a started process is only this module's timers.
 
 import { listens } from "@armada/components";
-import type { RunDraft, RunLink, RunProcess, RunProcessSpec, SavedRun } from "@armada/components";
+import type { RunDraft, RunLink, RunProcess, RunProcessSpec, RunSetupSpec, SavedRun } from "@armada/components";
 
 import type { RunsApp, RunsSource, RunsState, RunTarget, SavedRuns } from "../cockpit/runs/source";
 
@@ -10,7 +10,13 @@ import type { RunsApp, RunsSource, RunsState, RunTarget, SavedRuns } from "../co
 export type RunsSeed = {
   saved: Readonly<Record<string, SavedRuns>>;
   drafts: Readonly<Record<string, RunDraft>>;
+  /** A setup Command, by id, that fails the first time it runs, as a network that drops does. Restart runs it again. */
+  failsOnce?: string;
 };
+
+/** How long a setup Command takes from the press, and the beat between the lines it writes. */
+const SETUP_MS = 2000;
+const SETUP_LINE_MS = 380;
 
 /** When each process of a run comes up, counted from the press: the first, then a step later for each after it. */
 const FIRST_READY_MS = 900;
@@ -53,6 +59,20 @@ function upLines(spec: RunProcessSpec, port: number | undefined): readonly strin
   return port === undefined ? ["Started"] : [`Listening on http://localhost:${port}`];
 }
 
+/** What a setup Command writes, by what it runs, and the code it exits with. Quoted text of a program, never prose of ours. */
+function setupLines(spec: RunSetupSpec, failing: boolean): { lines: readonly string[]; code: number } {
+  const head = `${spec.folder === "." ? "" : `${spec.folder}/`}$ ${spec.command}`;
+  if (spec.command.startsWith("npm ci") && failing)
+    return { lines: [head, "npm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory.", "npm error code ECONNRESET", "npm error network aborted", "npm error A complete log of this run can be found in: ~/.npm/_logs/2026-10-26T09_14_02_118Z-debug-0.log"], code: 1 };
+  if (spec.command.startsWith("npm ci")) return { lines: [head, "npm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory.", "added 412 packages, and audited 413 packages in 6s", "118 packages are looking for funding", "  run `npm fund` for details", "found 0 vulnerabilities"], code: 0 };
+  if (spec.command.includes("venv"))
+    return {
+      lines: [head, "Collecting fastapi==0.115.0 (from -r requirements.txt (line 1))", "Collecting uvicorn==0.30.6 (from -r requirements.txt (line 2))", "Collecting httpx==0.27.2 (from -r requirements.txt (line 3))", "Installing collected packages: sniffio, idna, h11, click, anyio, uvicorn, starlette, httpx, fastapi", "Successfully installed anyio-4.6.0 click-8.1.7 fastapi-0.115.0 h11-0.14.0 httpx-0.27.2 idna-3.10 sniffio-1.3.1 starlette-0.38.6 uvicorn-0.30.6"],
+      code: failing ? 1 : 0,
+    };
+  return { lines: [head], code: failing ? 1 : 0 };
+}
+
 export function createMockRuns(seed: RunsSeed): RunsSource {
   let state: RunsState = { saved: seed.saved, apps: [] };
   const listeners = new Set<() => void>();
@@ -62,6 +82,10 @@ export function createMockRuns(seed: RunsSeed): RunsSource {
   /** The saved run an app was started from, and the links it can be refused on, by app id. */
   const ranFrom = new Map<string, string>();
   const expected = new Map<string, readonly RunLink[]>();
+  /** Each repository's setup as it was saved, and the checkouts it has finished on, by `repository:checkout`. */
+  const setups = new Map<string, readonly RunSetupSpec[]>(Object.entries(seed.drafts).flatMap(([root, draft]) => (draft.setup === undefined ? [] : [[root, draft.setup] as const])));
+  const setUp = new Set<string>();
+  let failedOnce = false;
   let count = 0;
 
   const set = (next: RunsState) => {
@@ -106,6 +130,47 @@ export function createMockRuns(seed: RunsSeed): RunsSource {
     );
   }
 
+  const checkoutKey = (app: { repository: string; checkout: RunTarget["checkout"] }) => `${app.repository}:${app.checkout.kind === "main" ? "main" : app.checkout.bay}`;
+
+  /** Runs the setup Commands one after another, writing their lines to setup's log; the processes start when the last ends, and none do after one fails. */
+  function setUpThen(id: string, kind: "browser" | "app", of: readonly RunProcessSpec[]) {
+    const app = state.apps.find((one) => one.id === id);
+    const steps = app?.setup?.steps ?? [];
+    const step = (n: number, edit: (one: (typeof steps)[number]) => (typeof steps)[number]) =>
+      change(id, (one) => (one.setup === undefined ? one : { ...one, setup: { ...one.setup, steps: one.setup.steps.map((s, at) => (at === n ? edit(s) : s)) } }));
+    const write = (line: string) => change(id, (one) => (one.setup === undefined ? one : { ...one, setup: { ...one.setup, log: [...one.setup.log, line] } }));
+    let at = 0;
+    for (const [n, spec] of steps.entries()) {
+      const failing = !failedOnce && seed.failsOnce === spec.id;
+      const { lines, code } = setupLines(spec, failing);
+      const begins = at;
+      later(id, begins, () => step(n, (one) => ({ ...one, phase: "setting-up" })));
+      lines.forEach((line, k) => later(id, begins + k * SETUP_LINE_MS, () => write(line)));
+      at += Math.max(SETUP_MS, lines.length * SETUP_LINE_MS);
+      if (code !== 0) {
+        later(id, at, () => {
+          failedOnce = true;
+          step(n, (one) => ({ ...one, phase: "failed", code }));
+          // The Commands after it and the processes never ran, and the run is over.
+          change(id, (one) => ({
+            ...one,
+            ...(one.setup === undefined ? {} : { setup: { ...one.setup, steps: one.setup.steps.map((s, k) => (k > n ? { ...s, phase: "exited" as const } : s)) } }),
+            processes: one.processes.map((p) => ({ ...p, phase: "exited" as const })),
+          }));
+        });
+        return;
+      }
+      later(id, at, () => step(n, (one) => ({ ...one, phase: "ready" })));
+    }
+    later(id, at, () => {
+      const held = state.apps.find((one) => one.id === id);
+      if (held !== undefined) setUp.add(checkoutKey(held));
+      const ports = leased.get(id);
+      change(id, (one) => ({ ...one, processes: one.processes.map((p) => ({ ...p, phase: "starting" as const, log: [...p.log, ...startLines(of.find((spec) => spec.id === p.id)!, ports?.get(p.id))] })) }));
+      bringUp(id, kind, of);
+    });
+  }
+
   function launch(target: RunTarget, run: SavedRun, expects: readonly RunLink[] = run.links ?? []): string {
     const before = state.apps.find((one) => one.repository === target.repository && one.job === target.job);
     if (before !== undefined) clear(before.id);
@@ -116,6 +181,8 @@ export function createMockRuns(seed: RunsSeed): RunsSource {
     leased.set(id, ports);
     ranFrom.set(id, run.id);
     expected.set(id, expects);
+    const setup = setups.get(target.repository) ?? [];
+    const needs = setup.length > 0 && !setUp.has(checkoutKey(target));
     const app: RunsApp = {
       id,
       run: run.name,
@@ -123,10 +190,11 @@ export function createMockRuns(seed: RunsSeed): RunsSource {
       repository: target.repository,
       ...(target.job === undefined ? {} : { job: target.job }),
       checkout: target.checkout,
+      ...(needs ? { setup: { steps: setup.map((spec) => ({ ...spec, phase: "waiting" as const })), log: [] } } : {}),
       links: (run.links ?? []).filter((link) => unmet(link, run.processes)),
       processes: run.processes.map((spec) => {
         const port = ports.get(spec.id);
-        return { id: spec.id, name: spec.name, ...(port === undefined ? {} : { port }), ...(spec.pin === undefined ? {} : { pinned: true }), phase: "starting" as const, log: startLines(spec, port) };
+        return { id: spec.id, name: spec.name, ...(port === undefined ? {} : { port }), ...(spec.pin === undefined ? {} : { pinned: true }), phase: needs ? ("waiting" as const) : ("starting" as const), log: needs ? [] : startLines(spec, port) };
       }),
     };
     const saved = state.saved[target.repository];
@@ -134,7 +202,8 @@ export function createMockRuns(seed: RunsSeed): RunsSource {
       saved: { ...state.saved, [target.repository]: { runs: saved?.runs ?? [run], last: run.id } },
       apps: [...state.apps.filter((one) => one !== before), app],
     });
-    bringUp(id, run.kind, run.processes);
+    if (needs) setUpThen(id, run.kind, run.processes);
+    else bringUp(id, run.kind, run.processes);
     return id;
   }
 
@@ -143,11 +212,12 @@ export function createMockRuns(seed: RunsSeed): RunsSource {
     get: () => state,
     draft: async (repository) => seed.drafts[repository] ?? { root: repository.replace(/^\/Users\/[^/]+/, "~"), processes: [], savedIn: "this Mac" },
     start: async (target, run) => launch(target, run),
-    save: async (target, name, processes) => {
+    save: async (target, name, processes, setup) => {
       count += 1;
       const run: SavedRun = { id: `saved-${count}`, name, kind: processes.some(listens) ? "browser" : "app", processes };
       const held = state.saved[target.repository];
       set({ ...state, saved: { ...state.saved, [target.repository]: { runs: [...(held?.runs ?? []), run], last: run.id } } });
+      setups.set(target.repository, setup);
       const ids = new Set(processes.map((one) => one.id));
       const drafted = (seed.drafts[target.repository]?.links ?? []).filter((link) => ids.has(link.from) && ids.has(link.to));
       return launch(target, run, drafted);
@@ -184,12 +254,26 @@ export function createMockRuns(seed: RunsSeed): RunsSource {
       const app = state.apps.find((one) => one.id === id);
       if (of === undefined || app === undefined) return;
       clear(id);
+      // A checkout setup has not finished on sets up again, its Commands from the first, before the processes.
+      if (app.setup !== undefined && !setUp.has(checkoutKey(app))) {
+        change(id, (one) => ({
+          ...one,
+          setup: { steps: one.setup!.steps.map(({ code: _code, ...step }) => ({ ...step, phase: "waiting" as const })), log: [...one.setup!.log, "restarting"] },
+          processes: one.processes.map((p) => ({ ...p, phase: "waiting" as const })),
+        }));
+        setUpThen(id, app.kind, of);
+        return;
+      }
       change(id, (one) => ({ ...one, processes: one.processes.map((p) => ({ ...p, phase: "starting" as const, log: [...p.log, "restarting"] })) }));
       bringUp(id, app.kind, of);
     },
     stop: (id) => {
       clear(id);
-      change(id, (one) => ({ ...one, processes: one.processes.map((p) => (p.phase === "exited" ? p : { ...p, phase: "exited" as const, log: [...p.log, "stopped"] })) }));
+      change(id, (one) => ({
+        ...one,
+        ...(one.setup === undefined ? {} : { setup: { ...one.setup, steps: one.setup.steps.map((step) => (step.phase === "setting-up" || step.phase === "waiting" ? { ...step, phase: "exited" as const } : step)) } }),
+        processes: one.processes.map((p) => (p.phase === "exited" ? p : { ...p, phase: "exited" as const, log: [...p.log, "stopped"] })),
+      }));
     },
     // A Job's title comes with its target, and every log is written here as it goes.
     seen: () => () => undefined,

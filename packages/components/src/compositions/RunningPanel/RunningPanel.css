@@ -58,3 +58,30 @@
   background: var(--bg-sunken);
 }
 .armada-running__well:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+
+/* Setup and Processes head their lists only where the checkout needed setup; a run with processes alone reads as before. */
+.armada-running__caption {
+  flex: none;
+  margin: 0 0 calc(var(--space-2) * -1);
+  padding: 0 var(--space-2);
+  color: var(--fg-subtle);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-weight: inherit;
+  letter-spacing: var(--tracking-caps);
+  line-height: var(--leading-2xs);
+  text-transform: uppercase;
+}
+
+/* A failed setup Command under the setup rows, from the name column: the Command and its exit, with Restart on the right. */
+.armada-running__failed {
+  display: grid;
+  flex: none;
+  grid-template-columns: var(--space-4) minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: var(--space-3);
+  padding: 0 var(--space-2);
+}
+.armada-running__failed-fact { grid-column: 2; min-width: 0; margin: 0; color: var(--fg-muted); font-size: var(--text-xs); line-height: var(--leading-xs); }
+.armada-running__failed-fact code { font-family: var(--font-mono); color: var(--fg-default); }
+.armada-running__failed-name { color: var(--fg-default); font-weight: var(--weight-heading); }

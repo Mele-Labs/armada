@@ -59,6 +59,21 @@
   gap: var(--space-2);
 }
 
+/* Setup and Processes head their lists only where the repository has setup; a run with processes alone reads as before. */
+.armada-run-confirm__caption {
+  margin: 0;
+  color: var(--fg-subtle);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-weight: inherit;
+  letter-spacing: var(--tracking-caps);
+  line-height: var(--leading-2xs);
+  text-transform: uppercase;
+}
+.armada-run-confirm__caption + .armada-run-confirm__rows { margin-top: calc(var(--space-2) * -1); }
+
+.armada-run-confirm__adds { display: inline-flex; gap: var(--space-2); }
+
 .armada-run-confirm__foot {
   display: flex;
   align-items: center;

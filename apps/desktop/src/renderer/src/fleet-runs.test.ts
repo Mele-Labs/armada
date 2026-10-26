@@ -203,7 +203,7 @@ describe("the acts, as Fleet takes them", () => {
     await settled();
     const draft = (await source.draft(ROOT))!;
     const [api, web] = draft.processes;
-    const id = await source.save({ repository: ROOT, checkout: { kind: "main", branch: "main" } }, "Storybook", [{ ...api!, pin: 8731 }, web!]);
+    const id = await source.save({ repository: ROOT, checkout: { kind: "main", branch: "main" } }, "Storybook", [{ ...api!, pin: 8731 }, web!], []);
     await settled();
     expect(id).toBe("m-shop:main:storybook");
     expect(asked.slice(-3)).toEqual([

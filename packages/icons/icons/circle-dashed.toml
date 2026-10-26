@@ -49,3 +49,10 @@
   size = "16px"
   status = "Proposed"
   notes = "Tooltip `Not tried`, in the dormant hue. Proposed 23 Oct 2026 for the walk `mods-trackers`, for the owner to rule on. The stroke broken at rest, as for anything not started."
+
+[[icons.circle-dashed.usage]]
+  means = "A run's process held until setup ends, and a setup Command not yet reached, on their rows of the running panel"
+  group = "Run"
+  size = "12px"
+  status = "Proposed"
+  notes = "Proposed 26 Oct 2026 for the walk `run-setup`, tooltips `Waiting for setup` and `Waiting`. The stroke broken at rest, as for anything not started."

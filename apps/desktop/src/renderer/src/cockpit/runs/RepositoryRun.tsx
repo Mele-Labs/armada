@@ -16,7 +16,7 @@ export function RepositoryRun({ root, label }: { root: string; label: string }) 
   const target: RunTarget = { repository: root, checkout: { kind: "main", branch: "main" } };
   return (
     <span className="deck-list__run">
-      <span className="deck-list__run-state">{app === undefined ? null : <RunPhaseButton phase={appPhase(app.processes)} said={app.run} onPress={() => openRun(app.id)} />}</span>
+      <span className="deck-list__run-state">{app === undefined ? null : <RunPhaseButton phase={appPhase(app.processes, app.setup)} said={app.run} onPress={() => openRun(app.id)} />}</span>
       <RunControl subject={label} on="main" runs={saved?.runs ?? []} last={saved?.last} onRun={(run) => pressRun(source, target, label, run)} onAdd={() => pressAddRun(target, label)} />
     </span>
   );

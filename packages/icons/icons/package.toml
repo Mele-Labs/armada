@@ -19,3 +19,10 @@
     size = "16px"
     status = "Proposed"
     notes = "Proposed 23 Oct 2026 for the walk `mods-travel`. The same carried thing as a workflow Armada ships, tooltip `Ships with Armada`, in the column Promote holds on a mod of the mod folder, since a mod Armada ships is never promoted."
+
+  [[icons.package.usage]]
+    means = "A run setting up: a setup Command under way on its row of the running panel, and the run's mark on its pane, a repository's heading and a Job's header while setup runs"
+    group = "Run"
+    size = "12 and 16px"
+    status = "Proposed"
+    notes = "Proposed 26 Oct 2026 for the walk `run-setup`, tooltip `Setting up`. What setup does is bring a checkout's packages in, `npm ci` or a `.venv`, so the box is what is being made. Drawn still, in the serving hue: the open ring turning is the processes starting after it."

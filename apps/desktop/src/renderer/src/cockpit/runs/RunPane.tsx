@@ -25,8 +25,8 @@ export function RunPane({ id, props }: { id: string; props: CockpitProps }) {
   const served = repositories.find((one) => one.root === app.repository);
   // A first run is named after its repository, so the head says it once.
   const where = served === undefined ? undefined : repositoryLabel(served, repositories);
-  const phase = appPhase(app.processes);
-  const live = phase === "starting" || phase === "ready";
+  const phase = appPhase(app.processes, app.setup);
+  const live = phase === "setting-up" || phase === "starting" || phase === "ready";
   const address = app.kind === "browser" ? app.processes.find((one) => one.phase === "ready" && one.url !== undefined)?.url : undefined;
   return (
     <section
@@ -51,6 +51,7 @@ export function RunPane({ id, props }: { id: string; props: CockpitProps }) {
         onFix={(brief) => (dispatching?.choose("session"), dispatching?.openSheet(brief, app.repository))}
         onPin={(link) => source.pin(app.id, link.to, link.port)}
         onUnpin={(process) => source.pin(app.id, process, undefined)}
+        onRestart={() => source.restart(app.id)}
       />
     </section>
   );

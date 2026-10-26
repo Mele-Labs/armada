@@ -74,9 +74,9 @@ export function RunHost({ ship, props }: { ship: Ship; props: CockpitProps }) {
         dispatching?.choose("session");
         dispatching?.openSheet(brief, asked.target.repository);
       }}
-      onSave={(processes, name) => {
+      onSave={(processes, name, setup) => {
         dismissAsked();
-        void source.save(asked.target, asked.add ? name : asked.label, processes).then((id) => {
+        void source.save(asked.target, asked.add ? name : asked.label, processes, setup).then((id) => {
           if (id !== undefined) openRun(id);
         });
       }}

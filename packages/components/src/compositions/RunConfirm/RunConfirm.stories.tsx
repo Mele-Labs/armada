@@ -85,6 +85,7 @@ export const SaveAndRun: Story = {
         { id: "frontend", name: "frontend", folder: "web", command: "pnpm dev" },
       ],
       "",
+      [],
     );
   },
 };
@@ -103,6 +104,7 @@ export const EnterSaves: Story = {
         { id: "frontend", name: "frontend", folder: "frontend", command: "npx vite --port ${port} --strictPort" },
       ],
       "",
+      [],
     );
     await expect(given.onCancel).not.toHaveBeenCalled();
 
@@ -146,6 +148,7 @@ export const AddAndRemove: Story = {
         expect.objectContaining({ name: "worker", folder: ".", command: "node worker.js" }),
       ],
       "",
+      [],
     );
   },
 };
