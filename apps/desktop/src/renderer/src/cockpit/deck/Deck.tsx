@@ -950,7 +950,7 @@ function AutopilotPanel({ props, autopilot }: { props: CockpitProps; autopilot: 
     <section className="deck-panel deck-autopilot" aria-label="Autopilot" tabIndex={-1}>
       <Standby kind="autopilot" />
       <header className="deck-band">
-        <Switch checked={open || state !== "off"} onChange={flip} disabled={control === undefined}>
+        <Switch size="sm" checked={open || state !== "off"} onChange={flip} disabled={control === undefined}>
           Autopilot
         </Switch>
         <PanelKey id="autopilot" />

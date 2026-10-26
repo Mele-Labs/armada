@@ -328,7 +328,7 @@ pub use holding::{
 pub use hosted_sessions::{
     AnswerSessionAsk, BeginSession, ChosenHold, CloseSession, ForkFrom, GateAnswer, GateHold, HeldCommand,
     HoldKept, HoldMoved, HostedFacts, LinkedEvent, MessagesHeld, MoveSession,
-    ReleaseSessionHolds, RunSessionCommand, SendSessionMessage, SentFile, SessionAskState,
+    ReleaseSessionHolds, RunSessionCommand, SendSessionMessage, SendSessionMessageBody, SentFile, SessionAskState,
     SessionGate, SessionHoldsReleased, SessionMode, SessionRow, SessionRowChanged, SessionTag,
     SetSessionWorkflow, SessionSubagent, SessionThread, SessionTurn, SessionUpload,
     SessionVoice, SessionVoiceNamed, StartSession, StopSession, RetryHandoff, PauseSession, ResumeSession, SessionPaused, SetSessionAutoLand, TagKind, TakeHeld, TerminalAsk,
@@ -398,7 +398,7 @@ pub use merge_line::{
     MergeLineCheck, MergeLineEntry, MergeLinePullRequest, MergeLines,
 };
 pub use mods::{
-    ModChecked, ModKind, ModList, ModOrigin, ModPromoted, ModPullRequest, ModScaffolded, ModSessionStarted, ModSummary,
+    ModAim, ModChecked, ModKind, ModList, ModOrigin, ModPromoted, ModPullRequest, ModScaffolded, ModSessionStarted, ModSummary,
     PromoteMod, ScaffoldMod, SetModEnabled, StartModSession, TrackerTry, TryTrackerMod,
 };
 pub use clashes::{
