@@ -234,6 +234,7 @@ export function attachmentsOfRecord(record: Pick<SessionRecord, "attachments">, 
           address: detail["address"] ?? "",
           state: detail["state"] === "closed" ? "closed" : "open",
           ...(pulls.length === 0 ? {} : { pull_requests: pulls }),
+          ...(detail["claimed"] === "true" ? { claimed: true as const } : {}),
         });
         break;
       }
