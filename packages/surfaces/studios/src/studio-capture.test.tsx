@@ -70,7 +70,8 @@ test("a Studio open, a press on another surface, and the note lands on it", asyn
   // the markup are what the layer does not record and a Note does.
   const capture = note.capture;
   expect(capture?.selector).toMatch(/button/);
-  expect(capture?.markup).toMatch(/System/);
+  // The Places are glyphs, their names in tooltips, so the markup is the tab's glyph.
+  expect(capture?.markup).toMatch(/<svg/);
   expect(capture?.styles?.["font-size"]).toBeDefined();
   expect(capture?.screen).toBe("Cockpit");
   expect(capture?.source).toBeUndefined();

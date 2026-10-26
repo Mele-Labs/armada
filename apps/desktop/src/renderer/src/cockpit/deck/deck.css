@@ -14,22 +14,22 @@
 }
 .deck {
   --hue: var(--status-awaiting-review);
-  /* The controls are 28px and 24px here, and a header band is the band's. */
-  --h-control: 28px;
-  --h-control-sm: 24px;
+  /* The controls are the dense pair here, and a header band is the band's. */
+  --h-control: var(--h-control-dense);
+  --h-control-sm: var(--h-control-sm-dense);
   --h-row-header: var(--deck-band);
   /* The Cockpit's type ladder, a step under the rest of the app's. */
-  --text-2xs: 12px;
-  --leading-2xs: 16px;
-  --text-xs: 13px;
-  --leading-xs: 18px;
-  --text-sm: 14px;
-  --leading-sm: 20px;
-  --text-base: 15px;
-  --leading-base: 22px;
+  --text-2xs: var(--text-2xs-dense);
+  --leading-2xs: var(--leading-2xs-dense);
+  --text-xs: var(--text-xs-dense);
+  --leading-xs: var(--leading-xs-dense);
+  --text-sm: var(--text-sm-dense);
+  --leading-sm: var(--leading-sm-dense);
+  --text-base: var(--text-base-dense);
+  --leading-base: var(--leading-base-dense);
   /* The row's title and its meta are roles of the look, set beside the ladder and not on it: a step down as the rest. */
-  --text-row: 13px;
-  --size-meta: 12px;
+  --text-row: var(--text-xs-dense);
+  --size-meta: var(--text-2xs-dense);
   /* What the look reads of the Job's panels and head (`depth.css`): a band's side padding, the head's height and padding, the body's padding. */
   --band-pad: 0 var(--space-3);
   --head-min: var(--deck-head);
@@ -158,7 +158,7 @@
       transition: opacity var(--duration-fast) var(--ease);
       & > .sv-panel__state { display: none; }
       /* The name is not drawn but still names the band, which is the fold's button. */
-      & > :is(.deck-band__name, .sv-panel__label) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+      & > :is(.deck-band__name, .sv-panel__label) { position: absolute; width: var(--border-width); height: var(--border-width); overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
       & > * { margin-inline-start: 0; }
     }
     &:is(:hover, :focus-within) > :is(.deck-band, .sv-panel__band) { opacity: 1; pointer-events: auto; }
@@ -184,7 +184,7 @@
 @media (prefers-reduced-motion: reduce) { .deck-list__more svg { animation: none; } }
 /* Rows are divided by a hairline, with no card to each. The look reads a row's height, padding and radius from the list (`depth.css`): 28px, with room above and below for Now or Active PRs. */
 .deck-list__rows {
-  --deck-line: 28px;
+  --deck-line: var(--h-control-dense);
   --row-min: var(--deck-line);
   --row-pad: 0 var(--space-3);
   --row-radius: 0;
@@ -198,7 +198,7 @@
   overflow-y: auto;
   overscroll-behavior: contain;
 }
-.deck-list__rows:is([data-now], [data-pr]) { --row-min: 0; --row-pad: 2px var(--space-3) var(--space-2); }
+.deck-list__rows:is([data-now], [data-pr]) { --row-min: 0; --row-pad: calc(var(--space-1) / 2) var(--space-3) var(--space-2); }
 /* A row picked up is dimmed where it stood; the line is where it would be put down. Nothing else moves while it is held. */
 .deck-list__rows[data-reordering],
 .deck-list__rows[data-reordering] .deck-row { cursor: grabbing; user-select: none; }
@@ -289,14 +289,14 @@
 }
 .deck-list__rows:is([data-now], [data-pr]) .deck-row:not([data-queued]) { grid-template-rows: var(--deck-line) auto auto; }
 .deck-row:not([data-queued]) .deck-row__title { grid-column: 1; grid-row: 1; line-height: var(--leading-xs); }
-.deck-row__title:has(+ .deck-row__cell[data-field="issue"]:empty) { margin-inline-end: calc((var(--deck-w-issue, 48px) + var(--space-1)) * -1); }
-.deck-row__title:has(+ .deck-row__cell[data-field="time"]:empty) { margin-inline-end: calc((var(--deck-w-time, 52px) + var(--space-1)) * -1); }
+.deck-row__title:has(+ .deck-row__cell[data-field="issue"]:empty) { margin-inline-end: calc((var(--deck-w-issue, var(--space-12)) + var(--space-1)) * -1); }
+.deck-row__title:has(+ .deck-row__cell[data-field="time"]:empty) { margin-inline-end: calc((var(--deck-w-time, calc(var(--space-12) + var(--space-1))) + var(--space-1)) * -1); }
 .deck-row__title:has(+ .deck-row__cell[data-field="issue"]:empty + .deck-row__cell[data-field="time"]:empty) {
-  margin-inline-end: calc((var(--deck-w-issue, 48px) + var(--deck-w-time, 52px) + var(--space-1) * 2) * -1);
+  margin-inline-end: calc((var(--deck-w-issue, var(--space-12)) + var(--deck-w-time, calc(var(--space-12) + var(--space-1))) + var(--space-1) * 2) * -1);
 }
-.deck-list__rows:not(:has(.deck-row__cell[data-field="issue"]:not(:empty))) { --deck-w-issue: 0px; }
-.deck-list__rows:not(:has(.deck-row__cell[data-field="time"]:not(:empty))) { --deck-w-time: 0px; }
-.deck-list__rows:not(:has(.deck-row__cell[data-field="workflow"]:not(:empty))) { --deck-w-workflow: 0px; }
+.deck-list__rows:not(:has(.deck-row__cell[data-field="issue"]:not(:empty))) { --deck-w-issue: calc(var(--space-1) * 0); }
+.deck-list__rows:not(:has(.deck-row__cell[data-field="time"]:not(:empty))) { --deck-w-time: calc(var(--space-1) * 0); }
+.deck-list__rows:not(:has(.deck-row__cell[data-field="workflow"]:not(:empty))) { --deck-w-workflow: calc(var(--space-1) * 0); }
 .deck-row__cell { display: flex; align-items: center; min-width: 0; overflow: hidden; white-space: nowrap; color: var(--fg-muted); font-size: var(--text-2xs); }
 .deck-row__cell[data-field="time"] { justify-content: flex-end; }
 .deck-row__cell[data-field="status"] { display: grid; grid-template-columns: repeat(2, var(--space-4)); column-gap: var(--space-1); justify-items: center; overflow: visible; }
@@ -322,7 +322,7 @@
 }
 .deck-row__clash { flex-direction: row-reverse; pointer-events: none; }
 .deck-row__clash > * { pointer-events: auto; }
-.deck-list__rows:is([data-now], [data-pr]) :is(.deck-row__clash, .deck-row__earlier) { inset-block: 2px auto; height: var(--deck-line); }
+.deck-list__rows:is([data-now], [data-pr]) :is(.deck-row__clash, .deck-row__earlier) { inset-block: calc(var(--space-1) / 2) auto; height: var(--deck-line); }
 
 /* ---- Activity: the beeswarm, in the narrow column under the list ---------------------------------------- */
 
@@ -397,7 +397,7 @@
 .deck .armada-session-fold__head--press .mono { font-size: var(--text-2xs); }
 /* The glyphs a step lighter, and the switch's ON and OFF a step smaller. */
 .deck svg.lucide { stroke-width: 1.5; }
-.deck .armada-switch { --switch-text: 10px; }
+.deck .armada-switch { --switch-text: var(--text-switch-dense); }
 /* The map is not a panel: no edge, fill, shadow or header, so the shell's grid shows round its floor. Focus is the repo's outline. */
 .deck-pane[data-bare] { border: 0; border-radius: 0; overflow: visible; }
 .deck-pane[data-bare]:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }
@@ -676,14 +676,14 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
    a short bar on the top edge, is lit in the accent. A key that is off is flat and recessed. The Job's tiles and the deck's are the one class. */
 :is(.deck-controls__block:not([data-subject="edit"]), .deck-dispatch__block) .deck-tile {
   background: var(--deck-key-face);
-  box-shadow: inset 0 var(--border-width) 0 var(--deck-key-hi), 0 2px 0 var(--deck-key-lo);
+  box-shadow: inset 0 var(--border-width) 0 var(--deck-key-hi), 0 calc(var(--border-width) * 2) 0 var(--deck-key-lo);
   &:hover { background: color-mix(in srgb, var(--fg-default) 13%, transparent); }
   &:is([aria-pressed="true"], [data-on], :active) {
     border-color: var(--accent);
     background: var(--accent-muted);
-    box-shadow: inset 0 2px 0 var(--deck-key-seat);
+    box-shadow: inset 0 calc(var(--border-width) * 2) 0 var(--deck-key-seat);
     /* Moved by `top`, not a transform: a transform makes the key the box its fixed tooltip is placed in, and the tooltip then covers the key. */
-    top: 1px;
+    top: var(--border-width);
   }
   /* A press that is answered by nothing is not a press. */
   &[aria-disabled="true"] {
@@ -700,13 +700,13 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 .deck-controls__block:not([data-subject="edit"]) .deck-tile { padding-block: calc(var(--space-2) + var(--space-1)) var(--space-1); }
 /* The lamp: Auto land's and Pause's own mark, drawn as a bar and not as its ring or dot. */
 .deck-controls__block .deck-tile__state {
-  top: calc(var(--space-1) + 1px);
+  top: calc(var(--space-1) + var(--border-width));
   left: 50%;
   display: block;
   width: var(--space-4);
-  height: 3px;
+  height: calc(var(--space-1) - var(--border-width));
   margin-inline-start: calc(var(--space-4) / -2);
-  border-radius: 1px;
+  border-radius: var(--border-width);
   background: var(--border-subtle);
 }
 .deck-controls__block .deck-tile__state[data-on] { background: var(--accent); }
@@ -1023,7 +1023,7 @@ button.deck-pr:hover { border-color: var(--border-strong); color: var(--fg-defau
 .deck-flight-edit__said { grid-column: 1 / -1; margin: 0; padding: var(--space-1) 0 0; font-size: var(--text-2xs); line-height: var(--leading-2xs); color: var(--fg-default); }
 .deck-flight-edit .deck-tile { cursor: grab; }
 .deck-flight-edit .deck-tile[data-add] { cursor: pointer; }
-.deck-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.deck-sr { position: absolute; width: var(--border-width); height: var(--border-width); overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
 /* A Shell action's output stands where the tiles were. */
 .deck-controls__block.deck-shell[data-subject="session"] { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: minmax(0, 1fr); align-items: end; gap: var(--space-2); }

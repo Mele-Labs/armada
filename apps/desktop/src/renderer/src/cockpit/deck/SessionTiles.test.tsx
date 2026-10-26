@@ -43,7 +43,7 @@ const flush = () => act(async () => void (await new Promise((done) => setTimeout
 async function mount(node: React.ReactNode) {
   const host = document.createElement("div");
   // The foot gives the panel its height and `--tile`; a bare host has neither.
-  host.style.cssText = "--tile: 64px; display: flex; flex-direction: column; height: 160px";
+  host.style.cssText = "--tile: calc(var(--space-12) + var(--space-4)); display: flex; flex-direction: column; height: calc(var(--space-12) * 3 + var(--space-4))";
   document.body.append(host);
   const root = createRoot(host);
   act(() => root.render(node));

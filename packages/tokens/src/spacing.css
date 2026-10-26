@@ -55,6 +55,12 @@
   --h-row-table: 52px;
   --h-control: 36px;      /* default button, input, select */
   --h-control-sm: 32px;   /* sm — use inside table rows */
+  /* The same two controls at the Cockpit's density, a step under the pair
+     above like its type ladder (typography.css). The Cockpit sets --h-control
+     and --h-control-sm to these inside its own scope; its list rows take the
+     first as their line. */
+  --h-control-dense: 28px;
+  --h-control-sm-dense: 24px;
   --h-badge: 20px;
   --h-kbd: 20px;
   --h-menu-item: 32px;
@@ -198,6 +204,11 @@
      longest name, `Keyboard shortcuts`, with a match count beside it, and no wider: the category
      chosen is what the screen is for. */
   --w-settings-index: 224px;
+  /* 280px: the most the open Job's name takes of the title bar's centre notch, with its state and the
+     hairline before it. A longer name is cut with an ellipsis so the Places beside it keep their room. */
+  --w-notch-name: 280px;
+  /* 200px: the notch name while it is being renamed, a field of fixed width in place of the name. */
+  --w-notch-name-edit: 200px;
   /* 380px: Helm's dock, over the content on every surface at
      --layout-breakpoint and wider. Decided with the owner on 13 Sep (#948).
      The same number as --w-run-column and not borrowed from it: that one is a
