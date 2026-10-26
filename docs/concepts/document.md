@@ -17,8 +17,8 @@ An investigation, a report or a set of findings is a document. The Job writes it
 |---|---|
 | The reading layer, notes, Changes, Share's menu | Built in the mock; walk `job-document` approved 25 Oct 2026 |
 | Fleet keeping revisions, the `document` artifact, the sketch notice | Built |
-| The Landing row and thread headings reading the real artifact | Being built |
-| Save as web page and Save as PDF | Being built, with the reader |
+| The Landing row, the Artifacts rows and thread headings reading the real artifact | Built |
+| Save as web page and Save as PDF | Built |
 
 ## What a document is
 
@@ -40,6 +40,10 @@ The copies are `r1.html`, `r2.html` and on, under the machine's `attachments/doc
 A revision is kept once the tool has answered, so a failed write keeps nothing.
 
 **Rule.** Fleet puts one artifact of form `document` on the Job. Its title is the page's `<title>`, or its first `<h1>` where there is none, and it names the paths of the revisions.
+
+**Rule.** Bridge reads each artifact of form `document` as a page: `revisions` is a JSON list of absolute paths, oldest first, and a list that is not one reads as none.
+Main reads a file for the reader only where it is a path in a `document` row's `revisions`.
+A Job with more than one page opens the one pressed, and a sent note's heading opens the page whose title it names.
 
 **Rule.** Fleet reads each `<armada-sketch>` scene with the validator `show_sketch` uses, and tells the Job in a Fleet notice of one that will not draw. The write is not refused.
 The notice is `document_sketch`, once per revision: `In the page <path>, sketch <n> of <total> ("<title>") will not draw: <problems>.`
@@ -153,5 +157,14 @@ A press on it scrolls the page to that change.
 | Save as web page | Writes one HTML file, sketches drawn into it |
 | Save as PDF | Writes a PDF, sketches drawn into it |
 | Add to the repo | Asks the Job, in its thread, to commit the page |
+
+**Rule.** Save as web page writes one HTML file: the page as it is read, its CSS inline, each `<armada-sketch>` replaced by the sketch drawn as static markup by the sketch pane's own export, and the value of every token the page's rules read written into the file.
+The file holds no script and no address, and a policy in it allows nothing to load.
+Why: the person who opens it has neither Armada nor a network the Job could have used.
+
+**Rule.** Save as PDF prints that same file in a window that is never shown, with scripts off and nothing but the file loadable.
+Both ask where to save in the system's save dialog, named for the page title.
+
+**Rule.** Add to the repo sends the Job one line naming the page's path and saying it is gitignored, so the Job adds it with `git add -f`.
 
 **Rule.** The page leaves the Job only by the person's press. Adding to the repo is a request the Job carries out, so the commit is on its branch and in its diff.

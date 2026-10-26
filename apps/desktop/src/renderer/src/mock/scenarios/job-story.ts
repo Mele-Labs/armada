@@ -206,7 +206,7 @@ function reportAt(stage: number): Partial<Session> {
     turn: { state: stage === 1 ? "working" : "idle" },
     standing: stage === 1 ? "working" : "idle",
     // The report is a page of the Job's own design, with a revision for each time it answered the person's notes (`document-pages.ts`).
-    attachments: stage >= 2 ? [{ kind: "artifact", form: "file", id: LEASE_DOC_PATH, title: LEASE_DOC_TITLE, revisions: stage === 2 ? [LEASE_DOC_PATH] : [LEASE_DOC_PATH, LEASE_DOC_PATH_2] }] : [],
+    attachments: stage >= 2 ? [{ kind: "artifact", form: "document", id: LEASE_DOC_PATH, title: LEASE_DOC_TITLE, revisions: stage === 2 ? [LEASE_DOC_PATH] : [LEASE_DOC_PATH, LEASE_DOC_PATH_2] }] : [],
     waitingFor: stage === 0 ? [planCall(undefined, ago(1))] : [],
     work: {
       proposal: { workflow: INVESTIGATE.name },
