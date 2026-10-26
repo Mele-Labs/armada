@@ -1,6 +1,6 @@
-// A Job waiting on four commands. One keeps running, a login waiting on the browser, so leaving the Job and coming
-// back finds it still going. The other three end three ways: an exit code, Stop, and a signal. Over the `sessions`
-// scenario. The walk `run-outlives-its-card` plays it.
+// A Job waiting on four commands, run in the docked terminal as a real Fleet runs them. One keeps running, a login
+// waiting on the browser, so leaving the Job and coming back finds it still going. The other three end three ways: an
+// exit code, Stop, and a signal. Over the `sessions` scenario. The walk `run-outlives-its-card` plays it.
 
 import type { Session } from "@armada/screens/src/draft/sessions";
 
@@ -36,5 +36,15 @@ export const s265RunOutlivesItsCard: Scenario = {
   ...s200Sessions,
   name: "run-outlives-its-card",
   says: "A Job waiting on a login that keeps running while the Job is left, and on three commands that end three ways",
-  draft: { sessions: (board) => s200Sessions.draft!.sessions!(board, [waiting]) },
+  draft: {
+    sessions: (board) => {
+      const store = s200Sessions.draft!.sessions!(board, [waiting]);
+      return {
+        ...store,
+        terminalRuns: true as const,
+        // A terminal's lines end in a carriage return and a feed.
+        run: (id, command, on) => store.run!(id, command, (event) => on(event.kind === "out" ? { kind: "out", text: event.text.replaceAll("\n", "\r\n") } : event)),
+      };
+    },
+  },
 };

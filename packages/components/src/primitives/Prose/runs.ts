@@ -20,8 +20,35 @@ export const newEntry = (): RunEntry => ({ view: IDLE, handle: null, listeners: 
  */
 const kept = new Map<string, RunEntry>();
 
-/** Lets go of every kept run, stopping none: a new Fleet has none of the old one's. A mock window starts here. */
-export const forgetKeptRuns = (): void => kept.clear();
+/** What a view's docked pane holds beside its run: which command, whether it is showing, and whether it waits for its size to start. */
+export type PaneView = { command: string | null; shown: boolean; waiting: boolean };
+
+export type PaneEntry = { view: PaneView; listeners: Set<() => void> };
+
+const panes = new Map<string, PaneEntry>();
+
+/** The pane a view keeps under `key`, so a view that is left and drawn again finds its pane as it was. */
+export const paneFor = (key: string): PaneEntry => {
+  let entry = panes.get(key);
+  if (entry === undefined) panes.set(key, (entry = { view: { command: null, shown: false, waiting: false }, listeners: new Set() }));
+  return entry;
+};
+
+export function changePane(entry: PaneEntry, next: Partial<PaneView>): void {
+  entry.view = { ...entry.view, ...next };
+  for (const listener of [...entry.listeners]) listener();
+}
+
+export const subscribeToPane = (entry: PaneEntry) => (listener: () => void) => {
+  entry.listeners.add(listener);
+  return () => void entry.listeners.delete(listener);
+};
+
+/** Lets go of every kept run and pane, stopping none: a new Fleet has none of the old one's. A mock window starts here. */
+export const forgetKeptRuns = (): void => {
+  kept.clear();
+  panes.clear();
+};
 
 export const entryFor = (key: string): RunEntry => {
   let entry = kept.get(key);
