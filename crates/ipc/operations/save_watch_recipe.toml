@@ -14,4 +14,3 @@ notes = """
 
 `agent_access` is `Yes`: a script an agent wrote for one watch is worth keeping for the next job, and this Mac is the only place it is kept.
 """
-always_loaded = true
