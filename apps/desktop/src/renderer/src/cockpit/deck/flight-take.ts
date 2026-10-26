@@ -1,6 +1,6 @@
 // Two takes on Flight control while a Job is open, played in the mock on `?take=`: `grouped` draws the Job's tiles in three groups side by side with
 // no pages (Job, Tell the agent, Open); `tabs` moves Artifacts, Checks, Subagents and Bays to tabs on the Job's head (`JobTabs.tsx`, in the look `&tabs=nav`, the
-// default, or `&tabs=segmented`) and leaves Flight control one row of chips. In both takes Compact is the context figure's (`ContextFigure.tsx`) and the merge
+// default, under the title or with `&tabpos=foot` under the composer, or `&tabs=segmented`) and leaves Flight control one row. In both takes Compact is the context figure's (`ContextFigure.tsx`) and the merge
 // line is the bottom of the Cockpit's centre, under Flight control. Any other value, or none, draws today's pages. A mock comparison of 25 Oct 2026 for the
 // owner's ask that Flight control "feels so hard to find anything" in. Only one stays: the one he picks, and this file goes with the other.
 
@@ -20,11 +20,16 @@ export type TabsLook = "nav" | "segmented";
 /** The look of the tabs on the page address, `nav` where none is given. */
 export const tabsLook = (): TabsLook => (new URLSearchParams(window.location.search).get("tabs") === "segmented" ? "segmented" : "nav");
 
+export type TabsPos = "head" | "foot";
+
+/** Where the `nav` tabs stand on the page address: `foot` is the Job panel's last row, under the composer; otherwise under the title. The `segmented` look is in the title row either way. */
+export const tabsPos = (): TabsPos => (tabsLook() === "nav" && new URLSearchParams(window.location.search).get("tabpos") === "foot" ? "foot" : "head");
+
 export type FlightGroup = "job" | "tell" | "open";
 
 export const GROUP_NAME: Record<FlightGroup, string> = { job: "Job", tell: "Tell the agent", open: "Open" };
 
-/** The two that are a state and not a press, drawn as switches. */
+/** The two that are a state and not a press, drawn as switches in both takes. */
 export const SWITCHES: readonly string[] = ["land", "pause"];
 
 /** Each group's built-ins in the order drawn. Map is the stage's own switch and is in none. */
@@ -34,8 +39,8 @@ const GROUPS: Record<FlightGroup, readonly SessionTileId[]> = {
   open: ["artifacts", "checks", "subagents", "slot", "terminal", "requests"],
 };
 
-/** The three runs of chips `tabs` draws in Flight control, a rule between each; the owner's own tiles are a fourth. */
-const RUNS: readonly (readonly SessionTileId[])[] = [["land", "pause"], ["ask", "judge", "report"], ["release", "terminal", "requests"]];
+/** The runs `tabs` draws in Flight control: the two switches, then two runs of buttons with a rule between; the owner's own tiles join the last run. Update is A's alone. */
+const RUNS: readonly (readonly SessionTileId[])[] = [["land", "pause"], ["judge", "report"], ["release", "terminal", "requests"]];
 
 /** The layers `tabs` draws as tabs, in order. Thread, which is no layer, comes before them. */
 export const TAB_LAYERS = ["artifacts", "checks", "subagents", "slot"] as const;
@@ -60,15 +65,17 @@ export function groupsOf(shown: readonly Tile[], why: (tile: Tile) => string | u
   });
 }
 
-/** `tabs`: the runs of chips, each in its own order and every chip in its seat, off or on, so nothing shifts; the owner's own tiles end the row. */
-export function runsOf(shown: readonly Tile[]): Tile[][] {
-  return [...RUNS.map((ids) => built(shown, ids)), shown.filter((one) => one.builtIn === undefined)].filter((run) => run.length > 0);
+/** `tabs`: the switches and the two runs of buttons, each in its own order and every one in its seat, off or on, so nothing shifts; the owner's own tiles end the last run. */
+export function runsOf(shown: readonly Tile[]): { switches: Tile[]; runs: Tile[][] } {
+  const [switches = [], ...runs] = RUNS.map((ids) => built(shown, ids));
+  const own = shown.filter((one) => one.builtIn === undefined);
+  return { switches, runs: [...runs.slice(0, -1), [...(runs.at(-1) ?? []), ...own]].filter((run) => run.length > 0) };
 }
 
 /** Each take numbers its keys in reading order, ⌥⇧1 to ⌥⇧9 and ⌥⇧0, the ones after the tenth having none. */
 const KEY_ORDER: Record<FlightTake, readonly string[]> = {
   grouped: ["land", "release", "ask", "judge", "report", "artifacts", "checks", "subagents", "slot", "terminal"],
-  tabs: ["artifacts", "checks", "subagents", "slot", "land", "ask", "judge", "report", "release", "terminal"],
+  tabs: ["artifacts", "checks", "subagents", "slot", "land", "judge", "report", "release", "terminal", "requests"],
 };
 
 /**

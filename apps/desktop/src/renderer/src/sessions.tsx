@@ -130,7 +130,7 @@ import { useJobDock } from "./job-shell-dock";
 import { todosOf } from "./session-activity";
 import { confirmWaiting, dismissWaiting } from "./cockpit/dismissed";
 import { JobTabs } from "./cockpit/deck/JobTabs";
-import { flightTake, tabsLook } from "./cockpit/deck/flight-take";
+import { flightTake, tabsLook, tabsPos } from "./cockpit/deck/flight-take";
 import { useCompactAct } from "./cockpit/deck/compact-act";
 import { holdsDelivery, stateOf } from "./session-state";
 import type { PlanEditing } from "./session-view/PlanEdit";
@@ -1096,7 +1096,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
         }}
         {...(deck === undefined ? {} : { back: deck.back })}
         // The takes of Flight control, on the Cockpit only (`cockpit/deck/flight-take.ts`): the Job's views as tabs, on a second row of the head or in its row, and Compact in the context tank.
-        {...(deck?.flight === true && flightTake() === "tabs" ? { tabs: <JobTabs session={session} bays={bays} />, tabsPlace: tabsLook() === "segmented" ? ("head" as const) : ("row" as const) } : {})}
+        {...(deck?.flight === true && flightTake() === "tabs" ? { tabs: <JobTabs session={session} bays={bays} />, tabsPlace: tabsLook() === "segmented" ? ("head" as const) : tabsPos() === "foot" ? ("foot" as const) : ("row" as const) } : {})}
         {...(deck?.flight === true && compactAct !== undefined ? { compact: compactAct } : {})}
         {...{
               actions: (

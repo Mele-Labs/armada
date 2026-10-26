@@ -20,7 +20,7 @@
 import { Fragment, useEffect, useRef, useState, type CSSProperties } from "react";
 import { Circle, CircleCheck, CircleDot, LoaderCircle, Play, Swords } from "lucide-react";
 import { Eclipse } from "lucide-react";
-import { Kbd, Separator, Switch, Tooltip, type SentFromComposer } from "@armada/components";
+import { Button, Kbd, Separator, Switch, Tooltip, type SentFromComposer } from "@armada/components";
 import type { TileAsk } from "@armada/protocol";
 import { attachmentsOf, type HoldsReleased, type Session, type SessionTag, type SessionsDraft } from "@armada/screens/src/draft/sessions";
 import { refusalWords } from "@armada/screens/src/refusal-words";
@@ -304,10 +304,10 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
   }
   if (shell !== undefined) return <ShellBox run={shell} onClose={closeShell} />;
   /**
-   * One tile. `page` is today's, in its page; `tile` is the same in a group; `chip` is one row tall, the glyph beside the word; `square` is an off one,
-   * the glyph alone with its reason as the tooltip. Every fact a tile carries is on all but the square; a chip is lit instead of carrying Auto land's dot, and its key is in its tooltip.
+   * One tile. `page` is today's, in its page; `tile` is the same in a group; `square` is an off one, the glyph alone with its reason as the tooltip.
+   * Every fact a tile carries is on all but the square.
    */
-  const drawTile = (tile: Tile, form: "page" | "tile" | "chip" | "square", cell: Record<string, unknown> = {}) => {
+  const drawTile = (tile: Tile, form: "page" | "tile" | "square", cell: Record<string, unknown> = {}) => {
     const id = idOf(tile);
     const bare = form === "square";
     const paused = id === "pause" && session.paused === true;
@@ -352,7 +352,7 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
             <Glyph size={20} aria-hidden="true" />
           )}
           {bare ? null : <span className="deck-tile__text">{paused ? "Resume" : tile.text}</span>}
-          {bare || form === "chip" || id !== "land" ? null : (
+          {bare || id !== "land" ? null : (
             // A mark in the corner, as Subagents carries its count, so the tile keeps its place: a filled dot while on, a ring while off.
             <span className="deck-tile__state" role="img" aria-label={on ? "Auto land on" : "Auto land off"} data-on={on || undefined}>
               {on ? <CircleDot size={12} strokeWidth={2} aria-hidden="true" /> : <Circle size={12} strokeWidth={2} aria-hidden="true" />}
@@ -385,7 +385,7 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
               <span style={{ width: `${filledBy}%` }} />
             </span>
           )}
-          {bare || form === "chip" || key === undefined ? null : (
+          {bare || key === undefined ? null : (
             <Kbd className="deck-tile__key" aria-hidden="true">
               {tileCap(key)}
             </Kbd>
@@ -394,8 +394,8 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
       </Tooltip>
     );
   };
-  /** Auto land and Pause in the two takes: a labelled switch, on while the flag is on and while the Job is paused, in the place it always has. */
-  const drawSwitch = (tile: Tile) => {
+  /** Auto land and Pause in the two takes: a labelled switch, its cap beside it in `grouped` and in its tooltip only in `tabs`, on while the flag is on and while the Job is paused, in the place it always has. */
+  const drawSwitch = (tile: Tile, cap = true) => {
     const id = tile.id as "land" | "pause";
     const why = off[id];
     const key = keyOf(tile);
@@ -405,7 +405,7 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
         <span className="deck-switch" data-off={why !== undefined || undefined}>
           <Switch checked={id === "land" ? on : session.paused === true} data-key={key} data-act={id === "pause" ? "pause" : undefined} aria-disabled={why !== undefined || undefined} aria-busy={pending === id || undefined} onChange={() => why === undefined && press[id]()}>
             {tile.text}
-            {key === undefined ? null : (
+            {!cap || key === undefined ? null : (
               <Kbd className="deck-switch__key" aria-hidden="true">
                 {tileCap(key)}
               </Kbd>
@@ -413,6 +413,41 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
             {!going ? null : <LoaderCircle className="deck-switch__going" size={12} strokeWidth={2} aria-hidden="true" />}
           </Switch>
         </span>
+      </Tooltip>
+    );
+  };
+  /** A tile of the `tabs` row after the switches: the app's own Button, the glyph and the word, off as a disabled one with its reason as the tooltip, the key in the tooltip. */
+  const drawButton = (tile: Tile) => {
+    const id = idOf(tile);
+    const key = keyOf(tile);
+    const why = whyOf(tile);
+    const Glyph = glyphOf(tile.glyph, "zap");
+    const reading = id === "judge" && judging;
+    const cleared = id === "judge" && clear && !reading;
+    return (
+      <Tooltip key={tile.id} label={why ?? (id === undefined ? tipCustom(tile) : tip[id])} {...(key === undefined ? {} : { shortcut: key })}>
+        <Button
+          variant="secondary"
+          aria-label={tile.label}
+          data-key={key}
+          disabled={why !== undefined}
+          aria-pressed={id === "terminal" ? terminal?.shown === true : undefined}
+          aria-busy={pending === tile.id || undefined}
+          onClick={() => (id === undefined ? pressCustom(tile) : press[id]())}
+        >
+          {reading ? (
+            <span className="armada-session-mark" role="img" aria-label="Judge reading" data-pulsing>
+              <CircleDot size={16} strokeWidth={2} aria-hidden="true" />
+            </span>
+          ) : cleared ? (
+            <span className="armada-session-mark deck-tile__done" role="img" aria-label="No concerns">
+              <CircleCheck size={16} strokeWidth={2} aria-hidden="true" />
+            </span>
+          ) : (
+            <Glyph size={16} aria-hidden="true" />
+          )}
+          {tile.text}
+        </Button>
       </Tooltip>
     );
   };
@@ -432,7 +467,7 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
                   {group.name}
                 </span>
                 <div className="deck-flight__grid">
-                  {group.switches.length === 0 ? null : <div className="deck-flight__switches">{group.switches.map(drawSwitch)}</div>}
+                  {group.switches.length === 0 ? null : <div className="deck-flight__switches">{group.switches.map((one) => drawSwitch(one))}</div>}
                   {live.map((tile) => drawTile(tile, "tile"))}
                   {dead.length === 0 ? null : (
                     <div className="deck-flight__off" style={{ gridColumn: `span ${left}` }}>
@@ -448,17 +483,21 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
     );
   }
   if (take === "tabs") {
+    const { switches, runs } = runsOf(shown);
     return (
       <>
         {dialog}
         <div className="deck-controls__block deck-flight" data-subject="session" data-take="tabs">
           <div className="deck-flight__row">
-            {runsOf(shown).map((run, at) => (
-              <Fragment key={run[0]!.id}>
-                {at === 0 ? null : <Separator orientation="vertical" className="deck-flight__rule" />}
-                {run.map((tile) => drawTile(tile, "chip"))}
-              </Fragment>
-            ))}
+            <div className="deck-flight__switches">{switches.map((one) => drawSwitch(one, false))}</div>
+            <div className="deck-flight__buttons">
+              {runs.map((run) => (
+                <Fragment key={run[0]!.id}>
+                  <Separator orientation="vertical" className="deck-flight__rule" />
+                  {run.map(drawButton)}
+                </Fragment>
+              ))}
+            </div>
           </div>
         </div>
       </>

@@ -185,9 +185,9 @@ export type SessionFrameProps = {
   back?: ReactNode;
   /** The ledger, as a panel of its own beside the conversation: a sibling card the height of the first, scrolling on its own. */
   aside?: ReactNode;
-  /** Views of the Session as tabs: a row under the head, full width, or in the head's own row before the checks and the context tank. */
+  /** Views of the Session as tabs: a row under the head, full width, in the head's own row before the checks and the context tank, or the last row of the card, under the body. */
   tabs?: ReactNode;
-  tabsPlace?: "row" | "head";
+  tabsPlace?: "row" | "head" | "foot";
   children: ReactNode;
 };
 
@@ -278,6 +278,7 @@ export function SessionFrame({ state, said, id, address, title, onRename, modOut
       </header>
       {tabsPlace === "row" ? tabs : null}
       <div className="armada-session-frame__body">{children}</div>
+      {tabsPlace === "foot" ? tabs : null}
     </Card>
     {aside === undefined || aside === null ? null : <Card className="armada-session-frame__aside armada-shell__dock">{aside}</Card>}
     </div>

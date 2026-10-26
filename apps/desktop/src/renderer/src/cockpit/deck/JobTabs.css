@@ -1,7 +1,7 @@
 /* The Job's views as tabs (`JobTabs.tsx`), in the two looks on `&tabs=`. A layer starts at `--sv-tabs-bottom`, which the tabs set on the pane to where the head ends,
    so the Job's title and the tabs stay on show over it. */
 
-.deck-pane .sv-layer { top: var(--sv-tabs-bottom, 0); }
+.deck-pane .sv-layer { top: var(--sv-tabs-bottom, 0); bottom: var(--sv-tabs-foot, 0); }
 .sv-tabs__list { display: flex; align-items: center; min-width: 0; }
 .sv-tab__count { font-family: var(--font-mono); font-size: var(--text-2xs); line-height: var(--leading-xs); color: var(--fg-default); }
 .sv-tab__clash { display: inline-flex; color: var(--status-awaiting-review); }
@@ -29,6 +29,9 @@
 .sv-tabs[data-look="nav"] .sv-tab:hover { color: var(--fg-default); }
 /* The chosen one is the brighter word on the same faint wash as the chosen place. */
 .sv-tabs[data-look="nav"] .sv-tab[aria-selected="true"] { background: color-mix(in srgb, var(--fg-default) 8%, transparent); color: var(--fg-default); }
+
+/* As the panel's last row: under the composer, the rule above it, its first word on the composer's left edge (the body's padding less the tab's own). */
+.sv-tabs[data-look="nav"][data-pos="foot"] { padding: var(--space-2) var(--space-3) var(--space-2) var(--space-1); box-shadow: inset 0 var(--border-width) 0 var(--head-rule, var(--border-subtle)); }
 
 /* ---- segmented: a track in the head's own row, the chosen segment raised over it ------------------------------------------------------------------- */
 

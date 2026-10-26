@@ -24,19 +24,19 @@
 .deck-flight__grid > .deck-tile > .deck-tile__hides svg { width: var(--space-3); height: var(--space-3); }
 .deck-flight__grid > .deck-tile .deck-tile__text { font-size: clamp(var(--text-2xs), 12cqmin, var(--text-base)); line-height: 1.2; }
 
-/* ---- tabs: one row of chips, in three runs with a rule between each, on one line ---------------------------------------------------------- */
+/* ---- tabs: one row, the two switches at the left and the buttons sharing the rest in equal widths, a rule between the runs ---------------------------------- */
 
 .deck-flight[data-take="tabs"] { flex: 0 0 auto; align-items: center; }
-.deck-flight__row { display: flex; flex: 1 1 auto; flex-wrap: nowrap; align-items: center; gap: var(--space-2); min-width: 0; overflow-x: auto; scrollbar-width: none; }
-.deck-flight__row::-webkit-scrollbar { display: none; }
-.deck-flight__rule.armada-separator[data-orientation="vertical"] { align-self: center; height: var(--space-4); margin-inline: var(--space-1); }
-
-/* A chip: the glyph beside the word, one control tall, every one the same. */
-.deck-tile[data-form="chip"] { flex: none; flex-direction: row; gap: var(--space-1); height: var(--h-control-sm); padding: 0 var(--space-2); border-radius: var(--radius-md); }
-.deck-tile[data-form="chip"] svg { width: var(--space-4); height: var(--space-4); }
-.deck-tile[data-form="chip"] .deck-tile__text { font-size: var(--text-xs); line-height: var(--leading-xs); }
-/* Auto land and Pause are chips now, so on and paused must show: lit with the accent, past the new look's one fill for every tile. */
-:root .deck-tile[data-form="chip"]:is([aria-pressed="true"], [data-on]) { border-color: var(--accent); background: var(--accent-muted); color: var(--fg-default); }
+.deck-flight__row { display: flex; flex: 1 1 auto; flex-wrap: nowrap; align-items: center; gap: var(--space-3); min-width: 0; }
+.deck-flight[data-take="tabs"] .deck-flight__switches { display: flex; flex: none; flex-direction: row; gap: var(--space-3); }
+.deck-flight__buttons { display: flex; flex: 1 1 0; align-items: center; gap: var(--space-2); min-width: 0; }
+.deck-flight__buttons > .armada-tooltip { flex: 1 1 0; min-width: 0; }
+.deck-flight__buttons .armada-button { flex: 1 1 auto; min-width: 0; justify-content: center; gap: var(--space-2); padding-inline: var(--space-2); }
+.deck-flight__buttons .armada-button > svg { flex: none; }
+.deck-flight__rule.armada-separator[data-orientation="vertical"] { flex: none; align-self: center; height: var(--space-6); }
+/* The buttons read as the composer's and the head's do in the new look: the chip's fill and hairline at the control radius. Terminal is lit while its shell shows. */
+:root[data-look="new"] .deck-flight__buttons .armada-button { border-color: var(--chip-edge); border-radius: var(--glass-radius-control); background: var(--chip); }
+:root[data-look="new"] .deck-flight__buttons .armada-button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-muted); }
 
 /* ---- both: an off tile is a square glyph; a switch is a switch ----------------------------------------------------------------------- */
 

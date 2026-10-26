@@ -1,11 +1,11 @@
-// The Job's views as tabs in the `tabs` take (`flight-take.ts`), in one of two looks on `&tabs=`. `nav` is a second row of the head, under the title, in the type and
-// ground of the Cockpit's own places in the title bar. `segmented` is a segmented control in the head's own row, before the checks and the context tank, so the head
+// The Job's views as tabs in the `tabs` take (`flight-take.ts`), in one of two looks on `&tabs=`. `nav` is a second row of the head, under the title, or with `&tabpos=foot` the last row of the panel, under
+// the composer, in the type and ground of the Cockpit's own places in the title bar. `segmented` is a segmented control in the head's own row, before the checks and the context tank, so the head
 // stays one row. Thread comes first, then the layers the Job has something in (Artifacts, Checks, Subagents, Bays). A tab is a view the layers already provide
 // (`session-view/layers.ts`), so the selected one follows `useLayer` and Thread is no layer. A layer with nothing in it is not drawn, for the reason its tile gives off
 // (`offeredOf`). A tab draws no key cap, which reads as a count beside a word; its key is in its tooltip, and presses it as the tile did (`flight-keys.ts`). The facts
 // the tiles carried stay on the tab: Checks pulses while any runs, Subagents draws the number running, Bays is lit when a bay is wrong and carries the clash.
-// **A layer starts under the head**, and under the second row where there is one, so the Job's title stays on show while it is read (`--sv-tabs-bottom`, set here
-// on the pane). Not the `Tabs` primitive, which draws a label and a dot and nothing else. The owner's ask of 25 Oct 2026.
+// **A layer starts under the head**, and under the second row where there is one, and stops over the tabs where they are the panel's footer, so the Job's title and
+// the tabs stay on show while it is read (`--sv-tabs-bottom` and `--sv-tabs-foot`, set here on the pane). Not the `Tabs` primitive, which draws a label and a dot and nothing else. The owner's ask of 25 Oct 2026.
 
 import { useLayoutEffect, useRef, type KeyboardEvent } from "react";
 import { CircleDot, Swords } from "lucide-react";
@@ -16,7 +16,7 @@ import { useSessionsDraft } from "../../sessions-draft";
 import { closeLayer, showLayer, toggleLayer, useLayer, type LayerId } from "../../session-view/layers";
 import { baysLit, type SessionBays } from "../../session-view/slot-trouble";
 import { tilesOf, useFlightFile } from "./flight-controls";
-import { TAB_LAYERS, tabsLook, takeKey } from "./flight-take";
+import { TAB_LAYERS, tabsLook, tabsPos, takeKey } from "./flight-take";
 import { offeredOf } from "./session-tiles";
 import "./JobTabs.css";
 
@@ -29,19 +29,28 @@ export function JobTabs({ session, bays }: { session: Session; bays: SessionBays
   const strip = useRef<HTMLDivElement>(null);
   const row = useRef<HTMLDivElement>(null);
   const look = tabsLook();
-  // The pane's layer starts where the head ends: this row, or the head this control is in.
+  const pos = tabsPos();
+  // The pane's layer starts where the head ends, or under this row where it is the second row of the head, and stops over this row where it is the panel's last.
   useLayoutEffect(() => {
-    const el = look === "nav" ? row.current : (row.current?.closest<HTMLElement>(".armada-session-frame__head") ?? null);
+    const el = row.current;
     const pane = el?.closest<HTMLElement>(".deck-pane");
-    if (el == null || pane == null) return;
-    const place = () => pane.style.setProperty("--sv-tabs-bottom", `${el.getBoundingClientRect().bottom - pane.getBoundingClientRect().top - pane.clientTop}px`);
+    const head = pane?.querySelector<HTMLElement>(".armada-session-frame__head") ?? null;
+    const top = look === "nav" && pos === "head" ? el : head;
+    if (el == null || pane == null || top == null) return;
+    const place = () => {
+      const edge = pane.getBoundingClientRect().top + pane.clientTop;
+      pane.style.setProperty("--sv-tabs-bottom", `${top.getBoundingClientRect().bottom - edge}px`);
+      if (pos === "foot") pane.style.setProperty("--sv-tabs-foot", `${edge + pane.clientHeight - el.getBoundingClientRect().top}px`);
+    };
     place();
     const watch = new ResizeObserver(place);
+    watch.observe(top);
     watch.observe(el);
     watch.observe(pane);
     return () => {
       watch.disconnect();
       pane.style.removeProperty("--sv-tabs-bottom");
+      pane.style.removeProperty("--sv-tabs-foot");
     };
   }, [draft === undefined]);
   if (draft === undefined) return null;
@@ -112,7 +121,7 @@ export function JobTabs({ session, bays }: { session: Session; bays: SessionBays
     );
   };
   return (
-    <div ref={row} className="sv-tabs" data-look={look}>
+    <div ref={row} className="sv-tabs" data-look={look} data-pos={pos}>
       <div ref={strip} className="sv-tabs__list" role="tablist" onKeyDown={move}>
         {[undefined, ...drawn].map(tab)}
       </div>
