@@ -66,7 +66,7 @@ export type Tracker =
 export type ReadTracker = Extract<Tracker, { state: "read" }>;
 
 /** An answer, or Fleet's words for why there is none. */
-export type Read<T> = { ok: true; value: T } | { ok: false; said: string; /** The program the tracker could not run, as Fleet named it. */ missing?: string };
+export type Read<T> = { ok: true; value: T } | { ok: false; said: string; /** The program the tracker could not run, as Fleet named it. */ missing?: string; /** The program the tracker ran and found no project for, as Fleet named it. */ needsSetup?: string };
 
 /** What the tab reads and writes. Fleet answers it (`source.ts`), and the mock does in a walk. */
 export type IssuesSource = {
