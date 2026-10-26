@@ -158,6 +158,43 @@ impl fmt::Display for ApiFailure {
     }
 }
 
+impl ApiFailure {
+    /// What happened and what to do about it, for a person reading a panel.
+    pub fn to_act_on(&self) -> String {
+        match self {
+            ApiFailure::NoToken(_) => {
+                "GitHub has no token for this machine. Run `gh auth login`, then open it again.".to_string()
+            }
+            ApiFailure::Unreachable(_) => {
+                "GitHub did not answer. Check the network, then open it again.".to_string()
+            }
+            ApiFailure::Refused { limit: Some(RateLimit { retry_after: Some(seconds), .. }), .. } => {
+                format!("GitHub's rate limit is spent. Open it again in {seconds} seconds.")
+            }
+            ApiFailure::Refused { limit: Some(RateLimit { remaining: Some(0), reset_at: Some(at), .. }), .. } => {
+                let now = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map_or(0, |since| since.as_secs());
+                let minutes = at.saturating_sub(now).div_ceil(60);
+                format!("GitHub's rate limit is spent for about {minutes} minutes. Open it again after that.")
+            }
+            ApiFailure::Refused { status: 401 | 403, said, .. } => format!(
+                "GitHub refused access ({said}). Run `gh auth refresh`, authorize the token for the \
+                 organization's single sign-on, then open it again."
+            ),
+            ApiFailure::Refused { status, said, .. } => {
+                format!("GitHub answered {status} ({said}). Open it again in a minute.")
+            }
+            ApiFailure::GraphQl(messages) => {
+                format!("GitHub would not read it: {}. Open it again; if it stays, check the token's access.", messages.join("; "))
+            }
+            ApiFailure::Malformed(_) => {
+                "GitHub's answer could not be read. Open it again; if it stays, update Armada.".to_string()
+            }
+        }
+    }
+}
+
 type ReadToken = dyn Fn() -> Result<Secret<String>, ApiFailure> + Send + Sync;
 
 /// GitHub's API, through one client every clone shares.

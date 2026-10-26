@@ -228,6 +228,18 @@ async fn a_forge_that_will_not_say_what_changed_on_a_pull_request_is_a_fault() {
 }
 
 #[tokio::test]
+async fn a_forge_that_says_why_it_would_not_show_the_page_has_its_sentence_in_the_refusal() {
+    let home = crate::tests::tmp::TempDir::new();
+    let fleet = a_fleet(&home);
+    let (id, _) = manifest(&fleet);
+    fleet.vcs().now_pull_request_page_said(Some("Access refused. Run `gh auth refresh`.".into()));
+    let refused = fleet.get_pull_request_detail(id, 12).await.unwrap_err();
+    assert_eq!(refused.status(), 500);
+    assert_eq!(code(&refused), "fleet.pull_request_unreadable");
+    assert_eq!(refused.error().message, "Access refused. Run `gh auth refresh`.");
+}
+
+#[tokio::test]
 async fn a_forge_that_will_not_say_is_a_fault() {
     let home = crate::tests::tmp::TempDir::new();
     let fleet = a_fleet(&home);
