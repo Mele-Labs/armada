@@ -20,22 +20,29 @@ const specOf = (one: Row): RunProcessSpec => {
 /**
  * The first run of a repository that has none saved: the run Fleet drafted from what Jobs ran there and from the repository's files,
  * each process's name, folder, command and port editable, with a process added or removed. **One act, Save and run**, and where it saves
- * is a fact under the processes. What is typed is kept under `keep` until it is saved.
+ * is a fact under the processes. What is typed is kept under `keep` until it is saved. **`name` present adds a field for the run's own name**,
+ * for a repository that already has runs and is given another.
  */
 export function RunConfirm({
   open,
   repository,
   draft,
+  name,
+  keep,
   onSave,
   onCancel,
 }: {
   open: boolean;
   repository: string;
   draft: RunDraft;
-  onSave: (processes: readonly RunProcessSpec[]) => void;
+  name?: string;
+  /** What the typed fields are remembered under, so leaving the confirm and coming back finds them. */
+  keep: string;
+  onSave: (processes: readonly RunProcessSpec[], name: string) => void;
   onCancel: () => void;
 }) {
-  const [rows, setRows, forget] = useKept<Row[]>(`run-confirm:${repository}`, draft.processes.map(rowOf));
+  const [rows, setRows, forget] = useKept<Row[]>(`run-confirm:${keep}`, draft.processes.map(rowOf));
+  const [runName, setRunName, forgetName] = useKept<string>(`run-confirm-name:${keep}`, name ?? "");
   const first = useRef<HTMLInputElement>(null);
   // The dialog gives Cancel the first focus; a form that collects is typed into, so the first field takes it back.
   useEffect(() => {
@@ -44,7 +51,7 @@ export function RunConfirm({
     return () => clearTimeout(later);
   }, [open]);
   const change = (id: string, field: keyof Omit<Row, "id">, value: string) => setRows((was) => was.map((one) => (one.id === id ? { ...one, [field]: value } : one)));
-  const ready = rows.length > 0 && rows.every((one) => one.name.trim() !== "" && one.command.trim() !== "");
+  const ready = (name === undefined || runName.trim() !== "") && rows.length > 0 && rows.every((one) => one.name.trim() !== "" && one.command.trim() !== "");
   return (
     <Dialog
       open={open}
@@ -54,16 +61,18 @@ export function RunConfirm({
       confirmLabel="Save and run"
       confirmDisabled={!ready}
       onConfirm={() => {
-        onSave(rows.map(specOf));
+        onSave(rows.map(specOf), runName.trim());
         forget();
+        forgetName();
       }}
       onCancel={onCancel}
     >
       <div className="armada-run-confirm">
+        {name === undefined ? null : <Input ref={first} label="Run name" aria-label="Run name" value={runName} onChange={(event) => setRunName(event.target.value)} />}
         <ul className="armada-run-confirm__rows">
           {rows.map((row, at) => (
             <li key={row.id} className="armada-run-confirm__row">
-              <Input ref={at === 0 ? first : undefined} label="Name" aria-label={`Process ${at + 1} name`} value={row.name} onChange={(event) => change(row.id, "name", event.target.value)} />
+              <Input ref={at === 0 && name === undefined ? first : undefined} label="Name" aria-label={`Process ${at + 1} name`} value={row.name} onChange={(event) => change(row.id, "name", event.target.value)} />
               <Input label="Folder" aria-label={`Process ${at + 1} folder`} mono value={row.folder} onChange={(event) => change(row.id, "folder", event.target.value)} />
               <Input label="Port" aria-label={`Process ${at + 1} port`} mono inputMode="numeric" value={row.port} onChange={(event) => change(row.id, "port", event.target.value.replace(/\D/g, ""))} />
               <Tooltip label="Remove">

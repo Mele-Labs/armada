@@ -119,6 +119,7 @@ import { RunsPlaceCard, RunsPlaceControl } from "./RunsPlaceControl";
 import { composerFocusAsked } from "./session-focus";
 import { NO_SYNCED, cardOn, profilesOf, useRunBook } from "./run-book";
 import { boundProfile, rootOfSession, sentTo } from "./run-places";
+import { JobRun } from "./cockpit/runs/JobRun";
 import { SessionRepositoryOf } from "./session-move";
 import { movedRowsOf } from "./session-moved";
 import { useSessions, useSessionsDraft, useSessionsSaid } from "./sessions-draft";
@@ -1106,6 +1107,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
                       Terminal
                     </Button>
                   )}
+                  <JobRun session={session} repositories={repositories} />
                   {marked}
                 </>
               ),

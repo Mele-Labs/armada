@@ -8,7 +8,7 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import type { SavedRun } from "./runs";
 
 export * from "./runs";
-export { RunPhaseMark, RunWindowMark } from "./RunPhaseMark";
+export { RunPhaseButton, RunPhaseMark, RunWindowMark } from "./RunPhaseMark";
 
 const ADD = "add-a-run";
 
@@ -54,9 +54,11 @@ export function RunControl({
           <Play size={16} strokeWidth={2} aria-hidden="true" />
         </Button>
       </Tooltip>
-      <Button ref={caret} variant="ghost" size="sm" iconOnly aria-label={`Runs for ${subject}`} aria-haspopup="menu" aria-expanded={at !== undefined} onClick={open} onKeyDown={(event) => event.key === "ArrowDown" && (event.preventDefault(), open())}>
-        <ChevronDown size={16} strokeWidth={2} aria-hidden="true" />
-      </Button>
+      <Tooltip label={`Runs for ${subject}`}>
+        <Button ref={caret} variant="ghost" size="sm" iconOnly aria-label={`Runs for ${subject}`} aria-haspopup="menu" aria-expanded={at !== undefined} onClick={open} onKeyDown={(event) => event.key === "ArrowDown" && (event.preventDefault(), open())}>
+          <ChevronDown size={16} strokeWidth={2} aria-hidden="true" />
+        </Button>
+      </Tooltip>
       {at === undefined ? null : (
         <DropdownMenu
           triggerLabel={`Runs for ${subject}`}

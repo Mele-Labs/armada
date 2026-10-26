@@ -27,6 +27,10 @@ import { useSplits } from "./splits";
 import { dotsOf, MERGE_BY_HAND } from "../horizon";
 import { useFleetEvents } from "../fleet-events";
 import { bandingOf, bandsOf, type Banding } from "./bands";
+import { RepositoryRun } from "../runs/RepositoryRun";
+import { RunHost } from "../runs/RunHost";
+import { RunPane } from "../runs/RunPane";
+import { useRuns } from "../runs/source";
 import { bandOf, movableIn, useReorder } from "./reorder";
 import { useClock } from "./clock";
 import { CLOCK_MS } from "./field";
@@ -249,6 +253,7 @@ function List({ subjects, calling, banding, selected, builds, picked, found, onP
   const hover = useDeck((deck) => deck.hover);
   const limit = useDeck((deck) => deck.limit);
   const ideas = useQueued();
+  const runs = useRuns();
   const pausedIds = new Set(useSessions().filter((one) => one.paused === true).map((one) => one.id));
   const [menu, setMenu] = useState<RowMenuAt>();
   const panel = useRef<HTMLElement>(null);
@@ -329,9 +334,16 @@ function List({ subjects, calling, banding, selected, builds, picked, found, onP
       <ul className="deck-list__rows" data-reordering={dragging === undefined ? undefined : ""}>
         {banding === undefined
           ? [...queuedIn(ideas, picked).map((idea) => <QueuedRow key={queuedKey(idea.id)} idea={idea} />), ...drawn.map(row)]
-          : bandsOf(drawn, banding, queuedIn(ideas, picked)).map((band) => (
+          : bandsOf(drawn, banding, queuedIn(ideas, picked), runs !== undefined).map((band) => (
               <li key={`band:${band.key}`} className="deck-list__band">
-                <h3 className="deck-list__repository">{band.label}</h3>
+                {runs === undefined || band.root === undefined ? (
+                  <h3 className="deck-list__repository">{band.label}</h3>
+                ) : (
+                  <div className="deck-list__head">
+                    <h3 className="deck-list__repository">{band.label}</h3>
+                    <RepositoryRun root={band.root} label={band.label} />
+                  </div>
+                )}
                 <ul className="deck-list__group">{[...band.ideas.map((idea) => <QueuedRow key={queuedKey(idea.id)} idea={idea} />), ...band.subjects.map(row)]}</ul>
               </li>
             ))}
@@ -464,7 +476,8 @@ function Stage({ props, ship, listed, autopilot, ledger, hosts }: { props: Cockp
   const call = sel?.kind === "call" ? ship.calls.find((one) => one.key === sel.key) : undefined;
   // What was picked is gone (a Session ended, a call was answered elsewhere): back to the timeline.
   const lane = sel?.kind === "autopilot";
-  const gone = sel !== undefined && !lane && subject === undefined && call === undefined;
+  const running = sel?.kind === "run";
+  const gone = sel !== undefined && !lane && !running && subject === undefined && call === undefined;
   useEffect(() => {
     if (gone) select(undefined);
   }, [gone]);
@@ -495,6 +508,7 @@ function Stage({ props, ship, listed, autopilot, ledger, hosts }: { props: Cockp
     [],
   );
   if (sel?.kind === "session" && subject !== undefined) return <SessionPane subject={subject} props={props} acts={acts} ledger={ledger} hosts={hosts} openSession={openSession} />;
+  if (running) return <RunPane id={sel.key.slice("run:".length)} props={props} />;
   if (call !== undefined) return <CallPane item={call} props={props} />;
   if (lane) return <AutopilotPane props={props} autopilot={autopilot} />;
   if (view === "map") return <MapView props={props} ship={ship} listed={listed} />;
@@ -1064,7 +1078,9 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
     // `at` alone: the same call pressed twice is two landings.
   }, [bring?.at]);
   const modded = ship.subjects.some((one) => one.mod === true);
-  const banding = useMemo(() => bandingOf(props.picked, props.state.holds.repositories ?? [], modded), [props.picked, props.state.holds.repositories, modded]);
+  const runs = useRuns();
+  // Where runs are offered every repository is a heading, since the run control stands on it.
+  const banding = useMemo(() => bandingOf(props.picked, props.state.holds.repositories ?? [], modded || runs !== undefined), [props.picked, props.state.holds.repositories, modded, runs]);
   const { listed, found } = useListed(ship, banding);
   // The selected Session's own calls are cards in its thread, so its row does not call him as well.
   const incoming = withoutOpenSession(incomingOf(ship.calls, held, visited, needingOf(ship)), sel);
@@ -1096,6 +1112,7 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
     {/* A replay plays on while the deck is drawn, from the events Bridge holds, and takes its own keys while it is up. */}
     <ReplayHost props={props} ship={ship} />
     <AutopilotAsked control={autopilot.control} />
+    <RunHost ship={ship} props={props} />
     {/* Powering on, each panel comes online in turn and fills as Fleet answers (`power.css`). */}
     <div ref={deckMarks} className="armada-cockpit deck" data-power={powering(power) ? power : undefined}>
       <div ref={grid} className="deck-grid" data-bare={bare || undefined} style={columns === undefined ? undefined : ({ "--deck-left": `${columns.left}px`, "--deck-right": `${columns.right}px` } as CSSProperties)}>

@@ -961,3 +961,9 @@ button.deck-pr:hover { border-color: var(--border-strong); color: var(--fg-defau
 .deck-runs-layer { position: fixed; inset: 0; z-index: var(--z-modal); display: flex; align-items: center; justify-content: center; padding: var(--space-6); background: var(--scrim); }
 .deck-runs-layer .armada-runs-all { position: relative; inset: auto; width: min(var(--w-dialog-wide), 100%); max-height: 100%; border: var(--border-width) solid var(--border-default); border-radius: var(--radius-lg); background: var(--bg-overlay); box-shadow: var(--shadow-overlay); }
 .deck-combo__empty { padding: var(--space-2); color: var(--fg-subtle); font-size: var(--text-sm); }
+
+/* A repository's heading, and the run control at its right in the same columns on every heading: a state's column that stays empty, then the play glyph and its caret. */
+.deck-list__head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); min-height: var(--h-control-sm); }
+.deck-list__head > .deck-list__repository { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.deck-list__run { display: inline-flex; flex: none; align-items: center; }
+.deck-list__run-state { display: inline-flex; align-items: center; justify-content: center; width: var(--h-control-sm); height: var(--h-control-sm); }

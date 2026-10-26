@@ -1,6 +1,7 @@
 import { AppWindowMac, Check, LoaderCircle, Power, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
+import { Button } from "../../primitives/Button/Button";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { PHASE_SAID } from "./runs";
 import type { RunPhase } from "./runs";
@@ -16,6 +17,21 @@ export function RunPhaseMark({ phase, said, size = 12 }: { phase: RunPhase; said
       <span className="armada-run-mark" data-phase={phase} role="img" aria-label={label}>
         <Glyph size={size} strokeWidth={2} aria-hidden="true" />
       </span>
+    </Tooltip>
+  );
+}
+
+/** The same mark as a press that opens the run it is the state of: a repository's row and a Job's header, where the run is not on screen. */
+export function RunPhaseButton({ phase, said, onPress }: { phase: RunPhase; said: string; onPress: () => void }) {
+  const Glyph = GLYPH[phase];
+  const label = `${said}, ${PHASE_SAID[phase].toLowerCase()}`;
+  return (
+    <Tooltip label={label}>
+      <Button variant="ghost" size="sm" iconOnly aria-label={label} onClick={onPress}>
+        <span className="armada-run-mark" data-phase={phase} aria-hidden="true">
+          <Glyph size={16} strokeWidth={2} aria-hidden="true" />
+        </span>
+      </Button>
     </Tooltip>
   );
 }
