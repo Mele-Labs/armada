@@ -18,7 +18,7 @@ function fakeRun(): NonNullable<ReturnType<NonNullable<NonNullable<Scenario["dra
     startTerminalRun: async (command: string) => {
       const send = (message: SessionRunMessage) => hearers.forEach((one) => one("run-gh", message));
       setTimeout(() => send({ kind: "output", text: `$ ${command}\r\nLogged in to github.com as ines\r\n` }), 200);
-      setTimeout(() => send({ kind: "exited", code: 0 }), 500);
+      setTimeout(() => send({ kind: "exited", code: 0, stopped: false }), 500);
       return ok();
     },
     writeSessionRun: ok,

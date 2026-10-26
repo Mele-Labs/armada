@@ -719,7 +719,7 @@ const endOf = (sessions: SessionsHost, runId: string) =>
   new Promise<void>((done) => sessions.onRun((id, message) => id === runId && message.kind === "exited" && done()));
 
 it("runs a command in a directory with no Job, observes its run as a block's, and says so where nothing is connected", async () => {
-  const port = await shellFleet(["t1"], { t1: [{ kind: "output", text: "hi\r\n" }, { kind: "exited", code: 0 }] });
+  const port = await shellFleet(["t1"], { t1: [{ kind: "output", text: "hi\r\n" }, { kind: "exited", code: 0, stopped: false }] });
   const { sessions } = host(port);
   const heard: SessionRunMessage[] = [];
   const ended = new Promise<void>((done) =>
@@ -731,7 +731,7 @@ it("runs a command in a directory with no Job, observes its run as a block's, an
   );
   expect(await sessions.startTerminalRun({ command: "gh auth refresh -s repo", dir: "/repo" })).toEqual({ ok: true, value: { run_id: "t1" } });
   await ended;
-  expect(heard).toEqual([{ kind: "output", text: "hi\r\n" }, { kind: "exited", code: 0 }]);
+  expect(heard).toEqual([{ kind: "output", text: "hi\r\n" }, { kind: "exited", code: 0, stopped: false }]);
   // No Job owns it, so nothing of it is kept once it ends.
   expect(sessions.soFar("t1")).toBeNull();
   expect(await host(null).sessions.startTerminalRun({ command: "ls", dir: "/repo" })).toEqual({ ok: false, outcome: { ok: false, why: "not_connected" } });
