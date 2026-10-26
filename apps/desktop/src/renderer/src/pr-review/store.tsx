@@ -26,6 +26,7 @@ const EMPTY_WALK: WalkWork = { find: { state: "idle" }, asking: false, held: und
 const EMPTY: PrWork = {
   page: { state: "unread" },
   patches: {},
+  every: { state: "unread" },
   refused: undefined,
   submitting: false,
   explains: {},
@@ -65,6 +66,8 @@ export type ReviewStore = AgentActs &
   toggleOpen: (key: string, change: string) => void;
   /** Reads one file's patch from the forge, the first time its change is shown. */
   readFile: (key: string, path: string) => void;
+  /** Reads every file's patch in one call, the first time Files is shown. A refusal is asked again on the next press. */
+  readPatches: (key: string) => void;
   addDraft: (key: string, draft: Omit<Draft, "id">) => void;
   removeDraft: (key: string, id: string) => void;
   /** Resolves a thread, or opens it again, at the forge. Answers whether the forge took it; a refusal is in `refused`. */
@@ -193,10 +196,12 @@ export function createReviewStore(source: ReviewSource): ReviewStore {
 
   /** A commit pushed since the patches were read makes them stale: they are read again where their change is shown. */
   const dropStale = (key: string, head: string) => {
-    const on = work(key).patchesHead;
-    if (on === undefined || on === head) return;
-    change(key, { patches: {}, patchesHead: undefined });
-    acts.patched(key);
+    const { patchesHead: on, every } = work(key);
+    const patchesStale = on !== undefined && on !== head;
+    const everyStale = every.state === "read" && every.head !== head;
+    if (!patchesStale && !everyStale) return;
+    change(key, { ...(patchesStale ? { patches: {}, patchesHead: undefined } : {}), ...(everyStale ? { every: { state: "unread" as const } } : {}) });
+    if (patchesStale) acts.patched(key);
   };
 
   /** `fresh` is a reading Fleet just answered; the one kept from the last launch is only drawn, and read again by `fetch`. */
@@ -303,6 +308,18 @@ export function createReviewStore(source: ReviewSource): ReviewStore {
         const patch = answer.value.patch;
         keep(patch === undefined ? { state: "said", said: answer.value.said ?? "No lines changed in this file." } : { state: "read", lines: linesOfPatch(path, patch) });
         acts.patched(key);
+      });
+    },
+    readPatches: (key) => {
+      const pr = prOf(key);
+      if (pr === undefined) return;
+      dropStale(key, pr.head);
+      const held = work(key).every;
+      if (held.state === "reading" || held.state === "read") return;
+      const on = pr.head;
+      change(key, { every: { state: "reading" } });
+      void source.patches(pr.manifestId, pr.number).then((answer) => {
+        change(key, { every: answer.ok ? { state: "read", head: on, files: answer.value.files } : { state: "said", said: answer.said } });
       });
     },
     addDraft: (key, draft) => change(key, { drafts: [...work(key).drafts, { id: nextId("d"), ...draft }] }),

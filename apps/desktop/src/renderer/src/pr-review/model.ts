@@ -9,7 +9,7 @@
 // path is only a caption on it. A line is named by its place in `Hunk.lines`, since the diff draws no numbers.
 
 import type { DiffLine } from "@armada/components";
-import type { DiffSide, PullRequestPage, PullReviewHolder, PullReviewThread, PullReviewThreadComment, RememberedPlace, ReviewPlace, ReviewRun, ReviewSeverity, ReviewWalk, ReviewWalkState, WalkPlaceFound } from "@armada/protocol";
+import type { DiffSide, PullRequestFilePatches, PullRequestPage, PullReviewHolder, PullReviewThread, PullReviewThreadComment, RememberedPlace, ReviewPlace, ReviewRun, ReviewSeverity, ReviewWalk, ReviewWalkState, WalkPlaceFound } from "@armada/protocol";
 
 /**
  * The lists a pull request can be on. **He is asked to review in two ways**: directly (`requested`), or through a team
@@ -164,10 +164,17 @@ export type ReviewPr = {
 };
 
 /** What the stage is showing: the explanation, a page of the forge's, or a tool's results. */
-export type View = "explanation" | "checks" | "commits" | (string & {});
+export type View = "explanation" | "files" | "checks" | "commits" | (string & {});
 
 /** What the store holds about one pull request beyond what the forge served. */
 export type PatchRead = { state: "reading" } | { state: "read"; lines: DiffLine[] } | { state: "said"; said: string };
+
+/** Every file's patch, read together for the Files tab, with the commit they were read on. Fleet's words where it would not. */
+export type PatchesRead =
+  | { state: "unread" }
+  | { state: "reading" }
+  | { state: "read"; head: string; files: PullRequestFilePatches["files"] }
+  | { state: "said"; said: string };
 
 /** Whether the page of a pull request has been read from the forge, and the words of Fleet's refusal where it would not be. */
 export type PageRead = { state: "unread" } | { state: "reading" } | { state: "read" } | { state: "said"; said: string };
@@ -204,6 +211,8 @@ export type PrWork = {
   patches: Readonly<Record<string, PatchRead>>;
   /** The commit the patches were read on, so a page that answers a newer one drops them. */
   patchesHead?: string;
+  /** Every file's patch, for the Files tab. Read the first time it is shown, and dropped when the commit moves. */
+  every: PatchesRead;
   /** Fleet's refusal of the last review he submitted, in the forge's words. His drafts are still there. */
   refused: string | undefined;
   /** A review is on its way to the forge. */

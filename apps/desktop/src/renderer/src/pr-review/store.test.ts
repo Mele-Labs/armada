@@ -57,6 +57,8 @@ type Calls = {
   writes: WritePullRequest[];
   resolves: { thread: string; resolved: boolean }[];
   files: string[];
+  /** How many times every file's patch was asked for at once. */
+  patches: number;
   starts: StartReviewRun[];
   saves: string[];
   searches: StartReviewSearch[];
@@ -97,6 +99,7 @@ function fake(over: Partial<ReviewSource> = {}): { source: ReviewSource; calls: 
     writes: [],
     resolves: [],
     files: [],
+    patches: 0,
     starts: [],
     saves: [],
     searches: [],
@@ -115,6 +118,10 @@ function fake(over: Partial<ReviewSource> = {}): { source: ReviewSource; calls: 
     file: async (_id, number, path) => {
       calls.files.push(path);
       return { ok: true, value: { manifest_id: "m1", number, path, patch: "@@ -1,2 +1,2 @@\n keep\n-old\n+new" } };
+    },
+    patches: async () => {
+      calls.patches += 1;
+      return { ok: true, value: { files: [{ manifest_id: "m1", number: 1, path: "a.rs", patch: "@@ -1,2 +1,2 @@\n keep\n-old\n+new" }, { manifest_id: "m1", number: 1, path: "b.rs", patch: "@@ -1 +1 @@\n-x\n+y" }] } };
     },
     write: async (_id, write) => {
       calls.writes.push(write);
@@ -283,6 +290,49 @@ test("a file's patch is read once, the first time its change is shown", async ()
   expect(calls.files).toEqual(["a.rs"]);
   const read = store.get().work[key]!.patches["a.rs"];
   expect(read?.state).toBe("read");
+});
+
+test("every file's patch is read in one call, the first time Files is shown, and not again for the same commit", async () => {
+  const { store, calls, key } = await opened();
+  store.readPatches(key);
+  store.readPatches(key);
+  await settle();
+  expect(calls.patches).toBe(1);
+  const read = store.get().work[key]!.every;
+  expect(read.state).toBe("read");
+  expect(read.state === "read" && read.files.map((file) => file.path)).toEqual(["a.rs", "b.rs"]);
+});
+
+test("a patch read that the forge refused says so in Fleet's words, and is asked again on the next press", async () => {
+  let answer: Read<{ files: [] }> = said("The forge did not answer");
+  const { store, calls, key } = await opened({ patches: async () => ((calls.patches += 1), answer) });
+  store.readPatches(key);
+  await settle();
+  expect(store.get().work[key]!.every).toEqual({ state: "said", said: "The forge did not answer" });
+  answer = { ok: true, value: { files: [] } };
+  store.readPatches(key);
+  await settle();
+  expect(calls.patches).toBe(2);
+  expect(store.get().work[key]!.every.state).toBe("read");
+});
+
+test("a commit pushed after every patch was read drops them, and they are read again on the new commit", async () => {
+  let head = "head1";
+  const { store, calls, key } = await opened({
+    lists: async () => ({ ok: true, value: lists({ requested: [row(1, "2026-10-16T10:00:00Z", { head })] }) }),
+    page: async (_id, number) => ({ ok: true, value: page(number, { head }) }),
+  });
+  store.readPatches(key);
+  await settle();
+  expect(store.get().work[key]!.every.state).toBe("read");
+  head = "head2";
+  store.fetch();
+  await settle();
+  expect(store.get().work[key]!.every).toEqual({ state: "unread" });
+  store.readPatches(key);
+  await settle();
+  expect(calls.patches).toBe(2);
+  expect(store.get().work[key]!.every.state).toBe("read");
 });
 
 test("a commit pushed after a patch was read drops the patch, and the file is read again on the new commit", async () => {
