@@ -303,7 +303,10 @@ Its first message is a pinned note's, sent as `send_session_note` sends one, wit
 The skill ships in the Armada mod for Claude Code (`plugins/armada/skills/armada-mods/`), so a Job in any folder has it.
 A mod it makes applies live once `validate_mod` passes, and the switch in *Mods made* is the owner's undo.
 Where the ask needs more than a mod can say, the Job says so and changes Armada's source on its own branch, then asks for `scripts/preview --restart` as a `waiting_for` run item.
-In an empty Mod Job he can pick what he is aiming for before he writes, a theme, layout, words, Fleet rule, tracker or a change to Armada's source, and his first message carries one line naming it after the brief.
+An empty Mod Job's thread lists six aims to pick from, Colours, Panels, Words, Notices, Issue trackers and Anything else, and he can pick what he is aiming for before he writes, a theme, layout, words, Fleet rule, tracker or a change to Armada's source, and his first message carries one line naming it after the brief.
+The pick is kept per Job until his first message, which is the only one that carries it.
+A mod the Job made is also drawn in its thread as the card System › Mods draws, where it was made.
+On either card only the switch turns the mod on or off; a press on the rest of the row, or on its name, opens the mod in the side panel with its facts, the switch, Promote and **Change it**, which starts an empty Mod Job aimed at the mod's kind with the box open on `Change the <Name> <kind>: `.
 
 **A Fleet that does not serve Armada's own repository starts the Job in the mods folder**, with no repository, no Manifest, no slot and no branch.
 That Job makes mods only, and its brief says so: there is no source to change and no preview to restart, so an ask a mod cannot say is told to the owner.
