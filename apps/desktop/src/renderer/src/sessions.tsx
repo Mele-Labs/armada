@@ -131,7 +131,6 @@ import { useJobDock } from "./job-shell-dock";
 import { todosOf } from "./session-activity";
 import { confirmWaiting, dismissWaiting } from "./cockpit/dismissed";
 import { HeadViews, LayerBounds, useJobViews } from "./cockpit/deck/JobViews";
-import { useTitleNotch } from "./cockpit/deck/title-notch";
 import { useCompactAct } from "./cockpit/deck/compact-act";
 import { holdsDelivery, stateOf } from "./session-state";
 import type { PlanEditing } from "./session-view/PlanEdit";
@@ -1068,7 +1067,6 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
   const marked = unread || where === undefined || cardLead ? undefined : <RunsPlaceControl {...where} />;
   const compactAct = useCompactAct(session, draft);
   const jobViews = useJobViews(session, bays);
-  const titleSlot = useTitleNotch();
   return (
     <TeachHereContext.Provider value={teachHere}>
     <SessionRefs session={session}>
@@ -1101,8 +1099,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
           },
         }}
         {...(deck === undefined ? {} : { back: deck.back })}
-        // On the Cockpit only: the Job's state and name are in the title bar's notch, its views are buttons in its head, and Compact is in the context figure.
-        {...(deck?.flight === true && titleSlot !== null ? { titleInto: titleSlot } : {})}
+        // On the Cockpit only: the Job's views are buttons in its head, and Compact is in the context figure.
         {...(deck?.flight === true && jobViews !== undefined ? { headViews: <HeadViews views={jobViews} /> } : {})}
         {...(deck?.flight === true ? { compact: compactAct } : {})}
         {...{

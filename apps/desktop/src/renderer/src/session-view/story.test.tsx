@@ -230,8 +230,8 @@ test("settleFolds gives the panels back to the stage when the Job has moved on s
 
 const keydown = (init: KeyboardEventInit) => new KeyboardEvent("keydown", init);
 
-test("⌥W, ⌥B, ⌥F and ⌥L each name their band, by the physical key", () => {
-  expect(["KeyW", "KeyB", "KeyF", "KeyL"].map((code) => bandOf(keydown({ altKey: true, code }))?.area)).toEqual(["workflow", "blueprint", "field", "landing"]);
+test("⌥W, ⌥B, ⌥F and ⌥D each name their band, by the physical key", () => {
+  expect(["KeyW", "KeyB", "KeyF", "KeyD"].map((code) => bandOf(keydown({ altKey: true, code }))?.area)).toEqual(["workflow", "blueprint", "field", "landing"]);
   // ⌥ changes the letter the key types; the band is still the key's.
   expect(bandOf(keydown({ altKey: true, code: "KeyB", key: "∫" }))?.area).toBe("blueprint");
 });

@@ -1,10 +1,10 @@
 // A reply's close, read sentence by sentence: each ask is its own Needs you item, the approval the agent also stated is shown once, and the
-// follow-ups it kept for itself are listed in the Landing, folded under Deferred. Over the `needs-you-extracted` scenario.
+// follow-ups it kept for itself are listed in Delivery, folded under Deferred. Over the `needs-you-extracted` scenario.
 
 import { button, deckRow, inside, region, role, walk } from "../walk";
 
 const needs = region("Needs you");
-const landing = region("Landing", { exact: true });
+const landing = region("Delivery", { exact: true });
 const later = inside(landing, button("Deferred"));
 
 const needsYouExtracted = walk("needs-you-extracted", [
@@ -14,7 +14,7 @@ const needsYouExtracted = walk("needs-you-extracted", [
   { key: "Escape", on: inside(needs, button("Back", { exact: true })), say: "Esc returns to the three items" },
   { look: inside(needs, role("group", "pnpm vitest run packages/studios")), say: "The command is drawn whole, with its Run key" },
   { look: inside(needs, button("Open Approve #2714 and it lands.")), say: "The agent stated this approval itself. The reply's copy is folded into it" },
-  { press: inside(landing, button(/^Landing/)), say: "The Landing stands folded to its band while the Job is built. A press opens it" },
+  { press: inside(landing, button(/^Delivery/)), say: "Delivery stands folded to its band while the Job is built. A press opens it" },
   { look: later, say: "The follow-ups the agent kept are under Deferred, folded" },
   { press: later, say: "A press opens it" },
   { look: inside(landing, role("list")), say: "Two rows, as the reply wrote them" },
