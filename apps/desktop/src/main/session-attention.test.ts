@@ -87,7 +87,7 @@ describe("SessionAttention", () => {
     expect(show).toHaveBeenCalledWith({ sessionId: "a", title: "Job a", body: "First\nand 1 more", tone: "waiting" });
   });
 
-  it.each(["ask_card", "permission", "window_ask", "plan", "slot_choice", "delivery"] as const)("sounds blocked for a %s item", (source) => {
+  it.each(["ask_card", "permission", "window_ask", "plan", "slot_choice", "delivery", "task_done"] as const)("sounds blocked for a %s item", (source) => {
     const { attention: a, show } = attention();
     a.read([session("a")], 1);
     a.read([session("a", [item("1", source)])], 2);

@@ -168,10 +168,12 @@ import { REQUESTS_CHANNELS, type RequestsApi } from "./api/requests";
 import { SHARING_CHANNELS, type SharingApi } from "./api/sharing";
 import { LOGBOOK_CHANNELS, type LogbookApi } from "./api/logbook";
 import { TEACHING_CHANNELS, type TeachingApi } from "./api/teaching";
+import { PROJECTS_CHANNELS, type ProjectsApi } from "./api/projects";
 import type { ActFailed, AgentSignIn, ModelDownshiftState, PlanUsage, SignedOut, SleepState, TimelineAsk, TimelineEvent } from "@armada/protocol";
 import type { BridgeApi } from "./api";
 import { CHANNELS, NOTHING_YET } from "./bridge";
 import type { BridgeState, HistoryStep, Summons } from "./bridge";
+import type { PullLink } from "./pull-link";
 
 type OldBridgeState = {
     connection: Connection;
@@ -348,6 +350,7 @@ type OldBridgeApi = {
         sendNotes: () => Promise<Outcome>;
     };
     onSummoned: (onGo: (to: Summons) => void) => () => void;
+    onPullLink: (onLink: (link: PullLink) => void) => () => void;
     onHistory: (onStep: (step: HistoryStep) => void) => () => void;
     askHelm: (text: string, context?: HelmContext, carry?: HelmCarry) => Promise<Outcome>;
     helmDebugInfo: () => Promise<HelmDebugRead>;
@@ -491,7 +494,7 @@ type OldBridgeApi = {
     readTerminalSoFar: (runId: string) => Promise<string | null>;
     moveTerminalBack: (sessionId: string, to: TerminalMovedBack["to"]) => Promise<void>;
     onTerminalMovedBack: (on: (move: TerminalMovedBack) => void) => () => void;
-} & AutopilotApi & SketchShareApi & FilesApi & ReviewsApi & FlightControlsApi & OnboardingApi & RequestsApi & SharingApi & LogbookApi & TeachingApi;
+} & AutopilotApi & SketchShareApi & FilesApi & ReviewsApi & FlightControlsApi & OnboardingApi & RequestsApi & SharingApi & LogbookApi & TeachingApi & ProjectsApi;
 
 const OLD_NOTHING_YET: OldBridgeState = {
     connection: { state: "reading" },
@@ -609,6 +612,7 @@ const OLD_CHANNELS = {
     askLesson: "bridge:ask-lesson",
     readHeld: "bridge:read-held",
     summoned: "bridge:summoned",
+    pullLinked: "bridge:pull-linked",
     history: "bridge:history",
     askHelm: "bridge:ask-helm",
     helmDebugInfo: "bridge:helm-debug-info",
@@ -814,6 +818,7 @@ const OLD_CHANNELS = {
     ...SHARING_CHANNELS,
     ...LOGBOOK_CHANNELS,
     ...TEACHING_CHANNELS,
+    ...PROJECTS_CHANNELS,
 } as const;
 
 type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;

@@ -4,11 +4,12 @@
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
-use ipc::{IssueReference, LaterHow, LaterSettled, SettleLater, WireError};
+use ipc::{DeferLater, IssueReference, LaterDeferred, LaterHow, LaterSettled, SettleLater, WireError};
 
 use crate::daemon::Fleet;
 
 const NOT_SETTLEABLE: &str = "fleet.later_not_settleable";
+const NOT_DEFERRABLE: &str = "fleet.later_not_deferrable";
 const NOT_OPEN: &str = "fleet.later_not_open";
 const LATER_OPEN: &str = "fleet.later_open";
 
@@ -79,6 +80,39 @@ where
             true => Ok(()),
             false => Err(Refusal::IllegalMove(WireError::raised(LATER_OPEN, open_text(&open), self.run_id()))),
         }
+    }
+
+    /// `defer_later`: the job keeps one follow-up for itself. The same sentence, trimmed, is the item it
+    /// was, and one settled already is not kept again.
+    pub(crate) async fn later_deferred(&self, caller: Option<api::Caller>, defer: DeferLater) -> Result<LaterDeferred, Refusal> {
+        let id = self.waiting_session(caller, defer.session_id.as_ref())?;
+        let sentence = defer.sentence.trim();
+        if sentence.is_empty() {
+            return Err(self.hosted_refusal(NOT_DEFERRABLE, "sentence needs the thing you will do later, in a line"));
+        }
+        let now = self.clock().now().as_str().to_string();
+        let (kept, record) = {
+            let mut store = self.store().lock().await;
+            let session = store
+                .session(&id)
+                .map_err(|why| self.ledger_fault(why))?
+                .ok_or_else(|| self.hosted_refusal(NOT_DEFERRABLE, "a job Fleet knows"))?;
+            if session.state == store::SessionState::Ended {
+                return Err(self.closed(&id));
+            }
+            store.keep_later(&id, sentence, &now).map_err(|why| self.ledger_fault(why))?;
+            let open = store.later_of(&id).map_err(|why| self.ledger_fault(why))?;
+            let kept = open.iter().find(|one| one.sentence == sentence).map(|one| one.id.clone()).ok_or_else(|| {
+                Refusal::IllegalMove(WireError::raised(
+                    NOT_OPEN,
+                    "that sentence was settled already, so it is not kept again",
+                    self.run_id(),
+                ))
+            })?;
+            (kept, self.ledger_row(&store, &session)?)
+        };
+        self.publish(ipc::Event::SessionChanged(record.clone()));
+        Ok(LaterDeferred { id: kept, sentence: sentence.to_string(), open: record.later })
     }
 
     /// `settle_later`: one open follow-up is done, filed or dropped. **A job's own call must say

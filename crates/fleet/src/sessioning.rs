@@ -768,6 +768,14 @@ where
         self.say_done(caller, done).await
     }
 
+    async fn defer_later(
+        &self,
+        caller: Option<api::Caller>,
+        defer: ipc::DeferLater,
+    ) -> Result<ipc::LaterDeferred, Refusal> {
+        self.later_deferred(caller, defer).await
+    }
+
     async fn settle_later(
         &self,
         caller: Option<api::Caller>,
