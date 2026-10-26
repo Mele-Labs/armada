@@ -62,6 +62,9 @@ function sentAbout(session: Session, title: string): SentNote[] {
   });
 }
 
+/** Whether the Notes margin is shown: hidden once, it stays hidden each time a page opens, until shown again or the window reloads. */
+let marginShown = true;
+
 export function DocumentLayer({ session }: { session: Session }) {
   const draft = useSessionsDraft();
   const doc = documentOf(session);
@@ -73,7 +76,7 @@ export function DocumentLayer({ session }: { session: Session }) {
   const [focus, setFocus] = useState<DocumentFocus | undefined>(undefined);
   const [current, setCurrent] = useState<string | undefined>(undefined);
   const [wanted, setWanted] = useState<number | undefined>(undefined);
-  const [margin, setMargin] = useState(true);
+  const [margin, setMargin] = useState(marginShown);
   const [lit, setLit] = useState<LitNote | undefined>(undefined);
   const layer = useRef<HTMLElement>(null);
   const scroller = useRef<HTMLDivElement>(null);
@@ -162,7 +165,8 @@ export function DocumentLayer({ session }: { session: Session }) {
   const toggleMargin = () => {
     if (layer.current?.querySelector(".armada-doc__notes")?.contains(document.activeElement) === true) pageRef.current?.focus();
     setLit(undefined);
-    setMargin((was) => !was);
+    marginShown = !margin;
+    setMargin(marginShown);
   };
   const switchRevision = () => setPinned(revision === latest ? latest - 1 : undefined);
 
