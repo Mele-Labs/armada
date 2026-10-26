@@ -130,8 +130,7 @@ function press(event: KeyboardEvent, store: ProjectsStore, dispatchRow: (rowId: 
   }
 
   if (row !== null && rowId !== undefined) {
-    const sub = row.hasAttribute("data-sub");
-    if (isPressed("projects_select", event)) return sub ? undefined : (take(), store.select(rowId));
+    if (isPressed("projects_select", event)) return take(), store.select(rowId);
     if (isPressed("projects_add_subtask", event)) {
       if (row.querySelector("[data-add-subtask]") === null) return;
       take();

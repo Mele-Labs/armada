@@ -77,3 +77,9 @@
 
 .armada-select-mark[data-look="plate"]:hover .armada-select-mark__plate { border-color: var(--border-strong); color: var(--fg-default); }
 .armada-select-mark[data-look="plate"][data-checked] .armada-select-mark__plate { border-color: var(--accent); background: var(--accent); color: var(--fg-inverse); }
+
+/* ---- A size down: a row under another ---- */
+
+.armada-select-mark[data-size="sm"] { min-width: var(--space-4); height: var(--space-4); }
+.armada-select-mark[data-size="sm"] .armada-select-mark__reticle { width: var(--space-4); height: var(--space-4); }
+.armada-select-mark[data-size="sm"] .armada-select-mark__plate { min-width: var(--space-4); height: var(--space-4); padding: 0; font-size: var(--text-2xs); line-height: var(--space-4); }

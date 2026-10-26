@@ -4,8 +4,8 @@
 // chip, and its acts. A task's subtasks stand under it as smaller cards, one level deep. A card is dragged to move it
 // among its own list, as ⌥↑ and ⌥↓ do.
 
-import { useEffect, useState } from "react";
-import { Check, CircleDashed, CircleDot, Link, ListTree, MessageCircleQuestion, Ticket, Trash2, type LucideIcon } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Check, CircleDashed, CircleDot, Link, ListTree, MessageCircleQuestion, Ticket, Trash2, X, type LucideIcon } from "lucide-react";
 import { Button, Kbd, RepositoryChip, SelectMark, SessionMark, Textarea, Tooltip, forgetKept } from "@armada/components";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
@@ -45,7 +45,10 @@ function Pane({ band, project, onOpenSession, onDispatch }: Hosts & { band: Band
   const store = useProjectsStore()!;
   const { selected, linking, linkingTask, subtasking, look } = useProjects();
   const sessions = useSessions();
-  const chosen = project.rows.filter((row) => selected.includes(row.id));
+  // What Dispatch sends: the rows selected, a parent with its subtasks, and a subtask on its own where its parent is not.
+  const chosen = project.rows.flatMap((row): ProjectRow[] =>
+    selected.includes(row.id) ? [row] : row.kind === "task" ? (row.subtasks ?? []).filter((one) => selected.includes(one.id)) : [],
+  );
   const { dragging, grab, swallowed } = useReorder((key, target, after) => store.place(key, target, after), CARDS);
   const item = (row: ProjectRow, at: number, list: string, parent?: TaskRow) => (
     <li
@@ -90,7 +93,7 @@ function Pane({ band, project, onOpenSession, onDispatch }: Hosts & { band: Band
             <Kbd>{PROJECTS_KEYS.rows}</Kbd>
           </Tooltip>
           <Tooltip label="Link issues" shortcut={PROJECTS_KEYS.link}>
-            <Button variant="ghost" size="sm" onClick={() => store.linking(!(linking && linkingTask === undefined))} aria-pressed={linking && linkingTask === undefined}>
+            <Button variant="ghost" size="sm" data-link-project onClick={() => store.linking(!(linking && linkingTask === undefined))} aria-pressed={linking && linkingTask === undefined}>
               Link issues
             </Button>
           </Tooltip>
@@ -138,6 +141,7 @@ function Card({ row, index, look, sub, state, sessions, selected, onOpenSession,
       data-state={state}
       data-look={look}
       data-sub={sub || undefined}
+      data-asking={state === "asking" || undefined}
       data-selected={selected || undefined}
       tabIndex={0}
       aria-label={label}
@@ -145,11 +149,9 @@ function Card({ row, index, look, sub, state, sessions, selected, onOpenSession,
       onClickCapture={(event) => swallowed() && (event.preventDefault(), event.stopPropagation())}
     >
       <span className="projects-row__select">
-        {sub ? null : (
-          <Tooltip label="Select" shortcut={PROJECTS_KEYS.select}>
-            <SelectMark tabIndex={-1} look={look} index={index} checked={selected} label={`Select ${label}`} onToggle={() => store.select(row.id)} />
-          </Tooltip>
-        )}
+        <Tooltip label="Select" shortcut={PROJECTS_KEYS.select}>
+          <SelectMark tabIndex={-1} look={look} size={sub ? "sm" : undefined} index={index} checked={selected} label={`Select ${label}`} onToggle={() => store.select(row.id)} />
+        </Tooltip>
       </span>
       {row.kind === "task" ? (
         <Tooltip label={said} shortcut={PROJECTS_KEYS.tick} asChild>
@@ -169,43 +171,47 @@ function Card({ row, index, look, sub, state, sessions, selected, onOpenSession,
         <span className="projects-row__words">{row.title}</span>
         {row.kind === "task" && !sub ? <IssueChips issues={row.issues ?? []} /> : null}
       </span>
-      {/* The card's end, flush right on every card: the done ask's answers, and the acts under the pointer or focus. */}
-      <span className="projects-row__end">
-        {state === "asking" ? (
-          <span className="projects-row__ask">
-            <Tooltip label="Mark done" shortcut={capOf(PROJECTS_KEYS.markDone)} asChild>
-              <Button variant="secondary" size="sm" tabIndex={-1} data-mark-done onClick={() => store.settle(row.id, true)}>
-                Mark done
-              </Button>
-            </Tooltip>
-            <Tooltip label="Keep open" shortcut={capOf(PROJECTS_KEYS.keepOpen)} asChild>
-              <Button variant="ghost" size="sm" tabIndex={-1} data-keep-open onClick={() => store.settle(row.id, false)}>
-                Keep open
-              </Button>
-            </Tooltip>
-          </span>
-        ) : null}
-        <span className="projects-row__acts">
-          {row.kind === "task" && !sub ? (
-            <>
-              <Tooltip label="Link issues to the task" shortcut={PROJECTS_KEYS.linkTask} asChild>
-                <button type="button" tabIndex={-1} className="projects-row__act" data-link-task aria-label={`Link issues to ${row.title}`} onClick={() => store.linking(true, row.id)}>
-                  <Link size={16} strokeWidth={2} aria-hidden />
-                </button>
-              </Tooltip>
-              <Tooltip label="Add a subtask" shortcut={PROJECTS_KEYS.addSubtask} asChild>
-                <button type="button" tabIndex={-1} className="projects-row__act" data-add-subtask aria-label={`Add a subtask to ${row.title}`} onClick={() => store.subtasking(row.id)}>
-                  <ListTree size={16} strokeWidth={2} aria-hidden />
-                </button>
-              </Tooltip>
-            </>
-          ) : null}
-          <Tooltip label={row.kind === "task" ? "Delete" : "Unlink"} shortcut={PROJECTS_KEYS.remove} asChild>
-            <button type="button" tabIndex={-1} className="projects-row__act" data-remove aria-label={`${row.kind === "task" ? "Delete" : "Unlink"} ${label}`} onClick={() => store.remove(row.id)}>
-              <Trash2 size={16} strokeWidth={2} aria-hidden />
-            </button>
+      {/* The done ask's answers, in a column of their own; a card with no ask leaves it to the title. */}
+      {state === "asking" ? (
+        <span className="projects-row__ask">
+          <Tooltip label="Mark done" shortcut={capOf(PROJECTS_KEYS.markDone)} asChild>
+            <Button variant="secondary" size="sm" tabIndex={-1} data-mark-done onClick={() => store.settle(row.id, true)}>
+              Mark done
+            </Button>
+          </Tooltip>
+          <Tooltip label="Keep open" shortcut={capOf(PROJECTS_KEYS.keepOpen)} asChild>
+            <Button variant="ghost" size="sm" tabIndex={-1} data-keep-open onClick={() => store.settle(row.id, false)}>
+              Keep open
+            </Button>
           </Tooltip>
         </span>
+      ) : null}
+      {/* The acts, always drawn, each in its own column at the card's right edge; a card without one keeps its place. */}
+      <span className="projects-row__acts">
+        {row.kind === "task" && !sub ? (
+          <>
+            <Tooltip label="Link issues to the task" shortcut={PROJECTS_KEYS.linkTask} asChild>
+              <button type="button" tabIndex={-1} className="projects-row__act" data-link-task aria-label={`Link issues to ${row.title}`} onClick={() => store.linking(true, row.id)}>
+                <Link size={16} strokeWidth={2} aria-hidden />
+              </button>
+            </Tooltip>
+            <Tooltip label="Add a subtask" shortcut={PROJECTS_KEYS.addSubtask} asChild>
+              <button type="button" tabIndex={-1} className="projects-row__act" data-add-subtask aria-label={`Add a subtask to ${row.title}`} onClick={() => store.subtasking(row.id)}>
+                <ListTree size={16} strokeWidth={2} aria-hidden />
+              </button>
+            </Tooltip>
+          </>
+        ) : (
+          <>
+            <span className="projects-row__act" aria-hidden="true" />
+            <span className="projects-row__act" aria-hidden="true" />
+          </>
+        )}
+        <Tooltip label={row.kind === "task" ? "Delete" : "Unlink"} shortcut={PROJECTS_KEYS.remove} asChild>
+          <button type="button" tabIndex={-1} className="projects-row__act" data-remove aria-label={`${row.kind === "task" ? "Delete" : "Unlink"} ${label}`} onClick={() => store.remove(row.id)}>
+            <Trash2 size={16} strokeWidth={2} aria-hidden />
+          </button>
+        </Tooltip>
       </span>
       {/* The Job holding it, on a line of its own under the title. */}
       {row.job === undefined ? null : (
@@ -330,6 +336,18 @@ function LinkIssues({ band, project, task }: { band: Band; project: Project; tas
     if (query !== undefined) issues?.run(band.manifestId, query);
   }, [issues, band.manifestId, query]);
   const run = query === undefined ? undefined : issues?.runOf(band.manifestId, query);
+  // A press elsewhere on the page puts the search away, as Esc does; the press that opened it is not elsewhere. A page
+  // leaving takes the search with it, so a press off the page is not counted.
+  const panel = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const away = (event: PointerEvent) => {
+      const target = event.target as Element | null;
+      if (target === null || target.closest(".projects-surface") === null || panel.current?.contains(target) || target.closest("[data-link-task], [data-link-project]") !== null) return;
+      store.linking(false);
+    };
+    window.addEventListener("pointerdown", away, true);
+    return () => window.removeEventListener("pointerdown", away, true);
+  }, [store]);
   const linked = new Set(task === undefined ? project.rows.flatMap((row) => (row.kind === "issue" ? [row.reference] : [])) : (task.issues ?? []).map((one) => one.reference));
   const wanted = words.trim().toLowerCase();
   const hits = (run?.state === "read" ? run.tickets : []).filter((one) => !linked.has(one.reference) && (wanted === "" || `${one.reference} ${one.title}`.toLowerCase().includes(wanted)));
@@ -339,7 +357,15 @@ function LinkIssues({ band, project, task }: { band: Band; project: Project; tas
     else store.linkToTask(task.id, issue);
   };
   return (
-    <div className="projects-link" role="group" aria-label={task === undefined ? "Link issues" : `Link issues to ${task.title}`}>
+    <div ref={panel} className="projects-link" role="group" aria-label={task === undefined ? "Link issues" : `Link issues to ${task.title}`}>
+      <div className="projects-link__head">
+        <span className="projects-link__title">{task === undefined ? "Link issues" : `Link issues to ${task.title}`}</span>
+        <Tooltip label="Close" shortcut="Esc" asChild>
+          <button type="button" className="projects-link__close" aria-label="Close the issue search" onClick={() => store.linking(false)}>
+            <X size={16} strokeWidth={2} aria-hidden />
+          </button>
+        </Tooltip>
+      </div>
       <Textarea
         rows={1}
         autoFocus

@@ -4,6 +4,7 @@ import type { ButtonHTMLAttributes } from "react";
  * A row's select control, drawn in Armada's own hand rather than as a form's box. **Two looks are offered while the
  * owner picks one**: `reticle`, a sight's four corners that close on a lit square, and `plate`, the row's place in its
  * list as a mono plate that fills with the accent. Either is one press, a `checkbox` to assistive tech, and holds no state.
+ * `sm` is the same mark a size down, for a row that stands under another.
  */
 export type SelectMarkLook = "reticle" | "plate";
 
@@ -15,9 +16,10 @@ export type SelectMarkProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "chi
   look?: SelectMarkLook;
   /** The row's place in its list, from 1, which the plate shows. */
   index?: number;
+  size?: "sm";
 };
 
-export function SelectMark({ checked, onToggle, label, look = "reticle", index = 1, className, ...rest }: SelectMarkProps) {
+export function SelectMark({ checked, onToggle, label, look = "reticle", index = 1, size, className, ...rest }: SelectMarkProps) {
   return (
     <button
       {...rest}
@@ -27,6 +29,7 @@ export function SelectMark({ checked, onToggle, label, look = "reticle", index =
       aria-label={label}
       className={`armada-select-mark${className === undefined ? "" : ` ${className}`}`}
       data-look={look}
+      data-size={size}
       data-checked={checked || undefined}
       onClick={onToggle}
     >
