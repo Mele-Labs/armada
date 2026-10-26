@@ -1,4 +1,4 @@
-// Progress: the follow-ups the agent kept for itself, folded under one label. A press opens them, and the button is a tab stop that Enter and Space press.
+// Deferred: the follow-ups the agent kept for itself, in the Landing, folded under one label. A press opens them, and the button is a tab stop that Enter and Space press.
 // Each row has two presses after its words: Remind sends the sentence back to the agent, and Drop settles it himself and takes it off the list.
 // The issues the Job filed for later stand in the same list, a row each that opens the issue as the Blueprint's chips do; they have no Remind or Drop.
 

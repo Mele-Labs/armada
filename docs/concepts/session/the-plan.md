@@ -65,7 +65,7 @@ The agent's task list (the `tasks` fact, from the mod and from the hosted gate, 
 A task the list calls in progress is `working`; one it calls completed is `done` if an edit was seen under its group's paths while it was worked, else `handed_in`: done by the agent's word with no edit seen.
 **`handed_in` reads as done** (owner, 17 Oct 2026).
 No Checks are involved and nothing moves it on; usually the task had no file edits (reading, running tests, a subagent's edits, or edits outside the group's paths).
-Bridge draws it with the done check and a faint mark for no edit seen, tooltip `Done, no edit seen`, and counts it as done in Progress, in a group's state and on the Field, where it is hollow.
+Bridge draws it with the done check and a faint mark for no edit seen, tooltip `Done, no edit seen`, and counts it as done in the Blueprint, in a group's state and on the Field, where it is hollow.
 `failed` is not set by anything Fleet observes yet.
 An edit under a group's paths marks the group worked (`worked_at`); a group that names no paths takes every edit.
 
@@ -77,13 +77,13 @@ It advises and gates nothing, and recording the plan again marks it out of date 
 The plan in Fleet stays the source: nothing is read back from the backlog, and a task's bead follows `state_of`, not a word the agent said.
 A Job that holds no beads issue mirrors nothing.
 
-**With no plan, the agent's own task list is what Progress shows.** The list is kept whether or not a plan exists (*The build record*; `session_build_tasks`), so a Job that never records a plan still has one.
+**With no plan, the agent's own task list is what the Blueprint shows.** The list is kept whether or not a plan exists (*The build record*; `session_build_tasks`), so a Job that never records a plan still has one.
 Bridge lists it in the order the agent made the tasks, each with a state mark: `done` for a completed task, `working` for the one the tool has in progress, `open` for the rest.
 The running subagents are listed under it.
-The row is published when the list changes, so Progress follows live.
-**A recorded plan takes over**: with one, Progress shows the plan's groups and tasks and none of the agent's list, and the list goes on moving the plan's tasks by text as above.
+The row is published when the list changes, so the Blueprint follows live.
+**A recorded plan takes over**: with one, the Blueprint shows the plan's groups and tasks and none of the agent's list, and the list goes on moving the plan's tasks by text as above.
 A Job with neither a list nor a subagent at work, and no workflow to follow, stands folded to its band.
-Progress draws the plan as steps: a finished group is one muted line, the group being worked is open and raised, and a group to come is one muted line (*In Bridge*, *Plan*).
+The Blueprint draws the plan open and editable while it awaits approval, and once approved as a Now view or the whole plan (`docs/concepts/session/in-bridge.md`).
 The group being worked is the one `activity.account.group` names (*Working on*), else one with a task `working` or `failed`.
 
 **Who touched which file.** `SessionRecord.touches` is a bounded window of the Job's recent file touches for the Field: the subagent (type and the call that started it, absent for the Job's own agent), the `path` from the repository's root, the `act` (`write`, `edit` or `remove`) and `at`.

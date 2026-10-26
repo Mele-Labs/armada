@@ -1,4 +1,4 @@
-// Progress: the issues the Session works on, each a single row with the pull requests that work it as rows under it, then the pull requests
+// Issues: the issues the Session works on, each a single row with the pull requests that work it as rows under it, then the pull requests
 // that work none of them. A pull request works an issue whose forge number it closes, or one whose row names it, as a tracker's issue's row
 // does. A pull request working two of its issues stands under both. A press opens the issue or the pull request in the side
 // panel. A plan group that names an issue is that issue's place: its pull requests stand in the group, and this block lists only the issues no
