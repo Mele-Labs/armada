@@ -6,7 +6,7 @@ use std::path::Path;
 use store::KeptRun;
 
 use crate::app_runs::draft::{drafted, DraftPort, DraftProcess, DraftSource, RunDraft};
-use crate::app_runs::save::{amended, into_file, SavedIn};
+use crate::app_runs::save::{spliced, written};
 use crate::app_runs::RunTarget;
 use crate::tests::servers::a_fleet_holding;
 use crate::tests::tmp::TempDir;
@@ -200,38 +200,34 @@ fn a_draft() -> RunDraft {
 
 const COMMENTED: &str = "# How budget-app runs.\nversion: 1\nid: budget-app\n\n# One test command.\nchecks:\n  test:\n    run: pytest -q\n";
 
+/// Kit's copy as a person keeps it: only what it changes of the repository's file, commented.
+const KIT_COPY: &str = "# My own port for the API.\nports:\n  mine: {}\n";
+
 #[test]
-fn a_saved_run_is_in_the_file_with_its_ports_servers_and_folders_and_every_comment_stays() {
+fn a_saved_run_is_spliced_into_kits_copy_with_its_ports_servers_and_folders_and_every_comment_stays() {
     let dir = TempDir::new();
     let file = dir.path().join("armada.yml");
     std::fs::write(&file, COMMENTED).expect("written");
 
-    into_file(&file, &a_draft()).expect("it saves");
+    let text = spliced(KIT_COPY, &a_draft(), &[]).expect("it splices");
 
-    let text = std::fs::read_to_string(&file).expect("read");
-    assert!(text.starts_with("# How budget-app runs.\nversion: 1"), "{text}");
-    assert!(text.contains("# One test command.\nchecks:"), "{text}");
-    let manifest = config::Manifest::parse(&file, &text).expect("it loads");
+    assert!(text.starts_with("# My own port for the API.\nports:"), "{text}");
+    let manifest = config::Manifest::with_kit(&file, COMMENTED, Path::new("kit.yml"), &text).expect("it loads over the file");
+    assert!(manifest.from_kit().is_some_and(|kit| kit.left_out.is_none()), "{:?}", manifest.from_kit());
     let run = manifest.app_run("dev").expect("the run");
     assert_eq!((run.label(), run.servers()), (Some("Budget app"), &[String::from("backend"), String::from("frontend")][..]));
     assert_eq!(manifest.server("frontend").and_then(|server| server.dir()), Some("frontend"));
     assert_eq!(manifest.server("frontend").map(|server| server.links().len()), Some(1), "a link to its port");
     assert_eq!(manifest.port("backend").and_then(|port| port.env()), Some("PORT"));
-    assert!(manifest.port("frontend").is_some());
-    assert!(!file.with_extension("yml.writing").exists(), "the staging file went");
+    assert!(manifest.port("frontend").is_some() && manifest.port("mine").is_some());
+    assert!(manifest.check("test").is_some(), "the repository's own Check is still there");
+    // A copy that does not exist yet starts from nothing.
+    let fresh = spliced("", &a_draft(), &[]).expect("an empty copy takes a run");
+    assert!(fresh.contains("runs:"), "{fresh}");
 }
 
 #[test]
-fn a_draft_naming_something_the_file_declares_or_that_will_not_load_is_refused_and_writes_nothing() {
-    let dir = TempDir::new();
-    let file = dir.path().join("armada.yml");
-    let text = format!("{COMMENTED}commands:\n  frontend:\n    run: npm run build\n");
-    std::fs::write(&file, &text).expect("written");
-
-    let refused = into_file(&file, &a_draft()).expect_err("already declared");
-    assert!(refused.to_string().contains("`commands.frontend` is already declared"), "{refused}");
-    assert_eq!(std::fs::read_to_string(&file).expect("read"), text, "the file is as it was");
-
+fn a_draft_that_will_not_be_written_is_refused_and_says_which_line() {
     let changes: [(fn(&mut RunDraft), &str); 5] = [
         (|draft: &mut RunDraft| draft.name = String::from("two words"), "not a name for a run"),
         (|draft: &mut RunDraft| draft.processes.clear(), "at least one server"),
@@ -242,27 +238,45 @@ fn a_draft_naming_something_the_file_declares_or_that_will_not_load_is_refused_a
     for (change, wanted) in changes {
         let mut draft = a_draft();
         change(&mut draft);
-        let refused = amended(&file, COMMENTED, &draft, &[]).expect_err("refused");
+        let refused = written(Path::new("armada.yml"), Path::new("kit.yml"), KIT_COPY, &draft, &[]).expect_err("refused");
         assert!(refused.to_string().contains(wanted), "{wanted}: {refused}");
     }
 }
 
 #[tokio::test]
-async fn a_repository_with_a_file_gets_the_run_in_it_and_is_told_it_waits_for_a_restart() {
+async fn a_repository_with_a_file_gets_the_run_in_kits_copy_and_its_own_file_is_never_written() {
     let home = TempDir::new();
     let events = api::Broadcaster::new();
     let fleet = a_fleet_holding(&home, &events, COMMENTED, COMMENTED);
+    let repository = home.path().join("armada.yml");
 
     let saved = fleet.run_saved(None, a_draft()).await.expect("it saves");
 
     assert_eq!(saved.name, "dev");
-    assert_eq!(saved.saved_in, SavedIn::Repository(home.path().join("armada.yml")));
-    assert!(saved.takes_effect_at_restart, "Fleet holds the Manifest it started with");
-    let text = std::fs::read_to_string(home.path().join("armada.yml")).expect("read");
-    assert!(text.contains("runs:") && text.contains("# One test command."), "{text}");
-    let target = RunTarget::Main(None);
-    let held = fleet.runs_listed(&target).await.expect("listed");
-    assert!(held.is_empty(), "the running Fleet still declares none: {held:?}");
+    assert_eq!(saved.saved_in.place, ipc::RunPlace::ThisMac);
+    assert_eq!(std::fs::read_to_string(&repository).expect("read"), COMMENTED, "the repository's file is as it was");
+    let kit = std::fs::read_to_string(&saved.saved_in.file).expect("Kit's file");
+    assert!(kit.contains("runs:") && !kit.contains("version:"), "only what it adds: {kit}");
+    // Fleet booted without the run, and lists it at once.
+    let listed = fleet.runs_listed(&RunTarget::Main(None)).await.expect("listed");
+    assert_eq!(listed.iter().map(|run| run.name.as_str()).collect::<Vec<_>>(), ["dev"]);
+}
+
+#[tokio::test]
+async fn a_draft_naming_what_the_repositorys_file_declares_is_refused_because_kits_copy_would_win() {
+    let home = TempDir::new();
+    let events = api::Broadcaster::new();
+    let text = format!("{COMMENTED}commands:\n  frontend:\n    run: npm run build\n");
+    let fleet = a_fleet_holding(&home, &events, &text, &text);
+
+    let refused = fleet.run_saved(None, a_draft()).await.expect_err("already declared");
+
+    let api::Refusal::Unacceptable(why) = refused else { panic!("expected a refusal of the draft") };
+    assert_eq!(why.code, "fleet.app_run_draft_refused");
+    assert!(why.message.contains("already declares `frontend`"), "{}", why.message);
+    assert_eq!(std::fs::read_to_string(home.path().join("armada.yml")).expect("read"), text);
+    let kit = fleet.kit_manifest_read(fleet.first().root()).await.expect("read").1;
+    assert!(matches!(kit, config::KitRead::Absent), "nothing was written to Kit's copy either: {kit:?}");
 }
 
 #[tokio::test]
@@ -274,7 +288,7 @@ async fn a_repository_with_no_file_gets_a_whole_copy_in_kit_that_stands_as_its_m
 
     let saved = fleet.run_saved(None, a_draft()).await.expect("it saves");
 
-    let SavedIn::Kit(label) = &saved.saved_in else { panic!("expected Kit's copy: {saved:?}") };
+    let label = &saved.saved_in.file;
     let text = std::fs::read_to_string(label).expect("Kit's file");
     assert!(text.contains("version: 1") && text.contains("id: "), "a whole Manifest: {text}");
     let manifest = config::Manifest::from_kit_alone(&home.path().join("armada.yml"), Path::new(label), &text).expect("it loads");

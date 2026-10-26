@@ -46,7 +46,7 @@ runs:
     commands: [web, broken]
 "#;
 
-fn a_fleet_with_folders(home: &TempDir, events: &api::Broadcaster) -> Arc<Fixture> {
+pub(super) fn a_fleet_with_folders(home: &TempDir, events: &api::Broadcaster) -> Arc<Fixture> {
     let fleet = a_fleet_holding(home, events, MANIFEST, MANIFEST);
     let root = std::path::PathBuf::from(fleet.first().root());
     for folder in ["backend", "frontend"] {
@@ -56,7 +56,7 @@ fn a_fleet_with_folders(home: &TempDir, events: &api::Broadcaster) -> Arc<Fixtur
     fleet
 }
 
-fn code(refusal: Refusal) -> String {
+pub(super) fn code(refusal: Refusal) -> String {
     match refusal {
         Refusal::Unacceptable(why)
         | Refusal::IllegalMove(why)
@@ -66,7 +66,7 @@ fn code(refusal: Refusal) -> String {
 }
 
 /// Whether `url` answers 2xx, by `curl` — the same probe the fixture's own `ready` uses.
-fn answers(url: &str) -> bool {
+pub(super) fn answers(url: &str) -> bool {
     std::process::Command::new("curl")
         .args(["-sf", "-o", "/dev/null", url])
         .status()
@@ -74,7 +74,7 @@ fn answers(url: &str) -> bool {
 }
 
 /// The run as it stands once `settled` says so, or a panic naming how it stood instead.
-async fn settled(
+pub(super) async fn settled(
     fleet: &Fixture,
     name: &str,
     settled: impl Fn(&RunView) -> bool,
@@ -268,7 +268,7 @@ fn a_server_that_exits_on_its_own_has_failed_and_one_that_was_stopped_has_not() 
     assert_eq!(ProcessState::of(&state(ServerPhase::Exited, false)), ProcessState::Failed);
 }
 
-fn git(at: &std::path::Path, args: &[&str]) {
+pub(super) fn git(at: &std::path::Path, args: &[&str]) {
     let ran = std::process::Command::new("git")
         .args(["-c", "user.name=test", "-c", "user.email=test@example.com", "-C"])
         .arg(at)

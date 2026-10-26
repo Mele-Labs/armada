@@ -57,6 +57,10 @@ pub enum Unservable {
     NotKept {
         why: String,
     },
+    /// The checkout's ports cannot hold the ones this server's Manifest names.
+    NoPorts {
+        why: String,
+    },
 }
 
 impl Unservable {
@@ -68,7 +72,7 @@ impl Unservable {
         match self {
             NotAServer { .. } | IsACommand { .. } => (NOT_A_SERVER, Refusal::Unacceptable),
             NoSuchServer { .. } => (NO_SUCH_SERVER, Refusal::Unacceptable),
-            NotRunning { .. } => (CANNOT_SERVE_HERE, Refusal::IllegalMove),
+            NotRunning { .. } | NoPorts { .. } => (CANNOT_SERVE_HERE, Refusal::IllegalMove),
             NotKept { .. } => (SERVER_FAULT, Refusal::Fault),
         }
     }
@@ -113,6 +117,7 @@ impl fmt::Display for Unservable {
                 "server `{id}` has already ended, so there is nothing to stop"
             ),
             NotKept { why } => write!(out, "the server could not be kept: {why}"),
+            NoPorts { why } => write!(out, "the server has no ports to start on: {why}"),
         }
     }
 }

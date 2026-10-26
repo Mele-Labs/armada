@@ -28,7 +28,7 @@ pub(crate) type Stopping = (Arc<watch::Sender<bool>>, watch::Receiver<ServerStat
 
 /// `std`'s lock: it is never held across an `.await`.
 #[derive(Clone, Default)]
-pub(crate) struct Servers(Arc<Mutex<Book>>);
+pub(crate) struct Servers(Arc<Mutex<Book>>, Arc<tokio::sync::Mutex<()>>, Arc<Mutex<BTreeMap<String, Arc<config::Manifest>>>>);
 
 #[derive(Default)]
 struct Book {
@@ -162,6 +162,42 @@ impl Servers {
             .filter(|((whose, _), _)| holder.is_none_or(|holder| holder == whose))
             .map(|(_, live)| (Arc::clone(&live.stop), live.now.subscribe()))
             .collect()
+    }
+
+    /// Held while a run's servers are started, so two runs sharing a checkout are never handed one
+    /// free port for two names: what is free is read from the instances held, and each start is
+    /// held before the next reads.
+    pub(crate) fn starting(&self) -> Arc<tokio::sync::Mutex<()>> {
+        Arc::clone(&self.1)
+    }
+
+    /// The Manifest the last run on the checkout at `path` was read from, so an event for a server
+    /// maps to its run without reading the file, or Kit's copy wherever that is kept, again.
+    pub(crate) fn declared_at(&self, path: &str) -> Option<Arc<config::Manifest>> {
+        self.2.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).get(path).cloned()
+    }
+
+    /// Remember `manifest` as what the checkout at `path` is run from.
+    pub(crate) fn declared_seen(&self, path: &str, manifest: config::Manifest) {
+        self.2
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .insert(path.to_string(), Arc::new(manifest));
+    }
+
+    /// The ports `holder`'s live instances are on, by name: what is not free in its span.
+    pub(crate) fn ports_live(&self, holder: &Holder) -> Vec<ipc::ServerPort> {
+        self.book()
+            .live
+            .iter()
+            .filter(|((whose, _), _)| whose == holder)
+            .flat_map(|(_, live)| live.now.borrow().ports.clone())
+            .collect()
+    }
+
+    /// Whether `holder` has any instance up.
+    pub(crate) fn any_live(&self, holder: &Holder) -> bool {
+        self.book().live.keys().any(|(whose, _)| whose == holder)
     }
 
     /// How to stop the instances of `names` that `holder` has up. A name with none up is left out.

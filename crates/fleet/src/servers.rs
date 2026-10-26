@@ -75,8 +75,22 @@ where
         by: StartedBy,
         session: Option<String>,
     ) -> Result<(ServerState, bool), Unservable> {
+        let declared = checkout.served().manifest().clone();
+        self.hold_server_from(checkout, &declared, name, by, session).await
+    }
+
+    /// [`hold_server`](Fleet::hold_server) reading the server from `manifest`, which is not
+    /// the one Fleet holds: **a run is read fresh when it starts**, so one saved a moment ago
+    /// starts without a restart. Its ports are claimed or widened to fit `manifest`.
+    pub(crate) async fn hold_server_from(
+        self: Arc<Self>,
+        checkout: Checkout,
+        manifest: &config::Manifest,
+        name: &str,
+        by: StartedBy,
+        session: Option<String>,
+    ) -> Result<(ServerState, bool), Unservable> {
         let served = checkout.served().clone();
-        let manifest = served.manifest().clone();
         let Some(server) = manifest.server(name).cloned() else {
             return Err(match manifest.command(name) {
                 Some(_) => Unservable::IsACommand {
@@ -95,15 +109,21 @@ where
                 },
             });
         };
-        let (holder, worktree, ports, env, under, at) = (
+        let ports = self
+            .checkout_ports_declared(checkout.path(), served.manifest(), manifest)
+            .await
+            .map_err(|why| Unservable::NoPorts { why: why.to_string() })?;
+        let env = match crate::ports::env_names(manifest) {
+            Ok(names) => crate::ports::env_vars(&names, &ports),
+            Err(_) => Vec::new(),
+        };
+        let (holder, worktree, under, at) = (
             Holder::Checkout(checkout.path().to_string()),
             // A server's own folder under the checkout, where it declares one.
             match server.dir() {
                 Some(dir) => Path::new(checkout.path()).join(dir),
                 None => PathBuf::from(checkout.path()),
             },
-            self.checkout_ports(&served, checkout.path()).await,
-            self.checkout_port_env(&served, checkout.path()).await,
             checkout.under(),
             ipc::ServerCheckout {
                 path: checkout.path().to_string(),

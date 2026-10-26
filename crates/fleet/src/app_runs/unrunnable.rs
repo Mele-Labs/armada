@@ -16,6 +16,8 @@ const JOB_HAS_NO_WORKTREE: &str = "fleet.job_has_no_worktree";
 const APP_RUNS_ALREADY_SAVED: &str = "fleet.app_runs_already_saved";
 /// A draft that would not load as part of the Manifest: the sentence says which line.
 const APP_RUN_DRAFT_REFUSED: &str = "fleet.app_run_draft_refused";
+/// A Manifest that will not read, so what it declares cannot be run.
+const APP_RUN_MANIFEST_UNREADABLE: &str = "fleet.app_run_manifest_unreadable";
 /// A run that could not be written to the file or the place that keeps it.
 const APP_RUN_UNSAVED: &str = "fleet.app_run_unsaved";
 
@@ -27,6 +29,7 @@ pub(crate) enum Unrunnable {
     AlreadySaved { runs: Vec<String> },
     DraftRefused { why: String },
     NotSaved { why: String },
+    ManifestUnreadable { why: String },
 }
 
 impl Unrunnable {
@@ -41,6 +44,7 @@ impl Unrunnable {
             AlreadySaved { .. } => (APP_RUNS_ALREADY_SAVED, Refusal::IllegalMove),
             DraftRefused { .. } => (APP_RUN_DRAFT_REFUSED, Refusal::Unacceptable),
             NotSaved { .. } => (APP_RUN_UNSAVED, Refusal::Fault),
+            ManifestUnreadable { .. } => (APP_RUN_MANIFEST_UNREADABLE, Refusal::Unacceptable),
         }
     }
 }
@@ -70,6 +74,7 @@ impl fmt::Display for Unrunnable {
             ),
             DraftRefused { why } => write!(out, "nothing was saved: {why}"),
             NotSaved { why } => write!(out, "nothing was saved: {why}"),
+            ManifestUnreadable { why } => write!(out, "nothing was started: {why}"),
         }
     }
 }

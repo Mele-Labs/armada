@@ -21,6 +21,11 @@ use std::time::Duration;
 use config::Manifest;
 use store::{PortClaim, PortClaimant};
 
+mod widening;
+
+#[cfg(test)]
+pub(crate) use widening::spread as spread_for_tests;
+
 /// The range a checkout's port span is claimed from, and the unit its width rounds
 /// up to. `settings.port-range-base`, `settings.port-range-ceiling` and
 /// `settings.port-block-granule` in `crates/config/settings.toml`.

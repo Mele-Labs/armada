@@ -13,6 +13,13 @@
 //! book holds, and [`Fleet::runs_moved_by`] says which runs a server event changed, so the wire
 //! can publish a run's new state after each of them.
 //!
+//! **A run is read from the file when it starts, and Fleet's boot Manifest is not.** A run saved a
+//! moment ago has to start with no restart, so [`Fleet::run_manifest`] reads the tree's own
+//! `armada.yml` with Kit's copy over it each time a run is listed, started or stopped. **Only runs,
+//! their servers and the ports they name are taken from that read.** The rest of what Fleet booted
+//! with, Checks and workflows among it, stays as it was resolved: a Check that changed under a
+//! running Fleet is not one a gate should start enforcing mid-flight (#1564).
+//!
 //! **One instance per checkout and run** follows from one per checkout and server: a second
 //! start finds each server up and answers with them. A server two runs list is one process, so
 //! stopping either run stops it.
@@ -24,13 +31,16 @@ pub(crate) mod draft;
 pub(crate) mod save;
 mod unrunnable;
 
+use std::path::Path;
 use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
+use config::{LoadError, Manifest};
 use ipc::{ServerPhase, ServerPort, ServerState, StartedBy, WireError};
 
 use crate::checkouts::Checkout;
+use crate::repositories::Served;
 use crate::daemon::Fleet;
 use crate::servers::Holder;
 use unrunnable::Unrunnable;
@@ -138,7 +148,7 @@ impl RunView {
 
 /// A run's view from the instances held on `path`.
 fn viewed(
-    manifest: &config::Manifest,
+    manifest: &Manifest,
     servers: &crate::servers::Servers,
     path: &str,
     name: &str,
@@ -201,18 +211,19 @@ where
     /// Every run the Manifest declares, in the file's order, as each stands on `target`.
     pub(crate) async fn runs_listed(&self, target: &RunTarget) -> Result<Vec<RunView>, Refusal> {
         let checkout = self.run_checkout(target).await?;
-        let manifest = checkout.served().manifest();
+        let manifest = self.run_manifest(checkout.served(), checkout.path()).await?;
         Ok(manifest
             .app_run_names()
             .iter()
-            .filter_map(|name| viewed(manifest, self.servers(), checkout.path(), name))
+            .filter_map(|name| viewed(&manifest, self.servers(), checkout.path(), name))
             .collect())
     }
 
     /// One run as it stands on `target`.
     pub(crate) async fn run_read(&self, target: &RunTarget, name: &str) -> Result<RunView, Refusal> {
         let checkout = self.run_checkout(target).await?;
-        self.run_viewed(&checkout, name)
+        let manifest = self.run_manifest(checkout.served(), checkout.path()).await?;
+        self.run_viewed(&manifest, &checkout, name)
     }
 
     /// Start `name` on `target` — **or answer with the run already up**, `true` beside the view
@@ -233,17 +244,20 @@ where
         checkout: Checkout,
         name: &str,
     ) -> Result<(RunView, bool), Refusal> {
-        let run = checkout
-            .served()
-            .manifest()
+        let manifest = self.run_manifest(checkout.served(), checkout.path()).await?;
+        let run = manifest
             .app_run(name)
             .cloned()
-            .ok_or_else(|| self.not_a_run(&checkout, name))?;
+            .ok_or_else(|| self.not_a_run(&manifest, name))?;
+        // One run's starts at a time: each reads what ports the others hold before it picks.
+        let turn = self.servers().starting();
+        let _turn = turn.lock().await;
         let mut started_here: Vec<String> = Vec::new();
         for server in run.servers() {
-            let held = Fleet::hold_server(
+            let held = Fleet::hold_server_from(
                 Arc::clone(&self),
                 checkout.clone(),
+                &manifest,
                 server,
                 StartedBy::Person,
                 None,
@@ -258,7 +272,7 @@ where
                 }
             }
         }
-        Ok((self.run_viewed(&checkout, name)?, !started_here.is_empty()))
+        Ok((self.run_viewed(&manifest, &checkout, name)?, !started_here.is_empty()))
     }
 
     /// Stop every process of `name` on `target`, and wait for each. **Only this run's servers**: no
@@ -270,14 +284,13 @@ where
 
     /// [`run_stopped`](Fleet::run_stopped) on a checkout already resolved.
     pub(crate) async fn run_stopped_on(&self, checkout: &Checkout, name: &str) -> Result<RunView, Refusal> {
-        let run = checkout
-            .served()
-            .manifest()
+        let manifest = self.run_manifest(checkout.served(), checkout.path()).await?;
+        let run = manifest
             .app_run(name)
             .cloned()
-            .ok_or_else(|| self.not_a_run(checkout, name))?;
+            .ok_or_else(|| self.not_a_run(&manifest, name))?;
         self.stopped_servers_named(checkout.path(), run.servers()).await;
-        self.run_viewed(checkout, name)
+        self.run_viewed(&manifest, checkout, name)
     }
 
     /// Stop `name`, then start it again: the run as a whole, never one process of it.
@@ -292,12 +305,14 @@ where
 
     /// The runs a server's event changed, each as it now stands. **What the wire publishes after
     /// every `server.starting`, `server.serving` and `server.exited`**: the event carries the
-    /// instance, and this says whose run it is part of.
+    /// instance, and this says whose run it is part of. **Read from what the checkout was last
+    /// run from**, not the file again: an event is not a reason to reach Kit's copy where it is kept.
     pub(crate) fn runs_moved_by(&self, state: &ServerState) -> Vec<RunView> {
         let Ok(served) = self.served_named(state.manifest_id.as_ref()) else {
             return Vec::new();
         };
-        let manifest = served.manifest();
+        let seen = self.servers().declared_at(&state.checkout.path);
+        let manifest = seen.as_deref().unwrap_or_else(|| served.manifest());
         manifest
             .app_run_names()
             .iter()
@@ -310,15 +325,38 @@ where
             .collect()
     }
 
-    fn run_viewed(&self, checkout: &Checkout, name: &str) -> Result<RunView, Refusal> {
-        viewed(checkout.served().manifest(), self.servers(), checkout.path(), name)
-            .ok_or_else(|| self.not_a_run(checkout, name))
+    /// The Manifest runs are read from on the checkout at `path`: **the tree's own `armada.yml`**
+    /// where it has one, so a Job that adds a server can run it, else the repository's file, each
+    /// with Kit's copy laid over it. A tree with neither falls back to the Manifest Fleet holds.
+    /// One that will not read is refused, since what it declares is not known.
+    pub(crate) async fn run_manifest(&self, served: &Served, path: &str) -> Result<Manifest, Refusal> {
+        let held = served.manifest();
+        let own = held.path().file_name().map(|file| Path::new(path).join(file));
+        let file = match own {
+            Some(own) if path != served.root() && own.is_file() => own,
+            _ => held.path().to_path_buf(),
+        };
+        let copy = self.kit_copy_of(served.root()).await?;
+        let read = tokio::task::spawn_blocking(move || Manifest::load_over_copy(&file, copy))
+            .await
+            .map_err(|why| self.run_refusal(Unrunnable::ManifestUnreadable { why: why.to_string() }))?;
+        let manifest = match read {
+            Ok(manifest) => manifest,
+            Err(LoadError::Unreadable { cause, .. }) if cause.kind() == std::io::ErrorKind::NotFound => held.clone(),
+            Err(why) => return Err(self.run_refusal(Unrunnable::ManifestUnreadable { why: why.to_string() })),
+        };
+        self.servers().declared_seen(path, manifest.clone());
+        Ok(manifest)
     }
 
-    fn not_a_run(&self, checkout: &Checkout, name: &str) -> Refusal {
+    fn run_viewed(&self, manifest: &Manifest, checkout: &Checkout, name: &str) -> Result<RunView, Refusal> {
+        viewed(manifest, self.servers(), checkout.path(), name).ok_or_else(|| self.not_a_run(manifest, name))
+    }
+
+    fn not_a_run(&self, manifest: &Manifest, name: &str) -> Refusal {
         self.run_refusal(Unrunnable::NotARun {
             name: name.to_string(),
-            runs: checkout.served().manifest().app_run_names().to_vec(),
+            runs: manifest.app_run_names().to_vec(),
         })
     }
 

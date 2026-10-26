@@ -1,43 +1,52 @@
-//! A confirmed draft written down: into the repository's `armada.yml` where it has one, else into
-//! the person's own copy in Kit. **Drafting and reading are in [`super::draft`]**; this only writes.
+//! A confirmed draft written down, **into the person's own copy in Kit and nowhere else**.
+//! **Drafting and reading are in [`super::draft`]**; this only writes.
 //!
-//! **The writer is `config::amend`**, the one `run_memory/manifest.rs` uses for a learnt dev
-//! server: a splice that leaves every comment where it was, and re-parses what it produced, so
-//! nothing is written that would not load.
+//! **The repository's `armada.yml` is never written here.** It sits in the checkout the person
+//! works in, and a press on a run is no decision about their tree. Kit's copy lays over that file
+//! by name, wherever the person keeps it (this Mac, a synced folder, the cloud), so the run is
+//! there at once; getting it into the repository is the *Commit to repository* act on a Job's branch.
 //!
-//! **The repository's file is left changed and not committed.** It sits in the checkout the
-//! person works in, and committing there is a decision about their branch that a press on a run
-//! does not make. A Job's branch is another place; the caller names the tree.
+//! **The writer is `config::splice`**, the splice `config::amend` is built on: it leaves every
+//! comment where it was and does not need the document to be a Manifest by itself. What it
+//! produced is then loaded as Kit's copy is, laid over the repository's file, before anything is
+//! written, so nothing is saved that would not load.
 
 use std::path::{Path, PathBuf};
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use config::{
-    amend, CommandEdit, Edit, NewCommand, NewLink, NewPort, NewRun, NotAmended, PortEdit, RunEdit,
+    splice, CommandEdit, Edit, KitRead, Manifest, NewCommand, NewLink, NewPort, NewRun, NotAmended,
+    PortEdit, RunEdit,
 };
 
 use super::draft::{safe_name, DraftProcess, RunDraft};
 use super::unrunnable::Unrunnable;
 use crate::daemon::Fleet;
 
-/// Where a run went.
+/// Where a run went: the place the person's Kit is kept, and the file in it.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) enum SavedIn {
-    /// The repository's own `armada.yml`, changed in its checkout and not committed.
-    Repository(PathBuf),
-    /// The person's copy in Kit, as the place their Kit is kept names it.
-    Kit(String),
+pub(crate) struct SavedIn {
+    /// As the person chose it: `this_mac`, the synced folder, or the cloud.
+    pub(crate) place: ipc::RunPlace,
+    /// Kit's copy, as that place names it.
+    pub(crate) file: String,
 }
 
-/// What a save did.
+/// What a save did. **A saved run starts at once**: a run is read from the file when it starts.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct SavedRun {
     pub(crate) name: String,
     pub(crate) saved_in: SavedIn,
-    /// **Fleet holds the Manifest it started with**, and the servers and runs of it are read at
-    /// boot, so a run Fleet does not yet declare starts only once it has read the file again.
-    pub(crate) takes_effect_at_restart: bool,
+}
+
+/// Where a saved run is written. **The one place that chooses**: Kit's copy for the repository,
+/// at the place its Kit keeps it.
+struct SaveTarget {
+    place: ipc::RunPlace,
+    label: PathBuf,
+    /// What Kit's copy holds now, or `None` where there is none yet.
+    text: Option<String>,
 }
 
 /// The edits that declare `draft`: each process's port, then its server, then the run.
@@ -96,30 +105,71 @@ fn refused(draft: &RunDraft) -> Option<String> {
     })
 }
 
-/// `text` with `draft` declared in it, or why it cannot be.
-pub(crate) fn amended(path: &Path, text: &str, draft: &RunDraft, first: &[Edit]) -> Result<String, Unrunnable> {
+/// `text` with `draft` declared in it, or why it cannot be. `first` is what a new copy needs before
+/// the draft: a version and an id, where Kit's copy is to be the whole Manifest.
+pub(crate) fn spliced(text: &str, draft: &RunDraft, first: &[Edit]) -> Result<String, Unrunnable> {
     if let Some(why) = refused(draft) {
         return Err(Unrunnable::DraftRefused { why });
     }
     let all: Vec<Edit> = first.iter().cloned().chain(edits(draft)).collect();
-    match amend(path, text, &all) {
-        Ok(done) => Ok(done.text().to_string()),
-        Err(why @ (NotAmended::Misnamed { .. } | NotAmended::Refused(_))) => {
-            Err(Unrunnable::DraftRefused { why: why.to_string() })
-        }
-        Err(why) => Err(Unrunnable::NotSaved { why: why.to_string() }),
-    }
+    splice(text, &all).map_err(|why| match why {
+        NotAmended::Misnamed { .. } | NotAmended::Refused(_) => Unrunnable::DraftRefused { why: why.to_string() },
+        other => Unrunnable::NotSaved { why: other.to_string() },
+    })
 }
 
-/// Write `draft` into the `armada.yml` at `file`, over a temporary file renamed into place.
-pub(crate) fn into_file(file: &Path, draft: &RunDraft) -> Result<(), Unrunnable> {
-    let text = std::fs::read_to_string(file)
-        .map_err(|why| Unrunnable::NotSaved { why: format!("{} could not be read: {why}", file.display()) })?;
-    let written = amended(file, &text, draft, &[])?;
-    let staging = file.with_extension("yml.writing");
-    std::fs::write(&staging, written)
-        .and_then(|()| std::fs::rename(&staging, file))
-        .map_err(|why| Unrunnable::NotSaved { why: format!("{} could not be written: {why}", file.display()) })
+/// The text of Kit's copy once `draft` is in it: spliced, then loaded over the repository's file at
+/// `file` as Kit's copy is, so what comes back is what the run will start from.
+pub(crate) fn written(file: &Path, label: &Path, text: &str, draft: &RunDraft, first: &[Edit]) -> Result<String, Unrunnable> {
+    let written = spliced(text, draft, first)?;
+    loaded(file, label, &written, draft).map(|()| written)
+}
+
+/// Every name `draft` declares that the repository's own `armada.yml` already does. **Kit's copy
+/// wins by name**, so saving one would change what a Command, a port or a run of the repository is.
+fn already_declared(repository: &Manifest, draft: &RunDraft) -> Vec<String> {
+    let ports = repository.port_names();
+    let mut names: Vec<String> = Vec::new();
+    for process in &draft.processes {
+        let taken = repository.command(&process.name).is_some()
+            || repository.server(&process.name).is_some()
+            || process.port.as_ref().is_some_and(|port| ports.contains(&port.name));
+        if taken {
+            names.push(process.name.clone());
+        }
+    }
+    if repository.app_run(&draft.name).is_some() {
+        names.push(draft.name.clone());
+    }
+    names
+}
+
+/// `written` loaded as Kit's copy over the repository's file at `file` where there is one, else on
+/// its own: the Manifest the run will start from, or why it will not load.
+fn loaded(file: &Path, label: &Path, written: &str, draft: &RunDraft) -> Result<(), Unrunnable> {
+    let refuse = |why: String| Unrunnable::DraftRefused { why };
+    let manifest = match std::fs::read_to_string(file) {
+        Ok(own) => {
+            let repository = Manifest::parse(file, &own).map_err(|why| refuse(format!("{} does not load: {why}", file.display())))?;
+            let clashing = already_declared(&repository, draft);
+            if !clashing.is_empty() {
+                let said = clashing.iter().map(|one| format!("`{one}`")).collect::<Vec<_>>().join(", ");
+                return Err(refuse(format!("{} already declares {said}", file.display())));
+            }
+            Manifest::with_kit(file, &own, label, written).map_err(|why| refuse(why.to_string()))?
+        }
+        Err(why) if why.kind() == std::io::ErrorKind::NotFound => {
+            Manifest::from_kit_alone(file, label, written).map_err(|why| refuse(why.to_string()))?
+        }
+        Err(why) => return Err(Unrunnable::NotSaved { why: format!("{} could not be read: {why}", file.display()) }),
+    };
+    if let Some(left_out) = manifest.from_kit().and_then(|kit| kit.left_out.clone()) {
+        return Err(refuse(left_out));
+    }
+    match manifest.app_run(&draft.name) {
+        Some(run) if run.servers().len() == draft.processes.len() => Ok(()),
+        _ => Err(refuse(format!("`{}` is not a run in what was written", draft.name))),
+    }
 }
 
 impl<H, V, W> Fleet<H, V, W>
@@ -139,62 +189,59 @@ where
         manifest_id: Option<&ipc::ManifestId>,
     ) -> Result<Option<RunDraft>, Refusal> {
         let served = self.served_named(manifest_id)?;
-        if !served.manifest().app_run_names().is_empty() {
-            return Err(self.run_refusal(Unrunnable::AlreadySaved {
-                runs: served.manifest().app_run_names().to_vec(),
-            }));
-        }
         let root = served.root().to_string();
+        // A run saved since Fleet booted is one the repository declares.
+        let declared = self.run_manifest(&served, &root).await?;
+        if !declared.app_run_names().is_empty() {
+            return Err(self.run_refusal(Unrunnable::AlreadySaved { runs: declared.app_run_names().to_vec() }));
+        }
         self.run_memory_started(&root).await?;
         let facts = self.store().lock().await.run_facts(&root).map_err(|why| self.run_fault(why))?;
         let tree = PathBuf::from(&root);
         Ok(tokio::task::spawn_blocking(move || super::draft::drafted(&tree, &facts)).await.unwrap_or(None))
     }
 
-    /// Declare a confirmed `draft`: in the repository's `armada.yml` where the repository has one,
-    /// else in the person's copy in Kit, which is then the whole Manifest of a repository with none.
+    /// Declare a confirmed `draft` in the person's copy in Kit, at the place they keep it. **The
+    /// copy is the whole Manifest of a repository with no `armada.yml`**, and only the names it
+    /// changes of one that has. The run starts at once: it is read from the file when it starts.
     pub(crate) async fn run_saved(
         &self,
         manifest_id: Option<&ipc::ManifestId>,
         draft: RunDraft,
     ) -> Result<SavedRun, Refusal> {
         let served = self.served_named(manifest_id)?;
+        let root = served.root().to_string();
         let file = served.manifest().path().to_path_buf();
-        let takes_effect_at_restart = served.manifest().app_run(&draft.name).is_none();
-        let name = draft.name.clone();
-        let saved_in = match file.is_file() {
-            true => {
-                let (at, draft) = (file.clone(), draft);
-                tokio::task::spawn_blocking(move || into_file(&at, &draft))
-                    .await
-                    .unwrap_or_else(|why| Err(Unrunnable::NotSaved { why: why.to_string() }))
-                    .map_err(|why| self.run_refusal(why))?;
-                SavedIn::Repository(file)
-            }
-            false => self.run_saved_in_kit(served.root(), &file, &draft).await?,
+        let target = self.run_save_target(&root).await?;
+        let (text, first) = match target.text {
+            Some(text) => (text, Vec::new()),
+            None if file.is_file() => (String::new(), Vec::new()),
+            None => (String::new(), vec![Edit::Version(1), Edit::Id(self.mint().ulid().as_str().to_string())]),
         };
-        Ok(SavedRun { name, saved_in, takes_effect_at_restart })
+        let name = draft.name.clone();
+        let (label, at) = (target.label.clone(), file.clone());
+        let kept = tokio::task::spawn_blocking(move || written(&at, &label, &text, &draft, &first))
+            .await
+            .unwrap_or_else(|why| Err(Unrunnable::NotSaved { why: why.to_string() }))
+            .map_err(|why| self.run_refusal(why))?;
+        self.manifest_written(&root, kept).await?;
+        Ok(SavedRun { name, saved_in: SavedIn { place: target.place, file: target.label.display().to_string() } })
     }
 
-    /// The person's copy for `root`, read from where their Kit keeps it, with `draft` declared in it.
-    /// **A repository with no copy yet gets one made whole**: a version and an id are what let a file
-    /// stand as the Manifest.
-    async fn run_saved_in_kit(&self, root: &str, file: &Path, draft: &RunDraft) -> Result<SavedIn, Refusal> {
+    /// Where a run for the repository at `root` is saved, and what is there now. A place that cannot
+    /// be reached refuses here, before anything is built to write.
+    async fn run_save_target(&self, root: &str) -> Result<SaveTarget, Refusal> {
+        let place = self.kit_place_of(root).await?;
         let (label, read) = self.kit_manifest_read(root).await?;
-        let (text, first) = match read {
-            config::KitRead::Text(text) => (text, Vec::new()),
-            config::KitRead::Absent => (
-                String::new(),
-                vec![Edit::Version(1), Edit::Id(self.mint().ulid().as_str().to_string())],
-            ),
-            config::KitRead::Unread(why) => {
+        let text = match read {
+            KitRead::Text(text) => Some(text),
+            KitRead::Absent => None,
+            KitRead::Unread(why) => {
                 return Err(self.run_refusal(Unrunnable::NotSaved {
                     why: format!("{} could not be reached: {why}", label.display()),
                 }))
             }
         };
-        let written = amended(file, &text, draft, &first).map_err(|why| self.run_refusal(why))?;
-        self.manifest_written(root, written).await?;
-        Ok(SavedIn::Kit(label.display().to_string()))
+        Ok(SaveTarget { place, label, text })
     }
 }
