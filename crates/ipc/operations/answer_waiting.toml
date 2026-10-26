@@ -4,7 +4,7 @@ transport = "HTTP"
 agent_access = "No"
 description = "Settle one thing a job is waiting on the person for: a numbered choice, their words, or leave it to the agent"
 notes = """
-`POST /sessions/waiting/answer`, body `AnswerWaiting`: `session_id`, `item_id`, and one of `choice` (an index into the item's `options`), `text`, or `mode` (`best` or `quick`). Answered with the `SessionRecord`.
+`POST /sessions/waiting/answer`, body `AnswerWaiting`: `session_id`, `item_id`, and one of `choice` (an index into the item's `options`), `text`, or `mode` (`best` or `quick`), or `fixed` for a `draft` item. Answered with the `SessionRecord`.
 
 **Routed by the item's source.** `ask_card` and `permission` items answer through the ask route underneath (`answer_session_ask`): a `choice` or `text` answers the card, a `mode` alone refuses it with the mode line as the note so the agent decides. A `walk` item sends the approval (`Approved: <url>`) as the person's message. An `agent` item becomes a message to the job: the item, the answer, the mode line, and a last line saying Fleet took the item off its waiting list. A `mode` with a `choice` or `text` adds its line to the message. A `choice` with `text` says both: the words go with the pick, to the agent as a second line and to an ask card as its note. Once that message is delivered the item is dismissed, as `dismiss_waiting` does: the returned record and the `SessionChanged` event no longer carry it, and the agent stating it again does not bring it back. A send that fails leaves the item standing. An item nothing holds is a 409; a body with none of the three is a 422.
 
@@ -13,6 +13,8 @@ A `slot_choice` item (id `slot-choice`) takes a `choice` only: 0 is *Wait for a 
 A `delivery` item (id `delivery`) takes a `choice` only: 0 is *Auto land*, 1 is *Open PR only* and 2 is *Keep local*. Fleet keeps the choice on the job's `delivery` row and sends the agent the choice with the instructions of the step that asked. Words or a mode alone are a 422, and a second answer is a 409.
 
 A `words_address` item (id `words:<mod>:<manifest id>`) takes a `choice` of one of the addresses it offers, or the last option, `Other`, with `text` holding the address. **Either writes the address into the Words mod** for that repository as `found = "person"`, which closes the question; no message goes to the agent. An address with no `{match}`, or that is not an http or https address with a host of its own, is a 422 and the item stays. It is asked once for a mod and repository, so dismissing it does not bring it back.
+
+A `draft` item (id `draft:<row id>`) is settled three ways. A `choice` of 0 (`Approve`) approves it as written; `fixed`, the person's corrected text, approves it with that text; `text` alone sends it back with that note, to rewrite and propose again. The job is told which, with the text to use or the note, and the `draft` row is replaced with its `settled`. `fixed` on an item of any other source is a 422.
 
 The mode lines: `best` tells the agent to decide for itself and think it through; `quick` tells it to just get it done: finish the work and land it, skipping the formalities.
 """

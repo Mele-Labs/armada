@@ -544,7 +544,7 @@ async fn every_way_he_chooses_is_recorded_as_a_pick() {
     on_gate(&rig, &asked).await;
     eventually(|| async { question(&rig, &asked).await.is_some() }).await;
     Arc::clone(&rig.fleet)
-        .answer_waiting(ipc::AnswerWaiting { session_id: asked.clone(), item_id: "delivery".into(), choice: Some(2), text: None, mode: None })
+        .answer_waiting(ipc::AnswerWaiting { session_id: asked.clone(), item_id: "delivery".into(), choice: Some(2), text: None, mode: None, fixed: None })
         .await
         .expect("answered");
 

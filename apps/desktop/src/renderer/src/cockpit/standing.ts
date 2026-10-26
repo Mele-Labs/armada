@@ -12,5 +12,7 @@ export function asksAnAgent(item: Pick<Item, "waiting">): boolean {
   const { source, options, act } = item.waiting.item;
   // A terminal's own permission prompt is answered at the terminal, so its one act opens the Session.
   if (source === "permission" && act?.kind === "message") return false;
+  // A draft waits on his OK: leaving it to the agent would have the agent approve its own text.
+  if (source === "draft") return false;
   return source === "permission" || source === "ask_card" || source === "window_ask" || (options?.length ?? 0) > 0;
 }

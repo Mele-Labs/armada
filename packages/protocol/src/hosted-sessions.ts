@@ -23,6 +23,12 @@ export type SessionMode = "ask" | "auto" | "accept_edits" | "plan";
 /** What a Session that is followed did, for its parent's thread. */
 export type LinkedEvent = "needs" | "done" | "merged";
 
+/** How the person settled a draft: approved as written, approved with their own text, or sent back with a note. */
+export type DraftHow = "approved" | "fixed" | "sent_back";
+
+/** A draft's settling. `words` is the fixed text for `fixed` and the note for `sent_back`; absent for `approved`. */
+export type DraftSettled = { how: DraftHow; words?: string; at: string };
+
 /** `POST /sessions/start`. The row holds no slot and no branch until the agent writes. */
 export type StartSession = {
   manifest_id: string;
@@ -464,6 +470,11 @@ export type SessionRow =
       window: string;
       answer?: string;
     }
+  /**
+   * A draft the session put to the person with `propose_draft`: `title` names what it is and where it goes, `text`
+   * is the draft in markdown, `before` the text it replaces. **Replaced by id once settled**, with `settled` saying how.
+   */
+  | { kind: "draft"; id: string; at: string; title: string; text: string; before?: string; settled?: DraftSettled }
   /** A call put to the person. Replaced as it is answered. */
   | { kind: "ask"; id: string; at: string; ask: HelmCallInFlight; state: SessionAskState; via?: string }
   /**
