@@ -1,5 +1,5 @@
 // The Projects tab's state for one window: his projects and their rows, the project open, the rows selected, and whether
-// the issue search or a new project's name field is up. **Kept on his Mac**: nothing here asks Fleet for anything, and the
+// the link search or a new project's name field is up. **Kept on his Mac**: nothing here asks Fleet for anything, and the
 // one thing that reaches a Job is the dispatch sheet, whose own act starts it.
 
 import { createContext, useContext, useSyncExternalStore } from "react";
@@ -7,7 +7,7 @@ import type { ReactNode } from "react";
 import { SURFACE } from "@armada/shell";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
-import type { IssueRow, Linked, Look, Project, ProjectRow, RowState, TaskRow } from "./model";
+import type { Holder, IssueRow, Linked, LinkedPull, Look, Project, ProjectRow, RowState, TaskRow } from "./model";
 
 export type ProjectsSnapshot = {
   projects: readonly Project[];
@@ -15,9 +15,9 @@ export type ProjectsSnapshot = {
   open: string | undefined;
   /** The rows of the open project he has selected, by id. A parent selected takes its subtasks with it. */
   selected: readonly string[];
-  /** The search of the repository's issues is up under the project's head. */
+  /** The link search is up: under the project's head, or under a task's card. */
   linking: boolean;
-  /** The task the search links issues to, by row id; absent, an issue it finds joins the project as a row. */
+  /** The task the search links to, by row id; absent, what it finds joins the project as a row. */
   linkingTask: string | undefined;
   /** The task whose subtask field is up under its subtasks, by row id. */
   subtasking: string | undefined;
@@ -50,7 +50,10 @@ function withList(project: Project, parent: string | undefined, change: (rows: P
   return { ...project, rows: project.rows.map((row) => (row.id === parent && row.kind === "task" ? { ...row, subtasks: change([...(row.subtasks ?? [])]) as TaskRow[] } : row)) };
 }
 
-export function createProjectsStore(seed: readonly Project[], settled?: Settled, look: Look = "reticle") {
+/** The pull requests of each repository the search offers, by Manifest id. Only the mock serves them. */
+export type PullsServed = Readonly<Record<string, readonly LinkedPull[]>>;
+
+export function createProjectsStore(seed: readonly Project[], settled?: Settled, look: Look = "reticle", pulls: PullsServed = {}) {
   let snap: ProjectsSnapshot = { projects: structuredClone(seed) as Project[], open: undefined, selected: [], linking: false, linkingTask: undefined, subtasking: undefined, removed: undefined, look, naming: undefined };
   const listeners = new Set<() => void>();
   const set = (next: Partial<ProjectsSnapshot>) => {
@@ -73,6 +76,7 @@ export function createProjectsStore(seed: readonly Project[], settled?: Settled,
 
   return {
     get: () => snap,
+    pullsOf: (manifestId: string): readonly LinkedPull[] => pulls[manifestId] ?? [],
     subscribe: (listener: () => void) => {
       listeners.add(listener);
       return () => listeners.delete(listener);
@@ -104,7 +108,26 @@ export function createProjectsStore(seed: readonly Project[], settled?: Settled,
     /** An issue on a task's card. One the task already carries stays where it is. */
     linkToTask: (rowId: string, issue: Linked) =>
       editRow(rowId, (row) => (row.kind !== "task" || (row.issues ?? []).some((one) => one.reference === issue.reference) ? row : { ...row, issues: [...(row.issues ?? []), issue] })),
-    /** The issue search, for the project or for one task. */
+    /** A Job linked to a task holds it as Dispatch would; one already holding it is let go. */
+    linkJob: (rowId: string, job: Holder) => editRow(rowId, (row) => (row.kind === "task" ? { ...row, job } : row)),
+    unlinkJob: (rowId: string) =>
+      editRow(rowId, (row) => {
+        if (row.kind !== "task") return row;
+        const { job: _gone, ...rest } = row;
+        void _gone;
+        return rest;
+      }),
+    linkPull: (rowId: string, pull: LinkedPull) =>
+      editRow(rowId, (row) => (row.kind !== "task" || (row.pulls ?? []).some((one) => one.number === pull.number) ? row : { ...row, pulls: [...(row.pulls ?? []), pull] })),
+    unlinkPull: (rowId: string, number: number) => editRow(rowId, (row) => (row.kind === "task" ? { ...row, pulls: (row.pulls ?? []).filter((one) => one.number !== number) } : row)),
+    /** A Job or a pull request linked to the project, not a task: it joins the list's foot as a task by its title, holding it. */
+    linkAsRow: (projectId: string, title: string, held: { job: Holder } | { pull: LinkedPull }) =>
+      edit(projectId, (one) => ({
+        ...one,
+        usedAt: Date.now(),
+        rows: [...one.rows, { kind: "task", id: fresh("task"), title, done: false, ...("job" in held ? { job: held.job } : { pulls: [held.pull] }) }],
+      })),
+    /** The link search, for the project or for one task. */
     linking: (on: boolean, task?: string) => set({ linking: on, linkingTask: on ? task : undefined }),
     /** Moves a row one place up or down the list it stands in: a subtask among its parent's. */
     move: (rowId: string, by: 1 | -1) => {

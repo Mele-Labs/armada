@@ -118,8 +118,8 @@ l r            go to a part of Projects: the list, the project   (projects only)
 N              new project   (projects only)
 a              add a task   (projects only)
 A              add a subtask   (projects only)
-i              link issues   (projects only)
-I              link issues to the task   (projects only)
+i              link   (projects only)
+I              link to the task   (projects only)
 Backspace      delete or unlink the row   (projects only)
 ⌥↑ ⌥↓          move the row up or down   (projects only)
 x              select the row   (projects only)
@@ -177,7 +177,7 @@ starts a Job on the open issue. They stand down in a text field and while a dial
 
 **The Projects tab has a scope of its own, `projects`.** Its rows take `j`, `k`, `Enter` and `o` as any
 list does; `l r` go to the list of projects and the open project's rows, `N` names a new project, `a` adds a
-task and `A` a subtask under the focused one, `i` links issues to the project and `I` to the focused task, `⌥↑ ⌥↓` move a row, `x` selects it, `d`
+task and `A` a subtask under the focused one, `i` links an issue, a Job or a pull request to the project and `I` to the focused task, `⌥↑ ⌥↓` move a row, `x` selects it, `d`
 ticks a task, Backspace deletes a task or unlinks an issue, `s` dispatches the rows selected, and `D` and `K`
 answer a done ask. They stand down in a text field and while a dialog is up.
 

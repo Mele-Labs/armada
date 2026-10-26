@@ -671,14 +671,14 @@ notes = "Moves focus to the field under the open project's head, where a task is
 [actions.projects_link]
 kind = "Action"
 tier = "Contextual"
-verb = "Link issues"
+verb = "Link"
 icon = ""
 icon_absent = "undecided"
 shortcut = "i"
 scope = "projects"
 destructive = false
 confirms = false
-notes = "Opens a search of the repository's open issues, as the Issues tab reads them, under the open project's head. Enter on an issue links it as a row; Esc puts the search away."
+notes = "Opens one search of the repository under the open project's head: its open issues, as the Issues tab reads them, its live Jobs and its pull requests. Enter links the first found: an issue as a row, a Job or a pull request as a task by its title that it holds. Close, Esc or a press elsewhere puts the search away."
 
 [actions.projects_add_subtask]
 kind = "Action"
@@ -695,14 +695,14 @@ notes = "Puts up a field under the focused task's subtasks, where a subtask is w
 [actions.projects_link_task]
 kind = "Action"
 tier = "Contextual"
-verb = "Link issues to the task"
+verb = "Link to the task"
 icon = ""
 icon_absent = "undecided"
 shortcut = "I"
 scope = "projects"
 destructive = false
 confirms = false
-notes = "Opens the same issue search for the focused task. An issue linked there joins the task's card as a chip and not the list as a row."
+notes = "Opens the same search for the focused task. An issue joins the task's card as a chip; a Job holds the task as Dispatch would, replacing one that did; a pull request joins the card's second line. Each chip has its own Unlink."
 
 [actions.projects_delete]
 kind = "Action"

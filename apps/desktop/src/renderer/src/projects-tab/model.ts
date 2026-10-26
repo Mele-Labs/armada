@@ -8,11 +8,15 @@ export type Holder = { id: string; title: string };
 /** An issue as the tracker reads it: open or closed is the tracker's to say. */
 export type Linked = { reference: string; title: string; url: string; state: "open" | "closed" };
 
+/** A pull request as its forge reads it. */
+export type LinkedPull = { number: number; title: string; url: string; state: "open" | "draft" | "merged" | "closed" };
+
 /**
  * A task he wrote. Done is his to say: by ticking it, or by answering the ask when the Job holding it finishes. It can
- * carry issues of its own, and subtasks one level deep: a subtask holds none.
+ * carry issues and pull requests of its own, and subtasks one level deep: a subtask holds none. At most one Job holds it,
+ * whether Dispatch sent it there or he linked one.
  */
-export type TaskRow = { kind: "task"; id: string; title: string; done: boolean; job?: Holder; issues?: Linked[]; subtasks?: TaskRow[] };
+export type TaskRow = { kind: "task"; id: string; title: string; done: boolean; job?: Holder; issues?: Linked[]; pulls?: LinkedPull[]; subtasks?: TaskRow[] };
 
 /** An issue he linked to the project, as a row. It has no tick and no ask. */
 export type IssueRow = Linked & { kind: "issue"; id: string; job?: Holder };

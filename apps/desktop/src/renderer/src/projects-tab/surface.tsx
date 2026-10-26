@@ -22,9 +22,10 @@ type Props = {
   picked: RepositorySummary | null;
   repositories: readonly RepositorySummary[];
   onOpenSession: (id: string) => void;
+  onOpenLink: (address: string) => void;
 };
 
-export function ProjectsSurface({ picked, repositories, onOpenSession }: Props) {
+export function ProjectsSurface({ picked, repositories, onOpenSession, onOpenLink }: Props) {
   const snap = useProjects();
   const dispatching = useDispatching();
   const grid = useRef<HTMLDivElement>(null);
@@ -59,7 +60,7 @@ export function ProjectsSurface({ picked, repositories, onOpenSession }: Props) 
         </div>
         <div className="deck-centre">
           <div className="deck-stage">
-            <ProjectPane band={band} project={project} onOpenSession={onOpenSession} onDispatch={dispatch} />
+            <ProjectPane band={band} project={project} onOpenSession={onOpenSession} onOpenLink={onOpenLink} onDispatch={dispatch} />
           </div>
         </div>
       </div>

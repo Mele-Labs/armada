@@ -10,7 +10,7 @@ import { repository } from "@armada/screens/src/fixtures/repository";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
 import type { TicketRead } from "../../issues-tab/model";
-import type { Project } from "../../projects-tab/model";
+import type { LinkedPull, Project } from "../../projects-tab/model";
 import { holding } from "../holding";
 import type { Scenario } from "../moment";
 import { sessionsStore } from "../sessions/script";
@@ -60,6 +60,8 @@ const SITE_ISSUES: TicketRead[] = [
 const PAIRING = "01PROJPAIRINGAAAAAAAAAAAAA";
 const SIGNING = "01PROJSIGNINGBBBBBBBBBBBBB";
 const GUIDE = "01PROJGUIDECCCCCCCCCCCCCCC";
+/** A Job at work that holds no row yet: the walk links it to a task. */
+const LISTING = "01PROJLISTINGDDDDDDDDDDDDD";
 const SIGN_ROW = "task-sign";
 
 const say = (id: string, text: string) => ({ id, at: now(), kind: "message", from: { kind: "agent" }, text }) as const;
@@ -102,6 +104,16 @@ const SESSIONS = (): Session[] => [
     waitingFor: [SIGN_ASK],
   },
   {
+    id: LISTING,
+    title: "Write the App Store listing",
+    manifestId: "armada",
+    turn: { state: "working" },
+    lastTurnAt: now(),
+    standing: "working",
+    rows: [ask("l1-u", "Write the App Store listing"), say("l1-a", "Drafting the subtitle and the keywords.")],
+    attachments: [],
+  },
+  {
     id: GUIDE,
     title: "Write the install guide",
     manifestId: "armada",
@@ -112,6 +124,12 @@ const SESSIONS = (): Session[] => [
     rows: [ask("g1-u", "Write the install guide"), say("g1-a", "The guide is in docs/pocket/install.md.")],
     attachments: [],
   },
+];
+
+/** armada's pull requests, which the link search offers. */
+const PULLS: LinkedPull[] = [
+  { number: 2874, title: "Fit the pairing screen to small phones", url: "https://github.com/acme/armada/pull/2874", state: "open" },
+  { number: 2870, title: "Sign the macOS build in CI", url: "https://github.com/acme/armada/pull/2870", state: "merged" },
 ];
 
 const PROJECTS: Project[] = [
@@ -138,7 +156,7 @@ const PROJECTS: Project[] = [
       { kind: "task", id: "task-guide", title: "Write the install guide", done: false, job: { id: GUIDE, title: "Write the install guide" } },
       { kind: "task", id: "task-icon", title: "Pick the app icon", done: true },
       { kind: "issue", id: "issue-2790", reference: "#2790", title: "Tunnel address is not saved", url: "https://github.com/acme/armada/issues/2790", state: "closed" },
-      { kind: "task", id: "task-small", title: "Test on a small phone", done: false },
+      { kind: "task", id: "task-small", title: "Test on a small phone", done: false, pulls: [PULLS[0]!] },
     ],
   },
   {
@@ -191,6 +209,7 @@ function build(name: string, look: "reticle" | "plate"): Scenario {
       issuesTab: TRACKERS,
       projectsTab: PROJECTS,
       projectsLook: look,
+      projectsPulls: { armada: PULLS },
     },
   };
 }

@@ -1,6 +1,7 @@
 // Projects, mock only, in two takes of the select control and the card: `projects` (reticle) and `projects-plate`. Open
 // the tab on All and Pocket launch; rows as cards with the Job holding each as a chip and a task's issues as chips; a task
-// and a subtask added from the field under the head; an issue and a subtask added from a card; a delete undone; a card
+// and a subtask added from the field under the head; an issue, a Job and a subtask added from a card, a pull request
+// unlinked; a delete undone; a card
 // dragged; three rows dispatched; the done ask on the row and on the Job; then the palette adds a task and a project from
 // another page. Over the scenario of the same name.
 
@@ -16,7 +17,7 @@ const needs = region("Needs you");
 function steps(take: string): Step[] {
   return [
     { press: place("Projects"), say: "Projects, a panel for each repository: armada's and site's on All" },
-    { key: "l", on: list, say: "Keys: l the list, r the cards, a add a task, A a subtask, i link issues, I to the task, x select, d tick, Backspace delete, s dispatch, ⌥↑ ⌥↓ move, Esc closes a search" },
+    { key: "l", on: list, say: "Keys: l the list, r the cards, a add a task, A a subtask, i link, I link to the task, x select, d tick, Backspace delete, s dispatch, ⌥↑ ⌥↓ move, Esc closes a search" },
     { press: inside(list, button("Pocket launch")), say: "Pocket launch: every row a card" },
     { look: role("checkbox", "Select Pair a phone by QR code"), say: `${take}: the select control` },
     { look: role("list", "Subtasks of Pair a phone by QR code"), say: "Two subtasks under it, each with its own glyph and tick" },
@@ -26,10 +27,15 @@ function steps(take: string): Step[] {
     { key: "Tab", on: role("textbox", "Add a task"), say: "Tab indents it under the task just written" },
     { type: "Write the short description\n", into: role("textbox", "Add a subtask to Draft the App Store text"), say: "Enter adds a subtask" },
     { key: "Shift+Tab", on: role("textbox", "Add a subtask to Draft the App Store text"), say: "⇧Tab takes it back out" },
-    { look: button("Link issues to Test on a small phone"), say: "Every card's acts, always at its right edge: link issues, add a subtask, delete" },
-    { press: button("Link issues to Test on a small phone"), say: "Link issues to this task" },
+    { look: button("Link to Test on a small phone"), say: "Every card's acts, always at its right edge: link, add a subtask, delete" },
+    { look: button(/^Pull request #2874 /), say: "A pull request linked to the task, on its second line. Its glyph says open" },
+    { press: button("Link to Test on a small phone"), say: "Link: one search of issues, Jobs and pull requests" },
     { press: button(/^#2819 /), say: "#2819 joins the card as a chip" },
-    { press: button("Close the issue search"), say: "Close puts the search away, as Esc or a press outside it do" },
+    { press: button("Close the search"), say: "Close puts the search away, as Esc or a press outside it do" },
+    { press: button("Unlink #2874"), say: "A chip's own x unlinks it" },
+    { press: button("Link to Draft the App Store text"), say: "A Job already at work on it" },
+    { press: button("Job Write the App Store listing"), say: "It holds the task now, as Dispatch would: its chip on the second line, and the done ask when it finishes" },
+    { press: button("Close the search"), say: "Close" },
     { press: button("Add a subtask to Test on a small phone"), say: "A subtask, from the card" },
     { type: "Check the narrow layout\n", into: role("textbox", "Add a subtask to Test on a small phone"), say: "Enter adds it" },
     { key: "Escape", on: role("textbox", "Add a subtask to Test on a small phone"), say: "Esc puts the field away" },
