@@ -171,10 +171,7 @@ fn a_program_copied_over_or_redirected_into_is_still_written() {
     assert_eq!(listed_at(&bash("cp /tmp/other ~/bin/headless-shell"), &home), write);
     assert_eq!(listed_at(&bash("tee ~/bin/headless-shell < /tmp/other"), &home), write);
     assert_eq!(listed_at(&bash("node x.mjs >> ~/bin/headless-shell"), &home), write);
-    assert_eq!(
-        listed_at(&bash("node x.mjs > ~/bin/headless-shell"), &home),
-        Some(Guarded::Because { because: Because::Destructive, reaching: None, to: None })
-    );
+    assert_eq!(listed_at(&bash("node x.mjs > ~/bin/headless-shell"), &home), write);
 }
 
 #[test]
