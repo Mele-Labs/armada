@@ -28,7 +28,7 @@
     notes = "Proposed 22 Oct 2026 for the walk `session-loadout`, with Remove on a Kit skill's Loadout row. The person took off a skill of their own, which is the act the row reserves this glyph to. The row stays, marked, with Restore on its face while the Trash holds the folder. Tooltip `Removed`. --fg-muted."
 
   [[icons.trash-2.usage]]
-    means = "Remove a process from the run being saved, in the first-run confirm"
+    means = "Remove a setup Command or a process from a run being edited, in the running panel"
     group = "Run"
     size = "16px"
     status = "Proposed"

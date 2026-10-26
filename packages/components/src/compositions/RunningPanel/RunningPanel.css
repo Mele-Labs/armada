@@ -47,10 +47,21 @@
 .armada-running__links { display: flex; flex: none; flex-direction: column; gap: var(--space-2); padding: 0 var(--space-2); }
 .armada-running__open { display: inline-flex; align-items: center; justify-content: center; }
 
+/* The facts, the rows and the links: they scroll inside themselves once they outgrow the pane, so the log keeps its height under them. */
+.armada-running__top {
+  display: flex;
+  flex: 0 1 auto;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
 /* The log scrolls inside itself and follows its end. */
 .armada-running__well {
   flex: 1 1 0;
-  min-height: 0;
+  min-height: calc(var(--space-12) * 3);
   overflow-y: auto;
   overscroll-behavior: contain;
   border: var(--border-width) solid var(--border-default);
@@ -81,3 +92,75 @@
 
 /* How a setup Command or a process ended, a line under its name, in the muted weight of a fact. */
 .armada-running__exit { display: block; overflow: hidden; text-overflow: ellipsis; color: var(--fg-muted); font-size: var(--text-xs); font-weight: var(--weight-body); line-height: var(--leading-xs); }
+
+/*
+ * Edited in place: the row's state, its name, folder, link, port and the way to remove it on the first line, with the acts where a row has
+ * them; how it ended under the name and its folder's full path under the folder; the command across the fields' width last. The columns
+ * stay put on every row, whether or not it has a state, a link, a port or an act.
+ */
+.armada-running__row[data-edit] {
+  grid-template-columns: var(--space-4) minmax(0, 1fr) minmax(0, 1fr) var(--space-4) calc(var(--space-12) + var(--space-3)) var(--h-control-sm);
+  grid-template-areas:
+    "mark name folder link port remove"
+    ". under path path path path"
+    ". command command command . .";
+  row-gap: var(--space-1);
+  padding: var(--space-2);
+}
+.armada-running[data-acts] .armada-running__row[data-edit] {
+  grid-template-columns: var(--space-4) minmax(0, 1fr) minmax(0, 1fr) var(--space-4) calc(var(--space-12) + var(--space-3)) var(--h-control-sm) calc(var(--space-12) * 4.5);
+  grid-template-areas:
+    "mark name folder link port remove acts"
+    ". under path path path path path"
+    ". command command command . . .";
+}
+.armada-running__row[data-edit] > .armada-running__mark { grid-area: mark; display: inline-flex; align-items: center; justify-content: center; }
+.armada-running__row[data-edit] > [data-at="name"] { grid-area: name; }
+.armada-running__row[data-edit] > [data-at="folder"] { grid-area: folder; }
+.armada-running__row[data-edit] > [data-at="command"] { grid-area: command; }
+.armada-running__row[data-edit] > .armada-running__link { grid-area: link; }
+.armada-running__row[data-edit] > .armada-running__port { grid-area: port; }
+.armada-running__row[data-edit] > .armada-running__remove { grid-area: remove; display: inline-flex; justify-content: center; }
+.armada-running__row[data-edit] > .armada-running__acts { grid-area: acts; }
+.armada-running__row[data-edit] > .armada-running__under { grid-area: under; min-width: 0; }
+.armada-running__field { min-width: 0; }
+
+/* The folder's full path starts under the field and runs to the row's end, so a usual path shows whole; a longer one gives up its tail. */
+.armada-running__path {
+  grid-area: path;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-subtle);
+}
+
+/* Add setup Command and Add process, under the rows where the name column starts. */
+.armada-running__adds { display: flex; flex: none; gap: var(--space-2); padding: 0 var(--space-2) 0 calc(var(--space-4) + var(--space-3) + var(--space-2)); }
+
+/* Where the run saves, then Cancel and the save act against the right edge. */
+.armada-running__foot {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: var(--border-width) solid var(--border-subtle);
+}
+.armada-running__where {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin: 0 auto 0 0;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+.armada-running__where-label { color: var(--fg-subtle); }
+.armada-running__where code { font-family: var(--font-mono); color: var(--fg-default); }
+
+/* The run's name in the pane's head while it is edited: a field the height of the head's other controls, as wide as a name needs. */
+.armada-running__name-field { flex: 0 1 calc(var(--space-12) * 6); min-width: 0; }
+.armada-running__name-field .armada-input { height: var(--h-control-sm); font-weight: var(--weight-heading); }

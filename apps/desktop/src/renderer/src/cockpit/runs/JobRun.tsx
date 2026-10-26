@@ -26,7 +26,7 @@ export function JobRun({ session, repositories }: { session: Session; repositori
   return (
     <>
       {app === undefined ? null : <RunPhaseButton phase={appPhase(app.processes, app.setup)} said={app.run} onPress={() => openRun(app.id)} />}
-      <RunControl subject="this Job" on="this bay" runs={saved?.runs ?? []} last={saved?.last} onRun={(run) => pressRun(source, target, label, run)} onAdd={() => pressAddRun(target, label)} />
+      <RunControl subject="this Job" on="this bay" runs={saved?.runs ?? []} last={saved?.last} onRun={(run) => pressRun(source, target, label, run)} onAdd={() => pressAddRun(source, target, label)} />
     </>
   );
 }

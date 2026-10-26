@@ -41,8 +41,8 @@ function BackAct() {
   );
 }
 
-/** The one head every pane has: what it is, its name, where it is, its acts, and the way back. */
-export function PaneHead({ glyph: Glyph, kind, title, where, mark, children }: { glyph: LucideIcon; kind: string; title: string; where?: string | undefined; mark?: ReactNode; children?: ReactNode }) {
+/** The one head every pane has: what it is, its name, where it is, its acts, and the way back. `heading` stands in the name's place, as a field that edits it does. */
+export function PaneHead({ glyph: Glyph, kind, title, heading, where, mark, children }: { glyph: LucideIcon; kind: string; title: string; heading?: ReactNode; where?: string | undefined; mark?: ReactNode; children?: ReactNode }) {
   return (
     <header className="deck-band deck-pane__head">
       <Tooltip label={kind}>
@@ -51,7 +51,7 @@ export function PaneHead({ glyph: Glyph, kind, title, where, mark, children }: {
         </span>
       </Tooltip>
       {mark}
-      <h2 className="deck-pane__title">{title}</h2>
+      {heading ?? <h2 className="deck-pane__title">{title}</h2>}
       {where === undefined ? null : <span className="deck-pane__where">{where}</span>}
       <span className="deck-pane__acts">
         {children}

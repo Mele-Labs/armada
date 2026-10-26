@@ -17,7 +17,7 @@ export function RepositoryRun({ root, label }: { root: string; label: string }) 
   return (
     <span className="deck-list__run">
       <span className="deck-list__run-state">{app === undefined ? null : <RunPhaseButton phase={appPhase(app.processes, app.setup)} said={app.run} onPress={() => openRun(app.id)} />}</span>
-      <RunControl subject={label} on="main" runs={saved?.runs ?? []} last={saved?.last} onRun={(run) => pressRun(source, target, label, run)} onAdd={() => pressAddRun(target, label)} />
+      <RunControl subject={label} on="main" runs={saved?.runs ?? []} last={saved?.last} onRun={(run) => pressRun(source, target, label, run)} onAdd={() => pressAddRun(source, target, label)} />
     </span>
   );
 }

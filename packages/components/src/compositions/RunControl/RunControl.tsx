@@ -14,7 +14,7 @@ const ADD = "add-a-run";
 /**
  * Run an app: the play glyph runs the last run used, and the caret beside it lists the repository's saved runs, ending on Add a way to run.
  * **The face and the caret are one bordered group of two segments on a hairline, drawn small for a list's heading and a Job's header.** `onRun` is called with the run to
- * start, and with none where the repository has none saved, which is the caller's to answer with the first-run confirm.
+ * start, and with none where the repository has none saved, which is the caller's to answer by opening the running panel on a draft.
  */
 export function RunControl({
   subject,
