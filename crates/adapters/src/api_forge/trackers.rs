@@ -52,8 +52,8 @@ impl Trackers for ApiTrackers {
         crate::tracker_providers::backlog_over(choice)
     }
 
-    fn install(&self, tool: adapter_traits::Tool) -> adapter_traits::ToolInstalled {
-        crate::tool_install::installed(&crate::jira_tracker::Process, tool)
+    fn install(&self, tool: adapter_traits::Tool, in_repo: &str) -> adapter_traits::ToolInstalled {
+        crate::tool_install::installed(&crate::jira_tracker::Process, tool, std::path::Path::new(in_repo))
     }
 }
 

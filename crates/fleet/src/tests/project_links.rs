@@ -154,6 +154,7 @@ fn facts(standing: PullRequestStanding, title: &str) -> PullRequestFacts {
     PullRequestFacts {
         standing,
         branch: "armada/5".into(),
+        base: "main".into(),
         auto_merge: false,
         title: title.into(),
         url: "https://forge.invalid/armada/pull/5".into(),

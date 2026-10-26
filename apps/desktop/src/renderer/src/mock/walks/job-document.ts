@@ -54,6 +54,7 @@ const reading = walk("job-story", [
   { key: "m", on: layer, say: "M hides the Notes" },
   { look: page, say: "The page widens, and Contents stays where it was" },
   { key: "m", on: layer, say: "M shows it again" },
+  { look: inside(page, text("Compare the expiries")), say: "A list shows its bullets or numbers, indented under the text, a nested one with circles" },
   { key: "Escape", on: layer, say: "Esc" },
   { look: landing, say: "The Job is back as it was" },
   { look: inside(thread, role("list", "Notes")), say: "One numbered message in the Job's thread" },

@@ -20,6 +20,7 @@ fn open(manifest_id: ManifestId, number: u64) -> PullRequestState {
         checks: ForgeChecks::Passed,
         title: "A pull request".into(),
         branch: "a/branch".into(),
+        base: "main".into(),
         address: format!("https://forge.invalid/a/b/pull/{number}"),
         body: None,
         closes: Vec::new(),

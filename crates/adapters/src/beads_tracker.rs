@@ -98,7 +98,7 @@ impl<R: Run> BeadsTracker<R> {
     fn listed(&self, in_repo: &str, query: &str, limit: &str, doing: &'static str) -> Result<Vec<OpenIssue>, NotTracked> {
         let text = self
             .read(in_repo, &["query", query, "-n", limit], &line_filter(), doing)?
-            .map_err(|said| NotTracked::of(doing, said))?;
+            .map_err(|said| refused(doing, said))?;
         let mut issues: Vec<OpenIssue> = text.lines().filter_map(issue_of_line).collect();
         // RFC 3339 in UTC sorts as text.
         issues.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
@@ -120,7 +120,7 @@ impl<R: Run> Tracker for BeadsTracker<R> {
         match self.read(in_repo, &["show", reference], READ_FILTER, doing)? {
             Ok(text) => Ok(text.lines().find_map(read_of_line)),
             Err(said) if said.contains("no issue found") => Ok(None),
-            Err(said) => Err(NotTracked::of(doing, said)),
+            Err(said) => Err(refused(doing, said)),
         }
     }
 
@@ -239,7 +239,7 @@ impl<R: Run> BeadsTracker<R> {
         match self.read(in_repo, &["show", reference], STATUS_FILTER, doing)? {
             Ok(text) => Ok(text.trim() != "closed"),
             Err(said) if said.contains("no issue found") => Ok(false),
-            Err(said) => Err(NotTracked::of(doing, said)),
+            Err(said) => Err(refused(doing, said)),
         }
     }
 
@@ -248,7 +248,7 @@ impl<R: Run> BeadsTracker<R> {
         if depth == 0 {
             return Ok(());
         }
-        let text = self.read(in_repo, &["children", reference], CHILDREN_FILTER, doing)?.map_err(|said| NotTracked::of(doing, said))?;
+        let text = self.read(in_repo, &["children", reference], CHILDREN_FILTER, doing)?.map_err(|said| refused(doing, said))?;
         for line in text.lines() {
             let mut field = line.split('\t');
             let (id, status) = (field.next().unwrap_or_default(), field.next().unwrap_or_default());
@@ -328,6 +328,15 @@ pub(crate) fn read_of_line(line: &str) -> Option<ReadIssue> {
     read.body = FromOutside::verbatim(as_written(body));
     read.fields = fields(status, priority, kind);
     Some(read)
+}
+
+/// What `bd` said where a read did not work. **No project is a setup, not a failure**: Bridge offers
+/// the button from `needs_setup` and does not read the sentence.
+fn refused(doing: &'static str, said: String) -> NotTracked {
+    match said.contains("no beads project found") {
+        true => NotTracked::unset(doing, "bd", said),
+        false => NotTracked::of(doing, said),
+    }
 }
 
 /// The checkout git keeps its common directory in: `root` itself, or the one a linked worktree at

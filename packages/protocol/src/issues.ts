@@ -90,7 +90,7 @@ export type SearchIssues = {
   query: string;
 };
 
-/** `install_tool` (`POST /issue_queries/:repository/install_tool`): the `missing_tool` a refusal's `fields` named. Only `bd` is installed; any other is a 422 `fleet.tool_not_installable`. Answers `InstalledTool`. */
+/** `install_tool` (`POST /issue_queries/:repository/install_tool`): the `missing_tool` or `needs_setup` a refusal's `fields` named. Installs `bd` where it is absent, then sets it up in the repository's main checkout; where origin holds no beads data, `done` is false and `said` says so. Only `bd` is taken; any other is a 422 `fleet.tool_not_installable`. Answers `InstalledTool`. */
 export type InstallTool = {
   tool: string;
 };

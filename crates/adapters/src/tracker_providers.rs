@@ -86,8 +86,8 @@ impl Trackers for TrackersByProvider {
         backlog_over(choice)
     }
 
-    fn install(&self, tool: Tool) -> ToolInstalled {
-        crate::tool_install::installed(&Process, tool)
+    fn install(&self, tool: Tool, in_repo: &str) -> ToolInstalled {
+        crate::tool_install::installed(&Process, tool, std::path::Path::new(in_repo))
     }
 }
 
