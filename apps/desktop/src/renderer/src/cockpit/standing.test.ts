@@ -36,6 +36,7 @@ describe("a Session's line follows its act", () => {
     ["a page to open", line("agent", { act: { kind: "walk", target: "https://git.example/page" } })],
     ["no act and no options", line("agent")],
     ["an empty list of options", line("agent", { options: [] })],
+    ["a draft, which is his to OK and never the agent's", line("draft", { options: [{ label: "Approve" }] })],
   ])("carries no standing answers on %s", (_, item) => {
     expect(asksAnAgent(item)).toBe(false);
   });

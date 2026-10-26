@@ -124,6 +124,13 @@ impl Sessions for FakeDaemon {
         Ok(ipc::SessionRunUnderway { run_id: format!("shell-of-{}", open.session_id.as_str()) })
     }
 
+    async fn start_terminal_run(
+        self: std::sync::Arc<Self>,
+        _start: ipc::StartTerminalRun,
+    ) -> Result<ipc::SessionRunUnderway, Refusal> {
+        self.runs_nothing_here()
+    }
+
     async fn type_in_terminal(
         self: std::sync::Arc<Self>,
         _caller: Option<crate::Caller>,
@@ -376,6 +383,19 @@ impl Sessions for FakeDaemon {
         self.report_session(SessionReport {
             harness: String::new(),
             session_id: ask.session_id.unwrap_or_else(|| ipc::SessionId::carried("session")),
+            fact: ipc::SessionFact::TurnCompleted { said: None },
+        })
+        .await
+    }
+
+    async fn propose_draft(
+        &self,
+        _caller: Option<crate::Caller>,
+        draft: ipc::ProposeDraft,
+    ) -> Result<SessionRecord, Refusal> {
+        self.report_session(SessionReport {
+            harness: String::new(),
+            session_id: draft.session_id.unwrap_or_else(|| ipc::SessionId::carried("session")),
             fact: ipc::SessionFact::TurnCompleted { said: None },
         })
         .await

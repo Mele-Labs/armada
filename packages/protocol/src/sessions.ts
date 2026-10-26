@@ -250,9 +250,10 @@ export type WaitingAct = { kind: "walk" | "answer" | "approve_pr" | "run" | "mes
  * `Mark the <project> tasks done?` for several, act `answer`) is Fleet asking whether the written project tasks a
  * finished Job was started with are done: `Mark done` (choice 0) or `Keep open` (choice 1), answered with `answer_waiting` and a
  * `choice`. No message goes to the agent and it cannot be dismissed. It is listed while the Job is live; the ask stands on the
- * tasks (`asked`) when the Job ends, and the Projects tab's tick settles it.
+ * tasks (`asked`) when the Job ends, and the Projects tab's tick settles it. `draft` (id `draft:<row>`) is a draft the
+ * session proposed with `propose_draft`, read off its row and settled by `answer_waiting`.
  */
-export type WaitingSource = "agent" | "ask_card" | "walk" | "permission" | "window_ask" | "first_message" | "replied" | "done" | "plan" | "judge" | "slot_choice" | "delivery" | "words_address" | "fleet_call" | "task_done";
+export type WaitingSource = "agent" | "ask_card" | "walk" | "permission" | "window_ask" | "draft" | "first_message" | "replied" | "done" | "plan" | "judge" | "slot_choice" | "delivery" | "words_address" | "fleet_call" | "task_done";
 
 /**
  * What a Session is doing, read by Fleet from what happened and never from what the agent said:
@@ -285,8 +286,20 @@ export type AskInWindow = {
 };
 
 /**
+ * `POST /sessions/draft`, the agent's: a draft put to the person for approval. `title` names what it is and where it
+ * goes, `text` is the draft in markdown, `before` the text it replaces. Answered at once with the `SessionRecord`; the
+ * person's answer comes back as their message.
+ */
+export type ProposeDraft = {
+  title: string;
+  text: string;
+  before?: string;
+  session_id?: string;
+};
+
+/**
  * One thing a session waits on the person for. `id` is stable across updates: the agent's own, or
- * `ask:<call>`, `perm:<call>`, `walk:<url>`, `window_ask:<row>`, `unsent:<session>` where Fleet derived it. `options` is
+ * `ask:<call>`, `perm:<call>`, `walk:<url>`, `window_ask:<row>`, `draft:<row>`, `unsent:<session>` where Fleet derived it. `options` is
  * present only on an item that has choices, and `answer_waiting`'s `choice` indexes it. `place` is
  * present only on a `window_ask` item, whose `act` is a walk of the window it was asked in.
  */
@@ -312,6 +325,7 @@ export type WaitingItem = {
  * `POST /sessions/waiting/answer`: settle one item. A `choice` (an index into its `options`), `text` of
  * the person's own, or a `mode` that leaves it to the agent: `best` thinks it through, `quick` takes the
  * reasonable path and keeps moving. A walk item needs none of the three, and approving is its default.
+ * `fixed` is the person's corrected text for a `draft` item, which approves it with their words; on any other item it is a 422.
  */
 export type AnswerWaiting = {
   session_id: string;
@@ -319,6 +333,7 @@ export type AnswerWaiting = {
   choice?: number;
   text?: string;
   mode?: "best" | "quick";
+  fixed?: string;
 };
 
 /**
@@ -551,6 +566,9 @@ export type SessionRunMessage =
 
 /** `open_terminal`: the person opens the Job's shell in Bridge. `POST /sessions/terminal/open`. Answered 200 with `SessionRunUnderway`: the shell already open, or one opened now. `cols` and `rows` are the size in cells where it opens now; absent is 80 by 24. */
 export type OpenTerminal = { session_id: string; cols?: number; rows?: number };
+
+/** `start_terminal_run`: the person runs `command` in `dir` with no Job behind it. `POST /sessions/terminal/run`. Answered 200 with `SessionRunUnderway`; what it prints is `observe_session_run`'s. `dir` must exist; `cols` and `rows` are the size in cells, absent is 80 by 24. */
+export type StartTerminalRun = { command: string; dir: string; cols?: number; rows?: number };
 
 /** `type_in_terminal`: the Job's agent types into the Job's shell, opening it where it has none. `POST /sessions/terminal/type`. Answered 200 with `TerminalTyped`. `text` is written as it is; `enter` absent is true; `wait_seconds` absent is 10, at most 60; `session_id` is read only where the connection places no hosted Job. */
 export type TypeInTerminal = { text: string; enter?: boolean; wait_seconds?: number; session_id?: string };

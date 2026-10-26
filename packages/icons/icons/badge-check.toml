@@ -12,3 +12,10 @@
     size = "16px"
     status = "Specified"
     notes = "Shared with the reservation above by the owner's choice on 15 Oct 2026 (kept the double use). Approved 14 Oct 2026 on the walk `battlefieldProgress`, the build ring (`.claude/decisions/2026-10-14-a-session-builds-a-ring.md`). Tooltip `Landed`. The last arc of the ring and the last stop of its card."
+
+  [[icons.badge-check.usage]]
+    means = "A draft the person approved, as written or with his fixes, on its card in a Job's thread"
+    group = "Session"
+    size = "16px"
+    status = "Proposed"
+    notes = "Proposed 26 Oct 2026 for the draft card (`propose_draft`), the glyph the plan card draws once its plan is approved. Tooltip `Approved`, or `Approved with your fixes`, with the same words beside it, which is what tells the two apart."

@@ -1287,3 +1287,154 @@ export const SentPicture: Story = {
     await expect(canvas.queryByRole("button", { name: "notes.txt" })).toBeNull();
   },
 };
+
+const DRAFT_TEXT = "## Queue a Job for later\n\nA Job waits for a free slot and starts when one opens.\n\n- The queue survives a restart\n- Queue sits beside Start";
+const DRAFT: SessionThreadRow = {
+  id: "d1",
+  at: "14:06:00",
+  kind: "draft",
+  title: "Description for the queue pull request",
+  text: DRAFT_TEXT,
+  before: "Adds a queue.",
+};
+const DRAFT_ROWS: SessionThreadRow[] = [{ id: "d0", at: "14:05:00", kind: "message", from: "agent", text: "The description is rewritten." }, DRAFT];
+const drafted = (row: Partial<Extract<SessionThreadRow, { kind: "draft" }>>): SessionThreadRow[] => [DRAFT_ROWS[0]!, { ...(DRAFT as Extract<SessionThreadRow, { kind: "draft" }>), ...row }];
+
+/** A draft the agent put to him: the eyebrow, its title, the text as prose, and Approve, Edit and Note on the card. */
+export const DraftOpen: Story = {
+  args: { rows: DRAFT_ROWS, onDraft: fn() },
+  play: async ({ canvas }) => {
+    const card = canvas.getByRole("article", { name: "Draft: Description for the queue pull request" });
+    await expect(within(card).getByText("Draft")).toBeVisible();
+    await expect(within(card).getByText("Description for the queue pull request")).toBeVisible();
+    await expect(within(card).getByText("Queue a Job for later")).toBeVisible();
+    await expect(within(card).getByText("The queue survives a restart")).toBeVisible();
+    const answers = within(within(card).getByRole("group", { name: "Answers" })).getAllByRole("button");
+    await expect(answers.map((one) => one.textContent)).toEqual(["Approve", "Edit", "Note"]);
+  },
+};
+
+/** The text a draft replaces is folded away, and a press shows it. */
+export const DraftShowsWhatItReplaces: Story = {
+  args: { rows: DRAFT_ROWS, onDraft: fn() },
+  play: async ({ canvas }) => {
+    await expect(canvas.queryByText("Adds a queue.")).toBeNull();
+    const press = canvas.getByRole("button", { name: "Text it replaces" });
+    await expect(press).toHaveAttribute("aria-expanded", "false");
+    await userEvent.click(press);
+    await expect(press).toHaveAttribute("aria-expanded", "true");
+    await expect(canvas.getByText("Adds a queue.")).toBeVisible();
+  },
+};
+
+/** Approve takes the draft as written. */
+export const DraftApprove: Story = {
+  args: { rows: DRAFT_ROWS, onDraft: fn() },
+  play: async ({ canvas, args }) => {
+    await userEvent.click(canvas.getByRole("button", { name: "Approve" }));
+    await expect(args.onDraft).toHaveBeenCalledWith("d1", { choice: 0 });
+  },
+};
+
+/** Edit puts the text in a box; Approve with fixes sends his whole text back as the fixed draft. */
+export const DraftEditThenApproveWithFixes: Story = {
+  args: { rows: drafted({ id: "d2" }), onDraft: fn() },
+  play: async ({ canvas, args }) => {
+    await userEvent.click(canvas.getByRole("button", { name: "Edit" }));
+    const box = canvas.getByRole("textbox", { name: "Draft text" });
+    await expect(box).toHaveValue(DRAFT_TEXT);
+    await expect(canvas.queryByText("Queue a Job for later")).toBeNull();
+    const answers = within(canvas.getByRole("group", { name: "Answers" })).getAllByRole("button");
+    await expect(answers.map((one) => one.textContent)).toEqual(["Approve with fixes", "Cancel"]);
+    await userEvent.clear(box);
+    await userEvent.type(box, "A Job waits for a free slot.");
+    await userEvent.click(canvas.getByRole("button", { name: "Approve with fixes" }));
+    await expect(args.onDraft).toHaveBeenCalledWith("d2", { fixed: "A Job waits for a free slot." });
+  },
+};
+
+/** Edited back to what it was, the draft is approved as written. Cancel puts the card back as it came. */
+export const DraftEditUnchangedApprovesPlainly: Story = {
+  args: { rows: drafted({ id: "d3" }), onDraft: fn() },
+  play: async ({ canvas, args }) => {
+    await userEvent.click(canvas.getByRole("button", { name: "Edit" }));
+    await userEvent.click(canvas.getByRole("button", { name: "Cancel" }));
+    await expect(canvas.queryByRole("textbox", { name: "Draft text" })).toBeNull();
+    await expect(canvas.getByText("Queue a Job for later")).toBeVisible();
+    await userEvent.click(canvas.getByRole("button", { name: "Edit" }));
+    await userEvent.click(canvas.getByRole("button", { name: "Approve with fixes" }));
+    await expect(args.onDraft).toHaveBeenCalledWith("d3", { choice: 0 });
+  },
+};
+
+/** Note opens a box under the draft, and Send back sends his note for a rewrite. */
+export const DraftNoteSendsBack: Story = {
+  args: { rows: drafted({ id: "d4" }), onDraft: fn() },
+  play: async ({ canvas, args }) => {
+    await userEvent.click(canvas.getByRole("button", { name: "Note" }));
+    await expect(canvas.getByText("Queue a Job for later")).toBeVisible();
+    const answers = within(canvas.getByRole("group", { name: "Answers" })).getAllByRole("button");
+    await expect(answers.map((one) => one.textContent)).toEqual(["Send back", "Cancel"]);
+    await userEvent.type(canvas.getByRole("textbox", { name: "Note" }), "Say what a restart keeps.");
+    await userEvent.click(canvas.getByRole("button", { name: "Send back" }));
+    await expect(args.onDraft).toHaveBeenCalledWith("d4", { text: "Say what a restart keeps." });
+  },
+};
+
+/** Send back waits for words: blank or spaces, it cannot be pressed. */
+export const DraftSendBackWaitsForWords: Story = {
+  args: { rows: drafted({ id: "d5" }), onDraft: fn() },
+  play: async ({ canvas, args }) => {
+    await userEvent.click(canvas.getByRole("button", { name: "Note" }));
+    const send = canvas.getByRole("button", { name: "Send back" });
+    await expect(send).toBeDisabled();
+    const note = canvas.getByRole("textbox", { name: "Note" });
+    await userEvent.type(note, "   ");
+    await expect(send).toBeDisabled();
+    await userEvent.type(note, "Shorter");
+    await expect(send).toBeEnabled();
+    await userEvent.clear(note);
+    await expect(send).toBeDisabled();
+    await userEvent.click(canvas.getByRole("button", { name: "Cancel" }));
+    await expect(args.onDraft).not.toHaveBeenCalled();
+  },
+};
+
+/** Approved as written: the state says so, the text stays, and nothing is left to press. */
+export const DraftApproved: Story = {
+  args: { rows: drafted({ id: "d6", settled: { how: "approved", at: "2026-10-26T14:07:00Z" } }), onDraft: fn() },
+  play: async ({ canvas }) => {
+    const card = canvas.getByRole("article", { name: "Draft: Description for the queue pull request" });
+    await expect(within(card).getByRole("img", { name: "Approved" })).toBeInTheDocument();
+    await expect(within(card).getAllByText("Approved").some((one) => one.checkVisibility())).toBe(true);
+    await expect(within(card).getByText("Queue a Job for later")).toBeVisible();
+    await expect(within(card).queryByRole("group", { name: "Answers" })).toBeNull();
+    await expect(within(card).queryByRole("button", { name: /^(Approve|Edit|Note)$/ })).toBeNull();
+  },
+};
+
+/** Approved with his fixes: the card reads his text, not the agent's, and nothing is left to press. */
+export const DraftApprovedWithFixes: Story = {
+  args: { rows: drafted({ id: "d7", settled: { how: "fixed", words: "A Job waits for a free slot.", at: "2026-10-26T14:07:00Z" } }), onDraft: fn() },
+  play: async ({ canvas }) => {
+    const card = canvas.getByRole("article", { name: "Draft: Description for the queue pull request" });
+    await expect(within(card).getByRole("img", { name: "Approved with your fixes" })).toBeInTheDocument();
+    await expect(within(card).getAllByText("Approved with your fixes").some((one) => one.checkVisibility())).toBe(true);
+    await expect(within(card).getByText("A Job waits for a free slot.")).toBeVisible();
+    await expect(within(card).queryByText("Queue a Job for later")).toBeNull();
+    await expect(within(card).queryByRole("group", { name: "Answers" })).toBeNull();
+  },
+};
+
+/** Sent back: the state, and his note quoted under the draft. Nothing is left to press. */
+export const DraftSentBack: Story = {
+  args: { rows: drafted({ id: "d8", settled: { how: "sent_back", words: "Say what a restart keeps.", at: "2026-10-26T14:07:00Z" } }), onDraft: fn() },
+  play: async ({ canvas }) => {
+    const card = canvas.getByRole("article", { name: "Draft: Description for the queue pull request" });
+    await expect(within(card).getByRole("img", { name: "Sent back" })).toBeInTheDocument();
+    await expect(within(card).getAllByText("Sent back").some((one) => one.checkVisibility())).toBe(true);
+    await expect(within(card).getByText("Say what a restart keeps.").closest("blockquote")).not.toBeNull();
+    await expect(within(card).queryByRole("group", { name: "Answers" })).toBeNull();
+    await expect(within(card).queryByRole("button", { name: /^(Approve|Edit|Note)$/ })).toBeNull();
+  },
+};

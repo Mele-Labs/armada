@@ -330,7 +330,7 @@ pub use holding::{
     SlotReleased, SlotRescued, SlotStranded, SlotVerdict, WorktreeSlot, WorktreesHeld,
 };
 pub use hosted_sessions::{
-    AnswerSessionAsk, BeginSession, ChosenHold, CloseSession, ForkFrom, GateAnswer, GateHold, HeldCommand,
+    AnswerSessionAsk, BeginSession, ChosenHold, CloseSession, DraftHow, DraftSettled, ForkFrom, GateAnswer, GateHold, HeldCommand,
     HoldKept, HoldMoved, HostedFacts, LinkedEvent, MessagesHeld, MoveSession,
     ReleaseSessionHolds, RunSessionCommand, SendSessionMessage, SendSessionMessageBody, SentFile, SessionAskState,
     SessionGate, SessionHoldsReleased, SessionMode, SessionRow, SessionRowChanged, SessionTag,
@@ -564,11 +564,11 @@ pub use sessions::{
     SessionStanding, SessionState, SessionRunMessage, SessionRunUnderway, StartSessionRun,
     StopSessionRun, WriteSessionRun, ResizeSessionRun, SessionUsage, SetWaitingFor, AllDone,
     FinishUp, FinishedUp, ShowWindow, SignIn, TakeWindowSignIn, origins_as_detail, WindowSignIn,
-    WindowTake, AskInWindow, WindowPlace, TerminalCommand, TerminalFacts, WaitingAct,
+    WindowTake, AskInWindow, ProposeDraft, WindowPlace, TerminalCommand, TerminalFacts, WaitingAct,
     WaitingActKind, WaitingInput, WaitingItem, WaitingMode, WaitingOption, WaitingSource,
     WalkTold, WindowClosed, WindowFailed, WithdrawWindow,
 };
-pub use terminals::{JobTerminal, OpenTerminal, TerminalScreen, TerminalTyped, TypeInTerminal};
+pub use terminals::{JobTerminal, OpenTerminal, StartTerminalRun, TerminalScreen, TerminalTyped, TypeInTerminal};
 pub use act_failed::{ActFailed, BackgroundAct};
 pub use autopilot::{
     Autopilot, AutopilotCap, AutopilotList, AutopilotPick, AutopilotPickState,

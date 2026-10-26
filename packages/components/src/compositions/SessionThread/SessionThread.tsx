@@ -2,6 +2,7 @@ import { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } fro
 import type { KeyboardEvent, MouseEvent as ReactMouseEvent, ReactNode, Ref, RefObject } from "react";
 import { AppWindow, ArrowRight, BadgeCheck, BellRing, Bot, Check, ChevronDown, ChevronRight, ChevronUp, File, GitBranch, GitPullRequest, KeyRound, Layers, ListChecks, LoaderCircle, MessageSquare, MoveRight, Pencil, Play, Plus, Reply, Scale, Server, Smartphone, SquareTerminal, Trash2, Wrench, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import type { DraftSettled } from "@armada/protocol";
 
 import { AttachmentChip } from "../../primitives/AttachmentChip/AttachmentChip";
 import { Button } from "../../primitives/Button/Button";
@@ -46,6 +47,9 @@ import { WaiterRow } from "./WaiterRow";
 import { SketchRow } from "./SketchRow";
 import { RequestedRow } from "./RequestedRow";
 import { SavedRow } from "./SavedRow";
+import { DraftRow } from "./DraftRow";
+import type { DraftAnswer } from "./DraftRow";
+export type { DraftAnswer } from "./DraftRow";
 import { PlanRevisionView, useUnchanged } from "./PlanRevision";
 import type { PlanRevision } from "./PlanRevision";
 export type { PlanRevision, RevisionGroup, RevisionSince, RevisionTask } from "./PlanRevision";
@@ -203,6 +207,8 @@ type SessionThreadKinds =
   | { id: string; at: string; kind: "window"; title: string; url: string }
   /** The agent showed a file with `show_file`: a quiet row, a press that opens it in the side panel. */
   | { id: string; at: string; kind: "file"; path: string; name: string }
+  /** A draft the agent put to the person with `propose_draft`: a card answered in place, and how it ended once `settled`. */
+  | { id: string; at: string; kind: "draft"; title: string; text: string; before?: string; settled?: DraftSettled }
   /**
    * The agent drew a sketch: a card with a small drawing, a press that opens it. `sketch` is the ledger row's id.
    * `replaced` is set by the host where a later card holds the same `sketch`, and `againstScene` where it finds the card
@@ -362,6 +368,8 @@ export type SessionThreadProps = {
   onOpenSketch?: (sketch: string) => void;
   /** Opens a file the agent showed, by its path. Absent, its row is not a press. */
   onOpenFile?: (path: string) => void;
+  /** Answers a draft card, by its row's id. Absent, a draft draws with nothing to press. */
+  onDraft?: (rowId: string, answer: DraftAnswer) => void;
   /**
    * Opens what a note the person sent from a viewer named: the sketch with its parts picked, the file on its lines, the
    * picture with its region drawn. `root` is the Job's checkout, which a file is shown from. Absent, such a message is words.
@@ -842,6 +850,8 @@ function Row({
   onOpenWindow,
   onOpenSketch,
   onOpenFile,
+  onDraft,
+  sessionId,
   agentName = "Agent",
   onOpenRetro,
   onOpenSent,
@@ -852,6 +862,8 @@ function Row({
   onTeach,
 }: {
   row: Exclude<SessionThreadRow, { kind: "tool" | "check" }>;
+  onDraft?: (rowId: string, answer: DraftAnswer) => void;
+  sessionId?: string;
   onRetry?: (rowId: string) => void;
   forkable: boolean;
   /** A later row disputes this one, so Fleet's card draws the Disputed mark. */
@@ -935,6 +947,7 @@ function Row({
       </li>
     );
   }
+  if (row.kind === "draft") return <DraftRow row={row} keep={sessionId === undefined ? `draft:${row.id}` : `draft:${sessionId}:${row.id}`} {...(onDraft === undefined ? {} : { onAnswer: onDraft })} />;
   if (row.kind === "requested") return <RequestedRow row={row} agentName={agentName} />;
   if (row.kind === "saved") return <SavedRow row={row} />;
   if (row.kind === "sketch") return <SketchRow row={row} {...(onOpenSketch === undefined ? {} : { onOpen: onOpenSketch })} />;
@@ -1530,7 +1543,7 @@ export function AskCards({ asked, askRef, onAnswer, lapsed, flat, keep }: Pick<S
   );
 }
 
-export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer, lapsed, waitingOnYou, workingOn, onOpenSession, onOpenWindow, onOpenSketch, onOpenFile, onOpenCheck, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt, onReplyAt, onTeachAt, onTeachRow, onMuteNotice, lead, trailing, transcript, noted, inline }: SessionThreadProps) {
+export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer, lapsed, waitingOnYou, workingOn, onOpenSession, onOpenWindow, onOpenSketch, onOpenFile, onDraft, onOpenCheck, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt, onReplyAt, onTeachAt, onTeachRow, onMuteNotice, lead, trailing, transcript, noted, inline }: SessionThreadProps) {
   const whole = useRef<HTMLDivElement>(null);
   useCopyOnSelect(whole);
   const slash = useMemo(() => (onCommand === undefined ? null : { send: onCommand, names: new Set(commandNames ?? []) }), [onCommand, commandNames]);
@@ -1646,7 +1659,7 @@ export function SessionThread({ rows, onRetry, approval, asked, askRef, onAnswer
             ) : item.kind === "checks" ? (
               <CheckRuns key={item.id} rows={item.rows} {...(onOpenCheck === undefined ? {} : { onOpenCheck })} {...(onTeachRow === undefined ? {} : { onTeach: onTeachRow })} />
             ) : (
-              <Row key={"stableKey" in item.row && item.row.stableKey !== undefined ? item.row.stableKey : item.row.id} row={item.row} {...(onRetry === undefined ? {} : { onRetry })} onOpenSession={onOpenSession} onOpenWindow={onOpenWindow} onOpenSketch={onOpenSketch} {...(onOpenFile === undefined ? {} : { onOpenFile })} onOpenRetro={onOpenRetro} onOpenSent={onOpenSent} forkable={onForkAt !== undefined || onReplyAt !== undefined || onTeachAt !== undefined} disputed={disputes.has(item.row.id)} {...(onMuteNotice === undefined ? {} : { onMuteNotice })} {...(onTeachRow === undefined ? {} : { onTeach: onTeachRow })} {...(agentName === undefined ? {} : { agentName })} />
+              <Row key={"stableKey" in item.row && item.row.stableKey !== undefined ? item.row.stableKey : item.row.id} row={item.row} {...(onRetry === undefined ? {} : { onRetry })} onOpenSession={onOpenSession} onOpenWindow={onOpenWindow} onOpenSketch={onOpenSketch} {...(onOpenFile === undefined ? {} : { onOpenFile })} {...(onDraft === undefined ? {} : { onDraft })} {...(sessionId === undefined ? {} : { sessionId })} onOpenRetro={onOpenRetro} onOpenSent={onOpenSent} forkable={onForkAt !== undefined || onReplyAt !== undefined || onTeachAt !== undefined} disputed={disputes.has(item.row.id)} {...(onMuteNotice === undefined ? {} : { onMuteNotice })} {...(onTeachRow === undefined ? {} : { onTeach: onTeachRow })} {...(agentName === undefined ? {} : { agentName })} />
             ),
             approval?.approved === true && item.kind === "row" && item.row.id === approval.after ? <li key="plan-approved" className="armada-session-thread__record"><PlanCard approval={approval} /></li> : null,
             ...cardsAfter(at).map((card) => (

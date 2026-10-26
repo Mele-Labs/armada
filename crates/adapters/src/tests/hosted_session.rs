@@ -247,7 +247,7 @@ const HOSTED_ONLY: &str = "Fleet's notices.";
 fn the_output_style_carries_the_rules_verbatim() {
     let style = include_str!("../../../../plugins/armada/output-styles/armada.md");
     let blocks: Vec<&str> = rules().split("\n\n").skip(1).filter(|block| !block.starts_with(HOSTED_ONLY)).collect();
-    assert_eq!(blocks.len(), 6, "needs, progress, planning, subagents, watching, finishing");
+    assert_eq!(blocks.len(), 7, "needs, drafts, progress, planning, subagents, watching, finishing");
     for block in blocks {
         assert!(style.contains(block), "the style has drifted from: {block}");
     }

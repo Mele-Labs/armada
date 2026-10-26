@@ -424,3 +424,4 @@
 @import "./compositions/PullRequestChip/PullRequestChip.css";
 @import "./compositions/AdversarialReview/AdversarialReview.css";
 @import "./primitives/SelectMark/SelectMark.css";
+@import "./compositions/SessionThread/DraftRow.css";

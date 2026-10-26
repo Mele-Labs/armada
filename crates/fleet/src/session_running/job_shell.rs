@@ -14,7 +14,7 @@ use ipc::{JobTerminal, TerminalScreen, TerminalTyped, TypeInTerminal};
 use tokio::sync::broadcast::error::RecvError;
 use tokio::time::Instant;
 
-use super::{plain, refusal, size, Ended, Launch, SessionRuns, COLS, ROWS};
+use super::{other, plain, refusal, size, Ended, Launch, SessionRuns, COLS, ROWS};
 use crate::daemon::Fleet;
 
 /// How long the shell prints nothing before an agent's typing is answered.
@@ -104,12 +104,12 @@ impl SessionRuns {
         F: FnOnce(Ended) -> Fut + Send + 'static,
         Fut: Future<Output = ()> + Send + 'static,
     {
+        let session = launch.session.ok_or_else(|| other("a Job's shell names its Job"))?.to_string();
         // Held across the start, so two opens at once start one shell.
         let mut shells = self.shells.lock().expect("not poisoned");
-        if let Some(open) = shells.get(launch.session).filter(|id| self.in_flight(id).is_some()) {
+        if let Some(open) = shells.get(&session).filter(|id| self.in_flight(id).is_some()) {
             return Ok((open.clone(), false));
         }
-        let session = launch.session.to_string();
         let id = self.mint();
         self.start_as(id.clone(), launch, on_end(id.clone()))?;
         shells.insert(session, id.clone());
@@ -174,7 +174,7 @@ where
             return Err(self.no_cells());
         }
         let dir = self.run_dir(session_id).await?;
-        let launch = Launch { session: session_id, command: None, dir: &dir, size: size(cols, rows) };
+        let launch = Launch { session: Some(session_id), command: None, dir: &dir, size: size(cols, rows) };
         let fleet = Arc::clone(&self);
         let session = session_id.to_string();
         let (run_id, opened) = self

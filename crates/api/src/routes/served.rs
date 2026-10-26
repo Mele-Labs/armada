@@ -288,6 +288,11 @@ const ROUTES: &[Route] = &[
         path: "/sessions/terminal/open",
     },
     Route {
+        operation: "start_terminal_run",
+        method: "POST",
+        path: "/sessions/terminal/run",
+    },
+    Route {
         operation: "type_in_terminal",
         method: "POST",
         path: "/sessions/terminal/type",
@@ -386,6 +391,11 @@ const ROUTES: &[Route] = &[
         operation: "ask_in_window",
         method: "POST",
         path: "/sessions/window/ask",
+    },
+    Route {
+        operation: "propose_draft",
+        method: "POST",
+        path: "/sessions/draft",
     },
     Route {
         operation: "window_closed",

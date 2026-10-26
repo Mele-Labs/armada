@@ -1,0 +1,14 @@
+[operations.start_terminal_run]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Run a command in a directory with no Job behind it, in a terminal of its own, such as the fix a pull request panel names"
+notes = """
+`POST /sessions/terminal/run`, body `StartTerminalRun`: `command`, `dir`, and optionally `cols` and `rows` (80 by 24 where absent). Answered 200 with `SessionRunUnderway`: `run_id`. The output is on `observe_session_run`.
+
+`command` runs as `$SHELL -lc <command>` (`/bin/zsh` where `SHELL` is unset or empty) on a pseudo-terminal with `TERM=xterm-256color`, in `dir`, as `start_session_run` runs a block. Any command runs: it is the person's own, as if typed in their terminal. A blank `command`, a `dir` that is not an existing directory, and a `cols` or `rows` of 0 are refused with 422 and nothing runs.
+
+**It is a run with no Job.** Typing, resizing, watching and stopping it are `write_session_run`, `resize_session_run`, `observe_session_run` and `stop_session_run` on its `run_id`. Nobody is told how it ended, and no `terminal.*` event is published. Its output is held in memory for the run and a short tail after it, and it is forgotten a minute or two after it exits.
+
+`agent_access` is `No`: running a command is the person's own act.
+"""

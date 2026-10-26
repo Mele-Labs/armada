@@ -33,6 +33,7 @@ import type {
   CheckoutToPullRequest,
   JobTerminal,
   OpenTerminal,
+  StartTerminalRun,
   ApprovePlan,
   ChangeWaiting,
   ClaimIssue,
@@ -355,6 +356,20 @@ export class SessionsHost {
     if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
     const underway = answer.body as SessionRunUnderway;
     this.observeRun(port, underway.run_id, open.session_id);
+    return { ok: true, value: underway };
+  }
+
+  /**
+   * A command run in a directory with no Job behind it. Observed as a block's run is: no Job owns
+   * it, so its output goes as it ends.
+   */
+  async startTerminalRun(start: StartTerminalRun): Promise<SessionActed<SessionRunUnderway>> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    const answer = await ask(port, "POST", "/sessions/terminal/run", start);
+    if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
+    const underway = answer.body as SessionRunUnderway;
+    this.observeRun(port, underway.run_id);
     return { ok: true, value: underway };
   }
 

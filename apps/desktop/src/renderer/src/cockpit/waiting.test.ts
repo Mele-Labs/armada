@@ -200,3 +200,12 @@ describe("a plan and a judge's concern", () => {
     expect(callsFromWaiting([one]).map((call) => call.item.id)).toEqual(["c1", "plan:2"]);
   });
 });
+
+describe("a draft put to the person", () => {
+  const AT = "2026-10-26T09:00:00.000Z";
+
+  test("calls him while the turn goes on, as a question does", () => {
+    const one = session("w", { turn: { state: "working" }, waitingFor: [{ id: "draft:d1", text: "Description for the queue pull request", since: AT, source: "draft", options: [{ label: "Approve" }] }] });
+    expect(callsFromWaiting([one]).map((call) => call.item.id)).toEqual(["draft:d1"]);
+  });
+});

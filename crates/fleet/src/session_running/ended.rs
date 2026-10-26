@@ -14,7 +14,8 @@ const TOLD_LINES: usize = 40;
 
 /// How a run ended, as the task that waited for it saw it.
 pub(crate) struct Ended {
-    pub session: String,
+    /// `None` for a run no Job asked for.
+    pub session: Option<String>,
     pub command: String,
     /// `None` where the group was stopped or a signal ended it.
     pub code: Option<i32>,
@@ -79,15 +80,16 @@ where
     /// A clean exit takes the matching `run` item off the Session's list first, so Bridge has
     /// nothing to settle. **A Session that has ended is not told**, which `told_by_fleet` answers.
     pub(crate) async fn session_run_ended(self: Arc<Self>, ended: Ended) {
+        let Some(session) = ended.session.clone() else { return };
         let taken_off =
-            ended.code == Some(0) && self.run_item_settled(&ended.session, &ended.command).await;
+            ended.code == Some(0) && self.run_item_settled(&session, &ended.command).await;
         let ran = RunEnd {
             command: ended.command.clone(),
             code: ended.code,
             tail: tail_of(&ended),
         };
         let _ = self
-            .told_of_a_run(&ended.session, &told(&ended, taken_off), ran)
+            .told_of_a_run(&session, &told(&ended, taken_off), ran)
             .await;
     }
 }

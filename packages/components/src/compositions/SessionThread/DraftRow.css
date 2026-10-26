@@ -1,0 +1,77 @@
+/* A draft the agent put to him: a card in the line of the thread, its answers in the footer, how it ended once settled. */
+.armada-session-draft-row {
+  list-style: none;
+}
+
+.armada-session-draft__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--fg-muted);
+}
+
+.armada-session-draft__at {
+  margin-inline-start: auto;
+  color: var(--fg-subtle);
+}
+
+.armada-session-draft__title {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  font-weight: var(--weight-heading);
+  overflow-wrap: anywhere;
+}
+
+.armada-session-draft__text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* The text it replaces sits on the well, so it never reads as the draft. */
+.armada-session-draft__before {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.armada-session-draft__before > .armada-session-draft__text {
+  align-self: stretch;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  color: var(--fg-muted);
+}
+
+/* His note, quoted in his colour. */
+.armada-session-draft__note {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-left: calc(var(--border-width) * 2) solid var(--you-edge);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  color: var(--fg-default);
+}
+
+.armada-session-draft__settled {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-muted);
+}
+
+.armada-session-draft__mark {
+  display: inline-flex;
+  flex: none;
+  color: var(--step-advanced);
+}
+
+.armada-session-draft__settled[data-how="sent_back"] .armada-session-draft__mark {
+  color: var(--fg-muted);
+}
