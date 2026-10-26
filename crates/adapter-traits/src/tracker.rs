@@ -184,6 +184,37 @@ impl NotTracked {
     }
 }
 
+/// A program Fleet installs when a person asks, and the only ones. **A closed set**: what the wire
+/// names is looked up here and nothing else reaches a shell.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Tool {
+    /// The beads command line.
+    Bd,
+}
+
+impl Tool {
+    /// The tool a wire name means, `None` for any other.
+    pub fn named(name: &str) -> Option<Tool> {
+        match name {
+            "bd" => Some(Tool::Bd),
+            _ => None,
+        }
+    }
+
+    pub fn name(self) -> &'static str {
+        match self {
+            Tool::Bd => "bd",
+        }
+    }
+}
+
+/// How installing a [`Tool`] went, in words a person reads.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ToolInstalled {
+    pub done: bool,
+    pub said: String,
+}
+
 /// Reading a repository's issues.
 ///
 /// **No method writes.** Nothing comments on an issue, moves its labels, edits
@@ -282,5 +313,14 @@ pub trait Trackers {
     fn backlog(&self, choice: &TrackerChoice) -> Option<Arc<dyn crate::Backlog + Send + Sync>> {
         let _ = choice;
         None
+    }
+
+    /// Install `tool`. **Nothing here runs until a person asks**: a missing tool is reported, not
+    /// repaired. Nothing is installed by default.
+    fn install(&self, tool: Tool) -> ToolInstalled {
+        ToolInstalled {
+            done: false,
+            said: format!("nothing here installs `{}`", tool.name()),
+        }
     }
 }
