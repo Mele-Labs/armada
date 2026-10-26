@@ -632,6 +632,126 @@ destructive = false
 confirms = false
 notes = "Opens the dispatch sheet holding the open issue as a tag, on its repository. Starting is the sheet's own act, so nothing starts on this key alone."
 
+[actions.projects_panel]
+kind = "Action"
+tier = "Contextual"
+verb = "Go to a part of Projects"
+icon = ""
+icon_absent = "undecided"
+shortcut = "l r"
+scope = "projects"
+destructive = false
+confirms = false
+notes = "Moves focus to a part of the Projects tab: `l` the list of projects, `r` the rows of the project open. The Issues tab's letters for its own two parts, in the scope of the tab that has them. Mock-backed until projects are kept on the Mac."
+
+[actions.projects_new]
+kind = "Action"
+tier = "Contextual"
+verb = "New project"
+icon = ""
+icon_absent = "undecided"
+shortcut = "N"
+scope = "projects"
+destructive = false
+confirms = false
+notes = "Puts up the name field of a new project in the repository picked. On All it asks which repository first, the one act on the tab that needs one. `N` is a Studio's Note in the `open studio` scope, which never listens beside this one."
+
+[actions.projects_add_task]
+kind = "Action"
+tier = "Contextual"
+verb = "Add a task"
+icon = ""
+icon_absent = "undecided"
+shortcut = "a"
+scope = "projects"
+destructive = false
+confirms = false
+notes = "Moves focus to the field at the foot of the open project's rows, where a task is written and Enter adds it. The field keeps its draft across leaving the panel."
+
+[actions.projects_link]
+kind = "Action"
+tier = "Contextual"
+verb = "Link issues"
+icon = ""
+icon_absent = "undecided"
+shortcut = "i"
+scope = "projects"
+destructive = false
+confirms = false
+notes = "Opens a search of the repository's open issues, as the Issues tab reads them, under the open project's rows. Enter on an issue links it as a row; Esc puts the search away."
+
+[actions.projects_reorder]
+kind = "Action"
+tier = "Contextual"
+verb = "Move the row up or down"
+icon = ""
+icon_absent = "undecided"
+shortcut = "⌥↑ ⌥↓"
+scope = "projects"
+destructive = false
+confirms = false
+notes = "Moves the focused row of the open project up or down its list, which is in his order. The deck's own keys for its rows (`deck_reorder`), in the scope of the tab that has them. A key moves the row and draws nothing of its own."
+
+[actions.projects_select]
+kind = "Action"
+tier = "Contextual"
+verb = "Select the row"
+icon = ""
+icon_absent = "undecided"
+shortcut = "x"
+scope = "projects"
+destructive = false
+confirms = false
+notes = "Selects the focused row, or takes it out of the selection, as its box does. The rows selected go to one Job together on `s`."
+
+[actions.projects_tick]
+kind = "Action"
+tier = "Contextual"
+verb = "Tick or untick the task"
+icon = ""
+icon_absent = "undecided"
+shortcut = "d"
+scope = "projects"
+destructive = false
+confirms = false
+notes = "Marks the focused task done, or open again. Written tasks only: a linked issue is open or closed as its tracker says. `d` is a call's Dismiss in the `call` scope, which never listens beside this one."
+
+[actions.projects_dispatch]
+kind = "Action"
+tier = "Contextual"
+verb = "Dispatch the rows"
+icon = ""
+icon_absent = "undecided"
+shortcut = "s"
+scope = "projects"
+destructive = false
+confirms = false
+notes = "Opens the dispatch sheet on the project's repository holding the rows selected, or the focused row where none is: tasks as lines and issues as tags. Starting is the sheet's own act, so nothing starts on this key alone. The Issues tab's `s`."
+
+[actions.projects_mark_done]
+kind = "Action"
+tier = "Contextual"
+verb = "Mark done"
+icon = ""
+icon_absent = "undecided"
+shortcut = "D"
+scope = "projects"
+destructive = false
+confirms = false
+notes = "Answers the done ask on the focused task: a Job that held it finished, and Armada asks whether the task is done. The same answer as the Needs you item on that Job while it is live."
+
+[actions.projects_keep_open]
+kind = "Action"
+tier = "Contextual"
+verb = "Keep open"
+icon = ""
+icon_absent = "undecided"
+shortcut = "K"
+scope = "projects"
+destructive = false
+confirms = false
+notes = "Answers the done ask on the focused task the other way: it stays open and no Job holds it."
+
 [actions.deck_tabs]
 kind = "Action"
 tier = "Global"
