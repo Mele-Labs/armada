@@ -29,6 +29,7 @@ import type { BridgeStateFleet } from "./socket";
 import type { SessionsHost } from "./sessions";
 import { publishSettings, readSettings } from "./settings";
 import type { SleepHost } from "./sleep";
+import type { AppRunsHost } from "./app-runs";
 import type { PlanUsageHost } from "./plan-usage";
 import type { ModelDownshiftHost } from "./model-downshift";
 import type { AgentSignInHost } from "./agent-sign-in";
@@ -58,6 +59,8 @@ export interface ArrivalHost {
   readonly held: Pick<HeldReader, "warm" | "again">;
   /** Sleep mode, told when Fleet changes the night — `sleep.ts`. */
   readonly sleep: Pick<SleepHost, "changed">;
+  /** A repository's app runs, told when one moves — `app-runs.ts`. */
+  readonly appRuns: Pick<AppRunsHost, "changed">;
   /** The plan's windows, told when a session reports a newer reading — `plan-usage.ts`. */
   readonly planUsage: Pick<PlanUsageHost, "changed">;
   /** The default model's step down, told when Fleet moves it and read once per connection — `model-downshift.ts`. */
@@ -285,6 +288,13 @@ export function applyArrival(host: ArrivalHost, text: string, fleet: BridgeState
     host.publish({ connection });
     const { kind: _kind, ...state } = event;
     host.sleep.changed(state);
+    return;
+  }
+  if (event.kind === "app_run.changed") {
+    // Above the tail for `sleep.changed`'s reason: the run travels whole, and a window replaces the one it holds for that checkout.
+    host.publish({ connection });
+    const { kind: _kind, ...run } = event;
+    host.appRuns.changed(run);
     return;
   }
   if (event.kind === "plan_usage.changed") {

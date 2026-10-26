@@ -44,6 +44,7 @@ import { FleetSocket, type BridgeStateFleet } from "./socket";
 import { Modding } from "./mods";
 import { SessionsHost } from "./sessions";
 import { SleepHost } from "./sleep";
+import { AppRunsHost } from "./app-runs";
 import { AccountsHost } from "./accounts";
 import { PlanUsageHost } from "./plan-usage";
 import { ModelDownshiftHost } from "./model-downshift";
@@ -153,6 +154,8 @@ export class FleetConnection {
   );
   /** Sleep mode — `sleep.ts`. */
   readonly sleep: SleepHost = new SleepHost(() => this.connected()?.port ?? null);
+  /** A repository's app, run from Bridge — `app-runs.ts`. */
+  readonly appRuns: AppRunsHost = new AppRunsHost(() => this.connected()?.port ?? null);
   /** The account and its profiles — `accounts.ts`. */
   readonly accounts: AccountsHost = new AccountsHost(() => this.connected()?.port ?? null);
   /** The plan's windows — `plan-usage.ts`. */
@@ -269,6 +272,7 @@ export class FleetConnection {
       sessions: this.sessions,
       held: this.held,
       sleep: this.sleep,
+      appRuns: this.appRuns,
       planUsage: this.planUsage,
       modelDownshift: this.modelDownshift,
       agentSignIn: this.agentSignIn,

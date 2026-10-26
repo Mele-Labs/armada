@@ -46,6 +46,7 @@ function fakeHost(
     repositories: {} as unknown as RepositoryReads,
     rehearsal: {} as unknown as RehearsalConnection,
     sleep: { changed: () => {} },
+    appRuns: { changed: () => {} },
     planUsage: { changed: () => {} },
     modelDownshift: { changed: () => {}, seed: async () => {} },
     agentSignIn: { changed: () => {}, seed: async () => {} },
@@ -125,6 +126,23 @@ describe("the default model's step down, carried whole by its event", () => {
       FLEET,
     );
     expect(changed).toHaveBeenCalledWith({});
+  });
+});
+
+describe("a repository's app run, off `app_run.changed`", () => {
+  it("is passed on whole, without the event's kind", () => {
+    const { host } = fakeHost();
+    const changed = vi.fn();
+    const run = {
+      name: "web",
+      label: "Web",
+      opens_in: "browser",
+      manifest_id: "m-1",
+      checkout: { kind: "main", path: "/repo" },
+      processes: [{ name: "web", state: "ready", port: 41210, server_id: "s-1" }],
+    };
+    applyArrival({ ...host, appRuns: { changed } }, JSON.stringify({ message: "event", cursor: 4, event: { kind: "app_run.changed", ...run } }), FLEET);
+    expect(changed).toHaveBeenCalledWith(run);
   });
 });
 
