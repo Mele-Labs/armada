@@ -6,7 +6,7 @@
 // Nothing here draws: a surface reads `useLayout(region)` and draws what it is handed.
 
 import { createContext, useContext, useMemo, useSyncExternalStore } from "react";
-import { Activity, Box, DraftingCompass, GitMerge, PanelBottom, Plane, PlaneLanding, Radar, Rows3, Send, Ticket, Workflow, type LucideIcon } from "lucide-react";
+import { Activity, Box, DraftingCompass, GitMerge, PanelBottom, Plane, PlaneLanding, Radar, Rows3, Send, Workflow, type LucideIcon } from "lucide-react";
 
 import { PLACES, SURFACE, SURFACES } from "./surfaces";
 
@@ -41,7 +41,6 @@ export const LAYOUT: Readonly<Record<LayoutRegion, Spec>> = {
     firstable: false,
     entries: [
       { id: "list", label: "Jobs", icon: Box, hideable: false },
-      { id: "issue-line", label: "Issue line", icon: Ticket, hideable: true },
       { id: "merge-line", label: "Merge queue", icon: GitMerge, hideable: true },
       { id: "activity", label: "Activity", icon: Activity, hideable: true },
       { id: "bays", label: "Bays", icon: Rows3, hideable: true },

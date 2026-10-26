@@ -2,7 +2,7 @@
 // lands in a spike's findings doc and one that only investigates and lands in a report. Approving a plan starts the build (the Field opens), and
 // each time the walk lets time pass the build comes closer to its landing: for the pull request, Checks passed, the queue, an issue filed, a watch
 // and a follow-up; for the spike, the findings doc; for the report, the report. A fourth Job holds another pull request so the Merge line has width.
-// The repository serves a merge line, so the Cockpit draws the Issue line over it. Mock only: the stage is read in Bridge from the Job's data
+// The repository serves a merge line. Groups g1 and g2 work issues 2361 and 2367; the issues no group works (2374, and 2402 once filed) stand in Deferred. Mock only: the stage is read in Bridge from the Job's data
 // (`session-view/story.ts`), and `work.landing` names the kind. The walks `jobStory`, `jobStorySpike` and `jobStoryReport` play it.
 
 import type { MergeLine, WatchSummary } from "@armada/protocol";
@@ -52,8 +52,8 @@ const task = (id: string, text: string, state: WorkTaskState) => ({ id, text, st
 function prGroups(stage: number): WorkGroup[] {
   const at = (open: WorkTaskState, working: WorkTaskState, built: WorkTaskState) => (stage === 0 ? open : stage === 1 ? working : built);
   return [
-    { id: "g1", agent: "rust-engineer", title: "Retry the lease when the pool is contended", paths: ["crates/fleet"], tasks: [task("T1", "Retry the lease when the pool is contended", at("open", "done", "done")), task("T2", "Back off between attempts", at("open", "working", "done"))] },
-    { id: "g2", agent: "bridge-engineer", title: "Show the attempt on the bay tile", paths: ["apps/desktop"], tasks: [task("T3", "Show the attempt on the bay tile", at("open", "working", "done")), task("T4", "Name the attempt in the tooltip", at("open", "open", "done"))] },
+    { id: "g1", agent: "rust-engineer", title: "Retry the lease when the pool is contended", paths: ["crates/fleet"], issue: "2361", tasks: [task("T1", "Retry the lease when the pool is contended", at("open", "done", "done")), task("T2", "Back off between attempts", at("open", "working", "done"))] },
+    { id: "g2", agent: "bridge-engineer", title: "Show the attempt on the bay tile", paths: ["apps/desktop"], issue: "2367", tasks: [task("T3", "Show the attempt on the bay tile", at("open", "working", "done")), task("T4", "Name the attempt in the tooltip", at("open", "open", "done"))] },
   ];
 }
 

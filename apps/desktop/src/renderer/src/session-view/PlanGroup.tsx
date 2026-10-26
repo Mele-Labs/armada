@@ -2,30 +2,29 @@
 // under it. Drafted, it is its title over its tasks, editable. Either way the subagent type and the paths open with the group, by a press or its pencil.
 // Edits Fleet saw are marked on the group. Nothing here blocks.
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Check, ChevronDown, Dot, Link, PencilLine, Ticket } from "lucide-react";
 import { Button, LinkedSession, TASK_GLYPH, TaskMark, Tooltip } from "@armada/components";
 import { issueLabel, type Session } from "@armada/screens/src/draft/sessions";
 
 import { useSessions, useSessionsDraft } from "../sessions-draft";
 import { GroupPullRequests, issueOfGroup, openIssuePanel, type Issue } from "./IssuesBlock";
-import { GroupEditor, type PlanEditing } from "./PlanEdit";
+import { EditText, GroupEditor, type PlanEditing } from "./PlanEdit";
 import { childrenOf, linkedPropsOf } from "./linked";
-import type { ViewGroup } from "./plan-marks";
+import { rename, type ViewGroup } from "./plan-marks";
 import { wasOpen } from "./place";
 
-/** The issue a group names, state glyph and number or key, a press target of its own beside the group's toggle. */
-function GroupIssue({ issue, manifestId }: { issue: Issue; manifestId: string | undefined }) {
-  const said = issue.state === "closed" ? "Closed" : "Open";
+/** The issue a group names, glyph and number or key, a press target of its own beside the group's toggle. Its title and state are the tooltip's. */
+export function GroupIssue({ issue, manifestId }: { issue: Issue; manifestId: string | undefined }) {
   return (
-    <button type="button" className="sv-group__issue" data-state={issue.state} aria-label={`Issue ${issueLabel(issue.number)} ${issue.title}`} onClick={() => openIssuePanel(issue, manifestId)}>
-      <Tooltip label={said}>
-        <span className="sv-group__issue-mark" role="img" aria-label={said}>
+    <Tooltip asChild label={issue.state === "closed" ? `${issue.title}, closed` : issue.title}>
+      <button type="button" className="sv-group__issue" data-state={issue.state} aria-label={`Issue ${issueLabel(issue.number)} ${issue.title}`} onClick={() => openIssuePanel(issue, manifestId)}>
+        <span className="sv-group__issue-mark" aria-hidden="true">
           <Ticket size={12} strokeWidth={2} aria-hidden />
         </span>
-      </Tooltip>
-      <code>{issueLabel(issue.number)}</code>
-    </button>
+        <code>{issueLabel(issue.number)}</code>
+      </button>
+    </Tooltip>
   );
 }
 
@@ -56,9 +55,9 @@ export function StepMark({ step }: { step: Step }) {
 export const hereOf = (group: ViewGroup): string | undefined => group.tasks.find((task) => task.state === "working")?.id;
 
 /** One task's line: its state glyph and the plan's words, with what the turn is doing under it where it is the one being worked. */
-export function TaskLine({ task, here, now }: { task: ViewGroup["tasks"][number]; here: boolean; now: string | undefined }) {
+export function TaskLine({ task, here, now, issue }: { task: ViewGroup["tasks"][number]; here: boolean; now: string | undefined; /** The chip of the issue its group works, at the line's end. */ issue?: ReactNode }) {
   return (
-    <li className="sv-group__task" data-state={task.state} data-here={here || undefined}>
+    <li className="sv-group__task" data-state={task.state} data-here={here || undefined} data-issue={issue === undefined ? undefined : ""}>
       {here ? (
         <Tooltip label="Working on this now">
           <span className="armada-session-mark armada-task-mark" data-state="working" data-pulsing role="img" aria-label="Working on this now">
@@ -69,6 +68,7 @@ export function TaskLine({ task, here, now }: { task: ViewGroup["tasks"][number]
         <TaskMark state={task.state} />
       )}
       <span className="sv-group__task-text">{task.text}</span>
+      {issue}
       {here && now !== undefined ? <span className="sv-group__task-now">{now}</span> : null}
     </li>
   );
@@ -105,23 +105,36 @@ export function Group({ group, now, step, opened = false, ed, parent, manifestId
   const live = group.tasks.some((task) => task.state === "working");
   const complete = group.tasks.every((task) => task.state === "done" || task.state === "handed_in");
   const failed = group.tasks.some((task) => task.state === "failed");
+  const seen = group.tasks.some((task) => task.seen === true) ? (
+    <Tooltip label="Edits seen">
+      <span className="sv-group__seen" role="img" aria-label="Edits seen">
+        <PencilLine size={12} strokeWidth={2} aria-hidden />
+      </span>
+    </Tooltip>
+  ) : null;
   return (
     <section className="sv-group" data-group={group.id} data-step={step} data-state={failed ? "failed" : complete ? "done" : live ? "live" : undefined} data-open={open || undefined} data-issue={named === undefined ? undefined : ""} aria-label={group.title}>
       {named === undefined ? null : <GroupIssue issue={named.issue} manifestId={manifestId} />}
-      <button type="button" className="sv-group__row" aria-expanded={open} aria-label={group.title} onClick={() => setPressed(!open)}>
-        {step === undefined ? null : <StepMark step={step} />}
-        <span className="sv-group__title">{group.title}</span>
-        <span className="sv-group__head">
-          {group.tasks.some((task) => task.seen === true) ? (
-            <Tooltip label="Edits seen">
-              <span className="sv-group__seen" role="img" aria-label="Edits seen">
-                <PencilLine size={12} strokeWidth={2} aria-hidden />
-              </span>
-            </Tooltip>
-          ) : null}
-          <ChevronDown className="sv-group__chevron" size={12} strokeWidth={2} aria-hidden />
-        </span>
-      </button>
+      {opened ? (
+        // A drafted group's title is the editable one, so the row holds two presses: the title to rename it and the chevron to open its subagent type and paths.
+        <div className="sv-group__row" data-editable="">
+          {step === undefined ? null : <StepMark step={step} />}
+          <EditText label="Group" className="sv-group__title" value={group.title} was={group.was} onSave={(to) => ed.set(rename(ed.plan, ed.marks, { group: group.id }, to))} />
+          <button type="button" className="sv-group__head" aria-expanded={open} aria-label={`Subagent type and paths of ${group.title}`} onClick={() => setPressed(!open)}>
+            {seen}
+            <ChevronDown className="sv-group__chevron" size={12} strokeWidth={2} aria-hidden />
+          </button>
+        </div>
+      ) : (
+        <button type="button" className="sv-group__row" aria-expanded={open} aria-label={group.title} onClick={() => setPressed(!open)}>
+          {step === undefined ? null : <StepMark step={step} />}
+          <span className="sv-group__title">{group.title}</span>
+          <span className="sv-group__head">
+            {seen}
+            <ChevronDown className="sv-group__chevron" size={12} strokeWidth={2} aria-hidden />
+          </span>
+        </button>
+      )}
       {open || opened ? null : <Tasks group={group} now={now} />}
       {child === undefined ? null : (
         <div className="sv-group__linked">
@@ -131,7 +144,7 @@ export function Group({ group, now, step, opened = false, ed, parent, manifestId
       {open || opened ? (
         <div className="sv-expand">
           <div className="sv-group__body">
-            <GroupEditor group={group} ed={ed} head={!opened || open} {...(opened ? { onEdit: () => setPressed(true) } : {})} />
+            <GroupEditor group={group} ed={ed} titled={false} head={!opened || open} {...(opened ? { onEdit: () => setPressed(true) } : {})} />
             {child !== undefined || handOff === undefined ? null : (
               <Button variant="ghost" size="sm" onClick={() => void handOff(ed.id, group.id)}>
                 <Link size={12} strokeWidth={2} aria-hidden />

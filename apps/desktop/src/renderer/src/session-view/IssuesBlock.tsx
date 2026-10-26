@@ -61,6 +61,17 @@ function IssueMark({ issue }: { issue: Issue }) {
   );
 }
 
+/** An issue as one row: its state glyph, number and title, which opens the issue in the side panel. */
+export function IssueRow({ issue, manifestId }: { issue: Issue; manifestId: string | undefined }) {
+  return (
+    <button type="button" className="sv-row" data-kind="issue" aria-label={`Issue ${issueLabel(issue.number)} ${issue.title}`} onClick={() => openIssuePanel(issue, manifestId)}>
+      <IssueMark issue={issue} />
+      <code className="sv-row__num">{issueLabel(issue.number)}</code>
+      <span className="sv-row__title">{issue.title}</span>
+    </button>
+  );
+}
+
 function PrSlot({ pr, manifestId }: { pr: PullRequest; manifestId: string | undefined }) {
   const { on, menu } = usePullRequestMenu(manifestId, pr.number, pr.title);
   return (
@@ -92,11 +103,7 @@ export function IssuesBlock({ session, manifestId }: { session: Session; manifes
         <ul className="sv-rows" aria-label="Issues">
           {issues.map(({ issue, prs }) => (
             <li key={issue.number}>
-              <button type="button" className="sv-row" data-kind="issue" aria-label={`Issue ${issueLabel(issue.number)} ${issue.title}`} onClick={() => openIssuePanel(issue, manifestId)}>
-                <IssueMark issue={issue} />
-                <code className="sv-row__num">{issueLabel(issue.number)}</code>
-                <span className="sv-row__title">{issue.title}</span>
-              </button>
+              <IssueRow issue={issue} manifestId={manifestId} />
               {prs.length === 0 ? null : (
                 <div className="sv-rows__nested">
                   <GroupPullRequests prs={prs} issue={issue.number} manifestId={manifestId} />

@@ -73,7 +73,7 @@ export function BlueprintPanel({ work, place, id, session, manifestId, acts, ed,
       {drafting && plan.summary !== undefined ? <p className="sv-blueprint__summary">{plan.summary}</p> : null}
       {tasks.length === 0 ? null : <AgentTasks tasks={tasks} />}
       {atWork.length === 0 ? null : <SubagentsAtWork rows={atWork} />}
-      {!planned || !nowView ? null : <NowList groups={groups} workingGroup={workingGroup} now={now} />}
+      {!planned || !nowView ? null : <NowList groups={groups} workingGroup={workingGroup} now={now} session={session} manifestId={manifestId} />}
       {!planned || nowView ? null : (
         <div className="sv-plan" data-drafting={drafting || undefined}>
           <div className="sv-plan__groups">
