@@ -19,7 +19,7 @@ const runAnApp = walk("run-an-app", [
   { look: inside(running, button("Open frontend")), say: "The panel opens on the run; both processes come up and Open appears" },
   { press: inside(running, tab("frontend")), say: "Each process has its own log" },
   { press: inside(running, button("Stop", { exact: true })), say: "Stop" },
-  { look: inside(running, role("img", "Exited")), say: "Both processes are exited" },
+  { look: inside(running, role("img", "Exited")), say: "Both processes stopped" },
   { press: inside(list, button(/Pin the store clock/)), say: "Open the Job" },
   { press: button("Run this Job"), say: "Its play glyph runs the Job's bay" },
   { look: inside(onBay, text("Pin the store clock")), say: "The panel names the Job and its bay, not main" },

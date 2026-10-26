@@ -20,6 +20,8 @@ export function RunPane({ id, props }: { id: string; props: CockpitProps }) {
   if (source === undefined || app === undefined) return null;
   const repositories = props.state.holds.repositories ?? [];
   const served = repositories.find((one) => one.root === app.repository);
+  // A first run is named after its repository, so the head says it once.
+  const where = served === undefined ? undefined : repositoryLabel(served, repositories);
   const phase = appPhase(app.processes);
   const live = phase === "starting" || phase === "ready";
   const address = app.kind === "browser" ? app.processes.find((one) => one.phase === "ready" && one.url !== undefined)?.url : undefined;
@@ -37,7 +39,7 @@ export function RunPane({ id, props }: { id: string; props: CockpitProps }) {
         else if (event.key === "o" && address !== undefined) props.onOpenLink(address);
       }}
     >
-      <PaneHead glyph={Play} kind="Run" title={app.run} where={served === undefined ? undefined : repositoryLabel(served, repositories)} mark={<RunPhaseMark phase={phase} />}>
+      <PaneHead glyph={Play} kind="Run" title={app.run} where={where === app.run ? undefined : where} mark={<RunPhaseMark phase={phase} />}>
         <RunActs onRestart={() => source.restart(app.id)} onStop={() => source.stop(app.id)} stoppable={live} />
       </PaneHead>
       <RunningPanel app={app} onOpen={props.onOpenLink} />
