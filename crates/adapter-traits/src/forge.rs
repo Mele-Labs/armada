@@ -249,6 +249,17 @@ pub trait Forge {
         pull_request: &str,
     ) -> Option<crate::PullRequestPageFacts>;
 
+    /// [`pull_request_page`](Forge::pull_request_page), with the forge's reason when it
+    /// would not answer. `Err(Some(sentence))` is the refusal as a person can act on it;
+    /// `Err(None)` is silence, or no such pull request.
+    fn pull_request_page_said(
+        &self,
+        in_repo: &str,
+        pull_request: &str,
+    ) -> Result<crate::PullRequestPageFacts, Option<String>> {
+        self.pull_request_page(in_repo, pull_request).ok_or(None)
+    }
+
     /// One file's patch on a pull request, read when a person opens the file.
     /// **`None` is the forge's silence**, for [`landed`](crate::Delivery::landed)'s
     /// reason; a file the forge gave no patch for is

@@ -58,13 +58,44 @@ fn each_ask_carries_the_act_its_words_name() {
 /// sentence read as both is an ask, not a follow-up.
 #[test]
 fn the_rules_sentence_is_the_first_ask_and_the_rest_follow_in_order() {
-    let reply = "The cap is in.\n\nApprove #12 when you are happy with it. Which page size do you want? I'll trim the logging after it lands.";
-    let got = asks_of(reply, &["Approve #12 when you are happy with it.", "Which page size do you want?"], &["I'll trim the logging after it lands.", "Which page size do you want?"]);
+    let reply = "The cap is in.\n\nApprove #12 when you are happy with it. Which page size do you want? I'll file the logging trim as an issue for another Job.";
+    let got = asks_of(reply, &["Approve #12 when you are happy with it.", "Which page size do you want?"], &["I'll file the logging trim as an issue for another Job.", "Which page size do you want?"]);
     let asked: Vec<(usize, &str)> = got.asks.iter().map(|ask| (ask.index, ask.sentence.as_str())).collect();
     assert_eq!(asked, [(0, "Which page size do you want?"), (1, "Approve #12 when you are happy with it.")]);
-    assert_eq!(got.later, ["I'll trim the logging after it lands."]);
+    assert_eq!(got.later, ["I'll file the logging trim as an issue for another Job."]);
     let none = asks_of("The cap is in.\n\nThe tests pass.", &[], &[]);
     assert_eq!(none, Extracted::default());
+}
+
+/// A next step the agent takes itself in this Job is not deferred, however the head scores it: these
+/// three were kept and shown under Deferred on 26 Oct 2026.
+#[test]
+fn a_next_step_in_this_job_is_not_kept() {
+    let steps = [
+        "When it reports back, I'll play both walks again and then open them for you.",
+        "When it reports back, I'll play every walk before showing you one window with these takes.",
+        "When it's done, I'll play the walks and show one window with two takes: tabs at the foot (your idea) and tabs under the title (as now).",
+    ];
+    for step in steps {
+        let reply = format!("The agent is building it.\n\n{step}");
+        assert_eq!(asks_of(&reply, &[], &[step]).later, Vec::<String>::new(), "{step}");
+    }
+}
+
+/// What the agent puts past this Job, to an issue, another Job or a separate pull request, is kept.
+#[test]
+fn work_put_past_this_job_is_kept() {
+    let past = [
+        "I'm filing the flaky retry as an issue.",
+        "Leaving the docs sweep for another Job.",
+        "The rename is out of scope here, so I filed it as armada-a3f2.",
+        "I'll do the icon swap in a separate pull request.",
+        "The cache warm-up can be a follow-up Job.",
+    ];
+    for one in past {
+        let reply = format!("The fix is pushed.\n\n{one}");
+        assert_eq!(asks_of(&reply, &[], &[one]).later, [one], "{one}");
+    }
 }
 
 #[test]
@@ -125,7 +156,7 @@ impl TextModel for Fake {
     }
 }
 
-const TWO_ASKS: &str = "The cap is in.\n\nApprove #12 when you are happy with it. Should the page be read once at start, or on every open? I'll trim the logging after it lands.";
+const TWO_ASKS: &str = "The cap is in.\n\nApprove #12 when you are happy with it. Should the page be read once at start, or on every open? I'll file the logging trim as an issue for another Job.";
 
 fn between<'a>(extracted: Option<&'a dyn Fn(&str) -> Option<Extracted>>) -> Seen<'a> {
     Seen {
@@ -159,7 +190,7 @@ async fn with_the_readers_on_each_ask_is_an_item_and_off_the_reply_is_one() {
         tokio::time::sleep(Duration::from_millis(10)).await;
     }
     let got = by_model(TWO_ASKS).expect("the fake has read it");
-    assert_eq!(got.later, ["I'll trim the logging after it lands."]);
+    assert_eq!(got.later, ["I'll file the logging trim as an issue for another Job."]);
     let items = derived(&between(Some(&by_model)));
     let seen: Vec<(String, WaitingSource, String, Option<WaitingActKind>, Vec<String>)> = items
         .into_iter()

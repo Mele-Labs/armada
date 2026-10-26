@@ -37,6 +37,10 @@ function routeOf(request: GatewayRequest): Route {
       return { method: "DELETE", path: `/admin/devices/${encodeURIComponent(request.id)}` };
     case "status":
       return { method: "GET", path: "/admin/status" };
+    case "setup":
+      return { method: "GET", path: "/admin/setup" };
+    case "funnel":
+      return { method: "POST", path: "/admin/setup/funnel" };
   }
 }
 

@@ -17,6 +17,8 @@ pub struct KeptLater {
     pub sentence: String,
     /// When the reply that said it ended. RFC3339.
     pub said_at: String,
+    /// He confirmed the sentence as deferred (`later_confirmed`).
+    pub confirmed: bool,
 }
 
 fn id_of(n: i64) -> String {
@@ -41,11 +43,12 @@ impl Store {
     pub fn later_of(&self, session_id: &str) -> Result<Vec<KeptLater>, WriteError> {
         let mut statement = self
             .conn
-            .prepare("SELECT n, sentence, said_at FROM session_later WHERE session_id = ?1 AND how IS NULL ORDER BY n")
+            .prepare("SELECT n, sentence, said_at, EXISTS (SELECT 1 FROM later_confirmed WHERE later_confirmed.sentence = session_later.sentence)
+                 FROM session_later WHERE session_id = ?1 AND how IS NULL ORDER BY n")
             .map_err(fault("reading the follow-ups a job keeps for itself"))
             .map_err(WriteError::Database)?;
         let rows = statement
-            .query_map([session_id], |row| Ok(KeptLater { id: id_of(row.get(0)?), sentence: row.get(1)?, said_at: row.get(2)? }))
+            .query_map([session_id], |row| Ok(KeptLater { id: id_of(row.get(0)?), sentence: row.get(1)?, said_at: row.get(2)?, confirmed: row.get(3)? }))
             .and_then(|rows| rows.collect::<Result<Vec<_>, _>>())
             .map_err(fault("reading the follow-ups a job keeps for itself"))
             .map_err(WriteError::Database)?;
