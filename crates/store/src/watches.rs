@@ -279,6 +279,19 @@ impl Store {
             .map_err(fault("reading a Job's first live watch"))?)
     }
 
+    /// Forget `id` and everything kept of it: readings, set-asides, verdicts and notices. `false`
+    /// where nothing held it. Whether it may go, live or not, is Fleet's.
+    pub fn delete_watch(&mut self, id: &str) -> Result<bool, WriteError> {
+        let doing = "deleting a watch";
+        let tx = self.conn.transaction().map_err(fault(doing))?;
+        for table in ["watch_readings", "watch_set_aside", "watch_verdicts", "watch_notices"] {
+            tx.execute(&format!("DELETE FROM {table} WHERE watch_id = ?1"), [id]).map_err(fault(doing))?;
+        }
+        let deleted = tx.execute("DELETE FROM watches WHERE id = ?1", [id]).map_err(fault(doing))?;
+        tx.commit().map_err(fault(doing))?;
+        Ok(deleted == 1)
+    }
+
     /// Every watch that owes its Job a notice, the oldest first.
     pub fn unsaid_watches(&self) -> Result<Vec<KeptWatchWhole>, WriteError> {
         self.watches_where("unsaid IS NOT NULL ORDER BY rowid", None)

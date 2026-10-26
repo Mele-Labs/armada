@@ -500,7 +500,7 @@ fn a_tool_marked_always_loaded_carries_the_harness_key_and_no_other_does() {
     assert!(marked["result"]["tools"][1].get("_meta").is_none());
     assert!(listed(None)["result"]["tools"][0].get("_meta").is_none());
     let always: Vec<&str> = crate::door::REACHABLE.iter().filter(|row| row.always_loaded).map(|row| row.operation).collect();
-    for operation in ["waiting_for", "start_watch", "try_watch", "list_watches", "list_watch_recipes", "weigh_watch", "stop_watch"] {
+    for operation in ["waiting_for", "start_watch", "try_watch", "list_watches", "list_watch_recipes", "weigh_watch", "stop_watch", "delete_watch"] {
         assert!(always.contains(&operation), "{operation} is not marked: {always:?}");
     }
 }

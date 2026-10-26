@@ -8,7 +8,7 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Refusal, Watches};
 use config::settings as keys;
 use core_model::{NotFilled, NotWeighed, Verdict, WatchState};
-use ipc::{SessionId, StartWatch, StopWatch, WatchList, WatchStarts, WatchSummary, WatchVerdict, WeighWatch, WireError};
+use ipc::{DeleteWatch, SessionId, StartWatch, StopWatch, WatchList, WatchStarts, WatchSummary, WatchVerdict, WeighWatch, WireError};
 use store::{KeptWatch, KeptWatchSetAside, KeptWatchVerdict};
 
 use super::running::Folder;
@@ -376,6 +376,25 @@ where
         self.watches_published(&job).await;
         self.watching_row_published(&job).await;
         whole.map(|whole| self.watch_summary(&whole)).ok_or_else(|| self.no_such_watch(&stop.watch))
+    }
+
+    async fn delete_watch(&self, caller: Option<api::Caller>, delete: DeleteWatch) -> Result<WatchList, Refusal> {
+        let job = self.watching_job(caller, delete.session_id.as_ref()).await?;
+        let job = {
+            let mut store = self.store().lock().await;
+            let kept = store
+                .watch_whole(&delete.watch)
+                .map_err(|why| self.ledger_fault(why))?
+                .filter(|kept| job.as_deref().is_none_or(|job| kept.watch.session_id == job))
+                .ok_or_else(|| self.no_such_watch(&delete.watch))?;
+            if kept.watch.live {
+                return Err(self.watch_illegal(LIVE, "This watch is live. Stop it first."));
+            }
+            store.delete_watch(&kept.watch.id).map_err(|why| self.ledger_fault(why))?;
+            kept.watch.session_id
+        };
+        self.watches_published(&job).await;
+        self.watch_list(&job).await
     }
 
     async fn list_watches(

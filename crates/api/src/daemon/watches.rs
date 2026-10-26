@@ -6,7 +6,7 @@
 use std::future::Future;
 
 use ipc::{
-    SaveWatchRecipe, SessionId, StartWatch, StopWatch, TryWatch, WatchList, WatchRecipeList, WatchRecipeSaved,
+    DeleteWatch, SaveWatchRecipe, SessionId, StartWatch, StopWatch, TryWatch, WatchList, WatchRecipeList, WatchRecipeSaved,
     WatchSummary, WatchTried, WeighWatch,
 };
 
@@ -34,6 +34,14 @@ pub trait Watches: Send + Sync + 'static {
         caller: Option<crate::Caller>,
         stop: StopWatch,
     ) -> impl Future<Output = Result<WatchSummary, Refusal>> + Send;
+
+    /// `delete_watch` — forget an ended watch and all kept of it, answering the Job's watches
+    /// after, live and ended. A placed Job deletes its own; Bridge deletes any.
+    fn delete_watch(
+        &self,
+        caller: Option<crate::Caller>,
+        delete: DeleteWatch,
+    ) -> impl Future<Output = Result<WatchList, Refusal>> + Send;
 
     /// `list_watches` — the placed Job's live watches, and with `ended` its ended ones too.
     fn list_watches(

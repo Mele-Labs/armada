@@ -176,6 +176,8 @@ A start where the Job has no terminal open is refused.
 | `try_watch` | Runs a command or a recipe once, as a watch would, and keeps nothing: what it read, the command, the folder, the `PATH`, whether the login shell was read, and the scratch folder |
 | `list_watch_recipes` | Names each recipe a start may name, its values, where it came from, how often it runs and when it gives up |
 | `save_watch_recipe` | Keeps a recipe and its script on this Mac |
+| `list_watches` | The Job's live watches, and with `ended` its ended ones too |
+| `delete_watch` | Forgets an ended watch and all kept of it. A live one is stopped first |
 
 Each Job has a scratch folder of its own under Fleet's state, `$ARMADA_SCRATCH` in a hosted Job and `scratch` in every `try_watch` answer.
 The slot guard lets the Job write, remove and chmod there as in its slots, and the folder is removed when the Job ends.

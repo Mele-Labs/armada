@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use api::{Refusal, Watches};
-use ipc::{SessionId, StartWatch, StopWatch, WatchStarts, WatchState, WatchVerdict, WeighWatch};
+use ipc::{DeleteWatch, SessionId, StartWatch, StopWatch, WatchStarts, WatchState, WatchVerdict, WeighWatch};
 
 use super::repositories::Planted;
 use super::session_host::{rig_fitted, rig_placing, Rig};
@@ -153,4 +153,27 @@ async fn an_ended_watch_is_listed_only_when_asked_for() {
     assert_eq!(ids(listed), vec![live.clone()], "live only, unless asked");
     let every = rig.fleet.list_watches(None, Some(job.clone()), true).await.expect("listed");
     assert_eq!(ids(every), vec![live, ending], "the newest first, the ended one too");
+}
+
+#[tokio::test]
+async fn an_ended_watch_is_deleted_whole_and_a_live_one_is_refused() {
+    let rig = rig_placing(None);
+    let job = rig.start().await;
+    let id = rig.fleet.start_watch(None, own(&job, "60s", None)).await.expect("started").id;
+    let delete = |session_id: Option<SessionId>| DeleteWatch { session_id, watch: id.clone() };
+
+    let live = rig.fleet.delete_watch(None, delete(None)).await.expect_err("live");
+    assert_eq!(code(&live), ("fleet.watch_live", 409));
+    assert!(live.error().message.contains("Stop it first"), "{}", live.error().message);
+
+    rig.fleet.stop_watch(None, StopWatch { session_id: None, watch: id.clone() }).await.expect("stopped");
+    let another = rig.start().await;
+    let elsewhere = rig.fleet.delete_watch(None, delete(Some(another))).await.expect_err("another Job's watch");
+    assert_eq!(code(&elsewhere), ("fleet.no_such_watch", 404));
+
+    let left = rig.fleet.delete_watch(None, delete(Some(job.clone()))).await.expect("its own Job deletes it");
+    assert!(left.watches.is_empty(), "{:?}", left.watches);
+    assert!(rig.fleet.list_watches(None, Some(job.clone()), true).await.expect("listed").watches.is_empty());
+    let again = rig.fleet.delete_watch(None, delete(None)).await.expect_err("already gone");
+    assert_eq!(code(&again), ("fleet.no_such_watch", 404));
 }

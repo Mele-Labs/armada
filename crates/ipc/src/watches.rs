@@ -456,6 +456,15 @@ pub struct StopWatch {
     pub watch: String,
 }
 
+/// `delete_watch`. `POST /watches/delete`. An ended watch only.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DeleteWatch {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<SessionId>,
+    pub watch: String,
+}
+
 /// The line as a command prints it. Unknown fields are ignored, so a script may carry its own.
 #[derive(Deserialize)]
 struct Line {

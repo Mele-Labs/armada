@@ -53,6 +53,8 @@ pub(crate) const GIVES_UP_TOO_LATE: &str = "fleet.watch_gives_up_too_late";
 pub(crate) const NO_SUCH_WATCH: &str = "fleet.no_such_watch";
 /// A verdict on a watch that has ended. A 409.
 pub(crate) const ENDED: &str = "fleet.watch_ended";
+/// `delete_watch` on a watch still live. A 409.
+pub(crate) const LIVE: &str = "fleet.watch_live";
 /// `ours` on a watch that has not failed. A 409.
 pub(crate) const NOT_FAILED: &str = "fleet.watch_not_failed";
 /// `not_ours` naming a part no reading of the watch carried. A 422.

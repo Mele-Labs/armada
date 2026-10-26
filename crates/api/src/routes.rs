@@ -599,6 +599,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/watches/start", post(crate::watches::start_watch::<D>))
         .route("/watches/weigh", post(crate::watches::weigh_watch::<D>))
         .route("/watches/stop", post(crate::watches::stop_watch::<D>))
+        .route("/watches/delete", post(crate::watches::delete_watch::<D>))
         .route("/watches/try", post(crate::watches::try_watch::<D>))
         .route("/watches/recipes", get(crate::watches::list_watch_recipes::<D>))
         .route("/watches/recipes/save", post(crate::watches::save_watch_recipe::<D>))

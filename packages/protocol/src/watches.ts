@@ -69,7 +69,7 @@ export type LoginShell = { kind: "read" } | { kind: "fell_back"; why: string };
  */
 export type WatchVerdict = { at: string; verdict: "ours" | "not_ours"; sentence: string; parts?: string[] };
 
-/** `list_watches`: a Job's watches, live and ended, the newest first. */
+/** `list_watches`: a Job's live watches, and with `?ended=true` its ended ones too, the newest first. `watches.changed` carries both. */
 export type WatchList = { session_id: string; watches: WatchSummary[] };
 
 /** `watches.changed`: one Job's watches after any change to one, whole, as `list_watches` answers for it. */
@@ -146,3 +146,6 @@ export type WeighWatch = { session_id?: string; watch: string } & (
 
 /** `stop_watch`: the person's Stop, or the agent's. */
 export type StopWatch = { session_id?: string; watch: string };
+
+/** `delete_watch`: an ended watch only, and all kept of it. Answers the Job's `WatchList` after, live and ended. */
+export type DeleteWatch = { session_id?: string; watch: string };

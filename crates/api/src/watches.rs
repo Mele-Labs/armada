@@ -46,6 +46,17 @@ pub(crate) async fn stop_watch<D: Watches>(State(served): State<Served<D>>, body
     }
 }
 
+pub(crate) async fn delete_watch<D: Watches>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let delete: ipc::DeleteWatch = match ipc::decode("a watch to delete", &body) {
+        Ok(delete) => delete,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().delete_watch(crate::acting::asking(), delete).await {
+        Ok(left) => answer(StatusCode::OK, &left, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// `?session_id=`, read only where the connection places no Job.
 #[derive(Deserialize)]
 pub(crate) struct ForWatches {

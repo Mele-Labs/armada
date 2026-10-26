@@ -68,6 +68,18 @@ async fn weigh_and_stop_name_a_watch_and_one_nothing_holds_is_a_404() {
 }
 
 #[tokio::test]
+async fn a_delete_answers_the_jobs_watches_after_and_a_watch_nothing_holds_is_a_404() {
+    let app = wired();
+    let (status, bytes) = call(&app, "POST", "/watches/delete", &format!(r#"{{"watch":"{THE_WATCH}"}}"#)).await;
+    assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&bytes));
+    let _: WatchList = ipc::decode("a list", &bytes).expect("a list");
+    let (status, _) = call(&app, "POST", "/watches/delete", r#"{"watch":"w-none"}"#).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    let (status, _) = call(&app, "POST", "/watches/delete", r#"{"watch":"w-1","also":true}"#).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
 async fn a_list_is_asked_on_the_query_string() {
     let (status, bytes) = call(&wired(), "GET", "/watches?session_id=job-7", "").await;
     assert_eq!(status, StatusCode::OK);
