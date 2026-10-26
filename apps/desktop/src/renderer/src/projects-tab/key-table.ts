@@ -24,6 +24,15 @@ export const PROJECTS_KEYS = {
   get link() {
     return capOfSlot("projects_link", 0);
   },
+  get addSubtask() {
+    return capOfSlot("projects_add_subtask", 0);
+  },
+  get linkTask() {
+    return capOfSlot("projects_link_task", 0);
+  },
+  get remove() {
+    return capOfSlot("projects_delete", 0);
+  },
   get select() {
     return capOfSlot("projects_select", 0);
   },

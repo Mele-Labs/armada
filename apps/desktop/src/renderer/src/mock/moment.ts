@@ -60,6 +60,8 @@ export type MockDraft = {
   issuesTab?: IssuesSeed;
   /** His projects for the Projects tab, built into a store per window. Mock only: nothing keeps projects on the Mac yet. */
   projectsTab?: ProjectsSeed;
+  /** The Projects tab's select control and card look, while two takes are offered. Absent, `reticle`. */
+  projectsLook?: "reticle" | "plate";
   /** The pages of pull requests a Session's ledger holds, as `readReviewPage` serves them and `writeReview` moves them, built per window. Mock only. */
   pullRequestPages?: () => PullRequestPages;
   /** What the one side panel reads a pull request, an issue, a bay and a Check from, built per window. Mock only: no Fleet serves these reads yet. */

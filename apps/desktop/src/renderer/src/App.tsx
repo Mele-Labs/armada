@@ -84,7 +84,7 @@ import { AgentSignInAlert } from "./agent-sign-in";
 import { DownshiftAlert } from "./downshift";
 import { ChecksSurface, useAsked } from "./checks-surface";
 import { LoadoutPanel } from "./session-loadout";
-import { ReviewsSurface } from "./pr-review/surface"; import { reviewsHidden, useReviewStore } from "./pr-review/store"; import { IssuesSurface } from "./issues-tab/surface"; import { issuesHidden, useIssuesStore } from "./issues-tab/store"; import { ProjectsSurface } from "./projects-tab/surface"; import { projectsHidden, useProjectsStore } from "./projects-tab/store";
+import { ReviewsSurface } from "./pr-review/surface"; import { reviewsHidden, useReviewStore } from "./pr-review/store"; import { IssuesSurface } from "./issues-tab/surface"; import { issuesHidden, useIssuesStore } from "./issues-tab/store"; import { ProjectsSurface } from "./projects-tab/surface"; import { projectsHidden, useProjectsStore } from "./projects-tab/store"; import { ProjectsUndo } from "./projects-tab/undo";
 import { SessionsOwnership } from "./sessions";
 import { askToOpenSessionInCockpit, useOpenSessionAsked } from "./open-session"; import { askForFixes, useOpenRetroAsked } from "./open-retro"; import { useOpenHolderAsked } from "./open-holder";
 import { useTellAsked } from "./tell";
@@ -764,6 +764,7 @@ export function App() {
           onDispatchSession={dispatchFailure}
         >
           <DownshiftAlert choose={openModelSetting} />
+          <ProjectsUndo />
           <AgentSignInAlert />
           <ImportPackage repositories={repositories} />
           <DeckHost state={state} picked={pickedRepository} here={atCockpit} hidden={hidden} onGoTo={goTo} onOpenSession={openSession} />

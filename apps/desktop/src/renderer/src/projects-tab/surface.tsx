@@ -13,7 +13,7 @@ import { ProjectsKeys } from "./keys";
 import { ProjectsList, bandsIn } from "./list";
 import type { Project, ProjectRow } from "./model";
 import { ProjectPane } from "./project";
-import { useProjects } from "./store";
+import { allRows, useProjects } from "./store";
 import "../cockpit/cockpit.css";
 import "../cockpit/deck/deck.css";
 import "./projects-tab.css";
@@ -33,17 +33,20 @@ export function ProjectsSurface({ picked, repositories, onOpenSession }: Props) 
   const project = snap.projects.find((one) => one.id === snap.open && bands.some((band) => band.manifestId === one.manifestId));
   const band = bands.find((one) => one.manifestId === project?.manifestId);
 
-  // Tasks ride as lines and each issue as a tag, as a `#` chosen in the request would: its reference and title in the words, and the tag with them.
+  // Tasks ride as lines, each with its subtasks listed under it, and each issue as a tag, as a `#` chosen in the request
+  // would: its reference and title in the words, and the tag with them. An issue a task carries rides as a tag too.
   const dispatch = (from: Project, rows: readonly ProjectRow[]) => {
     const root = bands.find((one) => one.manifestId === from.manifestId)?.root;
     if (dispatching === undefined || rows.length === 0) return;
-    const tags = rows.flatMap((row) => (row.kind === "issue" ? [issueHit({ reference: row.reference, title: row.title, url: row.url }).tag] : []));
-    const words = [...rows.flatMap((row) => (row.kind === "task" ? [row.title] : [])), ...tags.map((tag) => tag.title)].join("\n");
+    const issues = rows.flatMap((row) => (row.kind === "issue" ? [row] : (row.issues ?? [])));
+    const tags = issues.map((one) => issueHit({ reference: one.reference, title: one.title, url: one.url }).tag);
+    const lines = rows.flatMap((row) => (row.kind === "task" ? [row.title, ...(row.subtasks ?? []).map((one) => `  - ${one.title}`)] : []));
+    const words = [...lines, ...tags.map((tag) => tag.title)].join("\n");
     dispatching.choose("session");
     dispatching.openSheet(`${words} `, root, tags);
   };
   const dispatchRow = (rowId: string) => {
-    const row = project?.rows.find((one) => one.id === rowId);
+    const row = project === undefined ? undefined : allRows(project).find((one) => one.id === rowId);
     if (project !== undefined && row !== undefined) dispatch(project, [row]);
   };
 

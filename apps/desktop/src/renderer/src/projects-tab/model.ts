@@ -5,11 +5,20 @@
 /** The Job a row was sent to, by id, and its title as it was sent, so a Job that has ended still reads by name. */
 export type Holder = { id: string; title: string };
 
-/** A task he wrote. Done is his to say: by ticking it, or by answering the ask when the Job holding it finishes. */
-export type TaskRow = { kind: "task"; id: string; title: string; done: boolean; job?: Holder };
+/** An issue as the tracker reads it: open or closed is the tracker's to say. */
+export type Linked = { reference: string; title: string; url: string; state: "open" | "closed" };
 
-/** An issue he linked. Open or closed is the tracker's to say, so it has no tick and no ask. */
-export type IssueRow = { kind: "issue"; id: string; reference: string; title: string; url: string; state: "open" | "closed"; job?: Holder };
+/**
+ * A task he wrote. Done is his to say: by ticking it, or by answering the ask when the Job holding it finishes. It can
+ * carry issues of its own, and subtasks one level deep: a subtask holds none.
+ */
+export type TaskRow = { kind: "task"; id: string; title: string; done: boolean; job?: Holder; issues?: Linked[]; subtasks?: TaskRow[] };
+
+/** An issue he linked to the project, as a row. It has no tick and no ask. */
+export type IssueRow = Linked & { kind: "issue"; id: string; job?: Holder };
+
+/** A project's look while the select control is offered two ways: the owner picks one. */
+export type Look = "reticle" | "plate";
 
 export type ProjectRow = TaskRow | IssueRow;
 

@@ -62,6 +62,7 @@ function press(event: KeyboardEvent, store: ProjectsStore, dispatchRow: (rowId: 
       take();
       (target as HTMLElement).blur();
       if (target.closest(".projects-link") !== null) store.linking(false);
+      if (target.closest(".projects-add[data-sub]") !== null) store.subtasking(undefined);
       if (target.closest(".projects-name") !== null) {
         store.name(undefined);
         return focusList();
@@ -81,7 +82,7 @@ function press(event: KeyboardEvent, store: ProjectsStore, dispatchRow: (rowId: 
   if (shove !== -1) {
     if (open === undefined || rowId === undefined) return;
     take();
-    store.move(open.id, rowId, shove === 0 ? -1 : 1);
+    store.move(rowId, shove === 0 ? -1 : 1);
     return refocus(rowId);
   }
   if (event.metaKey || event.ctrlKey || event.altKey) return;
@@ -129,7 +130,27 @@ function press(event: KeyboardEvent, store: ProjectsStore, dispatchRow: (rowId: 
   }
 
   if (row !== null && rowId !== undefined) {
-    if (isPressed("projects_select", event)) return take(), store.select(rowId);
+    const sub = row.hasAttribute("data-sub");
+    if (isPressed("projects_select", event)) return sub ? undefined : (take(), store.select(rowId));
+    if (isPressed("projects_add_subtask", event)) {
+      if (row.querySelector("[data-add-subtask]") === null) return;
+      take();
+      return store.subtasking(rowId);
+    }
+    if (isPressed("projects_link_task", event)) {
+      if (row.querySelector("[data-link-task]") === null) return;
+      take();
+      return store.linking(true, rowId);
+    }
+    if (isPressed("projects_delete", event)) {
+      take();
+      // Focus goes to the card that takes its place, or the one above where it was the last.
+      const rows = all(".projects-pane .projects-row");
+      const at = rows.indexOf(row);
+      const next = rows.slice(at + 1).find((one) => !row.parentElement?.contains(one)) ?? rows[at - 1];
+      store.remove(rowId);
+      return next?.dataset.row === undefined ? undefined : refocus(next.dataset.row);
+    }
     if (isPressed("projects_tick", event)) return take(), store.tick(rowId);
     if (isPressed("projects_mark_done", event)) {
       const done = row.querySelector<HTMLElement>("[data-mark-done]");

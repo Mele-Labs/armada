@@ -181,7 +181,7 @@ export function mountApp(
   // The Projects tab starts with nothing open, its done asks joined to the Jobs that carry the same ask (`slices/projects.ts`).
   const listed = chosen.draft?.projectsTab;
   if (listed !== undefined && seed === undefined && tracked === undefined) forgetAllKept();
-  const projects = listed === undefined ? undefined : createProjectsStore(listed, settledOnRow);
+  const projects = listed === undefined ? undefined : createProjectsStore(listed, settledOnRow, chosen.draft?.projectsLook);
   if (shared === undefined) projectsLink.rows = projects?.settle;
   // A scenario that adds to its timeline as time passes holds it here, and moves it when the fake's moment does.
   const timeline = chosen.draft?.eventsLater === undefined ? undefined : eventsLater(chosen.draft.events ?? [], chosen.draft.eventsLater);

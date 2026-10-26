@@ -666,7 +666,7 @@ shortcut = "a"
 scope = "projects"
 destructive = false
 confirms = false
-notes = "Moves focus to the field at the foot of the open project's rows, where a task is written and Enter adds it. The field keeps its draft across leaving the panel."
+notes = "Moves focus to the field under the open project's head, where a task is written and Enter adds it. The field keeps its draft across leaving the panel."
 
 [actions.projects_link]
 kind = "Action"
@@ -678,7 +678,43 @@ shortcut = "i"
 scope = "projects"
 destructive = false
 confirms = false
-notes = "Opens a search of the repository's open issues, as the Issues tab reads them, under the open project's rows. Enter on an issue links it as a row; Esc puts the search away."
+notes = "Opens a search of the repository's open issues, as the Issues tab reads them, under the open project's head. Enter on an issue links it as a row; Esc puts the search away."
+
+[actions.projects_add_subtask]
+kind = "Action"
+tier = "Contextual"
+verb = "Add a subtask"
+icon = ""
+icon_absent = "undecided"
+shortcut = "A"
+scope = "projects"
+destructive = false
+confirms = false
+notes = "Puts up a field under the focused task's subtasks, where a subtask is written and Enter adds it. One level only: a subtask holds none, so the key does nothing on one. Tab in the field under the project's head does the same for the task at the top of the list."
+
+[actions.projects_link_task]
+kind = "Action"
+tier = "Contextual"
+verb = "Link issues to the task"
+icon = ""
+icon_absent = "undecided"
+shortcut = "I"
+scope = "projects"
+destructive = false
+confirms = false
+notes = "Opens the same issue search for the focused task. An issue linked there joins the task's card as a chip and not the list as a row."
+
+[actions.projects_delete]
+kind = "Action"
+tier = "Contextual"
+verb = "Delete or unlink the row"
+icon = ""
+icon_absent = "undecided"
+shortcut = "Backspace"
+scope = "projects"
+destructive = false
+confirms = false
+notes = "Deletes the focused task, or unlinks the focused issue, with no question. A toast offers Undo for a moment after. Not destructive: the issue stays in its tracker and Undo puts a task back where it stood."
 
 [actions.projects_reorder]
 kind = "Action"

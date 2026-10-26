@@ -1,8 +1,9 @@
 // The Projects tab on All, two repositories served: armada keeps Pocket launch and Cockpit trust, site keeps Docs refresh.
 // Pocket launch mixes tasks he wrote with issues he linked: one task a live Job holds, one held by a Job that finished and is
 // still live (its Needs you item asks the same question as the row), one whose Job has ended and still asks on the row, a done
-// task, a closed issue and an open one. Both repositories' issues are on GitHub, read as the Issues tab reads them. The walk
-// `projects` plays it.
+// task, a closed issue and an open one. The pairing task carries an issue and two subtasks. Both repositories' issues are on
+// GitHub, read as the Issues tab reads them. Two takes of the select control and the card: `projects` (reticle) and
+// `projects-plate`, each played by the walk of its name.
 
 import type { RepositorySummary, WaitingItem } from "@armada/protocol";
 import { repository } from "@armada/screens/src/fixtures/repository";
@@ -120,7 +121,18 @@ const PROJECTS: Project[] = [
     name: "Pocket launch",
     usedAt: Date.now() - 3_600_000,
     rows: [
-      { kind: "task", id: "task-pair", title: "Pair a phone by QR code", done: false, job: { id: PAIRING, title: "Wire the pairing screen" } },
+      {
+        kind: "task",
+        id: "task-pair",
+        title: "Pair a phone by QR code",
+        done: false,
+        job: { id: PAIRING, title: "Wire the pairing screen" },
+        issues: [{ reference: "#2815", title: "Pair code expires before the phone scans it", url: "https://github.com/acme/armada/issues/2815", state: "open" }],
+        subtasks: [
+          { kind: "task", id: "task-pair-draw", title: "Draw the code from the tunnel address", done: true },
+          { kind: "task", id: "task-pair-scan", title: "Scan it on a small screen", done: false },
+        ],
+      },
       { kind: "issue", id: "issue-2801", reference: "#2801", title: "Pocket drops the socket when the Mac sleeps", url: "https://github.com/acme/armada/issues/2801", state: "open" },
       { kind: "task", id: SIGN_ROW, title: "Sign the build", done: false, job: { id: SIGNING, title: "Sign the release build" } },
       { kind: "task", id: "task-guide", title: "Write the install guide", done: false, job: { id: GUIDE, title: "Write the install guide" } },
@@ -156,8 +168,8 @@ const TRACKERS: IssuesSeed = [
   { tracker: { manifestId: "site", state: "read", name: "GitHub", open: "is:open", assigned: "is:open assignee:@me", saved: [] }, tickets: SITE_ISSUES, me: "nick", language: "terms" },
 ];
 
-function build(): Scenario {
-  const base = holding("projects", "Projects on All: armada's Pocket launch and Cockpit trust, site's Docs refresh, with tasks held by a live, a finished and an ended Job", [ARMADA, SITE]);
+function build(name: string, look: "reticle" | "plate"): Scenario {
+  const base = holding(name, `Projects on All, the ${look} take: armada's Pocket launch and Cockpit trust, site's Docs refresh, with tasks held by a live, a finished and an ended Job`, [ARMADA, SITE]);
   return {
     ...base,
     state: { ...base.state, repository: null },
@@ -178,8 +190,10 @@ function build(): Scenario {
       },
       issuesTab: TRACKERS,
       projectsTab: PROJECTS,
+      projectsLook: look,
     },
   };
 }
 
-export const s331Projects: Scenario = build();
+export const s331Projects: Scenario = build("projects", "reticle");
+export const s331ProjectsPlate: Scenario = build("projects-plate", "plate");

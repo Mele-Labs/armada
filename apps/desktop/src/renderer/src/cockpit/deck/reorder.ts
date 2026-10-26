@@ -42,8 +42,9 @@ const rowKeyOf = (item: HTMLElement): string | undefined => item.querySelector<H
 /**
  * A row picked up with the pointer and put down among the rows of its heading. **Rows are measured, not hit-tested**, so the drop is
  * wherever the pointer's height falls between their middles; the row's own click is swallowed once, so putting it down does not open it.
+ * `among` picks the list items a row moves among, each holding a `[data-row]`: the Work list's by default, the Projects tab's cards there.
  */
-export function useReorder(onMove: (key: string, target: string, after: boolean) => void) {
+export function useReorder(onMove: (key: string, target: string, after: boolean) => void, among = ".deck-list__item[data-movable]") {
   const [dragging, setDragging] = useState<Dragging>();
   const swallow = useRef(false);
 
@@ -52,7 +53,7 @@ export function useReorder(onMove: (key: string, target: string, after: boolean)
     const from = event.clientY;
     let live = false;
     let drop: Drop | undefined;
-    const peers = () => [...document.querySelectorAll<HTMLElement>(".deck-list__item[data-movable]")].filter((item) => item.dataset.movable === band && rowKeyOf(item) !== key);
+    const peers = () => [...document.querySelectorAll<HTMLElement>(among)].filter((item) => item.dataset.movable === band && rowKeyOf(item) !== key);
     const aim = (y: number): Drop | undefined => {
       const items = peers();
       const below = items.find((item) => {
