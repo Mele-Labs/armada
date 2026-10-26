@@ -19,7 +19,7 @@ import { mountNoWalk, mountWalk } from "./WalkPlayer";
 import { EVERY_WALK } from "./walks";
 
 const query = new URLSearchParams(window.location.search);
-// `?switch=master` draws the rocker red, as a master switch; with none it is black.
+// `?switch=face|master` is the take of the switch the walk is shown in; with none the whole rocker lights when on.
 const switchTake = query.get("switch");
 if (switchTake !== null) document.documentElement.dataset.switch = switchTake;
 // A walk names its scenario, so `?walk` wins over `?scenario`.

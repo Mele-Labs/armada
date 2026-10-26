@@ -1,13 +1,13 @@
-/* Switch: a cockpit rocker. A wide paddle sits in a bezel under an ON legend, and rocks in at the right when on and at the
- * left when off. The paddle tilts on a perspective about its middle. `data-switch="master"` on the root draws it red.
- * No gradient, no glow, no sheen. Colour is the legend's: --accent on, --fg-subtle off.
+/* Switch: a cockpit rocker with OFF and ON printed on its two faces. It rocks in at the left when off and at the right when
+ * on, and on is lit in --accent. `data-switch` on the root picks a take: `face` lights the ON face alone, `master` lights red.
+ * No gradient, no glow, no sheen.
  *
  * Motion is one short snap, --duration-press, which is zero under reduced motion with the rest of the durations.
  * Keyboard and screen reader are the input's own: it stays in the label, clipped, and the control draws its state. */
 
 .armada-switch {
-  --switch-w: var(--space-12);
-  --switch-h: calc(var(--h-control) + var(--space-1));
+  --switch-w: calc(var(--space-12) + var(--space-6));
+  --switch-h: var(--h-control-sm);
   /* The native input is absolutely positioned and clipped; the label is what
      it is positioned against. */
   position: relative;
@@ -63,92 +63,95 @@
   height: var(--switch-h);
 }
 
-/* The legend over the bezel, as printed on the panel, and the bezel under it. */
-.armada-switch__track {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: calc(var(--space-1) / 2);
-}
-
-.armada-switch__legend {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  line-height: 1;
-  font-weight: var(--weight-medium);
-  letter-spacing: var(--tracking-caps);
-  color: var(--fg-subtle);
-  transition: color var(--duration-press) var(--ease);
-}
-
+/* The bezel, recessed into the panel, and the paddle in it. */
 .armada-switch__bezel {
-  flex: 1;
+  display: block;
   box-sizing: border-box;
   width: 100%;
-  padding: calc(var(--border-width) * 3);
+  height: 100%;
+  padding: var(--border-width);
   border: var(--border-width) solid var(--border-strong);
   border-radius: var(--radius-sm);
   background: var(--bg-sunken);
   perspective: var(--space-12);
 }
 
-/* The paddle is two faces, as light falls on a rocker: the raised half stands lit and long, the pressed half sinks dark and
- * short. Off is rocked in at the left, so the right face is the raised one. A small tilt about the middle sets the lean. */
+/* Two faces with their words printed on them. The pressed face is the state: it sinks, its words stand out, and on is lit.
+ * The raised face stands proud and quiet. Off is rocked in at the left, on at the right. */
 .armada-switch__paddle {
-  --raised: var(--border-strong);
-  --pressed: var(--bg-base);
+  --lit: var(--accent);
   display: flex;
   box-sizing: border-box;
   height: 100%;
   overflow: hidden;
-  border: var(--border-width) solid var(--border-default);
   border-radius: var(--radius-sm);
-  transform: rotateY(14deg);
-  transition: transform var(--duration-press) var(--ease);
-}
-
-.armada-switch__paddle::before,
-.armada-switch__paddle::after {
-  content: "";
+  background: var(--border-strong);
+  transform: rotateY(10deg);
   transition:
-    flex-grow var(--duration-press) var(--ease),
+    transform var(--duration-press) var(--ease),
     background-color var(--duration-press) var(--ease);
 }
 
-.armada-switch__paddle::before {
-  flex: 2 1 0;
-  border-inline-end: var(--border-width) solid var(--bg-sunken);
-  background: var(--pressed);
+.armada-switch__face {
+  display: flex;
+  flex: 1 1 0;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: 1;
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  color: var(--fg-subtle);
+  transition:
+    background-color var(--duration-press) var(--ease),
+    color var(--duration-press) var(--ease);
 }
 
-.armada-switch__paddle::after {
-  flex: 3 1 0;
-  background: var(--raised);
+.armada-switch__face[data-face="off"] {
+  background: var(--bg-base);
+  color: var(--fg-default);
 }
 
-/* On: rocked in at the right, the left face raised. */
 .armada-switch__input:checked + .armada-switch__track .armada-switch__paddle {
-  transform: rotateY(-14deg);
+  transform: rotateY(-10deg);
 }
 
-.armada-switch__input:checked + .armada-switch__track .armada-switch__paddle::before {
-  flex-grow: 3;
-  background: var(--raised);
+.armada-switch__input:checked + .armada-switch__track .armada-switch__face[data-face="off"] {
+  background: transparent;
+  color: var(--fg-subtle);
 }
 
-.armada-switch__input:checked + .armada-switch__track .armada-switch__paddle::after {
-  flex-grow: 2;
-  background: var(--pressed);
+/* Lit, the default: on lights the whole paddle, the pressed ON face a step deeper. */
+.armada-switch__input:checked + .armada-switch__track .armada-switch__paddle {
+  background: var(--lit);
 }
 
-.armada-switch__input:checked + .armada-switch__track .armada-switch__legend {
-  color: var(--accent);
+.armada-switch__input:checked + .armada-switch__track .armada-switch__face[data-face="off"] {
+  color: color-mix(in srgb, var(--fg-inverse) 55%, var(--lit));
 }
 
+.armada-switch__input:checked + .armada-switch__track .armada-switch__face[data-face="on"] {
+  background: color-mix(in srgb, var(--lit) 80%, var(--bg-base));
+  color: var(--fg-inverse);
+}
+
+/* Face: on lights the ON face alone. */
+:root[data-switch="face"] .armada-switch__input:checked + .armada-switch__track .armada-switch__paddle {
+  background: var(--border-strong);
+}
+
+:root[data-switch="face"] .armada-switch__input:checked + .armada-switch__track .armada-switch__face[data-face="off"] {
+  color: var(--fg-subtle);
+}
+
+:root[data-switch="face"] .armada-switch__input:checked + .armada-switch__track .armada-switch__face[data-face="on"] {
+  background: var(--lit);
+}
+
+/* Master: lit red, as a master switch is. */
 :root[data-switch="master"] .armada-switch__paddle {
-  --raised: var(--status-completed-failed);
-  --pressed: color-mix(in srgb, var(--status-completed-failed) 55%, var(--bg-base));
-  border-color: color-mix(in srgb, var(--status-completed-failed) 40%, var(--bg-base));
+  --lit: var(--status-completed-failed);
 }
 
 .armada-switch:not(:has(.armada-switch__input:disabled)):hover .armada-switch__bezel {
@@ -174,6 +177,6 @@
   border-color: var(--border-subtle);
 }
 
-.armada-switch__input:disabled + .armada-switch__track .armada-switch__legend {
+.armada-switch__input:disabled + .armada-switch__track .armada-switch__face {
   color: var(--fg-subtle);
 }
