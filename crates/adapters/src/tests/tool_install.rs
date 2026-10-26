@@ -5,7 +5,7 @@
 
 use std::os::unix::process::ExitStatusExt;
 use std::process::{ExitStatus, Output};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 use adapter_traits::Tool;
@@ -22,11 +22,12 @@ struct Machine {
     stderr: &'static str,
     answers: Vec<(&'static str, i32, &'static str)>,
     calls: Mutex<Vec<(String, Vec<String>)>>,
+    dirs: Mutex<Vec<(String, PathBuf)>>,
 }
 
 impl Machine {
     fn with(present: &'static [&'static str], code: i32, stderr: &'static str) -> Machine {
-        Machine { present: Mutex::new(present.to_vec()), code, stderr, answers: Vec::new(), calls: Mutex::new(Vec::new()) }
+        Machine { present: Mutex::new(present.to_vec()), code, stderr, answers: Vec::new(), calls: Mutex::new(Vec::new()), dirs: Mutex::new(Vec::new()) }
     }
 
     fn answering(mut self, words: &'static str, code: i32, stderr: &'static str) -> Machine {
@@ -38,13 +39,23 @@ impl Machine {
         self.calls.lock().expect("not poisoned").clone()
     }
 
-    /// Every call as one line: `bd -C /x bootstrap --yes`.
+    /// Where each call that was started in a directory was started: its line, and the directory.
+    fn started_in(&self) -> Vec<(String, PathBuf)> {
+        self.dirs.lock().expect("not poisoned").clone()
+    }
+
+    /// Every call as one line: `bd bootstrap --yes`.
     fn lines(&self) -> Vec<String> {
         self.calls().iter().map(|(program, args)| format!("{program} {}", args.join(" "))).collect()
     }
 }
 
 impl Run for Machine {
+    fn run_in(&self, dir: &Path, program: &str, args: &[String], stdin: Option<&[u8]>) -> std::io::Result<Output> {
+        self.dirs.lock().expect("not poisoned").push((format!("{program} {}", args.join(" ")), dir.to_path_buf()));
+        self.run(program, args, stdin)
+    }
+
     fn run(&self, program: &str, args: &[String], _stdin: Option<&[u8]>) -> std::io::Result<Output> {
         self.calls.lock().expect("not poisoned").push((program.to_string(), args.to_vec()));
         if !self.present.lock().expect("not poisoned").contains(&program) {
@@ -124,11 +135,16 @@ fn bd_already_there_is_not_installed_again_and_the_project_is_made_from_origin_i
         machine.lines(),
         [
             "bd --version".to_string(),
-            format!("bd -C {at} metrics off"),
+            "bd metrics off".to_string(),
             format!("git -C {at} ls-remote --exit-code origin refs/dolt/data"),
-            format!("bd -C {at} bootstrap --yes"),
+            "bd bootstrap --yes".to_string(),
             format!("git -C {at} config beads.role maintainer"),
         ]
+    );
+    // `-C` makes bd demand the project that bootstrap is making, so it runs in the checkout instead.
+    assert_eq!(
+        machine.started_in(),
+        [("bd metrics off".to_string(), main.clone()), ("bd bootstrap --yes".to_string(), main.clone())]
     );
     let exclude = std::fs::read_to_string(main.join(".git/info/exclude")).expect("written");
     assert_eq!(exclude.lines().collect::<Vec<_>>(), ["/.beads/", "/.beads.gate.lock"]);
@@ -146,7 +162,7 @@ fn a_slot_is_set_up_in_the_main_checkout_it_was_cut_from() {
 
     assert!(installed(&machine, Tool::Bd, &slot).done);
 
-    assert!(machine.lines().contains(&format!("bd -C {} bootstrap --yes", main.display())), "{:?}", machine.lines());
+    assert!(machine.started_in().contains(&("bd bootstrap --yes".to_string(), main.clone())), "{:?}", machine.started_in());
 }
 
 #[test]

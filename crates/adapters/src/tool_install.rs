@@ -87,10 +87,10 @@ fn stopped(did: &str, why: &std::io::Result<std::process::Output>) -> Option<Too
 /// holds no `refs/dolt/data`: that would start a second, empty backlog beside the first.
 fn beads_set_up<R: Run>(run: &R, main: &Path) -> ToolInstalled {
     let at = main.display().to_string();
+    // No `-C`: it makes bd demand the project that bootstrap is creating. The script `cd`s instead.
     let bd = |args: &[&str]| {
-        let mut all = vec!["-C".to_string(), at.clone()];
-        all.extend(args.iter().map(|one| one.to_string()));
-        run.run("bd", &all, None)
+        let all: Vec<String> = args.iter().map(|one| one.to_string()).collect();
+        run.run_in(main, "bd", &all, None)
     };
     let git = |args: &[&str]| {
         let mut all = vec!["-C".to_string(), at.clone()];

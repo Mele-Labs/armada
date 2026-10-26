@@ -6,6 +6,7 @@
 //! parses JSON; `jq` reduces it to `@tsv` and this reads lines.
 
 use std::io::{ErrorKind, Write};
+use std::path::Path;
 use std::process::{Command, Output, Stdio};
 
 use adapter_traits::{FromOutside, IssueComment, IssueField, NotTracked, OpenIssue, QueryGuide, ReadIssue, Tracker};
@@ -29,6 +30,11 @@ const SEARCH_FIELDS: &str = "key,summary,labels,assignee,description";
 /// What runs a program: given its arguments and, where it takes any, its stdin.
 pub(crate) trait Run: Send + Sync {
     fn run(&self, program: &str, args: &[String], stdin: Option<&[u8]>) -> std::io::Result<Output>;
+
+    /// The same, started in `dir`. A runner that never looks at where it was started keeps this default.
+    fn run_in(&self, _dir: &Path, program: &str, args: &[String], stdin: Option<&[u8]>) -> std::io::Result<Output> {
+        self.run(program, args, stdin)
+    }
 }
 
 /// The machine's own processes.
@@ -36,8 +42,22 @@ pub(crate) struct Process;
 
 impl Run for Process {
     fn run(&self, program: &str, args: &[String], stdin: Option<&[u8]>) -> std::io::Result<Output> {
-        let mut child = Command::new(program)
-            .args(args)
+        self.spawn(None, program, args, stdin)
+    }
+
+    fn run_in(&self, dir: &Path, program: &str, args: &[String], stdin: Option<&[u8]>) -> std::io::Result<Output> {
+        self.spawn(Some(dir), program, args, stdin)
+    }
+}
+
+impl Process {
+    fn spawn(&self, dir: Option<&Path>, program: &str, args: &[String], stdin: Option<&[u8]>) -> std::io::Result<Output> {
+        let mut command = Command::new(program);
+        command.args(args);
+        if let Some(dir) = dir {
+            command.current_dir(dir);
+        }
+        let mut child = command
             .stdin(match stdin {
                 Some(_) => Stdio::piped(),
                 None => Stdio::null(),
