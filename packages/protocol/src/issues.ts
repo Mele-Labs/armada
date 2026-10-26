@@ -90,6 +90,18 @@ export type SearchIssues = {
   query: string;
 };
 
+/** `install_tool` (`POST /issue_queries/:repository/install_tool`): the `missing_tool` a refusal's `fields` named. Only `bd` is installed; any other is a 422 `fleet.tool_not_installable`. Answers `InstalledTool`. */
+export type InstallTool = {
+  tool: string;
+};
+
+/** `install_tool`'s answer. `done` false is a 200 with `said` carrying why: Homebrew's own words, or `Homebrew is not available`. */
+export type InstalledTool = {
+  tool: string;
+  done: boolean;
+  said: string;
+};
+
 /** What a person needs of a tracker's query language: its name, the two queries every repository starts from, and the fields a row can show. */
 export type IssueQueryGuide = {
   /** As a person would say it: `JQL`. */

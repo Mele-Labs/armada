@@ -11,6 +11,7 @@ pub struct FakeTracker {
     closed: Mutex<Vec<ReadIssue>>,
     listings: Mutex<usize>,
     unreadable: Mutex<Option<String>>,
+    lacking: Mutex<Option<String>>,
     found: Mutex<Vec<OpenIssue>>,
     searches: Mutex<Vec<String>>,
     opens: Mutex<Option<String>>,
@@ -71,8 +72,15 @@ impl FakeTracker {
         *self.unreadable.lock().expect("unreadable") = Some(said.to_string());
     }
 
+    /// Every call is refused as a machine without `tool` refuses it, until
+    /// [`answers_again`](Self::answers_again).
+    pub fn lacks(&self, tool: &str) {
+        *self.lacking.lock().expect("lacking") = Some(tool.to_string());
+    }
+
     pub fn answers_again(&self) {
         *self.unreadable.lock().expect("unreadable") = None;
+        *self.lacking.lock().expect("lacking") = None;
     }
 
     /// What every search answers, whatever its query, from now on. A refusal from
@@ -111,6 +119,9 @@ impl FakeTracker {
 impl Tracker for FakeTracker {
     fn open_issues(&self, _in_repo: &str) -> Result<Vec<OpenIssue>, NotTracked> {
         *self.listings.lock().expect("listings") += 1;
+        if let Some(tool) = self.lacking.lock().expect("lacking").clone() {
+            return Err(NotTracked::lacking("listing the open issues", &tool));
+        }
         if let Some(said) = self.unreadable.lock().expect("unreadable").clone() {
             return Err(NotTracked::of("listing the open issues", said));
         }
@@ -121,6 +132,9 @@ impl Tracker for FakeTracker {
     /// and any other reference is none: a pull request's number is not told either. `214` and
     /// `#214` name the same issue.
     fn read_issue(&self, _in_repo: &str, reference: &str) -> Result<Option<ReadIssue>, NotTracked> {
+        if let Some(tool) = self.lacking.lock().expect("lacking").clone() {
+            return Err(NotTracked::lacking("reading the issue", &tool));
+        }
         if let Some(said) = self.unreadable.lock().expect("unreadable").clone() {
             return Err(NotTracked::of("reading the issue", said));
         }
@@ -154,6 +168,9 @@ impl Tracker for FakeTracker {
 
     fn search_issues(&self, _in_repo: &str, query: &str) -> Result<Vec<OpenIssue>, NotTracked> {
         self.searches.lock().expect("searches").push(query.to_string());
+        if let Some(tool) = self.lacking.lock().expect("lacking").clone() {
+            return Err(NotTracked::lacking("searching the issues", &tool));
+        }
         if let Some(said) = self.unreadable.lock().expect("unreadable").clone() {
             return Err(NotTracked::of("searching the issues", said));
         }

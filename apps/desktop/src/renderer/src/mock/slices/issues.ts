@@ -127,6 +127,7 @@ export const issues: Slice<IssuesApi, Record<string, never>> = {
     writeIssueQuery: async () => ({ ok: false, outcome: unanswered("/issue_queries/write") }),
     saveIssueQuery: async () => ({ ok: false, outcome: unanswered("/issue_queries") }),
     forgetIssueQuery: async () => ({ ok: false, outcome: unanswered("/issue_queries/forget") }),
+    installIssueTool: async () => ({ ok: false, outcome: unanswered("/issue_queries/install_tool") }),
     getPullRequest: async (manifestId, number) => {
       const one = openOn(manifestId, number, fleet.state().mergeLines) ?? finishedPullRequest(manifestId, number);
       return one === undefined ? { ok: false, outcome: unanswered("/pull_requests") } : { ok: true, value: one };
@@ -155,6 +156,8 @@ export type IssuesSeedRepository = {
   language?: "terms" | "jql";
   /** What the model writes, whatever the words. */
   writes?: WrittenQuery;
+  /** A program the tracker lacks: every search is refused naming it until an install succeeds, or `fails` says why it will not. */
+  lacks?: { tool: string; fails?: string };
 };
 
 export type IssuesSeed = readonly IssuesSeedRepository[];
@@ -226,12 +229,22 @@ export function issuesTabSource(seed: IssuesSeed): IssuesSource {
     run: async (manifestId, query) => {
       const one = of(manifestId);
       if (one === undefined || one.tracker.state !== "read") return refused(manifestId);
+      if (one.lacks !== undefined) return { ok: false, said: `searching the issues did not happen: ${one.lacks.tool} is not installed`, missing: one.lacks.tool };
       const matches = (one.language === "jql" ? byJql : byTerms)(query, one.me ?? "");
       return { ok: true, value: (one.tickets ?? []).filter(matches).map((ticket) => stamped(manifestId, ticket)) };
     },
     read: async (manifestId, reference) => {
       const ticket = of(manifestId)?.tickets?.find((it) => it.reference === reference);
       return ticket === undefined ? { ok: false, said: `${reference} is not an issue of this repository.` } : { ok: true, value: { ...ticket, ...stamped(manifestId, ticket) } };
+    },
+    install: async (manifestId, tool) => {
+      const one = of(manifestId);
+      // Homebrew takes a moment; the walk sees the working state.
+      await new Promise((done) => setTimeout(done, 600));
+      if (one?.lacks?.tool !== tool) return { ok: false, said: `${tool} is not something Armada installs.` };
+      if (one.lacks.fails !== undefined) return { ok: false, said: one.lacks.fails };
+      delete one.lacks;
+      return { ok: true, value: undefined };
     },
     write: async (manifestId, _words) => {
       const writes = of(manifestId)?.writes;

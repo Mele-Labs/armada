@@ -35,6 +35,9 @@ export function handleIssues({ ipc, connection }: Hosts): void {
   ipc.handle(CHANNELS.forgetIssueQuery, (_event, manifestId: unknown, id: unknown) =>
     named(manifestId) && named(id) ? (connection()?.issues.forgetIssueQuery(manifestId, id) ?? unsent) : unsent,
   );
+  ipc.handle(CHANNELS.installIssueTool, (_event, manifestId: unknown, tool: unknown) =>
+    named(manifestId) && named(tool) ? (connection()?.issues.installIssueTool(manifestId, tool) ?? unsent) : unsent,
+  );
   ipc.handle(CHANNELS.getPullRequest, (_event, manifestId: unknown, number: unknown) =>
     named(manifestId) && Number.isInteger(number) ? (connection()?.issues.pullRequest(manifestId, number as number) ?? unsent) : unsent,
   );

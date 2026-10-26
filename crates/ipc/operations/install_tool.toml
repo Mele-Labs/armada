@@ -1,0 +1,10 @@
+[operations.install_tool]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Install a tool a tracker could not run, when a person pressed Install"
+notes = """
+`POST /issue_queries/:repository/install_tool`, `repository` a manifest id, body `InstallTool`: `tool`, the `missing_tool` a refusal named. `docs/concepts/tracker.md`, *Saved queries*. Answers `InstalledTool`: `tool`, `done` and `said`.
+
+**Only `bd` is taken**, installed with `brew install beads`; any other word is a 422 `fleet.tool_not_installable` and nothing is run. Homebrew is looked for in `/opt/homebrew/bin`, `/usr/local/bin` and then the PATH Fleet runs with. **Whether it worked is the answer**: a 200 with `done: false` and `said` carrying Homebrew's own words, or `Homebrew is not available`. Synchronous, and as long as Homebrew takes. A 422 for a repository Fleet does not serve.
+"""

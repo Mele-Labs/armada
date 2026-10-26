@@ -10,7 +10,8 @@
 //! cannot keep to. `docs/concepts/tracker.md`.
 
 use alloc::collections::BTreeMap;
-use alloc::string::String;
+use alloc::format;
+use alloc::string::{String, ToString};
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 
@@ -159,6 +160,9 @@ pub struct NotTracked {
     /// What was being attempted, as a noun: `listing the open issues`.
     pub doing: &'static str,
     pub said: String,
+    /// The program that is not on this machine, where that is why: `bd`. Bridge offers to install
+    /// it, so it is a name and not a sentence to be read back out of `said`.
+    pub missing: Option<String>,
 }
 
 impl NotTracked {
@@ -166,8 +170,49 @@ impl NotTracked {
         NotTracked {
             doing,
             said: said.into(),
+            missing: None,
         }
     }
+
+    /// `tool` is not installed, or not on the PATH Fleet runs with.
+    pub fn lacking(doing: &'static str, tool: &str) -> NotTracked {
+        NotTracked {
+            doing,
+            said: format!("`{tool}` is not installed, or not on the PATH Fleet runs with"),
+            missing: Some(tool.to_string()),
+        }
+    }
+}
+
+/// A program Fleet installs when a person asks, and the only ones. **A closed set**: what the wire
+/// names is looked up here and nothing else reaches a shell.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Tool {
+    /// The beads command line.
+    Bd,
+}
+
+impl Tool {
+    /// The tool a wire name means, `None` for any other.
+    pub fn named(name: &str) -> Option<Tool> {
+        match name {
+            "bd" => Some(Tool::Bd),
+            _ => None,
+        }
+    }
+
+    pub fn name(self) -> &'static str {
+        match self {
+            Tool::Bd => "bd",
+        }
+    }
+}
+
+/// How installing a [`Tool`] went, in words a person reads.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ToolInstalled {
+    pub done: bool,
+    pub said: String,
 }
 
 /// Reading a repository's issues.
@@ -276,5 +321,14 @@ pub trait Trackers {
     fn backlog(&self, choice: &TrackerChoice) -> Option<Arc<dyn crate::Backlog + Send + Sync>> {
         let _ = choice;
         None
+    }
+
+    /// Install `tool`. **Nothing here runs until a person asks**: a missing tool is reported, not
+    /// repaired. Nothing is installed by default.
+    fn install(&self, tool: Tool) -> ToolInstalled {
+        ToolInstalled {
+            done: false,
+            said: format!("nothing here installs `{}`", tool.name()),
+        }
     }
 }

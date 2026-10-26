@@ -356,7 +356,7 @@ function Rows({ band, asked, nested = false }: { band: Band; asked: Asked | unde
   const snap = useIssues();
   if (band.tracker.state !== "read" || asked?.state !== "query") return null;
   const run = store.runOf(band.manifestId, asked.query);
-  if (run?.state === "failed") return <p className="issues-list__said" role="alert">{run.said}</p>;
+  if (run?.state === "failed") return run.missing === undefined ? <p className="issues-list__said" role="alert">{run.said}</p> : <MissingTool manifestId={band.manifestId} query={asked.query} said={run.said} tool={run.missing} />;
   const tickets = run?.state === "read" ? run.tickets : [];
   return (
     <ul className={nested ? "deck-list__group" : "deck-list__rows issues-list__rows"}>
@@ -364,6 +364,23 @@ function Rows({ band, asked, nested = false }: { band: Band; asked: Asked | unde
         <Row key={ticket.reference} band={band} ticket={ticket} fields={asked.fields} open={snap.open?.manifestId === band.manifestId && snap.open.reference === ticket.reference} />
       ))}
     </ul>
+  );
+}
+
+/** A search that could not run for want of a program. Nothing installs until Install is pressed; a failed install keeps its words and offers no second press. */
+export function MissingTool({ manifestId, query, said, tool }: { manifestId: string; query: string; said: string; tool: string }) {
+  const store = useIssuesStore()!;
+  useIssues();
+  const install = store.installOf(manifestId, tool);
+  if (install?.state === "failed") return <p className="issues-list__said" role="alert">{install.said}</p>;
+  const installing = install?.state === "installing";
+  return (
+    <div className="issues-list__missing">
+      <p className="issues-list__said" role="alert">{said}</p>
+      <Button variant="secondary" size="sm" pending={installing} onClick={() => store.install(manifestId, tool, query)}>
+        {installing ? `Installing ${tool}` : `Install ${tool}`}
+      </Button>
+    </div>
   );
 }
 
