@@ -25,10 +25,10 @@
 }
 .sv-row:hover { background: var(--bg-hover); color: var(--fg-default); }
 .sv-row:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--border-width) * -1); }
-.sv-row__num { color: var(--fg-subtle); font-size: var(--text-2xs); }
+.sv-row__num { color: var(--accent); font-size: var(--text-2xs); }
 .sv-row__title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sv-row > .armada-tooltip { display: inline-flex; align-items: center; }
 
-/* The glyph's hue is the state: an open issue the quiet ink. A pull request's row is `PullRequestChip`, which draws its own. */
-.sv-row__mark { display: inline-flex; align-items: center; color: var(--fg-subtle); }
+/* The glyph's hue is the state: an open issue the accent. A pull request's row is `PullRequestChip`, which draws its own. */
+.sv-row__mark { display: inline-flex; align-items: center; color: var(--accent); }
 .sv-row__mark[data-state="closed"] { color: var(--step-advanced); }

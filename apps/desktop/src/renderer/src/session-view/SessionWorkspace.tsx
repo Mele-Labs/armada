@@ -1,11 +1,12 @@
 // A Session's view: its thread and composer in the middle, and little else at a glance. A Session with no `work` is drawn as it was, the thread
 // alone with its ledger beside it.
 //
-// **What stays on screen.** The Work list, the thread and composer, the Field and Progress in the right column, and Flight control. Progress is
-// Status and the Plan as one panel. The rest is a key away: Flight control opens a layer over the stage for Artifacts (everything the Session
-// made or used), Subagents, Checks and Slot, and Back returns to the thread as it was. Pull requests are the Merge line's. The slot and branch
-// are drawn only when something is wrong with them: as a call in the thread, and by lighting the Slot key. The panels are drawn into the deck's
-// right column (`hosts`).
+// **What stays on screen.** The Work list, the thread and composer, the Job's story in the right column, and Flight control. The story is told
+// top to bottom: the Workflow, the Blueprint (the plan), the Field and the Landing, the one the stage is at open and the rest folded to their
+// bands (`story.ts`). The rest is a key away: Flight control opens a layer over the stage for Subagents, Checks and Slot, and Back returns to the
+// thread as it was. **Artifacts is the exception: it opens over the right column**, from the composer's Artifacts key or from Flight control, the
+// story steps aside, and Esc returns to it. Pull requests are the Merge line's. The slot and branch are drawn only when something is wrong with
+// them: as a call in the thread, and by lighting the Slot key. The panels are drawn into the deck's right column (`hosts`).
 
 import { Fragment, useEffect } from "react";
 import { createPortal } from "react-dom";
@@ -18,13 +19,14 @@ import type { Session } from "@armada/screens/src/draft/sessions";
 import { useSessionsDraft } from "../sessions-draft";
 import { FieldLayer } from "./FieldLayer";
 import { FieldPanel } from "./FieldPanel";
-import { ModsPanel } from "./ModsPanel";
-import { dropLayer, useLayer } from "./layers";
+import { BlueprintPanel } from "./BlueprintPanel";
+import { LandingPanel } from "./LandingPanel";
+import { closeLayer, dropLayer, toggleLayer, useLayer } from "./layers";
 import type { PlanEditing } from "./PlanEdit";
-import { ProgressPanel } from "./ProgressPanel";
 import { WorkflowPanel } from "./WorkflowPanel";
 import type { LiveOpen } from "./TurnAccountBlock";
 import { Layer } from "./SessionLayers";
+import { bandOf, isArtifactsKey, isWholeKey, pressBand, pressWhole, resetFolds, stageOf } from "./story";
 import type { SessionBays } from "./slot-trouble";
 import "./session-view.css";
 
@@ -42,22 +44,56 @@ export function SessionWorkspace({ session, entries, repositories, hosts, ed, ba
   // A layer belongs to the Session it was opened over.
   useEffect(() => () => dropLayer(id), [id]);
   const work = session.work;
+  const stage = stageOf(session);
+  // What the person opened or folded by hand holds until the story moves on.
+  useEffect(() => resetFolds(id), [id, stage]);
+  const side = hosts?.side ?? null;
+  const story = work !== undefined && draft !== undefined && side !== null;
+  // Artifacts covers the right column, where the story is; every other layer covers the stage.
+  const aside = story && layer === "artifacts";
   const layered = layer === undefined ? null : <Layer id={layer} session={session} entries={entries} bays={bays} onOpenCheck={onOpenCheck} onOpenSession={onOpenSession} onOpenSketch={onOpenSketch} />;
-  if (work === undefined || draft === undefined || hosts === undefined) return <>{children}{layered}{large}</>;
+  // A band opens by its key, the Blueprint's whole-plan key swaps its Now view, and the composer's Artifacts key opens the list. A band's key closes the list first: the story is what it asked for.
+  useEffect(() => {
+    if (!story) return;
+    const listen = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || document.querySelector('[role="dialog"], [role="alertdialog"]') !== null) return;
+      if (isArtifactsKey(event)) {
+        event.preventDefault();
+        return toggleLayer(id, "artifacts");
+      }
+      if (isWholeKey(event) && session.work?.plan !== undefined) {
+        event.preventDefault();
+        if (layer === "artifacts") closeLayer();
+        pressWhole(session);
+        return;
+      }
+      const band = bandOf(event);
+      if (band === undefined) return;
+      event.preventDefault();
+      if (layer === "artifacts") closeLayer();
+      if (band.area === "workflow") return document.querySelector<HTMLElement>('.sv-side [data-area="workflow"] select')?.focus();
+      pressBand(session, band.area);
+      window.setTimeout(() => document.querySelector<HTMLElement>(`.sv-side [data-area="${band.area}"] > .sv-panel__band`)?.focus(), 0);
+    };
+    window.addEventListener("keydown", listen);
+    return () => window.removeEventListener("keydown", listen);
+  }, [story, id, layer, session]);
+  if (!story) return <>{children}{layered}{large}</>;
   // In the order a layout gives; each panel leaves itself out where a layout hides it (`SvPanel`).
   const panels: Record<string, ReactNode> = {
-    field: <FieldPanel session={session} repositories={repositories} place="side" />,
     workflow: <WorkflowPanel work={work} place="side" id={id} manifestId={session.manifestId} acts={draft.work} />,
-    mods: <ModsPanel id={id} mod={session.mod === true} place="side" />,
-    progress: <ProgressPanel work={work} place="side" id={id} session={session} manifestId={session.manifestId} acts={draft.work} ed={ed} onOpenSketch={onOpenSketch} onOpenSession={onOpenSession} live={live} />,
+    blueprint: <BlueprintPanel work={work} place="side" id={id} session={session} manifestId={session.manifestId} acts={draft.work} ed={ed} onOpenSketch={onOpenSketch} onOpenSession={onOpenSession} />,
+    field: <FieldPanel session={session} repositories={repositories} place="side" live={live} />,
+    landing: <LandingPanel session={session} entries={entries} place="side" id={id} />,
   };
   const right = order.map((one) => <Fragment key={one.id}>{panels[one.id]}</Fragment>);
   return (
     <>
       {children}
-      {layered}
+      {aside ? null : layered}
       {large}
-      {hosts.side === null ? null : createPortal(right, hosts.side)}
+      {createPortal(right, side)}
+      {aside ? createPortal(layered, side) : null}
     </>
   );
 }

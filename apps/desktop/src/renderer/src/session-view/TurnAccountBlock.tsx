@@ -1,4 +1,4 @@
-// The top of Progress while a turn runs: its running account in his words, and under it the page it is building. The view is a button over
+// The page a turn is building, with its running account in his words over it where `lines` is given (the Field gives none: the Blueprint holds the tasks). The view is a button over
 // the frame, so a press or Enter opens the page large in the reading sheet and Esc closes it; while it is large the small frame is not drawn.
 // In Electron the frame is a picture main takes of the page (`PageSnapshot`); in the mock it is the page itself in a scaled frame.
 
@@ -53,14 +53,14 @@ function ScaledPage({ shown, title, onOpen, children }: { shown: boolean; title:
   );
 }
 
-export function TurnAccountBlock({ session, lines, live }: { session: Session; lines: TurnAccount; live: LiveOpen | undefined }) {
+export function TurnAccountBlock({ session, lines, live }: { session: Session; lines?: TurnAccount | undefined; live: LiveOpen | undefined }) {
   const draft = useSessionsDraft();
   const page = session.live;
   // A real window holds the page out of sight and sends pictures of it; the mock has no second view and scales a frame of its own page.
   const snapshot = draft?.page?.snapshot;
   return (
     <div className="sv-account">
-      <TurnAccountList lines={lines} />
+      {lines === undefined ? null : <TurnAccountList lines={lines} />}
       {page === undefined || live === undefined ? null : (
         <div className="sv-account__live">
           <TurnLiveView

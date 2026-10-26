@@ -8,6 +8,7 @@ import type { IssuesSource, QueryToSave, Read, SavedQuery, Ticket, TicketRead, T
 import type { Slice } from "../fake-context";
 import { unanswered } from "../moment";
 import { REPOSITORY_ISSUES, finishedPullRequest, issueOfNumber } from "../numbered";
+import { ISSUES } from "../shared-panel-reads";
 
 /** A forge's name for an issue: its number after a `#`. */
 const forge = (number: number): string => `#${number}`;
@@ -89,6 +90,27 @@ function issueRead(manifestId: string, number: number): IssueRead | undefined {
   return { reference: one.reference, title: one.title, url: one.url, state: "open", body: one.excerpt, author: "", opened_at: one.updated_at, labels: one.labels, assignees: one.assignees, comments: [], linked_pull_requests: [], fields: [], holders: [] };
 }
 
+/** An issue the side panel's fixtures hold, a tracker's key among them, as Fleet would answer it. */
+function panelIssue(reference: string): IssueRead | undefined {
+  const one = ISSUES[reference];
+  if (one === undefined) return undefined;
+  return {
+    reference: one.number,
+    title: one.title,
+    url: one.address,
+    state: one.state,
+    body: one.body,
+    author: one.author,
+    opened_at: one.openedAt,
+    labels: [...one.labels],
+    assignees: [...one.assignees],
+    comments: [...one.comments],
+    linked_pull_requests: one.linked.map((pr) => ({ number: pr.number, title: pr.title, url: pr.address, state: pr.state })),
+    fields: [],
+    holders: [],
+  };
+}
+
 export const issues: Slice<IssuesApi, Record<string, never>> = {
   name: "issues",
   state: {},
@@ -96,7 +118,7 @@ export const issues: Slice<IssuesApi, Record<string, never>> = {
     listIssues: async (manifestId) => ({ ok: true, value: listed(manifestId) }),
     // `#` reads these through `mock/numbered.ts` here; the side panel reads the same fixtures, as a Fleet's answers.
     getIssue: async (manifestId, reference) => {
-      const one = issueRead(manifestId, Number(reference.replace(/^#/, "")));
+      const one = issueRead(manifestId, Number(reference.replace(/^#/, ""))) ?? panelIssue(reference.replace(/^#/, ""));
       return one === undefined ? { ok: false, outcome: unanswered("/issues") } : { ok: true, value: one };
     },
     // The tab's tracker is the scenario's own (`issuesTabSource`), so the routes under it have nothing here to answer.

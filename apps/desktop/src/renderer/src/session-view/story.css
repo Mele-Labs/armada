@@ -1,0 +1,70 @@
+/* The Job's right column as a story: the workflow, the blueprint, the field, the landing. The panel the stage is at is open and the rest stand
+   folded to their bands (`story.ts`). Tokens only; no gradient, glow or sheen. */
+
+/* ---- Where the panels stand ------------------------------------------------------------------------------ */
+
+.sv-side > .sv-panel[data-area="workflow"] { flex: 0 0 auto; }
+.sv-side > .sv-panel[data-area="blueprint"] { flex: 3 1 0; min-height: calc(var(--space-12) * 4); }
+.sv-side > .sv-panel[data-area="field"] { flex: 2 1 0; min-height: calc(var(--space-12) * 3); }
+.sv-side > .sv-panel[data-area="landing"] { flex: 2 1 0; min-height: calc(var(--space-12) * 3); }
+/* One panel open takes the column's remaining height and the rest stand folded to their bands. Several open share it by the weights above, and
+   each scrolls inside where it overflows (`.sv-panel__body`). An approved plan is a few lines, so while a later panel is open it takes its own
+   height and that panel has the rest; with none open after it, it is the one panel and grows like the others. */
+.sv-side > .sv-panel[data-area="blueprint"]:has(:is(.sv-plan:not([data-drafting]), .sv-now)):has(~ .sv-panel:not([data-collapsed])) { flex: 0 1 auto; min-height: 0; }
+.sv-side > .sv-panel[data-area="blueprint"]:has(> .sv-panel__body:empty),
+.sv-side > .sv-panel[data-area="landing"]:has(> .sv-panel__body:empty) { flex: 0 0 auto; min-height: 0; }
+
+/* A folded band is the Workflow band's height, whatever the panel holds: the label and the acts centred in it, and nothing under. Stands over each
+   panel's own size above, and over the `:has` rules that size an approved Blueprint or a Landing with nothing in it. */
+.sv-side > .sv-panel[data-collapsed][data-collapsed][data-collapsed][data-collapsed] { flex: 0 0 var(--folded); height: var(--folded); min-height: 0; max-height: var(--folded); }
+.sv-side > .sv-panel[data-collapsed] > .sv-panel__band { height: calc(var(--folded) - var(--border-width) * 2); min-height: 0; border-bottom: 0; }
+
+/* ---- Blueprint -------------------------------------------------------------------------------------------- */
+
+.sv-blueprint__summary { margin: 0; padding-inline: var(--space-2); color: var(--fg-default); font-family: var(--font-sans); font-size: var(--text-sm); line-height: var(--leading-sm); overflow-wrap: anywhere; }
+.sv-plan__acts { display: inline-flex; align-items: center; gap: var(--space-2); margin-inline-start: auto; }
+/* A drafted group is its whole title over its tasks, not a single line cut short. */
+.sv-plan[data-drafting] .sv-group[data-step] .sv-group__title { overflow: visible; white-space: normal; }
+/* A plan being drafted shows every task, so its groups are not the stepper's single quiet lines. */
+.sv-plan[data-drafting] .sv-group[data-step] { border-color: var(--border-subtle); background: var(--bg-raised); }
+
+/* An approved plan is read, not edited: the title and its chevron on one line, then a line for each task. */
+.sv-plan:not([data-drafting]) .sv-group__row { flex-direction: row; align-items: center; gap: var(--space-2); }
+.sv-plan:not([data-drafting]) .sv-group__row > .sv-group__title { flex: 1 1 auto; min-width: 0; }
+.sv-plan:not([data-drafting]) .sv-group__head { flex: none; }
+.sv-group__tasks { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: 0 var(--space-2) var(--space-2); list-style: none; }
+.sv-group__task { display: grid; grid-template-columns: var(--space-4) minmax(0, 1fr); column-gap: var(--space-2); align-items: start; padding: var(--space-1) var(--space-2); border-radius: var(--radius-sm); color: var(--fg-muted); font-family: var(--font-sans); font-size: var(--text-xs); line-height: var(--leading-xs); }
+.sv-group__task > .armada-task-mark { display: inline-flex; align-items: center; height: 1lh; }
+/* A task wears its state as a Cockpit row does: done in the done hue, the one being worked on a running tint with a running edge, one that failed on a failed tint with a failed edge. */
+.sv-group__task[data-state="done"], .sv-group__task[data-state="handed_in"] { color: color-mix(in srgb, var(--step-advanced) 40%, var(--fg-muted)); }
+.sv-group__task[data-state="working"] { color: var(--fg-default); }
+.sv-group__task[data-state="failed"] { background: var(--step-failed-bg); box-shadow: inset 3px 0 0 var(--step-failed); color: var(--step-failed); font-weight: var(--weight-medium); }
+/* The task the turn is on: tinted and edged in the running hue, with what it is doing on a line of its own under the text. */
+.sv-group__task[data-here] { background: color-mix(in srgb, var(--step-running) 12%, transparent); box-shadow: inset 3px 0 0 var(--step-running); color: var(--fg-default); font-weight: var(--weight-medium); }
+.sv-group__task > .sv-issue { grid-column: 2; margin-top: var(--space-1); }
+.sv-group__task-now { grid-column: 2; color: color-mix(in srgb, var(--step-running) 70%, var(--fg-muted)); font-size: var(--text-2xs); line-height: var(--leading-2xs); font-weight: var(--weight-body); }
+
+/* ---- Field: the page the turn is building, over the map -------------------------------------------------------------- */
+
+.sv-field__now { flex: none; padding: var(--space-3); }
+
+/* ---- Landing: the pull request, the doc, the mods ------------------------------------------------------------ */
+
+.sv-landing__prs { margin: 0; padding: 0; list-style: none; }
+.sv-landing__docs { display: flex; flex-direction: column; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
+/* The findings a spike or a document lands in: a framed row in the teal of a handed-in step, its glyph and edge in the same hue. */
+.sv-landing__doc { --hue: var(--status-handed-in); display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: var(--space-2); width: 100%; padding: var(--space-2) var(--space-3); border: var(--border-width) solid color-mix(in srgb, var(--hue) 40%, var(--border-subtle)); border-radius: var(--radius-md); background: color-mix(in srgb, var(--hue) 8%, var(--bg-raised)); box-shadow: inset 3px 0 0 var(--hue); color: var(--fg-default); font-family: var(--font-sans); font-size: var(--text-xs); line-height: var(--leading-xs); font-weight: var(--weight-medium); text-align: start; cursor: pointer; }
+.sv-landing__doc:not(:disabled):hover { background: color-mix(in srgb, var(--hue) 14%, var(--bg-raised)); }
+.sv-landing__doc:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--border-width) * -1); }
+.sv-landing__doc-mark { display: inline-flex; align-items: center; color: var(--hue); }
+.sv-landing__doc-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---- Landing: a report ------------------------------------------------------------------------------------------ */
+
+/* The report is violet: a framed card with a weighted head and the same hue down its edge. */
+.sv-landing__report { --hue: var(--status-rejected); display: flex; flex-direction: column; gap: var(--space-1); width: 100%; padding: var(--space-2) var(--space-3); border: var(--border-width) solid color-mix(in srgb, var(--hue) 40%, var(--border-subtle)); border-radius: var(--radius-md); background: color-mix(in srgb, var(--hue) 8%, var(--bg-raised)); box-shadow: inset 3px 0 0 var(--hue); color: var(--fg-muted); font-family: var(--font-sans); text-align: start; cursor: pointer; }
+.sv-landing__report:hover { background: color-mix(in srgb, var(--hue) 14%, var(--bg-raised)); }
+.sv-landing__report:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--border-width) * -1); }
+.sv-landing__report-head { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: var(--space-2); color: var(--fg-default); font-size: var(--text-sm); line-height: var(--leading-sm); font-weight: var(--weight-heading); }
+.sv-landing__report-mark { display: inline-flex; align-items: center; color: var(--hue); }
+.sv-landing__report-lines { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow: hidden; font-size: var(--text-xs); line-height: var(--leading-xs); overflow-wrap: anywhere; }
