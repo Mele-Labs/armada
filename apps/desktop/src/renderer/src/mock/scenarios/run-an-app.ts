@@ -17,18 +17,19 @@ const ARMADA = repository();
 const AUTO_YNAB: RepositorySummary = { root: "/Users/user/code/auto-ynab", records_root: "/Users/user/Library/Application Support/Armada/records/auto-ynab", implicit_id: "auto-ynab-6d2e" };
 
 const RUNS: readonly SavedRun[] = [
-  { id: "mock-bridge", name: "Mock Bridge", kind: "browser", processes: [{ id: "mock", name: "mock", folder: "apps/desktop", command: "npx vite --config vite.mock.config.ts --port ${port} --strictPort", port: 5391 }] },
-  { id: "storybook", name: "Storybook", kind: "browser", processes: [{ id: "storybook", name: "storybook", folder: "packages/components", command: "pnpm exec storybook dev -p ${port} --no-open --ci", port: 6006 }] },
+  { id: "mock-bridge", name: "Mock Bridge", kind: "browser", processes: [{ id: "mock", name: "mock", folder: "apps/desktop", command: "npx vite --config vite.mock.config.ts --port ${port} --strictPort" }] },
+  { id: "storybook", name: "Storybook", kind: "browser", processes: [{ id: "storybook", name: "storybook", folder: "packages/components", command: "pnpm exec storybook dev -p ${port} --no-open --ci" }] },
   { id: "bridge-scratch", name: "Bridge dev, scratch Fleet", kind: "app", processes: [{ id: "bridge", name: "bridge", folder: "apps/desktop", command: "pnpm dev:scratch" }] },
   { id: "bridge-mine", name: "Bridge dev, my Fleet", kind: "app", processes: [{ id: "bridge", name: "bridge", folder: "apps/desktop", command: "pnpm dev" }] },
 ];
 
 /** What Fleet drafts for auto-ynab from the commands Jobs ran there and from its files. */
 const DRAFT: RunDraft = {
+  root: "~/Development/auto-ynab",
   savedIn: "this Mac",
   processes: [
-    { id: "backend", name: "backend", folder: ".", command: "uvicorn backend.app.main:app --port ${port}", port: 8000 },
-    { id: "frontend", name: "frontend", folder: "frontend", command: "npx vite --port ${port} --strictPort", port: 5373 },
+    { id: "backend", name: "backend", folder: ".", command: "uvicorn backend.app.main:app --port ${port}" },
+    { id: "frontend", name: "frontend", folder: "frontend", command: "npx vite --port ${port} --strictPort" },
   ],
 };
 

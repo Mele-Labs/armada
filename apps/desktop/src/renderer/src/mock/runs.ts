@@ -1,6 +1,7 @@
 // A fake source of runs for the mock: saved runs and drafts from a scenario's seed, and processes that go starting then ready as time
 // passes, writing a few lines each. No Fleet serves any of this yet, so a started process is only this module's timers.
 
+import { listens } from "@armada/components";
 import type { RunDraft, RunProcess, RunProcessSpec, SavedRun } from "@armada/components";
 
 import type { RunsApp, RunsSource, RunsState, RunTarget, SavedRuns } from "../cockpit/runs/source";
@@ -15,17 +16,26 @@ export type RunsSeed = {
 const FIRST_READY_MS = 900;
 const NEXT_READY_MS = 800;
 
-const resolved = (spec: RunProcessSpec): string => spec.command.replaceAll("${port}", spec.port === undefined ? "" : String(spec.port));
+/** Fleet leases each checkout its own span of ports, so main and a Job's bay can run the same app at once: the lease is what `${port}` is filled with. */
+const MAIN_FIRST_PORT = 41210;
+const BAY_FIRST_PORT = 42200;
+
+/** The ports a run is leased on one checkout, one for each process that asks for `${port}`, a step apart from the first. */
+function lease(checkout: RunTarget["checkout"], of: readonly RunProcessSpec[]): ReadonlyMap<string, number> {
+  const first = checkout.kind === "main" ? MAIN_FIRST_PORT : BAY_FIRST_PORT + checkout.bay * 10;
+  return new Map(of.filter(listens).map((spec, at) => [spec.id, first + at]));
+}
+
+const resolved = (spec: RunProcessSpec, port: number | undefined): string => spec.command.replaceAll("${port}", port === undefined ? "" : String(port));
 
 /** What a process writes as it starts and once it is up, by what it runs. Quoted text of a program, never prose of ours. */
-function startLines(spec: RunProcessSpec): readonly string[] {
-  const command = resolved(spec);
+function startLines(spec: RunProcessSpec, port: number | undefined): readonly string[] {
+  const command = resolved(spec, port);
   const where = spec.folder === "." ? "" : `${spec.folder}/`;
   return [`${where}$ ${command}`];
 }
 
-function upLines(spec: RunProcessSpec): readonly string[] {
-  const port = spec.port;
+function upLines(spec: RunProcessSpec, port: number | undefined): readonly string[] {
   if (spec.command.includes("uvicorn")) return ["INFO:     Started server process [48213]", "INFO:     Waiting for application startup.", "INFO:     Application startup complete.", `INFO:     Uvicorn running on http://127.0.0.1:${port} (Press CTRL+C to quit)`];
   if (spec.command.includes("vite")) return ["VITE v5.4.2  ready in 412 ms", `Local:   http://localhost:${port}/`, "Network: use --host to expose"];
   if (spec.command.includes("storybook")) return ["Storybook 9.1.2 for react-vite started", `Local:            http://localhost:${port}/`];
@@ -38,6 +48,7 @@ export function createMockRuns(seed: RunsSeed): RunsSource {
   const listeners = new Set<() => void>();
   const timers = new Map<string, number[]>();
   const specs = new Map<string, readonly RunProcessSpec[]>();
+  const leased = new Map<string, ReadonlyMap<string, number>>();
   let count = 0;
 
   const set = (next: RunsState) => {
@@ -57,10 +68,12 @@ export function createMockRuns(seed: RunsSeed): RunsSource {
 
   /** Brings each process up in turn, writing its lines a moment apart. */
   function bringUp(id: string, kind: "browser" | "app", of: readonly RunProcessSpec[]) {
+    const ports = leased.get(id);
     of.forEach((spec, at) => {
+      const port = ports?.get(spec.id);
       const up = FIRST_READY_MS + at * NEXT_READY_MS;
-      later(id, up, () => editing(id, spec.id, (one) => ({ ...one, phase: "ready", ...(kind === "browser" && spec.port !== undefined ? { url: `http://localhost:${spec.port}` } : {}) })));
-      upLines(spec).forEach((line, n) => later(id, up - 200 + n * 260, () => editing(id, spec.id, (one) => ({ ...one, log: [...one.log, line] }))));
+      later(id, up, () => editing(id, spec.id, (one) => ({ ...one, phase: "ready", ...(kind === "browser" && port !== undefined ? { url: `http://localhost:${port}` } : {}) })));
+      upLines(spec, port).forEach((line, n) => later(id, up - 200 + n * 260, () => editing(id, spec.id, (one) => ({ ...one, log: [...one.log, line] }))));
     });
   }
 
@@ -70,6 +83,8 @@ export function createMockRuns(seed: RunsSeed): RunsSource {
     count += 1;
     const id = `run-${count}`;
     specs.set(id, run.processes);
+    const ports = lease(target.checkout, run.processes);
+    leased.set(id, ports);
     const app: RunsApp = {
       id,
       run: run.name,
@@ -77,7 +92,10 @@ export function createMockRuns(seed: RunsSeed): RunsSource {
       repository: target.repository,
       ...(target.job === undefined ? {} : { job: target.job }),
       checkout: target.checkout,
-      processes: run.processes.map((spec) => ({ id: spec.id, name: spec.name, ...(spec.port === undefined ? {} : { port: spec.port }), phase: "starting" as const, log: startLines(spec) })),
+      processes: run.processes.map((spec) => {
+        const port = ports.get(spec.id);
+        return { id: spec.id, name: spec.name, ...(port === undefined ? {} : { port }), phase: "starting" as const, log: startLines(spec, port) };
+      }),
     };
     const saved = state.saved[target.repository];
     set({
@@ -91,11 +109,11 @@ export function createMockRuns(seed: RunsSeed): RunsSource {
   return {
     subscribe: (on) => (listeners.add(on), () => void listeners.delete(on)),
     get: () => state,
-    draft: (repository) => seed.drafts[repository] ?? { processes: [], savedIn: "this Mac" },
+    draft: (repository) => seed.drafts[repository] ?? { root: repository.replace(/^\/Users\/[^/]+/, "~"), processes: [], savedIn: "this Mac" },
     start: launch,
     save: (target, name, processes) => {
       count += 1;
-      const run: SavedRun = { id: `saved-${count}`, name, kind: processes.some((one) => one.port !== undefined) ? "browser" : "app", processes };
+      const run: SavedRun = { id: `saved-${count}`, name, kind: processes.some(listens) ? "browser" : "app", processes };
       const held = state.saved[target.repository];
       set({ ...state, saved: { ...state.saved, [target.repository]: { runs: [...(held?.runs ?? []), run], last: run.id } } });
       return launch(target, run);

@@ -9,11 +9,12 @@ export type RunProcessSpec = {
   id: string;
   name: string;
   folder: string;
-  /** `${port}` stands for the number the process is given. */
+  /** `${port}` stands for the port Fleet leased the checkout for this process; a command without it listens on none. */
   command: string;
-  /** Absent where the process listens on none. */
-  port?: number;
 };
+
+/** Whether a process listens: its command asks for a leased port. */
+export const listens = (spec: Pick<RunProcessSpec, "command">): boolean => spec.command.includes("${port}");
 
 /** A run the repository has saved: a name and the processes it starts together. */
 export type SavedRun = {
@@ -25,6 +26,8 @@ export type SavedRun = {
 
 /** The run Fleet drafted for a repository that has none saved, and where saving it puts it. */
 export type RunDraft = {
+  /** The repository's root as it is shown, the home directory already written `~`. A process's folder is read from here. */
+  root: string;
   processes: readonly RunProcessSpec[];
   savedIn: "armada.yml" | "this Mac";
 };
@@ -35,6 +38,7 @@ export type RunPhase = "starting" | "ready" | "exited" | "failed";
 export type RunProcess = {
   id: string;
   name: string;
+  /** The port leased to it in this checkout; main and a Job's bay hold different ones. */
   port?: number;
   phase: RunPhase;
   /** Where a browser run is opened. Absent until the process is ready, and for a desktop app. */

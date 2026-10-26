@@ -13,7 +13,7 @@
   list-style: none;
 }
 
-/* Line one is the process's name, folder and port and the way to remove it; line two is its command, across the whole width. */
+/* Line one is the process's name, folder and leased port and the way to remove it; under the folder is where it is on disk; the last line is its command, across the whole width. */
 .armada-run-confirm__row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) calc(var(--space-12) * 1.5) var(--h-control-sm);
@@ -24,6 +24,33 @@
 }
 
 .armada-run-confirm__command { grid-column: 1 / -1; }
+
+/* The folder's full path sits in the second column, under the field, and gives up its tail rather than the row's width. */
+.armada-run-confirm__path {
+  grid-column: 2;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-top: calc(var(--space-1) * -1);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-subtle);
+}
+
+/* The port is read-only: a label over a control-high cell, so it lines up with the fields beside it. */
+.armada-run-confirm__port { display: flex; flex-direction: column; gap: var(--space-1); }
+.armada-run-confirm__port-label { font-size: var(--text-xs); line-height: var(--leading-xs); color: var(--fg-muted); }
+.armada-run-confirm__port-value {
+  display: flex;
+  align-items: center;
+  height: var(--h-control);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-subtle);
+}
 
 .armada-run-confirm__foot {
   display: flex;

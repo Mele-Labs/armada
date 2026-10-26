@@ -44,7 +44,7 @@ export function RunHost({ ship, props }: { ship: Ship; props: CockpitProps }) {
   }, [source, state, sessions, repositories, ship, props.picked]);
   if (source === undefined || asked === undefined) return null;
   const drafted = source.draft(asked.target.repository);
-  const draft: RunDraft = asked.add ? { processes: BLANK, savedIn: drafted.savedIn } : drafted;
+  const draft: RunDraft = asked.add ? { ...drafted, processes: BLANK } : drafted;
   return (
     <RunConfirm
       open
