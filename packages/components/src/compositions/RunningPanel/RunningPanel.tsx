@@ -13,18 +13,20 @@ export function RunCheckoutFact({ checkout }: { checkout: RunCheckout }) {
   return (
     <dl className="armada-running__facts">
       <div className="armada-running__fact">
-        <dt>On</dt>
+        <dt>{checkout.kind === "main" ? "On" : "Job"}</dt>
         <dd>{checkout.kind === "main" ? "main" : checkout.title}</dd>
       </div>
-      <div className="armada-running__fact">
-        <dt>Branch</dt>
-        <dd data-mono="">{checkout.branch}</dd>
-      </div>
       {checkout.kind === "main" ? null : (
-        <div className="armada-running__fact">
-          <dt>Bay</dt>
-          <dd data-mono="">{checkout.bay}</dd>
-        </div>
+        <>
+          <div className="armada-running__fact">
+            <dt>Branch</dt>
+            <dd data-mono="">{checkout.branch}</dd>
+          </div>
+          <div className="armada-running__fact">
+            <dt>Bay</dt>
+            <dd data-mono="">{checkout.bay}</dd>
+          </div>
+        </>
       )}
     </dl>
   );
