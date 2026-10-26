@@ -22,6 +22,7 @@ import { FieldLayer } from "./FieldLayer";
 import { FieldPanel } from "./FieldPanel";
 import { BlueprintPanel } from "./BlueprintPanel";
 import { LandingPanel } from "./LandingPanel";
+import { OverTheApp } from "./OverTheApp";
 import { closeLayer, dropLayer, toggleLayer, useLayer, useLayerPage } from "./layers";
 import type { PlanEditing } from "./PlanEdit";
 import { WorkflowPanel } from "./WorkflowPanel";
@@ -53,9 +54,9 @@ export function SessionWorkspace({ session, entries, repositories, hosts, ed, ba
   const story = work !== undefined && draft !== undefined && side !== null;
   // Artifacts covers the right column, where the story is; every other layer covers the stage.
   const aside = story && layer === "artifacts";
-  // The document covers the whole Job view, the right column with the thread, so it is drawn into the deck's grid.
-  const grid = side?.closest(".deck-grid") ?? null;
-  const reading = open === "document" && grid !== null ? createPortal(<DocumentLayer key={page} session={session} />, grid) : null;
+  // The document floats over the whole Job in a sheet of its own, drawn on the body, so it needs no place in the deck. `OverTheApp` stays
+  // mounted while the Job is, so focus goes back to the opener when the document closes, and not when a dev render mounts it twice.
+  const reading = <OverTheApp open={open === "document"}>{open === "document" ? <DocumentLayer key={page} session={session} /> : null}</OverTheApp>;
   const layered = layer === undefined ? null : <Layer id={layer} session={session} entries={entries} bays={bays} onOpenCheck={onOpenCheck} onOpenSession={onOpenSession} onOpenSketch={onOpenSketch} />;
   // A band opens by its key, the Blueprint's whole-plan key swaps its Now view, and the composer's Artifacts key opens the list. A band's key closes the list first: the story is what it asked for.
   useEffect(() => {
