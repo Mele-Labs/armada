@@ -20,7 +20,7 @@ test("PR acts: pending while underway, auto-merge settles the Merge item", async
   await userEvent.keyboard("{Escape}");
   await expect.element(waiting.getByRole("button", { name: /^Needs you/ })).toHaveAttribute("aria-expanded", "false");
   await userEvent.click(page.getByRole("region", { name: "Flight controls" }).getByRole("button", { name: "Artifacts", exact: true }));
-  await userEvent.click(page.getByRole("region", { name: "Artifacts", exact: true }).getByRole("region", { name: "Pull requests", exact: true }).getByRole("button", { name: /^#1850 / }));
+  await userEvent.click(page.getByRole("region", { name: "Artifacts", exact: true }).getByRole("region", { name: "Pull requests", exact: true }).getByRole("button", { name: /^Pull request #1850 / }));
 
   const card = page.getByRole("dialog", { name: "Pull request #1850" });
   await userEvent.click(card.getByRole("button", { name: "Enable auto-merge" }));
