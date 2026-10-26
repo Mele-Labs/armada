@@ -74,11 +74,10 @@
 .projects-add[data-indented] { padding-inline-start: var(--space-8); }
 .projects-add__under { display: inline-flex; flex: none; color: var(--accent); }
 
-/* The right-hand columns, the same width on every card so an act stands where it stood on the card above. */
+/* The right-hand columns, the same width on every card so an answer or a Job stands where it stood on the card above. */
 .projects-rows {
   --projects-ask: calc(var(--space-12) * 4);
-  --projects-holder: calc(var(--space-12) * 4);
-  --projects-acts: calc(var(--h-control-sm) * 3);
+  --projects-end: calc(var(--space-12) * 4);
   display: flex;
   flex: 1 1 0;
   flex-direction: column;
@@ -107,7 +106,7 @@
 .projects-row {
   --hue: var(--fg-subtle);
   display: grid;
-  grid-template-columns: var(--space-6) var(--space-6) minmax(0, 1fr) var(--projects-ask) var(--projects-holder) var(--projects-acts);
+  grid-template-columns: var(--space-6) var(--space-6) minmax(0, 1fr) var(--projects-ask) var(--projects-end);
   align-items: center;
   column-gap: var(--space-3);
   min-height: var(--h-row);
@@ -165,7 +164,9 @@ button.projects-row__mark { cursor: pointer; }
 button.projects-row__mark:hover { background: var(--bg-hover); }
 .projects-row[data-state="open"] .projects-row__mark { color: var(--fg-muted); }
 
-.projects-row__title { display: flex; align-items: baseline; gap: var(--space-2); min-width: 0; }
+/* The title runs up to the card's end, over the done ask's column where the card has no ask. */
+.projects-row__title { grid-column: 3 / 5; display: flex; align-items: baseline; gap: var(--space-2); min-width: 0; }
+.projects-row[data-asking] .projects-row__title { grid-column: 3; }
 .projects-row__words { min-width: 0; overflow: hidden; font-weight: var(--weight-medium); text-overflow: ellipsis; white-space: nowrap; }
 .projects-row[data-state="done"] .projects-row__words,
 .projects-row[data-state="closed"] .projects-row__words { color: var(--fg-muted); }
@@ -175,14 +176,14 @@ button.projects-row__mark:hover { background: var(--bg-hover); }
 .projects-row__issue { padding: 0 var(--space-1); background: transparent; box-shadow: inset 0 0 0 var(--border-width) var(--border-default); color: var(--fg-muted); font-weight: var(--weight-medium); }
 .projects-row__issue[data-state="closed"] { color: var(--fg-subtle); text-decoration: line-through; }
 
-/* The right-hand columns. */
-.projects-row__ask { display: flex; justify-content: flex-end; gap: var(--space-1); }
-.projects-row__holder { display: flex; justify-content: flex-end; min-width: 0; }
+/* The right-hand columns: the done ask, then the card's end, flush to its right padding. */
+.projects-row__ask { grid-column: 4; display: flex; justify-content: flex-end; gap: var(--space-1); }
+.projects-row__end { grid-column: 5; display: flex; align-items: center; justify-content: flex-end; gap: var(--space-1); min-width: 0; }
 .projects-row__job {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  max-width: 100%;
+  flex: 0 1 auto;
   min-width: 0;
   height: var(--h-control-sm);
   padding: 0 var(--space-2);
@@ -199,8 +200,11 @@ button.projects-row__mark:hover { background: var(--bg-hover); }
 .projects-row__job .armada-session-mark > svg { width: var(--space-3); height: var(--space-3); }
 .projects-row__job-title { min-width: 0; overflow: hidden; font-weight: var(--weight-medium); text-overflow: ellipsis; white-space: nowrap; }
 
-/* The acts stand in their columns always, and show on a card under the pointer or holding focus. */
-.projects-row__acts { display: grid; grid-template-columns: repeat(3, var(--h-control-sm)); justify-content: end; }
+/* The acts take no room until the card is under the pointer or holds focus; then they stand beside the Job, which gives way. */
+.projects-row__acts { display: flex; flex: none; max-width: 0; overflow: hidden; }
+.projects-row:hover .projects-row__acts,
+.projects-row:focus-within .projects-row__acts,
+.projects-row:focus-visible .projects-row__acts { max-width: none; }
 .projects-row__act {
   display: inline-flex;
   align-items: center;
@@ -222,7 +226,6 @@ button.projects-row__mark:hover { background: var(--bg-hover); }
 .projects-row:focus-visible .projects-row__act { opacity: 1; }
 .projects-row__act:hover { background: var(--bg-hover); color: var(--fg-default); }
 .projects-row__act[data-remove]:hover { color: var(--status-completed-failed); }
-span.projects-row__act { cursor: default; }
 
 /* ---- The issue search ----------------------------------------------------------------------------------- */
 

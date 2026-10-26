@@ -138,6 +138,7 @@ function Card({ row, index, look, sub, state, sessions, selected, onOpenSession,
       data-state={state}
       data-look={look}
       data-sub={sub || undefined}
+      data-asking={state === "asking" || undefined}
       data-selected={selected || undefined}
       tabIndex={0}
       aria-label={label}
@@ -169,48 +170,44 @@ function Card({ row, index, look, sub, state, sessions, selected, onOpenSession,
         <span className="projects-row__words">{row.title}</span>
         {row.kind === "task" && !sub ? <IssueChips issues={row.issues ?? []} /> : null}
       </span>
-      <span className="projects-row__ask">
-        {state === "asking" ? (
-          <>
-            <Tooltip label="Mark done" shortcut={capOf(PROJECTS_KEYS.markDone)} asChild>
-              <Button variant="secondary" size="sm" tabIndex={-1} data-mark-done onClick={() => store.settle(row.id, true)}>
-                Mark done
-              </Button>
-            </Tooltip>
-            <Tooltip label="Keep open" shortcut={capOf(PROJECTS_KEYS.keepOpen)} asChild>
-              <Button variant="ghost" size="sm" tabIndex={-1} data-keep-open onClick={() => store.settle(row.id, false)}>
-                Keep open
-              </Button>
-            </Tooltip>
-          </>
-        ) : null}
-      </span>
-      <span className="projects-row__holder">{row.job === undefined ? null : <JobChip job={row.job} sessions={sessions} onOpen={onOpenSession} />}</span>
-      <span className="projects-row__acts">
-        {row.kind === "task" && !sub ? (
-          <>
-            <Tooltip label="Link issues to the task" shortcut={PROJECTS_KEYS.linkTask} asChild>
-              <button type="button" tabIndex={-1} className="projects-row__act" data-link-task aria-label={`Link issues to ${row.title}`} onClick={() => store.linking(true, row.id)}>
-                <Link size={16} strokeWidth={2} aria-hidden />
-              </button>
-            </Tooltip>
-            <Tooltip label="Add a subtask" shortcut={PROJECTS_KEYS.addSubtask} asChild>
-              <button type="button" tabIndex={-1} className="projects-row__act" data-add-subtask aria-label={`Add a subtask to ${row.title}`} onClick={() => store.subtasking(row.id)}>
-                <ListTree size={16} strokeWidth={2} aria-hidden />
-              </button>
-            </Tooltip>
-          </>
-        ) : (
-          <>
-            <span className="projects-row__act" aria-hidden="true" />
-            <span className="projects-row__act" aria-hidden="true" />
-          </>
-        )}
-        <Tooltip label={row.kind === "task" ? "Delete" : "Unlink"} shortcut={PROJECTS_KEYS.remove} asChild>
-          <button type="button" tabIndex={-1} className="projects-row__act" data-remove aria-label={`${row.kind === "task" ? "Delete" : "Unlink"} ${label}`} onClick={() => store.remove(row.id)}>
-            <Trash2 size={16} strokeWidth={2} aria-hidden />
-          </button>
-        </Tooltip>
+      {state === "asking" ? (
+        <span className="projects-row__ask">
+          <Tooltip label="Mark done" shortcut={capOf(PROJECTS_KEYS.markDone)} asChild>
+            <Button variant="secondary" size="sm" tabIndex={-1} data-mark-done onClick={() => store.settle(row.id, true)}>
+              Mark done
+            </Button>
+          </Tooltip>
+          <Tooltip label="Keep open" shortcut={capOf(PROJECTS_KEYS.keepOpen)} asChild>
+            <Button variant="ghost" size="sm" tabIndex={-1} data-keep-open onClick={() => store.settle(row.id, false)}>
+              Keep open
+            </Button>
+          </Tooltip>
+        </span>
+      ) : null}
+      {/* The card's end: the Job holding it flush right, and the acts beside it under the pointer or focus. */}
+      <span className="projects-row__end">
+        <span className="projects-row__acts">
+          {row.kind === "task" && !sub ? (
+            <>
+              <Tooltip label="Link issues to the task" shortcut={PROJECTS_KEYS.linkTask} asChild>
+                <button type="button" tabIndex={-1} className="projects-row__act" data-link-task aria-label={`Link issues to ${row.title}`} onClick={() => store.linking(true, row.id)}>
+                  <Link size={16} strokeWidth={2} aria-hidden />
+                </button>
+              </Tooltip>
+              <Tooltip label="Add a subtask" shortcut={PROJECTS_KEYS.addSubtask} asChild>
+                <button type="button" tabIndex={-1} className="projects-row__act" data-add-subtask aria-label={`Add a subtask to ${row.title}`} onClick={() => store.subtasking(row.id)}>
+                  <ListTree size={16} strokeWidth={2} aria-hidden />
+                </button>
+              </Tooltip>
+            </>
+          ) : null}
+          <Tooltip label={row.kind === "task" ? "Delete" : "Unlink"} shortcut={PROJECTS_KEYS.remove} asChild>
+            <button type="button" tabIndex={-1} className="projects-row__act" data-remove aria-label={`${row.kind === "task" ? "Delete" : "Unlink"} ${label}`} onClick={() => store.remove(row.id)}>
+              <Trash2 size={16} strokeWidth={2} aria-hidden />
+            </button>
+          </Tooltip>
+        </span>
+        {row.job === undefined ? null : <JobChip job={row.job} sessions={sessions} onOpen={onOpenSession} />}
       </span>
     </div>
   );
