@@ -49,6 +49,8 @@ pub(super) struct PullRequests {
     pub(super) auto_merge_off: Result<(), String>,
     /// What the forge answers for a pull request's page. `None` is silence.
     pub(super) page: Option<PullRequestPageFacts>,
+    /// The sentence the forge gives for a page it will not read, when it gives one.
+    pub(super) page_said: Option<String>,
     /// A page for one pull request, by number, ahead of `page`. `None` is silence for that one.
     pub(super) pages: Vec<(String, Option<PullRequestPageFacts>)>,
     /// The paths the person's commits changed, and every history read asked: authors and count.
@@ -82,6 +84,7 @@ impl Default for PullRequests {
             ready: Ok(()),
             auto_merge_off: Ok(()),
             page: None,
+            page_said: None,
             pages: Vec::new(),
             touched: Vec::new(),
             touched_asked: Vec::new(),
@@ -211,6 +214,12 @@ impl FakeVcs {
             Some((_, page)) => page.clone(),
             None => forge.page.clone(),
         }
+    }
+
+    /// `Forge::pull_request_page_said`: the page as scripted, else the sentence said, else silence.
+    pub(super) fn page_said_read(&self, pull_request: &str) -> Result<PullRequestPageFacts, Option<String>> {
+        self.page_read(pull_request)
+            .ok_or_else(|| self.pull_requests.lock().expect("not poisoned").page_said.clone())
     }
 
     /// `Vcs::paths_touched_by`: recorded, then answered as scripted.
@@ -348,6 +357,11 @@ impl FakeVcs {
     /// Say what the forge shows on a pull request's page, or that it is silent.
     pub fn now_pull_request_page(&self, page: Option<PullRequestPageFacts>) {
         self.pull_requests.lock().expect("not poisoned").page = page;
+    }
+
+    /// Say why the forge will not show a page, in a sentence a person can act on.
+    pub fn now_pull_request_page_said(&self, said: Option<String>) {
+        self.pull_requests.lock().expect("not poisoned").page_said = said;
     }
 
     /// Say what the forge shows on one pull request's page, ahead of the page said for the rest.

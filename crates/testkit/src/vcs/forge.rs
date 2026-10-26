@@ -248,6 +248,14 @@ impl Forge for FakeVcs {
         self.page_read(pull_request)
     }
 
+    fn pull_request_page_said(
+        &self,
+        _in_repo: &str,
+        pull_request: &str,
+    ) -> Result<adapter_traits::PullRequestPageFacts, Option<String>> {
+        self.page_said_read(pull_request)
+    }
+
     fn pull_request_file_patch(
         &self,
         _in_repo: &str,
