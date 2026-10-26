@@ -140,6 +140,43 @@ fn a_script_it_runs_is_read_and_not_written() {
     assert_eq!(listed(&bash("S=~/bin/x.sh; $S ~/out.txt"), &[], &[]), write("/Users/user/out.txt"));
 }
 
+/// A home on disk holding one program, `~/bin/headless-shell`, for the guard to find there.
+fn home_with_a_program(name: &str) -> String {
+    use std::os::unix::fs::PermissionsExt;
+    let home = std::env::temp_dir().join(format!("{name}-{}", std::process::id()));
+    std::fs::create_dir_all(home.join("bin")).expect("a home");
+    let program = home.join("bin/headless-shell");
+    std::fs::write(&program, "#!/bin/sh\n").expect("a program");
+    std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).expect("runnable");
+    home.to_string_lossy().into_owned()
+}
+
+fn listed_at(call: &AskingToRun, home: &str) -> Option<Guarded> {
+    guarded_in_a_session(call, &[SLOT], Own::default(), Folders { home, ..Folders::default() })
+}
+
+#[test]
+fn a_program_handed_to_a_script_is_run_and_not_written() {
+    // The walk driver, handed the browser it launches (26 Oct 2026).
+    let home = home_with_a_program("program-handed");
+    let drive = r#"cd /tmp/walkdrive; node drive.mjs \"http://127.0.0.1:5192/?walk=x&autoplay\" ~/bin/headless-shell /tmp/walkdrive 2>&1 | tail -8 | cut -c1-400"#;
+    assert_eq!(listed_at(&bash(drive), &home), None);
+}
+
+#[test]
+fn a_program_copied_over_or_redirected_into_is_still_written() {
+    let home = home_with_a_program("program-written");
+    let program = format!("{home}/bin/headless-shell");
+    let write = asks_to(Because::ReachesOutside, &program, ReachesTo::Write);
+    assert_eq!(listed_at(&bash("cp /tmp/other ~/bin/headless-shell"), &home), write);
+    assert_eq!(listed_at(&bash("tee ~/bin/headless-shell < /tmp/other"), &home), write);
+    assert_eq!(listed_at(&bash("node x.mjs >> ~/bin/headless-shell"), &home), write);
+    assert_eq!(
+        listed_at(&bash("node x.mjs > ~/bin/headless-shell"), &home),
+        Some(Guarded::Because { because: Because::Destructive, reaching: None, to: None })
+    );
+}
+
 #[test]
 fn a_folder_allowed_for_the_session_runs_and_the_owners_block_still_wins() {
     let documents = "/Users/user/Documents";
