@@ -75,7 +75,7 @@ import { Toasts, useRaised } from "./raised";
 import { DispatchFailure, useDispatchFailure } from "./failure-session";
 import { LinkPanelHost, useLinkDrop } from "./link-drop";
 import { usePasteAndDrop } from "./paste-and-drop";
-import { useLinkRoutes } from "./link-routes";
+import { routeLink, useLinkRoutes } from "./link-routes";
 import { SketchSharing } from "./sketch-sharing";
 import { openServerLink, openLink, restartFleet, changeFleetBuild, observeCheckoutRun, pickRepository, chooseFolder, resolveFolder, addRepository, cloneRepository, createProject, helmDebugInfo, startHelmFresh, pointHelm, getCheckoutRunOutput, getCheckoutRunDiff, readManifestFile, saveManifestFile, editManifest, readRepositoryScan, readManifestProposals, editManifestProposal, writeManifestProposal, listRepositoryAllowedCommands, removeRepositoryAllowedCommand, listKitServers, readKitInventory, removeKitAllowedCommand, removeKitPiece, restoreKitPiece, addKitServer, forgetKitServer, setKitServerReach, setManifestServerReach, listCheckoutRuns, undoCheckoutRun, setupSessionFleet, getRunMemoryPlace, captureStudioNote, readHeld, slotActs, bayActs, startCheckoutRun, startCheckoutVerify, startServer, stopCheckoutRun, stopServer, useCommands, watchCheckoutRunSheet, watchManifestDrift, watchOverview } from "./commands";
 import { hiddenSurfaces, MergeLineSurface } from "./merge-line";
@@ -734,7 +734,7 @@ export function App() {
         <TitleDispatchedStrip />
 
         <PaletteMount
-          open={palette.open} onClose={palette.onClose} dispatch={oneBar}
+          open={palette.open} onClose={palette.onClose} dispatch={oneBar} openLink={(typed) => routeLink(typed, "any", openPull, repositories)}
           shownStudio={shownStudio}
           surfaces={SURFACES.filter((one) => !hidden.includes(one.id))}
           checkoutRunSheet={state.checkoutRunSheet}

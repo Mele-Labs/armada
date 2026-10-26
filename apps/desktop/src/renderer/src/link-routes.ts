@@ -20,14 +20,28 @@ function openIssue(one: Extract<LinkClass, { kind: "issue" }>, repositories: rea
   return openInPanel({ kind: "issue", number: one.number, address: one.address, ...(root === undefined ? {} : { root }), ...(manifestId === undefined ? {} : { manifestId }) });
 }
 
-/** Mounted once, by `App`. `openPull` takes the window to Reviews on a pull request (`usePullLinks`). */
+/**
+ * Opens the page a link names, where it names a `kind` of one, and answers whether it did. An issue with no side panel hosted
+ * is not opened, and is left for the link panel as any web address is. `openPull` is `usePullLinks`'s, which takes the window to Reviews.
+ */
+export function routeLink(text: string | undefined, kind: "pull" | "issue" | "any", openPull: (link: PullLink) => void, repositories: readonly RepositorySummary[]): boolean {
+  const one = classifyLink(text ?? "");
+  if (one.kind === "other" || (kind !== "any" && one.kind !== kind)) return false;
+  if (one.kind === "issue") return openIssue(one, repositories);
+  openPull(one.link);
+  return true;
+}
+
+/** Whether a typed link names a pull request or an issue, for the palette's row. */
+export const kindOfLink = (text: string): "pull" | "issue" | null => {
+  const one = classifyLink(text);
+  return one.kind === "other" ? null : one.kind;
+};
+
+/** Mounted once, by `App`. */
 export function useLinkRoutes(openPull: (link: PullLink) => void, repositories: readonly RepositorySummary[]): void {
   const take = (kind: "pull" | "issue") => (event: Event, text: string | undefined): boolean => {
-    const one = classifyLink(text ?? "");
-    if (one.kind !== kind) return false;
-    // An issue with no side panel hosted is left for the link panel, as any web address is.
-    if (one.kind === "issue" && !openIssue(one, repositories)) return false;
-    if (one.kind === "pull") openPull(one.link);
+    if (!routeLink(text, kind, openPull, repositories)) return false;
     event.preventDefault();
     return true;
   };

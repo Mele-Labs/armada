@@ -19,6 +19,7 @@ import { askToOpenSession, openSessionIn } from "./open-session";
 import { openInPanel, openRequestsInPanel } from "./shared-panel/store";
 import { useSessions } from "./sessions-draft";
 import { askToCreateMod } from "./create-mod";
+import { kindOfLink } from "./link-routes";
 import { absentIn, carryOut, CREATE_MOD, dormantIn, FLEET_DOWN } from "./palette";
 
 export type PaletteMountProps = {
@@ -43,6 +44,8 @@ export type PaletteMountProps = {
   acts: Omit<Parameters<typeof carryOut>[1], "studioRun" | "studioAdd" | "createMod" | "debugBridge" | "openSession" | "requests">;
   /** The one bar's dispatch row. `one-bar.tsx`. */
   dispatch: PaletteDispatch;
+  /** Opens the page a typed link names, and answers whether it did. `link-routes.ts`. */
+  openLink: (typed: string) => boolean;
 };
 
 /**
@@ -61,6 +64,7 @@ export function PaletteMount({
   picked,
   acts,
   dispatch,
+  openLink,
 }: PaletteMountProps) {
   const studioRun = useStudioRunOff();
   const studioAdd = useStudioAddOff();
@@ -70,6 +74,8 @@ export function PaletteMount({
       open={open}
       onClose={onClose}
       dispatch={dispatch}
+      // A pasted pull request opens in Reviews and an issue in the side panel.
+      link={{ kindOf: kindOfLink, onOpen: (typed) => openLink(typed) }}
       // A pasted path opens in the panel, in the Session's checkout where it is relative: any file the person can read.
       path={{
         onOpen: async (typed) => {
