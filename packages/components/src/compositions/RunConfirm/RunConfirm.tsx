@@ -6,14 +6,15 @@ import { Button } from "../../primitives/Button/Button";
 import { Dialog } from "../../primitives/Dialog/Dialog";
 import { Input } from "../../primitives/Input/Input";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
-import { listens } from "../RunControl/runs";
+import { linkBrief, listens, portVariable } from "../RunControl/runs";
 import type { RunDraft, RunProcessSpec } from "../RunControl/runs";
+import { RunLinkLine, RunPinned } from "../RunLinkLine/RunLinkLine";
 
 /** A process as it is edited. Its port is not here: Fleet leases it, so there is nothing to type. */
-type Row = { id: string; name: string; folder: string; command: string };
+type Row = { id: string; name: string; folder: string; command: string; pin?: number };
 
-const rowOf = (one: RunProcessSpec): Row => ({ id: one.id, name: one.name, folder: one.folder, command: one.command });
-const specOf = (one: Row): RunProcessSpec => ({ id: one.id, name: one.name.trim(), folder: one.folder.trim() === "" ? "." : one.folder.trim(), command: one.command.trim() });
+const rowOf = (one: RunProcessSpec): Row => ({ id: one.id, name: one.name, folder: one.folder, command: one.command, ...(one.pin === undefined ? {} : { pin: one.pin }) });
+const specOf = (one: Row): RunProcessSpec => ({ id: one.id, name: one.name.trim(), folder: one.folder.trim() === "" ? "." : one.folder.trim(), command: one.command.trim(), ...(one.pin === undefined ? {} : { pin: one.pin }) });
 
 /** Where a folder is on disk: the root with the folder under it, `.` and an empty field being the root itself. An absolute or `~` folder stands as typed. */
 function fullPath(root: string, folder: string): string {
@@ -26,7 +27,8 @@ function fullPath(root: string, folder: string): string {
 /**
  * The first run of a repository that has none saved: the run Fleet drafted from what Jobs ran there and from the repository's files,
  * each process's name, folder and command editable, with a process added or removed, and its leased port shown as a fact. **One act, Save and run**, and where it saves
- * is a fact under the processes. What is typed is kept under `keep` until it is saved. **`name` present adds a field for the run's own name**,
+ * is a fact under the processes. **A link Fleet found** (one process expecting another on a fixed port) is a fact under the rows with two acts, Fix with a Job and
+ * Pin the port, which shows on the row as the port and a pin in place of `leased`; neither is needed to save. What is typed is kept under `keep` until it is saved. **`name` present adds a field for the run's own name**,
  * for a repository that already has runs and is given another.
  */
 export function RunConfirm({
@@ -37,6 +39,7 @@ export function RunConfirm({
   keep,
   onSave,
   onCancel,
+  onFix,
 }: {
   open: boolean;
   repository: string;
@@ -46,6 +49,8 @@ export function RunConfirm({
   keep: string;
   onSave: (processes: readonly RunProcessSpec[], name: string) => void;
   onCancel: () => void;
+  /** Fix with a Job, with the brief for it. */
+  onFix?: (brief: string) => void;
 }) {
   const [rows, setRows, forget] = useKept<Row[]>(`run-confirm:${keep}`, draft.processes.map(rowOf));
   const [runName, setRunName, forgetName] = useKept<string>(`run-confirm-name:${keep}`, name ?? "");
@@ -57,7 +62,14 @@ export function RunConfirm({
     return () => clearTimeout(later);
   }, [open]);
   const change = (id: string, field: keyof Omit<Row, "id">, value: string) => setRows((was) => was.map((one) => (one.id === id ? { ...one, [field]: value } : one)));
+  const pin = (id: string, port: number | undefined) => setRows((was) => was.map((one) => (one.id !== id ? one : port === undefined ? { id: one.id, name: one.name, folder: one.folder, command: one.command } : { ...one, pin: port })));
   const ready = (name === undefined || runName.trim() !== "") && rows.length > 0 && rows.every((one) => one.name.trim() !== "" && one.command.trim() !== "");
+  // A link is shown while both its processes are rows, under the names they have now.
+  const links = (draft.links ?? []).flatMap((link) => {
+    const from = rows.find((one) => one.id === link.from);
+    const to = rows.find((one) => one.id === link.to);
+    return from === undefined || to === undefined || from.name.trim() === "" || to.name.trim() === "" ? [] : [{ link, from, to }];
+  });
   return (
     <Dialog
       open={open}
@@ -84,8 +96,10 @@ export function RunConfirm({
               <div className="armada-run-confirm__port">
                 <span className="armada-run-confirm__port-label">Port</span>
                 <span className="armada-run-confirm__port-value">
-                  {listens(row) ? (
-                    <Tooltip label={`The other processes read it as ARMADA_PORT_${row.name.trim().toUpperCase().replace(/[^A-Z0-9]+/g, "_") || "NAME"}`}>
+                  {row.pin !== undefined ? (
+                    <RunPinned port={row.pin} name={row.name.trim()} onUnpin={() => pin(row.id, undefined)} />
+                  ) : listens(row) ? (
+                    <Tooltip label={`The other processes read it as ${portVariable(row.name)}`}>
                       <span tabIndex={0}>leased</span>
                     </Tooltip>
                   ) : null}
@@ -103,6 +117,21 @@ export function RunConfirm({
             </li>
           ))}
         </ul>
+        {links.length === 0 ? null : (
+          <div className="armada-run-confirm__links">
+            {links.map(({ link, from, to }) => (
+              <RunLinkLine
+                key={`${link.from}:${link.to}`}
+                link={link}
+                from={from.name.trim()}
+                to={to.name.trim()}
+                pinned={to.pin === link.port}
+                onFix={() => onFix?.(linkBrief(link, from.name.trim(), to.name.trim()))}
+                onPin={() => pin(to.id, to.pin === link.port ? undefined : link.port)}
+              />
+            ))}
+          </div>
+        )}
         <div className="armada-run-confirm__foot">
           <Button variant="secondary" size="sm" onClick={() => setRows((was) => [...was, { id: `new-${was.length + 1}-${Date.now()}`, name: "", folder: ".", command: "" }])}>
             Add process

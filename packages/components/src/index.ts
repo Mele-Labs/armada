@@ -464,4 +464,5 @@ export * from "./compositions/AdversarialReview/AdversarialReview";
 export * from "./compositions/AdversarialReview/AnchoredFindings";
 export * from "./compositions/RunControl/RunControl";
 export * from "./compositions/RunConfirm/RunConfirm";
+export * from "./compositions/RunLinkLine/RunLinkLine";
 export * from "./compositions/RunningPanel/RunningPanel";
