@@ -8,7 +8,7 @@ import { Card } from "../../primitives/Card/Card";
 import { Input } from "../../primitives/Input/Input";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { DropdownMenu, type DropdownMenuEntry } from "../../primitives/DropdownMenu/DropdownMenu";
-import { ContextFigure, type ContextFill } from "./ContextFigure";
+import { ContextFigure, type ContextCompact, type ContextFill } from "./ContextFigure";
 import { RunningChecks, type RunningCheck } from "../RunningChecks/RunningChecks";
 import { LoadoutMark, type LoadoutMarkProps } from "../LoadoutMark/LoadoutMark";
 import { useMarking, type Mark } from "../../marking";
@@ -98,7 +98,7 @@ export function ModMark({ size = 16 }: { size?: 12 | 16 }) {
 }
 
 export { ContextFigure } from "./ContextFigure";
-export type { ContextFill } from "./ContextFigure";
+export type { ContextCompact, ContextFill } from "./ContextFigure";
 
 /** A Session that is big or old, as figures already said, and the two acts offered on it in the header's menu. */
 export type FreshStart = {
@@ -157,6 +157,8 @@ export type SessionFrameProps = {
   modOutOfDate?: boolean;
   /** The context window's fill, drawn as a tank after `actions`. Absent draws nothing. */
   context?: ContextFill;
+  /** Compact, offered at the foot of the context tank's card or popover. Absent offers none. */
+  compact?: ContextCompact;
   /**
    * The Checks the Session has out, drawn as the running glyph and their count before the context tank: a press lists
    * them and a press on one calls `onOpenCheck` with its run. Absent or empty draws nothing.
@@ -183,8 +185,9 @@ export type SessionFrameProps = {
   back?: ReactNode;
   /** The ledger, as a panel of its own beside the conversation: a sibling card the height of the first, scrolling on its own. */
   aside?: ReactNode;
-  /** A row of views under the head, full width, before the body. */
+  /** Views of the Session as tabs: a row under the head, full width, or in the head's own row before the checks and the context tank. */
   tabs?: ReactNode;
+  tabsPlace?: "row" | "head";
   children: ReactNode;
 };
 
@@ -250,7 +253,7 @@ function SessionTitle({ title, onRename }: { title?: string; onRename?: (title: 
 
 const DOCKED: readonly Mark[] = [{ of: ".armada-shell", as: "data-dock" }];
 
-export function SessionFrame({ state, said, id, address, title, onRename, modOutOfDate = false, checks, onOpenCheck, context, loadout, fresh, repository, actions, menu, back, aside, tabs, children }: SessionFrameProps) {
+export function SessionFrame({ state, said, id, address, title, onRename, modOutOfDate = false, checks, onOpenCheck, context, compact, loadout, fresh, repository, actions, menu, back, aside, tabs, tabsPlace = "row", children }: SessionFrameProps) {
   const named = address ?? id;
   const more = menuWithFresh(menu, fresh);
   // The aside wears the dock's class, and the shell's glow follows it (`TheShell.css`).
@@ -263,8 +266,9 @@ export function SessionFrame({ state, said, id, address, title, onRename, modOut
         <SessionTitle {...(title === undefined ? {} : { title })} {...(onRename === undefined ? {} : { onRename })} />
         {repository}
         {actions}
+        {tabsPlace === "head" ? tabs : null}
         {checks === undefined ? null : <RunningChecks checks={checks} {...(onOpenCheck === undefined ? {} : { onOpenCheck })} />}
-        {context === undefined ? null : <ContextFigure fill={context} />}
+        {context === undefined ? null : <ContextFigure fill={context} {...(compact === undefined ? {} : { compact })} />}
         {loadout === undefined ? null : <LoadoutMark {...loadout} />}
         <span className="armada-session-frame__marks">
           {modOutOfDate && state !== "quiet" ? <ModMark /> : null}
@@ -272,7 +276,7 @@ export function SessionFrame({ state, said, id, address, title, onRename, modOut
         {more === undefined || more.entries.length === 0 ? null : <DropdownMenu align="end" portal icon={Ellipsis} triggerLabel="More" entries={more.entries} onSelect={more.onSelect} />}
         {back}
       </header>
-      {tabs}
+      {tabsPlace === "row" ? tabs : null}
       <div className="armada-session-frame__body">{children}</div>
     </Card>
     {aside === undefined || aside === null ? null : <Card className="armada-session-frame__aside armada-shell__dock">{aside}</Card>}

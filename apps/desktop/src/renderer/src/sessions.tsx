@@ -128,7 +128,8 @@ import { useJobDock } from "./job-shell-dock";
 import { todosOf } from "./session-activity";
 import { confirmWaiting, dismissWaiting } from "./cockpit/dismissed";
 import { JobTabs } from "./cockpit/deck/JobTabs";
-import { flightTake } from "./cockpit/deck/flight-take";
+import { flightTake, tabsLook } from "./cockpit/deck/flight-take";
+import { useCompactAct } from "./cockpit/deck/compact-act";
 import { holdsDelivery, stateOf } from "./session-state";
 import type { PlanEditing } from "./session-view/PlanEdit";
 import type { LoadoutAt } from "./session-loadout";
@@ -1055,6 +1056,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
   const inUse = root !== undefined && sessions.some((other) => other.id !== session.id && other.lastTurnAt !== undefined && rootOfSession(other, repositories) === root);
   const cardLead = !unread && where !== undefined && root !== undefined && cardOn(root, session.id, sentTo(session) || inUse);
   const marked = unread || where === undefined || cardLead ? undefined : <RunsPlaceControl {...where} />;
+  const compactAct = useCompactAct(session, draft);
   return (
     <TeachHereContext.Provider value={teachHere}>
     <SessionRefs session={session}>
@@ -1087,8 +1089,9 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
           },
         }}
         {...(deck === undefined ? {} : { back: deck.back })}
-        // The `tabs` take of Flight control draws the Job's views as tabs under its head, on the Cockpit only (`cockpit/deck/flight-take.ts`).
-        {...(deck?.flight === true && flightTake() === "tabs" ? { tabs: <JobTabs session={session} bays={bays} /> } : {})}
+        // The takes of Flight control, on the Cockpit only (`cockpit/deck/flight-take.ts`): the Job's views as tabs, on a second row of the head or in its row, and Compact in the context tank.
+        {...(deck?.flight === true && flightTake() === "tabs" ? { tabs: <JobTabs session={session} bays={bays} />, tabsPlace: tabsLook() === "segmented" ? ("head" as const) : ("row" as const) } : {})}
+        {...(deck?.flight === true && compactAct !== undefined ? { compact: compactAct } : {})}
         {...{
               actions: (
                 <>

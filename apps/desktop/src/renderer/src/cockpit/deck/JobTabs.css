@@ -1,17 +1,40 @@
-/* The tab row under a Job's title (`JobTabs.tsx`): the head's own width, side padding and hairline, on the pane's surface with no track of its own. The side
-   padding takes the tab's own off the head's, so the first word stands under the title's glyph. A layer starts at `--sv-tabs-bottom`, which the row sets on
-   the pane, so the title and the tabs stay on show over it. */
+/* The Job's views as tabs (`JobTabs.tsx`), in the two looks on `&tabs=`. A layer starts at `--sv-tabs-bottom`, which the tabs set on the pane to where the head ends,
+   so the Job's title and the tabs stay on show over it. */
 
 .deck-pane .sv-layer { top: var(--sv-tabs-bottom, 0); }
-.sv-tabs { flex: none; padding: var(--space-1) var(--space-4) var(--space-1) calc(var(--space-4) - var(--space-2)); box-shadow: inset 0 calc(var(--border-width) * -1) 0 var(--head-rule, var(--border-subtle)); }
-.sv-tabs__list { display: flex; align-items: center; gap: var(--space-1); min-width: 0; }
-
-.sv-tabs .sv-tab { padding: 0 var(--space-2); }
-/* The chosen tab is filled where it stands. */
-.sv-tab[aria-selected="true"] { background: var(--accent-muted); }
+.sv-tabs__list { display: flex; align-items: center; min-width: 0; }
 .sv-tab__count { font-family: var(--font-mono); font-size: var(--text-2xs); line-height: var(--leading-xs); color: var(--fg-default); }
 .sv-tab__clash { display: inline-flex; color: var(--status-awaiting-review); }
 .sv-tab__running { display: inline-flex; color: var(--status-running); animation: deck-bay-pulse calc(var(--duration-pulse) * 1.5) ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .sv-tab__running { animation: none; } }
 /* Lit as the Bays tile is: the stranded hue, the word still plain. */
 .sv-tab[data-lit] { color: var(--slot-stranded); }
+
+/* ---- nav: a second row of the head, in the type and on the ground of the places in the title bar (`deck-chrome.css`) ---------------------------------- */
+
+/* The head's own hairline goes, so the one under this row is the head's. */
+:root .deck-pane[data-frame] .armada-session-frame__head:has(+ .sv-tabs[data-look="nav"]) { box-shadow: none; }
+.sv-tabs[data-look="nav"] { flex: none; padding: 0 var(--space-4) var(--space-2) calc(var(--space-4) - var(--space-2)); box-shadow: inset 0 calc(var(--border-width) * -1) 0 var(--head-rule, var(--border-subtle)); }
+.sv-tabs[data-look="nav"] .sv-tabs__list { gap: var(--space-1); }
+.sv-tabs[data-look="nav"] .sv-tab {
+  padding: 0 var(--space-2);
+  border-radius: var(--glass-radius-control);
+  color: var(--fg-muted);
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-nav);
+  letter-spacing: var(--tracking-nav);
+  text-transform: uppercase;
+}
+.sv-tabs[data-look="nav"] .sv-tab:hover { color: var(--fg-default); }
+/* The chosen one is the brighter word on the same faint wash as the chosen place. */
+.sv-tabs[data-look="nav"] .sv-tab[aria-selected="true"] { background: color-mix(in srgb, var(--fg-default) 8%, transparent); color: var(--fg-default); }
+
+/* ---- segmented: a track in the head's own row, the chosen segment raised over it ------------------------------------------------------------------- */
+
+.sv-tabs[data-look="segmented"] { flex: none; }
+.sv-tabs[data-look="segmented"] .sv-tabs__list { gap: 0; padding: var(--bar); border: var(--border-width) solid var(--border-subtle); border-radius: var(--radius-md); background: var(--bg-sunken); }
+/* The track is the head's buttons' height and radius, so the two stand in one line; the segment is what the track's padding and hairline leave, its curve the track's less both. */
+.sv-tabs[data-look="segmented"] .sv-tab { height: calc(var(--h-control-sm) - (var(--bar) + var(--border-width)) * 2); padding: 0 var(--space-3); border-radius: calc(var(--radius-md) - var(--bar) - var(--border-width)); font-size: var(--text-xs); }
+/* Raised: a step lighter than the track with a hairline round it and the highlight along its top, and no shadow. */
+.sv-tabs[data-look="segmented"] .sv-tab[aria-selected="true"] { background: var(--bg-step-strong); box-shadow: inset 0 0 0 var(--border-width) var(--border-default), inset 0 var(--border-width) 0 var(--border-highlight); }

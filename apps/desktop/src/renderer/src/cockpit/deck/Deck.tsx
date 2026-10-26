@@ -54,6 +54,7 @@ import { RowMenu, type RowMenuAt } from "./RowMenu";
 import { FlightEdit } from "./FlightEdit";
 import { isWebAddress, repositoryFileOf, tilesOf, useFlightFile, useRepositoryFlight, type FlightSet } from "./flight-controls";
 import { glyphOf as flightGlyph } from "./flight-glyphs";
+import { flightTake } from "./flight-take";
 import { SessionTiles } from "./SessionTiles";
 import { reportRoot, tileCap } from "./session-tiles";
 import { checkoutSaid, heldOf } from "./YourCheckout";
@@ -357,7 +358,9 @@ export function useActivityBeside(grid: RefObject<HTMLDivElement | null>, layout
       if (queue === null || foot === null) return;
       // The queue is redrawn when the repository changes, so the one on screen is watched each time.
       watch.observe(queue);
-      const height = foot.getBoundingClientRect().bottom - queue.getBoundingClientRect().top;
+      // The queue is under the foot in a take (`flight-take.ts`), so the span is from whichever stands higher to whichever stands lower.
+      const [one, two] = [queue.getBoundingClientRect(), foot.getBoundingClientRect()];
+      const height = Math.max(one.bottom, two.bottom) - Math.min(one.top, two.top);
       if (height > 0) root.style.setProperty("--deck-activity", `${Math.round(height)}px`);
     };
     for (const one of root.querySelectorAll(".deck-centre, .deck-foot, .deck-stage > *")) watch.observe(one);
@@ -1084,6 +1087,7 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
   // What a layout leaves drawn of the deck's panels. A right column it empties, or a foot, is not drawn and gives its room to the stage.
   const panels = new Set(useLayout("dashboard.panels").shown.map((one) => one.id));
   const bare = !reading && !panels.has("bays") && !panels.has("activity");
+  const take = flightTake();
   const footed = panels.has("controls") || (!unified && (panels.has("dispatch") || panels.has("autopilot")));
   const layout = unified ? "session" : reading ? "reading" : bare ? "bare" : "idle";
   const { columns, resize, reset } = useColumns(grid, layout);
@@ -1108,7 +1112,7 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
           <div className="deck-stage" data-exit={exiting ? "" : undefined}>
             <Stage props={props} ship={ship} listed={listed} autopilot={autopilot} ledger={reading && !unified ? ledgerHost : null} hosts={hosts} />
             {onStage === undefined ? null : <ShellPanel key={onStage} sessionId={onStage} />}
-            <MergeQueue props={props} ship={ship} />
+            {take === undefined ? <MergeQueue props={props} ship={ship} /> : null}
           </div>
           {footed ? (
             <div className="deck-foot">
@@ -1117,6 +1121,8 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
               {unified || !panels.has("autopilot") ? null : <AutopilotPanel props={props} autopilot={autopilot} />}
             </div>
           ) : null}
+          {/* In a take the merge line is the bottom of the centre, under Flight control (`flight-take.ts`). */}
+          {take === undefined ? null : <MergeQueue props={props} ship={ship} />}
         </div>
         {bare ? null : (
           <div className="deck-right">

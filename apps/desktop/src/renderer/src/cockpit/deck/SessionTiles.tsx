@@ -17,7 +17,7 @@
 // **On `?take=grouped` or `?take=tabs` the tiles are drawn in groups or in one row, with Auto land and Pause as switches** (`flight-take.ts`), a mock comparison
 // of 25 Oct 2026; with neither they are the pages above.
 
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { Fragment, useEffect, useRef, useState, type CSSProperties } from "react";
 import { Circle, CircleCheck, CircleDot, LoaderCircle, Play, Swords } from "lucide-react";
 import { Eclipse } from "lucide-react";
 import { Kbd, Separator, Switch, Tooltip, type SentFromComposer } from "@armada/components";
@@ -30,7 +30,7 @@ import { useJobTerminal } from "../../job-shell-dock";
 import { useSessionsSaid } from "../../sessions-draft";
 import { useFleetEvents } from "../fleet-events";
 import { flightGrid, pageCell, pagesOf } from "./flight-pages";
-import { flightTake, groupsOf, rowOf, takeKey } from "./flight-take";
+import { flightTake, groupsOf, runsOf, takeKey } from "./flight-take";
 import { FlightBlock } from "./FlightBlock";
 import { filled, repositoryFileOf, tilesOf, useFlightFile, useRepositoryFlight, type JobFacts, type Tile } from "./flight-controls";
 import { approveTile, committedFileOf } from "./flight-controls";
@@ -305,7 +305,7 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
   if (shell !== undefined) return <ShellBox run={shell} onClose={closeShell} />;
   /**
    * One tile. `page` is today's, in its page; `tile` is the same in a group; `chip` is one row tall, the glyph beside the word; `square` is an off one,
-   * the glyph alone with its reason as the tooltip. Every fact a tile carries is on all but the square.
+   * the glyph alone with its reason as the tooltip. Every fact a tile carries is on all but the square; a chip is lit instead of carrying Auto land's dot, and its key is in its tooltip.
    */
   const drawTile = (tile: Tile, form: "page" | "tile" | "chip" | "square", cell: Record<string, unknown> = {}) => {
     const id = idOf(tile);
@@ -352,7 +352,7 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
             <Glyph size={20} aria-hidden="true" />
           )}
           {bare ? null : <span className="deck-tile__text">{paused ? "Resume" : tile.text}</span>}
-          {bare || id !== "land" ? null : (
+          {bare || form === "chip" || id !== "land" ? null : (
             // A mark in the corner, as Subagents carries its count, so the tile keeps its place: a filled dot while on, a ring while off.
             <span className="deck-tile__state" role="img" aria-label={on ? "Auto land on" : "Auto land off"} data-on={on || undefined}>
               {on ? <CircleDot size={12} strokeWidth={2} aria-hidden="true" /> : <Circle size={12} strokeWidth={2} aria-hidden="true" />}
@@ -385,7 +385,7 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
               <span style={{ width: `${filledBy}%` }} />
             </span>
           )}
-          {bare || key === undefined ? null : (
+          {bare || form === "chip" || key === undefined ? null : (
             <Kbd className="deck-tile__key" aria-hidden="true">
               {tileCap(key)}
             </Kbd>
@@ -448,15 +448,17 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
     );
   }
   if (take === "tabs") {
-    const row = rowOf(shown, whyOf);
     return (
       <>
         {dialog}
         <div className="deck-controls__block deck-flight" data-subject="session" data-take="tabs">
           <div className="deck-flight__row">
-            {row.switches.map(drawSwitch)}
-            <Separator orientation="vertical" className="deck-flight__rule" />
-            {row.tiles.map((tile) => drawTile(tile, whyOf(tile) === undefined ? "chip" : "square"))}
+            {runsOf(shown).map((run, at) => (
+              <Fragment key={run[0]!.id}>
+                {at === 0 ? null : <Separator orientation="vertical" className="deck-flight__rule" />}
+                {run.map((tile) => drawTile(tile, "chip"))}
+              </Fragment>
+            ))}
           </div>
         </div>
       </>

@@ -1,7 +1,8 @@
 // Two takes on Flight control while a Job is open, played in the mock on `?take=`: `grouped` draws the Job's tiles in three groups side by side with
-// no pages (Job, Tell the agent, Open); `tabs` moves Artifacts, Checks, Subagents and Bays to a tab row at the top of the thread (`JobTabs.tsx`) and
-// leaves Flight control one row. Any other value, or none, draws today's pages. A mock comparison of 25 Oct 2026 for the owner's ask that Flight
-// control "feels so hard to find anything" in. Only one stays: the one he picks, and this file goes with the other.
+// no pages (Job, Tell the agent, Open); `tabs` moves Artifacts, Checks, Subagents and Bays to tabs on the Job's head (`JobTabs.tsx`, in the look `&tabs=nav`, the
+// default, or `&tabs=segmented`) and leaves Flight control one row of chips. In both takes Compact is the context figure's (`ContextFigure.tsx`) and the merge
+// line is the bottom of the Cockpit's centre, under Flight control. Any other value, or none, draws today's pages. A mock comparison of 25 Oct 2026 for the
+// owner's ask that Flight control "feels so hard to find anything" in. Only one stays: the one he picks, and this file goes with the other.
 
 import type { Tile } from "./flight-controls";
 import { tileKey, type SessionTileId } from "./session-tiles";
@@ -14,6 +15,11 @@ export const flightTake = (): FlightTake | undefined => {
   return take === "grouped" || take === "tabs" ? take : undefined;
 };
 
+export type TabsLook = "nav" | "segmented";
+
+/** The look of the tabs on the page address, `nav` where none is given. */
+export const tabsLook = (): TabsLook => (new URLSearchParams(window.location.search).get("tabs") === "segmented" ? "segmented" : "nav");
+
 export type FlightGroup = "job" | "tell" | "open";
 
 export const GROUP_NAME: Record<FlightGroup, string> = { job: "Job", tell: "Tell the agent", open: "Open" };
@@ -24,12 +30,12 @@ export const SWITCHES: readonly string[] = ["land", "pause"];
 /** Each group's built-ins in the order drawn. Map is the stage's own switch and is in none. */
 const GROUPS: Record<FlightGroup, readonly SessionTileId[]> = {
   job: ["land", "pause", "release"],
-  tell: ["ask", "compact", "judge", "report"],
+  tell: ["ask", "judge", "report"],
   open: ["artifacts", "checks", "subagents", "slot", "terminal", "requests"],
 };
 
-/** The tiles `tabs` leaves in Flight control, after its switches. */
-const ROW: readonly SessionTileId[] = ["ask", "compact", "judge", "report", "release", "terminal", "requests"];
+/** The three runs of chips `tabs` draws in Flight control, a rule between each; the owner's own tiles are a fourth. */
+const RUNS: readonly (readonly SessionTileId[])[] = [["land", "pause"], ["ask", "judge", "report"], ["release", "terminal", "requests"]];
 
 /** The layers `tabs` draws as tabs, in order. Thread, which is no layer, comes before them. */
 export const TAB_LAYERS = ["artifacts", "checks", "subagents", "slot"] as const;
@@ -54,15 +60,15 @@ export function groupsOf(shown: readonly Tile[], why: (tile: Tile) => string | u
   });
 }
 
-/** `tabs`: the switches, then the tiles of the row, the owner's own after them, off ones last. */
-export function rowOf(shown: readonly Tile[], why: (tile: Tile) => string | undefined): { switches: Tile[]; tiles: Tile[] } {
-  return { switches: built(shown, SWITCHES), tiles: liveFirst([...built(shown, ROW), ...shown.filter((one) => one.builtIn === undefined)], why) };
+/** `tabs`: the runs of chips, each in its own order and every chip in its seat, off or on, so nothing shifts; the owner's own tiles end the row. */
+export function runsOf(shown: readonly Tile[]): Tile[][] {
+  return [...RUNS.map((ids) => built(shown, ids)), shown.filter((one) => one.builtIn === undefined)].filter((run) => run.length > 0);
 }
 
 /** Each take numbers its keys in reading order, ⌥⇧1 to ⌥⇧9 and ⌥⇧0, the ones after the tenth having none. */
 const KEY_ORDER: Record<FlightTake, readonly string[]> = {
-  grouped: ["land", "release", "ask", "compact", "judge", "report", "artifacts", "checks", "subagents", "slot"],
-  tabs: ["artifacts", "checks", "subagents", "slot", "land", "ask", "compact", "judge", "report", "release"],
+  grouped: ["land", "release", "ask", "judge", "report", "artifacts", "checks", "subagents", "slot", "terminal"],
+  tabs: ["artifacts", "checks", "subagents", "slot", "land", "ask", "judge", "report", "release", "terminal"],
 };
 
 /**
