@@ -32,11 +32,11 @@ const tab = (host: HTMLElement, name: string, nth = 0) => [...host.querySelector
 test("The tab bar maps each tab to its surface", () => {
   const went: string[] = [];
   const bar = mount(<TabBar showing={SURFACE.overview} onGoTo={(id) => went.push(id)} />);
-  expect([...bar.querySelectorAll('[role="tab"]')].map((one) => one.textContent)).toEqual(["Cockpit", "Jobs", "Jobs", "Studios", "Logbook", "Reviews", "Issues", "System"]);
+  expect([...bar.querySelectorAll('[role="tab"]')].map((one) => one.textContent)).toEqual(["Cockpit", "Jobs", "Jobs", "Studios", "Logbook", "Reviews", "Issues", "Projects", "System"]);
   expect(tab(bar, "Cockpit").getAttribute("aria-selected")).toBe("true");
-  const pressed = ["Jobs", "Jobs", "Studios", "Logbook", "Reviews", "Issues", "System"];
+  const pressed = ["Jobs", "Jobs", "Studios", "Logbook", "Reviews", "Issues", "Projects", "System"];
   pressed.forEach((name, at) => act(() => tab(bar, name, pressed.slice(0, at).filter((one) => one === name).length).click()));
-  expect(went).toEqual([SURFACE.jobs, SURFACE.sessions, SURFACE.studios, SURFACE.logbook, SURFACE.reviews, SURFACE.issues, SURFACE.kit]);
+  expect(went).toEqual([SURFACE.jobs, SURFACE.sessions, SURFACE.studios, SURFACE.logbook, SURFACE.reviews, SURFACE.issues, SURFACE.projects, SURFACE.kit]);
 });
 
 test("A Studio's pages and the Logbook page are under their own tabs", () => {
