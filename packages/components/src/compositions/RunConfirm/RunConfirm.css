@@ -1,0 +1,44 @@
+.armada-run-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.armada-run-confirm__rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Line one is the process's name, folder and port and the way to remove it; line two is its command, across the whole width. */
+.armada-run-confirm__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) calc(var(--space-12) * 1.5) var(--h-control-sm);
+  align-items: end;
+  gap: var(--space-2);
+  padding-bottom: var(--space-3);
+  border-bottom: var(--border-width) solid var(--border-subtle);
+}
+
+.armada-run-confirm__command { grid-column: 1 / -1; }
+
+.armada-run-confirm__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.armada-run-confirm__where {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+.armada-run-confirm__where-label { color: var(--fg-subtle); }
+.armada-run-confirm__where code { font-family: var(--font-mono); color: var(--fg-default); }

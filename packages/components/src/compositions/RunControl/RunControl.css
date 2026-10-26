@@ -1,0 +1,25 @@
+/* The play glyph and its caret, two ghost buttons side by side; the pair keeps its width wherever a row has no run to show. */
+.armada-run-control {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 0;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+/* A run's state mark, in the run tokens: starting and ready share the serving hue and are told apart by the glyph. */
+.armada-run-mark {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  color: var(--fg-subtle);
+}
+.armada-run-mark[data-phase="starting"],
+.armada-run-mark[data-phase="ready"] { color: var(--run-serving); }
+.armada-run-mark[data-phase="exited"] { color: var(--run-stopped); }
+.armada-run-mark[data-phase="failed"] { color: var(--run-failed); }
+.armada-run-mark[data-phase="starting"] > svg { animation: armada-run-spin 1s linear infinite; }
+@keyframes armada-run-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .armada-run-mark[data-phase="starting"] > svg { animation: none; } }
