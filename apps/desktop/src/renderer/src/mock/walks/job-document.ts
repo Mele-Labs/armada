@@ -42,6 +42,7 @@ const reading = walk("job-story", [
   { look: inside(inside(page, role("group", "Check runs", { exact: true })), role("img", "Note 2")), say: "Its number stands on the part" },
   { press: measured, say: "The next section" },
   { key: "ArrowDown", on: measured, say: "The arrows walk the contents" },
+  { hover: inside(page, row("Pin the store clock")), say: "Rows ruled and shaded alternately; the row under the pointer tints" },
   { context: inside(page, row("Rename the bay tile")), say: "Right-click a row of the table" },
   { press: add, say: "Add note" },
   { type: "What expired this one?\n", into: note, say: "A third note" },
