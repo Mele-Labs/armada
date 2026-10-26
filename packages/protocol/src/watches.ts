@@ -45,7 +45,16 @@ export type WatchSummary = {
   readings?: WatchReading[];
   /** The agent's weighings, the oldest first. Absent is none. */
   verdicts?: WatchVerdict[];
+  /** What a terminal watch waits for in its Job's terminal. Its `command` is empty. */
+  in_terminal?: string;
+  /** `in_terminal` is a regular expression. Absent is false. */
+  regex?: boolean;
+  /** Where its environment came from, while Fleet holds it: absent for a terminal watch, an ended one, and one not run since Fleet started. */
+  login_shell?: LoginShell;
 };
+
+/** Where a watch's environment came from: the person's login shell, or Fleet's own and why. */
+export type LoginShell = { kind: "read" } | { kind: "fell_back"; why: string };
 
 /**
  * One `weigh_watch`, as kept on the watch. `at` places it after the reading it weighed. Each verdict carries the agent's
@@ -59,7 +68,7 @@ export type WatchList = { session_id: string; watches: WatchSummary[] };
 /** `watches.changed`: one Job's watches after any change to one, whole, as `list_watches` answers for it. */
 export type WatchesChanged = WatchList;
 
-/** `start_watch`: a recipe with its values, or the agent's own command with `every`. */
+/** `start_watch`: a recipe with its values, the agent's own command with `every`, or text to wait for in the Job's terminal. */
 export type StartWatch = {
   session_id?: string;
   name: string;
@@ -68,7 +77,59 @@ export type StartWatch = {
 } & (
   | { recipe: string; values?: Record<string, string> }
   | { command: string[]; every: string; gives_up_after?: string }
+  | { in_terminal: string; regex?: boolean; gives_up_after?: string }
 );
+
+/** `try_watch`: a recipe with its values, or the agent's own command, run once and kept nowhere. */
+export type TryWatch = { session_id?: string } & ({ recipe: string; values?: Record<string, string> } | { command: string[] });
+
+/** What `try_watch` read, and where and how its command ran. */
+export type WatchTried = {
+  reading: WatchReading;
+  command: string[];
+  /** The Job's slot. Empty where its folder is gone or the Job ended. */
+  cwd: string;
+  /** The `PATH` the command was given. */
+  path: string;
+  login_shell: LoginShell;
+  /** The Job's own scratch folder. */
+  scratch: string;
+};
+
+/** Where a recipe was read from. */
+export type WatchRecipeSource = "armada" | "repository" | "machine";
+
+export type WatchRecipeListed = {
+  name: string;
+  /** The values a start gives, in the order its command names them. */
+  values: string[];
+  command: string[];
+  source: WatchRecipeSource;
+  every_seconds: number;
+  /** Absent gives up after the machine's setting. */
+  gives_up_after_seconds?: number;
+  /** A Requests environment's name, never a value. */
+  environment?: string;
+};
+
+/** `list_watch_recipes`: one per name, the copy a start would run, and each file left out with why. */
+export type WatchRecipeList = { recipes: WatchRecipeListed[]; left_out?: string[] };
+
+/** `save_watch_recipe`: written into this Mac's own recipes only. */
+export type SaveWatchRecipe = {
+  session_id?: string;
+  name: string;
+  /** A script's whole path, copied beside the recipe and run first. */
+  script?: string;
+  /** The whole command, or with `script` the arguments after it. */
+  command?: string[];
+  every: string;
+  gives_up_after?: string;
+  environment?: string;
+  replace?: boolean;
+};
+
+export type WatchRecipeSaved = { recipe: WatchRecipeListed; file: string; script?: string; replaced: boolean };
 
 /** `weigh_watch`, each verdict with its sentence. `ours` ends the watch failed; `not_ours` sets its parts aside. */
 export type WeighWatch = { session_id?: string; watch: string } & (

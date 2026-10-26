@@ -1,0 +1,15 @@
+[operations.try_watch]
+kind = "command"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Run a watch's command once, exactly as a watch would run it, and read what it printed, keeping nothing. Use it before start_watch to see the command works where Fleet runs it. Body: recipe with values, or your own command (a list of arguments), as start_watch takes them; nothing else. Answers the reading (what its last line said, or why it gave none with the end of its output), the command run, cwd (this Job's slot), the PATH it was given, login_shell (read, or fell_back with why), and scratch, this Job's own folder ($ARMADA_SCRATCH in a job Armada hosts), where you may write a script, chmod it and run it without the slot guard asking; it is removed when the Job ends"
+notes = """
+`POST /watches/try`, body `TryWatch`: `recipe` with `values`, or `command`, and an optional `session_id`. Both, neither, `values` with a command, or any other key is refused as the body is read, 400. A recipe is found and filled as `start_watch` does, with its refusals: 422 `fleet.watch_recipe_unknown`, `fleet.watch_value_refused`, `fleet.watch_refused`.
+
+Answers 200 with `WatchTried`: `reading` (a `WatchReading`, `read` or `broken`), `command[]` filled, `cwd`, `path`, `login_shell` (`{ kind: "read" }` or `{ kind: "fell_back", why }`) and `scratch`. **Nothing is kept**: no watch, no reading, no event. The login shell is read fresh for each try. A Job whose folder is gone, or that has ended, is answered a `broken` reading saying so, with an empty `cwd`.
+
+**The Job** is placed as `start_watch`'s is.
+
+`agent_access` is `Yes`: the agent writes the command, and this is how it learns what the command sees before Fleet runs it on a clock.
+"""
+always_loaded = true

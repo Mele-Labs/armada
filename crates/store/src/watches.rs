@@ -40,6 +40,10 @@ pub struct KeptWatch {
     pub ended_at: Option<String>,
     /// The notice it owes its Job and has not told.
     pub unsaid: Option<String>,
+    /// What a terminal watch waits for in its Job's terminal. Its `command` is empty.
+    pub in_terminal: Option<String>,
+    /// `in_terminal` is a regular expression.
+    pub regex: bool,
 }
 
 /// What one reading was.
@@ -88,7 +92,8 @@ pub struct KeptWatchWhole {
 }
 
 const COLUMNS: &str = "id, session_id, name, command, recipe, environment, every_seconds, \
-    gives_up_after_seconds, follows, state, live, started_at, reported, changed_at, ended_at, unsaid";
+    gives_up_after_seconds, follows, state, live, started_at, reported, changed_at, ended_at, unsaid, \
+    in_terminal, regex";
 
 fn texts(written: String) -> Vec<String> {
     serde_json::from_str(&written).unwrap_or_default()
@@ -120,6 +125,8 @@ fn watch_of(row: &Row<'_>) -> rusqlite::Result<KeptWatch> {
         changed_at: row.get(13)?,
         ended_at: row.get(14)?,
         unsaid: row.get(15)?,
+        in_terminal: row.get(16)?,
+        regex: row.get(17)?,
     })
 }
 
@@ -129,7 +136,7 @@ impl Store {
         self.conn
             .execute(
                 &format!(
-                    "INSERT INTO watches ({COLUMNS}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16) \
+                    "INSERT INTO watches ({COLUMNS}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18) \
                      ON CONFLICT (id) DO UPDATE SET state = ?10, live = ?11, reported = ?13, changed_at = ?14, \
                      ended_at = ?15, unsaid = ?16"
                 ),
@@ -150,6 +157,8 @@ impl Store {
                     watch.changed_at,
                     watch.ended_at,
                     watch.unsaid,
+                    watch.in_terminal,
+                    watch.regex,
                 ],
             )
             .map_err(fault("keeping a watch"))?;

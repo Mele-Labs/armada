@@ -115,7 +115,7 @@ fn a_renamed_tool_is_listed_by_its_job_name_and_called_by_either() {
     let Asked::Tools { id } = read(listing.as_bytes(), &renamed) else {
         panic!("expected a tool list");
     };
-    let said = answer(Answered::Tools { id, shapes: renamed }).unwrap();
+    let said = answer(Answered::Tools { id, shapes: renamed, always_loads: None }).unwrap();
     assert!(said.contains(r#""name":"list_jobs""#), "{said}");
     assert!(!said.contains(r#""name":"list_sessions""#), "{said}");
 }
@@ -376,6 +376,7 @@ fn a_listed_tool_states_the_route_and_its_own_arguments() {
     let written = answer(Answered::Tools {
         id: id(),
         shapes: shapes(),
+        always_loads: None,
     })
     .expect("a tool list encodes");
     let back: Value = serde_json::from_str(&written).expect("valid JSON");
@@ -460,6 +461,7 @@ fn the_permission_tool_publishes_the_harnesss_schema_and_not_a_body() {
         &answer(Answered::Tools {
             id: crate::door::CallId::of(json!(1)),
             shapes,
+            always_loads: None,
         })
         .expect("an answer"),
     )
@@ -479,4 +481,26 @@ fn the_permission_tool_publishes_the_harnesss_schema_and_not_a_body() {
 fn the_permission_tools_name_is_the_one_both_ends_spell() {
     assert_eq!(crate::door::ASKS_A_PERSON, "ask_the_person");
     assert_eq!(crate::door::SERVER, "armada-fleet");
+}
+
+/// A row the inventory marks `always_loaded` carries the harness's key in `_meta`, and only where
+/// the harness names one.
+#[test]
+fn a_tool_marked_always_loaded_carries_the_harness_key_and_no_other_does() {
+    let both = vec![
+        Shape { operation: "start_watch", method: "POST", path: "/watches/start", query: &[] },
+        Shape { operation: "get_health", method: "GET", path: "/health", query: &[] },
+    ];
+    let listed = |always_loads| -> Value {
+        let written = answer(Answered::Tools { id: id(), shapes: both.clone(), always_loads }).expect("encodes");
+        serde_json::from_str(&written).expect("valid JSON")
+    };
+    let marked = listed(Some("harness/load"));
+    assert_eq!(marked["result"]["tools"][0]["_meta"], json!({ "harness/load": true }));
+    assert!(marked["result"]["tools"][1].get("_meta").is_none());
+    assert!(listed(None)["result"]["tools"][0].get("_meta").is_none());
+    let always: Vec<&str> = crate::door::REACHABLE.iter().filter(|row| row.always_loaded).map(|row| row.operation).collect();
+    for operation in ["start_watch", "try_watch", "list_watches", "list_watch_recipes", "weigh_watch", "stop_watch"] {
+        assert!(always.contains(&operation), "{operation} is not marked: {always:?}");
+    }
 }

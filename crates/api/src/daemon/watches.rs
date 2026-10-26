@@ -5,7 +5,10 @@
 
 use std::future::Future;
 
-use ipc::{SessionId, StartWatch, StopWatch, WatchList, WatchSummary, WeighWatch};
+use ipc::{
+    SaveWatchRecipe, SessionId, StartWatch, StopWatch, TryWatch, WatchList, WatchRecipeList, WatchRecipeSaved,
+    WatchSummary, WatchTried, WeighWatch,
+};
 
 use crate::daemon::Refusal;
 
@@ -38,4 +41,25 @@ pub trait Watches: Send + Sync + 'static {
         caller: Option<crate::Caller>,
         session_id: Option<SessionId>,
     ) -> impl Future<Output = Result<WatchList, Refusal>> + Send;
+
+    /// `try_watch` — run a command or a recipe once, as a watch would, and keep nothing.
+    fn try_watch(
+        &self,
+        caller: Option<crate::Caller>,
+        tried: TryWatch,
+    ) -> impl Future<Output = Result<WatchTried, Refusal>> + Send;
+
+    /// `list_watch_recipes` — the recipes a start may name: shipped, the repository's and this Mac's.
+    fn list_watch_recipes(
+        &self,
+        caller: Option<crate::Caller>,
+        session_id: Option<SessionId>,
+    ) -> impl Future<Output = Result<WatchRecipeList, Refusal>> + Send;
+
+    /// `save_watch_recipe` — keep a recipe, and its script, among this Mac's own.
+    fn save_watch_recipe(
+        &self,
+        caller: Option<crate::Caller>,
+        save: SaveWatchRecipe,
+    ) -> impl Future<Output = Result<WatchRecipeSaved, Refusal>> + Send;
 }

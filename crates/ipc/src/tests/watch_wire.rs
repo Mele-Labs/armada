@@ -2,7 +2,7 @@
 
 use core_model::ReadingState;
 
-use crate::{decode, encode, read_watch_line, StartWatch, WatchStarts, WatchVerdict, WeighWatch};
+use crate::{decode, encode, read_watch_line, StartWatch, TryWatch, WatchStarts, WatchTries, WatchVerdict, WeighWatch};
 
 /// The design's own example, after two lines of the script's chatter.
 const PRINTED: &str = "fetching run 4411\n\n{\"state\": \"running\", \"finished\": false, \"says\": \"Deploy running, two of three services done\", \"link\": \"https://ci.example.com/runs/4411\", \"parts\": [{\"name\": \"build\", \"state\": \"passed\"}, {\"name\": \"deploy-api\", \"state\": \"running\"}, {\"name\": \"unit-tests-other\", \"state\": \"failed\"}], \"provider\": \"ignored\"}\n";
@@ -93,7 +93,7 @@ fn each_verdict_carries_its_sentence_and_only_not_ours_its_parts() {
 #[test]
 fn watches_changed_carries_the_jobs_list_with_its_history_and_verdicts() {
     use crate::{Event, Instant, SessionId, WatchList, WatchReading, WatchReadingState, WatchState, WatchSummary};
-    use crate::{WatchVerdictGiven, WatchVerdictWord};
+    use crate::{LoginShell, WatchVerdictGiven, WatchVerdictWord};
     let reading = WatchReading::Read {
         at: Instant::carried("2026-10-22T10:00:00.000Z"),
         state: WatchReadingState::Failed,
@@ -124,6 +124,9 @@ fn watches_changed_carries_the_jobs_list_with_its_history_and_verdicts() {
             sentence: "My migration.".into(),
             parts: Vec::new(),
         }],
+        in_terminal: None,
+        regex: false,
+        login_shell: Some(LoginShell::FellBack { why: "zsh took longer than 15s to start.".into() }),
     };
     let event = Event::WatchesChanged(WatchList { session_id: SessionId::carried("s1"), watches: vec![watch] });
     assert_eq!(event.kind(), "watches.changed");
@@ -136,4 +139,46 @@ fn watches_changed_carries_the_jobs_list_with_its_history_and_verdicts() {
         assert!(json.contains(said), "{said} is not in {json}");
     }
     assert_eq!(decode::<Event>("an event", json.as_bytes()).expect("it round-trips"), event);
+}
+
+#[test]
+fn a_terminal_start_waits_on_text_and_takes_no_command() {
+    let start: StartWatch = decode(
+        "a watch to start",
+        br#"{"name":"Server up","in_terminal":"Listening on \\d+","regex":true,"gives_up_after":"10m"}"#,
+    )
+    .expect("a terminal start");
+    assert_eq!(
+        start.starts,
+        WatchStarts::Terminal { text: String::from("Listening on \\d+"), regex: true, gives_up_after: Some(String::from("10m")) }
+    );
+    let again: StartWatch = decode("a watch to start", encode(&start).expect("plain data").as_bytes()).expect("round trip");
+    assert_eq!(again, start);
+    for refused in [
+        r#"{"name":"x","in_terminal":"up","command":["a"],"every":"60s"}"#,
+        r#"{"name":"x","in_terminal":"up","recipe":"r"}"#,
+        r#"{"name":"x","in_terminal":"up","every":"60s"}"#,
+        r#"{"name":"x","command":["a"],"every":"60s","regex":true}"#,
+    ] {
+        assert!(decode::<StartWatch>("a watch to start", refused.as_bytes()).is_err(), "{refused}");
+    }
+}
+
+#[test]
+fn a_try_is_a_recipe_or_a_command_and_nothing_a_start_keeps() {
+    let tried: TryWatch =
+        decode("a watch to try", br#"{"recipe":"qa-deploy","values":{"sha":"abc"}}"#).expect("a recipe try");
+    assert!(matches!(&tried.tries, WatchTries::Recipe { values, .. } if values["sha"] == "abc"));
+    let own: TryWatch = decode("a watch to try", br#"{"command":["scripts/state"]}"#).expect("a command try");
+    assert_eq!(decode::<TryWatch>("a watch to try", encode(&own).unwrap().as_bytes()).unwrap(), own);
+    for refused in [r#"{}"#, r#"{"recipe":"r","command":["a"]}"#, r#"{"command":["a"],"every":"60s"}"#] {
+        assert!(decode::<TryWatch>("a watch to try", refused.as_bytes()).is_err(), "{refused}");
+    }
+}
+
+#[test]
+fn a_line_written_by_armada_reads_back_whole() {
+    let reading = read_watch_line(PRINTED).expect("reads");
+    let line = crate::watch_line(&reading).expect("writes");
+    assert_eq!(read_watch_line(&line).expect("reads again"), reading);
 }

@@ -1,8 +1,9 @@
 //! Watches, as the fake answers them: nothing is run or kept, and a start is echoed as recorded.
 
 use ipc::{
-    Instant, SessionId, StartWatch, StopWatch, WatchList, WatchStarts, WatchState, WatchSummary,
-    WeighWatch,
+    Instant, LoginShell, SaveWatchRecipe, SessionId, StartWatch, StopWatch, TryWatch, WatchList, WatchReading,
+    WatchRecipeList, WatchRecipeListed, WatchRecipeSaved, WatchRecipeSource, WatchStarts, WatchState, WatchSummary,
+    WatchTried, WatchTries, WeighWatch,
 };
 
 use super::FakeDaemon;
@@ -29,6 +30,9 @@ fn summary(session_id: SessionId, name: String, command: Vec<String>, recipe: Op
         readings: Vec::new(),
         set_aside: Vec::new(),
         verdicts: Vec::new(),
+        in_terminal: None,
+        regex: false,
+        login_shell: None,
     }
 }
 
@@ -48,6 +52,7 @@ impl Watches for FakeDaemon {
         let (command, recipe) = match start.starts {
             WatchStarts::Command { command, .. } => (command, None),
             WatchStarts::Recipe { recipe, .. } => (Vec::new(), Some(recipe)),
+            WatchStarts::Terminal { .. } => (Vec::new(), None),
         };
         let session_id = start.session_id.unwrap_or_else(|| SessionId::carried("session"));
         Ok(summary(session_id, start.name, command, recipe))
@@ -66,5 +71,49 @@ impl Watches for FakeDaemon {
 
     async fn list_watches(&self, _caller: Option<Caller>, session_id: Option<SessionId>) -> Result<WatchList, Refusal> {
         Ok(WatchList { session_id: session_id.unwrap_or_else(|| SessionId::carried("session")), watches: Vec::new() })
+    }
+
+    async fn try_watch(&self, _caller: Option<Caller>, tried: TryWatch) -> Result<WatchTried, Refusal> {
+        let command = match tried.tries {
+            WatchTries::Command { command } => command,
+            WatchTries::Recipe { recipe, .. } => vec![recipe],
+        };
+        Ok(WatchTried {
+            reading: WatchReading::Broken {
+                at: Instant::carried("2026-10-22T00:00:00.000Z"),
+                why: String::from("Nothing runs in the fake."),
+                output: None,
+            },
+            command,
+            cwd: String::from("/slot"),
+            path: String::from("/usr/bin"),
+            login_shell: LoginShell::FellBack { why: String::from("The fake reads no shell.") },
+            scratch: String::from("/scratch"),
+        })
+    }
+
+    async fn list_watch_recipes(
+        &self,
+        _caller: Option<Caller>,
+        _session_id: Option<SessionId>,
+    ) -> Result<WatchRecipeList, Refusal> {
+        Ok(WatchRecipeList { recipes: Vec::new(), left_out: Vec::new() })
+    }
+
+    async fn save_watch_recipe(&self, _caller: Option<Caller>, save: SaveWatchRecipe) -> Result<WatchRecipeSaved, Refusal> {
+        Ok(WatchRecipeSaved {
+            recipe: WatchRecipeListed {
+                name: save.name.clone(),
+                values: Vec::new(),
+                command: save.command,
+                source: WatchRecipeSource::Machine,
+                every_seconds: 60,
+                gives_up_after_seconds: None,
+                environment: save.environment,
+            },
+            file: format!("/machine/watches/{}.yml", save.name),
+            script: None,
+            replaced: false,
+        })
     }
 }

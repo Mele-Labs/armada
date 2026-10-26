@@ -232,6 +232,8 @@ fn waiting_and_running_owe_nothing() {
                 changed_at: String::new(),
                 ended_at: None,
                 unsaid: None,
+                in_terminal: None,
+                regex: false,
             },
             readings: Vec::new(),
             set_aside: Vec::new(),

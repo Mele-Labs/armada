@@ -157,6 +157,7 @@ where
     ) -> Vec<String> {
         let root = served.root().trim_end_matches('/').to_string();
         let mut held = vec![Self::directory_of(served, hosting)];
+        held.push(self.scratch_of(id).to_string_lossy().into_owned());
         for slot in crate::leasing::bays_of(served) {
             let at = adapter_traits::slot_path(&root, slot);
             if hosting.lease_slot != Some(slot) && self.held_by_the_tree(id, &at) == Standing::Ours {

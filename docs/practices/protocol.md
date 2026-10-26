@@ -821,6 +821,23 @@ Fleet runs due watches on a 5 second timer of their own, `fleet::watches::runnin
 **The event stream.** `watches.changed` carries a Job's watches whole, history included, on a start, a weighing, a Stop, an end and a reading that reads differently from the one before.
 A reading that reads the same is published at most every 5 minutes, so Bridge's age of a reading stays near and the stream does not carry 50 readings every 30 seconds; a reading carries up to 81 parts, 5.3 KB, in spike 36.
 
+### Setting a watch up: `try_watch`, `list_watch_recipes`, `save_watch_recipe`, and a terminal watch
+
+Since 26 Oct 2026. Three operations, three routes and the types they carry, and four optional fields on what was there.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `packages/protocol/src/watches.ts`, written by hand; nothing in Bridge reads the new types yet.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `try_watch` (`POST /watches/try`, `Yes`) | An agent runs one reading | `TryWatch` `{ session_id?, recipe, values? \| command[] }`; answers `WatchTried` `{ reading, command[], cwd, path, login_shell, scratch }`. 400 for both shapes, neither, or any other key; 422 `fleet.watches_unplaced`, `fleet.watch_recipe_unknown`, `fleet.watch_value_refused`, `fleet.watch_refused` |
+| `list_watch_recipes` (`GET /watches/recipes?session_id=`, `Yes`) | An agent reads the recipes | `WatchRecipeList` `{ recipes[], left_out[]? }`, each `{ name, values[], command[], source, every_seconds, gives_up_after_seconds?, environment? }`, `source` one of `armada`, `repository`, `machine`. 422 `fleet.no_such_session` |
+| `save_watch_recipe` (`POST /watches/recipes/save`, `Yes`) | An agent keeps a recipe on this Mac | `SaveWatchRecipe` `{ session_id?, name, script?, command[]?, every, gives_up_after?, environment?, replace? }`; answers `WatchRecipeSaved` `{ recipe, file, script?, replaced }`. 409 `fleet.watch_recipe_shipped`, `fleet.watch_recipe_exists`; 422 `fleet.watch_refused`, `fleet.watch_too_often`, `fleet.watch_gives_up_too_late`; 500 `fleet.watch_recipe_unwritten` |
+| `StartWatch` | Gains a third shape | `{ ..., in_terminal, regex?, gives_up_after? }`, a terminal watch. 409 `fleet.watch_terminal_closed` where the Job has no terminal open |
+| `WatchSummary` | Gains three fields | `in_terminal?`, `regex?` (sent only as `true`), and `login_shell?`, `{ kind: "read" }` or `{ kind: "fell_back", why }`, while Fleet holds the watch's environment |
+
+**The command's line is written by Armada too.** `ipc::watch_line` writes the line `armada watch-line` prints for the recipes Armada ships, and `ipc::read_watch_line` reads it back whole; it is still not the wire to Bridge.
+**Always loaded.** An operation file may say `always_loaded = true`; the door then lists that tool with the harness's `_meta` key, which the harness adapter names (`AgentHarness::always_loads_tool`). The key is on the agent's tools list only, and Bridge reads nothing of it.
+
 ## Not a question: `misread` on `dismiss_waiting`
 
 Since 23 Oct 2026. `docs/concepts/session/waiting-on-the-person.md`, *A question that asks nothing*.

@@ -46,6 +46,8 @@ pub struct Planted {
     started: Mutex<Vec<PathBuf>>,
     /// The watch recipe files every repository reads as holding.
     recipes: Mutex<Vec<config::WatchRecipeWritten>>,
+    /// Where this machine's own recipes are written, where a test gives one.
+    machine_watches: Mutex<Option<PathBuf>>,
 }
 
 impl Planted {
@@ -106,6 +108,12 @@ impl Planted {
         *self.recipes.lock().unwrap_or_else(PoisonError::into_inner) = recipes;
     }
 
+    /// This machine's recipes are kept in `folder` from now on, and read from it with the ones
+    /// offered.
+    pub fn keeps_machine_recipes_in(&self, folder: PathBuf) {
+        *self.machine_watches.lock().unwrap_or_else(PoisonError::into_inner) = Some(folder);
+    }
+
     /// What the folders read as from now on.
     pub fn will_read(&self, read: Catalogued) {
         *self.reading.lock().unwrap_or_else(PoisonError::into_inner) = Some(read);
@@ -130,7 +138,25 @@ impl Planted {
 
 impl Locating for Planted {
     fn watch_recipes(&self, _root: &Path, _base: Option<&str>) -> Vec<config::WatchRecipeWritten> {
-        self.recipes.lock().unwrap_or_else(PoisonError::into_inner).clone()
+        self.machine_watch_recipes()
+    }
+
+    fn machine_watch_recipes(&self) -> Vec<config::WatchRecipeWritten> {
+        let mut written = self.recipes.lock().unwrap_or_else(PoisonError::into_inner).clone();
+        if let Some(folder) = self.machine_watch_folder() {
+            let mut files: Vec<PathBuf> = std::fs::read_dir(&folder).into_iter().flatten().flatten().map(|entry| entry.path()).collect();
+            files.sort();
+            for path in files.into_iter().filter(|path| path.extension().is_some_and(|ext| ext == "yml")) {
+                if let Ok(text) = std::fs::read_to_string(&path) {
+                    written.push(config::WatchRecipeWritten::on_machine(path, text));
+                }
+            }
+        }
+        written
+    }
+
+    fn machine_watch_folder(&self) -> Option<PathBuf> {
+        self.machine_watches.lock().unwrap_or_else(PoisonError::into_inner).clone()
     }
 
     fn started(&self, folder: &Path) -> Result<(), NotLocated> {

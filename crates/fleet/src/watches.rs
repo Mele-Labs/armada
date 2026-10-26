@@ -6,9 +6,12 @@
 //! `serving` answers the four operations, `running` takes readings on a timer of its own, and
 //! `telling` tells the Job once per change and ends its watches with it.
 
+pub(crate) mod environment;
+pub(crate) mod listening;
 mod running;
 mod serving;
 mod telling;
+mod tools;
 
 use std::collections::HashMap;
 use std::sync::{Mutex, MutexGuard, PoisonError};
@@ -24,6 +27,7 @@ use store::{KeptWatch, KeptWatchReading, KeptWatchTaken, KeptWatchWhole};
 
 use crate::daemon::Fleet;
 
+pub(crate) use environment::LoginEnvironment;
 pub use running::{keep_running_watches, EVERY};
 #[cfg(test)]
 pub(crate) use running::interval;
@@ -53,6 +57,14 @@ pub(crate) const ENDED: &str = "fleet.watch_ended";
 pub(crate) const NOT_FAILED: &str = "fleet.watch_not_failed";
 /// `not_ours` naming a part no reading of the watch carried. A 422.
 pub(crate) const PART_UNREPORTED: &str = "fleet.watch_part_unreported";
+/// A terminal watch started where the Job has no terminal open. A 409.
+pub(crate) const TERMINAL_CLOSED: &str = "fleet.watch_terminal_closed";
+/// `save_watch_recipe` naming a recipe Armada ships. A 409.
+pub(crate) const RECIPE_SHIPPED: &str = "fleet.watch_recipe_shipped";
+/// `save_watch_recipe` naming a recipe there already is, without `replace`. A 409.
+pub(crate) const RECIPE_EXISTS: &str = "fleet.watch_recipe_exists";
+/// `save_watch_recipe` could not write the recipe or its script. A 500.
+pub(crate) const RECIPE_UNWRITTEN: &str = "fleet.watch_recipe_unwritten";
 
 /// The most a watch may run before giving up: the ceiling of `timeouts.watchGiveUpMinutes`'
 /// entry, a day, so lowering the default never lowers the cap.
@@ -61,24 +73,66 @@ pub(crate) const GIVE_UP_CAP_SECONDS: u32 = 24 * 60 * 60;
 /// Broken readings in a row that end a watch `broken`.
 pub(crate) const BROKEN_IN_A_ROW: usize = 3;
 
-/// The commands running now, each with what stops it. **Memory only**: a run a restart cut short
-/// left no reading, so its watch is simply due again, and `crate::orphans` ends its process.
-#[derive(Default)]
+/// What runs for one watch now: its command, or a terminal watch's listening, and what stops it.
+struct Held {
+    stop: tokio::sync::oneshot::Sender<()>,
+    /// A command, which counts toward `limits.watchesAtOnce`. A terminal watch runs nothing.
+    command: bool,
+}
+
+/// The commands running now, each with what stops it, and the environment each live watch was
+/// given. **Memory only**: a run a restart cut short left no reading, so its watch is simply due
+/// again, `crate::orphans` ends its process, and its environment is read again at that run.
 pub(crate) struct Watches {
-    running: Mutex<HashMap<String, tokio::sync::oneshot::Sender<()>>>,
+    running: Mutex<HashMap<String, Held>>,
+    /// The environment each watch started with, by watch.
+    environments: Mutex<HashMap<String, LoginEnvironment>>,
+    /// The login shell read for an environment. `None` reads none, as Fleet's own tests do.
+    shell: Mutex<Option<String>>,
     /// When a notice a Job could not take was last offered, so it is offered a minute apart.
     offered: Mutex<HashMap<String, core_model::Timestamp>>,
     /// When a reading that read the same was last published, by watch.
     republished: Mutex<HashMap<String, core_model::Timestamp>>,
 }
 
+impl Default for Watches {
+    fn default() -> Watches {
+        Watches {
+            running: Mutex::default(),
+            environments: Mutex::default(),
+            shell: Mutex::new((!cfg!(test)).then(crate::session_running::shell)),
+            offered: Mutex::default(),
+            republished: Mutex::default(),
+        }
+    }
+}
+
 impl Watches {
-    fn running(&self) -> MutexGuard<'_, HashMap<String, tokio::sync::oneshot::Sender<()>>> {
+    fn running(&self) -> MutexGuard<'_, HashMap<String, Held>> {
         self.running.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
+    /// The commands running now. A terminal watch's listening is not one.
     pub(crate) fn running_now(&self) -> usize {
-        self.running().len()
+        self.running().values().filter(|held| held.command).count()
+    }
+
+    /// The login shell an environment is read from, where one is.
+    pub(crate) fn shell(&self) -> Option<String> {
+        self.shell.lock().unwrap_or_else(PoisonError::into_inner).clone()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn read_login_shell(&self, shell: Option<String>) {
+        *self.shell.lock().unwrap_or_else(PoisonError::into_inner) = shell;
+    }
+
+    pub(crate) fn environment_of(&self, id: &str) -> Option<LoginEnvironment> {
+        self.environments.lock().unwrap_or_else(PoisonError::into_inner).get(id).cloned()
+    }
+
+    pub(crate) fn keep_environment(&self, id: &str, environment: LoginEnvironment) {
+        self.environments.lock().unwrap_or_else(PoisonError::into_inner).insert(id.to_string(), environment);
     }
 
     pub(crate) fn is_running(&self, id: &str) -> bool {
@@ -88,12 +142,21 @@ impl Watches {
     /// Hold `id`'s place among the commands running; what completes when it is stopped. `None`
     /// where it already runs.
     pub(crate) fn begin(&self, id: &str) -> Option<tokio::sync::oneshot::Receiver<()>> {
+        self.held(id, true)
+    }
+
+    /// [`Watches::begin`] for a terminal watch's listening, which runs no command.
+    pub(crate) fn begin_listening(&self, id: &str) -> Option<tokio::sync::oneshot::Receiver<()>> {
+        self.held(id, false)
+    }
+
+    fn held(&self, id: &str, command: bool) -> Option<tokio::sync::oneshot::Receiver<()>> {
         let mut running = self.running();
         if running.contains_key(id) {
             return None;
         }
         let (stop, stopped) = tokio::sync::oneshot::channel();
-        running.insert(id.to_string(), stop);
+        running.insert(id.to_string(), Held { stop, command });
         Some(stopped)
     }
 
@@ -101,10 +164,11 @@ impl Watches {
         self.running().remove(id);
     }
 
-    /// End `id`'s command, if one runs.
+    /// End `id`'s command, if one runs, and forget its environment: only an ended watch is stopped.
     pub(crate) fn stop(&self, id: &str) {
-        if let Some(stop) = self.running().remove(id) {
-            let _ = stop.send(());
+        self.environments.lock().unwrap_or_else(PoisonError::into_inner).remove(id);
+        if let Some(held) = self.running().remove(id) {
+            let _ = held.stop.send(());
         }
     }
 
@@ -203,8 +267,9 @@ fn wire_reading(one: &KeptWatchReading) -> WatchReading {
     }
 }
 
-/// What `list_watches` and `watches.changed` say of one watch.
-pub(crate) fn summary(kept: &KeptWatchWhole) -> WatchSummary {
+/// What `list_watches` and `watches.changed` say of one watch, and where its environment came from
+/// where Fleet holds that.
+pub(crate) fn summary(kept: &KeptWatchWhole, login: Option<&LoginEnvironment>) -> WatchSummary {
     let held = &kept.watch;
     let readings: Vec<WatchReading> = kept.readings.iter().map(wire_reading).collect();
     WatchSummary {
@@ -237,6 +302,9 @@ pub(crate) fn summary(kept: &KeptWatchWhole) -> WatchSummary {
                 parts: given.parts.clone(),
             })
             .collect(),
+        in_terminal: held.in_terminal.clone(),
+        regex: held.regex,
+        login_shell: login.filter(|_| held.live).map(LoginEnvironment::wire),
     }
 }
 
@@ -254,10 +322,16 @@ where
         Refusal::NotFound(WireError::raised(NO_SUCH_WATCH, format!("No watch of this Job is {id}."), self.run_id()))
     }
 
+    /// [`summary`], with the environment Fleet holds for it.
+    pub(crate) fn watch_summary(&self, kept: &KeptWatchWhole) -> WatchSummary {
+        summary(kept, self.watches().environment_of(&kept.watch.id).as_ref())
+    }
+
     /// `job`'s watches, the newest first.
     pub(crate) async fn watch_list(&self, job: &str) -> Result<WatchList, Refusal> {
         let kept = self.store().lock().await.watches_of(job).map_err(|why| self.ledger_fault(why))?;
-        Ok(WatchList { session_id: ipc::SessionId::carried(job), watches: kept.iter().map(summary).collect() })
+        let watches = kept.iter().map(|one| self.watch_summary(one)).collect();
+        Ok(WatchList { session_id: ipc::SessionId::carried(job), watches })
     }
 
     /// Publish `job`'s row again, as a watch starting or ending changes whether it is held open by one.

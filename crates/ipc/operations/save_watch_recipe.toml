@@ -1,0 +1,17 @@
+[operations.save_watch_recipe]
+kind = "command"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Keep a watch command as a recipe on this Mac, so every job finds it through list_watch_recipes. Never written into a repository. Body: name (letters, digits, - and _); command, a list of arguments where an item written {sha} is a value a start fills; every (\"60s\"); optional gives_up_after; optional environment (a Requests environment); optional script, the whole path of a script you wrote, such as in your scratch folder, which is copied beside the recipe, made runnable and run first, with command then its arguments; optional replace, true to write over a recipe of the same name in the repository or on this Mac. A name Armada ships is refused"
+notes = """
+`POST /watches/recipes/save`, body `SaveWatchRecipe`: `name`, `every`, and `command` unless `script` is given; optional `session_id`, `script`, `gives_up_after`, `environment` and `replace`. A key the body has no name for is refused as it is read, 400. Answers 200 with `WatchRecipeSaved`: `recipe` (as `list_watch_recipes` lists it, `source` `machine`), `file`, `script?` (the copy's path) and `replaced`.
+
+**Written into `~/.armada/machine/watches/` only**: `<name>.yml`, or the file this Mac already holds the name in, and with `script` its copy as `<name>` and the script's own extension, mode 755. A repository's recipes can name private repositories and travel with it, so nothing here writes one. What is written is read back by the loader's own parse first, and a recipe that would not read back is refused.
+
+**Refusals.** A name Armada ships, or one a copy of it would hide, is a 409 `fleet.watch_recipe_shipped`. A name the repository or this Mac already holds is a 409 `fleet.watch_recipe_exists` unless `replace` is true. A name that is not letters, digits, `-` and `_`, a blank command item, a span that is not one, or a `script` that is not a whole path to a file or ends `.yml` or `.yaml` is a 422 `fleet.watch_refused`; `every` below `timeouts.watchEverySeconds` a 422 `fleet.watch_too_often`, and `gives_up_after` past a day a 422 `fleet.watch_gives_up_too_late`. A folder or file that cannot be written is a 500 `fleet.watch_recipe_unwritten`.
+
+**The Job** is placed as `list_watch_recipes`' is, for the recipes a name is checked against; none is needed.
+
+`agent_access` is `Yes`: a script an agent wrote for one watch is worth keeping for the next job, and this Mac is the only place it is kept.
+"""
+always_loaded = true

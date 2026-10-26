@@ -35,6 +35,8 @@ pub struct Reachable {
     pub operation: &'static str,
     pub kind: &'static str,
     pub description: &'static str,
+    /// The harness loads it at the session's start, not behind a search: `always_loaded = true`.
+    pub always_loaded: bool,
 }
 
 include!(concat!(env!("OUT_DIR"), "/reachable.rs"));
@@ -231,6 +233,9 @@ pub enum Answered {
     Tools {
         id: CallId,
         shapes: Vec<Shape>,
+        /// The `_meta` key the agent's harness reads as loading a tool at the start, marked on
+        /// each row the inventory names `always_loaded`. `None` marks none.
+        always_loads: Option<&'static str>,
     },
     Served {
         id: CallId,
@@ -476,7 +481,9 @@ pub fn answer(answered: Answered) -> Result<String, Unencodable> {
             }),
         ),
         Answered::Ping { id } => result(id, json!({})),
-        Answered::Tools { id, shapes } => result(id, json!({ "tools": listed(&shapes) })),
+        Answered::Tools { id, shapes, always_loads } => {
+            result(id, json!({ "tools": listed(&shapes, always_loads) }))
+        }
         Answered::Served { id, answer } => result(id, served(&answer)),
         Answered::Refused { id, why } => result(id, said_as(&why, true)),
         Answered::NoSuchMethod { id, named } => {
@@ -527,17 +534,16 @@ pub fn also_saying(answer: &[u8], note: &str) -> Option<String> {
 }
 
 /// Every tool, as a client is shown it.
-fn listed(shapes: &[Shape]) -> Vec<Value> {
-    shapes.iter().map(tool).collect()
+fn listed(shapes: &[Shape], always_loads: Option<&str>) -> Vec<Value> {
+    shapes.iter().map(|shape| tool(shape, always_loads)).collect()
 }
 
-fn tool(shape: &Shape) -> Value {
-    let described = REACHABLE
+fn tool(shape: &Shape, always_loads: Option<&str>) -> Value {
+    let row = REACHABLE
         .iter()
         .chain(HELM_ONLY.iter())
-        .find(|row| row.operation == shape.operation)
-        .map(|row| row.description)
-        .unwrap_or_default();
+        .find(|row| row.operation == shape.operation);
+    let described = row.map(|row| row.description).unwrap_or_default();
     let mut properties = Map::new();
     let mut required = Vec::new();
     for segment in shape.segments() {
@@ -580,7 +586,7 @@ fn tool(shape: &Shape) -> Value {
             }),
         );
     }
-    json!({
+    let mut listed = json!({
         "name": tool_named(shape.operation),
         "description": match shape.path.is_empty() {
             true => format!("{described}. NOT SERVED by this Fleet."),
@@ -592,7 +598,11 @@ fn tool(shape: &Shape) -> Value {
             "required": required,
             "additionalProperties": false,
         },
-    })
+    });
+    if let (Some(key), Some(true)) = (always_loads, row.map(|row| row.always_loaded)) {
+        listed["_meta"] = json!({ key: true });
+    }
+    listed
 }
 
 /// What one argument names on one tool, where that tool means something other than the

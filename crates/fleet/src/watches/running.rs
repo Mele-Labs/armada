@@ -7,12 +7,16 @@
 //! how late a due watch can start, not how often a command runs.
 //!
 //! **A run is a Check's run** (`checks_runner::run_words`): no shell, a process group of its own
-//! ended whole, `timeouts.watchRunSeconds`, utility priority, and Fleet's environment with the
-//! `ARMADA_SPAWNED_BY` mark, so `crate::orphans` ends what a crash left. A recipe's Requests
-//! environment adds its variables, secrets included, and every secret's value is taken back out of
-//! what is kept of the reading.
+//! ended whole, `timeouts.watchRunSeconds`, utility priority, and the person's login shell's
+//! environment over Fleet's (`super::environment`) with the `ARMADA_SPAWNED_BY` mark, so
+//! `crate::orphans` ends what a crash left. A recipe's Requests environment adds its variables,
+//! secrets included, and every secret's value is taken back out of what is kept of the reading.
+//!
+//! **A terminal watch runs nothing**: its listening (`super::listening`) is started here, and
+//! takes no place among the commands `limits.watchesAtOnce` bounds.
 
-use std::path::PathBuf;
+use std::future::Future;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -24,6 +28,7 @@ use store::{KeptWatchReading, KeptWatchTaken, KeptWatchWhole};
 use tokio::task::JoinHandle;
 use verification::{Exit, NeverRan};
 
+use super::environment::{self, LoginEnvironment};
 use super::telling::unsaid;
 use super::{domain, moved, BROKEN_IN_A_ROW};
 use crate::clock::elapsed;
@@ -67,7 +72,7 @@ fn read_as(taken: &KeptWatchTaken) -> String {
 }
 
 /// Where a watch's command runs.
-enum Folder {
+pub(crate) enum Folder {
     At(PathBuf),
     /// Its folder is not there: a broken reading saying so.
     Gone(String),
@@ -103,7 +108,7 @@ fn tail(text: &str, most: usize) -> String {
 }
 
 /// What a finished run reads as. Only a run that exited 0 is read for its line.
-fn reading_of(attempt: &Attempt, budget: Duration) -> KeptWatchTaken {
+pub(crate) fn reading_of(attempt: &Attempt, budget: Duration) -> KeptWatchTaken {
     let output = || {
         let both = [attempt.output.stderr.trim(), attempt.output.stdout.trim()]
             .into_iter()
@@ -180,6 +185,15 @@ where
             if !due(&kept, &now) {
                 continue;
             }
+            if kept.watch.in_terminal.is_some() {
+                let Some(stopped) = self.watches().begin_listening(&id) else { continue };
+                let fleet = Arc::clone(self);
+                tokio::spawn(async move {
+                    fleet.watch_listened(kept, stopped).await;
+                    fleet.watches().finished(&id);
+                });
+                continue;
+            }
             if self.watches().running_now() >= at_once {
                 break;
             }
@@ -194,7 +208,7 @@ where
 
     /// Where `job`'s watch runs: the slot its hosted Job works in, else the folder a terminal Job
     /// was started in.
-    async fn watch_folder(&self, job: &str) -> Folder {
+    pub(crate) async fn watch_folder(&self, job: &str) -> Folder {
         let (session, hosting) = {
             let store = self.store().lock().await;
             let Ok(Some(session)) = store.session(job) else { return Folder::JobEnded };
@@ -223,45 +237,71 @@ where
             Folder::JobEnded => return self.watches_ended_with(&kept.watch.session_id).await,
             Folder::Gone(why) => KeptWatchTaken::Broken { why, output: None },
             Folder::At(folder) => {
-                let mut env = Vec::new();
-                if let Some(mark) = crate::orphans::own_mark() {
-                    env.push((crate::orphans::MARK.to_string(), mark));
-                }
-                let given = match &kept.watch.environment {
-                    Some(named) => self.watch_values(&kept.watch.session_id, named).await,
-                    None => Ok(None),
-                };
-                match given {
-                    Err(why) => KeptWatchTaken::Broken { why, output: None },
-                    Ok(given) => {
-                        let secrets = given.as_ref().map(|values| values.secrets().to_vec()).unwrap_or_default();
-                        env.extend(given.iter().flat_map(|values| values.variables()));
-                        let budget = self.machine_settings().now().get(keys::WATCH_RUN_SECONDS);
-                        let Some((program, args)) = kept.watch.command.split_first() else { return };
-                        let stop = async move {
-                            match stopped.await {
-                                Ok(()) => Stop::Graceful,
-                                Err(_) => std::future::pending().await,
-                            }
-                        };
-                        let attempt = checks_runner::run_words(
-                            program.clone(),
-                            args.to_vec(),
-                            &folder,
-                            budget,
-                            Writing::Nowhere,
-                            &env,
-                            stop,
-                            Priority::Low,
-                            checks_runner::GRACE,
-                        )
-                        .await;
-                        hidden(reading_of(&attempt, budget), &secrets)
+                // Read at its start, and again only at its first run since Fleet started.
+                let login = match self.watches().environment_of(&id) {
+                    Some(login) => login,
+                    None => {
+                        let login = environment::read(self.watches().shell().as_deref(), &folder).await;
+                        self.watches().keep_environment(&id, login.clone());
+                        login
                     }
-                }
+                };
+                let stop = async move {
+                    match stopped.await {
+                        Ok(()) => Stop::Graceful,
+                        Err(_) => std::future::pending().await,
+                    }
+                };
+                let watch = &kept.watch;
+                self.watch_once(&watch.session_id, &watch.command, watch.environment.as_deref(), &folder, &login, stop)
+                    .await
             }
         };
         self.watch_read(&id, taken).await;
+    }
+
+    /// Run `command` once for `job` in `folder`, given `login` with Fleet's mark and the Requests
+    /// environment `environment` names laid over it, until `stop`. What it read, every secret's
+    /// value put back as its name. **The one run** a watch's reading and a try share.
+    pub(crate) async fn watch_once(
+        &self,
+        job: &str,
+        command: &[String],
+        environment: Option<&str>,
+        folder: &Path,
+        login: &LoginEnvironment,
+        stop: impl Future<Output = Stop>,
+    ) -> KeptWatchTaken {
+        let mut env = login.variables.clone();
+        if let Some(mark) = crate::orphans::own_mark() {
+            env.push((crate::orphans::MARK.to_string(), mark));
+        }
+        let given = match environment {
+            Some(named) => match self.watch_values(job, named).await {
+                Ok(given) => given,
+                Err(why) => return KeptWatchTaken::Broken { why, output: None },
+            },
+            None => None,
+        };
+        let secrets = given.as_ref().map(|values| values.secrets().to_vec()).unwrap_or_default();
+        env.extend(given.iter().flat_map(|values| values.variables()));
+        let budget = self.machine_settings().now().get(keys::WATCH_RUN_SECONDS);
+        let Some((program, args)) = command.split_first() else {
+            return KeptWatchTaken::Broken { why: String::from("It names no command."), output: None };
+        };
+        let attempt = checks_runner::run_words(
+            program.clone(),
+            args.to_vec(),
+            folder,
+            budget,
+            Writing::Nowhere,
+            &env,
+            stop,
+            Priority::Low,
+            checks_runner::GRACE,
+        )
+        .await;
+        hidden(reading_of(&attempt, budget), &secrets)
     }
 
     /// Keep one reading of `id`, and what it comes to: its state, the end it reaches, and the
@@ -314,6 +354,7 @@ where
             self.watches_published(&job).await;
         }
         if ended {
+            self.watches().stop(id);
             self.watching_row_published(&job).await;
         }
         self.watch_told(id).await;

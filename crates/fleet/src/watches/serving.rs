@@ -1,6 +1,7 @@
 //! [`Watches`] for Fleet: a start checked and kept, a weighing and a stop on what is kept, each
 //! kept in the store and published as `watches.changed`.
 
+use std::collections::BTreeMap;
 use std::path::Path;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
@@ -10,6 +11,7 @@ use core_model::{NotFilled, NotWeighed, Verdict, WatchState};
 use ipc::{SessionId, StartWatch, StopWatch, WatchList, WatchStarts, WatchSummary, WatchVerdict, WeighWatch, WireError};
 use store::{KeptWatch, KeptWatchSetAside, KeptWatchVerdict};
 
+use super::running::Folder;
 use super::telling::{owed, unsaid};
 use super::*;
 use crate::daemon::Fleet;
@@ -22,7 +24,21 @@ struct Resolved {
     environment: Option<String>,
     every: u32,
     gives_up_after: Option<u32>,
+    /// A terminal watch's text, and whether it is a pattern. Its command is empty.
+    in_terminal: Option<(String, bool)>,
 }
+
+/// A recipe as a start or a try runs it: its command filled, and what else it names.
+pub(super) struct Filled {
+    pub(super) command: Vec<String>,
+    pub(super) environment: Option<String>,
+    pub(super) every: u32,
+    pub(super) gives_up_after: Option<u32>,
+}
+
+/// The program a shipped recipe names, which is Fleet's own binary: an `armada` on the person's
+/// `PATH` may be another build, or none.
+const ARMADA: &str = "armada";
 
 impl<H, V, W> Fleet<H, V, W>
 where
@@ -34,16 +50,16 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    fn watch_unacceptable(&self, code: &str, why: impl Into<String>) -> Refusal {
+    pub(super) fn watch_unacceptable(&self, code: &str, why: impl Into<String>) -> Refusal {
         Refusal::Unacceptable(WireError::raised(code, why.into(), self.run_id()))
     }
 
-    fn watch_illegal(&self, code: &str, why: impl Into<String>) -> Refusal {
+    pub(super) fn watch_illegal(&self, code: &str, why: impl Into<String>) -> Refusal {
         Refusal::IllegalMove(WireError::raised(code, why.into(), self.run_id()))
     }
 
     /// The hosted Job holding the connection, else the one named, which must be one Fleet holds.
-    async fn watching_job(&self, caller: Option<api::Caller>, named: Option<&SessionId>) -> Result<Option<String>, Refusal> {
+    pub(super) async fn watching_job(&self, caller: Option<api::Caller>, named: Option<&SessionId>) -> Result<Option<String>, Refusal> {
         if let Some(held) = caller.and_then(|caller| self.session_holding(&caller)) {
             return Ok(Some(held));
         }
@@ -56,14 +72,15 @@ where
         }
     }
 
-    async fn placed_job(&self, caller: Option<api::Caller>, named: Option<&SessionId>) -> Result<String, Refusal> {
+    pub(super) async fn placed_job(&self, caller: Option<api::Caller>, named: Option<&SessionId>) -> Result<String, Refusal> {
         self.watching_job(caller, named)
             .await?
             .ok_or_else(|| self.watch_unacceptable(UNPLACED, "A watch is a Job's, and nothing places one."))
     }
 
-    /// The recipes the Job's repository and this machine hold, read on every start.
-    async fn recipes_for(&self, job: &str) -> config::WatchRecipes {
+    /// The recipes Armada ships, the Job's repository holds and this machine holds, read on every
+    /// start. A Job in no repository Fleet serves has the shipped ones and this machine's.
+    pub(super) async fn recipes_for(&self, job: &str) -> config::WatchRecipes {
         let manifest = match self.store().lock().await.session(job).ok().flatten() {
             Some(session) => session.manifest_id.filter(|id| !id.is_empty()),
             None => None,
@@ -71,40 +88,86 @@ where
         let served = manifest.and_then(|id| self.served_named(Some(&ipc::ManifestId::carried(&id))).ok());
         let written = match served {
             Some(served) => self.locating().watch_recipes(Path::new(served.root()), served.manifest().base()),
-            None => Vec::new(),
+            None => self.locating().machine_watch_recipes(),
         };
         config::WatchRecipes::of(written)
+    }
+
+    /// `recipe` among `job`'s, its command filled from `values`.
+    pub(super) async fn recipe_filled(
+        &self,
+        job: &str,
+        recipe: &str,
+        values: &BTreeMap<String, String>,
+    ) -> Result<Filled, Refusal> {
+        let recipes = self.recipes_for(job).await;
+        let Some(found) = recipes.named(recipe) else {
+            return Err(self.watch_unacceptable(RECIPE_UNKNOWN, unknown_recipe(recipe, &recipes)));
+        };
+        let mut command = core_model::fill(&found.recipe.command, values)
+            .map_err(|why| self.watch_unacceptable(VALUE_REFUSED, unfilled(recipe, &why)))?;
+        if found.source == config::WatchRecipeSource::Armada && command.first().is_some_and(|program| program == ARMADA) {
+            if let Ok(own) = std::env::current_exe() {
+                command[0] = own.to_string_lossy().into_owned();
+            }
+        }
+        Ok(Filled {
+            command,
+            environment: found.recipe.environment.clone(),
+            every: found.recipe.every_seconds,
+            gives_up_after: found.recipe.gives_up_after_seconds,
+        })
+    }
+
+    /// `command` as the agent gave it, refused where it is not a list of whole arguments.
+    pub(super) fn command_checked(&self, command: &[String]) -> Result<(), Refusal> {
+        if command.is_empty() || command.iter().any(|item| item.trim().is_empty() || item.contains('\0')) {
+            return Err(self.watch_unacceptable(REFUSED, "`command` is a list of arguments, none of them blank."));
+        }
+        Ok(())
+    }
+
+    /// `written`, a span named `key`, in seconds.
+    pub(super) fn span(&self, key: &str, written: &str) -> Result<u32, Refusal> {
+        core_model::span_seconds(written).ok_or_else(|| {
+            self.watch_unacceptable(REFUSED, format!("`{key}` is `{written}`, where it is a count and `s`, `m` or `h`: `60s`."))
+        })
     }
 
     async fn resolved(&self, job: &str, starts: WatchStarts) -> Result<Resolved, Refusal> {
         match starts {
             WatchStarts::Recipe { recipe, values } => {
-                let recipes = self.recipes_for(job).await;
-                let Some(found) = recipes.named(&recipe) else {
-                    return Err(self.watch_unacceptable(RECIPE_UNKNOWN, unknown_recipe(&recipe, &recipes)));
-                };
-                let command = core_model::fill(&found.recipe.command, &values)
-                    .map_err(|why| self.watch_unacceptable(VALUE_REFUSED, unfilled(&recipe, &why)))?;
+                let filled = self.recipe_filled(job, &recipe, &values).await?;
                 Ok(Resolved {
-                    command,
+                    command: filled.command,
                     recipe: Some(recipe),
-                    environment: found.recipe.environment.clone(),
-                    every: found.recipe.every_seconds,
-                    gives_up_after: found.recipe.gives_up_after_seconds,
+                    environment: filled.environment,
+                    every: filled.every,
+                    gives_up_after: filled.gives_up_after,
+                    in_terminal: None,
                 })
             }
             WatchStarts::Command { command, every, gives_up_after } => {
-                if command.is_empty() || command.iter().any(|item| item.trim().is_empty() || item.contains('\0')) {
-                    return Err(self.watch_unacceptable(REFUSED, "`command` is a list of arguments, none of them blank."));
+                self.command_checked(&command)?;
+                let every = self.span("every", &every)?;
+                let gives_up_after = gives_up_after.map(|written| self.span("gives_up_after", &written)).transpose()?;
+                Ok(Resolved { command, recipe: None, environment: None, every, gives_up_after, in_terminal: None })
+            }
+            WatchStarts::Terminal { text, regex, gives_up_after } => {
+                if text.trim().is_empty() {
+                    return Err(self.watch_unacceptable(REFUSED, "`in_terminal` is what to wait for, and it is blank."));
                 }
-                let span = |key: &str, written: &str| {
-                    core_model::span_seconds(written).ok_or_else(|| {
-                        self.watch_unacceptable(REFUSED, format!("`{key}` is `{written}`, where it is a count and `s`, `m` or `h`: `60s`."))
-                    })
-                };
-                let every = span("every", &every)?;
-                let gives_up_after = gives_up_after.map(|written| span("gives_up_after", &written)).transpose()?;
-                Ok(Resolved { command, recipe: None, environment: None, every, gives_up_after })
+                super::listening::wanted(&text, regex).map_err(|why| self.watch_unacceptable(REFUSED, why))?;
+                if self.session_runs().shell_heard(job).is_none() {
+                    return Err(self.watch_illegal(
+                        TERMINAL_CLOSED,
+                        "This Job has no terminal open, so nothing would print. type_in_terminal opens it.",
+                    ));
+                }
+                let gives_up_after = gives_up_after.map(|written| self.span("gives_up_after", &written)).transpose()?;
+                // How soon it listens again after its terminal ended: the fastest a watch may run.
+                let every = u32::try_from(self.machine_settings().now().get(keys::WATCH_EVERY_SECONDS).as_secs()).unwrap_or(u32::MAX);
+                Ok(Resolved { command: Vec::new(), recipe: None, environment: None, every, gives_up_after, in_terminal: Some((text, regex)) })
             }
         }
     }
@@ -190,6 +253,10 @@ where
         if gives_up_after > GIVE_UP_CAP_SECONDS {
             return Err(self.watch_unacceptable(GIVES_UP_TOO_LATE, "A watch gives up after a day at most: `24h`."));
         }
+        let (in_terminal, regex) = match resolved.in_terminal {
+            Some((text, regex)) => (Some(text), regex),
+            None => (None, false),
+        };
         let mut watch = core_model::Watch::new(name, resolved.command, resolved.every, gives_up_after);
         watch.follows = start.follows;
         watch.set_aside = start
@@ -217,7 +284,16 @@ where
             changed_at: now.as_str().to_string(),
             ended_at: None,
             unsaid: None,
+            in_terminal,
+            regex,
         };
+        // A terminal watch runs nothing, so no environment is read for it.
+        if kept.in_terminal.is_none() {
+            if let Folder::At(folder) = self.watch_folder(&job).await {
+                let login = super::environment::read(self.watches().shell().as_deref(), &folder).await;
+                self.watches().keep_environment(&kept.id, login);
+            }
+        }
         let whole = {
             let mut store = self.store().lock().await;
             store.keep_watch(&kept).map_err(|why| self.ledger_fault(why))?;
@@ -230,7 +306,7 @@ where
         // Its first reading is the runner's next pass, `running::EVERY` away at most.
         self.watches_published(&job).await;
         self.watching_row_published(&job).await;
-        whole.map(|whole| summary(&whole)).ok_or_else(|| self.no_such_watch(&kept.id))
+        whole.map(|whole| self.watch_summary(&whole)).ok_or_else(|| self.no_such_watch(&kept.id))
     }
 
     async fn weigh_watch(&self, caller: Option<api::Caller>, weigh: WeighWatch) -> Result<WatchSummary, Refusal> {
@@ -275,7 +351,7 @@ where
             (next.session_id, whole)
         };
         self.watches_published(&job).await;
-        whole.map(|whole| summary(&whole)).ok_or_else(|| self.no_such_watch(&weigh.watch))
+        whole.map(|whole| self.watch_summary(&whole)).ok_or_else(|| self.no_such_watch(&weigh.watch))
     }
 
     async fn stop_watch(&self, caller: Option<api::Caller>, stop: StopWatch) -> Result<WatchSummary, Refusal> {
@@ -299,11 +375,31 @@ where
         self.watches().stop(&stop.watch);
         self.watches_published(&job).await;
         self.watching_row_published(&job).await;
-        whole.map(|whole| summary(&whole)).ok_or_else(|| self.no_such_watch(&stop.watch))
+        whole.map(|whole| self.watch_summary(&whole)).ok_or_else(|| self.no_such_watch(&stop.watch))
     }
 
     async fn list_watches(&self, caller: Option<api::Caller>, session_id: Option<SessionId>) -> Result<WatchList, Refusal> {
         let job = self.placed_job(caller, session_id.as_ref()).await?;
         self.watch_list(&job).await
+    }
+
+    async fn try_watch(&self, caller: Option<api::Caller>, tried: ipc::TryWatch) -> Result<ipc::WatchTried, Refusal> {
+        self.watch_tried(caller, tried).await
+    }
+
+    async fn list_watch_recipes(
+        &self,
+        caller: Option<api::Caller>,
+        session_id: Option<SessionId>,
+    ) -> Result<ipc::WatchRecipeList, Refusal> {
+        self.watch_recipes_listed(caller, session_id).await
+    }
+
+    async fn save_watch_recipe(
+        &self,
+        caller: Option<api::Caller>,
+        save: ipc::SaveWatchRecipe,
+    ) -> Result<ipc::WatchRecipeSaved, Refusal> {
+        self.watch_recipe_saved(caller, save).await
     }
 }

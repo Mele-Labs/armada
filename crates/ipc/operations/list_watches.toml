@@ -12,3 +12,4 @@ notes = """
 
 `agent_access` is `Yes`: an agent woken by a watch's notice reads the watch whole here.
 """
+always_loaded = true

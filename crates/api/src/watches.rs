@@ -66,3 +66,39 @@ pub(crate) async fn list_watches<D: Watches>(
         Err(refusal) => refused(refusal),
     }
 }
+
+pub(crate) async fn try_watch<D: Watches>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let tried: ipc::TryWatch = match ipc::decode("a watch to try", &body) {
+        Ok(tried) => tried,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().try_watch(crate::acting::asking(), tried).await {
+        Ok(read) => answer(StatusCode::OK, &read, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+pub(crate) async fn list_watch_recipes<D: Watches>(
+    State(served): State<Served<D>>,
+    Query(asked): Query<ForWatches>,
+) -> Response {
+    let named = asked
+        .session_id
+        .filter(|id| !id.trim().is_empty())
+        .map(|id| ipc::SessionId::carried(id.trim()));
+    match served.daemon().list_watch_recipes(crate::acting::asking(), named).await {
+        Ok(list) => answer(StatusCode::OK, &list, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+pub(crate) async fn save_watch_recipe<D: Watches>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let save: ipc::SaveWatchRecipe = match ipc::decode("a watch recipe to save", &body) {
+        Ok(save) => save,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().save_watch_recipe(crate::acting::asking(), save).await {
+        Ok(saved) => answer(StatusCode::OK, &saved, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}

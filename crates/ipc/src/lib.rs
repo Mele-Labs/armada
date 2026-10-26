@@ -248,6 +248,8 @@ mod underway;
 mod walk_steps;
 /// A command Fleet runs on a cadence for one Job, the agent's weighing of it, and its line.
 mod watches;
+/// A watch tried before it starts, the recipes there are, and one kept on this machine.
+mod watch_tools;
 
 #[cfg(test)]
 mod tests;
@@ -651,9 +653,13 @@ pub use triggers::{
     TriggerScope, TriggerSkip, TriggerSkipReason, TriggerSummary,
 };
 pub use watches::{
-    read_watch_line, StartWatch, StopWatch, WatchList, WatchPart, WatchReading,
-    WatchReadingState, WatchSetAside, WatchStarts, WatchState, WatchSummary, WatchVerdict,
-    WatchVerdictGiven, WatchVerdictWord, WeighWatch,
+    read_watch_line, watch_line, LoginShell, StartWatch, StopWatch, WatchList, WatchPart,
+    WatchReading, WatchReadingState, WatchSetAside, WatchStarts, WatchState, WatchSummary,
+    WatchVerdict, WatchVerdictGiven, WatchVerdictWord, WeighWatch,
+};
+pub use watch_tools::{
+    SaveWatchRecipe, TryWatch, WatchRecipeList, WatchRecipeListed, WatchRecipeSaved,
+    WatchRecipeSource, WatchTried, WatchTries,
 };
 pub use underway::{
     OutputClosed, OutputEnded, OutputLines,

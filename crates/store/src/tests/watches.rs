@@ -23,6 +23,8 @@ fn watch(id: &str, session: &str) -> KeptWatch {
         changed_at: AT.into(),
         ended_at: None,
         unsaid: None,
+        in_terminal: None,
+        regex: false,
     }
 }
 
@@ -103,4 +105,18 @@ fn a_notice_is_kept_once_across_a_reopen() {
     let store = open(&dir);
     assert!(store.watch_notice_kept("w-1", "failed:deploy-api").unwrap());
     assert!(!store.watch_notice_kept("w-1", "passed").unwrap());
+}
+
+#[test]
+fn a_terminal_watch_keeps_what_it_waits_for() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    let mut kept = watch("w-terminal", "job-1");
+    kept.command = Vec::new();
+    kept.in_terminal = Some(String::from("Listening on \\d+"));
+    kept.regex = true;
+    store.keep_watch(&kept).expect("kept");
+    drop(store);
+    let whole = open(&dir).watch_whole("w-terminal").expect("reads").expect("there");
+    assert_eq!(whole.watch, kept);
 }
