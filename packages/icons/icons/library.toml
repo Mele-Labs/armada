@@ -1,0 +1,7 @@
+[icons.library]
+  means = "Books standing on a shelf - the files a Job has made, kept together"
+  group = "Session"
+  size = "16px"
+  status = "Specified"
+  reserved = "The Job's Artifacts view, a button in the Job's head. Never a list of sessions, never a document the person is reading, which are `book-open`'s and the Record's."
+  notes = "Minted 26 Oct 2026 with the Cockpit's Job head, where the views of a Job are icon buttons with a tooltip (Artifacts, Checks, Subagents, Slot) and no longer a row of words. Approved by the owner on the walk `flight-control` the same day. Artifacts are what the Job leaves behind, so the glyph is the shelf they are kept on and not a single file. Tooltip `Artifacts`."
