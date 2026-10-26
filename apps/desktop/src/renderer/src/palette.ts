@@ -157,7 +157,12 @@ export type PaletteHands = {
   studioRun: () => void;
   /** Arm a kind on the open Studio's rail, as its key does. */
   studioAdd: (kind: StudioNodeByHandKind) => void;
+  /** Open the box that starts a Mod Job from his words. */
+  createMod: () => void;
 };
+
+/** The palette's rows about the window as a whole, which no registry row answers. */
+export const CREATE_MOD = "create_mod";
 
 /** The palette's Add rows, by the kind each arms on the rail. */
 const ADD_ROW: Readonly<Record<string, StudioNodeByHandKind>> = {
@@ -192,6 +197,9 @@ export function carryOut(choice: PaletteChoice, hands: PaletteHands): void {
       return;
     case "repository":
       hands.pickRepository(choice.root);
+      return;
+    case "board":
+      if (choice.id === CREATE_MOD) hands.createMod();
       return;
     case "act":
       act(choice.id, hands);

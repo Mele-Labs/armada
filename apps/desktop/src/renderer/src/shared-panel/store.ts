@@ -5,6 +5,7 @@
 import { useSyncExternalStore } from "react";
 import type { RequestHeader } from "@armada/protocol";
 import type { TeachSourceKind } from "@armada/components";
+import type { ModKind } from "@armada/protocol";
 
 /** What Requests starts from: a request's sent half, as a `requested` row holds it. */
 export type RequestStart = { method: string; url: string; environment?: string; headers: readonly RequestHeader[]; body?: string };
@@ -22,6 +23,8 @@ export type PanelItem =
   | { kind: "bay"; manifestId: string; slot: number }
   /** One of a Session's watches, read from the Session as `watches.changed` last carried it. */
   | { kind: "watch"; sessionId: string; id: string; name: string }
+  /** A mod on this machine, by its folder, with the title its row draws and its kind. The panel reads the rest from Fleet's mod list. */
+  | { kind: "mod"; name: string; title: string; modKind: ModKind }
   | (PanelFileItem & { marked?: PanelFileMarked })
   | { kind: "check"; id: string; name?: string; branch?: string; land?: { root: string; branch: string; check: string }; row?: { state: "passed" | "failed" | "running"; seconds?: number; address?: string } }
   /**
@@ -65,6 +68,11 @@ export function openInPanel(item: PanelItem): boolean {
   if (item.kind === "pr" && item.address !== "" && browse?.(item.address) === true) return true;
   set({ open: item, back: held.open !== undefined && held.open.kind !== item.kind ? held.open : held.back });
   return true;
+}
+
+/** Opens a mod in the panel, from a press on its row. */
+export function openMod(mod: { name: string; title: string; kind: ModKind }): boolean {
+  return openInPanel({ kind: "mod", name: mod.name, title: mod.title, modKind: mod.kind });
 }
 
 /** Back to the item the panel was on before a press inside it moved it. */

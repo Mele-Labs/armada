@@ -1,21 +1,17 @@
-/* Switch — inherits the input's border, focus and height rules.
+/* Switch: a recessed pill with a raised knob, and the state written in the half the knob leaves. On lights the track in
+ * --accent with ON on it; off is the sunken ground with OFF. Depth is the track's inset shadow and the knob's rim and drop.
+ * The words are ON and OFF unless given, and the track widens to the longer. `data-size="sm"` is a band's or a bar's switch.
  *
- * The contract gives one line: --accent when on, --border-strong when off.
- * It does not say whether --border-strong is the track's fill or its edge,
- * and it names nothing for the thumb. The component sheet draws the answer:
- * the off track is a --bg-hover fill with a --border-default edge, and the
- * thumb is --fg-default on and --fg-subtle off. That is what is built here.
- * --border-strong ends up unused, which is recorded rather than resolved.
- *
- * The geometry is derived, not measured off the sheet. The track is one
- * control wide (--h-control) and one badge tall (--h-badge); the thumb is
- * --space-4, and the pill radius is exactly half the track. The thumb travels
- * by `left`, from the leading edge of the padding box to the trailing one, so
- * no offset is written down and the hairline border never has to be
- * subtracted from a number.
- */
+ * No gradient, no glow, no sheen. Motion is one --duration-press slide, zero under reduced motion.
+ * Keyboard and screen reader are the input's own: it stays in the label, clipped, and the track draws its state. */
 
 .armada-switch {
+  --switch-h: calc(var(--h-badge) + var(--space-2));
+  --switch-text: var(--text-xs);
+  --pad: calc(var(--border-width) * 3);
+  --knob: calc(var(--switch-h) - var(--pad) * 2);
+  /* The words' side of the track: a little air each side of the longest word. */
+  --air: var(--space-2);
   /* The native input is absolutely positioned and clipped; the label is what
      it is positioned against. */
   position: relative;
@@ -55,54 +51,106 @@
   text-wrap: pretty;
 }
 
+/* A band's or a bar's switch: one badge tall, the words at the smallest size. */
+.armada-switch[data-size="sm"] {
+  --switch-h: var(--h-badge);
+  --switch-text: var(--text-2xs);
+  --pad: calc(var(--border-width) * 2);
+  --air: var(--space-1);
+  min-height: 0;
+}
+
 .armada-switch__input {
   position: absolute;
-  width: var(--h-control);
-  height: var(--h-badge);
+  inset: 0;
   margin: 0;
   clip-path: inset(50%);
 }
 
+/* The track is as wide as its longer word needs: both words share one cell, beside the knob's room, so the wider one sets it.
+ * Off, the words stand right of the knob; on, the knob crosses to the right and the words take its place on the left. */
 .armada-switch__track {
   position: relative;
   flex: none;
+  display: inline-grid;
+  align-items: center;
   box-sizing: border-box;
-  width: var(--h-control);
-  height: var(--h-badge);
-  border-radius: calc(var(--h-badge) / 2);
-  border-style: solid;
-  border-width: var(--border-width);
-  border-color: var(--border-default);
-  background: var(--bg-hover);
+  height: var(--switch-h);
+  padding-inline: calc(var(--knob) + var(--pad) + var(--air)) var(--air);
+  border: var(--border-width) solid var(--border-strong);
+  border-radius: calc(var(--switch-h) / 2);
+  background: var(--bg-sunken);
+  box-shadow: inset 0 var(--border-width) calc(var(--border-width) * 4) color-mix(in srgb, var(--bg-base) 85%, transparent);
   transition:
-    background-color var(--duration-fast) var(--ease),
-    border-color var(--duration-fast) var(--ease);
+    background-color var(--duration-press) var(--ease),
+    border-color var(--duration-press) var(--ease);
 }
 
+/* The words sit in the half the knob leaves, and only the one that is true is drawn. */
+.armada-switch__word {
+  grid-area: 1 / 1;
+  justify-self: center;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: var(--switch-text);
+  line-height: 1;
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  transition: opacity var(--duration-press) var(--ease);
+}
+
+.armada-switch__word[data-word="on"] {
+  transform: translateX(calc(-1 * (var(--knob) + var(--pad))));
+  color: var(--fg-inverse);
+  opacity: 0;
+}
+
+.armada-switch__word[data-word="off"] {
+  color: var(--fg-muted);
+}
+
+/* The knob: a disc standing on the track, its rim a step darker, dropped a little shadow. */
 .armada-switch__thumb {
   position: absolute;
-  top: 50%;
-  left: 0;
-  transform: translateY(-50%);
-  width: var(--space-4);
-  height: var(--space-4);
+  top: calc(var(--pad) - var(--border-width));
+  left: calc(var(--pad) - var(--border-width));
+  box-sizing: border-box;
+  width: var(--knob);
+  height: var(--knob);
+  border: calc(var(--border-width) * 2) solid var(--border-strong);
   border-radius: 50%;
-  background: var(--fg-subtle);
+  background: var(--fg-muted);
+  box-shadow: 0 var(--border-width) calc(var(--border-width) * 3) color-mix(in srgb, var(--bg-base) 70%, transparent);
   transition:
-    left var(--duration-fast) var(--ease),
-    background-color var(--duration-fast) var(--ease);
+    left var(--duration-press) var(--ease),
+    background-color var(--duration-press) var(--ease),
+    border-color var(--duration-press) var(--ease);
 }
 
 .armada-switch__input:checked + .armada-switch__track {
-  background: var(--accent);
   border-color: var(--accent);
+  background: var(--accent);
+}
+
+.armada-switch__input:checked + .armada-switch__track .armada-switch__word[data-word="on"] {
+  opacity: 1;
+}
+
+.armada-switch__input:checked + .armada-switch__track .armada-switch__word[data-word="off"] {
+  opacity: 0;
 }
 
 .armada-switch__input:checked + .armada-switch__track .armada-switch__thumb {
-  left: 100%;
-  transform: translate(-100%, -50%);
+  left: calc(100% - var(--knob) - var(--pad) + var(--border-width));
+  border-color: color-mix(in srgb, var(--accent) 60%, var(--bg-base));
   background: var(--fg-default);
 }
+
+.armada-switch:not(:has(.armada-switch__input:disabled)):hover .armada-switch__input:not(:checked) + .armada-switch__track {
+  border-color: var(--fg-subtle);
+}
+
+/* ---- Focus and disabled ---- */
 
 .armada-switch__input:focus-visible + .armada-switch__track,
 .armada-switch__input[data-preview-focus] + .armada-switch__track {
@@ -110,24 +158,24 @@
   outline-offset: var(--focus-ring-offset);
 }
 
-/* Disabled is --fg-subtle with hover suppressed. Never opacity — so an off
- * switch and a disabled one are told apart by the label's step and the
- * track's edge, not by a wash over the whole control. */
+/* Disabled is --fg-subtle with hover suppressed. Never opacity: the track and knob step down instead. */
 .armada-switch:has(.armada-switch__input:disabled) {
   color: var(--fg-subtle);
   cursor: default;
 }
 
-.armada-switch__input:disabled + .armada-switch__track {
-  background: var(--bg-sunken);
-  border-color: var(--border-subtle);
-}
-
+.armada-switch__input:disabled + .armada-switch__track,
 .armada-switch__input:disabled:checked + .armada-switch__track {
-  background: var(--bg-sunken);
   border-color: var(--border-subtle);
+  background: var(--bg-sunken);
 }
 
-.armada-switch__input:disabled + .armada-switch__track .armada-switch__thumb {
-  background: var(--fg-subtle);
+.armada-switch__input:disabled + .armada-switch__track .armada-switch__word {
+  color: var(--fg-subtle);
+}
+
+.armada-switch__input:disabled + .armada-switch__track .armada-switch__thumb,
+.armada-switch__input:disabled:checked + .armada-switch__track .armada-switch__thumb {
+  border-color: var(--border-subtle);
+  background: var(--border-strong);
 }

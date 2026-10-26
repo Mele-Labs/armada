@@ -6,6 +6,7 @@
 // one. Ten props would be ten chances for a caller to wire one to the wrong
 // thing; the object is the shape that function already agrees on.
 
+import { Puzzle } from "lucide-react";
 import { Palette, type PaletteRepository, type PaletteSurface } from "@armada/shell";
 import type { PaletteDispatch } from "@armada/components";
 import type { BridgeState } from "../../shared/bridge";
@@ -17,7 +18,8 @@ import { askToDebugBridge } from "./debug-bridge";
 import { askToOpenSession, openSessionIn } from "./open-session";
 import { openInPanel, openRequestsInPanel } from "./shared-panel/store";
 import { useSessions } from "./sessions-draft";
-import { absentIn, carryOut, dormantIn } from "./palette";
+import { askToCreateMod } from "./create-mod";
+import { absentIn, carryOut, CREATE_MOD, dormantIn, FLEET_DOWN } from "./palette";
 
 export type PaletteMountProps = {
   open: boolean;
@@ -38,7 +40,7 @@ export type PaletteMountProps = {
    * Run and Add, which this reaches itself: the rail takes the ask directly, so
    * `App` holds nothing for them.
    */
-  acts: Omit<Parameters<typeof carryOut>[1], "studioRun" | "studioAdd" | "debugBridge" | "openSession" | "requests">;
+  acts: Omit<Parameters<typeof carryOut>[1], "studioRun" | "studioAdd" | "createMod" | "debugBridge" | "openSession" | "requests">;
   /** The one bar's dispatch row. `one-bar.tsx`. */
   dispatch: PaletteDispatch;
 };
@@ -86,6 +88,8 @@ export function PaletteMount({
       // **No filter rows.** They were the Job Board's state tabs, and that
       // surface is gone, so there is nothing here for a row to set.
       filters={[]}
+      // A row about the window as a whole: it starts a Mod Job through Fleet, so it waits on the connection.
+      board={[{ id: CREATE_MOD, label: "Create mod", icon: Puzzle, ...(live ? {} : { dormant: FLEET_DOWN }) }]}
       // One row per Check and Command, off the same reading the Manifest
       // surface draws from — Journey 9's own table. Empty until that read has
       // answered, which is what `App.tsx`'s effect holds open.
@@ -102,7 +106,7 @@ export function PaletteMount({
       dormant={dormantIn({ failing: failing !== null, live, debuggable: window.armadaDev !== undefined, studioRun, studioAdd })}
       absent={absentIn({ failing: failing !== null })}
       onChoose={(choice: Parameters<typeof carryOut>[0]) =>
-        carryOut(choice, { ...acts, studioRun: askStudioRun, studioAdd: askStudioAdd, debugBridge: askToDebugBridge, openSession: askToOpenSession, requests: () => void openRequestsInPanel(openSessionIn(document)) })
+        carryOut(choice, { ...acts, studioRun: askStudioRun, studioAdd: askStudioAdd, createMod: askToCreateMod, debugBridge: askToDebugBridge, openSession: askToOpenSession, requests: () => void openRequestsInPanel(openSessionIn(document)) })
       }
     />
   );

@@ -19,6 +19,7 @@ use store::KeptPlan;
 use crate::daemon::Fleet;
 use crate::plan_marks;
 use crate::plan_record::recorded;
+use crate::session_host::asking::answers_a_question;
 use crate::session_host::walking;
 use crate::session_host::sketching::{sketch_attachment, TARGET_PREFIX};
 
@@ -68,7 +69,8 @@ pub(crate) struct Holds {
 /// newest window, the one on his screen, and one he has not approved, which waits to be shown again.
 /// A walk the plan names holds it until he approves it. **A window he answered with words, not an
 /// Approve, before the plan was recorded holds nothing**: the plan is the Job's answer to them, and
-/// showing the window again after the recording makes it hold again.
+/// showing the window again after the recording makes it hold again. His answer to one of the Job's
+/// questions is not such words: it answers the question, not the walk.
 pub(crate) fn plan_holds(
     recorded: &str,
     walk: Option<&str>,
@@ -121,15 +123,16 @@ pub(crate) fn plan_holds(
     Holds { held_by, since }
 }
 
-/// Whether he wrote to the Job, other than an Approve, after `url` was last shown and before the plan
-/// was `recorded`.
+/// Whether he wrote to the Job, other than an Approve or an answer to one of its questions, after
+/// `url` was last shown and before the plan was `recorded`.
 fn answered(rows: &[SessionRow], url: &str, recorded: &str) -> bool {
     let Some(shown) = walking::walk_shown_at(rows, url) else {
         return false;
     };
     rows.iter().any(|row| {
-        matches!(row, SessionRow::Message { at, from: ipc::SessionVoice::You, text, .. }
-            if at > shown && at.as_str() < recorded && walking::approved_address(text).is_none())
+        matches!(row, SessionRow::Message { id, at, from: ipc::SessionVoice::You, text, .. }
+            if at > shown && at.as_str() < recorded && walking::approved_address(text).is_none()
+                && !answers_a_question(id))
     })
 }
 

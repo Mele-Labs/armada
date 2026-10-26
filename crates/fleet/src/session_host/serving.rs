@@ -178,8 +178,16 @@ where
         self: Arc<Self>,
         sent: SendSessionMessage,
     ) -> Result<SessionRecord, Refusal> {
+        self.send_session_message_aiming(sent, None).await
+    }
+
+    async fn send_session_message_aiming(
+        self: Arc<Self>,
+        sent: SendSessionMessage,
+        aim: Option<ipc::ModAim>,
+    ) -> Result<SessionRecord, Refusal> {
         let terminal = self.terminal_session(sent.session_id.as_str()).await?;
-        self.send_known(terminal, sent).await
+        self.mod_message_sent(terminal, sent, aim).await
     }
 
     async fn send_session_note(self: Arc<Self>, note: ipc::SendSessionNote) -> Result<ipc::NoteSent, Refusal> {

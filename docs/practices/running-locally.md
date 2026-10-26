@@ -89,7 +89,7 @@ refusal exits non-zero.
 
 | Fault |
 |---|
-| `armada.yml` missing or malformed |
+| No Manifest (no `armada.yml` and no Kit copy), or one that is malformed |
 | Two definitions in one place naming the same `workflow_id` |
 | A step naming a Check the Manifest does not declare |
 | An agent CLI a Drone would not find on its own `PATH` |
@@ -705,8 +705,8 @@ is on.
 
 ## Running a Check or a Command by hand
 
-**`armada check` and `armada run` need no Fleet.** They read `armada.yml` and
-execute through the same runner a Job's gate uses.
+**`armada check` and `armada run` need no Fleet.** They read the Manifest, the repository's `armada.yml` with Kit's copy laid over
+it, and execute through the same runner a Job's gate uses.
 
 **There is no shell**, so a `run` string that pipes or redirects does not work
 here either. The command's own exit code comes back out.

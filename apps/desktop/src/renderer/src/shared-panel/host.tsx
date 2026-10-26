@@ -9,6 +9,7 @@ import { refScanner } from "@armada/helm";
 import { openLink } from "../commands";
 import { OverTheApp } from "../session-view/OverTheApp";
 import { BayPanel, CheckPanel, IssuePanel } from "./panels";
+import { ModPanel } from "./mod";
 import { FileSide, useOpenFileKey } from "./file";
 import { PullRequestSide } from "./pull-request";
 import { RequestsPanel } from "./requests";
@@ -50,6 +51,8 @@ export function SharedPanelHost() {
         <BayPanel key={`bay:${open.manifestId}/${open.slot}`} item={open} />
       ) : open.kind === "watch" ? (
         <WatchPanel key={`watch:${open.sessionId}/${open.id}`} item={open} />
+      ) : open.kind === "mod" ? (
+        <ModPanel key={`mod:${open.name}`} item={open} />
       ) : open.kind === "terminal" ? (
         <TerminalPanel key={`terminal:${open.sessionId}`} item={open} />
       ) : open.kind === "requests" ? (

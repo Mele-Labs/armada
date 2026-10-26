@@ -97,11 +97,14 @@ export function handleSessions({ ipc, connection, windowIdOf, pages, terminals }
     return connection()?.sessions.sendNote(send) ?? unsent;
   });
   ipc.handle(CHANNELS.startModSession, (_event, start: StartModSession) => {
-    const note = start?.note;
-    if (typeof note?.said !== "string" || typeof note.address !== "string" || typeof note.place?.selector !== "string" || typeof note.place.location !== "string") return unread;
-    if (typeof note.state !== "object" || note.state === null) return unread;
-    for (const field of [start.title, start.model, start.effort]) if (field !== undefined && typeof field !== "string") return unread;
-    return connection()?.sessions.startMod({ note, ...(text(start.title) ? { title: start.title } : {}), ...(text(start.model) ? { model: start.model } : {}), ...(text(start.effort) ? { effort: start.effort } : {}) }) ?? unsent;
+    if (typeof start !== "object" || start === null) return unread;
+    const note = start.note;
+    if (note !== undefined) {
+      if (typeof note?.said !== "string" || typeof note.address !== "string" || typeof note.place?.selector !== "string" || typeof note.place.location !== "string") return unread;
+      if (typeof note.state !== "object" || note.state === null) return unread;
+    }
+    for (const field of [start.title, start.model, start.effort, start.said]) if (field !== undefined && typeof field !== "string") return unread;
+    return connection()?.sessions.startMod({ ...(note === undefined ? {} : { note }), ...(start.said === undefined ? {} : { said: start.said }), ...(text(start.title) ? { title: start.title } : {}), ...(text(start.model) ? { model: start.model } : {}), ...(text(start.effort) ? { effort: start.effort } : {}) }) ?? unsent;
   });
   ipc.handle(CHANNELS.answerSessionAsk,(_event, answer: AnswerSessionAsk) => {
     if (!text(answer?.session_id) || !text(answer.call) || !ANSWERS.includes(answer.answer)) return unread;
