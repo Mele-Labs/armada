@@ -7,7 +7,7 @@ import type { ReactNode } from "react";
 import { SURFACE } from "@armada/shell";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
-import type { Holder, IssueRow, Linked, LinkedPull, Look, Project, ProjectRow, RowState, TaskRow } from "./model";
+import type { Holder, IssueRow, Linked, LinkedPull, Look, Project, ProjectRow, RowState, TaskLinks, TaskRow } from "./model";
 
 export type ProjectsSnapshot = {
   projects: readonly Project[];
@@ -97,12 +97,13 @@ export function createProjectsStore(seed: readonly Project[], settled?: Settled,
     },
     name: (manifestId: string | undefined) => set({ naming: manifestId }),
     /** A task joins the top of the list, under the field it was written in. */
-    addTask: (projectId: string, title: string) => edit(projectId, (one) => ({ ...one, usedAt: Date.now(), rows: [{ kind: "task", id: fresh("task"), title, done: false }, ...one.rows] })),
+    addTask: (projectId: string, title: string, links: TaskLinks = {}) =>
+      edit(projectId, (one) => ({ ...one, usedAt: Date.now(), rows: [{ kind: "task", id: fresh("task"), title, done: false, ...links }, ...one.rows] })),
     /** A subtask joins the foot of its parent's. A subtask holds none, so one asked of a subtask is not added. */
-    addSubtask: (parentId: string, title: string) => {
+    addSubtask: (parentId: string, title: string, links: TaskLinks = {}) => {
       const project = holding(parentId);
       if (project === undefined || !project.rows.some((row) => row.id === parentId && row.kind === "task")) return;
-      edit(project.id, (one) => withList({ ...one, usedAt: Date.now() }, parentId, (rows) => [...rows, { kind: "task", id: fresh("task"), title, done: false }]));
+      edit(project.id, (one) => withList({ ...one, usedAt: Date.now() }, parentId, (rows) => [...rows, { kind: "task", id: fresh("task"), title, done: false, ...links }]));
     },
     /** The field that adds a subtask under a task's subtasks, or none. */
     subtasking: (parentId: string | undefined) => set({ subtasking: parentId }),

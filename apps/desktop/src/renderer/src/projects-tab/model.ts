@@ -19,6 +19,9 @@ export type LinkedPull = { number: number; title: string; url: string; state: "o
 export type TaskRow = { kind: "task"; id: string; title: string; done: boolean; job?: Holder; issues?: Linked[]; pulls?: LinkedPull[]; subtasks?: TaskRow[] };
 
 /** An issue he linked to the project, as a row. It has no tick and no ask. */
+/** What a task is written with: the issues, pull requests and Job its tags named. */
+export type TaskLinks = Pick<TaskRow, "job" | "issues" | "pulls">;
+
 export type IssueRow = Linked & { kind: "issue"; id: string; job?: Holder };
 
 /** A project's look while the select control is offered two ways: the owner picks one. */

@@ -11,12 +11,12 @@ import type { Session } from "@armada/screens/src/draft/sessions";
 
 import { useReorder } from "../cockpit/deck/reorder";
 import { JobMark, jobTitle } from "../issues-tab/marks";
-import { useIssues, useIssuesStore } from "../issues-tab/store";
 import { useSessions } from "../sessions-draft";
 import type { Band } from "./list";
 import { PROJECTS_KEYS, capOf } from "./key-table";
 import type { Holder, Linked, LinkedPull, Look, Project, ProjectRow, RowState, TaskRow } from "./model";
 import { allRows, rowState, useProjects, useProjectsStore } from "./store";
+import { useOpenIssues, useTagField } from "./tagging";
 
 type Hosts = { onOpenSession: (id: string) => void; onOpenLink: (address: string) => void; onDispatch: (project: Project, rows: readonly ProjectRow[]) => void };
 
@@ -174,7 +174,7 @@ function Card({ row, index, look, sub, project, adding, editing, state, sessions
       )}
       <span className="projects-row__title">
         {row.kind === "issue" ? <span className="projects-row__reference">{row.reference}</span> : null}
-        {editing && row.kind === "task" ? <EditTitle row={row} /> : <span className="projects-row__words">{row.title}</span>}
+        {editing && row.kind === "task" ? <EditTitle row={row} manifestId={project.manifestId} /> : <span className="projects-row__words">{row.title}</span>}
         {row.kind === "task" && !sub ? <IssueChips issues={row.issues ?? []} /> : null}
       </span>
       {/* The done ask's answers, in a column of their own; a card with no ask leaves it to the title. */}
@@ -297,14 +297,16 @@ function AddTask({ project, parent }: { project: Project; parent?: TaskRow }) {
   const store = useProjectsStore()!;
   const keep = parent === undefined ? `projects:task:${project.id}` : `projects:subtask:${parent.id}`;
   const [title, setTitle] = useState("");
+  const tags = useTagField(project.manifestId, title, setTitle);
   const add = () => {
     if (title.trim() === "") {
       if (parent === undefined) return;
       store.subtasking(undefined);
       return refocusRow(parent.id);
     }
-    if (parent === undefined) store.addTask(project.id, title.trim());
-    else store.addSubtask(parent.id, title.trim());
+    const written = tags.resolve(title);
+    if (parent === undefined) store.addTask(project.id, written.title, written.links);
+    else store.addSubtask(parent.id, written.title, written.links);
     forgetKept(keep);
     setTitle("");
   };
@@ -326,14 +328,16 @@ function AddTask({ project, parent }: { project: Project; parent?: TaskRow }) {
         aria-label={said}
         placeholder={parent === undefined ? "Add a task" : "Add a subtask"}
         value={title}
-        onChange={(event) => setTitle(event.target.value)}
+        {...tags.field}
         onKeyDown={(event) => {
+          if (tags.field.onKeyDown(event)) return;
           if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
             event.preventDefault();
             add();
           }
         }}
       />
+      {tags.menu}
       {parent === undefined ? (
         <Tooltip label="Add a task" shortcut={PROJECTS_KEYS.addTask}>
           <Kbd>{PROJECTS_KEYS.addTask}</Kbd>
@@ -344,28 +348,39 @@ function AddTask({ project, parent }: { project: Project; parent?: TaskRow }) {
 }
 
 /** A task's title, edited in place. Enter keeps it; Esc, which the tab's keys read, leaves it as it was. */
-function EditTitle({ row }: { row: TaskRow }) {
+function EditTitle({ row, manifestId }: { row: TaskRow; manifestId: string }) {
   const store = useProjectsStore()!;
   const keep = `projects:edit:${row.id}`;
   const [title, setTitle] = useState(row.title);
+  const tags = useTagField(manifestId, title, setTitle);
   return (
+    <span className="projects-tag">
     <Textarea
       rows={1}
       autoFocus
       keep={keep}
       aria-label={`Title of ${row.title}`}
       value={title}
-      onChange={(event) => setTitle(event.target.value)}
+      {...tags.field}
       onKeyDown={(event) => {
+        if (tags.field.onKeyDown(event)) return;
         if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
           event.preventDefault();
           forgetKept(keep);
-          if (title.trim() === "") store.editing(undefined);
-          else store.retitle(row.id, title.trim());
+          const written = tags.resolve(title);
+          if (written.title === "") store.editing(undefined);
+          else {
+            store.retitle(row.id, written.title);
+            for (const issue of written.links.issues ?? []) store.linkToTask(row.id, issue);
+            for (const pull of written.links.pulls ?? []) store.linkPull(row.id, pull);
+            if (written.links.job !== undefined) store.linkJob(row.id, written.links.job);
+          }
           refocusRow(row.id);
         }
       }}
     />
+    {tags.menu}
+    </span>
   );
 }
 
@@ -392,18 +407,10 @@ const KIND: Record<Found["kind"], { Glyph: LucideIcon; said: string }> = {
  */
 function LinkSearch({ band, project, task }: { band: Band; project: Project; task?: TaskRow }) {
   const store = useProjectsStore()!;
-  const issues = useIssuesStore();
-  const { trackers } = useIssues();
+  const { issues, failed } = useOpenIssues(band.manifestId);
   const sessions = useSessions();
   const keep = `projects:link:${task?.id ?? project.id}`;
   const [words, setWords] = useState("");
-  const tracker = trackers?.find((one) => one.manifestId === band.manifestId);
-  const query = tracker?.state === "read" ? tracker.open : undefined;
-  useEffect(() => issues?.readTrackers([band.manifestId]), [issues, band.manifestId]);
-  useEffect(() => {
-    if (query !== undefined) issues?.run(band.manifestId, query);
-  }, [issues, band.manifestId, query]);
-  const run = query === undefined ? undefined : issues?.runOf(band.manifestId, query);
   // A press elsewhere on the page puts the search away, as Esc does; the press that opened it is not elsewhere. A page
   // leaving takes the search with it, so a press off the page is not counted.
   const panel = useRef<HTMLDivElement>(null);
@@ -421,9 +428,7 @@ function LinkSearch({ band, project, task }: { band: Band; project: Project; tas
   const jobsLinked = new Set(task === undefined ? rows.flatMap((row) => (row.job === undefined ? [] : [row.job.id])) : task.job === undefined ? [] : [task.job.id]);
   const pullsLinked = new Set((task === undefined ? rows.flatMap((row) => (row.kind === "task" ? (row.pulls ?? []) : [])) : (task.pulls ?? [])).map((one) => one.number));
   const found: Found[] = [
-    ...(run?.state === "read" ? run.tickets : [])
-      .filter((one) => !issuesLinked.has(one.reference))
-      .map((one): Found => ({ kind: "issue", key: one.reference, said: `${one.reference} ${one.title}`, issue: { reference: one.reference, title: one.title, url: one.url, state: one.state } })),
+    ...issues.filter((one) => !issuesLinked.has(one.reference)).map((one): Found => ({ kind: "issue", key: one.reference, said: `${one.reference} ${one.title}`, issue: one })),
     ...store
       .pullsOf(band.manifestId)
       .filter((one) => !pullsLinked.has(one.number))
@@ -476,9 +481,9 @@ function LinkSearch({ band, project, task }: { band: Band; project: Project; tas
           }
         }}
       />
-      {run?.state === "failed" ? (
+      {failed !== undefined ? (
         <p className="projects-link__said" role="alert">
-          {run.said}
+          {failed}
         </p>
       ) : null}
       <ul className="projects-link__hits" aria-label="Found">

@@ -1,6 +1,6 @@
 // Projects, mock only, in two takes of the select control and the card: `projects` (reticle) and `projects-plate`. Open
 // the tab on All and Pocket launch; rows as cards with the Job holding each as a chip and a task's issues as chips; a task
-// and a subtask added from the field under the head; an issue, a Job and a subtask added from a card, a pull request
+// and a subtask added from the field under the head, one tagged with an issue and a Job; an issue, a Job and a subtask added from a card, a pull request
 // unlinked; a delete undone; a card
 // dragged; three rows dispatched; the done ask on the row and on the Job; then the palette adds a task and a project from
 // another page. Over the scenario of the same name.
@@ -24,6 +24,10 @@ function steps(take: string): Step[] {
     { look: role("img", /^#2815 /), say: "An issue linked to the task, as a chip" },
     { look: button("Open Wire the pairing screen"), say: "The Job holding it, on its own line under the title. A press opens it" },
     { type: "Draft the App Store text\n", into: role("textbox", "Add a task"), say: "The field under the head. Enter adds a task at the top" },
+    { type: "Fix the pairing timeout #2815 @", into: role("textbox", "Add a task"), say: "Tags, as in the request box: # an issue or pull request, @ a Job" },
+    { press: role("option", "Wire the pairing screen"), say: "Pick a Job. ↑ ↓ and Enter pick too" },
+    { key: "Enter", on: role("textbox", "Add a task"), say: "Enter adds it" },
+    { look: role("group", "Fix the pairing timeout"), say: "The tags leave the title and join the card: #2815 as a chip, the Job holding it" },
     { look: button("Link to Test on a small phone"), say: "Every card's acts, always at its right edge: link, add a subtask, delete" },
     { look: button(/^Pull request #2874 /), say: "A pull request linked to the task, on its second line. Its glyph says open" },
     { press: button("Link to Test on a small phone"), say: "Link: one search of issues, Jobs and pull requests" },

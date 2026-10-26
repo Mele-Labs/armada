@@ -72,6 +72,18 @@
 .projects-add { display: flex; align-items: center; gap: var(--space-2); }
 .projects-add .armada-textarea-field { flex: 1 1 0; min-width: 0; }
 
+/* The request box's # and @ menu, hung under the field it was typed in rather than set in the flow as the sheet sets it. */
+.projects-add, .projects-tag { position: relative; }
+.projects-tag { display: flex; flex: 1 1 0; min-width: 0; }
+.projects-add > .armada-mention, .projects-tag > .armada-mention {
+  position: absolute;
+  max-height: calc(var(--h-menu-item) * 6);
+  margin-top: var(--space-1);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-overlay);
+}
+
 /* The right-hand columns, the same width on every card so nothing on one card stands where another card's act does. */
 .projects-rows {
   --projects-ask: calc(var(--space-12) * 4);
