@@ -1,0 +1,42 @@
+/* The mark's hue is the attention one: something is asked of the person, and nothing is urgent. */
+.armada-run-link__mark {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  color: var(--status-awaiting-review);
+}
+.armada-run-link__mark:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+
+.armada-run-link__pinned {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.armada-run-link__pinned:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+
+/* The mark and the fact on one line across the width, then where it was found with the two acts on its right. */
+.armada-run-link {
+  display: grid;
+  grid-template-columns: var(--space-4) minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: var(--space-3);
+  row-gap: var(--space-1);
+}
+.armada-run-link__lead { display: inline-flex; align-items: center; justify-content: center; }
+.armada-run-link__fact { grid-column: 2 / -1; min-width: 0; margin: 0; color: var(--fg-muted); font-size: var(--text-xs); line-height: var(--leading-xs); }
+.armada-run-link__fact code { font-family: var(--font-mono); color: var(--fg-default); }
+.armada-run-link__name { color: var(--fg-default); font-weight: var(--weight-heading); }
+.armada-run-link__acts { grid-column: 3; grid-row: 2; display: inline-flex; gap: var(--space-2); }
+.armada-run-link__found {
+  grid-column: 2;
+  grid-row: 2;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-subtle);
+}

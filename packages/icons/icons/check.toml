@@ -47,3 +47,10 @@
     size = "12px"
     status = "Proposed"
     notes = "Proposed 19 Oct 2026 for the walk `requests-with-the-owners-header`, replaced by `requests-collections-and-environments`. Bare check in `--step-advanced`, tooltip the status, `200`. The status is also drawn as text, so the mark is not the only carrier."
+
+  [[icons.check.usage]]
+    means = "A run's process is ready: it answers on its port, or its window is up"
+    group = "Run"
+    size = "12 and 16px"
+    status = "Proposed"
+    notes = "Proposed 25 Oct 2026 for the walk `run-an-app`, tooltip `Ready`, in `--run-serving`. A server that is up has not passed anything, so the hue is the run tokens' serving hue and the glyph is what tells ready from starting."

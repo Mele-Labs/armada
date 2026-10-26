@@ -199,6 +199,21 @@
   max-width: var(--w-dialog);
 }
 
+/* The leading column: one glyph wide on every row, so a chosen row's check and the add row's plus sit over the same line and the labels start together. */
+.armada-dropdown-menu__lead {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-4);
+  height: var(--space-4);
+  color: var(--fg-default);
+}
+
+.armada-dropdown-menu__panel[data-lead] .armada-dropdown-menu__text {
+  flex: 1;
+}
+
 /* Same slot a kbd would take; never both on one item. */
 .armada-dropdown-menu__check {
   flex: none;

@@ -37,3 +37,10 @@
     size = "12px"
     status = "Proposed"
     notes = "Proposed 16 Oct 2026 for the walk `ledger-background`, tooltip `Stopped`. Killed on purpose, which is what the silhouette is for. Draws in `--fg-subtle`: nothing failed."
+
+  [[icons.power.usage]]
+    means = "A run's process exited and nothing failed: stopped by the person, or ended on its own with code 0"
+    group = "Run"
+    size = "12 and 16px"
+    status = "Proposed"
+    notes = "Proposed 25 Oct 2026 for the walk `run-an-app`, tooltip `Exited`, in `--run-stopped`. Ended on purpose, which is what the silhouette is for."

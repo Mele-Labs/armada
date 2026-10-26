@@ -21,6 +21,7 @@ import type { BayControl, SessionsStore } from "./sessions/script";
 import type { RequestsSeed } from "./slices/requests";
 import type { IssuesSeed } from "./slices/issues";
 import type { LaterBatch } from "./events-later";
+import type { RunsSeed } from "./runs";
 
 import type { BridgeApi } from "../../../shared/api";
 import { NOTHING_YET } from "../../../shared/bridge";
@@ -51,6 +52,8 @@ export type MockDraft = {
   committedTiles?: Readonly<Record<string, FlightControls>>;
   /** The actions the person keeps for a repository, by root, as the window opens. Mock only. */
   repositoryTiles?: Readonly<Record<string, FlightControls>>;
+  /** How each repository runs: its saved runs, the one used last and the run drafted for one with none, as the Cockpit's run control reads them. Mock only: no Fleet route serves them yet. */
+  runs?: RunsSeed;
   /** The directories a repository is drawn in on the flight deck's map: Fleet reports none yet, so the real source is empty. Mock only. */
   areas?: AreaSource;
   /** The pull requests waiting on him and what an agent review of each would find: the review surface's seed, built into a store per window. Mock only. */

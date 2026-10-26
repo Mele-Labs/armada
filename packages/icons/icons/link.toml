@@ -47,3 +47,10 @@
   size = "16px"
   status = "Proposed"
   notes = "Proposed 23 Oct 2026 for the walk `teach-mods`, tooltip `Words`. A chain is what a Jira key becomes when it is taught. Leads the Mods row as the palette leads a theme. Borrowed and not minted: the owner may rule otherwise."
+
+[[icons.link.usage]]
+  means = "A found link in a run: one process expects another on a fixed port, which a leased port breaks"
+  group = "Run"
+  size = "12px"
+  status = "Proposed"
+  notes = "Proposed 25 Oct 2026 for the walk `run-link`. Leads the link's line under the processes on the first-run confirm, and stands on the expecting process's row in the running panel, in `--status-awaiting-review`: something is asked of the person and nothing is urgent. A chain is what two processes joined by an address draw. Tooltip `<process> runs on a leased port, not <port>`. Refused: `unplug` is a connection that is gone, and this one was never made."

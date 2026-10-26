@@ -21,6 +21,8 @@ import { forgetFirsts } from "../run-book";
 import { SessionsFrom } from "../sessions-draft";
 import { WiredSessions } from "../sessions-wired";
 import { AreasFrom } from "../cockpit/deck/areas-source";
+import { RunsFrom } from "../cockpit/runs/source";
+import { createMockRuns } from "./runs";
 import { forgetDeck } from "../cockpit/deck/store";
 import { skipsMods } from "../theme-loader";
 import { Themed } from "../theme";
@@ -179,6 +181,8 @@ export function mountApp(
   // A scenario that adds to its timeline as time passes holds it here, and moves it when the fake's moment does.
   const timeline = chosen.draft?.eventsLater === undefined ? undefined : eventsLater(chosen.draft.events ?? [], chosen.draft.eventsLater);
   if (timeline !== undefined && shared === undefined) alsoOnTimePassing(timeline.advance);
+  // Each window starts with its repositories' runs as the scenario seeds them and nothing running.
+  const runs = chosen.draft?.runs === undefined ? undefined : createMockRuns(chosen.draft.runs);
   const root = createRoot(host);
   let say = (): void => undefined;
   const onScreen = new Promise<void>((resolve) => {
@@ -203,6 +207,7 @@ export function mountApp(
                           <EventsHere timeline={timeline} events={chosen.draft?.events}>
                             <SessionsHere held={heldSessions(api)}>
                               <ClashesFrom clashes={chosen.draft?.clashes}>
+                                  <RunsFrom source={runs}>
                                   <AreasFrom source={chosen.draft?.areas}>
                                     <AccountFrom account={chosen.draft?.account}>
                                       <SharedHomeFrom home={chosen.draft?.sharedHome}>
@@ -231,6 +236,7 @@ export function mountApp(
                                       </SharedHomeFrom>
                                     </AccountFrom>
                                   </AreasFrom>
+                                  </RunsFrom>
                               </ClashesFrom>
                             </SessionsHere>
                           </EventsHere>

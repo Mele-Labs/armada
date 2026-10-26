@@ -1,0 +1,14 @@
+[icons.settings-2]
+  means = "Two horizontal tracks, each with a knob - the settings of one thing"
+  group = "Run"
+  size = "16px"
+  status = "Proposed"
+  reserved = "The settings of one thing the person set up, such as a run's own processes and setup. Never the Settings surface, which is `settings`, and never the System tab, which is `sliders-horizontal`."
+  notes = "Proposed 26 Oct 2026 for the walk `run-setup-failed`. Edit the run opens the confirm it first asked, with the saved run in it. Refused: `settings`, reserved to the Settings surface; `sliders-horizontal`, reserved to the System tab; `pencil`, reserved to the sketch pad's pen; `square-pen`, reserved to rename."
+
+  [[icons.settings-2.usage]]
+    means = "Edit a run: turn the running panel's rows into fields, in its head"
+    group = "Run"
+    size = "16px"
+    status = "Proposed"
+    notes = "Tooltip `Edit the run`, key `e`. Sits before Restart and Stop."

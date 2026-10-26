@@ -16,7 +16,7 @@ import type { Ship, Subject } from "./ship";
 import { openPullRequestInPanel } from "../../shared-panel/store";
 
 /** What the dynamic area is showing. Nothing selected is the map or the timeline. */
-export type Sel = { kind: "session" | "call" | "autopilot"; key: string };
+export type Sel = { kind: "session" | "call" | "autopilot" | "run"; key: string };
 export type DeckView = "map" | "timeline";
 /** What the list holds: the live Sessions, the Sessions Fleet cannot reach, the ones that ended, or every one of them. */
 export type Scope = "active" | "quiet" | "ended" | "all";
@@ -197,6 +197,15 @@ export const openSubject = (ship: Pick<Ship, "subjects">, subject: Subject): voi
   const open = state.sel === undefined ? undefined : ship.subjects.find((one) => one.key === state.sel?.key && one.kind !== "pr");
   if (linkedPair(open, subject)) openLinked(selOfSubject(subject));
   else select(selOfSubject(subject));
+};
+/**
+ * Opens a running app over what is open, which back returns to **as he left it**: a Job's thread where it was scrolled, the map, or the timeline.
+ * An app opened from another app keeps the first place it came from.
+ */
+export const openRun = (id: string) => {
+  const was = state.sel;
+  if (was?.kind === "session") leaving(was.key.slice("session:".length));
+  set({ from: was?.kind === "run" ? state.from : was, sel: { kind: "run", key: `run:${id}` } });
 };
 /** Back from what is open: to what it was opened from, else to the map or timeline. */
 export const goBack = () => (state.from === undefined ? select(undefined) : set({ sel: state.from, from: undefined, ...(state.from.kind === "session" ? { cursor: state.from.key } : {}) }));

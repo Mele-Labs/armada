@@ -33,6 +33,7 @@ import { handleRehearsal } from "./rehearsal-channels";
 import { handleRepositories } from "./repository-channels";
 import { handleSessions } from "./session-channels";
 import { handleSleep } from "./sleep-channels";
+import { handleAppRuns } from "./app-runs-channels";
 import { handleSketchShare } from "./sketch-share";
 import { handleAccounts } from "./accounts-channels";
 import { handlePlanUsage } from "./plan-usage-channels";
@@ -505,6 +506,7 @@ void app.whenReady().then(() => {
   };
   terminalWindows.onChanged((sessionIds) => everyDocument(CHANNELS.terminalWindowsChanged, sessionIds));
   connection.sleep.onChanged((state) => everyWindow(CHANNELS.sleepChanged, state));
+  connection.appRuns.onChanged((run) => everyWindow(CHANNELS.appRunChanged, run));
   connection.planUsage.onChanged((usage) => everyWindow(CHANNELS.planUsageChanged, usage));
   connection.modelDownshift.onChanged((state) => {
     downshiftNotice.read(state);
@@ -705,6 +707,7 @@ void app.whenReady().then(() => {
     published: () => published,
   });
   handleSleep({ ipc: ipcMain, connection: () => connection });
+  handleAppRuns({ ipc: ipcMain, connection: () => connection });
   handleSketchShare({ ipc: ipcMain });
   handleAccounts({ ipc: ipcMain, connection: () => connection });
   ipcMain.handle(CHANNELS.getSessionWindows, () => captureWindows.sessionAddresses());

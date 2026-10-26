@@ -12,3 +12,10 @@
     size = "16px"
     status = "Specified"
     notes = "Tooltip `Run again`. Shown beside the result mark. Approved 11 Oct 2026."
+
+  [[icons.rotate-ccw.usage]]
+    means = "Restart a run: stop its processes and start them again, in the running panel's head"
+    group = "Run"
+    size = "16px"
+    status = "Proposed"
+    notes = "Proposed 25 Oct 2026 for the walk `run-an-app`. Tooltip `Restart`, key `r`. Run the same command again, which is this glyph's own reading."

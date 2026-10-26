@@ -47,6 +47,8 @@ import type { ArtifactRead, LoadoutItemAsk, LoadoutItemBody, PageBounds, PageSho
 import type { JobTerminalChange, PullRequestPress, PullRequestWrite, SessionActed, TerminalMovedBack } from "../shared/api/sessions";
 import type { RequestRepositoryRead } from "../shared/api/dispatch";
 import type { SleepActed } from "../shared/api/sleep";
+import type { AppRunActed, AppRunsOf } from "../shared/api/app-runs";
+import type { AppRun, AppRunDraft, AppRunList, NamedAppRun, PinAppRunPort, SaveAppRun, SavedAppRun, ServerMessage, UnpinAppRunPort } from "@armada/protocol";
 import type { AccountsActed } from "../shared/api/accounts";
 import type { PlanUsageRead } from "../shared/api/plan-usage";
 import type { ModelDownshiftRead } from "../shared/api/model-downshift";
@@ -857,6 +859,29 @@ const api: BridgeApi = {
   pointHelm: (manifestId: string): Promise<void> => ipcRenderer.invoke(CHANNELS.pointHelm, manifestId),
 
   tap: (pattern: Pattern): void => ipcRenderer.send(CHANNELS.tap, pattern),
+
+  listAppRuns: (of: AppRunsOf): Promise<AppRunActed<AppRunList>> => ipcRenderer.invoke(CHANNELS.listAppRuns, of),
+  getAppRunDraft: (manifestId: string): Promise<AppRunActed<AppRunDraft>> => ipcRenderer.invoke(CHANNELS.getAppRunDraft, manifestId),
+  actOnAppRun: (act: "start" | "stop" | "restart", manifestId: string, named: NamedAppRun): Promise<AppRunActed<AppRun>> => ipcRenderer.invoke(CHANNELS.actOnAppRun, act, manifestId, named),
+  saveAppRun: (manifestId: string, save: SaveAppRun): Promise<AppRunActed<SavedAppRun>> => ipcRenderer.invoke(CHANNELS.saveAppRun, manifestId, save),
+  pinAppRunPort: (manifestId: string, pin: PinAppRunPort): Promise<AppRunActed<AppRun>> => ipcRenderer.invoke(CHANNELS.pinAppRunPort, manifestId, pin),
+  unpinAppRunPort: (manifestId: string, unpin: UnpinAppRunPort): Promise<AppRunActed<AppRun>> => ipcRenderer.invoke(CHANNELS.unpinAppRunPort, manifestId, unpin),
+  onAppRunChanged: (onChanged: (run: AppRun) => void): (() => void) => {
+    const handler = (_event: unknown, run: AppRun): void => onChanged(run);
+    ipcRenderer.on(CHANNELS.appRunChanged, handler);
+    return () => {
+      ipcRenderer.removeListener(CHANNELS.appRunChanged, handler);
+    };
+  },
+  followServer: (serverId: string): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.followServer, serverId),
+  unfollowServer: (serverId: string): void => ipcRenderer.send(CHANNELS.unfollowServer, serverId),
+  onServerOutput: (onMessage: (serverId: string, message: ServerMessage) => void): (() => void) => {
+    const handler = (_event: unknown, serverId: string, message: ServerMessage): void => onMessage(serverId, message);
+    ipcRenderer.on(CHANNELS.serverOutput, handler);
+    return () => {
+      ipcRenderer.removeListener(CHANNELS.serverOutput, handler);
+    };
+  },
   dockCount: (calls: number): void => ipcRenderer.send(CHANNELS.dockCount, calls),
 };
 

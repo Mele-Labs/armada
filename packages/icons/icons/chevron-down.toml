@@ -24,3 +24,10 @@
     status = "Specified"
     reserved = "Right of the label on a button that opens a menu, drawn by the DropdownMenu primitive's trigger. Never on a trigger with no label, which would give an icon-only or split caret a second mark, and never on a button that acts rather than opens."
     notes = "Settled 2026-09-17 by the owner, on an annotation that the title bar's repository picker could not be told from a button. Widens the reservation: chevron-down now means two related things, the split button's caret and a menu trigger, and the owner accepted that the reservation is looser for it. 12px because it trails text at the text's own size, as chevron-right's goes-to usage does; 16px stays with the caret that is its segment's whole content. strokeWidth 2, and it inherits the label's colour rather than taking --fg-muted, so a disabled trigger dims its mark with its text."
+
+  [[icons.chevron-down.usage]]
+    means = "Open the repository's saved runs: the second segment of the run control, beside the play glyph"
+    group = "Run"
+    size = "12px"
+    status = "Proposed"
+    notes = "Proposed 25 Oct 2026 for the mock walk `run-an-app`, tooltip `Runs for armada`. The run control is one small bordered group of two segments on a hairline, so the caret is a segment's whole content, as on a split button, at 12px to sit in a 24px group."
