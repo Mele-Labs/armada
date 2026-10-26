@@ -83,10 +83,13 @@ pub(crate) fn notice(kept: &KeptWatchWhole, watch: &core_model::Watch) -> Option
                 said.push(' ');
                 said.push_str(link);
             }
-            said.push_str(&format!(
-                "\nWeigh it with weigh_watch on watch {}: ours ends it, and not_ours sets those parts aside and it carries on.",
-                kept.watch.id
-            ));
+            // An ended one, such as a terminal watch whose terminal ended, has nothing to weigh.
+            if watch.live {
+                said.push_str(&format!(
+                    "\nWeigh it with weigh_watch on watch {}: ours ends it, and not_ours sets those parts aside and it carries on.",
+                    kept.watch.id
+                ));
+            }
             said
         }
         WatchState::Passed if !watch.live => format!("{name} passed."),

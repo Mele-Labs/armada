@@ -1,8 +1,9 @@
 //! Watch recipes: a command, how often to run it, and when to give up, kept where a Trigger is.
 //! `docs/design/fleet-watches-ci-and-deploys-for-a-job.md`, *Recipes*.
 //!
-//! Three places, the most specific winning: Armada's (none), the repository's `.armada/watches/`
-//! and this machine's `~/.armada/machine/watches/`. Two files naming one recipe are one recipe,
+//! Three places, the most specific winning: Armada's, the repository's `.armada/watches/` and this
+//! machine's `~/.armada/machine/watches/`. Armada's name a provider, so their files are the
+//! adapters' to carry and arrive here as [`Written::by_armada`]. Two files naming one recipe are one recipe,
 //! and the specific copy replaces the other whole, as [`crate::TriggerCatalogue`] does. Text in,
 //! not directories: reading the repository's files from `main` only is the caller's.
 //!
@@ -24,7 +25,7 @@ const A_SPAN: &str = "a span such as `60s`, `2m` or `2h`";
 /// Where a recipe was read from, least specific first.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum RecipeSource {
-    /// Compiled in. **Ships none**; the level is there so a later default has a place.
+    /// Compiled in, from the adapters.
     Armada,
     /// `.armada/watches/` in the repository, read from `main` only.
     Repository,
@@ -61,6 +62,11 @@ pub struct Written {
 }
 
 impl Written {
+    /// A recipe Armada carries, compiled in.
+    pub fn by_armada(path: PathBuf, text: String) -> Written {
+        Written { source: RecipeSource::Armada, path, text }
+    }
+
     /// A file from the repository's `.armada/watches/`, as `main` holds it.
     pub fn in_repository(path: PathBuf, text: String) -> Written {
         Written { source: RecipeSource::Repository, path, text }
@@ -78,11 +84,6 @@ impl Written {
     pub fn path(&self) -> &Path {
         &self.path
     }
-}
-
-/// Every recipe Armada carries. None.
-pub fn carried() -> Vec<Written> {
-    Vec::new()
 }
 
 /// One recipe, as a person wrote it. `command`'s `{name}` items are the values a start fills.
@@ -108,6 +109,23 @@ impl Recipe {
         }
         named
     }
+}
+
+/// `recipe` as a file says it, which [`parse`] reads back whole. Each span is written in seconds.
+/// **Built as a `Value`**, for the reason this crate reads one: no derive here.
+pub fn written(recipe: &Recipe) -> String {
+    let mut file = serde_yaml_ng::Mapping::new();
+    let text = |value: &str| Value::String(value.to_string());
+    file.insert(text("name"), text(&recipe.name));
+    file.insert(text("command"), Value::Sequence(recipe.command.iter().map(|item| text(item)).collect()));
+    file.insert(text("every"), text(&format!("{}s", recipe.every_seconds)));
+    if let Some(seconds) = recipe.gives_up_after_seconds {
+        file.insert(text("gives_up_after"), text(&format!("{seconds}s")));
+    }
+    if let Some(environment) = &recipe.environment {
+        file.insert(text("environment"), text(environment));
+    }
+    serde_yaml_ng::to_string(&Value::Mapping(file)).unwrap_or_default()
 }
 
 /// Parse one recipe file, reporting every fault in it and not the first.

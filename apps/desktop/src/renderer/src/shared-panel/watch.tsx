@@ -28,14 +28,33 @@ const brokenOf = (watch: WatchSummary) => [...readingsOf(watch)].reverse().find(
 /** The link the newest reading gave. */
 const linkOf = (watch: WatchSummary): string | undefined => [...readingsOf(watch)].reverse().find((one): one is Extract<WatchReading, { kind: "read" }> => one.kind === "read" && one.link !== undefined)?.link;
 
+/** A reading's times: its own, or a run's first above its last. */
+function When({ reading }: { reading: WatchReading }) {
+  if (reading.last_at === undefined) return <Stamp at={reading.at} className="side-watch__at" />;
+  return (
+    <span className="side-watch__at side-watch__span">
+      <Stamp at={reading.at} />
+      <Stamp at={reading.last_at} />
+    </span>
+  );
+}
+
+/** Fleet sends back-to-back readings that read the same as one run, drawn as one row with how many it stands for. */
 function Readings({ watch }: { watch: WatchSummary }) {
   return (
     <ol className="side-watch__readings" aria-label="Readings">
       {[...readingsOf(watch)].reverse().map((reading) => (
         <li key={reading.at} className="side-watch__reading">
-          <Stamp at={reading.at} className="side-watch__at" />
+          <When reading={reading} />
           <WatchMark state={readingState(reading)} />
           <span className="side-watch__says">{readingSays(reading)}</span>
+          {(reading.count ?? 1) > 1 ? (
+            <span className="side-watch__count" aria-label={`Read ${String(reading.count)} times in a row`}>
+              ×{reading.count}
+            </span>
+          ) : (
+            <span />
+          )}
           {verdictsOn(watch, reading).map((one) => (
             <p key={`${one.at}:${one.verdict}`} className="side-watch__verdict" data-verdict={one.verdict}>
               {verdictSaid(one)}

@@ -293,6 +293,16 @@ pub trait Locating: Send + Sync {
     fn watch_recipes(&self, _root: &Path, _base: Option<&str>) -> Vec<config::WatchRecipeWritten> {
         Vec::new()
     }
+    /// The recipes no repository holds: the ones Armada ships and this machine's. **None by
+    /// default**, as [`Locating::watch_recipes`].
+    fn machine_watch_recipes(&self) -> Vec<config::WatchRecipeWritten> {
+        Vec::new()
+    }
+    /// Where this machine keeps its own recipes, which `save_watch_recipe` writes into. **None by
+    /// default**, so a locator that reads no files saves none.
+    fn machine_watch_folder(&self) -> Option<std::path::PathBuf> {
+        None
+    }
     /// Check one Trigger against `manifest` and write it in `asked.scope`, only
     /// if it fits. **Refuses by default**, so a locator that keeps no Trigger
     /// files saves none.

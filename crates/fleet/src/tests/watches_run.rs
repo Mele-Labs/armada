@@ -51,7 +51,7 @@ async fn pass(rig: &Rig) {
 }
 
 async fn the_watch(rig: &Rig, job: &SessionId) -> WatchSummary {
-    rig.fleet.list_watches(None, Some(job.clone())).await.unwrap().watches.remove(0)
+    rig.fleet.list_watches(None, Some(job.clone()), true).await.unwrap().watches.remove(0)
 }
 
 async fn told(rig: &Rig, job: &SessionId, said: &str) -> usize {
@@ -81,7 +81,13 @@ async fn a_failed_part_tells_once_and_a_part_set_aside_lets_it_pass() {
     clock.on(61);
     rig.fleet.watches_told_when_due().await;
     assert_eq!(told(&rig, &job, failed).await, 1, "the same failure read again is not news");
-    assert_eq!(the_watch(&rig, &job).await.readings.len(), 2);
+    let again = the_watch(&rig, &job).await;
+    assert!(
+        matches!(&again.readings[..], [WatchReading::Read { count: 2, last_at: Some(_), .. }]),
+        "both kept, answered as one: {:?}",
+        again.readings
+    );
+    assert!(matches!(&again.last, Some(WatchReading::Read { count: 1, last_at: None, .. })), "the newest as taken");
 
     let not_ours = WatchVerdict::NotOurs { sentence: "Another team's service.".into(), parts: vec!["deploy-api".into()] };
     let weighed = rig
@@ -232,6 +238,8 @@ fn waiting_and_running_owe_nothing() {
                 changed_at: String::new(),
                 ended_at: None,
                 unsaid: None,
+                in_terminal: None,
+                regex: false,
             },
             readings: Vec::new(),
             set_aside: Vec::new(),

@@ -39,6 +39,7 @@ import type {
   LaterSettled,
   SettleLater,
   StopWatch,
+  DeleteWatch,
   WatchesChanged,
   WatchList,
   WatchSummary,
@@ -294,9 +295,12 @@ export class SessionsHost {
     this.publish({ sessionWatches: this.watches });
   }
 
-  /** The starting list of a Job's watches, read once as its thread is opened; `watches.changed` keeps it current after. */
+  /**
+   * The starting list of a Job's watches, read once as its thread is opened; `watches.changed` keeps it current after.
+   * Ended ones are asked for too, as the event carries them and the Watching block shows them on its toggle.
+   */
   private async readWatches(port: number, sessionId: string): Promise<void> {
-    const answer = await ask(port, "GET", `/watches?session_id=${encodeURIComponent(sessionId)}`);
+    const answer = await ask(port, "GET", `/watches?session_id=${encodeURIComponent(sessionId)}&ended=true`);
     if (answer.ok !== true || this.heardWatches.has(sessionId)) return;
     const list = answer.body as WatchList;
     this.watches = { ...this.watches, [sessionId]: list.watches };
@@ -720,6 +724,11 @@ export class SessionsHost {
   /** A watch the person stopped. Its Job's watches are published by Fleet, so nothing is folded here. */
   async stopWatch(stop: StopWatch): Promise<SessionActed<WatchSummary>> {
     return await this.asked("/watches/stop", stop);
+  }
+
+  /** An ended watch the person deleted. Its Job's watches are published by Fleet, so nothing is folded here. */
+  async deleteWatch(remove: DeleteWatch): Promise<SessionActed<WatchList>> {
+    return await this.asked("/watches/delete", remove);
   }
 
   /** The proposer's reading of a brief that tags a Session. Nothing is held from it. */
