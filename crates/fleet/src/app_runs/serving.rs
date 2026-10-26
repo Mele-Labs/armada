@@ -346,6 +346,7 @@ where
                 .into_iter()
                 .map(|one| DraftSetup { name: one.name.trim().to_string(), run: one.command, creates: None })
                 .collect(),
+            replaces: asked.replaces.map(|one| one.trim().to_string()),
             replacing: None,
         };
         // A Job's run is saved for the Job's repository, which `?manifest_id=` need not name.
@@ -356,9 +357,9 @@ where
         };
         let saved = self.run_saved(repository.as_ref(), draft).await?;
         // A run saved over one Kit's copy held stops what it started, then starts as it now reads.
-        if !saved.replaced.is_empty() {
+        if let Some(run) = &saved.replaced_run {
             let checkout = self.run_checkout(&target).await?;
-            self.servers().setups().stopped(checkout.path(), &saved.name).await;
+            self.servers().setups().stopped(checkout.path(), run).await;
             self.stopped_servers_named(checkout.path(), &saved.replaced).await;
         }
         // **Saved, then started**: a start that refuses leaves the run written, and says so itself.

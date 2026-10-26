@@ -43,6 +43,8 @@ pub(crate) struct SavedRun {
     /// The servers of the run this save replaced, which are stopped before it starts again. Empty
     /// for a new run.
     pub(crate) replaced: Vec<String>,
+    /// The key of the run it replaced, whose setup is stopped: not `name` where it was renamed.
+    pub(crate) replaced_run: Option<String>,
 }
 
 /// Where a saved run is written. **The one place that chooses**: Kit's copy for the repository,
@@ -304,8 +306,8 @@ where
 
     /// Declare a confirmed `draft` in the person's copy in Kit, at the place they keep it. **The
     /// copy is the whole Manifest of a repository with no `armada.yml`**, and only the names it
-    /// changes of one that has. A run of that name Kit's copy already declares is replaced
-    /// ([`super::replacing`]). The run starts at once: it is read from the file when it starts.
+    /// changes of one that has. The run Kit's copy declares under the key `replaces` names, else
+    /// under the draft's own, is replaced ([`super::replacing`]). The run starts at once: it is read from the file when it starts.
     pub(crate) async fn run_saved(
         &self,
         manifest_id: Option<&ipc::ManifestId>,
@@ -317,8 +319,9 @@ where
         let target = self.run_save_target(&root).await?;
         let merged = self.run_manifest(&served, &root).await?;
         let repository = std::fs::read_to_string(&file).ok().and_then(|own| Manifest::parse(&file, &own).ok());
-        super::replacing::replacing(&merged, repository.as_ref(), &mut draft);
+        super::replacing::replacing(&merged, repository.as_ref(), &mut draft).map_err(|why| self.run_refusal(why))?;
         let replaced = draft.replacing.as_ref().map(|one| one.servers.clone()).unwrap_or_default();
+        let replaced_run = draft.replacing.as_ref().map(|one| one.run.clone());
         let (text, first) = match target.text {
             Some(text) => (text, Vec::new()),
             None if file.is_file() => (String::new(), Vec::new()),
@@ -331,7 +334,7 @@ where
             .unwrap_or_else(|why| Err(Unrunnable::NotSaved { why: why.to_string() }))
             .map_err(|why| self.run_refusal(why))?;
         self.manifest_written(&root, kept).await?;
-        Ok(SavedRun { name, saved_in: SavedIn { place: target.place, file: target.label.display().to_string() }, replaced })
+        Ok(SavedRun { name, saved_in: SavedIn { place: target.place, file: target.label.display().to_string() }, replaced, replaced_run })
     }
 
     /// Where a run for the repository at `root` is saved, and what is there now. A place that cannot

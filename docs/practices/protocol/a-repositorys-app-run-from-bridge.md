@@ -15,7 +15,7 @@ All nine are `Bridge only`: ▶ is a person's press, and an agent that wants a s
 | `start_app_run` (`POST /app_runs/start`) | `NamedAppRun`; answers `AppRun`, 202 | The run already up is answered as it stands. A checkout that needs setting up answers at once with `setup` setting up |
 | `stop_app_run` (`POST /app_runs/stop`) | `NamedAppRun`; answers `AppRun` | Each process waited for |
 | `restart_app_run` (`POST /app_runs/restart`) | `NamedAppRun`; answers `AppRun`, 202 | Every process is a new instance |
-| `save_app_run` (`POST /app_runs/save`) | `SaveAppRun` with `setup?`; answers `SavedAppRun`, 202 | Written into Kit's copy, then started. A run Kit's copy already holds is replaced |
+| `save_app_run` (`POST /app_runs/save`) | `SaveAppRun` with `setup?` and `replaces?`; answers `SavedAppRun`, 202 | Written into Kit's copy, then started. A run Kit's copy already holds is replaced |
 | `pin_app_run_port` (`POST /app_runs/pin`) | `PinAppRunPort`; answers `AppRun` | `fixed` on the process's port in Kit's copy. Nothing is restarted |
 | `unpin_app_run_port` (`POST /app_runs/unpin`) | `UnpinAppRunPort`; answers `AppRun` | Back to leasing, and the links to the process end |
 | `app_run.changed` (event) | `AppRun`, whole | After each `server.*` fact of a server a run lists, after a pin, when a link is found, and as the checkout's setup starts, moves to its next Command and ends |
@@ -61,6 +61,11 @@ The run, each server only it lists, and their ports are taken out of Kit's copy 
 A Command the repository declares is left as the repository's where the save sends the same line, and refused by name where it sends another.
 The old run's processes and setup are stopped before it starts again from what was written.
 A run only the repository's own `armada.yml` declares has `in_kit` false, and a save under its name stays refused with `fleet.app_run_draft_refused`.
+
+**`SaveAppRun.replaces` names the run an edit replaces by its key**, `AppRun.name`, so Edit can rename a run or replace one whose key is not its label made safe.
+With it, that run is the one taken out and written again under the key `name` makes, and no run is matched by `name`.
+A key that is no run is `fleet.not_an_app_run`; one only the repository's own `armada.yml` declares, or a new key another run already has, is `fleet.app_run_draft_refused`, and nothing is written.
+The setup stopped before the start is the old key's.
 
 **The run's field for how it opens is `opens_in`, not `kind`.** `Event` is tagged by `kind`, and `app_run.changed` carries the run flat beside it, as every event carries its row.
 `opens_in` is `browser` where a server of the run listens on a leased port and offers a link, and `app` otherwise.

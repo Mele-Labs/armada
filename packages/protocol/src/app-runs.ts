@@ -172,6 +172,8 @@ export type SaveAppRun = {
   setup?: AppRunDraftSetup[];
   /** The Job whose worktree it then starts on. Absent: the main checkout. */
   job_id?: string;
+  /** The key of the Kit run this save replaces, which may differ from `name`'s, so an edit can rename it. Absent: a Kit run whose key `name` makes is replaced, and any other is new. */
+  replaces?: string;
 };
 
 /** What `save_app_run` answers. */

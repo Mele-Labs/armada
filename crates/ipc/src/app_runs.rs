@@ -294,6 +294,10 @@ pub struct SaveAppRun {
     /// The Job whose worktree it then starts on. Absent: the main checkout.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub job_id: Option<String>,
+    /// The key of the Kit run this save replaces, which may differ from `name`'s, so an edit can
+    /// rename it. Absent: a Kit run whose key `name` makes is replaced, and any other is new.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub replaces: Option<String>,
 }
 
 /// What `save_app_run` answers: where the run was written, and the run as it stands once started.

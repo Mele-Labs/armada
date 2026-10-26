@@ -4,11 +4,13 @@ transport = "HTTP"
 agent_access = "Bridge only"
 description = "Save a confirmed draft under the name its person gave it, in their own copy in Kit, and start it"
 notes = """
-`POST /app_runs/save?manifest_id=`, body `SaveAppRun`: `{name, processes, job_id?}`, each process `{name, dir?, command, port_env?}`. Answers 202 with `SavedAppRun`: `place`, `file`, and the `run` starting on the main checkout or on the worktree `job_id` names.
+`POST /app_runs/save?manifest_id=`, body `SaveAppRun`: `{name, processes, setup?, job_id?, replaces?}`, each process `{name, dir?, command, port_env?}`. Answers 202 with `SavedAppRun`: `place`, `file`, and the `run` starting on the main checkout or on the worktree `job_id` names.
 
 **Written into Kit's copy and never the repository's `armada.yml`**: a press on a run is no decision about a person's tree. Kit's copy lays over that file by name, so the run is there at once; getting it into the repository is *Commit to repository*.
 
 **`${port}` in a `command` becomes a port of that process's own name**, and a process whose command holds none listens on none. The key under `runs:` is `name` written as letters, digits and `_`, and `name` itself is the label. Nothing is written that would not load: a draft that will not is `fleet.app_run_draft_refused`, and the sentence says which line.
+
+**A save replaces a run Kit's copy declares**: the one `replaces` names by its key, else the one whose key `name` makes, so an edit may rename it. A run only the repository's own `armada.yml` declares is refused, and so is a rename onto another run's key.
 
 **Saved, then started.** A run that will not start after it was written leaves it saved, and the refusal is the start's: list again to see it.
 """

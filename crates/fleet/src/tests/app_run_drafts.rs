@@ -206,6 +206,7 @@ fn a_draft() -> RunDraft {
             process("frontend", "npx vite --port ${port.frontend} --strictPort", "frontend"),
         ],
         setup: Vec::new(),
+        replaces: None,
         replacing: None,
     }
 }

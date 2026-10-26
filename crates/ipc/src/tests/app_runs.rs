@@ -171,4 +171,19 @@ fn a_run_setting_up_carries_the_setup_and_where_its_output_is() {
     )
     .expect("reads");
     assert_eq!(save.setup, vec![AppRunDraftSetup { name: "install".to_string(), command: "npm ci".to_string() }]);
+    assert_eq!(save.replaces, None);
+}
+
+/// An edit that renames a run names the Kit run it replaces by its old key, beside the new name.
+#[test]
+fn a_save_that_renames_names_the_run_it_replaces() {
+    let save: SaveAppRun = decode(
+        "a run to save",
+        br#"{"name":"Admin site","processes":[{"name":"web","command":"vite --port ${port}"}],"replaces":"web_app"}"#,
+    )
+    .expect("reads");
+    assert_eq!(save.replaces.as_deref(), Some("web_app"));
+    assert!(encode(&save).expect("plain data").contains(r#""replaces":"web_app""#));
+    let new = SaveAppRun { replaces: None, ..save };
+    assert!(!encode(&new).expect("plain data").contains("replaces"));
 }

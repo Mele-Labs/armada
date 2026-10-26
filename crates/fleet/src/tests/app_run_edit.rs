@@ -27,7 +27,7 @@ fn setup(name: &str, run: &str) -> DraftSetup {
 }
 
 fn run(name: &str, processes: Vec<DraftProcess>, setup: Vec<DraftSetup>) -> RunDraft {
-    RunDraft { name: name.to_string(), label: Some(String::from("Budget app")), processes, setup, replacing: None }
+    RunDraft { name: name.to_string(), label: Some(String::from("Budget app")), processes, setup, replaces: None, replacing: None }
 }
 
 #[tokio::test]
@@ -117,4 +117,48 @@ async fn a_run_only_the_repositorys_own_file_declares_is_answered_as_not_kits_an
     assert_eq!(why.code, "fleet.app_run_draft_refused");
     assert!(why.message.contains("already declares `dev`"), "{}", why.message);
     assert_eq!(std::fs::read_to_string(home.path().join("armada.yml")).expect("read"), DECLARING);
+}
+
+#[tokio::test]
+async fn a_save_naming_the_run_it_replaces_renames_that_run_and_keeps_its_pin() {
+    let home = TempDir::new();
+    let events = api::Broadcaster::new();
+    let fleet = a_fleet_holding(&home, &events, REPOSITORY, REPOSITORY);
+    let backend = || process("backend", "python3 -m http.server ${port}", "backend", Some("PORT"));
+    let saved = fleet.run_saved(None, run("dev", vec![backend()], Vec::new())).await.expect("it saves");
+    fleet.run_saved(None, run("docs", vec![process("docs", "npx vite --port ${port}", "docs", None)], Vec::new())).await.expect("a second run");
+    let kit = saved.saved_in.file.clone();
+    let text = std::fs::read_to_string(&kit).expect("Kit's file");
+    let pin = Edit::Port { name: String::from("backend"), edit: PortEdit::Fixed(Some(4321)) };
+    std::fs::write(&kit, config::splice(&text, &[pin]).expect("pinned")).expect("written");
+
+    let onto_another = RunDraft { replaces: Some(String::from("dev")), ..run("docs", vec![backend()], Vec::new()) };
+    let refused = fleet.run_saved(None, onto_another).await.expect_err("a rename onto another run");
+    let api::Refusal::Unacceptable(why) = refused else { panic!("expected a refusal of the draft") };
+    assert!(why.message.contains("`docs` is a run already"), "{}", why.message);
+
+    let renamed = RunDraft { replaces: Some(String::from("dev")), ..run("api", vec![backend()], Vec::new()) };
+    let again = fleet.run_saved(None, renamed).await.expect("it replaces under a new name");
+
+    assert_eq!(again.replaced, ["backend"]);
+    assert_eq!(again.replaced_run.as_deref(), Some("dev"), "the old run's setup is the one stopped");
+    let manifest = fleet.run_manifest(&fleet.first(), fleet.first().root()).await.expect("it reads");
+    assert_eq!(manifest.app_run_names(), ["docs", "api"]);
+    assert_eq!(manifest.port("backend").and_then(|one| one.fixed()), Some(4321), "a kept server keeps its pin");
+}
+
+#[tokio::test]
+async fn a_save_that_replaces_a_run_only_the_repositorys_own_file_declares_is_refused() {
+    let home = TempDir::new();
+    let events = api::Broadcaster::new();
+    let fleet = a_fleet_holding(&home, &events, DECLARING, DECLARING);
+
+    let draft = RunDraft { replaces: Some(String::from("dev")), ..run("site", vec![process("site", "npx vite --port ${port}", "site", None)], Vec::new()) };
+    let refused = fleet.run_saved(None, draft).await.expect_err("the repository's run");
+
+    let api::Refusal::Unacceptable(why) = refused else { panic!("expected a refusal of the draft") };
+    assert_eq!(why.code, "fleet.app_run_draft_refused");
+    assert!(why.message.contains("`dev` is the repository's own run"), "{}", why.message);
+    let manifest = fleet.run_manifest(&fleet.first(), fleet.first().root()).await.expect("it reads");
+    assert_eq!(manifest.app_run_names(), ["dev"], "nothing was saved beside it");
 }
