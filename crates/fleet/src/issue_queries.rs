@@ -20,7 +20,7 @@ use store::KeptIssueQuery;
 use crate::daemon::Fleet;
 use crate::repositories::Served;
 use crate::review_runs::{asked_and_costed, object_in, said, QUESTION_AT_MOST};
-use crate::tracking::UNREADABLE;
+use crate::tracking::{not_tracked, UNREADABLE};
 
 /// The words, a name or a query are blank, or the words are too long. A 422.
 const BLANK: &str = "fleet.issue_query_blank";
@@ -120,9 +120,7 @@ where
         let found = tokio::task::spawn_blocking(move || tracker.search_issues(&root, &query))
             .await
             .unwrap_or_else(|panicked| Err(NotTracked::of("searching the issues", panicked.to_string())));
-        found.map_err(|not| {
-            Refusal::Unacceptable(self.query_refusal(REFUSED, format!("{} did not happen: {}", not.doing, not.said)))
-        })
+        found.map_err(|not| Refusal::Unacceptable(not_tracked(self.run_id(), REFUSED, &not)))
     }
 
     pub(crate) async fn issues_searched(

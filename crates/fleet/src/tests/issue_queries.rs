@@ -382,3 +382,26 @@ async fn a_search_runs_the_query_as_given_and_lists_what_the_tracker_found_with_
     assert_eq!((kind, error.code.as_str()), ("unacceptable", "fleet.issue_query_refused"));
     assert!(error.message.contains("not signed in"), "{}", error.message);
 }
+
+#[tokio::test]
+async fn a_search_that_could_not_run_the_tool_names_it_on_the_wire_beside_the_words() {
+    let home = TempDir::new();
+    let tracker = Arc::new(FakeTracker::empty());
+    let fleet = a_fleet(&home, &tracker, &Arc::new(FakeJudge::saying(WRITTEN)));
+
+    tracker.lacks("bd");
+    let (kind, error) = error_of(
+        fleet.search_issues(manifest(&fleet), SearchIssues { query: "x".into() }).await.expect_err("refused"),
+    );
+
+    assert_eq!((kind, error.code.as_str()), ("unacceptable", "fleet.issue_query_refused"));
+    assert_eq!(error.fields.get("missing_tool"), Some(&ipc::WireValue::Str("bd".into())));
+    assert!(error.message.contains("not installed"), "{}", error.message);
+
+    tracker.answers_again();
+    tracker.will_not_list("not signed in");
+    let (_, other) = error_of(
+        fleet.search_issues(manifest(&fleet), SearchIssues { query: "x".into() }).await.expect_err("refused"),
+    );
+    assert_eq!(other.fields.get("missing_tool"), None, "a refusal for another reason names no tool");
+}

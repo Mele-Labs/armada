@@ -34,6 +34,16 @@ pub(crate) const HELD_FOR: Duration = Duration::from_secs(5 * 60);
 /// The tracker would not answer and nothing is held. A 500: asking again is reasonable.
 pub(crate) const UNREADABLE: &str = "fleet.issues_unreadable";
 
+/// What the tracker said it could not do, as an error. **A missing program is also a field**,
+/// `missing_tool`, so Bridge offers the install without reading a sentence.
+pub(crate) fn not_tracked(run_id: ipc::RunId, code: &'static str, not: &adapter_traits::NotTracked) -> WireError {
+    let error = WireError::raised(code, format!("{} did not happen: {}", not.doing, not.said), run_id);
+    match &not.missing {
+        Some(tool) => error.with_field("missing_tool", ipc::WireValue::Str(tool.clone())),
+        None => error,
+    }
+}
+
 /// The tracker has no issue by that reference, or the number is a pull request's. A 404.
 const NO_SUCH_ISSUE: &str = "fleet.no_such_issue";
 
@@ -313,11 +323,7 @@ where
                 format!("The tracker has no issue {reference}"),
                 self.run_id(),
             ))),
-            Err(not) => Err(Refusal::Fault(WireError::raised(
-                UNREADABLE,
-                format!("{} did not happen: {}", not.doing, not.said),
-                self.run_id(),
-            ))),
+            Err(not) => Err(Refusal::Fault(not_tracked(self.run_id(), UNREADABLE, &not))),
         }
     }
 }
@@ -375,11 +381,7 @@ where
                 let said = format!("{} did not happen: {}", not.doing, not.said);
                 Ok((held, Some(said)))
             }
-            (Err(not), None) => Err(Refusal::Fault(WireError::raised(
-                UNREADABLE,
-                format!("{} did not happen: {}", not.doing, not.said),
-                self.run_id(),
-            ))),
+            (Err(not), None) => Err(Refusal::Fault(not_tracked(self.run_id(), UNREADABLE, &not))),
         }
     }
 }
