@@ -13,10 +13,10 @@ let visit: DocumentVisit | undefined;
 const hear = new Set<() => void>();
 
 /** Opens the Job's document over the Job at the place a sent note named. */
-export function openDocumentAt(session: string, place: DocumentPlace, target: DocumentTarget): void {
+export function openDocumentAt(session: string, place: DocumentPlace, target: DocumentTarget, page?: string): void {
   visit = { session, place, target, at: Date.now() };
   for (const one of hear) one();
-  showLayer(session, "document");
+  showLayer(session, "document", page);
 }
 
 /** The layer has taken the visit, so the next time the document opens it opens as it was left. */
@@ -37,8 +37,8 @@ export function useDocumentVisit(session: string): DocumentVisit | undefined {
   return now?.session === session ? now : undefined;
 }
 
-/** The page a Job wrote as its document: the artifact that names its revisions. */
-export function documentOf(session: Session): { id: string; title: string; revisions: readonly string[] } | undefined {
-  const found = attachmentsOf(session, "artifact").find((one) => one.revisions !== undefined && one.revisions.length > 0);
+/** A page a Job wrote as its document: the artifact that names its revisions. Where it holds more than one, `page` is the `id` of the one asked for; absent, the first. */
+export function documentOf(session: Session, page?: string): { id: string; title: string; revisions: readonly string[] } | undefined {
+  const found = attachmentsOf(session, "artifact").find((one) => one.revisions !== undefined && one.revisions.length > 0 && (page === undefined || one.id === page));
   return found?.revisions === undefined ? undefined : { id: found.id, title: found.title, revisions: found.revisions };
 }

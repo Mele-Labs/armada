@@ -59,12 +59,12 @@ function conclusionOf(text: string): string {
  * revision, and opens in the reading layer over the Job.
  */
 function Report({ session, row }: { session: Session; row: ArtifactRow }) {
-  const doc = documentOf(session);
+  const doc = documentOf(session, row.sub);
   const held = useArtifact(useSessionsDraft(), session.id, doc === undefined ? (row.sub ?? "") : (doc.revisions[doc.revisions.length - 1] ?? ""));
   const text = held.state === "read" && held.read.ok ? new TextDecoder().decode(held.read.bytes) : "";
   const conclusion = useMemo(() => (doc === undefined ? conclusionOf(text) : text === "" ? "" : readPage(text).lede), [doc === undefined, text]);
   return (
-    <button type="button" className="sv-landing__report" aria-label={row.title} disabled={row.open === undefined} onClick={doc === undefined ? row.open : () => showLayer(session.id, "document")}>
+    <button type="button" className="sv-landing__report" aria-label={row.title} disabled={row.open === undefined} onClick={doc === undefined ? row.open : () => showLayer(session.id, "document", doc.id)}>
       <span className="sv-landing__report-head">
         <Tooltip label="Report">
           <span className="sv-landing__report-mark" role="img" aria-label="Report">

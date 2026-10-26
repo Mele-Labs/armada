@@ -16,7 +16,7 @@ import { diffPages } from "./document-diff";
 import { placeOf } from "./document-find";
 import { readPage, type Page } from "./document-page";
 import { clearVisit, documentOf, useDocumentVisit } from "./document-state";
-import { closeLayer } from "./layers";
+import { closeLayer, useLayerPage } from "./layers";
 import "./document.css";
 
 /** The pages of a document's revisions, oldest first, each read once as it arrives. A revision not read yet is not in the list. */
@@ -67,7 +67,7 @@ let marginShown = true;
 
 export function DocumentLayer({ session }: { session: Session }) {
   const draft = useSessionsDraft();
-  const doc = documentOf(session);
+  const doc = documentOf(session, useLayerPage(session.id));
   const pages = useRevisions(draft, session.id, doc?.revisions ?? []);
   const latest = pages.length;
   const [pinned, setPinned] = useState<number | undefined>(undefined);

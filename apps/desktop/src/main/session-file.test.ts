@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("electron", () => ({ shell: { openPath: async () => "" } }));
 
-const { openSessionFile, readSessionArtifact, namesPage, MOST_BYTES, typeOfFile } = await import("./session-file");
+const { namesFile, openSessionFile, readSessionArtifact, namesPage, MOST_BYTES, typeOfFile } = await import("./session-file");
 
 import type { SessionRecord } from "@armada/protocol";
 
@@ -78,6 +78,44 @@ describe("reading a file for the panel", () => {
 
   it("reads a file by its extension", () => {
     expect([typeOfFile("a.MD"), typeOfFile("a.svg"), typeOfFile("a.rs")]).toEqual(["text/markdown", "image/svg+xml", "text/plain"]);
+  });
+});
+
+describe("reading a Job's document", () => {
+  const held = {
+    id: "S2",
+    attachments: [
+      {
+        kind: "artifact",
+        target: "/work/.armada/documents/findings.html",
+        state: "standing",
+        detail: { form: "document", title: "Findings", revisions: JSON.stringify(["/store/documents/S2/findings/r1.html", "/store/documents/S2/findings/r2.html"]) },
+      },
+      { kind: "artifact", target: "/work/.armada/documents/broken.html", state: "standing", detail: { form: "document", revisions: "[nope" } },
+    ],
+  } as unknown as SessionRecord;
+
+  it("names each revision the document row lists and nothing else", () => {
+    expect(namesFile(held, "/store/documents/S2/findings/r1.html")).toBe(true);
+    expect(namesFile(held, "/store/documents/S2/findings/r2.html")).toBe(true);
+    expect(namesFile(held, "/store/documents/S2/findings/r3.html")).toBe(false);
+    expect(namesFile(held, "/store/documents/S3/findings/r1.html")).toBe(false);
+    expect(namesFile(held, "/work/.armada/documents/findings.html")).toBe(false);
+    expect(namesFile(held, "/work/.armada/documents/broken.html")).toBe(false);
+    expect(namesFile(held, "/etc/passwd")).toBe(false);
+  });
+
+  it("does not take a revision path from a row that is not a document", () => {
+    const other = { id: "S4", attachments: [{ kind: "artifact", target: "/x", state: "standing", detail: { form: "page", revisions: JSON.stringify(["/store/r1.html"]) } }] } as unknown as SessionRecord;
+    expect(namesFile(other, "/store/r1.html")).toBe(false);
+  });
+
+  it("reads a listed revision and refuses an unlisted one without reading it", async () => {
+    const on = { size: async () => 2, read: vi.fn(async () => new Uint8Array([104, 105])) };
+    expect(await readSessionArtifact(held, "/store/documents/S2/findings/r2.html", on)).toMatchObject({ ok: true, type: "text/plain" });
+    on.read.mockClear();
+    expect(await readSessionArtifact(held, "/store/documents/S2/findings/r9.html", on)).toEqual({ ok: false, why: "not_addressable" });
+    expect(on.read).not.toHaveBeenCalled();
   });
 });
 

@@ -22,7 +22,7 @@ import { FieldLayer } from "./FieldLayer";
 import { FieldPanel } from "./FieldPanel";
 import { BlueprintPanel } from "./BlueprintPanel";
 import { LandingPanel } from "./LandingPanel";
-import { closeLayer, dropLayer, toggleLayer, useLayer } from "./layers";
+import { closeLayer, dropLayer, toggleLayer, useLayer, useLayerPage } from "./layers";
 import type { PlanEditing } from "./PlanEdit";
 import { WorkflowPanel } from "./WorkflowPanel";
 import type { LiveOpen } from "./TurnAccountBlock";
@@ -39,6 +39,7 @@ export function SessionWorkspace({ session, entries, repositories, hosts, ed, ba
   const order = useLayout("job.panels").all;
   const { id } = session;
   const open = useLayer(id);
+  const page = useLayerPage(id);
   // The Field large draws itself (`FieldLayer.tsx`) and so does the document (`DocumentLayer.tsx`); the other layers are `Layer`'s.
   const layer = open === "field" || open === "document" ? undefined : open;
   const large = open === "field" ? <FieldLayer session={session} repositories={repositories} /> : null;
@@ -54,7 +55,7 @@ export function SessionWorkspace({ session, entries, repositories, hosts, ed, ba
   const aside = story && layer === "artifacts";
   // The document covers the whole Job view, the right column with the thread, so it is drawn into the deck's grid.
   const grid = side?.closest(".deck-grid") ?? null;
-  const reading = open === "document" && grid !== null ? createPortal(<DocumentLayer session={session} />, grid) : null;
+  const reading = open === "document" && grid !== null ? createPortal(<DocumentLayer key={page} session={session} />, grid) : null;
   const layered = layer === undefined ? null : <Layer id={layer} session={session} entries={entries} bays={bays} onOpenCheck={onOpenCheck} onOpenSession={onOpenSession} onOpenSketch={onOpenSketch} />;
   // A band opens by its key, the Blueprint's whole-plan key swaps its Now view, and the composer's Artifacts key opens the list. A band's key closes the list first: the story is what it asked for.
   useEffect(() => {

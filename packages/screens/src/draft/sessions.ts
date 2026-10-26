@@ -99,7 +99,7 @@ export type SessionAttachment =
       by?: "agent";
       /** With `shown`: the Session wrote the file as well, and the ledger still says it wrote it. */
       written?: true;
-      /** An HTML page the Job wrote as its document: the path of each revision, oldest first. The newest is the one the Landing reads. Mock only until Fleet says it. */
+      /** An HTML page the Job wrote as its document (form `document`): the path of each revision, oldest first. The newest is the one the Landing reads. `id` is the page's path in the worktree. */
       revisions?: readonly string[];
     }
   /**
@@ -123,7 +123,7 @@ export type SessionAttachment =
   | { kind: "link"; url: string; by: "you" | "agent" };
 
 /** A `window` is a page the Session showed in a window of Bridge's own; `id` is its address. */
-export type SessionArtifactForm = "page" | "file" | "image" | "doc" | "window";
+export type SessionArtifactForm = "page" | "file" | "image" | "doc" | "document" | "window";
 
 /**
  * A sketch as Dispatch and Studios hold one: boxes and the joins between them.
