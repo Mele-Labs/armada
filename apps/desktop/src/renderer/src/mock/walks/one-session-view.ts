@@ -1,15 +1,17 @@
 // One view of a Session, on the Cockpit, which is the one place a Session is viewed: there is no Sessions page. With nothing selected, Activity
 // stands on the right beside Bays. With a Session selected the right column holds
-// the Field and Progress, and the Ledger and the Dispatch controls give way. The proposer's values stand where they
-// already live: the name in the header, the model and effort in the composer, the workflow over the steps in Progress. The Session goes
+// the Job's story (the Workflow, the Blueprint, the Field and the Landing), and the Ledger and the Dispatch controls give way. The proposer's values stand where they
+// already live: the name in the header, the model and effort in the composer, the workflow over the steps in the Workflow panel. The Session goes
 // from dispatched words to a pull request ready. Over the `one-session-view` scenario.
 
 import { button, deckRow, inside, region, role, text, walk } from "../walk";
 
 const places = role("navigation", "Places");
 const stage = region(/^Job: /);
-const status = region("Progress");
-const plan = region("Progress");
+const status = region("Workflow", { exact: true });
+const plan = region("Blueprint", { exact: true });
+const landing = region("Landing", { exact: true });
+const wholePlan = { press: inside(plan, button("Whole blueprint")), say: "The Blueprint reads as Now. One press opens the whole plan" } as const;
 const ask = role("article", "Waiting on you");
 const concern = (words: RegExp) => role("group", words);
 
@@ -22,30 +24,30 @@ export const oneSessionView = walk("one-session-view", [
   { key: "Home", on: role("separator", "Resize Bays and Activity"), say: "Home, or a double click on the gap, puts the two back to their own sizes" },
   { drag: role("separator", "Resize the left column"), by: { x: 60, y: 0 }, say: "A gap between columns is a handle too: the left column widens and the middle gives the width" },
   { key: "Home", on: role("separator", "Resize the left column"), say: "Back to its width. Sizes are kept for this layout and come back as left" },
-  { press: deckRow("Retry the slot lease"), say: "A Job is selected. Its thread and composer fill the middle. Dispatch controls, Activity, Bays and Autopilot give way, and the Field and Progress share the right column" },
+  { press: deckRow("Retry the slot lease"), say: "A Job is selected. Its thread and composer fill the middle. Dispatch controls, Activity, Bays and Autopilot give way, and the right column tells the Job's story: Workflow, Blueprint, Field and Landing" },
   { look: role("img", /^Context/), say: "The header with every mark live: the state glyph leads the title, then the context tank, the fresh start mark and the stale mod. Back is the far right item. A clash is the glyph on the Bays key, not a mark in the bar" },
   { look: role("button", "More"), say: "Everything he does to the Job is behind the three dots. The pull request chip is gone, since Artifacts has it" },
   { press: role("button", "More"), say: "Open the Job page, Retro and End job, each with its glyph. Stop joins them while a turn runs, Fork on one that has ended" },
   { key: "Escape", on: role("menu"), say: "Esc shuts the menu" },
   { look: role("combobox", "Model"), say: "The agent has begun on its own. The name is in the header, and the proposer has preset the model and the effort in the composer's own dropdowns, each marked as picked by it" },
-  { look: status, say: "The proposed workflow is over its steps in Progress, a glyph each, with the first step lit. There is no Start" },
+  { look: status, say: "The proposed workflow is over its steps in the Workflow panel, a glyph each, with the first step lit. There is no Start" },
   { type: "Bug fix", into: role("combobox", "Workflow"), say: "A different workflow, changed while the agent works. The change reaches the agent at once" },
   { look: role("region", "Workflow changed"), say: "An event row in his colour, in the style of Slot leased: the workflow, what it was and what it is" },
   { look: text("Following Bug fix"), say: "The agent adjusts and names the steps it will follow. Mid-turn it would have read the note at its next tool call, and idle it is woken" },
-  { look: text("Reproduce"), say: "Its steps replace the others in Progress" },
+  { look: text("Reproduce"), say: "Its steps replace the others in the Workflow panel" },
   { type: "Feature", into: role("combobox", "Workflow"), say: "Feature again, told the same way" },
   { type: "medium", into: role("combobox", "Effort"), say: "Less effort, in the composer. This wakes nobody and the mark on it goes" },
   { press: inside(stage, button(/^Needs you/)), say: "The question is in its Needs you panel, on the composer, and the panel opens on it" },
-  { look: inside(stage, ask), say: "The agent read first and asks before it plans, in the thread. Progress has no plan yet, and the Field has the Job's own drone reading Fleet" },
+  { look: inside(stage, ask), say: "The agent read first and asks before it plans, in the thread. The Blueprint has no plan yet, and the Field has the Job's own drone reading Fleet" },
   { press: inside(ask, role("radio", "Five")), say: "An answer to the agent's question" },
   { press: inside(ask, button("Answer")), say: "Answered. A new turn starts" },
   { look: role("region", "Effort changed"), say: "The effort change is a row where that turn starts, and the agent is told in it" },
   { later: places, say: "The agent records its plan" },
   { look: inside(stage, role("article", "Plan to approve")), say: "The plan arrives as a compact card in the thread, whole above the composer: each group a closed row with its subagent type, title and a mark per task, a thumbnail of the sketch the agent drew with it, and Approve" },
-  { look: plan, say: "Progress on the right already shows the plan, with no approval band and no amber frame. The approval lives in the thread alone" },
-  { hover: inside(plan, role("button", "Ask for an update")), say: "Ask for an update sits in Progress's header. It tells the agent to bring its task list up to date with the plan's own task text, then say where it stands. A press does not fold the panel" },
-  { press: inside(plan, role("button", /^Retry the slot lease when the pool is contended, with back off$/)), say: "A group in the panel opens to its own paths and its tasks in full. Closed it is a row: its title, its subagent type and a glyph for each task" },
-  { press: inside(plan, role("button", /^Retry the slot lease when the pool is contended, with back off$/)), say: "And closes again" },
+  { look: plan, say: "The Blueprint on the right already holds the plan, open and editable, with Approve at its foot beside the card in the thread" },
+  { hover: inside(plan, role("button", "Ask for an update")), say: "Ask for an update sits in the Blueprint's header. It tells the agent to bring its task list up to date with the plan's own task text, then say where it stands. A press does not fold the panel" },
+  { press: inside(plan, role("button", /^Subagent type and paths of Retry the slot lease when the pool is contended, with back off$/)), say: "A drafted group stands open on its tasks. Its chevron brings in the subagent type and its paths" },
+  { press: inside(plan, role("button", /^Subagent type and paths of Retry the slot lease when the pool is contended, with back off$/)), say: "And closes again" },
   { press: inside(stage, role("article", "Plan to approve")), say: "A press on the card, anywhere but Approve, opens the plan in a large overlay to review" },
   { look: role("button", "Approve"), say: "Every group is open with its paths and its tasks, the sketch is large and playing, and Approve is at the foot. Every title and task takes edits where it stands. Esc or Close shuts it" },
   { press: role("button", /^Task: Show the attempt on the bay tile/), say: "Rename a task in place: press its text" },
@@ -66,12 +68,16 @@ export const oneSessionView = walk("one-session-view", [
   { look: role("button", "Approve"), say: "It opens on the diff the card draws: the new task added, the renamed one with its old text, the removed one struck. Edit plan reaches the rows" },
   { press: role("button", "Approve"), say: "Approved from the overlay. It closes and the card settles in the thread" },
   { look: inside(stage, role("article", "Plan approved")), say: "The settled card stays where the plan was recorded, with its groups and the sketch thumbnail, and no press left but a click to read it again" },
-  { press: inside(plan, button("Sketch")), say: "Progress's Sketch glyph opens the sketch on its own, as a sketch opens anywhere" },
+  { press: inside(plan, button("Sketch")), say: "The Blueprint's Sketch glyph opens the sketch on its own, as a sketch opens anywhere" },
   { press: role("button", "Close"), say: "Closed" },
   { look: region("Field"), say: "The build starts. Two subagents hover over the parts of the codebase they touch, the Job's own drone with them," },
-  { look: status, say: "Build is lit in Progress" },
+  { look: status, say: "Build is lit in the Workflow panel" },
+  { drag: role("separator", "Resize Blueprint and Field"), by: { x: 0, y: -80 }, say: "The gap between two open panels in the right column is a handle: the Blueprint gives height to the Field" },
+  { key: "Home", on: role("separator", "Resize Blueprint and Field"), say: "Home puts them back" },
+  { look: plan, say: "The approved Blueprint reads as Now: the task finished last, the ones being worked, the next one" },
+  wholePlan,
   { look: plan, say: "Tasks tick in the plan as the agent reports them. The pencil on a group is edits Fleet saw" },
-  { press: inside(plan, role("button", /^Retry the slot lease when the pool is contended, with back off$/)), say: "The same edits work from Progress once the plan is approved: a group opens" },
+  { press: inside(plan, role("button", /^Retry the slot lease when the pool is contended, with back off$/)), say: "The same edits work from the Blueprint once the plan is approved: a group opens" },
   { press: inside(plan, role("button", "Suggest on task Retry the lease when the pool is contended")), say: "A suggestion on a task, mid-build" },
   { type: "Log each attempt so the bay tile can show it", into: role("textbox", "Suggest on Retry the lease when the pool is contended"), say: "What he asks" },
   { key: "Enter", on: role("textbox", "Suggest on Retry the lease when the pool is contended"), say: "Pinned to the task" },
@@ -102,15 +108,13 @@ export const oneSessionView = walk("one-session-view", [
   { look: concern(/ceiling/), say: "The one left opens by itself" },
   { press: inside(concern(/ceiling/), button("Dismiss")), say: "Dismissed. The agent is told nothing" },
   { later: places, say: "The agent finishes and runs its checks" },
-  { look: plan, say: "Every task is done and Progress is framed in green" },
+  { look: plan, say: "Every task is done: the Blueprint folds to its band, framed in green, and the Landing opens" },
   { look: status, say: "The workflow is at Pull request" },
   { press: inside(region("Flight controls"), button("Artifacts")), say: "There is no Ledger. The branch and the bay are not drawn while nothing is wrong with them, and the draft pull request is a row in Artifacts" },
   { look: inside(region("Artifacts", { exact: true }), region("Pull requests", { exact: true })), say: "The draft pull request, with its state and checks" },
   { press: inside(region("Artifacts", { exact: true }), button("Back")), say: "Back returns to the thread where it was" },
-  { drag: role("separator", "Resize Field and Progress"), by: { x: 0, y: -80 }, say: "The gap in the right column is a handle: the Field gives height to Progress" },
-  { key: "Home", on: role("separator", "Resize Field and Progress"), say: "Home puts them back" },
-  { press: inside(status, role("button", /Progress/)), say: "A press on a header folds the panel to it. Every panel in the view does this, Progress, the Field, Jobs and Flight control too" },
-  { press: inside(status, role("button", /Progress/)), say: "A second press opens it. Which panels are folded is kept for each one in the window's storage, so they come back as left" },
+  { press: inside(landing, role("button", /Landing/)), say: "A press on a header folds the panel to it. Every panel in the view does this, the Landing, the Field, Jobs and Flight control too" },
+  { press: inside(landing, role("button", /Landing/)), say: "A second press opens it. What he folds or opens by hand holds until the Job's stage moves on" },
   { press: deckRow("Rotate the audit log"), say: "Another Job, on a workflow of twelve steps" },
   { look: status, say: "A workflow of twelve steps is a line of glyphs, the current one lit" },
   { press: deckRow("Fold Jobs into Sessions"), say: "A plan at size: six groups and twenty-five tasks for one change, Jobs taking in Jobs. Subagent types are mixed and the groups are unevenly spread, eight tasks in one and two in another" },
@@ -118,7 +122,8 @@ export const oneSessionView = walk("one-session-view", [
   { press: inside(stage, role("article", "Plan to approve")), say: "A press on the card opens the review overlay" },
   { look: role("region", "Plan tool in Fleet"), say: "Every group open with its paths and its tasks, the long ones scrolling in the left column and the sketch large beside them. Approve is in the header" },
   { press: role("button", "Approve"), say: "Approved from the overlay. The plan is mid-build" },
-  { look: plan, say: "Progress carries the plan on the right: closed rows with a mark for each task, the panel scrolling past what fits. Done, working, handed in and open marks sit together, and one task failed, which frames its group in red" },
+  wholePlan,
+  { look: plan, say: "The Blueprint carries the plan on the right, opened to the whole plan: closed rows with a mark for each task, the panel scrolling past what fits. Done, working, handed in and open marks sit together, and one task failed, which frames its group in red" },
   { later: places, say: "Time passes and groups tick" },
   { look: plan, say: "More tasks done, the next ones working" },
   { later: places, say: "And again" },

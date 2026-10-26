@@ -1,5 +1,5 @@
 // What a Job meets when it says it is done with follow-ups still open, shown on fixtures. One Job whose thread holds its done, Fleet's refusal
-// naming what is open under Later, and the agent's answer that settles one. The one left is in Progress under Later, with a Remind and a Drop.
+// naming what is open under Later, and the agent's answer that settles one. The one left is in the Landing under Deferred, with a Remind and a Drop.
 // Fleet refuses all_done this way, but to the agent only: the notice in the thread is the mock's. The walk `later-kept` plays it.
 
 import type { Session } from "@armada/screens/src/draft/sessions";

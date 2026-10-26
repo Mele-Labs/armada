@@ -176,6 +176,7 @@ WebSocket event stream, read this first.
 | [An adversarial review of a plan: `start_adversarial_review`, `send_finding`, `dismiss_finding`](protocol/an-adversarial-review-of-a-plan.md) |
 | [The agents' account signed out: `agent_sign_in.changed`, `get_agent_sign_in`, `start_agent_sign_in`](protocol/the-agents-account-signed-out.md) |
 | [A repository's app, run from Bridge: `list_app_runs`, `start_app_run`, `app_run.changed` and four more](protocol/a-repositorys-app-run-from-bridge.md) |
+| [What a workflow lands in: `WorkflowSummary.lands`](protocol/what-a-workflow-lands-in.md) |
 | [Open questions](#open-questions) |
 
 ## A pinned note, sent whole: `send_session_note`

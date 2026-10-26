@@ -297,7 +297,7 @@ Its row carries `mod`.
 | The menu | Mod in every build; Report beside it in dev builds only |
 | Title | `Mod <name>`: the row's title, else the label, words or place pointed at |
 | In the Jobs list | A **Mods** group after the repository groups and before Other, whichever repository is picked |
-| Right column | The `mods` panel, *Mods made*: each mod the Job scaffolded (`made_by`), with its switch |
+| Right column | The Landing draws *Mods made*: each mod the Job scaffolded (`made_by`), with its switch |
 
 Its first message is a pinned note's, sent as `send_session_note` sends one, with the Mod brief ahead of his words; from Create mod the Job opens empty and sends nothing, then his first message is sent as a message is, with the same brief ahead of his words, and retitles a Job still titled `Mod` as `Mod <first line>`: load the `armada:armada-mods` skill and reach for a mod first.
 The skill ships in the Armada mod for Claude Code (`plugins/armada/skills/armada-mods/`), so a Job in any folder has it.

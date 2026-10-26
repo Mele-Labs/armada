@@ -151,6 +151,24 @@ Do not suggest changes the brief did not ask for.
 
 const PNG = "iVBORw0KGgoAAAANSUhEUgAAAPAAAACgCAIAAAC9uXYyAAACc0lEQVR42u3TMQ2AQBREwfNDRUnoEYAsKBCBBTCAi3ODjE3uT7IKNvPaNC+RXXePrJ9vZOu2R/Y9R2QpVw1ooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBro4aEcLeKSAgQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmigq4N2tIBHChhooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBro6aEcLeKSAgQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmiggQYaaKCBBhpooIEGGmigi4P+AUj4x8OnQEduAAAAAElFTkSuQmCC";
 
+/** The report the `job-story` investigation wrote, as the Landing panel reads its conclusion and the side panel opens it whole. */
+export const LEASE_REPORT_PATH = "docs/reports/slot-lease-expiry.md";
+
+export const LEASE_REPORT = `# Why do slot leases expire early
+
+The pool starts the 30 minute lease clock when it hands a bay over, not when the Job first writes to it, so a Job waiting on a long Check spends its lease before its Drone runs again. Five of the seven early expiries in four days of the pool log had a Check running when the lease ran out. Renewing the lease on each Fleet event for that Job would close the gap and leave the limit as it is.
+
+## What was measured
+
+Lease starts and expiries for 41 Jobs over four days, read from the pool log.
+
+Seven leases expired before the Job finished. Five of them had a Check running in the bay at the time. The other two show no cause in the log.
+
+## What was not measured
+
+Whether a renewal on every event adds load to the pool. The log holds no figure for it.
+`;
+
 const bytesOf = (base64: string): Uint8Array => Uint8Array.from(atob(base64), (one) => one.charCodeAt(0));
 
 export type DiskFile = { text?: string; bytes?: Uint8Array; type: string; version: number; elsewhere?: string };
@@ -162,6 +180,8 @@ export function pretendDisk(): Map<string, DiskFile> {
     [NOTES_PATH, { text: NOTES, type: "text/markdown", version: 1 }],
     // The file the `session-ledger` Session wrote.
     ["/Users/user/armada/docs/spikes/store-clock.md", { text: "# Store clock\n\nThe store reads the clock once per write.\n", type: "text/markdown", version: 1 }],
+    // The report the `job-story` investigation wrote.
+    [`/Users/user/armada/${LEASE_REPORT_PATH}`, { text: LEASE_REPORT, type: "text/markdown", version: 1 }],
     [SKILL_PATH, { text: SKILL, type: "text/markdown", version: 1 }],
     [DEEP_RESEARCH_PATH, { text: DEEP_RESEARCH, type: "text/markdown", version: 1 }],
     [IMPLEMENTER_PATH, { text: IMPLEMENTER, type: "text/markdown", version: 1 }],

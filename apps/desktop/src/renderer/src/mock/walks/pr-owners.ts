@@ -21,7 +21,7 @@ const owners = walk("pr-owners", [
   { hover: inside(chip(ARMADA, /^Job 7be40d15/), text("7be40d15")), say: "Another Job on the other machine" },
   toSessions,
   { press: inside(region("Jobs", { exact: true }), button("Store migration spike")), say: "A Job on this machine" },
-  ...row(/^#2209 /, "Its pull request"),
+  ...row(/^Pull request #2209 /, "Its pull request"),
   { hover: machine(PANEL, /^Job a3f9c21e/, "This machine"), say: "The chip sits in the panel's head" },
 ]);
 
