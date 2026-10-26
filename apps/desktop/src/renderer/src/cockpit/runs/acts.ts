@@ -27,5 +27,5 @@ export function pressRun(source: RunsSource, target: RunTarget, label: string, r
   else openRun(source.start(target, run));
 }
 
-/** Add a run: the same confirm, over a repository that already has some. */
+/** Add a way to run: the same confirm, over a repository that already has some. */
 export const pressAddRun = (target: RunTarget, label: string): void => ask({ target, label, add: true });

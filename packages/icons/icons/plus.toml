@@ -5,3 +5,10 @@
   status = "Specified"
   reserved = "The title row's Dispatch segment only. Never dispatched, which is send's — this marks opening the composer, not the act the composed request performs once sent."
   notes = "#1107. The shell mock leads Dispatch's label with a plus; a bare cross is the smallest departure from send's silhouette in the Action group, and the two read as compose versus commit rather than as duplicates."
+
+  [[icons.plus.usage]]
+    means = "Add another saved run to a repository, the last row of the run control's menu"
+    group = "Run"
+    size = "16px"
+    status = "Proposed"
+    notes = "Proposed 25 Oct 2026 for the mock walk `run-an-app`, label `Add a way to run`, in the menu's leading column where a chosen run carries its check. Contradicts this glyph's `reserved` line (the Dispatch segment only); the owner may rule it out."

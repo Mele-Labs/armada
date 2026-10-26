@@ -11,8 +11,8 @@ const onBay = region("Run: Mock Bridge");
 
 const runAnApp = walk("run-an-app", [
   { press: inside(list, button("Runs for armada")), say: "The caret beside armada's play glyph lists its saved runs" },
-  { look: role("menuitem", "Bridge dev, scratch Fleet"), say: "The runs, and Add a run last" },
-  { key: "Escape", on: role("menuitem", "Add a run"), say: "Esc closes it" },
+  { look: role("menuitem", "Bridge dev, scratch Fleet"), say: "The runs, and Add a way to run last" },
+  { key: "Escape", on: role("menuitem", "Add a way to run"), say: "Esc closes it" },
   { press: inside(list, button("Run auto-ynab")), say: "auto-ynab has no saved run, so play asks first" },
   { look: inside(confirm, text("this Mac")), say: "The run Fleet drafted, each process editable, and where it is saved" },
   { press: inside(confirm, button("Save and run")), say: "Save and run" },

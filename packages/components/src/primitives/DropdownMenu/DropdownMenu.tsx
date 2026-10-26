@@ -138,6 +138,12 @@ export type DropdownMenuProps = {
    * leading top corner sits on the point, kept inside the window. Open it through `open`.
    */
   at?: { x: number; y: number };
+  /**
+   * Every item opens on a leading column of its own, holding the check where it is `selected` and its `icon` where
+   * it has one, and empty otherwise, so the labels line up down the list whichever row is chosen. A row's `detail` then
+   * trails at the edge in a column of its own.
+   */
+  lead?: boolean;
 };
 
 /**
@@ -183,6 +189,7 @@ export function DropdownMenu({
   triggerDetail,
   triggerTooltip,
   at,
+  lead = false,
 }: DropdownMenuProps) {
   const [own, setOwn] = useState(defaultOpen);
   const open = held ?? own;
@@ -352,7 +359,7 @@ export function DropdownMenu({
       {/* A menu open when its trigger turns off stays shut rather than sending
           from under a control that says it cannot. */}
       {shown ? layered(
-        <div ref={panel} className="armada-dropdown-menu__panel" data-portal={Boolean(portal) || at !== undefined || undefined} data-searchable={searchLabel !== undefined || undefined} data-detailed={entries.some((entry) => entry.kind === "item" && entry.detail !== undefined) || undefined} role="menu" onKeyDown={moveFocus}>
+        <div ref={panel} className="armada-dropdown-menu__panel" data-portal={Boolean(portal) || at !== undefined || undefined} data-searchable={searchLabel !== undefined || undefined} data-lead={lead || undefined} data-detailed={entries.some((entry) => entry.kind === "item" && entry.detail !== undefined) || undefined} role="menu" onKeyDown={moveFocus}>
           {searchLabel === undefined ? null : (
             <div className="armada-dropdown-menu__search">
               <Input
@@ -426,13 +433,19 @@ export function DropdownMenu({
                   choose(entry.id);
                 }}
               >
-                {entry.icon === undefined ? null : <entry.icon className="armada-dropdown-menu__icon" size={16} strokeWidth={2} aria-hidden />}
+                {lead ? (
+                  <span className="armada-dropdown-menu__lead">
+                    {entry.selected ? <Check className="armada-dropdown-menu__check" size={16} strokeWidth={2} aria-hidden /> : entry.icon === undefined ? null : <entry.icon size={16} strokeWidth={2} aria-hidden />}
+                  </span>
+                ) : entry.icon === undefined ? null : (
+                  <entry.icon className="armada-dropdown-menu__icon" size={16} strokeWidth={2} aria-hidden />
+                )}
                 <span className="armada-dropdown-menu__text">
                   {entry.label}
                   <Count of={entry.count} />
                 </span>
                 {entry.detail === undefined ? null : <span className="armada-dropdown-menu__detail">{entry.detail}</span>}
-                {entry.selected ? (
+                {lead ? null : entry.selected ? (
                   <Check className="armada-dropdown-menu__check" size={16} strokeWidth={2} aria-hidden />
                 ) : entry.shortcut ? (
                   <kbd className="armada-dropdown-menu__kbd">{entry.shortcut}</kbd>
