@@ -264,8 +264,11 @@ export function SessionFrame({ state, said, id, address, title, onRename, modOut
     <div ref={aside === undefined || aside === null ? undefined : docked} className="armada-session-panels">
     <Card className="armada-session-frame" role="region" aria-label={`Job ${named}`}>
       <header className="armada-session-frame__head">
-        <span className="armada-session-frame__state">{state === "quiet" && modOutOfDate ? <ModMark /> : <SessionMark state={state} said={`${said} · ${named}`} />}</span>
-        <SessionTitle {...(title === undefined ? {} : { title })} {...(onRename === undefined ? {} : { onRename })} />
+        {/* The state's mark and the name are one group, which a surface may draw apart from the row (the Cockpit's `jobname=notch` mock hangs it from the panel's top edge). */}
+        <span className="armada-session-frame__notch">
+          <span className="armada-session-frame__state">{state === "quiet" && modOutOfDate ? <ModMark /> : <SessionMark state={state} said={`${said} · ${named}`} />}</span>
+          <SessionTitle {...(title === undefined ? {} : { title })} {...(onRename === undefined ? {} : { onRename })} />
+        </span>
         {repository}
         {headViews}
         {actions}

@@ -43,6 +43,11 @@
   color: var(--fg-muted);
 }
 
+/* The state's mark and the title lead the row as the two always did; the group draws nothing of its own. */
+.armada-session-frame__notch {
+  display: contents;
+}
+
 /* The terminal glyph carries the address in its tooltip. */
 .armada-session-frame__glyph {
   display: inline-flex;

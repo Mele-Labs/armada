@@ -6,6 +6,8 @@ import { SlidersHorizontal, type LucideIcon } from "lucide-react";
 import { Tabs, usePlacesRoom } from "@armada/components";
 import { DECK_TABS, SURFACES, deckTabOf } from "@armada/shell";
 
+import { placesTake } from "./flight-take";
+
 import "./deck-chrome.css";
 
 /** What the Cockpit tab's pip says: a call is waiting while the window is somewhere else. */
@@ -36,16 +38,19 @@ export function TabBar({ showing, onGoTo, waiting = false, away = false, hidden 
   const room = usePlacesRoom();
   const nav = useRef<HTMLElement>(null);
   const [labels, setLabels] = useState<{ drawn: string; width: number }>();
-  const iconsOnly = labels?.drawn === drawn && room !== undefined && labels.width > room;
+  // `&places=` under `tight-type`: the glyph with small words, or the glyph alone with its name on hover (`flight-take.ts`).
+  const places = placesTake();
+  const iconsOnly = places === "icons" || (labels?.drawn === drawn && room !== undefined && labels.width > room);
   useLayoutEffect(() => {
     if (iconsOnly || nav.current === null) return;
     const width = Math.ceil(nav.current.getBoundingClientRect().width);
     if (labels?.drawn !== drawn || labels.width !== width) setLabels({ drawn, width });
   });
   return (
-    <nav ref={nav} className="deck-places" aria-label="Places">
+    <nav ref={nav} className="deck-places" aria-label="Places" data-places={places}>
       <Tabs
         iconsOnly={iconsOnly}
+        iconsWithLabels={places === "small"}
         items={tabs.map((tab) => {
           const icon = iconOf(tab);
           return {

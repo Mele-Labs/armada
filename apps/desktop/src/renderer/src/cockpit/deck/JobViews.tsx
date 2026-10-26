@@ -140,7 +140,7 @@ export function LeftViews({ views }: { views: readonly ComposerView[] }) {
   return createPortal(
     <section className="deck-panel deck-views" aria-label="Views" tabIndex={-1} data-collapsed={folded.collapsed || undefined}>
       <header className="deck-band" {...folded.band}>
-        Views
+        <span className="deck-band__name">Views</span>
         <Tooltip label="Go to Views" shortcut={VIEWS_KEY}>
           <Kbd>{VIEWS_KEY}</Kbd>
         </Tooltip>

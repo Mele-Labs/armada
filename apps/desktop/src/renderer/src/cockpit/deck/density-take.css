@@ -147,3 +147,252 @@
   & .armada-helm-thread__rows { gap: var(--space-2); }
   & .armada-helm-thread__rows > .armada-session-fold + .armada-session-fold { margin-block-start: calc((var(--space-2) - var(--space-1) / 2) * -1); }
 }
+
+/* ======================================================================================================================================================
+   The owner's notes of 26 Oct 2026 on the walk of `tight-type`. Each is under `data-density="tight-type"`, and the three that offer two ways are on `&heads=`, `&places=` and
+   `&autopilot=` (`flight-take.ts`). Opacity and edges only: no gradient, no glow. */
+
+/* ---- 5: the glyphs a step lighter, and the key caps only while ⌘ is held ---------------------------------------------------------------------- */
+
+:root[data-density="tight-type"][data-density][data-density] .deck svg.lucide { stroke-width: 1.5; }
+/* A cap leaves no room behind it: it is not drawn, not hidden, so nothing moves when it comes. `Deck.tsx` sets `data-reveal` while ⌘ is down. */
+:root[data-density="tight-type"][data-density][data-density]:not([data-reveal]) .deck :is(.deck-band, .sv-panel__band, .deck-controls, .deck-dispatch, .deck-queue, .deck-views, .deck-flight) :is(.armada-kbd, .armada-tooltip:has(> .armada-kbd)) { display: none; }
+
+/* ---- 10: the switch's ON and OFF a step smaller -------------------------------------------------------------------------------------------------- */
+
+:root[data-density="tight-type"][data-density][data-density] .deck .armada-switch { --switch-text: 10px; }
+
+/* ---- 11: a Check's line in the thread follows the ladder: the line a step under the prose, its mono a step under that ------------------------------- */
+
+:root[data-density="tight-type"][data-density][data-density] .deck .armada-session-fold__head--press { font-size: var(--text-xs); line-height: var(--leading-xs); }
+:root[data-density="tight-type"][data-density][data-density] .deck .armada-session-fold__head--press .mono { font-size: var(--text-2xs); }
+
+/* ---- 1: the Jobs list, one line a row: the name and the glyphs in their columns; what the Job last did is the row's tooltip -------------------------- */
+
+:root[data-density="tight-type"][data-density][data-density] {
+  & .deck-row:not([data-queued]) {
+    grid-template-rows: auto;
+    align-items: center;
+    min-height: 28px;
+    padding-block: 0;
+  }
+  & .deck-row:not([data-queued]) .deck-row__title { line-height: var(--leading-xs); }
+  /* The clash and the earlier-Job marks are drawn over the marks' first slot of the row: the whole row's height now. */
+  & .deck-row__clash,
+  & .deck-row__earlier { inset-block: 0; height: auto; }
+}
+
+/* ---- 7: a repository's heading in the Jobs list stands apart: room above it and a hairline, no box ------------------------------------------------- */
+
+:root[data-density="tight-type"][data-density][data-density] {
+  & .deck-list .deck-list__band + .deck-list__band { margin-top: var(--space-3); border-top: var(--border-width) solid var(--border-default); }
+  & .deck-list .deck-list__band + .deck-list__band > .deck-list__repository { padding-top: var(--space-2); }
+}
+
+/* ---- 3, 4: a bay's state is a large faint mark behind its number; the kind and the time are not drawn --------------------------------------------- */
+
+:root[data-density="tight-type"][data-density][data-density] {
+  & .deck-bay__door { position: relative; }
+  & .deck-bay__door .deck-bay__state { position: absolute; inset: 0; display: grid; place-items: center; }
+  & .deck-bay__door .deck-bay__state svg { width: 56px; height: 56px; opacity: 0.16; }
+  & .deck-bay__door .deck-bay__name { position: relative; }
+}
+
+/* ---- 6: Autopilot is one row, its name and its switch -------------------------------------------------------------------------------------------- */
+
+:root[data-density="tight-type"][data-density][data-density] {
+  & .deck-autopilot[data-row] { flex: 0 0 auto; align-self: flex-start; }
+  & .deck-autopilot[data-row] > .deck-band { gap: var(--space-4); }
+}
+
+/* ---- 9: Filter and Edit are glyphs with a tooltip ------------------------------------------------------------------------------------------------ */
+
+:root[data-density="tight-type"][data-density][data-density] {
+  & .deck-filter { display: inline-flex; margin-left: auto; }
+  & .deck-list > .deck-band .deck-filter .armada-dropdown-menu { margin-left: 0; }
+  & .deck-filter[data-narrowed] .armada-button { color: var(--accent); }
+  & .deck-filter + .armada-kbd,
+  & .deck-filter + .armada-tooltip { margin-left: 0; }
+  & .deck-controls > .deck-band > .armada-tooltip { margin-left: auto; }
+  & .deck-controls > .deck-band > .armada-tooltip + .deck-band__acts { margin-left: 0; }
+}
+
+/* ---- 12: the Places in the title bar, `&places=small` a glyph and small words, `icons` the glyph alone -------------------------------------------- */
+
+.deck-places[data-places="small"] .armada-tabs__tab { gap: var(--space-1); padding-inline: var(--space-2); font-size: var(--text-2xs); }
+.deck-places[data-places="icons"] .armada-tabs__tab { padding-inline: var(--space-2); }
+
+/* ---- 8: the header band, two ways on `&heads=` ------------------------------------------------------------------------------------------------------
+   Both leave a panel that is folded, or is only a band, as it was: such a panel is its band and nothing else, and the band is how it opens. Autopilot is already one row.
+   `legend`: the band takes no height. It is a line of no height on the panel's top hairline, with the name at the left and the acts at the right, each on a strip of the glass
+   that hides the hairline behind it, as a fieldset's legend does. The panel's own padding clears the half of the name that falls inside. */
+
+:root[data-density="tight-type"][data-heads] {
+  --dn-hole: color-mix(in srgb, var(--glass-tint) var(--glass-fill), var(--bg-base));
+  --dn-end: calc(var(--glass-radius) + var(--space-2));
+}
+:root[data-density="tight-type"][data-heads][data-density][data-density] :is(.deck-panel, .sv-panel):not([data-collapsed], [data-band-only], .deck-autopilot) {
+  position: relative;
+  overflow: visible;
+}
+:root[data-density="tight-type"][data-heads="legend"][data-density][data-density] {
+  & :is(.deck-panel, .sv-panel):not([data-collapsed], [data-band-only], .deck-autopilot) { padding-top: var(--space-2); }
+  /* The window's scroller clips what stands above the first panel, so the half of the name that does has its room there. */
+  & .deck { margin-top: var(--space-2); }
+  & :is(.deck-panel, .sv-panel):not([data-collapsed], [data-band-only], .deck-autopilot) > :is(.deck-band, .sv-panel__band) {
+    position: absolute;
+    inset-block-start: calc(var(--border-width) / -2);
+    inset-inline: var(--dn-end);
+    z-index: 1;
+    height: 0;
+    min-height: 0;
+    padding: 0;
+    gap: 0;
+    align-items: center;
+    box-shadow: none;
+    pointer-events: none;
+  }
+  /* The name and the acts, each on its strip. */
+  & :is(.deck-panel, .sv-panel):not([data-collapsed], [data-band-only], .deck-autopilot) > :is(.deck-band, .sv-panel__band) > * {
+    flex: none;
+    height: var(--leading-head, var(--leading-2xs));
+    padding-inline: var(--space-2);
+    background: linear-gradient(var(--dn-hole), var(--dn-hole)) center / 100% var(--border-width) no-repeat;
+    pointer-events: auto;
+  }
+  /* The name's own words, small and tracked, set on the line. The acts after it go to the far end. */
+  & .deck-band__name,
+  & .sv-panel__label { display: flex; align-items: center; margin: 0; line-height: var(--leading-head, var(--leading-2xs)); }
+  & .sv-panel__band > .sv-panel__state { padding-inline-end: 0; }
+  /* Panels stacked in the Job's column keep their gutter, so a name never stands on the band above it. */
+  & .sv-side > .sv-panel:is([data-collapsed], [data-band-only]):has(+ .sv-panel) { border-end-start-radius: var(--glass-radius); border-end-end-radius: var(--glass-radius); }
+  & .sv-side > .sv-panel:is([data-collapsed], [data-band-only]) + .sv-panel { margin-block-start: 0; border-start-start-radius: var(--glass-radius); border-start-end-radius: var(--glass-radius); }
+  & :is(.deck-panel, .sv-panel) > :is(.deck-band, .sv-panel__band) > :is(.deck-band__name, .sv-panel__label) + * { margin-inline-start: auto; }
+  & :is(.deck-panel, .sv-panel) > :is(.deck-band, .sv-panel__band) .armada-button { height: var(--leading-head, var(--leading-2xs)); min-height: 0; padding-block: 0; }
+  & .deck-panel > .deck-band > .armada-kbd,
+  & .deck-panel > .deck-band > .armada-tooltip:has(> .armada-kbd) { margin-inline-start: 0; }
+}
+
+/* `none`: no name. The acts are a small chip in the panel's top corner that comes on a hover or on focus inside, and the name is the panel's `aria-label` only. */
+:root[data-density="tight-type"][data-heads="none"][data-density][data-density] {
+  & :is(.deck-panel, .sv-panel):not([data-collapsed], [data-band-only], .deck-autopilot) > :is(.deck-band, .sv-panel__band) {
+    position: absolute;
+    inset-block-start: var(--space-1);
+    inset-inline-end: var(--space-1);
+    z-index: 2;
+    width: auto;
+    min-height: 0;
+    padding: 0 var(--space-1);
+    gap: var(--space-1);
+    border-radius: var(--glass-radius-control, var(--radius-md));
+    background: var(--dn-hole);
+    box-shadow: 0 0 0 var(--border-width) var(--glass-edge);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--duration-fast) var(--ease);
+  }
+  & :is(.deck-panel, .sv-panel):not([data-collapsed], [data-band-only], .deck-autopilot):is(:hover, :focus-within) > :is(.deck-band, .sv-panel__band) { opacity: 1; pointer-events: auto; }
+  & :is(.deck-panel, .sv-panel):not([data-collapsed], [data-band-only], .deck-autopilot) > :is(.deck-band, .sv-panel__band) > :is(.deck-band__name, .sv-panel__label, .sv-panel__state) { display: none; }
+  & :is(.deck-panel, .sv-panel) > :is(.deck-band, .sv-panel__band) > * { margin-inline-start: 0; }
+}
+
+/* ---- 13: `&jobname=notch`: the Job's state and name hang from the top of its panel --------------------------------------------------------------------
+   The shape is the title bar's notch (`TitleBar.css`) turned onto the panel's edge: square where it leaves the top, round below, and flared outward at the top corners so the edge runs
+   into it. Its curves are the panel's own corner radius, and it stands two radii in, so the corner's arc and the flare's meet with no straight between them. The panel's hairline is the
+   notch's outline: down the flare, down one side, round the bottom and up the other, and not drawn across the top of it. The panel's own border is drawn by `::after` with its top cut away
+   (a mask), and `::before` draws the top again from the notch's far flare to the corner, placed by anchor so no width is measured. The head keeps the views, the context, the menu and
+   the way out, in the notch's row, with no rule under itself: the notch's bottom edge is what that row ends on. Edges and opacity only. */
+
+:root[data-density="tight-type"][data-jobname="notch"][data-density][data-density] {
+  --dn-r: var(--glass-radius);
+  --dn-notch-h: 32px;
+
+  & .deck-pane[data-frame] {
+    --dn-edge: var(--glass-edge);
+    --dn-top: linear-gradient(var(--dn-edge) 0 var(--border-width), color-mix(in srgb, var(--glass-tint) 24%, transparent) var(--border-width) calc(var(--border-width) * 2));
+    position: relative;
+    overflow: visible;
+    border-color: transparent;
+    box-shadow: var(--glass-shadow);
+  }
+  & .deck-pane[data-frame]:focus-within { --dn-edge: var(--glass-edge-lifted); box-shadow: var(--glass-shadow-lifted); }
+  /* The border the panel had, round the whole of it but the straight of its top. */
+  & .deck-pane[data-frame]::after {
+    content: "";
+    position: absolute;
+    inset: calc(var(--border-width) * -1);
+    z-index: 3;
+    border: var(--border-width) solid var(--dn-edge);
+    border-radius: var(--glass-radius);
+    box-shadow: var(--glass-highlight);
+    pointer-events: none;
+    mask:
+      linear-gradient(90deg, #000 var(--dn-r), transparent var(--dn-r) calc(100% - var(--dn-r)), #000 calc(100% - var(--dn-r))) top / 100% calc(var(--border-width) * 3) no-repeat,
+      linear-gradient(#000, #000) bottom / 100% calc(100% - var(--border-width) * 3) no-repeat;
+  }
+  /* The top again, from where the notch's far flare lands to where the corner's arc begins. */
+  & .deck-pane[data-frame]::before {
+    content: "";
+    position: absolute;
+    position-anchor: --dn-notch;
+    inset-block-start: calc(var(--border-width) * -1);
+    left: calc(anchor(right) + var(--dn-r) - var(--border-width));
+    right: calc(var(--dn-r) - var(--border-width));
+    z-index: 3;
+    height: calc(var(--border-width) * 2);
+    background: var(--dn-top);
+    pointer-events: none;
+  }
+  & .deck-pane[data-frame] .armada-session-frame { overflow: visible; }
+  & .deck-pane[data-frame] .armada-session-frame__head {
+    min-height: var(--dn-notch-h);
+    justify-content: flex-end;
+    padding: 0 var(--space-2) 0 calc(var(--dn-r) * 2);
+    box-shadow: none;
+  }
+  & .deck-pane[data-frame] .armada-session-frame__body { padding: var(--space-2) var(--space-3); }
+
+  /* The outline is the notch's own background in layers, since a border would run up the sides to the top where the flare's arc has already taken the line: the two sides from the arcs'
+     ends down, the bottom between the two corners, and the corners. */
+  & .deck-pane[data-frame] .armada-session-frame__notch {
+    anchor-name: --dn-notch;
+    position: absolute;
+    z-index: 2;
+    top: calc(var(--border-width) * -1);
+    inset-inline-start: calc(var(--dn-r) * 2 - var(--border-width) * 2);
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    box-sizing: border-box;
+    height: calc(var(--dn-notch-h) + var(--border-width));
+    max-width: calc(100% - var(--dn-r) * 4 - 280px);
+    padding: var(--border-width) var(--space-3) 0;
+    background:
+      radial-gradient(circle at 100% 0, transparent calc(var(--dn-r) - var(--border-width)), var(--dn-edge) calc(var(--dn-r) - var(--border-width)), var(--dn-edge) var(--dn-r), transparent calc(var(--dn-r) + 0.5px)) left bottom / var(--dn-r) var(--dn-r) no-repeat,
+      radial-gradient(circle at 0 0, transparent calc(var(--dn-r) - var(--border-width)), var(--dn-edge) calc(var(--dn-r) - var(--border-width)), var(--dn-edge) var(--dn-r), transparent calc(var(--dn-r) + 0.5px)) right bottom / var(--dn-r) var(--dn-r) no-repeat,
+      linear-gradient(var(--dn-edge), var(--dn-edge)) left var(--dn-r) / var(--border-width) calc(100% - var(--dn-r) * 2) no-repeat,
+      linear-gradient(var(--dn-edge), var(--dn-edge)) right var(--dn-r) / var(--border-width) calc(100% - var(--dn-r) * 2) no-repeat,
+      linear-gradient(var(--dn-edge), var(--dn-edge)) var(--dn-r) bottom / calc(100% - var(--dn-r) * 2) var(--border-width) no-repeat;
+  }
+  & .deck-pane[data-frame] .armada-session-frame__notch::before,
+  & .deck-pane[data-frame] .armada-session-frame__notch::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    width: var(--dn-r);
+    height: var(--dn-r);
+    pointer-events: none;
+  }
+  /* A flare is a quarter of a ring: the edge's line along the arc from the panel's hairline down to the notch's side. It overlaps the notch by the line's own width, so its end is the side's
+     first pixels. */
+  & .deck-pane[data-frame] .armada-session-frame__notch::before {
+    right: calc(100% - var(--border-width));
+    background: radial-gradient(circle at 0 100%, transparent calc(var(--dn-r) - var(--border-width)), var(--dn-edge) calc(var(--dn-r) - var(--border-width)), var(--dn-edge) var(--dn-r), transparent calc(var(--dn-r) + 0.5px));
+  }
+  & .deck-pane[data-frame] .armada-session-frame__notch::after {
+    left: calc(100% - var(--border-width));
+    background: radial-gradient(circle at 100% 100%, transparent calc(var(--dn-r) - var(--border-width)), var(--dn-edge) calc(var(--dn-r) - var(--border-width)), var(--dn-edge) var(--dn-r), transparent calc(var(--dn-r) + 0.5px));
+  }
+  & .deck-pane[data-frame] .armada-session-frame__notch .armada-session-frame__title { flex: 0 1 auto; max-width: 100%; }
+  & .deck-pane[data-frame] .armada-session-frame__notch .armada-session-frame__title-text { font-size: var(--text-sm); line-height: var(--leading-sm); }
+}

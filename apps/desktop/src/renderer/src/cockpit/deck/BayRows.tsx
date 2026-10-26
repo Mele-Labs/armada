@@ -14,6 +14,7 @@ import { BayCard } from "./inspect-cards";
 
 import { PanelKey } from "./keys";
 import { holderKeyOf, shortOf, spanOf, type BayView } from "./bays";
+import { tightType } from "./flight-take";
 
 export const kindGlyph = (size = 12) => <SquareTerminal size={size} aria-hidden />;
 
@@ -41,6 +42,8 @@ const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one :
 
 /** How long a leased bay has been held, or how long since a free one was given back: the last figure of line one. */
 function timeOf(view: BayView): ReactNode {
+  // Under `tight-type` the time is not drawn: the owner does not read it here.
+  if (tightType()) return null;
   const [ms, said] = view.state === "leased" ? [view.heldFor, "Held for"] : view.state === "free" || view.state === "closed" ? [view.freed, "Given back"] : [undefined, ""];
   if (ms === undefined) return null;
   return (
@@ -126,6 +129,8 @@ function Warmth({ view }: { view: BayView }) {
 
 /** The kind of whoever holds a leased bay. */
 function Kind({ view }: { view: BayView }) {
+  // Under `tight-type` the kind is not drawn: everything is a Job now.
+  if (tightType()) return null;
   return view.state === "leased" && view.holder !== undefined ? <Mark said="Job">{kindGlyph()}</Mark> : null;
 }
 
@@ -164,7 +169,8 @@ export function Berth({ view, foot }: { view: BayView; foot?: ReactNode }) {
   return (
     <>
       <span className="deck-bay__door">
-        <State view={view} size={16} />
+        {/* Under `tight-type` the state's glyph is a large, faint mark behind the number, which stays. */}
+        <State view={view} size={tightType() ? 56 : 16} />
         <Name view={view} />
       </span>
       <span className="deck-bay__body">
@@ -227,7 +233,7 @@ export function Bays({ views, repoName, working, selected, hovered, onHover, onS
     <section className="deck-panel deck-bays" aria-label="Bays" tabIndex={-1}>
       <Standby kind="bays" />
       <header className="deck-band">
-        Bays
+        <span className="deck-band__name">Bays</span>
         {onOpenSlots === undefined ? null : (
           <Tooltip label="Worktree Slots" asChild>
             <Button variant="ghost" size="sm" iconOnly aria-label="Worktree Slots" onClick={onOpenSlots}>

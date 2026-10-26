@@ -36,6 +36,36 @@ export const densityTake = (): Density | undefined => {
   return density === "tight" || density === "tight-type" ? density : undefined;
 };
 
+/** The take the owner's notes of 26 Oct 2026 are drawn on: `&density=tight-type`. Every switch below applies under it and under no other. */
+export const tightType = (): boolean => densityTake() === "tight-type";
+
+const param = (name: string): string | null => new URLSearchParams(window.location.search).get(name);
+
+export type Heads = "legend" | "none";
+
+/**
+ * Where a panel's name goes on `&heads=`, under `tight-type`: `legend` takes the band away and sets the name into the panel's top hairline, its acts at the other end of it;
+ * `none` draws no name, and the acts appear in the top corner on hover or focus. The name stays as the panel's `aria-label`. Any other value, or none, draws the band.
+ */
+export const headsTake = (): Heads | undefined => {
+  const heads = param("heads");
+  return tightType() && (heads === "legend" || heads === "none") ? heads : undefined;
+};
+
+export type Places = "small" | "icons";
+
+/** The Places tabs in the title bar on `&places=`, under `tight-type`: `small` is a glyph and small text, `icons` the glyph alone with its name on hover. Any other value, or none, draws the words. */
+export const placesTake = (): Places | undefined => {
+  const places = param("places");
+  return tightType() && (places === "small" || places === "icons") ? places : undefined;
+};
+
+/** `&autopilot=hidden`, under `tight-type`: the Autopilot panel is not drawn and its room goes to the column. A real setting is later wiring. */
+export const autopilotHidden = (): boolean => tightType() && param("autopilot") === "hidden";
+
+/** `&jobname=notch`, under `tight-type`: an open Job's state mark and name hang from the top of its panel in a notch, and the head keeps its views, context and acts. */
+export const jobNameNotch = (): boolean => tightType() && param("jobname") === "notch";
+
 export type ViewsAt = "composer" | "head" | "left";
 
 /**
