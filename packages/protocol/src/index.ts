@@ -80,6 +80,7 @@ export * from "./session-rail";
 export * from "./session-waits";
 export * from "./plan-usage";
 export * from "./model-downshift";
+export * from "./projects";
 export * from "./agent-sign-in";
 export * from "./sleep";
 export * from "./setup";

@@ -97,6 +97,8 @@ mod issues;
 /// What names an issue a Session works on, the forge's number or a tracker's key, and `claim_issue`.
 mod issue_reference;
 mod issue_queries;
+/// Projects: per repository, tasks a person wrote and issues he linked, in order.
+mod projects;
 /// Kit's MCP servers and each Manifest's word over one (`#1275`), and the
 /// setup a person already works with, read to be shown (`#1491`).
 mod kit;
@@ -367,6 +369,10 @@ pub use issue_reference::{ClaimIssue, IssueClaimed, IssueReference};
 pub use issue_queries::{
     InstallTool, InstalledTool, IssueQueries, IssueQueryGuide, SaveIssueQuery, SavedIssueQuery, SearchIssues, WriteIssueQuery,
     WrittenIssueQuery,
+};
+pub use projects::{
+    LinkProjectIssue, MoveProjectRow, NameProject, Project, ProjectHolder, ProjectRow, ProjectRowRef, ProjectTask,
+    ProjectTaskState, Projects, TaskIssue, TickProjectTask,
 };
 pub use issues::{
     IssueComment, IssueField, IssueList, IssueRead, IssueState, LinkedPullRequest, LinkedPullRequestState,

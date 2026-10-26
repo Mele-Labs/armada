@@ -428,7 +428,7 @@ function served(refuse = false) {
     state: vi.fn(async () => ({
       sessions: {
         state: "read",
-        sessions: [record("01HOSTEDAAAAAAAA", "Fix the flaky store test"), record("01TERMINALBBBBBB", "Release notes script", { origin: "terminal" }), record("01ENDEDCCCCCCCC", "Old one", { state: "ended" })],
+        sessions: [record("01HOSTEDAAAAAAAA", "Fix the flaky store test", { hosted: {} }), record("01TERMINALBBBBBB", "Release notes script", { origin: "terminal", terminal: { listening: true } }), record("01ENDEDCCCCCCCC", "Old one", { state: "ended" })],
       },
     }) as never),
     subscribe: () => () => undefined,
@@ -476,6 +476,21 @@ test("the dropdown lists every live Session by title, and a pick sends to it", a
   expect(sent[0]!.session_id).toBe("01TERMINALBBBBBB");
   const saved = (await held.list()).filter((one) => one.sent !== undefined);
   expect(saved[0]!.sent).toEqual(expect.objectContaining({ sessionId: "01TERMINALBBBBBB", title: "Release notes script" }));
+});
+
+test("the dropdown leaves out a terminal Session that is not listening, as the Jobs list does", async () => {
+  const { fleet } = served();
+  const quiet = record("01QUIETDDDDDDDDD", "Task: explain ONE changed file", { origin: "terminal", terminal: { listening: false } });
+  const before = fleet.state;
+  fleet.state = vi.fn(async () => {
+    const state = (await before()) as unknown as { sessions: { sessions: unknown[] } };
+    return { sessions: { ...state.sessions, sessions: [...state.sessions.sessions, quiet] } } as never;
+  });
+  await annotating(sendable(batch()), fleet);
+  await page.getByRole("button", { name: "Send to a Job" }).click();
+  const menu = page.getByRole("menu", { name: "Send to a Job" });
+  await expect.element(menu.getByRole("menuitem", { name: "Fix the flaky store test" })).toBeVisible();
+  await expect.element(menu.getByRole("menuitem", { name: "Task: explain ONE changed file" })).not.toBeInTheDocument();
 });
 
 test("a Session Fleet refuses leaves the notes unsent and tells why in a toast, not on the bar", async () => {

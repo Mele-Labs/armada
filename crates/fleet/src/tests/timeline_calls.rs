@@ -114,6 +114,7 @@ async fn a_hosted_sessions_call_is_entered_through_the_harness() {
             request: None,
             after: None,
             held: false,
+            project_rows: Vec::new(),
         })
         .await
         .expect("started");

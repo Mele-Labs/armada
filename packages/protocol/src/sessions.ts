@@ -243,9 +243,13 @@ export type WaitingAct = { kind: "walk" | "answer" | "approve_pr" | "run" | "mes
  * (id `call:<n>`, text the words the Session was told, act `message`) is a notice a Fleet mod's rule makes a call: the Session was told it and the person is
  * asked to look, and the press opens the Session. Dismissing it settles it and tells the agent nothing. `replied` (id `replied:<turn ended at>`) is a reply whose close
  * asks the person something and that the agent did not ask through a tool; a reply that only reports is the
- * Session's `standing`, not an item.
+ * Session's `standing`, not an item. `task_done` (id `task_done:<project>`, text `Mark <title> done?` for one task or
+ * `Mark the <project> tasks done?` for several, act `answer`) is Fleet asking whether the written project tasks a
+ * finished Job was started with are done: `Mark done` (choice 0) or `Keep open` (choice 1), answered with `answer_waiting` and a
+ * `choice`. No message goes to the agent and it cannot be dismissed. It is listed while the Job is live; the ask stands on the
+ * tasks (`asked`) when the Job ends, and the Projects tab's tick settles it.
  */
-export type WaitingSource = "agent" | "ask_card" | "walk" | "permission" | "window_ask" | "first_message" | "replied" | "done" | "plan" | "judge" | "slot_choice" | "delivery" | "words_address" | "fleet_call";
+export type WaitingSource = "agent" | "ask_card" | "walk" | "permission" | "window_ask" | "first_message" | "replied" | "done" | "plan" | "judge" | "slot_choice" | "delivery" | "words_address" | "fleet_call" | "task_done";
 
 /**
  * What a Session is doing, read by Fleet from what happened and never from what the agent said:

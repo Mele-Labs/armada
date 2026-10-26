@@ -1,5 +1,5 @@
 //! The rows of [`SERVED`](super::SERVED) about what lies outside any Job: the
-//! machine's sleep, a repository's open issues read from its tracker, and Requests: an address
+//! machine's sleep, a repository's open issues read from its tracker, its projects, and Requests: an address
 //! anywhere, sent to filled from a repository's environments.
 
 use super::Route;
@@ -132,6 +132,72 @@ pub(super) const ROUTES: &[Route] = &[
         operation: "forget_issue_query",
         method: "POST",
         path: "/issue_queries/:repository/:id/forget",
+    },
+    // A repository's projects, kept on this Mac. `docs/practices/protocol/projects.md`.
+    Route {
+        operation: "list_projects",
+        method: "GET",
+        path: "/projects/:repository",
+    },
+    Route {
+        operation: "add_project",
+        method: "POST",
+        path: "/projects/:repository",
+    },
+    Route {
+        operation: "rename_project",
+        method: "POST",
+        path: "/projects/:repository/:project/rename",
+    },
+    Route {
+        operation: "delete_project",
+        method: "POST",
+        path: "/projects/:repository/:project/delete",
+    },
+    Route {
+        operation: "add_project_task",
+        method: "POST",
+        path: "/projects/:repository/:project/tasks",
+    },
+    Route {
+        operation: "link_project_issue",
+        method: "POST",
+        path: "/projects/:repository/:project/issues",
+    },
+    Route {
+        operation: "add_project_subtask",
+        method: "POST",
+        path: "/projects/:repository/:project/rows/:row/subtasks",
+    },
+    Route {
+        operation: "link_task_issue",
+        method: "POST",
+        path: "/projects/:repository/:project/rows/:row/issues",
+    },
+    Route {
+        operation: "unlink_task_issue",
+        method: "POST",
+        path: "/projects/:repository/:project/rows/:row/issues/unlink",
+    },
+    Route {
+        operation: "edit_project_task",
+        method: "POST",
+        path: "/projects/:repository/:project/rows/:row/edit",
+    },
+    Route {
+        operation: "remove_project_row",
+        method: "POST",
+        path: "/projects/:repository/:project/rows/:row/remove",
+    },
+    Route {
+        operation: "move_project_row",
+        method: "POST",
+        path: "/projects/:repository/:project/rows/:row/move",
+    },
+    Route {
+        operation: "tick_project_task",
+        method: "POST",
+        path: "/projects/:repository/:project/rows/:row/tick",
     },
     // Requests. A repository's two files, read on each call; a secret's value is the Keychain's.
     Route {

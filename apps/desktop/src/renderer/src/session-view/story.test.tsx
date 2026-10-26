@@ -6,7 +6,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, expect, test } from "vitest";
 import type { Session, SessionAttachment, WorkGroup } from "@armada/screens/src/draft/sessions";
 
-import { bandOf, isArtifactsKey, isWholeKey, pressBand, pressWhole, resetFolds, useFold, useWhole, type Stage } from "./story";
+import { bandOf, isArtifactsKey, isWholeKey, pressBand, pressWhole, resetFolds, settleFolds, useFold, useWhole, type Stage } from "./story";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -15,6 +15,7 @@ const used = new Set<string>();
 afterEach(() => {
   for (const id of used) resetFolds(id);
   used.clear();
+  localStorage.clear();
   for (const { root, host } of roots.splice(0)) {
     act(() => root.unmount());
     host.remove();
@@ -176,6 +177,53 @@ test("resetFolds also takes the whole plan back to the Now view", () => {
   expect(view.whole()).toBe(true);
   act(() => resetFolds(session.id));
   expect(view.whole()).toBe(false);
+});
+
+// ---- Kept per Job -------------------------------------------------------------------------------------------
+
+const kept = (id: string) => localStorage.getItem(`armada.session-folds.${id}`);
+
+test("what a Job's panels were left at is read back from the window's storage when the Job is first looked at", () => {
+  const id = "kept-read";
+  localStorage.setItem(`armada.session-folds.${id}`, JSON.stringify({ stage: "field", folds: { landing: true, blueprint: false }, whole: true }));
+  const view = mount(job(id, "building"));
+  expect(view.open()).toEqual({ blueprint: false, field: true, landing: true });
+  expect(view.whole()).toBe(true);
+});
+
+test("a press and the whole-plan key are written to the window's storage with the stage they were made at", () => {
+  const id = "kept-write";
+  const session = job(id, "building");
+  mount(session);
+  settleFolds(id, "field");
+  act(() => pressBand(session, "landing"));
+  act(() => pressWhole(session));
+  expect(JSON.parse(kept(id)!)).toEqual({ stage: "field", folds: { landing: true }, whole: true });
+});
+
+test("settleFolds keeps what was pressed while the Job is at the stage it was left at", () => {
+  const id = "settle-same";
+  const session = job(id, "building");
+  const view = mount(session);
+  settleFolds(id, "field");
+  act(() => pressBand(session, "landing"));
+  act(() => settleFolds(id, "field"));
+  expect(view.open().landing).toBe(true);
+});
+
+test("settleFolds gives the panels back to the stage when the Job has moved on since they were pressed", () => {
+  const id = "settle-moved";
+  const session = job(id, "building");
+  const view = mount(session);
+  settleFolds(id, "field");
+  act(() => pressBand(session, "landing"));
+  const landed = job(id, "built");
+  view.show(landed);
+  act(() => settleFolds(id, "landing"));
+  expect(view.open()).toEqual({ blueprint: false, field: false, landing: true });
+  act(() => pressBand(landed, "landing"));
+  expect(view.open().landing).toBe(false);
+  expect(JSON.parse(kept(id)!).stage).toBe("landing");
 });
 
 // ---- Keys ---------------------------------------------------------------------------------------------------

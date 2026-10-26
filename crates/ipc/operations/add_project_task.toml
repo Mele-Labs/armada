@@ -1,0 +1,10 @@
+[operations.add_project_task]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Write a task at the end of a project"
+notes = """
+`POST /projects/:repository/:project/tasks`, body `ProjectTask`: `title` and `notes`, which may be left out; both trimmed. The task starts `open`. `docs/practices/protocol/projects.md`. Answers `Projects` as `list_projects` does, and publishes it as `projects.changed`.
+
+A 422 `fleet.project_blank` for a blank title. A 404 `fleet.no_such_project` for a `project` the repository has none of, and a 422 for a repository Fleet does not serve.
+"""
