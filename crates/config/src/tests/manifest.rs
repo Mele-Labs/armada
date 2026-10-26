@@ -11,6 +11,7 @@ mod merge_by;
 mod pr_mode;
 mod pull_request_owners;
 mod ports;
+mod runs;
 mod seed;
 mod servers;
 mod standing;

@@ -25,8 +25,10 @@ use serde_yaml_ng::{Mapping, Value};
 use super::Manifest;
 use crate::error::LoadError;
 
-/// The two registries Kit's copy may replace by name.
-const REGISTRIES: [(&str, KitKind); 2] = [("checks", KitKind::Check), ("commands", KitKind::Command)];
+/// The registries Kit's copy may replace by name. **A run too**, so a person's own way to run the
+/// app can name the servers a repository's file declares.
+const REGISTRIES: [(&str, KitKind); 3] =
+    [("checks", KitKind::Check), ("commands", KitKind::Command), ("runs", KitKind::Run)];
 
 /// The top-level keys Kit's copy may replace whole: where a person's issues and gate are kept is
 /// theirs to say, as their Checks are.
@@ -37,6 +39,7 @@ const WHOLE_KEYS: [&str; 2] = ["tracker", "ci_gate"];
 pub enum KitKind {
     Check,
     Command,
+    Run,
 }
 
 impl KitKind {
@@ -44,6 +47,7 @@ impl KitKind {
         match self {
             KitKind::Check => "check",
             KitKind::Command => "command",
+            KitKind::Run => "run",
         }
     }
 }
@@ -290,14 +294,16 @@ pub fn manifest_run_lines(text: &str) -> Result<Vec<String>, String> {
             Some(Value::Mapping(entries)) => Some(entries),
             _ => None,
         })
-        .flat_map(|entries| entries.values().filter_map(|entry| entry.get("run").and_then(Value::as_str).map(str::to_string)))
+        .flat_map(|entries| {
+            entries.values().flat_map(|entry| ["run", "serve"].into_iter().filter_map(|key| entry.get(key).and_then(Value::as_str).map(str::to_string)))
+        })
         .collect())
 }
 
 /// Why `text` is not a person's own `armada.yml` to keep in Kit, or none where it is: **a whole
 /// Manifest, or a copy naming only what it changes.** The first is read as the repository's file
-/// would be. The second is a mapping holding only `checks` and `commands`, each entry one with a
-/// `run` line, and `tracker` and `ci_gate`. The reason is a plain sentence a person can read.
+/// would be. The second is a mapping holding only `checks`, `commands` and `runs`, each Check with a `run`
+/// line, each Command with a `run` or `serve` line, each run with a `commands` list, and `tracker` and `ci_gate`. The reason is a plain sentence a person can read.
 pub fn kit_copy_fault(text: &str) -> Option<String> {
     let document: Value = match serde_yaml_ng::from_str(text) {
         Ok(document) => document,
@@ -321,7 +327,7 @@ pub fn kit_copy_fault(text: &str) -> Option<String> {
         });
     if !overlay {
         return Some(plain(&format!(
-            "The text is not a whole armada.yml: {whole}. A copy that is not whole holds only `checks`, `commands`, `tracker` and `ci_gate`."
+            "The text is not a whole armada.yml: {whole}. A copy that is not whole holds only `checks`, `commands`, `runs`, `tracker` and `ci_gate`."
         )));
     }
     for (registry, _) in REGISTRIES {
@@ -330,8 +336,15 @@ pub fn kit_copy_fault(text: &str) -> Option<String> {
             return Some(format!("`{registry}` is not a mapping of names to entries."));
         };
         for (name, entry) in entries {
-            if entry.get("run").and_then(Value::as_str).is_none() {
-                return Some(format!("`{registry}` entry `{}` has no `run` line.", name.as_str().unwrap_or("?")));
+            let name = name.as_str().unwrap_or("?");
+            // A run lists servers, a server is a Command with `serve`, and the rest run a line.
+            let (held, line) = match registry {
+                "runs" => (entry.get("commands").is_some(), "`commands` list"),
+                "commands" => (entry.get("run").or_else(|| entry.get("serve")).and_then(Value::as_str).is_some(), "`run` or `serve` line"),
+                _ => (entry.get("run").and_then(Value::as_str).is_some(), "`run` line"),
+            };
+            if !held {
+                return Some(format!("`{registry}` entry `{name}` has no {line}."));
             }
         }
     }
