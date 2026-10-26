@@ -13,7 +13,7 @@ use crate::pull_request_facts::{facts_of, FactsRead};
 
 /// The closing references are read a hundred at a time, as `gh` reads them.
 const FACTS: &str = "query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){\
-    pullRequest(number:$number){state isDraft autoMergeRequest{enabledAt} headRefName url title body \
+    pullRequest(number:$number){state isDraft autoMergeRequest{enabledAt} headRefName baseRefName url title body \
     closingIssuesReferences(first:100){nodes{number}}}}}";
 
 const LANDING: &str = "query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){\
@@ -26,6 +26,7 @@ pub(crate) struct Facts {
     is_draft: Option<bool>,
     auto_merge_request: Option<serde::de::IgnoredAny>,
     head_ref_name: Option<String>,
+    base_ref_name: Option<String>,
     url: Option<String>,
     title: Option<String>,
     body: Option<String>,
@@ -57,6 +58,7 @@ pub(crate) fn facts_from(pull: Facts) -> Option<PullRequestFacts> {
         draft: pull.is_draft?,
         auto_merge: pull.auto_merge_request.is_some(),
         branch: &trimmed(pull.head_ref_name),
+        base: &trimmed(pull.base_ref_name),
         url: &trimmed(pull.url),
         title: &trimmed(pull.title).replace('\t', " "),
         body: pull.body.unwrap_or_default(),
