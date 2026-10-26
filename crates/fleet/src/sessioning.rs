@@ -847,6 +847,13 @@ where
         Ok(ipc::SessionRunUnderway { run_id })
     }
 
+    async fn start_terminal_run(
+        self: Arc<Self>,
+        start: ipc::StartTerminalRun,
+    ) -> Result<ipc::SessionRunUnderway, Refusal> {
+        self.begin_terminal_run(start).await
+    }
+
     async fn type_in_terminal(
         self: Arc<Self>,
         caller: Option<api::Caller>,

@@ -287,7 +287,7 @@ test("a bay the pool does not hold is not drawn", async () => {
 
 test("a page Fleet refused is its words; a read that failed some other way answers nothing", async () => {
   const readReviewPage = async () => ({ ok: false, outcome: { ok: false, why: "refused", error: { message: "GitHub refused access. Run gh auth refresh." } } });
-  expect(await fleetPanelReads(api({ readReviewPage }), () => state()).pullRequest(PR)).toEqual({ refused: "GitHub refused access. Run gh auth refresh." });
+  expect(await fleetPanelReads(api({ readReviewPage }), () => state()).pullRequest(PR)).toEqual({ refused: "GitHub refused access. Run gh auth refresh.", root: "/code/armada" });
   const notConnected = async () => ({ ok: false, outcome: { ok: false, why: "not_connected" } });
   expect(await fleetPanelReads(api({ readReviewPage: notConnected }), () => state()).pullRequest(PR)).toBeUndefined();
 });

@@ -183,7 +183,7 @@ where
         })?;
         Arc::clone(&self)
             .session_run_ended(Ended {
-                session: run.session_id.as_str().to_string(),
+                session: Some(run.session_id.as_str().to_string()),
                 command: run.command,
                 code: ran.exit,
                 stopped: ran.timed_out,

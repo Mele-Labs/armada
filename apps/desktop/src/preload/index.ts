@@ -624,6 +624,9 @@ const api: BridgeApi = {
   // A Job's shell is a run: opened here, then written, resized, stopped and observed as any run is.
   openTerminal: (sessionId: string, cols?: number, rows?: number): Promise<SessionActed<SessionRunUnderway>> =>
     ipcRenderer.invoke(CHANNELS.openTerminal, sessionId, cols, rows),
+  // A command run in a directory with no Job behind it: a run as any other, written, resized, stopped and observed on its id.
+  startTerminalRun: (command: string, dir: string, cols?: number, rows?: number): Promise<SessionActed<SessionRunUnderway>> =>
+    ipcRenderer.invoke(CHANNELS.startTerminalRun, command, dir, cols, rows),
   // The one pull a held checkout is offered: the repository's Manifest and no command.
   catchUpCheckout: (manifestId: string): Promise<SessionActed<CheckoutCaughtUp>> =>
     ipcRenderer.invoke(CHANNELS.catchUpCheckout, manifestId),
