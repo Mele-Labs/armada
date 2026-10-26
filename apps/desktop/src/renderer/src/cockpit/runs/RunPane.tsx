@@ -2,7 +2,7 @@
 // view it was opened from, a Job's thread where it was scrolled or the map. The pane takes focus, so its keys act at once. Edit (`e`) turns
 // its rows into fields in place, and a repository with no saved run opens this pane on its draft, already editing, with nothing running yet.
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Play } from "lucide-react";
 import { RunActs, RunNameField, RunPhaseMark, RunningPanel, appPhase, editKeys, useRunEdit } from "@armada/components";
 import type { RunPanelEdit } from "@armada/components";
@@ -21,13 +21,16 @@ export function RunPane({ id, props }: { id: string; props: CockpitProps }) {
   const state = useRunsState();
   const asked = useAsked();
   const app = state.apps.find((one) => one.id === id);
+  // The log tab chosen, kept here so it stays put as the panel turns to fields and back.
+  const [chosen, setChosen] = useState<{ id: string; tab: string }>();
+  const tab = { tab: chosen?.id === id ? chosen.tab : undefined, onTab: (next: string) => setChosen({ id, tab: next }) };
   useEffect(() => source?.reading(id), [source, id]);
   // Leaving the pane lets its edit go; what was typed stays kept for the next time it is edited.
   useEffect(() => () => (deckNow().sel?.key === `run:${id}` ? undefined : letGo(id)), [id]);
   if (source === undefined) return null;
-  if (asked !== undefined && askedIn(asked, id)) return <Editing key={asked.keep} asked={asked} app={app} source={source} props={props} />;
+  if (asked !== undefined && askedIn(asked, id)) return <Editing key={asked.keep} asked={asked} app={app} source={source} props={props} tab={tab} />;
   if (app === undefined) return null;
-  return <Shown app={app} source={source} props={props} />;
+  return <Shown app={app} source={source} props={props} tab={tab} />;
 }
 
 function useWhere(app: RunsApp | undefined, props: CockpitProps): string | undefined {
@@ -36,7 +39,10 @@ function useWhere(app: RunsApp | undefined, props: CockpitProps): string | undef
   return served === undefined ? undefined : repositoryLabel(served, repositories);
 }
 
-function Shown({ app, source, props }: { app: RunsApp; source: RunsSource; props: CockpitProps }) {
+/** The log tab shown, and the way to choose another, as the pane holds it. */
+type Tab = { tab: string | undefined; onTab: (tab: string) => void };
+
+function Shown({ app, source, props, tab }: { app: RunsApp; source: RunsSource; props: CockpitProps; tab: Tab }) {
   const dispatching = useDispatching();
   const pane = useRef<HTMLElement>(null);
   useEffect(() => pane.current?.focus(), [app.id]);
@@ -55,7 +61,11 @@ function Shown({ app, source, props }: { app: RunsApp; source: RunsSource; props
       data-owns-keys="e o r s"
       onKeyDown={(event) => {
         if (event.metaKey || event.ctrlKey || event.altKey || holdsText(event.target)) return;
-        if (event.key === "e") edit();
+        if (event.key === "e") {
+          // The name field takes the cursor before the key is typed, so the letter is not typed into it.
+          event.preventDefault();
+          edit();
+        }
         else if (event.key === "r") source.restart(app.id);
         else if (event.key === "s" && live) source.stop(app.id);
         else if (event.key === "o" && address !== undefined) props.onOpenLink(address);
@@ -73,6 +83,7 @@ function Shown({ app, source, props }: { app: RunsApp; source: RunsSource; props
         onPin={(link) => source.pin(app.id, link.to, link.port)}
         onUnpin={(process) => source.pin(app.id, process, undefined)}
         onTryAgain={() => source.restart(app.id)}
+        {...tab}
       />
     </section>
   );
@@ -83,7 +94,7 @@ function Shown({ app, source, props }: { app: RunsApp; source: RunsSource; props
  * saves and starts the draft; Save and restart replaces the saved run and starts it again. Cancel closes a draft's pane, and puts an edited
  * run's rows back. Esc is Cancel here, not Back.
  */
-function Editing({ asked, app, source, props }: { asked: Asked; app: RunsApp | undefined; source: RunsSource; props: CockpitProps }) {
+function Editing({ asked, app, source, props, tab }: { asked: Asked; app: RunsApp | undefined; source: RunsSource; props: CockpitProps; tab: Tab }) {
   const dispatching = useDispatching();
   const run = useRunEdit({ draft: asked.draft, name: asked.name, keep: asked.keep });
   const phase = app === undefined ? undefined : appPhase(app.processes, app.setup);
@@ -126,6 +137,7 @@ function Editing({ asked, app, source, props }: { asked: Asked; app: RunsApp | u
         onOpen={props.onOpenLink}
         onFix={(brief) => (dispatching?.choose("session"), dispatching?.openSheet(brief, asked.target.repository))}
         {...(app === undefined ? {} : { onTryAgain: () => source.restart(app.id) })}
+        {...tab}
       />
     </section>
   );

@@ -107,6 +107,8 @@ export function RunningPanel({
   onPin,
   onUnpin,
   onTryAgain,
+  tab,
+  onTab,
 }: {
   app?: RunningApp;
   /** The checkout a run not started yet will start on, where `app` is absent. */
@@ -121,11 +123,19 @@ export function RunningPanel({
   onUnpin?: (process: string) => void;
   /** Try again, on a failed setup Command's row: setup again from that Command, then the processes. */
   onTryAgain?: () => void;
+  /** The log tab shown, where the holder keeps it so it stays put as the panel turns to fields and back. */
+  tab?: string | undefined;
+  onTab?: (tab: string) => void;
 }) {
   const setup = app?.setup;
   const processes = app?.processes ?? [];
   const settingUp = setup !== undefined && setup.steps.some((one) => one.phase !== "ready");
-  const [shown, setShown] = useState(settingUp ? SETUP_TAB : processes[0]?.id);
+  const [own, setOwn] = useState(settingUp ? SETUP_TAB : processes[0]?.id);
+  const shown = tab ?? own;
+  const setShown = (next: string) => {
+    setOwn(next);
+    onTab?.(next);
+  };
   const log = setup !== undefined && shown === SETUP_TAB ? { id: SETUP_TAB, name: "Setup", log: setup.log } : (processes.find((one) => one.id === shown) ?? processes[0]);
   const failed = setup?.steps.find((one) => one.phase === "failed");
   // An act column is drawn on every row once any row has acts, so they line up; a run with none keeps its five columns.
