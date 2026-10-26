@@ -39,6 +39,7 @@ import type {
   LaterSettled,
   SettleLater,
   StopWatch,
+  DeleteWatch,
   WatchesChanged,
   WatchList,
   WatchSummary,
@@ -723,6 +724,11 @@ export class SessionsHost {
   /** A watch the person stopped. Its Job's watches are published by Fleet, so nothing is folded here. */
   async stopWatch(stop: StopWatch): Promise<SessionActed<WatchSummary>> {
     return await this.asked("/watches/stop", stop);
+  }
+
+  /** An ended watch the person deleted. Its Job's watches are published by Fleet, so nothing is folded here. */
+  async deleteWatch(remove: DeleteWatch): Promise<SessionActed<WatchList>> {
+    return await this.asked("/watches/delete", remove);
   }
 
   /** The proposer's reading of a brief that tags a Session. Nothing is held from it. */

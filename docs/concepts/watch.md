@@ -223,8 +223,8 @@ Ending a Job ends its live watches `stopped` and tells nothing.
 
 | Where | What it draws |
 |---|---|
-| The Landing | A Watching block below the pull requests: a state glyph, the name, what it said and its age, with the agent's verdict under it |
-| The side panel, on a press | Readings over time, each part, parts set aside struck through, a broken run's output, the link, and Stop |
+| The Landing | A Watching block below the pull requests: a state glyph, the name, what it said and its age, with the agent's verdict under it. Live watches only, until Show ended draws the ended ones, each with Delete |
+| The side panel, on a press | Readings over time, a run that read the same as one row with its count and first and last times, each part, parts set aside struck through, a broken run's output, the link, and Stop |
 | A Job's row and header | Held open by the watch's name, while only a watch keeps the Job open |
 
 The glyphs are `docs/contracts/iconography.md`, *A watch and its states*.
