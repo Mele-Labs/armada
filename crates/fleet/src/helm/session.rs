@@ -106,6 +106,7 @@ where
                     request: None,
                     after: None,
                     held: false,
+                    project_rows: Vec::new(),
                 },
                 crate::session_host::Marked::Helm,
             )

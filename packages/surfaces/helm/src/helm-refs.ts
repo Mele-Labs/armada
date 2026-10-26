@@ -14,6 +14,8 @@ export type RefWorld = {
   slug?: string;
   /** Paths the window has found to be files in the Job's checkout, as the words write them. */
   files?: readonly string[];
+  /** The pages the Job wrote as its document: `id` is the page's absolute path, `title` the page's own. */
+  documents?: readonly { id: string; title: string }[];
   /**
    * Words the person taught Armada to draw as a link: `pattern` is a regular expression, and `address` is where a match goes, with
    * `{match}` standing for the words matched. `from` says where the address was found, and is what the link's tooltip leads with.
@@ -79,6 +81,9 @@ export function refScanner(world: RefWorld): (text: string) => RefSpan[] {
     return { ref, needles: needles.filter((needle) => needle !== "").map((needle) => ({ needle, pattern: wholeWord(needle) })) };
   });
   const files = new Set(world.files);
+  const documents = world.documents ?? [];
+  // A page is named by its absolute path, or by the path from its checkout, which starts at `.armada/documents/`.
+  const documentOf = (text: string) => documents.find((one) => one.id === text || (text.startsWith(".armada/documents/") && one.id.endsWith(`/${text}`)));
   const links = (world.links ?? []).flatMap((rule) => {
     try {
       return [{ pattern: new RegExp(rule.pattern, "g"), address: rule.address, from: rule.from }];
@@ -91,8 +96,15 @@ export function refScanner(world: RefWorld): (text: string) => RefSpan[] {
     const had = kept.get(text);
     if (had !== undefined) return had;
     if (kept.size >= KEPT_TEXTS) kept.clear();
-    // A path names a file only as the whole text, which is how `Prose` hands over a code span: the same words in a sentence are not it.
-    const spans = files.has(text) ? [{ from: 0, to: text.length, ref: { kind: "file", id: text, title: text } satisfies ProseReference }] : scan(text, world, sessions, links);
+    // A path names a page or a file only as the whole text, which is how `Prose` hands over a code span: the same words in a sentence are not it.
+    // The Job's own page is also a file in its checkout, and opens as the document rather than as its markup.
+    const page = documentOf(text);
+    const spans =
+      page !== undefined
+        ? [{ from: 0, to: text.length, ref: { kind: "document", id: page.id, title: page.title } satisfies ProseReference }]
+        : files.has(text)
+          ? [{ from: 0, to: text.length, ref: { kind: "file", id: text, title: text } satisfies ProseReference }]
+          : scan(text, world, sessions, links);
     kept.set(text, spans);
     return spans;
   };

@@ -153,6 +153,7 @@ mod test_map_for;
 mod test_map_static;
 pub mod turn_lines;
 pub mod taught_tracker;
+mod tool_install;
 mod tracker_providers;
 mod subagent_lines;
 mod transcript;

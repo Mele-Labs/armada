@@ -28,3 +28,19 @@ Bridge's half is `packages/protocol/src/issues.ts`, written by hand, field for f
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 **The event stream.** Untouched: no event carries a query or an issue, so the back-pressure risk below is neither better nor worse.
 The lifeboat is untouched.
+
+## A missing tool, named, and installed when asked
+
+The protocol ID moves with `crates/ipc/src`, the operation file, the route table and `packages/protocol/src`, and there is no number to take.
+
+| Where | Side | Change |
+| --- | --- | --- |
+| `fields.missing_tool` on the error of `search_issues`, `list_issues` and `get_issue` | Fleet writes, Bridge reads | A `WireValue` string, `bd`, where the tracker could not run a program that is not on the PATH Fleet runs with. Absent for every other refusal; `code` and `message` are as they were |
+| `install_tool` | command | `POST /issue_queries/:repository/install_tool`, body `InstallTool` (`tool`), answers `InstalledTool` (`tool`, `done`, `said`) |
+| `fleet.tool_not_installable` | 422 | A `tool` Fleet does not install. Only `bd` is taken, and nothing is run for any other |
+
+**Additive.** A Bridge that reads past `fields.missing_tool` draws the refusal's message as before.
+
+**Whether it worked is a 200.** `done: false` carries `said`: Homebrew's own words, or `Homebrew is not available`.
+Fleet looks for `brew` in `/opt/homebrew/bin` and `/usr/local/bin` before its PATH, since Bridge starts it and a program
+started from the Dock does not carry the shell's PATH.

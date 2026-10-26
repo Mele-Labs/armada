@@ -625,6 +625,15 @@ pub enum WaitingSource {
     /// Session was told, a `message` act that opens the Session. Dismissing it settles it and tells the
     /// agent nothing.
     FleetCall,
+    /// Fleet: the Job finished, by `all_done` or by its pull request merging, with written project tasks
+    /// it was started with, and whether they are done is not said. Derived on every read from the
+    /// tasks, never kept in the Job's list: id `task_done:<project>`, one per project, text `Mark <title>
+    /// done?` for one task or `Mark the <project> tasks done?` for several, an `answer` act, and exactly
+    /// two options, `Mark done` (choice 0) and `Keep open` (choice 1), labels only. Answering with a
+    /// `choice` settles every task asked in that project and no message goes to the agent. Not
+    /// dismissed. Listed only while the Job is live: the ask stands on the tasks when it ends, and the
+    /// Projects tab settles it.
+    TaskDone,
 }
 
 /// What a Session is doing, read from what happened and never from what the agent said. One answer,

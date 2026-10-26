@@ -42,7 +42,7 @@ import type { PackageSaved, SharingAnswer } from "../shared/api/sharing";
 import type { DropRunFact, ImportFolders, ImportRuns, ModInstalled, RunMemory, RunMemoryPlace, SetRunMemoryPlace } from "@armada/protocol";
 import type { ModSessionStarted, StartModSession } from "@armada/protocol";
 import type { AdversarialReview, DismissFinding, SendFinding, StartAdversarialReview } from "@armada/protocol";
-import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, ChangeWaiting, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimIssue, ClaimPullRequest, ConfirmWaiting, DismissConcern, DismissWaiting, IssueClaimed, IssueList, IssueQueries, SaveIssueQuery, SavedIssueQuery, WrittenIssueQuery, JudgeSession, LaterSettled, PullRequestClaimed, PullRequestFilePatch, PullRequestFilePatches, PullRequestPage, PullRequestState, RenameSession, SendConcern, SendPlanChanges, NoteSent, SendSessionMessage, SendSessionNote, SessionRunMessage, SessionRunUnderway, SessionLoadout, AttachmentHistory, McpServerAct, SessionMcp, SessionMcpActed, SessionSubagent, SessionWait, SettleLater, StartAfter, TuneSession, BeginSession, WaitReading } from "@armada/protocol";
+import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, ChangeWaiting, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimIssue, ClaimPullRequest, ConfirmWaiting, DismissConcern, DismissWaiting, IssueClaimed, InstalledTool, IssueList, IssueQueries, SaveIssueQuery, SavedIssueQuery, WrittenIssueQuery, JudgeSession, LaterSettled, PullRequestClaimed, PullRequestFilePatch, PullRequestFilePatches, PullRequestPage, PullRequestState, RenameSession, SendConcern, SendPlanChanges, NoteSent, SendSessionMessage, SendSessionNote, SessionRunMessage, SessionRunUnderway, SessionLoadout, AttachmentHistory, McpServerAct, SessionMcp, SessionMcpActed, SessionSubagent, SessionWait, SettleLater, StartAfter, TuneSession, BeginSession, WaitReading } from "@armada/protocol";
 import type { ArtifactRead, LoadoutItemAsk, LoadoutItemBody, PageBounds, PageShot } from "@armada/screens/src/draft/sessions";
 import type { JobTerminalChange, PullRequestPress, PullRequestWrite, SessionActed, TerminalMovedBack } from "../shared/api/sessions";
 import type { RequestRepositoryRead } from "../shared/api/dispatch";
@@ -350,6 +350,7 @@ const api: BridgeApi = {
   writeIssueQuery: (manifestId: string, words: string): Promise<IssueQueryActed<WrittenIssueQuery>> => ipcRenderer.invoke(CHANNELS.writeIssueQuery, manifestId, words),
   saveIssueQuery: (manifestId: string, save: SaveIssueQuery): Promise<IssueQueryActed<SavedIssueQuery>> => ipcRenderer.invoke(CHANNELS.saveIssueQuery, manifestId, save),
   forgetIssueQuery: (manifestId: string, id: string): Promise<IssueQueryActed<IssueQueries>> => ipcRenderer.invoke(CHANNELS.forgetIssueQuery, manifestId, id),
+  installIssueTool: (manifestId: string, tool: string): Promise<IssueQueryActed<InstalledTool>> => ipcRenderer.invoke(CHANNELS.installIssueTool, manifestId, tool),
   getPullRequest: (manifestId: string, number: number): Promise<PullRequestNumberRead> =>
     ipcRenderer.invoke(CHANNELS.getPullRequest, manifestId, number),
   refreshPullRequest: (manifestId: string, number: number): Promise<PullRequestNumberRead> =>

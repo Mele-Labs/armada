@@ -21,7 +21,8 @@ afterEach(() => {
 const NONE: Session[] = [];
 const workflows = [{ id: "feature", name: "Feature" }];
 const begin = vi.fn(async (..._args: unknown[]) => true);
-const draft = { get: () => NONE, subscribe: () => () => undefined, begin, work: { workflows, choose: () => undefined } } as unknown as SessionsDraft;
+const choose = vi.fn();
+const draft = { get: () => NONE, subscribe: () => () => undefined, begin, work: { workflows, choose } } as unknown as SessionsDraft;
 
 const held = (start: NonNullable<Session["start"]>): Session =>
   ({ id: "new1", attachments: [], rows: [], turn: { state: "idle" }, work: { proposal: { workflow: "feature" } }, start }) as unknown as Session;
@@ -69,4 +70,16 @@ test("marks nothing on a landing Fleet fell back to", async () => {
   mount(held({ asksDelivery: true, picked: { choice: "auto_land", from: "default" } }));
   await expect.element(page.getByRole("combobox", { name: "Delivery" })).toHaveValue("auto_land");
   expect(document.querySelector('[aria-label^="Your usual"], [aria-label="Named in your request"]')).toBeNull();
+});
+
+test("None is his pick: the Job goes custom, stays custom, and has no delivery to settle", async () => {
+  choose.mockClear();
+  begin.mockClear();
+  mount(held({ asksDelivery: true, picked: { choice: "auto_land", from: "default" } }));
+  await page.getByRole("combobox", { name: "Workflow" }).selectOptions("none");
+  expect(choose).toHaveBeenCalledWith("new1", null);
+  await expect.element(page.getByRole("combobox", { name: "Workflow" })).toHaveValue("none");
+  expect(document.querySelector('select[aria-label="Delivery"]')).toBeNull();
+  await pressed!("typed");
+  expect(begin).toHaveBeenLastCalledWith("new1", undefined, "typed");
 });

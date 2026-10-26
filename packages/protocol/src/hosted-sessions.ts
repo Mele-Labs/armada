@@ -14,6 +14,7 @@ import type { PlanChangeLine } from "./session-plan";
 import type { RequestBy, RequestHeader } from "./requests";
 import type { ThoughtTarget } from "./thought";
 import type { SessionRecord, WaitingOption, WalkStep, WindowPlace, WindowTake } from "./sessions";
+import type { ProjectRowRef } from "./projects";
 import type { StartAfter, WaitBy, WaiterEvent, WaiterSide } from "./session-waits";
 
 /** The permission mode a session runs in. `auto` is the default. */
@@ -61,6 +62,12 @@ export type StartSession = {
    * Not read with `fork`, `root` or `after`.
    */
   held?: boolean;
+  /**
+   * Rows of the repository's projects this Job starts with. Each written task is held by the Job; a linked issue row is
+   * only named, so the brief can carry it. Refused 404 for a project or row that is not there and 422
+   * `fleet.project_row_other_repository` for one of another repository. Left out when empty. Not read with `fork` or `root`.
+   */
+  project_rows?: ProjectRowRef[];
 };
 
 export type TagKind = "session" | "pull_request" | "branch" | "issue";

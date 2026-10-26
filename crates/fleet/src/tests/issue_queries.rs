@@ -382,3 +382,46 @@ async fn a_search_runs_the_query_as_given_and_lists_what_the_tracker_found_with_
     assert_eq!((kind, error.code.as_str()), ("unacceptable", "fleet.issue_query_refused"));
     assert!(error.message.contains("not signed in"), "{}", error.message);
 }
+
+#[tokio::test]
+async fn a_search_that_could_not_run_the_tool_names_it_on_the_wire_beside_the_words() {
+    let home = TempDir::new();
+    let tracker = Arc::new(FakeTracker::empty());
+    let fleet = a_fleet(&home, &tracker, &Arc::new(FakeJudge::saying(WRITTEN)));
+
+    tracker.lacks("bd");
+    let (kind, error) = error_of(
+        fleet.search_issues(manifest(&fleet), SearchIssues { query: "x".into() }).await.expect_err("refused"),
+    );
+
+    assert_eq!((kind, error.code.as_str()), ("unacceptable", "fleet.issue_query_refused"));
+    assert_eq!(error.fields.get("missing_tool"), Some(&ipc::WireValue::Str("bd".into())));
+    assert!(error.message.contains("not installed"), "{}", error.message);
+
+    tracker.answers_again();
+    tracker.will_not_list("not signed in");
+    let (_, other) = error_of(
+        fleet.search_issues(manifest(&fleet), SearchIssues { query: "x".into() }).await.expect_err("refused"),
+    );
+    assert_eq!(other.fields.get("missing_tool"), None, "a refusal for another reason names no tool");
+}
+
+#[tokio::test]
+async fn bd_is_installed_when_asked_and_nothing_else_is() {
+    let home = TempDir::new();
+    let trackers = Arc::new(FakeTrackers::empty());
+    let mut fittings = fittings(&home, FakeWorkProduct::changed(&[]));
+    fittings.trackers = Arc::clone(&trackers) as _;
+    let fleet = Fleet::assembled(fittings);
+
+    let done = fleet.install_tool(manifest(&fleet), ipc::InstallTool { tool: "bd".into() }).await.expect("installed");
+
+    assert_eq!((done.tool.as_str(), done.done), ("bd", true));
+    assert_eq!(trackers.installs(), ["bd"]);
+
+    let (kind, error) = error_of(
+        fleet.install_tool(manifest(&fleet), ipc::InstallTool { tool: "rm".into() }).await.expect_err("refused"),
+    );
+    assert_eq!((kind, error.code.as_str()), ("unacceptable", "fleet.tool_not_installable"));
+    assert_eq!(trackers.installs(), ["bd"], "a tool Fleet does not know is not run");
+}

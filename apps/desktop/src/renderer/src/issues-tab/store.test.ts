@@ -43,6 +43,7 @@ function source(over: Partial<IssuesSource> = {}) {
       else kept[at] = one;
       return { ok: true, value: [...kept] };
     },
+    install: async () => ({ ok: true, value: undefined }),
     remove: async (manifestId, id) => {
       calls.removes.push([manifestId, id]);
       const at = kept.findIndex((it) => it.id === id);
@@ -94,6 +95,46 @@ test("a search the tracker refuses is its words, and running it again asks again
   await settled();
   expect(store.runOf("storefront", "colour:red")?.state).toBe("read");
   expect(calls.runs).toHaveLength(2);
+});
+
+test("a search that failed for a missing program offers the install, and nothing installs until it is pressed", async () => {
+  const { fake, calls } = source({ run: async (manifestId, query) => (calls.runs.push([manifestId, query]), { ok: false, said: "bd is not installed", missing: "bd" }) });
+  const installs: [string, string][] = [];
+  const store = createIssuesStore({ ...fake, install: async (manifestId, tool) => (installs.push([manifestId, tool]), { ok: true, value: undefined }) });
+  store.run("storefront", "status=open");
+  await settled();
+  expect(store.runOf("storefront", "status=open")).toEqual({ state: "failed", said: "bd is not installed", missing: "bd" });
+  expect(installs).toEqual([]);
+  expect(store.installOf("storefront", "bd")).toBeUndefined();
+});
+
+test("pressing Install works, then runs the search again, and a failed install keeps the line with its said and no second try", async () => {
+  let installed = false;
+  const { fake, calls } = source({
+    run: async (manifestId, query) => (calls.runs.push([manifestId, query]), installed ? { ok: true, value: [ticket("#5")] } : { ok: false, said: "bd is not installed", missing: "bd" }),
+  });
+  let finish: (read: Read<void>) => void = () => {};
+  const store = createIssuesStore({ ...fake, install: () => new Promise((resume) => (finish = resume)) });
+  store.run("storefront", "status=open");
+  await settled();
+  store.install("storefront", "bd", "status=open");
+  expect(store.installOf("storefront", "bd")).toEqual({ state: "installing" });
+  installed = true;
+  finish({ ok: true, value: undefined });
+  await settled();
+  expect(store.installOf("storefront", "bd")).toBeUndefined();
+  expect(calls.runs).toEqual([["storefront", "status=open"], ["storefront", "status=open"]]);
+  expect(store.runOf("storefront", "status=open")?.state).toBe("read");
+
+  const failing = createIssuesStore({ ...fake, install: async () => said("Homebrew is not available") });
+  installed = false;
+  failing.run("ops", "status=open");
+  await settled();
+  failing.install("ops", "bd", "status=open");
+  await settled();
+  expect(failing.installOf("ops", "bd")).toEqual({ state: "failed", said: "Homebrew is not available" });
+  expect(failing.runOf("ops", "status=open")).toEqual({ state: "failed", said: "bd is not installed", missing: "bd" });
+  expect(calls.runs).toHaveLength(3);
 });
 
 test("an issue is read whole when it is opened, once, and a refusal is its words", async () => {

@@ -78,6 +78,12 @@ pub struct StartSession {
     /// Not read with `fork`, `root` or `after`.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub held: bool,
+    /// Rows of the repository's projects this Job starts with. **Each written task is held by the
+    /// Job** (`projects.changed`) and shows it; a linked issue row keeps no state and is only named,
+    /// so the brief can carry it. Refused 404 for a project or row that is not there and 422 for one
+    /// of another repository, before anything is made. Not read with `fork` or `root`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub project_rows: Vec<crate::ProjectRowRef>,
 }
 
 /// The session a new one is forked from. Since 23.69.

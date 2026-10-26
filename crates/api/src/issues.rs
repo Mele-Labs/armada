@@ -68,6 +68,22 @@ pub(crate) async fn search_issues<D: Issues>(
     }
 }
 
+/// Install the tool a refusal's `missing_tool` named. A POST because it changes the machine.
+pub(crate) async fn install_tool<D: Issues>(
+    State(served): State<Served<D>>,
+    Path(repository): Path<String>,
+    body: Bytes,
+) -> Response {
+    let install: ipc::InstallTool = match ipc::decode("a tool to install", &body) {
+        Ok(install) => install,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().install_tool(ManifestId::carried(repository), install).await {
+        Ok(installed) => answer(StatusCode::OK, &installed, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 pub(crate) async fn list_issue_queries<D: Issues>(
     State(served): State<Served<D>>,
     Path(repository): Path<String>,
@@ -125,6 +141,7 @@ pub(crate) fn mounted<D: Issues + Autopilots>() -> Router<Served<D>> {
         .route("/issues/:repository/:reference", get(get_issue::<D>))
         .route("/issue_queries/:repository", get(list_issue_queries::<D>).post(save_issue_query::<D>))
         .route("/issue_queries/:repository/search", post(search_issues::<D>))
+        .route("/issue_queries/:repository/install_tool", post(install_tool::<D>))
         .route("/issue_queries/:repository/write", post(write_issue_query::<D>))
         .route("/issue_queries/:repository/:id/forget", post(forget_issue_query::<D>))
         .route("/autopilots", get(ap::list_autopilots::<D>))

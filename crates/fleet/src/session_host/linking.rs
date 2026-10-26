@@ -143,6 +143,7 @@ where
                 request: None,
                 after: None,
                 held: false,
+                project_rows: Vec::new(),
             })
             .await?;
         let held = self.held_for_person(&parent, made, Words { title, message: brief.clone() }, false, Some(&group)).await?;

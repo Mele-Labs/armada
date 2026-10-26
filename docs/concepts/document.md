@@ -1,6 +1,6 @@
 # Document
 
-**What it is:** The HTML page a Job designs to hand a person what it found, read in a layer over the Job, noted in place and revised by the Job's reply.
+**What it is:** The HTML page a Job designs to hand a person what it found, read in a floating sheet over the Job, noted in place and revised by the Job's reply.
 
 ---
 
@@ -15,7 +15,7 @@ An investigation, a report or a set of findings is a document. The Job writes it
 
 | Part | State |
 |---|---|
-| The reading layer, notes, Changes, Share's menu | Built in the mock; walk `job-document` approved 25 Oct 2026 |
+| The reading sheet, notes, Changes, Share's menu | Built in the mock; walk `job-document` approved 25 Oct 2026 |
 | Fleet keeping revisions, the `document` artifact, the sketch notice | Built |
 | The Landing row, the Artifacts rows and thread headings reading the real artifact | Built |
 | Save as web page and Save as PDF | Built |
@@ -97,24 +97,25 @@ A rule holding an address (`url(`, `image-set(`, `@import`) is dropped, and so i
 
 **Rule.** The kit is the only stylesheet a page may link.
 
-## The reading layer
+## The reading sheet
 
-**Rule.** A press on the Landing's document row opens the page in a layer over the whole Job, full width. Esc is Back and gives the Job back as it was.
+**Rule.** A press on the Landing's document row opens the page in the floating sheet the plan review uses, about three quarters of the window wide, with the Job dimmed behind it.
+Esc closes it and gives the Job back as it was.
 
 | Part | Holds |
 |---|---|
-| Head | Title, Revision, Changes, margin, Share, Back |
-| Contents rail | One entry per `<h2>`; ↑ and ↓ walk it; the entry for the section in view is marked |
-| Page | The sealed page, with each `<armada-sketch>` drawn live |
-| Notes margin | Notes held, then notes sent |
+| Head | Title, Revision, Changes, Notes, Share, Close |
+| Contents card | A floating card on the left, one entry per `<h2>`; ↑ and ↓ walk it; the entry for the section in view is marked |
+| Notes card | A second card directly below Contents: notes held, then notes sent |
+| Page | The sealed page, with each `<armada-sketch>` drawn live, taking the rest of the width |
 
 | Control | Key | Does |
 |---|---|---|
 | Revision | R | A dropdown from the first revision, newest first; R swaps the newest and the one before |
 | Changes | C | Marks what moved on from the revision before; absent on the first |
-| Notes margin | M | Hides or shows the margin; the choice holds across opens until the window reloads |
+| Notes | M | Hides or shows the Notes card; the choice holds across opens until the window reloads |
 | Share | S | Opens Share |
-| Back | Esc | Closes the layer |
+| Close | Esc | Closes the sheet |
 
 **Rule.** The revision is always a dropdown, even with one revision.
 
@@ -131,10 +132,10 @@ A rule holding an address (`url(`, `image-set(`, `@import`) is dropped, and so i
 **Rule.** Enter holds a note and ⌘Enter, or Send to Job, sends every held note as one numbered message.
 `notesMessage` writes the message, and `session/noting-what-you-read.md` owns its format.
 
-**Rule.** Sent notes stay messages in the Job's thread, and the margin reads them back from it. There is no separate store of notes.
+**Rule.** Sent notes stay messages in the Job's thread, and the Notes card reads them back from it. There is no separate store of notes.
 
 **Rule.** Every note is highlighted at its place in the page: held more strongly than sent.
-Hovering a note in the margin lights its place, and hovering a place lights its note.
+Hovering a note in the Notes card lights its place, and hovering a place lights its note.
 
 **Rule.** A press on a sent note's heading in the thread opens the page at that revision and place.
 

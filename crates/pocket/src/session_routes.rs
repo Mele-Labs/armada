@@ -208,6 +208,7 @@ pub async fn dispatch(State(gateway): State<Gateway>, body: Bytes) -> Response {
         request: Some(dispatching.text),
         after: None,
         held: false,
+        project_rows: Vec::new(),
     };
     let Ok(sent) = ipc::encode(&start) else {
         return refusal(StatusCode::INTERNAL_SERVER_ERROR, NOT_READABLE);

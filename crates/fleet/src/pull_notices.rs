@@ -496,12 +496,16 @@ where
         let now = self.now();
         for one in merged {
             let at = core_model::Timestamp::from_rfc3339(one.pull.merged_at.as_written());
+            // A task a person linked this to is asked about, whoever opened the pull request.
+            self.tasks_asked_by_linked_pull(served.manifest().id().as_str(), one.pull.number, one.pull.title.as_written()).await;
             if !mine.owns(one.pull.author.as_ref().map(|it| it.as_written())) {
                 continue;
             }
             // Marks the issues of the Jobs that held it, however long ago it merged and whether or
             // not they still stand: this waits on no `bd`, and the backlog's next look closes them.
             self.issues_merged(served, one.pull.number, one.pull.url.as_written()).await;
+            // The same merge asks whether the project tasks the Job held are done.
+            self.tasks_asked_by_merge(served, one.pull.number).await;
             if elapsed(&at, &now) > MERGE_IS_NEWS {
                 continue;
             }
