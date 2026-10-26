@@ -128,10 +128,12 @@ test("Pause's lamp is on while the Job is paused, the tile reads Resume, and pre
   expect(draft.resume.mock.calls).toEqual([["s1"]]);
 });
 
-// The brief's claim, and what the code does instead: `SessionTiles.tsx` sets `aria-pressed` false on Pause at all times, paused or not.
-test("Pause reads pressed while the Job is paused, as Auto land does while it is on", async () => {
+// Paused, the key is seated (`data-on`) and its name says Resume, so it is not also announced as pressed: "Resume, pressed" would say the opposite of what a press does.
+test("Pause's key is seated while the Job is paused, and its name, not aria-pressed, carries the state", async () => {
   const host = await mount(<SessionTiles session={jobOf({ paused: true })} draft={draftOf()} repository={REPOSITORY} />);
-  expect(tile(host, "Resume").getAttribute("aria-pressed")).toBe("true");
+  const resume = tile(host, "Resume");
+  expect(resume.hasAttribute("data-on")).toBe(true);
+  expect(resume.getAttribute("aria-pressed")).toBe("false");
 });
 
 test("a tile Fleet does not offer is aria-disabled and a press does nothing", async () => {

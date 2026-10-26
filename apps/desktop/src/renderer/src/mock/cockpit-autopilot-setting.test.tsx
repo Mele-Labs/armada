@@ -24,7 +24,7 @@ async function deck() {
 test("the setting is off by default, and the Cockpit draws no Autopilot panel", async () => {
   const app = await deck();
   const answer = await app.api.syncState!();
-  const row = "full" in answer ? answer.full.settings?.settings.find((one) => one.key === KEY) : undefined;
+  const row = "full" in answer ? (answer.full as { settings: { settings: { key: string; value: unknown }[] } | null }).settings?.settings.find((one) => one.key === KEY) : undefined;
   expect(row?.value).toBe(false);
   expect(panel()).toBeNull();
   expect(page.getByRole("region", { name: "Autopilot", exact: true }).query()).toBeNull();
