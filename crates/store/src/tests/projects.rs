@@ -182,9 +182,12 @@ fn a_task_keeps_the_issues_linked_to_it_by_reference_and_loses_them_with_itself(
     store.add_project("m1", "p1", "Launch", "2026-10-26T10:00:01.000Z").unwrap();
     store.add_project_row("p1", &task("t", "Task")).unwrap();
     store.add_project_row("p1", &issue("i", "7")).unwrap();
-    let linked = |store: &crate::Store| match &store.projects("m1").unwrap()[0].rows[0].item {
-        KeptRowItem::Task { issues, .. } => issues.clone(),
-        KeptRowItem::Issue { .. } => panic!("a task"),
+    let linked = |store: &crate::Store| {
+        let project = store.projects("m1").unwrap().remove(0);
+        match project.rows.into_iter().find(|row| row.id == "t").unwrap().item {
+            KeptRowItem::Task { issues, .. } => issues,
+            KeptRowItem::Issue { .. } => panic!("a task"),
+        }
     };
     assert!(store.link_task_issue("p1", "t", "ABC-12").unwrap());
     assert!(store.link_task_issue("p1", "t", "7").unwrap());
