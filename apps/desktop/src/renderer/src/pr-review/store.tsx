@@ -10,7 +10,7 @@
 import { createContext, useContext, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 
-import type { PullRequestPage, PullRequestState, PullReviewChecks, PullReviewComment, PullReviewList, PullReviewLists, PullReviewRow } from "@armada/protocol";
+import type { PullRequestPage, PullRequestState, PullReviewComment, PullReviewList, PullReviewLists, PullReviewRow } from "@armada/protocol";
 import { readKept, writeKept } from "@armada/components";
 import { SURFACE } from "@armada/shell";
 
