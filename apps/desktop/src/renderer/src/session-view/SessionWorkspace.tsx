@@ -28,7 +28,7 @@ import type { PlanEditing } from "./PlanEdit";
 import { WorkflowPanel } from "./WorkflowPanel";
 import type { LiveOpen } from "./TurnAccountBlock";
 import { Layer } from "./SessionLayers";
-import { bandOf, isArtifactsKey, isWholeKey, pressBand, pressWhole, resetFolds, stageOf } from "./story";
+import { bandOf, isArtifactsKey, isWholeKey, pressBand, pressWhole, settleFolds, stageOf } from "./story";
 import type { SessionBays } from "./slot-trouble";
 import "./session-view.css";
 
@@ -48,8 +48,8 @@ export function SessionWorkspace({ session, entries, repositories, hosts, ed, ba
   useEffect(() => () => dropLayer(id), [id]);
   const work = session.work;
   const stage = stageOf(session);
-  // What the person opened or folded by hand holds until the story moves on.
-  useEffect(() => resetFolds(id), [id, stage]);
+  // What the person opened or folded by hand holds, across leaving the Job and across a restart, until the story moves on.
+  useEffect(() => settleFolds(id, stage), [id, stage]);
   const side = hosts?.side ?? null;
   const story = work !== undefined && draft !== undefined && side !== null;
   // Artifacts covers the right column, where the story is; every other layer covers the stage.
