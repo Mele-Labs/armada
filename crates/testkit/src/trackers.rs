@@ -10,7 +10,7 @@
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 
-use adapter_traits::{Backlog, LinkLookup, Tracker, TrackerChoice, Trackers};
+use adapter_traits::{Backlog, LinkLookup, Tool, ToolInstalled, Tracker, TrackerChoice, Trackers};
 
 use crate::{FakeBeads, FakeLinkLookup, FakeTracker};
 
@@ -22,6 +22,7 @@ pub struct FakeTrackers {
     /// Only the providers a test planted a backlog for have one, as only beads does.
     backlogs: Mutex<BTreeMap<Provider, Arc<dyn Backlog + Send + Sync>>>,
     asked: Mutex<Vec<TrackerChoice>>,
+    installed: Mutex<Vec<&'static str>>,
 }
 
 impl FakeTrackers {
@@ -38,6 +39,7 @@ impl FakeTrackers {
             )])),
             backlogs: Mutex::new(BTreeMap::new()),
             asked: Mutex::new(Vec::new()),
+            installed: Mutex::new(Vec::new()),
         }
     }
 
@@ -67,6 +69,11 @@ impl FakeTrackers {
         self.trackers.lock().expect("not poisoned").insert(provider.clone(), Arc::clone(&beads) as Arc<dyn Tracker + Send + Sync>);
         self.backlogs.lock().expect("not poisoned").insert(provider, beads);
         self
+    }
+
+    /// Every tool Fleet was asked to install, in order. Each is answered as installed.
+    pub fn installs(&self) -> Vec<&'static str> {
+        self.installed.lock().expect("not poisoned").clone()
     }
 
     /// Every choice Fleet resolved a tracker or a link reader for, in order.
@@ -109,5 +116,10 @@ impl Trackers for FakeTrackers {
     fn backlog(&self, choice: &TrackerChoice) -> Option<Arc<dyn Backlog + Send + Sync>> {
         let provider = choice.provider().map(String::from);
         self.backlogs.lock().expect("not poisoned").get(&provider).cloned()
+    }
+
+    fn install(&self, tool: Tool) -> ToolInstalled {
+        self.installed.lock().expect("not poisoned").push(tool.name());
+        ToolInstalled { done: true, said: format!("`{}` is installed", tool.name()) }
     }
 }

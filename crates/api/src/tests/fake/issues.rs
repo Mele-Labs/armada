@@ -2,7 +2,7 @@
 //! keeps is `fleet::tracking`'s, against a scripted tracker.
 
 use ipc::{
-    Instant, IssueComment, IssueList, IssueQueries, IssueQueryGuide, IssueRead, IssueState, LinkedPullRequest,
+    InstallTool, InstalledTool, Instant, IssueComment, IssueList, IssueQueries, IssueQueryGuide, IssueRead, IssueState, LinkedPullRequest,
     LinkedPullRequestState, ManifestId, SaveIssueQuery, SavedIssueQuery, SearchIssues, WireError, WriteIssueQuery,
     WrittenIssueQuery,
 };
@@ -81,6 +81,17 @@ impl Issues for FakeDaemon {
             issues: Vec::new(),
             stale: None,
         })
+    }
+
+    async fn install_tool(&self, _manifest_id: ManifestId, install: InstallTool) -> Result<InstalledTool, Refusal> {
+        match install.tool.as_str() {
+            "bd" => Ok(InstalledTool { tool: install.tool, done: true, said: String::from("`bd` is installed") }),
+            _ => Err(Refusal::Unacceptable(WireError::raised(
+                "fleet.tool_not_installable",
+                "Fleet installs no such tool",
+                crate::tests::shapes::run_id(),
+            ))),
+        }
     }
 
     async fn list_issue_queries(&self, manifest_id: ManifestId) -> Result<IssueQueries, Refusal> {

@@ -13,6 +13,23 @@ pub struct SearchIssues {
     pub query: String,
 }
 
+/// `install_tool`: the tool a refusal's `missing_tool` named. Only the tools Fleet knows how to
+/// install are taken; any other is refused, so no command crosses the wire.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InstallTool {
+    pub tool: String,
+}
+
+/// `install_tool`'s answer: whether the tool is now installed, and why not where it is not.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InstalledTool {
+    pub tool: String,
+    pub done: bool,
+    /// What happened, in words: Homebrew's own where it failed, `Homebrew is not available` where
+    /// there is none.
+    pub said: String,
+}
+
 /// What a person needs of a tracker's query language to write or choose a query: its name, the two
 /// built-in queries, and the fields a row can show. The prose a model reads is not sent.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

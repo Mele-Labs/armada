@@ -19,7 +19,7 @@ use adapter_traits::{
 use api::{Issues, Refusal};
 use core_model::Timestamp;
 use ipc::{
-    Instant, IssueComment, IssueField, IssueList, IssueQueries, IssueRead, IssueReference, IssueState,
+    InstallTool, InstalledTool, Instant, IssueComment, IssueField, IssueList, IssueQueries, IssueRead, IssueReference, IssueState,
     LinkedPullRequest, ManifestId, SaveIssueQuery, SavedIssueQuery, SearchIssues, TrackedIssue, WireError,
     WriteIssueQuery, WrittenIssueQuery,
 };
@@ -295,6 +295,10 @@ where
         save: SaveIssueQuery,
     ) -> Result<SavedIssueQuery, Refusal> {
         self.issue_query_saved(manifest_id, save).await
+    }
+
+    async fn install_tool(&self, manifest_id: ManifestId, install: InstallTool) -> Result<InstalledTool, Refusal> {
+        self.tool_installed(manifest_id, install).await
     }
 
     async fn forget_issue_query(&self, manifest_id: ManifestId, id: String) -> Result<IssueQueries, Refusal> {

@@ -8,10 +8,10 @@
 //! **Nothing is kept until he saves**, and saving makes no model call: running a saved query later
 //! is one tracker call.
 
-use adapter_traits::{AgentHarness, Ask, Delivery, NotTracked, OpenIssue, QueryGuide, Vcs, WorkProduct};
+use adapter_traits::{AgentHarness, Ask, Delivery, NotTracked, OpenIssue, QueryGuide, Tool, Vcs, WorkProduct};
 use api::Refusal;
 use ipc::{
-    Instant, IssueList, IssueQueries, IssueQueryGuide, ManifestId, SaveIssueQuery, SavedIssueQuery,
+    InstallTool, InstalledTool, Instant, IssueList, IssueQueries, IssueQueryGuide, ManifestId, SaveIssueQuery, SavedIssueQuery,
     SearchIssues, WireError, WriteIssueQuery, WrittenIssueQuery,
 };
 use serde::Deserialize;
@@ -28,6 +28,8 @@ const BLANK: &str = "fleet.issue_query_blank";
 const REFUSED: &str = "fleet.issue_query_refused";
 /// The model's call failed or its answer could not be used. A 500: asking again is reasonable.
 const NOT_WRITTEN: &str = "fleet.issue_query_not_written";
+/// The tool is not one Fleet installs. A 422.
+const NOT_INSTALLABLE: &str = "fleet.tool_not_installable";
 /// The repository has no saved query by that id. A 404.
 const NO_SUCH_QUERY: &str = "fleet.no_such_issue_query";
 
@@ -137,6 +139,27 @@ where
             issues: found.iter().map(|one| crate::tracking::tracked(one, &holders)).collect(),
             stale: None,
         })
+    }
+
+    /// **Only a [`Tool`] is installed**, so what the wire names is looked up and never run. The
+    /// install is a person's press: nothing calls this on its own.
+    pub(crate) async fn tool_installed(
+        &self,
+        manifest_id: ManifestId,
+        install: InstallTool,
+    ) -> Result<InstalledTool, Refusal> {
+        self.served_named(Some(&manifest_id))?;
+        let Some(tool) = Tool::named(&install.tool) else {
+            return Err(Refusal::Unacceptable(self.query_refusal(
+                NOT_INSTALLABLE,
+                format!("Fleet does not install `{}`", install.tool),
+            )));
+        };
+        let trackers = std::sync::Arc::clone(self.trackers());
+        let installed = tokio::task::spawn_blocking(move || trackers.install(tool)).await.map_err(|panicked| {
+            Refusal::Fault(self.query_refusal(NOT_INSTALLABLE, format!("the install stopped: {panicked}")))
+        })?;
+        Ok(InstalledTool { tool: tool.name().to_string(), done: installed.done, said: installed.said })
     }
 
     pub(crate) async fn issue_queries_read(&self, manifest_id: ManifestId) -> Result<IssueQueries, Refusal> {
