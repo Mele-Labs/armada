@@ -104,6 +104,13 @@ pub(crate) fn left_off_as_misread(items: Vec<WaitingItem>, misreads: &[String], 
         .collect()
 }
 
+/// `sentences` with every one within `at` of a follow-up he marked Not deferred left off. One with no
+/// vector yet is kept this read, as an ask is.
+pub(crate) fn left_off_as_misread_sentences(sentences: Vec<String>, misreads: &[String], vector: impl Fn(&str) -> Option<Vec<f32>>, at: f32) -> Vec<String> {
+    let marked: Vec<Vec<f32>> = misreads.iter().filter_map(|one| vector(one)).collect();
+    sentences.into_iter().filter(|one| !vector(one).is_some_and(|own| marked.iter().any(|theirs| cosine(&own, theirs) >= at))).collect()
+}
+
 /// The model's vectors of items' texts, and the Sessions whose texts were embedded since the last look.
 /// Modelled on `asks_model::Reads`: kept by the text's hash, embedded in one batch per read on a
 /// blocking thread, and the Session published again once they are in.

@@ -6,6 +6,7 @@ import type { FollowedLandLog, MergeLines, PullRequestPage, RepositorySummary, W
 
 import { fleetPanelReads, repositoryOf } from "./fleet-reads";
 import type { FleetPanelApi, FleetPanelState } from "./fleet-reads";
+import type { PullRequestRead } from "./reads";
 
 const repo = (id: string, name: string, root: string): RepositorySummary => ({ root, records_root: `/records${root}`, manifest: { id, repository: name } as never });
 const ARMADA = repo("m-armada", "mele-labs/armada", "/code/armada");
@@ -106,8 +107,8 @@ test("a pull request's patches are read in one call, and a refusal is Fleet's wo
 test("a pull request the forge's standing cannot be read for is drawn from what the press knew, and one with no page is not drawn", async () => {
   const readReviewPage = vi.fn(async () => ({ ok: true, value: page() }));
   const read = await fleetPanelReads(api({ readReviewPage }), () => state()).pullRequest({ ...PR, title: "From the row", branch: "fix/row" });
-  expect(read?.facts).toMatchObject({ number: 7, title: "From the row", branch: "fix/row", address: PR.address, state: "open", auto: false, checks: { state: "pending" } });
-  expect(read?.page.number).toBe(7);
+  expect((read as PullRequestRead).facts).toMatchObject({ number: 7, title: "From the row", branch: "fix/row", address: PR.address, state: "open", auto: false, checks: { state: "pending" } });
+  expect((read as PullRequestRead).page.number).toBe(7);
   // The page is the one thing the panel cannot do without; nor can it read in a repository nobody names.
   expect(await fleetPanelReads(api(), () => state()).pullRequest(PR)).toBeUndefined();
   expect(await fleetPanelReads(api({ readReviewPage }), () => state()).pullRequest({ kind: "pr", number: 7, address: "https://forge.invalid/pull/7" })).toBeUndefined();
@@ -282,4 +283,11 @@ test("a bay the pool does not hold is not drawn", async () => {
   } finally {
     vi.useRealTimers();
   }
+});
+
+test("a page Fleet refused is its words; a read that failed some other way answers nothing", async () => {
+  const readReviewPage = async () => ({ ok: false, outcome: { ok: false, why: "refused", error: { message: "GitHub refused access. Run gh auth refresh." } } });
+  expect(await fleetPanelReads(api({ readReviewPage }), () => state()).pullRequest(PR)).toEqual({ refused: "GitHub refused access. Run gh auth refresh." });
+  const notConnected = async () => ({ ok: false, outcome: { ok: false, why: "not_connected" } });
+  expect(await fleetPanelReads(api({ readReviewPage: notConnected }), () => state()).pullRequest(PR)).toBeUndefined();
 });

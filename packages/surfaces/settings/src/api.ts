@@ -15,7 +15,7 @@ import type {
 
 /**
  * One thing Bridge asks about the phone. **A named operation and never a path**, so the renderer
- * can reach exactly these eight routes and no other. Main makes the call: the Gateway's admin routes
+ * can reach exactly these ten routes and no other. Main makes the call: the Gateway's admin routes
  * refuse any request that carries `Origin`, which a renderer's own fetch always does.
  *
  * `access` and `turn` are Fleet's `GET /phone` and `POST /phone`, answering a `PhoneAccess`; Fleet
@@ -29,7 +29,11 @@ export type PhoneRequest =
   | { op: "confirm"; code: string }
   | { op: "devices" }
   | { op: "unpair"; id: string }
-  | { op: "status" };
+  | { op: "status" }
+  /** How far this Mac is along the way in: Tailscale installed, signed in, and Funnel on. */
+  | { op: "setup" }
+  /** Turn Funnel on in front of the Gateway. */
+  | { op: "funnel" };
 
 /** Fleet's answer on `/phone`. `why` is Fleet's sentence where access is on and nothing listens. */
 export type PhoneAccess = { on: boolean; port: number; listening: boolean; why?: string };

@@ -248,7 +248,7 @@ pub fn machine_address(machine: PathBuf) -> Address {
 
 /// The Mac app keeps its command line inside the bundle and puts it on `PATH`
 /// only if asked to, so the bundle's copy is tried when `tailscale` is not found.
-const TAILSCALE: [&str; 2] = ["tailscale", "/Applications/Tailscale.app/Contents/MacOS/Tailscale"];
+pub(crate) const TAILSCALE: [&str; 2] = ["tailscale", "/Applications/Tailscale.app/Contents/MacOS/Tailscale"];
 
 /// Asks the installed Tailscale. Blocking: callers run it off the async threads.
 pub fn tailscale_address() -> Result<String, String> {

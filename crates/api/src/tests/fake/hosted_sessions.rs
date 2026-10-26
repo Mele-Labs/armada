@@ -87,6 +87,10 @@ impl HostedSessions for FakeDaemon {
         Err(nothing_hosted())
     }
 
+    async fn confirm_later(&self, _confirm: ipc::ConfirmLater) -> Result<SessionRecord, Refusal> {
+        Err(nothing_hosted())
+    }
+
     async fn get_plan_usage(&self) -> Result<ipc::PlanUsage, Refusal> {
         Ok(ipc::PlanUsage::default())
     }
