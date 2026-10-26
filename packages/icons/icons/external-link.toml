@@ -23,3 +23,10 @@
     group = "Canvas rail"
     size = "16px"
     notes = "Added 2026-10-15 for the sketch's Share act, which opens a menu. The fourth context on a row carrying no reservation, and the same reading as the others: what is made leaves Bridge, for somebody who has no Armada. No glyph in the registry means share, and minting one is a design call. Refused here: `send`, which is Dispatch; `download`, whose row reserves it against a file written to disk; `arrow-up-from-line`, which is the shared home's Add; `copy`, since only one of the three items copies."
+
+  [[icons.external-link.usage]]
+    means = "Open the address a browser run's process answers at, on its row in the running panel"
+    group = "Run"
+    size = "16px"
+    status = "Proposed"
+    notes = "Proposed 25 Oct 2026 for the walk `run-an-app`. Tooltip `Open` and the address, key `o`. A desktop app run has no address and draws `app-window-mac` in the same column."

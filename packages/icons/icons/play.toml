@@ -19,3 +19,10 @@
     size = "16px"
     status = "Specified"
     notes = "Proposed 11 Oct 2026 for the mock walk `runCodeBlock`. Tooltip `Run`, no text. Appears on hover and on keyboard focus of the block. The person's own act: nothing is sent to the agent. Approved 11 Oct 2026."
+
+  [[icons.play.usage]]
+    means = "Run an app: the face of the run control on a repository's heading in the Cockpit's list (main) and in a Job's header (its bay)"
+    group = "Run"
+    size = "16px"
+    status = "Proposed"
+    notes = "Proposed 25 Oct 2026 for the mock walk `run-an-app`, on the owner's ask to start any repository's app without a Job. Tooltip names the run and where it runs, `Mock Bridge on main`, and `Run on main` where none is saved. Beside it `chevron-down` is the caret of the same split control. Contradicts this glyph's `reserved` line (`never starting a run or a server`), which the code-block and Trigger uses above already stepped past; the owner ruled the play glyph for this act."
