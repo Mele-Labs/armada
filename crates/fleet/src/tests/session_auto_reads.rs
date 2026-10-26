@@ -269,7 +269,7 @@ fn an_escaped_pipe_and_a_quoted_path_with_a_space_are_text() {
 }
 
 /// The Job's scratch folder, as `crate::scratch` names it.
-const SCRATCH: &str = "/Users/person/.armada/machine/attachments/job-scratch/job-1";
+const SCRATCH: &str = "/Users/user/.armada/machine/attachments/job-scratch/job-1";
 
 fn bash_holding_scratch(line: &str) -> Option<Because> {
     let body = ipc::encode(&Ask { tool_name: "Bash", input: Command { command: line } }).expect("an ask");
@@ -280,15 +280,15 @@ fn bash_holding_scratch(line: &str) -> Option<Because> {
 #[test]
 fn the_jobs_scratch_folder_is_written_removed_and_chmodded_as_a_slot_is() {
     for line in [
-        "cat > /Users/person/.armada/machine/attachments/job-scratch/job-1/state.sh <<'EOF'\n#!/bin/sh\necho hi\nEOF",
-        "chmod +x /Users/person/.armada/machine/attachments/job-scratch/job-1/state.sh",
-        "rm -rf /Users/person/.armada/machine/attachments/job-scratch/job-1/old",
+        "cat > /Users/user/.armada/machine/attachments/job-scratch/job-1/state.sh <<'EOF'\n#!/bin/sh\necho hi\nEOF",
+        "chmod +x /Users/user/.armada/machine/attachments/job-scratch/job-1/state.sh",
+        "rm -rf /Users/user/.armada/machine/attachments/job-scratch/job-1/old",
     ] {
         assert_eq!(bash_holding_scratch(line), None, "{line} should run");
     }
     for line in [
-        "chmod +x /Users/person/.armada/machine/attachments/job-scratch/job-2/state.sh",
-        "rm -rf /Users/person/.armada/machine/attachments/job-scratch/job-1",
+        "chmod +x /Users/user/.armada/machine/attachments/job-scratch/job-2/state.sh",
+        "rm -rf /Users/user/.armada/machine/attachments/job-scratch/job-1",
     ] {
         assert_eq!(bash_holding_scratch(line), Some(Because::Destructive), "{line} should be refused");
     }

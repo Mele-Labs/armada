@@ -836,7 +836,8 @@ Bridge's half is `packages/protocol/src/watches.ts`, written by hand; nothing in
 | `WatchSummary` | Gains three fields | `in_terminal?`, `regex?` (sent only as `true`), and `login_shell?`, `{ kind: "read" }` or `{ kind: "fell_back", why }`, while Fleet holds the watch's environment |
 
 **The command's line is written by Armada too.** `ipc::watch_line` writes the line `armada watch-line` prints for the recipes Armada ships, and `ipc::read_watch_line` reads it back whole; it is still not the wire to Bridge.
-**Always loaded.** An operation file may say `always_loaded = true`; the door then lists that tool with the harness's `_meta` key, which the harness adapter names (`AgentHarness::always_loads_tool`). The key is on the agent's tools list only, and Bridge reads nothing of it.
+**Always loaded.** An operation file may say `always_loaded = true`; the door then lists that tool with the harness's `_meta` key, which the harness adapter names (`AgentHarness::always_loads_tool`).
+The key is on the agent's tools list only, and Bridge reads nothing of it.
 
 ## Not a question: `misread` on `dismiss_waiting`
 
