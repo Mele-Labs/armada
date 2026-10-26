@@ -368,12 +368,14 @@
 
 /* ---- 14: the Job's flight control is a grid of the deck's own tiles ------------------------------------------------------------------------------------
    The columns are the deck's: a sixth of the block's width less the five gaps, so a tile here is the size of Checks, Calls, Map or Timeline in the block with no Job open, as wide as the panel makes them. Seven or more tiles do not
-   fit at that size in one row, so they take balanced rows (`--cols`, from `SessionTiles.tsx`). */
+   fit at that size in one row, so they share the one row in equal widths, a little narrower than the deck's: two rows of four and three left half the panel empty. */
 
 :root[data-density="tight-type"][data-density][data-density][data-density] {
   & .deck-controls__block[data-subject="session"][data-tiles] {
     display: grid;
-    grid-template-columns: repeat(var(--cols), calc((100% - var(--space-2) * 5) / 6));
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    grid-template-columns: none;
     grid-auto-rows: var(--tile);
     align-content: center;
     align-items: stretch;
