@@ -183,7 +183,7 @@ test("Sessions wired: a pull request the Session holds is merged from its sheet,
   await onScreen();
   await toSession("Fix the flaky store test");
   await key("Artifacts").click();
-  await userEvent.click(layer("Artifacts").getByRole("button", { name: /^#1847/ }));
+  await userEvent.click(layer("Artifacts").getByRole("button", { name: /^Pull request #1847/ }));
   const sheet = page.getByRole("dialog", { name: "Pull request #1847" });
   await userEvent.click(sheet.getByRole("button", { name: "Merge" }));
   await expect.poll(() => fleet.calls.pressed.filter((one) => one.press === "merge")).toEqual([{ sessionId: ID, number: 1847, press: "merge" }]);
@@ -196,7 +196,7 @@ test("Sessions wired: a refused press on a pull request says Fleet's words in it
   await onScreen();
   await toSession("Fix the flaky store test");
   await key("Artifacts").click();
-  await userEvent.click(layer("Artifacts").getByRole("button", { name: /^#1847/ }));
+  await userEvent.click(layer("Artifacts").getByRole("button", { name: /^Pull request #1847/ }));
   const sheet = page.getByRole("dialog", { name: "Pull request #1847" });
   fleet.refusesPress = { code: "fleet.auto_merge_refused", message: "Auto merge is not allowed" };
   await userEvent.click(sheet.getByRole("button", { name: "Enable auto-merge" }));
