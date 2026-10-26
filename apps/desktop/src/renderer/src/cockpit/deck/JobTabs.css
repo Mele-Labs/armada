@@ -9,6 +9,7 @@
 @media (prefers-reduced-motion: reduce) { .sv-tab__running { animation: none; } }
 /* Lit as the Bays tile is: the stranded hue, the word still plain. */
 .sv-tab[data-lit] { color: var(--slot-stranded); }
+.armada-session-composer__bar .armada-button[data-view][data-lit] { color: var(--slot-stranded); }
 
 /* ---- nav: a second row of the head, in the type and on the ground of the places in the title bar (`deck-chrome.css`) ---------------------------------- */
 

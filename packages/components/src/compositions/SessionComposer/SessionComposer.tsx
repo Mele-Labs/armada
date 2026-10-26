@@ -8,6 +8,7 @@ import { AttachmentChip } from "../../primitives/AttachmentChip/AttachmentChip";
 import { Button } from "../../primitives/Button/Button";
 import { ProseLinks } from "../../primitives/Prose/Prose";
 import { Select } from "../../primitives/Select/Select";
+import { Separator } from "../../primitives/Separator/Separator";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { modelSaid } from "../SessionFrame/model-said";
 import { TAG_GLYPH, titleWithoutReference } from "./InlineTag";
@@ -89,6 +90,25 @@ const MODES: { id: ComposerMode; label: string; says: string }[] = [
   { id: "plan", label: "Plan", says: "Reads and plans, and changes nothing" },
 ];
 
+/**
+ * A view the box's row opens: an icon button that is lit while its view is open and presses it back shut. `tip` is the tooltip's line, a disabled
+ * view's reason or a lit one's fact; `key` is the key that does the same, named on the tooltip and carried as `data-key` for the host's handler. `mark`
+ * is a fact on the button's corner.
+ */
+export type ComposerView = {
+  id: string;
+  label: string;
+  tip: string;
+  Glyph: LucideIcon;
+  key?: string;
+  pressed: boolean;
+  disabled?: boolean;
+  /** A fact that tints the glyph, set as `data-lit` for the host's style. */
+  lit?: boolean;
+  mark?: ReactNode;
+  onPress: () => void;
+};
+
 export type SessionComposerProps = {
   /** A turn is running. Send stays on: a message sent now is the agent's next input. */
   working: boolean;
@@ -149,6 +169,11 @@ export type SessionComposerProps = {
   drawn: readonly { id: string; title: string }[];
   /** Opens the pad. */
   onDraw: () => void;
+  /**
+   * Views the row opens, after attach and sketch and a rule apart from them. Present, the mode, model and effort selects take their content's width
+   * so the row holds one line.
+   */
+  views?: readonly ComposerView[];
   onRemoveDrawn: (id: string) => void;
   /** Resolving to `false` says the message did not go, and the box is given it back. */
   onSend: (sent: SentFromComposer) => void | Promise<boolean>;
@@ -306,6 +331,7 @@ export function SessionComposer({
   compact = false,
   drawn,
   onDraw,
+  views,
   onRemoveDrawn,
   onSend,
   modeLocked = false,
@@ -677,7 +703,7 @@ export function SessionComposer({
         />
       </div>
       {compact && held ? <div className="armada-session-composer__held">{chips}</div> : null}
-      <div className="armada-session-composer__bar">
+      <div className="armada-session-composer__bar" data-views={views === undefined ? undefined : ""}>
         {modeHidden || bare || onMode === undefined ? null : (
           <Pick Glyph={Shield} compact={compact} label={modeLocked ? `${said} The terminal holds it.` : said}>
             <Select aria-label="Permission mode" disabled={modeLocked} value={mode} onChange={(event) => onMode(event.target.value as ComposerMode)}>
@@ -737,6 +763,19 @@ export function SessionComposer({
                   <PencilRuler size={16} strokeWidth={2} aria-hidden />
                 </Button>
               </Tooltip>
+            )}
+            {views === undefined ? null : (
+              <>
+                <Separator orientation="vertical" className="armada-session-composer__rule" />
+                {views.map(({ id, label: name, tip, Glyph, key, pressed, disabled = false, lit = false, mark, onPress }) => (
+                  <Tooltip key={id} label={tip} {...(key === undefined ? {} : { shortcut: key })}>
+                    <Button type="button" variant="ghost" size="sm" aria-label={name} aria-pressed={pressed} disabled={disabled} data-key={key} data-lit={lit || undefined} data-view={id} onClick={onPress}>
+                      <Glyph size={16} strokeWidth={2} aria-hidden />
+                      {mark === undefined ? null : <span className="armada-session-composer__mark">{mark}</span>}
+                    </Button>
+                  </Tooltip>
+                ))}
+              </>
             )}
           </>
         )}
