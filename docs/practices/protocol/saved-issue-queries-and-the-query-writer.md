@@ -46,4 +46,5 @@ The protocol ID moves with `crates/ipc/src`, the operation file, the route table
 Fleet looks for `brew` in `/opt/homebrew/bin` and `/usr/local/bin` before its PATH, since Bridge starts it and a program
 started from the Dock does not carry the shell's PATH.
 
-**`install_tool` also sets `bd` up.** It installs only where `bd` is absent, then does what `scripts/beads-setup` does in the main checkout. Where origin holds no `refs/dolt/data` it answers `done: false` with that in `said` and changes nothing else.
+**`install_tool` also sets `bd` up.** It installs only where `bd` is absent, then does what `scripts/beads-setup` does in the main checkout.
+Where origin holds no `refs/dolt/data` it answers `done: false` with that in `said` and changes nothing else.
