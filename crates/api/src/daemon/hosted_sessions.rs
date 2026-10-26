@@ -124,6 +124,12 @@ pub trait HostedSessions: Send + Sync + 'static {
         confirm: ipc::ConfirmWaiting,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
+    /// `confirm_later`: thumbs up on an open follow-up. [`Refusal::IllegalMove`] where it is not open.
+    fn confirm_later(
+        &self,
+        confirm: ipc::ConfirmLater,
+    ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
+
     /// `get_plan_usage`: the newest reading of the plan's windows. Empty where none has come.
     fn get_plan_usage(&self) -> impl Future<Output = Result<ipc::PlanUsage, Refusal>> + Send;
 

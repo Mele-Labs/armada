@@ -190,7 +190,7 @@ export type SessionRecord = {
 };
 
 /** A follow-up the agent kept for itself, read from the close of a reply. `id` is what `settle_later` names it by. */
-export type SessionLater = { id: string; sentence: string; said_at: string };
+export type SessionLater = { id: string; sentence: string; said_at: string; /** Thumbs up on it (`confirm_later`). Absent where not. */ confirmed?: boolean };
 
 /** How a follow-up was settled: the work is done, it is an issue now (`issue`), or it will not be done (`reason`). */
 export type LaterHow = "done" | "filed" | "dropped";
@@ -201,7 +201,10 @@ export type LaterHow = "done" | "filed" | "dropped";
  * Fleet refuses 422 `fleet.later_not_settleable` for a `filed` with no issue it can read or an agent's drop with no reason, and
  * 409 `fleet.later_not_open` for an id that names no open follow-up.
  */
-export type SettleLater = { id: string; how: LaterHow; issue?: string; reason?: string; session_id?: string };
+export type SettleLater = { id: string; how: LaterHow; issue?: string; reason?: string; session_id?: string; /** Thumbs down, Not deferred: the person's `dropped` only; keeps the sentence as no follow-up. */ misread?: boolean };
+
+/** `POST /sessions/later/confirm`: thumbs up on an open follow-up; answered with the `SessionRecord`. */
+export type ConfirmLater = { id: string; session_id?: string };
 
 /** What `settle_later` answers: the follow-up settled and the ones still open. */
 export type LaterSettled = { id: string; sentence: string; open: SessionLater[] };
@@ -548,6 +551,9 @@ export type SessionRunMessage =
 
 /** `open_terminal`: the person opens the Job's shell in Bridge. `POST /sessions/terminal/open`. Answered 200 with `SessionRunUnderway`: the shell already open, or one opened now. `cols` and `rows` are the size in cells where it opens now; absent is 80 by 24. */
 export type OpenTerminal = { session_id: string; cols?: number; rows?: number };
+
+/** `start_terminal_run`: the person runs `command` in `dir` with no Job behind it. `POST /sessions/terminal/run`. Answered 200 with `SessionRunUnderway`; what it prints is `observe_session_run`'s. `dir` must exist; `cols` and `rows` are the size in cells, absent is 80 by 24. */
+export type StartTerminalRun = { command: string; dir: string; cols?: number; rows?: number };
 
 /** `type_in_terminal`: the Job's agent types into the Job's shell, opening it where it has none. `POST /sessions/terminal/type`. Answered 200 with `TerminalTyped`. `text` is written as it is; `enter` absent is true; `wait_seconds` absent is 10, at most 60; `session_id` is read only where the connection places no hosted Job. */
 export type TypeInTerminal = { text: string; enter?: boolean; wait_seconds?: number; session_id?: string };

@@ -43,7 +43,7 @@ import type { PackageSaved, SharingAnswer } from "../shared/api/sharing";
 import type { DropRunFact, ImportFolders, ImportRuns, ModInstalled, RunMemory, RunMemoryPlace, SetRunMemoryPlace } from "@armada/protocol";
 import type { ModSessionStarted, StartModSession } from "@armada/protocol";
 import type { AdversarialReview, DismissFinding, SendFinding, StartAdversarialReview } from "@armada/protocol";
-import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, ChangeWaiting, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimIssue, ClaimPullRequest, ConfirmWaiting, DismissConcern, DismissWaiting, IssueClaimed, InstalledTool, IssueList, IssueQueries, SaveIssueQuery, SavedIssueQuery, WrittenIssueQuery, JudgeSession, LaterSettled, PullRequestClaimed, PullRequestFilePatch, PullRequestFilePatches, PullRequestPage, PullRequestState, RenameSession, SendConcern, SendPlanChanges, NoteSent, SendSessionMessage, SendSessionNote, SessionRunMessage, SessionRunUnderway, SessionLoadout, AttachmentHistory, McpServerAct, SessionMcp, SessionMcpActed, SessionSubagent, SessionWait, SettleLater, StartAfter, TuneSession, BeginSession, WaitReading } from "@armada/protocol";
+import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, ChangeWaiting, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimIssue, ClaimPullRequest, ConfirmLater, ConfirmWaiting, DismissConcern, DismissWaiting, IssueClaimed, InstalledTool, IssueList, IssueQueries, SaveIssueQuery, SavedIssueQuery, WrittenIssueQuery, JudgeSession, LaterSettled, PullRequestClaimed, PullRequestFilePatch, PullRequestFilePatches, PullRequestPage, PullRequestState, RenameSession, SendConcern, SendPlanChanges, NoteSent, SendSessionMessage, SendSessionNote, SessionRunMessage, SessionRunUnderway, SessionLoadout, AttachmentHistory, McpServerAct, SessionMcp, SessionMcpActed, SessionSubagent, SessionWait, SettleLater, StartAfter, TuneSession, BeginSession, WaitReading } from "@armada/protocol";
 import type { ArtifactRead, LoadoutItemAsk, LoadoutItemBody, PageBounds, PageShot } from "@armada/screens/src/draft/sessions";
 import type { JobTerminalChange, PullRequestPress, PullRequestWrite, SessionActed, TerminalMovedBack } from "../shared/api/sessions";
 import type { RequestRepositoryRead } from "../shared/api/dispatch";
@@ -523,6 +523,7 @@ const api: BridgeApi = {
   settleLater: (settle: SettleLater): Promise<SessionActed<LaterSettled>> => ipcRenderer.invoke(CHANNELS.settleLater, settle),
   stopWatch: (stop: StopWatch): Promise<SessionActed<WatchSummary>> => ipcRenderer.invoke(CHANNELS.stopWatch, stop),
   dismissWaiting: (dismiss: DismissWaiting): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.dismissWaiting, dismiss),
+  confirmLater: (confirm: ConfirmLater): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.confirmLater, confirm),
   confirmWaiting: (confirm: ConfirmWaiting): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.confirmWaiting, confirm),
   approvePlan: (approve: ApprovePlan): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.approvePlan, approve),
   sendPlanChanges: (changes: SendPlanChanges): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.sendPlanChanges, changes),
@@ -624,6 +625,9 @@ const api: BridgeApi = {
   // A Job's shell is a run: opened here, then written, resized, stopped and observed as any run is.
   openTerminal: (sessionId: string, cols?: number, rows?: number): Promise<SessionActed<SessionRunUnderway>> =>
     ipcRenderer.invoke(CHANNELS.openTerminal, sessionId, cols, rows),
+  // A command run in a directory with no Job behind it: a run as any other, written, resized, stopped and observed on its id.
+  startTerminalRun: (command: string, dir: string, cols?: number, rows?: number): Promise<SessionActed<SessionRunUnderway>> =>
+    ipcRenderer.invoke(CHANNELS.startTerminalRun, command, dir, cols, rows),
   // The one pull a held checkout is offered: the repository's Manifest and no command.
   catchUpCheckout: (manifestId: string): Promise<SessionActed<CheckoutCaughtUp>> =>
     ipcRenderer.invoke(CHANNELS.catchUpCheckout, manifestId),

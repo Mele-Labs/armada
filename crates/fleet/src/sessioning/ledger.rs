@@ -263,7 +263,7 @@ where
             .later
             .into_iter()
             .filter(|_| session.state == store::SessionState::Live)
-            .map(|one| ipc::SessionLater { id: one.id, sentence: one.sentence, said_at: wire_instant(&one.said_at) })
+            .map(|one| ipc::SessionLater { id: one.id, sentence: one.sentence, said_at: wire_instant(&one.said_at), confirmed: one.confirmed })
             .collect();
         // Held open only when the watch is all that is left: a turn running, an item owed or a command
         // the agent backgrounded each says more than the watch does.

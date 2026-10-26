@@ -10,7 +10,7 @@ use axum::response::{IntoResponse, Response};
 use axum::routing::{delete, get, post};
 use axum::Router;
 
-use crate::{admin, cors, fleet_client, forward, machine, pair_routes, push, reads, session_routes, signing, stat};
+use crate::{admin, cors, fleet_client, forward, machine, pair_routes, push, reads, session_routes, setup, signing, stat};
 
 /// Where Fleet is now: its port out of the runtime file, read afresh each time
 /// so a Fleet that restarted is found, or the sentence saying why it is not.
@@ -23,6 +23,7 @@ pub struct Gateway {
     pub assets: Option<PathBuf>,
     pub pairing: crate::Pairing,
     pub push: push::Push,
+    pub way_in: setup::WayIn,
 }
 
 
@@ -49,6 +50,8 @@ async fn status(State(gateway): State<Gateway>) -> Response {
 pub fn router(gateway: Gateway) -> Router {
     let admin = Router::new()
         .route("/admin/status", get(status))
+        .route("/admin/setup", get(setup::setup))
+        .route("/admin/setup/funnel", post(setup::funnel))
         .route("/admin/pair/start", post(pair_routes::start))
         .route("/admin/pair/pending", get(pair_routes::pending))
         .route("/admin/pair/confirm", post(pair_routes::confirm))

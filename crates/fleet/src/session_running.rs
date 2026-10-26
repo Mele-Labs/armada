@@ -66,7 +66,7 @@ struct Terminal {
 
 struct Run {
     pgid: i32,
-    session: String,
+    session: Option<String>,
     command: String,
     stopped: AtomicBool,
     /// What stopping it first sends: a shell ignores TERM but leaves on the HUP a closing terminal sends.
@@ -135,7 +135,8 @@ pub(crate) struct SessionRuns {
 
 /// What a run needs to start.
 struct Launch<'a> {
-    session: &'a str,
+    /// `None` is a run no Job asked for, which tells no Job how it ended.
+    session: Option<&'a str>,
     /// `None` is an interactive login shell, a Job's shell.
     command: Option<&'a str>,
     dir: &'a str,
@@ -210,7 +211,7 @@ impl SessionRuns {
         let run = Arc::new(Run {
             // The command is its own session, so its group is its pid.
             pgid: pid as i32,
-            session: launch.session.to_string(),
+            session: launch.session.map(str::to_string),
             command: launch.command.unwrap_or_default().to_string(),
             stopped: AtomicBool::new(false),
             stop_signal: if launch.command.is_some() { "TERM" } else { "HUP" },
@@ -381,7 +382,7 @@ where
         let dir = self.run_dir(start.session_id.as_str()).await?;
         let fleet = Arc::clone(&self);
         let launch = Launch {
-            session: start.session_id.as_str(),
+            session: Some(start.session_id.as_str()),
             command: Some(&start.command),
             dir: &dir,
             size: size(cols, rows),
@@ -393,6 +394,36 @@ where
             Ok(run_id) => Ok(SessionRunUnderway { run_id }),
             Err(why) => Err(refusal(
                 format!("the command could not start in {dir}: {why}"),
+                self.run_id(),
+            )),
+        }
+    }
+
+    /// A command the person runs in `start.dir` with no Job behind it: nothing is told how it ended.
+    pub(crate) async fn begin_terminal_run(
+        self: Arc<Self>,
+        start: ipc::StartTerminalRun,
+    ) -> Result<SessionRunUnderway, Refusal> {
+        if start.command.trim().is_empty() {
+            return Err(refusal("a run needs a command", self.run_id()));
+        }
+        let (cols, rows) = (start.cols.unwrap_or(COLS), start.rows.unwrap_or(ROWS));
+        if cols == 0 || rows == 0 {
+            return Err(self.no_cells());
+        }
+        if !std::path::Path::new(&start.dir).is_dir() {
+            return Err(refusal(format!("{} is not a directory", start.dir), self.run_id()));
+        }
+        let launch = Launch {
+            session: None,
+            command: Some(&start.command),
+            dir: &start.dir,
+            size: size(cols, rows),
+        };
+        match self.session_runs().start(launch, |_| async {}) {
+            Ok(run_id) => Ok(SessionRunUnderway { run_id }),
+            Err(why) => Err(refusal(
+                format!("the command could not start in {}: {why}", start.dir),
                 self.run_id(),
             )),
         }
