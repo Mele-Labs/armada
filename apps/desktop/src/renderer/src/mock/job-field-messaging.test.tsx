@@ -14,10 +14,20 @@ const map = () => field().getByRole("listbox", { name: "Map" });
 const main = () => field().getByRole("group", { name: "Drones" }).getByRole("button", { name: /^Rotate the audit log: / });
 const message = (name: RegExp) => map().getByRole("button", { name });
 
+
+// A Job with no plan is at its Blueprint, and the Field stands folded to its band until the band is pressed. A press made by hand outlasts the test,
+// so a Field already open is left as it is.
+async function openField() {
+  const band = () => field().element().querySelector<HTMLElement>(".sv-panel__band");
+  await expect.poll(() => band()?.getAttribute("aria-expanded") ?? "").toMatch(/^(true|false)$/);
+  if (band()!.getAttribute("aria-expanded") === "false") await field().getByRole("heading", { name: "Field", exact: true }).click();
+}
+
 async function open() {
   mount("job-field-messaging");
   await onScreen();
   await page.getByRole("region", { name: "Jobs", exact: true }).getByRole("button", { name: "Rotate the audit log" }).click();
+  await openField();
   await expect.element(main()).toBeVisible();
 }
 
