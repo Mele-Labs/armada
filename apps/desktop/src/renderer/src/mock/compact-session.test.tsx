@@ -63,7 +63,7 @@ test("scrolled away from the end of the thread, no chip floats over the composer
   expect(document.querySelector(".sv-callchip__press")).toBeNull();
 });
 
-test("the Flight control keys 8, 9 and 0 open Artifacts, Subagents and Checks, and Esc is Back to the thread as it was", async () => {
+test("the Flight control keys ⌥⇧8, ⌥⇧9 and ⌥⇧0 open Artifacts, Subagents and Checks, and Esc is Back to the thread as it was", async () => {
   await open();
   await expect.poll(() => scroller().scrollHeight - scroller().clientHeight).toBeGreaterThan(0);
   scroller().scrollTop = Math.round(scroller().scrollHeight / 3);
@@ -71,7 +71,7 @@ test("the Flight control keys 8, 9 and 0 open Artifacts, Subagents and Checks, a
   expect(at).toBeGreaterThan(0);
   for (const [digit, name] of [["8", "Artifacts"], ["9", "Subagents"], ["0", "Checks"]] as const) {
     work().element().focus();
-    await userEvent.keyboard(digit);
+    await userEvent.keyboard(`{Alt>}{Shift>}${digit}{/Shift}{/Alt}`);
     await expect.element(page.getByRole("region", { name, exact: true })).toBeVisible();
     // Focus is inside the layer, so the keyboard drives it.
     expect(page.getByRole("region", { name, exact: true }).element().contains(document.activeElement)).toBe(true);
@@ -98,7 +98,8 @@ test("Subagents lists the real subagents with the running ones first", async () 
   await open();
   await tile("Subagents").click();
   const layer = page.getByRole("region", { name: "Subagents", exact: true });
-  const titles = [...layer.element().querySelectorAll(".sv-layer__title-line")].map((one) => one.textContent);
+  await expect.element(layer).toBeVisible();
+  const titles = [...layer.element().querySelectorAll(".sv-ledger__title")].map((one) => one.textContent);
   expect(titles).toEqual(["Mirror the attempt count in the TypeScript wire", "Show the attempt on the bay tile", "Find every caller of lease_slot"]);
 });
 

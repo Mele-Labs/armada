@@ -143,12 +143,12 @@ test("Sessions wired: mode, model and effort go to Fleet as the person set them"
   await expect.poll(() => fleet.calls.tuned.at(-1)).toEqual({ session_id: ID, effort: "high", mode: "plan" });
 });
 
-test("Sessions wired: a terminal session opens to its Progress and takes a message, with its mode shown and not set", async () => {
+test("Sessions wired: a terminal session opens to its Blueprint and takes a message, with its mode shown and not set", async () => {
   const fleet = new FakeSessionsFleet([terminal(ID, { title: "Release notes script", attachments: [held("branch", "release/notes")], terminal: { mode: "plan", listening: true } })]);
   mount(served(fleet));
   await onScreen();
   await toSession("Release notes script");
-  await expect.element(page.getByRole("region", { name: "Progress", exact: true })).toBeVisible();
+  await expect.element(page.getByRole("region", { name: "Blueprint", exact: true })).toBeVisible();
   await expect.element(page.getByRole("textbox", { name: "Message" })).toBeVisible();
   await expect.element(page.getByRole("combobox", { name: "Permission mode" })).toBeDisabled();
 });
