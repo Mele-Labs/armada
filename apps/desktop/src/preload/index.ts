@@ -881,6 +881,7 @@ const api: BridgeApi = {
       ipcRenderer.removeListener(CHANNELS.serverOutput, handler);
     };
   },
+  dockCount: (calls: number): void => ipcRenderer.send(CHANNELS.dockCount, calls),
 };
 
 contextBridge.exposeInMainWorld("armada", api);

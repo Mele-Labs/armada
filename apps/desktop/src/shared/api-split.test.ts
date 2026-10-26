@@ -357,6 +357,7 @@ type OldBridgeApi = {
     startHelmFresh: () => Promise<Outcome>;
     pointHelm: (manifestId: string) => Promise<void>;
     tap: (pattern: Pattern) => void;
+    dockCount: (calls: number) => void;
     startSession: (title?: string) => Promise<SessionActed>;
     beginSession: (begin: BeginSession) => Promise<SessionActed>;
     sendSessionMessage: (send: SendSessionMessage) => Promise<SessionActed>;
@@ -665,6 +666,7 @@ const OLD_CHANNELS = {
     walkPanelSendNotes: "bridge:walk-panel-send-notes",
     captureWindowSendNotes: "bridge:capture-window-send-notes",
     tap: "bridge:tap",
+    dockCount: "bridge:dock-count",
     startSession: "bridge:start-session",
     beginSession: "bridge:begin-session",
     forkSession: "bridge:fork-session",

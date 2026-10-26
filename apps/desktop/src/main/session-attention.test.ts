@@ -32,8 +32,7 @@ function session(id: string, waiting: WaitingItem[] = [], extra: Partial<Session
 
 function attention() {
   const show = vi.fn();
-  const count = vi.fn();
-  return { attention: new SessionAttention({ show, count }), show, count };
+  return { attention: new SessionAttention({ show }), show };
 }
 
 beforeEach(() => vi.useFakeTimers());
@@ -48,9 +47,8 @@ describe("SessionAttention", () => {
   });
 
   it("tells nothing before Fleet has answered once, and the next reading is still the first", () => {
-    const { attention: a, show, count } = attention();
+    const { attention: a, show } = attention();
     a.read([], null);
-    expect(count).not.toHaveBeenCalled();
     a.read([session("a", [item("1")])], 1);
     vi.advanceTimersByTime(QUIET_MS * 2);
     expect(show).not.toHaveBeenCalled();
@@ -113,27 +111,13 @@ describe("SessionAttention", () => {
     expect(show.mock.calls[0]![0].tone).toBe("blocked");
   });
 
-  it("tells the dock the count of Sessions waiting, on the first reading and then only when it changes", () => {
-    const { attention: a, count } = attention();
-    a.read([session("a", [item("1"), item("2")]), session("b")], 1);
-    expect(count.mock.calls).toEqual([[1]]);
-    a.read([session("a", [item("1"), item("2"), item("3")]), session("b")], 2);
-    expect(count.mock.calls).toEqual([[1]]);
-    a.read([session("a", [item("1")]), session("b", [item("4")])], 3);
-    expect(count.mock.calls).toEqual([[1], [2]]);
-    a.read([session("a"), session("b")], 4);
-    expect(count.mock.calls).toEqual([[1], [2], [0]]);
-  });
-
-  it("does not count or tell for a Session that has ended", () => {
-    const { attention: a, show, count } = attention();
+  it("does not tell for a Session that has ended", () => {
+    const { attention: a, show } = attention();
     a.read([session("a", [item("1")], { state: "ended" })], 1);
-    expect(count.mock.calls).toEqual([[0]]);
     a.read([session("a", [item("1")], { state: "ended" }), session("b")], 2);
     a.read([session("a", [item("1")], { state: "ended" }), session("b", [item("2")], { state: "ended" })], 3);
     vi.advanceTimersByTime(QUIET_MS);
     expect(show).not.toHaveBeenCalled();
-    expect(count.mock.calls).toEqual([[0]]);
   });
 
   it("drops what is collected when closed", () => {
@@ -145,16 +129,12 @@ describe("SessionAttention", () => {
     expect(show).not.toHaveBeenCalled();
   });
 
-  it("counts a Job held on its start card as waiting, and tells one that arrives held as blocking", () => {
-    const { attention: a, show, count } = attention();
+  it("tells a Job that arrives held on its start card as blocking", () => {
+    const { attention: a, show } = attention();
     const held = (id: string): SessionRecord => session(id, [], { hosted: { start: { asks_delivery: true } } as SessionRecord["hosted"] });
     a.read([session("a")], 1);
-    expect(count).toHaveBeenLastCalledWith(0);
     a.read([session("a"), held("b")], 2);
-    expect(count).toHaveBeenLastCalledWith(1);
     vi.advanceTimersByTime(QUIET_MS);
     expect(show).toHaveBeenCalledWith({ sessionId: "b", title: "Job b", body: "Not started", tone: "blocked" });
-    a.read([session("a"), session("b")], 3);
-    expect(count).toHaveBeenLastCalledWith(0);
   });
 });

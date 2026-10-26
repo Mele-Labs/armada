@@ -3,12 +3,30 @@
 
 use adapter_traits::Tracker;
 
-use super::jira::{settings, Scripted};
+use super::jira::{block, settings, Scripted};
+use crate::jira::JiraSettings;
 use crate::jira_tracker::JiraTracker;
 
 fn linked(text: &str) -> Vec<String> {
     let run = Scripted::saying(&[]);
     JiraTracker::with_runner(settings(), &run).issues_linked_in("/repo", text)
+}
+
+fn named(pairs: &[(&str, &str)], title: &str, branch: &str) -> Vec<String> {
+    let run = Scripted::saying(&[]);
+    let settings = JiraSettings::read(&block(pairs)).expect("a block");
+    JiraTracker::with_runner(settings, &run).issues_named_by_pull_request(title, branch)
+}
+
+#[test]
+fn a_pull_request_names_its_own_projects_keys_in_its_title_and_branch() {
+    let acme = [("site", "acme"), ("project", "ABC")];
+    assert_eq!(named(&acme, "[ABC-12] Wire it", "abc-31-wire-it"), ["ABC-12", "ABC-31"]);
+    assert_eq!(named(&acme, "ABC-12, ABC-7 and ABC-12", "ABC-7_abc-9"), ["ABC-12", "ABC-7", "ABC-9"]);
+    assert!(named(&acme, "Read UTF-8 and XYZ-4 and abc-5", "xyz-4-utf-8").is_empty());
+    assert!(named(&acme, "XABC-1 ABC-2a ABC-", "é-abc-x").is_empty());
+    assert_eq!(named(&acme, "Café ABC-3", "über/abc-4"), ["ABC-3", "ABC-4"]);
+    assert!(named(&[("site", "acme"), ("jql", "labels = web")], "[ABC-12] Wire it", "abc-31").is_empty());
 }
 
 #[test]
