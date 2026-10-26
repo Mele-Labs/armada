@@ -73,6 +73,11 @@ async fn a_terminal_that_ends_before_the_text_appears_is_a_failed_reading() {
     rig.types(&shell, "exit\r").await.expect("typed");
     let read = ended(&rig).await;
     shell_ends(&rig, &shell).await;
-    assert_eq!((read.state, read.live), (WatchState::Failed, true), "the agent weighs it, as any failure");
+    assert_eq!((read.state, read.live), (WatchState::Failed, false), "nothing is left to hear, so it ends");
     assert!(matches!(&read.last, Some(WatchReading::Read { says, finished: true, .. }) if says.contains("ended before")), "{:?}", read.last);
+    // Ended, it is not due again, so it listens no more and keeps its one reading.
+    rig.fleet.watches_run_when_due().await;
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    let after = the_watch(&rig).await;
+    assert_eq!((after.state, after.live, after.readings.len()), (WatchState::Failed, false, 1));
 }

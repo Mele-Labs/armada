@@ -308,6 +308,12 @@ where
     /// notice it owes. **An ended watch keeps none**, so a run that finishes after a Stop changes
     /// nothing.
     pub(crate) async fn watch_read(self: &Arc<Self>, id: &str, taken: KeptWatchTaken) {
+        self.watch_read_ending(id, taken, false).await;
+    }
+
+    /// `watch_read`, and with `last` the watch ends on it as it reads: a terminal watch whose
+    /// terminal is gone has nothing left to hear.
+    pub(crate) async fn watch_read_ending(self: &Arc<Self>, id: &str, taken: KeptWatchTaken, last: bool) {
         let now = self.now();
         let job = {
             let mut store = self.store().lock().await;
@@ -323,7 +329,10 @@ where
                 })
                 .last
                 {
-                    watch.read(reading);
+                    let state = watch.read(reading);
+                    if last {
+                        watch.end(state);
+                    }
                 }
             }
             let broken_run = 1 + kept

@@ -79,27 +79,27 @@ where
         };
         let Some(mut heard) = self.session_runs().shell_heard(&kept.watch.session_id) else {
             let says = String::from("The Job's terminal is not open. type_in_terminal opens it.");
-            return self.watch_read(&id, read(ReadingState::Failed, says)).await;
+            return self.watch_read_ending(&id, read(ReadingState::Failed, says), true).await;
         };
         let mut pending = String::new();
-        let taken = loop {
+        let (taken, last) = loop {
             tokio::select! {
                 _ = &mut stopped => return,
                 event = heard.recv() => match event {
                     Ok(SessionRunEvent::Output(chunk)) => {
                         if let Some(line) = matched(&mut pending, &chunk, &wanted) {
                             let line: String = line.trim().chars().take(QUOTED).collect();
-                            break read(ReadingState::Passed, format!("The terminal printed \"{line}\"."));
+                            break (read(ReadingState::Passed, format!("The terminal printed \"{line}\".")), false);
                         }
                     }
                     // A listener that fell behind reads on, as a viewer does.
                     Err(RecvError::Lagged(_)) => {}
                     Ok(SessionRunEvent::Exited(_)) | Err(RecvError::Closed) => {
-                        break read(ReadingState::Failed, format!("The Job's terminal ended before it printed {text}."));
+                        break (read(ReadingState::Failed, format!("The Job's terminal ended before it printed {text}.")), true);
                     }
                 },
             }
         };
-        self.watch_read(&id, taken).await;
+        self.watch_read_ending(&id, taken, last).await;
     }
 }
