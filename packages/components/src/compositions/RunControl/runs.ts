@@ -76,16 +76,68 @@ export type RunProcess = {
   /** Where a browser run is opened. Absent until the process is ready, and for a desktop app. */
   url?: string;
   log: readonly string[];
+  /** Where it runs and what, as it was saved, for a brief about it. */
+  folder?: string;
+  command?: string;
+  /** The code it exited with, once it has. */
+  code?: number;
+  /** The file its whole output is written to. */
+  logFile?: string;
 };
+
+/** A process that failed, or exited on its own with a code other than 0. */
+export const brokeOff = (one: Pick<RunProcess, "phase" | "code">): boolean => one.phase === "failed" || (one.phase === "exited" && one.code !== undefined && one.code !== 0);
 
 /** The checkout a run is on: the repository's main, or the bay a Job holds. */
 export type RunCheckout = { kind: "main"; branch: string } | { kind: "job"; title: string; branch: string; bay: number };
 
 /** A setup Command as it ran on this checkout: `waiting` for its turn, `setting-up`, `ready` once it is done, or `failed` with its exit code. */
-export type RunSetupStep = RunSetupSpec & { phase: RunPhase; code?: number };
+export type RunSetupStep = RunSetupSpec & {
+  phase: RunPhase;
+  code?: number;
+  /** The file its whole output is written to. */
+  logFile?: string;
+};
 
 /** The setup a run ran before its processes, and what the Commands wrote, one after another. */
 export type RunSetup = { steps: readonly RunSetupStep[]; log: readonly string[] };
+
+/** How many of the last lines of output a Fix with a Job brief carries; the log files hold the rest. */
+export const BRIEF_LINES = 40;
+
+/**
+ * What Fix with a Job starts a Job with when a setup Command or a process broke off: where the run is, what failed with its folder, command and
+ * exit code, the last lines of its output, and the file of every log the run wrote, so the Job reads them whole. Facts only.
+ */
+export function failureBrief({ repository, app, failed }: { repository: string; app: RunningApp; failed: { kind: "setup"; step: RunSetupStep } | { kind: "process"; process: RunProcess } }): string {
+  const checkout = app.checkout.kind === "main" ? "main" : `the Job ${app.checkout.title}, branch ${app.checkout.branch}, bay ${app.checkout.bay}`;
+  const what = failed.kind === "setup" ? `setup Command ${failed.step.name}` : `process ${failed.process.name}`;
+  const folder = failed.kind === "setup" ? failed.step.folder : failed.process.folder;
+  const command = failed.kind === "setup" ? failed.step.command : failed.process.command;
+  const code = failed.kind === "setup" ? failed.step.code : failed.process.code;
+  const output = (failed.kind === "setup" ? (app.setup?.log ?? []) : failed.process.log).slice(-BRIEF_LINES);
+  const files = [
+    ...(app.setup?.steps ?? []).flatMap((one) => (one.logFile === undefined ? [] : [`- setup, ${one.name}: ${one.logFile}`])),
+    ...app.processes.flatMap((one) => (one.logFile === undefined ? [] : [`- ${one.name}: ${one.logFile}`])),
+  ];
+  return [
+    `Make ${app.run === repository ? `${repository}'s run` : `the ${repository} run ${app.run}`} start on ${checkout}: ${what} exits${code === undefined ? "" : ` with code ${code}`}.`,
+    "",
+    `Repository: ${repository}`,
+    `Checkout: ${checkout}`,
+    `Run: ${app.run}`,
+    `Failed: ${what}`,
+    ...(folder === undefined ? [] : [`Folder: ${folder}`]),
+    ...(command === undefined ? [] : [`Command: ${command}`]),
+    ...(code === undefined ? [] : [`Exit code: ${code}`]),
+    "",
+    `Last ${output.length} lines of its output:`,
+    "```",
+    ...output,
+    "```",
+    ...(files.length === 0 ? [] : ["", "Log files:", ...files]),
+  ].join("\n");
+}
 
 /** A run that is starting or running now. */
 export type RunningApp = {

@@ -47,11 +47,12 @@ export function RunPane({ id, props }: { id: string; props: CockpitProps }) {
       </PaneHead>
       <RunningPanel
         app={app}
+        repository={where ?? app.repository}
         onOpen={props.onOpenLink}
         onFix={(brief) => (dispatching?.choose("session"), dispatching?.openSheet(brief, app.repository))}
         onPin={(link) => source.pin(app.id, link.to, link.port)}
         onUnpin={(process) => source.pin(app.id, process, undefined)}
-        onRestart={() => source.restart(app.id)}
+        onTryAgain={() => source.restart(app.id)}
       />
     </section>
   );

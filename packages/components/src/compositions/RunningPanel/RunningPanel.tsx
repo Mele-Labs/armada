@@ -6,7 +6,7 @@ import { TabPanel, Tabs } from "../../primitives/Tabs/Tabs";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { ConsoleOutput } from "../ConsoleOutput/ConsoleOutput";
 import { RunPhaseMark, RunWindowMark } from "../RunControl/RunPhaseMark";
-import { SETUP_SAID, linkBrief } from "../RunControl/runs";
+import { SETUP_SAID, brokeOff, failureBrief, linkBrief } from "../RunControl/runs";
 import type { RunCheckout, RunLink, RunningApp } from "../RunControl/runs";
 import { RunLinkLine, RunLinkMark, RunPinned } from "../RunLinkLine/RunLinkLine";
 
@@ -61,25 +61,29 @@ export function RunActs({ onRestart, onStop, stoppable = true }: { onRestart: ()
  * browser run has Open, and a process with no port leaves the column empty. **A link found** (a process that expects another on a fixed port it is not
  * on) puts its mark on that process's row and, under the rows, the fact with Fix with a Job and Pin the port. A process whose port is pinned shows the pin,
  * and where `onUnpin` is given a press on it undoes the pin. **A checkout that needed setup** lists its setup Commands above the processes in the same
- * columns, setup's output under a tab of its own before the processes', and the processes wait until it ends. A Command that failed stops the run:
- * the line under the rows names it with Restart.
+ * columns, setup's output under a tab of its own before the processes', and the processes wait until it ends. **A Command that failed stops the run**
+ * and says its exit code on its row, with Try again and Fix with a Job in an act column every row then keeps; a process that broke off has Fix with a Job
+ * there too. Fix with a Job hands `onFix` a brief with what failed, its last lines and every log file.
  */
 export function RunningPanel({
   app,
+  repository,
   onOpen,
   onFix,
   onPin,
   onUnpin,
-  onRestart,
+  onTryAgain,
 }: {
   app: RunningApp;
+  /** The repository the run is of, as a Fix with a Job brief names it. */
+  repository?: string;
   onOpen: (url: string) => void;
   /** Fix with a Job, with the brief for it. */
   onFix?: (brief: string) => void;
   onPin?: (link: RunLink) => void;
   onUnpin?: (process: string) => void;
-  /** Restart, from the line that names a failed setup Command. */
-  onRestart?: () => void;
+  /** Try again, on a failed setup Command's row: setup again from that Command, then the processes. */
+  onTryAgain?: () => void;
 }) {
   const setup = app.setup;
   const settingUp = setup !== undefined && setup.steps.some((one) => one.phase !== "ready");
@@ -87,6 +91,10 @@ export function RunningPanel({
   const log =
     setup !== undefined && shown === SETUP_TAB ? { id: SETUP_TAB, name: "Setup", log: setup.log } : (app.processes.find((one) => one.id === shown) ?? app.processes[0]);
   const failed = setup?.steps.find((one) => one.phase === "failed");
+  // An act column is drawn on every row once any row has acts, so they line up; a run with none keeps its five columns.
+  const acting = onFix !== undefined && (failed !== undefined || app.processes.some(brokeOff));
+  const fix = (brief: Parameters<typeof failureBrief>[0]["failed"]) => onFix?.(failureBrief({ repository: repository ?? app.run, app, failed: brief }));
+  const exit = (code: number | undefined) => (code === undefined ? null : <span className="armada-running__exit">exited with code {code}</span>);
   const tail = useRef<HTMLDivElement>(null);
   const [following, setFollowing] = useState(true);
   // A log that is being read goes on following its end until it is scrolled up from there.
@@ -100,7 +108,7 @@ export function RunningPanel({
     return from === undefined || to === undefined ? [] : [{ link, from, to }];
   });
   return (
-    <div className="armada-running">
+    <div className="armada-running" data-acts={acting ? "" : undefined}>
       <RunCheckoutFact checkout={app.checkout} />
       {setup === undefined ? null : (
         <>
@@ -109,31 +117,32 @@ export function RunningPanel({
             {setup.steps.map((one) => (
               <li key={one.id} className="armada-running__row" aria-label={one.name}>
                 <RunPhaseMark phase={one.phase} names={SETUP_SAID} />
-                <span className="armada-running__name">{one.name}</span>
+                <span className="armada-running__name">
+                  {one.name}
+                  {one.phase === "failed" ? exit(one.code) : null}
+                </span>
                 <span />
                 <span />
                 <span />
+                {acting ? (
+                  <span className="armada-running__acts">
+                    {one.phase !== "failed" ? null : (
+                      <>
+                        {onTryAgain === undefined ? null : (
+                          <Button variant="secondary" size="sm" onClick={onTryAgain}>
+                            Try again
+                          </Button>
+                        )}
+                        <Button variant="secondary" size="sm" onClick={() => fix({ kind: "setup", step: one })}>
+                          Fix with a Job
+                        </Button>
+                      </>
+                    )}
+                  </span>
+                ) : null}
               </li>
             ))}
           </ul>
-          {failed === undefined ? null : (
-            <div className="armada-running__failed" role="group" aria-label="Setup failed">
-              <p className="armada-running__failed-fact">
-                <code>{failed.command}</code>
-                {failed.folder === "." ? null : (
-                  <>
-                    {" "}in <span className="armada-running__failed-name">{failed.folder}</span>
-                  </>
-                )}{" "}
-                exited with code <code>{failed.code ?? 1}</code>
-              </p>
-              {onRestart === undefined ? null : (
-                <Button variant="secondary" size="sm" onClick={onRestart}>
-                  Restart
-                </Button>
-              )}
-            </div>
-          )}
           <h3 className="armada-running__caption">Processes</h3>
         </>
       )}
@@ -141,7 +150,10 @@ export function RunningPanel({
         {app.processes.map((one) => (
           <li key={one.id} className="armada-running__row" aria-label={one.name}>
             <RunPhaseMark phase={one.phase} />
-            <span className="armada-running__name">{one.name}</span>
+            <span className="armada-running__name">
+              {one.name}
+              {brokeOff(one) ? exit(one.code) : null}
+            </span>
             <span className="armada-running__link">
               {links
                 .filter((found) => found.from.id === one.id)
@@ -167,6 +179,15 @@ export function RunningPanel({
                 </Tooltip>
               )}
             </span>
+            {acting ? (
+              <span className="armada-running__acts">
+                {brokeOff(one) ? (
+                  <Button variant="secondary" size="sm" onClick={() => fix({ kind: "process", process: one })}>
+                    Fix with a Job
+                  </Button>
+                ) : null}
+              </span>
+            ) : null}
           </li>
         ))}
       </ul>

@@ -73,6 +73,13 @@ function setupLines(spec: RunSetupSpec, failing: boolean): { lines: readonly str
   return { lines: [head], code: failing ? 1 : 0 };
 }
 
+/** Where Fleet writes a run's logs on this Mac: the repository, then the checkout, then setup's Commands and the processes by name. */
+function logFile(repository: string, checkout: RunTarget["checkout"], kind: "setup" | "process", name: string): string {
+  const where = checkout.kind === "main" ? "main" : `bay-${checkout.bay}`;
+  const file = name.replace(/^\.+/, "").replace(/[^A-Za-z0-9]+/g, "-").toLowerCase() || "log";
+  return `~/Library/Application Support/Armada/runs/${repository.split("/").pop()}/${where}/${kind === "setup" ? "setup/" : ""}${file}.log`;
+}
+
 export function createMockRuns(seed: RunsSeed): RunsSource {
   let state: RunsState = { saved: seed.saved, apps: [] };
   const listeners = new Set<() => void>();
@@ -141,6 +148,8 @@ export function createMockRuns(seed: RunsSeed): RunsSource {
     const write = (line: string) => change(id, (one) => (one.setup === undefined ? one : { ...one, setup: { ...one.setup, log: [...one.setup.log, line] } }));
     let at = 0;
     for (const [n, spec] of steps.entries()) {
+      // A Command that finished on this checkout is not run again.
+      if (spec.phase === "ready") continue;
       const failing = !failedOnce && seed.failsOnce === spec.id;
       const { lines, code } = setupLines(spec, failing);
       const begins = at;
@@ -190,11 +199,11 @@ export function createMockRuns(seed: RunsSeed): RunsSource {
       repository: target.repository,
       ...(target.job === undefined ? {} : { job: target.job }),
       checkout: target.checkout,
-      ...(needs ? { setup: { steps: setup.map((spec) => ({ ...spec, phase: "waiting" as const })), log: [] } } : {}),
+      ...(needs ? { setup: { steps: setup.map((spec) => ({ ...spec, phase: "waiting" as const, logFile: logFile(target.repository, target.checkout, "setup", spec.name) })), log: [] } } : {}),
       links: (run.links ?? []).filter((link) => unmet(link, run.processes)),
       processes: run.processes.map((spec) => {
         const port = ports.get(spec.id);
-        return { id: spec.id, name: spec.name, ...(port === undefined ? {} : { port }), ...(spec.pin === undefined ? {} : { pinned: true }), phase: needs ? ("waiting" as const) : ("starting" as const), log: needs ? [] : startLines(spec, port) };
+        return { id: spec.id, name: spec.name, folder: spec.folder, command: spec.command, logFile: logFile(target.repository, target.checkout, "process", spec.name), ...(port === undefined ? {} : { port }), ...(spec.pin === undefined ? {} : { pinned: true }), phase: needs ? ("waiting" as const) : ("starting" as const), log: needs ? [] : startLines(spec, port) };
       }),
     };
     const saved = state.saved[target.repository];
@@ -254,11 +263,11 @@ export function createMockRuns(seed: RunsSeed): RunsSource {
       const app = state.apps.find((one) => one.id === id);
       if (of === undefined || app === undefined) return;
       clear(id);
-      // A checkout setup has not finished on sets up again, its Commands from the first, before the processes.
+      // A checkout setup has not finished on sets up again from the Command that did not finish, before the processes.
       if (app.setup !== undefined && !setUp.has(checkoutKey(app))) {
         change(id, (one) => ({
           ...one,
-          setup: { steps: one.setup!.steps.map(({ code: _code, ...step }) => ({ ...step, phase: "waiting" as const })), log: [...one.setup!.log, "restarting"] },
+          setup: { steps: one.setup!.steps.map(({ code: _code, ...step }) => (step.phase === "ready" ? step : { ...step, phase: "waiting" as const })), log: [...one.setup!.log, "restarting"] },
           processes: one.processes.map((p) => ({ ...p, phase: "waiting" as const })),
         }));
         setUpThen(id, app.kind, of);
