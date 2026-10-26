@@ -74,6 +74,7 @@ async fn a_job_over_a_limit_is_told_once_and_the_telling_is_kept() {
             request: None,
             after: None,
             held: false,
+            project_rows: Vec::new(),
         })
         .await
         .expect("started")

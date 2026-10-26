@@ -60,6 +60,7 @@ where
                 request: None,
                 after: None,
                 held: false,
+                project_rows: Vec::new(),
             })
             .await?;
         let id = record.id.as_str().to_string();
