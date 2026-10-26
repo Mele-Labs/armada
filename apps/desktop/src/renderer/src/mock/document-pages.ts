@@ -100,6 +100,18 @@ ${r.afterTable}
 <section>
   <h2>What was not measured</h2>
   <p>${r.notMeasured}</p>
+  <ul>
+    <li>Leases on a machine running more than four Jobs</li>
+    <li>Jobs whose Checks run in a container
+      <ul><li>A container Check that pulls its image first</li></ul>
+    </li>
+  </ul>
+  <p>The next run, in order:</p>
+  <ol>
+    <li>Log each Check's start and end in the pool log</li>
+    <li>Repeat the four days with the clock paused while a Check runs</li>
+    <li>Compare the expiries</li>
+  </ol>
 </section>
 </body>
 </html>
