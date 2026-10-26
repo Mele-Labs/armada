@@ -1,0 +1,10 @@
+[operations.link_project_issue]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Link an issue at the end of a project"
+notes = """
+`POST /projects/:repository/:project/issues`, body `LinkProjectIssue`: `issue`, the tracker's reference as `IssueReference` reads it (`7` or `#7`, `ABC-12`, `armada-3fz`), kept as `7`, `ABC-12`, `armada-3fz`. Only the reference is kept. The tracker is not asked whether the issue exists. `docs/practices/protocol/projects.md`. Answers `Projects` as `list_projects` does, and publishes it as `projects.changed`.
+
+A 422 `fleet.project_issue_unreadable` for anything `IssueReference` refuses. A 404 `fleet.no_such_project` for a `project` the repository has none of, and a 422 for a repository Fleet does not serve.
+"""

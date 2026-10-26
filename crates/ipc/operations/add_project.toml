@@ -1,0 +1,10 @@
+[operations.add_project]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Start a project at the end of a repository's list"
+notes = """
+`POST /projects/:repository`, body `NameProject`: `name`, trimmed. `docs/practices/protocol/projects.md`. Answers `Projects` as `list_projects` does, and publishes it as `projects.changed`.
+
+A 422 `fleet.project_blank` for a blank name, and a 422 for a repository Fleet does not serve.
+"""

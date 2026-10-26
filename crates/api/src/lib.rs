@@ -78,6 +78,8 @@ mod placed;
 /// A person's Bridge preferences, read and saved. `limiting`'s shape one
 /// table over.
 mod preferring;
+/// A repository's projects: tasks a person wrote and issues he linked.
+mod projects;
 mod pull_request_panel;
 mod pull_requests;
 mod queries;
@@ -134,7 +136,7 @@ pub use acting::{asked_by, asking, carrying, via, BRIDGE, CALLER_HEADER, PHONE};
 pub use daemon::{
     offerable, Accounts, Admitting, AdversarialReviews, Authoring, Commands, Conversations, Daemon,
     Autopilots, HelmReach, HostedSessions, Issues, Logbook, Teaching, Mods, Clashing,
-    PullRequestPanel, PullRequests, Queries, Redirector, Refusal, Rehearsing, Requests, Retros, Sessions, Settings, SharedHome, Steerer,
+    Projects, PullRequestPanel, PullRequests, Queries, Redirector, Refusal, Rehearsing, Requests, Retros, Sessions, Settings, SharedHome, Steerer,
     ShownFile, StoredFile, Studios, Watches,
 };
 pub use door::{door_within, door_without_a_manifest, offered, Scope, DOOR_PATH};

@@ -36,6 +36,7 @@ mod issues;
 mod logbook;
 mod teaching;
 mod mods;
+mod projects;
 mod pull_request_panel;
 mod pull_requests;
 mod queries;
@@ -60,6 +61,7 @@ pub use issues::{Autopilots, Issues};
 pub use logbook::Logbook;
 pub use teaching::Teaching;
 pub use mods::Mods;
+pub use projects::Projects;
 pub use pull_request_panel::PullRequestPanel;
 pub use pull_requests::PullRequests;
 pub use queries::Queries;
@@ -109,7 +111,7 @@ use ipc::WireError;
 /// is a sixth and [`Retros`] a seventh, each for a reason its own module gives.
 /// [`Authoring`] is one more, for [`Retros`]' reason, and [`Sessions`] another,
 /// [`HostedSessions`] one more beside it, and [`Clashing`] and [`PullRequests`] two
-/// more, [`Rehearsing`] split out of [`Commands`], [`Mods`] and [`Settings`], and [`Accounts`] and [`Requests`] beside them, [`Logbook`] with them, [`Teaching`] beside it, [`Watches`], [`SharedHome`] beside [`Accounts`], and [`AdversarialReviews`] beside [`Sessions`].
+/// more, [`Rehearsing`] split out of [`Commands`], [`Mods`] and [`Settings`], and [`Accounts`] and [`Requests`] beside them, [`Logbook`] with them, [`Teaching`] beside it, [`Watches`], [`SharedHome`] beside [`Accounts`], and [`AdversarialReviews`] beside [`Sessions`], and [`Projects`] beside [`Issues`].
 pub trait Daemon:
     Queries
     + Commands
@@ -126,6 +128,7 @@ pub trait Daemon:
     + PullRequests
     + PullRequestPanel
     + Issues
+    + Projects
     + Autopilots
     + Rehearsing
     + Mods
@@ -154,6 +157,7 @@ impl<
             + PullRequests
             + PullRequestPanel
             + Issues
+            + Projects
             + Autopilots
             + Rehearsing
             + Mods

@@ -1,0 +1,10 @@
+[operations.move_project_row]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Move a row to a place in its project"
+notes = """
+`POST /projects/:repository/:project/rows/:row/move`, body `MoveProjectRow`: `position`, counted from 0 among the project's rows, where the row is put; past the end is the end. A task or an issue row alike, within its project. `docs/practices/protocol/projects.md`. Answers `Projects` as `list_projects` does, and publishes it as `projects.changed`.
+
+A 404 `fleet.no_such_project` for a `project` the repository has none of, a 404 `fleet.no_such_project_row` for a `row` the project has none of, and a 422 for a repository Fleet does not serve.
+"""
