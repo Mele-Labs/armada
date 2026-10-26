@@ -13,7 +13,7 @@ use core_model::{AutoMerge, PrMode, ReviewGate};
 use serde_yaml_ng::{Mapping, Number, Value};
 
 use super::drafts::{
-    links_node, NewCheck, NewCommand, NewEvidence, NewLink, NewNarrowing, NewPort,
+    links_node, NewCheck, NewCommand, NewEvidence, NewLink, NewNarrowing, NewPort, NewRun,
 };
 use super::{NotAmended, Unplaceable};
 
@@ -37,6 +37,11 @@ pub enum Edit {
     Port {
         name: String,
         edit: PortEdit,
+    },
+    /// `runs.<name>`: the servers started together.
+    Run {
+        name: String,
+        edit: RunEdit,
     },
     /// `auto_merge`. `None` removes the key, which means `never`.
     AutoMerge(Option<AutoMerge>),
@@ -91,6 +96,15 @@ pub enum CommandEdit {
     Serve(Option<String>),
     Ready(Option<String>),
     Links(Vec<NewLink>),
+    /// The folder a server starts in. `None` removes the key, which is the root.
+    Dir(Option<String>),
+}
+
+/// An edit to one run.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RunEdit {
+    Add(NewRun),
+    Remove,
 }
 
 /// An edit to one port.
@@ -100,6 +114,8 @@ pub enum PortEdit {
     Remove,
     Container(Option<u32>),
     Env(Option<String>),
+    /// The number a person pinned it to. `None` gives it back to leasing.
+    Fixed(Option<u16>),
 }
 
 /// An edit to `evidence:`.
@@ -189,6 +205,7 @@ impl Edit {
             Edit::Check { name, .. } => format!("checks.{name}"),
             Edit::Command { name, .. } => format!("commands.{name}"),
             Edit::Port { name, .. } => format!("ports.{name}"),
+            Edit::Run { name, .. } => format!("runs.{name}"),
             Edit::AutoMerge(_) => "auto_merge".to_string(),
             Edit::ReviewGate(_) => "review_gate".to_string(),
             Edit::CostCapMicrosPerJob(_) => "drone.cost_cap_micros_per_job".to_string(),
@@ -228,6 +245,7 @@ impl Edit {
             Edit::Check { name, edit } => check(doc, name, edit),
             Edit::Command { name, edit } => command(doc, name, edit),
             Edit::Port { name, edit } => port(doc, name, edit),
+            Edit::Run { name, edit } => run(doc, name, edit),
             Edit::AutoMerge(word) => Ok(vec![policy(
                 "auto_merge",
                 word.as_ref().map(AutoMerge::as_written),
@@ -314,6 +332,7 @@ fn command(doc: &Value, name: &str, edit: &CommandEdit) -> Result<Vec<Op>, NotAm
                 CommandEdit::Run(run) => vec![optional(&at("run"), run.as_deref())],
                 CommandEdit::Serve(serve) => vec![optional(&at("serve"), serve.as_deref())],
                 CommandEdit::Ready(ready) => vec![optional(&at("ready"), ready.as_deref())],
+                CommandEdit::Dir(dir) => vec![optional(&at("dir"), dir.as_deref())],
                 CommandEdit::Links(links) => vec![match links.is_empty() {
                     true => Op::remove(&at("links")),
                     false => Op::set(&at("links"), links_node(links)),
@@ -330,6 +349,16 @@ fn command(doc: &Value, name: &str, edit: &CommandEdit) -> Result<Vec<Op>, NotAm
                 CommandEdit::Add(_) | CommandEdit::Remove => unreachable!("matched above"),
             }
         }
+    })
+}
+
+fn run(doc: &Value, name: &str, edit: &RunEdit) -> Result<Vec<Op>, NotAmended> {
+    Ok(match edit {
+        RunEdit::Add(new) => {
+            declared(doc, "runs", name, false)?;
+            vec![Op::set(&["runs", name], new.node())]
+        }
+        RunEdit::Remove => vec![removal(doc, "runs", name)?],
     })
 }
 
@@ -368,6 +397,10 @@ fn port(doc: &Value, name: &str, edit: &PortEdit) -> Result<Vec<Op>, NotAmended>
         PortEdit::Env(env) => {
             declared(doc, "ports", name, true)?;
             vec![port_key(doc, name, "env", env.as_deref().map(text))]
+        }
+        PortEdit::Fixed(fixed) => {
+            declared(doc, "ports", name, true)?;
+            vec![port_key(doc, name, "fixed", fixed.map(|port| number(u32::from(port))))]
         }
     })
 }

@@ -1,0 +1,10 @@
+[operations.unpin_app_run_port]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Give a pinned process back to leasing"
+notes = """
+`POST /app_runs/unpin?manifest_id=`, body `UnpinAppRunPort`: `{process, name?, job_id?}`. Answers with the `AppRun` as it stands, 200.
+
+Removes `fixed` from the process's port in Kit's copy, so it is leased a number per checkout again the next time it starts. **The links remembered to this process end with it**: a sibling that hardcodes its old number is a link again only when a file or a refused connection shows it. A process that is not pinned answers as it stands.
+"""

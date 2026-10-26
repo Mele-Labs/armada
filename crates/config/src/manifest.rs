@@ -4,6 +4,7 @@
 //! `expect_exit_code`, `when`, `requires`, `narrow` and `places` under
 //! `checks.<name>`;
 //! `run`, `destructive`, `serve`, `ready` and `links` under `commands.<name>`;
+//! `dir` too, where `serve` is; `label` and `commands` under `runs.<name>` ([`runs`]);
 //! `container` and `env` under `ports.<name>`, a fourth registry;
 //! `setup.requires`, `setup.seed` ([`seed`]) and `setup.worktrees`; the three keys [`drone`] reads, the one section here that
 //! is a dial rather than a registry; and the two policies a
@@ -37,6 +38,7 @@ mod merge_by;
 mod pr_mode;
 mod referring;
 mod runner;
+mod runs;
 mod seed;
 mod serving;
 mod workspace;
@@ -50,6 +52,7 @@ pub use declared::{Check, Command, Port, Preparation};
 pub use harness::Harness;
 pub use kit::{kit_copy_fault, manifest_run_lines, FromKit, KitCopy, KitFile, KitKind, KitName, KitRead};
 pub use merge_by::MergeBy;
+pub use runs::AppRun;
 pub use seed::{BadSeedPath, Seed};
 pub use ci_gate::DEFAULT_CI_GATE;
 pub use serving::{Link, Server};
@@ -84,6 +87,8 @@ const TOP_LEVEL: &[&str] = &[
     "checks",
     "commands",
     "ports",
+    // The ways the app is started together: [`runs`].
+    "runs",
     "evidence",
     // The server a person walks a Job's work on: [`Manifest::walk`].
     "walk",
@@ -136,9 +141,9 @@ const NARROW_KEYS: &[&str] = &["run", "each", "from", "under", "except", "outsid
 /// The keys read inside `checks.<name>.one_test`. #999.
 const ONE_TEST_KEYS: &[&str] = &["run"];
 /// The keys M1 reads inside `commands.<name>`.
-const COMMAND_KEYS: &[&str] = &["run", "destructive", "serve", "ready", "links"];
+const COMMAND_KEYS: &[&str] = &["run", "destructive", "serve", "ready", "links", "dir"];
 /// The keys M1 reads inside `ports.<name>`.
-const PORT_KEYS: &[&str] = &["container", "env"];
+const PORT_KEYS: &[&str] = &["container", "env", "fixed"];
 /// The keys M1 reads inside `setup`.
 pub(super) const SETUP_KEYS: &[&str] = &[
     "requires",
@@ -188,6 +193,10 @@ pub struct Manifest {
     /// The Commands declaring `serve`, apart from `commands` so nothing that
     /// waits on a Command can be handed one — see [`serving`].
     servers: BTreeMap<String, Server>,
+    /// The servers started together, by name. See [`runs`].
+    runs: BTreeMap<String, AppRun>,
+    /// Every name in `runs`, in the order `armada.yml` wrote them.
+    runs_as_written: Vec<String>,
     /// The fourth registry. **Shares no namespace check with Checks or
     /// Commands** — nothing in the concept page says a port name may not
     /// repeat one, and `${port.NAME}` is its own vocabulary in a Command
@@ -365,6 +374,16 @@ impl Manifest {
     /// one. Always a name [`server`](Manifest::server) answers.
     pub fn walk(&self) -> Option<&str> {
         self.walk.as_deref()
+    }
+
+    /// A run, by name: the servers started together. See [`runs`].
+    pub fn app_run(&self, name: &str) -> Option<&AppRun> {
+        self.runs.get(name)
+    }
+
+    /// Every run, in the order the file wrote them.
+    pub fn app_run_names(&self) -> &[String] {
+        &self.runs_as_written
     }
 
     /// Every Command declaring `serve`, sorted.
@@ -567,6 +586,7 @@ fn read(path: &Path, root: &Value, placed: &Placed, out: &mut Vec<Refusal>) -> O
         };
     }
     let serves: BTreeSet<String> = servers.keys().cloned().collect();
+    let (runs, runs_as_written) = runs::read(&mut top, &serves, &commands, out);
     // Independent of both registries above: a port is a fourth thing this
     // file declares, not a property of a Check or a Command, and nothing
     // downstream resolves one against `checks` or `commands`.
@@ -669,6 +689,8 @@ fn read(path: &Path, root: &Value, placed: &Placed, out: &mut Vec<Refusal>) -> O
         checks_as_written,
         commands,
         servers,
+        runs,
+        runs_as_written,
         ports,
         prepared_by,
         seed,
@@ -1022,6 +1044,21 @@ fn covers(at: &str, value: &Value, out: &mut Vec<Refusal>) -> Result<Option<Cove
     }
 }
 
+/// A port a person pinned a process to: one Fleet could hand out, so not below 1024.
+fn fixed_port(at: &str, value: &Value, out: &mut Vec<Refusal>) -> Option<u16> {
+    let number = yaml::positive(at, value, out)?;
+    match u16::try_from(number).ok().filter(|port| *port >= 1024) {
+        Some(port) => Some(port),
+        None => {
+            out.push(Refusal::new(
+                at,
+                Fault::WrongType { wanted: "a port from 1024 to 65535", found: "a number outside that range" },
+            ));
+            None
+        }
+    }
+}
+
 fn port_entry(
     at: &str,
     value: &Value,
@@ -1035,6 +1072,7 @@ fn port_entry(
     let env = table
         .optional("env")
         .and_then(|value| yaml::text(&table.at("env"), value, out));
+    let fixed = table.optional("fixed").and_then(|value| fixed_port(&table.at("fixed"), value, out));
     table.close(known, out);
-    Some(Port { container, env })
+    Some(Port { container, env, fixed })
 }
