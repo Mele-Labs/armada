@@ -57,7 +57,8 @@ export function RunConfirm({
       open={open}
       title={`Run ${repository}`}
       tone="neutral"
-      width="wide"
+      width="medium"
+      placement="high"
       confirmLabel="Save and run"
       confirmDisabled={!ready}
       onConfirm={() => {

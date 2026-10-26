@@ -23,6 +23,10 @@
   --armada-dialog-width: var(--w-dialog-wide);
 }
 
+.armada-dialog[data-width="medium"] {
+  --armada-dialog-width: calc((var(--w-dialog) + var(--w-dialog-wide)) / 2);
+}
+
 /* --scrim carries the value now. It was mixed here and in Sheet, which is
  * two copies of one ground. */
 .armada-dialog-scrim {
@@ -35,6 +39,12 @@
   padding: var(--space-6);
   background: var(--scrim);
   animation: armada-dialog-scrim-in var(--duration-base) var(--ease);
+}
+
+/* Seated high: the form's footer sits in the upper half, clear of anything floating at the window's bottom corners. */
+.armada-dialog-scrim[data-placement="high"] {
+  align-items: flex-start;
+  padding-top: var(--space-12);
 }
 
 /* Only the start is named, so the end is whatever --scrim computes to. */

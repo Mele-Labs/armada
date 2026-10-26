@@ -41,7 +41,10 @@ export type DialogTone = "destructive" | "neutral";
  * and `wide` is the measure of one carrying machine findings, where a citation
  * wrapping mid-expression is the thing being read badly.
  */
-export type DialogWidth = "default" | "wide";
+export type DialogWidth = "default" | "medium" | "wide";
+
+/** Where the layer stands in the window. `high` is for a form with its act in the footer, which a floating card at the window's corner must not cover. */
+export type DialogPlacement = "center" | "high";
 
 /**
  * What makes a dialog one that collects its own confirmation: a control a
@@ -78,6 +81,8 @@ export type DialogProps = {
   tone?: DialogTone;
   /** `wide` where the body carries findings rather than sentences. */
   width?: DialogWidth;
+  /** `high` seats the layer toward the top of the window, so its footer clears the bottom corners. */
+  placement?: DialogPlacement;
   /**
    * The action keeps its name through the flow: Kill here produces "Killed". **Absent, the body sends for itself** (a message
    * box with its own Send): the layer draws Cancel alone, binds no `Enter` and leaves focus to the body.
@@ -101,6 +106,7 @@ export function Dialog({
   field,
   tone = "destructive",
   width = "default",
+  placement = "center",
   confirmLabel,
   confirmDisabled = false,
   cancelLabel = "Cancel",
@@ -159,7 +165,7 @@ export function Dialog({
   const destructive = tone === "destructive";
 
   return (
-    <div ref={scrimmed} className="armada-dialog-scrim">
+    <div ref={scrimmed} className="armada-dialog-scrim" data-placement={placement}>
       <div
         ref={layer}
         className="armada-dialog"
