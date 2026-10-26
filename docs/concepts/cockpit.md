@@ -54,6 +54,8 @@ A drag or `←` `→` moves it, and a double click or `Home` puts the column bac
 The left column stops at 4.5 `--space-12` and the right at 4.75, and neither goes wider than leaves the stage 10 (480px), measured against the window and taken again when it resizes.
 The widths are kept in this browser as dragged (`armada.bridge.deck-columns`, `deck/columns.ts`), so a column dragged wide in a big window returns to that width when the window does.
 The deck has no narrow layout, so there is none to leave the handles out of.
+The gap between two panels of a column is a handle too, and their heights are kept as shares of the column (`deck/splits.tsx`).
+The foot of keys has no handle and is as tall as its keys, so a share kept from the older, taller foot cannot stretch it; a foot holding the Field still resizes.
 
 `Esc` returns the stage to what it was, and with nothing open it lets the cursor go, so no row is picked and the map holds no drone's card.
 A press on the list or the map away from a row or a drone lets go the same way.
