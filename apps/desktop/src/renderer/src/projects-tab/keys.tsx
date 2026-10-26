@@ -8,7 +8,7 @@ import { isPressed, pressedSlot } from "@armada/components";
 import { holdsText } from "@armada/screens/src/keys";
 import { popupIsOpen } from "@armada/screens/src/list-keyboard";
 
-import { useProjectsStore, type ProjectsStore } from "./store";
+import { allRows, useProjectsStore, type ProjectsStore } from "./store";
 
 const ZONES = [".projects-list", ".projects-pane"] as const;
 const zoneOf = (target: Element): (typeof ZONES)[number] | undefined => ZONES.find((one) => target.closest(one) !== null);
@@ -56,17 +56,28 @@ function press(event: KeyboardEvent, store: ProjectsStore, dispatchRow: (rowId: 
     event.stopPropagation();
   };
 
-  // The first Esc leaves a field, and the search and the name field close with it. The next one backs out a level.
+  // The first Esc leaves a field, and the field closes with it: a search, a subtask field, a title or a name being
+  // edited goes back as it was. Focus lands where the field was opened from. The next Esc backs out a level.
   if (holdsText(target)) {
     if (isPressed("close", event) && here !== undefined) {
       take();
       (target as HTMLElement).blur();
+      const card = target.closest<HTMLElement>(".projects-row")?.dataset.row;
       if (target.closest(".projects-link") !== null) store.linking(false);
       if (target.closest(".projects-add[data-sub]") !== null) store.subtasking(undefined);
+      if (target.closest(".projects-row__title") !== null) store.editing(undefined);
       if (target.closest(".projects-name") !== null) {
         store.name(undefined);
         return focusList();
       }
+      if (target.closest(".projects-rename") !== null) {
+        const renamed = snap.renaming;
+        store.renaming(undefined);
+        return void window.requestAnimationFrame(() => (renamed === undefined ? focusList() : document.querySelector<HTMLElement>(`.projects-item[data-project="${CSS.escape(renamed)}"]`)?.focus()));
+      }
+      const task = snap.linkingTask;
+      if (card !== undefined) return refocus(card);
+      if (target.closest(".projects-link") !== null && task !== undefined) return refocus(task);
       focusRows();
     }
     return;
@@ -151,6 +162,30 @@ function press(event: KeyboardEvent, store: ProjectsStore, dispatchRow: (rowId: 
       return next?.dataset.row === undefined ? undefined : refocus(next.dataset.row);
     }
     if (isPressed("projects_tick", event)) return take(), store.tick(rowId);
+    // Enter edits a task's title in place; an issue's is its tracker's.
+    if (isPressed("projects_edit", event) && target === row) {
+      if (open === undefined || allRows(open).find((one) => one.id === rowId)?.kind !== "task") return;
+      take();
+      return store.editing(rowId);
+    }
+    if (isPressed("projects_open_job", event)) {
+      const job = row.querySelector<HTMLElement>("[data-job]");
+      if (job === null) return;
+      take();
+      return job.click();
+    }
+    if (isPressed("projects_unlink_job", event)) {
+      if (row.querySelector("[data-job]") === null) return;
+      take();
+      return store.unlinkJob(rowId);
+    }
+    if (isPressed("projects_unlink_pull", event)) {
+      const pulls = row.querySelectorAll<HTMLElement>("[data-unlink-pull]");
+      const last = pulls[pulls.length - 1];
+      if (last === undefined) return;
+      take();
+      return last.click();
+    }
     if (isPressed("projects_mark_done", event)) {
       const done = row.querySelector<HTMLElement>("[data-mark-done]");
       if (done === null) return;
@@ -162,13 +197,6 @@ function press(event: KeyboardEvent, store: ProjectsStore, dispatchRow: (rowId: 
       take();
       return store.settle(rowId, false);
     }
-    // Enter and `o` open the Job holding the row, where one does.
-    if ((event.key === "Enter" || isPressed("open", event)) && target === row) {
-      const job = row.querySelector<HTMLElement>("[data-job]");
-      if (job === null) return;
-      take();
-      return job.click();
-    }
   }
 
   const slot = pressedSlot("move_focus", event);
@@ -176,6 +204,16 @@ function press(event: KeyboardEvent, store: ProjectsStore, dispatchRow: (rowId: 
   const by = slot === 0 || slot === 2 || event.key === "ArrowDown" ? 1 : -1;
 
   if (here === ".projects-list") {
+    const item = target.closest<HTMLElement>(".projects-item");
+    const project = item?.dataset.project;
+    if (project !== undefined && isPressed("projects_rename", event)) return take(), store.renaming(project);
+    if (project !== undefined && isPressed("projects_delete", event)) {
+      take();
+      const items = all(".projects-list .projects-item");
+      const next = items[items.indexOf(item!) + 1] ?? items[items.indexOf(item!) - 1];
+      store.removeProject(project);
+      return next?.focus();
+    }
     if (vertical) {
       take();
       return step(all(".projects-list .projects-item"), target, by);

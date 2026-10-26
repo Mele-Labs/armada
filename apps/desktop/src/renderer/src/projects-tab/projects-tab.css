@@ -71,8 +71,6 @@
 .projects-top { display: flex; flex: none; flex-direction: column; gap: var(--space-2); padding: var(--space-2) var(--space-3) var(--space-3); border-bottom: var(--border-width) solid var(--border-subtle); }
 .projects-add { display: flex; align-items: center; gap: var(--space-2); }
 .projects-add .armada-textarea-field { flex: 1 1 0; min-width: 0; }
-.projects-add[data-indented] { padding-inline-start: var(--space-8); }
-.projects-add__under { display: inline-flex; flex: none; color: var(--accent); }
 
 /* The right-hand columns, the same width on every card so nothing on one card stands where another card's act does. */
 .projects-rows {
@@ -92,7 +90,6 @@
 
 .projects-item-card { position: relative; display: flex; flex-direction: column; gap: var(--space-1); }
 .projects-subtasks { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: 0 0 0 var(--space-8); list-style: none; }
-.projects-subtasks__add { padding: var(--space-1) 0; }
 
 /* Drag: the card picked up is dimmed where it stood, and the accent line is where it would go down, as the Cockpit's list draws it. */
 .projects-rows[data-reordering],
@@ -179,6 +176,9 @@ button.projects-row__mark:hover { background: var(--bg-hover); }
 
 /* The first line's right-hand columns: the done ask, then the acts flush to the card's right padding. The Job is the second line. */
 .projects-row__ask { grid-column: 4; grid-row: 1; display: flex; justify-content: flex-end; gap: var(--space-1); }
+/* A task's subtask field, inside its card, set in where its subtasks stand. */
+.projects-row__subadd { grid-column: 3 / -1; grid-row: 3; }
+.projects-row__title .armada-textarea-field { flex: 1 1 0; min-width: 0; }
 .projects-row__holder { grid-column: 3 / -1; grid-row: 2; display: flex; flex-wrap: wrap; gap: var(--space-2); min-width: 0; }
 .projects-row__linked { display: inline-flex; align-items: center; gap: var(--space-1); min-width: 0; }
 .projects-row__linked .armada-pull-chip { width: auto; max-width: calc(var(--space-12) * 8); }

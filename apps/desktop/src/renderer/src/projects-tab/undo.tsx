@@ -1,4 +1,4 @@
-// The toast a deleted task or an unlinked issue leaves for a moment, with Undo: nothing on the tab asks before it goes.
+// The toast a deleted task or project, or an unlinked issue, leaves for a moment, with Undo: nothing on the tab asks before it goes.
 
 import { useEffect } from "react";
 import { Toast } from "@armada/components";
@@ -17,10 +17,10 @@ export function ProjectsUndo() {
     return () => window.clearTimeout(gone);
   }, [removed, store]);
   if (removed === undefined || store === undefined) return null;
-  const { row } = removed;
+  const said = removed.kind === "project" ? `Deleted ${removed.project.name}` : removed.row.kind === "issue" ? `Unlinked ${removed.row.reference}` : `Deleted ${removed.row.title}`;
   return (
     <Toast actionLabel="Undo" onAction={store.undo}>
-      {row.kind === "issue" ? `Unlinked ${row.reference}` : `Deleted ${row.title}`}
+      {said}
     </Toast>
   );
 }

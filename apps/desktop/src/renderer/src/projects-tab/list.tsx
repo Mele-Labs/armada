@@ -40,9 +40,13 @@ export function ProjectsList({ bands }: { bands: readonly Band[] }) {
                 .filter((one) => one.manifestId === band.manifestId)
                 .map((one) => (
                   <li key={one.id} className="deck-list__item">
-                    <button type="button" className="projects-item" data-selected={snap.open === one.id || undefined} aria-current={snap.open === one.id || undefined} onClick={() => store.open(one.id)}>
-                      {one.name}
-                    </button>
+                    {snap.renaming === one.id ? (
+                      <RenameProject id={one.id} name={one.name} />
+                    ) : (
+                      <button type="button" className="projects-item" data-project={one.id} data-selected={snap.open === one.id || undefined} aria-current={snap.open === one.id || undefined} onClick={() => store.open(one.id)}>
+                        {one.name}
+                      </button>
+                    )}
                   </li>
                 ))}
             </ul>
@@ -81,6 +85,38 @@ function NewProject({ bands }: { bands: readonly Band[] }) {
         onSelect={(id) => store.name(id)}
       />
     </span>
+  );
+}
+
+/** A project's name, edited in its place in the list. Enter keeps it; Esc leaves it as it was. */
+function RenameProject({ id, name }: { id: string; name: string }) {
+  const store = useProjectsStore()!;
+  const keep = `projects:rename:${id}`;
+  const [words, setWords] = useState(name);
+  return (
+    <form
+      className="projects-rename"
+      aria-label={`Rename ${name}`}
+      onSubmit={(event) => event.preventDefault()}
+    >
+      <Textarea
+        rows={1}
+        autoFocus
+        keep={keep}
+        aria-label="Project name"
+        value={words}
+        onChange={(event) => setWords(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+            event.preventDefault();
+            forgetKept(keep);
+            if (words.trim() === "") store.renaming(undefined);
+            else store.renameProject(id, words.trim());
+            window.requestAnimationFrame(() => document.querySelector<HTMLElement>(`.projects-item[data-project="${CSS.escape(id)}"]`)?.focus());
+          }
+        }}
+      />
+    </form>
   );
 }
 

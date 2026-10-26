@@ -690,7 +690,67 @@ shortcut = "A"
 scope = "projects"
 destructive = false
 confirms = false
-notes = "Puts up a field under the focused task's subtasks, where a subtask is written and Enter adds it. One level only: a subtask holds none, so the key does nothing on one. Tab in the field under the project's head does the same for the task at the top of the list."
+notes = "Puts up a field inside the focused task's card, where a subtask is written and Enter adds it; the field stays for the next, and Enter on it empty or Esc puts it away. One level only: a subtask holds none, so the key does nothing on one."
+
+[actions.projects_edit]
+kind = "Action"
+tier = "Contextual"
+verb = "Edit the title"
+icon = ""
+icon_absent = "undecided"
+shortcut = "Enter"
+scope = "projects"
+destructive = false
+confirms = false
+notes = "Edits the focused task's title in place, on its card. Enter keeps it and Esc leaves it as it was. An issue's title is its tracker's, so the key does nothing on one."
+
+[actions.projects_open_job]
+kind = "Action"
+tier = "Contextual"
+verb = "Open the Job"
+icon = ""
+icon_absent = "undecided"
+shortcut = "o"
+scope = "projects"
+destructive = false
+confirms = false
+notes = "Opens the Job holding the focused card, as a press on its chip does. The list's `o`, in the scope of the tab that has it."
+
+[actions.projects_unlink_job]
+kind = "Action"
+tier = "Contextual"
+verb = "Unlink the Job"
+icon = ""
+icon_absent = "undecided"
+shortcut = "u"
+scope = "projects"
+destructive = false
+confirms = false
+notes = "Lets the Job holding the focused task go, as the x on its chip does. The task goes back to open; the Job is not touched."
+
+[actions.projects_unlink_pull]
+kind = "Action"
+tier = "Contextual"
+verb = "Unlink the pull request"
+icon = ""
+icon_absent = "undecided"
+shortcut = "U"
+scope = "projects"
+destructive = false
+confirms = false
+notes = "Unlinks the pull request linked last to the focused task, as the x on its chip does."
+
+[actions.projects_rename]
+kind = "Action"
+tier = "Contextual"
+verb = "Rename the project"
+icon = ""
+icon_absent = "undecided"
+shortcut = "e"
+scope = "projects"
+destructive = false
+confirms = false
+notes = "Edits the focused project's name in its place in the list. Enter keeps it and Esc leaves it as it was."
 
 [actions.projects_link_task]
 kind = "Action"
@@ -707,14 +767,14 @@ notes = "Opens the same search for the focused task. An issue joins the task's c
 [actions.projects_delete]
 kind = "Action"
 tier = "Contextual"
-verb = "Delete or unlink the row"
+verb = "Delete or unlink"
 icon = ""
 icon_absent = "undecided"
 shortcut = "Backspace"
 scope = "projects"
 destructive = false
 confirms = false
-notes = "Deletes the focused task, or unlinks the focused issue, with no question. A toast offers Undo for a moment after. Not destructive: the issue stays in its tracker and Undo puts a task back where it stood."
+notes = "Deletes the focused task, or unlinks the focused issue, or in the list deletes the focused project, with no question. A toast offers Undo for a moment after. Not destructive: the issue stays in its tracker and Undo puts a task or a project back where it stood."
 
 [actions.projects_reorder]
 kind = "Action"
@@ -734,7 +794,7 @@ tier = "Contextual"
 verb = "Select the row"
 icon = ""
 icon_absent = "undecided"
-shortcut = "x"
+shortcut = "Space / x"
 scope = "projects"
 destructive = false
 confirms = false

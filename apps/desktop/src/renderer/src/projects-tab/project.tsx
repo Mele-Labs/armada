@@ -43,7 +43,7 @@ export function ProjectPane({ band, project, ...hosts }: Hosts & { band: Band | 
 
 function Pane({ band, project, onOpenSession, onOpenLink, onDispatch }: Hosts & { band: Band; project: Project }) {
   const store = useProjectsStore()!;
-  const { selected, linking, linkingTask, subtasking, look } = useProjects();
+  const { selected, linking, linkingTask, subtasking, editing, look } = useProjects();
   const sessions = useSessions();
   // What Dispatch sends: the rows selected, a parent with its subtasks, and a subtask on its own where its parent is not.
   const chosen = project.rows.flatMap((row): ProjectRow[] =>
@@ -63,6 +63,9 @@ function Pane({ band, project, onOpenSession, onOpenLink, onDispatch }: Hosts & 
         index={at + 1}
         look={look}
         sub={parent !== undefined}
+        project={project}
+        adding={subtasking === row.id}
+        editing={editing === row.id}
         state={rowState(row, sessions)}
         sessions={sessions}
         selected={selected.includes(row.id) || (parent !== undefined && selected.includes(parent.id))}
@@ -72,14 +75,9 @@ function Pane({ band, project, onOpenSession, onOpenLink, onDispatch }: Hosts & 
         swallowed={swallowed}
       />
       {linking && linkingTask === row.id && row.kind === "task" ? <LinkSearch band={band} project={project} task={row} /> : null}
-      {parent === undefined && row.kind === "task" && ((row.subtasks ?? []).length > 0 || subtasking === row.id) ? (
+      {parent === undefined && row.kind === "task" && (row.subtasks ?? []).length > 0 ? (
         <ul className="projects-subtasks" aria-label={`Subtasks of ${row.title}`}>
           {(row.subtasks ?? []).map((one, n) => item(one, n, row.id, row))}
-          {subtasking === row.id ? (
-            <li className="projects-subtasks__add">
-              <AddTask project={project} parent={row} />
-            </li>
-          ) : null}
         </ul>
       ) : null}
     </li>
@@ -122,6 +120,11 @@ type CardProps = {
   look: Look;
   /** A subtask: its parent's select takes it, and it holds no subtasks or issues of its own. */
   sub: boolean;
+  project: Project;
+  /** Its subtask field is up, inside the card. */
+  adding: boolean;
+  /** Its title is being edited in place. */
+  editing: boolean;
   state: RowState;
   sessions: readonly Session[];
   selected: boolean;
@@ -131,7 +134,7 @@ type CardProps = {
   swallowed: () => boolean;
 };
 
-function Card({ row, index, look, sub, state, sessions, selected, onOpenSession, onOpenLink, onGrab, swallowed }: CardProps) {
+function Card({ row, index, look, sub, project, adding, editing, state, sessions, selected, onOpenSession, onOpenLink, onGrab, swallowed }: CardProps) {
   const store = useProjectsStore()!;
   const { Glyph, said } = markOf(row, state);
   const label = rowLabel(row);
@@ -146,6 +149,7 @@ function Card({ row, index, look, sub, state, sessions, selected, onOpenSession,
       data-asking={state === "asking" || undefined}
       data-selected={selected || undefined}
       tabIndex={0}
+      role="group"
       aria-label={label}
       onPointerDown={(event) => !interactive(event.target) && onGrab(event)}
       onClickCapture={(event) => swallowed() && (event.preventDefault(), event.stopPropagation())}
@@ -170,7 +174,7 @@ function Card({ row, index, look, sub, state, sessions, selected, onOpenSession,
       )}
       <span className="projects-row__title">
         {row.kind === "issue" ? <span className="projects-row__reference">{row.reference}</span> : null}
-        <span className="projects-row__words">{row.title}</span>
+        {editing && row.kind === "task" ? <EditTitle row={row} /> : <span className="projects-row__words">{row.title}</span>}
         {row.kind === "task" && !sub ? <IssueChips issues={row.issues ?? []} /> : null}
       </span>
       {/* The done ask's answers, in a column of their own; a card with no ask leaves it to the title. */}
@@ -215,6 +219,11 @@ function Card({ row, index, look, sub, state, sessions, selected, onOpenSession,
           </button>
         </Tooltip>
       </span>
+      {adding && row.kind === "task" ? (
+        <span className="projects-row__subadd">
+          <AddTask project={project} parent={row} />
+        </span>
+      ) : null}
       {/* The Job holding it and the pull requests it carries, on a line of their own under the title, each with its own Unlink. */}
       {row.job === undefined && (row.kind !== "task" || (row.pulls ?? []).length === 0) ? null : (
         <span className="projects-row__holder">
@@ -228,7 +237,7 @@ function Card({ row, index, look, sub, state, sessions, selected, onOpenSession,
             ? (row.pulls ?? []).map((one) => (
                 <span key={one.number} className="projects-row__linked">
                   <PullRequestChip framed number={one.number} title={one.title} state={one.state} tabIndex={-1} onOpen={() => onOpenLink(one.url)} />
-                  <Unlink said={`Unlink #${one.number}`} onUnlink={() => store.unlinkPull(row.id, one.number)} />
+                  <Unlink pull said={`Unlink #${one.number}`} onUnlink={() => store.unlinkPull(row.id, one.number)} />
                 </span>
               ))
             : null}
@@ -239,10 +248,10 @@ function Card({ row, index, look, sub, state, sessions, selected, onOpenSession,
 }
 
 /** A chip's own small x. */
-function Unlink({ said, onUnlink }: { said: string; onUnlink: () => void }) {
+function Unlink({ said, pull, onUnlink }: { said: string; pull?: true; onUnlink: () => void }) {
   return (
-    <Tooltip label="Unlink" asChild>
-      <button type="button" tabIndex={-1} className="projects-row__unlink" aria-label={said} onClick={onUnlink}>
+    <Tooltip label="Unlink" shortcut={capOf(pull === true ? PROJECTS_KEYS.unlinkPull : PROJECTS_KEYS.unlinkJob)} asChild>
+      <button type="button" tabIndex={-1} className="projects-row__unlink" data-unlink-pull={pull} aria-label={said} onClick={onUnlink}>
         <X size={12} strokeWidth={2} aria-hidden />
       </button>
     </Tooltip>
@@ -270,68 +279,58 @@ function JobChip({ job, sessions, onOpen }: { job: Holder; sessions: readonly Se
   const session = sessions.find((one) => one.id === job.id);
   const title = session?.title ?? job.title;
   return (
+    <Tooltip label="Open the Job" shortcut={PROJECTS_KEYS.openJob} asChild>
     <button type="button" tabIndex={-1} className="projects-row__job" data-job aria-label={`Open ${title}`} onClick={() => onOpen(job.id)}>
       {session === undefined ? <SessionMark state="ended" said={`${job.title}: Ended`} /> : <JobMark session={session} />}
       <span className="projects-row__job-title">{title}</span>
     </button>
+    </Tooltip>
   );
 }
 
 /**
- * A task, written under the project's head; Enter adds it at the top of the list and the field stays for the next. Tab
- * indents the field under the task at the top, the one just written, so Enter adds a subtask; ⇧Tab takes it back out.
- * Under a task (`parent`) the field adds its subtasks and does not indent further. A draft is kept across leaving the panel.
+ * A task, written under the project's head: Enter adds it at the top of the list and the field stays for the next. Under a
+ * task (`parent`), inside its card, the field adds its subtasks the same way, and Enter on it empty puts it away. A draft is
+ * kept across leaving the panel.
  */
 function AddTask({ project, parent }: { project: Project; parent?: TaskRow }) {
   const store = useProjectsStore()!;
   const keep = parent === undefined ? `projects:task:${project.id}` : `projects:subtask:${parent.id}`;
   const [title, setTitle] = useState("");
-  const [indented, setIndented] = useState(false);
-  const top = project.rows[0]?.kind === "task" ? project.rows[0] : undefined;
-  const under = parent ?? (indented ? top : undefined);
   const add = () => {
-    if (title.trim() === "") return;
-    if (under === undefined) store.addTask(project.id, title.trim());
-    else store.addSubtask(under.id, title.trim());
+    if (title.trim() === "") {
+      if (parent === undefined) return;
+      store.subtasking(undefined);
+      return refocusRow(parent.id);
+    }
+    if (parent === undefined) store.addTask(project.id, title.trim());
+    else store.addSubtask(parent.id, title.trim());
     forgetKept(keep);
     setTitle("");
   };
-  const said = under === undefined ? "Add a task" : `Add a subtask to ${under.title}`;
+  const said = parent === undefined ? "Add a task" : `Add a subtask to ${parent.title}`;
   return (
     <form
       className="projects-add"
       aria-label={said}
       data-sub={parent === undefined ? undefined : ""}
-      data-indented={parent === undefined && under !== undefined ? "" : undefined}
       onSubmit={(event) => {
         event.preventDefault();
         add();
       }}
     >
-      {parent === undefined && under !== undefined ? (
-        <Tooltip label={`Under ${under.title}`} asChild>
-          <span className="projects-add__under" role="img" aria-label={`Under ${under.title}`}>
-            <ListTree size={16} strokeWidth={2} aria-hidden />
-          </span>
-        </Tooltip>
-      ) : null}
       <Textarea
         rows={1}
         keep={keep}
         autoFocus={parent !== undefined}
         aria-label={said}
-        placeholder={under === undefined ? "Add a task" : "Add a subtask"}
+        placeholder={parent === undefined ? "Add a task" : "Add a subtask"}
         value={title}
         onChange={(event) => setTitle(event.target.value)}
         onKeyDown={(event) => {
           if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
             event.preventDefault();
             add();
-          }
-          if (event.key === "Tab" && parent === undefined && !event.altKey && !event.metaKey && !event.ctrlKey) {
-            if (event.shiftKey ? !indented : indented || top === undefined) return;
-            event.preventDefault();
-            setIndented(!event.shiftKey);
           }
         }}
       />
@@ -343,6 +342,35 @@ function AddTask({ project, parent }: { project: Project; parent?: TaskRow }) {
     </form>
   );
 }
+
+/** A task's title, edited in place. Enter keeps it; Esc, which the tab's keys read, leaves it as it was. */
+function EditTitle({ row }: { row: TaskRow }) {
+  const store = useProjectsStore()!;
+  const keep = `projects:edit:${row.id}`;
+  const [title, setTitle] = useState(row.title);
+  return (
+    <Textarea
+      rows={1}
+      autoFocus
+      keep={keep}
+      aria-label={`Title of ${row.title}`}
+      value={title}
+      onChange={(event) => setTitle(event.target.value)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+          event.preventDefault();
+          forgetKept(keep);
+          if (title.trim() === "") store.editing(undefined);
+          else store.retitle(row.id, title.trim());
+          refocusRow(row.id);
+        }
+      }}
+    />
+  );
+}
+
+/** The card a row is drawn as, once the list has drawn again. */
+export const refocusRow = (rowId: string): void => void window.requestAnimationFrame(() => document.querySelector<HTMLElement>(`.projects-row[data-row="${CSS.escape(rowId)}"]`)?.focus());
 
 type Found =
   | { kind: "issue"; key: string; said: string; issue: Linked }

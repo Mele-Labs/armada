@@ -21,8 +21,12 @@ export type ProjectsSnapshot = {
   linkingTask: string | undefined;
   /** The task whose subtask field is up under its subtasks, by row id. */
   subtasking: string | undefined;
-  /** The row deleted last, while the toast offers it back: where it stood, under its parent where it had one. */
-  removed: { projectId: string; parent: string | undefined; row: ProjectRow; at: number } | undefined;
+  /** What was deleted last, while the toast offers it back: a row where it stood, under its parent where it had one, or a project. */
+  removed: { kind: "row"; projectId: string; parent: string | undefined; row: ProjectRow; at: number } | { kind: "project"; project: Project; at: number } | undefined;
+  /** The task whose title is being edited in place, by row id. */
+  editing: string | undefined;
+  /** The project whose name is being edited in the list, by id. */
+  renaming: string | undefined;
   /** The select control's look, while two are offered. */
   look: Look;
   /** The repository a new project's name field is up in, by Manifest id. */
@@ -54,7 +58,7 @@ function withList(project: Project, parent: string | undefined, change: (rows: P
 export type PullsServed = Readonly<Record<string, readonly LinkedPull[]>>;
 
 export function createProjectsStore(seed: readonly Project[], settled?: Settled, look: Look = "reticle", pulls: PullsServed = {}) {
-  let snap: ProjectsSnapshot = { projects: structuredClone(seed) as Project[], open: undefined, selected: [], linking: false, linkingTask: undefined, subtasking: undefined, removed: undefined, look, naming: undefined };
+  let snap: ProjectsSnapshot = { projects: structuredClone(seed) as Project[], open: undefined, selected: [], linking: false, linkingTask: undefined, subtasking: undefined, removed: undefined, editing: undefined, renaming: undefined, look, naming: undefined };
   const listeners = new Set<() => void>();
   const set = (next: Partial<ProjectsSnapshot>) => {
     snap = { ...snap, ...next };
@@ -72,7 +76,7 @@ export function createProjectsStore(seed: readonly Project[], settled?: Settled,
     if (project === undefined || where === undefined) return;
     edit(project.id, (one) => withList(one, where.parent, (rows) => rows.map((row) => (row.id === rowId ? change(row) : row))));
   };
-  const closed = { selected: [], linking: false, linkingTask: undefined, subtasking: undefined } as const;
+  const closed = { selected: [], linking: false, linkingTask: undefined, subtasking: undefined, editing: undefined } as const;
 
   return {
     get: () => snap,
@@ -170,13 +174,33 @@ export function createProjectsStore(seed: readonly Project[], settled?: Settled,
       if (project === undefined || where === undefined) return;
       const at = where.rows.findIndex((row) => row.id === rowId);
       edit(project.id, (one) => withList(one, where.parent, (rows) => rows.filter((row) => row.id !== rowId)));
-      set({ selected: snap.selected.filter((one) => one !== rowId), removed: { projectId: project.id, parent: where.parent, row: where.rows[at]!, at } });
+      set({ selected: snap.selected.filter((one) => one !== rowId), removed: { kind: "row", projectId: project.id, parent: where.parent, row: where.rows[at]!, at } });
+    },
+    /** A project deleted from the list, with no question: the toast offers it back, rows and all. */
+    removeProject: (projectId: string) => {
+      const at = snap.projects.findIndex((one) => one.id === projectId);
+      if (at < 0) return;
+      const project = snap.projects[at]!;
+      set({ projects: snap.projects.filter((one) => one.id !== projectId), removed: { kind: "project", project, at }, renaming: undefined, ...(snap.open === projectId ? { open: undefined, ...closed } : {}) });
     },
     undo: () => {
       const gone = snap.removed;
       if (gone === undefined) return;
-      edit(gone.projectId, (one) => withList(one, gone.parent, (rows) => [...rows.slice(0, gone.at), gone.row, ...rows.slice(gone.at)]));
+      if (gone.kind === "project") set({ projects: [...snap.projects.slice(0, gone.at), gone.project, ...snap.projects.slice(gone.at)] });
+      else edit(gone.projectId, (one) => withList(one, gone.parent, (rows) => [...rows.slice(0, gone.at), gone.row, ...rows.slice(gone.at)]));
       set({ removed: undefined });
+    },
+    /** A task's title edited in place, or none. */
+    editing: (rowId: string | undefined) => set({ editing: rowId }),
+    retitle: (rowId: string, title: string) => {
+      editRow(rowId, (row) => (row.kind === "task" ? { ...row, title } : row));
+      set({ editing: undefined });
+    },
+    /** A project's name edited in the list, or none. */
+    renaming: (projectId: string | undefined) => set({ renaming: projectId }),
+    renameProject: (projectId: string, name: string) => {
+      edit(projectId, (one) => ({ ...one, name }));
+      set({ renaming: undefined });
     },
     forgetRemoved: () => set({ removed: undefined }),
     /** His answer to a done ask: Mark done keeps the Job on the row as the one that did it; Keep open lets the row go back to open. */
@@ -219,7 +243,7 @@ export function useProjectsStore(): ProjectsStore | undefined {
   return useContext(Held);
 }
 
-const NEVER: ProjectsSnapshot = { projects: [], open: undefined, selected: [], linking: false, linkingTask: undefined, subtasking: undefined, removed: undefined, look: "reticle", naming: undefined };
+const NEVER: ProjectsSnapshot = { projects: [], open: undefined, selected: [], linking: false, linkingTask: undefined, subtasking: undefined, removed: undefined, editing: undefined, renaming: undefined, look: "reticle", naming: undefined };
 const NONE = () => () => undefined;
 
 export function useProjects(): ProjectsSnapshot {

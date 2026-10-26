@@ -33,6 +33,21 @@ export const PROJECTS_KEYS = {
   get remove() {
     return capOfSlot("projects_delete", 0);
   },
+  get edit() {
+    return capOfSlot("projects_edit", 0);
+  },
+  get openJob() {
+    return capOfSlot("projects_open_job", 0);
+  },
+  get unlinkJob() {
+    return capOfSlot("projects_unlink_job", 0);
+  },
+  get unlinkPull() {
+    return capOfSlot("projects_unlink_pull", 0);
+  },
+  get rename() {
+    return capOfSlot("projects_rename", 0);
+  },
   get select() {
     return capOfSlot("projects_select", 0);
   },

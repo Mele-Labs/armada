@@ -120,9 +120,14 @@ a              add a task   (projects only)
 A              add a subtask   (projects only)
 i              link   (projects only)
 I              link to the task   (projects only)
-Backspace      delete or unlink the row   (projects only)
+Backspace      delete or unlink   (projects only)
 ⌥↑ ⌥↓          move the row up or down   (projects only)
-x              select the row   (projects only)
+Space / x      select the row   (projects only)
+Enter          edit the title   (projects only)
+o              open the Job   (projects only)
+u              unlink the Job   (projects only)
+U              unlink the pull request   (projects only)
+e              rename the project   (projects only)
 d              tick or untick the task   (projects only)
 s              dispatch the rows: the selected ones, or the focused one   (projects only)
 D              mark done   (projects only)
@@ -175,11 +180,15 @@ description and `W` the places changes run. They stand down in a text field and 
 list does; `l r` go to the list and the reader, `L` opens the queries, `/` describes a query and `s`
 starts a Job on the open issue. They stand down in a text field and while a dialog is up.
 
-**The Projects tab has a scope of its own, `projects`.** Its rows take `j`, `k`, `Enter` and `o` as any
-list does; `l r` go to the list of projects and the open project's rows, `N` names a new project, `a` adds a
-task and `A` a subtask under the focused one, `i` links an issue, a Job or a pull request to the project and `I` to the focused task, `⌥↑ ⌥↓` move a row, `x` selects it, `d`
-ticks a task, Backspace deletes a task or unlinks an issue, `s` dispatches the rows selected, and `D` and `K`
-answer a done ask. They stand down in a text field and while a dialog is up.
+**The Projects tab has a scope of its own, `projects`.** `j`, `k` and the arrows move as any list does, through
+the list of projects and through the cards, subtasks included, and the search's results; `l r` go to the list and the
+cards. In the list, `Enter` opens a project, `N` names a new one, `e` renames the focused one and Backspace deletes it.
+On a card, Space or `x` selects it, `Enter` edits a task's title in place, `d` ticks a task, `a` goes to the field that
+adds a task and `A` opens one for a subtask inside the focused card, `i` links an issue, a Job or a pull request to the
+project and `I` to the focused task, `o` opens the Job holding it, `u` and `U` unlink its Job and its last pull request,
+Backspace deletes a task or unlinks an issue, `⌥↑ ⌥↓` move it among its own list, `s` dispatches the cards selected,
+and `D` and `K` answer a done ask. Esc leaves a field, closing it, then backs out a level. They stand down in a text
+field and while a dialog is up.
 
 **The flight deck is the Cockpit, and its keys are in the `deck` scope (#2301).**
 The deck takes `w` and `?` and a list's `j`, `k` and `Enter`; the acts that need a row in
