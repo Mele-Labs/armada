@@ -67,6 +67,8 @@ import { SharedPanelOver } from "../shared-panel/wired";
 import { reviewSourceOf } from "../pr-review/source";
 import { IssuesFrom, createIssuesStore } from "../issues-tab/store";
 import { issuesTabSource } from "./slices/issues";
+import { ProjectsFrom, createProjectsStore } from "../projects-tab/store";
+import { projectsLink, settledOnRow } from "./slices/projects";
 import type { Scenario } from "./scenario";
 import { withState } from "../state-feed";
 
@@ -176,6 +178,11 @@ export function mountApp(
   const tracked = chosen.draft?.issuesTab;
   if (tracked !== undefined && seed === undefined) forgetAllKept();
   const issues = tracked === undefined ? undefined : createIssuesStore(issuesTabSource(tracked));
+  // The Projects tab starts with nothing open, its done asks joined to the Jobs that carry the same ask (`slices/projects.ts`).
+  const listed = chosen.draft?.projectsTab;
+  if (listed !== undefined && seed === undefined && tracked === undefined) forgetAllKept();
+  const projects = listed === undefined ? undefined : createProjectsStore(listed, settledOnRow);
+  if (shared === undefined) projectsLink.rows = projects?.settle;
   // A scenario that adds to its timeline as time passes holds it here, and moves it when the fake's moment does.
   const timeline = chosen.draft?.eventsLater === undefined ? undefined : eventsLater(chosen.draft.events ?? [], chosen.draft.eventsLater);
   if (timeline !== undefined && shared === undefined) alsoOnTimePassing(timeline.advance);
@@ -209,6 +216,7 @@ export function mountApp(
                                         <PrOwnersFrom owners={chosen.draft?.prOwners}>
                                           <ReviewsFrom store={reviews}>
                                           <IssuesFrom store={issues}>
+                                          <ProjectsFrom store={projects}>
                                             {panelReads === undefined ? (
                                               <SharedPanelOver api={withState(api)} testsReaching={chosen.draft?.testsReaching}>
                                                 <App />
@@ -225,6 +233,7 @@ export function mountApp(
                                                 <SharedPanelHost />
                                               </SharedPanelFrom>
                                             )}
+                                          </ProjectsFrom>
                                           </IssuesFrom>
                                           </ReviewsFrom>
                                         </PrOwnersFrom>
