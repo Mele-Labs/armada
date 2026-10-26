@@ -25,7 +25,7 @@ Held notes and the pick stay per sketch, file or picture until sent, in memory: 
 | Sketch | Its title, and each part's id and label |
 | File | `path:from-to`, and up to six lines quoted under it |
 | Picture | Its path, the region in percent, and `attached as picture-N.png`, the crop riding along as an image |
-| Document | `Document "title", revision N, section "heading"`, then the quoted words, the sketch's title and parts, or the row |
+| Document | `Document "title", revision N, section "heading": ` then `words "…"`, `row "…" of "table"`, or `sketch "title", part id (label)` |
 
 **In the Job's thread each note's heading is a press that reopens what was noted:** the sketch with its parts picked, the file with its lines selected, the picture with its region drawn.
 `notedOf` reads the heading back out of the message, and a message `notesMessage` did not write is drawn as any other.
@@ -33,5 +33,6 @@ Held notes and the pick stay per sketch, file or picture until sent, in memory: 
 **A Job's document is read in a layer over the whole Job, and the notes are made on the page itself.**
 The Job writes the next revision as its reply: Changes marks the words that came and went, and each sent note in the margin shows the change that answered it.
 The layer is `apps/desktop/src/renderer/src/session-view/DocumentLayer.tsx`; the walk is `job-document`.
+`docs/concepts/document.md` owns what a document is, how it is written, sealed and shared.
 
 **These notes are not the annotation layer.** The layer (⌥⌘A, `docs/practices/running-locally.md`, *Annotating Bridge*) is for notes on Armada itself and saves a file for `/annotations`; these go to a Job as a message.
