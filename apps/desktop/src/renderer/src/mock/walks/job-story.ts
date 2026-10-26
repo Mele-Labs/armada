@@ -6,7 +6,7 @@
 // The composer's Artifacts button opens the list over the right column and Esc gives the story back. Over `job-story`. `job-story-spike` lands the
 // same story in a findings doc and `job-story-report` in a report. `job-document` reads that report.
 
-import { button, deckRow, inside, region, role, text, walk } from "../walk";
+import { button, deckRow, dialog, inside, region, role, text, walk } from "../walk";
 
 const blueprint = region("Blueprint", { exact: true });
 const field = region("Field", { exact: true });
