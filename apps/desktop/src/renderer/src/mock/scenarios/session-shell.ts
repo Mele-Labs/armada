@@ -65,7 +65,7 @@ function shellFleet() {
         shells.delete(runId);
         if (openIn.get(sessionId) === runId) openIn.delete(sessionId);
         if (lastShell.get(sessionId)?.runId === runId) lastShell.set(sessionId, { runId, ended: true });
-        send(runId, { kind: "exited", code });
+        send(runId, { kind: "exited", code, stopped: code === null });
         tell({ session_id: sessionId, run_id: runId, change: "exited" });
       },
     );

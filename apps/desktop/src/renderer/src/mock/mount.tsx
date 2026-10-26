@@ -8,7 +8,7 @@ import { StrictMode, useEffect } from "react";
 import type { ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { Boundary, LayoutSourceProvider } from "@armada/shell";
-import { HapticsProvider, forgetAllKept, writeKept } from "@armada/components";
+import { HapticsProvider, forgetAllKept, forgetKeptRuns, writeKept } from "@armada/components";
 
 import "../styles/index.css";
 import "@armada/components/src/look";
@@ -147,6 +147,8 @@ export function mountApp(
   if (shared === undefined && chosen.name === "teach-mods") seedTaught(repository().root);
   // Every window starts with the deck as it begins.
   if (shared === undefined) forgetDeck();
+  // A run kept past its card belongs to the Fleet that ran it.
+  if (shared === undefined) forgetKeptRuns();
   // And with no repository having shown its first Job's card.
   if (shared === undefined) forgetFirsts();
   mockPhone.reset(PHONE_MOMENTS[chosen.name] ?? "paired");

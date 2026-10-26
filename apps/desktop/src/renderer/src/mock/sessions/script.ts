@@ -732,7 +732,7 @@ export function sessionsStore(
         stop: () => {
           window.clearTimeout(handle);
           timers.delete(handle);
-          on({ kind: "end", code: null });
+          on({ kind: "end", code: null, stopped: true });
         },
       };
     },

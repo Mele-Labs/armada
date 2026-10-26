@@ -630,7 +630,7 @@ it("starts a run, reads its socket to the exit, and hands a refusal back", async
     sockets.handleUpgrade(request, socket, head, (ws) => {
       ws.send(JSON.stringify({ kind: "opened", protocol_id: "p", run_id: "r1" }));
       ws.send(JSON.stringify({ kind: "output", text: "hi\r\n" }));
-      ws.send(JSON.stringify({ kind: "exited", code: 0 }));
+      ws.send(JSON.stringify({ kind: "exited", code: 0, stopped: false }));
       ws.close();
     });
   });
@@ -650,7 +650,7 @@ it("starts a run, reads its socket to the exit, and hands a refusal back", async
   await closed;
   expect(sent[0]?.body).toEqual({ session_id: "a", command: "echo hi", cols: 100, rows: 30 });
   expect(heard.map((one) => one.kind)).toEqual(["opened", "output", "exited"]);
-  expect(heard[2]).toEqual({ kind: "exited", code: 0 });
+  expect(heard[2]).toEqual({ kind: "exited", code: 0, stopped: false });
   expect(sent.map((one) => `${one.method} ${one.path}`)).toEqual(["POST /sessions/run/start", "UPGRADE /sessions/run/r1/observe"]);
   expect(await sessions.startRun({ session_id: "ended", command: "ls" })).toMatchObject({ ok: false, outcome: { ok: false, why: "refused" } });
   expect(await host(null).sessions.startRun({ session_id: "a", command: "ls" })).toEqual({ ok: false, outcome: { ok: false, why: "not_connected" } });
@@ -709,7 +709,7 @@ const endOf = (sessions: SessionsHost, runId: string) =>
 it("keeps what a shell printed, its last 256 KiB cut at a line, for a window that comes to it late", async () => {
   const lines = Array.from({ length: 30_000 }, (_, at) => `line ${String(at).padStart(5, "0")}\r\n`);
   const chunks = Array.from({ length: 30 }, (_, at) => lines.slice(at * 1000, (at + 1) * 1000).join(""));
-  const port = await shellFleet(["r1"], { r1: [{ kind: "opened", protocol_id: "p", run_id: "r1" }, ...chunks.map((text) => ({ kind: "output" as const, text })), { kind: "exited", code: 0 }] });
+  const port = await shellFleet(["r1"], { r1: [{ kind: "opened", protocol_id: "p", run_id: "r1" }, ...chunks.map((text) => ({ kind: "output" as const, text })), { kind: "exited", code: 0, stopped: false }] });
   const { sessions } = host(port);
   const ended = endOf(sessions, "r1");
   await sessions.openTerminal({ session_id: "a" });
@@ -724,9 +724,9 @@ it("keeps what a shell printed, its last 256 KiB cut at a line, for a window tha
 
 it("lets an ended shell's output go when its Job's next shell opens, and a block's as soon as it ends", async () => {
   const port = await shellFleet(["r1"], {
-    r1: [{ kind: "output", text: "one\r\n" }, { kind: "exited", code: 0 }],
-    r2: [{ kind: "output", text: "two\r\n" }, { kind: "exited", code: 0 }],
-    b1: [{ kind: "output", text: "hi\r\n" }, { kind: "exited", code: 0 }],
+    r1: [{ kind: "output", text: "one\r\n" }, { kind: "exited", code: 0, stopped: false }],
+    r2: [{ kind: "output", text: "two\r\n" }, { kind: "exited", code: 0, stopped: false }],
+    b1: [{ kind: "output", text: "hi\r\n" }, { kind: "exited", code: 0, stopped: false }],
   });
   const { sessions } = host(port);
   let ended = endOf(sessions, "r1");

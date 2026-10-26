@@ -503,7 +503,7 @@ const SHELL_BLOCK = "Check it:\n\n```sh\npnpm -C apps/desktop typecheck\n```\n\n
 /** A runner that prints two lines and exits with `code`, or never exits where `code` is `"hang"`. */
 const runnerOf = (code: number | "hang"): CodeRunner => (_command, on) => {
   on({ kind: "out", text: "checking\n" });
-  if (code === "hang") return { stop: () => on({ kind: "end", code: null }) };
+  if (code === "hang") return { stop: () => on({ kind: "end", code: null, stopped: true }) };
   on({ kind: "out", text: "done\n" });
   on({ kind: "end", code });
   return { stop: () => {} };

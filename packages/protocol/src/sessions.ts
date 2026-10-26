@@ -538,13 +538,14 @@ export type ResizeSessionRun = { run_id: string; cols: number; rows: number };
  * `observe_session_run`, `GET /sessions/run/:run_id/observe` on a socket of its own. What the run
  * printed so far and then what it prints next as `output`, then `exited` once, then the socket closes.
  * `text` is the terminal's bytes as UTF-8 with its escape sequences intact; no message splits a
- * character. `code` is null where the process group was stopped or killed by a signal.
+ * character. `code` is null where the process group was stopped or killed by a signal, and `stopped` is
+ * true where it was Stop that ended it: a null `code` with `stopped` false is a signal's.
  */
 export type SessionRunMessage =
   | { kind: "opened"; protocol_id: string; run_id: string }
   | { kind: "output"; text: string }
   | { kind: "missed"; dropped: number }
-  | { kind: "exited"; code: number | null };
+  | { kind: "exited"; code: number | null; stopped: boolean };
 
 /** `open_terminal`: the person opens the Job's shell in Bridge. `POST /sessions/terminal/open`. Answered 200 with `SessionRunUnderway`: the shell already open, or one opened now. `cols` and `rows` are the size in cells where it opens now; absent is 80 by 24. */
 export type OpenTerminal = { session_id: string; cols?: number; rows?: number };

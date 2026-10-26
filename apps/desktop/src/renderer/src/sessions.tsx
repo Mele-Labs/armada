@@ -126,7 +126,7 @@ import { SessionRepositoryOf } from "./session-move";
 import { movedRowsOf } from "./session-moved";
 import { useSessions, useSessionsDraft, useSessionsSaid } from "./sessions-draft";
 import { restartOf } from "./build-change";
-import { bangOf, hostedCommands, opensMcp, runnerOf } from "./session-runner";
+import { bangOf, hostedCommands, opensMcp, runnerOf, waitingRunKey } from "./session-runner";
 import { useJobDock } from "./job-shell-dock";
 import { todosOf } from "./session-activity";
 import { confirmWaiting, dismissWaiting } from "./cockpit/dismissed";
@@ -572,8 +572,8 @@ export function entriesOf(
             },
           }),
       ...(one.steps !== undefined ? { act: "steps" as const } : act === undefined ? {} : { act: act.kind }),
-      ...(restart !== undefined && act !== undefined ? { restart: { command: act.target, ...(runner === undefined ? {} : { runner }) } } : {}),
-      ...(act?.kind === "run" && restart === undefined && runner !== undefined ? { run: { command: act.target, runner } } : {}),
+      ...(restart !== undefined && act !== undefined ? { restart: { command: act.target, keep: waitingRunKey(session.id, one.id), ...(runner === undefined ? {} : { runner }) } } : {}),
+      ...(act?.kind === "run" && restart === undefined && runner !== undefined ? { run: { command: act.target, runner, keep: waitingRunKey(session.id, one.id) } } : {}),
       ...(one.options === undefined || answerWaiting === undefined
         ? {}
         : {

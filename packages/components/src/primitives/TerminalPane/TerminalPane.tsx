@@ -5,15 +5,19 @@ import { Button } from "../Button/Button";
 import { Tabs } from "../Tabs/Tabs";
 import { Tooltip } from "../Tooltip/Tooltip";
 
-/** How a terminal run stands. `code` is null where it was stopped. */
-export type TerminalPhase = { state: "running" } | { state: "ended"; code: number | null };
+/** How a terminal run stands. A null `code` is a run Stop ended (`stopped` true) or a signal did (`stopped` false); left out, the reason is not known and reads as a stop. */
+export type TerminalPhase = { state: "running" } | { state: "ended"; code: number | null; stopped?: boolean };
 
-const exitSaid = (phase: TerminalPhase) => (phase.state === "running" ? "Running" : phase.code === null ? "Stopped" : `Exit ${phase.code}`);
+/** What an end says, for a tooltip: an exit code, a stop, or a signal. */
+export function endedSaid(end: { code: number | null; stopped?: boolean }): string {
+  if (end.code !== null) return `Exit ${end.code}`;
+  return end.stopped === false ? "Ended by a signal" : "Stopped";
+}
 
 /** A run's mark: the terminal glyph, animated while it runs, then passed, failed or stopped. Its tooltip says which. */
 export function TerminalMark({ phase }: { phase: TerminalPhase }) {
-  const said = exitSaid(phase);
-  const result = phase.state === "running" ? "running" : phase.code === 0 ? "passed" : phase.code === null ? "stopped" : "failed";
+  const said = phase.state === "running" ? "Running" : endedSaid(phase);
+  const result = phase.state === "running" ? "running" : phase.code === 0 ? "passed" : phase.code === null && phase.stopped !== false ? "stopped" : "failed";
   return (
     <Tooltip label={said}>
       <span className="armada-terminal-mark" data-result={result} role="img" aria-label={result === "running" ? "Running" : result === "passed" ? "Passed" : result === "stopped" ? "Stopped" : "Failed"}>

@@ -29,7 +29,7 @@ function program() {
   const runner: CodeRunner = (command, hear, size) => {
     started.push({ command, size });
     on = hear;
-    return { stop: () => (stops(), hear({ kind: "end", code: null })), write: written, resize: resized };
+    return { stop: () => (stops(), hear({ kind: "end", code: null, stopped: true })), write: written, resize: resized };
   };
   return { runner, started, stops, written, resized, prints: (text: string) => on({ kind: "out", text }), exits: (code: number) => on({ kind: "end", code }) };
 }

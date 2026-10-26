@@ -18,7 +18,7 @@ import { restartOf } from "../build-change";
 import { useDispatching } from "../dispatch-panel/dispatching";
 import { openInPanel } from "../shared-panel/store";
 import { viewsOf } from "../merge-line";
-import { runnerOf } from "../session-runner";
+import { runnerOf, waitingRunKey } from "../session-runner";
 import { useSessions, useSessionsDraft } from "../sessions-draft";
 import { useSleepSource } from "../sleep";
 import { attachPr } from "./claims";
@@ -229,7 +229,7 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
             window.setTimeout(settle, LEAVES);
           }, PASSED_FOR);
         });
-  const ran = useCodeRun(runner);
+  const ran = useCodeRun(runner, item.waiting === undefined ? undefined : waitingRunKey(item.waiting.sessionId, item.waiting.item.id));
   // Nothing starts it again while it runs or has passed and the card is about to go, from the block's play control or the key.
   const guarded: CodeRun = { ...ran, start: (command) => (ran.phase.state === "running" || (ran.phase.state === "ended" && ran.phase.code === 0) ? undefined : ran.start(command)) };
   // From the press until it ends badly the command holds the card; one that passed holds it until the card has gone.

@@ -1,13 +1,15 @@
-import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { Check, ChevronDown, CircleCheck, CircleX, Copy, Play, RotateCcw, Square, SquareTerminal } from "lucide-react";
 
 import { Button } from "../Button/Button";
 import { Tooltip } from "../Tooltip/Tooltip";
+import { endedSaid } from "../TerminalPane/TerminalPane";
 import { DockedMark, ProseTerminal } from "./TerminalRun";
 import { plainOf } from "./plain";
+import { begin, change, entryFor, newEntry, subscribeTo, type RunEntry } from "./runs";
 
-/** What a run says: a chunk of the terminal's bytes, escapes intact, then how it ended. `code` is null where it was stopped. */
-export type CodeRunEvent = { kind: "out"; text: string } | { kind: "end"; code: number | null };
+/** What a run says: a chunk of the terminal's bytes, escapes intact, then how it ended: with an exit code, or with none, where `stopped` says whether Stop ended it or a signal did. */
+export type CodeRunEvent = { kind: "out"; text: string } | { kind: "end"; code: number } | { kind: "end"; code: null; stopped: boolean };
 
 /** A terminal's size in cells. */
 export type TerminalSize = { cols: number; rows: number };
@@ -92,7 +94,7 @@ const stripPrompts = (body: string) =>
     .map((line) => line.replace(/^\$ ?/, ""))
     .join("\n");
 
-export type CodePhase = { state: "idle" } | { state: "running" } | { state: "ended"; code: number | null };
+export type CodePhase = { state: "idle" } | { state: "running" } | { state: "ended"; code: number | null; stopped?: boolean };
 
 /** One run's state: what it has printed and how it stands. `RunnableBlock` and a card that runs a command from its own key both draw it. */
 export type CodeRun = {
@@ -114,44 +116,29 @@ export type CodeRun = {
   close: () => void;
 };
 
-export function useCodeRun(runner: CodeRunner | null | undefined): CodeRun {
-  const [phase, setPhase] = useState<CodePhase>({ state: "idle" });
-  const [out, setOut] = useState("");
-  const [runs, setRuns] = useState(0);
-  const [open, setOpen] = useState(true);
-  const handle = useRef<ReturnType<CodeRunner> | null>(null);
-  useEffect(() => () => handle.current?.stop(), []);
-  const start = (command: string, size?: TerminalSize) => {
-    if (runner === null || runner === undefined) return;
-    handle.current?.stop();
-    setOut("");
-    setRuns((had) => had + 1);
-    setOpen(true);
-    setPhase({ state: "running" });
-    handle.current = runner(
-      command,
-      (event) => {
-        if (event.kind === "out") setOut((had) => had + event.text);
-        else setPhase({ state: "ended", code: event.code });
-      },
-      size,
-    );
-  };
-  const close = () => {
-    setPhase({ state: "idle" });
-    setOut("");
-  };
+/**
+ * With a `key`, the run is held outside the card by it: an unmount does not stop it, a card that mounts again
+ * under the same key finds it, and only Stop or a new start ends it. Without one nothing could find the run
+ * again, so the card's unmount stops it.
+ */
+export function useCodeRun(runner: CodeRunner | null | undefined, key?: string): CodeRun {
+  const own = useRef<RunEntry | null>(null);
+  const entry = key === undefined ? (own.current ??= newEntry()) : entryFor(key);
+  const { phase, out, runs, open } = useSyncExternalStore(useMemo(() => subscribeTo(entry), [entry]), () => entry.view);
+  useEffect(() => (key === undefined ? () => entry.handle?.stop() : undefined), [entry, key]);
   return {
     phase,
     out,
     runs,
     open,
-    setOpen,
-    start,
-    stop: () => handle.current?.stop(),
-    write: (data) => handle.current?.write?.(data),
-    resize: (cols, rows) => handle.current?.resize?.(cols, rows),
-    close,
+    setOpen: (next) => change(entry, { open: next }),
+    start: (command, size) => {
+      if (runner !== null && runner !== undefined) begin(entry, runner, command, size);
+    },
+    stop: () => entry.handle?.stop(),
+    write: (data) => entry.handle?.write?.(data),
+    resize: (cols, rows) => entry.handle?.resize?.(cols, rows),
+    close: () => change(entry, { phase: { state: "idle" }, out: "" }),
   };
 }
 
@@ -174,7 +161,7 @@ export function RunOutput({ run }: { run: CodeRun }) {
             </span>
           </Tooltip>
         ) : (
-          <Tooltip label={phase.code === null ? "Stopped" : `Exit ${phase.code}`}>
+          <Tooltip label={endedSaid(phase)}>
             <span className="armada-prose__run-mark" data-result={phase.code === 0 ? "passed" : "failed"} role="img" aria-label={phase.code === 0 ? "Passed" : "Failed"}>
               {phase.code === 0 ? <CircleCheck size={16} strokeWidth={2} aria-hidden /> : <CircleX size={16} strokeWidth={2} aria-hidden />}
             </span>
@@ -228,9 +215,9 @@ export function CopyAct({ text, label: named = "Copy" }: { text: string; label?:
   );
 }
 
-/** `copyLabel` names the copy key where one panel holds several blocks. `run` is a run held elsewhere, which a call card's own key drives too; left out, the block holds its own. `copy` is the source a fenced block copies, beside Run. */
-export function RunnableBlock({ command, runner, run: held, copy, copyLabel, children }: { command: string; runner?: CodeRunner; run?: CodeRun; copy?: string; copyLabel?: string; children: ReactNode }) {
-  const own = useCodeRun(runner);
+/** `copyLabel` names the copy key where one panel holds several blocks. `run` is a run held elsewhere, which a call card's own key drives too; left out, the block holds its own, kept past the block by `keep` where that is given. `copy` is the source a fenced block copies, beside Run. */
+export function RunnableBlock({ command, runner, run: held, keep, copy, copyLabel, children }: { command: string; runner?: CodeRunner; run?: CodeRun; keep?: string; copy?: string; copyLabel?: string; children: ReactNode }) {
+  const own = useCodeRun(runner, keep);
   const terminal = useContext(ProseTerminal);
   const run = held ?? own;
   // A docked pane holds one run for the view, and a block shows it only while it is of this command.
