@@ -12,7 +12,7 @@ import { issueLabel, type SessionAttachment } from "@armada/screens/src/draft/se
 import type { BridgeApi } from "../../../shared/api";
 import type { BridgeState } from "../../../shared/bridge";
 import { bayViewOf, ledgerOf, slotKey, spanOf, shortOf } from "../cockpit/deck/bays";
-import type { BayRead, CheckRead, IssueRead, PanelReads, PullRequestRead } from "./reads";
+import type { BayRead, CheckRead, IssueRead, PanelReads, PullRequestRead, PullRequestRefused } from "./reads";
 import type { PanelItem } from "./store";
 
 type Of<K extends PanelItem["kind"]> = Extract<PanelItem, { kind: K }>;
@@ -77,11 +77,13 @@ export function fleetPanelReads(api: FleetPanelApi, now: () => FleetPanelState |
   const manifestOfPr = (item: Of<"pr">) =>
     repositoryOf(repositories(), { ...(item.manifestId === undefined ? {} : { manifestId: item.manifestId }), ...(item.root === undefined ? {} : { root: item.root }), ...(item.repository === undefined ? {} : { repository: item.repository }), address: item.address });
 
-  const pullRequest = async (item: Of<"pr">): Promise<PullRequestRead | undefined> => {
+  const pullRequest = async (item: Of<"pr">): Promise<PullRequestRead | PullRequestRefused | undefined> => {
     const repo = manifestOfPr(item);
     const manifestId = repo?.manifest?.id;
     if (repo === undefined || manifestId === undefined) return undefined;
     const [standing, page] = await Promise.all([api.getPullRequest(manifestId, item.number).catch(() => undefined), api.readReviewPage(manifestId, item.number).catch(() => undefined)]);
+    // Only Fleet's own refusal carries words worth drawing; the rest keep the panel's fixed sentence.
+    if (page?.ok === false && !page.outcome.ok && page.outcome.why === "refused") return { refused: refusalWords(page.outcome) };
     if (page?.ok !== true) return undefined;
     const facts: Held =
       standing?.ok === true
