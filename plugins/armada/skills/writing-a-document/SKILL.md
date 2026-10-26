@@ -14,7 +14,7 @@ row. Notes are the only feedback.
 
 | Do | Because |
 |---|---|
-| Write it to `.armada/documents/<name>.html` in your worktree | Fleet hears every Write or Edit to that folder and keeps each different write as a revision |
+| Write it to `.armada/documents/<name>.html` in your worktree | Fleet hears every Write or Edit to that folder and, when your turn ends, reads the folder again, so a page changed another way is kept as a revision too |
 | Name it for the subject: `slot-lease-expiry.html` | The name is the document. A new name is a new document |
 | Never `git add` it, never put it in a diff | `.armada/*` is gitignored. If the person asks to add it to the repo, `git add -f` the file and commit it |
 

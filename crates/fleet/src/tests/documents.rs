@@ -150,6 +150,49 @@ async fn a_documents_writes_are_revisions_of_one_row_and_a_bad_sketch_is_told_on
 }
 
 #[tokio::test]
+async fn a_page_changed_outside_write_and_edit_is_kept_when_the_turn_ends() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    rig.send(&id, "write it up").await;
+    rig.stand_in.init(0);
+    // The page is under the session's own directory, which is what the turn's end reads.
+    assert_eq!(record_of(&rig, &id).await.cwd, rig.root);
+    let file = std::path::Path::new(&rig.root).join(".armada/documents/notes/lease.html");
+    std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+    let path = file.to_string_lossy().into_owned();
+
+    std::fs::write(&file, page("Lease expiry", &[])).unwrap();
+    writes(&rig, 0, &path, "toolu_1", "Write", " +10").await;
+    eventually(|| async { revisions_of(&record_of(&rig, &id).await, &path).is_some_and(|kept| kept.len() == 1) }).await;
+
+    // A script run through Bash changes the page: no Write or Edit names it, and the turn's end keeps it.
+    std::fs::write(&file, page("Lease expiry, rewritten", &[])).unwrap();
+    rig.stand_in.says(
+        0,
+        vec![
+            DroneEvent::Called { tool: "Bash".into(), call: "toolu_2".into(), detail: CallDetail::of("python3 rewrite.py") },
+            DroneEvent::Answered { call: "toolu_2".into(), failed: false },
+        ],
+    );
+    rig.stand_in.finishes(0, "Rewritten.");
+    eventually(|| async { revisions_of(&record_of(&rig, &id).await, &path).is_some_and(|kept| kept.len() == 2) }).await;
+    let kept = revisions_of(&record_of(&rig, &id).await, &path).unwrap();
+    assert!(std::fs::read_to_string(&kept[1]).unwrap().contains("rewritten"));
+
+    // A turn that leaves the page as it was keeps no third: the next change is the third.
+    rig.send(&id, "anything else?").await;
+    rig.stand_in.finishes(0, "No.");
+    eventually(|| async { matches!(rig.turn(&id).await, ipc::SessionTurn::Idle) }).await;
+    std::fs::write(&file, page("Lease expiry, third", &[])).unwrap();
+    rig.send(&id, "once more").await;
+    rig.stand_in.finishes(0, "Done.");
+    eventually(|| async { revisions_of(&record_of(&rig, &id).await, &path).is_some_and(|kept| kept.len() == 3) }).await;
+    let kept = revisions_of(&record_of(&rig, &id).await, &path).unwrap();
+    assert!(std::fs::read_to_string(&kept[1]).unwrap().contains("rewritten"));
+    assert!(std::fs::read_to_string(&kept[2]).unwrap().contains("third"));
+}
+
+#[tokio::test]
 async fn a_write_the_tool_failed_keeps_nothing() {
     let rig = rig_placing(None);
     let id = rig.start().await;

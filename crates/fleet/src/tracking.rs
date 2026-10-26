@@ -62,6 +62,8 @@ pub(crate) struct Tracking {
     pub(crate) keepings: crate::backlog_syncing::Keepings,
     /// Issues linked in a project and read one by one, being off the open list — `crate::projects`.
     pub(crate) reads: crate::projects::IssueReads,
+    /// Pull requests linked to a task in a project and read one by one — `crate::projects`.
+    pub(crate) pulls: crate::projects::PullReads,
 }
 
 #[derive(Clone)]
@@ -77,6 +79,7 @@ impl Tracking {
             autopilot: crate::autopilot::Remembered::default(),
             keepings: crate::backlog_syncing::Keepings::new(),
             reads: crate::projects::IssueReads::default(),
+            pulls: crate::projects::PullReads::default(),
         }
     }
 

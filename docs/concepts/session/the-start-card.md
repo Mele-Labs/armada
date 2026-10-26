@@ -12,7 +12,7 @@ He changes what he wants and presses Start (`↵`), and the agent begins.
 | Title | The proposer's reading of the request, or the title the starter gave |
 | Thread | Empty. Where another Job started it, a *Started by* line above it |
 | Composer | The first message, as the agent will read it |
-| Workflow | The proposer's pick, else the repository's `feature` workflow, else its first. Never blank. A custom Job, which he chose, stays custom |
+| Workflow | The proposer's pick, else the repository's `feature` workflow, else its first. Never blank. **None** is in the list: a custom Job, which he chose, stays custom |
 | Delivery | The landing his words named, else his usual, else Auto land |
 | Model, Effort | The proposer's reading, else the machine's own |
 

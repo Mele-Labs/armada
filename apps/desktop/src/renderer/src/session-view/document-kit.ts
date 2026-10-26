@@ -19,8 +19,11 @@ pre { padding: var(--space-3); border-radius: var(--radius-md); background: var(
 blockquote { margin: 0 0 var(--space-3); padding-inline-start: var(--space-4); border-inline-start: var(--edge-active) solid var(--border-default); color: var(--fg-muted); }
 table { inline-size: 100%; margin: 0 0 var(--space-4); border-collapse: collapse; font-size: var(--text-xs); line-height: var(--leading-xs); }
 caption { padding-block-end: var(--space-2); color: var(--fg-muted); text-align: start; }
-th { padding: var(--space-2) var(--space-3); border-block-end: var(--border-width) solid var(--border-default); color: var(--fg-muted); font-weight: var(--weight-medium); text-align: start; }
-td { padding: var(--space-2) var(--space-3); border-block-end: var(--border-width) solid var(--border-subtle); }
+th { padding: var(--space-2) var(--space-3); border-block-end: var(--border-width) solid var(--border-default); background: var(--surface-well); color: var(--fg-muted); font-weight: var(--weight-medium); text-align: start; }
+td { padding: var(--space-2) var(--space-3); border-block-end: var(--border-width) solid var(--border-default); }
+th + th, td + td { border-inline-start: var(--border-width) solid var(--border-subtle); }
+:where(tbody) > tr:nth-child(even) { background: color-mix(in srgb, var(--fg-default) 4%, transparent); }
+:where(tbody) > tr:hover { background: var(--surface-row-hover); }
 figure { margin: var(--space-6) 0; }
 figcaption { margin-block-start: var(--space-2); color: var(--fg-muted); font-size: var(--text-xs); line-height: var(--leading-xs); }
 svg { display: block; max-inline-size: 100%; block-size: auto; color: var(--fg-default); fill: currentColor; font-family: var(--font-sans); font-size: var(--text-xs); }
