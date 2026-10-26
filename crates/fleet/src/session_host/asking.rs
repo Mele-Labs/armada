@@ -37,6 +37,14 @@ pub(crate) const POLL_LAPSE: Duration = Duration::from_secs(180);
 /// A kept terminal question that would not encode or read back.
 const TERMINAL_ASK_UNREADABLE: &str = "fleet.terminal_ask_unreadable";
 
+/// What ends the id of the message that says the person's answer, after the id of its ask row.
+const SAID: &str = ":said";
+
+/// Whether a message row is the person's answer to one of the Job's questions, put by `person_said`.
+pub(crate) fn answers_a_question(row_id: &str) -> bool {
+    row_id.starts_with("ask-") && row_id.ends_with(SAID)
+}
+
 /// A block a question, the question in bold and what was chosen under it, for an answer that
 /// allowed it. Nothing where
 /// the call was a permission, which carries no answers, or was refused.
@@ -279,7 +287,7 @@ where
         };
         self.row_put(id, put(state, via)).await;
         if let Some(text) = said_aloud {
-            self.person_said(id, text).await;
+            self.person_said(id, &row_id, text).await;
         }
         let _ = self.published_hosted(id).await;
         // **Only the person's own press starts a successor.** The hand runs after this call answers: it
@@ -332,7 +340,7 @@ where
         self.row_put(id, self.ask_row(id, &waiting, state, via)).await;
         let said = said?;
         if let Some(text) = answers_text(&said) {
-            self.person_said(id, text).await;
+            self.person_said(id, &format!("ask-{}-{id}", waiting.call), text).await;
         }
         let picked = said.answers.into_iter().find(|one| one.question == ipc::HANDOFF_REMIND_QUESTION)?;
         let tokens = picked.chosen.iter().find_map(|label| {
@@ -358,10 +366,11 @@ where
     }
 
     /// What the person chose, as a message of theirs in the thread: the ask row settles into a
-    /// collapsed tool line, which is not where a person looks for what they said.
-    async fn person_said(&self, id: &str, text: String) {
+    /// collapsed tool line, which is not where a person looks for what they said. **Its id names the
+    /// ask row it answers** ([`answers_a_question`]), so it is not read as words on a walk.
+    async fn person_said(&self, id: &str, ask: &str, text: String) {
         let row = SessionRow::Message {
-            id: self.row_id(id),
+            id: format!("{ask}{SAID}"),
             at: self.instant(),
             from: ipc::SessionVoice::You,
             text,
