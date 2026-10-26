@@ -4,8 +4,9 @@ import type { InputHTMLAttributes, ReactNode } from "react";
  * A setting that is on or off, with its label on the left and the control on
  * the right.
  *
- * **The track and thumb are cut, not rounded**: two chamfered corners each, a grip ridged into the thumb, and `--accent` when
- * on. `data-switch="rail"` on the root draws the track as a rail the thumb rides on.
+ * **A recessed pill with a raised knob, and the state written in the half the knob leaves**: ON on the lit track, OFF on the
+ * dark one. `data-switch` on the root picks a take: `chevrons` points the way the knob would go in place of the words,
+ * `lamp` keeps the knob still as a lamp beside the word, lit when on.
  *
  * The optional description states what the setting does when on and what
  * happens when off. It is not help text for the label — a label that needs
@@ -23,6 +24,12 @@ function Control(rest: Omit<InputHTMLAttributes<HTMLInputElement>, "type">) {
     <>
       <input {...rest} type="checkbox" role="switch" className="armada-switch__input" />
       <span className="armada-switch__track" aria-hidden="true">
+        <span className="armada-switch__word" data-word="on">
+          ON
+        </span>
+        <span className="armada-switch__word" data-word="off">
+          OFF
+        </span>
         <span className="armada-switch__thumb" />
       </span>
     </>
