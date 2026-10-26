@@ -3,7 +3,9 @@
 //!
 //! **Named by the person, never guessed from prose**: an issue tag, or a link into the Session's
 //! own repository, in a message of the person's or the request the Session was dispatched with, or
-//! one the agent claims (`claim_issue`). A bare `#123` is a number in a sentence. An issue is the
+//! one the agent claims (`claim_issue`). A pull request the Session holds names one too: the forge
+//! issues it closes, and a key of the tracker's own projects in its title or branch, which is how
+//! that tracker links them. A bare `#123` is a number in a sentence. An issue is the
 //! forge's number or a tracker's key, as [`IssueReference`] reads it.
 //!
 //! **One row a Session and issue, and what it already says stands.** A second naming takes it up
