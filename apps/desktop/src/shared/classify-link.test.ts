@@ -22,8 +22,13 @@ test("a forge issue is an issue with its number, repository and address", () => 
   });
 });
 
-test("a tracker's browse address is an issue by its key", () => {
-  expect(classifyLink("https://tracker.example/browse/SHIP-42")).toEqual({ kind: "issue", number: "SHIP-42", address: "https://tracker.example/browse/SHIP-42" });
+test("a browse address on a configured tracker's host is an issue by its key", () => {
+  expect(classifyLink("https://tracker.example/browse/SHIP-42", ["Tracker.example"])).toEqual({ kind: "issue", number: "SHIP-42", address: "https://tracker.example/browse/SHIP-42" });
+});
+
+test("a browse address on any other host, or with no tracker known, is other", () => {
+  expect(classifyLink("https://foreign.example/browse/SHIP-42", ["tracker.example"])).toEqual({ kind: "other" });
+  expect(classifyLink("https://tracker.example/browse/SHIP-42")).toEqual({ kind: "other" });
 });
 
 test("anything else is other: a page, a bare number, a browse path with no key, words", () => {

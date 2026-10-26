@@ -29,6 +29,13 @@ test("an issue's link pasted on the Cockpit opens the side panel on it", async (
   await expect.element(page.getByRole("dialog", { name: "Issue #2214" })).toBeVisible();
 });
 
+test("a browse link on a host no tracker is served from opens the link panel", async () => {
+  mount(s270PasteAPrLink);
+  await onScreen();
+  paste("https://foreign.example/browse/SHIP-42");
+  await expect.element(page.getByRole("dialog", { name: "Add a link" })).toBeVisible();
+});
+
 test("any other link still opens the link panel", async () => {
   mount(s270PasteAPrLink);
   await onScreen();

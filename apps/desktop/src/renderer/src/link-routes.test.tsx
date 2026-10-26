@@ -30,14 +30,18 @@ function Shell() {
   return null;
 }
 
-beforeEach(() => {
+// Fleet lists one Jira-keyed issue, at the tracker's own host: the only way the window hears which host that is.
+const listIssues = vi.fn(async () => ({ ok: true, value: { issues: [{ reference: "SHIP-7", url: "https://tracker.example/browse/SHIP-7" }, { reference: "#12", url: "https://forge.example/Mele-Labs/armada/issues/12" }] } }));
+
+beforeEach(async () => {
+  (window as unknown as { armada: unknown }).armada = { listIssues };
   opened.calls.length = 0;
   opened.hosted = true;
   pulls.length = 0;
   reachedLink.length = 0;
   const root = createRoot(document.createElement("div"));
   roots.push(root);
-  act(() => root.render(<Shell />));
+  await act(async () => root.render(<Shell />));
 });
 afterEach(() => {
   for (const root of roots.splice(0)) act(() => root.unmount());
@@ -80,7 +84,14 @@ test("a pasted forge issue opens the side panel on the issue, in its repository"
   expect(reachedLink).toEqual([]);
 });
 
-test("a dropped tracker issue opens the side panel by its key", () => {
+test("a browse link on a foreign host is no issue: it reaches the link panel", () => {
+  pasteOn(document.body, "https://foreign.example/browse/SHIP-42");
+  dropOn(document.body, "https://foreign.example/browse/SHIP-42");
+  expect(opened.calls).toEqual([]);
+  expect(reachedLink).toEqual(["https://foreign.example/browse/SHIP-42", "drop"]);
+});
+
+test("a dropped browse link on the tracker's host opens the side panel by its key", () => {
   dropOn(document.body, "https://tracker.example/browse/SHIP-42");
   expect(opened.calls).toEqual([{ kind: "issue", number: "SHIP-42", address: "https://tracker.example/browse/SHIP-42" }]);
 });

@@ -75,7 +75,7 @@ import { Toasts, useRaised } from "./raised";
 import { DispatchFailure, useDispatchFailure } from "./failure-session";
 import { LinkPanelHost, useLinkDrop } from "./link-drop";
 import { usePasteAndDrop } from "./paste-and-drop";
-import { routeLink, useLinkRoutes } from "./link-routes";
+import { useLinkRoutes } from "./link-routes";
 import { SketchSharing } from "./sketch-sharing";
 import { openServerLink, openLink, restartFleet, changeFleetBuild, observeCheckoutRun, pickRepository, chooseFolder, resolveFolder, addRepository, cloneRepository, createProject, helmDebugInfo, startHelmFresh, pointHelm, getCheckoutRunOutput, getCheckoutRunDiff, readManifestFile, saveManifestFile, editManifest, readRepositoryScan, readManifestProposals, editManifestProposal, writeManifestProposal, listRepositoryAllowedCommands, removeRepositoryAllowedCommand, listKitServers, readKitInventory, removeKitAllowedCommand, removeKitPiece, restoreKitPiece, addKitServer, forgetKitServer, setKitServerReach, setManifestServerReach, listCheckoutRuns, undoCheckoutRun, setupSessionFleet, getRunMemoryPlace, captureStudioNote, readHeld, slotActs, bayActs, startCheckoutRun, startCheckoutVerify, startServer, stopCheckoutRun, stopServer, useCommands, watchCheckoutRunSheet, watchManifestDrift, watchOverview } from "./commands";
 import { hiddenSurfaces, MergeLineSurface } from "./merge-line";
@@ -319,7 +319,7 @@ export function App() {
   const routing = useThoughtRouting({ state, repositories, dispatching, openSession, sketchesOf: helmBox.sketchesOf, carryOf: helmBox.carryOf });
   const oneBar = useOneBar({ live, dispatching }); // `n`, ⌘N and ⌘K: the title bar's one bar.
   usePasteAndDrop(); // The one listener for a paste or a drop, which a package and then a link claim: `paste-and-drop.ts`.
-  useLinkRoutes(openPull, repositories); // A pull request's or an issue's link, before any other: `link-routes.ts`.
+  const linkRoutes = useLinkRoutes(openPull, repositories); // A pull request's or an issue's link, before any other: `link-routes.ts`.
   useLinkDrop(); // A link pasted or dropped anywhere: `link-drop.tsx`.
   const firstContact = firstContactOf(state.settings); useUiSounds(state.settings); // Whether a guide opens itself, once Fleet has answered.
   // Which failure is on screen, and which one `Copy debug info` would copy.
@@ -734,7 +734,7 @@ export function App() {
         <TitleDispatchedStrip />
 
         <PaletteMount
-          open={palette.open} onClose={palette.onClose} dispatch={oneBar} openLink={(typed) => routeLink(typed, "any", openPull, repositories)}
+          open={palette.open} onClose={palette.onClose} dispatch={oneBar} linkRoutes={linkRoutes}
           shownStudio={shownStudio}
           surfaces={SURFACES.filter((one) => !hidden.includes(one.id))}
           checkoutRunSheet={state.checkoutRunSheet}

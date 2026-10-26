@@ -11,7 +11,8 @@ export type LinkClass =
 
 const KEY = /^[A-Z][A-Z0-9]+-[0-9]+$/;
 
-export function classifyLink(text: string): LinkClass {
+/** `trackerHosts` are the hosts a configured tracker serves keys from: a `/browse/KEY` address on any other host is not an issue. */
+export function classifyLink(text: string, trackerHosts: readonly string[] = []): LinkClass {
   const pull = parsePullLink(text);
   if (pull !== undefined) return { kind: "pull", link: pull };
   let url: URL;
@@ -24,6 +25,6 @@ export function classifyLink(text: string): LinkClass {
   const parts = url.pathname.split("/").filter((part) => part !== "");
   const address = text.trim();
   if (parts.length >= 4 && parts[2] === "issues" && /^[0-9]+$/.test(parts[3]!) && Number(parts[3]) > 0) return { kind: "issue", number: parts[3]!, owner: parts[0]!, name: parts[1]!, address };
-  if (parts[0] === "browse" && parts[1] !== undefined && KEY.test(parts[1])) return { kind: "issue", number: parts[1], address };
+  if (parts[0] === "browse" && parts[1] !== undefined && KEY.test(parts[1]) && trackerHosts.some((host) => host.toLowerCase() === url.hostname.toLowerCase())) return { kind: "issue", number: parts[1], address };
   return { kind: "other" };
 }

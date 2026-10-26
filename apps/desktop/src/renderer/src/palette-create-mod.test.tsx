@@ -39,7 +39,7 @@ function mount(live: boolean) {
     picked: null,
     acts: {} as PaletteMountProps["acts"],
     dispatch: { kind: "session", onDispatch: () => {} },
-    openLink: () => false,
+    linkRoutes: { kindOf: () => null, open: () => false },
   };
   root.render(<PaletteMount {...props} />);
   return startModSession;
