@@ -25,7 +25,7 @@ export const checksSaid = (checks: Extract<SessionAttachment, { kind: "pull_requ
 /** A file the agent showed and did not write. */
 export const shownOnly = (one: { form: string; by?: "agent"; written?: true }): boolean => one.form === "file" && one.by === "agent" && one.written !== true;
 
-export const ARTIFACT_SAID = { page: "Published page", file: "File written", image: "Looked at", doc: "Doc", window: "Shown in a window" } as const;
+export const ARTIFACT_SAID = { page: "Published page", file: "File written", image: "Looked at", doc: "Doc", document: "Document", window: "Shown in a window" } as const;
 
 /** What else the window already holds that a row's card can say: the slots Cleanup read. Nothing is read for a card. */
 export type Known = { slots: readonly WorktreeSlot[] };
@@ -79,7 +79,7 @@ export function cardOf(one: SessionAttachment, session: Session, sessions: reado
     case "subagent":
       return { title: one.task, facts: [{ label: "Turn", value: one.state === "running" ? "Running" : "Done", tone: one.state }] };
     case "artifact":
-      return { title: one.title, facts: [{ label: "Form", value: shownOnly(one) ? FILE_SHOWN : ARTIFACT_SAID[one.form] }, { label: one.form === "file" || one.form === "image" ? "Path" : "Address", value: one.id, mono: true }] };
+      return { title: one.title, facts: [{ label: "Form", value: shownOnly(one) ? FILE_SHOWN : ARTIFACT_SAID[one.form] }, { label: one.form === "file" || one.form === "image" || one.form === "document" ? "Path" : "Address", value: one.id, mono: true }] };
     case "issue":
       return { title: one.title, where: issueLabel(one.number), facts: [{ label: "State", value: one.state === "open" ? "Open" : "Closed" }] };
     case "studio":

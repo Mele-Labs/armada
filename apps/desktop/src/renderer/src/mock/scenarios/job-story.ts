@@ -1,16 +1,17 @@
 // A Job's right column as a story. Three Jobs on the Cockpit, each with a plan it has just recorded: one that lands in a pull request, one that
 // lands in a spike's findings doc and one that only investigates and lands in a report. Approving a plan starts the build (the Field opens), and
 // each time the walk lets time pass the build comes closer to its landing: for the pull request, Checks passed, the queue, an issue filed, a watch
-// and a follow-up; for the spike, the findings doc; for the report, the report. A fourth Job holds another pull request so the Merge line has width.
+// and a follow-up; for the spike, the findings doc; for the report, the report, a page of the Job's own with a sketch in it, and a second
+// revision once notes on it are sent. A fourth Job holds another pull request so the Merge line has width.
 // The repository serves a merge line. Groups g1 and g2 work issues LEASE-20481 (a key from another tracker, longer than a forge number) and 2367; the issues no group works (2374, and 2402 once filed) stand in Deferred. Mock only: the stage is read in Bridge from the Job's data
-// (`session-view/story.ts`), and `work.landing` names the kind. The walks `jobStory`, `jobStorySpike` and `jobStoryReport` play it.
+// (`session-view/story.ts`), and `work.landing` names the kind. The walks `jobStory`, `jobStorySpike`, `jobStoryReport` and `jobDocument` play it.
 
 import type { MergeLine, WatchSummary } from "@armada/protocol";
 import type { Session, SessionAttachment, SessionRow, SessionWork, WorkGroup, WorkTaskState, WorkflowChoice } from "@armada/screens/src/draft/sessions";
 import { repository } from "@armada/screens/src/fixtures/repository";
 
 import { mockAreas } from "../cockpit-areas";
-import { LEASE_REPORT, LEASE_REPORT_PATH } from "../files-disk";
+import { LEASE_DOC_1, LEASE_DOC_2, LEASE_DOC_PATH, LEASE_DOC_PATH_2, LEASE_DOC_TITLE } from "../document-pages";
 import { holding } from "../holding";
 import type { Scenario } from "../moment";
 import { planCall, withoutPlanCall } from "../plan-call";
@@ -204,7 +205,8 @@ function reportAt(stage: number): Partial<Session> {
   return {
     turn: { state: stage === 1 ? "working" : "idle" },
     standing: stage === 1 ? "working" : "idle",
-    attachments: stage === 2 ? [{ kind: "artifact", form: "file", id: LEASE_REPORT_PATH, title: "Why do slot leases expire early" }] : [],
+    // The report is a page of the Job's own design, with a revision for each time it answered the person's notes (`document-pages.ts`).
+    attachments: stage >= 2 ? [{ kind: "artifact", form: "document", id: LEASE_DOC_PATH, title: LEASE_DOC_TITLE, revisions: stage === 2 ? [LEASE_DOC_PATH] : [LEASE_DOC_PATH, LEASE_DOC_PATH_2] }] : [],
     waitingFor: stage === 0 ? [planCall(undefined, ago(1))] : [],
     work: {
       proposal: { workflow: INVESTIGATE.name },
@@ -295,8 +297,11 @@ function sessions() {
   };
   return {
     ...base,
-    // The report is a file on the pretend disk, which the Landing panel reads the first lines of.
-    readArtifact: async (id: string, path: string) => (path === LEASE_REPORT_PATH ? { ok: true as const, bytes: new TextEncoder().encode(LEASE_REPORT), type: "text/markdown" } : (base.readArtifact?.(id, path) ?? { ok: false as const, why: "unreadable" as const })),
+    // The report's revisions are files on the pretend disk, which the Landing panel reads the first lines of and the reading layer draws.
+    readArtifact: async (id: string, path: string) => {
+      const page = path === LEASE_DOC_PATH ? LEASE_DOC_1 : path === LEASE_DOC_PATH_2 ? LEASE_DOC_2 : undefined;
+      return page === undefined ? (base.readArtifact?.(id, path) ?? { ok: false as const, why: "unreadable" as const }) : { ok: true as const, bytes: new TextEncoder().encode(page), type: "text/html" };
+    },
     work: {
       workflows: WORKFLOWS,
       choose: () => undefined,
@@ -312,6 +317,9 @@ function sessions() {
         if (at !== 1) continue;
         go(id, 2, [row(id === PR_JOB ? "The checks pass and the pull request is in the merge queue." : id === REPORT_JOB ? "The report is written." : "The findings are written up.", "agent")]);
       }
+      // Notes sent on the report's page are answered by its next revision.
+      const notes = base.get().find((one) => one.id === REPORT_JOB)?.rows.some((one) => one.kind === "message" && one.from.kind === "you" && one.text.startsWith("1. Document "));
+      if (stage.get(REPORT_JOB) === 2 && notes === true) go(REPORT_JOB, 3, [row("Revision 2 is written.", "agent")]);
     },
   };
 }

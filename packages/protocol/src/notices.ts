@@ -32,6 +32,7 @@ export const NOTICES = [
   "watch_saw",
   "taught",
   "issue_lost",
+  "document_sketch",
 ] as const;
 
 export type Notice = (typeof NOTICES)[number];

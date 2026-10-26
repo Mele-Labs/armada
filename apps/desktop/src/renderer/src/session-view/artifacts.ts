@@ -112,7 +112,7 @@ export function artifactsOf(session: Session, entries: readonly LedgerEntry[], b
   const named = new Set(written.map((one) => one.id));
   const touched = (session.work?.files ?? []).flatMap((one) => (one.act === undefined || named.has(one.path) ? [] : [{ key: `touched:${one.path}`, Glyph: ARTIFACT.file.Glyph, said: "File touched", title: one.path, sub: ACTS[one.act] } satisfies ArtifactRow]));
   add("file", "Files", [...newest(written).map(artifactRow), ...touched]);
-  add("doc", "Docs", newest(made.filter((one) => one.form === "doc")).map(artifactRow));
+  add("doc", "Docs", newest(made.filter((one) => one.form === "doc" || one.form === "document")).map(artifactRow));
 
   add(
     "sketch",
