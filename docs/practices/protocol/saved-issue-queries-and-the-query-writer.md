@@ -36,11 +36,14 @@ The protocol ID moves with `crates/ipc/src`, the operation file, the route table
 | Where | Side | Change |
 | --- | --- | --- |
 | `fields.missing_tool` on the error of `search_issues`, `list_issues` and `get_issue` | Fleet writes, Bridge reads | A `WireValue` string, `bd`, where the tracker could not run a program that is not on the PATH Fleet runs with. Absent for every other refusal; `code` and `message` are as they were |
+| `fields.needs_setup` on the same errors | Fleet writes, Bridge reads | A `WireValue` string, `bd`, where the program ran and found no beads project in the repository's main checkout. Absent for every other refusal |
 | `install_tool` | command | `POST /issue_queries/:repository/install_tool`, body `InstallTool` (`tool`), answers `InstalledTool` (`tool`, `done`, `said`) |
 | `fleet.tool_not_installable` | 422 | A `tool` Fleet does not install. Only `bd` is taken, and nothing is run for any other |
 
-**Additive.** A Bridge that reads past `fields.missing_tool` draws the refusal's message as before.
+**Additive.** A Bridge that reads past `fields.missing_tool` and `fields.needs_setup` draws the refusal's message as before.
 
 **Whether it worked is a 200.** `done: false` carries `said`: Homebrew's own words, or `Homebrew is not available`.
 Fleet looks for `brew` in `/opt/homebrew/bin` and `/usr/local/bin` before its PATH, since Bridge starts it and a program
 started from the Dock does not carry the shell's PATH.
+
+**`install_tool` also sets `bd` up.** It installs only where `bd` is absent, then does what `scripts/beads-setup` does in the main checkout. Where origin holds no `refs/dolt/data` it answers `done: false` with that in `said` and changes nothing else.
