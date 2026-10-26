@@ -17,6 +17,8 @@ mod asking;
 mod backgrounding;
 mod cut_off;
 pub(crate) mod disputing;
+pub(crate) mod document_page;
+pub(crate) mod documents;
 pub(crate) mod dispute_review;
 pub(crate) mod dispute_reading;
 pub(crate) mod ending;
@@ -444,6 +446,9 @@ pub(crate) struct State {
     /// The call id of the last question the stream showed, so the door reads a question only once
     /// what the agent wrote before it has been heard. In memory.
     pub question_heard: Option<String>,
+    /// The calls of the stream that wrote a page of the Job's document, by call id, to be kept once the
+    /// tool has answered and the file is on disk. In memory.
+    pub pages: HashMap<String, String>,
     /// This is a repository's Helm Session: its door is Helm's, which places its calls.
     pub helm: bool,
     /// What its last `get_events_since` was answered, kept for Helm's debug record. In memory.
@@ -504,6 +509,7 @@ impl State {
             said: None,
             owes_reply: false,
             question_heard: None,
+            pages: HashMap::new(),
             helm: false,
             polled: None,
             activity: activity::Activity::default(),

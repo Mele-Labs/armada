@@ -45,15 +45,23 @@ self.addEventListener("notificationclick", (event) => {
 const KEPT = "armada-app";
 // Every route serves the one page, so one key holds it.
 const PAGE = "/index.html";
+// The page kept before it. A navigation that waits too long is answered with the kept page while the fresh
+// one is still being kept, so the build before keeps its assets too, or that page opens on files it lost.
+const BEFORE = "/index.before.html";
 const WAIT_MS = 3000;
 
 /** The built files a page names. */
 const assetsOf = (html) => new Set(html.match(/\/assets\/[^"'\s)>]+/g) ?? []);
 
-/** Keeps a page that arrived, and the assets it names; older builds' assets go. */
+/** Keeps a page that arrived, and the assets it and the page before it name; older builds' assets go. */
 async function keep(page) {
   const cache = await caches.open(KEPT);
-  const named = assetsOf(await page.clone().text());
+  const fresh = await page.clone().text();
+  const kept = await cache.match(PAGE);
+  const before = kept ? await kept.clone().text() : undefined;
+  if (kept && before !== fresh) await cache.put(BEFORE, kept);
+  const older = await cache.match(BEFORE);
+  const named = new Set([...assetsOf(fresh), ...(older ? assetsOf(await older.text()) : [])]);
   await cache.put(PAGE, page);
   for (const request of await cache.keys()) {
     const { pathname } = new URL(request.url);

@@ -739,6 +739,31 @@ pub fn written_document(tool: &str, detail: &str, home: &str) -> Option<String> 
     (document && !scratch).then_some(path)
 }
 
+/// The page of a Job's own document a `Write`, `Edit` or `MultiEdit` call wrote: an `.html` file under
+/// `.armada/documents/`, with the elided home put back as `home`. **Read here, beside the lines that
+/// compose the detail**: a `Write` carries `{path} +{lines}`, an `Edit` `{path} +{added} -{removed}`, and a
+/// `MultiEdit` its bare path, since the stream's `edits` list is not read. [`written_document`] leaves
+/// `/.armada/` out, so this is the one place such a page is told apart.
+pub fn written_job_page(tool: &str, detail: &str, home: &str) -> Option<String> {
+    if !matches!(tool, "Write" | "Edit" | "MultiEdit") {
+        return None;
+    }
+    let counted = |tail: &str| !tail.is_empty() && tail.bytes().all(|b| b.is_ascii_digit());
+    let mut shown = detail;
+    for mark in [" -", " +"] {
+        if let Some((head, tail)) = shown.rsplit_once(mark) {
+            if counted(tail) {
+                shown = head;
+            }
+        }
+    }
+    let path = match shown.strip_prefix("~/") {
+        Some(rest) => format!("{}/{rest}", home.trim_end_matches('/')),
+        None => shown.to_string(),
+    };
+    (path.contains("/.armada/documents/") && path.to_lowercase().ends_with(".html")).then_some(path)
+}
+
 /// The picture a `Read` call looked at, with the elided home put back as
 /// `home`. **Scratch is kept**: a screenshot an agent looks at is usually in
 /// `/tmp`, and that is the one a person wants on the ledger. The same rule

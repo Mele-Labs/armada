@@ -537,7 +537,7 @@ pub use phone::{PhoneGateway, SetPhoneGateway};
 pub use show_file::{ShowFile, ShownText};
 pub use test_map::{ReachingCheck, ReachingTest, RecordedLap, RecordedLaps, TestsReaching};
 pub use sketch::{
-    RawScene, ShowSketch, Sketch,
+    page_scene_problems, RawScene, ShowSketch, Sketch,
 };
 pub use session_starts::{
     ForkThisSession, HandToSession, SessionHeld, SessionLink, StartAnotherSession,

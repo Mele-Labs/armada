@@ -8,7 +8,7 @@ use serde::Serialize;
 use crate::reads::json;
 use crate::Gateway;
 
-/// Where neither Tailscale nor the system names this Mac.
+/// Where neither its address nor the system names this Mac.
 const UNNAMED: &str = "Mac";
 
 #[derive(Serialize)]

@@ -71,6 +71,8 @@ pub enum Notice {
     Taught,
     /// The backlog gave an issue the Job claimed to someone else.
     IssueLost,
+    /// A sketch in a Job's document will not draw.
+    DocumentSketch,
 }
 
 impl Notice {
@@ -108,6 +110,7 @@ impl Notice {
             Notice::WatchSaw => "watch_saw",
             Notice::Taught => "taught",
             Notice::IssueLost => "issue_lost",
+            Notice::DocumentSketch => "document_sketch",
         }
     }
 }
