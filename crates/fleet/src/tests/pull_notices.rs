@@ -493,6 +493,7 @@ async fn the_watch_settles_the_row_of_a_merged_pull_request_a_terminal_session_h
         .now_pull_request(Some(adapter_traits::PullRequestFacts {
             standing: adapter_traits::PullRequestStanding::Merged,
             branch: "armada/1".into(),
+            base: "main".into(),
             auto_merge: false,
             title: "Fix the reader".into(),
             url: "https://forge.invalid/armada/pull/1".into(),
@@ -686,6 +687,7 @@ async fn a_pull_request_settled_too_soon_is_stood_back_up_while_it_is_open() {
         .now_pull_request(Some(adapter_traits::PullRequestFacts {
             standing: adapter_traits::PullRequestStanding::Open,
             branch: "armada/1".into(),
+            base: "main".into(),
             auto_merge: true,
             title: "Fix the reader".into(),
             url: "https://forge.invalid/armada/pull/1".into(),

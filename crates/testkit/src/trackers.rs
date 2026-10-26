@@ -23,6 +23,7 @@ pub struct FakeTrackers {
     backlogs: Mutex<BTreeMap<Provider, Arc<dyn Backlog + Send + Sync>>>,
     asked: Mutex<Vec<TrackerChoice>>,
     installed: Mutex<Vec<&'static str>>,
+    installed_in: Mutex<Vec<String>>,
 }
 
 impl FakeTrackers {
@@ -40,6 +41,7 @@ impl FakeTrackers {
             backlogs: Mutex::new(BTreeMap::new()),
             asked: Mutex::new(Vec::new()),
             installed: Mutex::new(Vec::new()),
+            installed_in: Mutex::new(Vec::new()),
         }
     }
 
@@ -74,6 +76,11 @@ impl FakeTrackers {
     /// Every tool Fleet was asked to install, in order. Each is answered as installed.
     pub fn installs(&self) -> Vec<&'static str> {
         self.installed.lock().expect("not poisoned").clone()
+    }
+
+    /// The repository each install was asked for, in order.
+    pub fn installs_in(&self) -> Vec<String> {
+        self.installed_in.lock().expect("not poisoned").clone()
     }
 
     /// Every choice Fleet resolved a tracker or a link reader for, in order.
@@ -118,8 +125,9 @@ impl Trackers for FakeTrackers {
         self.backlogs.lock().expect("not poisoned").get(&provider).cloned()
     }
 
-    fn install(&self, tool: Tool) -> ToolInstalled {
+    fn install(&self, tool: Tool, in_repo: &str) -> ToolInstalled {
         self.installed.lock().expect("not poisoned").push(tool.name());
+        self.installed_in.lock().expect("not poisoned").push(in_repo.to_string());
         ToolInstalled { done: true, said: format!("`{}` is installed", tool.name()) }
     }
 }
