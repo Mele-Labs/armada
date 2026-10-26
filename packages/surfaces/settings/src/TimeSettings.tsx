@@ -8,7 +8,7 @@ export function TimeSettings() {
   const now = useNow();
   return (
     <div className="armada-time-settings">
-      <Switch checked={format.hour12 === false} onChange={(event) => saveTimeFormat({ ...format, hour12: !event.currentTarget.checked })}>
+      <Switch words={{ on: "24H", off: "12H" }} checked={format.hour12 === false} onChange={(event) => saveTimeFormat({ ...format, hour12: !event.currentTarget.checked })}>
         24-hour clock
       </Switch>
       <Switch checked={format.seconds} onChange={(event) => saveTimeFormat({ ...format, seconds: event.currentTarget.checked })}>

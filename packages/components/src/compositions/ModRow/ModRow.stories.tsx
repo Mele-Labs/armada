@@ -56,6 +56,39 @@ export const Presses: Story = {
   },
 };
 
+/** Only the switch toggles. Pressing it calls `onEnabled` with the new value and never `onOpen`. */
+export const SwitchDoesNotOpen: Story = {
+  args: { onOpen: fn() },
+  play: async ({ canvasElement, args }) => {
+    const row = within(canvasElement).getByRole("group", { name: "Dusk" });
+    await userEvent.click(within(row).getByRole("switch", { name: "Dusk" }));
+    await expect(args.onEnabled).toHaveBeenCalledWith(false);
+    await expect(args.onOpen).not.toHaveBeenCalled();
+  },
+};
+
+/** The name button, and the row around it, open the mod. Neither toggles it. */
+export const RowAndNameOpen: Story = {
+  args: { onOpen: fn(), detail: "armada/mod-dusk-1791500000000" },
+  play: async ({ canvasElement, args }) => {
+    const row = within(canvasElement).getByRole("group", { name: "Dusk" });
+    await userEvent.click(within(row).getByRole("button", { name: "Open Dusk" }));
+    await expect(args.onOpen).toHaveBeenCalledTimes(1);
+    await userEvent.click(within(row).getByRole("img", { name: "Theme" }));
+    await expect(args.onOpen).toHaveBeenCalledTimes(2);
+    await expect(args.onEnabled).not.toHaveBeenCalled();
+  },
+};
+
+/** A row given no `onOpen` draws no Open button and is not openable. */
+export const NothingToOpen: Story = {
+  play: async ({ canvasElement }) => {
+    const row = within(canvasElement).getByRole("group", { name: "Dusk" });
+    await expect(row).not.toHaveAttribute("data-openable");
+    await expect(within(row).queryByRole("button", { name: "Open Dusk" })).toBeNull();
+  },
+};
+
 const rowOf = (canvasElement: HTMLElement, name: string) => within(canvasElement).getByRole("group", { name });
 
 /** A tracker mod used by a Manifest: tried, valid and on. */

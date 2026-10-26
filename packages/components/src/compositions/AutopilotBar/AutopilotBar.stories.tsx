@@ -142,6 +142,9 @@ export const LastPassPickedNothing: Story = {
 /** Off, with nothing to say: the switch, and nothing else until it is turned on. */
 export const Off: Story = {
   args: { state: "off", instruction: undefined },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("switch", { name: "Autopilot" }).closest("label")).toHaveAttribute("data-size", "sm");
+  },
 };
 
 /** The start form, driven as Bridge drives it: a sentence, read by Fleet, checked, then started. */

@@ -81,6 +81,8 @@ import { SubagentThread, useSubagentRead } from "./session-subagent";
 import { useMinimized } from "./session-ledger-minimized";
 import { useWriteClashes } from "./clashes";
 import { showLayer } from "./session-view/layers";
+import { ModEmpty } from "./session-view/ModEmpty";
+import { useModCards } from "./session-view/mod-cards";
 import { OverTheApp } from "./session-view/OverTheApp";
 import { baysOf } from "./session-view/slot-trouble";
 import { ClashFileSheet } from "./session-view/ClashFileSheet";
@@ -1034,7 +1036,8 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
   // Open on coming into the Session, until he folds it there.
   const endOpen = (endPanel?.id === session.id ? endPanel.open : true) && endShown;
   // Where the repository keeps its Armada configuration: the first Job on it says so in words, every Job after in a glyph.
-  const root = session.dead !== undefined || session.helm === true || session.terminal === true ? undefined : rootOfSession(session, repositories);
+  // A Mod Job is about Armada, not the repository's configuration, so it carries neither.
+  const root = session.dead !== undefined || session.helm === true || session.mod === true || session.terminal === true ? undefined : rootOfSession(session, repositories);
   const profile = root === undefined ? undefined : boundProfile(account, root);
   const stands = root === undefined ? undefined : runBook.placeOf(root, profile);
   const where =
@@ -1053,6 +1056,9 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
   // A repository another Job has run in is not new, whatever this machine remembers: a draft Job there carries no card.
   const inUse = root !== undefined && sessions.some((other) => other.id !== session.id && other.lastTurnAt !== undefined && rootOfSession(other, repositories) === root);
   const cardLead = !unread && where !== undefined && root !== undefined && cardOn(root, session.id, sentTo(session) || inUse);
+  // A Mod Job with nothing said yet lists what it can make.
+  const modEmpty = !unread && session.mod === true && batched.length === 0;
+  const modCards = useModCards(session.id);
   const marked = unread || where === undefined || cardLead ? undefined : <RunsPlaceControl {...where} />;
   return (
     <TeachHereContext.Provider value={teachHere}>
@@ -1144,8 +1150,9 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
           <SessionThread
             sessionId={session.id}
             rows={batched}
-            {...(!cardLead ? {} : { lead: <RunsPlaceCard {...where!} /> })}
+            {...(!cardLead && !modEmpty ? {} : { lead: <>{cardLead ? <RunsPlaceCard {...where!} /> : null}{modEmpty ? <ModEmpty sessionId={session.id} /> : null}</> })}
             {...(session.transcript === undefined ? {} : { transcript: session.transcript })}
+            {...(modCards.length === 0 ? {} : { inline: modCards })}
             onOpenRetro={openRetro}
             {...(draft.retry === undefined ? {} : { onRetry: (rowId: string) => draft.retry!(session.id, rowId) })}
             {...(draft.forkAt === undefined ? {} : { onForkAt: (pick) => opening(forkAtPick(draft.forkAt!, session.id, pick, setFocusFor), onOpen) })}
