@@ -123,8 +123,9 @@ test("the Artifacts layer's pull request rows show their state and checks marks 
   await expect.element(running).toBeVisible();
   expect(running.element().getAttribute("data-checks")).toBe("running");
   expect(running.element().querySelector("svg")?.classList.contains("lucide-loader-circle")).toBe(true);
-  // A merged row says Merged twice: the lead glyph, and the standing on its second line.
-  await expect.element(rows.nth(2).getByRole("img", { name: "Merged" }).first()).toBeVisible();
+  // A merged row says Merged once, by its lead glyph: no standing on its second line repeats it.
+  await expect.element(rows.nth(2).getByRole("img", { name: "Merged" })).toBeVisible();
+  expect(rows.nth(2).getByRole("img", { name: "Merged" }).all()).toHaveLength(1);
   await expect.element(rows.nth(2).getByRole("img", { name: "Checks passed" })).toBeVisible();
 });
 
