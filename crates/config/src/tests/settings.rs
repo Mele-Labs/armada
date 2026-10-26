@@ -184,6 +184,7 @@ fn every_handle_names_an_entry_of_its_kind() {
         s::DISPUTE_REVIEWS,
         s::NOTIFICATIONS,
         s::UI_SOUNDS,
+        s::DEEP_LINKS,
         s::WHERE_THINGS_ARE_OPEN,
         s::CONTEXT_WATCH,
         s::SUBAGENT_WATCH,
@@ -240,7 +241,7 @@ fn every_handle_names_an_entry_of_its_kind() {
             key.name()
         );
     }
-    let handles = 21 + 13 + 12 + 27 + 2 + 4 + s::prompt_keys().count();
+    let handles = 21 + 13 + 13 + 27 + 2 + 4 + s::prompt_keys().count();
     assert_eq!(
         entries().count(),
         handles,
