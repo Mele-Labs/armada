@@ -52,6 +52,7 @@ import { ViewsSlot } from "./JobViews";
 import { CallPane, PaneHead, SessionPane, ShellPanel } from "./panes";
 import { inOrder, useReplayDriver, useReplayKeys, windowOf } from "./replay";
 import { RowMenu, type RowMenuAt } from "./RowMenu";
+import { columnsOf, restBonus, RowFields, useRowView } from "./row-view";
 import { FlightEdit } from "./FlightEdit";
 import { isWebAddress, repositoryFileOf, tilesOf, useFlightFile, useRepositoryFlight, type FlightSet } from "./flight-controls";
 import { glyphOf as flightGlyph } from "./flight-glyphs";
@@ -267,14 +268,19 @@ function List({ subjects, calling, banding, selected, builds, picked, found, onP
   const hover = useDeck((deck) => deck.hover);
   const limit = useDeck((deck) => deck.limit);
   const ideas = useQueued();
-  const pausedIds = new Set(useSessions().filter((one) => one.paused === true).map((one) => one.id));
+  const sessions = useSessions();
+  const pausedIds = new Set(sessions.filter((one) => one.paused === true).map((one) => one.id));
   const [menu, setMenu] = useState<RowMenuAt>();
+  const view = useRowView();
   const panel = useRef<HTMLElement>(null);
   const drawn = subjects.slice(0, limit);
   // A live Session is picked up by its row and put down among those under its heading.
   const movable = movableIn(subjects);
   const { dragging, grab, swallowed } = useReorder(onMove);
   const tight = tightType();
+  // Under `tight-type` the fields a row draws are the person's (`row-view.tsx`): its columns, and where the clash mark sits among them.
+  const earlier = subjects.some((one) => one.earlier !== undefined);
+  const columns = columnsOf(view, earlier);
   const row = (one: Subject) => {
     const band = movable.has(one.key) ? bandOf(subjects, banding, one.key) : undefined;
     // What a search matched in the Session, in place of its age.
@@ -285,9 +291,16 @@ function List({ subjects, calling, banding, selected, builds, picked, found, onP
     // The row stands for the earlier Job too: it is open when that one is.
     const here = selected === one.key || (one.earlier !== undefined && selected === `session:${one.earlier}`);
     const needs = one.kind === "session" && toneOf(one) === "ask" && !here;
+    // What the row says of how it stands: a handoff or a pause, else its phase, then its state mark.
+    const state = (
+      <>
+        {one.handoff === "starting" ? <HandoffMark /> : pausedIds.has(one.id) ? <PausedMark said="Paused" /> : <Phase subject={one} builds={builds} />}
+        <MarkGlyph mark={{ ...one.mark, tone: toneOf(one) }} size={one.reply === true ? 12 : 16} />
+      </>
+    );
     return (
-      <li key={one.key} className="deck-list__item" data-movable={band} data-lifted={dragging?.key === one.key || undefined} data-drop={dragging?.drop?.key === one.key ? (dragging.drop.after ? "after" : "before") : undefined} onContextMenu={one.kind === "session" ? (event) => (event.preventDefault(), setMenu({ id: one.id, root: one.root, title: one.title, x: event.clientX, y: event.clientY, row: event.currentTarget.querySelector<HTMLElement>(".deck-row") })) : undefined}>
-        <RowHover tight={tight} said={hit?.whole ?? one.peek.at(-1)} card={<SubjectCard one={one} {...(call === undefined ? {} : { calling: callLabel(call) })} />} name={one.title}>
+      <li key={one.key} className="deck-list__item" data-movable={band} data-lifted={dragging?.key === one.key || undefined} data-drop={dragging?.drop?.key === one.key ? (dragging.drop.after ? "after" : "before") : undefined} onContextMenu={one.kind === "session" ? (event) => (event.preventDefault(), event.stopPropagation(), setMenu({ id: one.id, root: one.root, title: one.title, x: event.clientX, y: event.clientY, row: event.currentTarget.querySelector<HTMLElement>(".deck-row") })) : tight ? (event) => (event.preventDefault(), event.stopPropagation(), setMenu({ id: "", root: one.root, title: one.title, x: event.clientX, y: event.clientY, row: null, viewOnly: true })) : undefined}>
+        <RowHover tight={tight} said={view.now ? undefined : hit?.whole ?? one.peek.at(-1)} card={<SubjectCard one={one} {...(call === undefined ? {} : { calling: callLabel(call) })} />} name={one.title}>
         <button type="button" className="deck-row" data-row={one.key} data-calling={call === undefined && !needs ? undefined : ""} data-needs={needs || undefined} data-linked={one.linked !== undefined || undefined} data-reply={one.reply} data-tone={toneOf(one)} data-past={one.past} data-selected={here || undefined} data-cursor={cursor === one.key || undefined} data-hover={hover === one.key || undefined} aria-label={one.title} aria-current={here || undefined} onPointerDown={band === undefined ? undefined : (event) => grab(event, one.key, band)} onClickCapture={(event) => swallowed() && (event.preventDefault(), event.stopPropagation())} onClick={() => onPick(one)} onFocus={() => (moveCursor(one.key), setHover(one.key))} onBlur={() => setHover(undefined)} onMouseEnter={() => setHover(one.key)} onMouseLeave={() => setHover(undefined)} onKeyDown={one.kind === "session" ? (event) => {
           // The earlier Job behind this row, where it took one's place. Not the registry's yet: the key waits on the look.
           if (event.key === "h" && one.earlier !== undefined && !event.metaKey && !event.ctrlKey && !event.altKey) return (event.preventDefault(), onEarlier(one.earlier));
@@ -306,11 +319,14 @@ function List({ subjects, calling, banding, selected, builds, picked, found, onP
             )}
             {one.title}
           </span>
-          <span className="deck-row__marks">
-            <span className="deck-row__clash-slot" aria-hidden="true" />
-            {one.handoff === "starting" ? <HandoffMark /> : pausedIds.has(one.id) ? <PausedMark said="Paused" /> : <Phase subject={one} builds={builds} />}
-            <MarkGlyph mark={{ ...one.mark, tone: toneOf(one) }} size={one.reply === true ? 12 : 16} />
-          </span>
+          {tight ? (
+            <RowFields view={view} earlier={earlier} one={one} session={sessions.find((each) => each.id === one.id)} hit={hit} status={state} />
+          ) : (
+            <span className="deck-row__marks">
+              <span className="deck-row__clash-slot" aria-hidden="true" />
+              {state}
+            </span>
+          )}
           {tight ? null : <span className="deck-row__says">{one.peek.at(-1) ?? ""}</span>}
           {tight ? null : hit === undefined || hit.short === "" ? (
             <span className="deck-row__said">{one.at === undefined ? null : <Stamp still first="age" at={one.at} />}</span>
@@ -328,7 +344,7 @@ function List({ subjects, calling, banding, selected, builds, picked, found, onP
             <EarlierMark onOpen={() => onEarlier(one.earlier!)} />
           </span>
         )}
-        {one.kind === "pr" ? null : (
+        {one.kind === "pr" || (tight && !view.conflicts) ? null : (
           <span className="deck-row__clash">
             <ClashMark kind={one.kind} id={one.id} />
           </span>
@@ -338,14 +354,14 @@ function List({ subjects, calling, banding, selected, builds, picked, found, onP
   };
   return (
     // A press on the list and on no row lets the cursor go.
-    <section ref={panel} className="deck-panel deck-list" aria-label="Jobs" tabIndex={-1} data-collapsed={folded.collapsed || undefined} onClick={(event) => (event.target as Element).closest(".deck-row") === null && moveCursor(undefined)}>
+    <section ref={panel} className="deck-panel deck-list" aria-label="Jobs" tabIndex={-1} data-collapsed={folded.collapsed || undefined} onContextMenu={tight ? (event) => (event.preventDefault(), setMenu({ id: "", root: "", title: "", x: event.clientX, y: event.clientY, row: null, viewOnly: true })) : undefined} onClick={(event) => (event.target as Element).closest(".deck-row") === null && moveCursor(undefined)}>
       <Standby kind="jobs" />
       <header className="deck-band" {...folded.band}>
         <span className="deck-band__name">Jobs</span>
         <Filter rows={panel} />
         <PanelKey id="list" />
       </header>
-      <ul className="deck-list__rows" data-reordering={dragging === undefined ? undefined : ""}>
+      <ul className="deck-list__rows" data-reordering={dragging === undefined ? undefined : ""} data-now={(tight && view.now) || undefined} style={tight ? ({ "--dn-cols": columns.template, "--dn-clash-right": columns.clashRight } as CSSProperties) : undefined}>
         {banding === undefined
           ? [...queuedIn(ideas, picked).map((idea) => <QueuedRow key={queuedKey(idea.id)} idea={idea} />), ...drawn.map(row)]
           : bandsOf(drawn, banding, queuedIn(ideas, picked)).map((band) => (
@@ -356,7 +372,7 @@ function List({ subjects, calling, banding, selected, builds, picked, found, onP
             ))}
         {drawn.length < subjects.length ? <MoreRows key={limit} /> : null}
       </ul>
-      <RowMenu at={menu} onClose={() => setMenu(undefined)} onAutopilot={onAutopilot} />
+      <RowMenu at={menu} onClose={() => setMenu(undefined)} onKeep={(at) => setMenu({ ...at })} onAutopilot={onAutopilot} />
     </section>
   );
 }
@@ -1147,7 +1163,9 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
   }, [density, revealing]);
   const footed = panels.has("controls") || (!unified && (panels.has("dispatch") || panels.has("autopilot")));
   const layout = unified ? "session" : reading ? "reading" : bare ? "bare" : "idle";
-  const { columns, resize, reset } = useColumns(grid, layout);
+  // Under `tight-type` the Jobs list rests as wide as the fields chosen for its rows need (`row-view.tsx`); a width dragged to is kept as dragged.
+  const rowView = useRowView();
+  const { columns, resize, reset } = useColumns(grid, layout, tightType() ? restBonus(rowView, false) : 0);
   const splits = useSplits(grid, layout);
   useActivityBeside(grid, layout);
   const builds = useBuilds(props.now);
