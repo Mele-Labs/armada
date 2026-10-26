@@ -197,13 +197,13 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
     return fleet.subscribe(held);
   }, [fleet]);
 
-  // Every live Session, hosted and terminal, as the dropdown offers them.
+  // Every Session the Jobs list shows as active: a terminal one that is not listening is quiet there (`sessionOfRecord`), so it is left out here.
   useEffect(() => {
     if (!on || fleet === undefined) return;
     const read = (state: Awaited<ReturnType<LayerFleet["state"]>>): void => {
       setLive(
         state.sessions.state === "read"
-          ? state.sessions.sessions.filter((one) => one.state === "live").map((one) => ({ id: one.id, title: titled(one) }))
+          ? state.sessions.sessions.filter((one) => one.state === "live" && (one.hosted !== undefined || one.terminal?.listening === true)).map((one) => ({ id: one.id, title: titled(one) }))
           : [],
       );
     };

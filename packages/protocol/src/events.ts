@@ -20,6 +20,7 @@ import type { AppRun } from "./app-runs";
 import type { ServerState } from "./servers";
 import type { SessionRowChanged } from "./hosted-sessions";
 import type { ModelDownshiftState } from "./model-downshift";
+import type { Projects } from "./projects";
 import type { AgentSignIn } from "./agent-sign-in";
 import type { PlanUsage } from "./plan-usage";
 import type { SleepState } from "./sleep";
@@ -99,6 +100,8 @@ export type Event =
   | ({ kind: "plan_usage.changed" } & PlanUsage)
   /** The default model's step down after any change to it, whole. Absent `downshift` is none. */
   | ({ kind: "model_downshift.changed" } & ModelDownshiftState)
+  /** A repository's projects after any write to one, whole, as `list_projects` answers them. */
+  | ({ kind: "projects.changed" } & Projects)
   /** The agents' account signed out or back in, or Fleet's sign-in of it started or ended, whole. */
   | ({ kind: "agent_sign_in.changed" } & AgentSignIn)
   /** Fleet kept one entry for the timeline; a client holding a window appends it. Since 23.82. */

@@ -318,7 +318,7 @@ function sessions() {
     later() {
       for (const [id, at] of stage) {
         if (at !== 1) continue;
-        go(id, 2, [row(id === PR_JOB ? "The checks pass and the pull request is in the merge queue." : id === REPORT_JOB ? "The report is written." : "The findings are written up.", "agent")]);
+        go(id, 2, [row(id === PR_JOB ? "The checks pass and the pull request is in the merge queue. What I found about the retry is in `.armada/documents/lease-retry.html`." : id === REPORT_JOB ? "The report is written." : "The findings are written up.", "agent")]);
       }
       // Notes sent on the report's page are answered by its next revision.
       const notes = base.get().find((one) => one.id === REPORT_JOB)?.rows.some((one) => one.kind === "message" && one.from.kind === "you" && one.text.startsWith("1. Document "));

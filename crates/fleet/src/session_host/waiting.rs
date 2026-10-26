@@ -93,6 +93,8 @@ pub(crate) struct WaitingReads {
     calls: Vec<store::KeptCall>,
     /// The Job waits on its start card.
     start_held: bool,
+    /// The project tasks it finished and nobody has said are done.
+    asked_tasks: Vec<store::KeptAsked>,
 }
 
 /// What [`Fleet::waiting_from`] read: the items, and how the Session stands.
@@ -126,6 +128,7 @@ pub(crate) fn waiting_reads(
         word_asks: store.word_asks_of(&session.id)?,
         calls: store.calls_of(&session.id)?,
         start_held: store.hosting(&session.id)?.is_some_and(|one| one.start_held),
+        asked_tasks: store.asked_project_tasks(&session.id)?,
     })
 }
 
@@ -310,7 +313,7 @@ where
         session: &KeptSession,
         attachments: &[ipc::Attachment],
     ) -> Waited {
-        let WaitingReads { kept, rows, dismissed, done, turn_end, tell, plan, concerns, misreads, confirmed, word_asks, calls, start_held } = reads;
+        let WaitingReads { kept, rows, dismissed, done, turn_end, tell, plan, concerns, misreads, confirmed, word_asks, calls, start_held, asked_tasks } = reads;
         let asked = self.hosts().of(&session.id).state().asked.clone();
         let rows: Vec<SessionRow> = rows
             .iter()
@@ -471,6 +474,7 @@ where
             );
             // Taught words that open nowhere Fleet could find in this repository: asked once.
             items.extend(self.words_ask_items(&word_asks, &dismissed));
+            items.extend(asked_tasks.iter().map(|asked| crate::project_holds::task_done_item(asked)));
             // Notices a Fleet mod's rule raised as calls, until he dismisses each.
             items.extend(calls.iter().filter(|one| !dismissed.contains(&one.id)).map(super::fleet_calls::call_item));
             items.extend(rows.into_iter().filter_map(|row| match row {
@@ -652,6 +656,7 @@ where
     ) -> Result<SessionRecord, Refusal> {
         let id = self.waiting_session(caller, done.session_id.as_ref())?;
         let now = self.clock().now().as_str().to_string();
+        let (asked, manifest);
         let record = {
             let mut store = self.store().lock().await;
             let session = store
@@ -665,9 +670,15 @@ where
             store
                 .keep_done(&id, &now)
                 .map_err(|why| self.ledger_fault(why))?;
+            // Done is one of the two ways a held task is asked about: the other is the merge.
+            asked = store.ask_held_project_tasks(&id, &now).map_err(|why| self.ledger_fault(why))? > 0;
+            manifest = session.manifest_id.clone();
             self.ledger_row(&store, &session)?
         };
         self.publish(ipc::Event::SessionChanged(record.clone()));
+        if let (true, Some(manifest)) = (asked, manifest) {
+            self.projects_published(&manifest).await;
+        }
         Ok(record)
     }
 
@@ -858,6 +869,7 @@ where
                 "a concern is sent to the agent, or dismissed, from its own card",
             )),
             WaitingSource::SlotChoice => self.slot_chosen(&id, said.choice).await,
+            WaitingSource::TaskDone => self.task_done_chosen(&id, &item.id, said.choice).await,
             WaitingSource::Delivery => self.delivery_chosen(&id, said.choice).await,
             WaitingSource::WordsAddress => self.words_address_chosen(&id, &item, picked.as_deref(), words).await,
         };
@@ -913,6 +925,12 @@ where
             return Err(self.hosted_refusal(
                 SESSION_WAITING_EMPTY,
                 "whether a job waits for a slot or has one added is answered, not dismissed",
+            ));
+        }
+        if item.source == WaitingSource::TaskDone {
+            return Err(self.hosted_refusal(
+                SESSION_WAITING_EMPTY,
+                "whether the tasks are done is answered, not dismissed",
             ));
         }
         if dismiss.misread && item.source != WaitingSource::Replied {

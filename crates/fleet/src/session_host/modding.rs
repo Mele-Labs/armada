@@ -91,6 +91,7 @@ where
             request: None,
             after: None,
             held: false,
+            project_rows: Vec::new(),
         };
         let session_id = self.started_hosted(begun, marked).await?.id;
         // **Not an error**: the Job exists, so the answer is 200 and `send_failed` says why

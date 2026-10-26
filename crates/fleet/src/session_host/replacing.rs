@@ -303,6 +303,7 @@ where
                 request: None,
                 after: None,
                 held: false,
+                project_rows: Vec::new(),
             })
             .await
             .map_err(|why| reason_of("new job did not start", &said_of(&why)))?;

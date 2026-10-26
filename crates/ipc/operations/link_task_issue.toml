@@ -1,0 +1,10 @@
+[operations.link_task_issue]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Link an issue to a task or subtask"
+notes = """
+`POST /projects/:repository/:project/rows/:row/issues`, body `LinkProjectIssue`: `issue`, a reference as `IssueReference` reads it (`7`, `#7`, `ABC-12`, `armada-3fz`). Linking one the task already has changes nothing. Only the reference is kept: the issue's title and whether it is open are read from the tracker when the rows are, as an issue row's are, and appear on the task's `issues`. `docs/practices/protocol/projects.md`. Answers `Projects` as `list_projects` does, and publishes it as `projects.changed`.
+
+A 422 `fleet.project_issue_unreadable` for a reference `IssueReference` refuses, a 422 `fleet.project_row_not_a_task` for a `row` that is an issue row, a 404 `fleet.no_such_project` for a `project` the repository has none of, a 404 `fleet.no_such_project_row` for a `row` the project has none of, and a 422 for a repository Fleet does not serve.
+"""

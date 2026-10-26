@@ -27,6 +27,7 @@ use crate::app_runs::AppRun;
 use crate::servers::ServerState;
 use crate::settings::SettingsList;
 use crate::model_downshift::ModelDownshiftState;
+use crate::projects::Projects;
 use crate::agent_sign_in::AgentSignIn;
 use crate::plan_usage::PlanUsage;
 use crate::sleep::SleepState;
@@ -171,6 +172,10 @@ pub enum Event {
     // The default model's step down after any change to it, whole. `docs/concepts/machine.md`, *Quota*.
     #[serde(rename = "model_downshift.changed")]
     ModelDownshiftChanged(ModelDownshiftState),
+    // A repository's projects after any write to one, whole, as `list_projects` answers them.
+    // `docs/practices/protocol/projects.md`.
+    #[serde(rename = "projects.changed")]
+    ProjectsChanged(Projects),
     // The agents' account signed out or in, or its sign-in started or ended, whole.
     // `docs/concepts/session/a-job-whose-sign-in-expired.md`.
     #[serde(rename = "agent_sign_in.changed")]

@@ -104,6 +104,7 @@ where
                 after: None,
                 // A Session that waits is held once its wait is met.
                 held: after.is_none(),
+                project_rows: Vec::new(),
             })
             .await?;
         let brief = words.message.clone();
@@ -156,6 +157,7 @@ where
                 request: None,
                 after: None,
                 held: true,
+                project_rows: Vec::new(),
             })
             .await?;
         self.held_with(made.id.as_str(), &words.message).await?;
