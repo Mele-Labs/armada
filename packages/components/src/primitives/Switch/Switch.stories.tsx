@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect } from "storybook/test";
-import { Switch } from "./Switch";
+import { expect, fn } from "storybook/test";
+import { Switch, SwitchControl } from "./Switch";
 
 const meta: Meta<typeof Switch> = {
   title: "Primitives/Switch",
@@ -28,22 +28,91 @@ function Card({ children }: { children: React.ReactNode }) {
   );
 }
 
-/** On: `--accent` track, `--fg-default` thumb. */
+/** On: the lit track says ON, with the knob at the far end. */
 export const On: Story = {
   render: () => (
     <Card>
       <Switch defaultChecked>Escalate on stall</Switch>
     </Card>
   ),
+  play: async ({ canvas }) => {
+    const on = canvas.getByRole("switch", { name: "Escalate on stall" });
+    await expect(on).toBeChecked();
+    await expect(on.closest("label")).not.toHaveAttribute("data-size");
+    await expect(canvas.getByText("ON")).toBeInTheDocument();
+    await expect(canvas.getByText("OFF")).toBeInTheDocument();
+  },
 };
 
-/** Off: `--bg-hover` track on a `--border-default` edge, `--fg-subtle` thumb. */
+/** Off: the dark track says OFF, with the knob at the near end. */
 export const Off: Story = {
   render: () => (
     <Card>
       <Switch>Auto-approve small diffs</Switch>
     </Card>
   ),
+};
+
+/**
+ * The track says what the setting is in its own words, and widens to the longer of the two. The switch keeps its name and its
+ * checked state, and a press flips it.
+ */
+export const Words: Story = {
+  render: () => (
+    <Card>
+      <Switch words={{ on: "24H", off: "12H" }} defaultChecked>
+        24-hour clock
+      </Switch>
+    </Card>
+  ),
+  play: async ({ canvas, userEvent }) => {
+    const clock = canvas.getByRole("switch", { name: "24-hour clock" });
+    await expect(clock).toBeChecked();
+    await expect(canvas.getByText("24H")).toBeInTheDocument();
+    await expect(canvas.getByText("12H")).toBeInTheDocument();
+    await expect(canvas.queryByText("ON")).toBeNull();
+    await userEvent.click(clock);
+    await expect(clock).not.toBeChecked();
+  },
+};
+
+/** A band's or a bar's switch, one badge tall. A row's has no size. */
+export const Small: Story = {
+  render: () => (
+    <Card>
+      <Switch size="sm" defaultChecked>
+        Autopilot
+      </Switch>
+    </Card>
+  ),
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("switch", { name: "Autopilot" }).closest("label")).toHaveAttribute("data-size", "sm");
+  },
+};
+
+/** The bare control, for a row whose text does something else. Only the control toggles, and `label` names it. */
+export const Bare: Story = {
+  args: {},
+  render: () => {
+    const onChange = fn();
+    return (
+      <Card>
+        <button type="button" onClick={onChange}>
+          Open Dusk
+        </button>
+        <SwitchControl label="Dusk" size="sm" words={{ on: "Y", off: "N" }} defaultChecked onChange={(event) => onChange(event.target.checked)} />
+      </Card>
+    );
+  },
+  play: async ({ canvas, userEvent }) => {
+    const control = canvas.getByRole("switch", { name: "Dusk" });
+    await expect(control).toBeChecked();
+    await expect(control.closest("label")).toHaveAttribute("data-size", "sm");
+    await expect(control.closest("label")).toHaveAttribute("data-control", "");
+    await expect(canvas.getByText("Y")).toBeInTheDocument();
+    await userEvent.click(control);
+    await expect(control).not.toBeChecked();
+  },
 };
 
 /** A 2px `--accent` ring at 2px offset, on the track. */
