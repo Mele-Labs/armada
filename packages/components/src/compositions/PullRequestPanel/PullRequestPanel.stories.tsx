@@ -382,3 +382,30 @@ export const NotRead: Story = {
     await expect(opener).toHaveBeenCalledWith(waiting.address);
   },
 };
+
+const FIX = "gh auth refresh -s repo";
+const refusal = { said: `GitHub refused the token gh signed in with. Sign in again with \`${FIX}\`, authorize it for the organization's SSO, then open it again.` };
+
+/** Fleet refused the read and named a command: Run and Copy beside it, before anything has run. */
+export const RefusedWithAFix: Story = {
+  render: () => <PullRequestPanel {...waiting} reading={refusal} fix={{ command: FIX, onRun: fn(), onAgain: fn() }} />,
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("button", { name: "Run" })).toBeInTheDocument();
+    await expect(canvas.getByRole("button", { name: "Copy command" })).toBeInTheDocument();
+  },
+};
+
+/** The command ran and ended: what it printed stays, and the pull request can be read again. */
+export const RefusedAfterTheRun: Story = {
+  render: () => (
+    <PullRequestPanel
+      {...waiting}
+      reading={refusal}
+      fix={{ command: FIX, onRun: fn(), onAgain: fn(), run: { out: "Logged in as ines\r\n", screen: 1, running: false, write: fn(), onSize: fn(), onStop: fn() } }}
+    />
+  ),
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("button", { name: "Open the pull request again" })).toBeInTheDocument();
+    await expect(canvas.getByRole("button", { name: "Run again" })).toBeInTheDocument();
+  },
+};

@@ -4,8 +4,9 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
-import type { PullRequestPage } from "@armada/protocol";
+import type { PullRequestPage, SessionRunMessage } from "@armada/protocol";
 
+import "../styles/index.css";
 import { fleetPanelReads } from "./fleet-reads";
 import type { FleetPanelApi, FleetPanelState } from "./fleet-reads";
 import { SharedPanelHost } from "./host";
@@ -147,6 +148,52 @@ test("a page the forge refused is drawn with Fleet's words for it, not the fixed
   await mount({ ...readsOf(async () => undefined), ...fleetPanelReads(api, () => state) });
   await act(async () => {});
   expect(document.querySelector('[role="alert"]')?.textContent).toBe(said);
+});
+
+const FIX = "gh auth refresh -s repo";
+const FIX_SAID = `GitHub refused the token gh signed in with. Sign in again with \`${FIX}\`, authorize it for the organization's SSO, then open it again.`;
+
+/** A Fleet that runs what it is given: its output arrives by run id, as main sends it. */
+function runner() {
+  let hear: (runId: string, message: SessionRunMessage) => void = () => {};
+  const api = {
+    startTerminalRun: vi.fn(async (_command: string, _dir: string) => ({ ok: true, value: { run_id: "run-1" } }) as const),
+    writeSessionRun: vi.fn(async () => ({ ok: true, value: { run_id: "run-1" } }) as const),
+    resizeSessionRun: vi.fn(async () => ({ ok: true, value: { run_id: "run-1" } }) as const),
+    stopSessionRun: vi.fn(async () => ({ ok: true, value: { run_id: "run-1" } }) as const),
+    onSessionRunMessage: (on: typeof hear) => {
+      hear = on;
+      return () => undefined;
+    },
+  };
+  return { api, say: (message: SessionRunMessage) => act(async () => hear("run-1", message)) };
+}
+
+const pressed = (name: string) => [...document.querySelectorAll<HTMLButtonElement>("button")].find((one) => (one.getAttribute("aria-label") ?? one.textContent) === name);
+const refusedReads = (said: string, terminalRun?: PanelReads["terminalRun"]): PanelReads => ({
+  ...readsOf(async () => ({ refused: said, root: "/code/tidewater" })),
+  ...(terminalRun === undefined ? {} : { terminalRun }),
+});
+
+test("a refusal that names a command draws Run and Copy, and Run runs it in the repository and draws what it prints", async () => {
+  const fleet = runner();
+  await mount(refusedReads(FIX_SAID, fleet.api));
+  await act(async () => {});
+  expect(pressed("Copy command")).not.toBeUndefined();
+  await act(async () => pressed("Run")!.click());
+  expect(fleet.api.startTerminalRun).toHaveBeenCalledWith(FIX, "/code/tidewater");
+  await fleet.say({ kind: "output", text: "Logged in as ines\r\n" });
+  await vi.waitFor(() => expect(document.querySelector(".xterm")?.textContent).toContain("Logged in as ines"));
+  await fleet.say({ kind: "exited", code: 0 });
+  expect(pressed("Open the pull request again")).not.toBeUndefined();
+});
+
+test("a refusal that names no command draws neither Run nor Copy", async () => {
+  await mount(refusedReads("GitHub refused access to harbor-labs/tidewater. Open it again later.", runner().api));
+  await act(async () => {});
+  expect(document.querySelector('[role="alert"]')).not.toBeNull();
+  expect(pressed("Run")).toBeUndefined();
+  expect(pressed("Copy command")).toBeUndefined();
 });
 
 test("Open in browser opens the pull request's address in the browser and leaves the panel where it is", async () => {

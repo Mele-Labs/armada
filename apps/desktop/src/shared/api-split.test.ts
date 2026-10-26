@@ -476,6 +476,7 @@ type OldBridgeApi = {
     writePullRequest: (sessionId: string, number: number, write: PullRequestWrite) => Promise<SessionActed<PullRequestPage>>;
     startSessionRun: (sessionId: string, command: string, cols?: number, rows?: number) => Promise<SessionActed<SessionRunUnderway>>;
     openTerminal: (sessionId: string, cols?: number, rows?: number) => Promise<SessionActed<SessionRunUnderway>>;
+    startTerminalRun: (command: string, dir: string, cols?: number, rows?: number) => Promise<SessionActed<SessionRunUnderway>>;
     catchUpCheckout: (manifestId: string) => Promise<SessionActed<CheckoutCaughtUp>>;
     sendCheckoutAsPullRequest: (manifestId: string) => Promise<SessionActed<CheckoutSentAsPullRequest>>;
     readCheckoutDiff: (manifestId: string, path: string) => Promise<SessionActed<CheckoutDiff>>;
@@ -788,6 +789,7 @@ const OLD_CHANNELS = {
     writePullRequest: "bridge:write-pull-request",
     startSessionRun: "bridge:start-session-run",
     openTerminal: "bridge:open-terminal",
+    startTerminalRun: "bridge:start-terminal-run",
     catchUpCheckout: "bridge:catch-up-checkout",
     sendCheckoutAsPullRequest: "bridge:send-checkout-as-pull-request",
     readCheckoutDiff: "bridge:read-checkout-diff",
