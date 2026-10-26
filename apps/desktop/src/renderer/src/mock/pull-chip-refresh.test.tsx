@@ -46,6 +46,7 @@ test("Refresh on the merge line chip asks Fleet once, by the repository's Manife
 
 test("Shift+F10 on the focused chip opens the same menu", async () => {
   await open();
+  await expect.element(chip()).toBeVisible();
   chip().element().focus();
   await userEvent.keyboard("{Shift>}{F10}{/Shift}");
   await expect.element(page.getByRole("menuitem", { name: "Refresh" })).toBeVisible();
@@ -54,6 +55,7 @@ test("Shift+F10 on the focused chip opens the same menu", async () => {
 test("a refused Refresh is a toast in Fleet's words, and the chip stays as it was", async () => {
   const fleet = await open();
   fleet.refusesRefresh = { code: "fleet.pull_request_unreadable", message: "The forge did not answer." };
+  await expect.element(chip()).toBeVisible();
   rightPress(chip().element());
   await userEvent.click(page.getByRole("menuitem", { name: "Refresh" }));
   await expect.element(toast("The forge did not answer.")).toBeVisible();
@@ -105,6 +107,7 @@ test("a pull request no Job here holds has no Job row on its card", async () => 
 test("a failure read by Refresh is told to the Job that holds it once, however often it is read", async () => {
   await open();
   for (let time = 0; time < 2; time += 1) {
+    await expect.element(chip()).toBeVisible();
     rightPress(chip().element());
     await userEvent.click(page.getByRole("menuitem", { name: "Refresh" }));
     await expect.element(chip()).toHaveAccessibleName(/ci failed/);
