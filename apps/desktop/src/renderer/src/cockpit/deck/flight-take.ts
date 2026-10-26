@@ -25,8 +25,18 @@ export type TabsPos = "head" | "foot";
 /** Where the `nav` tabs stand on the page address: `foot` is the Job panel's last row, under the composer; otherwise under the title. The `segmented` look is in the title row either way. */
 export const tabsPos = (): TabsPos => (tabsLook() === "nav" && new URLSearchParams(window.location.search).get("tabpos") === "foot" ? "foot" : "head");
 
-/** `&views=composer` on the `tabs` take: the Job's views are icon buttons in the composer's row (`JobViews.tsx`) and there is no tab row. */
-export const viewsInComposer = (): boolean => flightTake() === "tabs" && new URLSearchParams(window.location.search).get("views") === "composer";
+export type ViewsAt = "composer" | "head" | "left";
+
+/**
+ * Where the `tabs` take puts the Job's four views on `&views=`, and no tab row in any: `composer` is icon buttons in the message box's row, `head` icon buttons in the Job's title row,
+ * `left` a panel under the Jobs list (`JobViews.tsx`). None, or any other value, is the tab row.
+ */
+export const viewsAt = (): ViewsAt | undefined => {
+  const at = new URLSearchParams(window.location.search).get("views");
+  return flightTake() === "tabs" && (at === "composer" || at === "head" || at === "left") ? at : undefined;
+};
+
+export const viewsInComposer = (): boolean => viewsAt() === "composer";
 
 export type FlightGroup = "job" | "tell" | "open";
 

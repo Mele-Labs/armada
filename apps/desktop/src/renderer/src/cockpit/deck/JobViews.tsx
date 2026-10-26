@@ -1,12 +1,14 @@
-// The Job's views as icon buttons in the composer's row, on `&views=composer` of the `tabs` take (`flight-take.ts`): no tab row, Thread is the thread itself, and Artifacts, Checks,
-// Subagents and Bays are the layers the tabs were (`session-view/layers.ts`). A press opens the layer, a press on the lit one shuts it, as Esc does. A view with nothing in it stays in its
-// place, off, with its reason as the tooltip (`offeredOf`), so the buttons never move. The facts the tiles carried stay on the button's corner: Subagents the number running, Checks a pulsing
-// dot while any runs, Bays the clash, and Bays tinted while a bay is wrong. **A layer starts under the head and stops over the composer's dock** (`LayerBounds`), so the composer and its
-// buttons stay on show while a layer is read. The keys press the buttons as they pressed the tabs (`flight-keys.ts`). The owner's ask of 25 Oct 2026.
+// The Job's views on `&views=` of the `tabs` take (`flight-take.ts`), and no tab row in any of them. Thread is the thread itself; Artifacts, Checks, Subagents and Bays are the layers the tabs were
+// (`session-view/layers.ts`). `composer` draws four icon buttons in the message box's row (`SessionComposer`'s `views`), `head` four in the Job's title row before its own buttons (`HeadViews`),
+// and `left` a panel under the Jobs list with a row for each (`LeftViews`, set in `ViewsSlot`). A press opens the layer, a press on the lit one shuts it, as Esc does. A view with nothing in it stays
+// in its place, off, with its reason as the tooltip (`offeredOf`), so nothing moves. The facts the tiles carried stay with each: Subagents the number running, Checks a pulsing dot while any runs,
+// Bays the clash, and Bays tinted while a bay is wrong. **A layer starts under the head and stops over the composer's dock** (`LayerBounds`), so the head, the composer and the views stay on
+// show while a layer is read. The keys press them as they pressed the tabs (`flight-keys.ts`). The owner's ask of 25 Oct 2026.
 
-import { useLayoutEffect, useRef } from "react";
+import { useLayoutEffect, useRef, useSyncExternalStore } from "react";
+import { createPortal } from "react-dom";
 import { CircleDot, Swords } from "lucide-react";
-import { type ComposerView } from "@armada/components";
+import { Button, Kbd, Separator, Tooltip, type ComposerView } from "@armada/components";
 import { attachmentsOf, type Session } from "@armada/screens/src/draft/sessions";
 
 import { useSessionsDraft } from "../../sessions-draft";
@@ -14,18 +16,20 @@ import { toggleLayer, useLayer } from "../../session-view/layers";
 import { baysLit, type SessionBays } from "../../session-view/slot-trouble";
 import { tilesOf, useFlightFile } from "./flight-controls";
 import { glyphOf } from "./flight-glyphs";
-import { TAB_LAYERS, takeKey, viewsInComposer } from "./flight-take";
+import { useCollapse } from "./collapse";
+import { TAB_LAYERS, takeKey, viewsAt } from "./flight-take";
+import { VIEWS_KEY } from "./keys-model";
 import { offeredOf } from "./session-tiles";
 import "./JobTabs.css";
 
 const GLYPH: Record<(typeof TAB_LAYERS)[number], string> = { artifacts: "files", checks: "shield-check", subagents: "split", slot: "rows-3" };
 
-/** The buttons for the composer's row, or none where the page does not ask for them. */
+/** The Job's four views, or none where the page does not ask for them. */
 export function useJobViews(session: Session, bays: SessionBays | undefined): readonly ComposerView[] | undefined {
   const open = useLayer(session.id);
   const draft = useSessionsDraft();
   const tiles = tilesOf("job", useFlightFile());
-  if (!viewsInComposer() || draft === undefined) return undefined;
+  if (viewsAt() === undefined || draft === undefined) return undefined;
   const { off } = offeredOf(session, draft, undefined, (bays?.bays.length ?? 0) > 0);
   const subagentsRunning = attachmentsOf(session, "subagent").filter((one) => one.state === "running").length;
   const checksRunning = session.rows.some((one) => one.kind === "check" && one.state === "running");
@@ -92,4 +96,77 @@ export function LayerBounds() {
     };
   }, []);
   return <span ref={mark} hidden />;
+}
+
+/** A view's button, as in the Job's head: ghost, small, its glyph and its fact on the corner. */
+function ViewButton({ view }: { view: ComposerView }) {
+  const { id, label, tip, Glyph, key, pressed, disabled = false, lit = false, mark, onPress } = view;
+  return (
+    <Tooltip label={tip} {...(key === undefined ? {} : { shortcut: key })}>
+      <Button type="button" variant="ghost" size="sm" iconOnly aria-label={label} aria-pressed={pressed} disabled={disabled} data-key={key} data-lit={lit || undefined} data-view={id} onClick={onPress}>
+        <Glyph size={16} strokeWidth={2} aria-hidden />
+        {mark === undefined ? null : <span className="sv-view__mark">{mark}</span>}
+      </Button>
+    </Tooltip>
+  );
+}
+
+/** `views=head`: the buttons, and a rule after them, for the head's row before its own buttons. */
+export function HeadViews({ views }: { views: readonly ComposerView[] }) {
+  return (
+    <>
+      {views.map((view) => (
+        <ViewButton key={view.id} view={view} />
+      ))}
+      <Separator orientation="vertical" className="sv-views__rule" />
+    </>
+  );
+}
+
+// `views=left`: where the Cockpit's left column holds the panel. The Job's own view draws into it, as the Job is where the facts are held.
+let slot: HTMLElement | null = null;
+const watching = new Set<() => void>();
+const hold = (node: HTMLElement | null) => {
+  slot = node;
+  watching.forEach((one) => one());
+};
+const watch = (one: () => void) => (watching.add(one), () => void watching.delete(one));
+
+/** The place under the Jobs list, drawn in the left column in this take. It takes no room of its own: what is drawn into it is the column's. */
+export function ViewsSlot() {
+  return viewsAt() === "left" ? <div ref={hold} className="deck-views-slot" /> : null;
+}
+
+/** `views=left`: the panel, drawn into the column. Not drawn with no Job open, as there is no Job to read views of. */
+export function LeftViews({ views }: { views: readonly ComposerView[] }) {
+  const host = useSyncExternalStore(watch, () => slot);
+  const folded = useCollapse("views");
+  if (host === null) return null;
+  return createPortal(
+    <section className="deck-panel deck-views" aria-label="Views" tabIndex={-1} data-collapsed={folded.collapsed || undefined}>
+      <header className="deck-band" {...folded.band}>
+        Views
+        <Tooltip label="Go to Views" shortcut={VIEWS_KEY}>
+          <Kbd>{VIEWS_KEY}</Kbd>
+        </Tooltip>
+      </header>
+      <ul className="deck-list__rows">
+        {views.map(({ id, label, tip, Glyph, key, pressed, disabled = false, lit = false, mark, onPress }) => (
+          <li key={id} className="deck-list__item">
+            <Tooltip label={tip} {...(key === undefined ? {} : { shortcut: key })} asChild>
+              {/* Off is `aria-disabled` and not `disabled`, so the row keeps focus and its tooltip says why. */}
+              <button type="button" className="deck-row" aria-label={label} aria-pressed={pressed} aria-disabled={disabled || undefined} data-selected={pressed || undefined} data-off={disabled || undefined} data-lit={lit || undefined} data-key={key} data-view={id} onClick={disabled ? undefined : onPress}>
+                <span className="deck-row__title">
+                  <Glyph size={16} strokeWidth={2} aria-hidden />
+                  {label}
+                </span>
+                <span className="deck-row__marks">{mark}</span>
+              </button>
+            </Tooltip>
+          </li>
+        ))}
+      </ul>
+    </section>,
+    host,
+  );
 }

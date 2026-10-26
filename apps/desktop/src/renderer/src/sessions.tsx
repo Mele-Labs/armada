@@ -130,8 +130,8 @@ import { useJobDock } from "./job-shell-dock";
 import { todosOf } from "./session-activity";
 import { confirmWaiting, dismissWaiting } from "./cockpit/dismissed";
 import { JobTabs } from "./cockpit/deck/JobTabs";
-import { LayerBounds, useJobViews } from "./cockpit/deck/JobViews";
-import { flightTake, tabsLook, tabsPos, viewsInComposer } from "./cockpit/deck/flight-take";
+import { HeadViews, LayerBounds, LeftViews, useJobViews } from "./cockpit/deck/JobViews";
+import { flightTake, tabsLook, tabsPos, viewsAt, viewsInComposer } from "./cockpit/deck/flight-take";
 import { useCompactAct } from "./cockpit/deck/compact-act";
 import { holdsDelivery, stateOf } from "./session-state";
 import type { PlanEditing } from "./session-view/PlanEdit";
@@ -1098,7 +1098,8 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
         }}
         {...(deck === undefined ? {} : { back: deck.back })}
         // The takes of Flight control, on the Cockpit only (`cockpit/deck/flight-take.ts`): the Job's views as tabs, on a second row of the head or in its row, and Compact in the context tank.
-        {...(deck?.flight === true && flightTake() === "tabs" && !viewsInComposer() ? { tabs: <JobTabs session={session} bays={bays} />, tabsPlace: tabsLook() === "segmented" ? ("head" as const) : tabsPos() === "foot" ? ("foot" as const) : ("row" as const) } : {})}
+        {...(deck?.flight === true && flightTake() === "tabs" && viewsAt() === undefined ? { tabs: <JobTabs session={session} bays={bays} />, tabsPlace: tabsLook() === "segmented" ? ("head" as const) : tabsPos() === "foot" ? ("foot" as const) : ("row" as const) } : {})}
+        {...(deck?.flight === true && viewsAt() === "head" && jobViews !== undefined ? { headViews: <HeadViews views={jobViews} /> } : {})}
         {...(deck?.flight === true && compactAct !== undefined ? { compact: compactAct } : {})}
         {...{
               actions: (
@@ -1202,6 +1203,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
           {endShown && doneProp !== undefined ? <SessionEndBand done={doneProp} open={endOpen} onOpen={(open) => setEndPanel({ id: session.id, open })} /> : null}
           {session.dead !== undefined || starting === undefined ? null : <div className="sv-start-strip">{starting.lead}</div>}
           {deck?.flight === true && jobViews !== undefined ? <LayerBounds /> : null}
+          {deck?.flight === true && viewsAt() === "left" && jobViews !== undefined ? <LeftViews views={jobViews} /> : null}
           {session.dead !== undefined ? null : (
             <SessionComposer
               modeLocked={session.terminal === true}
@@ -1234,7 +1236,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
               onTags={(tags) => draft.setTags(session.id, tags)}
               drawn={drawn.map(({ id, title }) => ({ id, title }))}
               onDraw={() => setPadOpen(true)}
-              {...(deck?.flight === true && jobViews !== undefined ? { views: jobViews } : {})}
+              {...(deck?.flight === true && viewsInComposer() && jobViews !== undefined ? { views: jobViews } : {})}
               onRemoveDrawn={(id) => setDrawn((was) => was.filter((one) => one.id !== id))}
               onSend={(sent) => {
                 // A held Job's first send begins it: the box is the first message.

@@ -8,7 +8,7 @@ import { actionOf, formatSlot, slotsOf } from "@armada/components";
 
 import { PAUSE_KEY, SESSION_TILES, tileKey } from "./session-tiles";
 
-export type PanelId = "list" | "activity" | "stage" | "bays" | "queue" | "controls" | "dispatch" | "autopilot";
+export type PanelId = "list" | "activity" | "stage" | "bays" | "queue" | "controls" | "dispatch" | "autopilot" | "views";
 
 /** The slot of `deck_panel` that goes to the first row of the list that needs him, which is no panel of its own. */
 export type NeedsSlot = "needs";
@@ -36,7 +36,12 @@ export const PANELS: readonly Panel[] = [
   { id: "controls", name: "Flight control", root: ".deck-controls", items: ".deck-tile" },
   { id: "dispatch", name: "Dispatch", root: ".deck-dispatch", items: ".deck-tile" },
   { id: "autopilot", name: "Autopilot", root: ".deck-autopilot", items: "button", home: '[role="switch"]' },
+  // The Job's views, as a panel under the list in the `tabs` take on `&views=left` (`JobViews.tsx`); drawn only then.
+  { id: "views", name: "Views", root: ".deck-views", items: ".deck-row" },
 ];
+
+/** The key that goes to the Views panel. Not a slot of `deck_panel` yet; `i` is free in the registry (`v` is a call's Open walk). */
+export const VIEWS_KEY = "i";
 
 /** The panels that are lists of items to open: where `o` opens the one under the cursor as Enter does. Not the stage, whose page has keys of its own, nor the controls. */
 export const OPENS: readonly PanelId[] = ["list", "activity", "bays", "queue"];
@@ -49,6 +54,7 @@ export const panelOfSlot = (slot: number): PanelId | NeedsSlot | undefined => PA
 
 /** The key that goes to a panel, as this person has it, or `""` for a panel with no key (Activity and the stage are reached by Tab and by their own acts). */
 export function panelKey(id: PanelId | NeedsSlot): string {
+  if (id === "views") return VIEWS_KEY;
   const at = PANEL_SLOTS.indexOf(id);
   const slot = at < 0 ? undefined : slotsOf("deck_panel")[at];
   return slot === undefined ? "" : formatSlot(slot);

@@ -18,7 +18,7 @@ import { chordTileFor, flightTileFor, pauseForP } from "./flight-keys";
 import { holdFor } from "./props";
 import { walkOrder } from "./queued";
 import { DeckKeySheet, armChord, cycleFrom, focusPanel, panelAt, remember, stepBy, stepIn, useDeckKeys } from "./keys";
-import { OPENS, PAGE_LETTERS, panelOfSlot, type PageLetter } from "./keys-model";
+import { OPENS, PAGE_LETTERS, VIEWS_KEY, panelOfSlot, type PageLetter } from "./keys-model";
 import { claimsReplay } from "./replay";
 import { neighbourOf } from "./reorder";
 import { opensFor, placesOff } from "./system-page";
@@ -243,6 +243,11 @@ export function DeckHost({ state, picked, here, hidden, onGoTo, onOpenSession }:
       event.preventDefault();
       lettered.click();
       return;
+    }
+    // The Views panel, where `&views=left` draws one.
+    if (event.key === VIEWS_KEY && document.querySelector(".deck-views") !== null) {
+      event.preventDefault();
+      return focusPanel("views", state.cursor);
     }
     const slot = pressedSlot("deck_panel", event);
     const goes = slot === -1 ? undefined : panelOfSlot(slot);
