@@ -16,7 +16,7 @@ An investigation, a report or a set of findings is a document. The Job writes it
 | Part | State |
 |---|---|
 | The reading layer, notes, Changes, Share's menu | Built in the mock; walk `job-document` approved 25 Oct 2026 |
-| Fleet keeping revisions, the `document` artifact, the sketch notice | Being built |
+| Fleet keeping revisions, the `document` artifact, the sketch notice | Built |
 | The Landing row and thread headings reading the real artifact | Being built |
 | Save as web page and Save as PDF | Being built, with the reader |
 
@@ -36,10 +36,13 @@ Why: `.armada/*` is gitignored, so the page is never in the diff.
 
 **Rule.** Fleet hears every Write or Edit to such a file and keeps a copy of each different write as the next revision, in its own store.
 A rewrite to the same path is the next revision, and an identical write is none.
+The copies are `r1.html`, `r2.html` and on, under the machine's `attachments/documents/<job id>/<page>/`, outside every worktree, so a released slot keeps them.
+A revision is kept once the tool has answered, so a failed write keeps nothing.
 
 **Rule.** Fleet puts one artifact of form `document` on the Job. Its title is the page's `<title>`, or its first `<h1>` where there is none, and it names the paths of the revisions.
 
 **Rule.** Fleet reads each `<armada-sketch>` scene with the validator `show_sketch` uses, and tells the Job in a Fleet notice of one that will not draw. The write is not refused.
+The notice is `document_sketch`, once per revision: `In the page <path>, sketch <n> of <total> ("<title>") will not draw: <problems>.`
 
 ## The page
 
