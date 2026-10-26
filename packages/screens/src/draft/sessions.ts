@@ -48,6 +48,8 @@ export type SessionAttachment =
       queued?: true;
       /** The issue numbers the forge says it closes. Absent where it closes none. */
       closes?: number[];
+      /** The branch it is based on. Another pull request's `branch` here stacks it on that one. Absent where Fleet has not read it. */
+      base?: string;
     }
   /**
    * An issue the Session is working on. `number` is the forge's number as digits (`7`) or a tracker's key (`ABC-12`).
