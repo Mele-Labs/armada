@@ -11,6 +11,7 @@ import { attachmentsOf, type Session } from "@armada/screens/src/draft/sessions"
 
 import { useSessionsDraft } from "../../sessions-draft";
 import { toggleLayer, useLayer } from "../../session-view/layers";
+import { ARTIFACTS_KEY } from "../../session-view/story";
 import { baysLit, type SessionBays } from "../../session-view/slot-trouble";
 import { tilesOf, useFlightFile } from "./flight-controls";
 import { glyphOf } from "./flight-glyphs";
@@ -28,6 +29,8 @@ export type JobView = {
   tip: string;
   Glyph: LucideIcon;
   key?: string;
+  /** A second key that does the same, named on the tooltip beside `key` and not the host's handler's to find. */
+  alsoKey?: string;
   pressed: boolean;
   disabled?: boolean;
   /** A fact that tints the glyph, set as `data-lit` for the host's style. */
@@ -72,6 +75,7 @@ export function useJobViews(session: Session, bays: SessionBays | undefined): re
       tip: why ?? said,
       Glyph: glyphOf(GLYPH[layer], "zap"),
       ...(key === undefined ? {} : { key }),
+      ...(layer === "artifacts" ? { alsoKey: ARTIFACTS_KEY.cap } : {}),
       pressed: open === layer,
       ...(why === undefined ? {} : { disabled: true }),
       ...(layer === "slot" && bays !== undefined && baysLit(bays) ? { lit: true } : {}),
@@ -111,9 +115,9 @@ export function LayerBounds() {
 
 /** A view's button, as in the Job's head: ghost, small, its glyph and its fact on the corner. */
 function ViewButton({ view }: { view: JobView }) {
-  const { id, label, tip, Glyph, key, pressed, disabled = false, lit = false, running = false, mark, onPress } = view;
+  const { id, label, tip, Glyph, key, alsoKey, pressed, disabled = false, lit = false, running = false, mark, onPress } = view;
   return (
-    <Tooltip label={tip} {...(key === undefined ? {} : { shortcut: key })}>
+    <Tooltip label={tip} {...(key === undefined && alsoKey === undefined ? {} : { shortcut: [key, alsoKey].filter((one) => one !== undefined).join(" ") })}>
       <Button type="button" variant="ghost" size="sm" iconOnly aria-label={label} aria-pressed={pressed} disabled={disabled} data-key={key} data-lit={lit || undefined} data-running={running || undefined} data-view={id} onClick={onPress}>
         <Glyph size={16} strokeWidth={2} aria-hidden />
         {mark === undefined ? null : <span className="sv-view__mark">{mark}</span>}

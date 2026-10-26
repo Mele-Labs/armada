@@ -257,7 +257,7 @@ Every Job with `work` is drawn this way; one without is drawn as it was, with it
 +------------+-----------------------------+--------------+
 | Work       |  thread ..................  | Workflow     |
 |  rows pulse|  [Needs you ^] band         | Blueprint    |
-|  when      |  composer [Artifacts]       | Field        |
+|  when      |  composer                   | Field        |
 |  calling   |                             | Landing      |
 +------------+-----------------------------+              |
 | Activity   | Flight control              |              |
