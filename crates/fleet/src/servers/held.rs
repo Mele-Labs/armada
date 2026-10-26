@@ -164,6 +164,17 @@ impl Servers {
             .collect()
     }
 
+    /// How to stop the instances of `names` that `holder` has up. A name with none up is left out.
+    #[allow(dead_code)] // Called by `app_runs`, which waits on its wire.
+    pub(crate) fn held_named(&self, holder: &Holder, names: &[String]) -> Vec<Stopping> {
+        let book = self.book();
+        names
+            .iter()
+            .filter_map(|name| book.live.get(&(holder.clone(), name.clone())))
+            .map(|live| (Arc::clone(&live.stop), live.now.subscribe()))
+            .collect()
+    }
+
     /// `commits` landed in the checkout `holder` serves: every instance it
     /// holds is that much further behind what it serves, and each moved row is
     /// handed to `published` **under the row's write lock**, so its event and

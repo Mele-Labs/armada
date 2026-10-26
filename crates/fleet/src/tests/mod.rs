@@ -49,6 +49,8 @@ mod helm_studio;
 mod host;
 mod http;
 mod flight_controls;
+mod app_run_drafts;
+mod app_runs;
 mod kit_manifest;
 mod kit_allowlist;
 mod kit_pieces;

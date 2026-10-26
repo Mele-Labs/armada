@@ -217,7 +217,7 @@ where
     }
 
     /// Replace the person's `armada.yml` for `root` with `text`, at the place their Kit keeps it.
-    async fn manifest_written(&self, root: &str, text: String) -> Result<(), Refusal> {
+    pub(crate) async fn manifest_written(&self, root: &str, text: String) -> Result<(), Refusal> {
         let held = self.kept_place(root).await?;
         let copy = KitManifest::at(&self.kit(), root, held.as_ref(), std::sync::Arc::clone(self.reaching()));
         let label = copy.label();

@@ -106,6 +106,31 @@ impl Checkout {
         })
     }
 
+    /// The worktree a Job holds, **confirmed on disk as a worktree of this repository**. Where
+    /// `beside` refuses a Job's, this is the way to one: the path comes from Fleet's own record
+    /// of the Job's lease and never from a caller, and the run started on it is stopped with
+    /// the slot (`stopped_servers_in`), which a Job's end already calls.
+    #[allow(dead_code)] // Called by `app_runs`, which waits on its wire.
+    pub(crate) fn of_a_job(served: Served, path: &str) -> Result<Checkout, NotACheckout> {
+        let elsewhere = || NotACheckout::Elsewhere {
+            path: path.to_string(),
+            root: served.root().to_string(),
+        };
+        let here = std::fs::canonicalize(path).map_err(|_| elsewhere())?;
+        let administration = administration_of(&here).ok_or_else(elsewhere)?;
+        let root = PathBuf::from(served.root());
+        let canonical_root = std::fs::canonicalize(&root).unwrap_or(root);
+        if !administration.starts_with(canonical_root.join(".git").join("worktrees")) {
+            return Err(elsewhere());
+        }
+        let branch = branch_at(&administration);
+        Ok(Checkout {
+            served,
+            path: here.to_string_lossy().into_owned(),
+            branch,
+        })
+    }
+
     pub(crate) fn served(&self) -> &Served {
         &self.served
     }

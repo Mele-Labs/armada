@@ -97,7 +97,11 @@ where
         };
         let (holder, worktree, ports, env, under, at) = (
             Holder::Checkout(checkout.path().to_string()),
-            PathBuf::from(checkout.path()),
+            // A server's own folder under the checkout, where it declares one.
+            match server.dir() {
+                Some(dir) => Path::new(checkout.path()).join(dir),
+                None => PathBuf::from(checkout.path()),
+            },
             self.checkout_ports(&served, checkout.path()).await,
             self.checkout_port_env(&served, checkout.path()).await,
             checkout.under(),
@@ -227,6 +231,14 @@ where
     /// server's `StartedBy` says a person or a Drone, never a session.
     pub(crate) async fn stopped_servers_in(&self, path: &str) {
         stopped_in(self.servers().clone(), path).await;
+    }
+
+    /// Stop the servers named, in the checkout at `path`, and wait for each. **A run stopped as a
+    /// whole**: only its own servers go, never another the checkout holds.
+    #[allow(dead_code)] // Called by `app_runs`, which waits on its wire.
+    pub(crate) async fn stopped_servers_named(&self, path: &str, names: &[String]) {
+        let held = self.servers().held_named(&Holder::Checkout(path.to_string()), names);
+        stopped_and_waited(held).await;
     }
 
     /// Stop every server Fleet holds. **Called
