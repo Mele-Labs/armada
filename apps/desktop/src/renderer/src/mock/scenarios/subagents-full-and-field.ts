@@ -23,7 +23,7 @@ const working = (one: Session): Session => ({
 export const s280SubagentsFullAndField: Scenario = {
   ...base,
   name: "subagents-full-and-field",
-  says: "A Session with no plan and two subagents at work: the Field and Progress show them, and Subagents opens one full size",
+  says: "A Session with no plan and two subagents at work: the Field and the Blueprint show them, and Subagents opens one full size",
   draft: {
     ...base.draft,
     sessions: (control) => {

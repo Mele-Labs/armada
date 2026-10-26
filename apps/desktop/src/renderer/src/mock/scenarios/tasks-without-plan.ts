@@ -27,7 +27,7 @@ const working = (one: Session): Session => ({
 export const s281TasksWithoutPlan: Scenario = {
   ...base,
   name: "tasks-without-plan",
-  says: "A Session with no plan: Progress lists the agent's tasks in the order made, and its subagent at work under them",
+  says: "A Session with no plan: the Blueprint lists the agent's tasks in the order made, and its subagent at work under them",
   draft: {
     ...base.draft,
     sessions: (control) => {
