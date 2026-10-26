@@ -350,6 +350,15 @@ pub trait Sessions: Send + Sync + 'static {
         done: ipc::AllDone,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
+    /// `defer_later` — the agent keeps a follow-up for itself, as a sentence. `caller` places a hosted
+    /// session as `all_done`'s does. [`Refusal::Unacceptable`] for an empty sentence or a call that places no
+    /// session; [`Refusal::IllegalMove`] for a session that has ended.
+    fn defer_later(
+        &self,
+        caller: Option<crate::Caller>,
+        defer: ipc::DeferLater,
+    ) -> impl Future<Output = Result<ipc::LaterDeferred, Refusal>> + Send;
+
     /// `settle_later` — a follow-up the session kept for later is settled as done, filed or dropped,
     /// by the agent or by the person. `caller` places a hosted session as `all_done`'s does.
     /// [`Refusal::Unacceptable`] for a filed with no issue, an agent's drop with no reason, or a call

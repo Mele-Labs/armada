@@ -4,11 +4,12 @@
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
-use ipc::{IssueReference, LaterHow, LaterSettled, SettleLater, WireError};
+use ipc::{DeferLater, IssueReference, LaterDeferred, LaterHow, LaterSettled, SettleLater, WireError};
 
 use crate::daemon::Fleet;
 
 const NOT_SETTLEABLE: &str = "fleet.later_not_settleable";
+const NOT_DEFERRABLE: &str = "fleet.later_not_deferrable";
 const NOT_OPEN: &str = "fleet.later_not_open";
 const LATER_OPEN: &str = "fleet.later_open";
 
@@ -68,6 +69,11 @@ where
             true => Ok(()),
             false => Err(Refusal::IllegalMove(WireError::raised(LATER_OPEN, open_text(&open), self.run_id()))),
         }
+    }
+
+    /// `defer_later`: the job keeps one follow-up for itself. The same sentence is the item it was.
+    pub(crate) async fn later_deferred(&self, _caller: Option<api::Caller>, _defer: DeferLater) -> Result<LaterDeferred, Refusal> {
+        Err(self.hosted_refusal(NOT_DEFERRABLE, "not built yet"))
     }
 
     /// `settle_later`: one open follow-up is done, filed or dropped. **A job's own call must say

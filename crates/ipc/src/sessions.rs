@@ -779,6 +779,24 @@ pub struct SettleLater {
     pub session_id: Option<SessionId>,
 }
 
+/// `defer_later`: the agent keeps one follow-up for itself, as a sentence. Answered with [`LaterDeferred`].
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DeferLater {
+    /// What the job will do later, as it would say it.
+    pub sentence: String,
+    /// Which session. **Read only where the connection places no hosted session**, as `AllDone`'s is.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<SessionId>,
+}
+
+/// What `defer_later` answers: the follow-up kept, and the ones open with it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LaterDeferred {
+    pub id: String,
+    pub sentence: String,
+    pub open: Vec<SessionLater>,
+}
+
 /// What `settle_later` answers: the follow-up that was settled and the ones still open.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LaterSettled {

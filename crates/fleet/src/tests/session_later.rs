@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use api::{HostedSessions, Sessions};
 use api::Refusal;
-use ipc::{AllDone, LaterHow, SessionId, SessionRecord, SettleLater};
+use ipc::{AllDone, DeferLater, LaterHow, SessionId, SessionRecord, SettleLater};
 
 use super::agent_starts::{caller, rig, Rig};
 
@@ -109,6 +109,46 @@ async fn the_persons_drop_needs_no_reason() {
     // No connection places the call: it is Bridge's, on the person's press.
     rig.fleet.settle_later(None, settle(&id, "later-1", LaterHow::Dropped, None, None)).await.unwrap();
     assert!(read(&rig, &id).await.later.is_empty());
+}
+
+fn defer(id: &SessionId, sentence: &str) -> DeferLater {
+    DeferLater { sentence: sentence.into(), session_id: Some(id.clone()) }
+}
+
+#[tokio::test]
+async fn the_job_defers_a_followup_with_a_call_and_the_same_sentence_is_one_item() {
+    let rig = rig(None);
+    let id = rig.an_agent().await;
+
+    let first = rig.fleet.defer_later(caller(), defer(&id, SLOW)).await.unwrap();
+    assert_eq!((first.id.as_str(), first.sentence.as_str()), ("later-1", SLOW));
+    let second = rig.fleet.defer_later(caller(), defer(&id, DOCS)).await.unwrap();
+    assert_eq!(second.id, "later-2");
+    assert_eq!(second.open.iter().map(|one| one.id.as_str()).collect::<Vec<_>>(), ["later-1", "later-2"]);
+
+    // Said again, even with stray space round it, it is the item it was.
+    let again = rig.fleet.defer_later(caller(), defer(&id, &format!("  {SLOW}\n"))).await.unwrap();
+    assert_eq!(again.id, "later-1");
+    assert_eq!(open_ids(&read(&rig, &id).await), ["later-1", "later-2"]);
+}
+
+#[tokio::test]
+async fn a_defer_with_nothing_to_keep_or_no_job_to_keep_it_on_is_refused() {
+    let rig = rig(None);
+    let id = rig.an_agent().await;
+
+    let empty = rig.fleet.defer_later(caller(), defer(&id, "  \n")).await.expect_err("nothing said");
+    let Refusal::Unacceptable(why) = empty else { panic!("{empty:?}") };
+    assert_eq!(why.code.to_string(), "fleet.later_not_deferrable");
+    assert!(read(&rig, &id).await.later.is_empty());
+
+    // No connection places the call and it names no job.
+    let placed_nowhere = rig.fleet.defer_later(None, DeferLater { sentence: SLOW.into(), session_id: None }).await;
+    assert!(matches!(placed_nowhere, Err(Refusal::Unacceptable(_))), "{placed_nowhere:?}");
+
+    Arc::clone(&rig.fleet).close_session(ipc::CloseSession { session_id: id.clone() }).await.expect("ended");
+    let ended = rig.fleet.defer_later(caller(), defer(&id, SLOW)).await;
+    assert!(ended.is_err(), "an ended job keeps nothing");
 }
 
 fn done(id: &SessionId) -> AllDone {
