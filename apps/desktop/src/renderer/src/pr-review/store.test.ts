@@ -5,7 +5,7 @@
 // repository, kept under his words, and the Walk finds where a change runs before it writes a walk. Nothing here touches `window.armada`.
 
 import { forgetAllKept, writeKept } from "@armada/components";
-import type { PullRequestPage, PullReviewLists, PullReviewRow, RememberedPlace, ReviewPlace, ReviewRun, ReviewTools, ReviewWalk, StartReviewRun, StartReviewSearch, WalkPlaceFound, WritePullRequest } from "@armada/protocol";
+import type { PullRequestPage, PullRequestState, PullReviewLists, PullReviewRow, RememberedPlace, ReviewPlace, ReviewRun, ReviewTools, ReviewWalk, StartReviewRun, StartReviewSearch, WalkPlaceFound, WritePullRequest } from "@armada/protocol";
 import { beforeEach, expect, test } from "vitest";
 
 import type { ToolDef } from "./model";
@@ -48,6 +48,18 @@ const page = (number: number, over: Partial<PullRequestPage> = {}): PullRequestP
   commits: [],
   head: `head${number}`,
   body: "The description",
+  ...over,
+});
+
+const standing = (number: number, over: Partial<PullRequestState> = {}): PullRequestState => ({
+  manifest_id: "m1",
+  number,
+  state: "open",
+  auto_merge: false,
+  checks: { state: "passed" },
+  title: `Pull request ${number}`,
+  branch: `branch-${number}`,
+  address: `https://forge.example/Mele-Labs/armada/pull/${number}`,
   ...over,
 });
 
@@ -112,6 +124,7 @@ function fake(over: Partial<ReviewSource> = {}): { source: ReviewSource; calls: 
   const source: ReviewSource = {
     lists: async () => ({ ok: true, value: lists() }),
     page: async (_id, number) => ({ ok: true, value: page(number) }),
+    pull: async (_id, number) => ({ ok: true, value: standing(number) }),
     file: async (_id, number, path) => {
       calls.files.push(path);
       return { ok: true, value: { manifest_id: "m1", number, path, patch: "@@ -1,2 +1,2 @@\n keep\n-old\n+new" } };
@@ -752,4 +765,35 @@ test("a place Fleet would not read says why, and a place it would not keep leave
   refused.store.findPlace(refused.key);
   await settle();
   expect(refused.store.get().work[refused.key]!.walk.find).toEqual({ state: "said", said: "Fleet does not serve this repository" });
+});
+
+test("a pull request met by link that is on none of the lists is taken, opened and its page read", async () => {
+  const { source } = fake({ pull: async (_id, number) => ({ ok: true, value: standing(number, { title: "Not on a list", state: "draft", checks: { state: "failed", failing: ["ci"] } }) }) });
+  const store = createReviewStore(source);
+  const answer = await store.openLink("m1", { owner: "Mele-Labs", name: "armada", number: 77 });
+  await settle();
+  expect(answer).toEqual({ ok: true, key: "Mele-Labs/armada#77" });
+  expect(store.get().open).toBe("Mele-Labs/armada#77");
+  expect(store.get().prs.find((one) => one.key === "Mele-Labs/armada#77")).toMatchObject({ title: "Not on a list", branch: "branch-77", draft: true, checks: "failed", lists: [] });
+  expect(store.get().work["Mele-Labs/armada#77"]!.page.state).toBe("read");
+});
+
+test("a pull request a list already holds is opened as it is, not taken twice", async () => {
+  const { store, key } = await opened();
+  store.open(undefined);
+  expect(await store.openLink("m1", { owner: "Mele-Labs", name: "armada", number: 1 })).toEqual({ ok: true, key });
+  expect(store.get().prs).toHaveLength(1);
+  expect(store.get().prs[0]!.lists).toEqual(["requested"]);
+  expect(store.get().open).toBe(key);
+});
+
+test("a link to a pull request the forge would not give, or one that is no longer open, opens nothing and says why", async () => {
+  const gone = createReviewStore(fake({ pull: async () => said("No such pull request") }).source);
+  expect(await gone.openLink("m1", { owner: "Mele-Labs", name: "armada", number: 9 })).toEqual({ ok: false, said: "No such pull request" });
+  expect(gone.get().prs).toEqual([]);
+  expect(gone.get().open).toBeUndefined();
+
+  const merged = createReviewStore(fake({ pull: async (_id, number) => ({ ok: true, value: standing(number, { state: "merged" }) }) }).source);
+  expect(await merged.openLink("m1", { owner: "Mele-Labs", name: "armada", number: 9 })).toEqual({ ok: false, said: "#9 is merged, and only an open pull request is reviewed here." });
+  expect(merged.get().prs).toEqual([]);
 });

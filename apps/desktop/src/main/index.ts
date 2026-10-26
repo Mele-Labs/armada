@@ -43,7 +43,9 @@ import { handleAgentSignIn } from "./agent-sign-in-channels";
 import { AgentSignInNotice } from "./agent-sign-in-notice";
 import { SessionAttention } from "./session-attention";
 import { soundOf } from "./telling";
-import { settingOf } from "./settings";
+import { settingOf, switchDeepLinks } from "./settings";
+import { DeepLinks } from "./deep-link";
+import { DEEP_LINK_SCHEME, type PullLink } from "../shared/pull-link";
 import { handleTimeline } from "./timeline-channels";
 import { handleClashes } from "./clashes-channels";
 import { handleTeaching } from "./teaching-channels";
@@ -406,11 +408,42 @@ function focusBridge(): void {
   window.focus();
 }
 
+/** A link to a pull request that arrived with no window to hand it to, held for the first one that asks for state. */
+let linked: PullLink | null = null;
+
+/**
+ * `armada://pull/...` and its switch, `features.deepLinks`. **A link opens Bridge**, a window raised or made, and lands on that pull request's
+ * review page. macOS hands it over with `open-url`, which can come before the app is ready, so it is listened for here and not in `whenReady`.
+ */
+const deepLinks = new DeepLinks({
+  claim: () => void app.setAsDefaultProtocolClient(DEEP_LINK_SCHEME),
+  release: () => void app.removeAsDefaultProtocolClient(DEEP_LINK_SCHEME),
+  deliver: (link) => {
+    linked = link;
+    const window = bridgeWindow();
+    // With none up the new window asks for state on mount, and that is when it is handed over, as a press on a notification is.
+    if (window === null) return void createWindow();
+    focusBridge();
+    hand(window);
+  },
+});
+switchDeepLinks(deepLinks);
+app.on("open-url", (event, address) => {
+  event.preventDefault();
+  deepLinks.arrive(address);
+});
+
 /** Hand over a held press, if there is one. Nothing is handed twice. */
 function hand(window: BrowserWindow): void {
-  if (summoned === null || window.isDestroyed()) return;
-  window.webContents.send(CHANNELS.summoned, summoned);
-  summoned = null;
+  if (window.isDestroyed()) return;
+  if (summoned !== null) {
+    window.webContents.send(CHANNELS.summoned, summoned);
+    summoned = null;
+  }
+  if (linked !== null) {
+    window.webContents.send(CHANNELS.pullLinked, linked);
+    linked = null;
+  }
 }
 
 /**

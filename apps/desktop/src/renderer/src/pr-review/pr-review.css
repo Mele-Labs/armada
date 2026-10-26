@@ -12,6 +12,7 @@
 .pr-list__pick .armada-dropdown-menu__trigger { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* Find: what he wants in his own words, and the one press that sends a Drone to look. */
+.pr-link { flex: none; padding: 0 var(--space-2) var(--space-2); }
 .pr-find { display: flex; flex: none; align-items: flex-end; gap: var(--space-2); padding: 0 var(--space-2) var(--space-2); }
 .pr-find .armada-textarea-field { flex: 1 1 0; min-width: 0; }
 .pr-find__head { display: flex; flex: none; align-items: center; gap: var(--space-2); padding: 0 var(--space-3) var(--space-1); }
