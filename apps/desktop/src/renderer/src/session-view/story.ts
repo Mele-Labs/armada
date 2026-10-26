@@ -14,6 +14,7 @@ const done = (state: string) => state === "done" || state === "handed_in";
 /**
  * Where the Job is. A plan not approved is the blueprint. An approved plan with every task done, a pull request out of draft, or a workflow step in
  * the delivery phase, is the landing. An approved plan with work left is the field, and so is a draft pull request: it is still being built.
+ * A Job with no plan is the field while its turn runs, since its drones are out, and the blueprint while it waits.
  */
 export function stageOf(session: Session): Stage {
   const plan = session.work?.plan;
@@ -22,7 +23,8 @@ export function stageOf(session: Session): Stage {
   const built = plan !== undefined && plan.groups.length > 0 && plan.groups.every((group) => group.tasks.every((task) => done(task.state)));
   const delivering = session.work?.workflow?.phase === "delivery";
   if (landed || built || delivering) return "landing";
-  return plan === undefined ? "blueprint" : "field";
+  if (plan === undefined) return session.turn.state === "working" ? "field" : "blueprint";
+  return "field";
 }
 
 /** What the workflow ends in. A Mod Job lands its mod, whatever its workflow says. */

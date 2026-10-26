@@ -13,7 +13,7 @@ function steps(narrow: boolean): Step[] {
   const card = sheet("Pull request #1850");
   return [
     { press: inside(sessions, button("Store migration spike")), say: "A Job holding a pull request whose Checks are still running" },
-    ...row(/^#1850 /, "The pull request opens"),
+    ...row(/^Pull request #1850 /, "The pull request opens"),
     { look: inside(card, button("Enable auto-merge")), say: "Auto-merge is offered" },
     { press: inside(card, button("Enable auto-merge")), say: "Press it" },
     { look: inside(card, button("Enable auto-merge")), say: "Underway: the travelling bar on its edge while Fleet asks the forge" },
