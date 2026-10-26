@@ -104,6 +104,7 @@ mod taught_tracker;
 mod taught_tracker_http;
 mod taught_tracker_links;
 mod taught_tracker_mcp;
+mod tool_install;
 mod tracker_reads_only;
 mod territory;
 mod terminal_follow;

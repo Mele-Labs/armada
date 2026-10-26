@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 use ipc::{
     Autopilot, AutopilotList, AutopilotProposal, AutopilotSettings, IssueList, IssueQueries, IssueRead,
-    ManifestId, ProposeAutopilot, SaveIssueQuery, SavedIssueQuery, SearchIssues, WriteIssueQuery,
+    InstallTool, InstalledTool, ManifestId, ProposeAutopilot, SaveIssueQuery, SavedIssueQuery, SearchIssues, WriteIssueQuery,
     WrittenIssueQuery,
 };
 
@@ -42,6 +42,15 @@ pub trait Issues: Send + Sync + 'static {
         manifest_id: ManifestId,
         search: SearchIssues,
     ) -> impl Future<Output = Result<IssueList, Refusal>> + Send;
+
+    /// `install_tool` — install the tool a refusal's `missing_tool` named, when a person pressed
+    /// it. [`Refusal::Unacceptable`] for a tool Fleet does not install. **Whether it worked is the
+    /// answer**, not a refusal: no Homebrew is a thing a person is told.
+    fn install_tool(
+        &self,
+        manifest_id: ManifestId,
+        install: InstallTool,
+    ) -> impl Future<Output = Result<InstalledTool, Refusal>> + Send;
 
     /// `list_issue_queries` — the tracker's guide summary, or why it cannot be read, and the
     /// queries saved for the repository.

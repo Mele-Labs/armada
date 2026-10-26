@@ -2,13 +2,23 @@
 // `window.armada`**, so a test hands it a fake one. Fleet's words for a refusal, including a tracker's own for a query it will
 // not run, reach the tab as they are.
 
-import type { IssueQueries, IssueRead, TrackedIssue } from "@armada/protocol";
+import type { IssueQueries, IssueRead, Outcome, TrackedIssue } from "@armada/protocol";
 import { refusalWords } from "@armada/screens/src/refusal-words";
 
 import type { IssueQueryActed, IssuesApi } from "../../../shared/api/issues";
 import type { IssuesSource, Read, SavedQuery, Ticket, TicketRead, Tracker } from "./model";
 
-const worded = <T>(answer: IssueQueryActed<T>): Read<T> => (answer.ok ? { ok: true, value: answer.value } : { ok: false, said: refusalWords(answer.outcome) });
+/** The program a refusal named as missing, in the field Fleet carries it in. */
+const missingOf = (outcome: Outcome): string | undefined => {
+  const tool = outcome.ok === false && outcome.why === "refused" ? outcome.error.fields?.missing_tool : undefined;
+  return typeof tool === "string" && tool !== "" ? tool : undefined;
+};
+
+const worded = <T>(answer: IssueQueryActed<T>): Read<T> => {
+  if (answer.ok) return { ok: true, value: answer.value };
+  const missing = missingOf(answer.outcome);
+  return { ok: false, said: refusalWords(answer.outcome), ...(missing === undefined ? {} : { missing }) };
+};
 
 const ticketOf = (one: TrackedIssue): Ticket => ({
   reference: one.reference,
@@ -68,6 +78,11 @@ export const issuesSourceOf = (api: IssuesApi): IssuesSource => ({
   read: async (manifestId, reference) => {
     const answer = worded(await api.getIssue(manifestId, reference));
     return answer.ok ? { ok: true, value: readOf(answer.value) } : answer;
+  },
+  install: async (manifestId, tool) => {
+    const answer = worded(await api.installIssueTool(manifestId, tool));
+    if (!answer.ok) return answer;
+    return answer.value.done ? { ok: true, value: undefined } : { ok: false, said: answer.value.said };
   },
   write: async (manifestId, words) => {
     const answer = worded(await api.writeIssueQuery(manifestId, words));

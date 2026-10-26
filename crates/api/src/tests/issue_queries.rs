@@ -87,3 +87,20 @@ async fn a_tracker_refusal_is_a_422_with_its_words_a_missing_query_a_404_and_a_b
     let (status, _) = call(&app, "POST", "/issue_queries/armada/write", "not json").await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
 }
+
+#[tokio::test]
+async fn installing_a_tool_answers_whether_it_worked_and_refuses_a_tool_it_does_not_know() {
+    let app = wired();
+
+    let (status, body) = call(&app, "POST", "/issue_queries/armada/install_tool", r#"{"tool":"bd"}"#).await;
+    assert_eq!(status, StatusCode::OK);
+    let installed: ipc::InstalledTool = ipc::decode("an install", &body).expect("an install");
+    assert_eq!((installed.tool.as_str(), installed.done), ("bd", true));
+
+    let (status, body) = call(&app, "POST", "/issue_queries/armada/install_tool", r#"{"tool":"rm"}"#).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert!(String::from_utf8_lossy(&body).contains("fleet.tool_not_installable"));
+
+    let (status, _) = call(&app, "POST", "/issue_queries/armada/install_tool", "not json").await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+}

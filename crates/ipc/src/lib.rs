@@ -367,7 +367,7 @@ pub use shared_home::{
 };
 pub use issue_reference::{ClaimIssue, IssueClaimed, IssueReference};
 pub use issue_queries::{
-    IssueQueries, IssueQueryGuide, SaveIssueQuery, SavedIssueQuery, SearchIssues, WriteIssueQuery,
+    InstallTool, InstalledTool, IssueQueries, IssueQueryGuide, SaveIssueQuery, SavedIssueQuery, SearchIssues, WriteIssueQuery,
     WrittenIssueQuery,
 };
 pub use projects::{

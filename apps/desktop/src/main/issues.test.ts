@@ -99,12 +99,14 @@ describe("a repository's issue queries", () => {
     await host.writeIssueQuery(MANIFEST, "open bugs");
     await host.saveIssueQuery(MANIFEST, { name: "Bugs", words: "", query: "label:bug", row_fields: [] });
     await host.forgetIssueQuery(MANIFEST, "a b/c");
+    await host.installIssueTool(MANIFEST, "bd");
     expect(fleet.asked).toEqual([
       `POST /issue_queries/${MANIFEST}/search`,
       `GET /issue_queries/${MANIFEST}`,
       `POST /issue_queries/${MANIFEST}/write`,
       `POST /issue_queries/${MANIFEST}`,
       `POST /issue_queries/${MANIFEST}/a%20b%2Fc/forget`,
+      `POST /issue_queries/${MANIFEST}/install_tool`,
     ]);
   });
 
