@@ -1,0 +1,12 @@
+[operations.start_app_run]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Start every server of a run on the main checkout or a Job's worktree - or be handed the run already up"
+notes = """
+`POST /app_runs/start?manifest_id=`, body `NamedAppRun`: `{name, job_id?}`. Absent `job_id` is the repository's main checkout. Answers 202 with the `AppRun` as it stands, its processes `starting`; `server.*` events and `app_run.changed` follow on `/events`.
+
+**Each process is started as `start_server` starts one**, so its port, its log, its events and its stop are the ones every server has. **A run is up whole or not at all**: a process that will not start stops the ones this call started, and the refusal says why.
+
+**One instance per checkout and run.** A second press finds each server up and answers with the run as it is. A server two runs list is one process, and stopping either run stops it.
+"""

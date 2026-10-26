@@ -1,0 +1,14 @@
+[operations."app_run.changed"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "A run on one checkout after one of its servers started, came up or ended, whole"
+notes = """
+Carries `AppRun` itself, the row `list_app_runs` answers, so a client replaces what it holds for that run on that checkout. It is keyed by `manifest_id`, `checkout.path` and `name`.
+
+**Published after each `server.starting`, `server.serving` and `server.exited`**, once for every run that lists the server: a server two runs share moves both. Not published for a server on a checkout that is neither a repository's main nor a Job's worktree, and not for a server no run lists.
+
+**It follows the server fact and never leads it**, so a client folding both sees the server's own row first. A client that missed one reads `list_app_runs` on the resync that follows a `Missed`.
+
+**Never a line of output.** A process's log is `observe_server`'s, by the `server_id` on the process.
+"""

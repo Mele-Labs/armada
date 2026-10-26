@@ -65,4 +65,36 @@ pub(super) const ROUTES: &[Route] = &[
         method: "POST",
         path: "/servers/stop",
     },
+    // A repository's app, run from Bridge: several servers held as one run. Each process's
+    // output is `observe_server`'s.
+    Route {
+        operation: "list_app_runs",
+        method: "GET",
+        path: "/app_runs",
+    },
+    Route {
+        operation: "get_app_run_draft",
+        method: "GET",
+        path: "/app_runs/draft",
+    },
+    Route {
+        operation: "start_app_run",
+        method: "POST",
+        path: "/app_runs/start",
+    },
+    Route {
+        operation: "stop_app_run",
+        method: "POST",
+        path: "/app_runs/stop",
+    },
+    Route {
+        operation: "restart_app_run",
+        method: "POST",
+        path: "/app_runs/restart",
+    },
+    Route {
+        operation: "save_app_run",
+        method: "POST",
+        path: "/app_runs/save",
+    },
 ];

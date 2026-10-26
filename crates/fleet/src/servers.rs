@@ -255,7 +255,6 @@ where
 
     /// Stop the servers named, in the checkout at `path`, and wait for each. **A run stopped as a
     /// whole**: only its own servers go, never another the checkout holds.
-    #[allow(dead_code)] // Called by `app_runs`, which waits on its wire.
     pub(crate) async fn stopped_servers_named(&self, path: &str, names: &[String]) {
         let held = self.servers().held_named(&Holder::Checkout(path.to_string()), names);
         stopped_and_waited(held).await;

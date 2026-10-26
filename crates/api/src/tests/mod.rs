@@ -46,6 +46,7 @@ mod studios;
 mod terminal_routes;
 mod watching_run;
 mod watch_routes;
+mod app_run_routes;
 
 use axum::Router;
 use hyper::service::service_fn;

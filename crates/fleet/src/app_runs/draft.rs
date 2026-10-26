@@ -26,6 +26,8 @@ pub(crate) enum DraftSource {
     PackageJson,
     /// A Python app that serves with uvicorn.
     Python,
+    /// A person's own words, as the wire sends a confirmed draft.
+    Confirmed,
 }
 
 /// The port a process answers on. **Named, never a number**, so two checkouts of one repository

@@ -50,6 +50,7 @@ mod host;
 mod http;
 mod flight_controls;
 mod app_run_drafts;
+mod app_run_wire;
 mod app_runs;
 mod app_runs_fresh;
 mod kit_manifest;

@@ -260,7 +260,7 @@ pub mod seeding;
 mod sending_checkout;
 mod servers;
 /// A repository's app started in development: its `runs:`, drafted, saved and held. `docs/concepts/manifest.md`.
-mod app_runs;
+pub mod app_runs;
 pub mod serving;
 /// The session ledger: what a harness says of an agent session. `docs/concepts/session.md`.
 pub mod session_host;

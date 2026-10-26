@@ -1,0 +1,14 @@
+[operations.list_app_runs]
+kind = "query"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "The runs a repository declares, each as it stands on its main checkout or on one Job's worktree"
+notes = """
+`GET /app_runs?manifest_id=` for the repository's main checkout, `GET /app_runs?job_id=` for the worktree a Job holds. Answered with `AppRunList`: one `AppRun` for each run `runs:` declares, in the file's order, whether or not anything of it is up.
+
+**A run is read from the tree's own `armada.yml` with Kit's copy over it each time it is listed**, so a run saved a moment ago is there with no restart. A Job's checkout is read from Fleet's own record of its lease and never from a path. Refused with `fleet.no_job_to_run` where Fleet holds no such Job and `fleet.job_has_no_worktree` where it holds none yet or has given it back.
+
+`opens_in` is `browser` where some server of the run listens on a leased port and offers a link, and `app` otherwise. `last_used` is when a process of it was last started on this checkout, as far as this Fleet has seen since it started: absent is not "never", and the way to pick the run a bare press starts is the newest `last_used`.
+
+A process's output is `observe_server`'s, addressed by the `server_id` on the process.
+"""

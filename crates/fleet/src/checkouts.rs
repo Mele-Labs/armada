@@ -110,7 +110,6 @@ impl Checkout {
     /// `beside` refuses a Job's, this is the way to one: the path comes from Fleet's own record
     /// of the Job's lease and never from a caller, and the run started on it is stopped with
     /// the slot (`stopped_servers_in`), which a Job's end already calls.
-    #[allow(dead_code)] // Called by `app_runs`, which waits on its wire.
     pub(crate) fn of_a_job(served: Served, path: &str) -> Result<Checkout, NotACheckout> {
         let elsewhere = || NotACheckout::Elsewhere {
             path: path.to_string(),

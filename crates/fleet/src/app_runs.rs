@@ -5,6 +5,7 @@
 //! |---|---|
 //! | [`draft`] | A run proposed from what the repository runs and what its files say |
 //! | [`save`] | A confirmed draft written into `armada.yml` or Kit's copy |
+//! | [`serving`] | The wire: [`api::AppRuns`] over these, and `app_run.changed` after each server fact |
 //! | [`unrunnable`] | Every refusal, and its code on the wire |
 //!
 //! **A run is a set of servers and no supervisor of its own.** Each process is started through
@@ -24,12 +25,12 @@
 //! start finds each server up and answers with them. A server two runs list is one process, so
 //! stopping either run stops it.
 
-// The routes and wire types that call these are the next group's; until they land nothing does.
-#![allow(dead_code)]
-
 pub(crate) mod draft;
 pub(crate) mod save;
+mod serving;
 mod unrunnable;
+
+pub use serving::keep_the_runs;
 
 use std::path::Path;
 use std::sync::Arc;
@@ -100,7 +101,9 @@ impl RunProcess {
     }
 }
 
-/// How a run stands as a whole.
+/// How a run stands as a whole. **Only tests read it**: the wire sends each process's state and a
+/// client derives the whole's from them.
+#[cfg(test)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum RunPhase {
     /// Nothing of it is up, and nothing of it fell over.
@@ -122,11 +125,16 @@ pub(crate) struct RunView {
     pub(crate) name: String,
     /// What a person is shown: its `label`, else its name.
     pub(crate) label: String,
+    /// The repository it runs in, by the id its servers carry.
+    pub(crate) manifest_id: ipc::ManifestId,
     /// The checkout it runs on, by path.
     pub(crate) checkout: String,
+    /// Whether it is opened at an address: some server of it listens on a leased port and offers a link.
+    pub(crate) browser: bool,
     pub(crate) processes: Vec<RunProcess>,
 }
 
+#[cfg(test)]
 impl RunView {
     pub(crate) fn phase(&self) -> RunPhase {
         let any = |wanted: ProcessState| self.processes.iter().any(|one| one.state == wanted);
@@ -150,11 +158,15 @@ impl RunView {
 fn viewed(
     manifest: &Manifest,
     servers: &crate::servers::Servers,
+    id: &ipc::ManifestId,
     path: &str,
     name: &str,
 ) -> Option<RunView> {
     let run = manifest.app_run(name)?;
     let holder = Holder::Checkout(path.to_string());
+    let browser = run.servers().iter().filter_map(|server| manifest.server(server)).any(|server| {
+        !server.links().is_empty() && server.serve().contains("${port")
+    });
     let processes = run
         .servers()
         .iter()
@@ -171,7 +183,9 @@ fn viewed(
     Some(RunView {
         name: name.to_string(),
         label: run.label().unwrap_or(name).to_string(),
+        manifest_id: id.clone(),
         checkout: path.to_string(),
+        browser,
         processes,
     })
 }
@@ -212,14 +226,16 @@ where
     pub(crate) async fn runs_listed(&self, target: &RunTarget) -> Result<Vec<RunView>, Refusal> {
         let checkout = self.run_checkout(target).await?;
         let manifest = self.run_manifest(checkout.served(), checkout.path()).await?;
+        let id = ipc::ManifestId::from(checkout.served().manifest().id());
         Ok(manifest
             .app_run_names()
             .iter()
-            .filter_map(|name| viewed(&manifest, self.servers(), checkout.path(), name))
+            .filter_map(|name| viewed(&manifest, self.servers(), &id, checkout.path(), name))
             .collect())
     }
 
-    /// One run as it stands on `target`.
+    /// One run as it stands on `target`. The wire lists every run, so only tests read one.
+    #[cfg(test)]
     pub(crate) async fn run_read(&self, target: &RunTarget, name: &str) -> Result<RunView, Refusal> {
         let checkout = self.run_checkout(target).await?;
         let manifest = self.run_manifest(checkout.served(), checkout.path()).await?;
@@ -313,6 +329,7 @@ where
         };
         let seen = self.servers().declared_at(&state.checkout.path);
         let manifest = seen.as_deref().unwrap_or_else(|| served.manifest());
+        let id = ipc::ManifestId::from(served.manifest().id());
         manifest
             .app_run_names()
             .iter()
@@ -321,7 +338,7 @@ where
                     .app_run(name)
                     .is_some_and(|run| run.servers().contains(&state.name))
             })
-            .filter_map(|name| viewed(manifest, self.servers(), &state.checkout.path, name))
+            .filter_map(|name| viewed(manifest, self.servers(), &id, &state.checkout.path, name))
             .collect()
     }
 
@@ -350,7 +367,8 @@ where
     }
 
     fn run_viewed(&self, manifest: &Manifest, checkout: &Checkout, name: &str) -> Result<RunView, Refusal> {
-        viewed(manifest, self.servers(), checkout.path(), name).ok_or_else(|| self.not_a_run(manifest, name))
+        let id = ipc::ManifestId::from(checkout.served().manifest().id());
+        viewed(manifest, self.servers(), &id, checkout.path(), name).ok_or_else(|| self.not_a_run(manifest, name))
     }
 
     fn not_a_run(&self, manifest: &Manifest, name: &str) -> Refusal {

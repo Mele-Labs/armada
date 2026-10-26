@@ -201,7 +201,6 @@ impl Servers {
     }
 
     /// How to stop the instances of `names` that `holder` has up. A name with none up is left out.
-    #[allow(dead_code)] // Called by `app_runs`, which waits on its wire.
     pub(crate) fn held_named(&self, holder: &Holder, names: &[String]) -> Vec<Stopping> {
         let book = self.book();
         names

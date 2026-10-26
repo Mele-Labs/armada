@@ -1,0 +1,14 @@
+[operations.get_app_run_draft]
+kind = "query"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "The run Fleet proposes for a repository that declares none, and where saving it would put it - nothing is saved"
+notes = """
+`GET /app_runs/draft?manifest_id=`, answered with `AppRunDraft`: `root`, `place` and `processes`, each `{name, dir?, command, port_env?}`.
+
+**Run memory first, then the repository's files**: a dev server a Job brought up on a port beats a guess from `package.json`. A repository whose files and Jobs suggest nothing is answered with no `processes`, and a person writes their own.
+
+**`${port}` in `command` is the port Fleet leases the checkout**, so a person never edits a number, and a process listens exactly where its command holds it. `port_env` is the variable Armada sets to that port for a program that reads it from the environment; it is handed back to `save_app_run` as it was read.
+
+`place` is where the repository's Kit is kept, which is where a saved run goes: `RunPlace`, worded by Bridge's `placePhrase`. Refused with `fleet.app_runs_already_saved` where the repository already declares a run, since there is nothing to propose.
+"""
