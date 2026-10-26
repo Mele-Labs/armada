@@ -10,6 +10,7 @@ import { holdsText } from "@armada/screens/src/keys";
 import { useDispatching } from "../../dispatch-panel/dispatching";
 import type { CockpitProps } from "../deck/props";
 import { PaneHead } from "../deck/panes";
+import { pressEditRun } from "./acts";
 import { useRuns, useRunsState } from "./source";
 
 export function RunPane({ id, props }: { id: string; props: CockpitProps }) {
@@ -28,22 +29,24 @@ export function RunPane({ id, props }: { id: string; props: CockpitProps }) {
   const phase = appPhase(app.processes, app.setup);
   const live = phase === "setting-up" || phase === "starting" || phase === "ready";
   const address = app.kind === "browser" ? app.processes.find((one) => one.phase === "ready" && one.url !== undefined)?.url : undefined;
+  const edit = () => pressEditRun({ repository: app.repository, checkout: app.checkout, ...(app.job === undefined ? {} : { job: app.job }) }, where ?? app.repository, app.id);
   return (
     <section
       ref={pane}
       className="deck-pane"
       aria-label={`Run: ${app.run}`}
       tabIndex={-1}
-      data-owns-keys="o r s"
+      data-owns-keys="e o r s"
       onKeyDown={(event) => {
         if (event.metaKey || event.ctrlKey || event.altKey || holdsText(event.target)) return;
-        if (event.key === "r") source.restart(app.id);
+        if (event.key === "e") edit();
+        else if (event.key === "r") source.restart(app.id);
         else if (event.key === "s" && live) source.stop(app.id);
         else if (event.key === "o" && address !== undefined) props.onOpenLink(address);
       }}
     >
       <PaneHead glyph={Play} kind="Run" title={app.run} where={where === app.run ? undefined : where} mark={<RunPhaseMark phase={phase} />}>
-        <RunActs onRestart={() => source.restart(app.id)} onStop={() => source.stop(app.id)} stoppable={live} />
+        <RunActs onEdit={edit} onRestart={() => source.restart(app.id)} onStop={() => source.stop(app.id)} stoppable={live} />
       </PaneHead>
       <RunningPanel
         app={app}

@@ -32,7 +32,8 @@ function fullPath(root: string, folder: string): string {
  * is a fact under the processes. **A link Fleet found** (one process expecting another on a fixed port) is a fact under the rows with two acts, Fix with a Job and
  * Pin the port, which shows on the row as the port and a pin in place of `leased`; neither is needed to save. What is typed is kept under `keep` until it is saved. **`name` present adds a field for the run's own name**,
  * for a repository that already has runs and is given another. **The repository's setup** (the Commands that make a checkout ready to run) is listed
- * above the processes and edited the same way; Save and run hands it back with them.
+ * above the processes and edited the same way; Save and run hands it back with them. **`edit` opens the confirm over a run already saved**, from the running panel: the title is
+ * Edit and the run's name, the primary act Save and restart, and Cancel throws what was typed away.
  */
 export function RunConfirm({
   open,
@@ -43,6 +44,7 @@ export function RunConfirm({
   onSave,
   onCancel,
   onFix,
+  edit = false,
 }: {
   open: boolean;
   repository: string;
@@ -54,6 +56,8 @@ export function RunConfirm({
   onCancel: () => void;
   /** Fix with a Job, with the brief for it. */
   onFix?: (brief: string) => void;
+  /** The run being edited is saved already: `name` is its name, and saving restarts it. */
+  edit?: boolean;
 }) {
   const [rows, setRows, forget] = useKept<Row[]>(`run-confirm:${keep}`, draft.processes.map(rowOf));
   const [runName, setRunName, forgetName] = useKept<string>(`run-confirm-name:${keep}`, name ?? "");
@@ -78,11 +82,11 @@ export function RunConfirm({
   return (
     <Dialog
       open={open}
-      title={`Run ${repository}`}
+      title={edit ? `Edit ${name ?? repository}` : `Run ${repository}`}
       tone="neutral"
       width="medium"
       placement="high"
-      confirmLabel="Save and run"
+      confirmLabel={edit ? "Save and restart" : "Save and run"}
       confirmDisabled={!ready}
       onConfirm={() => {
         onSave(rows.map(specOf), runName.trim(), setup.map(setupOf));
@@ -90,7 +94,14 @@ export function RunConfirm({
         forgetName();
         forgetSetup();
       }}
-      onCancel={onCancel}
+      onCancel={() => {
+        if (edit) {
+          forget();
+          forgetName();
+          forgetSetup();
+        }
+        onCancel();
+      }}
     >
       <div className="armada-run-confirm">
         {name === undefined ? null : <Input ref={first} label="Run name" aria-label="Run name" value={runName} onChange={(event) => setRunName(event.target.value)} />}

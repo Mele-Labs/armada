@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ExternalLink, RotateCcw, Square } from "lucide-react";
+import { ExternalLink, RotateCcw, Settings2, Square } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
 import { TabPanel, Tabs } from "../../primitives/Tabs/Tabs";
@@ -37,10 +37,17 @@ export function RunCheckoutFact({ checkout }: { checkout: RunCheckout }) {
   );
 }
 
-/** Restart and Stop for the whole run, for the head of the pane that holds it. */
-export function RunActs({ onRestart, onStop, stoppable = true }: { onRestart: () => void; onStop: () => void; stoppable?: boolean }) {
+/** Edit the run, Restart and Stop for the whole run, for the head of the pane that holds it. */
+export function RunActs({ onEdit, onRestart, onStop, stoppable = true }: { onEdit?: () => void; onRestart: () => void; onStop: () => void; stoppable?: boolean }) {
   return (
     <>
+      {onEdit === undefined ? null : (
+        <Tooltip label="Edit the run" shortcut="e">
+          <Button variant="ghost" size="sm" iconOnly aria-label="Edit the run" onClick={onEdit}>
+            <Settings2 size={16} strokeWidth={2} aria-hidden="true" />
+          </Button>
+        </Tooltip>
+      )}
       <Tooltip label="Restart" shortcut="r">
         <Button variant="ghost" size="sm" iconOnly aria-label="Restart" onClick={onRestart}>
           <RotateCcw size={16} strokeWidth={2} aria-hidden="true" />

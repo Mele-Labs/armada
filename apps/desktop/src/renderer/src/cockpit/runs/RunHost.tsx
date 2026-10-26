@@ -25,14 +25,19 @@ export function RunHost({ ship, props }: { ship: Ship; props: CockpitProps }) {
   const dispatching = useDispatching();
   const repositories = props.state.holds.repositories ?? [];
   // The draft Fleet answered for the confirm that is open, held against it so a later ask never shows an earlier draft.
-  const [drafted, setDrafted] = useState<{ for: typeof asked; draft: RunDraft }>();
+  const [drafted, setDrafted] = useState<{ for: typeof asked; draft: RunDraft; run?: { id: string; name: string } }>();
   useEffect(() => {
     if (source === undefined || asked === undefined) return;
     let live = true;
-    void source.draft(asked.target.repository).then((draft) => {
+    // An edit is drafted from the run saved, a first run from what Fleet reads of the repository.
+    const reading =
+      asked.edit === undefined
+        ? source.draft(asked.target.repository).then((draft) => (draft === undefined ? undefined : { draft }))
+        : source.saved(asked.edit).then((found) => (found === undefined ? undefined : { draft: found.draft, run: { id: found.run, name: found.name } }));
+    void reading.then((found) => {
       if (!live) return;
-      if (draft === undefined) dismissAsked();
-      else setDrafted({ for: asked, draft });
+      if (found === undefined) dismissAsked();
+      else setDrafted({ for: asked, ...found });
     });
     return () => {
       live = false;
@@ -65,8 +70,8 @@ export function RunHost({ ship, props }: { ship: Ship; props: CockpitProps }) {
       open
       repository={asked.label}
       draft={draft}
-      keep={`${asked.target.repository}:${asked.add ? "add" : "first"}`}
-      {...(asked.add ? { name: "" } : {})}
+      keep={`${asked.target.repository}:${drafted.run === undefined ? (asked.add ? "add" : "first") : `edit:${drafted.run.id}`}`}
+      {...(drafted.run !== undefined ? { name: drafted.run.name, edit: true } : asked.add ? { name: "" } : {})}
       onCancel={dismissAsked}
       onFix={(brief) => {
         // What was typed in the confirm is kept, so it is there when the run is asked for again.
@@ -76,7 +81,7 @@ export function RunHost({ ship, props }: { ship: Ship; props: CockpitProps }) {
       }}
       onSave={(processes, name, setup) => {
         dismissAsked();
-        void source.save(asked.target, asked.add ? name : asked.label, processes, setup).then((id) => {
+        void source.save(asked.target, asked.add || drafted.run !== undefined ? name : asked.label, processes, setup, drafted.run?.id).then((id) => {
           if (id !== undefined) openRun(id);
         });
       }}

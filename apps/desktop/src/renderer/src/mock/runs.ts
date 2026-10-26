@@ -221,11 +221,22 @@ export function createMockRuns(seed: RunsSeed): RunsSource {
     get: () => state,
     draft: async (repository) => seed.drafts[repository] ?? { root: repository.replace(/^\/Users\/[^/]+/, "~"), processes: [], savedIn: "this Mac" },
     start: async (target, run) => launch(target, run),
-    save: async (target, name, processes, setup) => {
+    saved: async (id) => {
+      const app = state.apps.find((one) => one.id === id);
+      const run = state.saved[app?.repository ?? ""]?.runs.find((one) => one.id === ranFrom.get(id));
+      if (app === undefined || run === undefined) return undefined;
+      const drafted = seed.drafts[app.repository];
+      const draft: RunDraft = { root: drafted?.root ?? app.repository.replace(/^\/Users\/[^/]+/, "~"), savedIn: drafted?.savedIn ?? "this Mac", setup: setups.get(app.repository) ?? [], processes: run.processes, ...(run.links === undefined ? {} : { links: run.links }) };
+      return { run: run.id, name: run.name, draft };
+    },
+    save: async (target, name, processes, setup, replacing) => {
       count += 1;
-      const run: SavedRun = { id: `saved-${count}`, name, kind: processes.some(listens) ? "browser" : "app", processes };
+      const run: SavedRun = { id: replacing ?? `saved-${count}`, name, kind: processes.some(listens) ? "browser" : "app", processes };
       const held = state.saved[target.repository];
-      set({ ...state, saved: { ...state.saved, [target.repository]: { runs: [...(held?.runs ?? []), run], last: run.id } } });
+      const runs = replacing === undefined ? [...(held?.runs ?? []), run] : (held?.runs ?? []).map((one) => (one.id === replacing ? run : one));
+      set({ ...state, saved: { ...state.saved, [target.repository]: { runs, last: run.id } } });
+      // Setup that changed has to run again on the checkouts it had finished on.
+      if (JSON.stringify(setups.get(target.repository) ?? []) !== JSON.stringify(setup)) [...setUp].filter((key) => key.startsWith(`${target.repository}:`)).forEach((key) => setUp.delete(key));
       setups.set(target.repository, setup);
       const ids = new Set(processes.map((one) => one.id));
       const drafted = (seed.drafts[target.repository]?.links ?? []).filter((link) => ids.has(link.from) && ids.has(link.to));

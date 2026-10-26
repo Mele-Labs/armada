@@ -270,6 +270,8 @@ export function createFleetRuns(fleet: FleetRuns, tell: (outcome: Outcome) => vo
       const ran = took(answer);
       return ran === undefined ? undefined : appIdOf(ran);
     },
+    // Editing a saved run is not wired to Fleet yet.
+    saved: async () => undefined,
     save: async (target, name, processes) => {
       const manifestId = manifestOf(target.repository);
       if (manifestId === undefined) return void tell(NO_MANIFEST);
