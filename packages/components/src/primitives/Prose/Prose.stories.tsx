@@ -529,7 +529,7 @@ export const ARunnableShellBlock: Story = {
   },
 };
 
-/** A run that does not end offers Stop, and a stopped run reads as failed with no exit code. */
+/** A run that does not end offers Stop, and a stopped run reads as stopped, with no exit code. */
 export const AStoppedRun: Story = {
   args: { text: SHELL_BLOCK },
   decorators: [
@@ -542,7 +542,7 @@ export const AStoppedRun: Story = {
   play: async ({ canvas, userEvent }) => {
     await userEvent.click(canvas.getByRole("button", { name: "Run" }));
     await userEvent.click(canvas.getByRole("button", { name: "Stop" }));
-    await expect(canvas.getByRole("img", { name: "Failed" })).toBeVisible();
+    await expect(canvas.getByRole("img", { name: "Stopped" })).toBeVisible();
     await expect(canvas.getByRole("button", { name: "Run again" })).toBeVisible();
   },
 };

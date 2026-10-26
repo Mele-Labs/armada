@@ -106,7 +106,7 @@ test.each([
   card(p.runner, undefined);
   await press("Run").click();
   p.say(end);
-  await expect.element(page.getByRole("img", { name: "Failed" })).toBeVisible();
+  await expect.element(page.getByRole("img", { name: /^(Failed|Stopped)$/ })).toBeVisible();
   // The bubble stays in the document while closed: the mark's wrapper is described by it.
   const wrapper = document.querySelector(".armada-prose__run-mark")?.parentElement;
   const bubble = document.getElementById(wrapper?.getAttribute("aria-describedby") ?? "");

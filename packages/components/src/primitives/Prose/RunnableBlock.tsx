@@ -162,7 +162,7 @@ export function RunOutput({ run }: { run: CodeRun }) {
           </Tooltip>
         ) : (
           <Tooltip label={endedSaid(phase)}>
-            <span className="armada-prose__run-mark" data-result={phase.code === 0 ? "passed" : "failed"} role="img" aria-label={phase.code === 0 ? "Passed" : "Failed"}>
+            <span className="armada-prose__run-mark" data-result={phase.code === 0 ? "passed" : "failed"} role="img" aria-label={phase.code === 0 ? "Passed" : phase.code === null && phase.stopped !== false ? "Stopped" : "Failed"}>
               {phase.code === 0 ? <CircleCheck size={16} strokeWidth={2} aria-hidden /> : <CircleX size={16} strokeWidth={2} aria-hidden />}
             </span>
           </Tooltip>
