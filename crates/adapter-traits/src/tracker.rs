@@ -10,7 +10,8 @@
 //! cannot keep to. `docs/concepts/tracker.md`.
 
 use alloc::collections::BTreeMap;
-use alloc::string::String;
+use alloc::format;
+use alloc::string::{String, ToString};
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 
@@ -159,6 +160,9 @@ pub struct NotTracked {
     /// What was being attempted, as a noun: `listing the open issues`.
     pub doing: &'static str,
     pub said: String,
+    /// The program that is not on this machine, where that is why: `bd`. Bridge offers to install
+    /// it, so it is a name and not a sentence to be read back out of `said`.
+    pub missing: Option<String>,
 }
 
 impl NotTracked {
@@ -166,6 +170,16 @@ impl NotTracked {
         NotTracked {
             doing,
             said: said.into(),
+            missing: None,
+        }
+    }
+
+    /// `tool` is not installed, or not on the PATH Fleet runs with.
+    pub fn lacking(doing: &'static str, tool: &str) -> NotTracked {
+        NotTracked {
+            doing,
+            said: format!("`{tool}` is not installed, or not on the PATH Fleet runs with"),
+            missing: Some(tool.to_string()),
         }
     }
 }
