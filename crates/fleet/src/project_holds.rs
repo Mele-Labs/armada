@@ -209,17 +209,17 @@ where
 
     /// Pull request `number` merged: each task linked to it that is open, or held, is asked about, once.
     /// **Whoever opened it**: a person linked it, and nobody's Job need have. A Job holding a task keeps its
-    /// ask on its list; a task with none is asked on the rows alone. The forge's answer for it is kept as merged.
-    pub(crate) async fn tasks_asked_by_linked_pull(&self, served: &crate::repositories::Served, number: u64, title: &str) {
-        let manifest = served.manifest().id().as_str().to_string();
-        self.tracking().pulls.keep(&manifest, number, self.now(), (TaskPullState::Merged, title.to_string()));
+    /// ask on its list; a task with none is asked on the rows alone. The forge's answer for it is kept as
+    /// merged. Whether any task was asked, in which case the projects are published.
+    pub(crate) async fn tasks_asked_by_linked_pull(&self, manifest: &str, number: u64, title: &str) -> bool {
+        self.tracking().pulls.keep(manifest, number, self.now(), (TaskPullState::Merged, title.to_string()));
         let at = self.now().as_str().to_string();
-        let asked = self.store().lock().await.ask_pulled_project_tasks(&manifest, number, &at);
+        let asked = self.store().lock().await.ask_pulled_project_tasks(manifest, number, &at);
         let Ok(asked) = asked else {
-            return;
+            return false;
         };
         if asked.is_empty() {
-            return;
+            return false;
         }
         let mut jobs: Vec<&String> = asked.iter().filter(|one| !one.is_empty()).collect();
         jobs.sort_unstable();
@@ -227,7 +227,8 @@ where
         for session in jobs {
             let _ = self.published_hosted(session).await;
         }
-        self.projects_published(&manifest).await;
+        self.projects_published(manifest).await;
+        true
     }
 
     /// `session` is over: what it held and did not finish is open again. What it asked about stays asked.

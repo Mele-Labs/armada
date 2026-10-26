@@ -75,7 +75,9 @@ it, each task linked to it that is `open` or `held` becomes `asked`, once per li
 asked about the same merge again, and unlinking and linking the pull request again resets that. A `done` task is left
 alone. A Job that held the task keeps holding it and the ask is on its list as above; a task no Job holds is `asked`
 with no `held_by`, and the ask lives on the rows alone, for the Projects tab to answer through `tick_project_task`. A
-pull request that merged before it was linked asks only while Fleet still reads it among the recently merged.
+pull request that had already merged when it was linked asks at the link, by the same rule and the same flag, and the
+answer to `link_task_pull` already shows the task `asked`. If the forge cannot say at that moment, the next sweep asks
+while Fleet still reads it among the recently merged.
 
 **The ask is held on the rows, not on the Job.** While the holding Job is live, Fleet adds a
 `task_done` item to its waiting list, one per project: id `task_done:<project>`, text `Mark <title>

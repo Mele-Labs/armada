@@ -287,3 +287,32 @@ async fn removing_a_task_takes_its_pull_request_links_with_it() {
 
     assert!(matches!(rows_of(&read(&rig).await, 0), [ProjectRow::Issue { .. }]), "nothing was asked, nothing is left");
 }
+
+#[tokio::test]
+async fn linking_a_pull_request_that_already_merged_asks_about_an_open_or_held_task_at_once_and_once() {
+    let rig = a_rig();
+    let (project, rows) = a_project(&rig, &["Sign the build", "Ship it"]).await;
+    let job = a_job(&rig, "Launch").await;
+    rig.fleet.link_task_job(at(&rig), project.clone(), rows[1].clone(), job_link(&job)).await.expect("linked");
+    rig.fleet.vcs().now_pull_request(Some(facts(PullRequestStanding::Open, "Sign it")));
+    let still_open = rig.fleet.link_task_pull(at(&rig), project.clone(), rows[0].clone(), LinkTaskPull { number: 4 }).await.expect("linked");
+    assert_eq!(held(&rows_of(&still_open, 0)[0]).0, ProjectTaskState::Open, "an open pull request asks nothing");
+
+    rig.fleet.vcs().now_pull_request(Some(facts(PullRequestStanding::Merged, "Sign it")));
+    let linked = rig.fleet.link_task_pull(at(&rig), project.clone(), rows[0].clone(), LinkTaskPull { number: 5 }).await.expect("linked");
+    assert_eq!(held(&rows_of(&linked, 0)[0]), (ProjectTaskState::Asked, None), "asked in the answer itself, with no Job to name");
+    assert_eq!(
+        pulls_of(&rows_of(&linked, 0)[0])[1],
+        TaskPull { number: 5, title: Some("Sign it".into()), state: Some(TaskPullState::Merged) }
+    );
+
+    let held_task = rig.fleet.link_task_pull(at(&rig), project.clone(), rows[1].clone(), LinkTaskPull { number: 5 }).await.expect("linked");
+    assert_eq!(held(&rows_of(&held_task, 0)[1]), (ProjectTaskState::Asked, holder(&job, "Launch")), "a held task keeps its Job");
+    assert_eq!(asks(&rig, &job).await.len(), 1, "and the Job's list carries the ask");
+
+    rig.fleet.tick_project_task(at(&rig), project.clone(), rows[0].clone(), TickProjectTask { done: false }).await.expect("kept open");
+    let again = rig.fleet.link_task_pull(at(&rig), project, rows[0].clone(), LinkTaskPull { number: 5 }).await.expect("linked again");
+    assert_eq!(held(&rows_of(&again, 0)[0]).0, ProjectTaskState::Open, "linking it again changes nothing, so it does not ask twice");
+    merged(&rig, 5, None).await;
+    assert_eq!(held(&rows_of(&read(&rig).await, 0)[0]).0, ProjectTaskState::Open, "nor does the sweep");
+}

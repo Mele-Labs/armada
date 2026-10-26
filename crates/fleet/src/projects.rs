@@ -529,14 +529,29 @@ where
         row: String,
         link: LinkTaskPull,
     ) -> Result<ipc::Projects, Refusal> {
-        self.projects_written(manifest_id, |store, kept| {
-            self.task_in(kept, &project, &row)?;
-            if link.number == 0 {
-                return Err(self.unreadable_pull(link.number));
+        let repository = manifest_id.as_str().to_string();
+        let projects = self
+            .projects_written(manifest_id.clone(), |store, kept| {
+                self.task_in(kept, &project, &row)?;
+                if link.number == 0 {
+                    return Err(self.unreadable_pull(link.number));
+                }
+                store.link_task_pull(&project, &row, link.number).map(drop).map_err(|why| self.ledger_fault(why))
+            })
+            .await?;
+        // One that merged before it was linked asks now, once, as the sweep would have.
+        let merged = projects.projects.iter().flat_map(|one| &one.rows).find_map(|one| match one {
+            ProjectRow::Task { id, pulls, .. } if *id == row => {
+                pulls.iter().find(|pull| pull.number == link.number && pull.state == Some(TaskPullState::Merged))
             }
-            store.link_task_pull(&project, &row, link.number).map(drop).map_err(|why| self.ledger_fault(why))
-        })
-        .await
+            _ => None,
+        });
+        match merged {
+            Some(pull) if self.tasks_asked_by_linked_pull(&repository, link.number, pull.title.as_deref().unwrap_or_default()).await => {
+                self.list_projects(manifest_id).await
+            }
+            _ => Ok(projects),
+        }
     }
 
     async fn unlink_task_pull(
