@@ -128,6 +128,14 @@
   text-decoration: underline;
 }
 
+/* iconography.md: a glyph leading text is 12px with a 4px gap. Inline, since
+   Bridge's reset draws every svg as a block. */
+.armada-prose__link-glyph {
+  display: inline-block;
+  margin-right: var(--space-1);
+  vertical-align: middle;
+}
+
 /* Machine-derived, so mono, in a well a step above the body's ground. */
 .armada-prose__code {
   padding: 0 var(--space-1);

@@ -19,6 +19,7 @@ const roots: { root: Root; host: HTMLElement; side: HTMLElement }[] = [];
 afterEach(() => {
   closeLayer();
   resetFolds(ID);
+  localStorage.clear();
   for (const { root, host, side } of roots.splice(0)) {
     act(() => root.unmount());
     host.remove();
@@ -54,7 +55,13 @@ function mount() {
     ),
   );
   roots.push({ root, host: thread, side });
-  return { thread, side };
+  const unmount = () => {
+    act(() => root.unmount());
+    thread.remove();
+    side.remove();
+    roots.splice(roots.findIndex((one) => one.root === root), 1);
+  };
+  return { thread, side, unmount };
 }
 
 const press = (init: KeyboardEventInit) => act(() => void window.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, cancelable: true, ...init })));
@@ -96,6 +103,15 @@ test("a band's key while Artifacts is open closes it and folds the band by hand"
   press({ altKey: true, code: "KeyL" });
   expect(layer(side)).toBeNull();
   expect(landing().hasAttribute("data-collapsed")).toBe(false);
+});
+
+test("a panel opened by hand is still open when the Job is left and entered again", () => {
+  const first = mount();
+  press({ altKey: true, code: "KeyL" });
+  expect(first.side.querySelector('section[data-area="landing"]')!.hasAttribute("data-collapsed")).toBe(false);
+  first.unmount();
+  const again = mount();
+  expect(again.side.querySelector('section[data-area="landing"]')!.hasAttribute("data-collapsed")).toBe(false);
 });
 
 test("the keys other than ⇧⌘A open nothing: ⌘A alone and ⇧A alone leave the story", () => {

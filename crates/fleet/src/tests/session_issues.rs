@@ -475,6 +475,21 @@ async fn an_issue_a_session_claims_is_held_by_a_key_or_a_number_and_anything_els
     assert_eq!(held, vec!["7", "ABC-12"]);
 }
 
+/// A claim says the Job works the issue, which is what Bridge draws apart from an issue the Job only
+/// filed or was told of: the row carries `claimed`, and no other way of holding an issue writes it.
+#[tokio::test]
+async fn an_issue_the_session_claims_says_so_and_one_it_filed_does_not() {
+    let rig = a_rig();
+    let id = rig.start().await;
+    filed(&*rig.fleet, id.as_str(), "https://forge.invalid/o/r/issues/9").await;
+    claims(&rig, &id, "ABC-12", &[]).await.expect("claimed");
+
+    let rows = issues(&*rig.fleet, id.as_str()).await;
+    let said = |target: &str| rows.iter().find(|row| row.target == target).and_then(|row| row.detail.get("claimed").cloned());
+    assert_eq!(said("ABC-12").as_deref(), Some("true"));
+    assert_eq!(said("9"), None);
+}
+
 /// The pull requests a claim names are the ones that work the issue: the row says them ascending,
 /// and a second claim adds to them.
 #[tokio::test]

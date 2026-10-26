@@ -4,8 +4,9 @@
 // The header rules in `protocol.ts` hold here.
 
 /**
- * A written task's own state. `held` is a Job working on it; `asked` is a Job finished and whether the task is done is yet
- * to be said, which outlives the Job. More may come: one this build does not know draws as open.
+ * A written task's own state. `held` is a Job working on it; `asked` is a Job finished, or a pull request linked to the task
+ * merged, and whether the task is done is yet to be said, which outlives the Job. More may come: one this build does not
+ * know draws as open.
  */
 export type ProjectTaskState = "open" | "done" | "held" | "asked";
 
@@ -25,10 +26,11 @@ export type ProjectRowRef = {
 /** One row of a project. The tag is `kind`. */
 export type ProjectRow =
   /**
-   * A task he wrote. `notes` is empty for none. `held_by` is present while `state` is `held` or `asked`, and only then.
+   * A task he wrote. `notes` is empty for none. `held_by` is present while `state` is `held`, and while it is `asked` by a Job;
+   * a task asked about by a linked pull request's merge, which no Job held, has none.
    * **A subtask is a task with a `parent`**, the id of a top-level task of the same project, one level deep. Rows are flat:
    * a parent is followed by its subtasks, so a client indents a row that has a `parent`. `issues` are the issues linked to
-   * the task, in the order linked; left out when none.
+   * the task, and `pulls` the pull requests, each in the order linked; left out when none.
    */
   | {
       kind: "task";
@@ -39,6 +41,7 @@ export type ProjectRow =
       held_by?: ProjectHolder;
       parent?: string;
       issues?: TaskIssue[];
+      pulls?: TaskPull[];
     }
   /**
    * A linked issue: `issue` is the tracker's reference only (`7`, `ABC-12`, `armada-3fz`). `title`
@@ -54,6 +57,16 @@ export type TaskIssue = {
   issue: string;
   title?: string;
   state?: "open" | "closed";
+};
+
+/**
+ * A pull request linked to a task: the number only is kept. `title` and `state` are the forge's, read when the rows were,
+ * and absent where it could not say. A draft is `open`.
+ */
+export type TaskPull = {
+  number: number;
+  title?: string;
+  state?: "open" | "merged" | "closed";
 };
 
 export type Project = {
@@ -108,4 +121,21 @@ export type MoveProjectRow = {
 /** `POST /projects/:repository/:project/rows/:row/tick`: done, or open again. */
 export type TickProjectTask = {
   done: boolean;
+};
+
+/**
+ * `POST /projects/:repository/:project/rows/:row/job`: a Job of the repository that has not ended holds the task, and its
+ * subtasks, as if it had been started with it; a Job holding it already is replaced. `.../rows/:row/job/unlink` takes no body
+ * and lets a held task, and the subtasks the same Job held, go back to open.
+ */
+export type LinkTaskJob = {
+  session_id: string;
+};
+
+/**
+ * `POST /projects/:repository/:project/rows/:row/pulls` puts a pull request of the repository, by number, on a task or
+ * subtask, and `.../rows/:row/pulls/unlink` takes it off.
+ */
+export type LinkTaskPull = {
+  number: number;
 };

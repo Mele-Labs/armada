@@ -27,8 +27,16 @@ pub struct KeptProjectRow {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum KeptRowItem {
     /// A task he wrote. `notes` is empty for none. `parent` is the id of the task it is a subtask of,
-    /// one level deep, and `issues` the references of the issues linked to it, in the order linked.
-    Task { title: String, notes: String, state: KeptTaskState, parent: Option<String>, issues: Vec<String> },
+    /// one level deep, `issues` the references of the issues linked to it, and `pulls` the numbers of the pull
+    /// requests linked to it, each in the order linked.
+    Task {
+        title: String,
+        notes: String,
+        state: KeptTaskState,
+        parent: Option<String>,
+        issues: Vec<String>,
+        pulls: Vec<u64>,
+    },
     /// A linked issue: the tracker's reference, as `IssueReference` reads it, and nothing else.
     Issue { reference: String },
 }
@@ -47,7 +55,8 @@ impl KeptHolder {
 }
 
 /// A written task's own state. The column is unchecked text, so a state a newer build writes reads
-/// as open. A held or asked task always names its Job, which is why the Job rides on the variant.
+/// as open. A held task always names its Job, which is why the Job rides on the variant; an asked one
+/// names the Job that finished, and none where a linked pull request's merge asked.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum KeptTaskState {
     Open,
@@ -55,7 +64,7 @@ pub enum KeptTaskState {
     /// A Job started with it and has not finished.
     Held(KeptHolder),
     /// The Job finished, and whether the task is done is yet to be said. **Outlives the Job.**
-    Asked(KeptHolder),
+    Asked(Option<KeptHolder>),
 }
 
 impl KeptTaskState {
@@ -70,19 +79,19 @@ impl KeptTaskState {
 
     fn holder(&self) -> &str {
         match self {
-            KeptTaskState::Held(holder) | KeptTaskState::Asked(holder) => &holder.session,
-            KeptTaskState::Open | KeptTaskState::Done => "",
+            KeptTaskState::Held(holder) | KeptTaskState::Asked(Some(holder)) => &holder.session,
+            KeptTaskState::Open | KeptTaskState::Done | KeptTaskState::Asked(None) => "",
         }
     }
 
     /// A state a newer build wrote reads as open here: this build has no word for it. So does a
-    /// held or asked one that names no Job.
+    /// held one that names no Job.
     fn read(written: &str, held_by: String, title: Option<String>) -> KeptTaskState {
         let holder = KeptHolder { session: held_by, title };
         match written {
             "done" => KeptTaskState::Done,
             "held" if !holder.session.is_empty() => KeptTaskState::Held(holder),
-            "asked" if !holder.session.is_empty() => KeptTaskState::Asked(holder),
+            "asked" => KeptTaskState::Asked(Some(holder).filter(|holder| !holder.session.is_empty())),
             _ => KeptTaskState::Open,
         }
     }
@@ -137,6 +146,7 @@ fn read_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<(String, Option<KeptPro
             state: KeptTaskState::read(&row.get::<_, String>(6)?, row.get(7)?, row.get(8)?),
             parent: Some(row.get::<_, String>(9)?).filter(|parent| !parent.is_empty()),
             issues: Vec::new(),
+            pulls: Vec::new(),
         }),
         ISSUE => Some(KeptRowItem::Issue { reference: row.get(5)? }),
         _ => None,
@@ -199,6 +209,25 @@ impl Store {
                 issues.push(reference);
             }
         }
+        let mut statement = self
+            .conn
+            .prepare(
+                "SELECT t.task_id, t.pull
+                 FROM project_task_pulls t JOIN project_rows r ON r.id = t.task_id
+                 JOIN projects p ON p.id = r.project_id
+                 WHERE p.manifest_id = ?1 ORDER BY t.position",
+            )
+            .map_err(database(doing))?;
+        let linked = statement
+            .query_map(params![manifest_id], |row| Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?)))
+            .and_then(|rows| rows.collect::<Result<Vec<_>, _>>())
+            .map_err(database(doing))?;
+        for (task, number) in linked {
+            let found = projects.iter_mut().flat_map(|project| project.rows.iter_mut()).find(|row| row.id == task);
+            if let Some(KeptProjectRow { item: KeptRowItem::Task { pulls, .. }, .. }) = found {
+                pulls.push(number as u64);
+            }
+        }
         Ok(projects)
     }
 
@@ -232,6 +261,11 @@ impl Store {
         if gone > 0 {
             tx.execute(
                 "DELETE FROM project_task_issues WHERE task_id IN (SELECT id FROM project_rows WHERE project_id = ?1)",
+                params![id],
+            )
+            .map_err(database(doing))?;
+            tx.execute(
+                "DELETE FROM project_task_pulls WHERE task_id IN (SELECT id FROM project_rows WHERE project_id = ?1)",
                 params![id],
             )
             .map_err(database(doing))?;
@@ -431,6 +465,7 @@ impl Store {
         gone.push(id.to_string());
         for one in &gone {
             tx.execute("DELETE FROM project_task_issues WHERE task_id = ?1", params![one]).map_err(database(doing))?;
+            tx.execute("DELETE FROM project_task_pulls WHERE task_id = ?1", params![one]).map_err(database(doing))?;
             tx.execute("DELETE FROM project_rows WHERE project_id = ?1 AND id = ?2", params![project_id, one])
                 .map_err(database(doing))?;
         }
@@ -481,6 +516,76 @@ impl Store {
         self.task_issue(project_id, id, "unlinking an issue from a task", |tx| {
             tx.execute("DELETE FROM project_task_issues WHERE task_id = ?1 AND issue = ?2", params![id, reference])
         })
+    }
+
+    /// Link a pull request, by number, to a task; linking it again changes nothing. Whether the project
+    /// had a task by that id.
+    pub fn link_task_pull(&mut self, project_id: &str, id: &str, number: u64) -> Result<bool, WriteError> {
+        self.task_issue(project_id, id, "linking a pull request to a task", |tx| {
+            tx.execute(
+                "INSERT OR IGNORE INTO project_task_pulls (task_id, pull, position)
+                 VALUES (?1, ?2, (SELECT COALESCE(MAX(position) + 1, 0) FROM project_task_pulls WHERE task_id = ?1))",
+                params![id, number as i64],
+            )
+        })
+    }
+
+    /// Take a pull request off a task; one it did not have changes nothing. Whether the project had a task by that id.
+    pub fn unlink_task_pull(&mut self, project_id: &str, id: &str, number: u64) -> Result<bool, WriteError> {
+        self.task_issue(project_id, id, "unlinking a pull request from a task", |tx| {
+            tx.execute("DELETE FROM project_task_pulls WHERE task_id = ?1 AND pull = ?2", params![id, number as i64])
+        })
+    }
+
+    /// Pull request `number` of `manifest_id` merged: each task it is linked to that has not been asked
+    /// about it, and is open or held, is `asked` from `at`. A Job holding one keeps holding it. **A link
+    /// asks once**, so a task answered `open` is not asked again by the same merge. Who held each task
+    /// that moved, `""` for nobody.
+    pub fn ask_pulled_project_tasks(&mut self, manifest_id: &str, number: u64, at: &str) -> Result<Vec<String>, WriteError> {
+        let doing = "asking about project tasks a pull request merged for";
+        let tx = self.conn.transaction().map_err(database(doing))?;
+        let linked: Vec<(String, String)> = {
+            let mut statement = tx
+                .prepare(
+                    "SELECT t.task_id, r.state FROM project_task_pulls t
+                     JOIN project_rows r ON r.id = t.task_id JOIN projects p ON p.id = r.project_id
+                     WHERE p.manifest_id = ?1 AND t.pull = ?2 AND t.asked = 0 ORDER BY t.task_id",
+                )
+                .map_err(database(doing))?;
+            let linked = statement
+                .query_map(params![manifest_id, number as i64], |row| Ok((row.get(0)?, row.get(1)?)))
+                .and_then(|rows| rows.collect::<Result<Vec<_>, _>>())
+                .map_err(database(doing))?;
+            linked
+        };
+        let mut moved = Vec::new();
+        for (task, state) in linked {
+            tx.execute("UPDATE project_task_pulls SET asked = 1 WHERE task_id = ?1 AND pull = ?2", params![task, number as i64])
+                .map_err(database(doing))?;
+            if state != "open" && state != "held" {
+                continue;
+            }
+            let holder: String = tx
+                .query_row("SELECT held_by FROM project_rows WHERE id = ?1", params![task], |row| row.get(0))
+                .map_err(database(doing))?;
+            tx.execute("UPDATE project_rows SET state = 'asked', asked_at = ?2 WHERE id = ?1", params![task, at])
+                .map_err(database(doing))?;
+            moved.push(holder);
+        }
+        tx.commit().map_err(database(doing))?;
+        Ok(moved)
+    }
+
+    /// A task `held` by a Job, and its subtasks held by the same one, let go: each is `open` again. How many.
+    pub fn free_held_project_task(&mut self, project_id: &str, id: &str) -> Result<usize, WriteError> {
+        self.conn
+            .execute(
+                "UPDATE project_rows SET state = 'open', held_by = '', asked_at = ''
+                 WHERE project_id = ?1 AND state = 'held' AND (id = ?2 OR parent = ?2)
+                   AND held_by = (SELECT held_by FROM project_rows WHERE project_id = ?1 AND id = ?2 AND state = 'held')",
+                params![project_id, id],
+            )
+            .map_err(database("letting go of a project task"))
     }
 
     fn task_issue(

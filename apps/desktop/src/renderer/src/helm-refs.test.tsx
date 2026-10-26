@@ -4,14 +4,20 @@
 import { act, useContext } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
-import { ProseRefs } from "@armada/components";
+import { page } from "vitest/browser";
+import { Prose, ProseRefs } from "@armada/components";
 import type { ProseReferences } from "@armada/components";
 import type { Session, SessionsDraft } from "@armada/screens/src/draft/sessions";
 
 import type { BridgeState } from "../../shared/bridge";
 import { RefsHost, SessionRefs } from "./helm-refs";
 import type { Host } from "./helm-refs";
+import { dropLayer, useLayer, useLayerPage } from "./session-view/layers";
 import { SessionsFrom } from "./sessions-draft";
+import { openInPanel } from "./shared-panel/store";
+import "./styles/index.css";
+
+vi.mock("./shared-panel/store", async (actual) => ({ ...(await actual<typeof import("./shared-panel/store")>()), openInPanel: vi.fn(() => true) }));
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -123,6 +129,50 @@ test("a path in a code span links once main says it is a file in the Job's check
   expect(refs.scan("docs/gone.md")).toEqual([]);
   expect(find).toHaveBeenCalledTimes(1);
   expect(find).toHaveBeenCalledWith(said.id, ["docs/plan.md", "docs/gone.md"]);
+});
+
+test("a code span naming the Job's own document links once with its title, and a press opens the document layer on that page and not the side panel", async () => {
+  const PAGE = "/repos/armada/.armada/documents/bridge-pricing-schema.html";
+  const relative = ".armada/documents/bridge-pricing-schema.html";
+  (window as unknown as { armada: unknown }).armada = { ...QUIET, findPanelFiles: async (_id: string, paths: readonly string[]) => paths.filter((one) => one === relative) };
+  const text = `The schema is written up in \`${relative}\`.`;
+  const said = {
+    ...THREAD,
+    rows: [{ kind: "message", id: "m1", from: "agent", at: "", text }],
+    attachments: [{ kind: "artifact", form: "document", id: PAGE, title: "Bridge pricing schema", revisions: ["/kept/bridge-pricing-schema/r1.html"] }],
+  } as unknown as Session;
+  function OpenLayer() {
+    return <output data-layer={useLayer(said.id) ?? ""} data-page={useLayerPage(said.id) ?? ""} />;
+  }
+  const mount = document.body.appendChild(document.createElement("div"));
+  const root = createRoot(mount);
+  roots.push({ root, host: mount });
+  const held = store([said, OTHER]);
+  const render = () =>
+    root.render(
+      <RefsHost.Provider value={hostOf(() => undefined)}>
+        <SessionsFrom held={held.held}>
+          <SessionRefs session={said}>
+            <Prose text={text} />
+          </SessionRefs>
+        </SessionsFrom>
+        <OpenLayer />
+      </RefsHost.Provider>,
+    );
+  await act(async () => render());
+  await act(async () => render());
+  try {
+    const links = page.getByRole("link");
+    expect(links.all()).toHaveLength(1);
+    await expect.element(links).toHaveAccessibleName("Bridge pricing schema");
+    // Under Bridge's own styles, whose reset draws every svg as a block, the glyph stays on the title's line.
+    expect((links.element() as HTMLElement).getClientRects()).toHaveLength(1);
+    await act(async () => (links.element() as HTMLElement).click());
+    expect(mount.querySelector("output")?.dataset).toMatchObject({ layer: "document", page: PAGE });
+    expect(openInPanel).not.toHaveBeenCalled();
+  } finally {
+    dropLayer(said.id);
+  }
 });
 
 /** What a window holds of the mod list and of Fleet's word rules, over a `window.armada` of just those. */
