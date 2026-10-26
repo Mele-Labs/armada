@@ -349,6 +349,13 @@ describe("the thread", () => {
     expect(drawn).toEqual([{ id: "v1", at: AT, kind: "saved", name: "Create order", collection: "Store API", collectionId: "store-api", request: "create-order" }]);
   });
 
+  it("keeps a draft whole as a draft row, open and once settled", () => {
+    const proposed = { kind: "draft", id: "d", at: AT, title: "Description for the queue pull request", text: "A Job waits for a free slot.", before: "Adds a queue." } as const;
+    expect(rowsOfThread("a", [proposed], () => undefined)).toEqual([{ id: "d", at: AT, kind: "draft", title: "Description for the queue pull request", text: "A Job waits for a free slot.", before: "Adds a queue." }]);
+    const settled = { ...proposed, settled: { how: "sent_back", words: "Say what a restart keeps.", at: AT } } as const;
+    expect(rowsOfThread("a", [settled], () => undefined)).toEqual([{ ...proposed, settled: { how: "sent_back", words: "Say what a restart keeps.", at: AT } }]);
+  });
+
   it("keeps a question asked in the window as a line, with how it was answered once it is", () => {
     const asked = {
       kind: "window_ask",

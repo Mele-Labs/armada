@@ -294,7 +294,7 @@ async fn answering_an_ask_with_words_is_a_message_and_ends_it() {
     let item_id = asked(&record(&rig, &id).await).expect("the item").id.clone();
     let before = rig.rows(&id).await.len();
 
-    let said = AnswerWaiting { session_id: id.clone(), item_id, choice: None, text: Some("yes, land it".into()), mode: None };
+    let said = AnswerWaiting { session_id: id.clone(), item_id, choice: None, text: Some("yes, land it".into()), mode: None, fixed: None };
     let after = Arc::clone(&rig.fleet).answer_waiting(said).await.unwrap();
     assert!(asked(&after).is_none());
     assert!(rig.rows(&id).await.len() > before, "the words reached the Session");
