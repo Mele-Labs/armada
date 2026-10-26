@@ -5,13 +5,13 @@
 // Landing under the layer are not unmounted, so Esc gives the Job back exactly as it was. `docs/concepts/session/noting-what-you-read.md`.
 
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
-import { ExternalLink, FileDiff, X } from "lucide-react";
+import { ExternalLink, FileDiff, PanelRightClose, PanelRightOpen, X } from "lucide-react";
 import { Button, DropdownMenu, KbdBinding, NoteNumber, Tooltip, aboutSaid, notedOf, setHeldOn, useHeldOn, useViewerNotes, type DropdownMenuEntry, type NotedRef } from "@armada/components";
 import { popupIsOpen } from "@armada/screens/src/list-keyboard";
 import type { Session, SessionsDraft } from "@armada/screens/src/draft/sessions";
 
 import { useSessionsDraft } from "../sessions-draft";
-import { DocumentPage, type DocumentFocus, type SentNote } from "./DocumentPage";
+import { DocumentPage, type DocumentFocus, type LitNote, type PageNote, type SentNote } from "./DocumentPage";
 import { diffPages } from "./document-diff";
 import { placeOf } from "./document-find";
 import { readPage, type Page } from "./document-page";
@@ -73,6 +73,8 @@ export function DocumentLayer({ session }: { session: Session }) {
   const [focus, setFocus] = useState<DocumentFocus | undefined>(undefined);
   const [current, setCurrent] = useState<string | undefined>(undefined);
   const [wanted, setWanted] = useState<number | undefined>(undefined);
+  const [margin, setMargin] = useState(true);
+  const [lit, setLit] = useState<LitNote | undefined>(undefined);
   const layer = useRef<HTMLElement>(null);
   const scroller = useRef<HTMLDivElement>(null);
   const pageRef = useRef<HTMLDivElement>(null);
@@ -89,6 +91,20 @@ export function DocumentLayer({ session }: { session: Session }) {
   const diff = useMemo(() => (page === undefined || before === undefined ? undefined : diffPages(before.root, page.root, title)), [page, before, title]);
   const showing = changes && diff !== undefined;
   const sent = useMemo(() => sentAbout(session, title), [session.rows, title]);
+  // Every note the margin lists, held then sent, by the id its row and its place in the page share.
+  const notes = useMemo<PageNote[]>(
+    () => [
+      ...held.flatMap((note, index): PageNote[] => (note.about.kind === "document" ? [{ id: `held:${String(index)}`, revision: note.about.place.revision, target: note.about.target }] : [])),
+      ...sent.map((note, index): PageNote => ({ id: `sent:${String(index)}`, revision: note.ref.place.revision, target: note.ref.target })),
+    ],
+    [held, sent],
+  );
+  const lights = (id: string) => ({
+    onMouseEnter: () => setLit({ id, from: "margin" }),
+    onMouseLeave: () => setLit((was) => (was?.id === id ? undefined : was)),
+    onFocus: () => setLit({ id, from: "margin" }),
+    onBlur: () => setLit((was) => (was?.id === id ? undefined : was)),
+  });
   const answers = useMemo(() => sent.map((note) => (diff !== undefined && note.ref.place.revision === revision - 1 ? diff.answer(note.ref) : undefined)), [sent, diff, revision]);
 
   // Opened from a sent note in the thread: on the revision the note was made on, at the words, the row or the sketch it named.
@@ -142,6 +158,12 @@ export function DocumentLayer({ session }: { session: Session }) {
     setChanges(true);
     setWanted(id);
   };
+  // Hiding the margin while focus is in it hands focus to the page, so the layer's keys keep working.
+  const toggleMargin = () => {
+    if (layer.current?.querySelector(".armada-doc__notes")?.contains(document.activeElement) === true) pageRef.current?.focus();
+    setLit(undefined);
+    setMargin((was) => !was);
+  };
   const switchRevision = () => setPinned(revision === latest ? latest - 1 : undefined);
 
   const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
@@ -159,6 +181,7 @@ export function DocumentLayer({ session }: { session: Session }) {
     const key = event.key.toLowerCase();
     if (key === "c" && diff !== undefined) setChanges((was) => !was);
     else if (key === "r" && latest > 1) switchRevision();
+    else if (key === "m") toggleMargin();
     else if (key === "s") setSharing(true);
     else return;
     event.preventDefault();
@@ -169,22 +192,29 @@ export function DocumentLayer({ session }: { session: Session }) {
     if (id === "repo" && doc !== undefined) void draft?.send(session.id, { text: `Commit ${doc.id} to the repo.`, files: [], sketches: [], tags: [] });
   };
 
-  const revisions: DropdownMenuEntry[] = pages.map((_, at) => ({ kind: "item", id: String(at + 1), label: `Revision ${String(at + 1)}`, selected: at + 1 === revision }));
+  const revisions: DropdownMenuEntry[] = pages.map((_, at): DropdownMenuEntry => ({ kind: "item", id: String(at + 1), label: `Revision ${String(at + 1)}`, selected: at + 1 === revision })).reverse();
 
   return (
-    <section ref={layer} className="armada-doc" aria-label="Document" data-keeps-escape="" data-owns-keys="c r s" onKeyDown={onKeyDown}>
+    <section ref={layer} className="armada-doc" aria-label="Document" data-keeps-escape="" data-owns-keys="c r m s" onKeyDown={onKeyDown}>
       <header className="armada-doc__head">
         <h3 className="armada-doc__title">{title}</h3>
-        {page === undefined ? null : latest > 1 ? (
-          <DropdownMenu plain triggerLabel={`Revision ${String(revision)}`} triggerTooltip="Revision" entries={revisions} onSelect={(id) => setPinned(Number(id) === latest ? undefined : Number(id))} />
-        ) : (
-          <span className="armada-doc__revision">Revision {revision}</span>
+        {page === undefined ? null : (
+          <span className="armada-doc__revision">
+            <DropdownMenu plain triggerLabel={`Revision ${String(revision)}`} triggerTooltip="Revision" entries={revisions} onSelect={(id) => setPinned(Number(id) === latest ? undefined : Number(id))} />
+          </span>
         )}
         <div className="armada-doc__tools">
           {diff === undefined ? null : (
             <Tooltip label="Changes" shortcut="C">
               <Button variant="ghost" size="sm" iconOnly aria-label="Changes" aria-pressed={showing} onClick={() => setChanges((was) => !was)}>
                 <FileDiff size={16} strokeWidth={2} aria-hidden />
+              </Button>
+            </Tooltip>
+          )}
+          {page === undefined ? null : (
+            <Tooltip label={margin ? "Hide notes" : "Show notes"} shortcut="M">
+              <Button variant="ghost" size="sm" iconOnly aria-label={margin ? "Hide notes" : "Show notes"} onClick={toggleMargin}>
+                {margin ? <PanelRightClose size={16} strokeWidth={2} aria-hidden /> : <PanelRightOpen size={16} strokeWidth={2} aria-hidden />}
               </Button>
             </Tooltip>
           )}
@@ -197,7 +227,7 @@ export function DocumentLayer({ session }: { session: Session }) {
         </div>
       </header>
       {page === undefined ? null : (
-        <div className="armada-doc__body">
+        <div className="armada-doc__body" data-notes={margin ? "" : undefined}>
           <nav className="armada-doc__rail" aria-label="Contents" data-rail="">
             {page.sections.map((one) => (
               <button key={one.id} type="button" className="armada-doc__section" aria-current={current === one.id ? "location" : undefined} onClick={() => toSection(one.id)}>
@@ -218,20 +248,24 @@ export function DocumentLayer({ session }: { session: Session }) {
               page={pageRef}
               sent={sent}
               focus={focus}
+              margin={margin}
+              notes={notes}
+              lit={lit}
+              onLit={setLit}
             />
           </div>
-          <aside className="armada-doc__notes" aria-label="Notes on the page">
+          <aside className="armada-doc__notes" aria-label="Notes on the page" hidden={!margin}>
             <header className="armada-doc__notes-head">
               <h4 className="armada-doc__label">Notes</h4>
               <Button variant="primary" size="sm" disabled={held.length === 0} onClick={viewer.send}>
-                Send
+                Send to Job
                 <KbdBinding binding="⌘↵" />
               </Button>
             </header>
             {held.length === 0 ? null : (
               <ol className="armada-doc__list" aria-label="Notes held">
                 {held.map((note, index) => (
-                  <li key={`${String(index)}:${note.text}`} className="armada-doc__note">
+                  <li key={`${String(index)}:${note.text}`} className="armada-doc__note" data-lit={lit?.id === `held:${String(index)}` ? "" : undefined} {...lights(`held:${String(index)}`)}>
                     <NoteNumber n={index + 1} />
                     <button type="button" className="armada-doc__note-body" onClick={() => note.about.kind === "document" && pageRef.current !== null && placeOf(pageRef.current, note.about.target)?.scrollIntoView({ block: "center" })}>
                       <span className="armada-doc__about">{aboutSaid(note.about)}</span>
@@ -251,7 +285,7 @@ export function DocumentLayer({ session }: { session: Session }) {
                 {sent.map((note, index) => {
                   const change = answers[index];
                   return (
-                    <li key={`${String(index)}:${note.body}`} className="armada-doc__note" data-sent="">
+                    <li key={`${String(index)}:${note.body}`} className="armada-doc__note" data-sent="" data-lit={lit?.id === `sent:${String(index)}` ? "" : undefined} {...lights(`sent:${String(index)}`)}>
                       <NoteNumber n={note.n} />
                       <button type="button" className="armada-doc__note-body" onClick={() => pageRef.current !== null && placeOf(pageRef.current, note.ref.target)?.scrollIntoView({ block: "center" })}>
                         <span className="armada-doc__about">{aboutSaid({ kind: "document", place: note.ref.place, target: note.ref.target })}</span>

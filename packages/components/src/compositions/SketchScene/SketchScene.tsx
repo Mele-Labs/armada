@@ -549,9 +549,12 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
   const onNodesChange = useCallback((changes: NodeChange<SceneRfNode>[]) => setKept((held) => applyNodeChanges(changes, overlay(held, latest.current))), []);
   const markedKey = (marked ?? []).join("\n");
   const laidOut = fresh.length > 0;
+  const wasMarked = useRef(false);
   useEffect(() => {
-    if (markedKey === "" || !laidOut) return;
-    const ids = markedKey.split("\n");
+    if (!laidOut) return;
+    if (markedKey === "" && !wasMarked.current) return;
+    wasMarked.current = markedKey !== "";
+    const ids = markedKey === "" ? [] : markedKey.split("\n");
     onNodesChange(latest.current.map((one) => ({ type: "select" as const, id: one.id, selected: ids.includes(one.id) })));
   }, [markedKey, sceneKey, laidOut, onNodesChange]);
   const edges = useMemo<SceneRfEdge[]>(

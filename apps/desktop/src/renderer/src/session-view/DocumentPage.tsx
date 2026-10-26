@@ -14,6 +14,12 @@ import { openLink } from "../commands";
 /** A note already sent, as the thread holds it. */
 export type SentNote = { n: number; ref: Extract<NotedRef, { kind: "document" }>; body: string };
 
+/** A note the margin lists, held or sent, and where it stands in the page. */
+export type PageNote = { id: string; revision: number; target: DocumentTarget };
+
+/** The note whose place is lit: from the margin, which scrolls the page to it, or from the page, which does not move. */
+export type LitNote = { id: string; from: "margin" | "page" };
+
 /** Where the layer was asked to open the page: a place a sent note named. */
 export type DocumentFocus = { target: DocumentTarget; at: number };
 
@@ -34,11 +40,16 @@ type Props = {
   page: RefObject<HTMLDivElement | null>;
   sent: readonly SentNote[];
   focus: DocumentFocus | undefined;
+  /** Whether the Notes margin is drawn: the notes stand highlighted in the page only then. */
+  margin: boolean;
+  notes: readonly PageNote[];
+  lit: LitNote | undefined;
+  onLit: (to: (was: LitNote | undefined) => LitNote | undefined) => void;
 };
 
 const highlights = (): HighlightRegistry | undefined => (typeof CSS !== "undefined" && "highlights" in CSS && typeof Highlight !== "undefined" ? CSS.highlights : undefined);
 
-export function DocumentPage({ title, revision, root, css, sketches, against, scope, viewer, page, sent, focus }: Props) {
+export function DocumentPage({ title, revision, root, css, sketches, against, scope, viewer, page, sent, focus, margin, notes, lit, onLit }: Props) {
   const [mounts, setMounts] = useState<readonly Mount[]>([]);
   const [anchors, setAnchors] = useState<readonly Anchor[]>([]);
 
@@ -65,8 +76,8 @@ export function DocumentPage({ title, revision, root, css, sketches, against, sc
     );
   }, [root, title, page]);
 
-  // A number at the end of the words each held note quotes, and at the head of the row it names; the words underlined, and the notes
-  // already sent underlined more quietly. The sketch numbers its own parts.
+  // A number at the end of the words each held note quotes, and at the head of the row it names. While the margin is shown the words
+  // and the rows of held notes are tinted, and those of notes already sent more quietly. The sketch numbers its own parts.
   useLayoutEffect(() => {
     const el = page.current;
     if (el === null) return;
@@ -81,7 +92,7 @@ export function DocumentPage({ title, revision, root, css, sketches, against, sc
       made.push(one);
       return one;
     };
-    for (const note of sent) {
+    for (const note of margin ? sent : []) {
       if (note.ref.place.revision !== revision) continue;
       if (note.ref.target.kind === "words") {
         const range = rangeOf(el, note.ref.target.quote);
@@ -98,7 +109,7 @@ export function DocumentPage({ title, revision, root, css, sketches, against, sc
       if (target.kind === "words") {
         const range = rangeOf(el, target.quote);
         if (range === undefined) continue;
-        held.push(range.cloneRange());
+        if (margin) held.push(range.cloneRange());
         const at = anchor();
         range.collapse(false);
         range.insertNode(at);
@@ -107,8 +118,10 @@ export function DocumentPage({ title, revision, root, css, sketches, against, sc
         const row = rowOf(el, target.row);
         const cell = row?.firstElementChild;
         if (row === undefined || cell == null) continue;
-        row.setAttribute("data-noted", "");
-        marked.push(row);
+        if (margin) {
+          row.setAttribute("data-noted", "");
+          marked.push(row);
+        }
         const at = anchor();
         cell.prepend(at);
         next.push({ n: mark.n, writing: mark.writing, said: mark.text, el: at });
@@ -128,7 +141,7 @@ export function DocumentPage({ title, revision, root, css, sketches, against, sc
       }
       el.normalize();
     };
-  }, [viewer.marks, sent, revision, root, mounts, page]);
+  }, [viewer.marks, sent, revision, root, mounts, page, margin]);
 
   // Opened at a place a note named: scrolled to, and held out for a few seconds.
   useEffect(() => {
@@ -151,10 +164,38 @@ export function DocumentPage({ title, revision, root, css, sketches, against, sc
     };
   }, [focus, mounts, page]);
 
+  // The note the pointer or focus is on in the margin: its words or row take the stronger tint, and the page scrolls to it if it is
+  // off screen. Its sketch parts are marked on the mounts below.
+  const litNote = margin && lit !== undefined ? notes.find((one) => one.id === lit.id && one.revision === revision) : undefined;
+  useLayoutEffect(() => {
+    const el = page.current;
+    if (el === null || litNote === undefined) return;
+    const registry = highlights();
+    const range = litNote.target.kind === "words" ? rangeOf(el, litNote.target.quote) : undefined;
+    if (range !== undefined) registry?.set("armada-doc-lit", new Highlight(range));
+    const place = placeOf(el, litNote.target);
+    if (litNote.target.kind !== "words") place?.setAttribute("data-lit", "");
+    if (lit?.from === "margin") place?.scrollIntoView({ block: "nearest" });
+    return () => {
+      registry?.delete("armada-doc-lit");
+      place?.removeAttribute("data-lit");
+    };
+  }, [litNote, lit?.from, viewer.marks, sent, mounts, page]);
+
   // A note held takes the place of the selection that made it.
   useEffect(() => {
     if (viewer.settled > 0) window.getSelection()?.removeAllRanges();
   }, [viewer.settled]);
+
+  // The parts of a sketch that stand marked: the lit note's alone while one of its own is lit, else those a visit named and those of every note
+  // the margin lists.
+  const markedIn = (sketch: string): readonly string[] => {
+    const parts = (target: DocumentTarget) => (target.kind === "part" && target.sketch === sketch ? target.parts.map((part) => part.id) : []);
+    const lit = litNote === undefined ? [] : parts(litNote.target);
+    if (lit.length > 0) return lit;
+    const asked = focus === undefined ? [] : parts(focus.target);
+    return [...new Set([...asked, ...(margin ? notes.filter((one) => one.revision === revision).flatMap((one) => parts(one.target)) : [])])];
+  };
 
   const point = (target: EventTarget | null) => {
     const el = page.current;
@@ -167,6 +208,27 @@ export function DocumentPage({ title, revision, root, css, sketches, against, sc
     const hit = point(event.target);
     viewer.menu({ x: event.clientX, y: event.clientY }, hit?.about, hit?.anchor);
   };
+
+  // The pointer over a note's place in the page lights that note in the margin.
+  const onMouseMove = (event: MouseEvent<HTMLElement>) => {
+    const el = page.current;
+    if (el === null || !margin) return;
+    const target = event.target as Element;
+    const here = (): PageNote | undefined => {
+      const part = target.closest(".react-flow__node")?.getAttribute("data-id");
+      const sketch = target.closest(".armada-doc__sketch")?.getAttribute("data-title");
+      const row = target.closest<HTMLElement>("tbody tr");
+      return notes.find((one) => {
+        if (one.revision !== revision) return false;
+        if (one.target.kind === "part") return part != null && one.target.sketch === sketch && one.target.parts.some((p) => p.id === part);
+        if (one.target.kind === "row") return row !== null && rowOf(el, one.target.row) === row;
+        return [...(rangeOf(el, one.target.quote)?.getClientRects() ?? [])].some((box) => event.clientX >= box.left && event.clientX <= box.right && event.clientY >= box.top && event.clientY <= box.bottom);
+      });
+    };
+    const found = here();
+    onLit((was) => (found === undefined ? (was?.from === "page" ? undefined : was) : was?.id === found.id && was.from === "page" ? was : { id: found.id, from: "page" }));
+  };
+  const onMouseLeave = () => onLit((was) => (was?.from === "page" ? undefined : was));
 
   const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
     viewer.onKeyDown(event);
@@ -190,7 +252,7 @@ export function DocumentPage({ title, revision, root, css, sketches, against, sc
 
   return (
     <>
-      <div ref={page} className={PAGE_ROOT} role="article" aria-label={title} tabIndex={0} aria-keyshortcuts="Shift+F10 ContextMenu Meta+Enter" onContextMenu={onContextMenu} onKeyDown={onKeyDown} onClick={onClick} />
+      <div ref={page} className={PAGE_ROOT} role="article" aria-label={title} tabIndex={0} aria-keyshortcuts="Shift+F10 ContextMenu Meta+Enter" onContextMenu={onContextMenu} onMouseMove={onMouseMove} onMouseOver={onMouseMove} onMouseLeave={onMouseLeave} onKeyDown={onKeyDown} onClick={onClick} />
       {mounts.map((one) =>
         createPortal(
           <SketchScene
@@ -199,7 +261,7 @@ export function DocumentPage({ title, revision, root, css, sketches, against, sc
             title={one.title}
             notes={scope}
             within={{ page: title, revision, section: one.section }}
-            {...(focus?.target.kind === "part" && focus.target.sketch === one.title ? { marked: focus.target.parts.map((part) => part.id) } : {})}
+            marked={markedIn(one.title)}
           />,
           one.el,
           String(one.index),

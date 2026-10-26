@@ -4,10 +4,13 @@
 .armada-doc { position: absolute; inset: 0; z-index: var(--z-dock); display: flex; flex-direction: column; min-height: 0; background: var(--bg-raised); }
 .armada-doc__head { display: flex; flex: none; align-items: center; gap: var(--space-4); min-height: var(--h-row-header); padding: 0 var(--space-3) 0 var(--space-4); border-bottom: var(--border-width) solid var(--border-subtle); }
 .armada-doc__title { min-width: 0; margin: 0; overflow: hidden; font-size: var(--text-sm); line-height: var(--leading-sm); font-weight: var(--weight-heading); text-overflow: ellipsis; white-space: nowrap; }
-.armada-doc__revision { color: var(--fg-muted); font-family: var(--font-mono); font-size: var(--text-xs); line-height: var(--leading-xs); white-space: nowrap; }
+.armada-doc__revision { display: inline-flex; color: var(--fg-muted); }
+.armada-doc__revision .armada-dropdown-menu__trigger { font-size: var(--text-sm); line-height: var(--leading-sm); font-weight: var(--weight-body); }
 .armada-doc__tools { display: flex; align-items: center; gap: var(--space-1); margin-inline-start: auto; }
 .armada-doc__tools [aria-pressed="true"] { background: var(--accent-muted); }
 
+.armada-doc__body:not([data-notes]) { grid-template-columns: calc(var(--space-12) * 4) minmax(0, 1fr); }
+.armada-doc__notes[hidden] { display: none; }
 .armada-doc__body { display: grid; flex: 1 1 0; grid-template-columns: calc(var(--space-12) * 4) minmax(0, 1fr) calc(var(--space-12) * 7); min-height: 0; }
 .armada-doc__rail, .armada-doc__notes { display: flex; flex-direction: column; gap: var(--space-1); min-height: 0; padding: var(--space-3); overflow-y: auto; overscroll-behavior: contain; }
 .armada-doc__rail { border-inline-end: var(--border-width) solid var(--border-subtle); }
@@ -26,14 +29,16 @@
 .armada-doc__sketch { margin: var(--space-6) 0; }
 .armada-doc__sketch-mount { position: relative; }
 .armada-doc__sketch .armada-sketch { margin: 0; block-size: auto; aspect-ratio: 16 / 7; min-block-size: calc(var(--space-12) * 6); }
-.armada-doc__sketch[data-focus] .armada-sketch { border-color: var(--accent); }
+.armada-doc__sketch[data-focus] .armada-sketch, .armada-doc__sketch[data-lit] .armada-sketch { border-color: var(--accent); }
 .armada-doc__anchor { display: inline-flex; margin-inline: var(--space-1); vertical-align: text-top; }
 td > .armada-doc__anchor { margin-inline-start: 0; }
-.armada-doc__page tr[data-noted], .armada-doc__page tr[data-focus] { background: var(--accent-faint); }
-.armada-doc__page tr[data-sent] td:first-child { box-shadow: inset var(--edge-active) 0 0 var(--border-strong); }
+/* A note's place in the page, in three strengths: sent, held, and the one lit from the margin, hovered in the page, or opened from the thread. */
+.armada-doc__page tr[data-sent] { background: var(--accent-faint); }
+.armada-doc__page tr[data-noted] { background: var(--accent-muted); }
+.armada-doc__page tr[data-focus], .armada-doc__page tr[data-lit] { background: color-mix(in srgb, var(--accent) 40%, transparent); }
+::highlight(armada-doc-sent) { background-color: var(--accent-faint); }
 ::highlight(armada-doc-note) { background-color: var(--accent-muted); }
-::highlight(armada-doc-sent) { text-decoration: underline; text-decoration-color: var(--border-strong); }
-::highlight(armada-doc-focus) { background-color: var(--accent-muted); }
+::highlight(armada-doc-focus), ::highlight(armada-doc-lit) { background-color: color-mix(in srgb, var(--accent) 40%, transparent); }
 
 /* Changes. A word that came is tinted green and one that went is struck in red; a block that came has a green rule, one that moved on an
  * amber one, and a block that went stands struck where it was. */
@@ -53,7 +58,7 @@ td > .armada-doc__anchor { margin-inline-start: 0; }
 .armada-doc__note[data-sent] { grid-template-columns: auto minmax(0, 1fr); }
 .armada-doc__note > .armada-note-number { margin-block-start: var(--space-1); }
 .armada-doc__note-body { display: flex; flex-direction: column; min-width: 0; padding: var(--space-1) var(--space-2); border: 0; border-radius: var(--radius-md); background: none; color: var(--fg-default); font: inherit; text-align: start; cursor: pointer; }
-.armada-doc__note-body:hover { background: var(--surface-row-hover); }
+.armada-doc__note-body:hover, .armada-doc__note[data-lit] .armada-doc__note-body { background: var(--surface-row-hover); }
 .armada-doc__about { overflow: hidden; color: var(--fg-muted); font-family: var(--font-mono); text-overflow: ellipsis; white-space: nowrap; }
 .armada-doc__answer { display: grid; grid-column: 2; grid-template-columns: var(--space-4) minmax(0, 1fr); align-items: start; gap: var(--space-2); padding: var(--space-1) var(--space-2); border: 0; border-radius: var(--radius-md); background: color-mix(in srgb, var(--status-completed-success) 12%, transparent); color: var(--fg-default); font: inherit; text-align: start; cursor: pointer; }
 .armada-doc__answer:hover { background: color-mix(in srgb, var(--status-completed-success) 20%, transparent); }
