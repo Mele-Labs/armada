@@ -160,6 +160,7 @@ async fn a_setup_command_that_fails_starts_no_process_and_the_run_says_which() {
     assert_eq!(setup.failed.as_deref(), Some("broken"));
     let ended = setup.ended.expect("how it ended");
     assert!(ended.contains("`broken`") && ended.contains("exited 4") && ended.contains("no network"), "{ended}");
+    assert_eq!(setup.exit_code, Some(4), "the failed Command's code");
     assert!(view.processes.iter().all(|one| one.state == ProcessState::NotStarted && one.server.is_none()), "no process started");
     let output = fleet.observed_server(&setup.id).expect("its output");
     assert!(output.history.iter().any(|line| line == "no network"), "{:?}", output.history);

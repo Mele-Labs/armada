@@ -31,6 +31,7 @@ fn running() -> AppRun {
                 server_id: Some("01SERVER".to_string()),
                 log_path: Some("/repos/armada/.armada/servers/checkouts/slot-2/01SERVER/log".to_string()),
                 ended: None,
+                exit_code: None,
             },
             AppRunProcess {
                 name: "api".to_string(),
@@ -44,6 +45,7 @@ fn running() -> AppRun {
                 server_id: None,
                 log_path: None,
                 ended: None,
+                exit_code: None,
             },
         ],
         last_used: Some(Instant::carried("2026-10-25T10:00:00.000Z")),
@@ -153,6 +155,7 @@ fn a_run_setting_up_carries_the_setup_and_where_its_output_is() {
         running: Some("install_frontend".to_string()),
         failed: None,
         ended: None,
+        exit_code: None,
     };
     let run = AppRun { setup: Some(setup.clone()), ..running() };
     let spelled = encode(&run).expect("plain data");
@@ -162,8 +165,8 @@ fn a_run_setting_up_carries_the_setup_and_where_its_output_is() {
     );
     let back: AppRun = decode("a run", spelled.as_bytes()).expect("reads");
     assert_eq!(back, run);
-    let failed = AppRunSetup { state: AppRunSetupState::Failed, running: None, failed: Some("venv".to_string()), ended: Some("it failed".to_string()), ..setup };
-    assert!(encode(&failed).expect("plain data").contains(r#""state":"failed","commands":["venv","install_frontend"],"failed":"venv","ended":"it failed""#));
+    let failed = AppRunSetup { state: AppRunSetupState::Failed, running: None, failed: Some("venv".to_string()), ended: Some("it failed".to_string()), exit_code: Some(4), ..setup };
+    assert!(encode(&failed).expect("plain data").contains(r#""state":"failed","commands":["venv","install_frontend"],"failed":"venv","ended":"it failed","exit_code":4"#));
 
     let save: SaveAppRun = decode(
         "a run to save",

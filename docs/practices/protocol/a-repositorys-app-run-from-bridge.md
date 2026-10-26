@@ -23,12 +23,12 @@ All nine are `Bridge only`: ▶ is a person's press, and an agent that wants a s
 **A run is its servers and nothing more.** A process is a `ServerState` read through, so its output is `observe_server`'s and is addressed by the process's `server_id`.
 No second socket carries a run's log, and `app_run.changed` carries no line of one.
 A restart is a new instance, so a viewer reads `server_id` again from the next event.
-`AppRunProcess.log_path` is the absolute path of the instance's output file, so a Job handed it to fix a failure reads the whole of it.
+`AppRunProcess.log_path` is the absolute path of the instance's output file, so a Job handed it to fix a failure reads the whole of it, and `exit_code` is the code the instance exited with, as its `ServerState` carries it.
 
 **A run waits on its checkout's setup**, the Manifest's `setup.requires`, where the checkout is new to it or the files it was traced from changed.
-`AppRun.setup` is `{id, log_path, state, commands, running?, failed?, ended?}`, and `state` is `setting_up`, `ready` or `failed`.
+`AppRun.setup` is `{id, log_path, state, commands, running?, failed?, ended?, exit_code?}`, and `state` is `setting_up`, `ready` or `failed`.
 While it is `setting_up` no process has started, and `running` names the Command running now.
-A Command that fails starts no process: `failed` names it and `ended` says how, the Command's line and the tail of what it printed.
+A Command that fails starts no process: `failed` names it, `ended` says how, the Command's line and the tail of what it printed, and `exit_code` is its code where it exited with one.
 `failed` with no `failed` Command is a run that would not start once setup passed, and `ended` says why.
 `setup.id` is what `observe_server` takes, so setup's output is read as a process's is, under the name `setup`, and `setup.log_path` is its file, absolute.
 Each setup is a new id. `setup` is absent where this Fleet has run none for the run on that checkout, which a checkout already set up never needs.

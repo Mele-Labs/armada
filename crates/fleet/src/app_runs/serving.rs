@@ -127,6 +127,7 @@ fn process_wired(process: &RunProcess, records_root: Option<&str>) -> AppRunProc
             .zip(records_root)
             .map(|(one, root)| std::path::Path::new(root).join(&one.log).display().to_string()),
         ended: process.server.as_ref().and_then(|one| one.ended.clone()),
+        exit_code: process.server.as_ref().and_then(|one| one.exit_code),
     }
 }
 
@@ -143,6 +144,7 @@ fn setup_wired(setup: &SetupView) -> AppRunSetup {
         running: setup.running.clone(),
         failed: setup.failed.clone(),
         ended: setup.ended.clone(),
+        exit_code: setup.exit_code,
     }
 }
 

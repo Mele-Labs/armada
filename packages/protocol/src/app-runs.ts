@@ -48,6 +48,8 @@ export type AppRunProcess = {
   log_path?: string;
   /** How it ended, in a sentence. */
   ended?: string;
+  /** The code it exited with, where it exited with one. Absent while it runs and where a signal ended it. */
+  exit_code?: number;
 };
 
 /**
@@ -87,6 +89,8 @@ export type AppRunSetup = {
   failed?: string;
   /** How it ended, in a sentence. Present on `failed`. */
   ended?: string;
+  /** The code the `failed` Command exited with. Absent where a signal or a stop ended it. */
+  exit_code?: number;
 };
 
 /**

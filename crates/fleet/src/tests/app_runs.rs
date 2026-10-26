@@ -203,6 +203,9 @@ async fn a_process_that_falls_over_fails_the_run_and_the_rest_stays_readable() {
     assert_eq!(view.phase(), RunPhase::Failed);
     let broken = view.processes[1].server.as_ref().expect("its instance");
     assert!(!broken.stopped && broken.exit_code == Some(3), "it fell over: {broken:?}");
+    let listed = api::AppRuns::list_app_runs(&*fleet, None, None).await.expect("listed").runs;
+    let wired = listed.iter().find(|one| one.name == "hasty").expect("the run");
+    assert_eq!(wired.processes[1].exit_code, Some(3), "the wire carries its code");
     fleet.run_stopped(&target, "hasty").await.expect("it stops");
 }
 

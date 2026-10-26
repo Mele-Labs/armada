@@ -95,6 +95,10 @@ pub struct AppRunProcess {
     /// How it ended, in a sentence. Present on `failed` and `exited`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ended: Option<String>,
+    /// The code it exited with, where it exited with one. Absent while it runs and where a signal
+    /// ended it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub exit_code: Option<i32>,
 }
 
 /// One process of a run expecting another on a port it does not get: a frontend whose dev proxy
@@ -149,6 +153,9 @@ pub struct AppRunSetup {
     /// How it ended, in a sentence. Present on `failed`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ended: Option<String>,
+    /// The code the `failed` Command exited with. Absent where a signal or a stop ended it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub exit_code: Option<i32>,
 }
 
 /// One run on one checkout, as it stands: a row of `list_app_runs`, what `start_app_run`,

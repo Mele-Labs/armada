@@ -55,6 +55,8 @@ pub(crate) struct SetupView {
     pub(crate) failed: Option<String>,
     /// How it ended, in a sentence, where it did not pass.
     pub(crate) ended: Option<String>,
+    /// The code the failed Command exited with, where it exited with one.
+    pub(crate) exit_code: Option<i32>,
     /// The runs that asked for it, which it starts when it passes.
     pub(crate) runs: Vec<String>,
 }
@@ -317,6 +319,7 @@ where
             running: None,
             failed: None,
             ended: None,
+            exit_code: None,
             runs: vec![run.to_string()],
         };
         setups.book().insert(
@@ -379,6 +382,10 @@ where
             )
             .await;
             if attempt.exit != Exit::Code(0) || *stopped.borrow() {
+                let code = match attempt.exit {
+                    Exit::Code(code) if !*stopped.borrow() => Some(code),
+                    _ => None,
+                };
                 let ended = match *stopped.borrow() {
                     true => String::from("setup was stopped"),
                     false => crate::preparing::NotPrepared {
@@ -395,6 +402,7 @@ where
                     view.running = None;
                     view.failed = Some(step.name().to_string());
                     view.ended = Some(ended);
+                    view.exit_code = code;
                 })
                 .await;
                 return false;
