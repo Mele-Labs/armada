@@ -337,7 +337,9 @@ pub(super) fn read_small(path: &Path, most: u64, what: &str) -> Result<(String, 
 }
 
 /// Every folder in `mods_dir`, by name, and every built-in mod beside the local
-/// one of its name. A folder that does not exist yet holds no local mod, and one
+/// one of its name, **except a local mod whose files are the built-in one's byte for byte**: that
+/// is a promoted mod once its pull request has merged, and it is listed once, as the built-in
+/// mod. A folder that does not exist yet holds no local mod, and one
 /// that will not read is the same: there is nothing to show.
 ///
 /// **Files and names that begin with `.` are not mods** and are not listed. A
@@ -352,8 +354,19 @@ pub(crate) fn scan(mods_dir: &Path, switches: &BTreeMap<String, bool>, built_in:
         .map(|entry| entry.file_name().to_string_lossy().into_owned())
         .filter(|name| !name.starts_with('.'))
         .map(|name| examine(mods_dir, &name));
-    let mut mods: Vec<ModSummary> = local
-        .chain(built_in.iter().map(examine_built_in))
+    let shipped: Vec<Examined> = built_in.iter().map(examine_built_in).collect();
+    let folded = |found: &Examined| {
+        let Some(files) = &found.files else { return false };
+        shipped.iter().filter_map(|one| one.files.as_ref().map(|held| (one, held))).any(|(one, held)| {
+            one.name.strip_prefix(built_in::PREFIX) == Some(found.name.as_str())
+                && held.manifest == files.manifest
+                && held.payload.text() == files.payload.text()
+        })
+    };
+    let kept: Vec<Examined> = local.filter(|found| !folded(found)).collect();
+    let mut mods: Vec<ModSummary> = kept
+        .into_iter()
+        .chain(shipped)
         .map(|found| {
             let enabled = switches.get(&found.name).copied().unwrap_or(true);
             found.summary(enabled)
