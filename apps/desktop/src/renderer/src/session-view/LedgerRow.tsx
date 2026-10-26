@@ -86,9 +86,8 @@ export function LedgerRow({ lead, num, title, meta, act, onOpen, label, on, menu
   );
 }
 
-/** The merge queue or the merge, where the pull request has one. */
+/** Where the pull request stands on its way in: a draft, the merge queue or auto-merge. A merged one says so by its lead glyph and its frame alone. */
 function standingOf(pr: PullRequest): { Glyph: LucideIcon; said: string; word: string; state?: string } | null {
-  if (pr.state === "merged") return { Glyph: GitMerge, said: "Merged", word: "Merged", state: "merged" };
   if (pr.state === "draft") return { Glyph: GitPullRequest, said: "Draft, not ready for review", word: "Draft", state: "draft" };
   if (pr.queued === true) return { Glyph: Clock, said: "In the merge queue, merges when its turn comes", word: "Queued", state: "queued" };
   if (pr.checks.state === "pending" && pr.auto) return { Glyph: GitMerge, said: "Auto-merge on, merges when every Check has passed", word: "Auto-merge", state: "queued" };
