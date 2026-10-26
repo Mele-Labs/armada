@@ -30,8 +30,9 @@ export function stateOf(session: Session): { state: SessionState; said: string }
   if (session.limitedUntil !== undefined) return { state: "limited", said: limitHeldSaid(session.limitedUntil) };
   // A turn held on a question or a permission is waiting on him, though the turn is open.
   if (session.asked !== undefined) return { state: "waiting", said: "Waiting on you" };
-  // A full pool holds the agent's first write, and the delivery question holds the agent at its start, whatever its turn says.
-  if (owesOf(session).some((one) => one.source === "slot_choice" || one.source === "delivery")) return { state: "waiting", said: "Waiting on you" };
+  // A full pool holds the agent's first write, the delivery question holds the agent at its start, and a plan put to him
+  // holds it until he answers, whatever its turn says.
+  if (owesOf(session).some((one) => one.source === "slot_choice" || one.source === "delivery" || one.source === "plan")) return { state: "waiting", said: "Waiting on you" };
   const standing = standingOf(session);
   if (standing === "stuck") return { state: "stuck", said: "Stuck" };
   if (session.turn.state === "working") {
