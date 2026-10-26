@@ -2,7 +2,7 @@
 
 **With a Job open, Flight control mixes three kinds of thing in one grid: words to the agent, views over the thread, and switches on the Job.**
 Sorting them by kind, and drawing a switch as a switch, is what makes a control findable.
-Two takes do it, and the owner picks one from their walks.
+Two takes did it, and the owner walked more after them; *Approved, 26 Oct 2026* is the one he picked.
 
 ## The failure this answers
 
@@ -49,7 +49,46 @@ The panel is one row tall, so the thread gets the height.
 - Every fact a tile carries: Compact's meter, Checks pulsing, the Subagents number, Bays lit or clashing, Judge reading, the sending mark.
 - Every key, by tile, with its cap.
 - Edit, and his own tiles. A tile he adds joins the group, or the row, of its kind.
-- The deck's own tiles with no Job open. Moving Map and Timeline to the stage and Checks and Calls to the Jobs list follows B, if he picks it.
+- The deck's own tiles with no Job open. The approved take keeps Checks, Calls, Map and Timeline there, drawn as keys.
+
+## The takes after A and B
+
+Each was walked in the mock on a query switch: `?take=`, `&tabs=`, `&tabpos=`, `&views=` and, for the density rounds, `&density=`, `&heads=`, `&places=`, `&autopilot=` and `&jobname=`.
+
+| Take | What it drew | The owner's verdict |
+|---|---|---|
+| A, grouped | Three captioned groups: Job, Tell the agent, Open | Not picked |
+| B, tabs under the head | Thread, Artifacts, Checks, Subagents and Bays as a tab row under the Job's title | Not picked |
+| B, tabs in the footer | The same tabs as the Job panel's last row, under the composer | Not picked |
+| B, segmented tabs | The same tabs as a segmented control in the title row | Not picked |
+| Views in the composer | The four views as icon buttons in the message box's row | "looked worse" |
+| Icons in the Job head | The four views as icon buttons in the Job's title row | Picked |
+| A Views panel, lower left | A panel under the Jobs list with a row for each view, key `i` | Not picked |
+| Density: `tight` | Gutters, bands, rows and controls tighter, the type unchanged | Not picked |
+| Density: `tight-type` | `tight`, and the Cockpit's type one step smaller | Picked, with the choices below |
+| `heads=legend` | The panel's name set into its top hairline | Not picked |
+| `heads=none` | No name band; the acts appear in the corner on hover or focus | Picked |
+| `places=small` | The Places as a glyph and small text | Not picked |
+| `places=icons` | The Places as glyphs, the name in a tooltip | Picked |
+| `jobname=notch` | The open Job's state and name in the title bar's centre notch | Picked |
+| `autopilot=hidden` | Autopilot not drawn | Picked, as a setting |
+
+The density rounds began with the owner's ask: "I am looking at various mission control / cockpit user interfaces and they seem to be able to fit more on the screen. Its like our font sizes, weights or spacing or something is restricting us".
+
+## Approved, 26 Oct 2026
+
+The owner approved a combination: the Job's views as icons in its head, Flight control as one row of keys, and `tight-type` with `heads=none`, `places=icons`, `jobname=notch` and Autopilot behind a setting.
+
+| Changed | Reads |
+|---|---|
+| The views | Icons in the Job's head, as in B, where they open, and not tabs or a row in the composer |
+| Flight control | One row of the deck's own tiles drawn as keys: Auto land, Pause, Judge, Report, Release, Terminal, Requests, then his own |
+| Gone from the row | Update, Compact (now in the context figure), Map (the stage's own switch) and Pages |
+| The Cockpit's type | One step smaller than the app's, as the ask above wanted |
+
+The reasons are the two the owner gave: Flight control was hard to find things in, and the Cockpit did not fit enough.
+Take B's reason stands for the head: the views sit where they open, and the thread gets the height.
+`docs/concepts/cockpit.md` says what the Cockpit draws, and is the owner of every figure and name; this page keeps the takes and the reasons.
 
 ## What overlaps
 
@@ -59,7 +98,5 @@ Whichever take he picks, Artifacts has one home, settled when the take is wired.
 
 ## Order of work
 
-1. A mock of each take, played on `?take=grouped` and `?take=tabs`, with a walk each. No tests.
-2. He walks both and picks one, or a mix.
-3. The picked take is wired as the only layout. `?take=` goes, with the other take and Pages, and `docs/concepts/cockpit.md` says what is drawn.
-4. Tests hold what he approved, then the branch lands.
+1. The approved combination is wired as the only layout. The query switches go, with the takes that were not picked.
+2. Tests hold what he approved, then the branch lands.
