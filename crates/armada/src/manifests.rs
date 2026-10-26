@@ -32,6 +32,19 @@ pub fn dir_of(key: &str) -> &str {
     key.split_once(':').map_or("", |(dir, _)| dir)
 }
 
+/// Kit's copy of the root's `armada.yml` on this Mac, or none where there is no `HOME`.
+/// `armada check`, `run` and `worktree` all read the Manifest over it.
+pub fn kit_copy(root: &Path) -> Option<Arc<dyn config::KitCopy>> {
+    let kit = std::env::var_os("HOME").map(|home| Path::new(&home).join(crate::setup::KIT_HOME));
+    // **Read where the repository's tiles are kept**, as Fleet reads it. Without Fleet's store
+    // file there is no choice made, and it is Kit's folder here.
+    kit.zip(fleet::runtime::machine_path().ok()).map(|(kit, runtime_file)| {
+        let store_file = runtime_file.with_file_name(crate::serve::STORE_FILE);
+        let reaching = Arc::new(fleet::red_claim::OverTheWire::within(fleet::red_claim::STORE_TIMEOUT));
+        fleet::kit_manifest_copy(&store_file, &kit, &root.to_string_lossy(), reaching)
+    })
+}
+
 fn unread(path: PathBuf, why: config::LoadError) -> NotDeclared {
     NotDeclared::NoManifest {
         path,
@@ -48,15 +61,7 @@ impl Manifests {
     /// *Kit's copy*), so a Check a Job runs on this Mac is the one its Manifest was served with.
     /// A machine with no Kit copy, CI among them, reads the repository's alone.
     pub fn load(root: &Path) -> Result<Manifests, NotDeclared> {
-        let kit = std::env::var_os("HOME").map(|home| Path::new(&home).join(crate::setup::KIT_HOME));
-        // **Read where the repository's tiles are kept**, as Fleet reads it. Without Fleet's store
-        // file there is no choice made, and it is Kit's folder here.
-        let copy = kit.zip(fleet::runtime::machine_path().ok()).map(|(kit, runtime_file)| {
-            let store_file = runtime_file.with_file_name(crate::serve::STORE_FILE);
-            let reaching = Arc::new(fleet::red_claim::OverTheWire::within(fleet::red_claim::STORE_TIMEOUT));
-            fleet::kit_manifest_copy(&store_file, &kit, &root.to_string_lossy(), reaching)
-        });
-        Manifests::load_with(root, copy)
+        Manifests::load_with(root, kit_copy(root))
     }
 
     /// [`Manifests::load`] with Kit's home named, or none.
