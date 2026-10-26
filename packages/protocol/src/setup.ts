@@ -275,13 +275,13 @@ export type CreateProject = {
 
 /**
  * One repository Fleet serves. **Listed whether or not it has a Manifest**:
- * Setup starts from a folder nobody wrote an `armada.yml` for.
+ * Setup starts from a folder with no Manifest, no `armada.yml` and no Kit copy.
  */
 export type RepositorySummary = {
   /** Resolved. What `?repository=` names on Scan and its proposals. */
   root: string;
   records_root: string;
-  /** Absent until an `armada.yml` at `root` loads. */
+  /** Absent until a Manifest at `root` loads: its `armada.yml`, Kit's copy, or both. */
   manifest?: ManifestSummary;
   /** The `manifest_id` a Job started here carries while there is no `manifest`. Absent where there is one. */
   implicit_id?: string;

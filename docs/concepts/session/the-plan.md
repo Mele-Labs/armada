@@ -27,6 +27,8 @@ Showing the page again lifts the dismissal, so the window waits and holds the pl
 **A window he answered in words, not with an Approve, before the plan was recorded holds nothing**: the plan is the Job's answer to what he said, and the walk item still waits on its own Approve.
 Shown again after the recording, the window holds the plan again.
 Since 20 Oct 2026, after he asked for a bigger change on a walk, the Job planned it, and the walk he had moved past kept the plan out of his sight.
+**His answer to one of the Job's questions is not words on the walk**: Fleet writes it in the thread as his message, with an id naming the question's row (`answers_a_question`, `asking.rs`), and the walk still holds the plan.
+Since 26 Oct 2026, after he answered a question on a Job whose walk he had not opened, and the plan came to him ahead of the walk.
 **An Approve stands until the page is shown again.** Any file the Job writes marks every window it showed as changing (`detail.working`, `readiness.rs`) and changed (`detail.changed`), so those marks hold only the newest window, the one on his screen, and a window he has not approved, which waits to be shown again.
 The item begins once nothing holds it: its `since` is the latest of the recording, when each window that counts was shown again or made ready, and his Approves, so it calls even if he viewed the Job since the recording.
 Since 19 Oct 2026, after the owner approved every walk he was shown and saw no plan: a take shown again inside another window, a window replaced on screen and a page changed after his Approve each held it, and he approved two dead windows by hand.
