@@ -90,14 +90,18 @@ function Shell({ label, tools, keys, owns, children }: { label: string; tools?: 
   );
 }
 
+/** The hue a state's chip wears: the Checks' own, and amber for what waits on a person. */
+const MARK_HUE: Record<SessionLedgerTone, string> = { pending: "waiting", passed: "passed", failed: "failed", running: "running", done: "passed", escalated: "waiting", piloted: "waiting", stopped: "stopped" };
+
 const TONE_WORD: Partial<Record<SessionLedgerTone, string>> = { passed: "Passed", failed: "Failed", running: "Running", done: "Done", pending: "Waiting", escalated: "Waiting", piloted: "Piloted", stopped: "Stopped" };
 
 /** One row, as every list of the Job draws it (`LedgerRow.tsx`): its kind's glyph and title, then the address or path, the kind and its states. A row with somewhere to go is a button; one without is read. */
-function Row({ row }: { row: ArtifactRow }) {
+function Row({ row, kind }: { row: ArtifactRow; kind: string }) {
   const { Glyph } = row;
   const Tone = row.mark === undefined ? undefined : TONE[row.mark.glyph];
   return (
     <LedgerRow
+      kind={kind}
       lead={<Glyphed Glyph={Glyph} said={row.said} />}
       title={row.title}
       label={row.title}
@@ -108,14 +112,14 @@ function Row({ row }: { row: ArtifactRow }) {
           <span className="sv-ledger__word">{row.said}</span>
           {row.pr === undefined ? null : (
             <>
-              <Fact Glyph={row.pr.merged ? GitMerge : GitPullRequest} said={row.pr.merged ? "Merged" : "Open"} word={row.pr.merged ? "Merged" : "Open"} {...(row.pr.merged ? { state: "merged" } : {})} />
-              <span className="sv-ledger__fact">
+              <Fact Glyph={row.pr.merged ? GitMerge : GitPullRequest} said={row.pr.merged ? "Merged" : "Open"} word={row.pr.merged ? "Merged" : "Open"} state={row.pr.merged ? "merged" : "open"} />
+              <span className="sv-ledger__fact" data-state={row.pr.checks}>
                 <PullRequestChecksMark checks={row.pr.checks} said={row.pr.checksSaid} />
                 {CHECK_SAID[row.pr.checks]}
               </span>
             </>
           )}
-          {row.mark === undefined || Tone === undefined ? null : <Fact Glyph={Tone} said={row.mark.said} word={TONE_WORD[row.mark.glyph] ?? row.mark.said} />}
+          {row.mark === undefined || Tone === undefined ? null : <Fact Glyph={Tone} said={row.mark.said} word={TONE_WORD[row.mark.glyph] ?? row.mark.said} state={MARK_HUE[row.mark.glyph]} />}
         </>
       }
     />
@@ -135,7 +139,7 @@ function Group({ group, session }: { group: { id: string; label: string; rows: r
       <ul className="sv-layer__rows">
         {rows.map((row) => {
           const pr = row.prNumber === undefined ? undefined : attachmentsOf(session, "pull_request").find((one) => one.number === row.prNumber);
-          return pr === undefined ? <Row key={row.key} row={row} /> : <PullRow key={row.key} session={session} pr={pr} />;
+          return pr === undefined ? <Row key={row.key} row={row} kind={group.id} /> : <PullRow key={row.key} session={session} pr={pr} />;
         })}
       </ul>
       {capped ? (
@@ -238,7 +242,7 @@ export function SubagentsLayer({ session, entries }: { session: Session; entries
     <Shell label="Subagents">
       <ul className="sv-layer__rows">
         {(groups[0]?.rows ?? []).map((row) => (
-          <Row key={row.key} row={row} />
+          <Row key={row.key} row={row} kind="subagent" />
         ))}
       </ul>
     </Shell>

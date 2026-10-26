@@ -1,5 +1,6 @@
 // A plan group, as the Blueprint lists it. Approved, it is its title over a line for each task, the one being worked lit with what the turn is doing
-// under it. Drafted, it is its title over its tasks, editable. Either way the subagent type and the paths open with the group, by a press or its pencil.
+// under it. Drafted, it is its title over its tasks, editable. Either way the subagent type opens with the group, by its chevron or its pencil, and the
+// title of a group that works an issue opens the issue.
 // Edits Fleet saw are marked on the group. Nothing here blocks.
 
 import { useState, type ReactNode } from "react";
@@ -91,8 +92,8 @@ function Tasks({ group, now }: { group: ViewGroup; now: string | undefined }) {
 }
 
 /**
- * A group is a row that opens: closed it is its title, the issue it works on a line of its own, and a line for each task; open it shows the type of subagent, its own paths and its tasks in full.
- * A group of a plan being drafted (`opened`) keeps its tasks up to edit; a press on its row, or its pencil, brings the subagent type and the paths in.
+ * A group is a row that opens: closed it is its title, the issue it works on a line of its own, and a line for each task; open it shows the type of subagent and its tasks in full.
+ * A group of a plan being drafted (`opened`) keeps its tasks up to edit; its chevron, or its pencil, brings the subagent type in.
  * **A group handed to a Session carries that Session's row** under its own; one not handed
  * offers the hand off in its open body.
  */
@@ -124,6 +125,20 @@ export function Group({ group, now, step, opened = false, ed, parent, manifestId
           {step === undefined ? null : <StepMark step={step} />}
           <EditText label="Group" className="sv-group__title" value={group.title} was={group.was} onSave={(to) => ed.set(rename(ed.plan, ed.marks, { group: group.id }, to))} />
           <button type="button" className="sv-group__head" aria-expanded={open} aria-label={`Subagent type and paths of ${group.title}`} onClick={() => setPressed(!open)}>
+            {seen}
+            <ChevronDown className="sv-group__chevron" size={12} strokeWidth={2} aria-hidden />
+          </button>
+        </div>
+      ) : named !== undefined ? (
+        // A group that works an issue is that issue: its title opens the issue over the column, and the chevron opens the group.
+        <div className="sv-group__row" data-split="">
+          {step === undefined ? null : <StepMark step={step} />}
+          <Tooltip asChild label="Open the issue">
+            <button type="button" className="sv-group__title" onClick={() => openIssuePanel(named.issue, manifestId)}>
+              {group.title}
+            </button>
+          </Tooltip>
+          <button type="button" className="sv-group__head" aria-expanded={open} aria-label={`Subagent type of ${group.title}`} onClick={() => setPressed(!open)}>
             {seen}
             <ChevronDown className="sv-group__chevron" size={12} strokeWidth={2} aria-hidden />
           </button>

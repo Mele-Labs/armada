@@ -16,6 +16,7 @@ pub(crate) mod frozen;
 mod evidence_ref;
 mod ids;
 mod judge;
+mod lands;
 mod narrowing;
 mod phase;
 mod pr_mode;
@@ -45,6 +46,7 @@ pub use ids::{
 pub use judge::{
     Citation, Given, JudgeCheck, JudgeCriterion, JudgeVerdict, Judgment, OnRefusal,
 };
+pub use lands::Lands;
 pub use narrowing::Narrowing;
 pub use phase::StepPhase;
 pub use pr_mode::PrMode;

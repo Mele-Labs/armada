@@ -52,9 +52,13 @@ type LedgerRowProps = {
   on?: object;
   /** What the context menu draws, kept inside the row. */
   menu?: ReactNode;
+  /** The artifact kind, which gives the row's glyph its hue. */
+  kind?: string;
+  /** A pull request's state, which frames the row in its hue: open, draft, merged, closed, or failed where its Checks refused. */
+  tone?: string;
 };
 
-export function LedgerRow({ lead, num, title, meta, act, onOpen, label, on, menu }: LedgerRowProps) {
+export function LedgerRow({ lead, num, title, meta, act, onOpen, label, on, menu, kind, tone }: LedgerRowProps) {
   const inside = (
     <>
       {lead}
@@ -66,7 +70,7 @@ export function LedgerRow({ lead, num, title, meta, act, onOpen, label, on, menu
     </>
   );
   return (
-    <li className="sv-ledger" data-acts={act === undefined ? undefined : ""}>
+    <li className="sv-ledger" data-acts={act === undefined ? undefined : ""} data-kind={kind} data-tone={tone}>
       {onOpen === undefined ? (
         <div className="sv-ledger__main" data-plain="">
           {inside}
@@ -85,9 +89,9 @@ export function LedgerRow({ lead, num, title, meta, act, onOpen, label, on, menu
 /** The merge queue or the merge, where the pull request has one. */
 function standingOf(pr: PullRequest): { Glyph: LucideIcon; said: string; word: string; state?: string } | null {
   if (pr.state === "merged") return { Glyph: GitMerge, said: "Merged", word: "Merged", state: "merged" };
-  if (pr.state === "draft") return { Glyph: GitPullRequest, said: "Draft, not ready for review", word: "Draft" };
-  if (pr.queued === true) return { Glyph: Clock, said: "In the merge queue, merges when its turn comes", word: "Queued" };
-  if (pr.checks.state === "pending" && pr.auto) return { Glyph: GitMerge, said: "Auto-merge on, merges when every Check has passed", word: "Auto-merge" };
+  if (pr.state === "draft") return { Glyph: GitPullRequest, said: "Draft, not ready for review", word: "Draft", state: "draft" };
+  if (pr.queued === true) return { Glyph: Clock, said: "In the merge queue, merges when its turn comes", word: "Queued", state: "queued" };
+  if (pr.checks.state === "pending" && pr.auto) return { Glyph: GitMerge, said: "Auto-merge on, merges when every Check has passed", word: "Auto-merge", state: "queued" };
   return null;
 }
 
@@ -123,6 +127,7 @@ export function PullRow({ session, pr }: { session: Session; pr: PullRequest }) 
   const standing = standingOf(pr);
   return (
     <LedgerRow
+      tone={pr.state !== "merged" && pr.state !== "draft" && checks === "failed" ? "failed" : pr.state}
       lead={<Glyphed Glyph={pr.state === "merged" ? GitMerge : GitPullRequest} said={pr.state === "merged" ? "Merged" : pr.state === "draft" ? "Draft" : "Open"} state={pr.state} />}
       num={`#${pr.number}`}
       title={pr.title}
@@ -134,7 +139,7 @@ export function PullRow({ session, pr }: { session: Session; pr: PullRequest }) 
       meta={
         <>
           <code className="sv-ledger__sub">{pr.branch}</code>
-          <span className="sv-ledger__fact">
+          <span className="sv-ledger__fact" data-state={checks}>
             <PullRequestChecksMark checks={checks} said={checksSaid(pr.checks)} />
             {CHECK_WORD[checks]}
           </span>

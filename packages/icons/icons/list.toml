@@ -1,0 +1,7 @@
+[icons.list]
+  means = "Plain lines, one under another"
+  group = "Session"
+  size = "16px"
+  status = "Proposed"
+  reserved = "The Artifacts layer's List view, set beside `waypoints` for its Graph view. Never a task list, which is `list-todo`, nor steps, which is `list-checks`."
+  notes = "Proposed 26 Oct 2026 with the Job's story column, walked as `job-story`. Tooltip `List`, with V."

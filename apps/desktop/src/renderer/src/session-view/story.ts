@@ -1,7 +1,7 @@
 // A Job is a story, and the right column tells it in order: the workflow, the blueprint (the plan), the field it is built on, and what it lands in.
 // The stage is read from data the Job already holds. The Field and the Landing are open at their stage and folded to their bands otherwise. The
 // Blueprint is open until the Job lands: drafted it is the plan to approve, and approved it stays up as a compact read of the build. A press on a band or its key
-// opens or folds any of them by hand; that holds until the stage moves on. An approved Blueprint shows what is happening now; ⌥N or its button in the band shows the whole plan. Mock: the landing kind comes from the scenario (`work.landing`) until Fleet says it.
+// opens or folds any of them by hand; that holds until the stage moves on. An approved Blueprint shows what is happening now; ⌥N or its button in the band shows the whole plan. The landing kind is the workflow's `lands`, which Fleet resolves; a mock scenario says it in `work.landing`.
 
 import { useCallback, useSyncExternalStore } from "react";
 import { attachmentsOf, type Session, type WorkLanding } from "@armada/screens/src/draft/sessions";
@@ -12,21 +12,24 @@ export type Fold = { open: boolean; toggle: () => void };
 const done = (state: string) => state === "done" || state === "handed_in";
 
 /**
- * Where the Job is. A plan not approved is the blueprint. An approved plan with every task done, or a pull request out of draft, is the landing.
- * An approved plan with work left is the field, and so is a draft pull request: it is still being built.
+ * Where the Job is. A plan not approved is the blueprint. An approved plan with every task done, a pull request out of draft, or a workflow step in
+ * the delivery phase, is the landing. An approved plan with work left is the field, and so is a draft pull request: it is still being built.
+ * A Job with no plan is the field while its turn runs, since its drones are out, and the blueprint while it waits.
  */
 export function stageOf(session: Session): Stage {
   const plan = session.work?.plan;
   if (plan !== undefined && !plan.approved) return "blueprint";
   const landed = attachmentsOf(session, "pull_request").some((pr) => pr.state !== "draft");
   const built = plan !== undefined && plan.groups.length > 0 && plan.groups.every((group) => group.tasks.every((task) => done(task.state)));
-  if (landed || built) return "landing";
-  return plan === undefined ? "blueprint" : "field";
+  const delivering = session.work?.workflow?.phase === "delivery";
+  if (landed || built || delivering) return "landing";
+  if (plan === undefined) return session.turn.state === "working" ? "field" : "blueprint";
+  return "field";
 }
 
-/** What the workflow ends in. */
+/** What the workflow ends in. A Mod Job lands its mod, whatever its workflow says. */
 export function landingOf(session: Session): WorkLanding {
-  return session.work?.landing ?? (session.mod === true ? "mod" : "pull_request");
+  return session.mod === true ? "mod" : (session.work?.landing ?? "pull_request");
 }
 
 // ---- Panels opened or folded by hand -----------------------------------------------------------------------

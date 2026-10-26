@@ -4,7 +4,7 @@
 import type { SessionWork, SessionWorkActs } from "@armada/screens/src/draft/sessions";
 
 import { Flow, StepRail } from "./StatusPanel";
-import { SvPanel, type Place } from "./SvPanel";
+import { SvPanel, type PanelState, type Place } from "./SvPanel";
 
 export function WorkflowPanel({ work, place, id, manifestId, acts }: { work: SessionWork; place: Place; id: string; manifestId?: string | undefined; acts: SessionWorkActs | undefined }) {
   const flow = work.workflow;
@@ -15,5 +15,6 @@ export function WorkflowPanel({ work, place, id, manifestId, acts }: { work: Ses
       {flow === undefined ? null : <StepRail steps={flow.steps} at={flow.at} />}
     </>
   );
-  return <SvPanel label="Workflow" area="workflow" place={place} rail={rail} />;
+  const state: PanelState | undefined = flow === undefined || flow.at === undefined ? undefined : "live";
+  return <SvPanel label="Workflow" area="workflow" place={place} state={state} rail={rail} />;
 }

@@ -196,44 +196,37 @@ function TaskRow({ task, group, ed }: { task: ViewTask; group: ViewGroup; ed: Pl
   );
 }
 
-/** A line to add a task to a group: a glyph until pressed, then a field. */
+/** The last task line is an empty one to type into: Enter adds the task and leaves the line empty for the next, Esc empties it. */
 function AddTask({ group, ed }: { group: ViewGroup; ed: PlanEditing }) {
-  const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
-  if (!open) {
-    return (
-      <Tooltip label="Add a task">
-        <Button variant="ghost" size="sm" iconOnly aria-label={`Add a task to ${group.title}`} onClick={() => setOpen(true)}>
-          <Plus size={16} strokeWidth={2} aria-hidden />
-        </Button>
-      </Tooltip>
-    );
-  }
   return (
-    <Input
-      aria-label={`New task in ${group.title}`}
-      value={text}
-      autoFocus
-      onChange={(event) => setText(event.target.value)}
-      onBlur={() => setOpen(false)}
-      onKeyDown={(event) => {
-        if (event.key === "Escape") {
-          event.stopPropagation();
-          setOpen(false);
-        }
-        if (event.key === "Enter") {
-          ed.set(addTask(ed.marks, group.id, text));
-          setText("");
-          setOpen(false);
-        }
-      }}
-    />
+    <li className="sv-task sv-task--new">
+      <span className="sv-task__new-mark" aria-hidden="true">
+        <Plus size={12} strokeWidth={2} aria-hidden />
+      </span>
+      <Input
+        aria-label={`New task in ${group.title}`}
+        value={text}
+        onChange={(event) => setText(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            event.stopPropagation();
+            setText("");
+            event.currentTarget.blur();
+          }
+          if (event.key === "Enter" && text.trim() !== "") {
+            ed.set(addTask(ed.marks, group.id, text.trim()));
+            setText("");
+          }
+        }}
+      />
+    </li>
   );
 }
 
 /**
- * A group, edited in place: its subagent type, its title, the glyphs for a note and for removing it, then its paths and its tasks,
- * which take a drop from another group. Drawn open, as the overlay draws a group and as the panel does under a group's row.
+ * A group, edited in place: its subagent type, its title, the glyphs for a note and for removing it, then its tasks, which take a drop
+ * from another group, and an empty task to type the next one into. Drawn open, as the overlay draws a group and as the panel does under a group's row.
  */
 export function GroupEditor({ group, ed, head = true, titled = true, onEdit, pins }: { group: ViewGroup; ed: PlanEditing; head?: boolean; /** Whether the head repeats the group's title: not where a row above it already holds the title. */ titled?: boolean; /** Where the pencil sends the caller that holds the head open itself, instead of the editor doing it. */ onEdit?: () => void; pins?: FindingPins }) {
   const [noting, setNoting] = useState(false);
@@ -284,15 +277,6 @@ export function GroupEditor({ group, ed, head = true, titled = true, onEdit, pin
                 </Select>
               </span>
             </Tooltip>
-            {group.paths.length === 0 ? null : (
-              <ul className="sv-scope" aria-label="Paths">
-                {group.paths.map((path) => (
-                  <li key={path}>
-                    <code>{path}</code>
-                  </li>
-                ))}
-              </ul>
-            )}
             {titled ? null : (
               <span className="sv-edit-group__end">
                 {marks}
@@ -347,8 +331,8 @@ export function GroupEditor({ group, ed, head = true, titled = true, onEdit, pin
             <s>{text}</s>
           </li>
         ))}
+        <AddTask group={group} ed={ed} />
       </ul>
-      <AddTask group={group} ed={ed} />
     </div>
   );
 }

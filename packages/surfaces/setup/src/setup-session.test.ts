@@ -45,7 +45,7 @@ const HELD = readInto(
 ) as SetupOpen;
 
 describe("the first message", () => {
-  const message = setupMessageOf(HELD);
+  const message = setupMessageOf(HELD, { id: "mac" });
 
   it("names onboard-repo and states its rules, so a Session without the skill keeps them", () => {
     expect(message).toContain("onboard-repo");
@@ -54,32 +54,50 @@ describe("the first message", () => {
     expect(message).toContain("`armada check <name>`");
   });
 
-  it("asks whose armada.yml it is before anything is written, and writes it where the answer says", () => {
-    const asks = message.split("\n").find((line) => line.includes("ask me whose this armada.yml is")) ?? "";
-    expect(asks).toContain("Before you write anything");
-    expect(asks).toContain("Do your colleagues use Armada on this repository?");
-    expect(asks).toContain("nothing is committed to the repository");
-    expect(asks).toContain("committed with this Job");
-    expect(asks).toContain("Yours, or the repository's?");
-    const writes = message.split("\n").find((line) => line.includes("save_kit_manifest tool")) ?? "";
-    expect(writes).toContain("If it is mine, call the save_kit_manifest tool with this repository's root and the whole file");
-    expect(writes).toContain("puts nothing in the repository");
-    expect(writes).toContain("never write the file into the repository instead");
+  it("names a place kept outside the repository, asks nothing about where, and saves through save_kit_manifest", () => {
+    for (const [place, phrase] of [
+      [{ id: "mac" }, "on this Mac"],
+      [{ id: "synced", detail: "iCloud Drive" }, "in iCloud Drive"],
+      [{ id: "cloud" }, "in cloud storage"],
+    ] as const) {
+      const kept = setupMessageOf(HELD, place);
+      expect(kept).toContain(`This repository's armada.yml is kept ${phrase}.`);
+      expect(kept).not.toContain("Yours, or the repository's?");
+      expect(kept).not.toContain("whose this armada.yml is");
+      expect(kept).not.toContain(".gitignore");
+      const writes = kept.split("\n").find((line) => line.includes("save_kit_manifest tool")) ?? "";
+      expect(writes).toContain("calling the save_kit_manifest tool with this repository's root and the whole file");
+      expect(writes).toContain("puts nothing in the repository");
+      expect(writes).toContain("never write the file into the repository instead");
+    }
     expect(message).not.toContain("~/.armada/manifests");
-    expect(message.indexOf("whose this armada.yml is")).toBeLessThan(message.indexOf(".gitignore"));
   });
 
-  it("asks before writing whether to ignore armada.yml, saying what ignoring it costs Jobs", () => {
-    const asks = message.split("\n").find((line) => line.includes(".gitignore")) ?? "";
-    expect(asks).toContain("If it is the repository's, before writing it, ask me whether to add armada.yml to this repository's .gitignore");
+  it("writes armada.yml at the root on the Job's branch where the place is the repository, and asks about .gitignore", () => {
+    const kept = setupMessageOf(HELD, { id: "repository" });
+    expect(kept).toContain("This repository's armada.yml is kept in the repository.");
+    expect(kept).toContain("Write armada.yml at the repository's root, on this Job's branch");
+    expect(kept).toContain("lands with this Job's pull request");
+    expect(kept).not.toContain("Yours, or the repository's?");
+    expect(kept).not.toContain("save_kit_manifest tool");
+    const asks = kept.split("\n").find((line) => line.includes(".gitignore")) ?? "";
+    expect(asks).toContain("Before writing it, ask me whether to add armada.yml to this repository's .gitignore");
     expect(asks).toContain("do what I answer");
     expect(asks).toContain("missing from the worktrees Jobs work in");
-    expect(message.indexOf(".gitignore")).toBeLessThan(message.indexOf("End on a real run"));
+    expect(kept.indexOf(".gitignore")).toBeLessThan(kept.indexOf("End on a real run"));
+  });
+
+  it("says it is kept in the Kit where the place could not be read", () => {
+    const kept = setupMessageOf(HELD, undefined);
+    expect(kept).toContain("This repository's armada.yml is kept in your Kit.");
+    expect(kept).toContain("calling the save_kit_manifest tool with this repository's root and the whole file");
+    expect(kept).not.toContain(".gitignore");
   });
 
   it("says which files Fleet lets it write, a workspace's own armada.yml among them", () => {
-    expect(message).toContain("A workspace that needs its own writes its armada.yml in its own directory.");
-    expect(message).toContain("Write only armada.yml files, .gitignore files and .git/info/exclude, with the Write or Edit tool");
+    const kept = setupMessageOf(HELD, { id: "repository" });
+    expect(kept).toContain("A workspace that needs its own writes its armada.yml in its own directory.");
+    expect(kept).toContain("Write only armada.yml files, .gitignore files and .git/info/exclude, with the Write or Edit tool");
   });
 
   it("carries each workspace's reading on a line of its own", () => {
@@ -106,8 +124,8 @@ describe("starting it", () => {
       startSession: async (title, root) => (calls.push({ title, root }), { ok: true, value: { id: "01S" } }),
       sendSessionMessage: async (send) => (calls.push(send), { ok: true }),
     };
-    expect(await startSetupSession(HELD, "/repo/widgets", fleet, () => "")).toEqual({ ok: true, id: "01S" });
-    expect(calls).toEqual([{ title: "Set up widgets", root: "/repo/widgets" }, { session_id: "01S", text: setupMessageOf(HELD) }]);
+    expect(await startSetupSession(HELD, "/repo/widgets", fleet, () => "", { id: "mac" })).toEqual({ ok: true, id: "01S" });
+    expect(calls).toEqual([{ title: "Set up widgets", root: "/repo/widgets" }, { session_id: "01S", text: setupMessageOf(HELD, { id: "mac" }) }]);
   });
 
   it("says a refused start in words, and a refused send with the Session it started", async () => {
@@ -115,12 +133,12 @@ describe("starting it", () => {
       startSession: async () => ({ ok: false, outcome: REFUSED }),
       sendSessionMessage: async () => ({ ok: true }),
     };
-    expect(await startSetupSession(HELD, "/r", refusing, () => "")).toEqual({ ok: false, saying: "Job not started: Fleet refused it" });
+    expect(await startSetupSession(HELD, "/r", refusing, () => "", undefined)).toEqual({ ok: false, saying: "Job not started: Fleet refused it" });
     const deaf: SetupSessionFleet = {
       startSession: async () => ({ ok: true, value: { id: "01S" } }),
       sendSessionMessage: async () => ({ ok: false, outcome: REFUSED }),
     };
-    expect(await startSetupSession(HELD, "/r", deaf, () => "it ended")).toEqual({
+    expect(await startSetupSession(HELD, "/r", deaf, () => "it ended", undefined)).toEqual({
       ok: false,
       id: "01S",
       saying: "Job started, but the reading was not sent: it ended",

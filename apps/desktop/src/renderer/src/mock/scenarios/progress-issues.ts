@@ -1,4 +1,4 @@
-// Four Sessions on the Cockpit whose Progress lists the issues each works on, with their pull requests under them: one with no issue and two pull
+// Four Sessions on the Cockpit whose issues stand in the Blueprint (a group that works one), in Deferred (an issue no group names) and the pull requests in the Landing: one with no issue and two pull
 // requests, one with an issue and a merged and an open pull request, one with two issues (one with a pull request, one without) and a pull
 // request that closes neither, under an approved plan under way whose two groups name the issues, and one whose plan of three groups names three
 // issues, one with an open pull request whose Checks run, one with a merged one, one with none. Each opens in the side panel, read from `../shared-panel-reads.ts`. The walk `progress-issues` plays it.
@@ -158,7 +158,7 @@ const three: Session = {
   },
 };
 
-const base = holding("progress-issues", "Progress lists the issues a Session works on, each with its pull requests, then the pull requests that close none of them, and a plan group can name the issue it works");
+const base = holding("progress-issues", "The issues a Session works on stand on their plan group in the Blueprint or in Deferred, and their pull requests in the Landing, and a plan group can name the issue it works");
 
 export const s311ProgressIssues: Scenario = {
   ...base,

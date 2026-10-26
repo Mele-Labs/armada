@@ -1,15 +1,16 @@
-// A Session that split its plan into linked Sessions it follows: each group handed off carries its Session's row in Progress, and the same Sessions stand in the parent's Artifacts under Sessions.
+// A Session that split its plan into linked Sessions it follows: each group handed off carries its Session's row in the Blueprint, and the same Sessions stand in the parent's Artifacts under Sessions.
 // Over the `linked-sessions` scenario.
 
 import { button, deckRow, inside, region, role, walk } from "../walk";
 
-const plan = region("Progress", { exact: true });
+const plan = region("Blueprint", { exact: true });
 const artifacts = region("Artifacts", { exact: true });
 const controls = region("Flight controls");
 const thread = role("region", "Thread", { exact: true });
 
 export const linkedSessions = walk("linked-sessions", [
-  { press: deckRow("Move the store to named migrations"), say: "The parent. In Jobs its linked Jobs stand under it. In Progress each group handed off carries the row of its Job" },
+  { press: deckRow("Move the store to named migrations"), say: "The parent. In Jobs its linked Jobs stand under it. In the Blueprint, opened to the whole plan, each group handed off carries the row of its Job" },
+  { press: inside(plan, button("Whole blueprint")), say: "The Blueprint reads as Now. One press opens the whole plan" },
   { press: inside(controls, button("Artifacts")), say: "The same Jobs are in its Artifacts under Jobs: the title, then the group each came from, its state and its pull request" },
   { press: inside(artifacts, button("Back")), say: "Back returns to the thread" },
   { later: thread, say: "One of them asks a question" },
