@@ -237,7 +237,8 @@ Tile keys are not listed in Settings → Keyboard: Edit is the one place to set 
 A key presses its tile anywhere on the Cockpit while a Job is open.
 In a text box a chord with ⌥ or ⇧ types, and one with ⌘ or ⌃ presses.
 Nothing presses while the tiles are edited.
-By default keys follow position, `⌥⇧1` to `⌥⇧9` then `⌥⇧0`, and Pause answers `p`; a bare digit is a question's answer. Once Pause has another key, `p` is free for a tile given it; in the list `p` still pauses the row under the cursor.
+By default keys follow position, `⌥⇧1` to `⌥⇧9` then `⌥⇧0`, and Pause answers `p`; a bare digit is a question's answer.
+Once Pause has another key, `p` is free for a tile given it; in the list `p` still pauses the row under the cursor.
 A built-in the file does not list is appended in Armada's order.
 
 What is kept is `~/.armada/flight-controls.toml`, the third Kit file, read and saved through Fleet's `get_flight_controls` and `save_flight_controls`.
