@@ -1,6 +1,6 @@
 // The Fleet-backed source of runs, against a fake Fleet: a repository's runs mapped onto what the run control and the running panel
 // draw, `app_run.changed` replacing one run whole, the acts reaching Fleet's routes by name, and a process's output read only while
-// its pane is open. What the surfaces do with them is the walks' (`mock/walks-4of4.test.tsx`, `run-an-app` and `run-link`).
+// its pane is open. What the surfaces do with them is the walks' (`mock/walks-4of4.test.tsx`, `run-app`).
 
 import { describe, expect, it } from "vitest";
 

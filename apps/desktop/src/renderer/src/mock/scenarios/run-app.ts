@@ -1,9 +1,11 @@
 // Running an app from the Cockpit without a Job: a play glyph on each repository's heading runs it on main, a caret lists its saved runs, and
-// the same pair in a Job's header runs the Job's own bay. armada has four saved runs and a live Job; auto-ynab has none, so its play glyph asks first.
-// The walk `run-an-app` plays it.
+// the same pair in a Job's header runs the Job's own bay. armada has four saved runs and a live Job; auto-ynab has none, so its play glyph asks
+// first, and Fleet drafts what it finds there: nothing installed, so `npm ci` in `frontend` and a `.venv` from `requirements.txt` at the root,
+// and a frontend that proxies `/api` to the backend on 8731, a port a leased backend no longer answers on. `npm ci` drops its connection the
+// first time. The walk `run-app` plays it.
 
 import type { RepositorySummary } from "@armada/protocol";
-import type { RunDraft, SavedRun } from "@armada/components";
+import type { RunDraft, RunLink, RunSetupSpec, SavedRun } from "@armada/components";
 import { repository } from "@armada/screens/src/fixtures/repository";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
@@ -23,10 +25,19 @@ const RUNS: readonly SavedRun[] = [
   { id: "bridge-mine", name: "Bridge dev, my Fleet", kind: "app", processes: [{ id: "bridge", name: "bridge", folder: "apps/desktop", command: "pnpm dev" }] },
 ];
 
+const SETUP: readonly RunSetupSpec[] = [
+  { id: "frontend-deps", name: "frontend packages", folder: "frontend", command: "npm ci" },
+  { id: "venv", name: ".venv", folder: ".", command: "python3 -m venv .venv && .venv/bin/pip install -r requirements.txt" },
+];
+
+const FRONTEND_EXPECTS_BACKEND: RunLink = { from: "frontend", to: "backend", port: 8731, found: "frontend/vite.config.js" };
+
 /** What Fleet drafts for auto-ynab from the commands Jobs ran there and from its files. */
 const DRAFT: RunDraft = {
   root: "~/Development/auto-ynab",
   savedIn: "this Mac",
+  setup: SETUP,
+  links: [FRONTEND_EXPECTS_BACKEND],
   processes: [
     { id: "backend", name: "backend", folder: ".", command: "uvicorn backend.app.main:app --port ${port}" },
     { id: "frontend", name: "frontend", folder: "frontend", command: "npx vite --port ${port} --strictPort" },
@@ -36,6 +47,7 @@ const DRAFT: RunDraft = {
 const SEED: RunsSeed = {
   saved: { [ARMADA.root]: { runs: RUNS, last: "mock-bridge" }, [AUTO_YNAB.root]: { runs: [] } },
   drafts: { [AUTO_YNAB.root]: DRAFT },
+  failsOnce: "frontend-deps",
 };
 
 const JOB: Session = {
@@ -53,7 +65,7 @@ const JOB: Session = {
 };
 
 function build(): Scenario {
-  const base = holding("run-an-app", "The Cockpit with armada and auto-ynab, a play glyph on each heading, and one live Job on a bay", [ARMADA, AUTO_YNAB]);
+  const base = holding("run-app", "The Cockpit with armada and auto-ynab, nothing installed in auto-ynab, whose npm ci fails the first time it runs", [ARMADA, AUTO_YNAB]);
   return {
     ...base,
     state: { ...base.state, repository: null },
@@ -61,4 +73,4 @@ function build(): Scenario {
   };
 }
 
-export const runAnApp: Scenario = build();
+export const runApp: Scenario = build();
