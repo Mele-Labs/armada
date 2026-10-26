@@ -38,8 +38,8 @@ pub(crate) fn last_lines(output: &str, count: usize) -> String {
 }
 
 /// `output`'s printable characters in the order they arrived, with escapes, controls and spaces
-/// taken out and nothing written over. A line a shell wrapped by returning to its start reads whole
-/// here, where [`last_lines`] would read it overwritten.
+/// taken out and nothing written over, so text a shell wrote and then moved back over still reads
+/// here where [`last_lines`] would read it overwritten.
 pub(crate) fn printed_through(output: &str) -> String {
     let (mut scratch, mut col) = (Vec::new(), 0);
     let mut kept = String::new();

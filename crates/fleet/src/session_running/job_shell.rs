@@ -62,15 +62,20 @@ fn keys(typed: &TypeInTerminal) -> String {
     keys
 }
 
-/// Whether `printed` shows `text`'s first printable line. Spaces are left out of both sides, since
-/// a shell wraps a long line where it likes; and it is read both as the screen resolved it and as
-/// the characters arrived, since a wrap that returns to the line's start overwrites the first.
+/// How much of the text's start has to appear for it to count as echoed.
+const ECHOED_PREFIX: usize = 16;
+
+/// Whether `printed` shows the start of `text`'s first printable line, spaces left out of both
+/// sides. **Only the start**: zsh redraws a long line in place, writing only what changed and
+/// moving over the rest, so no reading of the output holds the whole line in one piece. A password
+/// prompt or a program that is not reading shows none of it.
 fn echoed(text: &str, printed: &str) -> bool {
     let Some(first) = text.lines().map(plain::printed_through).find(|line| !line.is_empty()) else {
         return true;
     };
-    plain::printed_through(&plain::last_lines(printed, usize::MAX)).contains(&first)
-        || plain::printed_through(printed).contains(&first)
+    let start: String = first.chars().take(ECHOED_PREFIX).collect();
+    plain::printed_through(&plain::last_lines(printed, usize::MAX)).contains(&start)
+        || plain::printed_through(printed).contains(&start)
 }
 
 /// What `read_terminal` waits for: text, or a regular expression.
