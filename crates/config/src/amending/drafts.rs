@@ -41,6 +41,13 @@ pub struct NewCommand {
     pub links: Vec<NewLink>,
 }
 
+/// A run a form declares: the servers started together, `commands.<name>` each.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NewRun {
+    pub label: Option<String>,
+    pub commands: Vec<String>,
+}
+
 /// One address a server offers.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NewLink {
@@ -150,6 +157,15 @@ impl NewCommand {
                 "links",
                 (!self.links.is_empty()).then(|| links_node(&self.links)),
             )
+            .done()
+    }
+}
+
+impl NewRun {
+    pub(super) fn node(&self) -> Node {
+        Entries::new()
+            .with("label", self.label.as_deref().map(text))
+            .list("commands", &self.commands)
             .done()
     }
 }

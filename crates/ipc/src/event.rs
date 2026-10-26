@@ -23,6 +23,7 @@ use crate::reading::ManifestReading;
 use crate::review_runs::ReviewRun;
 use crate::rehearsal::CheckoutRunRecord;
 use crate::repositories::RepositoryList;
+use crate::app_runs::AppRun;
 use crate::servers::ServerState;
 use crate::settings::SettingsList;
 use crate::model_downshift::ModelDownshiftState;
@@ -112,6 +113,9 @@ pub enum Event {
     ServerServing(ServerState),
     #[serde(rename = "server.exited")]
     ServerExited(ServerState),
+    // A run after any of its servers' three facts, whole, so a row is replaced rather than patched.
+    #[serde(rename = "app_run.changed")]
+    AppRunChanged(AppRun),
     // The list `list_repositories` answers, whole, whenever it changes.
     #[serde(rename = "repositories.changed")]
     RepositoriesChanged(RepositoryList),

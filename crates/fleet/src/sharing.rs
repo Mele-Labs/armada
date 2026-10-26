@@ -198,6 +198,18 @@ where
         }
     }
 
+    /// The place the person's Kit keeps the pieces of the repository at `root`.
+    pub(crate) async fn kit_place_of(&self, root: &str) -> Result<ipc::RunPlace, Refusal> {
+        let held = self.kept_place(root).await?;
+        Ok(crate::run_memory::places::where_kept(&self.kit(), held.as_ref()).0)
+    }
+
+    /// Kit's copy of the `armada.yml` for `root`, at the place their Kit keeps it, to lay over a file.
+    pub(crate) async fn kit_copy_of(&self, root: &str) -> Result<std::sync::Arc<dyn config::KitCopy>, Refusal> {
+        let held = self.kept_place(root).await?;
+        Ok(std::sync::Arc::new(KitManifest::at(&self.kit(), root, held.as_ref(), std::sync::Arc::clone(self.reaching()))))
+    }
+
     /// The person's `armada.yml` for `root`, read from the place their Kit keeps it, off this thread.
     pub(crate) async fn kit_manifest_read(&self, root: &str) -> Result<(PathBuf, KitRead), Refusal> {
         let held = self.kept_place(root).await?;
@@ -217,7 +229,7 @@ where
     }
 
     /// Replace the person's `armada.yml` for `root` with `text`, at the place their Kit keeps it.
-    async fn manifest_written(&self, root: &str, text: String) -> Result<(), Refusal> {
+    pub(crate) async fn manifest_written(&self, root: &str, text: String) -> Result<(), Refusal> {
         let held = self.kept_place(root).await?;
         let copy = KitManifest::at(&self.kit(), root, held.as_ref(), std::sync::Arc::clone(self.reaching()));
         let label = copy.label();
