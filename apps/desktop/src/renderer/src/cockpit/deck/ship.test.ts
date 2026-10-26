@@ -72,6 +72,17 @@ test("a Job held on its start card needs him: its row is under Needs you and its
   expect(after.asking.has("session:begun")).toBe(false);
 });
 
+test("a Job at work with a plan put to him is under Needs you, and its call stays after he has seen it", () => {
+  const plan = { id: "plan:1", text: "Plan to approve", since: SINCE, source: "plan" } as const;
+  const at = reply("at", { turn: { state: "working" }, standing: "working", waitingFor: [plan] });
+  const ship = shipOf({ sessions: [at], lines: [], slots: [], repositories: [], calls: [], now: Date.parse(SINCE) + 60_000 });
+  const subject = ship.subjects.find((one) => one.id === "at")!;
+  expect(subject.needs).toBe(true);
+  expect(groupOf(subject)).toBe("needs");
+  expect(subject.call).toBeDefined();
+  expect(ship.asking.has(subject.key)).toBe(true);
+});
+
 test("a Mod Job's subject carries the mark the list groups it by, and another's does not", () => {
   const ship = shipOf({ sessions: [reply("mod", { mod: true }), reply("plain")], lines: [], slots: [], repositories: [], calls: [], now: Date.parse(SINCE) + 60_000 });
   const of = (id: string) => ship.subjects.find((one) => one.id === id)!;
