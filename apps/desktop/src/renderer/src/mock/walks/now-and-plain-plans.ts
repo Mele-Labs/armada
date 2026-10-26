@@ -13,7 +13,7 @@ const card = role("article", "Plan to approve");
 const controls = region("Flight controls");
 
 const open = { press: deckRow(TITLE), say: "A Session working on your message" };
-// Its pull request is already out, so the Landing is the open panel; the Blueprint and the Field stand folded to their bands until a press opens them.
+// Its pull request is already out, so Delivery is the open panel; the Blueprint and the Field stand folded to their bands until a press opens them.
 const openBands = [
   { press: inside(blueprint, button(/Blueprint/)), say: "The Blueprint opens" },
   { press: inside(field, button(/Field/)), say: "So does the Field" },

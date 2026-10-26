@@ -56,6 +56,18 @@ at body size they did not read as sections. Both steps come from the
 ladder. The heading is still a paragraph, so it takes no place in the
 page's outline.
 
+**A third carve-out: the Cockpit's ladder.** Inside the Cockpit only, the
+ladder is one step smaller than the one above: `--text-2xs` 12px,
+`--text-xs` 13, `--text-sm` 14 and `--text-base` 15, with the row title
+at 13 and its meta at 12. The owner chose this on 26 Oct 2026: "I am looking
+at various mission control / cockpit user interfaces and they seem to be
+able to fit more on the screen. Its like our font sizes, weights or spacing
+or something is restricting us". It deliberately reverses, for the Cockpit
+alone, the 20 Aug 2026 legibility lift, which raised the ladder because 11px
+and 13px were hard to read at desk distance. The rest of the app keeps that
+ladder.
+`docs/concepts/cockpit.md`, *Density*, says what else the Cockpit tightens.
+
 **Figures are lining and tabular everywhere**, set once at the root, so
 numbers in a column align in the sans and compare by shape. Mono is
 therefore never used to line figures up; it keeps its one job, marking

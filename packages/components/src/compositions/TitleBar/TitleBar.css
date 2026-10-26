@@ -213,6 +213,19 @@
   background: radial-gradient(circle at 100% 100%, transparent var(--armada-notch-radius), var(--armada-notch-ground) calc(var(--armada-notch-radius) + 0.5px));
 }
 
+/* The notch's blur makes it the box a fixed bubble is placed in, so an anchored tooltip had no room below and flipped
+ * over its icon. A tooltip here hangs from its own control instead, below the notch and centred under the icon. */
+.armada-title-bar[data-places] .armada-title-bar__center .armada-tooltip__bubble {
+  position: absolute;
+  position-area: none;
+  inset: auto;
+  top: calc(100% + var(--armada-notch-gap) + var(--space-1));
+  left: 50%;
+  translate: -50% 0;
+  margin: 0;
+  white-space: nowrap;
+}
+
 /* The trigger is an icon and its key, right of the places. Its label is hidden and its tooltip names it. */
 .armada-title-bar[data-places] .armada-title-bar__search {
   flex: none;

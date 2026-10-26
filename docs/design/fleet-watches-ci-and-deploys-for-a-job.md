@@ -163,7 +163,7 @@ A held Job is not a Needs you item: what it waits on is Fleet's wait, not the pe
 
 | Where | What it draws |
 |---|---|
-| The Landing | A **Watching** block below the pull requests. A row is the state glyph with its tooltip, the watch's name, its `says` sentence and the reading's age. Under it, the agent's verdict and sentence where there is one |
+| Delivery | A **Watching** block below the pull requests. A row is the state glyph with its tooltip, the watch's name, its `says` sentence and the reading's age. Under it, the agent's verdict and sentence where there is one |
 | The side panel, on pressing a row | The readings over time, each part and its state, parts set aside struck through with the verdict that set them aside, the last output of a broken reading, the link out, and **Stop** |
 | A Job's row on the Board and its header | **Held open by QA deploy**, with the watch glyph, while only watches keep it open |
 

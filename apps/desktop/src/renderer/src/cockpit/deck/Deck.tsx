@@ -6,8 +6,8 @@
 // proto/cockpit-flight-deck. #2301.
 
 import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
-import { ChartNoAxesGantt, CircleDashed, FileCog, GitMerge, Link, LoaderCircle, Pause, Plane, Play, Power, Send, Trash2, Unplug, UserCheck } from "lucide-react";
-import { Badge, Button, ClashMark, ClashesProvider, DockHandle, DropdownMenu, Inspect, Kbd, EarlierMark, HandoffMark, PausedMark, Stamp, Switch, Tooltip, keyFor, useTimeFormat, useMarking, type Clashing, type Mark } from "@armada/components";
+import { ChartNoAxesGantt, CircleDashed, FileCog, Filter as FilterGlyph, GitMerge, Link, LoaderCircle, Plane, Play, Send, SquarePen, Trash2, Unplug, UserCheck } from "lucide-react";
+import { Button, ClashMark, ClashesProvider, DockHandle, DropdownMenu, Inspect, Kbd, EarlierMark, HandoffMark, PausedMark, Switch, Tooltip, keyFor, useShortcutReveal, useTimeFormat, useMarking, type Clashing, type Mark } from "@armada/components";
 import type { RepositorySummary, WorktreeSlot } from "@armada/protocol";
 import { FIND_A_REPOSITORY, jobIdOf, manifestLabel, repositoryEntries, rootOf, useLayout, useRecentRepositories } from "@armada/shell";
 
@@ -21,6 +21,7 @@ import { viewsOf } from "../../merge-line";
 import { sessionHolds } from "./session-prs";
 import { askToOpenSessionInCockpit } from "../../open-session";
 import { useQueued, useSessions, useSessionsDraft } from "../../sessions-draft";
+import { useSetting } from "../../use-setting";
 import { useAutopilotLane } from "../AutopilotLane";
 import { useColumns } from "./columns";
 import { useSplits } from "./splits";
@@ -51,6 +52,7 @@ import { leaveFrom, onEnd, reducedMotion, useExiting } from "./exit";
 import { CallPane, PaneHead, SessionPane, ShellPanel } from "./panes";
 import { inOrder, useReplayDriver, useReplayKeys, windowOf } from "./replay";
 import { RowMenu, type RowMenuAt } from "./RowMenu";
+import { columnsOf, restBonus, RowFields, useRowView } from "./row-view";
 import { FlightEdit } from "./FlightEdit";
 import { isWebAddress, repositoryFileOf, tilesOf, useFlightFile, useRepositoryFlight, type FlightSet } from "./flight-controls";
 import { glyphOf as flightGlyph } from "./flight-glyphs";
@@ -201,9 +203,9 @@ function MoreRows() {
 const cut = (words: string, at: number) => (words.length > at ? `${words.slice(0, at).trimEnd()}…` : words);
 
 /**
- * **Filter**, at the right of the list's band: plain text and a chevron that open a small menu. A search field heads it with the caret in
+ * **Filter**, at the right of the list's band: a glyph that opens a small menu. A search field heads it with the caret in
  * it, and under it are the four scopes, the current one checked. ↓ walks from the field to the scopes and Enter in the field goes to the
- * rows; Esc closes it. While the list is narrowed, by a scope but Active or by search words, the band says so in place of "Filter".
+ * rows; Esc closes it. While the list is narrowed, by a scope but Active or by search words, the glyph is lit and its tooltip says so.
  * ↑ from the first row opens it.
  */
 function Filter({ rows }: { rows: RefObject<HTMLElement | null> }) {
@@ -213,20 +215,26 @@ function Filter({ rows }: { rows: RefObject<HTMLElement | null> }) {
   const open = useDeck((deck) => deck.searching);
   const named = scope === "active" ? undefined : SCOPES.find((one) => one.id === scope)?.label;
   const said = named === undefined ? (query === "" ? undefined : cut(query, 14)) : query === "" ? named : `${named} · ${cut(query, 8)}`;
+  // The trigger is the filter glyph and its tooltip, lit while the list is narrowed; the words would cost the band its room.
+  const label = said === undefined ? "Filter" : `Filter: ${said}`;
   return (
-    <DropdownMenu
-      align="end"
-      portal
-      plain
-      triggerLabel={said ?? "Filter"}
-      {...(said === undefined ? {} : { triggerAriaLabel: `Filter: ${said}` })}
-      searchLabel="Search Jobs"
-      search={{ value: typed, onChange: setQuery, onEnter: () => rows.current?.querySelector<HTMLElement>(".deck-row")?.focus() }}
-      open={open}
-      onOpenChange={setSearching}
-      entries={SCOPES.map(({ id, label }) => ({ kind: "item" as const, id, label, selected: id === scope }))}
-      onSelect={(id) => setScope(id as Scope)}
-    />
+    <span className="deck-filter" data-narrowed={said === undefined ? undefined : ""}>
+      <Tooltip label={label}>
+        <DropdownMenu
+          align="end"
+          portal
+          plain
+          icon={FilterGlyph}
+          triggerLabel={label}
+          searchLabel="Search Jobs"
+          search={{ value: typed, onChange: setQuery, onEnter: () => rows.current?.querySelector<HTMLElement>(".deck-row")?.focus() }}
+          open={open}
+          onOpenChange={setSearching}
+          entries={SCOPES.map(({ id, label: name }) => ({ kind: "item" as const, id, label: name, selected: id === scope }))}
+          onSelect={(id) => setScope(id as Scope)}
+        />
+      </Tooltip>
+    </span>
   );
 }
 
@@ -249,13 +257,18 @@ function List({ subjects, calling, banding, selected, builds, picked, found, onP
   const hover = useDeck((deck) => deck.hover);
   const limit = useDeck((deck) => deck.limit);
   const ideas = useQueued();
-  const pausedIds = new Set(useSessions().filter((one) => one.paused === true).map((one) => one.id));
+  const sessions = useSessions();
+  const pausedIds = new Set(sessions.filter((one) => one.paused === true).map((one) => one.id));
   const [menu, setMenu] = useState<RowMenuAt>();
+  const view = useRowView();
   const panel = useRef<HTMLElement>(null);
   const drawn = subjects.slice(0, limit);
   // A live Session is picked up by its row and put down among those under its heading.
   const movable = movableIn(subjects);
   const { dragging, grab, swallowed } = useReorder(onMove);
+  // The fields a row draws are the person's (`row-view.tsx`): its columns, and where the clash mark sits among them.
+  const earlier = subjects.some((one) => one.earlier !== undefined);
+  const columns = columnsOf(view, earlier);
   const row = (one: Subject) => {
     const band = movable.has(one.key) ? bandOf(subjects, banding, one.key) : undefined;
     // What a search matched in the Session, in place of its age.
@@ -266,8 +279,15 @@ function List({ subjects, calling, banding, selected, builds, picked, found, onP
     // The row stands for the earlier Job too: it is open when that one is.
     const here = selected === one.key || (one.earlier !== undefined && selected === `session:${one.earlier}`);
     const needs = one.kind === "session" && toneOf(one) === "ask" && !here;
+    // What the row says of how it stands: a handoff or a pause, else its phase, then its state mark.
+    const state = (
+      <>
+        {one.handoff === "starting" ? <HandoffMark /> : pausedIds.has(one.id) ? <PausedMark said="Paused" /> : <Phase subject={one} builds={builds} />}
+        <MarkGlyph mark={{ ...one.mark, tone: toneOf(one) }} size={one.reply === true ? 12 : 16} />
+      </>
+    );
     return (
-      <li key={one.key} className="deck-list__item" data-movable={band} data-lifted={dragging?.key === one.key || undefined} data-drop={dragging?.drop?.key === one.key ? (dragging.drop.after ? "after" : "before") : undefined} onContextMenu={one.kind === "session" ? (event) => (event.preventDefault(), setMenu({ id: one.id, root: one.root, title: one.title, x: event.clientX, y: event.clientY, row: event.currentTarget.querySelector<HTMLElement>(".deck-row") })) : undefined}>
+      <li key={one.key} className="deck-list__item" data-movable={band} data-lifted={dragging?.key === one.key || undefined} data-drop={dragging?.drop?.key === one.key ? (dragging.drop.after ? "after" : "before") : undefined} onContextMenu={one.kind === "session" ? (event) => (event.preventDefault(), event.stopPropagation(), setMenu({ id: one.id, root: one.root, title: one.title, x: event.clientX, y: event.clientY, row: event.currentTarget.querySelector<HTMLElement>(".deck-row") })) : (event) => (event.preventDefault(), event.stopPropagation(), setMenu({ id: "", root: one.root, title: one.title, x: event.clientX, y: event.clientY, row: null, viewOnly: true }))}>
         <Inspect card={<SubjectCard one={one} {...(call === undefined ? {} : { calling: callLabel(call) })} />} name={one.title} side="beside" pin={false}>
         <button type="button" className="deck-row" data-row={one.key} data-calling={call === undefined && !needs ? undefined : ""} data-needs={needs || undefined} data-linked={one.linked !== undefined || undefined} data-reply={one.reply} data-tone={toneOf(one)} data-past={one.past} data-selected={here || undefined} data-cursor={cursor === one.key || undefined} data-hover={hover === one.key || undefined} aria-label={one.title} aria-current={here || undefined} onPointerDown={band === undefined ? undefined : (event) => grab(event, one.key, band)} onClickCapture={(event) => swallowed() && (event.preventDefault(), event.stopPropagation())} onClick={() => onPick(one)} onFocus={() => (moveCursor(one.key), setHover(one.key))} onBlur={() => setHover(undefined)} onMouseEnter={() => setHover(one.key)} onMouseLeave={() => setHover(undefined)} onKeyDown={one.kind === "session" ? (event) => {
           // The earlier Job behind this row, where it took one's place. Not the registry's yet: the key waits on the look.
@@ -287,21 +307,7 @@ function List({ subjects, calling, banding, selected, builds, picked, found, onP
             )}
             {one.title}
           </span>
-          <span className="deck-row__marks">
-            <span className="deck-row__clash-slot" aria-hidden="true" />
-            {one.handoff === "starting" ? <HandoffMark /> : pausedIds.has(one.id) ? <PausedMark said="Paused" /> : <Phase subject={one} builds={builds} />}
-            <MarkGlyph mark={{ ...one.mark, tone: toneOf(one) }} size={one.reply === true ? 12 : 16} />
-          </span>
-          <span className="deck-row__says">{one.peek.at(-1) ?? ""}</span>
-          {hit === undefined || hit.short === "" ? (
-            <span className="deck-row__said">{one.at === undefined ? null : <Stamp still first="age" at={one.at} />}</span>
-          ) : (
-            <Tooltip label={hit.whole}>
-              <span className="deck-row__said" data-found="" role="img" aria-label={hit.whole}>
-                {hit.short}
-              </span>
-            </Tooltip>
-          )}
+          <RowFields view={view} earlier={earlier} one={one} session={sessions.find((each) => each.id === one.id)} hit={hit} status={state} />
         </button>
         </Inspect>
         {one.earlier === undefined ? null : (
@@ -309,7 +315,7 @@ function List({ subjects, calling, banding, selected, builds, picked, found, onP
             <EarlierMark onOpen={() => onEarlier(one.earlier!)} />
           </span>
         )}
-        {one.kind === "pr" ? null : (
+        {one.kind === "pr" || !view.conflicts ? null : (
           <span className="deck-row__clash">
             <ClashMark kind={one.kind} id={one.id} />
           </span>
@@ -319,14 +325,14 @@ function List({ subjects, calling, banding, selected, builds, picked, found, onP
   };
   return (
     // A press on the list and on no row lets the cursor go.
-    <section ref={panel} className="deck-panel deck-list" aria-label="Jobs" tabIndex={-1} data-collapsed={folded.collapsed || undefined} onClick={(event) => (event.target as Element).closest(".deck-row") === null && moveCursor(undefined)}>
+    <section ref={panel} className="deck-panel deck-list" aria-label="Jobs" tabIndex={-1} data-collapsed={folded.collapsed || undefined} onContextMenu={(event) => (event.preventDefault(), setMenu({ id: "", root: "", title: "", x: event.clientX, y: event.clientY, row: null, viewOnly: true })) } onClick={(event) => (event.target as Element).closest(".deck-row") === null && moveCursor(undefined)}>
       <Standby kind="jobs" />
       <header className="deck-band" {...folded.band}>
-        Jobs
+        <span className="deck-band__name">Jobs</span>
         <Filter rows={panel} />
         <PanelKey id="list" />
       </header>
-      <ul className="deck-list__rows" data-reordering={dragging === undefined ? undefined : ""}>
+      <ul className="deck-list__rows" data-reordering={dragging === undefined ? undefined : ""} data-now={view.now || undefined} data-pr={view.pr || undefined} style={{ "--deck-cols": columns.template, "--deck-clash-right": columns.clashRight } as CSSProperties}>
         {banding === undefined
           ? [...queuedIn(ideas, picked).map((idea) => <QueuedRow key={queuedKey(idea.id)} idea={idea} />), ...drawn.map(row)]
           : bandsOf(drawn, banding, queuedIn(ideas, picked)).map((band) => (
@@ -337,7 +343,7 @@ function List({ subjects, calling, banding, selected, builds, picked, found, onP
             ))}
         {drawn.length < subjects.length ? <MoreRows key={limit} /> : null}
       </ul>
-      <RowMenu at={menu} onClose={() => setMenu(undefined)} onAutopilot={onAutopilot} />
+      <RowMenu at={menu} onClose={() => setMenu(undefined)} onKeep={(at) => setMenu({ ...at })} onAutopilot={onAutopilot} />
     </section>
   );
 }
@@ -357,7 +363,9 @@ export function useActivityBeside(grid: RefObject<HTMLDivElement | null>, layout
       if (queue === null || foot === null) return;
       // The queue is redrawn when the repository changes, so the one on screen is watched each time.
       watch.observe(queue);
-      const height = foot.getBoundingClientRect().bottom - queue.getBoundingClientRect().top;
+      // The queue is under the foot, so the span is from whichever stands higher to whichever stands lower.
+      const [one, two] = [queue.getBoundingClientRect(), foot.getBoundingClientRect()];
+      const height = Math.max(one.bottom, two.bottom) - Math.min(one.top, two.top);
       if (height > 0) root.style.setProperty("--deck-activity", `${Math.round(height)}px`);
     };
     for (const one of root.querySelectorAll(".deck-centre, .deck-foot, .deck-stage > *")) watch.observe(one);
@@ -393,7 +401,9 @@ function Activity({ props, listed, ship }: { props: CockpitProps; listed: readon
   return (
     <section className="deck-panel deck-activity" aria-label="Activity" tabIndex={-1}>
       <Standby kind="activity" />
-      <header className="deck-band">Activity</header>
+      <header className="deck-band">
+        <span className="deck-band__name">Activity</span>
+      </header>
       <ActivityGraph
         now={props.now}
         views={views}
@@ -779,7 +789,9 @@ function LedgerPanel({ host }: { host: (element: HTMLElement | null) => void }) 
   return (
     <section className="deck-panel deck-ledger" aria-label="Ledger" tabIndex={-1}>
       <Standby kind="ledger" />
-      <header className="deck-band">Ledger</header>
+      <header className="deck-band">
+        <span className="deck-band__name">Ledger</span>
+      </header>
       <div className="deck-ledger__body" ref={host} />
     </section>
   );
@@ -830,12 +842,14 @@ function FlightControl({ ship, props }: { ship: Ship; props: CockpitProps }) {
     <section className="deck-panel deck-controls" aria-label="Flight controls" tabIndex={-1} data-collapsed={folded.collapsed || undefined}>
       <Standby kind="controls" />
       <header className="deck-band" {...folded.band}>
-        Flight control
+        <span className="deck-band__name">Flight control</span>
         <PanelKey id="controls" />
         {editing || folded.collapsed ? null : (
-          <Button variant="ghost" size="sm" onClick={() => setEditing(true)}>
-            Edit
-          </Button>
+          <Tooltip label="Edit">
+            <Button variant="ghost" size="sm" iconOnly aria-label="Edit" className="deck-band__edit" onClick={() => setEditing(true)}>
+              <SquarePen size={16} aria-hidden="true" />
+            </Button>
+          </Tooltip>
         )}
         <span className="deck-band__acts" ref={setActs} />
       </header>
@@ -884,7 +898,7 @@ function DispatchDeck() {
     <section className="deck-panel deck-dispatch" aria-label="Dispatch controls" tabIndex={-1}>
       <Standby kind="dispatch" />
       <header className="deck-band">
-        Dispatch
+        <span className="deck-band__name">Dispatch</span>
         <PanelKey id="dispatch" />
       </header>
       <div className="deck-dispatch__block">
@@ -901,12 +915,6 @@ function DispatchDeck() {
     </section>
   );
 }
-
-const STATE_BADGE = {
-  off: { status: "not-started", icon: Power, said: "Off" },
-  running: { status: "running", icon: Plane, said: "Running" },
-  paused: { status: "awaiting-review", icon: Pause, said: "Waiting" },
-} as const;
 
 /** The repository's picker, where none is chosen. Choosing one opens the Autopilot lane for it. */
 function RepositoryPicker({ props, autopilot }: { props: CockpitProps; autopilot: ReturnType<typeof useAutopilotLane> }) {
@@ -930,14 +938,13 @@ function RepositoryPicker({ props, autopilot }: { props: CockpitProps; autopilot
 }
 
 /**
- * Autopilot as a compact card beside the controls: the switch is its title, and under it the repository, how it stands and a
- * thin bar. Switching it on gives the stage to its configuration; off, the stage is as it was.
+ * Autopilot as one row beside the controls: the switch is its title, and the repository, the state and the bar are left to the lane it opens. Switching it on gives the stage to its
+ * configuration; off, the stage is as it was. Drawn only while Settings, Features has the Autopilot panel on (`features.autopilotPanel`).
  */
-function AutopilotPanel({ props, autopilot }: { props: CockpitProps; autopilot: ReturnType<typeof useAutopilotLane> }) {
+function AutopilotPanel({ autopilot }: { autopilot: ReturnType<typeof useAutopilotLane> }) {
   const control = autopilot.control;
   const open = useDeck((deck) => deck.sel?.kind === "autopilot");
   const state = control?.state ?? "off";
-  const badge = STATE_BADGE[state];
   const flip = () => {
     if (!open) return enterAutopilot();
     leaveAutopilot();
@@ -952,17 +959,6 @@ function AutopilotPanel({ props, autopilot }: { props: CockpitProps; autopilot: 
         </Switch>
         <PanelKey id="autopilot" />
       </header>
-      <div className="deck-autopilot__body">
-        <div className="deck-autopilot__repo">
-          {props.picked === null ? <RepositoryPicker props={props} autopilot={autopilot} /> : <span className="deck-autopilot__name">{props.picked.manifest?.repository ?? props.picked.root}</span>}
-          <Badge status={badge.status} icon={badge.icon}>
-            {badge.said}
-          </Badge>
-        </div>
-        <div className="deck-autopilot__bar" data-state={state} role="progressbar" aria-label={`Autopilot, ${badge.said.toLowerCase()}`}>
-          <span className="deck-autopilot__fill" />
-        </div>
-      </div>
     </section>
   );
 }
@@ -1083,10 +1079,21 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
   const deckMarks = useMarking(DECK_MARKS);
   // What a layout leaves drawn of the deck's panels. A right column it empties, or a foot, is not drawn and gives its room to the stage.
   const panels = new Set(useLayout("dashboard.panels").shown.map((one) => one.id));
+  const autopilotShown = useSetting("features.autopilotPanel") === true;
   const bare = !reading && !panels.has("bays") && !panels.has("activity");
-  const footed = panels.has("controls") || (!unified && (panels.has("dispatch") || panels.has("autopilot")));
+  // The key caps are drawn only while ⌘ is held: the root's `data-reveal` says so.
+  const revealing = useShortcutReveal();
+  useEffect(() => {
+    const root = document.documentElement.dataset;
+    if (revealing) root.reveal = "";
+    else delete root.reveal;
+    return () => void delete root.reveal;
+  }, [revealing]);
+  const footed = panels.has("controls") || (!unified && (panels.has("dispatch") || (autopilotShown && panels.has("autopilot"))));
   const layout = unified ? "session" : reading ? "reading" : bare ? "bare" : "idle";
-  const { columns, resize, reset } = useColumns(grid, layout);
+  // The Jobs list rests as wide as the fields chosen for its rows need (`row-view.tsx`); a width dragged to is kept as dragged.
+  const rowView = useRowView();
+  const { columns, resize, reset } = useColumns(grid, layout, restBonus(rowView, false));
   const splits = useSplits(grid, layout);
   useActivityBeside(grid, layout);
   const builds = useBuilds(props.now);
@@ -1108,15 +1115,16 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
           <div className="deck-stage" data-exit={exiting ? "" : undefined}>
             <Stage props={props} ship={ship} listed={listed} autopilot={autopilot} ledger={reading && !unified ? ledgerHost : null} hosts={hosts} />
             {onStage === undefined ? null : <ShellPanel key={onStage} sessionId={onStage} />}
-            <MergeQueue props={props} ship={ship} />
           </div>
           {footed ? (
             <div className="deck-foot">
               {panels.has("controls") ? <FlightControl ship={ship} props={props} /> : null}
               {unified || !panels.has("dispatch") ? null : <DispatchDeck />}
-              {unified || !panels.has("autopilot") ? null : <AutopilotPanel props={props} autopilot={autopilot} />}
+              {unified || !autopilotShown || !panels.has("autopilot") ? null : <AutopilotPanel autopilot={autopilot} />}
             </div>
           ) : null}
+          {/* The merge line is the bottom of the centre, under Flight control. */}
+          <MergeQueue props={props} ship={ship} />
         </div>
         {bare ? null : (
           <div className="deck-right">

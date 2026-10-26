@@ -49,7 +49,7 @@ is the back-fill by hand that this section existed to prevent.
 ⌘N       dispatch from a field, where n would type
 ⌥1–⌥9    choose a repository to dispatch to
 ⌥A       dispatch after another Job: a Job with an @ typed in the request
-⌘1–⌘6    go to a tab: Cockpit, Jobs, Sessions, Studios, Logbook or System
+⌘1–⌘7    go to a tab: Cockpit, Jobs, Studios, Logbook, Reviews, Issues or System, as the bar draws them
 ⌘,       open Settings
 ⌘O       open a file in the side panel
 Esc      close an overlay, or return to the list from a detail route
@@ -234,10 +234,12 @@ run sheet, so an unshifted key would answer twice on one press. `R` opens
 the rail's Run menu rather than starting anything, as a press on Run does.
 See [Studio](../../concepts/studio.md).
 
-**`⌘1`–`⌘6` are the title bar's tabs and Settings is `⌘,`.** The tabs are Cockpit, Jobs,
-Sessions, Studios, Retros and System, in the order the bar draws them, and System opens
-the page last used there. The rule is the tab's place in the bar, not the number, so a tab
-added later moves what follows it. Studios and Retros took `⌘4` and `⌘5` on 15 Oct 2026
+**`⌘1`–`⌘7` are the title bar's tabs and Settings is `⌘,`.** The tabs are Cockpit, Jobs,
+Studios, Logbook, Reviews, Issues and System, in the order the bar draws them, and System opens
+the page last used there. The rule is the tab's place in the bar, not the number: every tab
+drawn takes the next digit, a tab that is not drawn takes none, and the digits behind it close up.
+The owner decided this on 26 Oct 2026, when Reviews and Issues joined the bar and the digits stopped
+matching what he saw. Studios and Retros took `⌘4` and `⌘5` on 15 Oct 2026
 (the owner: *"Studios and retros should live in the main bar at the top of the app"*), which
 moved System to `⌘6` and took Settings off `⌘5`; it has `⌘,`, the platform's own key for
 preferences. Doctor left the System page the same day for the title bar's menu (*"Doctor
@@ -439,3 +441,8 @@ makes the box read as a key rather than as a small chip.
   one listener through `ShortcutRevealProvider`, because a hold watched in
   two places ends in two places. Contextual bindings are never revealed
   this way — holding `⌘` fires none of them.
+- **One exception: the Cockpit deck's key caps.** The deck's keys are
+  contextual bindings, and their caps are hidden until `⌘` is held. The owner chose this on 26 Oct 2026, over the
+  rule above, because the caps crowded the small deck. The cost: a held `⌘`
+  then a letter is `⌘`+letter, so a person releases `⌘` before pressing the
+  key. `docs/concepts/cockpit.md`, *Density*.

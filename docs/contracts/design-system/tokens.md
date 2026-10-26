@@ -77,7 +77,7 @@ blur while a scrim covers the panel: a Sheet or Dialog and what is inside it sta
 
 **One sheet, whatever the panel holds.** The Job pane is the thread's own frame: the card inside it draws no
 edge, shadow or glass, its head is the same band every panel has, and the message box is a frosted chip. The Workflow,
-Blueprint, Field and Landing beside an open Job, the repository picker and its button over Jobs, and the bays strip are the same material at the same radius; the Field keeps an opaque fill, since its drawing animates.
+Blueprint, Field and Delivery beside an open Job, the repository picker and its button over Jobs, and the bays strip are the same material at the same radius; the Field keeps an opaque fill, since its drawing animates.
 A focused panel lifts its edge and shadow and fills no header. A state is the colour of a panel's edge,
 never a glow. The repository field inside Autopilot is a flat step at the control radius.
 
