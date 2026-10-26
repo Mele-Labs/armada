@@ -47,6 +47,10 @@ enum Set<'a> {
         #[serde(skip_serializing_if = "Option::is_none")]
         asked: Option<&'a str>,
     },
+    Drafted {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        draft: Option<&'a str>,
+    },
     Done {
         done: bool,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -204,6 +208,18 @@ impl<'a> Receipt<'a> {
             })
             .map(|item| item.id.as_str());
         Receipt::of(record, Set::Asked { asked })
+    }
+
+    /// The newest open draft under the title the agent gave it.
+    pub(crate) fn drafted(record: &'a SessionRecord, draft: &ipc::ProposeDraft) -> Self {
+        let drafted = record
+            .waiting_for
+            .iter()
+            .rev()
+            .filter(|item| item.source == WaitingSource::Draft)
+            .find(|item| item.text == draft.title.trim())
+            .map(|item| item.id.as_str());
+        Receipt::of(record, Set::Drafted { draft: drafted })
     }
 
     pub(crate) fn done(record: &'a SessionRecord) -> Self {

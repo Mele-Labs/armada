@@ -13,5 +13,5 @@ export const layoutAsDrawn = walk("compact-session-view", [
   { press: place("Cockpit"), say: "The Cockpit" },
   { look: region("Bays", { exact: true }), say: "No Activity under Bays" },
   { press: deckRow("Retry the slot lease"), say: "A Job" },
-  { look: region("Workflow", { exact: true }), say: "Workflow first in the right column, then the Blueprint, the Field and the Landing" },
+  { look: region("Workflow", { exact: true }), say: "Workflow first in the right column, then the Blueprint, the Field and Delivery" },
 ]);

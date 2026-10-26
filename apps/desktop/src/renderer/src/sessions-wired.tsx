@@ -833,7 +833,7 @@ export class WiredStore {
     get commands() {
       return store.commandsRead();
     },
-    answerWaiting: (id: string, itemId: string, given: { choice?: number; text?: string; mode?: "best" | "quick" }) => {
+    answerWaiting: (id: string, itemId: string, given: { choice?: number; text?: string; mode?: "best" | "quick"; fixed?: string }) => {
       const request = { session_id: id, item_id: itemId, ...given };
       return this.plain(this.api.answerWaiting(request), { act: "answer_waiting", request });
     },

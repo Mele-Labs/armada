@@ -12,7 +12,7 @@ import type { ContextBreakdown } from "@armada/components/src/context-breakdown"
 import type { Scene } from "@armada/components/src/compositions/SketchScene/scene";
 import type { AdversarialReviewState } from "@armada/components/src/compositions/AdversarialReview/review-state";
 import type { RunsPlace } from "@armada/components/src/compositions/RepositoryRuns/runs-places";
-import type { CheckBlame, DeliveryChoice, DeliveryPicked, LoadoutItemBody, LoadoutKind, LoadoutSource, LoadoutSummary, Notice, NoticeScope, PullRequestFilePatch, PullRequestPage, RequestBy, RequestHeader, SessionBuild, SessionLoadout, SessionStanding, ThoughtTarget, WaitingItem, WritePullRequest } from "@armada/protocol";
+import type { CheckBlame, DeliveryChoice, DeliveryPicked, DraftSettled, LoadoutItemBody, LoadoutKind, LoadoutSource, LoadoutSummary, Notice, NoticeScope, PullRequestFilePatch, PullRequestPage, RequestBy, RequestHeader, SessionBuild, SessionLoadout, SessionStanding, ThoughtTarget, WaitingItem, WritePullRequest } from "@armada/protocol";
 import type { McpServerAct, McpSignIn, SessionMcpServer, StepPhase, WatchSummary } from "@armada/protocol";
 import type { RetroRowDrawn } from "../retro-row";
 
@@ -360,6 +360,8 @@ type SessionRowKinds =
   | { id: string; at: string; kind: "saved"; name: string; collection: string; collectionId: string; request: string }
   /** The Session showed a page in a window: where in the thread it did, and the address to open again. `ended` is when the walk ended; absent while it is open. */
   | { id: string; at: string; kind: "window"; title: string; url: string; ended?: string }
+  /** A draft the agent put to the person with `propose_draft`, whole as Fleet wrote it; `settled` once he answered it. */
+  | { id: string; at: string; kind: "draft"; title: string; text: string; before?: string; settled?: DraftSettled }
   /** This Session's agent started a Session, or forked itself into one: the new Session, to open from the thread. */
   | { id: string; at: string; kind: "started"; session: { id: string; title: string }; fork: boolean }
   /**
@@ -931,8 +933,11 @@ export type SessionsDraft = {
   efforts: readonly string[];
   /** The skills and commands `/` offers. */
   commands: readonly SessionCommand[];
-  /** Answers one waiting item: a numbered choice, words, or leave it to the agent (`best` thinks it through, `quick` takes the reasonable path). Absent where nothing serves it. */
-  answerWaiting?: (id: string, itemId: string, answer: { choice?: number; text?: string; mode?: "best" | "quick" }) => void | Promise<unknown>;
+  /**
+   * Answers one waiting item: a numbered choice, words, or leave it to the agent (`best` thinks it through, `quick` takes the
+   * reasonable path). `fixed` approves a draft with his own text. Absent where nothing serves it.
+   */
+  answerWaiting?: (id: string, itemId: string, answer: { choice?: number; text?: string; mode?: "best" | "quick"; fixed?: string }) => void | Promise<unknown>;
   /**
    * Runs a command from a code block in a Session's thread, in the Session's working directory (its
    * slot if it has one), on a terminal of `size` cells, and reports the terminal's bytes and the exit as

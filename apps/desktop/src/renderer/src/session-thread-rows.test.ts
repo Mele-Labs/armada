@@ -127,3 +127,10 @@ describe("a show_file call as the transcript names it", () => {
     expect(threadRowsFrom([tool("mcp__armada-fleet__show_file docs/gone.md")], [shown("/work/docs/notes.md")])).toMatchObject([{ kind: "tool" }]);
   });
 });
+
+describe("a draft in a Session's thread", () => {
+  it("is drawn as the row it came as, so the card has its title, text, the text it replaces and how it was settled", () => {
+    const row = { id: "d", at: "14:00:00", kind: "draft", title: "Description", text: "A Job waits.", before: "Adds a queue.", settled: { how: "fixed", words: "A Job waits for a slot.", at: "14:01:00" } } as const;
+    expect(threadRowsFrom([row])).toEqual([row]);
+  });
+});

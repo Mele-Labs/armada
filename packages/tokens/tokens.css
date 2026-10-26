@@ -566,6 +566,20 @@
   --text-xl: 23px;    --leading-xl: 32px;    /* page titles */
   --text-2xl: 28px;   --leading-2xl: 36px;   /* the rare hero number */
 
+  /* The Cockpit's ladder, one step under the app's, chosen by the owner on
+     26 Oct 2026. The Cockpit holds a deck of lists, panels and keys at once,
+     so it sets --text-2xs to --text-2xs-dense and so on inside its own scope
+     and leaves every other screen on the ladder above. Only the four steps it
+     reads are here; lg and up are not drawn dense. */
+  --text-2xs-dense: 12px;   --leading-2xs-dense: 16px;   /* a row's meta */
+  --text-xs-dense: 13px;    --leading-xs-dense: 18px;    /* a row's title, labels */
+  --text-sm-dense: 14px;    --leading-sm-dense: 20px;    /* body */
+  --text-base-dense: 15px;  --leading-base-dense: 22px;  /* emphasis within body */
+  /* The word on a Switch at the Cockpit's density. Under the dense ladder's
+     smallest step: a Switch's track is short, and the word fits it at 10px and
+     no larger. */
+  --text-switch-dense: 10px;
+
   --weight-body: 400;
   --weight-medium: 500;   /* labels only */
   --weight-heading: 600;  /* never 700+ */
@@ -631,6 +645,12 @@
   --h-row-table: 52px;
   --h-control: 36px;      /* default button, input, select */
   --h-control-sm: 32px;   /* sm — use inside table rows */
+  /* The same two controls at the Cockpit's density, a step under the pair
+     above like its type ladder (typography.css). The Cockpit sets --h-control
+     and --h-control-sm to these inside its own scope; its list rows take the
+     first as their line. */
+  --h-control-dense: 28px;
+  --h-control-sm-dense: 24px;
   --h-badge: 20px;
   --h-kbd: 20px;
   --h-menu-item: 32px;

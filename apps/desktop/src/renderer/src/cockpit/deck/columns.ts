@@ -30,10 +30,10 @@ export type Columns = {
 };
 
 /** What each column is drawn at, given the room the columns share (the grid less its gaps) and the unit in px. */
-export function settle(kept: Kept, room: number, unit: number, layout = ""): Columns {
+export function settle(kept: Kept, room: number, unit: number, layout = "", leftBonus = 0): Columns {
   const floor = { left: FLOOR.left * unit, right: FLOOR.right * unit };
   const centre = CENTRE_FLOOR * unit;
-  const wanted = (side: Side) => kept[side] ?? (REST_BY_LAYOUT[layout]?.[side] ?? REST[side]) * unit;
+  const wanted = (side: Side) => kept[side] ?? (REST_BY_LAYOUT[layout]?.[side] ?? REST[side]) * unit + (side === "left" ? leftBonus : 0);
   const rightMax = Math.max(floor.right, room - floor.left - centre);
   const right = NO_RIGHT.has(layout) ? 0 : clampToRange(wanted("right"), { min: floor.right, max: rightMax });
   const leftMax = Math.max(floor.left, room - right - centre);
@@ -66,7 +66,7 @@ function write(layout: string, next: Kept): void {
  * The columns' widths for the grid in `grid`, and how to move or reset one. `undefined` until the grid has been measured,
  * when the stylesheet's own resting widths hold and no handle is drawn.
  */
-export function useColumns(grid: RefObject<HTMLElement | null>, layout = "") {
+export function useColumns(grid: RefObject<HTMLElement | null>, layout = "", leftBonus = 0) {
   // Kept for each layout (nothing selected, a Session open), each read from the store the first time it is drawn.
   const [all, setAll] = useState<Record<string, Kept>>({});
   const kept = all[layout] ?? read(layout);
@@ -84,8 +84,8 @@ export function useColumns(grid: RefObject<HTMLElement | null>, layout = "") {
   }, [grid, layout]);
   const columns = useMemo(() => {
     const unit = tokenPx("--space-12");
-    return room === undefined || !Number.isFinite(room) || !Number.isFinite(unit) ? undefined : settle(kept, room, unit, layout);
-  }, [kept, room, layout]);
+    return room === undefined || !Number.isFinite(room) || !Number.isFinite(unit) ? undefined : settle(kept, room, unit, layout, leftBonus);
+  }, [kept, room, layout, leftBonus]);
   const resize = useCallback((side: Side, width: number) => {
     setAll((was) => {
       const next = { ...(was[layout] ?? read(layout)), [side]: Math.round(width) };

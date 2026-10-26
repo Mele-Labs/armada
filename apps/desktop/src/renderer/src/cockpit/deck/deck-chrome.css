@@ -9,11 +9,22 @@
   -webkit-app-region: no-drag;
 }
 
+/* A hairline parts the places from the search beside them, the notch's own gap either side of it. */
+.deck-places::after {
+  content: "";
+  align-self: center;
+  width: var(--border-width);
+  height: calc(var(--space-4) + var(--space-1));
+  margin-inline-start: var(--space-3);
+  background: var(--border-default);
+}
+
 /* Tabs set straight on the title bar's notch, which is their ground: no track, no raised tab. The chosen one is the
    brighter word with a line under it. One line at every width: where the row has no room for the labels, `TabBar`
    draws each tab as its glyph rather than letting the strip wrap. */
 .deck-places .armada-tabs {
   flex-wrap: nowrap;
+  gap: var(--space-1);
   max-width: none;
   padding: 0;
   border-color: transparent;
@@ -22,12 +33,14 @@
 }
 
 .deck-places .armada-tabs__tab {
+  padding-inline: var(--space-2);
   border-radius: calc(var(--armada-notch-radius) - var(--armada-notch-gap));
   color: var(--fg-muted);
   font-family: var(--font-mono);
-  font-size: var(--text-xs);
+  font-size: var(--text-2xs);
   letter-spacing: var(--tracking-caps);
   text-transform: uppercase;
+  gap: var(--space-1);
 }
 
 .deck-places .armada-tabs__tab:hover {

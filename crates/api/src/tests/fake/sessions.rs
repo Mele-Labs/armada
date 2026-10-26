@@ -387,6 +387,19 @@ impl Sessions for FakeDaemon {
         .await
     }
 
+    async fn propose_draft(
+        &self,
+        _caller: Option<crate::Caller>,
+        draft: ipc::ProposeDraft,
+    ) -> Result<SessionRecord, Refusal> {
+        self.report_session(SessionReport {
+            harness: String::new(),
+            session_id: draft.session_id.unwrap_or_else(|| ipc::SessionId::carried("session")),
+            fact: ipc::SessionFact::TurnCompleted { said: None },
+        })
+        .await
+    }
+
     async fn window_closed(&self, closed: ipc::WindowClosed) -> Result<SessionRecord, Refusal> {
         self.report_session(SessionReport {
             harness: String::new(),

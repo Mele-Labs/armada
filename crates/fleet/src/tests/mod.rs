@@ -21,6 +21,7 @@ mod sending_checkout;
 mod agent_starts;
 mod session_after;
 mod asking_in_window;
+mod drafts;
 mod phone;
 mod showing_file;
 mod sketching;

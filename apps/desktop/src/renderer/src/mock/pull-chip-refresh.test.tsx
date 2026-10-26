@@ -62,7 +62,7 @@ test("a refused Refresh is a toast in Fleet's words, and the chip stays as it wa
   await expect.element(chip()).toHaveAccessibleName(/ci running/);
 });
 
-const landingChip = () => page.getByRole("region", { name: "Landing", exact: true }).getByRole("button", { name: /^Pull request #2290 / });
+const landingChip = () => page.getByRole("region", { name: "Delivery", exact: true }).getByRole("button", { name: /^Pull request #2290 / });
 
 test("Refresh on the pull request in the Landing asks Fleet once, and its Checks mark reads failed from Fleet's events", async () => {
   const fleet = await open();

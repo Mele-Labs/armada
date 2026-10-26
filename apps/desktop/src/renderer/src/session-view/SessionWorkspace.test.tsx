@@ -100,14 +100,14 @@ test("a band's key while Artifacts is open closes it and folds the band by hand"
   const landing = () => side.querySelector('section[data-area="landing"]')!;
   expect(landing().hasAttribute("data-collapsed")).toBe(true);
   press({ metaKey: true, shiftKey: true, code: "KeyA" });
-  press({ altKey: true, code: "KeyL" });
+  press({ altKey: true, code: "KeyD" });
   expect(layer(side)).toBeNull();
   expect(landing().hasAttribute("data-collapsed")).toBe(false);
 });
 
 test("a panel opened by hand is still open when the Job is left and entered again", () => {
   const first = mount();
-  press({ altKey: true, code: "KeyL" });
+  press({ altKey: true, code: "KeyD" });
   expect(first.side.querySelector('section[data-area="landing"]')!.hasAttribute("data-collapsed")).toBe(false);
   first.unmount();
   const again = mount();
