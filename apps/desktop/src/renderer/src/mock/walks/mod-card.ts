@@ -1,6 +1,6 @@
 // A mod a Mod Job made is drawn in its thread as the card System draws, and only its switch toggles it: the rest of the row opens the mod
 // in the side panel, with Change it, which starts an empty Mod Job aimed at what the mod is. Over the `mod-job` scenario.
-// The switch is a cockpit rocker: lit by default, `?switch=face` lights the ON face alone, `?switch=master` lights red.
+// The switch is the slide toggle with cut corners; `?switch=rail` draws its track as a rail.
 
 import { button, dialog, inside, region, role, systemPage, text, place, viaPalette, walk } from "../walk";
 

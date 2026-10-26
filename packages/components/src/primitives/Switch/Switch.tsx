@@ -4,8 +4,8 @@ import type { InputHTMLAttributes, ReactNode } from "react";
  * A setting that is on or off, with its label on the left and the control on
  * the right.
  *
- * **The control is a cockpit rocker** with OFF and ON printed on its faces, rocked in at the left when off and at the right
- * when on, and lit in `--accent` while on. `data-switch` on the root picks a take: `face` lights the ON face alone, `master` red.
+ * **The track and thumb are cut, not rounded**: two chamfered corners each, a grip ridged into the thumb, and `--accent` when
+ * on. `data-switch="rail"` on the root draws the track as a rail the thumb rides on.
  *
  * The optional description states what the setting does when on and what
  * happens when off. It is not help text for the label — a label that needs
@@ -23,16 +23,7 @@ function Control(rest: Omit<InputHTMLAttributes<HTMLInputElement>, "type">) {
     <>
       <input {...rest} type="checkbox" role="switch" className="armada-switch__input" />
       <span className="armada-switch__track" aria-hidden="true">
-        <span className="armada-switch__bezel">
-          <span className="armada-switch__paddle">
-            <span className="armada-switch__face" data-face="off">
-              OFF
-            </span>
-            <span className="armada-switch__face" data-face="on">
-              ON
-            </span>
-          </span>
-        </span>
+        <span className="armada-switch__thumb" />
       </span>
     </>
   );
