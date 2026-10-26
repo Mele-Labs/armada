@@ -46,7 +46,13 @@ Outside its two shipped readers Armada knows no provider: a script the repositor
 
 With `parts`, the watch's state comes from the parts not set aside: any `failed` is `failed`, any `waiting` or `running` is `running`, all `passed` is `passed`.
 Without `parts`, the line's own `state` stands.
-A watch ends `passed` only on a reading that is `passed` once counted, and `finished`.
+
+> **Rule.** All counted parts `passed` while a part set aside reads `failed` is `not_ours`, never `passed`, and that holds when every part is set aside.
+> Why: a deploy whose set-aside part failed did not ship, and a green mark for it is a false positive.
+
+A set-aside part that later reads `passed`, as on a retry, no longer stands in the way of `passed`.
+A watch ends `passed` only on a finished reading that is `passed` once counted with nothing set aside failing, and ends `not_ours` on a finished reading that is `not_ours`.
+The readings keep the states their lines gave; only the watch's state changes.
 
 A run that exits non-zero, runs out of time or prints no such line is a **broken** reading, and its last output is kept.
 
@@ -61,8 +67,9 @@ Two rules every script keeps, because the line has no word for either:
 |---|---|---|
 | `waiting` | Nothing counted has started | No |
 | `running` | Something counted is going | No |
-| `passed` | Counted parts passed and the line is finished | Yes |
+| `passed` | Counted parts passed, none set aside failed, and the line is finished | Yes |
 | `failed` | A counted part failed | Yes, once a change |
+| `not_ours` | Counted parts passed and a part set aside failed. An end once the line is finished | Yes, at the end, with what failed, and a Needs you item |
 | `gave_up` | Past its time with nothing finished | Yes |
 | `broken` | The command broke three readings in a row | Yes |
 | `stopped` | The person or the agent stopped it, or its Job ended | No |
@@ -190,12 +197,27 @@ The slot guard lets the Job write, remove and chmod there as in its slots, and t
 | Verdict | What it does to the watch |
 |---|---|
 | `ours` | Ends it `failed`. The agent fixes the change, and a redeploy is a new watch |
-| `not_ours`, with parts | Sets those parts aside. The watch carries on, and a change in them wakes nobody |
+| `not_ours`, with parts | Sets those parts aside. The watch carries on, a change in them wakes nobody, and while one reads `failed` the watch can end `not_ours` and never `passed` |
 
-A weighing tells nobody, since the agent gave it.
+A weighing tells nobody, since the agent gave it, except one that ends the watch `not_ours`: the Job is told it did not pass, so it does not report a pass.
 A `not_ours` names a part some reading of the watch carried, or it is refused.
 A watch may start with parts already set aside, so a redeploy keeps what the agent learned on the last one.
 A set-aside lasts one watch, so a step that fails on every build costs one wake on every push.
+
+## Ended not ours
+
+> **Rule.** A watch that ended `not_ours` is a Needs you item Fleet raises, never the agent.
+> Why: whether a failure someone else owns is ignored, fixed here or sent to its owners is the person's call.
+
+The item names the watch and the parts that failed, and its press opens a card with each part's sentence, the link to the failing run and three controls.
+
+| Control | Does |
+| --- | --- |
+| Ignore | Settles it, and tells the agent nothing |
+| Fix it | Sends the agent the parts, the sentence that set each aside and the link, and settles it |
+| Escalate | Shows a few plain lines to copy for the owners of what broke: what failed, when, on which run, what the reading said, and the link. Fleet sends nothing anywhere, and the item stays |
+
+Settling the item removes it, and dismissing it settles it too.
 
 ## Telling the Job
 
@@ -216,7 +238,7 @@ Noticing that someone replaced a deploy is a new watch's job, started by whoever
 
 A live watch is a wait, as an open pull request is.
 When it ends, whichever way, its notice wakes the agent, which carries on and calls `all_done` once nothing is left.
-A held Job is not a Needs you item, since what it waits on is Fleet's wait and not the person's.
+A held Job is not a Needs you item, since what it waits on is Fleet's wait and not the person's; an end `not_ours` is one, above.
 Ending a Job ends its live watches `stopped` and tells nothing.
 
 ## In Bridge
@@ -245,6 +267,7 @@ The word is `docs/contracts/design-system/voice-copy.md`, *Lexicon*.
 | A terminal watch | `crates/fleet/src/watches/listening.rs` |
 | A Job's scratch folder | `crates/fleet/src/scratch.rs` |
 | The notices | `crates/fleet/src/watches/telling.rs` |
+| The Needs you item for a `not_ours` end | `crates/fleet/src/watches/needing.rs` |
 | What is kept | `crates/store/src/watches.rs` |
 | Bridge's copy of the wire | `packages/protocol/src/watches.ts` |
 

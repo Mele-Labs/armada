@@ -95,6 +95,8 @@ pub(crate) struct WaitingReads {
     start_held: bool,
     /// The project tasks it finished and nobody has said are done.
     asked_tasks: Vec<store::KeptAsked>,
+    /// Its watches that ended not ours.
+    not_ours: Vec<store::KeptWatchWhole>,
 }
 
 /// What [`Fleet::waiting_from`] read: the items, and how the Session stands.
@@ -129,6 +131,7 @@ pub(crate) fn waiting_reads(
         calls: store.calls_of(&session.id)?,
         start_held: store.hosting(&session.id)?.is_some_and(|one| one.start_held),
         asked_tasks: store.asked_project_tasks(&session.id)?,
+        not_ours: store.ended_watches_in(&session.id, core_model::WatchState::NotOurs.as_wire())?,
     })
 }
 
@@ -313,7 +316,7 @@ where
         session: &KeptSession,
         attachments: &[ipc::Attachment],
     ) -> Waited {
-        let WaitingReads { kept, rows, dismissed, done, turn_end, tell, plan, concerns, misreads, confirmed, word_asks, calls, start_held, asked_tasks } = reads;
+        let WaitingReads { kept, rows, dismissed, done, turn_end, tell, plan, concerns, misreads, confirmed, word_asks, calls, start_held, asked_tasks, not_ours } = reads;
         let asked = self.hosts().of(&session.id).state().asked.clone();
         let rows: Vec<SessionRow> = rows
             .iter()
@@ -477,6 +480,8 @@ where
             items.extend(asked_tasks.iter().map(|asked| crate::project_holds::task_done_item(asked)));
             // Notices a Fleet mod's rule raised as calls, until he dismisses each.
             items.extend(calls.iter().filter(|one| !dismissed.contains(&one.id)).map(super::fleet_calls::call_item));
+            // A watch that ended not ours, until he ignores it or asks for a fix.
+            items.extend(not_ours.iter().filter_map(crate::watches::not_ours_item).filter(|one| !dismissed.contains(&one.id)));
             items.extend(rows.into_iter().filter_map(|row| match row {
                 SessionRow::Delivery { at, choice: None, .. } => Some(super::delivering::delivery_item(at)),
                 SessionRow::WindowAsk {
@@ -870,6 +875,28 @@ where
             )),
             WaitingSource::SlotChoice => self.slot_chosen(&id, said.choice).await,
             WaitingSource::TaskDone => self.task_done_chosen(&id, &item.id, said.choice).await,
+            // Fleet raised it, so Ignore tells the agent nothing; Fix it, or his words, are a message.
+            WaitingSource::WatchNotOurs => {
+                let watch = item.act.as_ref().map(|act| act.target.clone()).unwrap_or_default();
+                let body = match said.choice {
+                    Some(crate::watches::IGNORE) => words.map(|words| reply(&item.text, Some(&format!("Ignore\n{words}")), line)),
+                    Some(crate::watches::FIX_IT) => {
+                        let kept = self.store().lock().await.watch_whole(&watch).map_err(|why| self.ledger_fault(why))?;
+                        let mut fix = kept.as_ref().map(crate::watches::fix_it).ok_or_else(|| self.settled_already())?;
+                        for more in [words, line].into_iter().flatten() {
+                            fix.push('\n');
+                            fix.push_str(more);
+                        }
+                        Some(fix)
+                    }
+                    Some(_) => return Err(self.hosted_refusal(SESSION_WAITING_EMPTY, "that item has no such choice")),
+                    None => Some(reply(&item.text, words, line)),
+                };
+                if let Some(body) = body {
+                    Arc::clone(&self).send_known(terminal.then_some(session), message(body)).await?;
+                }
+                self.drop_answered(&id, &item.id).await
+            }
             WaitingSource::Delivery => self.delivery_chosen(&id, said.choice).await,
             WaitingSource::WordsAddress => self.words_address_chosen(&id, &item, picked.as_deref(), words).await,
         };

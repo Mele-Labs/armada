@@ -146,3 +146,17 @@ fn a_deleted_watch_takes_everything_kept_of_it_and_nothing_else() {
     assert_eq!((kept.readings.len(), kept.set_aside.len(), kept.verdicts.len()), (1, 1, 1));
     assert!(store.watch_notice_kept("w-2", "failed:").unwrap());
 }
+
+#[test]
+fn a_jobs_ended_watches_are_read_by_their_end() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    let ended = |id: &str, session: &str, state: &str| KeptWatch { state: state.into(), live: false, ..watch(id, session) };
+    store.keep_watch(&ended("w-1", "s1", "not_ours")).unwrap();
+    store.keep_watch(&ended("w-2", "s1", "passed")).unwrap();
+    store.keep_watch(&KeptWatch { state: "not_ours".into(), ..watch("w-3", "s1") }).unwrap();
+    store.keep_watch(&ended("w-4", "s2", "not_ours")).unwrap();
+    store.keep_watch(&ended("w-5", "s1", "not_ours")).unwrap();
+    let ids: Vec<String> = store.ended_watches_in("s1", "not_ours").unwrap().into_iter().map(|one| one.watch.id).collect();
+    assert_eq!(ids, ["w-1", "w-5"], "ended ones of that Job in that end, the oldest first");
+}

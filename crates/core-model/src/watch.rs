@@ -51,6 +51,9 @@ pub enum WatchState {
     Running,
     Passed,
     Failed,
+    /// Every counted part passed, and a part set aside as not ours failed. Never `Passed`: what
+    /// it followed did not ship.
+    NotOurs,
     /// It ran past its give-up time with nothing finished.
     GaveUp,
     /// Its command broke too many readings in a row.
@@ -65,6 +68,7 @@ impl WatchState {
         WatchState::Running,
         WatchState::Passed,
         WatchState::Failed,
+        WatchState::NotOurs,
         WatchState::GaveUp,
         WatchState::Broken,
         WatchState::Stopped,
@@ -77,6 +81,7 @@ impl WatchState {
             WatchState::Running => "running",
             WatchState::Passed => "passed",
             WatchState::Failed => "failed",
+            WatchState::NotOurs => "not_ours",
             WatchState::GaveUp => "gave_up",
             WatchState::Broken => "broken",
             WatchState::Stopped => "stopped",
@@ -138,15 +143,16 @@ pub enum Verdict {
     /// The change caused it, and `sentence` says how. The watch ends `failed`, and a redeploy is a
     /// new watch.
     Ours { sentence: String },
-    /// Not the change's doing. `parts` stop counting toward the watch's state.
+    /// Not the change's doing. `parts` stop counting toward the watch's state, and while one still
+    /// reads `failed` the watch can end `not_ours` and never `passed`.
     NotOurs { sentence: String, parts: Vec<String> },
 }
 
 /// What `reading` comes to once the parts in `set_aside` stop counting.
 ///
 /// With parts, any counted `failed` is `failed`, any `waiting` or `running` is `running`, and all
-/// `passed` is `passed`. **Every part set aside is all passed**: nothing that still counts failed.
-/// Without parts, the line's own `state` stands.
+/// `passed` is `passed`. **Every part set aside is all passed** here: [`watch_state_of`] is what tells
+/// that from a pass. Without parts, the line's own `state` stands.
 pub fn counted_state(reading: &Reading, set_aside: &[SetAside]) -> ReadingState {
     if reading.parts.is_empty() {
         return reading.state;
@@ -166,9 +172,37 @@ pub fn counted_state(reading: &Reading, set_aside: &[SetAside]) -> ReadingState 
     }
 }
 
-/// Whether `reading` ends a watch `passed`: only `passed` once counted, and `finished`.
+/// The parts set aside whose state in `reading` is `failed`, in the order the reading names them.
+/// A set-aside part that passed on a retry is not among them.
+pub fn set_aside_failing<'a>(reading: &'a Reading, set_aside: &[SetAside]) -> Vec<&'a str> {
+    reading
+        .parts
+        .iter()
+        .filter(|part| part.state == ReadingState::Failed)
+        .filter(|part| set_aside.iter().any(|aside| aside.part == part.name))
+        .map(|part| part.name.as_str())
+        .collect()
+}
+
+/// Where `reading` puts a watch: [`counted_state`], except that a pass while a part set aside
+/// still fails is `not_ours`, so a run that did not ship never reads green.
+pub fn watch_state_of(reading: &Reading, set_aside: &[SetAside]) -> WatchState {
+    match counted_state(reading, set_aside) {
+        ReadingState::Passed if !set_aside_failing(reading, set_aside).is_empty() => WatchState::NotOurs,
+        counted => counted.into(),
+    }
+}
+
+/// Whether `reading` ends a watch `passed`: only `passed` once counted, nothing set aside failing,
+/// and `finished`.
 pub fn ends_passed(reading: &Reading, set_aside: &[SetAside]) -> bool {
-    reading.finished && counted_state(reading, set_aside) == ReadingState::Passed
+    reading.finished && watch_state_of(reading, set_aside) == WatchState::Passed
+}
+
+/// Whether `reading` ends a watch by itself: `finished`, and `passed` or `not_ours`. A failure
+/// waits for the agent's verdict.
+pub fn ends_on(reading: &Reading, set_aside: &[SetAside]) -> bool {
+    reading.finished && matches!(watch_state_of(reading, set_aside), WatchState::Passed | WatchState::NotOurs)
 }
 
 /// Why a weighing was not taken.
@@ -281,8 +315,8 @@ impl Watch {
 
     fn recount(&mut self) {
         let Some(last) = &self.last else { return };
-        self.state = counted_state(last, &self.set_aside).into();
-        if ends_passed(last, &self.set_aside) {
+        self.state = watch_state_of(last, &self.set_aside);
+        if ends_on(last, &self.set_aside) {
             self.live = false;
         }
     }

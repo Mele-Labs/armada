@@ -8,7 +8,7 @@ import type { WatchPart, WatchReading, WatchSummary } from "@armada/protocol";
 
 import { openLink } from "../commands";
 import { useSessions, useSessionsDraft } from "../sessions-draft";
-import { readingSays, readingState, readingsOf, verdictSaid, verdictsOn, WatchMark } from "../session-view/watch-marks";
+import { readingSays, readingState, readingsOf, verdictSaid, verdictsOn, watchSaid, WatchMark } from "../session-view/watch-marks";
 import { Open, useBack } from "./panels";
 import { SidePanel } from "./side";
 import { closePanel } from "./store";
@@ -147,7 +147,7 @@ export function WatchPanel({ item }: { item: Item }) {
       beside={link === undefined ? undefined : <Open address={link} onOpenLink={(address) => void openLink(address)} />}
       meta={
         <>
-          <WatchMark state={watch.state} />
+          <WatchMark state={watch.state} said={watchSaid(watch)} />
           {watch.follows === undefined ? null : <span className="mono">#{watch.follows}</span>}
         </>
       }

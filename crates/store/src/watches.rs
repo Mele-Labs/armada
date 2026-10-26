@@ -260,6 +260,21 @@ impl Store {
         self.watches_where("session_id = ?1 ORDER BY rowid DESC", Some(session))
     }
 
+    /// `session`'s ended watches whose state is the word `state`, the oldest first. A Job's Needs you
+    /// list reads it on every draw, so only the watches in that end are read whole.
+    pub fn ended_watches_in(&self, session: &str, state: &str) -> Result<Vec<KeptWatchWhole>, WriteError> {
+        let doing = "reading a Job's ended watches";
+        let mut asking = self
+            .conn
+            .prepare(&format!("SELECT {COLUMNS} FROM watches WHERE session_id = ?1 AND live = 0 AND state = ?2 ORDER BY rowid"))
+            .map_err(fault(doing))?;
+        let watches = asking
+            .query_map(params![session, state], watch_of)
+            .and_then(|rows| rows.collect::<Result<Vec<_>, _>>())
+            .map_err(fault(doing))?;
+        watches.into_iter().map(|watch| self.whole(watch)).collect()
+    }
+
     /// Every live watch, the oldest first.
     pub fn live_watches(&self) -> Result<Vec<KeptWatchWhole>, WriteError> {
         self.watches_where("live = 1 ORDER BY rowid", None)

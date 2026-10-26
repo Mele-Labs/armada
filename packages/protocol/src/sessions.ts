@@ -247,9 +247,12 @@ export type WaitingAct = { kind: "walk" | "answer" | "approve_pr" | "run" | "mes
  * `Mark the <project> tasks done?` for several, act `answer`) is Fleet asking whether the written project tasks a
  * finished Job was started with are done: `Mark done` (choice 0) or `Keep open` (choice 1), answered with `answer_waiting` and a
  * `choice`. No message goes to the agent and it cannot be dismissed. It is listed while the Job is live; the ask stands on the
- * tasks (`asked`) when the Job ends, and the Projects tab's tick settles it.
+ * tasks (`asked`) when the Job ends, and the Projects tab's tick settles it. `watch_not_ours` (id `watch_not_ours:<watch id>`,
+ * text `<watch>: <parts> failed`, act `answer` whose `target` is the watch id) is Fleet asking about a watch that ended `not_ours`:
+ * `Ignore` (choice 0) settles it and tells the agent nothing, `Fix it` (choice 1) sends the agent the part, its sentence and its link.
+ * Words alone go to the agent as a message. Each settles it, as dismissing does. It is listed while the Job is live.
  */
-export type WaitingSource = "agent" | "ask_card" | "walk" | "permission" | "window_ask" | "first_message" | "replied" | "done" | "plan" | "judge" | "slot_choice" | "delivery" | "words_address" | "fleet_call" | "task_done";
+export type WaitingSource = "agent" | "ask_card" | "walk" | "permission" | "window_ask" | "first_message" | "replied" | "done" | "plan" | "judge" | "slot_choice" | "delivery" | "words_address" | "fleet_call" | "task_done" | "watch_not_ours";
 
 /**
  * What a Session is doing, read by Fleet from what happened and never from what the agent said:

@@ -26,7 +26,8 @@ pub enum WatchReadingState {
     Failed,
 }
 
-/// Where a watch stands. The last three are ends no reading says.
+/// Where a watch stands. `not_ours` is a pass while a part set aside still fails, and never green; the
+/// last three are ends no reading says.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum WatchState {
@@ -34,6 +35,7 @@ pub enum WatchState {
     Running,
     Passed,
     Failed,
+    NotOurs,
     GaveUp,
     Broken,
     Stopped,
@@ -567,6 +569,7 @@ impl From<core_model::WatchState> for WatchState {
             core_model::WatchState::Running => WatchState::Running,
             core_model::WatchState::Passed => WatchState::Passed,
             core_model::WatchState::Failed => WatchState::Failed,
+            core_model::WatchState::NotOurs => WatchState::NotOurs,
             core_model::WatchState::GaveUp => WatchState::GaveUp,
             core_model::WatchState::Broken => WatchState::Broken,
             core_model::WatchState::Stopped => WatchState::Stopped,

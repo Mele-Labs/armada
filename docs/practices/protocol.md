@@ -852,6 +852,19 @@ Since 26 Oct 2026. The protocol ID moves with `crates/ipc/src`, the operation fi
 
 **The store keeps every reading.** Only the answer collapses them, in `ipc::collapsed`.
 
+### A watch that ended not ours: `not_ours` and `watch_not_ours`
+
+Since 26 Oct 2026. The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `WatchState` (`WatchSummary.state`) | Fleet writes | Gains `not_ours`: every counted part passed while a part set aside still reads `failed`. An end once the reading is finished; never `passed`. The readings keep their own states |
+| `WaitingSource` (`WaitingItem.source`) | Fleet writes | Gains `watch_not_ours`: id `watch_not_ours:<watch id>`, text `<watch>: <parts> failed`, act `answer` whose `target` is the watch id, options `Ignore` (choice 0) and `Fix it` (choice 1). Derived on every read from the store's watch, while the Job is live |
+| `answer_waiting` on it | Bridge writes | `Ignore` settles it and sends nothing; `Fix it` sends the agent the parts, each sentence and the link, then settles it; words alone are a message to the agent. `dismiss_waiting` settles it too |
+
+**No new field.** Bridge reads the watch from `watches.changed` by the act's `target`, so Escalate's summary is drawn from what the session already holds and nothing reaches Fleet.
+**The event stream.** No new event: the Job's row is published again when a watch ends, a weighing that ends one included, so the item arrives with it.
+
 ## Not a question: `misread` on `dismiss_waiting`
 
 Since 23 Oct 2026. `docs/concepts/session/waiting-on-the-person.md`, *A question that asks nothing*.

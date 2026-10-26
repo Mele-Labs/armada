@@ -78,6 +78,7 @@ pub use trigger::{
     TriggerWhen, REPAIR_TRIES,
 };
 pub use watch::{
-    counted_state, ends_passed, fill, span_seconds, value_slot, BrokenReading, NotFilled,
+    counted_state, ends_on, ends_passed, fill, set_aside_failing, span_seconds, watch_state_of,
+    value_slot, BrokenReading, NotFilled,
     NotWeighed, Part, Reading, ReadingState, SetAside, Verdict, Watch, WatchState,
 };

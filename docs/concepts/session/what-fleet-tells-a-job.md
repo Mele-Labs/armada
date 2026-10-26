@@ -14,14 +14,15 @@ A merge tells the Job to call `finish_up`, which releases its slot and deletes t
 | Terminal | Fleet cannot push into one. The message is held for its mod, prefixed `Fleet:`, and handed over when the mod next asks. A mod that is not asking leaves it unsent and Fleet tries again at the next reading |
 | Ended | Nothing is sent |
 
-**A Job is told when a watch it started changes.** A watch is a command Fleet runs for the Job (`docs/concepts/watch.md`), and Fleet sends one message when it turns failed, ends passed, gives up or breaks.
-`waiting`, `running`, a pass not yet finished and a stop tell nothing, and a weighing tells nobody, since the agent gave it.
+**A Job is told when a watch it started changes.** A watch is a command Fleet runs for the Job (`docs/concepts/watch.md`), and Fleet sends one message when it turns failed, ends passed, ends not ours, gives up or breaks.
+`waiting`, `running`, a pass not yet finished and a stop tell nothing, and a weighing tells nobody, since the agent gave it, save one that ends the watch not ours.
 The message goes the way a pull request's does, by the table above.
 
 | The watch | The message opens |
 |---|---|
 | Turns `failed` | `QA deploy failed: deploy-api failed.` |
 | Ends `passed` | `QA deploy passed.` |
+| Ends `not_ours` | `QA deploy ended not ours: provision failed.` |
 | Gives up | `QA deploy gave up after 2h. It last said: two of three services done` |
 | Breaks three readings in a row | `QA deploy stopped: its command failed three times.` |
 
@@ -31,6 +32,13 @@ The reading's link follows after a space, and the second line names the watch fo
 
 ```
 Weigh it with weigh_watch on watch w-…: ours ends it, and not_ours sets those parts aside and it carries on.
+```
+
+**A not ours notice names the set-aside parts that failed, then the link, each part's sentence, and a last line.**
+
+```
+provision, set aside: <the sentence that set it aside>
+It did not pass, so do not report it as passed. The person settles it from Needs you.
 ```
 
 **A gave up notice quotes the last thing the watch said.**

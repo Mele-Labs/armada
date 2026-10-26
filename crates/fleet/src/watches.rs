@@ -4,10 +4,12 @@
 //! **The store holds every watch**, its readings, set-asides, verdicts and what was told of it, so
 //! a restart carries on (`store::KeptWatch`). Memory holds only the commands running now.
 //! `serving` answers the four operations, `running` takes readings on a timer of its own, and
-//! `telling` tells the Job once per change and ends its watches with it.
+//! `telling` tells the Job once per change and ends its watches with it, and `needing` puts one that
+//! ended not ours on its Needs you list.
 
 pub(crate) mod environment;
 pub(crate) mod listening;
+mod needing;
 mod running;
 mod serving;
 mod telling;
@@ -31,6 +33,7 @@ pub(crate) use environment::LoginEnvironment;
 pub use running::{keep_running_watches, EVERY};
 #[cfg(test)]
 pub(crate) use running::interval;
+pub(crate) use needing::{fix_it, not_ours_item, FIX_IT, IGNORE};
 pub(crate) use telling::owed;
 #[cfg(test)]
 pub(crate) use telling::notice;

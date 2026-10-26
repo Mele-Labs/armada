@@ -643,6 +643,7 @@ waiting   circle-dashed  borrowed  a Trigger's pending
 running   circle-dot     borrowed  a Trigger's running
 passed    check          borrowed  a Trigger's passed
 failed    x              borrowed  a Trigger's failed
+not_ours  corner-up-right  proposed  a pass while a part set aside failed: never green
 gave_up   clock          borrowed  check_outcome.timed_out: outran its time
 broken    unplug         borrowed  check_outcome.signalled: gave no line
 stopped   ban            borrowed  an end someone chose
@@ -651,7 +652,8 @@ stopped   ban            borrowed  an end someone chose
 **`stopped` takes `ban` because `x` is reserved to failure.**
 A person or an agent chose to end the watch, and its Job ending ends it the same way.
 A part set aside keeps its glyph and is struck through with the sentence that set it aside.
-Each mark has a tooltip naming the state: Waiting, Running, Passed, Failed, Gave up, Broken, Stopped.
+**`not_ours` takes `corner-up-right` and never `check`**, proposed 26 Oct 2026: what broke points away from the change to its owner, and a green mark for it was a false positive.
+Each mark has a tooltip naming the state: Waiting, Running, Passed, Failed, Not ours with the parts that failed, as `Not ours: provision failed`, Gave up, Broken, Stopped.
 
 ### Blast radius
 

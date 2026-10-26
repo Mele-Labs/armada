@@ -30,8 +30,30 @@ fn failing(watch: &core_model::Watch) -> Vec<String> {
         .collect()
 }
 
+/// The parts set aside in `watch`'s last reading that failed, in the order the reading named them.
+pub(crate) fn aside_failing(watch: &core_model::Watch) -> Vec<String> {
+    watch
+        .last
+        .as_ref()
+        .map(|last| core_model::set_aside_failing(last, &watch.set_aside).into_iter().map(String::from).collect())
+        .unwrap_or_default()
+}
+
+/// What the Job is told, and the person's Needs you item says, of a watch that ended `not_ours`:
+/// each part that failed with the sentence that set it aside, and the run's link.
+pub(crate) fn not_ours_said(watch: &core_model::Watch) -> (Vec<(String, String)>, Option<String>) {
+    let parts = aside_failing(watch)
+        .into_iter()
+        .map(|part| {
+            let sentence = watch.set_aside.iter().find(|aside| aside.part == part).map(|aside| aside.sentence.clone());
+            (part, sentence.unwrap_or_default())
+        })
+        .collect();
+    (parts, watch.last.as_ref().and_then(|last| last.link.clone()))
+}
+
 /// The notice `watch` owes its Job in the state it is in, as the key a store row keeps once.
-/// `None` for `waiting`, `running`, a pass not yet finished, and `stopped`.
+/// `None` for `waiting`, `running`, a pass or a not ours not yet finished, and `stopped`.
 pub(crate) fn owed(watch: &core_model::Watch) -> Option<String> {
     match watch.state {
         WatchState::Failed => {
@@ -40,6 +62,11 @@ pub(crate) fn owed(watch: &core_model::Watch) -> Option<String> {
             Some(format!("failed:{}", parts.join(",")))
         }
         WatchState::Passed if !watch.live => Some(String::from("passed")),
+        WatchState::NotOurs if !watch.live => {
+            let mut parts = aside_failing(watch);
+            parts.sort();
+            Some(format!("not_ours:{}", parts.join(",")))
+        }
         WatchState::GaveUp => Some(String::from("gave_up")),
         WatchState::Broken => Some(String::from("broken")),
         _ => None,
@@ -93,6 +120,20 @@ pub(crate) fn notice(kept: &KeptWatchWhole, watch: &core_model::Watch) -> Option
             said
         }
         WatchState::Passed if !watch.live => format!("{name} passed."),
+        WatchState::NotOurs if !watch.live => {
+            let (parts, link) = not_ours_said(watch);
+            let names: Vec<&str> = parts.iter().map(|(part, _)| part.as_str()).collect();
+            let mut said = format!("{name} ended not ours: {} failed.", names.join(", "));
+            if let Some(link) = link {
+                said.push(' ');
+                said.push_str(&link);
+            }
+            for (part, sentence) in &parts {
+                said.push_str(&format!("\n{part}, set aside: {}", sentence.trim()));
+            }
+            said.push_str("\nIt did not pass, so do not report it as passed. The person settles it from Needs you.");
+            said
+        }
         WatchState::GaveUp => match &watch.last {
             Some(last) => format!(
                 "{name} gave up after {}. It last said: {}",

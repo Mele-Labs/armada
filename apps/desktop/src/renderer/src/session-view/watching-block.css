@@ -12,6 +12,7 @@
 .sv-watch-mark[data-state="running"] { color: var(--status-running); }
 .sv-watch-mark[data-state="passed"] { color: var(--status-completed-success); }
 .sv-watch-mark[data-state="failed"] { color: var(--status-completed-failed); }
+.sv-watch-mark[data-state="not_ours"],
 .sv-watch-mark[data-state="gave_up"],
 .sv-watch-mark[data-state="broken"] { color: var(--status-escalated); }
 .sv-watch-mark[data-state="stopped"] { color: var(--status-killed); }

@@ -320,7 +320,7 @@ where
             }
         };
         let now = self.now();
-        let (job, whole) = {
+        let (job, whole, ended) = {
             let mut store = self.store().lock().await;
             let kept = store
                 .watch_whole(&weigh.watch)
@@ -341,16 +341,21 @@ where
             if next.state != kept.watch.state {
                 next.changed_at = at.clone();
             }
-            // The agent gave this, so what it comes to tells nobody.
-            if let Some(key) = owed(&watch) {
+            // The agent gave this, so what it comes to tells nobody, except a not ours ending: the
+            // agent is told it did not pass, so it does not report a pass.
+            if let Some(key) = owed(&watch).filter(|_| watch.state != WatchState::NotOurs) {
                 let _ = store.keep_watch_notice(&kept.watch.id, &key, &at);
             }
             next.unsaid = unsaid(&store, &kept.watch.id, &watch);
             store.keep_watch(&next).map_err(|why| self.ledger_fault(why))?;
             let whole = store.watch_whole(&kept.watch.id).map_err(|why| self.ledger_fault(why))?;
-            (next.session_id, whole)
+            (next.session_id, whole, kept.watch.live && !next.live)
         };
         self.watches_published(&job).await;
+        if ended {
+            self.watches().stop(&weigh.watch);
+            self.watching_row_published(&job).await;
+        }
         whole.map(|whole| self.watch_summary(&whole)).ok_or_else(|| self.no_such_watch(&weigh.watch))
     }
 

@@ -12,7 +12,7 @@ import type { Session } from "@armada/screens/src/draft/sessions";
 
 import { useSessionsDraft } from "../sessions-draft";
 import { openInPanel } from "../shared-panel/store";
-import { readingSays, verdictSaid, verdictsOn, WatchMark } from "./watch-marks";
+import { readingSays, verdictSaid, verdictsOn, watchSaid, WatchMark } from "./watch-marks";
 import "./watching-block.css";
 
 export const openWatchPanel = (sessionId: string, watch: WatchSummary) => openInPanel({ kind: "watch", sessionId, id: watch.id, name: watch.name });
@@ -24,7 +24,7 @@ function WatchRow({ sessionId, watch, onDelete }: { sessionId: string; watch: Wa
     <li className="sv-watch" data-state={watch.state}>
       <div className="sv-watch__line">
         <button type="button" className="sv-watch__row" aria-label={`Watch ${watch.name}`} onClick={() => openWatchPanel(sessionId, watch)}>
-          <WatchMark state={watch.state} />
+          <WatchMark state={watch.state} said={watchSaid(watch)} />
           <span className="sv-watch__name">{watch.name}</span>
           <span className="sv-watch__says">{last === undefined ? "" : readingSays(last)}</span>
           {last === undefined ? <span /> : <Stamp at={last.at} first="age" still className="sv-watch__age" />}
