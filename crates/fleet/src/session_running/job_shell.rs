@@ -43,6 +43,36 @@ fn kept(text: String) -> String {
     text[cut..].to_string()
 }
 
+/// Ctrl-U: zsh, bash and a terminal's own line discipline each clear the line on it.
+const CLEAR_LINE: char = '\u{15}';
+
+/// What `typed` writes. **The line is cleared first** where it asks to be and holds something
+/// printable: a terminal's answers to a program's queries land on the input line as text, and Enter
+/// would run them with the agent's words. A key such as Ctrl-C is sent bare, since a full-screen
+/// program may take Ctrl-U as a key of its own.
+fn keys(typed: &TypeInTerminal) -> String {
+    let mut keys = String::new();
+    if typed.clear && typed.text.chars().any(|c| !c.is_control()) {
+        keys.push(CLEAR_LINE);
+    }
+    keys.push_str(&typed.text);
+    if typed.enter {
+        keys.push('\r');
+    }
+    keys
+}
+
+/// Whether `printed` shows `text`'s first printable line. Spaces are left out of both sides, since
+/// a shell wraps a long line where it likes; and it is read both as the screen resolved it and as
+/// the characters arrived, since a wrap that returns to the line's start overwrites the first.
+fn echoed(text: &str, printed: &str) -> bool {
+    let Some(first) = text.lines().map(plain::printed_through).find(|line| !line.is_empty()) else {
+        return true;
+    };
+    plain::printed_through(&plain::last_lines(printed, usize::MAX)).contains(&first)
+        || plain::printed_through(printed).contains(&first)
+}
+
 /// What a run prints until it has printed nothing for [`QUIET`], it ends, or `until`; and whether
 /// `until` came while it was still printing.
 async fn heard(live: &mut tokio::sync::broadcast::Receiver<SessionRunEvent>, until: Instant) -> (String, bool) {
@@ -220,14 +250,19 @@ where
         if opened {
             self.session_runs().settled(&run_id).await;
         }
-        let keys = if typed.enter { format!("{}\r", typed.text) } else { typed.text };
+        let keys = keys(&typed);
         let wait = Duration::from_secs(typed.wait_seconds.unwrap_or(WAIT).clamp(1, MOST_WAIT));
         let (printed, still_printing) = self
             .session_runs()
             .typed_and_heard(&run_id, keys, wait)
             .await
             .ok_or_else(|| self.not_in_flight())?;
-        Ok(TerminalTyped { run_id, printed: kept(plain::last_lines(&printed, TYPED_LINES)), still_printing })
+        Ok(TerminalTyped {
+            run_id,
+            echoed: echoed(&typed.text, &printed),
+            printed: kept(plain::last_lines(&printed, TYPED_LINES)),
+            still_printing,
+        })
     }
 
     /// The last `lines` of the Job's shell, as the person's pane shows them.

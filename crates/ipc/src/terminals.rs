@@ -26,6 +26,10 @@ pub struct TypeInTerminal {
     /// Whether Enter follows `text`. Absent is `true`.
     #[serde(default = "pressed")]
     pub enter: bool,
+    /// Whether Ctrl-U goes first, clearing whatever already stands on the line. Absent is `true`.
+    /// Text with nothing printable in it, such as Ctrl-C, is typed without it.
+    #[serde(default = "pressed")]
+    pub clear: bool,
     /// The longest to wait for the shell to go quiet. Absent is 10; at most 60.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub wait_seconds: Option<u64>,
@@ -46,6 +50,9 @@ pub struct TerminalTyped {
     pub printed: String,
     /// Whether output was still arriving when the wait ran out.
     pub still_printing: bool,
+    /// `false` where the text typed never appeared in what the shell printed: a password prompt,
+    /// or a program that is not reading. `true` where the text held nothing printable.
+    pub echoed: bool,
 }
 
 /// `read_terminal`'s answer: the last lines of the Job's shell, as its screen drew them.

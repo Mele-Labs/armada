@@ -549,11 +549,11 @@ export type SessionRunMessage =
 /** `open_terminal`: the person opens the Job's shell in Bridge. `POST /sessions/terminal/open`. Answered 200 with `SessionRunUnderway`: the shell already open, or one opened now. `cols` and `rows` are the size in cells where it opens now; absent is 80 by 24. */
 export type OpenTerminal = { session_id: string; cols?: number; rows?: number };
 
-/** `type_in_terminal`: the Job's agent types into the Job's shell, opening it where it has none. `POST /sessions/terminal/type`. Answered 200 with `TerminalTyped`. `text` is written as it is; `enter` absent is true; `wait_seconds` absent is 10, at most 60; `session_id` is read only where the connection places no hosted Job. */
-export type TypeInTerminal = { text: string; enter?: boolean; wait_seconds?: number; session_id?: string };
+/** `type_in_terminal`: the Job's agent types into the Job's shell, opening it where it has none. `POST /sessions/terminal/type`. Answered 200 with `TerminalTyped`. `text` is written as it is; `enter` absent is true; `clear` absent is true, which writes Ctrl-U before `text`; `wait_seconds` absent is 10, at most 60; `session_id` is read only where the connection places no hosted Job. */
+export type TypeInTerminal = { text: string; enter?: boolean; clear?: boolean; wait_seconds?: number; session_id?: string };
 
-/** `type_in_terminal`'s answer: what the shell printed after the text was typed, as plain lines, the last 200 at most. `still_printing` is whether output was still arriving when the wait ran out. */
-export type TerminalTyped = { run_id: string; printed: string; still_printing: boolean };
+/** `type_in_terminal`'s answer: what the shell printed after the text was typed, as plain lines, the last 200 at most. `still_printing` is whether output was still arriving when the wait ran out. `echoed` is false where the text typed never appeared in what was printed. */
+export type TerminalTyped = { run_id: string; printed: string; still_printing: boolean; echoed: boolean };
 
 /** `read_terminal`'s answer: the last lines of the Job's shell, as its screen drew them. `GET /sessions/terminal/read`. */
 export type TerminalScreen = { run_id: string; screen: string };

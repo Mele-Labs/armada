@@ -37,6 +37,23 @@ pub(crate) fn last_lines(output: &str, count: usize) -> String {
     done[from..].join("\n")
 }
 
+/// `output`'s printable characters in the order they arrived, with escapes, controls and spaces
+/// taken out and nothing written over. A line a shell wrapped by returning to its start reads whole
+/// here, where [`last_lines`] would read it overwritten.
+pub(crate) fn printed_through(output: &str) -> String {
+    let (mut scratch, mut col) = (Vec::new(), 0);
+    let mut kept = String::new();
+    let mut chars = output.chars().peekable();
+    while let Some(c) = chars.next() {
+        match c {
+            '\u{1b}' => escape(&mut chars, &mut scratch, &mut col),
+            c if c.is_control() || c.is_whitespace() => {}
+            c => kept.push(c),
+        }
+    }
+    kept
+}
+
 fn finished(line: &mut Vec<char>) -> String {
     let text: String = line.iter().collect();
     line.clear();
