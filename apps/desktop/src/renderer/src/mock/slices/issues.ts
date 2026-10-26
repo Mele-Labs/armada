@@ -7,6 +7,7 @@ import type { IssuesApi } from "../../../../shared/api/issues";
 import type { IssuesSource, QueryToSave, Read, SavedQuery, Ticket, TicketRead, Tracker, WrittenQuery } from "../../issues-tab/model";
 import type { Slice } from "../fake-context";
 import { unanswered } from "../moment";
+import type { ReviewSeed } from "../review-seed";
 import { REPOSITORY_ISSUES, finishedPullRequest, issueOfNumber } from "../numbered";
 import { ISSUES } from "../shared-panel-reads";
 
@@ -84,6 +85,13 @@ function openOn(manifestId: string, number: number, lines: MergeLines | null): P
   return { manifest_id: manifestId, number, state: "open", auto_merge: false, ...(one.queue === undefined ? {} : { queued: true }), checks, title: one.title, branch: one.branch, address: one.url };
 }
 
+/** An open pull request the scenario's review forge holds, as `get_pull_request` states it: a link pasted before Reviews has read its lists. */
+function reviewed(seed: ReviewSeed | undefined, manifestId: string, number: number): PullRequestState | undefined {
+  const one = seed?.prs.find((pr) => pr.number === number);
+  if (one === undefined) return undefined;
+  return { manifest_id: manifestId, number, state: "open", auto_merge: false, checks: { state: one.checks === "failed" ? "failed" : one.checks === "passed" ? "passed" : "pending", ...(one.checks === "failed" ? { failing: [] } : {}) } as PullRequestState["checks"], title: one.title, branch: one.branch, address: one.address };
+}
+
 function issueRead(manifestId: string, number: number): IssueRead | undefined {
   const one = issueOfNumber(manifestId, number);
   if (one === undefined) return undefined;
@@ -114,7 +122,7 @@ function panelIssue(reference: string): IssueRead | undefined {
 export const issues: Slice<IssuesApi, Record<string, never>> = {
   name: "issues",
   state: {},
-  api: (_scenario, fleet) => ({
+  api: (scenario, fleet) => ({
     listIssues: async (manifestId) => ({ ok: true, value: listed(manifestId) }),
     // `#` reads these through `mock/numbered.ts` here; the side panel reads the same fixtures, as a Fleet's answers.
     getIssue: async (manifestId, reference) => {
@@ -129,7 +137,7 @@ export const issues: Slice<IssuesApi, Record<string, never>> = {
     forgetIssueQuery: async () => ({ ok: false, outcome: unanswered("/issue_queries/forget") }),
     installIssueTool: async () => ({ ok: false, outcome: unanswered("/issue_queries/install_tool") }),
     getPullRequest: async (manifestId, number) => {
-      const one = openOn(manifestId, number, fleet.state().mergeLines) ?? finishedPullRequest(manifestId, number);
+      const one = openOn(manifestId, number, fleet.state().mergeLines) ?? finishedPullRequest(manifestId, number) ?? reviewed(scenario.draft?.prReview, manifestId, number);
       return one === undefined ? { ok: false, outcome: unanswered("/pull_requests") } : { ok: true, value: one };
     },
     // A forge that has not moved since the line was read: the refresh answers what a read would, and nothing changes.

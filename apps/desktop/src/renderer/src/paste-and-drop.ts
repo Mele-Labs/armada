@@ -1,6 +1,6 @@
 // A paste or a drop anywhere in the window, heard once, at the shell, and handed to whichever claims it: a package
-// first (`sharing/ImportPackage.tsx`), then a link (`link-drop.tsx`). **The order is this file's**, not the order
-// the two happen to mount in, so neither has to know the other is listening.
+// first (`sharing/ImportPackage.tsx`), then a pull request's or an issue's link (`link-routes.ts`), then any other link
+// (`link-drop.tsx`). **The order is this file's**, not the order they happen to mount in, so none has to know the others are listening.
 
 import { useEffect, useRef } from "react";
 
@@ -11,7 +11,7 @@ export type Claimant = {
   drop?: (event: DragEvent) => boolean;
 };
 
-const ORDER = ["package", "link"] as const;
+const ORDER = ["package", "pull", "issue", "link"] as const;
 type ClaimantName = (typeof ORDER)[number];
 
 const claimants = new Map<ClaimantName, Claimant>();

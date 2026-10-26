@@ -65,6 +65,7 @@ The binding rules are `../contracts/configuration.md`, *The Machine tier is one 
 - Landing Manifest
 - Notification routing: `features.notifications`, on or off for every job that needs you
 - Interface sounds: `features.uiSounds`
+- Pull request links: `features.deepLinks`, whether `armada://pull/<owner>/<name>/<n>` opens that review in Bridge
 - Autopilot panel: `features.autopilotPanel`, whether the Cockpit draws it; off ships
 - Voice/tone
 - Helm budget soft-warning threshold

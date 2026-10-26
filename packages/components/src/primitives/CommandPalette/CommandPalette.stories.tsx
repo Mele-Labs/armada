@@ -627,3 +627,37 @@ export const ClickInsideAConfirmationDoesNotClose: Story = {
     await expect(canvas.getByRole("dialog", { name: "Command palette" })).toBeVisible();
   },
 };
+
+const forgeLink = {
+  kindOf: (typed: string) => (/\/pull\/\d+/.test(typed) ? ("pull" as const) : /\/issues\/\d+/.test(typed) ? ("issue" as const) : null),
+  onOpen: fn(),
+};
+
+/**
+ * **A pasted link to a pull request or an issue leads with the row that opens it**, so ↵ opens the page and not a search
+ * for the address. Any other words get no such row.
+ */
+export const APastedPullLinkLeadsWithOpenReview: Story = {
+  args: { ...board, defaultQuery: "https://forge.example/Mele-Labs/armada/pull/2899", link: forgeLink },
+  play: async ({ args, canvas, userEvent }) => {
+    const row = canvas.getByRole("option", { name: /^Open review/ });
+    await expect(row).toHaveAttribute("aria-selected", "true");
+    await userEvent.keyboard("{Enter}");
+    await expect(args.link!.onOpen).toHaveBeenCalledWith("https://forge.example/Mele-Labs/armada/pull/2899", "pull");
+  },
+};
+
+export const APastedIssueLinkLeadsWithOpenIssue: Story = {
+  args: { ...board, defaultQuery: "https://forge.example/Mele-Labs/armada/issues/2214", link: forgeLink },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("option", { name: /^Open issue/ })).toHaveAttribute("aria-selected", "true");
+    await expect(canvas.queryByRole("option", { name: /^Open review/ })).toBeNull();
+  },
+};
+
+export const WordsThatAreNoLinkGetNoOpenRow: Story = {
+  args: { ...board, defaultQuery: "delete", link: forgeLink },
+  play: async ({ canvas }) => {
+    await expect(canvas.queryByRole("option", { name: /^Open (review|issue)/ })).toBeNull();
+  },
+};
