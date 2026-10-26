@@ -3,7 +3,7 @@
 
 import type { IpcMain } from "electron";
 
-import type { LinkProjectIssue, MoveProjectRow, NameProject, ProjectTask, TickProjectTask } from "@armada/protocol";
+import type { LinkProjectIssue, LinkTaskJob, LinkTaskPull, MoveProjectRow, NameProject, ProjectTask, TickProjectTask } from "@armada/protocol";
 
 import { CHANNELS } from "../shared/bridge";
 import type { FleetConnection } from "./connection";
@@ -51,5 +51,17 @@ export function handleProjects({ ipc, connection }: Hosts): void {
   );
   ipc.handle(CHANNELS.tickProjectTask, (_event, manifest: unknown, project: unknown, row: unknown, one: unknown) =>
     named(manifest) && named(project) && named(row) && body(one) ? (host()?.tickTask(manifest, project, row, one as TickProjectTask) ?? unsent) : unsent,
+  );
+  ipc.handle(CHANNELS.linkTaskJob, (_event, manifest: unknown, project: unknown, row: unknown, one: unknown) =>
+    named(manifest) && named(project) && named(row) && body(one) ? (host()?.linkTaskJob(manifest, project, row, one as LinkTaskJob) ?? unsent) : unsent,
+  );
+  ipc.handle(CHANNELS.unlinkTaskJob, (_event, manifest: unknown, project: unknown, row: unknown) =>
+    named(manifest) && named(project) && named(row) ? (host()?.unlinkTaskJob(manifest, project, row) ?? unsent) : unsent,
+  );
+  ipc.handle(CHANNELS.linkTaskPull, (_event, manifest: unknown, project: unknown, row: unknown, one: unknown) =>
+    named(manifest) && named(project) && named(row) && body(one) ? (host()?.linkTaskPull(manifest, project, row, one as LinkTaskPull) ?? unsent) : unsent,
+  );
+  ipc.handle(CHANNELS.unlinkTaskPull, (_event, manifest: unknown, project: unknown, row: unknown, one: unknown) =>
+    named(manifest) && named(project) && named(row) && body(one) ? (host()?.unlinkTaskPull(manifest, project, row, one as LinkTaskPull) ?? unsent) : unsent,
   );
 }

@@ -1,4 +1,4 @@
-// A repository's projects, asked of Fleet by its Manifest: the path and body each of the thirteen routes sends, what comes
+// A repository's projects, asked of Fleet by its Manifest: the path and body each of the seventeen routes sends, what comes
 // back, and a refusal in Fleet's own words. `docs/practices/protocol/projects.md`.
 
 import { once } from "node:events";
@@ -50,6 +50,10 @@ describe("a repository's projects", () => {
       await host.linkIssue("armada", "p1", { issue: "#7" }),
       await host.linkTaskIssue("armada", "p1", "t1", { issue: "ABC-12" }),
       await host.unlinkTaskIssue("armada", "p1", "t1", { issue: "ABC-12" }),
+      await host.linkTaskJob("armada", "p1", "t1", { session_id: "s1" }),
+      await host.unlinkTaskJob("armada", "p1", "t1"),
+      await host.linkTaskPull("armada", "p1", "t1", { number: 2874 }),
+      await host.unlinkTaskPull("armada", "p1", "t1", { number: 2874 }),
       await host.removeRow("armada", "p1", "t1"),
       await host.moveRow("armada", "p1", "t1", { position: 2, parent: "" }),
       await host.tickTask("armada", "p1", "t1", { done: true }),
@@ -66,6 +70,10 @@ describe("a repository's projects", () => {
       'POST /projects/armada/p1/issues {"issue":"#7"}',
       'POST /projects/armada/p1/rows/t1/issues {"issue":"ABC-12"}',
       'POST /projects/armada/p1/rows/t1/issues/unlink {"issue":"ABC-12"}',
+      'POST /projects/armada/p1/rows/t1/job {"session_id":"s1"}',
+      "POST /projects/armada/p1/rows/t1/job/unlink",
+      'POST /projects/armada/p1/rows/t1/pulls {"number":2874}',
+      'POST /projects/armada/p1/rows/t1/pulls/unlink {"number":2874}',
       "POST /projects/armada/p1/rows/t1/remove",
       'POST /projects/armada/p1/rows/t1/move {"position":2,"parent":""}',
       'POST /projects/armada/p1/rows/t1/tick {"done":true}',

@@ -33,7 +33,7 @@ import type { ModChecked } from "@armada/protocol";
 import type { ForgetReviewSearch, OpenReviewWalk, PullReviewLists, PullThreadResolved, RememberedPlace, RememberedPlaces, ResolvePullThread, ReviewRun, ReviewRuns, ReviewTools, ReviewWalk, SaveReviewTool, SaveWalkPlace, StartReviewRun, StartReviewSearch, WalkPlaceFound, WritePullRequest } from "@armada/protocol";
 import type { ReviewWalkNote, ShownReviewWalk, ShownReviewWalkOutcome } from "../shared/review-walk";
 import type { ChosenHold, SessionHeld, SessionHoldsReleased, SetNoticeMute } from "@armada/protocol";
-import type { ActFailed, AgentSignIn, LinkProjectIssue, MoveProjectRow, NameProject, ProjectTask, Projects, TickProjectTask, HomeKind, HomeKinds, HomeRowAt, HomeSide, HomeSynced, ModelDownshiftState, PlanUsage, SharedHomeRead, SignedOut, SleepState, TimelineAsk, TimelineEvent } from "@armada/protocol";
+import type { ActFailed, AgentSignIn, LinkProjectIssue, LinkTaskJob, LinkTaskPull, MoveProjectRow, NameProject, ProjectTask, Projects, TickProjectTask, HomeKind, HomeKinds, HomeRowAt, HomeSide, HomeSynced, ModelDownshiftState, PlanUsage, SharedHomeRead, SignedOut, SleepState, TimelineAsk, TimelineEvent } from "@armada/protocol";
 import type { FlightControls } from "@armada/protocol";
 import type { StopWatch, WatchSummary } from "@armada/protocol";
 import type { ApproveRepositoryTile, RepositoryTile } from "@armada/protocol";
@@ -396,6 +396,13 @@ const api: BridgeApi = {
     ipcRenderer.invoke(CHANNELS.linkTaskIssue, manifestId, project, row, body),
   unlinkTaskIssue: (manifestId: string, project: string, row: string, body: LinkProjectIssue): Promise<ProjectsActed> =>
     ipcRenderer.invoke(CHANNELS.unlinkTaskIssue, manifestId, project, row, body),
+  linkTaskJob: (manifestId: string, project: string, row: string, body: LinkTaskJob): Promise<ProjectsActed> =>
+    ipcRenderer.invoke(CHANNELS.linkTaskJob, manifestId, project, row, body),
+  unlinkTaskJob: (manifestId: string, project: string, row: string): Promise<ProjectsActed> => ipcRenderer.invoke(CHANNELS.unlinkTaskJob, manifestId, project, row),
+  linkTaskPull: (manifestId: string, project: string, row: string, body: LinkTaskPull): Promise<ProjectsActed> =>
+    ipcRenderer.invoke(CHANNELS.linkTaskPull, manifestId, project, row, body),
+  unlinkTaskPull: (manifestId: string, project: string, row: string, body: LinkTaskPull): Promise<ProjectsActed> =>
+    ipcRenderer.invoke(CHANNELS.unlinkTaskPull, manifestId, project, row, body),
   removeProjectRow: (manifestId: string, project: string, row: string): Promise<ProjectsActed> => ipcRenderer.invoke(CHANNELS.removeProjectRow, manifestId, project, row),
   moveProjectRow: (manifestId: string, project: string, row: string, body: MoveProjectRow): Promise<ProjectsActed> =>
     ipcRenderer.invoke(CHANNELS.moveProjectRow, manifestId, project, row, body),

@@ -1,7 +1,7 @@
 // A repository's projects, as main asks Fleet for them: one request per route, and the stream's `projects.changed`, passed on to
 // every window. Nothing is kept here, since every write answers the repository's projects whole.
 
-import type { LinkProjectIssue, MoveProjectRow, NameProject, Outcome, ProjectTask, Projects, TickProjectTask } from "@armada/protocol";
+import type { LinkProjectIssue, LinkTaskJob, LinkTaskPull, MoveProjectRow, NameProject, Outcome, ProjectTask, Projects, TickProjectTask } from "@armada/protocol";
 import type { ProjectsActed } from "../shared/api/projects";
 import { ask } from "./request";
 
@@ -73,6 +73,26 @@ export class ProjectsHost {
   /** `POST /projects/:repository/:project/rows/:row/issues/unlink`. */
   unlinkTaskIssue(manifestId: string, project: string, row: string, body: LinkProjectIssue): Promise<ProjectsActed> {
     return this.row(manifestId, project, row, "/issues/unlink", body);
+  }
+
+  /** `POST /projects/:repository/:project/rows/:row/job`. */
+  linkTaskJob(manifestId: string, project: string, row: string, body: LinkTaskJob): Promise<ProjectsActed> {
+    return this.row(manifestId, project, row, "/job", body);
+  }
+
+  /** `POST /projects/:repository/:project/rows/:row/job/unlink`. */
+  unlinkTaskJob(manifestId: string, project: string, row: string): Promise<ProjectsActed> {
+    return this.row(manifestId, project, row, "/job/unlink");
+  }
+
+  /** `POST /projects/:repository/:project/rows/:row/pulls`. */
+  linkTaskPull(manifestId: string, project: string, row: string, body: LinkTaskPull): Promise<ProjectsActed> {
+    return this.row(manifestId, project, row, "/pulls", body);
+  }
+
+  /** `POST /projects/:repository/:project/rows/:row/pulls/unlink`. */
+  unlinkTaskPull(manifestId: string, project: string, row: string, body: LinkTaskPull): Promise<ProjectsActed> {
+    return this.row(manifestId, project, row, "/pulls/unlink", body);
   }
 
   /** `POST /projects/:repository/:project/rows/:row/remove`. */

@@ -1,7 +1,7 @@
 // A repository's projects, kept in Fleet: every route, and the event that carries them whole. `docs/practices/protocol/projects.md`.
 // A slice imports protocol, never another slice; `../api.ts` and `../bridge.ts` compose them.
 
-import type { LinkProjectIssue, MoveProjectRow, NameProject, Outcome, ProjectTask, Projects, TickProjectTask } from "@armada/protocol";
+import type { LinkProjectIssue, LinkTaskJob, LinkTaskPull, MoveProjectRow, NameProject, Outcome, ProjectTask, Projects, TickProjectTask } from "@armada/protocol";
 
 /** What a read or a write came to: the repository's projects as Fleet holds them now, or the refusal to word. */
 export type ProjectsActed = { ok: true; value: Projects } | { ok: false; outcome: Outcome };
@@ -29,6 +29,13 @@ export type ProjectsApi = {
   moveProjectRow: (manifestId: string, project: string, row: string, body: MoveProjectRow) => Promise<ProjectsActed>;
   /** Done, or open again. On a row the Job asked about it answers the ask. */
   tickProjectTask: (manifestId: string, project: string, row: string, body: TickProjectTask) => Promise<ProjectsActed>;
+  /** A live Job of the repository holds the task and its subtasks, as if started with them; one holding it is replaced. */
+  linkTaskJob: (manifestId: string, project: string, row: string, body: LinkTaskJob) => Promise<ProjectsActed>;
+  /** A held task, and the subtasks the same Job held, go back to open. */
+  unlinkTaskJob: (manifestId: string, project: string, row: string) => Promise<ProjectsActed>;
+  /** A pull request of the repository, by number, on a task or subtask. */
+  linkTaskPull: (manifestId: string, project: string, row: string, body: LinkTaskPull) => Promise<ProjectsActed>;
+  unlinkTaskPull: (manifestId: string, project: string, row: string, body: LinkTaskPull) => Promise<ProjectsActed>;
   /** `projects.changed`: a repository's projects, whole, after any write to one. */
   onProjectsChanged: (onChanged: (projects: Projects) => void) => () => void;
 };
@@ -47,6 +54,10 @@ export const PROJECTS_CHANNELS = {
   removeProjectRow: "bridge:remove-project-row",
   moveProjectRow: "bridge:move-project-row",
   tickProjectTask: "bridge:tick-project-task",
+  linkTaskJob: "bridge:link-task-job",
+  unlinkTaskJob: "bridge:unlink-task-job",
+  linkTaskPull: "bridge:link-task-pull",
+  unlinkTaskPull: "bridge:unlink-task-pull",
   /** Main to every window, not a request. */
   projectsChanged: "bridge:projects-changed",
 } as const;
