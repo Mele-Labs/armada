@@ -203,6 +203,14 @@ export function App() {
     return source.subscribe(take);
   }, []);
 
+  // Settings, Appearance, Spacing: `data-spacing` on the root picks Compact's or Roomy's token set (`packages/tokens/src/spacing.css`), and Default is none.
+  const spacing = state.settings?.settings.find((one) => one.key === "bridge.spacing")?.value;
+  useEffect(() => {
+    const root = document.documentElement.dataset;
+    if (spacing === "compact" || spacing === "roomy") root["spacing"] = spacing;
+    else delete root["spacing"];
+  }, [spacing]);
+
   // `⌘1`…`⌘n`, the binding the contract publishes and nothing answered until
   // the Manifest surface needed `⌘5`. One roster, read by the rail, the
   // palette and now the keyboard.

@@ -1,0 +1,48 @@
+/* Settings, Appearance, Spacing (`bridge.spacing`), as Gmail offers it: Default is the set above,
+   Compact is a quarter tighter and Roomy a quarter looser. The steps, the row and control heights and
+   the paddings move; type, hairlines, radii and the title row do not. Bridge puts the choice on the
+   root as `data-spacing`, and a themed element under it takes the same set. */
+:root[data-spacing="compact"], :root[data-spacing="compact"] [data-theme] {
+  --space-1: 3px;
+  --space-2: 6px;
+  --space-3: 9px;
+  --space-4: 12px;
+  --space-6: 18px;
+  --space-8: 24px;
+  --space-12: 36px;
+  --h-row: 32px;
+  --h-row-header: 28px;
+  --h-row-action: 40px;
+  --h-row-stacked: 72px;
+  --h-row-table: 44px;
+  --h-control: 32px;
+  --h-control-sm: 28px;
+  --h-control-dense: 24px;
+  --h-control-sm-dense: 20px;
+  --h-menu-item: 28px;
+  --pad-card: 16px;
+  --pad-row-stacked: 8px;
+  --gap-section: 18px;
+}
+:root[data-spacing="roomy"], :root[data-spacing="roomy"] [data-theme] {
+  --space-1: 5px;
+  --space-2: 10px;
+  --space-3: 15px;
+  --space-4: 20px;
+  --space-6: 30px;
+  --space-8: 40px;
+  --space-12: 60px;
+  --h-row: 40px;
+  --h-row-header: 36px;
+  --h-row-action: 48px;
+  --h-row-stacked: 96px;
+  --h-row-table: 60px;
+  --h-control: 40px;
+  --h-control-sm: 36px;
+  --h-control-dense: 32px;
+  --h-control-sm-dense: 28px;
+  --h-menu-item: 36px;
+  --pad-card: 24px;
+  --pad-row-stacked: 16px;
+  --gap-section: 30px;
+}
