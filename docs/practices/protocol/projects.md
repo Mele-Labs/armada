@@ -11,7 +11,8 @@ Bridge's half is `packages/protocol/src/projects.ts`, written by hand, field for
 | Where | Side | Change |
 | --- | --- | --- |
 | `list_projects` | Bridge calls | `GET /projects/:repository`, answers `Projects { manifest_id, projects }`, each `Project { id, name, rows }` in order |
-| `ProjectRow` | Fleet writes, Bridge reads | Tagged by `kind`: `task { id, title, notes, state }`, `state` `open` or `done`; or `issue { id, issue, title?, state? }`, `state` `open` or `closed` |
+| `ProjectRow` | Fleet writes, Bridge reads | Tagged by `kind`: `task { id, title, notes, state, held_by? }`, `state` `open`, `done`, `held` or `asked`, `held_by { session_id, title? }` present for the last two; or `issue { id, issue, title?, state? }`, `state` `open` or `closed` |
+| `start_session` | Bridge calls | `project_rows?: [{ project, row }]` on `StartSession`: the rows the Job starts with. Each written task among them is held by the Job; an issue row is only named, so the brief can carry it |
 | `add_project` | Bridge calls | `POST /projects/:repository`, body `NameProject { name }` |
 | `rename_project` | Bridge calls | `POST /projects/:repository/:project/rename`, body `NameProject { name }` |
 | `delete_project` | Bridge calls | `POST /projects/:repository/:project/delete`, no body. Its rows go with it |
@@ -20,7 +21,8 @@ Bridge's half is `packages/protocol/src/projects.ts`, written by hand, field for
 | `link_project_issue` | Bridge calls | `POST /projects/:repository/:project/issues`, body `LinkProjectIssue { issue }`, a reference as `IssueReference` reads it |
 | `remove_project_row` | Bridge calls | `POST /projects/:repository/:project/rows/:row/remove`, no body |
 | `move_project_row` | Bridge calls | `POST /projects/:repository/:project/rows/:row/move`, body `MoveProjectRow { position }`, from 0; past the end is the end |
-| `tick_project_task` | Bridge calls | `POST /projects/:repository/:project/rows/:row/tick`, body `TickProjectTask { done }` |
+| `tick_project_task` | Bridge calls | `POST /projects/:repository/:project/rows/:row/tick`, body `TickProjectTask { done }`. On an `asked` row it answers the ask: done, or open again |
+| `WaitingSource::task_done` | Fleet writes, Bridge reads | A Job's own waiting item while it is live and holds `asked` tasks: id `task_done:<project>`, an `answer` act, options `Mark done` (choice 0) and `Keep open` (choice 1), through `answer_waiting` |
 | `projects.changed` | Fleet publishes | `Projects`, whole, on every write above |
 
 Every write answers `Projects` whole, as `list_projects` does, and publishes the same value.
@@ -30,9 +32,25 @@ read when the rows are: from the open list Fleet holds for the Issues tab, and a
 read by its reference. Each is held five minutes. Where the tracker cannot say, both are absent and
 the list is still answered. The tracker is not asked whether a linked issue exists.
 
-**A task's state has room.** `open` and `done` today. A later change adds a Job holding a task and
-the done? ask, so the store column is unchecked text and a client treats a state it does not know
-as open.
+**A Job holds the tasks it started with.** A start that names project rows moves each written task to
+`held`, with the Job's id and title on the row, and publishes `projects.changed`. A task another Job held
+is taken over. Only a written task has this state: a linked issue row keeps none, and an issue row named
+in a start is accepted and left as it is.
+
+| The Job | Its held tasks |
+| --- | --- |
+| Opens a pull request that merges | `asked` |
+| Says it is done (`all_done`) | `asked` |
+| Ends having done neither | `open`, no longer held |
+| Ends after either | stay `asked` |
+
+**The ask is held on the rows, not on the Job.** While the holding Job is live, Fleet adds a
+`task_done` item to its waiting list, one per project: id `task_done:<project>`, text `Mark <title>
+done?` for one task or `Mark the <project> tasks done?` for several, an `answer` act, and the options
+`Mark done` and `Keep open`. Answering through `answer_waiting` settles every task the Job asked in that
+project: `Mark done` makes them `done`, `Keep open` makes them `open`, and neither sends the agent a
+message. The item cannot be dismissed. The ask stands on the rows when the Job ends, and the tick route
+settles one row of it from the Projects tab: done, or open again. The item leaves with the last task asked.
 
 **Errors.**
 404 `fleet.no_such_project` is a project the repository has none of.
@@ -40,8 +58,10 @@ as open.
 422 `fleet.project_blank` is a blank project name or task title.
 422 `fleet.project_issue_unreadable` is a link `IssueReference` refuses.
 422 `fleet.project_row_not_a_task` is an edit or a tick on an issue row.
+`start_session` names rows: 404 `fleet.no_such_project` and `fleet.no_such_project_row` as above, and 422
+`fleet.project_row_other_repository` is a project of another repository. Nothing is made on a refusal.
 422 for a repository Fleet does not serve, as every repository route answers it.
 
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
-**The event stream.** `projects.changed` is published only on a person's write, so it is rare.
+**The event stream.** `projects.changed` is published on a person's write and when a Job holds, asks about or lets go of tasks, so it is rare.
 The lifeboat is untouched.
