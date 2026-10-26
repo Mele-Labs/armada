@@ -22,6 +22,9 @@ fn running() -> AppRun {
             AppRunProcess {
                 name: "web".to_string(),
                 state: AppRunState::Ready,
+                command: "serve ${port}".to_string(),
+                dir: None,
+                port_env: None,
                 port: Some(41207),
                 pinned_port: Some(41207),
                 links: vec![ServerLink { url: "http://localhost:41207".to_string(), name: None }],
@@ -32,6 +35,9 @@ fn running() -> AppRun {
             AppRunProcess {
                 name: "api".to_string(),
                 state: AppRunState::NotStarted,
+                command: "serve ${port}".to_string(),
+                dir: None,
+                port_env: None,
                 port: None,
                 pinned_port: None,
                 links: Vec::new(),
@@ -49,6 +55,8 @@ fn running() -> AppRun {
             brief: "Make `web` read `api`'s port from `ARMADA_PORT_API`, falling back to `8731`, in `web/vite.config.js`.".to_string(),
         }],
         setup: None,
+        in_kit: true,
+        setup_commands: Vec::new(),
     }
 }
 

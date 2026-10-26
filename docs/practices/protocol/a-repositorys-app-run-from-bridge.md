@@ -15,7 +15,7 @@ All nine are `Bridge only`: ▶ is a person's press, and an agent that wants a s
 | `start_app_run` (`POST /app_runs/start`) | `NamedAppRun`; answers `AppRun`, 202 | The run already up is answered as it stands. A checkout that needs setting up answers at once with `setup` setting up |
 | `stop_app_run` (`POST /app_runs/stop`) | `NamedAppRun`; answers `AppRun` | Each process waited for |
 | `restart_app_run` (`POST /app_runs/restart`) | `NamedAppRun`; answers `AppRun`, 202 | Every process is a new instance |
-| `save_app_run` (`POST /app_runs/save`) | `SaveAppRun` with `setup?`; answers `SavedAppRun`, 202 | Written into Kit's copy, then started |
+| `save_app_run` (`POST /app_runs/save`) | `SaveAppRun` with `setup?`; answers `SavedAppRun`, 202 | Written into Kit's copy, then started. A run Kit's copy already holds is replaced |
 | `pin_app_run_port` (`POST /app_runs/pin`) | `PinAppRunPort`; answers `AppRun` | `fixed` on the process's port in Kit's copy. Nothing is restarted |
 | `unpin_app_run_port` (`POST /app_runs/unpin`) | `UnpinAppRunPort`; answers `AppRun` | Back to leasing, and the links to the process end |
 | `app_run.changed` (event) | `AppRun`, whole | After each `server.*` fact of a server a run lists, after a pin, when a link is found, and as the checkout's setup starts, moves to its next Command and ends |
@@ -44,6 +44,23 @@ Saving writes each as a Command and adds it to `setup.requires` in Kit's copy, a
 Where Kit's copy lies over the repository's own `armada.yml`, Kit's `setup.requires` follows the repository's, each name once, and a copy that is not whole holds nothing else under `setup`.
 A remembered command is drafted only where every path it names, its program or a file it reads, is tracked in the checkout or made by a proposed setup Command.
 Every drafted process listens on a leased port named after its folder.
+
+**A saved run is answered whole, so Edit the run reopens the confirm with it.**
+
+| Field | Holds |
+| --- | --- |
+| `AppRunProcess.command` | What starts it, with `${port}` for its own port, as a draft spells it |
+| `AppRunProcess.dir?`, `port_env?` | Its folder, and the variable its port is set in, as a draft carries them |
+| `AppRunProcess.pinned_port?` | The pin, kept through a save that replaces the run |
+| `AppRun.setup_commands?` | The Manifest's `setup.requires` as `{name, command}` each, the repository's included |
+| `AppRun.in_kit` | Whether Kit's copy declares the run, so a save may replace it |
+
+A `save_app_run` whose `name`, made letters, digits and `_`, is a run Kit's copy declares replaces that run rather than being refused.
+The run, each server only it lists, and their ports are taken out of Kit's copy and written again from the save, and a server kept by name keeps its pin.
+`setup` on that save is the checkout's whole setup: Kit's `setup.requires` becomes the names the repository does not already require, and a Kit setup Command the save leaves out is removed.
+A Command the repository declares is left as the repository's where the save sends the same line, and refused by name where it sends another.
+The old run's processes and setup are stopped before it starts again from what was written.
+A run only the repository's own `armada.yml` declares has `in_kit` false, and a save under its name stays refused with `fleet.app_run_draft_refused`.
 
 **The run's field for how it opens is `opens_in`, not `kind`.** `Event` is tagged by `kind`, and `app_run.changed` carries the run flat beside it, as every event carries its row.
 `opens_in` is `browser` where a server of the run listens on a leased port and offers a link, and `app` otherwise.

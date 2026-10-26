@@ -188,7 +188,7 @@ async fn a_process_refused_a_port_a_sibling_is_known_on_is_a_link_told_on_the_ru
     crate::app_runs::keep_the_runs(Arc::clone(&fleet));
     let mut watching = events.subscribe();
     write(home.path(), "backend/.env", "PORT=8731\n");
-    std::fs::create_dir_all(home.path().join("frontend")).expect("the folder `web` starts in");
+    std::fs::create_dir_all(home.path().join("frontend")).expect("the folder `frontend` starts in");
 
     Arc::clone(&fleet).start_app_run(None, NamedAppRun { name: String::from("app"), job_id: None }).await.expect("it starts");
     let waiting = next_event(&mut watching, |event| matches!(event, Event::AppRunChanged(run) if !run.links.is_empty()));

@@ -40,6 +40,9 @@ pub(crate) struct SavedIn {
 pub(crate) struct SavedRun {
     pub(crate) name: String,
     pub(crate) saved_in: SavedIn,
+    /// The servers of the run this save replaced, which are stopped before it starts again. Empty
+    /// for a new run.
+    pub(crate) replaced: Vec<String>,
 }
 
 /// Where a saved run is written. **The one place that chooses**: Kit's copy for the repository,
@@ -51,16 +54,20 @@ pub(super) struct SaveTarget {
     pub(super) text: Option<String>,
 }
 
-/// The edits that declare `draft`: each process's port, then its server, then each setup Command
-/// and `setup.requires`, then the run.
+/// The edits that declare `draft`: what a run it replaces takes out, each process's port, then its
+/// server, then each setup Command and `setup.requires`, then the run.
 pub(crate) fn edits(draft: &RunDraft) -> Vec<Edit> {
-    let mut edits = Vec::new();
+    let mut edits: Vec<Edit> = draft.replacing.iter().flat_map(|one| one.first.clone()).collect();
     for process in &draft.processes {
         if let Some(port) = &process.port {
             edits.push(Edit::Port {
                 name: port.name.clone(),
                 edit: PortEdit::Add(NewPort { container: None, env: port.env.clone() }),
             });
+            let pinned = draft.replacing.iter().flat_map(|one| &one.pins).find(|(server, _)| *server == process.name);
+            if let Some((_, number)) = pinned {
+                edits.push(Edit::Port { name: port.name.clone(), edit: PortEdit::Fixed(Some(*number)) });
+            }
         }
         let command = |edit| Edit::Command { name: process.name.clone(), edit };
         edits.push(command(CommandEdit::Add(NewCommand {
@@ -84,8 +91,12 @@ pub(crate) fn edits(draft: &RunDraft) -> Vec<Edit> {
             edit: CommandEdit::Add(NewCommand { run: Some(one.run.clone()), destructive: false, serve: None, ready: None, links: Vec::new() }),
         });
     }
-    if !draft.setup.is_empty() {
-        edits.push(Edit::SetupRequiresAdded(draft.setup.iter().map(|one| one.name.clone()).collect()));
+    match &draft.replacing {
+        Some(replacing) => edits.push(Edit::SetupRequires(replacing.setup_requires.clone())),
+        None if !draft.setup.is_empty() => {
+            edits.push(Edit::SetupRequiresAdded(draft.setup.iter().map(|one| one.name.clone()).collect()))
+        }
+        None => {}
     }
     edits.push(Edit::Run {
         name: draft.name.clone(),
@@ -160,6 +171,7 @@ pub(crate) fn written(file: &Path, label: &Path, text: &str, draft: &RunDraft, f
 
 /// Every name `draft` declares that the repository's own `armada.yml` already does. **Kit's copy
 /// wins by name**, so saving one would change what a Command, a port or a run of the repository is.
+/// A run Kit's copy already lays over the repository's is Kit's to replace.
 fn already_declared(repository: &Manifest, draft: &RunDraft) -> Vec<String> {
     let ports = repository.port_names();
     let mut names: Vec<String> = Vec::new();
@@ -176,7 +188,7 @@ fn already_declared(repository: &Manifest, draft: &RunDraft) -> Vec<String> {
             names.push(one.name.clone());
         }
     }
-    if repository.app_run(&draft.name).is_some() {
+    if repository.app_run(&draft.name).is_some() && draft.replacing.is_none() {
         names.push(draft.name.clone());
     }
     names
@@ -292,16 +304,21 @@ where
 
     /// Declare a confirmed `draft` in the person's copy in Kit, at the place they keep it. **The
     /// copy is the whole Manifest of a repository with no `armada.yml`**, and only the names it
-    /// changes of one that has. The run starts at once: it is read from the file when it starts.
+    /// changes of one that has. A run of that name Kit's copy already declares is replaced
+    /// ([`super::replacing`]). The run starts at once: it is read from the file when it starts.
     pub(crate) async fn run_saved(
         &self,
         manifest_id: Option<&ipc::ManifestId>,
-        draft: RunDraft,
+        mut draft: RunDraft,
     ) -> Result<SavedRun, Refusal> {
         let served = self.served_named(manifest_id)?;
         let root = served.root().to_string();
         let file = served.manifest().path().to_path_buf();
         let target = self.run_save_target(&root).await?;
+        let merged = self.run_manifest(&served, &root).await?;
+        let repository = std::fs::read_to_string(&file).ok().and_then(|own| Manifest::parse(&file, &own).ok());
+        super::replacing::replacing(&merged, repository.as_ref(), &mut draft);
+        let replaced = draft.replacing.as_ref().map(|one| one.servers.clone()).unwrap_or_default();
         let (text, first) = match target.text {
             Some(text) => (text, Vec::new()),
             None if file.is_file() => (String::new(), Vec::new()),
@@ -314,7 +331,7 @@ where
             .unwrap_or_else(|why| Err(Unrunnable::NotSaved { why: why.to_string() }))
             .map_err(|why| self.run_refusal(why))?;
         self.manifest_written(&root, kept).await?;
-        Ok(SavedRun { name, saved_in: SavedIn { place: target.place, file: target.label.display().to_string() } })
+        Ok(SavedRun { name, saved_in: SavedIn { place: target.place, file: target.label.display().to_string() }, replaced })
     }
 
     /// Where a run for the repository at `root` is saved, and what is there now. A place that cannot

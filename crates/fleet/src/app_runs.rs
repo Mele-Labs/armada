@@ -31,6 +31,7 @@
 pub(crate) mod draft;
 pub(crate) mod links;
 mod pins;
+mod replacing;
 pub(crate) mod save;
 mod serving;
 mod setting_up;
@@ -107,6 +108,8 @@ pub(crate) struct RunProcess {
     pub(crate) port_name: Option<String>,
     /// The number it is pinned to, where it is.
     pub(crate) pinned: Option<u16>,
+    /// The variable its port is set in, where the Manifest names one.
+    pub(crate) port_env: Option<String>,
 }
 
 /// The name in the first `${port.NAME}` of `serve`.
@@ -155,6 +158,11 @@ pub(crate) struct RunView {
     pub(crate) processes: Vec<RunProcess>,
     /// The checkout's setup this run asked for: running, or how it last ended.
     pub(crate) setup: Option<SetupView>,
+    /// Whether Kit's copy declares it, so saving it again replaces it. False for a run only the
+    /// repository's own `armada.yml` declares.
+    pub(crate) in_kit: bool,
+    /// The Manifest's `setup.requires`, each Command's name and line, as the checkout runs them.
+    pub(crate) setup_commands: Vec<(String, String)>,
 }
 
 #[cfg(test)]
@@ -175,6 +183,14 @@ impl RunView {
             RunPhase::Stopped
         }
     }
+}
+
+/// Whether Kit's copy declares the run `name`: the whole Manifest, or a name it lays over.
+pub(crate) fn in_kit(manifest: &Manifest, name: &str) -> bool {
+    manifest.from_kit().is_some_and(|kit| {
+        kit.left_out.is_none()
+            && (kit.whole || kit.names.iter().any(|one| one.kind == config::KitKind::Run && one.name == name))
+    })
 }
 
 /// A run's view from the instances held on `path`.
@@ -205,6 +221,7 @@ pub(super) fn viewed(
                 server: held,
                 dir: declared.and_then(|one| one.dir()).map(str::to_string),
                 pinned: port_name.as_deref().and_then(|name| manifest.port(name)).and_then(|port| port.fixed()),
+                port_env: port_name.as_deref().and_then(|name| manifest.port(name)).and_then(|port| port.env()).map(str::to_string),
                 port_name,
                 serve,
             }
@@ -218,6 +235,8 @@ pub(super) fn viewed(
         browser,
         processes,
         setup: servers.setups().of(path, name),
+        in_kit: in_kit(manifest, name),
+        setup_commands: manifest.prepared_by().iter().map(|one| (one.name().to_string(), one.run().to_string())).collect(),
     })
 }
 

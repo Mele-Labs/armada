@@ -107,9 +107,16 @@ fn state_of(process: &RunProcess) -> AppRunState {
 /// `records_root` is where each instance's `log` is read from.
 fn process_wired(process: &RunProcess, records_root: Option<&str>) -> AppRunProcess {
     let ready = process.state == ProcessState::Ready;
+    let command = match &process.port_name {
+        Some(port) => process.serve.replace(&format!("${{port.{port}}}"), PORT),
+        None => process.serve.clone(),
+    };
     AppRunProcess {
         name: process.name.clone(),
         state: state_of(process),
+        command,
+        dir: process.dir.clone(),
+        port_env: process.port_env.clone(),
         port: process.port(),
         pinned_port: process.pinned,
         links: process.server.as_ref().filter(|_| ready).map(|one| one.links.clone()).unwrap_or_default(),
@@ -235,6 +242,12 @@ where
             last_used: last_used.cloned(),
             links,
             setup: view.setup.as_ref().map(setup_wired),
+            in_kit: view.in_kit,
+            setup_commands: view
+                .setup_commands
+                .iter()
+                .map(|(name, run)| AppRunDraftSetup { name: name.clone(), command: run.clone() })
+                .collect(),
         })
     }
 
@@ -333,6 +346,7 @@ where
                 .into_iter()
                 .map(|one| DraftSetup { name: one.name.trim().to_string(), run: one.command, creates: None })
                 .collect(),
+            replacing: None,
         };
         // A Job's run is saved for the Job's repository, which `?manifest_id=` need not name.
         let target = target_of(manifest_id.clone(), asked.job_id);
@@ -341,6 +355,12 @@ where
             RunTarget::Main(_) => manifest_id,
         };
         let saved = self.run_saved(repository.as_ref(), draft).await?;
+        // A run saved over one Kit's copy held stops what it started, then starts as it now reads.
+        if !saved.replaced.is_empty() {
+            let checkout = self.run_checkout(&target).await?;
+            self.servers().setups().stopped(checkout.path(), &saved.name).await;
+            self.stopped_servers_named(checkout.path(), &saved.replaced).await;
+        }
         // **Saved, then started**: a start that refuses leaves the run written, and says so itself.
         let (view, _) = Arc::clone(&self).run_started(&target, &saved.name).await?;
         Ok(SavedAppRun {

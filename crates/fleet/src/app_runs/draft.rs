@@ -79,6 +79,9 @@ pub(crate) struct RunDraft {
     pub(crate) processes: Vec<DraftProcess>,
     /// What the checkout runs first, in order. Saved into `setup.requires`.
     pub(crate) setup: Vec<DraftSetup>,
+    /// Where the run is Kit's already, what saving it again takes out first. Set by
+    /// [`super::replacing::replacing`], never by a draft.
+    pub(crate) replacing: Option<super::replacing::Replacing>,
 }
 
 /// What a repository's saved runs already hold, so a draft proposes only the rest.
@@ -138,6 +141,7 @@ pub(crate) fn drafted_beside(root: &Path, facts: &[KeptRun], beside: &Beside) ->
         label: root.file_name().map(|name| name.to_string_lossy().into_owned()),
         processes,
         setup,
+        replacing: None,
     })
 }
 

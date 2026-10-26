@@ -30,6 +30,12 @@ export type AppRunProcess = {
   /** The server's name in the Manifest. */
   name: string;
   state: AppRunState;
+  /** What starts it, with `${port}` for its own leased port, as a draft spells it: what Edit the run opens the confirm with. */
+  command: string;
+  /** The folder under the checkout it starts in. Absent: the root. */
+  dir?: string;
+  /** The variable its port is set in, where the Manifest names one. Handed back on a save as a draft's is. */
+  port_env?: string;
   /** The port leased to it on this checkout; main and a Job's bay hold different ones. Absent before it has started once. */
   port?: number;
   /** The number it is pinned to: it is on `port` every time, and a sibling that hardcodes it finds it. Absent: Fleet leases it. */
@@ -103,6 +109,10 @@ export type AppRun = {
   links?: AppRunLink[];
   /** The checkout's setup, which runs before the processes. Left out where none was run for it. */
   setup?: AppRunSetup;
+  /** Whether Kit's copy declares it, so a `save_app_run` whose `name` makes this run's key replaces it. False for a run only the repository's own `armada.yml` declares, which a save refuses. */
+  in_kit: boolean;
+  /** The Manifest's `setup.requires` as the checkout runs it, each Command's name and line: what Edit the run lists beside the processes. Left out where it requires none. */
+  setup_commands?: AppRunDraftSetup[];
 };
 
 /** `GET /app_runs`. */

@@ -32,6 +32,9 @@ fn the_run(manifest_id: Option<ManifestId>, job_id: Option<String>, state: AppRu
         processes: vec![AppRunProcess {
             name: "web".to_string(),
             state,
+            command: "serve ${port}".to_string(),
+            dir: None,
+            port_env: None,
             port: None,
             pinned_port: None,
             links: Vec::new(),
@@ -42,6 +45,8 @@ fn the_run(manifest_id: Option<ManifestId>, job_id: Option<String>, state: AppRu
         last_used: None,
         links: Vec::new(),
         setup: None,
+        in_kit: true,
+        setup_commands: Vec::new(),
     }
 }
 

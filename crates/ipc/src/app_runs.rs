@@ -61,6 +61,16 @@ pub struct AppRunProcess {
     /// The server's name in the Manifest.
     pub name: String,
     pub state: AppRunState,
+    /// What starts it, **`${port}` for its own leased port**, as a draft spells it: what *Edit the
+    /// run* opens the confirm with.
+    pub command: String,
+    /// The folder under the checkout it starts in. Absent: the root.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dir: Option<String>,
+    /// The variable its port is set in, where the Manifest names one. Handed back on a save as a
+    /// draft's is.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub port_env: Option<String>,
     /// The port leased to it on this checkout: main and a Job's bay hold different ones. Absent
     /// before it has started once, and for a process that listens on none.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -167,6 +177,13 @@ pub struct AppRun {
     /// The checkout's setup, which runs before the processes. Absent where none was run for it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub setup: Option<AppRunSetup>,
+    /// Whether Kit's copy declares it, so a `save_app_run` whose `name` makes this run's key replaces
+    /// it. **False for a run only the repository's own `armada.yml` declares**, which a save refuses.
+    pub in_kit: bool,
+    /// The Manifest's `setup.requires` as the checkout runs it, each Command's name and line: what
+    /// *Edit the run* lists beside the processes. Absent where it requires none.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub setup_commands: Vec<AppRunDraftSetup>,
 }
 
 /// `list_app_runs`: every run the repository declares, as each stands on one checkout.

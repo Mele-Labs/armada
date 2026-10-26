@@ -70,6 +70,7 @@ fn a_new_run(name: &str, servers: &[&str]) -> RunDraft {
         label: None,
         processes: servers.iter().map(|one| a_new_server(one)).collect(),
         setup: Vec::new(),
+        replacing: None,
     }
 }
 
