@@ -11,18 +11,39 @@ All nine are `Bridge only`: ▶ is a person's press, and an agent that wants a s
 | Where | Carries | Notes |
 | --- | --- | --- |
 | `list_app_runs` (`GET /app_runs?manifest_id=` or `?job_id=`) | `AppRunList`: one `AppRun` per run the file declares | Main checkout, or the worktree a Job holds. Runs that are not up are in it |
-| `get_app_run_draft` (`GET /app_runs/draft`) | `AppRunDraft`: `root`, `place`, `processes`, `links?` | Saves nothing but the links it finds. Answered where runs are saved too: `processes` is only what none of them starts, and empty is a draft |
-| `start_app_run` (`POST /app_runs/start`) | `NamedAppRun`; answers `AppRun`, 202 | The run already up is answered as it stands |
+| `get_app_run_draft` (`GET /app_runs/draft`) | `AppRunDraft`: `root`, `place`, `processes`, `links?`, `setup?` | Saves nothing but the links it finds. Answered where runs are saved too: `processes` is only what none of them starts, and empty is a draft |
+| `start_app_run` (`POST /app_runs/start`) | `NamedAppRun`; answers `AppRun`, 202 | The run already up is answered as it stands. A checkout that needs setting up answers at once with `setup` setting up |
 | `stop_app_run` (`POST /app_runs/stop`) | `NamedAppRun`; answers `AppRun` | Each process waited for |
 | `restart_app_run` (`POST /app_runs/restart`) | `NamedAppRun`; answers `AppRun`, 202 | Every process is a new instance |
-| `save_app_run` (`POST /app_runs/save`) | `SaveAppRun`; answers `SavedAppRun`, 202 | Written into Kit's copy, then started |
+| `save_app_run` (`POST /app_runs/save`) | `SaveAppRun` with `setup?`; answers `SavedAppRun`, 202 | Written into Kit's copy, then started |
 | `pin_app_run_port` (`POST /app_runs/pin`) | `PinAppRunPort`; answers `AppRun` | `fixed` on the process's port in Kit's copy. Nothing is restarted |
 | `unpin_app_run_port` (`POST /app_runs/unpin`) | `UnpinAppRunPort`; answers `AppRun` | Back to leasing, and the links to the process end |
-| `app_run.changed` (event) | `AppRun`, whole | After each `server.*` fact of a server a run lists, after a pin, and when a link is found |
+| `app_run.changed` (event) | `AppRun`, whole | After each `server.*` fact of a server a run lists, after a pin, when a link is found, and as the checkout's setup starts, moves to its next Command and ends |
 
 **A run is its servers and nothing more.** A process is a `ServerState` read through, so its output is `observe_server`'s and is addressed by the process's `server_id`.
 No second socket carries a run's log, and `app_run.changed` carries no line of one.
 A restart is a new instance, so a viewer reads `server_id` again from the next event.
+`AppRunProcess.log_path` is the absolute path of the instance's output file, so a Job handed it to fix a failure reads the whole of it.
+
+**A run waits on its checkout's setup**, the Manifest's `setup.requires`, where the checkout is new to it or the files it was traced from changed.
+`AppRun.setup` is `{id, log_path, state, commands, running?, failed?, ended?}`, and `state` is `setting_up`, `ready` or `failed`.
+While it is `setting_up` no process has started, and `running` names the Command running now.
+A Command that fails starts no process: `failed` names it and `ended` says how, the Command's line and the tail of what it printed.
+`failed` with no `failed` Command is a run that would not start once setup passed, and `ended` says why.
+`setup.id` is what `observe_server` takes, so setup's output is read as a process's is, under the name `setup`, and `setup.log_path` is its file, absolute.
+Each setup is a new id. `setup` is absent where this Fleet has run none for the run on that checkout, which a checkout already set up never needs.
+Stopping the run stops its setup.
+Fleet keeps a mark per checkout under `.armada/setup/` beside the servers' logs, never in the tree: a fingerprint of the Commands and of the lockfiles and package manifests at the root and in each folder a Command names, and the paths the setup made.
+A checkout is set up while the fingerprint holds and each path it made is still there, so a slot cleaned for its next lease is set up again.
+
+**A draft proposes setup.** `AppRunDraft.setup` and `SaveAppRun.setup` are `{name, command}` each, run from the checkout's root in order.
+A lockfile beside a `package.json` proposes that folder's install (`npm ci --prefix`, `pnpm install --frozen-lockfile --dir`, `yarn --cwd … install --frozen-lockfile`, `bun install --frozen-lockfile --cwd`), and a `requirements.txt` or `pyproject.toml` proposes a `.venv` made beside it and filled.
+A setup Command takes no `dir`, so the folder is a flag or a path.
+One whose line or name a Command already declares is not proposed again.
+Saving writes each as a Command and adds it to `setup.requires` in Kit's copy, after what that copy lists.
+Where Kit's copy lies over the repository's own `armada.yml`, Kit's `setup.requires` follows the repository's, each name once, and a copy that is not whole holds nothing else under `setup`.
+A remembered command is drafted only where every path it names, its program or a file it reads, is tracked in the checkout or made by a proposed setup Command.
+Every drafted process listens on a leased port named after its folder.
 
 **The run's field for how it opens is `opens_in`, not `kind`.** `Event` is tagged by `kind`, and `app_run.changed` carries the run flat beside it, as every event carries its row.
 `opens_in` is `browser` where a server of the run listens on a leased port and offers a link, and `app` otherwise.
