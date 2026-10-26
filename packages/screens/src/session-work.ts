@@ -6,7 +6,7 @@
 import type { AdversarialReviewState, Finding } from "@armada/components/src/compositions/AdversarialReview/review-state";
 import type { AdversarialFinding, BuildPiece, FileTouch, PlanMark as WirePlanMark, ProposedField, SessionPlan, SessionRecord, SessionRow as WireRow, WaitingItem, WorkflowSummary } from "@armada/protocol";
 
-import type { AgentTask, PlanMark, SessionAttachment, SessionRow, SessionWork, SuggestLine, WorkConcern, WorkDrone, WorkFile, WorkflowChoice, WorkPlan } from "./draft/sessions";
+import type { AgentTask, PlanMark, SessionAttachment, SessionRow, SessionWork, SuggestLine, WorkConcern, WorkDrone, WorkFile, WorkflowChoice, WorkLanding, WorkPlan } from "./draft/sessions";
 
 /** What the window holds beside a record that the work is read with. */
 export type WorkBeside = {
@@ -65,12 +65,27 @@ const PICKABLE: readonly ProposedField[] = ["workflow", "model", "effort"];
 /** The workflow a Session follows and the step it is at, where Fleet names one. */
 function workflowOf(record: SessionRecord, workflows: readonly WorkflowSummary[]): SessionWork["workflow"] {
   if (record.workflow === undefined) return undefined;
-  const found = workflows.find((one) => one.id === record.workflow && (record.manifest_id === undefined || one.manifest_id === record.manifest_id)) ?? workflows.find((one) => one.id === record.workflow);
+  const found = heldOf(record, workflows);
   if (found === undefined) return { name: record.workflow, steps: [] };
   // `workflow_step` is the step's index, which Fleet leaves off for a custom Session, after the last step's pull request merged, and while workflows are off.
   const at = record.workflow_step;
-  return { name: found.name, steps: found.steps.map((step) => step.label), ...(at === undefined || at < 0 || at >= found.steps.length ? {} : { at }) };
+  const phase = at === undefined ? undefined : found.steps[at]?.phase;
+  return {
+    name: found.name,
+    steps: found.steps.map((step) => step.label),
+    ...(at === undefined || at < 0 || at >= found.steps.length ? {} : { at }),
+    ...(phase === undefined ? {} : { phase }),
+  };
 }
+
+/** The workflow Fleet holds that the Session follows: the one of its repository, else any of that id. */
+function heldOf(record: SessionRecord, workflows: readonly WorkflowSummary[]): WorkflowSummary | undefined {
+  if (record.workflow === undefined) return undefined;
+  return workflows.find((one) => one.id === record.workflow && (record.manifest_id === undefined || one.manifest_id === record.manifest_id)) ?? workflows.find((one) => one.id === record.workflow);
+}
+
+/** What the Session's workflow lands in, as Fleet resolves it. Absent where Fleet does not say. */
+const landsOf = (record: SessionRecord, workflows: readonly WorkflowSummary[]): WorkLanding | undefined => heldOf(record, workflows)?.lands;
 
 /** The wire row that recorded this version of the plan, and the last row before it that the thread draws. */
 function afterOf(plan: SessionPlan, rows: readonly WireRow[] | undefined, drawn: readonly SessionRow[]): string | undefined {
@@ -166,6 +181,7 @@ export function workOf(record: SessionRecord, beside: WorkBeside): SessionWork |
   const off = beside.workflowsOff === true;
   const picked = (record.proposal?.picked ?? []).filter((one) => PICKABLE.includes(one) && !beside.unpicked.has(one) && !(off && one === "workflow")) as ("workflow" | "model" | "effort")[];
   const workflow = off ? undefined : workflowOf(record, beside.workflows);
+  const landing = landsOf(record, beside.workflows);
   const { field, files } = fieldOf(record.touches ?? []);
   const concerns = record.state === "ended" ? [] : concernsOf(record.waiting_for);
   const tasks = record.plan !== undefined || record.state === "ended" ? [] : tasksOf(record.build?.pieces ?? []);
@@ -183,6 +199,7 @@ export function workOf(record: SessionRecord, beside: WorkBeside): SessionWork |
     ...(record.judging === true && record.state !== "ended" ? { judging: true as const } : {}),
     ...(record.judge === undefined ? {} : { judged: { at: record.judge.at, concerns: record.judge.concerns } }),
     ...(off ? { railOff: true as const } : {}),
+    ...(landing === undefined ? {} : { landing }),
   };
 }
 

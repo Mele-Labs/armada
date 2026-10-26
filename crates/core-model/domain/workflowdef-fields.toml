@@ -324,6 +324,29 @@ A step with no `mechanical_checks` and no `judge_checks` is a single node: Fleet
 An absent `judge_check` and `"enabled": false` mean the same thing, and no validation rule rejects an ungated step — Design Plan is a back-and-forth the engineer ends when the design is in a good place, and treating that as a config error would break it.
 """
 
+[fields.lands]
+type = "enum"
+concern = "Structure"
+purpose = "What the workflow ends in, which the Job view's Landing draws: `pull_request`, `report`, `spike` or `document`. Optional, and absent reads off `delivers`."
+notes = """
+**The owner's, 25 Oct 2026.** The Job view tells a Job in four parts, and the last is what it lands in. Until this key Bridge knew the kind only from mock data, so every real Job that was not a Mod Job landed as a pull request.
+
+**A workflow declaring none lands `pull_request` where a step `delivers` and `document` otherwise.** `core_model::Lands::of` spells it once, and Fleet serves the resolved word on `WorkflowSummary.lands` so no reader spells it again. A word outside the four is refused at load.
+
+**Declared only where the fallback is wrong.** Prototype is a spike, built to answer a question and thrown away, so it declares `spike`. Code Review hands back a judgement on somebody else's pull request and opens none of its own, so it declares `report`. Design Plan reads `document` off its fallback.
+
+**A Mod Job is not a workflow's word.** Bridge reads it off the Job's own `mod`, so no workflow declares `mod`.
+
+Not frozen onto the Job, for `for_requests`'s reason: `ResolvedWorkflow` holds it beside the frozen copy, and Bridge reads it off the definition Fleet holds.
+"""
+why = "A Job's Landing drew a pull request for a design document, a review and a spike alike, because nothing a workflow declared said what it ends in."
+
+[fields.lands.values]
+pull_request = "A pull request and its merge"
+report = "A report, with no pull request"
+spike = "A spike's findings"
+document = "A document"
+
 [fields.max_context_size]
 type = "int"
 concern = "Verification"

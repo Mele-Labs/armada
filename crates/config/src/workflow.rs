@@ -37,7 +37,7 @@ pub use step::Step;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-use core_model::{EvidenceType, Ulid, WorkflowId};
+use core_model::{EvidenceType, Lands, Ulid, WorkflowId};
 use serde_yaml_ng::Value;
 
 use crate::error::{BadReturn, Fault, LoadError, Refusal};
@@ -45,7 +45,16 @@ use crate::roster::Roster;
 use crate::yaml::{self, Table};
 
 /// The keys M1 reads at the top level of a WorkflowDef.
-const TOP_LEVEL: &[&str] = &["version", "workflow_id", "name", "for_requests", "steps"];
+const TOP_LEVEL: &[&str] = &["version", "workflow_id", "name", "for_requests", "lands", "steps"];
+
+/// `lands`'s words, all carried.
+const LANDS_CARRIED: &[(&str, Lands)] = &[
+    ("pull_request", Lands::PullRequest),
+    ("report", Lands::Report),
+    ("spike", Lands::Spike),
+    ("document", Lands::Document),
+];
+const LANDS_LEGAL: &[&str] = &["pull_request", "report", "spike", "document"];
 
 /// A workflow definition, parsed and validated against nothing but itself.
 ///
@@ -60,6 +69,7 @@ pub struct WorkflowDef {
     version: u32,
     name: String,
     for_requests: Option<String>,
+    lands: Option<Lands>,
     steps: Vec<Step>,
 }
 
@@ -142,6 +152,12 @@ impl WorkflowDef {
         self.for_requests.as_deref()
     }
 
+    /// What the workflow lands in: its own `lands`, or [`Lands::of`]'s
+    /// reading of whether any step delivers.
+    pub fn lands(&self) -> Lands {
+        Lands::of(self.lands, self.steps.iter().any(Step::delivers))
+    }
+
     /// The steps, in file order. **Order is the semantics** — there is no
     /// `order` field, because an array already has one and two statements of
     /// the same thing can disagree.
@@ -165,6 +181,11 @@ fn read(path: &Path, root: &Value, roster: &Roster, out: &mut Vec<Refusal>) -> O
     let for_requests = top
         .optional("for_requests")
         .and_then(|value| yaml::text("for_requests", value, out));
+    // **Absent reads off `delivers`, and a word outside the four is a
+    // refusal**, so a misspelt landing is not drawn as its fallback.
+    let lands = top.optional("lands").and_then(|value| {
+        yaml::word("lands", value, LANDS_CARRIED, LANDS_LEGAL, LANDS_LEGAL, out)
+    });
 
     let items = top
         .required("steps", out)
@@ -318,6 +339,7 @@ fn read(path: &Path, root: &Value, roster: &Roster, out: &mut Vec<Refusal>) -> O
         version: version?,
         name: name?,
         for_requests,
+        lands,
         steps,
     })
 }
