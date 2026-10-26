@@ -180,6 +180,18 @@ pub(crate) async fn confirm_waiting<D: HostedSessions>(
     }
 }
 
+/// The person says a follow-up is one. 200 with the row; 409 where nothing open holds it.
+pub(crate) async fn confirm_later<D: HostedSessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let confirm: ipc::ConfirmLater = match ipc::decode("a confirmation of a follow-up", &body) {
+        Ok(confirm) => confirm,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().confirm_later(confirm).await {
+        Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// The newest reading of the plan's windows.
 pub(crate) async fn get_plan_usage<D: HostedSessions>(State(served): State<Served<D>>) -> Response {
     match served.daemon().get_plan_usage().await {

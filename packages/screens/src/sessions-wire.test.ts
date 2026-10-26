@@ -700,6 +700,14 @@ describe("what the agent keeps for later", () => {
     expect(sessionOfRecord(record("a", { later }), undefined, beside()).later).toEqual([{ id: "later-1", text: "I will file the slow fixture load.", at: AT }]);
   });
 
+  it("carries a thumbs up Fleet kept as confirmed, and says nothing where there is none", () => {
+    const marked = [{ ...later[0]!, confirmed: true }, { id: "later-2", sentence: "Name the loader.", said_at: AT }];
+    expect(sessionOfRecord(record("a", { later: marked }), undefined, beside()).later).toEqual([
+      { id: "later-1", text: "I will file the slow fixture load.", at: AT, confirmed: true },
+      { id: "later-2", text: "Name the loader.", at: AT },
+    ]);
+  });
+
   it("carries none for a session with none, or one that ended", () => {
     expect(sessionOfRecord(record("a"), undefined, beside()).later).toBeUndefined();
     expect(sessionOfRecord(record("a", { state: "ended", later }), undefined, beside()).later).toBeUndefined();

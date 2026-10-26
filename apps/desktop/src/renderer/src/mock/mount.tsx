@@ -94,7 +94,13 @@ export type Mounted = {
  * mounted, this window's bindings included.
  */
 /** The Phone card's moment for each `phone/…` scenario; any other scenario has access on and two phones paired. */
-const PHONE_MOMENTS: Record<string, PhoneMoment> = { "phone/off": "off", "phone/port-taken": "port_taken", "phone/tailscale": "tailscale" };
+const PHONE_MOMENTS: Record<string, PhoneMoment> = {
+  "phone/off": "off",
+  "phone/port-taken": "port_taken",
+  "phone/tailscale": "tailscale",
+  "phone/set-up": "set_up",
+  "phone/named": "named",
+};
 
 function OnScreen({ say }: { say: () => void }) {
   useEffect(() => say(), [say]);

@@ -288,6 +288,11 @@ const ROUTES: &[Route] = &[
         path: "/sessions/terminal/open",
     },
     Route {
+        operation: "start_terminal_run",
+        method: "POST",
+        path: "/sessions/terminal/run",
+    },
+    Route {
         operation: "type_in_terminal",
         method: "POST",
         path: "/sessions/terminal/type",
@@ -461,6 +466,11 @@ const ROUTES: &[Route] = &[
         operation: "confirm_waiting",
         method: "POST",
         path: "/sessions/waiting/confirm",
+    },
+    Route {
+        operation: "confirm_later",
+        method: "POST",
+        path: "/sessions/later/confirm",
     },
     Route {
         operation: "list_manifests",

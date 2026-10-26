@@ -749,6 +749,9 @@ pub struct SessionLater {
     pub sentence: String,
     /// When the reply that said it ended.
     pub said_at: Instant,
+    /// He said it is a follow-up, with thumbs up (`confirm_later`). Absent where he has not.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub confirmed: bool,
 }
 
 /// How a follow-up was settled.
@@ -777,6 +780,19 @@ pub struct SettleLater {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
     /// Which session. **Read only where the connection places no hosted session**, as `AllDone`'s is.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<SessionId>,
+    /// He pressed thumbs down, Not deferred: the sentence is kept as no follow-up. **Only the person's
+    /// call** (no connection places a job) may set it, and only with `how` `dropped`. Absent where false.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub misread: bool,
+}
+
+/// `confirm_later`: thumbs up on an open follow-up. Its sentence is kept as one, the row stays and
+/// reads `confirmed`. The person's call; `session_id` names the Session.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ConfirmLater {
+    pub id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub session_id: Option<SessionId>,
 }

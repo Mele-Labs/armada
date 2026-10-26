@@ -17,6 +17,21 @@ pub struct OpenTerminal {
     pub rows: Option<u16>,
 }
 
+/// `start_terminal_run`: the person runs a command in a directory with no Job behind it, such as the
+/// fix a pull request panel names. `POST /sessions/terminal/run`. Answered 200 with
+/// `SessionRunUnderway`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StartTerminalRun {
+    pub command: String,
+    /// The directory the command runs in, which must exist.
+    pub dir: String,
+    /// The terminal's size in cells. Absent is 80 by 24.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cols: Option<u16>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rows: Option<u16>,
+}
+
 /// `type_in_terminal`: the Job's agent types into the Job's shell, opening it where it has none.
 /// `POST /sessions/terminal/type`. Answered 200 with `TerminalTyped`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

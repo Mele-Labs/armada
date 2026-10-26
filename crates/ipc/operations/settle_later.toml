@@ -10,7 +10,7 @@ notes = """
 
 `how` `filed` takes `issue`, the forge's number (`7`, `#7`) or a tracker's key (`ABC-12`), as `claim_issue` reads it. `how` `dropped` takes `reason`, which the job's own call must give. A settled item leaves the list for good: the sentence is not kept again when a reply is read again.
 
-**The caller is placed as `all_done` places it**: a hosted job by its connection, a terminal job by `session_id`. Bridge's Drop is this call with no connection and no reason; it settles the item as `dropped`. Refused 422 `fleet.later_not_settleable` for a `filed` with no issue Fleet can read, or a job's `dropped` with no reason; 409 `fleet.later_not_open` for an id that names no open follow-up, or one settled already; and 422 where the call places no job.
+**The caller is placed as `all_done` places it**: a hosted job by its connection, a terminal job by `session_id`. **`misread`** is Bridge's thumbs down, Not deferred: with `how` `dropped` it keeps the sentence for good as no follow-up, so a near one is not kept again and `tools/lm-train` reads it as a negative. Only the person's call may set it; an agent's is refused 422 `fleet.later_not_settleable`. Bridge's Drop is this call with no connection and no reason; it settles the item as `dropped`. Refused 422 `fleet.later_not_settleable` for a `filed` with no issue Fleet can read, or a job's `dropped` with no reason; 409 `fleet.later_not_open` for an id that names no open follow-up, or one settled already; and 422 where the call places no job.
 
 `agent_access` is `Yes`: the job is the one that knows whether it did the work, filed it or will not.
 """

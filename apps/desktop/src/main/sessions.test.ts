@@ -539,6 +539,18 @@ it("settles a follow-up on its own route, naming the Session, and folds nothing 
   expect(await host(null).sessions.settleLater({ id: "later-2", how: "done", session_id: "a" })).toMatchObject({ ok: false, outcome: { why: "not_connected" } });
 });
 
+it("sends a thumbs down with its misread, and a thumbs up on its own route, naming the Session", async () => {
+  const sent: Sent[] = [];
+  const port = await fleet(sent, [record("a")]);
+  const { sessions } = host(port);
+  await sessions.settleLater({ id: "later-2", how: "dropped", misread: true, session_id: "a" });
+  expect((await sessions.confirmLater({ id: "later-2", session_id: "a" })).ok).toBe(true);
+  expect(sent.map((one) => `${one.method} ${one.path}`)).toEqual(["POST /sessions/settle_later", "POST /sessions/later/confirm"]);
+  expect(sent[0]!.body).toEqual({ id: "later-2", how: "dropped", misread: true, session_id: "a" });
+  expect(sent[1]!.body).toEqual({ id: "later-2", session_id: "a" });
+  expect(await host(null).sessions.confirmLater({ id: "later-2", session_id: "a" })).toMatchObject({ ok: false, outcome: { why: "not_connected" } });
+});
+
 // Fleet answers `{ told }` here, not the record: folded, it sat in the list with no `attachments` and broke every redraw.
 it("tells Fleet a window could not show its page, and folds nothing of the answer", async () => {
   const sent: Sent[] = [];
@@ -705,6 +717,25 @@ async function shellFleet(opens: string[], runs: Record<string, SessionRunMessag
 
 const endOf = (sessions: SessionsHost, runId: string) =>
   new Promise<void>((done) => sessions.onRun((id, message) => id === runId && message.kind === "exited" && done()));
+
+it("runs a command in a directory with no Job, observes its run as a block's, and says so where nothing is connected", async () => {
+  const port = await shellFleet(["t1"], { t1: [{ kind: "output", text: "hi\r\n" }, { kind: "exited", code: 0 }] });
+  const { sessions } = host(port);
+  const heard: SessionRunMessage[] = [];
+  const ended = new Promise<void>((done) =>
+    sessions.onRun((runId, message) => {
+      expect(runId).toBe("t1");
+      heard.push(message);
+      if (message.kind === "exited") done();
+    }),
+  );
+  expect(await sessions.startTerminalRun({ command: "gh auth refresh -s repo", dir: "/repo" })).toEqual({ ok: true, value: { run_id: "t1" } });
+  await ended;
+  expect(heard).toEqual([{ kind: "output", text: "hi\r\n" }, { kind: "exited", code: 0 }]);
+  // No Job owns it, so nothing of it is kept once it ends.
+  expect(sessions.soFar("t1")).toBeNull();
+  expect(await host(null).sessions.startTerminalRun({ command: "ls", dir: "/repo" })).toEqual({ ok: false, outcome: { ok: false, why: "not_connected" } });
+});
 
 it("keeps what a shell printed, its last 256 KiB cut at a line, for a window that comes to it late", async () => {
   const lines = Array.from({ length: 30_000 }, (_, at) => `line ${String(at).padStart(5, "0")}\r\n`);

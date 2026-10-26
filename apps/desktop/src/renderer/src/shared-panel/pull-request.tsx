@@ -19,6 +19,8 @@ import { ReviewTab } from "./review-tab";
 import { useTabKeys } from "./side";
 import { openAddressInPanel, openInPanel, closePanel } from "./store";
 import type { PanelItem } from "./store";
+import { commandIn } from "./fix-command";
+import { useTerminalRun } from "./terminal-run";
 import { patchesOf } from "./pull-request-patches";
 import { usePanelReads, useReading } from "./reads";
 import type { PatchesRead, PullRequestRead, PullRequestRefused, Reading } from "./reads";
@@ -113,6 +115,9 @@ function Drawn({ item, reading, onFiles }: { item: Item; reading: Reading<PullRe
   const answer = reading.out ? undefined : reading.value;
   const refusal = answer !== undefined && "refused" in answer ? answer.refused : undefined;
   const read = answer !== undefined && !("refused" in answer) ? answer : undefined;
+  // A refusal names the step that fixes it: offered to run in the repository, as a terminal opened there would.
+  const fixing = useTerminalRun(reads.terminalRun, answer !== undefined && "refused" in answer ? answer.root : undefined);
+  const command = refusal === undefined || reads.terminalRun === undefined || answer === undefined || !("root" in answer) ? undefined : commandIn(refusal);
 
   // Every file's patch, read the first time Files is shown and kept with the head it was read on: another head is another diff.
   const [patches, setPatches] = useState<{ head: string | undefined; answer: PatchesRead | "reading" } | undefined>(undefined);
@@ -151,6 +156,17 @@ function Drawn({ item, reading, onFiles }: { item: Item; reading: Reading<PullRe
       <PrOwnersOnTheWire lines={reads.lines}>
         <PullRequestPanel
           reading={reading.out ? {} : { said: refusal ?? "The forge did not answer for this pull request." }}
+          {...(command === undefined
+            ? {}
+            : {
+                fix: {
+                  command,
+                  onRun: () => fixing.start(command),
+                  onAgain: onFiles,
+                  ...(fixing.said === undefined ? {} : { said: fixing.said }),
+                  ...(fixing.run === undefined ? {} : { run: { out: fixing.run.out, screen: fixing.run.screen, running: fixing.run.running, write: fixing.write, onSize: fixing.sized, onStop: fixing.stop } }),
+                },
+              })}
           number={item.number}
           address={item.address}
           {...(repository === undefined ? {} : { repository })}

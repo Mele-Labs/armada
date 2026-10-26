@@ -548,7 +548,7 @@ export type Session = {
   /** What the Session waits on the person for: the agent's list with Fleet's own items merged in. Absent or empty is nothing. */
   waitingFor?: readonly WaitingItem[];
   /** The follow-ups the agent kept for itself and has not settled, oldest first. `SessionRecord.later`; `id` is what a Drop names. */
-  later?: readonly { id: string; text: string; at: string }[];
+  later?: readonly { id: string; text: string; at: string; /** The person marked it Deferred: Fleet was right to keep it, and its thumbs are gone. */ confirmed?: boolean }[];
   /** Its watches, live and ended, the newest first, as `watches.changed` carries them. Absent or empty is none. */
   watches?: readonly WatchSummary[];
   /** The name of the live watch that alone keeps it open. `SessionRecord.held_open_by`. */
@@ -829,8 +829,10 @@ export type SessionsDraft = {
   close?: (id: string) => void;
   /** Ends the turn that is running; the Session rests and takes the next message. Absent in the mock's fixtures. */
   stop?: (id: string) => void;
-  /** The person drops a follow-up the Session kept (`later` is its id in `Session.later`), and Fleet takes it off the list. */
-  dropLater?: (id: string, later: string) => void;
+  /** The person drops a follow-up the Session kept (`later` is its id in `Session.later`), and Fleet takes it off the list; `misread` is thumbs down, Not deferred, which says Fleet should not have kept it. */
+  dropLater?: (id: string, later: string, misread?: boolean) => void;
+  /** The person marks a kept follow-up Deferred (thumbs up): it stays on the list without its thumbs. */
+  confirmLater?: (id: string, later: string) => void;
   /** The person's Stop on one of a Session's watches (`watch` is its id): Fleet ends it `stopped`. */
   stopWatch?: (id: string, watch: string) => void;
   /** Runs a failed hand off again for Job `id`. */

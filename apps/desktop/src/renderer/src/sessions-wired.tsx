@@ -711,7 +711,10 @@ export class WiredStore {
     close: (id) => void this.plain(this.api.closeSession(id)),
     stop: (id) => void this.plain(this.api.stopSession(id)),
     // The person's Drop: Fleet settles it as dropped and publishes the Session without it.
-    dropLater: (id, later) => void this.plain(this.api.settleLater({ session_id: id, id: later, how: "dropped" })),
+    // `misread` is thumbs down: Fleet should not have kept the sentence.
+    dropLater: (id, later, misread) => void this.plain(this.api.settleLater({ session_id: id, id: later, how: "dropped", ...(misread === true ? { misread: true } : {}) })),
+    // Thumbs up: Fleet keeps the sentence and publishes the follow-up as `confirmed`.
+    confirmLater: (id, later) => void this.plain(this.api.confirmLater({ session_id: id, id: later })),
     stopWatch: (id, watch) => void this.plain(this.api.stopWatch({ session_id: id, watch })),
     retryHandoff: (id) => void this.plain(this.api.retryHandoff(id)),
     pause: (id) => this.took(this.api.pauseSession(id)),
