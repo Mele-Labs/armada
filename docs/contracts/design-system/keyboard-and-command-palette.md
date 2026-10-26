@@ -373,6 +373,11 @@ the match — a Job is searched by its title, and a title is a sentence. `n` and
 the Dispatch sheet directly (the owner, 15 Oct 2026). `⌘↵` dispatches the words whichever row is picked, by opening that
 sheet holding them. The sheet reads the repository from them and asks in its own frame when there is none. The full composer for a file or a sketch is opened from a Studio's Sketch.
 
+**What is typed can also be added to Projects.**
+The query offers a Task and a Project beside the dispatch rows, and Tab to either moves it to the top so ↵ adds.
+A Task then picks its project, and a Project on All asks which repository.
+What a project is: [Project](../../concepts/project.md).
+
 **Contents, in order:** actions available on the current context,
 navigation, jobs by id or name, sessions by any word of the title or by id,
 settings. Only work in hand is listed: a Job that is not over, a Session
