@@ -198,6 +198,12 @@ export function DocumentLayer({ session }: { session: Session }) {
   const save = async (kind: "html" | "pdf") => {
     if (page === undefined || pageRef.current === null) return;
     const name = sketchFileName(title, kind);
+    // The sketches are read as drawn, so Changes is put away for the save, and the file holds the revision without its marks.
+    const marked = showing;
+    if (marked) {
+      setChanges(false);
+      await new Promise((drawn) => requestAnimationFrame(() => requestAnimationFrame(drawn)));
+    }
     try {
       const html = savedPage(page, exporters.current.map((one) => one?.current?.()), valuesOf(page, pageRef.current));
       const saved = await window.armada.saveDocument({ kind, name, html });
@@ -206,6 +212,7 @@ export function DocumentLayer({ session }: { session: Session }) {
     } catch {
       shared.said?.(`${name} was not saved.`);
     }
+    if (marked) setChanges(true);
   };
 
   const share = (id: string) => {

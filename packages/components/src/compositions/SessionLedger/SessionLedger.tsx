@@ -255,16 +255,23 @@ const KINDS: { form: ArtifactForm; label: string }[] = [
 /** How many Artifacts rows show before More. */
 const NEWEST = 5;
 
-/** Which artifact kinds the viewer lets through, everything but Pictures to begin with. A viewer's convenience, so a blocked store only forgets it. */
+/**
+ * Which artifact kinds the viewer lets through, everything but Pictures to begin with. A viewer's convenience, so a blocked store only forgets it.
+ * The kinds hidden are kept, not the kinds shown, so a kind added later shows. A list of kinds shown from before is read once as what it hid.
+ */
 function useKinds(): [readonly ArtifactForm[], (next: readonly ArtifactForm[]) => void] {
-  const key = "armada.session-ledger.kinds.artifact";
-  const fallback: ArtifactForm[] = ["window", "page", "file", "doc", "document"];
+  const key = "armada.session-ledger.kinds.artifact.hidden";
+  const shownBefore = "armada.session-ledger.kinds.artifact";
+  const forms = KINDS.map((one) => one.form);
   const [on, set] = useState<readonly ArtifactForm[]>(() => {
     try {
-      const kept: unknown = JSON.parse(localStorage.getItem(key) ?? "null");
-      return Array.isArray(kept) ? KINDS.map((one) => one.form).filter((form) => kept.includes(form)) : fallback;
+      const hidden: unknown = JSON.parse(localStorage.getItem(key) ?? "null");
+      if (Array.isArray(hidden)) return forms.filter((form) => !hidden.includes(form));
+      const shown: unknown = JSON.parse(localStorage.getItem(shownBefore) ?? "null");
+      if (Array.isArray(shown)) return forms.filter((form) => form === "document" || shown.includes(form));
+      return forms.filter((form) => form !== "image");
     } catch {
-      return fallback;
+      return forms.filter((form) => form !== "image");
     }
   });
   return [
@@ -272,7 +279,7 @@ function useKinds(): [readonly ArtifactForm[], (next: readonly ArtifactForm[]) =
     (next) => {
       set(next);
       try {
-        localStorage.setItem(key, JSON.stringify(next));
+        localStorage.setItem(key, JSON.stringify(forms.filter((form) => !next.includes(form))));
       } catch {
         // Not kept: the filter is as it was left until the window closes.
       }
