@@ -55,6 +55,8 @@ pub(crate) struct Tracking {
     pub(crate) autopilot: crate::autopilot::Remembered,
     /// Each backlog Fleet syncs, by root — `crate::backlog_syncing`.
     pub(crate) keepings: crate::backlog_syncing::Keepings,
+    /// Issues linked in a project and read one by one, being off the open list — `crate::projects`.
+    pub(crate) reads: crate::projects::IssueReads,
 }
 
 #[derive(Clone)]
@@ -69,6 +71,7 @@ impl Tracking {
             lists: std::sync::Mutex::new(BTreeMap::new()),
             autopilot: crate::autopilot::Remembered::default(),
             keepings: crate::backlog_syncing::Keepings::new(),
+            reads: crate::projects::IssueReads::default(),
         }
     }
 

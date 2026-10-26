@@ -66,6 +66,7 @@ async fn a_session_far_behind_is_told_once_until_it_catches_up() {
             request: None,
             after: None,
             held: false,
+            project_rows: Vec::new(),
         })
         .await
         .expect("started")
@@ -135,6 +136,7 @@ async fn slots_behind_in_one_pass_are_told_in_one_message() {
             request: None,
             after: None,
             held: false,
+            project_rows: Vec::new(),
         })
         .await
         .expect("started")
@@ -189,6 +191,7 @@ async fn behind_with_a_holder() -> (TempDir, Arc<Rescued>, String, WorktreesHeld
             request: None,
             after: None,
             held: false,
+            project_rows: Vec::new(),
         })
         .await
         .expect("started")
