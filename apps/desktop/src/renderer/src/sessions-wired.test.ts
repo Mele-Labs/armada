@@ -7,6 +7,8 @@ import type { BridgeApi } from "../../shared/api";
 import { NOTHING_YET } from "../../shared/bridge";
 import type { BridgeState } from "../../shared/bridge";
 import type { StateChange } from "../../shared/state-change";
+import { forgetKept, writeKept } from "@armada/components";
+import { aimKey } from "./session-view/mod-aim";
 import { QUEUED_KEY } from "./queued-ideas";
 import { WiredStore } from "./sessions-wired";
 
@@ -155,6 +157,34 @@ it("starts a queued idea through the real start, with its words as the request a
   expect(startSession).toHaveBeenCalledWith(undefined, "/code/armada", IDEA.text, { model: "opus", effort: "high" });
   expect(store.draft.queued!().map((one) => one.text)).toEqual(["Another"]);
   await vi.waitFor(() => expect(sendSessionMessage).toHaveBeenCalledWith(expect.objectContaining({ session_id: "new", text: IDEA.text })));
+});
+
+const FIRST = { text: "a dark theme", files: [], sketches: [], tags: [] };
+
+it("sends an empty Mod Job's aim with its first message and not with the next", async () => {
+  const { store, sendSessionMessage } = await starting("ok");
+  writeKept(aimKey("new"), "theme");
+
+  expect(await store.draft.send("new", FIRST)).toBe(true);
+  expect(sendSessionMessage).toHaveBeenLastCalledWith({ session_id: "new", text: "a dark theme", aim: "theme" });
+
+  expect(await store.draft.send("new", { ...FIRST, text: "darker" })).toBe(true);
+  expect(sendSessionMessage).toHaveBeenLastCalledWith({ session_id: "new", text: "darker" });
+});
+
+it("sends no aim where none was picked, and keeps the pick when Fleet refuses the message", async () => {
+  const { store, sendSessionMessage } = await starting("ok");
+  expect(await store.draft.send("new", FIRST)).toBe(true);
+  expect(sendSessionMessage).toHaveBeenLastCalledWith({ session_id: "new", text: "a dark theme" });
+
+  writeKept(aimKey("new"), "source");
+  // A refusal is told as a toast, which the stubbed window has to be able to hear.
+  (window as unknown as { dispatchEvent: () => boolean }).dispatchEvent = () => true;
+  sendSessionMessage.mockResolvedValueOnce({ ok: false as const, outcome: { ok: false as const, why: "not_connected" as const } } as never);
+  expect(await store.draft.send("new", FIRST)).toBe(false);
+  expect(await store.draft.send("new", FIRST)).toBe(true);
+  expect(sendSessionMessage).toHaveBeenLastCalledWith({ session_id: "new", text: "a dark theme", aim: "source" });
+  forgetKept(aimKey("new"));
 });
 
 it("leaves a pick out of the start where the idea has none, so the proposer fills it in", async () => {
