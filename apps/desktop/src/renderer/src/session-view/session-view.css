@@ -94,9 +94,9 @@
   --sv-group-bg: var(--bg-raised);
   background: var(--sv-group-bg);
 }
-.sv-group[data-state="live"] { border-color: color-mix(in srgb, var(--step-running) 55%, var(--border-subtle)); --sv-group-bg: color-mix(in srgb, var(--step-running) 6%, var(--bg-raised)); box-shadow: inset 3px 0 0 var(--step-running); }
-.sv-group[data-state="failed"] { border-color: color-mix(in srgb, var(--step-failed) 55%, var(--border-subtle)); --sv-group-bg: var(--step-failed-bg); box-shadow: inset 3px 0 0 var(--step-failed); }
-.sv-group[data-state="done"] { border-color: color-mix(in srgb, var(--step-advanced) 45%, var(--border-subtle)); box-shadow: inset 3px 0 0 color-mix(in srgb, var(--step-advanced) 70%, var(--bg-raised)); }
+.sv-group[data-state="live"] { border-color: color-mix(in srgb, var(--step-running) 55%, var(--border-subtle)); --sv-group-bg: color-mix(in srgb, var(--step-running) 6%, var(--bg-raised)); box-shadow: inset calc(var(--border-width) * 3) 0 0 var(--step-running); }
+.sv-group[data-state="failed"] { border-color: color-mix(in srgb, var(--step-failed) 55%, var(--border-subtle)); --sv-group-bg: var(--step-failed-bg); box-shadow: inset calc(var(--border-width) * 3) 0 0 var(--step-failed); }
+.sv-group[data-state="done"] { border-color: color-mix(in srgb, var(--step-advanced) 45%, var(--border-subtle)); box-shadow: inset calc(var(--border-width) * 3) 0 0 color-mix(in srgb, var(--step-advanced) 70%, var(--bg-raised)); }
 .sv-group__row { display: flex; flex-direction: column; gap: var(--space-1); width: 100%; padding: var(--space-2) var(--space-3); border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
 .sv-group__row:hover { background: color-mix(in srgb, var(--fg-default) 5%, transparent); }
 .sv-group__row:focus-visible { outline: var(--border-width) solid var(--accent); outline-offset: calc(var(--border-width) * -1); }

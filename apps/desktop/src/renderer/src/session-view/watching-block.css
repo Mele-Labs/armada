@@ -3,7 +3,7 @@
 
 .sv-watching { --hue: var(--step-running); display: flex; flex-direction: column; gap: var(--space-1); }
 .sv-watching__label { font-family: var(--font-sans); font-size: var(--text-xs); line-height: var(--leading-xs); font-weight: var(--weight-medium); color: var(--hue); }
-.sv-watching__list { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; border: var(--border-width) solid color-mix(in srgb, var(--hue) 40%, var(--border-subtle)); border-radius: var(--radius-md); background: color-mix(in srgb, var(--hue) 5%, var(--bg-raised)); box-shadow: inset 3px 0 0 var(--hue); overflow: hidden; }
+.sv-watching__list { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; border: var(--border-width) solid color-mix(in srgb, var(--hue) 40%, var(--border-subtle)); border-radius: var(--radius-md); background: color-mix(in srgb, var(--hue) 5%, var(--bg-raised)); box-shadow: inset calc(var(--border-width) * 3) 0 0 var(--hue); overflow: hidden; }
 .sv-watching__list > li + li { border-top: var(--border-width) solid color-mix(in srgb, var(--hue) 25%, var(--border-subtle)); }
 
 /* The hue a state's mark wears, here and in the side panel. */

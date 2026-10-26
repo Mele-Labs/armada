@@ -38,9 +38,9 @@
 /* A task wears its state as a Cockpit row does: done in the done hue, the one being worked on a running tint with a running edge, one that failed on a failed tint with a failed edge. */
 .sv-group__task[data-state="done"], .sv-group__task[data-state="handed_in"] { color: color-mix(in srgb, var(--step-advanced) 40%, var(--fg-muted)); }
 .sv-group__task[data-state="working"] { color: var(--fg-default); }
-.sv-group__task[data-state="failed"] { background: var(--step-failed-bg); box-shadow: inset 3px 0 0 var(--step-failed); color: var(--step-failed); font-weight: var(--weight-medium); }
+.sv-group__task[data-state="failed"] { background: var(--step-failed-bg); box-shadow: inset calc(var(--border-width) * 3) 0 0 var(--step-failed); color: var(--step-failed); font-weight: var(--weight-medium); }
 /* The task the turn is on: tinted and edged in the running hue, with what it is doing on a line of its own under the text. */
-.sv-group__task[data-here] { background: color-mix(in srgb, var(--step-running) 12%, transparent); box-shadow: inset 3px 0 0 var(--step-running); color: var(--fg-default); font-weight: var(--weight-medium); }
+.sv-group__task[data-here] { background: color-mix(in srgb, var(--step-running) 12%, transparent); box-shadow: inset calc(var(--border-width) * 3) 0 0 var(--step-running); color: var(--fg-default); font-weight: var(--weight-medium); }
 .sv-group__task > .sv-issue { grid-column: 2; margin-top: var(--space-1); }
 .sv-group__task-now { grid-column: 2; color: color-mix(in srgb, var(--step-running) 70%, var(--fg-muted)); font-size: var(--text-2xs); line-height: var(--leading-2xs); font-weight: var(--weight-body); }
 
@@ -53,7 +53,7 @@
 .sv-landing__prs { margin: 0; padding: 0; list-style: none; }
 .sv-landing__docs { display: flex; flex-direction: column; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
 /* The findings a spike or a document lands in: a framed row in the teal of a handed-in step, its glyph and edge in the same hue. */
-.sv-landing__doc { --hue: var(--status-handed-in); display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: var(--space-2); width: 100%; padding: var(--space-2) var(--space-3); border: var(--border-width) solid color-mix(in srgb, var(--hue) 40%, var(--border-subtle)); border-radius: var(--radius-md); background: color-mix(in srgb, var(--hue) 8%, var(--bg-raised)); box-shadow: inset 3px 0 0 var(--hue); color: var(--fg-default); font-family: var(--font-sans); font-size: var(--text-xs); line-height: var(--leading-xs); font-weight: var(--weight-medium); text-align: start; cursor: pointer; }
+.sv-landing__doc { --hue: var(--status-handed-in); display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: var(--space-2); width: 100%; padding: var(--space-2) var(--space-3); border: var(--border-width) solid color-mix(in srgb, var(--hue) 40%, var(--border-subtle)); border-radius: var(--radius-md); background: color-mix(in srgb, var(--hue) 8%, var(--bg-raised)); box-shadow: inset calc(var(--border-width) * 3) 0 0 var(--hue); color: var(--fg-default); font-family: var(--font-sans); font-size: var(--text-xs); line-height: var(--leading-xs); font-weight: var(--weight-medium); text-align: start; cursor: pointer; }
 .sv-landing__doc:not(:disabled):hover { background: color-mix(in srgb, var(--hue) 14%, var(--bg-raised)); }
 .sv-landing__doc:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--border-width) * -1); }
 .sv-landing__doc-mark { display: inline-flex; align-items: center; color: var(--hue); }
@@ -62,7 +62,7 @@
 /* ---- Landing: a report ------------------------------------------------------------------------------------------ */
 
 /* The report is violet: a framed card with a weighted head and the same hue down its edge. */
-.sv-landing__report { --hue: var(--status-rejected); display: flex; flex-direction: column; gap: var(--space-1); width: 100%; padding: var(--space-2) var(--space-3); border: var(--border-width) solid color-mix(in srgb, var(--hue) 40%, var(--border-subtle)); border-radius: var(--radius-md); background: color-mix(in srgb, var(--hue) 8%, var(--bg-raised)); box-shadow: inset 3px 0 0 var(--hue); color: var(--fg-muted); font-family: var(--font-sans); text-align: start; cursor: pointer; }
+.sv-landing__report { --hue: var(--status-rejected); display: flex; flex-direction: column; gap: var(--space-1); width: 100%; padding: var(--space-2) var(--space-3); border: var(--border-width) solid color-mix(in srgb, var(--hue) 40%, var(--border-subtle)); border-radius: var(--radius-md); background: color-mix(in srgb, var(--hue) 8%, var(--bg-raised)); box-shadow: inset calc(var(--border-width) * 3) 0 0 var(--hue); color: var(--fg-muted); font-family: var(--font-sans); text-align: start; cursor: pointer; }
 .sv-landing__report:hover { background: color-mix(in srgb, var(--hue) 14%, var(--bg-raised)); }
 .sv-landing__report:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--border-width) * -1); }
 .sv-landing__report-head { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: var(--space-2); color: var(--fg-default); font-size: var(--text-sm); line-height: var(--leading-sm); font-weight: var(--weight-heading); }

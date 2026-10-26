@@ -29,7 +29,7 @@ button.sv-ledger__main:focus-visible { outline: var(--focus-ring); outline-offse
 .sv-ledger__main > .sv-ledger__glyph { color: var(--hue); }
 
 /* State: a pull request's row is framed in its state's hue, with the edge heavier on the leading side. */
-.sv-ledger[data-tone] { margin-block: var(--space-1); border: var(--border-width) solid color-mix(in srgb, var(--hue) 40%, var(--border-subtle)); border-radius: var(--radius-md); background: color-mix(in srgb, var(--hue) 7%, var(--bg-raised)); box-shadow: inset 3px 0 0 var(--hue); }
+.sv-ledger[data-tone] { margin-block: var(--space-1); border: var(--border-width) solid color-mix(in srgb, var(--hue) 40%, var(--border-subtle)); border-radius: var(--radius-md); background: color-mix(in srgb, var(--hue) 7%, var(--bg-raised)); box-shadow: inset calc(var(--border-width) * 3) 0 0 var(--hue); }
 .sv-ledger[data-tone="open"] { --hue: var(--step-running); }
 .sv-ledger[data-tone="draft"] { --hue: var(--status-not-started); }
 .sv-ledger[data-tone="merged"] { --hue: var(--step-advanced); }
