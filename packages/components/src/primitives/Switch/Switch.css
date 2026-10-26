@@ -1,15 +1,16 @@
 /* Switch: the slide toggle, cut for a ship's panel. The track and thumb have two chamfered corners each instead of a pill's
- * round ends, and the thumb carries a ridged grip. On is --accent, off is the sunken ground. `data-switch="rail"` on the
- * root draws the track as a rail, a hairline the thumb rides along, lit when on.
+ * round ends, and the thumb carries a ridged grip. On lights the edge and the thumb in --accent, off is grey. `data-switch` on the root picks
+ * a take: `trail` leaves a lit hairline behind the thumb when on, `rail` draws the track as a hairline the thumb rides along.
  *
  * The edge is drawn by the track's own ground showing round an inset fill, since a clipped shape takes no border.
  * No gradient, no glow, no sheen. Motion is one --duration-press slide, zero under reduced motion.
  * Keyboard and screen reader are the input's own: it stays in the label, clipped, and the track draws its state. */
 
 .armada-switch {
-  --switch-w: calc(var(--space-8) + var(--space-3));
-  --switch-h: var(--h-badge);
-  --cut: var(--space-1);
+  --switch-w: var(--space-12);
+  --switch-h: calc(var(--h-badge) + var(--border-width) * 2);
+  --cut: calc(var(--space-1) + var(--border-width) * 2);
+  --thumb-cut: calc(var(--space-1) - var(--border-width));
   --pad: calc(var(--border-width) * 3);
   /* The native input is absolutely positioned and clipped; the label is what
      it is positioned against. */
@@ -81,38 +82,69 @@
   transition: background-color var(--duration-press) var(--ease);
 }
 
-/* The thumb is cut as the track is, half its length, and slides end to end. */
+/* The thumb is cut as the track is, a little finer, two fifths its length, and slides end to end. */
 .armada-switch__thumb {
   position: absolute;
   inset-block: var(--pad);
   left: var(--pad);
-  width: calc(50% - var(--pad));
-  clip-path: var(--chamfer);
+  width: calc(40% - var(--pad));
+  clip-path: polygon(var(--thumb-cut) 0, 100% 0, 100% calc(100% - var(--thumb-cut)), calc(100% - var(--thumb-cut)) 100%, 0 100%, 0 var(--thumb-cut));
   background: var(--fg-subtle);
   transition:
     left var(--duration-press) var(--ease),
     background-color var(--duration-press) var(--ease);
 }
 
-/* The grip: two ridges across the thumb's middle. */
-.armada-switch__thumb::before {
+/* The grip: three fine ridges across the thumb's middle, the outer two drawn as one box's sides, the middle one inside it. */
+.armada-switch__thumb::before,
+.armada-switch__thumb::after {
   content: "";
   position: absolute;
   inset-block: calc(var(--pad) + var(--border-width));
   left: 50%;
-  width: calc(var(--space-1) + var(--border-width));
-  margin-left: calc((var(--space-1) + var(--border-width)) / -2);
-  border-inline: var(--border-width) solid var(--bg-sunken);
+}
+
+.armada-switch__thumb::before {
+  width: var(--space-2);
+  margin-left: calc(var(--space-2) / -2);
+  border-inline: var(--border-width) solid var(--grip);
+}
+
+.armada-switch__thumb::after {
+  width: var(--border-width);
+  margin-left: calc(var(--border-width) / -2);
+  background: var(--grip);
+}
+
+.armada-switch__thumb {
+  --grip: color-mix(in srgb, var(--bg-sunken) 60%, transparent);
 }
 
 .armada-switch__input:checked + .armada-switch__track {
   --edge: var(--accent);
-  --fill: color-mix(in srgb, var(--accent) 35%, var(--bg-sunken));
 }
 
 .armada-switch__input:checked + .armada-switch__track .armada-switch__thumb {
-  left: 50%;
+  left: 60%;
   background: var(--accent);
+}
+
+/* ---- Trail: on leaves a lit hairline along the track's middle, from the start to the thumb ---- */
+
+:root[data-switch="trail"] .armada-switch__track::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: calc(var(--pad) + var(--space-1));
+  width: 0;
+  height: calc(var(--border-width) * 2);
+  margin-top: calc(var(--border-width) * -1);
+  background: var(--accent);
+  transition: width var(--duration-press) var(--ease);
+}
+
+:root[data-switch="trail"] .armada-switch__input:checked + .armada-switch__track::after {
+  width: calc(60% - var(--pad) - var(--space-1));
 }
 
 .armada-switch:not(:has(.armada-switch__input:disabled)):hover .armada-switch__track {
@@ -141,11 +173,11 @@
 :root[data-switch="rail"] .armada-switch__thumb {
   inset-block: 0;
   left: 0;
-  width: 50%;
+  width: 40%;
 }
 
 :root[data-switch="rail"] .armada-switch__input:checked + .armada-switch__track .armada-switch__thumb {
-  left: 50%;
+  left: 60%;
 }
 
 /* ---- Focus and disabled ---- */
