@@ -3,24 +3,27 @@
 //! **An issue row keeps no state.** Whether it is open, and its title, are read from the tracker
 //! when the rows are: the open list Fleet holds for the Issues tab first, and an issue not on it read
 //! by its reference and held [`HELD_FOR`], as that list is. A tracker that cannot answer leaves both
-//! absent and refuses nothing, so a project is always listed.
+//! absent and refuses nothing, so a project is always listed. **A pull request linked to a task is read the
+//! same way**, from the forge by its number and held [`HELD_FOR`], and a forge that is silent leaves both absent.
 //!
 //! **Every write answers the repository's projects whole** and publishes them as `projects.changed`.
 
 use std::collections::BTreeMap;
 use std::sync::Mutex;
 
-use adapter_traits::{AgentHarness, Delivery, NotTracked, Vcs, WorkProduct};
+use adapter_traits::{AgentHarness, Delivery, NotTracked, PullRequestStanding, Vcs, WorkProduct};
 use api::{Projects, Refusal};
 use core_model::Timestamp;
 use ipc::{
-    IssueReference, IssueState, LinkProjectIssue, ManifestId, MoveProjectRow, NameProject, Project, ProjectRow,
-    ProjectHolder, ProjectTask, ProjectTaskState, TaskIssue, TickProjectTask, WireError,
+    IssueReference, IssueState, LinkProjectIssue, LinkTaskJob, LinkTaskPull, ManifestId, MoveProjectRow, NameProject,
+    Project, ProjectRow, ProjectHolder, ProjectTask, ProjectTaskState, TaskIssue, TaskPull, TaskPullState,
+    TickProjectTask, WireError,
 };
 use store::{KeptHolder, KeptProject, KeptProjectRow, KeptRowItem, KeptTaskState, Store};
 
 use crate::clock::elapsed;
 use crate::daemon::Fleet;
+use crate::project_holds::subtasks_of;
 use crate::tracking::HELD_FOR;
 
 /// The repository has no project by that id. A 404.
@@ -35,6 +38,8 @@ const NOT_AN_ISSUE: &str = "fleet.project_issue_unreadable";
 const NOT_A_TASK: &str = "fleet.project_row_not_a_task";
 /// A subtask of a subtask, of a task with subtasks, or of itself. A 422.
 const TOO_DEEP: &str = "fleet.project_subtask_too_deep";
+/// What was linked is not a pull request's number. A 422.
+const NOT_A_PULL: &str = "fleet.project_pull_unreadable";
 
 /// What the tracker said of one issue: open or closed, and its title.
 type Said = (IssueState, String);
@@ -58,6 +63,26 @@ impl IssueReads {
     }
 }
 
+/// What the forge said of one pull request: where it stands, and its title.
+type PullSaid = (TaskPullState, String);
+
+/// Pull requests linked in a project and read one by one, by repository and number. **In memory**, as
+/// [`IssueReads`] is. A forge that said nothing is not kept: asking again is reasonable.
+#[derive(Default)]
+pub(crate) struct PullReads(Mutex<BTreeMap<(String, u64), (Timestamp, PullSaid)>>);
+
+impl PullReads {
+    fn held(&self, manifest: &str, number: u64, now: &Timestamp) -> Option<PullSaid> {
+        let held = self.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        held.get(&(manifest.to_string(), number)).filter(|(at, _)| elapsed(at, now) < HELD_FOR).map(|(_, said)| said.clone())
+    }
+
+    pub(crate) fn keep(&self, manifest: &str, number: u64, at: Timestamp, said: PullSaid) {
+        let mut held = self.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        held.insert((manifest.to_string(), number), (at, said));
+    }
+}
+
 /// A task's state on the wire, and the Job holding it where one does.
 fn task_state(state: KeptTaskState) -> (ProjectTaskState, Option<ProjectHolder>) {
     let holder = |holder: KeptHolder| ProjectHolder { session_id: holder.session, title: holder.title };
@@ -65,13 +90,13 @@ fn task_state(state: KeptTaskState) -> (ProjectTaskState, Option<ProjectHolder>)
         KeptTaskState::Open => (ProjectTaskState::Open, None),
         KeptTaskState::Done => (ProjectTaskState::Done, None),
         KeptTaskState::Held(by) => (ProjectTaskState::Held, Some(holder(by))),
-        KeptTaskState::Asked(by) => (ProjectTaskState::Asked, Some(holder(by))),
+        KeptTaskState::Asked(by) => (ProjectTaskState::Asked, by.map(holder)),
     }
 }
 
-fn row_on_the_wire(row: KeptProjectRow, said: &BTreeMap<String, Said>) -> ProjectRow {
+fn row_on_the_wire(row: KeptProjectRow, said: &BTreeMap<String, Said>, pulled: &BTreeMap<u64, PullSaid>) -> ProjectRow {
     match row.item {
-        KeptRowItem::Task { title, notes, state, parent, issues } => {
+        KeptRowItem::Task { title, notes, state, parent, issues, pulls } => {
             let (state, held_by) = task_state(state);
             let issues = issues
                 .into_iter()
@@ -80,7 +105,14 @@ fn row_on_the_wire(row: KeptProjectRow, said: &BTreeMap<String, Said>) -> Projec
                     TaskIssue { title: read.map(|(_, title)| title.clone()), state: read.map(|(state, _)| *state), issue }
                 })
                 .collect();
-            ProjectRow::Task { id: row.id, title, notes, state, held_by, parent, issues }
+            let pulls = pulls
+                .into_iter()
+                .map(|number| {
+                    let read = pulled.get(&number);
+                    TaskPull { number, title: read.map(|(_, title)| title.clone()), state: read.map(|(state, _)| *state) }
+                })
+                .collect();
+            ProjectRow::Task { id: row.id, title, notes, state, held_by, parent, issues, pulls }
         }
         KeptRowItem::Issue { reference } => {
             let read = said.get(&reference);
@@ -106,6 +138,20 @@ fn issue_references(kept: &[KeptProject]) -> Vec<String> {
     references.sort_unstable();
     references.dedup();
     references
+}
+
+fn pull_numbers(kept: &[KeptProject]) -> Vec<u64> {
+    let mut numbers: Vec<u64> = kept
+        .iter()
+        .flat_map(|project| &project.rows)
+        .flat_map(|row| match &row.item {
+            KeptRowItem::Task { pulls, .. } => pulls.clone(),
+            KeptRowItem::Issue { .. } => Vec::new(),
+        })
+        .collect();
+    numbers.sort_unstable();
+    numbers.dedup();
+    numbers
 }
 
 impl<H, V, W> Fleet<H, V, W>
@@ -192,6 +238,10 @@ where
         ))
     }
 
+    fn unreadable_pull(&self, number: u64) -> Refusal {
+        Refusal::Unacceptable(self.project_refusal(NOT_A_PULL, format!("`{number}` is not a pull request's number")))
+    }
+
     fn minted(&self) -> String {
         self.mint().ulid().as_str().to_lowercase()
     }
@@ -240,8 +290,42 @@ where
         said
     }
 
+    /// What the forge says of each pull request linked in `kept`, by number. **Never refuses**: one it
+    /// could not say is left out, and the task draws it without a title or a state.
+    async fn pulls_said(&self, manifest_id: &ManifestId, kept: &[KeptProject]) -> BTreeMap<u64, PullSaid> {
+        let mut said = BTreeMap::new();
+        let numbers = pull_numbers(kept);
+        if numbers.is_empty() {
+            return said;
+        }
+        let Ok(served) = self.served_named(Some(manifest_id)) else {
+            return said;
+        };
+        let now = self.now();
+        for number in numbers {
+            if let Some(held) = self.tracking().pulls.held(manifest_id.as_str(), number, &now) {
+                said.insert(number, held);
+                continue;
+            }
+            let (vcs, root) = (std::sync::Arc::clone(self.vcs()), served.root().to_string());
+            let facts = tokio::task::spawn_blocking(move || vcs.pull_request_facts(&root, &number.to_string())).await.ok().flatten();
+            let Some(facts) = facts else {
+                continue;
+            };
+            let state = match facts.standing {
+                PullRequestStanding::Draft | PullRequestStanding::Open => TaskPullState::Open,
+                PullRequestStanding::Merged => TaskPullState::Merged,
+                PullRequestStanding::Closed => TaskPullState::Closed,
+            };
+            self.tracking().pulls.keep(manifest_id.as_str(), number, now.clone(), (state, facts.title.clone()));
+            said.insert(number, (state, facts.title));
+        }
+        said
+    }
+
     pub(crate) async fn projects_on_the_wire(&self, manifest_id: ManifestId, kept: Vec<KeptProject>) -> ipc::Projects {
         let said = self.issues_said(&manifest_id, &kept).await;
+        let pulled = self.pulls_said(&manifest_id, &kept).await;
         ipc::Projects {
             manifest_id,
             projects: kept
@@ -249,7 +333,7 @@ where
                 .map(|project| Project {
                     id: project.id,
                     name: project.name,
-                    rows: project.rows.into_iter().map(|row| row_on_the_wire(row, &said)).collect(),
+                    rows: project.rows.into_iter().map(|row| row_on_the_wire(row, &said, &pulled)).collect(),
                 })
                 .collect(),
         }
@@ -348,6 +432,7 @@ where
                 state: KeptTaskState::Open,
                 parent: None,
                 issues: Vec::new(),
+                pulls: Vec::new(),
             };
             store.add_project_row(&project, &KeptProjectRow { id, item }).map_err(|why| self.ledger_fault(why))
         })
@@ -374,6 +459,7 @@ where
                 state: KeptTaskState::Open,
                 parent: Some(row.clone()),
                 issues: Vec::new(),
+                pulls: Vec::new(),
             };
             store.add_project_row(&project, &KeptProjectRow { id, item }).map_err(|why| self.ledger_fault(why))
         })
@@ -406,6 +492,78 @@ where
             self.task_in(kept, &project, &row)?;
             let issue = IssueReference::read(&link.issue).ok_or_else(|| self.unreadable_issue(&link.issue))?;
             store.unlink_task_issue(&project, &row, issue.as_str()).map(drop).map_err(|why| self.ledger_fault(why))
+        })
+        .await
+    }
+
+    async fn link_task_job(
+        &self,
+        manifest_id: ManifestId,
+        project: String,
+        row: String,
+        link: LinkTaskJob,
+    ) -> Result<ipc::Projects, Refusal> {
+        let (session, repository) = (link.session_id.as_str().to_string(), manifest_id.as_str().to_string());
+        self.projects_written(manifest_id, |store, kept| {
+            self.task_in(kept, &project, &row)?;
+            self.job_may_hold(store, &repository, &session)?;
+            let mut tasks = vec![(project.clone(), row.clone())];
+            tasks.extend(subtasks_of(self.project_in(kept, &project)?, &row).map(|sub| (project.clone(), sub)));
+            store.hold_project_tasks(&session, &tasks).map_err(|why| self.ledger_fault(why))
+        })
+        .await
+    }
+
+    async fn unlink_task_job(&self, manifest_id: ManifestId, project: String, row: String) -> Result<ipc::Projects, Refusal> {
+        self.projects_written(manifest_id, |store, kept| {
+            self.task_in(kept, &project, &row)?;
+            store.free_held_project_task(&project, &row).map(drop).map_err(|why| self.ledger_fault(why))
+        })
+        .await
+    }
+
+    async fn link_task_pull(
+        &self,
+        manifest_id: ManifestId,
+        project: String,
+        row: String,
+        link: LinkTaskPull,
+    ) -> Result<ipc::Projects, Refusal> {
+        let repository = manifest_id.as_str().to_string();
+        let projects = self
+            .projects_written(manifest_id.clone(), |store, kept| {
+                self.task_in(kept, &project, &row)?;
+                if link.number == 0 {
+                    return Err(self.unreadable_pull(link.number));
+                }
+                store.link_task_pull(&project, &row, link.number).map(drop).map_err(|why| self.ledger_fault(why))
+            })
+            .await?;
+        // One that merged before it was linked asks now, once, as the sweep would have.
+        let merged = projects.projects.iter().flat_map(|one| &one.rows).find_map(|one| match one {
+            ProjectRow::Task { id, pulls, .. } if *id == row => {
+                pulls.iter().find(|pull| pull.number == link.number && pull.state == Some(TaskPullState::Merged))
+            }
+            _ => None,
+        });
+        match merged {
+            Some(pull) if self.tasks_asked_by_linked_pull(&repository, link.number, pull.title.as_deref().unwrap_or_default()).await => {
+                self.list_projects(manifest_id).await
+            }
+            _ => Ok(projects),
+        }
+    }
+
+    async fn unlink_task_pull(
+        &self,
+        manifest_id: ManifestId,
+        project: String,
+        row: String,
+        link: LinkTaskPull,
+    ) -> Result<ipc::Projects, Refusal> {
+        self.projects_written(manifest_id, |store, kept| {
+            self.task_in(kept, &project, &row)?;
+            store.unlink_task_pull(&project, &row, link.number).map(drop).map_err(|why| self.ledger_fault(why))
         })
         .await
     }

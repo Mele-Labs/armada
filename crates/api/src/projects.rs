@@ -175,3 +175,50 @@ pub(crate) async fn unlink_task_issue<D: Projects>(
     let result = served.daemon().unlink_task_issue(ManifestId::carried(repository), project, row, link).await;
     answered(&served, result)
 }
+
+pub(crate) async fn link_task_job<D: Projects>(
+    State(served): State<Served<D>>,
+    Path((repository, project, row)): Path<(String, String, String)>,
+    body: Bytes,
+) -> Response {
+    let link = match decoded(&served, "a job to link", &body) {
+        Ok(link) => link,
+        Err(response) => return response,
+    };
+    let result = served.daemon().link_task_job(ManifestId::carried(repository), project, row, link).await;
+    answered(&served, result)
+}
+
+pub(crate) async fn unlink_task_job<D: Projects>(
+    State(served): State<Served<D>>,
+    Path((repository, project, row)): Path<(String, String, String)>,
+) -> Response {
+    let result = served.daemon().unlink_task_job(ManifestId::carried(repository), project, row).await;
+    answered(&served, result)
+}
+
+pub(crate) async fn link_task_pull<D: Projects>(
+    State(served): State<Served<D>>,
+    Path((repository, project, row)): Path<(String, String, String)>,
+    body: Bytes,
+) -> Response {
+    let link = match decoded(&served, "a pull request to link", &body) {
+        Ok(link) => link,
+        Err(response) => return response,
+    };
+    let result = served.daemon().link_task_pull(ManifestId::carried(repository), project, row, link).await;
+    answered(&served, result)
+}
+
+pub(crate) async fn unlink_task_pull<D: Projects>(
+    State(served): State<Served<D>>,
+    Path((repository, project, row)): Path<(String, String, String)>,
+    body: Bytes,
+) -> Response {
+    let link = match decoded(&served, "a pull request to unlink", &body) {
+        Ok(link) => link,
+        Err(response) => return response,
+    };
+    let result = served.daemon().unlink_task_pull(ManifestId::carried(repository), project, row, link).await;
+    answered(&served, result)
+}

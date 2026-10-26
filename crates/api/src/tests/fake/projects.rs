@@ -2,7 +2,7 @@
 //! test reads what arrived. What Fleet keeps and reads is `fleet::projects`', against a real store.
 
 use ipc::{
-    IssueState, LinkProjectIssue, ManifestId, MoveProjectRow, NameProject, Project, ProjectRow, ProjectTask,
+    IssueState, LinkProjectIssue, LinkTaskJob, LinkTaskPull, ManifestId, MoveProjectRow, NameProject, Project, ProjectRow, ProjectTask,
     ProjectTaskState, TickProjectTask, WireError,
 };
 
@@ -25,6 +25,7 @@ fn echoed(manifest_id: ManifestId, project: &str, said: String) -> ipc::Projects
                     held_by: None,
                     parent: None,
                     issues: Vec::new(),
+                    pulls: Vec::new(),
                 },
                 ProjectRow::Issue {
                     id: "r2".to_string(),
@@ -126,6 +127,44 @@ impl Projects for FakeDaemon {
     ) -> Result<ipc::Projects, Refusal> {
         held(&project)?;
         Ok(echoed(manifest_id, &project, format!("unlink_task_issue {row} {}", link.issue)))
+    }
+
+    async fn link_task_job(
+        &self,
+        manifest_id: ManifestId,
+        project: String,
+        row: String,
+        link: LinkTaskJob,
+    ) -> Result<ipc::Projects, Refusal> {
+        held(&project)?;
+        Ok(echoed(manifest_id, &project, format!("link_task_job {row} {}", link.session_id.as_str())))
+    }
+
+    async fn unlink_task_job(&self, manifest_id: ManifestId, project: String, row: String) -> Result<ipc::Projects, Refusal> {
+        held(&project)?;
+        Ok(echoed(manifest_id, &project, format!("unlink_task_job {row}")))
+    }
+
+    async fn link_task_pull(
+        &self,
+        manifest_id: ManifestId,
+        project: String,
+        row: String,
+        link: LinkTaskPull,
+    ) -> Result<ipc::Projects, Refusal> {
+        held(&project)?;
+        Ok(echoed(manifest_id, &project, format!("link_task_pull {row} {}", link.number)))
+    }
+
+    async fn unlink_task_pull(
+        &self,
+        manifest_id: ManifestId,
+        project: String,
+        row: String,
+        link: LinkTaskPull,
+    ) -> Result<ipc::Projects, Refusal> {
+        held(&project)?;
+        Ok(echoed(manifest_id, &project, format!("unlink_task_pull {row} {}", link.number)))
     }
 
     async fn edit_project_task(
