@@ -112,9 +112,9 @@ export function columnsOf(view: RowView, earlier: boolean): { template: string; 
   const on = columnsOn(view, earlier);
   const after = on.slice(on.findIndex(({ field }) => field === "conflicts") + 1);
   return {
-    // A column's width is a variable of the list (`--dn-w-<field>`), so the stylesheet can take it to nothing where no row of the list has the field.
-    template: ["minmax(0, 1fr)", ...on.map(({ field, width }) => `var(--dn-w-${field}, ${width}px)`)].join(" "),
-    clashRight: `calc(var(--space-3)${after.map(({ field, width }) => ` + var(--dn-w-${field}, ${width}px) + ${GAP}px`).join("")})`,
+    // A column's width is a variable of the list (`--deck-w-<field>`), so the stylesheet can take it to nothing where no row of the list has the field.
+    template: ["minmax(0, 1fr)", ...on.map(({ field, width }) => `var(--deck-w-${field}, ${width}px)`)].join(" "),
+    clashRight: `calc(var(--space-3)${after.map(({ field, width }) => ` + var(--deck-w-${field}, ${width}px) + ${GAP}px`).join("")})`,
   };
 }
 

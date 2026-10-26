@@ -40,7 +40,6 @@ import { select, setView } from "./store";
 import { openRequestsInPanel } from "../../shared-panel/store";
 import { toggleLayer } from "../../session-view/layers";
 import type { SessionBays } from "../../session-view/slot-trouble";
-import "./density-take.css";
 
 /** How long a judge that found nothing is shown as done. */
 const CLEAR_MS = 2400;
