@@ -1,0 +1,7 @@
+[icons.drone]
+  means = "A small aircraft seen from above, four rotors round a body - a Drone"
+  group = "Session"
+  size = "16px"
+  status = "Specified"
+  reserved = "The Job's Subagents view, a button in the Job's head. Never a Job, never a Session, and never the Record's Drone kind mark, which is `bot`."
+  notes = "Minted 26 Oct 2026 with the Cockpit's Job head, where the views of a Job are icon buttons with a tooltip. Approved by the owner on the walk `flight-control` the same day. The view lists the Job's subagents and draws the glyph in the running hue, pulsing, while one runs; the number running is in the tooltip `Subagents`. `bot` already marks a Drone in the Record's Kind column and stays there, since that mark is read beside words and this one stands alone in a row of four buttons."

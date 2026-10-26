@@ -1,9 +1,9 @@
-// The bays as the flight deck lists them, each drawn as a bay: the state it is in as a glyph with its tooltip, the kind of whoever
+// The bays as the flight deck lists them, each drawn as a bay: its number in the hue of the state it is in, the state's word its tooltip, whoever
 // holds it, and the facts behind the state, each with its tooltip, grouped under a heading for each repository. A bay and the row of
 // the Session that holds it light each other under the pointer. Nothing is worded beyond the facts and nothing is counted
 // beside the list. The states are the pool's own (`bays.ts`). #2301.
 
-import { ArrowUpFromLine, FilePenLine, Flame, FolderPlus, HardDrive, Mail, Snowflake, SquareTerminal, Unplug } from "lucide-react";
+import { ArrowUpFromLine, FilePenLine, Flame, FolderPlus, HardDrive, Mail, Snowflake, Unplug } from "lucide-react";
 import { Standby } from "./Standby";
 import { useState, type ReactNode } from "react";
 import { Button, Inspect, Tooltip, timeSaid, useTimeFormat } from "@armada/components";
@@ -13,9 +13,7 @@ import { refusalWords } from "@armada/screens/src/refusal-words";
 import { BayCard } from "./inspect-cards";
 
 import { PanelKey } from "./keys";
-import { holderKeyOf, shortOf, spanOf, type BayView } from "./bays";
-
-export const kindGlyph = (size = 12) => <SquareTerminal size={size} aria-hidden />;
+import { holderKeyOf, shortOf, type BayView } from "./bays";
 
 /** A glyph with its tooltip, which is also its name. */
 function Mark({ said, children }: { said: string; children: ReactNode }) {
@@ -38,17 +36,6 @@ function Cut({ full, className, children }: { full: string; className: string; c
 }
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
-
-/** How long a leased bay has been held, or how long since a free one was given back: the last figure of line one. */
-function timeOf(view: BayView): ReactNode {
-  const [ms, said] = view.state === "leased" ? [view.heldFor, "Held for"] : view.state === "free" || view.state === "closed" ? [view.freed, "Given back"] : [undefined, ""];
-  if (ms === undefined) return null;
-  return (
-    <Cut full={view.state === "leased" ? `${said} ${spanOf(ms)}` : `${said} ${spanOf(ms)} ago`} className="deck-bay__time">
-      {spanOf(ms)}
-    </Cut>
-  );
-}
 
 /** Whoever holds the bay, or held it last. */
 function Who({ view }: { view: BayView }) {
@@ -124,22 +111,6 @@ function Warmth({ view }: { view: BayView }) {
   );
 }
 
-/** The kind of whoever holds a leased bay. */
-function Kind({ view }: { view: BayView }) {
-  return view.state === "leased" && view.holder !== undefined ? <Mark said="Job">{kindGlyph()}</Mark> : null;
-}
-
-/** The state as a glyph, its word in the tooltip. */
-function State({ view, size }: { view: BayView; size: number }) {
-  return (
-    <Tooltip label={view.said ?? view.word}>
-      <span className="deck-bay__state" role="img" aria-label={view.word}>
-        <view.Glyph size={size} aria-hidden />
-      </span>
-    </Tooltip>
-  );
-}
-
 /** The bay's number, painted large in the door. */
 const Name = ({ view }: { view: BayView }) => (
   <span className="deck-bay__name">
@@ -148,24 +119,25 @@ const Name = ({ view }: { view: BayView }) => (
   </span>
 );
 
-/** The bay's headline: the holder and its kind, where a bay has one. */
+/** The bay's headline: the holder, where a bay has one. */
 function Lead({ view }: { view: BayView }) {
   if (view.state !== "leased" && view.state !== "stranded") return null;
   return (
     <span className="deck-bay__line">
-      <Kind view={view} />
       <Who view={view} />
     </span>
   );
 }
 
-/** A berth: a door in the state's hue carrying the glyph and the bay's number, and to its right the holder, its branch and the time. `foot` adds marks of a host's own. */
+/** A berth: a door in the state's hue carrying the bay's number, and to its right the holder and its branch. `foot` adds marks of a host's own. */
 export function Berth({ view, foot }: { view: BayView; foot?: ReactNode }) {
   return (
     <>
       <span className="deck-bay__door">
-        <State view={view} size={16} />
-        <Name view={view} />
+        {/* The door is the number alone, in the state's hue, and the state's word is the number's tooltip. */}
+        <Tooltip label={view.said ?? view.word}>
+          <Name view={view} />
+        </Tooltip>
       </span>
       <span className="deck-bay__body">
         <Lead view={view} />
@@ -174,7 +146,6 @@ export function Berth({ view, foot }: { view: BayView; foot?: ReactNode }) {
           <Warmth view={view} />
           <Marks view={view} />
           {foot}
-          {timeOf(view)}
         </span>
       </span>
     </>
@@ -227,7 +198,7 @@ export function Bays({ views, repoName, working, selected, hovered, onHover, onS
     <section className="deck-panel deck-bays" aria-label="Bays" tabIndex={-1}>
       <Standby kind="bays" />
       <header className="deck-band">
-        Bays
+        <span className="deck-band__name">Bays</span>
         {onOpenSlots === undefined ? null : (
           <Tooltip label="Worktree Slots" asChild>
             <Button variant="ghost" size="sm" iconOnly aria-label="Worktree Slots" onClick={onOpenSlots}>

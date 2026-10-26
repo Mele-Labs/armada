@@ -1,10 +1,11 @@
 // The window's tabs: where a person moves about. Drawn in the title bar's centre (`TitleBar`'s `places`), each tab one
 // surface. System opens the page last used under it. #2301.
 
-import { useLayoutEffect, useRef, useState } from "react";
 import { SlidersHorizontal, type LucideIcon } from "lucide-react";
-import { Tabs, usePlacesRoom } from "@armada/components";
+import { Tabs } from "@armada/components";
 import { DECK_TABS, SURFACES, deckTabOf } from "@armada/shell";
+
+import { setTitleNotch } from "./title-notch";
 
 import "./deck-chrome.css";
 
@@ -30,38 +31,30 @@ export function TabBar({ showing, onGoTo, waiting = false, away = false, hidden 
 }) {
   const place = deckTabOf(showing);
   const tabs = DECK_TABS.filter((tab) => tab.id === "system" || !hidden.includes(tab.surface));
-  const drawn = tabs.map((tab) => tab.id).join(" ");
-  // The strip stays on one line: where the room is narrower than the labels, each tab is drawn as its glyph. The
-  // labels' width is read while they are drawn, so it is known when the row widens again.
-  const room = usePlacesRoom();
-  const nav = useRef<HTMLElement>(null);
-  const [labels, setLabels] = useState<{ drawn: string; width: number }>();
-  const iconsOnly = labels?.drawn === drawn && room !== undefined && labels.width > room;
-  useLayoutEffect(() => {
-    if (iconsOnly || nav.current === null) return;
-    const width = Math.ceil(nav.current.getBoundingClientRect().width);
-    if (labels?.drawn !== drawn || labels.width !== width) setLabels({ drawn, width });
-  });
+  // Each tab is its glyph, with its name in a tooltip, so the strip is one line at any width. After it is a place for the open Job's state and name, which draws nothing while no Job puts its name there.
   return (
-    <nav ref={nav} className="deck-places" aria-label="Places">
-      <Tabs
-        iconsOnly={iconsOnly}
-        items={tabs.map((tab) => {
-          const icon = iconOf(tab);
-          return {
-            id: tab.id,
-            label: tab.label,
-            ...(icon === undefined ? {} : { icon }),
-            ...(tab.id === "cockpit" && waiting && place !== "cockpit" ? { alert: WAITING } : {}),
-          };
-        })}
-        {...(place === undefined ? {} : { value: place })}
-        onChange={(id) => {
-          const tab = DECK_TABS.find((one) => one.id === id);
-          // Pressing the place a person is in goes up to its list (an open Session closes), except the Cockpit, which is already the deck.
-          if (tab !== undefined && (tab.id !== "cockpit" || tab.id !== place || away)) onGoTo(tab.surface);
-        }}
-      />
-    </nav>
+    <>
+      <nav className="deck-places" aria-label="Places">
+        <Tabs
+          iconsOnly
+          items={tabs.map((tab) => {
+            const icon = iconOf(tab);
+            return {
+              id: tab.id,
+              label: tab.label,
+              ...(icon === undefined ? {} : { icon }),
+              ...(tab.id === "cockpit" && waiting && place !== "cockpit" ? { alert: WAITING } : {}),
+            };
+          })}
+          {...(place === undefined ? {} : { value: place })}
+          onChange={(id) => {
+            const tab = DECK_TABS.find((one) => one.id === id);
+            // Pressing the place a person is in goes up to its list (an open Session closes), except the Cockpit, which is already the deck.
+            if (tab !== undefined && (tab.id !== "cockpit" || tab.id !== place || away)) onGoTo(tab.surface);
+          }}
+        />
+      </nav>
+      <span ref={setTitleNotch} className="deck-places__job" />
+    </>
   );
 }

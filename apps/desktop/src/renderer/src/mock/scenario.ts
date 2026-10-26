@@ -14,6 +14,7 @@ import { everyKind, untitled } from "@armada/studios/fake";
 import { gridHeld, slotsHeld } from "@armada/cleanup/fake";
 import { failingTurn, writingTheFailedLogs } from "./merge-line-turn";
 import { holding } from "./holding";
+import { sessionsStore } from "./sessions/script";
 import { scenariosOf } from "./slices";
 
 export { connected, onBoard, unanswered } from "./moment";
@@ -154,11 +155,7 @@ export const SCENARIOS: readonly Scenario[] = [
     ),
   ),
   failingCheck(),
-  holding(
-    "many-repositories",
-    "Twenty-one repositories served, so the picker has a filter field and leads with the last few picked",
-    [repository(), ...MANY],
-  ),
+  manyRepositories(),
   // Each surface's own Fleet, listed by its slice: `slices.ts`.
   ...scenariosOf("setup", "manifest", "studios", "workflows", "helm"),
   // Every row in `scenarios/`, by export name. **A walk's row is added there,
@@ -194,4 +191,11 @@ function retros(name: string, says: string): Scenario {
 /** The scenario by name, or `undefined` for a name nothing here holds. */
 export function scenarioNamed(name: string): Scenario | undefined {
   return SCENARIOS.find((one) => one.name === name);
+}
+/** Twenty-one repositories served and Sessions served, so a Job started in one makes it a recent pick. */
+function manyRepositories(): Scenario {
+  const served = [repository(), ...MANY];
+  const base = holding("many-repositories", "Twenty-one repositories served, so the picker has a filter field and leads with the last few picked", served);
+  const owners = new Map(served.flatMap((one) => (one.manifest === undefined ? [] : [[one.root, one.manifest.id] as const])));
+  return { ...base, draft: { ...base.draft, sessions: () => sessionsStore([], [], owners) } };
 }

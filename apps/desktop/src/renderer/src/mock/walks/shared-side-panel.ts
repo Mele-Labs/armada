@@ -56,7 +56,7 @@ const sharedSidePanel = walk("shared-side-panel", [
   { look: inside(bay("slot-1"), role("list", "History")), say: "Who held it" },
   { key: "Escape", on: bay("slot-1"), say: "Esc" },
   { press: inside(jobs, button("Gate policy on every run")), say: "The Job holding it" },
-  { press: inside(controls, button("Bays", { exact: true })), say: "Bays, a key in Flight control" },
+  { press: button("Bays", { exact: true }), say: "Bays, a button in the Job's head" },
   { press: button("Show slot-1 in Bays"), say: "The bay it holds, in its Bays layer" },
   { look: inside(bay("slot-1"), role("tab", "Facts")), say: "The same panel" },
   { key: "Escape", on: bay("slot-1"), say: "Esc" },

@@ -1,17 +1,17 @@
 // The Cockpit's Bays panel, each bay drawn as a berth under a heading for its repository. The walk stands on the panel and reads each
 // state in turn, then lights a bay and its holder's row from either end. Over `bays-look-like-bays`.
 
-import { button, inside, region, role, walk } from "../walk";
+import { button, inside, region, role, text, walk } from "../walk";
 
 const bays = region("Bays");
 const list = region("Jobs", { exact: true });
 const bay = (name: RegExp) => inside(bays, role("button", name));
 
 const baysLookLikeBays = walk("bays-look-like-bays", [
-  { look: bays, say: "The Bays panel: the bays grouped under a heading for each repository, each a berth with its state glyph and its number in a door down the left, and who holds it to the right" },
+  { look: bays, say: "The Bays panel: the bays grouped under a heading for each repository, each a berth with its number in a door down the left, in its state's colour, and who holds it to the right" },
   { look: inside(bays, role("heading", "armada", { exact: true })), say: "A repository is a heading, as in the Jobs list. The bay carries no repository of its own" },
-  { look: bay(/^slot-4, armada, Held/), say: "A bay a Job holds and is working in: the state glyph pulses" },
-  { hover: inside(bay(/^slot-4, armada, Held/), role("img", "Held", { exact: true })), say: "Held" },
+  { look: bay(/^slot-4, armada, Held/), say: "A bay a Job holds and is working in" },
+  { hover: inside(bay(/^slot-4, armada, Held/), text("4")), say: "The number says the state: Held" },
   { look: bay(/^slot-2, armada, Held/), say: "A bay a Job holds, idle: the holder, its branch and how long it has held it" },
   { look: bay(/^slot-7, armada, Free/), say: "A free bay that is warm, its frame open and empty" },
   { hover: inside(bay(/^slot-7, armada, Free/), role("img", "Warm", { exact: true })), say: "Warm" },
