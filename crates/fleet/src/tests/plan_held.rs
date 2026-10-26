@@ -7,11 +7,12 @@ use std::time::Duration;
 
 use api::{HostedSessions, Sessions};
 use ipc::{
-    DismissWaiting, PlanGroupInput, PlanTaskInput, RecordPlan, SessionFact, SessionId, SessionRecord, SessionReport, ShowWindow,
-    WaitingItem, WaitingSource, WindowClosed, WindowTake, WithdrawWindow,
+    AnswerSessionAsk, AskingToRun, DismissWaiting, HelmCallAnswer, PlanGroupInput, PlanTaskInput, QuestionAnswer, RecordPlan,
+    SessionFact, SessionId, SessionRecord, SessionReport, ShowWindow, WaitingItem, WaitingSource, WindowClosed, WindowTake,
+    WithdrawWindow,
 };
 
-use super::session_host::{rig_placing, Rig};
+use super::session_host::{eventually, rig_placing, Rig};
 
 const ONE: &str = "http://localhost:5173/one";
 const TWO: &str = "http://localhost:5173/two";
@@ -322,6 +323,52 @@ async fn a_walk_he_answered_with_changes_does_not_hold_the_plan_recorded_after()
     later().await;
     page(&rig, &id, ONE).await;
     assert!(call(&rig, &id).await.is_none(), "shown again after the plan, it holds the plan");
+}
+
+/// Job 30236153, 26 Oct 2026: he closed the walk's window unwalked, answered the Job's question on
+/// where a run is saved, and the plan recorded two minutes later was put to him ahead of the walk.
+#[tokio::test]
+async fn his_answer_to_the_jobs_question_is_not_words_on_the_walk() {
+    const ASK: &str = r#"{"tool_name":"AskUserQuestion","tool_use_id":"toolu_q","input":{"questions":[
+      {"question":"Save where?","header":"Save where","multiSelect":false,
+       "options":[{"label":"This Mac","description":""},{"label":"The repository","description":""}]}]}}"#;
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    page(&rig, &id, ONE).await;
+    rig.fleet.window_closed(WindowClosed { session_id: id.clone(), url: ONE.into() }).await.expect("told");
+    later().await;
+
+    let fleet = Arc::clone(&rig.fleet);
+    let session = id.as_str().to_string();
+    let asking: AskingToRun = ipc::decode("an ask", ASK.as_bytes()).expect("an ask");
+    let held = tokio::spawn(async move { fleet.session_permission(&session, asking).await });
+    let minted = std::sync::Mutex::new(String::new());
+    eventually(|| async {
+        let asked = read(&rig, &id).await.hosted.and_then(|hosted| hosted.asked);
+        asked.map(|asked| *minted.lock().unwrap() = asked.call).is_some()
+    })
+    .await;
+    let minted = minted.lock().unwrap().clone();
+    Arc::clone(&rig.fleet)
+        .answer_session_ask(AnswerSessionAsk {
+            session_id: id.clone(),
+            call: minted,
+            answer: HelmCallAnswer::AllowOnce,
+            note: None,
+            answers: vec![QuestionAnswer { question: "Save where?".into(), chosen: vec!["This Mac".into()] }],
+            folder: None,
+        })
+        .await
+        .expect("answered");
+    held.await.unwrap().expect("decided");
+    later().await;
+    record(&rig, &id, None).await;
+
+    assert!(call(&rig, &id).await.is_none(), "the walk he never approved holds the plan");
+    assert_eq!(
+        read(&rig, &id).await.plan.expect("a plan").held_by,
+        [ipc::PlanHold { url: ONE.into(), why: ipc::PlanHoldWhy::Unapproved }]
+    );
 }
 
 #[tokio::test]
