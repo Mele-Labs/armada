@@ -110,12 +110,12 @@
 /* A group that names an issue: the issue is a meta line of its own under the title, tucked up to it. */
 .sv-group__meta { display: flex; min-width: 0; padding: 0 var(--space-3) var(--space-2); margin-top: calc(var(--space-1) * -1); }
 .sv-plan .sv-group[data-step] > .sv-group__meta { padding-inline-start: calc(var(--space-3) + var(--space-3) + var(--space-2)); }
-.sv-issue { display: flex; align-items: center; gap: var(--space-1); min-width: 0; max-width: 100%; padding: 0; border: 0; border-radius: var(--radius-sm); background: none; color: var(--fg-muted); font: inherit; font-size: var(--text-2xs); line-height: var(--leading-2xs); font-weight: var(--weight-body); text-align: start; white-space: nowrap; cursor: pointer; }
+.sv-issue { display: flex; align-items: center; gap: var(--space-1); min-width: 0; max-width: 100%; padding: 0; border: 0; border-radius: var(--radius-sm); background: none; color: var(--fg-muted); font: inherit; font-family: var(--font-sans); font-size: var(--text-2xs); line-height: var(--leading-2xs); font-weight: var(--weight-body); text-align: start; white-space: nowrap; cursor: pointer; }
 .sv-issue:hover .sv-issue__title { color: var(--fg-default); text-decoration: underline; }
 .sv-issue:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
 .sv-issue__mark { display: inline-flex; flex: none; align-items: center; color: var(--fg-muted); }
 .sv-issue[data-state="closed"] .sv-issue__mark { color: var(--step-advanced); }
-.sv-issue__key { flex: none; max-width: 50%; overflow: hidden; color: var(--fg-default); font-size: inherit; line-height: inherit; text-overflow: ellipsis; }
+.sv-issue__key { flex: none; max-width: 50%; overflow: hidden; color: var(--fg-default); font-family: var(--font-mono); font-size: inherit; line-height: inherit; text-overflow: ellipsis; }
 .sv-issue__title { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 /* Its pull requests, under the tasks, when the plan holds them. */
 .sv-group__prs { padding: var(--space-2) var(--space-3); border-top: var(--border-width) solid var(--border-subtle); }
