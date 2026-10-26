@@ -42,6 +42,13 @@ Setup is in [Set up the phone app](../journeys/set-up-the-phone-app.md).
 
 It is read at each ask, in `pocket::machine_address`, so an edit needs no restart.
 
+**Bridge walks the owner to Funnel.** Settings, Phone draws a row for each step, from these two routes in `crates/pocket/src/setup.rs`, and reads them again every 5 s until Funnel is on.
+
+| Route | Does |
+|---|---|
+| `GET /admin/setup` | `{ tailscale, served, named, address? }`: Tailscale `missing`, `signed_out` or `running`; in front of the Gateway `none`, `tailnet` (`tailscale serve`) or `funnel`; and whether `pocket-address` names the address |
+| `POST /admin/setup/funnel` | Runs `tailscale funnel --bg` in front of the Gateway. 204 once on; `{ approve }`, the tailnet's page to allow Funnel on, while the command waits for it; 502 with Tailscale's words otherwise |
+
 ## Turning it on
 
 The opt-in is the file `pocket` in Armada's machine directory, `~/Library/Application Support/Armada/`.

@@ -113,6 +113,7 @@ impl Phone {
             fleet: Arc::new(move || Ok(fleet_port)),
             assets: Some(assets(&self.machine)),
             push,
+            way_in: pocket::mac_way_in(self.machine.clone(), port),
         };
         let following = tokio::spawn(pocket::follow(gateway.clone()));
         let (stop, stopped) = oneshot::channel::<()>();

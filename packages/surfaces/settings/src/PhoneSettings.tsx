@@ -32,6 +32,9 @@ export function PhoneSettings({ onCopied }: { onCopied?: (value: string) => void
       onConfirm={() => source.confirm()}
       onUnpair={(id) => source.unpair(id)}
       {...(onCopied === undefined ? {} : { onCopied })}
+      {...(state.setup === null ? {} : { wayIn: state.setup })}
+      onFunnel={() => source.funnel()}
+      onOpen={(page) => source.open(page)}
     />
       </CardContent>
     </Card>
