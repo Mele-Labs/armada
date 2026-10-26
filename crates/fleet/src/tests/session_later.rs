@@ -146,9 +146,13 @@ async fn a_defer_with_nothing_to_keep_or_no_job_to_keep_it_on_is_refused() {
     let placed_nowhere = rig.fleet.defer_later(None, DeferLater { sentence: SLOW.into(), session_id: None }).await;
     assert!(matches!(placed_nowhere, Err(Refusal::Unacceptable(_))), "{placed_nowhere:?}");
 
+    // The refusal is for the empty sentence, not for the job.
+    rig.fleet.defer_later(caller(), defer(&id, SLOW)).await.expect("a sentence is kept");
+
     Arc::clone(&rig.fleet).close_session(ipc::CloseSession { session_id: id.clone() }).await.expect("ended");
-    let ended = rig.fleet.defer_later(caller(), defer(&id, SLOW)).await;
-    assert!(ended.is_err(), "an ended job keeps nothing");
+    let ended = rig.fleet.defer_later(caller(), defer(&id, DOCS)).await.expect_err("an ended job keeps nothing");
+    let Refusal::IllegalMove(why) = ended else { panic!("{ended:?}") };
+    assert_eq!(why.code.to_string(), "fleet.session_closed");
 }
 
 fn done(id: &SessionId) -> AllDone {
