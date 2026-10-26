@@ -11,3 +11,8 @@
 .sv-later__item { display: flex; align-items: center; gap: var(--space-1); padding-top: var(--space-2); font-family: var(--font-sans); font-size: var(--text-xs); line-height: var(--leading-xs); color: var(--fg-default); }
 .sv-later__item > .sv-row { flex: 1; min-width: 0; }
 .sv-later__text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+/* Remind and the thumbs keep a column each down the list, a row that lacks them leaving its place empty. */
+.sv-later__remind, .sv-later__thumbs { display: flex; align-items: center; flex: none; }
+.sv-later__remind { width: var(--space-6); }
+.sv-later__thumbs { width: calc(var(--space-6) * 2 + var(--space-1)); gap: var(--space-1); }
+.sv-later__item .armada-button[data-icon-only="true"] { width: var(--space-6); height: var(--space-6); }

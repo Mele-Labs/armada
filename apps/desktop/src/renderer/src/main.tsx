@@ -83,7 +83,11 @@ wireFleetKeymap(withState(window.armada));
 /** How the owner has a time drawn, over Fleet. Not a mod, so safe mode keeps it. */
 wireFleetTimeFormat(withState(window.armada));
 /** Settings → Phone, over the Gateway through the main process. Reads nothing until Settings draws it. */
-const PHONE = createPhoneGatewaySource((request) => window.armada.phone(request));
+const PHONE = createPhoneGatewaySource(
+  (request) => window.armada.phone(request),
+  Date.now,
+  (page) => void window.armada.openLink(page),
+);
 /** The moon in the title row and the night's decisions as Cockpit calls, over Fleet. */
 const SLEEP = createFleetSleep(withState(window.armada));
 /** The plan's windows in the title row, over Fleet. */

@@ -6,6 +6,8 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import type { PullRequestPage } from "@armada/protocol";
 
+import { fleetPanelReads } from "./fleet-reads";
+import type { FleetPanelApi, FleetPanelState } from "./fleet-reads";
 import { SharedPanelHost } from "./host";
 import { SharedPanelFrom, forgetReadings } from "./reads";
 import type { PanelReads, PatchesRead, PullRequestRead } from "./reads";
@@ -135,6 +137,16 @@ test("a read that throws is a read that answered nothing", async () => {
   await mount(readsOf(() => Promise.reject(new Error("forge down"))));
   await act(async () => {});
   expect(document.querySelector('[role="alert"]')?.textContent).toBe("The forge did not answer for this pull request.");
+});
+
+test("a page the forge refused is drawn with Fleet's words for it, not the fixed sentence", async () => {
+  const said = "GitHub refused access to harbor-labs/tidewater. Run gh auth refresh -s repo, then press this pull request again.";
+  const refused = async () => ({ ok: false, outcome: { ok: false, why: "refused", error: { message: said } } });
+  const api = { readReviewPage: refused, getPullRequest: refused } as unknown as FleetPanelApi;
+  const state = { holds: { repositories: [{ root: "/code/tidewater", records_root: "/r", manifest: { id: "tidewater", repository: "harbor-labs/tidewater" } }] } } as unknown as FleetPanelState;
+  await mount({ ...readsOf(async () => undefined), ...fleetPanelReads(api, () => state) });
+  await act(async () => {});
+  expect(document.querySelector('[role="alert"]')?.textContent).toBe(said);
 });
 
 test("Open in browser opens the pull request's address in the browser and leaves the panel where it is", async () => {

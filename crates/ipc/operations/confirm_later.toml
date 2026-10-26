@@ -1,0 +1,10 @@
+[operations.confirm_later]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Say a follow-up Fleet read from a job's reply is one, with thumbs up"
+notes = """
+`POST /sessions/later/confirm`, body `ConfirmLater`: `id` (a `SessionRecord.later` id such as `later-1`) and `session_id`. Answered with the `SessionRecord`, and `SessionChanged` is published.
+
+The sentence is kept for good, in no Session's name, as a follow-up: `tools/lm-train` reads it as a positive example. The row stays open, still holds `all_done`, and carries `confirmed: true` from then on. An id that names no open follow-up is a 409 `fleet.later_not_open`. The thumbs down is `settle_later` with `how` `dropped` and `misread`, which only the person's call may set.
+"""

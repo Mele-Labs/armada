@@ -13,6 +13,7 @@ fn gateway() -> Gateway {
         assets: None,
         pairing: crate::pairing_tests::rig_pairing(),
         push: crate::push_tests::test_push(),
+        way_in: crate::setup::quiet_way_in(),
     }
 }
 

@@ -255,12 +255,10 @@ where
     ) -> Result<PullRequestPage, Refusal> {
         let facts = self
             .vcs()
-            .pull_request_page(root, &number.to_string())
-            .ok_or_else(|| {
-                Refusal::Fault(self.pr_refusal(
-                    UNREADABLE,
-                    format!("the forge would not say what is on pull request {number}"),
-                ))
+            .pull_request_page_said(root, &number.to_string())
+            .map_err(|said| {
+                let said = said.unwrap_or_else(|| format!("the forge would not say what is on pull request {number}"));
+                Refusal::Fault(self.pr_refusal(UNREADABLE, said))
             })?;
         Ok(page_of(manifest_id.clone(), number, facts))
     }
