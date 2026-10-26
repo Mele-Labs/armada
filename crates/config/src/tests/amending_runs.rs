@@ -114,3 +114,16 @@ fn a_run_goes_out_and_takes_its_section_when_it_was_the_last() {
     assert!(removed.manifest().app_run_names().is_empty());
     assert!(!removed.text().contains("runs:"));
 }
+
+#[test]
+fn a_copy_that_names_only_what_it_changes_takes_a_run_by_splice_with_its_comments_and_loads_laid_over_a_file() {
+    let kit = "# Mine.\nchecks:\n  test:\n    run: make quick\n";
+    let spliced = crate::amending::splice(kit, &app()).expect("they apply");
+    assert!(spliced.starts_with("# Mine.\nchecks:\n  test:\n    run: make quick\n"), "{spliced}");
+    assert_eq!(crate::kit_copy_fault(&spliced), None);
+    let repository = "version: 1\nid: budget-app\nchecks:\n  test:\n    run: pytest -q\n";
+    let manifest = crate::Manifest::with_kit(at(), repository, Path::new("/kit/budget-app.yml"), &spliced).expect("it merges");
+    assert!(manifest.from_kit().is_some_and(|from| from.left_out.is_none()));
+    assert_eq!(manifest.app_run("app").map(|run| run.servers().len()), Some(2));
+    assert_eq!(manifest.check("test").map(|check| check.run().to_string()).as_deref(), Some("make quick"));
+}

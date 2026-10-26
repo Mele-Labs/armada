@@ -25,10 +25,15 @@ use serde_yaml_ng::{Mapping, Value};
 use super::Manifest;
 use crate::error::LoadError;
 
-/// The registries Kit's copy may replace by name. **A run too**, so a person's own way to run the
-/// app can name the servers a repository's file declares.
-const REGISTRIES: [(&str, KitKind); 3] =
-    [("checks", KitKind::Check), ("commands", KitKind::Command), ("runs", KitKind::Run)];
+/// The registries Kit's copy may replace by name. **A run and its ports too**, so a person's own way
+/// to run the app can bring the servers and the `${port.NAME}` they start on, whether or not the
+/// repository's file declares any.
+const REGISTRIES: [(&str, KitKind); 4] = [
+    ("checks", KitKind::Check),
+    ("commands", KitKind::Command),
+    ("ports", KitKind::Port),
+    ("runs", KitKind::Run),
+];
 
 /// The top-level keys Kit's copy may replace whole: where a person's issues and gate are kept is
 /// theirs to say, as their Checks are.
@@ -39,6 +44,7 @@ const WHOLE_KEYS: [&str; 2] = ["tracker", "ci_gate"];
 pub enum KitKind {
     Check,
     Command,
+    Port,
     Run,
 }
 
@@ -47,6 +53,7 @@ impl KitKind {
         match self {
             KitKind::Check => "check",
             KitKind::Command => "command",
+            KitKind::Port => "port",
             KitKind::Run => "run",
         }
     }
@@ -302,7 +309,7 @@ pub fn manifest_run_lines(text: &str) -> Result<Vec<String>, String> {
 
 /// Why `text` is not a person's own `armada.yml` to keep in Kit, or none where it is: **a whole
 /// Manifest, or a copy naming only what it changes.** The first is read as the repository's file
-/// would be. The second is a mapping holding only `checks`, `commands` and `runs`, each Check with a `run`
+/// would be. The second is a mapping holding only `checks`, `commands`, `ports` and `runs`, each Check with a `run`
 /// line, each Command with a `run` or `serve` line, each run with a `commands` list, and `tracker` and `ci_gate`. The reason is a plain sentence a person can read.
 pub fn kit_copy_fault(text: &str) -> Option<String> {
     let document: Value = match serde_yaml_ng::from_str(text) {
@@ -327,7 +334,7 @@ pub fn kit_copy_fault(text: &str) -> Option<String> {
         });
     if !overlay {
         return Some(plain(&format!(
-            "The text is not a whole armada.yml: {whole}. A copy that is not whole holds only `checks`, `commands`, `runs`, `tracker` and `ci_gate`."
+            "The text is not a whole armada.yml: {whole}. A copy that is not whole holds only `checks`, `commands`, `ports`, `runs`, `tracker` and `ci_gate`."
         )));
     }
     for (registry, _) in REGISTRIES {
@@ -337,6 +344,12 @@ pub fn kit_copy_fault(text: &str) -> Option<String> {
         };
         for (name, entry) in entries {
             let name = name.as_str().unwrap_or("?");
+            if registry == "ports" {
+                if !entry.is_mapping() {
+                    return Some(format!("`ports` entry `{name}` is not a mapping, `{{}}` where it declares nothing."));
+                }
+                continue;
+            }
             // A run lists servers, a server is a Command with `serve`, and the rest run a line.
             let (held, line) = match registry {
                 "runs" => (entry.get("commands").is_some(), "`commands` list"),

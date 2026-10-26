@@ -54,7 +54,7 @@ mod yaml;
 mod tests;
 
 pub use amending::{
-    amend, Amended, CheckEdit, CommandEdit, Edit, EvidenceEdit, NewCheck, NewCommand, NewEvidence,
+    amend, splice, Amended, CheckEdit, CommandEdit, Edit, EvidenceEdit, NewCheck, NewCommand, NewEvidence,
     NewLink, NewNarrowing, NewPort, NewRun, NewRunner, NotAmended, PortEdit, RunEdit, Unplaceable,
 };
 pub use catalogue::{

@@ -126,6 +126,19 @@ impl std::error::Error for NotAmended {}
 /// **Every byte no edit names is copied through**, comments and blank lines
 /// included. An edit that sets a value already there changes nothing.
 pub fn amend(path: &Path, text: &str, edits: &[Edit]) -> Result<Amended, NotAmended> {
+    let current = splice(text, edits)?;
+    let manifest = Manifest::parse(path, &current).map_err(NotAmended::Refused)?;
+    Ok(Amended {
+        text: current,
+        manifest,
+    })
+}
+
+/// Apply `edits`, in order, to `text` **without loading the result**. For a document that is not a
+/// Manifest by itself — Kit's copy that names only what it changes — whose caller loads it laid over
+/// the repository's file. Every splice is still re-read and checked against what the edit should
+/// have produced, so a misplaced byte is [`NotAmended::Unplaceable`] here too.
+pub fn splice(text: &str, edits: &[Edit]) -> Result<String, NotAmended> {
     let mut current = text.to_string();
     for edit in edits {
         let before = merge::read(&current).ok_or_else(|| edit.unplaceable(Unplaceable::NotAMap))?;
@@ -135,11 +148,7 @@ pub fn amend(path: &Path, text: &str, edits: &[Edit]) -> Result<Amended, NotAmen
             }
         }
     }
-    let manifest = Manifest::parse(path, &current).map_err(NotAmended::Refused)?;
-    Ok(Amended {
-        text: current,
-        manifest,
-    })
+    Ok(current)
 }
 
 /// One set or removal, spliced and then checked against what it should read as.
