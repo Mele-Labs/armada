@@ -24,8 +24,8 @@ fn a_sentence_said_again_is_kept_once_and_both_survive_a_reopen() {
 
     let store = open(&dir);
     assert_eq!(store.later_of("s1").unwrap(), vec![
-        KeptLater { id: "later-1".into(), sentence: SLOW.into(), said_at: FIRST.into() },
-        KeptLater { id: "later-2".into(), sentence: DOCS.into(), said_at: FIRST.into() },
+        KeptLater { id: "later-1".into(), sentence: SLOW.into(), said_at: FIRST.into(), confirmed: false },
+        KeptLater { id: "later-2".into(), sentence: DOCS.into(), said_at: FIRST.into(), confirmed: false },
     ]);
     assert_eq!(store.later_of("s2").unwrap(), Vec::new());
 }
