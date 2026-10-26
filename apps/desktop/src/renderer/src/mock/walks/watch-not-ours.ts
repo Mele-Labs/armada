@@ -12,7 +12,7 @@ const card = inside(needs, role("group", "Not ours: QA deploy, provision failed"
 
 const watchNotOurs = walk("watch-not-ours", [
   { press: deckRow("Ship the search filters to QA"), say: "A Job whose QA deploy ended" },
-  { press: inside(watchingBlock, role("switch", "Show ended")), say: "Show ended draws the QA deploy watch" },
+  { look: inside(watchingBlock, button("Watch QA deploy", { exact: true })), say: "Ended, and still listed without Show ended while Needs you asks about it" },
   { hover: inside(watchingBlock, role("img", "Not ours: provision failed")), say: "Its mark is not ours, never green, named with what failed" },
   { press: inside(watchingBlock, button("Watch QA deploy", { exact: true })), say: "The watch opens in the side panel" },
   { press: inside(panel, tab("Parts")), say: "Its parts" },
@@ -24,6 +24,7 @@ const watchNotOurs = walk("watch-not-ours", [
   { look: inside(card, region("Summary for the owners")), say: "Lines to copy for the owners of what broke, with one copy control. Nothing is sent" },
   { press: inside(card, button("Fix it")), say: "Fix it" },
   { look: text(/^Fix provision in QA deploy/), say: "The agent is asked to fix provision, and the item is settled" },
+  { look: inside(watchingBlock, role("switch", "Show ended")), say: "Settled, the watch hides as every ended one does, until Show ended" },
 ]);
 
 export { watchNotOurs };

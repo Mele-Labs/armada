@@ -4,7 +4,7 @@
 import { Ban, Check, CircleDashed, CircleDot, Clock, CornerUpRight, Unplug, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Tooltip } from "@armada/components";
-import type { WatchReading, WatchState, WatchSummary, WatchVerdict } from "@armada/protocol";
+import type { WaitingItem, WatchReading, WatchState, WatchSummary, WatchVerdict } from "@armada/protocol";
 
 import "./watching-block.css";
 
@@ -77,6 +77,13 @@ export const verdictSaid = (verdict: WatchVerdict): string => {
   const who = verdict.verdict === "ours" ? "Ours" : "Not ours";
   return verdict.sentence === undefined || verdict.sentence === "" ? who : `${who}: ${verdict.sentence}`;
 };
+
+/** The watches the Watching block lists: every one on Show ended, else the live ones and any that ended not ours while Needs you still asks about it. */
+export function watchesShown(watches: readonly WatchSummary[], waitingFor: readonly WaitingItem[], ended: boolean): WatchSummary[] {
+  if (ended) return [...watches];
+  const asked = new Set(waitingFor.filter((one) => one.source === "watch_not_ours").map((one) => one.act?.target));
+  return watches.filter((watch) => watch.live || asked.has(watch.id));
+}
 
 /** The kept readings, oldest first: `readings` where Fleet sends them, else `last` alone. */
 export const readingsOf = (watch: WatchSummary): WatchReading[] => watch.readings ?? (watch.last === undefined ? [] : [watch.last]);

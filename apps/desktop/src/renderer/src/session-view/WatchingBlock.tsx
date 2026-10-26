@@ -2,7 +2,8 @@
 // pull request, since a watch can follow none). A row is the state's mark, the watch's name, what its last reading said and how long ago; under
 // it, what the agent made of that reading where it weighed it. A press opens the watch in the side panel.
 //
-// Live watches only, until Show ended draws the ended ones too, each with Delete in a column every row keeps.
+// Live watches only, and one that ended not ours while Needs you still asks about it, until Show ended draws the ended ones too, each with
+// Delete in a column every row keeps.
 
 import { useState } from "react";
 import { Trash2 } from "lucide-react";
@@ -12,7 +13,7 @@ import type { Session } from "@armada/screens/src/draft/sessions";
 
 import { useSessionsDraft } from "../sessions-draft";
 import { openInPanel } from "../shared-panel/store";
-import { readingSays, verdictSaid, verdictsOn, watchSaid, WatchMark } from "./watch-marks";
+import { readingSays, verdictSaid, verdictsOn, watchesShown, watchSaid, WatchMark } from "./watch-marks";
 import "./watching-block.css";
 
 export const openWatchPanel = (sessionId: string, watch: WatchSummary) => openInPanel({ kind: "watch", sessionId, id: watch.id, name: watch.name });
@@ -58,7 +59,7 @@ export function WatchingBlock({ session }: { session: Session }) {
   const watches = session.watches ?? [];
   if (watches.length === 0) return null;
   const anyEnded = watches.some((watch) => !watch.live);
-  const shown = ended ? watches : watches.filter((watch) => watch.live);
+  const shown = watchesShown(watches, session.waitingFor ?? [], ended);
   const remove = draft?.deleteWatch;
   return (
     <section className="sv-watching" aria-label="Watching">
