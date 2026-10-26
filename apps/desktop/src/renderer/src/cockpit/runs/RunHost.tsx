@@ -6,6 +6,7 @@ import { RunConfirm } from "@armada/components";
 import type { RunDraft } from "@armada/components";
 import { repositoryLabel } from "@armada/shell";
 
+import { useDispatching } from "../../dispatch-panel/dispatching";
 import { useSessions } from "../../sessions-draft";
 import type { CockpitProps } from "../deck/props";
 import type { Ship } from "../deck/ship";
@@ -21,6 +22,7 @@ export function RunHost({ ship, props }: { ship: Ship; props: CockpitProps }) {
   const state = useRunsState();
   const asked = useAsked();
   const sessions = useSessions();
+  const dispatching = useDispatching();
   const repositories = props.state.holds.repositories ?? [];
   useEffect(() => {
     if (source === undefined) return;
@@ -53,6 +55,12 @@ export function RunHost({ ship, props }: { ship: Ship; props: CockpitProps }) {
       keep={`${asked.target.repository}:${asked.add ? "add" : "first"}`}
       {...(asked.add ? { name: "" } : {})}
       onCancel={dismissAsked}
+      onFix={(brief) => {
+        // What was typed in the confirm is kept, so it is there when the run is asked for again.
+        dismissAsked();
+        dispatching?.choose("session");
+        dispatching?.openSheet(brief, asked.target.repository);
+      }}
       onSave={(processes, name) => {
         dismissAsked();
         openRun(source.save(asked.target, asked.add ? name : asked.label, processes));

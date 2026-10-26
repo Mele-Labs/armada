@@ -28,6 +28,8 @@ export type RunsSource = {
   start: (target: RunTarget, run: SavedRun) => string;
   /** Saves a run under `name` where the repository keeps its runs, then starts it. */
   save: (target: RunTarget, name: string, processes: readonly RunProcessSpec[]) => string;
+  /** Pins a process's port to `port` in this repository, or releases the pin where `port` is absent. The run starts again, so the new port is the one it is on. */
+  pin: (id: string, process: string, port: number | undefined) => void;
   restart: (id: string) => void;
   stop: (id: string) => void;
 };

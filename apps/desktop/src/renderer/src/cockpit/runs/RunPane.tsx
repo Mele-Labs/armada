@@ -7,12 +7,14 @@ import { RunActs, RunPhaseMark, RunningPanel, appPhase } from "@armada/component
 import { repositoryLabel } from "@armada/shell";
 import { holdsText } from "@armada/screens/src/keys";
 
+import { useDispatching } from "../../dispatch-panel/dispatching";
 import type { CockpitProps } from "../deck/props";
 import { PaneHead } from "../deck/panes";
 import { useRuns, useRunsState } from "./source";
 
 export function RunPane({ id, props }: { id: string; props: CockpitProps }) {
   const source = useRuns();
+  const dispatching = useDispatching();
   const state = useRunsState();
   const pane = useRef<HTMLElement>(null);
   const app = state.apps.find((one) => one.id === id);
@@ -42,7 +44,13 @@ export function RunPane({ id, props }: { id: string; props: CockpitProps }) {
       <PaneHead glyph={Play} kind="Run" title={app.run} where={where === app.run ? undefined : where} mark={<RunPhaseMark phase={phase} />}>
         <RunActs onRestart={() => source.restart(app.id)} onStop={() => source.stop(app.id)} stoppable={live} />
       </PaneHead>
-      <RunningPanel app={app} onOpen={props.onOpenLink} />
+      <RunningPanel
+        app={app}
+        onOpen={props.onOpenLink}
+        onFix={(brief) => (dispatching?.choose("session"), dispatching?.openSheet(brief, app.repository))}
+        onPin={(link) => source.pin(app.id, link.to, link.port)}
+        onUnpin={(process) => source.pin(app.id, process, undefined)}
+      />
     </section>
   );
 }
