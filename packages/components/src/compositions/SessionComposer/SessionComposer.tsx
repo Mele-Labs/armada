@@ -105,6 +105,8 @@ export type ComposerView = {
   disabled?: boolean;
   /** A fact that tints the glyph, set as `data-lit` for the host's style. */
   lit?: boolean;
+  /** Something is running in the view: the glyph is the running hue and pulses, set as `data-running` for the host's style. */
+  running?: boolean;
   mark?: ReactNode;
   onPress: () => void;
 };
@@ -777,9 +779,9 @@ export function SessionComposer({
             {views === undefined ? null : (
               <>
                 <Separator orientation="vertical" className="armada-session-composer__rule" />
-                {views.map(({ id, label: name, tip, Glyph, key, pressed, disabled = false, lit = false, mark, onPress }) => (
+                {views.map(({ id, label: name, tip, Glyph, key, pressed, disabled = false, lit = false, running = false, mark, onPress }) => (
                   <Tooltip key={id} label={tip} {...(key === undefined ? {} : { shortcut: key })}>
-                    <Button type="button" variant="ghost" size="sm" aria-label={name} aria-pressed={pressed} disabled={disabled} data-key={key} data-lit={lit || undefined} data-view={id} onClick={onPress}>
+                    <Button type="button" variant="ghost" size="sm" aria-label={name} aria-pressed={pressed} disabled={disabled} data-key={key} data-lit={lit || undefined} data-running={running || undefined} data-view={id} onClick={onPress}>
                       <Glyph size={16} strokeWidth={2} aria-hidden />
                       {mark === undefined ? null : <span className="armada-session-composer__mark">{mark}</span>}
                     </Button>

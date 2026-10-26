@@ -7,7 +7,7 @@
 
 import { useLayoutEffect, useRef, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
-import { CircleDot, Swords } from "lucide-react";
+import { Swords } from "lucide-react";
 import { Button, Kbd, Separator, Tooltip, type ComposerView } from "@armada/components";
 import { attachmentsOf, type Session } from "@armada/screens/src/draft/sessions";
 
@@ -22,7 +22,7 @@ import { VIEWS_KEY } from "./keys-model";
 import { offeredOf } from "./session-tiles";
 import "./JobTabs.css";
 
-const GLYPH: Record<(typeof TAB_LAYERS)[number], string> = { artifacts: "files", checks: "shield-check", subagents: "split", slot: "rows-3" };
+const GLYPH: Record<(typeof TAB_LAYERS)[number], string> = { artifacts: "library", checks: "shield-check", subagents: "drone", slot: "rows-3" };
 
 /** The Job's four views, or none where the page does not ask for them. */
 export function useJobViews(session: Session, bays: SessionBays | undefined): readonly ComposerView[] | undefined {
@@ -41,30 +41,25 @@ export function useJobViews(session: Session, bays: SessionBays | undefined): re
     const key = tile === undefined ? undefined : takeKey("tabs", tile);
     const why = off[layer];
     const name = tile?.text ?? layer;
+    // Running reads on the glyph itself, in the running hue and pulsing (`JobTabs.css`), and the number running is in the tooltip. Only a clash is a mark.
+    const running = (layer === "checks" && checksRunning) || (layer === "subagents" && subagentsRunning > 0);
     const mark =
-      layer === "subagents" && subagentsRunning > 0 ? (
-        // The number running: the owner asked for it by name, the one place a figure is drawn beside what it counts.
-        <span className="sv-tab__count" role="img" aria-label={`${subagentsRunning} subagents running`}>
-          {subagentsRunning}
-        </span>
-      ) : layer === "checks" && checksRunning ? (
-        <span className="sv-tab__running" role="img" aria-label="Running">
-          <CircleDot size={12} strokeWidth={2} aria-hidden="true" />
-        </span>
-      ) : layer === "slot" && clashSaid !== undefined ? (
+      layer === "slot" && clashSaid !== undefined ? (
         <span className="sv-tab__clash" role="img" aria-label={clashSaid}>
           <Swords size={12} strokeWidth={2} aria-hidden="true" />
         </span>
       ) : undefined;
+    const said = layer === "slot" && wrongs.length > 0 ? wrongs.join(", ") : layer === "subagents" && subagentsRunning > 0 ? `${tile?.label ?? name}, ${subagentsRunning} running` : (tile?.label ?? name);
     return {
       id: layer,
       label: name,
-      tip: why ?? (layer === "slot" && wrongs.length > 0 ? wrongs.join(", ") : (tile?.label ?? name)),
+      tip: why ?? said,
       Glyph: glyphOf(GLYPH[layer], "zap"),
       ...(key === undefined ? {} : { key }),
       pressed: open === layer,
       ...(why === undefined ? {} : { disabled: true }),
       ...(layer === "slot" && bays !== undefined && baysLit(bays) ? { lit: true } : {}),
+      ...(running ? { running: true } : {}),
       ...(mark === undefined ? {} : { mark }),
       onPress: () => toggleLayer(session.id, layer),
     };
@@ -100,10 +95,10 @@ export function LayerBounds() {
 
 /** A view's button, as in the Job's head: ghost, small, its glyph and its fact on the corner. */
 function ViewButton({ view }: { view: ComposerView }) {
-  const { id, label, tip, Glyph, key, pressed, disabled = false, lit = false, mark, onPress } = view;
+  const { id, label, tip, Glyph, key, pressed, disabled = false, lit = false, running = false, mark, onPress } = view;
   return (
     <Tooltip label={tip} {...(key === undefined ? {} : { shortcut: key })}>
-      <Button type="button" variant="ghost" size="sm" iconOnly aria-label={label} aria-pressed={pressed} disabled={disabled} data-key={key} data-lit={lit || undefined} data-view={id} onClick={onPress}>
+      <Button type="button" variant="ghost" size="sm" iconOnly aria-label={label} aria-pressed={pressed} disabled={disabled} data-key={key} data-lit={lit || undefined} data-running={running || undefined} data-view={id} onClick={onPress}>
         <Glyph size={16} strokeWidth={2} aria-hidden />
         {mark === undefined ? null : <span className="sv-view__mark">{mark}</span>}
       </Button>
@@ -151,11 +146,11 @@ export function LeftViews({ views }: { views: readonly ComposerView[] }) {
         </Tooltip>
       </header>
       <ul className="deck-list__rows">
-        {views.map(({ id, label, tip, Glyph, key, pressed, disabled = false, lit = false, mark, onPress }) => (
+        {views.map(({ id, label, tip, Glyph, key, pressed, disabled = false, lit = false, running = false, mark, onPress }) => (
           <li key={id} className="deck-list__item">
             <Tooltip label={tip} {...(key === undefined ? {} : { shortcut: key })} asChild>
               {/* Off is `aria-disabled` and not `disabled`, so the row keeps focus and its tooltip says why. */}
-              <button type="button" className="deck-row" aria-label={label} aria-pressed={pressed} aria-disabled={disabled || undefined} data-selected={pressed || undefined} data-off={disabled || undefined} data-lit={lit || undefined} data-key={key} data-view={id} onClick={disabled ? undefined : onPress}>
+              <button type="button" className="deck-row" aria-label={label} aria-pressed={pressed} aria-disabled={disabled || undefined} data-selected={pressed || undefined} data-off={disabled || undefined} data-lit={lit || undefined} data-running={running || undefined} data-key={key} data-view={id} onClick={disabled ? undefined : onPress}>
                 <span className="deck-row__title">
                   <Glyph size={16} strokeWidth={2} aria-hidden />
                   {label}

@@ -68,3 +68,12 @@
 .deck-views .deck-row[data-off] { color: var(--fg-subtle); cursor: default; pointer-events: auto; }
 .deck-views .deck-row[data-off] .deck-row__title > svg { color: var(--fg-subtle); }
 .deck-views .deck-row[data-off]:hover { background: color-mix(in srgb, var(--fg-default) 6%, transparent); }
+
+/* ---- Running, on the glyph (every place the views draw): the running hue and the Checks tile's pulse; still under reduced motion -------------------- */
+
+button[data-view][data-running] > svg,
+.deck-views .deck-row[data-running] .deck-row__title > svg { color: var(--status-running); animation: deck-bay-pulse calc(var(--duration-pulse) * 1.5) ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  button[data-view][data-running] > svg,
+  .deck-views .deck-row[data-running] .deck-row__title > svg { animation: none; }
+}
