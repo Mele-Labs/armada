@@ -431,21 +431,24 @@
     border-color: var(--accent);
     background: var(--accent-muted);
     box-shadow: inset 0 2px 0 var(--dn-key-seat);
-    transform: translateY(1px);
+    /* Moved by `top`, not a transform: a transform makes the key the box its fixed tooltip is placed in, and the tooltip then covers the key. */
+    top: 1px;
   }
   /* A press that is answered by nothing is not a press. */
   & :is(.deck-controls__block:not([data-subject="edit"]), .deck-dispatch__block) .deck-tile[aria-disabled="true"] {
     border-color: var(--border-subtle);
     background: color-mix(in srgb, var(--bg-base) 35%, transparent);
     box-shadow: inset 0 var(--border-width) 0 color-mix(in srgb, var(--bg-base) 55%, transparent);
-    transform: none;
+    top: 0;
   }
   /* Dispatch is the one key that is always the accent's; it is raised, and sits in as the others do. */
   & .deck-dispatch__block .deck-dispatch__tile:not(:active) { border-color: var(--accent); background: var(--accent-muted); }
   & .deck-dispatch__block .deck-dispatch__tile:not(:active):hover { background: color-mix(in srgb, var(--accent) 30%, transparent); }
   /* The lamp: Auto land's and Pause's own mark, drawn as a bar and not as its ring or dot. */
+  /* Every key in the block starts its glyph lower by the same amount, so the lamp has room above it and the glyphs stay level across the row. */
+  & .deck-controls__block:not([data-subject="edit"]) .deck-tile { padding-block: calc(var(--space-2) + var(--space-1)) var(--space-1); }
   & .deck-controls__block .deck-tile__state {
-    top: var(--space-1);
+    top: calc(var(--space-1) + 1px);
     left: 50%;
     display: block;
     width: var(--space-4);
@@ -458,5 +461,29 @@
   & .deck-controls__block .deck-tile__state > svg { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
-  :root[data-density="tight-type"][data-density][data-density][data-density] :is(.deck-controls__block:not([data-subject="edit"]), .deck-dispatch__block) .deck-tile:is([aria-pressed="true"], [data-on], :active) { transform: none; }
+  :root[data-density="tight-type"][data-density][data-density][data-density] :is(.deck-controls__block:not([data-subject="edit"]), .deck-dispatch__block) .deck-tile:is([aria-pressed="true"], [data-on], :active) { top: 0; }
+}
+
+/* A key's tooltip floats above the panel, clear of the key and of the merge line under it. */
+@supports (anchor-name: --a) {
+  :root[data-density="tight-type"][data-density][data-density][data-density] :is(.deck-controls__block, .deck-dispatch__block) .armada-tooltip__bubble:not([data-beside]) {
+    position-area: block-start span-inline-end;
+    margin-block-end: var(--space-2);
+  }
+}
+/* The glass's blur moves off the panel onto a layer behind its keys: a backdrop filter on the panel makes the panel the box a fixed tooltip is placed in, and the
+   tooltip could then not leave it. The panel isolates, so the layer stays behind the keys without becoming that box. */
+:root[data-density="tight-type"][data-density][data-density][data-density] :is(.deck-controls, .deck-dispatch) {
+  position: relative;
+  isolation: isolate;
+  backdrop-filter: none;
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    backdrop-filter: blur(32px) saturate(1.8);
+    pointer-events: none;
+  }
 }
