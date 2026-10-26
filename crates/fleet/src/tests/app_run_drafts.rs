@@ -323,13 +323,27 @@ async fn a_draft_comes_from_what_the_stores_facts_say_and_only_where_no_run_is_d
             .expect("kept");
     }
 
-    let draft = fleet.run_drafted(None).await.expect("drafted").expect("a draft");
+    let draft = fleet.run_drafted(None).await.expect("drafted").draft.expect("a draft");
     assert_eq!(serves(&draft), [("frontend", "npx vite --port ${port.frontend} --strictPort", Some("frontend"))]);
     assert!(std::fs::read_to_string(home.path().join("armada.yml")).expect("read") == COMMENTED, "nothing was saved");
 
-    let declared = format!("{COMMENTED}ports:\n  web: {{}}\ncommands:\n  web:\n    serve: node s.js\nruns:\n  app:\n    commands: [web]\n");
-    let fleet = a_fleet_holding(&TempDir::new(), &api::Broadcaster::new(), &declared, &declared);
-    let refused = fleet.run_drafted(None).await.expect_err("one is declared");
-    let api::Refusal::IllegalMove(why) = refused else { panic!("expected a conflict") };
-    assert_eq!(why.code, "fleet.app_runs_already_saved");
+    // A repository that declares runs is drafted too, for *Add a way to run*: what a saved server
+    // already starts in its folder is left out, and a name a Command holds is never taken.
+    let declared = format!("{COMMENTED}ports:\n  web: {{}}\ncommands:\n  web:\n    serve: node s.js ${{port.web}}\n    dir: frontend\nruns:\n  app:\n    commands: [web]\n");
+    let home = TempDir::new();
+    let fleet = a_fleet_holding(&home, &api::Broadcaster::new(), &declared, &declared);
+    let root = fleet.first().root().to_string();
+    {
+        let mut store = fleet.store().lock().await;
+        store.set_run_memory_place(&root, "this_mac", None, None).expect("a place");
+        store
+            .merge_run_facts(&root, &[fact("frontend", "npx vite --port 5373 --strictPort /tmp/x.log &)", Some(5373), 1, true)])
+            .expect("kept");
+    }
+    let drafted = fleet.run_drafted(None).await.expect("a repository with a run is drafted");
+    assert_eq!(drafted.draft, None, "the saved server already starts the frontend folder");
+
+    write(home.path(), "web/package.json", "{\"scripts\": {\"dev\": \"vite\"}}");
+    let draft = fleet.run_drafted(None).await.expect("drafted").draft.expect("the folder nothing saved starts");
+    assert_eq!(draft.processes.iter().map(|one| one.name.as_str()).collect::<Vec<_>>(), ["web_2"], "`web` is a Command's");
 }

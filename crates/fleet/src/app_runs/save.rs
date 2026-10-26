@@ -20,7 +20,9 @@ use config::{
     PortEdit, RunEdit,
 };
 
-use super::draft::{safe_name, DraftProcess, RunDraft};
+use super::draft::{safe_name, Beside, DraftProcess, RunDraft};
+use super::links::{self, Candidate};
+use super::port_name_in;
 use super::unrunnable::Unrunnable;
 use crate::daemon::Fleet;
 
@@ -42,11 +44,11 @@ pub(crate) struct SavedRun {
 
 /// Where a saved run is written. **The one place that chooses**: Kit's copy for the repository,
 /// at the place its Kit keeps it.
-struct SaveTarget {
-    place: ipc::RunPlace,
-    label: PathBuf,
+pub(super) struct SaveTarget {
+    pub(super) place: ipc::RunPlace,
+    pub(super) label: PathBuf,
     /// What Kit's copy holds now, or `None` where there is none yet.
-    text: Option<String>,
+    pub(super) text: Option<String>,
 }
 
 /// The edits that declare `draft`: each process's port, then its server, then the run.
@@ -83,6 +85,16 @@ pub(crate) fn edits(draft: &RunDraft) -> Vec<Edit> {
         }),
     });
     edits
+}
+
+/// What [`Fleet::run_drafted`] read.
+pub(crate) struct Drafted {
+    /// The run proposed, or `None` where the files and Jobs name nothing a saved run lacks.
+    pub(crate) draft: Option<RunDraft>,
+    /// Where a proposed process expects another, proposed or saved.
+    pub(crate) links: Vec<links::Link>,
+    /// The port each process, proposed or saved, listens on by name: `ARMADA_PORT_*` is named for it.
+    pub(crate) ports: std::collections::BTreeMap<String, String>,
 }
 
 /// A draft a person confirmed that cannot be written as it stands, said before the file is read.
@@ -182,23 +194,72 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// The run the repository's files and its Jobs' dev servers suggest, **where it declares
-    /// none**. Saves nothing.
+    /// What the repository's files and its Jobs' dev servers suggest **that no saved run already
+    /// starts**, and where its processes expect one another. Saves nothing but the links found,
+    /// which run memory keeps. The repository may declare runs: *Add a way to run* drafts beside them.
     pub(crate) async fn run_drafted(
         &self,
         manifest_id: Option<&ipc::ManifestId>,
-    ) -> Result<Option<RunDraft>, Refusal> {
+    ) -> Result<Drafted, Refusal> {
         let served = self.served_named(manifest_id)?;
         let root = served.root().to_string();
         // A run saved since Fleet booted is one the repository declares.
         let declared = self.run_manifest(&served, &root).await?;
-        if !declared.app_run_names().is_empty() {
-            return Err(self.run_refusal(Unrunnable::AlreadySaved { runs: declared.app_run_names().to_vec() }));
-        }
         self.run_memory_started(&root).await?;
-        let facts = self.store().lock().await.run_facts(&root).map_err(|why| self.run_fault(why))?;
+        let facts = self.links_facts(&root).await;
+        let kept = links::remembered(&facts);
         let tree = PathBuf::from(&root);
-        Ok(tokio::task::spawn_blocking(move || super::draft::drafted(&tree, &facts)).await.unwrap_or(None))
+        let saved: Vec<Candidate> = declared
+            .app_run_names()
+            .iter()
+            .filter_map(|name| declared.app_run(name))
+            .flat_map(|run| run.servers().to_vec())
+            .collect::<std::collections::BTreeSet<_>>()
+            .into_iter()
+            .filter_map(|name| {
+                let server = declared.server(&name)?;
+                let pinned = port_name_in(server.serve()).and_then(|port| declared.port(&port)).and_then(|port| port.fixed());
+                Some(Candidate { name, dir: server.dir().map(str::to_string), command: server.serve().to_string(), pinned })
+            })
+            .collect();
+        let beside = Beside {
+            dirs: saved.iter().map(|one| one.dir.clone().unwrap_or_else(|| String::from("."))).collect(),
+            reserved: [declared.command_names(), declared.server_names(), declared.port_names()].concat(),
+        };
+        let ports: std::collections::BTreeMap<String, String> =
+            saved.iter().filter_map(|one| Some((one.name.clone(), port_name_in(&one.command)?))).collect();
+        let read = facts.clone();
+        let (draft, in_files) = tokio::task::spawn_blocking(move || {
+            let draft = super::draft::drafted_beside(&tree, &read, &beside);
+            let mut everyone: Vec<Candidate> = draft
+                .iter()
+                .flat_map(|draft| &draft.processes)
+                .map(|one| Candidate { name: one.name.clone(), dir: one.dir.clone(), command: one.serve.clone(), pinned: None })
+                .collect();
+            let drafted = everyone.len();
+            everyone.extend(saved);
+            let links = links::found(&tree, &everyone, &read)
+                .into_iter()
+                .filter(|link| everyone[..drafted].iter().any(|one| one.name == link.from))
+                .collect::<Vec<_>>();
+            (draft, links)
+        })
+        .await
+        .unwrap_or_default();
+        let proposed = |name: &String| draft.iter().flat_map(|draft| &draft.processes).any(|one| &one.name == name);
+        let mut links = in_files.clone();
+        links.extend(
+            kept.iter()
+                .filter(|link| proposed(&link.from) && !in_files.iter().any(|found| (&found.from, &found.to) == (&link.from, &link.to)))
+                .cloned(),
+        );
+        let changes = links::reconciled(&kept, &in_files, &[], false);
+        self.links_kept(&root, changes).await;
+        let mut ports = ports;
+        for one in draft.iter().flat_map(|draft| &draft.processes) {
+            ports.insert(one.name.clone(), one.port.as_ref().map_or_else(|| one.name.clone(), |port| port.name.clone()));
+        }
+        Ok(Drafted { draft, links, ports })
     }
 
     /// Declare a confirmed `draft` in the person's copy in Kit, at the place they keep it. **The
@@ -230,7 +291,7 @@ where
 
     /// Where a run for the repository at `root` is saved, and what is there now. A place that cannot
     /// be reached refuses here, before anything is built to write.
-    async fn run_save_target(&self, root: &str) -> Result<SaveTarget, Refusal> {
+    pub(super) async fn run_save_target(&self, root: &str) -> Result<SaveTarget, Refusal> {
         let place = self.kit_place_of(root).await?;
         let (label, read) = self.kit_manifest_read(root).await?;
         let text = match read {

@@ -10,5 +10,7 @@ notes = """
 
 `opens_in` is `browser` where some server of the run listens on a leased port and offers a link, and `app` otherwise. `last_used` is when a process of it was last started on this checkout, as far as this Fleet has seen since it started: absent is not "never", and the way to pick the run a bare press starts is the newest `last_used`.
 
+`links` is where a process of the run expects another on a port it was not given, at most one for a pair: read from the config files in each process's folder (`vite.config.*`, `.env*`, `package.json`, `next.config.*`, a webpack dev server's proxy), and from output as the run ran. Each carries `brief`, the text for Bridge to open Dispatch with; Fleet starts no Job. `pinned_port` on a process is the number it is pinned to.
+
 A process's output is `observe_server`'s, addressed by the `server_id` on the process.
 """

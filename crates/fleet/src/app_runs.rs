@@ -5,6 +5,8 @@
 //! |---|---|
 //! | [`draft`] | A run proposed from what the repository runs and what its files say |
 //! | [`save`] | A confirmed draft written into `armada.yml` or Kit's copy |
+//! | [`links`] | A process expecting another on a port it does not get: found, kept, briefed |
+//! | [`pins`] | A process pinned to a number, or given back to leasing |
 //! | [`serving`] | The wire: [`api::AppRuns`] over these, and `app_run.changed` after each server fact |
 //! | [`unrunnable`] | Every refusal, and its code on the wire |
 //!
@@ -26,6 +28,8 @@
 //! stopping either run stops it.
 
 pub(crate) mod draft;
+pub(crate) mod links;
+mod pins;
 pub(crate) mod save;
 mod serving;
 mod unrunnable;
@@ -92,6 +96,20 @@ pub(crate) struct RunProcess {
     /// The live instance, or the last that ended. What `observe_server` and `stop_server` take the
     /// id of.
     pub(crate) server: Option<ServerState>,
+    /// The folder under the checkout it starts in. `None` is the root.
+    pub(crate) dir: Option<String>,
+    /// What starts it, as the Manifest wrote it.
+    pub(crate) serve: String,
+    /// The port its `serve` names, `${port.NAME}`'s NAME: what `ARMADA_PORT_*` is named for.
+    pub(crate) port_name: Option<String>,
+    /// The number it is pinned to, where it is.
+    pub(crate) pinned: Option<u16>,
+}
+
+/// The name in the first `${port.NAME}` of `serve`.
+pub(crate) fn port_name_in(serve: &str) -> Option<String> {
+    let rest = serve.split_once("${port.")?.1;
+    Some(rest.split_once('}')?.0.to_string()).filter(|name| !name.is_empty())
 }
 
 impl RunProcess {
@@ -172,11 +190,18 @@ fn viewed(
         .iter()
         .map(|server| {
             let held = servers.instance(&holder, server);
+            let declared = manifest.server(server);
+            let serve = declared.map(|one| one.serve().to_string()).unwrap_or_default();
+            let port_name = port_name_in(&serve);
             RunProcess {
                 name: server.clone(),
                 state: held.as_ref().map_or(ProcessState::NotStarted, ProcessState::of),
                 ports: held.as_ref().map(|one| one.ports.clone()).unwrap_or_default(),
                 server: held,
+                dir: declared.and_then(|one| one.dir()).map(str::to_string),
+                pinned: port_name.as_deref().and_then(|name| manifest.port(name)).and_then(|port| port.fixed()),
+                port_name,
+                serve,
             }
         })
         .collect();

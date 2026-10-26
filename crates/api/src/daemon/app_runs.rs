@@ -7,7 +7,9 @@
 use std::future::Future;
 use std::sync::Arc;
 
-use ipc::{AppRun, AppRunDraft, AppRunList, ManifestId, NamedAppRun, SaveAppRun, SavedAppRun};
+use ipc::{
+    AppRun, AppRunDraft, AppRunList, ManifestId, NamedAppRun, PinAppRunPort, SaveAppRun, SavedAppRun, UnpinAppRunPort,
+};
 
 use crate::daemon::Refusal;
 
@@ -20,8 +22,8 @@ pub trait AppRuns: Send + Sync + 'static {
         job_id: Option<String>,
     ) -> impl Future<Output = Result<AppRunList, Refusal>> + Send;
 
-    /// `get_app_run_draft` — the run proposed for a repository that declares none. Saves nothing.
-    /// [`Refusal::IllegalMove`] where it declares one.
+    /// `get_app_run_draft` — the processes proposed that no saved run already starts. Saves
+    /// nothing, and answers where the repository already declares runs.
     fn get_app_run_draft(
         &self,
         manifest_id: Option<ManifestId>,
@@ -57,4 +59,19 @@ pub trait AppRuns: Send + Sync + 'static {
         manifest_id: Option<ManifestId>,
         asked: SaveAppRun,
     ) -> impl Future<Output = Result<SavedAppRun, Refusal>> + Send;
+
+    /// `pin_app_run_port` — pin a process to the number its siblings expect it on, in the person's
+    /// copy in Kit. Answers the run as it stands: **nothing is restarted**.
+    fn pin_app_run_port(
+        &self,
+        manifest_id: Option<ManifestId>,
+        asked: PinAppRunPort,
+    ) -> impl Future<Output = Result<AppRun, Refusal>> + Send;
+
+    /// `unpin_app_run_port` — give a process back to leasing.
+    fn unpin_app_run_port(
+        &self,
+        manifest_id: Option<ManifestId>,
+        asked: UnpinAppRunPort,
+    ) -> impl Future<Output = Result<AppRun, Refusal>> + Send;
 }

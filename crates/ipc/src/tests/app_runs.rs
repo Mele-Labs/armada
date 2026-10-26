@@ -2,8 +2,8 @@
 
 use crate::{
     decode, encode, AppRun, AppRunCheckout, AppRunDraftProcess, AppRunOpensIn, AppRunProcess,
-    AppRunState, Cursor, Delivered, Event, Instant, ManifestId, NamedAppRun, SaveAppRun,
-    ServerLink, StreamMessage,
+    AppRunLink, AppRunState, Cursor, Delivered, Event, Instant, ManifestId, NamedAppRun, PinAppRunPort,
+    SaveAppRun, ServerLink, StreamMessage, UnpinAppRunPort,
 };
 
 fn running() -> AppRun {
@@ -23,6 +23,7 @@ fn running() -> AppRun {
                 name: "web".to_string(),
                 state: AppRunState::Ready,
                 port: Some(41207),
+                pinned_port: Some(41207),
                 links: vec![ServerLink { url: "http://localhost:41207".to_string(), name: None }],
                 server_id: Some("01SERVER".to_string()),
                 ended: None,
@@ -31,12 +32,20 @@ fn running() -> AppRun {
                 name: "api".to_string(),
                 state: AppRunState::NotStarted,
                 port: None,
+                pinned_port: None,
                 links: Vec::new(),
                 server_id: None,
                 ended: None,
             },
         ],
         last_used: Some(Instant::carried("2026-10-25T10:00:00.000Z")),
+        links: vec![AppRunLink {
+            from: "web".to_string(),
+            to: "api".to_string(),
+            port: 8731,
+            found_in: "web/vite.config.js".to_string(),
+            brief: "Make `web` read `api`'s port from `ARMADA_PORT_API`, falling back to `8731`, in `web/vite.config.js`.".to_string(),
+        }],
     }
 }
 
@@ -53,6 +62,7 @@ fn the_event_carries_the_run_whole_beside_its_own_kind() {
     assert!(spelled.contains(r#""opens_in":"browser""#), "{spelled}");
     assert!(spelled.contains(r#""checkout":{"kind":"job""#), "{spelled}");
     assert!(spelled.contains(r#""state":"not_started""#), "{spelled}");
+    assert!(spelled.contains(r#""found_in":"web/vite.config.js""#) && spelled.contains(r#""pinned_port":41207"#), "{spelled}");
     let back: StreamMessage = decode("a stream message", spelled.as_bytes()).expect("reads");
     assert!(matches!(
         back,
@@ -67,13 +77,16 @@ fn the_event_carries_the_run_whole_beside_its_own_kind() {
 fn what_is_empty_is_left_out() {
     let spelled = encode(&running()).expect("plain data");
     let api = spelled.split(r#""name":"api""#).nth(1).expect("the second process");
-    for absent in ["port", "links", "server_id", "ended"] {
+    // The run's own `last_used` and `links` follow its processes.
+    let api = api.split(r#""last_used""#).next().expect("the process alone");
+    for absent in ["port", "pinned_port", "links", "server_id", "ended"] {
         assert!(!api.contains(absent), "{absent}: {spelled}");
     }
     assert!(!spelled.contains("null"), "{spelled}");
 
-    let main = AppRun { checkout: AppRunCheckout::Main { path: "/repos/armada".to_string() }, last_used: None, ..running() };
+    let main = AppRun { checkout: AppRunCheckout::Main { path: "/repos/armada".to_string() }, last_used: None, links: Vec::new(), ..running() };
     let spelled = encode(&main).expect("plain data");
+    assert!(!spelled.contains(r#""found_in""#), "{spelled}");
     assert!(spelled.contains(r#""checkout":{"kind":"main","path":"/repos/armada"}"#), "{spelled}");
     assert!(!spelled.contains("last_used"), "{spelled}");
 }
@@ -103,4 +116,16 @@ fn a_body_names_a_run_and_a_job_only_where_there_is_one() {
     // A process with no folder and no environment variable needs neither written.
     let bare: AppRunDraftProcess = decode("a process", br#"{"name":"a","command":"run"}"#).expect("reads");
     assert_eq!((bare.dir, bare.port_env), (None, None));
+}
+
+/// A pin names a process and a number; the run and the Job are named only where there are several.
+#[test]
+fn a_pin_names_a_process_and_a_number_and_an_unpin_only_the_process() {
+    let pin: PinAppRunPort = decode("a pin", br#"{"process":"api","port":8731}"#).expect("reads");
+    assert_eq!(pin, PinAppRunPort { process: "api".to_string(), port: 8731, name: None, job_id: None });
+    let spelled = encode(&pin).expect("plain data");
+    assert!(!spelled.contains("name") && !spelled.contains("job_id") && !spelled.contains("null"), "{spelled}");
+    let unpin: UnpinAppRunPort = decode("an unpin", br#"{"process":"api","name":"dev","job_id":"01JOB"}"#).expect("reads");
+    assert_eq!(unpin.name.as_deref(), Some("dev"));
+    assert!(decode::<PinAppRunPort>("a pin", br#"{"process":"api"}"#).is_err(), "a pin with no number is not one");
 }

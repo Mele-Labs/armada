@@ -28,7 +28,17 @@ pub(crate) type Stopping = (Arc<watch::Sender<bool>>, watch::Receiver<ServerStat
 
 /// `std`'s lock: it is never held across an `.await`.
 #[derive(Clone, Default)]
-pub(crate) struct Servers(Arc<Mutex<Book>>, Arc<tokio::sync::Mutex<()>>, Arc<Mutex<BTreeMap<String, Arc<config::Manifest>>>>);
+pub(crate) struct Servers(
+    Arc<Mutex<Book>>,
+    Arc<tokio::sync::Mutex<()>>,
+    Arc<Mutex<BTreeMap<String, Arc<config::Manifest>>>>,
+    Arc<Mutex<BTreeMap<String, Vec<crate::app_runs::links::Link>>>>,
+    Arc<Mutex<Option<LineTap>>>,
+);
+
+/// Told each whole line a server's output grew by, from the pass that already reads it for
+/// `observe_server`. **Called on that pass and never to wait**: it filters and hands on.
+pub(crate) type LineTap = Arc<dyn Fn(&ServerState, &[(u64, String)]) + Send + Sync>;
 
 #[derive(Default)]
 struct Book {
@@ -183,6 +193,37 @@ impl Servers {
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
             .insert(path.to_string(), Arc::new(manifest));
+    }
+
+    /// The links the checkout at `path` was last read to hold, so an event for a run shows what a
+    /// list did and a bay that fixed its copy is not told the main checkout's.
+    pub(crate) fn links_at(&self, path: &str) -> Option<Vec<crate::app_runs::links::Link>> {
+        self.3.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).get(path).cloned()
+    }
+
+    /// Remember `links` as what the checkout at `path` holds.
+    pub(crate) fn links_seen(&self, path: &str, links: Vec<crate::app_runs::links::Link>) {
+        self.3.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).insert(path.to_string(), links);
+    }
+
+    /// Forget every link that expects `process`, on every checkout: it was given back to leasing.
+    pub(crate) fn links_forgotten_to(&self, process: &str) {
+        for links in self.3.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).values_mut() {
+            links.retain(|link| link.to != process);
+        }
+    }
+
+    /// Hear every server's output lines, as [`LineTap`] says. The last tap set is the one told.
+    pub(crate) fn lines_tapped(&self, tap: LineTap) {
+        *self.4.lock().unwrap_or_else(|poisoned| poisoned.into_inner()) = Some(tap);
+    }
+
+    /// Tell the tap what `state`'s output grew by, if there is one.
+    pub(crate) fn lines_heard(&self, state: &ServerState, lines: &[(u64, String)]) {
+        let tap = self.4.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).clone();
+        if let Some(tap) = tap {
+            tap(state, lines);
+        }
     }
 
     /// The ports `holder`'s live instances are on, by name: what is not free in its span.

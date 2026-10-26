@@ -32,12 +32,30 @@ export type AppRunProcess = {
   state: AppRunState;
   /** The port leased to it on this checkout; main and a Job's bay hold different ones. Absent before it has started once. */
   port?: number;
+  /** The number it is pinned to: it is on `port` every time, and a sibling that hardcodes it finds it. Absent: Fleet leases it. */
+  pinned_port?: number;
   /** Where it is opened. Only while `ready`. */
   links?: ServerLink[];
   /** The instance behind it, what `observe_server` takes. A restart is a new instance: read it again from the next `app_run.changed`. */
   server_id?: string;
   /** How it ended, in a sentence. */
   ended?: string;
+};
+
+/**
+ * One process expecting another on a port it does not get: a frontend whose dev proxy points at `127.0.0.1:8731` while the backend is leased another number.
+ * At most one for a pair. Found in a file the process's folder holds, or in its output, and kept, so the next draft and start show it.
+ */
+export type AppRunLink = {
+  /** The process that expects it, by its name in the run. */
+  from: string;
+  /** The process it expects on `port`. */
+  to: string;
+  port: number;
+  /** The file, relative to the repository's root, or `log` where `from`'s output showed a refused connection to `port`. */
+  found_in: string;
+  /** What to hand a Job to mend it. Bridge opens Dispatch prefilled with it; Fleet starts no Job. */
+  brief: string;
 };
 
 /**
@@ -56,6 +74,8 @@ export type AppRun = {
   processes: AppRunProcess[];
   /** When a process of it was last started here, as far as this Fleet has seen since it started. Absent is not "never". */
   last_used?: string;
+  /** Where one process expects another on a port it was not given. Left out when there is none. */
+  links?: AppRunLink[];
 };
 
 /** `GET /app_runs`. */
@@ -80,13 +100,18 @@ export type AppRunDraftProcess = {
   port_env?: string;
 };
 
-/** `GET /app_runs/draft`: the run proposed for a repository that declares none. Saves nothing. No `processes` is a repository nothing was learnt of. */
+/**
+ * `GET /app_runs/draft`: what is proposed that no saved run already starts, so *Add a way to run* has a draft where the repository declares runs too. Saves nothing.
+ * No `processes` is a repository nothing was learnt of, or one whose saved runs cover what was.
+ */
 export type AppRunDraft = {
   /** The repository's root, absolute: what a process's `dir` is read from. */
   root: string;
   /** Where saving it puts it: the place the repository's Kit is kept. */
   place: RunPlace;
   processes: AppRunDraftProcess[];
+  /** Where a proposed process expects another, proposed or already saved. Left out when there is none. */
+  links?: AppRunLink[];
 };
 
 /** The body of `save_app_run`: a confirmed draft and the name its person gave it. */
@@ -103,4 +128,23 @@ export type SavedAppRun = {
   /** The file it was written to, as that place names it. */
   file: string;
   run: AppRun;
+};
+
+/** The body of `pin_app_run_port`: a process, and the number its siblings expect it on. Written into Kit's copy; nothing is restarted. */
+export type PinAppRunPort = {
+  /** The process, by its name in the run. It must listen on a leased port. */
+  process: string;
+  /** From 1024 to 65535. Where something else holds it the next start is refused with `fleet.pinned_port_taken`, naming what. */
+  port: number;
+  /** The run to answer, by its key. Absent: the first run that lists `process`. */
+  name?: string;
+  /** The Job whose worktree is read. Absent: the repository's main checkout, which `?manifest_id=` names. */
+  job_id?: string;
+};
+
+/** The body of `unpin_app_run_port`: a process given back to leasing. Answers the `AppRun`. */
+export type UnpinAppRunPort = {
+  process: string;
+  name?: string;
+  job_id?: string;
 };

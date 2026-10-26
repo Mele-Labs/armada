@@ -103,3 +103,33 @@ pub(crate) async fn save_app_run<D: AppRuns>(
         Err(refusal) => refused(refusal),
     }
 }
+
+pub(crate) async fn pin_app_run_port<D: AppRuns>(
+    State(served): State<Served<D>>,
+    Query(scope): Query<InManifest>,
+    body: Bytes,
+) -> Response {
+    let asked: ipc::PinAppRunPort = match ipc::decode("a port to pin", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().pin_app_run_port(scope.manifest(), asked).await {
+        Ok(run) => answer(StatusCode::OK, &run, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+pub(crate) async fn unpin_app_run_port<D: AppRuns>(
+    State(served): State<Served<D>>,
+    Query(scope): Query<InManifest>,
+    body: Bytes,
+) -> Response {
+    let asked: ipc::UnpinAppRunPort = match ipc::decode("a port to unpin", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().unpin_app_run_port(scope.manifest(), asked).await {
+        Ok(run) => answer(StatusCode::OK, &run, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}

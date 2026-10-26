@@ -589,6 +589,8 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/app_runs/stop", post(crate::app_runs::stop_app_run::<D>))
         .route("/app_runs/restart", post(crate::app_runs::restart_app_run::<D>))
         .route("/app_runs/save", post(crate::app_runs::save_app_run::<D>))
+        .route("/app_runs/pin", post(crate::app_runs::pin_app_run_port::<D>))
+        .route("/app_runs/unpin", post(crate::app_runs::unpin_app_run_port::<D>))
         .route("/kit/inventory", get(crate::kit::get_kit_inventory::<D>))
         .route(
             "/kit/flight_controls",

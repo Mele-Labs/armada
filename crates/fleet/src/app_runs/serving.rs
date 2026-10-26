@@ -13,14 +13,15 @@ use std::sync::Arc;
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{AppRuns, Refusal};
 use ipc::{
-    AppRun, AppRunCheckout, AppRunDraft, AppRunDraftProcess, AppRunList, AppRunOpensIn,
-    AppRunProcess, AppRunState, Event, ManifestId, NamedAppRun, SaveAppRun, SavedAppRun,
-    ServerState,
+    AppRun, AppRunCheckout, AppRunDraft, AppRunDraftProcess, AppRunLink, AppRunList, AppRunOpensIn,
+    AppRunProcess, AppRunState, Event, ManifestId, NamedAppRun, PinAppRunPort, SaveAppRun,
+    SavedAppRun, ServerState, UnpinAppRunPort,
 };
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 
 use super::draft::{safe_name, DraftPort, DraftProcess, DraftSource, RunDraft};
+use super::links::{self, notice, Link};
 use super::{ProcessState, RunProcess, RunTarget, RunView};
 use crate::daemon::Fleet;
 
@@ -46,16 +47,44 @@ where
             let _ = tell.send(state.clone());
         }
     });
-    tokio::spawn(async move {
-        while let Some(state) = heard.recv().await {
-            for view in fleet.runs_moved_by(&state) {
-                if let Some(run) = fleet.app_run_wired(view, None).await {
-                    fleet.publish(Event::AppRunChanged(run));
+    // Output is read where Fleet already reads it for `observe_server`: this only keeps the lines
+    // that name a refused port, once for each port of each instance.
+    let (refuse, mut refused) = mpsc::unbounded_channel::<(ServerState, u16)>();
+    let told: std::sync::Mutex<std::collections::HashSet<(String, u16)>> = Default::default();
+    fleet.servers().lines_tapped(Arc::new(move |state, lines| {
+        for port in lines.iter().filter_map(|(_, line)| notice::refused_port(line)) {
+            let first = {
+                let mut told = told.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+                if told.len() >= MOST_REFUSALS_KEPT {
+                    told.clear();
                 }
+                told.insert((state.id.clone(), port))
+            };
+            if first {
+                let _ = refuse.send((state.clone(), port));
+            }
+        }
+    }));
+    tokio::spawn(async move {
+        loop {
+            tokio::select! {
+                Some(state) = heard.recv() => {
+                    for view in fleet.runs_moved_by(&state) {
+                        if let Some(run) = fleet.app_run_wired(view, None).await {
+                            fleet.publish(Event::AppRunChanged(run));
+                        }
+                    }
+                }
+                Some((state, port)) = refused.recv() => fleet.links_noticed(&state, port).await,
+                else => break,
             }
         }
     })
 }
+
+/// The most (instance, port) pairs the tap remembers having told, so a Fleet that runs for weeks
+/// holds a bounded set.
+const MOST_REFUSALS_KEPT: usize = 512;
 
 /// A target from the two things a request names: a Job's worktree, else the repository's main.
 fn target_of(manifest_id: Option<ManifestId>, job_id: Option<String>) -> RunTarget {
@@ -81,9 +110,23 @@ fn process_wired(process: &RunProcess) -> AppRunProcess {
         name: process.name.clone(),
         state: state_of(process),
         port: process.port(),
+        pinned_port: process.pinned,
         links: process.server.as_ref().filter(|_| ready).map(|one| one.links.clone()).unwrap_or_default(),
         server_id: process.server.as_ref().map(|one| one.id.clone()),
         ended: process.server.as_ref().and_then(|one| one.ended.clone()),
+    }
+}
+
+/// A link as the wire spells it. `port_of` names the port a process listens on, which
+/// `ARMADA_PORT_*` is named for.
+fn link_wired(link: &Link, port_of: impl Fn(&str) -> Option<String>) -> AppRunLink {
+    let port = port_of(&link.to).unwrap_or_else(|| link.to.clone());
+    AppRunLink {
+        from: link.from.clone(),
+        to: link.to.clone(),
+        port: link.port,
+        found_in: link.found_in.clone(),
+        brief: links::brief(link, &port),
     }
 }
 
@@ -153,10 +196,12 @@ where
     }
 
     /// A run as the wire spells it. `None` where its checkout is none a run is asked for.
-    async fn app_run_wired(&self, view: RunView, job: Option<&str>) -> Option<AppRun> {
+    pub(crate) async fn app_run_wired(&self, view: RunView, job: Option<&str>) -> Option<AppRun> {
         let checkout = self.app_run_checkout(&view.manifest_id, &view.checkout, job).await?;
         // Instants are fixed-width RFC 3339 in UTC, so the text orders as the time does.
         let last_used = view.processes.iter().filter_map(|one| one.server.as_ref()).map(|one| &one.started_at).max();
+        let port_of = |name: &str| view.processes.iter().find(|one| one.name == name).and_then(|one| one.port_name.clone());
+        let links = self.links_shown(&view).await.iter().map(|link| link_wired(link, port_of)).collect();
         Some(AppRun {
             name: view.name,
             label: view.label,
@@ -165,7 +210,16 @@ where
             checkout,
             processes: view.processes.iter().map(process_wired).collect(),
             last_used: last_used.cloned(),
+            links,
         })
+    }
+
+    /// [`app_run_answered`](Fleet::app_run_answered), and the run told to every Bridge too: **a pin
+    /// changes a row no server event would**, since nothing was restarted.
+    async fn app_run_told(&self, view: RunView, target: &RunTarget) -> Result<AppRun, Refusal> {
+        let run = self.app_run_answered(view, target).await?;
+        self.publish(Event::AppRunChanged(run.clone()));
+        Ok(run)
     }
 
     /// A run Fleet has just read on a target the request named, which always has a checkout.
@@ -175,6 +229,8 @@ where
             RunTarget::Main(_) => None,
         };
         let path = view.checkout.clone();
+        // Read the folders on a request and never on an event: an event is told what this read found.
+        self.links_refreshed(&view).await;
         self.app_run_wired(view, job).await.ok_or_else(|| {
             self.run_refusal(super::unrunnable::Unrunnable::NotSaved {
                 why: format!("{path} is no checkout of this repository that Fleet holds a run on"),
@@ -209,9 +265,11 @@ where
     async fn get_app_run_draft(&self, manifest_id: Option<ManifestId>) -> Result<AppRunDraft, Refusal> {
         let root = self.served_named(manifest_id.as_ref())?.root().to_string();
         let drafted = self.run_drafted(manifest_id.as_ref()).await?;
+        let port_of = |name: &str| drafted.ports.get(name).cloned();
         Ok(AppRunDraft {
             place: self.kit_place_of(&root).await?,
-            processes: drafted.iter().flat_map(|draft| &draft.processes).map(draft_process_wired).collect(),
+            processes: drafted.draft.iter().flat_map(|draft| &draft.processes).map(draft_process_wired).collect(),
+            links: drafted.links.iter().map(|link| link_wired(link, port_of)).collect(),
             root,
         })
     }
@@ -255,5 +313,17 @@ where
             file: saved.saved_in.file,
             run: self.app_run_answered(view, &target).await?,
         })
+    }
+
+    async fn pin_app_run_port(&self, manifest_id: Option<ManifestId>, asked: PinAppRunPort) -> Result<AppRun, Refusal> {
+        let target = target_of(manifest_id, asked.job_id);
+        let view = self.run_port_pinned(&target, &asked.process, asked.name.as_deref(), Some(asked.port)).await?;
+        self.app_run_told(view, &target).await
+    }
+
+    async fn unpin_app_run_port(&self, manifest_id: Option<ManifestId>, asked: UnpinAppRunPort) -> Result<AppRun, Refusal> {
+        let target = target_of(manifest_id, asked.job_id);
+        let view = self.run_port_pinned(&target, &asked.process, asked.name.as_deref(), None).await?;
+        self.app_run_told(view, &target).await
     }
 }

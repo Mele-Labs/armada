@@ -97,4 +97,14 @@ pub(super) const ROUTES: &[Route] = &[
         method: "POST",
         path: "/app_runs/save",
     },
+    Route {
+        operation: "pin_app_run_port",
+        method: "POST",
+        path: "/app_runs/pin",
+    },
+    Route {
+        operation: "unpin_app_run_port",
+        method: "POST",
+        path: "/app_runs/unpin",
+    },
 ];

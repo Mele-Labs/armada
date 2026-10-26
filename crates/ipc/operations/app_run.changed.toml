@@ -10,5 +10,7 @@ Carries `AppRun` itself, the row `list_app_runs` answers, so a client replaces w
 
 **It follows the server fact and never leads it**, so a client folding both sees the server's own row first. A client that missed one reads `list_app_runs` on the resync that follows a `Missed`.
 
+**A link found while it runs is told here.** A process whose output showed a refused connection to the port a sibling is known on, and is not on now, adds an `AppRun.links` entry with `found_in` `log`, once for the pair.
+
 **Never a line of output.** A process's log is `observe_server`'s, by the `server_id` on the process.
 """

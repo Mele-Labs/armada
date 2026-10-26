@@ -1,5 +1,5 @@
-//! A run proposed for a repository that declares none: from the dev servers its Jobs started, and
-//! from what its own files say. **A draft saves nothing**: it is what a person reads, changes and
+//! A run proposed for a repository: from the dev servers its Jobs started, and from what its own
+//! files say. **Where it already declares runs, only what none of them starts is proposed.** **A draft saves nothing**: it is what a person reads, changes and
 //! confirms, and [`super::save`] writes the confirmed one.
 //!
 //! **Run memory first, then the files.** A `dev_server` fact is a command that came up on a port
@@ -63,8 +63,25 @@ pub(crate) struct RunDraft {
     pub(crate) processes: Vec<DraftProcess>,
 }
 
+/// What a repository's saved runs already hold, so a draft proposes only the rest.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub(crate) struct Beside {
+    /// The folders a saved server starts in, `.` for the root.
+    pub(crate) dirs: Vec<String>,
+    /// Every name a Command, server or port is declared under: a proposal never takes one, since
+    /// Kit's copy would win by name and change what it is.
+    pub(crate) reserved: Vec<String>,
+}
+
 /// The run `facts` and the files under `root` suggest, or `None` where neither names a server.
+/// **Only tests draft with nothing saved beside**: the wire always has a [`Beside`].
+#[cfg(test)]
 pub(crate) fn drafted(root: &Path, facts: &[KeptRun]) -> Option<RunDraft> {
+    drafted_beside(root, facts, &Beside::default())
+}
+
+/// [`drafted`] leaving out every process in a folder `beside` says a saved server starts in.
+pub(crate) fn drafted_beside(root: &Path, facts: &[KeptRun], beside: &Beside) -> Option<RunDraft> {
     let mut processes = from_memory(facts);
     let taken: Vec<String> = processes
         .iter()
@@ -76,7 +93,8 @@ pub(crate) fn drafted(root: &Path, facts: &[KeptRun]) -> Option<RunDraft> {
             processes.push(found);
         }
     }
-    unique_names(&mut processes);
+    processes.retain(|one| !beside.dirs.contains(&one.dir.clone().unwrap_or_else(|| String::from("."))));
+    unique_names(&mut processes, &beside.reserved);
     if processes.is_empty() {
         return None;
     }
@@ -126,7 +144,7 @@ fn from_memory(facts: &[KeptRun]) -> Vec<DraftProcess> {
 /// The folder a fact's workspace names inside the repository, `.` for its root. **A slot's copy is
 /// the same folder**: a Job worked in `.armada/slots/slot-4/apps/web`, and the facts it left
 /// belong to `apps/web`. A path outside the repository is none.
-fn in_the_repository(workspace: &str) -> Option<String> {
+pub(super) fn in_the_repository(workspace: &str) -> Option<String> {
     let parts: Vec<&str> = workspace.split('/').filter(|part| !part.is_empty() && *part != ".").collect();
     let parts = match parts.as_slice() {
         [".armada", "slots", _, rest @ ..] => rest,
@@ -226,8 +244,8 @@ pub(super) fn safe_name(word: &str) -> String {
 }
 
 /// Two processes never share a name: the second is `name_2`, the third `name_3`. The port follows.
-fn unique_names(processes: &mut [DraftProcess]) {
-    let mut seen: Vec<String> = Vec::new();
+fn unique_names(processes: &mut [DraftProcess], reserved: &[String]) {
+    let mut seen: Vec<String> = reserved.to_vec();
     for process in processes {
         let base = process.name.clone();
         let mut name = base.clone();

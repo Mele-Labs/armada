@@ -65,6 +65,10 @@ pub struct AppRunProcess {
     /// before it has started once, and for a process that listens on none.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub port: Option<u16>,
+    /// The number it is pinned to, so it is on `port` every time and a sibling that hardcodes it
+    /// finds it. Absent: Fleet leases it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pinned_port: Option<u16>,
     /// Where it is opened, resolved against its port. **Only while it is `ready`**: a link pressed
     /// while it starts opens a port nothing answers on.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -77,6 +81,23 @@ pub struct AppRunProcess {
     /// How it ended, in a sentence. Present on `failed` and `exited`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ended: Option<String>,
+}
+
+/// One process of a run expecting another on a port it does not get: a frontend whose dev proxy
+/// points at `127.0.0.1:8731` while the backend is leased another number. **Found in a file the
+/// process's folder holds, or in its output**, and kept, so the next draft and start show it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AppRunLink {
+    /// The process that expects it: its name in the run.
+    pub from: String,
+    /// The process it expects on `port`.
+    pub to: String,
+    pub port: u16,
+    /// The file, relative to the repository's root, or `log` where `from`'s output showed a
+    /// refused connection to `port`.
+    pub found_in: String,
+    /// What to hand a Job to mend it. **Bridge opens Dispatch prefilled with it**; Fleet starts no Job.
+    pub brief: String,
 }
 
 /// One run on one checkout, as it stands: a row of `list_app_runs`, what `start_app_run`,
@@ -98,6 +119,10 @@ pub struct AppRun {
     /// since it started**: absent is not "never".
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_used: Option<Instant>,
+    /// Where one process expects another on a port it was not given. **At most one for a pair of
+    /// processes**, and absent where there is none.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub links: Vec<AppRunLink>,
 }
 
 /// `list_app_runs`: every run the repository declares, as each stands on one checkout.
@@ -145,7 +170,38 @@ pub struct AppRunDraft {
     pub root: String,
     /// Where saving it puts it: the place the repository's Kit is kept.
     pub place: RunPlace,
+    /// **Only the processes not already in a saved run**, which is none where the repository's runs
+    /// cover everything its files and Jobs suggest.
     pub processes: Vec<AppRunDraftProcess>,
+    /// Where one of these expects another process, drafted or already saved, on a port it would
+    /// not get. Absent where none was found.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub links: Vec<AppRunLink>,
+}
+
+/// The body of `pin_app_run_port`: a process, and the number its siblings expect it on.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PinAppRunPort {
+    /// The process, by its name in the run. It must listen on a leased port.
+    pub process: String,
+    /// The number: from 1024 to 65535.
+    pub port: u16,
+    /// The run to answer, by its key. Absent: the first run that lists `process`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    /// The Job whose worktree is read. Absent: the repository's main checkout.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub job_id: Option<String>,
+}
+
+/// The body of `unpin_app_run_port`: a process given back to leasing.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct UnpinAppRunPort {
+    pub process: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub job_id: Option<String>,
 }
 
 /// `save_app_run`'s body: a confirmed draft and the name its person gave it.

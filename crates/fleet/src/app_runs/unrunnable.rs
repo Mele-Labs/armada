@@ -12,8 +12,8 @@ const NOT_AN_APP_RUN: &str = "fleet.not_an_app_run";
 const NO_JOB_TO_RUN: &str = "fleet.no_job_to_run";
 /// A Job that has not leased a worktree yet, or has given it back.
 const JOB_HAS_NO_WORKTREE: &str = "fleet.job_has_no_worktree";
-/// A draft asked for while the Manifest already declares a run.
-const APP_RUNS_ALREADY_SAVED: &str = "fleet.app_runs_already_saved";
+/// A pin or unpin that names no process Fleet can pin.
+const APP_RUN_PIN_REFUSED: &str = "fleet.app_run_pin_refused";
 /// A draft that would not load as part of the Manifest: the sentence says which line.
 const APP_RUN_DRAFT_REFUSED: &str = "fleet.app_run_draft_refused";
 /// A Manifest that will not read, so what it declares cannot be run.
@@ -26,7 +26,7 @@ pub(crate) enum Unrunnable {
     NotARun { name: String, runs: Vec<String> },
     NoSuchJob { id: String },
     JobHasNoWorktree { id: String },
-    AlreadySaved { runs: Vec<String> },
+    PinRefused { why: String },
     DraftRefused { why: String },
     NotSaved { why: String },
     ManifestUnreadable { why: String },
@@ -41,7 +41,7 @@ impl Unrunnable {
             NotARun { .. } => (NOT_AN_APP_RUN, Refusal::Unacceptable),
             NoSuchJob { .. } => (NO_JOB_TO_RUN, Refusal::NotFound),
             JobHasNoWorktree { .. } => (JOB_HAS_NO_WORKTREE, Refusal::IllegalMove),
-            AlreadySaved { .. } => (APP_RUNS_ALREADY_SAVED, Refusal::IllegalMove),
+            PinRefused { .. } => (APP_RUN_PIN_REFUSED, Refusal::Unacceptable),
             DraftRefused { .. } => (APP_RUN_DRAFT_REFUSED, Refusal::Unacceptable),
             NotSaved { .. } => (APP_RUN_UNSAVED, Refusal::Fault),
             ManifestUnreadable { .. } => (APP_RUN_MANIFEST_UNREADABLE, Refusal::Unacceptable),
@@ -67,11 +67,7 @@ impl fmt::Display for Unrunnable {
                 out,
                 "job {id} holds no worktree, so there is nothing of its work to run"
             ),
-            AlreadySaved { runs } => write!(
-                out,
-                "this project already declares {}, so there is nothing to draft",
-                runs.iter().map(|one| format!("`{one}`")).collect::<Vec<_>>().join(", ")
-            ),
+            PinRefused { why } => write!(out, "nothing was pinned: {why}"),
             DraftRefused { why } => write!(out, "nothing was saved: {why}"),
             NotSaved { why } => write!(out, "nothing was saved: {why}"),
             ManifestUnreadable { why } => write!(out, "nothing was started: {why}"),

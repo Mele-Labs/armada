@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use ipc::{
     AppRun, AppRunCheckout, AppRunDraft, AppRunList, AppRunOpensIn, AppRunProcess, AppRunState,
-    ManifestId, NamedAppRun, RunPlace, SaveAppRun, SavedAppRun,
+    ManifestId, NamedAppRun, PinAppRunPort, RunPlace, SaveAppRun, SavedAppRun, UnpinAppRunPort,
 };
 
 use super::FakeDaemon;
@@ -33,11 +33,13 @@ fn the_run(manifest_id: Option<ManifestId>, job_id: Option<String>, state: AppRu
             name: "web".to_string(),
             state,
             port: None,
+            pinned_port: None,
             links: Vec::new(),
             server_id: None,
             ended: None,
         }],
         last_used: None,
+        links: Vec::new(),
     }
 }
 
@@ -66,7 +68,7 @@ impl AppRuns for FakeDaemon {
     }
 
     async fn get_app_run_draft(&self, _manifest_id: Option<ManifestId>) -> Result<AppRunDraft, Refusal> {
-        Ok(AppRunDraft { root: "/repos/armada".to_string(), place: RunPlace::ThisMac, processes: Vec::new() })
+        Ok(AppRunDraft { root: "/repos/armada".to_string(), place: RunPlace::ThisMac, processes: Vec::new(), links: Vec::new() })
     }
 
     async fn start_app_run(
@@ -106,5 +108,13 @@ impl AppRuns for FakeDaemon {
             file: "armada.yml".to_string(),
             run: AppRun { name: asked.name, ..the_run(manifest_id, asked.job_id, AppRunState::Starting) },
         })
+    }
+
+    async fn pin_app_run_port(&self, manifest_id: Option<ManifestId>, asked: PinAppRunPort) -> Result<AppRun, Refusal> {
+        Ok(the_run(manifest_id, asked.job_id, AppRunState::NotStarted))
+    }
+
+    async fn unpin_app_run_port(&self, manifest_id: Option<ManifestId>, asked: UnpinAppRunPort) -> Result<AppRun, Refusal> {
+        Ok(the_run(manifest_id, asked.job_id, AppRunState::NotStarted))
     }
 }
