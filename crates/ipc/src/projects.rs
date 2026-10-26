@@ -27,8 +27,16 @@ pub struct Project {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum ProjectRow {
-    /// A task he wrote, with its own state. `notes` is empty for none.
-    Task { id: String, title: String, notes: String, state: ProjectTaskState },
+    /// A task he wrote, with its own state. `notes` is empty for none. `held_by` is present while the
+    /// state is `held` or `asked`, and only then.
+    Task {
+        id: String,
+        title: String,
+        notes: String,
+        state: ProjectTaskState,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        held_by: Option<ProjectHolder>,
+    },
     /// A linked issue: the tracker's reference (`7`, `ABC-12`, `armada-3fz`), with what the tracker
     /// says of it now.
     Issue {
@@ -43,13 +51,32 @@ pub enum ProjectRow {
     },
 }
 
-/// A written task's own state. **More are to come**, so a client treats one it does not know as
-/// open.
+/// The Job holding a task.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ProjectHolder {
+    pub session_id: String,
+    /// The Job's title. Absent where it has none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+}
+
+/// A written task's own state. **More may come**, so a client treats one it does not know as open.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ProjectTaskState {
     Open,
     Done,
+    /// A Job started with it and has not finished.
+    Held,
+    /// The Job finished and whether the task is done is yet to be said. It outlives the Job.
+    Asked,
+}
+
+/// One row of a project a Job starts with: the task, or the linked issue its brief should carry.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ProjectRowRef {
+    pub project: String,
+    pub row: String,
 }
 
 /// `add_project` and `rename_project`: the project's name.

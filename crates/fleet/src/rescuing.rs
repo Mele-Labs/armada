@@ -177,6 +177,7 @@ where
                                 request: None,
                                 after: None,
                                 held: false,
+                                project_rows: Vec::new(),
                             })
                             .await;
                         let Ok(record) = started else { return };

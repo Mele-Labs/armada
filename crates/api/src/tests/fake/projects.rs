@@ -22,6 +22,7 @@ fn echoed(manifest_id: ManifestId, project: &str, said: String) -> ipc::Projects
                     title: "Write the page".to_string(),
                     notes: String::new(),
                     state: ProjectTaskState::Open,
+                    held_by: None,
                 },
                 ProjectRow::Issue {
                     id: "r2".to_string(),

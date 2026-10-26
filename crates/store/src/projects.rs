@@ -32,29 +32,70 @@ pub enum KeptRowItem {
     Issue { reference: String },
 }
 
-/// A written task's own state. **More are to come** (a Job holding it, the done? ask), which is why
-/// the column is unchecked text.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+/// The Job holding a task: its id, and its title where it has one.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct KeptHolder {
+    pub session: String,
+    pub title: Option<String>,
+}
+
+impl KeptHolder {
+    pub fn of(session: &str) -> KeptHolder {
+        KeptHolder { session: session.to_string(), title: None }
+    }
+}
+
+/// A written task's own state. The column is unchecked text, so a state a newer build writes reads
+/// as open. A held or asked task always names its Job, which is why the Job rides on the variant.
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum KeptTaskState {
     Open,
     Done,
+    /// A Job started with it and has not finished.
+    Held(KeptHolder),
+    /// The Job finished, and whether the task is done is yet to be said. **Outlives the Job.**
+    Asked(KeptHolder),
 }
 
 impl KeptTaskState {
-    fn as_str(self) -> &'static str {
+    fn as_str(&self) -> &'static str {
         match self {
             KeptTaskState::Open => "open",
             KeptTaskState::Done => "done",
+            KeptTaskState::Held(_) => "held",
+            KeptTaskState::Asked(_) => "asked",
         }
     }
 
-    /// A state a newer build wrote reads as open here: this build has no word for it.
-    fn read(written: &str) -> KeptTaskState {
+    fn holder(&self) -> &str {
+        match self {
+            KeptTaskState::Held(holder) | KeptTaskState::Asked(holder) => &holder.session,
+            KeptTaskState::Open | KeptTaskState::Done => "",
+        }
+    }
+
+    /// A state a newer build wrote reads as open here: this build has no word for it. So does a
+    /// held or asked one that names no Job.
+    fn read(written: &str, held_by: String, title: Option<String>) -> KeptTaskState {
+        let holder = KeptHolder { session: held_by, title };
         match written {
             "done" => KeptTaskState::Done,
+            "held" if !holder.session.is_empty() => KeptTaskState::Held(holder),
+            "asked" if !holder.session.is_empty() => KeptTaskState::Asked(holder),
             _ => KeptTaskState::Open,
         }
     }
+}
+
+/// The tasks one Job asked about in one project, for the ask on that Job's list.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct KeptAsked {
+    pub project_id: String,
+    pub project_name: String,
+    /// The earliest any of them was asked.
+    pub since: String,
+    /// Each task's id and title, in the project's order.
+    pub tasks: Vec<(String, String)>,
 }
 
 const TASK: &str = "task";
@@ -71,7 +112,7 @@ fn read_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<(String, Option<KeptPro
         TASK => Some(KeptRowItem::Task {
             title: row.get(3)?,
             notes: row.get(4)?,
-            state: KeptTaskState::read(&row.get::<_, String>(6)?),
+            state: KeptTaskState::read(&row.get::<_, String>(6)?, row.get(7)?, row.get(8)?),
         }),
         ISSUE => Some(KeptRowItem::Issue { reference: row.get(5)? }),
         _ => None,
@@ -96,8 +137,9 @@ impl Store {
         let mut statement = self
             .conn
             .prepare(
-                "SELECT r.project_id, r.id, r.kind, r.title, r.notes, r.issue, r.state
+                "SELECT r.project_id, r.id, r.kind, r.title, r.notes, r.issue, r.state, r.held_by, s.title
                  FROM project_rows r JOIN projects p ON p.id = r.project_id
+                 LEFT JOIN sessions s ON s.id = r.held_by AND r.held_by != ''
                  WHERE p.manifest_id = ?1 ORDER BY r.position, r.id",
             )
             .map_err(database(doing))?;
@@ -150,16 +192,18 @@ impl Store {
 
     /// A row at the end of `project_id`'s list.
     pub fn add_project_row(&mut self, project_id: &str, row: &KeptProjectRow) -> Result<(), WriteError> {
-        let (kind, title, notes, issue, state) = match &row.item {
-            KeptRowItem::Task { title, notes, state } => (TASK, title.as_str(), notes.as_str(), "", state.as_str()),
-            KeptRowItem::Issue { reference } => (ISSUE, "", "", reference.as_str(), ""),
+        let (kind, title, notes, issue, state, held_by) = match &row.item {
+            KeptRowItem::Task { title, notes, state } => {
+                (TASK, title.as_str(), notes.as_str(), "", state.as_str(), state.holder())
+            }
+            KeptRowItem::Issue { reference } => (ISSUE, "", "", reference.as_str(), "", ""),
         };
         self.conn
             .execute(
-                "INSERT INTO project_rows (id, project_id, position, kind, title, notes, issue, state)
+                "INSERT INTO project_rows (id, project_id, position, kind, title, notes, issue, state, held_by)
                  VALUES (?1, ?2, (SELECT COALESCE(MAX(position) + 1, 0) FROM project_rows WHERE project_id = ?2),
-                         ?3, ?4, ?5, ?6, ?7)",
-                params![row.id, project_id, kind, title, notes, issue, state],
+                         ?3, ?4, ?5, ?6, ?7, ?8)",
+                params![row.id, project_id, kind, title, notes, issue, state, held_by],
             )
             .map(|_| ())
             .map_err(database("keeping a project row"))
@@ -176,15 +220,45 @@ impl Store {
             .map_err(database("editing a project task"))
     }
 
-    /// A task's state. Whether the project had a task by that id.
+    /// A task's state. Whether the project had a task by that id. **A person's tick overrides a
+    /// hold**: the Job it named is dropped whatever the state it is moved to.
     pub fn set_project_task_state(&mut self, project_id: &str, id: &str, state: KeptTaskState) -> Result<bool, WriteError> {
         self.conn
             .execute(
-                "UPDATE project_rows SET state = ?3 WHERE project_id = ?1 AND id = ?2 AND kind = 'task'",
-                params![project_id, id, state.as_str()],
+                "UPDATE project_rows SET state = ?3, held_by = ?4, asked_at = ''
+                 WHERE project_id = ?1 AND id = ?2 AND kind = 'task'",
+                params![project_id, id, state.as_str(), state.holder()],
             )
             .map(|changed| changed > 0)
             .map_err(database("ticking a project task"))
+    }
+
+    /// The repository a project belongs to, if it is a project of any.
+    pub fn project_manifest(&self, project_id: &str) -> Result<Option<String>, WriteError> {
+        self.conn
+            .query_row("SELECT manifest_id FROM projects WHERE id = ?1", params![project_id], |row| row.get(0))
+            .map(Some)
+            .or_else(|cause| match cause {
+                rusqlite::Error::QueryReturnedNoRows => Ok(None),
+                other => Err(other),
+            })
+            .map_err(database("reading a project"))
+    }
+
+    /// Put `session` on each task named, `(project id, row id)`: it holds them from now. A task it
+    /// was already holding, or another Job was, is held by this one.
+    pub fn hold_project_tasks(&mut self, session: &str, tasks: &[(String, String)]) -> Result<(), WriteError> {
+        let doing = "holding project tasks";
+        let tx = self.conn.transaction().map_err(database(doing))?;
+        for (project, row) in tasks {
+            tx.execute(
+                "UPDATE project_rows SET state = 'held', held_by = ?3, asked_at = ''
+                 WHERE project_id = ?1 AND id = ?2 AND kind = 'task'",
+                params![project, row, session],
+            )
+            .map_err(database(doing))?;
+        }
+        tx.commit().map_err(database(doing))
     }
 
     /// Drop a row. Whether the project had one by that id.

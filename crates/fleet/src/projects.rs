@@ -15,9 +15,9 @@ use api::{Projects, Refusal};
 use core_model::Timestamp;
 use ipc::{
     IssueReference, IssueState, LinkProjectIssue, ManifestId, MoveProjectRow, NameProject, Project, ProjectRow,
-    ProjectTask, ProjectTaskState, TickProjectTask, WireError,
+    ProjectHolder, ProjectTask, ProjectTaskState, TickProjectTask, WireError,
 };
-use store::{KeptProject, KeptProjectRow, KeptRowItem, KeptTaskState, Store};
+use store::{KeptHolder, KeptProject, KeptProjectRow, KeptRowItem, KeptTaskState, Store};
 
 use crate::clock::elapsed;
 use crate::daemon::Fleet;
@@ -56,17 +56,22 @@ impl IssueReads {
     }
 }
 
-fn task_state(state: KeptTaskState) -> ProjectTaskState {
+/// A task's state on the wire, and the Job holding it where one does.
+fn task_state(state: KeptTaskState) -> (ProjectTaskState, Option<ProjectHolder>) {
+    let holder = |holder: KeptHolder| ProjectHolder { session_id: holder.session, title: holder.title };
     match state {
-        KeptTaskState::Open => ProjectTaskState::Open,
-        KeptTaskState::Done => ProjectTaskState::Done,
+        KeptTaskState::Open => (ProjectTaskState::Open, None),
+        KeptTaskState::Done => (ProjectTaskState::Done, None),
+        KeptTaskState::Held(by) => (ProjectTaskState::Held, Some(holder(by))),
+        KeptTaskState::Asked(by) => (ProjectTaskState::Asked, Some(holder(by))),
     }
 }
 
 fn row_on_the_wire(row: KeptProjectRow, said: &BTreeMap<String, Said>) -> ProjectRow {
     match row.item {
         KeptRowItem::Task { title, notes, state } => {
-            ProjectRow::Task { id: row.id, title, notes, state: task_state(state) }
+            let (state, held_by) = task_state(state);
+            ProjectRow::Task { id: row.id, title, notes, state, held_by }
         }
         KeptRowItem::Issue { reference } => {
             let read = said.get(&reference);

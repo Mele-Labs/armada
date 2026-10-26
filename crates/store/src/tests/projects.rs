@@ -2,7 +2,7 @@
 //! repository, each row in its place, a task's state, and an issue row's reference alone.
 
 use crate::tests::{open, TempDir};
-use crate::{KeptProjectRow, KeptRowItem, KeptTaskState};
+use crate::{KeptHolder, KeptProjectRow, KeptRowItem, KeptSession, KeptTaskState, SessionState};
 
 fn task(id: &str, title: &str) -> KeptProjectRow {
     KeptProjectRow {
@@ -79,4 +79,50 @@ fn a_task_edit_and_tick_reach_no_issue_row_and_a_deleted_project_takes_its_rows(
     assert!(store.projects("m1").unwrap().is_empty());
     store.add_project("m1", "p1", "Again", "2026-10-26T10:00:02.000Z").unwrap();
     assert!(store.projects("m1").unwrap()[0].rows.is_empty(), "its rows went with it");
+}
+
+#[test]
+fn a_held_task_reads_back_with_its_job_and_the_job_title_and_a_tick_lets_it_go() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    store
+        .keep_session(&KeptSession {
+            id: "s1".into(),
+            harness: "a_harness".into(),
+            origin: "bridge".into(),
+            manifest_id: Some("m1".into()),
+            cwd: "/repos/m1".into(),
+            title: Some("Sign the build".into()),
+            state: SessionState::Live,
+            started_at: "2026-10-26T10:00:00.000Z".into(),
+            last_seen_at: "2026-10-26T10:00:00.000Z".into(),
+            last_turn_at: None,
+            ended_at: None,
+            end_reason: None,
+            figures: Default::default(),
+            mod_version: None,
+        })
+        .unwrap();
+    store.add_project("m1", "p1", "Launch", "2026-10-26T10:00:01.000Z").unwrap();
+    store.add_project_row("p1", &task("r1", "Sign the build")).unwrap();
+    store.add_project_row("p1", &task("r2", "Ship it")).unwrap();
+    store.hold_project_tasks("s1", &[("p1".to_string(), "r1".to_string())]).unwrap();
+    drop(store);
+
+    let mut store = open(&dir);
+    let state = |store: &crate::Store, at: usize| match &store.projects("m1").unwrap()[0].rows[at].item {
+        KeptRowItem::Task { state, .. } => state.clone(),
+        KeptRowItem::Issue { .. } => panic!("a task"),
+    };
+    assert_eq!(
+        state(&store, 0),
+        KeptTaskState::Held(KeptHolder { session: "s1".into(), title: Some("Sign the build".into()) }),
+        "held by the Job, with its title, after a reopen"
+    );
+    assert_eq!(state(&store, 1), KeptTaskState::Open, "a task no Job named stays open");
+    assert_eq!(store.project_manifest("p1").unwrap().as_deref(), Some("m1"));
+    assert_eq!(store.project_manifest("nope").unwrap(), None);
+
+    assert!(store.set_project_task_state("p1", "r1", KeptTaskState::Done).unwrap());
+    assert_eq!(state(&store, 0), KeptTaskState::Done, "a tick drops the hold");
 }

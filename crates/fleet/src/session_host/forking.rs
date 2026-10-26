@@ -247,6 +247,7 @@ where
             request: None,
             after: None,
             held: false,
+            project_rows: Vec::new(),
         };
         let whole = ForkFrom { session_id: moved.session_id, at: None };
         let moved = Moved {

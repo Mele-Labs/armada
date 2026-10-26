@@ -169,7 +169,7 @@ pub use plan_beads::KeptBead;
 pub use adversarial_reviews::{KeptAdversarialFinding, KeptAdversarialReview};
 pub use fleet_calls::KeptCall;
 pub use issue_queries::KeptIssueQuery;
-pub use projects::{KeptProject, KeptProjectRow, KeptRowItem, KeptTaskState};
+pub use projects::{KeptAsked, KeptHolder, KeptProject, KeptProjectRow, KeptRowItem, KeptTaskState};
 pub use session_waiting::KeptWaiting;
 pub use session_checks::KeptSessionCheck;
 pub use test_map::{StaleTest, TestsReaching};

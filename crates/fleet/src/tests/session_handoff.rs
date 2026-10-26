@@ -334,6 +334,7 @@ async fn left_partway(rig: &Rig, named: bool) -> (SessionId, SessionId) {
             request: None,
             after: None,
             held: false,
+            project_rows: Vec::new(),
         })
         .await
         .expect("started")
@@ -529,6 +530,7 @@ async fn stay_and_do_not_ask_again_is_kept_on_the_ledger_and_the_job_is_never_to
             request: None,
             after: None,
             held: false,
+            project_rows: Vec::new(),
         })
         .await
         .expect("started")
