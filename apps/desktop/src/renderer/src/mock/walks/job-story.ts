@@ -60,7 +60,7 @@ const report = walk("job-story", [
   { look: inside(landing, button("Why do slot leases expire early")), say: "Landing shows the report: its title and the first lines of its conclusion" },
   { look: mergeLine, say: "No pull request, so nothing of this Job in the Merge line" },
   { press: inside(landing, button("Why do slot leases expire early")), say: "A press opens the whole report" },
-  { look: region("Document", { exact: true }), say: "It opens in a layer over the whole Job" },
+  { look: region("Document", { exact: true }), say: "It opens in a panel over the Job" },
 ]);
 
 // A Job that lands a pull request and also wrote a page with the document skill: the page stands in its Landing beside the pull requests.
@@ -70,7 +70,7 @@ const page = walk("job-story", [
   { later: landing, say: "The build finishes, and the Job has written a page beside its pull request" },
   { look: inside(landing, role("list", "Document")), say: "The page stands in the Landing under the pull requests, as a spike's findings do" },
   { press: inside(inside(landing, role("list", "Document")), button(/^Why do slot leases expire early/)), say: "A press opens it" },
-  { look: region("Document", { exact: true }), say: "In the reading layer over the whole Job: contents, the page, the Notes margin" },
+  { look: region("Document", { exact: true }), say: "In a panel over the Job: Contents with the Notes under it, the page beside them" },
   { key: "Escape", on: region("Document", { exact: true }), say: "Esc" },
   { look: landing, say: "The Job is back as it was" },
 ]);

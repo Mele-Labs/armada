@@ -1,6 +1,7 @@
 // A Job's document. An investigation writes a page of its own design, with a live sketch in it, and the Landing's report row opens it in a
-// layer over the whole Job: contents, the page, the Notes margin. Words, a part of the sketch and a row of the table are noted and sent
-// as one message; the Job answers with revision 2, where Changes marks what moved on and each note shows the change that answered it.
+// floating panel over the Job: Contents with the Notes under it at the left, the page beside them. Words, a part of the sketch and a row
+// of the table are noted and sent as one message; the Job answers with revision 2, where Changes marks what moved on and each note shows
+// the change that answered it.
 // Over `job-story`, at the report. The page and its second revision are `mock/document-pages.ts`.
 
 import { LEASE_DOC_TITLE } from "../document-pages";
