@@ -206,6 +206,15 @@ export type SettleLater = { id: string; how: LaterHow; issue?: string; reason?: 
 /** `POST /sessions/later/confirm`: thumbs up on an open follow-up; answered with the `SessionRecord`. */
 export type ConfirmLater = { id: string; session_id?: string };
 
+/**
+ * `POST /sessions/defer_later`: the agent keeps one follow-up for itself, as a sentence. `session_id` names the Session only where the
+ * connection places none. Fleet refuses 422 `fleet.later_not_deferrable` for an empty sentence and 409 `fleet.later_not_open` for one settled already.
+ */
+export type DeferLater = { sentence: string; session_id?: string };
+
+/** What `defer_later` answers: the follow-up kept and the ones open with it. */
+export type LaterDeferred = { id: string; sentence: string; open: SessionLater[] };
+
 /** What `settle_later` answers: the follow-up settled and the ones still open. */
 export type LaterSettled = { id: string; sentence: string; open: SessionLater[] };
 

@@ -467,6 +467,14 @@ impl Sessions for FakeDaemon {
         Ok(ipc::FleetDisputed { dispute_id: String::from("dispute"), review_session_id: None, joined: false })
     }
 
+    async fn defer_later(
+        &self,
+        _caller: Option<crate::Caller>,
+        defer: ipc::DeferLater,
+    ) -> Result<ipc::LaterDeferred, Refusal> {
+        Ok(ipc::LaterDeferred { id: String::from("later-1"), sentence: defer.sentence, open: Vec::new() })
+    }
+
     async fn settle_later(
         &self,
         _caller: Option<crate::Caller>,
