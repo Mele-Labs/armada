@@ -49,7 +49,7 @@ async fn a_listed_api_route_without_a_signature_is_400() {
 }
 
 #[tokio::test]
-async fn admin_is_refused_when_tailscale_serve_forwarded_the_request() {
+async fn admin_is_refused_when_a_tunnel_forwarded_the_request() {
     for header in crate::admin::FORWARDED {
         assert_eq!(
             status(Method::GET, "/admin/devices", &[(header, "x")]).await,
@@ -61,6 +61,16 @@ async fn admin_is_refused_when_tailscale_serve_forwarded_the_request() {
         status(Method::GET, "/admin/devices", &[]).await,
         StatusCode::OK
     );
+}
+
+#[tokio::test]
+async fn admin_is_refused_for_any_host_but_loopback() {
+    for host in ["mac.tail-1.ts.net", "armada.ngrok-free.app", "mac.example.com:443", "127.0.0.1.example.com"] {
+        assert_eq!(status(Method::GET, "/admin/devices", &[("host", host)]).await, StatusCode::FORBIDDEN, "{host}");
+    }
+    for host in ["127.0.0.1:8443", "localhost:8443", "[::1]:8443", "127.0.0.1"] {
+        assert_eq!(status(Method::GET, "/admin/devices", &[("host", host)]).await, StatusCode::OK, "{host}");
+    }
 }
 
 #[tokio::test]

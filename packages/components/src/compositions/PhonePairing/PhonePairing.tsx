@@ -64,7 +64,7 @@ export function PhonePairing(props: PhonePairingProps) {
           checked={access.on}
           disabled={access.turning === true}
           onChange={(event) => onTurn(event.currentTarget.checked)}
-          description="Paired phones reach this Mac through Tailscale while this is on, with Bridge open or closed."
+          description="Paired phones reach this Mac through the tunnel you point at it while this is on, with Bridge open or closed."
         >
           Phone access
         </Switch>

@@ -15,7 +15,7 @@ use pocket::Gateway;
 use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
 
-/// The loopback port `tailscale serve` is pointed at.
+/// The loopback port the owner's tunnel, `tailscale serve` by default, is pointed at.
 pub const PORT: u16 = 8443;
 /// The marker that opts this Mac in. `scripts/restart` reads the same name.
 const MARKER: &str = "pocket";
@@ -109,7 +109,7 @@ impl Phone {
         let push = pocket::Push::open(&self.machine, pocket::PLACEHOLDER_SUBJECT)?;
         let fleet_port = self.fleet_port;
         let gateway = Gateway {
-            pairing: pocket::Pairing::new(store, Arc::new(now), Arc::new(pocket::tailscale_address)),
+            pairing: pocket::Pairing::new(store, Arc::new(now), pocket::machine_address(self.machine.clone())),
             fleet: Arc::new(move || Ok(fleet_port)),
             assets: Some(assets(&self.machine)),
             push,

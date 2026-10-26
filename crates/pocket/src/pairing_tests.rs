@@ -12,7 +12,7 @@ use p256::pkcs8::EncodePublicKey;
 use sha2::{Digest, Sha256};
 use tower::ServiceExt;
 
-use crate::pairing::{address_from_status, to_hex};
+use crate::pairing::{address_from_file, address_from_status, machine_address, to_hex, ADDRESS_FILE};
 use crate::{router, Gateway, Pairing};
 
 static DIRS: AtomicU32 = AtomicU32::new(0);
@@ -154,6 +154,29 @@ fn the_address_is_self_dnsname_without_its_dot() {
     assert_eq!(address_from_status(out).unwrap(), "https://mac.tail-1.ts.net");
     assert!(address_from_status(r#"{"BackendState":"NeedsLogin"}"#).is_err());
     assert!(address_from_status("").is_err());
+}
+
+#[test]
+fn an_address_the_owner_names_is_one_https_origin() {
+    assert_eq!(address_from_file("https://Armada.ngrok-free.app/\n").unwrap(), "https://armada.ngrok-free.app");
+    assert_eq!(address_from_file("https://mac.example.com:8443").unwrap(), "https://mac.example.com:8443");
+    for wrong in ["", "http://mac.example.com", "mac.example.com", "https://", "https://mac.example.com/pocket", "https://me@mac.example.com", "https://mac.example.com?a=1"] {
+        assert!(address_from_file(wrong).is_err(), "{wrong}");
+    }
+}
+
+#[test]
+fn the_address_file_is_read_at_each_ask() {
+    let dir = std::env::temp_dir().join(format!("pocket-address-{}-{}", std::process::id(), DIRS.fetch_add(1, Ordering::SeqCst)));
+    std::fs::create_dir_all(&dir).unwrap();
+    let address = machine_address(dir.clone());
+    std::fs::write(dir.join(ADDRESS_FILE), "https://one.example.com").unwrap();
+    assert_eq!(address().unwrap(), "https://one.example.com");
+    std::fs::write(dir.join(ADDRESS_FILE), "https://two.example.com").unwrap();
+    assert_eq!(address().unwrap(), "https://two.example.com");
+    std::fs::write(dir.join(ADDRESS_FILE), "two.example.com").unwrap();
+    assert!(address().unwrap_err().contains(ADDRESS_FILE));
+    std::fs::remove_dir_all(dir).ok();
 }
 
 #[tokio::test]
