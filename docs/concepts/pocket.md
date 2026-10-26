@@ -13,7 +13,7 @@ You answer its question, approve its plan or send it a message from there, on an
 ## What it is
 
 ```
-Phone (PWA) ──https──▶ tailscale serve ──▶ Fleet's process
+Phone (PWA) ──https──▶ the owner's tunnel ──▶ Fleet's process
                                            ├─ Phone Gateway 127.0.0.1:8443 ──http──▶ Fleet 127.0.0.1:<port>
                                            └─ Web Push (Apple / Google) ──▶ Phone
 Bridge (Settings → Phone) ──loopback /admin/*──▶ Phone Gateway
@@ -30,6 +30,17 @@ Bridge (Settings → Phone) ──GET / POST /phone──▶ Fleet
 It still calls Fleet over HTTP rather than in process, so every phone call meets Fleet's router and its `phone` door.
 
 Setup is in [Set up the phone app](../journeys/set-up-the-phone-app.md).
+
+## The way in
+
+**The owner brings the tunnel.** Armada runs no relay and no service of its own; whatever reaches `127.0.0.1:8443` over https is the way in, and the choices are in [Set up the phone app](../journeys/set-up-the-phone-app.md).
+
+| The address is | When |
+|---|---|
+| The line in `pocket-address` in the machine directory | The file is there. One `https://` origin, no path; anything else refuses pairing with a sentence naming the file |
+| `https://<tailnet name>` from `tailscale status --json` | The file is not there |
+
+It is read at each ask, in `pocket::machine_address`, so an edit needs no restart.
 
 ## Turning it on
 
@@ -49,9 +60,9 @@ The opt-in is the file `pocket` in Armada's machine directory, `~/Library/Applic
 
 | Control | How |
 |---|---|
-| Loopback bind | `pocket::bind` and `pocket::bind_now` take a port and no host, so no setting opens the Gateway to a network. `tailscale serve` is the only way in |
+| Loopback bind | `pocket::bind` and `pocket::bind_now` take a port and no host, so no setting opens the Gateway to a network. The tunnel the owner points at it is the only way in |
 | Allowlist | `router` in `crates/pocket/src/routes.rs` names every route. Anything else is 404, and so is a listed path asked with an unlisted method |
-| `/admin/*` | For Bridge's main process. Refused (403) when the request carries `Origin`, which means a web page sent it, or any header `tailscale serve` adds, which means it came over the tailnet |
+| `/admin/*` | For Bridge's main process. Refused (403) when the request carries `Origin`, which means a web page sent it, or a header `tailscale serve`, Funnel, ngrok or `cloudflared` adds, or a `Host` other than loopback, which means it came through a tunnel |
 | Signed `/api/*` | The phone sends `X-Pocket-Device`, `X-Pocket-Time` and `X-Pocket-Signature`: ECDSA P-256 over the method, path and query, time, and the body's SHA-256. The private key is made on the phone, one per Mac, and never leaves it |
 | Cross-origin | `/api/*` and `POST /pair` answer a preflight and name the caller's origin when it is `https`, so the app one Mac served may call another. The signature is still the only auth. `/admin/*` never answers one |
 | Clock | A request more than 60 seconds from the Mac's clock is refused |
@@ -76,7 +87,7 @@ The opt-in is the file `pocket` in Armada's machine directory, `~/Library/Applic
 | Running | The live Jobs not waiting on the owner, one with a turn running marked working and the rest idle | `GET /api/sessions` |
 | A Job | Its whole thread, as Bridge reads it | `GET /api/sessions/one?session_id=` |
 | A file | A file the Job showed: its text, or a picture | `GET /api/sessions/shown?session_id=&path=` |
-| This Mac | The name its rows are labelled with: its tailnet name without the tailnet, or its host name | `GET /api/machine` |
+| This Mac | The name its rows are labelled with: the first label of its address, or its host name | `GET /api/machine` |
 
 **The lists are narrowed.** `crates/pocket/src/phone_sessions.rs` builds `PhoneSession` field by field, so a field Fleet adds to the Job record does not reach a list until someone writes it there.
 
@@ -143,7 +154,7 @@ Only a Job that has gone quiet: a live Job whose `standing` is `stuck`, a turn r
 | A question, a permission ask, a plan to approve, a finished or replied Job | no, it queues in the app |
 
 - **Once per condition.** A Job pushes once when it goes quiet. It pushes again only after it has moved on and gone quiet again.
-- **Payload.** `{ session_id, title, reason, origin }`: the reason is `stalled`, and `origin` is this Mac's `https://<tailnet name>`. `origin` is absent while Tailscale is down.
+- **Payload.** `{ session_id, title, reason, origin }`: the reason is `stalled`, and `origin` is this Mac's address. `origin` is absent while the Gateway cannot say its address.
 - **Tapping it** opens `/jobs/<origin>/<session_id>`, the Job on that Mac, or `/jobs/_/<session_id>` without an origin. The Gateway serves the app for any `/jobs/` path.
 - **Retries.** A failed send is tried again after 5 s, 30 s and 120 s, then dropped. Each phone sends on its own task, so a failing one holds up no other.
 - **Dead subscriptions.** A 404 or 410 from the push service removes the subscription.
@@ -169,7 +180,7 @@ A subscription without one is pushed to under the Mac's own key.
 | Devices, push subscriptions | The store, tables `pocket_devices` and `pocket_push_subscriptions`. A subscription made with another Mac's VAPID key keeps it in `vapid_private`, read into a `Secret` so it cannot be printed |
 | Pairing codes, claims, seen signatures | Memory. A Gateway that stops drops them, and a half-finished pairing starts again |
 
-The VAPID `sub` is the Gateway's own tailnet address, so no personal address leaves the Mac. With Tailscale down it falls back to a placeholder.
+The VAPID `sub` is the Gateway's own address, so no personal address leaves the Mac. Where it cannot say one it falls back to a placeholder.
 
 ## Unpairing
 

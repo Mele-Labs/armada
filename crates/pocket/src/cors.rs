@@ -3,7 +3,7 @@
 //! **The signature is the auth; this only lets the browser send it.** An app
 //! from Mac A calls Mac B, so B answers a preflight and names A's origin on
 //! the answer. Only an `https` origin is named: the app is only ever served
-//! over `tailscale serve`. `/admin/*` is not here and keeps refusing any `Origin`.
+//! over the owner's https tunnel. `/admin/*` is not here and keeps refusing any `Origin`.
 
 use axum::extract::Request;
 use axum::http::{header, HeaderValue, Method, StatusCode};
