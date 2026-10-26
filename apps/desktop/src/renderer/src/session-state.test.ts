@@ -70,6 +70,13 @@ describe("the delivery question holds the Session on him", () => {
   });
 });
 
+describe("a plan put to him holds the Session on him", () => {
+  test("a Session at work with the plan on it is waiting on him, whatever its turn says", () => {
+    const plan = { id: "plan:1", text: "Plan to approve", since: TURN_ENDED, source: "plan", options: [] };
+    expect(stateOf(session({ turn: { state: "working" }, standing: "working", waitingFor: [plan] }))).toEqual({ state: "waiting", said: "Waiting on you" });
+  });
+});
+
 describe("the delivery question is what a new Job's Needs you card opens on", () => {
   const options = [{ label: "Auto land" }, { label: "Open PR only" }, { label: "Keep local" }];
   const delivery = { id: "delivery", text: "How should this work be delivered?", since: TURN_ENDED, source: "delivery", options };

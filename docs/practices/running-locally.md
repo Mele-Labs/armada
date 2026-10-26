@@ -918,7 +918,8 @@ design.
 `.claude/skills/agent-worktrees/SKILL.md` says how a dispatcher uses it. Release
 once the branch has landed.
 
-**What it needs:** an `armada.yml` at the repository's root, `git` on `PATH`, and
+**What it needs:** the repository's Manifest, its root `armada.yml` with Kit's copy laid over it
+or Kit's copy alone, read as `armada check` reads it; `git` on `PATH`; and
 an `armada` on `PATH` that knows the verb — `scripts/restart` installs it. A
 network is used to fetch the base and not required: offline, the lease says so
 and cuts from what was last fetched.

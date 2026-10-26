@@ -6,6 +6,7 @@
 //! x)` works; everything else goes to stderr.
 
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use adapters::leasing::{Full, Holder, Lease, Pool, Slot, SlotState, Unshaped};
@@ -18,12 +19,26 @@ use crate::slot_asking::Asking;
 /// The base a Manifest that names none is leased from.
 const BASE_UNSTATED: &str = "main";
 
-/// The pool of the repository `within` belongs to, sized by its root
-/// `armada.yml`. A repository with none declares no pool.
+/// The pool of the repository `within` belongs to, sized by its root Manifest:
+/// its `armada.yml` with Kit's copy laid over it, as `armada check` reads it. A
+/// repository with neither declares no pool. Its workspaces are not read, so
+/// one that will not load leaves leasing alone.
 pub fn pool_of(within: &Path) -> Result<Pool, String> {
+    pool_over(within, crate::manifests::kit_copy)
+}
+
+/// [`pool_of`], with `copy` finding Kit's copy of the root's `armada.yml`, or none.
+pub(crate) fn pool_over(
+    within: &Path,
+    copy: impl FnOnce(&Path) -> Option<Arc<dyn config::KitCopy>>,
+) -> Result<Pool, String> {
     let root = Pool::root_of(within)?;
     let path = root.join(MANIFEST);
-    let manifest = Manifest::load(&path).map_err(|why| format!("{}: {why}", path.display()))?;
+    let manifest = match copy(&root) {
+        Some(copy) => Manifest::load_over_copy(&path, copy),
+        None => Manifest::load(&path),
+    }
+    .map_err(|why| format!("{}: {why}", path.display()))?;
     let seeds = manifest
         .seed()
         .map(|seed| seed.paths().to_vec())
