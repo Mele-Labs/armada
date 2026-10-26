@@ -183,6 +183,8 @@ export type SessionFrameProps = {
   back?: ReactNode;
   /** The ledger, as a panel of its own beside the conversation: a sibling card the height of the first, scrolling on its own. */
   aside?: ReactNode;
+  /** A row of views under the head, full width, before the body. */
+  tabs?: ReactNode;
   children: ReactNode;
 };
 
@@ -248,7 +250,7 @@ function SessionTitle({ title, onRename }: { title?: string; onRename?: (title: 
 
 const DOCKED: readonly Mark[] = [{ of: ".armada-shell", as: "data-dock" }];
 
-export function SessionFrame({ state, said, id, address, title, onRename, modOutOfDate = false, checks, onOpenCheck, context, loadout, fresh, repository, actions, menu, back, aside, children }: SessionFrameProps) {
+export function SessionFrame({ state, said, id, address, title, onRename, modOutOfDate = false, checks, onOpenCheck, context, loadout, fresh, repository, actions, menu, back, aside, tabs, children }: SessionFrameProps) {
   const named = address ?? id;
   const more = menuWithFresh(menu, fresh);
   // The aside wears the dock's class, and the shell's glow follows it (`TheShell.css`).
@@ -270,6 +272,7 @@ export function SessionFrame({ state, said, id, address, title, onRename, modOut
         {more === undefined || more.entries.length === 0 ? null : <DropdownMenu align="end" portal icon={Ellipsis} triggerLabel="More" entries={more.entries} onSelect={more.onSelect} />}
         {back}
       </header>
+      {tabs}
       <div className="armada-session-frame__body">{children}</div>
     </Card>
     {aside === undefined || aside === null ? null : <Card className="armada-session-frame__aside armada-shell__dock">{aside}</Card>}

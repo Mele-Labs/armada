@@ -30,7 +30,7 @@ import { useJobTerminal } from "../../job-shell-dock";
 import { useSessionsSaid } from "../../sessions-draft";
 import { useFleetEvents } from "../fleet-events";
 import { flightGrid, pageCell, pagesOf } from "./flight-pages";
-import { flightTake, groupsOf, rowOf } from "./flight-take";
+import { flightTake, groupsOf, rowOf, takeKey } from "./flight-take";
 import { FlightBlock } from "./FlightBlock";
 import { filled, repositoryFileOf, tilesOf, useFlightFile, useRepositoryFlight, type JobFacts, type Tile } from "./flight-controls";
 import { approveTile, committedFileOf } from "./flight-controls";
@@ -273,6 +273,8 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
   const shown = tiles.filter((one) => !one.hidden);
   const take = flightTake();
   const idOf = (tile: Tile): SessionTileId | undefined => (tile.builtIn === undefined ? undefined : (tile.id as SessionTileId));
+  /** Each take numbers its own keys; the pages keep the owner's. */
+  const keyOf = (tile: Tile): string | undefined => (take === undefined ? tile.key : takeKey(take, tile));
   const whyOf = (tile: Tile): string | undefined => {
     const id = idOf(tile);
     return id === undefined ? offCustom(tile) : off[id];
@@ -311,7 +313,7 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
     const paused = id === "pause" && session.paused === true;
     const Glyph = paused ? Play : glyphOf(tile.glyph, "zap");
     const name = paused ? "Resume" : tile.label;
-    const key = tile.key;
+    const key = keyOf(tile);
     const why = whyOf(tile);
     const reading = id === "judge" && judging;
     const cleared = id === "judge" && clear && !reading;
@@ -396,7 +398,7 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
   const drawSwitch = (tile: Tile) => {
     const id = tile.id as "land" | "pause";
     const why = off[id];
-    const key = tile.key;
+    const key = keyOf(tile);
     const going = session.pressed?.includes(id === "land" ? "autoLand" : "paused") === true;
     return (
       <Tooltip key={tile.id} label={going ? "Sending" : (why ?? tip[id])} {...(key === undefined ? {} : { shortcut: key })} asChild>

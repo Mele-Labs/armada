@@ -127,6 +127,8 @@ import { bangOf, hostedCommands, opensMcp, runnerOf } from "./session-runner";
 import { useJobDock } from "./job-shell-dock";
 import { todosOf } from "./session-activity";
 import { confirmWaiting, dismissWaiting } from "./cockpit/dismissed";
+import { JobTabs } from "./cockpit/deck/JobTabs";
+import { flightTake } from "./cockpit/deck/flight-take";
 import { holdsDelivery, stateOf } from "./session-state";
 import type { PlanEditing } from "./session-view/PlanEdit";
 import type { LoadoutAt } from "./session-loadout";
@@ -1085,6 +1087,8 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
           },
         }}
         {...(deck === undefined ? {} : { back: deck.back })}
+        // The `tabs` take of Flight control draws the Job's views as tabs under its head, on the Cockpit only (`cockpit/deck/flight-take.ts`).
+        {...(deck?.flight === true && flightTake() === "tabs" ? { tabs: <JobTabs session={session} bays={bays} /> } : {})}
         {...{
               actions: (
                 <>

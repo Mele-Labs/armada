@@ -1,17 +1,17 @@
-/* The tab row over a Job's thread (`JobTabs.tsx`). The row is a fixed height so a layer, which covers the pane, starts under it and the tabs stay on show. */
+/* The tab row under a Job's title (`JobTabs.tsx`): the head's own width, side padding and hairline, on the pane's surface with no track of its own. The side
+   padding takes the tab's own off the head's, so the first word stands under the title's glyph. A layer starts at `--sv-tabs-bottom`, which the row sets on
+   the pane, so the title and the tabs stay on show over it. */
 
-.deck-pane { --sv-tabs-h: calc(var(--h-control-sm) + var(--space-1) + var(--space-2) + var(--border-width) * 2); }
-.sv-tabs { display: flex; flex: none; box-sizing: border-box; height: var(--sv-tabs-h); padding: var(--space-2) var(--space-3) 0; }
-.sv-tabs ~ .sv-layer { top: calc(var(--sv-tabs-h) + var(--space-2)); }
+.deck-pane .sv-layer { top: var(--sv-tabs-bottom, 0); }
+.sv-tabs { flex: none; padding: var(--space-1) var(--space-4) var(--space-1) calc(var(--space-4) - var(--space-2)); box-shadow: inset 0 calc(var(--border-width) * -1) 0 var(--head-rule, var(--border-subtle)); }
+.sv-tabs__list { display: flex; align-items: center; gap: var(--space-1); min-width: 0; }
 
-/* The primitive's fill travels behind the chosen tab; here the chosen tab is filled where it stands. */
+.sv-tabs .sv-tab { padding: 0 var(--space-2); }
+/* The chosen tab is filled where it stands. */
 .sv-tab[aria-selected="true"] { background: var(--accent-muted); }
-.sv-tab__key { opacity: 0.6; }
-.sv-tab[aria-selected="true"] .sv-tab__key { opacity: 0.9; }
 .sv-tab__count { font-family: var(--font-mono); font-size: var(--text-2xs); line-height: var(--leading-xs); color: var(--fg-default); }
 .sv-tab__clash { display: inline-flex; color: var(--status-awaiting-review); }
 .sv-tab__running { display: inline-flex; color: var(--status-running); animation: deck-bay-pulse calc(var(--duration-pulse) * 1.5) ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .sv-tab__running { animation: none; } }
 /* Lit as the Bays tile is: the stranded hue, the word still plain. */
 .sv-tab[data-lit] { color: var(--slot-stranded); }
-.sv-tab[data-lit] .sv-tab__key { color: var(--fg-muted); }

@@ -1,20 +1,22 @@
-// The tab row at the top of a Job's thread in the `tabs` take (`flight-take.ts`): Thread, then the layers the Job has something in (Artifacts, Checks, Subagents, Bays).
-// A tab is a view the layers already provide (`session-view/layers.ts`), so the selected one follows `useLayer` and Thread is no layer. A layer with nothing in it
-// is not drawn, for the reason its tile gives off (`offeredOf`). Each tab wears its tile's key, which presses it as the tile did (`flight-keys.ts`). The
-// facts the tiles carried stay on the tab: Checks pulses while any runs, Subagents draws the number running, Bays is lit when a bay is wrong and carries the clash.
-// Not the `Tabs` primitive, which draws a label and a dot and nothing else. The owner's ask of 25 Oct 2026.
+// The tab row under a Job's title in the `tabs` take (`flight-take.ts`), part of the Job's head: Thread, then the layers the Job has something in (Artifacts,
+// Checks, Subagents, Bays). A tab is a view the layers already provide (`session-view/layers.ts`), so the selected one follows `useLayer` and Thread is no layer.
+// A layer with nothing in it is not drawn, for the reason its tile gives off (`offeredOf`). A tab draws no key cap, which reads as a count beside a word; its key
+// is in its tooltip, and presses it as the tile did (`flight-keys.ts`). The facts the tiles carried stay on the tab: Checks pulses while any runs, Subagents draws
+// the number running, Bays is lit when a bay is wrong and carries the clash. **A layer starts under this row**, so the Job's title and the tabs stay on show
+// while it is read (`--sv-tabs-bottom`, set here on the pane). Not the `Tabs` primitive, which is a track of its own and draws a label and a dot and nothing else.
+// The owner's ask of 25 Oct 2026.
 
-import { useRef, type KeyboardEvent } from "react";
+import { useLayoutEffect, useRef, type KeyboardEvent } from "react";
 import { CircleDot, Swords } from "lucide-react";
-import { Kbd, Tooltip } from "@armada/components";
+import { Tooltip } from "@armada/components";
 import { attachmentsOf, type Session } from "@armada/screens/src/draft/sessions";
 
 import { useSessionsDraft } from "../../sessions-draft";
 import { closeLayer, showLayer, toggleLayer, useLayer, type LayerId } from "../../session-view/layers";
 import { baysLit, type SessionBays } from "../../session-view/slot-trouble";
 import { tilesOf, useFlightFile } from "./flight-controls";
-import { TAB_LAYERS } from "./flight-take";
-import { offeredOf, tileCap } from "./session-tiles";
+import { TAB_LAYERS, takeKey } from "./flight-take";
+import { offeredOf } from "./session-tiles";
 import "./JobTabs.css";
 
 const THREAD = "Thread";
@@ -24,6 +26,22 @@ export function JobTabs({ session, bays }: { session: Session; bays: SessionBays
   const draft = useSessionsDraft();
   const tiles = tilesOf("job", useFlightFile());
   const strip = useRef<HTMLDivElement>(null);
+  const row = useRef<HTMLDivElement>(null);
+  // The pane's layer starts where this row ends.
+  useLayoutEffect(() => {
+    const el = row.current;
+    const pane = el?.closest<HTMLElement>(".deck-pane");
+    if (el == null || pane == null) return;
+    const place = () => pane.style.setProperty("--sv-tabs-bottom", `${el.getBoundingClientRect().bottom - pane.getBoundingClientRect().top - pane.clientTop}px`);
+    place();
+    const watch = new ResizeObserver(place);
+    watch.observe(el);
+    watch.observe(pane);
+    return () => {
+      watch.disconnect();
+      pane.style.removeProperty("--sv-tabs-bottom");
+    };
+  }, [draft === undefined]);
   if (draft === undefined) return null;
   const { off } = offeredOf(session, draft, undefined, (bays?.bays.length ?? 0) > 0);
   const drawn = TAB_LAYERS.filter((layer) => off[layer] === undefined);
@@ -47,7 +65,7 @@ export function JobTabs({ session, bays }: { session: Session; bays: SessionBays
   const tab = (layer: LayerId | undefined) => {
     const tile = layer === undefined ? undefined : tiles.find((one) => one.builtIn !== undefined && one.id === layer);
     const on = open === layer;
-    const key = tile?.key;
+    const key = tile === undefined ? undefined : takeKey("tabs", tile);
     const lit = layer === "slot" && bays !== undefined && baysLit(bays);
     const pulsing = layer === "checks" && checksRunning;
     const button = (
@@ -80,25 +98,20 @@ export function JobTabs({ session, bays }: { session: Session; bays: SessionBays
             <Swords size={12} strokeWidth={2} aria-hidden="true" />
           </span>
         )}
-        {key === undefined ? null : (
-          <Kbd className="sv-tab__key" aria-hidden="true">
-            {tileCap(key)}
-          </Kbd>
-        )}
       </button>
     );
-    // What is wrong with a bay, or the clash, is the Bays tab's tooltip, as it was the tile's.
-    return layer === "slot" && wrongs.length > 0 ? (
-      <Tooltip key="slot" label={wrongs.join(", ")} asChild>
+    // A tab is named and keyed in its tooltip; what is wrong with a bay, or the clash, is the Bays tab's, as it was the tile's.
+    return layer === undefined ? (
+      button
+    ) : (
+      <Tooltip key={layer} label={layer === "slot" && wrongs.length > 0 ? wrongs.join(", ") : (tile?.label ?? layer)} {...(key === undefined ? {} : { shortcut: key })} asChild>
         {button}
       </Tooltip>
-    ) : (
-      button
     );
   };
   return (
-    <div className="sv-tabs">
-      <div ref={strip} className="armada-tabs" role="tablist" onKeyDown={move}>
+    <div ref={row} className="sv-tabs">
+      <div ref={strip} className="sv-tabs__list" role="tablist" onKeyDown={move}>
         {[undefined, ...drawn].map(tab)}
       </div>
     </div>

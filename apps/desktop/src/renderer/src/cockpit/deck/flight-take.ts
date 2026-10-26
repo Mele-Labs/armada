@@ -4,7 +4,7 @@
 // control "feels so hard to find anything" in. Only one stays: the one he picks, and this file goes with the other.
 
 import type { Tile } from "./flight-controls";
-import type { SessionTileId } from "./session-tiles";
+import { tileKey, type SessionTileId } from "./session-tiles";
 
 export type FlightTake = "grouped" | "tabs";
 
@@ -57,4 +57,21 @@ export function groupsOf(shown: readonly Tile[], why: (tile: Tile) => string | u
 /** `tabs`: the switches, then the tiles of the row, the owner's own after them, off ones last. */
 export function rowOf(shown: readonly Tile[], why: (tile: Tile) => string | undefined): { switches: Tile[]; tiles: Tile[] } {
   return { switches: built(shown, SWITCHES), tiles: liveFirst([...built(shown, ROW), ...shown.filter((one) => one.builtIn === undefined)], why) };
+}
+
+/** Each take numbers its keys in reading order, ⌥⇧1 to ⌥⇧9 and ⌥⇧0, the ones after the tenth having none. */
+const KEY_ORDER: Record<FlightTake, readonly string[]> = {
+  grouped: ["land", "release", "ask", "compact", "judge", "report", "artifacts", "checks", "subagents", "slot"],
+  tabs: ["artifacts", "checks", "subagents", "slot", "land", "ask", "compact", "judge", "report", "release"],
+};
+
+/**
+ * The key of a tile while a take is on. **It belongs to the tile's place and not to whether the tile is on**, so one going off or on moves no other's.
+ * Pause keeps its own, and a tile of the owner's has none.
+ */
+export function takeKey(take: FlightTake, tile: Tile): string | undefined {
+  if (tile.builtIn === undefined) return undefined;
+  if (tile.id === "pause") return tile.key;
+  const at = KEY_ORDER[take].indexOf(tile.id);
+  return at < 0 ? undefined : tileKey(at);
 }
