@@ -8,7 +8,8 @@
 //! the paths the setup made. It is written as each Command passes, so a setup that failed at the
 //! second Command is tried again from the second. A Command is done when its evidence is the same
 //! and each path the setup made is still there, so a slot cleaned for its next lease
-//! (`git clean -fdx`) is set up again whole, and an unchanged one is not.
+//! (`git clean -fdx`) is set up again whole, and an unchanged one is not. **The first Command that
+//! has to run starts the rest**: a later one may install into what it made.
 //!
 //! **Setup is a run's first phase and not a server.** It is held in its own book beside the servers
 //! (`Setups`), one per checkout, and the runs that asked for it start when it passes. Its output is
@@ -396,14 +397,17 @@ where
         let before = entries(root, setup);
         // What an earlier setup made is still its own, though this one found it there already.
         let mut mark = kept(checkout);
+        // Once a Command runs, each one after it does: it may install into what that one made.
+        let mut rerunning = false;
         self.setup_told(checkout, manifest, |_| {}).await;
         for step in setup {
             if *stopped.borrow() {
                 break;
             }
-            if mark.has(step, &evidence(root, step)) {
+            if !rerunning && mark.has(step, &evidence(root, step)) {
                 continue;
             }
+            rerunning = true;
             // Written before it runs, so a Command that fails is not taken for one that passed.
             mark.forgotten(step);
             mark.written(&mark_path(checkout));
