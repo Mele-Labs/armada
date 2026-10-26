@@ -5,7 +5,7 @@
 // live line, the next one), a button opens the whole plan, and a group's title opens the issue it works. The last line of a drafted group is an empty task to type into. One open panel fills the column.
 // The composer's Artifacts button opens the list over the right column and Esc gives the story back. Over `job-story`. `job-story-spike` lands the
 // same story in a findings doc and `job-story-report` in a report. `job-document` reads that report. `job-story-page` is the pull request
-// Job's own page in its Landing.
+// Job's own page, from its Landing and from where its thread names it.
 
 import { button, deckRow, dialog, inside, region, role, text, walk } from "../walk";
 
@@ -73,6 +73,10 @@ const page = walk("job-story", [
   { look: region("Document", { exact: true }), say: "In a panel over the Job: Contents with the Notes under it, the page beside them" },
   { key: "Escape", on: region("Document", { exact: true }), say: "Esc" },
   { look: landing, say: "The Job is back as it was" },
+  { look: inside(region("Thread"), role("link", /^Why do slot leases expire early/)), say: "Where the Job names the page in its thread, the path reads as the page's title with a document glyph" },
+  { press: inside(region("Thread"), role("link", /^Why do slot leases expire early/)), say: "A press opens the same panel, not the raw file" },
+  { look: region("Document", { exact: true }), say: "The page, over the Job" },
+  { key: "Escape", on: region("Document", { exact: true }), say: "Esc" },
 ]);
 
 export { story as "job-story", spike as "job-story-spike", report as "job-story-report", page as "job-story-page" };
