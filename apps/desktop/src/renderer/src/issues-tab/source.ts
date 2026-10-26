@@ -8,16 +8,17 @@ import { refusalWords } from "@armada/screens/src/refusal-words";
 import type { IssueQueryActed, IssuesApi } from "../../../shared/api/issues";
 import type { IssuesSource, Read, SavedQuery, Ticket, TicketRead, Tracker } from "./model";
 
-/** The program a refusal named as missing, in the field Fleet carries it in. */
-const missingOf = (outcome: Outcome): string | undefined => {
-  const tool = outcome.ok === false && outcome.why === "refused" ? outcome.error.fields?.missing_tool : undefined;
+/** The program a refusal named in `field`: `missing_tool` where it is not installed, `needs_setup` where it has no project. */
+const namedIn = (outcome: Outcome, field: "missing_tool" | "needs_setup"): string | undefined => {
+  const tool = outcome.ok === false && outcome.why === "refused" ? outcome.error.fields?.[field] : undefined;
   return typeof tool === "string" && tool !== "" ? tool : undefined;
 };
 
 const worded = <T>(answer: IssueQueryActed<T>): Read<T> => {
   if (answer.ok) return { ok: true, value: answer.value };
-  const missing = missingOf(answer.outcome);
-  return { ok: false, said: refusalWords(answer.outcome), ...(missing === undefined ? {} : { missing }) };
+  const missing = namedIn(answer.outcome, "missing_tool");
+  const needsSetup = namedIn(answer.outcome, "needs_setup");
+  return { ok: false, said: refusalWords(answer.outcome), ...(missing === undefined ? {} : { missing }), ...(needsSetup === undefined ? {} : { needsSetup }) };
 };
 
 const ticketOf = (one: TrackedIssue): Ticket => ({

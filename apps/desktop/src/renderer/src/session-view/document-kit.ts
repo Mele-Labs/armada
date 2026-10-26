@@ -1,5 +1,6 @@
 // The kit a Job's document may link: `<link rel="stylesheet" href="armada-kit.css">`. Armada's type and colour tokens as plain styling
-// for headings, paragraphs, tables and code, so a page with no CSS of its own still reads right. The page's own style comes after it and
+// for headings, paragraphs, lists, tables and code, so a page with no CSS of its own still reads right. Bridge's reset strips every
+// list's markers and indent, so the kit gives them back. The page's own style comes after it and
 // wins. The only stylesheet a page can link; any other link is dropped. `<armada-sketch>` is the kit's one element, drawn by Bridge.
 
 export const KIT_HREF = "armada-kit.css";
@@ -10,7 +11,13 @@ h1 { margin: 0 0 var(--space-4); font-size: var(--text-2xl); line-height: var(--
 h2 { margin: var(--space-8) 0 var(--space-3); font-size: var(--text-lg); line-height: var(--leading-lg); font-weight: var(--weight-heading); }
 h3 { margin: var(--space-6) 0 var(--space-2); font-size: var(--text-base); line-height: var(--leading-base); font-weight: var(--weight-heading); }
 p, ul, ol { margin: 0 0 var(--space-3); max-inline-size: 68ch; }
+ul, ol { padding-inline-start: var(--space-6); }
+ul { list-style: disc; }
+ul ul { list-style: circle; }
+ol { list-style: decimal; }
 li { margin: 0 0 var(--space-1); }
+li > ul, li > ol { margin: var(--space-1) 0 0; }
+li::marker { color: var(--fg-muted); }
 a { color: var(--accent); }
 strong { font-weight: var(--weight-heading); }
 code, kbd, samp, pre { font-family: var(--font-mono); font-size: var(--text-xs); }

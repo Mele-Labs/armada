@@ -12,6 +12,7 @@ pub struct FakeTracker {
     listings: Mutex<usize>,
     unreadable: Mutex<Option<String>>,
     lacking: Mutex<Option<String>>,
+    unset: Mutex<Option<String>>,
     found: Mutex<Vec<OpenIssue>>,
     searches: Mutex<Vec<String>>,
     opens: Mutex<Option<String>>,
@@ -78,7 +79,14 @@ impl FakeTracker {
         *self.lacking.lock().expect("lacking") = Some(tool.to_string());
     }
 
+    /// Every search is refused as `tool` refuses it with no project here, until
+    /// [`answers_again`](Self::answers_again).
+    pub fn needs_setup(&self, tool: &str) {
+        *self.unset.lock().expect("unset") = Some(tool.to_string());
+    }
+
     pub fn answers_again(&self) {
+        *self.unset.lock().expect("unset") = None;
         *self.unreadable.lock().expect("unreadable") = None;
         *self.lacking.lock().expect("lacking") = None;
     }
@@ -170,6 +178,9 @@ impl Tracker for FakeTracker {
         self.searches.lock().expect("searches").push(query.to_string());
         if let Some(tool) = self.lacking.lock().expect("lacking").clone() {
             return Err(NotTracked::lacking("searching the issues", &tool));
+        }
+        if let Some(tool) = self.unset.lock().expect("unset").clone() {
+            return Err(NotTracked::unset("searching the issues", &tool, "no beads project found"));
         }
         if let Some(said) = self.unreadable.lock().expect("unreadable").clone() {
             return Err(NotTracked::of("searching the issues", said));

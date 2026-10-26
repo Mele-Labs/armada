@@ -142,6 +142,17 @@ describe("the ledger", () => {
     expect(blank).not.toHaveProperty("closes");
   });
 
+  it("reads the branch a pull request is based on", () => {
+    const [pr] = attachmentsOfRecord(record("a", { attachments: [held("pr", "2", { base: "feature/one" })] }), beside());
+    expect(pr).toMatchObject({ kind: "pull_request", base: "feature/one" });
+  });
+
+  it("leaves `base` off a pull request that names none", () => {
+    const [none, blank] = attachmentsOfRecord(record("a", { attachments: [held("pr", "1"), held("pr", "2", { base: "  " })] }), beside());
+    expect(none).not.toHaveProperty("base");
+    expect(blank).not.toHaveProperty("base");
+  });
+
   it("leaves out a ledger row of a kind this build has no screen for", () => {
     expect(attachmentsOfRecord(record("a", { attachments: [held("job", "J1")] }), beside())).toEqual([]);
   });

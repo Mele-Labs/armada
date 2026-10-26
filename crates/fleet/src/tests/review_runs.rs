@@ -56,6 +56,7 @@ pub(super) fn a_fleet_judged_by(home: &TempDir, judge: Arc<FakeJudge>) -> Arc<Fi
     fleet.vcs().now_pull_request(Some(PullRequestFacts {
         standing: PullRequestStanding::Open,
         branch: "fleet/pr-acts".into(),
+        base: "main".into(),
         auto_merge: false,
         title: "Take a draft out".into(),
         url: "https://forge.invalid/armada/pull/12".into(),

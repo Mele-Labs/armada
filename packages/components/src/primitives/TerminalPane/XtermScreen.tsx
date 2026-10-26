@@ -57,7 +57,9 @@ const HIDE_CURSOR = "\x1b[?25l";
 export function XtermScreen({ out, run, running, write, onSize }: TerminalScreenProps) {
   const host = useRef<HTMLDivElement>(null);
   const screen = useRef<Terminal | null>(null);
-  const shown = useRef({ run, length: 0 });
+  const shown = useRef({ run, length: 0, live: false });
+  // Writes of history still being parsed. A query in history was answered when it was printed, so its reply now would be typed into the shell.
+  const redrawing = useRef(0);
   const latest = useRef({ write, onSize, running });
   latest.current = { write, onSize, running };
 
@@ -103,7 +105,7 @@ export function XtermScreen({ out, run, running, write, onSize }: TerminalScreen
     });
 
     const data = terminal.onData((typed) => {
-      if (latest.current.running) latest.current.write(typed);
+      if (latest.current.running && redrawing.current === 0) latest.current.write(typed);
     });
     const retheme = new MutationObserver(() => {
       terminal.options.theme = themeOf(element);
@@ -118,7 +120,7 @@ export function XtermScreen({ out, run, running, write, onSize }: TerminalScreen
       data.dispose();
       terminal.dispose();
       screen.current = null;
-      shown.current = { run: -1, length: 0 };
+      shown.current = { run: -1, length: 0, live: false };
     };
     // The screen is made once; what changes after is told to it below.
   }, []);
@@ -126,14 +128,23 @@ export function XtermScreen({ out, run, running, write, onSize }: TerminalScreen
   useEffect(() => {
     const terminal = screen.current;
     if (terminal === null) return;
+    // What a screen is first given, or given again after it starts over on the same run, is history; a new run's bytes are not.
     if (shown.current.run !== run || out.length < shown.current.length) {
       terminal.reset();
-      shown.current = { run, length: 0 };
+      shown.current = { run, length: 0, live: shown.current.run !== run && shown.current.run !== -1 };
     }
     if (out.length > shown.current.length) {
-      terminal.write(out.slice(shown.current.length));
+      const chunk = out.slice(shown.current.length);
+      if (shown.current.live) terminal.write(chunk);
+      else {
+        redrawing.current += 1;
+        terminal.write(chunk, () => {
+          redrawing.current -= 1;
+        });
+      }
       shown.current.length = out.length;
     }
+    shown.current.live = true;
   }, [out, run]);
 
   useEffect(() => {

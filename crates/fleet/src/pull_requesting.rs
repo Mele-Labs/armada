@@ -134,6 +134,10 @@ fn detail_of(state: &PullRequestState) -> BTreeMap<String, String> {
     if let Some(body) = &state.body {
         detail.insert("body".to_string(), body.clone());
     }
+    // Bridge draws stacked pull requests from it; a forge that named none leaves it off.
+    if !state.base.is_empty() {
+        detail.insert("base".to_string(), state.base.clone());
+    }
     // The same rule: a pull request that closes nothing has no `closes`.
     if !state.closes.is_empty() {
         let closes: Vec<String> = state.closes.iter().map(u64::to_string).collect();
@@ -203,6 +207,7 @@ fn read_from_forge<V: TheForge>(
         checks,
         title: facts.title,
         branch: facts.branch,
+        base: facts.base,
         address: facts.url,
         body: facts.body,
         closes: facts.closes,

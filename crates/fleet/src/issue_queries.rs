@@ -141,22 +141,23 @@ where
         })
     }
 
-    /// **Only a [`Tool`] is installed**, so what the wire names is looked up and never run. The
-    /// install is a person's press: nothing calls this on its own.
+    /// **Only a [`Tool`] is installed**, so what the wire names is looked up and never run. It is
+    /// also set up for this repository where it is absent there. The install is a person's press:
+    /// nothing calls this on its own.
     pub(crate) async fn tool_installed(
         &self,
         manifest_id: ManifestId,
         install: InstallTool,
     ) -> Result<InstalledTool, Refusal> {
-        self.served_named(Some(&manifest_id))?;
+        let served = self.served_named(Some(&manifest_id))?;
         let Some(tool) = Tool::named(&install.tool) else {
             return Err(Refusal::Unacceptable(self.query_refusal(
                 NOT_INSTALLABLE,
                 format!("Fleet does not install `{}`", install.tool),
             )));
         };
-        let trackers = std::sync::Arc::clone(self.trackers());
-        let installed = tokio::task::spawn_blocking(move || trackers.install(tool)).await.map_err(|panicked| {
+        let (trackers, root) = (std::sync::Arc::clone(self.trackers()), served.root().to_string());
+        let installed = tokio::task::spawn_blocking(move || trackers.install(tool, &root)).await.map_err(|panicked| {
             Refusal::Fault(self.query_refusal(NOT_INSTALLABLE, format!("the install stopped: {panicked}")))
         })?;
         Ok(InstalledTool { tool: tool.name().to_string(), done: installed.done, said: installed.said })

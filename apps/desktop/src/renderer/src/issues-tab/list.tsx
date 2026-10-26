@@ -356,7 +356,10 @@ function Rows({ band, asked, nested = false }: { band: Band; asked: Asked | unde
   const snap = useIssues();
   if (band.tracker.state !== "read" || asked?.state !== "query") return null;
   const run = store.runOf(band.manifestId, asked.query);
-  if (run?.state === "failed") return run.missing === undefined ? <p className="issues-list__said" role="alert">{run.said}</p> : <MissingTool manifestId={band.manifestId} query={asked.query} said={run.said} tool={run.missing} />;
+  if (run?.state === "failed") {
+    const tool = run.missing ?? run.needsSetup;
+    return tool === undefined ? <p className="issues-list__said" role="alert">{run.said}</p> : <MissingTool manifestId={band.manifestId} query={asked.query} said={run.said} tool={tool} setup={run.missing === undefined} />;
+  }
   const tickets = run?.state === "read" ? run.tickets : [];
   return (
     <ul className={nested ? "deck-list__group" : "deck-list__rows issues-list__rows"}>
@@ -367,8 +370,11 @@ function Rows({ band, asked, nested = false }: { band: Band; asked: Asked | unde
   );
 }
 
-/** A search that could not run for want of a program. Nothing installs until Install is pressed; a failed install keeps its words and offers no second press. */
-export function MissingTool({ manifestId, query, said, tool }: { manifestId: string; query: string; said: string; tool: string }) {
+/** What a person calls a tool by: `bd` is beads. */
+const called = (tool: string) => (tool === "bd" ? "beads" : tool);
+
+/** A search that could not run for want of a program, or of its project (`setup`). Nothing installs or sets up until the button is pressed; a failure keeps its words and offers no second press. */
+export function MissingTool({ manifestId, query, said, tool, setup = false }: { manifestId: string; query: string; said: string; tool: string; setup?: boolean }) {
   const store = useIssuesStore()!;
   useIssues();
   const install = store.installOf(manifestId, tool);
@@ -378,7 +384,7 @@ export function MissingTool({ manifestId, query, said, tool }: { manifestId: str
     <div className="issues-list__missing">
       <p className="issues-list__said" role="alert">{said}</p>
       <Button variant="secondary" size="sm" pending={installing} onClick={() => store.install(manifestId, tool, query)}>
-        {installing ? `Installing ${tool}` : `Install ${tool}`}
+        {setup ? (installing ? `Setting up ${called(tool)}` : `Set up ${called(tool)}`) : installing ? `Installing ${tool}` : `Install ${tool}`}
       </Button>
     </div>
   );
