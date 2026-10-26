@@ -39,6 +39,52 @@ const hear = new Set<() => void>();
 const keyOf = (session: string, area: Stage) => `${session}:${area}`;
 const changed = () => hear.forEach((one) => one());
 
+// What was pressed is kept per Job in the window's storage, with the stage it was pressed at, so a Job comes back as it was left. A viewer's
+// convenience, so a blocked store only forgets it. The first look at a Job reads it; the maps are the truth after that.
+const KEPT = "armada.session-folds";
+type Kept = { stage?: Stage; folds: Partial<Record<Stage, boolean>>; whole: boolean };
+const STAGES: readonly Stage[] = ["blueprint", "field", "landing"];
+const loaded = new Set<string>();
+const stages = new Map<string, Stage>();
+
+function load(session: string): void {
+  if (loaded.has(session)) return;
+  loaded.add(session);
+  try {
+    const kept = JSON.parse(localStorage.getItem(`${KEPT}.${session}`) ?? "null") as Kept | null;
+    if (kept === null) return;
+    for (const area of STAGES) {
+      const fold = kept.folds?.[area];
+      if (typeof fold === "boolean") forced.set(keyOf(session, area), fold);
+    }
+    if (kept.whole === true) whole.set(session, true);
+    if (kept.stage !== undefined) stages.set(session, kept.stage);
+  } catch {
+    // Unreadable or blocked: the Job opens as its stage has it.
+  }
+}
+
+function save(session: string): void {
+  const folds: Kept["folds"] = {};
+  for (const area of STAGES) {
+    const fold = forced.get(keyOf(session, area));
+    if (fold !== undefined) folds[area] = fold;
+  }
+  const kept: Kept = { stage: stages.get(session), folds, whole: whole.get(session) === true };
+  try {
+    localStorage.setItem(`${KEPT}.${session}`, JSON.stringify(kept));
+  } catch {
+    // Not kept: the panels are as they were left until the window closes.
+  }
+}
+
+const held = (session: string, area: Stage) => (load(session), forced.get(keyOf(session, area)));
+const heldWhole = (session: string) => (load(session), whole.get(session) === true);
+const touched = (session: string) => {
+  save(session);
+  changed();
+};
+
 /** Open at its own stage. The blueprint stays up through the build too, and folds once the Job lands. */
 const openAt = (session: Session, area: Stage): boolean => {
   const stage = stageOf(session);
@@ -49,22 +95,22 @@ const openAt = (session: Session, area: Stage): boolean => {
 export function useFold(session: Session, area: Stage): Fold {
   const byHand = useSyncExternalStore(
     (listener) => (hear.add(listener), () => void hear.delete(listener)),
-    () => forced.get(keyOf(session.id, area)),
+    () => held(session.id, area),
   );
   const open = byHand ?? openAt(session, area);
   const id = session.id;
   const toggle = useCallback(() => {
     forced.set(keyOf(id, area), !open);
-    changed();
+    touched(id);
   }, [id, area, open]);
   return { open, toggle };
 }
 
 /** A press of a panel's key: opens it if folded, folds it if open. */
 export function pressBand(session: Session, area: Stage): void {
-  const was = forced.get(keyOf(session.id, area)) ?? openAt(session, area);
+  const was = held(session.id, area) ?? openAt(session, area);
   forced.set(keyOf(session.id, area), !was);
-  changed();
+  touched(session.id);
 }
 
 /** The story moved on: what was opened or folded by hand gives way to the stage again, and the Blueprint to its Now view. */
@@ -77,7 +123,22 @@ export function resetFolds(session: string): void {
     }
   }
   if (whole.delete(session)) any = true;
+  stages.delete(session);
+  try {
+    localStorage.removeItem(`${KEPT}.${session}`);
+  } catch {
+    // Nothing was kept to remove.
+  }
   if (any) changed();
+}
+
+/** A Job is opened or its stage changes: what was pressed holds if the Job is at the stage it was pressed at, and gives way to the stage if it has moved on. */
+export function settleFolds(session: string, stage: Stage): void {
+  load(session);
+  const was = stages.get(session);
+  if (was !== undefined && was !== stage) resetFolds(session);
+  stages.set(session, stage);
+  save(session);
 }
 
 // ---- The whole blueprint ------------------------------------------------------------------------------------
@@ -88,11 +149,11 @@ const whole = new Map<string, boolean>();
 export function useWhole(session: string): { whole: boolean; toggle: () => void } {
   const now = useSyncExternalStore(
     (listener) => (hear.add(listener), () => void hear.delete(listener)),
-    () => whole.get(session) === true,
+    () => heldWhole(session),
   );
   const toggle = useCallback(() => {
-    whole.set(session, !(whole.get(session) === true));
-    changed();
+    whole.set(session, !heldWhole(session));
+    touched(session);
   }, [session]);
   return { whole: now, toggle };
 }
@@ -100,13 +161,13 @@ export function useWhole(session: string): { whole: boolean; toggle: () => void 
 /** A press of the whole-blueprint key: opens the Blueprint if it is folded, and swaps its Now view for the whole plan or back. */
 export function pressWhole(session: Session): void {
   const key = keyOf(session.id, "blueprint");
-  if (forced.get(key) ?? openAt(session, "blueprint")) {
-    whole.set(session.id, !(whole.get(session.id) === true));
+  if (held(session.id, "blueprint") ?? openAt(session, "blueprint")) {
+    whole.set(session.id, !heldWhole(session.id));
   } else {
     forced.set(key, true);
     whole.set(session.id, true);
   }
-  changed();
+  touched(session.id);
 }
 
 // ---- Keys ---------------------------------------------------------------------------------------------------

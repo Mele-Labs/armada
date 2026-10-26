@@ -5,7 +5,7 @@
 // live line, the next one), a button opens the whole plan, and a group's title opens the issue it works. The last line of a drafted group is an empty task to type into. One open panel fills the column.
 // The composer's Artifacts button opens the list over the right column and Esc gives the story back. Over `job-story`. `job-story-spike` lands the
 // same story in a findings doc and `job-story-report` in a report. `job-document` reads that report. `job-story-page` is the pull request
-// Job's own page in its Landing.
+// Job's own page, from its Landing and from where its thread names it.
 
 import { button, deckRow, dialog, inside, region, role, text, walk } from "../walk";
 
@@ -60,7 +60,7 @@ const report = walk("job-story", [
   { look: inside(landing, button("Why do slot leases expire early")), say: "Landing shows the report: its title and the first lines of its conclusion" },
   { look: mergeLine, say: "No pull request, so nothing of this Job in the Merge line" },
   { press: inside(landing, button("Why do slot leases expire early")), say: "A press opens the whole report" },
-  { look: region("Document", { exact: true }), say: "It opens in a layer over the whole Job" },
+  { look: region("Document", { exact: true }), say: "It opens in a panel over the Job" },
 ]);
 
 // A Job that lands a pull request and also wrote a page with the document skill: the page stands in its Landing beside the pull requests.
@@ -70,9 +70,13 @@ const page = walk("job-story", [
   { later: landing, say: "The build finishes, and the Job has written a page beside its pull request" },
   { look: inside(landing, role("list", "Document")), say: "The page stands in the Landing under the pull requests, as a spike's findings do" },
   { press: inside(inside(landing, role("list", "Document")), button(/^Why do slot leases expire early/)), say: "A press opens it" },
-  { look: region("Document", { exact: true }), say: "In the reading layer over the whole Job: contents, the page, the Notes margin" },
+  { look: region("Document", { exact: true }), say: "In a panel over the Job: Contents with the Notes under it, the page beside them" },
   { key: "Escape", on: region("Document", { exact: true }), say: "Esc" },
   { look: landing, say: "The Job is back as it was" },
+  { look: inside(region("Thread"), role("link", /^Why do slot leases expire early/)), say: "Where the Job names the page in its thread, the path reads as the page's title with a document glyph" },
+  { press: inside(region("Thread"), role("link", /^Why do slot leases expire early/)), say: "A press opens the same panel, not the raw file" },
+  { look: region("Document", { exact: true }), say: "The page, over the Job" },
+  { key: "Escape", on: region("Document", { exact: true }), say: "Esc" },
 ]);
 
 export { story as "job-story", spike as "job-story-spike", report as "job-story-report", page as "job-story-page" };
