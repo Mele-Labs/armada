@@ -61,13 +61,21 @@ pub(super) fn shell_guarded(line: &str, slots: &[&str], own: Own, folders: Optio
     // The owner's files it names, whether the segment naming each only reads, and which of them
     // the list has not answered.
     let reached: Vec<(String, ReachesTo)> = match folders {
-        Some(_) => whole
+        Some(folders) => whole
             .iter()
             .flat_map(|said| {
                 let to = if segment_only_reads(said) { ReachesTo::Read } else { ReachesTo::Write };
                 reaches_into_owners_files(said)
                     .into_iter()
-                    .map(move |(word, runs)| (word, if runs { ReachesTo::Read } else { to }))
+                    .filter_map(move |(word, runs)| {
+                        if runs {
+                            return Some((word, ReachesTo::Read));
+                        }
+                        if to == ReachesTo::Write && handed_to_run(said, &word, folders) {
+                            return read_refused(&word, false).then_some((word, ReachesTo::Read));
+                        }
+                        Some((word, to))
+                    })
             })
             .collect(),
         None => Vec::new(),
@@ -110,6 +118,34 @@ pub(super) fn shell_guarded(line: &str, slots: &[&str], own: Own, folders: Optio
         }
         (rest, None) => rest.map(|because| Guarded::Because { because, reaching: None, to: None }),
     }
+}
+
+/// Whether `word` names a program already on disk that the segment hands to what it runs, as
+/// a walk driver is handed the browser it launches. **Running a program is reading it**, as running
+/// a script is (26 Oct 2026: `node drive.mjs ... ~/Library/Caches/.../chrome-headless-shell` asked
+/// as a write). A program that writes its operands, and a redirect into it, still write it.
+fn handed_to_run(said: &str, word: &str, folders: Folders) -> bool {
+    use std::os::unix::fs::PermissionsExt;
+    const WRITES_ITS_OPERANDS: &[&str] = &[
+        "cp", "mv", "install", "ln", "tee", "touch", "sed", "perl", "rsync", "dd", "truncate", "ditto",
+    ];
+    let writer = command_of(said).is_none_or(|(program, _)| WRITES_ITS_OPERANDS.contains(&program));
+    let bare = word.trim_matches(|c| c == '\'' || c == '"');
+    if writer || redirected_into(said, bare) {
+        return false;
+    }
+    folders
+        .absolute(word)
+        .and_then(|at| std::fs::metadata(at).ok())
+        .is_some_and(|found| found.is_file() && found.permissions().mode() & 0o111 != 0)
+}
+
+/// Whether a `>`, `>>` or `&>` in `said` writes into `word`.
+fn redirected_into(said: &str, word: &str) -> bool {
+    said.match_indices('>').any(|(at, _)| {
+        let after = said[at..].trim_start_matches(['>', '&', '|']).trim_start();
+        after.split_whitespace().next().map(|target| target.trim_matches(|c| c == '\'' || c == '"')) == Some(word)
+    })
 }
 
 /// `line` with every `;`, `|`, `&`, `<` and `>` inside quotes turned to a
