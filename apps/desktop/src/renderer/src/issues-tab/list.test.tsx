@@ -21,10 +21,12 @@ afterEach(() => {
 
 const missing = { ok: false, said: "searching the issues did not happen: bd is not installed", missing: "bd" } as const;
 
-function mount(install: IssuesSource["install"]) {
+const unset = { ok: false, said: "searching the issues did not happen: no beads project found", needsSetup: "bd" } as const;
+
+function mount(install: IssuesSource["install"], line: typeof missing | typeof unset = missing) {
   const runs: string[] = [];
   const source = {
-    run: async (_manifestId: string, query: string) => (runs.push(query), missing),
+    run: async (_manifestId: string, query: string) => (runs.push(query), line),
     install,
   } as unknown as IssuesSource;
   const store = createIssuesStore(source);
@@ -35,7 +37,7 @@ function mount(install: IssuesSource["install"]) {
   act(() =>
     root.render(
       <IssuesFrom store={store}>
-        <MissingTool manifestId="storefront" query="status=open" said={missing.said} tool="bd" />
+        <MissingTool manifestId="storefront" query="status=open" said={line.said} tool="bd" setup={"needsSetup" in line} />
       </IssuesFrom>,
     ),
   );
@@ -71,4 +73,24 @@ test("a failed install shows why and leaves no button to press again", async () 
   expect(host.querySelector('[role="alert"]')?.textContent).toBe("Homebrew is not available");
   expect(button(host)).toBeNull();
   expect(runs).toEqual([]);
+});
+
+test("a missing project offers Set up beads, shows the setup underway, and searches again once it is done", async () => {
+  let finish: (read: Read<void>) => void = () => {};
+  const { host, runs } = mount(() => new Promise((resume) => (finish = resume)), unset);
+  expect(button(host)?.textContent).toBe("Set up beads");
+  act(() => button(host)?.click());
+  expect(button(host)?.textContent).toBe("Setting up beads");
+  expect(button(host)?.getAttribute("aria-busy")).toBe("true");
+  finish({ ok: true, value: undefined });
+  await settle();
+  expect(runs).toEqual(["status=open"]);
+});
+
+test("a setup that did not happen shows why and leaves no button", async () => {
+  const { host } = mount(async () => ({ ok: false, said: "origin holds no beads data" }), unset);
+  act(() => button(host)?.click());
+  await settle();
+  expect(host.querySelector('[role="alert"]')?.textContent).toBe("origin holds no beads data");
+  expect(button(host)).toBeNull();
 });

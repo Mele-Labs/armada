@@ -65,6 +65,22 @@ test("a pull request landing draws the pull requests as rows, the newest first",
   expect(host.querySelector('[aria-label="Findings"]')).toBeNull();
 });
 
+test("pull requests stacked on one another read parent first, share a lane, and a chip finds a parent that is not the row above", async () => {
+  const on = (number: number, branch: string, base: string): SessionAttachment => ({ ...(pull(number) as object), branch, base }) as SessionAttachment;
+  const host = await mount(sessionOf("pull_request", [on(1, "root", "main"), on(2, "one", "root"), on(3, "two", "root"), pull(4)]));
+  expect(titles(host, "Pull requests")).toEqual(["Pull request #4 Pull 4", "Pull request #1 Pull 1", "Pull request #2 Pull 2", "Pull request #3 Pull 3"]);
+  // The root stands flush left with the line starting under it; only the two stacked on it sit in the lane.
+  expect(host.querySelectorAll(".sv-lane")).toHaveLength(2);
+  expect(host.querySelector('[data-pr="1"]')?.hasAttribute("data-root")).toBe(true);
+  expect(host.querySelector('[data-pr="1"] .sv-lane')).toBeNull();
+  expect(host.querySelector('[data-pr="1"]')?.textContent).toContain("base: main");
+  expect(host.querySelector('[data-pr="2"] [role="link"]')).toBeNull();
+  const chip = host.querySelector<HTMLElement>('[data-pr="3"] [role="link"]')!;
+  expect(chip.textContent).toContain("on #1");
+  act(() => chip.click());
+  expect(document.activeElement).toBe(host.querySelector('[data-pr="1"] .sv-ledger__main'));
+});
+
 test("a Job with no landing named lands in a pull request", async () => {
   const host = await mount(sessionOf(undefined, [pull(7)]));
   expect(titles(host, "Pull requests")).toEqual(["Pull request #7 Pull 7"]);
@@ -154,6 +170,14 @@ test("an issue a plan group works stands in the Blueprint, not in Deferred", asy
   const plan = { scope: [], approved: true, groups: [{ id: "g1", title: "Retry", agent: "a", paths: [], issue: "31", tasks: [] }] };
   const host = await mount(sessionOf("pull_request", [pull(7), issue(31)], { work: { landing: "pull_request", plan } } as Partial<Session>));
   expect(deferred(host)).toBeNull();
+});
+
+test("an issue the Job claimed stands in the Landing, not in Deferred", async () => {
+  const claimed: SessionAttachment = { ...(issue(31) as Extract<SessionAttachment, { kind: "issue" }>), claimed: true, pull_requests: [7] };
+  const host = await mount(sessionOf("pull_request", [pull(7), claimed, issue(32)]));
+  expect(host.querySelector('[aria-label="Issues"] [aria-label="Issue #31 Issue 31"]')).not.toBeNull();
+  act(() => deferred(host)!.querySelector<HTMLElement>("button.sv-later__row")!.click());
+  expect([...deferred(host)!.querySelectorAll('.sv-later__item[data-kind="issue"] button')].map((one) => one.getAttribute("aria-label"))).toEqual(["Issue #32 Issue 32"]);
 });
 
 test("a Job with nothing filed and nothing set aside draws no Deferred", async () => {

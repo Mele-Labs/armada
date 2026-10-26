@@ -111,6 +111,7 @@ function prAt(stage: number): Partial<Session> {
             pr({ checks: { state: "passed" }, state: "open", auto: true, queued: true }),
             pr({ number: 2391, title: "Name the attempt in the bay tooltip", closes: [], checks: { state: "pending" }, state: "open", auto: false }),
             { kind: "issue" as const, number: "2402", title: "A slow attempt can outlive the lease", address: "https://forge.invalid/issues/2402", state: "open" as const },
+            { kind: "issue" as const, number: "2395", title: "The pool does not wake a waiting lease", address: "https://forge.invalid/issues/2395", state: "open" as const, claimed: true as const, pull_requests: [2391] },
             // A page the Job wrote beside its pull request, which the Landing draws though the workflow lands a pull request.
             { kind: "artifact" as const, form: "document" as const, id: PR_DOC_PATH, title: LEASE_DOC_TITLE, revisions: [LEASE_DOC_PATH] },
           ]

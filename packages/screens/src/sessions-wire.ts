@@ -182,6 +182,7 @@ function pullRequestOf(one: Attachment): SessionAttachment | undefined {
   if (one.state === "given_back") return undefined;
   const detail = one.detail ?? {};
   const closes = (detail["closes"] ?? "").split(",").filter((one) => one !== "").map(Number).filter(Number.isInteger);
+  const base = (detail["base"] ?? "").trim();
   return {
     kind: "pull_request",
     number: Number(one.target),
@@ -194,6 +195,7 @@ function pullRequestOf(one: Attachment): SessionAttachment | undefined {
     auto: detail["auto_merge"] === "true",
     ...(detail["queued"] === "true" ? { queued: true as const } : {}),
     ...(closes.length === 0 ? {} : { closes }),
+    ...(base === "" ? {} : { base }),
   };
 }
 
@@ -234,6 +236,7 @@ export function attachmentsOfRecord(record: Pick<SessionRecord, "attachments">, 
           address: detail["address"] ?? "",
           state: detail["state"] === "closed" ? "closed" : "open",
           ...(pulls.length === 0 ? {} : { pull_requests: pulls }),
+          ...(detail["claimed"] === "true" ? { claimed: true as const } : {}),
         });
         break;
       }

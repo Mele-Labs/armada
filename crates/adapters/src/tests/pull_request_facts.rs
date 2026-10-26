@@ -15,7 +15,7 @@ fn with_body(state: &str, draft: &str, auto: &str, body: &str) -> String {
 }
 
 fn closing(state: &str, draft: &str, auto: &str, closes: &str, body: &str) -> String {
-    format!("{state}\t{draft}\t{auto}\tfleet/pr-acts\thttps://forge.invalid/a/b/pull/7\t{closes}\t{body}\tTake a draft out")
+    format!("{state}\t{draft}\t{auto}\tfleet/pr-acts\tmain\thttps://forge.invalid/a/b/pull/7\t{closes}\t{body}\tTake a draft out")
 }
 
 #[test]
@@ -25,6 +25,7 @@ fn an_open_pull_request_that_is_a_draft_is_a_draft() {
         Some(PullRequestFacts {
             standing: PullRequestStanding::Draft,
             branch: "fleet/pr-acts".into(),
+            base: "main".into(),
             auto_merge: false,
             title: "Take a draft out".into(),
             url: "https://forge.invalid/a/b/pull/7".into(),
@@ -78,7 +79,7 @@ fn a_short_or_blank_line_is_no_reading() {
     assert_eq!(parsed("OPEN\ttrue"), None);
     assert_eq!(parsed(""), None);
     assert_eq!(
-        parsed("OPEN\tfalse\tfalse\t\thttps://forge.invalid/a/b/pull/7\t\t\ttitle"),
+        parsed("OPEN\tfalse\tfalse\t\tmain\thttps://forge.invalid/a/b/pull/7\t\t\ttitle"),
         None
     );
 }
@@ -110,4 +111,13 @@ fn the_issues_a_pull_request_closes_are_read_ascending_and_none_is_empty() {
         vec![7, 31]
     );
     assert_eq!(parsed(&line("OPEN", "false", "false")).expect("read").closes, Vec::<u64>::new());
+}
+
+/// A forge that names no base leaves it blank and the read stands: only the branch it is opened
+/// from, its address and its title are ones a reading cannot do without.
+#[test]
+fn the_branch_a_pull_request_merges_into_is_read_and_blank_is_still_a_reading() {
+    assert_eq!(parsed(&line("OPEN", "false", "false")).expect("read").base, "main");
+    let blank = line("OPEN", "false", "false").replace("\tmain\t", "\t\t");
+    assert_eq!(parsed(&blank).expect("read").base, "");
 }

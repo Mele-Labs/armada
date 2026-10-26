@@ -333,3 +333,22 @@ test("a Job taking an issue reads the open issue again, and a refused read keeps
   expect(kept?.state === "read" && kept.ticket.holders).toEqual(["01JOB"]);
   expect(store.get().failed).toBeUndefined();
 });
+
+test("a search that failed for want of a project offers the setup, and the press sets up through the same install, then searches again", async () => {
+  let set = false;
+  const { fake, calls } = source({
+    run: async (manifestId, query) => (calls.runs.push([manifestId, query]), set ? { ok: true, value: [ticket("#5")] } : { ok: false, said: "no beads project found", needsSetup: "bd" }),
+  });
+  const installs: [string, string][] = [];
+  const store = createIssuesStore({ ...fake, install: async (manifestId, tool) => (installs.push([manifestId, tool]), (set = true), { ok: true, value: undefined }) });
+
+  store.run("storefront", "status=open");
+  await settled();
+  expect(store.runOf("storefront", "status=open")).toEqual({ state: "failed", said: "no beads project found", needsSetup: "bd" });
+  expect(installs).toEqual([]);
+
+  store.install("storefront", "bd", "status=open");
+  await settled();
+  expect(installs).toEqual([["storefront", "bd"]]);
+  expect(store.runOf("storefront", "status=open")).toMatchObject({ state: "read" });
+});

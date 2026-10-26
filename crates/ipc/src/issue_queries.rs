@@ -13,7 +13,8 @@ pub struct SearchIssues {
     pub query: String,
 }
 
-/// `install_tool`: the tool a refusal's `missing_tool` named. Only the tools Fleet knows how to
+/// `install_tool`: the tool a refusal's `missing_tool` or `needs_setup` named. Installs it where it is absent, then
+/// sets it up in the repository's main checkout. Idempotent. Only the tools Fleet knows how to
 /// install are taken; any other is refused, so no command crosses the wire.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct InstallTool {

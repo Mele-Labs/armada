@@ -163,6 +163,9 @@ pub struct NotTracked {
     /// The program that is not on this machine, where that is why: `bd`. Bridge offers to install
     /// it, so it is a name and not a sentence to be read back out of `said`.
     pub missing: Option<String>,
+    /// The program that is installed but has nothing to work on here, where that is why: `bd`
+    /// with no beads project. Bridge offers to set it up, so it too is a name.
+    pub needs_setup: Option<String>,
 }
 
 impl NotTracked {
@@ -171,6 +174,15 @@ impl NotTracked {
             doing,
             said: said.into(),
             missing: None,
+            needs_setup: None,
+        }
+    }
+
+    /// `tool` is installed and has no project to work on here.
+    pub fn unset(doing: &'static str, tool: &str, said: impl Into<String>) -> NotTracked {
+        NotTracked {
+            needs_setup: Some(tool.to_string()),
+            ..NotTracked::of(doing, said)
         }
     }
 
@@ -180,6 +192,7 @@ impl NotTracked {
             doing,
             said: format!("`{tool}` is not installed, or not on the PATH Fleet runs with"),
             missing: Some(tool.to_string()),
+            needs_setup: None,
         }
     }
 }
@@ -323,9 +336,11 @@ pub trait Trackers {
         None
     }
 
-    /// Install `tool`. **Nothing here runs until a person asks**: a missing tool is reported, not
+    /// Install `tool` where it is absent, and set it up for the repository checked out at
+    /// `in_repo`. **Nothing here runs until a person asks**: a missing tool is reported, not
     /// repaired. Nothing is installed by default.
-    fn install(&self, tool: Tool) -> ToolInstalled {
+    fn install(&self, tool: Tool, in_repo: &str) -> ToolInstalled {
+        let _ = in_repo;
         ToolInstalled {
             done: false,
             said: format!("nothing here installs `{}`", tool.name()),

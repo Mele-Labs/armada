@@ -34,7 +34,7 @@ export type IssuesApi = {
   /** Drops a saved query. Answers what is left. */
   forgetIssueQuery: (manifestId: string, id: string) => Promise<IssueQueryActed<IssueQueries>>;
   /**
-   * Installs the program a refusal's `missing_tool` named, on this Mac. **Only a press asks it.** A failed install is a
+   * Installs the program a refusal's `missing_tool` named, or sets up the one its `needs_setup` named, on this Mac. **Only a press asks it.** A failed install is a
    * `done: false` answer carrying why, not a refusal.
    */
   installIssueTool: (manifestId: string, tool: string) => Promise<IssueQueryActed<InstalledTool>>;
