@@ -43,7 +43,7 @@ pub(super) struct Rig {
     pub(super) fleet: Arc<Running>,
     pub(super) session: SessionId,
     pub(super) dir: TempDir,
-    _home: TempDir,
+    pub(super) home: TempDir,
 }
 
 pub(super) async fn rig() -> Rig {
@@ -51,7 +51,7 @@ pub(super) async fn rig() -> Rig {
     let fleet = Arc::new(a_fleet(&home, FakeWorkProduct::changed(&[])));
     let dir = TempDir::new();
     let session = a_session_in(&fleet, &dir.path().to_string_lossy()).await;
-    Rig { fleet, session, dir, _home: home }
+    Rig { fleet, session, dir, home }
 }
 
 impl Rig {

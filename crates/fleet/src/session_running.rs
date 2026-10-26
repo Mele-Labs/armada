@@ -4,7 +4,8 @@
 //!
 //! **The command is the terminal's session leader**, so Ctrl-C written to it reaches it as SIGINT.
 //! **Nothing is written down**: a run keeps its last [`RING`] bytes while it lives and
-//! [`KEPT_AFTER_EXIT`] after, and a restart forgets every run.
+//! [`KEPT_AFTER_EXIT`] after, and a restart forgets every run. Its id is a ULID, so no run after a
+//! restart takes the id of one before it.
 //!
 //! **The history and the subscription are taken under one lock**, the one the reader appends
 //! under, so a viewer loses no output and reads none twice. **A character a read ends inside waits
@@ -18,7 +19,7 @@ use std::collections::BTreeMap;
 use std::future::Future;
 use std::io::{Read, Write};
 use std::process::Stdio;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -33,6 +34,7 @@ use store::{AttachmentState, Holder};
 use tokio::sync::broadcast;
 
 use crate::daemon::Fleet;
+use crate::mint::{Mint, UlidMint};
 
 pub(crate) use ended::{fenced, Ended};
 
@@ -144,7 +146,7 @@ impl Run {
 #[derive(Default)]
 pub(crate) struct SessionRuns {
     held: Arc<Mutex<BTreeMap<String, Arc<Run>>>>,
-    minted: AtomicU64,
+    minted: UlidMint,
     /// Each Job's shell, by the Job's id.
     shells: Mutex<BTreeMap<String, String>>,
 }
@@ -187,7 +189,7 @@ impl SessionRuns {
     }
 
     fn mint(&self) -> String {
-        format!("session-run-{}", self.minted.fetch_add(1, Ordering::Relaxed) + 1)
+        format!("session-run-{}", self.minted.ulid().as_str())
     }
 
     /// Start `launch` and answer its id. The reading and the wait are threads of their own, and

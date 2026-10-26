@@ -301,8 +301,18 @@ where
             return Err(refusal("nothing to type: text is empty and enter is false", self.run_id()));
         }
         let (run_id, opened) = Arc::clone(&self).job_shell(&session, None, None).await?;
+        // Settled before a refusal too, so the read it asks for shows the new shell's prompt.
         if opened {
             self.session_runs().settled(&run_id).await;
+        }
+        if let Some(ended) = self.shell_seen(&session).await.filter(|seen| *seen != run_id) {
+            return Err(refusal(
+                format!(
+                    "nothing was typed: this job's shell {ended} ended, and {run_id} is a new one, \
+                     not where your last command ran. read_terminal it, then type again"
+                ),
+                self.run_id(),
+            ));
         }
         let keys = keys(&typed);
         let wait = Duration::from_secs(typed.wait_seconds.unwrap_or(WAIT).clamp(1, MOST_WAIT));
@@ -311,6 +321,7 @@ where
             .typed_and_heard(&run_id, keys, wait)
             .await
             .ok_or_else(|| self.not_in_flight())?;
+        self.saw_shell(&session, &run_id).await;
         Ok(TerminalTyped {
             run_id,
             echoed: echoed(&typed.text, &printed),
@@ -338,7 +349,22 @@ where
             .shell_awaited(&session, until.as_ref(), Instant::now() + wait)
             .await
             .ok_or_else(|| refusal("this job has no terminal open. type_in_terminal opens one", self.run_id()))?;
+        self.saw_shell(&session, &run_id).await;
         Ok(TerminalScreen { run_id, screen: kept(plain::last_lines(&held, lines)), matched })
+    }
+
+    /// The shell `session`'s agent last typed into or read. **Kept in the store**, since the restart
+    /// that ends a shell is the one that forgets it.
+    async fn shell_seen(&self, session: &str) -> Option<String> {
+        self.store().lock().await.job_shell_seen(session).ok().flatten()
+    }
+
+    async fn saw_shell(&self, session: &str, run_id: &str) {
+        if self.shell_seen(session).await.as_deref() == Some(run_id) {
+            return;
+        }
+        let now = self.now();
+        let _ = self.store().lock().await.keep_job_shell_seen(session, run_id, &now);
     }
 
     /// A Job that ended takes its shell with it.
