@@ -147,7 +147,7 @@ export function App() {
   const [checking, setChecking] = useState(false); const [doctoring, setDoctoring] = useState(false); const [workflowing, setWorkflowing] = useState(false); // The Workflow creator (`workflow-creator.tsx`).
   const [usaging, setUsaging] = useState(false); const [logbooking, setLogbooking] = useState(false); // Usage, where the tokens went; the Logbook (`logbook.tsx`).
   const [reviewing, setReviewing] = useState(false); const [issuing, setIssuing] = useState(false); const [projecting, setProjecting] = useState(false); // Reviews, the pull requests waiting on him (`pr-review/`), Issues, a repository's tracker (`issues-tab/`), and Projects, his own lists (`projects-tab/`).
-  // Left off the rail and the palette. Jobs keeps its place in the tab order so `⌘3` onward stay where they are; it has no page.
+  // Left off the rail and the palette. The old Jobs tab has no page, so it is never drawn and takes no digit.
   const hidden = [...hiddenSurfaces(state), ...sessionsHidden(), SURFACE.jobs, ...reviewsHidden(useReviewStore() !== undefined), ...issuesHidden(useIssuesStore() !== undefined), ...projectsHidden(useProjectsStore() !== undefined)];
   // Whether the Manifest surface is open — Journey 9's *Running one*. It is read off the file Fleet
   // already holds, which is what lets a person run this project's lint with nothing running.
@@ -206,9 +206,10 @@ export function App() {
   // `⌘1`…`⌘n`, the binding the contract publishes and nothing answered until
   // the Manifest surface needed `⌘5`. One roster, read by the rail, the
   // palette and now the keyboard.
-  // `⌘1` to `⌘6` are the title bar's tabs and `⌘,` is Settings.
+  // `⌘1` to `⌘8` go to the tabs the title bar draws, in its order, and `⌘,` is Settings.
   const layoutRail = useLayout("rail");
-  useSurfaceKeys((surface) => goTo(opensFor(surface, placesOff(hidden, layoutRail.all))));
+  const off = placesOff(hidden, layoutRail.all);
+  useSurfaceKeys((surface) => goTo(opensFor(surface, off)), off);
 
   // What this repository's Manifest declares, held open while the surface that
   // draws it is showing, **the palette is up** or a Studio is open, whose Run

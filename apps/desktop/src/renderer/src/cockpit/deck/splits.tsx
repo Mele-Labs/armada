@@ -1,5 +1,5 @@
 // The gaps between the deck's panels as handles. A gap in a column resizes the two panels either side of it, and the middle's stage
-// against its foot; the gap between columns is the column handle (`columns.ts`). The sizes are kept in this browser for each layout
+// against its foot when the foot holds a Field; the gap between columns is the column handle (`columns.ts`). The sizes are kept in this browser for each layout
 // (nothing selected, a Session open), as a share of the column for each panel by name, so a window of another height keeps the
 // proportions. A column nobody has dragged is left to the stylesheet. A panel folded to its band, or drawn as a band alone, stands
 // outside the shares and has no handle beside it. The panels are found in the page as drawn, because a Session's panels are
@@ -28,7 +28,8 @@ const NAMES: Record<string, string> = { "deck-stage": "Thread", "deck-foot": "Fo
 
 const keyOf = (panel: HTMLElement) => panel.dataset.area ?? [...panel.classList].find((one) => !GENERIC.has(one)) ?? "panel";
 const nameOf = (panel: HTMLElement) => panel.getAttribute("aria-label") ?? NAMES[keyOf(panel)] ?? keyOf(panel);
-const fixed = (panel: HTMLElement) => panel.hasAttribute("data-collapsed") || panel.hasAttribute("data-band-only");
+// A foot of keys alone is as tall as its keys: a share kept from a taller foot drew it tall with the keys floating in it.
+const fixed = (panel: HTMLElement) => panel.hasAttribute("data-collapsed") || panel.hasAttribute("data-band-only") || panel.matches(".deck-foot:not(:has(.sv-panel[data-area='field']))");
 
 function panelsOf(column: HTMLElement): HTMLElement[] {
   return [...column.querySelectorAll<HTMLElement>(PANELS)]

@@ -65,7 +65,7 @@ A task no Job holds is asked the same way when a linked pull request merges, on 
 
 | Surface | What it draws |
 |---|---|
-| The Projects tab | Sits beside Issues, with no digit key. The projects, then the cards of one with their subtasks |
+| The Projects tab | Sits beside Issues, and takes the next digit after it. The projects, then the cards of one with their subtasks |
 | A card | Its title, notes, linked issues and pull requests with their state from the tracker, and the Job holding it |
 | An asked card | Mark done and Keep open |
 | The add fields | Take `#` for an issue or a pull request and `@` for a Job, as the composer does |

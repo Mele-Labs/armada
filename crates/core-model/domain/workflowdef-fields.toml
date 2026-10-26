@@ -327,7 +327,7 @@ An absent `judge_check` and `"enabled": false` mean the same thing, and no valid
 [fields.lands]
 type = "enum"
 concern = "Structure"
-purpose = "What the workflow ends in, which the Job view's Landing draws: `pull_request`, `report`, `spike` or `document`. Optional, and absent reads off `delivers`."
+purpose = "What the workflow ends in, which the Job view's Delivery draws: `pull_request`, `report`, `spike` or `document`. Optional, and absent reads off `delivers`."
 notes = """
 **The owner's, 25 Oct 2026.** The Job view tells a Job in four parts, and the last is what it lands in. Until this key Bridge knew the kind only from mock data, so every real Job that was not a Mod Job landed as a pull request.
 
@@ -339,7 +339,7 @@ notes = """
 
 Not frozen onto the Job, for `for_requests`'s reason: `ResolvedWorkflow` holds it beside the frozen copy, and Bridge reads it off the definition Fleet holds.
 """
-why = "A Job's Landing drew a pull request for a design document, a review and a spike alike, because nothing a workflow declared said what it ends in."
+why = "A Job's Delivery drew a pull request for a design document, a review and a spike alike, because nothing a workflow declared said what it ends in."
 
 [fields.lands.values]
 pull_request = "A pull request and its merge"

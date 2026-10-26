@@ -81,7 +81,6 @@
 }
 .sv-panel__body:empty { display: none; }
 .sv-panel:has(> .sv-panel__body:empty) > .sv-panel__band { border-bottom: 0; }
-.sv-panel[data-area="field"] > .sv-panel__body { padding: 0; }
 .sv-field { position: relative; display: flex; flex: 1 1 0; min-height: 0; }
 
 /* ---- Progress: the plan's scope, groups and tasks ----------------------------------------------------------- */
@@ -350,7 +349,7 @@ button.sv-layer__row:focus-visible { outline: none; background: color-mix(in srg
 /* ---- A Work row whose Session is calling him ------------------------------------------------------------------- */
 
 /* A 2px bar in the call's colour on the row's left edge fades in and out on a slow loop. Only its opacity moves. */
-.deck-row[data-calling]::before { content: ""; position: absolute; inset-block: var(--space-1); inset-inline-start: 0; width: 2px; border-radius: 1px; background: var(--status-awaiting-review); animation: deck-call-pulse 1.6s ease-in-out infinite; pointer-events: none; }
+.deck-row[data-calling]::before { content: ""; position: absolute; inset-block: 0; inset-inline-start: 0; width: 2px; border-radius: 1px; background: var(--status-awaiting-review); animation: deck-call-pulse 1.6s ease-in-out infinite; pointer-events: none; }
 @keyframes deck-call-pulse { 50% { opacity: 0.2; } }
 @media (prefers-reduced-motion: reduce) { .deck-row[data-calling]::before { animation: none; } }
 

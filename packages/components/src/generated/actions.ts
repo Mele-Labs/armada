@@ -958,7 +958,7 @@ export const ACTIONS: readonly Action[] = [
     verb: "Go to a tab",
     icon: null,
     iconAbsent: "by design",
-    shortcut: "⌘1–⌘6",
+    shortcut: "⌘1–⌘8",
     scope: "anywhere",
     destructive: false,
     confirms: false,

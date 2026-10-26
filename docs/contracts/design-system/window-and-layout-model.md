@@ -35,7 +35,7 @@ governed them is `.claude/decisions/2026-09-22-the-rail-is-a-choice.md`.
 
 ```
 title row   wordmark · tabs · search · plan limits · Helm · Fleet dot · menu
-tabs        Cockpit · Jobs · Sessions · Studios · Retros · System        ⌘1 to ⌘6
+tabs        Cockpit · Jobs · Studios · Logbook · Reviews · Issues · Projects · System        ⌘1 to ⌘8, the drawn ones
 System      one page, a sidebar of entries beside the picked entry
             Kit (kinds, Workflows, Models, Prompts, Harness) · Fleet (settings) · Bridge (Theme, Layout, Keyboard shortcuts, Guides, and the rest)
 menu        account · Sleep · Settings (⌘,) · Doctor

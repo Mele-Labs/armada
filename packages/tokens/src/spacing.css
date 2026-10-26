@@ -55,6 +55,12 @@
   --h-row-table: 52px;
   --h-control: 36px;      /* default button, input, select */
   --h-control-sm: 32px;   /* sm — use inside table rows */
+  /* The same two controls at the Cockpit's density, a step under the pair
+     above like its type ladder (typography.css). The Cockpit sets --h-control
+     and --h-control-sm to these inside its own scope; its list rows take the
+     first as their line. */
+  --h-control-dense: 28px;
+  --h-control-sm-dense: 24px;
   --h-badge: 20px;
   --h-kbd: 20px;
   --h-menu-item: 32px;
