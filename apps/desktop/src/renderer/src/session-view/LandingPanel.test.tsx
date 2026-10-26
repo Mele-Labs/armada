@@ -69,7 +69,10 @@ test("pull requests stacked on one another read parent first, share a lane, and 
   const on = (number: number, branch: string, base: string): SessionAttachment => ({ ...(pull(number) as object), branch, base }) as SessionAttachment;
   const host = await mount(sessionOf("pull_request", [on(1, "root", "main"), on(2, "one", "root"), on(3, "two", "root"), pull(4)]));
   expect(titles(host, "Pull requests")).toEqual(["Pull request #4 Pull 4", "Pull request #1 Pull 1", "Pull request #2 Pull 2", "Pull request #3 Pull 3"]);
-  expect(host.querySelectorAll(".sv-lane")).toHaveLength(3);
+  // The root stands flush left with the line starting under it; only the two stacked on it sit in the lane.
+  expect(host.querySelectorAll(".sv-lane")).toHaveLength(2);
+  expect(host.querySelector('[data-pr="1"]')?.hasAttribute("data-root")).toBe(true);
+  expect(host.querySelector('[data-pr="1"] .sv-lane')).toBeNull();
   expect(host.querySelector('[data-pr="1"]')?.textContent).toContain("base: main");
   expect(host.querySelector('[data-pr="2"] [role="link"]')).toBeNull();
   const chip = host.querySelector<HTMLElement>('[data-pr="3"] [role="link"]')!;

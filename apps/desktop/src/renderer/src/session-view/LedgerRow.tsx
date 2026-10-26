@@ -90,10 +90,11 @@ export function LedgerRow({ lead, num, title, meta, act, onOpen, label, on, menu
   );
   const data = { "data-acts": act === undefined ? undefined : "", "data-kind": kind, "data-tone": tone };
   // A stacked row is the lane beside a card, so the item holds both and the card is no longer the list item.
+  // The stack's root stands flush left and the line starts under it; only what is stacked on it is drawn in from the lane.
   if (lane === undefined) return <li className="sv-ledger" data-pr={anchor} {...data}>{body}</li>;
   return (
-    <li className="sv-stack-item" data-pr={anchor}>
-      <span className="sv-lane" aria-hidden="true" data-first={lane.first ? "" : undefined} data-last={lane.last ? "" : undefined} />
+    <li className="sv-stack-item" data-pr={anchor} data-root={lane.first ? "" : undefined}>
+      {lane.first ? null : <span className="sv-lane" aria-hidden="true" data-last={lane.last ? "" : undefined} />}
       <div className="sv-ledger" {...data}>{body}</div>
     </li>
   );
