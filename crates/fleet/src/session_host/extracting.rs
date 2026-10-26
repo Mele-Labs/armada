@@ -50,7 +50,7 @@ pub(crate) struct Ask {
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(crate) struct Extracted {
     pub asks: Vec<Ask>,
-    /// The follow-ups the agent keeps for itself, as said.
+    /// The follow-ups the agent puts past this Job, as said.
     pub later: Vec<String>,
 }
 
@@ -121,10 +121,44 @@ pub(crate) fn extracted(reply: &str, close: &[Closing], asks: &[f32], later: &[f
         .iter()
         .zip(asks)
         .zip(later)
-        .filter(|((one, asks), later)| **later >= FOLLOWS_UP_AT && **asks < ASKS_AT && !raised.contains(&one.sentence) && !found.contains(&one.sentence))
+        .filter(|((one, asks), later)| **later >= FOLLOWS_UP_AT && **asks < ASKS_AT && !raised.contains(&one.sentence) && !found.contains(&one.sentence) && past_this_job(&one.sentence))
         .map(|((one, _), _)| one.sentence.clone())
         .collect();
     Extracted { asks: asked, later }
+}
+
+/// Words that put work past this Job: to an issue, another Job or a separate pull request. The head
+/// reads any next step as a follow-up, and "when it reports back, I'll play the walks" is one the agent
+/// takes itself in this Job, so it is not deferred.
+const PAST_THIS_JOB: &[&str] = &[
+    "another job",
+    "a new job",
+    "a later job",
+    "a separate job",
+    "follow-up job",
+    "follow-up pull request",
+    "follow-up pr",
+    "a follow-up",
+    "another pull request",
+    "another pr",
+    "a separate pull request",
+    "a separate pr",
+    "its own pull request",
+    "its own pr",
+    "an issue",
+    "filing",
+    "filed",
+    "i'll file",
+    "i will file",
+    "out of scope",
+    "beyond this job",
+    "outside this job",
+];
+
+/// Whether a follow-up puts its work past this Job, by [`PAST_THIS_JOB`].
+fn past_this_job(sentence: &str) -> bool {
+    let said = sentence.to_lowercase();
+    PAST_THIS_JOB.iter().any(|words| said.contains(words))
 }
 
 /// The sentence an ask is worded as: its own where that reads as clear, else the clearest of the
