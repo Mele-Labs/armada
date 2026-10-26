@@ -35,11 +35,12 @@ pub trait Watches: Send + Sync + 'static {
         stop: StopWatch,
     ) -> impl Future<Output = Result<WatchSummary, Refusal>> + Send;
 
-    /// `list_watches` — the placed Job's watches, live and ended.
+    /// `list_watches` — the placed Job's live watches, and with `ended` its ended ones too.
     fn list_watches(
         &self,
         caller: Option<crate::Caller>,
         session_id: Option<SessionId>,
+        ended: bool,
     ) -> impl Future<Output = Result<WatchList, Refusal>> + Send;
 
     /// `try_watch` — run a command or a recipe once, as a watch would, and keep nothing.

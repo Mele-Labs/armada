@@ -89,7 +89,7 @@ async fn a_try_reads_once_in_the_jobs_folder_given_the_login_shells_environment_
     assert_eq!(std::fs::canonicalize(&read.cwd).unwrap(), std::fs::canonicalize(&rig.root).unwrap());
     assert!(!read.path.is_empty());
     assert!(Path::new(&read.scratch).is_dir(), "the scratch folder is made when named: {}", read.scratch);
-    assert!(rig.fleet.list_watches(None, Some(job.clone())).await.unwrap().watches.is_empty(), "nothing kept");
+    assert!(rig.fleet.list_watches(None, Some(job.clone()), true).await.unwrap().watches.is_empty(), "nothing kept");
 
     let broken = vec![String::from("/bin/sh"), String::from("-c"), String::from("echo no token here >&2; exit 3")];
     let read = rig.fleet.try_watch(None, tried(&job, broken)).await.expect("tried");
@@ -119,7 +119,7 @@ async fn a_started_watch_keeps_the_environment_it_started_with() {
     rig.fleet.watches().read_login_shell(Some(String::from("/usr/bin/false")));
     rig.fleet.watches_run_when_due().await;
     eventually(|| async { rig.fleet.watches().running_now() == 0 }).await;
-    let read = rig.fleet.list_watches(None, Some(job)).await.unwrap().watches.remove(0);
+    let read = rig.fleet.list_watches(None, Some(job), true).await.unwrap().watches.remove(0);
     assert!(matches!(&read.last, Some(WatchReading::Read { says, .. }) if says == "from the rc"), "{:?}", read.last);
     assert_eq!(read.login_shell, None, "it passed and ended, so Fleet holds no environment for it");
 }

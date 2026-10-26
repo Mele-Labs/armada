@@ -51,7 +51,7 @@ async fn pass(rig: &Rig) {
 }
 
 async fn the_watch(rig: &Rig, job: &SessionId) -> WatchSummary {
-    rig.fleet.list_watches(None, Some(job.clone())).await.unwrap().watches.remove(0)
+    rig.fleet.list_watches(None, Some(job.clone()), true).await.unwrap().watches.remove(0)
 }
 
 async fn told(rig: &Rig, job: &SessionId, said: &str) -> usize {

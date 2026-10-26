@@ -73,6 +73,11 @@ async fn a_list_is_asked_on_the_query_string() {
     assert_eq!(status, StatusCode::OK);
     let list: WatchList = ipc::decode("a list", &bytes).expect("a list");
     assert!(list.watches.is_empty());
+    let (status, _) = call(&wired(), "GET", "/watches?session_id=job-7&ended=true", "").await;
+    assert_eq!(status, StatusCode::OK, "ended ones asked for too");
+    let (status, bytes) = call(&wired(), "GET", "/watches?session_id=job-7&ended=yes", "").await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert!(String::from_utf8_lossy(&bytes).contains("api.undecodable_request"));
 }
 
 #[tokio::test]

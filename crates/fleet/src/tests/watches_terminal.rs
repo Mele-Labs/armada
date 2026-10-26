@@ -22,7 +22,7 @@ fn waits_for(rig: &Rig, text: &str, regex: bool) -> StartWatch {
 }
 
 async fn the_watch(rig: &Rig) -> WatchSummary {
-    rig.fleet.list_watches(None, Some(rig.session.clone())).await.unwrap().watches.remove(0)
+    rig.fleet.list_watches(None, Some(rig.session.clone()), true).await.unwrap().watches.remove(0)
 }
 
 /// Until the watch has ended, for as long as a login shell under the person's own rc may take.

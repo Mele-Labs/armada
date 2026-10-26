@@ -50,13 +50,13 @@ async fn a_start_is_kept_for_its_job_with_the_machines_give_up() {
     assert_eq!(started.gives_up_after_seconds, 120 * 60, "timeouts.watchGiveUpMinutes ships at 120");
     assert_eq!(started.follows, Some(42));
 
-    let listed = rig.fleet.list_watches(None, Some(job.clone())).await.expect("listed");
+    let listed = rig.fleet.list_watches(None, Some(job.clone()), true).await.expect("listed");
     assert_eq!(listed.watches, vec![started]);
-    let other = rig.fleet.list_watches(None, Some(SessionId::carried("another"))).await.expect_err("no such Job");
+    let other = rig.fleet.list_watches(None, Some(SessionId::carried("another")), true).await.expect_err("no such Job");
     assert_eq!(code(&other), ("fleet.no_such_session", 422));
     let second = rig.start().await;
-    assert!(rig.fleet.list_watches(None, Some(second)).await.expect("listed").watches.is_empty());
-    let unplaced = rig.fleet.list_watches(None, None).await.expect_err("nothing places a Job");
+    assert!(rig.fleet.list_watches(None, Some(second), true).await.expect("listed").watches.is_empty());
+    let unplaced = rig.fleet.list_watches(None, None, true).await.expect_err("nothing places a Job");
     assert_eq!(code(&unplaced), ("fleet.watches_unplaced", 422));
 }
 
@@ -138,4 +138,19 @@ async fn a_weighing_and_a_stop_act_on_the_jobs_own_watch() {
     assert_eq!(again.state, WatchState::Stopped);
     let ended = rig.fleet.weigh_watch(None, weigh(&id, WatchVerdict::Ours { sentence: "Mine.".into() })).await.expect_err("it ended");
     assert_eq!(code(&ended), ("fleet.watch_ended", 409));
+}
+
+#[tokio::test]
+async fn an_ended_watch_is_listed_only_when_asked_for() {
+    let rig = rig_placing(None);
+    let job = rig.start().await;
+    let ending = rig.fleet.start_watch(None, own(&job, "60s", None)).await.expect("started").id;
+    let live = rig.fleet.start_watch(None, own(&job, "60s", None)).await.expect("started").id;
+    rig.fleet.stop_watch(None, StopWatch { session_id: None, watch: ending.clone() }).await.expect("stopped");
+
+    let ids = |list: ipc::WatchList| list.watches.into_iter().map(|one| one.id).collect::<Vec<_>>();
+    let listed = rig.fleet.list_watches(None, Some(job.clone()), false).await.expect("listed");
+    assert_eq!(ids(listed), vec![live.clone()], "live only, unless asked");
+    let every = rig.fleet.list_watches(None, Some(job.clone()), true).await.expect("listed");
+    assert_eq!(ids(every), vec![live, ending], "the newest first, the ended one too");
 }

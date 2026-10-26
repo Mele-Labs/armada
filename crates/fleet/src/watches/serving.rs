@@ -378,9 +378,16 @@ where
         whole.map(|whole| self.watch_summary(&whole)).ok_or_else(|| self.no_such_watch(&stop.watch))
     }
 
-    async fn list_watches(&self, caller: Option<api::Caller>, session_id: Option<SessionId>) -> Result<WatchList, Refusal> {
+    async fn list_watches(
+        &self,
+        caller: Option<api::Caller>,
+        session_id: Option<SessionId>,
+        ended: bool,
+    ) -> Result<WatchList, Refusal> {
         let job = self.placed_job(caller, session_id.as_ref()).await?;
-        self.watch_list(&job).await
+        let mut list = self.watch_list(&job).await?;
+        list.watches.retain(|watch| ended || watch.live);
+        Ok(list)
     }
 
     async fn try_watch(&self, caller: Option<api::Caller>, tried: ipc::TryWatch) -> Result<ipc::WatchTried, Refusal> {

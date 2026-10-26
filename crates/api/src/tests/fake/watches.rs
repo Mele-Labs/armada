@@ -69,7 +69,12 @@ impl Watches for FakeDaemon {
         Ok(stopped)
     }
 
-    async fn list_watches(&self, _caller: Option<Caller>, session_id: Option<SessionId>) -> Result<WatchList, Refusal> {
+    async fn list_watches(
+        &self,
+        _caller: Option<Caller>,
+        session_id: Option<SessionId>,
+        _ended: bool,
+    ) -> Result<WatchList, Refusal> {
         Ok(WatchList { session_id: session_id.unwrap_or_else(|| SessionId::carried("session")), watches: Vec::new() })
     }
 

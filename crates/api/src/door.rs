@@ -55,7 +55,7 @@ const QUERIES: &[(&str, &[&str])] = &[
     ("who_owns", &["kind", "target"]),
     ("validate_mod", &["name"]),
     ("get_requests", &["repository", "session_id"]),
-    ("list_watches", &["session_id"]),
+    ("list_watches", &["session_id", "ended"]),
     ("list_watch_recipes", &["session_id"]),
     ("read_terminal", &["lines", "session_id"]),
 ];

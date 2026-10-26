@@ -53,15 +53,29 @@ pub(crate) struct ForWatches {
     session_id: Option<String>,
 }
 
+/// `?session_id=` as [`ForWatches`], and `?ended=true` for the ended watches too.
+#[derive(Deserialize)]
+pub(crate) struct ListingWatches {
+    #[serde(default)]
+    session_id: Option<String>,
+    #[serde(default)]
+    ended: Option<String>,
+}
+
 pub(crate) async fn list_watches<D: Watches>(
     State(served): State<Served<D>>,
-    Query(asked): Query<ForWatches>,
+    Query(asked): Query<ListingWatches>,
 ) -> Response {
     let named = asked
         .session_id
         .filter(|id| !id.trim().is_empty())
         .map(|id| ipc::SessionId::carried(id.trim()));
-    match served.daemon().list_watches(crate::acting::asking(), named).await {
+    let ended = match asked.ended.as_deref().map(str::trim) {
+        None | Some("" | "false") => false,
+        Some("true") => true,
+        Some(other) => return undecodable(&format!("`ended` is `true` or `false`, not `{other}`"), served.run_id()),
+    };
+    match served.daemon().list_watches(crate::acting::asking(), named, ended).await {
         Ok(list) => answer(StatusCode::OK, &list, served.run_id()),
         Err(refusal) => refused(refusal),
     }

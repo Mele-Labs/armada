@@ -847,6 +847,7 @@ Since 26 Oct 2026. The protocol ID moves with `crates/ipc/src`, the operation fi
 | --- | --- | --- |
 | `WatchReading` | Fleet writes | Gains `count?` and `last_at?` on both kinds. In `readings`, back-to-back readings that read the same are one: `at` the first, `last_at` the last, `count` how many, absent for one. A read is the same in `state`, `finished`, `says`, `link` and `parts`; a broken one in `why`, with the last one's `output` |
 | `WatchSummary.last` | Fleet writes | The newest reading as taken, never a run, so its `at` is its own |
+| `list_watches` (`GET /watches?session_id=&ended=`) | Bridge or an agent reads | Live watches only, unless `ended=true`. Any value but `true` or `false` is a 400 `api.undecodable_request`. Bridge asks for ended ones, as `watches.changed` carries them whole |
 
 **The store keeps every reading.** Only the answer collapses them, in `ipc::collapsed`.
 
