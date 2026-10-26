@@ -126,7 +126,7 @@ anything else, or by a holder that has gone, is refused. The main checkout stays
 refused, and a `..` is resolved by reading before the path is placed.
 
 **Setup's job is the one exception** (the owner, 13 Oct 2026). Started by `root` in a
-repository with no `armada.yml`, it has no pool to lease from, so until that root's
+repository with no Manifest (no `armada.yml` and no Kit copy), it has no pool to lease from, so until that root's
 Manifest is served it writes only its setup files and is refused anything else: a file
 named `armada.yml` or `.gitignore` at any depth under the root, one for each workspace of
 a monorepo, and `<root>/.git/info/exclude` (the owner, 14 Oct 2026). A path is placed
