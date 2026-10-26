@@ -12,7 +12,7 @@ const files = role("dialog", "Files");
 const filesAsATree = walk("session-pr-panel", [
   toSessions,
   { press: inside(region("Jobs", { exact: true }), button("Store migration spike")), say: "A Job holding a pull request" },
-  ...row(/^#2209 /, "Its pull request"),
+  ...row(/^Pull request #2209 /, "Its pull request"),
   { press: inside(queued, tab("Files")), say: "Files" },
   { look: inside(files, role("list", "Files")), say: "The changed files as a tree of folders, each file by its name with its lines added and removed" },
   { press: inside(files, button("Fold every folder")), say: "One press folds every folder" },

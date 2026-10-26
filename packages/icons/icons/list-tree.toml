@@ -1,0 +1,7 @@
+[icons.list-tree]
+  means = "A list whose lines hang from one another, a tree of rows"
+  group = "Session"
+  size = "16px"
+  status = "Proposed"
+  reserved = "The approved Blueprint's press that swaps its Now view for the whole plan, every group and task, and back. Never a file tree, which is `folder` and `folder-open`, and never the Outline, which is `list-ordered`."
+  notes = "Proposed 26 Oct 2026 with the Job's story column, walked as `job-story`. Tooltip `Whole blueprint`, with ⌥N."

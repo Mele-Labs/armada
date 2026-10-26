@@ -92,10 +92,11 @@ the renderer is still not what loads it: main owns a `WebContentsView` in a
 partition of its own, no preload and every permission refused, placed over the
 panel body's rect the renderer reports, and only for an address the Job's own
 ledger names (`src/main/session-page.ts`). A page drawn small, the live view in
-Progress, is not a view: a native view cannot be scaled, so main loads the page in
+the Field, is not a view: a native view cannot be scaled, so main loads the page in
 a window it never shows, takes `capturePage()` of it as it changes, and
 sends the renderer the PNG bytes, which become a `blob:` (`session-snapshot.ts`).
 A file the panel reads is held to the same rule and to a size cap (`session-file.ts`).
+A Job's document is saved through one preload member, `saveDocument`, which carries a kind (`html` or `pdf`), a file name and the page the renderer built: main asks where in the save dialog, and a PDF is that page printed in a window that is never shown, with scripts off and every request but its own file refused (`document-save.ts`).
 
 A theme's CSS, a mod's or the catalogue's, reaches the window as a constructable
 stylesheet (`adoptedStyleSheets`) and never as a `<style>` element, because the

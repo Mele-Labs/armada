@@ -39,6 +39,12 @@ export type WorkflowSummary = {
    */
   for_requests?: string;
   /**
+   * What the workflow ends in. **Fleet resolves it**: the definition's own
+   * `lands`, or `pull_request` where a step delivers and `document` otherwise.
+   * Sent on every workflow; optional here so a fixture need not say.
+   */
+  lands?: Lands;
+  /**
    * The file this definition was read from, as Fleet read it: a path, or a
    * bracketed name where Armada carries it. Absent from a Fleet older than 23.33.
    */
@@ -171,6 +177,9 @@ export type WorkflowStep = {
   /** `StepDetail.drone_per_task`, before a dispatch. Absent is false. Since 23.19. */
   drone_per_task?: boolean;
 };
+
+/** What a workflow ends in, which the Job view's Landing draws. A Mod Job is not one: Bridge reads `SessionRecord.mod`. */
+export type Lands = "pull_request" | "report" | "spike" | "document";
 
 /** Which part of a Job's run a step belongs to, in the order a Job meets them. Since 23.19. */
 export type StepPhase = "setup" | "work" | "delivery";

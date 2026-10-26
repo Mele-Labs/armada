@@ -13,7 +13,7 @@ const KEY = "armada.bridge.deck-columns";
 
 /** Resting widths, as `deck.css` draws the grid before anything is dragged, in `--space-12`. */
 const REST: Record<Side, number> = { left: 6, right: 5.75 };
-/** A Session open gives its right column to the Field and Progress, so it rests wider. */
+/** A Session open gives its right column to its story (the Workflow, Blueprint, Field and Landing), so it rests wider. */
 const REST_BY_LAYOUT: Partial<Record<string, Partial<Record<Side, number>>>> = { session: { right: 8.5 } };
 /** The narrowest each column goes before its rows clip: the left's row is a kind, a title, a few words and a mark. */
 const FLOOR: Record<Side, number> = { left: 4.5, right: 4.75 };

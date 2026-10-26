@@ -136,6 +136,28 @@ impl From<core_model::StepPhase> for StepPhase {
     }
 }
 
+/// What a workflow ends in, which the Job view's Landing draws. A Mod Job is
+/// not one of these: Bridge reads `SessionRecord.mod`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Lands {
+    PullRequest,
+    Report,
+    Spike,
+    Document,
+}
+
+impl From<core_model::Lands> for Lands {
+    fn from(lands: core_model::Lands) -> Lands {
+        match lands {
+            core_model::Lands::PullRequest => Lands::PullRequest,
+            core_model::Lands::Report => Lands::Report,
+            core_model::Lands::Spike => Lands::Spike,
+            core_model::Lands::Document => Lands::Document,
+        }
+    }
+}
+
 /// One workflow Fleet holds, as a picker offers it.
 ///
 /// The steps are what each one declares rather than the whole definition: a
@@ -165,6 +187,10 @@ pub struct WorkflowSummary {
     /// definition declares none**, and from a Fleet older than 21.1. Since 21.1.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub for_requests: Option<String>,
+    /// What the workflow ends in: its own `lands`, or `pull_request` where a
+    /// step delivers and `document` otherwise. **Resolved by Fleet**, so the
+    /// fallback is spelled once.
+    pub lands: Lands,
     /// The file this definition was read from, as Fleet read it: a path, or a
     /// bracketed name where Armada carries it. Empty from a Fleet older than
     /// 23.33.

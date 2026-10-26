@@ -1,4 +1,4 @@
-// Progress: the watches a Job holds, in a Watching block of their own below its pull requests (the owner chose it over nesting each under its
+// Watching: the watches a Job holds, in a block of their own in the Landing, below its pull requests (the owner chose it over nesting each under its
 // pull request, since a watch can follow none). A row is the state's mark, the watch's name, what its last reading said and how long ago; under
 // it, what the agent made of that reading where it weighed it. A press opens the watch in the side panel.
 

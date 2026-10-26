@@ -320,7 +320,7 @@ where
             }
             DroneEvent::Called { tool, detail, call } => {
                 if tool == ipc::ASKS_A_QUESTION {
-                    runtime.state().question_heard = Some(call);
+                    runtime.state().question_heard = Some(call.clone());
                 }
                 let shown = detail.whole().unwrap_or(detail.shown()).to_string();
                 if let Some((to, message)) = adapters::sent_message(&tool, &shown) {
@@ -329,6 +329,9 @@ where
                 let home = std::env::var("HOME").unwrap_or_default();
                 if let Some(path) = adapters::written_document(&tool, &shown, &home) {
                     self.artifact_made(id, path, "file").await;
+                }
+                if let Some(path) = adapters::written_job_page(&tool, &shown, &home) {
+                    runtime.state().pages.insert(call, path);
                 }
                 if let Some(path) = adapters::viewed_image(&tool, &shown, &home) {
                     self.artifact_made(id, path, "image").await;
@@ -347,6 +350,13 @@ where
                     },
                 )
                 .await;
+            }
+            // A page is read off the disk once the tool that wrote it has answered, and not when it was reached for.
+            DroneEvent::Answered { call, failed } => {
+                let page = runtime.state().pages.remove(&call);
+                if let (Some(path), false) = (page, failed) {
+                    self.page_written(id, path).await;
+                }
             }
             DroneEvent::Ended { cost_micros, .. } => {
                 self.turn_ended(id, runtime, cost_micros).await;

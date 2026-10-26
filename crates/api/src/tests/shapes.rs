@@ -168,6 +168,7 @@ pub fn workflows() -> Vec<WorkflowSummary> {
         version: 1,
         source: "armada".to_string(),
         for_requests: Some("A change somebody asked for by name".to_string()),
+        lands: ipc::Lands::PullRequest,
         file: "<carried by Armada>/a-workflow.json".to_string(),
         overrides: vec![ipc::OverriddenWorkflow {
             source: "kit".to_string(),

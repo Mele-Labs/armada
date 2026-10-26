@@ -4,17 +4,39 @@
 
 ## You need
 
-- Tailscale on each Mac and on the iPhone, all signed in to one tailnet.
+- A way in: an https address that reaches `127.0.0.1:8443` on each Mac. You bring it; Armada runs none.
 - Armada built, with a Fleet running, on each Mac.
 - Node and `pnpm`, once, to build the app.
+
+## Choose a way in
+
+| Way in | The iPhone needs | Address | On the Mac |
+|---|---|---|---|
+| `tailscale serve` | Tailscale, signed in to the Macs' tailnet and connected | Read from Tailscale | `tailscale serve --bg --https=443 http://127.0.0.1:8443` |
+| Tailscale Funnel | Nothing | Read from Tailscale, the same name as `serve` | `tailscale funnel --bg http://127.0.0.1:8443`, after allowing Funnel in the tailnet's policy |
+| Cloudflare Tunnel | Nothing | A hostname on a domain you keep on Cloudflare | A named tunnel whose ingress is `http://127.0.0.1:8443`, then the address in `pocket-address` |
+| ngrok | Nothing | The static domain your ngrok account gives | `ngrok http --url=<domain> 8443`, then the address in `pocket-address` |
+
+**Without a domain, use Tailscale Funnel.** The iPhone then reaches the Mac without a VPN of its own, so nothing on it has to wake before the app opens.
+
+**`pocket-address`** in `~/Library/Application Support/Armada/` holds one line, the https address the phone opens, such as `https://mac.example.com`.
+Without it the address is read from Tailscale. It is read at each pairing, so no restart is needed.
+
+**Use an address that stays.** The phone keeps its pairing under the address it opened, so a tunnel whose address changes at each start, such as a `trycloudflare.com` one, unpairs the phone each time.
+Changing the way in changes the address: add the app to the Home Screen again from the new one, and pair again.
+
+**ngrok's free plan shows a warning page** in front of a browser's first visit, which the Home Screen app cannot pass. A paid plan does not.
+
+Every way but `tailscale serve` puts the Gateway on the internet.
+Its routes are signed, a pairing needs your confirmation in Bridge, and Bridge's own routes refuse anything that came through a tunnel: [Pocket](../concepts/pocket.md), *What keeps it closed*.
 
 ## Steps, on the first Mac
 
 | | On | Do |
 |---|---|---|
 | 1 | Bridge | Settings, Phone, then switch the phone on. Fleet starts the Phone Gateway on `127.0.0.1:8443` at once, and at every start after. Every `scripts/restart` builds the app and copies it where the Gateway serves it from, so a Mac restarted onto this change already has it |
-| 2 | Mac | `tailscale serve --bg --https=443 http://127.0.0.1:8443`. Puts the Gateway on your tailnet over https, and survives reboots |
-| 3 | iPhone | Open the Mac's tailnet address in Safari, then Share, Add to Home Screen. Open Armada **from the Home Screen** |
+| 2 | Mac | Start your way in, from *Choose a way in*. Each one there survives reboots once set up |
+| 3 | iPhone | Open the Mac's address in Safari, then Share, Add to Home Screen. Open Armada **from the Home Screen** |
 | 4 | Bridge | Settings, Phone, Pair a phone, then **Copy link** |
 | 5 | iPhone | Paste the link into Pairing link and press Pair. The phone makes its key and names itself |
 | 6 | Bridge | Confirm the phone. Until then it signs nothing. Then allow notifications on the phone |
@@ -57,7 +79,10 @@ Settings, Phone then shows the phone as on and not listening, with the reason, a
 
 | You see | It means | Do |
 |---|---|---|
-| `Tailscale is not signed in on this Mac` or `not installed` when pairing | The Gateway could not read its tailnet name | Sign in, then start pairing again |
+| `Tailscale is not signed in on this Mac` or `not installed` when pairing | There is no `pocket-address`, and the Gateway could not read its tailnet name | Sign in, or write `pocket-address`, then start pairing again |
+| `pocket-address names ..., which is not an https address` | The file holds something other than one `https://` address | Correct it, then start pairing again |
+| `Armada could not open.` on the phone | The app's files did not arrive within 8 s, or it failed as it started | Check the way in answers from the phone, then Try again |
+| A slow first open, or the app waiting on a dark screen | The iPhone's VPN was asleep, under `tailscale serve` | Use Tailscale Funnel, from *Choose a way in* |
 | One Mac marked not paired in the app | That Mac does not know this phone, or it was unpaired there | Pair it again from that Mac's Bridge |
 | `The phone's clock is more than a minute off` | Skew over 60 s | Set the phone's clock to automatic |
 | `This code is not good any more` | Five minutes passed, or it was used | Start pairing again in Bridge |

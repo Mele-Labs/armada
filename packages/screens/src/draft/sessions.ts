@@ -13,7 +13,7 @@ import type { Scene } from "@armada/components/src/compositions/SketchScene/scen
 import type { AdversarialReviewState } from "@armada/components/src/compositions/AdversarialReview/review-state";
 import type { RunsPlace } from "@armada/components/src/compositions/RepositoryRuns/runs-places";
 import type { CheckBlame, DeliveryChoice, DeliveryPicked, LoadoutItemBody, LoadoutKind, LoadoutSource, LoadoutSummary, Notice, NoticeScope, PullRequestFilePatch, PullRequestPage, RequestBy, RequestHeader, SessionBuild, SessionLoadout, SessionStanding, ThoughtTarget, WaitingItem, WritePullRequest } from "@armada/protocol";
-import type { McpServerAct, McpSignIn, SessionMcpServer, WatchSummary } from "@armada/protocol";
+import type { McpServerAct, McpSignIn, SessionMcpServer, StepPhase, WatchSummary } from "@armada/protocol";
 import type { RetroRowDrawn } from "../retro-row";
 
 /** When a Session's work happened, each as an ISO instant. `until` is a slot given back. */
@@ -99,6 +99,8 @@ export type SessionAttachment =
       by?: "agent";
       /** With `shown`: the Session wrote the file as well, and the ledger still says it wrote it. */
       written?: true;
+      /** An HTML page the Job wrote as its document (form `document`): the path of each revision, oldest first. The newest is the one the Landing reads. `id` is the page's path in the worktree. */
+      revisions?: readonly string[];
     }
   /**
    * The Session this one was forked to, and the one it was forked from. `id` is the other Session's.
@@ -121,7 +123,7 @@ export type SessionAttachment =
   | { kind: "link"; url: string; by: "you" | "agent" };
 
 /** A `window` is a page the Session showed in a window of Bridge's own; `id` is its address. */
-export type SessionArtifactForm = "page" | "file" | "image" | "doc" | "window";
+export type SessionArtifactForm = "page" | "file" | "image" | "doc" | "document" | "window";
 
 /**
  * A sketch as Dispatch and Studios hold one: boxes and the joins between them.
@@ -195,7 +197,7 @@ export type SessionWork = {
   /** What the proposer read the request to be. Changeable at any time; a change applies from the next turn. */
   proposal?: { /** The id of the workflow chosen. */ workflow: string | null; /** The proposer's call is out: the Session starts on its answer. */ reading?: boolean; /** What the proposer picked and the person has not changed: each is marked where it lives. */ picked?: readonly ("workflow" | "model" | "effort")[] };
   /** The workflow's steps and the index of the one the Session is at, where Fleet says. Absent is a custom Session, which has no rail; `at` absent draws the steps unlit. */
-  workflow?: { name: string; steps: readonly string[]; at?: number };
+  workflow?: { name: string; steps: readonly string[]; at?: number; /** The phase of the step at `at`, as Fleet resolves it. */ phase?: StepPhase };
   /** Absent until the agent records its plan after planning with the person. */
   plan?: WorkPlan;
   /** The agent's own task list (its TaskCreate and TaskUpdate), in the order made. Progress lists it where there is no plan. */
@@ -212,7 +214,12 @@ export type SessionWork = {
   judged?: { at: string; concerns: number };
   /** The owner's setting turned workflows off: the picker, the steps and the proposer's mark for a workflow are not drawn. */
   railOff?: true;
+  /** What the workflow ends in, which the Landing panel draws: the workflow's `lands`, as Fleet resolves it. Absent is a pull request. */
+  landing?: WorkLanding;
 };
+
+/** What a workflow lands in: a pull request and its merge, a spike's findings doc, a mod and its switch, a document, or a report with no pull request. */
+export type WorkLanding = "pull_request" | "spike" | "mod" | "document" | "report";
 
 /** The acts on a Session's work. Absent where nothing serves them. */
 export type SessionWorkActs = {

@@ -1,4 +1,4 @@
-// Progress with no plan: the agent's own tasks in the order made, each its mark and subject, one tab stop moved by the arrows, Home and End.
+// Blueprint with no plan: the agent's own tasks in the order made, each its mark and subject, one tab stop moved by the arrows, Home and End.
 // Browser: a rendering and a focus are what is read.
 
 import { act } from "react";
@@ -7,7 +7,7 @@ import { afterEach, beforeEach, expect, test } from "vitest";
 import type { AgentTask, Session, SessionWork, SessionWorkActs } from "@armada/screens/src/draft/sessions";
 
 import { AgentTasks } from "./AgentTasks";
-import { ProgressPanel } from "./ProgressPanel";
+import { BlueprintPanel } from "./BlueprintPanel";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -82,16 +82,16 @@ test("the list keeps its arrows from the deck, and a key it does not move is lef
 const session = { id: "s1", attachments: [], rows: [], turn: { state: "idle" } } as unknown as Session;
 
 function panel(work: SessionWork, acts?: SessionWorkActs): HTMLElement {
-  return show(<ProgressPanel work={work} place="side" id="s1" session={session} acts={acts} ed={undefined} onOpenSketch={() => undefined} onOpenSession={() => undefined} />);
+  return show(<BlueprintPanel work={work} place="side" id="s1" session={session} acts={acts} ed={undefined} onOpenSketch={() => undefined} onOpenSession={() => undefined} />);
 }
 
-test("Progress lists the tasks where there is no plan, and a Session with none stands folded to its band until it has one", () => {
+test("Blueprint lists the tasks where there is no plan, and a Session with none stands folded to its band until it has one", () => {
   const acts = { workflows: [], choose: () => undefined } as unknown as SessionWorkActs;
   const bare = panel({ proposal: { workflow: null } }, acts);
-  expect(bare.querySelector<HTMLElement>('section[aria-label="Progress"]')!.dataset["collapsed"]).toBe("true");
+  expect(bare.querySelector<HTMLElement>('section[aria-label="Blueprint"]')!.dataset["collapsed"]).toBe("true");
   expect(bare.querySelector('ul[aria-label="Tasks"]')).toBeNull();
 
   const busy = panel({ proposal: { workflow: null }, tasks: TASKS }, acts);
-  expect(busy.querySelector<HTMLElement>('section[aria-label="Progress"]')!.dataset["collapsed"]).toBeUndefined();
+  expect(busy.querySelector<HTMLElement>('section[aria-label="Blueprint"]')!.dataset["collapsed"]).toBeUndefined();
   expect(rows(busy)).toHaveLength(3);
 });

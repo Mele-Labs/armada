@@ -80,7 +80,8 @@ import { backgroundEntryOf } from "./session-background";
 import { SubagentThread, useSubagentRead } from "./session-subagent";
 import { useMinimized } from "./session-ledger-minimized";
 import { useWriteClashes } from "./clashes";
-import { showLayer } from "./session-view/layers";
+import { openDocumentAt } from "./session-view/document-state";
+import { showLayer, toggleLayer } from "./session-view/layers";
 import { ModEmpty } from "./session-view/ModEmpty";
 import { useModCards } from "./session-view/mod-cards";
 import { OverTheApp } from "./session-view/OverTheApp";
@@ -138,6 +139,7 @@ import { planRevision } from "./session-view/plan-revision";
 import { PlanReview } from "./session-view/PlanReview";
 import { groupTitleOf, linkedPropsOf } from "./session-view/linked";
 import { SessionWorkspace, type Hosts } from "./session-view/SessionWorkspace";
+import { ARTIFACTS_KEY } from "./session-view/story";
 import { useStartPicks } from "./session-view/StartPicks";
 import { CallChip, callWord } from "./session-view/CallChip";
 import { useLedgerRelease, type LedgerRelease } from "./session-ledger-release";
@@ -352,6 +354,8 @@ export const markedOf = (open: Reading | undefined): { parts?: readonly string[]
  * made with the region drawn, and any other file in the side panel on its lines or with its region drawn.
  */
 function openNoted(session: Session, read: (one: Reading) => void, ref: NotedRef): void {
+  // A note on the Job's document opens the document over the Job, at the place the note named.
+  if (ref.kind === "document") return openDocumentAt(session.id, ref.place, ref.target, attachmentsOf(session, "artifact").find((one) => one.revisions !== undefined && one.title === ref.place.page)?.id);
   const inside = session.cwd !== undefined && ref.kind !== "sketch" && ref.path.startsWith(`${session.cwd.replace(/\/+$/, "")}/`);
   const from = inside ? ("session" as const) : ("picked" as const);
   if (ref.kind === "sketch") {
@@ -679,7 +683,7 @@ export function entriesOf(
           ...(shownOnly(one) ? { shown: true as const } : {}),
           text: one.title,
           // A file the Session wrote opens in the side panel's editor; a page or a doc stays in the reading sheet.
-          onOpen: () => (one.form === "window" ? openWindow(one.id) : one.form === "file" && openInPanel({ kind: "file", path: one.id, from: "session", sessionId: session.id }) ? undefined : read({ kind: "artifact", id: one.id })),
+          onOpen: () => (one.form === "window" ? openWindow(one.id) : one.form === "document" && one.revisions !== undefined ? showLayer(session.id, "document", one.id) : one.form === "file" && openInPanel({ kind: "file", path: one.id, from: "session", sessionId: session.id }) ? undefined : read({ kind: "artifact", id: one.id })),
         };
       case "subagent":
         return {
@@ -900,6 +904,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
             setMarks([]);
             setReviewing(false);
           },
+          approve: () => approvePlan(),
         };
   /** Approve, with what he marked on the plan going to the agent in the same press. */
   const approvePlan = () => {
@@ -1226,6 +1231,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
               onTags={(tags) => draft.setTags(session.id, tags)}
               drawn={drawn.map(({ id, title }) => ({ id, title }))}
               onDraw={() => setPadOpen(true)}
+              {...(workspace ? { onArtifacts: { open: () => toggleLayer(session.id, "artifacts"), key: ARTIFACTS_KEY.cap } } : {})}
               onRemoveDrawn={(id) => setDrawn((was) => was.filter((one) => one.id !== id))}
               onSend={(sent) => {
                 // A held Job's first send begins it: the box is the first message.

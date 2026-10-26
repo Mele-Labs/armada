@@ -19,10 +19,19 @@ const menu = () => page.getByRole("menu");
 const item = (name: string | RegExp) => menu().getByRole("menuitem", { name });
 const JOB = /^Show the change on the Field/;
 
+// A Job with no plan is at its Blueprint, and the Field stands folded to its band until the band is pressed. A press made by hand outlasts the test,
+// so a Field already open is left as it is.
+async function openField() {
+  const band = () => field().element().querySelector<HTMLElement>(".sv-panel__band");
+  await expect.poll(() => band()?.getAttribute("aria-expanded") ?? "").toMatch(/^(true|false)$/);
+  if (band()!.getAttribute("aria-expanded") === "false") await field().getByRole("heading", { name: "Field", exact: true }).click();
+}
+
 async function toSubagentsWriting() {
   mount("job-field-lens");
   await onScreen();
   await page.getByRole("region", { name: "Jobs", exact: true }).getByRole("button", { name: "Show the change on the Field" }).click();
+  await openField();
   await expect.element(lens("layout.ts")).toBeVisible();
   timePasses();
   await expect.element(lens("FieldPanel.tsx")).toBeVisible();
@@ -34,6 +43,7 @@ test("the card follows the newest writer, the file before is a tab, and picking 
   mount("job-field-lens");
   await onScreen();
   await page.getByRole("region", { name: "Jobs", exact: true }).getByRole("button", { name: "Show the change on the Field" }).click();
+  await openField();
   await expect.element(lens("layout.ts")).toBeVisible();
 
   timePasses();

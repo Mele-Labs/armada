@@ -15,6 +15,15 @@
   </head>
   <body>
     <div id="root"></div>
+    <!-- armada-allow-off-contract: shown where the app's own files never arrived, so it cannot read a stylesheet; these are --fg-default and --space-4
+         docs/contracts/design-system.md -->
+    <p id="stuck" hidden style="margin: 0; padding: 16px; color: #E4E9EF; font: 16px/1.5 -apple-system, system-ui, sans-serif">
+      Armada could not open. <a href="/" style="color: inherit">Try again</a>
+    </p>
+    <script>
+      // The app draws into #root. Still empty after 8 s, it never started: its files did not arrive or it threw.
+      setTimeout(() => { if (!document.getElementById("root").hasChildNodes()) document.getElementById("stuck").hidden = false; }, 8000);
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

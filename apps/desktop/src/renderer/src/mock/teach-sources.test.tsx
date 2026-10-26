@@ -27,13 +27,13 @@ const menuItem = role("menuitem", "Teach");
 function reaching(): [string, Step[], string][] {
   const { thread } = kit(false);
   const key = inside(thread, text(KEY_MESSAGE.slice(0, 40)));
-  const progress = region("Progress", { exact: true });
+  const blueprint = region("Blueprint", { exact: true });
   const first: Step[] = [toSessions, { press: deckRow(ARMADA_TITLE), say: "" }];
   return [
     ["words", [...first, { select: "STORE-1234", in: key, say: "" }, { press: inside(role("toolbar", "Selection"), button("Teach")), say: "" }], "Words"],
     ["command", [...first, { press: inside(thread, button(/Tool calls/)), say: "" }, { context: inside(thread, text(INSTALL)), say: "" }, { press: menuItem, say: "" }], "Command"],
     ["notice", [...first, { key: "Shift+F10", on: inside(thread, button(/commits behind main/)), say: "" }, { press: menuItem, say: "" }], "Notice"],
-    ["task", [...first, { hover: inside(progress, text(TASK)), say: "" }, { press: inside(progress, button(`Teach on task ${TASK}`)), say: "" }], "Task"],
+    ["task", [...first, { press: inside(blueprint, button("Whole blueprint")), say: "" }, { press: inside(blueprint, button("Show the clock", { exact: true })), say: "" }, { hover: inside(blueprint, text(TASK)), say: "" }, { press: inside(blueprint, button(`Teach on task ${TASK}`)), say: "" }], "Task"],
     ["check", [...first, { context: inside(thread, button(/Check desktop_unit, failed/)), say: "" }, { press: menuItem, say: "" }], "Check"],
     ["panel", [...first, { key: "Shift+F10", on: inside(region("Field", { exact: true }), button("Expand")), say: "" }, { press: menuItem, say: "" }], "Panel Field"],
     ["row", [toSessions, { context: deckRow(PAYMENTS_TITLE), say: "" }, { press: menuItem, say: "" }], "Row"],

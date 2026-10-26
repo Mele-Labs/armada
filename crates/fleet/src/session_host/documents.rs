@@ -1,0 +1,135 @@
+//! A Job's document: an HTML page it designed and wrote to `.armada/documents/<name>.html` in its
+//! worktree, where git ignores it. **Each write that changes the page is kept as a revision**, in Fleet's
+//! own attachments folder and not in the worktree, so a released slot keeps them. The page is one
+//! artifact on the Job's ledger, upserted on its path, whose `revisions` detail names the kept files
+//! oldest first. The sketches it embeds are checked as `show_sketch` checks one, and a Job whose page
+//! holds one that will not draw is told. The write is never refused.
+
+use std::io;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
+
+use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
+use api::Sessions;
+use ipc::{AttachmentReport, SessionFact, SessionId, SessionReport};
+
+use super::document_page::{sketches_in, title_of};
+use crate::daemon::Fleet;
+
+/// What a page's path is cut at to name its folder of revisions, so the same page is the same folder
+/// whichever slot the Job wrote it from.
+const DOCUMENTS: &str = "/.armada/documents/";
+
+impl<H, V, W> Fleet<H, V, W>
+where
+    H: AgentHarness + Send + Sync + 'static,
+    H::Error: std::error::Error + Send + Sync + 'static,
+    V: Vcs + Delivery + Send + Sync + 'static,
+    V::Error: std::error::Error + Send + Sync + 'static,
+    V::CommitError: std::error::Error + Send + Sync + 'static,
+    W: WorkProduct + Send + Sync + 'static,
+    W::Error: std::error::Error + Send + Sync + 'static,
+{
+    /// Where a Job's pages are kept, a folder to each page.
+    pub(crate) fn documents_of(&self, id: &str) -> PathBuf {
+        Path::new(&self.host().attachments_dir).join("documents").join(id)
+    }
+
+    /// The page at `path` was written and the tool has answered, so the file on disk is the Job's.
+    pub(super) async fn page_written(self: &Arc<Self>, id: &str, path: String) {
+        let folder = self.documents_of(id).join(folder_of(&path));
+        let read = path.clone();
+        let kept = tokio::task::spawn_blocking(move || {
+            let html = std::fs::read_to_string(&read)?;
+            Ok::<_, io::Error>(keep(&folder, html.as_bytes())?.map(|revisions| (html, revisions)))
+        })
+        .await;
+        // Unreadable, not text, or the bytes the newest revision holds: nothing new to keep.
+        let Ok(Ok(Some((html, revisions)))) = kept else { return };
+        let names: Vec<String> = revisions.iter().map(|one| one.to_string_lossy().into_owned()).collect();
+        let Ok(revisions) = ipc::encode(&names) else { return };
+        let _ = self
+            .report_session(SessionReport {
+                harness: String::from(adapters::HOSTED_HARNESS),
+                session_id: SessionId::carried(id),
+                fact: SessionFact::Attached {
+                    attachment: AttachmentReport {
+                        kind: String::from("artifact"),
+                        target: path.clone(),
+                        detail: [
+                            ("form".to_string(), "document".to_string()),
+                            ("title".to_string(), title_of(&html, &path)),
+                            ("revisions".to_string(), revisions),
+                        ]
+                        .into(),
+                    },
+                },
+            })
+            .await;
+        if let Some(told) = sketches_that_will_not_draw(&html, &path) {
+            let (fleet, id) = (Arc::clone(self), id.to_string());
+            // Off the hearing of the stream: a word to the Job is a send, and the stream is what it waits on.
+            tokio::spawn(async move {
+                let _ = fleet.told_by_fleet(&id, &told, ipc::Notice::DocumentSketch).await;
+            });
+        }
+    }
+}
+
+/// The one line that tells a Job which sketches of its page will not draw, or `None` where all do.
+pub(crate) fn sketches_that_will_not_draw(html: &str, path: &str) -> Option<String> {
+    let sketches = sketches_in(html);
+    let total = sketches.len();
+    let failing: Vec<String> = sketches
+        .iter()
+        .enumerate()
+        .filter_map(|(at, sketch)| {
+            let problems = ipc::page_scene_problems(&sketch.scene);
+            if problems.is_empty() {
+                return None;
+            }
+            let named = sketch.title.as_ref().map(|title| format!(" (\"{title}\")")).unwrap_or_default();
+            Some(format!("sketch {} of {total}{named} will not draw: {}.", at + 1, problems.join("; ")))
+        })
+        .collect();
+    (!failing.is_empty()).then(|| format!("In the page {path}, {}", failing.join(" ")))
+}
+
+/// The folder a page's revisions are in: its path under `.armada/documents/`, as one name.
+fn folder_of(path: &str) -> String {
+    let under = path.rsplit_once(DOCUMENTS).map_or(path, |(_, under)| under);
+    under.chars().map(|c| if c.is_ascii_alphanumeric() || matches!(c, '-' | '.') { c } else { '_' }).collect()
+}
+
+/// The revisions in `folder`, oldest first: `r1.html`, `r2.html` and on.
+pub(crate) fn revisions_in(folder: &Path) -> Vec<PathBuf> {
+    let mut held: Vec<(u32, PathBuf)> = std::fs::read_dir(folder)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter_map(|entry| {
+            let name = entry.file_name().to_string_lossy().into_owned();
+            let number = name.strip_prefix('r')?.strip_suffix(".html")?.parse().ok()?;
+            Some((number, entry.path()))
+        })
+        .collect();
+    held.sort();
+    held.into_iter().map(|(_, path)| path).collect()
+}
+
+/// Keep `bytes` as the next revision in `folder` unless the newest holds exactly them. The revisions,
+/// oldest first, where one was kept.
+pub(crate) fn keep(folder: &Path, bytes: &[u8]) -> io::Result<Option<Vec<PathBuf>>> {
+    std::fs::create_dir_all(folder)?;
+    let held = revisions_in(folder);
+    if let Some(newest) = held.last() {
+        if std::fs::read(newest)? == bytes {
+            return Ok(None);
+        }
+    }
+    let next = folder.join(format!("r{}.html", held.len() + 1));
+    let staged = folder.join(format!("r{}.writing", held.len() + 1));
+    std::fs::write(&staged, bytes)?;
+    std::fs::rename(&staged, next)?;
+    Ok(Some(revisions_in(folder)))
+}

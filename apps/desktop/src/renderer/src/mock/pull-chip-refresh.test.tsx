@@ -1,4 +1,4 @@
-// A right press on a pull request chip, in the Cockpit's merge line or in Progress, offers Refresh: Fleet reads the pull request
+// A right press on a pull request chip, in the Cockpit's merge line or in the Landing, offers Refresh: Fleet reads the pull request
 // from the forge now. Success shows only as the chip changing, by Fleet's events; a refusal is a toast. The walk `pull-chip-refresh`
 // shows how it reads.
 
@@ -46,6 +46,7 @@ test("Refresh on the merge line chip asks Fleet once, by the repository's Manife
 
 test("Shift+F10 on the focused chip opens the same menu", async () => {
   await open();
+  await expect.element(chip()).toBeVisible();
   chip().element().focus();
   await userEvent.keyboard("{Shift>}{F10}{/Shift}");
   await expect.element(page.getByRole("menuitem", { name: "Refresh" })).toBeVisible();
@@ -54,30 +55,31 @@ test("Shift+F10 on the focused chip opens the same menu", async () => {
 test("a refused Refresh is a toast in Fleet's words, and the chip stays as it was", async () => {
   const fleet = await open();
   fleet.refusesRefresh = { code: "fleet.pull_request_unreadable", message: "The forge did not answer." };
+  await expect.element(chip()).toBeVisible();
   rightPress(chip().element());
   await userEvent.click(page.getByRole("menuitem", { name: "Refresh" }));
   await expect.element(toast("The forge did not answer.")).toBeVisible();
   await expect.element(chip()).toHaveAccessibleName(/ci running/);
 });
 
-const progressChip = () => page.getByRole("region", { name: "Progress" }).getByRole("button", { name: /^Pull request #2290 / });
+const landingChip = () => page.getByRole("region", { name: "Landing", exact: true }).getByRole("button", { name: /^Pull request #2290 / });
 
-test("Refresh on the pull request in Progress asks Fleet once, and its Checks mark reads failed from Fleet's events", async () => {
+test("Refresh on the pull request in the Landing asks Fleet once, and its Checks mark reads failed from Fleet's events", async () => {
   const fleet = await open();
   await toSession("Who sees your config");
-  await expect.element(progressChip().getByRole("img", { name: /^Checks running/ })).toBeVisible();
-  rightPress(progressChip().element());
+  await expect.element(landingChip().getByRole("img", { name: /^Checks running/ })).toBeVisible();
+  rightPress(landingChip().element());
   await expect.element(page.getByRole("menu").getByText("Pull request #2290", { exact: true })).toBeVisible();
   await userEvent.click(page.getByRole("menuitem", { name: "Refresh" }));
   expect(fleet.calls.refreshed).toEqual([{ manifestId: "armada", number: CONFIG_PR }]);
-  await expect.element(progressChip().getByRole("img", { name: "Checks failed: ci / test" })).toBeVisible();
+  await expect.element(landingChip().getByRole("img", { name: "Checks failed: ci / test" })).toBeVisible();
 });
 
-test("a refused Refresh in Progress is a toast too", async () => {
+test("a refused Refresh in the Landing is a toast too", async () => {
   const fleet = await open();
   await toSession("Who sees your config");
   fleet.refusesRefresh = { code: "fleet.pull_request_unreadable", message: "The forge did not answer." };
-  rightPress(progressChip().element());
+  rightPress(landingChip().element());
   await userEvent.click(page.getByRole("menuitem", { name: "Refresh" }));
   await expect.element(toast("The forge did not answer.")).toBeVisible();
 });
@@ -105,6 +107,7 @@ test("a pull request no Job here holds has no Job row on its card", async () => 
 test("a failure read by Refresh is told to the Job that holds it once, however often it is read", async () => {
   await open();
   for (let time = 0; time < 2; time += 1) {
+    await expect.element(chip()).toBeVisible();
     rightPress(chip().element());
     await userEvent.click(page.getByRole("menuitem", { name: "Refresh" }));
     await expect.element(chip()).toHaveAccessibleName(/ci failed/);

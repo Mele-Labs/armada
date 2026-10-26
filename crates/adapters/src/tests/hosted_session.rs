@@ -7,7 +7,7 @@ use ipc::SessionMode;
 use super::harness::value_after;
 use crate::harness::HeadlessAgent;
 use crate::hosted_session::{reads_only, HostedLaunch, HostedRefused, SESSION_RULES};
-use crate::{init_commands, inside_a_subagent, sent_message, viewed_image, written_document};
+use crate::{init_commands, inside_a_subagent, sent_message, viewed_image, written_document, written_job_page};
 
 const ID: &str = "7b1f3c52-9a40-4d27-8c1e-3f0d5a6b9e11";
 
@@ -599,6 +599,27 @@ fn a_written_document_is_read_off_the_write_detail_and_code_and_scratch_are_not(
         written_document("Edit", "/repo/docs/spike.md +4", "/Users/user"),
         None
     );
+}
+
+#[test]
+fn a_page_in_a_jobs_documents_folder_is_read_off_a_write_an_edit_and_a_multi_edit_and_nothing_else_is() {
+    let page = |tool, detail| written_job_page(tool, detail, "/Users/user");
+    let mine = Some("/Users/user/repo/.armada/documents/lease.html".to_string());
+    assert_eq!(page("Write", "~/repo/.armada/documents/lease.html +120"), mine);
+    assert_eq!(page("Edit", "~/repo/.armada/documents/lease.html +4 -2"), mine);
+    assert_eq!(page("MultiEdit", "~/repo/.armada/documents/lease.html"), mine);
+    assert_eq!(
+        page("Write", "/repo/.armada/slots/slot-5/.armada/documents/notes/lease.HTML +9"),
+        Some("/repo/.armada/slots/slot-5/.armada/documents/notes/lease.HTML".to_string())
+    );
+    // A page anywhere else, a document of another kind, and a call that is not a write.
+    assert_eq!(page("Write", "/repo/docs/lease.html +9"), None);
+    assert_eq!(page("Write", "/repo/.armada/documents/lease.md +9"), None);
+    assert_eq!(page("Write", "/repo/.armada/other/lease.html +9"), None);
+    assert_eq!(page("Read", "/repo/.armada/documents/lease.html"), None);
+    assert_eq!(page("Bash", "/repo/.armada/documents/lease.html"), None);
+    // The page is not a document the ledger lists as a file.
+    assert_eq!(written_document("Write", "/repo/.armada/documents/lease.html +9", "/Users/user"), None);
 }
 
 #[test]

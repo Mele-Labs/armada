@@ -14,6 +14,7 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { GRAPH_CANVAS_SIDES, GraphCanvas, clearOf } from "../GraphCanvas/GraphCanvas";
 import { GraphCanvasNodeAct, GraphCanvasNodeBar, GraphCanvasRailGroup, type GraphCanvasRailAct } from "../GraphCanvas/GraphCanvasRail";
 import { Ink, type SketchPoint } from "../SketchPad/Ink";
+import type { DocumentPlace } from "../ViewerNotes/compose";
 import { NoteNumber, useViewerNotes, type ViewerNotesScope } from "../ViewerNotes/ViewerNotes";
 import { labelSize, placeLabels, type LabelMetrics, type LabelPlace, type Rect } from "./edge-labels";
 import { sketchHtml } from "./export-html";
@@ -72,8 +73,15 @@ export type SketchSceneProps = {
    * boxed, offers Add note; each held note's number stands on its parts. Absent takes none, and Shift drag is React Flow's.
    */
   notes?: ViewerNotesScope;
+  /** Set where the sketch is embedded in a Job's document: a note on its parts is then about that place in the page. */
+  within?: DocumentPlace;
   /** Parts a sent note named, by id: picked when it opens, so they stand out and a right press notes them again. */
   marked?: readonly string[];
+  /**
+   * Filled with a function that draws the sketch as it stands as static SVG markup, the way Save as web page does and with the theme's values
+   * written in. For a host that builds a file of its own around the sketch. Emptied when the sketch goes; the function gives nothing where the scene does not draw.
+   */
+  exporter?: { current: (() => string | undefined) | null };
 };
 
 const ICON: Record<SceneIcon, LucideIcon> = {
@@ -391,7 +399,7 @@ function overlay(kept: readonly SceneRfNode[], fresh: readonly SceneRfNode[]): S
 const JOINS_THE_PICK = ["Meta", "Control"];
 const NO_NOTES: NodeData["notes"] = [];
 
-export function SketchScene({ scene: given, against, title, onAsk, marks, onMarks, preview = false, autoplay = false, playing = false, notes: noteScope, marked }: SketchSceneProps) {
+export function SketchScene({ scene: given, against, title, onAsk, marks, onMarks, preview = false, autoplay = false, playing = false, notes: noteScope, within, marked, exporter }: SketchSceneProps) {
   const parsed = useMemo(() => parseScene(given), [given]);
   const before = useMemo(() => (against === undefined ? undefined : parseScene(against)), [against]);
   const diff = useMemo(() => (parsed === undefined || before === undefined ? undefined : diffScenes(before, parsed)), [parsed, before]);
@@ -407,6 +415,14 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
   const flow = useRef<ReactFlowInstance | null>(null);
   const figure = useRef<HTMLElement>(null);
   const host = useSketchShareHost();
+  const drawnAs = useRef<(() => string) | undefined>(undefined);
+  useEffect(() => {
+    if (exporter === undefined) return undefined;
+    exporter.current = () => drawnAs.current?.();
+    return () => {
+      exporter.current = null;
+    };
+  }, [exporter]);
   const viewer = useViewerNotes(preview ? undefined : noteScope, figure);
   // A Shift drag's box, in the figure's own pixels, while it is drawn.
   const [boxing, setBoxing] = useState<{ x0: number; y0: number; x1: number; y1: number } | undefined>(undefined);
@@ -416,11 +432,11 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
   const noted = useMemo(() => {
     const by = new Map<string, { n: number; writing: boolean; said: string }[]>();
     for (const one of viewer.marks) {
-      if (one.about.kind !== "sketch") continue;
-      for (const part of one.about.parts) by.set(part.id, [...(by.get(part.id) ?? []), { n: one.n, writing: one.writing, said: one.text }]);
+      const parts = one.about.kind === "sketch" ? one.about.parts : one.about.kind === "document" && one.about.target.kind === "part" && one.about.target.sketch === (title ?? "Sketch") ? one.about.target.parts : [];
+      for (const part of parts) by.set(part.id, [...(by.get(part.id) ?? []), { n: one.n, writing: one.writing, said: one.text }]);
     }
     return by;
-  }, [viewer.marks]);
+  }, [viewer.marks, title]);
   // **A step is a number a node, an arrow or an element of a screen carries**, and what shares a number plays together.
   const steps = useMemo(
     () =>
@@ -546,9 +562,12 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
   const onNodesChange = useCallback((changes: NodeChange<SceneRfNode>[]) => setKept((held) => applyNodeChanges(changes, overlay(held, latest.current))), []);
   const markedKey = (marked ?? []).join("\n");
   const laidOut = fresh.length > 0;
+  const wasMarked = useRef(false);
   useEffect(() => {
-    if (markedKey === "" || !laidOut) return;
-    const ids = markedKey.split("\n");
+    if (!laidOut) return;
+    if (markedKey === "" && !wasMarked.current) return;
+    wasMarked.current = markedKey !== "";
+    const ids = markedKey === "" ? [] : markedKey.split("\n");
     onNodesChange(latest.current.map((one) => ({ type: "select" as const, id: one.id, selected: ids.includes(one.id) })));
   }, [markedKey, sceneKey, laidOut, onNodesChange]);
   const edges = useMemo<SceneRfEdge[]>(
@@ -590,7 +609,12 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
   const draw = (points: readonly SketchPoint[]) => edit({ ...mark, strokes: [...mark.strokes, { id: `i${String(mark.strokes.length + 1)}`, points }] });
 
   /** A note about `ids`, or about the parts picked where none is named. */
-  const aboutParts = (ids: readonly string[]) => (ids.length === 0 ? undefined : { kind: "sketch" as const, title: title ?? "Sketch", parts: ids.map((id) => ({ id, label: partLabel(shown, id) })) });
+  const aboutParts = (ids: readonly string[]) => {
+    if (ids.length === 0) return undefined;
+    const parts = ids.map((id) => ({ id, label: partLabel(shown, id) }));
+    const sketch = title ?? "Sketch";
+    return { parts, about: within === undefined ? { kind: "sketch" as const, title: sketch, parts } : { kind: "document" as const, place: within, target: { kind: "part" as const, sketch, parts } } };
+  };
   /** The part a press landed on, and what a note from there is about: the picked parts where it is one of them. */
   const pointedAt = (target: EventTarget | null) => {
     const id = target instanceof Element ? target.closest<HTMLElement>(".react-flow__node")?.dataset.id : undefined;
@@ -607,7 +631,7 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
       rects.length === 0
         ? undefined
         : { left: Math.min(...rects.map((r) => r.left)), top: Math.min(...rects.map((r) => r.top)), right: Math.max(...rects.map((r) => r.right)), bottom: Math.max(...rects.map((r) => r.bottom)) };
-    viewer.menu(at, about, anchor);
+    viewer.menu(at, about?.about, anchor);
   };
 
   const onKeyDown = (event: KeyboardEvent) => {
@@ -712,6 +736,8 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
       standalone: true,
     };
   };
+
+  drawnAs.current = () => sketchSvg({ ...exportInput(false), standalone: false });
 
   /** Told either way, since a save or a copy is otherwise silent. */
   const share = async (id: string) => {

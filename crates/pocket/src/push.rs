@@ -17,8 +17,8 @@ use store::PushSubscription;
 use crate::vapid::Vapid;
 use crate::{signing::DeviceId, Gateway};
 
-/// The VAPID `sub` when Tailscale is not up. Normally `sub` is the Gateway's
-/// own tailnet address, so no personal address leaves the Mac.
+/// The VAPID `sub` when the Gateway cannot say its address. Normally `sub` is the Gateway's
+/// own address, so no personal address leaves the Mac.
 pub const PLACEHOLDER_SUBJECT: &str = "mailto:armada@example.invalid";
 
 #[derive(Clone)]

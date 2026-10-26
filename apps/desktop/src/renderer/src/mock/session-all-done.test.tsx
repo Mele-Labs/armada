@@ -110,10 +110,11 @@ async function artifacts() {
 test("the Artifacts layer's pull request rows show their state and checks marks without a hover", async () => {
   await show(holding([pr(1, "merged", { state: "passed" }), pr(2, "open", { state: "pending" }), pr(3, "open", { state: "failed", failing: "lint" })]));
   const section = (await artifacts()).getByRole("region", { name: "Pull requests", exact: true });
-  const rows = section.getByRole("button");
+  // The row's own act, such as Enable auto-merge, is a button of the section too; the rows are the ones named for their pull request.
+  const rows = section.getByRole("button", { name: /^Pull request #/ });
   // A merged row is listed beside the open ones, newest first.
   await expect.element(rows.nth(2)).toBeVisible();
-  expect(names(rows.elements())).toEqual(["#3 Change 3", "#2 Change 2", "#1 Change 1"]);
+  expect(names(rows.elements())).toEqual(["Pull request #3 Change 3", "Pull request #2 Change 2", "Pull request #1 Change 1"]);
 
   await expect.element(rows.nth(0).getByRole("img", { name: "Open" })).toBeVisible();
   await expect.element(rows.nth(0).getByRole("img", { name: "Checks failed: lint" })).toBeVisible();
@@ -122,7 +123,8 @@ test("the Artifacts layer's pull request rows show their state and checks marks 
   await expect.element(running).toBeVisible();
   expect(running.element().getAttribute("data-checks")).toBe("running");
   expect(running.element().querySelector("svg")?.classList.contains("lucide-loader-circle")).toBe(true);
-  await expect.element(rows.nth(2).getByRole("img", { name: "Merged" })).toBeVisible();
+  // A merged row says Merged twice: the lead glyph, and the standing on its second line.
+  await expect.element(rows.nth(2).getByRole("img", { name: "Merged" }).first()).toBeVisible();
   await expect.element(rows.nth(2).getByRole("img", { name: "Checks passed" })).toBeVisible();
 });
 
