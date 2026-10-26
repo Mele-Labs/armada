@@ -22,6 +22,7 @@ fn the_forge_shows(rig: &Rig, standing: PullRequestStanding, followed: Vec<Follo
         vcs.now_pull_request(Some(PullRequestFacts {
             standing,
             branch: one.branch.as_written().to_string(),
+            base: "main".into(),
             auto_merge: one.auto_merge,
             title: "Fix the reader".into(),
             url: one.url.as_written().to_string(),

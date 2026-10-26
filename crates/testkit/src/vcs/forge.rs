@@ -227,6 +227,7 @@ impl Forge for FakeVcs {
             Some(adapter_traits::PullRequestFacts {
                 standing: adapter_traits::PullRequestStanding::Open,
                 branch: pull.branch.as_written().to_string(),
+                base: String::new(),
                 auto_merge: false,
                 title: String::new(),
                 url: pull.url.as_written().to_string(),
@@ -246,6 +247,14 @@ impl Forge for FakeVcs {
         pull_request: &str,
     ) -> Option<adapter_traits::PullRequestPageFacts> {
         self.page_read(pull_request)
+    }
+
+    fn pull_request_page_said(
+        &self,
+        _in_repo: &str,
+        pull_request: &str,
+    ) -> Result<adapter_traits::PullRequestPageFacts, Option<String>> {
+        self.page_said_read(pull_request)
     }
 
     fn pull_request_file_patch(

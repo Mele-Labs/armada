@@ -73,6 +73,9 @@ pub struct PullRequestState {
     pub title: String,
     /// The branch it is opened from.
     pub branch: String,
+    /// The branch it merges into. Absent where the forge named none.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub base: String,
     /// Where it is on the forge.
     pub address: String,
     /// Its description, as Markdown. Absent where the author wrote none.

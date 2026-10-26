@@ -93,13 +93,24 @@ impl ApiForge {
         api: impl FnOnce(&GitHubApi, &GitHubRepository) -> Result<Option<T>, ApiFailure>,
         gh: impl FnOnce(&GhForge) -> Option<T>,
     ) -> Option<T> {
+        self.read_said(in_repo, api, gh).ok()
+    }
+
+    /// [`read`](ApiForge::read), with the API's refusal as a sentence a person can act on.
+    /// `Err(None)` is silence: no such thing, or `gh` had nothing.
+    pub(crate) fn read_said<T>(
+        &self,
+        in_repo: &str,
+        api: impl FnOnce(&GitHubApi, &GitHubRepository) -> Result<Option<T>, ApiFailure>,
+        gh: impl FnOnce(&GhForge) -> Option<T>,
+    ) -> Result<T, Option<String>> {
         let Some(repository) = self.on_github(in_repo) else {
-            return gh(&self.gh);
+            return gh(&self.gh).ok_or(None);
         };
         match api(&self.api, &repository) {
-            Ok(answer) => answer,
-            Err(ApiFailure::NoToken(_)) => gh(&self.gh),
-            Err(_) => None,
+            Ok(answer) => answer.ok_or(None),
+            Err(ApiFailure::NoToken(_)) => gh(&self.gh).ok_or(None),
+            Err(failure) => Err(Some(failure.to_act_on())),
         }
     }
 }
@@ -395,9 +406,17 @@ impl Forge for ApiForge {
         in_repo: &str,
         pull_request: &str,
     ) -> Option<adapter_traits::PullRequestPageFacts> {
+        self.pull_request_page_said(in_repo, pull_request).ok()
+    }
+
+    fn pull_request_page_said(
+        &self,
+        in_repo: &str,
+        pull_request: &str,
+    ) -> Result<adapter_traits::PullRequestPageFacts, Option<String>> {
         let gh = |gh: &GhForge| gh.pull_request_page(in_repo, pull_request);
-        let Some(number) = numbered(pull_request) else { return gh(&self.gh) };
-        self.read(in_repo, |api, repository| page::read(api, repository, number), gh)
+        let Some(number) = numbered(pull_request) else { return gh(&self.gh).ok_or(None) };
+        self.read_said(in_repo, |api, repository| page::read(api, repository, number), gh)
     }
 
     fn pull_request_file_patch(

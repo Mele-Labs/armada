@@ -35,11 +35,16 @@ pub(crate) const HELD_FOR: Duration = Duration::from_secs(5 * 60);
 pub(crate) const UNREADABLE: &str = "fleet.issues_unreadable";
 
 /// What the tracker said it could not do, as an error. **A missing program is also a field**,
-/// `missing_tool`, so Bridge offers the install without reading a sentence.
+/// `missing_tool`, so Bridge offers the install without reading a sentence. **A program with no
+/// project to work on is `needs_setup`**, and offers the setup the same way.
 pub(crate) fn not_tracked(run_id: ipc::RunId, code: &'static str, not: &adapter_traits::NotTracked) -> WireError {
     let error = WireError::raised(code, format!("{} did not happen: {}", not.doing, not.said), run_id);
-    match &not.missing {
+    let error = match &not.missing {
         Some(tool) => error.with_field("missing_tool", ipc::WireValue::Str(tool.clone())),
+        None => error,
+    };
+    match &not.needs_setup {
+        Some(tool) => error.with_field("needs_setup", ipc::WireValue::Str(tool.clone())),
         None => error,
     }
 }
