@@ -14,7 +14,7 @@ import { useTeach } from "../teach";
 import { addGroup, addNote, addTask, dropNote, move, remove, rename, setAgent, type Since, type ViewGroup, type ViewTask } from "./plan-marks";
 
 /** The marks on the plan, and what changes them. `send` puts them to the agent as one message. */
-export type PlanEditing = { id: string; plan: WorkPlan; marks: readonly PlanMark[]; set: (next: PlanMark[]) => void; send: () => void };
+export type PlanEditing = { id: string; plan: WorkPlan; marks: readonly PlanMark[]; set: (next: PlanMark[]) => void; send: () => void; /** Approves the plan, with the marks he made going in the same press. */ approve?: () => void };
 
 /** The subagent types a group can be handed to. */
 const AGENTS = ["rust-engineer", "bridge-engineer", "protocol-engineer", "fixture-author", "judge", "general-purpose"];
@@ -25,7 +25,7 @@ export type FindingPins = { anchors: Anchors } & FindingActs;
 const key = (ed: PlanEditing, what: string) => `plan-note:${ed.id}:${what}`;
 
 /** A name that is a button until pressed, then a field: Enter saves it and Esc, or leaving it, keeps the old one. */
-function EditText({ value, was, label, onSave, className }: { value: string; was?: string | undefined; label: string; onSave: (to: string) => void; className?: string }) {
+export function EditText({ value, was, label, onSave, className }: { value: string; was?: string | undefined; label: string; onSave: (to: string) => void; className?: string }) {
   const [draft, setDraft] = useState<string | undefined>();
   if (draft !== undefined) {
     const save = () => {
@@ -196,91 +196,100 @@ function TaskRow({ task, group, ed }: { task: ViewTask; group: ViewGroup; ed: Pl
   );
 }
 
-/** A line to add a task to a group: a glyph until pressed, then a field. */
+/** The last task line is an empty one to type into: Enter adds the task and leaves the line empty for the next, Esc empties it. */
 function AddTask({ group, ed }: { group: ViewGroup; ed: PlanEditing }) {
-  const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
-  if (!open) {
-    return (
-      <Tooltip label="Add a task">
-        <Button variant="ghost" size="sm" iconOnly aria-label={`Add a task to ${group.title}`} onClick={() => setOpen(true)}>
-          <Plus size={16} strokeWidth={2} aria-hidden />
-        </Button>
-      </Tooltip>
-    );
-  }
   return (
-    <Input
-      aria-label={`New task in ${group.title}`}
-      value={text}
-      autoFocus
-      onChange={(event) => setText(event.target.value)}
-      onBlur={() => setOpen(false)}
-      onKeyDown={(event) => {
-        if (event.key === "Escape") {
-          event.stopPropagation();
-          setOpen(false);
-        }
-        if (event.key === "Enter") {
-          ed.set(addTask(ed.marks, group.id, text));
-          setText("");
-          setOpen(false);
-        }
-      }}
-    />
+    <li className="sv-task sv-task--new">
+      <span className="sv-task__new-mark" aria-hidden="true">
+        <Plus size={12} strokeWidth={2} aria-hidden />
+      </span>
+      <Input
+        aria-label={`New task in ${group.title}`}
+        value={text}
+        onChange={(event) => setText(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            event.stopPropagation();
+            setText("");
+            event.currentTarget.blur();
+          }
+          if (event.key === "Enter" && text.trim() !== "") {
+            ed.set(addTask(ed.marks, group.id, text.trim()));
+            setText("");
+          }
+        }}
+      />
+    </li>
   );
 }
 
 /**
- * A group, edited in place: its subagent type, its title, the glyphs for a note and for removing it, then its paths and its tasks,
- * which take a drop from another group. Drawn open, as the overlay draws a group and as the panel does under a group's row.
+ * A group, edited in place: its subagent type, its title, the glyphs for a note and for removing it, then its tasks, which take a drop
+ * from another group, and an empty task to type the next one into. Drawn open, as the overlay draws a group and as the panel does under a group's row.
  */
-export function GroupEditor({ group, ed, head = true, pins }: { group: ViewGroup; ed: PlanEditing; head?: boolean; pins?: FindingPins }) {
+export function GroupEditor({ group, ed, head = true, titled = true, onEdit, pins }: { group: ViewGroup; ed: PlanEditing; head?: boolean; /** Whether the head repeats the group's title: not where a row above it already holds the title. */ titled?: boolean; /** Where the pencil sends the caller that holds the head open itself, instead of the editor doing it. */ onEdit?: () => void; pins?: FindingPins }) {
   const [noting, setNoting] = useState(false);
   // Without its head, the title and subagent type open behind a pencil, and stay open while either carries an edit.
   const [editing, setEditing] = useState(false);
   const headed = head || editing || group.was !== undefined || group.agentWas !== undefined;
   const target = { group: group.id };
+  const marks = (
+    <>
+      {group.added === true ? (
+        <Tooltip label="Added, not sent yet">
+          <span className="sv-since" data-kind="added" role="img" aria-label="Added">
+            <Plus size={12} strokeWidth={2} aria-hidden />
+          </span>
+        </Tooltip>
+      ) : null}
+      {group.since === undefined ? null : <SinceMark since={group.since} />}
+    </>
+  );
+  const tools = <Tools what={`group ${group.title}`} removed={group.removed === true} onNote={() => setNoting(true)} onRemove={() => ed.set(remove(ed.marks, target))} />;
   const drop = (event: DragEvent) => {
     event.preventDefault();
     const task = event.dataTransfer.getData("text/plain");
     if (task !== "") ed.set(move(ed.plan, ed.marks, task, group.id));
   };
   return (
-    <div className="sv-edit-group" data-removed={group.removed || undefined} data-added={group.added || undefined} data-editing={(headed && !head) || undefined} onDragOver={(event) => event.preventDefault()} onDrop={drop}>
+    <div className="sv-edit-group" data-removed={group.removed || undefined} data-added={group.added || undefined} data-editing={(headed && (!head || onEdit !== undefined)) || undefined} onDragOver={(event) => event.preventDefault()} onDrop={drop}>
       {headed ? (
         <div className="sv-edit-group__head">
-          <div className="sv-edit-group__name">
-            <EditText label="Group" className="sv-group__title" value={group.title} was={group.was} onSave={(to) => ed.set(rename(ed.plan, ed.marks, target, to))} />
-            {group.added === true ? (
-              <Tooltip label="Added, not sent yet">
-                <span className="sv-since" data-kind="added" role="img" aria-label="Added">
-                  <Plus size={12} strokeWidth={2} aria-hidden />
-                </span>
-              </Tooltip>
-            ) : null}
-            {group.since === undefined ? null : <SinceMark since={group.since} />}
-            <Tools what={`group ${group.title}`} removed={group.removed === true} onNote={() => setNoting(true)} onRemove={() => ed.set(remove(ed.marks, target))} />
+          {titled ? (
+            <div className="sv-edit-group__name">
+              <EditText label="Group" className="sv-group__title" value={group.title} was={group.was} onSave={(to) => ed.set(rename(ed.plan, ed.marks, target, to))} />
+              {marks}
+              {tools}
+            </div>
+          ) : null}
+          <div className="sv-edit-group__meta">
+            <Tooltip label="Subagent type">
+              <span className="sv-group__agent">
+                <Bot size={12} strokeWidth={2} aria-hidden />
+                {group.agentWas === undefined ? null : <s className="sv-edit__was">{group.agentWas}</s>}
+                <Select aria-label={`Subagent type of ${group.title}`} value={group.agent} onChange={(event) => ed.set(setAgent(ed.plan, ed.marks, group.id, event.target.value))}>
+                  {[...new Set([group.agent, ...AGENTS])].map((one) => (
+                    <option key={one} value={one}>
+                      {one}
+                    </option>
+                  ))}
+                </Select>
+              </span>
+            </Tooltip>
+            {titled ? null : (
+              <span className="sv-edit-group__end">
+                {marks}
+                {tools}
+              </span>
+            )}
           </div>
-          <Tooltip label="Subagent type">
-            <span className="sv-group__agent">
-              <Bot size={12} strokeWidth={2} aria-hidden />
-              {group.agentWas === undefined ? null : <s className="sv-edit__was">{group.agentWas}</s>}
-              <Select aria-label={`Subagent type of ${group.title}`} value={group.agent} onChange={(event) => ed.set(setAgent(ed.plan, ed.marks, group.id, event.target.value))}>
-                {[...new Set([group.agent, ...AGENTS])].map((one) => (
-                  <option key={one} value={one}>
-                    {one}
-                  </option>
-                ))}
-              </Select>
-            </span>
-          </Tooltip>
         </div>
       ) : (
         <div className="sv-edit-group__head">
           <span className="sv-edit__tools">
             <Tooltip label="Edit group">
-              <Button variant="ghost" size="sm" iconOnly aria-label={`Edit group ${group.title}`} onClick={() => setEditing(true)}>
+              <Button variant="ghost" size="sm" iconOnly aria-label={`Edit group ${group.title}`} onClick={() => (onEdit === undefined ? setEditing(true) : onEdit())}>
                 <Pencil size={16} strokeWidth={2} aria-hidden />
               </Button>
             </Tooltip>
@@ -301,15 +310,6 @@ export function GroupEditor({ group, ed, head = true, pins }: { group: ViewGroup
         />
       ) : null}
       {pins === undefined ? null : <FindingNotes findings={pins.anchors.at(group.id)} label={`Findings on ${group.title}`} onSend={pins.onSend} onDismiss={pins.onDismiss} />}
-      {group.paths.length === 0 ? null : (
-        <ul className="sv-scope" aria-label="Paths">
-          {group.paths.map((path) => (
-            <li key={path}>
-              <code>{path}</code>
-            </li>
-          ))}
-        </ul>
-      )}
       <ul className="sv-tasks">
         {group.tasks.map((task) => (
           <Fragment key={task.id}>
@@ -331,8 +331,8 @@ export function GroupEditor({ group, ed, head = true, pins }: { group: ViewGroup
             <s>{text}</s>
           </li>
         ))}
+        <AddTask group={group} ed={ed} />
       </ul>
-      <AddTask group={group} ed={ed} />
     </div>
   );
 }

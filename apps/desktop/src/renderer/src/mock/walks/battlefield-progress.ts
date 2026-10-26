@@ -7,9 +7,9 @@ const map = role("listbox", "Map");
 const places = role("navigation", "Places");
 const dock = inside(map, role("option", "Rebuild the dock panel"));
 const stage = region(/^Job: /);
-const progress = region("Progress");
-const tasks = inside(progress, role("list", "Tasks"));
-const subagents = inside(progress, role("list", "Subagents"));
+const blueprint = region("Blueprint");
+const tasks = inside(blueprint, role("list", "Tasks"));
+const subagents = inside(blueprint, role("list", "Subagents"));
 const opened = [
   { press: deckRow("Rebuild the dock panel"), say: "Open the Job" },
 ] as const;
@@ -22,7 +22,7 @@ const battlefieldProgress = walk("battlefield-progress", [
   { look: map, say: "Implement. A task done with edits seen is a solid segment. One done with none seen is outlined and hollow. The next task is open with edits seen: dashed, with an amber tick outside it. Four small drones stand still beside the ring while their subagents run" },
   { hover: dock, say: "Its card. The phase as a glyph and a word, and the plan as one bar with a segment for each task: solid, outlined, amber or faint" },
   ...opened,
-  { look: tasks, say: "The Job open. Progress lists its seven tasks, four done and three open, in the order it made them. A button with a speech bubble in its header asks the Job for an update" },
+  { look: tasks, say: "The Job open. The Blueprint lists its seven tasks, four done and three open, in the order it made them. A button with a speech bubble in its header asks the Job for an update" },
   { key: "Escape", on: stage, say: "Esc is back to the map" },
   { look: region("Bays"), say: "The bays are back" },
   { later: places, say: "Ten minutes with no tool call in a running turn. Three subagents end" },
@@ -39,15 +39,15 @@ const battlefieldProgress = walk("battlefield-progress", [
   { later: places, say: "Twenty-six minutes later" },
   { look: map, say: "The plot is bare. What landed is in Activity" },
   { press: deckRow("Rebuild the dock panel"), say: "Job page. Its row in the list carries one glyph for its phase, with a tooltip naming it" },
-  { look: tasks, say: "Job page. Progress lists the seven tasks, every one done. The road to main is the map's, not the page's" },
+  { look: tasks, say: "Job page. The Blueprint lists the seven tasks, every one done. The road to main is the map's, not the page's" },
   { key: "Escape", on: stage, say: "Esc is back to the map" },
   { later: places, say: "A fourth Job, drawing subagents in the ring, writes a list. Its own agent wrote two tasks and two subagents wrote two each, one of them still running" },
   { look: map, say: "Subagents. The ring has six pieces. A piece a subagent wrote carries a dot at its middle. The running subagent is a small drone that stands by its two pieces and does not lap. The one that finished has no drone, and its pieces keep their dots" },
   { hover: inside(map, role("option", /^List the tooltips that name a worker/)), say: "A piece of a subagent says its task, where it stands and what the subagent was asked" },
   { hover: inside(map, role("option", /^Subagent, map the worker call sites/)), say: "The running worker says what it was asked" },
   { press: deckRow("Draw subagents in the ring"), say: "Open the Job" },
-  { look: tasks, say: "Progress lists the six tasks it wrote, in the order they were made: its own and the ones the two subagents wrote" },
-  { look: inside(subagents, text("map the worker call sites")), say: "The running subagent is listed under them, with its type. The one that finished is not: Progress lists only those at work" },
+  { look: tasks, say: "The Blueprint lists the six tasks it wrote, in the order they were made: its own and the ones the two subagents wrote" },
+  { look: inside(subagents, text("map the worker call sites")), say: "The running subagent is listed under them, with its type. The one that finished is not: the Blueprint lists only those at work" },
   { key: "Escape", on: stage, say: "Esc is back to the map" },
   { later: places, say: "A fifth Job splits the cockpit into panels with ten subagents. Their tasks reach the one list interleaved, round by round" },
   { press: deckRow("Split the cockpit panels"), say: "Open the Job" },

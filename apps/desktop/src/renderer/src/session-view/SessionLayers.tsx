@@ -4,9 +4,9 @@
 // hold (`artifacts.ts`, `slot-trouble.ts`) and reads nothing of its own, but the Artifacts graph's history, read while the graph is open.
 
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
-import { ArrowDown, Check, CircleDot, CircleX, LoaderCircle, Megaphone, Power, ShieldCheck, ShieldEllipsis, ShieldX, Terminal, X, type LucideIcon } from "lucide-react";
-import { ArtifactGraph, Button, ClashPaths, Input, PullRequestChecksMark, PullRequestStateMark, Table, Tabs, TableBody, TableCell, TableHead, TableHeaderCell, TableRow, Tooltip, timeSaid, useTimeFormat, type ClashView, useOpenClash, type LedgerEntry, type SessionLedgerTone } from "@armada/components";
-import type { Session, SessionRow } from "@armada/screens/src/draft/sessions";
+import { ArrowDown, Check, CircleDot, CircleX, GitMerge, GitPullRequest, List, LoaderCircle, Megaphone, Power, ShieldCheck, ShieldEllipsis, ShieldX, Terminal, Waypoints, X, type LucideIcon } from "lucide-react";
+import { ArtifactGraph, Button, ClashPaths, Input, PullRequestChecksMark, Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow, Tooltip, timeSaid, useTimeFormat, type ClashView, useOpenClash, type LedgerEntry, type SessionLedgerTone } from "@armada/components";
+import { attachmentsOf, type Session, type SessionRow } from "@armada/screens/src/draft/sessions";
 import { popupIsOpen } from "@armada/screens/src/list-keyboard";
 
 import { useSessions, useSessionsDraft } from "../sessions-draft";
@@ -16,6 +16,7 @@ import { Berth } from "../cockpit/deck/BayRows";
 import { artifactsOf, matching, type ArtifactRow } from "./artifacts";
 import { graphOf } from "./artifact-graph";
 import { closeLayer, type LayerId } from "./layers";
+import { Fact, Glyphed, LedgerRow, PullRow } from "./LedgerRow";
 import { openSlotKeyInPanel } from "../shared-panel/store";
 import { openClashFile } from "./ClashFileSheet";
 import type { HeldBay, SessionBays } from "./slot-trouble";
@@ -45,8 +46,8 @@ function Mark({ tone, said }: { tone: SessionLedgerTone; said: string }) {
 
 const ROW = "[data-layer-row]";
 
-/** The frame every layer shares: its name, what is beside it in the head, Back, and a body that scrolls. */
-function Shell({ label, head, keys, owns, children }: { label: string; head?: ReactNode; /** A key the layer owns, heard before the arrows walk the rows. */ keys?: (event: KeyboardEvent<HTMLElement>) => void; /** The letters `keys` answers to, which the deck does not take while focus is in the layer. */ owns?: string; children: ReactNode }) {
+/** The frame every layer shares: its name and Back in the head, a row of tools under it where there are any, and a body that scrolls. */
+function Shell({ label, tools, keys, owns, children }: { label: string; tools?: ReactNode; /** A key the layer owns, heard before the arrows walk the rows. */ keys?: (event: KeyboardEvent<HTMLElement>) => void; /** The letters `keys` answers to, which the deck does not take while focus is in the layer. */ owns?: string; children: ReactNode }) {
   const root = useRef<HTMLElement>(null);
   // Esc is Back, wherever focus is, unless a sheet or a menu is open over the layer: that one's Esc is its own.
   useEffect(() => {
@@ -77,60 +78,58 @@ function Shell({ label, head, keys, owns, children }: { label: string; head?: Re
     <section ref={root} className="sv-layer" aria-label={label} data-keeps-escape="" {...(owns === undefined ? {} : { "data-owns-keys": owns })} onKeyDown={walk}>
       <header className="sv-layer__head">
         <h3 className="sv-layer__title">{label}</h3>
-        {head}
         <Tooltip label="Back" shortcut="Esc">
           <Button variant="ghost" size="sm" iconOnly aria-label="Back" onClick={closeLayer}>
             <X size={16} aria-hidden="true" />
           </Button>
         </Tooltip>
       </header>
+      {tools === undefined ? null : <div className="sv-layer__tools">{tools}</div>}
       <div className="sv-layer__body">{children}</div>
     </section>
   );
 }
 
-/** One row: its glyph, its words, its state. A row with somewhere to go is a button; one without is read. */
-function Row({ row }: { row: ArtifactRow }) {
+/** The hue a state's chip wears: the Checks' own, and amber for what waits on a person. */
+const MARK_HUE: Record<SessionLedgerTone, string> = { pending: "waiting", passed: "passed", failed: "failed", running: "running", done: "passed", escalated: "waiting", piloted: "waiting", stopped: "stopped" };
+
+const TONE_WORD: Partial<Record<SessionLedgerTone, string>> = { passed: "Passed", failed: "Failed", running: "Running", done: "Done", pending: "Waiting", escalated: "Waiting", piloted: "Piloted", stopped: "Stopped" };
+
+/** One row, as every list of the Job draws it (`LedgerRow.tsx`): its kind's glyph and title, then the address or path, the kind and its states. A row with somewhere to go is a button; one without is read. */
+function Row({ row, kind }: { row: ArtifactRow; kind: string }) {
   const { Glyph } = row;
-  const inside = (
-    <>
-      <Tooltip label={row.said}>
-        <span className="sv-layer__kind" role="img" aria-label={row.said}>
-          <Glyph size={16} strokeWidth={2} aria-hidden />
-        </span>
-      </Tooltip>
-      <span className="sv-layer__title-line">{row.title}</span>
-      {row.sub === undefined ? null : <code className="sv-layer__sub">{row.sub}</code>}
-      <span className="sv-layer__state">
-        {row.pr === undefined ? null : (
-          <>
-            <PullRequestStateMark merged={row.pr.merged} />
-            <PullRequestChecksMark checks={row.pr.checks} said={row.pr.checksSaid} />
-          </>
-        )}
-        {row.mark === undefined ? null : <Mark tone={row.mark.glyph} said={row.mark.said} />}
-      </span>
-    </>
-  );
+  const Tone = row.mark === undefined ? undefined : TONE[row.mark.glyph];
   return (
-    <li className="sv-layer__item">
-      {row.open === undefined ? (
-        <div className="sv-layer__row" data-plain="">
-          {inside}
-        </div>
-      ) : (
-        <button type="button" className="sv-layer__row" data-layer-row="" aria-label={row.title} onClick={row.open}>
-          {inside}
-        </button>
-      )}
-    </li>
+    <LedgerRow
+      kind={kind}
+      lead={<Glyphed Glyph={Glyph} said={row.said} />}
+      title={row.title}
+      label={row.title}
+      onOpen={row.open}
+      meta={
+        <>
+          {row.sub === undefined ? null : <code className="sv-ledger__sub">{row.sub}</code>}
+          <span className="sv-ledger__word">{row.said}</span>
+          {row.pr === undefined ? null : (
+            <>
+              <Fact Glyph={row.pr.merged ? GitMerge : GitPullRequest} said={row.pr.merged ? "Merged" : "Open"} word={row.pr.merged ? "Merged" : "Open"} state={row.pr.merged ? "merged" : "open"} />
+              <span className="sv-ledger__fact" data-state={row.pr.checks}>
+                <PullRequestChecksMark checks={row.pr.checks} said={row.pr.checksSaid} />
+                {CHECK_SAID[row.pr.checks]}
+              </span>
+            </>
+          )}
+          {row.mark === undefined || Tone === undefined ? null : <Fact Glyph={Tone} said={row.mark.said} word={TONE_WORD[row.mark.glyph] ?? row.mark.said} state={MARK_HUE[row.mark.glyph]} />}
+        </>
+      }
+    />
   );
 }
 
 /** The Commands group lists this many before "View all". */
 const COMMANDS_SHOWN = 10;
 
-function Group({ group }: { group: { id: string; label: string; rows: readonly ArtifactRow[] } }) {
+function Group({ group, session }: { group: { id: string; label: string; rows: readonly ArtifactRow[] }; session: Session }) {
   const [all, setAll] = useState(false);
   const capped = group.id === "command" && group.rows.length > COMMANDS_SHOWN;
   const rows = capped && !all ? group.rows.slice(0, COMMANDS_SHOWN) : group.rows;
@@ -138,9 +137,10 @@ function Group({ group }: { group: { id: string; label: string; rows: readonly A
     <section className="sv-layer__group" aria-label={group.label}>
       <h4 className="sv-layer__group-label">{group.label}</h4>
       <ul className="sv-layer__rows">
-        {rows.map((row) => (
-          <Row key={row.key} row={row} />
-        ))}
+        {rows.map((row) => {
+          const pr = row.prNumber === undefined ? undefined : attachmentsOf(session, "pull_request").find((one) => one.number === row.prNumber);
+          return pr === undefined ? <Row key={row.key} row={row} kind={group.id} /> : <PullRow key={row.key} session={session} pr={pr} />;
+        })}
       </ul>
       {capped ? (
         <Button variant="ghost" size="sm" aria-expanded={all} onClick={() => setAll(!all)}>
@@ -151,11 +151,11 @@ function Group({ group }: { group: { id: string; label: string; rows: readonly A
   );
 }
 
-function Groups({ groups }: { groups: readonly { id: string; label: string; rows: readonly ArtifactRow[] }[] }) {
+function Groups({ groups, session }: { groups: readonly { id: string; label: string; rows: readonly ArtifactRow[] }[]; session: Session }) {
   return (
     <>
       {groups.map((group) => (
-        <Group key={group.id} group={group} />
+        <Group key={group.id} group={group} session={session} />
       ))}
     </>
   );
@@ -183,9 +183,9 @@ function useVersions(session: Session, open: boolean): Session["versions"] {
   return versions;
 }
 
-const VIEWS = [
-  { id: "list", label: "List" },
-  { id: "graph", label: "Graph" },
+const VIEWS: { id: "list" | "graph"; label: string; Glyph: LucideIcon }[] = [
+  { id: "list", label: "List", Glyph: List },
+  { id: "graph", label: "Graph", Glyph: Waypoints },
 ];
 
 /** Everything the Session made or used, as groups or as a graph of how it grew; the field at the top narrows both as it is typed in, and V switches them. */
@@ -213,18 +213,24 @@ export function ArtifactsLayer({ session, entries, onOpenSession, onOpenSketch }
       label="Artifacts"
       keys={keys}
       owns="v"
-      head={
+      tools={
         <>
           <div className="sv-layer__search">
             <Input type="search" aria-label="Search artifacts" placeholder="Search" data-layer-field="" value={words} onChange={(event) => setWords(event.target.value)} autoComplete="off" spellCheck={false} />
           </div>
-          <Tooltip label="Switch view" shortcut="V">
-            <Tabs items={VIEWS} value={view} onChange={(id) => setView(id === "graph" ? "graph" : "list")} />
-          </Tooltip>
+          <div className="sv-layer__views" role="group" aria-label="View">
+            {VIEWS.map(({ id, label, Glyph }) => (
+              <Tooltip key={id} label={label} shortcut="V">
+                <Button variant="ghost" size="sm" iconOnly aria-label={label} aria-pressed={view === id} onClick={() => setView(id)}>
+                  <Glyph size={16} aria-hidden="true" />
+                </Button>
+              </Tooltip>
+            ))}
+          </div>
         </>
       }
     >
-      {view === "list" ? <Groups groups={shown} /> : graph.nodes.length === 0 ? null : <ArtifactGraph nodes={graph.nodes} edges={graph.edges} label="Artifact graph" />}
+      {view === "list" ? <Groups groups={shown} session={session} /> : graph.nodes.length === 0 ? null : <ArtifactGraph nodes={graph.nodes} edges={graph.edges} label="Artifact graph" />}
     </Shell>
   );
 }
@@ -236,7 +242,7 @@ export function SubagentsLayer({ session, entries }: { session: Session; entries
     <Shell label="Subagents">
       <ul className="sv-layer__rows">
         {(groups[0]?.rows ?? []).map((row) => (
-          <Row key={row.key} row={row} />
+          <Row key={row.key} row={row} kind="subagent" />
         ))}
       </ul>
     </Shell>

@@ -22,6 +22,8 @@ export type ArtifactRow = {
   /** The row's state, as the ledger's marks draw it. */
   mark?: { glyph: SessionLedgerTone; said: string };
   pr?: LedgerPullRequest;
+  /** Set on a pull request's own row, which the layer draws as Landing does. */
+  prNumber?: number;
   /** Absent for a row that has nowhere to go. */
   open?: () => void;
 };
@@ -76,7 +78,7 @@ export function artifactsOf(session: Session, entries: readonly LedgerEntry[], b
     "Pull requests",
     newest(attachmentsOf(session, "pull_request")).map((one) => {
       const entry = entryOf(entries, "pull_request", String(one.number));
-      return { key: `pr:${one.number}`, Glyph: GitPullRequest, said: "Pull request", title: `#${one.number} ${one.title}`, sub: one.branch, ...(entry?.pr === undefined ? {} : { pr: entry.pr }), ...open(entry) };
+      return { key: `pr:${one.number}`, Glyph: GitPullRequest, said: "Pull request", title: `#${one.number} ${one.title}`, sub: one.branch, prNumber: one.number, ...(entry?.pr === undefined ? {} : { pr: entry.pr }), ...open(entry) };
     }),
   );
 

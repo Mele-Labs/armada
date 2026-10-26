@@ -15,6 +15,7 @@
 
 .sv-panel {
   --folded: calc(var(--h-row) * 1.25 + var(--border-width) * 2);
+  --hue: var(--fg-subtle);
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -25,14 +26,20 @@
   overflow: hidden;
 }
 .sv-slot[data-place="foot"] > .sv-panel { flex: 1 1 auto; }
+/* The state is the frame's hue and the band's: a panel at rest keeps the plain edge. */
+.sv-panel[data-state="asks"] { --hue: var(--status-awaiting-review); }
+.sv-panel[data-state="draft"] { --hue: var(--status-awaiting-approval); }
+.sv-panel[data-state="live"] { --hue: var(--step-running); }
+.sv-panel[data-state="done"] { --hue: var(--step-advanced); }
+.sv-panel[data-state="failed"] { --hue: var(--step-failed); }
+.sv-panel[data-state] { border-color: color-mix(in srgb, var(--hue) 55%, var(--border-default)); }
+.sv-panel[data-state]:not([data-collapsed]) { background: color-mix(in srgb, var(--hue) 3%, var(--bg-sunken)); }
 .sv-panel[data-state="asks"] {
   border-color: var(--status-awaiting-review);
   box-shadow:
     inset 0 0 calc(var(--space-12) * 1.5) color-mix(in srgb, var(--status-awaiting-review) 10%, transparent),
     0 0 var(--space-6) color-mix(in srgb, var(--status-awaiting-review) 12%, transparent);
 }
-.sv-panel[data-state="live"] { border-color: color-mix(in srgb, var(--step-running) 55%, var(--border-default)); }
-.sv-panel[data-state="done"] { border-color: color-mix(in srgb, var(--step-advanced) 55%, var(--border-default)); }
 
 .sv-panel__band {
   display: flex;
@@ -51,7 +58,10 @@
   letter-spacing: var(--tracking-caps);
   text-transform: uppercase;
 }
-.sv-panel[data-state="asks"] > .sv-panel__band { background: color-mix(in srgb, var(--status-awaiting-review) 14%, var(--bg-raised)); color: var(--fg-default); }
+/* The open band is the state's word in its hue over a tint of it, ruled off in the hue; a folded band keeps the hue and a lighter tint. */
+.sv-panel[data-state] > .sv-panel__band { border-bottom-color: color-mix(in srgb, var(--hue) 45%, var(--border-subtle)); background: color-mix(in srgb, var(--hue) 14%, var(--bg-raised)); color: var(--hue); }
+.sv-panel[data-state][data-collapsed] > .sv-panel__band { background: color-mix(in srgb, var(--hue) 7%, var(--bg-raised)); }
+.sv-panel__state { display: inline-flex; flex: none; align-items: center; margin-inline-start: calc(var(--space-1) * -1); }
 .sv-panel__label { margin: 0; font: inherit; letter-spacing: inherit; }
 .sv-panel__acts { display: inline-flex; align-items: center; gap: var(--space-2); margin-left: auto; text-transform: none; letter-spacing: normal; }
 .sv-panel__mark { display: inline-flex; color: var(--step-advanced); }
@@ -76,51 +86,46 @@
 
 /* ---- Progress: the plan's scope, groups and tasks ----------------------------------------------------------- */
 
-.sv-scope { display: flex; flex-wrap: wrap; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
-.sv-scope code {
-  display: inline-block;
-  padding: 0 var(--space-2);
-  border: var(--border-width) solid var(--border-subtle);
-  border-radius: var(--radius-sm);
-  color: var(--fg-muted);
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
-}
 .sv-group {
   display: flex;
   flex-direction: column;
   border: var(--border-width) solid var(--border-subtle);
   border-radius: var(--radius-md);
-  background: var(--bg-raised);
+  --sv-group-bg: var(--bg-raised);
+  background: var(--sv-group-bg);
 }
-.sv-group[data-state="live"] { border-color: color-mix(in srgb, var(--step-running) 55%, var(--border-subtle)); }
-.sv-group[data-state="failed"] { border-color: color-mix(in srgb, var(--step-failed) 55%, var(--border-subtle)); }
-.sv-group[data-state="done"] { border-color: color-mix(in srgb, var(--step-advanced) 45%, var(--border-subtle)); }
+.sv-group[data-state="live"] { border-color: color-mix(in srgb, var(--step-running) 55%, var(--border-subtle)); --sv-group-bg: color-mix(in srgb, var(--step-running) 6%, var(--bg-raised)); box-shadow: inset calc(var(--border-width) * 3) 0 0 var(--step-running); }
+.sv-group[data-state="failed"] { border-color: color-mix(in srgb, var(--step-failed) 55%, var(--border-subtle)); --sv-group-bg: var(--step-failed-bg); box-shadow: inset calc(var(--border-width) * 3) 0 0 var(--step-failed); }
+.sv-group[data-state="done"] { border-color: color-mix(in srgb, var(--step-advanced) 45%, var(--border-subtle)); box-shadow: inset calc(var(--border-width) * 3) 0 0 color-mix(in srgb, var(--step-advanced) 70%, var(--bg-raised)); }
 .sv-group__row { display: flex; flex-direction: column; gap: var(--space-1); width: 100%; padding: var(--space-2) var(--space-3); border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
 .sv-group__row:hover { background: color-mix(in srgb, var(--fg-default) 5%, transparent); }
 .sv-group__row:focus-visible { outline: var(--border-width) solid var(--accent); outline-offset: calc(var(--border-width) * -1); }
 .sv-group__head { display: flex; align-items: center; gap: var(--space-2); color: var(--fg-muted); }
-.sv-group__agent { display: inline-flex; align-items: center; gap: var(--space-1); font-weight: var(--weight-heading); color: var(--fg-default); }
+.sv-group__agent { display: inline-flex; align-items: center; gap: var(--space-1); color: var(--fg-muted); font-size: var(--text-2xs); line-height: var(--leading-2xs); font-weight: var(--weight-body); }
 .sv-group__seen { display: inline-flex; color: var(--fg-muted); }
 .sv-group__chevron { margin-left: auto; transition: rotate calc(var(--duration-sheet)) var(--ease); }
 .sv-group[data-open] .sv-group__chevron { rotate: 180deg; }
 .sv-group__title { overflow-wrap: anywhere; color: var(--fg-muted); font-family: var(--font-sans); font-size: var(--text-xs); line-height: var(--leading-xs); font-weight: var(--weight-body); }
-.sv-group__marks { display: flex; gap: var(--space-1); }
+.sv-group[data-state="live"] .sv-group__title { color: var(--fg-default); font-weight: var(--weight-medium); }
+.sv-group[data-state="done"] .sv-group__title { color: color-mix(in srgb, var(--step-advanced) 35%, var(--fg-muted)); }
+.sv-group[data-state="failed"] .sv-group__title { color: var(--step-failed); font-weight: var(--weight-medium); }
 /* The Session a group was handed to: its row, under the group's own and set off by a rule. */
 .sv-group__linked { border-top: var(--border-width) solid var(--border-subtle); }
-/* A group that names an issue: the issue is a press target of its own before the title, in a column of its own so the toggle stays one button. */
-.sv-group[data-issue] { display: grid; grid-template-columns: auto minmax(0, 1fr); }
-.sv-group[data-issue] > * { grid-column: 1 / -1; }
-.sv-group[data-issue] > .sv-group__issue { grid-column: 1; grid-row: 1; }
-.sv-group[data-issue] > .sv-group__row { grid-column: 2; grid-row: 1; padding-inline-start: var(--space-2); }
-.sv-group__issue { display: inline-flex; align-items: center; align-self: start; gap: var(--space-1); margin: var(--space-2) 0 0 var(--space-3); padding: 0 var(--space-1); border: 0; border-radius: var(--radius-sm); background: none; color: var(--fg-muted); font: inherit; font-size: var(--text-xs); line-height: var(--leading-sm); cursor: pointer; }
-.sv-group__issue:hover { background: color-mix(in srgb, var(--fg-default) 6%, transparent); }
-.sv-group__issue:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
-.sv-group__issue-mark { display: inline-flex; align-items: center; color: var(--fg-muted); }
-.sv-group__issue[data-state="closed"] .sv-group__issue-mark { color: var(--step-advanced); }
+/* A group that names an issue: the issue is a meta line of its own under the title, tucked up to it. */
+.sv-group__meta { display: flex; min-width: 0; padding: 0 var(--space-3) var(--space-2); margin-top: calc(var(--space-1) * -1); }
+.sv-plan .sv-group[data-step] > .sv-group__meta { padding-inline-start: calc(var(--space-3) + var(--space-3) + var(--space-2)); }
+.sv-issue { display: flex; align-items: center; gap: var(--space-1); min-width: 0; max-width: 100%; padding: 0; border: 0; border-radius: var(--radius-sm); background: none; color: var(--fg-muted); font: inherit; font-family: var(--font-sans); font-size: var(--text-2xs); line-height: var(--leading-2xs); font-weight: var(--weight-body); text-align: start; white-space: nowrap; cursor: pointer; }
+.sv-issue:hover .sv-issue__title { color: var(--fg-default); text-decoration: underline; }
+.sv-issue:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+.sv-issue__mark { display: inline-flex; flex: none; align-items: center; color: var(--accent); }
+.sv-issue[data-state="closed"] .sv-issue__mark { color: var(--step-advanced); }
+.sv-issue__key { flex: none; max-width: 50%; overflow: hidden; color: var(--accent); font-weight: var(--weight-medium); font-family: var(--font-mono); font-size: inherit; line-height: inherit; text-overflow: ellipsis; }
+.sv-issue__title { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 /* Its pull requests, under the tasks, when the plan holds them. */
 .sv-group__prs { padding: var(--space-2) var(--space-3); border-top: var(--border-width) solid var(--border-subtle); }
 .sv-group__body { display: flex; flex-direction: column; gap: var(--space-2); padding: 0 var(--space-3) var(--space-2); }
+/* The body already sets the group's edge, so its editor adds none and the tasks run as wide as the title. */
+.sv-group__body > .sv-edit-group { padding-inline: 0; }
 .sv-tasks { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
 .sv-task { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; gap: var(--space-2); font-family: var(--font-sans); }
 .sv-task > .armada-task-mark { display: inline-flex; align-items: center; align-self: start; height: 1lh; margin-top: 0; }
@@ -187,10 +192,14 @@
 .sv-edit-group__name { display: flex; align-items: flex-start; gap: var(--space-2); min-width: 0; }
 .sv-edit-group__name > .sv-edit { flex: 1; min-width: 0; flex-wrap: wrap; }
 .sv-edit-group__name .sv-edit__text { overflow-wrap: anywhere; }
-.sv-edit-group__head > .sv-group__agent { align-self: flex-start; }
+/* The subagent type and the paths are one row of meta, in the small control and the small muted text; the marks and tools close it. */
+.sv-edit-group__meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-2); min-width: 0; color: var(--fg-muted); font-size: var(--text-2xs); line-height: var(--leading-2xs); }
+.sv-edit-group__end { display: inline-flex; align-items: center; gap: var(--space-1); margin-inline-start: auto; }
 .sv-edit-group__head .armada-select-field { min-width: 0; }
 .sv-edit { display: inline-flex; flex-direction: column; align-items: flex-start; gap: var(--space-1); min-width: 0; }
 .sv-edit__text { padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: text; }
+/* The title keeps its own face wherever it is pressed to edit, not the panel body's mono. */
+.sv-edit__text.sv-group__title { font-family: var(--font-sans); }
 .sv-edit__text:hover { text-decoration: underline dotted; text-underline-offset: var(--space-1); }
 .sv-edit__text:focus-visible { outline: var(--border-width) solid var(--accent); }
 .sv-edit__was { color: var(--fg-subtle); font-size: var(--text-xs); }
@@ -201,13 +210,39 @@
 .sv-edit__tools:focus-within { opacity: 1; }
 .sv-task--edit { cursor: grab; }
 .sv-task__body { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
-.sv-task__line { position: relative; display: flex; align-items: center; gap: var(--space-2); min-width: 0; padding-right: calc(var(--space-8) + var(--space-8)); }
-/* The hover glyphs sit over the line's end and add no height, so the state glyph centres on the text's first line. */
-.sv-task__line > .sv-edit__tools { position: absolute; top: 0; right: 0; height: 1lh; align-items: center; }
+.sv-task__line { position: relative; display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
+/* The hover glyphs sit over the line's end on the group's own ground and add no height or width, so the words take the whole line and the state glyph centres on their first line. */
+.sv-task__line > .sv-edit__tools { position: absolute; top: 0; right: 0; height: 1lh; align-items: center; padding-inline-start: var(--space-2); background: var(--sv-group-bg, var(--bg-raised)); }
+/* The last line is an empty task to type into: a faint plus in the glyph column and a field with no box until it has the cursor. */
+.sv-task--new { align-items: center; }
+.sv-task__new-mark { display: inline-flex; align-items: center; justify-content: center; height: 1lh; color: var(--fg-subtle); }
+.sv-task--new .armada-input-field { min-width: 0; }
+.sv-task--new .armada-input { height: 1lh; padding: 0; border: 0; border-radius: 0; background: none; color: var(--fg-default); font: inherit; }
+/* With the cursor in it the line keeps a task's height: a rule under the words, the plus in the accent, no box. */
+.sv-task--new .armada-input:focus-visible { outline: none; background: none; box-shadow: inset 0 calc(var(--border-width) * -1) 0 var(--accent); }
+.sv-task--new:focus-within .sv-task__new-mark { color: var(--accent); }
 .sv-task--edit[data-removed] .sv-edit__text { text-decoration: line-through; color: var(--fg-subtle); }
 .sv-task--edit[data-added] .sv-edit__text,
 .sv-edit-group[data-added] .sv-group__title { color: var(--step-advanced); }
 .sv-task--gone { display: flex; align-items: center; gap: var(--space-2); color: var(--fg-muted); }
+/* An opened group's tasks are the Now view's rows: the same glyph column, size, weight and ink. */
+.sv-group .sv-edit-group .sv-task { grid-template-columns: var(--space-4) minmax(0, 1fr); column-gap: var(--space-2); color: var(--fg-muted); font-size: var(--text-xs); line-height: var(--leading-xs); font-weight: var(--weight-body); }
+.sv-group .sv-edit-group .sv-task[data-state="working"] { color: var(--fg-default); font-weight: var(--weight-medium); }
+.sv-group .sv-edit-group .sv-task[data-state="done"], .sv-group .sv-edit-group .sv-task[data-state="handed_in"] { color: var(--fg-subtle); }
+/* A drafted group's row holds the editable title and the chevron's own press, so the row itself is no button. */
+.sv-group__row[data-editable] { cursor: default; }
+.sv-group__row[data-editable] > .sv-edit { min-width: 0; }
+.sv-group__row[data-editable] > .sv-edit > .sv-edit__text { max-width: 100%; }
+.sv-group__row[data-editable] .armada-input { height: var(--h-control-sm); font-size: var(--text-xs); line-height: var(--leading-xs); }
+.sv-plan .sv-group[data-step="current"] .sv-group__row[data-editable] .armada-input { font-size: var(--text-sm); line-height: var(--leading-sm); }
+/* A group that works an issue holds two presses on its row: the title opens the issue, the chevron the group. */
+.sv-group__row[data-split] { cursor: default; }
+.sv-group__row[data-split] > button.sv-group__title { padding: 0; border: 0; background: none; text-align: left; cursor: pointer; }
+.sv-group__row[data-split] > button.sv-group__title:hover { text-decoration: underline; text-underline-offset: var(--space-1); }
+.sv-group__row[data-split] > button.sv-group__title:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+button.sv-group__head { padding: 0; border: 0; background: none; font: inherit; cursor: pointer; }
+button.sv-group__head:hover { color: var(--fg-default); }
+button.sv-group__head:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
 .sv-moved { color: var(--fg-muted); font-size: var(--text-2xs); font-family: var(--font-mono); }
 .sv-since { display: inline-flex; align-items: center; color: var(--fg-muted); font-size: var(--text-2xs); }
 .sv-since[data-kind="added"] { color: var(--step-advanced); }
@@ -227,7 +262,7 @@
 .sv-review__foot { display: flex; justify-content: flex-end; gap: var(--space-2); }
 .sv-plan__foot { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
 .sv-edit-group__head .armada-select-field { flex: none; width: auto; }
-.sv-edit-group__head .armada-select { width: auto; max-width: 18ch; height: var(--h-control-sm); font-size: var(--text-xs); }
+.sv-edit-group__head .armada-select { width: auto; max-width: 18ch; height: var(--h-control-sm); color: var(--fg-muted); font-size: var(--text-2xs); line-height: var(--leading-2xs); font-weight: var(--weight-body); }
 .sv-edit-group__head .armada-input-field,
 .sv-task__line .armada-input-field,
 .sv-edit-group > .armada-input-field { flex: 1; min-width: 0; }
@@ -237,19 +272,19 @@
 
 /* ==== Compact: what a Session open keeps on screen ================================================================ */
 
-/* The right column holds the Field, which takes the room, and Progress under it. A Progress with no plan is its band, and the Field has the rest. */
-.sv-side > .sv-panel[data-area="field"] { flex: 2 1 0; min-height: calc(var(--space-12) * 3); }
-.sv-side > .sv-panel[data-area="workflow"] { flex: 0 0 auto; }
-.sv-side > .sv-panel[data-area="progress"] { flex: 3 1 0; min-height: calc(var(--space-12) * 4); }
-.sv-side > .sv-panel[data-area="progress"]:has(> .sv-panel__body:empty) { flex: 0 0 auto; min-height: 0; }
+/* The right column tells the Job as a story: how its panels share the height is in `story.css`. */
 
 /* Progress: the workflow as one line of glyphs in the band. */
 .sv-rail { display: flex; flex: 1 1 0; align-items: center; min-width: 0; margin: 0; padding: 0; overflow: hidden; list-style: none; text-transform: none; letter-spacing: normal; }
 .sv-rail__step { display: flex; flex: none; align-items: center; gap: var(--space-1); min-width: 0; color: var(--fg-subtle); font-family: var(--font-sans); font-size: var(--text-2xs); line-height: var(--leading-xs); }
-.sv-rail__step + .sv-rail__step::before { content: ""; flex: none; width: var(--space-2); height: var(--border-width); margin-inline: var(--space-1); background: var(--border-default); }
-.sv-rail__mark { display: inline-flex; }
+.sv-rail__step + .sv-rail__step::before { content: ""; flex: none; width: var(--space-2); height: var(--border-width); margin-inline: var(--space-1); background: var(--border-strong); }
+.sv-rail__mark { display: inline-flex; border-radius: 50%; }
+/* A step is its state's dot: done in the advanced hue, the current one in the running hue on a ring of it, the rest dormant. The line into a step is lit once the Job has reached it. */
 .sv-rail__step[data-state="done"] { color: var(--step-advanced); }
-.sv-rail__step[data-state="now"] { color: var(--accent); }
+.sv-rail__step[data-state="now"] { color: var(--step-running); font-weight: var(--weight-heading); }
+.sv-rail__step[data-state="now"] .sv-rail__mark { background: color-mix(in srgb, var(--step-running) 22%, transparent); box-shadow: 0 0 0 var(--border-width) var(--step-running); }
+.sv-rail__step[data-state="done"]::before { background: color-mix(in srgb, var(--step-advanced) 70%, var(--border-strong)); }
+.sv-rail__step[data-state="now"]::before { background: var(--step-running); }
 
 /* ---- A layer over the stage ------------------------------------------------------------------------------------ */
 
@@ -258,10 +293,11 @@
 .sv-layer { position: absolute; inset: 0; z-index: 3; display: flex; flex-direction: column; min-height: 0; background: var(--bg-raised); }
 .sv-layer__head { display: flex; flex: none; align-items: center; gap: var(--space-3); min-height: var(--h-row-header); padding: 0 var(--space-3) 0 var(--space-4); border-bottom: var(--border-width) solid var(--border-subtle); }
 .sv-layer__title { margin: 0; color: var(--fg-muted); font-family: var(--font-mono); font-size: var(--text-xs); line-height: var(--leading-xs); font-weight: var(--weight-heading); letter-spacing: var(--tracking-caps); text-transform: uppercase; }
-.sv-layer__search { flex: 1 1 0; min-width: 0; max-width: calc(var(--space-12) * 8); margin-inline-start: auto; }
-.sv-layer__head > .armada-button { margin-inline-start: auto; }
-.sv-layer__search + .armada-button, .sv-layer__search ~ .armada-button { margin-inline-start: 0; }
-.sv-layer__head > .armada-tooltip { flex: none; }
+.sv-layer__head > .armada-tooltip { margin-inline-start: auto; }
+/* The search and the view switch stand on a row of their own under the head, the search filling what the switch leaves. */
+.sv-layer__tools { display: flex; flex: none; align-items: center; gap: var(--space-3); padding: var(--space-2) var(--space-3) var(--space-2) var(--space-4); border-bottom: var(--border-width) solid var(--border-subtle); }
+.sv-layer__search { flex: 1 1 0; min-width: 0; }
+.sv-layer__views { display: flex; flex: none; align-items: center; gap: var(--space-1); }
 .sv-layer__body { display: flex; flex: 1 1 0; flex-direction: column; gap: var(--space-4); min-height: 0; padding: var(--space-3) var(--space-4) var(--space-4); overflow-y: auto; overscroll-behavior: contain; }
 .sv-layer__group { display: flex; flex-direction: column; gap: var(--space-1); }
 .sv-layer__group-label { margin: 0; padding: 0 var(--space-2); color: var(--fg-subtle); font-family: var(--font-mono); font-size: var(--text-2xs); line-height: var(--leading-xs); font-weight: var(--weight-heading); letter-spacing: var(--tracking-caps); text-transform: uppercase; }

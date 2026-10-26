@@ -85,6 +85,33 @@ fn the_clis_lease_can_take_an_existing_branch() {
     assert_eq!(crate::leasing::lease(repo.path(), "feature", true), 0);
 }
 
+/// **A repository whose `armada.yml` is only Kit's copy leases a slot**, sized by that copy, as
+/// `armada check` reads it. `docs/concepts/kit.md`, *What a repository runs*.
+#[test]
+fn a_repository_with_only_kits_armada_yml_leases_a_slot() {
+    use super::clean::a_repository;
+    use std::sync::Arc;
+
+    let repo = a_repository();
+    let manifest = repo.path().join("armada.yml");
+    let declared = std::fs::read_to_string(&manifest).unwrap();
+    std::fs::remove_file(&manifest).unwrap();
+    let kit = crate::tests::TempDir::new();
+    kit.write("armada.yml", &format!("{declared}setup:\n  worktrees: 1\n"));
+    let copy = |_: &std::path::Path| {
+        Some(Arc::new(config::KitFile(kit.path().join("armada.yml"))) as Arc<dyn config::KitCopy>)
+    };
+
+    let pool = crate::leasing::pool_over(repo.path(), copy).expect("Kit's copy is the Manifest");
+    assert_eq!(pool.bays(), vec![1], "sized by Kit's copy");
+    let none = |_: &std::path::Path, _: &std::path::Path| Err(String::from("no seed"));
+    let here = Holder::of(std::process::id()).expect("running");
+    assert!(matches!(
+        pool.try_lease("one", &here, 0, &none),
+        Ok(adapters::leasing::Leased::Took(_))
+    ));
+}
+
 /// A Fleet that answers `ask_for_slot` with `standing`, and keeps what it was told: each body.
 mod fleet_asked {
     use std::io::{Read, Write};

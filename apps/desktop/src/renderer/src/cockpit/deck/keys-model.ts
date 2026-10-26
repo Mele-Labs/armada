@@ -7,6 +7,7 @@
 import { actionOf, formatSlot, slotsOf } from "@armada/components";
 
 import { PAUSE_KEY, SESSION_TILES, tileKey } from "./session-tiles";
+import { ARTIFACTS_KEY, BAND_KEYS, WHOLE_KEY } from "../../session-view/story";
 
 export type PanelId = "list" | "activity" | "stage" | "bays" | "queue" | "controls" | "dispatch" | "autopilot" | "views";
 
@@ -124,6 +125,15 @@ export function keySheetOf(): readonly SheetGroup[] {
         { keys: caps("dashboard_view"), does: "Show the map" },
         ...(built("deck_timeline") ? [{ keys: caps("deck_timeline"), does: actionOf("deck_timeline").verb }] : []),
         ...(built("deck_field") ? [{ keys: caps("deck_field"), does: actionOf("deck_field").verb }] : []),
+      ],
+    },
+    // The open Job's right column, told in order. Not acts of the registry: Bridge reads them where a Job is open (`session-view/story.ts`).
+    {
+      head: "Job open",
+      rows: [
+        ...BAND_KEYS.map((one) => ({ keys: [one.cap], does: one.area === "workflow" ? "Choose the workflow" : `Open or fold ${one.area[0]!.toUpperCase()}${one.area.slice(1)}` })),
+        { keys: [WHOLE_KEY.cap], does: "Blueprint: now or the whole plan" },
+        { keys: [ARTIFACTS_KEY.cap], does: "Artifacts over the right column" },
       ],
     },
     // The map's own keys and a replay's are a mode's, not acts of the registry: they listen only while the map or a replay is up.

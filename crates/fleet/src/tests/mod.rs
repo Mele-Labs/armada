@@ -160,6 +160,7 @@ mod plan_mirror;
 mod bay_history;
 mod verify_runs;
 mod watching;
+mod workflow_lands;
 mod workflow_promise;
 mod workspace_loading;
 mod workspace_ports;

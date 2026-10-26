@@ -50,7 +50,7 @@ const tickets: Session = {
   work: { proposal: { workflow: null } },
 };
 
-const base = holding("progress-issues-jira", "Progress lists a Session's tickets by their tracker's key, each with the pull requests its row names");
+const base = holding("progress-issues-jira", "A Session's tickets by their tracker's key stand in Deferred, and the pull requests their rows name in the Landing");
 
 export const s311ProgressIssuesJira: Scenario = {
   ...base,

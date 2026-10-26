@@ -114,9 +114,12 @@ test("Artifacts opens with focus in its search field, narrows as it is typed in,
   expect(document.activeElement).toBe(field);
   expect(host.querySelectorAll(".sv-layer__group").length).toBeGreaterThan(2);
   key({ key: "ArrowDown" });
+  expect(document.activeElement?.getAttribute("aria-label")).toBe("Pull request #7 Retry the lease");
+  key({ key: "ArrowDown" });
   expect(document.activeElement?.getAttribute("aria-label")).toBe("Lease notes");
   key({ key: "ArrowDown" });
   expect(document.activeElement?.getAttribute("aria-label")).toBe("Other");
+  key({ key: "ArrowUp" });
   key({ key: "ArrowUp" });
   key({ key: "ArrowUp" });
   expect(document.activeElement).toBe(field);
@@ -134,7 +137,7 @@ test("Commands lists the ten newest, and View all shows the rest", () => {
   try {
     const host = mount("artifacts");
     act(() => showLayer(ID, "artifacts"));
-    const commands = () => host.querySelectorAll('[aria-label="Commands"] .sv-layer__item').length;
+    const commands = () => host.querySelectorAll('[aria-label="Commands"] .sv-ledger').length;
     expect(commands()).toBe(10);
     const more = [...host.querySelectorAll<HTMLButtonElement>('[aria-label="Commands"] button')].find((one) => one.textContent === "View all 12")!;
     act(() => more.click());
@@ -149,7 +152,7 @@ test("Subagents lists every one, the running one first, and each is a row to pre
   const host = mount("subagents");
   act(() => showLayer(ID, "subagents"));
   expect(layer(host)?.getAttribute("aria-label")).toBe("Subagents");
-  const titles = [...host.querySelectorAll(".sv-layer__title-line")].map((one) => one.textContent);
+  const titles = [...host.querySelectorAll(".sv-ledger__title")].map((one) => one.textContent);
   expect(titles).toEqual(["Write the wire", "Find callers"]);
 });
 

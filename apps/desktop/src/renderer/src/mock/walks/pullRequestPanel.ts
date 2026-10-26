@@ -19,7 +19,7 @@ function steps(narrow: boolean): Step[] {
   const box = role("form", "Comment box");
   return [
     { press: inside(sessions, button("Store migration spike")), say: "A Job holding three pull requests" },
-    ...row(/^#2209 /, "The first is in the merge queue"),
+    ...row(/^Pull request #2209 /, "The first is in the merge queue"),
     { look: inside(status, text("3rd in the merge queue")), say: "Its place leads the status plate" },
     { hover: inside(status, text("3")), say: "The figure is named" },
     { look: queue, say: "The queue in order, this pull request ringed" },
@@ -48,7 +48,7 @@ function steps(narrow: boolean): Step[] {
     { key: "Meta+Enter", on: inside(queued, role("textbox", "Comment")), say: "Press \u2318\u21b5" },
     { look: inside(queued, text("Checked against the queue.")), say: "It joins the conversation" },
     { press: close(queued), say: "Back to the Job" },
-    ...row(/^#2210 /, "The second has passed every check"),
+    ...row(/^Pull request #2210 /, "The second has passed every check"),
     { look: inside(status, text("Ready to merge")), say: "The status plate alone, no queue to show" },
     { look: inside(ready, button("Merge", { exact: true })), say: "Merge is offered" },
     { look: inside(status, text("Review required")), say: "No review has been given" },
@@ -57,7 +57,7 @@ function steps(narrow: boolean): Step[] {
     { look: inside(ready, role("img", "Approved")), say: "It joins the conversation as a review" },
     { look: inside(status, text("Approved")), say: "The status plate follows" },
     { press: close(ready), say: "Back to the Job" },
-    ...row(/^#2213 /, "The third failed its checks"),
+    ...row(/^Pull request #2213 /, "The third failed its checks"),
     { look: region("Failing checks"), say: "A plate names the checks that failed" },
     { look: inside(status, text("Conflicts")), say: "The branch conflicts with main" },
     { press: inside(region("Failing checks"), button("Notify Job")), say: "The Job is told which failed" },

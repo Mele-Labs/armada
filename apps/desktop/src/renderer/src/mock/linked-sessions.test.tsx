@@ -1,5 +1,5 @@
 // A Session that handed groups of its plan to Sessions it follows, through `App` on `linked-sessions`: each group handed carries its Session's
-// row in Progress and the same Session is in the Artifacts layer under Sessions; the children stand under the parent in Work; what a child does
+// row in the Blueprint and the same Session is in the Artifacts layer under Sessions; the children stand under the parent in Work; what a child does
 // is a row in the parent's thread where it happened; and Enter opens a child while Esc returns to the parent as it was. The walk
 // `linkedSessions` plays it.
 
@@ -13,7 +13,7 @@ unmountAfterEach();
 
 const PARENT = "Move the store to named migrations";
 const work = () => page.getByRole("region", { name: "Jobs", exact: true });
-const progress = () => page.getByRole("region", { name: "Progress", exact: true });
+const blueprint = () => page.getByRole("region", { name: "Blueprint", exact: true });
 const artifacts = () => page.getByRole("region", { name: "Artifacts", exact: true });
 const openArtifacts = () => page.getByRole("region", { name: "Flight controls" }).getByRole("button", { name: "Artifacts" }).click();
 
@@ -36,27 +36,28 @@ test("in Work each linked Session stands right under its parent, led by link and
   await expect.element(work().getByLabelText("Linked Job, handed from Name the migrations")).toBeVisible();
 });
 
-test("in Progress a group handed to a Session carries its row in two lines, and one not handed offers the hand off", async () => {
+test("in the Blueprint a group handed to a Session carries its row in two lines, and one not handed offers the hand off", async () => {
   await parent();
-  const group = progress().getByRole("region", { name: "Name the migrations", exact: true });
+  await blueprint().getByRole("button", { name: "Whole blueprint", exact: true }).click();
+  const group = blueprint().getByRole("region", { name: "Name the migrations", exact: true });
   const row = group.getByRole("button", { name: "Open Migrations get names" });
   await expect.element(row).toBeVisible();
   await expect.element(row.getByLabelText("Linked Job")).toBeVisible();
   // Its second line holds the state mark and the pull request, and the group is the row it stands under, so it is not said again.
   await expect.element(row.getByText("#2412")).toBeVisible();
   expect(row.element().querySelector(".armada-linked__group")).toBeNull();
-  const open = progress().getByRole("button", { name: "List them in System", exact: true });
+  const open = blueprint().getByRole("button", { name: "List them in System", exact: true });
   await open.click();
-  await expect.element(progress().getByRole("button", { name: "Hand to a Job" })).toBeVisible();
+  await expect.element(blueprint().getByRole("button", { name: "Hand to a Job" })).toBeVisible();
 });
 
-test("in the Artifacts layer the same Sessions are under Sessions, each with the group it came from", async () => {
+test("in the Artifacts layer the same Jobs are under Jobs, each with the group it came from", async () => {
   await parent();
   await openArtifacts();
   const row = artifacts().getByRole("button", { name: "Migrations apply in order" });
   await expect.element(row).toBeVisible();
   await expect.element(row.getByText("Apply them in order")).toBeVisible();
-  await expect.element(artifacts().getByRole("region", { name: "Sessions", exact: true })).toBeVisible();
+  await expect.element(artifacts().getByRole("region", { name: "Jobs", exact: true })).toBeVisible();
 });
 
 test("a child that merges is a row in the parent's thread where it happened, a child that asks is not, and a press opens it", async () => {

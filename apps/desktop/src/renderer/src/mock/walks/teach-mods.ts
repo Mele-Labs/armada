@@ -61,7 +61,7 @@ function steps(): Step[] {
     { key: "Meta+Enter", on: instruction, say: "⌘↵ teaches" },
     { look: section("Layout"), say: "A layout change, and no note for agents" },
     { press: inside(panel, button("Save")), say: "Save" },
-    { look: region("Progress", { exact: true }), say: "The Field is gone" },
+    { look: region("Blueprint", { exact: true }), say: "The Field is gone" },
     { press: place("System"), say: "System" },
     { press: systemPage("Layout"), say: "Layout" },
     { look: role("group", "hide-field"), say: "The layout mod, and what it was taught on" },

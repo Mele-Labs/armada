@@ -290,3 +290,39 @@ fn what_it_is_for_survives_resolution() {
     let resolved = crate::ResolvedWorkflow::resolve(&def, &manifest()).expect("it resolves");
     assert_eq!(resolved.for_requests(), Some("A regression"));
 }
+
+/// **A workflow declaring no `lands` reads it off `delivers`**: a delivering
+/// step lands a pull request, and none lands a document.
+#[test]
+fn a_workflow_that_declares_no_landing_reads_it_off_delivers() {
+    let def = parse(BUG).expect("the worked example declares none");
+    assert_eq!(def.lands(), core_model::Lands::PullRequest);
+    let silent = parse(&BUG.replace("delivers: true", "delivers: false"))
+        .expect("a workflow may deliver nothing");
+    assert_eq!(silent.lands(), core_model::Lands::Document);
+}
+
+/// A declared landing wins over the fallback, and survives resolution, which
+/// is the copy Fleet serves.
+#[test]
+fn a_declared_landing_is_read_and_survives_resolution() {
+    let def = parse(&BUG.replace("name: bug\n", "name: bug\nlands: spike\n"))
+        .expect("spike is a landing");
+    assert_eq!(def.lands(), core_model::Lands::Spike);
+    let resolved = crate::ResolvedWorkflow::resolve(&def, &manifest()).expect("it resolves");
+    assert_eq!(resolved.lands(), core_model::Lands::Spike);
+}
+
+/// A word outside the four is refused at its key, never drawn as the
+/// fallback would draw it.
+#[test]
+fn a_landing_outside_the_four_is_refused() {
+    let refused = refusals(parse(&BUG.replace("name: bug\n", "name: bug\nlands: mod\n")));
+    assert!(
+        matches!(
+            fault_at(&refused, "lands"),
+            Fault::NotInTheSchema { value, .. } if value == "mod"
+        ),
+        "{refused:?}"
+    );
+}
