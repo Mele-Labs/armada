@@ -48,7 +48,7 @@ export function useProjectsFiling(picked: RepositorySummary | null, repositories
       };
     },
     add: (words, kind) => {
-      if (kind === "project" && bands.length === 1) store.addProject(bands[0]!.manifestId, words, false);
+      if (kind === "project" && bands.length === 1) void store.addProject(bands[0]!.manifestId, words, false);
     },
   };
 }

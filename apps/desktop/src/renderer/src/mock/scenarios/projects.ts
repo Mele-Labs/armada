@@ -4,17 +4,17 @@
 // task, a closed issue and an open one. The pairing task carries an issue and two subtasks. Both repositories' issues are read
 // from their trackers, as the Issues tab reads them. Played by the walk of the same name.
 
-import type { RepositorySummary, WaitingItem } from "@armada/protocol";
+import type { Projects, RepositorySummary, WaitingItem } from "@armada/protocol";
 import { repository } from "@armada/screens/src/fixtures/repository";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
 import type { TicketRead } from "../../issues-tab/model";
-import type { LinkedPull, Project } from "../../projects-tab/model";
+import type { LinkedPull } from "../../projects-tab/model";
 import { holding } from "../holding";
 import type { Scenario } from "../moment";
 import { sessionsStore } from "../sessions/script";
 import type { IssuesSeed } from "../slices/issues";
-import { doneAskId, projectsLink, rowOfAsk } from "../slices/projects";
+import { doneAskId, projectOfAsk, projectsLink } from "../slices/projects";
 
 const served = (id: string): RepositorySummary => ({
   root: `/Users/user/code/${id}`,
@@ -66,17 +66,14 @@ const SIGN_ROW = "task-sign";
 const say = (id: string, text: string) => ({ id, at: now(), kind: "message", from: { kind: "agent" }, text }) as const;
 const ask = (id: string, text: string) => ({ id, at: now(), kind: "message", from: { kind: "you" }, text }) as const;
 
-/**
- * The done ask on the finished Job. Fleet derives no task item yet, so it rides as a Fleet answer item: two choices, answered
- * with `answer_waiting`, and nothing sent to the agent.
- */
+/** The done ask on the finished Job: Fleet's `task_done` item for the project, two choices answered with `answer_waiting`. */
 const SIGN_ASK: WaitingItem = {
-  id: doneAskId(SIGN_ROW),
+  id: doneAskId("pocket-launch"),
   text: "Mark Sign the build done?",
   since: ago(1),
-  source: "slot_choice",
+  source: "task_done",
   options: [{ label: "Mark done" }, { label: "Keep open" }],
-  act: { kind: "answer", target: doneAskId(SIGN_ROW) },
+  act: { kind: "answer", target: doneAskId("pocket-launch") },
 };
 
 const SESSIONS = (): Session[] => [
@@ -131,51 +128,55 @@ const PULLS: LinkedPull[] = [
   { number: 2870, title: "Sign the macOS build in CI", url: "https://github.com/acme/armada/pull/2870", state: "merged" },
 ];
 
-const PROJECTS: Project[] = [
+/** What Fleet lists: tasks and issue rows flat, a parent followed by its subtasks, a reference or a number with what the tracker or forge said of it. */
+const PROJECTS: Projects[] = [
   {
-    id: "pocket-launch",
-    manifestId: "armada",
-    name: "Pocket launch",
-    usedAt: Date.now() - 3_600_000,
-    rows: [
+    manifest_id: "armada",
+    projects: [
       {
-        kind: "task",
-        id: "task-pair",
-        title: "Pair a phone by QR code",
-        done: false,
-        job: { id: PAIRING, title: "Wire the pairing screen" },
-        issues: [{ reference: "#2815", title: "Pair code expires before the phone scans it", url: "https://github.com/acme/armada/issues/2815", state: "open" }],
-        subtasks: [
-          { kind: "task", id: "task-pair-draw", title: "Draw the code from the tunnel address", done: true },
-          { kind: "task", id: "task-pair-scan", title: "Scan it on a small screen", done: false },
+        id: "pocket-launch",
+        name: "Pocket launch",
+        rows: [
+          {
+            kind: "task",
+            id: "task-pair",
+            title: "Pair a phone by QR code",
+            notes: "",
+            state: "held",
+            held_by: { session_id: PAIRING, title: "Wire the pairing screen" },
+            issues: [{ issue: "2815", title: "Pair code expires before the phone scans it", state: "open" }],
+          },
+          { kind: "task", id: "task-pair-draw", title: "Draw the code from the tunnel address", notes: "", state: "done", parent: "task-pair" },
+          { kind: "task", id: "task-pair-scan", title: "Scan it on a small screen", notes: "", state: "open", parent: "task-pair" },
+          { kind: "issue", id: "issue-2801", issue: "2801", title: "Pocket drops the socket when the Mac sleeps", state: "open" },
+          { kind: "task", id: SIGN_ROW, title: "Sign the build", notes: "", state: "asked", held_by: { session_id: SIGNING, title: "Sign the release build" } },
+          { kind: "task", id: "task-guide", title: "Write the install guide", notes: "", state: "asked", held_by: { session_id: GUIDE, title: "Write the install guide" } },
+          { kind: "task", id: "task-icon", title: "Pick the app icon", notes: "", state: "done" },
+          { kind: "issue", id: "issue-2790", issue: "2790", title: "Tunnel address is not saved", state: "closed" },
+          { kind: "task", id: "task-small", title: "Test on a small phone", notes: "", state: "open", pulls: [{ number: 2874, title: PULLS[0]!.title, state: "open" }] },
         ],
       },
-      { kind: "issue", id: "issue-2801", reference: "#2801", title: "Pocket drops the socket when the Mac sleeps", url: "https://github.com/acme/armada/issues/2801", state: "open" },
-      { kind: "task", id: SIGN_ROW, title: "Sign the build", done: false, job: { id: SIGNING, title: "Sign the release build" } },
-      { kind: "task", id: "task-guide", title: "Write the install guide", done: false, job: { id: GUIDE, title: "Write the install guide" } },
-      { kind: "task", id: "task-icon", title: "Pick the app icon", done: true },
-      { kind: "issue", id: "issue-2790", reference: "#2790", title: "Tunnel address is not saved", url: "https://github.com/acme/armada/issues/2790", state: "closed" },
-      { kind: "task", id: "task-small", title: "Test on a small phone", done: false, pulls: [PULLS[0]!] },
+      {
+        id: "cockpit-trust",
+        name: "Cockpit trust",
+        rows: [
+          { kind: "task", id: "task-replied", title: "Raise a call when a reply asks something", notes: "", state: "open" },
+          { kind: "task", id: "task-all-done", title: "Raise a call on all done", notes: "", state: "open" },
+        ],
+      },
     ],
   },
   {
-    id: "cockpit-trust",
-    manifestId: "armada",
-    name: "Cockpit trust",
-    usedAt: Date.now() - 7_200_000,
-    rows: [
-      { kind: "task", id: "task-replied", title: "Raise a call when a reply asks something", done: false },
-      { kind: "task", id: "task-all-done", title: "Raise a call on all done", done: false },
-    ],
-  },
-  {
-    id: "docs-refresh",
-    manifestId: "site",
-    name: "Docs refresh",
-    usedAt: Date.now() - 10_800_000,
-    rows: [
-      { kind: "issue", id: "issue-143", reference: "#143", title: "Search misses pages under guides", url: "https://github.com/acme/site/issues/143", state: "open" },
-      { kind: "task", id: "task-pairing-page", title: "Write the pairing page", done: false },
+    manifest_id: "site",
+    projects: [
+      {
+        id: "docs-refresh",
+        name: "Docs refresh",
+        rows: [
+          { kind: "issue", id: "issue-143", issue: "143", title: "Search misses pages under guides", state: "open" },
+          { kind: "task", id: "task-pairing-page", title: "Write the pairing page", notes: "", state: "open" },
+        ],
+      },
     ],
   },
 ];
@@ -191,17 +192,17 @@ function build(name: string): Scenario {
     ...base,
     state: { ...base.state, repository: null },
     draft: {
-      // The Needs you item answers the row: Mark done (0) or Keep open (1). Anything else is the store's.
+      // The Needs you item answers the rows: Mark done (0) or Keep open (1), and Fleet's copy of them moves with it. Anything else is the store's.
       sessions: (_control, more = []) => {
         const store = sessionsStore([...SESSIONS(), ...more], [], new Map(), []);
         projectsLink.jobs = store;
         return {
           ...store,
           answerWaiting: (id, itemId, given) => {
-            const row = rowOfAsk(itemId);
-            if (row === undefined) return store.answerWaiting?.(id, itemId, given);
+            const project = projectOfAsk(itemId);
+            if (project === undefined) return store.answerWaiting?.(id, itemId, given);
             store.edit(id, (one) => ({ ...one, waitingFor: (one.waitingFor ?? []).filter((it) => it.id !== itemId) }));
-            projectsLink.rows?.(row, given.choice === 0);
+            projectsLink.settle?.(id, project, given.choice === 0);
           },
         };
       },

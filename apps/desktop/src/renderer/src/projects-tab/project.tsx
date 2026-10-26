@@ -7,11 +7,13 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, CircleDashed, CircleDot, Link, ListTree, MessageCircleQuestion, Ticket, Trash2, X, GitPullRequest, SquareTerminal, type LucideIcon } from "lucide-react";
 import { Button, Kbd, PullRequestChip, RepositoryChip, SelectMark, SessionMark, Textarea, Tooltip, forgetKept } from "@armada/components";
+import type { NumberedHit } from "@armada/components";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
 import { useReorder } from "../cockpit/deck/reorder";
 import { JobMark, jobTitle } from "../issues-tab/marks";
 import { useSessions } from "../sessions-draft";
+import { useNumbered } from "../numbered";
 import type { Band } from "./list";
 import { PROJECTS_KEYS, capOf } from "./key-table";
 import type { Holder, Linked, LinkedPull, Project, ProjectRow, RowState, TaskRow } from "./model";
@@ -30,7 +32,7 @@ function markOf(row: ProjectRow, state: RowState): { Glyph: LucideIcon; said: st
 }
 
 /** What a row is called: an issue by its reference and title. */
-export const rowLabel = (row: ProjectRow): string => (row.kind === "issue" ? `${row.reference} ${row.title}` : row.title);
+export const rowLabel = (row: ProjectRow): string => (row.kind === "issue" ? [row.reference, row.title].filter((one) => one !== "").join(" ") : row.title);
 
 /** The cards a drag moves among: this project's, each holding its `[data-row]`. */
 const CARDS = ".projects-item-card[data-movable]";
@@ -64,7 +66,7 @@ function Pane({ band, project, onOpenSession, onOpenLink, onDispatch }: Hosts & 
         project={project}
         adding={subtasking === row.id}
         editing={editing === row.id}
-        state={rowState(row, sessions)}
+        state={rowState(row)}
         sessions={sessions}
         selected={selected.includes(row.id) || (parent !== undefined && selected.includes(parent.id))}
         onOpenSession={onOpenSession}
@@ -134,6 +136,11 @@ function Card({ row, sub, project, adding, editing, state, sessions, selected, o
   const store = useProjectsStore()!;
   const { Glyph, said } = markOf(row, state);
   const label = rowLabel(row);
+  // A pull request Fleet listed has its number only: where it is on the forge is read when it is pressed.
+  const openPull = (one: LinkedPull) => {
+    if (one.url !== "") return onOpenLink(one.url);
+    void window.armada.getPullRequest(project.manifestId, one.number).then((read) => read.ok && onOpenLink(read.value.address));
+  };
   const interactive = (target: EventTarget) => target instanceof Element && target.closest("button, a, textarea, input") !== null;
   return (
     <div
@@ -231,7 +238,7 @@ function Card({ row, sub, project, adding, editing, state, sessions, selected, o
           {row.kind === "task"
             ? (row.pulls ?? []).map((one) => (
                 <span key={one.number} className="projects-row__linked">
-                  <PullRequestChip framed number={one.number} title={one.title} state={one.state} tabIndex={-1} onOpen={() => onOpenLink(one.url)} />
+                  <PullRequestChip framed number={one.number} title={one.title} state={one.state} tabIndex={-1} onOpen={() => openPull(one)} />
                   <Unlink pull said={`Unlink #${one.number}`} onUnlink={() => store.unlinkPull(row.id, one.number)} />
                 </span>
               ))
@@ -259,8 +266,8 @@ function IssueChips({ issues }: { issues: readonly Linked[] }) {
   return (
     <span className="projects-row__issues">
       {issues.map((one) => (
-        <Tooltip key={one.reference} label={one.title} asChild>
-          <span className="projects-row__issue" data-state={one.state} role="img" aria-label={`${one.reference} ${one.title}`}>
+        <Tooltip key={one.reference} label={one.title === "" ? one.reference : one.title} asChild>
+          <span className="projects-row__issue" data-state={one.state} role="img" aria-label={[one.reference, one.title].filter((word) => word !== "").join(" ")}>
             {one.reference}
           </span>
         </Tooltip>
@@ -382,6 +389,18 @@ function EditTitle({ row, manifestId }: { row: TaskRow; manifestId: string }) {
 /** The card a row is drawn as, once the list has drawn again. */
 export const refocusRow = (rowId: string): void => void window.requestAnimationFrame(() => document.querySelector<HTMLElement>(`.projects-row[data-row="${CSS.escape(rowId)}"]`)?.focus());
 
+/** The repository's pull requests the search offers: those the store serves, then the open ones `#` reads, each once. */
+function pullsOf(served: readonly LinkedPull[], hits: readonly NumberedHit[]): LinkedPull[] {
+  const found = new Map(served.map((one) => [one.number, one]));
+  for (const { tag, standing } of hits) {
+    const number = Number(tag.id);
+    if (tag.kind !== "pull_request" || found.has(number)) continue;
+    const title = tag.title.startsWith(`#${number} `) ? tag.title.slice(`#${number} `.length) : tag.title;
+    found.set(number, { number, title, url: tag.url ?? "", state: standing === "Merged" ? "merged" : standing === "Closed" ? "closed" : "open" });
+  }
+  return [...found.values()];
+}
+
 type Found =
   | { kind: "issue"; key: string; said: string; issue: Linked }
   | { kind: "job"; key: string; said: string; job: Holder }
@@ -404,6 +423,7 @@ function LinkSearch({ band, project, task }: { band: Band; project: Project; tas
   const store = useProjectsStore()!;
   const { issues, failed } = useOpenIssues(band.manifestId);
   const sessions = useSessions();
+  const numbered = useNumbered(band.manifestId);
   const keep = `projects:link:${task?.id ?? project.id}`;
   const [words, setWords] = useState("");
   // A press elsewhere on the page puts the search away, as Esc does; the press that opened it is not elsewhere. A page
@@ -424,8 +444,7 @@ function LinkSearch({ band, project, task }: { band: Band; project: Project; tas
   const pullsLinked = new Set((task === undefined ? rows.flatMap((row) => (row.kind === "task" ? (row.pulls ?? []) : [])) : (task.pulls ?? [])).map((one) => one.number));
   const found: Found[] = [
     ...issues.filter((one) => !issuesLinked.has(one.reference)).map((one): Found => ({ kind: "issue", key: one.reference, said: `${one.reference} ${one.title}`, issue: one })),
-    ...store
-      .pullsOf(band.manifestId)
+    ...pullsOf(store.pullsOf(band.manifestId), numbered?.open ?? [])
       .filter((one) => !pullsLinked.has(one.number))
       .map((one): Found => ({ kind: "pull", key: `pull:${one.number}`, said: `#${one.number} ${one.title}`, pull: one })),
     ...sessions

@@ -58,7 +58,7 @@ export type MockDraft = {
   prReview?: ReviewSeed;
   /** Each repository's tracker for the Issues tab, its issues and what the model writes, built into a store per window. Mock only: no route serves the tab yet. */
   issuesTab?: IssuesSeed;
-  /** His projects for the Projects tab, built into a store per window. Mock only: nothing keeps projects on the Mac yet. */
+  /** Each repository's projects as Fleet lists them, which the mock Fleet answers the Projects routes from. A window with none has no Projects tab. */
   projectsTab?: ProjectsSeed;
   /** Each repository's pull requests, by Manifest id, which the Projects tab's link search offers. */
   projectsPulls?: Readonly<Record<string, readonly import("../projects-tab/model").LinkedPull[]>>;
