@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { ComponentProps, ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { ExternalLink, GitFork, PanelRightClose, PanelRightOpen, PowerOff, Rewind } from "lucide-react";
+import { CornerUpRight, ExternalLink, GitFork, PanelRightClose, PanelRightOpen, PowerOff, Rewind } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import {
   Alert,
@@ -23,6 +23,7 @@ import {
   type PlanApproval,
   SessionEndBand,
   ConcernCard,
+  NotOursCard,
   keyFor,
   ProseTerminal,
   Tooltip,
@@ -71,7 +72,8 @@ import { sessionOf } from "@armada/screens/src/lessons/retro";
 import { askToOpenRetro } from "./open-retro";
 import { useDispatchFailureHere } from "./failure-session";
 import { handoffOf } from "./session-handoff";
-import { chooseFolder, readRetro, searchFiles } from "./commands";
+import { chooseFolder, openLink, readRetro, searchFiles } from "./commands";
+import { escalation, failingLink, notOursParts, watchSaid } from "./session-view/watch-marks";
 import { ArtifactBody, ARTIFACT_GLYPH, isAddress, type PictureMarked } from "./session-artifact";
 import { linkEntry, useStartedBy } from "./session-started";
 import { readingOfSketch } from "./session-sketch";
@@ -551,8 +553,8 @@ export function entriesOf(
   release?: LedgerRelease["rowOf"],
 ): LedgerEntry[] {
   // An ended Session waits on nobody: its ledger is what it made, to be read.
-  // A recorded plan and a judge's concern are cards in the thread, so the ledger does not list them again.
-  const waiting = (session.dead === "ended" ? [] : owesOf(session).filter((one) => one.source !== "plan" && one.source !== "judge")).map((one): LedgerEntry => {
+  // A recorded plan and a judge's concern are cards in the thread, so the ledger does not list them again. A watch that ended not ours is a card in Needs you.
+  const waiting = (session.dead === "ended" ? [] : owesOf(session).filter((one) => one.source !== "plan" && one.source !== "judge" && one.source !== "watch_not_ours")).map((one): LedgerEntry => {
     // An `answer` with no choices and no question in the thread has nowhere to go, so it takes words as no act does.
     const act = one.act?.kind === "answer" && one.options === undefined && session.asked === undefined ? undefined : one.act;
     // A restart is the Fleet panel's build switch: it reads as its label and is one key, as on its call card.
@@ -1005,6 +1007,23 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
     text: one.text,
     children: <ConcernCard bare concern={one} onSend={() => draft.work?.sendConcern(session.id, one.id)} onDismiss={() => draft.work?.dismissConcern(session.id, one.id)} />,
   }));
+  // A watch that ended not ours is a card too, read from the watch its act names.
+  const notOurs = (session.dead === "ended" ? [] : owesOf(session).filter((one) => one.source === "watch_not_ours")).flatMap((one) => {
+    const watch = session.watches?.find((it) => it.id === one.act?.target);
+    if (watch === undefined) return [];
+    const aside = new Map((watch.set_aside ?? []).map((it) => [it.part, it.sentence]));
+    const link = failingLink(watch);
+    const answer = (choice: number) => void draft.answerWaiting?.(session.id, one.id, { choice });
+    return [
+      {
+        id: one.id,
+        text: one.text,
+        Glyph: CornerUpRight,
+        said: watchSaid(watch),
+        children: <NotOursCard watch={watch.name} parts={notOursParts(watch).map((name) => ({ name, sentence: aside.get(name) ?? "" }))} {...(link === undefined ? {} : { link })} summary={escalation(watch)} onFixIt={() => answer(1)} onIgnore={() => answer(0)} onOpenLink={(address) => void openLink(address)} />,
+      },
+    ];
+  });
   // An adversarial review of the plan: its press on the plan card, and its findings pinned to the plan, on the card and in the plan in full.
   const adversary = draft.work?.adversarial;
   const adversarial = session.work?.plan === undefined || session.work.plan.approved || adversary === undefined ? undefined : (session.work.adversarial ?? { state: "idle" as const });
@@ -1016,9 +1035,9 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
   }, [planDrawn]);
   const setAside = draft.work?.setAside === undefined ? undefined : () => draft.work?.setAside?.(session.id);
   const approval: PlanApproval | undefined = session.work?.plan === undefined || !planDrawn ? undefined : { ...(session.work.plan.version === undefined ? {} : { version: session.work.plan.version }), ...(session.work.plan.summary === undefined ? {} : { summary: session.work.plan.summary }), groups: session.work.plan.groups.map((one) => ({ id: one.id, agent: one.agent, title: one.title, ...(one.gives === undefined ? {} : { gives: one.gives }), paths: one.paths, tasks: one.tasks.map((task) => ({ id: task.id, text: task.text })) })), approved: session.work.plan.approved, ...(session.work.plan.setAside === true ? { setAside: true as const } : {}), ...(session.pressed?.includes("plan") === true ? { going: true as const } : {}), changes: changeLines(session.work.plan), ...planRevision(session.work.plan), ...(session.work.plan.sketch === undefined ? {} : { sketch: { id: session.work.plan.sketch.id, title: session.work.plan.sketch.title, scene: session.work.plan.sketch.scene } }), ...(session.work.plan.after === undefined ? {} : { after: session.work.plan.after }), ...(adversarial === undefined || adversary === undefined ? {} : { adversarial: { review: adversarial, onRun: () => adversary.run(session.id), onSend: (finding: string) => adversary.send(session.id, finding), onDismiss: (finding: string) => adversary.dismiss(session.id, finding), shortcut: keyFor("plan_adversarial_review") } }), onApprove: approvePlan, ...(setAside === undefined ? {} : { onSetAside: setAside }), onReview: () => setReviewing(true) };
-  const waits = needs.length > 0 || question !== undefined || judges.length > 0;
+  const waits = needs.length > 0 || question !== undefined || judges.length > 0 || notOurs.length > 0;
   // Open only for what the panel lists: a restart is the band's own key, and a band with nothing in it is not drawn open.
-  const listed = needs.some((one) => one.restart === undefined) || question !== undefined || judges.length > 0;
+  const listed = needs.some((one) => one.restart === undefined) || question !== undefined || judges.length > 0 || notOurs.length > 0;
   // The delivery question opens the card before he has touched it; once he has closed or opened it, his choice holds.
   const panelOpen = (panel?.id === session.id ? panel.open : holdsDelivery(session)) && waits && listed;
   // The agent's last word is a band of its own on the composer, and Needs you has the slot first: it waits until nothing else does.
@@ -1186,7 +1205,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
           {docked.pane}
           <CallChip word={callWord(session)} scope={centre} />
           <div className="sv-dock" data-needs={waits || endShown || failedShown ? "" : undefined} data-open={panelOpen || endOpen} data-end={endOpen ? "" : undefined} data-starting={starting === undefined ? undefined : ""}>
-          <NeedsYouPanel key={session.id} rows={needs} open={panelOpen} onOpen={(open) => setPanel({ id: session.id, open })} {...(question === undefined ? {} : { question })} judges={judges} />
+          <NeedsYouPanel key={session.id} rows={needs} open={panelOpen} onOpen={(open) => setPanel({ id: session.id, open })} {...(question === undefined ? {} : { question })} judges={judges} cards={notOurs} />
           {failedShown ? (
             <HandoffBand
               {...(session.handoffReason === undefined ? {} : { reason: session.handoffReason })}
