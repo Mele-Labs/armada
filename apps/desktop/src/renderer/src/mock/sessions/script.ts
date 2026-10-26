@@ -692,6 +692,19 @@ export function sessionsStore(
       // A reply to a replied or done Session is a message from him, which wakes it.
       if (item.source === "replied" || item.source === "done") return store.send(id, { text: given.text ?? "", files: [], sketches: [], tags: [] });
       const chosen = given.choice === undefined ? given.text : item.options?.[given.choice]?.label;
+      // A watch that ended not ours is Fleet's own ask: Ignore tells the agent nothing, Fix it is a message naming what broke.
+      if (item.source === "watch_not_ours") {
+        edit(id, (one) => ({ ...one, waitingFor: (one.waitingFor ?? []).filter((it) => it.id !== itemId) }));
+        if (chosen === "Fix it") {
+          const watch = now.find((one) => one.id === id)?.watches?.find((it) => it.id === item.act?.target);
+          const aside = watch?.set_aside ?? [];
+          const parts = aside.map((it) => it.part).join(", ");
+          const link = watch?.last?.kind === "read" ? watch.last.link : undefined;
+          const text = [`Fix ${parts} in ${watch?.name ?? item.text}. The person pressed Fix it on what you set aside as not ours.`, ...aside.map((it) => `${it.part}, set aside: ${it.sentence}`), ...(link === undefined ? [] : [`The failing run: ${link}`])].join("\n");
+          addTo(id, [row((rid, stamp) => ({ id: rid, at: stamp, kind: "message", from: { kind: "you" }, text })), said(`Looking at ${parts}.`)]);
+        }
+        return;
+      }
       edit(id, (one) => {
         const { asked, ...rest } = one;
         void asked;
