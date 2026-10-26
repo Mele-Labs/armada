@@ -33,8 +33,11 @@ A Command that fails starts no process: `failed` names it, `ended` says how, the
 `setup.id` is what `observe_server` takes, so setup's output is read as a process's is, under the name `setup`, and `setup.log_path` is its file, absolute.
 Each setup is a new id. `setup` is absent where this Fleet has run none for the run on that checkout, which a checkout already set up never needs.
 Stopping the run stops its setup.
-Fleet keeps a mark per checkout under `.armada/setup/` beside the servers' logs, never in the tree: a fingerprint of the Commands and of the lockfiles and package manifests at the root and in each folder a Command names, and the paths the setup made.
-A checkout is set up while the fingerprint holds and each path it made is still there, so a slot cleaned for its next lease is set up again.
+Fleet keeps a mark per checkout under `.armada/setup/` beside the servers' logs, never in the tree: for each Command that passed, its evidence (the Command's name and line, and the lockfiles and package manifests at the root and in each folder it names), and the paths the setup made.
+It is written as each Command passes, so a setup that failed at its second Command is tried again from the second, and a failed Command is never recorded.
+A Command is skipped while its evidence holds and each path the setup made is still there, so a slot cleaned for its next lease is set up again whole.
+A save that changes a Command's line, or a changed lockfile it reads, runs that Command again and no other.
+A skipped Command is not `running`, so it reads as done like any Command before the one `running` or `failed`.
 
 **A draft proposes setup.** `AppRunDraft.setup` and `SaveAppRun.setup` are `{name, command}` each, run from the checkout's root in order.
 A lockfile beside a `package.json` proposes that folder's install (`npm ci --prefix`, `pnpm install --frozen-lockfile --dir`, `yarn --cwd … install --frozen-lockfile`, `bun install --frozen-lockfile --cwd`), and a `requirements.txt` or `pyproject.toml` proposes a `.venv` made beside it and filled.

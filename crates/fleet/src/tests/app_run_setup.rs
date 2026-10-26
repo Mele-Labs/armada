@@ -169,3 +169,104 @@ async fn a_setup_command_that_fails_starts_no_process_and_the_run_says_which() {
     let (again, _) = Arc::clone(&fleet).run_started(&target, "app").await.expect("it is started");
     assert_ne!(again.setup.map(|one| one.id), Some(setup.id));
 }
+
+/// Two Commands that each count their runs in a file of their own. `second` fails until
+/// `network-up` is there. `web_deps` reads the `web` folder's lockfile.
+const TWO_STEPS: &str = r#"version: 1
+id: 01FIXTUREMANIFEST
+ports:
+  web: {}
+commands:
+  first:
+    run: "/bin/sh -c 'mkdir -p deps; echo ran >> first.txt'"
+  second:
+    run: "/bin/sh -c 'test -f network-up || { echo no network; exit 4; }; echo ran >> second.txt'"
+  app_deps:
+    run: "/bin/sh -c 'echo ran >> app.txt'"
+  web_deps:
+    run: "/bin/sh -c 'echo ran >> web/runs.txt'"
+  web:
+    serve: python3 -m http.server ${port.web} --bind 127.0.0.1
+    ready: curl -sf http://127.0.0.1:${port.web}/
+setup:
+  requires: [first, second]
+runs:
+  app:
+    commands: [web]
+"#;
+
+fn ran(root: &std::path::Path, file: &str) -> usize {
+    std::fs::read_to_string(root.join(file)).map_or(0, |text| text.lines().count())
+}
+
+#[tokio::test]
+async fn a_setup_that_failed_at_its_second_command_tries_again_from_there() {
+    let home = TempDir::new();
+    let events = api::Broadcaster::new();
+    let fleet = a_fleet_holding(&home, &events, TWO_STEPS, TWO_STEPS);
+    let root = std::path::PathBuf::from(fleet.first().root());
+    let target = RunTarget::Main(None);
+
+    Arc::clone(&fleet).run_started(&target, "app").await.expect("it is started");
+    let failed = settled(&fleet, "app", |view| view.setup.as_ref().is_some_and(|one| one.state == SetupState::Failed)).await;
+    assert_eq!(failed.setup.and_then(|one| one.failed).as_deref(), Some("second"));
+    assert_eq!((ran(&root, "first.txt"), ran(&root, "second.txt")), (1, 0));
+
+    std::fs::write(root.join("network-up"), "").expect("the cause is gone");
+    Arc::clone(&fleet).run_started(&target, "app").await.expect("it is tried again");
+    let up = settled(&fleet, "app", |view| view.phase() == RunPhase::Running).await;
+    assert_eq!(up.setup.as_ref().map(|one| one.state), Some(SetupState::Ready));
+    assert_eq!((ran(&root, "first.txt"), ran(&root, "second.txt")), (1, 1), "the first Command was not run again");
+    fleet.run_stopped(&target, "app").await.expect("it stops");
+}
+
+#[tokio::test]
+async fn a_changed_lockfile_runs_again_the_command_traced_from_it() {
+    let home = TempDir::new();
+    let events = api::Broadcaster::new();
+    let manifest = TWO_STEPS.replace("requires: [first, second]", "requires: [app_deps, web_deps]");
+    let fleet = a_fleet_holding(&home, &events, &manifest, &manifest);
+    let root = std::path::PathBuf::from(fleet.first().root());
+    std::fs::create_dir_all(root.join("web")).expect("a folder a Command names");
+    std::fs::write(root.join("web/package-lock.json"), "one\n").expect("what web_deps is traced from");
+    let target = RunTarget::Main(None);
+
+    Arc::clone(&fleet).run_started(&target, "app").await.expect("it is started");
+    settled(&fleet, "app", |view| view.phase() == RunPhase::Running).await;
+    fleet.run_stopped(&target, "app").await.expect("it stops");
+    assert_eq!((ran(&root, "app.txt"), ran(&root, "web/runs.txt")), (1, 1));
+
+    std::fs::write(root.join("web/package-lock.json"), "two\n").expect("changed");
+    Arc::clone(&fleet).run_started(&target, "app").await.expect("it starts");
+    settled(&fleet, "app", |view| view.phase() == RunPhase::Running).await;
+    fleet.run_stopped(&target, "app").await.expect("it stops");
+    assert_eq!((ran(&root, "app.txt"), ran(&root, "web/runs.txt")), (1, 2), "only the Command that reads web's lockfile");
+
+    std::fs::write(root.join("requirements.txt"), "fastapi\n").expect("the root's changed");
+    Arc::clone(&fleet).run_started(&target, "app").await.expect("it starts");
+    settled(&fleet, "app", |view| view.phase() == RunPhase::Running).await;
+    fleet.run_stopped(&target, "app").await.expect("it stops");
+    assert_eq!((ran(&root, "app.txt"), ran(&root, "web/runs.txt")), (2, 3), "a root file is every Command's");
+}
+
+#[tokio::test]
+async fn a_saved_change_to_a_commands_line_runs_that_command_again() {
+    let home = TempDir::new();
+    let events = api::Broadcaster::new();
+    let manifest = TWO_STEPS.replace("requires: [first, second]", "requires: [app_deps, web_deps]");
+    let fleet = a_fleet_holding(&home, &events, &manifest, &manifest);
+    let root = std::path::PathBuf::from(fleet.first().root());
+    std::fs::create_dir_all(root.join("web")).expect("a folder a Command names");
+    let target = RunTarget::Main(None);
+
+    Arc::clone(&fleet).run_started(&target, "app").await.expect("it is started");
+    settled(&fleet, "app", |view| view.phase() == RunPhase::Running).await;
+    fleet.run_stopped(&target, "app").await.expect("it stops");
+
+    let edited = manifest.replace("echo ran >> web/runs.txt", "echo ran again >> web/runs.txt");
+    std::fs::write(home.path().join("armada.yml"), edited).expect("a save writes the line");
+    Arc::clone(&fleet).run_started(&target, "app").await.expect("it starts");
+    settled(&fleet, "app", |view| view.phase() == RunPhase::Running).await;
+    fleet.run_stopped(&target, "app").await.expect("it stops");
+    assert_eq!((ran(&root, "app.txt"), ran(&root, "web/runs.txt")), (1, 2), "only the Command whose line changed");
+}

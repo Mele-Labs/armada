@@ -1,12 +1,14 @@
 //! A checkout set up before a run starts on it: the Manifest's `setup.requires`, run at the
-//! checkout's root in the file's order, **once for each checkout and again when what it was traced
-//! from changed**. `docs/concepts/manifest.md`, *Root armada.yml*.
+//! checkout's root in the file's order, **each Command once for each checkout and again when what
+//! it was traced from changed**. `docs/concepts/manifest.md`, *Root armada.yml*.
 //!
-//! **What Fleet keeps is a mark per checkout**, beside its servers' logs and never in the tree: a
-//! fingerprint of the Commands and of the dependency files they read (lockfiles and package
-//! manifests, at the root and in each folder a Command names), and the paths the setup made. A
-//! checkout is set up when the fingerprint is the same and each path it made is still there, so a
-//! slot cleaned for its next lease (`git clean -fdx`) is set up again, and an unchanged one is not.
+//! **What Fleet keeps is a mark per checkout**, beside its servers' logs and never in the tree:
+//! for each Command that passed, its evidence (the Command's name and line, and the dependency
+//! files it read: lockfiles and package manifests, at the root and in each folder it names), and
+//! the paths the setup made. It is written as each Command passes, so a setup that failed at the
+//! second Command is tried again from the second. A Command is done when its evidence is the same
+//! and each path the setup made is still there, so a slot cleaned for its next lease
+//! (`git clean -fdx`) is set up again whole, and an unchanged one is not.
 //!
 //! **Setup is a run's first phase and not a server.** It is held in its own book beside the servers
 //! (`Setups`), one per checkout, and the runs that asked for it start when it passes. Its output is
@@ -132,11 +134,12 @@ impl Setups {
     }
 }
 
-/// What a setup that passed leaves on disk for the checkout: the fingerprint it passed at, and the
-/// paths it made.
+/// What a setup leaves on disk for the checkout: the evidence each Command passed at, and the paths
+/// the setup made.
 #[derive(Debug, Default, PartialEq, Eq)]
 struct Mark {
-    fingerprint: String,
+    /// `(name, evidence)` of each Command that passed.
+    done: Vec<(String, String)>,
     made: Vec<String>,
 }
 
@@ -146,7 +149,11 @@ impl Mark {
         let mut mark = Mark::default();
         for line in text.lines() {
             match line.split_once(' ') {
-                Some(("fingerprint", value)) => mark.fingerprint = value.to_string(),
+                Some(("done", rest)) => {
+                    if let Some((evidence, name)) = rest.split_once(' ') {
+                        mark.done.push((name.to_string(), evidence.to_string()));
+                    }
+                }
                 Some(("made", path)) => mark.made.push(path.to_string()),
                 _ => {}
             }
@@ -155,7 +162,10 @@ impl Mark {
     }
 
     fn written(&self, at: &Path) {
-        let mut text = format!("fingerprint {}\n", self.fingerprint);
+        let mut text = String::new();
+        for (name, evidence) in &self.done {
+            text.push_str(&format!("done {evidence} {name}\n"));
+        }
         for path in &self.made {
             text.push_str(&format!("made {path}\n"));
         }
@@ -163,6 +173,21 @@ impl Mark {
             let _ = std::fs::create_dir_all(parent);
         }
         let _ = std::fs::write(at, text);
+    }
+
+    /// Whether `step` passed at `evidence`.
+    fn has(&self, step: &Preparation, evidence: &str) -> bool {
+        self.done.iter().any(|(name, held)| name == step.name() && held == evidence)
+    }
+
+    /// `step` passed at `evidence`, in place of an earlier record of it.
+    fn passed(&mut self, step: &Preparation, evidence: String) {
+        self.forgotten(step);
+        self.done.push((step.name().to_string(), evidence));
+    }
+
+    fn forgotten(&mut self, step: &Preparation) {
+        self.done.retain(|(name, _)| name != step.name());
     }
 }
 
@@ -227,14 +252,12 @@ fn fnv(hash: u64, bytes: &[u8]) -> u64 {
     bytes.iter().fold(hash, |hash, byte| (hash ^ u64::from(*byte)).wrapping_mul(0x0100_0000_01b3))
 }
 
-/// The fingerprint of `setup` on `checkout`: each Command's name and line, and each traced file's
-/// path and bytes.
-fn fingerprint(checkout: &Path, setup: &[Preparation]) -> String {
+/// The evidence `step` is done at on `checkout`: its name and line, and the path and bytes of each
+/// traced file in the root and in each folder its line names.
+fn evidence(checkout: &Path, step: &Preparation) -> String {
     let mut hash = 0xcbf2_9ce4_8422_2325;
-    for step in setup {
-        hash = fnv(hash, format!("{}\0{}\0", step.name(), step.run()).as_bytes());
-    }
-    for folder in traced_folders(checkout, setup) {
+    hash = fnv(hash, format!("{}\0{}\0", step.name(), step.run()).as_bytes());
+    for folder in traced_folders(checkout, std::slice::from_ref(step)) {
         for file in EVIDENCE {
             let path = checkout.join(&folder).join(file);
             if let Ok(bytes) = std::fs::read(&path) {
@@ -267,17 +290,24 @@ fn mark_path(checkout: &Checkout) -> PathBuf {
     Path::new(checkout.served().records_root()).join(".armada").join("setup").join(checkout.under()).join("ran")
 }
 
-/// Whether `setup` has to run on `checkout`: never run there, run when it was traced from other
-/// files or other Commands, or something it made has gone.
-fn needed(checkout: &Checkout, setup: &[Preparation]) -> bool {
-    if setup.is_empty() {
-        return false;
-    }
+/// What a checkout's mark holds that is still true: no Command passed where something the setup
+/// made has gone, as a slot's clean takes it. The paths still there stay its own.
+fn kept(checkout: &Checkout) -> Mark {
     let root = Path::new(checkout.path());
-    match Mark::read(&mark_path(checkout)) {
-        None => true,
-        Some(mark) => mark.fingerprint != fingerprint(root, setup) || mark.made.iter().any(|path| !root.join(path).exists()),
+    let Some(mut mark) = Mark::read(&mark_path(checkout)) else { return Mark::default() };
+    if mark.made.iter().any(|path| !root.join(path).exists()) {
+        mark.done.clear();
+        mark.made.retain(|path| root.join(path).exists());
     }
+    mark
+}
+
+/// Whether `setup` has to run on `checkout`: a Command that never passed there, passed when it was
+/// traced from other files or was another line, or something the setup made has gone.
+fn needed(checkout: &Checkout, setup: &[Preparation]) -> bool {
+    let root = Path::new(checkout.path());
+    let mark = kept(checkout);
+    setup.iter().any(|step| !mark.has(step, &evidence(root, step)))
 }
 
 impl<H, V, W> Fleet<H, V, W>
@@ -352,8 +382,8 @@ where
         true
     }
 
-    /// Each Command in order, its output appended to `log`. **`true` where every one passed**, and
-    /// the mark is then written.
+    /// Each Command in order that is not done, its output appended to `log`. **`true` where every
+    /// one passed**. The mark is written as each does, and before it runs.
     async fn setup_ran(
         &self,
         checkout: &Checkout,
@@ -364,11 +394,19 @@ where
     ) -> bool {
         let root = Path::new(checkout.path());
         let before = entries(root, setup);
+        // What an earlier setup made is still its own, though this one found it there already.
+        let mut mark = kept(checkout);
         self.setup_told(checkout, manifest, |_| {}).await;
         for step in setup {
             if *stopped.borrow() {
                 break;
             }
+            if mark.has(step, &evidence(root, step)) {
+                continue;
+            }
+            // Written before it runs, so a Command that fails is not taken for one that passed.
+            mark.forgotten(step);
+            mark.written(&mark_path(checkout));
             self.setup_told(checkout, manifest, |view| view.running = Some(step.name().to_string())).await;
             marked(log, &format!("--- {}: {} ---", step.name(), step.run()));
             let attempt = checks_runner::run_until(
@@ -407,6 +445,13 @@ where
                 .await;
                 return false;
             }
+            for path in entries(root, setup) {
+                if !before.contains(&path) && !mark.made.contains(&path) {
+                    mark.made.push(path);
+                }
+            }
+            mark.passed(step, evidence(root, step));
+            mark.written(&mark_path(checkout));
         }
         if *stopped.borrow() {
             self.setup_told(checkout, manifest, |view| {
@@ -417,15 +462,6 @@ where
             .await;
             return false;
         }
-        // What an earlier setup made is still its own, though this one found it there already.
-        let mut made: Vec<String> = Mark::read(&mark_path(checkout)).map(|mark| mark.made).unwrap_or_default();
-        made.retain(|path| root.join(path).exists());
-        for path in entries(root, setup) {
-            if !before.contains(&path) && !made.contains(&path) {
-                made.push(path);
-            }
-        }
-        Mark { fingerprint: fingerprint(root, setup), made }.written(&mark_path(checkout));
         marked(log, "--- set up ---");
         self.setup_told(checkout, manifest, |view| {
             view.state = SetupState::Ready;
