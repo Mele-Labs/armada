@@ -25,9 +25,9 @@
 
 .armada-run-confirm__command { grid-column: 1 / -1; }
 
-/* The folder's full path sits in the second column, under the field, and gives up its tail rather than the row's width. */
+/* The folder's full path starts under the field and runs to the row's end, so a usual path shows whole; a longer one gives up its tail. */
 .armada-run-confirm__path {
-  grid-column: 2;
+  grid-column: 2 / -1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
