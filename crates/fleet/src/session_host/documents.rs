@@ -74,6 +74,35 @@ where
             });
         }
     }
+
+    /// The turn ended: every page under `<cwd>/.armada/documents/` is read again, so one a script or a
+    /// shell changed is kept too. A page whose bytes the newest revision holds keeps nothing.
+    pub(super) async fn pages_reread(self: &Arc<Self>, id: &str, cwd: &str) {
+        let folder = Path::new(cwd).join(DOCUMENTS.trim_matches('/'));
+        let Ok(pages) = tokio::task::spawn_blocking(move || pages_under(&folder)).await else { return };
+        for page in pages {
+            self.page_written(id, page).await;
+        }
+    }
+}
+
+/// Every `.html` file under `folder`, its subfolders too, as `written_job_page` allows them. A
+/// symlinked folder is not followed, so a link back up cannot loop.
+fn pages_under(folder: &Path) -> Vec<String> {
+    let mut found = Vec::new();
+    let mut open = vec![folder.to_path_buf()];
+    while let Some(dir) = open.pop() {
+        for entry in std::fs::read_dir(&dir).into_iter().flatten().flatten() {
+            let (Ok(kind), path) = (entry.file_type(), entry.path()) else { continue };
+            if kind.is_dir() {
+                open.push(path);
+            } else if kind.is_file() && path.extension().is_some_and(|ext| ext.eq_ignore_ascii_case("html")) {
+                found.push(path.to_string_lossy().into_owned());
+            }
+        }
+    }
+    found.sort();
+    found
 }
 
 /// The one line that tells a Job which sketches of its page will not draw, or `None` where all do.
