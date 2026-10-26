@@ -59,7 +59,7 @@ export function useUiSounds(settings: SettingsList | null): void {
  * A link to a pull request opened from outside (`armada://pull/...`, behind `features.deepLinks`): Reviews opens on its page, `go` having taken the window there.
  * **Held until a repository is drawn**, since a link that launched the app arrives before the window has read which ones Fleet serves. A refusal is `say`'s, never a dead press.
  */
-export function usePullLinks(go: () => void, repositories: readonly RepositorySummary[], say: (words: string) => void): void {
+export function usePullLinks(go: () => void, repositories: readonly RepositorySummary[], say: (words: string) => void): (link: PullLink) => void {
   const store = useReviewStore();
   const [waiting, setWaiting] = useState<PullLink | undefined>(undefined);
   const latest = useRef({ go, say });
@@ -71,4 +71,5 @@ export function usePullLinks(go: () => void, repositories: readonly RepositorySu
     latest.current.go();
     void openLinked(store, repositories, waiting).then((refused) => refused === undefined || latest.current.say(refused));
   }, [waiting, store, repositories]);
+  return setWaiting;
 }
