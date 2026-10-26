@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import type { AppRun, AppRunDraft, Outcome, ServerMessage } from "@armada/protocol";
 
 import type { AppRunsOf } from "../../shared/api/app-runs";
-import { createFleetRuns, type FleetRuns } from "./fleet-runs";
+import { createFleetRuns, draftOf, type FleetRuns } from "./fleet-runs";
 
 const ROOT = "/Users/nick/code/shop";
 const settled = () => new Promise((done) => setTimeout(done, 0));
@@ -191,6 +191,11 @@ describe("the acts, as Fleet takes them", () => {
       savedIn: "armada.yml",
       links: [{ from: "web", to: "api", port: 8731, found: "vite.config.ts" }],
     });
+  });
+
+  it("say each place a run can be saved in, cloud storage among them", () => {
+    const saved = (place: string) => draftOf([], ROOT, place).savedIn;
+    expect(["repository", "this_mac", "synced", "cloud"].map(saved)).toEqual(["armada.yml", "this Mac", "a synced folder", "cloud storage"]);
   });
 
   it("save what was confirmed with the draft's port variable handed back, then pin what was pinned in the confirm and start again", async () => {

@@ -48,7 +48,7 @@ export type RunDraft = {
   /** The repository's root as it is shown, the home directory already written `~`. A process's folder is read from here. */
   root: string;
   processes: readonly RunProcessSpec[];
-  savedIn: "armada.yml" | "this Mac";
+  savedIn: "armada.yml" | "this Mac" | "a synced folder" | "cloud storage";
   /** What the repository's files say one process expects of another. */
   links?: readonly RunLink[];
 };

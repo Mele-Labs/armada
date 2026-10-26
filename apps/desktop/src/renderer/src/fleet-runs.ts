@@ -76,13 +76,15 @@ export function appOf(run: AppRun, repository: string, logs: ReadonlyMap<string,
   };
 }
 
+/** Fleet's place for a repository's Kit, in the words Kit's place picker uses. */
+const SAVED_IN: Readonly<Record<string, RunDraft["savedIn"]>> = { repository: "armada.yml", this_mac: "this Mac", synced: "a synced folder", cloud: "cloud storage" };
+
 /** A draft as the confirm edits it. A process is known by its proposed name, which is how its `port_env` goes back with it. */
 export function draftOf(processes: readonly AppRunDraftProcess[], root: string, place: string, links?: readonly AppRunLink[]): RunDraft {
   return {
     root: root.replace(/^\/Users\/[^/]+/, "~"),
     processes: processes.map((one) => ({ id: one.name, name: one.name, folder: one.dir ?? ".", command: one.command })),
-    // A synced folder is a folder on this Mac. The confirm has no word for cloud storage yet.
-    savedIn: place === "repository" ? "armada.yml" : "this Mac",
+    savedIn: SAVED_IN[place] ?? "this Mac",
     ...linksOf(links),
   };
 }
