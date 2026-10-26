@@ -1,6 +1,7 @@
 // A Job's document, read: the HTML the Job wrote, made safe to draw inside Bridge's own page. **Sealed by construction.** The text is
 // parsed by `DOMParser`, which runs no script and loads nothing, and the page is rebuilt element by element from an allow list, so no
-// script, handler, frame, form, image or `style` attribute survives. Its CSS is read rule by rule, kept only where it holds no address,
+// script, handler, frame, form, image or `style` attribute survives. An inline `svg` is rebuilt the same way, from shapes and text with presentation attributes, so a chart
+// can be drawn and nothing in it can load or run. Its CSS is read rule by rule, kept only where it holds no address,
 // and every selector is put under the page's own root with its classes and ids renamed, so it styles the page and nothing of Bridge's
 // and Bridge's classes style nothing in it. Bridge's CSP refuses inline script and handlers besides. The kit is the one link kept.
 
@@ -30,8 +31,19 @@ const ALLOWED = new Set(
   "a abbr aside b blockquote br caption cite code col colgroup dd del details dfn div dl dt em figcaption figure footer h1 h2 h3 h4 h5 h6 header hr i ins kbd li main mark nav ol p pre q s samp section small span strong sub summary sup table tbody td tfoot th thead time tr u ul var".split(" "),
 );
 /** Dropped with everything inside them. Any other tag that is not allowed is dropped and what it held is kept. */
-const DROPPED = new Set("script style link meta title head iframe frame frameset object embed applet form input button textarea select option svg math img picture source audio video canvas template noscript base".split(" "));
+const DROPPED = new Set("script style link meta title head iframe frame frameset object embed applet form input button textarea select option math img picture source audio video canvas template noscript base".split(" "));
 const KEPT_ATTRIBUTES = new Set(["colspan", "rowspan", "scope", "headers", "datetime", "open", "start", "lang", "title", "abbr"]);
+
+const SVG_NS = "http://www.w3.org/2000/svg";
+/** Shapes, text and grouping, enough for a chart. Anything else inside an `svg` is dropped with what it holds; an `a` without an address is unwrapped, and one with an address is dropped. */
+const SVG_ALLOWED = new Set("svg g path rect circle ellipse line polyline polygon text tspan title desc defs clipPath".split(" "));
+const SVG_ATTRIBUTES = new Set(
+  (
+    "viewBox preserveAspectRatio x y width height cx cy r rx ry x1 y1 x2 y2 points d transform dx dy textLength lengthAdjust clipPathUnits role aria-label aria-hidden " +
+    "fill fill-opacity fill-rule stroke stroke-width stroke-opacity stroke-linecap stroke-linejoin stroke-dasharray stroke-dashoffset stroke-miterlimit opacity clip-path clip-rule " +
+    "font-family font-size font-weight font-style letter-spacing text-anchor text-decoration dominant-baseline alignment-baseline baseline-shift visibility display"
+  ).split(" "),
+);
 
 const OUTSIDE = ":not(.armada-doc__sketch-mount *)";
 
@@ -118,6 +130,41 @@ function copy(from: Element, into: Gathered): HTMLElement {
   return one;
 }
 
+/** A presentation value, kept unless it reaches for an address: only a reference to an `id` in the same chart (`clip-path`) survives, renamed as ids are. */
+function svgValue(value: string): string | undefined {
+  if (!/url\(|image-set\(|expression\(|javascript:|@import/i.test(value)) return value;
+  const local = /^\s*url\(\s*#(-?[_a-zA-Z][\w-]*)\s*\)\s*$/.exec(value);
+  return local === null ? undefined : `url(#d-${local[1]!})`;
+}
+
+function svgCopy(from: Element): SVGElement {
+  const one = document.createElementNS(SVG_NS, from.localName);
+  for (const { name, value } of Array.from(from.attributes)) {
+    if (name === "class") one.setAttribute("class", value.split(/\s+/).filter((x) => x !== "").map((x) => `d-${x}`).join(" "));
+    else if (name === "id") one.setAttribute("id", `d-${value}`);
+    else if (SVG_ATTRIBUTES.has(name)) {
+      const kept = svgValue(value);
+      if (kept !== undefined) one.setAttribute(name, kept);
+    }
+  }
+  svgFill(from, one);
+  return one;
+}
+
+function svgFill(from: Node, into: Node): void {
+  for (const child of Array.from(from.childNodes)) {
+    if (child.nodeType === Node.TEXT_NODE) {
+      into.appendChild(document.createTextNode(child.textContent ?? ""));
+      continue;
+    }
+    if (!(child instanceof Element)) continue;
+    if (child.localName === "a") {
+      if (!child.hasAttribute("href") && !child.hasAttribute("xlink:href")) svgFill(child, into);
+    }
+    else if (child.namespaceURI === SVG_NS && SVG_ALLOWED.has(child.localName)) into.appendChild(svgCopy(child));
+  }
+}
+
 function fill(from: Node, into: Node, gathered: Gathered): void {
   for (const child of Array.from(from.childNodes)) {
     if (child.nodeType === Node.TEXT_NODE) {
@@ -127,6 +174,7 @@ function fill(from: Node, into: Node, gathered: Gathered): void {
     if (!(child instanceof Element)) continue;
     const name = child.tagName.toLowerCase();
     if (name === "armada-sketch") into.appendChild(sketchOf(child, gathered));
+    else if (name === "svg" && child.namespaceURI === SVG_NS) into.appendChild(svgCopy(child));
     else if (DROPPED.has(name)) continue;
     else if (ALLOWED.has(name)) into.appendChild(copy(child, gathered));
     else fill(child, into, gathered);

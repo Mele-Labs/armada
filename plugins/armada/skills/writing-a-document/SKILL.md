@@ -119,8 +119,35 @@ uncoloured.
 
 ## Figures and charts
 
-There is no chart element. Bridge drops `svg` and `img`, so a drawn chart does
-not render.
+There is no chart element. A chart is an inline `<svg>` in a `<figure>`, drawn
+from shapes and text. Bridge drops `img`, so a chart is never a picture file.
+
+- Give the `<svg>` a `viewBox` and no fixed width, so it scales to the column.
+  The kit sets its text colour, type and size.
+- Colour a mark with a class and a rule in your `<style>` using the kit's
+  variables, as below. A `fill` or `stroke` attribute may also be a variable,
+  such as `fill="var(--accent)"`. A hex value does not follow the theme.
+- Say what the chart shows in `role="img"` and `aria-label` on the `<svg>`, and
+  put the figures behind it in a `<table>` as well, so a person can note a row.
+- Set `fill="none"` on a line or outline, as any SVG needs.
+
+```html
+<figure>
+  <svg viewBox="0 0 240 100" role="img" aria-label="Failures by week">
+    <rect class="bar" x="10" y="40" width="40" height="50"/>
+    <rect class="bar" x="70" y="20" width="40" height="70"/>
+    <rect class="bar bad" x="130" y="60" width="40" height="30"/>
+    <text x="30" y="98" text-anchor="middle">W1</text>
+    <text x="90" y="98" text-anchor="middle">W2</text>
+    <text x="150" y="98" text-anchor="middle">W3</text>
+  </svg>
+  <figcaption>Failures by week</figcaption>
+</figure>
+<style>
+  .bar { fill: var(--accent); }
+  .bad { fill: var(--status-completed-failed); }
+</style>
+```
 
 - Put figures in a `<table>` with `<thead>` and `<tbody>`. The person notes a
   row of the body, so one row holds one fact.
@@ -148,7 +175,8 @@ error:
 |---|---|
 | `<script>`, event handlers such as `onclick` | Nothing runs. Use a table or a sketch |
 | `style="…"` attributes | A class and a rule in `<style>` |
-| `<img>`, `<svg>`, `<canvas>`, `<video>`, `<audio>` | A table, a bar, a sketch |
+| `<img>`, `<canvas>`, `<video>`, `<audio>` | An inline `<svg>`, a table, a bar, a sketch |
+| In an `<svg>`: `<script>`, `<foreignObject>`, `<use>`, `<image>`, an `<a>` with an address, gradients and filters, `style="…"` | Shapes, text and `<g>`, coloured by class |
 | `<iframe>`, `<object>`, `<embed>`, `<form>`, `<input>`, `<button>` | Words |
 | Any `<link>` but `armada-kit.css` | `<style>` |
 | A CSS rule with `url(…)`, `@import`, `@font-face`, `@keyframes` | System fonts, no motion |

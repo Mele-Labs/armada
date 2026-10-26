@@ -23,5 +23,6 @@ th { padding: var(--space-2) var(--space-3); border-block-end: var(--border-widt
 td { padding: var(--space-2) var(--space-3); border-block-end: var(--border-width) solid var(--border-subtle); }
 figure { margin: var(--space-6) 0; }
 figcaption { margin-block-start: var(--space-2); color: var(--fg-muted); font-size: var(--text-xs); line-height: var(--leading-xs); }
+svg { display: block; max-inline-size: 100%; block-size: auto; color: var(--fg-default); fill: currentColor; font-family: var(--font-sans); font-size: var(--text-xs); }
 hr { border: 0; border-block-start: var(--border-width) solid var(--border-subtle); margin: var(--space-6) 0; }
 `;

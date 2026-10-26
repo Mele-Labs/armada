@@ -69,13 +69,21 @@ Why: the page is drawn inside Bridge's own page. The code is `document-page.ts`.
 | Kept | Dropped |
 |---|---|
 | Headings, paragraphs, lists, tables, `code`, `pre`, `figure`, `details` | `iframe`, `object`, `embed`, `form`, `input`, `button` |
-| Sectioning and inline text elements, `a` | `img`, `video`, `audio`, `canvas`, `svg`, `math` |
+| Sectioning and inline text elements, `a` | `img`, `video`, `audio`, `canvas`, `math` |
+| Inline `svg` of shapes and text | In an `svg`: `script`, `foreignObject`, `use`, `image`, `a` with an address |
 | `colspan`, `rowspan`, `scope`, `headers`, `datetime`, `open`, `start`, `lang`, `title`, `abbr` | `script`, with what is inside it, and every event handler |
 | `class` and `id`, renamed | The `style` attribute |
 | A link to `#…` or `http(s)://…` | Any other link address |
 
 An element in neither column is dropped and its contents kept.
+An element inside an `svg` that is not allowed is dropped with its contents.
 The page's `<style>` and the kit's link are read for CSS and are not drawn as elements.
+
+**Rule.** An inline `svg` is rebuilt from `svg`, `g`, `path`, `rect`, `circle`, `ellipse`, `line`, `polyline`, `polygon`, `text`, `tspan`, `title`, `desc`, `defs` and `clipPath`, so a Job can draw a chart.
+Its attributes are `viewBox`, `preserveAspectRatio`, `class`, `id`, `role`, `aria-label`, `aria-hidden`, the geometry of those shapes and the presentation attributes (`fill`, `stroke`, the font and text attributes, `opacity`, `clip-path`).
+Why: a chart is shapes and text, and none of the dropped elements can draw one.
+A value holding an address is dropped, except `url(#id)` to an id in the same page, which is renamed as ids are.
+Gradients, filters and animation are not allowed.
 
 **Rule.** The page's CSS is read rule by rule and put under the page's own root.
 A rule holding an address (`url(`, `image-set(`, `@import`) is dropped, and so is any at-rule other than `@media`.
