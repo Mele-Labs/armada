@@ -1,11 +1,12 @@
 // A `PhoneSource` over Fleet's phone switch and the Gateway's admin routes, asked through Bridge's
 // main process. Reads when something is listening: the switch first, and the Gateway only while it is
 // on and Fleet's Gateway listens. A code that is shown and unexpired is polled for a claim every 2 s,
-// and nothing else polls except a card showing a problem with access on, which looks again every 5 s
-// so that a freed port, signing in to Tailscale or a corrected `pocket-address` clears it without a press.
+// a card showing a problem with access on looks again every 5 s, so that a freed port, signing in to
+// Tailscale or a corrected `pocket-address` clears it without a press, and so does a way in not yet
+// finished, so a step done in Tailscale's own app or on the tailnet's page shows done.
 
 import type { PhoneAccess, PhoneAnswer, PhoneRequest } from "./api";
-import type { PhoneGateway, PhoneSource, PhoneState } from "./phone-source";
+import type { PhoneGateway, PhoneSetup, PhoneSource, PhoneState } from "./phone-source";
 
 const CLAIM_EVERY = 2000;
 const RETRY_EVERY = 5000;
@@ -16,8 +17,12 @@ type Started = { code: string; address: string; expires_at: number };
 
 export type PhoneAsk = (request: PhoneRequest) => Promise<PhoneAnswer>;
 
-export function createPhoneGatewaySource(ask: PhoneAsk, now: () => number = Date.now): PhoneSource {
-  let state: PhoneState = { access: null, gateway: { state: "running" }, phones: [], pairing: null, claim: null };
+/** Every step done that a person takes: a tunnel of his own, or Funnel on. */
+const finished = (setup: PhoneSetup | null) => setup !== null && (setup.named || setup.served === "funnel");
+
+export function createPhoneGatewaySource(ask: PhoneAsk, now: () => number = Date.now, open: (page: string) => void = () => undefined): PhoneSource {
+  let state: PhoneState = { access: null, gateway: { state: "running" }, phones: [], pairing: null, claim: null, setup: null };
+  let setupTimer: ReturnType<typeof setInterval> | undefined;
   let code: string | null = null;
   let listening = 0;
   let claimTimer: ReturnType<typeof setInterval> | undefined;
@@ -42,7 +47,7 @@ export function createPhoneGatewaySource(ask: PhoneAsk, now: () => number = Date
   async function took(access: PhoneAccess): Promise<void> {
     if (!access.on) {
       code = null;
-      return set({ access: { on: false, turning: false }, gateway: { state: "running" }, phones: [], pairing: null, claim: null });
+      return set({ access: { on: false, turning: false }, gateway: { state: "running" }, phones: [], pairing: null, claim: null, setup: null });
     }
     if (!access.listening) {
       const why = access.why ?? `Nothing listens on port ${access.port}.`;
@@ -67,6 +72,16 @@ export function createPhoneGatewaySource(ask: PhoneAsk, now: () => number = Date
     const failed = problem(list);
     if (failed !== null) return set({ gateway: failed });
     set({ gateway: { state: "running" }, phones: devices(list.ok && Array.isArray(list.body) ? (list.body as Device[]) : []) });
+    await readSetup();
+  }
+
+  /** The way in as the Gateway says it now, keeping a Funnel press still waiting on the tailnet's page. */
+  async function readSetup(): Promise<void> {
+    const answer = await ask({ op: "setup" });
+    if (!answer.ok || answer.body === null || typeof answer.body !== "object") return set({ setup: null });
+    const read = answer.body as PhoneSetup;
+    const waiting = state.setup?.funnel?.state === "approve" && read.served !== "funnel" ? { funnel: state.setup.funnel } : {};
+    set({ setup: { ...read, ...waiting } });
   }
 
   async function poll(): Promise<void> {
@@ -87,6 +102,9 @@ export function createPhoneGatewaySource(ask: PhoneAsk, now: () => number = Date
     if (wantsRetry && retry === undefined) retry = setInterval(() => void refresh(), RETRY_EVERY);
     if (!wantsRetry && retry !== undefined) (clearInterval(retry), (retry = undefined));
     if (state.pairing === null && expiry !== undefined) (clearTimeout(expiry), (expiry = undefined));
+    const wantsSetup = listening > 0 && on && state.gateway.state === "running" && state.setup !== null && !finished(state.setup);
+    if (wantsSetup && setupTimer === undefined) setupTimer = setInterval(() => void readSetup(), RETRY_EVERY);
+    if (!wantsSetup && setupTimer !== undefined) (clearInterval(setupTimer), (setupTimer = undefined));
   }
 
   return {
@@ -135,6 +153,23 @@ export function createPhoneGatewaySource(ask: PhoneAsk, now: () => number = Date
         await refresh();
       });
     },
+    funnel: () => {
+      if (state.setup === null) return;
+      set({ setup: { ...state.setup, funnel: { state: "turning" } } });
+      void ask({ op: "funnel" }).then(async (answer) => {
+        if (state.setup === null) return;
+        if (!answer.ok) {
+          const said = answer.why === "unreachable" ? "The Gateway is not running." : answer.said;
+          return set({ setup: { ...state.setup, funnel: { state: "said", said } } });
+        }
+        const page = (answer.body as { approve?: unknown } | null)?.approve;
+        if (typeof page === "string") return set({ setup: { ...state.setup, funnel: { state: "approve", page } } });
+        const { funnel: _done, ...rest } = state.setup;
+        set({ setup: rest });
+        await readSetup();
+      });
+    },
+    open,
     unpair: (id) => {
       void ask({ op: "unpair", id }).then(async (answer) => {
         const bad = problem(answer);

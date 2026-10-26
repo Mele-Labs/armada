@@ -23,6 +23,7 @@ mod push;
 mod reads;
 mod routes;
 mod session_routes;
+mod setup;
 mod signing;
 mod stat;
 mod vapid;
@@ -41,6 +42,7 @@ pub use pairing::{
 pub use push::{Push, PLACEHOLDER_SUBJECT};
 pub use watch::follow;
 pub use routes::{router, Fleet, Gateway};
+pub use setup::{mac_way_in, Funnel, WayIn};
 
 /// Bind the Gateway's listener. **There is no host parameter**: the address is
 /// loopback by construction, so no setting can open it to a network.
