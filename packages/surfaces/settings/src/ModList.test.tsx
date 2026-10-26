@@ -64,3 +64,45 @@ test("a source that cannot try draws no Try button", async () => {
   await expect.element(page.getByRole("group", { name: "edited", exact: true })).toBeVisible();
   expect(page.getByRole("button", { name: "Try edited" }).elements()).toHaveLength(0);
 });
+
+test("Create mod sits in the header and calls onCreate, and is not drawn where no one offers it", async () => {
+  const create = vi.fn();
+  mount(
+    <TaughtSourceProvider value={source()}>
+      <ModList kind="tracker" title="Trackers" onCreate={create} />
+    </TaughtSourceProvider>,
+  );
+  await userEvent.click(page.getByRole("button", { name: "Create mod" }));
+  expect(create).toHaveBeenCalledTimes(1);
+  unmount();
+  mount(
+    <TaughtSourceProvider value={source()}>
+      <ModList kind="tracker" title="Trackers" />
+    </TaughtSourceProvider>,
+  );
+  await expect.element(page.getByRole("group", { name: "used", exact: true })).toBeVisible();
+  expect(page.getByRole("button", { name: "Create mod" }).elements()).toHaveLength(0);
+});
+
+test("a press on a row's name opens the mod with its name, title and kind, and leaves its switch alone", async () => {
+  const open = vi.fn();
+  const setEnabled = vi.fn();
+  mount(
+    <TaughtSourceProvider value={source({ setEnabled })}>
+      <ModList kind="tracker" onOpenMod={open} />
+    </TaughtSourceProvider>,
+  );
+  await userEvent.click(page.getByRole("button", { name: "Open edited" }));
+  expect(open).toHaveBeenCalledWith({ name: "edited", title: "edited", kind: "tracker" });
+  expect(setEnabled).not.toHaveBeenCalled();
+});
+
+test("a row opens nothing where no one takes the press", async () => {
+  mount(
+    <TaughtSourceProvider value={source()}>
+      <ModList kind="tracker" />
+    </TaughtSourceProvider>,
+  );
+  await expect.element(page.getByRole("group", { name: "edited", exact: true })).toBeVisible();
+  expect(page.getByRole("button", { name: "Open edited" }).elements()).toHaveLength(0);
+});

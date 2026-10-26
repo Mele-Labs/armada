@@ -51,13 +51,40 @@ describe("starting a Mod Job", () => {
     expect(startMod).toHaveBeenCalledWith({ title: "Usage meter", note });
   });
 
-  it("answers not understood to a body with no note, and sends nothing", async () => {
+  it("passes an empty body through as an empty Mod Job", async () => {
     const handlers = new Map<string, Handler>();
     const startMod = vi.fn(async () => ({ ok: true }));
     const ipc = { handle: (channel: string, handler: Handler) => handlers.set(channel, handler) };
     handleSessions({ ipc, connection: () => ({ sessions: { startMod } }), windowIdOf: () => undefined, pages: {} } as unknown as Parameters<typeof handleSessions>[0]);
-    expect(await handlers.get(CHANNELS.startModSession)?.({}, { title: "x" })).toEqual({ ok: false, outcome: { ok: false, why: "not_understood" } });
+    await handlers.get(CHANNELS.startModSession)?.({}, {});
+    expect(startMod).toHaveBeenCalledWith({});
+  });
+
+  it("passes his words as said, and answers not understood to a malformed note or words, sending nothing", async () => {
+    const handlers = new Map<string, Handler>();
+    const startMod = vi.fn(async () => ({ ok: true }));
+    const ipc = { handle: (channel: string, handler: Handler) => handlers.set(channel, handler) };
+    handleSessions({ ipc, connection: () => ({ sessions: { startMod } }), windowIdOf: () => undefined, pages: {} } as unknown as Parameters<typeof handleSessions>[0]);
+    const start = handlers.get(CHANNELS.startModSession);
+    await start?.({}, { said: "a dark theme" });
+    expect(startMod).toHaveBeenCalledWith({ said: "a dark theme" });
+    startMod.mockClear();
+    const notUnderstood = { ok: false, outcome: { ok: false, why: "not_understood" } };
+    expect(await start?.({}, { note: { said: "x" } })).toEqual(notUnderstood);
+    expect(await start?.({}, { said: 3 })).toEqual(notUnderstood);
+    expect(await start?.({}, null)).toEqual(notUnderstood);
     expect(startMod).not.toHaveBeenCalled();
+  });
+});
+
+describe("sending a session message", () => {
+  it("passes the aim of an empty Mod Job's first message to Fleet unchanged", async () => {
+    const handlers = new Map<string, Handler>();
+    const send = vi.fn(async () => ({ ok: true }));
+    const ipc = { handle: (channel: string, handler: Handler) => handlers.set(channel, handler) };
+    handleSessions({ ipc, connection: () => ({ sessions: { send } }), windowIdOf: () => undefined, pages: {} } as unknown as Parameters<typeof handleSessions>[0]);
+    await handlers.get(CHANNELS.sendSessionMessage)?.({}, { session_id: "m", text: "a dark theme", aim: "theme" });
+    expect(send).toHaveBeenCalledWith({ session_id: "m", text: "a dark theme", aim: "theme" });
   });
 });
 

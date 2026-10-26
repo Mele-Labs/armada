@@ -520,8 +520,8 @@ A person's own copy wins over the repository's and can replace a Check, so an ag
 The Job is placed by its connection, and any other root is refused with 422 `fleet.kit_manifest_elsewhere`, as is a call the door cannot place on a Job.
 Bridge's call carries no connection and may keep one for any repository Fleet serves.
 
-**It follows the place, and Keep on this Mac.**
-The text is written through `KitManifest::write`: to the folder, synced folder or bucket the repository's tiles are kept in, and to `~/.armada` on this Mac while the repository is marked Keep on this Mac.
+**It follows the place.**
+The text is written through `KitManifest::write`: to the folder, synced folder or bucket the repository's tiles are kept in, and to `~/.armada` on this Mac where that place is This Mac or the repository, or none was chosen.
 A copy already there is replaced whole.
 
 **The text is checked first, and a refusal says why in plain words.**

@@ -193,7 +193,7 @@ export function AutopilotBar(props: AutopilotBarProps) {
     <section className="armada-autopilot" aria-label="Autopilot" data-state={state}>
       <div className="armada-autopilot__head">
         <span className="armada-autopilot__name">
-          <Switch checked={on || starting} onChange={flip}>
+          <Switch size="sm" checked={on || starting} onChange={flip}>
             <span className="armada-autopilot__label">
               <Plane size={16} aria-hidden="true" />
               Autopilot

@@ -351,7 +351,7 @@ function WalkControls({ walk, status }: { walk: CaptureBarWalk; status?: ReactNo
     {status}
     {walk.guide === undefined ? null : (
       <Tooltip label="Ring the target over the page">
-        <Switch checked={walk.guide.shown} onChange={(event) => walk.guide?.onShow(event.target.checked)}>
+        <Switch size="sm" checked={walk.guide.shown} onChange={(event) => walk.guide?.onShow(event.target.checked)}>
           Ring
         </Switch>
       </Tooltip>
@@ -363,7 +363,7 @@ function WalkControls({ walk, status }: { walk: CaptureBarWalk; status?: ReactNo
     </Tooltip>
     <Kbd>R</Kbd>
     <Tooltip label="Go on by itself">
-      <Switch checked={walk.autoplay} onChange={(event) => walk.onAutoplay(event.target.checked)}>
+      <Switch size="sm" checked={walk.autoplay} onChange={(event) => walk.onAutoplay(event.target.checked)}>
         Autoplay
       </Switch>
     </Tooltip>
