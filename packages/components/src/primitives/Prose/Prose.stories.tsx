@@ -261,6 +261,36 @@ export const AReferenceInCode: Story = {
   },
 };
 
+/** What a host whose Job wrote one document hands back: the page, for a span that is exactly its path. */
+const PAGE = "/repos/armada/.armada/documents/bridge-pricing-schema.html";
+const scanPage = (text: string) =>
+  text === PAGE || text === ".armada/documents/bridge-pricing-schema.html"
+    ? [{ from: 0, to: text.length, ref: { kind: "document", id: PAGE, title: "Bridge pricing schema" } satisfies ProseReference }]
+    : [];
+
+/** The Job's own document, named by its path in code, draws as the page's title and opens the page, wherever in the line it stands. */
+export const ADocumentReference: Story = {
+  args: {
+    text: "The schema is in `.armada/documents/bridge-pricing-schema.html`, and `.armada/documents/bridge-pricing-schema.html --watch` is code.",
+  },
+  decorators: [
+    (Story) => (
+      <ProseRefs.Provider value={{ scan: scanPage, open: pressed }}>
+        <Story />
+      </ProseRefs.Provider>
+    ),
+  ],
+  beforeEach: () => {
+    pressed.mockClear();
+  },
+  play: async ({ canvas, userEvent }) => {
+    await expect(canvas.getAllByRole("link")).toHaveLength(1);
+    await expect(canvas.queryByText(".armada/documents/bridge-pricing-schema.html")).toBeNull();
+    await userEvent.click(canvas.getByRole("link", { name: "Bridge pricing schema" }));
+    await expect(pressed).toHaveBeenCalledWith({ kind: "document", id: PAGE, title: "Bridge pricing schema" });
+  },
+};
+
 /** What a host that knows #2772 hands back: its number, and its address said alone. */
 const PULL = "https://github.com/o/r/pull/2772";
 const scanPull = (text: string) =>

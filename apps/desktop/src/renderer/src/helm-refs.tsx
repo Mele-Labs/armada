@@ -1,6 +1,6 @@
 // What Helm's thread links: a pull request or an issue by its number, a Session. **Each opens where
-// Bridge already shows it**: a Session on the Cockpit, a pull request or an issue in the side panel;
-// another repository's number is its forge page. The finding is `@armada/helm`'s `refScanner`; this holds what
+// Bridge already shows it**: a Session on the Cockpit, a pull request or an issue in the side panel, the Job's own document in its
+// reading layer; another repository's number is its forge page. The finding is `@armada/helm`'s `refScanner`; this holds what
 // it reads off the window and what each press does.
 //
 // A number the repository's open lists do not hold (a merged pull request) is looked up once, and kept: the same
@@ -15,11 +15,12 @@ import { forgeAddress, forgeSlug, isElsewhere, refScanner } from "@armada/helm";
 import type { RefWorld } from "@armada/helm";
 import type { RepositorySummary } from "@armada/protocol";
 
-import type { Session } from "@armada/screens/src/draft/sessions";
+import { attachmentsOf, type Session } from "@armada/screens/src/draft/sessions";
 
 import type { BridgeState } from "../../shared/bridge";
 import { useHelmSession } from "./helm-session";
 import { useNumbered } from "./numbered";
+import { showLayer } from "./session-view/layers";
 import { openInPanel } from "./shared-panel/store";
 import { useSessions } from "./sessions-draft";
 import { usePreviewLink } from "./teach";
@@ -106,6 +107,7 @@ function useRefs({ repositories, openSession, openLink }: Host, { manifestId, se
   const linkable: RefWorld = {
     ...(slug === undefined ? {} : { slug }),
     ...(taught.length === 0 ? {} : { links: taught }),
+    documents: thread === undefined ? [] : attachmentsOf(thread, "artifact").flatMap((one) => (one.form === "document" && (one.revisions?.length ?? 0) > 0 ? [{ id: one.id, title: one.title }] : [])),
     files: Object.entries(filed).flatMap(([key, there]) => (there && sessionId !== undefined && key.startsWith(`${sessionId}\n`) ? [key.slice(sessionId.length + 1)] : [])),
     // Helm's own Session is named by its repository, which would link every mention of it. An ended one
     // still has its page.
@@ -131,6 +133,7 @@ function useRefs({ repositories, openSession, openLink }: Host, { manifestId, se
         if (ref.kind === "session") return openers.current.openSession(ref.id);
         // A taught link's id is its address, which opens in the browser as any web address does.
         if (ref.kind === "link") return openers.current.openLink(ref.id);
+        if (ref.kind === "document") return sessionId === undefined ? undefined : showLayer(sessionId, "document", ref.id);
         if (ref.kind === "file") return openInPanel({ kind: "file", path: ref.id, from: "session", ...(sessionId === undefined ? {} : { sessionId }) });
         // Another repository's number is only a page on the forge.
         if (isElsewhere(ref.id)) return openers.current.openLink(forgeAddress(ref));

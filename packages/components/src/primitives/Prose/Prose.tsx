@@ -1,4 +1,5 @@
 import { Children, cloneElement, createContext, isValidElement, memo, useContext, type ReactNode } from "react";
+import { FileText } from "lucide-react";
 import Markdown, { defaultUrlTransform, type Components } from "react-markdown";
 import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm";
@@ -58,18 +59,18 @@ function isWalkLink(address: string): boolean {
 
 /**
  * Something in the words that Bridge itself can open: a pull request or an issue by its number, a
- * Session, a file in the Job's checkout by its path, or a web address the person taught Armada to draw words as (`link`,
+ * Session, a file in the Job's checkout by its path, a page the Job wrote as its document (`id` its path, `title` the page's), or a web address the person taught Armada to draw words as (`link`,
  * whose `id` is the address). **A thing the host found, never one the text claims**: `scan` is the host's and reads its own state,
  * so a number that names nothing it holds stays plain text.
  */
 export type ProseReference = {
-  kind: "pull_request" | "issue" | "session" | "file" | "link";
+  kind: "pull_request" | "issue" | "session" | "file" | "document" | "link";
   id: string;
   title: string;
 };
 
 /** What each kind is called, in the tooltip that leads a reference's title. */
-export const REFERENCE_KIND: Record<ProseReference["kind"], string> = { pull_request: "Pull request", issue: "Issue", session: "Job", file: "File", link: "Link" };
+export const REFERENCE_KIND: Record<ProseReference["kind"], string> = { pull_request: "Pull request", issue: "Issue", session: "Job", file: "File", document: "Document", link: "Link" };
 
 /**
  * Where a reference is found and where it goes. Provided by the one surface that wants its words linked,
@@ -96,14 +97,14 @@ const WRITTEN = /(!?\[(?:\\.|[^\[\]\\\n])*\]\([^()\s]*\))/;
 /** The words with each reference they name written as a link, and code left alone. */
 function linked(text: string, refs: ProseReferences): string {
   // A fenced block or an inline span is code, and a number in it is not a reference, unless the span is
-  // exactly a Session or a file: `s-e165b4df` and `docs/plan.md` are how a model writes them, and draw as links, still as code.
-  // A path in a sentence is only words.
+  // exactly a Session, a file or the Job's document: `s-e165b4df` and `docs/plan.md` are how a model writes them, and draw as links,
+  // still as code. A document draws as its title instead. A path in a sentence is only words.
   return text
     .split(/(```[\s\S]*?```|`[^`\n]*`)/)
     .map((part, at) => {
       if (at % 2 === 1) {
         const inner = part.startsWith("```") ? "" : part.slice(1, -1);
-        const whole = inner === "" ? undefined : refs.scan(inner).find((one) => one.from === 0 && one.to === inner.length && (one.ref.kind === "session" || one.ref.kind === "file"));
+        const whole = inner === "" ? undefined : refs.scan(inner).find((one) => one.from === 0 && one.to === inner.length && (one.ref.kind === "session" || one.ref.kind === "file" || one.ref.kind === "document"));
         return whole === undefined ? part : `[${part}](${addressOf(whole.ref)})`;
       }
       // A link a model wrote is one link, and a reference in its words would be a link inside it, which markdown
@@ -123,7 +124,7 @@ function linked(text: string, refs: ProseReferences): string {
 
 /** Words outside code and outside a written link, each reference in them made a link. */
 function words(part: string, refs: ProseReferences): string {
-  const found = refs.scan(part).filter((one) => one.ref.kind !== "file").sort((a, b) => a.from - b.from);
+  const found = refs.scan(part).filter((one) => one.ref.kind !== "file" && one.ref.kind !== "document").sort((a, b) => a.from - b.from);
   let out = "";
   let from = 0;
   for (const one of found) {
@@ -143,7 +144,7 @@ function referenceOf(href: string | undefined): ProseReference | null {
   return { kind: kind as ProseReference["kind"], id: decodeURIComponent(id), title: decodeURIComponent(query) };
 }
 
-/** A reference drawn as the link every other is, named on hover: its kind, then its title. */
+/** A reference drawn as the link every other is, named on hover: its kind, then its title. A document draws as its title, not its path. */
 export function ReferenceLink({ reference, children }: { reference: ProseReference; children: ReactNode }) {
   const refs = useContext(ProseRefs);
   if (refs === null) return <>{children}</>;
@@ -158,7 +159,15 @@ export function ReferenceLink({ reference, children }: { reference: ProseReferen
         }}
         onAuxClick={(event) => event.preventDefault()}
       >
-        {children}
+        {reference.kind === "document" ? (
+          <>
+            {/* The glyph a Job's document has in its Artifacts, `ARTIFACT.document`. */}
+            <FileText className="armada-prose__link-glyph" size={12} strokeWidth={2} aria-hidden />
+            {reference.title}
+          </>
+        ) : (
+          children
+        )}
       </a>
     </Tooltip>
   );
