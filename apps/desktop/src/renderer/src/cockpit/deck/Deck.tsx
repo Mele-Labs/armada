@@ -21,6 +21,7 @@ import { viewsOf } from "../../merge-line";
 import { sessionHolds } from "./session-prs";
 import { askToOpenSessionInCockpit } from "../../open-session";
 import { useQueued, useSessions, useSessionsDraft } from "../../sessions-draft";
+import { useSetting } from "../../use-setting";
 import { useAutopilotLane } from "../AutopilotLane";
 import { useColumns } from "./columns";
 import { useSplits } from "./splits";
@@ -55,7 +56,6 @@ import { columnsOf, restBonus, RowFields, useRowView } from "./row-view";
 import { FlightEdit } from "./FlightEdit";
 import { isWebAddress, repositoryFileOf, tilesOf, useFlightFile, useRepositoryFlight, type FlightSet } from "./flight-controls";
 import { glyphOf as flightGlyph } from "./flight-glyphs";
-import { AUTOPILOT_SHOWN } from "./autopilot-shown";
 import { SessionTiles } from "./SessionTiles";
 import { reportRoot, tileCap } from "./session-tiles";
 import { checkoutSaid, heldOf } from "./YourCheckout";
@@ -939,7 +939,7 @@ function RepositoryPicker({ props, autopilot }: { props: CockpitProps; autopilot
 
 /**
  * Autopilot as one row beside the controls: the switch is its title, and the repository, the state and the bar are left to the lane it opens. Switching it on gives the stage to its
- * configuration; off, the stage is as it was. Drawn only while `AUTOPILOT_SHOWN` (`autopilot-shown.ts`).
+ * configuration; off, the stage is as it was. Drawn only while Settings, Features has the Autopilot panel on (`features.autopilotPanel`).
  */
 function AutopilotPanel({ autopilot }: { autopilot: ReturnType<typeof useAutopilotLane> }) {
   const control = autopilot.control;
@@ -1079,6 +1079,7 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
   const deckMarks = useMarking(DECK_MARKS);
   // What a layout leaves drawn of the deck's panels. A right column it empties, or a foot, is not drawn and gives its room to the stage.
   const panels = new Set(useLayout("dashboard.panels").shown.map((one) => one.id));
+  const autopilotShown = useSetting("features.autopilotPanel") === true;
   const bare = !reading && !panels.has("bays") && !panels.has("activity");
   // The key caps are drawn only while ⌘ is held: the root's `data-reveal` says so.
   const revealing = useShortcutReveal();
@@ -1088,7 +1089,7 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
     else delete root.reveal;
     return () => void delete root.reveal;
   }, [revealing]);
-  const footed = panels.has("controls") || (!unified && (panels.has("dispatch") || (AUTOPILOT_SHOWN && panels.has("autopilot"))));
+  const footed = panels.has("controls") || (!unified && (panels.has("dispatch") || (autopilotShown && panels.has("autopilot"))));
   const layout = unified ? "session" : reading ? "reading" : bare ? "bare" : "idle";
   // The Jobs list rests as wide as the fields chosen for its rows need (`row-view.tsx`); a width dragged to is kept as dragged.
   const rowView = useRowView();
@@ -1119,7 +1120,7 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
             <div className="deck-foot">
               {panels.has("controls") ? <FlightControl ship={ship} props={props} /> : null}
               {unified || !panels.has("dispatch") ? null : <DispatchDeck />}
-              {unified || !AUTOPILOT_SHOWN || !panels.has("autopilot") ? null : <AutopilotPanel autopilot={autopilot} />}
+              {unified || !autopilotShown || !panels.has("autopilot") ? null : <AutopilotPanel autopilot={autopilot} />}
             </div>
           ) : null}
           {/* The merge line is the bottom of the centre, under Flight control. */}

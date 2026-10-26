@@ -1,13 +1,15 @@
 // What a Job's row draws, chosen by the person: a right press on a row or on the list's empty room opens a menu whose View group
-// switches seven fields on and off, saved in `localStorage` under one key. The default is what the row drew before: the Status and the Conflicts marks. Each field has a column of
+// switches seven fields on and off, saved in settings.json under `bridge.rowView`. The default is what the row drew before: the Status and the Conflicts marks. Each field has a column of
 // its own, in the menu's order, that is there for every row while it is on, so a row without the field leaves its place empty and nothing moves. Now is the exception: it is a second
 // line, and rows grow by it; so is Active PRs, a line of its own under the name, or under Now where that is on.
 
-import { useSyncExternalStore, type ReactNode } from "react";
+import { useEffect, useSyncExternalStore, type ReactNode } from "react";
 import { Stamp, Tooltip } from "@armada/components";
+import type { SettingValue } from "@armada/protocol";
 import type { DropdownMenuEntry } from "@armada/components";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
+import { saveSetting, useSetting } from "../../use-setting";
 import type { Subject } from "./ship";
 
 export const VIEW_FIELDS = [
@@ -25,55 +27,46 @@ export type RowView = Readonly<Record<ViewField, boolean>>;
 
 export const DEFAULT_VIEW: RowView = { pr: false, issue: false, now: false, time: false, conflicts: true, status: true, workflow: false };
 
-const KEY = "armada.deck.rowView";
+const KEY = "bridge.rowView";
 const listeners = new Set<() => void>();
-let seen: string | null | undefined;
 let held: RowView = DEFAULT_VIEW;
+/** What Fleet last said, which a save it refused puts back. */
+let kept: RowView = DEFAULT_VIEW;
 
-const parse = (text: string | null): RowView => {
-  if (text === null) return DEFAULT_VIEW;
-  try {
-    const got = JSON.parse(text) as Partial<Record<ViewField, unknown>>;
-    return Object.fromEntries(VIEW_FIELDS.map(({ id }) => [id, typeof got[id] === "boolean" ? got[id] : DEFAULT_VIEW[id]])) as RowView;
-  } catch {
-    return DEFAULT_VIEW;
-  }
+const parse = (value: SettingValue | undefined): RowView => {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return DEFAULT_VIEW;
+  const got = value as Partial<Record<ViewField, unknown>>;
+  return Object.fromEntries(VIEW_FIELDS.map(({ id }) => [id, typeof got[id] === "boolean" ? got[id] : DEFAULT_VIEW[id]])) as RowView;
 };
 
-/** The saved choice, the same object until the stored text changes. */
-function read(): RowView {
-  let text: string | null = null;
-  try {
-    text = window.localStorage.getItem(KEY);
-  } catch {
-    // Storage is not offered: the default stands.
-  }
-  if (text !== seen) {
-    seen = text;
-    held = parse(text);
-  }
-  return held;
+const same = (a: RowView, b: RowView) => VIEW_FIELDS.every(({ id }) => a[id] === b[id]);
+
+function hold(next: RowView): void {
+  if (same(held, next)) return;
+  held = next;
+  for (const notify of listeners) notify();
 }
 
 const subscribe = (notify: () => void) => {
   listeners.add(notify);
-  window.addEventListener("storage", notify);
-  return () => {
-    listeners.delete(notify);
-    window.removeEventListener("storage", notify);
-  };
+  return () => void listeners.delete(notify);
 };
 
-export const useRowView = (): RowView => useSyncExternalStore(subscribe, read);
+/** The choice in settings.json under `bridge.rowView`, read as Fleet publishes it; the default until Fleet has answered. */
+export function useRowView(): RowView {
+  const saved = useSetting(KEY);
+  useEffect(() => {
+    kept = parse(saved);
+    hold(kept);
+  }, [saved]);
+  return useSyncExternalStore(subscribe, () => held);
+}
 
+/** Drawn now and saved; a save Fleet refuses puts the choice back as Fleet has it. */
 export function toggleField(field: ViewField): void {
-  const next = { ...read(), [field]: !read()[field] };
-  try {
-    window.localStorage.setItem(KEY, JSON.stringify(next));
-  } catch {
-    // Not saved; it holds until the page is left.
-  }
-  for (const notify of listeners) notify();
+  const next = { ...held, [field]: !held[field] };
+  hold(next);
+  void saveSetting(KEY, next).then((outcome) => outcome.ok || hold(kept));
 }
 
 const FIELD_OF = new Map<string, ViewField>(VIEW_FIELDS.map(({ id }) => [`view:${id}`, id]));
