@@ -3,13 +3,29 @@
 //
 // The header rules in `protocol.ts` hold here.
 
-/** A written task's own state. More are to come: one this build does not know draws as open. */
-export type ProjectTaskState = "open" | "done";
+/**
+ * A written task's own state. `held` is a Job working on it; `asked` is a Job finished and whether the task is done is yet
+ * to be said, which outlives the Job. More may come: one this build does not know draws as open.
+ */
+export type ProjectTaskState = "open" | "done" | "held" | "asked";
+
+/** The Job holding a task. */
+export type ProjectHolder = {
+  session_id: string;
+  /** Absent where the Job has no title. */
+  title?: string;
+};
+
+/** A row a Job starts with, in `StartSession.project_rows`. */
+export type ProjectRowRef = {
+  project: string;
+  row: string;
+};
 
 /** One row of a project. The tag is `kind`. */
 export type ProjectRow =
-  /** A task he wrote. `notes` is empty for none. */
-  | { kind: "task"; id: string; title: string; notes: string; state: ProjectTaskState }
+  /** A task he wrote. `notes` is empty for none. `held_by` is present while `state` is `held` or `asked`, and only then. */
+  | { kind: "task"; id: string; title: string; notes: string; state: ProjectTaskState; held_by?: ProjectHolder }
   /**
    * A linked issue: `issue` is the tracker's reference only (`7`, `ABC-12`, `armada-3fz`). `title`
    * and `state` are the tracker's, read when the rows were, and absent where it could not say.

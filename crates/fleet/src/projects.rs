@@ -109,7 +109,7 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    fn project_refusal(&self, code: &'static str, said: impl Into<String>) -> WireError {
+    pub(crate) fn project_refusal(&self, code: &'static str, said: impl Into<String>) -> WireError {
         WireError::raised(code, said, self.run_id())
     }
 
@@ -117,13 +117,13 @@ where
         Refusal::Unacceptable(self.project_refusal(BLANK, said))
     }
 
-    fn project_in<'k>(&self, kept: &'k [KeptProject], project: &str) -> Result<&'k KeptProject, Refusal> {
+    pub(crate) fn project_in<'k>(&self, kept: &'k [KeptProject], project: &str) -> Result<&'k KeptProject, Refusal> {
         kept.iter().find(|one| one.id == project).ok_or_else(|| {
             Refusal::NotFound(self.project_refusal(NO_SUCH_PROJECT, format!("the repository has no project {project}")))
         })
     }
 
-    fn row_in<'k>(&self, kept: &'k [KeptProject], project: &str, row: &str) -> Result<&'k KeptProjectRow, Refusal> {
+    pub(crate) fn row_in<'k>(&self, kept: &'k [KeptProject], project: &str, row: &str) -> Result<&'k KeptProjectRow, Refusal> {
         self.project_in(kept, project)?.rows.iter().find(|one| one.id == row).ok_or_else(|| {
             Refusal::NotFound(self.project_refusal(NO_SUCH_ROW, format!("the project has no row {row}")))
         })
@@ -188,7 +188,7 @@ where
         said
     }
 
-    async fn projects_on_the_wire(&self, manifest_id: ManifestId, kept: Vec<KeptProject>) -> ipc::Projects {
+    pub(crate) async fn projects_on_the_wire(&self, manifest_id: ManifestId, kept: Vec<KeptProject>) -> ipc::Projects {
         let said = self.issues_said(&manifest_id, &kept).await;
         ipc::Projects {
             manifest_id,
