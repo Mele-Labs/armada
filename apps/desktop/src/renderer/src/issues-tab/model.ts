@@ -66,7 +66,7 @@ export type Tracker =
 export type ReadTracker = Extract<Tracker, { state: "read" }>;
 
 /** An answer, or Fleet's words for why there is none. */
-export type Read<T> = { ok: true; value: T } | { ok: false; said: string };
+export type Read<T> = { ok: true; value: T } | { ok: false; said: string; /** The program the tracker could not run, as Fleet named it. */ missing?: string };
 
 /** What the tab reads and writes. Fleet answers it (`source.ts`), and the mock does in a walk. */
 export type IssuesSource = {
@@ -75,6 +75,8 @@ export type IssuesSource = {
   /** The issues a query matches. Runs the query as written: no model is called. */
   run: (manifestId: string, query: string) => Promise<Read<Ticket[]>>;
   read: (manifestId: string, reference: string) => Promise<Read<TicketRead>>;
+  /** Installs the program a refused read named as missing. Only a press calls it. `said` is why it did not install. */
+  install: (manifestId: string, tool: string) => Promise<Read<void>>;
   /** A model writes a query for his words, in this repository's tracker's language. This is the call that spends. */
   write: (manifestId: string, words: string) => Promise<Read<WrittenQuery>>;
   /** Keeps a query, new or edited, and answers the repository's saved queries. */
