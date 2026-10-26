@@ -19,7 +19,7 @@ use adapter_traits::{
 use api::{Issues, Refusal};
 use core_model::Timestamp;
 use ipc::{
-    Instant, IssueComment, IssueField, IssueList, IssueQueries, IssueRead, IssueReference, IssueState,
+    InstallTool, InstalledTool, Instant, IssueComment, IssueField, IssueList, IssueQueries, IssueRead, IssueReference, IssueState,
     LinkedPullRequest, ManifestId, SaveIssueQuery, SavedIssueQuery, SearchIssues, TrackedIssue, WireError,
     WriteIssueQuery, WrittenIssueQuery,
 };
@@ -34,6 +34,16 @@ pub(crate) const HELD_FOR: Duration = Duration::from_secs(5 * 60);
 /// The tracker would not answer and nothing is held. A 500: asking again is reasonable.
 pub(crate) const UNREADABLE: &str = "fleet.issues_unreadable";
 
+/// What the tracker said it could not do, as an error. **A missing program is also a field**,
+/// `missing_tool`, so Bridge offers the install without reading a sentence.
+pub(crate) fn not_tracked(run_id: ipc::RunId, code: &'static str, not: &adapter_traits::NotTracked) -> WireError {
+    let error = WireError::raised(code, format!("{} did not happen: {}", not.doing, not.said), run_id);
+    match &not.missing {
+        Some(tool) => error.with_field("missing_tool", ipc::WireValue::Str(tool.clone())),
+        None => error,
+    }
+}
+
 /// The tracker has no issue by that reference, or the number is a pull request's. A 404.
 const NO_SUCH_ISSUE: &str = "fleet.no_such_issue";
 
@@ -45,6 +55,8 @@ pub(crate) struct Tracking {
     pub(crate) autopilot: crate::autopilot::Remembered,
     /// Each backlog Fleet syncs, by root — `crate::backlog_syncing`.
     pub(crate) keepings: crate::backlog_syncing::Keepings,
+    /// Issues linked in a project and read one by one, being off the open list — `crate::projects`.
+    pub(crate) reads: crate::projects::IssueReads,
 }
 
 #[derive(Clone)]
@@ -59,6 +71,7 @@ impl Tracking {
             lists: std::sync::Mutex::new(BTreeMap::new()),
             autopilot: crate::autopilot::Remembered::default(),
             keepings: crate::backlog_syncing::Keepings::new(),
+            reads: crate::projects::IssueReads::default(),
         }
     }
 
@@ -287,6 +300,10 @@ where
         self.issue_query_saved(manifest_id, save).await
     }
 
+    async fn install_tool(&self, manifest_id: ManifestId, install: InstallTool) -> Result<InstalledTool, Refusal> {
+        self.tool_installed(manifest_id, install).await
+    }
+
     async fn forget_issue_query(&self, manifest_id: ManifestId, id: String) -> Result<IssueQueries, Refusal> {
         self.issue_query_forgotten(manifest_id, id).await
     }
@@ -313,11 +330,7 @@ where
                 format!("The tracker has no issue {reference}"),
                 self.run_id(),
             ))),
-            Err(not) => Err(Refusal::Fault(WireError::raised(
-                UNREADABLE,
-                format!("{} did not happen: {}", not.doing, not.said),
-                self.run_id(),
-            ))),
+            Err(not) => Err(Refusal::Fault(not_tracked(self.run_id(), UNREADABLE, &not))),
         }
     }
 }
@@ -375,11 +388,7 @@ where
                 let said = format!("{} did not happen: {}", not.doing, not.said);
                 Ok((held, Some(said)))
             }
-            (Err(not), None) => Err(Refusal::Fault(WireError::raised(
-                UNREADABLE,
-                format!("{} did not happen: {}", not.doing, not.said),
-                self.run_id(),
-            ))),
+            (Err(not), None) => Err(Refusal::Fault(not_tracked(self.run_id(), UNREADABLE, &not))),
         }
     }
 }

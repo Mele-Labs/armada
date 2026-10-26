@@ -45,6 +45,14 @@ where
                 (Some(manifest), served.root().to_string())
             }
         };
+        // Rows of a project the Job starts with: every one is checked before anything is made.
+        let held_tasks = match &manifest {
+            Some(manifest) if !rooted && !start.project_rows.is_empty() => {
+                self.project_rows_checked(manifest, &start.project_rows).await?
+            }
+            _ => Vec::new(),
+        };
+        let repository = manifest.clone().unwrap_or_default();
         // A root that has a Manifest by now is a plain start on it, not Setup's.
         let setup = rooted && manifest.is_none();
         let id = new_id();
@@ -115,6 +123,9 @@ where
                     start_held: held,
                 })
                 .map_err(|why| self.ledger_fault(why))?;
+        }
+        if !held_tasks.is_empty() {
+            self.project_tasks_held(&id, &repository, &held_tasks).await;
         }
         if held {
             {

@@ -1,7 +1,7 @@
 // A Job's right column as a story. Three Jobs on the Cockpit, each with a plan it has just recorded: one that lands in a pull request, one that
 // lands in a spike's findings doc and one that only investigates and lands in a report. Approving a plan starts the build (the Field opens), and
-// each time the walk lets time pass the build comes closer to its landing: for the pull request, Checks passed, the queue, an issue filed, a watch
-// and a follow-up; for the spike, the findings doc; for the report, the report, a page of the Job's own with a sketch in it, and a second
+// each time the walk lets time pass the build comes closer to its landing: for the pull request, Checks passed, the queue, an issue filed, a watch,
+// a follow-up and a page of the Job's own; for the spike, the findings doc; for the report, the report, a page of the Job's own with a sketch in it, and a second
 // revision once notes on it are sent. A fourth Job holds another pull request so the Merge line has width.
 // The repository serves a merge line. Groups g1 and g2 work issues LEASE-20481 (a key from another tracker, longer than a forge number) and 2367; the issues no group works (2374, and 2402 once filed) stand in Deferred. Mock only: the stage is read in Bridge from the Job's data
 // (`session-view/story.ts`), and `work.landing` names the kind. The walks `jobStory`, `jobStorySpike`, `jobStoryReport` and `jobDocument` play it.
@@ -27,6 +27,7 @@ const SPIKE_JOB = "story-2";
 const REPORT_JOB = "story-3";
 const OTHER_JOB = "story-4";
 const BRANCH = "armada/lease-retry";
+const PR_DOC_PATH = `${ROOT}/.armada/slots/slot-3/.armada/documents/lease-retry.html`;
 
 const FEATURE: WorkflowChoice = { id: "Feature", name: "Feature", steps: ["Plan", "Build", "Verify", "Pull request"] };
 const SPIKE: WorkflowChoice = { id: "Spike", name: "Spike", steps: ["Plan", "Measure", "Write up"] };
@@ -110,6 +111,8 @@ function prAt(stage: number): Partial<Session> {
             pr({ checks: { state: "passed" }, state: "open", auto: true, queued: true }),
             pr({ number: 2391, title: "Name the attempt in the bay tooltip", closes: [], checks: { state: "pending" }, state: "open", auto: false }),
             { kind: "issue" as const, number: "2402", title: "A slow attempt can outlive the lease", address: "https://forge.invalid/issues/2402", state: "open" as const },
+            // A page the Job wrote beside its pull request, which the Landing draws though the workflow lands a pull request.
+            { kind: "artifact" as const, form: "document" as const, id: PR_DOC_PATH, title: LEASE_DOC_TITLE, revisions: [LEASE_DOC_PATH] },
           ]
         : []),
       { kind: "sketch", id: PLAN_SKETCH_ID, title: "Plan", by: "agent", drawing: PLAN_SKETCH },

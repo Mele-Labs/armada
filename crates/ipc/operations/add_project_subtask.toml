@@ -1,0 +1,10 @@
+[operations.add_project_subtask]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Add a task under a task of a project"
+notes = """
+`POST /projects/:repository/:project/rows/:row/subtasks`, body `ProjectTask`: `title`, and `notes` which may be left out. The new task is `open`, has the task `row` as its `parent`, and goes at the end of that task's subtasks. `docs/practices/protocol/projects.md`. Answers `Projects` as `list_projects` does, and publishes it as `projects.changed`.
+
+**One level deep.** A 422 `fleet.project_subtask_too_deep` for a `row` that is itself a subtask, a 422 `fleet.project_row_not_a_task` for one that is an issue row, a 422 `fleet.project_blank` for a blank title, a 404 `fleet.no_such_project` for a `project` the repository has none of, a 404 `fleet.no_such_project_row` for a `row` the project has none of, and a 422 for a repository Fleet does not serve.
+"""

@@ -1,7 +1,7 @@
 // A repository's open issues, as main asks Fleet for them: one request, and nothing kept here, since
 // Fleet holds the list. #91. And the Autopilot that works them (#2092), which Fleet holds too.
 
-import type { Autopilot, AutopilotList, AutopilotProposal, IssueList, IssueQueries, IssueRead, Outcome, PullRequestState, SaveIssueQuery, SavedIssueQuery, WrittenIssueQuery } from "@armada/protocol";
+import type { Autopilot, AutopilotList, AutopilotProposal, InstalledTool, IssueList, IssueQueries, IssueRead, Outcome, PullRequestState, SaveIssueQuery, SavedIssueQuery, WrittenIssueQuery } from "@armada/protocol";
 import type { AutopilotActed } from "../shared/api/autopilot";
 import type { IssueNumberRead, IssueQueryActed, IssuesRead, PullRequestNumberRead } from "../shared/api/issues";
 import { ask, MODEL_CALL_MS } from "./request";
@@ -65,6 +65,11 @@ export class IssuesHost {
   /** `POST /issue_queries/:repository/:id/forget`. */
   forgetIssueQuery(manifestId: string, id: string): Promise<IssueQueryActed<IssueQueries>> {
     return this.query("POST", manifestId, `/${encodeURIComponent(id)}/forget`);
+  }
+
+  /** `POST /issue_queries/:repository/install_tool`: installs what a refusal's `missing_tool` named. Brew can take a while. */
+  installIssueTool(manifestId: string, tool: string): Promise<IssueQueryActed<InstalledTool>> {
+    return this.query("POST", manifestId, "/install_tool", { tool }, true);
   }
 
   /** `GET /pull_requests/:repository/:number`: one pull request by the repository's Manifest, with no Session. */

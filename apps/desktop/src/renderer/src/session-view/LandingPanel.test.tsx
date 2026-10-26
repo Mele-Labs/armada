@@ -10,6 +10,7 @@ import type { Session, SessionAttachment, WorkLanding } from "@armada/screens/sr
 import type { BridgeState } from "../../../shared/bridge";
 import { NOTHING_YET } from "../../../shared/bridge";
 import { LandingPanel } from "./LandingPanel";
+import { dropLayer, useLayer, useLayerPage } from "./layers";
 import { resetFolds } from "./story";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -18,6 +19,7 @@ const ID = "landing-s1";
 const roots: { root: Root; host: HTMLElement }[] = [];
 afterEach(() => {
   resetFolds(ID);
+  dropLayer(ID);
   for (const { root, host } of roots.splice(0)) {
     act(() => root.unmount());
     host.remove();
@@ -28,16 +30,29 @@ afterEach(() => {
 const pull = (number: number, state: "draft" | "open" | "merged" = "open"): SessionAttachment => ({ kind: "pull_request", number, title: `Pull ${number}`, branch: `armada/b${number}`, address: `https://forge/pull/${number}`, checks: { state: "passed" }, state, auto: false });
 const issue = (number: number): SessionAttachment => ({ kind: "issue", number: String(number), title: `Issue ${number}`, address: `https://forge/issues/${number}`, state: "open" });
 const doc = (id: string, title: string): SessionAttachment => ({ kind: "artifact", form: "doc", id, title });
+const page = (id: string, title: string): SessionAttachment => ({ kind: "artifact", form: "document", id, title, revisions: [`/kept/${title}/r1.html`] });
 
 function sessionOf(landing: WorkLanding | undefined, attachments: SessionAttachment[], extra: Partial<Session> = {}): Session {
   return { id: ID, attachments, rows: [], turn: { state: "idle" }, ...(landing === undefined ? {} : { work: { landing } }), ...extra } as unknown as Session;
+}
+
+/** The layer open over the Job, drawn beside the panel as the Job view would draw it. */
+function OpenLayer() {
+  return <output data-layer={useLayer(ID) ?? ""} data-page={useLayerPage(ID) ?? ""} />;
 }
 
 async function mount(session: Session): Promise<HTMLElement> {
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
-  await act(async () => root.render(<LandingPanel session={session} entries={[]} place="side" id={session.id} />));
+  await act(async () =>
+    root.render(
+      <>
+        <LandingPanel session={session} entries={[]} place="side" id={session.id} />
+        <OpenLayer />
+      </>,
+    ),
+  );
   roots.push({ root, host });
   return host;
 }
@@ -72,6 +87,18 @@ test("a spike landing draws the doc it made as Findings, and no pull request lis
   expect(titles(host, "Findings")).toEqual(["Why the lease drops"]);
   expect(host.querySelector('[aria-label="Pull requests"]')).toBeNull();
 });
+
+// A page written with the document skill stands in the Landing whatever the Job lands in, and opens in the reading layer.
+for (const [said, landing] of [["a pull request landing", "pull_request"], ["a Job with no workflow", undefined]] as const) {
+  test(`${said} draws the document the Job wrote beside its pull request, and pressing it opens the reading layer`, async () => {
+    const host = await mount(sessionOf(landing, [pull(7), page("/work/.armada/documents/lease.html", "Why leases end")]));
+    expect(titles(host, "Document")).toEqual(["Why leases end"]);
+    expect(titles(host, "Pull requests")).toEqual(["Pull request #7 Pull 7"]);
+    act(() => host.querySelector<HTMLElement>('[aria-label="Document"] button')!.click());
+    const layer = host.querySelector("output")!;
+    expect([layer.dataset["layer"], layer.dataset["page"]]).toEqual(["document", "/work/.armada/documents/lease.html"]);
+  });
+}
 
 test("a spike that has written nothing yet draws no Findings", async () => {
   const host = await mount(sessionOf("spike", []));

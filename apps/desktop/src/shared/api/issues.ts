@@ -1,7 +1,7 @@
 // A repository's open issues, read through Fleet from its tracker. #91, `docs/concepts/tracker.md`.
 // A slice imports protocol, never another slice; `../api.ts` and `../bridge.ts` compose them.
 
-import type { IssueList, IssueQueries, IssueRead, Outcome, PullRequestState, SaveIssueQuery, SavedIssueQuery, WrittenIssueQuery } from "@armada/protocol";
+import type { InstalledTool, IssueList, IssueQueries, IssueRead, Outcome, PullRequestState, SaveIssueQuery, SavedIssueQuery, WrittenIssueQuery } from "@armada/protocol";
 
 /** What a read came to: the list as Fleet answered it, or the refusal to word. */
 export type IssuesRead = { ok: true; value: IssueList } | { ok: false; outcome: Outcome };
@@ -33,6 +33,11 @@ export type IssuesApi = {
   saveIssueQuery: (manifestId: string, save: SaveIssueQuery) => Promise<IssueQueryActed<SavedIssueQuery>>;
   /** Drops a saved query. Answers what is left. */
   forgetIssueQuery: (manifestId: string, id: string) => Promise<IssueQueryActed<IssueQueries>>;
+  /**
+   * Installs the program a refusal's `missing_tool` named, on this Mac. **Only a press asks it.** A failed install is a
+   * `done: false` answer carrying why, not a refusal.
+   */
+  installIssueTool: (manifestId: string, tool: string) => Promise<IssueQueryActed<InstalledTool>>;
   /** One pull request of the repository by number, open, merged or closed. */
   getPullRequest: (manifestId: string, number: number) => Promise<PullRequestNumberRead>;
   /**
@@ -50,6 +55,7 @@ export const ISSUES_CHANNELS = {
   writeIssueQuery: "bridge:write-issue-query",
   saveIssueQuery: "bridge:save-issue-query",
   forgetIssueQuery: "bridge:forget-issue-query",
+  installIssueTool: "bridge:install-issue-tool",
   getPullRequest: "bridge:get-pull-request",
   refreshPullRequest: "bridge:refresh-pull-request",
 } as const;

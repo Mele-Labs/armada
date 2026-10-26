@@ -51,6 +51,10 @@ impl Trackers for ApiTrackers {
     fn backlog(&self, choice: &TrackerChoice) -> Option<Arc<dyn adapter_traits::Backlog + Send + Sync>> {
         crate::tracker_providers::backlog_over(choice)
     }
+
+    fn install(&self, tool: adapter_traits::Tool) -> adapter_traits::ToolInstalled {
+        crate::tool_install::installed(&crate::jira_tracker::Process, tool)
+    }
 }
 
 /// [`IssueTracker`], over the API.

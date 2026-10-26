@@ -105,6 +105,28 @@ test("a query the tracker refuses is the tracker's words", async () => {
   expect(await source.run("storefront", "colour:red")).toEqual({ ok: false, said: "Field 'colour' does not exist" });
 });
 
+/** A refusal whose fields name the program the tracker could not run. */
+const lacking = (tool: string) => ({ ok: false, outcome: { ok: false, why: "refused", error: { code: "fleet.issue_query_refused", message: "searching the issues did not happen: bd is not installed", fields: { missing_tool: tool } } } }) as never;
+
+test("a search that failed for a missing program says which, beside the tracker's words", async () => {
+  const { source } = api({ searchIssues: async () => lacking("bd") } as Partial<IssuesApi>);
+  expect(await source.run("storefront", "status=open")).toEqual({ ok: false, said: "searching the issues did not happen: bd is not installed", missing: "bd" });
+});
+
+test("a refusal that names no tool carries none", async () => {
+  const { source } = api({ searchIssues: async () => refused("Field 'colour' does not exist") } as Partial<IssuesApi>);
+  expect(await source.run("storefront", "colour:red")).not.toHaveProperty("missing");
+});
+
+test("an install is asked of Fleet by tool, and a 200 that did not install is its said", async () => {
+  const asked: [string, string][] = [];
+  const done = api({ installIssueTool: async (manifest: string, tool: string) => (asked.push([manifest, tool]), { ok: true, value: { tool, done: true, said: "" } }) } as Partial<IssuesApi>);
+  expect(await done.source.install("storefront", "bd")).toEqual({ ok: true, value: undefined });
+  expect(asked).toEqual([["storefront", "bd"]]);
+  const failed = api({ installIssueTool: async (_manifest: string, tool: string) => ({ ok: true, value: { tool, done: false, said: "Homebrew is not available" } }) } as Partial<IssuesApi>);
+  expect(await failed.source.install("storefront", "bd")).toEqual({ ok: false, said: "Homebrew is not available" });
+});
+
 test("an issue read whole carries its body, its holders and the pull requests naming it", async () => {
   const { source } = api();
   const answer = await source.read("storefront", "#1");

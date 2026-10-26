@@ -102,6 +102,7 @@ impl Rig {
                 request: None,
                 after: None,
                 held: false,
+                project_rows: Vec::new(),
             })
             .await
             .expect("started")

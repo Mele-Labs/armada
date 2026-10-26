@@ -1,0 +1,10 @@
+[operations.list_projects]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "A repository's projects, each with its rows in order"
+notes = """
+`GET /projects/:repository`, `repository` a manifest id. `docs/practices/protocol/projects.md`. Answers `Projects`: `manifest_id` and `projects` in the order he keeps them, each `{ id, name, rows }`. A row is `{ kind: "task", id, title, notes, state }`, `state` `open` or `done`, or `{ kind: "issue", id, issue, title?, state? }`, `issue` the tracker's reference only.
+
+**An issue row keeps no state.** Its `state` (`open` or `closed`) and `title` are the tracker's, read when the rows are: the open list Fleet holds for the Issues tab, and an issue not on it read by its reference, each held five minutes. Where the tracker cannot say, both are absent and nothing is refused. Kept in Fleet's store on this Mac and survives a restart; never written to the repository or the Manifest. A 422 for a repository Fleet does not serve.
+"""
