@@ -180,6 +180,8 @@ export function CallCard({
   const [removing, setRemoving] = useState(false);
   useEffect(() => setRemoving(false), [item.key]);
   const removable = answer.remove !== undefined;
+  // Whether the done ask on his tasks is the card: Fleet keeps it until he answers, so it is not dismissed.
+  const dismissable = item.waiting?.item.source !== "task_done";
   const cover = useCover(() => answer.dismiss());
   answering.current = {
     ...answer,
@@ -188,7 +190,7 @@ export function CallCard({
     // t reaches the Session's own box too, which is always there.
     ...(sleep === undefined && !composed ? {} : { change: openChange }),
     // A key cannot dismiss for good by itself: the cover lifts first. Removing an item the agent stated opens its reason box instead.
-    dismiss: removable ? () => setRemoving(true) : cover.press,
+    dismiss: removable ? () => setRemoving(true) : dismissable ? cover.press : () => undefined,
   };
 
   const sessionId = sessionIdOf(item.key);
@@ -266,7 +268,7 @@ export function CallCard({
         {actionOf("call_later").verb}
         <Kbd>{keyFor("call_later")}</Kbd>
       </Button>
-      {removable ? null : (
+      {removable || !dismissable ? null : (
         <Tooltip label={answer.pending === "dismiss" ? OUT : "Never show this again"}>
           <Button variant="ghost" pending={answer.pending === "dismiss"} disabled={held} onClick={answer.dismiss}>
             {actionOf("call_dismiss").verb}
@@ -300,7 +302,7 @@ export function CallCard({
       <Keycap label={actionOf("call_later").verb} keys={keyFor("call_later")} disabled={held} onPress={later} />
     </>
   );
-  const coveredKey = removable ? (
+  const coveredKey = !dismissable ? null : removable ? (
     <Keycap
       label="Remove"
       keys={keyFor("call_dismiss")}

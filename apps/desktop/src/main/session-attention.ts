@@ -16,7 +16,7 @@ import type { Tone } from "./telling";
 export const QUIET_MS = 2000;
 
 /** The sources that hold a turn on the owner. `waiting.ts` in the renderer holds the same split for a call. */
-const BLOCKED = new Set(["ask_card", "permission", "window_ask", "plan", "slot_choice", "delivery"]);
+const BLOCKED = new Set(["ask_card", "permission", "window_ask", "plan", "slot_choice", "delivery", "task_done"]);
 
 export type Told = { sessionId: string; title: string; body: string; tone: Tone };
 
