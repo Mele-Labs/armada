@@ -58,7 +58,7 @@ test("a link that arrives before the settings are read waits, and is followed or
 test("an address that is not Armada's link to a pull request is ignored, whatever the setting", () => {
   const { deep, delivered } = links();
   deep.follow(true);
-  for (const address of ["armada://issue/Mele-Labs/armada/1", "armada://pull/Mele-Labs/armada", "https://github.com/Mele-Labs/armada/pull/1"]) {
+  for (const address of ["armada://issue/Mele-Labs/armada/1", "armada://pull/Mele-Labs/armada", "https://forge.example/Mele-Labs/armada/pull/1"]) {
     expect(deep.arrive(address), address).toBe(false);
   }
   expect(delivered).toEqual([]);

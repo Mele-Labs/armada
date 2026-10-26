@@ -59,7 +59,7 @@ const standing = (number: number, over: Partial<PullRequestState> = {}): PullReq
   checks: { state: "passed" },
   title: `Pull request ${number}`,
   branch: `branch-${number}`,
-  address: `https://github.com/Mele-Labs/armada/pull/${number}`,
+  address: `https://forge.example/Mele-Labs/armada/pull/${number}`,
   ...over,
 });
 
