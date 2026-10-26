@@ -263,3 +263,23 @@ fn the_mark_moves_when_a_stores_root_moves_and_not_when_its_files_are_only_touch
     assert_ne!(tracker.mark(&in_slot), Some(first));
     assert_eq!(mark_of(Path::new("/nowhere/.beads")), None);
 }
+
+/// A machine with no `bd`: running it is `NotFound`, as `Command` reports a program not on the PATH.
+struct NoBd;
+
+impl Run for NoBd {
+    fn run(&self, program: &str, args: &[String], stdin: Option<&[u8]>) -> std::io::Result<Output> {
+        match program {
+            "bd" => Err(std::io::ErrorKind::NotFound.into()),
+            _ => Process.run(program, args, stdin),
+        }
+    }
+}
+
+#[test]
+fn a_search_with_no_bd_reports_the_tool_as_missing_and_not_only_in_words() {
+    let not = BeadsTracker::with_runner(NoBd).search_issues("/repo", "status=open").expect_err("no bd");
+
+    assert_eq!(not.missing.as_deref(), Some("bd"));
+    assert!(not.said.contains("not installed"), "{}", not.said);
+}

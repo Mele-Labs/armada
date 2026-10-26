@@ -9,7 +9,10 @@ import { SURFACE } from "@armada/shell";
 
 import type { IssuesSource, SavedQuery, Ticket, TicketRead, Tracker, WrittenQuery } from "./model";
 
-export type Run = { state: "running" } | { state: "read"; tickets: Ticket[] } | { state: "failed"; said: string };
+export type Run = { state: "running" } | { state: "read"; tickets: Ticket[] } | { state: "failed"; said: string; /** The program the tracker could not run: the line offers to install it. */ missing?: string };
+
+/** One install of a missing program, by repository and tool: under way, or refused with why. A finished one is gone. */
+export type Install = { state: "installing" } | { state: "failed"; said: string };
 
 /** The box, and once he sends it, what the model wrote for each repository. */
 export type Describing = { phase: "box" } | { phase: "written"; words: string; written: Record<string, { state: "running" } | { state: "read"; query: WrittenQuery } | { state: "failed"; said: string }> };
@@ -18,6 +21,7 @@ export type IssuesSnapshot = {
   trackers: readonly Tracker[] | undefined;
   failed: string | undefined;
   runs: Readonly<Record<string, Run>>;
+  installs: Readonly<Record<string, Install>>;
   reads: Readonly<Record<string, Read>>;
   open: { manifestId: string; reference: string } | undefined;
   describing: Describing | undefined;
@@ -34,7 +38,7 @@ const key = (manifestId: string, rest: string): string => `${manifestId}\n${rest
 export type IssuesStore = ReturnType<typeof createIssuesStore>;
 
 export function createIssuesStore(source: IssuesSource) {
-  let snap: IssuesSnapshot = { trackers: undefined, failed: undefined, runs: {}, reads: {}, open: undefined, describing: undefined, editing: undefined, spending: undefined, askFirst: true };
+  let snap: IssuesSnapshot = { trackers: undefined, failed: undefined, runs: {}, installs: {}, reads: {}, open: undefined, describing: undefined, editing: undefined, spending: undefined, askFirst: true };
   const listeners = new Set<() => void>();
   const set = (next: Partial<IssuesSnapshot>) => {
     snap = { ...snap, ...next };
@@ -53,7 +57,7 @@ export function createIssuesStore(source: IssuesSource) {
     const at = key(manifestId, query);
     if (!again && snap.runs[at] !== undefined) return;
     set({ runs: { ...snap.runs, [at]: { state: "running" } } });
-    void source.run(manifestId, query).then((answer) => set({ runs: { ...snap.runs, [at]: answer.ok ? { state: "read", tickets: answer.value } : { state: "failed", said: answer.said } } }));
+    void source.run(manifestId, query).then((answer) => set({ runs: { ...snap.runs, [at]: answer.ok ? { state: "read", tickets: answer.value } : { state: "failed", said: answer.said, ...(answer.missing === undefined ? {} : { missing: answer.missing }) } } }));
   };
 
   /** The same query asked again with the list kept on screen, so a card changes in place and nothing flashes. A refusal keeps what was held. */
@@ -85,6 +89,19 @@ export function createIssuesStore(source: IssuesSource) {
       });
     },
     runOf: (manifestId: string, query: string): Run | undefined => snap.runs[key(manifestId, query)],
+    installOf: (manifestId: string, tool: string): Install | undefined => snap.installs[key(manifestId, tool)],
+    /** Installs a tool a search found missing, then runs that search again. **Only a press calls this**; a failure is kept with its words and offers nothing more. */
+    install: (manifestId: string, tool: string, query: string) => {
+      const at = key(manifestId, tool);
+      if (snap.installs[at]?.state === "installing") return;
+      set({ installs: { ...snap.installs, [at]: { state: "installing" } } });
+      void source.install(manifestId, tool).then((answer) => {
+        if (!answer.ok) return set({ installs: { ...snap.installs, [at]: { state: "failed", said: answer.said } } });
+        const { [at]: _done, ...rest } = snap.installs;
+        set({ installs: rest });
+        run(manifestId, query, true);
+      });
+    },
     /**
      * Told what the Jobs the window holds say they work (`issueHoldings`). **When that differs from the last time this repository
      * was told, a Job took or gave back an issue**: the lists drawn now, and the issue open in the reader, are read again so the
@@ -187,7 +204,7 @@ export function useIssuesStore(): IssuesStore | undefined {
   return useContext(Held);
 }
 
-const NEVER: IssuesSnapshot = { trackers: undefined, failed: undefined, runs: {}, reads: {}, open: undefined, describing: undefined, editing: undefined, spending: undefined, askFirst: true };
+const NEVER: IssuesSnapshot = { trackers: undefined, failed: undefined, runs: {}, installs: {}, reads: {}, open: undefined, describing: undefined, editing: undefined, spending: undefined, askFirst: true };
 const NONE = () => () => undefined;
 
 export function useIssues(): IssuesSnapshot {

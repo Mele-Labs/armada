@@ -120,7 +120,7 @@ pub use shared_home::{
 pub use sign_in::{DeviceCode, Polled, SignIn, SignInError, SignedInAs};
 pub use store::{Claimed, Holder, HolderKind, OwnerKey, RedKey, RepositoryKey, RunRow, Store, StoreError};
 pub use tracker::{
-    IssueComment, IssueField, LinkedPullRequest, LinkedPullRequestState, NotTracked, OpenIssue, QueryGuide, ReadIssue, Tracker,
+    IssueComment, IssueField, LinkedPullRequest, LinkedPullRequestState, NotTracked, OpenIssue, QueryGuide, ReadIssue, Tool, ToolInstalled, Tracker,
     TrackerChoice, Trackers,
 };
 pub use setup::{

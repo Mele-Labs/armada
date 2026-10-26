@@ -156,7 +156,7 @@ import type { UsageRulesRead, UsageSummaryRead } from "./api/usage-summary";
 import type { ClashFileAnswer, SessionFileChangeAnswer, WriteClashesRead } from "./api/clashes";
 import type { RepositoryAreasRead, SlotTouchesRead } from "./api/territory";
 import type { IssueNumberRead, IssueQueryActed, IssuesRead, PullRequestNumberRead } from "./api/issues";
-import type { IssueList, IssueQueries, SaveIssueQuery, SavedIssueQuery, WrittenIssueQuery } from "@armada/protocol";
+import type { IssueList, InstalledTool, IssueQueries, SaveIssueQuery, SavedIssueQuery, WrittenIssueQuery } from "@armada/protocol";
 import type { HelmAim, HelmCarry } from "./api/helm";
 import { AUTOPILOT_CHANNELS, type AutopilotApi } from "./api/autopilot";
 import { SKETCH_SHARE_CHANNELS, type SketchShareApi } from "./api/sketch-share";
@@ -411,6 +411,7 @@ type OldBridgeApi = {
     writeIssueQuery: (manifestId: string, words: string) => Promise<IssueQueryActed<WrittenIssueQuery>>;
     saveIssueQuery: (manifestId: string, save: SaveIssueQuery) => Promise<IssueQueryActed<SavedIssueQuery>>;
     forgetIssueQuery: (manifestId: string, id: string) => Promise<IssueQueryActed<IssueQueries>>;
+    installIssueTool: (manifestId: string, tool: string) => Promise<IssueQueryActed<InstalledTool>>;
     getPullRequest: (manifestId: string, number: number) => Promise<PullRequestNumberRead>;
     refreshPullRequest: (manifestId: string, number: number) => Promise<PullRequestNumberRead>;
     setSleep: (on: boolean) => Promise<SleepActed>;
@@ -722,6 +723,7 @@ const OLD_CHANNELS = {
     writeIssueQuery: "bridge:write-issue-query",
     saveIssueQuery: "bridge:save-issue-query",
     forgetIssueQuery: "bridge:forget-issue-query",
+    installIssueTool: "bridge:install-issue-tool",
     getPullRequest: "bridge:get-pull-request",
     refreshPullRequest: "bridge:refresh-pull-request",
     setSleep: "bridge:set-sleep",
