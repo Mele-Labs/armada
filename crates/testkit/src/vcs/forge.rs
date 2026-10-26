@@ -227,6 +227,7 @@ impl Forge for FakeVcs {
             Some(adapter_traits::PullRequestFacts {
                 standing: adapter_traits::PullRequestStanding::Open,
                 branch: pull.branch.as_written().to_string(),
+                base: String::new(),
                 auto_merge: false,
                 title: String::new(),
                 url: pull.url.as_written().to_string(),

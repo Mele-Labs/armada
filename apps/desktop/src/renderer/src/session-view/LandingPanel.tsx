@@ -4,7 +4,7 @@
 // Deferred stand inside, whatever the kind, and so does a page the Job wrote with the document skill, which opens in the reading layer. **The issues a plan group works stand in the Blueprint, the pull requests in the Merge line**, an issue the Job claimed stands here as a row of its own, and the issues it only filed for later stand in Deferred.
 // The stage opens it (`story.ts`); the band or ⌥L does too. `landingOf` names the kind: the workflow's `lands` from Fleet, or the mock's `work.landing`.
 
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import { Tooltip, type LedgerEntry } from "@armada/components";
 import { attachmentsOf, type Session } from "@armada/screens/src/draft/sessions";
 
@@ -18,6 +18,7 @@ import { showLayer } from "./layers";
 import { IssueRow, issuesOutsidePlan } from "./IssuesBlock";
 import { LaterBlock } from "./LaterBlock";
 import { PullRow } from "./LedgerRow";
+import { stackedRows } from "./pull-stacks";
 import { ModsMade } from "./ModsPanel";
 import { SvPanel, type PanelState, type Place } from "./SvPanel";
 import { WatchingBlock } from "./WatchingBlock";
@@ -83,6 +84,14 @@ export function LandingPanel({ session, entries, place, id }: { session: Session
   const draft = useSessionsDraft();
   const kind = landingOf(session);
   const prs = attachmentsOf(session, "pull_request");
+  const list = useRef<HTMLUListElement>(null);
+  // A chip's press lands on the parent's row, which flashes so the eye finds it among the stack.
+  const jump = (number: number) => {
+    const row = list.current?.querySelector<HTMLElement>(`[data-pr="${number}"]`);
+    row?.querySelector<HTMLElement>(".sv-ledger__main")?.focus();
+    row?.setAttribute("data-found", "");
+    window.setTimeout(() => row?.removeAttribute("data-found"), 1200);
+  };
   const docs = kind === "spike" || kind === "document" ? (artifactsOf(session, entries).find((group) => group.id === "doc")?.rows ?? []) : [];
   const groups = kind === "report" ? artifactsOf(session, entries) : [];
   const report = [...(groups.find((group) => group.id === "doc")?.rows ?? []), ...(groups.find((group) => group.id === "file")?.rows ?? [])].find((row) => row.sub !== undefined && row.open !== undefined);
@@ -120,9 +129,9 @@ export function LandingPanel({ session, entries, place, id }: { session: Session
   return (
     <SvPanel label="Landing" area="landing" place={place} state={state} empty={empty} fold={fold} keycap={bandKeyFor("landing")}>
       {kind === "pull_request" && prs.length > 0 ? (
-        <ul className="sv-landing__prs" aria-label="Pull requests">
-          {[...prs].reverse().map((pr) => (
-            <PullRow key={pr.number} session={session} pr={pr} />
+        <ul className="sv-landing__prs" aria-label="Pull requests" ref={list}>
+          {stackedRows(prs).map((row) => (
+            <PullRow key={row.pr.number} session={session} pr={row.pr} onJump={jump} {...(row.lane === "none" ? {} : { lane: row.lane })} {...(row.rootBase === undefined ? {} : { rootBase: row.rootBase })} {...(row.chip === undefined ? {} : { chip: row.chip })} />
           ))}
         </ul>
       ) : null}

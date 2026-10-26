@@ -407,6 +407,22 @@ async fn a_search_that_could_not_run_the_tool_names_it_on_the_wire_beside_the_wo
 }
 
 #[tokio::test]
+async fn a_search_with_no_project_names_the_setup_on_the_wire_beside_the_words() {
+    let home = TempDir::new();
+    let tracker = Arc::new(FakeTracker::empty());
+    let fleet = a_fleet(&home, &tracker, &Arc::new(FakeJudge::saying(WRITTEN)));
+
+    tracker.needs_setup("bd");
+    let (kind, error) = error_of(
+        fleet.search_issues(manifest(&fleet), SearchIssues { query: "x".into() }).await.expect_err("refused"),
+    );
+
+    assert_eq!((kind, error.code.as_str()), ("unacceptable", "fleet.issue_query_refused"));
+    assert_eq!(error.fields.get("needs_setup"), Some(&ipc::WireValue::Str("bd".into())));
+    assert_eq!(error.fields.get("missing_tool"), None, "the tool is there");
+}
+
+#[tokio::test]
 async fn bd_is_installed_when_asked_and_nothing_else_is() {
     let home = TempDir::new();
     let trackers = Arc::new(FakeTrackers::empty());
@@ -418,6 +434,7 @@ async fn bd_is_installed_when_asked_and_nothing_else_is() {
 
     assert_eq!((done.tool.as_str(), done.done), ("bd", true));
     assert_eq!(trackers.installs(), ["bd"]);
+    assert_eq!(trackers.installs_in().len(), 1, "set up for the repository it was asked in");
 
     let (kind, error) = error_of(
         fleet.install_tool(manifest(&fleet), ipc::InstallTool { tool: "rm".into() }).await.expect_err("refused"),

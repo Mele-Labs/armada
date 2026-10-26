@@ -92,6 +92,7 @@ async fn an_open_pull_request_the_pull_reading_did_not_list_is_claimed_by_its_nu
     let facts = |standing| adapter_traits::PullRequestFacts {
         standing,
         branch: "nm/older-draft".into(),
+        base: "main".into(),
         auto_merge: false,
         title: "An older draft".into(),
         url: "https://forge.invalid/armada/pull/77".into(),

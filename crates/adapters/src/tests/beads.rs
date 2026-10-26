@@ -283,3 +283,18 @@ fn a_search_with_no_bd_reports_the_tool_as_missing_and_not_only_in_words() {
     assert_eq!(not.missing.as_deref(), Some("bd"));
     assert!(not.said.contains("not installed"), "{}", not.said);
 }
+
+#[test]
+fn a_machine_with_bd_and_no_beads_project_is_reported_as_needing_setup_and_not_only_in_words() {
+    let bd = Bd::saying(&[(1, "", "Error: cannot use -C directory \"/repo\": no beads project found")]);
+
+    let not = BeadsTracker::with_runner(&bd).search_issues("/repo", "status=open").expect_err("no project");
+
+    assert_eq!(not.needs_setup.as_deref(), Some("bd"));
+    assert_eq!(not.missing, None, "bd is there");
+    assert!(not.said.contains("no beads project found"), "{}", not.said);
+
+    let bd = Bd::saying(&[(1, "", "Error: database is locked")]);
+    let other = BeadsTracker::with_runner(&bd).search_issues("/repo", "status=open").expect_err("locked");
+    assert_eq!(other.needs_setup, None, "another failure asks for no setup");
+}
