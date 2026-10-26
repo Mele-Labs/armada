@@ -22,7 +22,7 @@ A handler asks `isPressed(id, event)`, `pressedSlot(id, event)` for an act with 
 |---|---|---|
 | `⌘K`, `x`, `B` | One key | The next key pressed |
 | `⌘[ ⌘]`, `j / k / ↓ / ↑` | One per key, each named — Back, Forward | The next key pressed, for that slot |
-| `⌘1–⌘7`, `1–6` | One row of digits | The modifiers held with any digit |
+| `⌘1–⌘8`, `1–6` | One row of digits | The modifiers held with any digit |
 
 Esc lets go of a key without changing it and Delete unbinds it. Reset puts one act's keys back, and Reset all to defaults puts every one back.
 
@@ -33,7 +33,7 @@ Esc lets go of a key without changing it and Delete unbinds it. Reset puts one a
 
 Where an act listens is its scope.
 A key may serve two acts that never listen on the same screen, so the shipped map has no conflict; a test holds it to that.
-The Cockpit's keys are in the `deck` scope: `l b c q f a d` go to a panel, `0–9`, and any letter or chord given a tile in Edit, press a flight control, `v` and `t` swap the stage, `g` then a letter goes to a tab, and `⌘1–⌘7` are the tabs the bar draws, in its order.
+The Cockpit's keys are in the `deck` scope: `l b c q f a d` go to a panel, `0–9`, and any letter or chord given a tile in Edit, press a flight control, `v` and `t` swap the stage, `g` then a letter goes to a tab, and `⌘1–⌘8` are the tabs the bar draws, in its order.
 `⌘,` is Settings, anywhere.
 `o` is also Open on the deck's lists, which are in the `list` scope, so the deck reads that row and has none of its own.
 `l` is also Later on a call, which answers only while a call is in front, and the deck stands down for it.

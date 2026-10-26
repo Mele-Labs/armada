@@ -20,6 +20,7 @@ import {
   Rewind,
   HardDrive,
   LayoutDashboard,
+  ListTodo,
   Merge,
   NotebookTabs,
   Puzzle,
@@ -56,6 +57,7 @@ export const SURFACE = {
   account: "account",
   reviews: "reviews",
   issues: "issues",
+  projects: "projects",
   usage: "usage",
   requests: "requests",
   logbook: "logbook",
@@ -249,6 +251,17 @@ export const SURFACES: readonly PaletteSurface[] = [
     icon: Ticket,
   },
   {
+    id: SURFACE.projects,
+    label: "Projects",
+    get shortcut() {
+      return digitOf(SURFACE.projects);
+    },
+    // Its tab takes the next digit when drawn (`drawnTabs`).
+    aliases: ["project", "tasks", "task list", "todo", "to do", "plan"],
+    // A sketch: `list-todo` is the registry's list of tasks, some open and some done. A Navigation glyph is the owner's to mint.
+    icon: ListTodo,
+  },
+  {
     id: SURFACE.workflows,
     label: "Workflows",
     // No key; reached from a System entry, a link on the deck and by name.
@@ -320,6 +333,7 @@ export const DECK_TABS = [
   { id: "logbook", label: "Logbook", surface: SURFACE.logbook },
   { id: "reviews", label: "Reviews", surface: SURFACE.reviews },
   { id: "issues", label: "Issues", surface: SURFACE.issues },
+  { id: "projects", label: "Projects", surface: SURFACE.projects },
   { id: "system", label: "System", surface: SURFACE.kit },
 ] as const;
 
@@ -359,6 +373,7 @@ export const PLACES: readonly string[] = [
   SURFACE.logbook,
   SURFACE.reviews,
   SURFACE.issues,
+  SURFACE.projects,
 ];
 
 /** The tab a surface is under, or `undefined` where the Cockpit window places none (Manifest, the merge line). */

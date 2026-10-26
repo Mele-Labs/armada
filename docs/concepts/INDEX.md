@@ -35,6 +35,7 @@ assuming it is restated here.
 | [manifest.md](manifest.md) | Per-project config, backed by `armada.yml` |
 | [mods.md](mods.md) | A folder on this machine that changes how Bridge looks, which Fleet reads and checks and which can never stop Fleet |
 | [pocket.md](pocket.md) | The owner's phone app and the Phone Gateway in front of Fleet: what it shows, what it pushes, what keeps it closed |
+| [project.md](project.md) | A list of tasks and linked issues one person keeps for one repository in Bridge's Projects tab, with a `task_done` question when a Job or a pull request finishes one |
 | [pull-review.md](pull-review.md) | Bridge's Reviews tab: the pull requests waiting on a person, a page for each, and the review he writes on one |
 | [requests.md](requests.md) | An HTTP request sent through Fleet by the person or a Job's agent, from collections of saved requests and environments whose secrets are kept in the Keychain and never read back |
 | [retro.md](retro.md) | What got in the way while one Job ran, and whose way, written on a press |

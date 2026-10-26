@@ -68,7 +68,8 @@ Below the row's narrow width the other controls are listed in the menu, and the 
 | Logbook | What agents know, and Armada fixes: the items every Job's retro raised | `⌘4` |
 | Reviews | The pull requests waiting on him | `⌘5` |
 | Issues | A repository's tracker | `⌘6` |
-| System | The System page last used, Kit where none has been | `⌘7` |
+| Projects | His own projects and their tasks, per repository | `⌘7` |
+| System | The System page last used, Kit where none has been | `⌘8` |
 
 The keys above are the tabs' places when every tab is drawn.
 A tab that is not drawn takes no key, and the keys behind it move up.
@@ -98,7 +99,7 @@ See [Studio](studio.md).
 It replaced a sheet reached from the status bar (#1088 removed the bar), and it is where a limit changed still takes the same way it always has.
 It is a System page, `⌘,`, and the title menu's entry.
 
-**A digit is a tab's place in the bar, and nothing else takes one.** `⌘1` to `⌘7` are the tabs in the order the bar draws them, each drawn tab taking the next, Settings is `⌘,`, and every other page is reached from the strip, the palette or a link.
+**A digit is a tab's place in the bar, and nothing else takes one.** `⌘1` to `⌘8` are the tabs in the order the bar draws them, each drawn tab taking the next, Settings is `⌘,`, and every other page is reached from the strip, the palette or a link.
 The rail's `⌘1`–`⌘9` and their history are in `../contracts/design-system.md`, Two tiers.
 
 **Workflows is a System page and takes no digit.** It lists the definitions Fleet holds for the picked repository, one row per file, and a definition opens as its steps on a canvas.

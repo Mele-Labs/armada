@@ -38,7 +38,7 @@ Every entry is drawn until a layout hides it.
 **`rail` is the region of places, and it hides them and never orders them.** The key keeps its name and its label is Places.
 An entry is a tab or a System strip page: Cockpit, Jobs, Studios, Logbook and Reviews (`reviews`) are tabs, and Kit, Mods, Settings, Guides and Workflows are strip pages.
 Hiding one takes that tab or strip page off the bar.
-The bar's order is the shell's own, and `⌘1` to `⌘7` follow the tabs it draws.
+The bar's order is the shell's own, and `⌘1` to `⌘8` follow the tabs it draws.
 A tab a layout hides takes no digit, and the digits behind it close up.
 System is never hidden.
 A right press on a tab hides it, and its View group shows it again; both write the owner's own choice for `rail`, so they and Settings → Layout are one set of switches.
