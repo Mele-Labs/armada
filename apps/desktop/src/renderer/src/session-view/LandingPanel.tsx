@@ -2,7 +2,7 @@
 // the merge. A spike and a document draw the doc they made. A report draws the report itself: its title and the first lines of its conclusion, and a
 // press opens the whole of it in the side panel; it has no pull request and no merge. A mod draws the mods it made, each with its switch. Watching and
 // Deferred stand inside, whatever the kind. **The issues a plan group works stand in the Blueprint, the pull requests in the Merge line**, and the issues the Job filed for later stand in Deferred, not on this band.
-// The stage opens it (`story.ts`); the band or ⌥L does too. `work.landing` names the kind in the mock until Fleet says it.
+// The stage opens it (`story.ts`); the band or ⌥L does too. `landingOf` names the kind: the workflow's `lands` from Fleet, or the mock's `work.landing`.
 
 import { Tooltip, type LedgerEntry } from "@armada/components";
 import { attachmentsOf, type Session } from "@armada/screens/src/draft/sessions";
