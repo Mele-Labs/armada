@@ -80,6 +80,7 @@ pub(crate) fn folded(found: Vec<Found>, of: &str, finished: bool) -> Reading {
             ReadingState::Running,
             format!("{} of {} have passed for {of}.", found.len() - going.len(), found.len()),
         ),
+        (true, true) if found.len() == 1 => (ReadingState::Passed, format!("{} passed for {of}.", found[0].name)),
         (true, true) => (ReadingState::Passed, format!("All {} passed for {of}.", found.len())),
     };
     let link = failed.first().copied().or(going.first().copied()).or(found.first()).and_then(|one| one.link.clone());
