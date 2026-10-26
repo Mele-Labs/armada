@@ -11,6 +11,7 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import type { PlaceRow } from "../MergeLine/MergeLine";
 import { PullRequestActs, type PullRequestActsProps } from "../PullRequestActs/PullRequestActs";
 import { RegisteredOwnerOf } from "../RegisteredOwner/RegisteredOwner";
+import { PullRequestFix, type PullRequestFixProps } from "./PullRequestFix";
 import { PullRequestComposer, type PullRequestComposerProps } from "./PullRequestComposer";
 import { PullRequestPlates, type PullRequestChecks } from "./PullRequestPlates";
 import { PatchStack, type PullRequestPatches } from "./PullRequestFiles";
@@ -19,6 +20,7 @@ import type { FilesReach, ReachTest } from "./PullRequestReach";
 import { agoOf } from "./pull-request-format";
 
 export type { PullRequestPatch, PullRequestPatches } from "./PullRequestFiles";
+export type { PullRequestFixProps, PullRequestFixRun } from "./PullRequestFix";
 
 /**
  * A pull request as a panel docked to the trailing edge, with its status, its merge queue and its
@@ -106,6 +108,8 @@ export type PullRequestPanelProps = {
  */
 export type PullRequestPanelReadingProps = {
   reading: { said?: string };
+  /** The step the sentence names, drawn under it with a Run and a Copy. Absent where it names none. */
+  fix?: PullRequestFixProps;
   number: number;
   /** Where it is on the forge. Empty draws no Open in browser. */
   address: string;
@@ -183,7 +187,7 @@ const BrowserSaid = ({ said }: { said: string | undefined }) =>
     </p>
   );
 
-function Reading({ reading, number, address, title, branch, onOpenBrowser, browserSaid }: PullRequestPanelReadingProps) {
+function Reading({ reading, fix, number, address, title, branch, onOpenBrowser, browserSaid }: PullRequestPanelReadingProps) {
   const out = reading.said === undefined;
   const named = title !== undefined && title !== "";
   const branched = branch !== undefined && branch !== "";
@@ -221,6 +225,7 @@ function Reading({ reading, number, address, title, branch, onOpenBrowser, brows
           {reading.said}
         </p>
       )}
+      {fix === undefined || out ? null : <PullRequestFix {...fix} />}
     </div>
   );
 }

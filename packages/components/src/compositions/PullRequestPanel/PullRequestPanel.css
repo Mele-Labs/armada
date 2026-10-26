@@ -396,3 +396,23 @@ button.armada-pr-reviewers__login:focus-visible {
 .armada-pr-reviewers__verdict[data-tone="failed"] {
   color: var(--status-completed-failed);
 }
+
+/* A command a refusal names, and its run: the screen fills a height of its own under the acts. */
+.armada-pr-panel__fix {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.armada-pr-panel__command {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--fg-default);
+}
+
+.armada-pr-panel__run {
+  display: flex;
+  min-width: 0;
+  height: calc(var(--space-12) * 5);
+}
