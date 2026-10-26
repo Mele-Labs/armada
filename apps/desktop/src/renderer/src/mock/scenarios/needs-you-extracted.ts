@@ -1,6 +1,6 @@
 // What Fleet will do once a reply's close is read sentence by sentence, shown on fixtures. One Job whose last reply closes with three asks and
 // two follow-ups: each ask is its own Needs you item, the approval the agent also stated is shown once, and the follow-ups it kept for
-// itself are listed in the Landing under Deferred. Fleet does not read a reply this way yet. The walk `needs-you-extracted` plays it.
+// itself are listed in Delivery under Deferred. Fleet does not read a reply this way yet. The walk `needs-you-extracted` plays it.
 
 import type { Session } from "@armada/screens/src/draft/sessions";
 import { repository } from "@armada/screens/src/fixtures/repository";
@@ -54,7 +54,7 @@ const SESSION: Session = {
 };
 
 function build(): Scenario {
-  const base = holding("needs-you-extracted", "A reply that closes with three asks and two follow-ups: three Needs you items, the approval shown once, and the follow-ups under Deferred in the Landing");
+  const base = holding("needs-you-extracted", "A reply that closes with three asks and two follow-ups: three Needs you items, the approval shown once, and the follow-ups under Deferred in Delivery");
   return {
     ...base,
     state: { ...base.state, repository: repository().root },

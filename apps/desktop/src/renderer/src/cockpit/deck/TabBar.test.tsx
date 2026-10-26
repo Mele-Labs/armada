@@ -66,17 +66,22 @@ test("The Cockpit tab pressed while it is the place goes nowhere, and goes back 
   expect(went).toEqual([SURFACE.overview, SURFACE.jobs]);
 });
 
-function Keys({ onSurface }: { onSurface: (id: string) => void }) {
-  useSurfaceKeys(onSurface);
+function Keys({ onSurface, hidden = [SURFACE.jobs] }: { onSurface: (id: string) => void; hidden?: readonly string[] }) {
+  useSurfaceKeys(onSurface, hidden);
   return null;
 }
 const cmd = (digit: string) => act(() => void window.dispatchEvent(new KeyboardEvent("keydown", { key: digit, metaKey: true, bubbles: true, cancelable: true })));
 
-test("Cmd+1..6 open the tabs in the bar's order and no other digit reaches a place; Cmd+, opens Settings and Cmd+5 is the Logbook", () => {
+test("Cmd+1..7 open the drawn tabs in the bar's order, a tab left off takes no digit, and no other digit reaches a place; Cmd+, opens Settings", () => {
   const went: string[] = [];
   mount(<Keys onSurface={(id) => went.push(id)} />);
   for (const digit of ["1", "2", "3", "4", "5", "6", "7", "8", "9"]) cmd(digit);
-  expect(went).toEqual([SURFACE.overview, SURFACE.jobs, SURFACE.sessions, SURFACE.studios, SURFACE.logbook, SURFACE.kit]);
+  expect(went).toEqual([SURFACE.overview, SURFACE.sessions, SURFACE.studios, SURFACE.logbook, SURFACE.reviews, SURFACE.issues, SURFACE.kit]);
+  went.length = 0;
+  act(() => roots.pop()!.root.unmount());
+  mount(<Keys onSurface={(id) => went.push(id)} hidden={[SURFACE.jobs, SURFACE.sessions, SURFACE.reviews, SURFACE.issues]} />);
+  for (const digit of ["1", "2", "3", "4", "5"]) cmd(digit);
+  expect(went).toEqual([SURFACE.overview, SURFACE.studios, SURFACE.logbook, SURFACE.kit]);
   went.length = 0;
   cmd(",");
   expect(went).toEqual([SURFACE.settings]);

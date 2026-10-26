@@ -193,7 +193,7 @@ It reads a sentence of a close here, not an item, and that was not measured.
 The second head of *A reply that asks* finds it, and a sentence the first head calls an ask is not one.
 Fleet keeps it per job across replies (`session_later`, `SessionRecord.later`, `crates/fleet/src/session_host/later.rs`).
 The same sentence said again is the same item, and a settled one is not kept again when a reply is read again.
-Bridge shows the open ones in the Landing, folded under a Deferred label that a press opens, with the issues the Job filed for later.
+Bridge shows the open ones in Delivery, folded under a Deferred label that a press opens, with the issues the Job filed for later.
 
 The job settles one with `settle_later`, and the person has two presses on its row:
 

@@ -68,7 +68,7 @@ export function DeckPlaces({ state, picked, showing, away, hidden, onGoTo, onBac
     // The System tab opens the page last used there.
     onGoTo(opensFor(surface, off));
   };
-  return <TabBar showing={showing} away={away} onGoTo={go} waiting={waiting} hidden={off} />;
+  return <TabBar showing={showing} away={away} onGoTo={go} waiting={waiting} hidden={hidden} />;
 }
 
 /**
