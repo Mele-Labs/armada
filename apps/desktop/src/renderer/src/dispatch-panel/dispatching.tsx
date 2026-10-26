@@ -14,7 +14,7 @@
 // **The words are read here at the moment of an act and never subscribed to**: this runs in `App`, and a key typed
 // would draw the whole window. What depends on them, Fleet's reading and what it picks, is `usePanel`, in the sheet.
 import { createContext, useContext, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
-import type { RepositorySummary } from "@armada/protocol";
+import type { ProjectRowRef, RepositorySummary } from "@armada/protocol";
 import { forgetKept, isPressed, readKept, useKept, writeKept, type ComposerTag, type DispatchKind } from "@armada/components";
 import { jobIdOf, repositoryEntries, useRecentRepositories } from "@armada/shell";
 import { said } from "@armada/screens/src/copy";
@@ -79,8 +79,9 @@ export type Dispatching = {
   /**
    * A dispatch row chosen in the palette, a thought routed, a pull request's fix: the sheet holding these words, for the repository `root` where one is named.
    * `tags` are held as a `#` chosen in the request would be, so each is sent with the words while its title is still in them.
+   * `projectRows` are the rows of his projects the words came from: the Job starts with them, and holds each written task.
    */
-  openSheet: (words: string, root?: string, tags?: readonly ComposerTag[]) => void;
+  openSheet: (words: string, root?: string, tags?: readonly ComposerTag[], projectRows?: readonly ProjectRowRef[]) => void;
   /** Every New session and compose entry: the panel on the draft as it stands, or an empty one for the repository `root` where one is named. */
   openNew: (root?: string) => void;
   /** ⌥A: the panel on a Session, with an `@` typed at the end of the request and its menu open. Absent where a Session cannot wait. */
@@ -133,6 +134,8 @@ export function useDispatch({ state, repositories, openSession, openAutopilot }:
   const sends = useRef(0);
   // The issues and pull requests the request tagged with `#`, sent with it while their words are still there.
   const tagged = useRef<ComposerTag[]>([]);
+  // The rows of his projects the sheet was opened with, sent with the start.
+  const rowed = useRef<readonly ProjectRowRef[]>([]);
   // Bumped whenever the words change, so an answer to words no longer there is let go.
   const stamp = useRef(0);
 
@@ -151,6 +154,7 @@ export function useDispatch({ state, repositories, openSession, openAutopilot }:
     forgetKept(AFTER);
     clearPicked();
     tagged.current = [];
+    rowed.current = [];
     setAsking(false);
     setWaiting(false);
     setSending(false);
@@ -192,7 +196,16 @@ export function useDispatch({ state, repositories, openSession, openAutopilot }:
         const refers = read?.plain === true && waitsOn !== undefined ? ({ kind: "session", id: read.on.id, title: read.on.title } as const) : undefined;
         const one = read === undefined || waitsOn === undefined || refers !== undefined ? undefined : waitChosen(read, hand, planPartsOf(waitsOn));
         const after = one === undefined ? undefined : { on: one.on, when: one.when, base: one.base, needs: one.needs, ...(one.part === undefined ? {} : { part: one.part }) };
-        return Promise.resolve(after === undefined ? draft.start(undefined, at, text, tuningNow(), undefined, true) : draft.start(undefined, at, text, tuningNow(), after)).then((id) => ({ id, after, refers }));
+        const rows = rowed.current.length === 0 ? undefined : rowed.current;
+        const started =
+          rows === undefined
+            ? after === undefined
+              ? draft.start(undefined, at, text, tuningNow(), undefined, true)
+              : draft.start(undefined, at, text, tuningNow(), after)
+            : after === undefined
+              ? draft.start(undefined, at, text, tuningNow(), undefined, true, rows)
+              : draft.start(undefined, at, text, tuningNow(), after, undefined, rows);
+        return Promise.resolve(started).then((id) => ({ id, after, refers }));
       })
       .then(({ id, after, refers }) => {
         if (id === undefined) return setSending(false);
@@ -406,6 +419,7 @@ export function useDispatch({ state, repositories, openSession, openAutopilot }:
     if (at === undefined && wordsNow().trim() !== "") return setSheet(true);
     stamp.current += 1;
     writeKept(REQUEST, "");
+    rowed.current = [];
     if (at !== undefined) pick(at);
     setLatest(undefined);
     setAsking(false);
@@ -435,10 +449,11 @@ export function useDispatch({ state, repositories, openSession, openAutopilot }:
     sheet,
     openNew,
     ...(draft?.readsWait === undefined || !kinds.includes("session") ? {} : { openAfter }),
-    openSheet: (next, at, tags) => {
+    openSheet: (next, at, tags, rows) => {
       stamp.current += 1;
       writeKept(REQUEST, next);
       if (tags !== undefined) tagged.current = [...tags];
+      rowed.current = rows === undefined ? [] : [...rows];
       if (at !== undefined) pick(at);
       setLatest(undefined);
       setAsking(false);

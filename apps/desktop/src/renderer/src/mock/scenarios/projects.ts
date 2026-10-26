@@ -198,6 +198,12 @@ function build(name: string): Scenario {
         projectsLink.jobs = store;
         return {
           ...store,
+          // Fleet holds the written tasks a Job starts with, so the rows show it from the moment the sheet starts one.
+          start: (tag, root, request, tuning, after, held, projectRows) => {
+            const id = store.start(tag, root, request, tuning, after, held);
+            if (typeof id === "string" && projectRows !== undefined) projectsLink.hold?.(id, (request ?? "").trim().split(/\s+/).slice(0, 5).join(" "), projectRows);
+            return id;
+          },
           answerWaiting: (id, itemId, given) => {
             const project = projectOfAsk(itemId);
             if (project === undefined) return store.answerWaiting?.(id, itemId, given);

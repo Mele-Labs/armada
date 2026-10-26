@@ -1,6 +1,6 @@
 // The Projects page: his projects, a panel for each repository, beside Issues in the Cockpit's grid. The list is the left
 // column and the project open the stage. Dispatching rows opens the one dispatch sheet on the project's repository, tasks
-// as lines and issues as tags; the sheet's own act starts the Job.
+// as lines and issues as tags; the sheet's own act starts the Job, with the rows, which Fleet holds for it.
 
 import { useRef } from "react";
 import { DockHandle } from "@armada/components";
@@ -44,7 +44,7 @@ export function ProjectsSurface({ picked, repositories, onOpenSession, onOpenLin
     const lines = rows.flatMap((row) => (row.kind === "task" ? [row.title, ...(row.subtasks ?? []).map((one) => `  - ${one.title}`)] : []));
     const words = [...lines, ...tags.map((tag) => tag.title)].join("\n");
     dispatching.choose("session");
-    dispatching.openSheet(`${words} `, root, tags);
+    dispatching.openSheet(`${words} `, root, tags, rows.map((row) => ({ project: from.id, row: row.id })));
   };
   const dispatchRow = (rowId: string) => {
     const row = project === undefined ? undefined : allRows(project).find((one) => one.id === rowId);

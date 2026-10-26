@@ -12,7 +12,7 @@
 // a narrow view of this file rather than a copy of it.
 
 import { identifying, NOTHING_YET } from "../shared/bridge";
-import type { StartAfter } from "@armada/protocol";
+import type { ProjectRowRef, StartAfter } from "@armada/protocol";
 import type { HelmCarry } from "../shared/api/helm";
 import type { SessionActed } from "../shared/api/sessions";
 import type { BridgeState, PickedView } from "../shared/bridge";
@@ -500,10 +500,10 @@ export class FleetConnection {
    * one repository Fleet serves** where there is exactly one, and a refusal in words where there are
    * several: a session starts in a repository, and guessing one would put it somewhere unseen.
    */
-  async startSession(picked: Picked, title?: string, root?: string, request?: string, tuning?: { model?: string; effort?: string }, after?: StartAfter, held?: boolean): Promise<SessionActed> {
+  async startSession(picked: Picked, title?: string, root?: string, request?: string, tuning?: { model?: string; effort?: string }, after?: StartAfter, held?: boolean, projectRows?: readonly ProjectRowRef[]): Promise<SessionActed> {
     const repository = repositoryToStart(this.current.holds.repositories ?? [], picked, root);
     if (repository === undefined) return { ok: false, outcome: { ok: false, why: "no_manifest" } };
-    const start = startOn(repository, title, root, request, tuning, after, held);
+    const start = startOn(repository, title, root, request, tuning, after, held, projectRows);
     if (start === null) return { ok: false, outcome: { ok: false, why: "not_set_up" } };
     return await this.sessions.start(start);
   }

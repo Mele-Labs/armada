@@ -7,7 +7,7 @@
 // item on that Job. Fleet keeps the two alike; here the window's two stores are joined, as Fleet would join them: the scenario
 // hands its Sessions store over (`projectsLink.jobs`) and answers an item through `projectsLink.settle`.
 
-import type { ProjectRow, ProjectTaskState, Projects, WaitingItem } from "@armada/protocol";
+import type { ProjectRow, ProjectRowRef, ProjectTaskState, Projects, WaitingItem } from "@armada/protocol";
 
 import type { ProjectsApi } from "../../../../shared/api/projects";
 import type { LinkedPull } from "../../projects-tab/model";
@@ -21,7 +21,12 @@ export const doneAskId = (projectId: string): string => `task_done:${projectId}`
 export const projectOfAsk = (itemId: string): string | undefined => (itemId.startsWith("task_done:") ? itemId.slice("task_done:".length) : undefined);
 
 /** This window's halves of the done ask. Set again for each window mounted. */
-export const projectsLink: { jobs?: SessionsStore; settle?: (job: string, projectId: string, done: boolean) => void } = {};
+export const projectsLink: {
+  jobs?: SessionsStore;
+  settle?: (job: string, projectId: string, done: boolean) => void;
+  /** A Job started with these rows holds each written task among them, as Fleet's start does. */
+  hold?: (job: string, title: string, rows: readonly ProjectRowRef[]) => void;
+} = {};
 
 type Task = Extract<ProjectRow, { kind: "task" }>;
 
@@ -141,6 +146,23 @@ export const projects: Slice<ProjectsApi, Record<string, never>> = {
             if (row.kind !== "task" || row.state !== "asked" || row.held_by?.session_id !== job) continue;
             row.state = done ? "done" : "open";
             delete row.held_by;
+          }
+        });
+      }
+    };
+
+    projectsLink.hold = (job, title, refs) => {
+      for (const kept of held.values()) {
+        const mine = refs.filter((ref) => kept.projects.some((one) => one.id === ref.project));
+        if (mine.length === 0) continue;
+        void write(kept.manifest_id, () => {
+          for (const ref of mine) {
+            const project = kept.projects.find((one) => one.id === ref.project)!;
+            for (const row of project.rows) {
+              if (row.kind !== "task" || (row.id !== ref.row && row.parent !== ref.row)) continue;
+              row.state = "held";
+              row.held_by = { session_id: job, title };
+            }
           }
         });
       }

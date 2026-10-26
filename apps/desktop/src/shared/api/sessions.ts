@@ -1,7 +1,7 @@
 // The Sessions Fleet hosts and the ledger of every agent session: reads, and the acts a person takes.
 // A slice imports protocol and screens, never another slice; `../api.ts` and `../bridge.ts` compose them.
 
-import type { AdversarialReview, DismissFinding, ModSessionStarted, SendFinding, StartAdversarialReview, StartModSession, StopWatch, WatchSummary } from "@armada/protocol";
+import type { AdversarialReview, DismissFinding, ModSessionStarted, ProjectRowRef, SendFinding, StartAdversarialReview, StartModSession, StopWatch, WatchSummary } from "@armada/protocol";
 import type {
   AnswerSessionAsk,
   AnswerWaiting,
@@ -83,8 +83,9 @@ export type SessionsApi = {
    * dispatched**, which Fleet reads once to fill in the title, workflow, model and effort; the answer is not waited on.
    * **`after` makes the Session wait on another**: `request` is then its brief, kept, and nothing is sent until the condition is met.
    * **`held` starts it on a card before any agent moves**: the Session carries `hosted.start` until `beginSession`.
+   * **`projectRows` are the rows of the repository's projects it starts with**: each written task among them is held by the Job.
    */
-  startSession: (title?: string, root?: string, request?: string, tuning?: { model?: string; effort?: string }, after?: StartAfter, held?: boolean) => Promise<SessionActed>;
+  startSession: (title?: string, root?: string, request?: string, tuning?: { model?: string; effort?: string }, after?: StartAfter, held?: boolean, projectRows?: readonly ProjectRowRef[]) => Promise<SessionActed>;
   /** Begins a held Session: the agent starts, and how the work lands is the choice sent, or the one `hosted.start.picked` names. Answers the record with `start` gone. */
   beginSession: (begin: BeginSession) => Promise<SessionActed>;
   /** Fleet's proposer reads a brief that tags `sessionId` for the wait it names. A reading it could not make is `ends`, from main. */
