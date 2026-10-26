@@ -78,11 +78,10 @@ The caps crowded the small deck.
 
 The Places, Cockpit, Studios, Logbook and System, are glyphs, each with its name in a tooltip.
 
-With a Job open, its state glyph and name stand in the title bar's centre notch after the Places, behind a hairline.
-A click on the name renames the Job.
+The notch holds only the Places.
 
-The Job's head has no title.
-It holds, in order:
+The Job's head keeps its title: the state glyph, then the name, which a click renames, and the glyph pulses while the Job works.
+After the title it holds, in order:
 
 | Part | Is |
 |---|---|

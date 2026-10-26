@@ -25,10 +25,10 @@ test("a Job open in the middle area carries the context figure and a rename that
   const pane = page.getByRole("region", { name: "Job: Cache key" });
   await expect.element(pane).toBeVisible();
 
-  // The head the Sessions window draws: the context figure. The title, the way to rename it, is in the title bar's notch.
+  // The head the Sessions window draws: the context figure, and the title as the way to rename it.
   await expect.element(pane.getByLabelText("Context 27%")).toBeVisible();
-  await page.getByRole("button", { name: "Cache key, rename" }).click();
-  const name = page.getByRole("textbox", { name: "Job name" });
+  await pane.getByRole("button", { name: "Cache key, rename" }).click();
+  const name = pane.getByRole("textbox", { name: "Job name" });
   await name.fill("Cache keys");
   await userEvent.keyboard("{Enter}");
 

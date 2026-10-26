@@ -27,7 +27,8 @@ function mount(node: React.ReactNode): HTMLElement {
   return host;
 }
 
-const tab = (host: HTMLElement, name: string, nth = 0) => [...host.querySelectorAll<HTMLElement>('[role="tab"]')].filter((one) => one.textContent?.startsWith(name))[nth]!;
+// A tab drawn as its glyph is named by its aria-label, not its text.
+const tab = (host: HTMLElement, name: string, nth = 0) => [...host.querySelectorAll<HTMLElement>('[role="tab"]')].filter((one) => (one.getAttribute("aria-label") ?? one.textContent)?.startsWith(name))[nth]!;
 
 test("The tab bar maps each tab to its surface", () => {
   const went: string[] = [];

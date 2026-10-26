@@ -71,7 +71,7 @@ Each was walked in the mock on a query switch: `?take=`, `&tabs=`, `&tabpos=`, `
 | `heads=none` | No name band; the acts appear in the corner on hover or focus | Picked |
 | `places=small` | The Places as a glyph and small text | Not picked |
 | `places=icons` | The Places as glyphs, the name in a tooltip | Picked |
-| `jobname=notch` | The open Job's state and name in the title bar's centre notch | Picked |
+| `jobname=notch` | The open Job's state and name in the title bar's centre notch | Reverted 26 Oct 2026: "I hate it". The Job's head keeps its title |
 | `autopilot=hidden` | Autopilot not drawn | Picked, as a setting |
 
 The density rounds began with the owner's ask: "I am looking at various mission control / cockpit user interfaces and they seem to be able to fit more on the screen.
@@ -79,7 +79,7 @@ Its like our font sizes, weights or spacing or something is restricting us".
 
 ## Approved, 26 Oct 2026
 
-The owner approved a combination: the Job's views as icons in its head, Flight control as one row of keys, and `tight-type` with `heads=none`, `places=icons`, `jobname=notch` and Autopilot behind a setting.
+The owner approved a combination: the Job's views as icons in its head, Flight control as one row of keys, and `tight-type` with `heads=none`, `places=icons` and Autopilot behind a setting.
 
 | Changed | Reads |
 |---|---|
