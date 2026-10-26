@@ -27,10 +27,12 @@ const SITE = served("site");
 const ago = (hours: number) => new Date(Date.now() - hours * 3_600_000).toISOString();
 const now = () => new Date().toISOString();
 
+const FORGE = "https://forge.example/acme/";
+
 const issue = (forge: string, number: number, title: string, body: string, state: "open" | "closed" = "open"): TicketRead => ({
   reference: `#${number}`,
   title,
-  url: `https://github.com/acme/${forge}/issues/${number}`,
+  url: `${FORGE}${forge}/issues/${number}`,
   state,
   author: "nick",
   assignees: [],
@@ -124,8 +126,8 @@ const SESSIONS = (): Session[] => [
 
 /** armada's pull requests, which the link search offers. */
 const PULLS: LinkedPull[] = [
-  { number: 2874, title: "Fit the pairing screen to small phones", url: "https://github.com/acme/armada/pull/2874", state: "open" },
-  { number: 2870, title: "Sign the macOS build in CI", url: "https://github.com/acme/armada/pull/2870", state: "merged" },
+  { number: 2874, title: "Fit the pairing screen to small phones", url: "https://forge.example/acme/armada/pull/2874", state: "open" },
+  { number: 2870, title: "Sign the macOS build in CI", url: "https://forge.example/acme/armada/pull/2870", state: "merged" },
 ];
 
 /** What Fleet lists: tasks and issue rows flat, a parent followed by its subtasks, a reference or a number with what the tracker or forge said of it. */
