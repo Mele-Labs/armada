@@ -18,7 +18,9 @@ const LANDS: readonly { choice: DeliveryChoice; label: string; detail: string }[
   { choice: "keep_local", label: "Keep local", detail: "Stop at the commit on the job's branch. Nothing is pushed." },
 ];
 
-const plural = (name: string): string => {
+const NO_WORKFLOW = "none";
+
+const plural =(name: string): string => {
   const lower = name.toLowerCase();
   return /(s|x|ch|sh)$/.test(lower) ? `${lower}es` : `${lower}s`;
 };
@@ -27,6 +29,8 @@ const plural = (name: string): string => {
 export function useStartPicks(session: Session, repositories: readonly RepositorySummary[], compact: boolean): { lead: ReactNode; begin: (text: string) => Promise<boolean> } | undefined {
   const draft = useSessionsDraft();
   const [answered, setAnswered] = useState<{ id: string; choice: DeliveryChoice } | undefined>(undefined);
+  // Fleet reads a custom Job's workflow as none, which is also how a Job it has not read looks, so his pick is kept here.
+  const [custom, setCustom] = useState<string | undefined>(undefined);
   const start = session.start;
   if (start === undefined || draft === undefined) return undefined;
 
@@ -37,10 +41,11 @@ export function useStartPicks(session: Session, repositories: readonly Repositor
   const kinds = (draft.work?.workflows ?? []).filter((one) => one.manifestId === undefined || session.manifestId === undefined || one.manifestId === session.manifestId);
   // Fleet gives the Job its workflow once it has read; the `feature`-else-first fallback is only for a Fleet that has not.
   const proposed = proposal?.workflow ?? null;
-  const kind = reading ? null : (proposed ?? kinds.find((one) => one.id === "feature")?.id ?? kinds[0]?.id ?? null);
+  const none = custom === id;
+  const kind = reading || none ? null : (proposed ?? kinds.find((one) => one.id === "feature")?.id ?? kinds[0]?.id ?? null);
   const kindName = kinds.find((one) => one.id === kind)?.name;
   const repository = repositories.find((one) => one.manifest?.id === session.manifestId)?.manifest?.repository;
-  const lands = start.asksDelivery;
+  const lands = start.asksDelivery && !none;
   // `start.picked` is Fleet's landing; Auto land is only for a Fleet that sends none.
   const landing = reading ? undefined : ((answered?.id === id ? answered.choice : undefined) ?? start.picked?.choice ?? "auto_land");
 
@@ -59,6 +64,12 @@ export function useStartPicks(session: Session, repositories: readonly Repositor
     return sent !== false;
   };
 
+  // None is a custom Job: Fleet is told at once, as for any other workflow, and no landing is asked of it.
+  const pick = (value: string): void => {
+    setCustom(value === NO_WORKFLOW ? id : undefined);
+    draft.work?.choose(id, value === NO_WORKFLOW ? null : value);
+  };
+
   const lead = (
     <>
       {reading ? (
@@ -69,8 +80,9 @@ export function useStartPicks(session: Session, repositories: readonly Repositor
         </Tooltip>
       ) : null}
       <Pick Glyph={Workflow} compact={compact} proposed={kind !== null && kind === proposed && picked.includes("workflow")} label="Workflow">
-        <Select aria-label="Workflow" value={kind ?? ""} disabled={reading} onChange={(event) => draft.work?.choose(id, event.target.value)}>
-          {kind === null ? <option value="">Workflow</option> : null}
+        <Select aria-label="Workflow" value={none ? NO_WORKFLOW : (kind ?? "")} disabled={reading} onChange={(event) => pick(event.target.value)}>
+          {kind === null && !none ? <option value="">Workflow</option> : null}
+          <option value={NO_WORKFLOW}>None</option>
           {kinds.map((one) => (
             <option key={one.id} value={one.id}>
               {one.name}

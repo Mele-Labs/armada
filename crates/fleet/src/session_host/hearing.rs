@@ -399,6 +399,11 @@ where
             let (fleet, id, runtime) = (Arc::clone(self), id.to_string(), Arc::clone(runtime));
             tokio::spawn(async move { fleet.runs_learnt(&id, &runtime).await });
         }
+        // A page changed by anything but Write or Edit is heard nowhere else, so it is read where the turn ends.
+        if let Some(cwd) = cwd {
+            let (fleet, id) = (Arc::clone(self), id.to_string());
+            tokio::spawn(async move { fleet.pages_reread(&id, &cwd).await });
+        }
         // How the turn ended, read off what the agent said and never off a tool it called. A turn held
         // for a slot and resumed in it is one turn to the person, so that move's end is not entered.
         if moving.is_none() {

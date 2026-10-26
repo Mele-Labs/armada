@@ -6,7 +6,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::{IssueState, ManifestId};
+use crate::{IssueState, ManifestId, SessionId};
 
 /// `list_projects`' answer, what every write answers, and `projects.changed` whole.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -28,9 +28,11 @@ pub struct Project {
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum ProjectRow {
     /// A task he wrote, with its own state. `notes` is empty for none. `held_by` is present while the
-    /// state is `held` or `asked`, and only then. **A subtask is a task with a `parent`**, the id of a
+    /// state is `held`, or `asked` by a Job; an `asked` task a linked pull request's merge asked about has none.
+    /// **A subtask is a task with a `parent`**, the id of a
     /// top-level task of the same project; rows are flat, and a parent is followed by its subtasks. `issues`
-    /// are the issues linked to it, in the order linked, each with what the tracker says of it now.
+    /// are the issues linked to it, in the order linked, each with what the tracker says of it now. `pulls` are the
+    /// pull requests linked to it, in the order linked, each with what the forge says of it now.
     Task {
         id: String,
         title: String,
@@ -42,6 +44,8 @@ pub enum ProjectRow {
         parent: Option<String>,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         issues: Vec<TaskIssue>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        pulls: Vec<TaskPull>,
     },
     /// A linked issue: the tracker's reference (`7`, `ABC-12`, `armada-3fz`), with what the tracker
     /// says of it now.
@@ -68,6 +72,26 @@ pub struct TaskIssue {
     pub state: Option<IssueState>,
 }
 
+/// A pull request linked to a task, by its number. **It keeps no state**: `title` and `state` are the forge's,
+/// read when the rows are, and are absent where it could not say.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TaskPull {
+    pub number: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub state: Option<TaskPullState>,
+}
+
+/// Where a linked pull request stands. A draft is open.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TaskPullState {
+    Open,
+    Merged,
+    Closed,
+}
+
 /// The Job holding a task.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProjectHolder {
@@ -85,7 +109,8 @@ pub enum ProjectTaskState {
     Done,
     /// A Job started with it and has not finished.
     Held,
-    /// The Job finished and whether the task is done is yet to be said. It outlives the Job.
+    /// Whether the task is done is yet to be said: its Job finished, or a pull request linked to it merged.
+    /// It outlives the Job.
     Asked,
 }
 
@@ -130,4 +155,16 @@ pub struct MoveProjectRow {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TickProjectTask {
     pub done: bool,
+}
+
+/// `link_task_job`: a running Job to hold the task, as if it had been started with it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LinkTaskJob {
+    pub session_id: SessionId,
+}
+
+/// `link_task_pull` and `unlink_task_pull`: a pull request of the repository, by number.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LinkTaskPull {
+    pub number: u64,
 }

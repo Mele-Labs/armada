@@ -371,8 +371,8 @@ pub use issue_queries::{
     WrittenIssueQuery,
 };
 pub use projects::{
-    LinkProjectIssue, MoveProjectRow, NameProject, Project, ProjectHolder, ProjectRow, ProjectRowRef, ProjectTask,
-    ProjectTaskState, Projects, TaskIssue, TickProjectTask,
+    LinkProjectIssue, LinkTaskJob, LinkTaskPull, MoveProjectRow, NameProject, Project, ProjectHolder, ProjectRow,
+    ProjectRowRef, ProjectTask, ProjectTaskState, Projects, TaskIssue, TaskPull, TaskPullState, TickProjectTask,
 };
 pub use issues::{
     IssueComment, IssueField, IssueList, IssueRead, IssueState, LinkedPullRequest, LinkedPullRequestState,
