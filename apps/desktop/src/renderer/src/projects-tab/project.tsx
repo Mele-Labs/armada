@@ -14,7 +14,7 @@ import { JobMark, jobTitle } from "../issues-tab/marks";
 import { useSessions } from "../sessions-draft";
 import type { Band } from "./list";
 import { PROJECTS_KEYS, capOf } from "./key-table";
-import type { Holder, Linked, LinkedPull, Look, Project, ProjectRow, RowState, TaskRow } from "./model";
+import type { Holder, Linked, LinkedPull, Project, ProjectRow, RowState, TaskRow } from "./model";
 import { allRows, rowState, useProjects, useProjectsStore } from "./store";
 import { useOpenIssues, useTagField } from "./tagging";
 
@@ -43,14 +43,14 @@ export function ProjectPane({ band, project, ...hosts }: Hosts & { band: Band | 
 
 function Pane({ band, project, onOpenSession, onOpenLink, onDispatch }: Hosts & { band: Band; project: Project }) {
   const store = useProjectsStore()!;
-  const { selected, linking, linkingTask, subtasking, editing, look } = useProjects();
+  const { selected, linking, linkingTask, subtasking, editing } = useProjects();
   const sessions = useSessions();
   // What Dispatch sends: the rows selected, a parent with its subtasks, and a subtask on its own where its parent is not.
   const chosen = project.rows.flatMap((row): ProjectRow[] =>
     selected.includes(row.id) ? [row] : row.kind === "task" ? (row.subtasks ?? []).filter((one) => selected.includes(one.id)) : [],
   );
   const { dragging, grab, swallowed } = useReorder((key, target, after) => store.place(key, target, after), CARDS);
-  const item = (row: ProjectRow, at: number, list: string, parent?: TaskRow) => (
+  const item = (row: ProjectRow, list: string, parent?: TaskRow) => (
     <li
       key={row.id}
       className="projects-item-card"
@@ -60,8 +60,6 @@ function Pane({ band, project, onOpenSession, onOpenLink, onDispatch }: Hosts & 
     >
       <Card
         row={row}
-        index={at + 1}
-        look={look}
         sub={parent !== undefined}
         project={project}
         adding={subtasking === row.id}
@@ -77,7 +75,7 @@ function Pane({ band, project, onOpenSession, onOpenLink, onDispatch }: Hosts & 
       {linking && linkingTask === row.id && row.kind === "task" ? <LinkSearch band={band} project={project} task={row} /> : null}
       {parent === undefined && row.kind === "task" && (row.subtasks ?? []).length > 0 ? (
         <ul className="projects-subtasks" aria-label={`Subtasks of ${row.title}`}>
-          {(row.subtasks ?? []).map((one, n) => item(one, n, row.id, row))}
+          {(row.subtasks ?? []).map((one) => item(one, row.id, row))}
         </ul>
       ) : null}
     </li>
@@ -107,8 +105,8 @@ function Pane({ band, project, onOpenSession, onOpenLink, onDispatch }: Hosts & 
         <AddTask project={project} />
         {linking && linkingTask === undefined ? <LinkSearch band={band} project={project} /> : null}
       </div>
-      <ul className="projects-rows" aria-label="Rows" data-look={look} data-reordering={dragging === undefined ? undefined : ""}>
-        {project.rows.map((row, at) => item(row, at, project.id))}
+      <ul className="projects-rows" aria-label="Rows" data-reordering={dragging === undefined ? undefined : ""}>
+        {project.rows.map((row) => item(row, project.id))}
       </ul>
     </section>
   );
@@ -116,8 +114,6 @@ function Pane({ band, project, onOpenSession, onOpenLink, onDispatch }: Hosts & 
 
 type CardProps = {
   row: ProjectRow;
-  index: number;
-  look: Look;
   /** A subtask: its parent's select takes it, and it holds no subtasks or issues of its own. */
   sub: boolean;
   project: Project;
@@ -134,7 +130,7 @@ type CardProps = {
   swallowed: () => boolean;
 };
 
-function Card({ row, index, look, sub, project, adding, editing, state, sessions, selected, onOpenSession, onOpenLink, onGrab, swallowed }: CardProps) {
+function Card({ row, sub, project, adding, editing, state, sessions, selected, onOpenSession, onOpenLink, onGrab, swallowed }: CardProps) {
   const store = useProjectsStore()!;
   const { Glyph, said } = markOf(row, state);
   const label = rowLabel(row);
@@ -144,7 +140,6 @@ function Card({ row, index, look, sub, project, adding, editing, state, sessions
       className="projects-row"
       data-row={row.id}
       data-state={state}
-      data-look={look}
       data-sub={sub || undefined}
       data-asking={state === "asking" || undefined}
       data-selected={selected || undefined}
@@ -156,7 +151,7 @@ function Card({ row, index, look, sub, project, adding, editing, state, sessions
     >
       <span className="projects-row__select">
         <Tooltip label="Select" shortcut={PROJECTS_KEYS.select}>
-          <SelectMark tabIndex={-1} look={look} size={sub ? "sm" : undefined} index={index} checked={selected} label={`Select ${label}`} onToggle={() => store.select(row.id)} />
+          <SelectMark tabIndex={-1} size={sub ? "sm" : undefined} checked={selected} label={`Select ${label}`} onToggle={() => store.select(row.id)} />
         </Tooltip>
       </span>
       {row.kind === "task" ? (

@@ -7,7 +7,7 @@ import type { ReactNode } from "react";
 import { SURFACE } from "@armada/shell";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
-import type { Holder, IssueRow, Linked, LinkedPull, Look, Project, ProjectRow, RowState, TaskLinks, TaskRow } from "./model";
+import type { Holder, IssueRow, Linked, LinkedPull, Project, ProjectRow, RowState, TaskLinks, TaskRow } from "./model";
 
 export type ProjectsSnapshot = {
   projects: readonly Project[];
@@ -27,8 +27,6 @@ export type ProjectsSnapshot = {
   editing: string | undefined;
   /** The project whose name is being edited in the list, by id. */
   renaming: string | undefined;
-  /** The select control's look, while two are offered. */
-  look: Look;
   /** The repository a new project's name field is up in, by Manifest id. */
   naming: string | undefined;
 };
@@ -57,8 +55,8 @@ function withList(project: Project, parent: string | undefined, change: (rows: P
 /** The pull requests of each repository the search offers, by Manifest id. Only the mock serves them. */
 export type PullsServed = Readonly<Record<string, readonly LinkedPull[]>>;
 
-export function createProjectsStore(seed: readonly Project[], settled?: Settled, look: Look = "reticle", pulls: PullsServed = {}) {
-  let snap: ProjectsSnapshot = { projects: structuredClone(seed) as Project[], open: undefined, selected: [], linking: false, linkingTask: undefined, subtasking: undefined, removed: undefined, editing: undefined, renaming: undefined, look, naming: undefined };
+export function createProjectsStore(seed: readonly Project[], settled?: Settled, pulls: PullsServed = {}) {
+  let snap: ProjectsSnapshot = { projects: structuredClone(seed) as Project[], open: undefined, selected: [], linking: false, linkingTask: undefined, subtasking: undefined, removed: undefined, editing: undefined, renaming: undefined, naming: undefined };
   const listeners = new Set<() => void>();
   const set = (next: Partial<ProjectsSnapshot>) => {
     snap = { ...snap, ...next };
@@ -244,7 +242,7 @@ export function useProjectsStore(): ProjectsStore | undefined {
   return useContext(Held);
 }
 
-const NEVER: ProjectsSnapshot = { projects: [], open: undefined, selected: [], linking: false, linkingTask: undefined, subtasking: undefined, removed: undefined, editing: undefined, renaming: undefined, look: "reticle", naming: undefined };
+const NEVER: ProjectsSnapshot = { projects: [], open: undefined, selected: [], linking: false, linkingTask: undefined, subtasking: undefined, removed: undefined, editing: undefined, renaming: undefined, naming: undefined };
 const NONE = () => () => undefined;
 
 export function useProjects(): ProjectsSnapshot {

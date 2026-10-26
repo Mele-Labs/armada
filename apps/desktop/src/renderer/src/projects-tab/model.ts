@@ -24,9 +24,6 @@ export type TaskLinks = Pick<TaskRow, "job" | "issues" | "pulls">;
 
 export type IssueRow = Linked & { kind: "issue"; id: string; job?: Holder };
 
-/** A project's look while the select control is offered two ways: the owner picks one. */
-export type Look = "reticle" | "plate";
-
 export type ProjectRow = TaskRow | IssueRow;
 
 export type Project = {

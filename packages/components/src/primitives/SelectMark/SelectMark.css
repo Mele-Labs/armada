@@ -1,7 +1,6 @@
-/* SelectMark: a row's select control in two looks while one is picked. Reticle: four corners in --fg-subtle that turn
-   the accent and close in on a lit core when selected. Plate: the row's place as a mono plate on --bg-sunken that fills
-   with the accent, its figure in --fg-inverse. Both sit in a --space-6 square. Motion is the corners' scale at
-   --duration-fast, which the motion tokens zero under reduced motion. No glow, no gradient. */
+/* SelectMark: a row's select control. Four corners in --fg-subtle that turn the accent and close in on a lit core when
+   selected, in a --space-6 square. Motion is the corners' scale at --duration-fast, which the motion tokens zero under
+   reduced motion. No glow, no gradient. */
 
 .armada-select-mark {
   display: inline-flex;
@@ -22,8 +21,6 @@
   outline: var(--focus-ring);
   outline-offset: var(--focus-ring-offset);
 }
-
-/* ---- Reticle ---- */
 
 .armada-select-mark__reticle {
   width: var(--space-6);
@@ -47,39 +44,12 @@
   transition: transform var(--duration-fast) var(--ease);
 }
 
-.armada-select-mark[data-look="reticle"]:hover { color: var(--fg-muted); }
-.armada-select-mark[data-look="reticle"][data-checked] { color: var(--accent); }
-.armada-select-mark[data-look="reticle"][data-checked] .armada-select-mark__corners { transform: scale(0.84); }
-.armada-select-mark[data-look="reticle"][data-checked] .armada-select-mark__core { transform: scale(1); }
-
-/* ---- Plate ---- */
-
-.armada-select-mark__plate {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: var(--space-6);
-  height: var(--space-6);
-  padding: 0 var(--space-1);
-  border: var(--border-width) solid var(--border-default);
-  border-radius: var(--radius-sm);
-  background: var(--bg-sunken);
-  color: var(--fg-muted);
-  font-family: var(--font-mono);
-  font-size: var(--text-2xs);
-  font-variant-numeric: tabular-nums;
-  font-weight: var(--weight-medium);
-  line-height: var(--leading-2xs);
-  transition:
-    background var(--duration-fast) var(--ease),
-    border-color var(--duration-fast) var(--ease);
-}
-
-.armada-select-mark[data-look="plate"]:hover .armada-select-mark__plate { border-color: var(--border-strong); color: var(--fg-default); }
-.armada-select-mark[data-look="plate"][data-checked] .armada-select-mark__plate { border-color: var(--accent); background: var(--accent); color: var(--fg-inverse); }
+.armada-select-mark:hover { color: var(--fg-muted); }
+.armada-select-mark[data-checked] { color: var(--accent); }
+.armada-select-mark[data-checked] .armada-select-mark__corners { transform: scale(0.84); }
+.armada-select-mark[data-checked] .armada-select-mark__core { transform: scale(1); }
 
 /* ---- A size down: a row under another ---- */
 
 .armada-select-mark[data-size="sm"] { min-width: var(--space-4); height: var(--space-4); }
 .armada-select-mark[data-size="sm"] .armada-select-mark__reticle { width: var(--space-4); height: var(--space-4); }
-.armada-select-mark[data-size="sm"] .armada-select-mark__plate { min-width: var(--space-4); height: var(--space-4); padding: 0; font-size: var(--text-2xs); line-height: var(--space-4); }

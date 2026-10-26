@@ -1,4 +1,4 @@
-// Projects, mock only, in two takes of the select control and the card: `projects` (reticle) and `projects-plate`. Open
+// Projects, mock only. Open
 // the tab on All and Pocket launch; rows as cards with the Job holding each as a chip and a task's issues as chips; a task
 // and a subtask added from the field under the head, one tagged with an issue and a Job; an issue, a Job and a subtask added from a card, a pull request
 // unlinked; a delete undone; a card
@@ -14,12 +14,12 @@ const pocket = region("Project Pocket launch");
 const bar = inside(dialog("Command palette"), role("combobox"));
 const needs = region("Needs you");
 
-function steps(take: string): Step[] {
+function steps(): Step[] {
   return [
     { press: place("Projects"), say: "Projects, a panel for each repository: armada's and site's on All" },
     { key: "l", on: list, say: "Keys: l r list and cards, j k move, Space select, Enter edit, a A task and subtask, i I link, o open the Job, u U unlink, d tick, D K answer, Backspace delete, e rename, s dispatch, ⌥↑ ⌥↓ move, Esc back" },
     { press: inside(list, button("Pocket launch")), say: "Pocket launch: every row a card" },
-    { look: role("checkbox", "Select Pair a phone by QR code"), say: `${take}: the select control` },
+    { look: role("checkbox", "Select Pair a phone by QR code"), say: "The select control" },
     { look: role("list", "Subtasks of Pair a phone by QR code"), say: "Two subtasks under it, each with its own glyph and tick" },
     { look: role("img", /^#2815 /), say: "An issue linked to the task, as a chip" },
     { look: button("Open Wire the pairing screen"), say: "The Job holding it, on its own line under the title. A press opens it" },
@@ -80,7 +80,6 @@ function steps(take: string): Step[] {
   ];
 }
 
-const projects = walk("projects", steps("Reticle"));
-const projectsPlate = walk("projects-plate", steps("Plate"));
+const projects = walk("projects", steps());
 
-export { projects as "projects", projectsPlate as "projects-plate" };
+export { projects as "projects" };

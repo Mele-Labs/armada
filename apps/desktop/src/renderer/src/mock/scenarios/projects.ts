@@ -2,8 +2,7 @@
 // Pocket launch mixes tasks he wrote with issues he linked: one task a live Job holds, one held by a Job that finished and is
 // still live (its Needs you item asks the same question as the row), one whose Job has ended and still asks on the row, a done
 // task, a closed issue and an open one. The pairing task carries an issue and two subtasks. Both repositories' issues are read
-// from their trackers, as the Issues tab reads them. Two takes of the select control and the card: `projects` (reticle) and
-// `projects-plate`, each played by the walk of its name.
+// from their trackers, as the Issues tab reads them. Played by the walk of the same name.
 
 import type { RepositorySummary, WaitingItem } from "@armada/protocol";
 import { repository } from "@armada/screens/src/fixtures/repository";
@@ -186,8 +185,8 @@ const TRACKERS: IssuesSeed = [
   { tracker: { manifestId: "site", state: "read", name: "GitHub", open: "is:open", assigned: "is:open assignee:@me", saved: [] }, tickets: SITE_ISSUES, me: "nick", language: "terms" },
 ];
 
-function build(name: string, look: "reticle" | "plate"): Scenario {
-  const base = holding(name, `Projects on All, the ${look} take: armada's Pocket launch and Cockpit trust, site's Docs refresh, with tasks held by a live, a finished and an ended Job`, [ARMADA, SITE]);
+function build(name: string): Scenario {
+  const base = holding(name, `Projects on All: armada's Pocket launch and Cockpit trust, site's Docs refresh, with tasks held by a live, a finished and an ended Job`, [ARMADA, SITE]);
   return {
     ...base,
     state: { ...base.state, repository: null },
@@ -208,11 +207,9 @@ function build(name: string, look: "reticle" | "plate"): Scenario {
       },
       issuesTab: TRACKERS,
       projectsTab: PROJECTS,
-      projectsLook: look,
       projectsPulls: { armada: PULLS },
     },
   };
 }
 
-export const s331Projects: Scenario = build("projects", "reticle");
-export const s331ProjectsPlate: Scenario = build("projects-plate", "plate");
+export const s331Projects: Scenario = build("projects");

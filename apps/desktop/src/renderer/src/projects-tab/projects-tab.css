@@ -111,7 +111,7 @@
 .projects-item-card[data-drop="before"]::after { top: calc(var(--space-1) * -1 - var(--border-width)); }
 .projects-item-card[data-drop="after"]::after { bottom: calc(var(--space-1) * -1 - var(--border-width)); }
 
-/* A card. Its hue is its state's; the take decides how the frame wears it. */
+/* A card. Its hue is its state's, and its frame wears it. */
 .projects-row {
   --hue: var(--fg-subtle);
   display: grid;
@@ -133,29 +133,19 @@
 .projects-row[data-state="closed"] { --hue: var(--step-advanced); }
 .projects-row:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
 
-/* Reticle: the shared Job card's frame, a heavier left edge in the hue and a ground that takes a little of it. */
-.projects-row[data-look="reticle"] {
+/* The shared Job card's frame: a heavier left edge in the hue and a ground that takes a little of it. */
+.projects-row {
   border: var(--border-width) solid color-mix(in srgb, var(--hue) 40%, var(--border-subtle));
   border-inline-start: calc(var(--border-width) * 3) solid var(--hue);
   background: color-mix(in srgb, var(--hue) 8%, var(--bg-raised));
   box-shadow: var(--shadow-card);
 }
-.projects-row[data-look="reticle"]:hover { background: color-mix(in srgb, var(--hue) 14%, var(--bg-raised)); }
-.projects-row[data-look="reticle"][data-selected] { box-shadow: inset 0 0 0 var(--border-width) var(--accent), var(--shadow-card); }
-
-/* Plate: a bay's frame, a heavier border all round in the hue, and the title in mono. */
-.projects-row[data-look="plate"] {
-  border: calc(var(--border-width) * 2) solid color-mix(in srgb, var(--hue) 40%, var(--border-subtle));
-  background: color-mix(in srgb, var(--hue) 5%, var(--bg-raised));
-}
-.projects-row[data-look="plate"]:hover { background: color-mix(in srgb, var(--hue) 10%, var(--bg-raised)); }
-.projects-row[data-look="plate"][data-selected] { border-color: var(--accent); }
-.projects-row[data-look="plate"] .projects-row__words { font-family: var(--font-mono); }
+.projects-row:hover { background: color-mix(in srgb, var(--hue) 14%, var(--bg-raised)); }
 
 /* A subtask: a smaller card, quieter, with no shadow of its own. */
-.projects-row[data-sub] { min-height: var(--h-control-sm); padding-block: var(--space-1); box-shadow: none; }
-.projects-row[data-sub][data-look="reticle"] { background: color-mix(in srgb, var(--hue) 5%, var(--bg-raised)); }
-.projects-row[data-sub][data-look="plate"] { border-width: var(--border-width); }
+.projects-row[data-sub] { min-height: var(--h-control-sm); padding-block: var(--space-1); box-shadow: none; background: color-mix(in srgb, var(--hue) 5%, var(--bg-raised)); }
+/* After the subtask's, so a subtask selected keeps its ring. */
+.projects-row[data-selected] { box-shadow: inset 0 0 0 var(--border-width) var(--accent), var(--shadow-card); }
 
 .projects-row__select { display: inline-flex; justify-content: center; }
 .projects-row__mark {
