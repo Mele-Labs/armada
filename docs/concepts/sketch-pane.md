@@ -178,6 +178,8 @@ Why: the wire row carries no tool result, so the ledger standing for the title i
 
 **Rule.** Pan, zoom and fit are `GraphCanvas`'s, and the keys `+`, `-`, `0` and the arrows act on a focused sketch.
 
+**Rule.** A sketch is also drawn live inside a Job's document, as an `<armada-sketch>` element. `document.md`.
+
 **Rule.** A part is noted to a Job by a right-click, or Shift+drag over several, and the note rides to the Job as a message. `session/noting-what-you-read.md`.
 
 ## What the owner can do to a sketch

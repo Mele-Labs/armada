@@ -80,6 +80,7 @@ import { backgroundEntryOf } from "./session-background";
 import { SubagentThread, useSubagentRead } from "./session-subagent";
 import { useMinimized } from "./session-ledger-minimized";
 import { useWriteClashes } from "./clashes";
+import { openDocumentAt } from "./session-view/document-state";
 import { showLayer, toggleLayer } from "./session-view/layers";
 import { ModEmpty } from "./session-view/ModEmpty";
 import { useModCards } from "./session-view/mod-cards";
@@ -352,6 +353,8 @@ export const markedOf = (open: Reading | undefined): { parts?: readonly string[]
  * made with the region drawn, and any other file in the side panel on its lines or with its region drawn.
  */
 function openNoted(session: Session, read: (one: Reading) => void, ref: NotedRef): void {
+  // A note on the Job's document opens the document over the Job, at the place the note named.
+  if (ref.kind === "document") return openDocumentAt(session.id, ref.place, ref.target, attachmentsOf(session, "artifact").find((one) => one.revisions !== undefined && one.title === ref.place.page)?.id);
   const inside = session.cwd !== undefined && ref.kind !== "sketch" && ref.path.startsWith(`${session.cwd.replace(/\/+$/, "")}/`);
   const from = inside ? ("session" as const) : ("picked" as const);
   if (ref.kind === "sketch") {
@@ -679,7 +682,7 @@ export function entriesOf(
           ...(shownOnly(one) ? { shown: true as const } : {}),
           text: one.title,
           // A file the Session wrote opens in the side panel's editor; a page or a doc stays in the reading sheet.
-          onOpen: () => (one.form === "window" ? openWindow(one.id) : one.form === "file" && openInPanel({ kind: "file", path: one.id, from: "session", sessionId: session.id }) ? undefined : read({ kind: "artifact", id: one.id })),
+          onOpen: () => (one.form === "window" ? openWindow(one.id) : one.form === "document" && one.revisions !== undefined ? showLayer(session.id, "document", one.id) : one.form === "file" && openInPanel({ kind: "file", path: one.id, from: "session", sessionId: session.id }) ? undefined : read({ kind: "artifact", id: one.id })),
         };
       case "subagent":
         return {

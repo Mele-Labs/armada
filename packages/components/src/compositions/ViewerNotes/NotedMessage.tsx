@@ -13,6 +13,7 @@ export const NotedOpens = createContext<NotedOpen | null>(null);
 const nameOf = (path: string) => path.split("/").pop() ?? path;
 
 function opensSaid(ref: NotedRef): string {
+  if (ref.kind === "document") return `Open ${ref.place.page}, revision ${String(ref.place.revision)}`;
   if (ref.kind === "sketch") return `Open ${ref.title}, ${ref.parts.length === 1 ? "part" : "parts"} picked`;
   if (ref.kind === "file") return `Open ${nameOf(ref.path)}, ${ref.from === ref.to ? `line ${String(ref.from)}` : `lines ${String(ref.from)}-${String(ref.to)}`}`;
   return `Open ${nameOf(ref.path)}${ref.region === undefined ? "" : ", region marked"}`;

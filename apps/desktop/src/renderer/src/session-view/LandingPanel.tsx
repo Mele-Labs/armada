@@ -4,6 +4,7 @@
 // Deferred stand inside, whatever the kind. **The issues a plan group works stand in the Blueprint, the pull requests in the Merge line**, and the issues the Job filed for later stand in Deferred, not on this band.
 // The stage opens it (`story.ts`); the band or ⌥L does too. `landingOf` names the kind: the workflow's `lands` from Fleet, or the mock's `work.landing`.
 
+import { useMemo } from "react";
 import { Tooltip, type LedgerEntry } from "@armada/components";
 import { attachmentsOf, type Session } from "@armada/screens/src/draft/sessions";
 
@@ -11,6 +12,9 @@ import { remindLater } from "../cockpit/deck/acts";
 import { useArtifact } from "../session-artifact";
 import { useSessionsDraft } from "../sessions-draft";
 import { artifactsOf, type ArtifactRow } from "./artifacts";
+import { documentOf } from "./document-state";
+import { readPage } from "./document-page";
+import { showLayer } from "./layers";
 import { issuesOutsidePlan } from "./IssuesBlock";
 import { LaterBlock } from "./LaterBlock";
 import { PullRow } from "./LedgerRow";
@@ -49,12 +53,18 @@ function conclusionOf(text: string): string {
   return lines.slice(start, end < 0 ? undefined : end).join(" ");
 }
 
-/** The report the Job wrote: its title over the first lines of its conclusion, read from the file. A press opens the whole report as a doc opens. */
+/**
+ * The report the Job wrote: its title over the first lines of its conclusion, read from the file. A press opens the whole report as a doc
+ * opens. A report that is an HTML page (the Job's document) reads its conclusion from the page's first paragraph, from the newest
+ * revision, and opens in the reading layer over the Job.
+ */
 function Report({ session, row }: { session: Session; row: ArtifactRow }) {
-  const held = useArtifact(useSessionsDraft(), session.id, row.sub ?? "");
-  const conclusion = held.state === "read" && held.read.ok ? conclusionOf(new TextDecoder().decode(held.read.bytes)) : "";
+  const doc = documentOf(session, row.sub);
+  const held = useArtifact(useSessionsDraft(), session.id, doc === undefined ? (row.sub ?? "") : (doc.revisions[doc.revisions.length - 1] ?? ""));
+  const text = held.state === "read" && held.read.ok ? new TextDecoder().decode(held.read.bytes) : "";
+  const conclusion = useMemo(() => (doc === undefined ? conclusionOf(text) : text === "" ? "" : readPage(text).lede), [doc === undefined, text]);
   return (
-    <button type="button" className="sv-landing__report" aria-label={row.title} disabled={row.open === undefined} onClick={row.open}>
+    <button type="button" className="sv-landing__report" aria-label={row.title} disabled={row.open === undefined} onClick={doc === undefined ? row.open : () => showLayer(session.id, "document", doc.id)}>
       <span className="sv-landing__report-head">
         <Tooltip label="Report">
           <span className="sv-landing__report-mark" role="img" aria-label="Report">

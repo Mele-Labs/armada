@@ -24,6 +24,7 @@ mod asking_in_window;
 mod phone;
 mod showing_file;
 mod sketching;
+mod documents;
 mod building;
 mod checkouts_apart;
 mod committing;

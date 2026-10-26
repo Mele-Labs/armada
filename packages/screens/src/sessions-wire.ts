@@ -163,6 +163,20 @@ export function sketchCallOf(text: string): { title: string; scene: Scene; again
   return { title: args["title"].trim(), scene, ...(typeof against === "string" && against.trim() !== "" ? { against: against.trim() } : {}) };
 }
 
+/**
+ * The revisions of a Job's document, from the `revisions` detail of its `document` row: a JSON list of paths, oldest first.
+ * **Anything that is not a list of non-empty strings reads as none**, so a row Fleet wrote badly is a document with no pages and not a throw.
+ */
+export function revisionsOfDetail(kept: string | undefined): string[] {
+  if (kept === undefined) return [];
+  try {
+    const read: unknown = JSON.parse(kept);
+    return Array.isArray(read) && read.every((one) => typeof one === "string" && one !== "") ? (read as string[]) : [];
+  } catch {
+    return [];
+  }
+}
+
 /** A pull request the ledger holds, with what Fleet last read of it. A merged one is `spent`; a closed one is let go. */
 function pullRequestOf(one: Attachment): SessionAttachment | undefined {
   if (one.state === "given_back") return undefined;
@@ -282,13 +296,15 @@ export function attachmentsOfRecord(record: Pick<SessionRecord, "attachments">, 
           out.push(sketchOf(one));
           break;
         }
-        if (form !== "page" && form !== "file" && form !== "image" && form !== "doc" && form !== "window") break;
+        if (form !== "page" && form !== "file" && form !== "image" && form !== "doc" && form !== "document" && form !== "window") break;
+        const revisions = form === "document" ? revisionsOfDetail(detail["revisions"]) : [];
         out.push({
           kind: "artifact",
           form,
           id: one.target,
           title: detail["title"] ?? one.target.slice(one.target.lastIndexOf("/") + 1),
           ...(form === "file" && detail["by"] === "agent" && detail["shown"] !== undefined ? { shown: detail["shown"], by: "agent" as const, ...(detail["written"] === "true" ? { written: true as const } : {}) } : {}),
+          ...(revisions.length === 0 ? {} : { revisions }),
         });
         break;
       }

@@ -1,0 +1,67 @@
+/* A Job's document in the reading layer. It covers the Job view (the deck's grid), so it is full width: contents, the page, the Notes
+ * margin. The page's own CSS is scoped to .armada-doc__page when it is read (document-page.ts) and cannot reach anything here. Changes
+ * use the sketch diff hues: added green, changed amber, removed red. */
+.armada-doc { position: absolute; inset: 0; z-index: var(--z-dock); display: flex; flex-direction: column; min-height: 0; background: var(--bg-raised); }
+.armada-doc__head { display: flex; flex: none; align-items: center; gap: var(--space-4); min-height: var(--h-row-header); padding: 0 var(--space-3) 0 var(--space-4); border-bottom: var(--border-width) solid var(--border-subtle); }
+.armada-doc__title { min-width: 0; margin: 0; overflow: hidden; font-size: var(--text-sm); line-height: var(--leading-sm); font-weight: var(--weight-heading); text-overflow: ellipsis; white-space: nowrap; }
+.armada-doc__revision { display: inline-flex; color: var(--fg-muted); }
+.armada-doc__revision .armada-dropdown-menu__trigger { font-size: var(--text-sm); line-height: var(--leading-sm); font-weight: var(--weight-body); }
+.armada-doc__tools { display: flex; align-items: center; gap: var(--space-1); margin-inline-start: auto; }
+.armada-doc__tools [aria-pressed="true"] { background: var(--accent-muted); }
+
+.armada-doc__body:not([data-notes]) { grid-template-columns: calc(var(--space-12) * 4) minmax(0, 1fr); }
+.armada-doc__notes[hidden] { display: none; }
+.armada-doc__body { display: grid; flex: 1 1 0; grid-template-columns: calc(var(--space-12) * 4) minmax(0, 1fr) calc(var(--space-12) * 7); min-height: 0; }
+.armada-doc__rail, .armada-doc__notes { display: flex; flex-direction: column; gap: var(--space-1); min-height: 0; padding: var(--space-3); overflow-y: auto; overscroll-behavior: contain; }
+.armada-doc__rail { border-inline-end: var(--border-width) solid var(--border-subtle); }
+.armada-doc__notes { gap: var(--space-3); border-inline-start: var(--border-width) solid var(--border-subtle); }
+.armada-doc__section { box-sizing: border-box; inline-size: 100%; min-block-size: var(--h-row); padding: var(--space-1) var(--space-2); border: 0; border-radius: var(--radius-md); background: none; color: var(--fg-muted); font: inherit; font-size: var(--text-xs); line-height: var(--leading-xs); text-align: start; cursor: pointer; }
+.armada-doc__section:hover { background: var(--surface-row-hover); color: var(--fg-default); }
+.armada-doc__section[aria-current="location"] { background: var(--accent-muted); color: var(--fg-default); }
+.armada-doc__section:focus-visible { outline: var(--edge-active) solid var(--edge-focus); outline-offset: calc(var(--edge-active) * -1); }
+
+.armada-doc__scroll { min-width: 0; min-height: 0; padding: var(--space-8) var(--space-6); overflow-y: auto; overscroll-behavior: contain; }
+
+/* The page. Contained, so a rule of its own that fixes or stretches a box cannot leave it. */
+.armada-doc__page { box-sizing: border-box; margin-inline: auto; contain: layout paint; color: var(--fg-default); font-family: var(--font-sans); font-size: var(--text-base); line-height: var(--leading-base); }
+.armada-doc__page:focus-visible { outline: none; }
+.armada-doc__page ::selection { background: var(--accent-muted); color: var(--fg-default); }
+.armada-doc__sketch { margin: var(--space-6) 0; }
+.armada-doc__sketch-mount { position: relative; }
+.armada-doc__sketch .armada-sketch { margin: 0; block-size: auto; aspect-ratio: 16 / 7; min-block-size: calc(var(--space-12) * 6); }
+.armada-doc__sketch[data-focus] .armada-sketch, .armada-doc__sketch[data-lit] .armada-sketch { border-color: var(--accent); }
+.armada-doc__anchor { display: inline-flex; margin-inline: var(--space-1); vertical-align: text-top; }
+td > .armada-doc__anchor { margin-inline-start: 0; }
+/* A note's place in the page, in three strengths: sent, held, and the one lit from the margin, hovered in the page, or opened from the thread. */
+.armada-doc__page tr[data-sent] { background: var(--accent-faint); }
+.armada-doc__page tr[data-noted] { background: var(--accent-muted); }
+.armada-doc__page tr[data-focus], .armada-doc__page tr[data-lit] { background: color-mix(in srgb, var(--accent) 40%, transparent); }
+::highlight(armada-doc-sent) { background-color: var(--accent-faint); }
+::highlight(armada-doc-note) { background-color: var(--accent-muted); }
+::highlight(armada-doc-focus), ::highlight(armada-doc-lit) { background-color: color-mix(in srgb, var(--accent) 40%, transparent); }
+
+/* Changes. A word that came is tinted green and one that went is struck in red; a block that came has a green rule, one that moved on an
+ * amber one, and a block that went stands struck where it was. */
+.armada-doc__page ins { background: color-mix(in srgb, var(--status-completed-success) 20%, transparent); color: inherit; text-decoration: none; }
+.armada-doc__page del { background: color-mix(in srgb, var(--status-completed-failed) 16%, transparent); color: var(--fg-muted); text-decoration: line-through; text-decoration-color: var(--status-completed-failed); }
+.armada-doc__page [data-change="added"] { background: color-mix(in srgb, var(--status-completed-success) 12%, transparent); box-shadow: inset var(--edge-active) 0 0 var(--status-completed-success); }
+.armada-doc__page [data-change="changed"] { box-shadow: inset var(--edge-active) 0 0 var(--status-awaiting-review); }
+.armada-doc__page [data-change="removed"] { color: var(--fg-muted); text-decoration: line-through; text-decoration-color: var(--status-completed-failed); box-shadow: inset var(--edge-active) 0 0 var(--status-completed-failed); }
+.armada-doc__page [data-change] { padding-inline-start: var(--space-2); }
+.armada-doc__page td[data-change], .armada-doc__page th[data-change] { padding-inline-start: var(--space-3); }
+
+/* The Notes margin. Each list is a grid with a column for the number, the words and the act. */
+.armada-doc__notes-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); min-block-size: var(--h-control-sm); }
+.armada-doc__label { margin: 0; color: var(--fg-muted); font-family: var(--font-mono); font-size: var(--text-xs); line-height: var(--leading-xs); font-weight: var(--weight-heading); letter-spacing: var(--tracking-caps); text-transform: uppercase; }
+.armada-doc__list { display: flex; flex-direction: column; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
+.armada-doc__note { display: grid; grid-template-columns: auto minmax(0, 1fr) var(--h-control-sm); align-items: start; gap: var(--space-2); font-size: var(--text-xs); line-height: var(--leading-xs); }
+.armada-doc__note[data-sent] { grid-template-columns: auto minmax(0, 1fr); }
+.armada-doc__note > .armada-note-number { margin-block-start: var(--space-1); }
+.armada-doc__note-body { display: flex; flex-direction: column; min-width: 0; padding: var(--space-1) var(--space-2); border: 0; border-radius: var(--radius-md); background: none; color: var(--fg-default); font: inherit; text-align: start; cursor: pointer; }
+.armada-doc__note-body:hover, .armada-doc__note[data-lit] .armada-doc__note-body { background: var(--surface-row-hover); }
+.armada-doc__about { overflow: hidden; color: var(--fg-muted); font-family: var(--font-mono); text-overflow: ellipsis; white-space: nowrap; }
+.armada-doc__answer { display: grid; grid-column: 2; grid-template-columns: var(--space-4) minmax(0, 1fr); align-items: start; gap: var(--space-2); padding: var(--space-1) var(--space-2); border: 0; border-radius: var(--radius-md); background: color-mix(in srgb, var(--status-completed-success) 12%, transparent); color: var(--fg-default); font: inherit; text-align: start; cursor: pointer; }
+.armada-doc__answer:hover { background: color-mix(in srgb, var(--status-completed-success) 20%, transparent); }
+.armada-doc__answer-mark { display: inline-flex; align-items: center; justify-content: center; block-size: var(--leading-xs); color: var(--status-completed-success); }
+.armada-doc__answer-said { min-width: 0; overflow-wrap: anywhere; }
+.armada-doc__section:focus-visible, .armada-doc__note-body:focus-visible, .armada-doc__answer:focus-visible { outline: var(--edge-active) solid var(--edge-focus); outline-offset: calc(var(--edge-active) * -1); }
