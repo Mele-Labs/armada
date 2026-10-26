@@ -261,6 +261,70 @@ impl Store {
         tx.commit().map_err(database(doing))
     }
 
+    /// What `session` holds, `held` and now finished: each task is `asked` from `at`. How many.
+    pub fn ask_held_project_tasks(&mut self, session: &str, at: &str) -> Result<usize, WriteError> {
+        self.conn
+            .execute(
+                "UPDATE project_rows SET state = 'asked', asked_at = ?2 WHERE held_by = ?1 AND state = 'held'",
+                params![session, at],
+            )
+            .map_err(database("asking about project tasks"))
+    }
+
+    /// What `session` holds and has not finished, let go: each task is `open` again. How many.
+    pub fn free_held_project_tasks(&mut self, session: &str) -> Result<usize, WriteError> {
+        self.conn
+            .execute(
+                "UPDATE project_rows SET state = 'open', held_by = '', asked_at = '' WHERE held_by = ?1 AND state = 'held'",
+                params![session],
+            )
+            .map_err(database("letting go of project tasks"))
+    }
+
+    /// The tasks `session` asked about and nobody has settled, a group per project in the order the
+    /// projects are kept.
+    pub fn asked_project_tasks(&self, session: &str) -> Result<Vec<KeptAsked>, WriteError> {
+        let doing = "reading the project tasks asked about";
+        let mut statement = self
+            .conn
+            .prepare(
+                "SELECT p.id, p.name, r.id, r.title, r.asked_at
+                 FROM project_rows r JOIN projects p ON p.id = r.project_id
+                 WHERE r.held_by = ?1 AND r.state = 'asked'
+                 ORDER BY p.position, p.created, p.id, r.position, r.id",
+            )
+            .map_err(database(doing))?;
+        let rows = statement
+            .query_map(params![session], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?, row.get::<_, String>(2)?, row.get::<_, String>(3)?, row.get::<_, String>(4)?))
+            })
+            .and_then(|rows| rows.collect::<Result<Vec<_>, _>>())
+            .map_err(database(doing))?;
+        let mut asked: Vec<KeptAsked> = Vec::new();
+        for (project_id, project_name, id, title, at) in rows {
+            match asked.last_mut().filter(|last| last.project_id == project_id) {
+                Some(last) => {
+                    last.since = last.since.clone().min(at);
+                    last.tasks.push((id, title));
+                }
+                None => asked.push(KeptAsked { project_id, project_name, since: at, tasks: vec![(id, title)] }),
+            }
+        }
+        Ok(asked)
+    }
+
+    /// The ask `session` raised on `project_id`, answered: its tasks are `done`, or `open` again. How many.
+    pub fn settle_asked_project_tasks(&mut self, session: &str, project_id: &str, done: bool) -> Result<usize, WriteError> {
+        let state = if done { KeptTaskState::Done } else { KeptTaskState::Open };
+        self.conn
+            .execute(
+                "UPDATE project_rows SET state = ?3, held_by = '', asked_at = ''
+                 WHERE held_by = ?1 AND project_id = ?2 AND state = 'asked'",
+                params![session, project_id, state.as_str()],
+            )
+            .map_err(database("settling project tasks"))
+    }
+
     /// Drop a row. Whether the project had one by that id.
     pub fn remove_project_row(&mut self, project_id: &str, id: &str) -> Result<bool, WriteError> {
         self.reorder_project_rows(project_id, id, None, "removing a project row")

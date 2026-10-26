@@ -111,6 +111,7 @@ where
         self.session_checks_ended(session).await;
         self.watches_ended_with(session).await;
         self.job_shell_wound_up(session);
+        self.project_tasks_freed(session).await;
         if let Some(url) = self.walk_open(session).await {
             self.walk_ended(session, &url).await;
         }

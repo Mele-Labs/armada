@@ -6,12 +6,43 @@
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
-use ipc::{ManifestId, ProjectRowRef};
+use ipc::{
+    Instant, ManifestId, ProjectRowRef, SessionRecord, WaitingAct, WaitingActKind, WaitingItem, WaitingOption,
+    WaitingSource,
+};
+use store::KeptAsked;
 
 use crate::daemon::Fleet;
 
 /// A start names a project of another repository. A 422.
 const OTHER_REPOSITORY: &str = "fleet.project_row_other_repository";
+
+/// The id of the ask about one project's tasks: `task_done:<project>`.
+const TASK_DONE: &str = "task_done:";
+
+/// What the person is asked about the tasks a Job finished in one project. Choice 0 and 1 are the
+/// options in this order: `answer_waiting` takes the index.
+pub(crate) fn task_done_item(asked: &KeptAsked) -> WaitingItem {
+    let option = |label: &str| WaitingOption { label: label.to_string(), description: None };
+    let id = format!("{TASK_DONE}{}", asked.project_id);
+    let text = match asked.tasks.as_slice() {
+        [(_, title)] => format!("Mark {title} done?"),
+        _ => format!("Mark the {} tasks done?", asked.project_name),
+    };
+    WaitingItem {
+        act: Some(WaitingAct { kind: WaitingActKind::Answer, target: id.clone() }),
+        id,
+        text,
+        since: Instant::carried(&asked.since),
+        source: WaitingSource::TaskDone,
+        options: vec![option("Mark done"), option("Keep open")],
+        steps: Vec::new(),
+        place: None,
+        concern: None,
+        cites: Vec::new(),
+        confirmed: false,
+    }
+}
 
 impl<H, V, W> Fleet<H, V, W>
 where
@@ -71,5 +102,85 @@ where
         };
         let projects = self.projects_on_the_wire(ManifestId::carried(manifest), kept).await;
         self.publish(ipc::Event::ProjectsChanged(projects));
+    }
+
+    /// `answer_waiting` on a `task_done` item: choice 0 marks what the Job asked about in that
+    /// project done, 1 opens it again. The agent is told nothing: it finished, and the Job may be gone.
+    pub(crate) async fn task_done_chosen(
+        &self,
+        session: &str,
+        item: &str,
+        choice: Option<u32>,
+    ) -> Result<SessionRecord, Refusal> {
+        let done = match choice {
+            Some(0) => true,
+            Some(1) => false,
+            _ => {
+                return Err(self.hosted_refusal(
+                    "fleet.session_waiting_empty",
+                    "whether the tasks are done is answered by choosing Mark done or Keep open",
+                ))
+            }
+        };
+        let project = item.strip_prefix(TASK_DONE).unwrap_or(item);
+        let (record, manifest) = {
+            let mut store = self.store().lock().await;
+            let kept = store.session(session).map_err(|why| self.ledger_fault(why))?;
+            let kept = kept.ok_or_else(|| self.settled_already())?;
+            let changed = store.settle_asked_project_tasks(session, project, done).map_err(|why| self.ledger_fault(why))?;
+            if changed == 0 {
+                return Err(self.settled_already());
+            }
+            (self.ledger_row(&store, &kept)?, kept.manifest_id.unwrap_or_default())
+        };
+        self.publish(ipc::Event::SessionChanged(record.clone()));
+        self.projects_published(&manifest).await;
+        Ok(record)
+    }
+
+    /// `session` said it is done, or its pull request merged: what it holds is asked about, and
+    /// the Job and the projects are published. Nothing happens for a Job holding no task.
+    pub(crate) async fn project_tasks_asked(&self, session: &str) {
+        let at = self.now().as_str().to_string();
+        let manifest = {
+            let mut store = self.store().lock().await;
+            match store.ask_held_project_tasks(session, &at) {
+                Ok(0) | Err(_) => return,
+                Ok(_) => store.session(session).ok().flatten().and_then(|one| one.manifest_id).unwrap_or_default(),
+            }
+        };
+        let _ = self.published_hosted(session).await;
+        self.projects_published(&manifest).await;
+    }
+
+    /// Pull request `number` merged: every Job that held it is asked about its held tasks. **Held, not
+    /// standing**, as `issues_merged` reads it, and idempotent: a task already asked is not asked again.
+    pub(crate) async fn tasks_asked_by_merge(&self, served: &crate::repositories::Served, number: u64) {
+        let manifest = served.manifest().id().as_str().to_string();
+        let holders: Vec<String> = self
+            .store()
+            .lock()
+            .await
+            .attachments_at("pr", &number.to_string(), Some(&manifest))
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|row| row.holder.kind == store::HolderKind::Session)
+            .map(|row| row.holder.id)
+            .collect();
+        for session in holders {
+            self.project_tasks_asked(&session).await;
+        }
+    }
+
+    /// `session` is over: what it held and did not finish is open again. What it asked about stays asked.
+    pub(crate) async fn project_tasks_freed(&self, session: &str) {
+        let manifest = {
+            let mut store = self.store().lock().await;
+            match store.free_held_project_tasks(session) {
+                Ok(0) | Err(_) => return,
+                Ok(_) => store.session(session).ok().flatten().and_then(|one| one.manifest_id).unwrap_or_default(),
+            }
+        };
+        self.projects_published(&manifest).await;
     }
 }
