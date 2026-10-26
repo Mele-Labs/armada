@@ -17,6 +17,7 @@ const report = inside(landing, button(LEASE_DOC_TITLE));
 const add = role("menuitem", "Add note");
 const note = role("textbox", "Note");
 const measured = inside(contents, button("What was measured"));
+const clock = inside(contents, button("How the lease clock runs"));
 
 const reading = walk("job-story", [
   { press: deckRow(LEASE_DOC_TITLE), say: "An investigation whose plan has just been recorded" },
@@ -25,17 +26,18 @@ const reading = walk("job-story", [
   { look: report, say: "Landing shows its title and the first lines of its conclusion" },
   { press: report, say: "A press opens the page in a layer over the whole Job" },
   { look: layer, say: "Contents on the left, the page in the middle, the Notes margin on the right" },
-  { press: measured, say: "A press in the contents scrolls to its section" },
-  { key: "ArrowUp", on: measured, say: "The arrows walk the contents" },
   { select: "leave the limit as it is", in: page, say: "Words selected" },
   { key: "Shift+F10", on: page, say: "Shift F10, or the menu key, opens the menu at the selection" },
   { press: add, say: "Add note" },
   { type: "Why not raise the limit instead?\n", into: note, say: "Enter holds the note" },
   { look: inside(page, role("img", "Note 1")), say: "Its number stands at the words" },
+  { press: clock, say: "A press in the contents scrolls to its section" },
   { context: inside(page, role("group", "Check runs", { exact: true })), say: "Right-click a part of the sketch" },
   { press: add, say: "Add note" },
   { type: "Does the Drone do anything while the Check runs?\n", into: note, say: "A second note" },
   { look: inside(inside(page, role("group", "Check runs", { exact: true })), role("img", "Note 2")), say: "Its number stands on the part" },
+  { press: measured, say: "The next section" },
+  { key: "ArrowDown", on: measured, say: "The arrows walk the contents" },
   { context: inside(page, row("Rename the bay tile")), say: "Right-click a row of the table" },
   { press: add, say: "Add note" },
   { type: "What expired this one?\n", into: note, say: "A third note" },

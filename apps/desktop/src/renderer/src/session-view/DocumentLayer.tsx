@@ -86,7 +86,7 @@ export function DocumentLayer({ session }: { session: Session }) {
   const viewer = useViewerNotes(scope, pageRef);
   const held = useHeldOn(scope.key).notes;
 
-  const diff = useMemo(() => (page === undefined || before === undefined ? undefined : diffPages(before.root, page.root)), [page, before]);
+  const diff = useMemo(() => (page === undefined || before === undefined ? undefined : diffPages(before.root, page.root, title)), [page, before, title]);
   const showing = changes && diff !== undefined;
   const sent = useMemo(() => sentAbout(session, title), [session.rows, title]);
   const answers = useMemo(() => sent.map((note) => (diff !== undefined && note.ref.place.revision === revision - 1 ? diff.answer(note.ref) : undefined)), [sent, diff, revision]);
@@ -176,7 +176,7 @@ export function DocumentLayer({ session }: { session: Session }) {
       <header className="armada-doc__head">
         <h3 className="armada-doc__title">{title}</h3>
         {page === undefined ? null : latest > 1 ? (
-          <DropdownMenu plain triggerLabel={`Revision ${String(revision)}`} triggerTooltip="Revision, R" entries={revisions} onSelect={(id) => setPinned(Number(id) === latest ? undefined : Number(id))} />
+          <DropdownMenu plain triggerLabel={`Revision ${String(revision)}`} triggerTooltip="Revision" entries={revisions} onSelect={(id) => setPinned(Number(id) === latest ? undefined : Number(id))} />
         ) : (
           <span className="armada-doc__revision">Revision {revision}</span>
         )}

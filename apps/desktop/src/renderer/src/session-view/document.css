@@ -24,8 +24,9 @@
 .armada-doc__page:focus-visible { outline: none; }
 .armada-doc__page ::selection { background: var(--accent-muted); color: var(--fg-default); }
 .armada-doc__sketch { margin: var(--space-6) 0; }
-.armada-doc__sketch-mount { position: relative; block-size: calc(var(--space-12) * 7); border: var(--border-width) solid var(--border-subtle); border-radius: var(--radius-md); overflow: hidden; background: var(--bg-base); }
-.armada-doc__sketch[data-focus] .armada-doc__sketch-mount { border-color: var(--accent); }
+.armada-doc__sketch-mount { position: relative; }
+.armada-doc__sketch .armada-sketch { margin: 0; }
+.armada-doc__sketch[data-focus] .armada-sketch { border-color: var(--accent); }
 .armada-doc__anchor { display: inline-flex; margin-inline: var(--space-1); vertical-align: text-top; }
 td > .armada-doc__anchor { margin-inline-start: 0; }
 .armada-doc__page tr[data-noted], .armada-doc__page tr[data-focus] { background: var(--accent-faint); }

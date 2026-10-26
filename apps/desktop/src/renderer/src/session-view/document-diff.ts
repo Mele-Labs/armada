@@ -30,10 +30,10 @@ export type Diff = {
   answer: (ref: Extract<NotedRef, { kind: "document" }>) => Change | undefined;
 };
 
-function leavesOf(root: HTMLElement): { leaves: Leaf[]; sketchAt: Map<string, number> } {
+function leavesOf(root: HTMLElement, title: string): { leaves: Leaf[]; sketchAt: Map<string, number> } {
   const leaves: Leaf[] = [];
   const sketchAt = new Map<string, number>();
-  let section = "";
+  let section = title;
   for (const el of Array.from(root.querySelectorAll(`${LEAF},figure.armada-doc__sketch`))) {
     if (el.matches("figure")) {
       sketchAt.set(el.getAttribute("data-title") ?? "", leaves.length);
@@ -176,17 +176,17 @@ function wordNodes(before: string, after: string): { nodes: Node[]; came: string
 
 const cut = (words: string, at: number) => (words.length > at ? `${words.slice(0, at).trimEnd()}…` : words);
 
-export function diffPages(before: HTMLElement, after: HTMLElement): Diff {
+export function diffPages(before: HTMLElement, after: HTMLElement, title: string): Diff {
   const root = after.cloneNode(true) as HTMLElement;
-  const old = leavesOf(before);
-  const now = leavesOf(root);
+  const old = leavesOf(before, title);
+  const now = leavesOf(root, title);
   const ops = align(old.leaves, now.leaves);
   const changes: Change[] = [];
   const mark = (el: Element, kind: Change["kind"], at: number, section: string, said: string) => {
     const id = changes.length + 1;
     el.setAttribute("data-change", kind);
     el.setAttribute("data-change-id", String(id));
-    changes.push({ id, kind, at, section, said: cut(said, 60) });
+    changes.push({ id, kind, at, section, said: cut(said.replace(/^[\s,;.]+/, ""), 60) });
   };
   /** The new revision's block that comes next after op `from`, which a struck block is put in front of. */
   const nextB = (from: number): number | undefined => {

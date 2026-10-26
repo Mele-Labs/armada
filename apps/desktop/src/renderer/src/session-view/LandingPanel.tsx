@@ -4,7 +4,7 @@
 // Deferred stand inside, whatever the kind. **The issues a plan group works stand in the Blueprint, the pull requests in the Merge line**, and the issues the Job filed for later stand in Deferred, not on this band.
 // The stage opens it (`story.ts`); the band or ⌥L does too. `work.landing` names the kind in the mock until Fleet says it.
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { PullRequestActs, PullRequestChip, Tooltip, type LedgerEntry } from "@armada/components";
 import { attachmentsOf, type PullRequestAct, type Session } from "@armada/screens/src/draft/sessions";
 
@@ -82,7 +82,7 @@ function Report({ session, row }: { session: Session; row: ArtifactRow }) {
   const doc = documentOf(session);
   const held = useArtifact(useSessionsDraft(), session.id, doc === undefined ? (row.sub ?? "") : (doc.revisions[doc.revisions.length - 1] ?? ""));
   const text = held.state === "read" && held.read.ok ? new TextDecoder().decode(held.read.bytes) : "";
-  const conclusion = doc === undefined ? conclusionOf(text) : text === "" ? "" : readPage(text).lede;
+  const conclusion = useMemo(() => (doc === undefined ? conclusionOf(text) : text === "" ? "" : readPage(text).lede), [doc === undefined, text]);
   return (
     <button type="button" className="sv-landing__report" aria-label={row.title} disabled={row.open === undefined} onClick={doc === undefined ? row.open : () => showLayer(session.id, "document")}>
       <span className="sv-landing__report-head">

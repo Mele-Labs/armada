@@ -33,6 +33,8 @@ const ALLOWED = new Set(
 const DROPPED = new Set("script style link meta title head iframe frame frameset object embed applet form input button textarea select option svg math img picture source audio video canvas template noscript base".split(" "));
 const KEPT_ATTRIBUTES = new Set(["colspan", "rowspan", "scope", "headers", "datetime", "open", "start", "lang", "title", "abbr"]);
 
+const OUTSIDE = ":not(.armada-doc__sketch-mount *)";
+
 const squeeze = (words: string) => words.replace(/\s+/g, " ").trim();
 const renamed = (selector: string) =>
   selector.replace(/\.(-?[_a-zA-Z][\w-]*)/g, ".d-$1").replace(/#(-?[_a-zA-Z][\w-]*)/g, "#d-$1");
@@ -41,7 +43,10 @@ const renamed = (selector: string) =>
 function scoped(selector: string): string {
   const one = renamed(selector.trim());
   const root = /^(?:html\s+)?(?:body|html|:root)(?=$|[\s>+~:.[])/.exec(one);
-  return root === null ? `.${PAGE_ROOT} ${one}` : `.${PAGE_ROOT}${one.slice(root[0].length)}`;
+  const under = root === null ? `.${PAGE_ROOT} ${one}` : `.${PAGE_ROOT}${one.slice(root[0].length)}`;
+  // Not inside a sketch: the page's `p` or `table` styles the page, and Bridge's sketch is drawn by Bridge.
+  const pseudo = under.search(/::/);
+  return pseudo < 0 ? `${under}${OUTSIDE}` : `${under.slice(0, pseudo)}${OUTSIDE}${under.slice(pseudo)}`;
 }
 
 function rulesOf(rules: CSSRuleList): string[] {
