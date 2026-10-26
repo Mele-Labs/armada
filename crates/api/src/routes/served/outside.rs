@@ -160,6 +160,21 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/projects/:repository/:project/issues",
     },
     Route {
+        operation: "add_project_subtask",
+        method: "POST",
+        path: "/projects/:repository/:project/rows/:row/subtasks",
+    },
+    Route {
+        operation: "link_task_issue",
+        method: "POST",
+        path: "/projects/:repository/:project/rows/:row/issues",
+    },
+    Route {
+        operation: "unlink_task_issue",
+        method: "POST",
+        path: "/projects/:repository/:project/rows/:row/issues/unlink",
+    },
+    Route {
         operation: "edit_project_task",
         method: "POST",
         path: "/projects/:repository/:project/rows/:row/edit",

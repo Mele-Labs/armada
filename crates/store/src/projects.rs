@@ -26,8 +26,9 @@ pub struct KeptProjectRow {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum KeptRowItem {
-    /// A task he wrote. `notes` is empty for none.
-    Task { title: String, notes: String, state: KeptTaskState },
+    /// A task he wrote. `notes` is empty for none. `parent` is the id of the task it is a subtask of,
+    /// one level deep, and `issues` the references of the issues linked to it, in the order linked.
+    Task { title: String, notes: String, state: KeptTaskState, parent: Option<String>, issues: Vec<String> },
     /// A linked issue: the tracker's reference, as `IssueReference` reads it, and nothing else.
     Issue { reference: String },
 }
@@ -98,6 +99,27 @@ pub struct KeptAsked {
     pub tasks: Vec<(String, String)>,
 }
 
+/// Rows in their project's order, each top-level row followed by its subtasks. A subtask whose parent
+/// is not among them is left at the end, so nothing read is lost.
+fn nested(rows: Vec<KeptProjectRow>) -> Vec<KeptProjectRow> {
+    let parent_of = |row: &KeptProjectRow| match &row.item {
+        KeptRowItem::Task { parent, .. } => parent.clone(),
+        KeptRowItem::Issue { .. } => None,
+    };
+    let (subtasks, tops): (Vec<_>, Vec<_>) = rows.into_iter().partition(|row| parent_of(row).is_some());
+    let mut ordered = Vec::with_capacity(tops.len() + subtasks.len());
+    let mut remaining = subtasks;
+    for top in tops {
+        let id = top.id.clone();
+        ordered.push(top);
+        let (own, rest): (Vec<_>, Vec<_>) = remaining.into_iter().partition(|row| parent_of(row).as_deref() == Some(id.as_str()));
+        ordered.extend(own);
+        remaining = rest;
+    }
+    ordered.extend(remaining);
+    ordered
+}
+
 const TASK: &str = "task";
 const ISSUE: &str = "issue";
 
@@ -113,6 +135,8 @@ fn read_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<(String, Option<KeptPro
             title: row.get(3)?,
             notes: row.get(4)?,
             state: KeptTaskState::read(&row.get::<_, String>(6)?, row.get(7)?, row.get(8)?),
+            parent: Some(row.get::<_, String>(9)?).filter(|parent| !parent.is_empty()),
+            issues: Vec::new(),
         }),
         ISSUE => Some(KeptRowItem::Issue { reference: row.get(5)? }),
         _ => None,
@@ -137,7 +161,7 @@ impl Store {
         let mut statement = self
             .conn
             .prepare(
-                "SELECT r.project_id, r.id, r.kind, r.title, r.notes, r.issue, r.state, r.held_by, s.title
+                "SELECT r.project_id, r.id, r.kind, r.title, r.notes, r.issue, r.state, r.held_by, s.title, r.parent
                  FROM project_rows r JOIN projects p ON p.id = r.project_id
                  LEFT JOIN sessions s ON s.id = r.held_by AND r.held_by != ''
                  WHERE p.manifest_id = ?1 ORDER BY r.position, r.id",
@@ -152,6 +176,28 @@ impl Store {
                 continue;
             };
             project.rows.push(row);
+        }
+        for project in &mut projects {
+            project.rows = nested(std::mem::take(&mut project.rows));
+        }
+        let mut statement = self
+            .conn
+            .prepare(
+                "SELECT t.task_id, t.issue
+                 FROM project_task_issues t JOIN project_rows r ON r.id = t.task_id
+                 JOIN projects p ON p.id = r.project_id
+                 WHERE p.manifest_id = ?1 ORDER BY t.position",
+            )
+            .map_err(database(doing))?;
+        let linked = statement
+            .query_map(params![manifest_id], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)))
+            .and_then(|rows| rows.collect::<Result<Vec<_>, _>>())
+            .map_err(database(doing))?;
+        for (task, reference) in linked {
+            let found = projects.iter_mut().flat_map(|project| project.rows.iter_mut()).find(|row| row.id == task);
+            if let Some(KeptProjectRow { item: KeptRowItem::Task { issues, .. }, .. }) = found {
+                issues.push(reference);
+            }
         }
         Ok(projects)
     }
@@ -184,26 +230,37 @@ impl Store {
             .execute("DELETE FROM projects WHERE manifest_id = ?1 AND id = ?2", params![manifest_id, id])
             .map_err(database(doing))?;
         if gone > 0 {
+            tx.execute(
+                "DELETE FROM project_task_issues WHERE task_id IN (SELECT id FROM project_rows WHERE project_id = ?1)",
+                params![id],
+            )
+            .map_err(database(doing))?;
             tx.execute("DELETE FROM project_rows WHERE project_id = ?1", params![id]).map_err(database(doing))?;
         }
         tx.commit().map_err(database(doing))?;
         Ok(gone > 0)
     }
 
-    /// A row at the end of `project_id`'s list.
+    /// A row at the end of `project_id`'s list, or of its parent's subtasks.
     pub fn add_project_row(&mut self, project_id: &str, row: &KeptProjectRow) -> Result<(), WriteError> {
-        let (kind, title, notes, issue, state, held_by) = match &row.item {
-            KeptRowItem::Task { title, notes, state } => {
-                (TASK, title.as_str(), notes.as_str(), "", state.as_str(), state.holder())
-            }
-            KeptRowItem::Issue { reference } => (ISSUE, "", "", reference.as_str(), "", ""),
+        let (kind, title, notes, issue, state, held_by, parent) = match &row.item {
+            KeptRowItem::Task { title, notes, state, parent, .. } => (
+                TASK,
+                title.as_str(),
+                notes.as_str(),
+                "",
+                state.as_str(),
+                state.holder(),
+                parent.as_deref().unwrap_or(""),
+            ),
+            KeptRowItem::Issue { reference } => (ISSUE, "", "", reference.as_str(), "", "", ""),
         };
         self.conn
             .execute(
-                "INSERT INTO project_rows (id, project_id, position, kind, title, notes, issue, state, held_by)
-                 VALUES (?1, ?2, (SELECT COALESCE(MAX(position) + 1, 0) FROM project_rows WHERE project_id = ?2),
-                         ?3, ?4, ?5, ?6, ?7, ?8)",
-                params![row.id, project_id, kind, title, notes, issue, state, held_by],
+                "INSERT INTO project_rows (id, project_id, position, kind, title, notes, issue, state, held_by, parent)
+                 VALUES (?1, ?2, (SELECT COALESCE(MAX(position) + 1, 0) FROM project_rows WHERE project_id = ?2 AND parent = ?9),
+                         ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+                params![row.id, project_id, kind, title, notes, issue, state, held_by, parent],
             )
             .map(|_| ())
             .map_err(database("keeping a project row"))
@@ -325,47 +382,34 @@ impl Store {
             .map_err(database("settling project tasks"))
     }
 
-    /// Drop a row. Whether the project had one by that id.
-    pub fn remove_project_row(&mut self, project_id: &str, id: &str) -> Result<bool, WriteError> {
-        self.reorder_project_rows(project_id, id, None, "removing a project row")
+    /// The parent of row `id` of `project_id`, `""` for a top-level row; `None` where there is no such row.
+    fn parent_of(tx: &rusqlite::Transaction<'_>, project_id: &str, id: &str, doing: &'static str) -> Result<Option<String>, WriteError> {
+        tx.query_row(
+            "SELECT parent FROM project_rows WHERE project_id = ?1 AND id = ?2",
+            params![project_id, id],
+            |row| row.get(0),
+        )
+        .map(Some)
+        .or_else(|cause| match cause {
+            rusqlite::Error::QueryReturnedNoRows => Ok(None),
+            other => Err(other),
+        })
+        .map_err(database(doing))
     }
 
-    /// Move a row to `to`, counted from 0 among the project's rows; past the end is the end.
-    /// Whether the project had one by that id.
-    pub fn move_project_row(&mut self, project_id: &str, id: &str, to: usize) -> Result<bool, WriteError> {
-        self.reorder_project_rows(project_id, id, Some(to), "moving a project row")
+    /// The ids of `parent`'s rows in `project_id` ('' for the top level), in order.
+    fn siblings(tx: &rusqlite::Transaction<'_>, project_id: &str, parent: &str, doing: &'static str) -> Result<Vec<String>, WriteError> {
+        let mut statement = tx
+            .prepare("SELECT id FROM project_rows WHERE project_id = ?1 AND parent = ?2 ORDER BY position, id")
+            .map_err(database(doing))?;
+        let ids = statement
+            .query_map(params![project_id, parent], |row| row.get(0))
+            .and_then(|rows| rows.collect::<Result<Vec<String>, _>>())
+            .map_err(database(doing))?;
+        Ok(ids)
     }
 
-    /// Take `id` out of the order and, with `to`, put it back there; every position is written again.
-    fn reorder_project_rows(
-        &mut self,
-        project_id: &str,
-        id: &str,
-        to: Option<usize>,
-        doing: &'static str,
-    ) -> Result<bool, WriteError> {
-        let tx = self.conn.transaction().map_err(database(doing))?;
-        let mut order: Vec<String> = {
-            let mut statement = tx
-                .prepare("SELECT id FROM project_rows WHERE project_id = ?1 ORDER BY position, id")
-                .map_err(database(doing))?;
-            let ids = statement
-                .query_map(params![project_id], |row| row.get(0))
-                .and_then(|rows| rows.collect::<Result<Vec<String>, _>>())
-                .map_err(database(doing))?;
-            ids
-        };
-        let Some(at) = order.iter().position(|one| one == id) else {
-            return Ok(false);
-        };
-        let taken = order.remove(at);
-        match to {
-            Some(to) => order.insert(to.min(order.len()), taken),
-            None => {
-                tx.execute("DELETE FROM project_rows WHERE project_id = ?1 AND id = ?2", params![project_id, id])
-                    .map_err(database(doing))?;
-            }
-        }
+    fn renumbered(tx: &rusqlite::Transaction<'_>, project_id: &str, order: &[String], doing: &'static str) -> Result<(), WriteError> {
         for (position, one) in order.iter().enumerate() {
             tx.execute(
                 "UPDATE project_rows SET position = ?3 WHERE project_id = ?1 AND id = ?2",
@@ -373,6 +417,91 @@ impl Store {
             )
             .map_err(database(doing))?;
         }
+        Ok(())
+    }
+
+    /// Drop a row, and its subtasks and the issues linked to either. Whether the project had one by that id.
+    pub fn remove_project_row(&mut self, project_id: &str, id: &str) -> Result<bool, WriteError> {
+        let doing = "removing a project row";
+        let tx = self.conn.transaction().map_err(database(doing))?;
+        let Some(parent) = Self::parent_of(&tx, project_id, id, doing)? else {
+            return Ok(false);
+        };
+        let mut gone = Self::siblings(&tx, project_id, id, doing)?;
+        gone.push(id.to_string());
+        for one in &gone {
+            tx.execute("DELETE FROM project_task_issues WHERE task_id = ?1", params![one]).map_err(database(doing))?;
+            tx.execute("DELETE FROM project_rows WHERE project_id = ?1 AND id = ?2", params![project_id, one])
+                .map_err(database(doing))?;
+        }
+        let order = Self::siblings(&tx, project_id, &parent, doing)?;
+        Self::renumbered(&tx, project_id, &order, doing)?;
+        tx.commit().map_err(database(doing))?;
+        Ok(true)
+    }
+
+    /// Move a row to `to`, counted from 0 among the rows of the parent it ends up under; past the end
+    /// is the end. `parent` is the task it goes under, `""` for the top level, and `None` leaves it
+    /// where it is. Whether the project had one by that id.
+    pub fn move_project_row(&mut self, project_id: &str, id: &str, to: usize, parent: Option<&str>) -> Result<bool, WriteError> {
+        let doing = "moving a project row";
+        let tx = self.conn.transaction().map_err(database(doing))?;
+        let Some(was) = Self::parent_of(&tx, project_id, id, doing)? else {
+            return Ok(false);
+        };
+        let under = parent.unwrap_or(&was);
+        let mut order = Self::siblings(&tx, project_id, under, doing)?;
+        order.retain(|one| one != id);
+        order.insert(to.min(order.len()), id.to_string());
+        tx.execute("UPDATE project_rows SET parent = ?3 WHERE project_id = ?1 AND id = ?2", params![project_id, id, under])
+            .map_err(database(doing))?;
+        Self::renumbered(&tx, project_id, &order, doing)?;
+        if under != was {
+            let left = Self::siblings(&tx, project_id, &was, doing)?;
+            Self::renumbered(&tx, project_id, &left, doing)?;
+        }
+        tx.commit().map_err(database(doing))?;
+        Ok(true)
+    }
+
+    /// Link an issue, by reference, to a task; linking it again changes nothing. Whether the project
+    /// had a task by that id.
+    pub fn link_task_issue(&mut self, project_id: &str, id: &str, reference: &str) -> Result<bool, WriteError> {
+        self.task_issue(project_id, id, "linking an issue to a task", |tx| {
+            tx.execute(
+                "INSERT OR IGNORE INTO project_task_issues (task_id, issue, position)
+                 VALUES (?1, ?2, (SELECT COALESCE(MAX(position) + 1, 0) FROM project_task_issues WHERE task_id = ?1))",
+                params![id, reference],
+            )
+        })
+    }
+
+    /// Take an issue off a task; one it did not have changes nothing. Whether the project had a task by that id.
+    pub fn unlink_task_issue(&mut self, project_id: &str, id: &str, reference: &str) -> Result<bool, WriteError> {
+        self.task_issue(project_id, id, "unlinking an issue from a task", |tx| {
+            tx.execute("DELETE FROM project_task_issues WHERE task_id = ?1 AND issue = ?2", params![id, reference])
+        })
+    }
+
+    fn task_issue(
+        &mut self,
+        project_id: &str,
+        id: &str,
+        doing: &'static str,
+        write: impl FnOnce(&rusqlite::Transaction<'_>) -> rusqlite::Result<usize>,
+    ) -> Result<bool, WriteError> {
+        let tx = self.conn.transaction().map_err(database(doing))?;
+        let task: i64 = tx
+            .query_row(
+                "SELECT COUNT(*) FROM project_rows WHERE project_id = ?1 AND id = ?2 AND kind = 'task'",
+                params![project_id, id],
+                |row| row.get(0),
+            )
+            .map_err(database(doing))?;
+        if task == 0 {
+            return Ok(false);
+        }
+        write(&tx).map_err(database(doing))?;
         tx.commit().map_err(database(doing))?;
         Ok(true)
     }

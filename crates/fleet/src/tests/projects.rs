@@ -16,33 +16,33 @@ use crate::daemon::Fleet;
 use crate::tests::daemon::fittings;
 use crate::tests::tmp::TempDir;
 
-type Hosted = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
+pub(super) type Hosted = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
 
-fn manifest(fleet: &Hosted) -> ManifestId {
+pub(super) fn manifest(fleet: &Hosted) -> ManifestId {
     let served = fleet.repositories().first().expect("a served repository");
     ManifestId::carried(served.manifest().id().as_str())
 }
 
-fn a_fleet(home: &TempDir, tracker: &Arc<FakeTracker>) -> Hosted {
+pub(super) fn a_fleet(home: &TempDir, tracker: &Arc<FakeTracker>) -> Hosted {
     let mut fittings = fittings(home, FakeWorkProduct::changed(&[]));
     fittings.trackers = Arc::new(FakeTrackers::empty().tracker(Arc::clone(tracker)));
     Fleet::assembled(fittings)
 }
 
-fn name(name: &str) -> NameProject {
+pub(super) fn name(name: &str) -> NameProject {
     NameProject { name: name.to_string() }
 }
 
-fn task(title: &str) -> ProjectTask {
+pub(super) fn task(title: &str) -> ProjectTask {
     ProjectTask { title: title.to_string(), notes: String::new() }
 }
 
-fn link(issue: &str) -> LinkProjectIssue {
+pub(super) fn link(issue: &str) -> LinkProjectIssue {
     LinkProjectIssue { issue: issue.to_string() }
 }
 
 /// One project, `Launch`, and its id.
-async fn launched(fleet: &Hosted) -> String {
+pub(super) async fn launched(fleet: &Hosted) -> String {
     let projects = fleet.add_project(manifest(fleet), name("Launch")).await.expect("added");
     projects.projects.last().expect("the project").id.clone()
 }
@@ -69,7 +69,7 @@ fn issues_of(projects: &ipc::Projects) -> Vec<(String, Option<IssueState>, Optio
         .collect()
 }
 
-fn code_of(refusal: Refusal) -> (u16, String) {
+pub(super) fn code_of(refusal: Refusal) -> (u16, String) {
     (refusal.status(), refusal.error().code.as_str().to_string())
 }
 
@@ -154,7 +154,7 @@ async fn a_task_is_edited_moved_and_removed_and_a_project_renamed_and_deleted() 
         .expect("edited");
     assert!(matches!(&edited.projects[0].rows[0], ProjectRow::Task { title, notes, .. } if title == "A" && notes == "why"));
     let moved = fleet
-        .move_project_row(manifest(&fleet), project.clone(), ids[2].clone(), MoveProjectRow { position: 0 })
+        .move_project_row(manifest(&fleet), project.clone(), ids[2].clone(), MoveProjectRow { position: 0, parent: None })
         .await
         .expect("moved");
     assert_eq!(row_ids(&moved), [ids[2].clone(), ids[0].clone(), ids[1].clone()]);

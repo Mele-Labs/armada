@@ -28,7 +28,9 @@ pub struct Project {
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum ProjectRow {
     /// A task he wrote, with its own state. `notes` is empty for none. `held_by` is present while the
-    /// state is `held` or `asked`, and only then.
+    /// state is `held` or `asked`, and only then. **A subtask is a task with a `parent`**, the id of a
+    /// top-level task of the same project; rows are flat, and a parent is followed by its subtasks. `issues`
+    /// are the issues linked to it, in the order linked, each with what the tracker says of it now.
     Task {
         id: String,
         title: String,
@@ -36,6 +38,10 @@ pub enum ProjectRow {
         state: ProjectTaskState,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         held_by: Option<ProjectHolder>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        parent: Option<String>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        issues: Vec<TaskIssue>,
     },
     /// A linked issue: the tracker's reference (`7`, `ABC-12`, `armada-3fz`), with what the tracker
     /// says of it now.
@@ -49,6 +55,17 @@ pub enum ProjectRow {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         state: Option<IssueState>,
     },
+}
+
+/// An issue linked to a task: the tracker's reference, with what the tracker says of it now. **It keeps
+/// no state**: `title` and `state` are read when the rows are, and are absent where it could not say.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TaskIssue {
+    pub issue: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub state: Option<IssueState>,
 }
 
 /// The Job holding a task.
@@ -99,11 +116,14 @@ pub struct LinkProjectIssue {
     pub issue: String,
 }
 
-/// `move_project_row`: where the row goes, counted from 0 among its project's rows. Past the end is
-/// the end.
+/// `move_project_row`: where the row goes, counted from 0 among the rows of the parent it ends up
+/// under. Past the end is the end. `parent` is the task to make it a subtask of, `""` to take it to
+/// the top level, and absent to leave it under the parent it has.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MoveProjectRow {
     pub position: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parent: Option<String>,
 }
 
 /// `tick_project_task`: done, or open again.

@@ -23,6 +23,8 @@ fn echoed(manifest_id: ManifestId, project: &str, said: String) -> ipc::Projects
                     notes: String::new(),
                     state: ProjectTaskState::Open,
                     held_by: None,
+                    parent: None,
+                    issues: Vec::new(),
                 },
                 ProjectRow::Issue {
                     id: "r2".to_string(),
@@ -90,6 +92,42 @@ impl Projects for FakeDaemon {
         Ok(echoed(manifest_id, &project, format!("add_project_task {} / {}", task.title, task.notes)))
     }
 
+    async fn add_project_subtask(
+        &self,
+        manifest_id: ManifestId,
+        project: String,
+        row: String,
+        task: ProjectTask,
+    ) -> Result<ipc::Projects, Refusal> {
+        held(&project)?;
+        if row == "r3" {
+            return Err(Refusal::Unacceptable(raised("fleet.project_subtask_too_deep", "a subtask has no subtasks")));
+        }
+        Ok(echoed(manifest_id, &project, format!("add_project_subtask {row} {} / {}", task.title, task.notes)))
+    }
+
+    async fn link_task_issue(
+        &self,
+        manifest_id: ManifestId,
+        project: String,
+        row: String,
+        link: LinkProjectIssue,
+    ) -> Result<ipc::Projects, Refusal> {
+        held(&project)?;
+        Ok(echoed(manifest_id, &project, format!("link_task_issue {row} {}", link.issue)))
+    }
+
+    async fn unlink_task_issue(
+        &self,
+        manifest_id: ManifestId,
+        project: String,
+        row: String,
+        link: LinkProjectIssue,
+    ) -> Result<ipc::Projects, Refusal> {
+        held(&project)?;
+        Ok(echoed(manifest_id, &project, format!("unlink_task_issue {row} {}", link.issue)))
+    }
+
     async fn edit_project_task(
         &self,
         manifest_id: ManifestId,
@@ -129,7 +167,7 @@ impl Projects for FakeDaemon {
         to: MoveProjectRow,
     ) -> Result<ipc::Projects, Refusal> {
         held(&project)?;
-        Ok(echoed(manifest_id, &project, format!("move_project_row {row} {}", to.position)))
+        Ok(echoed(manifest_id, &project, format!("move_project_row {row} {} {}", to.position, to.parent.as_deref().unwrap_or("-"))))
     }
 
     /// `r2` is the fake's issue row, and ticking it is refused as Fleet refuses it.

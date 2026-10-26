@@ -4,5 +4,5 @@ transport = "WebSocket"
 agent_access = "Bridge only"
 description = "A repository's projects changed, and this is all of them now"
 notes = """
-Carries `Projects` itself, the answer to `list_projects`, so a client replaces what it holds for that `manifest_id`. Published on every write: `add_project`, `rename_project`, `delete_project`, `add_project_task`, `edit_project_task`, `link_project_issue`, `remove_project_row`, `move_project_row` and `tick_project_task`. Not published when only the tracker's word on a linked issue moved. A Bridge that missed one reads `list_projects` on the resync that follows a `Missed`.
+Carries `Projects` itself, the answer to `list_projects`, so a client replaces what it holds for that `manifest_id`. Published on every write: `add_project`, `rename_project`, `delete_project`, `add_project_task`, `add_project_subtask`, `edit_project_task`, `link_project_issue`, `link_task_issue`, `unlink_task_issue`, `remove_project_row`, `move_project_row` and `tick_project_task`. Not published when only the tracker's word on a linked issue moved. A Bridge that missed one reads `list_projects` on the resync that follows a `Missed`.
 """

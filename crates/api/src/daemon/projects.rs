@@ -46,6 +46,35 @@ pub trait Projects: Send + Sync + 'static {
         task: ProjectTask,
     ) -> impl Future<Output = Result<ipc::Projects, Refusal>> + Send;
 
+    /// `add_project_subtask` — a task under a top-level task of the project, open, at the end of its
+    /// subtasks. [`Refusal::Unacceptable`] for a parent that is an issue row or itself a subtask.
+    fn add_project_subtask(
+        &self,
+        manifest_id: ManifestId,
+        project: String,
+        row: String,
+        task: ProjectTask,
+    ) -> impl Future<Output = Result<ipc::Projects, Refusal>> + Send;
+
+    /// `link_task_issue` — an issue, by the tracker's reference, on a task. [`Refusal::Unacceptable`]
+    /// for an issue row.
+    fn link_task_issue(
+        &self,
+        manifest_id: ManifestId,
+        project: String,
+        row: String,
+        link: LinkProjectIssue,
+    ) -> impl Future<Output = Result<ipc::Projects, Refusal>> + Send;
+
+    /// `unlink_task_issue` — takes an issue off a task; one it did not have changes nothing.
+    fn unlink_task_issue(
+        &self,
+        manifest_id: ManifestId,
+        project: String,
+        row: String,
+        link: LinkProjectIssue,
+    ) -> impl Future<Output = Result<ipc::Projects, Refusal>> + Send;
+
     /// `edit_project_task` — a task's title and notes, whole. [`Refusal::Unacceptable`] for an issue row.
     fn edit_project_task(
         &self,
@@ -71,7 +100,7 @@ pub trait Projects: Send + Sync + 'static {
         row: String,
     ) -> impl Future<Output = Result<ipc::Projects, Refusal>> + Send;
 
-    /// `move_project_row` — to a position among the project's rows.
+    /// `move_project_row` — to a position among the rows of one parent, which it may change.
     fn move_project_row(
         &self,
         manifest_id: ManifestId,

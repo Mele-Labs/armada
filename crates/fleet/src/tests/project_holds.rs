@@ -313,3 +313,47 @@ async fn a_job_ended_without_merging_or_saying_done_frees_its_held_tasks_to_open
     assert_eq!(states(&read).iter().map(|(_, state)| *state).collect::<Vec<_>>(), [ProjectTaskState::Open; 3]);
     assert!(matches!(&rows_of(&read, 0)[0], ProjectRow::Task { held_by: None, .. }), "and none is held");
 }
+
+#[tokio::test]
+async fn a_start_naming_a_parent_holds_its_subtasks_too_and_one_naming_a_subtask_holds_only_it() {
+    let rig = a_rig();
+    let (project, rows) = a_project(&rig, &["Parent", "Other"]).await;
+    let at = ManifestId::carried(rig.manifest());
+    for title in ["Sub one", "Sub two"] {
+        rig.fleet
+            .add_project_subtask(at.clone(), project.clone(), rows[0].clone(), ProjectTask { title: title.into(), notes: String::new() })
+            .await
+            .expect("added");
+    }
+    let listed = read(&rig).await;
+    let sub_one = id_of(&rows_of(&listed, 0)[1]);
+
+    let first = rig.fleet.start_session(start(&rig, "One", vec![row_ref(&project, &sub_one)])).await.expect("started").id;
+    assert_eq!(
+        states(&read(&rig).await),
+        [
+            ("Parent".to_string(), ProjectTaskState::Open),
+            ("Sub one".to_string(), ProjectTaskState::Held),
+            ("Sub two".to_string(), ProjectTaskState::Open),
+            ("Other".to_string(), ProjectTaskState::Open)
+        ],
+        "naming a subtask holds that one"
+    );
+    Arc::clone(&rig.fleet).close_session(CloseSession { session_id: first }).await.expect("ended");
+
+    let job = rig.fleet.start_session(start(&rig, "Two", vec![row_ref(&project, &rows[0])])).await.expect("started").id;
+    assert_eq!(
+        states(&read(&rig).await),
+        [
+            ("Parent".to_string(), ProjectTaskState::Held),
+            ("Sub one".to_string(), ProjectTaskState::Held),
+            ("Sub two".to_string(), ProjectTaskState::Held),
+            ("Other".to_string(), ProjectTaskState::Open)
+        ],
+        "naming a parent holds its subtasks with it"
+    );
+    says_done(&rig, &job).await;
+    let [ask] = asks(&rig, &job).await.try_into().expect("one ask");
+    assert_eq!(ask.text, "Mark the Pocket launch tasks done?");
+    assert_eq!(states(&read(&rig).await)[2].1, ProjectTaskState::Asked, "and the done ask covers a subtask like any task");
+}

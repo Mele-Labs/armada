@@ -15,7 +15,7 @@ use api::{Projects, Refusal};
 use core_model::Timestamp;
 use ipc::{
     IssueReference, IssueState, LinkProjectIssue, ManifestId, MoveProjectRow, NameProject, Project, ProjectRow,
-    ProjectHolder, ProjectTask, ProjectTaskState, TickProjectTask, WireError,
+    ProjectHolder, ProjectTask, ProjectTaskState, TaskIssue, TickProjectTask, WireError,
 };
 use store::{KeptHolder, KeptProject, KeptProjectRow, KeptRowItem, KeptTaskState, Store};
 
@@ -33,6 +33,8 @@ const BLANK: &str = "fleet.project_blank";
 const NOT_AN_ISSUE: &str = "fleet.project_issue_unreadable";
 /// A task's act on an issue row, whose state and title are its tracker's. A 422.
 const NOT_A_TASK: &str = "fleet.project_row_not_a_task";
+/// A subtask of a subtask, of a task with subtasks, or of itself. A 422.
+const TOO_DEEP: &str = "fleet.project_subtask_too_deep";
 
 /// What the tracker said of one issue: open or closed, and its title.
 type Said = (IssueState, String);
@@ -69,9 +71,16 @@ fn task_state(state: KeptTaskState) -> (ProjectTaskState, Option<ProjectHolder>)
 
 fn row_on_the_wire(row: KeptProjectRow, said: &BTreeMap<String, Said>) -> ProjectRow {
     match row.item {
-        KeptRowItem::Task { title, notes, state } => {
+        KeptRowItem::Task { title, notes, state, parent, issues } => {
             let (state, held_by) = task_state(state);
-            ProjectRow::Task { id: row.id, title, notes, state, held_by }
+            let issues = issues
+                .into_iter()
+                .map(|issue| {
+                    let read = said.get(&issue);
+                    TaskIssue { title: read.map(|(_, title)| title.clone()), state: read.map(|(state, _)| *state), issue }
+                })
+                .collect();
+            ProjectRow::Task { id: row.id, title, notes, state, held_by, parent, issues }
         }
         KeptRowItem::Issue { reference } => {
             let read = said.get(&reference);
@@ -89,9 +98,9 @@ fn issue_references(kept: &[KeptProject]) -> Vec<String> {
     let mut references: Vec<String> = kept
         .iter()
         .flat_map(|project| &project.rows)
-        .filter_map(|row| match &row.item {
-            KeptRowItem::Issue { reference } => Some(reference.clone()),
-            KeptRowItem::Task { .. } => None,
+        .flat_map(|row| match &row.item {
+            KeptRowItem::Issue { reference } => vec![reference.clone()],
+            KeptRowItem::Task { issues, .. } => issues.clone(),
         })
         .collect();
     references.sort_unstable();
@@ -133,11 +142,54 @@ where
     fn task_in(&self, kept: &[KeptProject], project: &str, row: &str) -> Result<(), Refusal> {
         match self.row_in(kept, project, row)?.item {
             KeptRowItem::Task { .. } => Ok(()),
-            KeptRowItem::Issue { .. } => Err(Refusal::Unacceptable(self.project_refusal(
-                NOT_A_TASK,
-                format!("row {row} is a linked issue, whose state and title are its tracker's"),
-            ))),
+            KeptRowItem::Issue { .. } => Err(self.not_a_task(row)),
         }
+    }
+
+    /// `row` of `project` as a task that may take subtasks: a top-level one.
+    fn top_level_task_in(&self, kept: &[KeptProject], project: &str, row: &str) -> Result<(), Refusal> {
+        match &self.row_in(kept, project, row)?.item {
+            KeptRowItem::Issue { .. } => Err(self.not_a_task(row)),
+            KeptRowItem::Task { parent: Some(_), .. } => {
+                Err(Refusal::Unacceptable(self.project_refusal(TOO_DEEP, format!("row {row} is a subtask, and a subtask has none"))))
+            }
+            KeptRowItem::Task { .. } => Ok(()),
+        }
+    }
+
+    fn not_a_task(&self, row: &str) -> Refusal {
+        Refusal::Unacceptable(
+            self.project_refusal(NOT_A_TASK, format!("row {row} is a linked issue, whose state and title are its tracker's")),
+        )
+    }
+
+    /// Moving `row` under the task `parent`: both written tasks, the parent top-level, and the row a
+    /// task with no subtasks of its own, which is not the parent itself.
+    fn moved_under(&self, kept: &[KeptProject], project: &str, row: &str, parent: &str) -> Result<(), Refusal> {
+        let moving = self.row_in(kept, project, row)?;
+        if matches!(moving.item, KeptRowItem::Issue { .. }) {
+            return Err(self.not_a_task(row));
+        }
+        self.top_level_task_in(kept, project, parent)?;
+        let has_subtasks = self
+            .project_in(kept, project)?
+            .rows
+            .iter()
+            .any(|one| matches!(&one.item, KeptRowItem::Task { parent: Some(of), .. } if of == row));
+        if parent == row || has_subtasks {
+            return Err(Refusal::Unacceptable(self.project_refusal(
+                TOO_DEEP,
+                format!("row {row} would be a subtask of {parent}, and a subtask has none"),
+            )));
+        }
+        Ok(())
+    }
+
+    fn unreadable_issue(&self, written: &str) -> Refusal {
+        Refusal::Unacceptable(self.project_refusal(
+            NOT_AN_ISSUE,
+            format!("`{}` is not an issue: a number such as 7, a key such as ABC-12, or an id such as armada-3fz", written.trim()),
+        ))
     }
 
     fn minted(&self) -> String {
@@ -294,8 +346,66 @@ where
                 title: title.to_string(),
                 notes: task.notes.trim().to_string(),
                 state: KeptTaskState::Open,
+                parent: None,
+                issues: Vec::new(),
             };
             store.add_project_row(&project, &KeptProjectRow { id, item }).map_err(|why| self.ledger_fault(why))
+        })
+        .await
+    }
+
+    async fn add_project_subtask(
+        &self,
+        manifest_id: ManifestId,
+        project: String,
+        row: String,
+        task: ProjectTask,
+    ) -> Result<ipc::Projects, Refusal> {
+        let id = self.minted();
+        self.projects_written(manifest_id, |store, kept| {
+            self.top_level_task_in(kept, &project, &row)?;
+            let title = task.title.trim();
+            if title.is_empty() {
+                return Err(self.blank("a task needs a title"));
+            }
+            let item = KeptRowItem::Task {
+                title: title.to_string(),
+                notes: task.notes.trim().to_string(),
+                state: KeptTaskState::Open,
+                parent: Some(row.clone()),
+                issues: Vec::new(),
+            };
+            store.add_project_row(&project, &KeptProjectRow { id, item }).map_err(|why| self.ledger_fault(why))
+        })
+        .await
+    }
+
+    async fn link_task_issue(
+        &self,
+        manifest_id: ManifestId,
+        project: String,
+        row: String,
+        link: LinkProjectIssue,
+    ) -> Result<ipc::Projects, Refusal> {
+        self.projects_written(manifest_id, |store, kept| {
+            self.task_in(kept, &project, &row)?;
+            let issue = IssueReference::read(&link.issue).ok_or_else(|| self.unreadable_issue(&link.issue))?;
+            store.link_task_issue(&project, &row, issue.as_str()).map(drop).map_err(|why| self.ledger_fault(why))
+        })
+        .await
+    }
+
+    async fn unlink_task_issue(
+        &self,
+        manifest_id: ManifestId,
+        project: String,
+        row: String,
+        link: LinkProjectIssue,
+    ) -> Result<ipc::Projects, Refusal> {
+        self.projects_written(manifest_id, |store, kept| {
+            self.task_in(kept, &project, &row)?;
+            let issue = IssueReference::read(&link.issue).ok_or_else(|| self.unreadable_issue(&link.issue))?;
+            store.unlink_task_issue(&project, &row, issue.as_str()).map(drop).map_err(|why| self.ledger_fault(why))
         })
         .await
     }
@@ -330,12 +440,7 @@ where
         let id = self.minted();
         self.projects_written(manifest_id, |store, kept| {
             self.project_in(kept, &project)?;
-            let issue = IssueReference::read(&link.issue).ok_or_else(|| {
-                Refusal::Unacceptable(self.project_refusal(
-                    NOT_AN_ISSUE,
-                    format!("`{}` is not an issue: a number such as 7, a key such as ABC-12, or an id such as armada-3fz", link.issue.trim()),
-                ))
-            })?;
+            let issue = IssueReference::read(&link.issue).ok_or_else(|| self.unreadable_issue(&link.issue))?;
             let item = KeptRowItem::Issue { reference: issue.as_str().to_string() };
             store.add_project_row(&project, &KeptProjectRow { id, item }).map_err(|why| self.ledger_fault(why))
         })
@@ -364,8 +469,11 @@ where
     ) -> Result<ipc::Projects, Refusal> {
         self.projects_written(manifest_id, |store, kept| {
             self.row_in(kept, &project, &row)?;
+            if let Some(parent) = to.parent.as_deref().filter(|parent| !parent.is_empty()) {
+                self.moved_under(kept, &project, &row, parent)?;
+            }
             store
-                .move_project_row(&project, &row, to.position as usize)
+                .move_project_row(&project, &row, to.position as usize, to.parent.as_deref())
                 .map(drop)
                 .map_err(|why| self.ledger_fault(why))
         })

@@ -136,3 +136,42 @@ pub(crate) async fn tick_project_task<D: Projects>(
     let result = served.daemon().tick_project_task(ManifestId::carried(repository), project, row, tick).await;
     answered(&served, result)
 }
+
+pub(crate) async fn add_project_subtask<D: Projects>(
+    State(served): State<Served<D>>,
+    Path((repository, project, row)): Path<(String, String, String)>,
+    body: Bytes,
+) -> Response {
+    let task = match decoded(&served, "a project subtask", &body) {
+        Ok(task) => task,
+        Err(response) => return response,
+    };
+    let result = served.daemon().add_project_subtask(ManifestId::carried(repository), project, row, task).await;
+    answered(&served, result)
+}
+
+pub(crate) async fn link_task_issue<D: Projects>(
+    State(served): State<Served<D>>,
+    Path((repository, project, row)): Path<(String, String, String)>,
+    body: Bytes,
+) -> Response {
+    let link = match decoded(&served, "an issue to link", &body) {
+        Ok(link) => link,
+        Err(response) => return response,
+    };
+    let result = served.daemon().link_task_issue(ManifestId::carried(repository), project, row, link).await;
+    answered(&served, result)
+}
+
+pub(crate) async fn unlink_task_issue<D: Projects>(
+    State(served): State<Served<D>>,
+    Path((repository, project, row)): Path<(String, String, String)>,
+    body: Bytes,
+) -> Response {
+    let link = match decoded(&served, "an issue to unlink", &body) {
+        Ok(link) => link,
+        Err(response) => return response,
+    };
+    let result = served.daemon().unlink_task_issue(ManifestId::carried(repository), project, row, link).await;
+    answered(&served, result)
+}

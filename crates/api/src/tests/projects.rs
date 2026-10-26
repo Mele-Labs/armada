@@ -112,7 +112,17 @@ async fn remove_project_row_takes_the_row() {
 
 #[tokio::test]
 async fn move_project_row_takes_the_row_and_its_position_and_a_bad_body_is_a_400() {
-    assert_eq!(reached("POST", "/projects/armada/p7/rows/r1/move", r#"{"position":3}"#).await.0, "move_project_row r1 3");
+    assert_eq!(reached("POST", "/projects/armada/p7/rows/r1/move", r#"{"position":3}"#).await.0, "move_project_row r1 3 -");
+    assert_eq!(
+        reached("POST", "/projects/armada/p7/rows/r1/move", r#"{"position":0,"parent":"r9"}"#).await.0,
+        "move_project_row r1 0 r9",
+        "a parent to go under"
+    );
+    assert_eq!(
+        reached("POST", "/projects/armada/p7/rows/r1/move", r#"{"position":0,"parent":""}"#).await.0,
+        "move_project_row r1 0 ",
+        "and an empty one is the top level"
+    );
     let (status, _) = refused("POST", "/projects/armada/p7/rows/r1/move", r#"{"position":-1}"#).await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
 }
@@ -123,4 +133,25 @@ async fn tick_project_task_takes_done_and_an_issue_row_is_a_422() {
     let (status, text) = refused("POST", "/projects/armada/p7/rows/r2/tick", r#"{"done":true}"#).await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
     assert!(text.contains("fleet.project_row_not_a_task"), "{text}");
+}
+
+#[tokio::test]
+async fn add_project_subtask_takes_the_parent_and_the_task_and_a_subtask_of_a_subtask_is_a_422() {
+    let body = r#"{"title":"Sub","notes":"n"}"#;
+    assert_eq!(reached("POST", "/projects/armada/p7/rows/r1/subtasks", body).await.0, "add_project_subtask r1 Sub / n");
+    let (status, text) = refused("POST", "/projects/armada/p7/rows/r3/subtasks", body).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert!(text.contains("fleet.project_subtask_too_deep"), "{text}");
+}
+
+#[tokio::test]
+async fn link_and_unlink_task_issue_take_the_task_and_the_reference() {
+    assert_eq!(
+        reached("POST", "/projects/armada/p7/rows/r1/issues", r#"{"issue":"ABC-12"}"#).await.0,
+        "link_task_issue r1 ABC-12"
+    );
+    assert_eq!(
+        reached("POST", "/projects/armada/p7/rows/r1/issues/unlink", r#"{"issue":"ABC-12"}"#).await.0,
+        "unlink_task_issue r1 ABC-12"
+    );
 }

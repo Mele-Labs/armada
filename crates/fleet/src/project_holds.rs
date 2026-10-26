@@ -80,7 +80,14 @@ where
             if matches!(row.item, store::KeptRowItem::Task { .. }) {
                 tasks.push((one.project.clone(), one.row.clone()));
             }
+            // A task held with its subtasks: naming a parent names them all.
+            let subtasks = self.project_in(&kept, &one.project)?.rows.iter().filter(|sub| {
+                matches!(&sub.item, store::KeptRowItem::Task { parent: Some(of), .. } if *of == one.row)
+            });
+            tasks.extend(subtasks.map(|sub| (one.project.clone(), sub.id.clone())));
         }
+        let mut seen = std::collections::HashSet::new();
+        tasks.retain(|one| seen.insert(one.clone()));
         Ok(tasks)
     }
 
