@@ -64,3 +64,21 @@ button.sv-ledger__main:focus-visible { outline: var(--focus-ring); outline-offse
 
 /* The act is centred on the row and its column stays where a row carries none. */
 .sv-ledger__act { display: inline-flex; align-items: center; justify-content: center; width: var(--h-control-sm); }
+
+/* A stacked pull request: one 24px lane beside the card whatever the depth. The line runs through the stack and a 13px tick enters each card at glyph height;
+   the stack's first row starts the line at its tick and its last row ends it there. */
+.sv-stack-item { display: flex; align-items: stretch; }
+.sv-stack-item > .sv-ledger { flex: 1; min-width: 0; }
+.sv-lane { position: relative; flex: none; width: 24px; }
+.sv-lane::before, .sv-lane::after { content: ""; position: absolute; left: 11px; background: var(--fg-subtle); }
+.sv-lane::before { top: 0; bottom: 0; width: 2px; }
+.sv-lane[data-first]::before { top: 22px; }
+.sv-lane[data-last]::before { bottom: auto; height: 22px; }
+.sv-lane::after { top: 22px; width: 13px; height: 2px; }
+/* A root with children says what it is based on. */
+.sv-ledger__word[data-base] { background: color-mix(in srgb, var(--fg-muted) 14%, transparent); color: var(--fg-muted); }
+/* The chip that names the parent, and the row it finds. */
+.sv-ledger__on { display: inline-flex; flex: none; align-items: center; gap: var(--space-1); padding-inline: var(--space-1); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); font-weight: var(--weight-medium); cursor: pointer; }
+.sv-ledger__on:hover { background: color-mix(in srgb, var(--accent) 26%, transparent); }
+.sv-ledger__on:focus-visible { outline: var(--focus-ring); }
+[data-pr][data-found] .sv-ledger { outline: var(--focus-ring); }

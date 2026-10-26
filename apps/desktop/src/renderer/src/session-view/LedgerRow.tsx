@@ -4,7 +4,7 @@
 // divided by a hairline; there is no card inside the panel.
 
 import { useState, type ReactNode } from "react";
-import { Clock, GitMerge, GitPullRequest, GitPullRequestArrow, type LucideIcon } from "lucide-react";
+import { Clock, GitMerge, GitPullRequest, GitPullRequestArrow, Link, type LucideIcon } from "lucide-react";
 import { Button, PullRequestChecksMark, Tooltip } from "@armada/components";
 import type { PullRequestAct, Session } from "@armada/screens/src/draft/sessions";
 
@@ -56,9 +56,13 @@ type LedgerRowProps = {
   kind?: string;
   /** A pull request's state, which frames the row in its hue: open, draft, merged, closed, or failed where its Checks refused. */
   tone?: string;
+  /** A stacked pull request's lane: a gutter beside the row whose line joins the rows of one stack. */
+  lane?: { first: boolean; last: boolean };
+  /** Names the row's pull request number, so a chip elsewhere can find it. */
+  anchor?: number;
 };
 
-export function LedgerRow({ lead, num, title, meta, act, onOpen, label, on, menu, kind, tone }: LedgerRowProps) {
+export function LedgerRow({ lead, num, title, meta, act, onOpen, label, on, menu, kind, tone, lane, anchor }: LedgerRowProps) {
   const inside = (
     <>
       {lead}
@@ -69,8 +73,8 @@ export function LedgerRow({ lead, num, title, meta, act, onOpen, label, on, menu
       <span className="sv-ledger__meta">{meta}</span>
     </>
   );
-  return (
-    <li className="sv-ledger" data-acts={act === undefined ? undefined : ""} data-kind={kind} data-tone={tone}>
+  const body = (
+    <>
       {onOpen === undefined ? (
         <div className="sv-ledger__main" data-plain="">
           {inside}
@@ -82,6 +86,15 @@ export function LedgerRow({ lead, num, title, meta, act, onOpen, label, on, menu
       )}
       {act === undefined ? null : <span className="sv-ledger__act">{act}</span>}
       {menu}
+    </>
+  );
+  const data = { "data-acts": act === undefined ? undefined : "", "data-kind": kind, "data-tone": tone };
+  // A stacked row is the lane beside a card, so the item holds both and the card is no longer the list item.
+  if (lane === undefined) return <li className="sv-ledger" data-pr={anchor} {...data}>{body}</li>;
+  return (
+    <li className="sv-stack-item" data-pr={anchor}>
+      <span className="sv-lane" aria-hidden="true" data-first={lane.first ? "" : undefined} data-last={lane.last ? "" : undefined} />
+      <div className="sv-ledger" {...data}>{body}</div>
     </li>
   );
 }
@@ -112,8 +125,33 @@ function actOf(pr: PullRequest, pending: PullRequestAct | undefined, press: (act
 
 const CHECK_WORD = { passed: "Passed", running: "Running", failed: "Failed" } as const;
 
+/** Names the pull request this one sits on. It lives inside the row's own button, so it is a link role, not a second button. */
+function StackChip({ parent, onJump }: { parent: number; onJump: ((number: number) => void) | undefined }) {
+  const go = (event: { stopPropagation: () => void }) => {
+    event.stopPropagation();
+    onJump?.(parent);
+  };
+  return (
+    <span
+      className="sv-ledger__on"
+      role="link"
+      tabIndex={0}
+      aria-label={`Stacked on pull request #${parent}`}
+      onClick={go}
+      onKeyDown={(event) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        go(event);
+      }}
+    >
+      <Link size={12} strokeWidth={2} aria-hidden />
+      on #{parent}
+    </span>
+  );
+}
+
 /** A pull request as a row, in Landing and in the Artifacts layer alike. */
-export function PullRow({ session, pr }: { session: Session; pr: PullRequest }) {
+export function PullRow({ session, pr, lane, rootBase, chip, onJump }: { session: Session; pr: PullRequest; lane?: { first: boolean; last: boolean }; rootBase?: string; chip?: number; onJump?: (number: number) => void }) {
   const draft = useSessionsDraft();
   const [pending, setPending] = useState<PullRequestAct | undefined>(undefined);
   const { on, menu } = usePullRequestMenu(session.manifestId, pr.number, pr.title);
@@ -135,8 +173,12 @@ export function PullRow({ session, pr }: { session: Session; pr: PullRequest }) 
       on={on}
       menu={menu}
       act={actOf(pr, pending, press)}
+      anchor={pr.number}
+      {...(lane === undefined ? {} : { lane })}
       meta={
         <>
+          {rootBase === undefined ? null : <span className="sv-ledger__word" data-base="">base: {rootBase}</span>}
+          {chip === undefined ? null : <StackChip parent={chip} onJump={onJump} />}
           <code className="sv-ledger__sub">{pr.branch}</code>
           <span className="sv-ledger__fact" data-state={checks}>
             <PullRequestChecksMark checks={checks} said={checksSaid(pr.checks)} />
