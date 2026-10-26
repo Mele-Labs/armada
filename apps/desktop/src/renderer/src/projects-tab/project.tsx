@@ -138,7 +138,6 @@ function Card({ row, index, look, sub, state, sessions, selected, onOpenSession,
       data-state={state}
       data-look={look}
       data-sub={sub || undefined}
-      data-asking={state === "asking" || undefined}
       data-selected={selected || undefined}
       tabIndex={0}
       aria-label={label}
@@ -170,22 +169,22 @@ function Card({ row, index, look, sub, state, sessions, selected, onOpenSession,
         <span className="projects-row__words">{row.title}</span>
         {row.kind === "task" && !sub ? <IssueChips issues={row.issues ?? []} /> : null}
       </span>
-      {state === "asking" ? (
-        <span className="projects-row__ask">
-          <Tooltip label="Mark done" shortcut={capOf(PROJECTS_KEYS.markDone)} asChild>
-            <Button variant="secondary" size="sm" tabIndex={-1} data-mark-done onClick={() => store.settle(row.id, true)}>
-              Mark done
-            </Button>
-          </Tooltip>
-          <Tooltip label="Keep open" shortcut={capOf(PROJECTS_KEYS.keepOpen)} asChild>
-            <Button variant="ghost" size="sm" tabIndex={-1} data-keep-open onClick={() => store.settle(row.id, false)}>
-              Keep open
-            </Button>
-          </Tooltip>
-        </span>
-      ) : null}
-      {/* The card's end: the Job holding it flush right, and the acts beside it under the pointer or focus. */}
+      {/* The card's end, flush right on every card: the done ask's answers, and the acts under the pointer or focus. */}
       <span className="projects-row__end">
+        {state === "asking" ? (
+          <span className="projects-row__ask">
+            <Tooltip label="Mark done" shortcut={capOf(PROJECTS_KEYS.markDone)} asChild>
+              <Button variant="secondary" size="sm" tabIndex={-1} data-mark-done onClick={() => store.settle(row.id, true)}>
+                Mark done
+              </Button>
+            </Tooltip>
+            <Tooltip label="Keep open" shortcut={capOf(PROJECTS_KEYS.keepOpen)} asChild>
+              <Button variant="ghost" size="sm" tabIndex={-1} data-keep-open onClick={() => store.settle(row.id, false)}>
+                Keep open
+              </Button>
+            </Tooltip>
+          </span>
+        ) : null}
         <span className="projects-row__acts">
           {row.kind === "task" && !sub ? (
             <>
@@ -207,8 +206,13 @@ function Card({ row, index, look, sub, state, sessions, selected, onOpenSession,
             </button>
           </Tooltip>
         </span>
-        {row.job === undefined ? null : <JobChip job={row.job} sessions={sessions} onOpen={onOpenSession} />}
       </span>
+      {/* The Job holding it, on a line of its own under the title. */}
+      {row.job === undefined ? null : (
+        <span className="projects-row__holder">
+          <JobChip job={row.job} sessions={sessions} onOpen={onOpenSession} />
+        </span>
+      )}
     </div>
   );
 }
@@ -284,6 +288,7 @@ function AddTask({ project, parent }: { project: Project; parent?: TaskRow }) {
         keep={keep}
         autoFocus={parent !== undefined}
         aria-label={said}
+        placeholder={under === undefined ? "Add a task" : "Add a subtask"}
         value={title}
         onChange={(event) => setTitle(event.target.value)}
         onKeyDown={(event) => {

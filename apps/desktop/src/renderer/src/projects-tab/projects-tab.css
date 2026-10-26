@@ -74,10 +74,7 @@
 .projects-add[data-indented] { padding-inline-start: var(--space-8); }
 .projects-add__under { display: inline-flex; flex: none; color: var(--accent); }
 
-/* The right-hand columns, the same width on every card so an answer or a Job stands where it stood on the card above. */
 .projects-rows {
-  --projects-ask: calc(var(--space-12) * 4);
-  --projects-end: calc(var(--space-12) * 4);
   display: flex;
   flex: 1 1 0;
   flex-direction: column;
@@ -106,9 +103,10 @@
 .projects-row {
   --hue: var(--fg-subtle);
   display: grid;
-  grid-template-columns: var(--space-6) var(--space-6) minmax(0, 1fr) var(--projects-ask) var(--projects-end);
+  grid-template-columns: var(--space-6) var(--space-6) minmax(0, 1fr) auto;
   align-items: center;
   column-gap: var(--space-3);
+  row-gap: var(--space-1);
   min-height: var(--h-row);
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-md);
@@ -164,9 +162,8 @@ button.projects-row__mark { cursor: pointer; }
 button.projects-row__mark:hover { background: var(--bg-hover); }
 .projects-row[data-state="open"] .projects-row__mark { color: var(--fg-muted); }
 
-/* The title runs up to the card's end, over the done ask's column where the card has no ask. */
-.projects-row__title { grid-column: 3 / 5; display: flex; align-items: baseline; gap: var(--space-2); min-width: 0; }
-.projects-row[data-asking] .projects-row__title { grid-column: 3; }
+/* The title runs up to whatever the card's end holds. */
+.projects-row__title { grid-column: 3; grid-row: 1; display: flex; align-items: baseline; gap: var(--space-2); min-width: 0; }
 .projects-row__words { min-width: 0; overflow: hidden; font-weight: var(--weight-medium); text-overflow: ellipsis; white-space: nowrap; }
 .projects-row[data-state="done"] .projects-row__words,
 .projects-row[data-state="closed"] .projects-row__words { color: var(--fg-muted); }
@@ -176,9 +173,10 @@ button.projects-row__mark:hover { background: var(--bg-hover); }
 .projects-row__issue { padding: 0 var(--space-1); background: transparent; box-shadow: inset 0 0 0 var(--border-width) var(--border-default); color: var(--fg-muted); font-weight: var(--weight-medium); }
 .projects-row__issue[data-state="closed"] { color: var(--fg-subtle); text-decoration: line-through; }
 
-/* The right-hand columns: the done ask, then the card's end, flush to its right padding. */
-.projects-row__ask { grid-column: 4; display: flex; justify-content: flex-end; gap: var(--space-1); }
-.projects-row__end { grid-column: 5; display: flex; align-items: center; justify-content: flex-end; gap: var(--space-1); min-width: 0; }
+/* The card's end on the first line, flush to its right padding: the done ask, then the acts. The Job is the second line. */
+.projects-row__end { grid-column: 4; grid-row: 1; display: flex; align-items: center; justify-content: flex-end; gap: var(--space-1); }
+.projects-row__ask { display: flex; gap: var(--space-1); }
+.projects-row__holder { grid-column: 3 / -1; grid-row: 2; display: flex; min-width: 0; }
 .projects-row__job {
   display: inline-flex;
   align-items: center;
@@ -200,7 +198,7 @@ button.projects-row__mark:hover { background: var(--bg-hover); }
 .projects-row__job .armada-session-mark > svg { width: var(--space-3); height: var(--space-3); }
 .projects-row__job-title { min-width: 0; overflow: hidden; font-weight: var(--weight-medium); text-overflow: ellipsis; white-space: nowrap; }
 
-/* The acts take no room until the card is under the pointer or holds focus; then they stand beside the Job, which gives way. */
+/* The acts take no room until the card is under the pointer or holds focus; then they stand at the card's right edge. */
 .projects-row__acts { display: flex; flex: none; max-width: 0; overflow: hidden; }
 .projects-row:hover .projects-row__acts,
 .projects-row:focus-within .projects-row__acts,
