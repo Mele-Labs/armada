@@ -4,7 +4,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use api::{HostedSessions, Sessions, Watches};
+use api::{HostedSessions, Watches};
 use ipc::{
     CloseSession, SessionId, SessionRow, StartWatch, StopWatch, WatchReading, WatchStarts, WatchState, WatchSummary,
     WatchVerdict, WeighWatch,
