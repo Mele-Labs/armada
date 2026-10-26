@@ -91,7 +91,7 @@ fn what_is_empty_is_left_out() {
     // The run's own `last_used` and `links` follow its processes.
     let api = api.split(r#""last_used""#).next().expect("the process alone");
     for absent in ["port", "pinned_port", "links", "server_id", "log_path", "ended"] {
-        assert!(!api.contains(absent), "{absent}: {spelled}");
+        assert!(!api.contains(&format!("\"{absent}\":")), "{absent}: {spelled}");
     }
     assert!(!spelled.contains("null") && !spelled.contains(r#""setup""#), "{spelled}");
 
