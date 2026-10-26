@@ -156,7 +156,7 @@ fn a_copy_naming_only_its_tracker_or_ci_gate_is_kept_and_any_other_key_is_refuse
         assert_eq!(kit_copy_fault(mine), None, "{mine}");
     }
     let said = kit_copy_fault("tracker:\n  provider: jira\n  site: acme\nflavour: x\n").expect("refused");
-    assert!(said.contains("`checks`, `commands`, `ports`, `runs`, `tracker` and `ci_gate`"), "says what a copy may hold: {said}");
+    assert!(said.contains("`checks`, `commands`, `ports`, `runs`, `setup.requires`, `tracker` and `ci_gate`"), "says what a copy may hold: {said}");
     assert!(!said.contains(['\u{2014}']), "no dash in {said}");
 }
 
