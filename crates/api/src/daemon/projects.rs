@@ -7,7 +7,7 @@
 
 use std::future::Future;
 
-use ipc::{LinkProjectIssue, ManifestId, MoveProjectRow, NameProject, ProjectTask, TickProjectTask};
+use ipc::{LinkProjectIssue, LinkTaskJob, LinkTaskPull, ManifestId, MoveProjectRow, NameProject, ProjectTask, TickProjectTask};
 
 use crate::daemon::Refusal;
 
@@ -73,6 +73,43 @@ pub trait Projects: Send + Sync + 'static {
         project: String,
         row: String,
         link: LinkProjectIssue,
+    ) -> impl Future<Output = Result<ipc::Projects, Refusal>> + Send;
+
+    /// `link_task_job` — a running Job of the repository holds the task, and its subtasks, as if it had been started with
+    /// it; a Job holding it already is replaced. [`Refusal::Unacceptable`] for an issue row, a Job of another repository
+    /// or one that ended; [`Refusal::NotFound`] for a Job nobody knows.
+    fn link_task_job(
+        &self,
+        manifest_id: ManifestId,
+        project: String,
+        row: String,
+        link: LinkTaskJob,
+    ) -> impl Future<Output = Result<ipc::Projects, Refusal>> + Send;
+
+    /// `unlink_task_job` — lets a held task go to open, and the subtasks the same Job held; any other state changes nothing.
+    fn unlink_task_job(
+        &self,
+        manifest_id: ManifestId,
+        project: String,
+        row: String,
+    ) -> impl Future<Output = Result<ipc::Projects, Refusal>> + Send;
+
+    /// `link_task_pull` — a pull request, by number, on a task. [`Refusal::Unacceptable`] for an issue row.
+    fn link_task_pull(
+        &self,
+        manifest_id: ManifestId,
+        project: String,
+        row: String,
+        link: LinkTaskPull,
+    ) -> impl Future<Output = Result<ipc::Projects, Refusal>> + Send;
+
+    /// `unlink_task_pull` — takes a pull request off a task; one it did not have changes nothing.
+    fn unlink_task_pull(
+        &self,
+        manifest_id: ManifestId,
+        project: String,
+        row: String,
+        link: LinkTaskPull,
     ) -> impl Future<Output = Result<ipc::Projects, Refusal>> + Send;
 
     /// `edit_project_task` — a task's title and notes, whole. [`Refusal::Unacceptable`] for an issue row.

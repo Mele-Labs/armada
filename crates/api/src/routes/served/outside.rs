@@ -180,6 +180,26 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/projects/:repository/:project/rows/:row/issues/unlink",
     },
     Route {
+        operation: "link_task_job",
+        method: "POST",
+        path: "/projects/:repository/:project/rows/:row/job",
+    },
+    Route {
+        operation: "unlink_task_job",
+        method: "POST",
+        path: "/projects/:repository/:project/rows/:row/job/unlink",
+    },
+    Route {
+        operation: "link_task_pull",
+        method: "POST",
+        path: "/projects/:repository/:project/rows/:row/pulls",
+    },
+    Route {
+        operation: "unlink_task_pull",
+        method: "POST",
+        path: "/projects/:repository/:project/rows/:row/pulls/unlink",
+    },
+    Route {
         operation: "edit_project_task",
         method: "POST",
         path: "/projects/:repository/:project/rows/:row/edit",

@@ -7,15 +7,30 @@
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use ipc::{
-    Instant, ManifestId, ProjectRowRef, SessionRecord, WaitingAct, WaitingActKind, WaitingItem, WaitingOption,
+    Instant, ManifestId, TaskPullState, ProjectRowRef, SessionRecord, WaitingAct, WaitingActKind, WaitingItem, WaitingOption,
     WaitingSource,
 };
-use store::KeptAsked;
+use store::{KeptAsked, KeptProject, KeptRowItem, SessionState, Store};
 
 use crate::daemon::Fleet;
+use crate::session_host::NO_SUCH_SESSION;
 
 /// A start names a project of another repository. A 422.
 const OTHER_REPOSITORY: &str = "fleet.project_row_other_repository";
+
+/// A Job to hold a task is another repository's. A 422.
+const JOB_OTHER_REPOSITORY: &str = "fleet.project_job_other_repository";
+/// A Job to hold a task has ended. A 422.
+const JOB_ENDED: &str = "fleet.project_job_ended";
+
+/// The ids of the subtasks of task `row` in `project`.
+pub(crate) fn subtasks_of<'k>(project: &'k KeptProject, row: &'k str) -> impl Iterator<Item = String> + 'k {
+    project
+        .rows
+        .iter()
+        .filter(move |sub| matches!(&sub.item, KeptRowItem::Task { parent: Some(of), .. } if of == row))
+        .map(|sub| sub.id.clone())
+}
 
 /// The id of the ask about one project's tasks: `task_done:<project>`.
 const TASK_DONE: &str = "task_done:";
@@ -81,14 +96,27 @@ where
                 tasks.push((one.project.clone(), one.row.clone()));
             }
             // A task held with its subtasks: naming a parent names them all.
-            let subtasks = self.project_in(&kept, &one.project)?.rows.iter().filter(|sub| {
-                matches!(&sub.item, store::KeptRowItem::Task { parent: Some(of), .. } if *of == one.row)
-            });
-            tasks.extend(subtasks.map(|sub| (one.project.clone(), sub.id.clone())));
+            tasks.extend(subtasks_of(self.project_in(&kept, &one.project)?, &one.row).map(|sub| (one.project.clone(), sub)));
         }
         let mut seen = std::collections::HashSet::new();
         tasks.retain(|one| seen.insert(one.clone()));
         Ok(tasks)
+    }
+
+    /// `session` may hold tasks of `manifest`: a Job Fleet has a record of, still running, in that repository.
+    pub(crate) fn job_may_hold(&self, store: &Store, manifest: &str, session: &str) -> Result<(), Refusal> {
+        let Some(job) = store.session(session).map_err(|why| self.ledger_fault(why))? else {
+            return Err(Refusal::NotFound(self.project_refusal(NO_SUCH_SESSION, format!("no job is named {session}"))));
+        };
+        if job.manifest_id.as_deref() != Some(manifest) {
+            return Err(Refusal::Unacceptable(
+                self.project_refusal(JOB_OTHER_REPOSITORY, format!("job {session} is another repository's")),
+            ));
+        }
+        if job.state == SessionState::Ended {
+            return Err(Refusal::Unacceptable(self.project_refusal(JOB_ENDED, format!("job {session} has ended"))));
+        }
+        Ok(())
     }
 
     /// `session` holds `tasks` from now, and the repository's projects are published.
@@ -177,6 +205,29 @@ where
         for session in holders {
             self.project_tasks_asked(&session).await;
         }
+    }
+
+    /// Pull request `number` merged: each task linked to it that is open, or held, is asked about, once.
+    /// **Whoever opened it**: a person linked it, and nobody's Job need have. A Job holding a task keeps its
+    /// ask on its list; a task with none is asked on the rows alone. The forge's answer for it is kept as merged.
+    pub(crate) async fn tasks_asked_by_linked_pull(&self, served: &crate::repositories::Served, number: u64, title: &str) {
+        let manifest = served.manifest().id().as_str().to_string();
+        self.tracking().pulls.keep(&manifest, number, self.now(), (TaskPullState::Merged, title.to_string()));
+        let at = self.now().as_str().to_string();
+        let asked = self.store().lock().await.ask_pulled_project_tasks(&manifest, number, &at);
+        let Ok(asked) = asked else {
+            return;
+        };
+        if asked.is_empty() {
+            return;
+        }
+        let mut jobs: Vec<&String> = asked.iter().filter(|one| !one.is_empty()).collect();
+        jobs.sort_unstable();
+        jobs.dedup();
+        for session in jobs {
+            let _ = self.published_hosted(session).await;
+        }
+        self.projects_published(&manifest).await;
     }
 
     /// `session` is over: what it held and did not finish is open again. What it asked about stays asked.
