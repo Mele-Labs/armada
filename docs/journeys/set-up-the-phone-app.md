@@ -35,7 +35,7 @@ Its routes are signed, a pairing needs your confirmation in Bridge, and Bridge's
 | | On | Do |
 |---|---|---|
 | 1 | Bridge | Settings, Phone, then switch the phone on. Fleet starts the Phone Gateway on `127.0.0.1:8443` at once, and at every start after. Every `scripts/restart` builds the app and copies it where the Gateway serves it from, so a Mac restarted onto this change already has it |
-| 2 | Mac | Start your way in, from *Choose a way in*. Each one there survives reboots once set up |
+| 2 | Bridge | Follow *Set up the way in* under the switch: Get Tailscale, sign in, then Turn on Funnel, and Allow Funnel on your tailnet's page if it asks. Each row turns done by itself. With `pocket-address` written, it is one line instead. Any other way in, from *Choose a way in*, survives reboots once set up |
 | 3 | iPhone | Open the Mac's address in Safari, then Share, Add to Home Screen. Open Armada **from the Home Screen** |
 | 4 | Bridge | Settings, Phone, Pair a phone, then **Copy link** |
 | 5 | iPhone | Paste the link into Pairing link and press Pair. The phone makes its key and names itself |

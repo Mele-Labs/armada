@@ -387,7 +387,26 @@ fn sentence_examples(training: &Path, positive: &[&str]) -> Vec<Example> {
         new: true,
         kind: format!("confirmed:{n}"),
     });
-    labelled.into_iter().chain(marked).chain(asked).collect()
+    // The follow-ups he marked with thumbs, read by the follow-up head alone: the texts of the other
+    // reading stay the same, so these weigh nothing there.
+    let follow = positive.contains(&"follow_up");
+    let not_deferred = later_misreads().into_iter().enumerate().map(|(n, sentence)| Example {
+        id: format!("later_misread:{n}"),
+        text: sentence,
+        y: false,
+        weight: if follow { 3.0 } else { 0.0 },
+        new: true,
+        kind: format!("later_misread:{n}"),
+    });
+    let deferred = later_confirmed().into_iter().enumerate().map(|(n, sentence)| Example {
+        id: format!("later_confirmed:{n}"),
+        text: sentence,
+        y: true,
+        weight: if follow { 1.0 } else { 0.0 },
+        new: true,
+        kind: format!("later_confirmed:{n}"),
+    });
+    labelled.into_iter().chain(marked).chain(asked).chain(not_deferred).chain(deferred).collect()
 }
 
 /// The sentences marked Not a question, read from Fleet's store with the `sqlite3` macOS ships. None
@@ -399,6 +418,16 @@ fn misreads() -> Vec<String> {
 /// The sentences he confirmed with thumbs up, read the same way.
 fn confirmed() -> Vec<String> {
     kept_sentences("SELECT sentence FROM reply_confirmed ORDER BY marked_at, sentence")
+}
+
+/// The follow-ups he marked Not deferred, read the same way.
+fn later_misreads() -> Vec<String> {
+    kept_sentences("SELECT sentence FROM later_misreads ORDER BY marked_at, sentence")
+}
+
+/// The follow-ups he confirmed as deferred, read the same way.
+fn later_confirmed() -> Vec<String> {
+    kept_sentences("SELECT sentence FROM later_confirmed ORDER BY marked_at, sentence")
 }
 
 fn kept_sentences(query: &str) -> Vec<String> {

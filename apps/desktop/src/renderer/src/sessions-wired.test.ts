@@ -73,6 +73,50 @@ it("reads the open follow-ups off the record, and a Drop settles one as dropped 
   expect(settleLater).toHaveBeenCalledWith({ session_id: "a", id: "later-2", how: "dropped" });
 });
 
+/** A store with one open follow-up, whose Fleet answers the two thumbs as `answer` says, with the window's refusals caught in `told`. */
+function thumbed(answer: "ok" | "refused") {
+  const refusal = { ok: false as const, outcome: { ok: false as const, why: "refused" as const, error: { code: "fleet.later_not_open", message: "that follow-up is not open" } } };
+  const settleLater = vi.fn(async () => (answer === "ok" ? { ok: true as const, value: {} } : refusal));
+  const confirmLater = vi.fn(async () => (answer === "ok" ? { ok: true as const, value: record("a") } : refusal));
+  const told = vi.fn();
+  vi.stubGlobal("window", { ...(window as object), dispatchEvent: told });
+  vi.stubGlobal("CustomEvent", class { constructor(readonly type: string, readonly init: { detail: unknown }) {} get detail() { return this.init.detail; } });
+  let send: (change: StateChange<BridgeState>) => void = () => undefined;
+  const api = { syncState: () => Promise.resolve({ full: NOTHING_YET, seq: 0 }), subscribeChanges: (on: typeof send) => ((send = on), () => undefined), settleLater, confirmLater } as unknown as BridgeApi;
+  const store = new WiredStore(api);
+  store.attach();
+  const later = [{ id: "later-2", sentence: "The Studio icon tooltip is still owed.", said_at: AT, confirmed: true }];
+  send({ full: structuredClone({ ...NOTHING_YET, sessions: { state: "read", sessions: [{ ...record("a"), later }] } }), seq: 0 });
+  return { store, settleLater, confirmLater, said: () => told.mock.calls.map(([event]) => (event as { detail: { sentence: string } }).detail.sentence) };
+}
+
+it("reads a thumbs up Fleet kept off the record as confirmed", () => {
+  const { store } = thumbed("ok");
+  expect(store.draft.get()[0]?.later).toEqual([{ id: "later-2", text: "The Studio icon tooltip is still owed.", at: AT, confirmed: true }]);
+});
+
+it("sends thumbs down as a dropped follow-up that was misread, and a plain Drop without it", () => {
+  const { store, settleLater } = thumbed("ok");
+  store.draft.dropLater!("a", "later-2", true);
+  expect(settleLater).toHaveBeenLastCalledWith({ session_id: "a", id: "later-2", how: "dropped", misread: true });
+  store.draft.dropLater!("a", "later-2");
+  expect(settleLater).toHaveBeenLastCalledWith({ session_id: "a", id: "later-2", how: "dropped" });
+});
+
+it("sends thumbs up to Fleet by Session and follow-up id", () => {
+  const { store, confirmLater } = thumbed("ok");
+  store.draft.confirmLater!("a", "later-2");
+  expect(confirmLater).toHaveBeenCalledWith({ session_id: "a", id: "later-2" });
+});
+
+it("says Fleet's words when it refuses either thumb", async () => {
+  const { store, said } = thumbed("refused");
+  store.draft.confirmLater!("a", "later-2");
+  store.draft.dropLater!("a", "later-2", true);
+  await new Promise((done) => setTimeout(done, 0));
+  expect(said()).toEqual(["that follow-up is not open", "that follow-up is not open"]);
+});
+
 // ---- Ideas saved to start later, and the model and effort a start carries ----------------------------------
 
 /** A window with the one thing the queue reads: the storage every window of Bridge shares, and the event that says another wrote it. */

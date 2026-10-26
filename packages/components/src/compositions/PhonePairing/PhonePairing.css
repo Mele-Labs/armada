@@ -103,3 +103,83 @@
   line-height: var(--leading-xs);
   color: var(--fg-muted);
 }
+
+/* The way in: a row a step, glyph, name over its one line, and the press in a fixed column. */
+.armada-phone__steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.armada-phone__steps-title {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  font-weight: var(--weight-heading);
+  color: var(--fg-default);
+}
+
+.armada-phone__step {
+  display: grid;
+  grid-template-columns: var(--space-4) minmax(0, 1fr) auto;
+  align-items: start;
+  column-gap: var(--space-3);
+  padding-block: var(--space-3);
+  border-top: var(--border-width) solid var(--border-subtle);
+}
+
+.armada-phone__step:first-child {
+  padding-top: 0;
+  border-top: none;
+}
+
+.armada-phone__step[data-state="waiting"] .armada-phone__name {
+  color: var(--fg-muted);
+}
+
+.armada-phone__step-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.armada-phone__why {
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-muted);
+  overflow-wrap: anywhere;
+}
+
+.armada-phone__act {
+  display: inline-flex;
+  justify-content: flex-end;
+}
+
+.armada-phone__done,
+.armada-phone__unset {
+  display: inline-flex;
+  padding-top: var(--space-1);
+}
+
+.armada-phone__done {
+  color: var(--step-advanced);
+}
+
+.armada-phone__unset {
+  color: var(--fg-subtle);
+}
+
+.armada-phone__way {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  color: var(--fg-muted);
+}
+
+.armada-phone__address {
+  font-family: var(--font-mono);
+  color: var(--fg-default);
+  overflow-wrap: anywhere;
+}
