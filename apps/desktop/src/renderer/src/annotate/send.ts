@@ -87,7 +87,8 @@ export async function sendToSession(
     const root = await sink.root();
     if (root === null) return { ok: false, saying: "Job not started: no repository found above Bridge" };
     const title = titleOf(notes.map((one) => one.note));
-    const started = await fleet.startSession(title, root);
+    // Held on its start card: nothing runs until he presses Start.
+    const started = await fleet.startSession(title, root, undefined, undefined, undefined, true);
     if (!started.ok) return { ok: false, saying: `Job not started: ${refusal(started.outcome)}` };
     into = { id: started.value.id, title: started.value.title ?? title };
   }

@@ -241,6 +241,9 @@ where
 
     async fn hear(self: &Arc<Self>, id: &str, runtime: &Arc<Runtime>, event: DroneEvent) {
         self.work_heard(id, &event, None).await;
+        if matches!(event, DroneEvent::Said { by: Speaker::Drone, .. } | DroneEvent::Called { .. }) {
+            self.signed_in_heard(id).await;
+        }
         match event {
             DroneEvent::Started { model, .. } => {
                 self.limit_cleared(id).await;
@@ -348,6 +351,8 @@ where
             DroneEvent::Ended { cost_micros, .. } => {
                 self.turn_ended(id, runtime, cost_micros).await;
             }
+            // The harness's words for it were shown as a row; this signs the Fleet out.
+            DroneEvent::SignedOut => self.signed_out_heard(runtime),
             _ => {}
         }
     }
@@ -539,6 +544,19 @@ where
         }
         // Before the row is written, so a Job held across a restart does not read it back as an old one.
         if self.start_hold_restored(&target, &hosting).await.is_err() {
+            return;
+        }
+        // A held Job keeps every word to reach it off the thread, for Start to write and send in order.
+        let voice = SessionVoice::Session { id: from.to_string(), title: title.clone() };
+        let first = super::start_card::FirstTurn {
+            instead: Some(from_job(from, &title, message)),
+            ..super::start_card::FirstTurn::said(voice, message)
+        };
+        if self.turn_kept_while_held(&target, &first).await.unwrap_or(false) {
+            if !from_helm {
+                self.session_messaged(from, named, &target, message);
+            }
+            let _ = self.published_hosted(&target).await;
             return;
         }
         self.row_put(

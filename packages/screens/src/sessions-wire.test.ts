@@ -794,17 +794,8 @@ describe("what a session has built", () => {
 });
 
 describe("a session its agent was started by another to hold", () => {
-  const unsent = (state: Attachment["state"]) => held("unsent", "Port the clock", {}, state);
-
-  it("carries the first message held unsent, and none once it is spent or the job ended", () => {
-    expect(sessionOfRecord(record("n", { attachments: [unsent("standing")] }), undefined, beside()).unsent).toBe("Port the clock");
-    expect(sessionOfRecord(record("n", { attachments: [unsent("spent")] }), undefined, beside()).unsent).toBeUndefined();
-    expect(sessionOfRecord(record("n", { state: "ended", attachments: [unsent("standing")] }), undefined, beside()).unsent).toBeUndefined();
-    expect(sessionOfRecord(record("n"), undefined, beside()).unsent).toBeUndefined();
-  });
-
-  it("keeps the unsent message off the ledger and links the two sessions both ways, even after one ended", () => {
-    const made = record("n", { attachments: [held("started_by", "old", {}, "spent"), unsent("standing")] });
+  it("links the two sessions both ways, even after one ended", () => {
+    const made = record("n", { attachments: [held("started_by", "old", {}, "spent")] });
     expect(sessionOfRecord(made, undefined, beside()).attachments).toEqual([{ kind: "started_by", id: "old" }]);
     const maker = record("old", { attachments: [held("started_to", "n", {}, "spent")] });
     expect(sessionOfRecord(maker, undefined, beside()).attachments).toEqual([{ kind: "started_to", id: "n" }]);
@@ -1077,6 +1068,8 @@ describe("a Job handed on to a new one", () => {
     const held = record("a", { hosted: { ...hosted, start: { asks_delivery: true, picked: { choice: "open_pr", from: "usual" } } } });
     expect(sessionOfRecord(held, undefined, beside()).start).toEqual({ asksDelivery: true, picked: { choice: "open_pr", from: "usual" } });
     expect(sessionOfRecord(record("a", { hosted: { ...hosted, start: { asks_delivery: false } } }), undefined, beside()).start).toEqual({ asksDelivery: false });
+    const worded = record("a", { hosted: { ...hosted, start: { asks_delivery: true, picked: { choice: "auto_land", from: "default" }, message: "Port the clock" } } });
+    expect(sessionOfRecord(worded, undefined, beside()).start).toEqual({ asksDelivery: true, picked: { choice: "auto_land", from: "default" }, message: "Port the clock" });
     expect(sessionOfRecord(record("a", { hosted }), undefined, beside()).start).toBeUndefined();
     expect(sessionOfRecord({ ...held, state: "ended" }, undefined, beside()).start).toBeUndefined();
   });

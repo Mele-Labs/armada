@@ -37,6 +37,17 @@ pub(super) const ROUTES: &[Route] = &[
         method: "POST",
         path: "/model_downshift/settle",
     },
+    // The agents' account, signed out for every Job at once.
+    Route {
+        operation: "get_agent_sign_in",
+        method: "GET",
+        path: "/agent/sign_in",
+    },
+    Route {
+        operation: "start_agent_sign_in",
+        method: "POST",
+        path: "/agent/sign_in",
+    },
     // Sleep mode: the switch, the night it keeps, and a correction of one decision.
     Route {
         operation: "get_sleep",

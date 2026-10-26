@@ -29,6 +29,8 @@ import { FleetEventsOver } from "./cockpit/fleet-events";
 import { PlanUsageSourceProvider } from "./plan-usage";
 import { createFleetDownshift } from "./fleet-downshift";
 import { DownshiftSourceProvider } from "./downshift";
+import { createFleetAgentSignIn } from "./fleet-agent-sign-in";
+import { AgentSignInSourceProvider } from "./agent-sign-in";
 import { createFleetClashes } from "./fleet-clashes";
 import { ReviewsFrom, createReviewStore } from "./pr-review/store";
 import { IssuesFrom, createIssuesStore } from "./issues-tab/store";
@@ -86,6 +88,8 @@ const SLEEP = createFleetSleep(withState(window.armada));
 const PLAN_USAGE = createFleetPlanUsage(withState(window.armada));
 /** The default model's offered step down on the weekly meter, over Fleet. */
 const DOWNSHIFT = createFleetDownshift(withState(window.armada));
+/** The Fleet-wide "Claude is signed out" alert and its one press, over Fleet. */
+const AGENT_SIGN_IN = createFleetAgentSignIn(withState(window.armada));
 const TIMELINE = createFleetTimeline(withState(window.armada));
 /** The mark on a row whose changes would conflict with another agent's, over Fleet. */
 const CLASHES = createFleetClashes(withState(window.armada));
@@ -128,6 +132,7 @@ function Root() {
                 <WiredNumbered>
                   <PlanUsageSourceProvider value={PLAN_USAGE}>
                     <DownshiftSourceProvider value={DOWNSHIFT}>
+                    <AgentSignInSourceProvider value={AGENT_SIGN_IN}>
                       <WiredSessions events={TIMELINE}>
                         <ClashesFromFleet source={CLASHES}>
                           <TerritoryFromFleet source={TERRITORY}>
@@ -146,6 +151,7 @@ function Root() {
                           </TerritoryFromFleet>
                         </ClashesFromFleet>
                       </WiredSessions>
+                    </AgentSignInSourceProvider>
                     </DownshiftSourceProvider>
                   </PlanUsageSourceProvider>
                 </WiredNumbered>

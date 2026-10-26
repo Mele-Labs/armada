@@ -62,9 +62,13 @@ body,
    here. The status bar this used to clear is gone (#1088); Fleet's liveness
    lives in the left column's own panel now, nowhere near this corner. */
 .armada-app__toasts {
+  /* The column scrolls, so it clips: a toast's shadow (8px down, 24px blur) and its rise on entering
+     were cut flush at the toast's own edge. The room is padding the toasts sit inside, taken back off
+     the offsets so each toast keeps its inset from the window. */
+  --toasts-room: var(--space-8);
   position: fixed;
-  right: var(--space-6);
-  bottom: var(--space-3);
+  right: calc(var(--space-6) - var(--toasts-room));
+  bottom: calc(var(--space-3) - var(--toasts-room));
   z-index: var(--z-toast);
   /* One column, newest nearest the corner. A stack taller than the window
      scrolls rather than running off its top edge. */
@@ -72,8 +76,16 @@ body,
   flex-direction: column;
   align-items: flex-end;
   gap: var(--space-2);
-  max-height: calc(100% - var(--space-6) - var(--space-3));
+  box-sizing: border-box;
+  padding: var(--toasts-room);
+  max-height: calc(100% - var(--space-6) - var(--space-3) + 2 * var(--toasts-room));
   overflow-y: auto;
+  /* The room is empty: a press there belongs to what is behind it. */
+  pointer-events: none;
+}
+
+.armada-app__toasts > * {
+  pointer-events: auto;
 }
 
 /* Bridge behind a walk window that has focus: dimmed, so the window is what

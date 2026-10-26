@@ -208,6 +208,8 @@ mod sleep;
 mod plan_usage;
 /// The default model stepping down while the weekly window runs out.
 mod model_downshift;
+/// The agents' account signed out, for the whole Fleet.
+mod agent_sign_in;
 /// What fills a session's context window.
 mod context_breakdown;
 /// What a session's agent knows, was told, and used each turn, and where each came from.
@@ -593,6 +595,7 @@ pub use session_build::{
 pub use model_downshift::{
     ModelDownshift, ModelDownshiftState,
 };
+pub use agent_sign_in::AgentSignIn;
 pub use plan_usage::{
     PlanUsage, PlanWindow,
 };

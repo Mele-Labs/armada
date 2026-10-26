@@ -92,6 +92,8 @@ pub fn heard(line: &str) -> Heard {
         Line::Result(result) => moved(Some(CallProgress::Ended {
             cost_usd: result.total_cost_usd,
             api_ms: result.duration_api_ms,
+            // Only an errored call's text is a failure's words; a good one's is its answer.
+            failure: result.is_error.then_some(result.result).flatten(),
         })),
         Line::Unnamed => Heard::Nothing,
     }
@@ -209,7 +211,7 @@ struct Delta {
     text: Option<String>,
 }
 
-/// The terminating line. **Both fields are optional** because a call that was
+/// The terminating line. **Every field is optional** because a call that was
 /// killed never prints one at all, and a harness that changes what it reports
 /// should narrow the readout rather than fail the read.
 #[derive(Deserialize)]
@@ -218,4 +220,8 @@ struct ResultLine {
     total_cost_usd: Option<f64>,
     #[serde(default)]
     duration_api_ms: Option<u64>,
+    #[serde(default)]
+    is_error: bool,
+    #[serde(default)]
+    result: Option<String>,
 }

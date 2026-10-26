@@ -143,6 +143,13 @@ pub trait HostedSessions: Send + Sync + 'static {
     /// `settle_downshift`: the owner sets the default by hand. [`Refusal::IllegalMove`] unless offered.
     fn settle_downshift(&self) -> impl Future<Output = Result<ipc::ModelDownshiftState, Refusal>> + Send;
 
+    /// `get_agent_sign_in`: whether the agents' account is signed out, and whether Fleet is signing it in.
+    fn get_agent_sign_in(&self) -> impl Future<Output = Result<ipc::AgentSignIn, Refusal>> + Send;
+
+    /// `start_agent_sign_in`: Fleet runs the agents' sign-in, answered with the state it left. A press
+    /// while one runs starts nothing.
+    fn start_agent_sign_in(self: Arc<Self>) -> impl Future<Output = Result<ipc::AgentSignIn, Refusal>> + Send;
+
     /// `get_sleep`: the switch and the night's rows.
     fn get_sleep(&self) -> impl Future<Output = Result<ipc::SleepState, Refusal>> + Send;
 

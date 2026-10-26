@@ -3,7 +3,7 @@ import { RepositoryChip } from "../RepositoryChip/RepositoryChip";
 import { SessionMark, type SessionState } from "../SessionFrame/SessionFrame";
 
 /**
- * The hue a Job's state wears: **ask** is owed him (waiting on him, done, a draft unsent), **bad** is stuck or a Check
+ * The hue a Job's state wears: **ask** is owed him (waiting on him, done, a draft not started), **bad** is stuck or a Check
  * failing, **live** is a turn running, and **calm** is the rest. The Cockpit's Jobs list reads the same three it has,
  * and live is the card's own: on a card the running hue is the state, where in the list the glyph alone carries it.
  */

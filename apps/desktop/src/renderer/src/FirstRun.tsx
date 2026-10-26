@@ -11,11 +11,10 @@ import type { ImportFolder } from "@armada/protocol";
 
 import { refusalWords } from "@armada/screens/src/refusal-words";
 
-import { select } from "./cockpit/deck/store";
 import { addRepository, chooseFolder, createProject, installAgentMod, listImportFolders, pickRepository } from "./commands";
 import { claudeFolderOf, defaultParent, homeRelative, rootOfImport } from "./run-places";
-import { askComposerFocus } from "./session-focus";
 import { useSessionsDraft } from "./sessions-draft";
+import { startOn } from "./start-on";
 import { StartField, type Preview } from "./StartField";
 import { ORDERS, StartMenu, type Order } from "./StartMenu";
 import "./first-run.css";
@@ -73,8 +72,8 @@ export function FirstRun({ onTell }: { onTell?: ((sentence: string) => void) | u
 
   /**
    * Lists the folders and opens a Job on the first, empty and ready to type in, with the place its runs are kept as the Job's own card.
-   * Fleet lists the first folder before the Job starts on it, which swaps this stage for the Cockpit; the Job is selected on the deck's own store, which the
-   * Cockpit reads. A folder Fleet already serves, a new project's, is not added again.
+   * Fleet lists the first folder before the Job starts on it, which swaps this stage for the Cockpit. A folder Fleet already serves, a new project's, is not
+   * added again.
    */
   async function open(roots: readonly string[], served = false): Promise<void> {
     const [first, ...rest] = roots;
@@ -82,11 +81,7 @@ export function FirstRun({ onTell }: { onTell?: ((sentence: string) => void) | u
     const added = served ? undefined : await addRepository(first);
     if (added !== undefined && added.state !== "located") return onTell?.(added.state === "refused" ? added.saying : "Folder not added");
     const top = added === undefined ? first : added.repository.root;
-    const id = await draft.start(undefined, top);
-    if (id !== undefined) {
-      askComposerFocus(id);
-      select({ kind: "session", key: `session:${id}` });
-    }
+    await startOn(draft, top);
     pickRepository(top);
     for (const path of rest) {
       const more = await addRepository(path);

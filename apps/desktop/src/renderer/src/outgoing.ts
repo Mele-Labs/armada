@@ -217,6 +217,8 @@ export function withOutgoing(draft: SessionsDraft): SessionsDraft {
       };
     },
     send: (id: string, message: SentMessage): Promise<boolean> => {
+      // Words sent to a Job held before its start are its first message, kept in the composer until Start: not a row in the thread yet.
+      if (draft.get().find((one) => one.id === id)?.start !== undefined) return Promise.resolve(draft.send(id, message)).then((went) => went !== false);
       sent = true;
       // To whether Fleet took it, as `send` answers. The message box does not wait on that: it is in the thread already.
       return held.hold(id, message, rowsOf(id)).deliver(() => draft.send(id, message));

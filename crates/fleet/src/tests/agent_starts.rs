@@ -1,7 +1,8 @@
 //! The claim, written before the code: **a Session's agent starts or forks a Session, and it waits
-//! for the owner.** The new Session is listed at once with no process; the agent's first message sits
-//! unsent and reads as a waiting item of its own; his ordinary send sends it and settles both; and the
-//! caller is placed by its connection, never named. `docs/concepts/session.md`, *A Session an agent
+//! for the owner.** The new Session is listed at once with no process, held on its start card; the
+//! agent's first message is the card's, off the thread, and reads as a waiting item of its own; Start
+//! sends it, his edit of it where he made one, and settles the item; and the caller is placed by its
+//! connection, never named. `docs/concepts/session.md`, *A Session an agent
 //! started*. The stand-in process is `session_host`'s.
 
 use std::sync::Arc;
@@ -109,6 +110,21 @@ impl Rig {
         if fresh {
             eventually(|| async { !runtime.state().proposal.holds_back() }).await;
         }
+    }
+
+    /// Start pressed on a held Job, with the box as he left it where `message` says.
+    pub(super) async fn begin(&self, id: &SessionId, message: Option<&str>) -> SessionRecord {
+        let begin = ipc::BeginSession {
+            session_id: id.clone(),
+            delivery: Some(ipc::DeliveryChoice::OpenPr),
+            message: message.map(str::to_string),
+        };
+        Arc::clone(&self.fleet).begin_session(begin).await.expect("begun")
+    }
+
+    /// The first message the held Job's card shows, if it is held.
+    pub(super) async fn card_message(&self, id: &SessionId) -> Option<String> {
+        self.record(id).await.hosted.and_then(|hosted| hosted.start).and_then(|start| start.message)
     }
 
     pub(super) async fn send_unsettled(&self, id: &SessionId, text: &str) {
@@ -223,8 +239,8 @@ async fn a_started_session_is_listed_at_once_holding_the_message_and_starts_no_p
     assert_eq!(rig.stand_in.starts().len(), processes, "nothing was started");
     assert!(rig.rows(&held.session_id).await.is_empty(), "no turn, no row");
 
-    let unsent = kind(record, "unsent").expect("the message is kept");
-    assert_eq!((unsent.target.as_str(), unsent.state), (FIRST, ipc::AttachmentState::Standing));
+    assert_eq!(rig.card_message(&held.session_id).await.as_deref(), Some(FIRST), "held on its card with the message");
+    assert!(kind(record, "unsent").is_none(), "no attachment stands for it");
 
     let [item] = &record.waiting_for[..] else { panic!("one item waits: {:?}", record.waiting_for) };
     assert_eq!(item.id, format!("unsent:{}", held.session_id.as_str()));
@@ -258,19 +274,19 @@ async fn the_callers_thread_and_ledger_name_the_session_it_started() {
 }
 
 #[tokio::test]
-async fn his_ordinary_send_sends_it_starts_the_first_turn_and_settles_both() {
+async fn start_sends_his_edit_of_it_starts_the_first_turn_and_settles_the_item() {
     let rig = rig(None);
     rig.an_agent().await;
     let held = Arc::clone(&rig.fleet).start_another_session(caller(), begins(&rig, "Check the reader", FIRST)).await.expect("held");
     let before = rig.stand_in.starts().len();
 
     // He may edit it first: what he sends is the box, not what the agent wrote.
-    rig.send(&held.session_id, "Read crates/reader and say why it drops blank lines.").await;
+    rig.begin(&held.session_id, Some("Read crates/reader and say why it drops blank lines.")).await;
 
     // The brief was read first, so the turn starts when the reading ends.
     eventually(|| async { rig.stand_in.starts().len() == before + 1 }).await;
     let record = rig.record(&held.session_id).await;
-    assert_eq!(kind(&record, "unsent").expect("the row stays as a fact").state, ipc::AttachmentState::Spent);
+    assert!(record.hosted.as_ref().and_then(|hosted| hosted.start.as_ref()).is_none(), "begun");
     assert!(record.waiting_for.is_empty(), "nothing waits: {:?}", record.waiting_for);
     let sent: Vec<String> = rig
         .rows(&held.session_id)
@@ -294,7 +310,7 @@ async fn ending_it_unsent_discards_the_message_and_the_item() {
         .await
         .expect("closed");
     assert!(ended.waiting_for.is_empty());
-    assert_eq!(kind(&ended, "unsent").map(|one| one.state), Some(ipc::AttachmentState::GivenBack));
+    assert!(kind(&ended, "unsent").is_none());
     assert!(rig.stand_in.starts().len() == 1, "and it never ran");
 }
 
@@ -320,7 +336,7 @@ async fn a_fork_at_a_message_of_the_callers_own_live_session_waits_the_same_way(
     assert_eq!(from.target, agent.as_str());
     assert_eq!(from.detail.get("at").map(String::as_str), Some(rows[0].as_str()));
     assert!(kind(&record, "started_by").is_none(), "a fork's link is the fork's own");
-    assert_eq!(kind(&record, "unsent").expect("held").target, "Do it with a map.");
+    assert_eq!(rig.card_message(&held.session_id).await.as_deref(), Some("Do it with a map."), "held on its card");
     assert_eq!(record.waiting_for[0].source, WaitingSource::FirstMessage);
     assert!(kind(&rig.record(&agent).await, "forked_to").is_some());
     assert!(
@@ -328,7 +344,8 @@ async fn a_fork_at_a_message_of_the_callers_own_live_session_waits_the_same_way(
         "the callout in the caller's thread"
     );
 
-    rig.send(&held.session_id, "Do it with a map.").await;
+    rig.begin(&held.session_id, None).await;
+    eventually(|| async { rig.stand_in.starts().len() == before + 1 }).await;
     let starts = rig.stand_in.starts();
     assert_eq!(starts[before].forking.as_deref(), Some(agent.as_str()));
     assert_eq!(starts[before].fork_cut.as_deref(), Some("a1"), "the copy ends at that line");
@@ -346,7 +363,8 @@ async fn a_fork_with_no_message_ends_at_the_callers_latest_of_its_own() {
         .expect("forks");
     let from = kind(&rig.record(&held.session_id).await, "forked_from").cloned().expect("link");
     assert_eq!(from.detail.get("at").map(String::as_str), Some(rows[1].as_str()));
-    rig.send(&held.session_id, "Go.").await;
+    rig.begin(&held.session_id, None).await;
+    eventually(|| async { rig.stand_in.starts().len() == before + 1 }).await;
     assert_eq!(rig.stand_in.starts()[before].fork_cut.as_deref(), Some("a2"));
     assert_eq!(rig.stand_in.starts()[before].forking.as_deref(), Some(agent.as_str()));
 }
@@ -474,7 +492,7 @@ async fn a_grouped_start_is_the_groups_own_and_both_ledgers_keep_the_group() {
     assert_eq!(held.title, "Name the migrations", "the group's title, whatever the call said");
 
     let child = rig.record(&held.session_id).await;
-    let unsent = kind(&child, "unsent").expect("the brief is held").target.clone();
+    let unsent = rig.card_message(&held.session_id).await.expect("the brief is held");
     assert!(unsent.contains("- Give each migration a name\n- Record the name with the version"), "the tasks word for word: {unsent}");
     assert!(unsent.contains("Handoff from The agent"), "the parent's handoff: {unsent}");
     assert!(unsent.trim_end().ends_with("Mind the order."), "the caller's words last: {unsent}");
@@ -512,7 +530,7 @@ async fn the_person_handing_a_group_starts_the_session_and_sends_the_brief() {
 
     let child = rig.record(&held.session_id).await;
     assert_eq!(kind(&child, "started_by").unwrap().detail.get("group").map(String::as_str), Some("g1"));
-    assert_eq!(kind(&child, "unsent").map(|one| one.state), Some(ipc::AttachmentState::Spent), "the press is the first send");
+    assert!(child.hosted.as_ref().and_then(|hosted| hosted.start.as_ref()).is_none(), "the press is the first send: not held");
     let rows = rig.rows(&held.session_id).await;
     let sent = rows.iter().find_map(|row| match row {
         SessionRow::Message { from: SessionVoice::You, text, .. } => Some(text.clone()),
@@ -591,10 +609,10 @@ async fn a_session_an_agent_started_is_read_from_its_brief_before_the_person_sen
     let record = rig.record(&held.session_id).await;
     assert_eq!(record.title.as_deref(), Some("Check the reader"), "the title the agent gave stands");
     assert_eq!(record.hosted.as_ref().expect("hosted").model.as_deref(), Some("another-model"));
-    assert!(kind(&record, "unsent").is_some(), "and the first message is still the person's to send");
+    assert!(rig.card_message(&held.session_id).await.is_some(), "and the first message is still the person's to send");
 
-    // His send goes out on the reading, and does not read it again.
-    rig.send(&held.session_id, FIRST).await;
+    // Start sends it on the reading, and does not read it again.
+    rig.begin(&held.session_id, None).await;
     eventually(|| async { rig.stand_in.starts().len() == 2 }).await;
     assert_eq!(judge.asked().len(), before + 1);
 }
@@ -611,7 +629,7 @@ async fn a_fork_an_agent_made_is_not_read() {
         .fork_this_session(caller(), ForkThisSession { title: "Another way".into(), message: FIRST.into(), at: None })
         .await
         .expect("forked");
-    rig.send(&held.session_id, FIRST).await;
+    rig.begin(&held.session_id, None).await;
     eventually(|| async { rig.stand_in.starts().len() == 2 }).await;
     assert_eq!(judge.asked().len(), before, "a fork carries its source's conversation, and is not read");
     assert!(rig.record(&held.session_id).await.proposal.is_none());
@@ -669,7 +687,7 @@ async fn a_session_an_agent_started_on_a_workflow_gets_no_turn_and_no_process_un
 
     assert_eq!(rig.stand_in.starts().len(), processes, "the rail starts nothing for a Job that has not run");
     assert!(rig.rows(&held.session_id).await.is_empty(), "and tells it nothing");
-    assert!(kind(&rig.record(&held.session_id).await, "unsent").is_some(), "its first message is still the person's to send");
+    assert!(rig.card_message(&held.session_id).await.is_some(), "its first message is still the person's to send");
 }
 
 #[tokio::test]
@@ -681,7 +699,7 @@ async fn the_persons_send_of_the_draft_is_one_first_turn_with_the_workflow_the_s
     eventually_read(&rig, &held.session_id).await;
     rig.rail_has_acted().await;
 
-    rig.send(&held.session_id, FIRST).await;
+    rig.begin(&held.session_id, None).await;
     eventually(|| async { rig.stand_in.starts().len() == 2 && !rig.sent_to(1).is_empty() }).await;
     // The step went with the turn, so the rail has nothing to add once the process has run.
     rig.rail_has_acted().await;
@@ -693,16 +711,17 @@ async fn the_persons_send_of_the_draft_is_one_first_turn_with_the_workflow_the_s
     assert_eq!(first.matches(STEP_WORDS).count(), 1);
 }
 
-/// A Job an agent started on the `gate` workflow, whose first step asks how the work is delivered, with the
-/// person's `message` sent to it. Answers the sent turns once the rail has had its say.
-async fn sent_on_a_step_that_asks_delivery(message: &str) -> (Rig, SessionId, Vec<String>) {
+/// A Job an agent started on the `gate` workflow, whose first step asks how the work is delivered, begun
+/// with the person's `message` and the landing `delivery`. Answers the sent turns once the rail has had its say.
+async fn sent_on_a_step_that_asks_delivery(message: &str, delivery: ipc::DeliveryChoice) -> (Rig, SessionId, Vec<String>) {
     let rig = rig_ruled(super::delivery_gate::workflow(), "gate");
     let agent = rig.an_agent().await;
     eventually_read(&rig, &agent).await;
     let held = Arc::clone(&rig.fleet).start_another_session(caller(), begins(&rig, "Check the reader", FIRST)).await.expect("held");
     eventually_read(&rig, &held.session_id).await;
 
-    rig.send(&held.session_id, message).await;
+    let begin = ipc::BeginSession { session_id: held.session_id.clone(), delivery: Some(delivery), message: Some(message.to_string()) };
+    Arc::clone(&rig.fleet).begin_session(begin).await.expect("begun");
     eventually(|| async { rig.stand_in.starts().len() == 2 && !rig.sent_to(1).is_empty() }).await;
     rig.rail_has_acted().await;
     let sent = rig.sent_to(1);
@@ -712,7 +731,7 @@ async fn sent_on_a_step_that_asks_delivery(message: &str) -> (Rig, SessionId, Ve
 #[tokio::test]
 async fn a_first_message_that_names_a_delivery_goes_with_the_steps_instructions_in_one_turn() {
     let message = "Read crates/reader and say why it drops lines, then keep it local.";
-    let (rig, id, sent) = sent_on_a_step_that_asks_delivery(message).await;
+    let (rig, id, sent) = sent_on_a_step_that_asks_delivery(message, ipc::DeliveryChoice::KeepLocal).await;
 
     let [first] = &sent[..] else { panic!("one turn, not {}: {sent:?}", sent.len()) };
     assert!(first.contains(message) && first.contains("follows the Gate workflow"), "{first}");
@@ -725,15 +744,16 @@ async fn a_first_message_that_names_a_delivery_goes_with_the_steps_instructions_
 }
 
 #[tokio::test]
-async fn a_first_message_that_names_no_delivery_goes_with_the_question_and_holds_the_instructions() {
-    let (rig, id, sent) = sent_on_a_step_that_asks_delivery(FIRST).await;
+async fn a_first_message_that_names_no_delivery_goes_with_the_landing_chosen_on_the_card_and_the_instructions() {
+    let (rig, id, sent) = sent_on_a_step_that_asks_delivery(FIRST, ipc::DeliveryChoice::OpenPr).await;
 
     let [first] = &sent[..] else { panic!("one turn, not {}: {sent:?}", sent.len()) };
-    assert!(first.contains(FIRST) && first.contains("choosing how this work is delivered"), "{first}");
-    assert!(!first.contains(STEP_WORDS), "the instructions wait for the answer: {first}");
+    assert!(first.contains(FIRST) && first.contains("the owner chose"), "{first}");
+    assert!(!first.contains("choosing how this work is delivered"), "nothing is asked: {first}");
+    assert_eq!(first.matches(STEP_WORDS).count(), 1, "the instructions go with the first turn: {first}");
     assert!(
-        rig.rows(&id).await.iter().any(|row| matches!(row, SessionRow::Delivery { choice: None, .. })),
-        "the question stands"
+        rig.rows(&id).await.iter().any(|row| matches!(row, SessionRow::Delivery { choice: Some(ipc::DeliveryChoice::OpenPr), named: false, .. })),
+        "the card's answer is kept"
     );
 }
 

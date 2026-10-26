@@ -40,6 +40,7 @@ export const NOTICE_NAMES: Record<SessionNotice, string> = {
   rail_step: "step instructions",
   usage_trip: "usage notice",
   limit_wake: "limit wake",
+  sign_in_wake: "sign-in wake",
   plan_approved: "plan approved",
   auto_land_refused: "auto land refused",
   retro_note: "retro note",

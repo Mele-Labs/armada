@@ -1,6 +1,6 @@
 import type { ReactElement, ReactNode } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fn, userEvent, within } from "storybook/test";
+import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 
 import { forgetKept, writeKept } from "../../keep";
 import type { StepFixes } from "./StepsPanel";
@@ -112,5 +112,33 @@ export const NoAddress: Story = {
     const canvas = within(canvasElement);
     await expect(canvas.getAllByRole("checkbox")).toHaveLength(STEPS.length);
     await expect(canvas.queryByRole("button", { name: "Open in browser" })).toBeNull();
+  },
+};
+
+const RUNS = ["Run `git fetch origin`", "Run `make broken`"];
+
+/** A command with a runner gets Run: a clean exit ticks its step, and a failed one leaves it as it was. */
+export const RunsCommands: Story = {
+  args: {
+    keep: keyOf("runs"),
+    address: undefined,
+    steps: RUNS,
+    runner: (command, on) => {
+      setTimeout(() => {
+        if (command === "make broken") on({ kind: "out", text: "make: *** No rule\r\n" });
+        on({ kind: "end", code: command === "make broken" ? 2 : 0 });
+      }, 0);
+      return { stop: () => {} };
+    },
+  },
+  beforeEach: () => forget(keyOf("runs")),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const [fetch, broken] = canvas.getAllByRole("button", { name: "Run" });
+    await userEvent.click(fetch!);
+    await waitFor(() => expect(canvas.getByRole("checkbox", { name: "Run git fetch origin" })).toBeChecked());
+    await userEvent.click(broken!);
+    await waitFor(() => expect(canvas.getAllByRole("button", { name: "Run again" })).toHaveLength(2));
+    await expect(canvas.getByRole("checkbox", { name: "Run make broken" })).not.toBeChecked();
   },
 };

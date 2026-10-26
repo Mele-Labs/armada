@@ -349,6 +349,26 @@ button.sv-layer__row:focus-visible { outline: none; background: color-mix(in srg
 .sv-dock { position: relative; flex: none; }
 .sv-dock[data-needs] { margin-block-start: calc(var(--h-badge) + var(--space-3)); }
 .sv-dock[data-needs] .armada-session-composer { border-start-start-radius: 0; border-start-end-radius: 0; }
+/* A held Job's Workflow and Delivery: a strip on the composer's top edge, the width of the composer, the two drawn as one block. The composer's own top edge is the line between them, and the accent tint is what sets the strip apart. */
+.sv-start-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border: var(--border-width) solid var(--border-default);
+  border-bottom: 0;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg-sunken));
+}
+.sv-start-strip .armada-select-field { flex: none; }
+.sv-start-strip .armada-select {
+  height: var(--h-control-sm);
+  padding-block: 0;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+.sv-dock[data-starting] .armada-session-composer { border-start-start-radius: 0; border-start-end-radius: 0; }
 .sv-dock[data-open="true"] .armada-session-composer,
 .sv-dock[data-open="true"] .armada-session-composer:focus-within { border-color: var(--step-waiting); }
 .sv-dock[data-end] .armada-session-composer,

@@ -48,7 +48,7 @@ use crate::daemon::Fleet;
 use crate::session_host::asking_in_window::WINDOW_ASK_PREFIX;
 use crate::session_host::clarity::{first_unclear, unclear_item_refusal, IN_FORCE as CLARITY_IN_FORCE};
 use crate::session_host::walk_asks::{asks_to_walk, walk_item_refusal};
-use crate::session_host::UNSENT_ITEM;
+use crate::session_host::FIRST_MESSAGE_ITEM;
 
 const SESSION_WAITING_UNNAMED: &str = "fleet.session_waiting_unnamed";
 const SESSION_WAITING_EMPTY: &str = "fleet.session_waiting_empty";
@@ -91,6 +91,8 @@ pub(crate) struct WaitingReads {
     word_asks: Vec<store::KeptWordAsk>,
     /// The notices a Fleet rule raised as calls on this Session.
     calls: Vec<store::KeptCall>,
+    /// The Job waits on its start card.
+    start_held: bool,
 }
 
 /// What [`Fleet::waiting_from`] read: the items, and how the Session stands.
@@ -123,6 +125,7 @@ pub(crate) fn waiting_reads(
         confirmed: store.confirmed()?,
         word_asks: store.word_asks_of(&session.id)?,
         calls: store.calls_of(&session.id)?,
+        start_held: store.hosting(&session.id)?.is_some_and(|one| one.start_held),
     })
 }
 
@@ -307,7 +310,7 @@ where
         session: &KeptSession,
         attachments: &[ipc::Attachment],
     ) -> Waited {
-        let WaitingReads { kept, rows, dismissed, done, turn_end, tell, plan, concerns, misreads, confirmed, word_asks, calls } = reads;
+        let WaitingReads { kept, rows, dismissed, done, turn_end, tell, plan, concerns, misreads, confirmed, word_asks, calls, start_held } = reads;
         let asked = self.hosts().of(&session.id).state().asked.clone();
         let rows: Vec<SessionRow> = rows
             .iter()
@@ -426,30 +429,25 @@ where
             super::standing::standing(&seen, self.hosts().stuck_after())
         };
         if !ended {
-            // The first message another Session's agent wrote for the person, until he sends it.
-            let id = format!("{UNSENT_ITEM}{}", session.id);
-            if !dismissed.contains(&id) {
-                items.extend(
-                    attachments
-                        .iter()
-                        .filter(|one| one.kind == "unsent" && one.state == ipc::AttachmentState::Standing)
-                        .map(|one| WaitingItem {
-                            id: id.clone(),
-                            text: String::from("First message"),
-                            since: one.since.clone(),
-                            source: WaitingSource::FirstMessage,
-                            act: Some(WaitingAct {
-                                kind: WaitingActKind::Message,
-                                target: session.id.clone(),
-                            }),
-                            options: Vec::new(),
-                            steps: Vec::new(),
-                            place: None,
-                            concern: None,
-                            cites: Vec::new(),
-                            confirmed: false,
-                        }),
-                );
+            // A Job on its start card waits for the person to send its first message, until Start.
+            let id = format!("{FIRST_MESSAGE_ITEM}{}", session.id);
+            if start_held && !dismissed.contains(&id) {
+                items.push(WaitingItem {
+                    id,
+                    text: String::from("First message"),
+                    since: ipc::Instant::carried(&session.started_at),
+                    source: WaitingSource::FirstMessage,
+                    act: Some(WaitingAct {
+                        kind: WaitingActKind::Message,
+                        target: session.id.clone(),
+                    }),
+                    options: Vec::new(),
+                    steps: Vec::new(),
+                    place: None,
+                    concern: None,
+                    cites: Vec::new(),
+                    confirmed: false,
+                });
             }
             // Every slot is held and it is in the line for one: Wait or Add, until he says.
             items.extend(
@@ -849,7 +847,7 @@ where
             }
             WaitingSource::FirstMessage => Err(self.hosted_refusal(
                 SESSION_WAITING_EMPTY,
-                "the first message is settled by sending it, from the Job's message box",
+                "the first message is settled by Start, from the Job's message box",
             )),
             WaitingSource::Plan => Err(self.hosted_refusal(
                 SESSION_WAITING_EMPTY,
@@ -1030,7 +1028,8 @@ where
     }
 
     /// A run the person made ended clean: take off the agent's `run` items for that command, so Bridge
-    /// has none to settle. Whether any was taken off.
+    /// has none to settle. Whether any was taken off. **An item with steps stays**: its command is one
+    /// step of several, and Bridge ticks that step where the run was pressed.
     pub(crate) async fn run_item_settled(&self, id: &str, command: &str) -> bool {
         let record = {
             let mut store = self.store().lock().await;
@@ -1045,6 +1044,7 @@ where
                 .filter(|one| {
                     matches!(&one.act, Some((kind, target))
                         if kind == "run" && target.trim() == command.trim())
+                        && one.steps.is_empty()
                 })
                 .map(|one| one.item_id)
                 .collect();

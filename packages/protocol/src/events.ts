@@ -19,6 +19,7 @@ import type { CheckoutRunRecord } from "./rehearsal";
 import type { ServerState } from "./servers";
 import type { SessionRowChanged } from "./hosted-sessions";
 import type { ModelDownshiftState } from "./model-downshift";
+import type { AgentSignIn } from "./agent-sign-in";
 import type { PlanUsage } from "./plan-usage";
 import type { SleepState } from "./sleep";
 import type { TimelineAppended } from "./timeline";
@@ -95,6 +96,8 @@ export type Event =
   | ({ kind: "plan_usage.changed" } & PlanUsage)
   /** The default model's step down after any change to it, whole. Absent `downshift` is none. */
   | ({ kind: "model_downshift.changed" } & ModelDownshiftState)
+  /** The agents' account signed out or back in, or Fleet's sign-in of it started or ended, whole. */
+  | ({ kind: "agent_sign_in.changed" } & AgentSignIn)
   /** Fleet kept one entry for the timeline; a client holding a window appends it. Since 23.82. */
   | ({ kind: "timeline.appended" } & TimelineAppended)
   /** A background act failed after its request was answered: the act, what it was for, and the refusal. Not replayed. */

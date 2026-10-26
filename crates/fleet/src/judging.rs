@@ -101,7 +101,11 @@ pub enum CallFailed {
     /// before it stopped — bounded so a runaway stream cannot fill a refusal
     /// or a log line. `#1047`: it used to carry nothing, so a call that
     /// reached for a tool and spent its one turn said only "code 1".
-    Refused { code: Option<i32>, tail: String },
+    ///
+    /// `said` is the call's own one line about why, where it gave one: the
+    /// harness's error text, else the last line on stderr. **Never the stream**,
+    /// so a surface that draws it in a line can.
+    Refused { code: Option<i32>, tail: String, said: String },
     /// It ended well and printed nothing.
     SaidNothing,
     /// It answered something this cannot act on.
@@ -122,7 +126,7 @@ impl fmt::Display for CallFailed {
             }
             CallFailed::TimedOut => out.write_str("the Judge did not answer inside its budget"),
             CallFailed::Stopped => out.write_str("the call was stopped before it answered"),
-            CallFailed::Refused { code, tail } => {
+            CallFailed::Refused { code, tail, .. } => {
                 let ended = match code {
                     Some(code) => format!("the Judge call ended with code {code}"),
                     None => "a signal ended the Judge call".to_string(),
@@ -137,5 +141,28 @@ impl fmt::Display for CallFailed {
         }
     }
 }
+
+impl CallFailed {
+    /// One short sentence for a surface that draws it in a line. [`Display`](fmt::Display) keeps
+    /// everything a log wants, and for a refused call that is the whole of what it printed.
+    pub(crate) fn in_a_line(&self, call: &str) -> String {
+        let CallFailed::Refused { code, said, .. } = self else {
+            return self.to_string();
+        };
+        let ended = match code {
+            Some(code) => format!("The {call} call ended with code {code}"),
+            None => format!("A signal ended the {call} call"),
+        };
+        let cut = said.chars().count().saturating_sub(SAID_AT_MOST);
+        match (said.is_empty(), cut) {
+            (true, _) => ended,
+            (false, 0) => format!("{ended}: {said}"),
+            (false, _) => format!("{ended}: {}…", said.chars().take(SAID_AT_MOST).collect::<String>()),
+        }
+    }
+}
+
+/// How much of what a refused call said is put in a line.
+const SAID_AT_MOST: usize = 200;
 
 impl std::error::Error for CallFailed {}

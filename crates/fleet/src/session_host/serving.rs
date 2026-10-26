@@ -49,7 +49,7 @@ pub(crate) const MESSAGE_EMPTY: &str = "fleet.session_message_empty";
 const REATTACH_QUIET: Duration = Duration::from_secs(120);
 
 /// The agent's process would not start. A 500.
-const SESSION_UNSTARTED: &str = "fleet.session_unstarted";
+pub(crate) const SESSION_UNSTARTED: &str = "fleet.session_unstarted";
 /// An answer naming no ask that is waiting. A 409.
 const SESSION_ASK_NOT_WAITING: &str = "fleet.session_ask_not_waiting";
 
@@ -282,6 +282,14 @@ where
 
     async fn get_model_downshift(&self) -> Result<ipc::ModelDownshiftState, Refusal> {
         self.model_downshift_state().await
+    }
+
+    async fn get_agent_sign_in(&self) -> Result<ipc::AgentSignIn, Refusal> {
+        Ok(self.agent_sign_in().now())
+    }
+
+    async fn start_agent_sign_in(self: Arc<Self>) -> Result<ipc::AgentSignIn, Refusal> {
+        Ok(self.agent_sign_in_pressed())
     }
 
     async fn accept_downshift(&self) -> Result<ipc::ModelDownshiftState, Refusal> {

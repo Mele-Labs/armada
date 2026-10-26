@@ -1,0 +1,10 @@
+[operations."agent_sign_in.changed"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "The agents' account signed out or back in, or Fleet's sign-in of it started or ended, and this is where it stands now"
+notes = """
+Carries `AgentSignIn` itself, the answer to `get_agent_sign_in`, so a client replaces what it holds. An absent `signed_out_since` is signed in. Names no Job, Drone or session: every Job shares the account.
+
+Published when the state moves: the first Job heard signed out, a sign-in started, a sign-in that failed, and the account working again, whether by Fleet's sign-in exiting clean or by the model answering in any Job. A Bridge that missed one reads `get_agent_sign_in` on the resync that follows a `Missed`.
+"""

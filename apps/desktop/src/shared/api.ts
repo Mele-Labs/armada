@@ -28,6 +28,7 @@ import type { SleepApi } from "./api/sleep";
 import type { AccountsApi } from "./api/accounts";
 import type { PlanUsageApi } from "./api/plan-usage";
 import type { ModelDownshiftApi } from "./api/model-downshift";
+import type { AgentSignInApi } from "./api/agent-sign-in";
 import type { ClashesApi } from "./api/clashes";
 import type { ReviewsApi } from "./api/reviews";
 import type { TerritoryApi } from "./api/territory";
@@ -66,6 +67,7 @@ export type BridgeApi = CoreApi<BridgeState> &
   AccountsApi &
   PlanUsageApi &
   ModelDownshiftApi &
+  AgentSignInApi &
   ClashesApi &
   ReviewsApi &
   TerritoryApi &

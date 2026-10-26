@@ -41,3 +41,10 @@ inherits = "dev"
 
 [profile.installed.package."*"]
 opt-level = 3
+
+# What a GitHub Release ships inside Armada.app (`checks.yml`, the `release` job): optimised
+# throughout and stripped. Built from `installed`, the binary was 195 MB of debug line tables and
+# made a 183 MB download (v0.1.11940); a person running a release has no use for them.
+[profile.shipped]
+inherits = "release"
+strip = true

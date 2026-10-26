@@ -92,18 +92,19 @@ describe("a full pool holds the Session on him", () => {
   });
 });
 
-describe("a Job holding a first message nobody has sent is a draft", () => {
+describe("a Job held on its start card is a draft", () => {
   const first = { id: "unsent:s1", text: "First message", since: TURN_ENDED, source: "first_message", options: [] };
+  const start = { asksDelivery: true, message: "Read the loader." };
 
-  test("its unsent message makes it Draft, ahead of what it waits on him for", () => {
-    expect(stateOf(session({ unsent: "Read the loader.", standing: "idle", lastTurnAt: undefined, rows: [], waitingFor: [first] }))).toEqual({ state: "draft", said: "Draft" });
+  test("holding its first message makes it a draft, ahead of what it waits on him for", () => {
+    expect(stateOf(session({ start, standing: "idle", lastTurnAt: undefined, rows: [], waitingFor: [first] }))).toEqual({ state: "draft", said: "Not started" });
   });
 
-  test("while its request is read, it is still Draft", () => {
-    expect(stateOf(session({ unsent: "Read the loader.", work: { proposal: { reading: true } } })).state).toBe("draft");
+  test("while its request is read, it is reading", () => {
+    expect(stateOf(session({ start, work: { proposal: { reading: true } } })).state).toBe("working");
   });
 
-  test("once sent it is not", () => {
+  test("once begun it is not", () => {
     expect(stateOf(session({ turn: { state: "working" }, standing: "working" })).state).toBe("working");
   });
 });

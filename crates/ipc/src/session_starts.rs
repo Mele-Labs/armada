@@ -17,7 +17,7 @@ pub struct StartAnotherSession {
     pub manifest_id: ManifestId,
     /// What the Session is called. Blank is refused: the thread names it in a row that opens it.
     pub title: String,
-    /// The first message. **Held unsent**: nothing runs until the person sends it.
+    /// The first message. **Held on the new Job's start card**: nothing runs until the person presses Start.
     pub message: String,
     /// The group of the caller's plan this Session is handed. Since the linked Sessions.
     ///
@@ -52,7 +52,7 @@ pub struct HandToSession {
 pub struct ForkThisSession {
     /// What the fork is called. Blank is refused.
     pub title: String,
-    /// The first message. **Held unsent**, as [`StartAnotherSession::message`] is.
+    /// The first message. **Held on the start card**, as [`StartAnotherSession::message`] is.
     pub message: String,
     /// The row of the caller's thread the copy ends at, **included**: a message. Absent, the copy
     /// ends at the caller's latest message of its own that the transcript holds.
