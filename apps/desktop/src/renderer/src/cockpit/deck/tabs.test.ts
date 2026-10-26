@@ -14,6 +14,7 @@ describe("the tabs", () => {
       ["logbook", SURFACE.logbook],
       ["reviews", SURFACE.reviews],
       ["issues", SURFACE.issues],
+      ["projects", SURFACE.projects],
       ["system", SURFACE.kit],
     ]);
   });
