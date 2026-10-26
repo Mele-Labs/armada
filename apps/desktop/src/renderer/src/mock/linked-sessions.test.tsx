@@ -51,13 +51,13 @@ test("in the Blueprint a group handed to a Session carries its row in two lines,
   await expect.element(blueprint().getByRole("button", { name: "Hand to a Job" })).toBeVisible();
 });
 
-test("in the Artifacts layer the same Sessions are under Sessions, each with the group it came from", async () => {
+test("in the Artifacts layer the same Jobs are under Jobs, each with the group it came from", async () => {
   await parent();
   await openArtifacts();
   const row = artifacts().getByRole("button", { name: "Migrations apply in order" });
   await expect.element(row).toBeVisible();
   await expect.element(row.getByText("Apply them in order")).toBeVisible();
-  await expect.element(artifacts().getByRole("region", { name: "Sessions", exact: true })).toBeVisible();
+  await expect.element(artifacts().getByRole("region", { name: "Jobs", exact: true })).toBeVisible();
 });
 
 test("a child that merges is a row in the parent's thread where it happened, a child that asks is not, and a press opens it", async () => {
