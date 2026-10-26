@@ -549,6 +549,9 @@ export type SessionRunMessage =
 /** `open_terminal`: the person opens the Job's shell in Bridge. `POST /sessions/terminal/open`. Answered 200 with `SessionRunUnderway`: the shell already open, or one opened now. `cols` and `rows` are the size in cells where it opens now; absent is 80 by 24. */
 export type OpenTerminal = { session_id: string; cols?: number; rows?: number };
 
+/** `start_terminal_run`: the person runs `command` in `dir` with no Job behind it. `POST /sessions/terminal/run`. Answered 200 with `SessionRunUnderway`; what it prints is `observe_session_run`'s. `dir` must exist; `cols` and `rows` are the size in cells, absent is 80 by 24. */
+export type StartTerminalRun = { command: string; dir: string; cols?: number; rows?: number };
+
 /** `type_in_terminal`: the Job's agent types into the Job's shell, opening it where it has none. `POST /sessions/terminal/type`. Answered 200 with `TerminalTyped`. `text` is written as it is; `enter` absent is true; `wait_seconds` absent is 10, at most 60; `session_id` is read only where the connection places no hosted Job. */
 export type TypeInTerminal = { text: string; enter?: boolean; wait_seconds?: number; session_id?: string };
 
