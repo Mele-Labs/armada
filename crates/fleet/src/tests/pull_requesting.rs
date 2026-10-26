@@ -41,6 +41,7 @@ pub(super) fn facts(standing: PullRequestStanding) -> PullRequestFacts {
     PullRequestFacts {
         standing,
         branch: "fleet/pr-acts".into(),
+        base: "main".into(),
         auto_merge: false,
         title: "Take a draft out".into(),
         url: ADDRESS.into(),
@@ -263,8 +264,28 @@ async fn a_read_refreshes_the_detail_of_the_row_a_session_holds() {
     assert_eq!(said("failing"), Some("ci"));
     assert_eq!(said("auto_merge"), Some("false"));
     assert_eq!(said("branch"), Some("fleet/pr-acts"));
+    assert_eq!(said("base"), Some("main"));
     assert_eq!(said("address"), Some(ADDRESS));
     assert_eq!(said("title"), Some("Take a draft out"));
+}
+
+/// Stacked pull requests are drawn from the base, so a blank one is left off the row.
+#[tokio::test]
+async fn a_pull_request_with_no_base_leaves_it_out_of_the_row() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home);
+    let (id, _) = manifest(&fleet);
+    a_session_holding_pull_request_12(&fleet, "s1").await;
+    fleet.vcs().now_pull_request(Some(PullRequestFacts {
+        base: String::new(),
+        ..facts(PullRequestStanding::Open)
+    }));
+    forge_ran(&fleet, passed());
+
+    fleet.get_pull_request(id, 12).await.expect("read");
+
+    let row = the_row(&fleet, "s1", "pr").await;
+    assert!(!row.detail.contains_key("base"), "{:?}", row.detail);
 }
 
 #[tokio::test]

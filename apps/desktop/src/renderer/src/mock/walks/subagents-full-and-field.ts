@@ -11,7 +11,7 @@ export const subagentsFullAndField = walk("subagents-full-and-field", [
   { press: inside(field, button(/Field/)), say: "With no plan the Field stands folded to its band, and a press opens it" },
   { look: inside(field, role("option", /Harden the restart scripts/)), say: "The Field has a drone for each, at rest until an edit places it" },
   { look: inside(region("Blueprint"), role("list", "Subagents")), say: "The Blueprint lists them, each its working mark and its title" },
-  { key: "Alt+Shift+9", on: region("Flight controls"), say: "Subagents, on the ⌥⇧9 key" },
+  { press: button(/^Subagents/), say: "Subagents, in the Job's head" },
   { press: inside(layer, button("Failed refresh toast")), say: "A subagent opens over the whole app, not inside the list" },
   { key: "Escape", on: dialog("Subagent Failed refresh toast"), say: "Esc is back to the list, with the row that was pressed still in focus" },
 ]);

@@ -3,7 +3,7 @@
 // issues are the Blueprint's: a group that works one carries it on a meta line under its title, and the task being worked in the Now view carries its group's under its live line. An issue the Job claimed stands in the Landing, and the
 // ones it filed for later stand in Deferred. Approved, the Blueprint reads as Now (the task finished last, the ones being worked with the turn's
 // live line, the next one), a button opens the whole plan, and a group's title opens the issue it works. The last line of a drafted group is an empty task to type into. One open panel fills the column.
-// The composer's Artifacts button opens the list over the right column and Esc gives the story back. Over `job-story`. `job-story-spike` lands the
+// The head's Artifacts icon opens the list over the right column and Esc gives the story back. Over `job-story`. `job-story-spike` lands the
 // same story in a findings doc and `job-story-report` in a report. `job-document` reads that report. `job-story-page` is the pull request
 // Job's own page, from its Landing and from where its thread names it.
 
@@ -38,7 +38,7 @@ const story = walk("job-story", [
   { look: inside(landing, role("list", "Issues")), say: "An issue the Job claimed stands under its pull requests as a row of its own, and a press opens it" },
   { press: inside(landing, button("Deferred")), say: "Deferred opens" },
   { look: inside(landing, button(/^Issue .*2402/)), say: "An issue the Job filed for later stands beside the deferred items, and a press opens it" },
-  { press: button("Show artifacts"), say: "The composer's Artifacts button" },
+  { press: button("Artifacts", { exact: true }), say: "The Artifacts icon in the Job's head" },
   { look: inside(artifacts, role("group", "View")), say: "List and Graph are two icon toggles beside the search, each with a tooltip naming it and V. Back is at the far right of the head" },
   { look: inside(artifacts, button(/^Pull request #2391/)), say: "Every row has two lines: the title, which wraps before it is cut, and under it the branch or path, the kind and its states. A pull request is the same row as in Landing" },
   { key: "Escape", on: artifacts, say: "Esc" },

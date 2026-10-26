@@ -43,6 +43,11 @@
   color: var(--fg-muted);
 }
 
+/* The state's mark and the title lead the row as the two always did; the group draws nothing of its own. */
+.armada-session-frame__notch {
+  display: contents;
+}
+
 /* The terminal glyph carries the address in its tooltip. */
 .armada-session-frame__glyph {
   display: inline-flex;
@@ -253,4 +258,25 @@ button.armada-session-frame__context:focus-visible {
   .armada-session-frame__context::before {
     transition: none;
   }
+}
+
+/* Compact, at the foot of the context tank's card, and the small popover that holds it where the tank has no breakdown to open. */
+.armada-context-foot {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: var(--space-2);
+}
+
+.armada-context-pop {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-3);
+  white-space: nowrap;
+}
+
+.armada-context-pop__fill {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--fg-muted);
 }

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { BatteryLow, Check, CircleDashed, CircleDot, Clock, Ellipsis, Eye, GitFork, Link, MessageSquareDashed, MoveRight, Power, Radar, Reply, RotateCw, ShieldX, SquarePen, Unplug } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -8,7 +9,7 @@ import { Card } from "../../primitives/Card/Card";
 import { Input } from "../../primitives/Input/Input";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { DropdownMenu, type DropdownMenuEntry } from "../../primitives/DropdownMenu/DropdownMenu";
-import { ContextFigure, type ContextFill } from "./ContextFigure";
+import { ContextFigure, type ContextCompact, type ContextFill } from "./ContextFigure";
 import { RunningChecks, type RunningCheck } from "../RunningChecks/RunningChecks";
 import { LoadoutMark, type LoadoutMarkProps } from "../LoadoutMark/LoadoutMark";
 import { useMarking, type Mark } from "../../marking";
@@ -98,7 +99,7 @@ export function ModMark({ size = 16 }: { size?: 12 | 16 }) {
 }
 
 export { ContextFigure } from "./ContextFigure";
-export type { ContextFill } from "./ContextFigure";
+export type { ContextCompact, ContextFill } from "./ContextFigure";
 
 /** A Session that is big or old, as figures already said, and the two acts offered on it in the header's menu. */
 export type FreshStart = {
@@ -157,6 +158,8 @@ export type SessionFrameProps = {
   modOutOfDate?: boolean;
   /** The context window's fill, drawn as a tank after `actions`. Absent draws nothing. */
   context?: ContextFill;
+  /** Compact, offered at the foot of the context tank's card or popover. Absent offers none. */
+  compact?: ContextCompact;
   /**
    * The Checks the Session has out, drawn as the running glyph and their count before the context tank: a press lists
    * them and a press on one calls `onOpenCheck` with its run. Absent or empty draws nothing.
@@ -183,6 +186,10 @@ export type SessionFrameProps = {
   back?: ReactNode;
   /** The ledger, as a panel of its own beside the conversation: a sibling card the height of the first, scrolling on its own. */
   aside?: ReactNode;
+  /** Icon buttons for the Session's views, in the head's row before `actions`, with a rule after them. */
+  headViews?: ReactNode;
+  /** Where the state's mark and the title are drawn in place of the head's start, a surface's own place for them (the Cockpit's title bar). Absent draws them in the head. */
+  titleInto?: HTMLElement;
   children: ReactNode;
 };
 
@@ -248,21 +255,28 @@ function SessionTitle({ title, onRename }: { title?: string; onRename?: (title: 
 
 const DOCKED: readonly Mark[] = [{ of: ".armada-shell", as: "data-dock" }];
 
-export function SessionFrame({ state, said, id, address, title, onRename, modOutOfDate = false, checks, onOpenCheck, context, loadout, fresh, repository, actions, menu, back, aside, children }: SessionFrameProps) {
+export function SessionFrame({ state, said, id, address, title, onRename, modOutOfDate = false, checks, onOpenCheck, context, compact, loadout, fresh, repository, actions, menu, back, aside, headViews, titleInto, children }: SessionFrameProps) {
   const named = address ?? id;
   const more = menuWithFresh(menu, fresh);
   // The aside wears the dock's class, and the shell's glow follows it (`TheShell.css`).
   const docked = useMarking(DOCKED);
+  // The state's mark and the name are one group, which a surface may draw apart from the row.
+  const notch = (
+    <span className="armada-session-frame__notch">
+      <span className="armada-session-frame__state">{state === "quiet" && modOutOfDate ? <ModMark /> : <SessionMark state={state} said={`${said} · ${named}`} />}</span>
+      <SessionTitle {...(title === undefined ? {} : { title })} {...(onRename === undefined ? {} : { onRename })} />
+    </span>
+  );
   return (
     <div ref={aside === undefined || aside === null ? undefined : docked} className="armada-session-panels">
     <Card className="armada-session-frame" role="region" aria-label={`Job ${named}`}>
       <header className="armada-session-frame__head">
-        <span className="armada-session-frame__state">{state === "quiet" && modOutOfDate ? <ModMark /> : <SessionMark state={state} said={`${said} · ${named}`} />}</span>
-        <SessionTitle {...(title === undefined ? {} : { title })} {...(onRename === undefined ? {} : { onRename })} />
+        {titleInto === undefined ? notch : createPortal(notch, titleInto)}
         {repository}
+        {headViews}
         {actions}
         {checks === undefined ? null : <RunningChecks checks={checks} {...(onOpenCheck === undefined ? {} : { onOpenCheck })} />}
-        {context === undefined ? null : <ContextFigure fill={context} />}
+        {context === undefined ? null : <ContextFigure fill={context} {...(compact === undefined ? {} : { compact })} />}
         {loadout === undefined ? null : <LoadoutMark {...loadout} />}
         <span className="armada-session-frame__marks">
           {modOutOfDate && state !== "quiet" ? <ModMark /> : null}

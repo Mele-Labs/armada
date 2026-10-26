@@ -439,3 +439,8 @@ makes the box read as a key rather than as a small chip.
   one listener through `ShortcutRevealProvider`, because a hold watched in
   two places ends in two places. Contextual bindings are never revealed
   this way — holding `⌘` fires none of them.
+- **One exception: the Cockpit deck's key caps.** The deck's keys are
+  contextual bindings, and their caps are hidden until `⌘` is held. The owner chose this on 26 Oct 2026, over the
+  rule above, because the caps crowded the small deck. The cost: a held `⌘`
+  then a letter is `⌘`+letter, so a person releases `⌘` before pressing the
+  key. `docs/concepts/cockpit.md`, *Density*.

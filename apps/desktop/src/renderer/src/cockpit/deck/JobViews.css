@@ -1,0 +1,14 @@
+/* The Job's views in its head (`JobViews.tsx`): ghost small buttons, the head's own shape, a fact on the corner, a rule after them. A layer starts at `--sv-layer-top`, which `LayerBounds` sets on the pane
+   to where the head ends, and stops at `--sv-layer-foot`, over the composer's dock, so the head, the composer and the views stay on show over it. */
+
+.deck-pane .sv-layer { top: var(--sv-layer-top, 0); bottom: var(--sv-layer-foot, 0); }
+
+.sv-views__rule { height: var(--space-4); align-self: center; }
+.armada-session-frame__head .armada-button[data-view] { position: relative; }
+.armada-session-frame__head .armada-button[data-view][data-lit] { color: var(--slot-stranded); }
+.sv-view__mark { position: absolute; inset-block-start: calc(var(--space-1) * -0.5); inset-inline-end: calc(var(--space-1) * -0.5); display: inline-flex; align-items: center; pointer-events: none; }
+.sv-view__clash { display: inline-flex; color: var(--status-awaiting-review); }
+
+/* Running, on the glyph: the running hue and a pulse; still under reduced motion. */
+button[data-view][data-running] > svg { color: var(--status-running); animation: deck-bay-pulse calc(var(--duration-pulse) * 1.5) ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { button[data-view][data-running] > svg { animation: none; } }

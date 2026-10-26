@@ -185,6 +185,7 @@ fn every_handle_names_an_entry_of_its_kind() {
         s::NOTIFICATIONS,
         s::UI_SOUNDS,
         s::DEEP_LINKS,
+        s::AUTOPILOT_PANEL,
         s::WHERE_THINGS_ARE_OPEN,
         s::CONTEXT_WATCH,
         s::SUBAGENT_WATCH,
@@ -231,7 +232,13 @@ fn every_handle_names_an_entry_of_its_kind() {
     for key in [s::HARNESS_DRONE_PATH, s::MODELS_ROSTER] {
         assert_eq!(kinds(key.name()), Kind::TextList, "{}", key.name());
     }
-    for key in [s::LAYOUT, s::KEY_BINDINGS, s::TIME_FORMAT, s::REACH_FOLDERS] {
+    for key in [
+        s::LAYOUT,
+        s::KEY_BINDINGS,
+        s::TIME_FORMAT,
+        s::ROW_VIEW,
+        s::REACH_FOLDERS,
+    ] {
         assert_eq!(kinds(key.name()), Kind::Json, "{}", key.name());
     }
     for key in s::prompt_keys() {
@@ -241,7 +248,7 @@ fn every_handle_names_an_entry_of_its_kind() {
             key.name()
         );
     }
-    let handles = 21 + 13 + 13 + 27 + 2 + 4 + s::prompt_keys().count();
+    let handles = 21 + 13 + 14 + 27 + 2 + 5 + s::prompt_keys().count();
     assert_eq!(
         entries().count(),
         handles,

@@ -37,6 +37,8 @@ It sets `git config beads.role maintainer` and ends with `beads-setup: N issues 
 **It never runs `bd init`.** Re-initialising can replace a database or the remote's history, and a second backlog started beside the first never joins it.
 It stops with `holds no beads data` when `origin` has nothing under `refs/dolt/data`, and with `Homebrew is not available` when `bd` is missing and cannot be installed.
 
+Bridge's Issues tab does the same on a button: where `bd` has no beads project, it offers **Set up beads**, which runs these steps in the main checkout.
+
 ## Claiming
 
 Two machines that claim the same issue at once are both told yes, and the sync that follows keeps the later claim on both.

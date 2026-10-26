@@ -19,9 +19,9 @@ pub(crate) fn read(in_repo: &str, pull_request: &str) -> Option<PullRequestFacts
     let said = asked(
         in_repo,
         pull_request,
-        "state,isDraft,autoMergeRequest,headRefName,url,title,body,closingIssuesReferences",
+        "state,isDraft,autoMergeRequest,headRefName,baseRefName,url,title,body,closingIssuesReferences",
         "[.state, (.isDraft | tostring), ((.autoMergeRequest != null) | tostring), \
-         .headRefName, .url, ([.closingIssuesReferences[]?.number | tostring] | join(\",\")), \
+         .headRefName, .baseRefName, .url, ([.closingIssuesReferences[]?.number | tostring] | join(\",\")), \
          (.body // \"\"), (.title | gsub(\"\\t\"; \" \"))] | @tsv",
     )?;
     parsed(&said)
@@ -29,16 +29,17 @@ pub(crate) fn read(in_repo: &str, pull_request: &str) -> Option<PullRequestFacts
 
 /// One line as [`read`] asks for it.
 pub(crate) fn parsed(said: &str) -> Option<PullRequestFacts> {
-    let [state, draft, auto, branch, url, closes, body, title]: [&str; 8] =
+    let [state, draft, auto, branch, base, url, closes, body, title]: [&str; 9] =
         said.split('\t').collect::<Vec<&str>>().try_into().ok()?;
-    let [state, draft, auto, branch, url, title] =
-        [state, draft, auto, branch, url, title].map(str::trim);
+    let [state, draft, auto, branch, base, url, title] =
+        [state, draft, auto, branch, base, url, title].map(str::trim);
     let closes: Vec<u64> = closes.split(',').filter_map(|one| one.trim().parse().ok()).collect();
     facts_of(FactsRead {
         state,
         draft: draft == "true",
         auto_merge: auto == "true",
         branch,
+        base,
         url,
         title,
         body: unescaped(body),
@@ -52,6 +53,7 @@ pub(crate) struct FactsRead<'a> {
     pub(crate) draft: bool,
     pub(crate) auto_merge: bool,
     pub(crate) branch: &'a str,
+    pub(crate) base: &'a str,
     pub(crate) url: &'a str,
     pub(crate) title: &'a str,
     pub(crate) body: String,
@@ -59,10 +61,10 @@ pub(crate) struct FactsRead<'a> {
 }
 
 /// The facts of a pull request, from the forge's words for them. `None` where one it must name
-/// is empty, or its state is a word this build has no meaning for. **The closing references are
+/// is empty (**the base is not one**: a blank one is `""`), or its state is a word this build has no meaning for. **The closing references are
 /// listed in ascending order, whatever order the forge gave**; a repeated one is listed once.
 pub(crate) fn facts_of(read: FactsRead<'_>) -> Option<PullRequestFacts> {
-    let FactsRead { state, draft, auto_merge, branch, url, title, body, mut closes } = read;
+    let FactsRead { state, draft, auto_merge, branch, base, url, title, body, mut closes } = read;
     if [state, branch, url, title].iter().any(|field| field.is_empty()) {
         return None;
     }
@@ -80,6 +82,7 @@ pub(crate) fn facts_of(read: FactsRead<'_>) -> Option<PullRequestFacts> {
     Some(PullRequestFacts {
         standing,
         branch: branch.to_string(),
+        base: base.to_string(),
         auto_merge,
         title: title.to_string(),
         url: url.to_string(),

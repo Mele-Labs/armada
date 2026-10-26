@@ -9,7 +9,6 @@ import type { Step } from "../walk";
 import { toSessions } from "../sessions/walk-kit";
 
 const thread = region("Thread");
-const controls = region("Flight controls");
 const panel = dialog("Requests");
 const within = (target: ReturnType<typeof role>) => inside(panel, target);
 const tree = dialog("Collections");
@@ -55,7 +54,7 @@ const steps: Step[] = [
   { look: inside(collections, inside(button("Billing API", { exact: true }), text("Hides the repository's"))), say: "His Billing API hides the repository's" },
   { look: inside(collections, inside(button("Health", { exact: true }), role("img", "The repository's"))), say: "Health, which the repository commits" },
   { press: within(role("button", /^Close( Esc)?$/)), say: "Closed" },
-  { press: inside(controls, button("Map", { exact: true })), say: "The Job closed, for the map" },
+  { key: "Escape", on: region(/^Job: /), say: "The Job closed, for the map" },
   ...viaPalette("Requests", "Requests, from the palette with no Job open"),
   { look: collections, say: "Collections, still to the left" },
   { look: within(tab("Request")), say: "Request" },

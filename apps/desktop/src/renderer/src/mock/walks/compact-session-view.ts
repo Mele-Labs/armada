@@ -3,8 +3,7 @@
 
 import { button, deckRow, inside, region, role, walk } from "../walk";
 
-const controls = region("Flight controls");
-const key = (name: string) => inside(controls, button(name));
+const key = (name: string) => button(name, { exact: true });
 
 const compactSessionView = walk("compact-session-view", [
   { press: deckRow("Retry the slot lease"), say: "A Job open keeps the Jobs list, the thread, the right column's Workflow, Blueprint, Field and Landing, and Flight control. Nothing else" },
