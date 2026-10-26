@@ -1,8 +1,8 @@
 // The Projects tab on All, two repositories served: armada keeps Pocket launch and Cockpit trust, site keeps Docs refresh.
 // Pocket launch mixes tasks he wrote with issues he linked: one task a live Job holds, one held by a Job that finished and is
 // still live (its Needs you item asks the same question as the row), one whose Job has ended and still asks on the row, a done
-// task, a closed issue and an open one. The pairing task carries an issue and two subtasks. Both repositories' issues are on
-// GitHub, read as the Issues tab reads them. Two takes of the select control and the card: `projects` (reticle) and
+// task, a closed issue and an open one. The pairing task carries an issue and two subtasks. Both repositories' issues are read
+// from their trackers, as the Issues tab reads them. Two takes of the select control and the card: `projects` (reticle) and
 // `projects-plate`, each played by the walk of its name.
 
 import type { RepositorySummary, WaitingItem } from "@armada/protocol";
