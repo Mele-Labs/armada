@@ -47,6 +47,7 @@ import { openRequestsInPanel } from "../../shared-panel/store";
 import { toggleLayer, useLayer } from "../../session-view/layers";
 import { baysLit, type SessionBays } from "../../session-view/slot-trouble";
 import "./flight-take.css";
+import "./density-take.css";
 
 /** The share of the context window from which the meter reads as nearly full. */
 const HIGH_PERCENT = 85;

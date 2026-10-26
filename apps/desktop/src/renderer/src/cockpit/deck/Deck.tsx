@@ -55,7 +55,7 @@ import { RowMenu, type RowMenuAt } from "./RowMenu";
 import { FlightEdit } from "./FlightEdit";
 import { isWebAddress, repositoryFileOf, tilesOf, useFlightFile, useRepositoryFlight, type FlightSet } from "./flight-controls";
 import { glyphOf as flightGlyph } from "./flight-glyphs";
-import { flightTake } from "./flight-take";
+import { densityTake, flightTake } from "./flight-take";
 import { SessionTiles } from "./SessionTiles";
 import { reportRoot, tileCap } from "./session-tiles";
 import { checkoutSaid, heldOf } from "./YourCheckout";
@@ -1089,6 +1089,15 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
   const panels = new Set(useLayout("dashboard.panels").shown.map((one) => one.id));
   const bare = !reading && !panels.has("bays") && !panels.has("activity");
   const take = flightTake();
+  const density = densityTake();
+  // The density take is the root's attribute, which `density-take.css` scopes under; it is the Cockpit's while the deck is drawn.
+  useEffect(() => {
+    if (density === undefined) return;
+    document.documentElement.dataset.density = density;
+    return () => {
+      delete document.documentElement.dataset.density;
+    };
+  }, [density]);
   const footed = panels.has("controls") || (!unified && (panels.has("dispatch") || panels.has("autopilot")));
   const layout = unified ? "session" : reading ? "reading" : bare ? "bare" : "idle";
   const { columns, resize, reset } = useColumns(grid, layout);

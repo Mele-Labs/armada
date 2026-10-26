@@ -25,6 +25,17 @@ export type TabsPos = "head" | "foot";
 /** Where the `nav` tabs stand on the page address: `foot` is the Job panel's last row, under the composer; otherwise under the title. The `segmented` look is in the title row either way. */
 export const tabsPos = (): TabsPos => (tabsLook() === "nav" && new URLSearchParams(window.location.search).get("tabpos") === "foot" ? "foot" : "head");
 
+export type Density = "tight" | "tight-type";
+
+/**
+ * A mock take of 26 Oct 2026 on `&density=`, for the owner's ask that the Cockpit "is just not utilizing space very well": `tight` is the chrome alone (gutters, header bands, rows, controls),
+ * `tight-type` is that and the type ladder one step smaller inside the Cockpit (`density-take.css`). Any other value, or none, draws today's.
+ */
+export const densityTake = (): Density | undefined => {
+  const density = new URLSearchParams(window.location.search).get("density");
+  return density === "tight" || density === "tight-type" ? density : undefined;
+};
+
 export type ViewsAt = "composer" | "head" | "left";
 
 /**
