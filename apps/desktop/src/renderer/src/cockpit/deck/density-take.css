@@ -293,7 +293,7 @@
   }
   & :is(.deck-panel, .sv-panel):not([data-collapsed], [data-band-only], .deck-autopilot):is(:hover, :focus-within) > :is(.deck-band, .sv-panel__band) { opacity: 1; pointer-events: auto; }
   & :is(.deck-panel, .sv-panel):not([data-collapsed], [data-band-only], .deck-autopilot) > :is(.deck-band, .sv-panel__band) > :is(.deck-band__name, .sv-panel__label, .sv-panel__state) { display: none; }
-  & :is(.deck-panel, .sv-panel) > :is(.deck-band, .sv-panel__band) > * { margin-inline-start: 0; }
+  & :is(.deck-panel, .sv-panel):not([data-collapsed], [data-band-only], .deck-autopilot) > :is(.deck-band, .sv-panel__band) > * { margin-inline-start: 0; }
 }
 
 /* ---- 13: `&jobname=notch`: the Job's state and name hang from the top of its panel --------------------------------------------------------------------
