@@ -167,7 +167,7 @@ It is the Manifest where the repository has none, and replaces the repository's 
 A place that cannot be read reads as no copy, and the Manifest's summary says so.
 [Manifest](manifest.md), *Kit's copy*, holds the rule.
 
-**Kit's copy can carry servers, `runs`, a server's `dir` and ports**, merged by name like Checks and Commands, so a person's own app run needs nothing committed.
+**Kit's copy can carry servers, `runs`, a server's `dir` and ports, and `setup.requires`**, merged by name like Checks and Commands, so a person's own app run and the setup it needs commit nothing.
 **A run saved from Bridge goes into Kit's copy and never into the repository's `armada.yml`.** A name the repository's file already declares is refused, because Kit's copy would win over it.
 Pinning a port writes `fixed` on it into Kit's copy, and unpinning removes the key ([Manifest](manifest.md), *Ports*).
 

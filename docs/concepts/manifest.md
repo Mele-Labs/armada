@@ -56,7 +56,8 @@ The `kit.names` entry carries `gates` for it, so a person sees which of their ow
 A Check Kit's copy replaces by name gates as the repository's did, and `gate` on it is refused, as it is on any Check a repository declares: `gate` means nothing where there is nothing to add.
 A Command Kit's copy adds is available to a Job as any Command is.
 **Kit's `tracker` and `ci_gate` replace the repository's whole**, so a person whose issues are in Jira says so without committing it; nothing of the repository's block is kept in Kit's.
-A copy that is not the whole file holds only `checks`, `commands`, `runs`, `ports`, `tracker` and `ci_gate`; servers are Commands, so their `dir` goes with them, and each is merged by name as Checks and Commands are.
+A copy that is not the whole file holds only `checks`, `commands`, `runs`, `ports`, `tracker`, `ci_gate` and `requires` under `setup`; servers are Commands, so their `dir` goes with them, and each is merged by name as Checks and Commands are.
+**Kit's `setup.requires` follows the repository's**, each name once, so a person's own run can name the setup it needs.
 The rest of the repository's file stands, its id, base and policies among it.
 
 **A Kit copy that will not merge is left out and named, and the repository's own stands.** Fleet says it at start, and the summary carries the sentence as `left_out`.
@@ -117,6 +118,9 @@ It is a plural list, since a workspace may require more than one root command.
 
 **Fleet tracks whether a required root command has already run for a given worktree**, and re-runs it when **either** the worktree is new, or the evidence backing the root command — the lockfile/manifest Scan traced it from — has drifted since it last ran.
 That is the same signal Verify's drift detection computes.
+
+**A run of the repository's app runs `setup.requires` on its checkout before any of its processes start**, under the same tracking ([Fleet](fleet.md), *Runs*).
+A Command already done is skipped, so after a failure the next run picks up at the Command that failed.
 
 ### Workspace gating
 

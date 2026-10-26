@@ -799,7 +799,17 @@ The wire is `docs/practices/protocol/a-repositorys-app-run-from-bridge.md`.
 Only runs, their servers and ports come from that read; Checks and workflows stay as booted.
 A Job's worktree reads its own file, so a Job that adds a server can run it.
 
-**A draft run is made from the repository's remembered dev servers, its `package.json` and a uvicorn app.** Saving it goes into Kit's copy only ([Kit](kit.md), *A repository's armada.yml*).
+**A run reads as setting up while the Manifest's `setup.requires` runs on its checkout**, once per checkout and again when the evidence a Command was traced from drifted ([Manifest](manifest.md), *Root `armada.yml`*).
+A Command that fails stops the run before any process starts, and the run names that Command with its exit code.
+Setup's output and each process's are files Bridge reads by id, and the wire carries their paths.
+A process that cannot start writes why as the first line of its log.
+
+**A draft run is made from the repository's remembered dev servers, its `package.json` and a uvicorn app, with setup proposed from what the checkout holds.**
+A lockfile proposes its folder's install, and a `requirements.txt` or `pyproject.toml` proposes a `.venv`.
+A remembered command is dropped where its program or a file it names is neither tracked in the checkout nor made by a proposed setup Command.
+Every process gets a leased port and is named after its folder.
+Saving it goes into Kit's copy only ([Kit](kit.md), *A repository's armada.yml*).
+**Saving a run Kit's copy already holds replaces it, and `replaces` renames it**; a run only the repository's file declares is refused.
 
 **Names the booted Manifest did not know widen the checkout's port span.** It widens in place where the ports after it are free, else moves when nothing is up, else refuses.
 Booted names keep their offsets, and a port a live server is on is never handed to another name.
