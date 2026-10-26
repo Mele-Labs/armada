@@ -1,5 +1,5 @@
 // A fake source of runs for the mock: saved runs and drafts from a scenario's seed, and processes that go starting then ready as time
-// passes, writing a few lines each. No Fleet serves any of this yet, so a started process is only this module's timers.
+// passes, writing a few lines each. No Fleet is behind it, so a started process is only this module's timers.
 
 import { listens } from "@armada/components";
 import type { RunDraft, RunLink, RunProcess, RunProcessSpec, SavedRun } from "@armada/components";
@@ -141,9 +141,9 @@ export function createMockRuns(seed: RunsSeed): RunsSource {
   return {
     subscribe: (on) => (listeners.add(on), () => void listeners.delete(on)),
     get: () => state,
-    draft: (repository) => seed.drafts[repository] ?? { root: repository.replace(/^\/Users\/[^/]+/, "~"), processes: [], savedIn: "this Mac" },
-    start: launch,
-    save: (target, name, processes) => {
+    draft: async (repository) => seed.drafts[repository] ?? { root: repository.replace(/^\/Users\/[^/]+/, "~"), processes: [], savedIn: "this Mac" },
+    start: async (target, run) => launch(target, run),
+    save: async (target, name, processes) => {
       count += 1;
       const run: SavedRun = { id: `saved-${count}`, name, kind: processes.some(listens) ? "browser" : "app", processes };
       const held = state.saved[target.repository];
@@ -191,5 +191,8 @@ export function createMockRuns(seed: RunsSeed): RunsSource {
       clear(id);
       change(id, (one) => ({ ...one, processes: one.processes.map((p) => (p.phase === "exited" ? p : { ...p, phase: "exited" as const, log: [...p.log, "stopped"] })) }));
     },
+    // A Job's title comes with its target, and every log is written here as it goes.
+    seen: () => () => undefined,
+    reading: () => () => undefined,
   };
 }

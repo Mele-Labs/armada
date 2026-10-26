@@ -1,7 +1,7 @@
 // The confirm a run asks first, and the key that presses Run: ⌥R runs the Job open on the stage on its bay, else the repository of the
 // row the cursor is on, else the one picked. Mounted once by the deck, where the list and a Job's header press the same acts.
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { RunConfirm } from "@armada/components";
 import type { RunDraft } from "@armada/components";
 import { repositoryLabel } from "@armada/shell";
@@ -24,6 +24,20 @@ export function RunHost({ ship, props }: { ship: Ship; props: CockpitProps }) {
   const sessions = useSessions();
   const dispatching = useDispatching();
   const repositories = props.state.holds.repositories ?? [];
+  // The draft Fleet answered for the confirm that is open, held against it so a later ask never shows an earlier draft.
+  const [drafted, setDrafted] = useState<{ for: typeof asked; draft: RunDraft }>();
+  useEffect(() => {
+    if (source === undefined || asked === undefined) return;
+    let live = true;
+    void source.draft(asked.target.repository).then((draft) => {
+      if (!live) return;
+      if (draft === undefined) dismissAsked();
+      else setDrafted({ for: asked, draft });
+    });
+    return () => {
+      live = false;
+    };
+  }, [source, asked]);
   useEffect(() => {
     if (source === undefined) return;
     const onKey = (event: KeyboardEvent) => {
@@ -44,9 +58,8 @@ export function RunHost({ ship, props }: { ship: Ship; props: CockpitProps }) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [source, state, sessions, repositories, ship, props.picked]);
-  if (source === undefined || asked === undefined) return null;
-  const drafted = source.draft(asked.target.repository);
-  const draft: RunDraft = asked.add ? { ...drafted, processes: BLANK } : drafted;
+  if (source === undefined || asked === undefined || drafted?.for !== asked) return null;
+  const draft: RunDraft = asked.add ? { ...drafted.draft, processes: BLANK } : drafted.draft;
   return (
     <RunConfirm
       open
@@ -63,7 +76,9 @@ export function RunHost({ ship, props }: { ship: Ship; props: CockpitProps }) {
       }}
       onSave={(processes, name) => {
         dismissAsked();
-        openRun(source.save(asked.target, asked.add ? name : asked.label, processes));
+        void source.save(asked.target, asked.add ? name : asked.label, processes).then((id) => {
+          if (id !== undefined) openRun(id);
+        });
       }}
     />
   );

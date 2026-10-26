@@ -19,6 +19,7 @@ export function RunPane({ id, props }: { id: string; props: CockpitProps }) {
   const pane = useRef<HTMLElement>(null);
   const app = state.apps.find((one) => one.id === id);
   useEffect(() => pane.current?.focus(), [id]);
+  useEffect(() => source?.reading(id), [source, id]);
   if (source === undefined || app === undefined) return null;
   const repositories = props.state.holds.repositories ?? [];
   const served = repositories.find((one) => one.root === app.repository);

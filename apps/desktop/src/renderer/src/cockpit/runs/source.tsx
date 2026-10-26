@@ -1,5 +1,5 @@
-// What the Cockpit reads of how a repository runs, and what it asks to change. **Mock only for now**: no Fleet route serves it, so a window has no
-// source and draws no run control. A wired source maps Fleet's servers (`packages/protocol/src/servers.ts`) onto these shapes.
+// What the Cockpit reads of how a repository runs, and what it asks to change. Fleet's app runs are the wired source (`fleet-runs.ts`);
+// the mock's is `mock/runs.ts`. A window handed neither draws no run control.
 
 import { createContext, useContext, useSyncExternalStore, type ReactNode } from "react";
 import type { RunCheckout, RunDraft, RunningApp, RunProcessSpec, SavedRun } from "@armada/components";
@@ -22,16 +22,20 @@ export type RunsSource = {
   subscribe: (on: () => void) => () => void;
   /** The state as it stands. A new object only when something changed. */
   get: () => RunsState;
-  /** What Fleet drafts for a repository with no saved run, from what Jobs ran there and from its files. */
-  draft: (repository: string) => RunDraft;
-  /** Starts a saved run on a checkout, and returns the id of the app that is starting. A run already going there is replaced. */
-  start: (target: RunTarget, run: SavedRun) => string;
-  /** Saves a run under `name` where the repository keeps its runs, then starts it. */
-  save: (target: RunTarget, name: string, processes: readonly RunProcessSpec[]) => string;
+  /** What Fleet drafts for a repository with no saved run, from what Jobs ran there and from its files. None where Fleet refused. */
+  draft: (repository: string) => Promise<RunDraft | undefined>;
+  /** Starts a saved run on a checkout, and answers the id of the app that is starting, or none where Fleet refused. */
+  start: (target: RunTarget, run: SavedRun) => Promise<string | undefined>;
+  /** Saves a run under `name` where the repository keeps its runs, then starts it, and answers as `start` does. */
+  save: (target: RunTarget, name: string, processes: readonly RunProcessSpec[]) => Promise<string | undefined>;
   /** Pins a process's port to `port` in this repository, or releases the pin where `port` is absent. The run starts again, so the new port is the one it is on. */
   pin: (id: string, process: string, port: number | undefined) => void;
   restart: (id: string) => void;
   stop: (id: string) => void;
+  /** A Job's run control is drawn, until the answer is called: its checkout's runs are read, and its title is what the running panel names. */
+  seen: (target: RunTarget) => () => void;
+  /** An app's pane is open, until the answer is called: what each of its processes prints is read into `log`. */
+  reading: (id: string) => () => void;
 };
 
 const Held = createContext<RunsSource | undefined>(undefined);

@@ -24,7 +24,10 @@ export const dismissAsked = () => ask(undefined);
 /** Run, as the face presses it (`run` is the last used, or none where nothing is saved) and as a row of the picker does. */
 export function pressRun(source: RunsSource, target: RunTarget, label: string, run: SavedRun | undefined): void {
   if (run === undefined) ask({ target, label, add: false });
-  else openRun(source.start(target, run));
+  else
+    void source.start(target, run).then((id) => {
+      if (id !== undefined) openRun(id);
+    });
 }
 
 /** Add a way to run: the same confirm, over a repository that already has some. */
