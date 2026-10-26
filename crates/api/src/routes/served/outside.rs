@@ -114,6 +114,11 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/issue_queries/:repository",
     },
     Route {
+        operation: "install_tool",
+        method: "POST",
+        path: "/issue_queries/:repository/install_tool",
+    },
+    Route {
         operation: "write_issue_query",
         method: "POST",
         path: "/issue_queries/:repository/write",
