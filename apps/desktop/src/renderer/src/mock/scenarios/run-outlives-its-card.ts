@@ -10,8 +10,8 @@ import { s200Sessions } from "./sessions";
 const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
 
 const LOGIN = "deployctl login --web";
-const TESTS = "pnpm vitest run";
-const LOG = "tail -f build.log";
+const TESTS = "pnpm lint --strict";
+const LOG = "pnpm watch-build";
 const DOCS = "./scripts/render-docs";
 
 const waiting: Session = {
@@ -26,8 +26,8 @@ const waiting: Session = {
   attachments: [{ kind: "slot", slot: 4 }, { kind: "branch", name: "docs/new-host", slot: 4 }],
   waitingFor: [
     { id: "o-login", text: "Sign in to the deploy host", since: minutesAgo(3), source: "agent", act: { kind: "run", target: LOGIN } },
-    { id: "o-tests", text: "Run the tests", since: minutesAgo(3), source: "agent", act: { kind: "run", target: TESTS } },
-    { id: "o-log", text: "Watch the build log", since: minutesAgo(3), source: "agent", act: { kind: "run", target: LOG } },
+    { id: "o-tests", text: "Run the linter", since: minutesAgo(3), source: "agent", act: { kind: "run", target: TESTS } },
+    { id: "o-log", text: "Watch the build", since: minutesAgo(3), source: "agent", act: { kind: "run", target: LOG } },
     { id: "o-docs", text: "Render the docs", since: minutesAgo(3), source: "agent", act: { kind: "run", target: DOCS } },
   ],
 };

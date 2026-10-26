@@ -220,7 +220,9 @@ export const RUN_OUTPUT: readonly (readonly [string, readonly string[]])[] = [
   ["lsof", ["Stopping the server on 5788", "pid 41822 ended", "Port 5788 is free"]],
   ["tail -f", ["build.log: compiling", "build.log: 212 modules"]],
   ["login --web", ["! First copy your one-time code: 4F2A-91BC", "Waiting for you to finish in the browser"]],
-  ["render-docs", ["Rendering 212 pages", "Segmentation fault"]],
+  ["render-docs", ["Segmentation fault"]],
+  ["lint --strict", ["error: 3 problems"]],
+  ["watch-build", ["compiling"]],
   ["--autostash", ["Created autostash: 4be1f3a", "Updating 6c0d2e1..a91f7b3", "Fast-forward", " armada.yml | 6 +-", " crates/fleet/src/checkouts.rs | 212 +++++++++", "Applied autostash"]],
 ];
 export const RUN_DEFAULT = ["done"];
@@ -708,20 +710,22 @@ export function sessionsStore(
       // A fake runner: a few timed lines. `vitest` fails, `tail -f` never ends until it is stopped.
       const lines = RUN_OUTPUT.find(([match]) => command.includes(match))?.[1] ?? RUN_DEFAULT;
       const waitsOnBrowser = command.includes("login --web");
-      const forever = waitsOnBrowser || command.includes("tail -f");
+      const forever = waitsOnBrowser || command.includes("tail -f") || command.includes("watch-build");
       let at = 0;
       let handle = 0;
       const step = () => {
         if (at < lines.length) {
           on({ kind: "out", text: `${lines[at]}\n` });
           at += 1;
-        } else if (forever) on({ kind: "out", text: `${waitsOnBrowser ? "Waiting for the browser" : "build.log"} ${new Date().toLocaleTimeString("en-GB")}${waitsOnBrowser ? "" : " waiting"}\n` });
-        else if (command.includes("render-docs")) {
+        } else if (forever) {
+          // A login prints its code and then waits in silence; a log keeps writing.
+          if (!waitsOnBrowser) on({ kind: "out", text: `build.log ${new Date().toLocaleTimeString("en-GB")} waiting\n` });
+        } else if (command.includes("render-docs")) {
           // A signal, as a crash sends it: no exit code and nobody pressed Stop.
           on({ kind: "end", code: null, stopped: false });
           return;
         } else {
-          const code = command.includes("vitest") ? 1 : 0;
+          const code = command.includes("vitest") || command.includes("lint --strict") ? 1 : 0;
           on({ kind: "end", code });
           // Fleet takes the item off the list on a clean exit and tells the agent; nothing in Bridge does.
           if (code === 0) {
