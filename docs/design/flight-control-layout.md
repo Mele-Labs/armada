@@ -6,7 +6,8 @@ Two takes did it, and the owner walked more after them; *Approved, 26 Oct 2026* 
 
 ## The failure this answers
 
-On 25 Oct 2026, walking a Job's right column, the owner pointed at Flight control: "I still feel like there is a better way to layout flight control. I dont know why it feels so hard to find anything."
+On 25 Oct 2026, walking a Job's right column, the owner pointed at Flight control: "I still feel like there is a better way to layout flight control.
+I dont know why it feels so hard to find anything."
 
 What a Job open draws today (`cockpit/deck/SessionTiles.tsx`, `docs/concepts/cockpit.md`, *The Job's flight controls*):
 
@@ -73,7 +74,8 @@ Each was walked in the mock on a query switch: `?take=`, `&tabs=`, `&tabpos=`, `
 | `jobname=notch` | The open Job's state and name in the title bar's centre notch | Picked |
 | `autopilot=hidden` | Autopilot not drawn | Picked, as a setting |
 
-The density rounds began with the owner's ask: "I am looking at various mission control / cockpit user interfaces and they seem to be able to fit more on the screen. Its like our font sizes, weights or spacing or something is restricting us".
+The density rounds began with the owner's ask: "I am looking at various mission control / cockpit user interfaces and they seem to be able to fit more on the screen.
+Its like our font sizes, weights or spacing or something is restricting us".
 
 ## Approved, 26 Oct 2026
 
