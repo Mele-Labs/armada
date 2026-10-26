@@ -21,7 +21,7 @@ import { openAddressInPanel, openInPanel, closePanel } from "./store";
 import type { PanelItem } from "./store";
 import { patchesOf } from "./pull-request-patches";
 import { usePanelReads, useReading } from "./reads";
-import type { PatchesRead, PullRequestRead, Reading } from "./reads";
+import type { PatchesRead, PullRequestRead, PullRequestRefused, Reading } from "./reads";
 
 type Item = Extract<PanelItem, { kind: "pr" }>;
 type Held = Extract<SessionAttachment, { kind: "pull_request" }>;
@@ -71,13 +71,13 @@ export function PullRequestSide({ item }: { item: Item }) {
     setSeen(item);
     setAgain((n) => n + 1);
   }
-  const reading = useReading<PullRequestRead>(() => reads?.pullRequest(item) ?? Promise.resolve(undefined), `${item.address}#${item.number}`, again, true);
+  const reading = useReading<PullRequestRead | PullRequestRefused>(() => reads?.pullRequest(item) ?? Promise.resolve(undefined), `${item.address}#${item.number}`, again, true);
   if (reads === undefined) return null;
   return <Drawn item={item} reading={reading} onFiles={() => setAgain((n) => n + 1)} />;
 }
 
 // One component whether the read is out or in, so the panel's Sheet stays mounted when it lands.
-function Drawn({ item, reading, onFiles }: { item: Item; reading: Reading<PullRequestRead>; onFiles: () => void }) {
+function Drawn({ item, reading, onFiles }: { item: Item; reading: Reading<PullRequestRead | PullRequestRefused>; onFiles: () => void }) {
   const reads = usePanelReads()!;
   const floor = useAtFloor();
   const draft = useSessionsDraft();
@@ -110,7 +110,9 @@ function Drawn({ item, reading, onFiles }: { item: Item; reading: Reading<PullRe
   const { sentBack, sendBack } = useSendBack(owner?.id ?? "", draft?.send);
   const back = useBack();
 
-  const read = reading.out ? undefined : reading.value;
+  const answer = reading.out ? undefined : reading.value;
+  const refused = answer !== undefined && "refused" in answer ? answer.refused : undefined;
+  const read = answer !== undefined && !("refused" in answer) ? answer : undefined;
 
   // Every file's patch, read the first time Files is shown and kept with the head it was read on: another head is another diff.
   const [patches, setPatches] = useState<{ head: string | undefined; answer: PatchesRead | "reading" } | undefined>(undefined);
@@ -148,7 +150,7 @@ function Drawn({ item, reading, onFiles }: { item: Item; reading: Reading<PullRe
     return (
       <PrOwnersOnTheWire lines={reads.lines}>
         <PullRequestPanel
-          reading={reading.out ? {} : { said: "The forge did not answer for this pull request." }}
+          reading={reading.out ? {} : { said: refused ?? "The forge did not answer for this pull request." }}
           number={item.number}
           address={item.address}
           {...(repository === undefined ? {} : { repository })}

@@ -132,6 +132,22 @@ fn a_page_over_the_api_is_the_page_gh_reads() {
 }
 
 #[test]
+fn a_page_the_api_refuses_says_why_and_what_to_do() {
+    let server = serve(|_| Reply {
+        status: 403,
+        headers: Vec::new(),
+        body: r#"{"message":"Resource protected by organization SAML enforcement"}"#.to_string(),
+    });
+    let forge = ApiForge::through(api(&server.url, &["t"]).0);
+    let repo = on_github();
+
+    let said = forge.pull_request_page_said(&repo.root_str(), "2190").unwrap_err().expect("a reason");
+    assert!(said.contains("refused"), "names the cause: {said}");
+    assert!(said.contains("gh auth refresh"), "names the step: {said}");
+    assert!(forge.pull_request_page(&repo.root_str(), "2190").is_none());
+}
+
+#[test]
 fn a_reviewed_page_over_the_api_is_the_page_gh_reads_with_its_people_read_at_once() {
     // The page beside its threads; then three profiles and a team's people beside each other.
     let (first, people) = (Together::of(2), Together::of(4));
