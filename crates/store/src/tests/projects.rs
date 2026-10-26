@@ -13,6 +13,7 @@ fn task(id: &str, title: &str) -> KeptProjectRow {
             state: KeptTaskState::Open,
             parent: None,
             issues: Vec::new(),
+            pulls: Vec::new(),
         },
     }
 }
@@ -57,6 +58,7 @@ fn what_is_kept_in_a_project_reads_back_after_the_store_is_reopened() {
         state: KeptTaskState::Done,
         parent: None,
         issues: Vec::new(),
+        pulls: Vec::new(),
     };
     assert_eq!(projects[0].rows, [task("r1", "Write the page"), issue("r2", "ABC-12"), done]);
     assert!(projects[1].rows.is_empty());
@@ -203,4 +205,93 @@ fn a_task_keeps_the_issues_linked_to_it_by_reference_and_loses_them_with_itself(
     assert!(store.remove_project_row("p1", "t").unwrap());
     store.add_project_row("p1", &task("t", "Task again")).unwrap();
     assert!(linked(&store).is_empty(), "a removed task leaves no link behind for the next of its id");
+}
+
+fn pulls_of(store: &crate::Store, task: &str) -> Vec<u64> {
+    let project = store.projects("m1").unwrap().remove(0);
+    match project.rows.into_iter().find(|row| row.id == task).unwrap().item {
+        KeptRowItem::Task { pulls, .. } => pulls,
+        KeptRowItem::Issue { .. } => panic!("a task"),
+    }
+}
+
+fn state_of(store: &crate::Store, task: &str) -> KeptTaskState {
+    let project = store.projects("m1").unwrap().remove(0);
+    match project.rows.into_iter().find(|row| row.id == task).unwrap().item {
+        KeptRowItem::Task { state, .. } => state,
+        KeptRowItem::Issue { .. } => panic!("a task"),
+    }
+}
+
+#[test]
+fn a_task_keeps_the_pull_requests_linked_to_it_by_number_and_loses_them_with_itself() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    store.add_project("m1", "p1", "Launch", "2026-10-26T10:00:01.000Z").unwrap();
+    store.add_project_row("p1", &task("t", "Task")).unwrap();
+    store.add_project_row("p1", &issue("i", "7")).unwrap();
+    assert!(store.link_task_pull("p1", "t", 42).unwrap());
+    assert!(store.link_task_pull("p1", "t", 7).unwrap());
+    assert!(store.link_task_pull("p1", "t", 42).unwrap(), "linking twice is the same link");
+    assert!(!store.link_task_pull("p1", "i", 7).unwrap(), "an issue row takes none");
+    assert!(!store.link_task_pull("p2", "t", 7).unwrap(), "not another project's task");
+    drop(store);
+
+    let mut store = open(&dir);
+    assert_eq!(pulls_of(&store, "t"), [42, 7], "in the order they were linked, after a reopen");
+    assert!(store.unlink_task_pull("p1", "t", 42).unwrap());
+    assert_eq!(pulls_of(&store, "t"), [7]);
+    assert!(store.remove_project_row("p1", "t").unwrap());
+    store.add_project_row("p1", &task("t", "Task again")).unwrap();
+    assert!(pulls_of(&store, "t").is_empty(), "a removed task leaves no link behind for the next of its id");
+}
+
+#[test]
+fn a_merge_asks_about_an_open_or_held_task_once_and_leaves_a_done_one_alone() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    store.add_project("m1", "p1", "Launch", "2026-10-26T10:00:01.000Z").unwrap();
+    for id in ["open", "held", "done", "other"] {
+        store.add_project_row("p1", &task(id, id)).unwrap();
+        store.link_task_pull("p1", id, 42).unwrap();
+    }
+    store.link_task_pull("p1", "other", 43).unwrap();
+    store.hold_project_tasks("s1", &[("p1".to_string(), "held".to_string())]).unwrap();
+    store.set_project_task_state("p1", "done", KeptTaskState::Done).unwrap();
+
+    let moved = store.ask_pulled_project_tasks("m1", 42, "2026-10-26T11:00:00.000Z").unwrap();
+    assert_eq!(moved.len(), 3, "the open, held and other tasks moved: {moved:?}");
+    assert!(moved.contains(&"s1".to_string()) && moved.iter().filter(|one| one.is_empty()).count() == 2, "{moved:?}");
+    assert_eq!(state_of(&store, "open"), KeptTaskState::Asked(None), "asked with no Job to name");
+    assert!(matches!(state_of(&store, "held"), KeptTaskState::Asked(Some(holder)) if holder.session == "s1"));
+    assert_eq!(state_of(&store, "done"), KeptTaskState::Done);
+
+    store.set_project_task_state("p1", "open", KeptTaskState::Open).unwrap();
+    assert!(store.ask_pulled_project_tasks("m1", 42, "2026-10-26T11:05:00.000Z").unwrap().is_empty(), "the same merge asks once");
+    assert_eq!(state_of(&store, "open"), KeptTaskState::Open, "so a task kept open stays open");
+    assert!(store.ask_pulled_project_tasks("m2", 43, "2026-10-26T11:05:00.000Z").unwrap().is_empty(), "not another repository's");
+    assert_eq!(store.ask_pulled_project_tasks("m1", 43, "2026-10-26T11:06:00.000Z").unwrap().len(), 0, "its other pull request already asked about it");
+}
+
+#[test]
+fn letting_go_of_a_task_frees_it_and_the_subtasks_the_same_job_held_and_no_others() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    store.add_project("m1", "p1", "Launch", "2026-10-26T10:00:01.000Z").unwrap();
+    store.add_project_row("p1", &task("p", "Parent")).unwrap();
+    for (id, parent) in [("a", "p"), ("b", "p")] {
+        store.add_project_row("p1", &subtask(id, id, parent)).unwrap();
+    }
+    let hold = |store: &mut crate::Store, job: &str, rows: &[&str]| {
+        let rows: Vec<(String, String)> = rows.iter().map(|one| ("p1".to_string(), one.to_string())).collect();
+        store.hold_project_tasks(job, &rows).unwrap();
+    };
+    hold(&mut store, "s1", &["p", "a"]);
+    hold(&mut store, "s2", &["b"]);
+
+    assert_eq!(store.free_held_project_task("p1", "p").unwrap(), 2);
+    assert_eq!(state_of(&store, "p"), KeptTaskState::Open);
+    assert_eq!(state_of(&store, "a"), KeptTaskState::Open);
+    assert!(matches!(state_of(&store, "b"), KeptTaskState::Held(holder) if holder.session == "s2"), "another Job's subtask stays held");
+    assert_eq!(store.free_held_project_task("p1", "p").unwrap(), 0, "a task nobody holds changes nothing");
 }

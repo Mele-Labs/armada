@@ -55,7 +55,7 @@ export type SessionAttachment =
    * An issue the Session is working on. `number` is the forge's number as digits (`7`) or a tracker's key (`ABC-12`).
    * Its pull requests name a forge number in `closes`; a tracker's issue names them in `pull_requests`, from its row's detail.
    */
-  | { kind: "issue"; number: string; title: string; address: string; state: "open" | "closed"; pull_requests?: number[] }
+  | { kind: "issue"; number: string; title: string; address: string; state: "open" | "closed"; pull_requests?: number[]; /** The Job claimed it with `claim_issue`: work in hand, not one it filed or was told of. */ claimed?: true }
   | { kind: "studio"; id: string; title: string }
   /**
    * A sketch the agent published into the Session, or one the person shared with it.

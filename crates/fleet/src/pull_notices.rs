@@ -496,6 +496,8 @@ where
         let now = self.now();
         for one in merged {
             let at = core_model::Timestamp::from_rfc3339(one.pull.merged_at.as_written());
+            // A task a person linked this to is asked about, whoever opened the pull request.
+            self.tasks_asked_by_linked_pull(served.manifest().id().as_str(), one.pull.number, one.pull.title.as_written()).await;
             if !mine.owns(one.pull.author.as_ref().map(|it| it.as_written())) {
                 continue;
             }

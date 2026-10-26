@@ -170,3 +170,22 @@ describe("a file in the Job's checkout", () => {
     expect(scanRefs("docs/plan.md", WORLD)).toEqual([]);
   });
 });
+
+describe("the Job's document", () => {
+  const PAGE = "/repos/armada/.armada/documents/bridge-pricing-schema.html";
+  const RELATIVE = ".armada/documents/bridge-pricing-schema.html";
+  const PAGED: RefWorld = { ...WORLD, documents: [{ id: PAGE, title: "Bridge pricing schema" }], files: [RELATIVE, ".armada/documents/retry-notes.html"] };
+  const refs = (text: string, world: RefWorld = PAGED) => scanRefs(text, world).map((one) => [text.slice(one.from, one.to), one.ref.kind, one.ref.id, one.ref.title]);
+
+  it("is a span that is exactly its page's path, relative or absolute, even where main also found it as a file", () => {
+    expect(refs(RELATIVE)).toEqual([[RELATIVE, "document", PAGE, "Bridge pricing schema"]]);
+    expect(refs(PAGE)).toEqual([[PAGE, "document", PAGE, "Bridge pricing schema"]]);
+  });
+
+  it("is not a documents path that is none of the Job's pages, which stays a file where main found one and nothing where it did not", () => {
+    expect(refs(".armada/documents/retry-notes.html")).toEqual([[".armada/documents/retry-notes.html", "file", ".armada/documents/retry-notes.html", ".armada/documents/retry-notes.html"]]);
+    expect(refs(".armada/documents/gone.html")).toEqual([]);
+    expect(refs("documents/bridge-pricing-schema.html")).toEqual([]);
+    expect(refs(`see ${RELATIVE}`)).toEqual([]);
+  });
+});

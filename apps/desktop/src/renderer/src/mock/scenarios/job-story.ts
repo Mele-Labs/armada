@@ -111,6 +111,7 @@ function prAt(stage: number): Partial<Session> {
             pr({ checks: { state: "passed" }, state: "open", auto: true, queued: true }),
             pr({ number: 2391, title: "Name the attempt in the bay tooltip", closes: [], checks: { state: "pending" }, state: "open", auto: false }),
             { kind: "issue" as const, number: "2402", title: "A slow attempt can outlive the lease", address: "https://forge.invalid/issues/2402", state: "open" as const },
+            { kind: "issue" as const, number: "2395", title: "The pool does not wake a waiting lease", address: "https://forge.invalid/issues/2395", state: "open" as const, claimed: true as const, pull_requests: [2391] },
             // A page the Job wrote beside its pull request, which the Landing draws though the workflow lands a pull request.
             { kind: "artifact" as const, form: "document" as const, id: PR_DOC_PATH, title: LEASE_DOC_TITLE, revisions: [LEASE_DOC_PATH] },
           ]
@@ -318,7 +319,7 @@ function sessions() {
     later() {
       for (const [id, at] of stage) {
         if (at !== 1) continue;
-        go(id, 2, [row(id === PR_JOB ? "The checks pass and the pull request is in the merge queue." : id === REPORT_JOB ? "The report is written." : "The findings are written up.", "agent")]);
+        go(id, 2, [row(id === PR_JOB ? "The checks pass and the pull request is in the merge queue. What I found about the retry is in `.armada/documents/lease-retry.html`." : id === REPORT_JOB ? "The report is written." : "The findings are written up.", "agent")]);
       }
       // Notes sent on the report's page are answered by its next revision.
       const notes = base.get().find((one) => one.id === REPORT_JOB)?.rows.some((one) => one.kind === "message" && one.from.kind === "you" && one.text.startsWith("1. Document "));
