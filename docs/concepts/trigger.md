@@ -59,7 +59,7 @@ Protocol 23.58, the four operations. `docs/practices/protocol.md`.
 > **Rule.** A save is checked with the loader's rules before anything is written.
 > Why: a Trigger that is saved is one that loads.
 
-**A repository's save refuses a Command its `armada.yml` lacks, and a machine's does not.** The loader skips a Trigger like that so the same file is right in the next repository.
+**A repository's save refuses a Command its Manifest lacks, and a machine's does not.** The loader skips a Trigger like that so the same file is right in the next repository.
 A machine's applies to every repository, so refusing it for the one in front of a person would undo that.
 Its answer says it is skipped here.
 

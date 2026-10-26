@@ -253,6 +253,7 @@ Fleet's working record holds it at once, and the place has it written as each tu
 A command whose every run failed is never kept, and the facts merge with those imported from past sessions for the same repository.
 `get_run_memory` reads them with where each is kept.
 
+**A repository's Armada configuration, its `armada.yml` among it, is kept at one of four places chosen per repository: this Mac, a synced folder, cloud storage, or the repository itself.** None of it has to be committed: a repository with no `armada.yml` of its own runs from Kit's copy ([Manifest](manifest.md), *Kit's copy*).
 **The place is chosen per repository when it is added**, `this_mac` until a person says otherwise (`get_run_memory_place`, `set_run_memory_place`):
 
 | Place | Written to |

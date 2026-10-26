@@ -107,7 +107,7 @@ A route that needs a repository refuses plainly while none is served, and reconc
 > **Rule.** Every change to the list is published as `repositories.changed`, carrying the list whole.
 > Why: a repository added in one window, or a clone that lands after its dialog closed, has to reach every open Bridge, and a delta would be a second shape to keep in step with `list_repositories`.
 
-**A folder with no `armada.yml` is served, for Scan to read, and a Job can start there.** It lists as a repository and not as a Manifest, and it gains its Manifest when Write puts one at its root.
+**A folder with no Manifest is served, for Scan to read, and a Job can start there.** It has neither an `armada.yml` nor a Kit copy, lists as a repository and not as a Manifest, and gains its Manifest when Write puts an `armada.yml` at its root or Kit keeps one for it.
 Until then Fleet hosts it under an implicit Manifest: an id made of the folder's name and a digest of its path, no Check, no Command, and the default pool of eight (`setup.worktrees` unstated).
 `list_repositories` carries that id as `implicit_id`, a Job started there carries it as its `manifest_id`, it leases a slot at its first write like any other, and it keeps naming the repository after an `armada.yml` is written.
 Nothing gates on a Check it has not got.

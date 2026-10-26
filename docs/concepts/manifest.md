@@ -13,20 +13,20 @@ Defines Manifest — the per-project/repo definition of how Fleet and agents may
 ## What it is
 
 A Manifest defines a project's shape and boundaries — checks it must pass to land code, commands available to run against it, and which Skills/Agents/secrets it can use.
-It is backed by an `armada.yml` file.
+It is backed by an `armada.yml` file, the repository's or a person's own kept in Kit; where it is kept is chosen per repository and none of it has to be committed ([Kit](kit.md), *What a repository runs*).
 
 It is not the same shape as either tier above it. [Kit](kit.md) is the tool set you bring and holds defaults a Manifest may extend or restrict; [Machine](machine.md) is how this installation behaves and has no project-level counterpart at all.
 
 ## Armada remembers how a repository runs
 
 **A Manifest exists so an agent stops guessing how to run a repository's tests and commands.** Checks are one part of it and gate a change only where the repository declares them.
-A repository needs none to start a Job: Fleet serves a folder with no `armada.yml` under an implicit Manifest, with no Check and no Command ([Fleet](fleet.md), *Fleet starts with none*).
+A repository needs none to start a Job: Fleet serves a folder with no `armada.yml` and no Kit copy under an implicit Manifest, with no Check and no Command ([Fleet](fleet.md), *Fleet starts with none*).
 
 | Source | What Armada keeps |
 |---|---|
 | Jobs | Each command a Job ran, its exit and the ports it listened on |
 | Past agent sessions | The same, read from the sessions an agent CLI kept in the folder |
-| Setup | Lines each traced to a file Scan read, written to `armada.yml` |
+| Setup | Lines each traced to a file Scan read, written to an `armada.yml`: the repository's, or the person's own in Kit |
 
 > **Rule.** Setup is offered and never required.
 > Why: a Job starts on any folder, and what Jobs run is remembered without it.
@@ -628,7 +628,7 @@ Carried forward from the v1 prototype, where the pattern worked well.
 | --- | --- |
 | Scan | Read-only evidence gathering across the workspace. Nothing is written yet |
 | Proposal | A *possible* `armada.yml`, iterated on rather than approved or rejected |
-| Write | Commits the current state of the proposal to `armada.yml` |
+| Write | Commits the current state of the proposal to an `armada.yml`: the repository's, or the person's own in Kit (*Kit's copy*) |
 
 **Scan** reads lockfiles, package scripts, CI config, docker-compose services, pyproject tool sections and workspace globs.
 
