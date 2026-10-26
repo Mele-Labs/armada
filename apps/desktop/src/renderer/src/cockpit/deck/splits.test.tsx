@@ -1,5 +1,5 @@
 // The gaps between a column's panels are handles: dragged or stepped, the two panels either side trade height; the sizes are kept for
-// each layout; Home, or a double press on the gap, puts the two back. Browser: heights are read off the page.
+// each layout; Home, or a double press on the gap, puts the two back; a foot of keys alone is never sized. Browser: heights are read off the page.
 
 import { act, useRef } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -19,7 +19,9 @@ afterEach(() => {
   localStorage.clear();
 });
 
-function Grid({ layout, bandOnly = false }: { layout: string; bandOnly?: boolean }) {
+type Foot = "keys" | "field" | undefined;
+
+function Grid({ layout, bandOnly = false, foot }: { layout: string; bandOnly?: boolean; foot?: Foot }) {
   const grid = useRef<HTMLDivElement>(null);
   const splits = useSplits(grid, layout);
   return (
@@ -28,17 +30,22 @@ function Grid({ layout, bandOnly = false }: { layout: string; bandOnly?: boolean
         <section className="sv-panel" data-area="alpha" aria-label="Alpha" style={{ height: 196 }} />
         <section className="sv-panel" data-area="beta" aria-label="Beta" style={{ height: 196 }} />
         {bandOnly ? <section className="sv-panel" data-area="band" data-band-only="" aria-label="Band" style={{ height: 34 }} /> : null}
+        {foot === undefined ? null : (
+          <div className="deck-foot" style={{ height: 74 }}>
+            {foot === "field" ? <section className="sv-panel" data-area="field" aria-label="Field" style={{ height: 74 }} /> : null}
+          </div>
+        )}
       </div>
       {splits}
     </div>
   );
 }
 
-function mount(layout: string, bandOnly = false): HTMLElement {
+function mount(layout: string, bandOnly = false, foot?: Foot): HTMLElement {
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
-  act(() => root.render(<Grid layout={layout} bandOnly={bandOnly} />));
+  act(() => root.render(<Grid layout={layout} bandOnly={bandOnly} foot={foot} />));
   roots.push({ root, host });
   return host;
 }
@@ -103,4 +110,20 @@ test("a panel that is only a band stands outside the shares and has no handle be
   await vi.waitFor(() => expect(handle(host)).not.toBeNull());
   expect(host.querySelectorAll('[role="separator"]')).toHaveLength(1);
   expect(handle(host)!.getAttribute("aria-label")).toBe("Resize Alpha and Beta");
+});
+
+// A share kept from the deck's old, taller foot drew the foot of keys 168px tall on a big screen, its keys floating in the middle.
+test("a foot of keys alone stands outside the shares, even with a share kept for it", async () => {
+  localStorage.setItem("armada.bridge.deck-splits.idle", JSON.stringify({ left: { size: { alpha: 0.4, beta: 0.3, "deck-foot": 0.3 }, natural: {} } }));
+  const host = mount("idle", false, "keys");
+  await vi.waitFor(() => expect(handle(host)).not.toBeNull());
+  expect([...host.querySelectorAll('[role="separator"]')].map((one) => one.getAttribute("aria-label"))).toEqual(["Resize Alpha and Beta"]);
+  expect(host.querySelector(".deck-foot")!.hasAttribute("data-sized")).toBe(false);
+});
+
+test("a foot holding the Field takes its share and has a handle above it", async () => {
+  localStorage.setItem("armada.bridge.deck-splits.idle", JSON.stringify({ left: { size: { alpha: 0.4, beta: 0.3, "deck-foot": 0.3 }, natural: {} } }));
+  const host = mount("idle", false, "field");
+  await vi.waitFor(() => expect(host.querySelectorAll('[role="separator"]')).toHaveLength(2));
+  expect(host.querySelector(".deck-foot")!.hasAttribute("data-sized")).toBe(true);
 });

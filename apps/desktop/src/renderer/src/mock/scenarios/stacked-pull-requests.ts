@@ -1,4 +1,4 @@
-// One Session holding five pull requests: one merged on main, a root on main with a chain of three above it, and a second child of the root. The Landing draws the
+// One Session holding five pull requests: one merged on main, a root on main with a chain of three above it, and a second child of the root. Delivery draws the
 // stack parent first with one lane, a `base:` tag on the root and an `on #` chip on the child whose parent is not the row above. The walk `stacked-pull-requests` plays it.
 
 import { repository } from "@armada/screens/src/fixtures/repository";
@@ -50,7 +50,7 @@ const stacked: Session = {
   work: { proposal: { workflow: null } },
 };
 
-const base = holding("stacked-pull-requests", "A Job's pull requests stacked on one another read parent first in the Landing, joined by one lane, with the root's base and a chip naming a parent that is not the row above");
+const base = holding("stacked-pull-requests", "A Job's pull requests stacked on one another read parent first in Delivery, joined by one lane, with the root's base and a chip naming a parent that is not the row above");
 
 export const stackedPullRequests: Scenario = {
   ...base,

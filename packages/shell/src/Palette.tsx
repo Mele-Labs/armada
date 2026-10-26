@@ -110,7 +110,7 @@ export type PaletteSetting = { id: string; label: string; value?: string; aliase
  *
  * **They appear as rows and the registry's single `state_filter` does not.**
  * That row spells its binding `1–5` over five tabs, for the reason
- * `deck_tabs` spells `⌘1–⌘6` over its destinations — the rule is tab
+ * `deck_tabs` spells `⌘1–⌘7` over its destinations — the rule is tab
  * order rather than the digits. A palette drawing that one row would name no
  * filter and set none, which would leave `1`–`5` the one part of the app
  * learnable only by finding the tabs.

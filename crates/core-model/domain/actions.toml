@@ -638,11 +638,11 @@ tier = "Global"
 verb = "Go to a tab"
 icon = ""
 icon_absent = "by design"
-shortcut = "⌘1–⌘6"
+shortcut = "⌘1–⌘7"
 scope = "anywhere"
 destructive = false
 confirms = false
-notes = "`⌘1` to `⌘6` are the places bar's tabs in the order it draws them: Cockpit, Jobs, Sessions, Studios, Retros and System, and System opens the page last used there. One row over the digits because the rule is the tab's place in the bar, not the number. Studios and Retros took `⌘4` and `⌘5` on 15 Oct 2026 (the owner: studios and retros should live in the main bar), which moved System to `⌘6` and Settings off `⌘5` to `open_settings`. Every other page is reached from the System strip, the title bar's menu, a link on the deck or the palette by name, and has no key. This row replaced `bridge_surfaces`, which numbered the rail's rows `⌘1` to `⌘9` until the rail went with #2301."
+notes = "`⌘1` to `⌘7` are the places bar's tabs in the order it draws them, every drawn tab taking the next digit and a tab that is not drawn taking none: Cockpit, Jobs, Studios, Logbook, Reviews, Issues and System at most, and System opens the page last used there. A layout that hides a tab moves the digits behind it (26 Oct 2026, the owner: the digits follow what the bar draws). One row over the digits because the rule is the tab's place in the bar, not the number. Studios and Retros took `⌘4` and `⌘5` on 15 Oct 2026 (the owner: studios and retros should live in the main bar), which moved System to `⌘6` and Settings off `⌘5` to `open_settings`. Every other page is reached from the System strip, the title bar's menu, a link on the deck or the palette by name, and has no key. This row replaced `bridge_surfaces`, which numbered the rail's rows `⌘1` to `⌘9` until the rail went with #2301."
 
 [actions.open_settings]
 kind = "Action"

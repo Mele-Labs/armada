@@ -8,6 +8,7 @@ pub const THEME: Words = Words("bridge.theme");
 pub const LAYOUT: Json = Json("bridge.layout");
 pub const KEY_BINDINGS: Json = Json("bridge.keyBindings");
 pub const TIME_FORMAT: Json = Json("bridge.timeFormat");
+pub const ROW_VIEW: Json = Json("bridge.rowView");
 pub const WHERE_THINGS_ARE_OPEN: Flag = Flag("bridge.whereThingsAreOpen");
 
 /// The theme nobody has chosen away from.
@@ -57,6 +58,18 @@ pub(super) const BRIDGE: &[Entry] = &[
         section: Section::Bridge,
         title: "Time format",
         description: "How Bridge draws a time: 24-hour clock, seconds and date, as JSON Settings, Time wrote.",
+        kind: Kind::Json,
+        shipped: Shipped::Nothing,
+        applies: Applies::Live,
+        row: None,
+        env: None,
+        tip: None,
+    },
+    Entry {
+        key: ROW_VIEW.0,
+        section: Section::Bridge,
+        title: "Row view",
+        description: "Which fields a Job's row in the Cockpit draws, as JSON the row menu's View group wrote.",
         kind: Kind::Json,
         shipped: Shipped::Nothing,
         applies: Applies::Live,

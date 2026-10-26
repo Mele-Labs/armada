@@ -17,7 +17,7 @@ An investigation, a report or a set of findings is a document. The Job writes it
 |---|---|
 | The reading sheet, notes, Changes, Share's menu | Built in the mock; walk `job-document` approved 25 Oct 2026 |
 | Fleet keeping revisions, the `document` artifact, the sketch notice | Built |
-| The Landing row, the Artifacts rows and thread headings reading the real artifact | Built |
+| The Delivery row, the Artifacts rows and thread headings reading the real artifact | Built |
 | Save as web page and Save as PDF | Built |
 
 ## What a document is
@@ -53,7 +53,7 @@ The notice is `document_sketch`, once per revision: `In the page <path>, sketch 
 | Part | Read from |
 |---|---|
 | Title | `<title>`, else the first `<h1>` |
-| Conclusion | The first non-empty `<p>` after the `<h1>`; the Landing shows it with the title |
+| Conclusion | The first non-empty `<p>` after the `<h1>`; Delivery shows it with the title |
 | Contents | Each `<h2>`, in order; an `<h2>` with no `id` gets one |
 | Notable rows | Each `<tr>` in a `<tbody>` |
 
@@ -99,7 +99,7 @@ A rule holding an address (`url(`, `image-set(`, `@import`) is dropped, and so i
 
 ## The reading sheet
 
-**Rule.** A press on the Landing's document row opens the page in the floating sheet the plan review uses, about three quarters of the window wide, with the Job dimmed behind it.
+**Rule.** A press on Delivery's document row opens the page in the floating sheet the plan review uses, about three quarters of the window wide, with the Job dimmed behind it.
 Esc closes it and gives the Job back as it was.
 
 | Part | Holds |
