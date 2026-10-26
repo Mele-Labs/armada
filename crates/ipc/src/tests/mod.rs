@@ -26,6 +26,8 @@ mod door;
 mod events;
 mod helm;
 mod helm_box;
+/// A refused body names its whole shape.
+mod shape;
 /// A Job's Now: a Drone's activity, issues, waiting, answer modes, Check acts.
 mod thought;
 /// A Job's timeline, in the three shapes a row can be.

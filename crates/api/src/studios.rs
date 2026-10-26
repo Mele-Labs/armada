@@ -42,7 +42,7 @@ fn body<T: DeserializeOwned, D: Studios>(
     what: &'static str,
     bytes: &Bytes,
 ) -> Result<T, Response> {
-    ipc::decode(what, bytes).map_err(|why| undecodable(&why.to_string(), served.run_id()))
+    ipc::decode_body(what, bytes).map_err(|why| undecodable(&why.to_string(), served.run_id()))
 }
 
 pub(crate) async fn list_studios<D: Studios>(

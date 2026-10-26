@@ -41,7 +41,7 @@ pub(crate) async fn ask_helm<D: Conversations>(
     Query(scope): Query<InManifest>,
     body: Bytes,
 ) -> Response {
-    let asked: AskHelm = match ipc::decode("a message to Helm", &body) {
+    let asked: AskHelm = match ipc::decode_body("a message to Helm", &body) {
         Ok(asked) => asked,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -57,7 +57,7 @@ pub(crate) async fn read_thought<D: Conversations>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let read: ReadThought = match ipc::decode("words to read", &body) {
+    let read: ReadThought = match ipc::decode_body("words to read", &body) {
         Ok(read) => read,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -71,7 +71,7 @@ pub(crate) async fn record_thought_sent<D: Conversations>(
     Query(scope): Query<InManifest>,
     body: Bytes,
 ) -> Response {
-    let sent: ThoughtSent = match ipc::decode("where words went", &body) {
+    let sent: ThoughtSent = match ipc::decode_body("where words went", &body) {
         Ok(sent) => sent,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -87,7 +87,7 @@ pub(crate) async fn tell_session<D: Conversations>(
     Query(scope): Query<InManifest>,
     body: Bytes,
 ) -> Response {
-    let tell: TellSession = match ipc::decode("words for a job", &body) {
+    let tell: TellSession = match ipc::decode_body("words for a job", &body) {
         Ok(tell) => tell,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -110,7 +110,7 @@ pub(crate) async fn ask_the_person<D: Conversations>(
     // **Placed by the connection**, as the door places a Helm session: a hosted
     // session's ask goes to its own thread and not to Helm's dock.
     let caller = crate::acting::asking().unwrap_or_else(crate::Caller::unplaceable);
-    let asking: AskingToRun = match ipc::decode("a permission question", &body) {
+    let asking: AskingToRun = match ipc::decode_body("a permission question", &body) {
         Ok(asking) => asking,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -137,7 +137,7 @@ pub(crate) async fn answer_helm_call<D: Conversations>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let said: ipc::AnswerHelmCall = match ipc::decode("an answer to a Helm call", &body) {
+    let said: ipc::AnswerHelmCall = match ipc::decode_body("an answer to a Helm call", &body) {
         Ok(said) => said,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };

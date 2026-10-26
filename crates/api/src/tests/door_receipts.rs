@@ -346,3 +346,17 @@ async fn off_the_door_each_act_answers_the_whole_row_as_it_did() {
         assert_eq!(on_the_route(&app, path, body).await, whole, "{path}");
     }
 }
+
+/// A body missing two fields is refused once, naming the whole body, rather than once a field.
+#[tokio::test]
+async fn a_body_the_door_refuses_names_its_whole_shape() {
+    let (app, _) = a_fleet();
+    let said = through_the_door(&app, "waiting_for", r#"{"items":[{"id":"merge","act":"run"}]}"#).await;
+    assert!(said.contains("missing field `text`") || said.contains("invalid type"), "{said}");
+    assert!(
+        said.contains(
+            "The body is {items: [{id: string, text: string, act?: {kind: walk|answer|approve_pr|run|message, target: string}"
+        ),
+        "{said}"
+    );
+}

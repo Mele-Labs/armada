@@ -14,7 +14,7 @@ use crate::daemon::Watches;
 use crate::served::Served;
 
 pub(crate) async fn start_watch<D: Watches>(State(served): State<Served<D>>, body: Bytes) -> Response {
-    let start: ipc::StartWatch = match ipc::decode("a watch to start", &body) {
+    let start: ipc::StartWatch = match ipc::decode_body("a watch to start", &body) {
         Ok(start) => start,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -25,7 +25,7 @@ pub(crate) async fn start_watch<D: Watches>(State(served): State<Served<D>>, bod
 }
 
 pub(crate) async fn weigh_watch<D: Watches>(State(served): State<Served<D>>, body: Bytes) -> Response {
-    let weigh: ipc::WeighWatch = match ipc::decode("a watch weighed", &body) {
+    let weigh: ipc::WeighWatch = match ipc::decode_body("a watch weighed", &body) {
         Ok(weigh) => weigh,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -36,7 +36,7 @@ pub(crate) async fn weigh_watch<D: Watches>(State(served): State<Served<D>>, bod
 }
 
 pub(crate) async fn stop_watch<D: Watches>(State(served): State<Served<D>>, body: Bytes) -> Response {
-    let stop: ipc::StopWatch = match ipc::decode("a watch to stop", &body) {
+    let stop: ipc::StopWatch = match ipc::decode_body("a watch to stop", &body) {
         Ok(stop) => stop,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };

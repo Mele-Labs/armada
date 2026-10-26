@@ -41,6 +41,8 @@ mod checks;
 /// An agent's word that a Fleet notice was wrong, and the review that settles it.
 mod disputes;
 mod codec;
+/// A body's whole shape, read off its type, for a refusal to name.
+pub mod shape;
 /// A command a Drone was not given, and what a person answers about it. **Two
 /// paths to one answer** — while the Drone waits, or after the Job stopped.
 mod commanding;
@@ -273,7 +275,7 @@ pub use checks::{
     CheckOutput, CheckRun, DeclaredCheck, DeclaredJudge,
 };
 pub use codec::{
-    decode, encode, Undecodable, Unencodable,
+    decode, decode_body, encode, Undecodable, Unencodable,
 };
 pub use commanding::{
     AllowedCommandRow, RemoveRepositoryAllowedCommand, RepositoryAllowedCommands,

@@ -68,7 +68,7 @@ pub(crate) async fn add_repository<D: Commands>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let asked: AddRepository = match ipc::decode("a folder to serve", &body) {
+    let asked: AddRepository = match ipc::decode_body("a folder to serve", &body) {
         Ok(asked) => asked,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -83,7 +83,7 @@ pub(crate) async fn clone_repository<D: Commands>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let asked: CloneRepository = match ipc::decode("a repository to clone", &body) {
+    let asked: CloneRepository = match ipc::decode_body("a repository to clone", &body) {
         Ok(asked) => asked,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -98,7 +98,7 @@ pub(crate) async fn create_project<D: Commands>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let asked: CreateProject = match ipc::decode("a project to create", &body) {
+    let asked: CreateProject = match ipc::decode_body("a project to create", &body) {
         Ok(asked) => asked,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -116,7 +116,7 @@ pub(crate) async fn save_workflow<D: Authoring>(
     Query(scope): Query<InManifest>,
     body: Bytes,
 ) -> Response {
-    let asked: ipc::SaveWorkflow = match ipc::decode("a workflow definition to save", &body) {
+    let asked: ipc::SaveWorkflow = match ipc::decode_body("a workflow definition to save", &body) {
         Ok(asked) => asked,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -224,7 +224,7 @@ pub(crate) async fn save_trigger<D: Authoring>(
     Query(scope): Query<InManifest>,
     body: Bytes,
 ) -> Response {
-    let asked: ipc::SaveTrigger = match ipc::decode("a Trigger to save", &body) {
+    let asked: ipc::SaveTrigger = match ipc::decode_body("a Trigger to save", &body) {
         Ok(asked) => asked,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -240,7 +240,7 @@ pub(crate) async fn remove_trigger<D: Authoring>(
     Query(scope): Query<InManifest>,
     body: Bytes,
 ) -> Response {
-    let asked: ipc::RemoveTrigger = match ipc::decode("a Trigger to remove", &body) {
+    let asked: ipc::RemoveTrigger = match ipc::decode_body("a Trigger to remove", &body) {
         Ok(asked) => asked,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };

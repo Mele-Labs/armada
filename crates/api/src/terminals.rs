@@ -16,7 +16,7 @@ pub(crate) async fn open_terminal<D: Sessions>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let open: ipc::OpenTerminal = match ipc::decode("a job shell to open", &body) {
+    let open: ipc::OpenTerminal = match ipc::decode_body("a job shell to open", &body) {
         Ok(open) => open,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -33,7 +33,7 @@ pub(crate) async fn type_in_terminal<D: Sessions>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let typed: ipc::TypeInTerminal = match ipc::decode("keys for a job shell", &body) {
+    let typed: ipc::TypeInTerminal = match ipc::decode_body("keys for a job shell", &body) {
         Ok(typed) => typed,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };

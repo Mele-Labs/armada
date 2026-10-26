@@ -20,7 +20,7 @@ fn answered(done: Result<ipc::AdversarialReview, Refusal>, served_run: &ipc::Run
 /// The person presses the review. 200 with the review, running or kept; 404 for no such Job or no plan; 409 for a
 /// plan that is not the current version.
 pub(crate) async fn start_adversarial_review<D: AdversarialReviews>(State(served): State<Served<D>>, body: Bytes) -> Response {
-    match ipc::decode::<ipc::StartAdversarialReview>("an adversarial review to start", &body) {
+    match ipc::decode_body::<ipc::StartAdversarialReview>("an adversarial review to start", &body) {
         Ok(start) => answered(served.shared().start_adversarial_review(start).await, served.run_id()),
         Err(why) => undecodable(&why.to_string(), served.run_id()),
     }
@@ -28,7 +28,7 @@ pub(crate) async fn start_adversarial_review<D: AdversarialReviews>(State(served
 
 /// The person sends a finding to the agent as his message. 200 with the review; 404 for a finding it does not hold.
 pub(crate) async fn send_finding<D: AdversarialReviews>(State(served): State<Served<D>>, body: Bytes) -> Response {
-    match ipc::decode::<ipc::SendFinding>("a finding to send", &body) {
+    match ipc::decode_body::<ipc::SendFinding>("a finding to send", &body) {
         Ok(send) => answered(served.shared().send_finding(send).await, served.run_id()),
         Err(why) => undecodable(&why.to_string(), served.run_id()),
     }
@@ -36,7 +36,7 @@ pub(crate) async fn send_finding<D: AdversarialReviews>(State(served): State<Ser
 
 /// The person dismisses a finding; the agent is told nothing. 200 with the review.
 pub(crate) async fn dismiss_finding<D: AdversarialReviews>(State(served): State<Served<D>>, body: Bytes) -> Response {
-    match ipc::decode::<ipc::DismissFinding>("a finding to dismiss", &body) {
+    match ipc::decode_body::<ipc::DismissFinding>("a finding to dismiss", &body) {
         Ok(dismiss) => answered(served.shared().dismiss_finding(dismiss).await, served.run_id()),
         Err(why) => undecodable(&why.to_string(), served.run_id()),
     }
