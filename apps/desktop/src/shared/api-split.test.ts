@@ -172,6 +172,7 @@ import type { ActFailed, AgentSignIn, ModelDownshiftState, PlanUsage, SignedOut,
 import type { BridgeApi } from "./api";
 import { CHANNELS, NOTHING_YET } from "./bridge";
 import type { BridgeState, HistoryStep, Summons } from "./bridge";
+import type { PullLink } from "./pull-link";
 
 type OldBridgeState = {
     connection: Connection;
@@ -348,6 +349,7 @@ type OldBridgeApi = {
         sendNotes: () => Promise<Outcome>;
     };
     onSummoned: (onGo: (to: Summons) => void) => () => void;
+    onPullLink: (onLink: (link: PullLink) => void) => () => void;
     onHistory: (onStep: (step: HistoryStep) => void) => () => void;
     askHelm: (text: string, context?: HelmContext, carry?: HelmCarry) => Promise<Outcome>;
     helmDebugInfo: () => Promise<HelmDebugRead>;
@@ -606,6 +608,7 @@ const OLD_CHANNELS = {
     askLesson: "bridge:ask-lesson",
     readHeld: "bridge:read-held",
     summoned: "bridge:summoned",
+    pullLinked: "bridge:pull-linked",
     history: "bridge:history",
     askHelm: "bridge:ask-helm",
     helmDebugInfo: "bridge:helm-debug-info",

@@ -13,7 +13,7 @@ import type { RepositorySummary } from "@armada/protocol";
 
 import { parsePullLink } from "../../../shared/pull-link";
 import { REVIEW_KEYS, capOf } from "./key-table";
-import { manifestOfLink } from "./link";
+import { openLinked } from "./link";
 import { ChecksMark, ReviewMark, RunFailed } from "./marks";
 import type { Find, ReviewPr } from "./model";
 import { NO_WORK, useReviewStore, useReviews } from "./store";
@@ -78,10 +78,8 @@ export function ReviewList({ picked, repositories }: { picked: RepositorySummary
   const openLink = async () => {
     const link = parsePullLink(address);
     if (link === undefined) return setUnopened("That is not a link to a pull request.");
-    const manifestId = manifestOfLink(repositories, prs, link);
-    if (manifestId === undefined) return setUnopened(`Armada does not serve ${link.owner}/${link.name}.`);
-    const opened = await store.openLink(manifestId, link);
-    if (!opened.ok) return setUnopened(opened.said);
+    const refused = await openLinked(store, repositories, link);
+    if (refused !== undefined) return setUnopened(refused);
     setUnopened(undefined);
     setAddress("");
     setAsking(false);

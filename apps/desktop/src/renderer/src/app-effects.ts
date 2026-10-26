@@ -2,9 +2,12 @@
 // call an alert asked the Cockpit for. Each is App's, and each says why it is the way it is.
 
 import { useEffect, useRef, useState } from "react";
-import type { SettingsList } from "@armada/protocol";
+import type { RepositorySummary, SettingsList } from "@armada/protocol";
 import type { Summons } from "../../shared/bridge";
+import type { PullLink } from "../../shared/pull-link";
 import { askToOpenSession } from "./open-session";
+import { openLinked } from "./pr-review/link";
+import { useReviewStore } from "./pr-review/store";
 import { installUiSounds, setUiSounds } from "./ui-sounds";
 
 /**
@@ -50,4 +53,22 @@ export function useUiSounds(settings: SettingsList | null): void {
   useEffect(() => installUiSounds(), []);
   const on = settings?.settings.find((one) => one.key === "features.uiSounds")?.value !== false;
   useEffect(() => setUiSounds(on), [on]);
+}
+
+/**
+ * A link to a pull request opened from outside (`armada://pull/...`, behind `features.deepLinks`): Reviews opens on its page, `go` having taken the window there.
+ * **Held until a repository is drawn**, since a link that launched the app arrives before the window has read which ones Fleet serves. A refusal is `say`'s, never a dead press.
+ */
+export function usePullLinks(go: () => void, repositories: readonly RepositorySummary[], say: (words: string) => void): void {
+  const store = useReviewStore();
+  const [waiting, setWaiting] = useState<PullLink | undefined>(undefined);
+  const latest = useRef({ go, say });
+  latest.current = { go, say };
+  useEffect(() => (store === undefined ? undefined : window.armada.onPullLink(setWaiting)), [store]);
+  useEffect(() => {
+    if (waiting === undefined || store === undefined || repositories.length === 0) return;
+    setWaiting(undefined);
+    latest.current.go();
+    void openLinked(store, repositories, waiting).then((refused) => refused === undefined || latest.current.say(refused));
+  }, [waiting, store, repositories]);
 }

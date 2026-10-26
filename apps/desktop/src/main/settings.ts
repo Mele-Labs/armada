@@ -7,6 +7,7 @@
 // `open.ts` and `terminal.ts` read off the published list.
 
 import type { Outcome, SaveSettings, SettingsList, SettingValue } from "@armada/protocol";
+import type { DeepLinks } from "./deep-link";
 import { ask, followCommandSeconds } from "./request";
 import { followReconnectMs } from "./socket";
 // Type-only, and therefore not a cycle at runtime.
@@ -23,12 +24,20 @@ export function textSetting(list: SettingsList | null, key: string): string {
   return typeof value === "string" ? value : "";
 }
 
+let deepLinks: DeepLinks | undefined;
+
+/** Hands settings the deep links to switch with `features.deepLinks`: on unless the list says false, as it does until Fleet has answered. */
+export function switchDeepLinks(links: DeepLinks): void {
+  deepLinks = links;
+}
+
 /** Publish a list, and follow the settings main itself acts on. */
 export function publishSettings(list: SettingsList, publish: (change: { settings: SettingsList }) => void): void {
   const command = settingOf(list, "timeouts.commandSeconds");
   if (typeof command === "number") followCommandSeconds(command);
   const reconnect = settingOf(list, "timeouts.bridgeReconnectMs");
   if (typeof reconnect === "number") followReconnectMs(reconnect);
+  deepLinks?.follow(settingOf(list, "features.deepLinks") !== false);
   publish({ settings: list });
 }
 

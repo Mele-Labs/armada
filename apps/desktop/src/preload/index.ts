@@ -13,6 +13,7 @@ import { ANNOTATE_FLAG, ANNOTATION_CHANNELS } from "../shared/annotations";
 import type { Annotation, AnnotationsDevApi, Box } from "../shared/annotations";
 import type { PanelGo, PanelHeldNote } from "@armada/studios/api";
 import type { BridgeState, HistoryStep, Summons } from "../shared/bridge";
+import type { PullLink } from "../shared/pull-link";
 import type { CaptureAimed, CaptureAnswer, CaptureHeld, CaptureQueueKey, CaptureWheel, CaptureWindowState } from "../shared/capture-window";
 import type { CaptureOpened, ClashSide } from "@armada/protocol";
 import type { ChangeSlotPool, RescueSlot, SketchToKeep } from "@armada/protocol";
@@ -835,6 +836,15 @@ const api: BridgeApi = {
     ipcRenderer.on(CHANNELS.summoned, handler);
     return () => {
       ipcRenderer.removeListener(CHANNELS.summoned, handler);
+    };
+  },
+
+  // A pull request's link opened from outside. `onSummoned`'s shape: a listener and its remover. It grants nothing.
+  onPullLink: (onLink: (link: PullLink) => void): (() => void) => {
+    const handler = (_event: unknown, link: PullLink): void => onLink(link);
+    ipcRenderer.on(CHANNELS.pullLinked, handler);
+    return () => {
+      ipcRenderer.removeListener(CHANNELS.pullLinked, handler);
     };
   },
 

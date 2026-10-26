@@ -4,7 +4,7 @@
 import type { RepositorySummary } from "@armada/protocol";
 import { expect, test } from "vitest";
 
-import { manifestOfLink } from "./link";
+import { manifestOfLink, openLinked } from "./link";
 
 const repository = (id: string, directory: string): RepositorySummary => ({ root: `/work/${directory}`, records_root: `/records/${directory}`, manifest: { id, repository: directory, path: `/work/${directory}/armada.yml`, records_root: `/records/${directory}`, version: 1, checks: [] } });
 
@@ -27,4 +27,27 @@ test("a link to a repository nothing names is refused even when only one is serv
 
 test("a repository with no Manifest cannot take a review", () => {
   expect(manifestOfLink([{ root: "/work/armada", records_root: "/records/armada" }], [], LINK)).toBeUndefined();
+});
+
+const holding = (opened: { ok: true; key: string } | { ok: false; said: string }) => {
+  const asked: { manifestId: string; number: number }[] = [];
+  const store = { get: () => ({ prs: [] }), openLink: async (manifestId: string, link: { number: number }) => (asked.push({ manifestId, number: link.number }), opened) };
+  return { store, asked };
+};
+
+test("a link from outside opens the review of the pull request it names, in the repository that has it", async () => {
+  const { store, asked } = holding({ ok: true, key: "Mele-Labs/armada#7" });
+  expect(await openLinked(store, [repository("m1", "armada")], LINK)).toBeUndefined();
+  expect(asked).toEqual([{ manifestId: "m1", number: 7 }]);
+});
+
+test("a link from outside to a repository nothing names says so and asks the forge for nothing", async () => {
+  const { store, asked } = holding({ ok: true, key: "x" });
+  expect(await openLinked(store, [repository("m1", "storefront")], LINK)).toBe("Armada does not serve Mele-Labs/armada.");
+  expect(asked).toEqual([]);
+});
+
+test("a link from outside that the store would not open says why in the store's words", async () => {
+  const { store } = holding({ ok: false, said: "No such pull request" });
+  expect(await openLinked(store, [repository("m1", "armada")], LINK)).toBe("No such pull request");
 });

@@ -39,7 +39,7 @@ import { openSystemEntry, systemEntryNow } from "./system-entry";
 import { useOpenModAsked } from "./open-mod";
 import { PointMenu } from "./point-menu";
 import { useTeachBridge } from "./teach";
-import { useLandings, useSummoned, useUiSounds } from "./app-effects";
+import { useLandings, usePullLinks, useSummoned, useUiSounds } from "./app-effects";
 import { Overview } from "./Overview"; import { DoctorSurfaceNow, ManifestNow, SetupNow, StudiosSurfaceNow, WorktreesNow } from "./clocked-screens";
 import { CallAlerts } from "./cockpit/CallAlerts";
 import { DockCount } from "./cockpit/DockCount";
@@ -290,6 +290,7 @@ export function App() {
     onWriteProposal: writeManifestProposal,
   });
 
+  usePullLinks(() => (setClearing(false), goTo(SURFACE.reviews)), repositories, setTelling);
   // A notification pressed, or an alert's call: the Cockpit, the overlays down first.
   useSummoned(
     () => (setClearing(false), goTo(SURFACE.overview)),
