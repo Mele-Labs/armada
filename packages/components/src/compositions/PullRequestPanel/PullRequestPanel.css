@@ -155,6 +155,11 @@
   margin-inline-start: auto;
 }
 
+/* Copy and Open sit together at the end: only the first of the pair takes the free space. */
+.armada-pr-panel__open + .armada-pr-panel__open {
+  margin-inline-start: 0;
+}
+
 /* While the read is out: a row of stand-ins holds the height of the line it stands for, so the
    filled panel lands without the body jumping. */
 .armada-pr-panel__stand-in {
