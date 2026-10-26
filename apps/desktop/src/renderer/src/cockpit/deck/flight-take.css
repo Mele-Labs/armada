@@ -35,6 +35,8 @@
 .deck-tile[data-form="chip"] { flex: none; flex-direction: row; gap: var(--space-1); height: var(--h-control-sm); padding: 0 var(--space-2); border-radius: var(--radius-md); }
 .deck-tile[data-form="chip"] svg { width: var(--space-4); height: var(--space-4); }
 .deck-tile[data-form="chip"] .deck-tile__text { font-size: var(--text-xs); line-height: var(--leading-xs); }
+/* Auto land and Pause are chips now, so on and paused must show: lit with the accent, past the new look's one fill for every tile. */
+:root .deck-tile[data-form="chip"]:is([aria-pressed="true"], [data-on]) { border-color: var(--accent); background: var(--accent-muted); color: var(--fg-default); }
 
 /* ---- both: an off tile is a square glyph; a switch is a switch ----------------------------------------------------------------------- */
 
