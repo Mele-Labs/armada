@@ -112,7 +112,10 @@ where
         let ports = self
             .checkout_ports_declared(checkout.path(), served.manifest(), manifest)
             .await
-            .map_err(|why| Unservable::NoPorts { why: why.to_string() })?;
+            .map_err(|why| match why {
+                crate::ports::PortsRefused::PinnedTaken { .. } => Unservable::PinnedPortTaken { why: why.to_string() },
+                other => Unservable::NoPorts { why: other.to_string() },
+            })?;
         let env = match crate::ports::env_names(manifest) {
             Ok(names) => crate::ports::env_vars(&names, &ports),
             Err(_) => Vec::new(),

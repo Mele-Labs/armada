@@ -85,6 +85,12 @@ where
             .into_iter()
             .map(|one| (one.name, one.port))
             .collect();
+        // A pinned server is on a number outside the span, so it takes no part in laying the span out.
+        let leased: BTreeMap<String, u16> = live
+            .iter()
+            .filter(|(name, _)| fresh.port(name).is_none_or(|port| port.fixed().is_none()))
+            .map(|(name, port)| (name.clone(), *port))
+            .collect();
         let claim = match self.checkout_claim(path).await {
             Some(claim) => claim,
             None => {
@@ -95,18 +101,53 @@ where
                 }
             }
         };
-        let placed = spread(&held.port_names(), &wanted, &live, claim.base);
+        let placed = spread(&held.port_names(), &wanted, &leased, claim.base);
         let top = placed.values().copied().max().unwrap_or(claim.base);
         let needed = u32::from(top - claim.base) + 1;
         if needed <= u32::from(claim.width) {
-            return Ok(placed);
+            return self.pins_applied(fresh, placed, &live);
         }
         let widened = self.span_widened(claim.clone(), needed, self.servers().any_live(&holder)).await?;
         // A span that moved is one nothing was up on, so its ports are laid out again from its base.
-        Ok(match widened.base == claim.base {
+        let placed = match widened.base == claim.base {
             true => placed,
-            false => spread(&held.port_names(), &wanted, &live, widened.base),
-        })
+            false => spread(&held.port_names(), &wanted, &leased, widened.base),
+        };
+        self.pins_applied(fresh, placed, &live)
+    }
+
+    /// `placed` with every port a person pinned put at its number. **A pinned port keeps its place
+    /// in the span and is never moved**: where something else holds the number the start is
+    /// refused, naming what, since another number would be the one the program was pinned to avoid.
+    fn pins_applied(
+        &self,
+        fresh: &Manifest,
+        mut placed: BTreeMap<String, u16>,
+        live: &BTreeMap<String, u16>,
+    ) -> Result<BTreeMap<String, u16>, PortsRefused> {
+        for name in fresh.port_names() {
+            let Some(fixed) = fresh.port(&name).and_then(|port| port.fixed()) else {
+                continue;
+            };
+            // This server's own instance is the one already on it.
+            if live.get(&name) == Some(&fixed) {
+                placed.insert(name, fixed);
+                continue;
+            }
+            // **Fleet's own servers first**: one that has started has not always bound yet, so
+            // the probe alone would call its number free.
+            let holder = self
+                .servers()
+                .every()
+                .into_iter()
+                .find(|one| one.phase != ipc::ServerPhase::Exited && one.ports.iter().any(|port| port.port == fixed))
+                .map(|one| format!("`{}` on {}", one.name, one.checkout.path));
+            if holder.is_some() || !BindConnectProbe.free(fixed) {
+                return Err(PortsRefused::PinnedTaken { name, port: fixed, holder });
+            }
+            placed.insert(name, fixed);
+        }
+        Ok(placed)
     }
 
     /// `claim` made wide enough for `needed` ports. **In place where the ports after it are free**,
