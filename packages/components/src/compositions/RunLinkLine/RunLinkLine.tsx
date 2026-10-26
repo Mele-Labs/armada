@@ -73,9 +73,17 @@ export function RunLinkLine({
         <Button variant="secondary" size="sm" onClick={onFix}>
           Fix with a Job
         </Button>
-        <Button variant="secondary" size="sm" onClick={onPin}>
-          {pinned ? "Unpin the port" : "Pin the port"}
-        </Button>
+        <Tooltip
+          label={
+            pinned
+              ? `Start ${to} on a leased port again`
+              : `Always start ${to} on ${link.port} in this repository. A Job's bay can't run it at the same time`
+          }
+        >
+          <Button variant="secondary" size="sm" onClick={onPin}>
+            {pinned ? "Unpin the port" : "Pin the port"}
+          </Button>
+        </Tooltip>
       </div>
       <code className="armada-run-link__found">{link.found}</code>
     </div>
