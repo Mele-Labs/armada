@@ -1,6 +1,5 @@
 // The owner's own flight controls, drawn and pressed: each kind of action goes to the route its built-in cousin uses, a shell line goes
-// through Fleet and its answer stands where the tiles were, a shell tile is off with no bay, and a Job's tiles past twelve sit on pages of twelve, a dot for each,
-// in the tiles and in edit mode. Browser: a press and a rendering are what is read. The file comes from a fake `window.armada`.
+// through Fleet and its answer stands where the tiles were, a shell tile is off with no bay. Browser: a press and a rendering are what is read. The file comes from a fake `window.armada`.
 
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -11,7 +10,6 @@ import type { Session, SessionsDraft } from "@armada/screens/src/draft/sessions"
 
 import type { BridgeState } from "../../../../shared/bridge";
 import { NOTHING_YET } from "../../../../shared/bridge";
-import { ASK_FOR_UPDATE } from "./acts";
 import { FlightEdit } from "./FlightEdit";
 import { chordTileFor, flightTileFor, pauseForP } from "./flight-keys";
 import { SessionTiles } from "./SessionTiles";
@@ -85,39 +83,27 @@ const tile = (host: HTMLElement, name: string) => host.querySelector<HTMLElement
 const press = (host: HTMLElement, name: string) => act(async () => tile(host, name).click());
 const why = (button: HTMLElement) => document.getElementById(button.getAttribute("aria-describedby") ?? "")?.querySelector(".armada-tooltip__label")?.textContent;
 
-test("words are sent to the Job the way Ask for update's are", async () => {
+test("words are sent to the Job as a message", async () => {
   const draft = draftOf();
   const host = await mount(<SessionTiles session={jobOf()} draft={draft} repository={REPOSITORY} bays={BAYS} />);
-  await press(host, "Ask for update");
   await press(host, "Hand off");
-  expect(draft.send.mock.calls).toEqual([
-    ["s1", plain(ASK_FOR_UPDATE)],
-    ["s1", plain("Write down what is left, then stop.")],
-  ]);
+  expect(draft.send.mock.calls).toEqual([["s1", plain("Write down what is left, then stop.")]]);
 });
 
-test("a slash command is sent as a message to a hosted Job, as Compact's /compact is", async () => {
+test("a slash command is sent as a message to a hosted Job", async () => {
   const draft = draftOf();
   const host = await mount(<SessionTiles session={jobOf()} draft={draft} repository={REPOSITORY} bays={BAYS} />);
-  await press(host, "Compact job context");
   await press(host, "Review");
-  expect(draft.send.mock.calls).toEqual([
-    ["s1", plain("/compact")],
-    ["s1", plain("/review")],
-  ]);
+  expect(draft.send.mock.calls).toEqual([["s1", plain("/review")]]);
 });
 
-test("a slash command is typed in the terminal of a terminal Job, as Compact's is", async () => {
+test("a slash command is typed in the terminal of a terminal Job", async () => {
   const command = vi.fn();
   const draft = draftOf({ command });
   const session = jobOf({ terminal: true, commands: COMMANDS });
   const host = await mount(<SessionTiles session={session} draft={draft} repository={REPOSITORY} bays={BAYS} />);
-  await press(host, "Compact job context");
   await press(host, "Review");
-  expect(command.mock.calls).toEqual([
-    ["s1", "/compact"],
-    ["s1", "/review"],
-  ]);
+  expect(command.mock.calls).toEqual([["s1", "/review"]]);
   expect(draft.send).not.toHaveBeenCalled();
 });
 
@@ -176,63 +162,6 @@ test("a shell tile is off while the Job holds no bay, and a press runs nothing",
   expect(why(tile(host, "Typecheck"))).toBe("The Job holds no bay");
   await press(host, "Typecheck");
   expect(ran).not.toHaveBeenCalled();
-});
-
-const strip = (host: HTMLElement) => host.querySelector<HTMLElement>(".deck-controls__pages")!;
-const dots = (host: HTMLElement) => [...host.querySelectorAll<HTMLElement>(".deck-controls__dots > button")];
-const current = (host: HTMLElement) => dots(host).findIndex((one) => one.hasAttribute("aria-current"));
-const onPage = (host: HTMLElement, page: number) => host.querySelectorAll(`.deck-controls__tiles > [data-page="${page}"]`).length;
-/** A page takes a moment to scroll in, and the dot follows the scroll. */
-const settle = () => act(async () => void (await new Promise((done) => setTimeout(done, 900))));
-
-test("eighteen tiles sit on two pages, twelve and six, with a dot for each and the first current", async () => {
-  const host = await mount(<SessionTiles session={jobOf()} draft={draftOf()} repository={REPOSITORY} bays={BAYS} />);
-  expect(host.querySelectorAll(".deck-controls__tiles > button").length).toBe(18);
-  expect([onPage(host, 0), onPage(host, 1)]).toEqual([12, 6]);
-  expect(dots(host).map((one) => one.getAttribute("aria-label"))).toEqual(["Page 1", "Page 2"]);
-  expect(current(host)).toBe(0);
-  expect(strip(host).scrollWidth).toBeGreaterThan(strip(host).clientWidth);
-});
-
-test("twelve tiles sit on one page with no dots", async () => {
-  const hidden = ["land", "report", "map", "judge", "release", "terminal"].map((id) => ({ id, hidden: true }));
-  (window as unknown as { armada: unknown }).armada = { ...(base as object), getFlightControls: async () => ({ ok: true, value: { what: "read", controls: { ...FILE, job: [...FILE.job, ...hidden] } } }) };
-  const host = await mount(<SessionTiles session={jobOf()} draft={draftOf()} repository={REPOSITORY} bays={BAYS} />);
-  expect(host.querySelectorAll(".deck-controls__tiles > button").length).toBe(12);
-  expect(onPage(host, 0)).toBe(12);
-  expect(dots(host)).toHaveLength(0);
-  expect(strip(host).scrollWidth).toBeLessThanOrEqual(strip(host).clientWidth);
-});
-
-test("a press on a page's dot brings that page in and makes it current", async () => {
-  const host = await mount(<SessionTiles session={jobOf()} draft={draftOf()} repository={REPOSITORY} bays={BAYS} />);
-  await act(async () => dots(host)[1]!.click());
-  await settle();
-  expect(current(host)).toBe(1);
-  expect(strip(host).scrollLeft).toBeGreaterThan(0);
-  await act(async () => dots(host)[0]!.click());
-  await settle();
-  expect(current(host)).toBe(0);
-  expect(strip(host).scrollLeft).toBe(0);
-});
-
-test("a tile on the second page taking focus brings its page in", async () => {
-  const host = await mount(<SessionTiles session={jobOf()} draft={draftOf()} repository={REPOSITORY} bays={BAYS} />);
-  expect(tile(host, "Pause").dataset.page).toBe("1");
-  await act(async () => tile(host, "Pause").focus());
-  await settle();
-  expect(current(host)).toBe(1);
-  expect(strip(host).scrollLeft).toBeGreaterThan(0);
-});
-
-test("edit mode pages the same way, with + the last cell of the last page", async () => {
-  const host = await mount(<FlightEdit set="job" host={null} onClose={() => {}} />);
-  const add = host.querySelector<HTMLElement>("[data-add]")!;
-  expect([onPage(host, 0), onPage(host, 1)]).toEqual([12, 7]);
-  expect(add.dataset.page).toBe("1");
-  expect(host.querySelector(".deck-controls__tiles")!.lastElementChild).toBe(add);
-  expect(dots(host)).toHaveLength(2);
-  expect(current(host)).toBe(0);
 });
 
 // ---- A repository's own -----------------------------------------------------------------------------------------
@@ -326,13 +255,13 @@ test("a repository's tiles sit at the end of Edit, and move only among themselve
   expect(names().slice(-4)).toEqual(["Pause", "Lint", "Run specs", "Add action"]);
 });
 
-test("a repository's action is drawn in its own Job's tiles, before Pause, and in no other repository's", async () => {
+test("a repository's action is drawn in its own Job's tiles, after the built-ins, and in no other repository's", async () => {
   fleetWith({ what: "read", controls: MINE });
   const armada = vi.fn(async (root: string) => ({ ok: true, value: { repository: root, place: "this_mac", read: { what: "read", controls: root === LH.root ? { version: 1, job: [SPECS], deck: [] } : MINE } } }));
   Object.assign((window as unknown as { armada: object }).armada, { getRepositoryFlightControls: armada });
   const there = await mount(<SessionTiles session={jobOf()} draft={draftOf()} repository={LH} bays={BAYS} />);
-  const names = (host: HTMLElement) => [...host.querySelectorAll(".deck-controls__tiles > button")].map((one) => one.getAttribute("aria-label"));
-  expect(names(there).slice(-2)).toEqual(["Run specs", "Pause"]);
+  const names = (host: HTMLElement) => [...host.querySelectorAll(".deck-flight > button")].map((one) => one.getAttribute("aria-label"));
+  expect(names(there).slice(-2)).toEqual(["Requests", "Run specs"]);
   const elsewhere = await mount(<SessionTiles session={jobOf()} draft={draftOf()} repository={REPOSITORY} bays={BAYS} />);
   expect(names(elsewhere)).not.toContain("Run specs");
   expect(armada.mock.calls.map(([root]) => root)).toEqual([LH.root, REPOSITORY.root]);
@@ -361,7 +290,7 @@ test("a refused repository save says Fleet's words and keeps the edit on screen"
 test("a repository file that will not read draws your own tiles only, and Edit says why", async () => {
   fleetWith({ what: "not_read", why: "line 3: unknown key" });
   const tiles = await mount(<SessionTiles session={jobOf()} draft={draftOf()} repository={LH} bays={BAYS} />);
-  expect(tiles.querySelectorAll(".deck-controls__tiles > button").length).toBe(14);
+  expect(tiles.querySelectorAll(".deck-flight > button").length).toBe(7);
   const { host } = await editing();
   expect(host.querySelector('[role="status"]:not(.deck-sr)')?.textContent).toBe("Actions in widgets not read: line 3: unknown key");
   await userEvent.click(page.getByRole("option", { name: "Add action" }));
@@ -414,22 +343,11 @@ test("a chord given to a tile presses it from anywhere on the Cockpit while the 
 
 test("a tile's own key is Option and Shift with its number, so a bare number, which answers a question, presses nothing", async () => {
   const host = await drawn();
-  expect(tile(host, "Hand off").dataset.key).toBe("⌥⇧1");
-  expect(tile(host, "Hand off").querySelector(".deck-tile__key")?.textContent).toBe("1");
-  expect(reach(document.body, { key: "1", code: "Digit1" }, flightTileFor)).toBeNull();
-  expect(reach(document.body, { key: "¡", code: "Digit1", altKey: true, shiftKey: true })).toBe(tile(host, "Hand off"));
-});
-
-test("a chord on a tile of the second page presses it, and its page comes into view", async () => {
-  // The file lists the built-ins before Pause, so Pause stands on the second page.
-  keyed(...["ask", "land", "compact", "report", "map", "judge", "release", "artifacts", "subagents", "checks", "slot", "requests"].map((id) => ({ id })), { id: "pause", key: "⇧⌘J" });
-  const host = await drawn();
-  expect(tile(host, "Pause").dataset.page).toBe("1");
-  const found = reach(document.body, { key: "J", code: "KeyJ", shiftKey: true, metaKey: true });
-  expect(found).toBe(tile(host, "Pause"));
-  await act(async () => found!.click());
-  await settle();
-  expect(current(host)).toBe(1);
+  expect(tile(host, "Judge").dataset.key).toBe("⌥⇧6");
+  expect(tile(host, "Judge").querySelector(".deck-tile__key")?.textContent).toBe("6");
+  expect(tile(host, "Hand off").dataset.key).toBeUndefined();
+  expect(reach(document.body, { key: "6", code: "Digit6" }, flightTileFor)).toBeNull();
+  expect(reach(document.body, { key: "‡", code: "Digit6", altKey: true, shiftKey: true })).toBe(tile(host, "Judge"));
 });
 
 test("⌥ and ⇧ chords do not fire in a text box, and ⌘ and ⌃ chords do", async () => {

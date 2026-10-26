@@ -21,9 +21,10 @@ const KEY_ORDER: readonly string[] = [...VIEW_LAYERS, "land", "judge", "report",
 
 /**
  * The key of a built-in tile or view. **It belongs to the place and not to whether the tile is on**, so one going off or on moves no other's.
- * Pause keeps its own, and a tile of the owner's has none.
+ * A key the person set on a tile is theirs wherever it stands. Pause keeps its own otherwise, and a custom tile with none has none.
  */
 export function flightKey(tile: Tile): string | undefined {
+  if (tile.entry?.key !== undefined && !tile.hidden) return tile.key;
   if (tile.builtIn === undefined) return undefined;
   if (tile.id === "pause") return tile.key;
   const at = KEY_ORDER.indexOf(tile.id);
