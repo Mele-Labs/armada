@@ -4,45 +4,25 @@
 // Deferred stand inside, whatever the kind. **The issues a plan group works stand in the Blueprint, the pull requests in the Merge line**, and the issues the Job filed for later stand in Deferred, not on this band.
 // The stage opens it (`story.ts`); the band or ⌥L does too. `work.landing` names the kind in the mock until Fleet says it.
 
-import { useMemo, useState } from "react";
-import { PullRequestActs, PullRequestChip, Tooltip, type LedgerEntry } from "@armada/components";
-import { attachmentsOf, type PullRequestAct, type Session } from "@armada/screens/src/draft/sessions";
+import { useMemo } from "react";
+import { Tooltip, type LedgerEntry } from "@armada/components";
+import { attachmentsOf, type Session } from "@armada/screens/src/draft/sessions";
 
 import { remindLater } from "../cockpit/deck/acts";
-import { usePullRequestMenu } from "../pull-request-menu";
 import { useArtifact } from "../session-artifact";
-import { checksSaid } from "../session-cards";
 import { useSessionsDraft } from "../sessions-draft";
 import { artifactsOf, type ArtifactRow } from "./artifacts";
 import { documentOf } from "./document-state";
 import { readPage } from "./document-page";
 import { showLayer } from "./layers";
-import { checksOf, issuesOutsidePlan, openPrPanel, type PullRequest } from "./IssuesBlock";
+import { issuesOutsidePlan } from "./IssuesBlock";
 import { LaterBlock } from "./LaterBlock";
+import { PullRow } from "./LedgerRow";
 import { ModsMade } from "./ModsPanel";
 import { SvPanel, type PanelState, type Place } from "./SvPanel";
 import { WatchingBlock } from "./WatchingBlock";
 import { bandKeyFor, landingOf, useFold } from "./story";
 import "./story.css";
-
-/** One pull request: its row with the Checks mark, and under it the act that moves it on, which reads "In merge queue" once the forge has it. */
-function Pull({ session, pr }: { session: Session; pr: PullRequest }) {
-  const draft = useSessionsDraft();
-  const [pending, setPending] = useState<PullRequestAct | undefined>(undefined);
-  const { on, menu } = usePullRequestMenu(session.manifestId, pr.number, pr.title);
-  const press = (act: PullRequestAct) => {
-    if (draft === undefined) return;
-    setPending(act);
-    void draft.act(session.id, pr.number, act).finally(() => setPending(undefined));
-  };
-  return (
-    <li className="sv-landing__pr">
-      <PullRequestChip framed number={pr.number} title={pr.title} state={pr.state} checks={{ state: checksOf(pr), said: checksSaid(pr.checks) }} onOpen={() => openPrPanel(pr)} {...on} />
-      {menu}
-      <PullRequestActs state={pr.state} checks={pr.checks.state} auto={pr.auto} queued={pr.queued === true} {...(pending === undefined ? {} : { pending })} onAct={press} />
-    </li>
-  );
-}
 
 /** The docs the Job made, a spike's findings or a document: a row each, which opens the doc as the Artifacts list does. */
 function Docs({ rows, said }: { rows: readonly ArtifactRow[]; said: string }) {
@@ -117,7 +97,7 @@ export function LandingPanel({ session, entries, place, id }: { session: Session
       {kind === "pull_request" && prs.length > 0 ? (
         <ul className="sv-landing__prs" aria-label="Pull requests">
           {[...prs].reverse().map((pr) => (
-            <Pull key={pr.number} session={session} pr={pr} />
+            <PullRow key={pr.number} session={session} pr={pr} />
           ))}
         </ul>
       ) : null}

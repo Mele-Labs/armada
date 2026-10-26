@@ -4,9 +4,9 @@
 // hold (`artifacts.ts`, `slot-trouble.ts`) and reads nothing of its own, but the Artifacts graph's history, read while the graph is open.
 
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
-import { ArrowDown, Check, CircleDot, CircleX, LoaderCircle, Megaphone, Power, ShieldCheck, ShieldEllipsis, ShieldX, Terminal, X, type LucideIcon } from "lucide-react";
-import { ArtifactGraph, Button, ClashPaths, Input, PullRequestChecksMark, PullRequestStateMark, Table, Tabs, TableBody, TableCell, TableHead, TableHeaderCell, TableRow, Tooltip, timeSaid, useTimeFormat, type ClashView, useOpenClash, type LedgerEntry, type SessionLedgerTone } from "@armada/components";
-import type { Session, SessionRow } from "@armada/screens/src/draft/sessions";
+import { ArrowDown, Check, CircleDot, CircleX, GitMerge, GitPullRequest, List, LoaderCircle, Megaphone, Power, ShieldCheck, ShieldEllipsis, ShieldX, Terminal, Waypoints, X, type LucideIcon } from "lucide-react";
+import { ArtifactGraph, Button, ClashPaths, Input, PullRequestChecksMark, Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow, Tooltip, timeSaid, useTimeFormat, type ClashView, useOpenClash, type LedgerEntry, type SessionLedgerTone } from "@armada/components";
+import { attachmentsOf, type Session, type SessionRow } from "@armada/screens/src/draft/sessions";
 import { popupIsOpen } from "@armada/screens/src/list-keyboard";
 
 import { useSessions, useSessionsDraft } from "../sessions-draft";
@@ -16,6 +16,7 @@ import { Berth } from "../cockpit/deck/BayRows";
 import { artifactsOf, matching, type ArtifactRow } from "./artifacts";
 import { graphOf } from "./artifact-graph";
 import { closeLayer, type LayerId } from "./layers";
+import { Fact, Glyphed, LedgerRow, PullRow } from "./LedgerRow";
 import { openSlotKeyInPanel } from "../shared-panel/store";
 import { openClashFile } from "./ClashFileSheet";
 import type { HeldBay, SessionBays } from "./slot-trouble";
@@ -89,48 +90,42 @@ function Shell({ label, tools, keys, owns, children }: { label: string; tools?: 
   );
 }
 
-/** One row: its glyph, its words, its state. A row with somewhere to go is a button; one without is read. */
+const TONE_WORD: Partial<Record<SessionLedgerTone, string>> = { passed: "Passed", failed: "Failed", running: "Running", done: "Done", pending: "Waiting", escalated: "Waiting", piloted: "Piloted", stopped: "Stopped" };
+
+/** One row, as every list of the Job draws it (`LedgerRow.tsx`): its kind's glyph and title, then the address or path, the kind and its states. A row with somewhere to go is a button; one without is read. */
 function Row({ row }: { row: ArtifactRow }) {
   const { Glyph } = row;
-  const inside = (
-    <>
-      <Tooltip label={row.said}>
-        <span className="sv-layer__kind" role="img" aria-label={row.said}>
-          <Glyph size={16} strokeWidth={2} aria-hidden />
-        </span>
-      </Tooltip>
-      <span className="sv-layer__title-line">{row.title}</span>
-      {row.sub === undefined ? null : <code className="sv-layer__sub">{row.sub}</code>}
-      <span className="sv-layer__state">
-        {row.pr === undefined ? null : (
-          <>
-            <PullRequestStateMark merged={row.pr.merged} />
-            <PullRequestChecksMark checks={row.pr.checks} said={row.pr.checksSaid} />
-          </>
-        )}
-        {row.mark === undefined ? null : <Mark tone={row.mark.glyph} said={row.mark.said} />}
-      </span>
-    </>
-  );
+  const Tone = row.mark === undefined ? undefined : TONE[row.mark.glyph];
   return (
-    <li className="sv-layer__item">
-      {row.open === undefined ? (
-        <div className="sv-layer__row" data-plain="">
-          {inside}
-        </div>
-      ) : (
-        <button type="button" className="sv-layer__row" data-layer-row="" aria-label={row.title} onClick={row.open}>
-          {inside}
-        </button>
-      )}
-    </li>
+    <LedgerRow
+      lead={<Glyphed Glyph={Glyph} said={row.said} />}
+      title={row.title}
+      label={row.title}
+      onOpen={row.open}
+      meta={
+        <>
+          {row.sub === undefined ? null : <code className="sv-ledger__sub">{row.sub}</code>}
+          <span className="sv-ledger__word">{row.said}</span>
+          {row.pr === undefined ? null : (
+            <>
+              <Fact Glyph={row.pr.merged ? GitMerge : GitPullRequest} said={row.pr.merged ? "Merged" : "Open"} word={row.pr.merged ? "Merged" : "Open"} {...(row.pr.merged ? { state: "merged" } : {})} />
+              <span className="sv-ledger__fact">
+                <PullRequestChecksMark checks={row.pr.checks} said={row.pr.checksSaid} />
+                {CHECK_SAID[row.pr.checks]}
+              </span>
+            </>
+          )}
+          {row.mark === undefined || Tone === undefined ? null : <Fact Glyph={Tone} said={row.mark.said} word={TONE_WORD[row.mark.glyph] ?? row.mark.said} />}
+        </>
+      }
+    />
   );
 }
 
 /** The Commands group lists this many before "View all". */
 const COMMANDS_SHOWN = 10;
 
-function Group({ group }: { group: { id: string; label: string; rows: readonly ArtifactRow[] } }) {
+function Group({ group, session }: { group: { id: string; label: string; rows: readonly ArtifactRow[] }; session: Session }) {
   const [all, setAll] = useState(false);
   const capped = group.id === "command" && group.rows.length > COMMANDS_SHOWN;
   const rows = capped && !all ? group.rows.slice(0, COMMANDS_SHOWN) : group.rows;
@@ -138,9 +133,10 @@ function Group({ group }: { group: { id: string; label: string; rows: readonly A
     <section className="sv-layer__group" aria-label={group.label}>
       <h4 className="sv-layer__group-label">{group.label}</h4>
       <ul className="sv-layer__rows">
-        {rows.map((row) => (
-          <Row key={row.key} row={row} />
-        ))}
+        {rows.map((row) => {
+          const pr = row.prNumber === undefined ? undefined : attachmentsOf(session, "pull_request").find((one) => one.number === row.prNumber);
+          return pr === undefined ? <Row key={row.key} row={row} /> : <PullRow key={row.key} session={session} pr={pr} />;
+        })}
       </ul>
       {capped ? (
         <Button variant="ghost" size="sm" aria-expanded={all} onClick={() => setAll(!all)}>
@@ -151,11 +147,11 @@ function Group({ group }: { group: { id: string; label: string; rows: readonly A
   );
 }
 
-function Groups({ groups }: { groups: readonly { id: string; label: string; rows: readonly ArtifactRow[] }[] }) {
+function Groups({ groups, session }: { groups: readonly { id: string; label: string; rows: readonly ArtifactRow[] }[]; session: Session }) {
   return (
     <>
       {groups.map((group) => (
-        <Group key={group.id} group={group} />
+        <Group key={group.id} group={group} session={session} />
       ))}
     </>
   );
@@ -183,9 +179,9 @@ function useVersions(session: Session, open: boolean): Session["versions"] {
   return versions;
 }
 
-const VIEWS = [
-  { id: "list", label: "List" },
-  { id: "graph", label: "Graph" },
+const VIEWS: { id: "list" | "graph"; label: string; Glyph: LucideIcon }[] = [
+  { id: "list", label: "List", Glyph: List },
+  { id: "graph", label: "Graph", Glyph: Waypoints },
 ];
 
 /** Everything the Session made or used, as groups or as a graph of how it grew; the field at the top narrows both as it is typed in, and V switches them. */
@@ -218,13 +214,19 @@ export function ArtifactsLayer({ session, entries, onOpenSession, onOpenSketch }
           <div className="sv-layer__search">
             <Input type="search" aria-label="Search artifacts" placeholder="Search" data-layer-field="" value={words} onChange={(event) => setWords(event.target.value)} autoComplete="off" spellCheck={false} />
           </div>
-          <Tooltip label="Switch view" shortcut="V">
-            <Tabs items={VIEWS} value={view} onChange={(id) => setView(id === "graph" ? "graph" : "list")} />
-          </Tooltip>
+          <div className="sv-layer__views" role="group" aria-label="View">
+            {VIEWS.map(({ id, label, Glyph }) => (
+              <Tooltip key={id} label={label} shortcut="V">
+                <Button variant="ghost" size="sm" iconOnly aria-label={label} aria-pressed={view === id} onClick={() => setView(id)}>
+                  <Glyph size={16} aria-hidden="true" />
+                </Button>
+              </Tooltip>
+            ))}
+          </div>
         </>
       }
     >
-      {view === "list" ? <Groups groups={shown} /> : graph.nodes.length === 0 ? null : <ArtifactGraph nodes={graph.nodes} edges={graph.edges} label="Artifact graph" />}
+      {view === "list" ? <Groups groups={shown} session={session} /> : graph.nodes.length === 0 ? null : <ArtifactGraph nodes={graph.nodes} edges={graph.edges} label="Artifact graph" />}
     </Shell>
   );
 }

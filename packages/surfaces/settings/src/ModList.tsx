@@ -6,7 +6,7 @@
 // the same acts.
 
 import { useLayoutEffect, useRef, useState, type ReactElement } from "react";
-import { Card, CardContent, CardHeader, CardTitle, KIT_KIND_LABEL, ModRow, ModRules, SyncAct, SyncMarks, SyncSheet, useSharedHome } from "@armada/components";
+import { Button, Card, CardContent, CardHeader, CardTitle, KIT_KIND_LABEL, ModRow, ModRules, SyncAct, SyncMarks, SyncSheet, useSharedHome } from "@armada/components";
 import type { ModKind, ModTracker, SharedRow } from "@armada/components";
 import { useLayouts } from "@armada/shell";
 
@@ -45,7 +45,11 @@ const standingOf = (mod: { enabled: boolean; problem?: string }): "used" | "refu
 
 type Listed = { key: string; kind: ModKind; name: string; enabled: boolean; row: ReactElement };
 
-export function ModList({ kind, title, onOpenPull, onOpenJob }: { kind: ModListKind; title?: string; onOpenPull?: (address: string) => void; onOpenJob?: (id: string) => void }) {
+/** The mod a press on a row names: its folder, its title as the row draws it, and its kind. */
+export type ModOpened = { name: string; title: string; kind: ModKind };
+
+/** `onCreate` draws Create mod in the header, which starts a Mod Job from a description. `onOpenMod` opens a mod from a press on its row, anywhere but its switch. */
+export function ModList({ kind, title, onOpenPull, onOpenJob, onCreate, onOpenMod }: { kind: ModListKind; title?: string; onOpenPull?: (address: string) => void; onOpenJob?: (id: string) => void; onCreate?: () => void; onOpenMod?: (mod: ModOpened) => void }) {
   const themes = useThemes();
   const layouts = useLayouts();
   const taught = useTaught();
@@ -58,6 +62,11 @@ export function ModList({ kind, title, onOpenPull, onOpenJob }: { kind: ModListK
     title === undefined ? null : (
       <CardHeader>
         <CardTitle>{title}</CardTitle>
+        {onCreate === undefined ? null : (
+          <Button variant="secondary" size="sm" ground="card" onClick={onCreate}>
+            Create mod
+          </Button>
+        )}
       </CardHeader>
     );
   const themeMods = themes.mods as readonly Mod[];
@@ -94,6 +103,7 @@ export function ModList({ kind, title, onOpenPull, onOpenJob }: { kind: ModListK
             source.setEnabled(mod.name, on);
           }}
           detail={mod.branch === undefined ? line : `${line} (${mod.branch})`}
+          {...(onOpenMod === undefined ? {} : { onOpen: () => onOpenMod({ name: mod.name, title: mod.name, kind: ROW_KIND[mod.kind] }) })}
           promoteDisabled={mod.branch !== undefined}
           onPromote={() => source.promote(mod.name)}
           {...(lined ? { withTracker: true, standing: mod.tracker === undefined ? standingOf(mod) : trackerStanding(mod, mod.tracker) } : {})}
@@ -131,6 +141,7 @@ export function ModList({ kind, title, onOpenPull, onOpenJob }: { kind: ModListK
             enable(mod.name, on);
           }}
           {...(line === undefined ? {} : { detail: line })}
+          {...(onOpenMod === undefined ? {} : { onOpen: () => onOpenMod({ name: mod.name, title: mod.title, kind: as }) })}
           builtIn={mod.builtIn === true}
           {...sync(mod.builtIn === true ? undefined : homeRows.find((row) => row.name === mod.name))}
           {...(mod.pull === undefined || onOpenPull === undefined ? {} : { pull: { number: mod.pull.number, title: mod.pull.title, onOpen: () => onOpenPull(mod.pull!.address) } })}
@@ -174,7 +185,8 @@ export function ModList({ kind, title, onOpenPull, onOpenJob }: { kind: ModListK
     document.querySelector<HTMLInputElement>(`[role="group"][aria-label="${CSS.escape(name)}"] input[role="switch"]`)?.focus();
   });
 
-  if (rows.length === 0 && homeOnly.length === 0) return null;
+  // With Create mod to draw, a machine with no mods yet still shows the page it is made from.
+  if (rows.length === 0 && homeOnly.length === 0 && onCreate === undefined) return null;
   return (
     <Card>
       {header}

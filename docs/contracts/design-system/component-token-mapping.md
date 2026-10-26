@@ -242,9 +242,15 @@ invalid     --status-completed-failed border, message below in --text-xs
 height      36px · 8px horizontal padding · --radius-md · --text-sm
 ```
 
-Select, checkbox, radio, and switch inherit the same border, focus, and
-height rules. Switch uses `--accent` when on, `--border-strong` when
-off.
+Select, checkbox, and radio inherit the same border, focus, and height rules.
+
+A switch is a recessed pill with a raised knob, and the state is written in the half of the track the knob leaves.
+On lights the track in `--accent` with ON on it; off is the sunken ground with OFF.
+A switch whose two states have names of their own passes `words`, such as 24H and 12H, and the track widens to the longer word.
+A switch in a band or a bar is `size="sm"`, one badge tall (`--h-badge`); a row's is the default, a badge and `--space-2` tall.
+Depth is the track's inset shadow and the knob's rim and drop, with no gradient, glow or sheen.
+
+In a list row whose text opens something, the switch is the bare `SwitchControl`, named by its `label`, and only the control toggles.
 
 ## Dropdown menu
 

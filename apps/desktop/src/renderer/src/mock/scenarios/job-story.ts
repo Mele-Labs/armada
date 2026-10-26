@@ -3,7 +3,7 @@
 // each time the walk lets time pass the build comes closer to its landing: for the pull request, Checks passed, the queue, an issue filed, a watch
 // and a follow-up; for the spike, the findings doc; for the report, the report, a page of the Job's own with a sketch in it, and a second
 // revision once notes on it are sent. A fourth Job holds another pull request so the Merge line has width.
-// The repository serves a merge line. Groups g1 and g2 work issues 2361 and 2367; the issues no group works (2374, and 2402 once filed) stand in Deferred. Mock only: the stage is read in Bridge from the Job's data
+// The repository serves a merge line. Groups g1 and g2 work issues LEASE-20481 (a key from another tracker, longer than a forge number) and 2367; the issues no group works (2374, and 2402 once filed) stand in Deferred. Mock only: the stage is read in Bridge from the Job's data
 // (`session-view/story.ts`), and `work.landing` names the kind. The walks `jobStory`, `jobStorySpike`, `jobStoryReport` and `jobDocument` play it.
 
 import type { MergeLine, WatchSummary } from "@armada/protocol";
@@ -53,7 +53,7 @@ const task = (id: string, text: string, state: WorkTaskState) => ({ id, text, st
 function prGroups(stage: number): WorkGroup[] {
   const at = (open: WorkTaskState, working: WorkTaskState, built: WorkTaskState) => (stage === 0 ? open : stage === 1 ? working : built);
   return [
-    { id: "g1", agent: "rust-engineer", title: "Retry the lease when the pool is contended", paths: ["crates/fleet"], issue: "2361", tasks: [task("T1", "Retry the lease when the pool is contended", at("open", "done", "done")), task("T2", "Back off between attempts", at("open", "working", "done"))] },
+    { id: "g1", agent: "rust-engineer", title: "Retry the lease when the pool is contended", paths: ["crates/fleet"], issue: "LEASE-20481", tasks: [task("T1", "Retry the lease when the pool is contended", at("open", "done", "done")), task("T2", "Back off between attempts", at("open", "working", "done"))] },
     { id: "g2", agent: "bridge-engineer", title: "Show the attempt on the bay tile", paths: ["apps/desktop"], issue: "2367", tasks: [task("T3", "Show the attempt on the bay tile", at("open", "working", "done")), task("T4", "Name the attempt in the tooltip", at("open", "open", "done"))] },
   ];
 }
@@ -81,7 +81,7 @@ const WATCH: WatchSummary = {
 /** The issues the Job was started on, more than a band could hold. */
 const issue = (number: string, title: string, state: "open" | "closed"): SessionAttachment => ({ kind: "issue", number, title, address: `https://forge.invalid/issues/${number}`, state });
 const ISSUES: SessionAttachment[] = [
-  issue("2361", "Two Jobs can lease one bay at once", "open"),
+  { ...issue("LEASE-20481", "Two Jobs can lease one bay at once when the pool is contended", "open"), pull_requests: [2390] } as SessionAttachment,
   issue("2367", "The bay tile does not show a retry", "open"),
   issue("2374", "The lease gives up without saying why", "closed"),
 ];
@@ -97,7 +97,7 @@ function prAt(stage: number): Partial<Session> {
     summary: "The lease retries with a back off when two Jobs ask for one bay, and the bay tile shows which attempt it is on.",
     groups: prGroups(stage),
   };
-  const pr = (extra: Pick<Extract<SessionAttachment, { kind: "pull_request" }>, "checks" | "state" | "auto"> & { queued?: true }): SessionAttachment => ({ kind: "pull_request", number: 2390, title: "Retry the slot lease", branch: BRANCH, address: "https://git.example/armada/pull/2390", closes: [2361, 2367], ...extra });
+  const pr = (extra: Pick<Extract<SessionAttachment, { kind: "pull_request" }>, "checks" | "state" | "auto"> & { queued?: true; number?: number; title?: string; closes?: number[] }): SessionAttachment => ({ kind: "pull_request", number: 2390, title: "Retry the slot lease", branch: BRANCH, address: `https://git.example/armada/pull/${extra.number ?? 2390}`, closes: [2367], ...extra });
   return {
     turn: { state: stage === 1 ? "working" : "idle" },
     standing: stage === 1 ? "working" : "idle",
@@ -108,6 +108,7 @@ function prAt(stage: number): Partial<Session> {
       ...(stage === 2
         ? [
             pr({ checks: { state: "passed" }, state: "open", auto: true, queued: true }),
+            pr({ number: 2391, title: "Name the attempt in the bay tooltip", closes: [], checks: { state: "pending" }, state: "open", auto: false }),
             { kind: "issue" as const, number: "2402", title: "A slow attempt can outlive the lease", address: "https://forge.invalid/issues/2402", state: "open" as const },
           ]
         : []),

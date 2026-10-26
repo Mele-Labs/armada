@@ -48,12 +48,12 @@ async function mount(id: string): Promise<HTMLElement> {
   return host;
 }
 
-const switches = (host: HTMLElement) => [...host.querySelectorAll<HTMLInputElement>('[role="switch"]')].map((one) => one.labels?.[0]?.textContent ?? "");
+const switches = (host: HTMLElement) => [...host.querySelectorAll<HTMLInputElement>('[role="switch"]')].map((one) => one.getAttribute("aria-label") ?? "");
 
 test("lists the mods whose made_by is this Job and no others", async () => {
   fleet([row("dusk", { made_by: "job-1" }), row("by-another", { made_by: "job-2" }), row("by-hand"), row("built-in:calm", { origin: "built_in" })]);
   const host = await mount("job-1");
-  expect(switches(host)).toEqual(["dusk"]);
+  expect(switches(host)).toEqual(["Dusk"]);
 });
 
 test("a mod Fleet lists later joins the panel", async () => {
@@ -61,7 +61,7 @@ test("a mod Fleet lists later joins the panel", async () => {
   const host = await mount("job-1");
   expect(switches(host)).toEqual([]);
   await act(async () => fake.listed([row("dusk", { made_by: "job-1" })]));
-  expect(switches(host)).toEqual(["dusk"]);
+  expect(switches(host)).toEqual(["Dusk"]);
 });
 
 test("its switch asks Fleet to turn the mod off, as the Mods page does", async () => {
