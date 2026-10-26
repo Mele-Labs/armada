@@ -29,7 +29,8 @@ searches for the same names.
 
 **A banner goes out only while Bridge is not in front**, and only while
 `features.notifications` is on. In front, the job's row already pulses. The
-dock count shows how many jobs wait on him either way.
+dock count shows the Cockpit's calls he has not opened either way, one a job,
+so the number is always one he can find in Bridge.
 
 **One notification, one tone.** Items that arrive within two seconds of each
 other go out as one banner, and a batch that holds a blocked item plays
