@@ -14,15 +14,19 @@ import { childrenOf, linkedPropsOf } from "./linked";
 import { rename, type ViewGroup } from "./plan-marks";
 import { wasOpen } from "./place";
 
-/** The issue a group names, glyph and number or key, a press target of its own beside the group's toggle. Its title and state are the tooltip's. */
+/**
+ * The issue a group names, on a meta line of its own under the title: the ticket glyph, the key and the issue's title, muted and cut with an ellipsis, all one
+ * press that opens the issue. A tracker's key can be long, so it never shares the title's line.
+ */
 export function GroupIssue({ issue, manifestId }: { issue: Issue; manifestId: string | undefined }) {
   return (
     <Tooltip asChild label={issue.state === "closed" ? `${issue.title}, closed` : issue.title}>
-      <button type="button" className="sv-group__issue" data-state={issue.state} aria-label={`Issue ${issueLabel(issue.number)} ${issue.title}`} onClick={() => openIssuePanel(issue, manifestId)}>
-        <span className="sv-group__issue-mark" aria-hidden="true">
+      <button type="button" className="sv-issue" data-state={issue.state} aria-label={`Issue ${issueLabel(issue.number)} ${issue.title}`} onClick={() => openIssuePanel(issue, manifestId)}>
+        <span className="sv-issue__mark" aria-hidden="true">
           <Ticket size={12} strokeWidth={2} aria-hidden />
         </span>
-        <code>{issueLabel(issue.number)}</code>
+        <code className="sv-issue__key">{issueLabel(issue.number)}</code>
+        <span className="sv-issue__title">{issue.title}</span>
       </button>
     </Tooltip>
   );
@@ -55,11 +59,11 @@ export function StepMark({ step }: { step: Step }) {
 export const hereOf = (group: ViewGroup): string | undefined => group.tasks.find((task) => task.state === "working")?.id;
 
 /** One task's line: its state glyph and the plan's words, with what the turn is doing under it where it is the one being worked. */
-export function TaskLine({ task, here, now, issue }: { task: ViewGroup["tasks"][number]; here: boolean; now: string | undefined; /** The chip of the issue its group works, at the line's end. */ issue?: ReactNode }) {
+export function TaskLine({ task, here, now, issue }: { task: ViewGroup["tasks"][number]; here: boolean; now: string | undefined; /** The issue its group works, on a line of its own under the live line. */ issue?: ReactNode }) {
   return (
-    <li className="sv-group__task" data-state={task.state} data-here={here || undefined} data-issue={issue === undefined ? undefined : ""}>
+    <li className="sv-group__task" data-state={task.state} data-here={here || undefined}>
       {here ? (
-        <Tooltip label="Working on this now">
+        <Tooltip asChild label="Working on this now">
           <span className="armada-session-mark armada-task-mark" data-state="working" data-pulsing role="img" aria-label="Working on this now">
             <TASK_GLYPH.working size={12} strokeWidth={2} aria-hidden />
           </span>
@@ -68,8 +72,8 @@ export function TaskLine({ task, here, now, issue }: { task: ViewGroup["tasks"][
         <TaskMark state={task.state} />
       )}
       <span className="sv-group__task-text">{task.text}</span>
-      {issue}
       {here && now !== undefined ? <span className="sv-group__task-now">{now}</span> : null}
+      {issue}
     </li>
   );
 }
@@ -87,7 +91,7 @@ function Tasks({ group, now }: { group: ViewGroup; now: string | undefined }) {
 }
 
 /**
- * A group is a row that opens: closed it is its title over a line for each task; open it shows the type of subagent, its own paths and its tasks in full.
+ * A group is a row that opens: closed it is its title, the issue it works on a line of its own, and a line for each task; open it shows the type of subagent, its own paths and its tasks in full.
  * A group of a plan being drafted (`opened`) keeps its tasks up to edit; a press on its row, or its pencil, brings the subagent type and the paths in.
  * **A group handed to a Session carries that Session's row** under its own; one not handed
  * offers the hand off in its open body.
@@ -113,8 +117,7 @@ export function Group({ group, now, step, opened = false, ed, parent, manifestId
     </Tooltip>
   ) : null;
   return (
-    <section className="sv-group" data-group={group.id} data-step={step} data-state={failed ? "failed" : complete ? "done" : live ? "live" : undefined} data-open={open || undefined} data-issue={named === undefined ? undefined : ""} aria-label={group.title}>
-      {named === undefined ? null : <GroupIssue issue={named.issue} manifestId={manifestId} />}
+    <section className="sv-group" data-group={group.id} data-step={step} data-state={failed ? "failed" : complete ? "done" : live ? "live" : undefined} data-open={open || undefined} aria-label={group.title}>
       {opened ? (
         // A drafted group's title is the editable one, so the row holds two presses: the title to rename it and the chevron to open its subagent type and paths.
         <div className="sv-group__row" data-editable="">
@@ -134,6 +137,11 @@ export function Group({ group, now, step, opened = false, ed, parent, manifestId
             <ChevronDown className="sv-group__chevron" size={12} strokeWidth={2} aria-hidden />
           </span>
         </button>
+      )}
+      {named === undefined ? null : (
+        <div className="sv-group__meta">
+          <GroupIssue issue={named.issue} manifestId={manifestId} />
+        </div>
       )}
       {open || opened ? null : <Tasks group={group} now={now} />}
       {child === undefined ? null : (

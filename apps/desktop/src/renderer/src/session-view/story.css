@@ -39,9 +39,8 @@
 .sv-group__task[data-state="working"] { color: var(--fg-default); }
 /* The task the turn is on: raised, with what it is doing on a line of its own under the text. */
 .sv-group__task[data-here] { background: var(--bg-hover); color: var(--fg-default); font-weight: var(--weight-medium); }
-.sv-group__task[data-issue] { grid-template-columns: var(--space-4) minmax(0, 1fr) auto; }
-.sv-group__task > .sv-group__issue { grid-column: 3; grid-row: 1; margin: 0; line-height: var(--leading-xs); }
-.sv-group__task-now { grid-column: 2 / -1; color: var(--fg-muted); font-size: var(--text-2xs); line-height: var(--leading-2xs); font-weight: var(--weight-body); }
+.sv-group__task > .sv-issue { grid-column: 2; margin-top: var(--space-1); }
+.sv-group__task-now { grid-column: 2; color: var(--fg-muted); font-size: var(--text-2xs); line-height: var(--leading-2xs); font-weight: var(--weight-body); }
 
 /* ---- Field: the page the turn is building, over the map -------------------------------------------------------------- */
 
@@ -49,10 +48,8 @@
 
 /* ---- Landing: the pull request, the doc, the mods ------------------------------------------------------------ */
 
-.sv-landing__prs, .sv-landing__docs { display: flex; flex-direction: column; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
-.sv-landing__pr { display: grid; grid-template-columns: minmax(0, 1fr) var(--space-6) var(--space-8); align-items: center; gap: var(--space-2); }
-.sv-landing__pr-col { display: inline-flex; align-items: center; justify-content: center; }
-.sv-landing__pr-state { display: inline-flex; align-items: center; color: var(--fg-muted); }
+.sv-landing__prs { margin: 0; padding: 0; list-style: none; }
+.sv-landing__docs { display: flex; flex-direction: column; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
 .sv-landing__doc { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: var(--space-2); width: 100%; padding: var(--space-1) var(--space-2); border: 0; border-radius: var(--radius-md); background: none; color: var(--fg-muted); font-family: var(--font-sans); font-size: var(--text-xs); line-height: var(--leading-xs); text-align: start; cursor: pointer; }
 .sv-landing__doc:not(:disabled):hover { background: var(--bg-hover); color: var(--fg-default); }
 .sv-landing__doc:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--border-width) * -1); }

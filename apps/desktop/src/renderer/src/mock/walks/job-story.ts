@@ -1,6 +1,6 @@
 // A Job's right column tells its story top to bottom: the Workflow, the Blueprint (the plan), the Field and the Landing. The panel the stage is at
 // is open and the other two stand folded to their bands. Blueprint while the plan is drafted, Field while drones work, Landing at the end. The Job's
-// issues are the Blueprint's: a group that works one carries its chip, and the task being worked in the Now view carries its group's. The issues the Job filed
+// issues are the Blueprint's: a group that works one carries it on a meta line under its title, and the task being worked in the Now view carries its group's under its live line. The issues the Job filed
 // for later stand in Deferred. Approved, the Blueprint reads as Now (the task finished last, the ones being worked with the turn's
 // live line, the next one), a button opens the whole plan, and a press on a group opens its subagent type and paths as one row of meta. One open panel fills the column.
 // The composer's Artifacts button opens the list over the right column and Esc gives the story back. Over `job-story`. `job-story-spike` lands the
@@ -17,23 +17,25 @@ const mergeLine = region("Merge queue", { exact: true });
 const story = walk("job-story", [
   { press: deckRow("Retry the slot lease"), say: "A Job whose plan has just been recorded" },
   { look: blueprint, say: "The plan is open: its summary and each group as a title over its tasks, with Approve at the foot" },
-  { look: inside(blueprint, button(/^Issue .*2361/)), say: "A group that works an issue carries its chip in the header, with the title in the tooltip" },
+  { look: inside(blueprint, button(/^Issue LEASE-20481/)), say: "A group that works an issue carries it on a line under its title: ticket glyph, key and the issue's title, one press" },
   { press: inside(blueprint, button(/^Edit group Show the attempt/)), say: "The pencil opens a group" },
   { look: inside(blueprint, role("combobox", /^Subagent type of Show the attempt/)), say: "The subagent type and the paths are one row of small meta under the header, which holds the only title. The tasks are set as the Now view's" },
   { look: landing, say: "Field and Landing stand folded to bands as short as the Workflow's" },
   { press: inside(blueprint, button("Approve")), say: "Approve" },
-  { look: inside(blueprint, text("Backing off between attempts")), say: "The Blueprint reads as Now: the task finished last, the task being worked with its live line and its group's issue chip, the next one waiting" },
+  { look: inside(blueprint, text("Backing off between attempts")), say: "The Blueprint reads as Now: the task finished last, the task being worked with its live line, the next one waiting. The glyphs sit on the first line of their text" },
+  { look: inside(blueprint, button(/^Issue LEASE-20481/)), say: "A long key from another tracker fits under the task, after its live line, with the issue's title cut by an ellipsis" },
   { press: inside(blueprint, button("Whole blueprint")), say: "One press opens the whole blueprint, with a glyph for the state of every task. The same press, or ⌥N, folds it back to Now" },
   { press: inside(blueprint, button("Retry the lease when the pool is contended", { exact: true })), say: "A press on a group shows its subagent type and paths as one row" },
   { look: field, say: "The Field opens while the drones work" },
   { later: landing, say: "The build finishes and the pull request goes to the queue" },
   { look: landing, say: "Landing is the one open panel and fills the column to the bottom" },
-  { look: inside(landing, role("list", "Pull requests")), say: "Two pull requests, each with its Checks mark in its own row. The state and the act stand in columns at the right of the row they belong to" },
-  { look: inside(landing, role("img", "In the merge queue, merges when its turn comes")), say: "The first is in the merge queue, a clock with a tooltip, and has no act. The second is not queued: its Checks run, and its act is an icon button" },
+  { look: inside(landing, role("list", "Pull requests")), say: "Two pull requests as plain rows divided by a hairline: the number and title, then the branch, Checks and the queue state. The act stands in a fixed column at the right, centred on its row" },
+  { look: inside(landing, role("img", "In the merge queue, merges when its turn comes")), say: "The first is in the merge queue and has no act, its column kept. The second is not queued: its Checks run, and its act is an icon button" },
   { press: inside(landing, button("Deferred")), say: "Deferred opens" },
   { look: inside(landing, button(/^Issue .*2402/)), say: "An issue the Job filed for later stands beside the deferred items, and a press opens it" },
   { press: button("Show artifacts"), say: "The composer's Artifacts button" },
   { look: inside(artifacts, role("group", "View")), say: "List and Graph are two icon toggles beside the search, each with a tooltip naming it and V. Back is at the far right of the head" },
+  { look: inside(artifacts, button(/^Pull request #2391/)), say: "Every row has two lines: the title, which wraps before it is cut, and under it the branch or path, the kind and its states. A pull request is the same row as in Landing" },
   { key: "Escape", on: artifacts, say: "Esc" },
   { look: landing, say: "The story is back as it was" },
 ]);

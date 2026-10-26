@@ -1,0 +1,30 @@
+/* The row a Job's lists share (`LedgerRow.tsx`): a glyph and a title that wraps to two lines, the facts under it in small muted type, an act in a column of its own. */
+
+.sv-ledger { display: grid; grid-template-columns: minmax(0, 1fr); align-items: center; column-gap: var(--space-1); }
+.sv-ledger + .sv-ledger { border-top: var(--border-width) solid var(--border-subtle); }
+.sv-ledger[data-acts] { grid-template-columns: minmax(0, 1fr) var(--h-control-sm); }
+
+.sv-ledger__main { display: grid; grid-template-columns: var(--space-3) minmax(0, 1fr); column-gap: var(--space-2); align-items: start; box-sizing: border-box; min-width: 0; width: 100%; padding: var(--space-2); border: 0; border-radius: var(--radius-md); background: none; color: var(--fg-default); font: inherit; font-family: var(--font-sans); text-align: start; }
+button.sv-ledger__main { cursor: pointer; }
+button.sv-ledger__main:hover { background: var(--bg-hover); }
+button.sv-ledger__main:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--border-width) * -1); }
+
+/* The glyph's box is the first line's height, so it centres on that line whatever the title does under it. */
+.sv-ledger__glyph { display: inline-flex; align-items: center; justify-content: center; flex: none; height: var(--leading-2xs); color: var(--fg-muted); }
+.sv-ledger__main > .sv-ledger__glyph { height: var(--leading-xs); }
+.sv-ledger__glyph[data-state="merged"] { color: var(--step-advanced); }
+.sv-ledger__glyph[data-state="draft"] { color: var(--fg-subtle); }
+.sv-ledger__fact[data-state="merged"] .sv-ledger__glyph { color: var(--step-advanced); }
+
+.sv-ledger__title { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; min-width: 0; overflow: hidden; overflow-wrap: anywhere; font-size: var(--text-xs); line-height: var(--leading-xs); }
+.sv-ledger__num { margin-inline-end: var(--space-1); color: var(--fg-subtle); font-size: var(--text-2xs); line-height: inherit; }
+
+.sv-ledger__meta { grid-column: 2; display: flex; align-items: center; gap: var(--space-2); min-width: 0; color: var(--fg-muted); font-size: var(--text-2xs); line-height: var(--leading-2xs); white-space: nowrap; }
+.sv-ledger__meta:empty { display: none; }
+.sv-ledger__sub { min-width: 0; overflow: hidden; color: var(--fg-muted); font-size: inherit; text-overflow: ellipsis; }
+.sv-ledger__word { flex: none; }
+.sv-ledger__fact { display: inline-flex; flex: none; align-items: center; gap: var(--space-1); }
+.sv-ledger__meta .armada-pr-card__check { display: inline-flex; align-items: center; height: var(--leading-2xs); }
+
+/* The act is centred on the row and its column stays where a row carries none. */
+.sv-ledger__act { display: inline-flex; align-items: center; justify-content: center; width: var(--h-control-sm); }

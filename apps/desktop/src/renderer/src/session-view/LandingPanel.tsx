@@ -4,74 +4,21 @@
 // Deferred stand inside, whatever the kind. **The issues a plan group works stand in the Blueprint, the pull requests in the Merge line**, and the issues the Job filed for later stand in Deferred, not on this band.
 // The stage opens it (`story.ts`); the band or ⌥L does too. `work.landing` names the kind in the mock until Fleet says it.
 
-import { useState } from "react";
-import { Clock, GitMerge, GitPullRequestArrow } from "lucide-react";
-import { Button, PullRequestChip, Tooltip, type LedgerEntry } from "@armada/components";
-import { attachmentsOf, type PullRequestAct, type Session } from "@armada/screens/src/draft/sessions";
+import { Tooltip, type LedgerEntry } from "@armada/components";
+import { attachmentsOf, type Session } from "@armada/screens/src/draft/sessions";
 
 import { remindLater } from "../cockpit/deck/acts";
-import { usePullRequestMenu } from "../pull-request-menu";
 import { useArtifact } from "../session-artifact";
-import { checksSaid } from "../session-cards";
 import { useSessionsDraft } from "../sessions-draft";
 import { artifactsOf, type ArtifactRow } from "./artifacts";
-import { checksOf, issuesOutsidePlan, openPrPanel, type PullRequest } from "./IssuesBlock";
+import { issuesOutsidePlan } from "./IssuesBlock";
 import { LaterBlock } from "./LaterBlock";
+import { PullRow } from "./LedgerRow";
 import { ModsMade } from "./ModsPanel";
 import { SvPanel, type PanelState, type Place } from "./SvPanel";
 import { WatchingBlock } from "./WatchingBlock";
 import { bandKeyFor, landingOf, useFold } from "./story";
 import "./story.css";
-
-/**
- * A pull request's state beyond its chip, and the act that moves it on, as the two fixed columns at the row's right. The state column holds a glyph
- * where the merge queue has the pull request or auto-merge is on; the act column holds an icon button where an act fits. Each stays when empty.
- */
-function stateAndAct(pr: PullRequest, pending: PullRequestAct | undefined, press: (act: PullRequestAct) => void) {
-  const mark = (Glyph: typeof Clock, said: string) => (
-    <Tooltip label={said}>
-      <span className="sv-landing__pr-state" role="img" aria-label={said}>
-        <Glyph size={12} strokeWidth={2} aria-hidden />
-      </span>
-    </Tooltip>
-  );
-  const act = (which: PullRequestAct, Glyph: typeof Clock, name: string, said: string) => (
-    <Tooltip label={said}>
-      <Button variant="ghost" size="sm" iconOnly aria-label={`${name} #${pr.number}`} pending={pending === which} disabled={pending !== undefined} onClick={() => press(which)}>
-        <Glyph size={16} aria-hidden="true" />
-      </Button>
-    </Tooltip>
-  );
-  if (pr.state === "merged") return { state: null, act: null };
-  if (pr.state === "draft") return { state: null, act: act("ready", GitPullRequestArrow, "Ready for review", "Marks the pull request ready for review") };
-  if (pr.queued === true) return { state: mark(Clock, "In the merge queue, merges when its turn comes"), act: null };
-  if (pr.checks.state === "passed") return { state: null, act: act("merge", GitMerge, "Merge", "Merges it now, every Check has passed") };
-  if (pr.checks.state === "pending") {
-    return pr.auto ? { state: mark(GitMerge, "Auto-merge on, merges when every Check has passed"), act: null } : { state: null, act: act("auto_merge", GitMerge, "Enable auto-merge", "Enable auto-merge, merges it when every Check has passed") };
-  }
-  return { state: null, act: null };
-}
-
-/** One pull request: a row with its chip, then its state and its act in columns of their own, so each belongs to the row it stands in. */
-function Pull({ session, pr }: { session: Session; pr: PullRequest }) {
-  const draft = useSessionsDraft();
-  const [pending, setPending] = useState<PullRequestAct | undefined>(undefined);
-  const { on, menu } = usePullRequestMenu(session.manifestId, pr.number, pr.title);
-  const press = (act: PullRequestAct) => {
-    if (draft === undefined) return;
-    setPending(act);
-    void draft.act(session.id, pr.number, act).finally(() => setPending(undefined));
-  };
-  const { state, act } = stateAndAct(pr, pending, press);
-  return (
-    <li className="sv-landing__pr">
-      <PullRequestChip framed number={pr.number} title={pr.title} state={pr.state} checks={{ state: checksOf(pr), said: checksSaid(pr.checks) }} onOpen={() => openPrPanel(pr)} {...on} />
-      <span className="sv-landing__pr-col">{state}</span>
-      <span className="sv-landing__pr-col">{act}</span>
-      {menu}
-    </li>
-  );
-}
 
 /** The docs the Job made, a spike's findings or a document: a row each, which opens the doc as the Artifacts list does. */
 function Docs({ rows, said }: { rows: readonly ArtifactRow[]; said: string }) {
@@ -140,7 +87,7 @@ export function LandingPanel({ session, entries, place, id }: { session: Session
       {kind === "pull_request" && prs.length > 0 ? (
         <ul className="sv-landing__prs" aria-label="Pull requests">
           {[...prs].reverse().map((pr) => (
-            <Pull key={pr.number} session={session} pr={pr} />
+            <PullRow key={pr.number} session={session} pr={pr} />
           ))}
         </ul>
       ) : null}
