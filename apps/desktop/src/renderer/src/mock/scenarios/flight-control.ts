@@ -1,6 +1,5 @@
-// The flight deck with two Jobs, for the walks `flight-control-grouped` and `flight-control-tabs`, the two takes of Flight control played on `?take=`
-// (`cockpit/deck/flight-take.ts`): `flight-controls-custom`'s Job, with subagents, Checks and a bay, so most tiles are live, and a Job just begun, which
-// holds nothing and has run nothing, so most are off. The owner's ask of 25 Oct 2026. Goes with the take that is not picked.
+// The flight deck with two Jobs, for the walk `flight-control`: `flight-controls-custom`'s Job, with subagents, Checks and a bay, so most keys and views are live, and a Job just begun, which
+// holds nothing and has run nothing, so most are off. The owner's ask of 25 Oct 2026.
 
 import { repository } from "@armada/screens/src/fixtures/repository";
 import type { Session } from "@armada/screens/src/draft/sessions";
@@ -29,10 +28,10 @@ const BEGUN: Session = {
   attachments: [],
 };
 
-export const flightControlTakes: Scenario = {
+export const flightControl: Scenario = {
   ...flightControlsCustom,
-  name: "flight-control-takes",
-  says: "The flight deck with a Job whose tiles are mostly live and a Job just begun whose tiles are mostly off, for the two takes of Flight control",
+  name: "flight-control",
+  says: "The flight deck with a Job whose keys and views are mostly live and a Job just begun whose are mostly off, for the walk of Flight control",
   draft: {
     ...flightControlsCustom.draft,
     sessions: (control, more = []) => flightControlsCustom.draft!.sessions!(control, [...more, BEGUN]) as SessionsStore,

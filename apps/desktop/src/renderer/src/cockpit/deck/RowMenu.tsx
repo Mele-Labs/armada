@@ -10,7 +10,6 @@ import { useSessions, useSessionsDraft } from "../../sessions-draft";
 import { useTeachBridge } from "../../teach";
 import { PAUSE_KEY } from "./session-tiles";
 import { toggleField, useRowView, viewEntries, viewFieldOf } from "./row-view";
-import { tightType } from "./flight-take";
 
 /** `viewOnly`: no Job is under the press (a pull request's row, or the list's empty room), so the menu is the View group alone. */
 export type RowMenuAt = { id: string; root: string; title: string; x: number; y: number; row: HTMLElement | null; viewOnly?: true };
@@ -29,8 +28,8 @@ export function RowMenu({ at, onClose, onKeep, onAutopilot }: { at: RowMenuAt | 
     ...(teach === undefined ? [] : [{ kind: "item" as const, id: "teach", label: "Teach", icon: GraduationCap }]),
   ];
   const close: DropdownMenuEntry[] = draft?.close === undefined ? [] : [{ kind: "separator", id: "rule" }, { kind: "item", id: "close", label: "Close", danger: true, icon: X }];
-  // Under `tight-type` the View group (`row-view.tsx`) comes before the destructive Close, and is all of the menu where no Job is under the press.
-  const entries: DropdownMenuEntry[] = !tightType() ? [...acts, ...close] : at.viewOnly === true ? viewEntries(view) : [...acts, { kind: "separator", id: "view-rule" }, ...viewEntries(view), ...close];
+  // The View group (`row-view.tsx`) comes before the destructive Close, and is all of the menu where no Job is under the press.
+  const entries: DropdownMenuEntry[] = at.viewOnly === true ? viewEntries(view) : [...acts, { kind: "separator", id: "view-rule" }, ...viewEntries(view), ...close];
   return (
     <DropdownMenu
       triggerLabel="Job"

@@ -130,9 +130,7 @@ import { bangOf, hostedCommands, opensMcp, runnerOf } from "./session-runner";
 import { useJobDock } from "./job-shell-dock";
 import { todosOf } from "./session-activity";
 import { confirmWaiting, dismissWaiting } from "./cockpit/dismissed";
-import { JobTabs } from "./cockpit/deck/JobTabs";
-import { HeadViews, LayerBounds, LeftViews, useJobViews } from "./cockpit/deck/JobViews";
-import { flightTake, jobNameNotch, tabsLook, tabsPos, viewsAt, viewsInComposer } from "./cockpit/deck/flight-take";
+import { HeadViews, LayerBounds, useJobViews } from "./cockpit/deck/JobViews";
 import { useTitleNotch } from "./cockpit/deck/title-notch";
 import { useCompactAct } from "./cockpit/deck/compact-act";
 import { holdsDelivery, stateOf } from "./session-state";
@@ -1104,12 +1102,10 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
           },
         }}
         {...(deck === undefined ? {} : { back: deck.back })}
-        // The takes of Flight control, on the Cockpit only (`cockpit/deck/flight-take.ts`): the Job's views as tabs, on a second row of the head or in its row, and Compact in the context tank.
-        {...(deck?.flight === true && flightTake() === "tabs" && viewsAt() === undefined ? { tabs: <JobTabs session={session} bays={bays} />, tabsPlace: tabsLook() === "segmented" ? ("head" as const) : tabsPos() === "foot" ? ("foot" as const) : ("row" as const) } : {})}
-        // `&jobname=notch`: the Job's state and name are in the title bar's notch, where it draws one.
-        {...(deck?.flight === true && jobNameNotch() && titleSlot !== null ? { titleInto: titleSlot } : {})}
-        {...(deck?.flight === true && viewsAt() === "head" && jobViews !== undefined ? { headViews: <HeadViews views={jobViews} /> } : {})}
-        {...(deck?.flight === true && compactAct !== undefined ? { compact: compactAct } : {})}
+        // On the Cockpit only: the Job's state and name are in the title bar's notch, its views are buttons in its head, and Compact is in the context figure.
+        {...(deck?.flight === true && titleSlot !== null ? { titleInto: titleSlot } : {})}
+        {...(deck?.flight === true && jobViews !== undefined ? { headViews: <HeadViews views={jobViews} /> } : {})}
+        {...(deck?.flight === true ? { compact: compactAct } : {})}
         {...{
               actions: (
                 <>
@@ -1212,7 +1208,6 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
           {endShown && doneProp !== undefined ? <SessionEndBand done={doneProp} open={endOpen} onOpen={(open) => setEndPanel({ id: session.id, open })} /> : null}
           {session.dead !== undefined || starting === undefined ? null : <div className="sv-start-strip">{starting.lead}</div>}
           {deck?.flight === true && jobViews !== undefined ? <LayerBounds /> : null}
-          {deck?.flight === true && viewsAt() === "left" && jobViews !== undefined ? <LeftViews views={jobViews} /> : null}
           {session.dead !== undefined ? null : (
             <SessionComposer
               modeLocked={session.terminal === true}
@@ -1245,7 +1240,6 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
               onTags={(tags) => draft.setTags(session.id, tags)}
               drawn={drawn.map(({ id, title }) => ({ id, title }))}
               onDraw={() => setPadOpen(true)}
-              {...(deck?.flight === true && viewsInComposer() && jobViews !== undefined ? { views: jobViews } : {})}
               {...(workspace ? { onArtifacts: { open: () => toggleLayer(session.id, "artifacts"), key: ARTIFACTS_KEY.cap } } : {})}
               onRemoveDrawn={(id) => setDrawn((was) => was.filter((one) => one.id !== id))}
               onSend={(sent) => {

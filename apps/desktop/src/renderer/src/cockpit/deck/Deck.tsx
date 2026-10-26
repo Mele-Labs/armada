@@ -5,9 +5,9 @@
 // the body and the keys are one thing. The stage at rest is the map (the battlefield) or the timeline, one switch. Ported from
 // proto/cockpit-flight-deck. #2301.
 
-import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactElement, type ReactNode, type RefObject } from "react";
-import { ChartNoAxesGantt, CircleDashed, FileCog, Filter as FilterGlyph, GitMerge, Link, LoaderCircle, Pause, Pencil, Plane, Play, Power, Send, Trash2, Unplug, UserCheck } from "lucide-react";
-import { Badge, Button, ClashMark, ClashesProvider, DockHandle, DropdownMenu, Inspect, Kbd, EarlierMark, HandoffMark, PausedMark, Stamp, Switch, Tooltip, keyFor, useShortcutReveal, useTimeFormat, useMarking, type Clashing, type Mark } from "@armada/components";
+import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
+import { ChartNoAxesGantt, CircleDashed, FileCog, Filter as FilterGlyph, GitMerge, Link, LoaderCircle, Plane, Play, Send, SquarePen, Trash2, Unplug, UserCheck } from "lucide-react";
+import { Button, ClashMark, ClashesProvider, DockHandle, DropdownMenu, Inspect, Kbd, EarlierMark, HandoffMark, PausedMark, Switch, Tooltip, keyFor, useShortcutReveal, useTimeFormat, useMarking, type Clashing, type Mark } from "@armada/components";
 import type { RepositorySummary, WorktreeSlot } from "@armada/protocol";
 import { FIND_A_REPOSITORY, jobIdOf, manifestLabel, repositoryEntries, rootOf, useLayout, useRecentRepositories } from "@armada/shell";
 
@@ -48,7 +48,6 @@ import type { QueuedIdea } from "@armada/screens/src/draft/sessions";
 import { MapView } from "./MapPane";
 import { sessionIdOf } from "../waiting";
 import { leaveFrom, onEnd, reducedMotion, useExiting } from "./exit";
-import { ViewsSlot } from "./JobViews";
 import { CallPane, PaneHead, SessionPane, ShellPanel } from "./panes";
 import { inOrder, useReplayDriver, useReplayKeys, windowOf } from "./replay";
 import { RowMenu, type RowMenuAt } from "./RowMenu";
@@ -56,7 +55,7 @@ import { columnsOf, restBonus, RowFields, useRowView } from "./row-view";
 import { FlightEdit } from "./FlightEdit";
 import { isWebAddress, repositoryFileOf, tilesOf, useFlightFile, useRepositoryFlight, type FlightSet } from "./flight-controls";
 import { glyphOf as flightGlyph } from "./flight-glyphs";
-import { autopilotHidden, densityTake, flightTake, headsTake, jobNameNotch, tightType } from "./flight-take";
+import { AUTOPILOT_SHOWN } from "./autopilot-shown";
 import { SessionTiles } from "./SessionTiles";
 import { reportRoot, tileCap } from "./session-tiles";
 import { checkoutSaid, heldOf } from "./YourCheckout";
@@ -204,9 +203,9 @@ function MoreRows() {
 const cut = (words: string, at: number) => (words.length > at ? `${words.slice(0, at).trimEnd()}…` : words);
 
 /**
- * **Filter**, at the right of the list's band: plain text and a chevron that open a small menu. A search field heads it with the caret in
+ * **Filter**, at the right of the list's band: a glyph that opens a small menu. A search field heads it with the caret in
  * it, and under it are the four scopes, the current one checked. ↓ walks from the field to the scopes and Enter in the field goes to the
- * rows; Esc closes it. While the list is narrowed, by a scope but Active or by search words, the band says so in place of "Filter".
+ * rows; Esc closes it. While the list is narrowed, by a scope but Active or by search words, the glyph is lit and its tooltip says so.
  * ↑ from the first row opens it.
  */
 function Filter({ rows }: { rows: RefObject<HTMLElement | null> }) {
@@ -216,27 +215,25 @@ function Filter({ rows }: { rows: RefObject<HTMLElement | null> }) {
   const open = useDeck((deck) => deck.searching);
   const named = scope === "active" ? undefined : SCOPES.find((one) => one.id === scope)?.label;
   const said = named === undefined ? (query === "" ? undefined : cut(query, 14)) : query === "" ? named : `${named} · ${cut(query, 8)}`;
-  const menu = (iconic: boolean) => (
-    <DropdownMenu
-      align="end"
-      portal
-      plain
-      {...(iconic ? { icon: FilterGlyph } : {})}
-      triggerLabel={iconic ? (said === undefined ? "Filter" : `Filter: ${said}`) : (said ?? "Filter")}
-      {...(said === undefined || iconic ? {} : { triggerAriaLabel: `Filter: ${said}` })}
-      searchLabel="Search Jobs"
-      search={{ value: typed, onChange: setQuery, onEnter: () => rows.current?.querySelector<HTMLElement>(".deck-row")?.focus() }}
-      open={open}
-      onOpenChange={setSearching}
-      entries={SCOPES.map(({ id, label }) => ({ kind: "item" as const, id, label, selected: id === scope }))}
-      onSelect={(id) => setScope(id as Scope)}
-    />
-  );
-  // Under `tight-type` the trigger is the filter glyph and its tooltip, lit while the list is narrowed; the words are the band's cost in room.
-  if (!tightType()) return menu(false);
+  // The trigger is the filter glyph and its tooltip, lit while the list is narrowed; the words would cost the band its room.
+  const label = said === undefined ? "Filter" : `Filter: ${said}`;
   return (
     <span className="deck-filter" data-narrowed={said === undefined ? undefined : ""}>
-      <Tooltip label={said === undefined ? "Filter" : `Filter: ${said}`}>{menu(true)}</Tooltip>
+      <Tooltip label={label}>
+        <DropdownMenu
+          align="end"
+          portal
+          plain
+          icon={FilterGlyph}
+          triggerLabel={label}
+          searchLabel="Search Jobs"
+          search={{ value: typed, onChange: setQuery, onEnter: () => rows.current?.querySelector<HTMLElement>(".deck-row")?.focus() }}
+          open={open}
+          onOpenChange={setSearching}
+          entries={SCOPES.map(({ id, label: name }) => ({ kind: "item" as const, id, label: name, selected: id === scope }))}
+          onSelect={(id) => setScope(id as Scope)}
+        />
+      </Tooltip>
     </span>
   );
 }
@@ -254,14 +251,6 @@ const callLabel = (call: Item): string => {
   return call.fact === "" ? word : `${word}: ${call.fact}`;
 };
 
-/**
- * What a hover on a Job's row draws: its card, and under `tight-type` the one line the row no longer carries, what the Job last did, in a tooltip. A row with nothing said has neither.
- */
-function RowHover({ tight, said, card, name, children }: { tight: boolean; said: string | undefined; card: ReactNode; name: string; children: ReactElement }) {
-  if (!tight) return <Inspect card={card} name={name} side="beside" pin={false}>{children}</Inspect>;
-  return said === undefined || said === "" ? children : <Tooltip label={said} asChild>{children}</Tooltip>;
-}
-
 function List({ subjects, calling, banding, selected, builds, picked, found, onPick, onEarlier, onMove, onAutopilot }: { subjects: readonly Subject[]; calling: ReadonlyMap<string, Item> | undefined; banding: readonly Banding[] | undefined; selected: string | undefined; builds: ReadonlyMap<string, BuildIn>; picked: RepositorySummary | null; found: ReadonlyMap<string, Found> | undefined; onPick: (subject: Subject) => void; onEarlier: (id: string) => void; onMove: (key: string, target: string, after: boolean) => void; onAutopilot: (root: string) => void }) {
   const folded = useCollapse("list");
   const cursor = useDeck((deck) => deck.cursor);
@@ -277,8 +266,7 @@ function List({ subjects, calling, banding, selected, builds, picked, found, onP
   // A live Session is picked up by its row and put down among those under its heading.
   const movable = movableIn(subjects);
   const { dragging, grab, swallowed } = useReorder(onMove);
-  const tight = tightType();
-  // Under `tight-type` the fields a row draws are the person's (`row-view.tsx`): its columns, and where the clash mark sits among them.
+  // The fields a row draws are the person's (`row-view.tsx`): its columns, and where the clash mark sits among them.
   const earlier = subjects.some((one) => one.earlier !== undefined);
   const columns = columnsOf(view, earlier);
   const row = (one: Subject) => {
@@ -299,8 +287,8 @@ function List({ subjects, calling, banding, selected, builds, picked, found, onP
       </>
     );
     return (
-      <li key={one.key} className="deck-list__item" data-movable={band} data-lifted={dragging?.key === one.key || undefined} data-drop={dragging?.drop?.key === one.key ? (dragging.drop.after ? "after" : "before") : undefined} onContextMenu={one.kind === "session" ? (event) => (event.preventDefault(), event.stopPropagation(), setMenu({ id: one.id, root: one.root, title: one.title, x: event.clientX, y: event.clientY, row: event.currentTarget.querySelector<HTMLElement>(".deck-row") })) : tight ? (event) => (event.preventDefault(), event.stopPropagation(), setMenu({ id: "", root: one.root, title: one.title, x: event.clientX, y: event.clientY, row: null, viewOnly: true })) : undefined}>
-        <RowHover tight={tight} said={view.now ? undefined : hit?.whole ?? one.peek.at(-1)} card={<SubjectCard one={one} {...(call === undefined ? {} : { calling: callLabel(call) })} />} name={one.title}>
+      <li key={one.key} className="deck-list__item" data-movable={band} data-lifted={dragging?.key === one.key || undefined} data-drop={dragging?.drop?.key === one.key ? (dragging.drop.after ? "after" : "before") : undefined} onContextMenu={one.kind === "session" ? (event) => (event.preventDefault(), event.stopPropagation(), setMenu({ id: one.id, root: one.root, title: one.title, x: event.clientX, y: event.clientY, row: event.currentTarget.querySelector<HTMLElement>(".deck-row") })) : (event) => (event.preventDefault(), event.stopPropagation(), setMenu({ id: "", root: one.root, title: one.title, x: event.clientX, y: event.clientY, row: null, viewOnly: true }))}>
+        <Inspect card={<SubjectCard one={one} {...(call === undefined ? {} : { calling: callLabel(call) })} />} name={one.title} side="beside" pin={false}>
         <button type="button" className="deck-row" data-row={one.key} data-calling={call === undefined && !needs ? undefined : ""} data-needs={needs || undefined} data-linked={one.linked !== undefined || undefined} data-reply={one.reply} data-tone={toneOf(one)} data-past={one.past} data-selected={here || undefined} data-cursor={cursor === one.key || undefined} data-hover={hover === one.key || undefined} aria-label={one.title} aria-current={here || undefined} onPointerDown={band === undefined ? undefined : (event) => grab(event, one.key, band)} onClickCapture={(event) => swallowed() && (event.preventDefault(), event.stopPropagation())} onClick={() => onPick(one)} onFocus={() => (moveCursor(one.key), setHover(one.key))} onBlur={() => setHover(undefined)} onMouseEnter={() => setHover(one.key)} onMouseLeave={() => setHover(undefined)} onKeyDown={one.kind === "session" ? (event) => {
           // The earlier Job behind this row, where it took one's place. Not the registry's yet: the key waits on the look.
           if (event.key === "h" && one.earlier !== undefined && !event.metaKey && !event.ctrlKey && !event.altKey) return (event.preventDefault(), onEarlier(one.earlier));
@@ -319,32 +307,15 @@ function List({ subjects, calling, banding, selected, builds, picked, found, onP
             )}
             {one.title}
           </span>
-          {tight ? (
-            <RowFields view={view} earlier={earlier} one={one} session={sessions.find((each) => each.id === one.id)} hit={hit} status={state} />
-          ) : (
-            <span className="deck-row__marks">
-              <span className="deck-row__clash-slot" aria-hidden="true" />
-              {state}
-            </span>
-          )}
-          {tight ? null : <span className="deck-row__says">{one.peek.at(-1) ?? ""}</span>}
-          {tight ? null : hit === undefined || hit.short === "" ? (
-            <span className="deck-row__said">{one.at === undefined ? null : <Stamp still first="age" at={one.at} />}</span>
-          ) : (
-            <Tooltip label={hit.whole}>
-              <span className="deck-row__said" data-found="" role="img" aria-label={hit.whole}>
-                {hit.short}
-              </span>
-            </Tooltip>
-          )}
+          <RowFields view={view} earlier={earlier} one={one} session={sessions.find((each) => each.id === one.id)} hit={hit} status={state} />
         </button>
-        </RowHover>
+        </Inspect>
         {one.earlier === undefined ? null : (
           <span className="deck-row__earlier">
             <EarlierMark onOpen={() => onEarlier(one.earlier!)} />
           </span>
         )}
-        {one.kind === "pr" || (tight && !view.conflicts) ? null : (
+        {one.kind === "pr" || !view.conflicts ? null : (
           <span className="deck-row__clash">
             <ClashMark kind={one.kind} id={one.id} />
           </span>
@@ -354,14 +325,14 @@ function List({ subjects, calling, banding, selected, builds, picked, found, onP
   };
   return (
     // A press on the list and on no row lets the cursor go.
-    <section ref={panel} className="deck-panel deck-list" aria-label="Jobs" tabIndex={-1} data-collapsed={folded.collapsed || undefined} onContextMenu={tight ? (event) => (event.preventDefault(), setMenu({ id: "", root: "", title: "", x: event.clientX, y: event.clientY, row: null, viewOnly: true })) : undefined} onClick={(event) => (event.target as Element).closest(".deck-row") === null && moveCursor(undefined)}>
+    <section ref={panel} className="deck-panel deck-list" aria-label="Jobs" tabIndex={-1} data-collapsed={folded.collapsed || undefined} onContextMenu={(event) => (event.preventDefault(), setMenu({ id: "", root: "", title: "", x: event.clientX, y: event.clientY, row: null, viewOnly: true })) } onClick={(event) => (event.target as Element).closest(".deck-row") === null && moveCursor(undefined)}>
       <Standby kind="jobs" />
       <header className="deck-band" {...folded.band}>
         <span className="deck-band__name">Jobs</span>
         <Filter rows={panel} />
         <PanelKey id="list" />
       </header>
-      <ul className="deck-list__rows" data-reordering={dragging === undefined ? undefined : ""} data-now={(tight && view.now) || undefined} data-pr={(tight && view.pr) || undefined} style={tight ? ({ "--dn-cols": columns.template, "--dn-clash-right": columns.clashRight } as CSSProperties) : undefined}>
+      <ul className="deck-list__rows" data-reordering={dragging === undefined ? undefined : ""} data-now={view.now || undefined} data-pr={view.pr || undefined} style={{ "--dn-cols": columns.template, "--dn-clash-right": columns.clashRight } as CSSProperties}>
         {banding === undefined
           ? [...queuedIn(ideas, picked).map((idea) => <QueuedRow key={queuedKey(idea.id)} idea={idea} />), ...drawn.map(row)]
           : bandsOf(drawn, banding, queuedIn(ideas, picked)).map((band) => (
@@ -392,7 +363,7 @@ export function useActivityBeside(grid: RefObject<HTMLDivElement | null>, layout
       if (queue === null || foot === null) return;
       // The queue is redrawn when the repository changes, so the one on screen is watched each time.
       watch.observe(queue);
-      // The queue is under the foot in a take (`flight-take.ts`), so the span is from whichever stands higher to whichever stands lower.
+      // The queue is under the foot, so the span is from whichever stands higher to whichever stands lower.
       const [one, two] = [queue.getBoundingClientRect(), foot.getBoundingClientRect()];
       const height = Math.max(one.bottom, two.bottom) - Math.min(one.top, two.top);
       if (height > 0) root.style.setProperty("--deck-activity", `${Math.round(height)}px`);
@@ -873,16 +844,12 @@ function FlightControl({ ship, props }: { ship: Ship; props: CockpitProps }) {
       <header className="deck-band" {...folded.band}>
         <span className="deck-band__name">Flight control</span>
         <PanelKey id="controls" />
-        {editing || folded.collapsed ? null : tightType() ? (
+        {editing || folded.collapsed ? null : (
           <Tooltip label="Edit">
             <Button variant="ghost" size="sm" iconOnly aria-label="Edit" className="deck-band__edit" onClick={() => setEditing(true)}>
-              <Pencil size={16} aria-hidden="true" />
+              <SquarePen size={16} aria-hidden="true" />
             </Button>
           </Tooltip>
-        ) : (
-          <Button variant="ghost" size="sm" onClick={() => setEditing(true)}>
-            Edit
-          </Button>
         )}
         <span className="deck-band__acts" ref={setActs} />
       </header>
@@ -949,12 +916,6 @@ function DispatchDeck() {
   );
 }
 
-const STATE_BADGE = {
-  off: { status: "not-started", icon: Power, said: "Off" },
-  running: { status: "running", icon: Plane, said: "Running" },
-  paused: { status: "awaiting-review", icon: Pause, said: "Waiting" },
-} as const;
-
 /** The repository's picker, where none is chosen. Choosing one opens the Autopilot lane for it. */
 function RepositoryPicker({ props, autopilot }: { props: CockpitProps; autopilot: ReturnType<typeof useAutopilotLane> }) {
   const [recent, remember] = useRecentRepositories();
@@ -977,23 +938,20 @@ function RepositoryPicker({ props, autopilot }: { props: CockpitProps; autopilot
 }
 
 /**
- * Autopilot as a compact card beside the controls: the switch is its title, and under it the repository, how it stands and a
- * thin bar. Switching it on gives the stage to its configuration; off, the stage is as it was.
+ * Autopilot as one row beside the controls: the switch is its title, and the repository, the state and the bar are left to the lane it opens. Switching it on gives the stage to its
+ * configuration; off, the stage is as it was. Drawn only while `AUTOPILOT_SHOWN` (`autopilot-shown.ts`).
  */
-function AutopilotPanel({ props, autopilot }: { props: CockpitProps; autopilot: ReturnType<typeof useAutopilotLane> }) {
+function AutopilotPanel({ autopilot }: { autopilot: ReturnType<typeof useAutopilotLane> }) {
   const control = autopilot.control;
   const open = useDeck((deck) => deck.sel?.kind === "autopilot");
   const state = control?.state ?? "off";
-  const badge = STATE_BADGE[state];
   const flip = () => {
     if (!open) return enterAutopilot();
     leaveAutopilot();
     if (control?.open === true) control.toggle();
   };
-  // Under `tight-type` the panel is one row: its name and its switch, with the repository, the state and the bar left to the lane it opens.
-  const row = tightType();
   return (
-    <section className="deck-panel deck-autopilot" aria-label="Autopilot" tabIndex={-1} data-row={row || undefined}>
+    <section className="deck-panel deck-autopilot" aria-label="Autopilot" tabIndex={-1}>
       <Standby kind="autopilot" />
       <header className="deck-band">
         <Switch size="sm" checked={open || state !== "off"} onChange={flip} disabled={control === undefined}>
@@ -1001,19 +959,6 @@ function AutopilotPanel({ props, autopilot }: { props: CockpitProps; autopilot: 
         </Switch>
         <PanelKey id="autopilot" />
       </header>
-      {row ? null : (
-        <div className="deck-autopilot__body">
-          <div className="deck-autopilot__repo">
-            {props.picked === null ? <RepositoryPicker props={props} autopilot={autopilot} /> : <span className="deck-autopilot__name">{props.picked.manifest?.repository ?? props.picked.root}</span>}
-            <Badge status={badge.status} icon={badge.icon}>
-              {badge.said}
-            </Badge>
-          </div>
-          <div className="deck-autopilot__bar" data-state={state} role="progressbar" aria-label={`Autopilot, ${badge.said.toLowerCase()}`}>
-            <span className="deck-autopilot__fill" />
-          </div>
-        </div>
-      )}
     </section>
   );
 }
@@ -1135,37 +1080,19 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
   // What a layout leaves drawn of the deck's panels. A right column it empties, or a foot, is not drawn and gives its room to the stage.
   const panels = new Set(useLayout("dashboard.panels").shown.map((one) => one.id));
   const bare = !reading && !panels.has("bays") && !panels.has("activity");
-  const take = flightTake();
-  const density = densityTake();
-  // The density take is the root's attribute, which `density-take.css` scopes under; it is the Cockpit's while the deck is drawn. The switches of 26 Oct 2026's notes ride beside it,
-  // and the key caps are drawn only while ⌘ is held (`data-reveal`).
-  const heads = headsTake();
-  const notch = jobNameNotch();
+  // The key caps are drawn only while ⌘ is held: the root's `data-reveal` says so.
   const revealing = useShortcutReveal();
   useEffect(() => {
-    if (density === undefined) return;
-    const root = document.documentElement.dataset;
-    root.density = density;
-    if (heads !== undefined) root.heads = heads;
-    if (notch) root.jobname = "notch";
-    return () => {
-      delete root.density;
-      delete root.heads;
-      delete root.jobname;
-    };
-  }, [density, heads, notch]);
-  useEffect(() => {
-    if (density !== "tight-type") return;
     const root = document.documentElement.dataset;
     if (revealing) root.reveal = "";
     else delete root.reveal;
     return () => void delete root.reveal;
-  }, [density, revealing]);
-  const footed = panels.has("controls") || (!unified && (panels.has("dispatch") || panels.has("autopilot")));
+  }, [revealing]);
+  const footed = panels.has("controls") || (!unified && (panels.has("dispatch") || (AUTOPILOT_SHOWN && panels.has("autopilot"))));
   const layout = unified ? "session" : reading ? "reading" : bare ? "bare" : "idle";
-  // Under `tight-type` the Jobs list rests as wide as the fields chosen for its rows need (`row-view.tsx`); a width dragged to is kept as dragged.
+  // The Jobs list rests as wide as the fields chosen for its rows need (`row-view.tsx`); a width dragged to is kept as dragged.
   const rowView = useRowView();
-  const { columns, resize, reset } = useColumns(grid, layout, tightType() ? restBonus(rowView, false) : 0);
+  const { columns, resize, reset } = useColumns(grid, layout, restBonus(rowView, false));
   const splits = useSplits(grid, layout);
   useActivityBeside(grid, layout);
   const builds = useBuilds(props.now);
@@ -1181,24 +1108,22 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
         <div className="deck-left">
           <RepositoryScope props={props} />
           <List subjects={listed} calling={calling} banding={banding} selected={sel?.kind === "session" ? selected : undefined} builds={builds} picked={props.picked} found={found} onPick={(one) => openSubject(ship, one)} onEarlier={(id) => openLinked({ kind: "session", key: `session:${id}` })} onMove={(key, target, after) => moveRow(ship, key, target, after)} onAutopilot={(root) => (props.onPickRepository?.(root), enterAutopilot())} />
-          <ViewsSlot />
                     {columns === undefined ? null : <DockHandle quiet className="deck-handle" grows="right" label="the left column" width={columns.left} {...columns.range.left} onResize={(width) => resize("left", width)} onReset={() => reset("left")} />}
         </div>
         <div className="deck-centre">
           <div className="deck-stage" data-exit={exiting ? "" : undefined}>
             <Stage props={props} ship={ship} listed={listed} autopilot={autopilot} ledger={reading && !unified ? ledgerHost : null} hosts={hosts} />
             {onStage === undefined ? null : <ShellPanel key={onStage} sessionId={onStage} />}
-            {take === undefined ? <MergeQueue props={props} ship={ship} /> : null}
           </div>
           {footed ? (
             <div className="deck-foot">
               {panels.has("controls") ? <FlightControl ship={ship} props={props} /> : null}
               {unified || !panels.has("dispatch") ? null : <DispatchDeck />}
-              {unified || !panels.has("autopilot") || autopilotHidden() ? null : <AutopilotPanel props={props} autopilot={autopilot} />}
+              {unified || !AUTOPILOT_SHOWN || !panels.has("autopilot") ? null : <AutopilotPanel autopilot={autopilot} />}
             </div>
           ) : null}
-          {/* In a take the merge line is the bottom of the centre, under Flight control (`flight-take.ts`). */}
-          {take === undefined ? null : <MergeQueue props={props} ship={ship} />}
+          {/* The merge line is the bottom of the centre, under Flight control. */}
+          <MergeQueue props={props} ship={ship} />
         </div>
         {bare ? null : (
           <div className="deck-right">

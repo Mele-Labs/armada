@@ -6,8 +6,8 @@ import { holdsText } from "@armada/screens/src/keys";
 import { keyPressed } from "./flight-controls";
 import { PAUSE_KEY } from "./session-tiles";
 
-// The tiles, the switches and buttons the takes draw (`flight-take.ts`), the tabs `tabs` draws over the thread (`JobTabs.tsx`), and the views' buttons and rows wherever `&views=` puts them (`JobViews.tsx`).
-const DRAWN = ".deck-controls :is(.deck-tile, .armada-switch__input, .armada-button)[data-key], .sv-tabs .sv-tab[data-key], button[data-view][data-key]";
+// The tiles, and the buttons of the views in the Job's head (`JobViews.tsx`).
+const DRAWN = ".deck-controls .deck-tile[data-key], button[data-view][data-key]";
 
 /** The drawn tile whose key, a letter or a chord, this press is. */
 export const flightTileFor = (event: KeyboardEvent): HTMLElement | null => [...document.querySelectorAll<HTMLElement>(DRAWN)].find((one) => keyPressed(one.dataset.key ?? "", event)) ?? null;

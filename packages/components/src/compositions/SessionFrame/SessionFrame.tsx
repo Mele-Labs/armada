@@ -186,9 +186,6 @@ export type SessionFrameProps = {
   back?: ReactNode;
   /** The ledger, as a panel of its own beside the conversation: a sibling card the height of the first, scrolling on its own. */
   aside?: ReactNode;
-  /** Views of the Session as tabs: a row under the head, full width, in the head's own row before the checks and the context tank, or the last row of the card, under the body. */
-  tabs?: ReactNode;
-  tabsPlace?: "row" | "head" | "foot";
   /** Icon buttons for the Session's views, in the head's row before `actions`, with a rule after them. */
   headViews?: ReactNode;
   /** Where the state's mark and the title are drawn in place of the head's start, a surface's own place for them (the Cockpit's title bar). Absent draws them in the head. */
@@ -258,7 +255,7 @@ function SessionTitle({ title, onRename }: { title?: string; onRename?: (title: 
 
 const DOCKED: readonly Mark[] = [{ of: ".armada-shell", as: "data-dock" }];
 
-export function SessionFrame({ state, said, id, address, title, onRename, modOutOfDate = false, checks, onOpenCheck, context, compact, loadout, fresh, repository, actions, menu, back, aside, tabs, tabsPlace = "row", headViews, titleInto, children }: SessionFrameProps) {
+export function SessionFrame({ state, said, id, address, title, onRename, modOutOfDate = false, checks, onOpenCheck, context, compact, loadout, fresh, repository, actions, menu, back, aside, headViews, titleInto, children }: SessionFrameProps) {
   const named = address ?? id;
   const more = menuWithFresh(menu, fresh);
   // The aside wears the dock's class, and the shell's glow follows it (`TheShell.css`).
@@ -278,7 +275,6 @@ export function SessionFrame({ state, said, id, address, title, onRename, modOut
         {repository}
         {headViews}
         {actions}
-        {tabsPlace === "head" ? tabs : null}
         {checks === undefined ? null : <RunningChecks checks={checks} {...(onOpenCheck === undefined ? {} : { onOpenCheck })} />}
         {context === undefined ? null : <ContextFigure fill={context} {...(compact === undefined ? {} : { compact })} />}
         {loadout === undefined ? null : <LoadoutMark {...loadout} />}
@@ -288,9 +284,7 @@ export function SessionFrame({ state, said, id, address, title, onRename, modOut
         {more === undefined || more.entries.length === 0 ? null : <DropdownMenu align="end" portal icon={Ellipsis} triggerLabel="More" entries={more.entries} onSelect={more.onSelect} />}
         {back}
       </header>
-      {tabsPlace === "row" ? tabs : null}
       <div className="armada-session-frame__body">{children}</div>
-      {tabsPlace === "foot" ? tabs : null}
     </Card>
     {aside === undefined || aside === null ? null : <Card className="armada-session-frame__aside armada-shell__dock">{aside}</Card>}
     </div>

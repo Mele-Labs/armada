@@ -1,5 +1,5 @@
-// Where the open Job's state and name go while `&jobname=notch` is on (`flight-take.ts`): a place in the title bar's centre notch, after the Places, that `TabBar` draws and the Job's head
-// portals its name into. Held here because the two are far apart in the tree. A mock of 26 Oct 2026.
+// Where the open Job's state and name go: a place in the title bar's centre notch, after the Places, that `TabBar` draws and the Job's head portals its name into. Held here because the two are far apart
+// in the tree.
 
 import { useSyncExternalStore } from "react";
 

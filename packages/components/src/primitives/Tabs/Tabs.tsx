@@ -46,11 +46,9 @@ export type TabsProps = {
    * with no icon keeps its label.
    */
   iconsOnly?: boolean;
-  /** Each tab drawn as its `icon` and its label together. A tab with no icon keeps its label alone. Ignored under `iconsOnly`. */
-  iconsWithLabels?: boolean;
 };
 
-export function Tabs({ items, value, defaultValue, onChange, iconsOnly = false, iconsWithLabels = false }: TabsProps) {
+export function Tabs({ items, value, defaultValue, onChange, iconsOnly = false }: TabsProps) {
   const [internal, setInternal] = useState(defaultValue ?? items[0]?.id);
   const active = value ?? internal;
   const { strip, fill } = useSelectedFill(active, items.map((item) => item.id).join("\u0000"));
@@ -99,16 +97,7 @@ export function Tabs({ items, value, defaultValue, onChange, iconsOnly = false, 
             onClick={() => select(item.id)}
             {...(Icon === undefined ? {} : { "aria-label": item.label, "data-icon-only": "" })}
           >
-            {Icon !== undefined ? (
-              <Icon size={16} strokeWidth={2} aria-hidden />
-            ) : iconsWithLabels && item.icon !== undefined ? (
-              <>
-                <item.icon size={14} strokeWidth={2} aria-hidden />
-                {item.label}
-              </>
-            ) : (
-              item.label
-            )}
+            {Icon === undefined ? item.label : <Icon size={16} strokeWidth={2} aria-hidden />}
             {item.alert === undefined ? null : (
               <Tooltip label={item.alert}>
                 <span className="armada-tabs__alert" role="img" aria-label={item.alert} />

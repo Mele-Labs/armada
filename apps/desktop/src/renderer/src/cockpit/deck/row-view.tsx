@@ -1,7 +1,7 @@
-// What a Job's row draws, chosen by the person under `&density=tight-type` (`flight-take.ts`): a right press on a row or on the list's empty room opens a menu whose View group
+// What a Job's row draws, chosen by the person: a right press on a row or on the list's empty room opens a menu whose View group
 // switches seven fields on and off, saved in `localStorage` under one key. The default is what the row drew before: the Status and the Conflicts marks. Each field has a column of
 // its own, in the menu's order, that is there for every row while it is on, so a row without the field leaves its place empty and nothing moves. Now is the exception: it is a second
-// line, and rows grow by it; so is Active PRs, a line of its own under the name, or under Now where that is on. A mock of 26 Oct 2026 for the owner's note on the walk of `tight-type`.
+// line, and rows grow by it; so is Active PRs, a line of its own under the name, or under Now where that is on.
 
 import { useSyncExternalStore, type ReactNode } from "react";
 import { Stamp, Tooltip } from "@armada/components";
