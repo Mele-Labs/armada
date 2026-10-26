@@ -22,6 +22,7 @@ export type FleetPanelApi = Pick<
   BridgeApi,
   "readReviewPage" | "readReviewPatches" | "writeReview" | "getPullRequest" | "pressRepositoryPullRequest" | "getIssue" | "getSlotHistory" | "listCheckoutRuns" | "getCheckoutRunOutput" | "followLandCheck" | "readHeld"
   | "readRequests" | "saveRequestCollection" | "saveRequestEnvironment" | "sendRequest"
+  | "startTerminalRun" | "writeSessionRun" | "resizeSessionRun" | "stopSessionRun" | "onSessionRunMessage"
 >;
 export type FleetPanelState = Pick<BridgeState, "holds" | "repository" | "mergeLines" | "held" | "checkoutRunSheet" | "landFollowed">;
 
@@ -83,7 +84,7 @@ export function fleetPanelReads(api: FleetPanelApi, now: () => FleetPanelState |
     if (repo === undefined || manifestId === undefined) return undefined;
     const [standing, page] = await Promise.all([api.getPullRequest(manifestId, item.number).catch(() => undefined), api.readReviewPage(manifestId, item.number).catch(() => undefined)]);
     // Only Fleet's own refusal carries words worth drawing; the rest keep the panel's fixed sentence.
-    if (page?.ok === false && !page.outcome.ok && page.outcome.why === "refused") return { refused: refusalWords(page.outcome) };
+    if (page?.ok === false && !page.outcome.ok && page.outcome.why === "refused") return { refused: refusalWords(page.outcome), ...(repo.root === undefined ? {} : { root: repo.root }) };
     if (page?.ok !== true) return undefined;
     const facts: Held =
       standing?.ok === true
@@ -219,6 +220,8 @@ export function fleetPanelReads(api: FleetPanelApi, now: () => FleetPanelState |
     bay,
     check,
     leaveCheck: () => void api.followLandCheck(null),
+    // A fake that left Sessions out serves no runs, and the panel only names the command.
+    ...(typeof api.startTerminalRun === "function" && typeof api.onSessionRunMessage === "function" ? { terminalRun: api } : {}),
     requests: {
       readRequests: (sessionId, repository) => api.readRequests(sessionId, repository),
       saveRequestCollection: (collection, sessionId, repository) => api.saveRequestCollection(collection, sessionId, repository),

@@ -299,6 +299,11 @@ export function handleSessions({ ipc, connection, windowIdOf, pages, terminals }
       ? (connection()?.sessions.openTerminal({ session_id: sessionId, ...(cols === undefined || rows === undefined ? {} : { cols, rows }) }) ?? unsent)
       : unread,
   );
+  ipc.handle(CHANNELS.startTerminalRun, (_event, command: string, dir: string, cols?: number, rows?: number) =>
+    text(command) && text(dir) && (cols === undefined) === (rows === undefined) && (cols === undefined || (cells(cols) && cells(rows)))
+      ? (connection()?.sessions.startTerminalRun({ command, dir, ...(cols === undefined || rows === undefined ? {} : { cols, rows }) }) ?? unsent)
+      : unread,
+  );
   ipc.handle(CHANNELS.openTerminalWindow, (_event, sessionId: unknown) => {
     if (text(sessionId)) terminals.windows.show(sessionId);
   });

@@ -96,6 +96,14 @@ pub trait Sessions: Send + Sync + 'static {
         open: ipc::OpenTerminal,
     ) -> impl Future<Output = Result<ipc::SessionRunUnderway, Refusal>> + Send;
 
+    /// `start_terminal_run` — a command run in a directory with no Session behind it. Nobody is
+    /// told how it ended. [`Refusal::Unacceptable`] for a blank command, a directory that does not
+    /// exist, or a size with no cells.
+    fn start_terminal_run(
+        self: std::sync::Arc<Self>,
+        start: ipc::StartTerminalRun,
+    ) -> impl Future<Output = Result<ipc::SessionRunUnderway, Refusal>> + Send;
+
     /// `type_in_terminal` — the agent types into its Job's shell, opening it where it has none, and
     /// is answered what it printed once it went quiet. `caller` places a hosted Job as
     /// `show_window`'s does. [`Refusal::Unacceptable`] for a call that places no Job, and as

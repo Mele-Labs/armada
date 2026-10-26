@@ -444,3 +444,48 @@ async fn an_ended_or_unknown_session_is_refused() {
         Err(api::Refusal::Unacceptable(_))
     ));
 }
+
+fn terminal_run(command: &str, dir: &std::path::Path) -> ipc::StartTerminalRun {
+    ipc::StartTerminalRun {
+        command: command.into(),
+        dir: dir.to_string_lossy().into_owned(),
+        cols: None,
+        rows: None,
+    }
+}
+
+#[tokio::test]
+async fn a_terminal_run_with_no_job_behind_it_prints_in_the_directory_it_was_given() {
+    let rig = rig().await;
+    let other = TempDir::new();
+    let underway = Arc::clone(&rig.fleet)
+        .start_terminal_run(terminal_run("echo hi; pwd", other.path()))
+        .await
+        .expect("underway");
+    let (text, code) = whole(rig.observes(&underway.run_id).await).await;
+
+    assert!(text.starts_with("hi\r\n"), "{text:?}");
+    let there = std::fs::canonicalize(other.path()).unwrap();
+    assert!(text.contains(&*there.to_string_lossy()), "ran where it was told: {text:?}");
+    assert_eq!(code, Some(0));
+}
+
+#[tokio::test]
+async fn a_terminal_run_is_refused_for_a_blank_command_a_missing_directory_or_no_cells() {
+    let rig = rig().await;
+    let start = |run| Arc::clone(&rig.fleet).start_terminal_run(run);
+    let missing = rig.dir.path().join("not-there");
+    let a_file = rig.dir.path().join("a-file");
+    std::fs::write(&a_file, "x").unwrap();
+    let no_cells = ipc::StartTerminalRun { cols: Some(0), ..terminal_run("echo hi", rig.dir.path()) };
+    for refused in [
+        terminal_run("   ", rig.dir.path()),
+        terminal_run("echo hi", &missing),
+        terminal_run("echo hi", &a_file),
+        no_cells,
+    ] {
+        assert!(matches!(start(refused.clone()).await, Err(api::Refusal::Unacceptable(_))), "{refused:?}");
+    }
+    let good = start(terminal_run("true", rig.dir.path())).await.expect("a good one is not refused");
+    assert_eq!(whole(rig.observes(&good.run_id).await).await.1, Some(0));
+}
