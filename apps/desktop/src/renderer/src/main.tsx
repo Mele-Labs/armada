@@ -32,6 +32,8 @@ import { DownshiftSourceProvider } from "./downshift";
 import { createFleetAgentSignIn } from "./fleet-agent-sign-in";
 import { AgentSignInSourceProvider } from "./agent-sign-in";
 import { createFleetClashes } from "./fleet-clashes";
+import { createFleetRuns } from "./fleet-runs";
+import { RunsFrom } from "./cockpit/runs/source";
 import { ReviewsFrom, createReviewStore } from "./pr-review/store";
 import { IssuesFrom, createIssuesStore } from "./issues-tab/store";
 import { issuesSourceOf } from "./issues-tab/source";
@@ -93,6 +95,8 @@ const AGENT_SIGN_IN = createFleetAgentSignIn(withState(window.armada));
 const TIMELINE = createFleetTimeline(withState(window.armada));
 /** The mark on a row whose changes would conflict with another agent's, over Fleet. */
 const CLASHES = createFleetClashes(withState(window.armada));
+/** A repository's app runs: the run control, its confirm and the running panel, over Fleet. */
+const RUNS = createFleetRuns(withState(window.armada));
 /** The directories the deck's map is drawn in and what each slot's holder has changed, over Fleet. */
 const TERRITORY = createFleetTerritory(withState(window.armada));
 /** The pull requests waiting on him, read from the forge by Fleet when the Reviews tab opens, and what an agent says of them, as runs. Natural Search and the Walk are runs too. */
@@ -135,6 +139,7 @@ function Root() {
                     <AgentSignInSourceProvider value={AGENT_SIGN_IN}>
                       <WiredSessions events={TIMELINE}>
                         <ClashesFromFleet source={CLASHES}>
+                          <RunsFrom source={RUNS}>
                           <TerritoryFromFleet source={TERRITORY}>
                             <AccountFromFleet source={ACCOUNT} home={HOME}>
                               <FleetEventsOver source={TIMELINE}>
@@ -149,6 +154,7 @@ function Root() {
                               </FleetEventsOver>
                             </AccountFromFleet>
                           </TerritoryFromFleet>
+                          </RunsFrom>
                         </ClashesFromFleet>
                       </WiredSessions>
                     </AgentSignInSourceProvider>
