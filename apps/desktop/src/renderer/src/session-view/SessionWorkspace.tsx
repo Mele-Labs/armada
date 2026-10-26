@@ -5,7 +5,7 @@
 // top to bottom: the Workflow, the Blueprint (the plan), the Field and the Landing, the one the stage is at open and the rest folded to their
 // bands (`story.ts`). The rest is a key away: Flight control opens a layer over the stage for Subagents, Checks and Slot, and Back returns to the
 // thread as it was. **Artifacts is the exception: it opens over the right column**, from the composer's Artifacts key or from Flight control, the
-// story steps aside, and Esc returns to it. Pull requests are the Merge line's. The slot and branch are drawn only when something is wrong with
+// story steps aside, and Esc returns to it. Pull requests stand in the Landing and on the Merge line. The slot and branch are drawn only when something is wrong with
 // them: as a call in the thread, and by lighting the Slot key. The panels are drawn into the deck's right column (`hosts`).
 
 import { Fragment, useEffect } from "react";
