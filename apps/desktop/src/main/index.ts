@@ -37,6 +37,7 @@ import { handleSketchShare } from "./sketch-share";
 import { handleAccounts } from "./accounts-channels";
 import { handlePlanUsage } from "./plan-usage-channels";
 import { handleModelDownshift } from "./model-downshift-channels";
+import { handleProjects } from "./projects-channels";
 import { DownshiftNotice } from "./downshift-notice";
 import { handleAgentSignIn } from "./agent-sign-in-channels";
 import { AgentSignInNotice } from "./agent-sign-in-notice";
@@ -511,6 +512,7 @@ void app.whenReady().then(() => {
     everyWindow(CHANNELS.modelDownshiftChanged, state);
   });
   connection.modelDownshift.onSeeded((state) => downshiftNotice.seed(state));
+  connection.projects.onChanged((projects) => everyWindow(CHANNELS.projectsChanged, projects));
   connection.agentSignIn.onChanged((state) => {
     agentSignInNotice.read(state);
     everyWindow(CHANNELS.agentSignInChanged, state);
@@ -715,6 +717,7 @@ void app.whenReady().then(() => {
   });
   handlePlanUsage({ ipc: ipcMain, connection: () => connection });
   handleModelDownshift({ ipc: ipcMain, connection: () => connection });
+  handleProjects({ ipc: ipcMain, connection: () => connection });
   handleAgentSignIn({ ipc: ipcMain, connection: () => connection });
   handleTimeline({ ipc: ipcMain, connection: () => connection });
   handleClashes({ ipc: ipcMain, connection: () => connection });
