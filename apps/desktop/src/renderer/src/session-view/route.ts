@@ -8,12 +8,14 @@ import { attachmentsOf, type Session, type WorkLanding } from "@armada/screens/s
 import { checksOf } from "./IssuesBlock";
 
 export type RouteState = Extract<TaskMarkState, "open" | "working" | "done" | "failed">;
-export type RouteStep = { key: string; label: string; state: RouteState };
+/** `system` is a step Armada names after something it reports, `ci` or `main`: it is drawn as a reading, not as a word. */
+export type RouteStep = { key: string; label: string; state: RouteState; system?: true };
 
 /** What the Job has made, as the panel finds it: whether a document or report exists, and the mods with whether each is on. */
 export type Made = { doc: boolean; mods: readonly { enabled: boolean }[] };
 
-const steps = (labels: readonly string[], states: readonly RouteState[]): RouteStep[] => labels.map((label, at) => ({ key: label, label, state: states[at] ?? "open" }));
+const SYSTEM = new Set(["ci", "main"]);
+const steps = (labels: readonly string[], states: readonly RouteState[]): RouteStep[] => labels.map((label, at) => ({ key: label, label, state: states[at] ?? "open", ...(SYSTEM.has(label) ? { system: true as const } : {}) }));
 
 export function routeOf(session: Session, kind: WorkLanding, made: Made): RouteStep[] {
   if (kind === "spike") return steps(["Findings"], [made.doc ? "done" : "open"]);

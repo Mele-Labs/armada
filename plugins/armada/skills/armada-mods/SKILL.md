@@ -162,7 +162,7 @@ The Logbook page is the place `logbook`.** `dashboard.panels` is the Cockpit's
 panels: `list` the Jobs list, `merge-line` the merge queue, `controls` Flight
 control. A right column the layout empties gives its room to the stage.
 `job.panels` is the panels an open Job stacks in the right column, telling the
-Job as a story: `done` (what it made), `now` (what runs, and what waits on the
+Job as a story: `done` (what it made, drawn as Completed), `now` (what runs, and what waits on the
 person) and `next` (what is left). The Field is `field` in `dashboard.panels`.
 Hiding a place takes it off the tab bar or the strip and nothing else:
 it stays in the palette and in links.

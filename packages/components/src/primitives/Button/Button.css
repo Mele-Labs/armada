@@ -205,19 +205,22 @@
 /* An icon toggle is one thing in every place it appears: a ghost button that stays a ghost, and a 6px lamp
    in its top-right corner while it is on. The lamp is --fg-default, never --accent, because a theme may put
    the accent beside the needs-you amber. The fill and the border are not the state, so the pressed rules
-   above stop at it. */
-.armada-button[data-variant="ghost"][data-icon-only][aria-pressed="true"]:not(:disabled):not([data-pending]) {
+   above stop at it. An icon toggle of a radio group, checked, wears the same lamp. */
+.armada-button[data-variant="ghost"][data-icon-only][aria-pressed="true"]:not(:disabled):not([data-pending]),
+.armada-button[data-variant="ghost"][data-icon-only][role="radio"][aria-checked="true"]:not(:disabled):not([data-pending]) {
   background: transparent;
   border-color: transparent;
   color: var(--fg-default);
 }
 
 .armada-button[data-variant="ghost"][data-icon-only][aria-pressed="true"]:hover:not(:disabled):not([data-pending]),
-.armada-button[data-variant="ghost"][data-icon-only][aria-pressed="true"][data-preview-hover] {
+.armada-button[data-variant="ghost"][data-icon-only][aria-pressed="true"][data-preview-hover],
+.armada-button[data-variant="ghost"][data-icon-only][role="radio"][aria-checked="true"]:hover:not(:disabled):not([data-pending]) {
   background: var(--bg-hover);
 }
 
-.armada-button[data-variant="ghost"][data-icon-only][aria-pressed="true"]::before {
+.armada-button[data-variant="ghost"][data-icon-only][aria-pressed="true"]::before,
+.armada-button[data-variant="ghost"][data-icon-only][role="radio"][aria-checked="true"]::before {
   content: "";
   position: absolute;
   inset-block-start: calc(var(--space-1) * 0.5);
@@ -229,7 +232,8 @@
   pointer-events: none;
 }
 
-.armada-button[data-variant="ghost"][data-icon-only][aria-pressed="true"]:disabled::before {
+.armada-button[data-variant="ghost"][data-icon-only][aria-pressed="true"]:disabled::before,
+.armada-button[data-variant="ghost"][data-icon-only][role="radio"][aria-checked="true"]:disabled::before {
   background: var(--fg-subtle);
 }
 

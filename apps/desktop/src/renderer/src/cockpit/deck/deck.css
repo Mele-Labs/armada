@@ -169,7 +169,7 @@
   --deck-line: var(--h-control);
   --row-min: var(--deck-line);
   --lamp-gutter: calc(var(--space-3) + var(--lamp, var(--dot)) + var(--space-2));
-  --row-pad: 0 var(--space-3) 0 var(--lamp-gutter);
+  --row-pad: 0 var(--space-3);
   --row-radius: var(--radius-inset, var(--radius-sm));
   flex: 1 1 0;
   display: flex;
@@ -181,7 +181,7 @@
   overflow-y: auto;
   overscroll-behavior: contain;
 }
-.deck-list__rows:is([data-now], [data-pr]) { --row-min: 0; --row-pad: calc(var(--space-1) / 2) var(--space-3) var(--space-2) var(--lamp-gutter); }
+.deck-list__rows:is([data-now], [data-pr]) { --row-min: 0; --row-pad: calc(var(--space-1) / 2) var(--space-3) var(--space-2); }
 /* A row picked up is dimmed where it stood; the line is where it would be put down. Nothing else moves while it is held. */
 .deck-list__rows[data-reordering],
 .deck-list__rows[data-reordering] .deck-row { cursor: grabbing; user-select: none; }
@@ -246,24 +246,12 @@
 .deck-row[data-tone="calm"] .deck-row__title { font-weight: var(--weight-body); }
 /* A reply that only told him is calm and wears its glyph small and faint. */
 .deck-row[data-reply] .deck-mark { opacity: 0.55; }
-/* A Session that needs him: the row keeps a faint, still tint, and the lamp at its left edge carries the pulse, on opacity alone. */
-.deck-row[data-lamp="needs"]::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: var(--status-awaiting-review); opacity: 0.06; pointer-events: none; }
-@keyframes deck-needs-pulse { 50% { opacity: 0.05; } }
-/* The state lamp: 6px and round at the row's left edge, in the state's hue (running, needs him, done, failed, idle). */
-/* Doubled over the call's own 2px bar (`session-view.css`), which the lamp replaces: a lamp carries what the bar did. */
-.deck-list__item > .deck-row[data-lamp]::before { content: ""; position: absolute; inset-block: auto; inset-inline-start: var(--space-3); inset-block-start: calc(var(--deck-line, var(--h-control)) / 2 - var(--lamp, var(--dot)) / 2); width: var(--lamp, var(--dot)); height: var(--lamp, var(--dot)); border-radius: 50%; background: var(--lamp-hue, var(--fg-subtle)); animation: none; pointer-events: none; }
-.deck-row[data-lamp="running"] { --lamp-hue: var(--status-running); }
-.deck-row[data-lamp="needs"] { --lamp-hue: var(--status-awaiting-review); }
-.deck-row[data-lamp="done"] { --lamp-hue: var(--status-completed-success); }
-.deck-row[data-lamp="failed"] { --lamp-hue: var(--status-completed-failed); }
-.deck-list__item > .deck-row[data-lamp="needs"]::before { animation: deck-lamp-pulse 1.6s ease-in-out infinite; }
-.deck-list__rows:is([data-now], [data-pr]) .deck-list__item > .deck-row[data-lamp]::before { inset-block-start: calc(var(--space-1) / 2 + var(--deck-line, var(--h-control)) / 2 - var(--lamp, var(--dot)) / 2); }
-/* A paused Job reads idle whatever else it carries: a grey lamp, no pulse and no tint. */
-.deck-row[data-lamp][data-paused] { --lamp-hue: var(--fg-subtle); }
-.deck-list__item > .deck-row[data-lamp][data-paused]::before { animation: none; }
+/* A Session that needs him: the row's faint tint pulses, on opacity alone. The row's state glyph at its right tells every state; the row wears no dot. A paused row stays quiet. */
+.deck-row[data-lamp="needs"]::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: var(--status-awaiting-review); opacity: 0.06; pointer-events: none; animation: deck-needs-pulse 1.6s ease-in-out infinite; }
+@keyframes deck-needs-pulse { 50% { opacity: 0.14; } }
 .deck-row[data-lamp][data-paused]::after { content: none; }
 @keyframes deck-lamp-pulse { 50% { opacity: 0.35; } }
-@media (prefers-reduced-motion: reduce) { .deck-list__item > .deck-row[data-lamp="needs"]::before { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .deck-row[data-lamp="needs"]::after { animation: none; } }
 .deck-row__kind { display: inline-flex; color: var(--fg-subtle); }
 .deck-row__link { display: inline-flex; vertical-align: calc(var(--border-width) * -1); margin-inline-end: var(--space-1); color: var(--fg-subtle); }
 .deck-row__phase { display: inline-flex; color: var(--fg-muted); }

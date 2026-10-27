@@ -2,8 +2,8 @@
 // a step of the workflow, and a beat the Job is on. A state is a glyph or a lamp with a tooltip and no row prints a state word.
 
 import type { KeyboardEvent, ReactNode } from "react";
-import { Megaphone, type LucideIcon } from "lucide-react";
-import { LinkedSession, Stamp, Tooltip } from "@armada/components";
+import { Circle, Footprints, Megaphone, Milestone, Tags, type LucideIcon } from "lucide-react";
+import { Button, LinkedSession, Readout, Stamp, Tooltip } from "@armada/components";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
 import { useSessions } from "../sessions-draft";
@@ -20,6 +20,8 @@ import { stackedRows } from "./pull-stacks";
 import type { RouteStep } from "./route";
 import type { ViewGroup } from "./plan-marks";
 import { MARK } from "./StatusPanel";
+import { LEDGER_KEY } from "./story";
+import type { LedgerView } from "./story-take";
 
 /**
  * Arrows, Home and End move between the rows of a zone, which are the buttons marked `data-nav` and a pull request's main button. A list with arrows of its own, a tab strip
@@ -48,19 +50,14 @@ function Lead({ Glyph, said, pulse = false }: { Glyph: LucideIcon; said: string;
   );
 }
 
-/** A step of the workflow: done, the one the Job is at, or to come. Where the step is the plan's, a press opens what the plan drew. */
-export function StepBeat({ name, state, open }: { name: string; state: "done" | "now" | "next"; open?: (() => void) | undefined }) {
+/** A step of the workflow: done, the one the Job is at, or to come. What the step made, or still owes, stands under it. */
+export function StepBeat({ name, state, under }: { name: string; state: "done" | "now" | "next"; under?: ReactNode }) {
   const { Glyph, said } = MARK[state];
   return (
     <li className="sv-beat" data-state={state} data-workflow="">
       <Lead Glyph={Glyph} said={said} pulse={state === "now"} />
-      {open === undefined ? (
-        <span className="sv-beat__label">{name}</span>
-      ) : (
-        <button type="button" className="sv-beat__label sv-beat__open" data-nav="" aria-label={name} onClick={open}>
-          {name}
-        </button>
-      )}
+      <span className="sv-beat__label">{name}</span>
+      {under === undefined ? null : <div className="sv-beat__made">{under}</div>}
     </li>
   );
 }
@@ -70,7 +67,7 @@ export function RouteBeat({ step }: { step: RouteStep }) {
   return (
     <li className="sv-beat" data-state={step.state} data-route="">
       <Mark state={step.state} />
-      <span className="sv-beat__label">{step.label}</span>
+      <span className="sv-beat__label">{step.system === true ? <Readout>{step.label}</Readout> : step.label}</span>
     </li>
   );
 }
@@ -86,13 +83,86 @@ export function AskBeat({ said, text }: { said: string; text: string }) {
 }
 
 /** The agent or a Check at work: its mark and its name, and what it is doing under it where it says. */
-export function WorkBeat({ mark, name, line }: { mark: ReactNode; name: string; line?: string | undefined }) {
+export function WorkBeat({ mark, name, line, system = false }: { mark: ReactNode; name: string; line?: string | undefined; /** The name is one the system reports, a Check's: drawn as a reading. */ system?: boolean }) {
   return (
     <li className="sv-beat">
       {mark}
-      <span className="sv-beat__label">{name}</span>
+      <span className="sv-beat__label">{system ? <Readout>{name}</Readout> : name}</span>
       {line === undefined ? null : <span className="sv-beat__line">{line}</span>}
     </li>
+  );
+}
+
+/** A tick for each take of a walk, hollow while none is looked at. The takes are the ticks and are never counted in words. */
+function Takes({ n }: { n: number }) {
+  return (
+    <Tooltip asChild label="Takes">
+      <span className="sv-ticks" role="img" aria-label="Takes">
+        {Array.from({ length: n }, (_, i) => (
+          <span key={i} className="sv-tick" data-state="open">
+            <Circle size={12} strokeWidth={2} aria-hidden />
+          </span>
+        ))}
+      </span>
+    </Tooltip>
+  );
+}
+
+/** A walk shown to him: the lamp pulses, its name opens it as the window opens a walk, and a tick stands for each take. */
+export function WalkBeat({ title, takes, onOpen }: { title: string; takes: number | undefined; onOpen: () => void }) {
+  return (
+    <li className="sv-beat" data-lamp="needs" data-walk="">
+      <Lead Glyph={Footprints} said="Walk waiting on you" pulse />
+      <button type="button" className="sv-beat__label sv-beat__open" data-nav="" onClick={onOpen}>
+        {title}
+      </button>
+      {takes === undefined ? null : <Takes n={takes} />}
+    </li>
+  );
+}
+
+/** The walk a step will show, before it is shown. */
+export function WalkToCome() {
+  return (
+    <div className="sv-made" data-pending="">
+      <Tooltip asChild label="Walk, not shown yet">
+        <span className="sv-made__mark" role="img" aria-label="Walk, not shown yet">
+          <Footprints size={12} strokeWidth={2} aria-hidden />
+        </span>
+      </Tooltip>
+      <span className="sv-made__title">Walk</span>
+      <span />
+    </div>
+  );
+}
+
+const VIEWS: readonly { id: LedgerView; label: string; Glyph: LucideIcon }[] = [
+  { id: "step", label: "By step", Glyph: Milestone },
+  { id: "kind", label: "By kind", Glyph: Tags },
+];
+
+/** How Completed is read, as two icon toggles of one radio group. ← → and ↑ ↓ move between them and choose; the key (`story.ts`) flips them. */
+export function LedgerToggle({ view, onChange }: { view: LedgerView; onChange: (next: LedgerView) => void }) {
+  const move = (event: KeyboardEvent<HTMLElement>) => {
+    const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[event.key];
+    if (step === undefined) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const group = event.currentTarget;
+    const next = VIEWS[(VIEWS.findIndex((one) => one.id === view) + step + VIEWS.length) % VIEWS.length]!;
+    onChange(next.id);
+    window.setTimeout(() => group.querySelector<HTMLElement>(`[data-view="${next.id}"]`)?.focus(), 0);
+  };
+  return (
+    <div className="sv-ledger-view" role="radiogroup" aria-label="View" data-own-arrows="" onKeyDown={move}>
+      {VIEWS.map(({ id, label, Glyph }) => (
+        <Tooltip key={id} label={label} shortcut={LEDGER_KEY.cap}>
+          <Button variant="ghost" size="sm" iconOnly role="radio" aria-checked={view === id} aria-label={label} data-view={id} tabIndex={view === id ? 0 : -1} onClick={() => onChange(id)}>
+            <Glyph size={16} strokeWidth={2} aria-hidden />
+          </Button>
+        </Tooltip>
+      ))}
+    </div>
   );
 }
 

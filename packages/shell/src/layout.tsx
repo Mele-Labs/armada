@@ -50,14 +50,14 @@ export const LAYOUT: Readonly<Record<LayoutRegion, Spec>> = {
       { id: "autopilot", label: "Autopilot", icon: Plane, hideable: true },
     ],
   },
-  // An open Job's right column, told in three zones in the order it reads: what the Job has made, what it is doing, what comes. A layout hides Done or Next and never
+  // An open Job's right column, told in three zones in the order it reads: what the Job has made, what it is doing, what comes. A layout hides Completed or Next and never
   // reorders them, since the story reads top to bottom. Now is the Job and cannot be hidden. The field is not here: it stands in the Cockpit's lower left.
   "job.panels": {
     label: "Job panels",
     ordered: false,
     firstable: false,
     entries: [
-      { id: "done", label: "Done", icon: CircleCheck, hideable: true },
+      { id: "done", label: "Completed", icon: CircleCheck, hideable: true },
       { id: "now", label: "Now", icon: CircleDot, hideable: false },
       { id: "next", label: "Next", icon: CircleDashed, hideable: true },
     ],

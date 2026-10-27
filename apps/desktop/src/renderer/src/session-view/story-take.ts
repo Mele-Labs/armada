@@ -1,7 +1,7 @@
-// How the Job's story is drawn, and how its Done zone is read. Both are a viewer's choice, not the Job's.
+// How the Job's story is drawn, and how its Completed zone is read. Both are a viewer's choice, not the Job's.
 //
-// The take is mock only, read from `?take=`: `spine` draws one timeline line with a NOW marker, Done above it and Next below; `stacked` draws three
-// panels, Done, Now and Next. Made once he has looked: the one picked stays and the other goes with this function.
+// The take is mock only, read from `?take=`: `spine` draws one timeline line with a NOW marker, Completed above it and Next below; `stacked` draws three
+// panels, Completed, Now and Next. Made once he has looked: the one picked stays and the other goes with this function.
 // The ledger view is kept per machine: `step` lists each finished group or step with what it made beneath it, `kind` lists Documents, Pull requests,
 // Issues and Artifacts, newest first.
 

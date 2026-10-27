@@ -1,4 +1,4 @@
-/* The Job's story: Done, Now and Next (`StoryColumn.tsx`). Tokens only; no gradient, glow or sheen. Two takes of the one story: `stacked` is three panels in the
+/* The Job's story: Completed, Now and Next (`StoryColumn.tsx`). Tokens only; no gradient, glow or sheen. Two takes of the one story: `stacked` is three panels in the
    deck's right column, and `spine` is one scrolling timeline with the zones on a line. */
 
 /* ---- The rows --------------------------------------------------------------------------------------------- */
@@ -31,10 +31,12 @@
 .sv-beat__open:hover { color: var(--fg-default); }
 .sv-beat__open:focus-visible { outline: var(--focus-ring); outline-offset: var(--border-width); }
 
-/* A thing the Job made: its glyph, its words, and where it opens. */
+/* A thing the Job made: its glyph, its words, and where it opens. A pending one is not a press: it waits for what makes it. */
 .sv-made-list { gap: var(--space-1); }
 .sv-made { display: grid; grid-template-columns: var(--space-4) minmax(0, 1fr) auto; align-items: center; column-gap: var(--space-2); width: 100%; min-height: var(--h-row); padding: 0 var(--space-2); border: 0; border-radius: var(--radius-md); background: none; color: var(--fg-default); font-family: var(--font-sans); font-size: var(--text-xs); line-height: var(--leading-xs); text-align: start; cursor: pointer; }
 .sv-made:disabled { cursor: default; color: var(--fg-muted); }
+.sv-made[data-pending] { cursor: default; color: var(--fg-subtle); }
+.sv-made[data-pending] .sv-made__mark { color: var(--fg-subtle); }
 .sv-made:not(:disabled):hover { background: var(--bg-hover); }
 .sv-made:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--border-width) * -1); }
 .sv-made__mark { display: inline-flex; align-items: center; justify-content: center; color: var(--fg-muted); }
@@ -45,8 +47,17 @@
 .sv-kind { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
 .sv-kind__label { margin: 0; padding-inline: var(--space-2); color: var(--fg-default); font-family: var(--font-sans); font-size: var(--text-xs); line-height: var(--leading-xs); font-weight: var(--weight-heading); }
 
-/* The workflow's picker, above the zones. */
+/* The workflow at the head of the story: its name as a reading, its steps as glyphs beside it. Pressing the name opens the picker. */
 .sv-story__head { display: flex; flex: none; align-items: center; min-height: var(--h-control); }
+.sv-workflow { display: flex; flex: none; align-items: center; gap: var(--space-2); min-width: 0; }
+.sv-story__head > .sv-workflow { flex: 1 1 auto; }
+.sv-workflow .sv-rail { flex: 0 1 auto; }
+.sv-workflow__pick { display: inline-flex; flex: none; align-items: center; gap: var(--space-1); padding: 0; border: 0; border-radius: var(--radius-inset); background: none; color: var(--fg-subtle); cursor: pointer; }
+.sv-workflow__pick:hover, .sv-workflow__pick[aria-expanded="true"] { color: var(--fg-default); }
+.sv-workflow__pick:hover .armada-readout, .sv-workflow__pick[aria-expanded="true"] .armada-readout { border-color: var(--border-default); color: var(--fg-default); }
+.sv-workflow__pick:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+.sv-workflow__name { display: inline-flex; flex: none; }
+.sv-panel__body > .sv-workflow { padding-block: var(--space-1); }
 
 /* ---- Take B: three panels ----------------------------------------------------------------------------------- */
 
@@ -55,24 +66,24 @@
 .sv-side > .sv-panel[data-area="next"] { flex: 2 1 0; min-height: calc(var(--space-12) * 2); }
 .sv-side > .sv-panel[data-area="done"]:has(> .sv-panel__body:empty),
 .sv-side > .sv-panel[data-area="next"]:has(> .sv-panel__body:empty) { flex: 0 0 auto; min-height: 0; }
-/* The Tabs in a band keep the band's height. */
-.sv-panel__acts .armada-tabs { text-transform: none; letter-spacing: normal; }
+/* How Completed is read: two icon toggles in its strip, the checked one lit by the toggle's own lamp (`Button.css`). */
+.sv-ledger-view { display: inline-flex; align-items: center; gap: var(--space-1); }
 
 /* ---- Take A: one line ----------------------------------------------------------------------------------------- */
 
-/* The column is one scroll, and the zones are not panels any more: no frame, no fill, no shadow. The line runs down the left of every zone, solid for what is done,
+/* The column is one scroll on a dim glass ground, flat, with no border, bezel or strip: not another panel, and enough mass to stand against the Jobs column. The zones are not panels any more: no frame, no fill, no shadow. The line runs down the left of every zone, solid for what is done,
    heavier through Now, and dashed for what is to come; each band is the marker on it. The selectors are doubled over the glass sheet's own. */
-.sv-spine { --line: var(--space-4); --lead: calc(var(--line) + var(--space-4)); position: relative; display: flex; flex: 1 1 0; flex-direction: column; min-height: 0; padding: var(--space-1) var(--space-2) var(--space-4); overflow-y: auto; overscroll-behavior: contain; }
+.sv-spine { --line: var(--space-4); --lead: calc(var(--line) + var(--space-4)); position: relative; display: flex; flex: 1 1 0; flex-direction: column; min-height: 0; padding: var(--space-2) var(--space-2) var(--space-4); border-radius: var(--radius-lg); background: color-mix(in srgb, var(--bg-glass) 55%, transparent); overflow-y: auto; overscroll-behavior: contain; }
 .sv-spine .sv-story__head { padding-inline-start: var(--lead); }
 .sv-spine .sv-panel.sv-panel[data-area][data-area] { position: relative; flex: none; border: 0; border-radius: 0; background: none; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; overflow: visible; }
 .sv-spine .sv-panel.sv-panel[data-area][data-area]::before { content: ""; position: absolute; inset-block: 0; inset-inline-start: var(--line); border-inline-start: var(--border-width) solid var(--border-strong); pointer-events: none; }
 .sv-spine .sv-panel[data-area="now"]::before { border-inline-start: calc(var(--border-width) * 2) solid var(--fg-default); inset-inline-start: calc(var(--line) - var(--border-width) / 2); }
 .sv-spine .sv-panel[data-area="next"]::before { border-inline-start: var(--border-width) dashed var(--border-strong); }
-/* The line starts at Done's first marker. */
+/* The line starts at Completed's first marker. */
 .sv-spine .sv-panel[data-area="done"]::before { inset-block-start: calc(var(--legend-h) / 2); }
 
 .sv-spine .sv-panel.sv-panel[data-area][data-area] > .sv-panel__band { position: relative; min-height: var(--legend-h); padding: 0 0 0 var(--lead); border: 0; background: none; box-shadow: none; color: var(--fg-muted); }
-/* The marker on the line: a hollow dot for Done and Next, a filled and larger one for NOW. The state is the lamp in the strip, as on every panel. */
+/* The marker on the line: a hollow dot for Completed and Next, a filled and larger one for NOW. The state is the lamp in the strip, as on every panel. */
 .sv-spine .sv-panel__band::after { content: ""; position: absolute; inset-inline-start: calc(var(--line) - var(--space-1) - var(--border-width) / 2); inset-block-start: 50%; width: calc(var(--space-2) + var(--border-width)); height: calc(var(--space-2) + var(--border-width)); translate: 0 -50%; border-radius: 50%; background: var(--bg-sunken); box-shadow: inset 0 0 0 var(--border-width) var(--border-strong); pointer-events: none; }
 .sv-spine .sv-panel[data-area="now"] > .sv-panel__band { color: var(--fg-default); }
 .sv-spine .sv-panel[data-area="now"] > .sv-panel__band::after { inset-inline-start: calc(var(--line) - var(--space-2) / 2 - var(--border-width) / 2); width: var(--space-2); height: var(--space-2); background: var(--fg-default); box-shadow: none; }

@@ -49,10 +49,10 @@ Doctor is a row of the title menu with no entry, and so is every place with no t
 The stage is not an entry.
 A right column a layout empties is not drawn and gives its room to the stage, and so is an emptied foot.
 
-**`job.panels` is the panels an open Job stacks in the right column**, and it hides them and never orders them, because a story runs Done, Now, Next.
+**`job.panels` is the panels an open Job stacks in the right column**, and it hides them and never orders them, because a story runs Completed, Now, Next.
 A Job is a story and the column tells it in that order: what it has made, what it is doing, what is left.
 Now holds what runs this minute and what waits on the person, so it is never hidden.
-Done and Next may be hidden.
+Completed and Next may be hidden.
 The Field is not in this region: it stands in the Cockpit's lower left as `field` in `dashboard.panels`.
 `workflow`, `blueprint`, `field` and `landing` were ids of this region before the story, so a layout that names one is ignored like any id this build does not have.
 `progress` and `mods` were ids of this region before the story, so a layout that names either is ignored like any id this build does not have.

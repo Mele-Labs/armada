@@ -1,12 +1,12 @@
-// What a Job has produced, as one list in the order it was produced, for the Done zone of the story (`StoryColumn.tsx`). Read from what the Job
+// What a Job has produced, as one list in the order it was produced, for the Completed zone of the story (`StoryColumn.tsx`). Read from what the Job
 // already holds: the approved plan, the documents and sketches, the files and pages, the commits in the thread, the walks it ended, the issues
 // and pull requests attached, the mods it made and the follow-ups he kept. Nothing is fetched and nothing is guessed from what an agent said.
 //
 // **The order is the Job's own sequence.** A thread row carries a time and an attachment does not, so the list runs plan, documents, sketches,
 // pages, files, commits, walks, mods, issues, pull requests, follow-ups kept; within a kind, oldest first, as the ledger holds them.
 
-import { BadgeCheck, CalendarClock, type LucideIcon } from "lucide-react";
-import { ARTIFACT, type LedgerEntry } from "@armada/components";
+import { BadgeCheck, CalendarClock, Footprints, type LucideIcon } from "lucide-react";
+import type { LedgerEntry } from "@armada/components";
 import { attachmentsOf, type Session } from "@armada/screens/src/draft/sessions";
 
 import { artifactsOf, type ArtifactRow } from "./artifacts";
@@ -65,7 +65,8 @@ export function madeOf(session: Session, entries: readonly LedgerEntry[], opts: 
   // A file the thread only touched is a code edit, which the commits and pull requests hold; only what the Job wrote as a thing to open is made.
   for (const one of oldest("file")) if (one.key !== report?.key && !one.key.startsWith("touched:")) made("artifact", one);
   for (const one of oldest("commit")) made("artifact", one);
-  for (const one of session.rows) if (one.kind === "window" && one.ended !== undefined) made("artifact", row(`walk:${one.id}`, ARTIFACT.window.Glyph, "Walk", one.title));
+  // A walk ends in his Approve.
+  for (const one of session.rows) if (one.kind === "window" && one.ended !== undefined) made("artifact", row(`walk:${one.id}`, Footprints, "Walk approved", one.title));
   if (opts.mods > 0) out.push({ shape: "mods", key: "mods", bucket: "artifact" });
 
   const groupOfIssue = (number: string) => plan?.groups.find((one) => one.issue === number)?.id;
@@ -81,6 +82,22 @@ export function madeOf(session: Session, entries: readonly LedgerEntry[], opts: 
   for (const one of session.later ?? []) if (one.confirmed === true) made("issue", row(`later:${one.id}`, CalendarClock, "Deferred", one.text));
   return out;
 }
+
+/** What each kind of output is made by, as the name of a workflow step reads. Until Fleet records the step that made an output, the step is the one named for it. */
+/** The workflow step that shows a walk. */
+export const WALK_STEP = /present|walk|show/i;
+
+const MADE_BY: readonly { is: (one: Made) => boolean; step: RegExp; /** Where it stands when no step is named for it. */ first?: true }[] = [
+  { is: (one) => one.shape === "row" && one.key.startsWith("walk:"), step: WALK_STEP },
+  { is: (one) => one.shape === "row" && one.bucket === "document", step: /plan|draft|design|scope/i, first: true },
+  { is: (one) => one.shape === "pr", step: /pull|deliver|land/i },
+];
+
+/** The finished workflow step an output stands under in By step, or none where no finished step made it. */
+export const stepOf = (one: Made, done: readonly string[]): string | undefined => {
+  const by = MADE_BY.find((kind) => kind.is(one));
+  return by === undefined ? undefined : (done.find((name) => by.step.test(name)) ?? (by.first === true ? done[0] : undefined));
+};
 
 /** Each kind's list, newest first. A kind with nothing made has no list. */
 export const byKind = (list: readonly Made[]): { id: Bucket; label: string; made: Made[] }[] =>

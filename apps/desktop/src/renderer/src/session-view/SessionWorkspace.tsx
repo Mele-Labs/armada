@@ -2,9 +2,9 @@
 // alone with its ledger beside it.
 //
 // **What stays on screen.** The Work list, the thread and composer, the Job's story in the right column, and Flight control. The story is told
-// in three zones, Done, Now and Next (`StoryColumn.tsx`), as a timeline or as three panels. The Field stands in the Cockpit's lower left, under the Jobs list. The rest is a key away: Flight control opens a layer over the stage for Subagents, Checks and Slot, and Back returns to the
+// in three zones, Completed, Now and Next (`StoryColumn.tsx`), as a timeline or as three panels. The Field stands in the Cockpit's lower left, under the Jobs list. The rest is a key away: Flight control opens a layer over the stage for Subagents, Checks and Slot, and Back returns to the
 // thread as it was. **Artifacts is the exception: it opens over the right column**, from the head's Artifacts icon, its key or Flight control, the
-// story steps aside, and Esc returns to it. Pull requests stand in Done and on the Merge line. The slot and branch are drawn only when something is wrong with
+// story steps aside, and Esc returns to it. Pull requests stand in Completed and on the Merge line. The slot and branch are drawn only when something is wrong with
 // them: as a call in the thread, and by lighting the Slot key. The panels are drawn into the deck's right column (`hosts`).
 
 import { useEffect } from "react";
@@ -74,7 +74,7 @@ export function SessionWorkspace({ session, entries, repositories, hosts, ed, ba
       if (band === undefined) return;
       event.preventDefault();
       if (layer === "artifacts") closeLayer();
-      if (band.area === "workflow") return document.querySelector<HTMLElement>(".sv-side .sv-flow select")?.focus();
+      if (band.area === "workflow") return document.querySelector<HTMLElement>(".sv-side [data-workflow-pick]")?.focus();
       pressBand(session, band.area);
       window.setTimeout(() => document.querySelector<HTMLElement>(`[data-area="${band.area}"] > .sv-panel__band`)?.focus(), 0);
     };
