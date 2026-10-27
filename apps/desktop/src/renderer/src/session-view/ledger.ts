@@ -32,6 +32,9 @@ export type Made = { key: string; bucket: Bucket; /** The plan group whose issue
   | { shape: "mods" }
 );
 
+/** What a test run or a look in a browser writes as it goes: failure screenshots and pictures taken to check a page. Scratch, never something made for him. */
+const SCRATCH = /(^|\/)(\.playwright-mcp|__screenshots__)\/|^\/(private\/)?tmp\//;
+
 const row = (key: string, Glyph: LucideIcon, said: string, title: string, open?: () => void): ArtifactRow => ({ key, Glyph, said, title, ...(open === undefined ? {} : { open }) });
 
 /** The report a Job wrote: the first doc or file it made that has a path and somewhere to go. */
@@ -63,10 +66,11 @@ export function madeOf(session: Session, entries: readonly LedgerEntry[], opts: 
   for (const one of oldest("sketch")) if (one.key !== `sketch:${planSketch}`) made("document", one);
   for (const one of oldest("page")) made("artifact", one);
   // A file the thread only touched is a code edit, which the commits and pull requests hold; only what the Job wrote as a thing to open is made.
-  for (const one of oldest("file")) if (one.key !== report?.key && !one.key.startsWith("touched:")) made("artifact", one);
+  for (const one of oldest("file")) if (one.key !== report?.key && !one.key.startsWith("touched:") && !SCRATCH.test(one.sub ?? "")) made("artifact", one);
   for (const one of oldest("commit")) made("artifact", one);
-  // A walk ends in his Approve.
-  for (const one of session.rows) if (one.kind === "window" && one.ended !== undefined) made("artifact", row(`walk:${one.id}`, Footprints, "Walk approved", one.title));
+  // A walk ends in his Approve. One shown again stands once, where it was shown last.
+  const walks = session.rows.filter((one) => one.kind === "window" && one.ended !== undefined);
+  for (const [i, one] of walks.entries()) if (one.kind === "window" && !walks.slice(i + 1).some((later) => later.kind === "window" && later.title === one.title)) made("artifact", row(`walk:${one.id}`, Footprints, "Walk approved", one.title));
   if (opts.mods > 0) out.push({ shape: "mods", key: "mods", bucket: "artifact" });
 
   const groupOfIssue = (number: string) => plan?.groups.find((one) => one.issue === number)?.id;
