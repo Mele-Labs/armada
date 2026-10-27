@@ -178,6 +178,11 @@
 /* A Session Fleet cannot reach, or that ended: read quieter than one in flight. */
 .deck-row[data-past] .deck-row__title { color: var(--fg-muted); }
 .deck-row[data-past][data-selected] .deck-row__title { color: var(--fg-default); }
+/* A Job he parked: the row is read quieter than one in flight, and its mark is faint. Nothing pulses on it. */
+.deck-row[data-paused] .deck-row__title { color: var(--fg-muted); }
+.deck-row[data-paused] .deck-row__says { color: var(--fg-subtle); }
+.deck-row[data-paused] .deck-mark { opacity: 0.55; }
+.deck-row[data-paused][data-selected] .deck-row__title { color: var(--fg-default); }
 /* What a search matched, in the age's place: mono, cut with an ellipsis where it is long. */
 .deck-row__said[data-found] { max-width: 14ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono); color: var(--fg-default); }
 .deck-list__more { display: flex; justify-content: center; padding: var(--space-2); color: var(--fg-subtle); list-style: none; }
