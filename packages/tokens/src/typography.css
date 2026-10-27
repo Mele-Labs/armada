@@ -2,31 +2,28 @@
    Mono signals "this is a fact the system reported" and runs one step
    smaller than adjacent sans at the same optical size.
 
-   Legibility pass, 2026-08-20: the whole ladder was raised ~15% after the
-   11px/13px steps proved hard to read at desk distance. Ratios and roles
-   are unchanged — every step moved together. */
+   The ladder is the Cockpit's, app-wide, from 26 Oct 2026. It was raised
+   ~15% on 2026-08-20 after 11px and 13px proved hard to read at desk
+   distance; the owner then looked at mission-control interfaces that fit more
+   on a screen and moved the bottom four steps back down. A model's own
+   text keeps the reading sizes: `Prose` redeclares the old four steps in its
+   own scope. */
 :root {
-  --text-2xs: 13px;   --leading-2xs: 18px;   /* table metadata, timestamps */
-  --text-xs: 14px;    --leading-xs: 20px;    /* labels, badges, secondary */
-  --text-sm: 15px;    --leading-sm: 22px;    /* BODY DEFAULT */
-  --text-base: 16px;  --leading-base: 24px;  /* emphasis within body */
+  --text-2xs: 12px;   --leading-2xs: 16px;   /* table metadata, timestamps, a row's meta */
+  --text-xs: 13px;    --leading-xs: 18px;    /* labels, badges, secondary, a row's title */
+  --text-sm: 14px;    --leading-sm: 20px;    /* BODY DEFAULT */
+  --text-base: 15px;  --leading-base: 22px;  /* emphasis within body */
   --text-lg: 18px;    --leading-lg: 28px;    /* panel headings */
   --text-xl: 23px;    --leading-xl: 32px;    /* page titles */
   --text-2xl: 28px;   --leading-2xl: 36px;   /* the rare hero number */
 
-  /* The Cockpit's ladder, one step under the app's, chosen by the owner on
-     26 Oct 2026. The Cockpit holds a deck of lists, panels and keys at once,
-     so it sets --text-2xs to --text-2xs-dense and so on inside its own scope
-     and leaves every other screen on the ladder above. Only the four steps it
-     reads are here; lg and up are not drawn dense. */
-  --text-2xs-dense: 12px;   --leading-2xs-dense: 16px;   /* a row's meta */
-  --text-xs-dense: 13px;    --leading-xs-dense: 18px;    /* a row's title, labels */
-  --text-sm-dense: 14px;    --leading-sm-dense: 20px;    /* body */
-  --text-base-dense: 15px;  --leading-base-dense: 22px;  /* emphasis within body */
-  /* The word on a Switch at the Cockpit's density. Under the dense ladder's
-     smallest step: a Switch's track is short, and the word fits it at 10px and
-     no larger. */
-  --text-switch-dense: 10px;
+  /* A field a phone types in. iOS zooms into a focused field under 16px, so
+     it stays at 16px whatever the ladder's steps are. */
+  --text-touch-field: 16px;
+
+  /* The word on a Switch. Under the ladder's smallest step: a Switch's track
+     is short, and the word fits it at 10px and no larger. */
+  --text-switch: 10px;
 
   --weight-body: 400;
   --weight-medium: 500;   /* labels only */

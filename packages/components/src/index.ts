@@ -36,6 +36,8 @@ export * from "./primitives/Textarea/Textarea";
 export * from "./primitives/Toast/Toast";
 export * from "./primitives/Tooltip/Tooltip";
 export * from "./primitives/Stamp/Stamp";
+export * from "./primitives/Readout/Readout";
+export * from "./clip-title";
 export * from "./primitives/Inspect/Inspect";
 export * from "./primitives/SelectMark/SelectMark";
 
@@ -389,6 +391,7 @@ export * from "./compositions/RegisteredOwner/RegisteredOwner";
 export * from "./compositions/SessionFrame/SessionFrame";
 export * from "./compositions/RunningChecks/RunningChecks";
 export * from "./compositions/SessionThread/SessionThread";
+export { callsLine } from "./compositions/SessionThread/calls-line";
 export { NOTICE_NAMES } from "./compositions/SessionThread/FleetTurn";
 export * from "./compositions/SessionThread/debug-info";
 export * from "./compositions/SessionThread/RequestedRow";

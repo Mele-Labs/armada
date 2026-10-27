@@ -104,7 +104,7 @@
   --border-glass: rgb(255 255 255 / 0.07);
   /* The 1px highlight along a card's top inner edge, read as light catching it */
   --border-highlight: rgb(255 255 255 / 0.05);
-  /* The canvas's pool of accent light, top leading corner */
+  /* A faint accent fill for a selection or a match */
   --accent-faint: color-mix(in srgb, var(--accent) 10%, transparent);
 
   /* Helm. The one hue outside status and accent, so the dock reads as Helm at
@@ -114,7 +114,7 @@
   --helm: #8E95FF;
   --helm-muted: color-mix(in srgb, var(--helm) 14%, transparent); /* chip and Send fill */
   --helm-edge: color-mix(in srgb, var(--helm) 38%, transparent);  /* the dock's top edge, Send's border */
-  --helm-faint: color-mix(in srgb, var(--helm) 6%, transparent);  /* the canvas's pool, and the dock's wash */
+  --helm-faint: color-mix(in srgb, var(--helm) 6%, transparent);  /* a faint Helm tint */
 
   /* You. The owner's own messages in a Session thread, and nothing else.
      Gold, hue 47: brighter and more yellow than --status-awaiting-review at 39,
@@ -554,31 +554,28 @@
    Mono signals "this is a fact the system reported" and runs one step
    smaller than adjacent sans at the same optical size.
 
-   Legibility pass, 2026-08-20: the whole ladder was raised ~15% after the
-   11px/13px steps proved hard to read at desk distance. Ratios and roles
-   are unchanged — every step moved together. */
+   The ladder is the Cockpit's, app-wide, from 26 Oct 2026. It was raised
+   ~15% on 2026-08-20 after 11px and 13px proved hard to read at desk
+   distance; the owner then looked at mission-control interfaces that fit more
+   on a screen and moved the bottom four steps back down. A model's own
+   text keeps the reading sizes: `Prose` redeclares the old four steps in its
+   own scope. */
 :root {
-  --text-2xs: 13px;   --leading-2xs: 18px;   /* table metadata, timestamps */
-  --text-xs: 14px;    --leading-xs: 20px;    /* labels, badges, secondary */
-  --text-sm: 15px;    --leading-sm: 22px;    /* BODY DEFAULT */
-  --text-base: 16px;  --leading-base: 24px;  /* emphasis within body */
+  --text-2xs: 12px;   --leading-2xs: 16px;   /* table metadata, timestamps, a row's meta */
+  --text-xs: 13px;    --leading-xs: 18px;    /* labels, badges, secondary, a row's title */
+  --text-sm: 14px;    --leading-sm: 20px;    /* BODY DEFAULT */
+  --text-base: 15px;  --leading-base: 22px;  /* emphasis within body */
   --text-lg: 18px;    --leading-lg: 28px;    /* panel headings */
   --text-xl: 23px;    --leading-xl: 32px;    /* page titles */
   --text-2xl: 28px;   --leading-2xl: 36px;   /* the rare hero number */
 
-  /* The Cockpit's ladder, one step under the app's, chosen by the owner on
-     26 Oct 2026. The Cockpit holds a deck of lists, panels and keys at once,
-     so it sets --text-2xs to --text-2xs-dense and so on inside its own scope
-     and leaves every other screen on the ladder above. Only the four steps it
-     reads are here; lg and up are not drawn dense. */
-  --text-2xs-dense: 12px;   --leading-2xs-dense: 16px;   /* a row's meta */
-  --text-xs-dense: 13px;    --leading-xs-dense: 18px;    /* a row's title, labels */
-  --text-sm-dense: 14px;    --leading-sm-dense: 20px;    /* body */
-  --text-base-dense: 15px;  --leading-base-dense: 22px;  /* emphasis within body */
-  /* The word on a Switch at the Cockpit's density. Under the dense ladder's
-     smallest step: a Switch's track is short, and the word fits it at 10px and
-     no larger. */
-  --text-switch-dense: 10px;
+  /* A field a phone types in. iOS zooms into a focused field under 16px, so
+     it stays at 16px whatever the ladder's steps are. */
+  --text-touch-field: 16px;
+
+  /* The word on a Switch. Under the ladder's smallest step: a Switch's track
+     is short, and the word fits it at 10px and no larger. */
+  --text-switch: 10px;
 
   --weight-body: 400;
   --weight-medium: 500;   /* labels only */
@@ -617,23 +614,24 @@
      carry their width inside. Nothing here duplicates them. */
   --border-width: 1px;
 
-  --radius-sm: 3px;  /* badges, small controls */
-  --radius-md: 5px;  /* buttons, inputs, cards */
-  --radius-lg: 8px;  /* dialogs, panels */
+  --radius-sm: 3px;  /* chips, badges */
+  --radius-md: 6px;  /* buttons, inputs, rows, flat cards */
+  --radius-lg: 8px;  /* panels, dialogs, a card on the canvas */
 
   /* Fixed heights. A shadow never adds to a box's height, so these are load-bearing */
-  --h-row: 36px;          /* table body row */
-  --h-row-header: 32px;   /* table header row */
-  /* A table row carrying a control. --h-row is 36px against --h-control-sm's
-     32px, which leaves two pixels above and below and reads as a button jammed
+  --h-row: 28px;          /* table body row, and every list row's line */
+  --h-row-header: 28px;   /* table header row */
+  --h-row-unit: 36px;     /* the measure a region is sized in (a bay is two, a sketch's glass eight), as rows were 36 tall; not a row's height */
+  /* A table row carrying a control. --h-row is 28px against --h-control-sm's
+     24px, which leaves two pixels above and below and reads as a button jammed
      into its row. This is padding-driven for the same reason --h-row-stacked
      is: the height is a floor that keeps rows level down a column, and what
-     sets it is --space-1 above and below the 36px row rather than a number
+     sets it is --space-1 above and below the 24px control rather than a number
      chosen for itself. Rows in the same grid carrying no control take the
      floor too, or a grid alternates two heights depending on which rows happen
      to have an action. Drawn on Doctor's module grid, where the Fleet row's
      action sits beside rows that have none. */
-  --h-row-action: 44px;
+  --h-row-action: 32px;
   --h-row-stacked: 84px;  /* the Job row: FLOOR, not a cap. See --pad-row-stacked */
   /* The same Job row in the table view, where the headline sits beside its
      facts rather than over them. A floor for the same reason --h-row-stacked
@@ -643,20 +641,23 @@
      row that already exists, which is why it lives beside it rather than in
      the composition that draws it. */
   --h-row-table: 52px;
-  --h-control: 36px;      /* default button, input, select */
-  --h-control-sm: 32px;   /* sm — use inside table rows */
-  /* The same two controls at the Cockpit's density, a step under the pair
-     above like its type ladder (typography.css). The Cockpit sets --h-control
-     and --h-control-sm to these inside its own scope; its list rows take the
-     first as their line. */
-  --h-control-dense: 28px;
-  --h-control-sm-dense: 24px;
+  /* Three control heights for the whole app, from the Cockpit's density
+     (owner, 26 Oct 2026): 28 for a button, input or select, 24 inside a row
+     or a toolbar, and 32 for the title bar's places and its search. A fourth
+     height is a design conversation. */
+  --h-control: 28px;
+  --h-control-sm: 24px;
+  --h-control-lg: 32px;
   --h-badge: 20px;
   --h-kbd: 20px;
-  --h-menu-item: 32px;
+  --h-menu-item: 28px;
   /* The window's title row: 32 + 8 + 4, where the bar has always measured. A
      token since a floating sheet has to start under it (29 Sep 2026). */
   --h-title-bar: 44px;
+  /* One margin round a page and one gap between the panels on it, the same on
+     every tab: the Cockpit's gap, and a gutter twice it. */
+  --pad-page: 12px;
+  --gap-panel: 6px;
   --pad-card: 20px;       /* not 24 */
   /* The Job row is padding-driven, amended 2026-08-23 and again 2026-09-08.
      It was a fixed 60px, which left 9px of clearance above a 43px content block and
@@ -1243,16 +1244,15 @@
   --space-6: 18px;
   --space-8: 24px;
   --space-12: 36px;
-  --h-row: 32px;
-  --h-row-header: 28px;
-  --h-row-action: 40px;
+  --h-row: 24px;
+  --h-row-header: 24px;
+  --h-row-action: 28px;
   --h-row-stacked: 72px;
   --h-row-table: 44px;
-  --h-control: 32px;
-  --h-control-sm: 28px;
-  --h-control-dense: 24px;
-  --h-control-sm-dense: 20px;
-  --h-menu-item: 28px;
+  --h-control: 24px;
+  --h-control-sm: 20px;
+  --h-control-lg: 28px;
+  --h-menu-item: 24px;
   --pad-card: 16px;
   --pad-row-stacked: 8px;
   --gap-section: 18px;
@@ -1265,16 +1265,15 @@
   --space-6: 30px;
   --space-8: 40px;
   --space-12: 60px;
-  --h-row: 40px;
-  --h-row-header: 36px;
-  --h-row-action: 48px;
+  --h-row: 32px;
+  --h-row-header: 32px;
+  --h-row-action: 36px;
   --h-row-stacked: 96px;
   --h-row-table: 60px;
-  --h-control: 40px;
-  --h-control-sm: 36px;
-  --h-control-dense: 32px;
-  --h-control-sm-dense: 28px;
-  --h-menu-item: 36px;
+  --h-control: 32px;
+  --h-control-sm: 28px;
+  --h-control-lg: 36px;
+  --h-menu-item: 32px;
   --pad-card: 24px;
   --pad-row-stacked: 16px;
   --gap-section: 30px;

@@ -194,5 +194,5 @@ button.armada-shared-chip:hover {
   flex-direction: column;
   gap: var(--space-3);
   padding: var(--space-3);
-  min-width: calc(var(--h-row) * 7);
+  min-width: calc(var(--h-row-unit) * 7);
 }

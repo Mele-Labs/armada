@@ -35,7 +35,7 @@
   gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
   border: 0;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-bezel);
   background: transparent;
   color: var(--fg-muted);
   font: inherit;
@@ -50,8 +50,10 @@
 }
 
 .armada-settings-index__tab[aria-selected="true"] {
-  background: var(--surface-row-selected);
+  background: var(--bg-hover);
+  box-shadow: inset 0 0 0 var(--border-width) var(--fg-default);
   color: var(--fg-default);
+  font-weight: var(--weight-heading);
 }
 
 .armada-settings-index__tab:focus-visible {

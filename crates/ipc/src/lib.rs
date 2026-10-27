@@ -581,7 +581,7 @@ pub use sessions::{
     FinishUp, FinishedUp, ShowWindow, SignIn, TakeWindowSignIn, origins_as_detail, WindowSignIn,
     WindowTake, AskInWindow, ProposeDraft, WindowPlace, TerminalCommand, TerminalFacts, WaitingAct,
     WaitingActKind, WaitingInput, WaitingItem, WaitingMode, WaitingOption, WaitingSource,
-    WalkTold, WindowClosed, WindowFailed, WithdrawWindow,
+    WalkTold, WindowClosed, WindowFailed, WithdrawDraft, WithdrawWindow,
 };
 pub use terminals::{
     JobTerminal, OpenTerminal, ReadTerminal, StartTerminalRun, TerminalScreen, TerminalTyped, TypeInTerminal,

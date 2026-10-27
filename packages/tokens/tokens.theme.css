@@ -25,20 +25,16 @@
                   would unset the variable. */
   --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
-  --text-2xs: 13px;
-  --text-xs: 14px;
-  --text-sm: 15px;
-  --text-base: 16px;
+  --text-2xs: 12px;
+  --text-xs: 13px;
+  --text-sm: 14px;
+  --text-base: 15px;
   --text-lg: 18px;
   --text-xl: 23px;
   --text-2xl: 28px;
-  --text-2xs-dense: 12px;
-  --text-xs-dense: 13px;
-  --text-sm-dense: 14px;
-  --text-base-dense: 15px;
   --tracking-caps: 0.04em;
   --radius-sm: 3px;
-  --radius-md: 5px;
+  --radius-md: 6px;
   --radius-lg: 8px;
   --shadow-overlay: 0 8px 24px -6px rgb(0 0 0 / 0.55), 0 2px 6px -2px rgb(0 0 0 / 0.4);
   --shadow-card: 0 1px 2px rgb(0 0 0 / 0.3), 0 12px 28px -16px rgb(0 0 0 / 0.75);
@@ -162,17 +158,19 @@
   --color-border-width: var(--border-width);
   --spacing-row: var(--h-row);
   --spacing-row-header: var(--h-row-header);
+  --spacing-row-unit: var(--h-row-unit);
   --spacing-row-action: var(--h-row-action);
   --spacing-row-stacked: var(--h-row-stacked);
   --spacing-row-table: var(--h-row-table);
   --spacing-control: var(--h-control);
   --spacing-control-sm: var(--h-control-sm);
-  --spacing-control-dense: var(--h-control-dense);
-  --spacing-control-sm-dense: var(--h-control-sm-dense);
+  --spacing-control-lg: var(--h-control-lg);
   --spacing-badge: var(--h-badge);
   --spacing-kbd: var(--h-kbd);
   --spacing-menu-item: var(--h-menu-item);
   --spacing-title-bar: var(--h-title-bar);
+  --spacing-page: var(--pad-page);
+  --spacing-panel: var(--gap-panel);
   --spacing-card: var(--pad-card);
   --spacing-row-stacked-pad: var(--pad-row-stacked);
   --spacing-section: var(--gap-section);
@@ -237,10 +235,6 @@
   --text-lg--line-height: var(--leading-lg);
   --text-xl--line-height: var(--leading-xl);
   --text-2xl--line-height: var(--leading-2xl);
-  --text-2xs-dense--line-height: var(--leading-2xs-dense);
-  --text-xs-dense--line-height: var(--leading-xs-dense);
-  --text-sm-dense--line-height: var(--leading-sm-dense);
-  --text-base-dense--line-height: var(--leading-base-dense);
 }
 
 /* Plain @theme, not inline — the one block in this file that is.
@@ -260,7 +254,8 @@
    --row-tint-recent — a mix percentage read inside color-mix(), not a colour
    --status-wash — a mix percentage read inside color-mix(), not a colour
    --dot-idle — a mix percentage read inside color-mix(), not a colour
-   --text-switch-dense — a Switch's word at the Cockpit's density, not a step of the ladder
+   --text-touch-field — a field a phone types in, held at 16px so iOS does not zoom; not a step of the ladder
+   --text-switch — a Switch's word, under the ladder's smallest step and not a step of it
    --window-floor — the desktop window's bound, read by the main process and floor.ts
    --touch-floor — the narrowest touch client drawn; no window to bound
    --z-dock — a stacking order, not a scale value

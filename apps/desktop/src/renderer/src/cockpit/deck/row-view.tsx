@@ -4,7 +4,7 @@
 // line, and rows grow by it; so is Active PRs, a line of its own under the name, or under Now where that is on.
 
 import { useEffect, useSyncExternalStore, type ReactNode } from "react";
-import { Stamp, Tooltip } from "@armada/components";
+import { Readout, Stamp, Tooltip } from "@armada/components";
 import type { SettingValue } from "@armada/protocol";
 import type { DropdownMenuEntry } from "@armada/components";
 import type { Session } from "@armada/screens/src/draft/sessions";
@@ -144,9 +144,9 @@ export function RowFields({ view, earlier, one, session, hit, status }: { view: 
   const open = one.pr !== undefined && one.pr.stage !== "landed" ? one.pr : undefined;
   return (
     <>
-      {view.issue ? cell("issue", issue === undefined || issueText === undefined ? null : <Tooltip label={`Issue ${issueText}: ${issue.title}`}><span className="deck-row__issue">{issueText}</span></Tooltip>) : null}
+      {view.issue ? cell("issue", issue === undefined || issueText === undefined ? null : <Tooltip label={`Issue ${issueText}: ${issue.title}`}><Readout className="deck-row__issue">{issueText}</Readout></Tooltip>) : null}
       {view.time
-        ? cell("time", hit !== undefined && hit.short !== "" ? <Tooltip label={hit.whole}><span className="deck-row__said" data-found="">{hit.short}</span></Tooltip> : one.at === undefined ? null : <Tooltip label="Last turn"><span className="deck-row__said"><Stamp still first="age" at={one.at} /></span></Tooltip>)
+        ? cell("time", hit !== undefined && hit.short !== "" ? <Tooltip label={hit.whole}><Readout className="deck-row__said" data-found="">{hit.short}</Readout></Tooltip> : one.at === undefined ? null : <Tooltip label="Last turn"><Readout className="deck-row__said"><Stamp still first="age" at={one.at} /></Readout></Tooltip>)
         : null}
       {view.conflicts || earlier ? cell("conflicts", null) : null}
       {view.status ? cell("status", status) : null}
@@ -154,7 +154,7 @@ export function RowFields({ view, earlier, one, session, hit, status }: { view: 
       {view.now ? <span className="deck-row__says">{one.peek.at(-1) ?? ""}</span> : null}
       {view.pr && open !== undefined ? (
         <span className="deck-row__prs">
-          <Tooltip label={`Pull request #${open.number}`}><span className="deck-row__chip">#{open.number}</span></Tooltip>
+          <Tooltip label={`Pull request #${open.number}`}><Readout className="deck-row__chip">#{open.number}</Readout></Tooltip>
         </span>
       ) : null}
     </>

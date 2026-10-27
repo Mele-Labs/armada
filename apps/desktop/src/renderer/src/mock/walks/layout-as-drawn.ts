@@ -1,7 +1,7 @@
 // Settings → Layout lists what the Cockpit and an open Job draw today, and each place once. Activity switched off leaves the deck and
-// Bays takes the right column; Workflow moved up stands first in an open Job. A layout mod says the same by id. Over `compact-session-view`.
+// Bays takes the right column; Next switched off leaves an open Job with Completed and Now. A layout mod says the same by id. Over `compact-session-view`.
 
-import { button, deckRow, place, region, role, toSystemPage, walk } from "../walk";
+import { deckRow, inside, place, region, role, toSystemPage, walk } from "../walk";
 
 export const layoutAsDrawn = walk("compact-session-view", [
   ...toSystemPage("Layout", "Layout, from System"),
@@ -9,9 +9,9 @@ export const layoutAsDrawn = walk("compact-session-view", [
   { look: role("group", "Job panels"), say: "An open Job's panels, in the order they stand" },
   { look: role("group", "Places"), say: "Each place once" },
   { press: role("switch", "Activity"), say: "Activity off" },
-  { press: button("Move Workflow up"), say: "Workflow above the Field" },
+  { press: inside(role("group", "Job panels"), role("switch", "Next")), say: "Next off" },
   { press: place("Cockpit"), say: "The Cockpit" },
   { look: region("Bays", { exact: true }), say: "No Activity under Bays" },
   { press: deckRow("Retry the slot lease"), say: "A Job" },
-  { look: region("Workflow", { exact: true }), say: "Workflow first in the right column, then the Blueprint, the Field and Delivery" },
+  { look: region("Now", { exact: true }), say: "The right column stands with Completed and Now. Next is gone" },
 ]);

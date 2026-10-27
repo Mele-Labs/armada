@@ -923,6 +923,24 @@ Bridge sends them on the first note of a send alone, and none to the Job that is
 **Skew.** As above.
 **The event stream.** Untouched.
 
+## A draft withdrawn: `withdraw_draft`, and `withdrawn` on `DraftHow`
+
+Since 27 Oct 2026. `docs/concepts/session/proposing-a-draft.md`.
+**One operation and one enum value**: a new route, its body, and a value on an existing enum; no event kind and no field on an existing type.
+The protocol ID moves with `crates/ipc/src`, the operation file and the route table, and with `packages/protocol/src` for Bridge's half.
+Bridge's half is `"withdrawn"` in `DraftHow` in `packages/protocol/src/hosted-sessions.ts`, written by hand.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `DraftHow` (on `DraftSettled.how`, a `draft` row's `settled`) | Fleet writes, Bridge reads | Gains `withdrawn`: dropped by the person's Dismiss or the job's `withdraw_draft`. `words` is his reason, absent when he gave none and always absent for the job's own |
+| `withdraw_draft` (`POST /sessions/withdraw_draft`, `agent_access = "Yes"`) | An agent writes | `WithdrawDraft` `{ draft, session_id? }`, `draft` the `draft:<row id>` or the bare row id; answers the `SessionRecord`, or through the door a receipt `{ session_id, withdrawn }`. 422 `fleet.draft_withdraw_not_open` for another job's draft, a settled one or an unknown id, with nothing written; 422 `fleet.draft_withdraw_unnamed` for a call that places no job |
+| `dismiss_waiting` on a `draft:<row id>` | Bridge writes | No new field. Fleet now sends the job `Withdrawn: <title>` and `Do not propose it again.`, with the reason on a line after it where it is not blank, and settles the row `withdrawn` only once that is sent |
+
+**A Bridge that matches `DraftHow` exhaustively** meets a value it did not know; the mirror gains it in the same change, and equal IDs hold the two together.
+
+**Skew.** As above.
+**The event stream.** No new event: either way of withdrawing publishes `session.changed`, as an answer does. The open risk below is neither better nor worse.
+
 ## Open questions
 
 Naming these rather than deciding them, per this document's brief:

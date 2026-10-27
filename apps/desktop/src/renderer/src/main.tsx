@@ -6,6 +6,7 @@ import "@armada/components/src/look";
 import { watchStill } from "./still";
 
 watchStill();
+watchClippedText();
 
 // Dimmed behind a walk window that has focus — `styles/index.css`, `data-walking`.
 window.armada.onWalkFocus((focused) => {
@@ -16,7 +17,7 @@ import { createPhoneGatewaySource, PhoneSourceProvider } from "@armada/settings"
 import { App, WAITING } from "./App";
 import { TaughtSourceProvider } from "@armada/settings";
 import { Boundary, LayoutSourceProvider, createLayoutSource } from "@armada/shell";
-import { HapticsProvider } from "@armada/components";
+import { HapticsProvider, watchClippedText } from "@armada/components";
 import { WiredNumbered } from "./numbered-fleet";
 import { WiredSessions } from "./sessions-wired";
 import { SleepSourceProvider } from "./sleep";

@@ -34,11 +34,24 @@
   position: absolute;
   top: calc(100% + var(--space-1));
   left: 0;
+  /* The top layer paints above every `z-index`, so this only orders one
+     tooltip against another. */
   z-index: var(--z-tooltip);
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
+  /* **Wide as its words, up to the prose cap.** Under `position-area` a box
+     that sizes itself shrinks to the *area* it is placed in — and a trigger at
+     the window's right edge has a few dozen pixels of area to its right, so a
+     one-line sentence came out 70px wide and 118px tall. `max-content` takes
+     the width from the text; the area is then only what the flip is tested
+     against, and a bubble that does not fit it flips rather than squeezes. */
+  inline-size: max-content;
   max-width: var(--w-tooltip);
+  /* A popover brings `overflow: auto` and a margin of its own; neither is
+     wanted on a bubble that must paint its own shadow. */
+  overflow: visible;
+  margin: 0;
   padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-sm);
   background: var(--bg-overlay);

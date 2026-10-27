@@ -18,7 +18,7 @@ const firstRunNew = walk("first-run-new", [
   { look: places, say: "Where its Armada configuration is kept is a card at the top of its thread" },
   { type: "Start a settings page with a dark mode toggle", into: message, say: "The first message" },
   { press: button("Send", { exact: true }), say: "Send starts the Job" },
-  { press: inside(thread, text("git, Write, Edit")), say: "The first calls are one closed row, and it opens" },
+  { press: inside(thread, text("Editing multiple files")), say: "The first calls are one closed row, and it opens" },
   { look: inside(thread, text(/^git init/)), say: "The first event is git init" },
 ]);
 

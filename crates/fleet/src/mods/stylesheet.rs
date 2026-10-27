@@ -44,6 +44,79 @@ fn tokens() -> &'static HashSet<&'static str> {
     })
 }
 
+/// The least OKLab distance an `--accent` may keep from a status colour. A selected row is drawn
+/// in the accent and a row in a status in that status's colour, so an accent nearer than this
+/// cannot be told from the status at a glance. The old Dusk amber sat 0.037 from awaiting_review
+/// and 0.068 from escalated; the lilac that replaced it is 0.110 from the nearest, rejected. The
+/// default scaffold blue is 0.075 from running, which this still passes.
+const LEAST_ACCENT_DISTANCE: f64 = 0.07;
+
+/// Every status colour this build ships as a hex value, with its OKLab position, from the same
+/// `tokens.json` (the generated copy of `packages/tokens/src/status.css`). Aliases and tints are
+/// not hex, so they are not here.
+fn status_colours() -> &'static Vec<(&'static str, &'static str, [f64; 3])> {
+    static COLOURS: OnceLock<Vec<(&'static str, &'static str, [f64; 3])>> = OnceLock::new();
+    COLOURS.get_or_init(|| {
+        let mut name = "";
+        let mut found = Vec::new();
+        for line in include_str!("../../../../packages/tokens/tokens.json").lines().map(str::trim) {
+            if let Some(rest) = line.strip_prefix("\"name\": \"") {
+                name = rest.split('"').next().unwrap_or_default();
+            } else if let Some(value) = line.strip_prefix("\"value\": \"").and_then(|rest| rest.split('"').next()) {
+                if name.starts_with("--status-") && !name.ends_with("-bg") {
+                    if let Some(lab) = oklab(value) {
+                        found.push((name, value, lab));
+                    }
+                }
+            }
+        }
+        found
+    })
+}
+
+/// `#rgb` or `#rrggbb` as a point in OKLab. `None` for any other form of colour.
+fn oklab(value: &str) -> Option<[f64; 3]> {
+    let digits = value.strip_prefix('#')?;
+    if !digits.chars().all(|c| c.is_ascii_hexdigit()) {
+        return None;
+    }
+    let channel = |at: usize| -> f64 {
+        let byte = match digits.len() {
+            3 => u8::from_str_radix(&digits[at..=at], 16).map(|n| n * 17),
+            _ => u8::from_str_radix(&digits[at * 2..at * 2 + 2], 16),
+        };
+        let c = f64::from(byte.unwrap_or(0)) / 255.0;
+        if c <= 0.04045 { c / 12.92 } else { ((c + 0.055) / 1.055).powf(2.4) }
+    };
+    if digits.len() != 3 && digits.len() != 6 {
+        return None;
+    }
+    let (r, g, b) = (channel(0), channel(1), channel(2));
+    let l = (0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b).cbrt();
+    let m = (0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b).cbrt();
+    let s = (0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b).cbrt();
+    Some([
+        0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s,
+        1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s,
+        0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s,
+    ])
+}
+
+/// What is wrong with `value` as an `--accent`: the status colour it sits too near, where it is a
+/// hex colour. Another form of colour is not measured.
+fn accent_problem(value: &str) -> Option<String> {
+    let accent = oklab(value)?;
+    let (name, shipped, distance) = status_colours()
+        .iter()
+        .map(|(name, shipped, lab)| (*name, *shipped, accent.iter().zip(lab).map(|(a, b)| (a - b).powi(2)).sum::<f64>().sqrt()))
+        .min_by(|a, b| a.2.total_cmp(&b.2))?;
+    (distance < LEAST_ACCENT_DISTANCE).then(|| {
+        format!(
+            "{value} is too close to `{name}` {shipped} (OKLab distance {distance:.3}, the least allowed is {LEAST_ACCENT_DISTANCE}). A selected row and a row in that status would look alike. Choose an accent at least that far from every status colour"
+        )
+    })
+}
+
 /// Every problem in `css`, in the order they appear. Empty means Bridge may inject it.
 pub(crate) fn problems(css: &str) -> Vec<String> {
     problems_in(css, "theme.css")
@@ -221,7 +294,9 @@ fn declarations(text: &str, from: usize, to: usize, found: &mut Found) {
             found.add(text, begins, &format!("`{property}` is not a design token"));
             continue;
         }
-        if let Some(why) = value_problem(value.trim()) {
+        let value = value.trim();
+        let why = value_problem(value).or_else(|| if property == "--accent" { accent_problem(value) } else { None });
+        if let Some(why) = why {
             found.add(text, begins, &format!("`{property}`: {why}"));
         }
     }

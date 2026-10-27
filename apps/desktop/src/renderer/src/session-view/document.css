@@ -4,7 +4,6 @@
 .armada-doc__revision { display: inline-flex; color: var(--fg-muted); }
 .armada-doc__revision .armada-dropdown-menu__trigger { font-size: var(--text-xs); line-height: var(--leading-xs); font-weight: var(--weight-body); }
 .armada-doc__tools { display: flex; align-items: center; gap: var(--space-1); }
-.armada-doc__tools [aria-pressed="true"] { background: var(--accent-muted); }
 .armada-doc__menus { display: contents; }
 
 /* The Notes card keeps the width the Notes margin had; hidden, the column narrows to the width Contents had, and the page widens. */

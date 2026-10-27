@@ -30,7 +30,7 @@
   width: 100%;
   padding: var(--space-2) var(--space-3);
   border: 0;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-inset, var(--radius-sm));
   background: none;
   color: var(--fg-default);
   font: inherit;
@@ -41,11 +41,11 @@
 }
 .pr-row:hover { background: color-mix(in srgb, var(--fg-default) 10%, transparent); }
 .pr-row:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }
-.pr-row[data-selected] { background: var(--accent-muted); box-shadow: inset 0 0 0 var(--border-width) var(--accent); }
+/* What is open is framed by its shape (`depth.css`). */
 .pr-row__title { min-width: 0; overflow: hidden; font-weight: var(--weight-medium); text-overflow: ellipsis; white-space: nowrap; }
 .pr-row[data-selected] .pr-row__title { font-weight: var(--weight-heading); }
 .pr-row__facts { grid-column: 1 / -1; display: flex; min-width: 0; align-items: baseline; gap: var(--space-2); color: var(--fg-muted); font-size: var(--text-2xs); line-height: var(--leading-2xs); }
-.pr-row__number { flex: none; color: var(--fg-subtle); }
+.pr-row__number { margin-inline-start: auto; }
 .pr-row__author { flex: none; }
 .pr-row__repository { min-width: 0; overflow: hidden; color: var(--fg-subtle); text-overflow: ellipsis; white-space: nowrap; }
 
@@ -148,7 +148,7 @@
 /* The questions he asked of this pull request: an index, so quiet. A row is his words in full, wrapping, with its marks at the end. */
 .pr-asked { display: flex; flex-direction: column; margin: 0; padding: var(--space-1); list-style: none; border: var(--border-width) solid var(--border-subtle); border-radius: var(--radius-md); }
 .pr-asked__row { display: flex; align-items: center; gap: var(--space-1); border-radius: var(--radius-sm); }
-.pr-asked__row[data-selected] { background: var(--accent-muted); }
+.pr-asked__row[data-selected] { background: var(--select-ground, var(--bg-hover)); box-shadow: var(--select-frame, inset 0 0 0 var(--border-width) var(--fg-default)); }
 .pr-asked__words { flex: 1 1 0; min-width: 0; padding: var(--space-1) var(--space-2); border: 0; border-radius: var(--radius-sm); background: none; color: var(--fg-muted); font: inherit; font-size: var(--text-xs); line-height: var(--leading-xs); text-align: left; overflow-wrap: anywhere; cursor: pointer; }
 .pr-asked__words:hover { color: var(--fg-default); }
 .pr-asked__words:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }

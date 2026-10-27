@@ -103,8 +103,8 @@ primitive, not the alias. Keep body text at 4.5 to 1 against the layer it sits o
   --border-default: #40372C;
   --fg-default: #EFE6DA;
   --fg-muted: #B1A292;
-  --accent: #E0954A;
-  --accent-hover: #EBA763;
+  --accent: #7C6FD8;
+  --accent-hover: #8F84E0;
 }
 ```
 
@@ -118,7 +118,7 @@ primitive, not the alias. Keep body text at 4.5 to 1 against the layer it sits o
   --border-strong: #9AA6B5;
   --fg-default: #FFFFFF;
   --fg-muted: #D0D7E0;
-  --accent: #6CB8F0;
+  --accent: #A8B8FF;
 }
 ```
 
@@ -152,8 +152,8 @@ nothing: check the id against the table.
 
 | Region | Ids, in the order shipped | Cannot be hidden | `order` | `first` |
 |---|---|---|---|---|
-| `dashboard.panels` | `list`, `merge-line`, `activity`, `bays`, `controls`, `dispatch`, `autopilot` | `list` | no | no |
-| `job.panels` | `workflow`, `blueprint`, `field`, `landing` | `blueprint` | yes | no |
+| `dashboard.panels` | `list`, `field`, `merge-line`, `activity`, `bays`, `controls`, `dispatch`, `autopilot` | `list` | no | no |
+| `job.panels` | `done`, `now`, `next` | `now` | no | no |
 | `rail` | `overview`, `sessions`, `kit`, `mods`, `settings`, `guides`, `workflows`, `studios`, `logbook`, `reviews`, `issues`, `projects` | `overview`, `mods`, `settings` | no | no |
 
 `packages/shell/layout-registry.json` is the list Fleet checks. **`rail`
@@ -161,9 +161,9 @@ is the places: the Cockpit, the Jobs tab (`sessions`) and the System strip's pag
 The Logbook page is the place `logbook`.** `dashboard.panels` is the Cockpit's
 panels: `list` the Jobs list, `merge-line` the merge queue, `controls` Flight
 control. A right column the layout empties gives its room to the stage.
-`job.panels` is the panels an open Job stacks in the right column, in that
-order, telling the Job as a story: `workflow`, `blueprint` (the plan), `field`
-and `landing` (what the workflow ends in, the mods a Mod Job made among it).
+`job.panels` is the panels an open Job stacks in the right column, telling the
+Job as a story: `done` (what it made, drawn as Completed), `now` (what runs, and what waits on the
+person) and `next` (what is left). The Field is `field` in `dashboard.panels`.
 Hiding a place takes it off the tab bar or the strip and nothing else:
 it stays in the palette and in links.
 
@@ -188,12 +188,13 @@ the whole file invalid.
 }
 ```
 
-## Example: Blueprint first in a Job, then Workflow, the Field hidden
+## Example: the Field and Next hidden
 
 ```json
 {
   "version": 1,
-  "job.panels": { "order": ["blueprint", "workflow"], "hidden": ["field"] }
+  "dashboard.panels": { "hidden": ["field"] },
+  "job.panels": { "hidden": ["next"] }
 }
 ```
 

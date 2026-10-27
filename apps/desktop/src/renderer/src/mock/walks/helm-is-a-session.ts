@@ -17,11 +17,11 @@ const subagent = role("dialog", "Subagent Find the other clock callers");
 const helmIsASession = walk("helm-is-a-session", [
   { press: button("Helm"), say: "Helm's dock on armada" },
   { look: inside(thread, text("Conversation compacted")), say: "An earlier conversation, compacted, as a Job's is" },
-  { look: inside(thread, text("Bash, Read")), say: "Its tool calls are one folded row" },
+  { look: inside(thread, text("Read ci.md")), say: "Its tool calls are one folded row" },
 
   { type: "can you pin the clock in the ledger test?", into: box, say: "A request" },
   { key: "Enter", on: box, say: "↵ sends it" },
-  { look: inside(thread, text("Read, Grep")), say: "Helm reads: the calls fold into one row" },
+  { look: inside(thread, text("Reading multiple files")), say: "Helm reads: the calls fold into one row" },
   { look: inside(thread, role("img", "Working")), say: "The working mark sits on the last row" },
   { hover: inside(thread, button("Stop")), say: "Stop, beside the working mark, as a Job's is" },
 

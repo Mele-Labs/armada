@@ -276,6 +276,16 @@ pub trait Sessions: Send + Sync + 'static {
         draft: ipc::ProposeDraft,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
+    /// `withdraw_draft` — a session takes back a draft it proposed, settling its row `withdrawn` so it
+    /// waits no more. `caller` places a hosted session as `show_window`'s does. Answers with the row.
+    /// [`Refusal::Unacceptable`] for a draft that is not this session's or not open, or a call that
+    /// places no session.
+    fn withdraw_draft(
+        &self,
+        caller: Option<crate::Caller>,
+        withdraw: ipc::WithdrawDraft,
+    ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
+
     /// `window_closed` — the person closed a session's window, which ends its walk. Answers with
     /// the row. [`Refusal::Unacceptable`] for a session Fleet does not know.
     fn window_closed(

@@ -40,7 +40,7 @@
    - **Layout, padding and overflow.** Any `position` other than `static`
      the component sets wins over this file's `relative`; the layer only
      needs one.
-   - **A wash.** A tile's status hue or the dock's --helm-faint reads over
+   - **A wash.** A tile's status hue reads over
      the glass, so it goes on the card's `::after` at `inset: 0; z-index: -1`,
      which paints after the glass and under the content. Not on the card's
      own `background`, which paints under the glass and all but vanishes, and

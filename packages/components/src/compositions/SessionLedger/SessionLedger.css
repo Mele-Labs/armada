@@ -233,7 +233,6 @@ path.armada-session-ledger__picture-later {
 }
 
 .armada-session-ledger__kinds [aria-pressed="true"] {
-  background: var(--accent-muted);
   color: var(--fg-default);
 }
 
@@ -273,9 +272,13 @@ path.armada-session-ledger__picture-later {
   background: var(--bg-sunken);
 }
 
-/* Held down means open here, and the field's own well draws it, so the glyph needs no fill. */
+/* Held down means open here, and the field's own well draws it, so the glyph needs no fill and no lamp. */
 .armada-session-ledger__search [aria-pressed="true"] {
   background: transparent;
+}
+
+.armada-session-ledger__search [aria-pressed="true"]::before {
+  display: none;
 }
 
 .armada-session-ledger__bar [aria-pressed="false"]:not(:disabled) {
@@ -283,7 +286,6 @@ path.armada-session-ledger__picture-later {
 }
 
 .armada-session-ledger__bar [aria-pressed="true"] {
-  background: var(--accent-muted);
   color: var(--fg-default);
 }
 

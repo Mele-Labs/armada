@@ -1,0 +1,33 @@
+/* Readout — a figure or an id the system reports, as a segmented display (`armada-components`, Readout.tsx).
+   A well one step down from the row it sits in, so it reads as a window the figure is shown through, with the
+   figures set tabular so a column of them lines up on its digits. The padding is 2px by 6px, written from the
+   space step so a density choice moves it with everything else. */
+.armada-readout {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 0;
+  padding: calc(var(--space-1) * 0.5) calc(var(--space-1) * 1.5);
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-inset);
+  background: var(--bg-sunken);
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* One width down a list: the column is kept where a row has no figure, and the empty well draws nothing. */
+.armada-readout[data-fixed] {
+  flex: none;
+  inline-size: calc(var(--readout-chars, 6) * 1ch + var(--space-3) + var(--border-width) * 2);
+}
+
+.armada-readout[data-fixed][data-empty] {
+  visibility: hidden;
+}

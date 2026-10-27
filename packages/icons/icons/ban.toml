@@ -60,3 +60,10 @@
     size = "12px"
     status = "Specified"
     notes = "Specified 27 Oct 2026 on the walk `workflowsManaged`, which the owner walked and approved (`.claude/decisions/2026-10-27-a-feature-job-walks-before-it-tests.md`). Drawn at 14px, stroke 2. The same fact the rail's warning draws, now on the page's own row. The tooltip is Fleet's reason."
+
+  [[icons.ban.usage]]
+    means = "A draft the person withdrew, on its card in a Job's thread"
+    group = "Session"
+    size = "16px"
+    status = "Proposed"
+    notes = "Proposed 27 Oct 2026 for the draft card's Withdraw (`propose_draft`), on the walk `draft-card`. Withdrawing is his decision that the draft will not go, which is what the circle and diagonal says; it is not a failure. Tooltip `Withdrawn`, with the same word beside it and his reason quoted under the draft where he gave one."

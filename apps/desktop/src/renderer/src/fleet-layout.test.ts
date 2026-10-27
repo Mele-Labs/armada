@@ -11,7 +11,7 @@ import type { LayoutRegion } from "@armada/shell";
 import { createFleetLayout, type FleetLayout } from "./fleet-layout";
 
 const row = (name: string, over: Partial<ModSummary> = {}): ModSummary => ({ name, kind: "layout", enabled: true, valid: true, changed_at: "t1", ...over });
-const TIDY = '{"version":1,"job.panels":{"order":["blueprint","field"]},"rail":{"hidden":["logbook"]}}';
+const TIDY = '{"version":1,"job.panels":{"hidden":["next"]},"rail":{"hidden":["logbook"]}}';
 const REFUSED: Outcome = { ok: false, why: "not_connected" };
 
 type Facts = Parameters<Parameters<FleetLayout["subscribe"]>[0]>[0];
@@ -53,7 +53,7 @@ describe("layout mods from Fleet's list", () => {
     await settled();
     expect(source.get().mods.map((mod) => [mod.name, mod.enabled, mod.problem])).toEqual([["tidy", true, undefined]]);
     await settled();
-    expect(drawn("job.panels")).toEqual(["blueprint", "field", "workflow", "landing"]);
+    expect(drawn("job.panels")).toEqual(["done", "now"]);
     expect(drawn("rail")).not.toContain("logbook");
   });
 
@@ -103,13 +103,14 @@ describe("layout mods from Fleet's list", () => {
   });
 
   it("ignores a mod hiding what cannot be hidden, and an id that no longer exists", async () => {
-    const greedy = '{"version":1,"rail":{"hidden":["settings","mods","overview","logbook","retired-row"]},"job.panels":{"order":["retired-panel"],"hidden":["blueprint"]}}';
+    const greedy = '{"version":1,"rail":{"hidden":["settings","mods","overview","logbook","retired-row"]},"job.panels":{"order":["retired-panel"],"hidden":["now"]}}';
     const { drawn } = fake(facts([row("tidy")]), { tidy: greedy });
     await settled();
     await settled();
     expect(drawn("rail")).toEqual(expect.arrayContaining(["settings", "mods", "overview"]));
     expect(drawn("rail")).not.toContain("logbook");
-    expect(drawn("job.panels")).toEqual(["workflow", "blueprint", "field", "landing"]);
+    // The Job's panels are not ordered, so the order is ignored; Now cannot be hidden.
+    expect(drawn("job.panels")).toEqual(["done", "now", "next"]);
   });
 });
 
@@ -121,7 +122,7 @@ describe("the owner's own choices", () => {
     await settled();
     expect(source.get().own.regions).toEqual({ rail: { hidden: [] } });
     expect(drawn("rail")).toContain("logbook");
-    expect(drawn("job.panels")).toEqual(["blueprint", "field", "workflow", "landing"]);
+    expect(drawn("job.panels")).toEqual(["done", "now"]);
   });
 
   it("text that does not parse is no choices", async () => {
@@ -132,14 +133,14 @@ describe("the owner's own choices", () => {
   });
 
   it("saves a choice as layout_choices text at once, and keeps the other regions", async () => {
-    const { source, saved, drawn } = fake(facts([], '{"version":1,"job.panels":{"order":["workflow"]}}'));
+    const { source, saved, drawn } = fake(facts([], '{"version":1,"job.panels":{"hidden":["next"]}}'));
     await settled();
     source.setOwn("rail", { hidden: ["guides"] });
     expect(drawn("rail")).not.toContain("guides");
     await settled();
     expect(saved).toHaveLength(1);
     expect(saved[0]?.name).toBe("layout_choices");
-    expect(JSON.parse(saved[0]?.text ?? "")).toEqual({ version: 1, "job.panels": { order: ["workflow"] }, rail: { hidden: ["guides"] } });
+    expect(JSON.parse(saved[0]?.text ?? "")).toEqual({ version: 1, "job.panels": { hidden: ["next"] }, rail: { hidden: ["guides"] } });
   });
 
   it("takes a region's choice back, and saves empty text when none is left", async () => {

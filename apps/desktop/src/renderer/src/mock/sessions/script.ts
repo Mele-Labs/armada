@@ -885,7 +885,11 @@ export function sessionsStore(
         const own = one.waitingFor?.some((it) => it.id === itemId) === true;
         // A reply or a done he dismissed is settled: the Session stands as idle, as Fleet reads it.
         const settled = itemId.startsWith("replied:") || itemId.startsWith("done:");
-        return own ? { ...one, ...(settled ? { standing: "idle" as const } : {}), waitingFor: one.waitingFor!.filter((it) => it.id !== itemId) } : asked === undefined ? one : rest;
+        // A draft he dismissed is withdrawn on its card, with his reason as the words, and Fleet tells the agent.
+        const draft = itemId.startsWith("draft:") ? itemId.slice("draft:".length) : undefined;
+        const said = reason?.trim();
+        const rows = draft === undefined ? one.rows : one.rows.map((row) => (row.id === draft && row.kind === "draft" && row.settled === undefined ? { ...row, settled: { how: "withdrawn" as const, ...(said === undefined || said === "" ? {} : { words: said }), at: new Date().toISOString() } } : row));
+        return own ? { ...one, rows, ...(settled ? { standing: "idle" as const } : {}), waitingFor: one.waitingFor!.filter((it) => it.id !== itemId) } : asked === undefined ? one : rest;
       });
       if (stated !== undefined) addTo(id, [row((rid, stamp) => ({ id: rid, at: stamp, kind: "message", from: { kind: "you" }, text: removedSaid(stated.text, reason) }))]);
     },

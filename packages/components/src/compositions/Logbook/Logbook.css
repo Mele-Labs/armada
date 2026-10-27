@@ -1,14 +1,14 @@
-/* The Logbook page: the filter over a list of panels, one a repository and then Habits and This Mac, each under a mono
-   band as PoolSlots draws its pools, and the open entry on the right. Flat fills and hairlines; selection is a fill,
-   never a glow. The layout follows the page's own width. Tokens only. */
+/* The Logbook page: the filter over a list of panels, one a repository and then Habits and This Mac, each under a legend
+   strip (`depth.css`), and the open entry on the right. The panels are the Cockpit's (`depth.css`); a picked entry is
+   framed by its shape, never a glow or a hue. The layout follows the page's own width. Tokens only. */
 
 .armada-logbook {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--gap-panel);
   height: 100%;
   min-height: 0;
-  padding: var(--space-2) var(--space-4) var(--space-8);
+  padding: 0 0 var(--pad-page);
   box-sizing: border-box;
   overflow-y: auto;
   container-type: inline-size;
@@ -17,7 +17,7 @@
 
 .armada-logbook__page {
   display: grid;
-  gap: var(--space-4);
+  gap: var(--gap-panel);
   align-items: start;
   grid-template-columns: minmax(0, 1fr);
 }
@@ -38,7 +38,7 @@
 .armada-logbook__list {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--gap-panel);
   min-width: 0;
   outline: none;
 }
@@ -54,13 +54,13 @@
   overflow: hidden;
 }
 
+/* The legend strip's own look is `depth.css`'s; this is its fallback where the look is not loaded. */
 .armada-logbook__band {
   display: flex;
   align-items: center;
-  min-height: calc(var(--h-row) * 1.25);
-  padding: var(--space-1) var(--space-4);
-  border-bottom: var(--border-width) solid var(--border-default);
-  background: var(--bg-raised);
+  min-height: var(--h-control-sm);
+  padding: 0 var(--space-3);
+  border-bottom: var(--border-width) solid var(--border-subtle);
   color: var(--fg-muted);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
@@ -71,23 +71,25 @@
 }
 
 .armada-logbook__row {
+  --readout-chars: 7;
   display: flex;
   align-items: flex-start;
   gap: var(--space-3);
-  padding: var(--space-2) var(--space-4);
+  margin-inline: var(--space-1);
+  padding: var(--space-2) var(--space-2);
   border-top: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-inset, var(--radius-sm));
   color: var(--fg-default);
   font-size: var(--text-sm);
   line-height: var(--leading-sm);
   cursor: default;
 }
 .armada-logbook__band + .armada-logbook__row { border-top: none; }
+.armada-logbook__panel > .armada-logbook__row:last-child { margin-block-end: var(--space-1); }
 .armada-logbook__row:hover { background: color-mix(in srgb, var(--bg-hover) 50%, transparent); }
-.armada-logbook__row[aria-selected="true"] { background: var(--bg-hover); }
-/* Where the list holds focus, the selected row carries the accent's hairline so the keys' target is plain. */
-.armada-logbook__list:focus-visible .armada-logbook__row[aria-selected="true"] {
-  box-shadow: inset calc(var(--border-width) * 2) 0 0 var(--accent);
-}
+.armada-logbook__row[aria-selected="true"] { background: var(--bg-hover); font-weight: var(--weight-heading); }
+/* A row picked is framed by its shape (`depth.css`); where the list holds focus, the frame goes to the stronger edge so the keys' target is plain. */
+.armada-logbook__list:focus-visible .armada-logbook__row[aria-selected="true"] { box-shadow: inset 0 0 0 var(--border-width) var(--fg-default); }
 
 .armada-logbook__text {
   flex: 1;

@@ -1,23 +1,17 @@
-// What a Session is doing for his message: the Blueprint's Now view and the page being built in the Field as the turn moves on, the page
+// What a Session is doing for his message: Now and the page being built in Now as the turn moves on, the page
 // opened large, and the turn's end; then the plan in his words, its groups under Details and Not yet. A second,
 // `now-and-plain-plans-refused`, has Fleet refuse Auto land, so the switch reverts with the refusal's words in the toast.
 
 import { button, deckRow, dialog, inside, region, role, text, walk } from "../walk";
 import { LIVE_TITLE, NOT_YET_WORDS, REFUSAL_WORDS, TITLE } from "../scenarios/now-and-plain-plans";
 
-const blueprint = region("Blueprint", { exact: true });
-const field = region("Field", { exact: true });
+const now = region("Now", { exact: true });
 const account = role("list", "Now");
 const live = role("figure", LIVE_TITLE);
 const card = role("article", "Plan to approve");
 const controls = region("Flight controls");
 
 const open = { press: deckRow(TITLE), say: "A Session working on your message" };
-// Its pull request is already out, so Delivery is the open panel; the Blueprint and the Field stand folded to their bands until a press opens them.
-const openBands = [
-  { press: inside(blueprint, button(/Blueprint/)), say: "The Blueprint opens" },
-  { press: inside(field, button(/Field/)), say: "So does the Field" },
-];
 const reply = { look: text(/^The page is up with its three switches/), say: "The reply" };
 
 const plan = [
@@ -34,16 +28,15 @@ const plan = [
 
 const nowAndPlainPlans = walk("now-and-plain-plans", [
   open,
-  ...openBands,
-  { look: inside(blueprint, account), say: "The Blueprint reads as Now: the task finished last, the one being worked on, the one next" },
-  { look: inside(blueprint, role("img", "Working on this now")), say: "The task it is on is marked, with what the turn is doing under it" },
-  { look: inside(field, live), say: "The page it is building, in the Field" },
-  { later: inside(blueprint, account), say: "It moves on" },
-  { later: inside(field, live), say: "The page moves with it" },
-  { press: inside(field, button(`Open ${LIVE_TITLE}`)), say: "Open it large" },
+  { look: inside(now, account), say: "Now lists the task finished last, the one being worked on, the one next" },
+  { look: inside(now, role("img", "Working on this now")), say: "The task it is on is marked, with what the turn is doing under it" },
+  { look: inside(now, live), say: "The page it is building, in Now" },
+  { later: inside(now, account), say: "It moves on" },
+  { later: inside(now, live), say: "The page moves with it" },
+  { press: inside(now, button(`Open ${LIVE_TITLE}`)), say: "Open it large" },
   { key: "Escape", on: dialog(LIVE_TITLE), say: "Esc closes it" },
-  { later: inside(blueprint, account), say: "The last part" },
-  { look: inside(blueprint, role("button", "Approve")), say: "Turn over: the plan to approve is the Blueprint, with Approve at its foot" },
+  { later: inside(now, account), say: "The last part" },
+  { look: inside(now, role("button", "Approve")), say: "Turn over: the plan to approve is in Now, with Approve at its foot" },
   reply,
   ...plan,
 ]);

@@ -1,5 +1,5 @@
 // The fixes the owner asked for on 26 Oct 2026, after the Cockpit's density pass: the notch's places as icons with small names and a
-// hairline before the search, ⌘ digits in the order the places are drawn, room between the bays, Dispatch a raised key and not a pressed one, an open Job's side panels standing apart and folding by their bands again, the last one named Delivery, a composer
+// hairline before the search, ⌘ digits in the order the places are drawn, room between the bays, Dispatch a raised key and not a pressed one, an open Job's side panels standing apart and folding by their bands again, a composer
 // two lines tall. Over the `flight-control` scenario; the Reviews page's list band is `reviews-band`.
 
 import { button, deckRow, inside, region, role, walk } from "../walk";
@@ -14,7 +14,7 @@ const deckSpacingFixes = walk("flight-control", [
   { look: region("Field", { exact: true }), say: "Each side panel stands apart, folded or open" },
   { press: inside(region("Field", { exact: true }), button(/\bField\b/)), say: "Field folds by its band" },
   { press: inside(region("Field", { exact: true }), button(/\bField\b/)), say: "And opens again" },
-  { press: inside(region("Delivery", { exact: true }), button(/\bDelivery\b/)), say: "Delivery, once Landing, opens under it" },
+  { press: inside(region("Now", { exact: true }), button(/\bNow\b/)), say: "Now folds by its band too" },
   { look: role("textbox", "Message"), say: "The composer is two lines tall" },
 ]);
 

@@ -1,6 +1,6 @@
-// A Job open on the flight deck's stage is the Sessions window's own panel, and its Blueprint and Field take the Bays' place in
-// the right column. The claims: the stage carries the same head, the context figure and a rename that renames it; and while a
-// Job is open the right column shows its Blueprint and Field instead of the Bays, which return when it is closed. #2301.
+// A Job open on the flight deck's stage is the Sessions window's own panel, and its story (Completed, Now and Next) takes the Bays' place in
+// the right column, with its Field under the Jobs list. The claims: the stage carries the same head, the context figure and a rename that renames it; and while a
+// Job is open the right column shows its story instead of the Bays, which return when it is closed. #2301.
 
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
@@ -37,14 +37,17 @@ test("a Job open in the middle area carries the context figure and a rename that
   await expect.element(page.getByRole("region", { name: "Job: Cache keys" })).toBeVisible();
 });
 
-test("while a Job is open the right column shows its Blueprint and Field instead of the Bays, and the Bays return when it is closed", async () => {
+test("while a Job is open the right column shows its Completed, Now and Next instead of the Bays, with its Field under the list, and the Bays return when it is closed", async () => {
   await deck();
   await expect.element(bays()).toBeVisible();
 
   await list().getByRole("button", { name: "Pin the store clock", exact: true }).click();
   await expect.element(page.getByRole("region", { name: "Job: Pin the store clock" })).toBeVisible();
-  await expect.poll(() => right().querySelector('[aria-label="Blueprint"]') !== null).toBe(true);
-  expect(right().querySelector('[aria-label="Field"]')).not.toBeNull();
+  await expect.poll(() => right().querySelector('[aria-label="Now"]') !== null).toBe(true);
+  expect(["Completed", "Now", "Next"].map((name) => right().querySelector(`section[aria-label="${name}"]`) !== null)).toEqual([true, true, true]);
+  // The Field is the open Job's, under the Jobs list, and not in the column.
+  expect(document.querySelector('.deck-left [aria-label="Field"]')).not.toBeNull();
+  expect(right().querySelector('[aria-label="Field"]')).toBeNull();
   await expect.element(bays()).not.toBeInTheDocument();
   // The list stays where it was.
   await expect.element(list()).toBeVisible();
@@ -52,5 +55,5 @@ test("while a Job is open the right column shows its Blueprint and Field instead
   // Closing the Session brings the Bays back.
   await page.getByRole("region", { name: "Job: Pin the store clock" }).getByRole("button", { name: "Back" }).click();
   await expect.element(bays()).toBeVisible();
-  expect(right().querySelector('[aria-label="Blueprint"]')).toBeNull();
+  expect(right().querySelector('[aria-label="Now"]')).toBeNull();
 });

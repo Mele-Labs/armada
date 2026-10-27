@@ -5,19 +5,19 @@
 // fading over ten minutes for a write and five for a read (`afterglow.ts`). Nothing here is drawn from what an agent said. The plan is one bar along the foot, and under it a
 // slider scrubs back through the Job's reads and writes: the glow, the drone and a numbered route stand as they were, and the right end is
 // live. A drone not coding leaves the floor: to the pad at the near edge while a check runs or a walk is open, risen over its file while it
-// thinks, beaming to an outpost while it calls (`field-now.ts`). A menu over the map names each drone and what it is doing; picking one
-// pins the card to it. The map rests on the whole repository, and a pick does not move it. A file a drone of the Job is writing lifts as a slab with its minimap, and a
-// small card at the top right shows its newest hunk; the card follows the newest writer, or the drone picked in the menu while it
-// writes (`field-lens.ts`). While the pointer or focus is in the panel, that card and the hover card float over the app at full size
+// thinks, beaming to an outpost while it calls (`field-now.ts`). A drone's card shows while it is
+// hovered, and nothing pins it. The map rests on the whole repository, and a pick does not move it. A file a drone of the Job is writing lifts as a slab with its minimap, and a
+// small card at the top right shows its newest hunk; the card follows the newest writer
+// (`field-lens.ts`). While the pointer or focus is in the panel, that card and the hover card float over the app at full size
 // (`field-engaged.ts`). While the Job messages another Job, or
 // is messaged by one, an arc runs between their drones with packets travelling from the sender, and the other drone un-fades
 // (`session.messaged`, `field-now.ts`). `docs/concepts/cockpit.md`, *A Job open*. The control in the band, or `deck_field`'s key (`DeckHost.tsx`), opens the Field large.
 
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
-import { Maximize2 } from "lucide-react";
+import { Cpu, GitBranch, Maximize2, Rows3 } from "lucide-react";
 import { Button, Tooltip, agoOf, boundKeyFor, useKeyBindings } from "@armada/components";
 import type { RepositorySummary, TimelineEvent } from "@armada/protocol";
-import type { Session, WorkDrone, WorkFile } from "@armada/screens/src/draft/sessions";
+import { attachmentsOf, type Session, type WorkDrone, type WorkFile } from "@armada/screens/src/draft/sessions";
 import { jobIdOf } from "@armada/shell";
 
 import { Battlefield } from "../cockpit/deck/Battlefield";
@@ -38,14 +38,15 @@ import { useSessions } from "../sessions-draft";
 import { touchedPlots, workingDrones } from "./field";
 import { flier, mainFileOf, rootedDrone, rootsOf } from "./field-drones";
 import { PlanBar } from "./FieldPlan";
+import { Fact } from "./LedgerRow";
 import { TurnAccountBlock, type LiveOpen } from "./TurnAccountBlock";
 import { bandKeyFor, useFold } from "./story";
+import "./flight.css";
 import "./story.css";
-import { FieldStrip } from "./FieldStrip";
 import { FieldLensCard } from "./FieldLensCard";
 import { useEngaged } from "./field-engaged";
 import { useLens, useShown } from "./field-lens";
-import { placedNow, stripOf, talkOf, useLiftsAndReturns, useMainNow } from "./field-now";
+import { placedNow, talkOf, useLiftsAndReturns, useMainNow } from "./field-now";
 import { groupsOf, plotsOf } from "./field-plan";
 import { toggleLayer, useLayer } from "./layers";
 import { SvPanel, type PanelState, type Place } from "./SvPanel";
@@ -141,7 +142,7 @@ function useJobField(session: Session, repositories: readonly RepositorySummary[
     const drone = flier(session, one, root, at === undefined ? "live" : "then");
     return at === undefined && one.agent === undefined ? placedNow(drone, mainState) : drone;
   }), [drones, root, session, at === undefined, mainState]));
-  const { drones: own, plays } = useLiftsAndReturns(placed, at === undefined);
+  const { drones: own, plays } = useLiftsAndReturns(session.id, placed, at === undefined);
   const outposts = useSteady(useMemo(() => outpostsOf(job, Math.max(clock, Date.now())), [job, clock]));
   // The drones of every other live Job in the repository, faded.
   const ghosts = useSteady(
@@ -161,7 +162,6 @@ function useJobField(session: Session, repositories: readonly RepositorySummary[
     const linked = new Set(links.map((one) => one.other));
     return linked.size === 0 ? ghosts : ghosts.map((one) => (linked.has(one.key) ? { ...one, linked: true as const } : one));
   }, [ghosts, links]));
-  const strip = useSteady(stripOf(session, mainState, field, talking.word));
   const flying = useSteady(useMemo(() => [...others, ...own], [others, own]));
   const framing = useSteady(own.map((one) => one.key));
 
@@ -169,7 +169,7 @@ function useJobField(session: Session, repositories: readonly RepositorySummary[
   const groups = useMemo(() => (plan === undefined ? [] : groupsOf(plan)), [plan]);
   const plots = areas.flatMap((area) => (area.kids.length === 0 ? [area.dir] : area.kids.map(([kid]) => `${area.dir}/${kid}`)));
   const planned = useMemo(() => (plan === undefined ? undefined : plotsOf(plan, plots)), [plan, plots.join("|")]);
-  return { repos, flying, groups, planned, touched, glow, route, framing, mine, bursts, held, clock, lights: useSteady(lights), walk: at === undefined ? walk : undefined, plays, outposts, strip, own, job, roots, links };
+  return { repos, flying, groups, planned, touched, glow, route, framing, mine, bursts, held, clock, lights: useSteady(lights), walk: at === undefined ? walk : undefined, plays, outposts, own, job, roots, links };
 }
 
 /** The slider under the plan: from the Job's first read or write in the window to now, a tick for each. The right end is live. */
@@ -213,7 +213,7 @@ export function FieldMap({ session, repositories, large = false }: { session: Se
     setAt(undefined);
     setPinned(undefined);
   }, [session.id]);
-  const { repos, flying, groups, planned, touched, glow, route, framing, mine, bursts, held, clock, lights, walk, plays, outposts, strip, own, job, roots, links } = useJobField(session, repositories, at);
+  const { repos, flying, groups, planned, touched, glow, route, framing, mine, bursts, held, clock, lights, walk, plays, outposts, own, job, roots, links } = useJobField(session, repositories, at);
   // The lens: asked for and drawn only while the Field is live and shown.
   const box = useRef<HTMLDivElement>(null);
   const shown = useShown(box);
@@ -223,7 +223,6 @@ export function FieldMap({ session, repositories, large = false }: { session: Se
   const { engaged, handlers } = useEngaged(!large);
   return (
     <div ref={box} className="sv-field sv-field--plan" data-large={large || undefined} {...handlers}>
-      <FieldStrip entries={strip} pinned={pinned} following={lens.newest} onPick={setPinned} />
       <div className="sv-field__map">
         {at === undefined ? null : <ReplayMark />}
         <Battlefield
@@ -265,6 +264,33 @@ export function FieldMap({ session, repositories, large = false }: { session: Se
   );
 }
 
+/** Before any work the Field says what the Job stands on, from what the Session already holds: its bay, its branch and the model. Each stands only where it is held. */
+function Facts({ session }: { session: Session }) {
+  const bay = attachmentsOf(session, "slot").at(-1);
+  const branch = attachmentsOf(session, "branch").at(-1);
+  const model = session.resolvedModel ?? session.model;
+  if (bay === undefined && branch === undefined && model === undefined) return null;
+  return (
+    <ul className="sv-field__facts" aria-label="Facts">
+      {bay === undefined ? null : (
+        <li>
+          <Fact Glyph={Rows3} said="Bay" word={String(bay.slot)} />
+        </li>
+      )}
+      {branch === undefined ? null : (
+        <li>
+          <Fact Glyph={GitBranch} said="Branch" word={branch.name} />
+        </li>
+      )}
+      {model === undefined ? null : (
+        <li>
+          <Fact Glyph={Cpu} said="Model" word={model} />
+        </li>
+      )}
+    </ul>
+  );
+}
+
 export function FieldPanel({ session, repositories, place, live }: { session: Session; repositories: readonly RepositorySummary[]; place: Place; live?: LiveOpen | undefined }) {
   const working = workingDrones(session, session.work?.field);
   const resting = working === undefined || working.length === 0;
@@ -282,6 +308,7 @@ export function FieldPanel({ session, repositories, place, live }: { session: Se
   );
   return (
     <SvPanel label="Field" area="field" place={place} state={state} acts={expand} fold={fold} keycap={bandKeyFor("field")}>
+      {resting ? <Facts session={session} /> : null}
       {session.live === undefined || live === undefined ? null : (
         <div className="sv-field__now">
           <TurnAccountBlock session={session} live={live} />

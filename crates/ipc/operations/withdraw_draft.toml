@@ -1,0 +1,14 @@
+[operations.withdraw_draft]
+kind = "command"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Take back a draft you proposed with propose_draft, when it no longer applies: it leaves the owner's Needs you list, and you do not propose it again unless you have new text. Body: draft, the id propose_draft gave you (draft:<id>), and session_id. A draft that is not yours, or is already settled, is refused"
+notes = """
+`POST /sessions/withdraw_draft`, body `WithdrawDraft`: `draft`, the `draft:<row id>` the `propose_draft` receipt gave, or the bare row id, and an optional `session_id`. Answered with the `SessionRecord`; **through the agent's door, a receipt** of `session_id` and `withdrawn`, the id as sent.
+
+**The job is the one whose process holds the connection** when Fleet hosts it, whatever the body says; `session_id` is read only for a job in a terminal, as `show_window`'s is. **Only an open draft this job proposed**: a draft row on another job's thread, one already settled, or an id no draft row has is refused with 422 `fleet.draft_withdraw_not_open`, and nothing is written.
+
+**It settles the row as the person's Dismiss does**: `settled` with `how` `withdrawn`, no `words`, and `at`. The `draft:<row id>` item leaves `waiting_for`. The job is sent no message, since it is the one that withdrew it.
+
+`agent_access` is `Yes`: the job is the one that knows the draft no longer applies, and the person has no way to tell it so.
+"""
