@@ -721,6 +721,9 @@ export type QueuedIdea = {
   effort?: string;
 };
 
+/** What a run says: the terminal's bytes, then how it ended. A run with no exit code was ended by Stop (`stopped` true) or by a signal (false). */
+export type RunEvent = { kind: "out"; text: string } | { kind: "end"; code: number } | { kind: "end"; code: null; stopped: boolean };
+
 /**
  * What the window holds of Sessions, and the acts on them. **The mock's seam**
  * (`apps/desktop/src/renderer/src/sessions-draft.tsx`): a real Fleet gives none,
@@ -950,7 +953,7 @@ export type SessionsDraft = {
   run?: (
     id: string,
     command: string,
-    on: (event: { kind: "out"; text: string } | { kind: "end"; code: number | null }) => void,
+    on: (event: RunEvent) => void,
     size?: { cols: number; rows: number },
   ) => { stop: () => void; write?: (data: string) => void; resize?: (cols: number, rows: number) => void };
   /**
@@ -964,7 +967,7 @@ export type SessionsDraft = {
    * runs the one pull it knows after reading the hold again, so `command` is what the card showed and is not
    * sent. Absent where nothing serves it, and the card offers Copy alone.
    */
-  runInRepository?: (root: string, command: string, on: (event: { kind: "out"; text: string } | { kind: "end"; code: number | null }) => void) => { stop: () => void };
+  runInRepository?: (root: string, command: string, on: (event: RunEvent) => void) => { stop: () => void };
   /**
    * An act on a pull request no Session holds, such as a form edit's (`merge_by_hand`): the repository at `root` is named to
    * Fleet by its Manifest, which refuses a pull request that is not open or not that repository's. Resolves whether Fleet

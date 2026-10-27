@@ -38,7 +38,7 @@ pub(crate) fn mounted<D: PullRequestPanel>() -> Router<Served<D>> {
 
 /// 422 for blank or over-long words; 500 where the forge would not list the open pull requests.
 pub(crate) async fn start_review_search<D: PullRequestPanel>(State(served): State<Served<D>>, body: Bytes) -> Response {
-    let start: ipc::StartReviewSearch = match ipc::decode("a review search to start", &body) {
+    let start: ipc::StartReviewSearch = match ipc::decode_body("a review search to start", &body) {
         Ok(start) => start,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -56,7 +56,7 @@ pub(crate) async fn get_review_searches<D: PullRequestPanel>(State(served): Stat
 }
 
 pub(crate) async fn forget_review_search<D: PullRequestPanel>(State(served): State<Served<D>>, body: Bytes) -> Response {
-    let forget: ipc::ForgetReviewSearch = match ipc::decode("a review search to forget", &body) {
+    let forget: ipc::ForgetReviewSearch = match ipc::decode_body("a review search to forget", &body) {
         Ok(forget) => forget,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -94,7 +94,7 @@ pub(crate) async fn save_walk_place<D: PullRequestPanel>(
     Path(repository): Path<String>,
     body: Bytes,
 ) -> Response {
-    let save: ipc::SaveWalkPlace = match ipc::decode("a walk place to save", &body) {
+    let save: ipc::SaveWalkPlace = match ipc::decode_body("a walk place to save", &body) {
         Ok(save) => save,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -128,7 +128,7 @@ pub(crate) async fn open_review_walk<D: PullRequestPanel>(
     Path(repository): Path<String>,
     body: Bytes,
 ) -> Response {
-    let open: ipc::OpenReviewWalk = match ipc::decode("a review walk to open", &body) {
+    let open: ipc::OpenReviewWalk = match ipc::decode_body("a review walk to open", &body) {
         Ok(open) => open,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };

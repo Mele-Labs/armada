@@ -10,7 +10,7 @@ use std::time::Duration;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Refusal, SessionRunEvent};
-use ipc::{JobTerminal, TerminalScreen, TerminalTyped, TypeInTerminal};
+use ipc::{JobTerminal, ReadTerminal, TerminalScreen, TerminalTyped, TypeInTerminal};
 use tokio::sync::broadcast::error::RecvError;
 use tokio::time::Instant;
 
@@ -41,6 +41,63 @@ fn kept(text: String) -> String {
         cut += 1;
     }
     text[cut..].to_string()
+}
+
+/// Ctrl-U: zsh, bash and a terminal's own line discipline each clear the line on it.
+const CLEAR_LINE: char = '\u{15}';
+
+/// What `typed` writes. **The line is cleared first** where it asks to be and holds something
+/// printable: a terminal's answers to a program's queries land on the input line as text, and Enter
+/// would run them with the agent's words. A key such as Ctrl-C is sent bare, since a full-screen
+/// program may take Ctrl-U as a key of its own.
+fn keys(typed: &TypeInTerminal) -> String {
+    let mut keys = String::new();
+    if typed.clear && typed.text.chars().any(|c| !c.is_control()) {
+        keys.push(CLEAR_LINE);
+    }
+    keys.push_str(&typed.text);
+    if typed.enter {
+        keys.push('\r');
+    }
+    keys
+}
+
+/// How much of the text's start has to appear for it to count as echoed.
+const ECHOED_PREFIX: usize = 16;
+
+/// Whether `printed` shows the start of `text`'s first printable line, spaces left out of both
+/// sides. **Only the start**: zsh redraws a long line in place, writing only what changed and
+/// moving over the rest, so no reading of the output holds the whole line in one piece. A password
+/// prompt or a program that is not reading shows none of it.
+fn echoed(text: &str, printed: &str) -> bool {
+    let Some(first) = text.lines().map(plain::printed_through).find(|line| !line.is_empty()) else {
+        return true;
+    };
+    let start: String = first.chars().take(ECHOED_PREFIX).collect();
+    plain::printed_through(&plain::last_lines(printed, usize::MAX)).contains(&start)
+        || plain::printed_through(printed).contains(&start)
+}
+
+/// What `read_terminal` waits for: text, or a regular expression.
+enum Until {
+    Text(String),
+    Pattern(regex::Regex),
+}
+
+impl Until {
+    fn of(until: String, regex: bool) -> Result<Until, String> {
+        if !regex {
+            return Ok(Until::Text(until));
+        }
+        regex::Regex::new(&until).map(Until::Pattern).map_err(|why| format!("until is not a regular expression: {why}"))
+    }
+
+    fn found(&self, printed: &str) -> bool {
+        match self {
+            Until::Text(text) => printed.contains(text.as_str()),
+            Until::Pattern(pattern) => pattern.is_match(printed),
+        }
+    }
 }
 
 /// What a run prints until it has printed nothing for [`QUIET`], it ends, or `until`; and whether
@@ -87,7 +144,11 @@ impl SessionRuns {
     /// where the run is not in flight or the keys did not reach it.
     async fn typed_and_heard(&self, run_id: &str, keys: String, wait: Duration) -> Option<(String, bool)> {
         let run = self.in_flight(run_id)?;
-        let mut live = run.feed.subscribe();
+        let mut live = {
+            let mut state = run.state.lock().expect("not poisoned");
+            state.typed_at = Some(state.printed);
+            run.feed.subscribe()
+        };
         let typing = Arc::clone(&run);
         // A command that is not reading can hold a write back.
         if !tokio::task::spawn_blocking(move || typing.type_in(&keys)).await.unwrap_or(false) {
@@ -116,12 +177,40 @@ impl SessionRuns {
         Ok((id, true))
     }
 
-    /// The Job's shell in flight and what it holds of its output.
-    fn shell_held(&self, session: &str) -> Option<(String, String)> {
+    /// The Job's shell in flight and what it holds, once `until` was printed since the agent last
+    /// typed or `deadline` passed, and whether it was. Read as the screen resolved it, so an escape
+    /// between two letters does not hide a match.
+    async fn shell_awaited(
+        &self,
+        session: &str,
+        until: Option<&Until>,
+        deadline: Instant,
+    ) -> Option<(String, String, Option<bool>)> {
         let id = self.shells.lock().expect("not poisoned").get(session).cloned()?;
         let run = self.in_flight(&id)?;
+        let Some(until) = until else {
+            let held = run.state.lock().expect("not poisoned").held.clone();
+            return Some((id, held, None));
+        };
+        // Taken under the lock output is appended under, so nothing printed between is missed.
+        let (mut live, mut since) = {
+            let state = run.state.lock().expect("not poisoned");
+            (run.feed.subscribe(), state.since_typed().to_string())
+        };
+        let matched = loop {
+            if until.found(&plain::last_lines(&since, usize::MAX)) {
+                break true;
+            }
+            match tokio::time::timeout_at(deadline, live.recv()).await {
+                Ok(Ok(SessionRunEvent::Output(text))) => since.push_str(&text),
+                Ok(Err(RecvError::Lagged(_))) => {
+                    since = run.state.lock().expect("not poisoned").since_typed().to_string();
+                }
+                Ok(Ok(SessionRunEvent::Exited(_)) | Err(RecvError::Closed)) | Err(_) => break false,
+            }
+        };
         let held = run.state.lock().expect("not poisoned").held.clone();
-        Some((id, held))
+        Some((id, held, Some(matched)))
     }
 
     /// What `session`'s shell prints from now on, where one is in flight: a terminal watch's.
@@ -223,32 +312,70 @@ where
             return Err(refusal("nothing to type: text is empty and enter is false", self.run_id()));
         }
         let (run_id, opened) = Arc::clone(&self).job_shell(&session, None, None).await?;
+        // Settled before a refusal too, so the read it asks for shows the new shell's prompt.
         if opened {
             self.session_runs().settled(&run_id).await;
         }
-        let keys = if typed.enter { format!("{}\r", typed.text) } else { typed.text };
+        if let Some(ended) = self.shell_seen(&session).await.filter(|seen| *seen != run_id) {
+            return Err(refusal(
+                format!(
+                    "nothing was typed: this job's shell {ended} ended, and {run_id} is a new one, \
+                     not where your last command ran. read_terminal it, then type again"
+                ),
+                self.run_id(),
+            ));
+        }
+        let keys = keys(&typed);
         let wait = Duration::from_secs(typed.wait_seconds.unwrap_or(WAIT).clamp(1, MOST_WAIT));
         let (printed, still_printing) = self
             .session_runs()
             .typed_and_heard(&run_id, keys, wait)
             .await
             .ok_or_else(|| self.not_in_flight())?;
-        Ok(TerminalTyped { run_id, printed: kept(plain::last_lines(&printed, TYPED_LINES)), still_printing })
+        self.saw_shell(&session, &run_id).await;
+        Ok(TerminalTyped {
+            run_id,
+            echoed: echoed(&typed.text, &printed),
+            printed: kept(plain::last_lines(&printed, TYPED_LINES)),
+            still_printing,
+        })
     }
 
-    /// The last `lines` of the Job's shell, as the person's pane shows them.
-    pub(crate) fn job_shell_read(
+    /// The last `lines` of the Job's shell, as the person's pane shows them, once `until` was
+    /// printed or its wait ran out.
+    pub(crate) async fn job_shell_read(
         &self,
         caller: Option<api::Caller>,
-        named: Option<&ipc::SessionId>,
-        lines: Option<usize>,
+        asked: ReadTerminal,
     ) -> Result<TerminalScreen, Refusal> {
-        let session = self.shell_job(caller, named)?;
-        let lines = lines.unwrap_or(SCREEN_LINES).clamp(1, MOST_SCREEN_LINES);
-        let (run_id, held) = self.session_runs().shell_held(&session).ok_or_else(|| {
-            refusal("this job has no terminal open. type_in_terminal opens one", self.run_id())
-        })?;
-        Ok(TerminalScreen { run_id, screen: kept(plain::last_lines(&held, lines)) })
+        let session = self.shell_job(caller, asked.session_id.as_ref())?;
+        let lines = asked.lines.unwrap_or(SCREEN_LINES).clamp(1, MOST_SCREEN_LINES);
+        let until = match asked.until.filter(|until| !until.is_empty()) {
+            None => None,
+            Some(until) => Some(Until::of(until, asked.regex).map_err(|why| refusal(why, self.run_id()))?),
+        };
+        let wait = Duration::from_secs(asked.wait_seconds.unwrap_or(WAIT).clamp(1, MOST_WAIT));
+        let (run_id, held, matched) = self
+            .session_runs()
+            .shell_awaited(&session, until.as_ref(), Instant::now() + wait)
+            .await
+            .ok_or_else(|| refusal("this job has no terminal open. type_in_terminal opens one", self.run_id()))?;
+        self.saw_shell(&session, &run_id).await;
+        Ok(TerminalScreen { run_id, screen: kept(plain::last_lines(&held, lines)), matched })
+    }
+
+    /// The shell `session`'s agent last typed into or read. **Kept in the store**, since the restart
+    /// that ends a shell is the one that forgets it.
+    async fn shell_seen(&self, session: &str) -> Option<String> {
+        self.store().lock().await.job_shell_seen(session).ok().flatten()
+    }
+
+    async fn saw_shell(&self, session: &str, run_id: &str) {
+        if self.shell_seen(session).await.as_deref() == Some(run_id) {
+            return;
+        }
+        let now = self.now();
+        let _ = self.store().lock().await.keep_job_shell_seen(session, run_id, &now);
     }
 
     /// A Job that ended takes its shell with it.

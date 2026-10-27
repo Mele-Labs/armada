@@ -184,7 +184,7 @@ test("a refusal that names a command draws Run and Copy, and Run runs it in the 
   expect(fleet.api.startTerminalRun).toHaveBeenCalledWith(FIX, "/code/tidewater");
   await fleet.say({ kind: "output", text: "Logged in as ines\r\n" });
   await vi.waitFor(() => expect(document.querySelector(".xterm")?.textContent).toContain("Logged in as ines"));
-  await fleet.say({ kind: "exited", code: 0 });
+  await fleet.say({ kind: "exited", code: 0, stopped: false });
   expect(pressed("Open the pull request again")).not.toBeUndefined();
 });
 

@@ -39,7 +39,7 @@ pub(crate) async fn remove_repository_allowed_command<D: Commands>(
     Query(scope): Query<InManifest>,
     body: Bytes,
 ) -> Response {
-    let removing: RemoveRepositoryAllowedCommand = match ipc::decode("a rule to take back", &body) {
+    let removing: RemoveRepositoryAllowedCommand = match ipc::decode_body("a rule to take back", &body) {
         Ok(removing) => removing,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };

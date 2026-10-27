@@ -642,7 +642,7 @@ it("starts a run, reads its socket to the exit, and hands a refusal back", async
     sockets.handleUpgrade(request, socket, head, (ws) => {
       ws.send(JSON.stringify({ kind: "opened", protocol_id: "p", run_id: "r1" }));
       ws.send(JSON.stringify({ kind: "output", text: "hi\r\n" }));
-      ws.send(JSON.stringify({ kind: "exited", code: 0 }));
+      ws.send(JSON.stringify({ kind: "exited", code: 0, stopped: false }));
       ws.close();
     });
   });
@@ -662,7 +662,7 @@ it("starts a run, reads its socket to the exit, and hands a refusal back", async
   await closed;
   expect(sent[0]?.body).toEqual({ session_id: "a", command: "echo hi", cols: 100, rows: 30 });
   expect(heard.map((one) => one.kind)).toEqual(["opened", "output", "exited"]);
-  expect(heard[2]).toEqual({ kind: "exited", code: 0 });
+  expect(heard[2]).toEqual({ kind: "exited", code: 0, stopped: false });
   expect(sent.map((one) => `${one.method} ${one.path}`)).toEqual(["POST /sessions/run/start", "UPGRADE /sessions/run/r1/observe"]);
   expect(await sessions.startRun({ session_id: "ended", command: "ls" })).toMatchObject({ ok: false, outcome: { ok: false, why: "refused" } });
   expect(await host(null).sessions.startRun({ session_id: "a", command: "ls" })).toEqual({ ok: false, outcome: { ok: false, why: "not_connected" } });
@@ -719,7 +719,7 @@ const endOf = (sessions: SessionsHost, runId: string) =>
   new Promise<void>((done) => sessions.onRun((id, message) => id === runId && message.kind === "exited" && done()));
 
 it("runs a command in a directory with no Job, observes its run as a block's, and says so where nothing is connected", async () => {
-  const port = await shellFleet(["t1"], { t1: [{ kind: "output", text: "hi\r\n" }, { kind: "exited", code: 0 }] });
+  const port = await shellFleet(["t1"], { t1: [{ kind: "output", text: "hi\r\n" }, { kind: "exited", code: 0, stopped: false }] });
   const { sessions } = host(port);
   const heard: SessionRunMessage[] = [];
   const ended = new Promise<void>((done) =>
@@ -731,7 +731,7 @@ it("runs a command in a directory with no Job, observes its run as a block's, an
   );
   expect(await sessions.startTerminalRun({ command: "gh auth refresh -s repo", dir: "/repo" })).toEqual({ ok: true, value: { run_id: "t1" } });
   await ended;
-  expect(heard).toEqual([{ kind: "output", text: "hi\r\n" }, { kind: "exited", code: 0 }]);
+  expect(heard).toEqual([{ kind: "output", text: "hi\r\n" }, { kind: "exited", code: 0, stopped: false }]);
   // No Job owns it, so nothing of it is kept once it ends.
   expect(sessions.soFar("t1")).toBeNull();
   expect(await host(null).sessions.startTerminalRun({ command: "ls", dir: "/repo" })).toEqual({ ok: false, outcome: { ok: false, why: "not_connected" } });
@@ -740,7 +740,7 @@ it("runs a command in a directory with no Job, observes its run as a block's, an
 it("keeps what a shell printed, its last 256 KiB cut at a line, for a window that comes to it late", async () => {
   const lines = Array.from({ length: 30_000 }, (_, at) => `line ${String(at).padStart(5, "0")}\r\n`);
   const chunks = Array.from({ length: 30 }, (_, at) => lines.slice(at * 1000, (at + 1) * 1000).join(""));
-  const port = await shellFleet(["r1"], { r1: [{ kind: "opened", protocol_id: "p", run_id: "r1" }, ...chunks.map((text) => ({ kind: "output" as const, text })), { kind: "exited", code: 0 }] });
+  const port = await shellFleet(["r1"], { r1: [{ kind: "opened", protocol_id: "p", run_id: "r1" }, ...chunks.map((text) => ({ kind: "output" as const, text })), { kind: "exited", code: 0, stopped: false }] });
   const { sessions } = host(port);
   const ended = endOf(sessions, "r1");
   await sessions.openTerminal({ session_id: "a" });
@@ -755,9 +755,9 @@ it("keeps what a shell printed, its last 256 KiB cut at a line, for a window tha
 
 it("lets an ended shell's output go when its Job's next shell opens, and a block's as soon as it ends", async () => {
   const port = await shellFleet(["r1"], {
-    r1: [{ kind: "output", text: "one\r\n" }, { kind: "exited", code: 0 }],
-    r2: [{ kind: "output", text: "two\r\n" }, { kind: "exited", code: 0 }],
-    b1: [{ kind: "output", text: "hi\r\n" }, { kind: "exited", code: 0 }],
+    r1: [{ kind: "output", text: "one\r\n" }, { kind: "exited", code: 0, stopped: false }],
+    r2: [{ kind: "output", text: "two\r\n" }, { kind: "exited", code: 0, stopped: false }],
+    b1: [{ kind: "output", text: "hi\r\n" }, { kind: "exited", code: 0, stopped: false }],
   });
   const { sessions } = host(port);
   let ended = endOf(sessions, "r1");

@@ -49,7 +49,7 @@ pub(crate) async fn start_app_run<D: AppRuns>(
     Query(scope): Query<InManifest>,
     body: Bytes,
 ) -> Response {
-    let asked: ipc::NamedAppRun = match ipc::decode("a run to start", &body) {
+    let asked: ipc::NamedAppRun = match ipc::decode_body("a run to start", &body) {
         Ok(asked) => asked,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -64,7 +64,7 @@ pub(crate) async fn stop_app_run<D: AppRuns>(
     Query(scope): Query<InManifest>,
     body: Bytes,
 ) -> Response {
-    let asked: ipc::NamedAppRun = match ipc::decode("a run to stop", &body) {
+    let asked: ipc::NamedAppRun = match ipc::decode_body("a run to stop", &body) {
         Ok(asked) => asked,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -79,7 +79,7 @@ pub(crate) async fn restart_app_run<D: AppRuns>(
     Query(scope): Query<InManifest>,
     body: Bytes,
 ) -> Response {
-    let asked: ipc::NamedAppRun = match ipc::decode("a run to restart", &body) {
+    let asked: ipc::NamedAppRun = match ipc::decode_body("a run to restart", &body) {
         Ok(asked) => asked,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -94,7 +94,7 @@ pub(crate) async fn save_app_run<D: AppRuns>(
     Query(scope): Query<InManifest>,
     body: Bytes,
 ) -> Response {
-    let asked: ipc::SaveAppRun = match ipc::decode("a run to save", &body) {
+    let asked: ipc::SaveAppRun = match ipc::decode_body("a run to save", &body) {
         Ok(asked) => asked,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -109,7 +109,7 @@ pub(crate) async fn pin_app_run_port<D: AppRuns>(
     Query(scope): Query<InManifest>,
     body: Bytes,
 ) -> Response {
-    let asked: ipc::PinAppRunPort = match ipc::decode("a port to pin", &body) {
+    let asked: ipc::PinAppRunPort = match ipc::decode_body("a port to pin", &body) {
         Ok(asked) => asked,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -124,7 +124,7 @@ pub(crate) async fn unpin_app_run_port<D: AppRuns>(
     Query(scope): Query<InManifest>,
     body: Bytes,
 ) -> Response {
-    let asked: ipc::UnpinAppRunPort = match ipc::decode("a port to unpin", &body) {
+    let asked: ipc::UnpinAppRunPort = match ipc::decode_body("a port to unpin", &body) {
         Ok(asked) => asked,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };

@@ -9,6 +9,7 @@ import { Textarea } from "../../primitives/Textarea/Textarea";
 import { Inspect, InspectCard, type InspectKey } from "../../primitives/Inspect/Inspect";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { RunnableBlock, useCodeRun, type CodeRunner } from "../../primitives/Prose/RunnableBlock";
+import { endedSaid } from "../../primitives/TerminalPane/TerminalPane";
 import { QuestionDeck } from "../SessionThread/QuestionDeck";
 import { LinkedSession, type LinkedSessionProps } from "../LinkedSession/LinkedSession";
 
@@ -104,13 +105,13 @@ export type LedgerEntry = {
    */
   onReply?: (text: string) => void;
   /** A `waiting` row whose act is `run`, where the Session can run it: the row is the command's block with Run, as in the thread. */
-  run?: { command: string; runner: CodeRunner };
+  run?: { command: string; runner: CodeRunner; keep?: string };
   /**
    * A `waiting` row whose act is a restart onto a build (`buildChangeOf`): the row is one key that
    * switches it, with nothing to copy and no command to read. `command` is its tooltip. Without a
    * `runner` the key does nothing.
    */
-  restart?: { command: string; runner?: CodeRunner };
+  restart?: { command: string; runner?: CodeRunner; keep?: string };
   /** What the reply box's draft is about (the Session and the item), so it survives closing the box and leaving the panel. */
   replyKeep?: string;
   /** A `waiting` row Fleet read out of the agent's reply rather than the agent stating it: where it asks, its glyph says so in place of Reply or Question. */
@@ -480,7 +481,7 @@ export function LedgerRows({ kind, Glyph, rows, expanded }: { kind: LedgerKind; 
         if (kind === "waiting" && row.act === "run" && row.run !== undefined) {
           const block = (
             <div>
-              <RunnableBlock command={row.run.command} runner={row.run.runner}>
+              <RunnableBlock command={row.run.command} runner={row.run.runner} {...(row.run.keep === undefined ? {} : { keep: row.run.keep })}>
                 <pre className="armada-prose__block">
                   <code>{row.run.command}</code>
                 </pre>
@@ -626,7 +627,7 @@ function RestartRow({ row, restart }: { row: LedgerEntry; restart: NonNullable<L
 
 /** A restart's key alone, its mark and `text`, as a list row draws it and as the Needs you band does. */
 export function RestartKey({ className, name, restart, text = name }: { className: string; name: string; restart: NonNullable<LedgerEntry["restart"]>; text?: ReactNode }) {
-  const run = useCodeRun(restart.runner);
+  const run = useCodeRun(restart.runner, restart.keep);
   const { phase } = run;
   const held = restart.runner === undefined || phase.state === "running" || (phase.state === "ended" && phase.code === 0);
   const mark =
@@ -635,7 +636,7 @@ export function RestartKey({ className, name, restart, text = name }: { classNam
       : phase.state === "ended"
         ? phase.code === 0
           ? { Glyph: CircleCheck, said: "Passed", state: "passed" }
-          : { Glyph: CircleX, said: phase.code === null ? "Stopped" : `Exit ${phase.code}`, state: "failed" }
+          : { Glyph: CircleX, said: endedSaid(phase), state: "failed" }
         : { Glyph: RotateCw, said: restart.command, state: undefined };
   return (
     <Tooltip label={mark.said} asChild>

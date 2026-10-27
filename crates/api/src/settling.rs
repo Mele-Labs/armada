@@ -28,7 +28,7 @@ pub(crate) async fn save_settings<D: Settings>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let save: SaveSettings = match ipc::decode("settings to save", &body) {
+    let save: SaveSettings = match ipc::decode_body("settings to save", &body) {
         Ok(save) => save,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -48,7 +48,7 @@ pub(crate) async fn get_phone<D: Settings>(State(served): State<Served<D>>) -> R
 
 /// Opt this Mac in or out of serving the phone, and answer where it stands.
 pub(crate) async fn set_phone<D: Settings>(State(served): State<Served<D>>, body: Bytes) -> Response {
-    let set: ipc::SetPhoneGateway = match ipc::decode("whether to serve the phone", &body) {
+    let set: ipc::SetPhoneGateway = match ipc::decode_body("whether to serve the phone", &body) {
         Ok(set) => set,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };

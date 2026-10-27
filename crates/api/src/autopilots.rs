@@ -27,7 +27,7 @@ pub(crate) async fn propose_autopilot<D: Autopilots>(
     Path(repository): Path<String>,
     body: Bytes,
 ) -> Response {
-    let propose: ipc::ProposeAutopilot = match ipc::decode("a sentence for Autopilot", &body) {
+    let propose: ipc::ProposeAutopilot = match ipc::decode_body("a sentence for Autopilot", &body) {
         Ok(propose) => propose,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -44,7 +44,7 @@ pub(crate) async fn start_autopilot<D: Autopilots>(
     Path(repository): Path<String>,
     body: Bytes,
 ) -> Response {
-    let settings: ipc::AutopilotSettings = match ipc::decode("Autopilot's settings", &body) {
+    let settings: ipc::AutopilotSettings = match ipc::decode_body("Autopilot's settings", &body) {
         Ok(settings) => settings,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -61,7 +61,7 @@ pub(crate) async fn update_autopilot<D: Autopilots>(
     Path(repository): Path<String>,
     body: Bytes,
 ) -> Response {
-    let settings: ipc::AutopilotSettings = match ipc::decode("Autopilot's settings", &body) {
+    let settings: ipc::AutopilotSettings = match ipc::decode_body("Autopilot's settings", &body) {
         Ok(settings) => settings,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
