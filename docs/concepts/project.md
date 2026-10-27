@@ -9,7 +9,7 @@ A task can link issues, pull requests and a running Job, and Fleet asks him befo
 **Kind:** Store.
 A project is kept in Fleet's store on this Mac and survives a restart.
 It is never written to the repository or its Manifest.
-The wire is [Projects: tasks and linked issues, per repository](../practices/protocol/projects.md), and this page does not repeat it.
+The wire is [Projects: tasks and linked issues, across repositories](../practices/protocol/projects.md), and this page does not repeat it.
 
 ## The model
 
@@ -94,4 +94,3 @@ The palette's rows and the keys on the tab are in [Keyboard and command palette]
 | Missing | Waiting on it |
 |---|---|
 | Sharing a project with teammates | Not built. Projects are in this Mac's store only |
-| A project across repositories, and tasks in no project, in Fleet | Not built. Fleet keeps each project in one repository. Bridge reads every row of a project as that repository's, reads the project with the id `own:<manifest id>` as tasks in no project, and the mock Fleet serves a project in several repositories. The Fleet side is a later step |
