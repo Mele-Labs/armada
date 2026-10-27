@@ -105,6 +105,8 @@ function build(): Scenario {
             const started = await own.startSession!(title, root, request, tuning, after, holds);
             if (!started.ok) return started;
             const id = started.value.id;
+            // A Job the layer started has a title: the notes sent next are its first message.
+            if (title !== undefined) noted.set(id, []);
             fake.proposes(id, { reading: true });
             window.setTimeout(() => fake.proposes(id, { workflow: "feature", picked: ["workflow"], landing: { choice: "auto_land", from: "usual" } }), READ_MS);
             return started;
