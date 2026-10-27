@@ -56,6 +56,8 @@ import type { AgentSignInRead } from "../shared/api/agent-sign-in";
 import type { FleetTimelineRead } from "../shared/api/timeline";
 import type { BayHistoryRead } from "../shared/api/bay-history";
 import type { UsageRulesRead, UsageSummaryRead } from "../shared/api/usage-summary";
+import type { PullRequestNoteAnswer, PullRequestNotesAnswer } from "../shared/api/pull-request-notes";
+import type { SavePullRequestNote, SendPullRequestNotes } from "@armada/protocol";
 import type { FlightControlsAnswer, RepositoryFlightControlsAnswer, SessionShellAnswer } from "../shared/api/flight-controls";
 import type { OnboardingAnswer } from "../shared/api/onboarding";
 import type { ClashFileAnswer, SessionFileChangeAnswer, WriteClashesRead } from "../shared/api/clashes";
@@ -426,6 +428,10 @@ const api: BridgeApi = {
   saveRepositoryFlightControls: (repository: string, controls: FlightControls): Promise<RepositoryFlightControlsAnswer> => ipcRenderer.invoke(CHANNELS.saveRepositoryFlightControls, repository, controls),
   runSessionShell: (sessionId: string, command: string, tile?: RepositoryTile): Promise<SessionShellAnswer> => ipcRenderer.invoke(CHANNELS.runSessionShell, sessionId, command, tile),
   approveRepositoryTile: (body: ApproveRepositoryTile): Promise<RepositoryFlightControlsAnswer> => ipcRenderer.invoke(CHANNELS.approveRepositoryTile, body),
+  listPullRequestNotes: (manifestId: string, number: number): Promise<PullRequestNotesAnswer> => ipcRenderer.invoke(CHANNELS.listPullRequestNotes, manifestId, number),
+  savePullRequestNote: (manifestId: string, number: number, save: SavePullRequestNote): Promise<PullRequestNoteAnswer> => ipcRenderer.invoke(CHANNELS.savePullRequestNote, manifestId, number, save),
+  removePullRequestNote: (manifestId: string, number: number, id: string): Promise<PullRequestNotesAnswer> => ipcRenderer.invoke(CHANNELS.removePullRequestNote, manifestId, number, id),
+  sendPullRequestNotes: (manifestId: string, number: number, send: SendPullRequestNotes): Promise<PullRequestNotesAnswer> => ipcRenderer.invoke(CHANNELS.sendPullRequestNotes, manifestId, number, send),
   listImportFolders: (): Promise<OnboardingAnswer<ImportFolders>> => ipcRenderer.invoke(CHANNELS.listImportFolders),
   getImportRuns: (path: string): Promise<OnboardingAnswer<ImportRuns>> => ipcRenderer.invoke(CHANNELS.getImportRuns, path),
   installAgentMod: (): Promise<OnboardingAnswer<ModInstalled>> => ipcRenderer.invoke(CHANNELS.installAgentMod),

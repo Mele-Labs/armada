@@ -54,6 +54,7 @@ import { BAY_HISTORY_CHANNELS } from "./api/bay-history";
 import { USAGE_SUMMARY_CHANNELS } from "./api/usage-summary";
 import { ISSUES_CHANNELS } from "./api/issues";
 import { FLIGHT_CONTROLS_CHANNELS } from "./api/flight-controls";
+import { PULL_REQUEST_NOTES_CHANNELS } from "./api/pull-request-notes";
 import { ONBOARDING_CHANNELS } from "./api/onboarding";
 import { SHARING_CHANNELS } from "./api/sharing";
 
@@ -188,5 +189,6 @@ export const CHANNELS = {
   ...REQUESTS_CHANNELS,
   ...LOGBOOK_CHANNELS,
   ...TEACHING_CHANNELS,
+  ...PULL_REQUEST_NOTES_CHANNELS,
   ...SHARING_CHANNELS,
 } as const;

@@ -57,6 +57,7 @@ import { BayHistoryHost } from "./bay-history";
 import { LogbookHost } from "./logbook";
 import { UsageSummaryHost } from "./usage-summary";
 import { FlightControlsHost } from "./flight-controls";
+import { PullRequestNotesHost } from "./pull-request-notes";
 import { OnboardingHost } from "./onboarding";
 import { SharingHost } from "./sharing";
 import { TimelineHost } from "./timeline";
@@ -190,6 +191,8 @@ export class FleetConnection {
   readonly usageSummary: UsageSummaryHost = new UsageSummaryHost(() => this.connected()?.port ?? null);
   /** The Cockpit's flight controls, and a shell line run for a Job — `flight-controls.ts`. */
   readonly flightControls: FlightControlsHost = new FlightControlsHost(() => this.connected()?.port ?? null);
+  /** The owner's notes on a pull request's lines — `pull-request-notes.ts`. */
+  readonly pullRequestNotes: PullRequestNotesHost = new PullRequestNotesHost(() => this.connected()?.port ?? null);
   /** Past sessions to import, how a repository runs and where that is kept, and the mod's install — `onboarding.ts`. */
   readonly onboarding: OnboardingHost = new OnboardingHost(() => this.connected()?.port ?? null);
   /** A piece committed to a Job's branch, and a package made, read and added — `sharing.ts`. */
