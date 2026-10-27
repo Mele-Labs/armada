@@ -1,11 +1,12 @@
-// A pull request chip's menu, the merge line's and Progress's: Refresh, which has Fleet read the pull request from the forge now,
-// and Teach where the chip is in a Job. It opens at the pointer on a right press, and under the chip on the ContextMenu key or
-// Shift+F10. A chip whose window can do neither has no menu.
+// A pull request chip's menu, wherever a chip is drawn: Open in browser and Copy link where the chip knows its address, Refresh,
+// which has Fleet read the pull request from the forge now, and Teach where the chip is in a Job. It opens at the pointer on a right press, and under the chip on the ContextMenu key or
+// Shift+F10. A chip with none of these to offer has no menu.
 
 import { useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
 import { DropdownMenu } from "@armada/components";
-import { GraduationCap } from "lucide-react";
+import { ExternalLink, GraduationCap, Link } from "lucide-react";
 
+import { openLink } from "./commands";
 import { useRepositoryActs } from "./sessions-draft";
 import { useTeach } from "./teach";
 
@@ -17,11 +18,12 @@ export type PullRequestMenu = {
   menu: ReactNode;
 };
 
-export function usePullRequestMenu(manifestId: string | undefined, number: number, title?: string): PullRequestMenu {
+/** `address` is where the pull request is on the forge; a chip that does not hold it offers no link. */
+export function usePullRequestMenu(manifestId: string | undefined, number: number, title?: string, address?: string): PullRequestMenu {
   const refresh = useRepositoryActs().refreshPullRequest;
   const teach = useTeach();
   const [at, setAt] = useState<At | undefined>(undefined);
-  if (refresh === undefined && teach === undefined) return { on: {}, menu: null };
+  if (refresh === undefined && teach === undefined && address === undefined) return { on: {}, menu: null };
   const on: PullRequestMenu["on"] = {
     onContextMenu: (event) => {
       event.preventDefault();
@@ -42,6 +44,12 @@ export function usePullRequestMenu(manifestId: string | undefined, number: numbe
         open
         entries={[
           { kind: "label", id: "heading", label: `Pull request #${number}` },
+          ...(address === undefined
+            ? []
+            : [
+                { kind: "item" as const, id: "browser", label: "Open in browser", icon: ExternalLink },
+                { kind: "item" as const, id: "copy", label: "Copy link", icon: Link },
+              ]),
           ...(refresh === undefined ? [] : [{ kind: "item" as const, id: "refresh", label: "Refresh" }]),
           ...(teach === undefined ? [] : [{ kind: "item" as const, id: "teach", label: "Teach", icon: GraduationCap }]),
         ]}
@@ -51,7 +59,9 @@ export function usePullRequestMenu(manifestId: string | undefined, number: numbe
           at.from.focus();
         }}
         onSelect={(chosen) => {
-          if (chosen === "refresh") void refresh?.(manifestId, number);
+          if (chosen === "browser" && address !== undefined) void openLink(address);
+          else if (chosen === "copy" && address !== undefined) void navigator.clipboard.writeText(address);
+          else if (chosen === "refresh") void refresh?.(manifestId, number);
           else if (chosen === "teach") teach?.("pull_request", title === undefined ? `#${number}` : `#${number} ${title}`);
         }}
       />
@@ -60,8 +70,8 @@ export function usePullRequestMenu(manifestId: string | undefined, number: numbe
 }
 
 /** The menu for a chip drawn inline, where a hook cannot be called per chip: `children` is given what to spread onto the chip. */
-export function PullRequestMenuOn({ manifestId, number, title, children }: { manifestId: string | undefined; number: number; title?: string; children: (on: PullRequestMenu["on"]) => ReactNode }) {
-  const { on, menu } = usePullRequestMenu(manifestId, number, title);
+export function PullRequestMenuOn({ manifestId, number, title, address, children }: { manifestId: string | undefined; number: number; title?: string; address?: string; children: (on: PullRequestMenu["on"]) => ReactNode }) {
+  const { on, menu } = usePullRequestMenu(manifestId, number, title, address);
   return (
     <>
       {children(on)}

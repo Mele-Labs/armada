@@ -4,6 +4,7 @@
 
 import { Button, Kbd, Prose, PullRequestChip, RepositoryChip, Tooltip } from "@armada/components";
 
+import { PullRequestMenuOn } from "../pull-request-menu";
 import { IssueState, Open } from "../shared-panel/panels";
 import type { Band } from "./bands";
 import { ISSUES_KEYS } from "./key-table";
@@ -114,7 +115,9 @@ function Reader({ band, ticket, onOpenLink, onOpenSession, onStart }: Hosts & { 
             <h3 className="issues-reader__eyebrow">Pull requests</h3>
             <div className="issues-reader__pulls">
               {ticket.linked_pull_requests.map((one) => (
-                <PullRequestChip key={one.number} framed number={one.number} title={one.title} state={one.state} {...(one.checks === undefined ? {} : { checks: one.checks })} onOpen={() => onOpenLink(one.address)} />
+                <PullRequestMenuOn key={one.number} manifestId={band.manifestId} number={one.number} title={one.title} address={one.address}>
+                  {(on) => <PullRequestChip framed number={one.number} title={one.title} state={one.state} {...(one.checks === undefined ? {} : { checks: one.checks })} onOpen={() => onOpenLink(one.address)} {...on} />}
+                </PullRequestMenuOn>
               ))}
             </div>
           </section>

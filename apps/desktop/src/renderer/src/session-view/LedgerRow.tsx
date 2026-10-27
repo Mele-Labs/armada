@@ -155,7 +155,7 @@ function StackChip({ parent, onJump }: { parent: number; onJump: ((number: numbe
 export function PullRow({ session, pr, lane, rootBase, chip, onJump }: { session: Session; pr: PullRequest; lane?: { first: boolean; last: boolean }; rootBase?: string; chip?: number; onJump?: (number: number) => void }) {
   const draft = useSessionsDraft();
   const [pending, setPending] = useState<PullRequestAct | undefined>(undefined);
-  const { on, menu } = usePullRequestMenu(session.manifestId, pr.number, pr.title);
+  const { on, menu } = usePullRequestMenu(session.manifestId, pr.number, pr.title, pr.address);
   const press = (act: PullRequestAct) => {
     if (draft === undefined) return;
     setPending(act);
