@@ -805,6 +805,22 @@ class MigrationGuard(unittest.TestCase):
         self.assertIn("y.rebuild from fleet/rebuilds-a-table", said)
         self.assertIn("unlanded work", said)
 
+    def test_the_breaking_refusal_keeps_its_migration_and_branch_in_the_line_bridge_shows(self):
+        self.database([("schema.v1", 1), ("x.v2", 1)])
+        self.on_branch("projects/rework-notes", "projects.span_repositories", breaking=True)
+        code, said = self.guard()
+        self.assertNotEqual(code, 0)
+        line = RESTART_BUILD_MODULE.one_line(said)
+        self.assertIn("projects.span_repositories from projects/rework-notes", line)
+
+    def test_the_breaking_refusal_names_each_branch_to_leave_out(self):
+        self.database([("schema.v1", 1), ("x.v2", 1)])
+        self.on_branch("projects/rework-notes", "projects.span_repositories", breaking=True)
+        code, said = self.guard()
+        self.assertNotEqual(code, 0)
+        self.assertIn("restart: leave out projects/rework-notes: "
+                      "breaking migration projects.span_repositories is not on main\n", said)
+
     def test_a_migration_file_already_on_origin_main_is_not_unlanded(self):
         self.database([("schema.v1", 1), ("x.v2", 1), ("y.rebuild", 1)])
         name = f"{DIR}/20261007T0130Z-y.rebuild.sql"
