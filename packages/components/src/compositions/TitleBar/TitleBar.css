@@ -99,10 +99,10 @@
   gap: var(--space-2);
   min-width: 0;
   width: var(--palette-width);
-  height: var(--h-control-sm);
+  height: var(--h-control-lg);
   padding-inline: var(--space-3);
   border: var(--border-width) solid var(--border-default);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   background: var(--bg-sunken);
   color: var(--fg-subtle);
   font-family: var(--font-mono);
@@ -183,7 +183,7 @@
   --armada-notch-radius: calc(var(--radius-lg) * 2);
   --armada-notch-ground: var(--bg-glass);
   /* The room above and below a place, which is also the room at the notch's side, so a chosen place's corner is concentric with the notch's. */
-  --armada-notch-gap: calc((var(--h-title-bar) - var(--h-control-sm)) / 2);
+  --armada-notch-gap: calc((var(--h-title-bar) - var(--h-control-lg)) / 2);
   position: relative;
   align-self: stretch;
   padding-inline: calc(var(--armada-notch-gap) - var(--border-width));
@@ -230,10 +230,10 @@
 .armada-title-bar[data-places] .armada-title-bar__search {
   flex: none;
   width: auto;
-  height: var(--h-control);
+  height: var(--h-control-lg);
   padding-inline: var(--space-3);
   border-color: transparent;
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   background: transparent;
   color: var(--fg-muted);
 }
@@ -427,11 +427,11 @@
   align-items: center;
   gap: var(--space-2);
   flex: none;
-  height: var(--h-control-sm);
+  height: var(--h-control-lg);
   /* Square around the glyph: the button is drawn as its icon, named by its title (the owner, 15 Oct 2026). */
   padding-inline: var(--space-2);
   border: var(--border-width) solid var(--border-default);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   background: var(--bg-raised);
   color: var(--fg-default);
   font-family: var(--font-sans);
@@ -578,7 +578,7 @@
 .armada-title-bar__menu-label {
   display: flex;
   align-items: center;
-  height: var(--h-control-sm);
+  height: var(--h-menu-item);
   padding-inline: var(--space-2);
   color: var(--fg-subtle);
   font-size: var(--text-2xs);
@@ -598,7 +598,7 @@
   align-items: center;
   gap: var(--space-2);
   width: 100%;
-  height: var(--h-control-sm);
+  height: var(--h-menu-item);
   padding-inline: var(--space-2);
   border: 0;
   border-radius: var(--radius-sm);

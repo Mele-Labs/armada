@@ -56,8 +56,8 @@
 /* The list is one panel and a lesson is a row of it. The column is a reading measure: nothing wider than the lines it
    holds, centred, so a long window leaves air and not a long line. */
 :root[data-look="new"] .armada-lessons-page {
-  gap: var(--space-4);
-  padding: var(--space-2) var(--space-4) var(--space-8);
+  gap: var(--gap-panel);
+  padding: 0 0 var(--pad-page);
 }
 :root[data-look="new"] .armada-lessons-page > :is(.armada-page__title, .armada-lessons__bar, .armada-lessons, .armada-alert) {
   width: min(100%, 56rem);
@@ -141,8 +141,8 @@
 :root[data-look="new"] .armada-studios-page {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
-  padding: var(--space-2) var(--space-4) var(--space-8);
+  gap: var(--gap-panel);
+  padding: 0 0 var(--pad-page);
 }
 :root[data-look="new"] .armada-studios-page > .armada-card {
   gap: 0;
@@ -267,13 +267,13 @@
   min-height: 0;
   gap: var(--space-2);
   padding: var(--space-3) var(--space-4);
-  border: var(--border-width) solid var(--edge-rest);
+  border: var(--border-width) solid var(--border-subtle);
   border-radius: var(--radius-md);
   background: var(--bg-sunken);
   box-shadow: none;
 }
 :root[data-look="new"] .armada-doctor-tile:is([data-result="warn"], [data-result="fail"]) {
-  border-color: color-mix(in srgb, var(--hue) 55%, var(--edge-rest));
+  border-color: color-mix(in srgb, var(--hue) 55%, var(--border-subtle));
 }
 :root[data-look="new"] .armada-doctor-tile:hover { background: color-mix(in srgb, var(--fg-default) 6%, var(--bg-sunken)); }
 :root[data-look="new"] .armada-doctor-tile[aria-selected="true"] {
@@ -454,10 +454,10 @@
   box-shadow: none;
 }
 :root[data-look="new"] .armada-bay:is([data-bay="held"], [data-bay="busy"], [data-bay="kept"], [data-bay="stranded"]) {
-  border-color: color-mix(in srgb, var(--hue) 55%, var(--edge-rest));
+  border-color: color-mix(in srgb, var(--hue) 55%, var(--border-subtle));
 }
 :root[data-look="new"] .armada-bay[data-bay="stranded"] { background: color-mix(in srgb, var(--hue) 8%, var(--bg-sunken)); box-shadow: none; }
-:root[data-look="new"] .armada-bay[data-bay="closed"] { background: var(--bg-sunken); border-color: var(--edge-rest); }
+:root[data-look="new"] .armada-bay[data-bay="closed"] { background: var(--bg-sunken); border-color: var(--border-subtle); }
 :root[data-look="new"] .armada-bay[data-closed]::after { display: none; }
 :root[data-look="new"] .armada-bay:is([data-bay="held"], [data-bay="busy"], [data-bay="kept"]):hover { background: color-mix(in srgb, var(--fg-default) 6%, var(--bg-sunken)); }
 :root[data-look="new"] .armada-bay__name,

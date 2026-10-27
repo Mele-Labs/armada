@@ -38,7 +38,7 @@
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  min-height: calc(var(--h-row) * 2);
+  min-height: calc(var(--h-row-unit) * 2);
   border: var(--border-width) solid var(--border-subtle);
   border-radius: var(--radius-md);
   background: var(--bg-sunken);
@@ -80,7 +80,7 @@
   display: flex;
   align-items: flex-start;
   gap: var(--space-4);
-  padding: calc((var(--h-row) * 2 - var(--border-width) * 2 - var(--leading-lg)) / 2) var(--space-6, var(--space-4));
+  padding: calc((var(--h-row-unit) * 2 - var(--border-width) * 2 - var(--leading-lg)) / 2) var(--space-6, var(--space-4));
 }
 
 .armada-dispatch-panel__prompt,

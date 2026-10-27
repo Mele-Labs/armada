@@ -24,7 +24,7 @@ const JOB_TITLE = "Promote Dusk";
 const BRANCH = "armada/mod-dusk-1761226080000";
 
 /** The home's Dusk: the other machine warmed the accent. */
-const HOME_DUSK = DUSK_CSS.replace("--accent: #E8A25C;", "--accent: #D9896B;").replace("--accent-hover: #F0B274;", "--accent-hover: #E39C82;");
+const HOME_DUSK = DUSK_CSS.replace("--accent: #C1B4EC;", "--accent: #D9896B;").replace("--accent-hover: #D0C5F3;", "--accent-hover: #E39C82;");
 
 const mod = (name: string, state: SharedRow["state"], modKind: "theme" | "layout", more: Partial<SharedRow> = {}): SharedRow => ({ kind: "mods", name, state, modKind, ...more });
 

@@ -349,10 +349,10 @@
 }
 :root[data-look="new"] .sv-panel:has(> .sv-panel__body:empty) > .sv-panel__band { box-shadow: none; }
 
-/* The map's zoom and recentre buttons float over the canvas as round glass. */
+/* The map's zoom and recentre buttons float over the canvas as glass. */
 :root[data-look="new"] .bf-zoom .armada-button {
   border-color: var(--glass-edge);
-  border-radius: 50%;
+  border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--glass-tint) var(--glass-fill), transparent);
   -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(var(--glass-saturate));
   backdrop-filter: blur(var(--blur-glass)) saturate(var(--glass-saturate));

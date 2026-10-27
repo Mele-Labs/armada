@@ -39,7 +39,7 @@
   width: 100%;
   min-width: 0;
   min-height: var(--h-row);
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-1) var(--space-3);
   border: 0;
   border-radius: var(--radius-md);
   background: transparent;
@@ -236,7 +236,7 @@ span.projects-row__act { cursor: default; }
 .projects-link__close { display: inline-flex; flex: none; align-items: center; justify-content: center; width: var(--h-control-sm); height: var(--h-control-sm); padding: 0; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--fg-muted); cursor: pointer; }
 .projects-link__close:hover { background: var(--bg-hover); color: var(--fg-default); }
 .projects-link__close:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }
-.projects-link__hits { display: flex; flex-direction: column; gap: var(--space-1); max-height: calc(var(--h-row) * 5); margin: 0; padding: 0; overflow-y: auto; list-style: none; }
+.projects-link__hits { display: flex; flex-direction: column; gap: var(--space-1); max-height: calc(var(--h-row-unit) * 5); margin: 0; padding: 0; overflow-y: auto; list-style: none; }
 .projects-link__hit {
   display: flex;
   align-items: baseline;

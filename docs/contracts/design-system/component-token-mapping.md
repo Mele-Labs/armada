@@ -26,10 +26,10 @@ Every interactive element transitions on `--duration-fast`.
 The densest thing in the app and the reason the spacing scale is tight.
 
 ```
-header row   32px · --bg-base · --text-2xs · --fg-subtle
+header row   28px · --bg-base · --text-2xs · --fg-subtle
              uppercase, 0.04em tracking (ALL CAPS here and on an eyebrow)
              bottom rule --border-default
-body row     36px · --bg-raised · 12px horizontal padding
+body row     28px · --bg-raised · 12px horizontal padding
              row rule --border-subtle
 hover        --bg-hover
 selected     --accent-muted
@@ -39,7 +39,7 @@ metadata     --fg-subtle · --text-2xs   (timestamps, elapsed)
 mono cell    --text-xs mono              (job id, path, branch, duration, cost)
 ```
 
-No zebra striping. At 36px rows it reads as noise, and the row rule
+No zebra striping. At 28px rows it reads as noise, and the row rule
 already separates. Status appears as a badge in its own column **and** as
 a row tint of its own hue at `--row-tint` (5%), so a person scanning the
 Board sorts rows by state without reading a badge. This read "never as a
@@ -110,13 +110,13 @@ one claim.
 | Tonal | `--accent-muted` fill, `--accent-hover` text, no border | 24% `--accent` mixed into `--accent-muted` | Chrome present on every screen, carrying the app's main entry. Never the one solid accent of a view |
 
 ```
-height   36px default · 32px sm (use sm inside table rows)
+height   28px default · 24px sm (use sm inside table rows)
 padding  16px default · 8px sm
 type     --text-sm · weight 500 · --radius-md
 ```
 
 **Emphasis comes from fill, not size.** A primary action is `--accent`
-fill at the normal 36px control height; a call to action is never scaled
+fill at the normal 28px control height; a call to action is never scaled
 up to make it matter. **A list row never takes one** — every row carries
 one secondary control, because fourteen rows offering a decision would
 be fourteen accent blocks. Urgency on a list is carried by the badge and
@@ -151,7 +151,7 @@ chosen tab filled inside it.
 
 ```
 track      --bg-raised · --border-default · --radius-md · 2px inner padding
-tab        32px · 12px horizontal padding · --text-sm · --fg-muted
+tab        24px · 12px horizontal padding · --text-sm · --fg-muted
 chosen     --accent-muted fill · --fg-default · weight 500 · --radius-sm
 hover      --fg-default
 ```
@@ -239,7 +239,7 @@ border      --border-default
 text        --fg-default · placeholder --fg-subtle
 focus       2px --accent ring at 2px offset
 invalid     --status-completed-failed border, message below in --text-xs
-height      36px · 8px horizontal padding · --radius-md · --text-sm
+height      28px · 8px horizontal padding · --radius-md · --text-sm
 ```
 
 Select, checkbox, and radio inherit the same border, focus, and height rules.
@@ -259,7 +259,7 @@ shadow is legal.
 
 ```
 surface    --bg-overlay · --border-default · --radius-lg · shadow
-item       32px · 8px padding · --text-sm · --fg-default
+item       28px · 8px padding · --text-sm · --fg-default
 hover      --bg-hover
 danger     --status-completed-failed text, --bg-hover on hover
 separator  --border-subtle

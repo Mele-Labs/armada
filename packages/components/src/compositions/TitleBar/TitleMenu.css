@@ -16,7 +16,7 @@
   justify-content: center;
   width: var(--space-4);
   height: var(--space-4);
-  border-radius: 50%;
+  border-radius: var(--radius-sm);
   background: var(--accent);
   color: var(--fg-inverse);
   pointer-events: none;

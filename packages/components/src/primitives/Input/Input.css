@@ -30,7 +30,7 @@
   border-radius: var(--radius-md);
   border-style: solid;
   border-width: var(--border-width);
-  border-color: var(--border-default);
+  border-color: var(--border-strong);
   background: var(--bg-sunken);
   color: var(--fg-default);
   font-family: var(--font-sans);
@@ -85,7 +85,7 @@
   border-radius: var(--radius-md);
   border-style: solid;
   border-width: var(--border-width);
-  border-color: var(--border-default);
+  border-color: var(--border-strong);
   background: var(--bg-sunken);
   /* At rest the ring is there at no width, as on the field itself. */
   outline: var(--focus-ring);

@@ -64,9 +64,9 @@ The state is held in `apps/desktop/src/renderer/src/cockpit/deck/store.ts`, so t
 ## Density
 
 The Cockpit fits more than the rest of the app, the way mission-control and F1 telemetry screens do.
-Inside the Cockpit only, the type ladder is one step smaller: `--text-2xs` 12px, `--text-xs` 13, `--text-sm` 14 and `--text-base` 15, with the row title at 13 and its meta at 12.
-The rest of the app keeps the ladder [Typography](../contracts/design-system/typography.md) sets, and that page holds the carve-out and why.
-Gutters between panels are 6px, and the controls in the deck are 28px and 24px.
+Its measures are the app's since 26 Oct 2026: the type ladder is `--text-2xs` 12px, `--text-xs` 13, `--text-sm` 14 and `--text-base` 15, with the row title at 13 and its meta at 12.
+Gutters between panels are 6px, the page gutter is 12px, and the controls are 24, 28 and 32px.
+[Typography](../contracts/design-system/typography.md) and [Spacing and shape](../contracts/design-system/spacing-and-shape.md) hold the decision and why.
 
 **A panel has no name band.**
 Its acts show in its top-right corner on hover or focus, and its name stays as its accessible label.

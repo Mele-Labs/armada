@@ -44,26 +44,18 @@
   cursor: pointer;
 }
 
-/* **The wash**, on `::after` over the glass and under the content — glass.css's
-   header says why neither the card's own background nor `::before` can hold it.
-   A radial of the tile's hue at --status-wash, centred on the top leading
-   corner and fading out across the tile. */
+/* The tile is flat: the hue is the tile's mark and its label, and no light is laid over the glass. The layer is
+   kept for hover, which paints it. */
 .armada-overview-summary__item::after {
   content: "";
   position: absolute;
   inset: 0;
   z-index: -1;
   border-radius: inherit;
-  background: radial-gradient(
-    at 0 0,
-    color-mix(in srgb, var(--armada-tile-hue) var(--status-wash), transparent),
-    transparent
-  );
   pointer-events: none;
 }
 
-/* Hover REPLACES the wash rather than mixing with it — the Board row's rule
-   under Table, so no tile computes a colour nobody chose. */
+/* Hover is one flat step, the Board row's rule under Table. */
 .armada-overview-summary__item:hover::after {
   background: var(--bg-hover);
 }

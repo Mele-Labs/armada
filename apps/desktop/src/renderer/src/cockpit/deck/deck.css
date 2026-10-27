@@ -5,31 +5,17 @@
 
 /* ---- The page ------------------------------------------------------------------------------------------- */
 
-/* The Cockpit's measure: one gutter between panels and as far from the window's edge, a header band of 26px, and the Job's head a step over it. */
+/* The Cockpit's measure: the app's gap between panels, a header band of 26px, and the Job's head a step over it. */
 .armada-screen__mounted[data-deck],
 .deck {
-  --deck-gutter: calc(var(--space-1) * 1.5);
+  --deck-gutter: var(--gap-panel);
   --deck-band: calc(var(--space-6) + var(--space-1) / 2);
   --deck-head: calc(var(--space-8) + var(--space-1));
 }
 .deck {
   --hue: var(--status-awaiting-review);
-  /* The controls are the dense pair here, and a header band is the band's. */
-  --h-control: var(--h-control-dense);
-  --h-control-sm: var(--h-control-sm-dense);
+  /* A header band is the band's, a step under the table header's row. */
   --h-row-header: var(--deck-band);
-  /* The Cockpit's type ladder, a step under the rest of the app's. */
-  --text-2xs: var(--text-2xs-dense);
-  --leading-2xs: var(--leading-2xs-dense);
-  --text-xs: var(--text-xs-dense);
-  --leading-xs: var(--leading-xs-dense);
-  --text-sm: var(--text-sm-dense);
-  --leading-sm: var(--leading-sm-dense);
-  --text-base: var(--text-base-dense);
-  --leading-base: var(--leading-base-dense);
-  /* The row's title and its meta are roles of the look, set beside the ladder and not on it: a step down as the rest. */
-  --text-row: var(--text-xs-dense);
-  --size-meta: var(--text-2xs-dense);
   /* What the look reads of the Job's panels and head (`depth.css`): a band's side padding, the head's height and padding, the body's padding. */
   --band-pad: 0 var(--space-3);
   --head-min: var(--deck-head);
@@ -41,16 +27,10 @@
   flex-direction: column;
   min-height: 0;
   min-width: 0;
-  margin: 0 var(--deck-gutter) var(--deck-gutter);
+  margin: 0 0 var(--pad-page);
   gap: var(--deck-gutter);
 }
-/* The shell keeps a gutter round every screen (the work's leading margin, the panel's trailing one, the mount's top, the
-   overview's left and foot) that the rail it was drawn for needed. The deck has no rail: its panels run to the one gap the
-   title bar's own side padding is, the same on the left, the right and under the bars. */
-/* The deck marks the containers it sits in (`DECK_MARKS`): `:has(.deck)` on them restyled each one whenever anything beneath it was inserted. */
-.armada-shell__body[data-deck] > .armada-shell__work { margin-left: 0; }
-.armada-shell__work[data-deck] > .armada-shell__panel { margin-right: 0; }
-.armada-screen__mounted[data-deck] { padding-top: var(--deck-gutter); }
+/* The shell holds the page gutter (`--pad-page`) at the work's sides and the mount's top, the same on every tab, so the deck keeps only the foot. */
 .armada-screen__overview[data-deck] { padding: 0; }
 .deck [data-hue="ask"],
 .deck [data-hue="issue"] { --hue: var(--status-awaiting-review); }
@@ -186,7 +166,7 @@
 @media (prefers-reduced-motion: reduce) { .deck-list__more svg { animation: none; } }
 /* Rows are divided by a hairline, with no card to each. The look reads a row's height, padding and radius from the list (`depth.css`): 28px, with room above and below for Now or Active PRs. */
 .deck-list__rows {
-  --deck-line: var(--h-control-dense);
+  --deck-line: var(--h-control);
   --row-min: var(--deck-line);
   --row-pad: 0 var(--space-3);
   --row-radius: 0;
@@ -382,9 +362,8 @@
 .deck .armada-helm-thread__rows > .armada-session-fold + .armada-session-fold { margin-block-start: calc((var(--space-2) - var(--space-1) / 2) * -1); }
 .deck .armada-session-fold__head--press { font-size: var(--text-xs); line-height: var(--leading-xs); }
 .deck .armada-session-fold__head--press .mono { font-size: var(--text-2xs); }
-/* The glyphs a step lighter, and the switch's ON and OFF a step smaller. */
+/* The glyphs a step lighter. */
 .deck svg.lucide { stroke-width: 1.5; }
-.deck .armada-switch { --switch-text: var(--text-switch-dense); }
 /* The map is not a panel: no edge, fill, shadow or header, so the shell's grid shows round its floor. Focus is the repo's outline. */
 .deck-pane[data-bare] { border: 0; border-radius: 0; overflow: visible; }
 .deck-pane[data-bare]:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }
@@ -581,8 +560,8 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 /* A berth. A door in the state's hue down the left, carrying the glyph and the bay's number; the holder, its branch and the time to the right. */
 .deck-bay {
   align-items: stretch;
-  min-height: calc(var(--h-row) * 2);
-  border: calc(var(--border-width) * 2) var(--edge-style, solid) color-mix(in srgb, var(--hue) 55%, var(--border-subtle));
+  min-height: calc(var(--h-row-unit) * 2);
+  border: var(--border-width) var(--edge-style, solid) color-mix(in srgb, var(--hue) 55%, var(--border-subtle));
   border-radius: var(--radius-md);
   background: var(--bg-raised);
   overflow: hidden;
@@ -835,7 +814,7 @@ button.deck-pr:hover { border-color: var(--border-strong); color: var(--fg-defau
 .deck-pr[data-stage="landed"] { color: var(--fg-subtle); }
 
 /* The repository, at the head of the left column: it narrows the list, the feed, the bays and the queue. */
-.deck-scope { --scope-h: calc(var(--h-control) + var(--space-1) / 2); flex: none; display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
+.deck-scope { --scope-h: var(--h-control); flex: none; display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
 .deck-scope .armada-dropdown-menu { flex: 1 1 0; min-width: 0; }
 /* A text node cannot be ellipsised inside a flex box, so the trigger is a block and the chevron is laid over its padding. */
 .deck-scope .armada-dropdown-menu__trigger,
