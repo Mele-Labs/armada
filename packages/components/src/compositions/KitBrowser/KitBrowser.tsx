@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { ArrowUpFromLine, Check, Laptop } from "lucide-react";
+import { Check, Laptop } from "lucide-react";
 import type { KitPieceKind } from "@armada/protocol";
 
 import { useKept } from "../../keep";
@@ -14,7 +14,7 @@ import { BuiltInMark, ModKindMark } from "../ModRow/ModRow";
 import type { KitServerKind, KitServerRowProps } from "../KitServers/KitServers";
 import { KIT_KIND_LABEL } from "../KitSetup/KitSetup";
 import type { KitSetupKindWord, KitSetupRead } from "../KitSetup/KitSetup";
-import { itemSyncs, SharedHomeBar, SyncAct, SyncMarks, SyncSheet, useSharedHome } from "../KitSetup/SharedHome";
+import { itemSyncs, SharedHomeBar, SyncMarks, SyncSheet, useSharedHome } from "../KitSetup/SharedHome";
 import type { SharedHome, SharedRow } from "../KitSetup/SharedHome";
 import { HOME_KIND, holds, rowsOf } from "./kit-rows";
 import type { KitKindId, KitRef, KitRow } from "./kit-rows";
@@ -143,24 +143,17 @@ export function KitBrowser({
           )}
           {one.mark === undefined ? null : <span className="armada-kit-browser__mark">{one.mark}</span>}
           {one.mod === undefined ? null : <ModMarks mod={one.mod} />}
-        </span>
-      </button>
-      {one.sync === undefined || shared === undefined ? (
-        // A row that does not sync keeps the mark and act columns, so the rows that do stay in line with it.
-        shared?.syncs === undefined || one.home === undefined ? null : (
-          <span className="armada-kit-browser__sync" aria-hidden="true">
-            <span className="armada-kit-browser__kept">
+          {/* Where it stands against the home, inside the row; what settles it is in the detail. A row that does not
+              sync holds the mark's place, so the versions stay in one column. */}
+          {one.sync !== undefined && shared !== undefined ? (
+            <SyncMarks row={one.sync} />
+          ) : shared?.syncs === undefined || one.home === undefined ? null : (
+            <span className="armada-kit-browser__unmarked" aria-hidden="true">
               <Laptop size={16} strokeWidth={2} />
             </span>
-            <ActKept />
-          </span>
-        )
-      ) : (
-        <span className="armada-kit-browser__sync">
-          <SyncMarks row={one.sync} onCompare={setComparing} />
-          {one.sync.state === "here" || one.sync.state === "home" ? <SyncAct row={one.sync} acts={shared} /> : shared.syncs === undefined ? null : <ActKept />}
+          )}
         </span>
-      )}
+      </button>
     </li>
   );
 
@@ -252,6 +245,7 @@ export function KitBrowser({
           <Detail
             row={row}
             shared={shared}
+            onCompare={setComparing}
             pieces={pieces}
             servers={servers}
             onJump={onJump}
@@ -271,17 +265,6 @@ export function KitBrowser({
   );
 }
 
-/** The act column's width on a row with no act, drawn and never seen. */
-function ActKept() {
-  return (
-    <span className="armada-kit-browser__kept" aria-hidden="true">
-      <Button variant="ghost" size="sm" iconOnly tabIndex={-1} disabled aria-label="">
-        <ArrowUpFromLine size={16} strokeWidth={2} aria-hidden="true" />
-      </Button>
-    </span>
-  );
-}
-
 /** A mod's kind, and the package where Armada ships it: the marks its row under Theme or Layout carries. */
 function ModMarks({ mod }: { mod: NonNullable<KitRow["mod"]> }) {
   return (
@@ -292,22 +275,41 @@ function ModMarks({ mod }: { mod: NonNullable<KitRow["mod"]> }) {
   );
 }
 
-/** An item's own switch in What syncs: on and fixed while its whole kind is on. */
-function SyncSwitch({ row, shared }: { row: KitRow; shared: SharedHome | undefined }) {
-  const setItem = shared?.setItem;
-  if (row.home === undefined || shared?.syncs === undefined || setItem === undefined) return null;
-  const item = row.home;
-  const { on, locked } = itemSyncs(shared.syncs, item);
+/**
+ * An item against the home: its own switch in What syncs, on and fixed while its whole kind is on, which sends it to
+ * the home as it turns on; then Add to this machine for an item only the home has, and Compare for one that differs.
+ */
+function SyncActs({ row, shared, onCompare }: { row: KitRow; shared: SharedHome | undefined; onCompare: (row: SharedRow) => void }) {
+  if (shared === undefined) return null;
+  const { setItem, syncs } = shared;
+  const { home, sync } = row;
+  // An item only the home has is brought, not synced from here.
+  const switched = home === undefined || syncs === undefined || setItem === undefined || sync?.state === "home" ? undefined : itemSyncs(syncs, home);
   return (
-    <Switch size="sm" checked={on} disabled={locked} onChange={(event) => setItem(item, event.target.checked)}>
-      Sync to home
-    </Switch>
+    <>
+      {switched === undefined ? null : (
+        <Switch size="sm" checked={switched.on} disabled={switched.locked} onChange={(event) => setItem!(home!, event.target.checked)}>
+          Sync to home
+        </Switch>
+      )}
+      {sync?.state !== "home" ? null : (
+        <Button variant="secondary" size="sm" ground="card" onClick={() => shared.bring(sync)}>
+          Add to this machine
+        </Button>
+      )}
+      {sync?.state !== "differs" ? null : (
+        <Button variant="secondary" size="sm" ground="card" onClick={() => onCompare(sync)}>
+          Compare with the home
+        </Button>
+      )}
+    </>
   );
 }
 
 function Detail({
   row,
   shared,
+  onCompare,
   pieces,
   servers,
   onJump,
@@ -319,6 +321,7 @@ function Detail({
 }: {
   row: KitRow;
   shared: SharedHome | undefined;
+  onCompare: (row: SharedRow) => void;
   pieces: KitPiecesProps | undefined;
   servers: KitBrowserProps["servers"];
   onJump: (to: KitRef) => void;
@@ -349,7 +352,7 @@ function Detail({
       {pieces?.refused === undefined || piece === undefined ? null : <p className="armada-kit-browser__refused">{pieces.refused}</p>}
     </>
   );
-  const sync = <SyncSwitch row={row} shared={shared} />;
+  const sync = <SyncActs row={row} shared={shared} onCompare={onCompare} />;
   // The file is the detail, so what the file already says is not said twice. A server's own words are not in it.
   const inline = row.opens !== undefined && fileView !== undefined;
   const head = (
@@ -384,7 +387,7 @@ function Detail({
       {/* A file's own acts are the view's, so Remove rides above it with the rest of the head. */}
       {inline ? (
         <>
-          {remove === null && sync === null ? null : (
+          {remove === null && shared === undefined ? null : (
             <div className="armada-kit-browser__acts">
               {sync}
               {remove}

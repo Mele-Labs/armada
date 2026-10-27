@@ -521,9 +521,10 @@ A server whose key is not on this machine is marked as needing one; the home doe
 **The page.** Each row carries a mark for how it stands against the home (the same, differs, only on this machine, only in the home, needs a key).
 A bar names the repository and offers Sync, and under it a Sync all switch turns the open kind on or off.
 An item's detail carries a Sync to home switch that sends it alone; while its kind is on, the switch reads on and cannot be moved.
-A row that does not sync keeps the mark and act columns, so the rows stay in line.
-A differing row opens a compare sheet with both versions and a button for each.
-A row on one side only offers an icon act, *Add to the home* or *Add to this machine*.
+**Switching an item or a kind on sends it to the home at once**: Sync runs, so there is no second act to add it.
+The mark sits inside the row, and a row that does not sync holds its place, so the rows stay in one column.
+The item's detail settles the rest: *Add to this machine* for a row only in the home, and *Compare with the home* for one that differs, which opens a compare sheet with both versions and a button for each.
+The Theme rows on the Mods page keep their icon acts, *Add to the home* and *Add to this machine*.
 Every Kit kind is a list with the picked item's detail beside it, and the list scrolls inside its column when it is long.
 Mods are a list of their own, and the Theme rows carry the same marks.
 [Bridge](bridge.md)'s Account sheet names the home repository at the top, and the sign-in's home step reads done once the home exists.

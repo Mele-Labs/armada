@@ -107,8 +107,8 @@ export function createFleetSharedHome(fleet: FleetHome, account: AccountSource, 
         ? {}
         : {
             syncs: { kinds: switched.kinds.filter((one) => one.on).map((one) => one.kind), items: switched.items.map((one) => ({ kind: one.kind, name: one.name })) },
-            setKind: (kind: string, on: boolean) => void switchTo(as, () => fleet.setHomeKind(as, kind as HomeKind, on)),
-            setItem: (item: { kind: string; name: string }, on: boolean) => void switchTo(as, () => fleet.setHomeItem({ login: as, kind: item.kind as HomeKind, name: item.name }, on)),
+            setKind: (kind: string, on: boolean) => void switchTo(as, on, () => fleet.setHomeKind(as, kind as HomeKind, on)),
+            setItem: (item: { kind: string; name: string }, on: boolean) => void switchTo(as, on, () => fleet.setHomeItem({ login: as, kind: item.kind as HomeKind, name: item.name }, on)),
           }),
       sync: () => void sync(as),
       add: (row) => void act(as, () => fleet.addToSharedHome(atOf(row, as))),
@@ -152,12 +152,15 @@ export function createFleetSharedHome(fleet: FleetHome, account: AccountSource, 
     void fleet.getHomeKinds(as).then((answer) => kindsOf(as, answer, false));
   };
 
-  /** Switch a kind or an item, then read the rows again: what is drawn follows what syncs. */
-  const switchTo = async (as: string, ask: () => Promise<AccountsActed<HomeKinds>>): Promise<void> => {
-    if (kindsOf(as, await ask(), true)) {
-      const at = ++issued;
-      took(as, at, await fleet.getSharedHome(as), false);
-    }
+  /**
+   * Switch a kind or an item. **Switched on, it goes to the home at once**: Sync runs, so there is no second act to
+   * add it. Switched off, nothing leaves either side and the rows are read again, since what is drawn follows what syncs.
+   */
+  const switchTo = async (as: string, on: boolean, ask: () => Promise<AccountsActed<HomeKinds>>): Promise<void> => {
+    if (!kindsOf(as, await ask(), true)) return;
+    if (on) return sync(as);
+    const at = ++issued;
+    took(as, at, await fleet.getSharedHome(as), false);
   };
 
   const act = async (as: string, ask: () => Promise<AccountsActed<WireRead>>): Promise<void> => {

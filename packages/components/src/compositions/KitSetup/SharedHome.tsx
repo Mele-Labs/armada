@@ -112,9 +112,10 @@ export const syncSaid = (state: SyncState): string => STATE[state].said;
 /**
  * A row's marks. One glyph for how it stands, and a key beside it for a server
  * whose key this machine has not got. A row that differs is the one mark that
- * is a button, because it opens the two versions.
+ * is a button, because it opens the two versions; without `onCompare` it is a
+ * glyph like the rest, for a mark drawn inside a row that is a button itself.
  */
-export function SyncMarks({ row, onCompare }: { row: SharedRow; onCompare: (row: SharedRow) => void }) {
+export function SyncMarks({ row, onCompare }: { row: SharedRow; onCompare?: (row: SharedRow) => void }) {
   const { Glyph, said } = STATE[row.state];
   const glyph = <Glyph size={16} strokeWidth={2} aria-hidden="true" />;
   return (
@@ -127,7 +128,7 @@ export function SyncMarks({ row, onCompare }: { row: SharedRow; onCompare: (row:
         </Tooltip>
       ) : null}
       <Tooltip beside label={said}>
-        {row.state === "differs" ? (
+        {row.state === "differs" && onCompare !== undefined ? (
           <button type="button" className="armada-sync-mark" data-sync="differs" aria-label={`${said}, ${row.name}`} onClick={() => onCompare(row)}>
             {glyph}
           </button>

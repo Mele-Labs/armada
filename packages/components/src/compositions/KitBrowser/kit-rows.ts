@@ -196,8 +196,9 @@ export function rowsOf(kind: KitKindId, setup: KitSetupRead | undefined, shared:
   }
   if (kind === "instructions") {
     // The home's copy of a file this machine has is the same row, not a second one.
-    for (const apart of rows.filter((one) => one.path === undefined && one.sync !== undefined)) {
-      const own = rows.find((one) => one !== apart && one.name === apart.name && one.sync === undefined);
+    // A row with the same id is the same file read twice, once as the agent's file and once as the home's kind.
+    for (const apart of rows.filter((one) => one.sync !== undefined)) {
+      const own = rows.find((one) => one !== apart && one.sync === undefined && (one.id === apart.id || (apart.path === undefined && one.name === apart.name)));
       if (own === undefined) continue;
       own.sync = apart.sync;
       if (apart.home !== undefined) own.home = apart.home;

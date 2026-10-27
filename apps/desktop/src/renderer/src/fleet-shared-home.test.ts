@@ -257,7 +257,7 @@ describe("the shared home over Fleet", () => {
     expect([home.get()?.made, home.get()?.owners]).toEqual([undefined, undefined]);
   });
 
-  it("draws What syncs beside the rows, sends a kind or an item switched in Kit for the drawn login, and reads the rows again", async () => {
+  it("draws What syncs beside the rows, and sends a kind or an item switched on in Kit to the home at once", async () => {
     const fleet = fake(HELD, {}, ["skills"], [{ kind: "memory", name: "Walks, not pictures", repository: "armada" }]);
     const home = createFleetSharedHome(fleet.fleet, account([profile("nickmele", true)]).source, () => undefined);
     home.subscribe(() => undefined);
@@ -267,17 +267,27 @@ describe("the shared home over Fleet", () => {
     home.get()?.setKind?.("plugins", true);
     await settled();
     expect(home.get()?.syncs?.kinds).toEqual(["skills", "plugins"]);
+    expect(home.get()?.syncing).toBe(true);
+    fleet.answerSync({ ok: true, value: { ...HELD, left: [] } });
+    await settled();
     home.get()?.setItem?.({ kind: "sub_agents", name: "reviewer" }, true);
     await settled();
     expect(home.get()?.syncs?.items).toEqual([
       { kind: "memory", name: "Walks, not pictures" },
       { kind: "sub_agents", name: "reviewer" },
     ]);
+    fleet.answerSync({ ok: true, value: { ...HELD, left: [] } });
+    await settled();
+    // Off sends nothing: the rows are read again.
+    home.get()?.setItem?.({ kind: "sub_agents", name: "reviewer" }, false);
+    await settled();
     expect(fleet.asked).toEqual([
       "read nickmele",
       "kind nickmele plugins true",
-      "read nickmele",
+      "sync nickmele",
       `item ${JSON.stringify({ login: "nickmele", kind: "sub_agents", name: "reviewer" })} true`,
+      "sync nickmele",
+      `item ${JSON.stringify({ login: "nickmele", kind: "sub_agents", name: "reviewer" })} false`,
       "read nickmele",
     ]);
   });

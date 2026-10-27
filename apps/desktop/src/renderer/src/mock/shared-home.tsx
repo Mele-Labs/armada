@@ -62,10 +62,15 @@ function Held({ home, children }: { home: NonNullable<MockDraft["sharedHome"]>; 
         ? {}
         : {
             syncs,
-            setKind: (kind: string, on: boolean) =>
-              setSyncs((was) => was && { ...was, kinds: on ? [...was.kinds, kind] : was.kinds.filter((one) => one !== kind) }),
-            setItem: (item: { kind: string; name: string }, on: boolean) =>
-              setSyncs((was) => was && { ...was, items: on ? [...was.items, item] : was.items.filter((one) => one.kind !== item.kind || one.name !== item.name) }),
+            // Switched on, it goes to the home at once, as Fleet's Sync runs.
+            setKind: (kind: string, on: boolean) => {
+              setSyncs((was) => was && { ...was, kinds: on ? [...was.kinds, kind] : was.kinds.filter((one) => one !== kind) });
+              if (on) setSyncing(true);
+            },
+            setItem: (item: { kind: string; name: string }, on: boolean) => {
+              setSyncs((was) => was && { ...was, items: on ? [...was.items, item] : was.items.filter((one) => one.kind !== item.kind || one.name !== item.name) });
+              if (on) setSyncing(true);
+            },
           }),
       ...(account?.home === false ? { made: false, owners: profile?.orgs ?? [] } : {}),
       choose: (row, side) => {
