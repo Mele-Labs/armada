@@ -6,15 +6,16 @@
 // one. Ten props would be ten chances for a caller to wire one to the wrong
 // thing; the object is the shape that function already agrees on.
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { GitPullRequest, Puzzle } from "lucide-react";
-import { Palette, SURFACE, type PaletteChoice, type PaletteRepository, type PaletteSurface, type PaletteTask } from "@armada/shell";
-import { Dialog, type PaletteDispatch, type PaletteStep } from "@armada/components";
+import { choiceOf, Palette, SURFACE, type PaletteChoice, type PaletteRepository, type PaletteSurface, type PaletteTask } from "@armada/shell";
+import { Dialog, parseChord, pressesChord, type PaletteDispatch, type PaletteStep } from "@armada/components";
 import { useProjectsStore } from "./projects-tab/store";
 import { useSessionsDraft, useSessionsEverywhere } from "./sessions-draft";
 import { useDeck } from "./cockpit/deck/store";
 import { jobRow } from "./palette-job-row";
 import { usePaletteRows } from "./palette-fixtures";
+import { knownRows, setKnownRows } from "./palette-known";
 import { nextOpens, opensLabel, remember, rowOf, usePaletteMemory } from "./palette-memory";
 import { pageOf } from "./palette-page";
 import { carryOutRow } from "./palette-rows";
@@ -125,6 +126,28 @@ export function PaletteMount({
     if (choice.of === "pull" || choice.of === "issue" || choice.of === "task" || choice.of === "command" || choice.of === "page" || choice.of === "on") return carryOutRow(choice, world);
     carryOut(choice, { ...acts, studioRun: askStudioRun, studioAdd: askStudioAdd, createMod: askToCreateMod, debugBridge: askToDebugBridge, openSession: askToOpenSession, requests: () => void openRequestsInPanel(openSessionIn(document)) });
   };
+  // **A key he gave a row fires anywhere in Bridge**, with the palette down, and runs the row as ↵ would. It is read in the
+  // capture phase so a terminal or a field does not keep it, and a key being recorded in Settings is left to the recorder.
+  const choosing = useRef(choose);
+  choosing.current = choose;
+  const hotkeys = memory.hotkeys;
+  useEffect(() => {
+    if (open) return;
+    function fire(event: KeyboardEvent): void {
+      if (event.defaultPrevented || event.repeat || (event.target as Element | null)?.closest?.("[data-recording]") != null) return;
+      for (const [id, spelled] of Object.entries(hotkeys)) {
+        const chord = parseChord(spelled);
+        if (chord === null || !pressesChord(chord, event)) continue;
+        if (knownRows().find((one) => one.id === id)?.dormant === true) return;
+        event.preventDefault();
+        event.stopPropagation();
+        choosing.current(choiceOf(id));
+        return;
+      }
+    }
+    window.addEventListener("keydown", fire, true);
+    return () => window.removeEventListener("keydown", fire, true);
+  }, [open, hotkeys]);
   return (
     <>
     <Palette
@@ -178,6 +201,7 @@ export function PaletteMount({
       opens={memory.opens}
       aliases={memory.aliases}
       hotkeys={memory.hotkeys}
+      onRows={setKnownRows}
       onConfirmAct={(id) => id === "job-stop" && job !== undefined && setStopping(job.id)}
       onConfirmOn={(target, action) => action === "stop" && setStopping(target.slice("session:".length))}
       dormant={dormantIn({ failing: failing !== null, live, debuggable: window.armadaDev !== undefined, studioRun, studioAdd })}

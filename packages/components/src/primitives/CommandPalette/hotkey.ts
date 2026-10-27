@@ -27,3 +27,14 @@ export function refuseHotkey(chord: Chord, others: readonly HeldHotkey[]): strin
   const row = others.find((one) => sameAs(one.hotkey, chord));
   return row === undefined ? undefined : `Bound to ${row.label}`;
 }
+
+/** Another row's alias, with the name it goes by. */
+export type HeldAlias = { label: string; alias: string };
+
+/** Why a word cannot be a row's alias, in a few words, or nothing where it can. It is one word, and no other row has it. */
+export function refuseAlias(word: string, others: readonly HeldAlias[]): string | undefined {
+  if (word === "") return "Needs a word";
+  if (/\s/.test(word)) return "One word";
+  const row = others.find((one) => one.alias.toLowerCase() === word.toLowerCase());
+  return row === undefined ? undefined : `Used by ${row.label}`;
+}

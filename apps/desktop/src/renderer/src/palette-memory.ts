@@ -102,6 +102,9 @@ export const remember = (id: string): void => {
   set({ ...was, recent: [id, ...was.recent.filter((one) => one !== id)].slice(0, RECENT_KEPT) });
 };
 
+/** What the empty query shows, chosen in Settings. */
+export const setOpens = (opens: PaletteOpens): void => set({ ...paletteMemory(), opens });
+
 /** The next of the three things the empty query can show. */
 export const nextOpens = (): void => {
   const was = paletteMemory();
@@ -129,7 +132,7 @@ const PREFIX: Partial<Record<PaletteChoice["of"], string>> = { session: "session
 
 /** The id of the row a choice was made on, for the kinds Recent keeps. */
 export function rowOf(choice: PaletteChoice): string | undefined {
-  if (choice.of === "on") return choice.action === "pin" || choice.action === "unpin" ? undefined : choice.target;
+  if (choice.of === "on") return ["pin", "unpin", "alias", "remove-alias", "hotkey", "remove-hotkey"].includes(choice.action) ? undefined : choice.target;
   const prefix = PREFIX[choice.of];
   return prefix === undefined || !("id" in choice) ? undefined : `${prefix}:${choice.id}`;
 }

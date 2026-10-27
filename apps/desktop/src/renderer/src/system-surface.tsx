@@ -21,6 +21,7 @@ import { askToCreateMod } from "./create-mod";
 import { askToOpenSession } from "./open-session";
 import { FileInline } from "./shared-panel/file";
 import { openAddressInPanel, openInPanel, openMod } from "./shared-panel/store";
+import { usePaletteTable } from "./palette-table";
 import { useSystemEntry } from "./system-entry";
 
 export type SystemSurfaceProps = KitSlice & {
@@ -60,6 +61,7 @@ function useWithMods(setup: KitSetupRead | undefined): KitSetupRead | undefined 
 }
 
 export function SystemSurface({ repository, settings, modelChoices, live, guarded, onReadGuides, onOpenAccount, workflows, guides, warned, ...slice }: SystemSurfaceProps) {
+  const palette = usePaletteTable();
   const read = useKit(slice);
   const kit = { ...read, setup: useWithMods(read.setup) };
   const [entry, setEntry] = useSystemEntry();
@@ -142,6 +144,7 @@ export function SystemSurface({ repository, settings, modelChoices, live, guarde
         onSaveSettings={(changes) => window.armada.saveSettings(changes)}
         onOpenAccount={onOpenAccount}
         onReadGuides={onReadGuides}
+        palette={palette}
         {...(guarded.onCopied === undefined ? {} : { onCopied: guarded.onCopied })}
         onOpenPull={openPull}
         onOpenJob={askToOpenSession}

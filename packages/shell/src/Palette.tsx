@@ -39,7 +39,7 @@ import { useEffect, useState } from "react";
 import { Ban, Check, CircleDot, Copy, ExternalLink, FileTerminal, GitFork, GitMerge, GitPullRequest, Globe, ListTodo, MessageSquarePlus, Pause, Play, Plus, Route, Send } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
-import { actsIn, ALIASES, globalActs, CommandPalette, isPressed, keyFor, parseChord, refuseHotkey } from "@armada/components";
+import { actsIn, ALIASES, globalActs, CommandPalette, isPressed, keyFor, parseChord, refuseAlias, refuseHotkey } from "@armada/components";
 import type { Action, ActionContext, PaletteAction, PaletteDispatch, PaletteLink, PalettePath, PaletteEntry, PaletteMeta, PaletteSection, PaletteStep } from "@armada/components";
 
 /**
@@ -183,7 +183,7 @@ export type PaletteChoice =
   | { of: "repository"; root: string | null };
 
 /** A row the palette lists, as Settings names it: what it is called, what kind it is, and whether a word or a key can be given it. */
-export type PaletteKnown = { id: string; label: string; kind: string; keyable: boolean; dormant: boolean };
+export type PaletteKnown = { id: string; label: string; kind: string; keyable: boolean; dormant: boolean; shortcut?: string };
 
 /** A repository the palette can pick, as the title row's picker names it. */
 export type PaletteRepository = { root: string; label: string };
@@ -488,8 +488,8 @@ export function Palette({
     ...(hotkeys[entry.id] === undefined ? {} : { shortcut: hotkeys[entry.id]! }),
   }));
 
-  const known: PaletteKnown[] = entries.map((entry) => ({ id: entry.id, label: entry.label, kind: entry.kind ?? "Action", keyable: entry.destructive !== true, dormant: entry.dormant !== undefined }));
-  const knownKey = known.map((one) => `${one.id}\t${one.label}\t${one.kind}\t${one.keyable}\t${one.dormant}`).join("\n");
+  const known: PaletteKnown[] = entries.map((entry) => ({ id: entry.id, label: entry.label, kind: entry.kind ?? "Action", keyable: entry.destructive !== true, dormant: entry.dormant !== undefined, ...(entry.shortcut === undefined ? {} : { shortcut: entry.shortcut }) }));
+  const knownKey = known.map((one) => `${one.id}\t${one.label}\t${one.kind}\t${one.keyable}\t${one.dormant}\t${one.shortcut ?? ""}`).join("\n");
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => onRows?.(known), [knownKey]);
 
@@ -660,11 +660,7 @@ function actionsOf(entry: PaletteEntry, held: { sessions: readonly PaletteSessio
 /** Why a word or a key cannot be given to a row, in a few words, or nothing where it can. */
 function refusal(entry: PaletteEntry, act: string, value: string, entries: readonly PaletteEntry[], aliases: Readonly<Record<string, string>>): string | undefined {
   if (act === "alias") {
-    const word = value.trim();
-    if (word === "") return "Needs a word";
-    if (/\s/.test(word)) return "One word";
-    const other = entries.find((one) => one.id !== entry.id && aliases[one.id]?.toLowerCase() === word.toLowerCase());
-    return other === undefined ? undefined : `Used by ${other.label}`;
+    return refuseAlias(value.trim(), entries.flatMap((one) => (one.id === entry.id || aliases[one.id] === undefined ? [] : [{ label: one.label, alias: aliases[one.id]! }])));
   }
   const chord = parseChord(value);
   if (chord === null) return "Not a key";

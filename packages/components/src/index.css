@@ -388,6 +388,7 @@
 @import "./compositions/PhonePairing/PhonePairing.css";
 @import "./compositions/SettingsIndex/SettingsIndex.css";
 @import "./compositions/KeyBindingRow/KeyBindingRow.css";
+@import "./compositions/PaletteRows/PaletteRows.css";
 @import "./compositions/SettingField/SettingField.css";
 @import "./compositions/WalkGuide/WalkGuide.css";
 @import "./compositions/WindowQuestion/WindowQuestion.css";

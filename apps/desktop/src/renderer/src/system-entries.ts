@@ -56,6 +56,7 @@ export const SYSTEM_ENTRIES: readonly SystemEntryDef[] = [
   { id: "bridge:fleet", label: "Fleet", group: "mods", sections: ["fleet-mods"] },
   { id: "bridge:spacing", label: "Spacing", group: "bridge", sections: ["spacing"] },
   { id: "bridge:keyboard", label: "Keyboard shortcuts", group: "bridge", sections: ["keyboard"] },
+  { id: "bridge:palette", label: "Command palette", group: "bridge", sections: ["palette"] },
   { id: "bridge:time", label: "Time", group: "bridge", sections: ["time"] },
   { id: "bridge:editor", label: "Editor", group: "bridge", sections: ["editor"] },
   { id: "bridge:terminal", label: "Terminal", group: "bridge", sections: ["terminal"] },

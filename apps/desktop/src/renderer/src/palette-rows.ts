@@ -10,7 +10,7 @@ import { mergeSession, stopSession, toggleSessionPause } from "./cockpit/deck/ac
 import { setView } from "./cockpit/deck/store";
 import type { PaletteFixtures, PaletteLinked } from "./palette-fixtures";
 import { JOB_PAGE } from "./palette-page";
-import { togglePin } from "./palette-memory";
+import { setAlias, setHotkey, togglePin } from "./palette-memory";
 import { focusAddTask } from "./projects-tab/keys";
 import type { ProjectsStore } from "./projects-tab/store";
 
@@ -66,7 +66,7 @@ export function carryOutRow(choice: PaletteChoice, world: RowWorld): void {
       onPage(choice.id, world);
       return;
     case "on":
-      on(choice.target, choice.action, world);
+      on(choice.target, choice.action, world, choice.value);
   }
 }
 
@@ -87,8 +87,11 @@ function onPage(id: string, world: RowWorld): void {
   else if (id === "new-project") world.projects?.name(true);
 }
 
-function on(target: string, action: string, world: RowWorld): void {
+function on(target: string, action: string, world: RowWorld, value = ""): void {
   if (action === "pin" || action === "unpin") return togglePin(target);
+  // The word or key he gave a row, or its removal: kept by the palette, and no row of anyone's to open.
+  if (action === "alias" || action === "remove-alias") return setAlias(target, action === "alias" ? value : "");
+  if (action === "hotkey" || action === "remove-hotkey") return setHotkey(target, action === "hotkey" ? value : "");
   const [kind, ...rest] = target.split(":");
   const id = rest.join(":");
   if (kind === "session") {

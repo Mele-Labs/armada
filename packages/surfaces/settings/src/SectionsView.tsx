@@ -8,6 +8,7 @@ import type { ComponentProps, ReactNode } from "react";
 import { KeyboardSettings } from "./KeyboardSettings";
 import { LayoutSettings } from "./LayoutSettings";
 import { ModList } from "./ModList";
+import { PaletteSettings, type PaletteSettingsProps } from "./PaletteSettings";
 import { PhoneSettings } from "./PhoneSettings";
 import { ReachFoldersSettings } from "./ReachFoldersSettings";
 import { SchemaSection } from "./SchemaSettings";
@@ -26,6 +27,8 @@ export type SettingsSectionsViewProps = {
   /** Opens the guide catalogue, from the guides setting. */
   onReadGuides?: () => void;
   onCopied?: (value: string) => void;
+  /** What the Command palette category reads and changes. Absent, the category draws nothing. */
+  palette?: PaletteSettingsProps;
   /** Drawn directly under a category, by id. */
   under?: Readonly<Record<string, ReactNode>>;
   /** Open a promoted mod's pull request and its Job from the All list, as the Theme and Layout pages do. */
@@ -36,7 +39,7 @@ export type SettingsSectionsViewProps = {
   onCreateMod?: ComponentProps<typeof ModList>["onCreate"];
 };
 
-export function SettingsSectionsView({ ids, settings, live, onSaveSettings, onOpenAccount, onReadGuides, onCopied, under = {}, onOpenPull, onOpenJob, onOpenMod, onCreateMod }: SettingsSectionsViewProps) {
+export function SettingsSectionsView({ ids, settings, live, onSaveSettings, onOpenAccount, onReadGuides, onCopied, palette, under = {}, onOpenPull, onOpenJob, onOpenMod, onCreateMod }: SettingsSectionsViewProps) {
   const card = (title: string, body: ReactNode) => (
     <Card>
       <CardHeader>
@@ -55,6 +58,7 @@ export function SettingsSectionsView({ ids, settings, live, onSaveSettings, onOp
     "fleet-mods": (title) => <ModList kind="fleet" title={title} {...(onOpenMod === undefined ? {} : { onOpenMod })} />,
     time: (title) => card(title, <TimeSettings />),
     keyboard: (title) => card(title, <KeyboardSettings query="" />),
+    palette: (title) => (palette === undefined ? null : card(title, <PaletteSettings {...palette} />)),
     guides: (title) => card(title, <GuidesSetting {...(onReadGuides === undefined ? {} : { onReadGuides })} />),
   };
 

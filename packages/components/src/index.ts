@@ -430,6 +430,7 @@ export * from "./compositions/LayoutRow/LayoutRow";
 export * from "./compositions/ReachFolderList/ReachFolderList";
 export * from "./compositions/SettingsIndex/SettingsIndex";
 export * from "./compositions/KeyBindingRow/KeyBindingRow";
+export * from "./compositions/PaletteRows/PaletteRows";
 export * from "./compositions/PhonePairing/PhonePairing";
 // One setting from settings.json, drawn from its kind.
 export * from "./compositions/SettingField/SettingField";
