@@ -543,6 +543,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/shared_home/choose", post(crate::homing::choose_shared_home_side::<D>))
         .route("/shared_home/kinds", get(crate::homing::get_home_kinds::<D>))
         .route("/shared_home/kinds/set", post(crate::homing::set_home_kind::<D>))
+        .route("/shared_home/items/set", post(crate::homing::set_home_item::<D>))
         .route("/shared_home/repository", post(crate::homing::set_home_repository::<D>))
         .route("/projects/:repository", get(crate::projects::list_projects::<D>).post(crate::projects::add_project::<D>))
         .route("/projects/:repository/:project/rename", post(crate::projects::rename_project::<D>))

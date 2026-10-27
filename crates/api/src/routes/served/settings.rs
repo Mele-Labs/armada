@@ -111,6 +111,11 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/shared_home/kinds/set",
     },
     Route {
+        operation: "set_home_item",
+        method: "POST",
+        path: "/shared_home/items/set",
+    },
+    Route {
         operation: "set_home_repository",
         method: "POST",
         path: "/shared_home/repository",

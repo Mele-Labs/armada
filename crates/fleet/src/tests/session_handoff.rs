@@ -693,3 +693,26 @@ async fn stay_answered_from_needs_you_after_a_walk_starts_nothing_and_is_not_ans
     tokio::time::sleep(Duration::from_millis(50)).await;
     assert_eq!(rig.record(&stay).await.state, SessionState::Live, "a question answered once is not answered again");
 }
+
+#[tokio::test]
+async fn do_not_ask_again_answered_from_needs_you_after_the_question_timed_out_is_kept() {
+    let rig = rig(None);
+    let (quiet, _) = rig.an_agent_that_has_spoken().await;
+    let timed_out = asking_now(&rig, &quiet);
+    let card = card_of(&rig, &quiet, "Carry on in a new Job?").await;
+    // Nobody answers inside the hold: the row is put as `Unanswered`, as the door puts it.
+    let row = ipc::SessionRow::Ask {
+        id: format!("ask-{}-{}", card.call, quiet.as_str()),
+        at: rig.fleet.instant(),
+        ask: card,
+        state: ipc::SessionAskState::Unanswered,
+        via: None,
+    };
+    rig.fleet.row_put(quiet.as_str(), row).await;
+    timed_out.abort();
+
+    rig.send(&quiet, &answered_later("Carry on in a new Job?", ipc::HANDOFF_QUIET)).await;
+    let record = rig.record(&quiet).await;
+    assert!(kind(&record, "handoff_quiet").is_some(), "the owner's answer is a fact on the Job's ledger");
+    assert_eq!(record.state, SessionState::Live);
+}

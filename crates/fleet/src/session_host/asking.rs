@@ -26,6 +26,7 @@ use crate::helm::{
     answering, blocked_folder, guarded_in_a_session, pages_opened, restarted, unanswered, Because, Folders,
     Guarded, KindAllowed, Own, Reach, Said,
 };
+use crate::helm::question_unanswered;
 
 /// How long one `Wait` is held. The mod's request must outlast it.
 const POLL_HOLD: Duration = Duration::from_secs(25);
@@ -288,7 +289,11 @@ where
             Ok(Err(_)) => (unanswered(held.as_secs()), SessionAskState::SessionGone),
             Err(_) => {
                 let _ = asks.withdraw(&waiting.call);
-                (unanswered(held.as_secs()), SessionAskState::Unanswered)
+                let told = match asking.questions().is_empty() {
+                    true => unanswered(held.as_secs()),
+                    false => question_unanswered(held.as_secs()),
+                };
+                (told, SessionAskState::Unanswered)
             }
         };
         let via = {

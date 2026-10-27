@@ -2,7 +2,7 @@
 //! refused by name, and What syncs with every kind off. What is read, compared and pushed is
 //! `fleet::home`'s.
 
-use ipc::{ChooseHomeSide, HomeKind, HomeKindSwitch, HomeKinds, HomePlanned, HomeProfile, HomeRowAt, HomeSynced, SetHomeKind, SetHomeRepository, SharedHomeRead};
+use ipc::{ChooseHomeSide, HomeKind, HomeKindSwitch, HomeKinds, HomePlanned, HomeProfile, HomeRowAt, HomeSynced, SetHomeItem, SetHomeKind, SetHomeRepository, SharedHomeRead};
 
 use super::FakeDaemon;
 use crate::tests::shapes::run_id;
@@ -19,6 +19,7 @@ fn every_kind(login: String, on: Option<(HomeKind, bool)>) -> HomeKinds {
             .iter()
             .map(|kind| HomeKindSwitch { kind: *kind, on: on.is_some_and(|(switched, on)| switched == *kind && on) })
             .collect(),
+        items: Vec::new(),
     }
 }
 
@@ -49,6 +50,14 @@ impl SharedHome for FakeDaemon {
 
     async fn set_home_kind(&self, switch: SetHomeKind) -> Result<HomeKinds, Refusal> {
         Ok(every_kind(switch.login, Some((switch.kind, switch.on))))
+    }
+
+    async fn set_home_item(&self, switch: SetHomeItem) -> Result<HomeKinds, Refusal> {
+        let mut kinds = every_kind(switch.login, None);
+        if switch.on {
+            kinds.items.push(switch.item);
+        }
+        Ok(kinds)
     }
 
     async fn set_home_repository(&self, choice: SetHomeRepository) -> Result<SharedHomeRead, Refusal> {

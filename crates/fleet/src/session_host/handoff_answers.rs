@@ -75,14 +75,24 @@ fn answered_later(questions: &[AskedQuestion], text: &str) -> Vec<QuestionAnswer
         .collect()
 }
 
-/// The question kept for a walk that the person has not answered yet: the last ask with questions
-/// in the thread, where it was kept and no answer to it came after.
-fn kept_unanswered(rows: &[SessionRow]) -> Option<Vec<AskedQuestion>> {
+/// The last ask with questions that nobody answered in time, that was skipped, or that was kept for a
+/// walk, while nothing the person said and no newer question came after it. A kept one outlasts what
+/// he says; a message answering it clears it. Bridge's `lapsedOf` (`packages/screens/src/sessions-wire.ts`)
+/// is the same rule: keep the two in step.
+pub(crate) fn lapsed_question(rows: &[SessionRow]) -> Option<Vec<AskedQuestion>> {
+    let mut said = false;
     for row in rows.iter().rev() {
         match row {
-            SessionRow::Message { from: SessionVoice::You, text, .. } if text.starts_with(ANSWERED_LATER) => return None,
+            SessionRow::Message { from: SessionVoice::You, text, .. } => {
+                if text.starts_with(ANSWERED_LATER) {
+                    return None;
+                }
+                said = true;
+            }
             SessionRow::Ask { ask, state, .. } if !ask.questions.is_empty() => {
-                return (*state == SessionAskState::Kept).then(|| ask.questions.clone());
+                let lapsed = *state == SessionAskState::Kept
+                    || (!said && matches!(state, SessionAskState::Unanswered | SessionAskState::Refused));
+                return lapsed.then(|| ask.questions.clone());
             }
             _ => {}
         }
@@ -179,7 +189,7 @@ where
         let _ = self.published_hosted(session).await;
     }
 
-    /// The person answered a question kept for a walk with a message, from Needs you: its handoff
+    /// The person answered a question kept for a walk, or one nobody answered in time, with a message, from Needs you: its handoff
     /// answer is run as the card's is in the permission door. Read before the message's row is put.
     /// `true` where the Job hands on, so the message is not sent to the process the hand ends.
     pub(crate) async fn handoff_answered_later(self: &Arc<Self>, session: &str, text: &str) -> bool {
@@ -187,7 +197,7 @@ where
             return false;
         }
         let Ok(rows) = self.rows_of(session).await else { return false };
-        let Some(questions) = kept_unanswered(&rows) else { return false };
+        let Some(questions) = lapsed_question(&rows) else { return false };
         match HandoffAnswer::of(&answered_later(&questions, text)) {
             HandoffAnswer::Yes if !self.handing_on_already(session).await => {
                 self.handed_on_apart(session, Self::handoff_brief(&questions));
