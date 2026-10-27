@@ -777,6 +777,20 @@ test('a file the session itself writes is told, and one a subagent writes is not
   expect(kinds(posts.slice(before)).filter(kind => kind === 'wrote')).toHaveLength(2)
 })
 
+test('a file the session writes outside its folder, such as a memory note, is not told', async ($, on) => {
+  const { posts, clock } = world(on)
+  on('tool.call', () => ({ result: {}, text: 'ok' }))
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await clock.settle()
+  const before = posts.length
+
+  await $.tool.call({ tool: 'Write', file_path: '/Users/me/.claude/projects/x/memory/MEMORY.md', content: 'a' })
+  await $.tool.call({ tool: 'Edit', file_path: '/repos/armada-other/src/a.ts', old_string: 'a', new_string: 'b' })
+  await clock.settle()
+
+  expect(kinds(posts.slice(before)).filter(kind => kind === 'wrote')).toHaveLength(0)
+})
+
 test('opening a file or a folder runs as usual', async ($, on) => {
   const { posts, clock } = world(on)
   let ranIt = 0
@@ -1169,6 +1183,23 @@ test('the agent\'s task list is told whole by TodoWrite, and by TaskCreate and T
   expect(told[2].at(-1)).toEqual({ id: '1', text: 'Write the migration', status: 'completed' })
 })
 
+test('every tenth call of the session\'s own agent tells Fleet ten more, and a subagent\'s count for nothing', async ($, on) => {
+  const { posts, clock } = world(on)
+  on('tool.call', () => ({ result: {}, text: 'ok' }))
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await clock.settle()
+  const before = posts.length
+
+  for (let at = 0; at < 9; at++) await $.tool.call({ tool: 'Read', file_path: '/repos/armada/README.md' })
+  for (let at = 0; at < 5; at++) await $.tool.call({ tool: 'Read', file_path: '/repos/armada/README.md', agentId: 'sub1' })
+  await clock.settle()
+  expect(facts(posts.slice(before)).filter(fact => fact.kind === 'calls')).toEqual([])
+
+  await $.tool.call({ tool: 'Read', file_path: '/repos/armada/README.md' })
+  await clock.settle()
+  expect(facts(posts.slice(before)).filter(fact => fact.kind === 'calls')).toEqual([{ kind: 'calls', calls: 10 }])
+})
+
 const stored = (id: string, subject: string, status: string) => JSON.stringify({ id, subject, description: 'x', status, blocks: [], blockedBy: [] })
 
 test('a subject rename is heard', async ($, on) => {
@@ -1328,7 +1359,7 @@ test('a commit and a push are told from what git printed, and one that printed n
 
   const road = facts(posts.slice(before)).filter(fact => fact.kind === 'committed' || fact.kind === 'pushed')
   expect(road).toEqual([
-    { kind: 'committed', branch: 'armada/topic' },
+    { kind: 'committed', branch: 'armada/topic', commit: '1a2b3c4', subject: 'Pin the clock' },
     { kind: 'pushed', branch: 'armada/topic' },
   ])
 })

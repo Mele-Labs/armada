@@ -4,7 +4,7 @@
 
 use ipc::AskingToRun;
 
-use crate::helm::{because_in_a_session, Because};
+use crate::helm::{because_in_a_session, guarded_in_a_session, Because, Folders, Guarded, Own};
 
 const SLOT: &str = "/repo/.armada/slots/slot-3";
 
@@ -296,4 +296,49 @@ fn the_jobs_scratch_folder_is_written_removed_and_chmodded_as_a_slot_is() {
     let body = ipc::encode(&Ask { tool_name: "Bash", input: Command { command: "rm -rf build" } }).expect("an ask");
     let ask: AskingToRun = ipc::decode("an ask", body.as_bytes()).expect("an ask");
     assert_eq!(because_in_a_session(&ask, &[SCRATCH]), Some(Because::Destructive));
+}
+
+/// The Job's scratch folder where Fleet keeps it, under a folder with a space in its name.
+const SPACED: &str = "/Users/user/Library/Application Support/Armada/attachments/job-scratch/job-1";
+
+/// What the guard says about `line` in a session holding the slot and [`SPACED`], with the home
+/// read as `/Users/user`.
+fn bash_holding_spaced_scratch(line: &str) -> Option<Because> {
+    let body = ipc::encode(&Ask { tool_name: "Bash", input: Command { command: line } }).expect("an ask");
+    let ask: AskingToRun = ipc::decode("an ask", body.as_bytes()).expect("an ask");
+    match guarded_in_a_session(&ask, &[SLOT, SPACED], Own::default(), Folders { home: "/Users/user", ..Folders::default() })? {
+        Guarded::Because { because, .. } => Some(because),
+        Guarded::Blocked { .. } => Some(Because::ReachesOutside),
+    }
+}
+
+/// **The scratch folder is reached the ways the Job is told to reach it**: by
+/// `$ARMADA_SCRATCH`, by `$HOME`, and by its whole path in quotes. Each chmod was refused as a
+/// removal on 27 Oct 2026, the space in `Application Support` cutting the path in two.
+#[test]
+fn the_jobs_scratch_folder_is_chmodded_by_its_variable_its_home_or_its_quoted_path() {
+    for line in [
+        r#"chmod +x "$ARMADA_SCRATCH/probe.sh""#,
+        r#"chmod +x "${ARMADA_SCRATCH}/probe.sh""#,
+        "chmod +x $ARMADA_SCRATCH/probe.sh",
+        r#"chmod +x "$HOME/Library/Application Support/Armada/attachments/job-scratch/job-1/probe.sh""#,
+        r#"chmod +x "${HOME}/Library/Application Support/Armada/attachments/job-scratch/job-1/probe.sh""#,
+        r#"chmod +x "/Users/user/Library/Application Support/Armada/attachments/job-scratch/job-1/probe.sh""#,
+        r#"rm -f "$ARMADA_SCRATCH/old.sh""#,
+    ] {
+        assert_eq!(bash_holding_spaced_scratch(line), None, "{line} should run");
+    }
+    for line in [
+        r#"chmod +x "$ARMADA_SCRATCH/../job-2/probe.sh""#,
+        r#"chmod +x "$ARMADA_SCRATCH""#,
+        r#"rm -rf "$ARMADA_SCRATCH""#,
+        r#"chmod +x "$HOME/Library/Application Support/Armada/attachments/job-scratch/job-2/probe.sh""#,
+        r#"rm -rf "$HOME/Library/Application Support/Armada/attachments/job-scratch/job-1""#,
+        r#"chmod +x "/Users/user/Library/Application Support/Armada/attachments/job-scratch/job-1/../job-2/x""#,
+        r#"chmod +x "~/Library/Application Support/Armada/attachments/job-scratch/job-1/probe.sh""#,
+        r#"chmod +x "$OTHER/probe.sh""#,
+        r#"chmod +x /Users/user/Library/Application Support/Armada/attachments/job-scratch/job-1/probe.sh"#,
+    ] {
+        assert_eq!(bash_holding_spaced_scratch(line), Some(Because::Destructive), "{line} should be refused");
+    }
 }

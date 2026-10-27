@@ -1,4 +1,4 @@
-//! What a taught mod's file says: `words.toml` and `fleet.toml`. `docs/concepts/mods.md`.
+//! What a taught mod's file says: `words.toml`, `fleet.toml` and `commands.toml`. `docs/concepts/mods.md`.
 //!
 //! **The file and the wire are one type.** Fleet reads and writes these through serde, and a
 //! teaching proposal carries the same `FleetRule` Bridge shows the person, so the shape is
@@ -179,4 +179,43 @@ pub struct FleetRule {
 pub struct FleetFile {
     #[serde(default)]
     pub rule: Vec<FleetRule>,
+}
+
+/// One row a Commands mod adds to the command palette.
+///
+/// **Exactly one of `prompt`, `url`, `shell` and `chain` is set** in a file that passed, which is
+/// what the row does: start a Job on the filled prompt, open the address, run the line in the
+/// picked repository's checkout, or run the palette rows named, in order.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PaletteCommand {
+    /// The row's label.
+    pub name: String,
+    /// Searched, never drawn.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub aliases: Vec<String>,
+    /// A chord in the registry's spelling: `⌥⌘S`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hotkey: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub prompt: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub url: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub shell: Option<String>,
+    /// Palette row ids, run in order.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub chain: Option<Vec<String>>,
+    /// The `{name}` blanks the text holds, once each, in the order they first appear. **Fleet
+    /// fills this in** when it reads the file, whatever the file says, so Bridge need not read the text again.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub blanks: Vec<String>,
+}
+
+/// A `commands.toml`: `[[command]]` tables.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CommandsFile {
+    #[serde(default)]
+    pub command: Vec<PaletteCommand>,
 }

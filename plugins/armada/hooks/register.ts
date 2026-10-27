@@ -67,6 +67,7 @@ import {
   skillUseOrigin,
   styleOrigin,
   toolOrigin,
+  touchedOf,
   waitedOf,
 } from './facts'
 import type { Equipment, LoadoutItem, LoadoutUse, RateLimit, WaitingItem } from './facts'
@@ -112,6 +113,8 @@ type Known = {
   sawWaiting: boolean
   turn: Turn
   loadout: Loadout
+  /** Calls by the session's own agent not yet told to Fleet. */
+  calls: number
 }
 
 /** What the Loadout is made from, the list Fleet last heard, and when the turn its uses go under began. */
@@ -504,7 +507,7 @@ async function begin($: Dollar, id: string, cwd?: string): Promise<void> {
   if (await $.env.get('ARMADA_DRONE')) return
   const where = cwd ?? (await $.session.cwd())
   const loadout = { equipment: { home: '', root: where, rules: false, servers: {}, loaded: [] }, turnAt: '' }
-  known.set(id, { cwd: where, prs: new Map(), messages: new Map(), artifacts: new Map(), background: new Map(), tasks: [], tasksRead: false, tasksTold: '[]', prompts: [], waiting: [], sawWaiting: false, turn: freshTurn(), loadout })
+  known.set(id, { cwd: where, prs: new Map(), messages: new Map(), artifacts: new Map(), background: new Map(), tasks: [], tasksRead: false, tasksTold: '[]', prompts: [], waiting: [], sawWaiting: false, turn: freshTurn(), loadout, calls: 0 })
   say($, id, { kind: 'started', cwd: where, origin: 'terminal', mod_version: MOD_VERSION })
   void look($, id)
   void tuned($, id, {}, true).catch(() => undefined)
@@ -665,6 +668,20 @@ async function afterBash($: Dollar, command: string, text: string): Promise<void
     }
     await look($, id)
   }
+}
+
+/** How many of the agent's own calls go to Fleet at once. Fleet reads a task untouched for 40 as stale. */
+const CALLS_TOLD_EVERY = 10
+
+/** One more call by the session's own agent, not a subagent's: every tenth, Fleet is told ten more. */
+async function counted($: Dollar): Promise<void> {
+  const id = await $.session.id()
+  const one = known.get(id)
+  if (one === undefined) return
+  one.calls += 1
+  if (one.calls < CALLS_TOLD_EVERY) return
+  one.calls = 0
+  say($, id, { kind: 'calls', calls: CALLS_TOLD_EVERY })
 }
 
 /**
@@ -1282,6 +1299,8 @@ export const register: Register = on => {
       if (left.length === 0) underway.delete(key)
       else underway.set(key, left)
       void promptSettled($, e.tool, input).catch(() => undefined)
+      // Counted for a terminal session: Fleet counts a hosted one's own calls and reads none of these from it.
+      if (e.agentId === undefined) void counted($).catch(() => undefined)
     }
   })
 
@@ -1314,13 +1333,16 @@ export const register: Register = on => {
   }
 
   // The session's own write, not a subagent's, says it is changing what a window shows: Fleet marks
-  // the windows it showed as still changing until its turn ends or it shows the page again.
+  // the windows it showed as still changing until its turn ends or it shows the page again. Only a
+  // file under its folder counts: a memory note or a plan file changes no page it showed.
   for (const tool of ['Edit', 'Write', 'NotebookEdit']) {
     on('tool.call', { tool }, async ($, e, next) => {
       const ran = await next(e)
       if (e.agentId === undefined && ran.deny === undefined && ran.isError !== true) {
         void current($)
-          .then(([id]) => say($, id, { kind: 'wrote' }))
+          .then(([id, one]) => {
+            if (touchedOf(one.cwd, e as Record<string, unknown>) !== undefined) say($, id, { kind: 'wrote' })
+          })
           .catch(() => undefined)
       }
       return ran

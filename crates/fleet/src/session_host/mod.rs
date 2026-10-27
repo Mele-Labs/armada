@@ -476,6 +476,12 @@ pub(crate) struct State {
     /// The harness said its sign-in ran out and the Job stopped, until the account works again. In
     /// memory: `signed_out`.
     pub signed_out: bool,
+    /// The agent's own calls not yet added to its plan's count, which is written ten at a time as a
+    /// terminal session's mod tells it. In memory.
+    pub calls: u32,
+    /// Its mod told of a list or a commit that may have moved Fleet's marks, which the agent hears at
+    /// its next call. In memory.
+    pub marks_owed: bool,
 }
 
 impl State {
@@ -526,6 +532,8 @@ impl State {
             runs: crate::run_memory::RunLog::default(),
             controls: HashMap::new(),
             signed_out: false,
+            calls: 0,
+            marks_owed: false,
         }
     }
 }

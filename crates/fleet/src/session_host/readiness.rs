@@ -4,7 +4,8 @@
 //! **Kept on the window's artifact as `detail.working = "true"`; absent is ready.** The artifact is
 //! per address and the session's record already reaches Bridge whole, so the bar reads it live and a
 //! window reopened from the ledger reads it too. **Detected, not declared**: the mod reports the
-//! session's own file write (`wrote`) and every window it showed is working; its turn ending
+//! session's own file write under its folder (`wrote`; a memory note outside it is not one) and
+//! every window it showed is working; its turn ending
 //! (`turn_completed`) or its showing the page again makes them ready; and a note taken in the window
 //! is working too, since the session will now change the page. **A turn that ends with a subagent
 //! still standing leaves them working**: the session handed the note on and went quiet, and the

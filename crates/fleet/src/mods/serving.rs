@@ -15,7 +15,7 @@ use store::ReadError;
 use tokio::task::JoinHandle;
 
 use super::{
-    built_in, examine, examine_built_in, fleet_rules, scaffold, scan, slug_problem, tracker, words, BuiltIn, Payload,
+    built_in, commands, examine, examine_built_in, fleet_rules, scaffold, scan, slug_problem, tracker, words, BuiltIn, Payload,
 };
 use crate::adrift::Adrift;
 use crate::daemon::Fleet;
@@ -185,7 +185,7 @@ where
         .await
         .map_err(|why| self.mod_fault(format!("the mod could not be read: {why}")))?;
         let valid = found.valid();
-        let (mut css, mut layout, mut taught_words, mut taught_fleet) = (None, None, None, None);
+        let (mut css, mut layout, mut taught_words, mut taught_fleet, mut taught_commands) = (None, None, None, None, None);
         match found.files.map(|files| files.payload) {
             // A tweak is token values like a theme's, and Bridge injects it the same way.
             Some(Payload::Css(text) | Payload::Tweak(text)) => css = Some(text),
@@ -195,6 +195,8 @@ where
             // and Fleet's own are acted on by Fleet.
             Some(Payload::Words(text)) => taught_words = words::read(&text).ok(),
             Some(Payload::Fleet(text)) => taught_fleet = fleet_rules::read(&text).ok(),
+            // Drawn in the palette by Bridge, which needs each row's blanks and not the text.
+            Some(Payload::Commands(text)) => taught_commands = commands::read(&text).ok(),
             // A tracker is not Bridge's to apply; what it is checked against is `try_tracker_mod`.
             Some(Payload::Tracker(_)) | None => {}
         }
@@ -205,6 +207,7 @@ where
             layout,
             words: taught_words,
             fleet: taught_fleet,
+            commands: taught_commands,
             problems: found.problems,
         })
     }
