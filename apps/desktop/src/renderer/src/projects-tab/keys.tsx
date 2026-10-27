@@ -1,7 +1,8 @@
 // The Projects tab's keys, so every act on it is reachable without the mouse. **They are acts of `actions.toml`**
 // (`projects_*`, scope `projects`), so Settings → Keyboard lists and rebinds them. The list motions (`move_focus`, `open`,
 // `close`) are the registry's `list` rows, as on Issues. Two parts, the list of projects and the open project's rows, a key to
-// each; Esc backs out a level. A key stands down in a text field and while a dialog is up.
+// each; Esc backs out a level. A key stands down in a text field and while a dialog is up. The list's stops are the
+// repositories' heads, which open their own tasks, and the projects under them.
 
 import { useEffect, useRef } from "react";
 import { isPressed, pressedSlot } from "@armada/components";
@@ -13,6 +14,9 @@ import { allRows, useProjectsStore, type ProjectsStore } from "./store";
 const ZONES = [".projects-list", ".projects-pane"] as const;
 const zoneOf = (target: Element): (typeof ZONES)[number] | undefined => ZONES.find((one) => target.closest(one) !== null);
 
+/** The list's stops, in the order drawn: each repository's head, then its projects. */
+const STOPS = ".projects-list :is(.projects-band__open, .projects-item)";
+
 const all = (selector: string) => [...document.querySelectorAll<HTMLElement>(selector)].filter((one) => !one.hasAttribute("disabled"));
 
 /** Moves focus along `items` from the one holding it, without wrapping. */
@@ -22,7 +26,7 @@ function step(items: HTMLElement[], from: Element, by: 1 | -1): void {
 }
 
 function focusList(): void {
-  const items = all(".projects-list .projects-item");
+  const items = all(STOPS);
   (items.find((one) => one.hasAttribute("data-selected")) ?? items[0] ?? document.querySelector<HTMLElement>(".projects-list"))?.focus();
 }
 function focusRows(): void {
@@ -56,14 +60,13 @@ function press(event: KeyboardEvent, store: ProjectsStore, dispatchRow: (rowId: 
     event.stopPropagation();
   };
 
-  // The first Esc leaves a field, and the field closes with it: a search, a subtask field, a title or a name being
-  // edited goes back as it was. Focus lands where the field was opened from. The next Esc backs out a level.
+  // The first Esc leaves a field, and the field closes with it: a subtask field, a title or a name being
+  // edited goes back as it was; the task field folds if it holds no words. Focus lands where the field was opened from. The next Esc backs out a level.
   if (holdsText(target)) {
     if (isPressed("close", event) && here !== undefined) {
       take();
       (target as HTMLElement).blur();
       const card = target.closest<HTMLElement>(".projects-row")?.dataset.row;
-      if (target.closest(".projects-link") !== null) store.linking(false);
       if (target.closest(".projects-add[data-sub]") !== null) store.subtasking(undefined);
       if (target.closest(".projects-row__title") !== null) store.editing(undefined);
       if (target.closest(".projects-name") !== null) {
@@ -75,9 +78,7 @@ function press(event: KeyboardEvent, store: ProjectsStore, dispatchRow: (rowId: 
         store.renaming(undefined);
         return void window.requestAnimationFrame(() => (renamed === undefined ? focusList() : document.querySelector<HTMLElement>(`.projects-item[data-project="${CSS.escape(renamed)}"]`)?.focus()));
       }
-      const task = snap.linkingTask;
       if (card !== undefined) return refocus(card);
-      if (target.closest(".projects-link") !== null && task !== undefined) return refocus(task);
       focusRows();
     }
     return;
@@ -99,11 +100,6 @@ function press(event: KeyboardEvent, store: ProjectsStore, dispatchRow: (rowId: 
   if (event.metaKey || event.ctrlKey || event.altKey) return;
 
   if (isPressed("close", event)) {
-    if (snap.linking) {
-      take();
-      store.linking(false);
-      return focusRows();
-    }
     if (here === ".projects-pane") {
       take();
       return focusList();
@@ -120,15 +116,15 @@ function press(event: KeyboardEvent, store: ProjectsStore, dispatchRow: (rowId: 
   if (part === 1) return take(), focusRows();
   if (isPressed("projects_new", event)) {
     take();
-    return document.querySelector<HTMLElement>(".projects-list__new button")?.click();
+    // The repository he is in: the head or project focused in the list, else the project open, else the first listed.
+    const bands = all(".projects-list .projects-band");
+    const manifest =
+      target.closest<HTMLElement>(".projects-band")?.dataset.manifest ?? open?.manifestId ?? bands[0]?.dataset.manifest;
+    return all(".projects-list .projects-band__new").find((one) => one.closest<HTMLElement>(".projects-band")?.dataset.manifest === manifest)?.click();
   }
   if (open !== undefined && isPressed("projects_add_task", event)) {
     take();
     return document.querySelector<HTMLElement>(".projects-add textarea")?.focus();
-  }
-  if (open !== undefined && isPressed("projects_link", event)) {
-    take();
-    return store.linking(true);
   }
   if (open !== undefined && isPressed("projects_dispatch", event)) {
     if (snap.selected.length > 0) {
@@ -146,11 +142,6 @@ function press(event: KeyboardEvent, store: ProjectsStore, dispatchRow: (rowId: 
       if (row.querySelector("[data-add-subtask]") === null) return;
       take();
       return store.subtasking(rowId);
-    }
-    if (isPressed("projects_link_task", event)) {
-      if (row.querySelector("[data-link-task]") === null) return;
-      take();
-      return store.linking(true, rowId);
     }
     if (isPressed("projects_delete", event)) {
       take();
@@ -209,26 +200,25 @@ function press(event: KeyboardEvent, store: ProjectsStore, dispatchRow: (rowId: 
     if (project !== undefined && isPressed("projects_rename", event)) return take(), store.renaming(project);
     if (project !== undefined && isPressed("projects_delete", event)) {
       take();
-      const items = all(".projects-list .projects-item");
+      const items = all(STOPS);
       const next = items[items.indexOf(item!) + 1] ?? items[items.indexOf(item!) - 1];
       store.removeProject(project);
       return next?.focus();
     }
     if (vertical) {
       take();
-      return step(all(".projects-list .projects-item"), target, by);
+      return step(all(STOPS), target, by);
     }
-    if ((event.key === "Enter" || isPressed("open", event)) && target.closest(".projects-item") !== null) {
+    const stop = target.closest<HTMLElement>(".projects-band__open, .projects-item");
+    if ((event.key === "Enter" || isPressed("open", event)) && stop !== null) {
       take();
-      return target.closest<HTMLElement>(".projects-item")!.click();
+      return stop.click();
     }
     return;
   }
 
   if (here === ".projects-pane" && vertical) {
     take();
-    const rows = all(".projects-pane .projects-row");
-    const hits = all(".projects-pane .projects-link__hit");
-    return step([...rows, ...hits], target, by);
+    return step(all(".projects-pane .projects-row"), target, by);
   }
 }

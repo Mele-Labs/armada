@@ -36,7 +36,7 @@ export function useProjectsFiling(picked: RepositorySummary | null, repositories
       // The picked repository's projects, or every repository's under its name; the last used first, in both.
       const projects = store
         .get()
-        .projects.filter((one) => bands.some((band) => band.manifestId === one.manifestId))
+        .projects.filter((one) => one.own !== true && bands.some((band) => band.manifestId === one.manifestId))
         .sort((a, b) => b.usedAt - a.usedAt);
       const order = [...new Set(projects.map((one) => one.manifestId))];
       return {

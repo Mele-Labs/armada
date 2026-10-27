@@ -1,5 +1,5 @@
 // The Projects page: his projects, a panel for each repository, beside Issues in the Cockpit's grid. The list is the left
-// column and the project open the stage. Dispatching rows opens the one dispatch sheet on the project's repository, tasks
+// column and the stage holds the project open, or a repository's own tasks. Dispatching rows opens the one dispatch sheet on the project's repository, tasks
 // as lines and issues as tags; the sheet's own act starts the Job, with the rows, which Fleet holds for it.
 
 import { useRef } from "react";

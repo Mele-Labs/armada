@@ -45,7 +45,15 @@ export type Project = {
   rows: ProjectRow[];
   /** When he last added to it or opened it, so the palette lists the last used first. */
   usedAt: number;
+  /**
+   * The repository's own tasks, the list a task lives in when no project holds it. One per repository, made by the store
+   * on its first task and named by the repository: it is never listed among the projects, renamed or deleted.
+   */
+  own?: true;
 };
+
+/** The id of a repository's own tasks. Fleet keeps the list as a project with this id, made when its first task is written. */
+export const ownId = (manifestId: string): string => `own:${manifestId}`;
 
 /**
  * A row's state, as its glyph draws it. A task is open, in a Job, asking (the Job holding it finished, or a pull request linked to it merged, and he has not said

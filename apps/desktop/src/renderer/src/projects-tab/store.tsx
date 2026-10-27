@@ -1,5 +1,6 @@
 // The Projects tab's state for one window: his projects and their rows, the project open, the rows selected, and whether
-// the link search or a new project's name field is up. **Kept in Fleet**: every write goes to its route and the repository's
+// a new project's name field is up. Each repository also has its own tasks, a project marked `own` that the store keeps
+// ready for it and Fleet makes on its first task. **Kept in Fleet**: every write goes to its route and the repository's
 // projects come back whole, as `projects.changed` carries them too. A change that only moves what is already drawn (a tick, a
 // move, a delete, a rename) is drawn at once and then replaced by what Fleet answers; one that makes a row (a task, a link)
 // waits for the answer, since Fleet gives the row its id. Writes go one after another, so a key pressed twice acts twice.
@@ -10,7 +11,7 @@ import type { Projects, RepositorySummary } from "@armada/protocol";
 import { SURFACE, jobIdOf } from "@armada/shell";
 
 import type { ProjectsActed, ProjectsApi } from "../../../shared/api/projects";
-import type { Holder, IssueRow, Linked, LinkedPull, Project, ProjectRow, RowState, TaskLinks, TaskRow } from "./model";
+import { ownId, type Holder, type Linked, type LinkedPull, type Project, type ProjectRow, type RowState, type TaskLinks, type TaskRow } from "./model";
 import { projectsOf } from "./wire";
 
 export type ProjectsSnapshot = {
@@ -19,10 +20,8 @@ export type ProjectsSnapshot = {
   open: string | undefined;
   /** The rows of the open project he has selected, by id. A parent selected takes its subtasks with it. */
   selected: readonly string[];
-  /** The link search is up: under the project's head, or under a task's card. */
-  linking: boolean;
-  /** The task the search links to, by row id; absent, what it finds joins the project as a row. */
-  linkingTask: string | undefined;
+  /** The card last clicked or selected, by row id: where a ⇧-click's range starts. */
+  anchor: string | undefined;
   /** The task whose subtask field is up under its subtasks, by row id. */
   subtasking: string | undefined;
   /** What was deleted last, while the toast offers it back: a row where it stood, under its parent where it had one, or a project. */
@@ -62,7 +61,7 @@ export type PullsServed = Readonly<Record<string, readonly LinkedPull[]>>;
 const idsOf = (wire: Projects | undefined, projectId: string): Set<string> => new Set(wire?.projects.find((one) => one.id === projectId)?.rows.map((row) => row.id));
 
 export function createProjectsStore(source: ProjectsSource, pulls: PullsServed = {}) {
-  let snap: ProjectsSnapshot = { projects: [], open: undefined, selected: [], linking: false, linkingTask: undefined, subtasking: undefined, removed: undefined, editing: undefined, renaming: undefined, naming: undefined };
+  let snap: ProjectsSnapshot = { projects: [], open: undefined, selected: [], anchor: undefined, subtasking: undefined, removed: undefined, editing: undefined, renaming: undefined, naming: undefined };
   const listeners = new Set<() => void>();
   const set = (next: Partial<ProjectsSnapshot>) => {
     snap = { ...snap, ...next };
@@ -76,7 +75,12 @@ export function createProjectsStore(source: ProjectsSource, pulls: PullsServed =
   let tail: Promise<void> = Promise.resolve();
 
   const rebuild = () => {
-    const projects = [...wire.values()].flatMap((one) => projectsOf(one, used));
+    // Every repository read has its own tasks ready, though Fleet makes the list only when the first is written.
+    const projects = [...wire.values()].flatMap((one) => {
+      const listed = projectsOf(one, used);
+      const own = ownId(one.manifest_id);
+      return listed.some((project) => project.id === own) ? listed : [...listed, { id: own, manifestId: one.manifest_id, name: "", rows: [], usedAt: used.get(own) ?? 0, own: true as const }];
+    });
     const rows = new Set(projects.flatMap((one) => allRows(one).map((row) => row.id)));
     set({ projects, selected: snap.selected.filter((one) => rows.has(one)) });
   };
@@ -127,7 +131,7 @@ export function createProjectsStore(source: ProjectsSource, pulls: PullsServed =
     if (project === undefined || where === undefined) return;
     edit(project.id, (one) => withList(one, where.parent, (rows) => rows.map((row) => (row.id === rowId ? change(row) : row))));
   };
-  const closed = { selected: [], linking: false, linkingTask: undefined, subtasking: undefined, editing: undefined } as const;
+  const closed = { selected: [], anchor: undefined, subtasking: undefined, editing: undefined } as const;
 
   /** Where a row stands after a change drawn: its place among the rows of the list it is in, for the route that puts it there. */
   const placed = (rowId: string): { project: Project; position: number } | undefined => {
@@ -246,13 +250,6 @@ export function createProjectsStore(source: ProjectsSource, pulls: PullsServed =
     },
     /** The field that adds a subtask under a task's subtasks, or none. */
     subtasking: (parentId: string | undefined) => set({ subtasking: parentId }),
-    /** An issue joins the list at its foot. One already linked stays where it is. */
-    link: (projectId: string, issue: Omit<IssueRow, "kind" | "id">) => {
-      const project = projectOf(projectId);
-      if (project === undefined || project.rows.some((row) => row.kind === "issue" && row.reference === issue.reference)) return;
-      touch(projectId);
-      void queue(project.manifestId, () => source.linkProjectIssue(project.manifestId, projectId, { issue: issue.reference }));
-    },
     /** An issue on a task's card. One the task already carries stays where it is. */
     linkToTask: (rowId: string, issue: Linked) => {
       const project = holding(rowId);
@@ -288,23 +285,6 @@ export function createProjectsStore(source: ProjectsSource, pulls: PullsServed =
       editRow(rowId, (row) => (row.kind === "task" ? { ...row, pulls: (row.pulls ?? []).filter((one) => one.number !== number) } : row));
       void queue(project.manifestId, () => source.unlinkTaskPull(project.manifestId, project.id, rowId, { number }));
     },
-    /** A Job or a pull request linked to the project, not a task: it joins the list's foot as a task by its title, holding it. */
-    linkAsRow: (projectId: string, title: string, held: { job: Holder } | { pull: LinkedPull }) => {
-      const project = projectOf(projectId);
-      if (project === undefined) return;
-      const manifestId = project.manifestId;
-      touch(projectId);
-      void queue(manifestId, async () => {
-        const before = idsOf(wire.get(manifestId), projectId);
-        const added = await source.addProjectTask(manifestId, projectId, { title });
-        if (!added.ok) return added;
-        const id = made(added.value, projectId, before);
-        if (id === undefined) return added;
-        return "job" in held ? source.linkTaskJob(manifestId, projectId, id, { session_id: held.job.id }) : source.linkTaskPull(manifestId, projectId, id, { number: held.pull.number });
-      });
-    },
-    /** The link search, for the project or for one task. */
-    linking: (on: boolean, task?: string) => set({ linking: on, linkingTask: on ? task : undefined }),
     /** Moves a row one place up or down the list it stands in: a subtask among its parent's. */
     move: (rowId: string, by: 1 | -1) => {
       const project = holding(rowId);
@@ -352,8 +332,20 @@ export function createProjectsStore(source: ProjectsSource, pulls: PullsServed =
       });
       void queue(project.manifestId, () => source.tickProjectTask(project.manifestId, project.id, rowId, { done }));
     },
-    select: (rowId: string) => set({ selected: snap.selected.includes(rowId) ? snap.selected.filter((one) => one !== rowId) : [...snap.selected, rowId] }),
-    clearSelection: () => set({ selected: [] }),
+    select: (rowId: string) => set({ selected: snap.selected.includes(rowId) ? snap.selected.filter((one) => one !== rowId) : [...snap.selected, rowId], anchor: rowId }),
+    /** The cards from the one last clicked to this one join the selection, when both stand in the same list; otherwise this one alone does. */
+    selectTo: (rowId: string) => {
+      const project = holding(rowId);
+      const where = project === undefined ? undefined : siblingsOf(project, rowId);
+      const from = where?.rows.findIndex((row) => row.id === snap.anchor) ?? -1;
+      const to = where?.rows.findIndex((row) => row.id === rowId) ?? -1;
+      if (where === undefined || from < 0 || to < 0) return set({ selected: snap.selected.includes(rowId) ? snap.selected : [...snap.selected, rowId], anchor: rowId });
+      const between = where.rows.slice(Math.min(from, to), Math.max(from, to) + 1).map((row) => row.id);
+      set({ selected: [...snap.selected, ...between.filter((one) => !snap.selected.includes(one))], anchor: rowId });
+    },
+    /** A click that selects nothing still marks where a range will start. */
+    anchorAt: (rowId: string) => set({ anchor: rowId }),
+    clearSelection: () => set({ selected: [], anchor: undefined }),
     /** A task deleted, or an issue unlinked, with no question: the toast offers it back for a moment. */
     remove: (rowId: string) => {
       const project = holding(rowId);
@@ -367,7 +359,7 @@ export function createProjectsStore(source: ProjectsSource, pulls: PullsServed =
     /** A project deleted from the list, with no question: the toast offers it back, rows and all. */
     removeProject: (projectId: string) => {
       const at = snap.projects.findIndex((one) => one.id === projectId);
-      if (at < 0) return;
+      if (at < 0 || snap.projects[at]!.own === true) return;
       const project = snap.projects[at]!;
       set({ projects: snap.projects.filter((one) => one.id !== projectId), removed: { kind: "project", project, at }, renaming: undefined, ...(snap.open === projectId ? { open: undefined, ...closed } : {}) });
       void queue(project.manifestId, () => source.deleteProject(project.manifestId, projectId));
@@ -413,7 +405,7 @@ export function createProjectsStore(source: ProjectsSource, pulls: PullsServed =
     renameProject: (projectId: string, name: string) => {
       const project = projectOf(projectId);
       set({ renaming: undefined });
-      if (project === undefined) return;
+      if (project === undefined || project.own === true) return;
       edit(projectId, (one) => ({ ...one, name }));
       void queue(project.manifestId, () => source.renameProject(project.manifestId, projectId, { name }));
     },
@@ -454,7 +446,7 @@ export function useProjectsStore(): ProjectsStore | undefined {
   return useContext(Held);
 }
 
-const NEVER: ProjectsSnapshot = { projects: [], open: undefined, selected: [], linking: false, linkingTask: undefined, subtasking: undefined, removed: undefined, editing: undefined, renaming: undefined, naming: undefined };
+const NEVER: ProjectsSnapshot = { projects: [], open: undefined, selected: [], anchor: undefined, subtasking: undefined, removed: undefined, editing: undefined, renaming: undefined, naming: undefined };
 const NONE = () => () => undefined;
 
 export function useProjects(): ProjectsSnapshot {

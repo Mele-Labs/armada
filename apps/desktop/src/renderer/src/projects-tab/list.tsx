@@ -1,12 +1,15 @@
 // His projects, a panel for each repository with its name as the head: every repository's on All, only the picked one's
-// otherwise. A press opens a project on the right. New project asks which repository only on All, where it cannot know.
+// otherwise. A press on a head opens that repository's own tasks on the right; the `+` at its right asks a new project's
+// name in that repository; a press on a project opens it.
 
 import { useState } from "react";
-import { Button, DropdownMenu, Kbd, Textarea, Tooltip, forgetKept } from "@armada/components";
+import { Plus } from "lucide-react";
+import { Kbd, Textarea, Tooltip, forgetKept } from "@armada/components";
 import type { RepositorySummary } from "@armada/protocol";
 import { jobIdOf, repositoryLabel } from "@armada/shell";
 
 import { PROJECTS_KEYS, capOf } from "./key-table";
+import { ownId } from "./model";
 import { useProjects, useProjectsStore } from "./store";
 
 /** A repository's panel: its Manifest id, its checkout, and the name it is shown by. */
@@ -26,18 +29,26 @@ export function ProjectsList({ bands }: { bands: readonly Band[] }) {
     <section className="deck-panel deck-list projects-list" aria-label="Projects" tabIndex={-1}>
       <header className="deck-band">
         Projects
-        <NewProject bands={bands} />
         <Tooltip label="Go to Projects" shortcut={PROJECTS_KEYS.list}>
           <Kbd>{PROJECTS_KEYS.list}</Kbd>
         </Tooltip>
       </header>
       <ul className="deck-list__rows projects-list__rows">
         {bands.map((band) => (
-          <li key={band.manifestId} className="deck-list__band projects-band" aria-label={band.label}>
-            <h3 className="projects-band__head">{band.label}</h3>
+          <li key={band.manifestId} className="deck-list__band projects-band" aria-label={band.label} data-manifest={band.manifestId}>
+            <h3 className="deck-list__head projects-band__head" data-selected={snap.open === ownId(band.manifestId) || undefined}>
+              <button type="button" className="projects-band__open" data-own={band.manifestId} data-selected={snap.open === ownId(band.manifestId) || undefined} aria-current={snap.open === ownId(band.manifestId) || undefined} onClick={() => store.open(ownId(band.manifestId))}>
+                {band.label}
+              </button>
+              <Tooltip label="New project" shortcut={capOf(PROJECTS_KEYS.newProject)} asChild>
+                <button type="button" className="projects-band__new" aria-label={`New project in ${band.label}`} onClick={() => store.name(band.manifestId)}>
+                  <Plus size={16} strokeWidth={2} aria-hidden />
+                </button>
+              </Tooltip>
+            </h3>
             <ul className="deck-list__group">
               {snap.projects
-                .filter((one) => one.manifestId === band.manifestId)
+                .filter((one) => one.manifestId === band.manifestId && one.own !== true)
                 .map((one) => (
                   <li key={one.id} className="deck-list__item">
                     {snap.renaming === one.id ? (
@@ -55,36 +66,6 @@ export function ProjectsList({ bands }: { bands: readonly Band[] }) {
         ))}
       </ul>
     </section>
-  );
-}
-
-/** New project: in the repository picked, or, on All, in the one he chooses from the menu. */
-function NewProject({ bands }: { bands: readonly Band[] }) {
-  const store = useProjectsStore()!;
-  const tip = { label: "New project", shortcut: capOf(PROJECTS_KEYS.newProject) };
-  if (bands.length === 1) {
-    return (
-      <span className="projects-list__new">
-        <Tooltip {...tip}>
-          <Button variant="ghost" size="sm" onClick={() => store.name(bands[0]!.manifestId)}>
-            New project
-          </Button>
-        </Tooltip>
-      </span>
-    );
-  }
-  return (
-    <span className="projects-list__new">
-      <DropdownMenu
-        align="end"
-        portal
-        plain
-        triggerLabel="New project"
-        triggerTooltip={`${tip.label} ${tip.shortcut}`}
-        entries={bands.map((band) => ({ kind: "item" as const, id: band.manifestId, label: band.label }))}
-        onSelect={(id) => store.name(id)}
-      />
-    </span>
   );
 }
 

@@ -64,7 +64,7 @@ async function mount(source: ReturnType<typeof fleet>) {
   );
   store.load(["armada"]);
   await expect.poll(() => source.listProjects.mock.calls.length).toBe(1);
-  await expect.poll(() => store.get().projects.length).toBe(1);
+  await expect.poll(() => store.get().projects.filter((one) => one.own !== true).length).toBe(1);
   store.open("p1");
   await expect.element(card("Pair a phone")).toBeVisible();
   return store;
@@ -83,8 +83,8 @@ test("j and k move between cards, and Space selects the one under focus", async 
   expect(document.activeElement).toBe(card("Pair a phone").element());
 
   await userEvent.keyboard(" ");
-  await expect.element(page.getByRole("checkbox", { name: "Select Pair a phone" })).toBeChecked();
-  expect(page.getByRole("checkbox", { name: "Select Pick the icon" }).element()).not.toBeChecked();
+  await expect.poll(() => card("Pair a phone").element().hasAttribute("data-selected")).toBe(true);
+  expect(card("Pick the icon").element().hasAttribute("data-selected")).toBe(false);
 });
 
 test("d ticks the card under focus and the tick is written through Fleet", async () => {
@@ -142,7 +142,7 @@ test("K keeps the asked task open, and writes that through Fleet", async () => {
 
   await userEvent.keyboard("K");
 
-  await expect.element(page.getByRole("checkbox", { name: "Select Sign the build" })).toBeVisible();
+  await expect.element(page.getByRole("checkbox", { name: "Open: Sign the build" })).toBeVisible();
   await expect.poll(() => source.tickProjectTask.mock.calls.length).toBe(1);
   expect(source.tickProjectTask).toHaveBeenCalledWith("armada", "p1", "t2", { done: false });
 });

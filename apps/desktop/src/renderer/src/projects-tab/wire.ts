@@ -3,7 +3,7 @@
 
 import type { ProjectRow as WireRow, Projects, TaskIssue, TaskPull } from "@armada/protocol";
 
-import type { IssueRow, Linked, LinkedPull, Project, ProjectRow, TaskRow } from "./model";
+import { ownId, type IssueRow, type Linked, type LinkedPull, type Project, type ProjectRow, type TaskRow } from "./model";
 
 /** An issue as the tracker names it: a bare number is `#7`, any other reference as it is. */
 export const referenceOf = (issue: string): string => (/^\d+$/.test(issue.trim()) ? `#${issue.trim()}` : issue.trim());
@@ -26,7 +26,7 @@ function rowOf(row: WireRow): ProjectRow {
   } satisfies TaskRow;
 }
 
-/** One repository's projects, each task's subtasks under it. `used` is when each project was last used on this Mac, by id. */
+/** One repository's projects, each task's subtasks under it; the one with the repository's own tasks is marked `own`. `used` is when each project was last used on this Mac, by id. */
 export function projectsOf(wire: Projects, used: ReadonlyMap<string, number>): Project[] {
   return wire.projects.map((project) => {
     const rows: ProjectRow[] = [];
@@ -42,6 +42,6 @@ export function projectsOf(wire: Projects, used: ReadonlyMap<string, number>): P
       const parent = tops.get(row.parent);
       if (parent !== undefined) parent.subtasks = [...(parent.subtasks ?? []), rowOf(row) as TaskRow];
     }
-    return { id: project.id, manifestId: wire.manifest_id, name: project.name, rows, usedAt: used.get(project.id) ?? 0 };
+    return { id: project.id, manifestId: wire.manifest_id, name: project.name, rows, usedAt: used.get(project.id) ?? 0, ...(project.id === ownId(wire.manifest_id) ? { own: true as const } : {}) };
   });
 }

@@ -654,7 +654,7 @@ shortcut = "N"
 scope = "projects"
 destructive = false
 confirms = false
-notes = "Puts up the name field of a new project in the repository picked. On All it asks which repository first, the one act on the tab that needs one. `N` is a Studio's Note in the `open studio` scope, which never listens beside this one."
+notes = "Puts up the name field of a new project in the repository you are in: the focused repository in the list, else the open project's, else the first listed. The `+` at the right of each repository's head does the same for that repository. `N` is a Studio's Note in the `open studio` scope, which never listens beside this one."
 
 [actions.projects_add_task]
 kind = "Action"
@@ -666,19 +666,7 @@ shortcut = "a"
 scope = "projects"
 destructive = false
 confirms = false
-notes = "Moves focus to the field under the open project's head, where a task is written and Enter adds it. The field keeps its draft across leaving the panel."
-
-[actions.projects_link]
-kind = "Action"
-tier = "Contextual"
-verb = "Link"
-icon = ""
-icon_absent = "undecided"
-shortcut = "i"
-scope = "projects"
-destructive = false
-confirms = false
-notes = "Opens one search of the repository under the open project's head: its open issues, as the Issues tab reads them, its live Jobs and its pull requests. Enter links the first found: an issue as a row, a Job or a pull request as a task by its title that it holds. Close, Esc or a press elsewhere puts the search away."
+notes = "Moves focus to the field under the open project's head, where a task is written and Enter adds it. The field keeps its draft across leaving the panel. It opens into a composer with a row of buttons for a Job, a file, an issue and a pull request."
 
 [actions.projects_add_subtask]
 kind = "Action"
@@ -752,18 +740,6 @@ destructive = false
 confirms = false
 notes = "Edits the focused project's name in its place in the list. Enter keeps it and Esc leaves it as it was."
 
-[actions.projects_link_task]
-kind = "Action"
-tier = "Contextual"
-verb = "Link to the task"
-icon = ""
-icon_absent = "undecided"
-shortcut = "I"
-scope = "projects"
-destructive = false
-confirms = false
-notes = "Opens the same search for the focused task. An issue joins the task's card as a chip; a Job holds the task as Dispatch would, replacing one that did; a pull request joins the card's second line. Each chip has its own Unlink."
-
 [actions.projects_delete]
 kind = "Action"
 tier = "Contextual"
@@ -798,7 +774,7 @@ shortcut = "Space / x"
 scope = "projects"
 destructive = false
 confirms = false
-notes = "Selects the focused row, or takes it out of the selection, as its box does. The rows selected go to one Job together on `s`."
+notes = "Selects the focused card, or takes it out of the selection, as a ⌘-click on it does. ⇧-click selects the range from the card last clicked. The cards selected go to one Job together on `s`."
 
 [actions.projects_tick]
 kind = "Action"
@@ -822,7 +798,7 @@ shortcut = "s"
 scope = "projects"
 destructive = false
 confirms = false
-notes = "Opens the dispatch sheet on the project's repository holding the rows selected, or the focused row where none is: tasks as lines and issues as tags. Starting is the sheet's own act, so nothing starts on this key alone. The Issues tab's `s`."
+notes = "Opens the dispatch sheet on the project's repository holding the cards selected, or the focused card where none is, as the Dispatch icon on a task's card does: tasks as lines and issues as tags. Starting is the sheet's own act, so nothing starts on this key alone. The Issues tab's `s`."
 
 [actions.projects_mark_done]
 kind = "Action"
