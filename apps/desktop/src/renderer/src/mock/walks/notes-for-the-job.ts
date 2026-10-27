@@ -1,7 +1,7 @@
 // Notes the owner leaves for the Job that holds a pull request, on lines of its Files diff. They are kept on his Mac and never posted
-// to the forge; Send to job gives the Job every unsent one as a single numbered message, and the notes read as sent. Over `shared-side-panel`.
+// to the forge; Send to job gives the Job every unsent one as a single numbered message, and the notes read as sent. A note the Job resolves folds away until Show resolved. Over `shared-side-panel`.
 
-import { button, inside, region, role, tab, walk } from "../walk";
+import { button, inside, region, role, tab, text, walk } from "../walk";
 
 const queue = region("Merge queue");
 const pull = role("dialog", "Pull request #1890");
@@ -19,6 +19,10 @@ const notesForTheJob = walk("shared-side-panel", [
   { look: inside(pull, role("group", "Notes for the job")), say: "Two notes wait, and one press sends them" },
   { press: inside(pull, button("Send to job")), say: "Both go to the Job as one numbered message" },
   { look: inside(pull, role("article", "Note for the job")), say: "The notes stay beside the lines, marked sent" },
+  { press: inside(pull, tab("Conversation")), say: "The Job resolves a note with its own tool, and Bridge reads the notes again when Files is entered" },
+  { press: inside(pull, tab("Files")), say: "Files again: the note the Job resolved has folded away" },
+  { press: inside(pull, button(/^Show resolved \(1\)/)), say: "Show resolved draws it again" },
+  { look: inside(pull, text("Resolved by Gate policy on every run")), say: "And which Job resolved it" },
   { press: inside(pull, button(/^Note for the job on -\s+at: Instant,/)), say: "A third line, for a different Job" },
   { type: "Check that nothing else reads this column.", into: inside(pull, note), say: "A third note" },
   { press: inside(pull, button("Save note")), say: "Kept" },
