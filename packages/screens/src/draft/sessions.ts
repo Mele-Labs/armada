@@ -832,6 +832,8 @@ export type SessionsDraft = {
   stopWatch?: (id: string, watch: string) => void;
   /** The person's delete on one of a Session's ended watches (`watch` is its id): Fleet forgets it and all kept of it. */
   deleteWatch?: (id: string, watch: string) => void;
+  /** A failed reading's log (`log` is the path its reading carries), read whole: its text, or why it could not be read. */
+  readWatchLog?: (watch: string, log: string) => Promise<{ ok: true; text: string } | { ok: false; said: string }>;
   /** Runs a failed hand off again for Job `id`. */
   retryHandoff?: (id: string) => void;
   /**

@@ -157,5 +157,11 @@ export type WeighWatch = { session_id?: string; watch: string } & (
 /** `stop_watch`: the person's Stop, or the agent's. */
 export type StopWatch = { session_id?: string; watch: string };
 
+/** `read_watch_log`: the log a kept reading of `watch` carries as `log`, read whole. `GET /watches/log?watch=&log=`. Bridge only. */
+export type ReadWatchLog = { watch: string; log: string };
+
+/** What a reading's log holds: the run's stdout and stderr, as much as it captured. */
+export type WatchLog = { watch: string; log: string; text: string };
+
 /** `delete_watch`: an ended watch only, and all kept of it. Answers the Job's `WatchList` after, live and ended. */
 export type DeleteWatch = { session_id?: string; watch: string };

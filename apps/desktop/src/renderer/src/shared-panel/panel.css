@@ -420,3 +420,76 @@
   color: var(--fg-default);
   text-wrap: pretty;
 }
+
+/* A failed part's own evidence, in the name's column: its link, the exact lines, and the end of its log folded away. */
+.side-watch__part-evidence {
+  grid-column: 2;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  padding-top: var(--space-1);
+}
+
+.side-watch__part-link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  color: var(--fg-muted);
+  overflow-wrap: anywhere;
+}
+
+.side-watch__error {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-default);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.side-watch__tail > summary {
+  cursor: pointer;
+  color: var(--fg-muted);
+}
+
+.side-watch__tail .side-log__lines {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* What a weighing carried, under its sentence. */
+.side-watch__evidence {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: var(--space-1) 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--fg-muted);
+  overflow-wrap: anywhere;
+}
+
+.side-watch__log-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--h-control-sm);
+  align-items: center;
+  gap: var(--space-2);
+  padding-bottom: var(--space-2);
+}
+
+.side-watch__log-path {
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  overflow-wrap: anywhere;
+}
+
+.side-watch__log {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

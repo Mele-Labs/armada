@@ -17,7 +17,7 @@ const meta: Meta<typeof NotOursCard> = {
   component: NotOursCard,
   args: {
     watch: "QA deploy",
-    parts: [{ name: "provision", sentence: "A cloud lookup outside this change failed." }],
+    parts: [{ name: "provision", sentence: "A cloud lookup outside this change failed.", error: "Error: cloud lookup for region qa-east returned no account" }],
     link: "https://ci.example.com/runs/7",
     summary: SUMMARY,
     onFixIt: fn(),
@@ -39,6 +39,7 @@ type Story = StoryObj<typeof NotOursCard>;
 /** Escalate shows the lines for the owners and one copy control, sends nothing, and leaves Fix it and Ignore to settle it. */
 export const Escalated: Story = {
   play: async ({ canvas, args }) => {
+    await expect(canvas.getByLabelText("provision failed on")).toHaveTextContent("returned no account");
     await expect(canvas.queryByRole("region", { name: "Summary for the owners" })).toBeNull();
     await userEvent.click(canvas.getByRole("button", { name: "Escalate" }));
     const summary = canvas.getByRole("region", { name: "Summary for the owners" });

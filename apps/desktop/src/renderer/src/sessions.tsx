@@ -73,7 +73,7 @@ import { askToOpenRetro } from "./open-retro";
 import { useDispatchFailureHere } from "./failure-session";
 import { handoffOf } from "./session-handoff";
 import { chooseFolder, openLink, readRetro, searchFiles } from "./commands";
-import { escalation, failingLink, notOursParts, watchSaid } from "./session-view/watch-marks";
+import { escalation, failingLink, notOursEvidence, notOursParts, watchSaid } from "./session-view/watch-marks";
 import { ArtifactBody, ARTIFACT_GLYPH, isAddress, type PictureMarked } from "./session-artifact";
 import { linkEntry, useStartedBy } from "./session-started";
 import { readingOfSketch } from "./session-sketch";
@@ -1013,6 +1013,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
     if (watch === undefined) return [];
     const aside = new Map((watch.set_aside ?? []).map((it) => [it.part, it.sentence]));
     const link = failingLink(watch);
+    const errors = new Map(notOursEvidence(watch).parts.map((it) => [it.name, it.error]));
     const answer = (choice: number) => void draft.answerWaiting?.(session.id, one.id, { choice });
     return [
       {
@@ -1020,7 +1021,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
         text: one.text,
         Glyph: CornerUpRight,
         said: watchSaid(watch),
-        children: <NotOursCard watch={watch.name} parts={notOursParts(watch).map((name) => ({ name, sentence: aside.get(name) ?? "" }))} {...(link === undefined ? {} : { link })} summary={escalation(watch)} onFixIt={() => answer(1)} onIgnore={() => answer(0)} onOpenLink={(address) => void openLink(address)} />,
+        children: <NotOursCard watch={watch.name} parts={notOursParts(watch).map((name) => ({ name, sentence: aside.get(name) ?? "", ...(errors.get(name) === undefined ? {} : { error: errors.get(name)! }) }))} {...(link === undefined ? {} : { link })} summary={escalation(watch)} onFixIt={() => answer(1)} onIgnore={() => answer(0)} onOpenLink={(address) => void openLink(address)} />,
       },
     ];
   });

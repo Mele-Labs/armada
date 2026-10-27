@@ -1,6 +1,6 @@
 // A QA deploy watch whose only failure was a part the agent set aside ends not ours, never passed. Its mark is its own and never green, named
 // with what failed; the side panel keeps the real failed part, struck through; and Fleet asks the person in Needs you, where Escalate gives
-// lines to copy for the owners and Fix it asks the agent. Over `watch-not-ours`.
+// lines to copy for the owners and Fix it asks the agent. Every link, exact error and log is there to send. Over `watch-not-ours`.
 
 import { button, deckRow, dialog, inside, region, role, tab, text, walk } from "../walk";
 
@@ -17,11 +17,14 @@ const watchNotOurs = walk("watch-not-ours", [
   { press: inside(watchingBlock, button("Watch QA deploy", { exact: true })), say: "The watch opens in the side panel" },
   { press: inside(panel, tab("Parts")), say: "Its parts" },
   { look: inside(panel, role("list", "Parts")), say: "provision keeps its failed state, struck through with the sentence that set it aside" },
+  { look: inside(panel, role("group", "provision evidence")), say: "Its own link, the exact lines it failed on, and the end of its log" },
+  { press: inside(panel, tab("Log")), say: "Log" },
+  { look: inside(panel, region("Log", { exact: true })), say: "The run's whole output, kept by Fleet, with one copy control" },
   { key: "Escape", on: panel, say: "Esc closes it" },
   { press: inside(needs, button("Needs you", { exact: true })), say: "Fleet put it in Needs you, alone there, so it opens at once" },
   { look: card, say: "The watch and what failed, the agent's sentence, the failing run, and Fix it, Ignore and Escalate" },
   { press: inside(card, button("Escalate")), say: "Escalate" },
-  { look: inside(card, region("Summary for the owners")), say: "Lines to copy for the owners of what broke, with one copy control. Nothing is sent" },
+  { look: inside(card, region("Summary for the owners")), say: "Lines to copy for the owners: what failed and when, the exact error lines, every link, every log and the end of the log. Nothing is sent" },
   { press: inside(card, button("Fix it")), say: "Fix it" },
   { look: text(/^Fix provision in QA deploy/), say: "The agent is asked to fix provision, and the item is settled" },
   { look: inside(watchingBlock, role("switch", "Show ended")), say: "Settled, the watch hides as every ended one does, until Show ended" },

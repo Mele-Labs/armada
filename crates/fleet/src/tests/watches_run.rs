@@ -369,6 +369,10 @@ async fn a_failed_reading_keeps_its_whole_output_as_a_log_until_the_watch_goes()
     assert!(text.starts_with("stdout:\ndeploying\n"), "{text}");
     assert!(text.contains(r#""name":"provision","state":"failed""#), "{text}");
     assert!(text.contains("\nstderr:\n"), "{text}");
+    let read = rig.fleet.read_watch_log(None, ipc::ReadWatchLog { watch: id.clone(), log: failed.clone() }).await.expect("Bridge reads it");
+    assert_eq!(read.text, text);
+    let other = rig.fleet.read_watch_log(None, ipc::ReadWatchLog { watch: id.clone(), log: String::from("/etc/hosts") }).await;
+    assert!(other.is_err_and(|refusal| refusal.error().code == "fleet.no_such_watch_log"), "a path no reading names is not read");
 
     let mut broken = cat(&job, "missing.json", None);
     broken.name = "Staging deploy".into();

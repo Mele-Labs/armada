@@ -6,8 +6,8 @@ import { Card } from "../../primitives/Card/Card";
 import { CopyAct } from "../../primitives/Prose/Prose";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 
-/** A part set aside as not ours that failed, with the agent's sentence for why it is not the change's doing. */
-export type NotOursPart = { name: string; sentence: string };
+/** A part set aside as not ours that failed, with the agent's sentence for why it is not the change's doing, and the exact lines it failed on where its reading gave them. */
+export type NotOursPart = { name: string; sentence: string; error?: string };
 
 /**
  * A watch that ended not ours, waiting on the person in Needs you: the parts that failed, each with the agent's sentence, the
@@ -61,6 +61,11 @@ export function NotOursCard({
           <li key={one.name} className="armada-not-ours__part">
             <span className="armada-not-ours__name">{one.name} failed</span>
             <span className="armada-not-ours__sentence">Not ours: {one.sentence}</span>
+            {one.error === undefined ? null : (
+              <pre className="armada-not-ours__lines" aria-label={`${one.name} failed on`}>
+                {one.error}
+              </pre>
+            )}
           </li>
         ))}
       </ul>

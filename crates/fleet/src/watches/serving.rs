@@ -8,7 +8,7 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Refusal, Watches};
 use config::settings as keys;
 use core_model::{NotFilled, NotWeighed, Verdict, WatchState};
-use ipc::{DeleteWatch, SessionId, StartWatch, StopWatch, WatchList, WatchStarts, WatchSummary, WatchVerdict, WeighWatch, WireError};
+use ipc::{DeleteWatch, ReadWatchLog, SessionId, StartWatch, StopWatch, WatchList, WatchStarts, WatchSummary, WatchVerdict, WeighWatch, WireError};
 use store::{KeptWatch, KeptWatchSetAside, KeptWatchVerdict};
 
 use super::running::Folder;
@@ -404,6 +404,31 @@ where
         self.watch_log_removed(&job, &delete.watch);
         self.watches_published(&job).await;
         self.watch_list(&job).await
+    }
+
+    async fn read_watch_log(&self, caller: Option<api::Caller>, read: ReadWatchLog) -> Result<ipc::WatchLog, Refusal> {
+        let job = self.watching_job(caller, None).await?;
+        let kept = self
+            .store()
+            .lock()
+            .await
+            .watch_whole(&read.watch)
+            .map_err(|why| self.ledger_fault(why))?
+            .filter(|kept| job.as_deref().is_none_or(|job| kept.watch.session_id == job))
+            .ok_or_else(|| self.no_such_watch(&read.watch))?;
+        let gone = || {
+            Refusal::NotFound(WireError::raised(
+                super::NO_SUCH_WATCH_LOG,
+                format!("No kept reading of watch {} has the log {}.", read.watch, read.log),
+                self.run_id(),
+            ))
+        };
+        // Only a path a kept reading names is read, so the route opens no other file.
+        if !kept.readings.iter().any(|one| one.log.as_deref() == Some(read.log.as_str())) {
+            return Err(gone());
+        }
+        let text = tokio::fs::read_to_string(&read.log).await.map_err(|_| gone())?;
+        Ok(ipc::WatchLog { watch: read.watch, log: read.log, text })
     }
 
     async fn list_watches(

@@ -55,6 +55,8 @@ pub(crate) const TOO_OFTEN: &str = "fleet.watch_too_often";
 pub(crate) const GIVES_UP_TOO_LATE: &str = "fleet.watch_gives_up_too_late";
 /// No watch by that id, or one another Job holds. A 404.
 pub(crate) const NO_SUCH_WATCH: &str = "fleet.no_such_watch";
+/// A log no kept reading of the watch carries, or a file no longer there. A 404.
+pub(crate) const NO_SUCH_WATCH_LOG: &str = "fleet.no_such_watch_log";
 /// A verdict on a watch that has ended. A 409.
 pub(crate) const ENDED: &str = "fleet.watch_ended";
 /// `delete_watch` on a watch still live. A 409.

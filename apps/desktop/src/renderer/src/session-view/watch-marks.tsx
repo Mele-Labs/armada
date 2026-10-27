@@ -51,16 +51,53 @@ const lastRead = (watch: WatchSummary): Extract<WatchReading, { kind: "read" }> 
 /** `2026-10-26T14:02:31.000Z` as `2026-10-26 14:02 UTC`: plain to whoever reads it, wherever they are. */
 const utc = (at: string): string => `${at.slice(0, 10)} ${at.slice(11, 16)} UTC`;
 
-/** What Escalate shows for a watch that ended not ours, for the owners of what broke: what failed, when, on which run, what the reading said, and the link. Facts only. */
+/** What was gathered for a watch that ended not ours: each failed part with its own link, error lines and log end, every link once, every log, and the exact errors the agent's weighing carried. */
+export type NotOursEvidence = {
+  parts: { name: string; link?: string; error?: string; tail?: string }[];
+  links: string[];
+  logs: string[];
+  errors: string[];
+};
+
+/** The newest reading that kept a log. */
+const lastLog = (watch: WatchSummary): string | undefined => [...readingsOf(watch)].reverse().find((one) => one.log !== undefined)?.log;
+
+export function notOursEvidence(watch: WatchSummary): NotOursEvidence {
+  const failed = new Set(notOursParts(watch));
+  const read = [...readingsOf(watch)].reverse().find((one): one is Extract<WatchReading, { kind: "read" }> => one.kind === "read" && one.parts !== undefined);
+  const parts = (read?.parts ?? []).filter((one) => failed.has(one.name)).map(({ name, link, error, tail }) => ({ name, ...(link === undefined ? {} : { link }), ...(error === undefined ? {} : { error }), ...(tail === undefined ? {} : { tail }) }));
+  // The weighing that set these parts aside: the newest not ours naming any of them.
+  const weighed = [...(watch.verdicts ?? [])].reverse().find((one) => one.verdict === "not_ours" && (one.parts ?? []).some((part) => failed.has(part)))?.evidence;
+  const once = (all: (string | undefined)[]): string[] => [...new Set(all.filter((one): one is string => one !== undefined && one.trim() !== ""))];
+  return {
+    parts,
+    links: once([lastRead(watch)?.link, ...parts.map((one) => one.link), ...(weighed?.links ?? [])]),
+    logs: once([lastLog(watch), ...(weighed?.logs ?? [])]),
+    errors: once(weighed?.errors ?? []),
+  };
+}
+
+/**
+ * What Escalate shows for a watch that ended not ours, for the owners of what broke: what failed, when, on which run, what the reading said, each
+ * part's exact error lines, the agent's, every link, every log, and the end of each part's log. Facts only, one block a fact.
+ */
 export function escalation(watch: WatchSummary): string {
   const read = lastRead(watch);
+  const evidence = notOursEvidence(watch);
+  const block = (head: string, lines: readonly string[]) => (lines.length === 0 ? [] : [[head, ...lines].join("\n")]);
   return [
-    `${notOursParts(watch).join(", ")} failed in ${watch.name}.`,
-    ...(read === undefined ? [] : [`When: ${utc(read.at)}`]),
-    `Run: ${watch.name}`,
-    ...(read === undefined ? [] : [`Error: ${read.says}`]),
-    ...(read?.link === undefined ? [] : [`Link: ${read.link}`]),
-  ].join("\n");
+    [
+      `${notOursParts(watch).join(", ")} failed in ${watch.name}.`,
+      ...(read === undefined ? [] : [`When: ${utc(read.at)}`]),
+      `Run: ${watch.name}`,
+      ...(read === undefined ? [] : [`Error: ${read.says}`]),
+    ].join("\n"),
+    ...evidence.parts.flatMap((one) => block(`${one.name} failed on:`, one.error === undefined ? [] : [one.error])),
+    ...block("Errors the agent found:", evidence.errors),
+    ...block("Links:", evidence.links),
+    ...block("Logs:", evidence.logs),
+    ...evidence.parts.flatMap((one) => block(`The end of ${one.name}'s log:`, one.tail === undefined ? [] : [one.tail])),
+  ].join("\n\n");
 }
 
 /** The failing run's link: the newest reading's that read. */

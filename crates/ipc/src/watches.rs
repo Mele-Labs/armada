@@ -513,6 +513,23 @@ pub struct StopWatch {
     pub watch: String,
 }
 
+/// `read_watch_log`: the log a reading of `watch` kept, named by the path the reading carries.
+/// `GET /watches/log?watch=&log=`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ReadWatchLog {
+    pub watch: String,
+    pub log: String,
+}
+
+/// What one reading's log holds: the watch, the file, and its text whole.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WatchLog {
+    pub watch: String,
+    pub log: String,
+    pub text: String,
+}
+
 /// `delete_watch`. `POST /watches/delete`. An ended watch only.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

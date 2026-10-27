@@ -44,7 +44,29 @@ test("escalate gives what failed, when, the run, the error and the link, and not
     "When: 2026-10-26 14:02 UTC",
     "Run: QA deploy",
     "Error: provision failed: cloud lookup for region qa-east returned no account",
-    "Link: https://ci.example.com/runs/5120",
+    "",
+    "Links:",
+    "https://ci.example.com/runs/5120",
+  ]);
+});
+
+test("escalate carries each part's error lines and link, the agent's evidence, every log and the end of the part's log", () => {
+  const parts = [
+    { name: "build", state: "passed" as const },
+    { name: "provision", state: "failed" as const, link: "https://ci.example.com/runs/5120#provision", error: "Error: no account for qa-east", tail: "step 59\nError: no account for qa-east" },
+  ];
+  const watch: WatchSummary = {
+    ...deploy("not_ours", parts),
+    readings: [{ ...ended, parts, log: "/state/watch-logs/s-1/w-1/a.log" }],
+    verdicts: [{ at: "2026-10-26T14:03:00.000Z", verdict: "not_ours", sentence: "not ours", parts: ["provision"], evidence: { links: ["https://status.example.com/qa-east", "https://ci.example.com/runs/5120"], logs: ["/scratch/provision.log"], errors: ["403 from the account lookup"] } }],
+  };
+  expect(escalation(watch).split("\n\n")).toEqual([
+    "provision failed in QA deploy.\nWhen: 2026-10-26 14:02 UTC\nRun: QA deploy\nError: provision failed: cloud lookup for region qa-east returned no account",
+    "provision failed on:\nError: no account for qa-east",
+    "Errors the agent found:\n403 from the account lookup",
+    "Links:\nhttps://ci.example.com/runs/5120\nhttps://ci.example.com/runs/5120#provision\nhttps://status.example.com/qa-east",
+    "Logs:\n/state/watch-logs/s-1/w-1/a.log\n/scratch/provision.log",
+    "The end of provision's log:\nstep 59\nError: no account for qa-east",
   ]);
 });
 

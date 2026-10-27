@@ -1,6 +1,7 @@
 // A Job whose QA deploy watch ended not ours: `build` passed, `provision` failed on a cloud lookup the change never touched, and the agent
 // set it aside. The watch is never green: it ended not ours, the reading keeps its failed part, and Fleet put it in Needs you with Ignore,
-// Fix it and Escalate. The walk `watchNotOurs` plays it.
+// Fix it and Escalate. The reading kept its run's log, the failed part carries its own link, its exact error lines and the end of its log,
+// and the agent's weighing carried the evidence it gathered. The walk `watchNotOurs` plays it.
 
 import { repository } from "@armada/screens/src/fixtures/repository";
 import type { Session } from "@armada/screens/src/draft/sessions";
@@ -8,7 +9,7 @@ import type { WatchReading, WatchSummary } from "@armada/protocol";
 
 import { holding } from "../holding";
 import type { Scenario } from "../moment";
-import { sessionsStore } from "../sessions/script";
+import { sessionsStore, WATCH_LOGS } from "../sessions/script";
 
 const OWNER = repository().manifest!.id;
 const ROOT = repository().root;
@@ -17,6 +18,12 @@ const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOSt
 
 const SET_ASIDE = "the cloud lookup for the QA region failed, and this change touches no infrastructure";
 const ENDED = ago(6);
+const LOG = "/Users/user/.armada/machine/attachments/watch-logs/wn-qa/w-qa-filters/reading.log";
+const SAVED = "/Users/user/.armada/machine/attachments/job-scratch/wn-qa/provision.log";
+const ERROR = "Error: cloud lookup for region qa-east returned no account\nProvisioning failed after 3 attempts";
+const TAIL = [...Array.from({ length: 6 }, (_, n) => `provisioning step ${n + 55} of 60`), "Error: cloud lookup for region qa-east returned no account", "Provisioning failed after 3 attempts"].join("\n");
+
+WATCH_LOGS[LOG] = `stdout:\n{"state":"failed","finished":true,"says":"provision failed for web build 5120.","link":"${RUN}","parts":[{"name":"build","state":"passed"},{"name":"provision","state":"failed"}]}\n\nstderr:\nReading build 5120\nReading the provision step's log\n`;
 
 const readings: WatchReading[] = [
   { kind: "read", at: ago(24), state: "running", finished: false, says: "Build running", link: RUN, parts: [{ name: "build", state: "running" }, { name: "provision", state: "waiting" }] },
@@ -28,9 +35,10 @@ const readings: WatchReading[] = [
     says: "provision failed: cloud lookup for region qa-east returned no account",
     link: RUN,
     parts: [
-      { name: "build", state: "passed" },
-      { name: "provision", state: "failed" },
+      { name: "build", state: "passed", link: `${RUN}#build` },
+      { name: "provision", state: "failed", link: `${RUN}#provision`, error: ERROR, tail: TAIL },
     ],
+    log: LOG,
   },
 ];
 
@@ -52,7 +60,15 @@ const deploy: WatchSummary = {
   last: readings[1]!,
   readings,
   set_aside: [{ part: "provision", sentence: SET_ASIDE }],
-  verdicts: [{ at: ago(5), verdict: "not_ours", sentence: SET_ASIDE, parts: ["provision"] }],
+  verdicts: [
+    {
+      at: ago(5),
+      verdict: "not_ours",
+      sentence: SET_ASIDE,
+      parts: ["provision"],
+      evidence: { links: ["https://status.example.com/regions/qa-east"], logs: [SAVED], errors: ["403 Forbidden from the account lookup for qa-east"] },
+    },
+  ],
 };
 
 const job: Session = {
