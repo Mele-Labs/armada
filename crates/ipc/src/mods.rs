@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use crate::ids::{Instant, ManifestId};
 use crate::session_notes::SessionNote;
 use crate::sessions::SessionId;
-use crate::taught_mods::{FleetFile, WordsFile};
+use crate::taught_mods::{CommandsFile, FleetFile, WordsFile};
 
 /// What a mod changes. The kinds this build knows; a `mod.toml` naming another
 /// is invalid, so a valid row's kind is always one Bridge can act on.
@@ -28,6 +28,8 @@ pub enum ModKind {
     Tweak,
     /// A `tracker.toml` that teaches Fleet a tracker this build has no adapter for.
     Tracker,
+    /// A `commands.toml`: rows added to Bridge's command palette.
+    Commands,
 }
 
 /// Where a mod comes from. Ordered so a local mod is listed ahead of the built-in one of its name.
@@ -170,6 +172,7 @@ pub enum ModAim {
     Words,
     Fleet,
     Tracker,
+    Commands,
     Source,
 }
 
@@ -211,6 +214,9 @@ pub struct ModChecked {
     /// A Fleet mod's `fleet.toml` as it was checked, present only where it passed.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fleet: Option<FleetFile>,
+    /// A Commands mod's `commands.toml` as it was checked, present only where it passed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub commands: Option<CommandsFile>,
 }
 
 /// `try_tracker_mod`: run a tracker mod's Open query, and read one issue it listed, against a

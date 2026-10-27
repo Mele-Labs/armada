@@ -29,6 +29,7 @@ pub(crate) mod scaffold;
 mod serving;
 pub(crate) mod stylesheet;
 pub(crate) mod words;
+pub(crate) mod commands;
 pub(crate) mod tracker;
 
 pub use built_in::{BuiltIn, BuiltIns};
@@ -51,6 +52,7 @@ const WORDS: &str = "words.toml";
 const FLEET: &str = "fleet.toml";
 const TWEAK: &str = "tweak.css";
 const TRACKER: &str = "tracker.toml";
+const COMMANDS: &str = "commands.toml";
 
 /// Why `name` cannot be a mod's name, or `None`. **The only gate on a path
 /// segment**: a name that passes holds no `/`, no `.` and no way to climb.
@@ -117,6 +119,7 @@ pub(crate) enum Payload {
     Fleet(String),
     Tweak(String),
     Tracker(String),
+    Commands(String),
 }
 
 impl Payload {
@@ -129,6 +132,7 @@ impl Payload {
             Payload::Fleet(_) => FLEET,
             Payload::Tweak(_) => TWEAK,
             Payload::Tracker(_) => TRACKER,
+            Payload::Commands(_) => COMMANDS,
         }
     }
 
@@ -138,6 +142,7 @@ impl Payload {
             | Payload::Layout(text)
             | Payload::Tracker(text)
             | Payload::Words(text)
+            | Payload::Commands(text)
             | Payload::Fleet(text)
             | Payload::Tweak(text) => text,
         }
@@ -263,6 +268,7 @@ fn checked(found: &mut Examined, name: &str, source: &Source) {
         Some(ModKind::Layout) => (LAYOUT, ipc::layout::MOST_BYTES as u64),
         Some(ModKind::Words) => (WORDS, words::MOST_BYTES),
         Some(ModKind::Fleet) => (FLEET, fleet_rules::MOST_BYTES),
+        Some(ModKind::Commands) => (COMMANDS, commands::MOST_BYTES),
         Some(ModKind::Tweak) => (TWEAK, stylesheet::MOST_BYTES),
         Some(ModKind::Theme | ModKind::Tracker) | None => (THEME, stylesheet::MOST_BYTES),
     };
@@ -273,6 +279,7 @@ fn checked(found: &mut Examined, name: &str, source: &Source) {
                 Some(ModKind::Layout) => ipc::layout::problems(&text),
                 Some(ModKind::Words) => words::problems(&text),
                 Some(ModKind::Fleet) => fleet_rules::problems(&text),
+                Some(ModKind::Commands) => commands::problems(&text, name),
                 Some(ModKind::Tweak) => stylesheet::problems_in(&text, TWEAK),
                 Some(ModKind::Theme | ModKind::Tracker) | None => stylesheet::problems(&text),
             });
@@ -286,6 +293,7 @@ fn checked(found: &mut Examined, name: &str, source: &Source) {
             Some(ModKind::Layout) => Payload::Layout(text),
             Some(ModKind::Words) => Payload::Words(text),
             Some(ModKind::Fleet) => Payload::Fleet(text),
+            Some(ModKind::Commands) => Payload::Commands(text),
             Some(ModKind::Tweak) => Payload::Tweak(text),
             Some(ModKind::Theme | ModKind::Tracker) | None => Payload::Css(text),
         };
