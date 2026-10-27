@@ -8,12 +8,11 @@
 
 import { useState } from "react";
 import { GitPullRequest, Puzzle } from "lucide-react";
-import { Palette, SURFACE, type PaletteChoice, type PaletteRepository, type PaletteSession, type PaletteSurface } from "@armada/shell";
-import { Dialog, sessionGlyphOf, type PaletteDispatch, type PaletteStep } from "@armada/components";
-import type { Session } from "@armada/screens/src/draft/sessions";
-import { useSessionsDraft } from "./sessions-draft";
+import { Palette, SURFACE, type PaletteChoice, type PaletteRepository, type PaletteSurface } from "@armada/shell";
+import { Dialog, type PaletteDispatch, type PaletteStep } from "@armada/components";
+import { useSessionsDraft, useSessionsEverywhere } from "./sessions-draft";
 import { useDeck } from "./cockpit/deck/store";
-import { stateOf } from "./session-state";
+import { jobRow } from "./palette-job-row";
 import { usePaletteFixtures } from "./palette-fixtures";
 import { nextOpens, opensLabel, remember, rowOf, usePaletteMemory } from "./palette-memory";
 import { pageOf } from "./palette-page";
@@ -26,7 +25,6 @@ import { askStudioAdd, askStudioRun, useStudioAddOff, useStudioRunOff } from "@a
 import { askToDebugBridge } from "./debug-bridge";
 import { askToOpenSession, openSessionIn } from "./open-session";
 import { openInPanel, openRequestsInPanel } from "./shared-panel/store";
-import { useSessions } from "./sessions-draft";
 import { askToCreateMod } from "./create-mod";
 import { absentIn, carryOut, CREATE_MOD, dormantIn, FLEET_DOWN } from "./palette";
 
@@ -82,7 +80,8 @@ export function PaletteMount({
 }: PaletteMountProps) {
   const studioRun = useStudioRunOff();
   const studioAdd = useStudioAddOff();
-  const sessions = useSessions();
+  // Every repository's Jobs, whatever the title row has picked: the palette jumps to work anywhere.
+  const sessions = useSessionsEverywhere();
   const draft = useSessionsDraft();
   const fixtures = usePaletteFixtures();
   const memory = usePaletteMemory();
@@ -199,19 +198,3 @@ const PALETTE_OPENS_ROW = "palette-opens";
 
 /** The command whose blank is a pull request. */
 const SECURITY_REVIEW = "security-review";
-
-/** A Job as a palette row: where it works, how it stands, and the pull request it holds. */
-function jobRow(one: Session, repoOf: PaletteMountProps["repoOf"]): PaletteSession {
-  const repo = one.manifestId === undefined ? undefined : repoOf?.(one.manifestId);
-  const { state, said } = stateOf(one);
-  const held = one.attachments.find((attachment) => attachment.kind === "pull_request");
-  return {
-    id: one.id,
-    label: one.title ?? one.address ?? one.id,
-    aliases: [one.id, ...(one.address === undefined ? [] : [one.address])],
-    ...(repo === undefined ? {} : { repo }),
-    state: { icon: sessionGlyphOf(state), said, ...(state === "working" ? { pulsing: true as const } : {}) },
-    ...(one.paused === true ? { paused: true } : {}),
-    ...(held === undefined || held.kind !== "pull_request" ? {} : { pull: held.number }),
-  };
-}
