@@ -25,6 +25,15 @@ pub struct KeptPlanTask {
     /// When the agent's list last put it in progress. Absent while it is not, and for one that was before
     /// this was kept.
     pub started_at: Option<String>,
+    /// When its mark last moved or Fleet last saw work under its group's paths, and the plan's `calls` then.
+    pub touched_at: Option<String>,
+    pub touched_call: u32,
+    /// The state Fleet set from proof, `in_progress` or `completed`, which stands over `listed` until the
+    /// agent's list changes the task; and that proof, as a person reads it.
+    pub marked: Option<String>,
+    pub marked_why: Option<String>,
+    /// The agent was told of this task, which it is once.
+    pub told: bool,
 }
 
 /// One group, with its tasks in order.
@@ -72,6 +81,8 @@ pub struct KeptPlan {
     /// The next number a group and a task are given, so an id is never given twice.
     pub next_group: u32,
     pub next_task: u32,
+    /// How many tool calls the Session's own agent has made since the plan was first recorded.
+    pub calls: u32,
     pub groups: Vec<KeptPlanGroup>,
 }
 
@@ -99,7 +110,7 @@ impl Store {
         let head = self
             .conn
             .query_row(
-                "SELECT version, recorded_at, approved_at, sketch_id, sketch_title, changed, next_group, next_task, walk, summary, set_aside_at
+                "SELECT version, recorded_at, approved_at, sketch_id, sketch_title, changed, next_group, next_task, walk, summary, set_aside_at, calls
                  FROM session_plan WHERE session_id = ?1",
                 [session_id],
                 |row| {
@@ -116,6 +127,7 @@ impl Store {
                         walk: row.get(8)?,
                         summary: row.get(9)?,
                         set_aside_at: row.get(10)?,
+                        calls: row.get(11)?,
                         groups: Vec::new(),
                     })
                 },
@@ -151,8 +163,9 @@ impl Store {
         let mut tasks = self
             .conn
             .prepare(
-                "SELECT group_id, task_id, text, listed, completed_at, edited, started_at FROM session_plan_tasks
-                 WHERE session_id = ?1 ORDER BY position",
+                "SELECT group_id, task_id, text, listed, completed_at, edited, started_at, touched_at, touched_call, marked,
+                        marked_why, told
+                 FROM session_plan_tasks WHERE session_id = ?1 ORDER BY position",
             )
             .map_err(reading)?;
         let rows = tasks
@@ -166,6 +179,11 @@ impl Store {
                         completed_at: row.get(4)?,
                         edited: row.get::<_, i64>(5)? == 1,
                         started_at: row.get(6)?,
+                        touched_at: row.get(7)?,
+                        touched_call: row.get(8)?,
+                        marked: row.get(9)?,
+                        marked_why: row.get(10)?,
+                        told: row.get::<_, i64>(11)? == 1,
                     },
                 ))
             })
@@ -206,8 +224,8 @@ impl Store {
         }
         kept.execute(
             "INSERT INTO session_plan
-                 (session_id, version, recorded_at, approved_at, sketch_id, sketch_title, changed, next_group, next_task, walk, summary, set_aside_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+                 (session_id, version, recorded_at, approved_at, sketch_id, sketch_title, changed, next_group, next_task, walk, summary, set_aside_at, calls)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
             params![
                 session_id,
                 plan.version,
@@ -221,6 +239,7 @@ impl Store {
                 plan.walk,
                 plan.summary,
                 plan.set_aside_at,
+                plan.calls,
             ],
         )
         .map_err(keeping)?;
@@ -247,8 +266,9 @@ impl Store {
             for (nth, task) in group.tasks.iter().enumerate() {
                 kept.execute(
                     "INSERT INTO session_plan_tasks
-                         (session_id, group_id, position, task_id, text, listed, completed_at, edited, started_at)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+                         (session_id, group_id, position, task_id, text, listed, completed_at, edited, started_at,
+                          touched_at, touched_call, marked, marked_why, told)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
                     params![
                         session_id,
                         group.id,
@@ -258,7 +278,12 @@ impl Store {
                         task.listed,
                         task.completed_at,
                         task.edited,
-                        task.started_at
+                        task.started_at,
+                        task.touched_at,
+                        task.touched_call,
+                        task.marked,
+                        task.marked_why,
+                        task.told
                     ],
                 )
                 .map_err(keeping)?;
@@ -311,15 +336,41 @@ impl Store {
             .map_err(keeping)?;
             for task in &group.tasks {
                 kept.execute(
-                    "UPDATE session_plan_tasks SET listed = ?3, completed_at = ?4, edited = ?5, started_at = ?6
+                    "UPDATE session_plan_tasks SET listed = ?3, completed_at = ?4, edited = ?5, started_at = ?6,
+                         touched_at = ?7, touched_call = ?8, marked = ?9, marked_why = ?10, told = ?11
                      WHERE session_id = ?1 AND task_id = ?2",
-                    params![session_id, task.id, task.listed, task.completed_at, task.edited, task.started_at],
+                    params![
+                        session_id,
+                        task.id,
+                        task.listed,
+                        task.completed_at,
+                        task.edited,
+                        task.started_at,
+                        task.touched_at,
+                        task.touched_call,
+                        task.marked,
+                        task.marked_why,
+                        task.told
+                    ],
                 )
                 .map_err(keeping)?;
             }
         }
         refocus(&kept, session_id).map_err(keeping)?;
         kept.commit().map_err(keeping)
+    }
+
+    /// `calls` more tool calls by the Session's own agent. The count after them, or absent where the
+    /// Session has no plan, which counts nothing.
+    pub fn count_session_calls(&mut self, session_id: &str, calls: u32) -> Result<Option<u32>, WriteError> {
+        self.conn
+            .query_row(
+                "UPDATE session_plan SET calls = calls + ?2 WHERE session_id = ?1 RETURNING calls",
+                params![session_id, calls],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(keeping)
     }
 
     /// An edit seen under the paths of `groups`: they were worked at `at`, and `tasks` have an edit

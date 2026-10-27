@@ -384,6 +384,7 @@ where
             fact @ (SessionFact::Tasks { .. } | SessionFact::PlanLeft | SessionFact::Committed { .. } | SessionFact::Pushed { .. }) => {
                 changed |= self.build_told(&mut store, &session, fact, &now).map_err(fault)?;
             }
+            SessionFact::Calls { .. } => {}
             // Fleet ends a session it hosts, by `close_session`: the harness in
             // it going away is a process ending, and the next message resumes.
             SessionFact::Ended { .. } if session.origin == "bridge" => {}

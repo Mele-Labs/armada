@@ -44,6 +44,7 @@ pub(crate) fn recorded(
     let empty = Vec::new();
     let old_groups = before.map_or(&empty, |plan| &plan.groups);
     let (mut next_group, mut next_task) = before.map_or((1, 1), |plan| (plan.next_group, plan.next_task));
+    let calls = before.map_or(0, |plan| plan.calls);
 
     let mut claimed_groups = vec![false; old_groups.len()];
     let mut group_at: Vec<Option<usize>> = vec![None; groups.len()];
@@ -132,13 +133,30 @@ pub(crate) fn recorded(
                         completed_at: old.completed_at.clone(),
                         edited: old.edited,
                         started_at: old.started_at.clone(),
+                        touched_at: old.touched_at.clone(),
+                        touched_call: old.touched_call,
+                        marked: old.marked.clone(),
+                        marked_why: old.marked_why.clone(),
+                        told: old.told,
                     }
                 }
                 None => {
                     let id = format!("t{next_task}");
                     next_task += 1;
                     changes.push(KeptPlanChange { kind: "added".into(), id: id.clone(), other: String::new() });
-                    KeptPlanTask { id, text: task.title.clone(), listed: None, completed_at: None, edited: false, started_at: None }
+                    KeptPlanTask {
+                        id,
+                        text: task.title.clone(),
+                        listed: None,
+                        completed_at: None,
+                        edited: false,
+                        started_at: None,
+                        touched_at: None,
+                        touched_call: calls,
+                        marked: None,
+                        marked_why: None,
+                        told: false,
+                    }
                 }
             };
             tasks.push(kept);
@@ -180,6 +198,7 @@ pub(crate) fn recorded(
         changes: before.map(|_| changes),
         next_group,
         next_task,
+        calls,
         groups: kept_groups,
     }
 }
@@ -365,7 +384,7 @@ pub(crate) fn wire(plan: &KeptPlan) -> SessionPlan {
                     .iter()
                     .map(|task| {
                         let (state, seen) = state_of(task);
-                        SessionPlanTask { id: task.id.clone(), text: task.text.clone(), state, seen }
+                        SessionPlanTask { id: task.id.clone(), text: task.text.clone(), state, seen, marked: None, stale: None }
                     })
                     .collect(),
                 worked_at: group.worked_at.as_deref().map(Instant::carried),

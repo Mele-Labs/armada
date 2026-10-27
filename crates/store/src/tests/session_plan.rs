@@ -6,7 +6,19 @@ use crate::tests::{open, TempDir};
 use crate::{KeptPlan, KeptPlanChange, KeptPlanGroup, KeptPlanTask, KeptTouch};
 
 fn task(id: &str, text: &str) -> KeptPlanTask {
-    KeptPlanTask { id: id.to_string(), text: text.to_string(), listed: None, completed_at: None, edited: false, started_at: None }
+    KeptPlanTask {
+        id: id.to_string(),
+        text: text.to_string(),
+        listed: None,
+        completed_at: None,
+        edited: false,
+        started_at: None,
+        touched_at: None,
+        touched_call: 0,
+        marked: None,
+        marked_why: None,
+        told: false,
+    }
 }
 
 fn plan(version: u32, tasks: &[(&str, &str)]) -> KeptPlan {
@@ -21,6 +33,7 @@ fn plan(version: u32, tasks: &[(&str, &str)]) -> KeptPlan {
         changes: (version > 1).then(|| vec![KeptPlanChange { kind: "added".into(), id: "t9".into(), other: String::new() }]),
         next_group: 2,
         next_task: 10,
+        calls: 0,
         groups: vec![KeptPlanGroup {
             id: "g1".to_string(),
             gives: Some("The page itself.".to_string()),
