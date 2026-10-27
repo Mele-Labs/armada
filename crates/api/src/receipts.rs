@@ -155,6 +155,10 @@ impl<'a> Receipt<'a> {
         Receipt::of(record, Set::Withdrawn { withdrawn: withdraw.url.trim() })
     }
 
+    pub(crate) fn draft_withdrawn(record: &'a SessionRecord, withdraw: &'a ipc::WithdrawDraft) -> Self {
+        Receipt::of(record, Set::Withdrawn { withdrawn: withdraw.draft.trim() })
+    }
+
     pub(crate) fn sketch(record: &'a SessionRecord, show: &'a ipc::ShowSketch) -> Self {
         Receipt::of(record, Set::Sketch { sketch: show.title.trim() })
     }
