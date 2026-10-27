@@ -50,8 +50,15 @@ function palette(over: Partial<PaletteProps> = {}) {
   return { chosen, confirmed };
 }
 
+// The search takes focus once the palette has drawn: a key pressed before then lands nowhere, as the first
+// letter of "cache key" did on a loaded runner.
+const typeIn = async (words: string) => {
+  await expect.element(page.getByRole("combobox")).toHaveFocus();
+  await userEvent.keyboard(words);
+};
+
 const actsOfRow = async (typed: string) => {
-  await userEvent.keyboard(typed);
+  await typeIn(typed);
   await userEvent.keyboard("{Meta>}k{/Meta}");
 };
 
@@ -86,14 +93,14 @@ test("pressing an act in the panel hands it on with the row it was for", async (
 
 test("an act's own chord runs it from the results, with the panel never opened", async () => {
   const { chosen } = palette();
-  await userEvent.keyboard("cache key");
+  await typeIn("cache key");
   await userEvent.keyboard("{Meta>}{Shift>}p{/Shift}{/Meta}");
   expect(chosen).toContainEqual({ of: "on", target: "session:q1", action: "open-pull" });
 });
 
 test("Stop asks first: its chord goes to the confirmation and never to the choice", async () => {
   const { chosen, confirmed } = palette();
-  await userEvent.keyboard("cache key");
+  await typeIn("cache key");
   await userEvent.keyboard("{Meta>}{Backspace}{/Meta}");
   await expect.poll(() => confirmed.mock.calls.length).toBe(1);
   expect(confirmed).toHaveBeenCalledWith("session:q1", "stop");
@@ -138,13 +145,13 @@ test("with nothing typed, pinned come first and then recent, and a task is shown
 test("with nothing pinned or recent, a task is not listed at rest and is found by typing", async () => {
   palette({ opens: "everything" });
   expect(page.getByRole("option", { name: /Tick a task/ }).elements()).toHaveLength(0);
-  await userEvent.keyboard("tick a task");
+  await typeIn("tick a task");
   await expect.element(page.getByRole("option", { name: /Tick a task/ })).toBeVisible();
 });
 
 test("an alias the person gave a row finds it", async () => {
   palette({ aliases: { "session:q1": "ckey" } });
-  await userEvent.keyboard("ckey");
+  await typeIn("ckey");
   await expect.element(page.getByRole("option", { name: /Cache key/ })).toBeVisible();
   expect(page.getByRole("option", { name: /Warm the install/ }).elements()).toHaveLength(0);
 });
