@@ -499,7 +499,7 @@ The acts of each row are `actionsOf` in `packages/shell/src/Palette.tsx`:
 |---|---|
 | Job | Open ↵, Pause or Resume ⌘P, Fork ⌥⌘F, Copy Job id ⇧⌘C, Pin or Unpin ⇧⌘F, Stop ⌘⌫ |
 | Job holding a pull request | Adds Open pull request ⇧⌘P and Merge pull request ⇧⌘M |
-| Pull request | Open in Reviews ↵, Open on GitHub ⇧⌘O, Start a Job on it ⇧⌘N, Pin ⇧⌘F |
+| Pull request | Open in Reviews ↵, Open on the forge ⇧⌘O, Start a Job on it ⇧⌘N, Pin ⇧⌘F |
 | Issue | Open ↵, Start a Job on it ⇧⌘N, Pin ⇧⌘F |
 | Task | Open ↵, Dispatch ⇧⌘N, Tick ⌘D, Pin ⇧⌘F |
 | Command | Run ↵, Pin ⇧⌘F |

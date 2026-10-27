@@ -708,7 +708,7 @@ function ownActs(entry: PaletteEntry, held: { sessions: readonly PaletteSession[
   if (entry.id.startsWith("pull:")) {
     return [
       { id: "open", label: "Open in Reviews", icon: GitPullRequest, shortcut: "↵" },
-      { id: "github", label: "Open on GitHub", icon: ExternalLink, shortcut: "⇧⌘O" },
+      { id: "forge", label: "Open on the forge", icon: ExternalLink, shortcut: "⇧⌘O" },
       { id: "start-job", label: "Start a Job on it", icon: Plus, shortcut: "⇧⌘N", apart: true },
       pin,
     ];

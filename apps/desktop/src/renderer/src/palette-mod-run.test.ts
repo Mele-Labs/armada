@@ -37,8 +37,8 @@ function world(over: Partial<RowWorld> = {}) {
     modRows: ROWS,
     picked: null,
     repositories: [
-      { root: "/Users/me/armada", label: "armada" },
-      { root: "/Users/me/pocket", label: "Pocket" },
+      { root: "/Users/user/armada", label: "armada" },
+      { root: "/Users/user/pocket", label: "Pocket" },
     ],
     startJob: (words: string) => log.push(`job:${words}`),
     openLink: (address: string) => (log.push(`link:${address}`), true),
@@ -101,15 +101,15 @@ describe("an address", () => {
 
 describe("a shell line", () => {
   test("is typed with a pull request as its bare number, in the repository picked, and opens the run panel", () => {
-    const { given, log } = world({ picked: "/Users/me/armada" });
+    const { given, log } = world({ picked: "/Users/user/armada" });
     runModRow(row("Test a pull request"), filled({ pr: "#12" }), given);
-    expect(log).toEqual(["shell:pnpm test --pr 12@/Users/me/armada(armada)"]);
+    expect(log).toEqual(["shell:pnpm test --pr 12@/Users/user/armada(armada)"]);
   });
 
   test("runs in the repository the person was asked for where none is picked", () => {
     const { given, log } = world();
-    runModRow(row("Audit"), { repo: { text: "Pocket", bare: "Pocket", root: "/Users/me/pocket" } }, given);
-    expect(log).toEqual(["shell:pnpm audit@/Users/me/pocket(Pocket)"]);
+    runModRow(row("Audit"), { repo: { text: "Pocket", bare: "Pocket", root: "/Users/user/pocket" } }, given);
+    expect(log).toEqual(["shell:pnpm audit@/Users/user/pocket(Pocket)"]);
   });
 
   test("with no repository picked or given, asks for one rather than run anywhere", () => {
@@ -119,7 +119,7 @@ describe("a shell line", () => {
   });
 
   test("says so where no side panel is hosted", () => {
-    const { given, log } = world({ picked: "/Users/me/armada", runShell: () => false });
+    const { given, log } = world({ picked: "/Users/user/armada", runShell: () => false });
     runModRow(row("Audit"), {}, given);
     expect(log).toEqual(["told:Audit: no side panel to show it in"]);
   });

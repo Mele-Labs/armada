@@ -189,7 +189,7 @@ function on(target: string, action: string, world: RowWorld, value = ""): void {
     const one = kind === "pull" ? pullOf(world, id) : issueOf(world, id);
     if (one === undefined) return;
     if (action === "open") world.openLink(one.url);
-    else if (action === "github") window.open(one.url, "_blank", "noopener");
+    else if (action === "forge") window.open(one.url, "_blank", "noopener");
     else if (action === "start-job") world.startJob(`#${one.number} ${one.title}`);
     return;
   }

@@ -105,8 +105,8 @@
 /* The checkbox's name, which a column headed Pinned does not repeat on every row. */
 .armada-palette-rows__hidden {
   position: absolute;
-  width: 1px;
-  height: 1px;
+  width: var(--border-width);
+  height: var(--border-width);
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;

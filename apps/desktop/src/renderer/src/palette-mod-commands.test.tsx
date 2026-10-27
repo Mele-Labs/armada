@@ -105,8 +105,8 @@ function mount(open = true, picked: string | null = null) {
     failing: null,
     live: true,
     repositories: [
-      { root: "/Users/me/armada", label: "armada" },
-      { root: "/Users/me/pocket", label: "Pocket" },
+      { root: "/Users/user/armada", label: "armada" },
+      { root: "/Users/user/pocket", label: "Pocket" },
     ] as PaletteMountProps["repositories"],
     picked,
     acts: { surface } as unknown as PaletteMountProps["acts"],
@@ -177,16 +177,16 @@ test("a shell line takes a pull request as its bare number, asks for a repositor
   await userEvent.click(page.getByRole("option", { name: /Pocket/ }));
   await expect.element(panel()).toHaveTextContent('"kind":"run"');
   await expect.element(panel()).toHaveTextContent('"command":"pnpm test --pr 1899"');
-  await expect.element(panel()).toHaveTextContent('"dir":"/Users/me/pocket"');
+  await expect.element(panel()).toHaveTextContent('"dir":"/Users/user/pocket"');
   await expect.element(panel()).toHaveTextContent('"repository":"Pocket"');
 });
 
 test("a shell line with no blank runs in the repository picked, without a step", async () => {
-  mount(true, "/Users/me/armada");
+  mount(true, "/Users/user/armada");
   await userEvent.keyboard("audit dep");
   await userEvent.click(row("Audit dependencies"));
   await expect.element(panel()).toHaveTextContent('"command":"pnpm audit"');
-  await expect.element(panel()).toHaveTextContent('"dir":"/Users/me/armada"');
+  await expect.element(panel()).toHaveTextContent('"dir":"/Users/user/armada"');
 });
 
 test("a chain runs the rows it names in order", async () => {
@@ -221,7 +221,7 @@ test("a key the file names runs a row that has blanks by opening the palette on 
 
 test("a key he recorded for another row wins over the file's key, which then runs nothing", async () => {
   seedPaletteMemory({ hotkeys: { "cmd:team-commands:audit-dependencies": "⌥⌘S" } });
-  mount(false, "/Users/me/armada");
+  mount(false, "/Users/user/armada");
   await vi.waitFor(async () => {
     await userEvent.keyboard("{Meta>}{Alt>}s{/Alt}{/Meta}");
     await expect.element(panel(), { timeout: 300 }).toHaveTextContent('"command":"pnpm audit"');

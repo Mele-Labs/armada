@@ -17,8 +17,8 @@ function world(over: Partial<BlankWorld> = {}) {
     pulls: [linked("armada", 1899, "Plan windows"), linked("armada", 1901, "Palette acts")],
     issues: [linked("armada", 40, "Slow start")],
     repositories: [
-      { root: "/Users/me/armada", label: "armada" },
-      { root: "/Users/me/pocket", label: "Pocket" },
+      { root: "/Users/user/armada", label: "armada" },
+      { root: "/Users/user/pocket", label: "Pocket" },
     ],
     picked: null,
     run,
@@ -37,7 +37,7 @@ describe("what a row asks", () => {
   test("a shell line also asks for a repository where none is picked, last", () => {
     const audit = rowOf({ name: "A", shell: "pnpm audit {pr}", blanks: ["pr"] });
     expect(askedOf(audit, null)).toEqual(["pr", "repo"]);
-    expect(askedOf(audit, "/Users/me/armada")).toEqual(["pr"]);
+    expect(askedOf(audit, "/Users/user/armada")).toEqual(["pr"]);
   });
 
   test("a shell line whose blank is already a repository asks it once", () => {
@@ -45,7 +45,7 @@ describe("what a row asks", () => {
   });
 
   test("a row that asks nothing has no first step", () => {
-    const { given } = world({ picked: "/Users/me/armada" });
+    const { given } = world({ picked: "/Users/user/armada" });
     expect(firstStep(rowOf({ name: "A", shell: "pnpm audit" }), given)).toBeUndefined();
     expect(firstStep(rowOf({ name: "U", url: "https://forge.example/" }), given)).toBeUndefined();
   });
@@ -109,6 +109,6 @@ describe("answering", () => {
     const step = firstStep(row, given)!;
     expect(step).toMatchObject({ title: "Repository", act: "Run" });
     step.onChoose(step.entries[1]!);
-    expect(run).toHaveBeenCalledWith(row, { repo: { text: "Pocket", bare: "Pocket", root: "/Users/me/pocket" } });
+    expect(run).toHaveBeenCalledWith(row, { repo: { text: "Pocket", bare: "Pocket", root: "/Users/user/pocket" } });
   });
 });
