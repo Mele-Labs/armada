@@ -207,7 +207,7 @@ pub use scouting::{
 };
 pub use subagent_lines::{subagent_calls, subagent_parent, SubagentCall};
 pub use transcript::{background_form, init_commands, inside_a_subagent, sent_message, viewed_image, written_document, written_job_page};
-pub use watch_files::{triggers_on_base, watch_recipes_on_base};
+pub use watch_files::watch_recipes_on_base;
 pub use watch_lines::{carried_watch_recipes, read_watch, WATCH_READERS};
 pub use harness_home::AgentHome;
 pub use shared_home::{Folder, ForgeHomes};

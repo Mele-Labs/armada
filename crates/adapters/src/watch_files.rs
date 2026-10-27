@@ -5,13 +5,7 @@ use std::path::{Path, PathBuf};
 
 use git2::{ObjectType, Repository};
 
-const FOLDER: &str = ".armada/triggers";
 const WATCHES: &str = ".armada/watches";
-
-/// Goes with the Trigger callers in the commit that removes them.
-pub fn triggers_on_base(root: &Path, base: Option<&str>) -> Vec<(PathBuf, String)> {
-    read(root, base.unwrap_or("HEAD"), FOLDER).unwrap_or_default()
-}
 
 /// Every watch recipe in `.armada/watches/` at `base`, or at `HEAD` where the repository names no
 /// base, with its text. **Empty on any failure**: a repository whose files cannot be read has no

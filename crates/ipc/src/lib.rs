@@ -248,7 +248,6 @@ mod studio;
 /// What `add_studio_node` carries: any content, a Picture staged rather than kept.
 mod studio_added;
 mod studio_sketch;
-mod triggers;
 /// The lines a running log carries over its socket, and why one stopped arriving.
 mod underway;
 mod walk_steps;
@@ -661,11 +660,6 @@ pub use studio_added::{
 pub use studio_sketch::{
     EditStudioSketch, SketchBox, SketchDrawing, SketchDrawn, SketchJoin, SketchPicture,
     SketchPictureDrawn, SketchPoint, SketchStroke,
-};
-pub use triggers::{
-    LeftOutTrigger, OverriddenTrigger, RemoveTrigger, SaveTrigger, TriggerDefinition,
-    TriggerLevel, TriggerList, TriggerMoment, TriggerRemoved, TriggerRuns, TriggerSaved,
-    TriggerScope, TriggerSkip, TriggerSkipReason, TriggerSummary,
 };
 pub use watches::{
     collapsed, read_watch_line, watch_line, DeleteWatch, LoginShell, StartWatch, StopWatch, WatchList, WatchPart,

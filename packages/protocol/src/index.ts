@@ -92,6 +92,5 @@ export * from "./territory";
 export * from "./timeline";
 export * from "./act-failed";
 export * from "./bay-history";
-export * from "./triggers";
 export * from "./underway";
 export * from "./watches";

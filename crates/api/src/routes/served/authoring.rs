@@ -1,7 +1,6 @@
 //! What a person authors: the rows of [`SERVED`](super::SERVED) under
-//! `/workflows`, `/triggers` and `/mods`. The list, one definition, and the acts
-//! in the last segment, beside `/manifest/save_file`'s. `docs/concepts/trigger.md`,
-//! `docs/concepts/mods.md`.
+//! `/workflows` and `/mods`. The list, one definition, and the acts
+//! in the last segment, beside `/manifest/save_file`'s. `docs/concepts/mods.md`.
 
 use super::Route;
 
@@ -82,26 +81,6 @@ pub(super) const ROUTES: &[Route] = &[
         operation: "propose_workflow_to_armada",
         method: "POST",
         path: "/workflows/propose",
-    },
-    Route {
-        operation: "list_triggers",
-        method: "GET",
-        path: "/triggers",
-    },
-    Route {
-        operation: "get_trigger",
-        method: "GET",
-        path: "/triggers/definition",
-    },
-    Route {
-        operation: "save_trigger",
-        method: "POST",
-        path: "/triggers/save",
-    },
-    Route {
-        operation: "remove_trigger",
-        method: "POST",
-        path: "/triggers/remove",
     },
     // A mod is a folder on this machine, so none of these names a Job or a
     // repository but the promote, which names one in its body. The acts spell

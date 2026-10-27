@@ -26,7 +26,6 @@ mod recording;
 mod settings_watch;
 mod setup;
 mod test_map;
-mod trigger_authoring;
 mod watching;
 mod workspace_setup;
 mod workspaces;
