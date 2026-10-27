@@ -38,6 +38,7 @@ fn read(n: usize) -> KeptWatchReading {
             link: Some("https://ci.example.com/runs/1".into()),
             parts: vec![("build".into(), "passed".into()), ("deploy-api".into(), "running".into())],
         },
+        log: None,
     }
 }
 
@@ -52,6 +53,7 @@ fn a_watch_and_all_it_kept_survive_a_reopen() {
     let broken = KeptWatchReading {
         at: AT.into(),
         taken: KeptWatchTaken::Broken { why: "It printed nothing.".into(), output: Some("boom".into()) },
+        log: Some("/state/watch-logs/s1/w-1/reading.log".into()),
     };
     store.keep_watch_reading("w-1", &broken).unwrap();
     let aside = KeptWatchSetAside { part: "deploy-api".into(), sentence: "Another team's.".into(), at: AT.into() };

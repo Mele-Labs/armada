@@ -335,3 +335,45 @@ fn waiting_and_running_owe_nothing() {
         assert_eq!(notice(&kept, &watch), None);
     }
 }
+
+fn log_of(reading: Option<&WatchReading>) -> Option<String> {
+    match reading? {
+        WatchReading::Read { log, .. } | WatchReading::Broken { log, .. } => log.clone(),
+    }
+}
+
+#[tokio::test]
+async fn a_failed_reading_keeps_its_whole_output_as_a_log_until_the_watch_goes() {
+    let (rig, clock) = rig_held();
+    let job = rig.start().await;
+    line(&rig, "running", false, &[("build", "running")]);
+    let id = rig.fleet.start_watch(None, cat(&job, "line.json", None)).await.unwrap().id;
+    pass(&rig).await;
+    assert_eq!(log_of(the_watch(&rig, &job).await.last.as_ref()), None, "a reading that did not fail keeps no log");
+
+    line(&rig, "running", false, &[("build", "passed"), ("provision", "failed")]);
+    clock.on(31);
+    pass(&rig).await;
+    let failed = log_of(the_watch(&rig, &job).await.last.as_ref()).expect("a failed part keeps its log");
+    let text = std::fs::read_to_string(&failed).expect("the log is a file");
+    assert!(text.starts_with("stdout:\ndeploying\n"), "{text}");
+    assert!(text.contains(r#""name":"provision","state":"failed""#), "{text}");
+    assert!(text.contains("\nstderr:\n"), "{text}");
+
+    let mut broken = cat(&job, "missing.json", None);
+    broken.name = "Staging deploy".into();
+    let other = rig.fleet.start_watch(None, broken).await.unwrap().id;
+    pass(&rig).await;
+    let listed = rig.fleet.list_watches(None, Some(job.clone()), true).await.unwrap().watches;
+    let staging = listed.iter().find(|one| one.id == other).expect("listed");
+    let broke = log_of(staging.last.as_ref()).expect("a broken run keeps its log");
+    assert!(std::fs::read_to_string(&broke).unwrap().contains("missing.json"), "its stderr is kept");
+
+    rig.fleet.stop_watch(None, StopWatch { session_id: None, watch: id.clone() }).await.unwrap();
+    rig.fleet.delete_watch(None, ipc::DeleteWatch { session_id: None, watch: id }).await.unwrap();
+    assert!(!std::path::Path::new(&failed).exists(), "deleting the watch deletes its logs");
+    assert!(std::path::Path::new(&broke).exists(), "another watch's log stays");
+
+    Arc::clone(&rig.fleet).close_session(CloseSession { session_id: job.clone() }).await.expect("closed");
+    assert!(!std::path::Path::new(&broke).exists(), "the Job ending deletes the rest");
+}

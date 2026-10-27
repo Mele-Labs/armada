@@ -9,6 +9,7 @@
 
 pub(crate) mod environment;
 pub(crate) mod listening;
+mod logs;
 mod needing;
 mod running;
 mod serving;
@@ -270,6 +271,7 @@ fn wire_reading(one: &KeptWatchReading) -> WatchReading {
         ),
         KeptWatchTaken::Broken { why, output } => WatchReading::broken(at, why.clone(), output.clone()),
     }
+    .logged(one.log.clone())
 }
 
 /// What `list_watches` and `watches.changed` say of one watch, and where its environment came from

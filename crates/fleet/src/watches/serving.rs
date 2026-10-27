@@ -398,6 +398,7 @@ where
             store.delete_watch(&kept.watch.id).map_err(|why| self.ledger_fault(why))?;
             kept.watch.session_id
         };
+        self.watch_log_removed(&job, &delete.watch);
         self.watches_published(&job).await;
         self.watch_list(&job).await
     }

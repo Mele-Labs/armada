@@ -55,6 +55,7 @@ A watch ends `passed` only on a finished reading that is `passed` once counted w
 The readings keep the states their lines gave; only the watch's state changes.
 
 A run that exits non-zero, runs out of time or prints no such line is a **broken** reading, and its last output is kept.
+A reading that failed, overall or in a part, and a broken one keep the run's whole output as a log file under Fleet's state, linked from the reading; the file is deleted with the watch, or when its Job ends.
 
 Two rules every script keeps, because the line has no word for either:
 
@@ -267,6 +268,7 @@ The word is `docs/contracts/design-system/voice-copy.md`, *Lexicon*.
 | A terminal watch | `crates/fleet/src/watches/listening.rs` |
 | A Job's scratch folder | `crates/fleet/src/scratch.rs` |
 | The notices | `crates/fleet/src/watches/telling.rs` |
+| A failed reading's log file | `crates/fleet/src/watches/logs.rs` |
 | The Needs you item for a `not_ours` end | `crates/fleet/src/watches/needing.rs` |
 | What is kept | `crates/store/src/watches.rs` |
 | Bridge's copy of the wire | `packages/protocol/src/watches.ts` |

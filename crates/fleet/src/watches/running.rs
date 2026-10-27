@@ -233,9 +233,9 @@ where
     /// Run `kept`'s command once and keep what it read, unless `stopped` ends it first.
     async fn watch_run(self: &Arc<Self>, kept: KeptWatchWhole, stopped: tokio::sync::oneshot::Receiver<()>) {
         let id = kept.watch.id.clone();
-        let taken = match self.watch_folder(&kept.watch.session_id).await {
+        let (taken, log) = match self.watch_folder(&kept.watch.session_id).await {
             Folder::JobEnded => return self.watches_ended_with(&kept.watch.session_id).await,
-            Folder::Gone(why) => KeptWatchTaken::Broken { why, output: None },
+            Folder::Gone(why) => (KeptWatchTaken::Broken { why, output: None }, None),
             Folder::At(folder) => {
                 // Read at its start, and again only at its first run since Fleet started.
                 let login = match self.watches().environment_of(&id) {
@@ -257,12 +257,13 @@ where
                     .await
             }
         };
-        self.watch_read(&id, taken).await;
+        self.watch_read_ending(&id, taken, false, log).await;
     }
 
     /// Run `command` once for `job` in `folder`, given `login` with Fleet's mark and the Requests
     /// environment `environment` names laid over it, until `stop`. What it read, every secret's
-    /// value put back as its name. **The one run** a watch's reading and a try share.
+    /// value put back as its name, and its whole output for a log. **The one run** a watch's reading
+    /// and a try share.
     pub(crate) async fn watch_once(
         &self,
         job: &str,
@@ -271,7 +272,7 @@ where
         folder: &Path,
         login: &LoginEnvironment,
         stop: impl Future<Output = Stop>,
-    ) -> KeptWatchTaken {
+    ) -> (KeptWatchTaken, Option<String>) {
         let mut env = login.variables.clone();
         if let Some(mark) = crate::orphans::own_mark() {
             env.push((crate::orphans::MARK.to_string(), mark));
@@ -279,7 +280,7 @@ where
         let given = match environment {
             Some(named) => match self.watch_values(job, named).await {
                 Ok(given) => given,
-                Err(why) => return KeptWatchTaken::Broken { why, output: None },
+                Err(why) => return (KeptWatchTaken::Broken { why, output: None }, None),
             },
             None => None,
         };
@@ -287,7 +288,7 @@ where
         env.extend(given.iter().flat_map(|values| values.variables()));
         let budget = self.machine_settings().now().get(keys::WATCH_RUN_SECONDS);
         let Some((program, args)) = command.split_first() else {
-            return KeptWatchTaken::Broken { why: String::from("It names no command."), output: None };
+            return (KeptWatchTaken::Broken { why: String::from("It names no command."), output: None }, None);
         };
         let attempt = checks_runner::run_words(
             program.clone(),
@@ -301,19 +302,21 @@ where
             checks_runner::GRACE,
         )
         .await;
-        hidden(reading_of(&attempt, budget), &secrets)
+        let log = super::logs::log_text(&attempt).map(|text| crate::requesting::hidden(&text, &secrets));
+        (hidden(reading_of(&attempt, budget), &secrets), log)
     }
 
     /// Keep one reading of `id`, and what it comes to: its state, the end it reaches, and the
     /// notice it owes. **An ended watch keeps none**, so a run that finishes after a Stop changes
     /// nothing.
     pub(crate) async fn watch_read(self: &Arc<Self>, id: &str, taken: KeptWatchTaken) {
-        self.watch_read_ending(id, taken, false).await;
+        self.watch_read_ending(id, taken, false, None).await;
     }
 
     /// `watch_read`, and with `last` the watch ends on it as it reads: a terminal watch whose
-    /// terminal is gone has nothing left to hear.
-    pub(crate) async fn watch_read_ending(self: &Arc<Self>, id: &str, taken: KeptWatchTaken, last: bool) {
+    /// terminal is gone has nothing left to hear. A reading that failed or broke keeps `log`, its
+    /// run's whole output, as a file.
+    pub(crate) async fn watch_read_ending(self: &Arc<Self>, id: &str, taken: KeptWatchTaken, last: bool, log: Option<String>) {
         let now = self.now();
         let job = {
             let mut store = self.store().lock().await;
@@ -324,7 +327,7 @@ where
             let mut watch = domain(&kept);
             if let KeptWatchTaken::Read { .. } = &taken {
                 if let Some(reading) = domain(&KeptWatchWhole {
-                    readings: vec![KeptWatchReading { at: now.as_str().to_string(), taken: taken.clone() }],
+                    readings: vec![KeptWatchReading { at: now.as_str().to_string(), taken: taken.clone(), log: None }],
                     ..kept.clone()
                 })
                 .last
@@ -350,9 +353,18 @@ where
                 next.changed_at = now.as_str().to_string();
             }
             next.unsaid = unsaid(&store, id, &watch);
-            let reading = KeptWatchReading { at: now.as_str().to_string(), taken };
+            let job = kept.watch.session_id.as_str();
+            let log = log
+                .filter(|_| super::logs::failed(&taken))
+                .and_then(|text| self.watch_log_kept(job, id, now.as_str(), &text));
+            let reading = KeptWatchReading { at: now.as_str().to_string(), taken, log };
             if store.keep_watch_reading(id, &reading).is_err() || store.keep_watch(&next).is_err() {
                 return;
+            }
+            // The store keeps the newest readings only, and a reading it forgot takes its log with it.
+            if let Ok(Some(after)) = store.watch_whole(id) {
+                let named: Vec<&str> = after.readings.iter().filter_map(|one| one.log.as_deref()).collect();
+                self.watch_logs_pruned(job, id, &named);
             }
             let moved = reads_new || next.live != kept.watch.live;
             (next.session_id, moved, next.live != kept.watch.live)

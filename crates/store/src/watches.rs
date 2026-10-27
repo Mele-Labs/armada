@@ -64,6 +64,8 @@ pub enum KeptWatchTaken {
 pub struct KeptWatchReading {
     pub at: String,
     pub taken: KeptWatchTaken,
+    /// The file the run's whole output was kept in, for a reading that failed or broke.
+    pub log: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -178,9 +180,9 @@ impl Store {
             }
         };
         tx.execute(
-            "INSERT INTO watch_readings (watch_id, n, at, kind, state, finished, says, link, parts, why, output) \
-             VALUES (?1, (SELECT COALESCE(MAX(n), 0) + 1 FROM watch_readings WHERE watch_id = ?1), ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
-            params![watch, reading.at, kind, state, finished, says, link, parts, why, output],
+            "INSERT INTO watch_readings (watch_id, n, at, kind, state, finished, says, link, parts, why, output, log) \
+             VALUES (?1, (SELECT COALESCE(MAX(n), 0) + 1 FROM watch_readings WHERE watch_id = ?1), ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+            params![watch, reading.at, kind, state, finished, says, link, parts, why, output, reading.log],
         )
         .map_err(fault(doing))?;
         tx.execute(
@@ -332,7 +334,7 @@ impl Store {
         let mut asking = self
             .conn
             .prepare(
-                "SELECT at, kind, state, finished, says, link, parts, why, output FROM watch_readings \
+                "SELECT at, kind, state, finished, says, link, parts, why, output, log FROM watch_readings \
                  WHERE watch_id = ?1 ORDER BY n",
             )
             .map_err(fault(doing))?;
@@ -354,7 +356,7 @@ impl Store {
                         output: row.get(8)?,
                     },
                 };
-                Ok(KeptWatchReading { at: row.get(0)?, taken })
+                Ok(KeptWatchReading { at: row.get(0)?, taken, log: row.get(9)? })
             })
             .and_then(|rows| rows.collect::<Result<Vec<_>, _>>())
             .map_err(fault(doing))?;

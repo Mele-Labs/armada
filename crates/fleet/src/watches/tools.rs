@@ -84,7 +84,8 @@ where
         let (taken, cwd, login) = match self.watch_folder(&job).await {
             Folder::At(folder) => {
                 let login = environment::read(self.watches().shell().as_deref(), &folder).await;
-                let taken =
+                // A try keeps nothing, its log included.
+                let (taken, _) =
                     self.watch_once(&job, &command, environment.as_deref(), &folder, &login, std::future::pending()).await;
                 (taken, folder.to_string_lossy().into_owned(), login)
             }
@@ -98,7 +99,7 @@ where
                 (store::KeptWatchTaken::Broken { why, output: None }, String::new(), login)
             }
         };
-        let reading = wire_reading(&KeptWatchReading { at: self.now().as_str().to_string(), taken });
+        let reading = wire_reading(&KeptWatchReading { at: self.now().as_str().to_string(), taken, log: None });
         Ok(WatchTried { reading, command, cwd, path: login.path(), login_shell: login.wire(), scratch })
     }
 

@@ -60,8 +60,8 @@ pub struct WatchSetAside {
 ///
 /// **In `WatchSummary::readings`, back-to-back readings that read the same are one**: `at` is the
 /// first, `last_at` the last and `count` how many. Read is the same state, `finished`, `says`,
-/// `link` and parts; broken is the same `why`, and `output` is the last one's. The store keeps
-/// each; only the answer collapses them.
+/// `link` and parts; broken is the same `why`, and `output` is the last one's. A run's `log` is
+/// its last one's too. The store keeps each; only the answer collapses them.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum WatchReading {
@@ -74,6 +74,9 @@ pub enum WatchReading {
         link: Option<String>,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         parts: Vec<WatchPart>,
+        /// The whole output of a failed reading's run, as a file on this Mac. Absent for one that did not fail.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        log: Option<String>,
         /// How many readings in a row this stands for. Absent for one.
         #[serde(default = "one", skip_serializing_if = "is_one")]
         count: u32,
@@ -88,6 +91,9 @@ pub enum WatchReading {
         why: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         output: Option<String>,
+        /// The run's whole output, as a file on this Mac.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        log: Option<String>,
         #[serde(default = "one", skip_serializing_if = "is_one")]
         count: u32,
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -114,32 +120,42 @@ impl WatchReading {
         link: Option<String>,
         parts: Vec<WatchPart>,
     ) -> WatchReading {
-        WatchReading::Read { at, state, finished, says, link, parts, count: 1, last_at: None }
+        WatchReading::Read { at, state, finished, says, link, parts, log: None, count: 1, last_at: None }
     }
 
     /// One broken run as taken, standing for itself alone.
     pub fn broken(at: Instant, why: String, output: Option<String>) -> WatchReading {
-        WatchReading::Broken { at, why, output, count: 1, last_at: None }
+        WatchReading::Broken { at, why, output, log: None, count: 1, last_at: None }
+    }
+
+    /// The same reading, with the file its run's whole output was kept in.
+    pub fn logged(mut self, kept: Option<String>) -> WatchReading {
+        match &mut self {
+            WatchReading::Read { log, .. } | WatchReading::Broken { log, .. } => *log = kept,
+        }
+        self
     }
 
     /// `next` folded into `self` where the two read the same, else `next` back.
     fn folded(&mut self, next: WatchReading) -> Option<WatchReading> {
         match (self, next) {
             (
-                WatchReading::Read { state, finished, says, link, parts, count, last_at, .. },
-                WatchReading::Read { at, state: s, finished: f, says: w, link: l, parts: p, .. },
+                WatchReading::Read { state, finished, says, link, parts, log, count, last_at, .. },
+                WatchReading::Read { at, state: s, finished: f, says: w, link: l, parts: p, log: g, .. },
             ) if (*state, *finished, &*says, &*link, &*parts) == (s, f, &w, &l, &p) => {
                 *count += 1;
                 *last_at = Some(at);
+                *log = g;
                 None
             }
             (
-                WatchReading::Broken { why, output, count, last_at, .. },
-                WatchReading::Broken { at, why: y, output: o, .. },
+                WatchReading::Broken { why, output, log, count, last_at, .. },
+                WatchReading::Broken { at, why: y, output: o, log: g, .. },
             ) if *why == y => {
                 *count += 1;
                 *last_at = Some(at);
                 *output = o;
+                *log = g;
                 None
             }
             (_, next) => Some(next),

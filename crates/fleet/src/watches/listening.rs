@@ -79,7 +79,7 @@ where
         };
         let Some(mut heard) = self.session_runs().shell_heard(&kept.watch.session_id) else {
             let says = String::from("The Job's terminal is not open. type_in_terminal opens it.");
-            return self.watch_read_ending(&id, read(ReadingState::Failed, says), true).await;
+            return self.watch_read_ending(&id, read(ReadingState::Failed, says), true, None).await;
         };
         let mut pending = String::new();
         let (taken, last) = loop {
@@ -100,6 +100,6 @@ where
                 },
             }
         };
-        self.watch_read_ending(&id, taken, last).await;
+        self.watch_read_ending(&id, taken, last, None).await;
     }
 }

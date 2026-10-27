@@ -24,10 +24,13 @@ export type WatchSetAside = { part: string; sentence: string };
  */
 type WatchRun = { count?: number; last_at?: string };
 
-/** One reading: what the command's line said, or why it gave none. A broken run's `output` is its last one's. */
+/**
+ * One reading: what the command's line said, or why it gave none. A broken run's `output` is its last one's. `log` is the whole
+ * output of a run that failed or broke, as a file on this Mac; a run of readings carries its last one's.
+ */
 export type WatchReading =
-  | ({ kind: "read"; at: string; state: WatchReadingState; finished: boolean; says: string; link?: string; parts?: WatchPart[] } & WatchRun)
-  | ({ kind: "broken"; at: string; why: string; output?: string } & WatchRun);
+  | ({ kind: "read"; at: string; state: WatchReadingState; finished: boolean; says: string; link?: string; parts?: WatchPart[]; log?: string } & WatchRun)
+  | ({ kind: "broken"; at: string; why: string; output?: string; log?: string } & WatchRun);
 
 export type WatchSummary = {
   /** What `weigh_watch` and `stop_watch` name. */
