@@ -56,8 +56,8 @@ export type Draft = { id: string; path: string; line?: number; side?: DiffSide; 
 /** Where a review tool's definition came from, as a workflow's does: Armada's, his Kit's, or the repository's. */
 export type ToolSource = "armada" | "kit" | "repository";
 
-/** What a tool is drawn with. Armada's five have a mark each; one anybody adds takes the clipboard. */
-export type ToolMark = "risks" | "bugs" | "breaks" | "comments" | "walk" | "custom";
+/** What a tool or an explanation is drawn with. Armada's eight have a mark each; one anybody adds takes the clipboard. */
+export type ToolMark = "risks" | "bugs" | "breaks" | "walk" | "how" | "impact" | "test" | "why" | "custom";
 
 /** What a definition is for: a tool that finds things, or an explanation that tells him one thing about the pull request. */
 export type DefKind = "tool" | "explanation";
@@ -258,8 +258,10 @@ export type ReviewSnapshot = {
   failed: string | undefined;
   /** The finds he asked a Drone for, each a list in the dropdown. Fleet keeps them. */
   finds: readonly Find[];
-  /** `key` of the pull request open in the reader. */
+  /** `key` of the pull request open in the reader. Kept across a reload, and changed only by opening another. */
   open: string | undefined;
+  /** `key`s of the pull requests he opened by link, the latest first. Each is a row above whichever list is chosen, and is kept across a reload. */
+  linked: readonly string[];
   /** The Natural Search box is up, in place of the list. */
   searching: boolean;
   /** Asking before anything that spends tokens runs. One setting for all of it, turned off by "Don't ask again". Machine-local. */

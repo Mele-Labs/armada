@@ -4,7 +4,7 @@
 
 import type { WritePullRequest } from "@armada/protocol";
 import { expect, test } from "vitest";
-import { page } from "vitest/browser";
+import { page, userEvent } from "vitest/browser";
 
 import type { MockForge } from "./review-forge";
 import { s262PrReview } from "./scenarios/pr-review";
@@ -15,6 +15,7 @@ unmountAfterEach();
 const list = () => page.getByRole("region", { name: "Pull requests" });
 const reader = (number: number) => page.getByRole("region", { name: `Pull request #${number}` });
 const yours = () => page.getByRole("region", { name: "Your review" });
+const tile = (name: string) => page.getByRole("region", { name: "Flight controls" }).getByRole("button", { name, exact: true });
 const row = (number: number) => list().getByRole("button", { name: new RegExp(`^#${number} `) });
 
 async function reviews() {
@@ -75,10 +76,10 @@ test("a review goes out as one call with its line comment placed, and then it is
   await open(1899);
   await expect.element(reader(1899)).toBeVisible();
   // The changes are in the explanation, which an agent reads once he has said it may run.
-  await reader(1899).getByRole("region", { name: "Quick actions" }).getByRole("tab", { name: "How it works" }).click();
+  await tile("How it works").click();
   await page.getByRole("dialog", { name: "How it works" }).getByRole("button", { name: "Run" }).click();
   await expect.element(reader(1899).getByRole("region", { name: "Theme: Fleet keeps the last read" })).toBeVisible();
-  await page.getByRole("region", { name: "Flight controls" }).getByRole("button", { name: "Comments" }).click();
+  await reader(1899).getByRole("tab", { name: "Review", exact: true }).click();
   const serve = reader(1899).getByRole("article", { name: "Change: Serve it while it is fresh" });
   const form = reader(1899).getByRole("form", { name: "Comment" });
   const addComment = async (words: string) => {
@@ -87,7 +88,7 @@ test("a review goes out as one call with its line comment placed, and then it is
   };
 
   // A line of the hunk, and then the change itself.
-  await serve.getByRole("button", { name: "Show change" }).click();
+  await serve.getByRole("button", { name: "Show diff" }).click();
   await serve.getByRole("button", { name: /Comment on \+ let mut held = self\.held\.lock/ }).click();
   await addComment("Take the lock after the call.");
   await serve.getByRole("button", { name: "Comment on Serve it while it is fresh" }).click();
@@ -118,7 +119,7 @@ test("a review the forge refuses keeps the comment and the summary, and says why
   (app.api as typeof app.api & Pick<MockForge, "refuseNextWrite">).refuseNextWrite("Can not approve your own pull request");
 
   await open(1899);
-  await page.getByRole("region", { name: "Flight controls" }).getByRole("button", { name: "Comments" }).click();
+  await reader(1899).getByRole("tab", { name: "Review", exact: true }).click();
   await yours().getByRole("textbox", { name: "Summary" }).fill("Looks right to me.");
   await yours().getByRole("tab", { name: "Approve" }).click();
   await yours().getByRole("button", { name: "Submit review" }).click();
@@ -150,7 +151,7 @@ test("a pull request one of his Sessions holds opens with what was kept for it, 
   await expect.element(reader(1896).getByRole("button", { name: "Job: Fix the reconnect wait" })).toBeVisible();
   const how = reader(1896).getByRole("region", { name: "How it works" });
   await expect.element(how.getByRole("img", { name: /^Kept/ })).toBeVisible();
-  await reader(1896).getByRole("region", { name: "Quick actions" }).getByRole("tab", { name: "Why" }).click();
+  await tile("Why").click();
   await expect.element(reader(1896).getByRole("region", { name: "Why" }).getByRole("img", { name: /^Kept/ })).toBeVisible();
   await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
 });
@@ -169,6 +170,70 @@ test("a run that fails shows Fleet's reason where the result would be, and Run a
   await page.getByRole("dialog", { name: "Risks" }).getByRole("button", { name: "Run" }).click();
   await expect.element(results.getByRole("img", { name: "Nothing found" })).toBeVisible();
   await expect.element(results.getByRole("alert")).not.toBeInTheDocument();
+});
+
+test("Esc in the list leaves the pull request open: only another row changes it", async () => {
+  await reviews();
+  await open(1899);
+  (row(1899).element() as HTMLElement).focus();
+  await userEvent.keyboard("{Escape}");
+  await userEvent.keyboard("{Escape}");
+  await expect.element(reader(1899)).toBeVisible();
+  await open(212);
+  await expect.element(reader(1899)).not.toBeInTheDocument();
+});
+
+test("a pull request opened by its link has a row above whichever list is chosen", async () => {
+  await reviews();
+  await list().getByRole("textbox", { name: "Pull request link" }).fill("https://forge.example/mele-labs/armada/pull/1905");
+  await userEvent.keyboard("{Enter}");
+  await expect.element(reader(1905)).toBeVisible();
+  await expect.element(row(1905)).toHaveAttribute("aria-current", "true");
+  await open(1899);
+  await choose("Team");
+  await row(1905).click();
+  await expect.element(reader(1905)).toBeVisible();
+});
+
+test("Review, a tab beside Commits, shows his review, with Comment, Approve and Request changes", async () => {
+  await reviews();
+  await open(1899);
+  await reader(1899).getByRole("tab", { name: "Review", exact: true }).click();
+  await expect.element(yours().getByRole("tab", { name: "Approve" })).toBeVisible();
+  await expect.element(yours().getByRole("tab", { name: "Request changes" })).toBeVisible();
+  await expect.element(yours().getByRole("button", { name: "Submit review" })).toBeVisible();
+});
+
+test("a pending comment says the file, line and code it is on, and a press goes to it in the diff", async () => {
+  await reviews();
+  await open(1899);
+  await reader(1899).getByRole("tab", { name: "Review", exact: true }).click();
+  await reader(1899).getByRole("button", { name: /^Comment on \+ let mut held = self\.held\.lock/ }).click();
+  await reader(1899).getByRole("textbox", { name: "Comment" }).fill("Take the lock after the call.");
+  await reader(1899).getByRole("form", { name: "Comment" }).getByRole("button", { name: "Add to review" }).click();
+  await expect.element(reader(1899).getByRole("tab", { name: "Review · 1" })).toBeVisible();
+
+  const pending = yours().getByRole("button", { name: /^Go to your comment on .+:31$/ });
+  await expect.element(pending).toHaveTextContent("let mut held = self.held.lock");
+  const card = reader(1899).getByRole("article", { name: "Pending comment" });
+  const change = reader(1899).getByRole("article", { name: /^Change: / }).filter({ has: page.getByRole("article", { name: "Pending comment" }) });
+  await change.getByRole("button", { name: "Hide diff" }).click();
+  await expect.element(card).not.toBeInTheDocument();
+
+  await pending.click();
+  await expect.element(card).toHaveFocus();
+});
+
+test("Flight control holds the explanations beside the tools, and no Comments tile", async () => {
+  await reviews();
+  await open(1899);
+  await expect.element(tile("Comments")).not.toBeInTheDocument();
+  await expect.element(reader(1899).getByRole("region", { name: "Quick actions" })).not.toBeInTheDocument();
+  await tile("How it works").click();
+  await page.getByRole("dialog", { name: "How it works" }).getByRole("button", { name: "Run" }).click();
+  await expect.element(reader(1899).getByRole("region", { name: "Theme: Fleet keeps the last read" })).toBeVisible();
+  await expect.element(tile("How it works")).toHaveAttribute("aria-pressed", "true");
+  await expect.element(tile("Risks")).toBeVisible();
 });
 
 test("a tool whose name is taken is refused in Fleet's words, beside Save", async () => {

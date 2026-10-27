@@ -12,7 +12,7 @@ import type { ToolDef } from "./model";
 import type { ReviewWalkNote, ShownReviewWalk } from "../../../shared/review-walk";
 import type { Read, ReviewSource } from "./source";
 import { createReviewStore } from "./store";
-import { COMMENTS_TOOL } from "./tools";
+import { tilesOf, toolsOf } from "./tools";
 
 const row = (number: number, at: string, over: Partial<PullReviewRow> = {}): PullReviewRow => ({
   manifest_id: "m1",
@@ -429,6 +429,20 @@ test("Submit posts the drafts as one review: a reply, a line, a file, and the co
   expect(work.submitting).toBe(false);
 });
 
+test("pending comments are still in the review in the next store, and gone from it once Submit is taken", async () => {
+  const { store, key } = await opened();
+  store.addDraft(key, { path: "a.rs", line: 12, side: "right", body: "Take the lock after the call" });
+  store.addDraft(key, { path: "b.rs", body: "Whole file note" });
+  store.removeDraft(key, store.get().work[key]!.drafts[1]!.id);
+  const next = createReviewStore(fake().source);
+  expect(next.get().work[key]!.drafts).toEqual([expect.objectContaining({ path: "a.rs", line: 12, side: "right", body: "Take the lock after the call" })]);
+  // One added after a reload is not given an id a kept one already has.
+  next.addDraft(key, { path: "c.rs", body: "Another" });
+  expect(new Set(next.get().work[key]!.drafts.map((one) => one.id)).size).toBe(2);
+  await next.submit(key, "comment", "");
+  expect(createReviewStore(fake().source).get().work[key]!.drafts).toEqual([]);
+});
+
 test("an approval with nothing to say posts no body and no comments", async () => {
   const { store, calls, key } = await opened();
   await store.submit(key, "approve", "");
@@ -462,18 +476,20 @@ test("a thread is resolved at the forge and then here, and a refusal changes not
 });
 
 const toolOf = (store: ReturnType<typeof createReviewStore>, id: string): ToolDef => {
-  const found = [...(store.get().tools["m1"] ?? []), COMMENTS_TOOL].find((one) => one.id === id);
+  const found = (store.get().tools["m1"] ?? []).find((one) => one.id === id);
   if (found === undefined) throw new Error(`no tool ${id}`);
   return found;
 };
 
-test("the tools are read once for a repository, and Comments stays Bridge's own", async () => {
+test("the tools are read once for a repository, and the explanations are the first tiles", async () => {
   const { store } = await opened();
   expect(store.get().tools["m1"]!.map((one) => one.id)).toEqual(["risks", "api-breaking-changes", "how-it-works", "why"]);
   expect(store.get().tools["m1"]!.find((one) => one.id === "risks")).toMatchObject({ mark: "risks", agent: true, source: "armada" });
   expect(store.get().tools["m1"]!.find((one) => one.id === "why")?.replaces).toBe("armada");
   expect(store.get().leftOut["m1"]).toEqual([{ file: "/kit/notes.md", source: "kit", said: "No kind in its front matter" }]);
-  expect(COMMENTS_TOOL.agent).toBe(false);
+  // Comments is not a tool: his review is the reader's Review tab. The explanations are the first tiles, then the tools.
+  expect(tilesOf(toolsOf(store.get(), "m1")).map((one) => one.id)).toEqual(["how-it-works", "why", "risks", "api-breaking-changes"]);
+  expect(store.get().tools["m1"]!.find((one) => one.id === "how-it-works")?.mark).toBe("how");
 });
 
 test("a row's holder is the Session that holds the pull request", async () => {
@@ -679,7 +695,7 @@ const found = (over: Partial<WalkPlaceFound> = {}): WalkPlaceFound => ({ area: "
 test("the Walk writes against the place Fleet found, and a press alone starts no run", async () => {
   const place = { how: "deployed", address: "https://pr-1.preview.test" } as const;
   const { store, calls, key } = await opened({ findPlace: async () => ({ ok: true, value: found({ place, tried: [{ source: "pull_request", found: true, said: "Preview ready", by: "preview-bot" }] }) }) });
-  const walk = [...(store.get().tools["m1"] ?? []), COMMENTS_TOOL].find((one) => one.mark === "walk") ?? { id: "walk", kind: "tool", name: "Walk", source: "armada", mark: "walk", checks: "", agent: true };
+  const walk = (store.get().tools["m1"] ?? []).find((one) => one.mark === "walk") ?? { id: "walk", kind: "tool", name: "Walk", source: "armada", mark: "walk", checks: "", agent: true };
   store.runTool(key, walk as ToolDef);
   await settle();
   expect(calls.starts).toEqual([]);
@@ -835,6 +851,29 @@ test("a pull request a list already holds is opened as it is, not taken twice", 
   expect(store.get().prs).toHaveLength(1);
   expect(store.get().prs[0]!.lists).toEqual(["requested"]);
   expect(store.get().open).toBe(key);
+});
+
+test("a pull request opened by link is still listed and open in the next store, and stays through a fetch", async () => {
+  const first = createReviewStore(fake({ pull: async (_id, number) => ({ ok: true, value: standing(number, { title: "Not on a list" }) }) }).source);
+  await first.openLink("m1", { owner: "Mele-Labs", name: "armada", number: 77 });
+  await settle();
+  const next = createReviewStore(fake().source);
+  await settle();
+  expect(next.get().open).toBe("Mele-Labs/armada#77");
+  expect(next.get().linked).toEqual(["Mele-Labs/armada#77"]);
+  expect(next.get().prs.find((one) => one.key === "Mele-Labs/armada#77")).toMatchObject({ title: "Not on a list", lists: [] });
+  expect(next.get().work["Mele-Labs/armada#77"]!.page.state).toBe("read");
+  next.fetch();
+  await settle();
+  expect(next.get().prs.map((one) => one.key)).toEqual(["Mele-Labs/armada#77"]);
+  expect(next.get().open).toBe("Mele-Labs/armada#77");
+});
+
+test("the pull request open from a list is open again in the next store, and one closed stays closed", async () => {
+  const { store } = await opened();
+  expect(createReviewStore(fake().source).get().open).toBe("Mele-Labs/armada#1");
+  store.open(undefined);
+  expect(createReviewStore(fake().source).get().open).toBeUndefined();
 });
 
 test("a link to a pull request the forge would not give, or one that is no longer open, opens nothing and says why", async () => {
