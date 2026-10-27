@@ -21,10 +21,10 @@ afterEach(() => {
 
 const ARMADA = { ...repository(), manifest: { ...repository().manifest!, id: "armada" } };
 
-const task = (id: string, title: string, state: "open" | "done" | "asked" = "open") => ({ kind: "task", id, title, notes: "", state }) as const;
+const task = (id: string, title: string, state: "open" | "done" | "asked" = "open") => ({ kind: "task", id, manifest_id: "armada", title, notes: "", state }) as const;
 const SEED = (): Projects => ({
-  manifest_id: "armada",
   projects: [{ id: "p1", name: "Pocket launch", rows: [task("t1", "Pair a phone"), task("t2", "Sign the build", "asked"), task("t3", "Pick the icon")] }],
+  loose: [],
 });
 
 /** Fleet as far as the card list reads it: each write is noted, applied to what Fleet holds, and answered with the projects whole. */
@@ -34,15 +34,15 @@ function fleet() {
   const answer = async () => ({ ok: true, value: structuredClone(held) }) as const;
   return {
     listProjects: vi.fn(answer),
-    tickProjectTask: vi.fn(async (_manifest: string, _project: string, row: string, body: { done: boolean }) => {
+    tickProjectTask: vi.fn(async (row: string, body: { done: boolean }) => {
       for (const one of rows()) if (one.id === row && one.kind === "task") one.state = body.done ? "done" : "open";
       return answer();
     }),
-    removeProjectRow: vi.fn(async (_manifest: string, _project: string, row: string) => {
+    removeProjectRow: vi.fn(async (row: string) => {
       held.projects[0]!.rows = rows().filter((one) => one.id !== row);
       return answer();
     }),
-    moveProjectRow: vi.fn(async (_manifest: string, _project: string, row: string, body: { position: number }) => {
+    moveProjectRow: vi.fn(async (row: string, body: { position: number }) => {
       const from = rows().findIndex((one) => one.id === row);
       rows().splice(body.position, 0, rows().splice(from, 1)[0]!);
       return answer();
@@ -62,7 +62,7 @@ async function mount(source: ReturnType<typeof fleet>) {
       <ProjectsSurface picked={ARMADA} repositories={[ARMADA]} onOpenSession={() => {}} onOpenLink={() => {}} />
     </ProjectsFrom>,
   );
-  store.load(["armada"]);
+  store.load();
   await expect.poll(() => source.listProjects.mock.calls.length).toBe(1);
   await expect.poll(() => store.get().projects.length).toBe(1);
   store.open("p1");
@@ -94,9 +94,10 @@ test("d ticks the card under focus and the tick is written through Fleet", async
 
   await userEvent.keyboard("d");
 
-  await expect.element(page.getByRole("checkbox", { name: "Done: Pick the icon" })).toBeVisible();
+  // Done cards are hidden until he shows them, so the card leaves the list.
+  await expect.element(card("Pick the icon")).not.toBeInTheDocument();
   await expect.poll(() => source.tickProjectTask.mock.calls.length).toBe(1);
-  expect(source.tickProjectTask).toHaveBeenCalledWith("armada", "p1", "t3", { done: true });
+  expect(source.tickProjectTask).toHaveBeenCalledWith("t3", { done: true });
 });
 
 test("Backspace deletes the card, writes it through Fleet and offers it back", async () => {
@@ -108,7 +109,7 @@ test("Backspace deletes the card, writes it through Fleet and offers it back", a
 
   await expect.element(card("Pick the icon")).not.toBeInTheDocument();
   await expect.poll(() => source.removeProjectRow.mock.calls.length).toBe(1);
-  expect(source.removeProjectRow).toHaveBeenCalledWith("armada", "p1", "t3");
+  expect(source.removeProjectRow).toHaveBeenCalledWith("t3");
 });
 
 test("Option-down moves the card a place and the place is written through Fleet", async () => {
@@ -119,7 +120,7 @@ test("Option-down moves the card a place and the place is written through Fleet"
   await userEvent.keyboard("{Alt>}{ArrowDown}{/Alt}");
 
   await expect.poll(() => source.moveProjectRow.mock.calls.length).toBe(1);
-  expect(source.moveProjectRow).toHaveBeenCalledWith("armada", "p1", "t1", { position: 1 });
+  expect(source.moveProjectRow).toHaveBeenCalledWith("t1", { position: 1 });
 });
 
 test("a task Fleet asks about draws as Done? and D answers it done, through Fleet", async () => {
@@ -130,9 +131,10 @@ test("a task Fleet asks about draws as Done? and D answers it done, through Flee
 
   await userEvent.keyboard("D");
 
-  await expect.element(page.getByRole("checkbox", { name: "Done: Sign the build" })).toBeVisible();
+  // Done cards are hidden until he shows them, so the card leaves the list.
+  await expect.element(card("Sign the build")).not.toBeInTheDocument();
   await expect.poll(() => source.tickProjectTask.mock.calls.length).toBe(1);
-  expect(source.tickProjectTask).toHaveBeenCalledWith("armada", "p1", "t2", { done: true });
+  expect(source.tickProjectTask).toHaveBeenCalledWith("t2", { done: true });
 });
 
 test("K keeps the asked task open, and writes that through Fleet", async () => {
@@ -144,5 +146,5 @@ test("K keeps the asked task open, and writes that through Fleet", async () => {
 
   await expect.element(page.getByRole("checkbox", { name: "Open: Sign the build" })).toBeVisible();
   await expect.poll(() => source.tickProjectTask.mock.calls.length).toBe(1);
-  expect(source.tickProjectTask).toHaveBeenCalledWith("armada", "p1", "t2", { done: false });
+  expect(source.tickProjectTask).toHaveBeenCalledWith("t2", { done: false });
 });

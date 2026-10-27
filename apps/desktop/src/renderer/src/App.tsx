@@ -246,7 +246,7 @@ export function App() {
   // screen owned would be gone after one look at the Board.
   // The repository the rail picked. Main holds it, so every read below is taken after main moved.
   const repositories = state.holds.repositories ?? [];
-  useProjectsFollowed(repositories, state.connection.state === "connected");
+  useProjectsFollowed(state.connection.state === "connected");
   const projectsStore = useProjectsStore();
   const paletteTasks = usePaletteTasks(repositories); // The palette finds a task by its title: `projects-tab/palette.ts`.
   const repository = state.repository ?? undefined;

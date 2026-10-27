@@ -682,7 +682,7 @@ where
     ) -> Result<SessionRecord, Refusal> {
         let id = self.waiting_session(caller, done.session_id.as_ref())?;
         let now = self.clock().now().as_str().to_string();
-        let (asked, manifest);
+        let asked;
         let record = {
             let mut store = self.store().lock().await;
             let session = store
@@ -698,12 +698,11 @@ where
                 .map_err(|why| self.ledger_fault(why))?;
             // Done is one of the two ways a held task is asked about: the other is the merge.
             asked = store.ask_held_project_tasks(&id, &now).map_err(|why| self.ledger_fault(why))? > 0;
-            manifest = session.manifest_id.clone();
             self.ledger_row(&store, &session)?
         };
         self.publish(ipc::Event::SessionChanged(record.clone()));
-        if let (true, Some(manifest)) = (asked, manifest) {
-            self.projects_published(&manifest).await;
+        if asked {
+            self.projects_published().await;
         }
         Ok(record)
     }

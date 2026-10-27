@@ -44,8 +44,7 @@ export function useProjectsFiling(picked: RepositorySummary | null, repositories
       };
     },
     add: (words, kind) => {
-      const repo = home();
-      if (kind === "project" && repo !== undefined) void store.addProject(words, repo, false);
+      if (kind === "project") void store.addProject(words, false);
     },
   };
 }

@@ -63,7 +63,7 @@ export interface ArrivalHost {
   readonly planUsage: Pick<PlanUsageHost, "changed">;
   /** The default model's step down, told when Fleet moves it and read once per connection — `model-downshift.ts`. */
   readonly modelDownshift: Pick<ModelDownshiftHost, "changed" | "seed">;
-  /** A repository's projects, told whole after any write to one — `projects.ts`. */
+  /** His projects, told whole after any write to one — `projects.ts`. */
   readonly projects: Pick<ProjectsHost, "changed">;
   /** The agents' sign-in, told when Fleet moves it and read once per connection — `agent-sign-in.ts`. */
   readonly agentSignIn: Pick<AgentSignInHost, "changed" | "seed">;

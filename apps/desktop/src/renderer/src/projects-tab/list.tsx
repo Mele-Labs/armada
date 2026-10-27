@@ -50,14 +50,14 @@ export function RenameProject({ id, name }: { id: string; name: string }) {
   );
 }
 
-/** The new project's name, at the foot of the projects. Enter adds it and opens it; Esc puts the field away. `home` is the repository Fleet keeps it under. */
-export function NameProject({ home, open = true }: { home: string; open?: boolean }) {
+/** The new project's name, at the foot of the projects. Enter adds it and opens it; Esc puts the field away. */
+export function NameProject({ open = true }: { open?: boolean }) {
   const store = useProjectsStore()!;
   const keep = "projects:name";
   const [name, setName] = useState("");
   const add = () => {
     if (name.trim() === "") return;
-    store.addProject(name.trim(), home, open);
+    store.addProject(name.trim(), open);
     forgetKept(keep);
     setName("");
   };

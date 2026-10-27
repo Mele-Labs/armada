@@ -1,7 +1,6 @@
 // What Fleet lists, read into what the tab draws. Fleet's rows are flat, a parent followed by its subtasks; the tab nests them.
-// A tracker's reference is `7` on the wire and `#7` where the tab and the Issues tab name it. **Today's Fleet keeps each project
-// in one repository**: every row of a project takes that repository's Manifest id, and a repository's tasks in no project are the
-// project with the id `own:<manifest id>`, which the tab reads as loose tasks and never lists.
+// A tracker's reference is `7` on the wire and `#7` where the tab and the Issues tab name it. **A project is his and spans
+// repositories**: every row names its own, and the tasks in no project come as `loose`.
 
 import type { ProjectRow as WireRow, Projects, TaskIssue, TaskPull } from "@armada/protocol";
 
@@ -13,10 +12,8 @@ export const referenceOf = (issue: string): string => (/^\d+$/.test(issue.trim()
 const linked = (one: TaskIssue): Linked => ({ reference: referenceOf(one.issue), title: one.title ?? "", url: "", state: one.state ?? "open" });
 const pulled = (one: TaskPull): LinkedPull => ({ number: one.number, title: one.title ?? "", url: "", state: one.state ?? "open" });
 
-/** The id Fleet keeps a repository's tasks in no project under. Only the store's writes and the mock Fleet name it. */
-export const ownWire = (manifestId: string): string => `own:${manifestId}`;
-
-function rowOf(row: WireRow, manifestId: string): ProjectRow {
+function rowOf(row: WireRow): ProjectRow {
+  const manifestId = row.manifest_id;
   if (row.kind === "issue") return { kind: "issue", id: row.id, manifestId, ...linked({ issue: row.issue, ...(row.title === undefined ? {} : { title: row.title }), ...(row.state === undefined ? {} : { state: row.state }) }) } satisfies IssueRow;
   return {
     kind: "task",
@@ -33,31 +30,29 @@ function rowOf(row: WireRow, manifestId: string): ProjectRow {
 }
 
 /** A project's rows, each task's subtasks under it. */
-function rowsOf(rows: readonly WireRow[], manifestId: string): ProjectRow[] {
+function rowsOf(rows: readonly WireRow[]): ProjectRow[] {
   const out: ProjectRow[] = [];
   const tops = new Map<string, TaskRow>();
   for (const row of rows) {
     if (row.kind === "task" && row.parent !== undefined) continue;
-    const read = rowOf(row, manifestId);
+    const read = rowOf(row);
     out.push(read);
     if (read.kind === "task") tops.set(read.id, read);
   }
   for (const row of rows) {
     if (row.kind !== "task" || row.parent === undefined) continue;
     const parent = tops.get(row.parent);
-    if (parent !== undefined) parent.subtasks = [...(parent.subtasks ?? []), rowOf(row, manifestId) as TaskRow];
+    if (parent !== undefined) parent.subtasks = [...(parent.subtasks ?? []), rowOf(row) as TaskRow];
   }
   return out;
 }
 
-/** One repository's projects, the repository's tasks in no project left out. `used` is when each project was last used on this Mac, by id. */
+/** His projects, in his order. `used` is when each project was last used on this Mac, by id. */
 export function projectsOf(wire: Projects, used: ReadonlyMap<string, number>): Project[] {
-  return wire.projects
-    .filter((project) => project.id !== ownWire(wire.manifest_id))
-    .map((project) => ({ id: project.id, name: project.name, rows: rowsOf(project.rows, wire.manifest_id), usedAt: used.get(project.id) ?? 0 }));
+  return wire.projects.map((project) => ({ id: project.id, name: project.name, rows: rowsOf(project.rows), usedAt: used.get(project.id) ?? 0 }));
 }
 
-/** One repository's tasks in no project. */
+/** The tasks in no project, of every repository. */
 export function looseOf(wire: Projects): ProjectRow[] {
-  return wire.projects.filter((project) => project.id === ownWire(wire.manifest_id)).flatMap((project) => rowsOf(project.rows, wire.manifest_id));
+  return rowsOf(wire.loose);
 }

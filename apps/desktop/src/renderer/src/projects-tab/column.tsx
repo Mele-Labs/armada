@@ -29,7 +29,6 @@ type Props = {
 export function Column({ bands, view, repo, query, searching, onQuery, onView, onRepo, onProject }: Props) {
   const store = useProjectsStore()!;
   const snap = useProjects();
-  const home = bands[0]?.manifestId;
   return (
     <section className="deck-panel deck-list projects-list" aria-label="Projects" tabIndex={-1}>
       <ul className="deck-list__rows projects-list__rows">
@@ -58,13 +57,11 @@ export function Column({ bands, view, repo, query, searching, onQuery, onView, o
         <li className="projects-section" aria-label="Your projects">
           <div className="projects-section__head">
             <h3 className="projects-section__label">Projects</h3>
-            {home === undefined ? null : (
-              <Tooltip label="New project" shortcut={capOf(PROJECTS_KEYS.newProject)} asChild>
-                <button type="button" className="projects-band__new" aria-label="New project" onClick={() => store.name(true)}>
-                  <Plus size={16} strokeWidth={2} aria-hidden />
-                </button>
-              </Tooltip>
-            )}
+            <Tooltip label="New project" shortcut={capOf(PROJECTS_KEYS.newProject)} asChild>
+              <button type="button" className="projects-band__new" aria-label="New project" onClick={() => store.name(true)}>
+                <Plus size={16} strokeWidth={2} aria-hidden />
+              </button>
+            </Tooltip>
           </div>
           <ul className="deck-list__group">
             {snap.projects.map((one) => (
@@ -80,7 +77,7 @@ export function Column({ bands, view, repo, query, searching, onQuery, onView, o
               </li>
             ))}
           </ul>
-          {snap.naming && home !== undefined ? <NameProject home={home} /> : null}
+          {snap.naming ? <NameProject /> : null}
         </li>
         <li className="projects-rule" role="separator" />
         <li className="projects-section" aria-label="Repositories">
