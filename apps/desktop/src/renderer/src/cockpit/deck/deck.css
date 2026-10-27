@@ -51,6 +51,26 @@
 .armada-shell__body[data-deck] > .armada-shell__work { margin-left: 0; }
 .armada-shell__work[data-deck] > .armada-shell__panel { margin-right: 0; }
 .armada-screen__mounted[data-deck] { padding-top: var(--deck-gutter); }
+/* The search bar is System's on every page, at the app's measure and not the deck's: the mount, above the deck, keeps
+   the app's pair and ladder under these names, and the bar takes them back. */
+.armada-screen__mounted {
+  --app-h-control: var(--h-control);
+  --app-text-2xs: var(--text-2xs);
+  --app-leading-2xs: var(--leading-2xs);
+  --app-text-xs: var(--text-xs);
+  --app-leading-xs: var(--leading-xs);
+  --app-text-sm: var(--text-sm);
+  --app-leading-sm: var(--leading-sm);
+}
+.deck .armada-input-field:has([data-search-field]) {
+  --h-control: var(--app-h-control);
+  --text-2xs: var(--app-text-2xs);
+  --leading-2xs: var(--app-leading-2xs);
+  --text-xs: var(--app-text-xs);
+  --leading-xs: var(--app-leading-xs);
+  --text-sm: var(--app-text-sm);
+  --leading-sm: var(--app-leading-sm);
+}
 .armada-screen__overview[data-deck] { padding: 0; }
 .deck [data-hue="ask"],
 .deck [data-hue="issue"] { --hue: var(--status-awaiting-review); }

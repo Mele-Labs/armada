@@ -1,7 +1,7 @@
 // Projects, the fourth pass, mock only: a subtask dispatched on its own with its parent as context, the add key's hint inside the
 // field, the search at the top of the left column, and the palette finding a task by its title. Over the scenario `projects`.
 
-import { button, dialog, inside, place, region, role, walk } from "../walk";
+import { button, dialog, inside, place, region, role, text, walk } from "../walk";
 import type { Step } from "../walk";
 
 const places = role("navigation", "Places");
@@ -28,6 +28,9 @@ function steps(): Step[] {
     { key: "ArrowDown", on: search, say: "↓ moves to the first result" },
     { key: "Escape", on: role("group", "Pair a phone by QR code"), say: "Esc clears the search" },
     { look: pocket, say: "Pocket launch, the project that was open, is back" },
+    { type: "small screen", into: search, say: "Words that find a subtask and not its parent" },
+    { look: inside(results, text("Pair a phone by QR code")), say: "Its parent's title, faint, above it" },
+    { key: "Escape", on: search, say: "Esc clears the search" },
     { press: place("Logbook"), say: "Another page" },
     { key: "Meta+k", on: places, say: "⌘K" },
     { type: "sitemap", into: bar, say: "A task's title" },

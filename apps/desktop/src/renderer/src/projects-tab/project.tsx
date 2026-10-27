@@ -67,6 +67,12 @@ export function useCards({ onOpenSession, onOpenLink, onDispatch }: Hosts, label
       data-lifted={dragging?.key === row.id || undefined}
       data-drop={dragging?.drop?.key === row.id ? (dragging.drop.after ? "after" : "before") : undefined}
     >
+      {/* A subtask a search found without its parent names the parent, faintly, above it. */}
+      {parent !== undefined && list !== parent.id ? (
+        <p className="projects-item-card__parent" aria-label={`Subtask of ${parent.title}`}>
+          {parent.title}
+        </p>
+      ) : null}
       <Card
         row={row}
         sub={parent !== undefined}
