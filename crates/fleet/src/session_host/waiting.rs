@@ -988,7 +988,9 @@ where
 
     /// `dismiss_waiting`: drop one item for good. **An item the agent stated is told so**: the session
     /// is sent `Owner removed "<item text>"`, with `: <reason>` after it where the person gave one, so
-    /// the agent does not state it again for want of knowing. An item Fleet derived is only dropped.
+    /// the agent does not state it again for want of knowing. **A draft is withdrawn**: the session is
+    /// sent `Withdrawn: <title>`, not to propose it again, and the row is settled `withdrawn` with the
+    /// reason. Any other item Fleet derived is only dropped.
     /// The message goes first, so a send that fails leaves the item standing to try again.
     pub(crate) async fn dismiss_waited(
         self: Arc<Self>,
@@ -1052,6 +1054,7 @@ where
         let told = match item.source {
             WaitingSource::Agent => Some(removed(&item.text, dismiss.reason.as_deref())),
             WaitingSource::Plan => Some(super::planning::NOT_YET_TOLD.to_string()),
+            WaitingSource::Draft => Some(drafting::withdrawn(&item.text, dismiss.reason.as_deref())),
             _ => None,
         };
         if let Some(text) = told {
@@ -1065,6 +1068,12 @@ where
         }
         if item.source == WaitingSource::Plan {
             self.plan_set_aside(&id, &item.id).await?;
+        }
+        // Settled on its row, as an answer settles it, so the thread says it was withdrawn.
+        if item.source == WaitingSource::Draft {
+            let row = item.id.strip_prefix(DRAFT_PREFIX).unwrap_or_default();
+            let reason = dismiss.reason.as_deref().map(str::trim).filter(|why| !why.is_empty());
+            return self.draft_settled(&id, row, DraftHow::Withdrawn, reason.map(str::to_string)).await;
         }
         // Not a question: the sentence is kept for good, so a near one is not raised again and the
         // trainer reads it as asking nothing.

@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use api::{HostedSessions, Refusal, Sessions};
 use ipc::{
-    AnswerWaiting, DraftHow, ProposeDraft, SessionRow, SessionVoice, ShowWindow, WaitingActKind,
+    AnswerWaiting, DismissWaiting, DraftHow, ProposeDraft, SessionRow, SessionVoice, ShowWindow, WaitingActKind,
     WaitingSource,
 };
 
@@ -152,6 +152,41 @@ async fn a_note_sends_a_draft_back_to_be_rewritten_and_proposed_again() {
     );
     let settled = settled(&rows).expect("settled");
     assert_eq!((settled.how, settled.words.as_deref()), (DraftHow::SentBack, Some("Shorter, and say why.")));
+}
+
+fn dismissed(id: &ipc::SessionId, item: &str, reason: Option<&str>) -> DismissWaiting {
+    DismissWaiting { session_id: id.clone(), item_id: item.to_string(), reason: reason.map(str::to_string), misread: false }
+}
+
+#[tokio::test]
+async fn dismissing_a_draft_withdraws_it_and_tells_the_session_why() {
+    let rig = rig_placing(None);
+    let (id, item) = drafting(&rig).await;
+    let after = Arc::clone(&rig.fleet)
+        .dismiss_waiting(dismissed(&id, &item, Some(" The pull request was closed. ")))
+        .await
+        .unwrap();
+    assert!(after.waiting_for.iter().all(|one| one.source != WaitingSource::Draft), "withdrawn: {:?}", after.waiting_for);
+
+    let rows = rig.rows(&id).await;
+    assert_eq!(
+        sent(&rows).pop().unwrap(),
+        format!("Withdrawn: {TITLE}\nDo not propose it again.\nThe pull request was closed.")
+    );
+    let settled = settled(&rows).expect("the row says how it was settled");
+    assert_eq!((settled.how, settled.words.as_deref()), (DraftHow::Withdrawn, Some("The pull request was closed.")));
+}
+
+#[tokio::test]
+async fn dismissing_a_draft_with_no_reason_sends_no_trailing_line() {
+    let rig = rig_placing(None);
+    let (id, item) = drafting(&rig).await;
+    Arc::clone(&rig.fleet).dismiss_waiting(dismissed(&id, &item, Some("  "))).await.unwrap();
+
+    let rows = rig.rows(&id).await;
+    assert_eq!(sent(&rows).pop().unwrap(), format!("Withdrawn: {TITLE}\nDo not propose it again."));
+    let settled = settled(&rows).expect("settled");
+    assert_eq!((settled.how, settled.words), (DraftHow::Withdrawn, None));
 }
 
 #[tokio::test]
