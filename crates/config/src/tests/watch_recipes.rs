@@ -2,7 +2,7 @@
 
 use std::path::{Path, PathBuf};
 
-use crate::watches::{parse, RecipeSource, Recipes, WhyLeftOut, Written};
+use crate::watches::{parse, written as file_of, RecipeSource, Recipes, WhyLeftOut, Written};
 
 const QA: &str = "name: qa-deploy\ncommand: [scripts/watch/deploy-state, \"{sha}\", \"{environment}\"]\nevery: 60s\ngives_up_after: 2h\n";
 
@@ -53,6 +53,7 @@ fn a_span_is_a_count_and_a_unit_and_every_fault_is_reported() {
 fn written(source: RecipeSource, path: &str, text: &str) -> Written {
     match source {
         RecipeSource::Machine => Written::on_machine(PathBuf::from(path), text.to_string()),
+        RecipeSource::Armada => Written::by_armada(PathBuf::from(path), text.to_string()),
         _ => Written::in_repository(PathBuf::from(path), text.to_string()),
     }
 }
@@ -83,4 +84,41 @@ fn two_files_in_one_place_naming_one_recipe_are_both_left_out_with_why() {
     assert!(recipes.left_out().iter().any(|one| matches!(one.why(), WhyLeftOut::Duplicated { .. })));
     let said: Vec<String> = recipes.left_out().iter().map(ToString::to_string).collect();
     assert!(said.iter().any(|one| one.contains("c.yml")), "{said:?}");
+}
+
+#[test]
+fn a_recipe_written_out_reads_back_whole() {
+    let mut recipe = parse(Path::new("w.yml"), QA).unwrap();
+    recipe.environment = Some(String::from("qa"));
+    recipe.command.push(String::from("a value: with a colon and \"quotes\""));
+    let text = file_of(&recipe);
+    assert_eq!(parse(Path::new("w.yml"), &text).expect("it reads"), recipe);
+}
+
+#[test]
+fn a_shipped_recipe_is_replaced_by_the_repositorys_and_the_machines() {
+    let shipped = "name: qa-deploy\ncommand: [armada, watch-line, reader, \"{sha}\"]\nevery: 60s\n";
+    let recipes = Recipes::of([
+        written(RecipeSource::Armada, "armada/watch-recipes/qa.yml", shipped),
+        written(RecipeSource::Repository, ".armada/watches/qa.yml", QA),
+    ]);
+    let one = recipes.named("qa-deploy").expect("one copy runs");
+    assert_eq!(one.source, RecipeSource::Repository);
+    assert_eq!(one.replaced, [(RecipeSource::Armada, PathBuf::from("armada/watch-recipes/qa.yml"))]);
+}
+
+/// What the adapters ship loads as any recipe does, and each runs one of Armada's own readers.
+#[test]
+fn every_recipe_armada_ships_loads_and_runs_a_reader() {
+    let shipped = adapters::carried_watch_recipes();
+    assert!(!shipped.is_empty());
+    let recipes = Recipes::of(shipped.into_iter().map(|(path, text)| Written::by_armada(path, text)));
+    assert!(recipes.left_out().is_empty(), "{:?}", recipes.left_out());
+    for one in recipes.recipes() {
+        assert_eq!(one.source, RecipeSource::Armada);
+        assert_eq!(one.recipe.command[..2], ["armada", "watch-line"], "{}", one.recipe.name);
+        let reader = adapters::WATCH_READERS.iter().find(|(name, _)| *name == one.recipe.command[2]);
+        let (_, takes) = reader.unwrap_or_else(|| panic!("{} names no reader", one.recipe.name));
+        assert_eq!(one.recipe.values(), *takes, "{}", one.recipe.name);
+    }
 }

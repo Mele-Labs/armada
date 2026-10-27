@@ -264,3 +264,13 @@ fn test_map_takes_one_form_and_says_which() {
     assert!(said("test-map refresh").contains("`armada test-map refresh`"));
     assert!(said("test-map record --check").contains("`--check` needs a value after it"));
 }
+
+#[test]
+fn watch_line_takes_a_reader_and_every_word_after_it_whole() {
+    assert_eq!(
+        asked("watch-line reader abc123 --not-a-flag"),
+        Ok(Verb::WatchLine { reader: "reader".into(), values: vec!["abc123".into(), "--not-a-flag".into()] })
+    );
+    assert!(said("watch-line").contains("needs the reader"));
+    assert!(Usage.to_string().contains("armada watch-line <reader> <values>"));
+}

@@ -194,6 +194,13 @@ pub trait AgentHarness {
     /// answered from a list of names anywhere else.
     fn edited(&self, event: &DroneEvent) -> Option<alloc::string::String>;
 
+    /// The key on an MCP tool's `_meta` this harness reads as loading the tool at the session's
+    /// start, rather than behind a search. **`None` by default**: a harness that names none loads
+    /// every tool as it would.
+    fn always_loads_tool(&self) -> Option<&'static str> {
+        None
+    }
+
     /// A file read or a command run, where `event` is a call that did one. `None` for every other
     /// event, an edit call included. **Which tools these are is the harness's vocabulary**, asked of
     /// it for the reason `edited` is.

@@ -68,9 +68,49 @@ async fn weigh_and_stop_name_a_watch_and_one_nothing_holds_is_a_404() {
 }
 
 #[tokio::test]
+async fn a_delete_answers_the_jobs_watches_after_and_a_watch_nothing_holds_is_a_404() {
+    let app = wired();
+    let (status, bytes) = call(&app, "POST", "/watches/delete", &format!(r#"{{"watch":"{THE_WATCH}"}}"#)).await;
+    assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&bytes));
+    let _: WatchList = ipc::decode("a list", &bytes).expect("a list");
+    let (status, _) = call(&app, "POST", "/watches/delete", r#"{"watch":"w-none"}"#).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    let (status, _) = call(&app, "POST", "/watches/delete", r#"{"watch":"w-1","also":true}"#).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
 async fn a_list_is_asked_on_the_query_string() {
     let (status, bytes) = call(&wired(), "GET", "/watches?session_id=job-7", "").await;
     assert_eq!(status, StatusCode::OK);
     let list: WatchList = ipc::decode("a list", &bytes).expect("a list");
     assert!(list.watches.is_empty());
+    let (status, _) = call(&wired(), "GET", "/watches?session_id=job-7&ended=true", "").await;
+    assert_eq!(status, StatusCode::OK, "ended ones asked for too");
+    let (status, bytes) = call(&wired(), "GET", "/watches?session_id=job-7&ended=yes", "").await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert!(String::from_utf8_lossy(&bytes).contains("api.undecodable_request"));
+}
+
+#[tokio::test]
+async fn a_try_a_recipe_list_and_a_save_each_reach_the_daemon() {
+    let app = wired();
+    let (status, bytes) = call(&app, "POST", "/watches/try", r#"{"command":["scripts/state","abc"]}"#).await;
+    assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&bytes));
+    let tried: ipc::WatchTried = ipc::decode("a try", &bytes).expect("a try");
+    assert_eq!(tried.command, ["scripts/state", "abc"]);
+    let (status, _) = call(&app, "POST", "/watches/try", r#"{"command":["a"],"every":"60s"}"#).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "a try takes no cadence");
+
+    let (status, bytes) = call(&app, "GET", "/watches/recipes?session_id=job-7", "").await;
+    assert_eq!(status, StatusCode::OK);
+    let _: ipc::WatchRecipeList = ipc::decode("a list", &bytes).expect("a list");
+
+    let save = r#"{"name":"staging","command":["/bin/state","{sha}"],"every":"60s"}"#;
+    let (status, bytes) = call(&app, "POST", "/watches/recipes/save", save).await;
+    assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&bytes));
+    let saved: ipc::WatchRecipeSaved = ipc::decode("a save", &bytes).expect("a save");
+    assert_eq!(saved.recipe.name, "staging");
+    let (status, _) = call(&app, "POST", "/watches/recipes/save", r#"{"name":"x","every":"60s","shell":"a"}"#).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
 }

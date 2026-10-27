@@ -52,6 +52,8 @@ pub enum Verb {
     Worktree(WorktreeAct),
     /// The test map's laps for one Check, measured here and written to a file.
     TestMap(TestMapAct),
+    /// One reading of a watch recipe Armada ships, printed as the line Fleet reads. Fleet runs it.
+    WatchLine { reader: String, values: Vec<String> },
     /// What the verbs are.
     Help,
 }
@@ -95,6 +97,10 @@ const VERBS: &[(&str, &str)] = &[
         TEST_MAP,
         "measure which tests reach which files, for CI to hand Fleet",
     ),
+    (
+        WATCH_LINE,
+        "print one reading of a watch recipe Armada ships, as the line Fleet reads; Fleet runs it",
+    ),
 ];
 
 /// The verb an agent's MCP configuration names.
@@ -116,6 +122,8 @@ pub const SESSION_KEEP: &str = "session-keep";
 pub const WORKTREE: &str = "worktree";
 /// The test map's recorder.
 pub const TEST_MAP: &str = "test-map";
+/// The readers behind the watch recipes Armada ships, which name this verb.
+pub const WATCH_LINE: &str = "watch-line";
 
 /// Read the arguments after the program name.
 pub fn read<I: IntoIterator<Item = String>>(args: I) -> Result<Verb, Misread> {
@@ -203,6 +211,17 @@ pub fn read<I: IntoIterator<Item = String>>(args: I) -> Result<Verb, Misread> {
         }
         WORKTREE => worktree::read(rest, &mut faults),
         TEST_MAP => test_map::read(rest, &mut faults),
+        // Every word after the reader is a value, passed whole: a value is never read as a flag.
+        WATCH_LINE => match rest.split_first() {
+            Some((reader, values)) => Some(Verb::WatchLine {
+                reader: reader.clone(),
+                values: values.to_vec(),
+            }),
+            None => {
+                faults.push(Fault::NoReader);
+                None
+            }
+        },
         _ => {
             faults.push(Fault::NoSuchVerb {
                 given: verb.clone(),
@@ -295,6 +314,8 @@ pub enum Fault {
     TestMapNeeds { flag: String, valueless: bool },
     /// `worktree lease` with no branch after it.
     NoBranch,
+    /// `watch-line` with no reader after it.
+    NoReader,
     /// `worktree remove`, `close` or `open` without a slot's number.
     NoSlot {
         form: String,
@@ -383,6 +404,10 @@ impl fmt::Display for Fault {
                 out,
                 "`armada {WORKTREE} lease` needs the branch to cut, and it is cut from the base"
             ),
+            Fault::NoReader => write!(
+                out,
+                "`armada {WATCH_LINE}` needs the reader a watch recipe names, then its values"
+            ),
             Fault::NoSlot { form } => write!(
                 out,
                 "`armada {WORKTREE} {form}` needs a slot's number, as `--status` prints it"
@@ -412,6 +437,7 @@ impl fmt::Display for Usage {
                 "clean" => "clean [--all]".to_string(),
                 MCP => MCP.to_string(),
                 COVERS => format!("{COVERS} < <paths>"),
+                WATCH_LINE => format!("{WATCH_LINE} <reader> <values>"),
                 named => format!("{named} <name>"),
             };
             writeln!(out, "  armada {shape:<16}  {what}")?;
