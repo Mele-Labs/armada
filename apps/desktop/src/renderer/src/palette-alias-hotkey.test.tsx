@@ -34,9 +34,15 @@ function palette(over: Partial<PaletteProps> = {}) {
   return { chosen };
 }
 
+/** Typing waits for the search field to hold focus: a key pressed before it does is lost, and the query is cut short. */
+async function type(typed: string) {
+  await expect.element(page.getByRole("combobox", { name: "Search actions, jobs and settings" })).toHaveFocus();
+  await userEvent.keyboard(typed);
+}
+
 /** ⌘K on the first Job found by `typed`, and the act pressed in its panel. */
 async function act(typed: string, name: string) {
-  await userEvent.keyboard(typed);
+  await type(typed);
   await userEvent.keyboard("{Meta>}k{/Meta}");
   await userEvent.click(page.getByRole("option", { name, exact: true }));
 }
@@ -77,7 +83,7 @@ test("a word of two is refused in the field and not kept, and so is another row'
 
 test("a word typed whole puts its row first, ahead of a Job that matches by title", async () => {
   palette({ aliases: { "session:pk1": "cache" } });
-  await userEvent.keyboard("cache");
+  await type("cache");
   // Retried: read at once, the rows can still be the ones a shorter query drew.
   await expect.element(page.getByRole("option").nth(0)).toHaveTextContent("Migration notes");
   await expect.element(page.getByRole("option").nth(1)).toHaveTextContent("Cache key");
@@ -85,7 +91,7 @@ test("a word typed whole puts its row first, ahead of a Job that matches by titl
 
 test("a row that holds a word offers Remove alias, which hands it on", async () => {
   const { chosen } = palette({ aliases: { "session:q1": "ck" } });
-  await userEvent.keyboard("cache key");
+  await type("cache key");
   await userEvent.keyboard("{Meta>}k{/Meta}");
   await userEvent.click(page.getByRole("option", { name: /^Remove alias/ }));
   expect(given(chosen, "remove-alias")).toEqual([{ of: "on", target: "session:q1", action: "remove-alias" }]);
@@ -130,7 +136,7 @@ test("another row's key is refused naming that row, and a free one pressed after
 
 test("a row that holds a key offers Remove hotkey, which hands it on", async () => {
   const { chosen } = palette({ hotkeys: { "session:q1": "⇧⌘J" } });
-  await userEvent.keyboard("cache key");
+  await type("cache key");
   await userEvent.keyboard("{Meta>}k{/Meta}");
   await userEvent.click(page.getByRole("option", { name: /^Remove hotkey/ }));
   expect(given(chosen, "remove-hotkey")).toEqual([{ of: "on", target: "session:q1", action: "remove-hotkey" }]);
