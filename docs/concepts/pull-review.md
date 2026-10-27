@@ -40,7 +40,8 @@ Natural Search is a run across every repository, and the Walk tool is a run that
 
 **Drafts are held in Bridge until Submit.** A draft is a line comment, a comment on a file, or a reply to a thread.
 
-**Review is a tab of the reader, after Commits**, with the count of drafts waiting on Submit. It is the Comments tool's view.
+**Review is a tab of the reader, after Commits**, with the count of drafts waiting on Submit.
+It holds the forge's conversation, the threads on each change and his review; it is not a tile in Flight control.
 
 **A pending comment names its file, line and code, and a press goes to it in the diff**, opening the diff again where it was folded.
 
@@ -62,7 +63,10 @@ Natural Search is a run across every repository, and the Walk tool is a run that
 | Tool | Risks, Possible bugs, API breaking changes, or one a person added | Findings, each pinned to a path and line range with a severity, title and body |
 | Ask | A question in his words | Markdown |
 
-Comments is not a run. It is the forge's conversation.
+The Review tab is not a run. It is the forge's conversation.
+
+**Flight control's tiles are the explanations first and then the tools**, numbered 1 to 9.
+An explanation is shown under the description and a tool's result in place of it; a question he asked is listed above the description.
 
 **What the agent is given:** the definition's prompt, the pull request's title, description, head commit and diff, and a checkout of the head to read.
 **It can read and nothing else**: Fleet leases a bay (a slot of the repository's pool) on a branch of its own at the head, makes one model call with the read tools only, and gives the bay back clean, so a run holds no shell, edits nothing and reaches no network.

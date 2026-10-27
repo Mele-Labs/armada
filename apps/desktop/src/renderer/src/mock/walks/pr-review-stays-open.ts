@@ -1,13 +1,15 @@
 // A pull request he opened stays open until he opens another: Esc stops at the list, and one opened by its link keeps a row
-// above whichever list is chosen. Review is a tab of the reader, and each pending comment there goes to its line.
+// above whichever list is chosen. Review is a tab of the reader, and each pending comment there goes to its line. The
+// explanations are Flight control's first tiles.
 // Over the `pr-review` scenario.
 
-import { button, inside, region, role, tab, walk } from "../walk";
+import { button, dialog, inside, region, role, tab, walk } from "../walk";
 
 const list = region("Pull requests");
 const reader = (number: number) => region(`Pull request #${number}`);
 const yours = region("Your review");
 const lists = inside(list, button("List"));
+const tile = (name: string) => inside(region("Flight controls"), button(name, { exact: true }));
 
 const prReviewStaysOpen = walk("pr-review", [
   { paste: region("Jobs", { exact: true }), text: "https://forge.example/mele-labs/armada/pull/1905", say: "A link to a pull request on none of his lists, pasted. The box on the Reviews list opens one the same way" },
@@ -36,6 +38,11 @@ const prReviewStaysOpen = walk("pr-review", [
   { look: inside(yours, button(/^Go to your comment on /)), say: "It waits in his review with the file, the line and the code it is on. X takes it out" },
   { press: inside(yours, button(/^Go to your comment on /)), say: "A press goes to it in the diff, and opens the diff again if he folded it" },
   { look: inside(reader(1899), role("article", "Pending comment")), say: "His comment, under the line it is on" },
+  { look: tile("How it works"), say: "Flight control holds everything that runs: the four explanations first, then the tools. There is no Comments tile now" },
+  { press: tile("How it works"), say: "How it works, from its tile" },
+  { press: inside(dialog("How it works"), button("Run")), say: "It spends tokens, so it asks first" },
+  { look: inside(reader(1899), role("region", "Theme: Fleet keeps the last read")), say: "The explanation is under the description, as before" },
+  { look: tile("User Impact"), say: "User Impact, How to Test and Why are tiles beside it, each with its number" },
 ]);
 
 export { prReviewStaysOpen as "pr-review-stays-open" };

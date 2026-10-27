@@ -282,7 +282,11 @@
 [data-tool="risks"] { --tool-hue: var(--status-awaiting-review); }
 [data-tool="bugs"] { --tool-hue: var(--status-completed-failed); }
 [data-tool="breaks"] { --tool-hue: var(--status-escalated); }
-[data-tool="comments"] { --tool-hue: var(--accent); }
+/* The explanations share one hue: each tells him something, where a tool finds something. */
+[data-tool="how"],
+[data-tool="impact"],
+[data-tool="test"],
+[data-tool="why"] { --tool-hue: var(--accent); }
 [data-tool="custom"] { --tool-hue: var(--status-handed-in); }
 [data-tool="custom"][data-source="repository"] { --tool-hue: var(--status-rejected); }
 

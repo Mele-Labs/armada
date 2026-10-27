@@ -12,7 +12,7 @@ import type { ToolDef } from "./model";
 import type { ReviewWalkNote, ShownReviewWalk } from "../../../shared/review-walk";
 import type { Read, ReviewSource } from "./source";
 import { createReviewStore } from "./store";
-import { COMMENTS_TOOL } from "./tools";
+import { tilesOf, toolsOf } from "./tools";
 
 const row = (number: number, at: string, over: Partial<PullReviewRow> = {}): PullReviewRow => ({
   manifest_id: "m1",
@@ -476,18 +476,20 @@ test("a thread is resolved at the forge and then here, and a refusal changes not
 });
 
 const toolOf = (store: ReturnType<typeof createReviewStore>, id: string): ToolDef => {
-  const found = [...(store.get().tools["m1"] ?? []), COMMENTS_TOOL].find((one) => one.id === id);
+  const found = (store.get().tools["m1"] ?? []).find((one) => one.id === id);
   if (found === undefined) throw new Error(`no tool ${id}`);
   return found;
 };
 
-test("the tools are read once for a repository, and Comments stays Bridge's own", async () => {
+test("the tools are read once for a repository, and the explanations are the first tiles", async () => {
   const { store } = await opened();
   expect(store.get().tools["m1"]!.map((one) => one.id)).toEqual(["risks", "api-breaking-changes", "how-it-works", "why"]);
   expect(store.get().tools["m1"]!.find((one) => one.id === "risks")).toMatchObject({ mark: "risks", agent: true, source: "armada" });
   expect(store.get().tools["m1"]!.find((one) => one.id === "why")?.replaces).toBe("armada");
   expect(store.get().leftOut["m1"]).toEqual([{ file: "/kit/notes.md", source: "kit", said: "No kind in its front matter" }]);
-  expect(COMMENTS_TOOL.agent).toBe(false);
+  // Comments is not a tool: his review is the reader's Review tab. The explanations are the first tiles, then the tools.
+  expect(tilesOf(toolsOf(store.get(), "m1")).map((one) => one.id)).toEqual(["how-it-works", "why", "risks", "api-breaking-changes"]);
+  expect(store.get().tools["m1"]!.find((one) => one.id === "how-it-works")?.mark).toBe("how");
 });
 
 test("a row's holder is the Session that holds the pull request", async () => {
@@ -693,7 +695,7 @@ const found = (over: Partial<WalkPlaceFound> = {}): WalkPlaceFound => ({ area: "
 test("the Walk writes against the place Fleet found, and a press alone starts no run", async () => {
   const place = { how: "deployed", address: "https://pr-1.preview.test" } as const;
   const { store, calls, key } = await opened({ findPlace: async () => ({ ok: true, value: found({ place, tried: [{ source: "pull_request", found: true, said: "Preview ready", by: "preview-bot" }] }) }) });
-  const walk = [...(store.get().tools["m1"] ?? []), COMMENTS_TOOL].find((one) => one.mark === "walk") ?? { id: "walk", kind: "tool", name: "Walk", source: "armada", mark: "walk", checks: "", agent: true };
+  const walk = (store.get().tools["m1"] ?? []).find((one) => one.mark === "walk") ?? { id: "walk", kind: "tool", name: "Walk", source: "armada", mark: "walk", checks: "", agent: true };
   store.runTool(key, walk as ToolDef);
   await settle();
   expect(calls.starts).toEqual([]);

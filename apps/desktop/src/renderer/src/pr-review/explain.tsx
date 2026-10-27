@@ -1,10 +1,10 @@
-// The explanations: the quick actions above the description, in the stage's own overview. **Each is its own question** (how it
+// The explanations: tiles in Flight control, each shown under the description in the stage's own overview. **Each is its own question** (how it
 // works, what it changes for him as a user, how to test it, why it was needed), and an agent answers one only when he
 // first chooses it. The answer is kept per commit, as a tool's result is, so choosing another and coming back shows it
 // at once. Explanations are defined in the same three places the tools are, so a repository can add its own.
 
 import { Bot, BookOpen, Check, CircleX, ExternalLink, Eye, FileText, History, LoaderCircle, RefreshCw, RotateCw, X } from "lucide-react";
-import { Button, Kbd, Prose, PrMark, SessionComposer, Tabs, Tooltip, agoOf } from "@armada/components";
+import { Button, Kbd, Prose, PrMark, SessionComposer, Tooltip, agoOf } from "@armada/components";
 
 import type { useSendFindings } from "./acts";
 import { RunFailed, SOURCE_MARK } from "./marks";
@@ -17,39 +17,23 @@ import { onlyExplanations, toolsOf } from "./tools";
 type Send = ReturnType<typeof useSendFindings>;
 
 /**
- * The quick actions, above the description: one bar of the four explanations. **A question he sent from the composer at the foot
- * of the reader is kept in a small panel under the bar**, an index of what he asked of this pull request, and is not drawn where
- * he asked none. An action with no kept result asks
- * first, since it spends tokens (`store.spend`), and a kept one opens at once.
+ * What he asked of this pull request, above the description. **A question he sent from the composer at the foot of the reader is
+ * kept here**, an index of what he asked, and nothing is drawn where he asked none. The explanations are Flight control's tiles.
  */
-export function QuickActions({ pr }: { pr: ReviewPr }) {
-  const store = useReviewStore()!;
-  const reviews = useReviews();
-  const work = reviews.work[pr.key] ?? NO_WORK;
-  const kinds = onlyExplanations(toolsOf(reviews, pr.manifestId));
+export function AskedOf({ pr }: { pr: ReviewPr }) {
+  const work = useReviews().work[pr.key] ?? NO_WORK;
+  if (work.asks.length === 0) return null;
   return (
-    <section className="pr-explainer" aria-label="Quick actions">
-      <h3 className="pr-what__title pr-explainer__title">
-        Quick actions
-        <Tooltip label="Go to the quick actions" shortcut={capOf(REVIEW_KEYS.quick)}>
-          <Kbd>{capOf(REVIEW_KEYS.quick)}</Kbd>
-        </Tooltip>
-      </h3>
-      <div className="pr-explainer__pick">
-        <Tabs
-          items={kinds.map((one) => ({ id: one.id, label: one.name, hint: one.checks }))}
-          value={work.kind ?? ""}
-          onChange={(id) => chooseQuick(store, pr, id)}
-        />
-      </div>
-      {work.asks.length === 0 ? null : <Asks pr={pr} />}
+    <section className="pr-explainer" aria-label="Questions asked">
+      <h3 className="pr-what__title pr-explainer__title">Asked</h3>
+      <Asks pr={pr} />
     </section>
   );
 }
 
 /**
- * Chooses a quick action, by the id of the explanation or `ask`. **A choice with no kept result asks first**, since it spends
- * tokens, and one that is kept opens at once. One place for the strip's press and for its key.
+ * Chooses an explanation, or a question he asked, by its id. **A choice with no kept result asks first**, since it spends
+ * tokens, and one that is kept opens at once.
  */
 export function chooseQuick(store: ReviewStore, pr: ReviewPr, id: string): void {
   const snap = store.get();
@@ -59,6 +43,12 @@ export function chooseQuick(store: ReviewStore, pr: ReviewPr, id: string): void 
   const kept = (snap.work[pr.key] ?? NO_WORK).explains[def.id];
   if (kept !== undefined && kept.state !== "idle") store.explain(pr.key, def);
   else store.spend(def.name, () => store.explain(pr.key, def));
+}
+
+/** An explanation's tile in Flight control: the overview shows it, run first where nothing is kept for it. */
+export function pressExplanation(store: ReviewStore, pr: ReviewPr, def: ToolDef): void {
+  store.setView(pr.key, "explanation");
+  chooseQuick(store, pr, def.id);
 }
 
 /** What was chosen: the explanation, or the answer to a question of his. Nothing where nothing is chosen. */

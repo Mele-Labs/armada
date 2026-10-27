@@ -15,6 +15,7 @@ unmountAfterEach();
 const list = () => page.getByRole("region", { name: "Pull requests" });
 const reader = (number: number) => page.getByRole("region", { name: `Pull request #${number}` });
 const yours = () => page.getByRole("region", { name: "Your review" });
+const tile = (name: string) => page.getByRole("region", { name: "Flight controls" }).getByRole("button", { name, exact: true });
 const row = (number: number) => list().getByRole("button", { name: new RegExp(`^#${number} `) });
 
 async function reviews() {
@@ -75,10 +76,10 @@ test("a review goes out as one call with its line comment placed, and then it is
   await open(1899);
   await expect.element(reader(1899)).toBeVisible();
   // The changes are in the explanation, which an agent reads once he has said it may run.
-  await reader(1899).getByRole("region", { name: "Quick actions" }).getByRole("tab", { name: "How it works" }).click();
+  await tile("How it works").click();
   await page.getByRole("dialog", { name: "How it works" }).getByRole("button", { name: "Run" }).click();
   await expect.element(reader(1899).getByRole("region", { name: "Theme: Fleet keeps the last read" })).toBeVisible();
-  await page.getByRole("region", { name: "Flight controls" }).getByRole("button", { name: "Comments" }).click();
+  await reader(1899).getByRole("tab", { name: "Review", exact: true }).click();
   const serve = reader(1899).getByRole("article", { name: "Change: Serve it while it is fresh" });
   const form = reader(1899).getByRole("form", { name: "Comment" });
   const addComment = async (words: string) => {
@@ -118,7 +119,7 @@ test("a review the forge refuses keeps the comment and the summary, and says why
   (app.api as typeof app.api & Pick<MockForge, "refuseNextWrite">).refuseNextWrite("Can not approve your own pull request");
 
   await open(1899);
-  await page.getByRole("region", { name: "Flight controls" }).getByRole("button", { name: "Comments" }).click();
+  await reader(1899).getByRole("tab", { name: "Review", exact: true }).click();
   await yours().getByRole("textbox", { name: "Summary" }).fill("Looks right to me.");
   await yours().getByRole("tab", { name: "Approve" }).click();
   await yours().getByRole("button", { name: "Submit review" }).click();
@@ -221,6 +222,18 @@ test("a pending comment says the file, line and code it is on, and a press goes 
 
   await pending.click();
   await expect.element(card).toHaveFocus();
+});
+
+test("Flight control holds the explanations beside the tools, and no Comments tile", async () => {
+  await reviews();
+  await open(1899);
+  await expect.element(tile("Comments")).not.toBeInTheDocument();
+  await expect.element(reader(1899).getByRole("region", { name: "Quick actions" })).not.toBeInTheDocument();
+  await tile("How it works").click();
+  await page.getByRole("dialog", { name: "How it works" }).getByRole("button", { name: "Run" }).click();
+  await expect.element(reader(1899).getByRole("region", { name: "Theme: Fleet keeps the last read" })).toBeVisible();
+  await expect.element(tile("How it works")).toHaveAttribute("aria-pressed", "true");
+  await expect.element(tile("Risks")).toBeVisible();
 });
 
 test("a tool whose name is taken is refused in Fleet's words, beside Save", async () => {

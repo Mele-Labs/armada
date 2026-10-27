@@ -3,7 +3,7 @@
 //
 // Two halves with a seam between them. **The forge's** (this file): the four lists read from the forge when the tab opens
 // and on Refresh and never polled, a pull request's page read when it is opened, its patches read when a change is
-// shown, his pending review kept here until Submit, and resolve. **The agent's** (`store-agent.ts`): the quick actions,
+// shown, his pending review kept here until Submit, and resolve. **The agent's** (`store-agent.ts`): the explanations,
 // Ask and the tools, which are runs Fleet keeps. Natural Search (`store-search.ts`) is a run across every repository, and the
 // Walk (`store-walk.ts`) a run that needs the place a change runs. All three meet a run through `review_run.changed`.
 

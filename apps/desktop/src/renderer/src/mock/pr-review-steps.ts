@@ -15,13 +15,12 @@ const thread = (title: string, by: string) => role("article", `Thread on ${title
 const finding = (title: string) => role("article", `Finding: ${title}`);
 const tool = (name: string) => inside(flight, button(name));
 const results = (name: string) => region(`${name} results`);
-const asked = (words: RegExp) => inside(inside(region("Quick actions"), role("list", "Asked")), role("listitem", words));
-const explanation = (name: string) => inside(region("Quick actions"), tab(name));
+const asked = (words: RegExp) => inside(inside(region("Questions asked"), role("list", "Asked")), role("listitem", words));
+/** The explanations are Flight control's first tiles. */
+const explanation = (name: string) => tool(name);
 
 const pick = (name: string | RegExp) => role("menuitem", name);
 
-/** A row opens the pull request in the side panel, on its Review tab, over the reader the Reviews page keeps; this puts the panel away. */
-export const putAway = (number: number, say = "The side panel is away, and the reader is under it"): Step => ({ press: inside(dialog(`Pull request #${number}`), button(/^Close/)), say });
 const lists = inside(list, button("List"));
 
 export const toTheList: Step[] = [
@@ -59,13 +58,10 @@ export const theExplanation: Step[] = [
   { key: "ArrowDown", on: inside(list, button(/#1899/)), say: "↓ moves down the list. J does too" },
   { key: "ArrowDown", on: inside(list, button(/#1903/)), say: "Down again" },
   { key: "Enter", on: inside(list, button(/#1907/)), say: "↵ opens a pull request with a long description" },
-  putAway(1907, "It opens in the side panel on its Review tab. Closing it leaves the reader the Reviews page keeps"),
-  { look: inside(reader(1907), region("Quick actions")), say: "The quick actions are above the description, because descriptions are usually long" },
+  { look: explanation("How it works"), say: "The explanations are the first tiles in Flight control, beside the tools" },
   { look: inside(reader(1907), region("Description")), say: "With nothing chosen the description is open" },
-  { key: "Shift+Q", on: list, say: "⇧Q goes to the quick actions bar, from any part. Its key is on its label" },
-  { key: "j", on: explanation("How it works"), say: "J moves down the bar, as it does a list. So do ↓, → and K back up" },
-  { key: "j", on: explanation("User Impact"), say: "Down again" },
-  { key: "Enter", on: explanation("How to Test"), say: "↵ or O chooses. No kept result, so it asks first" },
+  { key: "Shift+Q", on: list, say: "⇧Q goes to the explanation tiles, from any part" },
+  { key: "3", on: explanation("How it works"), say: "Each tile has its number. 3 is How to Test. No kept result, so it asks first" },
   { look: dialog("How to Test"), say: "Running it uses tokens. Focus is in the box" },
   { key: " ", on: dialog("How to Test"), say: "Space turns the question off for every act that spends tokens. It is a setting on this machine" },
   { key: "Enter", on: dialog("How to Test"), say: "↵ runs. Esc would cancel" },
@@ -75,16 +71,15 @@ export const theExplanation: Step[] = [
   { look: inside(reader(1907), button("Show the description")), say: "The description has tucked away into one row" },
   { key: "Shift+D", on: reader(1907), say: "⇧D opens it again when he wants to read it" },
   { look: inside(reader(1907), region("Description")), say: "Open, above the explanation" },
-  { key: "Enter", on: explanation("User Impact"), say: "↵ on User Impact. The question is off now, so it runs without asking" },
+  { key: "2", on: reader(1907), say: "2 is User Impact. The question is off now, so it runs without asking" },
   { look: inside(reader(1907), role("listitem", "Restarting Fleet")), say: "What a user sees differently, before and after" },
   { key: "Escape", on: reader(1907), say: "Esc backs out a level: from the reader to the list" },
   { key: "Shift+L", on: list, say: "⇧L opens the lists" },
   { look: pick("Requested for Review"), say: "The menu answers its own arrows and ↵. Natural Search is /" },
   { press: pick("Requested for Review"), say: "Requested for Review" },
   { press: inside(list, button(/#1899/)), say: "Open one a teammate asked for" },
-  putAway(1899),
   { look: inside(reader(1899), region("Description")), say: "The author's own description" },
-  { look: explanation("How to Test"), say: "A choice of explanations above it. Nothing has run on this one" },
+  { look: explanation("How to Test"), say: "The explanations are tiles below. Nothing has run on this one" },
   { press: explanation("How to Test"), say: "How to Test. An agent reads the pull request, once" },
   { look: inside(reader(1899), region("How to Test")), say: "Numbered steps, each with what to look for" },
   { look: inside(reader(1899), role("note", /One provider call a minute/)), say: "What to look for sits under the step" },
@@ -97,8 +92,8 @@ export const theExplanation: Step[] = [
   { press: explanation("Why"), say: "Why it was needed" },
   { look: inside(reader(1899), button(/#1871/)), say: "The problem, what it cost, and the issue the pull request names" },
   { hover: inside(inside(reader(1899), region("Why")), role("img", "Armada's tool")), say: "Explanations are defined where tools are: Armada's four, the Kit, and the repository" },
-  { look: inside(reader(1899), role("textbox", "Ask about this PR")), say: "Ask is not a quick action. It is a composer at the foot of the reader, there while a pull request is open" },
-  { look: inside(reader(1899), role("list", "Asked")), say: "A question asked before is kept in a small panel under the quick actions, under his words" },
+  { look: inside(reader(1899), role("textbox", "Ask about this PR")), say: "Ask is not a tile. It is a composer at the foot of the reader, there while a pull request is open" },
+  { look: inside(reader(1899), role("list", "Asked")), say: "A question asked before is kept in a small panel above the description, under his words" },
   { key: "Shift+A", on: reader(1899), say: "⇧A focuses the composer from any part. Its key is beside it" },
   { type: "Does this change what happens when gh is signed out?", into: inside(reader(1899), role("textbox", "Ask about this PR")), say: "Whatever he wants to know about this one" },
   { key: "Enter", on: inside(reader(1899), role("textbox", "Ask about this PR")), say: "↵ sends and ⇧↵ breaks the line. An agent answers only when he sends, because it costs" },
@@ -117,7 +112,7 @@ export const theExplanation: Step[] = [
   { look: inside(results("Risks"), finding("A second watch loses the first interval")), say: "The same result, kept" },
   { press: inside(results("Risks"), button("Back to the overview")), say: "Back to the overview" },
   { press: explanation("How it works"), say: "How it works is the themes view. An agent reads it the first time, like the rest" },
-  { look: inside(reader(1899), region("How it works")), say: "What it does in a few plain sentences, under the choice" },
+  { look: inside(reader(1899), region("How it works")), say: "What it does in a few plain sentences, under the description" },
   { look: theme("Fleet keeps the last read"), say: "Its changes by what they make happen, with the order they were made in" },
   { look: inside(theme("Fleet keeps the last read"), change("Hold the last read for a minute")), say: "Each change says why it was made" },
   { press: inside(change("Hold the last read for a minute"), button("Show diff")), say: "The hunk is folded until he opens it" },
@@ -130,12 +125,12 @@ export const theTools: Step[] = [
   { press: inside(results("Risks"), button("Back to the overview")), say: "Back to the overview" },
   { press: tool("Possible bugs"), say: "Possible bugs" },
   { look: inside(results("Possible bugs"), finding("A reset inside the minute is served late")), say: "One bug, on the change that serves the read" },
-  { press: tool("Comments"), say: "Comments is the forge's conversation and line comments. It runs no agent" },
+  { press: inside(reader(1899), tab("Review", { exact: true })), say: "Review is a tab of the pull request: the forge's conversation and line comments, and his review. It runs no agent" },
   { look: inside(reader(1899), yours), say: "His pending review is here, with Submit" },
   { press: inside(reader(1899), button("Comment on Serve it while it is fresh")), say: "A comment on a change" },
   { type: "Take the lock after the call, so a slow read does not hold it.", into: inside(reader(1899), role("textbox", "Comment")), say: "Written where the change is" },
   { press: inside(inside(reader(1899), role("form", "Comment")), button("Add to review")), say: "It joins the pending review. Nothing is posted yet" },
-  { look: inside(yours, role("list", "Pending comments")), say: "Pending comments wait here to be posted together" },
+  { look: inside(yours, role("list", "Pending comments")), say: "Pending comments wait here to be posted together, each one press from where it is" },
   { type: "The lock should be taken after the call. Fix that and the reset case.", into: inside(yours, role("textbox", "Summary")), say: "The summary" },
   { press: inside(yours, tab("Request changes")), say: "Request changes" },
   { press: inside(yours, button("Submit review")), say: "Submit posts the pending comments and the verdict together" },
@@ -152,7 +147,6 @@ export const theSessionsOwn: Step[] = [
   { press: lists, say: "The dropdown again" },
   { press: pick("My PRs"), say: "My PRs" },
   { press: inside(list, button(/#1896/)), say: "One his Job holds" },
-  putAway(1896),
   { look: inside(reader(1896), button("Job: Fix the reconnect wait")), say: "The Job that holds it is in the head" },
   { look: inside(reader(1896), region("Description")), say: "The description is tucked away, since an explanation is already shown" },
   { look: inside(reader(1896), region("How it works")), say: "How it works is already under it" },

@@ -14,21 +14,22 @@ export const idOfName = (name: string): string =>
     .replace(/^-|-$/g, "");
 
 /**
- * The tools and explanations of a repository: what Fleet resolved from the three places, with Comments among the tools. Comments is
- * the forge's conversation and Bridge's alone, so it follows Armada's own tools and no definition replaces it.
+ * The tools and explanations of a repository: what Fleet resolved from the three places. His review and the forge's comments are
+ * not among them: they are the reader's Review tab.
  */
 export function toolsOf(snapshot: Pick<ReviewSnapshot, "tools">, manifestId: string | undefined): readonly ToolDef[] {
-  const resolved = manifestId === undefined ? [] : (snapshot.tools[manifestId] ?? []);
-  const after = resolved.findIndex((one) => one.id === "api-breaking-changes") + 1;
-  return [...resolved.slice(0, after), COMMENTS_TOOL, ...resolved.slice(after)];
+  return manifestId === undefined ? [] : (snapshot.tools[manifestId] ?? []);
 }
 
 export const SOURCE_SAID = { armada: "Armada's tool", kit: "Your Kit's tool, in every repository", repository: "This repository's tool, shared with everyone on it" } as const;
 
-/** The tools, which fill the Flight control. */
+/** The explanations first and then the tools: everything that runs on a pull request, as Flight control's tiles. */
+export const tilesOf = (defs: readonly ToolDef[]): readonly ToolDef[] => [...onlyExplanations(defs), ...onlyTools(defs)];
+
+/** The tools. */
 export const onlyTools = (defs: readonly ToolDef[]): readonly ToolDef[] => defs.filter((one) => one.kind === "tool");
 
-/** The explanations he can choose under the description. */
+/** The explanations, each shown under the description when its tile is pressed. */
 export const onlyExplanations = (defs: readonly ToolDef[]): readonly ToolDef[] => defs.filter((one) => one.kind === "explanation");
 
 /** The Walk: its press finds where the change runs before it writes, so it does not start a run on its own. */
@@ -37,5 +38,3 @@ export const isWalk = (tool: ToolDef): boolean => tool.mark === "walk";
 /** How it works has been read, so a result can sit under its themes. */
 export const isExplained = (work: PrWork): boolean => work.explains["how-it-works"]?.state === "done";
 
-/** The one tool Fleet does not serve: the forge's conversation and line comments, with his pending review. */
-export const COMMENTS_TOOL: ToolDef = { id: "comments", kind: "tool", name: "Comments", source: "armada", mark: "comments", agent: false, checks: "The forge's conversation and line comments, with his pending review." };

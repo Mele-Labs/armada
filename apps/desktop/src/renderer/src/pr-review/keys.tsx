@@ -17,7 +17,7 @@ const ZONES = [".pr-list", ".pr-reader", ".deck-controls"] as const;
 const zoneOf = (target: Element): (typeof ZONES)[number] | undefined => ZONES.find((one) => target.closest(one) !== null);
 
 /** What the arrows move between in the reader, in the order it is drawn. */
-const STOPS = '.pr-explainer [role="tab"][tabindex="0"], .pr-desc > header button, .pr-asked__words, article[data-stop]';
+const STOPS = '.pr-asked__words, .pr-desc > header button, article[data-stop]';
 
 const all = (selector: string, within: ParentNode = document) => [...within.querySelectorAll<HTMLElement>(selector)].filter((one) => !one.hasAttribute("disabled"));
 
@@ -34,8 +34,10 @@ function focusList(): void {
 function focusReader(): void {
   document.querySelector<HTMLElement>(".pr-reader")?.focus();
 }
-function focusBar(): void {
-  (document.querySelector<HTMLElement>('.pr-explainer [role="tab"][tabindex="0"]') ?? document.querySelector<HTMLElement>(".pr-reader"))?.focus();
+/** The explanation tiles in Flight control: the one shown, else the first. */
+function focusExplanations(): void {
+  const tiles = all(".deck-controls .pr-tool[data-explains]");
+  (tiles.find((one) => one.getAttribute("aria-pressed") === "true") ?? tiles[0])?.focus();
 }
 function focusTools(): void {
   const tiles = all(".deck-controls .pr-tool");
@@ -101,8 +103,8 @@ function press(event: KeyboardEvent, store: ReviewStore): void {
       store.setSearching(false);
       return focusList();
     }
-    // Esc leaves the quick actions bar for the reader, and only then backs out further.
-    if (target.closest(".pr-explainer") !== null && target.closest('[role="tab"], .pr-asked__words') !== null) {
+    // Esc leaves the questions asked for the reader, and only then backs out further.
+    if (target.closest(".pr-asked__words") !== null) {
       take();
       return document.querySelector<HTMLElement>(".pr-reader")?.focus();
     }
@@ -149,11 +151,11 @@ function press(event: KeyboardEvent, store: ReviewStore): void {
     return store.showPlaces();
   }
 
-  // The quick actions bar takes one key, and the description its own, for the pull request that is open.
+  // The explanation tiles take one key, and the description its own, for the pull request that is open.
   if (pr !== undefined) {
     if (isPressed("review_quick", event)) {
       take();
-      return focusBar();
+      return focusExplanations();
     }
     if (isPressed("review_ask", event)) {
       take();
@@ -187,22 +189,20 @@ function press(event: KeyboardEvent, store: ReviewStore): void {
   }
 
   if (here === ".pr-reader") {
-    // **The bar**: its actions, then the questions asked, are one run for j and k and the arrows. ↵ or `o` chooses, and Esc leaves it.
-    const inBar = target.closest(".pr-explainer") !== null && target.closest('[role="tab"], .pr-asked__words') !== null;
-    if (inBar) {
-      const run = all('.pr-explainer [role="tab"], .pr-explainer .pr-asked__words');
-      const at = run.findIndex((one) => one === target.closest('[role="tab"], .pr-asked__words'));
-      const tabs = all('.pr-explainer [role="tab"]');
-      // Left and right stay along the actions (on a question they move between its own buttons, below). Past the last of the run, down goes on to the description.
-      if (vertical || (sideways && at < tabs.length)) {
+    // **The questions asked** are one run for j and k and the arrows, and past the last, down goes on to the description. ↵ or `o`
+    // chooses, and Esc leaves it.
+    const asked = target.closest<HTMLElement>(".pr-asked__words");
+    if (asked !== null) {
+      const run = all(".pr-explainer .pr-asked__words");
+      const at = run.indexOf(asked);
+      if (vertical) {
         take();
-        const next = vertical ? at + by : Math.min(tabs.length - 1, Math.max(0, at + (event.key === "ArrowRight" ? 1 : -1)));
-        if (next >= run.length) return document.querySelector<HTMLElement>(".pr-desc > header button")?.focus();
-        return run[Math.max(0, next)]?.focus();
+        if (at + by >= run.length) return document.querySelector<HTMLElement>(".pr-desc > header button")?.focus();
+        return run[Math.max(0, at + by)]?.focus();
       }
       if (event.key === "Enter" || event.key === " " || isPressed("open", event)) {
         take();
-        return target.closest<HTMLElement>('[role="tab"], .pr-asked__words')!.click();
+        return asked.click();
       }
     }
     // A question's row: its words, Run again, Remove.

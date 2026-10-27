@@ -13,7 +13,7 @@ import { patchesOf } from "../shared-panel/pull-request-patches";
 
 import { useSendFindings } from "./acts";
 import { CommentsView } from "./comments";
-import { AskComposer, Explained, QuickActions } from "./explain";
+import { AskComposer, AskedOf, Explained } from "./explain";
 import { REVIEW_KEYS, capOf } from "./key-table";
 import { ChecksMark, ReviewMark } from "./marks";
 import type { ReviewPr } from "./model";
@@ -157,7 +157,7 @@ export function Overview({ pr, send, onOpenLink }: { pr: ReviewPr; send: ReturnT
   const open = chosen ?? !shown;
   return (
     <div className="pr-explain">
-      <QuickActions pr={pr} />
+      <AskedOf pr={pr} />
       <section className="pr-what pr-desc" aria-label="Description" data-open={open || undefined}>
         <header className="pr-what__head">
           <Tooltip label={open ? "Hide the description" : "Show the description"} shortcut={capOf(REVIEW_KEYS.description)}>

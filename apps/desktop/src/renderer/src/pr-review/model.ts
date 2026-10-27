@@ -56,8 +56,8 @@ export type Draft = { id: string; path: string; line?: number; side?: DiffSide; 
 /** Where a review tool's definition came from, as a workflow's does: Armada's, his Kit's, or the repository's. */
 export type ToolSource = "armada" | "kit" | "repository";
 
-/** What a tool is drawn with. Armada's five have a mark each; one anybody adds takes the clipboard. */
-export type ToolMark = "risks" | "bugs" | "breaks" | "comments" | "walk" | "custom";
+/** What a tool or an explanation is drawn with. Armada's eight have a mark each; one anybody adds takes the clipboard. */
+export type ToolMark = "risks" | "bugs" | "breaks" | "walk" | "how" | "impact" | "test" | "why" | "custom";
 
 /** What a definition is for: a tool that finds things, or an explanation that tells him one thing about the pull request. */
 export type DefKind = "tool" | "explanation";
