@@ -168,6 +168,7 @@ WebSocket event stream, read this first.
 | [Sessions are called Jobs: four tools listed under new names](protocol/sessions-are-called-jobs-four-tools-listed-under-new-names.md) |
 | [Every file of a pull request, read as its patch](protocol/every-file-of-a-pull-request-read-as-its-patch.md) |
 | [A walk's notes, sent as one turn: `send_session_notes`](protocol/a-walks-notes-sent-as-one-turn.md) |
+| [The owner's notes on a pull request's lines: `list_pull_request_notes` and four more](protocol/the-owners-notes-on-a-pull-requests-lines.md) |
 | [A Job's MCP servers: `get_session_mcp`, `act_on_session_mcp`](protocol/a-jobs-mcp-servers.md) |
 | [A background act's failure: `act.failed`](protocol/a-background-acts-failure-act-failed.md) |
 | [Kit's Add and Remove: a plugin or a skill](protocol/kit-add-and-remove-a-plugin-or-a-skill.md) |
