@@ -350,7 +350,7 @@ function HeaderTable({ label, rows, onRows }: { label: string; rows: readonly He
         <colgroup>
           <col className="side-table__name" />
           <col />
-          <col className="side-table__act" />
+          <col className="side-table__icon" />
         </colgroup>
         <TableHead>
           <TableRow>
@@ -822,8 +822,8 @@ function EnvironmentForm({ api, sessionId, repository, environment, locked, onSa
         <colgroup>
           <col className="side-table__name" />
           <col />
-          <col className="side-table__act" />
-          <col className="side-table__act" />
+          <col className="side-table__check" />
+          <col className="side-table__icon" />
         </colgroup>
         <TableHead>
           <TableRow>
