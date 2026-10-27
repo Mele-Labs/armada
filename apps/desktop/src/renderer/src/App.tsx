@@ -58,6 +58,7 @@ import { useHelmHosted } from "./helm-session";
 import { openAddressInPanel } from "./shared-panel/store";
 import { useSessions, useSessionsDraft } from "./sessions-draft";
 import { startOn } from "./start-on";
+import { useSpacing } from "./spacing";
 import { defaultParent, placeOf } from "./run-places";
 import { useThoughtRouting } from "./thought-routing";
 import { DispatchSheet, TitleDispatchedStrip } from "./dispatch-panel/entries";
@@ -203,14 +204,7 @@ export function App() {
     void source.state().then(take);
     return source.subscribe(take);
   }, []);
-
-  // Settings, Appearance, Spacing: `data-spacing` on the root picks Compact's or Roomy's token set (`packages/tokens/src/spacing.css`), and Default is none.
-  const spacing = state.settings?.settings.find((one) => one.key === "bridge.spacing")?.value;
-  useEffect(() => {
-    const root = document.documentElement.dataset;
-    if (spacing === "compact" || spacing === "roomy") root["spacing"] = spacing;
-    else delete root["spacing"];
-  }, [spacing]);
+  useSpacing(state.settings);
 
   // `⌘1`…`⌘n`, the binding the contract publishes and nothing answered until
   // the Manifest surface needed `⌘5`. One roster, read by the rail, the

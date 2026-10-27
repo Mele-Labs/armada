@@ -1,4 +1,4 @@
-/* Settings, Appearance, Spacing (`bridge.spacing`), as Gmail offers it: Default is the set above,
+/* Settings, Appearance, Spacing (`spacing.density`), as Gmail offers it: Default is the set above,
    Compact is a quarter tighter and Roomy a quarter looser. The steps, the row and control heights and
    the paddings move; type, hairlines, radii and the title row do not. Bridge puts the choice on the
    root as `data-spacing`, and a themed element under it takes the same set. */

@@ -95,7 +95,7 @@ export const MOCK_SETTINGS: SettingsList = {
     row("Terminal", "terminal.command", "Custom terminal command", "Run when Terminal is Custom. {dir} is filled in with the worktree.", TEXT, ""),
     row("Terminal", "terminal.openJobTerminalIn", "Open a Job's terminal in", "Where a Job's terminal opens: docked, in its own panel under the Job in the Cockpit and under the thread elsewhere, in the side panel, or in a window of its own.", { kind: "choice", options: ["docked", "side panel", "window"] }, "docked"),
     row("Links", "links.openPullRequestsIn", "Open pull requests in", "Where every pull request link in Bridge opens.", { kind: "choice", options: ["armada", "browser"] }, "armada"),
-    row("Spacing", "bridge.spacing", "Spacing", "Room around rows, panels and controls.", { kind: "choice", options: ["compact", "default", "roomy"] }, "default"),
+    row("Spacing", "spacing.density", "Spacing", "Room around rows, panels and controls.", { kind: "choice", options: ["compact", "default", "roomy"] }, "default"),
     row("Bridge", "bridge.rowView", "Row view", "The Cockpit row menu's View group writes this.", { kind: "json" }, {}),
     row("Bridge", "bridge.layout", "Layout", "Settings → Layout writes this.", { kind: "json" }, {}),
   ],
