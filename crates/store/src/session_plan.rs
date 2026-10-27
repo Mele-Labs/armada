@@ -373,33 +373,6 @@ impl Store {
             .map_err(keeping)
     }
 
-    /// An edit seen under the paths of `groups`: they were worked at `at`, and `tasks` have an edit
-    /// seen.
-    pub fn keep_session_plan_edit(
-        &mut self,
-        session_id: &str,
-        groups: &[String],
-        tasks: &[String],
-        at: &str,
-    ) -> Result<(), WriteError> {
-        let kept = self.conn.transaction().map_err(keeping)?;
-        for group in groups {
-            kept.execute(
-                "UPDATE session_plan_groups SET worked_at = ?3 WHERE session_id = ?1 AND group_id = ?2",
-                params![session_id, group, at],
-            )
-            .map_err(keeping)?;
-        }
-        for task in tasks {
-            kept.execute(
-                "UPDATE session_plan_tasks SET edited = 1 WHERE session_id = ?1 AND task_id = ?2",
-                params![session_id, task],
-            )
-            .map_err(keeping)?;
-        }
-        kept.commit().map_err(keeping)
-    }
-
     /// Keep one file touch, and let go of the Session's oldest beyond `most`. **The same touch as the
     /// latest one, by the same hand, only moves its instant**: a file edited thirty times in a row is
     /// one touch. Whether a new one was kept.

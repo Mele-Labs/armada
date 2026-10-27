@@ -292,6 +292,10 @@ pub struct SessionPlanTask {
     /// In progress, and the work looks to be elsewhere. Absent while it is not.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stale: Option<TaskStale>,
+    /// When it was put in progress, or completed, by the agent's list or Fleet's mark. Absent while it
+    /// is open.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub changed_at: Option<Instant>,
 }
 
 /// Why a task in progress looks left behind, and since when it was last touched.

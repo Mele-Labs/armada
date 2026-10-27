@@ -253,6 +253,7 @@ fn pending_plan() -> ipc::SessionPlan {
                 seen: false,
                 marked: None,
                 stale: None,
+                changed_at: None,
             }],
             worked_at: None,
         }],
