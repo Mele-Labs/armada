@@ -4,7 +4,7 @@
 // project, a branch for a repository. Selected is told by shape (`--select-ground`, `--select-frame`), never a band.
 
 import { Folder, GitBranch, Plus } from "lucide-react";
-import { Kbd, Tooltip } from "@armada/components";
+import { Tooltip } from "@armada/components";
 
 import { NameProject, RenameProject, type Band } from "./list";
 import { PROJECTS_KEYS, capOf } from "./key-table";
@@ -26,12 +26,6 @@ export function Column({ bands, view, repo, onView, onRepo }: Props) {
   const home = bands[0]?.manifestId;
   return (
     <section className="deck-panel deck-list projects-list" aria-label="Projects" tabIndex={-1}>
-      <header className="deck-band">
-        Projects
-        <Tooltip label="Go to Projects" shortcut={PROJECTS_KEYS.list}>
-          <Kbd>{PROJECTS_KEYS.list}</Kbd>
-        </Tooltip>
-      </header>
       <ul className="deck-list__rows projects-list__rows">
         <li>
           <ul className="deck-list__group projects-views" aria-label="Views">
