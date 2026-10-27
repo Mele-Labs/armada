@@ -288,12 +288,13 @@
   right: var(--space-1);
 }
 
-.armada-prose__run[data-docked] .armada-prose__run-acts {
+/* A held run's terminal has the keys, so the block's own would be a second Stop. */
+.armada-prose__run:is([data-docked], [data-held]) .armada-prose__run-acts {
   display: none;
 }
 
 /* A run drawn in place, under its block. */
-.armada-prose__run[data-docked] > .armada-terminal {
+.armada-prose__run:is([data-docked], [data-held]) > .armada-terminal {
   margin-top: var(--space-1);
 }
 

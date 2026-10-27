@@ -277,10 +277,7 @@ span.armada-view__dot { cursor: default; }
 
 /* What an errand's act names, one line in its own case: selectable, and whole on hover where it is cut. */
 .armada-callcard__target { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; user-select: text; padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); background: var(--bg-sunken); font-family: var(--font-mono); font-size: var(--text-xs); line-height: var(--leading-xs); color: var(--fg-default); }
-/* The run on the card: the mark and the fold stand beside the output, so the output is what takes the height, and the thread above gives some up to it. */
-.armada-callcard__run .armada-prose__run-panel { display: flex; align-items: flex-start; }
-.armada-callcard__run .armada-prose__run-head { flex-direction: column; align-items: flex-start; padding: var(--space-1); }
-.armada-callcard__run .armada-prose__run-out { flex: 1; min-width: 0; max-height: calc(12 * var(--leading-xs)); padding-left: 0; font-size: var(--text-xs); line-height: var(--leading-xs); }
+/* The run on the card is a terminal under the command, and the thread above gives some height up to it. */
 .armada-callcard__thread[data-ran] { max-height: calc(var(--space-12) * 2); }
 
 /* The cover: down it is a dashed outline of the key; lifted, the key shows in the failed hue. */
