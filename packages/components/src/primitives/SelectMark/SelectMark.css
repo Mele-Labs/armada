@@ -1,0 +1,55 @@
+/* SelectMark: a row's select control. Four corners in --fg-subtle that turn the accent and close in on a lit core when
+   selected, in a --space-6 square. Motion is the corners' scale at --duration-fast, which the motion tokens zero under
+   reduced motion. No glow, no gradient. */
+
+.armada-select-mark {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--space-6);
+  height: var(--space-6);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--fg-subtle);
+  cursor: pointer;
+}
+
+.armada-select-mark:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.armada-select-mark__reticle {
+  width: var(--space-6);
+  height: var(--space-6);
+  overflow: visible;
+}
+
+.armada-select-mark__corners {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: square;
+  transform-origin: center;
+  transition: transform var(--duration-fast) var(--ease);
+}
+
+.armada-select-mark__core {
+  fill: var(--accent);
+  transform: scale(0);
+  transform-origin: center;
+  transition: transform var(--duration-fast) var(--ease);
+}
+
+.armada-select-mark:hover { color: var(--fg-muted); }
+.armada-select-mark[data-checked] { color: var(--accent); }
+.armada-select-mark[data-checked] .armada-select-mark__corners { transform: scale(0.84); }
+.armada-select-mark[data-checked] .armada-select-mark__core { transform: scale(1); }
+
+/* ---- A size down: a row under another ---- */
+
+.armada-select-mark[data-size="sm"] { min-width: var(--space-4); height: var(--space-4); }
+.armada-select-mark[data-size="sm"] .armada-select-mark__reticle { width: var(--space-4); height: var(--space-4); }

@@ -14,7 +14,7 @@
 import { useEffect, useMemo, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 
-import type { ProposedField, Notice, NoticeScope, SessionHoldsReleased, StartAfter, SessionRunMessage, SettingsList, TimelineEvent, WorkflowSummary } from "@armada/protocol";
+import type { ProjectRowRef, ProposedField, Notice, NoticeScope, SessionHoldsReleased, StartAfter, SessionRunMessage, SettingsList, TimelineEvent, WorkflowSummary } from "@armada/protocol";
 import { choicesOf, wireMarksOf } from "@armada/screens/src/session-work";
 import type { ReviewRefused } from "@armada/screens/src/session-work";
 import type { QueuedIdea, SessionCommand, SessionWait, StartWhen, WaitReading, WorkflowChoice } from "@armada/screens/src/draft/sessions";
@@ -379,15 +379,19 @@ export class WiredStore {
     if (!done.ok) this.tell(done.outcome);
   }
 
-  private async starting(tag: SessionTag | undefined, root: string | undefined, request?: string, tuning?: { model?: string; effort?: string }, after?: Pick<SessionWait, "on" | "when" | "part" | "base" | "needs">, held?: boolean): Promise<string | undefined> {
+  private async starting(tag: SessionTag | undefined, root: string | undefined, request?: string, tuning?: { model?: string; effort?: string }, after?: Pick<SessionWait, "on" | "when" | "part" | "base" | "needs">, held?: boolean, projectRows?: readonly ProjectRowRef[]): Promise<string | undefined> {
     this.say(undefined);
-    // A start that waits on nothing is the call it always was; one held waits on its start card, and never on a wait.
+    // A start that waits on nothing is the call it always was; one held waits on its start card, and never on a wait. Rows of his
+    // projects ride on any of them, and a start with none is the call it was.
+    const rows = projectRows === undefined || projectRows.length === 0 ? undefined : projectRows;
     const done =
-      after !== undefined
-        ? await this.api.startSession(undefined, root, request, tuning, this.afterOf(after))
-        : held === true
-          ? await this.api.startSession(undefined, root, request, tuning, undefined, true)
-          : await this.api.startSession(undefined, root, request, tuning);
+      rows !== undefined
+        ? await this.api.startSession(undefined, root, request, tuning, after === undefined ? undefined : this.afterOf(after), held === true && after === undefined ? true : undefined, rows)
+        : after !== undefined
+          ? await this.api.startSession(undefined, root, request, tuning, this.afterOf(after))
+          : held === true
+            ? await this.api.startSession(undefined, root, request, tuning, undefined, true)
+            : await this.api.startSession(undefined, root, request, tuning);
     if (!done.ok) return void this.say(done.outcome);
     const id = done.value.id;
     if (tag !== undefined) this.pending.set(id, [tag]);
@@ -661,7 +665,7 @@ export class WiredStore {
     get: () => this.mapped,
     helmOf: (manifestId) => (this.helm?.manifestId === manifestId ? this.helm : undefined),
     subscribe: this.subscribe,
-    start: (tag, root, request, tuning, after, held) => this.starting(tag, root, request, tuning, after, held),
+    start: (tag, root, request, tuning, after, held, projectRows) => this.starting(tag, root, request, tuning, after, held, projectRows),
     begin: (id, delivery, message) => this.took(this.api.beginSession({ session_id: id, ...(delivery === undefined ? {} : { delivery }), ...(message === undefined ? {} : { message }) })),
     readsWait: (words) => this.readingWait(words),
     settlesWait: (words) => this.settledWait(words),

@@ -48,6 +48,7 @@ function fakeHost(
     sleep: { changed: () => {} },
     planUsage: { changed: () => {} },
     modelDownshift: { changed: () => {}, seed: async () => {} },
+    projects: { changed: () => {} },
     agentSignIn: { changed: () => {}, seed: async () => {} },
     timeline: { appended: () => {} },
     acts: { failed: () => {} },
@@ -100,6 +101,16 @@ describe("a Job's watches, carried whole by their event", () => {
     const change = { session_id: "s1", watches: [{ id: "w1", session_id: "s1", name: "Staging deploy", state: "running", live: true }] };
     applyArrival({ ...host, sessions: { ...host.sessions, watchesChanged } }, JSON.stringify({ message: "event", cursor: 4, event: { kind: "watches.changed", ...change } }), FLEET);
     expect(watchesChanged).toHaveBeenCalledWith(change);
+  });
+});
+
+describe("a repository's projects, carried whole by their event", () => {
+  it("are passed on as the repository's projects and nothing of the event's kind", () => {
+    const { host } = fakeHost();
+    const changed = vi.fn();
+    const projects = { manifest_id: "armada", projects: [{ id: "p1", name: "Pocket launch", rows: [{ kind: "task", id: "t1", title: "Pair a phone", notes: "", state: "open" }] }] };
+    applyArrival({ ...host, projects: { changed } }, JSON.stringify({ message: "event", cursor: 5, event: { kind: "projects.changed", ...projects } }), FLEET);
+    expect(changed).toHaveBeenCalledWith(projects);
   });
 });
 
