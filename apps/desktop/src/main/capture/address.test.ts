@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 
 import type { ServerState } from "@armada/protocol";
 import { NOTHING_YET, type BridgeState } from "../../shared/bridge";
-import { chromeAgent, isPinned, loopbackOrigin, onNamedOrigin, webOrigin, offerable, onAnyOrigin, onOrigin, partitionFor, passThrough, pinned, shown } from "./address";
+import { chromeAgent, granted, isPinned, LOCAL_NETWORK, loopbackOrigin, onNamedOrigin, webOrigin, offerable, onAnyOrigin, onOrigin, partitionFor, passThrough, pinned, shown } from "./address";
 
 const SERVING: ServerState = {
   id: "01SERVER",
@@ -253,5 +253,24 @@ describe("a page on a provider the Session named", () => {
     expect(onNamedOrigin(pin, "https://login.example.org.evil.net/")).toBe(false);
     expect(onNamedOrigin(pin, "http://login.example.org/")).toBe(false);
     expect(onNamedOrigin(pin, "")).toBe(false);
+  });
+});
+
+describe("the one permission a walk's page is given", () => {
+  const reach = (address: string): boolean => address.startsWith("https://login.example.com");
+
+  it("is local network access, on an origin the window may reach", () => {
+    expect(LOCAL_NETWORK).toBe("local-network-access");
+    expect(granted(LOCAL_NETWORK, "https://login.example.com/sso", reach)).toBe(true);
+  });
+
+  it("is not given on an origin the window may not reach", () => {
+    expect(granted(LOCAL_NETWORK, "https://elsewhere.example.com", reach)).toBe(false);
+  });
+
+  it("is not any other permission, on any origin", () => {
+    for (const permission of ["media", "notifications", "clipboard-read", "geolocation", "unknown"]) {
+      expect(granted(permission, "https://login.example.com", reach), permission).toBe(false);
+    }
   });
 });

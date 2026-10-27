@@ -10,6 +10,7 @@ import { app, BaseWindow, WebContentsView, type BrowserWindowConstructorOptions,
 
 import type { CaptureRefusedWhat } from "../../shared/capture-window";
 import { chromeAgent, webOrigin } from "./address";
+import { reachesLocalNetwork } from "./permissions";
 
 /** What a provider's sign-in window is sized to: a column, as every provider draws one. */
 const WIDTH = 520;
@@ -72,6 +73,8 @@ function build(hold: PopupHold, made: WebContents, window: BaseWindow): Popup {
   window.on("resize", fit);
 
   const contents = view.webContents;
+  // The popup is the sign-in provider's own page, so it holds the grant the opener's page does.
+  reachesLocalNetwork(contents, hold.allowed);
   // The partition's agent, for the popup's own `navigator.userAgent`: a popup does not take the session's on
   // its own, and the opener's `getUserAgent()` answers Electron's. The header is rewritten in `views.ts`.
   contents.setUserAgent(chromeAgent(app.userAgentFallback));

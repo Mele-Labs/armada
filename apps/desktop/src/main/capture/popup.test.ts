@@ -61,7 +61,10 @@ vi.mock("electron", () => {
 });
 
 import { BaseWindow } from "electron";
+import { may } from "./permissions";
 import { mayOpenPopup, openPopup, type PopupHold } from "./popup";
+
+let next = 0;
 
 type Fake = {
   destroyed: boolean;
@@ -76,6 +79,7 @@ function made() {
   const handlers = new Map<string, Handler[]>();
   const state = { destroyed: false, closed: 0, agent: "", url: "", opened: null as Handler | null };
   const contents = {
+    id: ++next,
     on: (name: string, handler: Handler) => void handlers.set(name, [...(handlers.get(name) ?? []), handler]),
     emit: (name: string, ...args: unknown[]) => (handlers.get(name) ?? []).forEach((handler) => (handler as (...rest: unknown[]) => unknown)(...args)),
     setUserAgent: (agent: string) => void (state.agent = agent),
@@ -141,6 +145,14 @@ describe("the popup", () => {
     expect(window.children).toHaveLength(1);
     expect((window.options as { parent: unknown }).parent).toBe(world.windows[0]);
     expect(fake.state.agent).toBe("Mozilla/5.0 (Macintosh) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36");
+  });
+
+  it("is given local network access on the origins the window may reach, and no longer once it is destroyed", () => {
+    const { fake } = opened();
+    expect(may(fake.contents as never)(`${NAMED}/authorize`)).toBe(true);
+    expect(may(fake.contents as never)("https://elsewhere.example.net/x")).toBe(false);
+    fake.contents.emit("destroyed");
+    expect(may(fake.contents as never)(`${NAMED}/authorize`)).toBe(false);
   });
 
   it("follows a navigation onto the shown origin or a named one, and refuses every other", () => {

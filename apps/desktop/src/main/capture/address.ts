@@ -147,6 +147,17 @@ export function onOrigin(origin: string, address: string): boolean {
   }
 }
 
+/** What Chromium asks for when a sign-in provider's page calls an app on this machine, as Electron spells it. */
+export const LOCAL_NETWORK = "local-network-access";
+
+/**
+ * Whether a page is given a permission. **The one permission a walk's page is given is local network
+ * access, and only on an origin the window may reach**; every other permission is refused.
+ */
+export function granted(permission: string, requesting: string, allowed: (address: string) => boolean): boolean {
+  return permission === LOCAL_NETWORK && allowed(requesting);
+}
+
 /** Whether an address is on the origin the window is pinned to or on one a Session let it pass through. */
 export function onAnyOrigin(pin: Pinned, address: string): boolean {
   return onOrigin(pin.origin, address) || pin.through.some((origin) => onOrigin(origin, address));

@@ -252,7 +252,7 @@ export class CaptureWindow {
       this.bar = seat.bar;
       this.panel = seat.panel;
     }
-    this.page = pageView(pin.manifestId);
+    this.page = pageView(pin);
     this.panelOpen = kept?.open ?? false;
     this.stepwalk = steps.length === 0 ? null : this.playing(pin.name, steps);
     // The walk's row is drawn from the first frame, so the page does not move down when it begins.
