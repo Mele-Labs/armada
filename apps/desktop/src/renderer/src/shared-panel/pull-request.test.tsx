@@ -355,3 +355,26 @@ test("Files entered again shows the diff of the head the forge names now, not th
   expect(filesPanel()?.textContent).toContain("+let days = 3;");
   expect(filesPanel()?.textContent).not.toContain("+let days = 2;");
 });
+
+// ---- Notes for the Job: written on a line of the diff, kept on this Mac, never posted --------------------------
+
+/** Types into a controlled box the way a person does, so React sees the change. */
+const type = (box: HTMLTextAreaElement, words: string) =>
+  act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")!.set!.call(box, words);
+    box.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+const gutter = (label: string) => [...document.querySelectorAll<HTMLButtonElement>("button.armada-diff__gutter")].find((one) => one.getAttribute("aria-label") === label);
+
+test("a press on a diff line opens a note box, and Save puts the note under that line and keeps it on this Mac", async () => {
+  window.localStorage.clear();
+  await mount({ ...readsOf(async () => WITH_FILES), pullRequestPatches: async () => PATCHES });
+  await press("Files");
+  await act(async () => gutter("Note for the job on +let days = 2;")!.click());
+  const box = filesPanel()!.querySelector<HTMLTextAreaElement>('textarea[aria-label="Note for the job"]')!;
+  await type(box, "Name the unit.");
+  await act(async () => [...filesPanel()!.querySelectorAll<HTMLButtonElement>("button")].find((one) => one.textContent === "Save note")!.click());
+  expect(sections()[0]!.querySelector('[aria-label="Note for the job"]')?.textContent).toContain("Name the unit.");
+  expect(filesPanel()!.querySelector('textarea[aria-label="Note for the job"]')).toBeNull();
+  expect(window.localStorage.getItem("armada:job-notes:harbor-labs/tidewater#418")).toContain('"path":"src/tide/tables.rs","line":1,"side":"right"');
+});

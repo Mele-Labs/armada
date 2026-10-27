@@ -21,6 +21,7 @@ import { openAddressInPanel, openInPanel, closePanel } from "./store";
 import type { PanelItem } from "./store";
 import { commandIn } from "./fix-command";
 import { useTerminalRun } from "./terminal-run";
+import { useLineNotes } from "./job-notes-lines";
 import { patchesOf } from "./pull-request-patches";
 import { usePanelReads, useReading } from "./reads";
 import type { PatchesRead, PullRequestRead, PullRequestRefused, Reading } from "./reads";
@@ -147,7 +148,13 @@ function Drawn({ item, reading, onFiles }: { item: Item; reading: Reading<PullRe
       .catch((): undefined => undefined)
       .then((answer) => here.current && run === reachRun.current && setReach({ head, answer: answer ?? {} }));
   }, [tab, paged, head, reach, readReach, item]);
-  const shownPatches = useMemo(() => (readPatches === undefined ? undefined : patchesOf(patches === undefined || patches.answer === "reading" ? undefined : patches.answer)), [readPatches, patches]);
+  // Notes are kept for any pull request; only sending them needs a Job that holds it.
+  const noteKey = `${item.repository ?? repositoryOfAddress(item.address) ?? read?.repository ?? ""}#${item.number}`;
+  const lineNotes = useLineNotes(noteKey);
+  const shownPatches = useMemo(
+    () => (readPatches === undefined ? undefined : patchesOf(patches === undefined || patches.answer === "reading" ? undefined : patches.answer, lineNotes)),
+    [readPatches, patches, lineNotes],
+  );
   const marks = reach === undefined || reach.answer === "reading" ? undefined : reach.answer;
 
   if (read === undefined) {
