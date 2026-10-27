@@ -72,6 +72,11 @@ pub fn branch_in_build(root: &str, build: &str, branch: &str) -> Option<BranchIn
     })
 }
 
+/// The commit `refs/heads/<branch>` names in `root`, or `None` where there is no such branch.
+pub fn branch_tip(root: &str, branch: &str) -> Option<String> {
+    commits(root, &["rev-parse", "--verify", "--quiet", &format!("refs/heads/{branch}^{{commit}}")])?.pop()
+}
+
 /// The lines git printed for these arguments in `root`, or `None` where it failed.
 fn commits(root: &str, args: &[&str]) -> Option<Vec<String>> {
     let run = read_in(root, "git", args).ok().filter(|run| run.status.success())?;

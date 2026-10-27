@@ -5,14 +5,19 @@
 //! Fleet that reads it back.** `Armada/restart-source` says which tree the
 //! running build came from, `Armada/restart-commit` which commit, and
 //! `Armada/restart-build.status` what `scripts/restart-build` is doing or why it
-//! stopped. Nothing here is held in memory but the time of the last fetch.
+//! stopped. Nothing here is held in memory but the time of the last fetch
+//! and what the preview was last refreshed for.
 //!
 //! **The restart outlives Fleet.** `scripts/restart-build` is started with
 //! [`Detached`], in a session of its own, and unmarked so the next Fleet's
 //! orphan sweep does not end it: it stops this Fleet, installs the next and
 //! reopens Bridge, all after the process that asked for it is gone.
+//!
+//! **The preview refreshes itself** when a branch `scripts/preview` left out has moved past the tip
+//! it was left out at, at most every ten minutes and never twice for the same tip. That is held in
+//! memory, so a Fleet that restarts may try a pair again.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::{Duration, Instant, SystemTime};
@@ -51,6 +56,10 @@ const PREVIEW_TREE: &str = ".armada/preview";
 const FETCH_EVERY: Duration = Duration::from_secs(10 * 60);
 /// A fetch still running after this is stopped.
 const FETCH_WITHIN: Duration = Duration::from_secs(60);
+/// The shortest time between two automatic preview refreshes.
+const REFRESH_EVERY: Duration = Duration::from_secs(10 * 60);
+/// How `scripts/preview` words a branch it left out for a migration that is not on main.
+const BREAKING_MIGRATION: &str = "breaking migration";
 /// A `running` status older than this is a wrapper that died, not one working.
 const RUNNING_FOR_AT_MOST: Duration = Duration::from_secs(20 * 60);
 
@@ -86,10 +95,19 @@ struct Fetched {
     at: Option<Instant>,
 }
 
-/// What Fleet holds of its build: when it last fetched, and nothing else.
+/// What Fleet holds of its build: when it last fetched, and what it refreshed the preview for.
 #[derive(Clone, Default)]
 pub(crate) struct Building {
     fetched: Arc<Mutex<Fetched>>,
+    refreshed: Arc<Mutex<Refreshed>>,
+}
+
+/// The automatic preview refreshes: when the last one started, and the (branch, tip) pairs one
+/// was started for.
+#[derive(Default)]
+struct Refreshed {
+    at: Option<Instant>,
+    tried: BTreeSet<(String, String)>,
 }
 
 /// The first served root that holds the wrapper: the checkout a restart runs from.
@@ -214,6 +232,47 @@ impl Fetched {
 }
 
 impl Building {
+    /// Start a preview restart, without adopt, when a branch the preview left out has a tip
+    /// other than the recorded one, as `tip_of` reads it. **Never twice for a pair**, so a
+    /// refresh that fails is not rerun, and at most one in `REFRESH_EVERY`. A branch left out for
+    /// a breaking migration is skipped: only main can bring it back. A refusal waits for the next
+    /// sweep, with nothing remembered.
+    pub(crate) fn refresh_when_left_out_moved(
+        &self,
+        checkout: Option<&Path>,
+        support: &Path,
+        now: SystemTime,
+        at: Instant,
+        tip_of: impl Fn(&str) -> Option<String>,
+    ) -> bool {
+        if !matches!(source_in(support), Ok(BuildSource::Preview)) || restarting_in(support, now) {
+            return false;
+        }
+        let Some(commit) = commit_in(support) else {
+            return false;
+        };
+        let mut refreshed = self.refreshed.lock().unwrap_or_else(PoisonError::into_inner);
+        let moved: Vec<(String, String)> = left_out_in(support, &commit)
+            .into_iter()
+            .filter(|(_, left)| !left.why.starts_with(BREAKING_MIGRATION))
+            .filter_map(|(branch, left)| {
+                let tip = tip_of(&branch)?;
+                (tip != left.tip).then_some((branch, tip))
+            })
+            .filter(|pair| !refreshed.tried.contains(pair))
+            .collect();
+        if moved.is_empty() || refreshed.at.is_some_and(|last| at.saturating_duration_since(last) < REFRESH_EVERY) {
+            return false;
+        }
+        let asked = ChangeFleetBuild { build: BuildSource::Preview, adopt: false };
+        if self.change(checkout, support, &asked, now).is_err() {
+            return false;
+        }
+        refreshed.at = Some(at);
+        refreshed.tried.extend(moved);
+        true
+    }
+
     /// The build as the files and the repository say it is. **Never waits on the
     /// network**: a fetch that is due runs in the background, and this answers
     /// with the refs as they stand.
@@ -323,6 +382,22 @@ where
             .report(self.build_checkout().as_deref(), &support, SystemTime::now())
             .await
             .map_err(|why| self.build_refusal(why))
+    }
+
+    /// Refresh the preview by itself when a branch it left out has moved past the tip it was left
+    /// out at. On the sweep; **nothing here fails the turn**.
+    pub(crate) async fn preview_refreshed_when_left_out_moved(&self) {
+        let Some(checkout) = self.build_checkout() else {
+            return;
+        };
+        let (building, support) = (self.building().clone(), crate::runtime::support_dir(&self.host().home));
+        let _ = tokio::task::spawn_blocking(move || {
+            let root = checkout.to_string_lossy().into_owned();
+            building.refresh_when_left_out_moved(Some(&checkout), &support, SystemTime::now(), Instant::now(), |branch| {
+                adapters::branch_tip(&root, branch)
+            })
+        })
+        .await;
     }
 
     /// `change_fleet_build`.
