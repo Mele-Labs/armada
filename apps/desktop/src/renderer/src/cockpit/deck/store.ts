@@ -391,16 +391,25 @@ export function listOf(ship: Ship, deck: Pick<DeckState, "needs" | "checks" | "h
   return banding === undefined ? rows : bandsOf(rows, banding).flatMap((band) => band.subjects);
 }
 
-/** Each Session a plan group was handed to stands right under the Session it was handed from, when that one is listed too. */
+/** Each Session a plan group was handed to stands right under the Session it was handed from, when that one is listed too, however deep the chain. */
 function linkedUnder(rows: readonly Subject[]): Subject[] {
   const listed = new Set(rows.map((one) => one.key));
-  const under = (parent: Subject) => rows.filter((one) => one.linked?.parent === parent.key);
+  const placed = new Set<string>();
   // A row whose parent is not listed is a plain top-level row: its link would hang off whatever row sits above it.
   const plain = (one: Subject): Subject => {
     const { linked: _gone, ...rest } = one;
     return rest;
   };
-  return rows.filter((one) => one.linked === undefined || !listed.has(one.linked.parent)).flatMap((one) => [one.linked === undefined ? one : plain(one), ...under(one)]);
+  // `rails` are the levels whose line runs on past this row: a parent's, down to its next Job, at each level above.
+  const tree = (one: Subject, depth: number, rails: readonly number[]): Subject[] => {
+    placed.add(one.key);
+    const row = depth === 0 || one.linked === undefined ? plain(one) : { ...one, linked: { ...one.linked, depth, ...(rails.length === 0 ? {} : { rails }) } };
+    const kids = rows.filter((child) => child.linked?.parent === one.key && !placed.has(child.key));
+    return [row, ...kids.flatMap((child, at) => tree(child, depth + 1, at === kids.length - 1 ? rails : [...rails, depth + 1]))];
+  };
+  const listedRows = rows.filter((one) => one.linked === undefined || !listed.has(one.linked.parent)).flatMap((one) => tree(one, 0, []));
+  // Rows that started one another in a loop have no top to hang from: the first of them stands on its own, the rest under it.
+  return [...listedRows, ...rows.flatMap((one) => (placed.has(one.key) ? [] : tree(one, 0, [])))];
 }
 
 /**
