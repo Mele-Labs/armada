@@ -5,6 +5,7 @@ import { useLayoutEffect, useState, type CSSProperties } from "react";
 import { Plus } from "lucide-react";
 
 import { KbdChord } from "../Kbd/Kbd";
+import { ActionsKey } from "./actions-panel";
 import type { PaletteEntry, PaletteSection } from "./CommandPalette";
 
 export type DispatchKind = "session" | "autopilot";
@@ -124,13 +125,14 @@ export function useAnchor(open: boolean, anchor: string | undefined): CSSPropert
 
 
 /** The keys the one bar answers, along the palette's foot while there is something typed to send. */
-export function DispatchKeys({ dispatch, sends }: { dispatch: PaletteDispatch; sends: boolean }) {
+export function DispatchKeys({ dispatch, sends, acts }: { dispatch: PaletteDispatch; sends: boolean; acts: boolean }) {
   const verb = adds(dispatch.kind) ? "add" : "dispatch";
   return (
     <div className="armada-palette__keys-foot" aria-hidden>
       <span><KbdChord keys={["↵"]} /> {sends ? verb : "open"}</span>
       <span><KbdChord keys={["⌘", "↵"]} /> {verb}</span>
       {dispatch.onKind === undefined ? null : <span><KbdChord keys={["⇥"]} /> {(dispatch.kinds ?? ["session"]).map((kind) => KIND[kind]).join(" / ")}</span>}
+      {acts ? <ActionsKey /> : null}
     </div>
   );
 }

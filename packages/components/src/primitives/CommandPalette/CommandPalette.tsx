@@ -1,14 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 
+import { isPressed } from "../../keymap";
 import { KbdChord } from "../Kbd/Kbd";
+import { ActionKeys, ActionsPanel, ResultKeys, actionEntryId, actionRowId, type PaletteAction } from "./actions-panel";
 import { DISPATCH_ROW, DispatchKeys, DispatchRow, StepKeys, adds, nextKind, readsAsWork, useAnchor, type PaletteDispatch, type PaletteStep } from "./dispatch-row";
+import { LabelMeta, MetaCells, columnsOf, type PaletteColumns, type PaletteMeta } from "./row-meta";
 
 import { LINK_ROW, LinkRow, type PaletteLink } from "./link-row";
 import { PATH_ROW, PathRow, readsAsPath, type PalettePath } from "./path-row";
 
 export { readsAsPath, type PalettePath } from "./path-row";
 export type { PaletteLink, PaletteLinkKind } from "./link-row";
+export type { PaletteAction } from "./actions-panel";
+export type { PaletteMeta } from "./row-meta";
 export { adds, readsAsWork, type AddKind, type BarKind, type DispatchKind, type PaletteDispatch, type PaletteStep } from "./dispatch-row";
 
 /**
@@ -86,6 +91,12 @@ export type PaletteEntry = {
    * the reason is neither.
    */
   dormant?: string;
+  /**
+   * What a Job, a pull request, an issue, a task or a command says beside its label, each in a column of its
+   * own. **Not stuffed into the label**: the label is what is searched for and marked, and the columns keep a
+   * number under the number above it.
+   */
+  meta?: PaletteMeta;
 };
 
 export type PaletteSection = {
@@ -131,6 +142,20 @@ export type CommandPaletteProps = {
    * read as one bar. Absent, or not on screen (the narrow title row hides it), the palette centres.
    */
   anchor?: string;
+  /**
+   * What the palette shows with nothing typed, in place of the full list: Pinned, then Recent. Absent, the empty
+   * query shows every row, which is what the setting "Everything" asks for.
+   */
+  home?: { sections: readonly PaletteSection[]; entries: readonly PaletteEntry[] };
+  /**
+   * What ⌘K opens on a row: its acts, short. An empty list is no panel, and the foot says `⌘K Actions` only
+   * where the row under the cursor has some.
+   */
+  actionsOf?: (entry: PaletteEntry) => readonly PaletteAction[];
+  /** An action was chosen. A destructive one goes to `onConfirm` instead, as an entry whose id is the row's, a bar and the action's. */
+  onAct?: (entry: PaletteEntry, action: PaletteAction) => void;
+  /** A row that is not done at once but asks for something first: the second step listing what it can be filled with. */
+  stepOf?: (entry: PaletteEntry) => PaletteStep | undefined;
 };
 
 /** Whether the query matches, and where in the label it matched. */
@@ -144,7 +169,7 @@ function hit(entry: PaletteEntry, query: string): Hit | null {
   if (query === "") return { entry, at: null };
   const wanted = query.toLowerCase();
   const label = entry.label.toLowerCase();
-  const aliases = (entry.aliases ?? []).map((held) => held.toLowerCase());
+  const aliases = [...(entry.aliases ?? []), ...(entry.meta === undefined ? [] : [entry.meta.number, entry.meta.repo, entry.meta.alias].flatMap((one) => one ?? []))].map((held) => held.toLowerCase());
   const at = label.indexOf(wanted);
   if (at >= 0) return { entry, at };
   if (aliases.some((held) => held.includes(wanted))) return { entry, at: null };
@@ -171,6 +196,10 @@ export function CommandPalette({
   path,
   link,
   anchor,
+  home,
+  actionsOf,
+  onAct,
+  stepOf,
 }: CommandPaletteProps) {
   const [query, setQuery] = useState(defaultQuery);
   const [at, setAt] = useState(0);
@@ -181,7 +210,11 @@ export function CommandPalette({
   const panel = useRef<HTMLDivElement>(null);
   // The words a kind is filing and the step listing where they can go, while that step is up.
   const [stepping, setStepping] = useState<{ words: string; step: PaletteStep } | null>(null);
-  const listed = stepping === null ? { entries, sections } : stepping.step;
+  // The row whose acts are up, and the one of them under the cursor.
+  const [acting, setActing] = useState<{ entry: PaletteEntry; at: number } | null>(null);
+  const actionRow = useRef<HTMLDivElement>(null);
+  const bare = query.trim() === "";
+  const listed = stepping !== null ? stepping.step : home !== undefined && bare ? home : { entries, sections };
 
   // Grouped by section in the caller's order, and in the caller's order inside
   // each. Nothing is ranked: the contract fixes what comes first, and a
@@ -207,6 +240,11 @@ export function CommandPalette({
   const typedKind = link === undefined || stepping !== null ? null : link.kindOf(query.trim());
   const flat: (Hit | "dispatch" | "path" | "link")[] = [...(typedKind === null ? [] : ["link" as const]), ...(typedPath === null ? [] : ["path" as const]), ...rest];
   const place = useAnchor(open, anchor);
+  // The row under the cursor and what ⌘K would open on it.
+  const under = flat[at];
+  const underEntry = typeof under === "object" ? under.entry : undefined;
+  const underActions = underEntry === undefined || actionsOf === undefined || stepping !== null ? [] : actionsOf(underEntry);
+  const columns = columnsOf(hits.map((held) => held.entry.meta));
 
   // **The first row is always active**, so a query narrowed to one result is a
   // two-key act. Reset on every change to the query rather than clamped: a
@@ -214,7 +252,7 @@ export function CommandPalette({
   // somewhere the person did not put it.
   useEffect(() => (setAt(0), setRefused(null)), [query]);
   // Closed, it forgets what was typed: the one bar reopens empty rather than holding words `n` could send.
-  useEffect(() => void (open || (setQuery(defaultQuery), setStepping(null))), [open, defaultQuery]);
+  useEffect(() => void (open || (setQuery(defaultQuery), setStepping(null), setActing(null))), [open, defaultQuery]);
   // Tab to a kind that adds makes its row the active one, so Enter adds.
   const kind = dispatch?.kind;
   useEffect(() => {
@@ -238,6 +276,11 @@ export function CommandPalette({
       if (layer && !layer.classList.contains("armada-palette")) return;
       event.preventDefault();
       event.stopPropagation();
+      // The acts back out to the results, and the query stays.
+      if (acting !== null) {
+        setActing(null);
+        return;
+      }
       // A second step backs out to the words it was filing.
       if (stepping !== null) {
         setQuery(stepping.words);
@@ -248,7 +291,26 @@ export function CommandPalette({
     }
     window.addEventListener("keydown", onEscape, true);
     return () => window.removeEventListener("keydown", onEscape, true);
-  }, [open, onClose, stepping]);
+  }, [open, onClose, stepping, acting]);
+
+  // ⌘K opens the acts of the row under the cursor, and closes them again. The press is marked handled so
+  // the binding that toggles the palette leaves it up; on a row with no acts it is not, and closes it as ever.
+  useEffect(() => {
+    if (!open) return;
+    function onActs(event: KeyboardEvent) {
+      if (event.defaultPrevented || !isPressed("command_palette", event)) return;
+      if (acting !== null) {
+        event.preventDefault();
+        setActing(null);
+        return;
+      }
+      if (underEntry === undefined || underActions.length === 0) return;
+      event.preventDefault();
+      setActing({ entry: underEntry, at: 0 });
+    }
+    window.addEventListener("keydown", onActs, true);
+    return () => window.removeEventListener("keydown", onActs, true);
+  }, [open, acting, underEntry, underActions.length]);
 
   // A click outside `.armada-palette` closes it, following `Popover`'s `contains(target)` check —
   // not `event.target === layer`, which breaks the moment anything else nests in the layer.
@@ -318,6 +380,12 @@ export function CommandPalette({
       onClose?.();
       return;
     }
+    const step = stepOf?.(held.entry);
+    if (step !== undefined) {
+      setStepping({ words: query, step });
+      setQuery("");
+      return;
+    }
     if (held.entry.destructive === true) {
       onConfirm?.(held.entry);
       return;
@@ -326,9 +394,34 @@ export function CommandPalette({
     onClose?.();
   }
 
+  function runAction(entry: PaletteEntry, action: PaletteAction | undefined) {
+    if (action === undefined || action.dormant !== undefined) return;
+    if (action.destructive === true) {
+      onConfirm?.({ ...entry, id: actionEntryId(entry, action), label: action.label, destructive: true });
+      return;
+    }
+    onAct?.(entry, action);
+    if (action.stays === true) setActing(null);
+    else onClose?.();
+  }
+
   // Only the navigation set is intercepted here, and `Esc` above. Every other
   // key belongs to the query, which is the suppression rule holding.
   function onKey(event: React.KeyboardEvent<HTMLInputElement>) {
+    if (acting !== null) {
+      const list = actionsOf?.(acting.entry) ?? [];
+      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        event.preventDefault();
+        const step = event.key === "ArrowDown" ? 1 : -1;
+        setActing({ ...acting, at: list.length === 0 ? 0 : (acting.at + step + list.length) % list.length });
+      } else if (event.key === "Enter") {
+        event.preventDefault();
+        runAction(acting.entry, list[acting.at]);
+      } else if (event.key === "Tab") {
+        event.preventDefault();
+      }
+      return;
+    }
     if (event.key === "ArrowDown") {
       event.preventDefault();
       setAt((n) => (flat.length === 0 ? 0 : (n + 1) % flat.length));
@@ -353,6 +446,8 @@ export function CommandPalette({
 
   let n = (leading ? 0 : -1) + (typedPath === null ? 0 : 1) + (typedKind === null ? 0 : 1);
   const current = flat[at];
+  const actionList = acting === null ? [] : (actionsOf?.(acting.entry) ?? []);
+  const actionUnder = acting === null ? undefined : actionList[acting.at];
   const sendRow = !offered ? null : (
     <DispatchRow words={query.trim()} kind={dispatch.kind} trailing={!leading} active={current === "dispatch"} ref={current === "dispatch" ? active : undefined} onEnter={() => setAt(flat.indexOf("dispatch"))} onChoose={send} />
   );
@@ -365,6 +460,7 @@ export function CommandPalette({
         role="dialog"
         aria-modal="true"
         aria-label="Command palette"
+        data-acting={acting === null ? undefined : ""}
         style={place}
       >
         <input
@@ -374,10 +470,11 @@ export function CommandPalette({
           role="combobox"
           aria-expanded="true"
           aria-controls="armada-palette-list"
-          aria-activedescendant={current === undefined ? undefined : current === "link" ? LINK_ROW : current === "path" ? PATH_ROW : current === "dispatch" ? DISPATCH_ROW : rowId(current.entry)}
+          aria-activedescendant={actionUnder !== undefined ? actionRowId(actionUnder) : current === undefined ? undefined : current === "link" ? LINK_ROW : current === "path" ? PATH_ROW : current === "dispatch" ? DISPATCH_ROW : rowId(current.entry)}
           aria-label={stepping?.step.title ?? placeholder}
           placeholder={stepping === null ? placeholder : ""}
           value={query}
+          readOnly={acting !== null}
           onChange={(event) => setQuery(event.target.value)}
           onKeyDown={onKey}
         />
@@ -408,6 +505,7 @@ export function CommandPalette({
                     key={held.entry.id}
                     hit={held}
                     query={query}
+                    columns={columns}
                     active={where === at}
                     ref={where === at ? active : undefined}
                     onEnter={() => setAt(where)}
@@ -419,7 +517,25 @@ export function CommandPalette({
           ))}
           {offered && !leading ? sendRow : null}
         </div>
-        {offered && dispatch !== undefined ? <DispatchKeys dispatch={dispatch} sends={current === "dispatch"} /> : stepping !== null ? <StepKeys /> : null}
+        {acting === null ? null : (
+          <ActionsPanel
+            entry={acting.entry}
+            actions={actionList}
+            at={acting.at}
+            active={actionRow}
+            onEnter={(next) => setActing({ ...acting, at: next })}
+            onChoose={(action) => runAction(acting.entry, action)}
+          />
+        )}
+        {acting !== null ? (
+          <ActionKeys />
+        ) : offered && dispatch !== undefined ? (
+          <DispatchKeys dispatch={dispatch} sends={current === "dispatch"} acts={underActions.length > 0} />
+        ) : stepping !== null ? (
+          <StepKeys />
+        ) : underActions.length > 0 ? (
+          <ResultKeys />
+        ) : null}
       </div>
     </div>
   );
@@ -433,6 +549,7 @@ function rowId(entry: PaletteEntry): string {
 function Row({
   hit: held,
   query,
+  columns,
   active,
   ref,
   onEnter,
@@ -440,6 +557,7 @@ function Row({
 }: {
   hit: Hit;
   query: string;
+  columns: PaletteColumns;
   active: boolean;
   ref?: React.Ref<HTMLDivElement>;
   onEnter: () => void;
@@ -478,7 +596,9 @@ function Row({
       </span>
       <span className="armada-palette__label">
         <Marked label={entry.label} query={query} at={held.at} />
+        <LabelMeta meta={entry.meta} />
       </span>
+      <MetaCells meta={entry.meta} columns={columns} />
       {entry.value === undefined ? null : (
         <span className="armada-palette__value">{entry.value}</span>
       )}

@@ -38,6 +38,7 @@
 }
 
 .armada-palette {
+  position: relative;
   display: flex;
   flex-direction: column;
   width: 100%;
@@ -297,4 +298,62 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
+}
+
+/* A rich row's columns: the Job's state, a number, the repository. Each holds its width whether or not
+ * the row has one, so a number sits under the number above it however long the title runs. */
+.armada-palette__col {
+  flex: none;
+  overflow: hidden;
+  color: var(--fg-subtle);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.armada-palette__col--state {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--armada-glyph);
+  color: var(--fg-muted);
+}
+
+.armada-palette__col--number {
+  width: var(--space-12);
+  font-family: var(--font-mono);
+  text-align: right;
+}
+
+.armada-palette__col--repo {
+  width: calc(var(--space-12) * 2);
+}
+
+/* An alias is found by, so it is drawn small and quiet after the label. */
+.armada-palette__alias {
+  margin-left: var(--space-2);
+  color: var(--fg-subtle);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+}
+
+/* ⌘K on a row: what can be done to it, over the lower right of the results. The list keeps the height
+ * the panel needs while it is up, so a short result list does not clip it. */
+.armada-palette__actions {
+  position: absolute;
+  right: var(--space-2);
+  bottom: calc(var(--space-8) + var(--space-1));
+  width: calc(var(--palette-width) / 2);
+  max-height: 100%;
+  overflow-y: auto;
+  padding: var(--space-1) 0;
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-overlay);
+  box-shadow: var(--shadow-overlay);
+}
+
+.armada-palette[data-acting] .armada-palette__list {
+  min-height: calc(var(--h-menu-item) * 8 + var(--space-4));
 }
