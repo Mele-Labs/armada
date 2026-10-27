@@ -12,7 +12,7 @@ import type { ContextBreakdown } from "@armada/components/src/context-breakdown"
 import type { Scene } from "@armada/components/src/compositions/SketchScene/scene";
 import type { AdversarialReviewState } from "@armada/components/src/compositions/AdversarialReview/review-state";
 import type { RunsPlace } from "@armada/components/src/compositions/RepositoryRuns/runs-places";
-import type { CheckBlame, DeliveryChoice, DeliveryPicked, DraftSettled, LoadoutItemBody, LoadoutKind, LoadoutSource, LoadoutSummary, Notice, NoticeScope, PullRequestFilePatch, PullRequestPage, RequestBy, RequestHeader, SessionBuild, SessionLoadout, SessionStanding, ThoughtTarget, WaitingItem, WritePullRequest } from "@armada/protocol";
+import type { CheckBlame, DeliveryChoice, ProjectRowRef, DeliveryPicked, DraftSettled, LoadoutItemBody, LoadoutKind, LoadoutSource, LoadoutSummary, Notice, NoticeScope, PullRequestFilePatch, PullRequestPage, RequestBy, RequestHeader, SessionBuild, SessionLoadout, SessionStanding, ThoughtTarget, WaitingItem, WritePullRequest } from "@armada/protocol";
 import type { McpServerAct, McpSignIn, SessionMcpServer, StepPhase, WatchSummary } from "@armada/protocol";
 import type { RetroRowDrawn } from "../retro-row";
 
@@ -773,8 +773,9 @@ export type SessionsDraft = {
    * `tuning` is a model or effort the person picked in Dispatch; it wins, and Fleet fills in only what is left out.
    * `after` is a Session this one waits on and when it starts: it then holds its words and runs nothing until the condition is met.
    * `held` starts it on its start card: the words are read and nothing runs until `begin`.
+   * `projectRows` are the rows of the repository's projects it starts with: each written task is held by the Job.
    */
-  start: (tag?: SessionTag, root?: string, request?: string, tuning?: { model?: string; effort?: string }, after?: Pick<SessionWait, "on" | "when" | "part" | "base" | "needs">, held?: boolean) => string | Promise<string | undefined>;
+  start: (tag?: SessionTag, root?: string, request?: string, tuning?: { model?: string; effort?: string }, after?: Pick<SessionWait, "on" | "when" | "part" | "base" | "needs">, held?: boolean, projectRows?: readonly ProjectRowRef[]) => string | Promise<string | undefined>;
   /**
    * Begins a Session held on its start card: the agent starts, and `delivery` is how the work lands where the Job's workflow has a landing
    * step. `message` is the first message as he left it on the card. Absent where nothing serves it, and the card offers no Start.
@@ -837,6 +838,8 @@ export type SessionsDraft = {
   confirmLater?: (id: string, later: string) => void;
   /** The person's Stop on one of a Session's watches (`watch` is its id): Fleet ends it `stopped`. */
   stopWatch?: (id: string, watch: string) => void;
+  /** The person's delete on one of a Session's ended watches (`watch` is its id): Fleet forgets it and all kept of it. */
+  deleteWatch?: (id: string, watch: string) => void;
   /** Runs a failed hand off again for Job `id`. */
   retryHandoff?: (id: string) => void;
   /**

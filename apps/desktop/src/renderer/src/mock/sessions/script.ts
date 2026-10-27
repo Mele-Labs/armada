@@ -521,6 +521,8 @@ export function sessionsStore(
         const held = watches.find((it) => it.live && it.name === heldOpenBy);
         return { ...rest, watches, ...(held === undefined ? {} : { heldOpenBy: held.name }) };
       }),
+    // As Fleet does: an ended watch goes, and a live one stays, since Fleet refuses it.
+    deleteWatch: (id, watch) => edit(id, (one) => ({ ...one, watches: (one.watches ?? []).filter((it) => it.id !== watch || it.live) })),
     send(id, sent) {
       if (sent.text.trim() === "" && sent.files.length + sent.sketches.length + sent.tags.length === 0) return;
       edit(id, (one) => {

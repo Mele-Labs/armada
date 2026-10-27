@@ -392,8 +392,9 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
     if (answers.length === 0) open?.();
     else if (chosen !== undefined) answers[chosen]?.run();
   };
-  // A first message is sent in the Session's own box, so the card has no reply and its one act opens the Session.
-  const replies = waiting !== undefined && restart === undefined && waiting.item.source !== "walk" && waiting.item.source !== "permission" && waiting.item.source !== "first_message";
+  // A first message is sent in the Session's own box, so the card has no reply and its one act opens the Session. The done ask on his
+  // tasks sends the agent nothing, so a word typed on it has nowhere to go.
+  const replies = waiting !== undefined && restart === undefined && waiting.item.source !== "walk" && waiting.item.source !== "permission" && waiting.item.source !== "first_message" && waiting.item.source !== "task_done";
 
   return {
     ask: item.fact,

@@ -13,6 +13,7 @@ import { ANNOTATE_FLAG, ANNOTATION_CHANNELS } from "../shared/annotations";
 import type { Annotation, AnnotationsDevApi, Box } from "../shared/annotations";
 import type { PanelGo, PanelHeldNote } from "@armada/studios/api";
 import type { BridgeState, HistoryStep, Summons } from "../shared/bridge";
+import type { PullLink } from "../shared/pull-link";
 import type { CaptureAimed, CaptureAnswer, CaptureHeld, CaptureQueueKey, CaptureWheel, CaptureWindowState } from "../shared/capture-window";
 import type { CaptureOpened, ClashSide } from "@armada/protocol";
 import type { ChangeSlotPool, RescueSlot, SketchToKeep } from "@armada/protocol";
@@ -33,9 +34,9 @@ import type { ModChecked } from "@armada/protocol";
 import type { ForgetReviewSearch, OpenReviewWalk, PullReviewLists, PullThreadResolved, RememberedPlace, RememberedPlaces, ResolvePullThread, ReviewRun, ReviewRuns, ReviewTools, ReviewWalk, SaveReviewTool, SaveWalkPlace, StartReviewRun, StartReviewSearch, WalkPlaceFound, WritePullRequest } from "@armada/protocol";
 import type { ReviewWalkNote, ShownReviewWalk, ShownReviewWalkOutcome } from "../shared/review-walk";
 import type { ChosenHold, SessionHeld, SessionHoldsReleased, SetNoticeMute } from "@armada/protocol";
-import type { ActFailed, AgentSignIn, HomeKind, HomeKinds, HomeRowAt, HomeSide, HomeSynced, ModelDownshiftState, PlanUsage, SharedHomeRead, SignedOut, SleepState, TimelineAsk, TimelineEvent } from "@armada/protocol";
+import type { ActFailed, AgentSignIn, ProjectRowRef, LinkProjectIssue, LinkTaskJob, LinkTaskPull, MoveProjectRow, NameProject, ProjectTask, Projects, TickProjectTask, HomeKind, HomeKinds, HomeRowAt, HomeSide, HomeSynced, ModelDownshiftState, PlanUsage, SharedHomeRead, SignedOut, SleepState, TimelineAsk, TimelineEvent } from "@armada/protocol";
 import type { FlightControls } from "@armada/protocol";
-import type { StopWatch, WatchSummary } from "@armada/protocol";
+import type { DeleteWatch, StopWatch, WatchList, WatchSummary } from "@armada/protocol";
 import type { ApproveRepositoryTile, RepositoryTile } from "@armada/protocol";
 import type { AddPackage, BindUnboundPiece, CommitToRepository, CommittedToRepository, PackageAdded, PackageRead, PieceAdded, SharePieces, SharedPackage, UnboundPieces } from "@armada/protocol";
 import type { PackageSaved, SharingAnswer } from "../shared/api/sharing";
@@ -50,6 +51,7 @@ import type { SleepActed } from "../shared/api/sleep";
 import type { AccountsActed } from "../shared/api/accounts";
 import type { PlanUsageRead } from "../shared/api/plan-usage";
 import type { ModelDownshiftRead } from "../shared/api/model-downshift";
+import type { ProjectsActed } from "../shared/api/projects";
 import type { AgentSignInRead } from "../shared/api/agent-sign-in";
 import type { FleetTimelineRead } from "../shared/api/timeline";
 import type { BayHistoryRead } from "../shared/api/bay-history";
@@ -381,6 +383,39 @@ const api: BridgeApi = {
       ipcRenderer.removeListener(CHANNELS.modelDownshiftChanged, handler);
     };
   },
+  listProjects: (manifestId: string): Promise<ProjectsActed> => ipcRenderer.invoke(CHANNELS.listProjects, manifestId),
+  addProject: (manifestId: string, body: NameProject): Promise<ProjectsActed> => ipcRenderer.invoke(CHANNELS.addProject, manifestId, body),
+  renameProject: (manifestId: string, project: string, body: NameProject): Promise<ProjectsActed> => ipcRenderer.invoke(CHANNELS.renameProject, manifestId, project, body),
+  deleteProject: (manifestId: string, project: string): Promise<ProjectsActed> => ipcRenderer.invoke(CHANNELS.deleteProject, manifestId, project),
+  addProjectTask: (manifestId: string, project: string, body: ProjectTask): Promise<ProjectsActed> => ipcRenderer.invoke(CHANNELS.addProjectTask, manifestId, project, body),
+  addProjectSubtask: (manifestId: string, project: string, row: string, body: ProjectTask): Promise<ProjectsActed> =>
+    ipcRenderer.invoke(CHANNELS.addProjectSubtask, manifestId, project, row, body),
+  editProjectTask: (manifestId: string, project: string, row: string, body: ProjectTask): Promise<ProjectsActed> =>
+    ipcRenderer.invoke(CHANNELS.editProjectTask, manifestId, project, row, body),
+  linkProjectIssue: (manifestId: string, project: string, body: LinkProjectIssue): Promise<ProjectsActed> => ipcRenderer.invoke(CHANNELS.linkProjectIssue, manifestId, project, body),
+  linkTaskIssue: (manifestId: string, project: string, row: string, body: LinkProjectIssue): Promise<ProjectsActed> =>
+    ipcRenderer.invoke(CHANNELS.linkTaskIssue, manifestId, project, row, body),
+  unlinkTaskIssue: (manifestId: string, project: string, row: string, body: LinkProjectIssue): Promise<ProjectsActed> =>
+    ipcRenderer.invoke(CHANNELS.unlinkTaskIssue, manifestId, project, row, body),
+  linkTaskJob: (manifestId: string, project: string, row: string, body: LinkTaskJob): Promise<ProjectsActed> =>
+    ipcRenderer.invoke(CHANNELS.linkTaskJob, manifestId, project, row, body),
+  unlinkTaskJob: (manifestId: string, project: string, row: string): Promise<ProjectsActed> => ipcRenderer.invoke(CHANNELS.unlinkTaskJob, manifestId, project, row),
+  linkTaskPull: (manifestId: string, project: string, row: string, body: LinkTaskPull): Promise<ProjectsActed> =>
+    ipcRenderer.invoke(CHANNELS.linkTaskPull, manifestId, project, row, body),
+  unlinkTaskPull: (manifestId: string, project: string, row: string, body: LinkTaskPull): Promise<ProjectsActed> =>
+    ipcRenderer.invoke(CHANNELS.unlinkTaskPull, manifestId, project, row, body),
+  removeProjectRow: (manifestId: string, project: string, row: string): Promise<ProjectsActed> => ipcRenderer.invoke(CHANNELS.removeProjectRow, manifestId, project, row),
+  moveProjectRow: (manifestId: string, project: string, row: string, body: MoveProjectRow): Promise<ProjectsActed> =>
+    ipcRenderer.invoke(CHANNELS.moveProjectRow, manifestId, project, row, body),
+  tickProjectTask: (manifestId: string, project: string, row: string, body: TickProjectTask): Promise<ProjectsActed> =>
+    ipcRenderer.invoke(CHANNELS.tickProjectTask, manifestId, project, row, body),
+  onProjectsChanged: (onChanged: (projects: Projects) => void): (() => void) => {
+    const handler = (_event: unknown, projects: Projects): void => onChanged(projects);
+    ipcRenderer.on(CHANNELS.projectsChanged, handler);
+    return () => {
+      ipcRenderer.removeListener(CHANNELS.projectsChanged, handler);
+    };
+  },
   getAgentSignIn: (): Promise<AgentSignInRead> => ipcRenderer.invoke(CHANNELS.getAgentSignIn),
   startAgentSignIn: (): Promise<AgentSignInRead> => ipcRenderer.invoke(CHANNELS.startAgentSignIn),
   onAgentSignInChanged: (onChanged: (state: AgentSignIn) => void): (() => void) => {
@@ -505,7 +540,8 @@ const api: BridgeApi = {
       ipcRenderer.removeListener(CHANNELS.sleepChanged, handler);
     };
   },
-  startSession: (title?: string, root?: string, request?: string, tuning?: { model?: string; effort?: string }, after?: StartAfter, held?: boolean): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.startSession, title, root, request, tuning, after, held),
+  startSession: (title?: string, root?: string, request?: string, tuning?: { model?: string; effort?: string }, after?: StartAfter, held?: boolean, projectRows?: readonly ProjectRowRef[]): Promise<SessionActed> =>
+    ipcRenderer.invoke(CHANNELS.startSession, title, root, request, tuning, after, held, projectRows),
   beginSession: (begin: BeginSession): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.beginSession, begin),
   readSessionWait: (sessionId: string, request: string): Promise<SessionActed<WaitReading>> => ipcRenderer.invoke(CHANNELS.readSessionWait, sessionId, request),
   changeWaiting: (change: ChangeWaiting): Promise<SessionActed<SessionWait>> => ipcRenderer.invoke(CHANNELS.changeWaiting, change),
@@ -521,6 +557,7 @@ const api: BridgeApi = {
   claimIssue: (claim: ClaimIssue): Promise<SessionActed<IssueClaimed>> => ipcRenderer.invoke(CHANNELS.claimIssue, claim),
   settleLater: (settle: SettleLater): Promise<SessionActed<LaterSettled>> => ipcRenderer.invoke(CHANNELS.settleLater, settle),
   stopWatch: (stop: StopWatch): Promise<SessionActed<WatchSummary>> => ipcRenderer.invoke(CHANNELS.stopWatch, stop),
+  deleteWatch: (remove: DeleteWatch): Promise<SessionActed<WatchList>> => ipcRenderer.invoke(CHANNELS.deleteWatch, remove),
   dismissWaiting: (dismiss: DismissWaiting): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.dismissWaiting, dismiss),
   confirmLater: (confirm: ConfirmLater): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.confirmLater, confirm),
   confirmWaiting: (confirm: ConfirmWaiting): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.confirmWaiting, confirm),
@@ -839,6 +876,15 @@ const api: BridgeApi = {
     ipcRenderer.on(CHANNELS.summoned, handler);
     return () => {
       ipcRenderer.removeListener(CHANNELS.summoned, handler);
+    };
+  },
+
+  // A pull request's link opened from outside. `onSummoned`'s shape: a listener and its remover. It grants nothing.
+  onPullLink: (onLink: (link: PullLink) => void): (() => void) => {
+    const handler = (_event: unknown, link: PullLink): void => onLink(link);
+    ipcRenderer.on(CHANNELS.pullLinked, handler);
+    return () => {
+      ipcRenderer.removeListener(CHANNELS.pullLinked, handler);
     };
   },
 

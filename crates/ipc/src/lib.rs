@@ -250,6 +250,8 @@ mod underway;
 mod walk_steps;
 /// A command Fleet runs on a cadence for one Job, the agent's weighing of it, and its line.
 mod watches;
+/// A watch tried before it starts, the recipes there are, and one kept on this machine.
+mod watch_tools;
 
 #[cfg(test)]
 mod tests;
@@ -562,7 +564,7 @@ pub use sessions::{
     AttachmentVersion, ConfirmWaiting, DismissWaiting, ClaimPullRequest, Holder, HolderKind, MainRedTaken, Owners, Ownership,
     PullRequestClaimed, RenameSession, TakeMainRed, SessionFact, SessionId, SessionList,
     SessionOrigin, ProposedField, SessionProposal, SessionRecord, SessionReport,
-    ConfirmLater, LaterHow, LaterSettled, SessionLater, SettleLater,
+    ConfirmLater, DeferLater, LaterDeferred, LaterHow, LaterSettled, SessionLater, SettleLater,
     SessionStanding, SessionState, SessionRunMessage, SessionRunUnderway, StartSessionRun,
     StopSessionRun, WriteSessionRun, ResizeSessionRun, SessionUsage, SetWaitingFor, AllDone,
     FinishUp, FinishedUp, ShowWindow, SignIn, TakeWindowSignIn, origins_as_detail, WindowSignIn,
@@ -655,9 +657,13 @@ pub use triggers::{
     TriggerScope, TriggerSkip, TriggerSkipReason, TriggerSummary,
 };
 pub use watches::{
-    read_watch_line, StartWatch, StopWatch, WatchList, WatchPart, WatchReading,
-    WatchReadingState, WatchSetAside, WatchStarts, WatchState, WatchSummary, WatchVerdict,
-    WatchVerdictGiven, WatchVerdictWord, WeighWatch,
+    collapsed, read_watch_line, watch_line, DeleteWatch, LoginShell, StartWatch, StopWatch, WatchList, WatchPart,
+    WatchReading, WatchReadingState, WatchSetAside, WatchStarts, WatchState, WatchSummary,
+    WatchVerdict, WatchVerdictGiven, WatchVerdictWord, WeighWatch,
+};
+pub use watch_tools::{
+    SaveWatchRecipe, TryWatch, WatchRecipeList, WatchRecipeListed, WatchRecipeSaved,
+    WatchRecipeSource, WatchTried, WatchTries,
 };
 pub use underway::{
     OutputClosed, OutputEnded, OutputLines,

@@ -1,0 +1,4 @@
+# One Buildkite build, each step a part. Reads `BUILDKITE_API_TOKEN` from the login shell's environment.
+name: buildkite-build
+command: [armada, watch-line, buildkite-build, "{organization}", "{pipeline}", "{build}"]
+every: 60s

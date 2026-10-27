@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use api::{Refusal, Watches};
-use ipc::{SessionId, StartWatch, StopWatch, WatchStarts, WatchState, WatchVerdict, WeighWatch};
+use ipc::{DeleteWatch, SessionId, StartWatch, StopWatch, WatchStarts, WatchState, WatchVerdict, WeighWatch};
 
 use super::repositories::Planted;
 use super::session_host::{rig_fitted, rig_placing, Rig};
@@ -50,13 +50,13 @@ async fn a_start_is_kept_for_its_job_with_the_machines_give_up() {
     assert_eq!(started.gives_up_after_seconds, 120 * 60, "timeouts.watchGiveUpMinutes ships at 120");
     assert_eq!(started.follows, Some(42));
 
-    let listed = rig.fleet.list_watches(None, Some(job.clone())).await.expect("listed");
+    let listed = rig.fleet.list_watches(None, Some(job.clone()), true).await.expect("listed");
     assert_eq!(listed.watches, vec![started]);
-    let other = rig.fleet.list_watches(None, Some(SessionId::carried("another"))).await.expect_err("no such Job");
+    let other = rig.fleet.list_watches(None, Some(SessionId::carried("another")), true).await.expect_err("no such Job");
     assert_eq!(code(&other), ("fleet.no_such_session", 422));
     let second = rig.start().await;
-    assert!(rig.fleet.list_watches(None, Some(second)).await.expect("listed").watches.is_empty());
-    let unplaced = rig.fleet.list_watches(None, None).await.expect_err("nothing places a Job");
+    assert!(rig.fleet.list_watches(None, Some(second), true).await.expect("listed").watches.is_empty());
+    let unplaced = rig.fleet.list_watches(None, None, true).await.expect_err("nothing places a Job");
     assert_eq!(code(&unplaced), ("fleet.watches_unplaced", 422));
 }
 
@@ -138,4 +138,42 @@ async fn a_weighing_and_a_stop_act_on_the_jobs_own_watch() {
     assert_eq!(again.state, WatchState::Stopped);
     let ended = rig.fleet.weigh_watch(None, weigh(&id, WatchVerdict::Ours { sentence: "Mine.".into() })).await.expect_err("it ended");
     assert_eq!(code(&ended), ("fleet.watch_ended", 409));
+}
+
+#[tokio::test]
+async fn an_ended_watch_is_listed_only_when_asked_for() {
+    let rig = rig_placing(None);
+    let job = rig.start().await;
+    let ending = rig.fleet.start_watch(None, own(&job, "60s", None)).await.expect("started").id;
+    let live = rig.fleet.start_watch(None, own(&job, "60s", None)).await.expect("started").id;
+    rig.fleet.stop_watch(None, StopWatch { session_id: None, watch: ending.clone() }).await.expect("stopped");
+
+    let ids = |list: ipc::WatchList| list.watches.into_iter().map(|one| one.id).collect::<Vec<_>>();
+    let listed = rig.fleet.list_watches(None, Some(job.clone()), false).await.expect("listed");
+    assert_eq!(ids(listed), vec![live.clone()], "live only, unless asked");
+    let every = rig.fleet.list_watches(None, Some(job.clone()), true).await.expect("listed");
+    assert_eq!(ids(every), vec![live, ending], "the newest first, the ended one too");
+}
+
+#[tokio::test]
+async fn an_ended_watch_is_deleted_whole_and_a_live_one_is_refused() {
+    let rig = rig_placing(None);
+    let job = rig.start().await;
+    let id = rig.fleet.start_watch(None, own(&job, "60s", None)).await.expect("started").id;
+    let delete = |session_id: Option<SessionId>| DeleteWatch { session_id, watch: id.clone() };
+
+    let live = rig.fleet.delete_watch(None, delete(None)).await.expect_err("live");
+    assert_eq!(code(&live), ("fleet.watch_live", 409));
+    assert!(live.error().message.contains("Stop it first"), "{}", live.error().message);
+
+    rig.fleet.stop_watch(None, StopWatch { session_id: None, watch: id.clone() }).await.expect("stopped");
+    let another = rig.start().await;
+    let elsewhere = rig.fleet.delete_watch(None, delete(Some(another))).await.expect_err("another Job's watch");
+    assert_eq!(code(&elsewhere), ("fleet.no_such_watch", 404));
+
+    let left = rig.fleet.delete_watch(None, delete(Some(job.clone()))).await.expect("its own Job deletes it");
+    assert!(left.watches.is_empty(), "{:?}", left.watches);
+    assert!(rig.fleet.list_watches(None, Some(job.clone()), true).await.expect("listed").watches.is_empty());
+    let again = rig.fleet.delete_watch(None, delete(None)).await.expect_err("already gone");
+    assert_eq!(code(&again), ("fleet.no_such_watch", 404));
 }

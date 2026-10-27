@@ -2,6 +2,7 @@
 // part aside as not its change's doing and called the other its own; a QA health watch still running; and the image build's watch, passed.
 // The other's turn has ended on a merged pull request with a Staging deploy still running, so that watch is all that holds it open.
 // Stop on it ends the watch and lets the Job go, as Fleet does. The walk `watching` plays it.
+// QA health has read the same nine times in a row, which Fleet sends as one run; the walk `watchingTidy` plays that and the ended watches.
 
 import { repository } from "@armada/screens/src/fixtures/repository";
 import type { Session, SessionAttachment } from "@armada/screens/src/draft/sessions";
@@ -27,9 +28,16 @@ const pr = (number: number, title: string, branch: string, state: "open" | "merg
   auto: false,
 });
 
+/** The newest reading as taken, as Fleet sends `last`: a run's last reading, never the run. */
+const taken = (reading: WatchReading): WatchReading => {
+  const { count, last_at, ...one } = reading;
+  void count;
+  return last_at === undefined ? one : { ...one, at: last_at };
+};
+
 const watch = (id: string, sessionId: string, name: string, rest: Omit<WatchSummary, "id" | "session_id" | "name" | "last">): WatchSummary => {
   const last = rest.readings?.at(-1);
-  return { id, session_id: sessionId, name, ...rest, ...(last === undefined ? {} : { last }) };
+  return { id, session_id: sessionId, name, ...rest, ...(last === undefined ? {} : { last: taken(last) }) };
 };
 
 const qaDeployReadings: WatchReading[] = [
@@ -89,10 +97,10 @@ const qa: Session = {
       gives_up_after_seconds: 7200,
       state: "running",
       live: true,
-      started_at: ago(8),
+      started_at: ago(11),
       readings: [
-        { kind: "read", at: ago(7), state: "waiting", finished: false, says: "Waiting for the deploy to finish" },
-        { kind: "read", at: ago(1), state: "running", finished: false, says: "Two of three regions answering" },
+        { kind: "read", at: ago(10), state: "waiting", finished: false, says: "Waiting for the deploy to finish" },
+        { kind: "read", at: ago(9), state: "running", finished: false, says: "Two of three regions answering", count: 9, last_at: ago(1) },
       ],
     }),
     watch("w-deploy", QA_ID, "QA deploy", {

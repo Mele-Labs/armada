@@ -460,6 +460,19 @@ pub(crate) async fn all_done<D: Sessions>(
     }
 }
 
+/// The agent keeps a follow-up for later. 200 with what was kept and what is open; 422 for an empty sentence or a
+/// call that places no session; 409 for a session that has ended.
+pub(crate) async fn defer_later<D: Sessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let defer: ipc::DeferLater = match ipc::decode("a follow-up to keep", &body) {
+        Ok(defer) => defer,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().defer_later(crate::acting::asking(), defer).await {
+        Ok(kept) => answer(StatusCode::OK, &kept, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// A follow-up the session kept for later is settled. 200 with what was settled and what is still open; 422 for a
 /// filed with no issue, an agent's drop with no reason, or a call that places no session; 409 for a follow-up not open.
 pub(crate) async fn settle_later<D: Sessions>(State(served): State<Served<D>>, body: Bytes) -> Response {

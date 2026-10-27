@@ -124,6 +124,8 @@ pub struct ProcessHost {
     /// What the agent's own builds may take: `crate::drone::HostPaths::width`.
     width: checks_runner::CheckWidth,
     port: u16,
+    /// Where each Job's scratch folder is: `crate::scratch`.
+    attachments: PathBuf,
 }
 
 /// The agent's door as a repository's `.mcp.json` names it, spelled as
@@ -166,6 +168,7 @@ impl ProcessHost {
             user: host.user.clone(),
             width,
             port: host.port,
+            attachments: PathBuf::from(&host.attachments_dir),
         }
     }
 }
@@ -175,6 +178,8 @@ impl Processes for ProcessHost {
         adapters::publish_the_agents_door(&self.door, DOOR_PROGRAM, DOOR_ARGS)
             .map_err(|why| why.to_string())?;
         let door = McpConfig::only_these(&self.door.to_string_lossy()).map_err(|why| why.said())?;
+        let scratch = crate::scratch::scratch_under(&self.attachments, &start.session);
+        let _ = std::fs::create_dir_all(&scratch);
         let env = environment(
             HostPaths {
                 path: &self.path,
@@ -187,6 +192,7 @@ impl Processes for ProcessHost {
         // The id `armada worktree lease` holds a slot under, so Fleet ending
         // and resuming this process does not read as the lease's holder gone.
         .and_then(|env| env.and(adapters::leasing::Holder::SESSION_ENV, &start.session))
+        .and_then(|env| env.and(crate::scratch::SCRATCH_ENV, &scratch.to_string_lossy()))
         .map_err(|why| why.said())?;
         // A conversation resumed from another directory (a Session moving into
         // its slot) is not found by the CLI unless it is put where it looks.

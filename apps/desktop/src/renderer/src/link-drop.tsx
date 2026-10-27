@@ -63,7 +63,7 @@ export function linkOf(text: string | undefined): string | null {
 }
 
 /** A field a person types into, where a paste is theirs. */
-function fieldOf(target: EventTarget | null): HTMLElement | null {
+export function fieldOf(target: EventTarget | null): HTMLElement | null {
   if (!(target instanceof HTMLElement)) return null;
   const field = target.closest<HTMLElement>("input, textarea, [contenteditable=''], [contenteditable='true']");
   if (field instanceof HTMLInputElement && !["text", "search", "url", ""].includes(field.type)) return null;

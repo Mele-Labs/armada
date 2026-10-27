@@ -364,7 +364,7 @@ A call in front takes the bare digits and letters the `call` scope names, and th
 
 | To | Do |
 |---|---|
-| Another tab | `⌘1` to `⌘7` for the tabs the bar draws, in its order (Cockpit, Jobs, Studios, Logbook, Reviews, Issues, System), or `g` then `c`, `j`, `s` or `y` for the first three and System |
+| Another tab | `⌘1` to `⌘8` for the tabs the bar draws, in its order (Cockpit, Jobs, Studios, Logbook, Reviews, Issues, Projects, System), or `g` then `c`, `j`, `s` or `y` for the first three and System |
 | A System page | The strip under the tabs: Kit, Mods, Settings, Guides, Workflows. System opens the page last used. `⌘,` is Settings |
 | Doctor | The title bar's menu, top right, or `⌘K` by name |
 | A page with no tab or strip place | A link on the deck, or the palette, `⌘K`, by name: Worktree Slots, Merge line, Manifest, Checks |

@@ -52,9 +52,11 @@ export function waitingOf(session: Session): WaitingItem[] {
  * judge's concern call too while the turn goes on: the plan is the agent's to start from, and a judge never blocks.
  * A full pool (`slot_choice`) holds the agent's first write until he answers, and the delivery question (`delivery`)
  * holds the agent at its start. A `fleet_call` is a notice a taught rule made a call: it holds nothing, and it calls while the
- * turn goes on because calling him is all it is for. A `draft` waits on his OK however the turn goes, as a question does.
+ * turn goes on because calling him is all it is for. A `draft` waits on his OK however the turn goes, as a question does. The done
+ * ask on his project tasks (`task_done`) calls too: a Job that opened a pull request, or said it was done, may still be at work,
+ * and the tasks it holds are waiting on him either way.
  */
-const BLOCKING = new Set(["ask_card", "permission", "window_ask", "plan", "judge", "slot_choice", "delivery", "fleet_call", "draft"]);
+const BLOCKING = new Set(["ask_card", "permission", "window_ask", "plan", "judge", "slot_choice", "delivery", "fleet_call", "draft", "task_done"]);
 
 /** The latest message from the owner on the Session's thread, as an instant; 0 where he has sent none. */
 export function lastOwnerMessageAt(session: Session): number {

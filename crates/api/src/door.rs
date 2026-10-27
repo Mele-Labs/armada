@@ -55,7 +55,8 @@ const QUERIES: &[(&str, &[&str])] = &[
     ("who_owns", &["kind", "target"]),
     ("validate_mod", &["name"]),
     ("get_requests", &["repository", "session_id"]),
-    ("list_watches", &["session_id"]),
+    ("list_watches", &["session_id", "ended"]),
+    ("list_watch_recipes", &["session_id"]),
     ("read_terminal", &["lines", "session_id", "until", "regex", "wait_seconds"]),
 ];
 
@@ -281,6 +282,7 @@ async fn called<D: Queries + Admitting>(
         Asked::Tools { id } => Answered::Tools {
             id,
             shapes: within(shapes, &placed),
+            always_loads: doorway.served.daemon().always_loads(),
         },
         Asked::NoSuchMethod { id, named } => Answered::NoSuchMethod { id, named },
         Asked::Unreadable { why } => Answered::Unreadable { why },
@@ -326,7 +328,7 @@ struct Relayed {
 /// **Only a hosted session is answered**, because what is offered is that
 /// session's own acts and nothing else here has any. Anyone else is told so at
 /// the handshake and listed nothing.
-async fn without_a_manifest<D: Queries>(
+async fn without_a_manifest<D: Queries + Admitting>(
     doorway: &Doorway<D>,
     body: &[u8],
     placed: &Placed,
@@ -343,7 +345,7 @@ async fn without_a_manifest<D: Queries>(
     Some(match door::read(body, &shapes) {
         Asked::Nothing => return None,
         Asked::Ping { id } => Answered::Ping { id },
-        Asked::Tools { id } => Answered::Tools { id, shapes },
+        Asked::Tools { id } => Answered::Tools { id, shapes, always_loads: doorway.served.daemon().always_loads() },
         Asked::NoSuchMethod { id, named } => Answered::NoSuchMethod { id, named },
         Asked::Unreadable { why } => Answered::Unreadable { why },
         Asked::Handshake { id, revision } if session => {

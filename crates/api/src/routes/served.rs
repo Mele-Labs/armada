@@ -438,6 +438,11 @@ const ROUTES: &[Route] = &[
         path: "/sessions/done",
     },
     Route {
+        operation: "defer_later",
+        method: "POST",
+        path: "/sessions/defer_later",
+    },
+    Route {
         operation: "settle_later",
         method: "POST",
         path: "/sessions/settle_later",
