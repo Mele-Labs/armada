@@ -54,6 +54,27 @@ fn a_settled_draft_round_trips_with_how_and_the_words() {
 }
 
 #[test]
+fn a_withdrawn_draft_round_trips_with_its_reason_and_without_one() {
+    let row = json!({
+        "kind": "draft", "id": "r1", "at": "2026-10-11T09:00:00Z",
+        "title": "Pull request description",
+        "text": "Adds the thing.",
+        "settled": {"how": "withdrawn", "words": "The pull request was closed.", "at": "2026-10-11T09:05:00Z"}
+    });
+    let read: SessionRow = serde_json::from_value(row.clone()).unwrap();
+    let SessionRow::Draft { settled: Some(settled), .. } = &read else {
+        panic!("a settled draft: {read:?}");
+    };
+    assert_eq!(settled.how, DraftHow::Withdrawn);
+    assert_eq!(serde_json::to_value(&read).unwrap(), row);
+
+    let bare = json!({"how": "withdrawn", "at": "2026-10-11T09:05:00Z"});
+    let read: crate::DraftSettled = serde_json::from_value(bare.clone()).unwrap();
+    assert!(read.words.is_none());
+    assert_eq!(serde_json::to_value(&read).unwrap(), bare);
+}
+
+#[test]
 fn the_item_waits_as_a_draft_and_is_answered_with_the_fixed_text() {
     let item = json!({
         "id": "draft:r1", "text": "Pull request description", "since": "2026-10-11T09:00:00Z",

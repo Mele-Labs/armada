@@ -370,6 +370,30 @@ pub(crate) async fn propose_draft<D: Sessions>(
     }
 }
 
+/// A session takes back a draft it proposed. 200 with the row, or a [`Receipt`] through the door; 422 for a draft
+/// that is not this session's or not open, or a call that places no session. **The session is placed by the connection**.
+pub(crate) async fn withdraw_draft<D: Sessions>(
+    State(served): State<Served<D>>,
+    door: Option<Extension<DoorCalled>>,
+    body: Bytes,
+) -> Response {
+    let withdraw: ipc::WithdrawDraft = match ipc::decode_body("a draft to withdraw", &body) {
+        Ok(withdraw) => withdraw,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served
+        .daemon()
+        .withdraw_draft(crate::acting::asking(), withdraw.clone())
+        .await
+    {
+        Ok(record) if door.is_some() => {
+            answer(StatusCode::OK, &Receipt::draft_withdrawn(&record, &withdraw), served.run_id())
+        }
+        Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// The person closed a session's window. 200 with the row; 422 for a session Fleet does not know.
 pub(crate) async fn window_closed<D: Sessions>(
     State(served): State<Served<D>>,

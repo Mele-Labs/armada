@@ -4,7 +4,7 @@ import { Check, ChevronDown, CircleCheck, CircleX, Copy, Play, RotateCcw, Square
 import { Button } from "../Button/Button";
 import { Tooltip } from "../Tooltip/Tooltip";
 import { endedSaid } from "../TerminalPane/TerminalPane";
-import { DockedMark, InlineTerminal, ProseTerminal } from "./TerminalRun";
+import { DockedMark, HeldTerminal, InlineTerminal, ProseTerminal } from "./TerminalRun";
 import { plainOf } from "./plain";
 import { begin, change, entryFor, newEntry, subscribeTo, type RunEntry } from "./runs";
 
@@ -215,7 +215,7 @@ export function CopyAct({ text, label: named = "Copy" }: { text: string; label?:
   );
 }
 
-/** `copyLabel` names the copy key where one panel holds several blocks. `run` is a run held elsewhere, which a call card's own key drives too; left out, the block holds its own, kept past the block by `keep` where that is given. `copy` is the source a fenced block copies, beside Run. */
+/** `copyLabel` names the copy key where one panel holds several blocks. `run` is a run held elsewhere, which a call card's own key drives too, and is drawn on a terminal that takes keys; left out, the block holds its own, kept past the block by `keep` where that is given. `copy` is the source a fenced block copies, beside Run. */
 export function RunnableBlock({ command, runner, run: held, keep, copy, copyLabel, children }: { command: string; runner?: CodeRunner; run?: CodeRun; keep?: string; copy?: string; copyLabel?: string; children: ReactNode }) {
   const own = useCodeRun(runner, keep);
   const terminal = useContext(ProseTerminal);
@@ -231,7 +231,7 @@ export function RunnableBlock({ command, runner, run: held, keep, copy, copyLabe
   const stop = dock === null ? run.stop : dock.run.stop;
 
   return (
-    <div className="armada-prose__run" data-state={phase.state} data-docked={docked === null ? undefined : ""} role="group" aria-label={command.split("\n")[0]}>
+    <div className="armada-prose__run" data-state={phase.state} data-docked={docked === null ? undefined : ""} data-held={held === undefined || phase.state === "idle" ? undefined : ""} role="group" aria-label={command.split("\n")[0]}>
       <div className="armada-prose__run-block">
         {children}
         {dock !== null && docked !== null && !dock.shown ? <DockedMark dock={dock} phase={phase} /> : null}
@@ -258,7 +258,7 @@ export function RunnableBlock({ command, runner, run: held, keep, copy, copyLabe
           )}
         </span>
       </div>
-      {dock === null ? <RunOutput run={run} /> : docked === null ? null : <InlineTerminal dock={dock} />}
+      {held !== undefined ? <HeldTerminal command={command} run={held} /> : dock === null ? <RunOutput run={run} /> : docked === null ? null : <InlineTerminal dock={dock} />}
     </div>
   );
 }

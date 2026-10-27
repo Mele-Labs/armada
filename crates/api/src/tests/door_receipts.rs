@@ -187,6 +187,7 @@ const WITHDRAW: &str = r#"{"url":"http://localhost:5173/"}"#;
 const FILE: &str = r#"{"path":"/work/armada/notes/plan.md"}"#;
 const ASK: &str = r#"{"question":"Is this the right label?","url":"http://localhost:5173/","selector":".label"}"#;
 const DRAFT: &str = r#"{"title":" Pull request description for the label ","text":"Renames the label.","before":"WIP"}"#;
+const WITHDRAW_DRAFT: &str = r#"{"draft":" draft:9 "}"#;
 const WAIT: &str = r#"{"items":[{"id":"merge","text":"Approve the pull request"}]}"#;
 
 #[tokio::test]
@@ -334,6 +335,14 @@ async fn propose_draft_answers_the_id_of_the_draft() {
 }
 
 #[tokio::test]
+async fn withdraw_draft_answers_the_draft_it_took_back() {
+    let (app, _) = a_fleet();
+    let said = through_the_door(&app, "withdraw_draft", WITHDRAW_DRAFT).await;
+    assert!(said.len() < MOST_A_RECEIPT_MAY_WEIGH, "{} bytes: {said}", said.len());
+    assert_eq!(said, r#"{"session_id":"session-1","withdrawn":"draft:9"}"#);
+}
+
+#[tokio::test]
 async fn all_done_answers_that_it_is_done() {
     let (app, _) = a_fleet();
     let said = through_the_door(&app, "all_done", "{}").await;
@@ -354,6 +363,7 @@ async fn off_the_door_each_act_answers_the_whole_row_as_it_did() {
         ("/sessions/withdraw_window", WITHDRAW),
         ("/sessions/window/ask", ASK),
         ("/sessions/draft", DRAFT),
+        ("/sessions/withdraw_draft", WITHDRAW_DRAFT),
         ("/sessions/waiting", WAIT),
         ("/sessions/done", "{}"),
     ] {

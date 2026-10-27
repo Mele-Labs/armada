@@ -7,8 +7,8 @@ use std::sync::Arc;
 
 use api::{HostedSessions, Refusal, Sessions};
 use ipc::{
-    AnswerWaiting, DraftHow, ProposeDraft, SessionRow, SessionVoice, ShowWindow, WaitingActKind,
-    WaitingSource,
+    AnswerWaiting, DismissWaiting, DraftHow, ProposeDraft, SessionRow, SessionVoice, ShowWindow, WaitingActKind,
+    WaitingSource, WithdrawDraft,
 };
 
 use super::session_host::{rig_placing, Rig};
@@ -152,6 +152,94 @@ async fn a_note_sends_a_draft_back_to_be_rewritten_and_proposed_again() {
     );
     let settled = settled(&rows).expect("settled");
     assert_eq!((settled.how, settled.words.as_deref()), (DraftHow::SentBack, Some("Shorter, and say why.")));
+}
+
+fn dismissed(id: &ipc::SessionId, item: &str, reason: Option<&str>) -> DismissWaiting {
+    DismissWaiting { session_id: id.clone(), item_id: item.to_string(), reason: reason.map(str::to_string), misread: false }
+}
+
+#[tokio::test]
+async fn dismissing_a_draft_withdraws_it_and_tells_the_session_why() {
+    let rig = rig_placing(None);
+    let (id, item) = drafting(&rig).await;
+    let after = Arc::clone(&rig.fleet)
+        .dismiss_waiting(dismissed(&id, &item, Some(" The pull request was closed. ")))
+        .await
+        .unwrap();
+    assert!(after.waiting_for.iter().all(|one| one.source != WaitingSource::Draft), "withdrawn: {:?}", after.waiting_for);
+
+    let rows = rig.rows(&id).await;
+    assert_eq!(
+        sent(&rows).pop().unwrap(),
+        format!("Withdrawn: {TITLE}\nDo not propose it again.\nThe pull request was closed.")
+    );
+    let settled = settled(&rows).expect("the row says how it was settled");
+    assert_eq!((settled.how, settled.words.as_deref()), (DraftHow::Withdrawn, Some("The pull request was closed.")));
+}
+
+#[tokio::test]
+async fn dismissing_a_draft_with_no_reason_sends_no_trailing_line() {
+    let rig = rig_placing(None);
+    let (id, item) = drafting(&rig).await;
+    Arc::clone(&rig.fleet).dismiss_waiting(dismissed(&id, &item, Some("  "))).await.unwrap();
+
+    let rows = rig.rows(&id).await;
+    assert_eq!(sent(&rows).pop().unwrap(), format!("Withdrawn: {TITLE}\nDo not propose it again."));
+    let settled = settled(&rows).expect("settled");
+    assert_eq!((settled.how, settled.words), (DraftHow::Withdrawn, None));
+}
+
+fn withdrawing(id: &ipc::SessionId, draft: &str) -> WithdrawDraft {
+    WithdrawDraft { draft: draft.to_string(), session_id: Some(id.clone()) }
+}
+
+#[tokio::test]
+async fn withdrawing_its_own_open_draft_settles_it_and_tells_the_session_nothing() {
+    let rig = rig_placing(None);
+    let (id, item) = drafting(&rig).await;
+    let before = sent(&rig.rows(&id).await).len();
+
+    let after = rig.fleet.withdraw_draft(None, withdrawing(&id, &format!(" {item} "))).await.unwrap();
+    assert!(after.waiting_for.iter().all(|one| one.source != WaitingSource::Draft), "withdrawn: {:?}", after.waiting_for);
+
+    let rows = rig.rows(&id).await;
+    assert_eq!(sent(&rows).len(), before, "the job withdrew it, so it is told nothing");
+    let settled = settled(&rows).expect("the row says how it was settled");
+    assert_eq!((settled.how, settled.words), (DraftHow::Withdrawn, None));
+}
+
+#[tokio::test]
+async fn the_bare_row_id_withdraws_a_draft_too() {
+    let rig = rig_placing(None);
+    let (id, item) = drafting(&rig).await;
+    let row = item.strip_prefix("draft:").unwrap();
+    rig.fleet.withdraw_draft(None, withdrawing(&id, row)).await.unwrap();
+    assert_eq!(settled(&rig.rows(&id).await).map(|one| one.how), Some(DraftHow::Withdrawn));
+}
+
+#[tokio::test]
+async fn another_jobs_draft_a_settled_draft_or_an_unknown_id_is_refused_and_nothing_changes() {
+    let rig = rig_placing(None);
+    let (id, item) = drafting(&rig).await;
+    let other = rig.start().await;
+
+    for (who, draft, what) in [(&other, item.as_str(), "another job's draft"), (&id, "draft:nothing", "an unknown id")] {
+        let Err(Refusal::Unacceptable(why)) = rig.fleet.withdraw_draft(None, withdrawing(who, draft)).await else {
+            panic!("{what} is a 422")
+        };
+        assert_eq!(why.code, "fleet.draft_withdraw_not_open", "{what}");
+    }
+    assert!(settled(&rig.rows(&id).await).is_none(), "the draft is still open");
+    assert!(rig.rows(&other).await.iter().all(|row| !matches!(row, SessionRow::Draft { .. })), "nothing on the other job");
+
+    let mut approve = answer(&id, &item);
+    approve.choice = Some(0);
+    Arc::clone(&rig.fleet).answer_waiting(approve).await.unwrap();
+    let Err(Refusal::Unacceptable(why)) = rig.fleet.withdraw_draft(None, withdrawing(&id, &item)).await else {
+        panic!("a settled draft is a 422")
+    };
+    assert_eq!(why.code, "fleet.draft_withdraw_not_open");
+    assert_eq!(settled(&rig.rows(&id).await).map(|one| one.how), Some(DraftHow::Approved), "it stays approved");
 }
 
 #[tokio::test]

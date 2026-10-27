@@ -1370,9 +1370,9 @@ const DRAFT: SessionThreadRow = {
 const DRAFT_ROWS: SessionThreadRow[] = [{ id: "d0", at: "14:05:00", kind: "message", from: "agent", text: "The description is rewritten." }, DRAFT];
 const drafted = (row: Partial<Extract<SessionThreadRow, { kind: "draft" }>>): SessionThreadRow[] => [DRAFT_ROWS[0]!, { ...(DRAFT as Extract<SessionThreadRow, { kind: "draft" }>), ...row }];
 
-/** A draft the agent put to him: the eyebrow, its title, the text as prose, and Approve, Edit and Note on the card. */
+/** A draft the agent put to him: the eyebrow, its title, the text as prose, and Approve, Edit, Note and Withdraw on the card. */
 export const DraftOpen: Story = {
-  args: { rows: DRAFT_ROWS, onDraft: fn() },
+  args: { rows: DRAFT_ROWS, onDraft: fn(), onWithdrawDraft: fn() },
   play: async ({ canvas }) => {
     const card = canvas.getByRole("article", { name: "Draft: Description for the queue pull request" });
     await expect(within(card).getByText("Draft")).toBeVisible();
@@ -1380,7 +1380,31 @@ export const DraftOpen: Story = {
     await expect(within(card).getByText("Queue a Job for later")).toBeVisible();
     await expect(within(card).getByText("The queue survives a restart")).toBeVisible();
     const answers = within(within(card).getByRole("group", { name: "Answers" })).getAllByRole("button");
-    await expect(answers.map((one) => one.textContent)).toEqual(["Approve", "Edit", "Note"]);
+    await expect(answers.map((one) => one.textContent)).toEqual(["Approve", "Edit", "Note", "Withdraw"]);
+  },
+};
+
+/** Withdraw ends the draft with no reason given. */
+export const DraftWithdraw: Story = {
+  args: { rows: drafted({ id: "d9" }), onDraft: fn(), onWithdrawDraft: fn() },
+  play: async ({ canvas, args }) => {
+    await userEvent.click(canvas.getByRole("button", { name: "Withdraw" }));
+    await expect(args.onWithdrawDraft).toHaveBeenCalledWith("d9", undefined);
+    await expect(args.onDraft).not.toHaveBeenCalled();
+  },
+};
+
+/** In the note, Withdraw is last as it was in read mode and takes his note as the reason; Send back is as it was. */
+export const DraftNoteWithdraws: Story = {
+  args: { rows: drafted({ id: "d10" }), onDraft: fn(), onWithdrawDraft: fn() },
+  play: async ({ canvas, args }) => {
+    await userEvent.click(canvas.getByRole("button", { name: "Note" }));
+    const answers = within(canvas.getByRole("group", { name: "Answers" })).getAllByRole("button");
+    await expect(answers.map((one) => one.textContent)).toEqual(["Send back", "Cancel", "Withdraw"]);
+    await userEvent.type(canvas.getByRole("textbox", { name: "Note" }), "  The pull request is closed.  ");
+    await userEvent.click(canvas.getByRole("button", { name: "Withdraw" }));
+    await expect(args.onWithdrawDraft).toHaveBeenCalledWith("d10", "The pull request is closed.");
+    await expect(args.onDraft).not.toHaveBeenCalled();
   },
 };
 
@@ -1493,6 +1517,19 @@ export const DraftApprovedWithFixes: Story = {
     await expect(within(card).getByText("A Job waits for a free slot.")).toBeVisible();
     await expect(within(card).queryByText("Queue a Job for later")).toBeNull();
     await expect(within(card).queryByRole("group", { name: "Answers" })).toBeNull();
+  },
+};
+
+/** Withdrawn: the state, his reason quoted under the draft, and nothing left to press. */
+export const DraftWithdrawn: Story = {
+  args: { rows: drafted({ id: "d11", settled: { how: "withdrawn", words: "The pull request is closed.", at: "2026-10-26T14:07:00Z" } }), onDraft: fn(), onWithdrawDraft: fn() },
+  play: async ({ canvas }) => {
+    const card = canvas.getByRole("article", { name: "Draft: Description for the queue pull request" });
+    await expect(within(card).getByRole("img", { name: "Withdrawn" })).toBeInTheDocument();
+    await expect(within(card).getAllByText("Withdrawn").some((one) => one.checkVisibility())).toBe(true);
+    await expect(within(card).getByText("The pull request is closed.").closest("blockquote")).not.toBeNull();
+    await expect(within(card).queryByRole("group", { name: "Answers" })).toBeNull();
+    await expect(within(card).queryByRole("button", { name: /^(Approve|Edit|Note|Withdraw)$/ })).toBeNull();
   },
 };
 

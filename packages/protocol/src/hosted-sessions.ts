@@ -23,10 +23,10 @@ export type SessionMode = "ask" | "auto" | "accept_edits" | "plan";
 /** What a Session that is followed did, for its parent's thread. */
 export type LinkedEvent = "needs" | "done" | "merged";
 
-/** How the person settled a draft: approved as written, approved with their own text, or sent back with a note. */
-export type DraftHow = "approved" | "fixed" | "sent_back";
+/** How the person settled a draft: approved as written, approved with their own text, sent back with a note, or withdrawn, from his card or by the agent. */
+export type DraftHow = "approved" | "fixed" | "sent_back" | "withdrawn";
 
-/** A draft's settling. `words` is the fixed text for `fixed` and the note for `sent_back`; absent for `approved`. */
+/** A draft's settling. `words` is the fixed text for `fixed`, the note for `sent_back` and the reason for `withdrawn` where one was given; absent for `approved`. */
 export type DraftSettled = { how: DraftHow; words?: string; at: string };
 
 /** `POST /sessions/start`. The row holds no slot and no branch until the agent writes. */

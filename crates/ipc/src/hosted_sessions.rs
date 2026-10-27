@@ -446,10 +446,12 @@ pub enum DraftHow {
     Fixed,
     /// Sent back with a note, to rewrite and propose again.
     SentBack,
+    /// Dropped, by the person's Dismiss or the session's own `withdraw_draft`. Not proposed again.
+    Withdrawn,
 }
 
-/// A draft's settling. `words` is the fixed text for `fixed` and the note for `sent_back`; absent
-/// for `approved`.
+/// A draft's settling. `words` is the fixed text for `fixed`, the note for `sent_back` and the
+/// reason for `withdrawn`; absent for `approved`, and for `withdrawn` when no reason was given.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DraftSettled {
     pub how: DraftHow,
