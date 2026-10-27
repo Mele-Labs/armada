@@ -19,7 +19,7 @@ afterEach(() => {
 
 const SESSIONS = [
   { id: "01b2b572-aaaa", label: "Palette search for sessions", aliases: ["01b2b572-aaaa", "s-01b2b572"] },
-  { id: "9ca3b0d8-bbbb", label: "Fix the merge line", aliases: ["9ca3b0d8-bbbb", "s-9ca3b0d8"] },
+  { id: "9ca3b0d8-bbbb", label: "Fix the merge line", aliases: ["9ca3b0d8-bbbb", "s-9ca3b0d8"], repo: "Pocket", pull: 1899 },
 ];
 
 function palette(openSession: PaletteHands["openSession"]) {
@@ -56,5 +56,17 @@ test("the id finds it, whole or as the address", async () => {
   palette(open);
   await userEvent.keyboard("9ca3");
   await userEvent.click(page.getByRole("option", { name: /Fix the merge line/ }));
+  expect(open).toHaveBeenCalledWith("9ca3b0d8-bbbb");
+});
+
+test("a Job is found by its pull request's number, which the row does not draw", async () => {
+  const open = vi.fn();
+  palette(open);
+  await userEvent.keyboard("#1899");
+  const row = page.getByRole("option", { name: /Fix the merge line/ });
+  await expect.element(row).toBeVisible();
+  expect(row.element().textContent).not.toContain("1899");
+  expect(row.element().textContent).toContain("Pocket");
+  await userEvent.click(row);
   expect(open).toHaveBeenCalledWith("9ca3b0d8-bbbb");
 });

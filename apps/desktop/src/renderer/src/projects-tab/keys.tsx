@@ -37,6 +37,12 @@ const clearedList = (): void => void window.requestAnimationFrame(focusList);
 function focusRows(): void {
   (document.querySelector<HTMLElement>(".projects-pane .projects-row") ?? document.querySelector<HTMLElement>(".projects-pane"))?.focus();
 }
+/** The open project's add field, focused. Answers whether the page has one. The key and the palette's Add a task both come here. */
+export function focusAddTask(): boolean {
+  const field = document.querySelector<HTMLElement>(".projects-top .projects-add textarea");
+  field?.focus();
+  return field !== null;
+}
 /** The row a moved row is drawn at once the list has drawn again. */
 const refocus = (rowId: string): void => void window.requestAnimationFrame(() => document.querySelector<HTMLElement>(`.projects-row[data-row="${CSS.escape(rowId)}"]`)?.focus());
 
@@ -160,10 +166,9 @@ function press(event: KeyboardEvent, store: ProjectsStore, dispatchRow: (rowId: 
   if (paned && isPressed("projects_done", event)) return take(), store.showDone(!snap.showDone);
   if (paned && isPressed("projects_add_task", event)) {
     // The pane's field, where it has one.
-    const field = document.querySelector<HTMLElement>(".projects-top .projects-add textarea");
-    if (field === null) return;
+    if (!focusAddTask()) return;
     take();
-    return field.focus();
+    return;
   }
   if (paned && isPressed("projects_dispatch", event)) {
     // Cards picked: the head's Dispatch, which is drawn only then. Otherwise the focused card.

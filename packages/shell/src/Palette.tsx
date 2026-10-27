@@ -36,13 +36,59 @@
 // person most wants out.
 
 import { useEffect, useState } from "react";
+import { Ban, Check, CircleDot, Copy, ExternalLink, FileTerminal, GitFork, GitMerge, GitPullRequest, Globe, ListTodo, MessageSquarePlus, Pause, Play, Plus, Route, Send } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
-import { actsIn, ALIASES, globalActs, CommandPalette, isPressed, keyFor } from "@armada/components";
-import type { Action, ActionContext, PaletteDispatch, PaletteLink, PalettePath, PaletteEntry, PaletteSection } from "@armada/components";
+import { actsIn, ALIASES, globalActs, CommandPalette, isPressed, keyFor, parseChord, refuseAlias, refuseHotkey } from "@armada/components";
+import type { Action, ActionContext, PaletteAction, PaletteDispatch, PaletteLink, PalettePath, PaletteEntry, PaletteMeta, PaletteSection, PaletteStep } from "@armada/components";
 
-/** A Session as a search result: found by any word of its title, or by its id. */
-export type PaletteSession = { id: string; label: string; aliases: readonly string[] };
+/**
+ * A Session as a search result: found by any word of its title, or by its id. **A Job says where it is and how it
+ * stands**: its repository, its state as a registry glyph with the tooltip that names it, and the pull request it holds.
+ */
+export type PaletteSession = {
+  id: string;
+  label: string;
+  aliases: readonly string[];
+  repo?: string;
+  state?: { icon: LucideIcon; said: string; pulsing?: true };
+  paused?: boolean;
+  pull?: number;
+  /** Acts of its ⌘K panel that nothing answers here, by act id: left out rather than drawn dead. */
+  without?: readonly string[];
+};
+
+/** An open pull request, an issue: found by its number or any word of its title. */
+export type PaletteTicket = { number: number; title: string; repo: string };
+
+/**
+ * A row a Commands mod brings: opening a URL, running a shell line, a chain of palette steps, or a prompt that
+ * waits on a blank. **A `prompt` with a blank asks for it in a second step** before it dispatches.
+ */
+export type PaletteCommand = {
+  id: string;
+  label: string;
+  kind: "url" | "shell" | "chain" | "prompt";
+  value?: string;
+  alias?: string;
+  /** Searched, never drawn: a mod row's own words. */
+  aliases?: readonly string[];
+  hotkey?: string;
+  /** Why the row cannot run, drawn as any dormant row's reason is. */
+  dormant?: string;
+};
+
+/** What the page showing offers: its title heads the block, and its rows are the acts of that page. */
+export type PalettePage = { title: string; rows: readonly (PaletteBoardRow & { shortcut?: string })[] };
+
+/** What the empty query shows. A setting. */
+export type PaletteOpens = "pinned" | "page" | "everything";
+
+export const PALETTE_OPENS: readonly { id: PaletteOpens; label: string }[] = [
+  { id: "pinned", label: "Pinned and recent" },
+  { id: "page", label: "This page first" },
+  { id: "everything", label: "Everything" },
+];
 
 /** A task or subtask of the Projects tab as a search result: found by its title, with where it stands as a quiet second line. */
 export type PaletteTask = { id: string; label: string; detail: string };
@@ -137,8 +183,18 @@ export type PaletteChoice =
   | { of: "setting"; id: string }
   | { of: "filter"; id: string }
   | { of: "board"; id: string }
+  | { of: "page"; id: string }
+  | { of: "pull"; id: string }
+  | { of: "issue"; id: string }
+  | { of: "task"; id: string }
+  | { of: "command"; id: string }
+  /** An action on a row: the row's id as the palette drew it, and the action's. `value` is what an action that asked was answered: the alias, or the chord. */
+  | { of: "on"; target: string; action: string; value?: string }
   /** `root` is `null` for All repositories. */
   | { of: "repository"; root: string | null };
+
+/** A row the palette lists, as Settings names it: what it is called, what kind it is, and whether a word or a key can be given it. */
+export type PaletteKnown = { id: string; label: string; kind: string; keyable: boolean; dormant: boolean; shortcut?: string };
 
 /** A repository the palette can pick, as the title row's picker names it. */
 export type PaletteRepository = { root: string; label: string };
@@ -204,6 +260,27 @@ export type PaletteProps = {
   link?: PaletteLink;
   /** The title bar's field, which the palette opens over. */
   anchor?: string;
+  /** What the page showing offers, first in the results. Absent draws no block. */
+  page?: PalettePage;
+  pulls?: readonly PaletteTicket[];
+  issues?: readonly PaletteTicket[];
+  /** The rows a Commands mod brings. */
+  commands?: readonly PaletteCommand[];
+  /** The second step a command with a blank opens, or none. */
+  commandStep?: (commandId: string) => PaletteStep | undefined;
+  /** Opens on this step: a command run by its key that has a blank to ask for. */
+  opensOn?: PaletteStep | undefined;
+  /** What was pinned and what was opened last, as the palette drew them: `session:…`, `pull:…`. */
+  pinned?: readonly string[];
+  recent?: readonly string[];
+  opens?: PaletteOpens;
+  /** A word he gave a row that finds it, and a key he gave it, by the row's id as the palette drew it. */
+  aliases?: Readonly<Record<string, string>>;
+  hotkeys?: Readonly<Record<string, string>>;
+  /** Told each time the rows the palette lists change, so Settings can name the ones that hold a word, a key or a pin. */
+  onRows?: (rows: readonly PaletteKnown[]) => void;
+  /** A destructive action on a row was chosen: it confirms over the palette before it runs. */
+  onConfirmOn?: (target: string, action: string) => void;
 };
 
 /** The section ids. Their order is the contract's contents order. */
@@ -211,8 +288,14 @@ const CONTEXT = "context";
 const NAVIGATION = "navigation";
 const RUN = "run";
 const SESSIONS = "sessions";
-const TASKS = "tasks";
 const SETTINGS = "settings";
+const PAGE = "page";
+const PINNED = "pinned";
+const RECENT = "recent";
+const COMMANDS = "commands";
+const PULLS = "pulls";
+const ISSUES = "issues";
+const TASKS = "tasks";
 const REPOSITORIES = "repositories";
 
 /** The row for All repositories. A root is an absolute path, so this id cannot be one. */
@@ -242,7 +325,8 @@ export function useCommandPalette(): {
 
   useEffect(() => {
     function pressed(event: KeyboardEvent): void {
-      if (!isPressed("command_palette", event)) return;
+      // The palette marks a ⌘K it used for a row's actions, and that press is not a toggle.
+      if (event.defaultPrevented || !isPressed("command_palette", event)) return;
       event.preventDefault();
       // Toggled, not opened. ⌘K twice is how a person closes something they
       // opened by reflex, and `Esc` is not what they reach for while their
@@ -266,7 +350,6 @@ export function Palette({
   runnables = [],
   board = [],
   sessions = [],
-  tasks = [],
   settings,
   repositories = [],
   picked = null,
@@ -278,10 +361,27 @@ export function Palette({
   path,
   link,
   anchor,
+  page,
+  pulls = [],
+  issues = [],
+  tasks = [],
+  commands = [],
+  commandStep,
+  opensOn,
+  pinned = [],
+  recent = [],
+  opens = "pinned",
+  aliases: given = {},
+  hotkeys = {},
+  onRows,
+  onConfirmOn,
 }: PaletteProps) {
   const sections: PaletteSection[] = [
+    // The page showing heads the results, titled with it.
+    ...(page === undefined || page.rows.length === 0 ? [] : [{ id: PAGE, title: page.title }]),
     { id: CONTEXT, title: on ?? NOTHING_FOCUSED },
     { id: NAVIGATION, title: "Navigation" },
+    ...(commands.length === 0 ? [] : [{ id: COMMANDS, title: "Commands" }]),
     // **Below Navigation and above Sessions, and it is a fifth block.** The
     // contract's contents order names four, and none of them is this: a Check
     // is not an act on what is focused, not a place, not a Session and
@@ -291,11 +391,22 @@ export function Palette({
     // Where the title row's picker is, from the keyboard: the same pick, over the same list.
     ...(repositories.length === 0 ? [] : [{ id: REPOSITORIES, title: "Repositories" }]),
     ...(sessions.length === 0 ? [] : [{ id: SESSIONS, title: "Jobs" }]),
+    ...(pulls.length === 0 ? [] : [{ id: PULLS, title: "Pull requests" }]),
+    ...(issues.length === 0 ? [] : [{ id: ISSUES, title: "Issues" }]),
     ...(tasks.length === 0 ? [] : [{ id: TASKS, title: "Tasks" }]),
     { id: SETTINGS, title: "Settings" },
   ];
 
   const entries: PaletteEntry[] = [
+    ...(page?.rows ?? []).map((row) => ({
+      id: `page:${row.id}`,
+      section: PAGE,
+      label: row.label,
+      ...(row.icon === undefined ? {} : { icon: row.icon }),
+      ...(row.shortcut === undefined ? {} : { shortcut: row.shortcut }),
+      ...(row.destructive === true ? { destructive: true } : {}),
+      ...(row.dormant === undefined ? {} : { dormant: row.dormant }),
+    })),
     ...actsIn(context).flatMap((action) =>
       action.unbuilt === null && absent.includes(action.id)
         ? []
@@ -342,6 +453,16 @@ export function Palette({
       ...(row.destructive === true ? { destructive: true } : {}),
       ...(row.dormant === undefined ? {} : { dormant: row.dormant }),
     })),
+    ...commands.map((command) => ({
+      id: `cmd:${command.id}`,
+      section: COMMANDS,
+      label: command.label,
+      icon: COMMAND_GLYPH[command.kind],
+      ...(command.hotkey === undefined ? {} : { shortcut: command.hotkey }),
+      ...(command.value === undefined ? {} : { value: command.value }),
+      ...(command.alias === undefined && command.aliases === undefined ? {} : { aliases: [...(command.alias === undefined ? [] : [command.alias]), ...(command.aliases ?? [])] }),
+      ...(command.dormant === undefined ? {} : { dormant: command.dormant }),
+    })),
     ...runnables.map((runnable) => ({
       id: `run:${runnable.id}`,
       section: RUN,
@@ -361,9 +482,13 @@ export function Palette({
             ...(picked === one.root ? { value: "picked" } : {}),
           })),
         ]),
-    ...sessions.map((session) => ({ id: `session:${session.id}`, section: SESSIONS, label: session.label, aliases: session.aliases })),
-    // Searched, never listed at rest: a long list of tasks would bury the acts.
-    ...tasks.map((task) => ({ id: `task:${task.id}`, section: TASKS, label: task.label, detail: task.detail, searchOnly: true })),
+    // A Job's pull request is found by its number and not drawn (the owner, 27 Oct 2026: too much in a row). Its own row
+    // under Pull requests draws it.
+    ...sessions.map((session) => ({ id: `session:${session.id}`, section: SESSIONS, label: session.label, aliases: [...session.aliases, ...(session.pull === undefined ? [] : [`#${session.pull}`])], meta: metaOfJob(session) })),
+    ...pulls.map((one) => ({ id: `pull:${one.repo}:${one.number}`, section: PULLS, label: one.title, icon: GitPullRequest, meta: { repo: one.repo, number: `#${one.number}` } })),
+    ...issues.map((one) => ({ id: `issue:${one.repo}:${one.number}`, section: ISSUES, label: one.title, icon: CircleDot, meta: { repo: one.repo, number: `#${one.number}` } })),
+    // Searched, never listed at rest: a long list of tasks would bury the acts. A pinned or recent one is shown at rest below.
+    ...tasks.map((one) => ({ id: `task:${one.id}`, section: TASKS, label: one.label, icon: ListTodo, detail: one.detail, searchOnly: true })),
     ...settings.map((setting) => ({
       id: `set:${setting.id}`,
       section: SETTINGS,
@@ -371,14 +496,48 @@ export function Palette({
       ...(setting.value === undefined ? {} : { value: setting.value }),
       ...(setting.aliases === undefined ? {} : { aliases: setting.aliases }),
     })),
-  ];
+  ].map((entry) => ({
+    ...entry,
+    kind: KIND[entry.id.slice(0, entry.id.indexOf(":") + 1) || entry.id] ?? "Action",
+    ...(given[entry.id] === undefined ? {} : { alias: given[entry.id]!, aliases: [...("aliases" in entry ? entry.aliases ?? [] : []), given[entry.id]!] }),
+    ...(hotkeys[entry.id] === undefined ? {} : { shortcut: hotkeys[entry.id]! }),
+  }));
+
+  const known: PaletteKnown[] = entries.map((entry) => ({ id: entry.id, label: entry.label, kind: entry.kind ?? "Action", keyable: entry.destructive !== true, dormant: entry.dormant !== undefined, ...(entry.shortcut === undefined ? {} : { shortcut: entry.shortcut }) }));
+  const knownKey = known.map((one) => `${one.id}\t${one.label}\t${one.kind}\t${one.keyable}\t${one.dormant}\t${one.shortcut ?? ""}`).join("\n");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => onRows?.(known), [knownKey]);
+
+  // With nothing typed: Pinned, then Recent; or this page first; or everything, as the setting says.
+  const byId = new Map(entries.map((entry) => [entry.id, entry]));
+  const kept = pinned.flatMap((id) => byId.get(id) ?? []);
+  const lately = recent.filter((id) => !pinned.includes(id)).flatMap((id) => byId.get(id) ?? []);
+  const home =
+    opens === "pinned" && kept.length + lately.length > 0
+      ? {
+          sections: [...(kept.length === 0 ? [] : [{ id: PINNED, title: "Pinned" }]), ...(lately.length === 0 ? [] : [{ id: RECENT, title: "Recent" }])],
+          entries: [...kept.map((entry) => ({ ...entry, section: PINNED, searchOnly: false })), ...lately.map((entry) => ({ ...entry, section: RECENT, searchOnly: false }))],
+        }
+      : opens === "everything"
+      ? { sections: sections.filter((one) => one.id !== PAGE), entries: entries.filter((entry) => entry.section !== PAGE) }
+      : undefined;
 
   return (
     <CommandPalette
       open={open}
       sections={sections}
       entries={entries}
-      searched={searchedSentence(sessions.length, tasks.length, settings.length, runnables.length, repositories.length)}
+      {...(home === undefined ? {} : { home })}
+      actionsOf={(entry) => actionsOf(entry, { sessions, pinned, aliases: given, hotkeys })}
+      onTake={(entry, action, value) => {
+        const refused = refusal(entry, action.id, value, entries, given);
+        if (refused === undefined) onChoose({ of: "on", target: entry.id, action: action.id, value });
+        return refused;
+      }}
+      stepOf={(entry) => (entry.id.startsWith("cmd:") ? commandStep?.(bare(entry.id)) : undefined)}
+      opensOn={opensOn}
+      onAct={(entry, action) => onChoose({ of: "on", target: entry.id, action: action.id })}
+      searched={searchedSentence({ sessions: sessions.length, settings: settings.length, runnables: runnables.length, repositories: repositories.length, tickets: pulls.length + issues.length + tasks.length, commands: commands.length })}
       onClose={onClose}
       {...(dispatch === undefined ? {} : { dispatch })}
       {...(path === undefined ? {} : { path })}
@@ -386,9 +545,13 @@ export function Palette({
       {...(anchor === undefined ? {} : { anchor })}
       onSelect={(entry) => onChoose(choiceOf(entry.id))}
       // A destructive board row opens its own confirmation, so it is a choice.
-      onConfirm={(entry) =>
-        entry.id.startsWith("board:") ? onChoose(choiceOf(entry.id)) : onConfirmAct?.(bare(entry.id))
-      }
+      onConfirm={(entry) => {
+        // An action on a row comes as the row's id, a bar and the action's.
+        const [target, action] = entry.id.split("|");
+        if (action !== undefined && target !== undefined) onConfirmOn?.(target, action);
+        else if (entry.id.startsWith("board:")) onChoose(choiceOf(entry.id));
+        else onConfirmAct?.(bare(entry.id));
+      }}
     />
   );
 }
@@ -422,7 +585,7 @@ function bare(id: string): string {
 }
 
 /** What a chosen row was, read off the prefix its section gave it. */
-function choiceOf(id: string): PaletteChoice {
+export function choiceOf(id: string): PaletteChoice {
   const rest = bare(id);
   if (id === ALL_REPOSITORIES) return { of: "repository", root: null };
   if (id.startsWith("repo:")) return { of: "repository", root: rest };
@@ -433,6 +596,11 @@ function choiceOf(id: string): PaletteChoice {
   if (id.startsWith("tab:")) return { of: "filter", id: rest };
   if (id.startsWith("run:")) return { of: "run", id: rest };
   if (id.startsWith("board:")) return { of: "board", id: rest };
+  if (id.startsWith("page:")) return { of: "page", id: rest };
+  if (id.startsWith("pull:")) return { of: "pull", id: rest };
+  if (id.startsWith("issue:")) return { of: "issue", id: rest };
+  if (id.startsWith("task:")) return { of: "task", id: rest };
+  if (id.startsWith("cmd:")) return { of: "command", id: rest };
   return { of: "setting", id: rest };
 }
 
@@ -445,15 +613,115 @@ function choiceOf(id: string): PaletteChoice {
  * sentence claiming settings on a build that indexes none would be the labelled
  * blank this app refuses everywhere else.
  */
-function searchedSentence(sessions: number, tasks: number, settings: number, runnables: number, repositories: number): string {
-  const held = [
+function searchedSentence(held: { sessions: number; settings: number; runnables: number; repositories: number; tickets: number; commands: number }): string {
+  const found = [
     "every act available here",
     "every place in Bridge",
-    runnables === 0 ? null : "every Check and Command this Manifest declares",
-    repositories === 0 ? null : "every repository",
-    sessions === 0 ? null : "every live job",
-    tasks === 0 ? null : "every task",
-    settings === 0 ? null : "every setting",
+    held.commands === 0 ? null : "every command",
+    held.runnables === 0 ? null : "every Check and Command this Manifest declares",
+    held.repositories === 0 ? null : "every repository",
+    held.sessions === 0 ? null : "every live job",
+    held.tickets === 0 ? null : "every open pull request, issue and task",
+    held.settings === 0 ? null : "every setting",
   ].filter((part): part is string => part !== null);
-  return `${held.slice(0, -1).join(", ")} and ${held[held.length - 1]}`;
+  return `${found.slice(0, -1).join(", ")} and ${found[found.length - 1]}`;
+}
+
+/** A Job's row says where it is, how it stands and the pull request it holds. */
+function metaOfJob(session: PaletteSession): PaletteMeta {
+  return {
+    ...(session.repo === undefined ? {} : { repo: session.repo }),
+    ...(session.state === undefined ? {} : { state: session.state }),
+  };
+}
+
+/**
+ * What each row is, by the prefix its section gave its id, drawn flush right as Raycast draws a row's kind: in
+ * Pinned and Recent the rows are of every kind, and this is what tells a Job from a page of the same name.
+ */
+const KIND: Readonly<Record<string, string>> = {
+  "session:": "Job",
+  "pull:": "Pull request",
+  "issue:": "Issue",
+  "task:": "Task",
+  "cmd:": "Command",
+  "nav:": "Page",
+  "set:": "Setting",
+  "run:": "Check",
+  "repo:": "Repository",
+  [ALL_REPOSITORIES]: "Repository",
+  "tab:": "Filter",
+};
+
+const COMMAND_GLYPH: Record<PaletteCommand["kind"], LucideIcon> = { url: Globe, shell: FileTerminal, chain: Route, prompt: MessageSquarePlus };
+
+/**
+ * What ⌘K opens on a row. **Pin is on every one**, since a pin is kept by the host and a row can be pinned from
+ * whichever list it was found in. Stop confirms: it is the one act here that ends work.
+ */
+function actionsOf(entry: PaletteEntry, held: { sessions: readonly PaletteSession[]; pinned: readonly string[]; aliases: Readonly<Record<string, string>>; hotkeys: Readonly<Record<string, string>> }): readonly PaletteAction[] {
+  // A row that cannot be opened has no word or key to give it. Apart from the row's own acts.
+  const keyed: PaletteAction[] =
+    entry.dormant !== undefined
+      ? []
+      : [
+          { id: "alias", label: "Set alias", takes: "word", apart: true, ...(held.aliases[entry.id] === undefined ? {} : { held: { word: held.aliases[entry.id]! } }) },
+          ...(held.aliases[entry.id] === undefined ? [] : [{ id: "remove-alias", label: "Remove alias", stays: true as const }]),
+          ...(entry.destructive === true ? [] : [{ id: "hotkey", label: "Record hotkey", takes: "chord" as const, ...(held.hotkeys[entry.id] === undefined ? {} : { held: { chord: held.hotkeys[entry.id]! } }) }]),
+          ...(held.hotkeys[entry.id] === undefined || entry.destructive === true ? [] : [{ id: "remove-hotkey", label: "Remove hotkey", stays: true as const }]),
+        ];
+  return [...ownActs(entry, held), ...keyed];
+}
+
+/** Why a word or a key cannot be given to a row, in a few words, or nothing where it can. */
+function refusal(entry: PaletteEntry, act: string, value: string, entries: readonly PaletteEntry[], aliases: Readonly<Record<string, string>>): string | undefined {
+  if (act === "alias") {
+    return refuseAlias(value.trim(), entries.flatMap((one) => (one.id === entry.id || aliases[one.id] === undefined ? [] : [{ label: one.label, alias: aliases[one.id]! }])));
+  }
+  const chord = parseChord(value);
+  if (chord === null) return "Not a key";
+  return refuseHotkey(chord, entries.flatMap((one) => (one.id === entry.id || one.shortcut === undefined ? [] : [{ label: one.label, hotkey: one.shortcut }])));
+}
+
+function ownActs(entry: PaletteEntry, held: { sessions: readonly PaletteSession[]; pinned: readonly string[] }): readonly PaletteAction[] {
+  // Each act's chord runs it while the palette is up, from the results or the panel, as Raycast's do. None is a
+  // Global binding: the palette holds focus, and a chord it took from the window would go deaf everywhere else.
+  const pin: PaletteAction = held.pinned.includes(entry.id) ? { id: "unpin", label: "Unpin", shortcut: "⇧⌘F", apart: true, stays: true } : { id: "pin", label: "Pin", shortcut: "⇧⌘F", apart: true, stays: true };
+  if (entry.id.startsWith("session:")) {
+    const job = held.sessions.find((one) => `session:${one.id}` === entry.id);
+    const acts: PaletteAction[] = [
+      { id: "open", label: "Open", shortcut: "↵" },
+      job?.paused === true ? { id: "resume", label: "Resume", icon: Play, shortcut: "⌘P" } : { id: "pause", label: "Pause", icon: Pause, shortcut: "⌘P" },
+      { id: "fork", label: "Fork", icon: GitFork, shortcut: "⌥⌘F" },
+      ...(job?.pull === undefined
+        ? []
+        : [
+            { id: "open-pull", label: "Open pull request", icon: GitPullRequest, shortcut: "⇧⌘P", apart: true as const },
+            { id: "merge-pull", label: "Merge pull request", icon: GitMerge, shortcut: "⇧⌘M" },
+          ]),
+      { id: "copy-id", label: "Copy Job id", icon: Copy, shortcut: "⇧⌘C", apart: true },
+      pin,
+      { id: "stop", label: "Stop", icon: Ban, shortcut: "⌘⌫", destructive: true, apart: true },
+    ];
+    return acts.filter((one) => job?.without?.includes(one.id) !== true);
+  }
+  if (entry.id.startsWith("pull:")) {
+    return [
+      { id: "open", label: "Open in Reviews", icon: GitPullRequest, shortcut: "↵" },
+      { id: "forge", label: "Open on the forge", icon: ExternalLink, shortcut: "⇧⌘O" },
+      { id: "start-job", label: "Start a Job on it", icon: Plus, shortcut: "⇧⌘N", apart: true },
+      pin,
+    ];
+  }
+  if (entry.id.startsWith("issue:")) return [{ id: "open", label: "Open", shortcut: "↵" }, { id: "start-job", label: "Start a Job on it", icon: Plus, shortcut: "⇧⌘N", apart: true }, pin];
+  if (entry.id.startsWith("task:")) {
+    return [
+      { id: "open", label: "Open", shortcut: "↵" },
+      { id: "dispatch", label: "Dispatch", icon: Send, shortcut: "⇧⌘N" },
+      { id: "tick", label: "Tick", icon: Check, shortcut: "⌘D" },
+      pin,
+    ];
+  }
+  if (entry.id.startsWith("cmd:")) return [{ id: "run", label: "Run", shortcut: "↵" }, pin];
+  return [];
 }

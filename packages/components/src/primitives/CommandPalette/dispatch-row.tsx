@@ -1,10 +1,10 @@
 // The palette's dispatch row: what was typed in the title bar's one bar, offered as the work itself
-// (the owner, 10 Oct 2026), and where the palette sits when it opens over that bar.
+// (the owner, 10 Oct 2026).
 
-import { useLayoutEffect, useState, type CSSProperties } from "react";
 import { Plus } from "lucide-react";
 
 import { KbdChord } from "../Kbd/Kbd";
+import { ActionsKey } from "./actions-panel";
 import type { PaletteEntry, PaletteSection } from "./CommandPalette";
 
 export type DispatchKind = "session" | "autopilot";
@@ -25,11 +25,18 @@ export const adds = (kind: BarKind): kind is AddKind => kind === "task" || kind 
 export type PaletteStep = {
   /** What is being filed, said over the list while the step is up. */
   title: string;
+  /** The command the step is asking for, drawn at the start of the field with the title as its placeholder, so the person sees where a key or a chain has put them. */
+  of?: string;
   sections: readonly PaletteSection[];
   entries: readonly PaletteEntry[];
   /** What was searched, for the state where nothing matched. */
   searched: string;
-  onChoose: (entry: PaletteEntry) => void;
+  /** Filing the choice closes the palette. A step returned is asked next, in the palette, with the choice not yet filed. */
+  onChoose: (entry: PaletteEntry) => PaletteStep | void;
+  /** What ↵ does here, said in the footer: Next while more is asked, else the act's verb. Absent says Add. */
+  act?: string;
+  /** Takes what is typed: a row for the typed word is listed, with the id `word:` and the word as its label. */
+  word?: true;
 };
 
 export type PaletteDispatch = {
@@ -97,50 +104,36 @@ export function DispatchRow({
         <Plus size={16} strokeWidth={2} aria-hidden />
       </span>
       <span className="armada-palette__label">
-        {OFFER[kind]}
-        <span className="armada-palette__words">“{words}”</span>
+        <span className="armada-palette__title">
+          {OFFER[kind]}
+          <span className="armada-palette__words">“{words}”</span>
+        </span>
       </span>
-      <span className="armada-palette__keys">
-        <KbdChord keys={["⌘", "↵"]} />
-      </span>
+      {/* The result rows' kind column, so its kind ends on their edge. Its key, ⌘↵, is on the foot. */}
+      <span className="armada-palette__kind">{KIND[kind]}</span>
     </div>
   );
 }
 
-/**
- * Where the palette sits when it opens over a field: the field's own box, so its input lands where
- * the field was. Read once on opening, as `Popover` reads its trigger; a resize while open leaves it.
- */
-export function useAnchor(open: boolean, anchor: string | undefined): CSSProperties | undefined {
-  const [place, setPlace] = useState<CSSProperties>();
-  useLayoutEffect(() => {
-    if (!open || anchor === undefined) return setPlace(undefined);
-    const box = document.querySelector(anchor)?.getBoundingClientRect();
-    if (box === undefined || box.width === 0) return setPlace(undefined);
-    setPlace({ top: box.top, left: box.left, width: box.width, ["--palette-field" as string]: `${box.height}px` });
-  }, [open, anchor]);
-  return place;
-}
-
-
 /** The keys the one bar answers, along the palette's foot while there is something typed to send. */
-export function DispatchKeys({ dispatch, sends }: { dispatch: PaletteDispatch; sends: boolean }) {
-  const verb = adds(dispatch.kind) ? "add" : "dispatch";
+export function DispatchKeys({ dispatch, sends, acts }: { dispatch: PaletteDispatch; sends: boolean; acts: boolean }) {
+  const verb = adds(dispatch.kind) ? "Add" : "Dispatch";
   return (
     <div className="armada-palette__keys-foot" aria-hidden>
-      <span><KbdChord keys={["↵"]} /> {sends ? verb : "open"}</span>
-      <span><KbdChord keys={["⌘", "↵"]} /> {verb}</span>
-      {dispatch.onKind === undefined ? null : <span><KbdChord keys={["⇥"]} /> {(dispatch.kinds ?? ["session"]).map((kind) => KIND[kind]).join(" / ")}</span>}
+      <span>{sends ? verb : "Open"} <KbdChord keys={["↵"]} /></span>
+      <span>{verb} <KbdChord keys={["⌘", "↵"]} /></span>
+      {dispatch.onKind === undefined ? null : <span>{KIND[nextKind(dispatch)]} <KbdChord keys={["⇥"]} /></span>}
+      {acts ? <ActionsKey /> : null}
     </div>
   );
 }
 
 /** The keys a second step answers, along the palette's foot. */
-export function StepKeys() {
+export function StepKeys({ act = "Add" }: { act?: string }) {
   return (
     <div className="armada-palette__keys-foot" aria-hidden>
-      <span><KbdChord keys={["↵"]} /> add</span>
-      <span><KbdChord keys={["Esc"]} /> back</span>
+      <span>{act} <KbdChord keys={["↵"]} /></span>
+      <span>Back <KbdChord keys={["Esc"]} /></span>
     </div>
   );
 }

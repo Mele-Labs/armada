@@ -735,6 +735,11 @@ export type RunEvent = { kind: "out"; text: string } | { kind: "end"; code: numb
 export type SessionsDraft = {
   get: () => readonly Session[];
   /**
+   * The Sessions of every repository, **whatever the rail picked**: the palette jumps to work in any of them. Absent
+   * where `get` already holds every one, and then `get` is what it reads.
+   */
+  everywhere?: () => readonly Session[];
+  /**
    * The live Helm Session of the repository Helm's dock answers for, **whatever the rail picked**: the
    * list holds the picked repository's Sessions, and Helm may be pointed at another. Absent where the
    * list holds every Session, and the dock then finds it there.

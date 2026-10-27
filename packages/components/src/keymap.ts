@@ -438,6 +438,16 @@ export function conflictsOf(id: string, slot: Slot): Action[] {
   );
 }
 
+/** Whether two chords would answer the same press, ⌘ standing in for Control as `same` reads it, in either direction. */
+export function sameKey(a: Chord, b: Chord): boolean {
+  return same(a, b) || same(b, a);
+}
+
+/** The built act that answers this chord somewhere, in any scope: a key kept for a row has to be free everywhere. */
+export function actOnChord(chord: Chord): Action | undefined {
+  return ACTIONS.find((other) => other.unbuilt === null && slotsOf(other.id).some((slot) => chordsIn(slot).some((held) => sameKey(held, chord))));
+}
+
 // ---- How Settings groups them -------------------------------------------------------------------
 
 /** One heading in Settings → Keyboard, and the scopes under it. */

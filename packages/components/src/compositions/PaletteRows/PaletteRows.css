@@ -1,0 +1,113 @@
+/* The palette's rows that hold an alias, a hotkey or a pin. The tracks are fixed so the controls repeated down the table
+ * line up: each cell's clear sits in a slot of its own width at the cell's trailing edge. */
+/* Settings → Command palette: the choice, then the table under it. */
+.armada-palette-settings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.armada-palette-rows {
+  table-layout: fixed;
+}
+
+.armada-palette-rows__name {
+  width: auto;
+}
+
+.armada-palette-rows__kind {
+  width: calc(var(--space-12) * 3);
+}
+
+.armada-palette-rows__alias {
+  width: calc(var(--space-12) * 5);
+}
+
+.armada-palette-rows__hotkey {
+  width: calc(var(--space-12) * 4);
+}
+
+.armada-palette-rows__pinned {
+  width: calc(var(--space-12) * 2);
+}
+
+.armada-palette-rows__text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.armada-palette-rows__cell {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.armada-palette-rows__cell > .armada-input-field {
+  flex: 1;
+  min-width: 0;
+}
+
+.armada-palette-rows__clear {
+  flex: none;
+  display: inline-flex;
+  width: var(--space-8);
+  justify-content: center;
+}
+
+/* A key is a control: the cap inside a quiet box that takes the press, empty until one is given. */
+.armada-palette-rows__key {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  min-height: var(--space-8);
+  padding: 0 var(--space-2);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-well);
+  color: var(--fg-default);
+  font: inherit;
+  font-size: var(--text-xs);
+  cursor: pointer;
+}
+
+.armada-palette-rows__key:hover {
+  border-color: var(--border-strong);
+}
+
+.armada-palette-rows__key:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.armada-palette-rows__key[data-recording] {
+  border-color: var(--accent);
+  background: var(--accent-faint);
+}
+
+.armada-palette-rows__key[data-refused] {
+  border-color: var(--status-escalated);
+}
+
+.armada-palette-rows__waiting {
+  color: var(--fg-muted);
+}
+
+.armada-palette-rows__refused {
+  display: block;
+  padding-top: var(--space-1);
+  color: var(--status-escalated);
+  font-size: var(--text-xs);
+}
+
+/* The checkbox's name, which a column headed Pinned does not repeat on every row. */
+.armada-palette-rows__hidden {
+  position: absolute;
+  width: var(--border-width);
+  height: var(--border-width);
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

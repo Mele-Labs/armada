@@ -6,9 +6,19 @@
 // one. Ten props would be ten chances for a caller to wire one to the wrong
 // thing; the object is the shape that function already agrees on.
 
-import { Puzzle } from "lucide-react";
-import { Palette, type PaletteRepository, type PaletteSurface, type PaletteTask } from "@armada/shell";
-import type { PaletteDispatch } from "@armada/components";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { GitPullRequest, Puzzle } from "lucide-react";
+import { choiceOf, Palette, SURFACE, type PaletteChoice, type PaletteRepository, type PaletteSurface, type PaletteTask } from "@armada/shell";
+import { Dialog, parseChord, pressesChord, type PaletteDispatch, type PaletteStep } from "@armada/components";
+import { useProjectsStore } from "./projects-tab/store";
+import { useSessionsDraft, useSessionsEverywhere } from "./sessions-draft";
+import { useDeck } from "./cockpit/deck/store";
+import { jobRow } from "./palette-job-row";
+import { usePaletteRows } from "./palette-fixtures";
+import { knownRows, setKnownRows } from "./palette-known";
+import { remember, rowOf, usePaletteMemory } from "./palette-memory";
+import { pageOf } from "./palette-page";
+import { carryOutRow, runModRow, type Filled } from "./palette-rows";
 import type { BridgeState } from "../../shared/bridge";
 import { checkoutRunnablesOf } from "@armada/manifest";
 import { SETTINGS_PALETTE } from "@armada/settings";
@@ -17,12 +27,16 @@ import { askStudioAdd, askStudioRun, useStudioAddOff, useStudioRunOff } from "@a
 import { askToDebugBridge } from "./debug-bridge";
 import { askToOpenSession, openSessionIn } from "./open-session";
 import { openInPanel, openRequestsInPanel } from "./shared-panel/store";
-import { useSessions } from "./sessions-draft";
 import { askToCreateMod } from "./create-mod";
 import { absentIn, carryOut, CREATE_MOD, dormantIn, FLEET_DOWN } from "./palette";
+import { displayOf, keysOf, useModRows, type ModRow } from "./mod-commands";
+import { firstStep } from "./palette-blanks";
+import { askToTell } from "./tell";
 
 export type PaletteMountProps = {
   open: boolean;
+  /** Opens the palette: a command run by its key that has a blank to ask for opens it on that step. */
+  onOpen?: () => void;
   onClose: () => void;
   /** The Studio open on its whiteboard, or nothing — by its name alone, which
       is all a title needs and all this should be able to read. */
@@ -41,6 +55,10 @@ export type PaletteMountProps = {
    * `App` holds nothing for them.
    */
   acts: Omit<Parameters<typeof carryOut>[1], "studioRun" | "studioAdd" | "createMod" | "debugBridge" | "openSession" | "requests">;
+  /** The page showing, by its surface id: the palette heads its results with that page's own acts. */
+  showing?: string;
+  /** The name a Job's repository goes by in the title row's picker, from the Manifest id the Job carries. */
+  repoOf?: (manifestId: string) => string | undefined;
   /** The Projects tab's tasks and subtasks, found by title. `projects-tab/palette.ts`. */
   tasks?: readonly PaletteTask[];
   /** The one bar's dispatch row. `one-bar.tsx`. */
@@ -55,6 +73,7 @@ export type PaletteMountProps = {
  */
 export function PaletteMount({
   open,
+  onOpen,
   onClose,
   shownStudio,
   surfaces,
@@ -63,6 +82,8 @@ export function PaletteMount({
   live,
   repositories,
   picked,
+  showing,
+  repoOf,
   acts,
   tasks,
   dispatch,
@@ -70,11 +91,93 @@ export function PaletteMount({
 }: PaletteMountProps) {
   const studioRun = useStudioRunOff();
   const studioAdd = useStudioAddOff();
-  const sessions = useSessions();
+  // Every repository's Jobs, whatever the title row has picked: the palette jumps to work anywhere.
+  const sessions = useSessionsEverywhere();
+  const draft = useSessionsDraft();
+  const fixtures = usePaletteRows(open);
+  const memory = usePaletteMemory();
+  // The rows of every Commands mod that is on. A scenario's own commands stand in for them, so a walk draws the same screen.
+  const modRows = useModRows();
+  const modKeys = useMemo(() => keysOf(modRows, memory.hotkeys), [modRows, memory.hotkeys]);
+  const commands = fixtures.commands.length > 0 ? fixtures.commands : modRows.map((row) => displayOf(row, modKeys[`cmd:${row.id}`]));
+  const projects = useProjectsStore();
+  const onDeck = useDeck((deck) => (deck.sel?.kind === "session" ? deck.sel.key : undefined));
+  const job = showing === SURFACE.overview && onDeck !== undefined ? sessions.find((one) => one.id === onDeck) : undefined;
+  // The step the palette opens on, for a row run by its key that asks for something.
+  const [opening, setOpening] = useState<PaletteStep | undefined>(undefined);
+  // A Job that asks to be stopped is confirmed over the palette, which stays up behind it.
+  const [stopping, setStopping] = useState<string | null>(null);
+  const stopped = stopping === null ? undefined : sessions.find((one) => one.id === stopping);
+
+  const world = {
+    fixtures, jobs: sessions, draft, job,
+    projects, ...(acts.task === undefined ? {} : { task: acts.task }),
+    taskTitle: (rowId: string) => tasks?.find((one) => one.id === rowId)?.label,
+    openSession: askToOpenSession, compose: acts.compose, surface: acts.surface,
+    openLink: (address: string) => linkRoutes.open(address),
+    startJob: (words: string) => dispatch.onDispatch(words, "session"),
+    modRows, tell: askToTell, runRow: (id: string) => choosing.current(choiceOf(id)),
+    repositories, picked,
+    openAt: (row: ModRow) => {
+      setOpening(stepOfRow(row));
+      onOpen?.();
+    },
+    runShell: (command: string, dir: string, repository: string) => openInPanel({ kind: "run", command, dir, repository, at: Date.now() }),
+  };
+  const blankWorld = { pulls: fixtures.pulls, issues: fixtures.issues, repositories, picked, run: (row: ModRow, filled: Filled) => runModRow(row, filled, world) };
+  const stepOfRow = (row: ModRow): PaletteStep | undefined => firstStep(row, blankWorld);
+  // A command with a blank asks for it in the palette's second step, listing what can fill it.
+  const commandStep = (id: string): PaletteStep | undefined => {
+    const mod = modRows.find((one) => one.id === id);
+    if (mod !== undefined) return stepOfRow(mod);
+    return id !== SECURITY_REVIEW
+      ? undefined
+      : {
+          title: "Pull request to review",
+          sections: [{ id: "pulls", title: "Open pull requests" }],
+          entries: fixtures.pulls.map((one) => ({ id: `pull:${one.repo}:${one.number}`, section: "pulls", label: one.title, icon: GitPullRequest, meta: { repo: one.repo, number: `#${one.number}` } })),
+          searched: "every open pull request",
+          onChoose: (entry) => {
+            const one = fixtures.pulls.find((held) => `pull:${held.repo}:${held.number}` === entry.id);
+            if (one !== undefined) dispatch.onDispatch(`Review #${one.number} ${one.title} for security`, "session");
+          },
+        };
+  };
+  const choose = (choice: PaletteChoice): void => {
+    const row = rowOf(choice);
+    if (row !== undefined) remember(row);
+    if (choice.of === "pull" || choice.of === "issue" || choice.of === "task" || choice.of === "command" || choice.of === "page" || choice.of === "on") return carryOutRow(choice, world);
+    carryOut(choice, { ...acts, studioRun: askStudioRun, studioAdd: askStudioAdd, createMod: askToCreateMod, debugBridge: askToDebugBridge, openSession: askToOpenSession, requests: () => void openRequestsInPanel(openSessionIn(document)) });
+  };
+  // **A key he gave a row fires anywhere in Bridge**, with the palette down, and runs the row as ↵ would. It is read in the
+  // capture phase so a terminal or a field does not keep it, and a key being recorded in Settings is left to the recorder.
+  const choosing = useRef(choose);
+  choosing.current = choose;
+  // A key he recorded for a row wins over the one its mod's file names.
+  const hotkeys = useMemo(() => ({ ...modKeys, ...memory.hotkeys }), [modKeys, memory.hotkeys]);
+  useEffect(() => {
+    if (open) return;
+    function fire(event: KeyboardEvent): void {
+      if (event.defaultPrevented || event.repeat || (event.target as Element | null)?.closest?.("[data-recording]") != null) return;
+      for (const [id, spelled] of Object.entries(hotkeys)) {
+        const chord = parseChord(spelled);
+        if (chord === null || !pressesChord(chord, event)) continue;
+        if (knownRows().find((one) => one.id === id)?.dormant === true) return;
+        event.preventDefault();
+        event.stopPropagation();
+        choosing.current(choiceOf(id));
+        return;
+      }
+    }
+    window.addEventListener("keydown", fire, true);
+    return () => window.removeEventListener("keydown", fire, true);
+  }, [open, hotkeys]);
   return (
+    <>
     <Palette
       open={open}
-      onClose={onClose}
+      onClose={() => (setOpening(undefined), onClose())}
+      opensOn={open ? opening : undefined}
       dispatch={dispatch}
       // A pasted pull request opens in Reviews and an issue in the side panel.
       link={{ kindOf: linkRoutes.kindOf, onOpen: (typed) => linkRoutes.open(typed) }}
@@ -106,19 +209,46 @@ export function PaletteMount({
       picked={picked}
       // Only the live Sessions: the palette jumps to work in hand.
       // A Session is found by any word of its title or by its id, whole or the `s-` address.
-      sessions={sessions.filter((one) => one.dead === undefined).map((one) => ({ id: one.id, label: one.title ?? one.address ?? one.id, aliases: [one.id, ...(one.address === undefined ? [] : [one.address])] }))}
+      sessions={sessions.filter((one) => one.dead === undefined).map((one) => jobRow(one, repoOf, draft))}
       // Tasks and subtasks by title, listed only while something is typed.
       {...(tasks === undefined ? {} : { tasks })}
       // One row per category of Settings, each opening Settings at it — Fleet
       // settings first. None carries a value: each opens a screen rather than
       // stating a field.
       settings={SETTINGS_PALETTE}
+      page={pageOf(showing ?? "", job)}
+      pulls={fixtures.pulls}
+      issues={fixtures.issues}
+      commands={commands}
+      commandStep={commandStep}
+      pinned={memory.pinned}
+      recent={memory.recent}
+      opens={memory.opens}
+      aliases={memory.aliases}
+      hotkeys={memory.hotkeys}
+      onRows={setKnownRows}
+      onConfirmAct={(id) => id === "job-stop" && job !== undefined && setStopping(job.id)}
+      onConfirmOn={(target, action) => action === "stop" && setStopping(target.slice("session:".length))}
       dormant={dormantIn({ failing: failing !== null, live, debuggable: window.armadaDev !== undefined, studioRun, studioAdd })}
       absent={absentIn({ failing: failing !== null })}
-      onChoose={(choice: Parameters<typeof carryOut>[0]) =>
-        carryOut(choice, { ...acts, studioRun: askStudioRun, studioAdd: askStudioAdd, createMod: askToCreateMod, debugBridge: askToDebugBridge, openSession: askToOpenSession, requests: () => void openRequestsInPanel(openSessionIn(document)) })
-      }
+      onChoose={choose}
     />
+    <Dialog
+      open={stopped !== undefined}
+      title={`Stop ${stopped?.title ?? "this Job"}?`}
+      confirmLabel="Stop"
+      onConfirm={() => {
+        if (stopping !== null) draft?.stop?.(stopping);
+        setStopping(null);
+        onClose();
+      }}
+      onCancel={() => setStopping(null)}
+    >
+      The running turn ends. The Job rests and takes the next message.
+    </Dialog>
+    </>
   );
 }
 
+/** The command whose blank is a pull request. */
+const SECURITY_REVIEW = "security-review";

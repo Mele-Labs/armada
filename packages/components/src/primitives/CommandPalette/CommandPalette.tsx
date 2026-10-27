@@ -1,14 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 
+import { isPressed } from "../../keymap";
 import { KbdChord } from "../Kbd/Kbd";
-import { DISPATCH_ROW, DispatchKeys, DispatchRow, StepKeys, adds, nextKind, readsAsWork, useAnchor, type PaletteDispatch, type PaletteStep } from "./dispatch-row";
+import { ActionsPanel, ResultKeys, actionEntryId, narrowed, pressedChord, type PaletteAction, type PaletteTaking } from "./actions-panel";
+import { DISPATCH_ROW, DispatchKeys, DispatchRow, StepKeys, adds, nextKind, readsAsWork, type PaletteDispatch, type PaletteStep } from "./dispatch-row";
+import { StateGlyph, Subtitle, type PaletteMeta } from "./row-meta";
+import { usePlace } from "./place";
+import { ShortcutRevealProvider, useShortcutReveal } from "../../shortcut-reveal";
 
 import { LINK_ROW, LinkRow, type PaletteLink } from "./link-row";
 import { PATH_ROW, PathRow, readsAsPath, type PalettePath } from "./path-row";
 
 export { readsAsPath, type PalettePath } from "./path-row";
 export type { PaletteLink, PaletteLinkKind } from "./link-row";
+export type { PaletteAction } from "./actions-panel";
+export type { PaletteMeta } from "./row-meta";
 export { adds, readsAsWork, type AddKind, type BarKind, type DispatchKind, type PaletteDispatch, type PaletteStep } from "./dispatch-row";
 
 /**
@@ -54,6 +61,8 @@ export type PaletteEntry = {
   label: string;
   /** Searched, never rendered. */
   aliases?: readonly string[];
+  /** The word the owner gave this row. Typed whole, it puts the row first, ahead of its section. */
+  alias?: string;
   /**
    * The binding, where the entry has one.
    *
@@ -71,7 +80,7 @@ export type PaletteEntry = {
   icon?: LucideIcon;
   /** A setting's current value, in mono, right of the label. */
   value?: string;
-  /** A quiet second line under the label: where a task stands, as a result of a search says what it is in. Never searched. */
+  /** Said after the label with the repository: where a task stands, as a result of a search says what it is in. Never searched. */
   detail?: string;
   /** Drawn only while something is typed, for a long list of results that would bury the acts if it were listed at rest. */
   searchOnly?: boolean;
@@ -90,6 +99,13 @@ export type PaletteEntry = {
    * the reason is neither.
    */
   dormant?: string;
+  /**
+   * What a Job, a pull request, an issue or a task says beside its label. **Not stuffed into the label**: the
+   * label is what is searched for and marked.
+   */
+  meta?: PaletteMeta;
+  /** What the row is, drawn flush right in a column of its own: Job, Pull request, Page. */
+  kind?: string;
 };
 
 export type PaletteSection = {
@@ -135,6 +151,27 @@ export type CommandPaletteProps = {
    * read as one bar. Absent, or not on screen (the narrow title row hides it), the palette centres.
    */
   anchor?: string;
+  /**
+   * What the palette shows with nothing typed, in place of the full list: Pinned, then Recent. Absent, the empty
+   * query shows every row, which is what the setting "Everything" asks for.
+   */
+  home?: { sections: readonly PaletteSection[]; entries: readonly PaletteEntry[] };
+  /**
+   * What ⌘K opens on a row: its acts, short. An empty list is no panel, and the foot says `⌘K Actions` only
+   * where the row under the cursor has some.
+   */
+  actionsOf?: (entry: PaletteEntry) => readonly PaletteAction[];
+  /** An action was chosen. A destructive one goes to `onConfirm` instead, as an entry whose id is the row's, a bar and the action's. */
+  onAct?: (entry: PaletteEntry, action: PaletteAction) => void;
+  /**
+   * An action that takes an answer was given it: the word typed, or the chord pressed, as the registry spells it.
+   * Returns why it is refused, in a few words, or nothing once it is kept.
+   */
+  onTake?: (entry: PaletteEntry, action: PaletteAction, value: string) => string | undefined;
+  /** A row that is not done at once but asks for something first: the second step listing what it can be filled with. */
+  stepOf?: (entry: PaletteEntry) => PaletteStep | undefined;
+  /** Opens already on this step, as a command opened by its key is with its first blank to fill. Esc goes back to an empty search. */
+  opensOn?: PaletteStep | undefined;
 };
 
 /** Whether the query matches, and where in the label it matched. */
@@ -148,7 +185,7 @@ function hit(entry: PaletteEntry, query: string): Hit | null {
   if (query === "") return entry.searchOnly === true ? null : { entry, at: null };
   const wanted = query.toLowerCase();
   const label = entry.label.toLowerCase();
-  const aliases = (entry.aliases ?? []).map((held) => held.toLowerCase());
+  const aliases = [...(entry.aliases ?? []), ...(entry.meta === undefined ? [] : [entry.meta.number, entry.meta.repo].flatMap((one) => one ?? []))].map((held) => held.toLowerCase());
   const at = label.indexOf(wanted);
   if (at >= 0) return { entry, at };
   if (aliases.some((held) => held.includes(wanted))) return { entry, at: null };
@@ -175,6 +212,12 @@ export function CommandPalette({
   path,
   link,
   anchor,
+  home,
+  actionsOf,
+  onAct,
+  onTake,
+  stepOf,
+  opensOn,
 }: CommandPaletteProps) {
   const [query, setQuery] = useState(defaultQuery);
   const [at, setAt] = useState(0);
@@ -185,19 +228,34 @@ export function CommandPalette({
   const panel = useRef<HTMLDivElement>(null);
   // The words a kind is filing and the step listing where they can go, while that step is up.
   const [stepping, setStepping] = useState<{ words: string; step: PaletteStep } | null>(null);
-  const listed = stepping === null ? { entries, sections } : stepping.step;
+  // The row whose acts are up, and the one of them under the cursor.
+  const [acting, setActing] = useState<{ entry: PaletteEntry; at: number } | null>(null);
+  const actionRow = useRef<HTMLDivElement>(null);
+  // What is typed in the actions panel's own field, which narrows its acts.
+  const [actionQuery, setActionQuery] = useState("");
+  // The act that is taking its answer in that field, in place of the search.
+  const [taking, setTaking] = useState<PaletteTaking | null>(null);
+  const bare = query.trim() === "";
+  const listed = stepping !== null ? withWord(stepping.step, query) : home !== undefined && bare ? home : { entries, sections };
 
   // Grouped by section in the caller's order, and in the caller's order inside
   // each. Nothing is ranked: the contract fixes what comes first, and a
   // relevance score would reorder a list a person is learning positions in.
   const grouped = useMemo(() => {
     const found = listed.entries.flatMap((entry) => hit(entry, query) ?? []);
-    return listed.sections
-      .map((section) => ({
-        section,
-        hits: found.filter((held) => held.entry.section === section.id),
-      }))
-      .filter((group) => group.hits.length > 0);
+    // **A word he gave a row, typed whole, puts that row first**, ahead of the sections, under no head of its own.
+    const typed = query.trim().toLowerCase();
+    const named = typed === "" ? [] : found.filter((held) => held.entry.alias?.toLowerCase() === typed);
+    const first = named.length === 0 ? [] : [{ section: { id: "alias", title: "" }, hits: named }];
+    return [
+      ...first,
+      ...listed.sections
+        .map((section) => ({
+          section,
+          hits: found.filter((held) => held.entry.section === section.id && !named.includes(held)),
+        }))
+        .filter((group) => group.hits.length > 0),
+    ];
   }, [listed, query]);
 
   const hits = useMemo(() => grouped.flatMap((group) => group.hits), [grouped]);
@@ -210,7 +268,11 @@ export function CommandPalette({
   const rest: (Hit | "dispatch")[] = !offered ? hits : leading ? ["dispatch", ...hits] : [...hits, "dispatch"];
   const typedKind = link === undefined || stepping !== null ? null : link.kindOf(query.trim());
   const flat: (Hit | "dispatch" | "path" | "link")[] = [...(typedKind === null ? [] : ["link" as const]), ...(typedPath === null ? [] : ["path" as const]), ...rest];
-  const place = useAnchor(open, anchor);
+  const place = usePlace(open, anchor, panel);
+  // The row under the cursor and what ⌘K would open on it.
+  const under = flat[at];
+  const underEntry = typeof under === "object" ? under.entry : undefined;
+  const underActions = underEntry === undefined || actionsOf === undefined || stepping !== null ? [] : actionsOf(underEntry);
 
   // **The first row is always active**, so a query narrowed to one result is a
   // two-key act. Reset on every change to the query rather than clamped: a
@@ -218,7 +280,7 @@ export function CommandPalette({
   // somewhere the person did not put it.
   useEffect(() => (setAt(0), setRefused(null)), [query]);
   // Closed, it forgets what was typed: the one bar reopens empty rather than holding words `n` could send.
-  useEffect(() => void (open || (setQuery(defaultQuery), setStepping(null))), [open, defaultQuery]);
+  useEffect(() => void (open || (setQuery(defaultQuery), setStepping(null), setActing(null))), [open, defaultQuery]);
   // Tab to a kind that adds makes its row the active one, so Enter adds.
   const kind = dispatch?.kind;
   useEffect(() => {
@@ -229,6 +291,12 @@ export function CommandPalette({
   useEffect(() => {
     if (open) input.current?.focus();
   }, [open]);
+  useEffect(() => {
+    if (open && opensOn !== undefined) {
+      setStepping({ words: "", step: opensOn });
+      setQuery("");
+    }
+  }, [open, opensOn]);
 
   // Esc closes the palette and stops there, wherever focus went. On `window` in the capture phase
   // for the reason `Popover` is: a field-only handler goes deaf once a click blurs the field, and
@@ -242,6 +310,16 @@ export function CommandPalette({
       if (layer && !layer.classList.contains("armada-palette")) return;
       event.preventDefault();
       event.stopPropagation();
+      // An answer being taken backs out to the acts.
+      if (taking !== null) {
+        setTaking(null);
+        return;
+      }
+      // The acts back out to the results, and the query stays.
+      if (acting !== null) {
+        setActing(null);
+        return;
+      }
       // A second step backs out to the words it was filing.
       if (stepping !== null) {
         setQuery(stepping.words);
@@ -252,7 +330,72 @@ export function CommandPalette({
     }
     window.addEventListener("keydown", onEscape, true);
     return () => window.removeEventListener("keydown", onEscape, true);
-  }, [open, onClose, stepping]);
+  }, [open, onClose, stepping, acting, taking]);
+
+  // ⌘K opens the acts of the row under the cursor, and closes them again. The press is marked handled so
+  // the binding that toggles the palette leaves it up; on a row with no acts it is not, and closes it as ever.
+  useEffect(() => {
+    if (!open) return;
+    function onActs(event: KeyboardEvent) {
+      if (event.defaultPrevented || !isPressed("command_palette", event)) return;
+      // A key being recorded is read by the field, ⌘K too: it is refused there, in words.
+      if (taking?.action.takes === "chord") return;
+      if (acting !== null) {
+        event.preventDefault();
+        setActing(null);
+        return;
+      }
+      if (underEntry === undefined || underActions.length === 0) return;
+      event.preventDefault();
+      setActing({ entry: underEntry, at: 0 });
+    }
+    window.addEventListener("keydown", onActs, true);
+    return () => window.removeEventListener("keydown", onActs, true);
+  }, [open, acting, taking, underEntry, underActions.length]);
+
+  // The panel's field starts empty on every opening, and the palette's own field takes focus back when it goes.
+  useEffect(() => {
+    setActionQuery("");
+    setTaking(null);
+    if (acting === null && open) input.current?.focus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [acting === null, acting?.entry.id]);
+
+  // An act's own chord runs it on the row under the cursor, from the results or from the panel, as Raycast's do.
+  useEffect(() => {
+    if (!open || stepping !== null || taking !== null) return;
+    const entry = acting?.entry ?? underEntry;
+    if (entry === undefined) return;
+    const acts = actionsOf?.(entry) ?? [];
+    function onChord(event: KeyboardEvent) {
+      if (event.defaultPrevented || entry === undefined) return;
+      const action = acts.find((one) => one.shortcut !== undefined && pressedChord(one.shortcut, event));
+      if (action === undefined) return;
+      event.preventDefault();
+      event.stopPropagation();
+      runAction(entry, action);
+    }
+    window.addEventListener("keydown", onChord, true);
+    return () => window.removeEventListener("keydown", onChord, true);
+  });
+
+  // ⌘1 to ⌘9 open the first nine results, as Raycast's do; the digit is drawn on each while ⌘ is held. Taken from the
+  // window in the capture phase, so the title bar's tabs, which ⌘1 to ⌘8 reach elsewhere, stand down while it is up.
+  useEffect(() => {
+    if (!open || acting !== null) return;
+    function onDigit(event: KeyboardEvent) {
+      if (event.defaultPrevented || !event.metaKey || event.shiftKey || event.altKey || event.ctrlKey) return;
+      const digit = /^Digit([1-9])$/.exec(event.code)?.[1];
+      if (digit === undefined) return;
+      const held = hits[Number(digit) - 1];
+      if (held === undefined) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      choose(held);
+    }
+    window.addEventListener("keydown", onDigit, true);
+    return () => window.removeEventListener("keydown", onDigit, true);
+  });
 
   // A click outside `.armada-palette` closes it, following `Popover`'s `contains(target)` check —
   // not `event.target === layer`, which breaks the moment anything else nests in the layer.
@@ -318,8 +461,19 @@ export function CommandPalette({
     // invented.
     if (held.entry.dormant !== undefined) return;
     if (stepping !== null) {
-      stepping.step.onChoose(held.entry);
+      const next = stepping.step.onChoose(held.entry);
+      if (next) {
+        setStepping({ words: stepping.words, step: next });
+        setQuery("");
+        return;
+      }
       onClose?.();
+      return;
+    }
+    const step = stepOf?.(held.entry);
+    if (step !== undefined) {
+      setStepping({ words: query, step });
+      setQuery("");
       return;
     }
     if (held.entry.destructive === true) {
@@ -330,9 +484,25 @@ export function CommandPalette({
     onClose?.();
   }
 
+  function runAction(entry: PaletteEntry, action: PaletteAction | undefined) {
+    if (action === undefined || action.dormant !== undefined) return;
+    if (action.takes !== undefined) {
+      setTaking({ action, value: action.held !== undefined && "word" in action.held ? action.held.word : "", refused: null });
+      return;
+    }
+    if (action.destructive === true) {
+      onConfirm?.({ ...entry, id: actionEntryId(entry, action), label: action.label, destructive: true });
+      return;
+    }
+    onAct?.(entry, action);
+    if (action.stays === true) setActing(null);
+    else onClose?.();
+  }
+
   // Only the navigation set is intercepted here, and `Esc` above. Every other
   // key belongs to the query, which is the suppression rule holding.
   function onKey(event: React.KeyboardEvent<HTMLInputElement>) {
+    if (acting !== null) return;
     if (event.key === "ArrowDown") {
       event.preventDefault();
       setAt((n) => (flat.length === 0 ? 0 : (n + 1) % flat.length));
@@ -355,22 +525,63 @@ export function CommandPalette({
     }
   }
 
+  // The answer given to the act that asked: kept, and back to the results, or refused and asked for again.
+  function take(value: string) {
+    if (acting === null || taking === null) return;
+    const refused = onTake?.(acting.entry, taking.action, value);
+    if (refused !== undefined) {
+      setTaking({ ...taking, refused });
+      return;
+    }
+    setTaking(null);
+    setActing(null);
+  }
+
+  // The panel's field: ↑ ↓ move through the acts it narrows to, ↵ runs one. Esc and ⌘K are the window's, above.
+  function onPanelKey(event: React.KeyboardEvent<HTMLInputElement>) {
+    if (acting === null) return;
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      const step = event.key === "ArrowDown" ? 1 : -1;
+      setActing({ ...acting, at: actionList.length === 0 ? 0 : (acting.at + step + actionList.length) % actionList.length });
+    } else if (event.key === "Enter") {
+      event.preventDefault();
+      runAction(acting.entry, actionList[acting.at]);
+    } else if (event.key === "Tab") {
+      event.preventDefault();
+    }
+  }
+
   let n = (leading ? 0 : -1) + (typedPath === null ? 0 : 1) + (typedKind === null ? 0 : 1);
+  // The results' own count, for the digit ⌘ shows on each of the first nine.
+  let quick = 0;
   const current = flat[at];
+  const actionList = acting === null ? [] : narrowed(actionsOf?.(acting.entry) ?? [], actionQuery);
   const sendRow = !offered ? null : (
     <DispatchRow words={query.trim()} kind={dispatch.kind} trailing={!leading} active={current === "dispatch"} ref={current === "dispatch" ? active : undefined} onEnter={() => setAt(flat.indexOf("dispatch"))} onChoose={send} />
   );
 
   return (
-    <div className="armada-palette-layer" data-anchored={place === undefined ? undefined : ""}>
+    // Its own ⌘ listener: the palette is mounted beside the shell, outside the one `TheShell` holds.
+    <ShortcutRevealProvider>
+    <div className="armada-palette-layer" data-anchored={place.style === undefined ? undefined : ""}>
+      {/* The window's middle lines, drawn only while the palette is dragged onto one. */}
+      {place.snapped?.across === true ? <div className="armada-palette__guide armada-palette__guide--across" aria-hidden /> : null}
+      {place.snapped?.down === true ? <div className="armada-palette__guide armada-palette__guide--down" aria-hidden /> : null}
       <div
         ref={panel}
         className="armada-palette"
         role="dialog"
         aria-modal="true"
         aria-label="Command palette"
-        style={place}
+        data-acting={acting === null ? undefined : ""}
+        data-moving={place.snapped === null ? undefined : ""}
+        style={place.style}
+        onPointerDown={place.onPointerDown}
+        onDoubleClick={place.onDoubleClick}
       >
+        <div className="armada-palette__field">
+        {stepping?.step.of === undefined ? null : <span className="armada-palette__of">{stepping.step.of}</span>}
         <input
           ref={input}
           className="armada-palette__input"
@@ -378,20 +589,22 @@ export function CommandPalette({
           role="combobox"
           aria-expanded="true"
           aria-controls="armada-palette-list"
-          aria-activedescendant={current === undefined ? undefined : current === "link" ? LINK_ROW : current === "path" ? PATH_ROW : current === "dispatch" ? DISPATCH_ROW : rowId(current.entry)}
+          aria-activedescendant={acting !== null || current === undefined ? undefined : current === "link" ? LINK_ROW : current === "path" ? PATH_ROW : current === "dispatch" ? DISPATCH_ROW : rowId(current.entry)}
           aria-label={stepping?.step.title ?? placeholder}
-          placeholder={stepping === null ? placeholder : ""}
+          placeholder={stepping === null ? placeholder : stepping.step.of === undefined ? "" : stepping.step.title}
           value={query}
+          readOnly={acting !== null}
           onChange={(event) => setQuery(event.target.value)}
           onKeyDown={onKey}
         />
+        </div>
         <div className="armada-palette__list" id="armada-palette-list" role="listbox">
-          {stepping === null ? null : <p className="armada-palette__step">{stepping.step.title}</p>}
+          {stepping === null || stepping.step.of !== undefined ? null : <p className="armada-palette__step">{stepping.step.title}</p>}
           {typedKind === null ? null : <LinkRow kind={typedKind} link={query.trim()} active={current === "link"} ref={current === "link" ? active : undefined} onEnter={() => setAt(0)} onChoose={openLink} />}
           {typedPath === null ? null : <PathRow path={typedPath} active={current === "path"} ref={current === "path" ? active : undefined} onEnter={() => setAt(typedKind === null ? 0 : 1)} onChoose={openPath} />}
           {refused === null ? null : <p className="armada-palette__empty" role="alert">{refused}</p>}
           {leading ? sendRow : null}
-          {hits.length === 0 && typedPath === null && typedKind === null ? (
+          {hits.length === 0 && typedPath === null && typedKind === null && !(stepping?.step.word === true && query.trim() === "") ? (
             /* **Names the query and says what was searched.** No suggestions
                and no did-you-mean: the palette is the discovery surface, so
                the honest answer to a miss is the extent of the index. */
@@ -403,13 +616,16 @@ export function CommandPalette({
             <div key={group.section.id} className="armada-palette__group">
               {/* Section heads are what stop four kinds of result reading as
                   one list. Drawn only where the section has a hit. */}
-              <div className="armada-palette__section">{group.section.title}</div>
+              {group.section.title === "" ? null : <div className="armada-palette__section">{group.section.title}</div>}
               {group.hits.map((held) => {
                 n += 1;
+                quick += 1;
                 const where = n;
+                const digit = quick;
                 return (
                   <Row
                     key={held.entry.id}
+                    quick={digit <= 9 ? digit : undefined}
                     hit={held}
                     query={query}
                     active={where === at}
@@ -423,10 +639,42 @@ export function CommandPalette({
           ))}
           {offered && !leading ? sendRow : null}
         </div>
-        {offered && dispatch !== undefined ? <DispatchKeys dispatch={dispatch} sends={current === "dispatch"} /> : stepping !== null ? <StepKeys /> : null}
+        {acting === null ? null : (
+          <ActionsPanel
+            entry={acting.entry}
+            actions={actionList}
+            at={acting.at}
+            query={actionQuery}
+            active={actionRow}
+            onQuery={(typed) => (setActionQuery(typed), setActing({ ...acting, at: 0 }))}
+            onKey={onPanelKey}
+            onEnter={(next) => setActing({ ...acting, at: next })}
+            onChoose={(action) => runAction(acting.entry, action)}
+            taking={taking}
+            onTakeWord={(value) => setTaking((was) => (was === null ? was : { ...was, value, refused: null }))}
+            onTake={take}
+          />
+        )}
+        {acting !== null ? (
+          <ResultKeys />
+        ) : offered && dispatch !== undefined ? (
+          <DispatchKeys dispatch={dispatch} sends={current === "dispatch"} acts={underActions.length > 0} />
+        ) : stepping !== null ? (
+          <StepKeys {...(stepping.step.act === undefined ? {} : { act: stepping.step.act })} />
+        ) : underActions.length > 0 ? (
+          <ResultKeys />
+        ) : null}
       </div>
     </div>
+    </ShortcutRevealProvider>
   );
+}
+
+/** A step that takes a typed word lists it as a row once something is typed. */
+function withWord(step: PaletteStep, query: string): Pick<PaletteStep, "sections" | "entries"> {
+  const word = query.trim();
+  if (step.word !== true || word === "") return step;
+  return { sections: [...step.sections, { id: "word", title: "" }], entries: [...step.entries, { id: `word:${word}`, section: "word", label: word }] };
 }
 
 /** The dom id of a row, so `aria-activedescendant` can name it. */
@@ -437,6 +685,7 @@ function rowId(entry: PaletteEntry): string {
 function Row({
   hit: held,
   query,
+  quick,
   active,
   ref,
   onEnter,
@@ -444,6 +693,8 @@ function Row({
 }: {
   hit: Hit;
   query: string;
+  /** Its place among the first nine results, which ⌘ and that digit open. */
+  quick: number | undefined;
   active: boolean;
   ref?: React.Ref<HTMLDivElement>;
   onEnter: () => void;
@@ -457,7 +708,6 @@ function Row({
     active ? "armada-palette__row--active" : "",
     entry.destructive === true ? "armada-palette__row--danger" : "",
     dormant ? "armada-palette__row--dormant" : "",
-    entry.detail === undefined ? "" : "armada-palette__row--detailed",
   ]
     .filter((held) => held !== "")
     .join(" ");
@@ -477,20 +727,36 @@ function Row({
       onClick={onChoose}
     >
       {/* The slot holds its width whether or not there is a glyph, so a
-          section with two icons and six blanks still reads as a column. */}
+          section with two icons and six blanks still reads as a column. A
+          Job's state is its glyph. */}
       <span className="armada-palette__glyph">
-        {Glyph === undefined ? null : <Glyph size={16} strokeWidth={2} aria-hidden />}
+        {entry.meta?.state !== undefined ? <StateGlyph state={entry.meta.state} /> : Glyph === undefined ? null : <Glyph size={16} strokeWidth={2} aria-hidden />}
       </span>
       <span className="armada-palette__label">
-        <Marked label={entry.label} query={query} at={held.at} />
-        {entry.detail === undefined ? null : <span className="armada-palette__detail">{entry.detail}</span>}
+        <span className="armada-palette__title">
+          <Marked label={entry.label} query={query} at={held.at} />
+        </span>
+        <Subtitle meta={entry.meta} detail={entry.detail} value={entry.value} dormant={entry.dormant} />
       </span>
-      {entry.value === undefined ? null : (
-        <span className="armada-palette__value">{entry.value}</span>
-      )}
-      {dormant ? <span className="armada-palette__dormant">{entry.dormant}</span> : null}
-      {entry.shortcut === undefined ? null : <Shortcut shortcut={entry.shortcut} />}
+      {/* What the row is, flush right. While ⌘ is held its digit sits over the
+          kind, which blurs behind it, as Raycast draws it (the owner, 27 Oct 2026). */}
+      <Kind kind={entry.kind} quick={quick} />
     </div>
+  );
+}
+
+/** The kind, and over it while ⌘ is held, the digit that opens the row. */
+function Kind({ kind, quick }: { kind: string | undefined; quick: number | undefined }) {
+  const revealing = useShortcutReveal();
+  return (
+    <span className="armada-palette__kind" data-revealing={revealing && quick !== undefined ? "" : undefined}>
+      <span className="armada-palette__kind-word">{kind}</span>
+      {revealing && quick !== undefined ? (
+        <span className="armada-palette__quick" aria-hidden>
+          <KbdChord keys={[String(quick)]} />
+        </span>
+      ) : null}
+    </span>
   );
 }
 
@@ -515,57 +781,4 @@ function Marked({ label, query, at }: { label: string; query: string; at: number
       {label.slice(at + query.length)}
     </>
   );
-}
-
-/**
- * The binding, cut into one box per chord and a separator between two.
- *
- * **The registry's spelling is the input and nothing is re-spelled here.**
- * `⌘K`, `j / k / ↓ / ↑`, `⌘1–⌘6` and `[ ]` are all how `actions.toml` writes
- * them, and the gate holds that file to the contract's map — so the palette
- * shows exactly the string a person will read in the contract. What this does
- * is put every chord — the keys of one binding held together — in its own
- * box; `/` and `–` still separate two distinct bindings and are drawn as
- * punctuation between boxes, never folded into one.
- */
-function Shortcut({ shortcut }: { shortcut: string }) {
-  return (
-    <span className="armada-palette__keys">
-      {piecesOf(shortcut).map((piece, i) =>
-        piece.chord === undefined ? (
-          <span key={i} className="armada-palette__between">
-            {piece.between}
-          </span>
-        ) : (
-          <KbdChord key={i} keys={piece.chord} />
-        ),
-      )}
-    </span>
-  );
-}
-
-/** A chord that gets one box, or a separator drawn between two. */
-type Piece = { chord: string[]; between?: undefined } | { chord?: undefined; between: string };
-
-/**
- * Cut a binding into chords and separators.
- *
- * A space separates two whole bindings and needs no mark — the gap between
- * boxes is the separation. `/` and `–` are kept and drawn, because `j / k`
- * means either key and `⌘1–⌘6` means a range: both are two distinct bindings,
- * never one chord, so the separator stays outside every box. A leading `⌘`
- * joins the box it already started rather than starting one of its own — the
- * combination `⌘K` is one press, and one box is what reads as one.
- */
-function piecesOf(shortcut: string): Piece[] {
-  return shortcut
-    .split(/(\s+|\/|–)/)
-    .flatMap((part): Piece[] => {
-      if (part.trim() === "") return [];
-      if (part === "/" || part === "–") return [{ between: part }];
-      if (part.length > 1 && part.startsWith("⌘")) {
-        return [{ chord: ["⌘", part.slice(1)] }];
-      }
-      return [{ chord: [part] }];
-    });
 }

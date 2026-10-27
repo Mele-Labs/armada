@@ -540,3 +540,23 @@ it("answers a pull request press on the write, while the read that refreshes the
   expect(answered).toBe(true);
   expect(pressPullRequest).toHaveBeenCalledWith("a", 7, "read");
 });
+
+it("holds the picked repository's Sessions in the list and every repository's beside it, which the palette jumps to", () => {
+  const { store, publish } = fed();
+  const repositories = [
+    { root: "/repo", manifest: { id: "armada" } },
+    { root: "/pocket", manifest: { id: "pocket" } },
+  ] as unknown as NonNullable<BridgeState["holds"]["repositories"]>;
+  publish({
+    repository: "/repo",
+    holds: { ...NOTHING_YET.holds, repositories },
+    sessions: { state: "read", sessions: [record("a"), { ...record("b"), manifest_id: "pocket" }] },
+  });
+  expect(store.draft.get().map((one) => one.id)).toEqual(["a"]);
+  const everywhere = store.draft.everywhere!();
+  expect(everywhere.map((one) => one.id)).toEqual(["a", "b"]);
+  // The same Session, so a row that did not change is not drawn again.
+  expect(everywhere[0]).toBe(store.draft.get()[0]);
+  publish({ repository: null as unknown as string, holds: { ...NOTHING_YET.holds, repositories }, sessions: { state: "read", sessions: [record("a"), { ...record("b"), manifest_id: "pocket" }] } });
+  expect(store.draft.everywhere!()).toBe(store.draft.get());
+});
