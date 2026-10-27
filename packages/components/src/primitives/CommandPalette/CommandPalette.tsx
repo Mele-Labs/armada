@@ -170,6 +170,8 @@ export type CommandPaletteProps = {
   onTake?: (entry: PaletteEntry, action: PaletteAction, value: string) => string | undefined;
   /** A row that is not done at once but asks for something first: the second step listing what it can be filled with. */
   stepOf?: (entry: PaletteEntry) => PaletteStep | undefined;
+  /** Opens already on this step, as a command opened by its key is with its first blank to fill. Esc goes back to an empty search. */
+  opensOn?: PaletteStep | undefined;
 };
 
 /** Whether the query matches, and where in the label it matched. */
@@ -215,6 +217,7 @@ export function CommandPalette({
   onAct,
   onTake,
   stepOf,
+  opensOn,
 }: CommandPaletteProps) {
   const [query, setQuery] = useState(defaultQuery);
   const [at, setAt] = useState(0);
@@ -288,6 +291,12 @@ export function CommandPalette({
   useEffect(() => {
     if (open) input.current?.focus();
   }, [open]);
+  useEffect(() => {
+    if (open && opensOn !== undefined) {
+      setStepping({ words: "", step: opensOn });
+      setQuery("");
+    }
+  }, [open, opensOn]);
 
   // Esc closes the palette and stops there, wherever focus went. On `window` in the capture phase
   // for the reason `Popover` is: a field-only handler goes deaf once a click blurs the field, and
@@ -648,7 +657,7 @@ export function CommandPalette({
         ) : offered && dispatch !== undefined ? (
           <DispatchKeys dispatch={dispatch} sends={current === "dispatch"} acts={underActions.length > 0} />
         ) : stepping !== null ? (
-          <StepKeys />
+          <StepKeys {...(stepping.step.act === undefined ? {} : { act: stepping.step.act })} />
         ) : underActions.length > 0 ? (
           <ResultKeys />
         ) : null}

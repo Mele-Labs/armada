@@ -31,6 +31,8 @@ export type PaletteStep = {
   searched: string;
   /** Filing the choice closes the palette. A step returned is asked next, in the palette, with the choice not yet filed. */
   onChoose: (entry: PaletteEntry) => PaletteStep | void;
+  /** What ↵ does here, said in the footer: Next while more is asked, else the act's verb. Absent says Add. */
+  act?: string;
   /** Takes what is typed: a row for the typed word is listed, with the id `word:` and the word as its label. */
   word?: true;
 };
@@ -125,10 +127,10 @@ export function DispatchKeys({ dispatch, sends, acts }: { dispatch: PaletteDispa
 }
 
 /** The keys a second step answers, along the palette's foot. */
-export function StepKeys() {
+export function StepKeys({ act = "Add" }: { act?: string }) {
   return (
     <div className="armada-palette__keys-foot" aria-hidden>
-      <span>Add <KbdChord keys={["↵"]} /></span>
+      <span>{act} <KbdChord keys={["↵"]} /></span>
       <span>Back <KbdChord keys={["Esc"]} /></span>
     </div>
   );

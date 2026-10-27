@@ -268,6 +268,8 @@ export type PaletteProps = {
   commands?: readonly PaletteCommand[];
   /** The second step a command with a blank opens, or none. */
   commandStep?: (commandId: string) => PaletteStep | undefined;
+  /** Opens on this step: a command run by its key that has a blank to ask for. */
+  opensOn?: PaletteStep | undefined;
   /** What was pinned and what was opened last, as the palette drew them: `session:…`, `pull:…`. */
   pinned?: readonly string[];
   recent?: readonly string[];
@@ -365,6 +367,7 @@ export function Palette({
   tasks = [],
   commands = [],
   commandStep,
+  opensOn,
   pinned = [],
   recent = [],
   opens = "pinned",
@@ -532,6 +535,7 @@ export function Palette({
         return refused;
       }}
       stepOf={(entry) => (entry.id.startsWith("cmd:") ? commandStep?.(bare(entry.id)) : undefined)}
+      opensOn={opensOn}
       onAct={(entry, action) => onChoose({ of: "on", target: entry.id, action: action.id })}
       searched={searchedSentence({ sessions: sessions.length, settings: settings.length, runnables: runnables.length, repositories: repositories.length, tickets: pulls.length + issues.length + tasks.length, commands: commands.length })}
       onClose={onClose}

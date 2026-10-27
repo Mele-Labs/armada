@@ -24,9 +24,6 @@ export const slugOf = (name: string): string =>
 
 export const rowsOf = (mod: string, file: CommandsFile): ModRow[] => file.command.map((command) => ({ id: `${mod}:${slugOf(command.name)}`, mod, command }));
 
-/** The line a shell row names cannot be run until a terminal can open in a repository: the row is drawn and says so. */
-export const NO_TERMINAL = "No terminal to run it in";
-
 /** What the palette draws of a row. `hotkey` is the key it was allowed, which is not always the one the file names. */
 export function displayOf(row: ModRow, hotkey: string | undefined): PaletteCommand {
   const { command } = row;
@@ -40,7 +37,6 @@ export function displayOf(row: ModRow, hotkey: string | undefined): PaletteComma
     ...(value === undefined ? {} : { value }),
     ...(command.aliases === undefined || command.aliases.length === 0 ? {} : { aliases: command.aliases }),
     ...(hotkey === undefined ? {} : { hotkey }),
-    ...(kind === "shell" ? { dormant: NO_TERMINAL } : {}),
   };
 }
 

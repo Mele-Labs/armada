@@ -8,8 +8,9 @@ import { SURFACE, type PaletteChoice, type PaletteCommand } from "@armada/shell"
 import type { Session, SessionsDraft } from "@armada/screens/src/draft/sessions";
 
 import { mergeSession, stopSession, toggleSessionPause } from "./cockpit/deck/acts";
-import { fill, NO_TERMINAL, type ModRow } from "./mod-commands";
+import { fill, type ModRow } from "./mod-commands";
 import { knownRows } from "./palette-known";
+import { askedOf } from "./palette-blanks";
 import { setView } from "./cockpit/deck/store";
 import type { PaletteFixtures, PaletteLinked } from "./palette-fixtures";
 import { JOB_PAGE } from "./palette-page";
@@ -42,10 +43,17 @@ export type RowWorld = {
   tell: (sentence: string) => void;
   /** Runs a palette row by its id, as pressing ↵ on it would. */
   runRow: (id: string) => void;
+  /** Opens the palette on the row's first blank, for a row that was run without them. */
+  openAt: (row: ModRow) => void;
+  /** The repositories the title row lists, and the one picked by root. */
+  repositories: readonly { root: string; label: string }[];
+  picked: string | null;
+  /** Runs a line in a repository's checkout, showing its output in the side panel. False where no panel is hosted. */
+  runShell: (command: string, dir: string, repository: string) => boolean;
 };
 
 /** What a blank was filled with: as a prompt reads it, and as an address does (`#1899` and `1899`). */
-export type Filled = Readonly<Record<string, { text: string; bare: string }>>;
+export type Filled = Readonly<Record<string, { text: string; bare: string; /** A repository's root, where the blank named one. */ root?: string }>>;
 
 const pullOf = (world: RowWorld, id: string): PaletteLinked | undefined => world.fixtures.pulls.find((one) => `${one.repo}:${one.number}` === id);
 const issueOf = (world: RowWorld, id: string): PaletteLinked | undefined => world.fixtures.issues.find((one) => `${one.repo}:${one.number}` === id);
@@ -97,13 +105,13 @@ const view = (filled: Filled, key: "text" | "bare", encode = (word: string) => w
 const chaining = new Set<string>();
 
 /**
- * A Commands mod's row, with the blanks it was asked. A row run without them (a key, a chain) says which it needs: they are
- * asked in the palette's second step and nowhere else.
+ * A Commands mod's row, with the blanks it was asked. A row run without them (a key, a chain) opens the palette on the first it
+ * needs. A shell line also needs a repository: the one picked, or the one a blank named.
  */
 export function runModRow(row: ModRow, filled: Filled, world: RowWorld): void {
   const { command } = row;
-  const missing = blanksOf(row).filter((name) => filled[name] === undefined);
-  if (missing.length > 0) return world.tell(`${command.name}: fill ${missing.map((one) => `{${one}}`).join(" ")} in the palette`);
+  const dir = Object.values(filled).find((one) => one.root !== undefined)?.root ?? world.picked;
+  if (blanksOf(row).some((name) => filled[name] === undefined) || (command.shell !== undefined && dir === null)) return world.openAt(row);
   if (command.prompt !== undefined) return world.startJob(fill(command.prompt, view(filled, "text")));
   if (command.url !== undefined) {
     const address = fill(command.url, view(filled, "bare", encodeURIComponent));
@@ -111,11 +119,16 @@ export function runModRow(row: ModRow, filled: Filled, world: RowWorld): void {
     if (!world.openLink(address)) void window.armada.openLink(address).then((followed) => followed.ok || world.tell(`${command.name}: ${address} did not open`));
     return;
   }
-  if (command.shell !== undefined) return world.tell(`${command.name}: ${NO_TERMINAL}`);
+  if (command.shell !== undefined && dir !== null) {
+    const repository = world.repositories.find((one) => one.root === dir)?.label ?? dir;
+    // Typed as it was, with a pull request or an issue as its number: a `#` would start a comment.
+    if (!world.runShell(fill(command.shell, view(filled, "bare")), dir, repository)) world.tell(`${command.name}: no side panel to show it in`);
+    return;
+  }
   if (command.chain !== undefined) runChain(row, command.chain, world);
 }
 
-/** The rows named, in order. A row that is missing, cannot run or asks for a blank stops it, and the sentence names which. */
+/** The rows named, in order. A row that is missing or cannot run stops it, and the sentence names which. One that asks for a blank opens the palette there, and the chain ends. */
 function runChain(row: ModRow, chain: readonly string[], world: RowWorld): void {
   const name = row.command.name;
   if (chaining.has(row.id)) return world.tell(`${name} chains back to itself`);
@@ -126,7 +139,7 @@ function runChain(row: ModRow, chain: readonly string[], world: RowWorld): void 
       if (known === undefined) return world.tell(`${name} stopped: no row ${id}`);
       if (known.dormant) return world.tell(`${name} stopped at ${known.label}: it cannot run`);
       const nested = world.modRows.find((one) => `cmd:${one.id}` === id);
-      if (nested !== undefined && blanksOf(nested).length > 0) return world.tell(`${name} stopped at ${known.label}: it asks for ${blanksOf(nested).map((one) => `{${one}}`).join(" ")}`);
+      if (nested !== undefined && askedOf(nested, world.picked).length > 0) return world.openAt(nested);
       world.runRow(id);
     }
   } finally {

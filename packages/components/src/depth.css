@@ -484,6 +484,12 @@
 :root[data-look="new"] .armada-palette__row--active:hover {
   background: color-mix(in srgb, var(--fg-default) 10%, transparent);
 }
+/* A row nothing answers keeps its dimming under the cursor: the lighter fill a hover gives, and the glyph one step down with the text. */
+:root[data-look="new"] .armada-palette__row--dormant.armada-palette__row--active,
+:root[data-look="new"] .armada-palette__row--dormant.armada-palette__row--active:hover {
+  background: var(--bg-step);
+}
+:root[data-look="new"] .armada-palette__row--dormant .armada-palette__glyph { color: var(--fg-subtle); }
 :root[data-look="new"] .armada-palette__row--trailing { background: transparent; border-top: 0; }
 @media (prefers-reduced-motion: reduce) {
   :root[data-look="new"] .armada-palette { animation: none; }
