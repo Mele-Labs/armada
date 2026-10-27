@@ -1,0 +1,7 @@
+[icons.milestone]
+  means = "A signpost with a pointed board on a post: a stop along the way"
+  group = "Session"
+  size = "16px"
+  status = "Proposed"
+  reserved = "The By step reading of a Job's Completed zone, one of its two icon toggles beside `tags`. Never an Armada milestone, a plan group or a route, which are `route` and `signpost`'s."
+  notes = "Proposed 26 Oct 2026 with the Job's spine, walked as `job-walk-on-the-spine`. Tooltip `By step`, with ⌥L. Refused: `list-tree`, reserved to Whole blueprint, which sits in the Now strip of the same column; `list-checks`, reserved to a procedure the person follows; `workflow` and `footprints`, reserved to the Workflows surface and to walks."

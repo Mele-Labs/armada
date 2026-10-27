@@ -3,7 +3,7 @@
 
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, expect, test } from "vitest";
+import { afterEach, expect, test, vi } from "vitest";
 import type { Session, SessionAttachment, SessionsDraft } from "@armada/screens/src/draft/sessions";
 
 import { SessionsFrom } from "../sessions-draft";
@@ -11,6 +11,9 @@ import { closeLayer } from "./layers";
 import type { PlanEditing } from "./PlanEdit";
 import { SessionWorkspace } from "./SessionWorkspace";
 import { resetFolds } from "./story";
+
+// The mod list is Fleet's, read through `window.armada`; no Job here made a mod.
+vi.mock("../mod-list", () => ({ useModList: () => [] }));
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -27,7 +30,7 @@ afterEach(() => {
   }
 });
 
-// A draft pull request is still being built, so the Field is the stage and the Landing stands folded.
+// A draft pull request is still being built. Every zone of the story is open, whatever the stage.
 const attachments: SessionAttachment[] = [
   { kind: "pull_request", number: 7, title: "Retry the lease", branch: "armada/retry", address: "https://forge/7", checks: { state: "passed" }, state: "draft", auto: false },
   { kind: "artifact", form: "page", id: "https://notes/lease", title: "Lease notes" },
@@ -43,7 +46,7 @@ function mount() {
   const side = document.createElement("div");
   side.className = "sv-side";
   document.body.append(thread, side);
-  const draft = { get: () => held, subscribe: () => () => undefined, work: {} } as unknown as SessionsDraft;
+  const draft = { get: () => held, subscribe: () => () => undefined, work: { workflows: [] } } as unknown as SessionsDraft;
   const root = createRoot(thread);
   act(() =>
     root.render(
@@ -66,11 +69,12 @@ function mount() {
 
 const press = (init: KeyboardEventInit) => act(() => void window.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, cancelable: true, ...init })));
 const layer = (side: HTMLElement) => side.querySelector('section.sv-layer[aria-label="Artifacts"]');
-const panels = (side: HTMLElement) => [...side.querySelectorAll(":scope > section.sv-panel")].map((one) => one.getAttribute("data-area"));
+const panels = (side: HTMLElement) => [...side.querySelectorAll("section.sv-panel")].map((one) => one.getAttribute("data-area"));
 
-test("the story is the right column's Blueprint, Field and Landing in order, with no layer over it", () => {
+test("the story is the right column's Completed, Now and Next in order on one timeline, with no layer over it", () => {
   const { side } = mount();
-  expect(panels(side)).toEqual(["blueprint", "field", "landing"]);
+  expect(panels(side)).toEqual(["done", "now", "next"]);
+  expect(side.querySelector(".sv-spine")).not.toBeNull();
   expect(layer(side)).toBeNull();
 });
 
@@ -84,7 +88,7 @@ test("⇧⌘A opens Artifacts over the right column, and Esc gives the story bac
   expect(open!.textContent).toContain("Lease notes");
   press({ key: "Escape" });
   expect(layer(side)).toBeNull();
-  expect(panels(side)).toEqual(["blueprint", "field", "landing"]);
+  expect(panels(side)).toEqual(["done", "now", "next"]);
 });
 
 test("⇧⌘A again closes Artifacts", () => {
@@ -95,23 +99,39 @@ test("⇧⌘A again closes Artifacts", () => {
   expect(layer(side)).toBeNull();
 });
 
-test("a band's key while Artifacts is open closes it and folds the band by hand", () => {
+test("a band's key while Artifacts is open closes it and folds the zone by hand", () => {
   const { side } = mount();
-  const landing = () => side.querySelector('section[data-area="landing"]')!;
-  expect(landing().hasAttribute("data-collapsed")).toBe(true);
+  const next = () => side.querySelector('section[data-area="next"]')!;
+  expect(next().hasAttribute("data-collapsed")).toBe(false);
   press({ metaKey: true, shiftKey: true, code: "KeyA" });
-  press({ altKey: true, code: "KeyD" });
+  press({ altKey: true, code: "Digit3" });
   expect(layer(side)).toBeNull();
-  expect(landing().hasAttribute("data-collapsed")).toBe(false);
+  expect(next().hasAttribute("data-collapsed")).toBe(true);
 });
 
-test("a panel opened by hand is still open when the Job is left and entered again", () => {
+test("a zone folded by hand is still folded when the Job is left and entered again", () => {
   const first = mount();
-  press({ altKey: true, code: "KeyD" });
-  expect(first.side.querySelector('section[data-area="landing"]')!.hasAttribute("data-collapsed")).toBe(false);
+  press({ altKey: true, code: "Digit3" });
+  expect(first.side.querySelector('section[data-area="next"]')!.hasAttribute("data-collapsed")).toBe(true);
   first.unmount();
   const again = mount();
-  expect(again.side.querySelector('section[data-area="landing"]')!.hasAttribute("data-collapsed")).toBe(false);
+  expect(again.side.querySelector('section[data-area="next"]')!.hasAttribute("data-collapsed")).toBe(true);
+});
+
+test("⌥M puts the caret in the open Job's Message box", () => {
+  const { thread } = mount();
+  const dock = document.createElement("div");
+  dock.className = "sv-dock";
+  const box = document.createElement("div");
+  box.setAttribute("role", "textbox");
+  box.setAttribute("aria-label", "Message");
+  box.contentEditable = "true";
+  box.tabIndex = 0;
+  dock.append(box);
+  thread.append(dock);
+  expect(document.activeElement).not.toBe(box);
+  press({ altKey: true, code: "KeyM", key: "µ" });
+  expect(document.activeElement).toBe(box);
 });
 
 test("the keys other than ⇧⌘A open nothing: ⌘A alone and ⇧A alone leave the story", () => {

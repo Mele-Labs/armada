@@ -30,7 +30,7 @@ fn a_local_calm(mods: &Path) {
     let at = mods.join("calm");
     std::fs::create_dir_all(&at).expect("a folder");
     std::fs::write(at.join("mod.toml"), CALM_TOML).expect("mod.toml");
-    std::fs::write(at.join("theme.css"), ":root {\n  --accent: #E0954A;\n}\n").expect("theme.css");
+    std::fs::write(at.join("theme.css"), ":root {\n  --accent: #7C6FD8;\n}\n").expect("theme.css");
 }
 
 /// **Beside, never instead**: a local mod named as a built-in one and changed from it is listed

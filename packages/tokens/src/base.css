@@ -17,14 +17,9 @@ html[data-theme="light"] { color-scheme: light; }
 
 body {
   margin: 0;
-  /* The canvas under Depth: --bg-base with a faint pool of accent light on the
-     top leading corner, so a quiet window reads as depth rather than a flat
-     grey. Light carries no information and never takes a status hue.
-     `TheShell` paints the same pool over its own ground, and adds Helm's
-     behind an open dock; the two geometries change together. */
-  background:
-    radial-gradient(calc(var(--space-12) * 16 - var(--space-2)) calc(var(--space-12) * 10) at 0 0, var(--accent-faint), transparent),
-    var(--bg-base);
+  /* The canvas is one flat tone, as of 26 Oct 2026. It carried pools of accent
+     and Helm light before; none is left, here or on the shell. */
+  background: var(--bg-base);
   color: var(--fg-default);
   font-family: var(--font-sans);
   font-size: var(--text-sm);

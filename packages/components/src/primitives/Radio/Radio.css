@@ -39,7 +39,7 @@
   border-radius: 50%;
   border-style: solid;
   border-width: var(--border-width);
-  border-color: var(--border-default);
+  border-color: var(--border-strong);
   background: var(--bg-sunken);
   transition: border-color var(--duration-fast) var(--ease);
 }

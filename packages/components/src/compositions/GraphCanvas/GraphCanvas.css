@@ -128,26 +128,16 @@
    the next control, so a reader cannot see what they are about to press — the
    one placement the primitive's default gets wrong on a vertical bar.
 
-   **Placed rather than anchored, and it needs no edge detection.** A rail sits
-   at the canvas's leading edge by construction, so the room is always on the
-   trailing side; the primitive's own `position-area` and its fallbacks are
-   turned off here rather than re-aimed, because aimed at `inline-end` its
-   flip put the bubble past the window's right edge (measured, 28 Sep 2026). */
-.armada-graph-rail .armada-tooltip__bubble {
-  top: 0;
-  left: calc(100% + var(--space-2));
-  /* The rail is 32px wide and the bubble's containing block is one button, so
-     shrink-to-fit gives it no room at all and every name wraps to one word a
-     line. `max-content` up to the prose cap the primitive already sets. */
-  inline-size: max-content;
-}
-
+   **Beside, with the fallbacks off.** A rail sits at the canvas's leading edge
+   by construction, so the room is always on the trailing side, and the
+   primitive's own fallbacks are turned off rather than re-aimed: aimed at
+   `inline-end`, the flip put the bubble past the window's right edge (measured,
+   28 Sep 2026). The bubble is in the top layer, so it is anchored to its button
+   and nothing else about the rail's box reaches it. */
 @supports (anchor-name: --a) {
   .armada-graph-rail .armada-tooltip__bubble {
-    position: absolute;
-    position-area: none;
+    position-area: inline-end span-block-end;
     position-try-fallbacks: none;
-    inset: 0 auto auto 100%;
     margin: 0 0 0 var(--space-2);
   }
 }
@@ -190,9 +180,6 @@
    reader checking what they are going to press covers the thing they are
    pressing it on — the horizontal twin of the rail's own finding. */
 .armada-graph-node-bar .armada-tooltip__bubble {
-  top: auto;
-  bottom: calc(100% + var(--space-1));
-  inline-size: max-content;
 }
 
 @supports (anchor-name: --a) {

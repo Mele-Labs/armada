@@ -1,6 +1,6 @@
 /* Prose — model-written markdown, drawn as its structure.
 
-   The body inherits the surface's size. Only a heading declares one: levels
+   The body takes the reading size set below. A heading steps from it: levels
    one and two at --text-lg, level three at --text-base. The owner chose this
    on 1 Oct 2026 ("B, more life"). docs/contracts/design-system.md,
    *Prose — model-written markdown*.
@@ -8,9 +8,24 @@
    BLOCK FLOW, NEVER FLEX. `-webkit-line-clamp` counts no lines inside a flex
    box, and Prose is drawn inside `Clamped` (PlanBoard's approach).
    Every gap is a margin between siblings. */
+/* A model's text keeps the reading ladder the app had before 26 Oct 2026, one step over the app's now, and sets its own
+   size from it. Inside the Cockpit it reads at the Cockpit's steps, as it did when only the Cockpit had them. The
+   headings, the table's head and anything else in it that reads a step takes these and not the root's. */
 .armada-prose {
+  --text-2xs: 13px;   --leading-2xs: 18px;
+  --text-xs: 14px;    --leading-xs: 20px;
+  --text-sm: 15px;    --leading-sm: 22px;
+  --text-base: 16px;  --leading-base: 24px;
   display: block;
   min-width: 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+}
+.deck .armada-prose {
+  --text-2xs: 12px;   --leading-2xs: 16px;
+  --text-xs: 13px;    --leading-xs: 18px;
+  --text-sm: 14px;    --leading-sm: 20px;
+  --text-base: 15px;  --leading-base: 22px;
 }
 
 /* Zero specificity, so the sibling spacing below always wins over it. */

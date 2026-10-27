@@ -6,7 +6,7 @@
 
 import { useEffect, useState } from "react";
 import { LoaderCircle, Pencil, Puzzle, X } from "lucide-react";
-import { Button, DropdownMenu, Input, Kbd, PrMark, SearchField, Textarea, Tooltip, forgetKept, sendsOn, useKept } from "@armada/components";
+import { Button, DropdownMenu, Input, Kbd, PrMark, Readout, SearchField, Textarea, Tooltip, forgetKept, sendsOn, useKept } from "@armada/components";
 import type { DropdownMenuEntry } from "@armada/components";
 import type { RepositorySummary } from "@armada/protocol";
 import { jobIdOf } from "@armada/shell";
@@ -410,7 +410,7 @@ function Row({ band, ticket, fields, open }: { band: Band; ticket: Ticket; field
   return (
     <li className="deck-list__item">
       <button type="button" className="issues-row" data-tone={toneOfHolders(holders)} data-selected={open || undefined} aria-current={open || undefined} aria-label={`${ticket.reference} ${ticket.title}`} onClick={() => store.open(band.manifestId, ticket.reference)}>
-        <span className="issues-row__reference mono">{ticket.reference}</span>
+        <Readout fixed className="issues-row__reference">{ticket.reference}</Readout>
         <span className="issues-row__title">{ticket.title}</span>
         <span className="issues-row__jobs">
           {holders.map((one) => (

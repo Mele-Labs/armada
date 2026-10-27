@@ -17,7 +17,7 @@
   flex: 1 1 auto;
   flex-direction: column;
   min-width: 0;
-  min-height: calc(var(--h-row) * 6);
+  min-height: calc(var(--h-row-unit) * 6);
   border: var(--border-width) solid var(--border-default);
   border-radius: var(--radius-lg);
   background: var(--bg-sunken);

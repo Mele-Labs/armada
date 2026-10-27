@@ -42,7 +42,7 @@
   --border-glass: rgb(255 255 255 / 0.07);
   /* The 1px highlight along a card's top inner edge, read as light catching it */
   --border-highlight: rgb(255 255 255 / 0.05);
-  /* The canvas's pool of accent light, top leading corner */
+  /* A faint accent fill for a selection or a match */
   --accent-faint: color-mix(in srgb, var(--accent) 10%, transparent);
 
   /* Helm. The one hue outside status and accent, so the dock reads as Helm at
@@ -52,7 +52,7 @@
   --helm: #8E95FF;
   --helm-muted: color-mix(in srgb, var(--helm) 14%, transparent); /* chip and Send fill */
   --helm-edge: color-mix(in srgb, var(--helm) 38%, transparent);  /* the dock's top edge, Send's border */
-  --helm-faint: color-mix(in srgb, var(--helm) 6%, transparent);  /* the canvas's pool, and the dock's wash */
+  --helm-faint: color-mix(in srgb, var(--helm) 6%, transparent);  /* a faint Helm tint */
 
   /* You. The owner's own messages in a Session thread, and nothing else.
      Gold, hue 47: brighter and more yellow than --status-awaiting-review at 39,

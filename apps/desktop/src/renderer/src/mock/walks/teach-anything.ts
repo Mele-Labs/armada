@@ -21,7 +21,7 @@ function steps(): Step[] {
   const section = (name: string) => inside(panel, region(name, { exact: true }));
   const chip = inside(panel, button(/^armada$/));
   const needs = region("Needs you");
-  const blueprint = region("Blueprint", { exact: true });
+  const now = region("Now", { exact: true });
   const calls = inside(thread, button(/Tool calls/));
   const command = inside(thread, text(INSTALL));
   const notice = inside(thread, button(/commits behind main/));
@@ -94,10 +94,10 @@ function steps(): Step[] {
     { key: "Meta+Enter", on: instruction, say: "⌘↵ teaches" },
     { look: section("Agents"), say: "Only the note agents are given" },
     { press: inside(panel, button("Save")), say: "Save" },
-    { press: inside(blueprint, button("Whole blueprint")), say: "The Blueprint reads as Now. The whole plan is a press away" },
-    { press: inside(blueprint, button("Show the clock", { exact: true })), say: "A group opens to its tasks" },
-    { hover: inside(blueprint, text(TASK)), say: "A plan task shows its glyphs on hover" },
-    { press: inside(blueprint, button(`Teach on task ${TASK}`)), say: "Teach is the one with the mortarboard" },
+    { press: inside(now, button("Whole plan")), say: "Now shows the group being worked. The whole plan is a press away" },
+    { press: inside(now, button("Show the clock", { exact: true })), say: "A group opens to its tasks" },
+    { hover: inside(now, text(TASK)), say: "A plan task shows its glyphs on hover" },
+    { press: inside(now, button(`Teach on task ${TASK}`)), say: "Teach is the one with the mortarboard" },
     { type: "always walk before building UI", into: instruction, say: "For every repository" },
     { press: chip, say: "The chip, once" },
     { key: "Meta+Enter", on: instruction, say: "⌘↵ teaches" },

@@ -26,28 +26,28 @@ Every interactive element transitions on `--duration-fast`.
 The densest thing in the app and the reason the spacing scale is tight.
 
 ```
-header row   32px · --bg-base · --text-2xs · --fg-subtle
+header row   28px · --bg-base · --text-2xs · --fg-subtle
              uppercase, 0.04em tracking (ALL CAPS here and on an eyebrow)
              bottom rule --border-default
-body row     36px · --bg-raised · 12px horizontal padding
+body row     28px · --bg-raised · 12px horizontal padding
              row rule --border-subtle
 hover        --bg-hover
-selected     --accent-muted
+selected     --select-ground, with a --select-frame hairline (not an accent fill)
 primary cell --fg-default · --text-sm
 secondary    --fg-muted · --text-sm
 metadata     --fg-subtle · --text-2xs   (timestamps, elapsed)
 mono cell    --text-xs mono              (job id, path, branch, duration, cost)
 ```
 
-No zebra striping. At 36px rows it reads as noise, and the row rule
+No zebra striping. At 28px rows it reads as noise, and the row rule
 already separates. Status appears as a badge in its own column **and** as
 a row tint of its own hue at `--row-tint` (5%), so a person scanning the
 Board sorts rows by state without reading a badge. This read "never as a
 row-background tint" until 2026-09-16: that was true at the badge's 12%,
 where eight tinted rows were unreadable. At 5% it is a wash. Hover and
 selection **replace** the tint rather than mixing with it, so
-`--accent-muted` still owns selection, and the row's left edge stays the
-focus and hover edge — status takes no edge of its own.
+the selection frame (`--select-frame`) still owns selection, and the row's left edge stays the
+focus and hover edge — status takes no edge of its own. In a list of Jobs the state is a 6px lamp at the row's left edge instead of a fill (spacing-and-shape.md).
 
 **An identifier copies on click.** A job id, a drone id, a branch
 name — a value whose whole use is being quoted somewhere else — copies
@@ -110,13 +110,13 @@ one claim.
 | Tonal | `--accent-muted` fill, `--accent-hover` text, no border | 24% `--accent` mixed into `--accent-muted` | Chrome present on every screen, carrying the app's main entry. Never the one solid accent of a view |
 
 ```
-height   36px default · 32px sm (use sm inside table rows)
+height   28px default · 24px sm (use sm inside table rows)
 padding  16px default · 8px sm
 type     --text-sm · weight 500 · --radius-md
 ```
 
 **Emphasis comes from fill, not size.** A primary action is `--accent`
-fill at the normal 36px control height; a call to action is never scaled
+fill at the normal 28px control height; a call to action is never scaled
 up to make it matter. **A list row never takes one** — every row carries
 one secondary control, because fourteen rows offering a decision would
 be fourteen accent blocks. Urgency on a list is carried by the badge and
@@ -137,6 +137,16 @@ Destructive stays outlined because a solid red button reads as an error
 state rather than an action, and `--status-completed-failed` is already
 spoken for as a *status*. Kill is deliberate, not alarming.
 
+**An icon toggle is a ghost and a lamp.**
+A ghost icon button that is on keeps its transparent ground and border, and draws a 6px lamp (`--lamp`) in its top-right corner in `--fg-default`, with `aria-pressed` set.
+Never `--accent`, which a theme may put beside the needs-you amber.
+This is one rule for every icon toggle in the app: a Job's Artifacts, Checks, Subagents and Bays, a ledger's kind filters, Whole plan, Changes and Capture.
+Each carries a tooltip naming it and its key.
+Why: a Job's head drew two of its seven icon buttons bordered and filled, and the owner read them as on.
+They were disabled, because there was nothing to open, and disabled drew a box.
+An icon button that is off for want of anything to show stays a ghost with a quiet glyph.
+Measured on 26 Oct 2026.
+
 **Pending is the pressed control, and only that one.** Every variant
 collapses onto one pending rendering — `--bg-sunken`, `--border-strong`,
 `--fg-default` text, and the bar under Motion — so the button a person
@@ -151,7 +161,7 @@ chosen tab filled inside it.
 
 ```
 track      --bg-raised · --border-default · --radius-md · 2px inner padding
-tab        32px · 12px horizontal padding · --text-sm · --fg-muted
+tab        24px · 12px horizontal padding · --text-sm · --fg-muted
 chosen     --accent-muted fill · --fg-default · weight 500 · --radius-sm
 hover      --fg-default
 ```
@@ -206,6 +216,12 @@ from the tab it left, where an edge per tab can only swap. It travels by
 transform and width so nothing reflows, does not travel on first placement,
 and under reduced motion it simply lands.
 
+**The title bar's places carry a tick between them.**
+A faint 1px vertical line in `--border-default`, 40% of the place's height and centred, sits in the gap between two neighbours, as the detents of a rotary selector.
+No tick sits beside the chosen place, whose pill is its own mark, and there is no underline.
+`--border-subtle` was tried first and draws nothing on the notch's glass, which is the same tone.
+The tick belongs to the place, so a hidden place takes it away with it.
+
 ## Destinations
 
 Where inside one object a person is, drawn as underline tabs: plain text on the
@@ -239,10 +255,18 @@ border      --border-default
 text        --fg-default · placeholder --fg-subtle
 focus       2px --accent ring at 2px offset
 invalid     --status-completed-failed border, message below in --text-xs
-height      36px · 8px horizontal padding · --radius-md · --text-sm
+height      28px · 8px horizontal padding · --radius-md · --text-sm
 ```
 
 Select, checkbox, and radio inherit the same border, focus, and height rules.
+
+**A field is 28px everywhere, and its unit is inside it.**
+A figure with a unit draws the unit in the field's right slot, in `--font-mono` at `--text-2xs` and `--fg-subtle`: `%`, `GiB`, `min`.
+It reads the setting's own unit, so a setting with none draws none.
+A setting row's Save sits in the same frame, at the same right slot, as a 24px inline button (`--h-control-sm`) at `--radius-inset`.
+The field and its Save share one height and one bezel, and the focus ring goes round both.
+Why: System, Limits drew a 36px field beside a 32px Save, two heights on one line.
+A prompt or a list is read at length and keeps its Save beneath the box.
 
 A switch is a recessed pill with a raised knob, and the state is written in the half of the track the knob leaves.
 On lights the track in `--accent` with ON on it; off is the sunken ground with OFF.
@@ -259,7 +283,7 @@ shadow is legal.
 
 ```
 surface    --bg-overlay · --border-default · --radius-lg · shadow
-item       32px · 8px padding · --text-sm · --fg-default
+item       28px · 8px padding · --text-sm · --fg-default
 hover      --bg-hover
 danger     --status-completed-failed text, --bg-hover on hover
 separator  --border-subtle
@@ -309,8 +333,33 @@ things that can disagree, which is the distinction the gate rests on.
 
 Placement, alignment and collision are under Floating layers.
 
+**Text cut with an ellipsis says what it is on hover.**
+One listener for the window (`watchClippedText`) sets the full words as the element's `title` when the pointer or focus reaches text that is clipped, and takes it off again when the pointer leaves.
+Text that fits gets no title, so nothing restates what is on screen.
+A select's value is measured the same way, because the engine clips it with no ellipsis to read.
+It is a native `title` and not this primitive, because the primitive wraps one element and an ellipsis lives on cells of every kind.
+An element that sets its own `title` keeps it.
+Where a surface wants the bubble, it wraps the text in `Tooltip` itself.
+Why: at 1100px wide a Job's title and the model select clipped with no way to read them.
+
 **The tooltip is for one line of words.** Anything with a head, a state
 and facts is an inspect card, below.
+
+## Readout
+
+A figure or an id the system reports: `#1899`, a commit, `13:50`, a duration, a setting's key, a bay's number.
+
+```
+ground   --bg-sunken · 1px --border-subtle · --radius-inset
+padding  2px vertical · 6px horizontal
+type     --font-mono · --text-2xs · tabular numerals · --fg-muted
+```
+
+It reads as a segmented display: a well the figure is shown through.
+**It sits at the right of its row, in a fixed column.**
+A list sets `fixed`, which gives every row one width (`--readout-chars` characters, six by default) with the figure on the right edge, and a row without one keeps the empty column.
+It is a reading and never a control, and it names itself in a tooltip where its meaning is not plain.
+The Cockpit's rows (issue, time and pull request), the Logbook's age and cite, Issues and Projects references, Reviews' number and System's setting keys draw it.
 
 ## Stamp
 

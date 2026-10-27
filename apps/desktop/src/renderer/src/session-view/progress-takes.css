@@ -14,14 +14,6 @@
 .sv-account { padding: var(--space-3); border: var(--border-width) solid var(--border-default); border-radius: var(--radius-lg); background: var(--bg-raised); }
 .sv-account .armada-account__line[data-line="now"] { font-size: var(--text-sm); line-height: var(--leading-sm); font-weight: var(--weight-medium); }
 
-/* ---- The Workflow panel: a quiet picker beside the steps, in a band of its own ------------------------------ */
-
-.sv-panel__band .sv-flow { flex: none; gap: var(--space-1); text-transform: none; letter-spacing: normal; font-weight: var(--weight-body); }
-.sv-panel__band .sv-flow__name { color: var(--fg-subtle); font-size: var(--text-2xs); line-height: var(--leading-2xs); font-weight: var(--weight-body); }
-.sv-panel__band .sv-flow > .armada-select-field,
-.sv-panel__band .sv-flow .armada-select { flex: none; width: auto; max-width: calc(var(--space-12) * 3); height: var(--h-control-sm); border-color: transparent; background: transparent; color: var(--fg-muted); font-size: var(--text-2xs); }
-.sv-panel__band .sv-flow .armada-select:hover { border-color: var(--border-default); }
-
 /* ---- Plan: a stepper ------------------------------------------------------------------------------------------- */
 
 .sv-plan .sv-plan__groups { gap: var(--space-1); }
@@ -80,9 +72,3 @@
   to { grid-template-rows: 1fr; opacity: 1; }
 }
 
-/* The Workflow panel is one line: the picker or name and the steps, with no label drawn (the picker and each step name themselves), and the steps wrap whole
-   under the picker only where there are too many for the column. */
-.sv-panel[data-area="workflow"] > .sv-panel__band { flex-wrap: wrap; gap: var(--space-2); padding-block: var(--space-1); }
-.sv-panel[data-area="workflow"] .sv-panel__label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-.sv-panel[data-area="workflow"] .sv-rail { flex: 1 1 auto; min-width: max-content; overflow: visible; }
-.sv-panel[data-area="workflow"] .sv-rail__step + .sv-rail__step::before { width: var(--space-1); margin-inline: 0; }

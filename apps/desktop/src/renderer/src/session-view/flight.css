@@ -1,0 +1,73 @@
+/* The flight plan: the Blueprint's head (the brief, the workflow's steps), its rows of groups with a tick for each task, the Delivery's route, and the Field's
+   facts before work. Tokens only; no gradient, glow or sheen. */
+
+/* ---- The head: the brief and the workflow's steps --------------------------------------------------------------- */
+
+.sv-flight__head { display: flex; flex-direction: column; gap: var(--space-2); font-family: var(--font-sans); }
+.sv-flight__brief { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; margin: 0; padding: 0; overflow: hidden; border: 0; border-radius: var(--radius-sm); background: none; color: var(--fg-default); font: inherit; font-size: var(--text-xs); line-height: var(--leading-xs); text-align: start; overflow-wrap: anywhere; cursor: pointer; }
+.sv-flight__brief[data-whole] { display: block; }
+.sv-flight__brief:focus-visible { outline: var(--focus-ring); outline-offset: var(--border-width); }
+.sv-flight__flow { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-3); }
+.sv-flight__flow .sv-flow { flex: none; gap: var(--space-1); }
+.sv-flight__flow .sv-flow__name { color: var(--fg-subtle); font-size: var(--text-2xs); line-height: var(--leading-2xs); font-weight: var(--weight-body); }
+.sv-flight__flow .sv-flow > .armada-select-field,
+.sv-flight__flow .sv-flow .armada-select { flex: none; width: auto; height: var(--h-control-sm); border-color: transparent; background: transparent; color: var(--fg-muted); font-size: var(--text-2xs); }
+.sv-flight__flow .sv-flow .armada-select:hover { border-color: var(--border-default); }
+/* Named, the steps wrap whole under the picker where there are too many for the column. */
+.sv-rail[data-named] { flex: 1 1 auto; flex-wrap: wrap; row-gap: var(--space-1); overflow: visible; }
+.sv-rail[data-named] .sv-rail__step + .sv-rail__step::before { width: var(--space-1); }
+.sv-rail__name { white-space: nowrap; }
+
+/* ---- The rows: a group, and a tick for each of its tasks ---------------------------------------------------------- */
+
+/* Three columns for the whole list, borrowed by every row: the group's mark, its title, its ticks. */
+.sv-flight__groups { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; margin: 0; padding: 0; list-style: none; font-family: var(--font-sans); }
+.sv-flight__group { display: grid; grid-template-columns: subgrid; grid-column: 1 / -1; }
+.sv-flight__group + .sv-flight__group { border-top: var(--border-width) solid var(--border-subtle); }
+.sv-flight__row { display: grid; grid-template-columns: subgrid; grid-column: 1 / -1; align-items: center; column-gap: var(--space-2); padding: var(--space-2); border: 0; border-radius: var(--radius-sm); background: none; color: var(--fg-default); font: inherit; font-size: var(--text-sm); line-height: var(--leading-sm); text-align: start; cursor: pointer; }
+.sv-flight__row:hover { background: var(--bg-hover); }
+.sv-flight__row:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--border-width) * -1); }
+.sv-flight__title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: var(--weight-medium); }
+.sv-flight__group[data-step="done"] .sv-flight__title,
+.sv-flight__group[data-step="upcoming"] .sv-flight__title { color: var(--fg-muted); font-weight: var(--weight-body); }
+.sv-flight__open { display: flex; flex-direction: column; grid-column: 1 / -1; gap: var(--space-2); min-width: 0; padding: 0 var(--space-2) var(--space-2); }
+.sv-flight__open > .sv-group__tasks { padding: 0; }
+
+/* A tick for each take of a walk (`StoryParts.tsx`), hollow until it is looked at. */
+.sv-ticks { display: inline-flex; align-items: center; justify-self: end; gap: var(--space-1); }
+.sv-tick { display: inline-flex; color: var(--fg-subtle); }
+.sv-tick[data-state="done"], .sv-tick[data-state="handed_in"] { color: var(--step-advanced); }
+.sv-tick[data-state="done"] svg, .sv-tick[data-state="handed_in"] svg { fill: currentColor; }
+.sv-tick[data-state="working"] { color: var(--step-running); }
+.sv-tick[data-state="failed"] { color: var(--step-failed); }
+
+/* A folded group's tasks as one track: a fixed width, a segment each that shrinks to fit, so many tasks never widen it. Where many segments would shrink under a pixel the gap goes and the hues carry them. */
+.sv-track { display: inline-flex; flex: none; align-items: center; justify-self: end; gap: var(--border-width); width: calc(var(--space-8) + var(--space-2)); height: calc(var(--border-width) * 3); }
+.sv-track[data-many] { gap: 0; }
+.sv-track__seg { flex: 1 1 0; min-width: 0; height: 100%; background: var(--border-default); }
+.sv-track__seg[data-state="done"], .sv-track__seg[data-state="handed_in"] { background: var(--step-advanced); }
+.sv-track__seg[data-state="working"] { background: var(--step-running); }
+.sv-track__seg[data-state="failed"] { background: var(--step-failed); }
+
+/* ---- Delivery: the route, a vertical stepper ------------------------------------------------------------------------ */
+
+.sv-route { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; font-family: var(--font-sans); }
+.sv-route__step { display: grid; grid-template-columns: var(--space-4) minmax(0, 1fr); column-gap: var(--space-2); align-items: center; min-width: 0; }
+.sv-route__step > .armada-task-mark { justify-self: center; }
+.sv-route__label { color: var(--fg-subtle); font-size: var(--text-xs); line-height: var(--leading-xs); }
+.sv-route__step:is([data-state="working"], [data-state="done"]) .sv-route__label { color: var(--fg-default); }
+.sv-route__step[data-state="failed"] .sv-route__label { color: var(--step-failed); }
+.sv-route__body { grid-column: 2; grid-row: 2; min-width: 0; padding-block: var(--space-1) var(--space-2); }
+/* The line into the next step, lit once the step is done. */
+.sv-route__step:not(:last-child)::before { content: ""; grid-column: 1; grid-row: 2; justify-self: center; align-self: stretch; width: var(--border-width); min-height: var(--space-2); background: var(--border-strong); }
+.sv-route__step[data-state="done"]:not(:last-child)::before { background: color-mix(in srgb, var(--step-advanced) 70%, var(--border-strong)); }
+
+/* ---- Field: the facts it stands on, before any work ------------------------------------------------------------------- */
+
+.sv-field__facts { display: flex; flex-wrap: wrap; flex: none; gap: var(--space-1) var(--space-3); margin: 0; padding: 0; list-style: none; color: var(--fg-muted); }
+
+/* ---- Field: in the Cockpit's lower left, under the Jobs list ------------------------------------------------------------- */
+
+.deck-left > .sv-panel[data-area="field"] { flex: 0.9 1 0; min-height: calc(var(--space-12) * 4); }
+.deck-left > .sv-panel[data-area="field"] > .sv-panel__body { padding: var(--space-2); }
+.deck-left > .sv-panel[data-area="field"] .deck-pane[data-bare] { flex: 1 1 0; min-height: 0; }

@@ -1,13 +1,17 @@
-// A Job is a story, and the right column tells it in order: the workflow, the blueprint (the plan), the field it is built on, and what it lands in.
-// The stage is read from data the Job already holds. The Field and the Landing are open at their stage and folded to their bands otherwise. The
-// Blueprint is open until the Job lands: drafted it is the plan to approve, and approved it stays up as a compact read of the build. A press on a band or its key
-// opens or folds any of them by hand; that holds until the stage moves on. An approved Blueprint shows what is happening now; ⌥N or its button in the band shows the whole plan. The landing kind is the workflow's `lands`, which Fleet resolves; a mock scenario says it in `work.landing`.
+// A Job is a story, and the right column tells it in three zones: Completed (what it has made, in the order it made it), Now (what it is doing this minute and
+// what waits on him) and Next (the plan's groups and the workflow's steps still to come, and the outputs still to be made). The plan is the spine: a finished
+// group moves to Completed carrying what it produced, the group being worked is in Now, the rest are in Next. A zone is open at every stage and folds only by a press
+// of its band or its key, which is kept per Job. The stage (`stageOf`) is read from data the Job already holds and sizes nothing now; it names where the Job is.
+// The landing kind is the workflow's `lands`, which Fleet resolves; a mock scenario says it in `work.landing`. Whole plan: ⌥N or its button shows every group with its detail in Now.
 
 import { useCallback, useSyncExternalStore } from "react";
 import { attachmentsOf, type Session, type WorkLanding } from "@armada/screens/src/draft/sessions";
 
 export type Stage = "blueprint" | "field" | "landing";
-export type Fold = { open: boolean; toggle: () => void };
+/** The three zones the right column tells a Job in: what it made (drawn as Completed), what it is doing, what comes (`StoryColumn.tsx`). */
+export type Zone = "done" | "now" | "next";
+export type Area = Stage | Zone;
+export type Fold = { open: boolean; toggle: () => void; /** The stage is at this panel: it takes the larger share of the column. */ current: boolean };
 
 const done = (state: string) => state === "done" || state === "handed_in";
 
@@ -36,16 +40,15 @@ export function landingOf(session: Session): WorkLanding {
 
 const forced = new Map<string, boolean>();
 const hear = new Set<() => void>();
-const keyOf = (session: string, area: Stage) => `${session}:${area}`;
+const keyOf = (session: string, area: Area) => `${session}:${area}`;
 const changed = () => hear.forEach((one) => one());
 
-// What was pressed is kept per Job in the window's storage, with the stage it was pressed at, so a Job comes back as it was left. A viewer's
+// What was pressed is kept per Job in the window's storage, so a Job comes back as it was left. A viewer's
 // convenience, so a blocked store only forgets it. The first look at a Job reads it; the maps are the truth after that.
 const KEPT = "armada.session-folds";
-type Kept = { stage?: Stage; folds: Partial<Record<Stage, boolean>>; whole: boolean };
-const STAGES: readonly Stage[] = ["blueprint", "field", "landing"];
+type Kept = { folds: Partial<Record<Area, boolean>>; whole: boolean };
+const STAGES: readonly Area[] = ["blueprint", "field", "landing", "done", "now", "next"];
 const loaded = new Set<string>();
-const stages = new Map<string, Stage>();
 
 function load(session: string): void {
   if (loaded.has(session)) return;
@@ -58,9 +61,8 @@ function load(session: string): void {
       if (typeof fold === "boolean") forced.set(keyOf(session, area), fold);
     }
     if (kept.whole === true) whole.set(session, true);
-    if (kept.stage !== undefined) stages.set(session, kept.stage);
   } catch {
-    // Unreadable or blocked: the Job opens as its stage has it.
+    // Unreadable or blocked: the Job opens with every panel open.
   }
 }
 
@@ -70,7 +72,7 @@ function save(session: string): void {
     const fold = forced.get(keyOf(session, area));
     if (fold !== undefined) folds[area] = fold;
   }
-  const kept: Kept = { stage: stages.get(session), folds, whole: whole.get(session) === true };
+  const kept: Kept = { folds, whole: whole.get(session) === true };
   try {
     localStorage.setItem(`${KEPT}.${session}`, JSON.stringify(kept));
   } catch {
@@ -78,42 +80,36 @@ function save(session: string): void {
   }
 }
 
-const held = (session: string, area: Stage) => (load(session), forced.get(keyOf(session, area)));
+const held = (session: string, area: Area) => (load(session), forced.get(keyOf(session, area)));
 const heldWhole = (session: string) => (load(session), whole.get(session) === true);
 const touched = (session: string) => {
   save(session);
   changed();
 };
 
-/** Open at its own stage. The blueprint stays up through the build too, and folds once the Job lands. */
-const openAt = (session: Session, area: Stage): boolean => {
-  const stage = stageOf(session);
-  return area === "blueprint" ? stage !== "landing" : stage === area;
-};
-
-/** Whether the panel is open: by hand where it was pressed, else as the stage has it. */
-export function useFold(session: Session, area: Stage): Fold {
+/** Whether the panel is open: folded only where it was pressed, so open at every stage. */
+export function useFold(session: Session, area: Area): Fold {
   const byHand = useSyncExternalStore(
     (listener) => (hear.add(listener), () => void hear.delete(listener)),
     () => held(session.id, area),
   );
-  const open = byHand ?? openAt(session, area);
+  const open = byHand ?? true;
   const id = session.id;
   const toggle = useCallback(() => {
     forced.set(keyOf(id, area), !open);
     touched(id);
   }, [id, area, open]);
-  return { open, toggle };
+  return { open, toggle, current: area === "now" || stageOf(session) === area };
 }
 
 /** A press of a panel's key: opens it if folded, folds it if open. */
-export function pressBand(session: Session, area: Stage): void {
-  const was = held(session.id, area) ?? openAt(session, area);
+export function pressBand(session: Session, area: Area): void {
+  const was = held(session.id, area) ?? true;
   forced.set(keyOf(session.id, area), !was);
   touched(session.id);
 }
 
-/** The story moved on: what was opened or folded by hand gives way to the stage again, and the Blueprint to its Now view. */
+/** Forgets what was opened or folded by hand, and the Blueprint's whole-plan view: every panel open again, on its Now view. */
 export function resetFolds(session: string): void {
   let any = false;
   for (const key of [...forced.keys()]) {
@@ -123,22 +119,12 @@ export function resetFolds(session: string): void {
     }
   }
   if (whole.delete(session)) any = true;
-  stages.delete(session);
   try {
     localStorage.removeItem(`${KEPT}.${session}`);
   } catch {
     // Nothing was kept to remove.
   }
   if (any) changed();
-}
-
-/** A Job is opened or its stage changes: what was pressed holds if the Job is at the stage it was pressed at, and gives way to the stage if it has moved on. */
-export function settleFolds(session: string, stage: Stage): void {
-  load(session);
-  const was = stages.get(session);
-  if (was !== undefined && was !== stage) resetFolds(session);
-  stages.set(session, stage);
-  save(session);
 }
 
 // ---- The whole blueprint ------------------------------------------------------------------------------------
@@ -161,7 +147,7 @@ export function useWhole(session: string): { whole: boolean; toggle: () => void 
 /** A press of the whole-blueprint key: opens the Blueprint if it is folded, and swaps its Now view for the whole plan or back. */
 export function pressWhole(session: Session): void {
   const key = keyOf(session.id, "blueprint");
-  if (held(session.id, "blueprint") ?? openAt(session, "blueprint")) {
+  if (held(session.id, "blueprint") ?? true) {
     whole.set(session.id, !heldWhole(session.id));
   } else {
     forced.set(key, true);
@@ -173,17 +159,21 @@ export function pressWhole(session: Session): void {
 // ---- Keys ---------------------------------------------------------------------------------------------------
 
 /** One key opens each band. Not acts of the registry, which is Fleet's to generate: Bridge reads these where the Job is open. `code` is the physical key, since ⌥ changes the letter. */
-export const BAND_KEYS: readonly { area: Stage | "workflow"; code: string; cap: string }[] = [
+export const BAND_KEYS: readonly { area: Area | "workflow"; code: string; cap: string }[] = [
   { area: "workflow", code: "KeyW", cap: "⌥W" },
-  { area: "blueprint", code: "KeyB", cap: "⌥B" },
+  { area: "done", code: "Digit1", cap: "⌥1" },
+  { area: "now", code: "Digit2", cap: "⌥2" },
+  { area: "next", code: "Digit3", cap: "⌥3" },
   { area: "field", code: "KeyF", cap: "⌥F" },
-  { area: "landing", code: "KeyD", cap: "⌥D" },
 ];
 
 export const bandKeyFor = (area: string): string | undefined => BAND_KEYS.find((one) => one.area === area)?.cap;
 
 /** Swaps the approved Blueprint between its Now view and the whole plan. */
 export const WHOLE_KEY = { code: "KeyN", cap: "⌥N" } as const;
+
+/** Swaps Completed between By step and By kind. */
+export const LEDGER_KEY = { code: "KeyL", cap: "⌥L" } as const;
 
 /** Artifacts over the right column. */
 export const ARTIFACTS_KEY = { code: "KeyA", cap: "⇧⌘A" } as const;
@@ -192,5 +182,7 @@ export const bandOf = (event: KeyboardEvent): (typeof BAND_KEYS)[number] | undef
   event.altKey && !event.metaKey && !event.ctrlKey && !event.shiftKey ? BAND_KEYS.find((one) => one.code === event.code) : undefined;
 
 export const isWholeKey = (event: KeyboardEvent): boolean => event.altKey && !event.metaKey && !event.ctrlKey && !event.shiftKey && event.code === WHOLE_KEY.code;
+
+export const isLedgerKey = (event: KeyboardEvent): boolean => event.altKey && !event.metaKey && !event.ctrlKey && !event.shiftKey && event.code === LEDGER_KEY.code;
 
 export const isArtifactsKey = (event: KeyboardEvent): boolean => event.metaKey && event.shiftKey && !event.altKey && !event.ctrlKey && event.code === ARTIFACTS_KEY.code;

@@ -79,6 +79,32 @@ fn what_a_theme_may_not_say_is_each_a_problem_with_its_line() {
     assert!(on_line_three[0].starts_with("theme.css line 3:"), "{on_line_three:?}");
 }
 
+/// **Selection must not read as a status**: an accent nearer than 0.07 in OKLab to a status colour
+/// is refused, naming the colour. The amber Dusk used to ship is 0.037 from awaiting_review.
+#[test]
+fn an_accent_too_close_to_a_status_colour_is_refused_and_names_the_colour() {
+    let found = stylesheet::problems(":root {\n  --accent: #E8A25C;\n}\n");
+    assert_eq!(found.len(), 1, "{found:?}");
+    assert!(found[0].starts_with("theme.css line 2: `--accent`: #E8A25C is too close to `--status-awaiting-review` #E5A93D"), "{found:?}");
+    assert!(found[0].contains("the least allowed is 0.07"), "{found:?}");
+    assert!(stylesheet::problems_in(":root { --accent: #e5a93d; }", "tweak.css")[0].starts_with("tweak.css line 1:"));
+}
+
+/// The built-in Dusk passes, with its lilac, and the amber it replaced does not.
+#[test]
+fn the_shipped_dusk_passes_the_accent_check_and_its_old_amber_does_not() {
+    let compiled = crate::mods::BuiltIns::compiled();
+    let dusk = compiled.named("built-in:dusk").expect("dusk is built in");
+    let checked = crate::mods::examine_built_in(dusk);
+    assert!(checked.valid(), "{:?}", checked.problems);
+
+    let css = include_str!("../../../../packages/mods/dusk/theme.css");
+    assert!(css.contains("--accent: #C1B4EC;"), "{css}");
+    let old = css.replace("#C1B4EC", "#E8A25C");
+    let found = stylesheet::problems(&old);
+    assert!(found.iter().any(|one| one.contains("`--status-awaiting-review`")), "{found:?}");
+}
+
 #[test]
 fn a_stylesheet_with_many_problems_says_how_many_it_stopped_listing() {
     let css = ":root { ".to_string() + &"--nope: 1; ".repeat(40) + "}";
@@ -378,8 +404,8 @@ async fn the_theme_is_a_preference_that_defaults_to_dark_and_refuses_what_a_mod_
 /// file this crate may read, so a change to them is a change to this test too.
 #[test]
 fn the_two_examples_a_session_is_taught_from_pass() {
-    let warmer = ":root {\n  --bg-base: #17130F;\n  --bg-sunken: #110E0B;\n  --bg-raised: #1F1A15;\n  --bg-overlay: #29231C;\n  --bg-hover: #322B23;\n  --border-subtle: #2E2820;\n  --border-default: #40372C;\n  --fg-default: #EFE6DA;\n  --fg-muted: #B1A292;\n  --accent: #E0954A;\n  --accent-hover: #EBA763;\n}\n";
-    let contrast = ":root {\n  --bg-base: #000000;\n  --bg-raised: #0B0B0B;\n  --border-default: #6B7684;\n  --border-strong: #9AA6B5;\n  --fg-default: #FFFFFF;\n  --fg-muted: #D0D7E0;\n  --accent: #6CB8F0;\n}\n";
+    let warmer = ":root {\n  --bg-base: #17130F;\n  --bg-sunken: #110E0B;\n  --bg-raised: #1F1A15;\n  --bg-overlay: #29231C;\n  --bg-hover: #322B23;\n  --border-subtle: #2E2820;\n  --border-default: #40372C;\n  --fg-default: #EFE6DA;\n  --fg-muted: #B1A292;\n  --accent: #7C6FD8;\n  --accent-hover: #8F84E0;\n}\n";
+    let contrast = ":root {\n  --bg-base: #000000;\n  --bg-raised: #0B0B0B;\n  --border-default: #6B7684;\n  --border-strong: #9AA6B5;\n  --fg-default: #FFFFFF;\n  --fg-muted: #D0D7E0;\n  --accent: #A8B8FF;\n}\n";
     for css in [warmer, contrast] {
         assert_eq!(stylesheet::problems(css), Vec::<String>::new(), "{css}");
     }

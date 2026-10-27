@@ -16,8 +16,8 @@ const rows = async (group: string) => {
 
 test("the Cockpit's panels and an open Job's panels are the ones they draw", async () => {
   mount(<LayoutSettings />);
-  expect(await rows("Cockpit panels")).toEqual(["Jobs", "Merge queue", "Activity", "Bays", "Flight control", "Dispatch", "Autopilot"]);
-  expect(await rows("Job panels")).toEqual(["Workflow", "Blueprint", "Field", "Delivery"]);
+  expect(await rows("Cockpit panels")).toEqual(["Jobs", "Field", "Merge queue", "Activity", "Bays", "Flight control", "Dispatch", "Autopilot"]);
+  expect(await rows("Job panels")).toEqual(["Completed", "Now", "Next"]);
   expect(page.getByRole("group", { name: "Job tabs", exact: true }).elements()).toHaveLength(0);
 });
 

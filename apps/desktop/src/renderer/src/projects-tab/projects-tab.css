@@ -43,9 +43,9 @@
   width: 100%;
   min-width: 0;
   min-height: var(--h-row);
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-1) var(--space-3);
   border: 0;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-inset, var(--radius-sm));
   background: transparent;
   color: var(--fg-default);
   font: inherit;
@@ -204,10 +204,10 @@ button.projects-row__mark:hover { background: var(--bg-hover); }
 .projects-row__words { min-width: 0; overflow: hidden; font-weight: var(--weight-medium); text-overflow: ellipsis; white-space: nowrap; }
 .projects-row[data-state="done"] .projects-row__words,
 .projects-row[data-state="closed"] .projects-row__words { color: var(--fg-muted); }
+/* A reference is a readout: an issue row's before its title, a task's linked issues as a group. */
 .projects-row__reference,
-.projects-row__issue { flex: none; padding: 0 var(--space-2); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--fg-default) 8%, transparent); color: var(--fg-default); font-family: var(--font-mono); font-size: var(--text-2xs); font-weight: var(--weight-heading); line-height: var(--leading-xs); }
+.projects-row__issue { flex: none; }
 .projects-row__issues { display: inline-flex; flex: none; gap: var(--space-1); }
-.projects-row__issue { padding: 0 var(--space-1); color: var(--fg-muted); font-weight: var(--weight-medium); }
 .projects-row__issue[data-state="closed"] { color: var(--fg-subtle); text-decoration: line-through; }
 
 /* The first line's right-hand columns: the done ask, then the acts flush to the card's right padding. The Job is the second line. */
@@ -223,8 +223,8 @@ button.projects-row__mark:hover { background: var(--bg-hover); }
   min-width: 0;
   height: var(--h-control-sm);
   padding-inline-end: var(--space-1);
-  border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--fg-default) 8%, transparent);
+  border-radius: var(--radius-inset, var(--radius-sm));
+  background: var(--chip);
 }
 .projects-row[data-sub] .projects-row__linked { height: var(--space-6); }
 .projects-row__linked .armada-pull-chip { width: auto; max-width: calc(var(--space-12) * 8); height: 100%; border: 0; background: transparent; box-shadow: none; }

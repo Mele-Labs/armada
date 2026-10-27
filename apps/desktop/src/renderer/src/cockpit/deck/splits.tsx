@@ -29,7 +29,8 @@ const NAMES: Record<string, string> = { "deck-stage": "Thread", "deck-foot": "Fo
 const keyOf = (panel: HTMLElement) => panel.dataset.area ?? [...panel.classList].find((one) => !GENERIC.has(one)) ?? "panel";
 const nameOf = (panel: HTMLElement) => panel.getAttribute("aria-label") ?? NAMES[keyOf(panel)] ?? keyOf(panel);
 // A foot of keys alone is as tall as its keys: a share kept from a taller foot drew it tall with the keys floating in it.
-const fixed = (panel: HTMLElement) => panel.hasAttribute("data-collapsed") || panel.hasAttribute("data-band-only") || panel.matches(".deck-foot:not(:has(.sv-panel[data-area='field']))");
+// A zone of the story's timeline stands on its line and is never sized.
+const fixed = (panel: HTMLElement) => panel.hasAttribute("data-collapsed") || panel.hasAttribute("data-band-only") || panel.closest(".sv-spine") !== null || panel.matches(".deck-foot:not(:has(.sv-panel[data-area='field']))");
 
 function panelsOf(column: HTMLElement): HTMLElement[] {
   return [...column.querySelectorAll<HTMLElement>(PANELS)]

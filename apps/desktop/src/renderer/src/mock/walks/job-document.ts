@@ -1,4 +1,4 @@
-// A Job's document. An investigation writes a page of its own design, with a live sketch in it, and Delivery's report row opens it in a
+// A Job's document. An investigation writes a page of its own design, with a live sketch in it, and Completed's report row opens it in a
 // floating panel over the Job: Contents with the Notes under it at the left, the page beside them. Words, a part of the sketch and a row
 // of the table are noted and sent as one message; the Job answers with revision 2, where Changes marks what moved on and each note shows
 // the change that answered it.
@@ -7,8 +7,8 @@
 import { LEASE_DOC_TITLE } from "../document-pages";
 import { button, deckRow, inside, region, role, row, text, walk } from "../walk";
 
-const blueprint = region("Blueprint", { exact: true });
-const landing = region("Delivery", { exact: true });
+const now = region("Now", { exact: true });
+const landing = region("Completed", { exact: true });
 const layer = region("Document", { exact: true });
 // The panel the document is drawn in, named by its title: its head holds the revision menu and the tools.
 const sheet = role("dialog", LEASE_DOC_TITLE, { exact: true });
@@ -24,9 +24,9 @@ const clock = inside(contents, button("How the lease clock runs"));
 
 const reading = walk("job-story", [
   { press: deckRow(LEASE_DOC_TITLE), say: "An investigation whose plan has just been recorded" },
-  { press: inside(blueprint, button("Approve")), say: "Approve" },
+  { press: inside(now, button("Approve")), say: "Approve" },
   { later: landing, say: "The page is written" },
-  { look: report, say: "Delivery shows its title and the first lines of its conclusion" },
+  { look: report, say: "Completed shows its title and the first lines of its conclusion" },
   { press: report, say: "A press opens the page in a panel over the Job, the Job dimmed behind it" },
   { look: layer, say: "Contents on the left with the Notes under it, the page beside them" },
   { look: inside(sheet, button(/^Revision 1/)), say: "The revision is a menu under the title from the first" },

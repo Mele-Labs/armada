@@ -144,17 +144,17 @@
 .armada-screen__mounted {
   display: flex;
   flex-direction: column;
-  gap: var(--gap-section);
+  gap: var(--gap-panel);
   flex: 1;
   min-height: 0;
   /* **The one inset the mount keeps: its top, and every screen shares it.**
-     The left column and Helm's dock each hold their first panel `--space-4`
+     The left column and Helm's dock each hold their first panel `--pad-page`
      under the title bar (their own margin, `TheShell.css`), so a surface
      between them starts on the same line. Only Overview padded its own top,
      so every other surface — the Board, Settings, Cleanup, and the Manifest
      surface's ask on All repositories — sat flush against the title bar.
      Sides stay the screen's own to decide, as `.armada-shell__mount` says. */
-  padding-top: var(--space-4);
+  padding-top: var(--pad-page);
 }
 
 /* A screen that is one region: it fits the mount and scrolls inside itself.
@@ -248,7 +248,7 @@
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 0 0 var(--space-4) var(--space-4);
+  padding: 0 0 var(--pad-page);
 }
 
 /* The Dashboard's turning mark, and a Plan question answered in place. Every kind of item has its hue

@@ -5,31 +5,17 @@
 
 /* ---- The page ------------------------------------------------------------------------------------------- */
 
-/* The Cockpit's measure: one gutter between panels and as far from the window's edge, a header band of 26px, and the Job's head a step over it. */
+/* The Cockpit's measure: the app's gap between panels, a legend strip of a small control's height (24px), and the Job's head a step over it. */
 .armada-screen__mounted[data-deck],
 .deck {
-  --deck-gutter: calc(var(--space-1) * 1.5);
-  --deck-band: calc(var(--space-6) + var(--space-1) / 2);
+  --deck-gutter: var(--gap-panel);
+  --deck-band: var(--h-control-sm);
   --deck-head: calc(var(--space-8) + var(--space-1));
 }
 .deck {
   --hue: var(--status-awaiting-review);
-  /* The controls are the dense pair here, and a header band is the band's. */
-  --h-control: var(--h-control-dense);
-  --h-control-sm: var(--h-control-sm-dense);
+  /* A header band is the band's, a step under the table header's row. */
   --h-row-header: var(--deck-band);
-  /* The Cockpit's type ladder, a step under the rest of the app's. */
-  --text-2xs: var(--text-2xs-dense);
-  --leading-2xs: var(--leading-2xs-dense);
-  --text-xs: var(--text-xs-dense);
-  --leading-xs: var(--leading-xs-dense);
-  --text-sm: var(--text-sm-dense);
-  --leading-sm: var(--leading-sm-dense);
-  --text-base: var(--text-base-dense);
-  --leading-base: var(--leading-base-dense);
-  /* The row's title and its meta are roles of the look, set beside the ladder and not on it: a step down as the rest. */
-  --text-row: var(--text-xs-dense);
-  --size-meta: var(--text-2xs-dense);
   /* What the look reads of the Job's panels and head (`depth.css`): a band's side padding, the head's height and padding, the body's padding. */
   --band-pad: 0 var(--space-3);
   --head-min: var(--deck-head);
@@ -41,36 +27,10 @@
   flex-direction: column;
   min-height: 0;
   min-width: 0;
-  margin: 0 var(--deck-gutter) var(--deck-gutter);
+  margin: 0 0 var(--pad-page);
   gap: var(--deck-gutter);
 }
-/* The shell keeps a gutter round every screen (the work's leading margin, the panel's trailing one, the mount's top, the
-   overview's left and foot) that the rail it was drawn for needed. The deck has no rail: its panels run to the one gap the
-   title bar's own side padding is, the same on the left, the right and under the bars. */
-/* The deck marks the containers it sits in (`DECK_MARKS`): `:has(.deck)` on them restyled each one whenever anything beneath it was inserted. */
-.armada-shell__body[data-deck] > .armada-shell__work { margin-left: 0; }
-.armada-shell__work[data-deck] > .armada-shell__panel { margin-right: 0; }
-.armada-screen__mounted[data-deck] { padding-top: var(--deck-gutter); }
-/* The search bar is System's on every page, at the app's measure and not the deck's: the mount, above the deck, keeps
-   the app's pair and ladder under these names, and the bar takes them back. */
-.armada-screen__mounted {
-  --app-h-control: var(--h-control);
-  --app-text-2xs: var(--text-2xs);
-  --app-leading-2xs: var(--leading-2xs);
-  --app-text-xs: var(--text-xs);
-  --app-leading-xs: var(--leading-xs);
-  --app-text-sm: var(--text-sm);
-  --app-leading-sm: var(--leading-sm);
-}
-.deck .armada-input-field:has([data-search-field]) {
-  --h-control: var(--app-h-control);
-  --text-2xs: var(--app-text-2xs);
-  --leading-2xs: var(--app-leading-2xs);
-  --text-xs: var(--app-text-xs);
-  --leading-xs: var(--app-leading-xs);
-  --text-sm: var(--app-text-sm);
-  --leading-sm: var(--app-leading-sm);
-}
+/* The shell holds the page gutter (`--pad-page`) at the work's sides and the mount's top, the same on every tab, so the deck keeps only the foot. */
 .armada-screen__overview[data-deck] { padding: 0; }
 .deck [data-hue="ask"],
 .deck [data-hue="issue"] { --hue: var(--status-awaiting-review); }
@@ -213,16 +173,17 @@
 @media (prefers-reduced-motion: reduce) { .deck-list__more svg { animation: none; } }
 /* Rows are divided by a hairline, with no card to each. The look reads a row's height, padding and radius from the list (`depth.css`): 28px, with room above and below for Now or Active PRs. */
 .deck-list__rows {
-  --deck-line: var(--h-control-dense);
+  --deck-line: var(--h-control);
   --row-min: var(--deck-line);
+  --lamp-gutter: calc(var(--space-3) + var(--lamp, var(--dot)) + var(--space-2));
   --row-pad: 0 var(--space-3);
-  --row-radius: 0;
+  --row-radius: var(--radius-inset, var(--radius-sm));
   flex: 1 1 0;
   display: flex;
   flex-direction: column;
   min-height: 0;
   margin: 0;
-  padding: 0;
+  padding: var(--space-1);
   list-style: none;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -318,16 +279,17 @@
 .deck-row[data-tone="calm"] .deck-row__title { font-weight: var(--weight-body); }
 /* A reply that only told him is calm and wears its glyph small and faint. */
 .deck-row[data-reply] .deck-mark { opacity: 0.55; }
-/* A Session that needs him: the row is the ask hue, flat, and its tint pulses on opacity alone with the call's bar. */
-.deck-row[data-needs]::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: var(--status-awaiting-review); opacity: 0.14; animation: deck-needs-pulse 1.6s ease-in-out infinite; pointer-events: none; }
-@keyframes deck-needs-pulse { 50% { opacity: 0.05; } }
-@media (prefers-reduced-motion: reduce) { .deck-row[data-needs]::after { animation: none; } }
+/* A Session that needs him: the row's faint tint pulses, on opacity alone. The row's state glyph at its right tells every state; the row wears no dot. A paused row stays quiet. */
+.deck-row[data-lamp="needs"]::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: var(--status-awaiting-review); opacity: 0.06; pointer-events: none; animation: deck-needs-pulse 1.6s ease-in-out infinite; }
+@keyframes deck-needs-pulse { 50% { opacity: 0.14; } }
+.deck-row[data-lamp][data-paused]::after { content: none; }
+@keyframes deck-lamp-pulse { 50% { opacity: 0.35; } }
+@media (prefers-reduced-motion: reduce) { .deck-row[data-lamp="needs"]::after { animation: none; } }
 .deck-row__kind { display: inline-flex; color: var(--fg-subtle); }
 .deck-row__link { display: inline-flex; vertical-align: calc(var(--border-width) * -1); margin-inline-end: var(--space-1); color: var(--fg-subtle); }
 .deck-row__phase { display: inline-flex; color: var(--fg-muted); }
-.deck-row__said { color: var(--fg-muted); font-family: var(--font-sans); font-size: var(--text-2xs); font-variant-numeric: tabular-nums; }
-/* What is open is lit: the accent's ground and a hairline of the accent round the whole row, never a stripe. */
-.deck-row[data-selected] { background: var(--accent-muted); box-shadow: inset 0 0 0 var(--border-width) var(--accent); }
+/* What is open is told by its shape: a hairline frame in the text colour on a raised ground, and a firm title. No accent, so it reads in any theme and never as a state. */
+.deck-row[data-selected] { background: var(--select-ground, var(--bg-hover)); box-shadow: var(--select-frame, inset 0 0 0 var(--border-width) var(--fg-default)); }
 .deck-row[data-selected] .deck-row__title { font-weight: var(--weight-heading); }
 .deck-row[data-selected] .deck-row__kind { color: var(--fg-default); }
 
@@ -359,7 +321,6 @@
 .deck-row__chip,
 .deck-row__issue,
 .deck-row__flow { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-family: var(--font-mono); font-size: var(--text-2xs); line-height: var(--leading-2xs); }
-.deck-row__chip { padding: 0 var(--space-1); border: var(--border-width) solid var(--border-default); border-radius: var(--radius-sm); }
 .deck-row__flow { font-family: var(--font-sans); }
 .deck-row__says { grid-column: 1 / -1; grid-row: 2; min-height: var(--leading-head); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--fg-muted); font-size: var(--text-2xs); line-height: var(--leading-head); }
 .deck-row__prs { grid-column: 1 / -1; display: flex; align-items: center; gap: var(--space-1); min-width: 0; overflow: hidden; }
@@ -435,9 +396,8 @@
 .deck .armada-helm-thread__rows > .armada-session-fold + .armada-session-fold { margin-block-start: calc((var(--space-2) - var(--space-1) / 2) * -1); }
 .deck .armada-session-fold__head--press { font-size: var(--text-xs); line-height: var(--leading-xs); }
 .deck .armada-session-fold__head--press .mono { font-size: var(--text-2xs); }
-/* The glyphs a step lighter, and the switch's ON and OFF a step smaller. */
+/* The glyphs a step lighter. */
 .deck svg.lucide { stroke-width: 1.5; }
-.deck .armada-switch { --switch-text: var(--text-switch-dense); }
 /* The map is not a panel: no edge, fill, shadow or header, so the shell's grid shows round its floor. Focus is the repo's outline. */
 .deck-pane[data-bare] { border: 0; border-radius: 0; overflow: visible; }
 .deck-pane[data-bare]:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }
@@ -476,9 +436,9 @@
 .deck-chips { display: flex; flex: 1 1 auto; flex-wrap: nowrap; align-items: center; gap: var(--space-3); min-width: 0; margin: 0; padding: 0; list-style: none; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: thin; }
 .deck-chips > li { flex: none; }
 /* The forge's merge queue, in its order: one tinted track, each pull request led by its place. */
-.deck-queue__track { display: flex; align-items: center; gap: var(--space-2); margin: 0; padding: calc(var(--space-1) / 2) var(--space-1); list-style: none; border: var(--border-width) solid color-mix(in srgb, var(--accent) 40%, transparent); border-radius: calc(var(--h-badge) / 2 + var(--space-1)); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.deck-queue__track { display: flex; align-items: center; gap: var(--space-2); margin: 0; padding: calc(var(--space-1) / 2) var(--space-1); list-style: none; border: var(--border-width) solid var(--border-subtle); border-radius: var(--radius-inset, var(--radius-sm)); background: var(--chip); }
 .deck-queue__rule { flex: none; width: var(--border-width); height: var(--h-badge); background: var(--border-default); }
-.deck-chip__place { color: var(--accent); font-weight: var(--weight-heading); }
+.deck-chip__place { color: var(--fg-default); font-weight: var(--weight-heading); }
 .deck-chips > .deck-queue__gap { width: var(--space-2); }
 .deck-chip {
   display: inline-flex;
@@ -487,7 +447,7 @@
   height: var(--h-badge);
   padding: 0 var(--space-4) 0 var(--space-3);
   border: var(--border-width) solid var(--border-glass);
-  border-radius: calc(var(--h-badge) / 2);
+  border-radius: var(--radius-inset, var(--radius-sm));
   background: color-mix(in srgb, var(--fg-default) 6%, transparent);
   color: var(--fg-muted);
   font: inherit;
@@ -499,14 +459,15 @@
 span.deck-chip { cursor: default; }
 button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, transparent); color: var(--fg-default); }
 .deck-chip:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
-/* Selected is lit with the accent's ground. */
-.deck-chip[data-selected] { border-color: var(--accent); background: var(--accent-muted); color: var(--fg-default); }
-/* A pull request of the Session that is open is framed, with the accent's ring outside its edge; picked as well, it is lit too. */
-.deck-chip[data-related] { border-color: var(--accent); box-shadow: 0 0 0 var(--border-width) var(--accent); color: var(--fg-default); }
+/* Selected is told by its shape: the text colour's frame on a raised ground. */
+.deck-chip[data-selected] { border-color: var(--select-edge, var(--fg-default)); background: var(--select-ground, var(--bg-hover)); color: var(--fg-default); font-weight: var(--weight-heading); }
+/* A pull request of the Session that is open reads in the full ink with a stronger edge; picked as well, it is framed too. */
+.deck-chip[data-related] { border-color: var(--border-strong); color: var(--fg-default); }
 .deck-chip[data-calling] { position: relative; }
-.deck-chip[data-calling]::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: var(--status-awaiting-review); opacity: 0.14; animation: deck-needs-pulse 1.6s ease-in-out infinite; pointer-events: none; }
-@media (prefers-reduced-motion: reduce) { .deck-chip[data-calling]::after { animation: none; } }
-.deck-chip__dot { --dot: var(--fg-subtle); flex: none; width: var(--space-2); height: var(--space-2); border-radius: 50%; background: transparent; box-shadow: inset 0 0 0 var(--border-width) var(--dot); }
+.deck-chip[data-calling]::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: var(--status-awaiting-review); opacity: 0.06; pointer-events: none; }
+.deck-chip[data-calling] .deck-chip__dot { animation: deck-lamp-pulse 1.6s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .deck-chip[data-calling] .deck-chip__dot { animation: none; } }
+.deck-chip__dot { --dot: var(--fg-subtle); flex: none; width: var(--lamp, var(--dot)); height: var(--lamp, var(--dot)); border-radius: 50%; background: transparent; box-shadow: inset 0 0 0 var(--border-width) var(--dot); }
 .deck-chip__dot[data-queued],
 .deck-chip__dot:not([data-state]) { background: var(--dot); }
 .deck-chip__dot[data-state="blocked"] { --dot: var(--status-escalated); }
@@ -515,9 +476,8 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 .deck-chip__dot[data-state="failing"] { --dot: var(--status-completed-failed); }
 .deck-chip__dot[data-tone="ask"] { --dot: var(--status-awaiting-review); }
 .deck-chip__dot[data-tone="bad"] { --dot: var(--status-completed-failed); }
-/* Main's chip: the Cockpit's own green with its glow, red when it is red. */
-.deck-chip[data-main] .deck-chip__dot[data-tone="calm"] { --dot: var(--status-completed-success); box-shadow: 0 0 var(--space-2) var(--dot); }
-.deck-chip[data-main] .deck-chip__dot[data-tone="bad"] { box-shadow: 0 0 var(--space-2) var(--dot); }
+/* Main's chip: the Cockpit's own green, red when it is red. A lamp, not a glow. */
+.deck-chip[data-main] .deck-chip__dot[data-tone="calm"] { --dot: var(--status-completed-success); }
 /* A forge that has stopped answering: the dot is what Fleet last read, so it is dimmed and hollow and gives up main's glow, and an unplugged glyph says since when. */
 .deck-chip__dot[data-stale] { opacity: 0.4; }
 .deck-chip[data-main] .deck-chip__dot[data-stale] { background: transparent; box-shadow: inset 0 0 0 var(--border-width) var(--dot); }
@@ -634,9 +594,9 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 /* A berth. A door in the state's hue down the left, carrying the glyph and the bay's number; the holder, its branch and the time to the right. */
 .deck-bay {
   align-items: stretch;
-  min-height: calc(var(--h-row) * 2);
-  border: calc(var(--border-width) * 2) var(--edge-style, solid) color-mix(in srgb, var(--hue) 55%, var(--border-subtle));
-  border-radius: var(--radius-md);
+  min-height: calc(var(--h-row-unit) * 2);
+  border: var(--border-width) var(--edge-style, solid) color-mix(in srgb, var(--hue) 55%, var(--border-subtle));
+  border-radius: var(--radius-inset, var(--radius-sm));
   background: var(--bg-raised);
   overflow: hidden;
 }
@@ -646,13 +606,14 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 /* A bay the pointer or the keys are on, or whose holder is lit in the list: the same quiet tint a row takes, never the selection's accent. */
 .deck-bay:hover,
 .deck-bay[data-hover] { border-color: var(--hue); background-color: color-mix(in srgb, var(--fg-default) 10%, var(--bg-raised)); }
-.deck-bay[data-selected] { border-color: var(--accent); box-shadow: inset 0 0 0 var(--border-width) var(--accent); background-color: var(--accent-muted); }
-.deck-bay__door { display: flex; flex: none; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-1); width: calc(var(--space-12) + var(--space-2)); background: color-mix(in srgb, var(--hue) 12%, transparent); color: var(--hue); }
+.deck-bay[data-selected] { border-color: var(--select-edge, var(--fg-default)); background-color: var(--select-ground, var(--bg-hover)); }
+.deck-bay[data-selected] .deck-bay__name { font-weight: var(--weight-heading); }
+/* The door is the bay's number and glyph in the state's ink, with a lamp at its corner: a fill is not how a state is told. */
+.deck-bay__door { position: relative; display: flex; flex: none; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-1); width: calc(var(--space-12) + var(--space-2)); border-right: var(--border-width) solid var(--border-subtle); color: var(--hue); }
+.deck-bay__door::before { content: ""; position: absolute; inset-block-start: var(--space-2); inset-inline-start: var(--space-2); width: var(--lamp, var(--dot)); height: var(--lamp, var(--dot)); border-radius: 50%; background: var(--hue); }
 .deck-bay__door .deck-bay__name { color: var(--hue); }
-.deck-bay[data-bay="stranded"] .deck-bay__door { background: color-mix(in srgb, var(--hue) 22%, transparent); }
-.deck-bay[data-bay="free"] .deck-bay__door { background: none; border-right: calc(var(--border-width) * 2) dashed color-mix(in srgb, var(--hue) 55%, var(--border-subtle)); }
+.deck-bay[data-bay="free"] .deck-bay__door { border-right: calc(var(--border-width) * 2) dashed color-mix(in srgb, var(--hue) 55%, var(--border-subtle)); }
 .deck-bay[data-bay="free"] .deck-bay__door .deck-bay__name { color: var(--hue); }
-.deck-bay[data-bay="closed"] .deck-bay__door { background: var(--slot-closed-bg); }
 .deck-bay[data-bay="closed"] .deck-bay__door .deck-bay__name { color: var(--slot-closed); }
 .deck-bay__name { font-size: var(--text-xl); line-height: var(--leading-xl); font-weight: var(--weight-heading); }
 .deck-bay__prefix { display: none; }
@@ -890,7 +851,7 @@ button.deck-pr:hover { border-color: var(--border-strong); color: var(--fg-defau
 .deck-pr[data-stage="landed"] { color: var(--fg-subtle); }
 
 /* The repository, at the head of the left column: it narrows the list, the feed, the bays and the queue. */
-.deck-scope { --scope-h: calc(var(--h-control) + var(--space-1) / 2); flex: none; display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
+.deck-scope { --scope-h: var(--h-control); flex: none; display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
 .deck-scope .armada-dropdown-menu { flex: 1 1 0; min-width: 0; }
 /* A text node cannot be ellipsised inside a flex box, so the trigger is a block and the chevron is laid over its padding. */
 .deck-scope .armada-dropdown-menu__trigger,

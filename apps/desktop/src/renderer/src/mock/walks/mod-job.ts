@@ -1,9 +1,9 @@
 // A right press on a Cockpit panel offers Mod, and Mod starts a Job for modding Armada carrying what was pointed at. The Job sits
-// under Mods in the Jobs list, and its right column lists the mods it made, each with a switch. Over the `mod-job` scenario.
+// under Mods in the Jobs list, and its Completed lists the mods it made, each with a switch. Over the `mod-job` scenario.
 
 import { deckRow, inside, region, role, text, walk } from "../walk";
 
-const made = region("Mods made", { exact: true });
+const made = region("Completed", { exact: true });
 
 const modJob = walk("mod-job", [
   { context: region("Activity", { exact: true }), say: "A right press on a panel of the Cockpit" },

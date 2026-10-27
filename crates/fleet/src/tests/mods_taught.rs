@@ -148,7 +148,7 @@ fn the_nearest_place_wins_and_a_later_file_wins_a_tie() {
 
 #[test]
 fn a_tweak_holds_token_declarations_and_names_its_own_file_in_a_problem() {
-    assert_eq!(stylesheet::problems_in(":root {\n  --accent: #E0954A;\n}\n", "tweak.css"), Vec::<String>::new());
+    assert_eq!(stylesheet::problems_in(":root {\n  --accent: #7C6FD8;\n}\n", "tweak.css"), Vec::<String>::new());
     let found = stylesheet::problems_in(":root {\n  --accent: url(x);\n  color: red;\n}\n", "tweak.css");
     assert!(found[0].starts_with("tweak.css line 2:") && said(&found, "`url(`"), "{found:?}");
     assert!(said(&found, "`color` is not a design token"), "{found:?}");
@@ -161,7 +161,7 @@ fn each_new_kind_is_read_from_its_own_file_and_a_wrong_file_is_that_mods_problem
     let mods = home.path().join("mods");
     a_taught_mod(&mods, "jira", "words", "words.toml", JIRA);
     a_taught_mod(&mods, "quiet", "fleet", "fleet.toml", "[[rule]]\nnotice = \"behind_base\"\ndoes = \"quiet\"\nwhere = \"everywhere\"\n");
-    a_taught_mod(&mods, "warm", "tweak", "tweak.css", ":root { --accent: #E0954A; }");
+    a_taught_mod(&mods, "warm", "tweak", "tweak.css", ":root { --accent: #7C6FD8; }");
     a_taught_mod(&mods, "bad-tweak", "tweak", "tweak.css", ":root { --accent: url(x); }");
     a_taught_mod(&mods, "bad-words", "words", "words.toml", "pattern = 1");
     a_taught_mod(&mods, "no-file", "fleet", "theme.css", ":root {}");
@@ -208,7 +208,7 @@ fn a_scaffold_of_each_new_kind_is_valid_at_once_and_a_taught_one_carries_its_tex
         let found = examine(&mods, name);
         assert!(found.valid(), "{name}: {:?}", found.problems);
     }
-    let taught = Taught { text: ":root {\n  --accent: #E0954A;\n}\n", taught_on: Some("a \"row\""), entry: Some("41") };
+    let taught = Taught { text: ":root {\n  --accent: #7C6FD8;\n}\n", taught_on: Some("a \"row\""), entry: Some("41") };
     scaffold::make_taught(&mods, "warm", Some("Warmer"), ModKind::Tweak, Some(&taught)).expect("made");
     let found = examine(&mods, "warm");
     assert!(found.valid(), "{:?}", found.problems);
@@ -228,9 +228,9 @@ async fn fleet_scaffolds_validates_and_lists_a_tweak_and_hands_bridge_its_css() 
         .scaffold_mod(ScaffoldMod { name: "warm".into(), description: None, kind: Some(ModKind::Tweak), session_id: None })
         .await
         .expect("scaffolded");
-    std::fs::write(Path::new(&made.path).join("tweak.css"), ":root { --accent: #E0954A; }\n").expect("edited");
+    std::fs::write(Path::new(&made.path).join("tweak.css"), ":root { --accent: #7C6FD8; }\n").expect("edited");
     let checked = fleet.validate_mod("warm".into()).await.expect("checked");
-    assert!(checked.valid && checked.css.as_deref() == Some(":root { --accent: #E0954A; }\n"), "{checked:?}");
+    assert!(checked.valid && checked.css.as_deref() == Some(":root { --accent: #7C6FD8; }\n"), "{checked:?}");
     let words = fleet
         .scaffold_mod(ScaffoldMod { name: "keys".into(), description: None, kind: Some(ModKind::Words), session_id: None })
         .await
@@ -266,7 +266,7 @@ async fn validating_a_taught_mod_hands_bridge_what_it_holds_and_a_broken_one_hol
     let rules = "[[rule]]\nnotice = \"behind_base\"\ndoes = \"quiet\"\nwhere = \"everywhere\"\n";
     a_taught_mod(&mods, "jira", "words", "words.toml", JIRA);
     a_taught_mod(&mods, "quiet", "fleet", "fleet.toml", rules);
-    a_taught_mod(&mods, "warm", "tweak", "tweak.css", ":root { --accent: #E0954A; }\n");
+    a_taught_mod(&mods, "warm", "tweak", "tweak.css", ":root { --accent: #7C6FD8; }\n");
     a_taught_mod(&mods, "bad-words", "words", "words.toml", "pattern = 1");
     a_taught_mod(&mods, "bad-fleet", "fleet", "fleet.toml", "[[rule]]\nnotice = \"not_a_notice\"\ndoes = \"tell\"\nwhere = \"everywhere\"\n");
 

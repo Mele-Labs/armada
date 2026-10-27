@@ -1,6 +1,7 @@
 import { useRef, type ReactNode } from "react";
 
 import { Button } from "../../primitives/Button/Button";
+import { CardHeader, CardTitle } from "../../primitives/Card/Card";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { SearchField } from "../SearchField/SearchField";
 import { columnKeys } from "./columns";
@@ -33,6 +34,9 @@ export function SystemSidebar({ groups, value, onValue, query, onQuery }: System
   const first = shown[0]?.entries[0]?.id;
   return (
     <nav className="armada-system-side" aria-label="System" data-col="sidebar">
+      <CardHeader>
+        <CardTitle>System</CardTitle>
+      </CardHeader>
       <SearchField label="Search System" value={query} onValue={onQuery} />
       <div className="armada-system-side__scroll">
       {shown.map((group) => (

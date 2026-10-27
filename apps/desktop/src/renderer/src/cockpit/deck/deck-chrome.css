@@ -33,6 +33,7 @@
 }
 
 .deck-places .armada-tabs__tab {
+  height: var(--h-control-lg);
   padding-inline: var(--space-2);
   border-radius: calc(var(--armada-notch-radius) - var(--armada-notch-gap));
   color: var(--fg-muted);

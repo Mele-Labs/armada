@@ -4,7 +4,6 @@
 // (`LayerBounds`), so the head, the composer and the views stay on show while a layer is read. The keys press them (`flight-keys.ts`).
 
 import { useLayoutEffect, useRef, type ReactNode } from "react";
-import { Swords } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Button, Separator, Tooltip } from "@armada/components";
 import { attachmentsOf, type Session } from "@armada/screens/src/draft/sessions";
@@ -64,9 +63,7 @@ export function useJobViews(session: Session, bays: SessionBays | undefined): re
     const running = (layer === "checks" && checksRunning) || (layer === "subagents" && subagentsRunning > 0);
     const mark =
       layer === "slot" && clashSaid !== undefined ? (
-        <span className="sv-view__clash" role="img" aria-label={clashSaid}>
-          <Swords size={12} strokeWidth={2} aria-hidden="true" />
-        </span>
+        <span className="sv-view__clash" role="img" aria-label={clashSaid} />
       ) : undefined;
     const said = layer === "slot" && wrongs.length > 0 ? wrongs.join(", ") : layer === "subagents" && subagentsRunning > 0 ? `${tile?.label ?? name}, ${subagentsRunning} running` : (tile?.label ?? name);
     return {

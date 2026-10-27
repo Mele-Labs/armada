@@ -95,20 +95,27 @@ at its strongest. Static, no fade, no animation.
 tokens `--bg-glass`, `--bg-glass-end`, `--border-glass`, `--border-highlight` and `--glass-blur`, in
 `tokens/colors.css`, until it takes the panel material above.
 
-**Three look tokens in `takes.css`:** `--bar` (2px), the bar on a selected row's leading edge, `--blur-glass`
+**Three look tokens in `takes.css`:** `--bar` (2px), the bar that marks a current step (a selected row takes a frame, not a bar), `--blur-glass`
 (32px), the backdrop blur under a panel, and `--blur-overlay` (28px), the blur under a menu, popover or palette,
 which sits over text. The look's size for meta lines is `--size-meta`; `--text-meta` stays the
 colour token it is.
 
 **Radius is two values.** `--radius-lg` 8px for panels, cards, menus and the palette; `--radius-md` 6px for
 controls, rows and tiles; `--radius-sm` 3px for badges. No pill except an avatar.
+Inside a panel a corner is the panel's curve less what sits between (`--radius-bezel`, `--radius-inset`), never under `--radius-floor` (spacing-and-shape.md).
 
-**Selection is flat.** A selected row is a low-alpha accent wash, 16%, and a 2px accent bar on the leading
-edge. The keyboard cursor is the hover step and a hairline. Hover is one flat background step,
+**Selection is told by its shape, not its hue** (26 Oct 2026).
+A selected row, chip, bay, rail entry or index tab draws a 1px frame in the text colour, `--select-edge` (`--fg-default` at 70%), as `--select-frame`, on a raised ground, `--select-ground` (`--bg-hover`), and its title takes `--weight-heading`.
+There is no accent fill, accent ring or accent bar on a selected thing.
+Why: a theme chooses its own accent, and Dusk's sat within 0.04 of the needs-you amber, so a hue could not say which row was open; a shape reads in any theme.
+A row that is picked and needs him shows both, the frame and the amber lamp.
+A tab keeps its pill.
+The keyboard cursor is the hover step and a hairline. Hover is one flat background step,
 `--bg-step`. **A row never lifts, moves or grows a shadow under the pointer**; only a card that is itself a
 control rises one pixel. An active segment of a tab strip is a solid step over its track with a hairline.
 
-**A panel header has no icon.** It is small tracked caps over one hairline, with a keycap at the far end.
+**A panel header has no icon.** It is the legend strip: 24px, small tracked caps over one hairline, with a mono readout, the panel's ghost icon buttons and a keycap at the far end (spacing-and-shape.md).
+**Look tokens in `takes.css` for the console:** `--bezel`, `--legend-h`, `--radius-floor`, `--radius-bezel`, `--radius-inset`, `--select-edge`, `--select-frame`, `--select-ground` and `--lamp`.
 A count is never drawn beside what it counts.
 
 **The Work row** is two lines on one left edge, with no icon for its kind. Line 1 is the title and a fixed

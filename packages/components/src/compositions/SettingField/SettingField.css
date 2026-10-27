@@ -32,6 +32,20 @@
   min-height: var(--space-6);
 }
 
+/* The title and the key's readout: the title takes the slack, the key holds the right edge. */
+.armada-setting-field__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.armada-setting-field__id {
+  flex: 0 1 auto;
+  margin-inline-start: auto;
+}
+
 .armada-setting-field__key {
   font-family: var(--font-mono);
   font-size: var(--text-xs);
