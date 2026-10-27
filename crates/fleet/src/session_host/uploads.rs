@@ -21,6 +21,29 @@ pub(crate) const ATTACHMENT_REFUSED: &str = "fleet.session_attachment_refused";
 /// The most one attachment may be, decoded.
 const MOST_AN_ATTACHMENT: usize = 25 * 1024 * 1024;
 
+/// Past this many bytes a file is told with its size. About 8 000 tokens, at four bytes each: the
+/// limit Bridge turns a paste into a file at (`LARGE_PASTE_TOKENS`).
+const LARGE_ATTACHMENT_BYTES: u64 = 32_000;
+
+/// How a file attached to a message is told to the agent: its path, and for a big one its size and
+/// how to read it, since the path alone says nothing of what opening it costs.
+///
+/// **Never a fault.** A picture is read by the agent as a picture, and a file that cannot be
+/// measured is told as a small one is, so a send is never refused for the sake of a warning.
+pub(crate) fn attached_line(path: &str) -> String {
+    let told = format!("Attached file: {path}");
+    let is_picture = Path::new(path)
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| super::showing_file::PICTURES.iter().any(|(known, _)| known.eq_ignore_ascii_case(extension)));
+    let Some(bytes) = std::fs::metadata(path).ok().map(|found| found.len()).filter(|bytes| !is_picture && *bytes > LARGE_ATTACHMENT_BYTES) else {
+        return told;
+    };
+    let size = if bytes >= 1 << 20 { format!("{:.1} MB", bytes as f64 / f64::from(1_u32 << 20)) } else { format!("{} KB", (bytes + 512) / 1024) };
+    let tokens = (bytes / 4 + 500) / 1000;
+    format!("{told} ({size}, about {tokens}k tokens: read it in parts, or search it with grep or jq, rather than all at once)")
+}
+
 /// What a message carried, as it was kept.
 pub(crate) struct Kept {
     pub files: Vec<SentFile>,

@@ -177,7 +177,7 @@
   --row-min: var(--deck-line);
   --lamp-gutter: calc(var(--space-3) + var(--lamp, var(--dot)) + var(--space-2));
   --row-pad: 0 var(--space-3);
-  --row-radius: var(--radius-inset, var(--radius-sm));
+  --row-radius: var(--radius-md);
   flex: 1 1 0;
   display: flex;
   flex-direction: column;
@@ -436,7 +436,7 @@
 .deck-chips { display: flex; flex: 1 1 auto; flex-wrap: nowrap; align-items: center; gap: var(--space-3); min-width: 0; margin: 0; padding: 0; list-style: none; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: thin; }
 .deck-chips > li { flex: none; }
 /* The forge's merge queue, in its order: one tinted track, each pull request led by its place. */
-.deck-queue__track { display: flex; align-items: center; gap: var(--space-2); margin: 0; padding: calc(var(--space-1) / 2) var(--space-1); list-style: none; border: var(--border-width) solid var(--border-subtle); border-radius: var(--radius-inset, var(--radius-sm)); background: var(--chip); }
+.deck-queue__track { display: flex; align-items: center; gap: var(--space-2); margin: 0; padding: calc(var(--space-1) / 2) var(--space-1); list-style: none; border: var(--border-width) solid var(--border-subtle); border-radius: calc(var(--h-badge) / 2 + var(--space-1)); background: var(--chip); }
 .deck-queue__rule { flex: none; width: var(--border-width); height: var(--h-badge); background: var(--border-default); }
 .deck-chip__place { color: var(--fg-default); font-weight: var(--weight-heading); }
 .deck-chips > .deck-queue__gap { width: var(--space-2); }
@@ -447,7 +447,7 @@
   height: var(--h-badge);
   padding: 0 var(--space-4) 0 var(--space-3);
   border: var(--border-width) solid var(--border-glass);
-  border-radius: var(--radius-inset, var(--radius-sm));
+  border-radius: calc(var(--h-badge) / 2);
   background: color-mix(in srgb, var(--fg-default) 6%, transparent);
   color: var(--fg-muted);
   font: inherit;

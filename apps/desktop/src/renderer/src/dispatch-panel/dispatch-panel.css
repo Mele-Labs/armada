@@ -93,6 +93,14 @@
 
 .armada-dispatch-panel__prompt { color: var(--accent); }
 
+/* Under the bar, in the field's own inset: pastes kept as files wait here until the Session starts. */
+.armada-dispatch-panel__snippets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: 0 var(--space-6, var(--space-4)) var(--space-3);
+}
+
 .armada-dispatch-panel__field {
   flex: 1 1 auto;
   min-width: 0;
