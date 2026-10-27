@@ -408,6 +408,27 @@
   margin-left: auto;
 }
 
+/* What an act holds now, drawn where its key would be: a word is plain, a chord is the key's cap. */
+.armada-palette__held {
+  flex: none;
+  max-width: 50%;
+  margin-left: auto;
+  overflow: hidden;
+  color: var(--fg-subtle);
+  font-size: var(--text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Why the answer given was refused, over the field it was given in. */
+.armada-palette__refused {
+  flex: none;
+  margin: 0;
+  padding: var(--space-1) var(--space-3);
+  color: var(--status-escalated);
+  font-size: var(--text-xs);
+}
+
 .armada-palette__rule {
   height: var(--border-width);
   margin: var(--space-1) var(--space-2);

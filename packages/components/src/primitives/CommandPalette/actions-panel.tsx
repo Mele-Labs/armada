@@ -6,6 +6,7 @@
 import { useEffect, useRef } from "react";
 import type { LucideIcon } from "lucide-react";
 
+import { chordOf, formatChord } from "../../keymap";
 import { KbdChord } from "../Kbd/Kbd";
 import type { PaletteEntry } from "./CommandPalette";
 
@@ -26,7 +27,14 @@ export type PaletteAction = {
   dormant?: string;
   /** Back to the results afterwards, with the palette still up: Pin and Unpin. */
   stays?: true;
+  /** Asks for something first, in the field at the foot: a word typed and sent with ↵, or the next chord pressed. */
+  takes?: "word" | "chord";
+  /** What it holds now, drawn at its right where a key would be: an alias, or a chord. */
+  held?: { word: string } | { chord: string };
 };
+
+/** The act whose answer the foot field is taking, what is typed so far, and why the last answer was refused. */
+export type PaletteTaking = { action: PaletteAction; value: string; refused: string | null };
 
 export const actionRowId = (action: PaletteAction): string => `armada-palette-action-${action.id}`;
 
@@ -60,6 +68,9 @@ export function ActionsPanel({
   onKey,
   onEnter,
   onChoose,
+  taking,
+  onTakeWord,
+  onTake,
 }: {
   entry: PaletteEntry;
   /** Already narrowed by `query`. */
@@ -71,10 +82,32 @@ export function ActionsPanel({
   onKey: (event: React.KeyboardEvent<HTMLInputElement>) => void;
   onEnter: (at: number) => void;
   onChoose: (action: PaletteAction) => void;
+  /** Set while an act is taking its answer in the field. */
+  taking: PaletteTaking | null;
+  onTakeWord: (value: string) => void;
+  /** The answer given: the word, or the chord as the registry spells it. */
+  onTake: (value: string) => void;
 }) {
   const field = useRef<HTMLInputElement>(null);
   // Focus moves here while the panel is up, as Raycast's does, and back to the palette's field when it goes.
-  useEffect(() => field.current?.focus(), []);
+  useEffect(() => field.current?.focus(), [taking === null]);
+  const chord = taking?.action.takes === "chord";
+  const label = taking === null ? "Search for actions" : chord ? "Press a key" : "Alias";
+
+  // The field takes the next chord whole, and nothing under it hears the press: a key being recorded is not yet a key.
+  function onChordKey(event: React.KeyboardEvent<HTMLInputElement>): void {
+    if (event.key === "Escape") return;
+    event.preventDefault();
+    event.nativeEvent.stopImmediatePropagation();
+    const pressed = chordOf(event.nativeEvent);
+    if (pressed !== null) onTake(formatChord(pressed));
+  }
+
+  function onWordKey(event: React.KeyboardEvent<HTMLInputElement>): void {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    onTake(taking?.value ?? "");
+  }
   return (
     <div className="armada-palette__actions">
       <div className="armada-palette__actions-title">{entry.label}</div>
@@ -101,6 +134,7 @@ export function ActionsPanel({
                   <span className="armada-palette__title">{action.label}</span>
                   {dormant ? <span className="armada-palette__subtitle">{action.dormant}</span> : null}
                 </span>
+                {action.held === undefined ? null : "word" in action.held ? <span className="armada-palette__held">{action.held.word}</span> : <KbdChord keys={Array.from(action.held.chord)} aria-hidden />}
                 {action.shortcut === undefined ? null : <KbdChord keys={Array.from(action.shortcut)} aria-hidden />}
               </div>
             </div>
@@ -108,18 +142,25 @@ export function ActionsPanel({
         })}
         {actions.length === 0 ? <p className="armada-palette__empty">{`Nothing matches “${query}”.`}</p> : null}
       </div>
+      {taking?.refused == null ? null : (
+        <p className="armada-palette__refused" role="alert">
+          {taking.refused}
+        </p>
+      )}
       <input
         ref={field}
         className="armada-palette__actions-field"
         type="text"
         role="combobox"
         aria-expanded="true"
-        aria-label="Search for actions"
+        aria-label={label}
         aria-activedescendant={actions[at] === undefined ? undefined : actionRowId(actions[at])}
-        placeholder="Search for actions"
-        value={query}
-        onChange={(event) => onQuery(event.target.value)}
-        onKeyDown={onKey}
+        placeholder={label}
+        value={taking === null ? query : chord ? "" : taking.value}
+        readOnly={chord}
+        data-taking={taking === null ? undefined : ""}
+        onChange={(event) => (taking === null ? onQuery(event.target.value) : onTakeWord(event.target.value))}
+        onKeyDown={taking === null ? onKey : chord ? onChordKey : onWordKey}
       />
     </div>
   );

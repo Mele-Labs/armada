@@ -10,6 +10,7 @@ export * from "./primitives/Button/Button";
 export * from "./primitives/Card/Card";
 export * from "./primitives/Checkbox/Checkbox";
 export * from "./primitives/CommandPalette/CommandPalette";
+export * from "./primitives/CommandPalette/hotkey";
 export * from "./primitives/Dialog/Dialog";
 export * from "./primitives/DropdownMenu/DropdownMenu";
 export * from "./primitives/HoldButton/HoldButton";

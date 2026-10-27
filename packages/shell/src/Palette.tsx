@@ -39,7 +39,7 @@ import { useEffect, useState } from "react";
 import { Ban, Check, CircleDot, Copy, ExternalLink, FileTerminal, GitFork, GitMerge, GitPullRequest, Globe, ListTodo, MessageSquarePlus, Pause, Play, Plus, Route, Send } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
-import { actsIn, ALIASES, globalActs, CommandPalette, isPressed, keyFor } from "@armada/components";
+import { actsIn, ALIASES, globalActs, CommandPalette, isPressed, keyFor, parseChord, refuseHotkey } from "@armada/components";
 import type { Action, ActionContext, PaletteAction, PaletteDispatch, PaletteLink, PalettePath, PaletteEntry, PaletteMeta, PaletteSection, PaletteStep } from "@armada/components";
 
 /**
@@ -177,10 +177,13 @@ export type PaletteChoice =
   | { of: "issue"; id: string }
   | { of: "task"; id: string }
   | { of: "command"; id: string }
-  /** An action on a row: the row's id as the palette drew it, and the action's. */
-  | { of: "on"; target: string; action: string }
+  /** An action on a row: the row's id as the palette drew it, and the action's. `value` is what an action that asked was answered: the alias, or the chord. */
+  | { of: "on"; target: string; action: string; value?: string }
   /** `root` is `null` for All repositories. */
   | { of: "repository"; root: string | null };
+
+/** A row the palette lists, as Settings names it: what it is called, what kind it is, and whether a word or a key can be given it. */
+export type PaletteKnown = { id: string; label: string; kind: string; keyable: boolean; dormant: boolean };
 
 /** A repository the palette can pick, as the title row's picker names it. */
 export type PaletteRepository = { root: string; label: string };
@@ -261,6 +264,8 @@ export type PaletteProps = {
   /** A word he gave a row that finds it, and a key he gave it, by the row's id as the palette drew it. */
   aliases?: Readonly<Record<string, string>>;
   hotkeys?: Readonly<Record<string, string>>;
+  /** Told each time the rows the palette lists change, so Settings can name the ones that hold a word, a key or a pin. */
+  onRows?: (rows: readonly PaletteKnown[]) => void;
   /** A destructive action on a row was chosen: it confirms over the palette before it runs. */
   onConfirmOn?: (target: string, action: string) => void;
 };
@@ -354,6 +359,7 @@ export function Palette({
   opens = "pinned",
   aliases: given = {},
   hotkeys = {},
+  onRows,
   onConfirmOn,
 }: PaletteProps) {
   const sections: PaletteSection[] = [
@@ -478,9 +484,14 @@ export function Palette({
   ].map((entry) => ({
     ...entry,
     kind: KIND[entry.id.slice(0, entry.id.indexOf(":") + 1) || entry.id] ?? "Action",
-    ...(given[entry.id] === undefined ? {} : { aliases: [...("aliases" in entry ? entry.aliases ?? [] : []), given[entry.id]!] }),
+    ...(given[entry.id] === undefined ? {} : { alias: given[entry.id]!, aliases: [...("aliases" in entry ? entry.aliases ?? [] : []), given[entry.id]!] }),
     ...(hotkeys[entry.id] === undefined ? {} : { shortcut: hotkeys[entry.id]! }),
   }));
+
+  const known: PaletteKnown[] = entries.map((entry) => ({ id: entry.id, label: entry.label, kind: entry.kind ?? "Action", keyable: entry.destructive !== true, dormant: entry.dormant !== undefined }));
+  const knownKey = known.map((one) => `${one.id}\t${one.label}\t${one.kind}\t${one.keyable}\t${one.dormant}`).join("\n");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => onRows?.(known), [knownKey]);
 
   // With nothing typed: Pinned, then Recent; or this page first; or everything, as the setting says.
   const byId = new Map(entries.map((entry) => [entry.id, entry]));
@@ -502,7 +513,12 @@ export function Palette({
       sections={sections}
       entries={entries}
       {...(home === undefined ? {} : { home })}
-      actionsOf={(entry) => actionsOf(entry, { sessions, pinned })}
+      actionsOf={(entry) => actionsOf(entry, { sessions, pinned, aliases: given, hotkeys })}
+      onTake={(entry, action, value) => {
+        const refused = refusal(entry, action.id, value, entries, given);
+        if (refused === undefined) onChoose({ of: "on", target: entry.id, action: action.id, value });
+        return refused;
+      }}
       stepOf={(entry) => (entry.id.startsWith("cmd:") ? commandStep?.(bare(entry.id)) : undefined)}
       onAct={(entry, action) => onChoose({ of: "on", target: entry.id, action: action.id })}
       searched={searchedSentence({ sessions: sessions.length, settings: settings.length, runnables: runnables.length, repositories: repositories.length, tickets: pulls.length + issues.length + tasks.length, commands: commands.length })}
@@ -553,7 +569,7 @@ function bare(id: string): string {
 }
 
 /** What a chosen row was, read off the prefix its section gave it. */
-function choiceOf(id: string): PaletteChoice {
+export function choiceOf(id: string): PaletteChoice {
   const rest = bare(id);
   if (id === ALL_REPOSITORIES) return { of: "repository", root: null };
   if (id.startsWith("repo:")) return { of: "repository", root: rest };
@@ -627,7 +643,35 @@ const COMMAND_GLYPH: Record<PaletteCommand["kind"], LucideIcon> = { url: Globe, 
  * What ⌘K opens on a row. **Pin is on every one**, since a pin is kept by the host and a row can be pinned from
  * whichever list it was found in. Stop confirms: it is the one act here that ends work.
  */
-function actionsOf(entry: PaletteEntry, held: { sessions: readonly PaletteSession[]; pinned: readonly string[] }): readonly PaletteAction[] {
+function actionsOf(entry: PaletteEntry, held: { sessions: readonly PaletteSession[]; pinned: readonly string[]; aliases: Readonly<Record<string, string>>; hotkeys: Readonly<Record<string, string>> }): readonly PaletteAction[] {
+  // A row that cannot be opened has no word or key to give it. Apart from the row's own acts.
+  const keyed: PaletteAction[] =
+    entry.dormant !== undefined
+      ? []
+      : [
+          { id: "alias", label: "Set alias", takes: "word", apart: true, ...(held.aliases[entry.id] === undefined ? {} : { held: { word: held.aliases[entry.id]! } }) },
+          ...(held.aliases[entry.id] === undefined ? [] : [{ id: "remove-alias", label: "Remove alias", stays: true as const }]),
+          ...(entry.destructive === true ? [] : [{ id: "hotkey", label: "Record hotkey", takes: "chord" as const, ...(held.hotkeys[entry.id] === undefined ? {} : { held: { chord: held.hotkeys[entry.id]! } }) }]),
+          ...(held.hotkeys[entry.id] === undefined || entry.destructive === true ? [] : [{ id: "remove-hotkey", label: "Remove hotkey", stays: true as const }]),
+        ];
+  return [...ownActs(entry, held), ...keyed];
+}
+
+/** Why a word or a key cannot be given to a row, in a few words, or nothing where it can. */
+function refusal(entry: PaletteEntry, act: string, value: string, entries: readonly PaletteEntry[], aliases: Readonly<Record<string, string>>): string | undefined {
+  if (act === "alias") {
+    const word = value.trim();
+    if (word === "") return "Needs a word";
+    if (/\s/.test(word)) return "One word";
+    const other = entries.find((one) => one.id !== entry.id && aliases[one.id]?.toLowerCase() === word.toLowerCase());
+    return other === undefined ? undefined : `Used by ${other.label}`;
+  }
+  const chord = parseChord(value);
+  if (chord === null) return "Not a key";
+  return refuseHotkey(chord, entries.flatMap((one) => (one.id === entry.id || one.shortcut === undefined ? [] : [{ label: one.label, hotkey: one.shortcut }])));
+}
+
+function ownActs(entry: PaletteEntry, held: { sessions: readonly PaletteSession[]; pinned: readonly string[] }): readonly PaletteAction[] {
   // Each act's chord runs it while the palette is up, from the results or the panel, as Raycast's do. None is a
   // Global binding: the palette holds focus, and a chord it took from the window would go deaf everywhere else.
   const pin: PaletteAction = held.pinned.includes(entry.id) ? { id: "unpin", label: "Unpin", shortcut: "⇧⌘F", apart: true, stays: true } : { id: "pin", label: "Pin", shortcut: "⇧⌘F", apart: true, stays: true };

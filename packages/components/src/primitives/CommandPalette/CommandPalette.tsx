@@ -3,7 +3,7 @@ import type { LucideIcon } from "lucide-react";
 
 import { isPressed } from "../../keymap";
 import { KbdChord } from "../Kbd/Kbd";
-import { ActionsPanel, ResultKeys, actionEntryId, narrowed, pressedChord, type PaletteAction } from "./actions-panel";
+import { ActionsPanel, ResultKeys, actionEntryId, narrowed, pressedChord, type PaletteAction, type PaletteTaking } from "./actions-panel";
 import { DISPATCH_ROW, DispatchKeys, DispatchRow, StepKeys, adds, nextKind, readsAsWork, type PaletteDispatch, type PaletteStep } from "./dispatch-row";
 import { StateGlyph, Subtitle, type PaletteMeta } from "./row-meta";
 import { usePlace } from "./place";
@@ -61,6 +61,8 @@ export type PaletteEntry = {
   label: string;
   /** Searched, never rendered. */
   aliases?: readonly string[];
+  /** The word the owner gave this row. Typed whole, it puts the row first, ahead of its section. */
+  alias?: string;
   /**
    * The binding, where the entry has one.
    *
@@ -161,6 +163,11 @@ export type CommandPaletteProps = {
   actionsOf?: (entry: PaletteEntry) => readonly PaletteAction[];
   /** An action was chosen. A destructive one goes to `onConfirm` instead, as an entry whose id is the row's, a bar and the action's. */
   onAct?: (entry: PaletteEntry, action: PaletteAction) => void;
+  /**
+   * An action that takes an answer was given it: the word typed, or the chord pressed, as the registry spells it.
+   * Returns why it is refused, in a few words, or nothing once it is kept.
+   */
+  onTake?: (entry: PaletteEntry, action: PaletteAction, value: string) => string | undefined;
   /** A row that is not done at once but asks for something first: the second step listing what it can be filled with. */
   stepOf?: (entry: PaletteEntry) => PaletteStep | undefined;
 };
@@ -206,6 +213,7 @@ export function CommandPalette({
   home,
   actionsOf,
   onAct,
+  onTake,
   stepOf,
 }: CommandPaletteProps) {
   const [query, setQuery] = useState(defaultQuery);
@@ -222,6 +230,8 @@ export function CommandPalette({
   const actionRow = useRef<HTMLDivElement>(null);
   // What is typed in the actions panel's own field, which narrows its acts.
   const [actionQuery, setActionQuery] = useState("");
+  // The act that is taking its answer in that field, in place of the search.
+  const [taking, setTaking] = useState<PaletteTaking | null>(null);
   const bare = query.trim() === "";
   const listed = stepping !== null ? stepping.step : home !== undefined && bare ? home : { entries, sections };
 
@@ -230,12 +240,19 @@ export function CommandPalette({
   // relevance score would reorder a list a person is learning positions in.
   const grouped = useMemo(() => {
     const found = listed.entries.flatMap((entry) => hit(entry, query) ?? []);
-    return listed.sections
-      .map((section) => ({
-        section,
-        hits: found.filter((held) => held.entry.section === section.id),
-      }))
-      .filter((group) => group.hits.length > 0);
+    // **A word he gave a row, typed whole, puts that row first**, ahead of the sections, under no head of its own.
+    const typed = query.trim().toLowerCase();
+    const named = typed === "" ? [] : found.filter((held) => held.entry.alias?.toLowerCase() === typed);
+    const first = named.length === 0 ? [] : [{ section: { id: "alias", title: "" }, hits: named }];
+    return [
+      ...first,
+      ...listed.sections
+        .map((section) => ({
+          section,
+          hits: found.filter((held) => held.entry.section === section.id && !named.includes(held)),
+        }))
+        .filter((group) => group.hits.length > 0),
+    ];
   }, [listed, query]);
 
   const hits = useMemo(() => grouped.flatMap((group) => group.hits), [grouped]);
@@ -284,6 +301,11 @@ export function CommandPalette({
       if (layer && !layer.classList.contains("armada-palette")) return;
       event.preventDefault();
       event.stopPropagation();
+      // An answer being taken backs out to the acts.
+      if (taking !== null) {
+        setTaking(null);
+        return;
+      }
       // The acts back out to the results, and the query stays.
       if (acting !== null) {
         setActing(null);
@@ -299,7 +321,7 @@ export function CommandPalette({
     }
     window.addEventListener("keydown", onEscape, true);
     return () => window.removeEventListener("keydown", onEscape, true);
-  }, [open, onClose, stepping, acting]);
+  }, [open, onClose, stepping, acting, taking]);
 
   // ⌘K opens the acts of the row under the cursor, and closes them again. The press is marked handled so
   // the binding that toggles the palette leaves it up; on a row with no acts it is not, and closes it as ever.
@@ -307,6 +329,8 @@ export function CommandPalette({
     if (!open) return;
     function onActs(event: KeyboardEvent) {
       if (event.defaultPrevented || !isPressed("command_palette", event)) return;
+      // A key being recorded is read by the field, ⌘K too: it is refused there, in words.
+      if (taking?.action.takes === "chord") return;
       if (acting !== null) {
         event.preventDefault();
         setActing(null);
@@ -318,18 +342,19 @@ export function CommandPalette({
     }
     window.addEventListener("keydown", onActs, true);
     return () => window.removeEventListener("keydown", onActs, true);
-  }, [open, acting, underEntry, underActions.length]);
+  }, [open, acting, taking, underEntry, underActions.length]);
 
   // The panel's field starts empty on every opening, and the palette's own field takes focus back when it goes.
   useEffect(() => {
     setActionQuery("");
+    setTaking(null);
     if (acting === null && open) input.current?.focus();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [acting === null, acting?.entry.id]);
 
   // An act's own chord runs it on the row under the cursor, from the results or from the panel, as Raycast's do.
   useEffect(() => {
-    if (!open || stepping !== null) return;
+    if (!open || stepping !== null || taking !== null) return;
     const entry = acting?.entry ?? underEntry;
     if (entry === undefined) return;
     const acts = actionsOf?.(entry) ?? [];
@@ -447,6 +472,10 @@ export function CommandPalette({
 
   function runAction(entry: PaletteEntry, action: PaletteAction | undefined) {
     if (action === undefined || action.dormant !== undefined) return;
+    if (action.takes !== undefined) {
+      setTaking({ action, value: action.held !== undefined && "word" in action.held ? action.held.word : "", refused: null });
+      return;
+    }
     if (action.destructive === true) {
       onConfirm?.({ ...entry, id: actionEntryId(entry, action), label: action.label, destructive: true });
       return;
@@ -480,6 +509,18 @@ export function CommandPalette({
       event.preventDefault();
       dispatch.onKind(nextKind(dispatch));
     }
+  }
+
+  // The answer given to the act that asked: kept, and back to the results, or refused and asked for again.
+  function take(value: string) {
+    if (acting === null || taking === null) return;
+    const refused = onTake?.(acting.entry, taking.action, value);
+    if (refused !== undefined) {
+      setTaking({ ...taking, refused });
+      return;
+    }
+    setTaking(null);
+    setActing(null);
   }
 
   // The panel's field: ↑ ↓ move through the acts it narrows to, ↵ runs one. Esc and ⌘K are the window's, above.
@@ -558,7 +599,7 @@ export function CommandPalette({
             <div key={group.section.id} className="armada-palette__group">
               {/* Section heads are what stop four kinds of result reading as
                   one list. Drawn only where the section has a hit. */}
-              <div className="armada-palette__section">{group.section.title}</div>
+              {group.section.title === "" ? null : <div className="armada-palette__section">{group.section.title}</div>}
               {group.hits.map((held) => {
                 n += 1;
                 quick += 1;
@@ -592,6 +633,9 @@ export function CommandPalette({
             onKey={onPanelKey}
             onEnter={(next) => setActing({ ...acting, at: next })}
             onChoose={(action) => runAction(acting.entry, action)}
+            taking={taking}
+            onTakeWord={(value) => setTaking((was) => (was === null ? was : { ...was, value, refused: null }))}
+            onTake={take}
           />
         )}
         {acting !== null ? (
