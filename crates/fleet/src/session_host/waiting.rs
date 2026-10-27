@@ -606,8 +606,8 @@ where
             let runs = item.act.as_ref().is_some_and(|act| act.kind == WaitingActKind::Run && !act.target.trim().is_empty());
             (item.id.trim(), item.text.trim(), runs)
         });
-        if let Some((item, why)) = first_unclear(unclear, CLARITY_IN_FORCE) {
-            return Err(self.hosted_refusal(SESSION_WAITING_UNCLEAR, &unclear_item_refusal(item, why)));
+        if let Some((item, text, why)) = first_unclear(unclear, CLARITY_IN_FORCE) {
+            return Err(self.hosted_refusal(SESSION_WAITING_UNCLEAR, &unclear_item_refusal(item, text, why)));
         }
         let said = set.items.iter().map(|item| (item.id.trim().to_string(), item.text.trim().to_string())).collect();
         self.plan_repeated(&id, said).await?;
