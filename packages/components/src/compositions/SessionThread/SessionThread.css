@@ -461,6 +461,11 @@
   white-space: nowrap;
 }
 
+/* A calls row reads as a line of words; the call lines under it stay in mono. */
+.armada-session-fold__names--line {
+  font-family: var(--font-sans);
+}
+
 .armada-session-fold__calls {
   display: flex;
   flex-direction: column;

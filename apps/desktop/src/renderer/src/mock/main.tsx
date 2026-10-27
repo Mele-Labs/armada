@@ -23,6 +23,8 @@ watchClippedText();
 const query = new URLSearchParams(window.location.search);
 // `?strip=always` draws every Cockpit panel's legend strip for good, the take beside the hover-only chip.
 if (query.get("strip") === "always") document.documentElement.dataset.strip = "always";
+// `?composer=ghost` draws the Job composer's menus and icon buttons with no ground or edge, the take beside the filled ones.
+if (query.get("composer") === "ghost") document.documentElement.dataset.composer = "ghost";
 // A walk names its scenario, so `?walk` wins over `?scenario`.
 // `?steps=` is a walk handed over whole, as `show_window` hands Bridge its steps.
 const inline = inlineWalk(query.get("steps"), query.get("scenario") ?? "every-state");

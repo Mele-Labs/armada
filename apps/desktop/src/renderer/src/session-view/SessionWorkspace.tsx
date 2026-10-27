@@ -10,6 +10,7 @@
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import type { ReactNode } from "react";
+import { isPressed } from "@armada/components";
 import type { LedgerEntry } from "@armada/components";
 import type { RepositorySummary } from "@armada/protocol";
 import type { Session } from "@armada/screens/src/draft/sessions";
@@ -55,6 +56,15 @@ export function SessionWorkspace({ session, entries, repositories, hosts, ed, ba
     if (!story) return;
     const listen = (event: KeyboardEvent) => {
       if (event.defaultPrevented || document.querySelector('[role="dialog"], [role="alertdialog"]') !== null) return;
+      // `message_job`: the caret goes to the Job's message box. Option changes the character M types, so the registry's reader takes the key by its place.
+      if (isPressed("message_job", event)) {
+        const box = document.querySelector<HTMLElement>('.sv-dock [role="textbox"][aria-label="Message"]');
+        if (box === null) return;
+        event.preventDefault();
+        box.focus();
+        window.getSelection()?.selectAllChildren(box);
+        return window.getSelection()?.collapseToEnd();
+      }
       if (isArtifactsKey(event)) {
         event.preventDefault();
         return toggleLayer(id, "artifacts");

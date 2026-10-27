@@ -50,6 +50,7 @@ import { SavedRow } from "./SavedRow";
 import { DraftRow } from "./DraftRow";
 import type { DraftAnswer } from "./DraftRow";
 export type { DraftAnswer } from "./DraftRow";
+import { callsLine } from "./calls-line";
 import { PlanRevisionView, useUnchanged } from "./PlanRevision";
 import type { PlanRevision } from "./PlanRevision";
 export type { PlanRevision, RevisionGroup, RevisionSince, RevisionTask } from "./PlanRevision";
@@ -546,6 +547,7 @@ function namesOf(rows: readonly { text: string }[]): string[] {
  */
 function Calls({ rows, working, onStop, onTeach }: { rows: readonly { id: string; at: string; text: string; fromPhone?: true }[]; working?: boolean; onStop?: () => void; onTeach?: (pick: TeachPick) => void }) {
   const names = namesOf(rows);
+  const line = callsLine(rows, working === true);
   return (
     <li className="armada-session-fold armada-session-fold--calls">
       <details>
@@ -553,7 +555,7 @@ function Calls({ rows, working, onStop, onTeach }: { rows: readonly { id: string
           <ChevronRight size={12} strokeWidth={2} aria-hidden className="armada-session-fold__chevron" />
           {working === true ? <SessionMark state="working" said="Working" /> : <Wrench size={12} strokeWidth={2} aria-hidden />}
           {working === true && onStop !== undefined ? <SessionStop onStop={onStop} /> : null}
-          <span className="armada-session-fold__names">{names.join(", ")}</span>
+          <span className="armada-session-fold__names armada-session-fold__names--line">{line}</span>
         </summary>
         <ol className="armada-session-fold__calls">
           {rows.map((one) => (

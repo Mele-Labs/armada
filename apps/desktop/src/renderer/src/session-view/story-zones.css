@@ -43,9 +43,11 @@
 .sv-made__title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sv-made__age { color: var(--fg-subtle); font-size: var(--text-2xs); }
 
-/* By kind: a short list under each kind's name. */
+/* By kind: a short list under each kind's name. The name is a sub-heading to Completed's strip: on the strip's own left edge, in sentence case and the quiet ink, with a
+   gap above each after the first. */
 .sv-kind { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
-.sv-kind__label { margin: 0; padding-inline: var(--space-2); color: var(--fg-default); font-family: var(--font-sans); font-size: var(--text-xs); line-height: var(--leading-xs); font-weight: var(--weight-heading); }
+.sv-kind + .sv-kind { margin-block-start: var(--space-2); }
+.sv-kind__label { margin: 0; padding: 0; color: var(--fg-subtle); font-family: var(--font-sans); font-size: var(--text-xs); line-height: var(--leading-xs); font-weight: var(--weight-medium); }
 
 /* The workflow at the head of the story: its name as a reading, its steps as glyphs beside it. Pressing the name opens the picker. */
 .sv-story__head { display: flex; flex: none; align-items: center; min-height: var(--h-control); }
@@ -92,6 +94,18 @@
 .sv-spine .sv-panel.sv-panel[data-area][data-area] > .sv-panel__body { flex: none; padding: 0 0 var(--space-3) var(--lead); background: none; overflow: visible; }
 .sv-spine .sv-panel[data-collapsed] > .sv-panel__body { display: none; }
 .sv-spine .sv-panel[data-collapsed]::before { display: none; }
+
+/* `spine-steps`: a workflow step is a node on the line, the stepper's glyph in the stepper's hues, backed by the ground so the line does not run through it. Its name starts at the
+   body's left edge, where the spine's own rows start. What the step made or still owes stands under the name. */
+.sv-spine .sv-beat--node { position: relative; grid-template-columns: minmax(0, 1fr) auto; }
+.sv-spine .sv-beat__node { position: absolute; inset-block-start: calc((var(--h-row) - var(--space-4)) / 2); inset-inline-start: calc(var(--line) - var(--lead) - var(--space-2) + var(--border-width) / 2); display: inline-flex; align-items: center; justify-content: center; width: var(--space-4); height: var(--space-4); border-radius: 50%; background: var(--bg-sunken); color: var(--fg-subtle); }
+.sv-spine .sv-beat--node[data-state="done"] .sv-beat__node { color: var(--step-advanced); }
+.sv-spine .sv-beat--node[data-state="now"] .sv-beat__node { color: var(--step-running); }
+.sv-spine .sv-beat--node[data-state="now"] .sv-rail__mark { background: color-mix(in srgb, var(--step-running) 22%, transparent); box-shadow: 0 0 0 var(--border-width) var(--step-running); }
+.sv-spine .sv-beat--node > .sv-beat__label { grid-column: 1; }
+.sv-spine .sv-beat--node > .sv-beat__made { grid-column: 1 / -1; }
+/* By kind keeps the finished steps as a short run of nodes ahead of its lists. */
+.sv-beats--steps { margin-block-end: var(--space-1); }
 
 /* The brief reads as prose, not as the panel's mono. */
 .sv-nav .sv-flight__brief { padding-inline: var(--space-2); font-family: var(--font-sans); }

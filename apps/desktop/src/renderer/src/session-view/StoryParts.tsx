@@ -19,7 +19,7 @@ import { GroupIssue, StepMark } from "./PlanGroup";
 import { stackedRows } from "./pull-stacks";
 import type { RouteStep } from "./route";
 import type { ViewGroup } from "./plan-marks";
-import { MARK } from "./StatusPanel";
+import { MARK, StepGlyph } from "./StatusPanel";
 import { LEDGER_KEY } from "./story";
 import type { LedgerView } from "./story-take";
 
@@ -50,9 +50,20 @@ function Lead({ Glyph, said, pulse = false }: { Glyph: LucideIcon; said: string;
   );
 }
 
-/** A step of the workflow: done, the one the Job is at, or to come. What the step made, or still owes, stands under it. */
-export function StepBeat({ name, state, under }: { name: string; state: "done" | "now" | "next"; under?: ReactNode }) {
+/** A step of the workflow: done, the one the Job is at, or to come. What the step made, or still owes, stands under it. As a node (`spine-steps`) its glyph is the stepper's, on the spine's line. */
+export function StepBeat({ name, state, under, node = false }: { name: string; state: "done" | "now" | "next"; under?: ReactNode; node?: boolean }) {
   const { Glyph, said } = MARK[state];
+  if (node) {
+    return (
+      <li className="sv-beat sv-beat--node" data-state={state} data-workflow="" aria-current={state === "now" ? "step" : undefined}>
+        <span className="sv-beat__node">
+          <StepGlyph step={name} state={state} />
+        </span>
+        <span className="sv-beat__label">{name}</span>
+        {under === undefined ? null : <div className="sv-beat__made">{under}</div>}
+      </li>
+    );
+  }
   return (
     <li className="sv-beat" data-state={state} data-workflow="">
       <Lead Glyph={Glyph} said={said} pulse={state === "now"} />

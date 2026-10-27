@@ -6,8 +6,9 @@
 .sv-views__rule { height: var(--space-4); align-self: center; }
 .armada-session-frame__head .armada-button[data-view] { position: relative; }
 .armada-session-frame__head .armada-button[data-view][data-lit] { color: var(--slot-stranded); }
-.sv-view__mark { position: absolute; inset-block-end: calc(var(--space-1) * 0.5); inset-inline-end: calc(var(--space-1) * 0.5); display: inline-flex; align-items: center; pointer-events: none; }
-.sv-view__clash { display: inline-flex; color: var(--status-awaiting-review); }
+.sv-view__mark { position: absolute; inset-block-end: var(--border-width); inset-inline-end: var(--border-width); display: inline-flex; align-items: center; pointer-events: none; }
+/* A write clash is a lamp in the key's corner, in the needs hue and clear of the glyph, as a toggle's lamp (`Button.css`) sits in the opposite one. */
+.sv-view__clash { display: block; width: var(--lamp, var(--dot)); height: var(--lamp, var(--dot)); border-radius: 50%; background: var(--status-awaiting-review); }
 
 /* Running, on the glyph: the running hue and a pulse; still under reduced motion. */
 button[data-view][data-running] > svg { color: var(--status-running); animation: deck-bay-pulse calc(var(--duration-pulse) * 1.5) ease-in-out infinite; }

@@ -49,6 +49,7 @@ is the back-fill by hand that this section existed to prevent.
 ⌘N       dispatch from a field, where n would type
 ⌥1–⌥9    choose a repository to dispatch to
 ⌥A       dispatch after another Job: a Job with an @ typed in the request
+⌥M       message the Job: put the caret in the open Job's message box
 ⌘1–⌘8    go to a tab: Cockpit, Jobs, Studios, Logbook, Reviews, Issues, Projects or System, as the bar draws them
 ⌘,       open Settings
 ⌘O       open a file in the side panel
@@ -65,6 +66,8 @@ single-key binding would be suppressed inside a field anyway by the rule below.
 `⌘Enter` is drawn on that Send button only while `⌘` is held, per `kbd` below.
 `⇧⌘Enter` is its twin in the Dispatch panel's request: it saves a Session's
 idea for later where `⌘Enter` starts one.
+`⌥M` is the Job view's own family of `⌥` keys, with `⌥W`, `⌥1`–`⌥3`, `⌥F`, `⌥N` and `⌥L`.
+It puts the caret in the open Job's message box from anywhere in the view, a field included, and does nothing with no Job open.
 
 **Helm's box and a Session's are one box**: `Enter` sends and `⇧Enter` breaks
 the line, and `⌘Enter` sends there too. In that box a `#` that starts a word

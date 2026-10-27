@@ -204,7 +204,7 @@ Subagents pulses while any runs and carries the number running in its tooltip, s
 | Artifacts | Opens everything the Job made or used over the right column, and the composer has a button for it (`⇧⌘A`) | A layer (*A Job open*). Always on |
 | Subagents | Opens every subagent the Job started | A layer. Off, with its reason, where it started none |
 | Checks | Opens the Checks the Job ran | A layer. Off where it ran none |
-| Bays | Opens the Job's write clashes, then every bay the Job holds, drawn as the Bays panel draws it with how far it is behind its base | A layer. **Lit in the stranded hue only when a bay is stranded or 20 or more commits behind its base**, and off where the Job holds no bay. A write clash puts the swords glyph at the key's corner and leaves the key unlit, named for the other Jobs; the Job's header carries no clash notice. A clash's file, pressed in the panel, opens as the two sides' patches in a sheet beside the stage, read by Fleet from git at the press. |
+| Bays | Opens the Job's write clashes, then every bay the Job holds, drawn as the Bays panel draws it with how far it is behind its base | A layer. **Lit in the stranded hue only when a bay is stranded or 20 or more commits behind its base**, and off where the Job holds no bay. A write clash puts a lamp in the key's corner, clear of the glyph, and leaves the key unlit, named for the other Jobs; the Job's header carries no clash notice. A clash's file, pressed in the panel, opens as the two sides' patches in a sheet beside the stage, read by Fleet from git at the press. |
 
 ## Shaping the flight controls
 
@@ -281,7 +281,7 @@ Every Job with `work` is drawn this way; one without is drawn as it was, with it
 | Ledger | Not drawn. Everything it held is in the Artifacts layer |
 | The story | Completed, Now and Next, top to bottom in the right column. `⌥1`, `⌥2` and `⌥3` open or fold one, `⌥L` swaps Completed between By step and By kind, `⌥N` opens the whole plan, `⌥W` the workflow picker and `⌥F` folds the Field. Artifacts is a button in the composer, and `⇧⌘A`, which opens its list over the right column and Esc returns, with List and Graph as icon toggles (`V`). `docs/concepts/session.md`, *In Bridge* |
 | Padding | The Job's card, its message column and its box are half as padded, here and not in the components |
-| The bays | Drawn only when something is wrong: the Bays icon in the Job's head lit, the swords glyph on it for a write clash, and a call in the thread for each stranded bay. A bay behind its base and a write clash raise no call, since Fleet tells the agent |
+| The bays | Drawn only when something is wrong: the Bays icon in the Job's head lit, a lamp in its corner for a write clash, and a call in the thread for each stranded bay. A bay behind its base and a write clash raise no call, since Fleet tells the agent |
 
 The right column rests wider for a Job, 8.5 `--space-12`, so its three panels share it.
 The Job head's Checks, Subagents and Bays icons open a layer over the thread, and Artifacts one over the right column, and Flight control's Requests opens the side panel: *The Job's flight controls*, and `docs/concepts/session.md`, *A Job open*, for what each reads.

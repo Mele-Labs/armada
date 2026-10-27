@@ -137,6 +137,18 @@ destructive = false
 confirms = false
 notes = "Opens the Dispatch panel on a Session with an `@` typed at the end of the request, and the menu of live Sessions open on it: pick one and the brief waits on it. Inside the panel it types the `@` at the caret, from any kind. The sentence over the request then shows the proposer's reading of the wait (which Session, when, from where, what it needs). A modifier means this tier, so it works from inside the request. Read by the key's place on the keyboard, since Option changes the character A types. No glyph: the request is the act, and `link` is the mark of a Session that already waits. Added 16 Oct 2026 with the Session that waits on another."
 
+[actions.message_job]
+kind = "Action"
+tier = "Global"
+verb = "Message the Job"
+icon = ""
+icon_absent = "undecided"
+shortcut = "⌥M"
+scope = "anywhere"
+destructive = false
+confirms = false
+notes = "Puts the caret in the open Job's message box from anywhere in its view, a field or a layer included. A modifier means this tier, so it works while another field has focus; with no Job open it does nothing. ⌥M is the Job view's own family (⌥W, ⌥1–⌥3, ⌥F, ⌥N, ⌥L) and free in the map: ⌘J is Helm's box, ⌘M is the platform's Minimize, and a bare letter would be suppressed in the field the person is leaving. Read by the key's place on the keyboard, since Option changes the character M types. No glyph: `message-square` is Helm's. Added 27 Oct 2026 on the owner's *\"a key to jump to the Job's composer\"*."
+
 [actions.close]
 kind = "Action"
 tier = "Global"

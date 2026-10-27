@@ -5,7 +5,7 @@
 // ci, the merge queue, main; a document; a mod and its Check; findings) and the follow-ups not yet settled. The plan is the spine: a finished group moves to
 // Completed carrying what it produced, and a pending output moves there when its data arrives.
 //
-// Two takes of the one story (`story-take.ts`, `?take=`): `spine` draws the zones on one timeline line with a NOW marker, and `stacked` draws them as
+// Three takes of the one story (`story-take.ts`, `?take=`): `spine` draws the zones on one timeline line with a NOW marker, `spine-steps` the same with the workflow's steps as nodes on the line, and `stacked` draws them as
 // three panels. Keys: ⌥1, ⌥2 and ⌥3 open or fold Completed, Now and Next and put the focus on the band; ⌥L swaps By step and By kind, two icon toggles in Completed's strip; ⌥N the whole plan; ⌥W the
 // workflow name at the head, which opens the picker; ↑ ↓ Home End move between the rows of a zone; ← → move the toggle when it has the focus.
 
@@ -46,6 +46,8 @@ import "./story-zones.css";
 
 export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, onOpenSketch, onOpenSession, live }: { session: Session; entries: readonly LedgerEntry[]; work: SessionWork; id: string; manifestId: string | undefined; acts: SessionWorkActs | undefined; ed: PlanEditing | undefined; onOpenSketch: (sketch: string) => void; onOpenSession: (id: string) => void; live: LiveOpen | undefined }) {
   const take = storyTake();
+  // `spine-steps`: the workflow's steps are nodes on the spine's line, where each step's section starts, and the row of them leaves the head.
+  const onLine = take === "spine-steps";
   const draft = useSessionsDraft();
   const layout = useLayout("job.panels").all;
   const [view, setView] = useLedgerView();
@@ -127,7 +129,7 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
 
   // A zone with nothing in it is its band alone: an empty slot stays empty.
   const briefHere = brief !== undefined && plan !== undefined;
-  const hasDone = view === "step" ? briefHere || workflowDone.length > 0 || finished.length > 0 || loose.length > 0 : made.length > 0;
+  const hasDone = view === "step" ? briefHere || workflowDone.length > 0 || finished.length > 0 || loose.length > 0 : made.length > 0 || (onLine && workflowDone.length > 0);
   const done = (
     <SvPanel label="Completed" area="done" place="side" state={doneState} acts={switcher} fold={doneFold} keycap={bandKeyFor("done")}>
       {!hasDone ? undefined : (
@@ -141,11 +143,25 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
             )}
             {workflowDone.map((name) => {
               const list = made.filter((one) => underStep(one) === name);
-              return <StepBeat key={name} name={name} state="done" {...(list.length === 0 ? {} : { under: <MadeList session={session} list={list} /> })} />;
+              return <StepBeat key={name} name={name} state="done" node={onLine} {...(list.length === 0 ? {} : { under: <MadeList session={session} list={list} /> })} />;
             })}
-            {finished.map((group) => (
-              <DoneGroup key={group.id} group={group} session={session} onOpenSession={onOpenSession} />
-            ))}
+            {onLine && workflowNow !== undefined && finished.length > 0 ? (
+              // The current step has its own node here, so its finished groups read as its work and not the last done step's.
+              <StepBeat
+                name={workflowNow}
+                state="now"
+                node
+                under={
+                  <ol className="sv-beats" aria-label={workflowNow}>
+                    {finished.map((group) => (
+                      <DoneGroup key={group.id} group={group} session={session} onOpenSession={onOpenSession} />
+                    ))}
+                  </ol>
+                }
+              />
+            ) : (
+              finished.map((group) => <DoneGroup key={group.id} group={group} session={session} onOpenSession={onOpenSession} />)
+            )}
             {loose.length === 0 ? null : (
               <li className="sv-beat sv-beat--made">
                 <MadeList session={session} list={loose} />
@@ -153,12 +169,21 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
             )}
           </ol>
         ) : (
-          byKind(made).map(({ id: bucket, label, made: list }) => (
-            <section key={bucket} className="sv-kind" aria-label={label}>
-              <h4 className="sv-kind__label">{label}</h4>
-              <MadeList session={session} list={list} />
-            </section>
-          ))
+          <>
+            {!onLine || workflowDone.length === 0 ? null : (
+              <ol className="sv-beats sv-beats--steps" aria-label="Steps done">
+                {workflowDone.map((name) => (
+                  <StepBeat key={name} name={name} state="done" node />
+                ))}
+              </ol>
+            )}
+            {byKind(made).map(({ id: bucket, label, made: list }) => (
+              <section key={bucket} className="sv-kind" aria-label={label}>
+                <h4 className="sv-kind__label">{label}</h4>
+                <MadeList session={session} list={list} />
+              </section>
+            ))}
+          </>
         )}
       </div>
       )}
@@ -181,12 +206,13 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
 
   // The workflow heads the story: at the top of the spine, and at the top of Now where the zones are panels.
   const head =
-    work.railOff !== true && (work.workflow !== undefined || (work.proposal !== undefined && acts !== undefined)) ? <WorkflowHead work={work} acts={acts} id={id} manifestId={manifestId} /> : null;
+    work.railOff !== true && (work.workflow !== undefined || (work.proposal !== undefined && acts !== undefined)) ? <WorkflowHead work={work} acts={acts} id={id} manifestId={manifestId} rail={!onLine} /> : null;
 
   const nowBody = (
     <div className="sv-nav" onKeyDown={arrowsIn}>
       {take === "stacked" ? head : null}
       <ul className="sv-beats" aria-label="Now">
+        {!onLine || workflowNow === undefined ? null : <StepBeat name={workflowNow} state="now" node />}
         {asking === undefined ? null : <AskBeat said="Waiting on you" text={asking} />}
         {owed.map((one) => (
           <AskBeat key={one.id} said="Waiting on you" text={one.text} />
@@ -197,7 +223,7 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
           name="Agent"
           line={working.length === 0 ? now : undefined}
         />
-        {workflowNow === undefined ? null : <StepBeat name={workflowNow} state="now" />}
+        {onLine || workflowNow === undefined ? null : <StepBeat name={workflowNow} state="now" />}
         {underway.map((step) => (
           <RouteBeat key={step.key} step={step} />
         ))}
@@ -256,7 +282,7 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
         {workflowNext.length === 0 && ahead.length === 0 ? null : (
           <ol className="sv-beats" aria-label="Ahead">
             {workflowNext.map((name) => (
-              <StepBeat key={name} name={name} state="next" {...(WALK_STEP.test(name) && walks.length === 0 ? { under: <WalkToCome /> } : {})} />
+              <StepBeat key={name} name={name} state="next" node={onLine} {...(WALK_STEP.test(name) && walks.length === 0 ? { under: <WalkToCome /> } : {})} />
             ))}
             {ahead.map((step) => (
               <RouteBeat key={step.key} step={step} />
@@ -274,7 +300,7 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
   return take === "stacked" ? (
     <>{drawn}</>
   ) : (
-    <Spine session={session}>
+    <Spine session={session} take={take}>
       {head === null ? null : <div className="sv-story__head">{head}</div>}
       {drawn}
     </Spine>
@@ -282,7 +308,7 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
 }
 
 /** The one timeline: a line down the column with the zones on it. It opens with NOW in view, since the oldest of Completed can be long. */
-function Spine({ session, children }: { session: Session; children: ReactNode }) {
+function Spine({ session, take, children }: { session: Session; take: string; children: ReactNode }) {
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const column = box.current;
@@ -291,7 +317,7 @@ function Spine({ session, children }: { session: Session; children: ReactNode })
     column.scrollTop = Math.max(0, now.offsetTop - column.clientHeight * 0.25);
   }, [session.id]);
   return (
-    <div ref={box} className="sv-spine" data-take="spine">
+    <div ref={box} className="sv-spine" data-take={take}>
       {children}
     </div>
   );

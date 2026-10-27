@@ -102,6 +102,8 @@ export function dormantIn(where: {
     queue_session: "in a Job's dispatcher",
     // The key opens the Dispatch panel on a Session with an `@` typed; the palette has no request to type it into.
     dispatch_after: "⌥A does this",
+    // The key puts the caret in the open Job's message box, which the palette's own field has just taken it from.
+    message_job: "⌥M does this",
     // The Board's own field answered this and went with the Board. This
     // palette is the search now, so a row reopening it would be circular.
     search: "this is the search",
