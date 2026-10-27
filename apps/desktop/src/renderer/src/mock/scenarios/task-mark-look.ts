@@ -22,7 +22,8 @@ const GROUPS: readonly WorkGroup[] = [
     { id: "A2", text: "Keep seven files", state: "done", seen: true, marked: "commit 1a2b3c4 names it" },
   ]),
   group("t2", "protocol-engineer", "Report the rotation", ["packages/protocol"], [
-    { id: "B1", text: "Mirror it in the TypeScript types", state: "working", seen: true, stale: { why: "edits went to Bridge", since: TOUCHED } },
+    { id: "B1", text: "Add rotated_at to the audit reply", state: "working", seen: true },
+    { id: "B2", text: "Mirror it in the TypeScript types", state: "working", seen: true, stale: { why: "edits went to Bridge", since: TOUCHED } },
   ]),
   group("t3", "bridge-engineer", "Show the rotation", ["apps/desktop"], [
     { id: "C1", text: "List rotated files in System", state: "working", seen: true },

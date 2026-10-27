@@ -53,9 +53,9 @@ const UNSEEN_ICON = 8;
 export type TaskMarkProps = {
   state: TaskMarkState;
   /** Fleet's proof where it set the state itself ("commit 1a2b3c4 names it"). The same mark, with the proof added to what hovering says. */
-  marked?: string;
+  marked?: string | undefined;
   /** A task in progress that looks left behind: the reason, and when it was last touched. The mark is dimmed, and hovering says why and how long. */
-  stale?: { why: string; since: string };
+  stale?: { why: string; since: string } | undefined;
 };
 
 /**

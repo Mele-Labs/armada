@@ -5,7 +5,6 @@
 
 import { useState, type ReactNode } from "react";
 import { Check, ChevronDown, Dot, Link, PencilLine, Ticket } from "lucide-react";
-import type { SessionPlanTask } from "@armada/protocol";
 import { Button, LinkedSession, TASK_GLYPH, TaskMark, Tooltip } from "@armada/components";
 import { issueLabel, type Session } from "@armada/screens/src/draft/sessions";
 
@@ -57,19 +56,11 @@ export function StepMark({ step }: { step: Step }) {
   );
 }
 
-/**
- * What Fleet put on the wire beside a task (`marked`, `stale`). The screens' `WorkTask` does not carry them yet, so a plan that does is read through this;
- * it goes when `WorkTask` takes the two fields.
- */
-type FleetReading = Pick<SessionPlanTask, "marked" | "stale">;
-const readingOf = (task: ViewGroup["tasks"][number]): FleetReading => task as typeof task & FleetReading;
-
-/** The task a group's live line is about: the first one running that is not stale. */
-export const hereOf = (group: ViewGroup): string | undefined => group.tasks.find((task) => task.state === "working" && readingOf(task).stale === undefined)?.id;
+/** The task a group's live line is about: the first one running. */
+export const hereOf = (group: ViewGroup): string | undefined => group.tasks.find((task) => task.state === "working")?.id;
 
 /** One task's line: its state glyph and the plan's words, with what the turn is doing under it where it is the one being worked. */
 export function TaskLine({ task, here, now, issue }: { task: ViewGroup["tasks"][number]; here: boolean; now: string | undefined; /** The issue its group works, on a line of its own under the live line. */ issue?: ReactNode }) {
-  const reading = readingOf(task);
   return (
     <li className="sv-group__task" data-state={task.state} data-here={here || undefined}>
       {here ? (
@@ -79,7 +70,7 @@ export function TaskLine({ task, here, now, issue }: { task: ViewGroup["tasks"][
           </span>
         </Tooltip>
       ) : (
-        <TaskMark state={task.state} {...(reading.marked === undefined ? {} : { marked: reading.marked })} {...(reading.stale === undefined ? {} : { stale: reading.stale })} />
+        <TaskMark state={task.state} marked={(task as typeof task & { marked?: string }).marked} stale={(task as typeof task & { stale?: { why: string; since: string } }).stale} />
       )}
       <span className="sv-group__task-text">{task.text}</span>
       {here && now !== undefined ? <span className="sv-group__task-now">{now}</span> : null}
