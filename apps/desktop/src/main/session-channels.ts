@@ -112,6 +112,9 @@ export function handleSessions({ ipc, connection, windowIdOf, pages, terminals }
   });
   ipc.handle(CHANNELS.answerSessionAsk,(_event, answer: AnswerSessionAsk) => {
     if (!text(answer?.session_id) || !text(answer.call) || !ANSWERS.includes(answer.answer)) return unread;
+    // A kind is what Fleet will run unasked until the job ends, so one it cannot read is refused rather than passed on.
+    const kind = answer.kind as { program?: unknown; script?: unknown } | null | undefined;
+    if (kind !== undefined && (typeof kind !== "object" || kind === null || !text(kind.program) || (kind.script !== undefined && !text(kind.script)))) return unread;
     return connection()?.sessions.answer(answer) ?? unsent;
   });
   ipc.handle(CHANNELS.answerWaiting, (_event, answer: AnswerWaiting) => {

@@ -12,7 +12,7 @@ import type { ContextBreakdown } from "@armada/components/src/context-breakdown"
 import type { Scene } from "@armada/components/src/compositions/SketchScene/scene";
 import type { AdversarialReviewState } from "@armada/components/src/compositions/AdversarialReview/review-state";
 import type { RunsPlace } from "@armada/components/src/compositions/RepositoryRuns/runs-places";
-import type { CheckBlame, DeliveryChoice, ProjectRowRef, DeliveryPicked, DraftSettled, LoadoutItemBody, LoadoutKind, LoadoutSource, LoadoutSummary, Notice, NoticeScope, PullRequestFilePatch, PullRequestPage, RequestBy, RequestHeader, SessionBuild, SessionLoadout, SessionStanding, ThoughtTarget, WaitingItem, WritePullRequest } from "@armada/protocol";
+import type { CallKind, CheckBlame, DeliveryChoice, ProjectRowRef, DeliveryPicked, DraftSettled, LoadoutItemBody, LoadoutKind, LoadoutSource, LoadoutSummary, Notice, NoticeScope, PullRequestFilePatch, PullRequestPage, RequestBy, RequestHeader, SessionBuild, SessionLoadout, SessionStanding, ThoughtTarget, WaitingItem, WritePullRequest } from "@armada/protocol";
 import type { McpServerAct, McpSignIn, SessionMcpServer, StepPhase, WatchSummary } from "@armada/protocol";
 import type { RetroRowDrawn } from "../retro-row";
 
@@ -643,6 +643,8 @@ export type SessionAsk = {
   reaches?: string;
   /** Whether the call reads that path or writes to it. */
   reachesTo?: "read" | "write";
+  /** The Bash call's program and script, which "Allow calls like this for this job" allows a width of. */
+  kind?: CallKind;
 };
 
 /** One question the agent put to the person. */
@@ -1002,7 +1004,7 @@ export type SessionsDraft = {
   /** The acts on a Session's `work`. */
   work?: SessionWorkActs;
   /** Answers the permission a Session is held on. The mock offers two and names none. */
-  answer: (id: string, answer?: SessionAnswer, answers?: SessionQuestionAnswer[], folder?: string) => void;
+  answer: (id: string, answer?: SessionAnswer, answers?: SessionQuestionAnswer[], folder?: string, kind?: CallKind) => void;
 };
 
 /** Anything a chip anywhere in Bridge can name. A chip asks who owns it. */
