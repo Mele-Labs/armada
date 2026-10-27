@@ -256,7 +256,7 @@ where
         record.plan = reads
             .plan
             .as_ref()
-            .map(|kept| ipc::SessionPlan { held_by: plan_held, adversarial, ..crate::plan_record::wire(kept) });
+            .map(|kept| ipc::SessionPlan { held_by: plan_held, adversarial, ..crate::plan_record::wire_read(kept, &reads.touches) });
         record.touches = crate::plan_keeping::touches_wire(reads.touches);
         record.settled = settled;
         record.later = reads

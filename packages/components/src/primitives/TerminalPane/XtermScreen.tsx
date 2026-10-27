@@ -12,6 +12,8 @@ export type TerminalScreenProps = {
   write: (data: string) => void;
   /** The screen's size in cells, told after each fit: the first is the size a run starts at. */
   onSize: (cols: number, rows: number) => void;
+  /** In place in a thread: the run has this many rows, and the screen is only as tall as what it has printed, up to them. Left out, the screen fills its pane. */
+  grows?: number;
 };
 
 /** A token's colour as the browser computes it, which is what xterm is given. */
@@ -48,13 +50,16 @@ function themeOf(host: HTMLElement): ITheme {
 
 const HIDE_CURSOR = "\x1b[?25l";
 
+/** The fewest rows an in-place screen shows, so a run that has printed nothing yet is still a terminal. */
+const MIN_ROWS = 2;
+
 /**
  * **The terminal's screen, drawn by xterm.js.** It takes focus as it opens and on a press, sends what is
  * typed to `write`, tells `onSize` its size in cells whenever it fits the pane, and scrolls to the end
  * as output arrives. xterm keeps the keys it takes from the window's shortcuts, and a Cmd chord is not
  * one it takes. When the run ends it lets go of focus.
  */
-export function XtermScreen({ out, run, running, write, onSize }: TerminalScreenProps) {
+export function XtermScreen({ out, run, running, write, onSize, grows }: TerminalScreenProps) {
   const host = useRef<HTMLDivElement>(null);
   const screen = useRef<Terminal | null>(null);
   const shown = useRef({ run, length: 0, live: false });
@@ -62,6 +67,7 @@ export function XtermScreen({ out, run, running, write, onSize }: TerminalScreen
   const redrawing = useRef(0);
   const latest = useRef({ write, onSize, running });
   latest.current = { write, onSize, running };
+  const fitHeight = useRef<() => void>(() => undefined);
 
   useLayoutEffect(() => {
     const element = host.current;
@@ -87,9 +93,23 @@ export function XtermScreen({ out, run, running, write, onSize }: TerminalScreen
 
     let over = false;
     let told: { cols: number; rows: number } | null = null;
+    // In a thread the run keeps `grows` rows, as a program that addresses the screen expects, and the well shows as many of them as the run has used.
+    fitHeight.current = () => {
+      if (grows === undefined || over || terminal.element === undefined) return;
+      const cell = element.querySelector<HTMLElement>(".xterm-screen")?.clientHeight;
+      const used = Math.min(terminal.rows, Math.max(MIN_ROWS, terminal.buffer.active.baseY + terminal.buffer.active.cursorY + 1));
+      const pad = getComputedStyle(terminal.element);
+      element.style.height = `${(used * (cell === undefined || cell === 0 ? line : cell / terminal.rows)) + parseFloat(pad.paddingTop) + parseFloat(pad.paddingBottom)}px`;
+    };
     const refit = () => {
-      if (over || element.clientWidth === 0 || element.clientHeight === 0) return;
-      fit.fit();
+      if (over || element.clientWidth === 0 || (grows === undefined && element.clientHeight === 0)) return;
+      if (grows === undefined) fit.fit();
+      else {
+        const size = fit.proposeDimensions();
+        if (size === undefined) return;
+        terminal.resize(size.cols, grows);
+        fitHeight.current();
+      }
       if (told?.cols === terminal.cols && told.rows === terminal.rows) return;
       told = { cols: terminal.cols, rows: terminal.rows };
       latest.current.onSize(terminal.cols, terminal.rows);
@@ -135,11 +155,12 @@ export function XtermScreen({ out, run, running, write, onSize }: TerminalScreen
     }
     if (out.length > shown.current.length) {
       const chunk = out.slice(shown.current.length);
-      if (shown.current.live) terminal.write(chunk);
+      if (shown.current.live) terminal.write(chunk, () => fitHeight.current());
       else {
         redrawing.current += 1;
         terminal.write(chunk, () => {
           redrawing.current -= 1;
+          fitHeight.current();
         });
       }
       shown.current.length = out.length;
@@ -160,5 +181,5 @@ export function XtermScreen({ out, run, running, write, onSize }: TerminalScreen
     }
   }, [running, run]);
 
-  return <div ref={host} className="armada-xterm" onClick={() => screen.current?.focus()} />;
+  return <div ref={host} className="armada-xterm" data-grows={grows === undefined ? undefined : ""} onClick={() => screen.current?.focus()} />;
 }

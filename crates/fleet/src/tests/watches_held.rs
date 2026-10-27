@@ -85,6 +85,20 @@ fn rig_offering(recipes: Vec<config::WatchRecipeWritten>) -> Rig {
     rig_fitted(move |fittings| fittings.locating = planted)
 }
 
+/// **A name that is not found says where this Mac's recipes are read from**, so a file kept
+/// anywhere else is seen to be in the wrong place (27 Oct 2026).
+#[tokio::test]
+async fn an_unknown_recipe_names_the_folder_this_machines_are_read_from() {
+    let planted = Arc::new(Planted::nothing());
+    planted.keeps_machine_recipes_in(PathBuf::from("/Users/user/Library/Application Support/Armada/machine/watches"));
+    let rig = rig_fitted(move |fittings| fittings.locating = planted);
+    let job = rig.start().await;
+    let unknown = rig.fleet.start_watch(None, recipe(&job, "qa-deploy", &[])).await.expect_err("no such recipe");
+    assert_eq!(code(&unknown), ("fleet.watch_recipe_unknown", 422));
+    let said = &unknown.error().message;
+    assert!(said.contains("/Users/user/Library/Application Support/Armada/machine/watches"), "{said}");
+}
+
 #[tokio::test]
 async fn a_recipe_fills_whole_arguments_and_the_machines_copy_wins() {
     let rig = rig_offering(vec![

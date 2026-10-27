@@ -6,7 +6,7 @@ use std::process::Command;
 
 use ipc::ModKind;
 
-use super::{manifest, slug_problem, FLEET, LAYOUT, MANIFEST, THEME, TRACKER, TWEAK, WORDS};
+use super::{manifest, slug_problem, FLEET, LAYOUT, MANIFEST, THEME, TRACKER, TWEAK, WORDS, COMMANDS};
 
 /// Why a scaffold did not happen.
 #[derive(Debug, PartialEq, Eq)]
@@ -53,6 +53,35 @@ const STARTER_FLEET: &str = "\
 # notice = \"behind_base\"
 # does = \"batch\"
 # where = \"everywhere\"
+";
+
+/// The starter Commands file: one row that passes, since a file with none is refused, and the other three acts commented.
+const STARTER_COMMANDS: &str = "\
+# Rows added to Bridge's command palette. Each row does exactly one of prompt, url, shell or chain.
+# A {name} in a prompt, url or shell line is a blank the person fills in the palette.
+# aliases are searched and never drawn. hotkey is a chord as the registry spells one: ⌥⌘S.
+
+# Opens an address.
+[[command]]
+name = \"Open the docs\"
+url = \"https://example.com/docs\"
+
+# Starts a Job on a prompt.
+# [[command]]
+# name = \"Review a pull request for security\"
+# aliases = [\"sec\"]
+# hotkey = \"⌥⌘S\"
+# prompt = \"Review {pr} for security issues\"
+
+# Runs a line in the picked repository's checkout.
+# [[command]]
+# name = \"Audit dependencies\"
+# shell = \"pnpm audit\"
+
+# Runs other palette rows by id, in order.
+# [[command]]
+# name = \"Add a task\"
+# chain = [\"nav:projects\", \"act:add_task\"]
 ";
 
 /// The starter tweak: no declaration, so the chosen theme draws as it did.
@@ -180,6 +209,7 @@ fn written(
         ModKind::Fleet => ("fleet", FLEET, STARTER_FLEET),
         ModKind::Tweak => ("tweak", TWEAK, STARTER_TWEAK),
         ModKind::Tracker => ("tracker", TRACKER, STARTER_TRACKER),
+        ModKind::Commands => ("commands", COMMANDS, STARTER_COMMANDS),
     };
     let mut toml = format!(
         "name = \"{name}\"\nkind = \"{word}\"\nversion = \"0.1.0\"\ndescription = \"{}\"\n",

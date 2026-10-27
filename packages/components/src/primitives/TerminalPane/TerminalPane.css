@@ -194,6 +194,17 @@
   padding: var(--space-2) var(--space-3);
 }
 
+/* In a thread the screen is as tall as what the run has printed, which the screen sets, and the rows past it wait out of sight. */
+.armada-xterm[data-grows] {
+  flex: none;
+  width: 100%;
+  min-height: 0;
+}
+
+.armada-xterm[data-grows] .xterm {
+  height: auto;
+}
+
 /* xterm's own stylesheet paints this layer black under the padding. The well's colour is the screen's. */
 .armada-xterm .xterm-viewport {
   background-color: transparent;
