@@ -219,12 +219,33 @@ pub struct SetHomeKind {
     pub on: bool,
 }
 
-/// `get_home_kinds`, and what `set_home_kind` answers with: one profile's every kind, in order,
-/// off until it is turned on.
+/// One item switched on in What syncs on its own, whatever its kind's switch says.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct HomeItem {
+    pub kind: HomeKind,
+    pub name: String,
+    /// A memory note's repository, and only there.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub repository: Option<String>,
+}
+
+/// `set_home_item`: one item switched for one profile.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SetHomeItem {
+    pub login: String,
+    #[serde(flatten)]
+    pub item: HomeItem,
+    pub on: bool,
+}
+
+/// `get_home_kinds`, and what `set_home_kind` and `set_home_item` answer with: one profile's every
+/// kind, in order, off until it is turned on, and each item switched on on its own.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct HomeKinds {
     pub login: String,
     pub kinds: Vec<HomeKindSwitch>,
+    #[serde(default)]
+    pub items: Vec<HomeItem>,
 }
 
 /// `set_home_repository`: where one profile's home is made, before it exists.

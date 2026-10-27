@@ -53,6 +53,10 @@ export function handleAccounts({ ipc, connection }: Hosts): void {
   ipc.handle(CHANNELS.setHomeKind, (_event, login: unknown, kind: unknown, on: unknown) =>
     named(login) && aKind(kind) && typeof on === "boolean" ? (connection()?.accounts.setHomeKind(login, kind, on) ?? unsent) : unread,
   );
+  ipc.handle(CHANNELS.setHomeItem, (_event, row: unknown, on: unknown) => {
+    const at = rowAt(row);
+    return at === undefined || typeof on !== "boolean" ? unread : (connection()?.accounts.setHomeItem(at, on) ?? unsent);
+  });
   ipc.handle(CHANNELS.setHomeRepository, (_event, login: unknown, owner: unknown, name: unknown) =>
     named(login) && named(owner) && named(name) ? (connection()?.accounts.setHomeRepository(login, owner, name) ?? unsent) : unread,
   );

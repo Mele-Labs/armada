@@ -433,6 +433,7 @@ type OldBridgeApi = {
     chooseSharedHomeSide: (row: HomeRowAt, side: HomeSide) => Promise<AccountsActed<SharedHomeRead>>;
     getHomeKinds: (login: string) => Promise<AccountsActed<HomeKinds>>;
     setHomeKind: (login: string, kind: HomeKind, on: boolean) => Promise<AccountsActed<HomeKinds>>;
+    setHomeItem: (row: HomeRowAt, on: boolean) => Promise<AccountsActed<HomeKinds>>;
     setHomeRepository: (login: string, owner: string, name: string) => Promise<AccountsActed<SharedHomeRead>>;
     onSleepChanged: (onChanged: (state: SleepState) => void) => () => void;
     tuneSession: (tune: TuneSession) => Promise<SessionActed>;
@@ -749,6 +750,7 @@ const OLD_CHANNELS = {
     chooseSharedHomeSide: "bridge:choose-shared-home-side",
     getHomeKinds: "bridge:get-home-kinds",
     setHomeKind: "bridge:set-home-kind",
+    setHomeItem: "bridge:set-home-item",
     setHomeRepository: "bridge:set-home-repository",
     sleepChanged: "bridge:sleep-changed",
     tuneSession: "bridge:tune-session",
