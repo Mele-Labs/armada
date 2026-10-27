@@ -1,6 +1,6 @@
 {
   "name": "armada",
-  "version": "0.3.44",
+  "version": "0.3.45",
   "description": "Tells a running Fleet which jobs you have open, and what each one holds: its slot, branch, pull request and subagents. Ships a fleet of subagents any repository can dispatch, and the skills each one preloads.",
   "author": { "name": "Armada" }
 }

@@ -28,6 +28,8 @@ mod door;
 mod events;
 mod helm;
 mod helm_box;
+/// A refused body names its whole shape.
+mod shape;
 /// A Job's Now: a Drone's activity, issues, waiting, answer modes, Check acts.
 mod thought;
 /// A Job's timeline, in the three shapes a row can be.
@@ -62,6 +64,7 @@ mod loadout;
 /// A pinned note: flat alone, and in order in a batch.
 mod session_notes;
 mod session_plan;
+mod session_run_message;
 mod session_starts;
 mod session_summaries;
 /// A Studio's graph, and the relation no proposal may name.

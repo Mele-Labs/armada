@@ -4,7 +4,8 @@
 //!
 //! **The command is the terminal's session leader**, so Ctrl-C written to it reaches it as SIGINT.
 //! **Nothing is written down**: a run keeps its last [`RING`] bytes while it lives and
-//! [`KEPT_AFTER_EXIT`] after, and a restart forgets every run.
+//! [`KEPT_AFTER_EXIT`] after, and a restart forgets every run. Its id is a ULID, so no run after a
+//! restart takes the id of one before it.
 //!
 //! **The history and the subscription are taken under one lock**, the one the reader appends
 //! under, so a viewer loses no output and reads none twice. **A character a read ends inside waits
@@ -18,12 +19,12 @@ use std::collections::BTreeMap;
 use std::future::Future;
 use std::io::{Read, Write};
 use std::process::Stdio;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-use api::{ObservedSessionRun, Refusal, SessionRunEvent, SESSION_RUN_BACKLOG};
+use api::{ObservedSessionRun, Refusal, SessionRunEnd, SessionRunEvent, SESSION_RUN_BACKLOG};
 use ipc::{
     ResizeSessionRun, SessionRunUnderway, StartSessionRun, StopSessionRun, WireError,
     WriteSessionRun,
@@ -33,6 +34,7 @@ use store::{AttachmentState, Holder};
 use tokio::sync::broadcast;
 
 use crate::daemon::Fleet;
+use crate::mint::{Mint, UlidMint};
 
 pub(crate) use ended::{fenced, Ended};
 
@@ -55,7 +57,22 @@ struct State {
     /// The last [`RING`] bytes printed, cut at a character.
     held: String,
     /// `Some` once the run ended, with its code.
-    exited: Option<Option<i32>>,
+    exited: Option<SessionRunEnd>,
+    /// Bytes printed since the run started, [`Self::held`]'s dropped ones included.
+    printed: u64,
+    /// [`Self::printed`] when the agent last typed, which is where `read_terminal`'s `until` reads from.
+    typed_at: Option<u64>,
+}
+
+impl State {
+    /// What the run printed since the agent last typed into it, or all it holds where it never has.
+    fn since_typed(&self) -> &str {
+        let after = self.typed_at.map_or(u64::MAX, |at| self.printed - at);
+        match usize::try_from(after).ok().and_then(|after| self.held.len().checked_sub(after)) {
+            Some(from) if self.held.is_char_boundary(from) => &self.held[from..],
+            _ => &self.held,
+        }
+    }
 }
 
 /// What a run is typed into and resized through. Gone once the run has ended.
@@ -94,6 +111,7 @@ impl Run {
     fn output(&self, text: String) {
         let mut state = self.state.lock().expect("not poisoned");
         state.held.push_str(&text);
+        state.printed += text.len() as u64;
         if state.held.len() > RING {
             let mut cut = state.held.len() - RING;
             while !state.held.is_char_boundary(cut) {
@@ -104,10 +122,10 @@ impl Run {
         let _ = self.feed.send(SessionRunEvent::Output(text));
     }
 
-    fn exit(&self, code: Option<i32>) {
+    fn exit(&self, end: SessionRunEnd) {
         let mut state = self.state.lock().expect("not poisoned");
-        state.exited = Some(code);
-        let _ = self.feed.send(SessionRunEvent::Exited(code));
+        state.exited = Some(end);
+        let _ = self.feed.send(SessionRunEvent::Exited(end));
     }
 
     /// Whether `keys` reached the terminal.
@@ -128,7 +146,7 @@ impl Run {
 #[derive(Default)]
 pub(crate) struct SessionRuns {
     held: Arc<Mutex<BTreeMap<String, Arc<Run>>>>,
-    minted: AtomicU64,
+    minted: UlidMint,
     /// Each Job's shell, by the Job's id.
     shells: Mutex<BTreeMap<String, String>>,
 }
@@ -172,7 +190,7 @@ impl SessionRuns {
     }
 
     fn mint(&self) -> String {
-        format!("session-run-{}", self.minted.fetch_add(1, Ordering::Relaxed) + 1)
+        format!("session-run-{}", self.minted.ulid().as_str())
     }
 
     /// Start `launch` and answer its id. The reading and the wait are threads of their own, and
@@ -215,7 +233,7 @@ impl SessionRuns {
             command: launch.command.unwrap_or_default().to_string(),
             stopped: AtomicBool::new(false),
             stop_signal: if launch.command.is_some() { "TERM" } else { "HUP" },
-            state: Mutex::new(State { held: String::new(), exited: None }),
+            state: Mutex::new(State { held: String::new(), exited: None, printed: 0, typed_at: None }),
             terminal: Mutex::new(Some(Terminal { master: pair.master, keys })),
             feed: broadcast::channel(SESSION_RUN_BACKLOG).0,
         });
@@ -246,7 +264,7 @@ impl SessionRuns {
                 _ => None,
             };
             run.terminal.lock().expect("not poisoned").take();
-            run.exit(code);
+            run.exit(SessionRunEnd { code, stopped });
             let output = run.state.lock().expect("not poisoned").held.clone();
             ended(Ended {
                 session: run.session.clone(),
@@ -298,7 +316,7 @@ impl SessionRuns {
             run_id: run_id.to_string(),
             history: state.held.clone(),
             live: match state.exited {
-                Some(code) => Err(code),
+                Some(end) => Err(end),
                 None => Ok(run.feed.subscribe()),
             },
         })

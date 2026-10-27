@@ -3,11 +3,12 @@
 // what the person pressed. What it answers plays as a run does: the words as output, then the exit.
 
 import type { CheckoutCaughtUp } from "@armada/protocol";
+import type { RunEvent } from "@armada/screens/src/draft/sessions";
 import { refusalWords } from "@armada/screens/src/refusal-words";
 
 import type { SessionActed } from "../../shared/api/sessions";
 
-type On = (event: { kind: "out"; text: string } | { kind: "end"; code: number | null }) => void;
+type On = (event: RunEvent) => void;
 
 /** git's lines as a terminal draws them: every line ends in a carriage return and a feed, and the last does too. */
 const lines = (text: string): string => (text === "" ? "" : text.replace(/\r?\n/g, "\r\n").replace(/(\r\n)?$/, "\r\n"));

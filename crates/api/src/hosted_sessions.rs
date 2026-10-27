@@ -15,7 +15,7 @@ pub(crate) async fn start_session<D: HostedSessions>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let start: ipc::StartSession = match ipc::decode("a job to start", &body) {
+    let start: ipc::StartSession = match ipc::decode_body("a job to start", &body) {
         Ok(start) => start,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -30,7 +30,7 @@ pub(crate) async fn hand_to_session<D: HostedSessions>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let hand: ipc::HandToSession = match ipc::decode("a group to hand to a job", &body) {
+    let hand: ipc::HandToSession = match ipc::decode_body("a group to hand to a job", &body) {
         Ok(hand) => hand,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -45,7 +45,7 @@ pub(crate) async fn read_session_wait<D: HostedSessions>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let read: ipc::ReadSessionWait = match ipc::decode("a brief to read for a wait", &body) {
+    let read: ipc::ReadSessionWait = match ipc::decode_body("a brief to read for a wait", &body) {
         Ok(read) => read,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -60,7 +60,7 @@ pub(crate) async fn start_waiting_now<D: HostedSessions>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let start: ipc::StartWaitingNow = match ipc::decode("a waiting job to start", &body) {
+    let start: ipc::StartWaitingNow = match ipc::decode_body("a waiting job to start", &body) {
         Ok(start) => start,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -79,7 +79,7 @@ pub(crate) async fn send_session_message<D: HostedSessions>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let sent: ipc::SendSessionMessageBody = match ipc::decode("a message to a job", &body) {
+    let sent: ipc::SendSessionMessageBody = match ipc::decode_body("a message to a job", &body) {
         Ok(sent) => sent,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -95,7 +95,7 @@ pub(crate) async fn send_session_note<D: HostedSessions>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let note: ipc::SendSessionNote = match ipc::decode("a note to a session", &body) {
+    let note: ipc::SendSessionNote = match ipc::decode_body("a note to a session", &body) {
         Ok(note) => note,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -110,7 +110,7 @@ pub(crate) async fn send_session_notes<D: HostedSessions>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let notes: ipc::SendSessionNotes = match ipc::decode("notes to a session", &body) {
+    let notes: ipc::SendSessionNotes = match ipc::decode_body("notes to a session", &body) {
         Ok(notes) => notes,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -124,7 +124,7 @@ pub(crate) async fn answer_session_ask<D: HostedSessions>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let said: ipc::AnswerSessionAsk = match ipc::decode("an answer to a job's ask", &body) {
+    let said: ipc::AnswerSessionAsk = match ipc::decode_body("an answer to a job's ask", &body) {
         Ok(said) => said,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -139,7 +139,7 @@ pub(crate) async fn answer_waiting<D: HostedSessions>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let said: ipc::AnswerWaiting = match ipc::decode("an answer to what a job waits on", &body) {
+    let said: ipc::AnswerWaiting = match ipc::decode_body("an answer to what a job waits on", &body) {
         Ok(said) => said,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -154,7 +154,7 @@ pub(crate) async fn dismiss_waiting<D: HostedSessions>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let dismiss: ipc::DismissWaiting = match ipc::decode("a dismissal of what a job waits on", &body) {
+    let dismiss: ipc::DismissWaiting = match ipc::decode_body("a dismissal of what a job waits on", &body) {
         Ok(dismiss) => dismiss,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -170,7 +170,7 @@ pub(crate) async fn confirm_waiting<D: HostedSessions>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let confirm: ipc::ConfirmWaiting = match ipc::decode("a confirmation of what a job waits on", &body) {
+    let confirm: ipc::ConfirmWaiting = match ipc::decode_body("a confirmation of what a job waits on", &body) {
         Ok(confirm) => confirm,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -265,7 +265,7 @@ pub(crate) async fn get_sleep<D: HostedSessions>(State(served): State<Served<D>>
 }
 
 pub(crate) async fn set_sleep<D: HostedSessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
-    let set: ipc::SetSleep = match ipc::decode("a sleep switch", &body) {
+    let set: ipc::SetSleep = match ipc::decode_body("a sleep switch", &body) {
         Ok(set) => set,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -277,7 +277,7 @@ pub(crate) async fn set_sleep<D: HostedSessions>(State(served): State<Served<D>>
 
 /// The owner corrects one decision. 200 with the night; 409 where no decision holds the id.
 pub(crate) async fn override_sleep<D: HostedSessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
-    let over: ipc::OverrideSleep = match ipc::decode("a correction of a sleep decision", &body) {
+    let over: ipc::OverrideSleep = match ipc::decode_body("a correction of a sleep decision", &body) {
         Ok(over) => over,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -289,7 +289,7 @@ pub(crate) async fn override_sleep<D: HostedSessions>(State(served): State<Serve
 
 /// The owner keeps one decision. 200 with the night; 409 where no decision holds the id.
 pub(crate) async fn review_sleep<D: HostedSessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
-    let review: ipc::ReviewSleep = match ipc::decode("a kept sleep decision", &body) {
+    let review: ipc::ReviewSleep = match ipc::decode_body("a kept sleep decision", &body) {
         Ok(review) => review,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -303,7 +303,7 @@ pub(crate) async fn tune_session<D: HostedSessions>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let tuned: ipc::TuneSession = match ipc::decode("a job's tuning", &body) {
+    let tuned: ipc::TuneSession = match ipc::decode_body("a job's tuning", &body) {
         Ok(tuned) => tuned,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -317,7 +317,7 @@ pub(crate) async fn run_session_command<D: HostedSessions>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let run: ipc::RunSessionCommand = match ipc::decode("a job's command", &body) {
+    let run: ipc::RunSessionCommand = match ipc::decode_body("a job's command", &body) {
         Ok(run) => run,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -331,7 +331,7 @@ pub(crate) async fn close_session<D: HostedSessions>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let closed: ipc::CloseSession = match ipc::decode("a job to close", &body) {
+    let closed: ipc::CloseSession = match ipc::decode_body("a job to close", &body) {
         Ok(closed) => closed,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -347,7 +347,7 @@ pub(crate) async fn move_session<D: HostedSessions>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let moved: ipc::MoveSession = match ipc::decode("a job to move", &body) {
+    let moved: ipc::MoveSession = match ipc::decode_body("a job to move", &body) {
         Ok(moved) => moved,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -361,7 +361,7 @@ pub(crate) async fn stop_session<D: HostedSessions>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let stopped: ipc::StopSession = match ipc::decode("a job to stop", &body) {
+    let stopped: ipc::StopSession = match ipc::decode_body("a job to stop", &body) {
         Ok(stopped) => stopped,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -375,7 +375,7 @@ pub(crate) async fn retry_handoff<D: HostedSessions>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let asked: ipc::RetryHandoff = match ipc::decode("a hand off to retry", &body) {
+    let asked: ipc::RetryHandoff = match ipc::decode_body("a hand off to retry", &body) {
         Ok(asked) => asked,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -389,7 +389,7 @@ pub(crate) async fn pause_session<D: HostedSessions>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let asked: ipc::PauseSession = match ipc::decode("a job to pause", &body) {
+    let asked: ipc::PauseSession = match ipc::decode_body("a job to pause", &body) {
         Ok(asked) => asked,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -403,7 +403,7 @@ pub(crate) async fn set_session_auto_land<D: HostedSessions>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let asked: ipc::SetSessionAutoLand = match ipc::decode("an Auto land setting", &body) {
+    let asked: ipc::SetSessionAutoLand = match ipc::decode_body("an Auto land setting", &body) {
         Ok(asked) => asked,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -431,7 +431,7 @@ pub(crate) async fn act_on_session_mcp<D: HostedSessions>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let asked: ipc::ActOnSessionMcp = match ipc::decode("an act on a job's MCP server", &body) {
+    let asked: ipc::ActOnSessionMcp = match ipc::decode_body("an act on a job's MCP server", &body) {
         Ok(asked) => asked,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -445,7 +445,7 @@ pub(crate) async fn resume_session<D: HostedSessions>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let asked: ipc::ResumeSession = match ipc::decode("a job to resume", &body) {
+    let asked: ipc::ResumeSession = match ipc::decode_body("a job to resume", &body) {
         Ok(asked) => asked,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -459,7 +459,7 @@ pub(crate) async fn set_session_workflow<D: HostedSessions>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let set: ipc::SetSessionWorkflow = match ipc::decode("a workflow for a job", &body) {
+    let set: ipc::SetSessionWorkflow = match ipc::decode_body("a workflow for a job", &body) {
         Ok(set) => set,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -473,7 +473,7 @@ pub(crate) async fn begin_session<D: HostedSessions>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let begin: ipc::BeginSession = match ipc::decode("a job to begin", &body) {
+    let begin: ipc::BeginSession = match ipc::decode_body("a job to begin", &body) {
         Ok(begin) => begin,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -489,7 +489,7 @@ pub(crate) async fn release_session_holds<D: HostedSessions>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let release: ipc::ReleaseSessionHolds = match ipc::decode("a job's holds to release", &body) {
+    let release: ipc::ReleaseSessionHolds = match ipc::decode_body("a job's holds to release", &body) {
         Ok(release) => release,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -572,7 +572,7 @@ pub(crate) async fn take_held_messages<D: HostedSessions>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let ask: ipc::TakeHeld = match ipc::decode("a terminal job's ask for held messages", &body)
+    let ask: ipc::TakeHeld = match ipc::decode_body("a terminal job's ask for held messages", &body)
     {
         Ok(ask) => ask,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
@@ -589,7 +589,7 @@ pub(crate) async fn ask_from_terminal<D: HostedSessions>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let ask: ipc::TerminalAsk = match ipc::decode("a terminal job's question", &body) {
+    let ask: ipc::TerminalAsk = match ipc::decode_body("a terminal job's question", &body) {
         Ok(ask) => ask,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -605,7 +605,7 @@ pub(crate) async fn gate_session_call<D: HostedSessions>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let gate: ipc::SessionGate = match ipc::decode("a job's tool gate", &body) {
+    let gate: ipc::SessionGate = match ipc::decode_body("a job's tool gate", &body) {
         Ok(gate) => gate,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };

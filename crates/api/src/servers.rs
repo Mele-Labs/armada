@@ -57,7 +57,7 @@ pub(crate) async fn start_server<D: Commands>(
     Query(scope): Query<InManifest>,
     body: Bytes,
 ) -> Response {
-    let asked: StartServer = match ipc::decode("a server to start", &body) {
+    let asked: StartServer = match ipc::decode_body("a server to start", &body) {
         Ok(asked) => asked,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -75,7 +75,7 @@ pub(crate) async fn stop_server<D: Commands>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let named: NamedServer = match ipc::decode("a server to stop", &body) {
+    let named: NamedServer = match ipc::decode_body("a server to stop", &body) {
         Ok(named) => named,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };

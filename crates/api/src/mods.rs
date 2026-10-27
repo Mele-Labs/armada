@@ -22,7 +22,7 @@ pub(crate) async fn scaffold_mod<D: Mods>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let scaffold: ipc::ScaffoldMod = match ipc::decode("a mod to make", &body) {
+    let scaffold: ipc::ScaffoldMod = match ipc::decode_body("a mod to make", &body) {
         Ok(scaffold) => scaffold,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -36,7 +36,7 @@ pub(crate) async fn set_mod_enabled<D: Mods>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let set: ipc::SetModEnabled = match ipc::decode("a mod switch", &body) {
+    let set: ipc::SetModEnabled = match ipc::decode_body("a mod switch", &body) {
         Ok(set) => set,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -67,7 +67,7 @@ pub(crate) async fn try_tracker_mod<D: Mods>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let asked: ipc::TryTrackerMod = match ipc::decode("a tracker mod to try", &body) {
+    let asked: ipc::TryTrackerMod = match ipc::decode_body("a tracker mod to try", &body) {
         Ok(asked) => asked,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -82,7 +82,7 @@ pub(crate) async fn start_mod_session<D: Mods>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let start: ipc::StartModSession = match ipc::decode("a Mod Job to start", &body) {
+    let start: ipc::StartModSession = match ipc::decode_body("a Mod Job to start", &body) {
         Ok(start) => start,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -96,7 +96,7 @@ pub(crate) async fn promote_mod<D: Mods>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let promote: ipc::PromoteMod = match ipc::decode("a mod to promote", &body) {
+    let promote: ipc::PromoteMod = match ipc::decode_body("a mod to promote", &body) {
         Ok(promote) => promote,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };

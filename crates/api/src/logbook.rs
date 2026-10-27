@@ -42,7 +42,7 @@ pub(crate) async fn edit_logbook_entry<D: Logbook>(
     Path(NamedEntry { entry_id }): Path<NamedEntry>,
     body: Bytes,
 ) -> Response {
-    let edit: ipc::EditLogbookEntry = match ipc::decode("an entry's new text", &body) {
+    let edit: ipc::EditLogbookEntry = match ipc::decode_body("an entry's new text", &body) {
         Ok(edit) => edit,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -58,7 +58,7 @@ pub(crate) async fn lock_logbook_entry<D: Logbook>(
     Path(NamedEntry { entry_id }): Path<NamedEntry>,
     body: Bytes,
 ) -> Response {
-    let lock: ipc::LockLogbookEntry = match ipc::decode("whether to lock an entry", &body) {
+    let lock: ipc::LockLogbookEntry = match ipc::decode_body("whether to lock an entry", &body) {
         Ok(lock) => lock,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -81,7 +81,7 @@ pub(crate) async fn forget_logbook_entry<D: Logbook>(
 
 /// Start tidying the Logbook; answers at once that a pass is running.
 pub(crate) async fn tidy_logbook<D: Logbook>(State(served): State<Served<D>>, body: Bytes) -> Response {
-    let tidy: ipc::TidyLogbook = match ipc::decode("which Logbook to tidy", &body) {
+    let tidy: ipc::TidyLogbook = match ipc::decode_body("which Logbook to tidy", &body) {
         Ok(tidy) => tidy,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
@@ -93,7 +93,7 @@ pub(crate) async fn tidy_logbook<D: Logbook>(State(served): State<Served<D>>, bo
 
 /// Teach an entry by hand; it stands at once.
 pub(crate) async fn teach_logbook_entry<D: Logbook>(State(served): State<Served<D>>, body: Bytes) -> Response {
-    let teach: ipc::TeachLogbookEntry = match ipc::decode("an entry to teach", &body) {
+    let teach: ipc::TeachLogbookEntry = match ipc::decode_body("an entry to teach", &body) {
         Ok(teach) => teach,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };

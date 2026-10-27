@@ -142,8 +142,7 @@ impl Sessions for FakeDaemon {
     async fn read_terminal(
         &self,
         _caller: Option<crate::Caller>,
-        _session_id: Option<ipc::SessionId>,
-        _lines: Option<usize>,
+        _asked: ipc::ReadTerminal,
     ) -> Result<ipc::TerminalScreen, Refusal> {
         self.runs_nothing_here()
     }
