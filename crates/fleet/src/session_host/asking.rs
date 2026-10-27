@@ -23,7 +23,7 @@ use super::serving::mode_of;
 use super::walking::walk_open_refusal;
 use crate::daemon::Fleet;
 use crate::helm::{
-    answering, blocked_folder, guarded_in_a_session, pages_opened, restarted, unanswered, Because, Folders,
+    answering, blocked_folder, guarded_in_a_session, pages_opened, question_unanswered, restarted, unanswered, Because, Folders,
     Guarded, Own, Said,
 };
 
@@ -276,7 +276,11 @@ where
             Ok(Err(_)) => (unanswered(held.as_secs()), SessionAskState::SessionGone),
             Err(_) => {
                 let _ = asks.withdraw(&waiting.call);
-                (unanswered(held.as_secs()), SessionAskState::Unanswered)
+                let told = match asking.questions().is_empty() {
+                    true => unanswered(held.as_secs()),
+                    false => question_unanswered(held.as_secs()),
+                };
+                (told, SessionAskState::Unanswered)
             }
         };
         let via = {
