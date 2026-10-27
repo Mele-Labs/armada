@@ -195,7 +195,7 @@ export function mountApp(
   const timeline = chosen.draft?.eventsLater === undefined ? undefined : eventsLater(chosen.draft.events ?? [], chosen.draft.eventsLater);
   if (timeline !== undefined && shared === undefined) alsoOnTimePassing(timeline.advance);
   // The palette starts as a window does: what was pinned and opened before, and nothing from an earlier pass.
-  seedPaletteMemory({ pinned: chosen.draft?.palette?.pinned ?? [], recent: chosen.draft?.palette?.recent ?? [] });
+  seedPaletteMemory({ pinned: chosen.draft?.palette?.pinned ?? [], recent: chosen.draft?.palette?.recent ?? [], aliases: chosen.draft?.palette?.aliases ?? {}, hotkeys: chosen.draft?.palette?.hotkeys ?? {} });
   const root = createRoot(host);
   let say = (): void => undefined;
   const onScreen = new Promise<void>((resolve) => {

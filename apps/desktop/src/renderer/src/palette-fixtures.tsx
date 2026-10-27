@@ -20,6 +20,9 @@ export type PaletteFixtures = {
   /** Row ids, as the palette draws them, pinned and opened before the window opened. */
   pinned?: readonly string[];
   recent?: readonly string[];
+  /** A word and a key he had already given rows, by row id: `nav:reviews`. */
+  aliases?: Readonly<Record<string, string>>;
+  hotkeys?: Readonly<Record<string, string>>;
 };
 
 const NONE: PaletteFixtures = { pulls: [], issues: [], commands: [] };

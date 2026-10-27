@@ -52,6 +52,9 @@ const PALETTE: PaletteFixtures = {
   ],
   pinned: ["session:q1", "cmd:grafana"],
   recent: ["pull:armada:1896", "nav:reviews", "cmd:audit", "session:w1"],
+  // Given before the window opened, so Settings' table has rows when the walk gets there.
+  aliases: { "nav:reviews": "rev", "pull:armada:1903": "history" },
+  hotkeys: { "nav:reviews": "⌃⌘R" },
 };
 
 /** What Fleet lists for the Palette and Offline install projects, so a task can be filed in either and the palette finds it by title. */
