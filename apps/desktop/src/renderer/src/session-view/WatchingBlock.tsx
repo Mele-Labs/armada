@@ -18,11 +18,11 @@ import "./watching-block.css";
 
 export const openWatchPanel = (sessionId: string, watch: WatchSummary) => openInPanel({ kind: "watch", sessionId, id: watch.id, name: watch.name });
 
-function WatchRow({ sessionId, watch, onDelete }: { sessionId: string; watch: WatchSummary; onDelete: ((watch: string) => void) | undefined }) {
+function WatchRow({ sessionId, watch, asks, onDelete }: { sessionId: string; watch: WatchSummary; asks: boolean; onDelete: ((watch: string) => void) | undefined }) {
   const last = watch.last;
   const weighed = last === undefined ? [] : verdictsOn(watch, last);
   return (
-    <li className="sv-watch" data-state={watch.state}>
+    <li className="sv-watch" data-state={watch.state} data-asks={asks || undefined}>
       <div className="sv-watch__line">
         <button type="button" className="sv-watch__row" aria-label={`Watch ${watch.name}`} onClick={() => openWatchPanel(sessionId, watch)}>
           <WatchMark state={watch.state} said={watchSaid(watch)} />
@@ -60,9 +60,11 @@ export function WatchingBlock({ session }: { session: Session }) {
   if (watches.length === 0) return null;
   const anyEnded = watches.some((watch) => !watch.live);
   const shown = watchesShown(watches, session.waitingFor ?? [], ended);
+  // Needs you still asks about these: the row pulses in the Needs you hue until the item is settled.
+  const asked = new Set((session.waitingFor ?? []).filter((one) => one.source === "watch_not_ours").map((one) => one.act?.target));
   const remove = draft?.deleteWatch;
   return (
-    <section className="sv-watching" aria-label="Watching">
+    <section className="sv-watching" aria-label="Watching" data-not-ours={shown.some((watch) => watch.state === "not_ours") || undefined}>
       <div className="sv-watching__head">
         <span className="sv-watching__label">Watching</span>
         {anyEnded ? (
@@ -74,7 +76,7 @@ export function WatchingBlock({ session }: { session: Session }) {
       {shown.length === 0 ? null : (
         <ul className="sv-watching__list" data-acts={anyEnded || undefined}>
           {shown.map((watch) => (
-            <WatchRow key={watch.id} sessionId={session.id} watch={watch} onDelete={remove === undefined ? undefined : (id) => remove(session.id, id)} />
+            <WatchRow key={watch.id} sessionId={session.id} watch={watch} asks={asked.has(watch.id)} onDelete={remove === undefined ? undefined : (id) => remove(session.id, id)} />
           ))}
         </ul>
       )}

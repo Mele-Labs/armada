@@ -3,6 +3,8 @@
 
 .sv-watching { --hue: var(--step-running); display: flex; flex-direction: column; gap: var(--space-1); }
 .sv-watching__head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+/* A watch that ended not ours is the person's to settle, so the block wears the Needs you hue rather than running's, and never blue. */
+.sv-watching[data-not-ours] { --hue: var(--step-waiting); }
 .sv-watching__label { font-family: var(--font-sans); font-size: var(--text-xs); line-height: var(--leading-xs); font-weight: var(--weight-medium); color: var(--hue); }
 .sv-watching__list { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; border: var(--border-width) solid color-mix(in srgb, var(--hue) 40%, var(--border-subtle)); border-radius: var(--radius-md); background: color-mix(in srgb, var(--hue) 5%, var(--bg-raised)); box-shadow: inset calc(var(--border-width) * 3) 0 0 var(--hue); overflow: hidden; }
 .sv-watching__list > li + li { border-top: var(--border-width) solid color-mix(in srgb, var(--hue) 25%, var(--border-subtle)); }
@@ -50,3 +52,23 @@
 .sv-watch__verdicts { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: 0 var(--space-3) var(--space-2) calc(var(--space-3) + var(--space-2) + var(--space-3)); list-style: none; }
 .sv-watch__verdict { font-family: var(--font-sans); font-size: var(--text-xs); line-height: var(--leading-xs); color: var(--fg-muted); overflow-wrap: anywhere; }
 .sv-watch__verdict[data-verdict="ours"] { color: var(--fg-default); }
+
+/* While Needs you asks about it, the row pulses as the title bar's call does: the same hue and clock, opacity only, so nothing shifts.
+   Reduced motion holds it lit. Settled, the attribute goes and the pulse with it. */
+.sv-watch[data-asks] { position: relative; }
+.sv-watch[data-asks]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--step-waiting);
+  opacity: 0.14;
+  animation: sv-watch-asks var(--duration-pulse) ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes sv-watch-asks {
+  50% { opacity: 0.05; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sv-watch[data-asks]::after { animation: none; }
+}
+.sv-watch[data-state="not_ours"] .sv-watch__row:focus-visible { outline-color: var(--step-waiting); }

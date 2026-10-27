@@ -12,7 +12,7 @@ const card = inside(needs, role("group", "Not ours: QA deploy, provision failed"
 
 const watchNotOurs = walk("watch-not-ours", [
   { press: deckRow("Ship the search filters to QA"), say: "A Job whose QA deploy ended" },
-  { look: inside(watchingBlock, button("Watch QA deploy", { exact: true })), say: "Ended, and still listed without Show ended while Needs you asks about it" },
+  { look: inside(watchingBlock, button("Watch QA deploy", { exact: true })), say: "Ended, still listed without Show ended, and pulsing in the Needs you hue while Needs you asks about it" },
   { hover: inside(watchingBlock, role("img", "Not ours: provision failed")), say: "Its mark is not ours, never green, named with what failed" },
   { press: inside(watchingBlock, button("Watch QA deploy", { exact: true })), say: "The watch opens in the side panel" },
   { press: inside(panel, tab("Parts")), say: "Its parts" },
